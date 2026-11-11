@@ -129,7 +129,7 @@ def rollback(root):
 def verify_root(root):
     cur = state(root)[0]
     if cur is None:
-        return 2, f"판정 불가 {root}: CURRENT 가 없다"
+        return 2, f"판정 불가 {root}: CURRENT 판이 없다"
     folder = os.path.join(root, "versions", cur)
     if not os.path.isdir(folder):
         return 2, f"판정 불가 {cur}: versions 폴더에 없다"

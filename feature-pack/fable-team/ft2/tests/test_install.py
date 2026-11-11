@@ -1,4 +1,4 @@
-"""ft2 install 시험 — ⓐ설치·숨은 파일 0 · ⓑ대조 다름 = 전환 0 · ⓒ되돌림 · ⓓverify/status · ⓔ루트 밖 무변경 · ⓕ재설치·판정 불가 · 변이 M1·M2·M3."""
+"""ft2 install 시험 — ⓐ설치·숨은 파일 0·MANIFEST 1바이트 · ⓑ대조 다름 = 전환 0 · ⓒ되돌림 · ⓓverify/status · ⓔ루트 밖 무변경 · ⓕ재설치·판정 불가 · 변이 M1~M6."""
 import hashlib, json, shutil, subprocess, sys
 from pathlib import Path
 
@@ -30,10 +30,8 @@ def make_package(root, version, extra=None, drift=False, pad=False):
 
 
 def installed(tmp_path, name, versions=("V1",)):
-    root = tmp_path / name
-    root.mkdir()
-    for version in versions:
-        assert (run("install", make_package(tmp_path, version), root)[0], tail(root)) == (0, version)
+    (root := tmp_path / name).mkdir()
+    assert [(run("install", make_package(tmp_path, version), root)[0], tail(root)) for version in versions] == [(0, v) for v in versions]
     return root
 
 
@@ -53,20 +51,20 @@ def refused(*args, script=TOOL):
 def test_a_b_d_install_switch_mismatch_and_verify(tmp_path):
     root = installed(tmp_path, "abd")
     assert json.loads(run("status", root)[1]) == {"current": "V1", "versions": ["V1"], "last_op": "install"} and run("verify", root)[0] == 0
-    rc, out, err = run("install", make_package(tmp_path, "V2", extra={".DS_Store": "x\n"}), root)
-    assert (rc, "숨은 파일 1개" in out, err, tail(root), len(list((root / "versions").glob("*.bad-*")))) == (1, True, "", "V1", 1)
-    rc, out, err = run("install", make_package(tmp_path, "V3", drift=True), root)
-    assert (rc, "전환 0" in out, tail(root), len(list((root / "versions").glob("*.bad-*"))), (root / "versions" / "V3").exists()) == (1, True, "V1", 2, False)
-    assert (run("install", make_package(tmp_path, "V4", pad=True), root)[0], tail(root)) == (1, "V1")  # MANIFEST 1바이트 바뀜 → 전환 0
-    assert [(line["op"], line["version"], line["prev"], line["rc"]) for line in log_of(root)] == [("install", "V1", None, 0)] + [
-        ("install", version, "V1", 1) for version in ("V2", "V3", "V4")]
+    for version, kwargs, needle in (("V2", {"extra": {".DS_Store": "x\n"}}, "숨은 파일 1개"), ("V3", {"drift": True}, "전환 0"), ("V4", {"pad": True}, "바이트 sha")):
+        rc, out, err = run("install", make_package(tmp_path, version, **kwargs), root)
+        assert (rc, needle in out, err, tail(root)) == (1, True, "", "V1")
+    assert [(line["op"], line["version"], line["prev"], line["rc"]) for line in log_of(root)] == [("install", "V1", None, 0)] + [("install", v, "V1", 1) for v in ("V2", "V3", "V4")]
     assert log_of(root)[0]["manifest_sha256"] == hashlib.sha256((root / "versions" / "V1" / "MANIFEST.json").read_bytes()).hexdigest()
+    assert sorted(entry.name for entry in root.iterdir()) == ["CURRENT", "install-log.jsonl", "versions"]  # tmp 잔여물 0
     (root / "versions" / "V1" / "core" / "loader.py").write_text("print('HI')\n", encoding="utf-8")
     assert run("verify", root)[0] == 1
+    (root / "CURRENT").unlink()
+    assert refused("verify", root) == (2, "", 1, False)
     assert len(TOOL.read_text(encoding="utf-8").splitlines()) <= 160  # 카드 크기 한도
 
 
-def test_c_e_rollback_and_nothing_outside_the_root(tmp_path):
+def test_c_e_f_rollback_outside_root_and_unjudgeable(tmp_path):
     root, runtime = installed(tmp_path, "ce", ("V1", "V2")), tmp_path / "runtime"
     (runtime / "state").mkdir(parents=True)
     (runtime / "state" / "seat.json").write_text('{"seat": 1}\n', encoding="utf-8")
@@ -78,11 +76,7 @@ def test_c_e_rollback_and_nothing_outside_the_root(tmp_path):
     assert (run("rollback", root)[0], tail(root), log_of(root)[-1]["op"]) == (0, "V1", "rollback")
     assert (refused("rollback", root), tail(root)) == ((2, "", 1, False), "V1")
     assert {path.name: path.read_bytes() for path in runtime.rglob("*") if path.is_file()} == watch  # 루트 밖 무변경
-
-
-def test_f_reinstall_and_unjudgeable_are_one_line(tmp_path):
-    root, package = installed(tmp_path, "f"), tmp_path / "ft2-V1"
-    assert (refused("install", package, root), tail(root)) == ((2, "", 1, False), "V1")
+    assert (refused("install", tmp_path / "ft2-V1", root), tail(root)) == ((2, "", 1, False), "V1")  # 같은 판 재설치 = 이미 있음
     for version, text in (("V3", "{oops"), ("V4", None)):
         folder = make_package(tmp_path, version)  # text=None 이면 manifest_sha256 칸을 뺀다
         text = text or json.dumps({key: value for key, value in json.loads((folder / "PACKAGE.json").read_text()).items() if key != "manifest_sha256"})
@@ -90,31 +84,36 @@ def test_f_reinstall_and_unjudgeable_are_one_line(tmp_path):
         assert refused("install", folder, root) == (2, "", 1, False)
     (tmp_path / "notadir").write_text("x\n", encoding="utf-8")  # 루트가 일반 파일이면 쓰기 실패 = 판정 불가
     assert refused("install", make_package(tmp_path, "V5"), tmp_path / "notadir") == (2, "", 1, False)
-    assert (tail(root), sorted(entry.name for entry in (root / "versions").iterdir())) == ("V1", ["V1"])
+    assert (tail(root), sorted(entry.name for entry in (root / "versions").iterdir())) == ("V1", ["V1", "V2"])
 
 
 def mutant(tmp_path, name, old, new):
     tools = tmp_path / "tools"  # 변이는 tools 사본에서만 — install.py 가 이웃 manifest 를 import 한다
     shutil.copytree(FT2 / "tools", tools, dirs_exist_ok=True)
     source = TOOL.read_text(encoding="utf-8")
-    assert old in source, old
+    assert old in source, (name, old)
     (tools / f"{name}.py").write_text(source.replace(old, new), encoding="utf-8")
     return tools / f"{name}.py"
 
 
-def test_m1_m2_m3_mutants_switch_what_the_case_forbids(tmp_path):
-    m1 = mutant(tmp_path, "m1", "    ok, reason = consistent(target)", "    set_current(root, version)\n    ok, reason = consistent(target)")
-    m2 = mutant(tmp_path, "m2", "    stray = hidden_files(folder)", "    stray = []")
-    m3 = mutant(tmp_path, "m3", "    ok, reason = consistent(folder)", "    ok, reason = True, ''")
-    drift, hidden = make_package(tmp_path, "V2", drift=True), make_package(tmp_path, "V9", extra={".DS_Store": "x\n"})
-    roots = [installed(tmp_path, name) for name in ("a", "b", "c", "d", "g", "h")]
-    assert (run("install", drift, roots[0], script=m1)[0], tail(roots[0])) == (1, "V2")  # M1 이 전환을 먼저 했다
-    assert (run("install", drift, roots[1])[0], tail(roots[1])) == (1, "V1")
-    assert (run("install", hidden, roots[2], script=m2)[0], run("install", hidden, roots[3])[0]) == (0, 1)
+def test_m1_to_m6_mutants_switch_what_the_cases_forbid(tmp_path):
+    cases = (("m1", "    ok, reason = consistent(target)", "    set_current(root, version)\n    ok, reason = consistent(target)"),
+             ("m2", "    stray = hidden_files(folder)", "    stray = []"),
+             ("m3", "    ok, reason = consistent(folder)", "    ok, reason = True, ''"),
+             ("m4", 'if hashlib.sha256(open(man, "rb").read()).hexdigest() != doc["manifest_sha256"]:', "if False:"),
+             ("m5", '    os.replace(tmp, os.path.join(root, "CURRENT"))', '    open(os.path.join(root, "CURRENT"), "w", encoding="utf-8").write(version + "\\n")'),
+             ("m6", '    if cur is None:\n        return 2, f"판정 불가 {root}: CURRENT 판이 없다"\n', ""))
+    m = {name: mutant(tmp_path, name, old, new) for name, old, new in cases}
+    roots = [installed(tmp_path, name) for name in ("a", "b", "c", "d")]
+    drift, hidden, pad = make_package(tmp_path, "V2", drift=True), make_package(tmp_path, "V9", extra={".DS_Store": "x\n"}), make_package(tmp_path, "V10", pad=True)
+    assert (run("install", drift, roots[0], script=m["m1"])[0], tail(roots[0])) == (1, "V2")  # M1 이 전환을 먼저 했다
+    assert (run("install", hidden, roots[1], script=m["m2"])[0], run("install", hidden, roots[2])[0]) == (0, 1)
+    assert (run("install", pad, roots[3], script=m["m4"])[0], run("install", pad, installed(tmp_path, "d2"))[0]) == (0, 1)
     pair = [installed(tmp_path, name, ("V1", "V2")) for name in ("e", "f")]
-    for root in pair:
-        (root / "versions" / "V1" / "core" / "loader.py").write_text("print('BROKEN')\n", encoding="utf-8")
-    assert (run("rollback", pair[0], script=m3)[0], run("rollback", pair[1])[0]) == (0, 2)
+    [(root / "versions" / "V1" / "core" / "loader.py").write_text("print('BROKEN')\n", encoding="utf-8") for root in pair]
+    assert (run("rollback", pair[0], script=m["m3"])[0], run("rollback", pair[1])[0]) == (0, 2)
     assert (tail(pair[0]), tail(pair[1])) == ("V1", "V2")
-    m4 = mutant(tmp_path, "m4", 'if hashlib.sha256(open(man, "rb").read()).hexdigest() != doc["manifest_sha256"]:', "if False:")
-    assert (run("install", make_package(tmp_path, "V10", pad=True), roots[4], script=m4)[0], run("install", make_package(tmp_path, "V10", pad=True), roots[5])[0]) == (0, 1)
+    m5, m6 = installed(tmp_path, "m5"), installed(tmp_path, "m6")
+    (m6 / "CURRENT").unlink()
+    assert (run("install", make_package(tmp_path, "V20"), m5, script=m["m5"])[0], sorted(entry.name for entry in m5.iterdir())) == (0, ["CURRENT", "CURRENT.tmp", "install-log.jsonl", "versions"])
+    assert (refused("verify", m6, script=m["m6"])[0], refused("verify", m6)[0]) == (1, 2)  # M6 은 traceback 으로 rc1
