@@ -205,8 +205,8 @@ drv() { local r c="${1:-}"; RUNN=$((RUNN+1)); r="$T/run$RUNN"; mkdir -p "$r"; cp
 drv_all() { local c o; for c in a0 a b c d e f g i j k; do o="$(drv "$c")"; echo "$o" | grep -E '^(PASS|FAIL) ' ; done; }
 # ── Red 먼저 — 고침 전(HEAD 판) 으로 돌리면 ⓐ 가 턴 2·[긴급] 으로 실패해야 한다 ─────────────
 # Red 판 = r1699 이전(origin/main) — 이 가지에 커밋이 쌓여도 «고침 전» 은 origin/main 이다
-RBASE="$(git -C "$HARNESS" merge-base HEAD origin/main 2>/dev/null)"   # 고침 직전 판 = 이 가지가 갈라진 고정 커밋(떠다니는 이름 아님)
-[ -n "$RBASE" ] && git -C "$HARNESS" show "$RBASE:feature-pack/fable-team/legacy/1.x/harness/pi/ft-idle-nudge.ts" > "$EXTC" 2>/dev/null || cp "$EXT" "$EXTC"
+RBASE="0b8b5a71478d18c0e77f2549912ec8a50ef6588d"   # 고침 직전 main 고정 40hex(r1699 착지 796ab8ff85 의 부모) — 떠다니는 이름 0
+git -C "$HARNESS" show "$RBASE:feature-pack/fable-team/legacy/1.x/harness/pi/ft-idle-nudge.ts" > "$EXTC" 2>/dev/null || cp "$EXT" "$EXTC"
 r="$(drv a)"; grep -qE '^FAIL ⓐ' <<<"$r" && ok "Red — 고침 전 판은 ⓐ 에서 실패(턴·[긴급] 발생)" || bad "Red 확인 실패" "$(grep -E '^FAIL ' <<<"$r" | head -1)"
 r="$(drv k)"; grep -qE '^FAIL ⓚ' <<<"$r" && ok "Red R3 — 고침 전 판은 ⓚ(relay 받은 팀장)에서 실패" || bad "Red R3 확인 실패"
 cp "$EXT" "$EXTC"
@@ -226,10 +226,13 @@ PY
   printf '%s\n' "$d"; }
 drvx() { local d="$1" c="$2" r; RUNN=$((RUNN+1)); r="$T/iso$RUNN"; mkdir -p "$r"; cp -R "$T/bin" "$T/path" "$r/"; cp "$T/driver.mjs" "$r/"; cp -R "$T/node_modules" "$r/"; ( cd "$r" && R1699_EXT="$d/ft-idle-nudge.ts" R1699_TMP="$r" PATH="$r/path:$PATH" node "$r/driver.mjs" "$c" 2>&1 ); }
 X="$(mkx m1 'const ord = openOrders(live);' 'const ord = { open: 0, stale: 0, oldest: 0 };')"
+r="$(drvx "$X" a)"; grep -qE '^FAIL ⓐ' <<<"$r" && ok "M1 열린 발주 칸 삭제 → ⓐ FAIL(검출됨)" || bad "M1 검출 실패" "$(grep -E '^FAIL ' <<<"$r" | head -1)"
 X="$(mkx m2 'const replied = rows.some(' 'const replied = false && rows.some(')"
+r="$(drvx "$X" u)"; grep -qE '^FAIL 단위 회신' <<<"$r" && ok "M2 회신 검사 삭제 → 단위 FAIL(검출됨)" || bad "M2 검출 실패" "$(grep -E '^FAIL ' <<<"$r" | head -1)"
 X="$(mkx m3 'now - ts <= win' 'true')"
 r="$(drvx "$X" c)"; grep -qE '^FAIL ⓒ' <<<"$r" && ok "M3 시간 창 삭제 → ⓒ FAIL(검출됨)" || bad "M3 검출 실패"
 X="$(mkx m4 'if (replied || !live.has(to)) continue;' 'if (replied) continue;')"
+r="$(drvx "$X" u)"; grep -qE '^FAIL 단위 받는 좌석' <<<"$r" && ok "M4 생존 검사 삭제 → 단위 FAIL(검출됨)" || bad "M4 검출 실패" "$(grep -E '^FAIL ' <<<"$r" | head -1)"
 # ── ⓗ 회귀 — 기존 idle-nudge 시험 2파일 새 FAIL 0 ────────────────────────────────────────
 n=0; for t in test_pi_idle_nudge_r1530.sh test_pi_idle_nudge_route_r1684.sh; do m="$(timeout 70 bash "$HERE/$t" 2>&1 | grep -cE '^FAIL ')"; n=$((n+m)); done
 [ "$n" = 0 ] && ok "ⓗ 회귀 idle-nudge 2파일 FAIL 0(앞 판과 같다)" || bad "ⓗ 회귀 FAIL $n 줄"
