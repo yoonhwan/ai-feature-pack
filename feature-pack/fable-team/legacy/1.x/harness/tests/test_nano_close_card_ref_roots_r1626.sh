@@ -55,7 +55,7 @@ SEAT='byz-harness-nano-cs#0'; PRG='design/harness/indices/진행/cs.md'; TAB="$R
 printf '{"%s":{"role":"nano","index":"%s"}}\n' "$SEAT" "$PRG" > "$REPO/.fable-team/seats-harness.json"
 tab() { printf "$1" > "$TAB"; }
 TAB_OPS='harness\t.\torigin/ops/main-base\tdesign/harness/indices\n'; TAB_STAR='*\t.\torigin/ops/main-base\tdesign/teams/*/indices\n'
-run() { ( cd "$REPO" && env -i HOME="$HOME" TMPDIR="$T/tmp" FT_SHEET_ROOT="$FT_SHEET_ROOT" PATH="$T/fake:$PATH" FAKE_PANES="$T/panes" FAKE_CWD="$T/cwd" FAKE_LOG="$T/tlog" "$@" 2>&1 ); }
+run() { ( cd "$REPO" && env -i HOME="$HOME" TMPDIR="$T/tmp" FT_SHEET_ROOT="$FT_SHEET_ROOT" PATH="$T/fake:$PATH" FAKE_PANES="$T/panes" FAKE_CWD="$T/cwd" FAKE_LOG="$T/tlog" bash -c 'while [ "${1#*=}" != "$1" ]; do export "$1"; shift; done; exec "$@"' _ "$@" 2>&1 ); }
 close() { : > "$T/panes"; printf '%s' "$NW" > "$T/cwd"; : > "$T/tlog"; : > "$T/ledger.md"
   git -C "$NW" reset -q --hard "$SHA0" 2>/dev/null; git -C "$REPO" reset -q --hard main 2>/dev/null
   printf '{"%s":{"role":"nano","index":"%s"}}\n' "$SEAT" "$PRG" > "$REPO/.fable-team/seats-harness.json"
