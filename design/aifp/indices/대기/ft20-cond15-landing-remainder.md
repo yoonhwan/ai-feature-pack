@@ -6,7 +6,7 @@
 - 근거(읽기만 · 2026-11-11): BYZ ROUTE-ft20-complete-land-migrate-20261109.md(dcd10ad67c) :32 «15 · 문서·원장·BTS·Git·패키지 2.0 착지 · 랜딩 PR ⑤» · :47 게이트 ① 닫는 증거 «PR ⑤ 착지 sha + 독립 checker «소스↔패키지 대응 일치» 1줄 (게이지 15 닫힘)» · :62 ⓪ 문서 정본 = PLAN·core.html·slack.html 최종판(컨펌 판본 sha) · TABLE-ft20-conditions-12-18-done-arch286-20261111.md(7c540ec133) 15행 ② «패키지·manifest(PR⑤) 0 · 문서·원장·BTS·Git 2.0 착지 0» · r1613 카드(fd8647481c) §범위 밖 «문서·원장 정본 착지 묶음(착지 h 때 master)» · 머리 «패키지 꼴 확정은 착지 뒤 PLAN 1줄 = master» · §상태 ⓖ 실행자 = master-pi#192(같은 집행 좌석 · 독립 아님)
 - 원인 1줄: r1613 은 조건 15 의 «패키지» 칸만 닫았다. 같은 조건의 문서·원장 착지와 독립 확인은 담당 카드가 없다
 - 실사건: 없음 — 빈 칸 발견(조건 표 15행 ② 대조)
-- 기준값: 독립 checker 줄 0 · PLAN 의 패키지 꼴 줄 0(PLAN 최신 ed9d9622b3 에서 «PACKAGE»·«ft2-<» 검색 0건) · 문서 정본 판본 sha 기록 [확인 필요: 조건 11 컨펌 요약 62a9dd86 이 ⓪ 판본 sha 인지]
+- 기준값: 독립 checker 줄 0 · PLAN 의 패키지 꼴 줄 0(PLAN 최신 ed9d9622b3 에서 «PACKAGE»·«ft2-<» 검색 0건) · 문서 정본 판본 sha 기록 0(조건 표 15행) · 컨펌 판본 = 요약 62a9dd86 → BYZ main 착지 661bf877(planner 판정 4144 «승인 대상 = 컨펌 요약 62a9dd86(정본 착지 661bf877)» · VERDICTS-planner-225-20261104.md:103) · 컨펌 뒤 origin/main 939526f827 까지 변경 = PLAN 22커밋 · core.html 4 · slack.html 5(카드 r1483·r1561·r1564·r1566·r1567·r1572·r1599·r1622·r1625·r1666)
 - 중복 확인: r1613(완성 · 패키지 도구) · r1631(완성 · manifest) · r1614(진행 · 설치 = 조건 16) · r1666(완성 · PLAN 스케줄 절 · 조건 15 아님) → 같은 카드 0
 - 끝: checker 줄 1 + 문서 정본 판본 sha 줄 1 + PLAN 패키지 꼴 1줄 + 원장 착지 대조 줄 1 → 조건 표 15행 닫힘 1줄(master)
 - 묶음 판정: 1건 — 모두 조건 15 닫힘 증거 한 묶음이고 코드 변경 0
@@ -17,9 +17,9 @@
 - 시험 입력: 팩 main 착지 sha 의 detached 사본 · tmp 출력 폴더 · 실 설치·실 데이터 쓰기 0 · 사례 70초 · sleep 0
 - 수용 기준:
   - ⓐ 독립 checker: master 가 아닌 다른 Pi 좌석이 팩 main 최신 sha 사본에서 `package.py build` → `package.py check` = SAME rc0 · PACKAGE.json source.sha = 그 sha · 1줄(좌석 이름·sha·files·manifest_sha256·초)
-  - ⓑ 문서 정본: PLAN·core.html·slack.html 의 컨펌 판본 sha 3개를 조건 표 15행에 1줄로 적는다 · 못 찾으면 «판정 불가» 1줄 + [HIL](지어내기 0)
+  - ⓑ 문서 정본: PLAN·core.html·slack.html 3파일을 조건 표 15행에 1줄로 적는다 = «컨펌 판본 661bf877(요약 62a9dd86 · 판정 4144) → 최종판 = 착지 시점 origin/main 의 3파일 마지막 커밋 sha(지금 PLAN·core.html ed9d9622b3 · slack.html dd1badf74f)» + 그 사이 변경 커밋 목록(커밋 · 카드 · 승인 근거) · 승인 근거 없는 변경은 «판정 불가» · [확인 필요: ROUTE :62 «최종판(컨펌 받은 판본 sha)» 이 661bf877 하나인지, 컨펌 뒤 카드별 승인 변경을 더한 최종판인지 — harness 판단] · 못 찾으면 «판정 불가» 1줄 + [HIL](지어내기 0)
   - ⓒ 패키지 꼴: PLAN 에 r1613 패키지 꼴(ft2-<버전>/ · MANIFEST.json · PACKAGE.json 6칸) 1줄 · 문면 = r1613 카드 머리 «패키지 꼴» 줄 복붙
-  - ⓓ 원장·BTS·Git 착지 대조: 조건 15 착지 묶음의 PR·sha 목록 1표(PR ⑤ = a8028bd7 포함) · BTS 칸 뜻 [확인 필요: ROUTE :32 «BTS» 가 가리키는 장부] 은 master 확인 1통 뒤 채운다
+  - ⓓ 원장·BTS·Git 착지 대조: 조건 15 착지 묶음의 PR·sha 목록 1표(PR ⑤ = a8028bd7 포함) · BTS = BYZ Triangulation Spiral(로그·스펙·코드 3자 대조 + 나선 수렴 하네스 · BYZ CLAUDE.md:216 · .claude/skills/bts/SKILL.md · PLAN :751 «문서·원장·BTS 정합») → 칸 = 착지 묶음의 BTS 회차 기록이 착지 sha 와 맞는지 1줄 · [확인 필요: 2.0 에서 BTS 회차 기록이 남는 자리(경로) — harness 답]
   - ⓔ 닫힘: ⓐ~ⓓ 4줄이 다 있을 때만 조건 표 15행 «닫힘» · 하나라도 «판정 불가»면 미완 유지(준비를 완료로 세지 않음)
 - 변이: 없음 — 코드 0 · 대신 ⓐ 에서 패키지 1파일을 바꾼 사본으로 check rc1 «내용 다름 1» 을 1회 같이 본다(checker 가 실제로 본다는 확인)
 - 규칙: 없음 — 상시 로드 변경 0
