@@ -43,6 +43,7 @@ export function piMasterFile(root: string, seat: string): string { const d = pat
 export default function (pi: ExtensionAPI) {
   const root = process.env.FT_MBOX_ROOT || gitRoot() || process.cwd();
   const seat = seatName();
+  const seatKnown = (): boolean | null => { if (process.env.FT_SEAT) return true; if (!process.env.TMUX_PANE) return false; if (!seat) return null; const b = seat.replace(/#\d+$/, ""), d = path.join(root, ".fable-team"); let files: string[] = [], bad = false; try { files = fs.readdirSync(d).filter((f) => /^seats.*\.json$/.test(f)); } catch { return false; } const hit = files.some((f) => { try { const j = JSON.parse(fs.readFileSync(path.join(d, f), "utf-8")); return Object.keys(j).some((k) => !k.startsWith("_") && (k === seat || k.replace(/#\d+$/, "") === b)); } catch { bad = true; return false; } }); return hit ? true : bad ? null : false; }; // ★r1634★ ft 좌석인가 = distill-gate 와 같은 규칙(FT_SEAT ∨ 명부 행) · false = no-op · null = 판정 불가(tmux 안인데 이름 못 읽음·명부 깨짐 = 지금처럼)
   const mbox = process.env.FT_MBOX_FILE ?? path.join(root, ".fable-team", "comm", "mailbox.jsonl");
   const mboxDir = path.dirname(mbox); // ★입력·감시·recv 는 «같은 지정 우편함» 에 결속한다(FT_MBOX_FILE 지원)
   const localSh = path.join(mboxDir, "mbox.sh");
@@ -154,7 +155,7 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
     ctxNow = ctx as { isIdle(): boolean }; // r1540 — h 끝 판정은 ctx.isIdle 로만 한다(r1531 과 같은 칸)
     appendLoadLine(pi, "r1529", "ft-mbox-wake.ts"); // 조기 return 앞 — 기록은 확장이 실렸다는 사실만 말한다
-    if (!fs.existsSync(mbox)) return fail(`우편함 없음 ${mbox} — 확장 비활성(폴링 폴백 0)`);
+    if (seatKnown() === false) return; if (!fs.existsSync(mbox)) return fail(`우편함 없음 ${mbox} — 확장 비활성(폴링 폴백 0)`); // ★r1634★ 좌석 아님 = 조용히(session_start 만 보고 끝 — ERROR 0 · watch 0 · sendMessage 0)
     try { fs.mkdirSync(wakeDir, { recursive: true }); } catch { /* 이미 있음 */ }
     try {
       // ★부모 폴더 감시★ — os.replace 로 inode 가 바뀌어도 폴더 감시는 유지된다(파일 직접 watch 0).
@@ -170,7 +171,7 @@ export default function (pi: ExtensionAPI) {
     fallback = setTimeout(() => { fallback = null; run(); }, debounce + 250); // 사건 타이머를 막지 않는다(사건이 오면 즉시 처리)
   });
   pi.on("agent_start", async () => { inTurn = true; wakePending = false; }); // 판 2 = 턴 시작(배달된 깨움 소비) · 도중 도착은 쌓지 않는다
-  pi.on("agent_end", async () => { inTurn = false; wakePending = false; writeSeq(null); run(); }); // 표지 해제 + 우편함 재확인 1회(소비 안 됐으면 다시 깨운다)
+  pi.on("agent_end", async () => { inTurn = false; wakePending = false; writeSeq(null); if (seatKnown() !== false) run(); }); // 표지 해제 + 우편함 재확인 1회(소비 안 됐으면 다시 깨운다) · r1634 좌석 밖에서는 우편함을 읽지 않는다(ERROR 0)
   // ★r1540 = 창이 끝났을 때 일하던 중이던 h 결과를 여기서 1회 알린다★ — 중단(Escape) settled 는 미룬다(r1531 꼴).
   pi.on("agent_settled", async (event, ctx) => {
     ctxNow = ctx as { isIdle(): boolean };
