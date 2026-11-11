@@ -18,7 +18,7 @@ printf 'echo kit-lib\n' > "$W/root/$KP/ft-lib.sh"; printf 'echo kit-a\n' > "$W/r
 printf 'echo kit-p\n' > "$W/root/$KP/ft-p.sh"; printf 'echo kit-sw\n' > "$W/root/$KP/ft20-switch-lib.sh"
 git -C "$W/root" add -A && git -C "$W/root" -c user.email=t@t -c user.name=t commit -q -m kit
 git -C "$W/root" update-ref refs/remotes/origin/main HEAD   # 생성기는 --ref(기본 origin/main) 트리에서 키트를 읽는다
-printf '#!/usr/bin/env bash\nL_LIB=1\nlibfn() { echo "LIBFN $*"; }\necho "LIVE-LIB loaded"\n' > "$W/live/ft-lib.sh"   # source 되는 라이브 lib
+printf '#!/usr/bin/env bash\nL_LIB=1\nh=libh\nf=libf\nl=libl\nlibfn() { echo "LIBFN $*"; }\necho "LIVE-LIB loaded arg1=${1:-none}"\n' > "$W/live/ft-lib.sh"   # source 되는 라이브 lib — 최상위 h/f/l 대입 · $1 관측(DA r3)
 printf '#!/usr/bin/env bash\necho "LIVE-A args=$*"\nexit 7\n' > "$W/live/ft-a.sh"                                        # 실행 도구
 printf '#!/usr/bin/env bash\ncase "$-" in *p*) echo "LIVE-P p=1 args=$*";; *) echo "LIVE-P p=0 args=$*";; esac\n' > "$W/live/ft-p.sh"
 printf '#!/usr/bin/env bash\nL_SW=1\nswfn() { echo "SWFN"; }\n' > "$W/live/ft20-switch-lib.sh"
@@ -55,7 +55,7 @@ cat > "$T/names.sh" <<'EOS'
 echo "NAMES _src=${_src-없음} _f=${_f-없음} _l=${_l-없음} _h=${_h-없음} h=${h-없음} f=${f-없음} l=${l-없음} L_LIB=${L_LIB-없음}"
 EOS
 out="$(bash "$T/names.sh" "$RB" 2>&1)"
-has "$out" "NAMES _src=없음 _f=없음 _l=없음 _h=없음 h=없음 f=없음 l=없음 L_LIB=1" "ⓓ shim 이름 0 · lib 이름 유지"
+has "$out" "NAMES _src=없음 _f=없음 _l=없음 _h=없음 h=libh f=libf l=libl L_LIB=1" "ⓓ shim 이름 0 · lib 이름 유지"
 
 echo "== ⓗ 호출자가 이미 가진 이름(_r)은 그대로 (DA r2 ①)"
 cat > "$T/keep.sh" <<'EOS'
@@ -74,6 +74,15 @@ has "$out" "ERR rc=3 _h=없음 _f=없음 _l=없음 _src=없음 h=없음 f=없음
 printf '%s\n' "$W/live" > "$T/rel.txt"; cp "$W/root/.fable-team/LIVE_BIN" "$T/lb3.bak"; printf 'live\n' > "$W/root/.fable-team/LIVE_BIN"
 out="$(bash "$T/errnames.sh" "$RB" 2>&1)"; cp "$T/lb3.bak" "$W/root/.fable-team/LIVE_BIN"
 has "$out" "ERR rc=3 _h=없음 _f=없음 _l=없음 _src=없음 h=없음 f=없음 l=없음" "ⓘ 상대경로 오류도 누출 0"
+
+echo "== ⓙ 라이브 lib 이 «부른 셸 최상위» 에서 돌고 \$1 = 부른 쪽 인자 (DA r3)"
+cat > "$T/args.sh" <<'EOS'
+. "$1/ft-lib.sh" UONE U2
+echo "ARG h=${h-없음} f=${f-없음} l=${l-없음} L_LIB=${L_LIB-없음}"
+EOS
+out="$(bash "$T/args.sh" "$RB" 2>&1)"
+has "$out" "LIVE-LIB loaded arg1=UONE" "ⓙ lib 이 \$1 을 본다(부른 쪽 인자)"
+has "$out" "ARG h=libh f=libf l=libl L_LIB=1" "ⓙ lib 최상위 대입이 살아 있다(local 에 안 갇힘)"
 
 echo "== ⓔ r1675 꼴(루트 bin lib 를 source 하는 mbox.sh) → peek 출력 1줄 이상"
 cat > "$T/mbox1675.sh" <<'EOS'
@@ -103,14 +112,16 @@ assert old in s, "치환 자리 없음: " + old
 open(p, "w", encoding="utf-8").write(s.replace(old, new, 1))
 PY
   echo "$d/gen.sh"; }
-rm -rf "$RB"/*; G1="$(mut M1 '  _ftshim_src "$name"' '  :')" && GEN="$G1" gen >/dev/null
+o1='  . "$lb/$name" '; n1='  : "$lb/$name" '
+rm -rf "$RB"/*; G1="$(mut M1 "$o1" "$n1")" && GEN="$G1" gen >/dev/null
 out="$(bash "$T/caller.sh" "$RB" 2>&1)"; rc=$?
 eq "M1 source 분기 삭제 → ⓐ 검출(lib 함수 0)" "$(grep -c '^LIBFN one$' <<<"$out")" 0
 rm -rf "$RB"/*; G2="$(mut M2 'return 3; }' 'exit 3; }')" && GEN="$G2" gen >/dev/null
 mv "$W/root/.fable-team/LIVE_BIN" "$T/lb.bak"; out="$(bash "$T/caller.sh" "$RB" 2>&1)"; mv "$T/lb.bak" "$W/root/.fable-team/LIVE_BIN"
 eq "M2 return→exit → ⓒ 검출(부른 셸 죽음)" "$(grep -c '^AFTER1$' <<<"$out")" 0
-rm -rf "$RB"/*; G3="$(mut M3 '    local h f l' '')" && GEN="$G3" gen >/dev/null
+o3='if [ "\${BASH_SOURCE[0]:-\$0}" != "\${0:-}" ]; then'; n3='_src=1; if [ "\$_src" = 1 ]; then'
+rm -rf "$RB"/*; G3="$(mut M3 "$o3" "$n3")" && GEN="$G3" gen >/dev/null
 out="$(bash "$T/names.sh" "$RB" 2>&1)"
-has "$out" "NAMES _src=없음 _f=없음 _l=없음 _h=없음 h=/" "M3 local 삭제 → ⓓ 검출(부른 셸에 h 남음)"
+has "$out" "NAMES _src=1 " "M3 shim 이 이름을 만들게 → ⓓ 검출(부른 셸에 _src 남음)"
 
 echo; [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; }; echo "FAILED $fail"; exit 1
