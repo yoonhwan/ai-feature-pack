@@ -8,7 +8,7 @@
 //  · 설치 = ~/.pi/agent/extensions/ 에 ft-mbox-wake.ts(r1530 판) 와 나란히 복사 · /reload · 시험 = tests/test_pi_idle_nudge_r1530.sh
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { execFile, execSync } from "node:child_process";
+import { execFile, execFileSync, execSync } from "node:child_process";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { piMasterFile } from "./ft-mbox-wake.ts";
 import { appendLoadLine } from "./ft-load-line.ts"; // r1537 — 세션 기록 «로드 <카드> <판>» 1줄(턴 0)
@@ -67,12 +67,13 @@ export default function (pi: ExtensionAPI) {
     try { scan(fs.readFileSync(receipts, "utf-8"), false); } catch (e) { if ((e as NodeJS.ErrnoException)?.code !== "ENOENT") { log(`영수 ${receipts} — ${e}`); return null; } } // 영수 없음 = 받은 쪽지 0
     return max;
   }
-  // r1684 ② — 골 원장이 없는 루트(aifp 등) = 이 루트 design/TEAMS.md 에 planner 행이 없음. 그때 골 칸 = 열림 + 세션당 INFO 1줄.
-  //   TEAMS.md 를 못 읽거나 planner 행이 있으면 지금처럼 null(=«판정 불가») — «없음» 과 «못 읽음» 을 가른다(하드 룰 20).
+  // r1684 ② — 골 원장이 없는 루트(aifp 등) = design/TEAMS.md 에 planner 행이 없음. 그때 골 칸 = 열림 + 세션당 INFO 1줄.
+  //   읽는 곳 = 골 표와 «같은 ref»(FT_TEAMS_REF·기본 origin/main) 의 그 파일 — 작업 트리 파일은 보지 않는다(DA R1: 트리만 바꾼 판을 «원장 없음» 으로 오판했다).
+  //   그 ref 에서 못 읽거나 planner 행이 있으면 지금처럼 null(=«판정 불가») — «없음» 과 «못 읽음» 을 가른다(하드 룰 20).
   let ledgerlessInfo = false;
   function ledgerlessRoot(): boolean {
-    let md: string;
-    try { md = fs.readFileSync(path.join(root, "design", "TEAMS.md"), "utf-8"); } catch { return false; }
+    let md = "";
+    try { md = execFileSync("git", ["-C", root, "show", `${process.env.FT_TEAMS_REF || "origin/main"}:./design/TEAMS.md`], { encoding: "utf-8", timeout: 7000, stdio: ["ignore", "pipe", "ignore"] }); } catch { return false; }
     if (md.split("\n").some((l) => /^\|\s*planner\s*\|/.test(l))) return false;
     if (!ledgerlessInfo) { ledgerlessInfo = true; log("INFO 골 원장 없는 루트 — 골 칸 열림으로 봄 (design/TEAMS.md 에 planner 행 없음)"); }
     return true;

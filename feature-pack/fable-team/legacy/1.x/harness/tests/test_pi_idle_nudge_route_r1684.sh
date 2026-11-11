@@ -11,7 +11,7 @@ eq() { if [ "$2" = "$3" ]; then ok "$1"; else bad "$1 (기대 '$3' 실제 '$2')"
 command -v node >/dev/null 2>&1 || { echo "FAIL node 없음"; exit 1; }
 [ -f "$EXT" ] && [ -f "$WAKE" ] || { echo "FAIL 확장 없음 $EXT"; exit 1; }
 CODE="$(grep -v '^[[:space:]]*//' "$EXT")"   # 머리 주석 줄은 빼고 코드 줄만 본다
-eq "S2 [긴급] 받는이 = plannerMaster(._desk 접근 0)" "$(grep -c '\._desk' <<<"$CODE")$(grep -c 'plannerMaster()' <<<"$CODE")" 01
+eq "S2 받는이 = plannerMaster(._desk 0 · 기준 ref 로 읽기)" "$(grep -c '\._desk' <<<"$CODE")$(grep -c 'plannerMaster()' <<<"$CODE")$(grep -c 'readFileSync(path.join(root, "design"' <<<"$CODE")" 010
 
 T="$(mktemp -d "${TMPDIR:-/tmp}/r1684-route.XXXXXX")"; trap 'rm -rf "$T"' EXIT; mkdir -p "$T/stub"
 printf '#!/bin/sh\nF="$(cd "$(dirname "$0")/../.." && pwd)/fake"; [ -e "$F/goal.fail" ] && { echo "ERROR planner 은 팀 명단에 없다" >&2; exit 1; }\necho "★팀별 완성 진행 (abcdef0123)★"\nwhile IFS= read -r t; do [ -n "$t" ] && echo "| $t | — |"; done < "$F/teams"\necho "★/팀별 완성 진행★"\n' > "$T/stub/ft-goal-table.sh"
@@ -26,7 +26,7 @@ D="$(cd "$(dirname "$0")/../.." && pwd)"
 printf '%s\t%s\n' "$2" "$4" >> "$D/fake/sends.log"; echo "QUEUED seq=1 to=$2"
 SH
 cat > "$T/driver.mjs" <<'NODE'
-import * as fs from "node:fs"; import * as path from "node:path"; import { pathToFileURL } from "node:url";
+import * as fs from "node:fs"; import * as path from "node:path"; import { pathToFileURL } from "node:url"; import { execFileSync } from "node:child_process";
 const EXT = process.env.R1684_EXT, ROOT = process.env.R1684_TMP, STUB = process.env.R1684_STUB;
 const SEAT = "byz-harness-master-pi#171", MASTER = "byz-planner-master-pi#244", DESK = "byz-planner-desk-pi#9";
 const MD_PLANNER = "| 팀 | 폴더 |\n|---|---|\n| planner | `design/teams/planner/` |\n| harness | `design/harness/` |\n";
@@ -41,14 +41,16 @@ function setup(name, { teams = "planner\nharness\n", md = MD_PLANNER, goalFail =
   for (const [base, d] of [[b, "bin"], [b, "comm/receipts"], [b, "state"], [dir, "design"], [dir, "fake/indices/대기"], [dir, "fake/indices/진행"]]) fs.mkdirSync(path.join(base, d), { recursive: true });
   for (const n of ["ft-goal-table.sh", "ft-card-flow.sh", "ft-hil.sh"]) fs.copyFileSync(path.join(STUB, n), path.join(b, "bin", n));
   fs.copyFileSync(path.join(STUB, "mbox.sh"), path.join(b, "comm", "mbox.sh"));
-  fs.writeFileSync(path.join(b, "seats-harness.json"), JSON.stringify({ _master: SEAT, [SEAT]: { role: "master", agent: "pi" } }) + "\n");
-  fs.writeFileSync(path.join(b, "seats-planner.json"), JSON.stringify({ _master: MASTER, _desk: DESK, [MASTER]: { role: "master", agent: "pi" } }) + "\n");
+  fs.writeFileSync(path.join(b, "seats-harness.json"), JSON.stringify({ _master: SEAT, [SEAT]: { role: "master", agent: "pi" } }) + "\n"); fs.writeFileSync(path.join(b, "seats-planner.json"), JSON.stringify({ _master: MASTER, _desk: DESK, [MASTER]: { role: "master", agent: "pi" } }) + "\n");
   fs.writeFileSync(path.join(fake, "teams"), teams); fs.writeFileSync(path.join(fake, "hil"), ""); fs.writeFileSync(path.join(fake, "sends.log"), "");
   if (goalFail) fs.writeFileSync(path.join(fake, "goal.fail"), "1");
   if (md !== null) fs.writeFileSync(path.join(dir, "design", "TEAMS.md"), md);
   for (let i = 0; i < prog; i++) fs.writeFileSync(path.join(fake, "indices", "진행", `r${i}.md`), "x");
-  const mbox = path.join(b, "comm", "mailbox.jsonl"); fs.writeFileSync(mbox, ""); Object.assign(process.env, { FT_MBOX_ROOT: dir, FT_MBOX_STATE_DIR: path.join(b, "state"), FT_MBOX_FILE: mbox, FT_SEAT: SEAT });
-  return { sends: path.join(fake, "sends.log"), idle: path.join(b, "state", "pi-wake", `${keyOf(SEAT)}.idle`) };
+  const mbox = path.join(b, "comm", "mailbox.jsonl"); fs.writeFileSync(mbox, "");
+  const g = (...a) => { try { execFileSync("git", ["-C", dir, ...a], { stdio: "ignore" }); } catch {} };
+  g("init", "-q"); g("add", "-A"); g("-c", "user.email=x@x", "-c", "user.name=x", "commit", "-q", "-m", "fx"); g("update-ref", "refs/remotes/origin/main", "HEAD");   // 기준 ref = 골 표와 같은 ref
+  Object.assign(process.env, { FT_MBOX_ROOT: dir, FT_MBOX_STATE_DIR: path.join(b, "state"), FT_MBOX_FILE: mbox, FT_SEAT: SEAT });
+  return { dir, sends: path.join(fake, "sends.log"), idle: path.join(b, "state", "pi-wake", `${keyOf(SEAT)}.idle`) };
 }
 async function load() {
   const pi = { calls: [], h: {}, on(e, f) { (this.h[e] ??= []).push(f); }, sendMessage(m, o) { this.calls.push({ m, o }); } };
@@ -59,8 +61,7 @@ async function load() {
 const sends = (c) => fs.readFileSync(c.sends, "utf-8").split("\n").filter(Boolean).map((l) => l.split("\t"));
 const nInfo = () => errs.filter((e) => e.includes("INFO 골 원장 없는 루트")).length;
 { // ⓐ 2회째 [긴급] 받는이 = planner 팀장 · desk 앞 0
-  const c = setup("a"), pi = await load(); await pi.settle(); await pi.settle();
-  const g = sends(c).filter((r) => r[1].startsWith("[긴급]"));
+  const c = setup("a"), pi = await load(); await pi.settle(); await pi.settle(); const g = sends(c).filter((r) => r[1].startsWith("[긴급]"));
   eq("ⓐ [긴급] 1통 · 받는이 = _master", `${g.length}/${g[0]?.[0]}`, `1/${MASTER}`);
   eq("ⓐ desk 앞 send 0 · 턴 1", `${sends(c).filter((r) => r[0] === DESK).length}/${pi.calls.length}`, "0/1");
 }
@@ -74,16 +75,18 @@ const nInfo = () => errs.filter((e) => e.includes("INFO 골 원장 없는 루트
 { // ⓒ planner 행 있는 루트 = 지금과 같다(골 표로 판정 · 열림/닫힘 둘 다)
   const c1 = setup("c1"), pi = await load(); errs.length = 0; await pi.settle();
   eq("ⓒ 열림 = 턴 1 · INFO 0", `${pi.calls.length}/${nInfo()}`, "1/0");
-  const c2 = setup("c2", { teams: "planner\n" }), pi2 = await load(); await pi2.settle();
-  eq("ⓒ 닫힘 = 턴 0 · 지문 파일 없음", `${pi2.calls.length}/${fs.existsSync(c2.idle)}`, "0/false");
-  const c3 = setup("c3", { prog: 1 }), pi3 = await load(); await pi3.settle();
-  eq("ⓒ 진행 1 = 턴 0 · 지문 없음", `${pi3.calls.length}/${fs.existsSync(c3.idle)}`, "0/false");
+  const c2 = setup("c2", { teams: "planner\n" }), pi2 = await load(); await pi2.settle(); eq("ⓒ 닫힘 = 턴 0 · 지문 파일 없음", `${pi2.calls.length}/${fs.existsSync(c2.idle)}`, "0/false");
+  const c3 = setup("c3", { prog: 1 }), pi3 = await load(); await pi3.settle(); eq("ⓒ 진행 1 = 턴 0 · 지문 없음", `${pi3.calls.length}/${fs.existsSync(c3.idle)}`, "0/false");
 }
 { // ⓓ 판정 불가 유지: TEAMS.md 못 읽음 · planner 행 있는데 골 표 rc1
   const c = setup("d1", { md: null, goalFail: true }), pi = await load(); errs.length = 0; await pi.settle();
   eq("ⓓ TEAMS.md 없음 = 턴 0 · 판정 불가 1줄", `${pi.calls.length}/${errs.filter((e) => e.includes("판정 불가 — 골 표 rc=1")).length}`, "0/1");
   const c2 = setup("d2", { goalFail: true }), pi2 = await load(); errs.length = 0; await pi2.settle();
   eq("ⓓ planner 행 + 골 표 rc1 = 턴 0 · INFO 0 · 지문 없음", `${pi2.calls.length}/${nInfo()}/${fs.existsSync(c2.idle)}`, "0/0/false");
+}
+{ // R1 (DA codex#10) — 작업 트리 TEAMS.md 만 바꿔도 기준 ref 에 planner 가 있으면 «원장 없음» 이 아니다(판정 불가 · 턴 0)
+  const c = setup("r1", { goalFail: true }); fs.writeFileSync(path.join(c.dir, "design", "TEAMS.md"), MD_AIFP); errs.length = 0;
+  const pi = await load(); await pi.settle(); eq("R1 작업 트리≠기준 ref = 턴 0 · INFO 0 · 판정 불가 1줄", `${pi.calls.length}/${nInfo()}/${errs.filter((e) => e.includes("판정 불가")).length}`, "0/0/1");
 }
 console.error = origErr;
 if (fails === 0) { console.log("DRIVER ALL PASS"); process.exit(0); }
