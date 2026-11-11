@@ -9,7 +9,7 @@
 #   송신 판정은 ft-send-verified 의 jsonl 도달 하나뿐이다(exit 0 만 성공). 2·5 면 같은 seq 로 ring 1회 + 재확인.
 #   mbox(R343·r607) = 대상 워크트리의 리포 것($ROOT 의 .fable-team/comm/mbox.sh · 워크트리 안 사본은 보지 않는다) — 없으면 REJECT rc2. 고른 폴더에 짝 파일 mbox_doorbell.sh 가 없으면 열기 «전» REJECT rc2. ★ft-role-spawn·ft-nano-spawn 은 «워크트리 = 이 리포(BYZ)» 전제라 이 결정 대상이 아니다★.
 #   r1116c: 이어가기는 boot-enter «전에» 도달 근거(후계 jsonl 제출 · 후계 발신 쪽지 · ft-reach-check)를 본다 · 도달 파일을 쓴 직후 같은 호출에서 ft-seat-retire <구> <후계>(실패해도 rc 는 도달 쪽 0).
-#   env(시험용): FT_SEND_VERIFIED · FT_MBOX_SH · FT_REACH_CHECK · FT_SEAT_RETIRE · FT_SO_WAIT_MAX(기동 대기 횟수 60) · FT_SO_POLL(간격 초 1) · FT_SO_BUDGET(한 실행 시간 상한 초 60)
+#   env(시험용): FT_SEND_VERIFIED · FT_MBOX_SH · FT_REACH_CHECK · FT_SEAT_RETIRE · FT_SO_WAIT_MAX(기동 대기 횟수 60) · FT_SO_POLL(간격 초 1) · FT_SO_BUDGET(한 실행 시간 상한 초 60) · FT_SO_SEND_RESERVE(송신·도달 예약 초 40)
 #   r1660: 관측할 수 없는 신호는 안 기다린다 — codex·cmd·opencode 는 SessionStart 를 claude projects 폴더에 쓰지 않아 매번 60초를 다 썼고,
 #     뒤에 붙는 송신·도달 확인까지 70초 상한(하드 룰 12·22)을 넘겨 래퍼가 끊었다(사건 = issues-master-sol#60 rc124 2회 · 기계 [인계] 0).
 #     그래서 ⓒ-2 를 갈래로 나누고, 한 실행이 FT_SO_BUDGET 을 넘기기 전에 단계 사이에서 rc5 + «다시 실행» 1줄로 넘긴다(이어가기는 아래 r609 그대로).
@@ -19,6 +19,11 @@ set -uo pipefail
 BUDGET="${FT_SO_BUDGET:-60}"; SO_T0="$(date +%s)"
 so_elapsed() { echo $(( $(date +%s) - SO_T0 )); }
 so_budget_ok() { [ "$(( BUDGET - $(so_elapsed) ))" -gt 0 ]; }
+# ★r1660-b (DA HOLD §3)★ 송신은 «남은 시간이 있으면» 들어가는 단계가 아니다 — 자기 몫의 예산을 통째로 예약한 뒤에 들어간다.
+#   ft-send-verified 는 reach 20초 → ring → reach 20초(최대 40초)를 쓰고, 그 뒤 이 파일의 ring 재확인(ⓕ)이 20초를 더 쓴다.
+#   잔여 2초에서 들어가면 전체 상한을 넘고, 송신 «뒤» 에 끊으면 본문이 두 번 큐에 들어간다(중복 송신) — 그래서 들어가기 전에 막는다.
+SEND_RESERVE="${FT_SO_SEND_RESERVE:-40}"   # 송신·도달 단계 예약(초) = ft-send-verified 의 20+20 · 그 뒤 retry 20은 아래 ⓕ 가 따로 남은 예산을 본다
+so_send_ready() { [ "$(( BUDGET - $(so_elapsed) ))" -ge "$SEND_RESERVE" ]; }
 so_budget_stop() {   # $1 = 멈춘 단계 이름 · rc5 = 열렸으나 도달 미확인(재실행이 같은 자리에서 잇는다 · r609)
   echo "시간 상한 ${BUDGET}초 — «$1» 단계 앞에서 멈춘다(경과 $(so_elapsed)초 · 송신 0 · 도달 파일 0 · 구 좌석 닫기 0)"
   echo "다음: 같은 인자로 다시 실행(이어가기 r609)"
@@ -408,7 +413,7 @@ while [ "$i" -lt "$WAIT_MAX" ] && so_budget_ok; do i=$((i+1))
   [ -n "$f" ] && printf '%s\n' "$f" | xargs grep -lF "$SMARK" >/dev/null 2>&1 && { seen=1; break; }; sleep "$POLL"; done
 [ "$seen" = 1 ] && echo "SessionStart 관측 $NAME" || echo "SessionStart 미관측 $NAME (${WAIT_MAX}회) — 송신 후 도달 판정으로 확인"
 fi
-so_budget_ok || so_budget_stop "검증 송신"   # 송신 «전» 에만 멈춘다 — 송신 뒤에 멈추면 재실행이 두 번 보낸다
+so_send_ready || so_budget_stop "검증 송신(송신·도달 예산 ${SEND_RESERVE}초 필요)"   # 송신 «전» 에만 멈춘다 — 송신 뒤에 멈추면 재실행이 두 번 보낸다
 
 # ⓓ 검증 송신 — 본문은 mbox 큐 · 창엔 doorbell 한 줄 · 도달은 jsonl 층(ft-send-verified exit 0 만 성공)
 # ★r1034 팀장 승계 «이월 0» 줄★: 사고 확대 키워드의 효과는 세션을 넘어가지 않는다 — 팀장 후계 본문 끝에 그 뜻을 한 줄 붙인다.
@@ -429,8 +434,13 @@ OUT="$(env $TAILENV FT_REACH_AGENT="$AGENT" FT_MBOX_SH="$MBOX" FT_SEND_FROM="$OL
 printf '%s\n' "$OUT"
 SEQ="$(printf '%s\n' "$OUT" | grep -oE 'seq=[0-9]+' | head -1 | cut -d= -f2)"
 # ⓕ 2·5 → 같은 seq 로 ring 1회 + 도달 재확인(본문 재큐잉 0). 1(SEND_FAILED)·seq 없음 = 그대로 실패.
+#   ★r1660-b★ 재확인도 20초를 쓴다 — 남은 예산이 그것을 덮을 때만 한다(모자라면 안 하고 rc5 · 다음 실행 몫).
 if [ "$RC" -ne 0 ] && { [ "$RC" -eq 2 ] || [ "$RC" -eq 5 ]; } && [ -n "$SEQ" ]; then
-  env $TAILENV bash "$MBOX" ring "$NAME" "$SEQ" 2>&1 && FT_REACH_AGENT="$AGENT" bash "$REACH" "$NAME" "[발주 #$SEQ]" 20 0 >/dev/null 2>&1 && RC=0
+  if [ "$(( BUDGET - $(so_elapsed) ))" -ge 20 ]; then
+    env $TAILENV bash "$MBOX" ring "$NAME" "$SEQ" 2>&1 && FT_REACH_AGENT="$AGENT" bash "$REACH" "$NAME" "[발주 #$SEQ]" 20 0 >/dev/null 2>&1 && RC=0
+  else
+    echo "WARN 재확인 생략 — 남은 예산(${BUDGET}초 상한) 부족 · 도달 판정은 다음 실행 몫" >&2
+  fi
 fi
 [ "$RC" -eq 0 ] || { hil "send-verified rc=$RC"; exit 5; }
 
