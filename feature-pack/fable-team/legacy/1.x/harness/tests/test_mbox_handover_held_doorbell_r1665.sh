@@ -2,7 +2,7 @@
 # test_mbox_handover_held_doorbell_r1665.sh — r1665 [fix]: 증류 게이트로 recv 가 막힌 옛 좌석도 승계가 끝까지 간다.
 #  ⓐ 억제 doorbell seq 2개(옛 좌석 큐에 남음) → [인계] 항목 2개 · QUEUED 뒤 기록 = doorbell-held/done/<좌석>-<ts> · ⓑ 그 뒤 후계 recv·ready → close-check CLOSE-OK rc0(= ft-seat-retire 첫 관문)
 #  ⓒ 송신 실패 = 기록 그대로 · close-check REJECT 그대로 · ⓓ 기록이 남은 close-check 둘째 줄 = 후계 pane 3명령 · ⓔ 억제 기록 없는 승계 출력 불변
-#  변이 M1 _held_seqs=[] (항목 싣기 삭제) → ⓐ FAIL · M2 이동을 송신 «전» 으로 → ⓒ FAIL · 격리: 정본 사본 + 가짜 명부 + 임시 우편함 · sleep 0 · 자기 재호출 0
+#  변이 M1 _held_seqs=[] (항목 싣기 삭제) → ⓐ FAIL · M2 이동을 송신 «전» 으로 → ⓒ FAIL · ⓕ 반례(억제분 아닌 안 받은 seq = mark REJECT) · 격리: 정본 사본 + 가짜 명부 + 임시 우편함 · sleep 0 · 자기 재호출 0
 set -uo pipefail
 for v in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY; do unset "$v"; done
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; REPO="$HERE/../.."
@@ -102,9 +102,9 @@ chk_e() {
   [ -d "$SD/doorbell-held/done" ] && return 1; py_ close-check "$O" --no-ready; [ "$RC" = 0 ]
 }
 chk_e && ok "ⓔ 억제 기록 없는 승계 출력 불변" || bad "ⓔ rc=$RC :: $OUT :: $B"
+# ⓕ 반례 — 억제분이 아닌 «안 받은 seq» 는 mark 가 그대로 REJECT(env 완화 0)
+chk_f() { new_env || return 2; queued; sh_ handover "$O" "$N"; [ "$RC" = 0 ] || return 2; py_ mark "$O" 99 인계; [ "$RC" = 3 ] && case "$OUT" in *"REJECT 영수 없는 seq 99"*) true;; *) false;; esac; }
+chk_f && ok "ⓕ 억제분 아닌 안 받은 seq = mark REJECT 유지" || bad "ⓕ rc=$RC :: $OUT"
 
-for f in "$SRC/mbox_handover.py" "$SRC/mbox.sh"; do
-  case "$f" in *.sh) bash -n "$f" 2>/dev/null && ok "bash -n $(basename "$f")" || bad "bash -n $(basename "$f")";;
-             *) python3 -c 'import sys,py_compile;py_compile.compile(sys.argv[1],doraise=True)' "$f" >/dev/null 2>&1 && ok "py_compile $(basename "$f")" || bad "py_compile $(basename "$f")";; esac
-done
+for f in "$SRC/mbox_handover.py" "$SRC/mbox.sh"; do case "$f" in *.sh) bash -n "$f" 2>/dev/null && ok "bash -n $(basename "$f")" || bad "bash -n $(basename "$f")";; *) python3 -c 'import sys,py_compile;py_compile.compile(sys.argv[1],doraise=True)' "$f" >/dev/null 2>&1 && ok "py_compile $(basename "$f")" || bad "py_compile $(basename "$f")";; esac; done
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

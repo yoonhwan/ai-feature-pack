@@ -308,8 +308,8 @@ case "$cmd" in
          # ★r1665ⓒ — 넘긴 «뒤에만» 보관 폴더로 옮긴다(송신 실패 = 그대로 두고 close-check 이 계속 막는다)★
          _hf="$(_wg_state)/doorbell-held/$(_wg_key "$old")"
          if [ -f "$_hf" ]; then mkdir -p "$(_wg_state)/doorbell-held/done" 2>/dev/null && mv -f "$_hf" "$(_wg_state)/doorbell-held/done/$(_wg_key "$old")-$(date +%Y%m%dT%H%M%S)" || echo "WARN 억제기록 이동 실패 — $_hf" >&2; fi
-         echo "$out"; s="$(printf '%s\n' "$b" | sed -n 's/^- #\([0-9][0-9]*\) .*/\1/p' | paste -sd, -)"
-         [ -z "$s" ] || FT_MBOX_MARK_SKIP_MISSING=1 python3 "$MBOXPY" mark "$old" "$s" 인계 ;;
+         echo "$out"; s="$(printf '%s\n' "$b" | grep -v '\[억제 doorbell\]' | sed -n 's/^- #\([0-9][0-9]*\) .*/\1/p' | paste -sd, -)"   # r1665 — 억제분은 옛 좌석 영수가 없다 → mark 목록에서 뺀다(env 완화 0)
+         [ -z "$s" ] || python3 "$MBOXPY" mark "$old" "$s" 인계 ;;
   # ★r1653 단계 2 — [레디] QUEUED 되면 «같은 실행» 에서 옛 좌석을 ft-seat-close 표준 경로로 1회 닫는다(표준승인 · kill-server 아님 · ready rc = send rc)★
   #   ★기본값 = 끔(0)★ — env 는 좌석 셸마다 따로라 설치로 «끈 채» 를 보장할 수 없다(planner #283594 · master #283652).
   #   켜기 = FT_READY_AUTO_CLOSE=1(오빠 hil.md 표준승인 컨펌 뒤 설정 1줄) · 끄기 = 0 또는 미설정.

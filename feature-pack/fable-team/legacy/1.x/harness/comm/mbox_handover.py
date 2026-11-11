@@ -48,10 +48,7 @@ def mark(me, seqs, kind):
     got = {r["seq"] for r in _rows(me) if "mark" not in r}
     want = [int(x) for x in re.findall(r"\d+", seqs)]
     miss = [s for s in want if s not in got]
-    if miss and os.environ.get("FT_MBOX_MARK_SKIP_MISSING") == "1":   # r1665 — [인계] 에 실은 억제 doorbell seq = 옛 좌석이 recv 한 적 없다(큐에 남아 후계 recv 몫) → 표시 0
-        sys.stderr.write("NOTE 영수 없는 seq %s — 큐에 남아 후계 recv 몫(표시 0)\n" % ",".join(map(str, miss)))
-        want = [s for s in want if s in got]
-    elif miss:
+    if miss:
         sys.stderr.write("REJECT 영수 없는 seq %s — 내가 recv 한 쪽지만 표시한다\n" % ",".join(map(str, miss))); sys.exit(3)
     _append(me, [{"seq": s, "mark": kind, "ts": time.strftime("%Y-%m-%dT%H:%M:%S")} for s in want])
     print("MARKED %s %s %s" % (me, kind, ",".join(map(str, want)) or "0"))
