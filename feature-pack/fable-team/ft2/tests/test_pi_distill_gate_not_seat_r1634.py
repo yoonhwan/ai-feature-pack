@@ -1,5 +1,4 @@
-"""ft2 pi distill-gate r1634 시험 — ft 좌석이 아니면 아무것도 하지 않는다(ⓐⓑ) · 좌석 안 동작은 그대로(ⓒⓓ) · 변이 M1·M2 검출.
-extension 은 TypeScript 라 node 로 불러 «판정»만 받는다. 픽스처 = tmp_path 뿐 — 실 tmux 0(PATH 스텁) · 실 명부 0 · 실 우편함 0."""
+"""ft2 pi distill-gate r1634 시험 — 좌석 밖 = 통과(ⓐⓑ) · 좌석 안 그대로(ⓒⓓ · DA ①③) · 변이 M1·M2. node 로 «판정»만 받는다 · 픽스처 = tmp_path 뿐(실 tmux 0 PATH 스텁 · 실 명부·우편함 0)."""
 import json
 import os
 import shutil
@@ -47,18 +46,16 @@ def build(tmp):
 
 
 def capture(tmp):
-    p = tmp / "mbox-capture.sh"
-    p.write_text(f'#!/bin/bash\nprintf "%s\\n" "$*" >> "{tmp}/mbox.log"\n', encoding="utf-8")
-    return p, tmp / "mbox.log"
+    (tmp / "mbox-capture.sh").write_text(f'#!/bin/bash\nprintf "%s\\n" "$*" >> "{tmp}/mbox.log"\n', encoding="utf-8")
+    return tmp / "mbox-capture.sh", tmp / "mbox.log"
 
 
 def stub_path(tmp, name):
-    d = tmp / "bin"
-    d.mkdir(exist_ok=True)
-    p = d / "tmux"
+    p = tmp / "bin" / "tmux"
+    p.parent.mkdir(exist_ok=True)
     p.write_text(f"#!/bin/sh\necho {name}\n", encoding="utf-8")
     p.chmod(0o755)
-    return f"{d}:{os.environ['PATH']}"
+    return f"{p.parent}:{os.environ['PATH']}"
 
 
 def tools(*names):
@@ -82,8 +79,7 @@ def test_b_tmux_session_without_roster_row_is_not_a_seat(tmp_path):
 
 def test_c_inside_seat_judging_unchanged(tmp_path):
     root, _ = build(tmp_path)
-    got = run(GATE, root, [{"tool": "bash", "tokens": None, "model": CLAUDE, "seat": SEAT, "command": "ls"},
-                           {"tool": "bash", "tokens": 305000, "model": CLAUDE, "seat": SEAT, "command": "echo hi"}], env={"FT_SEAT": SEAT})
+    got = run(GATE, root, [{"tool": "bash", "tokens": k, "model": CLAUDE, "seat": SEAT, "command": "ls"} for k in (None, 305000)], env={"FT_SEAT": SEAT})
     assert [v["rule"] for v in got] == ["undecidable", "warn-line"], got
 
 
@@ -91,6 +87,19 @@ def test_d_inside_seat_fail_closed_kept(tmp_path):
     root, _ = build(tmp_path)
     got = run(GATE, root, [{"tool": "bash", "tokens": 330000, "model": "", "seat": SEAT, "command": "ls"}], env={"FT_SEAT": SEAT})
     assert got[0]["action"] == "block" and "모델 불명" in got[0]["reason"], got
+
+
+def test_e_roster_only_seat_by_tmux_name(tmp_path):
+    root, _ = build(tmp_path)  # DA HOLD R1 ①: FT_SEAT 없이 tmux 세션명 = 명부 키 → 좌석(no-op 아님)
+    got = run(GATE, root, [{"tool": "bash", "tokens": 305000, "model": CLAUDE, "command": "echo hi"}], env={"TMUX_PANE": "%1", "PATH": stub_path(tmp_path, SEAT)})
+    assert got[0]["rule"] == "warn-line", got
+
+
+def test_f_broken_roster_is_undecidable_not_seat_absent(tmp_path):
+    root, _ = build(tmp_path)  # DA HOLD R1 ③: 명부 조회 실패 = 판정 불가(좌석 아님으로 단정 0 · 하드 룰 20)
+    (root / ".fable-team" / "seats-harness.json").write_text("{broken", encoding="utf-8")
+    got = run(GATE, root, [{"tool": "bash", "tokens": 305000, "model": CLAUDE, "command": "echo hi"}], env={"TMUX_PANE": "%1", "PATH": stub_path(tmp_path, "random-tmux-1")})
+    assert got[0]["rule"] != "not-seat" and got[0]["action"] == "warn", got
 
 
 def mutant(tmp_path, name, old, new):

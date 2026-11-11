@@ -33,7 +33,6 @@ const log = (m: string) => console.error(`ft-mbox-wake: ${m}`);
 const fail = (m: string) => console.error(`ERROR ft-mbox-wake: ${m}`);
 const sh = (cmd: string): string => { try { return execSync(cmd, { encoding: "utf-8", timeout: 7000, stdio: ["ignore", "pipe", "ignore"] }).trim(); } catch { return ""; } };
 const seatName = (): string => process.env.FT_SEAT || sh('tmux display-message -p "#S"');
-const seatKnown = (): boolean | null => process.env.FT_SEAT ? true : !process.env.TMUX_PANE ? false : !seat ? null : (() => { const b = seat.replace(/#\d+$/, ""), d = path.join(root, ".fable-team"); try { return fs.readdirSync(d).filter((f) => /^seats.*\.json$/.test(f)).some((f) => { try { const j = JSON.parse(fs.readFileSync(path.join(d, f), "utf-8")); return Object.keys(j).some((k) => !k.startsWith("_") && (k === seat || k.replace(/#\d+$/, "") === b)); } catch { return false; } }); } catch { return false; } })(); // ★r1634★ ft 좌석인가 = distill-gate 와 같은 규칙(FT_SEAT ∨ 명부 행) · false = no-op · null = 판정 불가(tmux 안인데 이름 못 읽음 = 지금처럼)
 // ★root = «git 공용 루트»★ — pi pane 의 cwd 는 워크트리일 수 있다(실측 11-09 18:20 planner pi#245). 다른 ft 도구와 같은 식.
 const gitRoot = (): string => { const d = sh("git rev-parse --path-format=absolute --git-common-dir"); return d ? path.dirname(d) : ""; };
 // ★팀장 pi 판정(r1530 공유 · ft-idle-nudge 가 import)★ = seats*.json 하나의 _master 이고 «같은 파일» 그 행 agent=='pi' → 그 파일 이름(없으면 "") · 깨진 파일 = 그 파일 거짓
@@ -44,6 +43,7 @@ export function piMasterFile(root: string, seat: string): string { const d = pat
 export default function (pi: ExtensionAPI) {
   const root = process.env.FT_MBOX_ROOT || gitRoot() || process.cwd();
   const seat = seatName();
+  const seatKnown = (): boolean | null => { if (process.env.FT_SEAT) return true; if (!process.env.TMUX_PANE) return false; if (!seat) return null; const b = seat.replace(/#\d+$/, ""), d = path.join(root, ".fable-team"); let files: string[] = [], bad = false; try { files = fs.readdirSync(d).filter((f) => /^seats.*\.json$/.test(f)); } catch { return false; } const hit = files.some((f) => { try { const j = JSON.parse(fs.readFileSync(path.join(d, f), "utf-8")); return Object.keys(j).some((k) => !k.startsWith("_") && (k === seat || k.replace(/#\d+$/, "") === b)); } catch { bad = true; return false; } }); return hit ? true : bad ? null : false; }; // ★r1634★ ft 좌석인가 = distill-gate 와 같은 규칙(FT_SEAT ∨ 명부 행) · false = no-op · null = 판정 불가(tmux 안인데 이름 못 읽음·명부 깨짐 = 지금처럼)
   const mbox = process.env.FT_MBOX_FILE ?? path.join(root, ".fable-team", "comm", "mailbox.jsonl");
   const mboxDir = path.dirname(mbox); // ★입력·감시·recv 는 «같은 지정 우편함» 에 결속한다(FT_MBOX_FILE 지원)
   const localSh = path.join(mboxDir, "mbox.sh");

@@ -102,14 +102,18 @@ export function pathAllowed(p: string | undefined, root: string | null): boolean
   }
   return [/(^|\/)design\/[^/]+\/(?:IMPL|HANDOFF|VERDICT|PROGRESS)-[^/]*\.md$/, /(^|\/)HANDOFF-[^/]*\.md$/, /(^|\/)design\/(?:[^/]+\/)*inbox\/(?:[^/]+\/)*[^/]+\.md$/, /(^|\/)\d+-HANDOFF-[^/]*\.md$/].some((rx) => rx.test(rel));
 }
-/** r1634 좌석 판정 — true = ft 좌석 · false = 좌석 아님(no-op) · null = 판정 불가(지금처럼 막는다 · 하드 룰 20: 이름 못 읽음 ≠ 좌석 아님). declared = 호출자가 이미 좌석 이름을 확정해 넘김(그 이름이 명부에 없으면 판정 불가). 루트를 못 찾으면 명부 대조는 거짓. */
+/** r1634 좌석 판정 — true = ft 좌석 · false = 좌석 아님(no-op) · null = 판정 불가(지금처럼 막는다 · 하드 룰 20: 이름 못 읽음 ≠ 좌석 아님). declared = 호출자가 이미 좌석 이름을 확정해 넘김(그 이름이 명부에 없으면 판정 불가). 루트를 못 찾으면 명부 대조는 거짓 · 명부 파일이 깨졌으면 판정 불가. */
 export function seatVerdict(env: Record<string, string | undefined>, root: string | null, seat: string, declared = false): boolean | null {
   if (String(env.FT_SEAT ?? "").trim()) return true;
   if (!seat) return env.TMUX_PANE || declared ? null : false;
   const base = seat.replace(/#\d+$/, ""), dir = root ? path.join(root, ".fable-team") : "";
-  let known = false;
-  try { known = fs.readdirSync(dir).filter((f) => /^seats.*\.json$/.test(f)).some((f) => { try { const j = JSON.parse(fs.readFileSync(path.join(dir, f), "utf8")); return Object.keys(j).some((row) => !row.startsWith("_") && (row === seat || row.replace(/#\d+$/, "") === base)); } catch { return false; } }); } catch { /* 루트 없음·명부 없음 = 거짓 */ }
-  return known ? true : declared ? null : false;
+  let broken = false;
+  try {
+    for (const f of fs.readdirSync(dir).filter((n) => /^seats.*\.json$/.test(n))) {
+      try { const j = JSON.parse(fs.readFileSync(path.join(dir, f), "utf8")); if (Object.keys(j).some((row) => !row.startsWith("_") && (row === seat || row.replace(/#\d+$/, "") === base))) return true; } catch { broken = true; } // 깨진 명부 = 판정 불가(하드 룰 20)
+    }
+  } catch { /* .fable-team 없음 = 명부 없음 */ }
+  return broken || declared ? null : false; // 명부 조회 실패를 «좌석 아님» 으로 단정하지 않는다
 }
 function seatOf(env: Record<string, string | undefined>): string {
   if (env.FT_SEAT || !env.TMUX_PANE) return env.FT_SEAT ?? ""; try { return execFileSync("tmux", ["display", "-p", "-t", env.TMUX_PANE, "#S"], { timeout: 3000 }).toString().trim(); } catch { return ""; }
