@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test_pi_mbox_wake_seat_only_r1634.sh — r1634: ft-mbox-wake 는 ft 좌석일 때만 동작한다. ⓔⓔb③ = 좌석 밖(조용한 no-op) · ⓕ = 좌석 안(그대로) · ⓖ명부-only = 좌석 · 변이 1(보정 되돌림)·M3 검출 · DA HOLD R1.
+# test_pi_mbox_wake_seat_only_r1634.sh — r1634: ft-mbox-wake 는 ft 좌석일 때만 동작한다. ⓔⓔb③ = 좌석 밖(조용한 no-op) · ⓕ = 좌석 안(그대로) · ⓖ명부-only = 좌석 · ⓗ기준선(tmux byz-x-master + 명부 byz-x-master#1 = r1634 전 6ebb41ea 와 같은 결과) · 변이 1(보정 되돌림)·M3 검출 · DA HOLD R1.
 #  격리: tmp 루트 4개(plain = git 밖 빈 폴더 · seat = tmp 리포 + seats-planner.json + 스텁 mbox.sh · roster · broken) · 실 우편함·실 명부·실 pi 세션 0 · tmux 는 PATH 스텁. 새 파일 mode 100644 — `bash <이 파일>`.
 set -uo pipefail
 for v in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY; do unset "$v"; done
@@ -20,10 +20,11 @@ bash -n "$0" && ok "S3 bash -n rc0" || bad "S3 bash -n rc0"
 
 T="$(mktemp -d "${TMPDIR:-/tmp}/r1634-seat.XXXXXX")"
 trap 'rm -rf "$T"' EXIT
-mkdir -p "$T/ext" "$T/bin" "$T/bin-seat" "$T/bin-random" "$T/node_modules/@earendil-works/pi-coding-agent"
+mkdir -p "$T/ext" "$T/bin" "$T/bin-seat" "$T/bin-random" "$T/bin-base" "$T/node_modules/@earendil-works/pi-coding-agent"
 printf '#!/bin/sh\nexit 1\n' > "$T/bin/tmux"; chmod 755 "$T/bin/tmux"                              # tmux 없음/밖 = display 실패
 printf '#!/bin/sh\necho %s\n' "$SEAT" > "$T/bin-seat/tmux"; chmod 755 "$T/bin-seat/tmux"           # 세션명 = 명부 키
 printf '#!/bin/sh\necho random-tmux\n' > "$T/bin-random/tmux"; chmod 755 "$T/bin-random/tmux"      # 세션명 = 명부에 없음
+printf '#!/bin/sh\necho byz-x-master\n' > "$T/bin-base/tmux"; chmod 755 "$T/bin-base/tmux"          # ⓗ기준선 세션명 = #N 없는 이름
 cp "$EXT" "$T/ext/ft-mbox-wake.ts"; cp "$(dirname "$EXT")/ft-load-line.ts" "$T/ext/"
 sed 's/if (seatKnown() === false) return; //' "$EXT" > "$T/ext/m3.ts"  # M3 = 좌석 판정 제거
 awk '{ if ($0 ~ /^  const seatKnown = /) { held = $0; next } if ($0 ~ /^export default function/ && held != "") { print held; held = "" } print }' \
@@ -43,6 +44,7 @@ const eq = (n, got, want) => (String(got) === String(want) ? ok(n) : bad(n, `기
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const capture = () => { const buf = [], orig = console.error; console.error = (...a) => buf.push(a.map(String).join(" ")); return { buf, stop: () => { console.error = orig; } }; };
 const errors = (buf) => buf.filter((l) => l.startsWith("ERROR ft-mbox-wake:")).length;
+const inactives = (buf) => buf.filter((l) => l.startsWith("ft-mbox-wake: inactive")).length;
 const bin = (d) => `${d}:${process.env.R1634_REALPATH}`; // 스텁 PATH + 실제 PATH(스텁 안에 없는 명령은 진짜 것을 쓴다)
 const live = [];
 async function load(env, cwd) {
@@ -69,7 +71,7 @@ const run = async (env, cwd, events = ["session_start"]) => { const pi = await l
 const plain = path.join(TMP, "plain"); fs.mkdirSync(plain, { recursive: true });
 if (MODE === "m3") { const d = path.join(TMP, "plain-m3"); fs.mkdirSync(d, { recursive: true }); // 변이 M3: 좌석 판정을 빼면 ERROR 줄이 다시 나온다
   eq("M3 좌석 판정 빼기 → ⓔ FAIL 검출(ERROR 줄 발생)", errors((await run(ENV, d, ["session_start", "agent_end"])).cap.buf) > 0, true);
-} else {
+} else { if (MODE !== "baseline") {
   { const r = await run(ENV, plain, ["session_start", "agent_end"]); // ⓔ 좌석 밖 = 조용한 no-op
     eq("ⓔ ERROR 0줄 · 깨움 0 · 상태 폴더 0", `${errors(r.cap.buf)}/${r.pi.calls.length}/${fs.existsSync(path.join(plain, ".fable-team", "state", "pi-wake"))}`, "0/0/false");
     fs.mkdirSync(path.join(plain, ".fable-team", "comm"), { recursive: true });
@@ -87,7 +89,10 @@ if (MODE === "m3") { const d = path.join(TMP, "plain-m3"); fs.mkdirSync(d, { rec
   { const sd = path.join(TMP, "seat"); // ⓕ 좌석 안 + 우편함 없음 = 지금처럼 ERROR 1줄(조용한 0 금지)
     const r = await run({ ...ENV, FT_SEAT: SEAT, FT_MBOX_ROOT: sd }, sd);
     eq("ⓕ 좌석 안 우편함 없음 = ERROR 1줄", errors(r.cap.buf), 1); }
-}
+} }
+{ const rd = roster(mk("base"), 9); // ⓗ기준선: tmux 이름 byz-x-master(#N 없음) + 명부 키 byz-x-master#1 → r1634 전(6ebb41ea)과 «같은 결과» 고정
+  const r = await run({ PATH: bin(process.env.R1634_BASEBIN), TMUX_PANE: "%1", FT_MBOX_ROOT: rd, FT_MBOX_WAKE_DEBOUNCE_MS: "5" }, rd);
+  eq("ⓗ기준선 깨움 0 · inactive 1줄 · ERROR 0", `${r.pi.calls.length}/${inactives(r.cap.buf)}/${errors(r.cap.buf)}`, "0/1/0"); }
 if (MODE === "roster") { const rd = roster(mk("roster"), 7); // ⓖ명부-only: FT_SEAT 없이 tmux 세션명 = 명부 키 → 좌석(DA HOLD R1 재현 경로 · 변이 1 은 여기서 ReferenceError 로 죽는다)
   const r = await run({ PATH: bin(process.env.R1634_SEATBIN), TMUX_PANE: "%1", FT_MBOX_ROOT: rd, FT_MBOX_WAKE_DEBOUNCE_MS: "5" }, rd);
   eq("ⓖ명부-only FT_SEAT 없이 명부 행 = 좌석(턴 1 · ERROR 0줄)", `${r.pi.calls.length}/${errors(r.cap.buf)}`, "1/0"); }
@@ -96,11 +101,17 @@ console.log(`DRIVER FAIL ${fails}`); process.exit(1);
 NODE
 
 RUN="timeout 70 node $T/driver.mjs"
-R1634_PATH="$T/bin:$PATH" R1634_TMP="$T" R1634_SEAT="$SEAT" R1634_EXT="$T/ext/ft-mbox-wake.ts" R1634_SEATBIN="$T/bin-seat" R1634_RANDBIN="$T/bin-random" R1634_REALPATH="$PATH" $RUN; rc=$?
-R1634_PATH="$T/bin:$PATH" R1634_TMP="$T" R1634_SEAT="$SEAT" R1634_EXT="$T/ext/ft-mbox-wake.ts" R1634_SEATBIN="$T/bin-seat" R1634_RANDBIN="$T/bin-random" R1634_REALPATH="$PATH" R1634_MODE="roster" $RUN; rc1=$?
+R1634_PATH="$T/bin:$PATH" R1634_TMP="$T" R1634_SEAT="$SEAT" R1634_EXT="$T/ext/ft-mbox-wake.ts" R1634_SEATBIN="$T/bin-seat" R1634_RANDBIN="$T/bin-random" R1634_BASEBIN="$T/bin-base" R1634_REALPATH="$PATH" $RUN; rc=$?
+R1634_PATH="$T/bin:$PATH" R1634_TMP="$T" R1634_SEAT="$SEAT" R1634_EXT="$T/ext/ft-mbox-wake.ts" R1634_SEATBIN="$T/bin-seat" R1634_RANDBIN="$T/bin-random" R1634_BASEBIN="$T/bin-base" R1634_REALPATH="$PATH" R1634_MODE="roster" $RUN; rc1=$?
 # 변이 1 = 보정 되돌림(seatKnown 모듈 범위) → ⓖ명부-only 에서 ReferenceError = 새 시험 FAIL 검출
 if R1634_TMP="$T" R1634_SEAT="$SEAT" R1634_EXT="$T/ext/m1-hoist.ts" R1634_SEATBIN="$T/bin-seat" R1634_RANDBIN="$T/bin-random" R1634_REALPATH="$PATH" R1634_MODE="roster" $RUN >/dev/null 2>&1; then
   bad "변이 1 보정 되돌림 → 새 시험 FAIL 검출"; else ok "변이 1 보정 되돌림 → 새 시험 FAIL 검출(ReferenceError)"; fi
+echo "--- ⓗ기준선 = 수정본(r1634) ---"
+R1634_TMP="$T" R1634_SEAT="$SEAT" R1634_EXT="$T/ext/ft-mbox-wake.ts" R1634_BASEBIN="$T/bin-base" R1634_REALPATH="$PATH" R1634_MODE="baseline" $RUN; rc3=$?
+if [ -n "${R1634_BASE:-}" ]; then cp "$R1634_BASE" "$T/ext/base.ts"; cp "$(dirname "$R1634_BASE")/ft-load-line.ts" "$T/ext/"
+  echo "--- ⓗ기준선 = 6ebb41ea 사본 ---"
+  R1634_TMP="$T" R1634_SEAT="$SEAT" R1634_EXT="$T/ext/base.ts" R1634_BASEBIN="$T/bin-base" R1634_REALPATH="$PATH" R1634_MODE="baseline" $RUN; rc4=$?
+else rc4=0; echo "SKIP ⓗ기준선 사본 실측 — R1634_BASE 미지정(6ebb41ea 사본 경로를 넘기면 같은 결과를 실측한다)"; fi
 R1634_PATH="$T/bin:$PATH" R1634_TMP="$T" R1634_SEAT="$SEAT" R1634_EXT="$T/ext/m3.ts" R1634_MODE="m3" $RUN; rc2=$?
-if [ "$rc" = 0 ] && [ "$rc1" = 0 ] && [ "$rc2" = 0 ] && [ "$fail" = 0 ]; then echo "ALL PASS"; exit 0; fi
-echo "FAIL (static=$fail normal_rc=$rc roster_rc=$rc1 mutant_rc=$rc2)"; exit 1
+if [ "$rc" = 0 ] && [ "$rc1" = 0 ] && [ "$rc2" = 0 ] && [ "$rc3" = 0 ] && [ "$rc4" = 0 ] && [ "$fail" = 0 ]; then echo "ALL PASS"; exit 0; fi
+echo "FAIL (static=$fail normal_rc=$rc roster_rc=$rc1 mutant_rc=$rc2 base_new_rc=$rc3 base_6ebb41ea_rc=$rc4)"; exit 1
