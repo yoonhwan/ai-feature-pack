@@ -18,9 +18,9 @@ eq "S1 도구 ≤150줄" "$([ "$(wc -l < "$TOOL" | tr -d ' ')" -le 150 ] && echo
 eq "S2 도구 100644" "$(stat -f %Lp "$TOOL")" 644
 bash -n "$TOOL" && bash -n "$0" && ok "S3 bash -n" || bad "S3 bash -n"
 
-T="$(mktemp -d "${TMPDIR:-/tmp}/r1688.XXXXXX")"; T="$(cd "$T" && pwd -P)"; R="$T/repo"; BUSY=""; T0=$(date +%s)
+T="$(mktemp -d "${TMPDIR:-/tmp}/r1688.XXXXXX")"; T="$(cd "$T" && pwd -P)"; R="$T/repo"; BUSY=""; B6=""; T0=$(date +%s)
 st(){ [ "${FT_R1688_TIME:-0}" = 1 ] && echo "단계 $1 $(( $(date +%s) - T0 ))초" >&2; return 0; }
-trap '[ -n "$BUSY" ] && kill "$BUSY" 2>/dev/null; chmod -R u+w "$T" 2>/dev/null; rm -rf "$T"' EXIT
+trap '[ -n "$BUSY" ] && kill "$BUSY" 2>/dev/null; [ -n "$B6" ] && kill "$B6" 2>/dev/null; chmod -R u+w "$T" 2>/dev/null; rm -rf "$T"' EXIT INT TERM
 export HOME="$T/home"; mkdir -p "$HOME"   # LaunchAgents glob 이 실 홈을 안 보게
 git init -q --bare "$T/remote.git"; git init -q -b main "$R"; cd "$R" || exit 1
 git config user.email a@b.c; git config user.name t; echo base > f.txt; git add f.txt; git commit -qm base
@@ -36,7 +36,7 @@ git worktree add -q "$T/wt-squash" -b nano/squash
 ( cd "$T/wt-squash" && echo q > q.txt && git add q.txt && git commit -qm sq ); git merge --squash -q nano/squash >/dev/null 2>&1 && git commit -qm "squash nano/squash" && git push -q origin main
 git worktree add -q "$T/wt-cfg" -b nano/cfg
 git worktree add -q "$T/wt-busy" -b nano/busy
-perl -e 'chdir(shift) or die; open(my $f, ">", shift) or die; close $f; select(undef,undef,undef,undef)' "$T/wt-busy" "$T/busy.ready" & BUSY=$!
+perl -e 'chdir(shift) or die; open(my $f, ">", shift) or die; close $f; select(undef,undef,undef,60)' "$T/wt-busy" "$T/busy.ready" & BUSY=$!
 for _i in $(seq 1 2000); do [ -e "$T/busy.ready" ] && break; done
 git worktree add -q "$T/wt-broken" -b nano/broken; rm -f "$T/wt-broken/.git"
 snap(){ { git -C "$R" worktree list --porcelain; git -C "$R" for-each-ref --format='%(refname) %(objectname)'; git -C "$R" stash list; for w in "$@" ; do echo "$w $(git -C "$w" rev-parse HEAD 2>/dev/null) $(git -C "$w" status --porcelain 2>/dev/null | wc -l | tr -d ' ')"; done; } 2>&1; }
@@ -104,7 +104,7 @@ eq "P2 큰 갈래(60커밋) 줄도 7초 안 · KEEP:②" "$([ $((t2-t1)) -lt 700
 o2="$(cd "$T" && FT_WT_CENSUS_GIT="$T/slowgit" FT_WT_CENSUS_ROW_TIMEOUT=1 bash "$TOOL" --repo "$R" 2>/dev/null)"
 like "ⓓ 상한 초과 = 그 줄만 판정 불가" "$(printf '%s\n' "$o2" | awk -F'\t' -v p="$T/wt-unland" '$1==p{print $NF}')" '판정\ 불가:*초과'
 eq "ⓓ 전체는 계속(다른 줄 그대로)" "$(printf '%s\n' "$o2" | awk -F'\t' -v p="$T/wt-cfg" '$1==p{print $NF}')" "KEEP:⑥"
-st ⓓ; mut "$TOOL" "$T/m1.sh" 'busy "$p" && d5=1' ':'
+st ⓓ; mut "$TOOL" "$T/m1.sh" 'busy "$preal" && d5=1' ':'
 eq "M1 탐지 = ⑤ 삭제 → 점유 칸이 정리 가능" "$(cd "$T" && bash "$T/m1.sh" --repo "$R" --only "$T/wt-busy" 2>/dev/null | awk -F'\t' '{print $NF}')" "정리 가능"
 mut "$TOOL" "$T/m3.sh" 'v="판정 불가:git 실패"' 'v="정리 가능"'
 eq "M3 탐지 = git 실패를 정리 가능으로" "$(cd "$T" && bash "$T/m3.sh" --repo "$R" --only "$T/wt-broken" 2>/dev/null | awk -F'\t' '{print $NF}')" "정리 가능"
@@ -120,6 +120,25 @@ eq "ⓒ 재판정으로 건너뜀" "$(printf '%s' "$hs" | grep -c '재판정 바
 eq "ⓒ 지움 1" "$(printf '%s' "$hs" | grep -c '지움 1')" 1
 [ -d "$T/wt-squash" ] && ok "ⓒ 바뀐 줄은 남는다" || bad "ⓒ 바뀐 줄이 지워졌다"
 eq "ⓒ 가지 삭제 0" "$(git -C "$R" branch | grep -c 'nano/')" 10
+# ── DA r4 반례 R1~R6(#286094 · 기대 전부 KEEP · 미확인 = KEEP) ──
+git worktree add -q "$T/wt-r1a" -b nano/r1a; ( cd "$T/wt-r1a" && git update-index --assume-unchanged f.txt && echo user >> f.txt )
+eq "R1a assume-unchanged 숨은 변경" "$(cd "$T" && bash "$TOOL" --repo "$R" --only "$T/wt-r1a" 2>/dev/null | awk -F'\t' '{print $NF}')" "KEEP:①"
+git worktree add -q "$T/wt-r1b" -b nano/r1b; ( cd "$T/wt-r1b" && git update-index --skip-worktree f.txt && echo user >> f.txt )
+eq "R1b skip-worktree 숨은 변경" "$(cd "$T" && bash "$TOOL" --repo "$R" --only "$T/wt-r1b" 2>/dev/null | awk -F'\t' '{print $NF}')" "KEEP:①"
+git worktree add -q --detach "$T/wt-r2"; ( cd "$T/wt-r2" && echo d > d.txt && git add d.txt && git stash push -q -m "detached user work" )
+eq "R2 detached worktree 의 stash" "$(cd "$T" && bash "$TOOL" --repo "$R" --only "$T/wt-r2" 2>/dev/null | awk -F'\t' '{print $NF}')" "KEEP:①"
+git worktree add -q "$T/wt-r3" -b nano/r3; printf '{"p":"%s"}\n' "$(python3 -c 'import json,sys;print(json.dumps(sys.argv[1]).strip(chr(34)))' "$T/wt-r3")" > "$T/r3.json"
+eq "R3 JSON escape 설정 경로" "$(cd "$T" && FT_WT_CENSUS_CONFIG="$T/r3.json" bash "$TOOL" --repo "$R" --only "$T/wt-r3" 2>/dev/null | awk -F'\t' '{print $NF}')" "KEEP:⑥"
+git worktree add -q "$T/wt-r4" -b nano/r4; ( cd "$T/wt-r4" && for i in $(seq 1 210); do git commit -q --allow-empty -m "e$i"; done; echo u > uniq.txt; git add uniq.txt; git commit -qm uniq; git reset -q --hard HEAD~211 )
+eq "R4 reflog 상한 초과 = 미확인 KEEP:④" "$(cd "$T" && bash "$TOOL" --repo "$R" --only "$T/wt-r4" 2>/dev/null | awk -F'\t' '{print $NF}')" "KEEP:④"
+eq "R4 정렬·50컷 없음" "$(grep -c 'reflog show HEAD --format=%H 2>/dev/null | sort' "$TOOL")" 0
+git worktree add -q "$T/wt-r5" -b nano/r5; ( cd "$T/wt-r5" && echo m > merge-only.txt && git add merge-only.txt && git commit -qm one && git checkout -q -b r5b HEAD~1 && echo b > b.txt && git add b.txt && git commit -qm two && git checkout -q nano/r5 && git merge -q --no-ff r5b -m merge && echo m2 > merge-only2.txt && git add merge-only2.txt && git commit -q --amend --no-edit )
+like "R5 merge commit 전용 변경 = KEEP(② 포함)" "$(cd "$T" && bash "$TOOL" --repo "$R" --only "$T/wt-r5" 2>/dev/null | awk -F'\t' '{print $NF}')" 'KEEP:*②*' 
+A6="/tmp/r1688-alias.$$"; mkdir -p "$A6"; git -C "$R" worktree add -q "$A6" -b nano/r6 2>/dev/null
+perl -e 'chdir(shift) or die; open(my $f, ">", shift) or die; close $f; select(undef,undef,undef,60)' "$A6" "$T/r6.ready" & B6=$!
+for _i in $(seq 1 2000); do [ -e "$T/r6.ready" ] && break; done
+eq "R6 /tmp 별칭 입력도 점유 인식" "$(cd "$T" && bash "$TOOL" --repo "$R" --only "$A6" 2>/dev/null | awk -F'\t' '{print $NF}')" "KEEP:⑤"
+kill "$B6" 2>/dev/null; wait "$B6" 2>/dev/null; B6=""; git -C "$R" worktree remove --force "$A6" 2>/dev/null; rm -rf "$A6"
 st ⓒ; kill "$BUSY" 2>/dev/null; wait "$BUSY" 2>/dev/null; BUSY=""
 eq "프로세스 0(점유 프로세스 정리)" "$(pgrep -f "wt-busy" 2>/dev/null | wc -l | tr -d ' ')" 0
 echo "----"; eq "합계 fail" "$fail" 0; exit $((fail > 0))
