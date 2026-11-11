@@ -80,11 +80,12 @@ D='byz-planner-desk-claude#38'; PM='byz-planner-master-claude#94'; HM='byz-harne
 HN='byz-harness-nano-x#0'; OM='byz-other-master-claude#1'; DCODEX='byz-planner-desk-codex#3'
 # 표 = <이름>|<to>|<from>|<본문(\n = 개행)>|<기대 pass|reject>|<REJECT 사유 조각>
 TABLE=(
- "desk→팀장 보통|$HM|$D|[진행] r660 표 1 — 보고|reject|desk 는 planner 에게만 보내요"
- "desk→팀장 [HIL]|$HM|$D|[HIL] r660 표 2 — desk 사람 판정 요청\n①막힌 명령: x\n④선택지: a·b|reject|desk 는 planner 에게만 보내요"
- "desk→팀장 [긴급]|$HM|$D|[긴급] r660 표 3 — 급함|reject|desk 는 planner 에게만 보내요"
- "desk→팀 좌석|$HN|$D|[진행] r660 표 4 — 보고|reject|desk 는 planner 에게만 보내요"
- "옛 desk 다른 베이스→팀장|$HM|$DCODEX|[진행] r660 표 5 — codex desk|reject|desk 는 planner 에게만 보내요"
+ "desk→팀장 보통|$HM|$D|[진행] r660 표 1 — 보고|pass|"
+ "desk→팀장 [HIL]|$HM|$D|[HIL] r660 표 2 — desk 사람 판정 요청\n①막힌 명령: x\n④선택지: a·b|pass|"
+ "desk→팀장 [긴급]|$HM|$D|[긴급] r660 표 3 — 급함|pass|"
+ "desk→팀 좌석|$HN|$D|[진행] r660 표 4 — 보고|reject|desk 는 팀 master 또는 planner 에게만 보내요"
+ "desk→팀 좌석 [HIL]|$HN|$D|[HIL] r660 표 4b — desk 사람 판정 요청\n①막힌 명령: x\n④선택지: a·b|reject|desk 는 팀 master 또는 planner 에게만 보내요"
+ "옛 desk 다른 베이스→팀장|$HM|$DCODEX|[진행] r660 표 5 — codex desk|pass|"
  "desk→planner master|$PM|$D|[진행] r660 표 6 — 보고|pass|"
  "desk→planner master [HIL]|$PM|$D|[HIL] r660 표 7 — desk 사람 판정 요청\n①막힌 명령: x\n④선택지: a·b|pass|"
  "팀장→desk 보통|$D|$HM|[진행] r660 표 8 — 보고|reject|desk 에는 planner 가 보내요"
@@ -135,8 +136,8 @@ done
 [ "$sw" = 0 ] && ok "ⓖ 세 길 결과 표 동일(rc·큐 증감·판정 전부)" || bad "ⓖ 세 길 표가 다르다"
 { grep -q 'ft_desk_route_gate.py' "$COMM/mbox_desk_gate.py" && grep -q 'ft_desk_route_gate.py' "$KIT/ft-mbox.py" && [ -f "$GATE" ]; } \
   && ok "ⓖ 판정기 1개($(basename "$GATE"))를 키트·우편함 두 python 이 부름" || bad "ⓖ 판정기를 두 길이 안 부른다"
-[ "$(grep -c 'desk 는 planner 에게만 보내요' "$COMM/mbox_desk_gate.py" "$KIT/ft-mbox.py" | awk -F: '{s+=$2} END{print s}')" = 0 ] \
-  && grep -q 'desk 는 planner 에게만 보내요' "$GATE" \
+[ "$(grep -c 'desk 는 팀 master 또는 planner 에게만 보내요' "$COMM/mbox_desk_gate.py" "$KIT/ft-mbox.py" | awk -F: '{s+=$2} END{print s}')" = 0 ] \
+  && grep -q 'desk 는 팀 master 또는 planner 에게만 보내요' "$GATE" \
   && ok "ⓖ 사람 말 사유 문구 = 판정기 1곳에만(호출부 0)" || bad "ⓖ 사유 문구가 두 벌"
 
 # ── ⓘ 로그 쪽 경계: 지정 기록이 «h7abc» 뿐이면 h7 지정이 아니다(비단어 문자 경계)
@@ -164,8 +165,8 @@ OUT="$(_env bash "$R/.fable-team/comm/mbox.sh" relay "$D" "$HM" "$T/att1.txt" '[
 { [ "$RC" -ne 0 ] && [ "$(qrows "$D")" = "$b0" ]; } \
   && ok "ⓘ relay 는 요약 1줄 + 전문 1줄 = 2줄 → h 예외 불가 REJECT(전문까지 «1줄» 이어야 통과 · DA⑥ r1 ⓑ③)" || bad "ⓘ relay 1줄 rc=$RC :: ${OUT:0:200}"
 printf '[진행] r660 relay 직발\n' > "$T/att2.txt"
-b0="$(qrows "$HM")"; OUT="$(_env bash "$R/.fable-team/comm/mbox.sh" relay "$HM" "$D" "$T/att2.txt" '[진행] r660 relay 직발' 2>&1)"; RC=$?
-{ [ "$RC" -ne 0 ] && [ "$(qrows "$HM")" = "$b0" ]; } && ok "ⓘ relay desk→팀장 REJECT · 큐 0" || bad "ⓘ relay 직발 rc=$RC"
+b0="$(qrows "$HN")"; OUT="$(_env bash "$R/.fable-team/comm/mbox.sh" relay "$HN" "$D" "$T/att2.txt" '[진행] r660 relay 직발' 2>&1)"; RC=$?
+{ [ "$RC" -ne 0 ] && [ "$(qrows "$HN")" = "$b0" ]; } && ok "ⓘ relay desk→팀 좌석 REJECT · 큐 0(r1708: 팀장 직발은 통과 · 팀 좌석은 그대로)" || bad "ⓘ relay 직발 rc=$RC"
 
 # ── ⓗ 판정기 고장 = 세 길 다 REJECT(fail-closed · 사유 1줄) · 없음 = desk 쪽지만 REJECT
 new_root broken_gate; printf '#!/bin/sh\nexit 7\n' > "$T/badgate.sh"; chmod +x "$T/badgate.sh"
