@@ -31,7 +31,7 @@
 - 대상(쓰기 = 나노 · 팩 1곳): feature-pack/fable-team/legacy/1.x/harness/bin/ft-team-switch.sh(새) · ⓒ 표의 도구 머리(가드 1줄씩 · mbox.sh 원본 = legacy/1.x/harness/comm/mbox.sh) · legacy/1.x/harness/kit/fable-team/bin 같은 사본(kit 에 comm/mbox.sh 짝 없음 · mbox 짝은 ⓒ 표에서 나노가 확인) · 새 시험 legacy/1.x/harness/tests/test_team_switch_guard_r1675.sh · ★나노 쓰기 금지★ 라이브 설치 · 실 데이터 루트 · ft2/
 - 크기: 도구 ≤80줄 · 가드 함수 ≤20줄 + 입구마다 1줄 · 시험 ≤150줄
 - 정본 영향 없음: 1.x 도구 가드 · 정본 문서 변경 0
-- 배정: 대기(선행 · 2026-11-11T17:40)
+- 배정: 좌석 aifp-ft-nano-r1675-ft20-cond18-old-writer-block-switc#0
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -68,4 +68,7 @@ ft 2.0 조건 18 은 두 팀(harness·planner)을 2.0 으로 옮긴 뒤 1.x 쪽 
 | 표식 0 회귀 | 사례 ⓔ |
 
 ## 상태
+- base_sha: 816fa5e412a75e3e5801a642f8a9eb1fc39dbb98 (spawn 2026-11-11)
 - 2026-11-11 · arch-pi#298 카드 초안(#284592 ①) · 대기
+- 2026-11-11 18:30 — 대기→진행 · 좌석 aifp-ft-nano-r1675-ft20-cond18-old-writer-block-switc#0
+- [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
