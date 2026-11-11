@@ -448,8 +448,10 @@ class Scan:
         if rc != 0:
             return [f"판정 불가 auto-close close-due rc={rc} — 닫기 0"]
         sf = self.state_dir / "nano-auto-close.json"
-        try: tried: dict[str, str] = json.loads(sf.read_text(encoding="utf-8"))
-        except (OSError, ValueError): tried = {}
+        try:
+            tried: dict[str, str] = json.loads(sf.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            tried = {}
         stamp = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(self.now))
         lines: list[str] = []
         for ln in [x for x in out.splitlines() if x.startswith("닫기 차례 ") and "갈래=승인" in x]:
@@ -457,14 +459,18 @@ class Scan:
             head = next((t[4:] for t in ln.split() if t.startswith("set=")), "")
             cmd = ln.split(" — ", 1)[1] if " — " in ln else ""
             if not seat or not head or not cmd.startswith("bash ") or " --approved " not in cmd:
-                lines.append(f"{stamp} 판정 불가 auto-close 줄 해석 실패 — {ln[:120]}"); continue
-            if tried.get(seat) == head: continue
+                lines.append(f"{stamp} 판정 불가 auto-close 줄 해석 실패 — {ln[:120]}")
+                continue
+            if tried.get(seat) == head:
+                continue
             crc, cout = run(["bash", close, *shlex.split(cmd)[2:]], {**os.environ, "FT_NANO_AUTO_CLOSE": "1"}, 70)
             first = (cout.strip().splitlines() or [""])[0]
             if crc == 0 and first.startswith("CLOSED"):
-                tried.pop(seat, None); lines.append(f"{stamp} auto-close {first} set={head}")
+                tried.pop(seat, None)
+                lines.append(f"{stamp} auto-close {first} set={head}")
             else:
-                tried[seat] = head; lines.append(f"{stamp} auto-close 실패 {seat} rc={crc} — {first[:120]}")
+                tried[seat] = head
+                lines.append(f"{stamp} auto-close 실패 {seat} rc={crc} — {first[:120]}")
         try:
             sf.parent.mkdir(parents=True, exist_ok=True)
             (sf.parent / (sf.name + ".tmp")).write_text(json.dumps(tried), encoding="utf-8")

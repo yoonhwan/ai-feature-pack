@@ -50,7 +50,8 @@ cp "$BIN/ft-nano-close.sh" "$BIN/ft-nano-close-due.sh" "$BIN/ft-nano-accept.sh" 
 printf '#!/bin/sh\necho "QUIESCED $1 stub left=0"\n' > "$T/bin/ft-seat-quiesce.sh"
 printf '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n' > "$T/bin/ft-seat-reap.sh"
 printf '#!/bin/sh\necho "slots ok"\n' > "$T/bin/ft-nano-slots.sh"
-printf '#!/bin/sh\n[ "$1" = turn ] && { echo "IDLE - - - jsonl"; exit 0; }\nexit 1\n' > "$T/bin/ft-seat-status.sh"   # 승인 갈래 재계산용 좌석 상태 스텁
+printf '#!/bin/sh\n[ "$1" = turn ] && { echo "IDLE - - - jsonl"; exit 0; }\nexit 1\n' > "$T/bin/ft-seat-status.sh"
+printf '#!/bin/sh\necho "${FAKE_QUIET:-OK}"\n' > "$T/bin/quiet"   # 닫기 금지(ⓕ) 스텁 — BUSY <사유> 로 재현   # 승인 갈래 재계산용 좌석 상태 스텁
 cat > "$T/fake/tmux" <<'EOF'
 #!/usr/bin/env bash
 case "$1" in
@@ -73,7 +74,8 @@ setup() {  # 카드·판정문·명부·원장·스텁 로그를 «정상(승인
     "$H" "$REPO" "$H" > "$REPO/design/teams/harness/indices/진행/ok.md"
 }
 close() { ( cd "$REPO" && env -i HOME="$HOME" PATH="$T/fake:$PATH" FT_SHEET_ROOT="$T/sheet" \
-  FAKE_PANES="$T/panes" FAKE_CWD="$T/cwdseat" FAKE_LOG="$T/log" FT_PACK_ROOT="$T/pack" \
+  FAKE_PANES="$T/panes" FAKE_CWD="$T/cwdseat" FAKE_LOG="$T/log" FT_PACK_ROOT="$T/pack" FAKE_QUIET="${FAKE_QUIET:-OK}" \
+  FT_CLOSE_DUE_QUIET="$T/bin/quiet" \
   FT_SEATS_JSON="$REPO/.fable-team/seats-harness.json" FT_NANO_PREFIX=byz-harness-nano- FT_NANO_LEDGER="$T/ledger.md" \
   FT_INBOX_ROOT="$COMM" FT_NANO_IDLE_MIN=0 FT_WT_CLEAN_DIR="$T/wtclean" FT_WT_AUTOCLEAN=0 FT_ROOT="$REPO" \
   bash "$T/bin/ft-nano-close.sh" "$SEAT" --result "$T/result.md" --recv 3 "$@" 2>&1 ); }
@@ -103,6 +105,9 @@ eq "$RC" "1" "ⓓ 판정 HOLD → rc=1(REJECT)"
 has "$OUT" "DA 판정 값이 APPROVE 아님" "ⓓ 사유 = 게이트가 낸 APPROVE-REJECT(값 APPROVE 아님)"
 untouched "ⓓ HOLD"
 
+setup; FAKE_QUIET="BUSY 도구 셸 실행" OUT="$(close --approved "$REPO/design/harness/DA-ok.md")"; RC=$?   # ② AUTO=0 직접 재계산도 닫기 금지
+[ "$RC" -eq 1 ] && has "$OUT" "도구 셸 실행" "② 직접 재계산(AUTO=0)도 도구 셸이면 거절" || bad "② BUSY rc=$RC ← ${OUT:0:400}"
+untouched "② BUSY"
 setup; OUT="$(close --approved "$T/없는판정문.md")"; RC=$?
 [ "$RC" -eq 1 ] && has "$OUT" "--approved 판정문 없음" "ⓓ 없는 판정문 → REJECT" || bad "ⓓ 없는 판정문 rc=$RC"
 untouched "ⓓ 없는 판정문"

@@ -48,7 +48,7 @@
 #     «카드 못 찾음» 을 WARN 1줄로 바꾼다(꼬리 warn=세트불일치|카드없음 · 카드 없음이면 리포 = 좌석 가지 nano/<키> 가 사는 리포 하나(ROOT·팩 · 0곳·2곳 = REJECT)).
 #     gh 실패·착지 판정 실패·판정 불가·리포 못 정함 = REJECT 그대로(첫 줄 «③세션 없음: <좌석>» + 사유) · --landed-pr 없음·세션 있음·워크트리 있음(ABSENT) = 지금 길 그대로.
 #   ★r1670★ --approved <DA 판정문 경로> = «착지 전이지만 DA APPROVE·인수·원격 보존이 다 선» 나노를 닫는다. ⑤ cherry 와 ⑥ 착지 증거 대신 그 자리에서 승인 갈래를 «다시» 계산한다(ft-nano-close-due.sh --approve-gate · 7초 상한) — 거짓·판정 불가 = REJECT(닫기 0).
-#     조건 여섯 = 마지막 «세트:» = HEAD ∧ 카드 «DA 판정:» 판정문 첫 «판정:» 값 APPROVE(r1664 값 규칙) ∧ 그 판정문이 HEAD 를 적음 ∧ 마지막 «인수:» = HEAD(ft-nano-accept.sh) ∧ 세트·인수 줄 «뒤» HOLD·보정 요청·재개(--reopen) 0 ∧ HEAD 가 origin 원격 가지에 있음.
+#     조건 여섯 = 마지막 «세트:» = HEAD ∧ 카드 «DA 판정:» 판정문 첫 «판정:» 값 APPROVE(r1664 값 규칙) ∧ 그 판정문의 «승인 sha:» 줄 = HEAD(정확 대조) ∧ 마지막 «인수:» = HEAD(ft-nano-accept.sh) ∧ 세트·인수 줄 «뒤» HOLD·보정 요청·재개(--reopen) 0 ∧ HEAD 가 origin 원격 가지에 있음.
 #     나머지(①②③④ · 세션 kill · 명부 CLOSED · 원장 행)는 기존 경로 그대로 · ★브랜치·워크트리 삭제 0★(정리 계획도 만들지 않는다 · 산출이 아직 착지 전이다) · 원장 행·출력 꼬리 `approved=1 set=<HEAD>`. 다른 모드와 동시 = usage 2.
 #   --plan-only <워크트리 경로> = 이미 좌석이 사라졌는데 정리 계획이 없는 나노 워크트리의 «계획만» 만든다(r-disk-drop-worktree-scratch-census · ft-disk-census.sh --plan 이 부른다). ①②③ 종료조건·cherry 게이트·명부·원장 행·kill 전부 건너뛰고
 #     확인: 좌석 세션 0(tmux 조회 성공) · 그 경로가 이 리포 .worktrees/ 아래 등록 워크트리 · 가지가 nano/<좌석 키>[-rN]. 통과하면 <wt-clean>/<seat>.sh 생성 + `PLANNED <경로>` + exit 0 — 실행은 기존 ft-wt-sweep.sh. 착지 판정은 호출자(census) 몫이고, 원장에 닫힘 행이 없어도 계획은 표식 실패로 멈추지 않는다.
@@ -1719,7 +1719,7 @@ elif [ "$RESEARCH" = 1 ]; then   # r888-mut:research
   fi
 elif [ -n "$APPROVED" ]; then
   # r1670 승인 갈래: ⑤ cherry·⑥ 착지 증거를 면제하는 대신 «그 자리에서 ⓑ 를 다시 계산»한다(ft-nano-close-due.sh --approve-gate).
-  #   조건 = 마지막 «세트:» = HEAD ∧ 카드 «DA 판정:» 판정문의 첫 «판정:» 값 APPROVE(r1664) ∧ 그 판정문이 HEAD 를 적음 ∧ 마지막 «인수:» = HEAD ∧ 세트·인수 줄 뒤 HOLD·보정 요청·재개 0 ∧ HEAD 가 origin 원격 가지에 있음.
+  #   조건 = 마지막 «세트:» = HEAD ∧ 카드 «DA 판정:» 판정문의 첫 «판정:» 값 APPROVE(r1664) ∧ 그 판정문의 «승인 sha:» 줄 = HEAD(정확 대조) ∧ 마지막 «인수:» = HEAD ∧ 세트·인수 줄 뒤 HOLD·보정 요청·재개 0 ∧ HEAD 가 origin 원격 가지에 있음.
   #   거짓·판정 불가 = ⑥ REJECT(닫기 0 · kill·명부·원장·브랜치 손 0).
   if [ ! -f "$HERE/ft-nano-close-due.sh" ]; then bad+=("⑥승인 갈래 판정기 없음: $HERE/ft-nano-close-due.sh (런타임 bin 에 같이 복사)")
   elif [ ! -f "$APPROVED" ]; then bad+=("⑥--approved 판정문 없음: $APPROVED — 없는 판정문으로 닫지 않는다")

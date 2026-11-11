@@ -113,7 +113,7 @@ FT_APPROVE_VERDICT="$T/other.md" run --approve-gate "$SEAT"
 [ "$RC" -eq 1 ] && has "$OUT" "--approved 경로가 카드 «DA 판정:» 경로와 다름" "ⓑ 게이트 = 넘겨받은 판정문 ≠ 카드 판정문 → REJECT"
 verdict APPROVE "$M0"; AUTO=1 run --all --why   # 판정문이 «앞 세트» 를 적음
 hasnt "$OUT" "닫기 차례 $SEAT" "ⓑ 판정문 sha ≠ 지금 세트 → 승인 갈래 아님"
-has "$OUT" "를 적지 않음" "ⓑ 사유 = 판정문이 지금 세트를 안 적음"
+has "$OUT" "DA 판정문의 승인 sha ≠ HEAD" "ⓑ 사유 = 판정문의 «승인 sha:» 가 지금 세트와 다름"
 verdict HOLD "$H"; AUTO=1 run --all --why
 has "$OUT" "DA 판정 값이 APPROVE 아님" "ⓑ 값 HOLD → 승인 갈래 아님"
 for v in "APPROVE — 사유 있음" "APPROVE (조건 2개)"; do   # r1664 값 규칙
@@ -126,6 +126,14 @@ has "$OUT" "재개 뒤 세트 줄 없음(A12)" "ⓑ 인수 뒤 재개 줄 → �
 card "- 세트: $H" "$(printf -- '- DA 판정: %s/design/harness/DA-ok.md#§1\n' "$ROOT")" "- 인수: $H · 남은 일: 검증=arch · 쓴 이: m" "- 2026-11-11 DA HOLD · 보정 요청 1건"
 AUTO=1 run --all --why
 has "$OUT" "인수 뒤 «- 2026-11-11 DA HOLD" "ⓑ 인수 뒤 HOLD·보정 요청 줄 → 닫기 0"
+printf '단계별 초: 1\n\n# 승인 갈래 판정\n\n## §1 판정: APPROVE\n\n승인 sha: %s\n\n참고 후보: %s (미승인)\n' "$M0" "$H" > "$ROOT/design/harness/DA-ok.md"   # ① 본문에 HEAD 언급만 있고 승인 sha 는 앞 세트
+AUTO=1 run --all --why
+has "$OUT" "승인 sha ≠ HEAD" "① 판정문 본문에 HEAD 언급만(승인 sha 는 다른 세트) → 승인 갈래 아님"
+hasnt "$OUT" "닫기 차례 $SEAT" "① 본문 언급만으로는 닫기 차례 0"
+printf '단계별 초: 1\n\n## §1 판정: APPROVE\n\n승인 sha: %s\n승인 sha: %s\n' "$H" "$M0" > "$ROOT/design/harness/DA-ok.md"   # 승인 sha 두 줄(모호)
+AUTO=1 run --all --why
+has "$OUT" "«승인 sha:» 줄이 2개" "① 승인 sha 가 2개(모호) → 승인 갈래 아님"
+verdict APPROVE "$H"
 card "- 세트: $H" "$(printf -- '- DA 판정: %s/design/harness/DA-ok.md#§1\n' "$ROOT")"   # 인수 줄 없음
 AUTO=1 run --all --why; has "$OUT" "카드에 «인수:» 줄 없음" "ⓑ 인수 줄 없음 → 닫기 0"
 git -C "$T/wt" push -q origin :nano/ok   # 원격 가지 삭제 = 원격 보존 아님
@@ -141,7 +149,7 @@ verdict APPROVE "$HA"
 card "- 세트: $HA" "$(printf -- '- DA 판정: %s/design/harness/DA-ok.md#§1\n' "$ROOT")" "- 인수: $HA · 남은 일: 검증=arch · 쓴 이: m" "- 세트: $HB"
 AUTO=1 run --all --why; OC="$OUT"
 hasnt "$OC" "닫기 차례 $SEAT" "ⓒ 앞 세트 승인·인수 + 뒤 세트 B → 닫기 차례 0"
-has "$OC" "제외 $SEAT DA 판정문이 지금 세트 ${HB:0:9} 를 적지 않음" "ⓒ 사유 = 판정문이 지금 세트를 안 적음"
+has "$OC" "DA 판정문의 승인 sha ≠ HEAD ${HB:0:9}" "ⓒ 사유 = 판정문의 승인 sha 가 지금 세트와 다름"
 AUTO=1 run --summary; has "$OUT" "닫기 차례 harness=0" "ⓒ 요약 0"
 
 echo "== 변이 M1 — «APPROVE·인수를 HEAD 에 묶는» 대조 2개 삭제 → ⓒ 가 못 잡는다(변이 FAIL 기대)"
@@ -150,7 +158,7 @@ python3 - "$BIN/ft-nano-close-due.sh" "$MUT/ft-nano-close-due.sh" <<'PY'
 import sys
 src, dst = sys.argv[1], sys.argv[2]
 s = open(src, encoding="utf-8").read()
-drop = ['    if head not in vt: return False, f"DA 판정문이 지금 세트 {head[:9]} 를 적지 않음"\n',
+drop = ['    if shas.pop() != head: return False, f"DA 판정문의 승인 sha ≠ HEAD {head[:9]}(본문 언급만으로는 승인 0)"\n',
         '    if a_sha != head: return False, f"인수 {a_sha[:9]} ≠ HEAD {head[:9]}"\n']   # «APPROVE·인수를 HEAD 에 묶는» 두 대조
 for d in drop:
     assert d in s, "M1 앵커 없음"
@@ -172,9 +180,29 @@ FAKE_QUIET="BUSY pane 작업 중" AUTO=1 run --all --why; has "$OUT" "제외 $SE
 echo dirty > "$T/wt/dirty.txt"; FAKE_QUIET=OK AUTO=1 run --all --why; has "$OUT" "제외 $SEAT 미커밋 1줄" "ⓕ 미커밋 1줄 → 닫기 0"
 rm -f "$T/wt/dirty.txt"; mkdir -p "$T/wt/.serena"; echo noise > "$T/wt/.serena/project.yml"   # 미추적 잡음 한 줄(세트·HEAD 는 그대로)
 AUTO=1 run --all --why; has "$OUT" "닫기 차례 $SEAT 팀=harness 갈래=승인" "ⓕ 잡음 .serena/project.yml 한 줄은 미커밋으로 안 센다"
+FAKE_QUIET="BUSY 도구 셸 실행" run --approve-gate "$SEAT"   # ② AUTO=0 직접 재계산도 같은 닫기 금지
+[ "$RC" -eq 1 ] && has "$OUT" "APPROVE-REJECT $SEAT 도구 셸 실행" "② 직접 --approve-gate 도 도구 셸이면 거절" || bad "② 직접 재계산 rc=$RC ← ${OUT:0:300}"
+FAKE_QUIET="BUSY 미제출 입력" run --approve-gate "$SEAT"
+[ "$RC" -eq 1 ] && has "$OUT" "미제출 입력" "② 직접 재계산 = 미제출 입력도 거절" || bad "② 미제출 rc=$RC"
+FAKE_QUIET=OK run --approve-gate "$SEAT"; eq "$RC" "0" "② 조용하면 직접 재계산 rc0"
 FAKE_QUIET="__RC9__" AUTO=1 run --all; eq "$RC" "3" "ⓕ 조용함 조회 실패 = rc3(판정 불가)"
 has "$OUT" "판정 불가 $SEAT 조용함 조회 rc=9" "ⓕ 판정 불가 1줄(하드 룰 20)"
 
+echo "== 변이 M4 — «승인 sha == HEAD» 정확 대조 삭제 → ① 사례가 안 잡힌다(변이 FAIL 기대)"
+MUT4="$T/mut4"; mkdir -p "$MUT4"; cp "$BIN/ft_team_lib.py" "$MUT4/"
+python3 - "$BIN/ft-nano-close-due.sh" "$MUT4/ft-nano-close-due.sh" <<'PY4'
+import sys
+src, dst = sys.argv[1], sys.argv[2]
+s = open(src, encoding="utf-8").read()
+old = '    if shas.pop() != head: return False, f"DA 판정문의 승인 sha ≠ HEAD {head[:9]}(본문 언급만으로는 승인 0)"\n'
+assert old in s, "M4 앵커 없음"
+open(dst, "w", encoding="utf-8").write(s.replace(old, "", 1))
+PY4
+printf '단계별 초: 1\n\n## §1 판정: APPROVE\n\n승인 sha: %s\n\n후보: %s\n' "$M0" "$H" > "$ROOT/design/harness/DA-ok.md"
+DUE="$MUT4/ft-nano-close-due.sh" AUTO=1 run --all --why; OM4="$OUT"
+case "$OM4" in *"닫기 차례 $SEAT"*) ok "M4 변이 → 다른 sha 승인문으로도 닫기 차례(정확 대조가 잡고 있었다)";; *) bad "M4 변이에서도 닫기 차례 0 — 변이 무의미 ← ${OM4:0:300}";; esac
+
+verdict APPROVE "$H"; card "- 세트: $H" "$(printf -- '- DA 판정: %s/design/harness/DA-ok.md#§1\n' "$ROOT")" "- 인수: $H · 남은 일: 검증=arch · 쓴 이: m"   # 변이 앞 상태 복구(앞 사례가 남긴 승인문 지움)
 echo "== 변이 M3 — ⓕ 의 IDLE 확인 삭제 → WORKING 좌석이 닫기 차례로 열린다(변이 FAIL 기대)"
 MUT3="$T/mut3"; mkdir -p "$MUT3"; cp "$BIN/ft_team_lib.py" "$MUT3/"
 python3 - "$BIN/ft-nano-close-due.sh" "$MUT3/ft-nano-close-due.sh" <<'PY2'
@@ -189,6 +217,20 @@ printf 'WORKING 2026-11-11T01:00:00 - - jsonl\n' > "$T/ss/$SEAT"; FAKE_QUIET=OK
 DUE="$MUT3/ft-nano-close-due.sh" AUTO=1 run --all --why; OM3="$OUT"
 case "$OM3" in *"닫기 차례 $SEAT"*) ok "M3 변이 → WORKING 좌석이 닫기 차례(IDLE 확인이 실제로 잡고 있었다)";; *) bad "M3 변이에서도 닫기 차례 0 — 변이 무의미 ← ${OM3:0:300}";; esac
 printf 'IDLE - - - jsonl\n' > "$T/ss/$SEAT"
+
+verdict APPROVE "$H"; card "- 세트: $H" "$(printf -- '- DA 판정: %s/design/harness/DA-ok.md#§1\n' "$ROOT")" "- 인수: $H · 남은 일: 검증=arch · 쓴 이: m"   # 변이 앞 상태 복구
+echo "== 변이 M5 — ⓕ 를 «AUTO 만» 으로 되돌림 → ② 직접 재계산이 도구 셸을 못 본다(변이 FAIL 기대)"
+MUT5="$T/mut5"; mkdir -p "$MUT5"; cp "$BIN/ft_team_lib.py" "$MUT5/"
+python3 - "$BIN/ft-nano-close-due.sh" "$MUT5/ft-nano-close-due.sh" <<'PY5'
+import sys
+src, dst = sys.argv[1], sys.argv[2]
+s = open(src, encoding="utf-8").read()
+old = '    if AUTO or GATE:   # ⓕ 닫기 금지'
+assert old in s, "M5 앵커 없음"
+open(dst, "w", encoding="utf-8").write(s.replace(old, '    if AUTO:   # ⓕ 닫기 금지', 1))
+PY5
+FAKE_QUIET="BUSY 도구 셸 실행" DUE="$MUT5/ft-nano-close-due.sh" run --approve-gate "$SEAT"; OM5="$OUT"
+case "$OM5" in *APPROVE-OK*) ok "M5 변이 → 직접 재계산이 도구 셸을 무시(공통 검사가 잡고 있었다)";; *) bad "M5 변이에서도 거절 — 변이 무의미 ← ${OM5:0:300}";; esac
 
 echo "== 결과: FAIL=$fail"
 [ "$fail" -eq 0 ] && echo "ALL PASS" || exit 1

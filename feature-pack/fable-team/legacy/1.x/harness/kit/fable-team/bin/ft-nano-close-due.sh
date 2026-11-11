@@ -13,9 +13,9 @@
 #   시간(A17): 좌석당 바깥 호출 4개(squash 확인 때 5) · 호출마다 7초 · 좌석마다 7초 상한(fetch 는 리포당 1회·7초+재시도 1) · 전체 FT_CLOSE_DUE_BUDGET 초(기본 70) 넘으면
 #     남은 좌석 «판정 불가 <좌석> 시간 상한» 1줄씩 · 다음 --all 실행은 지난 회차 미조회 좌석부터(순서 이어받기 파일 1개 = <루트>/.fable-team/state/close-due-cursor.txt · 일반 파일 · 임시→mv).
 #   env: FT_ROOT|FT_REPO_ROOT(루트) · FT_CLOSE_DUE_BUDGET · FT_CLOSE_DUE_SEAT_STATUS(좌석 상태 도구 경로 · 시험용) · FT_CLOSE_DUE_CLOCK_STEP(시험용 가짜 시계: 좌석 1개당 N초)
-#   r1670 승인 갈래: `--approve-gate <좌석>` = 승인 갈래만 «다시» 계산한다(ft-nano-close.sh --approved 가 부른다 · env 무관). 조건 = 카드 «DA 판정:» 경로의 판정문 첫 `판정:` 값이 APPROVE(r1664 값 규칙) ∧ 그 판정문이 지금 HEAD(40hex)를 적음 ∧ 마지막 «인수:» sha = HEAD ∧ 세트·인수 줄 «뒤» 에 HOLD·보정 요청·재개(--reopen) 0 ∧ HEAD 가 origin 원격 가지에 있음(remote-tracking ref).
+#   r1670 승인 갈래: `--approve-gate <좌석>` = 승인 갈래만 «다시» 계산한다(ft-nano-close.sh --approved 가 부른다 · env 무관). 조건 = 카드 «DA 판정:» 경로의 판정문 첫 `판정:` 값이 APPROVE(r1664 값 규칙) ∧ 그 판정문의 «승인 sha: <40hex>» 줄이 지금 HEAD 와 정확히 같음(본문 언급만으로는 승인 0 · DA astra #284785 ①) ∧ 마지막 «인수:» sha = HEAD ∧ 세트·인수 줄 «뒤» 에 HOLD·보정 요청·재개(--reopen) 0 ∧ HEAD 가 origin 원격 가지에 있음(remote-tracking ref).
 #     출력 `APPROVE-OK <좌석> set=<HEAD> verdict=<경로>` rc 0 · 거짓 = `APPROVE-REJECT <좌석> <사유>` rc 1 · 조회 실패 = `판정 불가 …` rc 3 · usage 2.
-#   env FT_NANO_AUTO_CLOSE=1 일 때만 «승인 갈래» 를 닫기 차례 목록에 넣는다(기본 0 = 지금 출력 그대로 · r1670 ⓔ) · ⓕ 닫기 금지(도구 셸 실행 · pane 작업 중 · 미제출 입력)도 같은 env 에서만 건다(시험 스텁 FT_CLOSE_DUE_QUIET: 첫 줄 `OK` 또는 `BUSY <사유>`).
+#   env FT_NANO_AUTO_CLOSE=1 일 때만 «승인 갈래» 를 닫기 차례 목록에 넣는다(기본 0 = 지금 출력 그대로 · r1670 ⓔ) · ⓕ 닫기 금지(도구 셸 실행 · pane 작업 중 · 미제출 입력)는 AUTO=1 목록과 `--approve-gate` 직접 재계산 **둘 다**에 건다(DA astra #284785 ②)(시험 스텁 FT_CLOSE_DUE_QUIET: 첫 줄 `OK` 또는 `BUSY <사유>`).
 #   바꾸는 것 0: 명부·refs/heads·워크트리·tmux 그대로(remote-tracking origin/main 만 fetch 로 움직인다) · 순서 파일 외 쓰기 0.
 set -uo pipefail
 FT_CLOSE_DUE_HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; export FT_CLOSE_DUE_HERE
@@ -201,6 +201,7 @@ ACC_RE = re.compile(r"인수:\s*([0-9a-f]{40})")
 DA_LINE = re.compile(r"DA\s*판정\s*[:：]\s*(\S+)")
 VERDICT_LINE = re.compile(r"^\s*(?:#+[^:：]*|[-*]\s*)?판정\s*[:：]\s*(.*)$")
 APPROVE_VAL = re.compile(r"^APPROVE(?![A-Za-z])(?:\s*(?:—|–|-|\()(?:.*))?$")   # r1664 값 규칙: APPROVE · «APPROVE — …» · «APPROVE (…)»
+APPROVE_SHA = re.compile(r"^\s*(?:[-*]\s*)?승인\s*sha\s*[:：]\s*([0-9a-f]{40})\s*$")   # 판정문의 «명시 승인 SHA» 줄 — 본문의 sha 언급은 승인 근거가 아니다(DA astra #284785 ①)
 POST_BAD = re.compile(r"HOLD|보정\s*요청|재개\s*\(--reopen\)")   # 세트·인수 줄 «뒤» 에 있으면 승인 효력 0
 
 
@@ -215,7 +216,9 @@ def approve_ok(sec, head, root):   # 승인 갈래(ⓑ) → (True, 판정문 경
     if m is None: return False, "DA 판정문에 «판정:» 줄 없음"
     val = m.group(1).strip().strip("*`_ ")
     if not APPROVE_VAL.match(val): return False, f"DA 판정 값이 APPROVE 아님(«{val[:40]}»)"
-    if head not in vt: return False, f"DA 판정문이 지금 세트 {head[:9]} 를 적지 않음"
+    shas = {m.group(1) for l in vt.split("\n") for m in [APPROVE_SHA.match(l)] if m}
+    if len(shas) != 1: return False, f"DA 판정문의 «승인 sha:» 줄이 {len(shas)}개(정확히 1개여야 한다)"
+    if shas.pop() != head: return False, f"DA 판정문의 승인 sha ≠ HEAD {head[:9]}(본문 언급만으로는 승인 0)"
     acc = [n for n, l in enumerate(sec) if ACC_RE.search(l)]
     if not acc: return False, "카드에 «인수:» 줄 없음"
     a_sha = ACC_RE.search(sec[acc[-1]]).group(1)
@@ -306,7 +309,7 @@ def judge(t, k, row, card_dirs):   # → 줄 | None(제외 · exc 에 사유) ·
     if not head or not re.fullmatch(r"[0-9a-f]{40}", head): raise Unjudged("git status HEAD rc=1")
     if dirty: exc.append(f"제외 {k} 미커밋 {dirty}줄"); return None
     if sha_card != head: exc.append(f"제외 {k} 세트 {sha_card[:9]} ≠ HEAD {head[:9]}"); return None
-    if AUTO:   # ⓕ 닫기 금지 — 도구 셸·pane 작업 중·미제출 입력(지금 출력 그대로 = AUTO 0 에서 안 건다)
+    if AUTO or GATE:   # ⓕ 닫기 금지 — 목록(AUTO=1)과 직접 재계산(GATE) 공통 · 둘 다 아닐 때만 지금 그대로
         ok_q, why_q = quiet(k, cap)
         if not ok_q: exc.append(f"제외 {k} {why_q}"); return None
         chk()
