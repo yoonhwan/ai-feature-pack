@@ -110,8 +110,24 @@ def _bg_items(old):   # 옛 세션 pane 아래 백그라운드 명령(에이전�
     return out
 
 
-def _handovers(old, new):   # 옛→후계 기계 [인계] 전부(보낸 순)
-    return [r for r in _sent() if r.get("from") == old and r.get("to") == new and _head(r.get("body")) == "[인계]"]
+def _successor_open_seq(old):
+    """r1692 — 옛 좌석의 «후계 개설 쪽지» seq(도달 파일 <state>/successor/<옛>.json · state = FT_MBOX_STATE_DIR › CANON/../state).
+    그 쪽지는 머리가 [인계] 라 묶음에 세어지지만 항목 머리가 없어 ready·close 가 «형식 불명» 으로 영구 막힌다(#285416·#285446) · 없음·깨짐 = None(뺄 것 0)."""
+    if not old or "/" in old or old in (".", ".."):
+        return None
+    sd = os.environ.get("FT_MBOX_STATE_DIR") or os.path.join(CANON, "..", "state")
+    try:
+        with open(os.path.join(sd, "successor", old + ".json"), encoding="utf-8") as f:
+            seq = json.load(f).get("seq")
+    except (OSError, ValueError, AttributeError):
+        return None
+    return seq if isinstance(seq, int) else None
+
+
+def _handovers(old, new):   # 옛→후계 기계 [인계] 전부(보낸 순) — r1692: 개설 쪽지(도달 파일이 가리키는 seq) 1통은 묶음 밖
+    skip = _successor_open_seq(old)
+    return [r for r in _sent() if r.get("from") == old and r.get("to") == new
+            and _head(r.get("body")) == "[인계]" and r.get("seq") != skip]
 
 
 def _readies(new, old, after=0):   # 후계→옛 [레디] 중 seq > after(보낸 순)
