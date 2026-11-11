@@ -3,6 +3,7 @@
 #   ⓔ 원본 세 곳(BASE 트리 카드 · 원격 가지 이름 · 발급 원장)에 각각만 있는 번호를 심음 → next = 최댓값 + 1 · 원장에 먼저 적음
 #      같은 순간 두 번 호출 = 서로 다른 번호 2개 · ⓧ3 꼴(두 기준 가지에 같은 번호 · 다른 팀) → check rc1 + 다른 팀 자리 1줄 · 빈 번호 FREE rc0
 #      lint: 새 카드가 다른 팀 번호 = BAD · BASE 에 이미 있는 카드 = «기존 겹침 1» WARN · 카드 자리 아님 = 출력 0
+#   수정 1(규칙 ⓒ'): next 는 트리 최댓값+100 초과 가지 번호를 뺌(경계 포함) · check 는 가지 번호 전부(team=?)
 #   변이(사본): M2 가지 이름 원본을 뺌 → 그 원본에만 있는 번호(r30)를 넘지 못해 ⓔ FAIL
 # 임시 bare 원격 · 원장 = 임시 파일 · 실 리포·실 원장 0 · sleep 0
 set -uo pipefail
@@ -46,7 +47,7 @@ out="$(cd "$W" && bash "$KIT/ft-index-lint.sh" "design/teams/planner/indices/대
 
 M2="$T/mut-M2.sh"; python3 - "$BIN/ft-card-number.sh" "$M2" <<'PY' || { echo "FAIL M2 변이 적용 실패"; fail=$((fail+1)); }
 import sys
-s=open(sys.argv[1],encoding='utf-8').read(); a="bmax = max(branch_nums(root), default=(0, '-'))"; assert s.count(a)==1
+s=open(sys.argv[1],encoding='utf-8').read(); a="bmax = max((x for x in branch_nums(root) if x[0] <= tmax + BRANCH_GAP), default=(0, '-'))"; assert s.count(a)==1
 open(sys.argv[2],'w',encoding='utf-8').write(s.replace(a,"bmax = (0, '-')"))
 PY
 printf '20\tkk\tledger-only\t-\t2026-11-11T00:00:00\n' > "$FT_CARD_NUMBER_LEDGER"
@@ -54,5 +55,19 @@ git -C "$W" update-ref refs/remotes/origin/main "$M0"; git -C "$W" update-ref -d
 cn next harness m0; [ "$rc" = 0 ] && grep -q '^ISSUED r31 ' <<<"$out"; ck "ⓔ 원본 가지 30 이 최댓값일 때 r31" $?
 printf '20\tkk\tledger-only\t-\t2026-11-11T00:00:00\n' > "$FT_CARD_NUMBER_LEDGER"
 CN="$M2" cn next harness m2; [ "$rc" = 0 ] && grep -q '^ISSUED r31 ' <<<"$out"; [ $? != 0 ]; ck "M2 변이(가지 원본 뺌) → r31 아님(r21 · ⓔ FAIL 잡힘)" $?
+
+# 수정 1(planner#265 #285974 규칙 ⓒ'): next 만 «트리 최댓값 + 100 초과» 가지 번호를 뺀다 · check 는 가지 번호 전부 · 경계(최댓값+100) 포함
+mkrepo "$T/two"; export FT_CARD_NUMBER_LEDGER="$T/ledger2.tsv"
+card 'design/teams/planner/indices/완성/r1696-p.md'; cm "$W" "tree max 1696"; git -C "$W" push -q origin main
+git -C "$W" push -q origin "$M0:refs/heads/docs/knowledge-r3889-live-wording-20261103"; git -C "$W" fetch -q origin
+cn next planner gap-a; [ "$rc" = 0 ] && grep -q '^ISSUED r1697 .*branch:0(-)' <<<"$out"; ck "수정 ⓐ 트리 최대 r1696 + 가지 r3889 → next r1697(먼 가지 뺌)" $?
+git -C "$W" push -q origin "$M0:refs/heads/docs/team-r1697-card-before-land"; git -C "$W" fetch -q origin
+cn check r1697 planner; [ "$rc" = 1 ] && grep -qx 'USED r1697 team=? src=branch:docs/team-r1697-card-before-land' <<<"$out"; ck "수정 ⓑ 착지 전 docs 가지 r1697 → check r1697 rc1(가지 자리 1줄)" $?
+cn check r3889 planner; [ "$rc" = 1 ] && grep -q 'src=branch:docs/knowledge-r3889-live-wording-20261103$' <<<"$out"; ck "수정 ⓑ check 는 먼 가지 번호(r3889)도 그대로 셈" $?
+cn next planner gap-b; [ "$rc" = 0 ] && grep -q '^ISSUED r1698 ' <<<"$out"; ck "수정 ⓑ 그때 next r1698" $?
+git -C "$W" push -q origin "$M0:refs/heads/nano/r1797-just-over"; git -C "$W" fetch -q origin
+cn next planner gap-c0; [ "$rc" = 0 ] && grep -q '^ISSUED r1699 ' <<<"$out"; ck "수정 ⓒ 경계 밖(최대+101 = r1797) 가지는 next 에서 뺌 → r1699" $?
+git -C "$W" push -q origin "$M0:refs/heads/nano/r1796-edge"; git -C "$W" fetch -q origin
+cn next planner gap-c; [ "$rc" = 0 ] && grep -q '^ISSUED r1797 ' <<<"$out"; ck "수정 ⓒ 경계 = 최대+100(r1796) 가지는 next 에 포함 → r1797" $?
 echo "secs=$((SECONDS-S0)) fail=$fail"
 [ "$fail" = 0 ]

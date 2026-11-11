@@ -6,7 +6,8 @@
 #   첫 줄 = «BASE main=<sha40> ops=<sha40|없음>»(fetch = 25초 1회 + 재시도 1 · --no-fetch = 로컬 ref 그대로).
 #   next  = 세 원본 최댓값 + 1 을 잠금 안에서 원장에 «먼저» 적고 «ISSUED r<n> …» 출력(같은 번호 두 번 발급 0) · rc 0.
 #   check = 그 번호를 «다른 팀» 카드(①)·원장 행(③)이 쓰면 «USED r<n> team=<팀> src=<자리>» 줄 + rc 1 · 없으면 «FREE …» rc 0.
-#           ② 가지 이름은 팀을 알 수 없어 next 의 최댓값에만 쓴다.
+#           ② 가지 이름(팀 모름)은 check 에서 «USED … team=? src=branch:<가지>» 로 전부 센다(lint 는 ①·③ 만 — 자기 카드의 nano/docs 가지를 겹침으로 세지 않게).
+#   next 의 ② 는 «트리 최댓값 + BRANCH_GAP(100) 초과» 번호를 뺀다(다른 번호 체계 가지 · 예 docs/knowledge-r3889 · planner#265 결정 #285974) · 경계(= 최댓값+100)는 포함 · 원장·트리 원본은 그대로.
 #   lint <카드 파일> = ft-index-lint.sh 가 부르는 check(--no-fetch 고정 · 팀 = design/teams/<팀>/ 또는 design/<팀>/) — 다른 팀 사용이면
 #           그 카드가 이미 BASE 에 있으면 «WARN 기존 겹침 1» · 없으면 «BAD …» · 카드 자리가 아닌 파일 = 출력 0 · rc 0(판정 불가 = rc 3).
 #   2 = usage · 3 = 판정 불가 <칸> <사유>(git 실패 · 원장 꼴 오류 · 잠금 7초 초과).
@@ -18,6 +19,7 @@ import datetime, fcntl, os, re, signal, subprocess, sys
 USAGE = "usage: ft-card-number.sh next <팀> <slug> | check <r번호> <팀> | lint <카드 파일>  [--repo <dir>] [--no-fetch] [--base <main sha> <ops sha|->]"
 CARD_RX = re.compile(r'^design/(?:.*/)?indices/(?:.*/)?r(\d+)-[^/]*\.md$')
 BR_RX = re.compile(r'(?:^|[/_-])r(\d+)(?=[-_/.]|$)')
+BRANCH_GAP = 100   # next 전용: 트리 최댓값 + 이 값 초과인 가지 번호는 최댓값 계산에서 뺀다
 NAME_RX = re.compile(r'^[a-z0-9][a-z0-9._-]*$')
 ROW_RX = re.compile(r'^(\d+)\t([^\t]+)\t([^\t]+)\t([^\t]*)\t([^\t]+)$')
 
@@ -121,6 +123,7 @@ def main():
     if o['verb'] in ('check', 'lint'):
         used = [(t, src) for n, t, src in cards if n == o['num'] and t != o['team']]
         used += [(t, 'ledger:%d slug=%s' % (i, sl)) for n, t, sl, i in ledger_rows(ledger) if n == o['num'] and t != o['team']]
+        if o['verb'] == 'check': used += [('?', 'branch:%s' % b) for n, b in branch_nums(root) if n == o['num']]
         if o['verb'] == 'lint':
             if not used: sys.exit(0)
             where = ' '.join('team=%s src=%s' % u for u in used[:3])
@@ -132,8 +135,8 @@ def main():
         for t, src in used: print('USED r%d team=%s src=%s' % (o['num'], t, src))
         if used: sys.exit(1)
         print('FREE r%d team=%s' % (o['num'], o['team'])); sys.exit(0)
-    bmax = max(branch_nums(root), default=(0, '-'))
     tmax = max((n for n, _, _ in cards), default=0)
+    bmax = max((x for x in branch_nums(root) if x[0] <= tmax + BRANCH_GAP), default=(0, '-'))
     os.makedirs(os.path.dirname(ledger), exist_ok=True)
     signal.signal(signal.SIGALRM, lambda *_: die('잠금', '7초 초과 %s.lock' % ledger))
     with open(ledger + '.lock', 'a') as lk:
