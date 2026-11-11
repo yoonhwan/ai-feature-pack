@@ -24,6 +24,7 @@ except Exception:
 tool = data.get("tool_name", "")
 tin  = data.get("tool_input", {}) or {}
 
+
 # 경로에서 .fable-team/ 이후 상대부를 추출(절대/상대 무관). 없으면 원본 사용.
 def relpart(p):
     if not isinstance(p, str) or not p:
@@ -34,6 +35,16 @@ def relpart(p):
 
 # ── 전 역할 공통 deny: install.json · approvals/** (§0-2 L1) ──
 COMMON_DENY = re.compile(r'(^|/)install\.json$|(^|/)approvals(/|$)')
+# ── r1672: 라이브 설치 자리(ⓑ) — 직접 쓰기 금지(설치 = master h). 라이브 «읽기»(cat·cmp·diff·ls)는 쓰기 패턴이 없어 통과 ──
+PROTECT = re.compile(r'(^|[\s/])\.fable-team/bin(-[^/\s]*)?(/|\s|$)|(^|[\s/])\.pi/agent/extensions(/|\s|$)|(^|[\s/])fable-team/live(/|\s|$)|(^|[\s/])\.fable-team/comm/(mailbox[^/\s]*\.jsonl|bodies/|drops/)')
+def live_hit(path, rel):   # 파일 경로 — 정적 칸 + rel(bin*/comm) 꼴 · 실경로(심링크·..) 판정은 pi 확장(ⓐ·ⓑ)이 맡는다
+    return bool(PROTECT.search(str(path).replace(os.sep, "/")) or PROTECT.search(rel) or re.match(r'^bin(-[^/]*)?/', rel))
+def live_cmd(cmd):   # Bash — «쓰기 동사의 대상» 만 본다 · `bash .fable-team/bin/x.sh > /tmp/o` 같은 실행·읽기는 통과(ⓔ)
+    for seg in re.split(r'\|\||&&|[|;]', cmd):
+        m = re.search(r'(>>?|\btee\b|\bcp\b|\bmv\b|\binstall\b|\brsync\b|\bln\b|\bdd\b|\bsed\b[^|;]*?-i)\s+(.+)$', seg)
+        if m and PROTECT.search(m.group(2)):
+            return True
+    return False
 
 # 역할별 Write allowlist (rel 매치). 값이 None = 제한 없음(implementer/tester).
 ALLOW = {
@@ -49,8 +60,8 @@ ALLOW = {
 if tool in ("Write", "Edit", "MultiEdit", "NotebookEdit"):
     path = tin.get("file_path") or tin.get("notebook_path") or ""
     rel = relpart(path)
-    if COMMON_DENY.search(rel):
-        deny("전 역할 공통 금지 대상입니다(install.json·approvals/**): %s" % path)
+    if COMMON_DENY.search(rel) or live_hit(path, rel):
+        deny("전 역할 공통 금지 대상입니다(install.json·approvals/**·라이브 자리 r1672): %s" % path)
     pat = ALLOW.get(role, None)
     if pat is None:
         allow()   # implementer/tester 등 — 코드 수정이 본업, deny 없음(공통 deny만 적용)
@@ -65,8 +76,8 @@ if tool == "Bash":
         allow()
     writes = re.compile(r'(>>?|\btee\b|\bsed\b[^|;]*-i|\bcp\b|\bmv\b|\bdd\b|\binstall\b)')
     # 전 역할 공통: install.json·approvals/ 로의 쓰기 대표 패턴
-    if re.search(r'install\.json|\.fable-team/approvals/', cmd) and writes.search(cmd):
-        deny("전 역할 공통 금지(Bash 쓰기) — install.json·approvals 오염: %s" % cmd.strip()[:120])
+    if (re.search(r'install\.json|\.fable-team/approvals/', cmd) or live_cmd(cmd)) and writes.search(cmd):
+        deny("전 역할 공통 금지(Bash 쓰기) — install.json·approvals·라이브 자리(r1672) 오염: %s" % cmd.strip()[:120])
     # pm 역할: cairn/baton CLI 외 Bash 쓰기 명령 대표 deny
     if role == "pm" and writes.search(cmd):
         first = (cmd.strip().split() or [""])[0]
