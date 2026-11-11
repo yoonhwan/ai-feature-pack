@@ -48,11 +48,14 @@ def judge_plan(p: str) -> tuple[list[str], str | None]:
             return [], "판정기 7초"
         except OSError:
             return [], "판정기 실행 실패"
-        rejects = [x for x in r.stdout.splitlines() if x.startswith("reject ")]
-        if r.returncode == 0 and not rejects:
-            return [], None
-        if r.returncode == 1 and rejects:   # ★정상 검출은 지금처럼 수집★(DA R1)
-            return [f"{p}:{x.split(' ', 2)[1]} plan:{x.split(' ', 2)[2]}" for x in rejects], None
+        outs = r.stdout.strip()
+        if r.returncode == 0:   # 계약 = rc0 + «ok» 만 깨끗하다(그 밖 출력 = 판정 불가 · DA R2)
+            return ([], None) if outs == "ok" else ([], "판정기 출력 꼴")
+        if r.returncode == 1:   # ★정상 검출은 지금처럼 수집★ — 단 «reject <줄번호> <이유>» 문법일 때만(IndexError 0)
+            parts = [x.split(" ", 2) for x in outs.splitlines() if x.startswith("reject ")]
+            if not parts or any(len(x) != 3 or not x[1].isdigit() for x in parts):
+                return [], "판정기 출력 꼴"
+            return [f"{p}:{x[1]} plan:{x[2]}" for x in parts], None
         if r.returncode in (124,) and attempt == 1:
             continue
         return [], "판정기 rc=2" if r.returncode == 2 else "판정기 출력 꼴"

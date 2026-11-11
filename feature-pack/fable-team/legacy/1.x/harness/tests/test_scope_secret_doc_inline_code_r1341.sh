@@ -66,6 +66,11 @@ mkf s8 'design/teams/ccu/indices/대기/ccu-worker-cap-open-measure.md' \
 run "$CLS" "$SHA"; want "S8 6792 산문 → secret 0" 0 "CLASS "
 same "S8 기준판 대조" s8
 
+# S9 — 이중 백틱 구간 안 명령(DA R1): 같은 길이 run 끼리 짝 = 구간 전체를 판정 · 차례로 묶으면 안쪽 명령이 사라진다
+mkf s9 'design/teams/ops/indices/대기/s9.md' '실행: ``echo `env "$X" bash x.sh` ``'
+run "$CLS" "$SHA"; want "S9 이중 백틱 구간 안 «env» → secret(구간 전체 판정)" 3 "FORBID kind=secret"
+run "$BASE/autonomy_scope_classify.py" "$SHA"; want "S9 기준판도 검출(FORBID)" 3 "FORBID kind=secret"
+
 # 변이 — 사본에서만
 mut() {  # mut <이름> <원문> <바꿀 글>
   local d="$T/mut-$1"; rm -rf "$d"; mkdir -p "$d"; cp "$BIN"/autonomy_scope_*.py "$BIN"/ft_secret_*.py "$d"/
@@ -82,8 +87,12 @@ run "$T/mut-M1/autonomy_scope_classify.py" "$(git -C "$W" rev-parse s1)"; want "
 run "$T/mut-M1/autonomy_scope_classify.py" "$(git -C "$W" rev-parse s2)"; want "변이 1 A2 뺌 → S2 빨강" 3 "FORBID kind=secret"
 mut M2 'out += spans if spans is not None else [_promptless(shield.get(n, t))]' 'out += [] if n in inline else [_promptless(shield.get(n, t))]'
 run "$T/mut-M2/autonomy_scope_classify.py" "$(git -C "$W" rev-parse s3)"; want "변이 2 백틱 구간 버림 → S3' 빨강(0)" 0 "CLASS "
-mut M3 'if not runs or len(runs) % 2:' 'if not runs:'
+mut M3 '        if j is None:
+            return None   # 짝 없는 run = 닫힌 쪽(A3)' '        if j is None:
+            break   # 변이 = 짝 없는 run 을 버린다'
 run "$T/mut-M3/autonomy_scope_classify.py" "$(git -C "$W" rev-parse s6)"; want "변이 3 A3 홀수 처리 제거 → S6 빨강(0)" 0 "CLASS "
+mut M4 'j = next((k for k in range(i + 1, len(runs)) if runs[k][2] == n), None)' 'j = i + 1 if i + 1 < len(runs) else None   # 변이 = 길이 무시하고 차례로 묶기'
+run "$T/mut-M4/autonomy_scope_classify.py" "$(git -C "$W" rev-parse s9)"; want "변이 4 길이 무시 짝짓기 → S9 빨강(0)" 0 "CLASS "
 
 cmp -s "$BIN/autonomy_scope_secret.py" "$KIT/autonomy_scope_secret.py"; ck "kit 사본 cmp0" $?
 [ "$(stat -f %Lp "$HERE/test_scope_secret_doc_inline_code_r1341.sh")" = 644 ]; ck "새 시험 파일 모드 644(실행 비트 0)" $?

@@ -109,11 +109,20 @@ def _shield_fence(body):   # {줄 번호: 글} 코드 울타리 본문 — 문�
     return dict(zip(nums, out))
 
 
-def _inline_spans(t):   # 줄에서 «짝 맞는» 백틱 구간 글만 — 홀수(짝 안 맞음)면 None = 닫힌 쪽(줄 전체, r1341 A3)
-    runs = [(m.start(), m.end()) for m in re.finditer(r"`+", t)]
-    if not runs or len(runs) % 2:
+def _inline_spans(t):   # 줄에서 «짝 맞는» 백틱 구간 글만 — 짝 없는 run 이 있으면 None = 닫힌 쪽(줄 전체, r1341 A3)
+    # 마크다운 규칙(DA R1): 구간은 «같은 길이» run 끼리 짝이다 — ``a `b` c`` 는 이중 백틱 한 구간,
+    # 길이가 다른 run 은 구간 «안 글» 이다(차례로 묶으면 안쪽 명령이 사라진다).
+    runs = [(m.start(), m.end(), m.end() - m.start()) for m in re.finditer(r"`+", t)]
+    if not runs:
         return None
-    out = [t[runs[i][1]:runs[i + 1][0]].strip() for i in range(0, len(runs) - 1, 2)]
+    out, i = [], 0
+    while i < len(runs):
+        e, n = runs[i][1], runs[i][2]
+        j = next((k for k in range(i + 1, len(runs)) if runs[k][2] == n), None)
+        if j is None:
+            return None   # 짝 없는 run = 닫힌 쪽(A3)
+        out.append(t[e:runs[j][0]].strip())
+        i = j + 1
     return [x for x in out if x]
 
 

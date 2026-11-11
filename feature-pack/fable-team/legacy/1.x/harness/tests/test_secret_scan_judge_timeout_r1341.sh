@@ -25,6 +25,10 @@ if act == "rc2":
     sys.exit(2)
 if act == "reject":
     print("reject 1 비밀 조회 치환이 인자로 넘어감"); sys.exit(1)
+if act == "rc0weird":
+    print("unexpected"); sys.exit(0)
+if act == "rc1bad":
+    print("reject 1"); sys.exit(1)   # 이유 칸 없음 = 문법 위반
 if act == "weird":
     sys.exit(1)
 print("ok")
@@ -75,6 +79,15 @@ out="$(HOME="$T/home" FT_SECRET_SCAN_ROOT="$T/root" FT_MBOX_SH="$T/mbox.sh" FT_S
 ck "J6 진짜 검출 = new=1 · judge_unknown=0 · rc=0 · [HIL] 1통 ($(secs "$t"))" \
   "$([ "$rc" = 0 ] && grep -q 'new=1 judge_unknown=0' <<<"$out" && grep -q '\[HIL\]' "$T/mail.log" && echo 0 || echo 1)"
 
+# J7 — rc0 인데 «ok» 아닌 출력 = 판정 불가(계약 위반 · DA R2)
+reset; scan "$B" "rc0weird" "$T/plans/p1"
+ck "J7 rc0 + «ok» 아닌 출력 → 판정 불가 rc=$rc" \
+  "$([ "$rc" = 3 ] && grep -q '판정 불가 .*판정기 출력 꼴' <<<"$out" && grep -q 'judge_unknown=1' <<<"$out" && echo 0 || echo 1)"
+# J8 — rc1 + «reject 1»(이유 칸 없음) = 판정 불가 · IndexError 0
+reset; scan "$B" "rc1bad" "$T/plans/p1"
+ck "J8 rc1 문법 위반 → 판정 불가 rc=$rc · IndexError 0" \
+  "$([ "$rc" = 3 ] && grep -q '판정 불가 .*판정기 출력 꼴' <<<"$out" && ! grep -q 'IndexError' <<<"$out" && echo 0 || echo 1)"
+
 # 변이 — 사본에서만(실 파일 치환 0)
 mut() {  # mut <이름> <원문> <바꿀 글> → $T/mut-<이름>
   local d="$T/mut-$1"; rm -rf "$d"; mkdir -p "$d"; cp -p "$B"/ft-secret-scan.sh "$B"/ft_secret_*.py "$d"/
@@ -98,7 +111,15 @@ mut M2 'return [], "판정기 rc=2" if r.returncode == 2 else "판정기 출력 
 reset; scan "$T/mut-M2" "rc2" "$T/plans/p1"
 ck "변이 2 rc 확인 제거 → J2 빨강(rc=$rc · rc=2 를 깨끗으로 셈)" \
   "$([ "$rc" = 0 ] && grep -q 'judge_unknown=0' <<<"$out" && echo 0 || echo 1)"
-mut M3 'if r.returncode == 1 and rejects:' 'if r.returncode == 1 and rejects and False:'
+mut M4 'return ([], None) if outs == "ok" else ([], "판정기 출력 꼴")' 'return [], None'
+reset; scan "$T/mut-M4" "rc0weird" "$T/plans/p1"
+ck "변이 4 rc0 출력 확인 제거 → J7 빨강(rc=$rc)" \
+  "$([ "$rc" = 0 ] && grep -q 'judge_unknown=0' <<<"$out" && echo 0 || echo 1)"
+mut M5 'if not parts or any(len(x) != 3 or not x[1].isdigit() for x in parts):' 'if not parts:'
+reset; scan "$T/mut-M5" "rc1bad" "$T/plans/p1"
+ck "변이 5 reject 문법 검증 제거 → J8 빨강(rc=$rc · IndexError)" \
+  "$([ "$rc" != 3 ] && grep -q 'IndexError' <<<"$out" && echo 0 || echo 1)"
+mut M3 'return [f"{p}:{x[1]} plan:{x[2]}" for x in parts], None' 'return [], "판정기 출력 꼴"   # 변이 = 정상 검출도 판정 불가로 셈'
 reset; scan "$T/mut-M3" "reject" "$T/plans/p1"
 ck "변이 3 rc1 도 판정 불가로 셈 → J6 빨강(rc=$rc)" \
   "$([ "$rc" = 3 ] && grep -q '판정 불가' <<<"$out" && echo 0 || echo 1)"
