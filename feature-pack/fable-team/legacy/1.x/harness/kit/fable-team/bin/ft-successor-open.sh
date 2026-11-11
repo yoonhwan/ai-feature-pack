@@ -9,9 +9,21 @@
 #   송신 판정은 ft-send-verified 의 jsonl 도달 하나뿐이다(exit 0 만 성공). 2·5 면 같은 seq 로 ring 1회 + 재확인.
 #   mbox(R343·r607) = 대상 워크트리의 리포 것($ROOT 의 .fable-team/comm/mbox.sh · 워크트리 안 사본은 보지 않는다) — 없으면 REJECT rc2. 고른 폴더에 짝 파일 mbox_doorbell.sh 가 없으면 열기 «전» REJECT rc2. ★ft-role-spawn·ft-nano-spawn 은 «워크트리 = 이 리포(BYZ)» 전제라 이 결정 대상이 아니다★.
 #   r1116c: 이어가기는 boot-enter «전에» 도달 근거(후계 jsonl 제출 · 후계 발신 쪽지 · ft-reach-check)를 본다 · 도달 파일을 쓴 직후 같은 호출에서 ft-seat-retire <구> <후계>(실패해도 rc 는 도달 쪽 0).
-#   env(시험용): FT_SEND_VERIFIED · FT_MBOX_SH · FT_REACH_CHECK · FT_SEAT_RETIRE · FT_SO_WAIT_MAX(기동 대기 횟수 60) · FT_SO_POLL(간격 초 1)
+#   env(시험용): FT_SEND_VERIFIED · FT_MBOX_SH · FT_REACH_CHECK · FT_SEAT_RETIRE · FT_SO_WAIT_MAX(기동 대기 횟수 60) · FT_SO_POLL(간격 초 1) · FT_SO_BUDGET(한 실행 시간 상한 초 60)
+#   r1660: 관측할 수 없는 신호는 안 기다린다 — codex·cmd·opencode 는 SessionStart 를 claude projects 폴더에 쓰지 않아 매번 60초를 다 썼고,
+#     뒤에 붙는 송신·도달 확인까지 70초 상한(하드 룰 12·22)을 넘겨 래퍼가 끊었다(사건 = issues-master-sol#60 rc124 2회 · 기계 [인계] 0).
+#     그래서 ⓒ-2 를 갈래로 나누고, 한 실행이 FT_SO_BUDGET 을 넘기기 전에 단계 사이에서 rc5 + «다시 실행» 1줄로 넘긴다(이어가기는 아래 r609 그대로).
 set -uo pipefail
 [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
+# ★r1660 한 실행 시간 상한★ — T0 = 도구가 시작하는 자리(인자 검사·문지기까지 전체 경과). 남은 시간이 0 이면 «단계 사이» 에서 멈춘다.
+BUDGET="${FT_SO_BUDGET:-60}"; SO_T0="$(date +%s)"
+so_elapsed() { echo $(( $(date +%s) - SO_T0 )); }
+so_budget_ok() { [ "$(( BUDGET - $(so_elapsed) ))" -gt 0 ]; }
+so_budget_stop() {   # $1 = 멈춘 단계 이름 · rc5 = 열렸으나 도달 미확인(재실행이 같은 자리에서 잇는다 · r609)
+  echo "시간 상한 ${BUDGET}초 — «$1» 단계 앞에서 멈춘다(경과 $(so_elapsed)초 · 송신 0 · 도달 파일 0 · 구 좌석 닫기 0)"
+  echo "다음: 같은 인자로 다시 실행(이어가기 r609)"
+  exit 5
+}
 usage() { echo "usage: $0 <구 좌석> <워크트리> --name <후계> --agent claude|codex|cmd|opencode|pi --model M(sn=claude-sonnet-5-5 · op=claude-opus-5-5 · 팀장 이름이면 생략 시 claude-sonnet-5-5 · arch 이름(agent claude)이면 생략 시 claude-opus-5-5) [--carry 0|1] [--ctx C] [--effort E] --body-file F" >&2; exit 2; }
 [ $# -ge 2 ] || usage
 OLD="$1"; WT="$2"; shift 2
@@ -316,8 +328,11 @@ register_successor
 # ⓒ 에이전트 기동 확인 — pane pid 의 자식이 생길 때까지(BOOT 7 HARD GATE: pgrep 0건이면 send 금지). 상한 넘으면 송신 0.
 PID="$(tmux list-panes -t "=$NAME" -F '#{pane_pid}' 2>/dev/null | head -1)"
 up=0; i=0
-while [ "$i" -lt "$WAIT_MAX" ]; do i=$((i+1)); pgrep -P "$PID" >/dev/null 2>&1 && { up=1; break; }; sleep "$POLL"; done
-[ "$up" = 1 ] || { echo "REJECT $NAME 에서 에이전트 프로세스 기동 미확인(pgrep ${WAIT_MAX}회) — 송신 0"; hil "새 pane 을 사람이 확인"; exit 1; }
+while [ "$i" -lt "$WAIT_MAX" ] && so_budget_ok; do i=$((i+1)); pgrep -P "$PID" >/dev/null 2>&1 && { up=1; break; }; sleep "$POLL"; done
+[ "$up" = 1 ] || {
+  so_budget_ok || so_budget_stop "에이전트 기동 확인"   # 상한에 걸려 멈춘 것이면 REJECT(rc1) 아니라 재실행(rc5)
+  echo "REJECT $NAME 에서 에이전트 프로세스 기동 미확인(pgrep ${WAIT_MAX}회) — 송신 0"; hil "새 pane 을 사람이 확인"; exit 1
+}
 
 # ⓒ-1 이어가기 모드의 미제출 부팅 문장 (r925 r3) — 재실행으로 이어갈 때 tmuxc 가 넣은 부팅 문장이 입력줄에 남아 있어
 #   jsonl 이 안 생긴다(ops #56→#57 3회 정지). 판정은 tmuxc 한 곳(`tmuxc boot-enter`)이 한다 — 근거 = 그 좌석 세션 env 의
@@ -383,11 +398,17 @@ if [ "$RESUMED" = 1 ] && [ "$AGENT" = claude ]; then
 fi
 
 # ⓒ-2 새 좌석 jsonl 의 SessionStart — 실측 꼴(SessionStart 뒤 16초 Enter 미제출)을 줄이려 기다린다. 못 봐도 «미관측» 을 드러내고 송신(도달 판정은 아래 send-verified 몫).
+if [ "$AGENT" = codex ] || [ "$AGENT" = cmd ] || [ "$AGENT" = opencode ]; then
+  # ★r1660★ 이 셋은 claude projects 폴더에 SessionStart 를 «쓰지 않는다» — 관측할 수 없는 신호를 기다리면 그 자체가 상한을 넘긴다(대기 0 · «생략» 1줄)
+  echo "SessionStart 관측 생략($AGENT — 기록 없음) $NAME"
+else
 seen=0; i=0
-while [ "$i" -lt "$WAIT_MAX" ]; do i=$((i+1))
+while [ "$i" -lt "$WAIT_MAX" ] && so_budget_ok; do i=$((i+1))
   f="$(grep -lF "${SKEYS[@]}" "$JDIR"/*.jsonl 2>/dev/null)"
   [ -n "$f" ] && printf '%s\n' "$f" | xargs grep -lF "$SMARK" >/dev/null 2>&1 && { seen=1; break; }; sleep "$POLL"; done
 [ "$seen" = 1 ] && echo "SessionStart 관측 $NAME" || echo "SessionStart 미관측 $NAME (${WAIT_MAX}회) — 송신 후 도달 판정으로 확인"
+fi
+so_budget_ok || so_budget_stop "검증 송신"   # 송신 «전» 에만 멈춘다 — 송신 뒤에 멈추면 재실행이 두 번 보낸다
 
 # ⓓ 검증 송신 — 본문은 mbox 큐 · 창엔 doorbell 한 줄 · 도달은 jsonl 층(ft-send-verified exit 0 만 성공)
 # ★r1034 팀장 승계 «이월 0» 줄★: 사고 확대 키워드의 효과는 세션을 넘어가지 않는다 — 팀장 후계 본문 끝에 그 뜻을 한 줄 붙인다.
