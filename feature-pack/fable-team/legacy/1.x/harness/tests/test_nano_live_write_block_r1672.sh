@@ -26,7 +26,7 @@ bash -n "$SPAWN" && bash -n "$WG" && bash -n "$0" && ok "S5 bash -n 3종" || bad
 T="$(mktemp -d "${TMPDIR:-/tmp}/r1672.XXXXXX")"; trap 'rm -rf "$T"' EXIT
 export HOME="$T/home"; R="$T/root"; R2="$T/root2"; L="$HOME/.claude/fable-team/live/1.1.292/bin"; X="$T/ext"
 mkdir -p "$L" "$R/.fable-team/comm/bodies" "$R/.fable-team/bin" "$R2/.fable-team/bin" "$HOME/.pi/agent/extensions" "$T/pack"
-printf '%s\n' "$L" > "$R/.fable-team/LIVE_BIN"; : > "$L/ft-x.sh"; ln -s "$HOME/.claude/fable-team/live" "$T/link"
+printf '%s\n' "$L" > "$R/.fable-team/LIVE_BIN"; : > "$L/ft-x.sh"; ln -s "$HOME/.claude/fable-team/live" "$T/link"; ln -s "$L" "$T/alias"
 cp "$GUARD" "$X.ts"; cp "$H/pi/ft-load-line.ts" "$T/"
 mkdir -p "$T/node_modules/@earendil-works/pi-coding-agent"
 printf '{"name":"@earendil-works/pi-coding-agent","type":"module","main":"index.mjs","exports":"./index.mjs"}\n' > "$T/node_modules/@earendil-works/pi-coding-agent/package.json"
@@ -44,6 +44,10 @@ const cases = [
   ["b-symlink", "write", { path: `${process.env.T}/link/1.1.292/bin/ft-x.sh` }],
   ["b-dotdot", "write", { path: `${L}/../1.1.292/bin/ft-x.sh` }],
   ["b-tilde", "write", { path: "~/.claude/fable-team/live/1.1.292/bin/ft-x.sh" }],
+  ["r1-nospace", "bash", { command: `echo text>${L}/ft-x.sh` }],
+  ["r1-livebin", "bash", { command: 'cp a.ts "$LIVE_BIN/ft-x.sh"' }],
+  ["r1-home", "bash", { command: 'cp a.ts "$HOME/.pi/agent/extensions/ft-x.ts"' }],
+  ["r2-alias", "write", { path: `${process.env.T}/alias/../bin/ft-x.sh` }],
   ["c-bin", "write", { path: `${R}/.fable-team/bin/ft-x.sh` }],
   ["c-comm", "bash", { command: `echo x >> ${R}/.fable-team/comm/mailbox.jsonl` }],
   ["c-ext", "write", { path: `${process.env.HOME}/.pi/agent/extensions/ft-x.ts` }],
@@ -53,7 +57,7 @@ const cases = [
 ];
 for (const [n, t, i] of cases) console.log(`CASE ${n} ${(await h.tool_call({ toolName: t, input: i }))?.block ? "BLOCK" : "PASS"}`);
 NODE
-drive(){ EXT="$1" FT_LIVE_ROOT="$2" FT_SEAT_NAME="${3:-byz-harness-nano-r1672-x#0}" T="$T" node "$T/driver.mjs" 2>"$T/err"; }
+drive(){ EXT="$1" FT_LIVE_ROOT="$2" FT_SEAT_NAME="${3:-byz-harness-nano-r1672-x#0}" LIVE_BIN="$L" T="$T" node "$T/driver.mjs" 2>"$T/err"; }
 one(){ printf '%s\n' "$1" | awk -v c="$2" '$1=="CASE"&&$2==c{print $3}'; }
 expect(){ eq "$2" "$(one "$1" "$2")" "$3"; }
 pairs(){ local o="$1"; shift; for p in "$@"; do expect "$o" "${p% *}" "${p#* }"; done; }
@@ -61,6 +65,7 @@ pairs(){ local o="$1"; shift; for p in "$@"; do expect "$o" "${p% *}" "${p#* }";
 # ── ⓐⓑⓒⓔⓗ : 나노 좌석 ──
 out="$(drive "$X.ts" "$R")"
 pairs "$out" "a-write BLOCK" "a-edit BLOCK" "a-bash-cp BLOCK" "b-symlink BLOCK" "b-dotdot BLOCK" "b-tilde BLOCK" \
+  "r1-nospace BLOCK" "r1-livebin BLOCK" "r1-home BLOCK" "r2-alias BLOCK" \
   "c-bin BLOCK" "c-comm BLOCK" "c-ext BLOCK" "e-pack PASS" "e-bash PASS" "e-read PASS" "e-mbox PASS"
 eq "loadline" "$(one "$out" loadline)" OK
 LOG="$R/.fable-team/state/live-write-block.log"
@@ -72,13 +77,19 @@ pairs "$(drive "$X.ts" "$R" "byz-harness-master-pi#196")" "a-write PASS" "a-bash
 out="$(drive "$X.ts" "$R2")"; expect "$out" c-bin BLOCK; expect "$out" a-write PASS
 has "F1 NOTE 1줄" "$(cat "$T/err")" "NOTE ft-live-write-guard"; has "F2 판정 불가 문구" "$(cat "$T/err")" "판 폴더 칸 판정 불가"
 # ── ⓒ claude worker-guard 칸 · ⓖ 회귀 ──
-wg(){ printf '%s' "$1" | FT_WORKER_ROLE=implementer bash "$WG" >/dev/null 2>&1; echo $?; }
+wg(){ printf '%s' "$1" | FT_WORKER_ROLE=implementer FT_LIVE_ROOT="$R" FT_SEAT_NAME=byz-harness-nano-worker#0 bash "$WG" >/dev/null 2>&1; echo $?; }
 eq "C1 Write 라이브 = deny" "$(wg "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$L/ft-x.sh\"}}")" 2
 eq "C2 Bash cp 라이브 = deny" "$(wg "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"cp a.sh $L/ft-x.sh\"}}")" 2
 eq "C3 Bash 읽기 라이브 = 통과" "$(wg "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"cat $L/ft-x.sh\"}}")" 0
 eq "C4 팩 코드 쓰기 = 통과" "$(wg '{"tool_name":"Write","tool_input":{"file_path":"/tmp/pack/a.ts"}}')" 0
 eq "G1 install.json deny 유지" "$(wg '{"tool_name":"Write","tool_input":{"file_path":"/x/install.json"}}')" 2
 eq "G2 FT_WORKER_ROLE 없음 = 통과(fail-open)" "$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s"}}' "$L/ft-x.sh" | bash "$WG" >/dev/null 2>&1; echo $?)" 0
+# ── ⓒ worker R3·R4 (DA 반례 그대로) ──
+for c in "ln -s s $L/r3f" "rsync s $L/r3f" "echo t>$L/r3f" "cp a $L/r3f"; do
+  eq "R3 데몬 deny :: $c" "$(wg "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"$c\"}}")" 2
+done
+eq "R3 라이브 원본 → /tmp cp = 허용" "$(wg "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"cp $L/ft-x.sh /tmp/copy\"}}")" 0
+eq "R4 worker 거절 1줄" "$(grep -c "$L/r3f" "$LOG")" 1
 # ── ⓓ 발주문 고정 문단(정의·본문·dry-run 출력) ──
 eval "$(grep -m1 '^_LWX=' "$SPAWN")"
 has "D1 설치 = master 몫" "$_LWX" "«설치:»·«켜기» 줄 = master 몫(나노 지시 아님)"

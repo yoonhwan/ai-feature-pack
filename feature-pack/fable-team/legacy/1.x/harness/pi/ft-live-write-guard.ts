@@ -1,8 +1,7 @@
 // ft-live-write-guard (r1672) — 나노 좌석(pi)이 «라이브 설치 자리» 에 직접 쓰지 못하게 tool_call 문지기에서 거절한다.
 //  · 라이브 자리 = <루트>/.fable-team/LIVE_BIN 첫 줄의 부모 live/ 아래 전부(판 폴더 포함) · <루트>/.fable-team/bin*(bin·bin-<팀>) · <루트>/.fable-team/comm 원장 «직접 쓰기»(mailbox*.jsonl · bodies/ · drops/) · ~/.pi/agent/extensions
-//  · 나노 꼴 = FT_SEAT_NAME(없으면 FT_SEAT) 에 팀 나노 접두(예 byz-harness-nano-) · 그 밖 좌석·좌석 미상 = 통과(ⓔ)
-//  · 판정 = realpath 비교(심링크·`..`·`~` 우회 0) · LIVE_BIN 못 읽음 = 그 칸 없이 나머지 칸으로 판정 + NOTE 1줄(도구 호출은 막지 않는다 · 하드 룰 20)
-//  · 거절마다 <루트>/.fable-team/state/live-write-block.log 1줄(시각·좌석·도구·대상 · 같은 좌석·같은 대상 1회 · 일반 파일 · 하드 룰 19)
+//  · 나노 모양 = FT_SEAT_NAME(없으면 FT_SEAT) 에 팀 나노 접두(예 byz-harness-nano-) · 그 밖 좌석·좌석 미상 = 통과(ⓔ) · 판정 = realpath(심링크·`..`·`~`·$VAR 우회 0)
+//  · 거절마다 <루트>/.fable-team/state/live-write-block.log 1줄(시각·좌석·도구·대상 · 같은 좌석·같은 대상 1회 · 일반 파일 · 하드 룰 19) · LIVE_BIN 못 읽음 = 그 칸 없이 판정 + NOTE 1줄(하드 룰 20)
 //  · 설치 = ~/.pi/agent/extensions 복사 1개 + pi 재시작(master h) · env = FT_SEAT_NAME · FT_LIVE_ROOT · 시험 = tests/test_nano_live_write_block_r1672.sh
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -23,21 +22,23 @@ export function rootOf(): string {
   } catch { /* git 밖 = cwd */ }
   return process.cwd();
 }
-// realpath — 없는 꼬리는 «있는 조상» 까지 실제 경로로 풀고 나머지를 붙인다(심링크·..·~ 우회 차단)
+// realpath — 「성분벌로 풀고 `..` 는 «푼 부모» 에서 올라간다(심링크+.. 합성 우회 차단 · $VAR·~ 확장)
 export function realish(p: string): string {
-  let s = String(p || "").trim().replace(/^["']|["']$/g, "");
+  let s = String(p || "").trim().replace(/^["']|["']$/g, "").replace(/\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?/g, (_, k) => process.env[k] ?? "");
   if (!s) return "";
   if (s === "~" || s.startsWith("~/")) s = (process.env.HOME ?? "") + s.slice(1);
-  let cur = path.resolve(s), tail = "";
-  while (cur !== path.dirname(cur)) {
-    try { return path.join(fs.realpathSync.native(cur), tail); } catch { tail = path.join(path.basename(cur), tail); cur = path.dirname(cur); }
+  let cur = s.startsWith("/") ? path.sep : process.cwd();
+  for (const c of s.split("/")) {
+    if (!c || c === ".") continue;
+    if (c === "..") { cur = path.dirname(cur); continue; }
+    const nx = path.join(cur, c);
+    try { cur = fs.realpathSync.native(nx); } catch { cur = nx; }
   }
-  return path.join(cur, tail);
+  return cur;
 }
 // 라이브 자리 칸 — LIVE_BIN 못 읽음 = note 1줄(그 칸 없이 판정 · 조용한 통과 0)
 export function liveRoots(root: string): { roots: string[]; note: string } {
-  const roots: string[] = [], ft = path.join(root, ".fable-team"), ptr = path.join(ft, "LIVE_BIN");
-  let n = "";
+  const roots: string[] = [], ft = path.join(root, ".fable-team"), ptr = path.join(ft, "LIVE_BIN"); let n = "";
   try {
     const line = (fs.readFileSync(ptr, "utf-8").split("\n")[0] ?? "").trim();
     if (line) roots.push(realish(path.dirname(path.dirname(line)))); // 판 폴더의 부모 = live/
@@ -50,8 +51,7 @@ export function liveRoots(root: string): { roots: string[]; note: string } {
 // comm 은 «직접 쓰기» 만 — mbox.sh send|recv|ready 호출은 명령 글자에 원장 경로가 없어 통과한다(ⓑ)
 export function blockedBy(p: string, root: string, roots: string[]): string {
   for (const b of roots) if (b && under(p, b)) return b;
-  const d = realish(path.join(root, ".fable-team", "comm"));
-  const rel = under(p, d) ? path.relative(d, p).split(path.sep).join("/") : "";
+  const d = realish(path.join(root, ".fable-team", "comm")), rel = under(p, d) ? path.relative(d, p).split(path.sep).join("/") : "";
   return /^mailbox[^/]*\.jsonl$/.test(rel) || /^(bodies|drops)(\/|$)/.test(rel) ? d : "";
 }
 // 한 명령의 인자 = 다음 shell 연산자 앞까지(;·&&·|·리다이렉션 에서 끊는다)
@@ -62,9 +62,9 @@ const argsOf = (toks: string[], i: number): string[] => { const a: string[] = []
 export function bashTargets(cmd: string): string[] {
   const out: string[] = [], toks = (cmd.match(/"[^"]*"|'[^']*'|[^\s"']+/g) ?? []).map((t) => t.replace(/^["']|["']$/g, ""));
   for (let i = 0; i < toks.length; i++) {
-    const t = toks[i], base = path.basename(t), r = /^(?:[0-9]?>>?)(.+)$/.exec(t);
+    const t = toks[i], base = path.basename(t), gt = t.lastIndexOf(">");
     if ((t === ">" || t === ">>") && toks[i + 1]) out.push(toks[i + 1]);              // `> 파일`
-    else if (r && r[1] && !r[1].startsWith("&")) out.push(r[1]);                       // `>파일`
+    else if (gt >= 0) { const tgt = t.slice(gt + 1); if (tgt && !tgt.startsWith("&")) out.push(tgt); }   // `>파일`·`text>파일`(R1)
     if (t.startsWith("of=") && t.length > 3) out.push(t.slice(3));                     // dd of=파일
     if (!WRITE_CMDS.test(base)) continue;
     const args = argsOf(toks, i);
