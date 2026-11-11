@@ -140,15 +140,15 @@ export default function (pi: ExtensionAPI) {
     writeSeq(seq); wakePending = true; // 성공한 깨움 = 배달 대기 1개(세션 시작 회수 포함 · DA HOLD R1) — agent_start 에서 소비
     if (viaNudge) fs.rmSync(nudge, { force: true }); // nudge 삭제 = 깨운 뒤
   }
-  // ★r1669★ true = 이번 깨움 억제 · false = 지금 동작 그대로(표식 없음 ⓔ · 후계·직전 세대 표식 ⓓ · 첫 억제 1회 · 새 쪽지 1회 더 ⓒ)
-  function recvGate(rows: Row[], seq: number): boolean {
+  // ★r1669★ true = 이번 깨움 억제 · false = 지금 동작 그대로(표식 없음 ⓔ · 후계·직전 세대 표식 ⓓ · 첫 억제 1회 · 새 쪽지 1회 더 ⓒ) · recordOnly(nudge 예약분) = .gated·팀장 알림은 하되 억제 0(DA R1)
+  function recvGate(rows: Row[], seq: number, recordOnly: boolean): boolean {
     let body = "";
     try { body = fs.readFileSync(markerFile, "utf-8"); } catch { try { fs.rmSync(gated, { force: true }); fs.rmSync(gatedMark, { force: true }); } catch { /* 표식 없음 */ } return false; } // ⓔ 표식이 사라짐 = 억제 기록 무시
     const owner = (body.match(/(?:^|\s)seat=(\S+)/) ?? [])[1] ?? ""; // 표식 본문의 좌석(#N 포함 · 옛 파일 = "")
     if (owner !== seat) return false; // ⓓ 후계(같은 베이스 · 다른 #N)·직전 세대 표식 = 이 카드 억제 0
     let last = -1;
     try { const n = Number(fs.readFileSync(gated, "utf-8").trim()); if (Number.isFinite(n)) last = n; } catch { /* 첫 억제 */ }
-    if (last >= seq) return true; // ⓐ 같은 미읽음 = 깨움·팀장 알림 0
+    if (last >= seq) return !recordOnly; // ⓐ 같은 미읽음 = 깨움·팀장 알림 0 · nudge 예약분은 깨운다(이미 예약된 턴 · 재차감 0)
     try { fs.mkdirSync(wakeDir, { recursive: true }); fs.writeFileSync(gated, `${seq}\n`); } catch (e) { fail(`억제 기록 실패 ${gated} — ${e}`); } // ⓒ 새 쪽지 = 1회 더(.gated 갱신)
     let told = "";
     try { told = fs.readFileSync(gatedMark, "utf-8"); } catch { /* 아직 안 알림 */ }
@@ -168,7 +168,7 @@ export default function (pi: ExtensionAPI) {
     const seq = Math.max(...rows.map((r) => r.seq));
     const viaNudge = fs.existsSync(nudge); // r1476 sweep 이 이미 예약했다 — 재예약 0(이중 차감 0)
     if (!force && !viaNudge && readSeq() >= seq) return; // 턴 진행 중 중복 억제
-    if (!viaNudge && recvGate(rows, seq)) return; // ★r1669★ 증류 게이트 좌석 = 같은 미읽음에 깨움 1회(예산·턴 0) — nudge 예약분은 그대로
+    if (recvGate(rows, seq, viaNudge)) return; // ★r1669★ 증류 게이트 좌석 = 같은 미읽음에 깨움 1회(예산·턴 0) — nudge 예약분은 .gated 기록만 하고 깨운다(재차감 0 · DA R1: 건너뛰면 같은 seq 로 또 깨운다)
     const exempt = loud(rows) || rows.some((r) => humanSender(r.from, master)); // 예산 밖(카드 ④)
     if (!viaNudge && !exempt) {
       const rc = reserve();
