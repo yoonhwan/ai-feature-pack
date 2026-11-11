@@ -280,8 +280,8 @@ rm -f "$R/design/alpha/indices/진행/done1.md" "$R/design/alpha/indices/진행/
 o="$(sp)"; hasnt "$o" "WARN 카드 흐름" "ⓔ 건강(진행 2 ≤ 좌석 2+2 · K 0) → 경보 0"
 # ⓔ-3 r1292: 진행 > 좌석 + 2 인 팀의 «대기» 카드 spawn 은 이제 막는다(REJECT 1줄) — 옛 WARN 줄은 FT_CARD_CAP=0(끄기) 에서만
 card 진행 o1; card 진행 o2; card 진행 o3; sess "byz-alpha-master-claude#1" "byz-alpha-nano-other#0"
-o="$(sp)"; has "$o" "REJECT 카드 상한 — alpha 진행 5(좌석 0) > 0+2" "ⓔ-3 r1292 상한 넘으면 대기 spawn 막힘"
-o="$(FT_CARD_CAP=0 sp)"; has "$o" "WARN 카드 흐름 — alpha 진행 5(좌석 0) · 착지됐는데 진행 0 · 이동 먼저:" "ⓔ-3 끄면(FT_CARD_CAP=0) 진행 > 좌석+2 → WARN"
+o="$(FT_CARD_CAP_FLOOR=2 sp)"; has "$o" "REJECT 카드 상한 — alpha 진행 5(좌석 0) > 상한 2(max(2, 0+2))" "ⓔ-3 r1292 상한 넘으면 대기 spawn 막힘"
+o="$(FT_CARD_CAP=0 FT_CARD_CAP_FLOOR=2 sp)"; has "$o" "WARN 카드 흐름 — alpha 진행 5(좌석 0) · 착지됐는데 진행 0 · 이동 먼저:" "ⓔ-3 끄면(FT_CARD_CAP=0) 진행 > 좌석+2 → WARN"
 
 [ "$fail" = 0 ] && echo "ALL PASS" || echo "FAILED $fail"
 exit $fail

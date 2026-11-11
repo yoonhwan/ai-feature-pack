@@ -8,6 +8,7 @@ set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1
 ulimit -u "$(( $(ps -u "$(id -u)" 2>/dev/null | wc -l | tr -d ' ') + 300 ))" 2>/dev/null || true   # r1041
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY FT_NEWS_ROOT FT_FINISHED_MAIN FT_CARD_CAP_OK FT_CARD_CAP FT_CARD_FLOW
+export FT_CARD_CAP_FLOOR=2   # r1693: 상한 바닥 10 — 이 시험은 «> M+2» 계약을 보므로 바닥을 2 로(바닥 자체는 test_card_flow_cap_floor_r1693.sh)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."; BIN="$REPO/harness/bin"; KIT="$REPO/harness/kit/fable-team/bin"; HOOK="$REPO/harness/kit/fable-team/githooks/pre-commit"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
@@ -95,7 +96,7 @@ r2() {  # 진행 6 · 좌석 3 → REJECT 1줄 · exit 1 · 워크트리 0 · �
   card "$r" alpha 대기 new1
   o="$(sp "$r" alpha design/alpha/indices/대기/new1.md)"; rc=$?
   eq "$rc" 1 "R2 exit 1"
-  like "$o" "REJECT 카드 상한 — alpha 진행 6(좌석 3) > 3+2" "R2 REJECT 1줄"
+  like "$o" "REJECT 카드 상한 — alpha 진행 6(좌석 3) > 상한 5(max(2, 3+2))" "R2 REJECT 1줄"
   like "$o" "이동 먼저: " "R2 이동 먼저 목록"
   eq "$(ls -d "$r"/.worktrees "$T"/.worktrees/*r2* 2>/dev/null | wc -l | tr -d ' ')" 0 "R2 워크트리 0"
   like "$(cat "$r"/.fable-team/state/card-assign/*.json 2>/dev/null)" '"waiting"' "R2 배정 원장 waiting"
@@ -163,7 +164,7 @@ r9() {  # 진행 3 · 좌석 0 → REJECT(3 > 2)
   local r="$T/r9" i o rc; mkrepo "$r"; for i in p1 p2 p3; do card "$r" alpha 진행 "$i"; done
   sess; card "$r" alpha 대기 new1
   o="$(cfrun "$r" alpha --gate)"; rc=$?; eq "$rc" 4 "R9 3 > 0+2 → rc4"
-  like "$o" "REJECT 카드 상한 — alpha 진행 3(좌석 0) > 0+2" "R9 REJECT 줄"
+  like "$o" "REJECT 카드 상한 — alpha 진행 3(좌석 0) > 상한 2(max(2, 0+2))" "R9 REJECT 줄"
 }
 r10() {  # beta 상한 넘음 · alpha 상한 안 → alpha spawn·새 카드 통과
   local r="$T/r10" i o rc; mkhookrepo "$r" "$HOOK" both
@@ -235,7 +236,7 @@ mut() { # $1 라벨 $2 파일명 $3 sed 식 $4 대상 R번호 — 원본 = pre-c
   [ "$rc2" != 0 ] && ok "변이 $1 → R$4 FAIL 확인" || bad "변이 $1 — R$4 가 변이를 못 잡음"
 }
 mut 1 ft-nano-spawn.sh 's|case "\$IDX" in .*esac|_cfmode=--gate|' 3          # IDX 폴더 검사 제거 → 진행 카드도 막힘
-mut 2 ft-card-flow.sh '/\[ "\$GATE" = 1 \]/s/-gt \$((seat + 2))/-ge $((seat + 2))/' 1   # > 를 ≥ 로
+mut 2 ft-card-flow.sh '/\[ "\$GATE" = 1 \]/s/-gt "\$cap"/-ge "$cap"/' 1   # > 를 ≥ 로 (r1693: 비교 대상 = $cap)
 mut 3 ft-card-flow.sh 's/ or (len(s)>=30 and cl.startswith(s))//' 4          # 좌석 맞춤 앞머리 제거
 mut 4 ft-card-flow.sh 's/(len(s)>=30 and cl.startswith(s))/(cl.startswith(s))/' 4   # 30자 하한 제거
 mut 5 pre-commit 's/--diff-filter=A //' 5                                     # 모든 카드 커밋 검사
