@@ -5,13 +5,15 @@ import re
 import tempfile
 from pathlib import Path
 
+from short_brief import SHORT_BRIEF  # r1666: 짧은 /tmp 지침 사본
+
 from test_check_r1621 import (HERE, check, watch, latest, iso, T0, BRIEF, LONG, MESSAGE,
                               PANE_CLIPPED, PANE_OURS)
 
 LIVE_SHA = '79e03f9d41b85d57f164b552113acf167fe34a05d3a71f5e6cd4b1e2f51371a2'  # 라이브 config.message 지문
 LIVE_BYTES = 3194  # 라이브 message = 1416자 · 회차마다 입력창에 들어가던 바이트
 DOORBELL_RE = re.compile(r'^\[ft20-check 300초\] 지침 = (/.+) sha ([0-9a-f]{12}) · 그 형식으로 점검$')
-BRIEF_PATH = HERE / 'CHECK-BRIEF.md'
+BRIEF_PATH = SHORT_BRIEF  # r1666: 깊은 워크트리 경로에서 doorbell 200바이트 상한을 피한다
 
 
 def sha12(text):

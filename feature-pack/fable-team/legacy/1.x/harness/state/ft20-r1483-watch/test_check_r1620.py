@@ -8,6 +8,8 @@ import types
 from datetime import datetime, timezone
 from pathlib import Path
 
+from short_brief import SHORT_BRIEF  # r1666: 짧은 /tmp 지침 사본
+
 import pytest
 
 HERE = Path(__file__).resolve().parent
@@ -23,7 +25,7 @@ def load():
 
 check = load()
 BRIEF = LONG = (HERE / 'CHECK-BRIEF.md').read_text(encoding='utf-8')  # r1625: 지침 전문 = 파일
-MESSAGE = check.doorbell_line({'brief': str(HERE / 'CHECK-BRIEF.md')})  # r1625: 보내는 글 = doorbell 1줄
+MESSAGE = check.doorbell_line({'brief': str(SHORT_BRIEF)})  # r1625: 보내는 글 = doorbell 1줄
 T0 = datetime(2026, 11, 10, 16, 41, 53, 971000, tzinfo=timezone.utc).timestamp()
 STATUS = '\n\n  GPT-6-Astra low · nano#0 · Context 90% left'
 HINT = '› Ask Codex to do anything'
@@ -48,9 +50,9 @@ def append(path, text):
 
 
 def write_cfg(base, brief_text=None):  # r1625 ②: 'message': X → 'brief': 파일 경로 (같은 본문이면 사본 폴더 파일)
-    path = HERE / 'CHECK-BRIEF.md'
+    path = SHORT_BRIEF  # r1666: HERE 경로는 이 워크트리에서 200바이트 상한을 넘는다 (짧은 /tmp 사본)
     if brief_text is not None:  # X ≠ MESSAGE = 짧은 격리 경로에 X 본문 (경로 길이가 상한 200B 를 먹지 않게)
-        path = Path(tempfile.mkdtemp()) / 'CHECK-BRIEF.md'
+        path = Path(tempfile.mkdtemp(dir='/tmp')) / 'CHECK-BRIEF.md'
         path.write_text(brief_text, encoding='utf-8')
     cfg = {'enabled': True, 'seat': 'seat#0', 'rollout': str(base / 'rollout.jsonl'),
            'helper': str(base / 'helper'), 'core': str(base / 'core.html'),

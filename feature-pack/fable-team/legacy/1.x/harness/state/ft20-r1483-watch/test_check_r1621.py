@@ -2,6 +2,8 @@
 import importlib.util, json, os, sys, types
 from datetime import datetime, timezone
 from pathlib import Path
+
+from short_brief import SHORT_BRIEF  # r1666: 짧은 /tmp 지침 사본
 import pytest
 
 HERE = Path(__file__).resolve().parent
@@ -18,7 +20,7 @@ def load():
 
 check = load()
 BRIEF = LONG = (HERE / 'CHECK-BRIEF.md').read_text(encoding='utf-8')  # r1625: 지침 전문 = 파일 (긴 글 = BRIEF)
-MESSAGE = check.doorbell_line({'brief': str(HERE / 'CHECK-BRIEF.md')})  # r1625: 보내는 글 = doorbell 1줄
+MESSAGE = check.doorbell_line({'brief': str(SHORT_BRIEF)})  # r1625: 보내는 글 = doorbell 1줄
 SEAT, T0 = 'byz-harness-qa-ft20-pi#0', datetime(2026, 11, 11, 8, 0, 0, tzinfo=timezone.utc).timestamp()
 SEP, TAIL = '─' * 80, LONG[-420:]  # 실측: 80x24 pane 에서 1146자 본문은 상자를 넘겨 바닥 경계선만 남는다
 PANE_EMPTY, PANE_OURS = SEP + '\n\n' + SEP + '\n~/proj', SEP + '\n' + MESSAGE + '\n' + SEP
@@ -76,7 +78,7 @@ def watch(tmp_path, monkeypatch):
 
     def cfg(engine=True, rollout=False):
         value = {'enabled': True, 'seat': SEAT, 'helper': str(HELPER), 'core': str(tmp_path / 'core.html'),
-                 'interval_seconds': 300, 'brief': str(HERE / 'CHECK-BRIEF.md'), 'prior': state['prior']}  # r1625 ②
+                 'interval_seconds': 300, 'brief': str(SHORT_BRIEF), 'prior': state['prior']}  # r1625 ②
         if engine:
             value['engine'] = 'pi'
         if rollout:

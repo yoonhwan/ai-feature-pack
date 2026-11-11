@@ -10,6 +10,8 @@ import types
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from short_brief import SHORT_BRIEF  # r1666: 짧은 /tmp 지침 사본
+
 import pytest
 
 HERE = Path(__file__).resolve().parent
@@ -25,7 +27,7 @@ def load():
 
 check = load()
 BRIEF = LONG = (HERE / 'CHECK-BRIEF.md').read_text(encoding='utf-8')  # r1625: 지침 전문 = 파일
-MESSAGE = check.doorbell_line({'brief': str(HERE / 'CHECK-BRIEF.md')})  # r1625: 보내는 글 = doorbell 1줄
+MESSAGE = check.doorbell_line({'brief': str(SHORT_BRIEF)})  # r1625: 보내는 글 = doorbell 1줄
 GATE = 300
 T_EPOCH = datetime(2026, 11, 10, 15, 41, 27, 814000, tzinfo=timezone.utc).timestamp()
 T = iso = datetime.fromtimestamp(T_EPOCH, timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z')
@@ -50,7 +52,7 @@ def watch(tmp_path, monkeypatch):
     (tmp_path / 'core.html').write_text(CORE)
     cfg = {'enabled': True, 'seat': 'seat#0', 'rollout': str(rollout), 'helper': str(tmp_path / 'helper'),
            'core': str(tmp_path / 'core.html'), 'interval_seconds': 300,
-           'brief': str(HERE / 'CHECK-BRIEF.md')}  # r1625: 'message': X → 'brief': 파일 경로
+           'brief': str(SHORT_BRIEF)}  # r1625: 'message': X → 'brief': 파일 경로
     (tmp_path / 'config.json').write_text(json.dumps(cfg), encoding='utf-8')
     state = {'screens': ['› ' + STATUS], 'typed': 0, 'enters': 0, 'receipt': True, 'judge': ('IDLE', T)}
 

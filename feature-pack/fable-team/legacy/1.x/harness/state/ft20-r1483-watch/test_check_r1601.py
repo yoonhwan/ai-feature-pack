@@ -8,6 +8,8 @@ import json
 import os
 from pathlib import Path
 
+from short_brief import SHORT_BRIEF  # r1666: 짧은 /tmp 지침 사본
+
 import pytest
 
 HERE = Path(__file__).resolve().parent
@@ -23,7 +25,7 @@ def load():
 
 check = load()
 BRIEF = LONG = (HERE / 'CHECK-BRIEF.md').read_text(encoding='utf-8')  # r1625: 지침 전문 = 파일
-MESSAGE = check.doorbell_line({'brief': str(HERE / 'CHECK-BRIEF.md')})  # r1625: 보내는 글 = doorbell 1줄
+MESSAGE = check.doorbell_line({'brief': str(SHORT_BRIEF)})  # r1625: 보내는 글 = doorbell 1줄
 TERMINAL = '2026-11-10T14:54:32.134Z'
 PANE = '%262'
 STATUS = '\n\n  GPT-6-Astra low · nano/r1483 · Context 90% left'

@@ -14,13 +14,15 @@ from pathlib import Path
 
 import pytest
 
+from short_brief import SHORT_BRIEF  # r1666: 짧은 /tmp 지침 사본
+
 HERE = Path(__file__).resolve().parent
 CHECK_PY = Path(os.environ.get('CHECK_PY') or HERE / 'check.py')
 spec = importlib.util.spec_from_file_location('check_r1666', CHECK_PY)
 check = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(check)
 T0 = datetime(2026, 11, 11, 8, 0, 0, tzinfo=timezone.utc).timestamp()
-MESSAGE = check.doorbell_line({'brief': str(HERE / 'CHECK-BRIEF.md')}) if (HERE / 'CHECK-BRIEF.md').exists() else ''
+MESSAGE = check.doorbell_line({'brief': str(SHORT_BRIEF)})  # r1666: 짧은 /tmp 사본 (경로 200바이트 상한)
 
 
 def iso(epoch):
