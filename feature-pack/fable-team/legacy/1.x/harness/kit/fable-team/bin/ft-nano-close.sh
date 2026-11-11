@@ -17,7 +17,7 @@
 #     r4: 기준 판(좌석 브랜치 reflog 맨 처음 «branch: Created from» sha · 없으면 REJECT · 카드 줄 안 읽음) 뒤 첫 부모 줄기 비병합 커밋 0 · 머리 맞춤 병합은 끌어온 쪽이 origin/main 조상일 때만 · 미커밋 0(정확 경로 · 예외 «?? .serena/project.yml» 하나) · FT_NANO_FEAT 가 좌석 자기 브랜치면 REJECT.
 #     하나라도 아니면 REJECT «리서치 아님 · 구현 닫기 경로로» · 셀 수 없으면 REJECT · ①--result 실재 ∧ 비어 있지 않음(0바이트 = REJECT) · ②·③·⑤ 그대로 · 원장 행·출력 꼬리 research=1 · --never-started·--superseded-by·--suspended·--cherry-override·--shared-wt 와 동시 = usage 2 · 인자 없으면 동작 불변.
 #     r978 고침 1: 커밋·미커밋이 있어도 그 «경로 전부» 가 --result 1개뿐이면 통과(리서치 표를 커밋해도 닫힌다 · r976 꼴). 그 밖 경로가 1개라도 있으면 지금처럼 REJECT.
-#   카드 읽기(r888): 명부 index 의 카드는 FT_CARD_REF(기본 origin/main · 닫기 직전 그 ref 하나만 fetch)의 indices/{진행,완성,대기}/<파일> 판을 먼저 «읽는다»(INFO 카드 위치 ← <ref>:<경로>).
+#   카드 읽기(r888): 명부 index 의 카드는 FT_CARD_REF·팀 카드 루트 표(r1626 · state/directive-roots.tsv · 없으면 origin/main · 닫기 직전 그 ref 하나만 fetch)의 indices/{진행,완성,대기}/<파일> 판을 먼저 «읽는다»(INFO 카드 위치 ← <ref>:<경로>).
 #     ref 에 없으면 기존 후보(작업 트리) 그대로 · fetch 실패면 옛 ref 판을 믿지 않는다(WARN 1줄 · 작업 트리 후보) · 쓰기(리서치 닫힘·중단 줄)는 작업 트리 사본 그대로.
 #   카드 찾기(r960): 위 후보(WT·ROOT·LEDGER_WT·형제 폴더)에 카드가 없으면 «좌석 가지»에서 찾는다 — 좌석 워크트리(가지 체크아웃) 인덱스 폴더 먼저(읽기·쓰기), 없으면 가지 tip 의 ref 판(읽기 전용). 정보 = «INFO 카드 위치 ← <가지>:<경로>» 1줄. 가지에도 없으면 지금처럼 ⑥카드 못 찾음 REJECT.
 #   --wt <경로> --branch <이름> = 전용 워크트리는 있는데 «이름이 표준(.worktrees/<접두><키> · nano/<키>)이 아닌» 좌석 닫기(원장 R8 보강) — 둘 «모두» 명시해야만 이 모드(하나만 · --shared-wt 와 동시 = usage 2 · 자동 판별 0).
@@ -1417,13 +1417,14 @@ _tw=""; [ -z "$IDX" ] || { declare -F ft_index_twin >/dev/null && _tw="$(ft_inde
 # r842: 카드 «단계» = ref 트리(ft_card_stage_ref · 기본 origin/main) — 뒤처진 루트 체크아웃의 옛 진행/ 사본이 ref 에서 이미 완성/ 으로 옮긴 카드를 가리던 자리(ops 나노 2석 닫기 REJECT).
 #   단계가 정해지면 그 단계 하나만 · 디스크 사본 WT→LEDGER_WT→ROOT(낡을 수 있는 루트 마지막) · 그 단계 사본이 없으면 REJECT(옛 단계 사본·아래 기존 후보로 후퇴 0) ·
 #   지금 규칙으로 가는 길 하나 = «ABSENT» 글자(그때만 카드 없음) · STAGE 밖의 모든 응답·실패 = ERROR + REJECT(DA⑥ r2: 빈 출력 rc0 이 후퇴길이던 자리) · 쓰기(리서치 닫힘·중단 줄)도 이 CARD 를 쓴다
-_cs=""; _cref="${FT_CARD_REF:-origin/main}"
+_cs=""; _cref=""   # r1626: 카드 ref = 팀 카드 루트 표(ft_card_ref · env FT_CARD_REF 가 이긴다) — 팀 이름은 아래 카드 꼴 판정에서 나온다
 if [ -n "$IDX" ]; then   # r842-mut:libskip
   # 문지기 두 칸(DA⑥ r3): (가) 팀 카드 꼴인가 — 아니면 단계 개념 0 = 지금 규칙(오류 아님) (나) 꼴이면 lib·단계 함수가 있는가 — 없으면 ERROR + REJECT(R382 옛 설치 역호환은 버린다)
   _istage=0
   if [[ "$IDX" =~ design/(teams/)?([a-z0-9][a-z0-9_-]*)/indices/[^/]+/([^/]+)$ ]]; then _istage=1; _ct="${BASH_REMATCH[2]}"; _cf="${BASH_REMATCH[3]}"; else echo "INFO 카드 단계 판정 0 — idx 가 팀 카드 꼴 아님(지금 규칙): $IDX"; fi   # r842-mut:idxshape
   if [ "$_istage" = 1 ]; then
   declare -F ft_card_stage_ref >/dev/null || { echo "ERROR 카드 단계 함수 없음(ft-team-lib.sh 의 ft_card_stage_ref 미로드) — 단계 판정 불가"; echo "REJECT $SEAT"; echo "  - ⑥단계 판정 함수 없음 — 옛 규칙으로 후퇴 0: index=$IDX"; exit 1; }   # r842-mut:nofn
+  _cref="$(ft_card_ref "$ROOT" "$_ct" 2>/dev/null)" || { echo "ERROR 카드 ref 판정 불가(팀=$_ct) — 카드 루트 표 행 ref 를 리포에서 못 읽음 · origin/main 후퇴 0"; echo "REJECT $SEAT"; echo "  - ⑥카드 ref 판정 불가(표 행): index=$IDX"; exit 1; }   # r1626-mut:cardref
   _cstg="진행 완성 대기"; _cbases=("$WT" "$LEDGER_WT" "$ROOT"); _rts=("${IDX%%/indices/*}")
   if declare -F ft_index_twin >/dev/null; then _twr="$(ft_index_twin "$IDX" 2>/dev/null)"; [ -z "$_twr" ] || _rts+=("${_twr%%/indices/*}"); fi
   # 응답 세 갈래만 받는다 — «STAGE <단계>» · «ABSENT» · 그 밖(빈 출력·rc≠0·모르는 글자) = REJECT. 실패는 ABSENT 글자를 못 만들므로 조용한 후퇴가 구조로 막힌다
@@ -1511,7 +1512,8 @@ _r1070_strip_wt() {  # $1 → 접두 한 토막 뗀 경로(접두 없으면 빈 
   return 0
 }
 _card_ref_read() {
-  local ref="${FT_CARD_REF:-origin/main}" rel d hit="" rels=() _i _norig strp=0 note=""
+  local ref rel d hit="" rels=() _i _norig strp=0 note=""
+  ref="$(ft_card_ref "$ROOT" "${_ct:-}")" || { echo "WARN 카드 ref 판정 불가 — 표 행 ref 를 못 읽음 · 작업 트리 후보로"; return 0; }   # r1626: 같은 해석 함수(env → 표 → origin/main)
   [ -n "$IDX" ] || return 0
   if [[ "$ref" == */* ]] && git -C "$ROOT" remote get-url "${ref%%/*}" >/dev/null 2>&1; then
     nf_fetch "$ROOT" "${ref%%/*}" "${ref#*/}" >/dev/null 2>&1 || { echo "WARN 카드 ref fetch 실패/시간 초과($ref · 7초+재시도 1) — 옛 ref 판은 읽지 않는다 · 작업 트리 후보로"; return 0; }
