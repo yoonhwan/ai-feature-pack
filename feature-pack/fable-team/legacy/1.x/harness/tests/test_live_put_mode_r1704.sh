@@ -69,7 +69,7 @@ D3="$T/dest3"; mkdir -p "$D3"
 o="$(put "$X" bin/plain.sh "$D3/plain.sh")"; o2="$(put "$PUT" bin/plain.sh "$D3/o.sh")"
 { [ "$(mode_of "$D3/plain.sh")" = 755 ] && [ "$(mode_of "$D3/o.sh")" = 644 ]; } \
   && ok "W1 모드 맞추기 «항상 755» → ① FAIL(원본은 644 · 대조)" || bad "W1 검출 실패 «$o»"
-X="$(mkx w2 '  [ -e "$DEST.bak-$BAK" ] || { cp -p "$DEST" "$DEST.bak-$BAK" || die "ERROR 백업 실패: $DEST.bak-$BAK"; BAKED="$DEST.bak-$BAK"; }' ':')"
+X="$(mkx w2 '  [ -e "$BAKED" ] || cp -p "$DEST" "$BAKED" || die "ERROR 백업 실패: $BAKED"' ':')"
 printf 'old\n' > "$D3/b.sh"; chmod 755 "$D3/b.sh"
 o="$(put "$X" bin/plain.sh "$D3/b.sh" b2)"; printf 'old2\n' > "$D3/b2.sh"; chmod 755 "$D3/b2.sh"; o2="$(put "$PUT" bin/plain.sh "$D3/b2.sh" b2)"
 { [ ! -f "$D3/b.sh.bak-b2" ] && [ -f "$D3/b2.sh.bak-b2" ]; } \
@@ -78,4 +78,15 @@ X="$(mkx w3 '[ "$TYPE" = blob ] || die "ERROR blob 이 아닌 꼴: $PATH_IN type
 o="$(put "$X" bin/link "$D3/link")"; o2="$(put "$PUT" bin/link "$D3/link2")"
 { [ "$?" != 0 ] || [ -e "$D3/link" ]; } && [ ! -e "$D3/link2" ] \
   && ok "W3 blob 꼴 검사 삭제 → ⑤ FAIL(원본은 거절 · 대조)" || bad "W3 검출 실패 «$o»"
+# ⑦ ERROR 경로마다 dest 폴더가 그대로(임시 파일 0) — <dest>.put.<pid>.src 잔존 금지
+D4="$T/dest4"; mkdir -p "$D4"; printf 'old\n' > "$D4/keep.sh"; chmod 755 "$D4/keep.sh"
+before="$(ls "$D4" | sort | tr '\n' ' ')"
+put "$PUT" bin/nope.sh "$D4/nope.sh" >/dev/null; put "$PUT" bin/link "$D4/link" >/dev/null; put "$PUT" bin/plain.sh "$D4/keep.sh" >/dev/null
+after="$(ls "$D4" | sort | tr '\n' ' ')"
+{ [ "$before" = "$after" ] && ! ls "$D4" | grep -q '\.put\.'; } && ok "⑦ ERROR 경로 3종 뒤 dest 폴더 그대로(임시 파일 0)" || bad "⑦ «$before» → «$after»"
+X="$(mkx w4 '[ -d "$(dirname "$DEST")" ] || die "ERROR dest 폴더 없음: $(dirname "$DEST")"' 'git -C "$REPO" cat-file blob "$BLOB" > "$DEST.put.$$.src" 2>/dev/null; [ -d "$(dirname "$DEST")" ] || die "ERROR dest 폴더 없음: $(dirname "$DEST")"')"
+D5="$T/dest5"; mkdir -p "$D5"; printf 'old\n' > "$D5/k.sh"; chmod 755 "$D5/k.sh"
+bash "$X" --repo "$R" --ref "$REV" --path bin/plain.sh --dest "$D5/k.sh" >/dev/null 2>&1
+leaked="$(ls "$D5" | grep -c '\.put\.')"
+{ [ "$leaked" -ge 1 ]; } && ok "W4 검사 순서 되돌림(임시 파일 먼저) → ⑦ FAIL(원본은 잔존 0 · 대조)" || bad "W4 검출 실패 leaked=$leaked"
 echo "FAILED $fail"; [ "$fail" = 0 ] && echo "ALL PASS"; exit $([ "$fail" = 0 ] && echo 0 || echo 1)

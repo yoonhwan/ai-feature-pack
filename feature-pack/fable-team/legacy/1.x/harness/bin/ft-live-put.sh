@@ -20,17 +20,19 @@ META="$(git -C "$REPO" ls-tree "$SHA" -- "$PATH_IN" 2>/dev/null)" || die "ERROR 
 MODE="$(awk '{print $1}' <<<"$META")"; TYPE="$(awk '{print $2}' <<<"$META")"; BLOB="$(awk '{print $3}' <<<"$META")"
 [ "$TYPE" = blob ] || die "ERROR blob 이 아닌 꼴: $PATH_IN type=$TYPE (심링크 120000·서브모듈 160000 은 설치 대상 아니다)"
 case "$MODE" in 100755) WANT=755;; 100644) WANT=644;; *) die "ERROR 모르는 git 모드: $MODE ($PATH_IN)";; esac
-TMP0="$DEST.put.$$.src"
-git -C "$REPO" cat-file blob "$BLOB" > "$TMP0" 2>/dev/null || { rm -f "$TMP0"; die "ERROR blob 읽기 실패: $BLOB ($PATH_IN)"; }   # 바이트 그대로(명령 치환은 끝 개행을 먹는다)
+# r1704 보정: 쓰기 전 검사(폴더·--bak·백업)를 먼저 — ERROR 경로에서 임시 파일이 dest 폴더에 남지 않는다(라이브 bin 이면 drift EXTRA)
 [ -d "$(dirname "$DEST")" ] || die "ERROR dest 폴더 없음: $(dirname "$DEST")"
 BAKED=""
 if [ -e "$DEST" ]; then
   [ -n "$BAK" ] || die "ERROR 기존 파일이 있는데 --bak 표식이 없다: $DEST"
-  [ -e "$DEST.bak-$BAK" ] || { cp -p "$DEST" "$DEST.bak-$BAK" || die "ERROR 백업 실패: $DEST.bak-$BAK"; BAKED="$DEST.bak-$BAK"; }
+  BAKED="$DEST.bak-$BAK"
+  [ -e "$BAKED" ] || cp -p "$DEST" "$BAKED" || die "ERROR 백업 실패: $BAKED"
 fi
-TMP="$DEST.put.$$"
-chmod "$WANT" "$TMP0" || { rm -f "$TMP0"; die "ERROR chmod 실패: $WANT $TMP0"; }
-mv -f "$TMP0" "$DEST" || { rm -f "$TMP0"; die "ERROR mv 실패: $TMP0 → $DEST"; }
+TMP0="$DEST.put.$$.src"
+trap 'rm -f "$TMP0"' EXIT
+git -C "$REPO" cat-file blob "$BLOB" > "$TMP0" 2>/dev/null || die "ERROR blob 읽기 실패: $BLOB ($PATH_IN)"   # 바이트 그대로(명령 치환은 끝 개행을 먹는다)
+chmod "$WANT" "$TMP0" || die "ERROR chmod 실패: $WANT $TMP0"
+mv -f "$TMP0" "$DEST" || die "ERROR mv 실패: $TMP0 → $DEST"
 GOT="$(git -C "$REPO" hash-object --no-filters "$DEST")" || die "FAIL dest 해시를 못 읽었다: $DEST"
 if [ "$GOT" != "$BLOB" ]; then
   die "FAIL 대조 실패(blob $BLOB ≠ dest $GOT) — 되돌림: mv ${BAKED:-<백업 없음>} $DEST" 1
