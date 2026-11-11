@@ -94,7 +94,15 @@ D8="$T/rel8"; mkdir -p "$D8"
 o="$( cd "$T" && bash "$PUT" --repo "$R" --ref "$REV" --path bin/plain.sh --dest rel8/plain.sh 2>&1 )"; rc=$?
 { [ "$rc" = 0 ] && [[ "$o" == PUT*"mode=644"* ]] && [ "$(mode_of "$D8/plain.sh")" = 644 ]; } \
   && ok "⑧ 상대 --dest → PUT rc0 · dest 644" || bad "⑧ rc=$rc «$o»"
-X="$(mkx w5 'DEST="$(cd "$(dirname "$DEST")" && pwd)/$(basename "$DEST")"' ':')"
+X="$(mkx w5 'DEST="$DEST_ABS/$(basename "$DEST")"' ':')"   # 절대화를 없앤다 → 상대 --dest 는 hash-object 가 REPO 기준으로 읽어 실패
 o="$( cd "$T" && bash "$X" --repo "$R" --ref "$REV" --path bin/plain.sh --dest rel8/p2.sh 2>&1 )"; rc=$?
 { [ "$rc" != 0 ] && [[ "$o" == *"FAIL dest 해시"* || "$o" == *ERROR* ]]; } && ok "W5 절대화 삭제 → ⑧ FAIL(원본은 rc0 · 대조)" || bad "W5 검출 실패 rc=$rc «$o»"
+# ⑨ CDPATH=. + 상대 --dest — cd 가 경로를 찍어 DEST 가 두 줄이 되지 않는다(DA R1)
+D9="$T/rel9"; mkdir -p "$D9"
+o="$( cd "$T" && CDPATH=. bash "$PUT" --repo "$R" --ref "$REV" --path bin/plain.sh --dest rel9/plain.sh 2>&1 )"; rc=$?
+{ [ "$rc" = 0 ] && [[ "$o" == PUT*"mode=644"* ]] && [ "$(mode_of "$D9/plain.sh")" = 644 ]; } \
+  && ok "⑨ CDPATH=. 상대 --dest → PUT rc0 · dest 644" || bad "⑨ rc=$rc «$o»"
+X="$(mkx w6 'DEST_ABS="$(CDPATH= cd -- "$(dirname "$DEST")" >/dev/null 2>&1 && pwd)"' 'DEST_ABS="$(cd -- "$(dirname "$DEST")" && pwd)"')"
+o="$( cd "$T" && CDPATH=. bash "$X" --repo "$R" --ref "$REV" --path bin/plain.sh --dest rel9/p2.sh 2>&1 )"; rc=$?
+{ [ "$rc" != 0 ] || [[ "$o" != PUT* ]]; } && ok "W6 CDPATH 차단 삭제 → ⑨ FAIL(원본은 rc0 · 대조)" || bad "W6 검출 실패 rc=$rc «$o»"
 echo "FAILED $fail"; [ "$fail" = 0 ] && echo "ALL PASS"; exit $([ "$fail" = 0 ] && echo 0 || echo 1)

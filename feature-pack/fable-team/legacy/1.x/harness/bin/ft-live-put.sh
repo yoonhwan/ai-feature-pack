@@ -22,7 +22,9 @@ MODE="$(awk '{print $1}' <<<"$META")"; TYPE="$(awk '{print $2}' <<<"$META")"; BL
 case "$MODE" in 100755) WANT=755;; 100644) WANT=644;; *) die "ERROR 모르는 git 모드: $MODE ($PATH_IN)";; esac
 # r1704 보정: 쓰기 전 검사(폴더·--bak·백업)를 먼저 — ERROR 경로에서 임시 파일이 dest 폴더에 남지 않는다(라이브 bin 이면 drift EXTRA)
 [ -d "$(dirname "$DEST")" ] || die "ERROR dest 폴더 없음: $(dirname "$DEST")"
-DEST="$(cd "$(dirname "$DEST")" && pwd)/$(basename "$DEST")"   # r1704 보정 2: 상대 --dest 도 절대화 — 뒤 hash-object 가 cwd(REPO) 기준으로 읽지 않게
+# r1704 보정 3(DA R1): CDPATH 가 있으면 cd 가 경로를 stdout 에 찍어 DEST 가 두 줄이 된다 → CDPATH 비우고 출력 버림 · cd 실패 = ERROR 1줄(쓰기 0)
+DEST_ABS="$(CDPATH= cd -- "$(dirname "$DEST")" >/dev/null 2>&1 && pwd)" || die "ERROR dest 폴더 경로 해석 실패: $(dirname "$DEST")"
+DEST="$DEST_ABS/$(basename "$DEST")"   # 상대 --dest 도 절대화 — 뒤 hash-object 가 cwd(REPO) 기준으로 읽지 않게
 BAKED=""
 if [ -e "$DEST" ]; then
   [ -n "$BAK" ] || die "ERROR 기존 파일이 있는데 --bak 표식이 없다: $DEST"
