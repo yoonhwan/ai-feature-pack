@@ -98,6 +98,29 @@ pas G5b "$MBG" "bash $MB send A#1 B#1 \"docker volume prune 승인 부탁\""
 pas G8a "$MBG" "bash $MB send A#1 B#1 \"\$(cat /tmp/body.txt)\""
 pas G8b "$MBG" "bash $MB send A#1 B#1 \"\$(< /tmp/body.txt)\""
 pas G8c "$MBG" "bash $MB relay A#1 B#1 /tmp/f \"\$(cat /tmp/f)\""
+# ── r1403 변수 경로 파일 읽기 (좌석 표준 꼴: 본문은 파일에 쓰고 "$(cat 파일)") ──
+pas V2b "$MBG" "bash $MB send A#1 B#1 \"\$(< \$F)\""
+pas V3 "$MBG" "bash $MB send A#1 B#1 \"\$(cat \$S/x.txt)\""
+pas V4 "$MBG" "bash $MB send A#1 B#1 \"\$(cat \${S}/x.txt)\""
+pas V5 "$MBG" "bash $MB send A#1 B#1 \"\$(cat \$F)\""
+pas V6 "$MBG" "bash $MB send A#1 B#1 \"\$(cat \"\$F\")\""
+blk W1 "$MBG" "bash $MB send A#1 B#1 \"\$(cat \${F:-\$(id)})\""
+blk W2 "$MBG" "bash $MB send A#1 B#1 \"\$(cat \$F) 덧글\""
+blk V7 "$MBG" "bash $MB send A#1 B#1 \"\$(cat \$(ls /tmp))\""
+blk V8 "$MBG" "bash $MB send A#1 B#1 \"\$(cat \$F; id)\""
+blk V9 "$MBG" 'bash '"$MB"' send A#1 B#1 "$(cat `ls`)"'
+# r1403 회귀 막이: 글자 칸을 좌히지 않는다 — 예전에 통과하던 경로는 그대로 통과(# · 한글 · , · % · =)
+pas R1 "$MBG" 'bash '"$MB"' send A#1 B#1 "$(cat /tmp/x-arch-pi#297-body.txt)"'
+pas R2 "$MBG" 'bash '"$MB"' send A#1 B#1 "$(cat /tmp/본문.txt)"'
+pas R3 "$MBG" 'bash '"$MB"' send A#1 B#1 "$(cat /tmp/a,b)"'
+pas R4 "$MBG" 'bash '"$MB"' send A#1 B#1 "$(cat /tmp/a%20)"'
+pas R5 "$MBG" 'bash '"$MB"' send A#1 B#1 "$(cat /tmp/x=1)"'
+pas R6 "$MBG" 'bash '"$MB"' send A#1 B#1 "$(cat $D/x#2-본문.txt)"'
+# r1403 보정 2: 따옴표 밖 리다이렉션(> <)은 경로 글자가 아니다 — 파일 쓰기로 의미가 바뀌므로 막는다
+blk X1 "$MBG" 'bash '"$MB"' send A#1 B#1 "$(cat $F>/tmp/out)"'
+blk X2 "$MBG" 'bash '"$MB"' send A#1 B#1 "$(cat /tmp/f>/tmp/out)"'
+blk X3 "$MBG" 'bash '"$MB"' send A#1 B#1 "$(cat $F</etc/passwd)"'
+pas X4 "$MBG" 'bash '"$MB"' send A#1 B#1 "$(<$F)"'
 # ── G9 홑따옴표 = 글자 ────────────────────────────────────────────────
 pas G9a "$MBG" "bash $MB send A#1 B#1 'literal \$(x) 글자'"
 pas G9b "$MBG" 'bash '"$MB"' send A#1 B#1 '"'"'백틱 `uptime` 글자'"'"''
@@ -128,7 +151,17 @@ mut "$T/m5.sh" 'sys.stdout.write("".join(res))' 'sys.stdout.write(s)'           
 expect M5 "$T/m5.sh" 2 nm 'docker exec pg dropdb -U postgres t_loom_1'
 mut "$T/m6.sh" 'return bool(pos) and all(ok(x) for x in pos)' 'return bool(pos) and any(ok(x) for x in pos)'   # 이름 하나만 접두면 통과
 expect M6 "$T/m6.sh" 0 nm 'dropdb t_x prod_db'
+# r1403 변이: 경로 조각에서 ①변수 삭제 ②경로 전체 허용 ③${…} 안 아무 글자 허용
+mutg "$T/v1.sh" '|\$\{[A-Za-z_][A-Za-z0-9_]*\}|\$[A-Za-z_][A-Za-z0-9_]*' ''   # 변수 조각 삭제
+expect V3m "$T/v1.sh" 2 nm "bash $MB send A#1 B#1 \"\$(cat \$S/x.txt)\""
+expect V4m "$T/v1.sh" 2 nm "bash $MB send A#1 B#1 \"\$(cat \${S}/x.txt)\""
+expect V5m "$T/v1.sh" 2 nm "bash $MB send A#1 B#1 \"\$(cat \$F)\""
+expect V6m "$T/v1.sh" 2 nm "bash $MB send A#1 B#1 \"\$(cat \"\$F\")\""
+mutg "$T/v2.sh" '_PATH = r"(?:" + _PIECE + r")+"' '_PATH = r".+"'   # 경로 칸을 «닫는 괄호 앞 전부» 로 넓힘
+expect V7m "$T/v2.sh" 0 nm "bash $MB send A#1 B#1 \"\$(cat \$(ls /tmp))\""
+mutg "$T/v3.sh" '\$\{[A-Za-z_][A-Za-z0-9_]*\}' '\$\{[^}]*\}'   # ${…} 안 아무 글자 허용
+expect W1m "$T/v3.sh" 0 nm "bash $MB send A#1 B#1 \"\$(cat \${F:-\$(id)})\""
 
 echo "SUMMARY blocked=$nb pass=$np mutant=$nm fail=$fail"
-[ "$nb" -eq 23 ] && [ "$np" -eq 19 ] && [ "$nm" -eq 7 ] && [ "$fail" -eq 0 ] || { echo "FAIL 표 미달 또는 실패 있음"; exit 1; }
+[ "$nb" -eq 31 ] && [ "$np" -eq 31 ] && [ "$nm" -eq 13 ] && [ "$fail" -eq 0 ] || { echo "FAIL 표 미달 또는 실패 있음"; exit 1; }
 echo "OK"
