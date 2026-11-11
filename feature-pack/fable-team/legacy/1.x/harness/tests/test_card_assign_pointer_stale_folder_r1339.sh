@@ -30,7 +30,7 @@ env_root() {
   printf '*\t.\tmain\tdesign/teams/*/indices\n' > "$R/.fable-team/state/directive-roots.tsv"
   printf '{"_master":"byz-planner-master-claude#9"}\n' > "$R/.fable-team/seats-planner.json"
   printf '{"_master":"byz-a-master-claude#1"}\n' > "$R/.fable-team/seats-a.json"; printf '{"_master":"byz-b-master-claude#1"}\n' > "$R/.fable-team/seats-b.json"; printf '{}\n' > "$R/.fable-team/seats.json"
-  printf '#!/bin/sh\necho "QUEUED seq=1 to=$2"\n' > "$R/mbox.sh"
+  printf '#!/bin/sh\nprintf "%%s\\n" "$*" >> "%s"\necho "QUEUED seq=1 to=$2"\n' "$R/mbox.log" > "$R/mbox.sh"
   mkdir -p "$R/design/teams/a/indices/inbox/m1" "$R/design/teams/b/indices/inbox/m1"
   card a 대기 s1; mkstate s1          # S1 = 열린 칸에 같은 이름(칸 이름만 낡음)
   card a 완성 s2                      # S2 = 닫힌 칸(완성)
@@ -76,6 +76,24 @@ TOOL_RUN="$T/base/ft_card_assign_watch.py" run status; unset TOOL_RUN
 { [ -n "$(row '01-s1#1 · 없는 경로')" ] && [ -n "$(row '02-s2#1 · 없는 경로')" ] && [ -n "$(row '03-s3#1 · 없는 경로')" ] && ! printf '%s' "$OUT" | head -1 | grep -q '닫힌 카드 발주'; } \
   && ok "기준판($BASE_SHA) → S1·S2·S3 «없는 경로»(고칠 자리 확인)" || bad "기준판 :: $OUT"
 lap 기준판
+# S6 — 닫힌 카드 포인터만 있는 판 = 화면 줄 1 + rc0 · tick 0통 · stamps K 0 (DA/arch #4013)
+R2R="$(mktemp -d "$T/c.XXXXXX")"; R="$R2R"; mkdir -p "$R/.fable-team/state/card-assign"
+git -C "$R" init -q -b main; printf '.fable-team/\nmbox.sh\n' > "$R/.gitignore"; git -C "$R" add .gitignore; gc "$R" "$((NOW - 200000)) +0900" init
+mkdir -p "$R/design"; printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| a | design/teams/a/ | a | 현역 |\n' > "$R/design/TEAMS.md"
+printf '*\t.\tmain\tdesign/teams/*/indices\n' > "$R/.fable-team/state/directive-roots.tsv"
+printf '{"_master":"byz-planner-master-claude#9"}\n' > "$R/.fable-team/seats-planner.json"; printf '{"_master":"byz-a-master-claude#1"}\n' > "$R/.fable-team/seats-a.json"; printf '{}\n' > "$R/.fable-team/seats.json"
+printf '#!/bin/sh\nprintf "%%s\\n" "$*" >> "%s"\necho "QUEUED seq=1 to=$2"\n' "$R/mbox.log" > "$R/mbox.sh"
+mkdir -p "$R/design/teams/a/indices/inbox/m1"; card a 완성 c6
+printf '%s\n' "- 카드: design/teams/a/indices/진행/c6.md" > "$R/design/teams/a/indices/inbox/m1/01-c6.md"
+git -C "$R" add -A design; gc "$R" "$((NOW - 90000)) +0900" orders; run prepare >/dev/null
+run status; head6="$(printf '%s\n' "$OUT" | head -1)"
+{ [ "$RC" = 0 ] && printf '%s' "$head6" | grep -q '카드 없는 발주 0 · 닫힌 카드 발주 1' && [ -n "$(row '01-c6#1 · 닫힌 카드')" ]; } \
+  && ok "S6 닫힌 카드만 = 화면 줄 1 · rc=0" || bad "S6 rc=$RC :: $head6"
+run tick; n6=0; [ ! -f "$R/mbox.log" ] || n6="$(grep -c . "$R/mbox.log")"
+[ "$n6" = 0 ] && ok "S6 tick 0통(닫힌 카드는 경보 아님)" || bad "S6 tick ${n6}통 :: $(cat "$R/mbox.log" 2>/dev/null)"
+k6="$(awk -F'\t' 'END{print $4}' "$R/.fable-team/state/card-assign/stamps.tsv" 2>/dev/null)"
+[ "$k6" = 0 ] && ok "S6 stamps K 0" || bad "S6 stamps K=${k6}"
+
 # 변이 — 사본에서만
 mutate "$T/m1" '                if (team, name) in open_by:   # A2 · A5(같은 팀 · 열린 칸이면 어느 쪽이든 연결)' '                if False and (team, name) in open_by:'
 env_root; fill; mk_commit; TOOL_RUN="$T/m1/ft_card_assign_watch.py" run status; unset TOOL_RUN
@@ -89,6 +107,9 @@ mutate "$T/m3" '                if (team, name) in open_by:   # A2 · A5(같은 
 env_root; fill; mk_commit; TOOL_RUN="$T/m3/ft_card_assign_watch.py" run status; unset TOOL_RUN
 [ -z "$(row '05-s5#')" ] && ok "변이 3 팀 제한 제거 → S5 빨강" || bad "변이 3 :: $(row '05-s5#')"
 lap 변이
+mutate "$T/m4" '    return x.get("kind") == "발주" and x.get("reason") == "닫힌 카드"' '    return False   # 변이 = 닫힌 카드 제외 끔'
+R="$R2R"; TOOL_RUN="$T/m4/ft_card_assign_watch.py" run status; unset TOOL_RUN
+[ "$RC" = 1 ] && ok "변이 4 닫힌 카드 제외 제거 → S6 빨강(rc=1)" || bad "변이 4 :: rc=$RC"
 cmp -s "$BIN/ft_card_assign_watch.py" "$KIT/ft_card_assign_watch.py" && ok "bin·kit 같은 내용" || bad "bin·kit 다름"
 [ "$(stat -f %Lp "$HERE/test_card_assign_pointer_stale_folder_r1339.sh")" = 644 ] && ok "새 시험 파일 모드 644" || bad "새 시험 파일 모드"
 echo "단계별 초:$STEP"

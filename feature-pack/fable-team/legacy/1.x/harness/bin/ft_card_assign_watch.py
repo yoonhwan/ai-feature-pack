@@ -45,6 +45,11 @@ VALUE = re.compile(r"좌석 \S+|없음|대기\((?:" + "|".join(REASONS + LEGACY)
 WAIT_S, URGENT_S, ORDER_S, MUTE_S, CLAIM_S = 4 * 3600, 3600, 2 * 3600, 3600, 60
 OPEN, CLOSED = ("대기", "진행"), ("완성", "아카이브")
 QUIET = ("정지 중", "보류 중", "판정 불가", "석·선행 대기")  # 경보·rc 에 안 세는 칸(A6 석·선행 대기 포함)
+
+
+def closed_pointer(x: dict) -> bool:
+    """r1339 — «닫힌 카드» 발주 행 = 화면 줄만 남긴다. rc·tick 경보·stamps K 에서 뺀다(골 축 «경보가 진짜 미연결만 센다» · 머리에 «닫힌 카드 발주 N» 칸으로만 보인다)."""
+    return x.get("kind") == "발주" and x.get("reason") == "닫힌 카드"
 ITEM, CIRCLED = re.compile(r"^\d+[.)]\s"), re.compile(r"^\s+[①-⑳]")
 CARD_PATH = re.compile(r"design/[^\s`()·,]+?\.md")  # r1329 — «- 카드:» 줄 꼬리(백틱·괄호 주석·«— 설명»)에서 첫 경로 토큰만
 HERE = Path(__file__).resolve().parent
@@ -730,7 +735,7 @@ def _settle(R: Path, mf: Path, done: list, remaining: list, now: float) -> list[
 
 def tick(R: Path, now: float, rows: list[dict] | None, why: str, lines: list[str]) -> list[str]:
     mf = adir(R) / "alarm.state"
-    alarm = None if rows is None else [(x, ln) for x, ln in zip(rows, lines[1:]) if x["kind"] not in QUIET]
+    alarm = None if rows is None else [(x, ln) for x, ln in zip(rows, lines[1:]) if x["kind"] not in QUIET and not closed_pointer(x)]
     planner = team_master(R, "planner")
     mbox = os.environ.get("FT_MBOX_SH") or str(R / ".fable-team/comm/mbox.sh")
     me = os.environ.get("FT_CARD_ASSIGN_FROM", "ft-card-assign-watch")
@@ -841,9 +846,9 @@ def main(argv: list[str]) -> int:
     lines = render(rows, stamp, st.team_counts) + st.notes  # notes = 행 뒤 꼬리(tick 은 zip 으로 행만 짝짓는다)
     output = json.dumps(rows, ensure_ascii=False) if "--json" in argv else "\n".join(lines)
     print(output)
-    hot = [x for x in rows if x["kind"] not in QUIET]  # 정지 중·보류 중·Q 는 rc 에 안 셈(머리에만)
+    hot = [x for x in rows if x["kind"] not in QUIET and not closed_pointer(x)]  # 정지 중·보류 중·Q·«닫힌 카드» 는 rc 에 안 셈(머리에만)
     if not virtual:
-        c = {k: sum(1 for x in rows if x["kind"] == k) for k in ("없음", "초과", "발주")}
+        c = {k: sum(1 for x in rows if x["kind"] == k and not closed_pointer(x)) for k in ("없음", "초과", "발주")}
         with open(adir(R) / "stamps.tsv", "a", encoding="utf-8") as fh:
             fh.write(f"{stamp}\t{c['없음']}\t{c['초과']}\t{c['발주']}\t{stamp.split('-')[1]}\n")
     if cmd == "tick":
