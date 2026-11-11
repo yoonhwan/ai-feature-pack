@@ -15,7 +15,6 @@ from ft_head_lag_seats import load_state, master_of, seats_by_wt, skip_regex, te
 from ft_head_lag_skip import base_skipped, work_left
 from ft_head_lag_stop import plan, record   # r1492 — 정지 팀(penalty·전팀 정지) 좌석은 쪽지로 깨우지 않는다
 
-
 def git(repo, *a):
     r = subprocess.run(["git", "-C", repo, *a], capture_output=True, text=True)
     return r.returncode, r.stdout.strip()
@@ -95,21 +94,15 @@ def main():
         print(f"ERROR {e}", file=sys.stderr)
         return 4
     wts = worktrees(a.repo)
-    stale, scanned, keep = [], set(), set()
-    try:
-        bsec = float(os.environ.get("FT_HEAD_LAG_BUDGET", "7"))   # r1700: 훑기 예산(초) — r1688 실측 7초
-    except ValueError:
-        bsec = 7.0                                              # ⓖ abc 같은 값 = 기본 7초
-    t0, bad = time.monotonic(), 0
+    stale, scanned, keep, bad = [], set(), set(), 0; t0 = time.monotonic()
+    try: bsec = float(os.environ.get("FT_HEAD_LAG_BUDGET", "7"))   # r1700: 훑기 예산(초)
+    except ValueError: bsec = 7.0                                 # ⓖ abc 같은 값 = 기본 7초
+
     for i, w in enumerate(wts):
         br, r = w.get("branch"), None
-        if br and br.startswith("nano/"):   # r1700 ⓐ: 나노 가지 워크트리는 훑지 않는다(이 도구만 · ft-head-skip.txt 불변)
-            keep.add(os.path.realpath(w["path"]))
-            continue
+        if br and br.startswith("nano/"): keep.add(os.path.realpath(w["path"])); continue   # r1700 ⓐ: 나노 가지는 안 훑는다(이 도구만)
         if bsec <= 0 or time.monotonic() - t0 > bsec:   # r1700 ⓑ: 예산 넘으면 멈춘다 — 못 훑은 곳은 «판정 불가»
-            bad = sum(1 for x in wts[i:] if x.get("branch") and not x["branch"].startswith("nano/") and not skip.match(x["branch"]))
-            keep.update(os.path.realpath(x["path"]) for x in wts[i:])
-            break
+            bad = sum(1 for x in wts[i:] if x.get("branch") and not x["branch"].startswith("nano/") and not skip.match(x["branch"])); keep.update(os.path.realpath(x["path"]) for x in wts[i:]); break
         if br and not skip.match(br) and not base_skipped(w["path"], skip, a.base):   # r1334: 선언 base 가 제외 줄기면 빼고
             r = lag(w["path"], msha)
             if r and not work_left(w["path"], msha):   # r1334: 일이 남지 않은 착지 끝 워크트리도 뺀다
@@ -119,8 +112,7 @@ def main():
             keep.add(os.path.realpath(w["path"]))
         if r:
             stale.append({"path": w["path"], "real": os.path.realpath(w["path"]), "branch": br, "n": r[0], "secs": max(0, now - r[1])})
-    if bad:
-        print(f"판정 불가 {bad}곳(훑기 예산 {bsec:g}초)", file=sys.stderr)   # 하드 룰 20: 못 훑음 = 1줄
+    if bad: print(f"판정 불가 {bad}곳(훑기 예산 {bsec:g}초)", file=sys.stderr)   # 하드 룰 20: 못 훑음 = 1줄
     if a.summary:
         if stale:
             o = max(stale, key=lambda s: (s["secs"], s["n"]))
