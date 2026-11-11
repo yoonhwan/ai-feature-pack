@@ -120,8 +120,16 @@ def deploy_patterns(repo, rev):   # 옛 범위: cd-dev.yml «filters: |» 블록
     return out
 
 
-def specs_of(repo, *revs):   # 첫 rev(검사 트리)의 표가 비면 판정 불가 · 나머지 rev 표는 합집합으로 더한다
+def specs_of(repo, *revs, canon=None):   # 첫 rev(검사 트리)의 표가 비면 판정 불가 · 나머지 rev 표는 합집합으로 더한다
     if not patterns(repo, revs[0]):
+        # r1697: 목록이 «원래 없는» 대상 가지(목록 신설 전에 갈라진 ops/main-base 등)는 정본 main 목록으로 판정한다.
+        #   ① 대상 가지(revs[1])에 목록이 있으면 = 목록을 지운 PR → 지금처럼 판정 불가(D1)
+        #   ② 대상에도 없고 canon(≠대상)에 목록이 있으면 = canon 목록을 쓴다(합집합 = canon ∪ 나머지) + 출처 1줄
+        #   ③ 그 밖 = 지금처럼 판정 불가
+        tgt = revs[1] if len(revs) > 1 else None
+        if os.environ.get("FT_PRESS_SCOPE") != "deploy" and not (tgt and patterns(repo, tgt)) and canon and canon != tgt and patterns(repo, canon):   # r1697 보정 2: deploy 길은 그대로(정본 main 갈래 안 씀)
+            print("음성 경로 목록 출처 = 정본 main %s" % canon[:10], file=sys.stderr)   # r1697 보정 1: stdout 첫 줄 = 판정 줄(부르는 쪽이 첫 줄만 echo)
+            return [":(glob)" + p for p in sorted(set().union(*(patterns(repo, r) for r in revs), patterns(repo, canon)))]
         raise Reject("판정 불가: 음성 경로 목록 없음(%s:%s)" % (revs[0][:10], VOICE_LIST) if os.environ.get("FT_PRESS_SCOPE") != "deploy"
                      else "판정 불가: 배포 경로 표 없음(%s:%s paths-filter)" % (revs[0][:10], WORKFLOW))
     return [":(glob)" + p for p in sorted(set().union(*(patterns(repo, r) for r in revs)))]
