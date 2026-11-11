@@ -112,7 +112,7 @@ ci — code-intel (probe + tilth)
   ci def "file#sym" | ci impl "file#sym"    LSP 정의 / 구현체
   ci ast '<pattern>' [path] [-l lang]       ast-grep 구조 패턴
   ci lsp up [--scope P] | down | status     LSP 데몬 수명주기
-  ci lsp repair [--ws <이름>]               crash-loop 수리 — 캐시를 지우지 않고 .corrupt-<ts> 로 옮긴다
+  ci lsp repair [--ws <이름>]               crash-loop 수리 — 캐시를 지우지 않고 .corrupt-<ts> 로 옮긴다 (lsp init 실패 = 1회 재시도)
   ci doctor                                 설치·버전·데몬·smoke 진단
   ci bench [--queries FILE]                 성능 회귀 (p50/p95)
 
@@ -269,7 +269,7 @@ case "$cmd" in
           mv "$d" "$d.corrupt-$ts" 2>/dev/null || { echo "판정 불가 repair — 옮기기 실패(지우지 않았다): $d" >&2; exit 3; }
           echo "옮김: $d → $d.corrupt-$ts"; moved=$((moved+1))
         done
-        "$PROBE" lsp init -w "${CI_LSP_SCOPE:-$PWD}" >/dev/null 2>&1 || { echo "판정 불가 repair — lsp init rc≠0 (옮긴 캐시 $moved 개 · 되돌림 = 이름 되돌리기)" >&2; exit 3; }
+        for n in 1 2; do "$PROBE" lsp init -w "${CI_LSP_SCOPE:-$PWD}" >/dev/null 2>&1 && break; [ "$n" = 2 ] && { echo "판정 불가 repair — lsp init rc≠0 2회 (옮긴 캐시 $moved 개 · 되돌림 = 이름 되돌리기)" >&2; exit 3; }; done
         up="$("$PROBE" lsp status 2>/dev/null | sed -n 's/^ *Uptime: *//p' | head -1)"
         case "$up" in ""|0s|0sec|0secs) echo "판정 불가 repair — 데몬이 Uptime>0 으로 서지 않았다 (status: ${up:-none})" >&2; exit 3 ;; esac
         echo "repair OK — 데몬 Uptime $up · 옮긴 워크스페이스 $moved 개"; exit 0
