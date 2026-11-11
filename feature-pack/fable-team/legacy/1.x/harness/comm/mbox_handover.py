@@ -160,6 +160,7 @@ def handover_body(old, new, extra=()):
         (asks if r["from"] == "slack-oppa" or _head(r["body"]) in ASK_HEADS else rest).append(ln)
     rest += [ln for ln in _resent(old, new) if ln not in rest]   # r1653 ⓒ — 미받음 항목 재적재(받음 끝난 항목 0)
     # ★r1665 ⓐ — 억제된 doorbell 은 «닫는 사건이 옛 좌석 recv» 뿐인데 증류 게이트 승계에서는 그 recv 가 막힌다 → 항목으로 넘겨 후계 [레디] 가 닫게 한다★
+    #   ★아래 항목 줄 꼴은 mbox.sh handover 갈래의 mark 목록 제외 sed 와 한 쌍★ — 꼴을 바꾸면 sed 도 같이 고친다(억제분만 빠지고 일반 쪽지는 계속 표시된다)
     seen = {m.group(1) for m in (re.match(r"- (#\S+) ", ln) for ln in asks + rest) if m}
     rest += ["- #%s [억제 doorbell] 미전달분 (전문: mailbox.log.jsonl seq %s)" % (s, s)
              for s in _held_seqs(old) if re.fullmatch(r"\d+", s) and "#%s" % s not in seen]
