@@ -295,15 +295,20 @@ def quiet(k, cap):   # ⓕ 닫기 금지 → (True, "") | (False, 사유) · 조
 PACK_REPO = os.environ.get("FT_PACK_REPO") or os.path.expanduser("~/Project/ai-feature-pack")
 
 
-def pack_commit(sha):   # r1701 ③ r3 — 세트 sha 가 팩 리포에 «커밋으로 있나»(착지 여부와 별개 · 미착지 세트도 승인 갈래 후보)
+def pack_commit(sha):   # r1701 ③ r3/r6 — 세트 sha 가 팩 리포에 «커밋으로 있나» · 조회 실패(시간 초과·git 오류) = 판정 불가(하드 룰 20)
     if not re.fullmatch(r"[0-9a-f]{40}", sha or ""): return False
-    rc, _o, _e = run(["git", "-C", PACK_REPO, "rev-parse", "--verify", "--quiet", sha + "^{commit}"], 7.0)
-    return rc == 0
+    rc, _o, err = run(["git", "-C", PACK_REPO, "rev-parse", "--verify", "--quiet", sha + "^{commit}"], 7.0)
+    if rc is None: raise Unjudged("팩 rev-parse 시간 초과")
+    if rc in (1, 128) and not err.strip(): return False   # --verify --quiet 의 «없음» = 정상 음성(오류 아님)
+    if rc != 0: raise Unjudged(f"팩 rev-parse rc={rc} {err.strip().splitlines()[:1]}")
+    return True
 
 
-def pack_remote(sha, cap):   # r1701 ③ r3 — 세트가 팩 origin «원격 가지» 에 있나(branch -r --contains)
-    rc, out, _e = run(["git", "-C", PACK_REPO, "branch", "-r", "--contains", sha], max(0.5, cap))
-    return rc == 0 and bool(out.strip())
+def pack_remote(sha, cap):   # r1701 ③ r6 — 세트가 팩 «origin/*» 원격 가지에 있나(다른 remote 는 안 본다) · 조회 실패 = 판정 불가
+    rc, out, err = run(["git", "-C", PACK_REPO, "for-each-ref", "--contains", sha, "--format=%(refname)", "refs/remotes/origin"], max(0.5, cap))
+    if rc is None: raise Unjudged("팩 for-each-ref 시간 초과")
+    if rc != 0: raise Unjudged(f"팩 for-each-ref rc={rc} {err.strip().splitlines()[:1]}")
+    return bool(out.strip())
 
 
 def judge(t, k, row, card_dirs):   # → 줄 | None(제외 · exc 에 사유) · 조회 실패 = Unjudged

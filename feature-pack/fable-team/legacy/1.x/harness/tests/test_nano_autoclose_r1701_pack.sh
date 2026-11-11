@@ -37,6 +37,17 @@ has "$OUT" "갈래=승인 set=$S2" "ⓓ3 미착지 팩 세트 + DA APPROVE + 팩
 git -C "$PACK" update-ref -d refs/remotes/origin/hold
 card_da "$S2"; cd_run "$BIN/ft-nano-close-due.sh"
 hasnt "$OUT" "갈래=승인" "ⓓ4 팩 원격 가지에 없는 세트 → 갈래=승인 0(제외)"
+# R1 — 세트가 팩 «backup/*» 에만 있고 origin/* 에 없으면 origin 미보존으로 제외(DA R1)
+git -C "$PACK" update-ref refs/remotes/backup/hold "$S2"; git -C "$PACK" update-ref -d refs/remotes/origin/hold 2>/dev/null
+card_da "$S2"; cd_run "$BIN/ft-nano-close-due.sh"
+hasnt "$OUT" "갈래=승인" "R1 backup/* 에만 세트 포함 → origin 미보존 제외"
+mut3 M7; cd_run "$T/m-M7/ft-nano-close-due.sh"
+has "$OUT" "갈래=승인" "M7 origin 만 안 보고 모든 remote 를 보면 R1 이 갈래=승인(변이 잡힘)"
+# R2 — 팩 git 조회 실패 = 그 좌석 판정 불가(rc3) · 조용한 제외 0(DA R2)
+mkdir -p "$T/notrepo"; card "$S"; cd_run "$BIN/ft-nano-close-due.sh" "$T/notrepo"
+{ [ "$RC" = 3 ] && case "$OUT" in *"판정 불가"*) true;; *) false;; esac; } && ok "R2 팩 조회 실패 → 판정 불가 rc3" || bad "R2" "rc=$RC out=$OUT"
+mut3 M8; cd_run "$T/m-M8/ft-nano-close-due.sh" "$T/notrepo"
+{ [ "$RC" = 0 ] && case "$OUT" in *"판정 불가"*) false;; *) true;; esac; } && ok "M8 실패를 False 로 삼키면 R2 가 rc0 제외(변이 잡힘)" || bad "M8" "rc=$RC out=$OUT"
 # 변이 M3~M6 — 사본과 «원본» 을 같은 픽스처로 나란히 돌려 반대 결과까지 본다(헛변이 0)
 card "$S"; mut3 M3; cd_run "$T/m-M3/ft-nano-close-due.sh"
 hasnt "$OUT" "닫기 차례 $SEAT" "M3 팩 커밋 갈래 삭제 → ⓓ 닫기 차례 0(변이 잡힘)"

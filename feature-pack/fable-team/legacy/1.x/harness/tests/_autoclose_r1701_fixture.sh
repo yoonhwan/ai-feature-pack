@@ -88,8 +88,8 @@ json.dump({"_master": "byz-harness-master-pi#203", "_cards_wt": "cards-wt",
                   "index": "design/teams/harness/indices/진행/card1.md"}},
           open(root + "/.fable-team/seats-harness.json", "w"), ensure_ascii=False)
 PY
-cd_run() {  # cd_run <close-due 경로> — 목록 1회(닫기는 하지 않는다 · --why)
-  OUT="$(cd "$ROOT" && PATH="$T/ck:$FK:$PATH" FT_ROOT="$ROOT" FT_PACK_REPO="$PACK" FT_NANO_AUTO_CLOSE=1 FT_CLOSE_DUE_QUIET="$T/quiet.sh" \
+cd_run() {  # cd_run <close-due 경로> [팩 리포] — 목록 1회(닫기는 하지 않는다 · --why)
+  OUT="$(cd "$ROOT" && PATH="$T/ck:$FK:$PATH" FT_ROOT="$ROOT" FT_PACK_REPO="${2:-$PACK}" FT_NANO_AUTO_CLOSE=1 FT_CLOSE_DUE_QUIET="$T/quiet.sh" \
     FT_CLOSE_DUE_SEAT_STATUS="$FK/seat-status.sh" FAKE_SESS="$T/sess" FAKE_CWD_DIR="$T/cwd" FAKE_SS_DIR="$T/ss" \
     bash "$1" --all --why 2>&1)"; RC=$?
 }
@@ -104,10 +104,14 @@ def sub(old, new):
     s = s.replace(old, new, 1)
 if k == "M3":   # 팩 커밋 존재 갈래 삭제
     sub(" and not pack_commit(sha_card)", "")
-elif k == "M4":  # 팩 존재 검사를 항상 참으로
-    sub('    rc, _o, _e = run(["git", "-C", PACK_REPO, "rev-parse", "--verify", "--quiet", sha + "^{commit}"], 7.0)\n    return rc == 0', '    return True')
+elif k == "M4":  # 팩 존재 검사를 항상 참으로(X4 꼴)
+    sub('    if not re.fullmatch(r"[0-9a-f]{40}", sha or ""): return False', '    return True')
 elif k == "M5":  # 아카이브 카드 찾기 삭제
     sub('        rc, out, _e = run(["git", "-C", str(root), "ls-tree", "-d", "--name-only", f"{ref}:{cm.group(1)}/아카이브"])', '        rc, out, _e = 1, "", ""')
+elif k == "M7":  # origin 만이 아니라 «모든 remote» 를 봄(전 판 꼴)
+    sub('"for-each-ref", "--contains", sha, "--format=%(refname)", "refs/remotes/origin"', '"branch", "-r", "--contains", sha')
+elif k == "M8":  # 팩 조회 실패를 False 로 삼킴(전 판 꼴)
+    sub('    if rc != 0: raise Unjudged(f"팩 rev-parse rc={rc} {err.strip().splitlines()[:1]}")', '    if rc != 0: return False')
 elif k == "M6":  # judge 의 squash 끝줄 파서 끔
     sub('            m = re.fullmatch(r"PR #(\\d+) \\(head " + jsha + r"\\)", ls[-1].strip()) if ls else None', '            m = None')
 p.write_text(s)
