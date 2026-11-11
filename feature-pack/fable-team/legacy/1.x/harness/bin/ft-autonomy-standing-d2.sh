@@ -63,11 +63,40 @@ d2_repo() {  # <byz|pack> → D2_REPO(대상 리포 최상위) D2_RK · 범위 �
   case ",$D2_REPOS," in *",$1,"*) ;; *) std_err "② 저장소 $1 은 승인 범위(repos=$D2_REPOS) 밖" ;; esac
   D2_RK="$1"; PREPO="$D2_REPO"; SCOPE_REPO="$D2_REPO"   # ③ std_equiv·④ scope_code_check 가 같은 리포를 본다
 }
-d2_seat() {  # ⓑ 쓰기 좌석 = 그 팀 master — 실제 좌석(TMUX_PANE) · SELFTEST env 는 env -u 로 지운다
-  local dx="$HERE/ft_doc_exempt.py"; [ -f "$dx" ] || std_err "좌석 판정 모듈 없음: $dx"
-  std_roster_root   # ⓙ 켜기(std_seat_probe)와 «같은» 명부 루트 함수 1개(ⓘ) — ft_comm_dir·env 안 쓴다
+d2_is_desk() {  # r1708 N2 <좌석> — desk 인가 = 판정기 ft_desk_route_gate.py 규칙 그대로(명부 _desk 계보 + 이름 규약 · 사본 0)
+  [ -f "$HERE/ft_desk_route_gate.py" ] || std_err "desk 판정기 없음: $HERE/ft_desk_route_gate.py"
+  std_t7 python3 - "$HERE/ft_desk_route_gate.py" "$STD_ROOT" "$1" <<'PY'
+import json, os, sys
+gate, root, seat = sys.argv[1:4]
+sys.path.insert(0, os.path.dirname(os.path.abspath(gate)))
+import ft_desk_route_gate as g
+if g.DESK_NAME.match(seat):
+    print("DESK"); raise SystemExit(0)
+for n in ("seats-planner.json", "seats.json"):
+    try: d = json.load(open(os.path.join(root, ".fable-team", n), encoding="utf-8"))
+    except (OSError, ValueError): continue
+    m = d.get("_desk") if isinstance(d, dict) else None
+    if isinstance(m, str) and m.strip() == seat:
+        print("DESK"); raise SystemExit(0)
+raise SystemExit(1)
+PY
+  [ "$RC" = 0 ] && [ "$FIRST" = DESK ]
+}
+d2_full_autonomy() {  # r1708 N2 — 자율 ON ∧ 레벨 full 일 때만 desk 승인(그 밖 = 거절 · 쓰기 0)
+  [ "$(mode)" = on ] || std_err "desk 승인은 자율 풀자동에서만(mode=$(mode))"
+  [ "$(jfield level)" = full ] || std_err "desk 승인은 자율 풀자동에서만(level=$(jfield level))"
+}
+d2_merge_tree() {  # r1708 N2 desk 길에만 — merge-tree 충돌 0(7초 · rc≠0 = 거절)
+  std_t7 git -C "$D2_REPO" merge-tree --write-tree origin/main "$1"
+  [ "$RC" = 0 ] || std_err "desk 길 merge-tree 충돌/실패 rc=$RC: ${FIRST:-출력 없음(시간 초과 7초 포함)}"
+}
+d2_seat() {  # ⓑ 쓰기 좌석 = 그 팀 master ∨ (r1708 N2 · desk ∧ 자율 풀자동) — 실제 좌석(TMUX_PANE) · SELFTEST env 는 env -u 로 지운다
+  local dx="$HERE/ft_doc_exempt.py" seat; [ -f "$dx" ] || std_err "좌석 판정 모듈 없음: $dx"
+  D2_DESK=""; std_roster_root   # ⓙ 켜기(std_seat_probe)와 «같은» 명부 루트 함수 1개(ⓘ) — ft_comm_dir·env 안 쓴다
   std_t7 env -u FT_DOC_EXEMPT_SELFTEST -u FT_DOC_EXEMPT_SEAT python3 "$dx" --mode team-master-seat --repo "$ROOT" --root "$STD_ROOT"
   if [ "$RC" = 0 ] && [[ "$FIRST" =~ ^TEAM-MASTER-SEAT\ ([A-Za-z0-9#_-]+) ]]; then D2_BY="${BASH_REMATCH[1]}"; return 0; fi
+  seat="$(sed -n 's/.*부른 좌석(\([^)]*\)).*/\1/p' <<<"$FIRST")"   # 실제 좌석 이름(판정기 출력에서)
+  if [ -n "$seat" ] && d2_is_desk "$seat"; then d2_full_autonomy || exit 2; D2_BY="$seat"; D2_DESK=1; return 0; fi
   std_err "ⓑ 팀 master 좌석만 rc=$RC ${FIRST:-출력 없음(시간 초과 7초 포함)}"
 }
 d2_classify() {  # ② <head> → D2_CLS — byz = 내장 BYZ 표 · pack = 팩 표 · FORBID·ERROR·시간 초과 = 거절
@@ -104,14 +133,16 @@ cmd_standing_approve() {
   while [ $# -gt 0 ]; do [ $# -ge 2 ] || std_err "$1 값 없음"; case "$1" in --pr) [[ "$2" =~ ^[0-9]+$ ]] || std_err "--pr 값 틀림: $2"; pr="$2" ;;
     --repo) rk="$2" ;; --verdict) vf="$2" ;; --card) card="$2" ;; *) std_err "알 수 없는 인자: $1" ;; esac; shift 2; done
   [ -n "$pr" ] && [ -n "$vf" ] && [ -n "$card" ] || std_err "--pr·--verdict·--card 필수"
-  D2_CARD="$card"; d2_seat
+  D2_CARD="$card"; D2_DESK=""; d2_seat
   lock; [ "$(mode)" = tamper ] && std_err "자율 상태 위변조(tamper) — 승인 기록 없음"
   d2_on || std_err "① 상시 승인 D2 꺼짐(approve-standing D2 줄 없음 또는 standing-stop 뒤)"
   d2_repo "$rk"
   if grep -q "^standing-use D2 $head " "$LOG" 2>/dev/null; then echo "STANDING-NOOP $head (이미 상시 승인함)"; return 0; fi
   d2_classify "$head"; std_verdict "$vf" "$D2_VREF"; std_da_out "$V_OUT" "$V_A"; std_equiv "$V_A" "$head"
   [ "$D2_CLS" != code ] || scope_code_check "$head" "$card"   # ④ 카드 시험 세트(rc≠0 = scope_err = STANDING-REJECT)
-  d2_critical "$head"; d2_write "$head" "$pr" "$V_A" "$V_OUT"
+  d2_critical "$head"
+  [ -z "${D2_DESK:-}" ] || d2_merge_tree "$head"   # r1708 N2 — desk 길에만 충돌 0(팀 master 길은 앞 판 그대로)
+  d2_write "$head" "$pr" "$V_A" "$V_OUT"
 }
 cmd_standing_stop() {
   local d="${1:-}" r="${2:-}"
