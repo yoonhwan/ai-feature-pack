@@ -56,7 +56,7 @@ land "$FIXB/ft-merge-land.sh" 42 FAIL_CLOSE=all
 : > "$CPL"
 S2=$SECONDS
 
-# 변이 M1 — 닫기 블록을 원래 자리(맨 끝)로 되돌린 사본: ⓐ 가 잡는다(첫 줄 = head-lag)
+# 변이 M1 — 닫기 블록을 원래 자리(맨 끝)로 되돌린 사본: ⓐ 가 잡는다(r1700 뒤 첫 줄 = install)
 rm -rf "$T/m"; cp -R "$BIN" "$T/m"; printf '#!/bin/bash\necho head-lag >> "$ORDER"\nexit 0\n' > "$T/m/ft-head-lag.sh"
 python3 -c 'import sys
 p=sys.argv[1]; L=open(p,encoding="utf-8").read().splitlines()
@@ -66,7 +66,7 @@ b=L[i[0]:i[0]+4]; assert b[3].lstrip().startswith("|| {"), b
 del L[i[0]:i[0]+4]
 open(p,"w",encoding="utf-8").write("\n".join(L+b)+"\n")' "$T/m/ft-merge-land.sh"
 land "$T/m/ft-merge-land.sh" 43
-[ "$(first)" != close ] && [ "$(first)" = head-lag ]; ck "변이 M1 원래 자리로 → 첫 줄 = head-lag(ⓐ 반례가 잡음)" $?
+[ "$(first)" != close ] && [ "$(first)" = install ]; ck "변이 M1 원래 자리로 → 첫 줄 = install(≠ close · r1700: head-lag 은 맨 뒤)" $?
 S3=$SECONDS
 
 # 키트 사본 · 줄 상한 · 문법
