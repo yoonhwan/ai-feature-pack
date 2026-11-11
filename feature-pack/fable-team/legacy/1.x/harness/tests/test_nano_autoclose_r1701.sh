@@ -124,15 +124,17 @@ exit 1
 EOF
 chmod +x "$T/ck/tmux" "$FK/seat-status.sh"; mkdir -p "$T/cwd" "$T/ss"
 printf '%s\n' "$SEAT" > "$T/sess"; printf '%s\n' "$WT" > "$T/cwd/$SEAT"; printf 'IDLE - - - jsonl\n' > "$T/ss/$SEAT"
-cd_run() { OUT="$(cd "$ROOT" && PATH="$T/ck:$FK:$PATH" FT_ROOT="$ROOT" FT_PACK_REPO="$PACK" \
+printf '#!/bin/sh\necho OK\n' > "$T/quiet.sh"; chmod +x "$T/quiet.sh"
+cd_run() { OUT="$(cd "$ROOT" && PATH="$T/ck:$FK:$PATH" FT_ROOT="$ROOT" FT_PACK_REPO="$PACK" FT_NANO_AUTO_CLOSE=1 FT_CLOSE_DUE_QUIET="$T/quiet.sh" \
   FT_CLOSE_DUE_SEAT_STATUS="$FK/seat-status.sh" FAKE_SESS="$T/sess" FAKE_CWD_DIR="$T/cwd" FAKE_SS_DIR="$T/ss" \
   bash "$1" --all --why 2>&1)"; RC=$?; }
-# ⓓ2 실사건 꼴 — BYZ HEAD 미착지 + 팩 squash 끝줄 «PR #930 (head <세트>)» · 세트는 pane HEAD 와 다름
-git -C "$PACK" checkout -q -b side "$S2"; git -C "$PACK" checkout -q main
-git -C "$PACK" merge -q --no-ff --no-edit "$S2" -m "PR #930 (head $S2)" 2>/dev/null || { git -C "$PACK" checkout -q -b tmp930 "$S"; git -C "$PACK" merge -q --no-ff --no-edit side -m "PR #930 (head $S2)" 2>/dev/null; }
-SQ="$(git -C "$PACK" rev-parse HEAD)"; git -C "$PACK" update-ref refs/remotes/origin/main "$SQ"
-card_ref_sq() { printf '# 인덱스: card1\n## 상태\n- 세트: %s · 시험: bash x rc=0 · 이슈: 0\n' "$S2" > "$WT/design/teams/harness/indices/아카이브/2026-11/card1.md"; git -C "$WT" add -A; git -C "$WT" commit -qm "card $S2"; git -C "$WT" push -q origin HEAD:main; }
-card_ref_sq; cd_run "$BIN/ft-nano-close-due.sh"
+# ⓓ2 실사건 꼴 — pane HEAD 미착지 · 팩은 «squash 단일 커밋»(끝줄 «PR #930 (head <세트>)») · 세트는 조상이 아니다
+git -C "$PACK" checkout -q -B sq "$S"; git -C "$PACK" merge -q --squash "$S2" >/dev/null 2>&1 || true
+git -C "$PACK" commit -q -m "squash $S2" -m "PR #930 (head $S2)"   # squash 단일 커밋 · 끝줄이 계약 꼴
+git -C "$PACK" update-ref refs/remotes/origin/main "$(git -C "$PACK" rev-parse HEAD)"
+git -C "$PACK" merge-base --is-ancestor "$S2" origin/main 2>/dev/null && bad "ⓓ2 픽스처: 세트가 origin/main 의 조상이다(squash 가 아니다)" "세트 $S2"
+card_sq() { printf '# 인덱스: card1\n## 상태\n- 세트: %s · 시험: bash x rc=0 · 이슈: 0\n' "$S2" > "$WT/design/teams/harness/indices/아카이브/2026-11/card1.md"; git -C "$WT" add -A; git -C "$WT" commit -qm "card $S2"; git -C "$WT" push -q origin HEAD:main; }
+card_sq; cd_run "$BIN/ft-nano-close-due.sh"
 has "$OUT" "닫기 차례 $SEAT" "ⓓ2 세트가 팩 squash 착지(끝줄 PR #930) → 닫기 차례(pane HEAD 미착지여도)"
 hasnt "$OUT" "세트 $S2" "ⓓ2 «세트 ≠ HEAD» 제외 0"
 git -C "$PACK" update-ref refs/remotes/origin/main "$S"   # ⓓ2 가 만든 squash 를 되돌린다(뒤 사례 ⓔ·ⓖ 는 착지 전/없음)
@@ -162,7 +164,43 @@ elif k == "M5":  # 아카이브 찾기 삭제
 p.write_text(s)
 PY
 }
-card "$S"; mut3 M3; cd_run "$T/m-M3/ft-nano-close-due.sh"
+# ⓓ3/ⓓ4 — 미착지 팩 세트: DA APPROVE + 팩 원격 가지에 있으면 갈래=승인, 원격에 없으면 제외
+git -C "$PACK" checkout -q -B hold "$S2"; git -C "$PACK" update-ref refs/remotes/origin/hold "$S2"; git -C "$PACK" checkout -q main   # origin/hold = 세트 포함(원격 가지)
+printf '## 판정: APPROVE — DA astra\n\n- 승인 sha: %s\n' "$S2" > "$T/verdict.md"
+card_da() { printf '# 인덱스: card1\n## 상태\n- 세트: %s · 시험: bash x rc=0 · 이슈: 0\n- DA 판정: %s#§1\n- 인수: %s\n' "$S2" "$T/verdict.md" "$S2" > "$WT/design/teams/harness/indices/아카이브/2026-11/card1.md"; git -C "$WT" add -A; git -C "$WT" commit -qm "card da"; git -C "$WT" push -q origin HEAD:main; }
+mkdir -p "$ROOT/.fable-team/comm/bodies"
+printf '{"seq": 4242, "ts": "t", "to": "byz-harness-master-pi#203", "from": "%s", "body": "산출 보고 r1701"}\n' "$SEAT" > "$ROOT/.fable-team/comm/mailbox.jsonl"
+printf '산출 보고 r1701\n' > "$ROOT/.fable-team/comm/bodies/4242.txt"
+card_da; cd_run "$BIN/ft-nano-close-due.sh"
+has "$OUT" "갈래=승인 set=$S2" "ⓓ3 미착지 팩 세트 + DA APPROVE + 팩 원격 가지 → 갈래=승인 1줄"
+git -C "$PACK" update-ref -d refs/remotes/origin/hold   # 원격 가지 없음
+card_da; cd_run "$BIN/ft-nano-close-due.sh"
+hasnt "$OUT" "갈래=승인" "ⓓ4 팩 원격 가지에 없는 세트 → 갈래=승인 0(제외)"
+# 변이 M6 — packed 에서 squash 경로 삭제 → ⓓ2 FAIL
+mut3() {  # mut3 <사본이름>
+  R="$T/m-$1"; rm -rf "$R"; cp -R "$BIN" "$R"; python3 - "$R/ft-nano-close-due.sh" "$1" <<'PY'
+import pathlib, sys
+p = pathlib.Path(sys.argv[1]); s = p.read_text(); k = sys.argv[2]
+def sub(old, new):
+    global s
+    assert s.count(old) == 1, old[:40]
+    s = s.replace(old, new, 1)
+if k == "M3":
+    sub(" and not pack_commit(sha_card)", "")
+elif k == "M4":
+    sub('    if not re.fullmatch(r"[0-9a-f]{40}", sha or ""): return False\n    rc, _o, _e = run(["git", "-C", PACK_REPO, "rev-parse", "--verify", "--quiet", sha + "^{commit}"], 7.0)\n    return rc == 0', '    return True')
+elif k == "M5":
+    sub('        rc, out, _e = run(["git", "-C", str(root), "ls-tree", "-d", "--name-only", f"{ref}:{cm.group(1)}/아카이브"])', '        rc, out, _e = 1, "", ""')
+elif k == "M6":
+    sub('    rc, _o, _e = run(["git", "-C", PACK_REPO, "merge-base", "--is-ancestor", sha, "origin/main"], 7.0)\n    return rc == 0 or pack_squash(sha)', '    return False')
+p.write_text(s)
+PY
+}
+card "$S"; mut3 M6; cd_run "$T/m-M6/ft-nano-close-due.sh"
+card_sq; cd_run "$T/m-M6/ft-nano-close-due.sh"
+hasnt "$OUT" "닫기 차례 $SEAT" "M6 packed 에서 squash 경로 삭제 → ⓓ2 닫기 차례 0(변이 잡힘)"
+card "$S"; git -C "$PACK" update-ref refs/remotes/origin/main "$S"
+mut3 M3; cd_run "$T/m-M3/ft-nano-close-due.sh" cd_run "$T/m-M3/ft-nano-close-due.sh"
 hasnt "$OUT" "닫기 차례 $SEAT" "M3 팩 세트 갈래 삭제 → ⓓ 닫기 차례 0(변이 잡힘)"
 card "$S2"; mut3 M4; cd_run "$T/m-M4/ft-nano-close-due.sh"
 hasnt "$OUT" "≠ HEAD" "M4 착지 검사 삭제 → ⓔ 의 «세트 ≠ HEAD» 제외가 사라짐(변이 잡힘)"

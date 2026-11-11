@@ -305,10 +305,18 @@ def pack_squash(sha):   # r1701 ③ — 팩 착지는 squash 라 세트(head)가
     return False
 
 
-def packed(sha):   # r1701 ③ — 세트 sha 가 팩 리포에 «커밋으로 있고» origin/main 착지(ff 조상 ∨ squash 끝줄)면 참 · 아니면 거짓(지금처럼 제외)
+def pack_commit(sha):   # r1701 ③ r3 — 세트 sha 가 팩 리포에 «커밋으로 있나»(착지 여부와 별개 · 미착지 세트도 승인 갈래 후보)
     if not re.fullmatch(r"[0-9a-f]{40}", sha or ""): return False
     rc, _o, _e = run(["git", "-C", PACK_REPO, "rev-parse", "--verify", "--quiet", sha + "^{commit}"], 7.0)
-    if rc != 0: return False
+    return rc == 0
+
+
+def pack_remote(sha, cap):   # r1701 ③ r3 — 세트가 팩 origin «원격 가지» 에 있나(branch -r --contains)
+    rc, out, _e = run(["git", "-C", PACK_REPO, "branch", "-r", "--contains", sha], max(0.5, cap))
+    return rc == 0 and bool(out.strip())
+
+
+def pack_landed(sha):   # r1701 ③ — 팩 origin/main 착지 = ff 조상 ∨ squash 끝줄
     rc, _o, _e = run(["git", "-C", PACK_REPO, "merge-base", "--is-ancestor", sha, "origin/main"], 7.0)
     return rc == 0 or pack_squash(sha)
 
@@ -333,7 +341,7 @@ def judge(t, k, row, card_dirs):   # → 줄 | None(제외 · exc 에 사유) ·
         elif l and not l.startswith("#") and not l.rstrip().endswith((".serena/project.yml", ".serena/")): dirty += 1   # r1670 ⓕ: 잡음(.serena/project.yml · 폴더로 접힌 .serena/)은 미커밋으로 안 센다
     if not head or not re.fullmatch(r"[0-9a-f]{40}", head): raise Unjudged("git status HEAD rc=1")
     if dirty: exc.append(f"제외 {k} 미커밋 {dirty}줄"); return None
-    if sha_card != head and not packed(sha_card): exc.append(f"제외 {k} 세트 {sha_card[:9]} ≠ HEAD {head[:9]}"); return None   # r1701 ③ 팩에서 일한 나노 = 세트가 팩 origin/main 착지면 완료 근거
+    if sha_card != head and not pack_commit(sha_card): exc.append(f"제외 {k} 세트 {sha_card[:9]} ≠ HEAD {head[:9]}"); return None   # r1701 ③ 팩에서 일한 나노 = 세트가 팩 origin/main 착지면 완료 근거
     in_pack = sha_card != head   # r1701 ③ — 세트가 팩 착지면 «판정 sha = 세트 · 리포 = 팩» (pane HEAD 로 다시 보면 갈래 줄이 0 이 된다)
     jsha, jrepo = (sha_card, PACK_REPO) if in_pack else (head, cwd)
     if AUTO or GATE:   # ⓕ 닫기 금지 — 목록(AUTO=1)과 직접 재계산(GATE) 공통 · 둘 다 아닐 때만 지금 그대로
@@ -361,7 +369,7 @@ def judge(t, k, row, card_dirs):   # → 줄 | None(제외 · exc 에 사유) ·
             chk(); _, _so = need([SEAT_STATUS, "turn", k], cap(), "ft-seat-status turn"); _st = (_so.split() or [""])[0]
             if _st != "IDLE": exc.append(f"제외 {k} 상태 {_st or '-'} (IDLE 아님)"); return None   # ⓑ·ⓕ: 승인 갈래도 «지금 IDLE» 일 때만
             ok_a, info = approve_ok(sec, jsha, str(root))
-            if ok_a: chk(); ok_a, info = (True, info) if (in_pack or on_remote(cwd, br, head, cap)) else (False, "HEAD 가 origin 원격 가지에 없음")
+            if ok_a: chk(); ok_a, info = (True, info) if (pack_remote(jsha, cap()) if in_pack else on_remote(cwd, br, head, cap)) else (False, "HEAD 가 origin 원격 가지에 없음")
             seq, body = 0, ""
             if ok_a:
                 seq, body = last_sent(k)
