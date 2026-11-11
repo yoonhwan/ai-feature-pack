@@ -10,8 +10,9 @@ from short_brief import SHORT_BRIEF  # r1666: 짧은 /tmp 지침 사본
 from test_check_r1621 import (HERE, check, watch, latest, iso, T0, BRIEF, LONG, MESSAGE,
                               PANE_CLIPPED, PANE_OURS)
 
-LIVE_SHA = '79e03f9d41b85d57f164b552113acf167fe34a05d3a71f5e6cd4b1e2f51371a2'  # 라이브 config.message 지문
-LIVE_BYTES = 3194  # 라이브 message = 1416자 · 회차마다 입력창에 들어가던 바이트
+LIVE_SHA = '79e03f9d41b85d57f164b552113acf167fe34a05d3a71f5e6cd4b1e2f51371a2'  # r1625 이행 당시 값(기록용 · 단언 0)
+LIVE_BYTES = 3194  # r1625 이행 당시 값(기록용 · 단언 0) — 라이브 message = 1416자
+DOORBELL_MAX = check.DOORBELL_MAX_BYTES  # r1673: 꼴 불변식은 check.py 정본 상한(200)을 그대로 쓴다
 DOORBELL_RE = re.compile(r'^\[ft20-check 300초\] 지침 = (/.+) sha ([0-9a-f]{12}) · 그 형식으로 점검$')
 BRIEF_PATH = SHORT_BRIEF  # r1666: 깊은 워크트리 경로에서 doorbell 200바이트 상한을 피한다
 
@@ -59,13 +60,31 @@ def test_a_round_types_only_the_doorbell(watch, monkeypatch):  # ⓐ · M2: brie
     base, state, typed = spy(watch, monkeypatch)
     state['receipt_on_enter'] = T0 + 301
     assert check.check() == 'NOTIFIED'
-    assert typed == [MESSAGE] and len(typed[0].encode('utf-8')) < LIVE_BYTES
+    assert typed == [MESSAGE] and len(typed[0].encode('utf-8')) <= DOORBELL_MAX
 
 
-def test_bf_brief_bytes_and_size():  # ⓑ 지침 = 라이브 message 바이트 그대로 · ⓕ 크기
-    assert hashlib.sha256(BRIEF.encode('utf-8')).hexdigest() == LIVE_SHA
-    assert len(BRIEF.encode('utf-8')) == LIVE_BYTES and len(BRIEF) == 1416
-    assert len(MESSAGE.encode('utf-8')) <= 200 and len(MESSAGE.encode('utf-8')) * 10 < LIVE_BYTES
+def brief_ok(path):  # ⓑ 지침 꼴: 비어 있지 않음 ∧ UTF-8 ∧ doorbell 1줄 ≤ 상한 ∧ 지침 > doorbell×10
+    try:
+        text = path.read_text(encoding='utf-8')  # UTF-8 이 아니면 지침으로 못 쓴다
+    except UnicodeDecodeError:
+        return False
+    line = check.doorbell_line({'brief': str(path)})
+    body, bell = len(text.encode('utf-8')), len(line.encode('utf-8'))
+    return bool(text.strip()) and '\n' not in line and bell <= DOORBELL_MAX and body > bell * 10
+
+
+def test_bf_brief_shape_and_size():  # ⓑ·ⓕ 바이트 지문 단언 0 — 내용이 아니라 꼴만 본다(r1673)
+    assert brief_ok(SHORT_BRIEF)  # 지금 지침 = 통과 · ⓕ 크기 뜻(지침 ≫ doorbell) 유지
+
+
+def test_b_qa_edit_passes_empty_and_tiny_fail():  # ⓑ QA 개정 견딤 · 빈 파일·큰 doorbell 거절
+    assert brief_ok(short_brief(BRIEF + '한 줄 추가'))  # 한 글자 바뀐 사본도 통과
+    assert not brief_ok(short_brief(''))  # 빈 파일 = FAIL
+    assert not brief_ok(short_brief(' ' * 5000))  # M1: «비어 있지 않음» 을 지우면 여기서 빨강
+    assert not brief_ok(short_brief('짧은 지침'))  # M2: «× 10» 을 지우면 여기서 빨강
+    non_utf8 = short_brief('가')  # UTF-8 아님 = 지침 아님
+    non_utf8.write_bytes(b'\xff\xfe ok')
+    assert not brief_ok(non_utf8)
 
 
 def test_c_missing_brief_sends_nothing(watch, monkeypatch):  # ⓒ
