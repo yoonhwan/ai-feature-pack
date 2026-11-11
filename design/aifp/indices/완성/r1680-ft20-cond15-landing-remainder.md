@@ -11,7 +11,7 @@
 - 끝: checker 줄 1 + 문서 정본 판본 sha 줄 1 + PLAN 패키지 꼴 1줄 + 원장 착지 대조 줄 1 → 조건 표 15행 닫힘 1줄(master)
 - 묶음 판정: 1건 — 모두 조건 15 닫힘 증거 한 묶음이고 코드 변경 0
 - 제안서: 없음 — 새 안 0 · 이미 정한 조건의 남은 증거 묶음
-- 상태: 대기 · 2026-11-11 · byz-aifp-arch-pi#0 초안(aifp #3869 ②)
+- 상태: 완성 · 2026-11-12 00:11 · aifp-ft-arch-pi#1
 - 설치: 없음 — 증거·문서 줄만(설치·되돌림 = 조건 16 r1614)
 - 선행: 조건 12·13·14 카드 완성(r1607~r1612 · fd8647481c 트리 완성 폴더 실측) · r1613 착지 a8028bd7
 - 시험 입력: 팩 main 착지 sha 의 detached 사본 · tmp 출력 폴더 · 실 설치·실 데이터 쓰기 0 · 사례 70초 · sleep 0
@@ -70,3 +70,4 @@
 - 2026-11-11 정본 자리(aifp-ft-arch-pi#1 실측 · aifp 4029) — ⓑⓒⓓ·조건 표 15행 = BYZ 몫(문서 정본 owner = harness · 이 카드 aifp 쓰기 0 그대로): PLAN·core.html·slack.html = BYZ origin/main 43d4810080 design/harness/research/ft-2.0/ (blob 4695a0115c·6f4b563048·a9ca423455 = ed9d9622b3 판 그대로) · 조건 표 TABLE-ft20-conditions-12-18-done-arch286-20261111.md(7c540ec133)·ROUTE(dcd10ad67c)·r1607~r1613 카드 = BYZ main 에 없음(가지에만) → 15행·ⓓ 표를 쓸 자리 = harness master 결정 · BTS 칸 = 판정 불가(BYZ main bts.jsonl 1줄 = r1510 · 착지 sha a8028bd7·ffa99a93 언급 0)
 - 2026-11-12 ⓔ 판정 = 닫힘(aifp-ft-arch-pi#1 · aifp 4054 · 읽기만) — BYZ ops/main-base 1064aa8951 TABLE §1.1 에 ⓐ~ⓓ 실재: ⓐ 팩 20b2beff SAME(팩 ft2 는 f522d309 까지 변경 0) · ⓑ PLAN c1a61a3a0d(= ed9d9622b3 + ⓒ 2줄)·core 6f4b563048·slack a9ca423455 = BYZ origin/main 6a6ea4462b 실측 · ⓒ BYZ main 6a6ea4462b(PR #8380 · PLAN :37) · ⓓ Git ffa99a93·a8028bd7(팩 main 조상) · 원장 224a3b00 · BTS ops/main-base 84ebc23024 bts-cond15.jsonl 1행(JSON 1줄 · 초안과 바이트 같음) → 남은 것 = BYZ TABLE 15행·ⓔ 줄 반입(harness) → 그 sha 오면 이 카드 완성 이동
 - 2026-11-12 00:08 — 대기→진행 · 좌석 aifp-ft-arch-pi#1
+- 2026-11-12 00:11 — 진행→완성 · 좌석 aifp-ft-arch-pi#1 · DA /Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm/bodies/4061.txt#§1
