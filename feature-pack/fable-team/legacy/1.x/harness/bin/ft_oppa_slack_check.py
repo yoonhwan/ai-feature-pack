@@ -105,29 +105,21 @@ def judge(ts: str, shas: list) -> list:
         raise Unjudgeable("edited 꼴 아님")
     me = [q.get("user"), q.get("bot_id")]
     after = sorted(((dec(m.get("ts")), m.get("user"), m) for m in msgs if m is not q), key=lambda x: x[0])
-    # r1696 ⓐ — 창 끝을 «다음 글» 로 잡으면 같은 질문 재게시·안내 글 뒤의 오빠 답이 창 밖이 된다(실사건 #285686).
-    #   그래서 «오빠 답 앞의 마지막 40hex 담은 같은 작성자 글» = 그 답이 받는 질문으로 본다 · 40hex 없는 글(안내·상태)은 창을 끊지 않는다.
-    qhex = [(parent, {h.lower() for h in HEX40.findall(text)})] + [
-        (t, {h.lower() for h in HEX40.findall(m.get("text") if isinstance(m.get("text"), str) else "")})
-        for t, _, m in after if t > parent and any(a and a in (m.get("user"), m.get("bot_id")) for a in me)]
-    qhex = [(t, hs) for t, hs in qhex if hs]
-    qmap = dict(qhex)
-    nxt = next((t for t, _, m in after if t > parent and any(a and a in (m.get("user"), m.get("bot_id")) for a in me)), None)   # 40hex 질문이 하나도 없을 때의 옛 창(REPLY-SEEN·sha 없는 질문)
+    # r1696 ⓐ — 창 끝 = parent 뒤 «같은 작성자의 다음 글»(지금 그대로) · 단 그 글이 «이 sha 를 담고» 있으면(재게시·sha 적은 독촉) 끊지 않고 잇는다.
+    #   40hex 없는 같은 작성자 글은 지금처럼 끊는다(«4. 다음 질문» = 창 끝) · sha 마다 다르게 판정하므로 «다른 sha 를 물은 글» 도 그 sha 의 창을 끊는다.
+    mine = sorted([(parent, text)] + [(t, m.get("text") if isinstance(m.get("text"), str) else "") for t, _, m in after
+                                       if t > parent and any(a and a in (m.get("user"), m.get("bot_id")) for a in me)], key=lambda x: x[0])
+    def has_sha(txt: str, sha: str) -> bool:
+        if not sha:
+            return bool(HEX40.search(txt))   # --reply-only(r1591) = sha 칸 없음 → 40hex 담은 글(재게시)은 창을 끊지 않는다(카드 ⓗ)
+        return bool(re.search(r"(?<![0-9a-fA-F])%s(?![0-9a-fA-F])" % sha, txt, re.I))
     out = []
     for sha in shas:
         if not re.search(r"(?<![0-9a-fA-F])%s(?![0-9a-fA-F])" % sha, text, re.I) and sha:  # r1591 · 빈 sha = 답글 확인 모드(sha 낱말 검사 없음)
             raise ValueError("질문 글에 %s 없음" % sha)
-        ok = []
-        for t, u, m in after:
-            if u != OPPA_SLACK_UID or t <= parent or (edited is not None and dec(edited["ts"]) >= t):
-                continue
-            prev = [x for x, _ in qhex if x < t]   # 그 답 앞의 마지막 «40hex 담은 질문»
-            if prev:
-                if sha and sha.lower() not in qmap[max(prev)]:
-                    continue   # 다른 sha 를 물은 글 뒤의 답 = 이 sha 의 답 아님
-            elif nxt is not None and t >= nxt:
-                continue       # 40hex 질문이 없을 때는 옛 창(같은 작성자의 다음 글 전) 그대로
-            ok.append((t, m))
+        brk = [x for x, txt in mine if x > parent and not has_sha(txt, sha)]   # 이 sha 의 창을 끊는 글 = sha 를 안 담은 같은 작성자 글
+        nxt = brk[0] if brk else None
+        ok = [(t, m) for t, u, m in after if u == OPPA_SLACK_UID and t > parent and (nxt is None or t < nxt) and (edited is None or dec(edited["ts"]) < t)]
         if not ok:
             raise NoReply("오빠 답글 아직 없음") if not sha else ValueError("오빠 답글 없음(부모 뒤 · 수정 전 · 다음 질문 전): %s" % sha)
         if not sha:  # r1591 · --reply-only 는 «도착» 만 본다(r1606 내용 판정은 승인 길에만 · 범위 밖)

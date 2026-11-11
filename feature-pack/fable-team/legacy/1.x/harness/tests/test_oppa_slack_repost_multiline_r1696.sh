@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # test_oppa_slack_repost_multiline_r1696.sh — r1696: 오빠 승인 답을 «같은 sha 를 다시 물은 글» 뒤에도, 첫 줄이 승인이고 뒤에 설명 줄이 붙어도 받는다.
-#   ⓐ 재게시 뒤 답 · ⓑ 다른 sha 질문 뒤 답 막음 · ⓒ 40hex 없는 안내 글은 창을 안 끊음 · ⓓ «예\n\n설명»·«예 / 이건 다음에» 승인
+#   ⓐ 재게시(같은 sha 담은 다음 글) 뒤 답 · ⓑ 다른 sha 질문 뒤 답 막음 · ⓒ 40hex 없는 같은 작성자 글은 지금처럼 창을 끊음 · ⓒ2 이 sha 담은 독촉 글은 잇음
+#   ⓓ «예\n\n설명»·«예 / 이건 다음에» 승인
 #   ⓔ «예\n근데 보류» 거절 · ⓕ «잠깐\n예»·«네? 왜요» 판정 불가 · ⓖ 질문 수정 뒤 답 막음 · ⓗ --reply-only 같은 창 · ⓙ 실사건 스레드 5글 재생
-#   변이(사본에서만): M1 창=다음 글 → ⓐ·ⓒ FAIL · M2 «아무 40hex» → ⓑ FAIL · M3 마지막 조각 판정 → ⓓ·ⓕ FAIL · M4 거절=첫 조각만 → ⓔ FAIL
+#   변이(사본에서만): M1 창 끝=다음 글(sha 무시) → ⓐ·ⓒ2 FAIL · M1b 40hex 없는 글도 안 끊음 → ⓒ FAIL · M2 «아무 40hex» → ⓑ FAIL · M3 마지막 조각 판정 → ⓓ·ⓕ FAIL · M4 거절=첫 조각만 → ⓔ FAIL
 # 스텁 스레드만(FT_SLACK_REPLIES_CMD) · 실 Slack·토큰·게시 0 · sleep 0
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; REPO="$HERE/../.."
@@ -51,9 +52,11 @@ th; run "$T1" "$A"
 th "$T1" "$Q1" "[질문 · 다시 여쭘] 다른 건 · head $B"
 run "$T1" "$A"; expect no "ⓑ A 는 REJECT rc2(다른 sha 질문 뒤 답)"
 run "$Q1" "$B"; expect ok "ⓑ Q2 의 B 는 SLACK-OK"
-# ⓒ 40hex 없는 봇 안내 글은 창을 끊지 않는다
-th "$T1" "$Q1" "오빠, 확인 부탁드립니다(안내)"
-run "$T1" "$A"; expect ok "ⓒ 알림(40hex 없음) 끼어도 SLACK-OK"
+# ⓒ 40hex 없는 같은 작성자 글은 지금처럼 창을 끊는다(계약 (b) 판정) · ⓒ2 이 sha 를 담은 독촉·재게시는 잇는다
+th "$T1" "$Q1" "4. 다음 질문(40hex 없음)"
+run "$T1" "$A"; expect no "ⓒ 40hex 없는 같은 작성자 글 → REJECT(지금과 같다)"
+th "$T1" "$Q1" "재게시 · 독촉 — head $A 확인 부탁"
+run "$T1" "$A"; expect ok "ⓒ2 이 sha 담은 독촉 글은 창을 잇는다 → SLACK-OK"
 # ⓓ 여러 줄 승인 · ⓔ 거절 섞임 · ⓕ 첫 줄 승인 아님
 while IFS='|' read -r txt want; do
   th "$T1" "$Q1" "[질문] head $A" "$O1" "$txt"; run "$T1" "$A"
@@ -108,23 +111,18 @@ def sub(old, new):
     assert s.count(old) == 1, old[:40]
     s = s.replace(old, new, 1)
 MUTS = {
-    "M1": ('''            prev = [x for x, _ in qhex if x < t]   # 그 답 앞의 마지막 «40hex 담은 질문»
-            if prev:
-                if sha and sha.lower() not in qmap[max(prev)]:
-                    continue   # 다른 sha 를 물은 글 뒤의 답 = 이 sha 의 답 아님
-            elif nxt is not None and t >= nxt:
-                continue       # 40hex 질문이 없을 때는 옛 창(같은 작성자의 다음 글 전) 그대로''',
-           '''            if nxt is not None and t >= nxt:
-                continue'''),
-    "M2": ("if sha and sha.lower() not in qmap[max(prev)]:", "if False:"),
-    "M3": ('    for chunk in re.split(r"[\\r\\n]+|/", t):', '    for chunk in list(reversed([c for c in re.split(r"[\\r\\n]+|/", t)])):'),
-    "M4": ("no = [t for t, ws, _ in said if REJECT_WORDS.intersection(ws)]", "no = [t for t, _, fc in said if REJECT_WORDS.intersection(fc)]"),
+    "M1":  ("not has_sha(txt, sha)", "True"),                       # 창 끝 = 무조건 다음 글(sha 무시) → ⓐ·ⓒ2 FAIL
+    "M1b": ("not has_sha(txt, sha)", "False"),                      # 40hex 없는 글도 안 끊음(이전 판) → ⓒ FAIL
+    "M2":  ("not has_sha(txt, sha)", "not HEX40.search(txt)"),      # «아무 40hex» 면 이 sha 로 봄 → ⓑ FAIL
+    "M3":  ('    for chunk in re.split(r"[\\r\\n]+|/", t):', '    for chunk in list(reversed([c for c in re.split(r"[\\r\\n]+|/", t)])):'),
+    "M4":  ("no = [t for t, ws, _ in said if REJECT_WORDS.intersection(ws)]", "no = [t for t, _, fc in said if REJECT_WORDS.intersection(fc)]"),
 }
 sub(*MUTS[kind]); p.write_text(s)
 PY
 }
-mut M1; th; run "$T1" "$A"; expect no "M1 창=다음 글 → ⓐ REJECT(변이 잡힘)"
-th "$T1" "$Q1" "오빠, 확인 부탁드립니다(안내)"; run "$T1" "$A"; expect no "M1 창=다음 글 → ⓒ REJECT(변이 잡힘)"
+mut M1; th; run "$T1" "$A"; expect no "M1 창 끝=다음 글(sha 무시) → ⓐ REJECT(변이 잡힘)"
+th "$T1" "$Q1" "재게시 · 독촉 — head $A 확인 부탁"; run "$T1" "$A"; expect no "M1 → ⓒ2 REJECT(변이 잡힘)"
+mut M1b; th "$T1" "$Q1" "4. 다음 질문(40hex 없음)"; run "$T1" "$A"; expect ok "M1b 40hex 없는 글도 안 끊음 → ⓒ SLACK-OK(변이 잡힘)"
 mut M2; th "$T1" "$Q1" "[질문 · 다시 여쭘] 다른 건 · head $B"; run "$T1" "$A"; expect ok "M2 «아무 40hex 면 이 sha» → ⓑ SLACK-OK(변이 잡힘)"
 mut M3; th "$T1" "$Q1" "[질문] head $A" "$O1" '예 / 이건 다음에'; run "$T1" "$A"; expect no "M3 마지막 조각 판정 → ⓓ REJECT(변이 잡힘)"
 th "$T1" "$Q1" "[질문] head $A" "$O1" '잠깐\n예'; run "$T1" "$A"; expect ok "M3 마지막 조각 판정 → ⓕ SLACK-OK(변이 잡힘)"
