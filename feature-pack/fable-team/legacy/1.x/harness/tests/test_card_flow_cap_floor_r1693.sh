@@ -70,6 +70,15 @@ o="$(FT_CARD_CAP_OK=777 run --gate)"; rc=$?
 o="$(FT_CARD_CAP_OK=778 run --gate)"; rc=$?
 { [ "$rc" = 4 ]; } && ok "ⓕ 표식 없는 번호 → rc4(그대로)" || bad "ⓕ rc=$rc «${o:0:160}»"
 
+# ⓗ 배정 줄 좌석 대조는 «정확 일치» — «…#1» 이 살아 있는 «…#10» 에, «nano» 한 낱말이 세션 목록 어디엔가에 걸리면 안 된다(arch#301)
+mkprog 2; card 진행 r9301 "- 배정: 좌석 byz-t-nano-r9001-x#1
+"; card 진행 r9302 "- 배정: 좌석 nano
+"; sess "byz-t-nano-r9001-x#10"
+o="$(run)"; [[ "$o" == *"(좌석 0)"* ]] && ok "ⓗ «#1» vs «#10»·한 낱말 «nano» → 좌석 0(정확 일치)" || bad "ⓗ «${o:0:160}»"
+mkprog 2; card 진행 r9303 "- 배정: 좌석 byz-t-nano-r9001-x#10
+"; card 진행 r9304 "- 배정: 좌석 nano
+"; sess "byz-t-nano-r9001-x#10" "nano"
+o="$(run)"; [[ "$o" == *"(좌석 2)"* ]] && ok "ⓗ 정확히 같은 이름이 살아 있으면 좌석 2" || bad "ⓗ «${o:0:160}»"
 # ⓖ 회귀 — card_flow 기존 시험 FAIL 줄이 앞 판과 같다(둘 다 0줄)
 m="$(bash "$HERE/test_card_flow_team_ref_r1256.sh" 2>&1 | grep -c '^FAIL')"   # 빠른 회귀(0.4초) — r954 는 단독 25~110초(부하)라 70초 예산 밖: FT_R1693_FULL=1 이면 함께 본다
 { [ "$m" = 0 ]; } && ok "ⓖ 회귀 r1256 FAIL 0" || bad "ⓖ 회귀 r1256 FAIL $m"

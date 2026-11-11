@@ -64,7 +64,7 @@ FCHK="${FT_CARD_FLOW_FINISHED:-$HERE/ft-finished-check.sh}"
 PYOUT="$(CF_SESSIONS="$sessions" CF_REF="$RREF" CF_REFDIR="$RFOLD" CF_REFREPO="$RREPO" python3 -I - "$DIR" "$ROOT" "$MAIN" "$LIMIT" <<'PY'
 import errno,os,re,subprocess,sys,time
 d,root,main,limit=sys.argv[1],sys.argv[2],sys.argv[3],float(sys.argv[4]); t0=time.time()
-sess=os.environ.get('CF_SESSIONS','').lower()
+sess=os.environ.get('CF_SESSIONS','').lower(); SS=set(x for x in sess.split('\n') if x)   # r1693 보정: 세션 이름 «집합»(부분 문자열 대조 금지 — «…#1» 이 «…#10» 에 걸린다 · arch#301)
 def nslug(n):   # r1292: 세션명 byz-<팀>-nano-<s>#N → s (그 밖 꼴은 빈 값)
     i=n.find('-nano-')
     if i<0: return ''
@@ -131,7 +131,7 @@ for c in cards:
     m=None
     for m in pat.finditer(body): pass
     am=asg.search(body)
-    live=is_live(slug) or bool(am and am.group(1).strip().lower() in sess); seat+=live
+    live=is_live(slug) or bool(am and am.group(1).strip().lower() in SS); seat+=live   # 배정 줄 좌석 = 이름 정확 일치만
     tok=word(m.group(1)) if m else ''
     rows.append((slug,live,tok if valid.match(tok) else ('?' if m else '')))   # '?' = 착지 줄은 있으나 첫 낱말이 7~40자 소문자 16진수 아님 → 근거 없음
 want={}
