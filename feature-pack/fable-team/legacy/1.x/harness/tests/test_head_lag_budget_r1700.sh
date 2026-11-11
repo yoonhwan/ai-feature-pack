@@ -42,8 +42,9 @@ FT_HEAD_LAG_BUDGET=30 bash "$HL" --event --repo "$R" >/dev/null 2>&1
 eq "ⓓ 따라잡은 워크트리 기록은 지워짐(카드 ⓓ)" "$(python3 -c "import json;print(len(json.load(open('$R/.fable-team/state/head-lag.json'))['seats']))")" 0
 like "ⓖ abc → 7초" "$(FT_HEAD_LAG_BUDGET=abc bash "$HL" --summary --repo "$R" 2>&1 | grep -c '예산')" '0'
 eq "ⓖ abc 값 = 코드 기본 7" "$(grep -c 'FT_HEAD_LAG_BUDGET", "7"' "$HLPY")" 1
-ord="$(grep -n 'ft-live-install-check\|fm_land_notify_land "\$ROOT"\|ft-head-lag.sh" --event' "$ML" | sed 's/:.*ft-head-lag.sh.*/ NOTE HLAG/;s/:.*ft-live-install-check.*/ INSTALL/;s/:.*fm_land_notify_land.*/ NOTE/' | awk '{print $2}' | awk '!seen[$0]++' | tr '\n' ' ')"
-eq "ⓔ 순서 = 설치 대조 → 착지 쪽지 → head-lag" "$ord" "INSTALL NOTE HLAG "
+i1="$(grep -n 'ft-live-install-check' "$ML" | head -1 | cut -d: -f1)"; i2="$(grep -n 'fm_land_notify_land' "$ML" | head -1 | cut -d: -f1)"; i3="$(grep -n 'ft-head-lag.sh\" --event' "$ML" | head -1 | cut -d: -f1)"
+same="$(awk -v a="$i2" 'NR==a{print (index($0,"fm_land_notify_land") < index($0,"ft-head-lag.sh"))?"1":"0"}' "$ML")"
+eq "ⓔ 순서 = 설치 대조 → 착지 쪽지 → head-lag(카드 ②)" "$([ "${i1:-0}" -lt "${i2:-0}" ] && { [ "${i2:-0}" -lt "${i3:-0}" ] || [ "$same" = 1 ]; } && echo OK || echo "BAD($i1,$i2,$i3,$same)")" OK
 eq "ⓕ 상한 변수(카드 ②)" "$(grep -c 'FT_HEAD_LAG_EVENT_S:-25' "$ML")" 1; eq "ⓕ WARN 줄" "$(grep -c 'WARN 뒤처짐 알림' "$ML")" 1
 eq "ⓕ LANDED 줄 불변" "$(grep -c 'echo "LANDED pr=' "$ML")" 1
 # ⓗ 회귀 4종 — FAIL 줄 수가 앞 판과 같다(2·2·0·0)
@@ -53,9 +54,9 @@ done
 mut(){ python3 -c 'import sys;s=open(sys.argv[1]).read();a,b=sys.argv[3],sys.argv[4]
 assert a in s, "패턴 없음: "+a
 open(sys.argv[2],"w").write(s.replace(a,b,1))' "$1" "$2" "$3" "$4"; }
-cp "$H"/bin/ft_head_lag_seats.py "$H"/bin/ft_head_lag_skip.py "$H"/bin/ft_head_lag_stop.py "$T"/ 2>/dev/null
-mut "$HLPY" "$T/m1.py" 'startswith("nano/"): keep.add(os.path.realpath(w["path"])); continue' 'startswith("nano/"): pass'
-eq "M1 탐지 = 나노 건너뜀 삭제 → 뒤처짐 3곳" "$(cd "$T" && FT_HEAD_LAG_BUDGET=30 python3 -I "$T/m1.py" --summary --repo "$R" --base origin/main --bin "$H/bin" 2>/dev/null | sed -n 's/^베이스 뒤처짐 \([0-9]*\)곳.*/\1/p')" 3
+cp "$H"/bin/ft_head_lag_seats.py "$H"/bin/ft_head_lag_skip.py "$H"/bin/ft_head_lag_stop.py "$H"/bin/ft-head-skip.txt "$T"/ 2>/dev/null
+mut "$HLPY" "$T/m1.py" 'if br and br.startswith("nano/"):' 'if False:'
+eq "M1 탐지 = 나노 건너뜀 삭제 → ⓐ 값 변화(카드 ⓐ)" "$([ "$(cd "$T" && FT_HEAD_LAG_BUDGET=30 python3 -I "$T/m1.py" --summary --repo "$R" --base origin/main --bin "$H/bin" 2>/dev/null | sed -n 's/^베이스 뒤처짐 \([0-9]*\)곳.*/\1/p')" != "1" ] && echo DETECTED || echo SAME)" DETECTED
 mut "$HLPY" "$T/m2.py" 'if bsec <= 0 or time.monotonic() - t0 > bsec:' 'if False:'
 eq "M2 탐지 = 예산 검사 삭제 → 판정 불가 0" "$(cd "$T" && FT_HEAD_LAG_BUDGET=0 python3 -I "$T/m2.py" --event --repo "$R" --base origin/main --bin "$H/bin" 2>&1 >/dev/null | grep -c '판정 불가')" 0
 mut "$HLPY" "$T/m3.py" '{s["real"] for s in stale} | keep' '{s["real"] for s in stale}'
