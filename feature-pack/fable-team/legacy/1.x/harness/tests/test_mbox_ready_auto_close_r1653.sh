@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# test_mbox_ready_auto_close_r1653.sh — r1653 단계 2 [feature]: `mbox.sh ready` 성공 = 같은 실행에서 옛 좌석 ft-seat-close 1회.
-#  ① ready 성공 → 가짜 ft-seat-close 인자 = 옛 좌석·--reason «승계 레디 #<레디 seq> → <후계>» · AUTO-CLOSE rc=0 · ready rc0
+# test_mbox_ready_auto_close_r1653.sh — r1653 단계 2 [feature]: `mbox.sh ready` 성공 + FT_READY_AUTO_CLOSE=1 = 같은 실행에서 옛 좌석 ft-seat-close 1회.
+#  ★기본값 = 끔(0)★ — env 는 좌석 셸마다 따로라 설치로 «끈 채» 를 보장 못 한다(planner #283594 · master #283652) · 켜기 = 1.
+#  ① FT_READY_AUTO_CLOSE=1 + ready 성공 → 가짜 ft-seat-close 인자 = 옛 좌석·--reason «승계 레디 #<레디 seq> → <후계>» · AUTO-CLOSE rc=0 · ready rc0
 #  ② ready-body REJECT(후계가 [인계] recv 전) → ft-seat-close 호출 0 · ready rc3
 #  ③ 가짜 rc3(kill=held) → «AUTO-CLOSE <옛> rc=3» + «다음: master 판단(h)» · ready rc0(닫기 결과로 rc 를 안 바꾼다)
-#  ④ FT_READY_AUTO_CLOSE=0 → 호출 0 · ready rc0
+#  ④ 미설정(기본 0) → 호출 0  ⑤ =0 명시 → 호출 0   (①③ 은 =1 로 켜서 본다)
 #  변이 M3 ready 의 자동 닫기 갈래 무효화(if false) → ① FAIL
 #  격리: 정본 comm 사본 + seats-union.json + 임시 우편함 + 가짜 ft-seat-close(인자·rc 만 기록) · 실 명부·실 큐·실 tmux·실 좌석 닫기 0 · 고정 sleep 0 · 자기 재호출 0.
 set -uo pipefail
@@ -45,7 +46,7 @@ mut_m3() {   # M3 — ready 의 자동 닫기 갈래 무효화(= 줄 삭제와 �
   python3 - "$C/mbox.sh" <<'PY'
 import sys
 p = sys.argv[1]; s = open(p, encoding="utf-8").read()
-old = 'if [ "$_rc" = 0 ] && [ "${FT_READY_AUTO_CLOSE:-1}" != 0 ]'
+old = 'if [ "$_rc" = 0 ] && [ "${FT_READY_AUTO_CLOSE:-0}" = 1 ]'
 assert old in s, "M3 자리 없음"
 open(p, "w", encoding="utf-8").write(s.replace(old, 'if false && [ "$_rc" = 0 ]', 1))
 PY
@@ -58,7 +59,7 @@ setup() {   # setup — 옛 [인계] 1통 · retire · 후계 recv 까지(HS = [
 # ① ready 성공 → ft-seat-close 1회(옛 좌석 · --reason «승계 레디 #<seq> → 후계») · AUTO-CLOSE rc=0 · ready rc0
 chk_1() {
   new_env "${1:-}" || return 2; setup || return 2
-  sh_ ready "$N" "$O"; [ "$RC" = 0 ] || return 1
+  FT_READY_AUTO_CLOSE=1 sh_ ready "$N" "$O"; [ "$RC" = 0 ] || return 1
   RS="$(printf '%s\n' "$OUT" | sed -n 's/^QUEUED seq=\([0-9]*\).*/\1/p' | head -1)"
   [ "$(wc -l < "$LOG" | tr -d ' ')" = 1 ] || return 1
   grep -qx -- "$O --reason 승계 레디 #$RS → $N" "$LOG" || return 1
@@ -74,14 +75,19 @@ sh_ ready "$N" "$O"
   && ok "② ready-body REJECT → ft-seat-close 호출 0 · ready rc3" || bad "② rc=$RC :: $OUT :: log=$(cat "$LOG")"
 
 # ③ 가짜 rc3(kill=held) → «AUTO-CLOSE ... rc=3» + «다음: master 판단(h)» · ready rc0
-new_env; setup; FAKE_CLOSE_RC=3 sh_ ready "$N" "$O"
+new_env; setup; FT_READY_AUTO_CLOSE=1 FAKE_CLOSE_RC=3 sh_ ready "$N" "$O"
 [ "$RC" = 0 ] && case "$OUT" in *"AUTO-CLOSE $O rc=3"*'다음: master 판단(h)'*) true;; *) false;; esac \
   && [ "$(wc -l < "$LOG" | tr -d ' ')" = 1 ] && ok "③ kill=held rc3 → AUTO-CLOSE rc=3 · «다음: master 판단(h)» · ready rc0" || bad "③ rc=$RC :: $OUT"
 
-# ④ FT_READY_AUTO_CLOSE=0 → 호출 0 · ready rc0
+# ④ 미설정(기본값) = 끔 → 호출 0 · ready rc0 (설치가 «끈 채» 를 보장하는 자리)
+new_env; setup; sh_ ready "$N" "$O"
+[ "$RC" = 0 ] && [ ! -s "$LOG" ] && case "$OUT" in *AUTO-CLOSE*) false;; *) true;; esac \
+  && ok "④ FT_READY_AUTO_CLOSE 미설정(기본 0) → ft-seat-close 호출 0 · ready rc0" || bad "④ rc=$RC :: $OUT :: log=$(cat "$LOG")"
+
+# ⑤ FT_READY_AUTO_CLOSE=0 명시 → 호출 0 · ready rc0
 new_env; setup; FT_READY_AUTO_CLOSE=0 sh_ ready "$N" "$O"
 [ "$RC" = 0 ] && [ ! -s "$LOG" ] && case "$OUT" in *AUTO-CLOSE*) false;; *) true;; esac \
-  && ok "④ FT_READY_AUTO_CLOSE=0 → ft-seat-close 호출 0 · ready rc0" || bad "④ rc=$RC :: $OUT :: log=$(cat "$LOG")"
+  && ok "⑤ FT_READY_AUTO_CLOSE=0 → ft-seat-close 호출 0 · ready rc0" || bad "⑤ rc=$RC :: $OUT :: log=$(cat "$LOG")"
 
 for f in "$SRC/mbox.sh"; do bash -n "$f" 2>/dev/null && ok "bash -n $(basename "$f")" || bad "bash -n $(basename "$f")"; done
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }
