@@ -7,7 +7,7 @@
 # 전부 mktemp(임시 bare 원격 + clone) · 실 리포·실 gh·실 push 0 · sleep 0 · 사례 70초
 set -uo pipefail
 export FT_AUTONOMY_LEVEL=each
-HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; BIN="$HERE/../../harness/bin"
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; BIN="$HERE/../../harness/bin"; REPO="$(cd "$HERE/../.." && pwd)"
 . "$HERE/_merge_fixture.sh"
 fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:400}"; fail=$((fail+1)); fi; }
@@ -19,6 +19,7 @@ VP=docs/rules/press_voice_paths.md
 printf '# press\n- 참고: 이 파일은 시험용이다.\n' > "$T/empty-seed"   # (사용 안 함)
 # main = 목록 있음(정본) · 목록 신설 커밋의 «부모»(BASE)에서 ops 를 가른다
 mkdir -p "$W/docs/rules"; printf '# 음성 경로 정본\n\n## 목록\n- `clients/web/src/domains/realtime/**`\n' > "$W/$VP"
+mkdir -p "$W/.github/workflows"; printf 'name: CD\njobs:\n  changes:\n    steps:\n      - uses: dorny/paths-filter@v3\n        with:\n          filters: |\n            web:\n              - "clients/web/**"\n' > "$W/.github/workflows/cd-dev.yml"   # r1697 r3: deploy 범위 표 = canon 에만
 cm "$W" "목록 신설"; MAINL="$(sha "$W" HEAD)"; printf '%s\n' "$MAINL" > "$T/MainList"
 git -C "$W" push -q origin main
 BASE="$(sha "$W" HEAD~1)"
@@ -37,11 +38,6 @@ pl origin/ops/main-base "$HA" "$(sha "$W" HEAD)"
 { [ "$(printf '%s\n' "$out" | head -1)" = "press 증거 대상 밖(음성 경로 변경 0)" ] && [[ "$err" == *"음성 경로 목록 출처 = 정본 main"* ]]; } \
   && ck "ⓗ 보정1 — stdout 첫 줄 = 판정 줄 · 출처 줄은 stderr(부르는 쪽이 첫 줄만 출력)" 0 \
   || ck "ⓗ 보정1 — stdout 첫 줄 = 판정 줄 · 출처 줄은 stderr(부르는 쪽이 첫 줄만 출력)" 1
-# ⓘ 보정2 — FT_PRESS_SCOPE=deploy 에서는 canon 갈래를 타지 않는다(지금처럼 판정 불가)
-( cd "$T" && FT_ROOT="$T" FT_PRESS_SCOPE=deploy python3 "$P" land --repo "$W" --remote origin --main origin/ops/main-base --head "$HA" --landing "$HA" --pr 1 --root "$T" >"$T/o2.txt" 2>&1 ); rc=$?; out="$(cat "$T/o2.txt")"
-{ [ "$rc" = 1 ] && [[ "$out" == *"판정 불가"* ]] && [[ "$out" != *"정본 main"* ]]; } \
-  && ck "ⓘ 보정2 — deploy 길은 정본 main 갈래를 쓰지 않는다(판정 불가 그대로)" 0 \
-  || ck "ⓘ 보정2 — deploy 길은 정본 main 갈래를 쓰지 않는다(판정 불가 그대로)" 1
 # ⓑ 같은 꼴에서 head 가 정본 목록의 음성 경로를 바꿈 → 대상 안(거절 문구는 main 대상과 같다)
 head_ pr-b origin/ops/main-base; mkdir -p "$W/clients/web/src/domains/realtime"; printf 'v\n' > "$W/clients/web/src/domains/realtime/x.ts"; cm "$W" "voice path"
 HB="$(sha "$W" HEAD)"
@@ -102,4 +98,26 @@ plx "$CX" origin/ops2 "$HD"; { [ "$rc" = 0 ]; } && ck "M2 «대상 가지에 목
 CX="$(mkx m3 'if os.environ.get("FT_PRESS_SCOPE") != "deploy" and not (tgt and patterns(repo, tgt)) and canon and canon != tgt and patterns(repo, canon):' 'if os.environ.get("FT_PRESS_SCOPE") != "deploy" and canon and patterns(repo, canon):')"   # M3: D1·canon≠대상 가드 제거
 plx "$CX" origin/main "$HC"; { [ "$rc" = 0 ]; } && ck "M3 canon = main 일 때도 canon 사용 → ⓒ FAIL(검출됨)" 0 || ck "M3 canon = main 일 때도 canon 사용 → ⓒ FAIL(검출됨)" 1
 MUT_N=1; [ -z "$(git -C "$W" diff --name-only)" ] || MUT_N=0; ck "변이는 사본에서만(실 리포 작업본 무변경)" $((1-MUT_N))
+# ── ⓘ 보정2 판별력 — deploy 범위 표(cd-dev.yml)가 canon(origin/main)에만 있고 대상 ops 에는 없다 ─────────
+#    옛 코드(cdda6ad0 · 가드 없음) = canon 표로 «통과» · 새 코드(가드 있음) = 판정 불가  ← 이 차이가 판별력
+dep() { ( cd "$T" && FT_ROOT="$T" FT_PRESS_SCOPE=deploy python3 "$1" land --repo "$W" --remote origin --main origin/ops/main-base --head "$HA" --landing "$HA" --pr 1 --root "$T" >"$T/o.txt" 2>&1 ); rc=$?; out="$(cat "$T/o.txt")"; }
+git -C "$W" update-ref refs/remotes/origin/main "$MAINL"
+dep "$P"
+{ [ "$rc" = 1 ] && [[ "$out" == *"판정 불가"* ]] && [[ "$out" != *"정본 main"* ]]; } && ck "ⓘ 보정2 — deploy 길은 정본 main 갈래를 쓰지 않는다(판정 불가 그대로)" 0 || ck "ⓘ 보정2 — deploy 길은 정본 main 갈래를 쓰지 않는다(판정 불가 그대로)" 1
+ORIG="$T/old-bin"; mkdir -p "$ORIG"
+git -C "$REPO" show ec009fce~1:feature-pack/fable-team/legacy/1.x/harness/bin/press_evidence_verify.py > "$ORIG/press_evidence_verify.py" 2>/dev/null
+cp "$BIN/press_evidence_land.py" "$BIN/press_evidence_parts.py" "$ORIG/" 2>/dev/null
+[ -s "$ORIG/press_evidence_verify.py" ] && { dep "$ORIG/press_evidence_land.py"; { [ "$rc" = 0 ] && [[ "$out" == *"press=out"* ]]; } && ck "ⓘ Red — 직전 판(cdda6ad0)은 이 꼴에서 통과(ⓘ 가 헛통과 아님)" 0 || ck "ⓘ Red — 직전 판(cdda6ad0)은 이 꼴에서 통과(ⓘ 가 헛통과 아님)" 1; } || ck "ⓘ Red — 직전 판 꺼내기 실패" 1
+X2="$T/m-m4"; mkdir -p "$X2"; cp "$BIN/press_evidence_verify.py" "$BIN/press_evidence_land.py" "$BIN/press_evidence_parts.py" "$X2/" 2>/dev/null
+python3 - "$X2/press_evidence_verify.py" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p, encoding="utf-8").read()
+old = 'os.environ.get("FT_PRESS_SCOPE") != "deploy" and not (tgt'
+assert old in s, "M4 변이 대상 없음"
+open(p, "w", encoding="utf-8").write(s.replace(old, "not (tgt", 1))
+PY
+dep "$X2/press_evidence_land.py"
+{ [ "$rc" = 0 ]; } && ck "M4 deploy 가드 삭제 → ⓘ FAIL(검출됨)" 0 || ck "M4 deploy 가드 삭제 → ⓘ FAIL(검출됨)" 1
+
 echo "FAILED $fail"; [ "$fail" = 0 ] && echo "ALL PASS"; exit $([ "$fail" = 0 ] && echo 0 || echo 1)
