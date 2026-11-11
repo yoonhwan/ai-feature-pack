@@ -108,12 +108,22 @@ def write_record(rec, why):   # 재개 기록(zombie-clean 이 직전 세대를 
         print(f"RESUME ok {rp}" + (f" (명부 model 다름: {rec['roster_model']})" if rec.get("roster_model") else "") + (f" · 이전 기록 {prev}" if prev else ""))
     except (OSError, ValueError) as e:   # r427 — 옛 기록 무효화 0(죽은 좌석의 유일한 재개 근거를 지우던 길) · 닫기 판정은 zombie-clean 의 binding --expect 가 다시 본다
         print(f"NORECORD {old} {e}" + (f" · 기존 기록 보존 {rp}" if os.path.exists(rp) else ""))
+PI_DEAD = "pi 좌석 tmux 없음 — 산출 커밋 보존"   # r1674 PI ADAPTER BEGIN — 이미 죽은 좌석(세션 없음)과 결속 판정 불가를 가른다 · alive() 불변
+def pi_tmux_state(seat):   # 세 갈래 — 없음(rc1)=죽음 · 있음(rc0)=산 · 그 밖(명령 실패·시간초과·rc2)=판정 불가
+    try: r = subprocess.run([os.environ.get("FT_TMUX", "tmux"), "has-session", "-t", "=" + seat], capture_output=True, timeout=7).returncode
+    except (OSError, subprocess.SubprocessError): return "unknown"
+    return "alive" if r == 0 else "dead" if r == 1 else "unknown"
+def pi_resume_checked(seat, model, retired_by):   # 결속 ok=기록 · 죽은 좌석=NORECORD 사유 · 그 밖=REJECT 사유
+    rec, why = pi_seat_resume(seat, model, retired_by); st = "alive" if rec else pi_tmux_state(seat)
+    return (rec, why) if st == "alive" else (None, PI_DEAD if st == "dead" else "Pi tmux 확인 실패 · " + why)
+# PI ADAPTER END
 def record(model, retired_by, agent=None):   # 기록 모드 공통 — r427 --keep-existing: 기존 기록 있으면 새 시도 0 · 세션 없으면 대화 기록 탐색(r960 pi 는 세션 파일 탐색)
     # PI ADAPTER BEGIN
     if agent == "pi":
-        rec, why = pi_seat_resume(old, model, retired_by)
+        rec, why = pi_resume_checked(old, model, retired_by)
         if not rec:
-            print("REJECT " + why); raise SystemExit(1)
+            if why != PI_DEAD: print("REJECT " + why); raise SystemExit(1)
+            write_record(None, why); return None   # 죽은 좌석 = NORECORD 1줄 · rc 에 안 섞는다(옛 기록 보존)
         write_record(rec, why); return rec
     # PI ADAPTER END
     if keep == "1" and os.path.exists(RP): print(f"RESUME kept {RP}"); return True
@@ -169,9 +179,10 @@ if reconly == "1":   # 기록 모드 — 명부 쓰기 0(.bak 도 0) · 은퇴�
     if not (isinstance(rb := o.get("_replaced_by"), str) and rb): print(f"REJECT {old} 은 현역 행(_replaced_by 없음) — 기록 모드는 은퇴한 좌석만 file={p}"); sys.exit(1)
     record(o.get("model"), rb, o.get("agent")); sys.exit(0)
 # PI ADAPTER BEGIN
+pi_dead = False
 if o.get("agent") == "pi":
-    pi_record, pi_why = pi_seat_resume(old, o.get("model"), new)
-    if not pi_record: reject(pi_why)
+    pi_record, pi_why = pi_resume_checked(old, o.get("model"), new); pi_dead = pi_why == PI_DEAD
+    if not pi_record and not pi_dead: reject(pi_why)
 # PI ADAPTER END
 noop, n = o.get("_replaced_by") == new, d.get(new)   # r465 재실행도 남은 칸 보정·빈 칸 채우기 — 바꿀 것 0 일 때만 옛 NOOP
 if not noop and isinstance(n, dict) and n.get("_replaced_by"): print(f"REJECT 후계 {new} 가 이미 은퇴(_replaced_by={n['_replaced_by']}) — 쓰기 0"); sys.exit(3)
@@ -188,7 +199,7 @@ own, ts, rec, why = not noop or bool(keys or fc or rfx),datetime.datetime.now().
 if own: shutil.copy(p, p + ".bak-retire-" + ts)
 if not noop:
     if mkrow: d[old] = o   # .bak 뒤에 — 아래 은퇴 흐름이 이 행을 닫는다
-    rec, why = find_resume(o.get("model"), new, o.get("agent"))   # 읽기만 — 실패해도 은퇴는 그대로(기록 결과는 rc 에 섞지 않는다 · H3)
+    rec, why = (None, PI_DEAD) if pi_dead else find_resume(o.get("model"), new, o.get("agent"))   # 읽기만 — 실패해도 은퇴는 그대로(기록 결과는 rc 에 섞지 않는다 · H3)
     if rec: o["_resume_uuid"] = rec["uuid"]
     else: o.pop("_resume_uuid", None)   # 옛 은퇴가 남긴 값이 닫기 근거로 남지 않게(DA⑥ H1)
     role, tick, sr = o.get("role"), o.get("tick"), succ_role(o, rc_, new)   # r499 후계 role = 옛 role · 옛 role 이 stop-ready 면 _retired_role → 옮기는 역할 칸 → 이름 토큰(사슬 상속 0)
