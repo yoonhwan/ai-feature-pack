@@ -109,6 +109,13 @@ blk W2 "$MBG" "bash $MB send A#1 B#1 \"\$(cat \$F) 덧글\""
 blk V7 "$MBG" "bash $MB send A#1 B#1 \"\$(cat \$(ls /tmp))\""
 blk V8 "$MBG" "bash $MB send A#1 B#1 \"\$(cat \$F; id)\""
 blk V9 "$MBG" 'bash '"$MB"' send A#1 B#1 "$(cat `ls`)"'
+# r1403 회귀 막이: 글자 칸을 좌히지 않는다 — 예전에 통과하던 경로는 그대로 통과(# · 한글 · , · % · =)
+pas R1 "$MBG" 'bash '"$MB"' send A#1 B#1 "$(cat /tmp/x-arch-pi#297-body.txt)"'
+pas R2 "$MBG" 'bash '"$MB"' send A#1 B#1 "$(cat /tmp/본문.txt)"'
+pas R3 "$MBG" 'bash '"$MB"' send A#1 B#1 "$(cat /tmp/a,b)"'
+pas R4 "$MBG" 'bash '"$MB"' send A#1 B#1 "$(cat /tmp/a%20)"'
+pas R5 "$MBG" 'bash '"$MB"' send A#1 B#1 "$(cat /tmp/x=1)"'
+pas R6 "$MBG" 'bash '"$MB"' send A#1 B#1 "$(cat $D/x#2-본문.txt)"'
 # ── G9 홑따옴표 = 글자 ────────────────────────────────────────────────
 pas G9a "$MBG" "bash $MB send A#1 B#1 'literal \$(x) 글자'"
 pas G9b "$MBG" 'bash '"$MB"' send A#1 B#1 '"'"'백틱 `uptime` 글자'"'"''
@@ -151,5 +158,5 @@ mutg "$T/v3.sh" '\$\{[A-Za-z_][A-Za-z0-9_]*\}' '\$\{[^}]*\}'   # ${…} 안 아�
 expect W1m "$T/v3.sh" 0 nm "bash $MB send A#1 B#1 \"\$(cat \${F:-\$(id)})\""
 
 echo "SUMMARY blocked=$nb pass=$np mutant=$nm fail=$fail"
-[ "$nb" -eq 28 ] && [ "$np" -eq 24 ] && [ "$nm" -eq 13 ] && [ "$fail" -eq 0 ] || { echo "FAIL 표 미달 또는 실패 있음"; exit 1; }
+[ "$nb" -eq 28 ] && [ "$np" -eq 30 ] && [ "$nm" -eq 13 ] && [ "$fail" -eq 0 ] || { echo "FAIL 표 미달 또는 실패 있음"; exit 1; }
 echo "OK"
