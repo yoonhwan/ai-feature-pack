@@ -77,13 +77,20 @@ def bad_package(info, count):
                 and info.get("files") == count)
 
 
+def digest(path):
+    return hashlib.sha256(open(path, "rb").read()).hexdigest()
+
+
 def problems(src, pkg, want, info):
     fresh = manifest.build(src)
     source = {item["path"]: item["sha256"] for item in fresh["files"]}
-    differ = sorted(rel for rel in set(source) | set(want) if source.get(rel) != (want[rel]["sha256"] if rel in want else None))
+    have = {rel: manifest.entry(pkg, rel) for rel in manifest.walk_files(pkg) if rel not in (MANIFEST_FILE, PACKAGE_FILE)}
+    differ = [rel for rel in sorted(set(source) | set(want)) if source.get(rel) != (want[rel]["sha256"] if rel in want else None)]
+    differ += sorted(rel for rel in have if rel not in want)  # MANIFEST 밖 파일 = 다름(패키지에 몰래 더한 파일)
     if fresh["source"]["sha"] != info["source"]["sha"]:
         differ.append("source.sha")
-    have = {rel: manifest.entry(pkg, rel) for rel in manifest.walk_files(pkg) if rel not in (MANIFEST_FILE, PACKAGE_FILE)}
+    if info["manifest_sha256"] != digest(sub(pkg, MANIFEST_FILE)):  # 칸이 형식만 맞고 값이 틀린 경우
+        differ.append(MANIFEST_FILE)
     missing = sorted(rel for rel in want if rel not in have)
     changed = sorted(rel for rel in have if rel in want and want[rel]["sha256"] != have[rel]["sha256"])
     hidden = sorted(rel for rel in all_entries(pkg) if rel not in (MANIFEST_FILE, PACKAGE_FILE) and manifest.skip_entry(rel))

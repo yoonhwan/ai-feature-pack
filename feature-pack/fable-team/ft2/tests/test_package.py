@@ -27,13 +27,16 @@ def built(src, out, version=VERSION):
 
 
 def copies(pkg, root, tag):
-    """① 패키지 안 파일 내용이 바뀐 사본 ② PACKAGE.json 의 source.sha 가 바뀐 사본."""
-    edited, resha = root / (tag + "-edited"), root / (tag + "-resha")
-    shutil.copytree(pkg, edited), shutil.copytree(pkg, resha)
+    """ⓒ 사본 4종 — 파일 내용 바뀜 · source.sha 바뀜 · MANIFEST 밖 파일 추가 · manifest_sha256 위조."""
+    edited, resha, added, forged = (root / f"{tag}-{name}" for name in ("edited", "resha", "added", "forged"))
+    for side in (edited, resha, added, forged):
+        shutil.copytree(pkg, side)
     (edited / "README.md").write_text("# changed\n", encoding="utf-8")
     meta = json.loads((resha / "PACKAGE.json").read_text(encoding="utf-8"))
     (resha / "PACKAGE.json").write_text(json.dumps({**meta, "source": {"sha": "2" * 40}}), encoding="utf-8")
-    return edited, resha
+    (added / "core/new.py").write_text("y = 2\n", encoding="utf-8")
+    (forged / "PACKAGE.json").write_text(json.dumps({**meta, "manifest_sha256": "0" * 64}), encoding="utf-8")
+    return edited, resha, added, forged
 
 
 def test_a_build_shape_determinism_budget(tmp_path):
@@ -43,15 +46,14 @@ def test_a_build_shape_determinism_budget(tmp_path):
     assert (rc, stderr, stdout.count("\n"), sorted(out.iterdir())) == (0, "", 1, [pkg])
     assert (sorted(info), info["schema"], info["name"], info["version"], info["files"], info["source"]["sha"]) == (
         ["files", "manifest_sha256", "name", "schema", "source", "version"], 1, "ft2", VERSION, len(TREE), doc["source"]["sha"])
-    assert (info["source"]["sha"], info["manifest_sha256"]) == ("1" * 40, hashlib.sha256((pkg / "MANIFEST.json").read_bytes()).hexdigest())
+    assert info["manifest_sha256"] == hashlib.sha256((pkg / "MANIFEST.json").read_bytes()).hexdigest() and info["source"]["sha"] == "1" * 40
     assert stdout.startswith("PACKAGE ") and f"files={len(TREE)}" in stdout and info["manifest_sha256"] in stdout
     assert sorted(str(path.relative_to(pkg)) for path in pkg.rglob("*") if path.is_file()) == sorted([*TREE, *FILES])
     assert all(hashlib.sha256((pkg / item["path"]).read_bytes()).hexdigest() == item["sha256"] for item in doc["files"])
     assert [built(src, tmp_path / f"o{index}")[0] for index in (1, 2)] == [0, 0]  # ⓑ 같은 소스 = 같은 바이트
     read = [[(tmp_path / f"o{index}" / f"ft2-{VERSION}" / name).read_bytes() for name in FILES] for index in (1, 2)]
     source = TOOL.read_text(encoding="utf-8")
-    modules = {(node.module if isinstance(node, ast.ImportFrom) else node.names[0].name).split(".")[0]
-               for node in ast.walk(ast.parse(source)) if isinstance(node, (ast.Import, ast.ImportFrom))}
+    modules = {(node.module if isinstance(node, ast.ImportFrom) else node.names[0].name).split(".")[0] for node in ast.walk(ast.parse(source)) if isinstance(node, (ast.Import, ast.ImportFrom))}
     assert (read[0] == read[1], modules, "subprocess" in source, len(source.splitlines()) <= 150) == (
         True, {"hashlib", "json", "os", "shutil", "sys", "manifest"}, False, True)
 
@@ -65,10 +67,10 @@ def test_b_check_five_cases(tmp_path):
     (changed / "core/loader.py").write_text("print('HI')\n", encoding="utf-8")
     (missing / "core/loader.py").unlink()
     (hidden / ".env").write_text("k=1\n", encoding="utf-8")
-    edited, resha = copies(pkg, tmp_path, "c")
-    pairs = ((changed, pkg), (src, missing), (src, hidden), (src, edited), (src, resha))
+    edited, resha, added, forged = copies(pkg, tmp_path, "c")
+    pairs = ((changed, pkg), (src, missing), (src, hidden), (src, edited), (src, resha), (src, added), (src, forged))
     assert [run("check", *pair)[:2] for pair in pairs] == [
-        (1, "다름 1\n"), (1, "빠짐 1\n"), (1, "숨은 파일 1\n"), (1, "내용 다름 1\n"), (1, "다름 1\n")]
+        (1, "다름 1\n"), (1, "빠짐 1\n"), (1, "숨은 파일 1\n"), (1, "내용 다름 1\n"), (1, "다름 1\n"), (1, "다름 1\n"), (1, "다름 1\n")]
 
 
 def test_c_refuse_and_no_overwrite(tmp_path):
@@ -82,17 +84,15 @@ def test_c_refuse_and_no_overwrite(tmp_path):
     for args in ((tmp_path / "nodir", pkg), (src, tmp_path / "nodir"), (src, broken), (src, nokey), (src, pkg / "MANIFEST.json")):
         rc, stdout, stderr = run("check", *args)
         assert (rc, stdout, stderr.count("판정 불가"), stderr.count("\n"), "Traceback" in stderr) == (2, "", 1, 1, False), args
-    names = (*FILES, "core/loader.py")
-    before = {name: (pkg / name).read_bytes() for name in names}
+    before = {name: (pkg / name).read_bytes() for name in (*FILES, "core/loader.py")}
     rc, stdout, stderr = run("build", src, tmp_path / "out", "--version", VERSION)
     assert (rc, stdout, stderr.count("판정 불가"), "이미 있음" in stderr, "Traceback" in stderr) == (2, "", 1, True, False)
-    assert before == {name: (pkg / name).read_bytes() for name in names}
+    assert before == {name: (pkg / name).read_bytes() for name in before}
 
 
 def mutant(tmp_path, name, old, new):
     tools = tmp_path / "tools"
-    tools.mkdir(exist_ok=True)
-    shutil.copyfile(FT2 / "tools" / "manifest.py", tools / "manifest.py")  # 같은 폴더 import 유지
+    tools.mkdir(exist_ok=True), shutil.copyfile(FT2 / "tools" / "manifest.py", tools / "manifest.py")  # 같은 폴더 import 유지
     source = TOOL.read_text(encoding="utf-8")
     assert old in source, old
     (tools / (name + ".py")).write_text(source.replace(old, new), encoding="utf-8")
@@ -106,7 +106,7 @@ def test_mutants_m1_m2_m3_x1_x2_fail_their_own_case(tmp_path):
     shutil.copytree(src, changed), shutil.copytree(pkg, hidden)
     (changed / "core/loader.py").write_text("print('HI')\n", encoding="utf-8")
     (hidden / ".env").write_text("k=1\n", encoding="utf-8")
-    edited, resha = copies(pkg, tmp_path, "m")
+    edited, resha, *_ = copies(pkg, tmp_path, "m")
     m2 = mutant(tmp_path, "m2", "    fresh = manifest.build(src)", "    fresh = manifest.build(pkg)")
     m3 = mutant(tmp_path, "m3", "    if os.path.exists(dest):", "    if False:")
     x1 = mutant(tmp_path, "x1", 'if fresh["source"]["sha"] != info["source"]["sha"]:', "if False:")
