@@ -370,11 +370,15 @@ cat_prep() { CAT_LIST="${TMM_CAT_SESSIONS-$(tmux list-sessions -F '#{session_nam
 
 # ---------- 상태 스캔 (캐시) ----------
 # seat-scan 은 좌석당 capture 2회라 65좌석에 ~2초. 폰에서 필터/^R 을 연타해도 TTL 안에서는 재사용.
+# mtime — GNU stat 우선, BSD(stat -f %m) 폴백. ★순서가 중요하다★ GNU 의 `stat -f` 는 «실패하지 않고»
+# 파일시스템 정보(`  File: …`)를 stdout 에 찍는다 → 예전 BSD-우선 판형(`stat -f … || stat -c …`)은
+# 그 헤더와 숫자가 같이 command substitution 에 들어가 산술식이 `File: unbound variable` 로 죽었다(2026-11-11 OCI 실측).
+tmm_mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null; }
 scan_cached() {
   [ -n "$SCAN" ] || { return 0; }
   cache_init
   if [ "$CACHE_TTL" -gt 0 ] && [ -f "$CACHE" ]; then
-    local age=$(( $(date +%s) - $(stat -f %m "$CACHE" 2>/dev/null || stat -c %Y "$CACHE") ))
+    local age=$(( $(date +%s) - $(tmm_mtime "$CACHE") ))
     [ "$age" -lt "$CACHE_TTL" ] && { cat "$CACHE"; return; }
   fi
   # ★낡았을 때 다시 스캔하는 인스턴스는 «하나»★ — 피커가 여럿(폰·데스크탑·tmm-2…)이면 20초마다 전원이 같은 seat-scan(7초)을 동시에 돌렸다.
@@ -628,7 +632,7 @@ cmd_rows_boot() {
   local snap="$STATE/rows.snap" m o
   { read -r m o < "$RUN/mode"; } 2>/dev/null
   if [ "$(view_now)" = live ] && [ "${m:-time}" = time ] && [ -z "${o:-}" ] && [ -s "$snap" ] \
-     && [ $(( $(date +%s) - $(stat -f %m "$snap" 2>/dev/null || stat -c %Y "$snap") )) -lt 1800 ]; then
+     && [ $(( $(date +%s) - $(tmm_mtime "$snap") )) -lt 1800 ]; then
     : > "$RUN/bootstale"
     cp -f "$snap" "$RUN/rowsfull.$$" 2>/dev/null && mv -f "$RUN/rowsfull.$$" "$RUN/rowsfull" 2>/dev/null
     if [ -f "$RUN/tab" ]; then tab_rows < "$snap"; else cat "$snap"; fi | tee "$RUN/shown.$$"
@@ -921,7 +925,7 @@ cmd_gen()   { [ "$(gen_now)" = latest ] && echo all > "$RUN/gen" || echo latest 
 # 스캐너(python, 읽기 전용)가 tsv 를 만들고 $RUN/dead.tsv 에 캐시 — 미리보기·복구가 같은 파일을 읽는다(재스캔 없음).
 dead_tsv() {  # [fresh]
   local f="$RUN/dead.tsv" live
-  if [ "${1:-}" != fresh ] && [ -f "$f" ] && [ $(( $(date +%s) - $(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f") )) -lt "$CACHE_TTL" ]; then cat "$f"; return; fi
+  if [ "${1:-}" != fresh ] && [ -f "$f" ] && [ $(( $(date +%s) - $(tmm_mtime "$f") )) -lt "$CACHE_TTL" ]; then cat "$f"; return; fi
   live="$(tmux ls -F '#S' 2>/dev/null | tr '\n' ' ')"
   # shellcheck disable=SC2086
   python3 "$DEAD_SCAN" scan --since "$(since_now)" $([ "$(gen_now)" = all ] && echo --all-gen) --live $live > "$f.tmp" 2>/dev/null && mv -f "$f.tmp" "$f"
