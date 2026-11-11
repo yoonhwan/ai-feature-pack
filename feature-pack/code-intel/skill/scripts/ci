@@ -60,22 +60,22 @@ need_tilth() { [ -n "$TILTH" ] || die_missing tilth "  npx -y tilth --version   
 
 # ── LSP crash-loop 판정 (r1636) ───────────────────────────────────────────
 #  probe 0.6.0 은 워크스페이스 캐시의 MVCC logical log 끝이 잘리면 기동 중 panic 한다("couldn't read
-#  enough data") → 데몬 즉사 → 호출은 25초를 기다린다(하드 룰 12). 최근 120초 내 DB crash 2회 이상 = crash-loop.
+#  enough data") → 데몬 즉사 → 호출은 25초를 기다린다(하드 룰 12). 창(기본 120초) 안 DB crash 2회 이상 = crash-loop.
 #  crash-log 에는 클라이언트 panic(예: md char-boundary f344d642)도 쌓인다 → 데몬 DB 열기 형태만 센다.
-#  1회·옛 crash 는 loop 가 아니다(실측: 570초 전 1건에 healthy 데몬을 CRASH-LOOP 로 오판했다).
+#  창 «밖» 1건 + 창 «안» 1건은 loop 가 아니다 → 창 안 시각인 항목만 센다(보정 #282277).
 #  $1=slow 이면 crash-log 없이도 Uptime 0s 2회 연속을 본다(doctor). rc0=crash-loop · rc1=정상
 _lsp_uptime() { "$PROBE" lsp status 2>/dev/null | sed -n 's/^ *Uptime: *//p' | head -1; }
 _ep() { date -j -u -f '%Y-%m-%dT%H:%M:%S' "${1%%.*}" +%s 2>/dev/null || echo 0; }
 _lsp_crash_state() {
-  local f ents l cnt e now stamp
+  local f ents ts msg cnt last e now stamp
   f="${PROBE_LSP_CRASH_LOG:-$HOME/Library/Caches/probe/lsp-daemon-crashes.log}"; now="$(date +%s)"
   if [ -f "$f" ]; then
     ents="$(tail -c 8000 "$f" 2>/dev/null | awk '/^timestamp: /{ts=$2} /^message: /{if ($0 ~ /read enough data|core database|logical_log/) print ts "\t" substr($0,10)}')"
-    l="$(printf '%s\n' "$ents" | tail -1)"; cnt="$(printf '%s\n' "$ents" | grep -c .)"
-    e="$(_ep "${l%%$'\t'*}")"
-    if [ "$e" -gt 0 ] && [ "${cnt:-0}" -ge 2 ] && [ $((now - e)) -le "${CI_LSP_CRASH_LOOP_SEC:-120}" ]; then
-      echo "${l#*$'\t'} ($((now - e))s 전 · 2회 이상)"; return 0
-    fi
+    cnt=0; last=""
+    while IFS=$'\t' read -r ts msg; do
+      e="$(_ep "$ts")"; [ "$e" -gt 0 ] && [ $((now - e)) -le "${CI_LSP_CRASH_LOOP_SEC:-120}" ] && { cnt=$((cnt+1)); last="$msg ($((now - e))s 전)"; }
+    done <<< "$ents"
+    [ "$cnt" -ge 2 ] && { echo "$last · 창 안 $cnt 회"; return 0; }
   fi
   [ "${1:-}" = "slow" ] || return 1
   stamp="${TMPDIR:-/tmp}/ci-lsp-uptime0.$(id -u)"

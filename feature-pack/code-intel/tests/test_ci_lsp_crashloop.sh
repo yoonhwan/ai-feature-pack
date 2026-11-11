@@ -75,6 +75,10 @@ mk; printf 'timestamp: %s\nmessage: %s\n' "$(now_iso)" "couldn't read enough dat
 out="$(run_ci doctor)"; chk "crash 1건(반복 없음)은 loop 아님" "$?" "0"
 has "그때는 lsp 줄 정상" "$out" "lsp   : LSP Daemon Status"
 
+mk; crash "$(now_iso)" "$(date -u -v-1H +%Y-%m-%dT%H:%M:%S.000Z)"   # 창 밖 1 + 창 안 1
+out="$(run_ci doctor)"; chk "1시간 전 1 + 10초 전 1 = 정상 판정" "$?" "0"
+has "창 밖은 안 센다" "$out" "lsp   : LSP Daemon Status"
+
 mk; printf 'timestamp: %s\nmessage: end byte index 4096 is not a char boundary; it is inside %s\n' \
     "$(now_iso)" "'용'" > "$SB/home/Library/Caches/probe/lsp-daemon-crashes.log"
 out="$(run_ci doctor)"; chk "클라이언트 panic 은 crash-loop 아님" "$?" "0"
