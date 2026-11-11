@@ -254,6 +254,8 @@ if [ -n "${FT_NANO_PREFIX:-}" ] && [ -n "$_team" ] && [ "$_team" != v65 ]; then 
   case " ${_NANO_PREFIXES} " in *" ${FT_NANO_PREFIX} "*) ;; *) echo "REJECT 좌석 ${SEAT} 는 ${_team} 팀인데 FT_NANO_PREFIX(${FT_NANO_PREFIX}) 가 그 팀 규칙(${_NANO_PREFIXES}) 밖이다"; exit 1;; esac
 fi
 [ -z "${FT_NANO_PREFIX:-}" ] || _NANO_PREFIXES="${FT_NANO_PREFIX} ${_NANO_PREFIXES}"   # 명시 접두 = 그 팀 규칙에 더한다(전환기 옛 이름도 계속 닫힌다)
+# ★r1668 ⓒ★ 호출자가 export 한 원장 WT 는 팀 env 가 덮지 않는다 — source «전» 값 하나를 잡아 두고 «뒤» 에 되돌린다(값 1개 · 다른 env 는 그대로).
+_FT_CALLER_LEDGER_WT="${FT_NANO_LEDGER_WT:-}"
 if [ -z "${FT_NANO_PREFIX:-}" ]; then
   if [ -n "$_team" ] && [ "$_team" != v65 ]; then
     _tenv="$ROOT/.fable-team/bin-$_team/$_team-env.sh"
@@ -263,6 +265,7 @@ if [ -z "${FT_NANO_PREFIX:-}" ]; then
     _tenv="$ROOT/.fable-team/bin-v65/v65-env.sh"
     [ -f "$_tenv" ] && . "$_tenv"
   fi
+  [ -z "$_FT_CALLER_LEDGER_WT" ] || FT_NANO_LEDGER_WT="$_FT_CALLER_LEDGER_WT"   # ★r1668 ⓒ★ 팀 env 고정 대입이 호출자 값을 덮지 않는다(r1668-src)
   echo "ENV team=${_team:-default} prefix=${FT_NANO_PREFIX:-${NANO_PREFIX:-$(python3 "$HERE/ft_teamset.py" prefix --team v65 2>/dev/null)}} seats=${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"
 fi
 # ★라이브 bin 드리프트 입구 검사 (카드 live-bin-drift-check · Issue 816 ③)★: 설치 꼴(*/.fable-team/bin)에서 돌 때만 — 라이브 도구가 origin/main 키트와 다르면 닫지 않는다(bad=() 에 안 넣고 입구에서 종료).
@@ -283,6 +286,25 @@ case "$SEAT" in "$NANO_PREFIX"*) ;; *) echo "REJECT 나노(${_NANO_PREFIXES//,/|
 SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"; COMM="${FT_INBOX_ROOT:-$ROOT/.fable-team/comm}"
 # 원장 = 리포 고정(운영 정본 = v6-realtime-live 워크트리 · FT_NANO_LEDGER_WT 로 override). $WT 에 묶지 않는다 — 나노가 자기 워크트리에서 부르면 원장이 삭제 대상 안에 놓인다(DA r2 C).
 LEDGER_WT="${FT_NANO_LEDGER_WT:-$ROOT/.worktrees/v6-realtime-live}"; [ -d "$LEDGER_WT" ] || LEDGER_WT="$WT"
+# ★r1668 ★원장 워크트리 «신선도» (Issue 8319 · 사례 h8214·h8215): 원장 WT 가 카드 ref 보다 뒤면 그 뒤에 생긴 진행/ 카드 사본이 없어 ⑥ 이 «디스크 사본 없음» 으로 닫기를 막는다.
+#   깨끗하면 ff-only 로 따라간다(브랜치·WT 삭제 0 · reset/checkout 0) · 못 따라가면 원인 1줄 REJECT · 외부 명령 실패 = «판정 불가»(하드 룰 20).
+#   호출 자리 = ⑥ 카드 단계 사본 탐색 «뒤»(아래 «디스크 사본 없음» 직전) — 이미 사본을 찾았거나 ref 완성 카드로 통과하는 닫기는 건드리지 않는다(r842 ⓡ6-a 회귀 0).
+ledger_wt_fresh() {  # <원장 WT> <ref> — stdout 판정 줄 · rc 0 = 최신/따라감 · 3 = 낡음(REJECT) · 4 = 판정 불가
+  local wt="$1" ref="$2" old mb n dirty new
+  [ -d "$wt" ] || return 0
+  git -C "$wt" rev-parse --absolute-git-dir >/dev/null 2>&1 || return 0      # git 자리 아님(디스크 사본 없음 등) → 예전 규칙 그대로
+  git -C "$wt" rev-parse --verify -q "$ref^{commit}" >/dev/null 2>&1 || return 0   # 그 ref 가 로컬에 없음 = 신선도 판정 대상 아님
+  old="$(git -C "$wt" rev-parse --verify -q HEAD 2>/dev/null)" || { echo "판정 불가 — 원장 WT HEAD 를 못 읽음($wt)"; return 4; }   # r1668-mut:head
+  mb="$(git -C "$wt" rev-list --count "$old..$ref" 2>/dev/null)" || { echo "판정 불가 — 원장 WT 뒤 커밋 수를 못 셈($wt · $ref)"; return 4; }   # r1668-mut:revlist
+  case "$mb" in ''|*[!0-9]*) echo "판정 불가 — 원장 WT 뒤 커밋 수가 숫자가 아님(${mb:-빈 값} · $ref)"; return 4;; esac
+  [ "$mb" -gt 0 ] || return 0                                                  # 최신 = 출력 0(회귀 0)
+  git -C "$wt" merge-base --is-ancestor "$old" "$ref" 2>/dev/null || { echo "원장 WT 낡음 ${mb}커밋 · ff 불가(갈라짐) — FT_NANO_LEDGER_WT=<깨끗한 WT> 로 다시"; return 3; }
+  n="$(git -C "$wt" status --porcelain 2>/dev/null)" || { echo "판정 불가 — 원장 WT 미커밋을 못 셈($wt)"; return 4; }
+  dirty="$(printf '%s' "$n" | grep -c . || true)"; case "$dirty" in ''|*[!0-9]*) dirty=0;; esac
+  [ "$dirty" -eq 0 ] || { echo "원장 WT 낡음 ${mb}커밋 · 미커밋 ${dirty} — FT_NANO_LEDGER_WT=<깨끗한 WT> 로 다시"; return 3; }   # r1668-mut:dirty
+  new="$(git -C "$wt" merge --ff-only "$ref" >/dev/null 2>&1 && git -C "$wt" rev-parse --verify -q HEAD)" || { echo "판정 불가 — 원장 WT ff 실패($wt · $ref)"; return 4; }   # r1668-mut:ff
+  echo "INFO 원장 WT ff ${old:0:9}..${new:0:9}"
+}
 # R383 → R400 r3(판정 2307 ①): 기본 원장 = «명단은 ref · 폴더는 원장 워크트리» — 팀 명단은 FT_TEAMS_REF(기본 origin/main)의 design/TEAMS.md 에서 읽고(원장 워크트리 사본이 옛 명단이어도 무관),
 #   그 명단 꼴·쌍둥이 후보 중 원장 파일이 실재하는 «정확히 1개» 만 쓴다. 0·2+·명단 못 읽음 = REJECT(#0 RULE — 옛 경로 후퇴·추측 0). FT_NANO_LEDGER 명시가 이긴다.
 if [ -n "${FT_NANO_LEDGER:-}" ]; then LEDGER="$FT_NANO_LEDGER"
@@ -1455,7 +1477,18 @@ if [ -n "$IDX" ]; then   # r842-mut:libskip
         _cs_refok=1; break
       done
     fi
-    if [ -z "${_cs_refok:-}" ]; then
+    if [ -z "${_cs_refok:-}" ] && [ -n "${LEDGER_WT:-}" ] && [ "${LEDGER_WT%/}" != "${WT%/}" ] && [ "${LEDGER_WT%/}" != "${ROOT%/}" ]; then
+      # ★r1668★ 여기까지 왔다는 = $_cs 단계 사본을 디스크에서 못 찾았다. 원장 WT 가 카드 ref($_cref) 보다 뒤면 «디스크 사본 없음» 으로 막지 않고 한 번 따라가 본다.
+      _lwt_out="$(ledger_wt_fresh "$LEDGER_WT" "$_cref")"; _lwt_rc=$?
+      case "$_lwt_rc" in
+        0) if [ -n "$_lwt_out" ]; then echo "$_lwt_out"   # r1668-mut:follow
+             for _rt in "${_rts[@]}"; do [ -f "$LEDGER_WT/$_rt/indices/$_cs/$_cf" ] && { CARD="$LEDGER_WT/$_rt/indices/$_cs/$_cf"; break; }; done
+             [ -z "$CARD" ] || echo "INFO 카드 위치(팀 폴더) ← $CARD"; fi;;
+        3) echo "REJECT $SEAT"; echo "  - $_lwt_out · 원장 WT=$LEDGER_WT (ref=$_cref) — 닫기 0(브랜치·워크트리 손 0)"; exit 1;;
+        *) echo "ERROR $_lwt_out"; echo "REJECT $SEAT"; echo "  - 원장 WT 신선도 판정 불가(ref=$_cref · 원장 WT=$LEDGER_WT) — 닫지 않음"; exit 1;;
+      esac
+    fi
+    if [ -z "$CARD" ] && [ -z "${_cs_refok:-}" ]; then
       for _d in 진행 완성 대기; do [ "$_d" = "$_cs" ] && continue
         for _b in "${_cbases[@]}"; do for _rt in "${_rts[@]}"; do [ -f "$_b/$_rt/indices/$_d/$_cf" ] && _cold+="${_cold:+ · }$_d($_b/$_rt)"; done; done; done
       echo "REJECT $SEAT"; echo "  - ⑥카드 단계 $_cref=$_cs · 디스크 사본 없음(다른 단계 사본 = ${_cold:-없음}${_cold:+ — 낡은 사본}) — 옛 단계 사본으로 후퇴 0: index=$IDX"; exit 1
