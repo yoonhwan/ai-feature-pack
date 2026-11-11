@@ -1,6 +1,6 @@
-# 인덱스: ft20-cond15-landing-remainder — 끝: 조건 15 «완성본 전체 착지» 중 r1613 이 범위 밖으로 둔 몫을 닫는다. 다른 Pi checker 가 팩 main 소스↔패키지 대응을 1줄로 확인하고, 문서 정본 판본 sha·패키지 꼴 1줄·원장 착지 대조가 각각 증거 1줄을 가진다
+# 인덱스: r1680-ft20-cond15-landing-remainder — 끝: 조건 15 «완성본 전체 착지» 중 r1613 이 범위 밖으로 둔 몫을 닫는다. 다른 Pi checker 가 팩 main 소스↔패키지 대응을 1줄로 확인하고, 문서 정본 판본 sha·패키지 꼴 1줄·원장 착지 대조가 각각 증거 1줄을 가진다
 <!-- ledger: feature-pack/fable-team/legacy/1.x/harness/design/harness/GOAL-harness.md -->
-- Issue: 없음 — 번호·Issue = master 발급 대기(초안 · byz-aifp-arch-pi#0 · aifp #3869 ②)
+- Issue: #8341 (byz-agents · team:harness-ops)
 - 지시: aifp master #3869 ② «r1613 완성 → 남은 몫(설치 등) 판정 · 있으면 카드 초안 1장» (planner #3866 ④)
 - 판정 1줄: 남은 몫 있음 — r1613 은 패키지 도구(build·check)와 착지 뒤 master 자체 check(ⓖ)까지다. 조건 15 정의의 «문서·원장·BTS·Git 2.0 착지»와 ROUTE 게이트 ①의 «독립 checker 1줄»은 r1613 범위 밖에 남았다. 설치는 조건 16(r1614) 몫이라 여기 넣지 않는다
 - 근거(읽기만 · 2026-11-11): BYZ ROUTE-ft20-complete-land-migrate-20261109.md(dcd10ad67c) :32 «15 · 문서·원장·BTS·Git·패키지 2.0 착지 · 랜딩 PR ⑤» · :47 게이트 ① 닫는 증거 «PR ⑤ 착지 sha + 독립 checker «소스↔패키지 대응 일치» 1줄 (게이지 15 닫힘)» · :62 ⓪ 문서 정본 = PLAN·core.html·slack.html 최종판(컨펌 판본 sha) · TABLE-ft20-conditions-12-18-done-arch286-20261111.md(7c540ec133) 15행 ② «패키지·manifest(PR⑤) 0 · 문서·원장·BTS·Git 2.0 착지 0» · r1613 카드(fd8647481c) §범위 밖 «문서·원장 정본 착지 묶음(착지 h 때 master)» · 머리 «패키지 꼴 확정은 착지 뒤 PLAN 1줄 = master» · §상태 ⓖ 실행자 = master-pi#192(같은 집행 좌석 · 독립 아님)
@@ -19,13 +19,13 @@
   - ⓐ 독립 checker: master 가 아닌 다른 Pi 좌석이 팩 main 최신 sha 사본에서 `package.py build` → `package.py check` = SAME rc0 · PACKAGE.json source.sha = 그 sha · 1줄(좌석 이름·sha·files·manifest_sha256·초)
   - ⓑ 문서 정본: PLAN·core.html·slack.html 3파일을 조건 표 15행에 두 칸으로 적는다 = «컨펌 기준 62a9dd86(main 착지 661bf877 · 판정 4144) · 착지 판본 ed9d9622b3(BYZ origin/main · r1666 PLAN 정본 반입 + 오빠 결정 3 반영 · blob PLAN 4695a0115c · core.html 6f4b563048 · slack.html a9ca423455)» (harness arch#298 답 · aifp #3881·#3883 · blob 3개 = ed9d9622b3 트리 실측 일치) · 착지 때 origin/main 의 3파일 blob 이 위 3개와 다르면 «판정 불가» · 못 찾으면 «판정 불가» 1줄 + [HIL](지어내기 0)
   - ⓒ 패키지 꼴: PLAN 에 r1613 패키지 꼴(ft2-<버전>/ · MANIFEST.json · PACKAGE.json 6칸) 1줄 · 문면 = r1613 카드 머리 «패키지 꼴» 줄 복붙
-  - ⓓ 원장·BTS·Git 착지 대조: 조건 15 착지 묶음의 PR·sha 목록 1표(PR ⑤ = a8028bd7 포함) · BTS = BYZ Triangulation Spiral(로그·스펙·코드 3자 대조 + 나선 수렴 하네스 · BYZ CLAUDE.md:216 · .claude/skills/bts/SKILL.md · PLAN :751 «문서·원장·BTS 정합») → 칸 = 착지 묶음의 BTS 회차 기록이 착지 sha 와 맞는지 1줄 · 단일 BTS 장부 파일 없음(BTS = 방법) · 2.0 기록 꼴 실례 = BYZ design/harness/research/ft-2.0/role-integration/results/ws-artifacts/bts.jsonl (harness arch#298 답 · origin/main 실재 확인) · [확인 필요: 착지 장부 경로 — harness master 결정]
+  - ⓓ 원장·BTS·Git 착지 대조: 조건 15 착지 묶음의 PR·sha 목록 1표(PR ⑤ = a8028bd7 포함) · BTS = BYZ Triangulation Spiral(로그·스펙·코드 3자 대조 + 나선 수렴 하네스 · BYZ CLAUDE.md:216 · .claude/skills/bts/SKILL.md · PLAN :751 «문서·원장·BTS 정합») → 칸 = 착지 묶음의 BTS 회차 기록이 착지 sha 와 맞는지 1줄 · 단일 BTS 장부 파일 없음(BTS = 방법) · 2.0 기록 꼴 실례 = BYZ design/harness/research/ft-2.0/role-integration/results/ws-artifacts/bts.jsonl (harness arch#298 답 · origin/main 실재 확인) · [확인 필요: BTS 정의 · planner 추정 ③ — 자리 ~/.fable-team/evidence/<팀>/<회차>/ · 등록부 ~/.fable-team/evidence/registry.tsv · 근거 harness-artifacts.md:3]
   - ⓔ 닫힘: ⓐ~ⓓ 4줄이 다 있을 때만 조건 표 15행 «닫힘» · 하나라도 «판정 불가»면 미완 유지(준비를 완료로 세지 않음)
 - 변이: 없음 — 코드 0 · 대신 ⓐ 에서 패키지 1파일을 바꾼 사본으로 check rc1 «내용 다름 1» 을 1회 같이 본다(checker 가 실제로 본다는 확인)
 - 규칙: 없음 — 상시 로드 변경 0
 - 규칙 상세: 하드 룰 2(문서 착지·PR = master 집행) · 하드 룰 20 · 하드 룰 22
 - 팩 파일 owner: harness 팀(ft2/tools/package.py 읽기만) · 문서 정본 owner = harness arch · aifp 는 이 카드에서 쓰기 0
-- 인수 조건: ① 이 카드 lint OK 판 + base_sha · ② ⓑ·ⓓ 의 남은 [확인 필요] 1칸(ⓓ 착지 장부 경로)은 harness master 결정 뒤 착수 · Ⓑ 는 harness arch#298 답으로 채움 · ③ checker 좌석 = master·이 카드 작성자 아닌 Pi · ④ 문서 커밋·PR = master
+- 인수 조건: ① 이 카드 lint OK 판 + base_sha · ② ⓑ·ⓓ 의 남은 [확인 필요] 1칸(ⓓ 착지 장부 경로)은 harness master 결정 뒤 착수 · ⓑ 는 harness arch#298 답으로 채움 · ③ checker 좌석 = master·이 카드 작성자 아닌 Pi · ④ 문서 커밋·PR = master
 - 대상(읽기 = checker · 팩 1곳): feature-pack/fable-team/ft2/tools/package.py · ★쓰기 금지★ 팩 코드 · 라이브 설치 · 실 데이터 루트
 - 크기: 증거 줄 4 · 코드 0
 - 정본 영향 있음: PLAN 1줄(ⓒ) · 조건 표 15행 1줄 = master 집행
