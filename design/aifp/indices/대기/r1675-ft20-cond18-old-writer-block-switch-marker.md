@@ -1,6 +1,6 @@
 # 인덱스: r1675-ft20-cond18-old-writer-block-switch-marker — 끝: 팀마다 «2.0 전환 표식» 1파일이 생기면 그 팀 데이터에 쓰는 1.x 도구가 쓰기 전에 멈춘다(rc3 · 이유 1줄). 그때 들어온 새 입력은 버리지 않고 보류 폴더에 바이트 그대로 남는다. 표식 쓰기·지우기는 도구 1개의 동사 2개이고, 실 팀에 쓰는 것은 전환 h(오빠 D) 뒤 master 만 한다
 <!-- ledger: feature-pack/fable-team/legacy/1.x/harness/design/harness/GOAL-harness.md -->
-- Issue: 없음 — aifp master 발급 대기(BYZ 초안 06e1016a55 → aifp 이식 · byz-aifp-arch-pi#0 · aifp #3869 ①)
+- Issue: #8340 (byz-agents · team:harness-ops)
 - 이식: BYZ design/harness/indices/대기/ 같은 이름 카드(06e1016a55) → aifp design/aifp/indices/대기/ · 바꾼 것 = ledger 경로(팩 안 GOAL-harness.md 사본) · 대상 경로(팩 실재 경로로 고침) · 선행 해소 · 나노 = pi · 수용 기준·인수 조건 = 원문 그대로
 - 나노: pi 에이전트(aifp #3869 ① «나노 = pi»)
 - 지시: 오빠 «움직임 없는것. 카드없는것 배정해서 뚫어»(QA#6 #284589 ①) → master-pi#197 #284592 ① · #284604(칸 2 추가: 팩 파일 owner · 인수 조건)
