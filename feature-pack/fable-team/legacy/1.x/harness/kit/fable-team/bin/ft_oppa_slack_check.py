@@ -22,6 +22,19 @@ APPROVE_WORDS = frozenset(("네", "예", "승인", "확정", "네 확정", "네,
 REJECT_WORDS = frozenset(("아니오", "아니요", "아니", "거절", "반려", "보류", "중지", "멈춰", "no", "stop"))
 
 
+HEX40 = re.compile(r"(?<![0-9a-fA-F])[0-9a-fA-F]{40}(?![0-9a-fA-F])")
+
+
+def first_chunk_words(m: dict) -> list:
+    """r1696 ⓑ — 답 본문을 줄바꿈과 «/» 로 조각낸 뒤 «첫 비어 있지 않은 조각» 의 토막. «예\n\n헤드는 …» = [예] (설명 줄이 붙어도 승인)."""
+    t = m.get("text") if isinstance(m.get("text"), str) else ""
+    for chunk in re.split(r"[\r\n]+|/", t):
+        ws = [w for w in (x.strip().rstrip(" \t.!~") for x in re.split(r"[\s,]+", chunk.strip().lower())) if w]
+        if ws:
+            return ws
+    return []
+
+
 def reply_words(m: dict) -> list:
     """답글 토막 — 앞뒤 공백 제거 · 영문 소문자 · 끝 문장부호(. ! ~) 제거 뒤 공백·쉼표로 나눈다(«예. 승인» = [예, 승인]). 본문 없으면 빈 목록."""
     t = m.get("text")
@@ -92,22 +105,39 @@ def judge(ts: str, shas: list) -> list:
         raise Unjudgeable("edited 꼴 아님")
     me = [q.get("user"), q.get("bot_id")]
     after = sorted(((dec(m.get("ts")), m.get("user"), m) for m in msgs if m is not q), key=lambda x: x[0])
-    nxt = next((t for t, _, m in after if t > parent and any(a and a in (m.get("user"), m.get("bot_id")) for a in me)), None)   # 다음 질문 = 같은 작성자의 다음 글
+    # r1696 ⓐ — 창 끝을 «다음 글» 로 잡으면 같은 질문 재게시·안내 글 뒤의 오빠 답이 창 밖이 된다(실사건 #285686).
+    #   그래서 «오빠 답 앞의 마지막 40hex 담은 같은 작성자 글» = 그 답이 받는 질문으로 본다 · 40hex 없는 글(안내·상태)은 창을 끊지 않는다.
+    qhex = [(parent, {h.lower() for h in HEX40.findall(text)})] + [
+        (t, {h.lower() for h in HEX40.findall(m.get("text") if isinstance(m.get("text"), str) else "")})
+        for t, _, m in after if t > parent and any(a and a in (m.get("user"), m.get("bot_id")) for a in me)]
+    qhex = [(t, hs) for t, hs in qhex if hs]
+    qmap = dict(qhex)
+    nxt = next((t for t, _, m in after if t > parent and any(a and a in (m.get("user"), m.get("bot_id")) for a in me)), None)   # 40hex 질문이 하나도 없을 때의 옛 창(REPLY-SEEN·sha 없는 질문)
     out = []
     for sha in shas:
         if not re.search(r"(?<![0-9a-fA-F])%s(?![0-9a-fA-F])" % sha, text, re.I) and sha:  # r1591 · 빈 sha = 답글 확인 모드(sha 낱말 검사 없음)
             raise ValueError("질문 글에 %s 없음" % sha)
-        ok = [(t, m) for t, u, m in after if u == OPPA_SLACK_UID and t > parent and (nxt is None or t < nxt) and (edited is None or dec(edited["ts"]) < t)]
+        ok = []
+        for t, u, m in after:
+            if u != OPPA_SLACK_UID or t <= parent or (edited is not None and dec(edited["ts"]) >= t):
+                continue
+            prev = [x for x, _ in qhex if x < t]   # 그 답 앞의 마지막 «40hex 담은 질문»
+            if prev:
+                if sha and sha.lower() not in qmap[max(prev)]:
+                    continue   # 다른 sha 를 물은 글 뒤의 답 = 이 sha 의 답 아님
+            elif nxt is not None and t >= nxt:
+                continue       # 40hex 질문이 없을 때는 옛 창(같은 작성자의 다음 글 전) 그대로
+            ok.append((t, m))
         if not ok:
             raise NoReply("오빠 답글 아직 없음") if not sha else ValueError("오빠 답글 없음(부모 뒤 · 수정 전 · 다음 질문 전): %s" % sha)
         if not sha:  # r1591 · --reply-only 는 «도착» 만 본다(r1606 내용 판정은 승인 길에만 · 범위 밖)
             out.append("REPLY-SEEN parent=%s reply=%s" % (ts, ok[0][0]))
             continue
-        said = [(t, reply_words(m)) for t, m in ok]
-        no = [t for t, ws in said if REJECT_WORDS.intersection(ws)]  # r1606 · 거절 토막이 하나라도 있으면 승인이 앞에 있어도 REJECT
+        said = [(t, reply_words(m), first_chunk_words(m)) for t, m in ok]
+        no = [t for t, ws, _ in said if REJECT_WORDS.intersection(ws)]  # r1606 · 거절은 «본문 전체» 토막 검사 그대로(«예\n근데 보류» = 거절)
         if no:
             raise ValueError("오빠 거절 답글 reply=%s" % no[0])
-        yes = [t for t, ws in said if ws and all(w in APPROVE_WORDS for w in ws)]  # 토막 «전부» 가 승인 낱말(«승인 안 함» 은 승인 0)
+        yes = [t for t, _, fc in said if fc and all(w in APPROVE_WORDS for w in fc)]  # r1696 ⓑ · «첫 조각» 의 토막이 전부 승인 낱말이면 승인
         if not yes:  # r1606 · 오타·모르는 토막 = 승인 0 (BYZ #8243 «tmddls»)
             raise Unjudgeable("답글 내용 승인 낱말 아님")
         out.append("SLACK-OK %s parent=%s reply=%s" % (sha, ts, yes[0]))
