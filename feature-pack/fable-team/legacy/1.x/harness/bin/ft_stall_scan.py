@@ -221,7 +221,8 @@ class Scan:
                     elif alert and not any(x["kind"] == "f" and x["team"] == t["team"] for x in out):  # 신선 = 0통 · 팀당 1통
                         if self.closed_wait(s, leads, notes):  # r1647 — 닫기 대기 팀장([다음 없음] + 받을 일 0) = [멈춤] 0통
                             supp["f"].add(t["team"])
-                            notes.append(f"보류 f {t['team']} — [다음 없음] · 받을 일 0")
+                            if not any(x.startswith("보류 f ") and "[다음 없음]" in x for x in notes):  # 팀장 둘이어도 노트 1줄(계약 ⓐ)
+                                notes.append(f"보류 f {t['team']} — [다음 없음] · 받을 일 0")
                             continue
                         if hold or lag is not None and min(lead_heartbeat_min() + 1 if hba is None else hba, lag) <= lead_heartbeat_min():  # r1238 B — 심박 나이 = min(심박, 끝 뒤 경과)
                             supp["f"].add(t["team"])

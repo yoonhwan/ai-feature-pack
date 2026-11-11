@@ -3,6 +3,7 @@
 ⓐ 닫기 대기 = 0통 + 요약 노트 1줄 · ⓑ 새 일이 오면 다시 센다 · ⓒ 쪽지에 크론 낱말 0 · ⓓ 그 밖 팀장은 그대로(판정 불가 = 경보 + 노트).
 R1647_BIN = 시험할 bin 폴더(기본 kit · 변이 사본을 넣어 ⓐ~ⓓ FAIL 을 본다). 자기 재호출 0.
 """
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -35,9 +36,19 @@ def lead_stall(w: World) -> None:
     w.heartbeat("t1-master#1", 25)
 
 
-def next_none(w: World) -> None:
+def next_none(w: World, frm: str = "t1-master#1", seq: int = 950) -> None:
     """팀장 마지막 발신 = [다음 없음] (심박 seq 900 보다 뒤 = 마지막)."""
-    w.mail("planner#1", 950, 21, frm="t1-master#1", body="[다음 없음] t1-master#1 · 받을 일 0 · 닫기 대기")
+    w.mail("planner#1", seq, 21, frm=frm, body=f"[다음 없음] {frm} · 받을 일 0 · 닫기 대기")
+
+
+def two_leads(w: World) -> None:
+    """명부에 현역 role=master 행 하나 더 — 승계 직후 옛·새 둘 다 현역(r1001 ⓜ 꼴)."""
+    p = w.root / ".fable-team/seats-t1.json"
+    d = json.loads(p.read_text(encoding="utf-8"))
+    d["t1-master#0"] = {"role": "master"}
+    _ = p.write_text(json.dumps(d), encoding="utf-8")
+    w.live.append("t1-master#0")
+    w._tmux()
 
 
 def open_work_zero(w: World) -> None:
@@ -118,6 +129,20 @@ def test_p2_single_line_queue_next_none_is_closed_wait(w: World) -> None:  # P2
     open_work_zero(w)
     r = scan(w)
     assert counts(r.stdout)["f"] == "0", r.stdout
+
+
+# ── DA 1라운드 HOLD(#283136) — 현역 팀장 둘이 모두 닫기 대기여도 «보류» 노트는 1줄 ──
+def test_two_live_leads_closed_wait_one_note(w: World) -> None:
+    lead_stall(w)
+    two_leads(w)
+    w.state("t1-master#0", "IDLE", 6)
+    w.jsonl("t1-master#0", "지금 착수하겠습니다")
+    next_none(w, frm="t1-master#0", seq=990)
+    open_work_zero(w)
+    r = scan(w)
+    assert counts(r.stdout)["f"] == "0", r.stdout
+    assert [x for x in r.stdout.splitlines() if x.startswith("보류 f ")] == ["보류 f t1 — [다음 없음] · 받을 일 0"], r.stdout
+    assert not bodies(w, "t1-master#0") and not bodies(w, "t1-master#1"), w.mbox_log()
 
 
 # ── bin 과 kit 사본 = 같은 바이트 ─────────────────────────────────────────────
