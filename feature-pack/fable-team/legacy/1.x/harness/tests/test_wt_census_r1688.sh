@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# test_wt_census_r1688.sh — r1688: ft-wt-census.sh 의 칸별 판정·읽기 전용·h 안전·7초 상한·출력 꼴.
+#   ⓐ 칸마다 판정(정리 가능 · 미커밋 · stash · 미착지 · squash 착지 · reflog 만 · cwd 점유 · 설정 경로 · git 실패)
+#   ⓑ 도구는 읽기만(전후 worktree list·refs·stash·HEAD·status 동일) · ⓒ h 는 «정리 가능» 만 · 재판정으로 건너뜀 · --force/가지 삭제 0
+#   ⓓ 한 줄 상한 초과 = 그 줄만 판정 불가(전체 계속) · ⓔ TSV 11칸 + 요약 1줄 · 변이 M1(⑤ 검사 삭제)·M2(h 재판정 삭제)·M3(git 실패를 정리 가능으로) = 검출
+#  격리: 임시 bare 원격 + 임시 리포 + 사례별 워크트리 · 실 리포·실 tmux·실 라이브 쓰기 0 · sleep 은 M2 대기용 1회뿐 · 사례 70초
+# 새 파일 mode 100644(실행 비트 0) — `bash <이 파일>` 로 부른다.
+set -uo pipefail
+for v in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR; do unset "$v"; done
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; H="$(cd -- "$HERE/.." && pwd)"; TOOL="$H/bin/ft-wt-census.sh"
+fail=0; ok(){ echo "PASS $1"; }; bad(){ echo "FAIL $1${2:+ :: $2}"; fail=$((fail+1)); }
+eq(){ [ "$2" = "$3" ] && ok "$1" || bad "$1" "기대 '$3' 실제 '$2'"; }
+like(){ case "$2" in $3) ok "$1";; *) bad "$1" "«$3» 아님: $2";; esac; }
+[ -f "$TOOL" ] || { echo "FAIL 도구 없음 $TOOL"; exit 1; }
+eq "S1 도구 ≤150줄" "$([ "$(wc -l < "$TOOL" | tr -d ' ')" -le 150 ] && echo yes || echo no)" yes
+eq "S2 도구 100644" "$(stat -f %Lp "$TOOL")" 644
+bash -n "$TOOL" && bash -n "$0" && ok "S3 bash -n" || bad "S3 bash -n"
+
+T="$(mktemp -d "${TMPDIR:-/tmp}/r1688.XXXXXX")"; T="$(cd "$T" && pwd -P)"; R="$T/repo"; BUSY=""
+trap '[ -n "$BUSY" ] && kill "$BUSY" 2>/dev/null; printf "x\n" > "$T/fifo" 2>/dev/null; chmod -R u+w "$T" 2>/dev/null; rm -rf "$T"' EXIT
+export HOME="$T/home"; mkdir -p "$HOME"   # LaunchAgents glob 이 실 홈을 안 보게
+git init -q --bare "$T/remote.git"; git init -q -b main "$R"; cd "$R" || exit 1
+git config user.email a@b.c; git config user.name t; echo base > f.txt; git add f.txt; git commit -qm base
+git remote add origin "$T/remote.git"; git push -q -u origin main
+export FT_WT_CENSUS_TMUX=0 FT_WT_CENSUS_CONFIG="$R/.fable-team/seats.json"
+mkdir -p "$R/.fable-team"; printf '{"cfg":"%s"}\n' "$T/wt-cfg" > "$R/.fable-team/seats.json"
+git worktree add -q "$T/wt-clean" -b nano/clean
+git worktree add -q "$T/wt-dirty" -b nano/dirty; echo d >> "$T/wt-dirty/f.txt"
+git worktree add -q "$T/wt-stash" -b nano/stashbr; ( cd "$T/wt-stash" && echo s > s.txt && git add s.txt && git stash -q )
+git worktree add -q "$T/wt-unland" -b nano/unland; ( cd "$T/wt-unland" && echo x > x.txt && git add x.txt && git commit -qm unland )
+git worktree add -q "$T/wt-reflog" -b nano/reflog; ( cd "$T/wt-reflog" && echo r > r.txt && git add r.txt && git commit -qm tmp && git reset -q --hard HEAD~1 )
+git worktree add -q "$T/wt-squash" -b nano/squash
+( cd "$T/wt-squash" && echo q > q.txt && git add q.txt && git commit -qm sq ); git merge --squash -q nano/squash >/dev/null 2>&1 && git commit -qm "squash nano/squash" && git push -q origin main
+git worktree add -q "$T/wt-cfg" -b nano/cfg
+git worktree add -q "$T/wt-busy" -b nano/busy
+mkfifo "$T/fifo"; ( cd "$T/wt-busy" && : > "$T/busy.ready" && exec 3<"$T/fifo" && read -r -u 3 _ ) & BUSY=$!
+for _i in $(seq 1 500); do [ -e "$T/busy.ready" ] && break; done
+git worktree add -q "$T/wt-broken" -b nano/broken; rm -f "$T/wt-broken/.git"
+snap(){ { git -C "$R" worktree list --porcelain; git -C "$R" for-each-ref --format='%(refname) %(objectname)'; git -C "$R" stash list; for w in "$@" ; do echo "$w $(git -C "$w" rev-parse HEAD 2>/dev/null) $(git -C "$w" status --porcelain 2>/dev/null | wc -l | tr -d ' ')"; done; } 2>&1; }
+CASES=("$T/wt-clean" "$T/wt-dirty" "$T/wt-stash" "$T/wt-unland" "$T/wt-reflog" "$T/wt-squash" "$T/wt-cfg" "$T/wt-busy" "$T/wt-broken")
+B4="$(snap "${CASES[@]}")"
+out="$(cd "$T" && bash "$TOOL" --repo "$R" 2>/dev/null)"; rc=$?
+eq "ⓐ 실행 rc0" "$rc" 0
+v(){ printf '%s\n' "$out" | awk -F'\t' -v p="$1" '$1==p{print $NF}'; }
+eq "A1 정리 가능(착지)" "$(v "$T/wt-clean")" "정리 가능"
+eq "A2 미커밋" "$(v "$T/wt-dirty")" "KEEP:①"
+eq "A3 그 가지 stash" "$(v "$T/wt-stash")" "KEEP:①"
+eq "A4 미착지" "$(v "$T/wt-unland")" "KEEP:②"
+eq "A5 squash 착지" "$(v "$T/wt-squash")" "정리 가능"
+eq "A6 reflog 만 닿는 커밋" "$(v "$T/wt-reflog")" "KEEP:④"
+eq "A7 cwd 점유" "$(v "$T/wt-busy")" "KEEP:⑤"
+eq "A8 설정이 가리킴" "$(v "$T/wt-cfg")" "KEEP:⑥"
+like "A9 git 실패 = 판정 불가" "$(v "$T/wt-broken")" '판정\ 불가:*'
+eq "ⓑ 읽기만(전후 스냅샷 동일)" "$(snap "${CASES[@]}")" "$B4"
+eq "ⓔ TSV 11칸" "$(printf '%s\n' "$out" | sed '$d' | awk -F'\t' 'NF!=11{n++}END{print n+0}')" 0
+like "ⓔ 요약 1줄" "$(printf '%s\n' "$out" | tail -1)" '요약\ 정리\ 가능\ [0-9]*\ ·\ KEEP\ [0-9]*\(*\)*\ ·\ 판정\ 불가\ [0-9]*\(총\ [0-9]*줄\)'
+mut(){ python3 -c 'import sys;s=open(sys.argv[1]).read();a,b=sys.argv[3],sys.argv[4]
+assert a in s, "패턴 없음: "+a
+open(sys.argv[2],"w").write(s.replace(a,b,1))' "$1" "$2" "$3" "$4"; }
+cat > "$T/slowgit" <<EOF
+#!/usr/bin/env bash
+for a in "\$@"; do if [ "\$a" = "$T/wt-unland" ] && [ ! -e "$T/slow.once" ]; then touch "$T/slow.once"; sleep 2; fi; done
+exec git "\$@"
+EOF
+chmod +x "$T/slowgit"
+o2="$(cd "$T" && FT_WT_CENSUS_GIT="$T/slowgit" FT_WT_CENSUS_ROW_TIMEOUT=1 bash "$TOOL" --repo "$R" 2>/dev/null)"
+like "ⓓ 상한 초과 = 그 줄만 판정 불가" "$(printf '%s\n' "$o2" | awk -F'\t' -v p="$T/wt-unland" '$1==p{print $NF}')" '판정\ 불가:*초과'
+eq "ⓓ 전체는 계속(다른 줄 그대로)" "$(printf '%s\n' "$o2" | awk -F'\t' -v p="$T/wt-cfg" '$1==p{print $NF}')" "KEEP:⑥"
+mut "$TOOL" "$T/m1.sh" 'busy "$p" && d5=1' ':'
+eq "M1 탐지 = ⑤ 삭제 → 점유 칸이 정리 가능" "$(cd "$T" && bash "$T/m1.sh" --repo "$R" --only "$T/wt-busy" 2>/dev/null | awk -F'\t' '{print $NF}')" "정리 가능"
+mut "$TOOL" "$T/m3.sh" 'v="판정 불가:git 실패"' 'v="정리 가능"'
+eq "M3 탐지 = git 실패를 정리 가능으로" "$(cd "$T" && bash "$T/m3.sh" --repo "$R" --only "$T/wt-broken" 2>/dev/null | awk -F'\t' '{print $NF}')" "정리 가능"
+mut "$TOOL" "$T/m2.sh" 'elif [ "$(bash "$CENSUS" --only "$target" --repo "$ROOT" 2>/dev/null | awk -F"\t" "{print \$NF}")" != "정리 가능" ]; then sk_change=$((sk_change+1)); ' ''
+( cd "$T" && bash "$T/m2.sh" --repo "$R" --h "$T/h2.sh" >/dev/null 2>&1 )
+eq "M2 탐지 = h 재판정 삭제(재판정 호출 0줄)" "$(grep -c 'bash "$CENSUS" --only' "$T/h2.sh")" 0
+H1="$T/h1.sh"; ( cd "$T" && bash "$TOOL" --repo "$R" --h "$H1" >/dev/null 2>&1 )
+eq "ⓒ h 대상 = 정리 가능 2줄" "$(grep -c '^target=' "$H1")" 2
+eq "ⓒ h 에 --force·가지 삭제 0" "$(grep -v '^#' "$H1" | grep -cE '\-\-force|remove -f|branch -D|update-ref -d')" 0
+echo late > "$T/wt-squash/late.txt"
+hs="$(bash "$H1" 2>&1)"
+eq "ⓒ 재판정으로 건너뜀" "$(printf '%s' "$hs" | grep -c '재판정 바뀜 1')" 1
+eq "ⓒ 지움 1" "$(printf '%s' "$hs" | grep -c '지움 1')" 1
+[ -d "$T/wt-squash" ] && ok "ⓒ 바뀐 줄은 남는다" || bad "ⓒ 바뀐 줄이 지워졌다"
+eq "ⓒ 가지 삭제 0" "$(git -C "$R" branch | grep -c 'nano/')" 9
+printf 'x\n' > "$T/fifo"; wait "$BUSY" 2>/dev/null; BUSY=""
+eq "프로세스 0(점유 프로세스 정리)" "$(pgrep -f "wt-busy" 2>/dev/null | wc -l | tr -d ' ')" 0
+echo "----"; eq "합계 fail" "$fail" 0; exit $((fail > 0))
