@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_autonomy_standing_r947.sh — r947 오빠 D1 «외부 DA APPROVE 팩 PR 상시 승인» (카드 r947-d1-standing-approve-external-da-pack-land 시험 ⓐ~ⓘ)
 # 격리: 임시 BYZ 리포(판정문 = origin/main 커밋 · DA 원문 = 로컬) · 임시 팩 리포(origin = 깃허브 ssh 꼴 → ssh 스텁이 로컬 bare 로) · 가짜 tmux(실제 좌석)
-#       · 가짜 gh · 슬랙 게시 스텁 · FT_NOW 고정 — 실 gh·실 슬랙·실 원격·실 상태 0 · GIT_* env 0 · FT_R947_SKIP_OLD=1 이면 ⓗ(기존 시험 묶음) 생략
+#       · 가짜 gh · 슬랙 게시 스텁 · FT_NOW 고정 — 실 gh·실 슬랙·실 원격·실 상태 0 · GIT_* env 0 · 기존 시험 묶음(ⓗ)은 별 파일 test_autonomy_standing_r947_old.sh
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
 set -uo pipefail
 unset FT_AUTONOMY_LEVEL
@@ -114,6 +114,13 @@ mkpr 11 "$PF"; A11="$PRSHA"; DAO="$T/da/solid11.out"
 printf 'head=%s model=gpt-6.1-sol effort=high rc=0 start=1 end=2\n' "$A11" > "$DAO.meta"
 mkv solid11 "$A11" "$DAO"; VAR="$VF"; sa "$A11" 11 "$VF"
 [ "$rc" = 0 ] && has "^STANDING-OK $A11 "; ck "ⓐ-tail3 실측 r1650 꼴: 첫 줄 «판정: APPROVE» · 블록 끝 «근거:» · 다른 판정: 줄 0 → ⑤ 통과(사례 1)" $?
+mkpr 12 "$PF"; A12="$PRSHA"; DAO="$T/da/allow12.out"
+{ printf 'codex\n판정: APPROVE\n검토 본문\n판정: APPROVE — 근거 본문\n판정: APPROVE (근거 있음)\n근거: 끝\n'; } > "$DAO"
+printf 'head=%s model=gpt-6.1-sol effort=high rc=0 start=1 end=2\n' "$A12" > "$DAO.meta"
+mkv allow12 "$A12" "$DAO"; sa "$A12" 12 "$VF"
+[ "$rc" = 0 ] && has "^STANDING-OK $A12 "; ck "ⓐ-tail4 판정 값이 «APPROVE»·«APPROVE — …»·«APPROVE (…)» 꼴 = 통과(값 허용 폭 고정)" $?
+fresh; grant; mkda rev6 "$A6" APPROVE; printf -- '- 판정: APPROVE 아님 (HOLD)\n' >> "$DAO"; mkv rev6 "$A6" "$DAO"; sa "$A6" 6 "$VF"
+rej "ⓑ3c 반례(arch): «- 판정: APPROVE 아님 (HOLD)» 줄 → 거절(값이 정확히 APPROVE 아님 · 앞 «APPROVE » 만 보고 통과하던 구멍)" "$A6" '⑤ DA 마지막 codex 블록이 APPROVE 아님\(첫 줄: 판정: APPROVE · 판정 아닌 줄: - 판정: APPROVE 아님 \(HOLD\)\)'
 
 # ══ ⓒ head ≠ A: main 병합만이면 EQUIV 통과(use 줄 da=A) · 자기 변경이 다르면 거절
 git -C "$P" checkout -q -B mv origin/main; echo moved > "$P/feature-pack/fable-team/legacy/1.x/harness/bin/other.sh"; cm "$P" "main moves"; git -C "$P" push -q origin mv:main
@@ -239,10 +246,5 @@ out="$(FT_SEAT="$SEAT" FT_AUTONOMY_STATE_DIR="$st" FT_NOW="$T0" "$BASH" "$MB/ft-
 # ══ ⓗ 기존 시험(autonomy·scope·merge-land·da-codex·doc-exempt·훅) · 키트 사본 · 줄 수
 for f in ft-autonomy.sh ft-autonomy-standing.sh ft-merge-land.sh ft_doc_exempt.py; do cmp -s "$BIN/$f" "$BIN/../kit/fable-team/bin/$f"; ck "키트 사본 cmp0 $f" $?; done
 [ "$(wc -l < "$BIN/ft-autonomy.sh")" -le 200 ] && [ "$(wc -l < "$BIN/ft-autonomy-standing.sh")" -le 200 ] && [ "$(wc -l < "$BIN/ft-merge-land.sh")" -le 120 ]; ck "줄 수 상한(autonomy 200 · standing 200 · merge-land 120)" $?
-if [ -z "${FT_R947_SKIP_OLD:-}" ]; then
-  for t in test_autonomy_core test_autonomy_scope test_autonomy_scope_pack test_autonomy_kinds_1675 test_autonomy_hooks test_merge_land test_merge_land_pack_repo test_merge_land_equiv test_merge_land_off_approval test_da_codex_wrapper test_doc_exempt_r725; do
-    "$BASH" "$HERE/$t.sh" > "$T/$t.out" 2>&1; r=$?
-    [ "$r" = 0 ]; ck "ⓗ $t rc=0 ($(grep -c '^PASS' "$T/$t.out" | tr -d ' ') PASS)" $?
-  done
-fi
+# ⓗ 기존 시험 11개 묶음 = tests/test_autonomy_standing_r947_old.sh (r1664: 이 파일이 70초를 넘겨 하드 룰 22 대로 쪼갬 · 묶음 단독은 상한 대상 밖)
 [ "$fail" = 0 ] && echo "ALL PASS" || { echo "FAILED $fail"; exit 1; }
