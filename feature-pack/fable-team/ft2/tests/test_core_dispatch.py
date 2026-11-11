@@ -423,6 +423,7 @@ def test_k4_assign_submit_and_claim_interleave_with_strict_revision(tmp_path):
     root = str(tmp_path / "k4")
     node = _d(root)
     assert [_accept_cmd(root, "cmd-%d" % index, "M%d" % index) for index in range(3)]
+    _accept(root, "C0", "C1", "C2")                    # r1632 ⓐ: 실행권(claim)도 접수 영수 필요
     roles = ("assign", "submit", "claim")
     procs = [_spawn("work", root, "mix", role) for role in roles]
     [_wait(os.path.join(root, "ready-" + role)) for role in roles]
@@ -431,7 +432,7 @@ def test_k4_assign_submit_and_claim_interleave_with_strict_revision(tmp_path):
     state, records = node.ex._state_records()
     assert state["revision"] == len(records)                                        # 엄격 증가
     assert sorted(state["reservations"]) == ["slot-0", "slot-1", "slot-2"]          # 배정 몫 보존
-    assert sorted(state["pending"]) == ["cmd-0", "cmd-1", "cmd-2"]                  # 접수 몫 보존
+    assert sorted(state["pending"]) == ["c-C0", "c-C1", "c-C2", "cmd-0", "cmd-1", "cmd-2"]   # 접수 몫 보존
     assert [work for work in ("M0", "M1", "M2") if state["generations"].get(work)] == ["M0", "M1", "M2"]
     assert [work for work in ("C0", "C1", "C2") if work in state["owners"]] == ["C0", "C1", "C2"]
 
@@ -577,6 +578,7 @@ def test_r2_owner_without_dispatch_lineage_is_refused(tmp_path):
     """DA R2 — 정상 공개 Execution.claim 으로 owner 만 있는 W2 완료 = 거절 · 쓰기 0(ⓗ W2 불변)."""
     root = str(tmp_path / "r2")
     node = _d(root)
+    _accept(root, "W2")                                    # r1632 ⓐ: 실행권도 접수 영수 필요
     assert _ex(root).claim("W2", "independent-holder").result == OK
     before = _bytes(node)
     refused = node.complete("W2")
@@ -591,6 +593,7 @@ def test_r2_owner_without_dispatch_lineage_is_refused(tmp_path):
 
 def test_m7_uncertain_release_is_allowed(tmp_path):
     root = str(tmp_path / "m7")
+    _accept(root, "W1")
     claim = _ex(root).claim("W1", "h1")
     _ex(root).mark_uncertain("W1", "h1", claim.gen, "무응답")
     assert _d(root).reassess("W1").result == REFUSED
@@ -609,6 +612,7 @@ def test_m11_legacy_read_without_journal_state_restore(tmp_path):
 
 def test_m12_marker_from_owner_deletes_execution_owner(tmp_path):
     node = _d(tmp_path / "m12", _OwnerMarker)
+    _accept(tmp_path / "m12", "W2")
     _ex(tmp_path / "m12").claim("W2", "independent-holder")
     assert node.complete("W2").written                                     # 배정 계보 무시 = FAIL
     state = node.ex._state_records()[0]

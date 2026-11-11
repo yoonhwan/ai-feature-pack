@@ -190,8 +190,8 @@ class Dispatch:
         return "resource" if [res for res in resources if res in taken] else ""
 
     def _accepted(self, records, work):
-        """접수 영수 = 같은 work 를 남긴 accept 줄(`intake.submit(command, body, work)`) — 없으면 배정 0(r1616)."""
-        return any(rec["kind"] == "accept" and rec.get("work") == work for rec in records)
+        """접수 영수 = 같은 work 를 남긴 accept 줄 — 없으면 배정 0(r1616). 판정 본문은 실행권 모듈 한 곳(r1632 ⓓ)."""
+        return execution.accepted(records, work)
 
     def _assigned(self, records, work):
         """배정 계보 = journal 의 dispatch 줄(자원 목록이 비어도 «배정» 이다 · 다른 실행권 owner 와 구별)."""

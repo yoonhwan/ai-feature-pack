@@ -427,6 +427,7 @@ def test_e_append_boundary_peak_and_words(tmp_path):
     rs = node.rs
     assert _accept(node, "W1").assign("W1", "h1", evidence=EV, resources=["R1"]).result == OK
     assert node.deliver("W1", "a1").result == OK
+    _accept(node, *["Q%d" % n for n in range(40)])    # r1632 ⓐ: 실행권도 접수 영수 필요(본문 작음)
     while rs.submit("q-%d" % len(samples), "x" * 5000).result == OK:
         if len(samples) > 400:
             break
@@ -622,9 +623,10 @@ def test_mutation_m5_submit_while_recovery_needed(tmp_path):
 
 def test_mutation_m6_cap_after_append(tmp_path):
     node = _swap_journal(_d(tmp_path / "m6", capacity=1000), _LateCap)
+    _accept(node, "Q0")                               # r1632 ⓐ: 실행권도 접수 영수 필요
     assert _fill(node) >= 3
     rows = len(node.rs.records())
-    claims = [node.ex.claim("Q%d" % n, "h") for n in range(40)]
+    claims = [node.ex.claim("Q0", "h") for _ in range(40)]     # 같은 work 재실행권 = 세대만 는다
     ok = len([grant for grant in claims if grant.result == OK])
     assert claims[-1].result == FULL
     assert len(node.rs.records()) == rows + ok + 1     # 변이 = 거절인데 줄이 하나 더 있다
@@ -754,7 +756,9 @@ def test_mutation_m2_r1616_receipts_line_is_the_ledger_for_folded_accepts(tmp_pa
 
 
 def test_mutation_m12_refusal_word_without_field(tmp_path):
-    node = _swap_journal(_d(tmp_path / "m12"), _NoWord)
+    node = _d(tmp_path / "m12")
+    _accept(node, "W1")                                 # r1632 ⓐ: 실행권도 접수 영수 필요
+    node = _swap_journal(node, _NoWord)
     assert node.ex.claim("W1", "h1").result == CORRUPT
 
 
