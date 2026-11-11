@@ -11,6 +11,7 @@ r525 e = 명부 루프가 안 본 tmux 라이브 좌석(교대 표시·명부 �
 → planner + 계보 현역 master 에 [정지] 1통 · 같은 서명(좌석·IDLE 시작 시각) 재알림 0 · 깨우기·kill 0 · 요약 줄 d= 뒤 e= 칸.
 r849(재설계 r4 · r3) l = 로그아웃 좌석 — 쪽지는 «로그아웃 구간당 1통», 키 = 칸(state/stall/logged-out.<좌석 계보>) 하나(프로세스 시작 시각·첫 실패 시각·pid 를 키에 안 쓴다 · DA⑥ r2 반례 1) · r3(DA⑥ r3 반례 3·4): 칸은 «발신 전에» 세우고 발신 rc≠0 이면 지운다 · 칸 자리가 파일이 아니면(폴더 등) ERROR 1줄 + 그 좌석 발신 0.
 r1001 f = 팀장 심박 끊김 — 현역 role=master 좌석들의 b·d 를 «팀 단위» 로 묶고 판정은 ft_stall_detect.lead_alert 하나만 쓴다(신선 = 그 팀 0통 · 끊김·없음 = `[멈춤]` 1통 · 판정 불가 = u + 처리 0) · env FT_ROOT · FT_NOW · FT_SEAT_STATUS · FT_TMUX · FT_MBOX_SH · FT_INDEX_LINT · FT_MBOX_DIR · FT_STALL_STATE_DIR · FT_PS · FT_CTX_CMD · FT_LEAD_HEARTBEAT_MIN · FT_STALL_HEARTBEAT_BUDGET · FT_STALL_PAUSED_SKIP(0 = 정지 표식 팀 판정 끔).
+r1647 f 문구 = 크론 요구 0(#274576 주기 크론 0 정책) · 마지막 발신 머리 `[다음 없음` + ft-seat-open-work rc0(받을 일 0) 인 «닫기 대기 팀장» 은 f 0통 + 노트 1줄(새 일이 들어오면 다시 센다).
 r1371 — 전팀 정지 표식(ft_stall_detect.all_stop · 스캔 처음 1회) on 이면 a·f 경보 0 + «보류 <a|f> <팀> — 전팀 정지(since HH:MM)» 노트 · h 는 ft_stall_headline.headline_alerts 가 같은 표식으로 보류 · c·e·l 은 그대로(정지 중에도 보여야 하는 것).
 """
 import json
@@ -31,6 +32,29 @@ HERE = Path(__file__).resolve().parent
 REPEAT_S = stm.REPEAT_S
 
 
+def _last_sent(comm: Path, names: set[str]) -> str:
+    """r1647 — 현역 팀장이 «마지막으로 보낸» 쪽지 본문(안 읽은 큐 + 읽은 로그 끝 4MB · 가장 큰 seq).
+    쪽지 0·읽기 실패 = "" — «판단 못 함» 은 닫기 대기가 아니다(부르는 쪽은 지금 흐름 그대로 간다)."""
+    best, body = -1, ""
+    for p in (comm / "mailbox.jsonl", comm / "mailbox.log.jsonl"):
+        try:
+            with open(p, "rb") as fh:
+                off = max(0, fh.seek(0, os.SEEK_END) - (4 << 20))
+                fh.seek(off)
+                raw = fh.read()
+        except OSError:
+            continue
+        for line in raw.decode("utf-8", "replace").splitlines()[1 if off else 0:]:  # 4MB 앞을 잘랐을 때만 첫 줄이 조각
+            try:
+                r = json.loads(line)
+                seq = int(r.get("seq") or 0)
+            except (ValueError, TypeError, AttributeError):
+                continue
+            if r.get("from") in names and seq > best:
+                best, body = seq, str(r.get("body") or "")
+    return body
+
+
 class Scan:
     def __init__(self) -> None:
         self.root = ft_penalty.root()
@@ -44,6 +68,7 @@ class Scan:
         self.comm = Path(os.environ.get("FT_MBOX_DIR") or self.root / ".fable-team/comm")
         self.live = self.sessions()
         self.cap_cmd = os.environ.get("FT_SEAT_CAP_PY") or str(HERE / "ft_seat_cap.py")
+        self.open_work = os.environ.get("FT_SEAT_OPEN_WORK") or str(HERE / "ft-seat-open-work.py")  # r1647 받을 일 판정 정본
         self.ps = ["bash", os.environ["FT_PS"]] if os.environ.get("FT_PS") else ["ps"]
         self.ctx_cmd = os.environ.get("FT_CTX_CMD") or str(HERE / "ft-claude-context.sh")
         self.e_min = float(os.environ.get("FT_STALL_E_IDLE_MIN") or 30)
@@ -194,6 +219,12 @@ class Scan:
                         unknown += 1
                         notes.append(f"f? {s} 팀장 심박 판정 불가 — b·d·f 세지 않음")
                     elif alert and not any(x["kind"] == "f" and x["team"] == t["team"] for x in out):  # 신선 = 0통 · 팀당 1통
+                        if self.closed_wait(s, leads, notes):  # r1647 — 닫기 대기 팀장([다음 없음] + 받을 일 0) = [멈춤] 0통
+                            supp["f"].add(t["team"])
+                            note = f"보류 f {t['team']} — [다음 없음] · 받을 일 0"
+                            if note not in notes:  # 같은 «팀» 노트만 중복 판정 — 팀마다 1줄(계약 ⓐ · 팀장 둘이어도 1줄)
+                                notes.append(note)
+                            continue
                         if hold or lag is not None and min(lead_heartbeat_min() + 1 if hba is None else hba, lag) <= lead_heartbeat_min():  # r1238 B — 심박 나이 = min(심박, 끝 뒤 경과)
                             supp["f"].add(t["team"])
                             continue
@@ -341,6 +372,16 @@ class Scan:
         run(["bash", self.mbox, "ring", seat] + ([str(seq)] if seq else []))
         return True
 
+    def closed_wait(self, seat: str, names: set[str], notes: list[str]) -> bool:
+        """r1647 — 팀장 «닫기 대기»: 마지막 발신 머리 `[다음 없음` ∧ ft-seat-open-work rc0(받을 일 0) → f 0통.
+        판단 못 하면 False = 지금 흐름(경보) 그대로 · open-work 판정 불가면 노트 1줄."""
+        if not _last_sent(self.comm, names).lstrip().startswith("[다음 없음"):
+            return False
+        rc, _out = run([sys.executable, self.open_work, seat, "--root", str(self.root), "--mbox-dir", str(self.comm)], timeout=7)
+        if rc not in (0, 1):
+            notes.append(f"f? {seat} 받을 일 판정 불가(rc={rc}) — 닫기 대기 판정 0 · f 그대로")
+        return rc == 0
+
     def act(self, f: dict) -> str | None:
         k, seat = f["kind"], f["seat"]
         if k == "a":
@@ -353,12 +394,11 @@ class Scan:
         elif k == "d":
             if not self.wake(seat, f["seq"]):
                 return None
-        elif k in ("b", "f"):  # f = r1001 팀장 심박 끊김 — 깨우고 정리 쪽지 1통 + 크론 다시 걸기(r1152) 요구
+        elif k in ("b", "f"):  # f = r1001 팀장 심박 끊김 — 깨우고 정리 쪽지 1통(r1647: 크론 요구 뺀 · 주기 크론 0 정책 #274576)
             if not self.wake(seat, f.get("seq")):
                 return None
             self.send(seat, f"[stall b] 선언 뒤 정지 {f['age']:.0f}분 — 지금 도구를 불러라 (ft-stall-scan)" if k == "b"
-                      else f"[멈춤] {seat} {f['why']} — 지금 한 일 정리 1통 보내라 · CronList 로 체크 크론 확인 — "
-                           "없거나 주기가 15분이 아니면 CronCreate 15분 틱으로 다시 걸고 [정리] 에 cron=<id> (BOOT 16 · ft-stall-scan)",
+                      else f"[멈춤] {seat} {f['why']} — 지금 한 일 정리 1통 보내라 (BOOT 16 · ft-stall-scan)",
                       urgent=False)
         else:
             seat = next((t["master"] for t in load_teams(self.root) if t["diag"] == "OK" and t["team"] == "planner"), None)
