@@ -32,12 +32,14 @@
 # 스피너 토큰은 버전마다 늘어난다. 목록을 여기 한 곳에서만 고친다.
 
 set -uo pipefail
-# r1689 — «진행 중» 표시만 센다. 끝난 뒤 남는 줄(claude «✻ Brewed for 1m 2s»·«✻ Crunched for 3m» · codex «Worked for 5m 37s»)은 진행이 아니다.
-#   claude = 진행형 낱말(-ing) 또는 «Word… (» 꼴 · codex = «(2m 07s • esc to interrupt)» · pi(어느 명부에도 없을 때만 이 경로) = «⠦ Working»
-SPIN_CLAUDE='thinking|Sublimating|Cogitating|Gusting|Crunching|Sock-hopping|Elucidating|Percolating|Simmering|Mulling|Pondering|Noodling|Ruminating|Deliberating|Herding|Puzzling|Wrangling|Baking|Steeping|Whirring|Forging|Honing|Distilling|Musing|[A-Z][A-Za-z-]+… \('
-SPIN_CODEX='\([0-9][0-9hms ]* • esc to interrupt\)'
-SPIN_PI='(⠋|⠙|⠹|⠸|⠼|⠴|⠦|⠧|⠇|⠏) Working'
+# r1689 — 낱말이 아니라 «진행 줄 꼴» 만 센다(보고 문장 속 «Cogitating»·«thinking» 은 진행이 아니다 · DA R1).
+#   claude = 줄 머리 «✻ Word… (» · codex = 줄 머리 «• … (2m 07s • esc to interrupt)» · pi(어느 명부에도 없을 때만 이 경로) = «── ⠦ Working»
+#   끝난 줄(DONE: claude «✻ Brewed for 1m 2s» · codex «Worked for 5m 37s»)이 마지막 진행 줄 «뒤» 에 있으면 끝난 것이다(인용된 진행 줄 대비).
+SPIN_CLAUDE='^[[:space:]]*[^[:alnum:][:space:]]{1,3} [A-Z][A-Za-z-]+(…|\.\.\.) \('
+SPIN_CODEX='^[[:space:]]*• .*\([0-9][0-9hms ]* • esc to interrupt\)'
+SPIN_PI='^(─| )*(⠋|⠙|⠹|⠸|⠼|⠴|⠦|⠧|⠇|⠏) Working'
 SPIN="$SPIN_CLAUDE|$SPIN_CODEX|$SPIN_PI"
+DONE='^([[:space:]]|─)*([^[:alnum:][:space:]]{1,3} )?[A-Z][^ ]* for [0-9]+[hms]'
 
 # seats.json — 리포 루트(<git-common-dir 의 부모>)/.fable-team/seats.json. FT_SEATS_JSON 으로 덮어쓴다.
 SEATS_JSON="${FT_SEATS_JSON:-}"
@@ -110,7 +112,11 @@ status_of() {
   local p; p="$(pane_of "$1")"
   [ -n "$p" ] || { echo "NOSEAT"; return; }
   local cap; cap="$(tmux capture-pane -p -J -S -12 -t "$p" 2>/dev/null)" || { echo "UNKNOWN"; return; }   # r1689 — 캡처 실패 = 판정 불가(조용한 IDLE·BUSY 0)
-  if echo "$cap" | grep -qE "$SPIN"; then echo "BUSY"; else echo "IDLE"; fi
+  [ -n "${cap//[[:space:]]/}" ] || { echo "UNKNOWN"; return; }   # r1689 DA R2 — 빈 화면 = 근거 0(끝난 줄·프롬프트가 있는 화면만 IDLE)
+  local spin fin   # 마지막 진행 줄 · 마지막 끝난 줄의 줄 번호
+  spin="$(printf '%s\n' "$cap" | grep -nE "$SPIN" | tail -1 | cut -d: -f1)"
+  fin="$(printf '%s\n' "$cap" | grep -nE "$DONE" | tail -1 | cut -d: -f1)"
+  if [ -n "$spin" ] && [ "$spin" -ge "${fin:-0}" ]; then echo "BUSY"; else echo "IDLE"; fi
 }
 
 # pane cwd → ~/.claude/projects/<비영숫자 전부 '-'> (ft-reach-check.sh seat_projects_dir 와 같은 규칙)

@@ -28,7 +28,12 @@ PANES = {  # 좌석 → (명부 agent 또는 None=어느 명부에도 없음, pa
     "t-claude-crunched#0": (None, "⏺ 끝났습니다.\n✻ Crunched for 2m 3s\n" + CLAUDE_TAIL, "IDLE"),
     "t-nolist-pi-work#0": (None, " $ bash mbox.sh send\n── ⠦ Working ──────────\n────────────\n" + PI_TAIL, "BUSY"),
     "t-nolist-pi-idle#0": (None, " 근거: 착지 쪽지 3929\n────────────\n\n────────────\n" + PI_TAIL, "IDLE"),
-    "t-blank#0": (None, "\n\n", "IDLE"),
+    "t-blank#0": (None, "\n\n", "UNKNOWN"),  # DA R2 — 빈 화면 = 근거 0(끝난 줄·프롬프트가 있는 화면과 다르다)
+    # DA R1 — 보고 문장 속 낱말·인용된 진행 줄은 진행이 아니다. 진행 줄 «뒤» 에 끝난 줄이 있으면 끝난 것이다
+    "t-codex-report-word#0": ("codex", "Cogitating 진행 표시를 확인했고 수정 내용을 반영했습니다.\nWorked for 5m 37s • 6:30 PM\n› Ask Codex to do anything\n", "IDLE"),
+    "t-codex-quoted-spin#0": (None, "• 화면에 아래 두 줄이 보였습니다.\n  ✻ Cogitating… (esc to interrupt)\n• Working (2m 07s • esc to interrupt)\n  Worked for 2m 1s • 7:01 PM\n" + CODEX_TAIL, "IDLE"),
+    "t-claude-report-word#0": ("claude", "⏺ Baking 단계와 thinking 토큰, Musing 낱말을 설명했습니다.\n✻ Brewed for 9s\n" + CLAUDE_TAIL, "IDLE"),
+    "t-claude-next-turn#0": ("claude", "✻ Brewed for 1m 2s\n❯ 다음 일\n✽ Onioning… (3s · ↓ 12 tokens)\n" + CLAUDE_TAIL, "BUSY"),  # 끝난 줄 뒤 새 진행 줄 = 작업 중
     "t-nocapture#0": (None, None, "UNKNOWN"),  # 캡처 실패 = 판정 불가
     # pi 어댑터 경로 — pane 글자는 일부러 반대로 둔다(판정이 pane 이 아니라 pi 기록에서 나와야 통과)
     "t-feature-arch-pi#1": ("pi", " 끝난 것처럼 보이는 화면\n" + PI_TAIL, "BUSY"),
@@ -36,7 +41,8 @@ PANES = {  # 좌석 → (명부 agent 또는 None=어느 명부에도 없음, pa
     "t-planner-lost-pi#9": ("pi", "── ⠹ Working ──────────\n" + PI_TAIL, "UNKNOWN"),  # pi 기록 없음 = 결속 불가
 }
 ROSTER = {  # 명부 파일 → 좌석들 — 첫 명부(seats.json)에는 pi 가 없다
-    "a/seats.json": ["t-claude-spin#0", "t-claude-newword#0", "t-claude-brewed#0", "t-claude-worked#0", "t-harness-da-codex#10"],
+    "a/seats.json": ["t-claude-spin#0", "t-claude-newword#0", "t-claude-brewed#0", "t-claude-worked#0", "t-harness-da-codex#10",
+                     "t-codex-report-word#0", "t-claude-report-word#0", "t-claude-next-turn#0"],
     "a/seats-feature.json": ["t-feature-da-codex#6", "t-feature-arch-pi#1"],
     "a/seats-planner.json": ["t-planner-lost-pi#9"],
     "b/seats-aifp.json": ["t-aifp-da-codex#0", "t-aifp-master-pi#4"],
@@ -112,7 +118,7 @@ def test_output_shape_is_unchanged(world):  # 소비자(ft-tick·stall-scan) 보
     w, env, rows = world
     assert set(rows["t-blank#0"]) == {"seat", "pane", "jsonl_age", "agent", "replaced"}
     out = subprocess.run(["bash", str(BIN / "ft-seat-status.sh"), "one", "t-blank#0"], env=env, text=True, capture_output=True, timeout=60)
-    assert out.stdout.split() == ["t-blank#0", "IDLE", "-", "-"]
+    assert out.stdout.split() == ["t-blank#0", "UNKNOWN", "-", "-"]
 
 
 def test_source_equals_kit():
@@ -120,7 +126,9 @@ def test_source_equals_kit():
 
 
 MUTANTS = {  # 이름 → (지울 글자, 바꿀 글자, 그 변이가 뒤집어야 하는 좌석, 뒤집힌 값 «pane» 또는 «agent»)
-    "M1 끝난 줄을 SPIN 에 되돌림": ("SPIN_CLAUDE='thinking|", "SPIN_CLAUDE='Worked for|thinking|", "t-feature-da-codex#6", ("pane", "BUSY")),
+    "M1 끝난 줄을 SPIN 에 되돌림": ('SPIN="$SPIN_CLAUDE|$SPIN_CODEX|$SPIN_PI"', 'SPIN="Worked for|$SPIN_CLAUDE|$SPIN_CODEX|$SPIN_PI"', "t-feature-da-codex#6", ("pane", "BUSY")),
+    "M6 끝난 줄 뒤 순서를 안 봄": ('[ "$spin" -ge "${fin:-0}" ]', '[ "$spin" -ge 0 ]', "t-codex-quoted-spin#0", ("pane", "BUSY")),
+    "M7 빈 화면을 IDLE 로": ('[ -n "${cap//[[:space:]]/}" ] ||', "true ||", "t-blank#0", ("pane", "IDLE")),
     "M2 codex 진행 토큰 뺌": ('SPIN="$SPIN_CLAUDE|$SPIN_CODEX|$SPIN_PI"', 'SPIN="$SPIN_CLAUDE|$SPIN_PI"', "t-aifp-da-codex#0", ("pane", "IDLE")),
     "M3 pi 관문을 명부 1개로": ("    files += sorted(glob.glob(os.path.join(d, \"seats*.json\")))", "    pass", "t-feature-arch-pi#1", ("agent", "-")),
 }
