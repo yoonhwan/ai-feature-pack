@@ -9,7 +9,7 @@ E3 `assign`→`deliver`(crash = 자식 `on_step=after_journal`→`recover`) · E
 `reassess`/`release`/`owner_recover` = reassess 기록·state 칸. `journal_ops`(원자료 log op 문자열)는
 우리 기록 꼴이 kind 라 대조하지 않는다. 수신 업무 = «대역 계수기»(같은 (work, attempt) = 실행 1·억제 1).
 변이 검출 위치: M1 test_m1 · M2 ⓑ · M3 ⓓ·test_m3 · M4 ⓕ·test_m4 · M5 test_m5 · M6 ⓗ·test_m6 ·
-M7 test_m7 · M8 ⓙ · M9 ⓚ①·test_m9 · M10 ⓚ②·test_m10. 재진입 표지 = `FT2_DISPATCH_CHILD`.
+M7 test_m7 · M8 ⓙ · M9 ⓚ①·test_m9 · M10 ⓚ②·test_m10 · M13 test_m13. 재진입 표지 = `FT2_DISPATCH_CHILD`.
 """
 import collections
 import fcntl
@@ -42,6 +42,7 @@ def _load(name):
 
 
 record, intake, execution, dispatch = _load("record"), _load("intake"), _load("execution"), _load("dispatch")
+projection = _load("projection")
 Grant, Dispatch = dispatch.Grant, dispatch.Dispatch
 
 
@@ -483,6 +484,47 @@ def test_g3_uncertain_reassess_is_refused_by_uncertainty(tmp_path):
     assert (obs["reassess_journal"], obs["reserved"]) == (0, 1)                     # 반환 0 · 예약 유지
 
 
+def test_c07a_complete_on_uncertain_work_is_held_with_no_write(tmp_path):
+    """r1624 ⓐ — 미확정 작업 complete = HOLD(«결과 미확정 = 완료 유보») · journal 새 행 0 · done 없음."""
+    root = str(tmp_path / "c07a")
+    node = _delivered(root)
+    assert _ex(root).mark_uncertain("W3", "h1", 1, "무응답").result == HOLD
+    before, grant = len(node.ex._state_records()[1]), node.complete("W3", "a1")
+    state, records = node.ex._state_records()
+    assert (grant.result, grant.reason, grant.written) == (HOLD, "결과 미확정 = 완료 유보", False)
+    assert (len(records), "W3" in state["done"]) == (before, False)
+
+
+def test_c07b_projection_keeps_uncertain_holder_busy(tmp_path):
+    """ⓑ 같은 순서 뒤 project — holder 는 가용이 아니고, 그 작업 행은 done=false·uncertain=true."""
+    root = str(tmp_path / "c07b")
+    node = _delivered(root)
+    assert _ex(root).mark_uncertain("W3", "h1", 1, "무응답").result == HOLD
+    assert node.complete("W3", "a1").result == HOLD
+    out = projection.project(root, TEAM)
+    assert out["holders"]["h1"] == {"free": False, "works": ["W3"]}
+    assert (out["works"]["W3"]["done"], out["works"]["W3"]["uncertain"]) == (False, True)
+
+
+def test_c07c_confirmed_work_completes_and_releases(tmp_path):
+    """ⓒ 미확정이 아닌 작업 완료 = 지금처럼 OK + 재평가(예약 반환)."""
+    node = _delivered(tmp_path / "c07c")
+    grant = node.complete("W3", "a1")
+    assert (grant.result, grant.written, grant.released) == (OK, True, ["shared-slot"])
+    assert _obs(node, 1)["done_tasks"] == ["W3"]
+
+
+def test_m13_without_guard_uncertain_work_is_completed(tmp_path):
+    """M13(새 판정 줄 제거) — ⓐ·ⓑ 가 무너진다(done=true · h1 free=true)."""
+    root = str(tmp_path / "m13")
+    node = _d(_accept(root, "W3"), _NoUncertainGuard)
+    node.assign("W3", "h1", evidence=EV, resources=["shared-slot"])
+    node.deliver("W3", "a1")
+    assert _ex(root).mark_uncertain("W3", "h1", 1, "무응답").result == HOLD
+    assert node.complete("W3", "a1").written                                  # 판정 0 = ⓐ FAIL
+    out = projection.project(root, TEAM)
+    assert (out["works"]["W3"]["done"], out["holders"]["h1"]["free"]) == (True, True)   # ⓑ FAIL
+
 def test_r1_deliver_checkpoint_crash_keeps_journal_and_state_equal(tmp_path):
     """DA R1① deliver journal 내구화 직후·checkpoint 전 crash — state 전달 0 이던 결함."""
     root = str(tmp_path / "r1a")
@@ -659,6 +701,12 @@ class _LegacyExecution(execution.Execution):               # M11: 세 kind 를 s
 class _OwnerMarker(Dispatch):                              # M12: owner 만 보고 표식을 만든다
     def _assigned(self, records, work):
         return True
+
+
+class _NoUncertainGuard(Dispatch):                         # M13: 새 판정 줄 제거(r1624)
+    def _complete(self, context, work, attempt):
+        state, records = context
+        return super()._complete((dict(state, uncertain={}), records), work, attempt)
 
 
 class _SplitWrite(Dispatch):                               # M10: claim 줄과 배정 줄을 따로
