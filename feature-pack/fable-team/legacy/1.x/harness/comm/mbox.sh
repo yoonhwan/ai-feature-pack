@@ -307,11 +307,13 @@ case "$cmd" in
          out="$(bash "$DIR/mbox.sh" send "$new" "$old" "$b")" || { _rc=$?; echo "REJECT [인계] 보내기 실패 rc=$_rc — 표시 0(다시 handover)" >&2; exit $_rc; }
          echo "$out"; s="$(printf '%s\n' "$b" | sed -n 's/^- #\([0-9][0-9]*\) .*/\1/p' | paste -sd, -)"
          [ -z "$s" ] || python3 "$MBOXPY" mark "$old" "$s" 인계 ;;
-  # ★r1653 단계 2 — [레디] QUEUED 되면 «같은 실행» 에서 옛 좌석을 ft-seat-close 표준 경로로 1회 닫는다(표준승인 · kill-server 아님 · 끄기 FT_READY_AUTO_CLOSE=0 · ready rc = send rc)★
+  # ★r1653 단계 2 — [레디] QUEUED 되면 «같은 실행» 에서 옛 좌석을 ft-seat-close 표준 경로로 1회 닫는다(표준승인 · kill-server 아님 · ready rc = send rc)★
+  #   ★기본값 = 끔(0)★ — env 는 좌석 셸마다 따로라 설치로 «끈 채» 를 보장할 수 없다(planner #283594 · master #283652).
+  #   켜기 = FT_READY_AUTO_CLOSE=1(오빠 hil.md 표준승인 컨펌 뒤 설정 1줄) · 끄기 = 0 또는 미설정.
   ready) new="${1:?new}"; old="${2:?old}"; b="$(python3 "$MBOXPY" ready-body "$new" "$old")" || exit $?
          _rc=0; out="$(bash "$DIR/mbox.sh" send "$old" "$new" "$b")" || _rc=$?; [ -z "$out" ] || printf '%s\n' "$out"
          _sc="${FT_SEAT_CLOSE_BIN:-$DIR/../bin/ft-seat-close.sh}"
-         if [ "$_rc" = 0 ] && [ "${FT_READY_AUTO_CLOSE:-1}" != 0 ] && [ -f "$_sc" ]; then
+         if [ "$_rc" = 0 ] && [ "${FT_READY_AUTO_CLOSE:-0}" = 1 ] && [ -f "$_sc" ]; then
            _sq=""; [[ "$out" =~ QUEUED\ seq=([0-9]+) ]] && _sq="${BASH_REMATCH[1]}"
            _crc=0; _co="$(bash "$_sc" "$old" --reason "승계 레디 #${_sq:-?} → $new" 2>&1)" || _crc=$?
            echo "AUTO-CLOSE $old rc=$_crc"; case "$_crc" in 3) echo "다음: master 판단(h)" ;; 0) ;; *) printf '%s\n' "$_co" | head -1 ;; esac
