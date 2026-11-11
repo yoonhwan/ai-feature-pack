@@ -83,6 +83,35 @@ setup; pifile "$PI/--repo-.worktrees-ns--/old.jsonl" "$NW" "-" 4 "2026-11-10T00:
 setup; pifile "$PI/--repo-.worktrees-ns--/new.jsonl" "$NW" "-" 2 "2026-11-11T08:00:00.000Z"; out="$(chk)"; rc=$?
 [ "$rc" -eq 1 ] && has "$out" "never-started: pi 턴 2" "P6'' 생성 뒤 이름 없는 파일 → 센다" || bad "P6'' rc=$rc ← ${out:0:400}"
 
+echo "== P7 이름 줄이 머리에 없고 뒤에 붙는다(재개·/name 개명) — 파일 끝까지 보아 «마지막 name» 을 쓴다"
+setup; python3 - "$PI/--repo-.worktrees-ns--/late.jsonl" "$NW" "$SEAT" "$SUC" <<'PY'
+import json, sys
+p, cwd, seat, other = sys.argv[1:5]
+ts = "2026-11-11T07:09:50.448Z"
+rows = [{"type": "session", "version": 3, "id": "x", "timestamp": ts, "cwd": cwd}]
+rows += [{"type": "custom", "id": "c%d" % i, "customType": "ft-load-line", "timestamp": ts} for i in range(8)]   # 머리 5줄 밖
+rows += [{"type": "message", "timestamp": ts, "message": {"role": "user", "content": "발주"}},
+         {"type": "message", "timestamp": ts, "message": {"role": "assistant", "content": "일"}},
+         {"type": "session_info", "id": "y", "timestamp": ts, "name": other},   # 먼저 다른 이름
+         {"type": "message", "timestamp": ts, "message": {"role": "assistant", "content": "일"}},
+         {"type": "session_info", "id": "z", "timestamp": ts, "name": seat}]    # 개명으로 뒤에 붙은 마지막 이름
+open(p, "w", encoding="utf-8").write("\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n")
+PY
+out="$(chk)"; rc=$?
+[ "$rc" -eq 1 ] && has "$out" "never-started: pi 턴 2" "P7 머리 밖 마지막 name = 이 좌석 → 센다" || bad "P7 rc=$rc ← ${out:0:400}"
+setup; python3 - "$PI/--repo-.worktrees-ns--/late2.jsonl" "$NW" "$SEAT" "$SUC" <<'PY'
+import json, sys
+p, cwd, seat, other = sys.argv[1:5]
+ts = "2026-11-11T07:09:50.448Z"
+rows = [{"type": "session", "version": 3, "id": "x", "timestamp": ts, "cwd": cwd},
+        {"type": "session_info", "id": "y", "timestamp": ts, "name": seat},
+        {"type": "message", "timestamp": ts, "message": {"role": "assistant", "content": "일"}},
+        {"type": "session_info", "id": "z", "timestamp": ts, "name": other}]   # 마지막 이름 = 남의 좌석
+open(p, "w", encoding="utf-8").write("\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n")
+PY
+out="$(chk)"; rc=$?
+[ "$rc" -eq 0 ] && ok "P7' 마지막 name = 다른 좌석 → 세지 않는다" || bad "P7' rc=$rc ← ${out:0:400}"
+
 echo "== 시간 상한 — 넘기면 확인 못 함(셈 0 통과 금지)"
 setup; pifile "$PI/--repo-.worktrees-ns--/a.jsonl" "$NW" "$SEAT" 0
 out="$( cd "$T" && env -i HOME="$T/home" FT_PI_SESSIONS="$PI" FT_PI_TIMEOUT=-1 PATH="$PATH" bash "$SRC/ft-nano-never-started-check.sh" "$SEAT" --wt "$NW" --branch "$BR" --comm "$COMM" --agent pi 2>&1 )"; rc=$?

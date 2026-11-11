@@ -5,7 +5,8 @@
 #        opencode = ${FT_OPENCODE_DB:-~/.local/share/opencode/opencode.db} 읽기 전용(7초 상한) · session.directory == 워크트리 실경로(또는 그 아래) ∧ time_created ≥ .worktree-info.json created_at(못 정하면 시각 조건 0)
 #        인 세션의 role=assistant 메시지 수 · db 없음·잠김·스키마 다름 = 확인 못 함 · 그 밖 에이전트 = 확인 못 함
 #        pi = ${FT_PI_SESSIONS:-~/.pi/agent/sessions}/*/*.jsonl 중 첫 줄 type=session 의 cwd == 워크트리 실경로(realpath) 인 파일만(그 밖 = 다른 워크트리 기록 · 안 셈)
-#        그중 session_info.name == 좌석 이름 파일의 type=message ∧ message.role=assistant 줄 수 · 이름 줄이 없는 옛 파일 = cwd 같고 첫 줄 timestamp ≥ created_at 인 것만(못 정하면 전부 · 더 엄격)
+#        그중 파일 안 모든 정상 session_info 줄의 «마지막 name» == 좌석 이름인 파일의 type=message ∧ message.role=assistant 줄 수(재개·/name 개명으로 뒤에 붙는 이름 줄 포함 · 머리 몇 줄 제한 0)
+#        이름 줄이 없는 옛 파일 = cwd 같고 첫 줄 timestamp ≥ created_at 인 것만(못 정하면 전부 · 더 엄격)
 #        파일 0개 = 턴 0 · 파일을 열거나 JSON 을 못 읽음·7초 초과(FT_PI_TIMEOUT) = 확인 못 함
 #     ⓑ base 위 커밋 0 — base = --base › 카드 `base_sha:` › <워크트리>/.worktree-info.json base_sha · `git rev-list --count <base>..<가지>`
 #     ⓒ 워크트리 미커밋 0 — `git status --porcelain -uall` 중 노이즈(.worktree-info.json · next-env.d.ts · tsconfig.json · .serena/project.yml) 제외
@@ -109,23 +110,20 @@ for p in sorted(glob.glob(os.path.join(root, "*", "*.jsonl"))):
             if not cwd or os.path.realpath(cwd) != wt: continue   # 다른 워크트리 기록은 세지 않는다
             try: ts = calendar.timegm(time.strptime((head.get("timestamp") or "")[:19], "%Y-%m-%dT%H:%M:%S"))
             except Exception: ts = 0.0
-            rows = []
-            for _ in range(4):   # 이름 줄은 파일 머리 5줄 안(1 session · 2 session_info)
-                line = fh.readline()
-                if not line: break
-                rows.append(json.loads(line) if line.strip() else {})
-            name = next((r.get("name") for r in rows if r.get("type") == "session_info" and r.get("name")), None)
-            if name is not None:
-                if name != seat: continue   # 남의 좌석(후계 등) 기록은 세지 않는다
-            elif since and ts and ts < since: continue
-            for r in [head] + rows:
-                if r.get("type") == "message" and (r.get("message") or {}).get("role") == "assistant": n += 1
+            name = None; cnt = 0
             for line in fh:
                 if time.monotonic() > end: nah(root)
                 line = line.strip()
                 if not line: continue
                 r = json.loads(line)
-                if r.get("type") == "message" and (r.get("message") or {}).get("role") == "assistant": n += 1
+                t = r.get("type")
+                if t == "session_info":
+                    if r.get("name"): name = r["name"]   # 재개·개명으로 뒤에 붙는 이름 줄 포함 — 머리 5줄 제한 0
+                elif t == "message" and (r.get("message") or {}).get("role") == "assistant": cnt += 1
+            if name is not None:
+                if name != seat: continue   # 마지막 이름이 남의 좌석(후계 등)이면 세지 않는다
+            elif since and ts and ts < since: continue
+            n += cnt
     except OSError: nah(p)
     except ValueError: nah(p)
 print(n)
