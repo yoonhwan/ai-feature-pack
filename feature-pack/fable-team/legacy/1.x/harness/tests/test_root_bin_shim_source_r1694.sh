@@ -52,10 +52,28 @@ mv "$T/LIVE_BIN.bak" "$W/root/.fable-team/LIVE_BIN"
 echo "== ⓓ source 뒤 부른 셸에 shim 지역 이름 0 (lib 가 정의한 이름은 남는다)"
 cat > "$T/names.sh" <<'EOS'
 . "$1/ft-lib.sh"
-echo "NAMES _src=${_src-없음} _f=${_f-없음} _l=${_l-없음} _h=${_h-없음} L_LIB=${L_LIB-없음}"
+echo "NAMES _src=${_src-없음} _f=${_f-없음} _l=${_l-없음} _h=${_h-없음} h=${h-없음} f=${f-없음} l=${l-없음} L_LIB=${L_LIB-없음}"
 EOS
 out="$(bash "$T/names.sh" "$RB" 2>&1)"
-has "$out" "NAMES _src=없음 _f=없음 _l=없음 _h=없음 L_LIB=1" "ⓓ shim 지역 이름 0 · lib 이름 유지"
+has "$out" "NAMES _src=없음 _f=없음 _l=없음 _h=없음 h=없음 f=없음 l=없음 L_LIB=1" "ⓓ shim 이름 0 · lib 이름 유지"
+
+echo "== ⓗ 호출자가 이미 가진 이름(_r)은 그대로 (DA r2 ①)"
+cat > "$T/keep.sh" <<'EOS'
+_r="CALLER"; . "$1/ft-lib.sh"; echo "KEEP _r=${_r} AFTER=${AFTER_NONE:-ok}"
+EOS
+out="$(bash "$T/keep.sh" "$RB" 2>&1)"
+has "$out" "KEEP _r=CALLER AFTER=ok" "ⓗ 호출자 _r 덮이지 않음 · 부른 셸 계속"
+
+echo "== ⓘ 오류 3갈래도 shim 이름(_h·_f·_l·_src) 누출 0 (DA r2 ②)"
+cat > "$T/errnames.sh" <<'EOS'
+. "$1/ft-lib.sh"; rc=$?
+echo "ERR rc=$rc _h=${_h-없음} _f=${_f-없음} _l=${_l-없음} _src=${_src-없음} h=${h-없음} f=${f-없음} l=${l-없음}"
+EOS
+mv "$W/root/.fable-team/LIVE_BIN" "$T/lb2.bak"; out="$(bash "$T/errnames.sh" "$RB" 2>&1)"; mv "$T/lb2.bak" "$W/root/.fable-team/LIVE_BIN"
+has "$out" "ERR rc=3 _h=없음 _f=없음 _l=없음 _src=없음 h=없음 f=없음 l=없음" "ⓘ LIVE_BIN 없음 오류도 누출 0"
+printf '%s\n' "$W/live" > "$T/rel.txt"; cp "$W/root/.fable-team/LIVE_BIN" "$T/lb3.bak"; printf 'live\n' > "$W/root/.fable-team/LIVE_BIN"
+out="$(bash "$T/errnames.sh" "$RB" 2>&1)"; cp "$T/lb3.bak" "$W/root/.fable-team/LIVE_BIN"
+has "$out" "ERR rc=3 _h=없음 _f=없음 _l=없음 _src=없음 h=없음 f=없음 l=없음" "ⓘ 상대경로 오류도 누출 0"
 
 echo "== ⓔ r1675 꼴(루트 bin lib 를 source 하는 mbox.sh) → peek 출력 1줄 이상"
 cat > "$T/mbox1675.sh" <<'EOS'
@@ -85,14 +103,14 @@ assert old in s, "치환 자리 없음: " + old
 open(p, "w", encoding="utf-8").write(s.replace(old, new, 1))
 PY
   echo "$d/gen.sh"; }
-rm -rf "$RB"/*; G1="$(mut M1 '&& _src=1' '&& _src=0')" && GEN="$G1" gen >/dev/null
+rm -rf "$RB"/*; G1="$(mut M1 '  _ftshim_src "$name"' '  :')" && GEN="$G1" gen >/dev/null
 out="$(bash "$T/caller.sh" "$RB" 2>&1)"; rc=$?
-eq "M1 source 분기 삭제 → ⓐ 검출(AFTER1 0)" "$(grep -c '^AFTER1$' <<<"$out")" 0
-rm -rf "$RB"/*; G2="$(mut M2 '[ "\$_src" = 1 ] && return 3 || exit 3' 'exit 3')" && GEN="$G2" gen >/dev/null
+eq "M1 source 분기 삭제 → ⓐ 검출(lib 함수 0)" "$(grep -c '^LIBFN one$' <<<"$out")" 0
+rm -rf "$RB"/*; G2="$(mut M2 'return 3; }' 'exit 3; }')" && GEN="$G2" gen >/dev/null
 mv "$W/root/.fable-team/LIVE_BIN" "$T/lb.bak"; out="$(bash "$T/caller.sh" "$RB" 2>&1)"; mv "$T/lb.bak" "$W/root/.fable-team/LIVE_BIN"
 eq "M2 return→exit → ⓒ 검출(부른 셸 죽음)" "$(grep -c '^AFTER1$' <<<"$out")" 0
-rm -rf "$RB"/*; G3="$(mut M3 'unset _h _f _l _src; ' '')" && GEN="$G3" gen >/dev/null
+rm -rf "$RB"/*; G3="$(mut M3 '    local h f l' '')" && GEN="$G3" gen >/dev/null
 out="$(bash "$T/names.sh" "$RB" 2>&1)"
-has "$out" "NAMES _src=1" "M3 unset 삭제 → ⓓ 검출(_src 남음)"
+has "$out" "NAMES _src=없음 _f=없음 _l=없음 _h=없음 h=/" "M3 local 삭제 → ⓓ 검출(부른 셸에 h 남음)"
 
 echo; [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; }; echo "FAILED $fail"; exit 1

@@ -95,7 +95,7 @@ out="$(bash "$RB2/ft-b.py" 1 2 2>&1)"; rc=$?; rc_is "$rc" 0 "ⓓ .py: rc0"
 has "$out" "LIVE-B $W2/live ['1', '2']" "ⓓ .py: \$HERE=라이브 · 인자 그대로"
 { [ "$(head -1 "$RB2/ft-b.py")" = '#!/usr/bin/env python3' ] && grep -qxF '"exec" "python3" "$0" "$@"' "$RB2/ft-b.py"; } && ok "ⓓ .py 연결 파일 = r746 python 본문(1행 python3 · 3행 겸용 줄)" || bad "ⓓ .py 연결 파일 본문이 r746 판이 아니다 :: $(head -2 "$RB2/ft-b.py" | tr '\n' ' ')"
 dadd="$(diff "$RB1/ft-a.sh" "$RB2/ft-a.sh" | grep -c '^>')"; ddel="$(diff "$RB1/ft-a.sh" "$RB2/ft-a.sh" | grep -c '^<')"
-[ "$dadd" = 6 ] && [ "$ddel" = 3 ] && ok "ⓓ .sh 연결 파일 차이 = -p 1줄 + r1694 source 분기(추가 6 · 삭제 3)" || bad "ⓓ .sh 차이 = 추가 $dadd · 삭제 $ddel (6·3 기대 · -p 이어주기 + r1694 source 분기)"   # r1694: shim 본문에 source 분기가 늘어 기대치를 옮겼다(검사 대상 = 차이가 본문 1곳뿐이라는 것)
+[ "$dadd" = 16 ] && [ "$ddel" = 0 ] && ok "ⓓ .sh 연결 파일 차이 = -p 1줄 + r1694 source 분기(추가 16)" || bad "ⓓ .sh 차이 = 추가 $dadd · 삭제 $ddel (16·0 기대 · -p 이어주기 + r1694 source 분기)"   # r1694: shim 본문에 source 분기가 늘어 기대치를 옮겼다(검사 대상 = 차이가 본문 1곳뿐이라는 것)
 
 # ── ⓔ 생성기 멱등 · 이전 판 shim 이 있는 루트에 새 판을 돌리면 본문만 다시 쓴다(MOVED 0) ──
 snap1="$(cd "$RB2" && cksum * | sort)"; nst1="$(ls -d "$W2/root/.fable-team"/bin.stale-* 2>/dev/null | wc -l | tr -d ' ')"

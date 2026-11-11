@@ -114,14 +114,27 @@ shim_body() {  # $1 = 도구 이름
   cat <<EOF
 #!/usr/bin/env bash
 $MARK $name → LIVE_BIN (루트 옛 사본이 아니다 — ft-root-bin-shim.sh 생성 · 수정하지 말 것)
-_src=0; [ "\${BASH_SOURCE[0]:-\$0}" != "\${0:-}" ] && _src=1   # r1694: source 로 불렸나(다르면 source) — source 안의 exec 는 부른 셸을 바꾼다
+if [ "\${BASH_SOURCE[0]:-\$0}" != "\${0:-}" ]; then   # r1694: source 로 불렸나 — source 안의 exec 는 부른 셸을 바꾼다
+  _ftshim_src() {   # 부른 셸에 변수를 하나도 만들지 않는다(지역=local · 함수는 제 몸을 unset) — r1694 r2 ① 부른 셸 _r 덮기 0 · ② 오류도 누출 0
+    local h f l
+    unset -f _ftshim_src
+    h="\$(cd -- "\$(dirname -- "\${BASH_SOURCE[0]:-\$0}")" && pwd)"
+    f="\$h/../LIVE_BIN"
+    l=""; [ -f "\$f" ] && l="\$(sed -n '1p' "\$f" | tr -d '\\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*\$//')"
+    [ -n "\$l" ] || { echo "ERROR LIVE_BIN 이 없거나 비었다: \$f"; return 3; }
+    case "\$l" in /*) ;; *) echo "ERROR LIVE_BIN 이 절대경로(/ 로 시작)가 아니다: \$l (\$f)"; return 3;; esac
+    [ -f "\$l/\$1" ] || { echo "ERROR 라이브 도구 없음: \$l/\$1"; return 3; }
+    . "\$l/\$1"
+  }
+  _ftshim_src "$name"
+  return \$?
+fi
 _h="\$(cd -- "\$(dirname -- "\${BASH_SOURCE[0]:-\$0}")" && pwd)"
 _f="\$_h/../LIVE_BIN"
 _l=""; [ -f "\$_f" ] && _l="\$(sed -n '1p' "\$_f" | tr -d '\\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*\$//')"
-[ -n "\$_l" ] || { echo "ERROR LIVE_BIN 이 없거나 비었다: \$_f"; [ "\$_src" = 1 ] && return 3 || exit 3; }
-case "\$_l" in /*) ;; *) echo "ERROR LIVE_BIN 이 절대경로(/ 로 시작)가 아니다: \$_l (\$_f)"; [ "\$_src" = 1 ] && return 3 || exit 3;; esac
-[ -f "\$_l/$name" ] || { echo "ERROR 라이브 도구 없음: \$_l/$name"; [ "\$_src" = 1 ] && return 3 || exit 3; }
-if [ "\$_src" = 1 ]; then _r="\$_l/$name"; unset _h _f _l _src; . "\$_r"; return \$?; fi   # r1694: source = 라이브 파일을 «같은 셸» 에 source 하고 부른 셸로 돌아간다(지역 이름은 lib 전에 지운다 — lib 값이 이긴다)
+[ -n "\$_l" ] || { echo "ERROR LIVE_BIN 이 없거나 비었다: \$_f"; exit 3; }
+case "\$_l" in /*) ;; *) echo "ERROR LIVE_BIN 이 절대경로(/ 로 시작)가 아니다: \$_l (\$_f)"; exit 3;; esac
+[ -f "\$_l/$name" ] || { echo "ERROR 라이브 도구 없음: \$_l/$name"; exit 3; }
 $runline
 EOF
 }
