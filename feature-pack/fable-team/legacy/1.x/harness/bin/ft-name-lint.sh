@@ -13,7 +13,7 @@
 # 이행 기간의 구 이름(ft-·FB_·KakaoBot …)은 허용 목록 없이 그대로 REJECT 한다 — 신규 이름 검사용이다.
 set -uo pipefail
 
-ROLES="master arch da tester checker analyst pm nano repro tool desk"
+ROLES="master arch da tester checker analyst pm nano repro tool desk qa"
 AGENTS="claude codex opencode cmd pi"
 MAXLEN=60
 

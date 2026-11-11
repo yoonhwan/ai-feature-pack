@@ -34,3 +34,10 @@ rej_case "$long" "길이"
 bash "$LINT" >/dev/null 2>&1; [ $? -eq 2 ] && ok "인자 없음 exit 2" || bad "인자 없음 exit"
 
 echo "fail=$fail"; [ $fail -eq 0 ]
+
+# r-qa: 역할 «qa» 예약어 추가 (2026-11-11 · byz-harness-qa-* 좌석이 명부에서 REJECT 되던 결함)
+expect_pass() { bash "$LINT" "$1" >/dev/null 2>&1 && echo "PASS PASS $1" || { echo "FAIL PASS $1"; fail=$((fail+1)); }; }
+expect_pass "byz-harness-qa-pi#0"
+expect_pass "byz-harness-qa-claude#3"
+bash "$LINT" "byz-harness-qa-ft20-pi#0" >/dev/null 2>&1 && { echo "FAIL REJECT byz-harness-qa-ft20-pi#0 (꼬리 규칙)"; fail=$((fail+1)); } || echo "PASS REJECT byz-harness-qa-ft20-pi#0 (꼬리는 에이전트 하나)"
+echo "fail=$fail"
