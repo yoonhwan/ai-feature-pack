@@ -45,6 +45,11 @@ VALUE = re.compile(r"좌석 \S+|없음|대기\((?:" + "|".join(REASONS + LEGACY)
 WAIT_S, URGENT_S, ORDER_S, MUTE_S, CLAIM_S = 4 * 3600, 3600, 2 * 3600, 3600, 60
 OPEN, CLOSED = ("대기", "진행"), ("완성", "아카이브")
 QUIET = ("정지 중", "보류 중", "판정 불가", "석·선행 대기")  # 경보·rc 에 안 세는 칸(A6 석·선행 대기 포함)
+
+
+def closed_pointer(x: dict) -> bool:
+    """r1339 — «닫힌 카드» 발주 행 = 화면 줄만 남긴다. rc·tick 경보·stamps K 에서 뺀다(골 축 «경보가 진짜 미연결만 센다» · 머리에 «닫힌 카드 발주 N» 칸으로만 보인다)."""
+    return x.get("kind") == "발주" and x.get("reason") == "닫힌 카드"
 ITEM, CIRCLED = re.compile(r"^\d+[.)]\s"), re.compile(r"^\s+[①-⑳]")
 CARD_PATH = re.compile(r"design/[^\s`()·,]+?\.md")  # r1329 — «- 카드:» 줄 꼬리(백틱·괄호 주석·«— 설명»)에서 첫 경로 토큰만
 HERE = Path(__file__).resolve().parent
@@ -400,6 +405,7 @@ class Status:
             raise Undecided(f"팀 명단 판정 불가 {e}") from None
         ledger = {p.stem: load(self.d, p.stem) for p in self.d.glob("*.json")} if self.d.is_dir() else {}
         rows, tips, opened, closed, allpaths, urgent_paths, inbox = [], [], set(), set(), set(), set(), []
+        open_by, closed_by = {}, {}   # r1339: (팀, 파일 이름) → 카드 경로 — 낡은 포인터(칸 이름만 다름)를 가른다 · 팀 밖은 보지 않는다(A5)
         outside_teams, ref_teams = set(), set()
         for r in self.roots:
             repo, base = repo_of(self.R, r), r[3].split("*")[0].rstrip("/")
@@ -426,6 +432,10 @@ class Status:
                 ref_teams.add(team)
                 if len(parts) == depth + 2 and parts[depth] in ("대기", "진행", "완성"):
                     allpaths.add(path)
+                if len(parts) == depth + 2 and parts[depth] in OPEN:
+                    open_by[(team, parts[-1])] = path
+                elif parts[depth] == "아카이브" or (len(parts) == depth + 2 and parts[depth] == "완성"):
+                    closed_by[(team, parts[-1])] = path
                 if len(parts) == depth + 2 and parts[depth] in CLOSED:
                     closed.add(stem)
                 elif len(parts) == depth + 2 and parts[depth] in OPEN:
@@ -436,7 +446,7 @@ class Status:
         old = [x for x in inbox if self.now - x[4] > ORDER_S]  # 나이로 먼저 거른다 · 본문은 루트마다 1회(r1269)
         text = {k: v for rp, tp in dict.fromkeys((x[0], x[1]) for x in old) for k, v in self.bodies(rp, tp, [x[3] for x in old if (x[0], x[1]) == (rp, tp)]).items()}
         for repo, tip, team, path, born in inbox:
-            rows.extend(self.orders(team, path, born, allpaths, urgent_paths, text.get((repo, tip, path))))
+            rows.extend(self.orders(team, path, born, allpaths, urgent_paths, text.get((repo, tip, path)), (open_by, closed_by)))
         if not self.virtual:
             for stem in set(ledger) & closed - opened:
                 (self.d / f"{stem}.json").unlink(missing_ok=True)
@@ -499,8 +509,9 @@ class Status:
             got[(repo, tip, x)], i = out[j + 1:j + 1 + int(h[2])].decode(errors="replace"), j + 2 + int(h[2])
         return got
 
-    def orders(self, team: str, path: str, born: float, allpaths: set, urgent_paths: set, body: str | None) -> list[dict]:
-        """발주문 번호 항목마다 «- 카드: <경로>» — 빈 값·없는 경로·긴급 항목인데 카드 «- 긴급: 예» 없음 = 미연결 · 나이 = 생성 커밋(없으면 mtime) · 본문 = bodies() 가 미리 읽은 것(2시간 안 = None)."""
+    def orders(self, team: str, path: str, born: float, allpaths: set, urgent_paths: set, body: str | None, stale: tuple | None = None) -> list[dict]:
+        """발주문 번호 항목마다 «- 카드: <경로>» — 빈 값·없는 경로·긴급 항목인데 카드 «- 긴급: 예» 없음 = 미연결 · 나이 = 생성 커밋(없으면 mtime) · 본문 = bodies() 가 미리 읽은 것(2시간 안 = None).
+        r1339 — 토큰이 allpaths 에 없을 때 같은 팀 카드 칸의 «같은 파일 이름» 을 본다: 열린 칸(대기·진행)이면 연결(행 0 · 긴급 대조는 그 실제 경로) · 닫힌 칸(완성·아카이브)에만 있으면 사유 «닫힌 카드» · 어디에도 없으면 «없는 경로» 그대로 · 다른 팀 칸은 보지 않는다."""
         if body is None or self.now - born <= ORDER_S:
             return []
         tops: list[list[list[str]]] = []  # 상위 항목마다 [머리 본문, 하위1, 하위2 …]
@@ -519,7 +530,20 @@ class Status:
             ptr = (CARD_PATH.search(ptr) or [ptr])[0]  # r1329 — 경로 토큰이 있으면 그것만 · 없으면 글자 전체(→ «없는 경로») · 빈 값은 그대로(→ «포인터 없음»)
             head = next((x for x in it if x.strip()), "") if not items else it[0]
             hot = any(w in head for w in ("긴급", "크리티컬"))  # 번호 없으면 발주서 머리 · 있으면 항목 머리
-            why = "포인터 없음" if not ptr else "없는 경로" if ptr not in allpaths else "카드 긴급 줄 없음" if hot and ptr not in urgent_paths else ""
+            why = ""
+            if not ptr:
+                why = "포인터 없음"
+            elif ptr not in allpaths:
+                open_by, closed_by = stale or ({}, {})
+                name = ptr.rsplit("/", 1)[-1]
+                if (team, name) in open_by:   # A2 · A5(같은 팀 · 열린 칸이면 어느 쪽이든 연결)
+                    ptr = open_by[(team, name)]   # 긴급 대조는 이 «실제 경로» 로(A4)
+                elif (team, name) in closed_by:
+                    why = "닫힌 카드"          # A3
+                else:
+                    why = "없는 경로"          # A4
+            if not why and hot and ptr not in urgent_paths:
+                why = "카드 긴급 줄 없음"
             if why:
                 out.append(dict(team=team, stem=f"{path.rsplit('/', 1)[-1][:-3]}#{n}", kind="발주", label=why, reason=why, since=born, urgent=hot))
         return out
@@ -533,7 +557,9 @@ def render(rows: list[dict], stamp: str, team_counts: tuple[int, int] = (0, 0)) 
     held = f" · 보류 중 {len(n['보류 중'])}"
     q = f" · 판정 불가 Q {len(n['판정 불가'])}"
     wait = f" · 석·선행 대기 {len(n[WAIT_KIND])}" if n[WAIT_KIND] else ""  # A6 — 0 이면 칸 생략 · 앞 칸 순서 그대로(끝에 붙인다)
-    out = [f"배정 없는 카드 {len(n['없음'])} · 대기 초과 {len(n['초과'])}{by_s} · 정지 중 {len(n['정지 중'])}{held if n['보류 중'] else ''}{q if n['판정 불가'] else ''} · 카드 없는 발주 {len(n['발주'])} · 판본 {stamp}"]
+    unlinked = [x for x in n["발주"] if x["reason"] != "닫힌 카드"]   # r1339 — 닫힌 카드 포인터는 «카드 없는 발주» 가 아니다
+    closed_orders = len(n["발주"]) - len(unlinked)
+    out = [f"배정 없는 카드 {len(n['없음'])} · 대기 초과 {len(n['초과'])}{by_s} · 정지 중 {len(n['정지 중'])}{held if n['보류 중'] else ''}{q if n['판정 불가'] else ''} · 카드 없는 발주 {len(unlinked)}{f' · 닫힌 카드 발주 {closed_orders}' if closed_orders else ''} · 판본 {stamp}"]
     outside, ref_missing = team_counts
     legacy = sum(1 for x in n["없음"] if x["reason"] in LEGACY)  # 판정 3914 — 0 이면 칸 생략 · 끝에 붙인다(A6 와 같은 틀)
     out[0] += f" · 명단 밖 팀 {outside} · ref 미반영 팀 {ref_missing}" + wait + (f" · 부하 폐지 {legacy}" if legacy else "")
@@ -709,7 +735,7 @@ def _settle(R: Path, mf: Path, done: list, remaining: list, now: float) -> list[
 
 def tick(R: Path, now: float, rows: list[dict] | None, why: str, lines: list[str]) -> list[str]:
     mf = adir(R) / "alarm.state"
-    alarm = None if rows is None else [(x, ln) for x, ln in zip(rows, lines[1:]) if x["kind"] not in QUIET]
+    alarm = None if rows is None else [(x, ln) for x, ln in zip(rows, lines[1:]) if x["kind"] not in QUIET and not closed_pointer(x)]
     planner = team_master(R, "planner")
     mbox = os.environ.get("FT_MBOX_SH") or str(R / ".fable-team/comm/mbox.sh")
     me = os.environ.get("FT_CARD_ASSIGN_FROM", "ft-card-assign-watch")
@@ -820,9 +846,9 @@ def main(argv: list[str]) -> int:
     lines = render(rows, stamp, st.team_counts) + st.notes  # notes = 행 뒤 꼬리(tick 은 zip 으로 행만 짝짓는다)
     output = json.dumps(rows, ensure_ascii=False) if "--json" in argv else "\n".join(lines)
     print(output)
-    hot = [x for x in rows if x["kind"] not in QUIET]  # 정지 중·보류 중·Q 는 rc 에 안 셈(머리에만)
+    hot = [x for x in rows if x["kind"] not in QUIET and not closed_pointer(x)]  # 정지 중·보류 중·Q·«닫힌 카드» 는 rc 에 안 셈(머리에만)
     if not virtual:
-        c = {k: sum(1 for x in rows if x["kind"] == k) for k in ("없음", "초과", "발주")}
+        c = {k: sum(1 for x in rows if x["kind"] == k and not closed_pointer(x)) for k in ("없음", "초과", "발주")}
         with open(adir(R) / "stamps.tsv", "a", encoding="utf-8") as fh:
             fh.write(f"{stamp}\t{c['없음']}\t{c['초과']}\t{c['발주']}\t{stamp.split('-')[1]}\n")
     if cmd == "tick":
