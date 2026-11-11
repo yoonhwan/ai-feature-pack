@@ -10,7 +10,7 @@
 - 쓰기 자리: 새 나노 worktree(feature/rag-transplant 에서 갈라진 것)뿐 · 읽기 출처(쓰기 0) = /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant(feature/rag-transplant @ 835f2d6f)
 - 기준값(과거 · 카드 작성 때): `feature-pack/rag-consumer/src/airag_consumer/tick.py:48` `OP_ATTEMPT_TIMEOUT_S = 10.5` · `:49` `OP_CALL_DEADLINE_S = 21.0` · 기준 sha feature/rag-transplant @ 35347c52
 - 현재 상태(구현 끝 · 재구현 발주 금지): feature/rag-transplant @ 835f2d6f tick.py:48-49 = `7.0` · `14.0`(코드 069e64a8 · DA D2 APPROVE · wip 해제 835f2d6f) · 남은 것 = 설치뿐(origin/main design/aifp/CLOSEOUT-airag-20261109.md:21 «코드 끝 · 설치만 남음» · h51 설치 → 전·후 값 7.0/14.0 확인 → 끝 줄 5·6)
-- 상태: 대기 · 2026-11-05 airag master#10 작성 · 2026-11-12 정본 꼴 재작성(aifp-ft-arch-pi#1 · aifp 4093 · r1410 실사건 선행)
+- 상태: 진행(구현 끝 · 설치 h51 보류 · 완성 0 — 설치 증거 뒤에만 완성 이동) · 2026-11-05 airag master#10 작성 · 2026-11-12 정본 꼴 재작성(aifp-ft-arch-pi#1 · aifp 4093) · 2026-11-12 대기→진행(aifp-ft-arch-pi#2 · aifp 4119 · DA 4116)
 - 설치: 있음 — 설치된 runtime 의 tick.py 교체는 사람 승인 h 로만(끝 줄 6 · 이 카드 범위 밖이면 «알려진 한계» 1줄)
 - 정본 영향 없음: 런타임 상수 2개 · 정본 문서 변경 0
 
@@ -54,3 +54,4 @@ airag 골 원장(design/aifp/GOAL-LEDGER-airag.md) A03 / 닫는 증거(원장 �
 - 2026-11-05 · airag master#10 카드 작성(대기)
 - 2026-11-12 · 정본 꼴 재작성 — aifp-ft-arch-pi#1(aifp 4093 · harness#207 4092 · r1410 실사건 선행) · 끝 줄 6개·기준값·분리·순서 = 원래 카드 그대로 · 새 범위 0
 - 2026-11-12 · DA REJECT 보정(aifp 4096 R1·R2) — aifp-ft-arch-pi#2 · base = feature/rag-transplant 필수 · 10.5/21 = 과거 기준값 표시 · 현재 7.0/14.0 구현 끝·설치만 남음 증거 보존
+- 2026-11-12 08:15 — 대기→진행 · 좌석 aifp-ft-master-pi#6
