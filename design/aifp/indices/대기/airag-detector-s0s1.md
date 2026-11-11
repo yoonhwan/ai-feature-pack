@@ -40,9 +40,9 @@ airag 골 원장(design/aifp/GOAL-LEDGER-airag.md) A03 / 닫는 증거(원장 �
 - 실제 op 호출·실제 log show·sandbox-exec 실제 실행(점검 모드 밖) · 앱 실행·설치 · feature-pack 아래 코드 변경 · push · DA 소환 · 커밋(state 폴더는 ignore 대상 · master 가 등록)
 
 ## 완료 조건
-1. [ ] .fable-team/state/airag/detector-s0s1-plan.sh + bash -n
-2. [ ] OPPROBE_DRY=1 점검 결과 집계 줄 원문(걸린 초 포함)
-3. [ ] master 가 ft-hil.sh --add → 사람 한 줄 → 판정표 행
+1. [x] .fable-team/state/airag/detector-s0s1-plan.sh + bash -n — 나노 끝선 aifp 3535 «bash -n rc 0» · 2026-11-12 재대조: rag-transplant worktree 같은 파일(18185B · sha1 b6577ecce8e3) bash -n rc0
+2. [x] OPPROBE_DRY=1 점검 결과 집계 줄 원문(걸린 초 포함) — aifp 3535: rc 0 · 걸린 초 0.0(벽시계 0.16) · 'sample: … Sandbox op deny=2(GroupContainers=1 Containers=1) | TCC op AppData=1 AllFiles=6 PROMPTING=1 | op요청 7건 분포={AllFiles/preflight=yes:6, AppData/preflight=no:1}' · 행 이름 9건 ok · 기대값 일치=True
+3. [x] master 가 ft-hil.sh --add → 사람 한 줄 → 판정표 행 — h9 오빠 실행 2026-11-07 08:08 rc 0 · 16.9초 · /tmp/h9.out 끝 줄 '행 이름: S0 deny 0'(S0·S1 모두 Sandbox deny 0 · PROMPTING 0) · 판정표 = arch-20261028-appreg.md §4 69행 «S0 deny 0 → 판정 불가» · planner arch#43 판정 «h9 = 판정 불가 · 안 B 경로 그대로 · h-A·h-B 막지 않음»(state/team-main/airag/verdict-h8-h9-h10-arch43-20261107.md:12·32-37) · 사실 팩 facts-h8-h9-20261107.md §h9 · CLOSEOUT origin/main 433c2216 design/aifp/CLOSEOUT-airag-20261109.md:23 «판정 불가 확정 · 끝 줄 3 채움 → 완성»
 - 나노 끝선(5줄 이내): 계획 파일 경로 + bash -n 결과 · 점검 모드 집계 줄 원문·초 · 정본 판정표와 다르게 해석한 점(없으면 «없음») · 사람 실행 예상 초
 
 ## 계약↔시험 대응표
@@ -59,3 +59,4 @@ airag 골 원장(design/aifp/GOAL-LEDGER-airag.md) A03 / 닫는 증거(원장 �
 - 2026-11-05 · airag master#10 카드 작성(대기)
 - 2026-11-12 · 정본 꼴 재작성 — aifp-ft-arch-pi#1(aifp 4093 · harness#207 4092 · r1410 실사건 선행) · 내용·범위 = 원래 카드 3줄 + 발주문 전문의 계약·금지·끝선 그대로 옮김 · 새 범위 0
 - 2026-11-12 · DA REJECT 보정(aifp 4096 R1) — aifp-ft-arch-pi#2 · base = feature/rag-transplant 필수 · 쓰기 = 새 나노 worktree · rag-transplant worktree = 읽기 출처만
+- 2026-11-12 · 끝 줄 1·2·3 원래 증거 대조·기입(aifp-ft-arch-pi#2 · aifp 4119 · DA 4116 상태 의견) · 나노 새로 열지 않음(재작성 0) · 다음 = DA 닫힘 판정문 → 완성 이동
