@@ -159,7 +159,7 @@ def recv(me, frm=None, limit=None):
     got, held = claim(dirs, names, frm, limit, me=me, on_take=lambda rows: mbox_handover.record(me, rows), only=only)
     # ★어느 파일들을 봤는지, 계보가 실제로 합류했는지 찍는다★ — 안 찍으면 union·합류가 도는지 아무도 모른다.
     print(f"SCANNED {len(dirs)} mailbox(es): " + " ".join(_mbox(d) for d in dirs) + f" lineage={joined}")
-    if lost := mbox_drops.report(CANON, me, names):   # r1651 — 버린 seq 를 다음 recv 첫 줄에
+    if not succ and (lost := mbox_drops.report(CANON, me, names)):   # r1651 — 현역만 표시를 소비한다(DA R1)
         print(lost)
     if not got:
         print("READ none"); return

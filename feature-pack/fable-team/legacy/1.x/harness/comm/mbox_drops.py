@@ -6,6 +6,10 @@ r912/r630 은 버린 «건수» 만 남겼다(dropped=3 oldest_seq=…). 받는 
 ⇒ 원장 줄에 버린 seq «전부» 를 적고, 그 좌석의 다음 recv 가 `DROPPED-SEEN n #a,#b` 1줄로 보여준다.
    전문은 mailbox.log.jsonl 에 그대로 있으니 잃은 것은 «알림» 뿐, 되찾는 길은 이 줄이 처음 연다.
    같은 seq 를 두 번 보이지 않는다 — 표식 = mailbox.drops.seen.json 1파일(계보 키 → 마지막 줄 번호).
+★DA R2(2026-11-11)★ 표식 읽기·갱신은 «우편함 잠금 안» — 밖에서 읽고-고치면 동시 report 가 서로의 키를
+   덮어써 이미 보여준 seq 가 다시 나온다(once 계약 위반). 잠금 재설계 0, claim 의 잠금을 그대로 쓴다.
+★DA R1(2026-11-11)★ 은퇴한 옛 좌석은 표시를 «소비하지 않는다» — 소유권은 recv 의 계보 규칙을 그대로 따른다
+   (mbox_ops.recv 가 현역일 때만 report 를 부른다).
 """
 import json
 import os
@@ -13,6 +17,7 @@ import sys
 import time
 
 from mbox_conf import role_key
+from mbox_store import _locked   # ★잠금을 «새로» 만들지 않는다 — claim 이 쓰는 그 우편함 잠금(r1651 DA R2)
 
 DROP_SEEN = "mailbox.drops.seen.json"
 
@@ -27,6 +32,11 @@ def report(canon, me, names):
             lines = f.read().splitlines()
     except OSError:
         return ""
+    return _locked(canon, lambda: _mark(canon, me, names, lines))
+
+
+def _mark(canon, me, names, lines):
+    """표식 읽기·갱신 — ★반드시 우편함 잠금 안에서 부른다★(r1651 DA R2). 보여줄 seq 가 없으면 파일을 안 건드린다."""
     state = os.path.join(canon, DROP_SEEN)
     try:
         with open(state, encoding="utf-8") as f:
@@ -48,9 +58,10 @@ def report(canon, me, names):
         return ""
     try:
         seen[role_key(me)] = upto
-        with open(state + ".tmp", "w", encoding="utf-8") as f:
+        tmp = "%s.%d.tmp" % (state, os.getpid())   # 고정 .tmp 이름 = 동시 갱신이 서로의 파일을 덮는다
+        with open(tmp, "w", encoding="utf-8") as f:
             json.dump(seen, f)
-        os.replace(state + ".tmp", state)
+        os.replace(tmp, state)
     except OSError:
         pass
     return "DROPPED-SEEN %d %s — 전문 = mailbox.log.jsonl" % (len(seqs), "#" + ",#".join(seqs))
