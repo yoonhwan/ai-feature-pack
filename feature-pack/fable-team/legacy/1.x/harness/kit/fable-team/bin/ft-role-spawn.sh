@@ -2,7 +2,8 @@
 # ft-role-spawn.sh <master|da|pm|arch|tester> [--team <팀>] [--agent claude|codex|cmd|opencode|pi] [--model ID] [--effort E] [--from <발주좌석>] [--dry-run] [--add]
 #   --add(r989): 같은 역할의 «추가 좌석» — 교체 0(기존 행·`_<역할>`·tick 불변 · _replaces=[]) · PLAN 에 mode=add. 없는 호출은 지금과 같다.
 #   Seatbelt 0.3 · 역할 좌석(master·da·pm)을 «갈아 끼운다» (SEATBELT-README §4 · DRAFT §0-A-2 · §4 표 4b).
-#   --team(R437 · r1244: 없으면 «부른 좌석» 팀 · 못 읽으면 REJECT rc2): 명부 = v65 는 seats.json · 그 외 seats-<팀>.json · 인박스·README = TEAMS.md 의 그 팀 폴더 · 이름 byz-<팀>-<역할>-<에이전트>#N
+#   --team(R437 · r1244: 없으면 «부른 좌석» 팀 · 못 읽으면 REJECT rc2): 명부 = v65 는 seats.json · 그 외 seats-<팀>.json · 인박스·README = TEAMS.md 의 그 팀 폴더 · 이름 = <팀 접두><역할>-<에이전트>#N
+#     팀 접두(r1683) = env FT_ROLE_BASE_PREFIX › 명부 `_master` 이름(`aifp-ft-master-pi#4` → `aifp-ft-`) › 기본 byz-<팀>-  — byz 팀은 결과 불변
 #     팀 폴더·README·인박스·명부가 없으면 REJECT(v65 로 조용히 대체 0) · 명부 `_<역할>` 이 교체 대상 밖 좌석을 가리키면 REJECT(그 좌석은 ft-successor-open 교대)
 #   exit 0 = 열림+도달 · 1 = 실패(사유 stdout) · 2 = usage · 5 = 열렸으나 도달 미확인(사람 확인)
 #   상향 모델(claude-fable-*·*astra* · 판정 1641)은 --raise "<사유>" --raise-card <indices/…/X.md> 필수 — 명부 행에 raised{reason,card,by,at,close_on} (R149)
@@ -138,13 +139,23 @@ README="$_TD/SEATBELT-README.md"
 [ -f "$README" ] || { echo "REJECT $TEAM SEATBELT-README.md 없음: $README (첫 발주가 가리키는 파일)"; exit 1; }
 [ -d "$INBOX" ] || { echo "REJECT 인박스 폴더 없음: $INBOX (indices/inbox/<role>/ 가 먼저 있어야 후계가 읽을 것이 있다)"; exit 1; }
 
-# 이름: byz-<팀>-<role>-<agent>#<N+1> — N = tmux 세션 + 명부 키 중 «세 베이스(BASE_NAME·NEW_BASE·OLD_BASE)» 의 최댓값 (없으면 -1 → #0)
+# 이름: <접두><role>-<agent>#<N+1> — N = tmux 세션 + 명부 키 중 «세 베이스(BASE_NAME·NEW_BASE·OLD_BASE)» 의 최댓값 (없으면 -1 → #0)
 if [ "$TEAM" = v65 ]; then
   BASE_NAME="${FT_ROLE_BASE_PREFIX:-byz-v65-}$ROLE-$AGENT"   # 기본 = 정본 이름 byz-v65-… (오빠 10-07) · FT_ROLE_BASE_PREFIX 로 바꿀 수 있음
   NEW_BASE="byz-v65-$ROLE-$AGENT"                             # 정본 계보
   OLD_BASE="ft-v65-$ROLE-$AGENT"                              # 옛 계보 — 접두를 무엇으로 주든 두 계보 모두 번호 이어받기·교체 대상
 else
-  BASE_NAME="byz-$TEAM-$ROLE-$AGENT"; NEW_BASE="$BASE_NAME"; OLD_BASE="$BASE_NAME"   # 팀 좌석은 정본 계보 하나(BOOT 13)
+  # ★r1683 접두 출처 = 팀 명부 `_master` 이름★ — `<접두>-master-<에이전트>#N` 꼴이면 그 `<접두>-` · 순서 = env FT_ROLE_BASE_PREFIX › 명부 `_master` › byz-<팀>-
+  #   명부를 못 읽으면 REJECT(하드 룰 20 «판정 불가» — 기본 접두로 조용히 가지 않는다). «없음/꼴 아님» 만 기본 갈래 + stderr 1줄.
+  _rprefix="${FT_ROLE_BASE_PREFIX:-}"
+  if [ -z "$_rprefix" ]; then
+    _rmaster="$(python3 -c 'import json,sys;v=json.load(open(sys.argv[1],encoding="utf-8")).get("_master");print(v if isinstance(v,str) else "")' "$SEATS")" \
+      || { echo "REJECT 명부 판정 불가(_master) — $SEATS (하드 룰 20 · 기본 접두로 대체 0)"; exit 1; }
+    [[ "$_rmaster" =~ ^(.+)-master-[a-z0-9]+#[0-9]+$ ]] && _rprefix="${BASH_REMATCH[1]}-"
+    [ -n "$_rprefix" ] || echo "접두 출처 = 기본 byz-$TEAM- · 사유: ${_rmaster:+명부 _master=$_rmaster 꼴 아님}${_rmaster:-명부 _master 없음}" >&2
+  fi
+  [ -n "$_rprefix" ] || _rprefix="byz-$TEAM-"
+  BASE_NAME="$_rprefix$ROLE-$AGENT"; NEW_BASE="$BASE_NAME"; OLD_BASE="byz-$TEAM-$ROLE-$AGENT"   # 새 계보 = 팀장 접두 · 옛 계보 = r1683 이전 이름(둘 다 번호 이어받기·교체 대상 · 셋이 같으면 옛 동작 그대로)
 fi
 maxn="$( { tmux ls -F '#{session_name}' 2>/dev/null; python3 -c 'import json,sys;print("\n".join(json.load(open(sys.argv[1],encoding="utf-8")).keys()))' "$SEATS"; } \
   | awk -v a="$BASE_NAME#" -v b="$NEW_BASE#" -v c="$OLD_BASE#" '{p=""; if(index($0,a)==1){p=a}else if(index($0,b)==1){p=b}else if(index($0,c)==1){p=c}; if(p!=""){n=substr($0,length(p)+1); if(n ~ /^[0-9]+$/ && n+0>m){m=n+0}; f=1}} END{print (f?m:-1)}')"
