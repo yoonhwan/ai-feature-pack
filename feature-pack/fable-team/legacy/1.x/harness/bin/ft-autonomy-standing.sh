@@ -119,11 +119,12 @@ std_verdict() {  # ③④ <판정문> [ref] → V_A V_OUT (ref 기본 refs/remot
   [ "$got" = "$sum" ] || std_err "④ DA 원문 sha256(${got:0:12}) ≠ 판정문 값(${sum:0:12}) — 판정 뒤 원문이 바뀜"
 }
 
-std_da_out() {  # ⑤ <원문> <A> — 마지막 codex 블록만 본다(앞 블록·입력 파일 메아리의 APPROVE 는 안 센다) · 끝줄 = 그 블록의 마지막 «비어 있지 않은» 줄(r2)
-  local f="$1" r m line lm
-  r="$(awk '/^codex[[:space:]]*$/ {c=NR; first=""; last=""; next} c && first=="" && NF {first=$0} c && NF {last=$0}
-    END {if (!c) exit 3; sub(/[ \t\r]+$/, "", first); sub(/[ \t\r]+$/, "", last); print first "\t" last}' "$f")" || std_err "⑤ DA 원문에 codex 블록 없음: $f"
-  [ "$r" = $'판정: APPROVE\t판정: APPROVE' ] || std_err "⑤ DA 마지막 codex 블록이 APPROVE 아님(첫 줄·마지막 줄: ${r//$'\t'/ | })"
+std_da_out() {  # ⑤ <원문> <A> — 마지막 codex 블록만 본다(앞 블록·메아리 APPROVE 는 안 센다) · 첫 줄 = `판정: APPROVE` ∧ 블록의 «판정:» 줄 전부 APPROVE(r1664 — DA 는 근거 줄을 끝에 쓴다)
+  local f="$1" r m line lm first bad badline
+  r="$(awk '/^codex[[:space:]]*$/ {c=NR; first=""; bad=0; badline=""; next} c && first=="" && NF {first=$0} c && /^[-*]?[[:space:]]*판정:/ {l=$0; sub(/^[-*]?[[:space:]]*판정:[[:space:]]*/, "", l); sub(/[[:space:]]+$/, "", l); if (l !~ /^APPROVE([[:space:]]|$)/ && !bad++) badline=$0}
+    END {if (!c) exit 3; sub(/[ \t\r]+$/, "", first); print first "\t" bad "\t" badline}' "$f")" || std_err "⑤ DA 원문에 codex 블록 없음: $f"
+  IFS=$'\t' read -r first bad badline <<<"$r"
+  [ "$first" = '판정: APPROVE' ] && [ "$bad" = 0 ] || std_err "⑤ DA 마지막 codex 블록이 APPROVE 아님(첫 줄: ${first:-<빈 블록>} · 판정 아닌 줄: ${badline:-없음})"
   m="$f.meta"; line="$(head -n1 "$m" 2>/dev/null)"
   [[ "$line" =~ ^head=([0-9a-f]{40}|none)\ model=([^[:space:]]+)\ effort=[^[:space:]]+\ rc=([0-9]+)\ start=[0-9]+\ end=[0-9]+$ ]] || std_err "⑤ DA 원문 .meta 없음·꼴 틀림: $m"
   [ "${BASH_REMATCH[1]}" = "$2" ] || std_err "⑤ .meta head(${BASH_REMATCH[1]:0:10}) ≠ 승인 sha(${2:0:10}) — DA 가 본 sha 가 다르다"
