@@ -125,8 +125,7 @@ def pack(a):
                         txt[k] = f.read()
             if big:
                 sha, size, ps = pp.split(a.poller, lim, td, lambda rows: check_poller(a.run, rows), Reject)
-                check_table(a.run, txt["table.md"])
-                check_turbopack(txt["turbopack.txt"])
+                check_table(a.run, txt["table.md"], check_turbopack(txt["turbopack.txt"]))   # r1263: 원문 판정 → 표 turbopack 행 대조
                 files = {k: v for k, v in files.items() if k != "poller_dom.jsonl"}
                 files.update({os.path.basename(p): p for p in ps})
                 extra = "poller_sha256=%s\npoller_bytes=%d\npoller_parts=%d\n" % (sha, size, len(ps))

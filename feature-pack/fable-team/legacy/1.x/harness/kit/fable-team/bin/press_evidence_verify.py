@@ -170,7 +170,7 @@ def check_poller(run_id, lines):   # 줄 반복자(평문 = splitlines · r1268 
         raise Reject("poller run_id 줄 0(묶음 run_id 결속 없음)")
 
 
-def check_table(run_id, text):   # ft-press-gate ⑧ 과 같은 규칙(표머리·네 축·사실·시간 · 빈 값·-·TODO·? 거절) + 표 머리 run_id
+def check_table(run_id, text, tp):   # ft-press-gate ⑧ 과 같은 규칙(표머리·네 축·사실·시간 · 빈 값·-·TODO·? 거절) + 표 머리 run_id + r1263 turbopack 행(숫자 = 원문 판정 tp)
     m = re.search(r"^\s*[-*]?\s*run_id\s*[:=]\s*`?([^`\s]+)`?\s*$", text, re.M)
     if not m or m.group(1) != run_id:
         raise Reject("4자 표 머리 run_id %s ≠ 묶음 %s" % (m.group(1) if m else "없음", run_id))
@@ -184,6 +184,13 @@ def check_table(run_id, text):   # ft-press-gate ⑧ 과 같은 규칙(표머리
     miss = ([] if hdr else ["표머리"]) + [a for a in AXES if a not in seen or a in bad]
     if miss:
         raise Reject("4자 표 칸 빔: " + " / ".join(miss))
+    tps = [r for r in text.splitlines() if [x.strip() for x in r.split("|")][1:2] == ["turbopack"]]   # r1263 규칙 #8 «turbopack 칸 없으면 REJECT»
+    if len(tps) != 1:
+        raise Reject("4자 표 turbopack 칸 없음" if not tps else "4자 표 turbopack 칸 %d개(1개여야)" % len(tps))
+    m = re.search(r"build\s*(\d+)\D+?runtime\s*(\d+)\D+?config\s*(\d+)", tps[0])
+    got = tuple(int(x) for x in m.groups()) if m else None
+    if got != tuple(tp):
+        raise Reject("4자 표 turbopack 숫자 ≠ 원문(표 %s · 원문 %d/%d/%d)" % ("/".join(map(str, got)) if got else "못 읽음", *tp))
 
 
 def check_turbopack(text):   # get_errors 원문(SSE «data:» 줄 또는 JSON) → (build, runtime, config) 건수 · 원문 없음 = 거절(D9)
@@ -203,8 +210,9 @@ def check_turbopack(text):   # get_errors 원문(SSE «data:» 줄 또는 JSON) 
 
 def check_content(run_id, poller, table, tp):   # poller = 줄 반복자(list·generator)
     check_poller(run_id, poller)
-    check_table(run_id, table)
-    return check_turbopack(tp)
+    counts = check_turbopack(tp)   # r1263: 원문 판정을 먼저 → 표 turbopack 행과 대조
+    check_table(run_id, table, counts)
+    return counts
 
 
 def poller_rows(repo, commit, ref, meta, txt, rcs):   # r1268: 평문 poller = 지금 그대로 · 없으면 gzip 조각을 풀어 이은 줄(조각도 없으면 «poller_dom.jsonl 없음»)
@@ -233,6 +241,11 @@ def bundle(repo, ref, commit):   # 묶음 1개 결속(meta 세트 = 부모 = ref
     return {"ref": ref, "commit": commit, "set": s, "run": rid, "tp": tp}
 
 
+def newest_first(b):   # r1263 정렬 열쇠 — run_id 의 YYYYMMDD-HHMMSS 늦은 것 먼저 · 못 읽는 run = 맨 뒤 · 같으면 ref 이름순
+    m = re.search(r"(\d{8})-(\d{6})", b["run"])
+    return (m is None, -int(m.group(1) + m.group(2)) if m else 0, b["ref"])
+
+
 def pick(repo, target, specs):   # 음성 경로 트리가 target 과 같은 세트의 «통과» 묶음들 + 첫 거절 사유 · r1274 비교 목록 = specs ∪ 묶음 세트 E 의 목록(자기 경로 지우기 0)
     good, why, n = [], "", 0
     for ref, c in sorted(refs(repo, "refs/press").items()):
@@ -249,6 +262,7 @@ def pick(repo, target, specs):   # 음성 경로 트리가 target 과 같은 세
             good.append(bundle(repo, ref, c))
         except Reject as r:
             why = why or str(r)
+    good.sort(key=newest_first)
     return good, why or "묶음 없음(음성 경로 트리가 같은 세트의 refs/press/* 0 · 검사 %d개)" % n
 
 
@@ -263,7 +277,7 @@ def debt_line(repo, d):
     return "press 빚 PR #%s(착지 %s) — 담당 %s · 복구 뒤 press 1회" % (kv.get("pr", "?"), d[:10], kv.get("owner", "planner"))
 
 
-def cover(repo, good, debts):   # 빚 착지 전부를 조상으로 가진 세트의 묶음(D7) · 빚 0 이면 첫 묶음
+def cover(repo, good, debts):   # 빚 착지 전부를 조상으로 가진 세트의 묶음(D7) · 빚 0 이면 첫 묶음(r1263 pick 이 늦은 run 순으로 줌)
     return next((b for b in good if all(anc(repo, d, b["set"]) for d in debts)), None)
 
 
