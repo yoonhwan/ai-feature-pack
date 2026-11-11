@@ -6,8 +6,10 @@
 - 연 근거: planner arch#41 #3530 (2026-11-05) · DA r2 판정 처분 별건(feature-pack/rag/docs/artifacts/da-20261105-appB-r2.md 끝 2줄 · 커밋 35347c52)
 - 분리: build.sh(make-identity·sign) 카드와 범위·DA 회차가 따로다. build.sh 는 로컬 도구라 10.5초 유지(판정 4114 로컬 25초)
 - 선행: h-S1(인증서 만들기) 뒤에 착수한다
-- 작업 자리: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant (가지 feature/rag-transplant · aifp origin/main 에는 rag-consumer 코드 없음 → 나노 개설 때 --base 판단 = master)
-- 기준값: `feature-pack/rag-consumer/src/airag_consumer/tick.py:48` `OP_ATTEMPT_TIMEOUT_S = 10.5` · `:49` `OP_CALL_DEADLINE_S = 21.0` · 기준 sha feature/rag-transplant @ 35347c52
+- 개설 필수조건: 나노를 연다면 `ft-nano-spawn … --base feature/rag-transplant` 만 쓴다(판단 여지 0). origin/main 개설은 금지다 — origin/main 에는 tick.py 가 없다(git cat-file -e rc128 · feature/rag-transplant 는 rc0 · DA aifp 4096 R1). 단 코드는 이미 끝났다(아래 «현재 상태») → 구현 나노 개설 0
+- 쓰기 자리: 새 나노 worktree(feature/rag-transplant 에서 갈라진 것)뿐 · 읽기 출처(쓰기 0) = /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant(feature/rag-transplant @ 835f2d6f)
+- 기준값(과거 · 카드 작성 때): `feature-pack/rag-consumer/src/airag_consumer/tick.py:48` `OP_ATTEMPT_TIMEOUT_S = 10.5` · `:49` `OP_CALL_DEADLINE_S = 21.0` · 기준 sha feature/rag-transplant @ 35347c52
+- 현재 상태(구현 끝 · 재구현 발주 금지): feature/rag-transplant @ 835f2d6f tick.py:48-49 = `7.0` · `14.0`(코드 069e64a8 · DA D2 APPROVE · wip 해제 835f2d6f) · 남은 것 = 설치뿐(origin/main design/aifp/CLOSEOUT-airag-20261109.md:21 «코드 끝 · 설치만 남음» · h51 설치 → 전·후 값 7.0/14.0 확인 → 끝 줄 5·6)
 - 상태: 대기 · 2026-11-05 airag master#10 작성 · 2026-11-12 정본 꼴 재작성(aifp-ft-arch-pi#1 · aifp 4093 · r1410 실사건 선행)
 - 설치: 있음 — 설치된 runtime 의 tick.py 교체는 사람 승인 h 로만(끝 줄 6 · 이 카드 범위 밖이면 «알려진 한계» 1줄)
 - 정본 영향 없음: 런타임 상수 2개 · 정본 문서 변경 0
@@ -21,10 +23,10 @@
 airag 골 원장(design/aifp/GOAL-LEDGER-airag.md) A03 / 닫는 증거(원장 복붙): 「Sonnet 5.5 Nano 구현·GPT-6.1 Sol DA 루프」 · 원래 카드 닫는 증거: C12(consumer 상시 서비스 회복 · 안 B AIRAG.app) · C13(KakaoBot 통합 보고서 published 칸) · 골의 축: A03 C12 — 앱이 5분마다 부르는 tick 의 op 호출이 런타임 7초 절대 룰(판정 4114)을 지킨다.
 
 ## 배경 (한 단락)
-원래 골(airag 원장): «최신 fable-team 하네스를 이식하고 기존 AIRAG 증거를 재대조한 뒤, Claude Opus 5.5 HELM·Sonnet 5.5 Master/Nano·GPT-6.1 Sol DA 완성 루프로 AIRAG를 운영 가능한 상태까지 닫는다.» 위 «골 원문» 3줄은 aifp 팀 env 의 골(r1410 · 하네스 골)이라 lint 가 요구하는 문면이다. tick.py 의 op 호출은 지금 시도 10.5초 · 마감 21초라 런타임 7초 절대 룰을 넘는다. DA r2 판정이 이 처분을 별건으로 남겼다.
+원래 골(airag 원장): «최신 fable-team 하네스를 이식하고 기존 AIRAG 증거를 재대조한 뒤, Claude Opus 5.5 HELM·Sonnet 5.5 Master/Nano·GPT-6.1 Sol DA 완성 루프로 AIRAG를 운영 가능한 상태까지 닫는다.» 위 «골 원문» 3줄은 aifp 팀 env 의 골(r1410 · 하네스 골)이라 lint 가 요구하는 문면이다. 카드 작성 때(35347c52) tick.py 의 op 호출은 시도 10.5초 · 마감 21초라 런타임 7초 절대 룰을 넘었다(과거 기준값). 지금 feature/rag-transplant 는 7.0/14.0 으로 고쳐져 있고 설치만 남았다. DA r2 판정이 이 처분을 별건으로 남겼다.
 
-## 구현 범위 (나노 1 · 작업 자리 = rag-transplant 워크트리)
-- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant/feature-pack/rag-consumer/src/airag_consumer/tick.py:48-49 두 값만(`OP_ATTEMPT_TIMEOUT_S` · `OP_CALL_DEADLINE_S`)
+## 구현 범위 (구현 끝 · 835f2d6f 에 들어감 · 재구현 0 · 아래는 원래 범위 기록)
+- /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant/feature-pack/rag-consumer/src/airag_consumer/tick.py:48-49 두 값만(읽기 출처 · 쓰기 0)(`OP_ATTEMPT_TIMEOUT_S` · `OP_CALL_DEADLINE_S`)
 - 시험 1개(7초 넘는 가짜 op · 70초 이내) + 기존 tick 시험 회귀
 
 ## 완료 조건 (끝 줄 · 전부 채워야 완성)
@@ -45,8 +47,10 @@ airag 골 원장(design/aifp/GOAL-LEDGER-airag.md) A03 / 닫는 증거(원장 �
 | 기존 동작 유지 | 끝 줄 5 tick 회귀 |
 
 ## 증거 줄 (진행 중에 채운다)
-- (없음)
+- 코드 끝: 069e64a8(7.0/14.0) · 회귀 tick 9파일 737 통과·실패 0(nano#3 #3642) · D2 APPROVE · wip 해제 835f2d6f — 출처 origin/main design/aifp/CLOSEOUT-airag-20261109.md:21
+- 남은 것: h51 설치 → 전·후 값 7.0/14.0 확인 → 끝 줄 5·6(같은 줄)
 
 ## 상태
 - 2026-11-05 · airag master#10 카드 작성(대기)
 - 2026-11-12 · 정본 꼴 재작성 — aifp-ft-arch-pi#1(aifp 4093 · harness#207 4092 · r1410 실사건 선행) · 끝 줄 6개·기준값·분리·순서 = 원래 카드 그대로 · 새 범위 0
+- 2026-11-12 · DA REJECT 보정(aifp 4096 R1·R2) — aifp-ft-arch-pi#2 · base = feature/rag-transplant 필수 · 10.5/21 = 과거 기준값 표시 · 현재 7.0/14.0 구현 끝·설치만 남음 증거 보존

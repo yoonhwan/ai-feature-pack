@@ -4,8 +4,10 @@
 - 제안서: 없음 — 새 안 0 · 안 B 설계(arch-20261029-appB.md §7 카드 2)의 남은 몫
 - 담당: airag (aifp-airag-master-claude#10) · 줄 주인: master#10
 - 선행: DA r2 닫힘(35347c52 · feature/rag-transplant)
-- 발주문 전문: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant/.fable-team/prompts/nano-airag-detector-s0s1-20261105.md (첫 3줄 = 원래 골 원문·축)
-- 작업 자리: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant (가지 feature/rag-transplant · aifp origin/main 에는 airag 코드·문서 없음 → 나노 개설 때 --base 판단 = master)
+- 발주문 전문: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant/.fable-team/prompts/nano-airag-detector-s0s1-20261105.md (첫 3줄 = 원래 골 원문·축 · 디스크에만 있음 · 가지 미추적 → 절대경로로 읽는다)
+- 개설 필수조건: 나노 개설 = `ft-nano-spawn … --base feature/rag-transplant` 만 쓴다(판단 여지 0). origin/main 개설은 금지다 — origin/main 에는 정본 문서 2개(arch-20261028-appreg.md · arch-20261029-appB.md)가 없다(git cat-file -e rc128 · feature/rag-transplant 는 rc0 · DA aifp 4096 R1).
+- 쓰기 자리: 새 나노 worktree(feature/rag-transplant 에서 갈라진 것) 하나뿐 · 산출 = `<나노 worktree>/.fable-team/state/airag/detector-s0s1-plan.sh`(state 폴더 = ignore · 나노가 폴더를 만든다)
+- 읽기 출처(쓰기 0): /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant — 기존 rag-transplant worktree 는 읽기만 한다. state 파일(opread-rh-terminal-test.sh · tcc-log-20261018-0945.txt)·발주문 전문은 가지 미추적이라 새 worktree 에 없다 → 이 절대경로에서 읽는다
 - 상태: 대기 · 2026-11-05 airag master#10 작성 · 2026-11-12 정본 꼴 재작성(aifp-ft-arch-pi#1 · aifp 4093 · r1410 실사건 선행)
 - 설치: 없음 — 계획 파일 1개(state 폴더 · ignore 대상) · 사람 실행은 ft-hil h
 - 정본 영향 없음: 정본 판정표(arch-20261028-appreg.md §4)는 바꾸지 않는다 · 계획 파일만
@@ -21,10 +23,10 @@ airag 골 원장(design/aifp/GOAL-LEDGER-airag.md) A03 / 닫는 증거(원장 �
 ## 배경 (한 단락)
 원래 골(airag 원장 · 발주문 첫 줄): «최신 fable-team 하네스를 이식하고 기존 AIRAG 증거를 재대조한 뒤, Claude Opus 5.5 HELM·Sonnet 5.5 Master/Nano·GPT-6.1 Sol DA 완성 루프로 AIRAG를 운영 가능한 상태까지 닫는다.» 위 «골 원문» 3줄은 aifp 팀 env 의 골(r1410 · 하네스 골)이라 lint 가 요구하는 문면이다. 안 B 는 앱 시험 전에 터미널에서 같은 판정을 먼저 재는 계획 파일이 필요하다. 정본 = arch-20261028-appreg.md §4(탐지기 · S0 기준 · S1 판정 · 집계 칸 · 결과 판정표) · 안 B 문서 arch-20261029-appB.md §5 «전제»·§7 카드 2.
 
-## 구현 범위 (나노 1 · 작업 자리 = rag-transplant 워크트리)
-- 산출 1개: `.fable-team/state/airag/detector-s0s1-plan.sh`(rag-transplant 워크트리 기준 · 사람이 `! bash /tmp/h<N>` 한 줄로 돌린다)
-- 재사용: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant/.fable-team/state/airag/opread-rh-terminal-test.sh(10-18 R-H 터미널 시험 · 값 1비트·TCC 집계·OPPROBE_DRY 점검 모드) + §4 의 `sandbox-exec` 탐지기(기본 허용 + `~/Library/Group Containers`·`~/Library/Containers` 읽기·쓰기 거부)와 Sandbox deny 줄 집계
-- 정본 읽기: /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant/feature-pack/rag/docs/artifacts/arch-20261028-appreg.md §4 · /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant/feature-pack/rag/docs/artifacts/arch-20261029-appB.md §5·§7
+## 구현 범위 (나노 1 · 쓰기 = 새 나노 worktree · 읽기 = rag-transplant worktree)
+- 산출 1개(쓰기): `<나노 worktree>/.fable-team/state/airag/detector-s0s1-plan.sh`(사람이 `! bash /tmp/h<N>` 한 줄로 돌린다)
+- 재사용(읽기만): /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant/.fable-team/state/airag/opread-rh-terminal-test.sh(10-18 R-H 터미널 시험 · 값 1비트·TCC 집계·OPPROBE_DRY 점검 모드) + §4 의 `sandbox-exec` 탐지기(기본 허용 + `~/Library/Group Containers`·`~/Library/Containers` 읽기·쓰기 거부)와 Sandbox deny 줄 집계
+- 정본 읽기(읽기만 · 같은 파일이 나노 worktree 에도 있음): /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant/feature-pack/rag/docs/artifacts/arch-20261028-appreg.md §4 · /Users/yoonhwan/Project/ai-feature-pack/.worktrees/rag-transplant/feature-pack/rag/docs/artifacts/arch-20261029-appB.md §5·§7
 
 ## 계약
 1. 값(키·토큰) 출력·기록 0. 값은 «64자 hex 형식 여부» 1비트만.
@@ -56,3 +58,4 @@ airag 골 원장(design/aifp/GOAL-LEDGER-airag.md) A03 / 닫는 증거(원장 �
 ## 상태
 - 2026-11-05 · airag master#10 카드 작성(대기)
 - 2026-11-12 · 정본 꼴 재작성 — aifp-ft-arch-pi#1(aifp 4093 · harness#207 4092 · r1410 실사건 선행) · 내용·범위 = 원래 카드 3줄 + 발주문 전문의 계약·금지·끝선 그대로 옮김 · 새 범위 0
+- 2026-11-12 · DA REJECT 보정(aifp 4096 R1) — aifp-ft-arch-pi#2 · base = feature/rag-transplant 필수 · 쓰기 = 새 나노 worktree · rag-transplant worktree = 읽기 출처만
