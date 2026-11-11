@@ -120,16 +120,19 @@ def _readies(new, old, after=0):   # 후계→옛 [레디] 중 seq > after(보�
 
 
 def handover_group(old, new):
-    """r1653 — [인계] 묶음 = 아직 «받음» 이 없는 통들의 합집합(마지막 1통만 보면 앞 통 항목이 확인 없이 통과한다 · #282965 104 항목 · #283071).
-    앞 통의 항목을 뒤 통이 전부 다시 실었으면(재송신) 앞 통은 안 센다 — 같은 항목을 두 번 받으라 하지 않는다."""
+    """r1653 — [인계] 묶음 = 아직 «받음» 이 없는 통들(항목 단위 완료 확인) · 다 받았으면 마지막 1통(다시 ready 해도 항목 0 이 아니다).
+    마지막 1통만 보면 앞 통 항목이 확인 없이 통과하고(#282965 104 항목 · #283071), seq 로 자르면 옛 꼴 [레디] 뒤 새 [레디] 가 앞 통을 덮어
+    미받음이 누락된다(DA R1-a). 한 통이라도 항목이 남아 있으면 합집합에 남긴다 — 이미 받은 항목을 두 번 받으라 하지 않는다(DA R1-b)."""
     hs = _handovers(old, new)
     if not hs:
         return []
-    cut = max([r.get("seq", 0) for r in _readies(new, old) if r.get("seq", 0) < hs[-1].get("seq", 0)
-               and any("#%s 받음" % h["seq"] in r.get("body", "") for h in hs)] or [0])
-    gs = [h for h in hs if h.get("seq", 0) > cut]
-    return [h for i, h in enumerate(gs) if i == len(gs) - 1 or items(h) is None
-            or not set(items(h)) <= set(x for l in gs[i + 1:] for x in (items(l) or []))]
+    pend = []
+    for h in hs:
+        got = "\n".join(r.get("body", "") for r in _readies(new, old, h.get("seq", 0)))
+        ids = items(h)
+        if ids is None or any(("%s 받음" % i) not in got for i in ids):
+            pend.append(h)
+    return pend or hs[-1:]
 
 
 def group_items(gs):   # 묶음 항목 id 합집합(처음 나온 순서 · 중복 1번) · 형식 불명 1통이라도 있으면 None
