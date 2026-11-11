@@ -68,13 +68,12 @@ rm -rf "$T/m4"; cp -R "$BIN" "$T/m4"; printf '#!/bin/bash\necho head-lag >> "$OR
 python3 - "$T/m4/ft-merge-land.sh" <<'PYM'
 import sys,io
 p=sys.argv[1]; L=io.open(p,encoding="utf-8").read().split("\n")
-i=[k for k,l in enumerate(L) if 'ft-head-lag.sh" --event' in l and 'HLO=' in l][0]
-line=L.pop(i); j=[k for k,l in enumerate(L) if 'ft-live-install-check' in l and 'IOUT=' in l][0]
-L.insert(j, line)
+i=[k for k,l in enumerate(L) if l.startswith('echo "LANDED pr=')][0]
+L.insert(i+1, 'bash "$HERE/ft-head-lag.sh" --event --repo "$REPO" --base "$REMOTE/$TARGET" >/dev/null 2>&1 || true   # M4: head-lag 을 설치 대조보다 먼저')
 io.open(p,"w",encoding="utf-8").write("\n".join(L))
 PYM
 land "$T/m4/ft-merge-land.sh" 46
-{ echo "NOTE 변이판 rc=$rc" >> /tmp/m4.note; } ; [ -n "$(seqno install)" ] && [ -n "$(seqno notify)" ] && [ -n "$(seqno head-lag)" ] && ! ordOK; ck "변이 M4 head-lag 줄을 앞으로 → 같은 ⓔ 식이 위반 검출(3단계 도달)" $?
+{ echo "NOTE 변이판 rc=$rc" >> /tmp/m4.note; } ; [ "$rc" = 0 ] && [[ "$out" == LANDED* ]] && [ -n "$(seqno install)" ] && [ -n "$(seqno notify)" ] && [ -n "$(seqno head-lag)" ] && ! ordOK; ck "변이 M4 head-lag 을 설치 대조보다 먼저 → 같은 ⓔ 식이 위반 검출(rc0·3단계 도달)" $?
 S2=$SECONDS
 
 # 변이 M1 — 닫기 블록을 원래 자리(맨 끝)로 되돌린 사본: ⓐ 가 잡는다(r1700 뒤 첫 줄 = install)
