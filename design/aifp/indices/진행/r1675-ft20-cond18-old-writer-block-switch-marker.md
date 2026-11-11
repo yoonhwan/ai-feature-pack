@@ -15,7 +15,7 @@
 - 제안서: 없음 — 고칠 안 1개(표식 + 입구 가드)라 제안서 불필요
 - 상태: 진행 · 2026-11-11 18:30 대기→진행(나노 aifp-ft-nano-r1675-ft20-cond18-old-writer-block-switc#0) · 착지 cec9ec25(PR #926) · 설치 h8297 · 나노 CLOSED(landed-pr 926) · 완성 이동 = DA 닫힘 판정문 뒤 · 처음 = arch-pi#298 카드 초안(#284592 ①) · 2026-11-11 aifp 이식(byz-aifp-arch-pi#0 · #3869 ①)
 - 설치: 있음 — 팩 원본 → 라이브 bin 설치 h(master) · 나노는 설치하지 않는다(r1672) · 끝 = h8297 rc0(2026-11-11 19:44 · BYZ .fable-team/state/team-main/harness/h-r1675-team-switch-guard-install-20261111.sh · «INSTALLED r1675 bin 8 cmp=0 · BYZ comm/mbox.sh cmp=0 · shim ft-team-switch.sh·ft20-switch-lib.sh») · 라이브 1.1.292 ft-team-switch.sh·ft20-switch-lib.sh = 팩 origin/main f522d309 판과 blob 같음(실측 aifp-ft-arch-pi#1 · 23:5x)
-- 착지: PR #926 → 팩 main cec9ec255eafe7b3113079689525d50b77db6cb4(ft-merge-land · 세트 8f6226f9)
+- 착지: cec9ec255eafe7b3113079689525d50b77db6cb4(팩 main · PR #926 · ft-merge-land · 세트 8f6226f9)
 - 선행: r1674 착지됨(팩 356c4327 · PR #917 · 설치 h8260 · master #3869 회신 기준) → 해소 · 실 표식 쓰기는 조건 16 실 설치(r1614 ⓖ) + 전환 h(오빠 D) 뒤
 - 시험 입력: 임시 데이터 루트(가짜 seats-<팀>.json · indices · mailbox.jsonl) · 팀 2개(전환한 팀 · 안 한 팀) · 실 데이터 루트·실 명부·실 우편함 쓰기 0 · 사례 70초 · 회차 7분 · sleep 0
 - 수용 기준:
