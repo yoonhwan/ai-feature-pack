@@ -85,7 +85,7 @@ eq "C4 팩 코드 쓰기 = 통과" "$(wg '{"tool_name":"Write","tool_input":{"fi
 eq "G1 install.json deny 유지" "$(wg '{"tool_name":"Write","tool_input":{"file_path":"/x/install.json"}}')" 2
 eq "G2 FT_WORKER_ROLE 없음 = 통과(fail-open)" "$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s"}}' "$L/ft-x.sh" | bash "$WG" >/dev/null 2>&1; echo $?)" 0
 # ── ⓒ worker R3·R4 (DA 반례 그대로) ──
-for c in "ln -s s $L/r3f" "rsync s $L/r3f" "echo t>$L/r3f" "cp a $L/r3f"; do
+for c in "ln -s s $L/r3f" "rsync s $L/r3f" "echo t>$L/r3f" "cp a $L/r3f" "sed -i '' s/a/b/ $L/r3f" "sed -i -e s/a/b/ $L/r3f"; do
   eq "R3 데몬 deny :: $c" "$(wg "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"$c\"}}")" 2
 done
 eq "R3 라이브 원본 → /tmp cp = 허용" "$(wg "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"cp $L/ft-x.sh /tmp/copy\"}}")" 0
@@ -109,5 +109,8 @@ mut "$X.ts" "$T/m3.ts" 'if (!seat || !NANO.test(seat)) return;' 'if (!seat) retu
 hit "$T/m3.ts" a-write "byz-harness-master-pi#196" BLOCK && ok "M3 탐지 = 나노 꼴 검사 삭제 → master 차단" || bad "M3 미탐지"
 mut "$SPAWN" "$T/m4.sh" '${_LWX}$_PKX' '$_PKX'
 eq "M4 탐지 = 고정 문단 삭제" "$(grep -c '\${_LWX}' "$T/m4.sh")" 1
+mut "$WG" "$T/m5.sh" 'if base == "sed":' 'if base == "sed_off":'
+wgm(){ printf '%s' "$1" | FT_WORKER_ROLE=implementer FT_LIVE_ROOT="$R" FT_SEAT_NAME=byz-harness-nano-worker#0 bash "$T/m5.sh" >/dev/null 2>&1; echo $?; }
+eq "M5 탐지 = sed -i 분기 제거 → 거절 안 됨" "$(wgm "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"sed -i '' s/a/b/ $L/r3f\"}}")" 0
 
 echo "----"; eq "합계 fail" "$fail" 0; exit $((fail > 0))

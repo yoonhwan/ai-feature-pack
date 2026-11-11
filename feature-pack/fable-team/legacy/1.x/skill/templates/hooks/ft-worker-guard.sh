@@ -50,6 +50,11 @@ def live_cmd(cmd):   # Bash — «쓰기 동사의 대상» 만 본다(R3: 공�
         if t in (">", ">>") and i + 1 < len(toks) and PROTECT.search(toks[i + 1]):
             return toks[i + 1]
         base = os.path.basename(t)
+        if base == "sed":                      # R3 회귀: `sed -i <script> <파일들>` 의 파일만 본다
+            if any(re.match(r'-[a-zA-Z]*i', a) for a in toks[i + 1:]):
+                for a in [x for x in toks[i + 1:] if not x.startswith("-")][1:]:
+                    if PROTECT.search(a): return a
+            continue
         if base not in ("cp", "mv", "install", "rsync", "tee", "ln", "dd"):
             continue
         args = []
