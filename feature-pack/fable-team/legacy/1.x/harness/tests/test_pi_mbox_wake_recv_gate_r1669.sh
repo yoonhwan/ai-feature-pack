@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # test_pi_mbox_wake_recv_gate_r1669.sh — r1669: 증류 게이트에 걸린 pi 좌석은 같은 미읽음에 깨움 1회 뒤 억제하고 팀장에게 1통을 보낸다.
-#  사례 ⓐ(억제) ⓑ(팀장 1통) ⓒ(새 쪽지 1회 더) ⓓ(후계 보호) ⓔ(표식 사라지면 풀림) ⓕ(표식 없으면 지금 그대로) ⓑ-2(send 실패 = 오류 1줄 · 억제 유지) ⓖ(DA R1 nudge 예약 = .gated 기록 · 재차감 0 · 누적 1).
-#  변이 M1(agent_end 에서 .gated 삭제 → ⓐ FAIL) M2(표식 seat 비교 삭제 → ⓓ FAIL) M3(nudge 경로가 게이트 전체를 건너뜀 = DA R1 재현 → ⓖ FAIL).
-#  격리: tmp 루트만(실 우편함·실 명부·실 pi 세션·tmux 0) · 가짜 mbox.sh(send·budget 기록) · 고정 sleep 0. 새 파일 mode 100644 — `bash <이 파일>`.
-#  돌리기: ulimit -u "$(( $(ps -u "$(id -u)" | wc -l) + 300 ))"; timeout 70 bash harness/tests/test_pi_mbox_wake_recv_gate_r1669.sh
+#  사례 ⓐ(억제) ⓑ(팀장 1통) ⓒ(새 쪽지 1회 더) ⓓ(후계 보호) ⓔ(표식 사라지면 풀림) ⓕ(표식 없으면 지금 그대로) ⓑ-2(send 실패 = 오류 1줄 · 억제 유지) ⓖ(nudge 예약 = .gated 기록 · 재차감 0) ⓗ(이미 gated 인 seq 에 늦은 nudge = 추가 깨움 0).
+#  변이 M1(agent_end 에서 .gated 삭제 → ⓐ FAIL) M2(표식 seat 비교 삭제 → ⓓ FAIL) M3(nudge 경로가 게이트를 건너뜀 = DA R1 → ⓖ FAIL) M4(늦은 nudge 를 깨움 = DA R2 → ⓗ FAIL).
+#  격리: tmp 루트만(실 우편함·실 명부·실 pi 세션·tmux 0) · 가짜 mbox.sh(send·budget 기록) · 고정 sleep 0 · 새 파일 mode 100644 · `bash <이 파일>` · 돌리기: ulimit -u "$(( $(ps -u "$(id -u)" | wc -l) + 300 ))"; timeout 70 bash <이 파일>
 set -uo pipefail
 for v in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY; do unset "$v"; done
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -17,9 +16,7 @@ eq()  { if [ "$2" = "$3" ]; then ok "$1"; else bad "$1 (기대 '$3' 실제 '$2')
 [ -f "$EXT" ] || { echo "FAIL 확장 없음 $EXT"; exit 1; }
 command -v node >/dev/null 2>&1 || { echo "FAIL node 없음"; exit 1; }
 eq "S1 확장 $(wc -l < "$EXT" | tr -d ' ')줄 ≤240" "$([ "$(wc -l < "$EXT" | tr -d ' ')" -le 240 ] && echo yes || echo no)" yes # r1669 +25줄
-eq "S2 표식 seat 비교 존재" "$(grep -c 'if (owner !== seat) return false;' "$EXT")" 1
-eq "S3 nudge 경로도 게이트 호출(DA R1)" "$(grep -c 'if (recvGate(rows, seq, viaNudge)) return;' "$EXT")" 1
-bash -n "$0" && ok "S4 bash -n rc0" || bad "S4 bash -n rc0"
+bash -n "$0" && ok "S2 bash -n rc0" || bad "S2 bash -n rc0"
 
 T="$(mktemp -d "${TMPDIR:-/tmp}/r1669-gate.XXXXXX")"
 trap 'rm -rf "$T"' EXIT
@@ -28,6 +25,7 @@ cp "$EXT" "$T/ext/ft-mbox-wake.ts"; cp "$(dirname "$EXT")/ft-load-line.ts" "$T/e
 sed 's/wakePending = false; writeSeq(null);/wakePending = false; writeSeq(null); try { fs.rmSync(gated, { force: true }); } catch {}/' "$EXT" > "$T/ext/m1.ts" # M1 = agent_end 에서 .gated 도 지움
 sed 's/if (owner !== seat) return false;/if (false) return false;/' "$EXT" > "$T/ext/m2.ts"                                            # M2 = 표식 seat 비교 삭제
 sed 's/if (recvGate(rows, seq, viaNudge)) return;/if (!viaNudge \&\& recvGate(rows, seq, false)) return;/' "$EXT" > "$T/ext/m3.ts"      # M3 = DA R1 그 동작(nudge 경로 건너뜀)
+sed 's/if (last >= seq) { if (scheduled) fs.rmSync(nudge, { force: true }); return true; }/if (last >= seq) return !scheduled;/' "$EXT" > "$T/ext/m4.ts" # M4 = DA R2 그 동작(늦은 nudge 도 깨움)
 printf '{"name":"@earendil-works/pi-coding-agent","type":"module","main":"index.mjs","exports":"./index.mjs"}\n' > "$T/node_modules/@earendil-works/pi-coding-agent/package.json"
 printf 'export const createLocalBashOperations = () => ({ exec: async () => ({ output: "", exitCode: 0, cancelled: false, truncated: false }) });\n' > "$T/node_modules/@earendil-works/pi-coding-agent/index.mjs"
 
@@ -50,11 +48,9 @@ const mk = (n) => { const r = path.join(TMP, n), f = path.join(r, S);
   fs.writeFileSync(path.join(f, "comm", "mbox.sh"), '#!/bin/bash\nif [ "$1" = "send" ]; then echo "S|$2|$3|$4" >> "$R1669_SENDLOG"; [ -n "$R1669_FAILSEND" ] && exit 1; elif [ "$1" = "budget" ]; then echo "B|$2" >> "$R1669_SENDLOG"; fi\nexit 0\n');
   return r; };
 const box = (r, seqs) => fs.writeFileSync(path.join(r, S, "comm", "mailbox.jsonl"), seqs.map((s) => JSON.stringify({ seq: s, to: SEAT, from: "byz-x-da#0", body: `[발주 #${s}] x` })).join("\n") + "\n"), add = (r, s) => fs.appendFileSync(path.join(r, S, "comm", "mailbox.jsonl"), JSON.stringify({ seq: s, to: SEAT, from: "byz-x-da#0", body: `[발주 #${s}] x` }) + "\n");
-const mark = (r, seat) => fs.writeFileSync(path.join(r, st, "pi-distill-pending", base), `2026-11-11T00:00:00Z seat=${seat} ctx=999 증류 미완\n`);
-const gone = (r) => fs.rmSync(path.join(r, st, "pi-distill-pending", base), { force: true }), nudge = (r) => fs.writeFileSync(path.join(r, st, "pi-wake", `${key}.nudge`), "1\n"); // nudge = r1476 sweep 이 이미 예약한 자리
+const mark = (r, seat) => fs.writeFileSync(path.join(r, st, "pi-distill-pending", base), `2026-11-11T00:00:00Z seat=${seat} ctx=999 증류 미완\n`), nudgePath = (r) => path.join(r, st, "pi-wake", `${key}.nudge`), gone = (r) => fs.rmSync(path.join(r, st, "pi-distill-pending", base), { force: true }), nudge = (r) => fs.writeFileSync(nudgePath(r), "1\n"); // nudge = r1476 sweep 이 이미 예약한 자리
 const gatedOf = (r) => { try { return fs.readFileSync(path.join(r, st, "pi-wake", `${key}.gated`), "utf-8").trim(); } catch { return ""; } };
-const log = (r) => { try { return fs.readFileSync(path.join(r, "send.log"), "utf-8").split("\n").filter(Boolean); } catch { return []; } };
-const sent = (r) => log(r).filter((l) => l.startsWith("S|")).map((l) => l.split("|")), bud = (r) => log(r).filter((l) => l.startsWith("B|")).length;
+const sent = (r) => { try { return fs.readFileSync(path.join(r, "send.log"), "utf-8").split("\n").filter((l) => l.startsWith("S|")).map((l) => l.split("|")); } catch { return []; } }, bud = (r) => { try { return fs.readFileSync(path.join(r, "send.log"), "utf-8").split("\n").filter((l) => l.startsWith("B|")).length; } catch { return 0; } };
 async function load(root, extra = {}) {
   for (const p of live.splice(0)) await p.emit("session_shutdown", {});
   for (const k of ["FT_SEAT", "TMUX_PANE", "FT_MBOX_ROOT", "FT_MBOX_FILE", "FT_MBOX_STATE_DIR", "R1669_FAILSEND"]) delete process.env[k];
@@ -66,7 +62,7 @@ async function load(root, extra = {}) {
   return pi;
 }
 const A = async (root, events, extra = {}) => { const pi = await load(root, extra), cap = capture(); for (const e of events) await pi.emit(e); cap.stop(); return { pi, cap }; };
-if (["a", "all"].includes(MODE)) { // ⓐⓑ 억제 + 팀장 1통 · ⓖ nudge 예약(DA R1) · M1·M3 검출
+if (["a", "all"].includes(MODE)) { // ⓐⓑ 억제 + 팀장 1통 · ⓖ nudge 예약(DA R1) · ⓗ 늦은 nudge(DA R2) · M1·M3·M4 검출
   const r = mk("a"); mark(r, SEAT); box(r, [5]);
   const { pi, cap } = await A(r, ["session_start"]);
   eq("ⓐ 첫 미읽음 = 깨움 1", pi.calls.length, 1);
@@ -83,12 +79,16 @@ if (["a", "all"].includes(MODE)) { // ⓐⓑ 억제 + 팀장 1통 · ⓖ nudge �
   eq("ⓒⓐ 새 미읽음도 1회 뒤 억제", pi.calls.length, 2);
   gone(r); await pi.emit("agent_end");
   eq("ⓔ 표식 사라짐 = 풀림(같은 seq 라도 깨움)", `${pi.calls.length}/${gatedOf(r)}`, "3/");
-  const n = mk("n"); mark(n, SEAT); box(n, [5]); nudge(n); // ⓖ DA-r1669-284050 §1 재현: 예약(nudge) 잔존 → session_start 1 → agent_end 누적 2(0.253초)
+  const n = mk("n"); mark(n, SEAT); box(n, [5]); nudge(n); // ⓖ DA R1: 예약(nudge) 잔존 → session_start 1 → agent_end 누적 2
   const n1 = await A(n, ["session_start"]);
   eq("ⓖ nudge 예약 = 깨움 1 · .gated 5 · 예산 재차감 0", `${n1.pi.calls.length}/${gatedOf(n)}/${bud(n)}`, "1/5/0");
-  await n1.pi.emit("agent_end");
-  await n1.pi.emit("agent_end");
-  eq("ⓖ 같은 seq agent_end 누적 = 1(DA R1 결함 재발 0) · 알림 1", `${n1.pi.calls.length}/${sent(n).length}`, "1/1");
+  await n1.pi.emit("agent_end"); await n1.pi.emit("agent_end");
+  eq("ⓖ 같은 seq agent_end 누적 = 1(DA R1 재발 0) · 알림 1", `${n1.pi.calls.length}/${sent(n).length}`, "1/1");
+  const h = mk("h"); mark(h, SEAT); box(h, [20]); // ⓗ DA R2: 먼저 깨움 1 · gated 20 → 늦은 sweep nudge → 같은 seq 누적 2
+  const h1 = await A(h, ["session_start"]);
+  eq("ⓗ 먼저 깨움 1 · .gated 20 · 예산 1", `${h1.pi.calls.length}/${gatedOf(h)}/${bud(h)}`, "1/20/1");
+  nudge(h); await h1.pi.emit("agent_end"); await h1.pi.emit("agent_end");
+  eq("ⓗ 늦은 예약 = 같은 seq 깨움 0 · nudge 소비 · 재차감 0", `${h1.pi.calls.length}/${fs.existsSync(nudgePath(h))}/${bud(h)}`, "1/false/1");
 }
 if (MODE === "d" || MODE === "all") { // ⓓ 후계 보호 · M2 검출
   const r = mk("d"); mark(r, `${base}#1`); box(r, [5]);
@@ -110,11 +110,11 @@ if (fails === 0) { console.log("DRIVER ALL PASS"); process.exit(0); }
 console.log(`DRIVER FAIL ${fails}`); process.exit(1);
 NODE
 
-RUN="timeout 70 node $T/driver.mjs"
-run() { R1669_TMP="$T" R1669_SEAT="$SEAT" R1669_MASTER="$MASTER" "$@" $RUN; }
+run() { R1669_TMP="$T" R1669_SEAT="$SEAT" R1669_MASTER="$MASTER" "$@" timeout 70 node $T/driver.mjs; }
 run env R1669_EXT="$T/ext/ft-mbox-wake.ts" R1669_MODE=all; rc=$?
 if run env R1669_EXT="$T/ext/m1.ts" R1669_MODE=a >/dev/null 2>&1; then bad "변이 M1 agent_end 에서 .gated 삭제 → ⓐ FAIL 검출"; else ok "변이 M1 agent_end 에서 .gated 삭제 → ⓐ FAIL 검출"; fi
 if run env R1669_EXT="$T/ext/m2.ts" R1669_MODE=d >/dev/null 2>&1; then bad "변이 M2 표식 seat 비교 삭제 → ⓓ FAIL 검출"; else ok "변이 M2 표식 seat 비교 삭제 → ⓓ FAIL 검출"; fi
 if run env R1669_EXT="$T/ext/m3.ts" R1669_MODE=a >/dev/null 2>&1; then bad "변이 M3 nudge 경로 건너뜀(DA R1) → ⓖ FAIL 검출"; else ok "변이 M3 nudge 경로 건너뜀(DA R1) → ⓖ FAIL 검출"; fi
+if run env R1669_EXT="$T/ext/m4.ts" R1669_MODE=a >/dev/null 2>&1; then bad "변이 M4 늦은 nudge 도 깨움(DA R2) → ⓗ FAIL 검출"; else ok "변이 M4 늦은 nudge 도 깨움(DA R2) → ⓗ FAIL 검출"; fi
 if [ "$rc" = 0 ] && [ "$fail" = 0 ]; then echo "ALL PASS"; exit 0; fi
 echo "FAIL (normal_rc=$rc static=$fail)"; exit 1
