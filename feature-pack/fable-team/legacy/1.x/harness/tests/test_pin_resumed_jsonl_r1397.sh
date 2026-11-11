@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_pin_resumed_jsonl_r1397.sh — r1397: 재부팅 복구가 --resume U 로 띄운 claude 좌석도 ① 짚기에서 바로 jsonl 을 짚는다
-#   카드 반례 J1~J5(--resume=U · -r U 포함) · 변이 2 · bin=kit 같은 내용
+#   카드 반례 J1~J6(--resume=U · -r U 포함 · J6 = 앞 경계: «--add-dir-r U» 꼴은 안 맞음) · 변이 3 · bin=kit 같은 내용
 # 격리: 가짜 ps·tmux(파일 대역) + 임시 projects 폴더 · 실 ps·실 tmux·실 ~/.claude 0 · 자기 재호출 0(변이는 bin 사본을 돌린다)
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행(재진입 표지 RSG_ACTIVE)
 set -uo pipefail
@@ -119,17 +119,20 @@ chk("J4", got == {"seat-a": str(Path(proj) / "named.jsonl")} and r != [], (got, 
 got, r, _ds, proj = world("j5", "--resume", decoys=50, named=True)         # U 없음(대화 고르기 화면) = ② 그대로
 chk("J5", got == {"seat-a": str(Path(proj) / "named.jsonl")} and r != [], (got, r[:3]))
 
+got, r, _ds, proj = world("j6", "--add-dir /tmp --add-dir-r " + U1, decoys=50, pinned=U1, named=True)   # -r 앞 경계 — «--add-dir-r U» 는 --resume 꼴이 아니다
+chk("J6", got == {"seat-a": str(Path(proj) / "named.jsonl")}, (got, r[:3]))
+
 print("FAIL", fail) if fail else print("ALL PASS")
 sys.exit(1 if fail else 0)
 EOPY
 
 probe() { python3 "$T/probe.py" "$1" "$T/w-$2" 2>&1; }   # <bin 폴더> <세계 이름표>
 
-sec "J1~J5 — 지금 bin"
+sec "J1~J6 — 지금 bin"
 out="$(probe "$BIN0" base)"; rc=$?
 echo "$out"
-[ "$rc" -eq 0 ] && ok "J1~J5 rc=0" || bad "J1~J5 rc=$rc"
-[ "$(printf '%s\n' "$out" | grep -c '^PASS ')" -eq 6 ] && ok "PASS 6줄(J1·J2·J2b·J3·J4·J5)" || bad "PASS 줄 수 ≠ 6"
+[ "$rc" -eq 0 ] && ok "J1~J6 rc=0" || bad "J1~J6 rc=$rc"
+[ "$(printf '%s\n' "$out" | grep -c '^PASS ')" -eq 7 ] && ok "PASS 7줄(J1·J2·J2b·J3·J4·J5·J6)" || bad "PASS 줄 수 ≠ 7"
 
 sec "bin=kit 같은 내용"
 cmp -s "$BIN0/ft_api_outage_util.py" "$KIT/ft_api_outage_util.py" && ok "bin=kit ft_api_outage_util.py" || bad "bin≠kit ft_api_outage_util.py"
@@ -163,6 +166,15 @@ if cmp -s "$BIN0/ft_api_outage_util.py" "$m2/ft_api_outage_util.py"; then bad "�
 else out2="$(probe "$m2" mut2)"; rc2=$?
   echo "$out2" | grep -q '^FAIL J4' && ok "변이 2 → J4 FAIL" || bad "변이 2 를 J4 가 못 잡음"
   [ "$rc2" -ne 0 ] && ok "변이 2 rc≠0" || bad "변이 2 rc=0"
+fi
+
+sec "변이 3 — 정규식 앞 경계((?:^|\\s)) 빼기 → J6 FAIL"
+m3="$T/mut3"; cp -R "$BIN0" "$m3"
+repl "$m3/ft_api_outage_util.py" '(?:^|\s)(?:--session-id' '(?:--session-id' || bad "변이 3 사본 못 만듦"
+if cmp -s "$BIN0/ft_api_outage_util.py" "$m3/ft_api_outage_util.py"; then bad "변이 3 사본 = 원본"
+else out3="$(probe "$m3" mut3)"; rc3=$?
+  echo "$out3" | grep -q '^FAIL J6' && ok "변이 3 → J6 FAIL" || bad "변이 3 을 J6 이 못 잡음"
+  [ "$rc3" -ne 0 ] && ok "변이 3 rc≠0" || bad "변이 3 rc=0"
 fi
 
 sec "끝"
