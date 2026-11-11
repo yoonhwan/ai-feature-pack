@@ -118,13 +118,25 @@ def test_t3_off_is_noop(env, monkeypatch):
 
 
 def test_t4_due_failure_is_unknown_line(env, monkeypatch):
+    # r1701 ②: rc=3(판정 불가 1석 이상)은 «그 좌석만» 판정 불가로 남기고 나머지 «닫기 차례» 는 처리한다 — 못 낸 신호(99·2)만 전부 버린다
     tmp, calls = env
     monkeypatch.setenv("FT_NANO_AUTO_CLOSE", "1")
-    monkeypatch.setenv("FT_NANO_CLOSE_DUE", str(_due(tmp, [], rc=3)))
+    monkeypatch.setenv("FT_NANO_CLOSE_DUE", str(_due(tmp, ["판정 불가 B ft-seat-status turn rc=1"], rc=3)))
     m = _import_scan(BIN)
     out = _scan(m, tmp).auto_close()
-    assert len(out) == 1 and out[0].startswith("판정 불가 auto-close close-due rc=3"), out
-    assert not calls.exists(), "close-due 가 못 냈으면 close 호출 0(하드 룰 20)"
+    assert len(out) == 1 and "판정 불가 auto-close B ft-seat-status turn rc=1" in out[0], out
+    assert not calls.exists(), "닫기 차례 줄이 없으면 close 호출 0(하드 룰 20)"
+
+
+def test_t4b_due_timeout_is_all_unknown(env, monkeypatch):
+    # r1701 ②: rc 가 0·3 이 아니면(시간 초과 99) 지금처럼 «닫기 0»
+    tmp, calls = env
+    monkeypatch.setenv("FT_NANO_AUTO_CLOSE", "1")
+    monkeypatch.setenv("FT_NANO_CLOSE_DUE", str(_due(tmp, [], rc=99)))
+    m = _import_scan(BIN)
+    out = _scan(m, tmp).auto_close()
+    assert len(out) == 1 and out[0].startswith("판정 불가 auto-close close-due rc=99"), out
+    assert not calls.exists(), "시간 초과면 close 호출 0"
 
 
 def test_t5_cap_is_line_count(env, monkeypatch):

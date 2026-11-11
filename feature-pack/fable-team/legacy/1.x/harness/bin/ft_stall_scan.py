@@ -445,7 +445,7 @@ class Scan:
         due = os.environ.get("FT_NANO_CLOSE_DUE") or str(HERE / "ft-nano-close-due.sh")
         close = os.environ.get("FT_NANO_CLOSE") or str(HERE / "ft-nano-close.sh")
         rc, out = run(["bash", due, "--all"], {**os.environ, "FT_NANO_AUTO_CLOSE": "1"}, 70)
-        if rc != 0:
+        if rc not in (0, 3):   # r1701 ② — rc=3(판정 불가 1석 이상)이어도 «갈래=승인» 줄은 닫는다(1석이 전 팀 자동 닫기를 막던 자리)
             return [f"판정 불가 auto-close close-due rc={rc} — 닫기 0"]
         sf = self.state_dir / "nano-auto-close.json"
         try:
@@ -454,6 +454,11 @@ class Scan:
             tried = {}
         stamp = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(self.now))
         lines: list[str] = []
+        if rc == 3:   # r1701 ② — 판정 불가 좌석은 이름·사유를 1줄씩 남기고 나머지 «닫기 차례» 는 그대로 처리한다
+            for u in [x for x in out.splitlines() if x.startswith("판정 불가 ")]:
+                u = u[len("판정 불가 "):]
+                seat, _, why = u.partition(" ")
+                lines.append(f"{stamp} 판정 불가 auto-close {seat} {why}".rstrip())
         for ln in [x for x in out.splitlines() if x.startswith("닫기 차례 ") and "갈래=승인" in x]:
             seat = ln.split()[2] if len(ln.split()) > 2 else ""
             head = next((t[4:] for t in ln.split() if t.startswith("set=")), "")
