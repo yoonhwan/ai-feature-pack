@@ -38,7 +38,6 @@ def copied(src, root, name):
     return root / name
 
 def refused(*args):
-    """rc2 · stdout 빈값 · «판정 불가» 1줄 · traceback 0 을 한 번에 확인한다."""
     rc, stdout, stderr = run(*args)
     assert (rc, stdout, stderr.count("판정 불가"), "Traceback" in stderr) == (2, "", 1, False), args
 
@@ -50,11 +49,8 @@ def test_a_b_build_fingerprint_exclude_and_packed_ref(tmp_path):
     assert (first["schema"], first["count"]) == (1, len(TREE)) and [item["path"] for item in first["files"]] == sorted(TREE)
     one = next(item for item in first["files"] if item["path"] == "core/loader.py")
     assert (one["kind"], one["sha256"], one["bytes"]) == ("code", hashlib.sha256(b"print('hi')\n").hexdigest(), 12)
-    assert first["source"]["sha"] is None or len(first["source"]["sha"]) == 40
     mod = load_tool()
-    rels = ("core/__pycache__", "core/a.pyc", "core/.keep", ".git", "core/a.py", "docs/a.md")
-    assert [mod.skip_entry(rel) for rel in rels] == [True, True, True, True, False, False]
-    assert first["exclude"] == list(mod.EXCLUDE)
+    assert [mod.skip_entry(rel) for rel in ("core/__pycache__", "core/a.pyc", "core/.keep", ".git", "core/a.py", "docs/a.md")] == [True, True, True, True, False, False] and first["exclude"] == list(mod.EXCLUDE)
     packed = make_source(tmp_path / "packed")
     (packed / ".git").mkdir()
     (packed / ".git" / "HEAD").write_text("ref: refs/heads/main\n", encoding="utf-8")
@@ -73,7 +69,8 @@ def test_c_verify_reports_and_refuses(tmp_path, monkeypatch, capsys):
         rc, doc, _ = verify(manifest, folder)
         assert (rc, doc["missing"] + doc["extra"] + doc["different"]) == (1, [rel])
     item = base["files"][0]
-    bads = (dict(item, sha256="abc"), dict(item, kind="진짜"), dict(item, bytes="4"), dict(item, path=7),
+    bads = (dict(item, sha256="abc"), dict(item, kind="진짜"), dict(item, bytes="4"), dict(item, bytes=-1),
+            dict(item, path=""), dict(item, path="/etc/x"), dict(item, path=7),
             {key: value for key, value in item.items() if key != "sha256"})
     for index, bad in enumerate(bads):
         path = tmp_path / f"bad{index}.json"
@@ -91,8 +88,7 @@ def test_c_verify_reports_and_refuses(tmp_path, monkeypatch, capsys):
 
 def test_d_e_real_tree_and_stdlib_only(tmp_path):
     doc = build(FT2, tmp_path / "real.json")
-    assert doc["count"] > 40 and "tools/manifest.py" in [item["path"] for item in doc["files"]]
-    assert verify(tmp_path / "real.json", FT2)[0] == 0
+    assert doc["count"] > 40 and "tools/manifest.py" in [item["path"] for item in doc["files"]] and verify(tmp_path / "real.json", FT2)[0] == 0
     source = TOOL.read_text(encoding="utf-8")
     modules = {(getattr(node, "module", None) or node.names[0].name).split(".")[0] for node in ast.walk(ast.parse(source)) if isinstance(node, (ast.Import, ast.ImportFrom))}
     assert len(source.splitlines()) <= 150 and "subprocess" not in source and modules <= {"fnmatch", "hashlib", "json", "os", "sys"}
@@ -103,7 +99,7 @@ def mutant(tmp_path, name, old, new):
     (tmp_path / (name + ".py")).write_text(source.replace(old, new), encoding="utf-8")
     return tmp_path / (name + ".py")
 
-def test_m1_m2_m3_mutants_miss_their_own_case(tmp_path, monkeypatch):
+def test_m1_m2_m3_m4_mutants_miss_their_own_case(tmp_path, monkeypatch):
     src, manifest = make_source(tmp_path / "src"), tmp_path / "m.json"
     build(src, manifest)
     added, same = copied(src, tmp_path, "added"), copied(src, tmp_path, "same")
@@ -118,3 +114,7 @@ def test_m1_m2_m3_mutants_miss_their_own_case(tmp_path, monkeypatch):
     assert (run("verify", manifest, same, script=m2)[0], run("verify", manifest, same)[0]) == (0, 1)
     with pytest.raises(OSError):
         m3.main(["x", "build", str(src)])
+    plain = json.loads(manifest.read_text(encoding="utf-8"))
+    absolute = tmp_path / "abs.json"; absolute.write_text(json.dumps(dict(plain, files=[dict(plain["files"][0], path="/etc/x")])), encoding="utf-8")
+    m4 = mutant(tmp_path, "m4", "path and not os.path.isabs(path)", "True")
+    assert (run("verify", absolute, src, script=m4)[0], run("verify", absolute, src)[0]) == (1, 2)

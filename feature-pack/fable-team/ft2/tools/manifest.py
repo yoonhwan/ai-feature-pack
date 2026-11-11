@@ -2,7 +2,7 @@
 """ft 2.0 패키지 manifest — build <루트> 로 소스 지문을 만들고 verify <manifest> <폴더> 로 대조한다.
 
 제외 규칙은 EXCLUDE 한 곳(skip_entry 도 파생) · 경로는 루트 기준 상대·정렬 · 같은 입력 두 번 = 같은 출력.
-`git` 호출 0 — HEAD·loose ref·packed-refs 를 파일로 읽는다(없으면 null) · manifest 항목(path·kind·bytes·sha256)이 틀리면 rc2 «판정 불가».
+`git` 호출 0 — HEAD·loose ref·packed-refs 를 파일로 읽는다(없으면 null) · manifest 항목(path=비지 않은 상대 · kind 4종 · bytes=0 이상 정수 · sha256=64 hex)이 틀리면 rc2 «판정 불가».
 종료 코드: 0 = 만들어짐/같음 · 1 = 다름 · 2 = 판정 불가(못 읽음·권한 없음·손상) — traceback 0.
 """
 import fnmatch
@@ -13,8 +13,7 @@ import sys
 
 SCHEMA = 1
 EXCLUDE = ("__pycache__/", "*.pyc", "*.pyo", ".*")
-KINDS = ("code", "contract", "test", "doc")
-HEX = frozenset("0123456789abcdef")
+KINDS, HEX = ("code", "contract", "test", "doc"), frozenset("0123456789abcdef")
 
 
 def skip_entry(rel):
@@ -95,8 +94,9 @@ def build(root):
 def bad_item(item):
     if not isinstance(item, dict):
         return True
-    sha, size = item.get("sha256"), item.get("bytes")
-    return not (isinstance(item.get("path"), str) and item.get("kind") in KINDS and type(size) is int
+    sha, size, path = item.get("sha256"), item.get("bytes"), item.get("path")
+    return not (isinstance(path, str) and path and not os.path.isabs(path) and type(size) is int
+                and size >= 0 and item.get("kind") in KINDS
                 and isinstance(sha, str) and len(sha) == 64 and set(sha) <= HEX)
 
 
