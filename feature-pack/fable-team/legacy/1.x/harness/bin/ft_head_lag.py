@@ -107,7 +107,7 @@ def main():
             keep.add(os.path.realpath(w["path"]))
             continue
         if bsec <= 0 or time.monotonic() - t0 > bsec:   # r1700 ⓑ: 예산 넘으면 멈춘다 — 못 훑은 곳은 «판정 불가»
-            bad = sum(1 for x in wts[i:] if x.get("branch") and not x["branch"].startswith("nano/"))
+            bad = sum(1 for x in wts[i:] if x.get("branch") and not x["branch"].startswith("nano/") and not skip.match(x["branch"]))
             keep.update(os.path.realpath(x["path"]) for x in wts[i:])
             break
         if br and not skip.match(br) and not base_skipped(w["path"], skip, a.base):   # r1334: 선언 base 가 제외 줄기면 빼고
