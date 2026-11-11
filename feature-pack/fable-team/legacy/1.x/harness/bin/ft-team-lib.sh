@@ -188,13 +188,25 @@ ft_team_in_ref() { local r="$1" t="$2" ref="${3:-${FT_TEAMS_REF:-origin/main}}" 
     2) echo "WARN TWIN-BOTH ${hits[0]} ${hits[1]} (ref 에 둘 다 · 명단 꼴 ${hits[0]})" >&2; printf '%s\n' "${hits[0]}";;
     *) echo "ERROR $t 폴더 실재 후보 2개 — 정확히 1개여야 한다(명단 $ref:design/TEAMS.md · 후보 ${cands//$'\n'/ }) (ref 에 둘 다 없음)" >&2; return 1;;
   esac; }
+#   ft_card_ref <루트> <팀> : 카드 ref 단일 출처(r1626) — env FT_CARD_REF → 루트 카드 루트 표(state/directive-roots.tsv) 팀 행 → «*» 행 → origin/main (ft-card-flow.sh:35 와 같은 표·같은 규칙)
+#     stdout = ref 1줄 rc0 · 팀 이름이 비면 표를 안 본다(팀 카드 꼴 아닌 index 는 지금 동작: env → origin/main) · 읽기만
+#     표 행이 가리키는 ref 를 리포에서 못 읽으면 stderr ERROR 1줄 + rc1 — origin/main 으로 조용히 바꾸지 않는다(하드 룰 20 · docs/rules/no_silent_fallback.md)
+ft_card_ref() { local r="$1" t="${2:-}" row rf=""
+  if [ -n "${FT_CARD_REF:-}" ]; then printf '%s\n' "$FT_CARD_REF"; return 0; fi
+  if [ -z "$t" ]; then printf 'origin/main\n'; return 0; fi
+  row="$(awk -F'\t' -v t="$t" '$1==t{print;f=1;exit} $1=="*"&&!w{w=$0} END{if(!f&&w)print w}' "$r/.fable-team/state/directive-roots.tsv" 2>/dev/null)"
+  rf="$(printf '%s' "$row" | cut -f3)"
+  if [ -z "$rf" ]; then printf 'origin/main\n'; return 0; fi
+  git -C "$r" rev-parse -q --verify "$rf^{commit}" >/dev/null 2>&1 || { echo "ERROR 카드 ref 판정 불가 — 카드 루트 표($t) 의 ref($rf)를 리포에서 못 읽음: $r" >&2; return 1; }
+  printf '%s\n' "$rf"; }
 #   ft_card_stage_ref <루트> <IDX> [<ref>] : 카드 «단계» 를 ref 트리로 정한다(r842 · 뒤처진 루트 체크아웃의 옛 단계 사본이 ref 에서 이미 옮긴 카드를 가리지 않게) —
 #     IDX(design/[teams/]<팀>/indices/<단계>/<파일>) 와 ft_index_twin 쌍둥이의 <indices 뿌리>/{진행,완성,대기}/<파일> 을 ref 에서 직접 본다 · 명부(TEAMS.md)·ft_team_cands_ref 안 씀 · 디스크 안 봄 · 읽기만
 #     stdout 첫 줄 = «STAGE <단계>» rc0 · «ABSENT» rc0(ref 풀림 + 모든 후보 ls-tree 성공 + 전부 없음) · 그 밖(빈 출력 포함) = stderr ERROR rc1
 #     — 조회 실패(ref·ls-tree·쌍둥이 계산)가 «카드 없음» 으로 읽히지 않게 세 갈래를 글자로 가른다(DA⑥ r2 반례: 명부 없음 = 빈 출력 rc0 → 옛 진행/ 후퇴)
-ft_card_stage_ref() { local r="$1" idx="$2" ref="${3:-${FT_CARD_REF:-origin/main}}" base tw d out hits="" rc roots=()
+ft_card_stage_ref() { local r="$1" idx="$2" ref="${3:-}" base tw d out hits="" rc roots=()
   case "$idx" in */indices/*/*) ;; *) echo "ERROR 카드 단계 idx 꼴 아님(…/indices/<단계>/<파일>): $idx" >&2; return 1;; esac
   base="${idx%%/indices/*}"; roots=("$base")
+  [ -n "$ref" ] || ref="$(ft_card_ref "$r" "${base##*/}")" || return 1   # r1626: 기본 ref = 팀 카드 루트 표(env 우선) — origin/main 고정값 아님
   if declare -F ft_index_twin >/dev/null; then tw="$(ft_index_twin "$idx" 2>/dev/null)" || { echo "ERROR 카드 단계 쌍둥이 계산 실패: $idx" >&2; return 1; }
     [ -z "$tw" ] || roots+=("${tw%%/indices/*}"); fi
   git -C "$r" rev-parse --verify -q "$ref^{commit}" >/dev/null 2>&1; rc=$?

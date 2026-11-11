@@ -33,9 +33,12 @@ finish() { # $1 = 통과 사유
   if [ "${#problems[@]}" -eq 0 ]; then echo "OK $1"; exit 0; fi
   printf 'BLOCK %s\n' "${problems[@]}"; echo "BASELINE-CHECK BLOCK — 카드 $CARD_ARG"; exit 1
 }
-card_from_ref() { # r1177: 작업 트리(세트 sha)에 카드 없음 → FT_CARD_REF(기본 origin/main) 판을 임시 파일로 꺼낸다(ft-nano-close r888 과 같은 ref · fetch 0)
-  local ref="${FT_CARD_REF:-origin/main}" rel="${CARD#./}" r="${REPO%"${REPO##*[!/]}"}" rc   # r: --repo 끝 슬래시 전부 제거(DA①② r1177)
+. "$HERE/ft-team-lib.sh"   # r382b·r1626: 카드 ref(ft_card_ref)·v65 팀 폴더 둘 다 이 라이브러리 — card_from_ref 가 먼저 부르므로 정의 앞에서 source 한다
+card_from_ref() { # r1177: 작업 트리(세트 sha)에 카드 없음 → 카드 ref(ft_card_ref · r1626: env → 팀 카드 루트 표 → origin/main) 판을 임시 파일로 꺼낸다(ft-nano-close r888 과 같은 ref · fetch 0)
+  local ref rel="${CARD#./}" r="${REPO%"${REPO##*[!/]}"}" rc _t   # r: --repo 끝 슬래시 전부 제거(DA①② r1177)
   case "$CARD" in "$r"/*) rel="${CARD#"$r"/}" ;; /*) block "카드: 파일 없음($CARD)"; finish "" ;; esac
+  case "$rel" in */indices/*) _t="${rel%%/indices/*}"; _t="${_t##*/}" ;; *) _t="" ;; esac   # 팀 = 카드 경로의 indices 앞 폴더(팀 카드 꼴 아니면 표 안 봄)
+  ref="$(ft_card_ref "$REPO" "$_t")" || { block "카드: 판정 불가 — 표 행 ref 를 못 읽음(팀=${_t:-?})"; finish ""; }
   git -C "$REPO" cat-file -e "$ref:$rel" 2>/dev/null || { block "카드: 파일 없음($CARD) · $ref 에도 없음"; finish ""; }
   CARD_TMP="$(mktemp "${TMPDIR:-/tmp}/ft-press-card.XXXXXX")" || { block "카드: 판정 불가 — mktemp 실패"; finish ""; }
   trap 'rm -f "$CARD_TMP"' EXIT
@@ -48,7 +51,6 @@ CARD_ARG="$CARD"
 BASE="$(hdr "$CARD" 기준선)" || block "카드 기준선: 머리줄 없음 — 기준선 없는 발사 차단(#834)"
 EXP="$(hdr "$CARD" 실험)" || block "카드 실험: 머리줄 없음(바꾸는 토글 key=value · 없으면 «없음»)"
 LANGS="$(hdr "$CARD" '비교 언어')" || LANGS="right=ko,left=en"
-. "$HERE/ft-team-lib.sh"   # R382b: v65 팀 폴더는 press 워크트리의 design/TEAMS.md 폴더 칸으로(리터럴 0)
 V65="$(ft_team_in "$REPO" v65)" || { echo "BLOCK v65 팀 폴더를 못 풀었다($REPO/design/TEAMS.md)"; exit 1; }
 FLAGS="$V65/baselines/FLAGS.md"
 
