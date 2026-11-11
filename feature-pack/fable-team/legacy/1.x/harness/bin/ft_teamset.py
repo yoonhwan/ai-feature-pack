@@ -119,7 +119,7 @@ def team_of(prefix, strict=True):
         if prefix == f"{p}nano-":
             return t
     m = re.fullmatch(r"byz-([a-z0-9]+)-nano-", prefix)
-    if m:
+    if m and m.group(1) not in TEAM_PREFIX:   # r1702: 표에 있는 팀(byz-aifp-nano-)은 그 팀 좌석이 아니다 → 섞임 0
         return m.group(1)
     return die(f"나노 접두 {prefix!r} 에서 팀을 못 읽는다 ({KNOWN_HINT})") if strict else None
 
@@ -136,7 +136,7 @@ def seat_info(seat):
         if seat.startswith(f"{p}nano-") and re.fullmatch(re.escape(f"{p}nano-") + r".+#\d+", seat):
             return t, f"{p}nano-", False, seat[len(f"{p}nano-"):].rsplit("#", 1)[0]
     m = re.fullmatch(r"byz-([a-z0-9]+)-nano-(.+)#\d+", seat)
-    if m:
+    if m and m.group(1) not in TEAM_PREFIX:   # r1702: 표 팀의 byz 꼴 이름은 그 팀 나노가 아니다(접두가 다르다 — 키가 틀어짐)
         return m.group(1), prefix_of(m.group(1)), False, m.group(2)
     return None
 
@@ -442,7 +442,7 @@ def cmd_name_rule(argv):
         die("좌석 이름 필요")
     info = seat_info(a.seat)
     if not info:
-        die(f"나노 좌석 이름이 아니다 — {a.seat} (규칙 byz-<팀>-nano-<키>#N · 옛 이름 {LEGACY_PREFIXES['v65'][0]}<키>#N)")
+        die(f"나노 좌석 이름이 아니다 — {a.seat} (규칙 {KNOWN_HINT}<키>#N)")
     print(f"team={info[0]} prefix={info[1]} legacy={int(info[2])} key={info[3]} prefixes={','.join(prefixes_of(info[0]))}")
 
 
