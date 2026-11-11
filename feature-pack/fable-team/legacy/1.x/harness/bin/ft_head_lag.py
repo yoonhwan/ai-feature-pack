@@ -95,19 +95,36 @@ def main():
         print(f"ERROR {e}", file=sys.stderr)
         return 4
     wts = worktrees(a.repo)
-    stale = []
-    for w in wts:
+    stale, scanned, keep = [], set(), set()
+    try:
+        bsec = float(os.environ.get("FT_HEAD_LAG_BUDGET", "7"))   # r1700: 훑기 예산(초) — r1688 실측 7초
+    except ValueError:
+        bsec = 7.0                                              # ⓖ abc 같은 값 = 기본 7초
+    t0, bad = time.monotonic(), 0
+    for i, w in enumerate(wts):
         br, r = w.get("branch"), None
+        if br and br.startswith("nano/"):   # r1700 ⓐ: 나노 가지 워크트리는 훑지 않는다(이 도구만 · ft-head-skip.txt 불변)
+            keep.add(os.path.realpath(w["path"]))
+            continue
+        if bsec <= 0 or time.monotonic() - t0 > bsec:   # r1700 ⓑ: 예산 넘으면 멈춘다 — 못 훑은 곳은 «판정 불가»
+            bad = sum(1 for x in wts[i:] if x.get("branch") and not x["branch"].startswith("nano/"))
+            keep.update(os.path.realpath(x["path"]) for x in wts[i:])
+            break
         if br and not skip.match(br) and not base_skipped(w["path"], skip, a.base):   # r1334: 선언 base 가 제외 줄기면 빼고
             r = lag(w["path"], msha)
             if r and not work_left(w["path"], msha):   # r1334: 일이 남지 않은 착지 끝 워크트리도 뺀다
                 r = None
+            scanned.add(os.path.realpath(w["path"]))
+        else:
+            keep.add(os.path.realpath(w["path"]))
         if r:
             stale.append({"path": w["path"], "real": os.path.realpath(w["path"]), "branch": br, "n": r[0], "secs": max(0, now - r[1])})
+    if bad:
+        print(f"판정 불가 {bad}곳(훑기 예산 {bsec:g}초)", file=sys.stderr)   # 하드 룰 20: 못 훑음 = 1줄
     if a.summary:
         if stale:
             o = max(stale, key=lambda s: (s["secs"], s["n"]))
-            print(f"베이스 뒤처짐 {len(stale)}곳(가장 오래 {os.path.basename(o['path'])} {o['n']}커밋·{fmt(o['secs'])})")
+            print(f"베이스 뒤처짐 {len(stale)}곳(가장 오래 {os.path.basename(o['path'])} {o['n']}커밋·{fmt(o['secs'])})" + (f" · 판정 불가 {bad}곳" if bad else ""))
         return 0
     root = os.environ.get("FT_ROOT") or os.path.dirname(git(a.repo, "rev-parse", "--path-format=absolute", "--git-common-dir")[1])
     sdir = os.path.join(root, ".fable-team", "state")
@@ -117,7 +134,7 @@ def main():
     remind = int(os.environ.get("FT_HEAD_LAG_REMIND_H", "6")) * 3600
     with open(sf + ".lock", "w") as lk:
         fcntl.flock(lk, fcntl.LOCK_EX)
-        st = load_state(sf, {s["real"] for s in stale})   # R836: 키 = 워크트리 하나(main sha 무관)
+        st = load_state(sf, {s["real"] for s in stale} | keep)   # R836 키 = 워크트리 하나 · r1700 ⓒ: 못 훑은 곳·나노 건너뜀 기록은 지우지 않는다
         by =seats_by_wt([os.path.realpath(w["path"]) for w in wts])
         groups = plan(root, stale, st, by, minutes, now, remind)   # r1492 — 문턱·팀 단위 정지 보류(held) 판정은 그쪽 한 자리
         sent, failed = {}, set()
