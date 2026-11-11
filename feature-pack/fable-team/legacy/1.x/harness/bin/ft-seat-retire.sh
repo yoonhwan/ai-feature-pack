@@ -21,11 +21,7 @@ while [ $# -gt 0 ]; do case "$1" in --seats) ARG="${2:-}"; shift 2;; --record-on
 ROOT="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"; G="${FT_MBOX_PY:-${ROOT:-.}/.fable-team/comm/mbox.py}"; [ "$RECONLY" = 1 ] || [ ! -f "$G" ] || GO="$(python3 "$G" close-check "$OLD" --no-ready 2>&1)" || { echo "REJECT 승계 전 쪽지 마무리(r1116 ③ · 쓰기 0 · rc 4) — ${GO:-close-check 실패} · 다음 1줄(후계 pane 에서): bash mbox.sh handover ${OLD} ${NEW:-<후계>} && bash ft-seat-retire.sh ${OLD} ${NEW:-<후계>}"; exit 4; }   # 받은 쪽지 seq 마다 «처리함|인계» 표시 전 retire 거절 · 우편함 mbox.py 없는 루트 = 영수 원장 없음
 # r1675 — 옛 좌석의 팀이 2.0 전환됨이면 명부 쓰기 전에 멈춘다(표식 = <데이터루트>/.fable-team/state/ft20-switch/<팀>.json).
 #   팀 = --seats/FT_SEATS_JSON 명부 파일 이름, 없으면 <구> 행을 가진 명부 파일 이름. ★--record-only 는 막지 않는다★ — 재개 기록은 닫기 경로(전환 뒤에도 옛 좌석 정리용 · 카드 범위 밖).
-if [ "${RECONLY:-0}" = 0 ] && [ -f "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft20-switch-lib.sh" ]; then
-  . "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft20-switch-lib.sh"
-  # 쓰기 대상 명부 «전부» 검사(r465 같은 폴더 다른 명부의 `_*` 칸도 쓴다) · 루트 = ft20_root_of(FT_FT20_ROOT 가 이긴다)
-  ft20_guard_retire "$(ft20_root_of "${ROOT:-.}" 2>/dev/null)" "$OLD" "${ARG:-${FT_SEATS_JSON:-}}" || exit $?
-fi
+if [ "${RECONLY:-0}" = 0 ]; then _ft20h="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; if [ -f "$_ft20h/ft20-switch-lib.sh" ]; then . "$_ft20h/ft20-switch-lib.sh"; ft20_guard_retire "$(ft20_root_of "${ROOT:-.}" 2>/dev/null)" "$OLD" "${ARG:-${FT_SEATS_JSON:-}}" || exit $?; fi; fi
 python3 - "${ARG:-${FT_SEATS_JSON:-}}" "${ROOT:-.}" "$OLD" "$NEW" "$RECONLY" "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)" "$VERDICT" "$KEEP" <<'PY'
 import json, os, re, sys, glob, shutil, shlex, datetime, subprocess, collections
 arg, root, old, new, reconly, here, verdict, keep = sys.argv[1:9]

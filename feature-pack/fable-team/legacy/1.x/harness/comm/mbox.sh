@@ -207,9 +207,7 @@ case "$cmd" in
     done
     guard_check "$to" "${args[*]}" "$from" || exit $?   # rc 3 = REJECT(큐 적재 0) · 후계 전달·[합치기] 치환은 GUARD_TO·GUARD_BODY
     to="$GUARD_TO"; args=("$GUARD_BODY"); dbto="$(holder_of "$to")"
-    # r1675(ⓑⓓ) — 받는 좌석의 팀이 2.0 전환됨이면 우편함 쓰기 전에 멈추고 본문을 보류 폴더에 바이트 그대로 남긴다.
-    #   팀 판정 = 명부 스캔(arch #3917 ①): 어느 명부에도 없음 = 팀 없음 → 통과 + INFO · 명부 깨짐/2개 이상 = 판정 불가 rc3.
-    if ft20_switch_active "$FT20_ROOT"; then ft20_guard_seat "$FT20_ROOT" "$to" "${args[*]}" "$from" || exit $?; fi
+    if ft20_switch_active "$FT20_ROOT"; then ft20_guard_seat "$FT20_ROOT" "$to" "${args[*]}" "$from" || exit $?; fi   # r1675 ⓑⓓ — 받는 좌석 팀이 2.0 전환됨이면 쓰기 전 rc3 + 본문 보류
     case "${args[*]}" in "[레디]"*) dbto="$to";; esac   # [레디] = 은퇴한 옛 세션 앞 핸드셰이크 회신 — 현역(후계 자신) 말고 그 pane 을 깨운다(r1116 ②)
     case "${args[*]}" in "[인계]"*|"[레디]"*) dbf=1;; esac   # 승계 핸드셰이크 두 쪽지 = 발주처럼 doorbell 시간 억제를 뚫는다(r1160) · py --force(가드 우회)는 안 넘긴다
     # ★r1476 깨움 게이트 — 판정은 enqueue «전»★ (seq 는 py 가 그 뒤에 발급한다 · 판정에 seq 가 없다)

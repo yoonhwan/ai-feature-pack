@@ -16,7 +16,7 @@ mkdir -p "$RK/bin" "$R/.fable-team/state" "$R/design/aifp/indices/진행"
 cp -Rp "$COMM" "$RK/comm"
 for f in ft20-switch-lib.sh ft-team-switch.sh ft-index-move.sh ft-nano-spawn.sh ft-seat-retire.sh ft-successor-open.sh; do cp -p "$H/$f" "$RK/bin/$f"; done
 printf '{"_master":"fx-master#0","fx-nano#0":{"role":"nano","agent":"pi","tick":null}}\n' > "$R/.fable-team/seats-aifp.json"
-printf '{"_master":"fx-hmaster#0"}\n' > "$R/.fable-team/seats-harness.json"
+printf '{"_master":"fx-nano#0"}\n' > "$R/.fable-team/seats-harness.json"
 printf '# 카드\n- 상태: 진행\n' > "$R/design/aifp/indices/진행/c.md"
 printf 'body\n' > "$T/body.txt"
 export FT_FT20_ROOT="$R" FT_BIN="$RK/bin" FT_MBOX_DIR="$R/.fable-team/comm"
@@ -59,6 +59,12 @@ printf '{"bad' > "$R/.fable-team/seats-broken.json"
 ( . "$LIB"; ft20_guard_seat "$R" 'fx-nano#0' >"$T/o" 2>&1 ); ck "ⓑ 명부 깨짐 = 판정 불가 rc3" "$([ $? -eq 3 ] && grep -q '명부 못 읽음' "$T/o" && echo 0 || echo 1)"
 rm -f "$R/.fable-team/seats-broken.json"
 ( . "$LIB"; ft20_guard_seat "$R" 'nobody#0' >"$T/o" 2>&1 ); ck "ⓑ 명부에 없는 좌석 = 팀 없음 통과 rc0 + INFO" "$([ $? -eq 0 ] && grep -q '어느 명부에도 없음' "$T/o" && echo 0 || echo 1)"
+# ⓓ 같은 초·같은 보낸 좌석 2통 = 덮어쓰기 0(본문 유실 0 · arch #3922 ①)
+send "첫째-본문"; send "둘째-본문"
+cnt="$(ls "$R/.fable-team/state/ft20-switch"/aifp.held/*.txt 2>/dev/null | grep -c .)"
+one="$(grep -l '^첫째-본문$' "$R/.fable-team/state/ft20-switch"/aifp.held/*.txt 2>/dev/null | grep -c .)"
+two="$(grep -l '^둘째-본문$' "$R/.fable-team/state/ft20-switch"/aifp.held/*.txt 2>/dev/null | grep -c .)"
+ck "ⓓ 같은 초 2통 = 보류 ${cnt}개 · 앞 본문 살아 있음(one=${one} two=${two})" "$([ "$cnt" -ge 2 ] && [ "$one" -ge 1 ] && [ "$two" -ge 1 ] && echo 0 || echo 1)"
 mkdir -p "$R/.fable-team/state/ft20-switch/aifp.held.block"; rm -rf "$R/.fable-team/state/ft20-switch/aifp.held"; printf 'x' > "$R/.fable-team/state/ft20-switch/aifp.held"
 ( . "$LIB"; ft20_switch_guard "$R" aifp "본문" me >"$T/o" 2>&1 ); ck "ⓓ 보류 폴더 쓰기 실패 = rc3 + «보류 실패»" "$([ $? -eq 3 ] && grep -q '보류 실패' "$T/o" && echo 0 || echo 1)"
 rm -f "$R/.fable-team/state/ft20-switch/aifp.held"
@@ -72,6 +78,13 @@ bash "$RK/bin/ft-nano-spawn.sh" "$R/design/aifp/indices/진행/c.md" --agent pi 
 ck "ⓒ④ ft-nano-spawn rc=$rc (첫 게이트)" "$([ "$rc" = 3 ] && grep -q '2.0 전환됨' "$T/o" && echo 0 || echo 1)"
 bash "$RK/bin/ft-successor-open.sh" 'fx-nano#0' "$R" --name 'fx-nano#1' --agent pi --model deepseek-v4 --body-file "$T/body.txt" >"$T/o" 2>&1; rc=$?
 ck "ⓒ⑤ ft-successor-open rc=$rc (state/successor 쓰기 0)" "$([ "$rc" = 3 ] && [ ! -e "$R/.fable-team/state/successor" ] && echo 0 || echo 1)"
+# ⓒ③b --seats/FT_SEATS_JSON 로 명부 한 장만 줘도 «쓰기 대상 명부 전부» 검사(r465 `_*` 칸 · arch #3922 ②)
+bash "$SH" unmark aifp --h 8260 --root "$R" >/dev/null 2>&1
+bash "$SH" mark harness --h 9100 --root "$R" >/dev/null 2>&1
+bash "$RK/bin/ft-seat-retire.sh" 'fx-nano#0' 'fx-nano#1' --seats "$R/.fable-team/seats-aifp.json" >"$T/o" 2>&1; rc=$?
+ck "ⓒ③b --seats 한 장만 줘도 harness 명부(_master) 가드 rc=$rc" "$([ "$rc" = 3 ] && grep -q '팀 harness' "$T/o" && echo 0 || echo 1)"
+bash "$SH" unmark harness --h 9100 --root "$R" >/dev/null 2>&1
+bash "$SH" mark aifp --h 8260 --root "$R" >/dev/null 2>&1
 bash "$SH" unmark aifp --h 8260 --root "$R" >/dev/null 2>&1   # 되돌리면 다시 통과(표식 없는 팀)
 ( . "$LIB"; ft20_switch_guard "$R" aifp >"$T/o" 2>&1 ); ck "ⓑ unmark 뒤 rc0 복귀" $?
 # ── 변이 3종(사본에서만 · 실 파일 치환 0) ────────────────────────────────────
@@ -89,7 +102,7 @@ PYMUT
 mut M1 '  m="$(ft20_switch_marker "$root" "$team")"; [ -e "$m" ] || return 0' '  m="$(ft20_switch_marker "$root" "$team")"; return 0'
 ( . "$T/mut-M1/ft20-switch-lib.sh"; ft20_switch_guard "$R" aifp ) >"$T/o" 2>&1; rc=$?
 ck "M1 표식 확인 삭제 → 전환 팀 쓰기가 rc=${rc} 으로 새서 시험 FAIL" "$([ "$rc" = 3 ] && echo 1 || echo 0)"
-mut M2 'mkdir -p "$hd" && printf' 'true || printf'
+mut M2 '( set -C; printf '\''%s'\'' "$body" > "$base-$(printf '\''%02d'\'' "$n").txt" ) 2>/dev/null && held="$base-$(printf '\''%02d'\'' "$n").txt"' 'true'
 before="$(ls "$R/.fable-team/state/ft20-switch"/aifp.held/*.txt 2>/dev/null | wc -l | tr -d ' ')"
 ( . "$T/mut-M2/ft20-switch-lib.sh"; ft20_switch_guard "$R" aifp "보류될 본문" me ) >"$T/o" 2>&1; rc=$?
 after="$(ls "$R/.fable-team/state/ft20-switch"/aifp.held/*.txt 2>/dev/null | wc -l | tr -d ' ')"

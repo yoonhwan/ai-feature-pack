@@ -129,8 +129,7 @@ _seats_out="$(python3 "$HERE/ft_team_lib.py" seats-file "$ROOT" "$TEAM" 2>&1)"; 
 [ "$_seats_rc" = 0 ] || { echo "REJECT 팀 명단 판정 불가 — $_seats_out (루트 $ROOT)"; exit 1; }
 SEATS="$_seats_out"
 # r1675 — 그 팀 명부가 2.0 전환 팀이면 역할 좌석 개설(명부 쓰기) 전에 멈춘다 · 가드 = 같은 폴더 ft20-switch-lib.sh (arch #3917 누락 ①)
-if [ -f "$HERE/ft20-switch-lib.sh" ]; then . "$HERE/ft20-switch-lib.sh"; _ft20_r="$(ft20_root_of "${ROOT:-.}" 2>/dev/null)"; ft20_switch_guard "$_ft20_r" "$(ft20_team_of_file "$SEATS")" || exit $?;
-else echo "WARN ft20-switch-lib.sh 없음 — 팀 2.0 전환 표식 가드 0 (설치본에 bin/ft20-switch-lib.sh 필요)" >&2; fi
+if [ -f "$HERE/ft20-switch-lib.sh" ]; then . "$HERE/ft20-switch-lib.sh"; ft20_guard_roster "$(ft20_root_of "${ROOT:-.}" 2>/dev/null)" "$SEATS" || exit $?; else echo "WARN ft20-switch-lib.sh 없음 — 2.0 전환 표식 가드 0" >&2; fi
 . "$HERE/ft-team-lib.sh"   # R382b: 팀 폴더는 WT 의 design/TEAMS.md 폴더 칸으로(리터럴 0)
 [ "$FROM_SET" = 1 ] || FROM="$(ft_from_current "$FROM" "$SEATS" )"   # r730: 보내는 사람 = 명부 현역(같은 계보일 때만)
 TEAM_ROOT="$WT"; [ -n "${FT_ROOT:-}" ] && TEAM_ROOT="$ROOT"   # ★r1404★ FT_ROOT 를 준 경우 팀 폴더도 «데이터 루트» 에서 푼다 — kakao 는 cwd(데이터 루트)가 깃 최상위와 다르다(워크트리 안 하위 폴더)

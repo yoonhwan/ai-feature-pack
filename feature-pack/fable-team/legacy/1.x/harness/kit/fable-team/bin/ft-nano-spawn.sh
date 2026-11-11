@@ -21,15 +21,7 @@ while [ $# -gt 0 ]; do case "$1" in
 CO_ARGS=(); [ "$HAVE_CO" -eq 0 ] || { [ -n "${CO//[[:space:]]/}" ] || { echo "usage: --cherry-override \"<사유>\" — 사유가 비었다(사유 없는 우회 거부)" >&2; exit 2; }; CO_ARGS=(--override "$CO"); }
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 # r1675 — 카드 팀이 2.0 전환됨이면 spawn(워크트리·명부 행·카드 이동) 전에 멈춘다(첫 게이트). 표식 쓰기·지우기 = ft-team-switch.sh
-if [ -f "$HERE/ft20-switch-lib.sh" ]; then
-  . "$HERE/ft20-switch-lib.sh"
-  # 쓰는 자리가 둘이다(arch #3917 ③): ①명부 행 = env 팀(FT_TEAM)·FT_SEATS_JSON 명부 팀 ②카드 §상태 = 카드 경로 팀 · 하나라도 전환이면 rc3
-  _ft20_teams=()
-  [ -z "${FT_TEAM:-}" ] || _ft20_teams+=("$FT_TEAM")
-  case "$IDX" in */indices/*) _ft20_seg="${IDX%/indices/*}"; _ft20_teams+=("${_ft20_seg##*/}");; esac
-  [ -z "${FT_SEATS_JSON:-}" ] || { _ft20_t="$(ft20_team_of_file "$FT_SEATS_JSON")" && _ft20_teams+=("$_ft20_t"); }
-  ft20_switch_guard_multi "$(ft20_root_of "${IDX:-.}" 2>/dev/null)" ${_ft20_teams[@]+"${_ft20_teams[@]}"} || exit $?
-else echo "WARN ft20-switch-lib.sh 없음 — 팀 2.0 전환 표식 가드 0 (설치본에 bin/ft20-switch-lib.sh 필요)" >&2; fi
+if [ -f "$HERE/ft20-switch-lib.sh" ]; then . "$HERE/ft20-switch-lib.sh"; ft20_guard_spawn "$(ft20_root_of "${IDX:-.}" 2>/dev/null)" "${IDX:-}" "${FT_SEATS_JSON:-}" || exit $?; else echo "WARN ft20-switch-lib.sh 없음 — 2.0 전환 표식 가드 0 (설치본에 bin/ft20-switch-lib.sh 필요)" >&2; fi
 [ -f "$HERE/ft-heavy-slot-lib.sh" ] || { echo "REJECT ft-heavy-slot-lib.sh 없음: $HERE — 좌석 0"; exit 1; }; . "$HERE/ft-heavy-slot-lib.sh"   # r1286: 무거운 git 전역 자리(동시 2) — 없으면 조용한 통과 0
 _cmd_on="${FT_CMD_ENABLED:-0}"
 # ★일반화(2026-10-20 오빠 «ft-nano-spawn.sh 일반화 업그레이드»)★ — 티어는 «기본값 공급자»다: --agent 를 명시하면 티어가 에이전트·모델·effort·fast 를 덮어쓰지 않는다
