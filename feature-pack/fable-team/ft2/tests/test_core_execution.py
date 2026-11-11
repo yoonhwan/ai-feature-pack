@@ -54,6 +54,12 @@ def _ex(root, team=TEAM, cls=None, client=None, on_step=None):
 def _intake(root, capacity=8, cls=None):
     return (cls or intake.Intake)(str(root), TEAM, capacity=capacity)
 
+def _accept(root, *works, team=TEAM):
+    """r1632 ⓐ — 실행권(claim)은 접수 영수(accept 줄)가 있는 work 에만 선다(submit 1줄)."""
+    entry = intake.Intake(str(root), team)
+    for work in works:
+        assert entry.submit("c-" + work, "본문", work).result == OK
+
 def _state(node):
     return json.loads(Path(node.rs.state_path).read_text(encoding="utf-8"))
 
@@ -100,6 +106,7 @@ def _steps(node, work, holder, gen, index=0):
 
 def test_a_stale_generation_write_is_refused(tmp_path):
     node, entry = _ex(tmp_path / "t"), _intake(tmp_path / "t")
+    _accept(tmp_path / "t", "card-a")
     g1 = node.claim("card-a", "h1")
     assert node.start("card-a", "h1", g1.gen).result == OK
     g2 = node.claim("card-a", "h2", rotation=True)             # 구 실행자 종료·권한 회수 확인
@@ -111,6 +118,8 @@ def test_a_stale_generation_write_is_refused(tmp_path):
 
 def test_b_no_response_is_uncertain_and_not_regranted(tmp_path):
     node = _ex(tmp_path / "t")
+    _accept(tmp_path / "t", "card-a", "card-b")
+    _accept(tmp_path / "t", "card-a", team="other")
     grant = node.claim("card-a", "h1")
     node.start("card-a", "h1", grant.gen)
     held = node.mark_uncertain("card-a", "h1", grant.gen, "무응답", confirm_by="2026-11-10T10:10:00")
@@ -125,6 +134,7 @@ def test_b_no_response_is_uncertain_and_not_regranted(tmp_path):
 def test_c_effect_crash_is_uncertain_without_rerun(tmp_path):
     for step, ran in (("pre_effect", 0), ("post_effect", 1)):
         root = tmp_path / step
+        _accept(root, "card-a")
         assert _child("crash", root, step).returncode == 9
         node = _ex(root)
         first = node.claim("card-a", "h2")
@@ -136,6 +146,7 @@ def test_c_effect_crash_is_uncertain_without_rerun(tmp_path):
 def test_d_four_cards_busy_bound_and_strict_revision(tmp_path):
     root = str(tmp_path / "t")
     node = _ex(root)
+    _accept(root, *["card-%d" % index for index in range(CHILDREN)])
     procs = [_spawn("concurrent", root, index, ROUNDS) for index in range(CHILDREN)]
     [_wait(os.path.join(root, "ready-%d" % index)) for index in range(CHILDREN)]
     lock = node.rs._try_lock()                  # 1회차 = 부모가 잠금 점유 → 결정적 BUSY
@@ -149,10 +160,12 @@ def test_d_four_cards_busy_bound_and_strict_revision(tmp_path):
     assert (state["revision"], state["uncertain"]) == (len(records), {})
     for index, out in enumerate(outs):
         kinds = [rec["kind"] for rec in records if rec.get("work") == "card-%d" % index]
-        assert kinds == ["claim", "start", "effect", "result"] * (ROUNDS - out["busy"])
+        assert kinds == ["accept"] + ["claim", "start", "effect", "result"] * (ROUNDS - out["busy"])
 
 def test_e_lock_is_per_team_while_claim_is_busy(tmp_path):
     root = str(tmp_path / "t")
+    _accept(root, "card-a", team="team-a")
+    _accept(root, "card-a", team="team-b")
     holder = _spawn("hold", root, "team-a", 0.4)
     _wait(os.path.join(root, "held"))
     node_a, node_b = _ex(root, "team-a"), _ex(root, "team-b")
@@ -167,6 +180,7 @@ def test_e_lock_is_per_team_while_claim_is_busy(tmp_path):
 
 def test_f_result_words_stay_inside_contract(tmp_path):
     node = _ex(tmp_path / "t")
+    _accept(tmp_path / "t", "card-w")
     grant = node.claim("card-w", "h1")
     words = {grant.result, node.claim("card-w", "h1").result,
              node.result("card-w", "h1", grant.gen, word="완료").result}
@@ -205,12 +219,14 @@ def test_h_submit_is_busy_while_writer_lock_held(tmp_path):
 
 def test_i_submit_merges_state_instead_of_replacing(tmp_path):
     node = _ex(tmp_path / "t")
+    _accept(tmp_path / "t", "card-a")
     node.claim("card-a", "h1")
     revision = _state(node)["revision"]
     assert _intake(tmp_path / "t").submit("card-1", "본문-1").written
     state = _state(node)
     assert (state["generations"], "card-a" in state["owners"]) == ({"card-a": 1}, True)
-    assert (state["pending"], state["revision"], len(node.rs.records())) == (["card-1"], revision + 1, revision + 1)
+    assert (state["pending"], state["revision"], len(node.rs.records())) == \
+        (["c-card-a", "card-1"], revision + 1, revision + 1)
 
 def test_j_intake_reads_only_accept_kind(tmp_path):
     root = tmp_path / "t"
@@ -223,6 +239,7 @@ def test_j_intake_reads_only_accept_kind(tmp_path):
 def test_k_submit_and_execution_interleave(tmp_path):
     root = str(tmp_path / "t")
     node, entry = _ex(root), _intake(root)
+    _accept(root, "card-a", "work-z0", "work-z1")
     grant = node.claim("card-a", "h1")
     node.start("card-a", "h1", grant.gen)
     node.mark_uncertain("card-a", "h1", grant.gen, "무응답", confirm_by="2026-11-10T10:10:00")
@@ -234,26 +251,28 @@ def test_k_submit_and_execution_interleave(tmp_path):
     state, records = _state(node), node.rs.records()
     assert state["uncertain"]["card-a"]["confirm_by"] == "2026-11-10T10:10:00"
     assert (state["generations"], state["pending"]) == ({"card-a": 1, "work-z0": 1, "work-z1": 1},
-                                                        ["cmd-2", "cmd-1"])
+                                                        ["c-card-a", "c-work-z0", "c-work-z1", "cmd-2", "cmd-1"])
     assert [entry.lookup("cmd-%d" % index).result for index in (1, 2)] == [OK, OK]
     assert state["revision"] == len(records)
 
 def test_l_receive_and_claim_share_one_runtime(tmp_path):
     root = str(tmp_path / "t")
     node = _ex(root)                              # runtime 폴더를 먼저 만든다(자식이 같은 곳을 쓴다)
+    _accept(root, "work-0", "work-1")
     procs = [_spawn("receive", root, 2), _spawn("claim", root, 2)]
     [_wait(os.path.join(root, "ready-" + mode)) for mode in ("receive", "claim")]
     open(os.path.join(root, "go"), "w", encoding="utf-8").close()
     assert [proc.wait(timeout=25) for proc in procs] == [0, 0]
     state = _state(node)
     assert (state["revision"], sorted(state["pending"]), state["uncertain"]) == (
-        len(node.rs.records()), ["cmd-0", "cmd-1"], {})
+        len(node.rs.records()), ["c-work-0", "c-work-1", "cmd-0", "cmd-1"], {})
     assert state["generations"] == {"work-0": 1, "work-1": 1}
     assert [_intake(root).lookup("cmd-%d" % index).result for index in (0, 1)] == [OK, OK]
 
 def test_r1_same_generation_effect_is_not_rerun(tmp_path):
     """DA R1: 같은 gen 으로 다시 들어온 효과는 결과 미확정 보존 · 효과 누계 1회."""
     root = tmp_path / "t"
+    _accept(root, "card-a")
     assert _child("crash", root, "post_effect").returncode == 9
     again = _ex(root).effect("card-a", "h1", 1, "e1", run=lambda: _effects(root, "e1"))
     assert (again.result, again.stage) == (HOLD, "uncertain")
@@ -266,6 +285,7 @@ def test_r2_journal_generation_survives_checkpoint_crash(tmp_path):
     """DA R2: claim 의 journal 내구화 뒤 checkpoint 전 crash → 옛 gen 쓰기 거절(0)."""
     root = tmp_path / "t"
     node = _ex(root)
+    _accept(root, "card-a")
     g1 = node.claim("card-a", "h1")
     node.start("card-a", "h1", g1.gen)
     assert _child("rotate", root, "after_journal").returncode == 9
@@ -273,20 +293,21 @@ def test_r2_journal_generation_survives_checkpoint_crash(tmp_path):
     stale = node.result("card-a", "h1", g1.gen)
     assert (stale.result, stale.written) == (STALE, False)      # journal 의 gen2 가 유효본
     assert node.result("card-a", "h2", 2).result == OK
-    assert (len(node.rs.records()), _state(node)["revision"]) == (4, 4)
+    assert (len(node.rs.records()), _state(node)["revision"]) == (5, 5)
 
 
 def test_r2_intake_writer_keeps_recovered_revision(tmp_path):
     """DA R2 잔여: 같은 crash 뒤 «실제 Intake.submit» 도 journal 내구 revision·세대를 이어받는다."""
     root = tmp_path / "t"
     node = _ex(root)
+    _accept(root, "card-a")
     g1 = node.claim("card-a", "h1")
     node.start("card-a", "h1", g1.gen)
     assert _child("rotate", root, "after_journal").returncode == 9
     receipt = _intake(root).submit("c-1", "본문-1")
     state, records = _state(node), node.rs.records()
     assert (receipt.result, receipt.written) == (OK, True)
-    assert (len(records), state["revision"]) == (4, 4)          # 내구 3줄 + submit 1줄
+    assert (len(records), state["revision"]) == (5, 5)          # 영수 1 + 내구 3줄 + submit 1줄
     assert (state["generations"], state["owners"]["card-a"]["gen"]) == ({"card-a": 2}, 2)
     assert node.result("card-a", "h1", g1.gen).result == STALE  # 이후에도 옛 gen 은 거절
 
@@ -336,12 +357,14 @@ class _NoKindFilter(intake.Intake):               # M9: 입구 판독이 kind �
 
 def test_m1_without_generation_check_old_owner_writes(tmp_path):
     node = _ex(tmp_path / "t", cls=_NoGenCheck)
+    _accept(tmp_path / "t", "card-a")
     g1 = node.claim("card-a", "h1")
     node.claim("card-a", "h2", rotation=True)
     assert node.result("card-a", "h1", g1.gen).result == OK
 
 def test_m2_uncertain_is_regranted(tmp_path):
     node = _ex(tmp_path / "t", cls=_GrantOnUncertain)
+    _accept(tmp_path / "t", "card-a")
     grant = node.claim("card-a", "h1")
     node.start("card-a", "h1", grant.gen)
     node.mark_uncertain("card-a", "h1", grant.gen, "무응답", confirm_by="2026-11-10T10:10:00")
@@ -349,6 +372,7 @@ def test_m2_uncertain_is_regranted(tmp_path):
 
 def test_m3_crash_effect_runs_again(tmp_path):
     root = tmp_path / "t"
+    _accept(root, "card-a")
     assert _child("crash", root, "post_effect").returncode == 9
     node = _ex(root, cls=_RerunAfterCrash)
     grant = node.claim("card-a", "h2")
@@ -357,6 +381,7 @@ def test_m3_crash_effect_runs_again(tmp_path):
 
 def test_m4_blocking_lock_loses_busy(tmp_path):
     root = str(tmp_path / "t")
+    _accept(root, "card-a")
     holder = _spawn("hold", root, TEAM, 0.3)
     _wait(os.path.join(root, "held"))
     grant = _ex(root, client=_BlockingLock).claim("card-a", "h1")
@@ -385,14 +410,16 @@ def test_m7_submit_without_lock_writes_during_hold(tmp_path):
 def test_m8_state_replacement_drops_generation(tmp_path):
     root = tmp_path / "t"
     node = _ex(root)
+    _accept(root, "card-a")
     node.claim("card-a", "h1")
     _intake(root, cls=_ReplaceState).submit("card-1", "본문-1")
     assert "card-a" not in _state(node).get("generations", {})
 
 def test_m9_execution_lines_count_as_accept(tmp_path):
     root = tmp_path / "t"
+    _accept(root, "work-x")
     _ex(root).claim("work-x", "h1")
-    assert _intake(root, capacity=1, cls=_NoKindFilter).submit("work-x", "본문").result != OK
+    assert _intake(root, capacity=2, cls=_NoKindFilter).submit("work-x", "본문").result != OK
 
 def _child_main(argv):
     mode, root, rest = argv[0], argv[1], argv[2:]

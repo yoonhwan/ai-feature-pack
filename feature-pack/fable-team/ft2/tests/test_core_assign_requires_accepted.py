@@ -60,14 +60,15 @@ def test_c_accepted_work_ok_other_refused(tmp_path):
 
 
 def test_d_refused_work_deliver_claim_unchanged(tmp_path):
-    """ⓓ 접수 거부된 work 의 deliver·claim = 지금 판 그대로(이 카드는 배정 입구만 본다)."""
+    """ⓓ 접수 거부된 work 의 deliver = 그대로 · claim 은 r1632 부터 «접수 영수 없음» = 접수 거부(쓰기 0)."""
     node = _node(tmp_path)
     assert node.assign("W3", "h1", evidence=EV).result == REFUSED
     deliver = node.deliver("W3")
     assert (deliver.result, deliver.written, deliver.stage) == (HOLD, False, "no-intent")
+    before = _bytes(node)
     claim = node.ex.claim("W3", "h1")
-    assert (claim.result, claim.written, claim.gen) == (OK, True, 1)
-    assert _bytes(node) != tuple(b"" for _ in range(2))                     # claim 은 쓴다(관측 1줄)
+    assert (claim.result, claim.written, claim.gen) == (REFUSED, False, None)   # r1632 ⓐ
+    assert _bytes(node) == before                                              # 영수 없으면 쓰지 않는다
 
 
 class _NoAcceptCheck(Dispatch):
