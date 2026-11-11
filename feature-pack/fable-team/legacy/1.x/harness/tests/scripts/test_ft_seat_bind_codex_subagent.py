@@ -119,6 +119,16 @@ def test_i_array_parent_is_judged_not_traceback(tmp_path: Path, monkeypatch: pyt
     assert (r["rc"], r["reason"]) == (1, "subagent 부모 불일치")
 
 
+def test_j_array_subagent_id_is_judged_not_traceback(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # id 가 배열이면 subs 키 해시(TypeError) 대신 판정 1줄
+    mod, w = _load(), World(tmp_path)
+    w.rollout(MAIN)
+    w.rollout("sub", "subagent", OTHER, raw=json.dumps({"type": "session_meta", "payload": {
+        "id": ["01a0"], "cwd": "/tmp/w", "thread_source": "subagent", "parent_thread_id": OTHER}}))
+    r = w.bind(monkeypatch, mod)  # 보정 전엔 TypeError(unhashable) → 이 줄에서 FAIL
+    assert (r["rc"], r["reason"]) == (1, "subagent 부모 불일치")
+
+
 def test_g_bind_codex_body_identical_in_four_copies() -> None:
     def body(rel: str) -> str:
         text = (HARNESS / rel).read_text(encoding="utf-8")
