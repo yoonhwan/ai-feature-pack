@@ -29,6 +29,8 @@ else:
     old = {"role": "stop-ready", "_replaced_by": n, "_retired_role": "arch"}
     new = {"role": "arch", "agent": "claude", "_replaces": [o]}
     if mode == "noreplicates": new.pop("_replaces")
+    if mode == "reples_str": new["_replaces"] = o + "0"   # 부분 문자열 일치 반례
+    if mode == "reples_dict": new["_replaces"] = {o: False}   # 키 일치 반례
     if mode == "retired": new["_replaced_by"] = "x#9"   # 후계가 이미 은퇴
     d = {"_master": "M#1", "M#1": {"role": "master"}, o: old, n: new}
 open(p, "w", encoding="utf-8").write(json.dumps(d, ensure_ascii=False))
@@ -48,6 +50,14 @@ echo "== ⓑ 후계 _replaces 에 옛 좌석 없음 → held rc 3 · 옛 세션 
 fresh; mkseats noreplicates; mksess "$O"; mksess "$N"; : > "$TMP/resume/$O.json"; run "$O"
 chk "ⓑ rc3 · kill=held" "$rc $(first | grep -c 'kill=held')" "3 1"
 chk "ⓑ 옛 세션 살아 있음" "$(up "$O")" up
+
+echo "== ⓑ2 _replaces 가 문자열 → held rc 3 (부분 문자열 일치 금지 · DA R1)"
+fresh; mkseats reples_str; mksess "$O"; mksess "$N"; : > "$TMP/resume/$O.json"; run "$O"
+chk "ⓑ2 rc3 · kill=held · 옛 세션 살아 있음" "$rc $(first | grep -c 'kill=held') $(up "$O")" "3 1 up"
+
+echo "== ⓑ3 _replaces 가 객체 → held rc 3 (키 일치 금지 · DA R1)"
+fresh; mkseats reples_dict; mksess "$O"; mksess "$N"; : > "$TMP/resume/$O.json"; run "$O"
+chk "ⓑ3 rc3 · kill=held · 옛 세션 살아 있음" "$rc $(first | grep -c 'kill=held') $(up "$O")" "3 1 up"
 
 echo "== ⓒ 후계 tmux 세션 없음 → held rc 3"
 fresh; mkseats normal; mksess "$O"; : > "$TMP/resume/$O.json"; run "$O"
@@ -87,7 +97,8 @@ check_mut() {  # check_mut <이름> <사례 모드> <세션2개 y/n> <재개기�
   CL="$5" run "$O"
   case "$rc:$(first)" in 0:CLOSED-SESSION*kill=ok*) ok "변이 $1 → $2 를 닫아 버림(시험 검출)";; *) bad "변이 $1 → $2 여전히 held (rc=$rc)";; esac
 }
-M1="$(mut M1 'seat not in (nxt.get("_replaces") or [])' 'False')" && check_mut M1 noreplicates y y "$M1"
+M1="$(mut M1 'or not isinstance(nxt.get("_replaces"), list) or seat not in nxt["_replaces"]' '')" && check_mut M1 noreplicates y y "$M1"
+M5="$(mut M5 'not isinstance(nxt.get("_replaces"), list)' 'False')" && check_mut M5 reples_str y y "$M5"
 M2="$(mut M2 'tmux has-session -t "=$n" 2>/dev/null || return 1' ':')" && check_mut M2 normal n y "$M2"
 M3="$(mut M3 '[ -f "$RECF" ] || return 1' ':')" && check_mut M3 normal y n "$M3"
 M4="$(mut M4 'or nxt.get("_replaced_by")' 'or False')" && check_mut M4 retired y y "$M4"

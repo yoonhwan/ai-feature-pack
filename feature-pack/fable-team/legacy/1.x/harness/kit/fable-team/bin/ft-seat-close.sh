@@ -112,6 +112,7 @@ lineage_ok() {
   [ "$up" -ge 2 ] || { [ "$up" -ge 1 ] && [ -f "$rec" ]; }
 }
 # r1691 — 이름 접두가 바뀐 승계(byz-aifp-arch-pi#0 → aifp-ft-arch-pi#0): 옛 행 _replaced_by=N(비어 있지 않은 문자열) ∧ 같은 파일 N 행 있음 ∧ 그 행 _replaces 에 옛 좌석 ∧ N 행에 _replaced_by 없음(현역) ∧ tmux "=N" 생존 ∧ 재개 기록($RECF) 있음 — «모두» 설 때만 같은 표준 닫기.
+#   _replaces 는 list 일 때만·원소 정확 일치만(문자열 "… #00"·객체 {좌석:false} = 꼴 불일치 → held · DA R1).
 #   넓히는 쪽이라 모르면 닫지 않는다(명부 읽기·꼴 불일치·tmux 조회 실패 = 거짓 · held 그대로 · 하드 룰 2). 통과하면 결과 줄 끝에 lineage=renamed:<N>.
 renamed_ok() {
   local n
@@ -123,7 +124,7 @@ except (OSError, ValueError): sys.exit(1)
 o = d.get(seat) if isinstance(d, dict) else None
 n = o.get("_replaced_by") if isinstance(o, dict) else None
 nxt = d.get(n) if isinstance(n, str) and n else None
-if not isinstance(nxt, dict) or nxt.get("_replaced_by") or seat not in (nxt.get("_replaces") or []): sys.exit(1)
+if not isinstance(nxt, dict) or nxt.get("_replaced_by") or not isinstance(nxt.get("_replaces"), list) or seat not in nxt["_replaces"]: sys.exit(1)   # 리스트일 때만 · 원소 정확 일치(문자열·객체는 꼴 불일치 = held)
 print(n)
 PY2
 )" || return 1
