@@ -15,6 +15,12 @@ source "$DIR/mbox_wakebudget.sh"
 source "$DIR/mbox_wakegate.sh"
 # 수신자 판정(은퇴·닫힌 좌석 REJECT)·planner 앞 허용 머리 = 같은 폴더 mbox_guard.sh (N3 · 판정 1070·1079) — 200줄 규칙 분리
 source "$DIR/mbox_guard.sh"
+# ★r1675 팀 2.0 전환 표식 가드★ — 표식이 있는 팀의 우편함에 쓰려 하면 쓰기 전에 rc3 · 막힌 본문은 보류 폴더에 남긴다(ⓓ).
+#   lib 부재 = 설치본이 낡음이므로 «조용히 넘기지 않는다» — stderr 1줄 + 가드 0(구 동작). 설치 = bin/ft20-switch-lib.sh 짝.
+FT20_LIB="${FT_BIN:-$DIR/../bin}/ft20-switch-lib.sh"
+if [ -f "$FT20_LIB" ]; then . "$FT20_LIB"; else echo "WARN ft20-switch-lib.sh 없음 — 팀 2.0 전환 표식 가드 0 (설치본에 bin/ft20-switch-lib.sh 필요): $FT20_LIB" >&2; ft20_switch_active() { return 1; }; ft20_guard_seat() { return 0; }; fi
+# 우편함 루트 = <데이터 루트>/.fable-team/comm → 그 위 두 칸(심링크는 물리경로로 풀어 공유 표식을 본다 · 시험은 FT_FT20_ROOT)
+FT20_ROOT="${FT_FT20_ROOT:-$(cd "$DIR/../.." 2>/dev/null && pwd -P)}"
 # ★알림 여부는 «보내는 사람»이 아니라 «레지스트리»가 정한다★ (2026-09-14 · 하네스 업그레이드 §2-2 · 오빠 결정 Q1)
 #   실측: --no-notify 를 틱 없는 좌석(arch-fable#40)에 써서 4틱 무응답(CLAUDE.md STRUCTURAL FIX).
 #   HARNESS-TREE 는 「좌석→master 는 무음」, CLAUDE.md 는 「틱 없는 좌석엔 금지」 — 둘 다 맞고
@@ -201,6 +207,9 @@ case "$cmd" in
     done
     guard_check "$to" "${args[*]}" "$from" || exit $?   # rc 3 = REJECT(큐 적재 0) · 후계 전달·[합치기] 치환은 GUARD_TO·GUARD_BODY
     to="$GUARD_TO"; args=("$GUARD_BODY"); dbto="$(holder_of "$to")"
+    # r1675(ⓑⓓ) — 받는 좌석의 팀이 2.0 전환됨이면 우편함 쓰기 전에 멈추고 본문을 보류 폴더에 바이트 그대로 남긴다.
+    #   팀 판정 = 명부 스캔(arch #3917 ①): 어느 명부에도 없음 = 팀 없음 → 통과 + INFO · 명부 깨짐/2개 이상 = 판정 불가 rc3.
+    if ft20_switch_active "$FT20_ROOT"; then ft20_guard_seat "$FT20_ROOT" "$to" "${args[*]}" "$from" || exit $?; fi
     case "${args[*]}" in "[레디]"*) dbto="$to";; esac   # [레디] = 은퇴한 옛 세션 앞 핸드셰이크 회신 — 현역(후계 자신) 말고 그 pane 을 깨운다(r1116 ②)
     case "${args[*]}" in "[인계]"*|"[레디]"*) dbf=1;; esac   # 승계 핸드셰이크 두 쪽지 = 발주처럼 doorbell 시간 억제를 뚫는다(r1160) · py --force(가드 우회)는 안 넘긴다
     # ★r1476 깨움 게이트 — 판정은 enqueue «전»★ (seq 는 py 가 그 뒤에 발급한다 · 판정에 seq 가 없다)
@@ -263,6 +272,7 @@ case "$cmd" in
     done
     guard_check "$to" "${args[*]}" "$from" "$file" || { _rc=$?; guard_tmp_clean; exit $_rc; }
     to="$GUARD_TO"; args=("$GUARD_BODY"); dbto="$(holder_of "$to")"
+    if ft20_switch_active "$FT20_ROOT"; then ft20_guard_seat "$FT20_ROOT" "$to" "${args[*]}" "$from" || exit $?; fi   # r1675 ⓑⓓ — relay 도 같은 자리(ready·handover 는 send 를 타므로 이 가드가 덮는다)
     [ -z "$GUARD_TMP" ] || trap guard_tmp_clean EXIT   # 검사 사본 폴더는 끝에 지운다
     [ -z "$GUARD_FILE" ] || file="$GUARD_FILE"          # 대상 relay 는 «검사한 그 사본» 만 전달한다(R362 · 사본 실패는 가드가 REJECT — 원본 후퇴 0)
     # ★r1476 깨움 게이트 — relay 도 send 와 «같은» 판정을 먼저 한다★

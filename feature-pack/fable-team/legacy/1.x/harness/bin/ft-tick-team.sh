@@ -96,6 +96,8 @@ heir_of() {
 # retarget_seat <dead> <heir_n>: seats 파일에서 dead 행 tick→null·_replaced_by=heir, heir 행(없으면 신설)에 dead 의 tick·role 부여. 백업 1개 남긴다.
 #   rc 3 = heir 행이 이미 은퇴(_replaced_by) — 명부 쓰기 0(R27). _master 는 «_master == dead» 일 때만 같은 dump 안에서 heir 로.
 retarget_seat() {
+  # r1675 — 그 명부가 2.0 전환 팀이면 한 줄 교체 전에 멈춘다(arch #3917 누락 ②) · rc3 = 쓰기 0
+  if [ -f "$HERE/ft20-switch-lib.sh" ]; then . "$HERE/ft20-switch-lib.sh"; _ft20_r="$(ft20_root_of "${ROOT:-${WT:-.}}" 2>/dev/null)"; ft20_switch_guard "$_ft20_r" "$(ft20_team_of_file "$SEATS")" || return $?; fi
   python3 - "$SEATS" "$1" "${1%#*}#$2" <<'PY'
 import json, sys, datetime, shutil
 p, dead, heir = sys.argv[1:4]
