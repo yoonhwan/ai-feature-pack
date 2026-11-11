@@ -97,6 +97,34 @@ raise SystemExit(0 if ok else 1)
 PY
 _p8=$?   # python 검사 결과를 «바로» 잡는다(전에는 $? 가 앞 [ ] 결과라 헛 PASS)
 [ "$RC" = 0 ] && [ "$_p8" = 0 ] && ok "⑧ 명부 꼴 보존(indent 2 · 끝 줄바꿈) · 다른 키 변화 0" || bad "⑧" "rc=$RC py=$_p8"
+# R1(DA) — FT_SEATS_JSON 없이 «팀 명단» 으로 명부를 찾아도 index 가 따라간다(전에는 IDX_ROOT 를 넘겨 0석)
+R9b="$(mkroot h8 harness byz-harness-nano-t)"; S9b='byz-harness-nano-t#0'
+roster "$R9b" harness "$S9b" nano "$H/대기/A.md"
+mv_ "$R9b" "" "$A" "$S9b"
+[ "$RC" = 0 ] && [ "$(rown "$R9b/.fable-team/seats-harness.json" "$S9b")" = "$H/진행/A.md|$H/대기/A.md" ] \
+  && ok "R1 팀 명단으로 명부를 찾아 index 진행/A(FT_SEATS_JSON 없이)" || bad "R1" "rc=$RC $(rown "$R9b/.fable-team/seats-harness.json" "$S9b") :: $OUT"
+# R2(DA) — 같은 명부를 두 좌석이 갱신해도 서로 덮지 않는다(명부 잠금)
+R10="$(mkroot h9 harness byz-harness-nano-m)"; S10a='byz-harness-nano-m#0'; S10b='byz-harness-nano-m#1'
+python3 - "$R10/.fable-team/seats-harness.json" "$S10a" "$S10b" "$H/대기/A.md" <<'PY'
+import json, sys
+p, a, b, idx = sys.argv[1:5]
+json.dump({"_master": "byz-harness-master-pi#1", a: {"role": "nano", "index": idx}, b: {"role": "nano", "index": idx}},
+          open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+PY
+card "$R10" harness D; card "$R10" harness E
+mv_ "$R10" "$R10/.fable-team/seats-harness.json" "$H/대기/D.md" "$S10a"
+mv_ "$R10" "$R10/.fable-team/seats-harness.json" "$H/대기/E.md" "$S10b"
+A10="$(rown "$R10/.fable-team/seats-harness.json" "$S10a")"; B10="$(rown "$R10/.fable-team/seats-harness.json" "$S10b")"
+[ "$A10" = "$H/진행/D.md|$H/대기/A.md" ] && [ "$B10" = "$H/진행/E.md|$H/대기/A.md" ] \
+  && ok "R2 두 좌석 차례로 갱신 → 서로 안 덮음(둘 다 보존)" || bad "R2 직렬" "a=$A10 b=$B10"
+mkdir "$R10/.fable-team/seats-harness.json.lock"   # 다른 프로세스가 잡고 있는 꼴
+card "$R10" harness F
+s0=$SECONDS; mv_ "$R10" "$R10/.fable-team/seats-harness.json" "$H/대기/F.md" "$S10a"
+[ "$RC" != 0 ] && case "$OUT" in *"잠금 선점 실패"*) true;; *) false;; esac \
+  && ok "R2 잠금을 못 얻으면 rc≠0 판정 불가($((SECONDS-s0))초)" || bad "R2 잠금" "rc=$RC :: $OUT"
+rmdir "$R10/.fable-team/seats-harness.json.lock"
+card "$R10" harness G; mv_ "$R10" "$R10/.fable-team/seats-harness.json" "$H/대기/G.md" "$S10a"
+[ "$RC" = 0 ] && ok "R2 원본 대조: 잠금이 풀리면 갱신된다" || bad "R2 대조" "rc=$RC :: $OUT"
 # 변이 W1~W3 (사본 · 원본 대조)
 mut() { R="$T/m-$1"; rm -rf "$R"; mkdir -p "$R"; cp "$BIN"/* "$R/" 2>/dev/null; printf '#!/bin/sh\nexit 0\n' > "$R/ft-index-lint.sh"; python3 - "$R/ft-index-move.sh" "$1" <<'PY'
 import pathlib, sys

@@ -30,7 +30,8 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 seat_roster() {  # r1705 <root> — 좌석 명부 파일(FT_SEATS_JSON 이 이김 · 없으면 카드 팀 명부 하나) — nano_close_card 와 «같은» 한 함수
   local root="$1" seats="${FT_SEATS_JSON:-}" t hits=()
   if [ -z "$seats" ] && . "$HERE/ft-team-lib.sh" 2>/dev/null; then
-    while IFS= read -r t; do [ -n "$t" ] && FT_REPO_ROOT="$IDX_ROOT" ft_team_has "$t" "$IDX_ROOT/" indices/ 2>/dev/null && hits+=("$t"); done < <(FT_REPO_ROOT="$IDX_ROOT" ft_team_names 2>/dev/null)
+    local rr; rr="$(git -C "$IDX_ROOT" rev-parse --show-toplevel 2>/dev/null)"; [ -n "$rr" ] || rr="$IDX_ROOT"   # R1: 팀 명단은 리포 루트 기준
+    while IFS= read -r t; do [ -n "$t" ] && FT_REPO_ROOT="$rr" ft_team_has "$t" "$IDX_ROOT/" indices/ 2>/dev/null && hits+=("$t"); done < <(FT_REPO_ROOT="$rr" ft_team_names 2>/dev/null)
     [ "${#hits[@]}" = 1 ] && { seats="$root/.fable-team/seats-${hits[0]}.json"; [ "${hits[0]}" != v65 ] || seats="$root/.fable-team/seats.json"; }
   fi
   printf '%s' "$seats"
@@ -44,6 +45,8 @@ seat_index_follow() {  # r1705 <좌석> <새 카드 절대경로> — 재사용 
   if [ -n "${FT_SEATS_JSON:-}" ] && [ ! -f "$seats" ]; then echo "REJECT 명부 없음(FT_SEATS_JSON=$seats) — 명부 쓰기 0"; return 1; fi   # r1705 ⓐ: 명시한 명부가 없으면 판정 불가(하드 룰 20)
   [ -n "$seats" ] && [ -f "$seats" ] || { echo "INFO 명부 index 손 0 — 팀 명부 못 풂(${seats:-없음})"; return 0; }
   rel="${new#"$root"/}"
+  local lk="${seats}.lock" i=0
+  until mkdir "$lk" 2>/dev/null; do i=$((i+1)); [ "$i" -le 50 ] || { echo "REJECT 명부 잠금 선점 실패($lk) — 명부 쓰기 0(판정 불가)"; return 1; }; sleep 0.1; done   # R2: 동시 갱신 직렬화
   python3 - "$seats" "$seat" "$rel" <<'PY'
 import json, os, sys
 p, seat, rel = sys.argv[1:4]
@@ -64,6 +67,7 @@ except OSError as e:
     print("REJECT 명부 쓰기 실패(%s): %s — 되돌림: 카드는 이미 이동했다" % (p, e)); sys.exit(1)
 print("SEAT-INDEX %s → %s" % (seat, rel))
 PY
+  local prc=$?; rmdir "$lk" 2>/dev/null; return "$prc"
 }
 landed_marker_re() { printf '(닫힘|CLOSE)[[:space:]]*—[[:space:]]*%s[[:space:]]*—[[:space:]]*main' "$1"; }
 [ ! -f "$HERE/ft-team-lib.sh" ] || ( . "$HERE/ft-team-lib.sh" && ft_card_location_ok "$SRC" ) || exit 1   # r447: 명단 새 꼴 팀 카드가 옛 꼴 폴더면 REJECT(이동 0)
