@@ -22,6 +22,7 @@
   - ⓑ 쓰기 입구 가드 1함수: 표식이 있는 팀의 데이터에 쓰려 하면 쓰기 전에 «REJECT 팀 <팀> 은 2.0 전환됨(<switched_at> · h<번호>) — 1.x 쓰기 0» 1줄 + rc3 · 표식 없는 팀 = 지금 동작 그대로 · 표식 파일을 못 읽음(깨진 JSON·권한) = «판정 불가» rc3(쓰기 0 · 하드 룰 20)
   - ⓒ 쓰기 입구 표: 나노가 먼저 팩 legacy/1.x/harness/bin 에서 seats-*.json · design/*/indices/ · mailbox.jsonl 에 쓰는 도구를 뽑아 표 1장(도구 · 쓰는 자리 · 팀 결정 방법)으로 arch 에 보낸다 → arch 확인 뒤 가드를 넣는다 · 후보 = mbox.sh(send·ring·handover · 받는 좌석의 팀) · ft-index-move.sh · ft-nano-spawn.sh · ft-seat-retire.sh · ft-successor-open.sh · 닫기 도구(ft-nano-close·ft-seat-close)는 표에서 뺀다
   - ⓓ 새 입력 보존: mbox send 가 ⓑ 로 막히면 본문을 `<데이터 루트>/.fable-team/state/ft20-switch/<팀>.held/<ts>-<from>.txt` 에 바이트 그대로 남기고 그 경로를 REJECT 줄에 적는다 · 보류 파일 쓰기 실패 = rc3 + «보류 실패» (조용한 유실 0)
+  - ⓓ 범위: «바이트 그대로» = mbox_guard 정규화(ALIAS 머리 바꿈·첫 줄 교체) 뒤 본문이다. 보낸 원문 바이트와 다를 수 있다(arch 인수 #3921 ④)
   - ⓔ 회귀: 표식 0 일 때 test_seat_retire*.sh · mbox 시험 · index-move 시험 FAIL 줄이 앞 판과 같다(늘어난 FAIL 0)
 - 변이(나노 · 사본에서만): M1 가드의 표식 확인 삭제 → 전환 팀 쓰기 사례가 rc0 으로 새서 FAIL · M2 보류 쓰기 삭제 → ⓓ 보류 파일 0 으로 FAIL · M3 깨진 표식을 «없음» 으로 침 → 판정 불가 사례 FAIL
 - 규칙: 없음 — 상시 로드 변경 0
