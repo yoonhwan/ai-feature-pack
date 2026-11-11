@@ -221,3 +221,30 @@ def test_max_delay_sends_even_when_the_seat_is_never_idle(world):  # DA 단계 2
     state['latest'](seat='qa#1', terminal=turn, first_seen_at=T0 - 100)  # 상한 안 = 종전 디바운스 그대로
     state['now'] = T0 + 10
     assert check.check() == 'IDLE_DEBOUNCE' and state['enters'] == 1
+
+
+def test_legacy_latest_without_seat_counts_as_target_change(world):  # DA 단계 2 R2①
+    base, state = world
+    state['roster']('qa#1')
+    state['config']()
+    state['latest'](sent_terminal=iso(T0), pending_offset=7, pending_sha='x')  # 구판 = seat 칸 없음
+    state['now'] = T0 + 10
+    check.check()
+    after = saved(base)
+    assert after['seat'] == 'qa#1'
+    assert after['pending_offset'] is None and after['pending_sha'] is None and after['sent_terminal'] is None
+
+
+def test_first_seen_survives_rounds_before_the_first_send(world):  # DA 단계 2 R2②
+    base, state = world
+    state['roster']('qa#1')
+    state['config']()
+    # 좌석은 계속 깨서 유휴가 300초를 못 넘는다 (5분 점검·쪽지). 회차마다 rollout 끝 시각이 새로 붙는다.
+    for step in (0, 120, 240, 360, 480, 600):
+        state['now'] = T0 + step
+        with state['rollout'].open('a', encoding='utf-8') as stream:
+            stream.write(json.dumps({'type': 'event_msg', 'timestamp': iso(T0 + step),
+                                     'payload': {'type': 'user_message', 'message': 'wake %d' % step}}) + '\n')
+        status = check.check()
+    assert status != 'IDLE_DEBOUNCE' and state['enters'] + state['typed'] >= 1  # 600초 상한이면 보낸다
+    assert saved(base)['first_seen_at'] <= T0 + 0.5

@@ -308,7 +308,8 @@ def check():
     if problem is not None:  # 송신 0 + error 1줄 · 예외로 회차를 죽이지 않는다 (RuntimeError 0)
         save(BASE / 'error.json', {'at': time.time(), 'status': problem[0], 'error': problem[1][:1000]})
         return finish(problem[0])
-    if old.get('seat') and old['seat'] != seat:  # r1666 ⓕ (seat 칸 없는 옛 상태 = 첫 회차 · 비울 것 없음): 대상이 바뀌면 «그 좌석의 입력 위치» 만 비운다 (사건 이력은 이월)
+    if old.get('seat') != seat:  # r1666 ⓕ: 대상이 바뀌면 «그 좌석의 입력 위치» 만 비운다 (사건 이력은 이월)
+        # seat 칸 없는 구판 latest 도 «대상 바뀜» 이다 — 옛 좌석의 위치 값이 새 좌석에 뜻이 없다 (DA 단계 2 R2①)
         result.update(pending_offset=None, pending_sha=None, sent_terminal=None)
     cfg['seat'] = seat
     core = Path(cfg['core']).read_text(encoding='utf-8')
@@ -348,10 +349,10 @@ def check():
         raise RuntimeError('agent not verified')
     events, size = read_events(cfg['rollout'])
     state, terminal, _, _, why = judge(events)
-    if old.get('seat') == seat and old.get('terminal') == terminal and old.get('first_seen_at'):
-        result['first_seen_at'] = old['first_seen_at']  # 같은 턴을 계속 미루는 중 = 처음 본 시각 유지
-    else:
-        result['first_seen_at'], result['terminal'] = time.time(), terminal
+    result['terminal'] = terminal  # r1666 R2②: 매 회차 저장한다 (빠지면 다음 회차가 턴을 새로 봐서 상한이 안 쌓인다)
+    same_turn = old.get('seat') == seat and old.get('terminal') in (None, terminal)
+    result['first_seen_at'] = (old.get('first_seen_at') if same_turn and old.get('first_seen_at')
+                               else time.time())  # 같은 턴을 계속 미루는 중 = 처음 본 시각 유지
     result.update(read_bytes=size, state=state, reason=why, pane=pane)
     capture = run(['tmux', 'capture-pane', '-pt', pane, '-S', '-25'])
     ours = exact_input(capture, message)
