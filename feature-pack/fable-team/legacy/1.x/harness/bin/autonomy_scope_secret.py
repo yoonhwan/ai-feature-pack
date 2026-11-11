@@ -224,10 +224,10 @@ NON_SHELL_INTERP = ("python", "python2", "python3", "pypy3", "node", "deno", "bu
 
 def non_shell_shebang(full):   # r1645: 셔뱅 해석기가 «셸 아님이 확실» 한가 — 판단 못 하면 False(셸로 본다 · 닫힌 쪽)
     words = (full or "").split("\n", 1)[0][2:].split()
-    if words and words[0].rsplit("/", 1)[-1] == "env":   # env = 옵션(-)·이름=값 을 빼고 첫 낱말이 해석기
-        if "-S" in words[1:]:
-            return False                        # env -S = 문자열 분해 — 판단 못 함
-        words = [w for w in words[1:] if not w.startswith("-") and "=" not in w]
+    if words and words[0].rsplit("/", 1)[-1] == "env":   # env = 이름=값 만 빼고 첫 낱말을 해석기로 본다
+        if any(w.startswith("-") for w in words[1:]):
+            return False                                  # -S·-u·-C·-P = 인자를 먹는 옵션 — 판단 못 함(셸)
+        words = [w for w in words[1:] if "=" not in w]
     name = words[0].rsplit("/", 1)[-1] if words else ""
     return name in NON_SHELL_INTERP or re.fullmatch(r"python3\.\d+", name) is not None
 
