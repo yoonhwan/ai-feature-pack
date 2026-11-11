@@ -5,6 +5,8 @@
 #   랜딩 브랜치 ref = env FT_LAND_REF(기본 origin/main) · 검사 전 fetch 하지 않는다 · 검사를 끄는 값 없음.
 #   r937: 착지 리포 판정 = ft_landed_repo(ft-team-lib.sh) — sha 가 실제로 있는 리포(카드 리포·팩 리포)와 그 리포의 ref 를 쓴다.
 #     표식 = 판정문 §절의 «닫힘 — <카드> — main|main(팩) `<sha>`» 줄(main(팩) = 팩 리포 · main = 카드 리포).
+#   r1628: 팀 정본 목록 design/harness/CANON-FILES.txt 한 줄 = 리포 상대경로 — 목록에 있는 경로는 작업 트리에 없어도 된다.
+#     실재·절 확인은 착지 ref(FT_LAND_REF)의 blob 으로 한다 · md = «#» 머리줄 · html = <h1>~<h6> 글자 · 조회 실패 = 판정 불가(없음으로 읽지 않는다).
 set -uo pipefail
 CARD="${1:-}"; WT="${2:-}"; LANDED="${3:-}"
 BODY="$(cat)"
@@ -13,10 +15,13 @@ rej() { printf 'REJECT\t%s\n' "$1"; exit 0; }
 . "$HERE/ft-team-lib.sh" 2>/dev/null || rej "ft-team-lib.sh 를 못 읽었다: $HERE (착지 리포를 못 정한다)"
 
 # ① 카드 줄 검사 — 「정본 갱신:」 줄 «전부» 파일·절 실재 · 없으면 「정본 영향 없음」 · 출력 UPD 줄들 + 마지막 OK/REJECT
-RES="$(python3 - "$CARD" "$WT" <<'PY'
+RES="$(python3 - "$CARD" "$WT" "${FT_LAND_REF:-origin/main}" "$HERE" <<'PY'
 import re, sys, os
 card = open(sys.argv[1], encoding="utf-8").read().splitlines()
 wt = sys.argv[2]
+LAND_REF = sys.argv[3]
+HERE = sys.argv[4]
+CANON_LIST = "design/harness/CANON-FILES.txt"
 pre = r'^[\s>*\-]*'
 upd = [m for m in (re.match(pre + r'정본 갱신(?: 줄)?\s*:\s*(\S+?)\s*§\s*(.+?)\s*$', l) for l in card) if m]
 non = [m for m in (re.match(pre + r'정본 영향 없음\s*:\s*(.*?)\s*$', l) for l in card) if m]
@@ -54,10 +59,53 @@ for m in can:
         if not os.path.isfile(os.path.join(wt, p)):
             reject("정본화 줄의 파일이 없다: " + p)
         notes.append("정본화 " + p)
+# r1628: 팀 정본 목록 — 목록 경로는 착지 ref 의 blob 으로 실재·절을 본다(작업 트리에 없어도 된다)
+try:
+    CANON = [l.strip() for l in open(os.path.join(wt, CANON_LIST), encoding="utf-8") if l.strip()]
+except OSError:
+    CANON = []
+_REFOK = []
+def gq(*a):                       # ft_git_capped 경유(7초 상한·재시도 1) — rc 0 = 있음 · 1 = 없음 · 그 밖 = 조회 실패
+    try:
+        sys.path.insert(0, HERE)
+        import ft_git_capped
+        rc, out = ft_git_capped.run(wt, list(a), 7)
+        return rc, out or b""
+    except Exception:
+        return 128, b""
+def land_blob(path):
+    if not _REFOK:
+        rc, _o = gq("rev-parse", "--verify", "-q", LAND_REF + "^{commit}")
+        if rc != 0:
+            reject("판정 불가 — 착지 ref %s 조회 실패(rc=%d · 시간 초과 포함) — 파일 없음으로 읽지 않는다" % (LAND_REF, rc))
+        _REFOK.append(1)
+    rc, _o = gq("rev-parse", "--verify", "-q", "%s:%s" % (LAND_REF, path))
+    if rc == 1:
+        reject("정본 갱신 줄의 파일이 없다(착지 ref %s): %s" % (LAND_REF, path))
+    if rc != 0:
+        reject("판정 불가 — 착지 ref %s 의 %s 조회 실패(rc=%d · 시간 초과 포함) — 파일 없음으로 읽지 않는다" % (LAND_REF, path, rc))
+    rc, _o = gq("cat-file", "blob", "%s:%s" % (LAND_REF, path))
+    if rc != 0:
+        reject("판정 불가 — 착지 ref %s 의 %s blob 조회 실패(rc=%d · 시간 초과 포함) — 파일 없음으로 읽지 않는다" % (LAND_REF, path, rc))
+    return _o.decode("utf-8", "ignore")
 for m in upd:
     path, sec = m.group(1), m.group(2)
+    if path.startswith("/") or ".." in path.split("/"):
+        reject("정본 갱신 줄의 경로가 허용 범위 밖이다(절대경로 또는 ..): " + path)
+    if path in CANON:
+        text = land_blob(path)
+        if path.lower().endswith((".html", ".htm")):
+            heads = [re.sub(r'<[^>]+>', '', h) for h in re.findall(r'<h[1-6][^>]*>(.*?)</h[1-6]>', text, re.S | re.I)]
+        else:
+            heads = [l for l in text.splitlines() if l.startswith("#")]
+        tok = sec.split()[0]
+        if not any(sec in h or tok in h for h in heads):
+            reject("정본 문서에 그 절 제목이 없다: " + path + " §" + sec)
+        print("UPD\t" + path + "\t" + sec)
+        notes.append("정본 " + path + " §" + sec)
+        continue
     if not path.startswith("docs/architect/") or not path.endswith(".md"):
-        reject("정본 갱신 줄의 경로는 docs/architect/….md 여야 한다: " + path)
+        reject("정본 갱신 줄의 경로는 docs/architect/….md 여야 한다: " + path + " (팀 정본 목록에도 없다: " + CANON_LIST + ")")
     full = os.path.join(wt, path)
     root = os.path.realpath(os.path.join(wt, "docs/architect"))
     real = os.path.realpath(full)
