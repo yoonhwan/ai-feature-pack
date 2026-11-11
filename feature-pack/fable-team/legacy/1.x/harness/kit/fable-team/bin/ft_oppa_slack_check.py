@@ -28,7 +28,7 @@ HEX40 = re.compile(r"(?<![0-9a-fA-F])[0-9a-fA-F]{40}(?![0-9a-fA-F])")
 def first_chunk_words(m: dict) -> list:
     """r1696 ⓑ — 답 본문을 줄바꿈과 «/» 로 조각낸 뒤 «첫 비어 있지 않은 조각» 의 토막. «예\n\n헤드는 …» = [예] (설명 줄이 붙어도 승인)."""
     t = m.get("text") if isinstance(m.get("text"), str) else ""
-    for chunk in re.split(r"[\r\n]+|/", t):
+    for chunk in re.split(r"[\r\n]+|\s+/\s+", t):   # r1696 DA R1: 조각 경계 = 줄바꿈·«공백 있는 / » — 붙은 «/»(«네/아니오»)는 경계가 아니다
         ws = [w for w in (x.strip().rstrip(" \t.!~") for x in re.split(r"[\s,]+", chunk.strip().lower())) if w]
         if ws:
             return ws

@@ -2,7 +2,7 @@
 # test_oppa_slack_repost_multiline_r1696.sh — r1696: 오빠 승인 답을 «같은 sha 를 다시 물은 글» 뒤에도, 첫 줄이 승인이고 뒤에 설명 줄이 붙어도 받는다.
 #   ⓐ 재게시(같은 sha 담은 다음 글) 뒤 답 · ⓑ 다른 sha 질문 뒤 답 막음 · ⓒ 40hex 없는 같은 작성자 글은 지금처럼 창을 끊음 · ⓒ2 이 sha 담은 독촉 글은 잇음
 #   ⓓ «예\n\n설명»·«예 / 이건 다음에» 승인
-#   ⓔ «예\n근데 보류» 거절 · ⓕ «잠깐\n예»·«네? 왜요» 판정 불가 · ⓖ 질문 수정 뒤 답 막음 · ⓗ --reply-only 같은 창 · ⓙ 실사건 스레드 5글 재생
+#   ⓔ «예\n근데 보류» 거절 · ⓕ «잠깐\n예»·«네? 왜요» 판정 불가 · ⓕ2 붙은 «/»(«네/아니오»·«예/보류»·«네 /보류») = 승인 0 rc2(DA R1) · ⓖ 질문 수정 뒤 답 막음 · ⓗ --reply-only 같은 창 · ⓙ 실사건 스레드 5글 재생
 #   변이(사본에서만): M1 창 끝=다음 글(sha 무시) → ⓐ·ⓒ2 FAIL · M1b 40hex 없는 글도 안 끊음 → ⓒ FAIL · M2 «아무 40hex» → ⓑ FAIL · M3 마지막 조각 판정 → ⓓ·ⓕ FAIL · M4 거절=첫 조각만 → ⓔ FAIL
 # 스텁 스레드만(FT_SLACK_REPLIES_CMD) · 실 Slack·토큰·게시 0 · sleep 0
 set -uo pipefail
@@ -67,6 +67,9 @@ done <<'TBL'
 예\n근데 보류|rej
 잠깐\n예|un
 네? 왜요|un
+네/아니오|un
+예/보류|un
+네 /보류|un
 TBL
 # ⓖ 질문이 수정된 뒤의 답은 지금처럼 막는다
 th; python3 - "$TH/$T1.json" <<'PY'
@@ -114,8 +117,9 @@ MUTS = {
     "M1":  ("not has_sha(txt, sha)", "True"),                       # 창 끝 = 무조건 다음 글(sha 무시) → ⓐ·ⓒ2 FAIL
     "M1b": ("not has_sha(txt, sha)", "False"),                      # 40hex 없는 글도 안 끊음(이전 판) → ⓒ FAIL
     "M2":  ("not has_sha(txt, sha)", "not HEX40.search(txt)"),      # «아무 40hex» 면 이 sha 로 봄 → ⓑ FAIL
-    "M3":  ('    for chunk in re.split(r"[\\r\\n]+|/", t):', '    for chunk in list(reversed([c for c in re.split(r"[\\r\\n]+|/", t)])):'),
+    "M3":  ('    for chunk in re.split(r"[\\r\\n]+|\\s+/\\s+", t):', '    for chunk in list(reversed([c for c in re.split(r"[\\r\\n]+|\\s+/\\s+", t)])):'),
     "M4":  ("no = [t for t, ws, _ in said if REJECT_WORDS.intersection(ws)]", "no = [t for t, _, fc in said if REJECT_WORDS.intersection(fc)]"),
+    "M5":  ('re.split(r"[\\r\\n]+|\\s+/\\s+", t)', 're.split(r"[\\r\\n]+|/", t)'),
 }
 sub(*MUTS[kind]); p.write_text(s)
 PY
@@ -127,6 +131,7 @@ mut M2; th "$T1" "$Q1" "[질문 · 다시 여쭘] 다른 건 · head $B"; run "$
 mut M3; th "$T1" "$Q1" "[질문] head $A" "$O1" '예 / 이건 다음에'; run "$T1" "$A"; expect no "M3 마지막 조각 판정 → ⓓ REJECT(변이 잡힘)"
 th "$T1" "$Q1" "[질문] head $A" "$O1" '잠깐\n예'; run "$T1" "$A"; expect ok "M3 마지막 조각 판정 → ⓕ SLACK-OK(변이 잡힘)"
 mut M4; th "$T1" "$Q1" "[질문] head $A" "$O1" '예\n근데 보류'; run "$T1" "$A"; expect ok "M4 거절=첫 조각만 → ⓔ SLACK-OK(변이 잡힘)"
+mut M5; th "$T1" "$Q1" "[질문] head $A" "$O1" '네/아니오'; run "$T1" "$A"; expect ok "M5 조각 경계=아무 «/» → ⓕ2 SLACK-OK(변이 잡힘)"
 cmp -s "$REPO/harness/bin/ft_oppa_slack_check.py" "$REPO/harness/kit/fable-team/bin/ft_oppa_slack_check.py" \
   && ok "ⓘ bin·kit 사본 cmp 0" || bad "ⓘ" "bin·kit 다름"
 [ "$fail" = 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }
