@@ -1,7 +1,7 @@
 // ft-idle-nudge (r1530) — 팀장 pi 좌석이 «골 열림 ∧ 진행 카드 0 ∧ 대기 h 0 ∧ 미읽음 0» 으로 턴을 끝내면, 그 좌석의 agent_settled 에서 턴 1회.
 //  · 사건 = pi.on("agent_settled") 하나 · 주기·타이머·크론·send-keys 0 · Escape 중단(event.aborted) = 0.
 //  · 지문 = 진행 카드 수 · 대기 h 수 · 남이 이 좌석에 보낸 마지막 쪽지 seq(우편함 to=좌석 + receipts/<좌석>.jsonl · 자기 발신 행 제외 = r1153·r1529 와 같은 칸).
-//    같은 지문 1회째 = 턴 1 · 2회째 = 턴 0 + desk [긴급] 1통 · 3회째부터 0 · 지문이 바뀌면 다시 1회째. 상태 = <state>/pi-wake/<좌석키>.idle(JSON).
+//    같은 지문 1회째 = 턴 1 · 2회째 = 턴 0 + planner 팀장(_master) [긴급] 1통(r1684 ①) · 3회째부터 0 · 지문이 바뀌면 다시 1회째. 상태 = <state>/pi-wake/<좌석키>.idle(JSON).
 //  · 판정 입력 = <루트>/.fable-team/bin shim(ft-goal-table.sh teams · ft-card-flow.sh --team · ft-hil.sh --pending --each --team <팀>(r1538: 그 팀 h 만)) + mbox.sh peek · 호출마다 7초.
 //    읽기 실패(rc≠0 · 꼴 불일치) = stderr «판정 불가» 1줄 · 턴 0 · [긴급] 0 · 지문 무변화(no_silent_fallback).
 //  · 활성 = ft-mbox-wake.ts piMasterFile(seats*.json _master ∧ 같은 파일 agent=='pi' · _desk·나노·claude 팀장 = 0) · 팀 = 그 파일의 <팀>(seats.json = v65).
@@ -67,11 +67,21 @@ export default function (pi: ExtensionAPI) {
     try { scan(fs.readFileSync(receipts, "utf-8"), false); } catch (e) { if ((e as NodeJS.ErrnoException)?.code !== "ENOENT") { log(`영수 ${receipts} — ${e}`); return null; } } // 영수 없음 = 받은 쪽지 0
     return max;
   }
+  // r1684 ② — 골 원장이 없는 루트(aifp 등) = 이 루트 design/TEAMS.md 에 planner 행이 없음. 그때 골 칸 = 열림 + 세션당 INFO 1줄.
+  //   TEAMS.md 를 못 읽거나 planner 행이 있으면 지금처럼 null(=«판정 불가») — «없음» 과 «못 읽음» 을 가른다(하드 룰 20).
+  let ledgerlessInfo = false;
+  function ledgerlessRoot(): boolean {
+    let md: string;
+    try { md = fs.readFileSync(path.join(root, "design", "TEAMS.md"), "utf-8"); } catch { return false; }
+    if (md.split("\n").some((l) => /^\|\s*planner\s*\|/.test(l))) return false;
+    if (!ledgerlessInfo) { ledgerlessInfo = true; log("INFO 골 원장 없는 루트 — 골 칸 열림으로 봄 (design/TEAMS.md 에 planner 행 없음)"); }
+    return true;
+  }
   async function read(team: string): Promise<Got | string> {
     const [g, c, h, p] = await Promise.all([
       run(bin("ft-goal-table.sh"), ["teams"]), run(bin("ft-card-flow.sh"), ["--team", team, "--root", root]),
       run(bin("ft-hil.sh"), ["--pending", "--each", "--team", team]), run(mboxSh, ["peek", seat], mboxEnv)]);
-    const goal = g.rc === 0 ? goalOpen(g.out, team) : null, prog = c.rc === 0 ? progOf(c.out) : null;
+    const goal = g.rc === 0 ? goalOpen(g.out, team) : (ledgerlessRoot() ? true : null), prog = c.rc === 0 ? progOf(c.out) : null;
     const hil = h.rc === 0 ? hilOf(h.out) : null, unread = p.rc === 0 ? unreadOf(p.out) : null;
     if (goal === null) return `골 표 rc=${g.rc}`;
     if (prog === null) return `카드판 rc=${c.rc}`;
@@ -86,16 +96,17 @@ export default function (pi: ExtensionAPI) {
     catch (e) { return (e as NodeJS.ErrnoException)?.code === "ENOENT" ? { fp: "", n: 0 } : null; }
   }
   const writeIdle = (fp: string, n: number) => { try { fs.mkdirSync(path.dirname(idleFile), { recursive: true }); fs.writeFileSync(idleFile, JSON.stringify({ fp, n }) + "\n"); } catch (e) { log(`지문 기록 실패 ${idleFile} — ${e}`); } };
-  const desk = (): string => { try { return String(JSON.parse(fs.readFileSync(path.join(root, ".fable-team", "seats-planner.json"), "utf-8"))._desk ?? ""); } catch { return ""; } };
+  // r1684 ① — [긴급] 은 planner 팀장(_master) 앞으로. desk 는 planner 밖 수신자를 REJECT 하는 경로 규칙이 있다(feature#69 실사건 = rc3).
+  const plannerMaster = (): string => { try { return String(JSON.parse(fs.readFileSync(path.join(root, ".fable-team", "seats-planner.json"), "utf-8"))._master ?? ""); } catch { return ""; } };
 
-  async function urgent() { // desk 앞 [긴급] 1통 — 본문에 백틱·$( 0
-    const to = desk();
-    if (!to) return log(`[긴급] 못 보냄 — seats-planner.json _desk 없음 (${seat})`);
+  async function urgent() { // planner 팀장 앞 [긴급] 1통 — 본문에 백틱·$( 0
+    const to = plannerMaster();
+    if (!to) return log(`[긴급] 못 보냄 — seats-planner.json _master 없음 (${seat})`);
     const r = await run(mboxSh, ["send", to, seat, `[긴급] ${seat} 쉼 지문 반복 · 진행 0 · h 0 · 다음 발주 없음 · 막힌 이유 확인 필요`], mboxEnv);
     if (r.rc !== 0) log(`[긴급] 발신 실패 rc=${r.rc} → ${to}`);
   }
 
-  pi.on("session_start", async () => { appendLoadLine(pi, "r1530", "ft-idle-nudge.ts"); }); // r1537 — 실림 1줄(이 확장은 다른 session_start 처리가 없다)
+  pi.on("session_start", async () => { ledgerlessInfo = false; appendLoadLine(pi, "r1530", "ft-idle-nudge.ts"); }); // r1537 — 실림 1줄 · r1684 INFO 는 세션당 1줄
 
   pi.on("agent_settled", async (event: { aborted?: boolean }) => {
     if (event?.aborted) return; // Escape 중단 = 0
