@@ -1,6 +1,6 @@
 // ft-live-write-guard (r1672) — 나노 좌석(pi)이 «라이브 설치 자리» 에 직접 쓰지 못하게 tool_call 문지기에서 거절한다.
 //  · 라이브 자리 = <루트>/.fable-team/LIVE_BIN 첫 줄의 부모 live/ 아래 전부(판 폴더 포함) · <루트>/.fable-team/bin*(bin·bin-<팀>) · <루트>/.fable-team/comm 원장 «직접 쓰기»(mailbox*.jsonl · bodies/ · drops/) · ~/.pi/agent/extensions
-//  · 나노 모양 = FT_SEAT_NAME(없으면 FT_SEAT) 에 팀 나노 접두(예 byz-harness-nano-) · 그 밖 좌석·좌석 미상 = 통과(ⓔ) · 판정 = realpath(심링크·`..`·`~`·$VAR 우회 0)
+//  · 나노 꼴 = FT_SEAT_NAME(없으면 FT_SEAT) 에 팀 나노 접두(예 byz-harness-nano-) · 그 밖 좌석·좌석 미상 = 통과(ⓔ) · 판정 = realpath(심링크·`..`·`~`·$VAR 우회 0)
 //  · 거절마다 <루트>/.fable-team/state/live-write-block.log 1줄(시각·좌석·도구·대상 · 같은 좌석·같은 대상 1회 · 일반 파일 · 하드 룰 19) · LIVE_BIN 못 읽음 = 그 칸 없이 판정 + NOTE 1줄(하드 룰 20)
 //  · 설치 = ~/.pi/agent/extensions 복사 1개 + pi 재시작(master h) · env = FT_SEAT_NAME · FT_LIVE_ROOT · 시험 = tests/test_nano_live_write_block_r1672.sh
 import * as fs from "node:fs";
@@ -22,7 +22,7 @@ export function rootOf(): string {
   } catch { /* git 밖 = cwd */ }
   return process.cwd();
 }
-// realpath — 「성분벌로 풀고 `..` 는 «푼 부모» 에서 올라간다(심링크+.. 합성 우회 차단 · $VAR·~ 확장)
+// realpath — 「성분별로 풀고 `..` 는 «푼 부모» 에서 올라간다(심링크+.. 합성 우회 차단 · $VAR·~ 확장)
 export function realish(p: string): string {
   let s = String(p || "").trim().replace(/^["']|["']$/g, "").replace(/\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?/g, (_, k) => process.env[k] ?? "");
   if (!s) return "";
