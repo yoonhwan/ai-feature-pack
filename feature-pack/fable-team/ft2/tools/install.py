@@ -65,7 +65,8 @@ def package_of(folder):
         return None
     version, files = doc.get("version"), doc.get("files")
     named = isinstance(version, str) and version and "/" not in version and version not in (".", "..")
-    shaped = named and isinstance(files, list) and files and isinstance(doc.get("manifest_sha256"), str)
+    counted = bool(files) if isinstance(files, list) else type(files) is int and files >= 0  # r1613 은 개수(정수)
+    shaped = named and counted and isinstance(doc.get("manifest_sha256"), str)
     return doc if shaped and os.path.isfile(os.path.join(folder, "MANIFEST.json")) else None
 
 
