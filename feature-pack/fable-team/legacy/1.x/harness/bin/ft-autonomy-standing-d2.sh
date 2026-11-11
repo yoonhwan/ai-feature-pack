@@ -76,7 +76,7 @@ for n in ("seats-planner.json", "seats.json"):
     try: d = json.load(open(os.path.join(root, ".fable-team", n), encoding="utf-8"))
     except (OSError, ValueError): continue
     m = d.get("_desk") if isinstance(d, dict) else None
-    if isinstance(m, str) and m.strip() == seat:
+    if isinstance(m, str) and m.strip() and g.base(m.strip()) == g.base(seat):   # r1708 N2 R3 — 기존 gate 와 같은 계보 규칙(번호 회전 포함)
         print("DESK"); raise SystemExit(0)
 raise SystemExit(1)
 PY
@@ -86,7 +86,9 @@ d2_full_autonomy() {  # r1708 N2 — 자율 ON ∧ 레벨 full 일 때만 desk �
   [ "$(mode)" = on ] || std_err "desk 승인은 자율 풀자동에서만(mode=$(mode))"
   [ "$(jfield level)" = full ] || std_err "desk 승인은 자율 풀자동에서만(level=$(jfield level))"
 }
-d2_merge_tree() {  # r1708 N2 desk 길에만 — merge-tree 충돌 0(7초 · rc≠0 = 거절)
+d2_merge_tree() {  # r1708 N2 desk 길에만 — 최신 원격 기준 merge-tree 충돌 0(7초 · 확인 실패·충돌 = 거절)
+  std_t7 git -C "$D2_REPO" fetch -q origin +refs/heads/main:refs/remotes/origin/main   # R2: 낡은 origin/main 으로 판정하지 않는다
+  [ "$RC" = 0 ] || std_err "desk 길 원격 최신성 확인 실패 rc=$RC: ${FIRST:-출력 없음(시간 초과 7초 포함)}"
   std_t7 git -C "$D2_REPO" merge-tree --write-tree origin/main "$1"
   [ "$RC" = 0 ] || std_err "desk 길 merge-tree 충돌/실패 rc=$RC: ${FIRST:-출력 없음(시간 초과 7초 포함)}"
 }
@@ -135,6 +137,7 @@ cmd_standing_approve() {
   [ -n "$pr" ] && [ -n "$vf" ] && [ -n "$card" ] || std_err "--pr·--verdict·--card 필수"
   D2_CARD="$card"; D2_DESK=""; d2_seat
   lock; [ "$(mode)" = tamper ] && std_err "자율 상태 위변조(tamper) — 승인 기록 없음"
+  [ -z "${D2_DESK:-}" ] || d2_full_autonomy   # R1: 좌석 검사(잠금 앞)와 쓰기 사이에 OFF 가 됐을 수 있다 — 잠금 안에서 다시 본다
   d2_on || std_err "① 상시 승인 D2 꺼짐(approve-standing D2 줄 없음 또는 standing-stop 뒤)"
   d2_repo "$rk"
   if grep -q "^standing-use D2 $head " "$LOG" 2>/dev/null; then echo "STANDING-NOOP $head (이미 상시 승인함)"; return 0; fi

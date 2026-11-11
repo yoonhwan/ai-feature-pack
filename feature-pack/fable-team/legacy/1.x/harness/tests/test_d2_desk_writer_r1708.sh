@@ -124,4 +124,22 @@ rm -rf "$T/gitstub"
 mut2 W5; fresh; ABIN="$T/m-W5" sa "$A11" 11 "$T/없는판정.md"
 has '판정문' && ck "W5 desk 조기 통과 → ⑦(판정문 없음) 거절 아님(변이 잡힘)" 1 || ck "W5 desk 조기 통과 → ⑦(판정문 없음) 거절 아님(변이 잡힘)" 0
 fresh; sa "$A11" 11 "$T/없는판정.md"; has '판정문' && ck "W5 원본 대조: 판정문 없음 → REJECT" 0 || ck "W5 원본 대조: 판정문 없음 → REJECT" 1
+# R1(DA) — 잠금 «안» OFF 재확인: mkdir 대역이 잠금 직전에 자율을 OFF 로 바꾼다
+mkdir -p "$T/mkstub"; printf '#!/bin/bash\ncase "$*" in *lock*) if [ ! -f "$T/off.done" ]; then : > "$T/off.done"; FT_NOW="$T0" "%s" "%s" expire >/dev/null 2>&1; fi;; esac\nexec /bin/mkdir "$@"\n' "$BASH" "$BIN/ft-autonomy.sh" > "$T/mkstub/mkdir"; chmod +x "$T/mkstub/mkdir"
+card "$A11"; fresh; printf '{"mode":"on","since":%s,"event":"A17","until":%s,"level":"full"}\n' "$T0" "$((T0 - 1))" > "$JSON"   # 만료 ON(곧 off)
+card "$A11"; rm -f "$T/off.done"; PATH="$T/mkstub:$PATH" sa "$A11" 11 "$V11"
+[ "$rc" = 2 ] && has '자율 풀자동에서만' && [ ! -e "$S/autonomy-merge-approved/$A11" ]; ck "R1 잠금 안 OFF 재확인 → REJECT · 승인 파일 0" $?
+rm -rf "$T/mkstub"; card "$A11"; fresh; sa "$A11" 11 "$V11"; [ "$rc" = 0 ]; ck "R1 원본 대조: 정상 ON full → 승인" $?
+# R2(DA) — 최신 원격 기준 확인 줄이 있다(가짜 원격 재현은 DA evidence/da-stale.sh 몫)
+[ "$(grep -c 'fetch -q origin +refs/heads/main:refs/remotes/origin/main' "$BIN/ft-autonomy-standing-d2.sh")" = 1 ] \
+  && ck "R2 merge-tree 전 원격 main 최신성 확인 줄 1개" 0 || ck "R2 merge-tree 전 원격 main 최신성 확인 줄 1개" 1
+# R3(DA) — 명부 desk 는 번호 회전(계보) 도 desk(기존 gate 규칙)
+python3 - "$B" "$PL" <<'PY'
+import json, sys
+b, pl = sys.argv[1:3]
+json.dump({"_master": pl, "_desk": "byz-planner-tool-pi#135"}, open(b + "/.fable-team/seats-planner.json", "w"))
+PY
+git -C "$B" checkout -q main; cm "$B" "desk lineage"; git -C "$B" push -q origin main; git -C "$B" fetch -q origin
+card "$A11"; fresh; as_seat 'byz-planner-tool-pi#134'; run a standing-approve D2 "$A11" --pr 11 --repo pack --verdict "$V11" --card "$CARD"
+[ "$rc" = 0 ] && has 'by=byz-planner-tool-pi#134'; ck "R3 명부 desk 번호 회전(#134) 도 desk → 승인" $?
 echo "단계 합계 ${SECONDS}s"; [ "$fail" = 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }
