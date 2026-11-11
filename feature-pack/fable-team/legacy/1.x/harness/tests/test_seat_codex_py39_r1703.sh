@@ -88,15 +88,17 @@ mut W1; run39env "$PY39" "$T/m-W1/c.py" --if-codex "$T/seats-pi" "$SEAT"
 fi   # 변이 블록 끝(3.9 있을 때만)
 cmp -s "$BIN/ft_seat_codex.py" "$BIN/../kit/fable-team/bin/ft_seat_codex.py" && ok "bin·kit cmp0" || bad "bin·kit 다름" ""
 echo "단계 합계 ${SECONDS}s"
-[ "$fail" = 0 ] || { echo "FAILED $fail"; exit 1; }
-[ "$MISSING" = 0 ] || { echo "UNVERIFIED — 3.9 판정 못 함(rc3)"; exit 3; }
 # 분기 회귀(DA R1 ③) — 3.9 경로를 없는 경로로 주입한 «같은 시험» 은 rc3 · ALL PASS 0 · 원본 경로는 rc0 ALL PASS (자기 재호출 = 표지 FT_R1703_CHILD)
-if [ -z "${FT_R1703_CHILD:-}" ]; then
-  O1="$(FT_PY39="$T/없는python3" FT_R1703_CHILD=1 bash "$0" 2>&1)"; C1=$?
+if [ -z "${FT_R1703_CHILD:-}" ] && [ "$MISSING" = 0 ]; then   # 3.9 없으면 ①②③ 자체를 못 재므로 분기 회귀도 안 돈다(그때는 rc3 UNVERIFIED)
+  SELF="${FT_SELF:-$0}"   # 시험 자신(변이 사본을 대신 넣어 종료코드 회귀를 본다)
+  O1="$(FT_PY39="$T/없는python3" FT_R1703_CHILD=1 bash "$SELF" 2>&1)"; C1=$?
   { [ "$C1" = 3 ] && case "$O1" in *UNVERIFIED*) true;; *) false;; esac && case "$O1" in *"ALL PASS"*) false;; *) true;; esac; } \
     && ok "분기 회귀: 3.9 없는 경로 주입 → UNVERIFIED rc3 · ALL PASS 0" || bad "분기 회귀(변이)" "rc=$C1 out=$(printf '%s' "$O1" | tail -2)"
-  O2="$(FT_PY39="$PY39" FT_R1703_CHILD=1 bash "$0" 2>&1)"; C2=$?
+  O2="$(FT_PY39="$PY39" FT_R1703_CHILD=1 bash "$SELF" 2>&1)"; C2=$?
   { [ "$C2" = 0 ] && case "$O2" in *"ALL PASS"*) true;; *) false;; esac; } \
     && ok "분기 회귀 원본 대조: 3.9 경로 정상 → rc0 ALL PASS" || bad "분기 회귀(원본 대조)" "rc=$C2"
 fi
+# ── 끝 판정 1곳 — 위 «모든» 검사(분기 회귀 포함)를 반영한다(DA 두 번째 HOLD: 회귀 블록의 fail 이 종료에 안 닿던 자리)
+[ "$fail" -eq 0 ] || { echo "FAILED $fail"; exit 1; }
+[ "$MISSING" = 0 ] || { echo "UNVERIFIED — 3.9 판정 못 함(rc3)"; exit 3; }
 echo "ALL PASS"; exit 0
