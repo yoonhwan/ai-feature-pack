@@ -58,10 +58,37 @@ need_probe() { [ -n "$PROBE" ] || die_missing probe "  curl -sL -o /tmp/p.tar.gz
 need_tilth() { [ -n "$TILTH" ] || die_missing tilth "  npx -y tilth --version   # 캐시된 네이티브 바이너리를 ~/.local/bin/tilth 로 복사
   또는 cargo install tilth"; }
 
+# ── LSP crash-loop 판정 (r1636) ───────────────────────────────────────────
+#  probe 0.6.0 은 워크스페이스 캐시의 MVCC logical log 끝이 잘리면 기동 중 panic 한다("couldn't read
+#  enough data") → 데몬 즉사 → 호출은 25초를 기다린다(하드 룰 12). 최근 120초 내 DB crash 2회 이상 = crash-loop.
+#  crash-log 에는 클라이언트 panic(예: md char-boundary f344d642)도 쌓인다 → 데몬 DB 열기 형태만 센다.
+#  1회·옛 crash 는 loop 가 아니다(실측: 570초 전 1건에 healthy 데몬을 CRASH-LOOP 로 오판했다).
+#  $1=slow 이면 crash-log 없이도 Uptime 0s 2회 연속을 본다(doctor). rc0=crash-loop · rc1=정상
+_lsp_uptime() { "$PROBE" lsp status 2>/dev/null | sed -n 's/^ *Uptime: *//p' | head -1; }
+_ep() { date -j -u -f '%Y-%m-%dT%H:%M:%S' "${1%%.*}" +%s 2>/dev/null || echo 0; }
+_lsp_crash_state() {
+  local f ents l cnt e now stamp
+  f="${PROBE_LSP_CRASH_LOG:-$HOME/Library/Caches/probe/lsp-daemon-crashes.log}"; now="$(date +%s)"
+  if [ -f "$f" ]; then
+    ents="$(tail -c 8000 "$f" 2>/dev/null | awk '/^timestamp: /{ts=$2} /^message: /{if ($0 ~ /read enough data|core database|logical_log/) print ts "\t" substr($0,10)}')"
+    l="$(printf '%s\n' "$ents" | tail -1)"; cnt="$(printf '%s\n' "$ents" | grep -c .)"
+    e="$(_ep "${l%%$'\t'*}")"
+    if [ "$e" -gt 0 ] && [ "${cnt:-0}" -ge 2 ] && [ $((now - e)) -le "${CI_LSP_CRASH_LOOP_SEC:-120}" ]; then
+      echo "${l#*$'\t'} ($((now - e))s 전 · 2회 이상)"; return 0
+    fi
+  fi
+  [ "${1:-}" = "slow" ] || return 1
+  stamp="${TMPDIR:-/tmp}/ci-lsp-uptime0.$(id -u)"
+  case "$(_lsp_uptime)" in 0s|0sec|0secs) ;; *) rm -f "$stamp"; return 1 ;; esac
+  [ -f "$stamp" ] && [ $((now - $(cat "$stamp" 2>/dev/null || echo 0))) -lt 120 ] && { echo "Uptime 0s 2회 연속"; return 0; }
+  date +%s > "$stamp"; return 1
+}
+
 # LSP 계층은 온디맨드. CI_LSP_AUTO_INIT=1 이면 자동 init, 아니면 안내만.
 _lsp_ensure() {
   command -v "${PROBE:-probe}" >/dev/null 2>&1 || return 0
-  local st
+  local cs st
+  if cs="$(_lsp_crash_state)"; then echo "판정 불가 LSP 데몬 crash-loop — ci lsp repair ($cs)" >&2; exit 3; fi
   st="$("$PROBE" lsp status 2>/dev/null)"
   case "$st" in
     *"No language servers initialized"*|*"Status: Not"*|*"not connected"*|*"unavailable"*)
@@ -86,6 +113,7 @@ ci — code-intel (probe + tilth)
   ci def "file#sym" | ci impl "file#sym"    LSP 정의 / 구현체
   ci ast '<pattern>' [path] [-l lang]       ast-grep 구조 패턴
   ci lsp up [--scope P] | down | status     LSP 데몬 수명주기
+  ci lsp repair [--ws <이름>]               crash-loop 수리 — 캐시를 지우지 않고 .corrupt-<ts> 로 옮긴다
   ci doctor                                 설치·버전·데몬·smoke 진단
   ci bench [--queries FILE]                 성능 회귀 (p50/p95)
 
@@ -231,6 +259,21 @@ case "$cmd" in
         ;;
       down)   exec "$PROBE" lsp shutdown ;;
       status) exec "$PROBE" lsp status ;;
+      repair)
+        wsroot="${PROBE_LSP_WORKSPACE_CACHE_DIR:-$HOME/Library/Caches/probe/lsp/workspaces}"; only=""
+        [ "${1:-}" = "--ws" ] && { only="$2"; shift 2; }
+        "$PROBE" lsp shutdown >/dev/null 2>&1; ts="$(date +%Y%m%d%H%M%S)"; moved=0
+        for d in "$wsroot"/*; do
+          [ -d "$d" ] && [ -f "$d/cache.db-log" ] || continue; case "$d" in *.corrupt-*) continue;; esac
+          [ -n "$only" ] && [ "$(basename "$d")" != "$only" ] && continue
+          mv "$d" "$d.corrupt-$ts" 2>/dev/null || { echo "판정 불가 repair — 옮기기 실패(지우지 않았다): $d" >&2; exit 3; }
+          echo "옮김: $d → $d.corrupt-$ts"; moved=$((moved+1))
+        done
+        "$PROBE" lsp init -w "${CI_LSP_SCOPE:-$PWD}" >/dev/null 2>&1
+        up="$("$PROBE" lsp status 2>/dev/null | sed -n 's/^ *Uptime: *//p' | head -1)"
+        case "$up" in ""|0s|0sec|0secs) echo "판정 불가 repair — 데몬이 Uptime>0 으로 서지 않았다 (status: ${up:-none})" >&2; exit 3 ;; esac
+        echo "repair OK — 데몬 Uptime $up · 옮긴 워크스페이스 $moved 개"; exit 0
+        ;;
       *)      exec "$PROBE" lsp "$sub" ;;
     esac
     ;;
@@ -243,6 +286,7 @@ case "$cmd" in
     [ -n "$TILTH" ] && printf "        %s\n" "$("$TILTH" --version 2>/dev/null | head -1)"
     printf "pylsp : %s\n" "$(_resolve pylsp || echo 'MISSING (probe lsp python 불가)')"
     if [ -n "$PROBE" ]; then
+      cs="$(_lsp_crash_state slow)" && { printf "lsp   : CRASH-LOOP %s · 다음: ci lsp repair\nsmoke : (생략 — 데몬 crash-loop)\n" "$cs"; exit 3; }
       # doctor 는 진단만 — status 가 데몬을 자동 기동시키면 즉시 내려 상주를 남기지 않는다
       pre_lsp="$(pgrep -f "probe lsp start" | wc -l | tr -d ' ')"
       printf "lsp   : %s\n" "$("$PROBE" lsp status 2>/dev/null | tr '\n' ' ' | cut -c1-90)"
