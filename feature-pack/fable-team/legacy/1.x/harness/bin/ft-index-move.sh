@@ -32,7 +32,7 @@ landed_marker_re() { printf '(닫힘|CLOSE)[[:space:]]*—[[:space:]]*%s[[:space
 IDX_ROOT="$(cd "$(dirname "$SRC")/.." && pwd)"
 FROM="$(basename "$(dirname "$SRC")")"
 # r1675 — 카드가 속한 팀이 2.0 전환됨이면 이동·§상태 쓰기 전에 멈췄다(표식 = <데이터루트>/.fable-team/state/ft20-switch/<팀>.json).
-if [ -f "$HERE/ft20-switch-lib.sh" ]; then . "$HERE/ft20-switch-lib.sh"; ft20_guard_move "$(ft20_root_of "$IDX_ROOT" 2>/dev/null)" "$SRC" || exit $?; else echo "WARN ft20-switch-lib.sh 없음 — 2.0 전환 표식 가드 0 (설치본에 bin/ft20-switch-lib.sh 필요)" >&2; fi
+if [ -f "$HERE/ft20-switch-lib.sh" ]; then . "$HERE/ft20-switch-lib.sh"; ft20_guard_move "$(ft20_root_of "$IDX_ROOT" 2>/dev/null)" "$SRC" || exit $?; else _ft20_r="${FT_FT20_ROOT:-$(git -C "$IDX_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)}"; compgen -G "${_ft20_r%/.git}/.fable-team/state/ft20-switch/*.json" >/dev/null 2>&1 && { echo "REJECT 2.0 전환 표식이 있는데 ft20-switch-lib.sh 없음(설치 누락) — 1.x 쓰기 0(판정 불가)" >&2; exit 3; }; fi
 [ "$FROM" != "$DST" ] || { echo "REJECT 이미 $DST 에 있다"; exit 1; }
 if [ "$DST" = 진행 ]; then
   [ -f "$HERE/ft-index-lint.sh" ] || { echo "REJECT ft-index-lint.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }

@@ -17,10 +17,14 @@ source "$DIR/mbox_wakegate.sh"
 source "$DIR/mbox_guard.sh"
 # ★r1675 팀 2.0 전환 표식 가드★ — 표식이 있는 팀의 우편함에 쓰려 하면 쓰기 전에 rc3 · 막힌 본문은 보류 폴더에 남긴다(ⓓ).
 #   lib 부재 = 설치본이 낡음이므로 «조용히 넘기지 않는다» — stderr 1줄 + 가드 0(구 동작). 설치 = bin/ft20-switch-lib.sh 짝.
-FT20_LIB="${FT_BIN:-$DIR/../bin}/ft20-switch-lib.sh"
-if [ -f "$FT20_LIB" ]; then . "$FT20_LIB"; else echo "WARN ft20-switch-lib.sh 없음 — 팀 2.0 전환 표식 가드 0 (설치본에 bin/ft20-switch-lib.sh 필요): $FT20_LIB" >&2; ft20_switch_active() { return 1; }; ft20_guard_seat() { return 0; }; fi
 # 우편함 루트 = <데이터 루트>/.fable-team/comm → 그 위 두 칸(심링크는 물리경로로 풀어 공유 표식을 본다 · 시험은 FT_FT20_ROOT)
 FT20_ROOT="${FT_FT20_ROOT:-$(cd "$DIR/../.." 2>/dev/null && pwd -P)}"
+FT20_LIB="${FT_BIN:-$DIR/../bin}/ft20-switch-lib.sh"
+# lib 부재 = 설치 누락이지만 «표식이 0 이면 지금 동작 그대로»(카드 ⓑ) — 표식이 하나라도 있으면 판정 불가 rc3(조용한 통과 0)
+if [ -f "$FT20_LIB" ]; then . "$FT20_LIB"; else
+  ft20_switch_active() { compgen -G "$FT20_ROOT/.fable-team/state/ft20-switch/*.json" >/dev/null 2>&1; }
+  ft20_guard_seat() { echo "REJECT 2.0 전환 표식이 있는데 ft20-switch-lib.sh 없음(설치 누락) — 1.x 쓰기 0(판정 불가): $FT20_LIB" >&2; return 3; }
+fi
 # ★알림 여부는 «보내는 사람»이 아니라 «레지스트리»가 정한다★ (2026-09-14 · 하네스 업그레이드 §2-2 · 오빠 결정 Q1)
 #   실측: --no-notify 를 틱 없는 좌석(arch-fable#40)에 써서 4틱 무응답(CLAUDE.md STRUCTURAL FIX).
 #   HARNESS-TREE 는 「좌석→master 는 무음」, CLAUDE.md 는 「틱 없는 좌석엔 금지」 — 둘 다 맞고

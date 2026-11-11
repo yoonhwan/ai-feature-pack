@@ -78,6 +78,19 @@ bash "$RK/bin/ft-nano-spawn.sh" "$R/design/aifp/indices/진행/c.md" --agent pi 
 ck "ⓒ④ ft-nano-spawn rc=$rc (첫 게이트)" "$([ "$rc" = 3 ] && grep -q '2.0 전환됨' "$T/o" && echo 0 || echo 1)"
 bash "$RK/bin/ft-successor-open.sh" 'fx-nano#0' "$R" --name 'fx-nano#1' --agent pi --model deepseek-v4 --body-file "$T/body.txt" >"$T/o" 2>&1; rc=$?
 ck "ⓒ⑤ ft-successor-open rc=$rc (state/successor 쓰기 0)" "$([ "$rc" = 3 ] && [ ! -e "$R/.fable-team/state/successor" ] && echo 0 || echo 1)"
+# ⓒ⑥ 명부에 «없는» 옛 좌석 retire = R282② 가 이름의 팀 명부에 새 행을 쓴다 → 그 팀도 실제 쓰기 대상(DA R1)
+st0="$(python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$R/.fable-team/seats-aifp.json")"
+bash "$RK/bin/ft-seat-retire.sh" 'byz-aifp-da-codex#100' 'byz-aifp-da-codex#101' >"$T/o" 2>&1; rc=$?
+st1="$(python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$R/.fable-team/seats-aifp.json")"
+ck "ⓒ⑥ 명부에 없는 좌석 retire 도 이름의 팀(aifp)으로 rc=$rc · 명부 불변" "$([ "$rc" = 3 ] && [ "$st0" = "$st1" ] && grep -q '팀 aifp' "$T/o" && echo 0 || echo 1)"
+# ⓑ lib 부재 + 표식 있음 = 조용한 통과 0(rc3) · 표식 0 이면 지금 동작 그대로(기존 시험 정합)
+mkdir -p "$T/nolib" && cp -p "$H/ft-index-move.sh" "$T/nolib/" && cp -p "$R/design/aifp/indices/진행/c.md" "$R/design/aifp/indices/진행/c2.md"
+bash "$T/nolib/ft-index-move.sh" "$R/design/aifp/indices/진행/c2.md" 대기 --seat 'fx-nano#0' >"$T/o" 2>&1; rc=$?
+ck "ⓑ lib 없음 + 표식 있음 = rc=$rc(판정 불가) · 카드 그대로" "$([ "$rc" = 3 ] && [ -f "$R/design/aifp/indices/진행/c2.md" ] && grep -q 'ft20-switch-lib.sh 없음' "$T/o" && echo 0 || echo 1)"
+mv "$R/.fable-team/state/ft20-switch" "$T/sw.bak"   # 표식 0 상태(깨진 표식까지 통째로 옮긴다)
+bash "$T/nolib/ft-index-move.sh" "$R/design/aifp/indices/진행/c2.md" 대기 --seat 'fx-nano#0' >"$T/o" 2>&1; rc=$?
+ck "ⓑ lib 없음 + 표식 0 = 지금 동작 그대로 rc=$rc(카드 이동)" "$([ "$rc" = 0 ] && [ -f "$R/design/aifp/indices/대기/c2.md" ] && ! grep -q 'WARN' "$T/o" && echo 0 || echo 1)"
+mv "$T/sw.bak" "$R/.fable-team/state/ft20-switch"; mv "$R/design/aifp/indices/대기/c2.md" "$R/design/aifp/indices/진행/c2.md"
 # ⓒ③b --seats/FT_SEATS_JSON 로 명부 한 장만 줘도 «쓰기 대상 명부 전부» 검사(r465 `_*` 칸 · arch #3922 ②)
 bash "$SH" unmark aifp --h 8260 --root "$R" >/dev/null 2>&1
 bash "$SH" mark harness --h 9100 --root "$R" >/dev/null 2>&1

@@ -97,7 +97,7 @@ heir_of() {
 #   rc 3 = heir 행이 이미 은퇴(_replaced_by) — 명부 쓰기 0(R27). _master 는 «_master == dead» 일 때만 같은 dump 안에서 heir 로.
 retarget_seat() {
   # r1675 — 그 명부가 2.0 전환 팀이면 한 줄 교체 전에 멈춘다(arch #3917 누락 ②) · rc3 = 쓰기 0
-  if [ -f "$HERE/ft20-switch-lib.sh" ]; then . "$HERE/ft20-switch-lib.sh"; ft20_guard_roster "$(ft20_root_of "${ROOT:-${WT:-.}}" 2>/dev/null)" "$SEATS" || return $?; fi
+  if [ -f "$HERE/ft20-switch-lib.sh" ]; then . "$HERE/ft20-switch-lib.sh"; ft20_guard_roster "$(ft20_root_of "${ROOT:-${WT:-.}}" 2>/dev/null)" "$SEATS" || return $?; else _ft20_r="${FT_FT20_ROOT:-${ROOT:-${WT:-.}}}"; compgen -G "$_ft20_r/.fable-team/state/ft20-switch/*.json" >/dev/null 2>&1 && { echo "REJECT 2.0 전환 표식이 있는데 ft20-switch-lib.sh 없음(설치 누락) — 1.x 쓰기 0(판정 불가)" >&2; return 3; }; fi
   python3 - "$SEATS" "$1" "${1%#*}#$2" <<'PY'
 import json, sys, datetime, shutil
 p, dead, heir = sys.argv[1:4]

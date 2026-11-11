@@ -15,6 +15,10 @@ ft20_switch_active() {   # 표식이 하나라도 있나 — 없으면 팀 판�
   local d; d="$(ft20_switch_dir "$1")"; [ -d "$d" ] || return 1
   compgen -G "$d/*.json" >/dev/null 2>&1
 }
+FT20_HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"   # 같은 폴더 도구(ft-name-lint.sh) 찾기용
+ft20_team_of_name() {    # <좌석이름> → 그 이름이 쓰게 될 팀(R282② 와 같은 규칙 = `-` 둘째 토큰 · byz-<팀>-<역할>-<에이전트>#N)
+  local t; t="$(printf '%s' "${1%%#*}" | cut -d- -f2)"; [ -n "$t" ] || return 1; printf '%s' "$t"
+}
 ft20_team_of_file() {    # <명부파일> → 팀 (seats.json=v65 · seats-<팀>.json=<팀>)
   local b; b="$(basename "${1:-}")"
   case "$b" in seats.json) printf v65;; seats-*.json) b="${b#seats-}"; printf '%s' "${b%.json}";; *) return 1;; esac
@@ -87,14 +91,18 @@ ft20_guard_seat() {
   fi
   ft20_switch_guard "$root" "$teams" "${3:-}" "${4:-seat}"
 }
-# ft20_guard_retire <루트> <좌석> [<명부파일>] — 명부 쓰기 입구(은퇴·승계). 쓰기 대상 명부 «전부» 검사 · 0 통과 · 3 전환됨/판정 불가
+# ft20_guard_retire <루트> <옛좌석> [<명부파일>] [<후계이름>] — 명부 쓰기 입구(은퇴·승계)
+#   쓰기 대상 명부 «전부» + ★R282② 가 새 행을 만들 이름의 팀 명부★(명부에 행이 없어도 그 팀에 쓴다 · DA R1)
+#   옛 이름이 lint 실패면 R282② 는 «후계 이름»의 팀을 쓴다 → 그때만 후계 팀을 더한다(과차단 0)
 ft20_guard_retire() {
-  local root="${1:-}" seat="${2:-}" teams rc
-  teams="$(ft20_teams_writing_seat "$root" "$seat" "${3:-}")"; rc=$?
-  case "$rc" in
-    4) echo "INFO 팀 판정 불가 — $seat 이 어느 명부에도 없음 · 2.0 전환 표식 검사 건너뜀" >&2; return 0;;
-    3) echo "REJECT 명부 못 읽음 — $seat 의 쓰기 대상 팀 판정 불가(깨진 JSON·권한) · 1.x 쓰기 0" >&2; return 3;;
-  esac
+  local root="${1:-}" seat="${2:-}" f="${3:-}" new="${4:-}" teams rc t src
+  teams="$(ft20_teams_writing_seat "$root" "$seat" "$f")"; rc=$?
+  [ "$rc" != 3 ] || { echo "REJECT 명부 못 읽음 — $seat 의 쓰기 대상 팀 판정 불가(깨진 JSON·권한) · 1.x 쓰기 0" >&2; return 3; }
+  src="$seat"
+  if [ -n "$new" ] && [ -f "$FT20_HERE/ft-name-lint.sh" ] && ! bash "$FT20_HERE/ft-name-lint.sh" "$seat" >/dev/null 2>&1; then src="$new"; fi
+  t="$(ft20_team_of_name "$src")" && teams="${teams}${teams:+
+}$t"
+  [ -n "$teams" ] || { echo "INFO 팀 판정 불가 — $seat 이 어느 명부에도 없고 이름에서 팀도 못 뽑음 · 2.0 전환 표식 검사 건너뜀" >&2; return 0; }
   ft20_switch_guard_multi "$root" $teams
 }
 # ft20_guard_move <루트> <카드경로> — 카드 이동(카드 경로 팀 우선 · 경로로 못 풀 때만 FT_TEAM · arch #3917 ②)
