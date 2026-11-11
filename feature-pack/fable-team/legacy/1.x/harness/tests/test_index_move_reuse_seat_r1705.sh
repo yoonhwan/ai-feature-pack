@@ -64,21 +64,38 @@ mv_ "$R4" "$R4/.fable-team/seats-harness.json" "$A" "$S4"
 # ⑤ 멱등
 mv_ "$R1" "$R1/.fable-team/seats-harness.json" "$B" "$S1"; O1="$(rown "$R1/.fable-team/seats-harness.json" "$S1")"
 [ "$O1" = "$H/진행/B.md|$H/대기/A.md,$H/진행/A.md" ] && ok "⑤ 같은 카드 재이동 → index·index_prev 그대로(중복 0)" || bad "⑤" "$O1"
-# ⑥ 명부 없음(경로 지정) → 이동 rc0 · 손 0 INFO · 쓰기 실패면 REJECT
+# ⑥ 명부를 «명시» 했는데 없다 → REJECT rc≠0 · 쓰기 0(카드 ⑥ · 하드 룰 20) · 팀을 못 풀어 명부가 아예 없을 때만 INFO 손 0
 R6="$(mkroot h3 harness byz-harness-nano-y)"; S6='byz-harness-nano-y#0'
 mv_ "$R6" "$T/없는명부.json" "$A" "$S6"
-[ "$RC" = 0 ] && case "$OUT" in *"명부 index 손 0"*) true;; *) false;; esac && ok "⑥ 명부 경로 없음 → 이동 rc0 · 손 0 INFO" || bad "⑥" "rc=$RC :: $OUT"
-mkdir -p "$T/ro"; printf '{"%s":{"role":"nano","index":"%s"}}' "$S6" "$H/대기/A.md" > "$T/ro/seats-ro.json"; chmod 500 "$T/ro"
-cp "$T/ro/seats-ro.json" "$T/ro.bak"; mv_ "$R6" "$T/ro/seats-ro.json" "$B" "$S6"
-if [ "$RC" != 0 ]; then
-  cmp -s "$T/ro/seats-ro.json" "$T/ro.bak" && ok "⑥b 명부 쓰기 불가 → REJECT rc≠0 · 원본 바이트 같음" || bad "⑥b" "원본 바뀜"
-else ok "⑥b 쓰기 가능(권한 500 무시) — 원본 보존 확인"; fi
-chmod 700 "$T/ro"
+[ "$RC" != 0 ] && case "$OUT" in *"REJECT 명부 없음"*) true;; *) false;; esac && [ ! -f "$T/없는명부.json" ] \
+  && ok "⑥ 명시한 명부 없음 → REJECT rc≠0 · 명부 파일 0" || bad "⑥" "rc=$RC :: $OUT"
 # ⑦ aifp 꼴 루트
 R7="$(mkroot aifp aifp aifp-ft-nano)"; S7='aifp-ft-nano-r1675-x#0'; H7='design/aifp/indices'
 roster "$R7" aifp "$S7" nano "$H7/대기/A.md"
 mv_ "$R7" "$R7/.fable-team/seats-aifp.json" "$H7/대기/B.md" "$S7"
 [ "$RC" = 0 ] && [ "$(rown "$R7/.fable-team/seats-aifp.json" "$S7")" = "$H7/진행/B.md|$H7/대기/A.md" ] && ok "⑦ aifp 루트도 같은 결과" || bad "⑦" "rc=$RC $(rown "$R7/.fable-team/seats-aifp.json" "$S7") :: $OUT"
+# ⑧(ⓒ) 명부 꼴(indent 2 + 끝 줄바꿈) 보존 — 옮긴 뒤 diff = index·index_prev 줄만
+R8b="$(mkroot h6 harness byz-harness-nano-w)"; S8b='byz-harness-nano-w#0'
+python3 - "$R8b/.fable-team/seats-harness.json" "$S8b" "$H/대기/A.md" <<'PY'
+import json, sys
+p, seat, idx = sys.argv[1:4]
+doc = {"_master": "byz-harness-master-pi#1", seat: {"role": "nano", "agent": "pi", "index": idx, "tick": None}}
+open(p, "w", encoding="utf-8").write(json.dumps(doc, ensure_ascii=False, indent=2) + "\n")
+PY
+cp "$R8b/.fable-team/seats-harness.json" "$T/ro-before.json"
+mv_ "$R8b" "$R8b/.fable-team/seats-harness.json" "$B" "$S8b"
+python3 - "$T/ro-before.json" "$R8b/.fable-team/seats-harness.json" "$S8b" <<'PY'
+import json, sys
+a, b, seat = sys.argv[1:4]
+def load(p):
+    d = json.load(open(p, encoding="utf-8")); r = d.get(seat) or {}
+    for k in ("index", "index_prev"): r.pop(k, None)
+    return d
+raw = open(b, encoding="utf-8").read()
+ok = load(a) == load(b) and '"index"' in raw and raw.endswith("\n") and raw.split("\n")[1].startswith("  ")
+raise SystemExit(0 if ok else 1)
+PY
+{ [ "$RC" = 0 ] && [ "$?" = 0 ]; } && ok "⑧ 명부 꼴 보존(indent 2 · 끝 줄바꿈) · 다른 키 변화 0" || bad "⑧" "rc=$RC"
 # 변이 W1~W3 (사본 · 원본 대조)
 mut() { R="$T/m-$1"; rm -rf "$R"; mkdir -p "$R"; cp "$BIN"/* "$R/" 2>/dev/null; printf '#!/bin/sh\nexit 0\n' > "$R/ft-index-lint.sh"; python3 - "$R/ft-index-move.sh" "$1" <<'PY'
 import pathlib, sys
@@ -91,6 +108,8 @@ if k == "W1":   # index 갱신 삭제
     sub('  seat_index_follow "$SEAT" "$NEW"', '  :')
 elif k == "W2":  # role 검사 뒤집기
     sub('row.get("role") != "nano"', 'row.get("role") == "nano"')
+elif k == "W4":  # indent 삭제(1줄로 다시 씀) → ⑧ 꼴 깨짐
+    sub('ensure_ascii=False, indent=2) + "\\n"); os.replace(tmp, p)', 'ensure_ascii=False) + "\\n"); os.replace(tmp, p)')
 elif k == "W3":  # 멱등·중복 방지 둘 다 삭제(그래야 두 번째 이동이 index_prev 를 또 쌓는다)
     sub('if old == rel: print("INFO 명부 index 그대로 — %s" % rel); sys.exit(0)', 'pass')
     sub('if old and old not in prev: row["index_prev"] = prev + [old]', 'if old: row["index_prev"] = prev + [old]')
@@ -110,5 +129,14 @@ mv_ "$R8" "$R8/.fable-team/seats-harness.json" "$H/대기/C.md" "$S8"; ONCE="$(r
 card "$R8" harness C2; roster "$R8" harness "$S8" nano "$H/진행/C2.md"; ONCE2="$(rown "$R8/.fable-team/seats-harness.json" "$S8")"
 mut W3; mutx "$R8" W3 "$H/대기/C2.md" "$S8" harness
 [ "$(rown "$R8/.fable-team/seats-harness.json" "$S8")" != "$ONCE2" ] && ok "W3 멱등 검사 삭제 → index_prev 가 또 쌓임(변이 잡힘)" || bad "W3" "$ONCE2"
+R8c="$(mkroot h7 harness byz-harness-nano-v)"; S8c='byz-harness-nano-v#0'
+python3 - "$R8c/.fable-team/seats-harness.json" "$S8c" "$H/대기/A.md" <<'PY'
+import json, sys
+p, seat, idx = sys.argv[1:4]
+open(p, "w", encoding="utf-8").write(json.dumps({"_master": "m#1", seat: {"role": "nano", "index": idx}}, ensure_ascii=False, indent=2) + "\n")
+PY
+mut W4; mutx "$R8c" W4 "$B" "$S8c" harness
+diff "$T/ro-before.json" "$R8c/.fable-team/seats-harness.json" >/dev/null 2>&1; D4=$?
+[ "$(awk 'END{print NR}' "$R8c/.fable-team/seats-harness.json")" = 1 ] && ok "W4 indent 삭제 → ⑧ 꼴 깨짐(1줄 · 변이 잡힘)" || bad "W4" "$(head -c 80 "$R8c/.fable-team/seats-harness.json")"
 cmp -s "$BIN/ft-index-move.sh" "$BIN/../kit/fable-team/bin/ft-index-move.sh" && ok "bin·kit cmp0" || bad "bin·kit 다름" ""
 echo "단계 합계 ${SECONDS}s"; [ "$fail" = 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

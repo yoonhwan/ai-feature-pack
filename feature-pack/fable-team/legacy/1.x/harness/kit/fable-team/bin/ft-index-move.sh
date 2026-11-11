@@ -40,7 +40,9 @@ seat_index_follow() {  # r1705 <좌석> <새 카드 절대경로> — 재사용 
   root="$(git -C "$IDX_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"; [ -n "$root" ] || root="$IDX_ROOT"
   root="$(cd "$root" 2>/dev/null && pwd -P)" || return 1   # /var ↔ /private/var 심링크 차이 제거
   new="$(cd "$(dirname "$new")" && pwd -P)/$(basename "$new")"
-  seats="$(seat_roster "$root")"; [ -n "$seats" ] && [ -f "$seats" ] || { echo "INFO 명부 index 손 0 — 명부 못 풂(${seats:-없음})"; return 0; }
+  seats="$(seat_roster "$root")"
+  if [ -n "${FT_SEATS_JSON:-}" ] && [ ! -f "$seats" ]; then echo "REJECT 명부 없음(FT_SEATS_JSON=$seats) — 명부 쓰기 0"; return 1; fi   # r1705 ⓐ: 명시한 명부가 없으면 판정 불가(하드 룰 20)
+  [ -n "$seats" ] && [ -f "$seats" ] || { echo "INFO 명부 index 손 0 — 팀 명부 못 풂(${seats:-없음})"; return 0; }
   rel="${new#"$root"/}"
   python3 - "$seats" "$seat" "$rel" <<'PY'
 import json, os, sys
@@ -55,7 +57,7 @@ if old == rel: print("INFO 명부 index 그대로 — %s" % rel); sys.exit(0)
 row["index"] = rel; prev = row.get("index_prev"); prev = prev if isinstance(prev, list) else []
 if old and old not in prev: row["index_prev"] = prev + [old]
 tmp = "%s.tmp.%d" % (p, os.getpid())
-try: open(tmp, "w", encoding="utf-8").write(json.dumps(doc, ensure_ascii=False) + "\n"); os.replace(tmp, p)
+try: open(tmp, "w", encoding="utf-8").write(json.dumps(doc, ensure_ascii=False, indent=2) + "\n"); os.replace(tmp, p)   # ⓒ: 원본 꼴(indent 2 + 끝 줄바꿈) 보존
 except OSError as e:
     try: os.unlink(tmp)
     except OSError: pass
