@@ -266,7 +266,7 @@ sp() { ( cd "$R" && export FT_ROOT="$R" FT_NANO_PREFIX="byz-alpha-nano-" FT_SEAT
 # r1292: spawn 은 «보고 대상» 을 지금 살아 있는 좌석에서 고르므로(tmm ls byz-<팀> + ft-name-lint) 가짜 tmm 과 master 한석이 픽스처에 필요하다.
 cat > "$FAKE/tmm" <<EOF
 #!/bin/sh
-case "\$1" in ls) [ -f "$SESS" ] || exit 0; grep "^\${2}-" "$SESS"; exit 0;; *) exit 0;; esac
+case "\$1" in ls) [ "\$2" = --names ] && shift; [ -f "$SESS" ] || exit 0; grep "^\${2}-" "$SESS"; exit 0;; *) exit 0;; esac
 EOF
 chmod 755 "$FAKE/tmm"
 sess "byz-alpha-master-claude#1" "byz-alpha-nano-live1#0" "byz-alpha-nano-live2#0"

@@ -26,7 +26,7 @@ EOF
 chmod 755 "$FAKE/tmux"
 cat > "$FAKE/tmm" <<EOF
 #!/bin/sh
-case "\$1" in ls) [ -f "$SESS" ] || exit 0; grep "^\${2}-" "$SESS"; exit 0;; *) exit 0;; esac
+case "\$1" in ls) [ "\$2" = --names ] && shift; [ -f "$SESS" ] || exit 0; grep "^\${2}-" "$SESS"; exit 0;; *) exit 0;; esac
 EOF
 chmod 755 "$FAKE/tmm"
 . "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$T" ok
