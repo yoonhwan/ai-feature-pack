@@ -10,7 +10,8 @@
 # ★직렬화(DA⑥ H4)★: 상태 파일 옆 flock -n — 이미 다른 실행이 돌면 이 실행은 조용히 종료 0. 상태 JSON 이 있는데 못 읽으면 ring 0 + stderr ERROR + rc 4(빈 상태로 덮지 않는다).
 #   명시 실패(mbox rc≠0)는 다음 실행에 재시도 · 결과 불명(예외·시간 초과)·attempt 로 남은 것은 재전송 0(unsure).
 # ★입력 보호의 한계(DA⑥ H3)★: ring 직전에 client_activity 를 «한 번 더» 읽어 최근 키면 보류한다. 그 재확인~mbox 의 send-keys 사이(수 ms)는 «0 보장 아님 · 창을 최소화» 한 것이다.
-# 환경: FT_ROOT · FT_MBOX · FT_SEAT_STATUS · FT_TMUX(기본 tmux) · FT_IDLE_WAKE_NOW(시험 시계) · FT_IDLE_WAKE_LOG. 외부 호출 0 · 상주 메모리 0.
+# r1326: 깨울 좌석(받는 이의 역할 현역 = `mbox.py holder`) = 보낸 좌석 인 행은 후보에서 뺀다(로그 «자기 발신» 좌석·seq 당 1줄 · 표식 `<좌석>~`) · holder 조회 실패 = 그 받는 이 깨우기 0 + «holder 판정 불가» 1줄.
+# 환경: FT_ROOT · FT_MBOX · FT_MBOX_PY · FT_SEAT_STATUS · FT_TMUX(기본 tmux) · FT_IDLE_WAKE_NOW(시험 시계) · FT_IDLE_WAKE_LOG. 외부 호출 0 · 상주 메모리 0.
 set +e
 HERE="$(cd "$(dirname "$0")" && pwd)"
 if [ -z "${FT_ROOT:-}" ]; then
@@ -27,6 +28,7 @@ STATE_DIR = os.path.join(ROOT, ".fable-team", "state")
 STATE = os.path.join(STATE_DIR, "idle-wake.json")
 LOG = os.environ.get("FT_IDLE_WAKE_LOG") or os.path.join(STATE_DIR, "idle-wake.log")
 MBOX = os.environ.get("FT_MBOX") or os.path.join(COMM, "mbox.sh")
+MBOXPY = os.environ.get("FT_MBOX_PY") or os.path.join(COMM, "mbox.py")
 STATUS = os.environ.get("FT_SEAT_STATUS") or os.path.join(HERE, "ft-seat-status.sh")
 TMUX = shlex.split(os.environ.get("FT_TMUX") or "tmux")
 WAKE_SEC = int(os.environ.get("FT_IDLE_WAKE_SEC") or 180)
@@ -40,27 +42,52 @@ def log(msg):
         f.write(time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(NOW)) + f" ft-idle-wake: {msg}\n")
 
 
-def run(argv):
-    return subprocess.run(argv, capture_output=True, text=True, timeout=30)
+def run(argv, timeout=30):
+    return subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+
+
+def holder_of(to, cache={}):
+    """받는 이의 깨울 좌석(역할 현역 · mbox.py holder) — 이름당 1회 · 7초 · 실패 = None(판정 불가 · r1326 A1·A4)."""
+    if to not in cache:
+        try:
+            p = run(["python3", MBOXPY, "holder", to], timeout=7)
+            cache[to] = p.stdout.strip() if p.returncode == 0 and p.stdout.strip() else None
+        except (subprocess.SubprocessError, OSError):
+            cache[to] = None
+    return cache[to]
 
 
 def oldest_per_seat():
-    """{좌석: (가장 오래된 행의 seq, 대기초)} — 큐(mailbox.jsonl)만 본다. 큐 파일 없음 = 아무것도 안 한다."""
+    """({좌석: (seq, 대기초, 판정 불가 사유|None)}, {좌석: (현역, [뺀 seq])}) — 큐(mailbox.jsonl)만 본다. 큐 파일 없음 = 아무것도 안 한다.
+    r1326: 보낸 이 = 깨울 좌석(holder) 인 행은 후보에서 뺀다 — 그 좌석의 recv 가 자기 발신 행을 빼므로 깨워도 할 일이 0."""
     path = os.path.join(COMM, "mailbox.jsonl")
     if not os.path.exists(path):
         log("mailbox.jsonl 없음 — 깨우기 0")
-        return {}
-    out = {}
+        return {}, {}
+    rows, out, skipped = {}, {}, {}
     with open(path, encoding="utf-8") as f:
         for ln in f:
             try:
                 r = json.loads(ln)
                 age = NOW - time.mktime(time.strptime(r["ts"], "%Y-%m-%dT%H:%M:%S"))
-                if r["to"] not in out or age > out[r["to"]][1]:
-                    out[r["to"]] = (int(r["seq"]), age)
+                rows.setdefault(r["to"], []).append((age, int(r["seq"]), r.get("from")))
             except (ValueError, KeyError, TypeError):
                 continue
-    return out
+    for to, rs in rows.items():
+        age, seq, _ = max(rs, key=lambda x: x[0])
+        if age < WAKE_SEC:
+            continue  # 깨울 만큼 오래된 행 없음 — holder 조회 0
+        h = holder_of(to)
+        if h is None:
+            out[to] = (seq, age, "holder 판정 불가 — 깨우기 0")
+            continue
+        keep = [x for x in rs if x[2] != h]
+        if len(keep) < len(rs):
+            skipped[to] = (h, sorted(s for a, s, f in rs if f == h and a >= WAKE_SEC))
+        if keep:
+            age, seq, _ = max(keep, key=lambda x: x[0])
+            out[to] = (seq, age, None)
+    return out, skipped
 
 
 def typing_recently(seat):
@@ -113,12 +140,20 @@ except (OSError, ValueError, AssertionError) as e:
     log(f"상태 파일 손상/읽기 실패 — ring 0: {type(e).__name__}")
     print(f"ERROR: ft-idle-wake 상태 파일을 읽지 못함({STATE}) — 덮어쓰지 않고 ring 0", file=sys.stderr)
     sys.exit(4)
-for seat, (seq, age) in sorted(oldest_per_seat().items()):
+picked, skipped = oldest_per_seat()
+for k in [k for k in st if k.endswith("~") and k[:-1] not in skipped]:
+    del st[k]  # r1326 — 뺀 행이 큐에서 사라지면 표식도 닫는다
+for seat, (h, seqs) in sorted(skipped.items()):
+    for seq in seqs:
+        if seq not in (st.get(seat + "~") or []):
+            log(f"{seat} seq={seq} 자기 발신(from={h}) — 깨우기 0")  # 좌석·seq 당 1줄(A3)
+    st[seat + "~"] = seqs
+for seat, (seq, age, hwhy) in sorted(picked.items()):
     prev = st.get(seat)
     if age < WAKE_SEC or (isinstance(prev, dict) and prev.get("seq") == seq):
         continue
     try:
-        ok, why = idle_and_unwatched(seat)
+        ok, why = (False, hwhy) if hwhy else idle_and_unwatched(seat)
     except (subprocess.SubprocessError, OSError, ValueError) as e:
         ok, why = False, f"조회 예외 {type(e).__name__}"
     lo = (why or "").startswith("로그아웃")

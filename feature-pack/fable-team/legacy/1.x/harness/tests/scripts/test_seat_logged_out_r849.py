@@ -142,9 +142,9 @@ MBOX = '#!/bin/sh\necho "$*" >> "$WSTUB/ring.log"\n'
 
 
 def wake(tmp: Path) -> tuple[list[str], list[str]]:
-    for n, body in (("status.sh", STATUS), ("tmux.sh", TMUX), ("mbox.sh", MBOX)):
-        (tmp / n).write_text(body)
-    env = {**os.environ, "FT_ROOT": str(tmp / "root"), "WSTUB": str(tmp), "FT_SEAT_STATUS": str(tmp / "status.sh"),
+    for n, body in (("status.sh", STATUS), ("tmux.sh", TMUX), ("mbox.sh", MBOX), ("holder.py", "import sys\nprint(sys.argv[2])\n")):
+        (tmp / n).write_text(body)  # holder.py = r1326 대역 `mbox.py holder`(이름 그대로 · 교대 없음)
+    env = {**os.environ, "FT_ROOT": str(tmp / "root"), "WSTUB": str(tmp), "FT_SEAT_STATUS": str(tmp / "status.sh"), "FT_MBOX_PY": str(tmp / "holder.py"),
            "FT_TMUX": f"sh {tmp / 'tmux.sh'}", "FT_MBOX": str(tmp / "mbox.sh"), "FT_IDLE_SLOT_LOG": str(tmp / "slot.log")}
     r = subprocess.run(["bash", str(BIN / "ft-idle-wake.sh")], env=env, capture_output=True, text=True, timeout=60)
     assert r.returncode == 0, r.stderr

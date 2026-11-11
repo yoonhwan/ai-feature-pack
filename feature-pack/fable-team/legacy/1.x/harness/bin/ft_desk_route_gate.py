@@ -6,7 +6,8 @@
 #   planner = seats-planner.json `_master` 의 «계보 번호»(같은 베이스 이름 #N 전부 — 회전 대비)
 #   desk    = `_desk` 현역(계보 번호 전부) + 이름 규약 `^(byz|ft)-planner-desk-` 전부(에이전트 베이스가 바뀌어도 desk)
 # 규칙:
-#   ⓐ desk → planner 밖          = REJECT («desk 는 planner 에게만 보내요») — ★[HIL]·[긴급] 도 예외 아님★(desk 의 사람 판정 요청은 planner 로)
+#   ⓐ desk → planner·팀 master 밖 = REJECT («desk 는 팀 master 또는 planner 에게만 보내요») — ★[HIL]·[긴급] 도 예외 아님★
+#        r1708: 팀 master = 어느 명부(seats*.json)든 `_master` 칸의 «계보 번호»(같은 베이스 이름 #N 전부) · 나노·arch·tester·이름만 맞는 좌석은 그대로 REJECT
 #   ⓑ planner 밖 → desk          = REJECT («desk 에는 planner 가 보내요») — 예외 2개만, «방향 한정»:
 #        ① 머리 [HIL] ② «[h<N> 결과]» ∧ 판정 재료 «전체»(요약 + relay 전문)가 1줄 ∧ `_master` 계보가 그 팀 좌석에 보낸 쪽지(회전 로그 전부 · 오늘)에 정확히 h<N>
 #   ⓒ desk↔desk(계보 인계) · planner↔desk · 도구 발신(ft-* · # 없음) · slack-*(오빠) = 통과
@@ -108,6 +109,7 @@ def verdict(to, frm, body, attach, seats_dir, comm):
         warn("desk 경로 판정 0 — seats-planner.json 에 _desk·_master 칸이 없다(%s)" % seats_dir)
         return None
     pbase = base(planner)
+    masters = {base(v["_master"].strip()) for v in ds.values() if isinstance(v.get("_master"), str) and v["_master"].strip()}  # r1708 팀 master 계보
 
     def is_planner(n):
         return base(n) == pbase
@@ -123,9 +125,9 @@ def verdict(to, frm, body, attach, seats_dir, comm):
         return None                                          # desk 계보 인계(desk 37 → desk 38)
     head = (kept_lines(body) or [""])[0].strip()
     if is_desk(frm):                                         # ⓐ desk → …
-        if is_planner(to):
+        if is_planner(to) or base(to) in masters:
             return None
-        return "desk 는 planner 에게만 보내요 — 팀 일은 planner 가 나눠요 (받는 사람: %s · [HIL]·[긴급] 도 planner 로)" % to
+        return "desk 는 팀 master 또는 planner 에게만 보내요 — 팀 좌석 일은 그 팀 master 가 나눠요 (받는 사람: %s · [HIL]·[긴급] 도 같아요)" % to
     if is_planner(frm):
         return None                                          # planner → desk(정상 방향)
     text = body if not attach else body + "\n" + attach       # ⓑ 팀 → desk: 예외 2개(방향 한정)

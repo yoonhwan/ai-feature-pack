@@ -11,6 +11,8 @@ usage: ft_seat_codex.py [--if-codex <명부 폴더>] <seat>   (--if-codex: 명�
 env(시험용 주입): FT_SEAT_CODEX_PANE_PID · FT_SEAT_CODEX_PS(기본 `ps -axo pid=,ppid=,comm=`) · FT_SEAT_CODEX_LSOF(기본 `lsof -Fn -p`, 뒤에 pid)
                  · FT_SEAT_CODEX_ROOT(기본 ~/.codex/sessions) · FT_SEAT_CODEX_TAIL_CAP(기본 16MB)
 """
+from __future__ import annotations   # r1703: 3.9 에서도 import 되게(주석 평가 지연) — 동작 변화 0
+
 import glob
 import json
 import os

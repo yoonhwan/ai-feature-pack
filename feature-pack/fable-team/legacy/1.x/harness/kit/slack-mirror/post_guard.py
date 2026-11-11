@@ -42,6 +42,8 @@ GATE_REPOS_ENV = "FT_APPROVAL_GATE_REPOS"  # 콜론 목록 · 기본 = 루트 + 
 GATE_TARGET_ENV = "FT_APPROVAL_GATE_TARGET"  # 기본 origin/main
 DEFAULT_PACK_REPO = "/Users/yoonhwan/Project/ai-feature-pack"
 SHA40 = re.compile(r"(?<![0-9a-fA-F])[0-9a-f]{40}(?![0-9a-fA-F])")
+MERGE_WORD, ASK, PR_REF = re.compile(r"머지|병합|merge", re.I), re.compile(r"할까요|\?"), re.compile(r"(PR|Issue|이슈)?\s*#([0-9]+)", re.I)  # r1710 머지 질문
+URL = re.compile(r"\S+://\S+")  # r1710 보정 1 — 링크 안 물음표는 묻는 꼴이 아니다
 
 
 class PostGuardError(MirrorError):
@@ -115,12 +117,17 @@ def _git(repo: str, *args: str) -> int:
     return 255
 
 
-def approval_gate(text: str) -> None:
+def approval_gate(text: str, human: bool = False) -> None:
     """approve-merge 질문 글(본문에 approve-merge + 40hex sha)은 그 sha(PR head)가 origin/main 을 품을 때만 나간다 —
     질문 때 PR 이 옛 main 위면 승인 뒤 main 병합으로 head 가 바뀌어 같은 질문이 되풀이된다(r1275 단계 4 · 판정 3932).
-    품지 않음 = 게시 0 «먼저 main 따라잡기» · 조회 실패 = 게시 0 «판정 불가»(조용한 통과 0) · approve-merge 낱말 없음 = 대상 밖."""
-    shas = sorted(set(SHA40.findall(text))) if "approve-merge" in text else []
-    if not shas:
+    품지 않음 = 게시 0 «먼저 main 따라잡기» · 조회 실패 = 게시 0 «판정 불가»(조용한 통과 0) · approve-merge 낱말 없음 = 대상 밖.
+    r1710: 사람 채널 «머지 질문»(머지 낱말 ∧ 묻는 꼴 ∧ PR 번호)은 PR 마다 40hex 가 있어야 나가고, 그 sha 도 같은 조상 검사를 탄다(승인 검사가 질문 글의 sha 를 본다)."""
+    shas = sorted(set(SHA40.findall(text)))
+    refs = PR_REF.findall(text) if human and MERGE_WORD.search(text) and ASK.search(URL.sub("", text)) else []
+    prs = {n for p, n in refs if not p or p.upper() == "PR"}  # «PR #N» 과 맨 «#N» 을 합쳐 센다(Issue·이슈 #N 은 안 셈 · 보정 2 R1)
+    if len(shas) < len(prs):
+        raise PostGuardError(f"게시 거부(approval_gate) — 머지 질문에 PR head sha(40자)가 없음 · 질문 글에 sha 를 넣어 다시(PR {len(prs)}건 · sha {len(shas)}개) · 게시 0")
+    if not shas or not (prs or "approve-merge" in text):
         return
     repos = [r for r in (os.environ.get(GATE_REPOS_ENV) or f"{os.environ.get(ROOT_ENV) or DEFAULT_ROOT}:{DEFAULT_PACK_REPO}").split(":") if r]
     remote, _, branch = (os.environ.get(GATE_TARGET_ENV) or "origin/main").partition("/")
@@ -183,7 +190,7 @@ def guarded_post(base: str, token: str, channel: str, text: str, thread_ts: str 
     if is_human:
         text = with_status_head(text)
     check(text, channel, human=is_human, allow=allow)
-    approval_gate(text)
+    approval_gate(text, is_human)
     ts = post(base, token, channel, text, thread_ts)
     desk_copy(base, token, channel, ts, text, head, allow)
     return ts

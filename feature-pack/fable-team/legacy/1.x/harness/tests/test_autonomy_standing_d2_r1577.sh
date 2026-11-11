@@ -163,13 +163,13 @@ grev() {  # grev <이름> — 변이 판 approve-standing(켜기)만 · GSEAT �
   local st="$T/ms-$1"; rm -rf "$st"; mkdir -p "$st"; as_seat "${GSEAT:-$PL}"
   out="$(FT_NOW="$T0" FT_AUTONOMY_STATE_DIR="$st" REPLIES="$REPLIES" "$BASH" "$T/mut-$MFT/ft-autonomy.sh" approve-standing D2 --repos byz,pack --classes code,docs --oppa-decision "$OD" 2>&1)"; rc=$?; as_seat "$HM"; }
 D2F=ft-autonomy-standing-d2.sh
-mut m1 "$D2F" 'd2_critical "$head"; d2_write' 'd2_write'; MFT=m1; mkpr 51 "$PRF" "git branch -D old"; SAH="$PRSHA"; SPR=51; mkda m1 APPROVE "$SAH"; mkv m1 "$SAH" "$DAO"; SVF="$VF"; card "$SAH"; mgo m1
+mut m1 "$D2F" 'd2_critical "$head"' ':'; MFT=m1; mkpr 51 "$PRF" "git branch -D old"; SAH="$PRSHA"; SPR=51; mkda m1 APPROVE "$SAH"; mkv m1 "$SAH" "$DAO"; SVF="$VF"; card "$SAH"; mgo m1
 [ "$rc" = 0 ]; ck "ⓘM1 크리티컬 판정 빼기 → ⓒ destroy 칸이 승인된다(빨강)" $?
 mut m2 "$D2F" '[ "$D2_CLS" != code ] || scope_code_check' ':'; MFT=m2; card "$A11" 1; SVF="$V11"; SAH="$A11"; SPR=11; mgo m2
 [ "$rc" = 0 ] && has '^STANDING-OK'; ck "ⓘM2 카드 시험 세트 검사 빼기 → ⓑ6 칸이 승인된다(빨강)" $?
 mut m3 "$D2F" 'std_da_out "$V_OUT" "$V_A"; ' ''; MFT=m3; card "$A11"; SAH="$A11"; SPR=11; SVF="$VH"; mgo m3
 [ "$rc" = 0 ] && has '^STANDING-OK'; ck "ⓘM3 DA 꼬리 검사 빼기 → ⓑ5 칸이 승인된다(빨강)" $?
-mut m4 "$D2F" 'D2_CARD="$card"; d2_seat' 'D2_CARD="$card"; D2_BY=mut'; MFT=m4; SA_SEAT="$NANO" SAH="$A11" SPR=11 SVF="$V11" mgo m4
+mut m4 "$D2F" 'D2_CARD="$card"; D2_DESK=""; d2_seat' 'D2_CARD="$card"; D2_BY=mut'; MFT=m4; SA_SEAT="$NANO" SAH="$A11" SPR=11 SVF="$V11" mgo m4
 [ "$rc" = 0 ] && has '^STANDING-OK'; ck "ⓘM4 쓰기 좌석 검사 빼기 → ⓑ8 칸이 승인된다(빨강)" $?
 mut m5 "$D2F" 'std_seat_probe || {' 'true || {'; MFT=m5; REPLIES="$T/replies.json"; GSEAT="$NANO" grev m5
 [ "$rc" = 0 ] && has 'STANDING-GRANTED'; ck "ⓘM5 켜기 좌석 검사 빼기 → ⓐ0 칸이 켜진다(빨강)" $?
@@ -257,5 +257,5 @@ git -C "$B" checkout -q main
 
 # ══ 키트 사본 · 크기
 for f in ft-autonomy.sh ft-autonomy-standing-d2.sh ft-merge-land.sh ft-merge-lib.sh ft_doc_exempt.py autonomy_scope_rules.py autonomy_scope_classify.py; do cmp -s "$BIN/$f" "$BIN/../kit/fable-team/bin/$f"; ck "키트 사본 cmp0 $f" $?; done
-[ "$(wc -l < "$BIN/ft-autonomy.sh")" -le 200 ] && [ "$(wc -l < "$BIN/ft-autonomy-standing.sh")" -le 194 ] && [ "$(wc -l < "$BIN/ft-autonomy-standing-d2.sh")" -le 123 ] && [ "$(wc -l < "$BIN/ft-merge-land.sh")" -le 120 ]; ck "줄 수 상한(autonomy 200 · standing 194 · standing-d2 123 · merge-land 120)" $?
+[ "$(wc -l < "$BIN/ft-autonomy.sh")" -le 200 ] && [ "$(wc -l < "$BIN/ft-autonomy-standing.sh")" -le 194 ] && [ "$(wc -l < "$BIN/ft-autonomy-standing-d2.sh")" -le 200 ] && [ "$(wc -l < "$BIN/ft-merge-land.sh")" -le 120 ]; ck "줄 수 상한(autonomy 200 · standing 194 · standing-d2 200 · merge-land 120)   # r1708 N2: desk 갈래로 154" $?
 [ "$fail" = 0 ] && echo "ALL PASS" || { echo "FAILED $fail"; exit 1; }
