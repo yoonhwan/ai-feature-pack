@@ -39,9 +39,9 @@ chk "ⓐ 장부 1줄 · kind=question · key=r1590 · h·sha 칸 없음" "1 ques
 chk "ⓐ 끝 시각 = 등록 + 24h" "86400" "$(python3 -c 'import json,sys;r=json.loads(open(sys.argv[1],encoding="utf-8").readline());print(r["deadline"]-r["at"])' "$LEDGER")"
 run >/dev/null 2>&1; chk "ⓐ scan rc=0" 0 "$?"
 chk "ⓐ 쪽지 1통 · 받는이 = _master(desk 아님)" "1 $MASTER" "$(sends) $(cut -f1 "$SENT")"
-chk "ⓐ 본문 = «[오빠 답글] r1590 ts=<답글>»" "[오빠 답글] $KEY ts=$RTS" "$(cut -f2 "$SENT")"
+chk "ⓐ 본문 = «[오빠 새 글] r1590 ts=<답글> → 원문 확인 · 답이면 --close r1590»(r1776 A3)" "[오빠 새 글] $KEY ts=$RTS → 원문 확인 · 답이면 --close $KEY" "$(cut -f2 "$SENT")"
 run >/dev/null 2>&1; chk "ⓐ 같은 답글 두 번째 주기 0통" 1 "$(sends)"
-RUN_NOW=$((NOW + 86401)) run >/dev/null 2>&1; chk "ⓐ 알림 성공 = 그 줄 닫힘 · 24h 뒤 오알림 0통" "1 closed replied" "$(sends) $(field state) $(field closed)"
+RUN_NOW=$((NOW + 86401)) run >/dev/null 2>&1; chk "ⓐ 알림 뒤 24h = 조용히 닫힘(r1776 A4ⓑ) · 오알림 0통" "1 closed timeout-notified" "$(sends) $(field state) $(field closed)"
 : > "$SENT"; printf '{"q_ts":"1794300500.111111","kind":"question","key":"r1591b","at":%d,"deadline":%d,"state":"open"}\n' "$NOW" "$NOW" > "$LEDGER"
 RUN_NOW=$((NOW + 86401)) run >/dev/null 2>&1; chk "ⓐ 미응답 24h = master 1통 · 닫힘(timeout 동결)" "1 closed timeout" "$(sends) $(field state) $(field closed)"
 
