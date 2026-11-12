@@ -95,7 +95,7 @@ r2() {  # 진행 6 · 좌석 3 → REJECT 1줄 · exit 1 · 워크트리 0 · �
   card "$r" alpha 대기 new1
   o="$(sp "$r" alpha design/alpha/indices/대기/new1.md)"; rc=$?
   eq "$rc" 1 "R2 exit 1"
-  like "$o" "REJECT 카드 상한 — alpha 진행 6(좌석 3) > 3+2" "R2 REJECT 1줄"
+  like "$o" "REJECT 카드 상한 — alpha 진행 6(좌석 3 · 관찰 대기 0) > 3+2" "R2 REJECT 1줄"
   like "$o" "이동 먼저: " "R2 이동 먼저 목록"
   eq "$(ls -d "$r"/.worktrees "$T"/.worktrees/*r2* 2>/dev/null | wc -l | tr -d ' ')" 0 "R2 워크트리 0"
   like "$(cat "$r"/.fable-team/state/card-assign/*.json 2>/dev/null)" '"waiting"' "R2 배정 원장 waiting"
@@ -106,14 +106,14 @@ r3() {  # 같은 팀 · 진행 카드(재작업) spawn → 통과 + 지금 WARN 
   sesssp alpha byz-alpha-nano-p1#0 byz-alpha-nano-p2#0 byz-alpha-nano-p3#0
   o="$(sp "$r" alpha design/alpha/indices/진행/p1.md --dry-run)"
   nlike "$o" "REJECT 카드 상한" "R3 진행 카드 재작업 spawn 통과"
-  like "$o" "WARN 카드 흐름 — alpha 진행 6(좌석 3)" "R3 지금 WARN 줄"
+  like "$o" "WARN 카드 흐름 — alpha 진행 6(좌석 3 · 관찰 대기 0)" "R3 지금 WARN 줄"
 }
 r4() {  # 잘린 세션 slug(40자) 는 셈 · 30자 미만 slug 는 안 셈
   local r="$T/r4" o rc; mkrepo "$r"
   card "$r" alpha 진행 "r1273-index-lint-assign-check-no-full-history-log"
   card "$r" alpha 진행 "r1234-short-head-card"; card "$r" alpha 진행 "x1"
   sess "byz-alpha-nano-r1273-index-lint-assign-check-no-full-hi#0" "byz-alpha-nano-r12#0"
-  o="$(cfrun "$r" alpha)"; like "$o" "진행 3(좌석 1)" "R4 잘린 slug(≥30자) 같은 카드 · 짧은 앞머리 안 셈"
+  o="$(cfrun "$r" alpha)"; like "$o" "진행 3(좌석 1 · 관찰 대기 0)" "R4 잘린 slug(≥30자) 같은 카드 · 짧은 앞머리 안 셈"
   o="$(cfrun "$r" alpha --gate)"; rc=$?; eq "$rc" 0 "R4 좌석 1 이라 3 ≤ 3 → rc0"
 }
 r5() {  # pre-commit: 새 대기 카드 A 만 막는다 · 이동·수정 커밋 통과
@@ -157,13 +157,13 @@ r8() {  # FT_CARD_CAP=0 → --gate 호출 0 · 지금 --warn 줄 그대로
   sesssp alpha byz-alpha-nano-p1#0 byz-alpha-nano-p2#0 byz-alpha-nano-p3#0; card "$r" alpha 대기 new1
   o="$(FT_CARD_CAP=0 sp "$r" alpha design/alpha/indices/대기/new1.md --dry-run)"
   nlike "$o" "REJECT 카드 상한" "R8 끄면 막지 않음"
-  like "$o" "WARN 카드 흐름 — alpha 진행 6(좌석 3)" "R8 끄면 지금 WARN 줄 그대로"
+  like "$o" "WARN 카드 흐름 — alpha 진행 6(좌석 3 · 관찰 대기 0)" "R8 끄면 지금 WARN 줄 그대로"
 }
 r9() {  # 진행 3 · 좌석 0 → REJECT(3 > 2)
   local r="$T/r9" i o rc; mkrepo "$r"; for i in p1 p2 p3; do card "$r" alpha 진행 "$i"; done
   sess; card "$r" alpha 대기 new1
   o="$(cfrun "$r" alpha --gate)"; rc=$?; eq "$rc" 4 "R9 3 > 0+2 → rc4"
-  like "$o" "REJECT 카드 상한 — alpha 진행 3(좌석 0) > 0+2" "R9 REJECT 줄"
+  like "$o" "REJECT 카드 상한 — alpha 진행 3(좌석 0 · 관찰 대기 0) > 0+2" "R9 REJECT 줄"
 }
 r10() {  # beta 상한 넘음 · alpha 상한 안 → alpha spawn·새 카드 통과
   local r="$T/r10" i o rc; mkhookrepo "$r" "$HOOK" both

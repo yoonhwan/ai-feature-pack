@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # ft-card-flow.sh --team <팀> [--root <리포>] [--dir <팀 폴더>] [--warn] [--branch-check] — 카드 흐름 숫자 1줄(읽기 전용 · 이동 0 · 삭제 0 · kill 0 · r954)
-#   기본 출력(stdout) = `카드 대기 N · 진행 N(좌석 M) · 착지됐는데 진행 K`
+#   기본 출력(stdout) = `카드 대기 N · 진행 P(좌석 M · 관찰 대기 K) · 착지됐는데 진행 K`
 #     대기/진행 = <팀 폴더>/indices/{대기,진행}/*.md 개수 · 좌석 M = 진행 카드 중 ① «-<slug>#» 가 tmux 세션명에 든 것(ft-orphan-cards.sh 와 같은 대응 · 대소문자 무시)
 #       또는 ② 카드 «- 배정: 좌석 <이름>» 의 <이름> 이 tmux 세션 목록에 있음(r1693 재사용 나노 — 세션 이름은 첫 카드 slug 그대로다 · 카드 본문은 이미 읽는 1회 안에서 본다)
 #     K = 카드 `- 착지:` 바로 뒤 «첫 낱말 하나»(양쪽 백틱 한 쌍은 벗김)가 `^[0-9a-f]{7,40}$` 이고, 그 낱말이 기준(main) 조상 커밋 sha 의 앞머리와 같을 때 센다 — 근거 없는 카드는 세지 않는다(거짓 양성 0 · 40자 고정은 완성 카드 착지 줄 184/321 을 버린다)
 #       --branch-check = 착지 줄이 없는 카드 중 가지 nano/<slug> 가 ft-finished-check FINISHED 인 것도 센다(수동용 · 실측 한 번에 27초 · 틱·spawn 은 안 쓴다)
 #   --warn = «건강 그리고 확인 불가 0» 일 때만 출력 0 · 진행 > 좌석 + 2 또는 K > 0 이면 `WARN 카드 흐름 — … 이동 먼저: <카드 최대 5>` 1줄(ft-nano-spawn 앞 경보 · rc 불변)
-#   --gate = 상한 판정(r1292 · r1693): 상한 N = max(바닥 FT_CARD_CAP_FLOOR(기본 10 · 정수 아님 = 10), 좌석 M + 2) — 진행 P > N 이면
-#     `REJECT 카드 상한 — <팀> 진행 P(좌석 M) > 상한 N(max(<바닥>, <M>+2)) · 이동 먼저: <카드 ≤5 [외 N]>` 1줄 · rc 4 · 아니면 --warn 과 같은 줄 · rc 0 (오빠 «10장 기본» · 좌석이 많으면 지금 계약 M+2 그대로)
+#   --gate = 상한 판정(r1292 · r1693 · r1715): 상한 N = max(바닥 FT_CARD_CAP_FLOOR(기본 10 · 정수 아님 = 10), 좌석 M + 2) — 셈 P = 진행 카드 − 관찰 대기 K > N 이면
+#     `REJECT 카드 상한 — <팀> 진행 P(좌석 M · 관찰 대기 K) > 상한 N(max(<바닥>, <M>+2)) · 이동 먼저: <카드 ≤5 [외 N]>` 1줄 · rc 4 · 아니면 --warn 과 같은 줄 · rc 0 (오빠 «10장 기본» · 좌석이 많으면 지금 계약 M+2 그대로)
+#     관찰 대기(r1715 · 오빠 확정) = 그 카드에 «- 착지: <sha>» ∧ «- 대기 사건: <값>» ∧ «- 마감 기준: <값>» 세 줄이 다 있는 카드 — 사람·사건을 기다리는 카드는 일하는 자리를 안 쓰므로 상한에 안 센다
+#       두 줄 중 하나라도 없거나 값이 비면 지금처럼 센다(기다림이 끝없이 쌓이지 않게) · 카드는 숨기지 않는다(문구에 K 만 더한다)
 #     우회 = env FT_CARD_CAP_OK=<사람 승인 번호> ∧ <루트>/.fable-team/state/card-cap-ok.<번호> 표식 → `카드 상한 우회 — 승인 <번호>` 1줄 · rc 0 · 같은 문장을 state/card-cap-ok.log 에 append
 #     판정 불가(rc 3)는 막지 않는다 — `WARN 카드 상한 판정 불가 — 막지 않음(<사유>)` 1줄(조용한 통과 0 · r921 W1)
 #   실패: 계산이 FT_CARD_FLOW_TIMEOUT_SEC(기본 7초)를 넘으면 숫자 대신 `카드 숫자 확인 불가(시간 초과)` 줄 · rc 3 / 그 밖 계산 실패도 `카드 숫자 확인 불가(<사유>)` · rc 3 (빈칸·0 금지 · #0 RULE)
@@ -123,7 +125,9 @@ cards=listmd('진행')
 pat=re.compile(r'^[ \t]*-[ \t]*착지:[ \t]*(\S+)',re.M)   # «착지:» 바로 뒤 첫 낱말 하나
 valid=re.compile(r'[0-9a-f]{7,40}\Z')   # 7~40자 소문자 16진수(보강 ①: 40자 고정은 7자 약식을 버린다)
 def word(w): return w[1:-1] if len(w)>2 and w[0]=='`' and w[-1]=='`' else w
-rows=[];seat=0
+def obs_line(body,label):   # r1715 C3: «- <label>:» 줄이 있고 값이 비어 있지 않아야 관찰 대기다(빈칸이면 센다)
+    return re.search(r'^[ \t]*-[ \t]*'+label+r':[ \t]*(\S)',body,re.M) is not None
+rows=[];seat=0;obsn=0
 asg=re.compile(r'^[ \t]*-[ \t]*배정:[ \t]*좌석[ \t]+(\S+)',re.M)   # r1693: 재사용 나노 = 배정 줄의 좌석이 tmux 에 살아 있으면 좌석 있음
 for c in cards:
     slug=os.path.basename(c)[:-3]
@@ -133,6 +137,8 @@ for c in cards:
     am=asg.search(body)
     live=is_live(slug) or bool(am and am.group(1).strip().lower() in SS); seat+=live   # 배정 줄 좌석 = 이름 정확 일치만
     tok=word(m.group(1)) if m else ''
+    obs=int(bool(m) and obs_line(body,'대기 사건') and obs_line(body,'마감 기준'))   # r1715 C1·C4: 착지 줄 + 두 줄(값 있음)이 다 있어야 관찰 대기
+    obsn+=obs
     rows.append((slug,live,tok if valid.match(tok) else ('?' if m else '')))   # '?' = 착지 줄은 있으나 첫 낱말이 7~40자 소문자 16진수 아님 → 근거 없음
 want={}
 for _,_,sha in rows:
@@ -145,7 +151,7 @@ if want:
     for c in out.stdout.split():
         for n,ws in want.items():
             if c[:n] in ws: hit.add(c[:n])
-print('N',wait,len(rows),seat)
+print('N',wait,len(rows),seat,obsn)
 for slug,live,sha in rows:
     st='L' if sha and sha in hit else ('U' if not sha else 'N')   # L 착지 확인 · U 착지 줄 없음(가지 판정 후보) · N 착지 줄 있으나 main 조상 아님
     print('C',st,int(live),esc(slug))   # 이름 안 개행이 줄 조각으로 읽히지 않게 이스케이프(DA r6 반례 1)
@@ -155,7 +161,7 @@ case "$PYOUT" in TIMEOUT*) unavailable "시간 초과";; esac
 [ "$PYRC" -eq 3 ] && unavailable "$(printf '%s\n' "$PYOUT" | head -1)"   # 확인 불가 = python rc 3(글자만 믿지 않는다 · r5)
 [ "$PYRC" -eq 0 ] || unavailable "계산 실패(rc=$PYRC)"
 over && unavailable "시간 초과"
-read -r _ wait_n prog seat <<<"$(printf '%s\n' "$PYOUT" | grep '^N ')"
+read -r _ wait_n prog seat obs <<<"$(printf '%s\n' "$PYOUT" | grep '^N ')"
 landed=0; unk_t=0; unk_f=0; unk_s=0; lcards=(); ocards=()
 # 가지 판정 = 세 값(ACTIVE · FINISHED · UNKNOWN+사유) 한 함수 · 출력 = emit 한 함수 — 일반·--warn 모두 같은 길을 거친다(r3 재설계)
 branch_verdict() { # <slug> → V=ACTIVE|FINISHED|UNKNOWN · VWHY=시간 초과|실패
@@ -177,28 +183,29 @@ PY
   return 0
 }
 emit() { # 모든 모드의 출력 — 확인 불가가 있으면 건강해도 줄을 낸다(조용한 빈 출력 0) · 사유는 요약 줄 한 줄 안
-  local note="" pick mv cand=() floor="${FT_CARD_CAP_FLOOR:-10}" cap
+  local note="" pick mv cand=() floor="${FT_CARD_CAP_FLOOR:-10}" cap p
   case "$floor" in ''|*[!0-9]*) floor=10;; esac   # r1693: 정수 아님 = 바닥 10(오빠 «10장 기본»)
   cap=$((seat + 2)); [ "$cap" -ge "$floor" ] || cap="$floor"   # r1693: 상한 = max(바닥, 좌석 M+2)
+  p=$((prog - ${obs:-0}))   # r1715 C2: 셈 = 진행 − 관찰 대기(관찰 대기 카드는 일하는 자리를 안 쓴다)
   if [ "${#lcards[@]}" -gt 0 ]; then cand=("${lcards[@]}"); elif [ "${#ocards[@]}" -gt 0 ]; then cand=("${ocards[@]}"); fi
   [ "$unk_t" -eq 0 ] || note=" · 확인 불가 ${unk_t}(가지 판정 시간 초과)"
   [ "$unk_f" -eq 0 ] || note="$note · 확인 불가 ${unk_f}(가지 판정 실패)"
   [ "$unk_s" -eq 0 ] || note="$note · 확인 불가 ${unk_s}(가지 판정 시작 실패)"
-  if [ "$GATE" = 1 ] && [ "$prog" -gt "$cap" ]; then   # r1292 상한 — 우회 = 사람 승인 번호 ∧ 표식 둘 다
+  if [ "$GATE" = 1 ] && [ "$p" -gt "$cap" ]; then   # r1292 상한 — 우회 = 사람 승인 번호 ∧ 표식 둘 다
     local nok="${FT_CARD_CAP_OK:-}"
     if printf '%s' "$nok" | grep -Eq '^[0-9]+$' && [ -f "$ROOT/.fable-team/state/card-cap-ok.$nok" ]; then
       echo "카드 상한 우회 — 승인 $nok"
       mkdir -p "$ROOT/.fable-team/state" 2>/dev/null || true
-      printf '%s\t%s\t진행 %s(좌석 %s) > 상한 %s\t승인 %s\n' "$(date '+%Y-%m-%dT%H:%M:%S')" "$TEAM" "$prog" "$seat" "$cap" "$nok" >> "$ROOT/.fable-team/state/card-cap-ok.log" 2>/dev/null || true
+      printf '%s\t%s\t진행 %s(좌석 %s · 관찰 대기 %s) > 상한 %s\t승인 %s\n' "$(date '+%Y-%m-%dT%H:%M:%S')" "$TEAM" "$p" "$seat" "$obs" "$cap" "$nok" >> "$ROOT/.fable-team/state/card-cap-ok.log" 2>/dev/null || true
       return 0
     fi
     mv="(없음)"; if [ "${#cand[@]}" -gt 0 ]; then mv="$(printf '%s\n' "${cand[@]}" | head -5 | tr '\n' ' ' | sed 's/ $//')"; [ "${#cand[@]}" -le 5 ] || mv="$mv 외 $(( ${#cand[@]} - 5 ))"; fi
-    echo "REJECT 카드 상한 — $TEAM 진행 $prog(좌석 $seat) > 상한 $cap(max($floor, $seat+2)) · 이동 먼저: $mv"; return 4
+    echo "REJECT 카드 상한 — $TEAM 진행 $p(좌석 $seat · 관찰 대기 $obs) > 상한 $cap(max($floor, $seat+2)) · 이동 먼저: $mv"; return 4
   fi
-  if [ "$WARN" != 1 ]; then echo "카드 대기 $wait_n · 진행 $prog(좌석 $seat) · 착지됐는데 진행 $landed$note$SUFFIX"; return 0; fi
-  if [ "$landed" -gt 0 ] || [ "$prog" -gt "$cap" ] || [ -n "$note" ]; then
+  if [ "$WARN" != 1 ]; then echo "카드 대기 $wait_n · 진행 $p(좌석 $seat · 관찰 대기 $obs) · 착지됐는데 진행 $landed$note$SUFFIX"; return 0; fi
+  if [ "$landed" -gt 0 ] || [ "$p" -gt "$cap" ] || [ -n "$note" ]; then
     pick=("${lcards[@]+"${lcards[@]}"}"); [ "${#pick[@]}" -gt 0 ] || pick=("${ocards[@]+"${ocards[@]}"}")
-    echo "WARN 카드 흐름 — $TEAM 진행 $prog(좌석 $seat) · 착지됐는데 진행 $landed$note$( [ "$landed" -gt 0 ] || [ "$prog" -gt "$cap" ] && echo " · 이동 먼저: $(printf '%s\n' "${pick[@]+"${pick[@]}"}" | head -5 | tr '\n' ' ' | sed 's/ $//')")$SUFFIX"
+    echo "WARN 카드 흐름 — $TEAM 진행 $p(좌석 $seat · 관찰 대기 $obs) · 착지됐는데 진행 $landed$note$( [ "$landed" -gt 0 ] || [ "$p" -gt "$cap" ] && echo " · 이동 먼저: $(printf '%s\n' "${pick[@]+"${pick[@]}"}" | head -5 | tr '\n' ' ' | sed 's/ $//')")$SUFFIX"
   fi
 }
 while read -r _ st live slug; do

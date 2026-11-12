@@ -49,12 +49,12 @@ card 대기 w1; card 대기 w2
 card 진행 live1; card 진행 live2; card 진행 done1 "- 착지: $LANDED (DA 닫힘 x#§1)"; card 진행 stale1 "- 착지: $SIDE"
 sess "byz-alpha-nano-live1#0" "byz-alpha-nano-live2#0"
 o="$(run)"; rc=$?
-[ "$rc" = 0 ] && [ "$o" = "카드 대기 2 · 진행 4(좌석 2) · 착지됐는데 진행 1" ] && ok "ⓐ 숫자 1줄 꼴 · rc0" || bad "ⓐ rc=$rc «${o}»"
+[ "$rc" = 0 ] && [ "$o" = "카드 대기 2 · 진행 4(좌석 2 · 관찰 대기 0) · 착지됐는데 진행 1" ] && ok "ⓐ 숫자 1줄 꼴 · rc0" || bad "ⓐ rc=$rc «${o}»"
 
 # ⓑ 거짓 양성 0: 착지 줄 없음·비조상 sha·착지 줄 없는 카드는 K 에 안 센다(위 stale1·live1·live2 → K=1 이 이미 증명) · 착지 줄이 전혀 없는 폴더 → K 0
 mkdir -p "$T/d2/indices/진행" "$T/d2/indices/대기"; printf '# a\n- 착지: $SIDE\n' > "$T/d2/indices/진행/a.md"; printf '# b\n' > "$T/d2/indices/진행/b.md"
 o="$(PATH="$FAKE:$PATH" bash "$CF" --team beta --root "$R" --dir "$T/d2" 2>&1)"
-[ "$o" = "카드 대기 0 · 진행 2(좌석 0) · 착지됐는데 진행 0" ] && ok "ⓑ 근거 없는 카드·비조상 sha → K 0" || bad "ⓑ «${o}»"
+[ "$o" = "카드 대기 0 · 진행 2(좌석 0 · 관찰 대기 0) · 착지됐는데 진행 0" ] && ok "ⓑ 근거 없는 카드·비조상 sha → K 0" || bad "ⓑ «${o}»"
 # ⓑ-2 ft-finished-check FINISHED 인 가지 카드는 K 에 센다(대역) · ACTIVE 면 안 센다
 G branch nano/fin1; G branch nano/act1; card 진행 fin1; card 진행 act1
 printf '#!/bin/sh\ncase "$1" in nano/fin1) echo "FINISHED $1";; *) echo "ACTIVE $1";; esac\n' > "$T/fchk.sh"
@@ -66,24 +66,24 @@ rm -f "$R/design/alpha/indices/진행/fin1.md" "$R/design/alpha/indices/진행/a
 # ⓑ2 (r2 반례 1) 착지 값은 토큰 «전체» — 41자(40자+1)·16진수 아님·6자는 근거 없음(K 0) · 40자 전체/7자 전체는 인정
 mkdir -p "$T/d4/indices/진행" "$T/d4/indices/대기"
 k4() { rm -f "$T"/d4/indices/진행/*.md; printf '# c\n- 착지: %s (DA)\n' "$1" > "$T/d4/indices/진행/c.md"; PATH="$FAKE:$PATH" bash "$CF" --team g --root "$R" --dir "$T/d4" 2>&1; }
-[ "$(k4 "${LANDED}0")" = "카드 대기 0 · 진행 1(좌석 0) · 착지됐는데 진행 0" ] && ok "ⓑ2 41자(40자+1) → K 0" || bad "ⓑ2 41자 «$(k4 "${LANDED}0")»"
-[ "$(k4 "${LANDED}g")" = "카드 대기 0 · 진행 1(좌석 0) · 착지됐는데 진행 0" ] && ok "ⓑ2 40자+비16진수 글자 → K 0" || bad "ⓑ2 혼합"
-[ "$(k4 "${LANDED:0:6}")" = "카드 대기 0 · 진행 1(좌석 0) · 착지됐는데 진행 0" ] && ok "ⓑ2 6자 → K 0" || bad "ⓑ2 6자"
-[ "$(k4 "${LANDED}")" = "카드 대기 0 · 진행 1(좌석 0) · 착지됐는데 진행 1" ] && ok "ⓑ2 40자 전체 → K 1" || bad "ⓑ2 40자 전체"
-[ "$(k4 "${LANDED:0:7}")" = "카드 대기 0 · 진행 1(좌석 0) · 착지됐는데 진행 1" ] && ok "ⓑ2 7자 약식 sha → 착지 인정 K 1 (r4 보강 ①)" || bad "ⓑ2 7자 «$(k4 "${LANDED:0:7}")»"
-[ "$(k4 "${LANDED:0:8}")" = "카드 대기 0 · 진행 1(좌석 0) · 착지됐는데 진행 1" ] && ok "ⓑ2 8자 약식 sha → K 1" || bad "ⓑ2 8자"
+[ "$(k4 "${LANDED}0")" = "카드 대기 0 · 진행 1(좌석 0 · 관찰 대기 0) · 착지됐는데 진행 0" ] && ok "ⓑ2 41자(40자+1) → K 0" || bad "ⓑ2 41자 «$(k4 "${LANDED}0")»"
+[ "$(k4 "${LANDED}g")" = "카드 대기 0 · 진행 1(좌석 0 · 관찰 대기 0) · 착지됐는데 진행 0" ] && ok "ⓑ2 40자+비16진수 글자 → K 0" || bad "ⓑ2 혼합"
+[ "$(k4 "${LANDED:0:6}")" = "카드 대기 0 · 진행 1(좌석 0 · 관찰 대기 0) · 착지됐는데 진행 0" ] && ok "ⓑ2 6자 → K 0" || bad "ⓑ2 6자"
+[ "$(k4 "${LANDED}")" = "카드 대기 0 · 진행 1(좌석 0 · 관찰 대기 0) · 착지됐는데 진행 1" ] && ok "ⓑ2 40자 전체 → K 1" || bad "ⓑ2 40자 전체"
+[ "$(k4 "${LANDED:0:7}")" = "카드 대기 0 · 진행 1(좌석 0 · 관찰 대기 0) · 착지됐는데 진행 1" ] && ok "ⓑ2 7자 약식 sha → 착지 인정 K 1 (r4 보강 ①)" || bad "ⓑ2 7자 «$(k4 "${LANDED:0:7}")»"
+[ "$(k4 "${LANDED:0:8}")" = "카드 대기 0 · 진행 1(좌석 0 · 관찰 대기 0) · 착지됐는데 진행 1" ] && ok "ⓑ2 8자 약식 sha → K 1" || bad "ⓑ2 8자"
 
 # ⓝ (r3) 낱말 전체만 — 40자 뒤에 무엇을 붙여도 K 0 (DA r2 반례 1 + 꼴 묶음) · 대문자 hex 도 K 0 · 백틱 한 쌍·뒤 공백 설명은 인정
-Z="카드 대기 0 · 진행 1(좌석 0) · 착지됐는데 진행 0"
+Z="카드 대기 0 · 진행 1(좌석 0 · 관찰 대기 0) · 착지됐는데 진행 0"
 for suf in "-invalid" "-x" "." "/" "가" ",x" ":" "_"; do [ "$(k4 "${LANDED}${suf}")" = "$Z" ] && ok "ⓝ 40자+«${suf}» → K 0" || bad "ⓝ 40자+«${suf}» «$(k4 "${LANDED}${suf}")»"; done
 U="$(printf '%s' "$LANDED" | tr a-f A-F)"; [ "$(k4 "$U")" = "$Z" ] && ok "ⓝ 대문자 hex → K 0" || bad "ⓝ 대문자"
-[ "$(k4 "\`${LANDED}\` (DA 닫힘)")" = "카드 대기 0 · 진행 1(좌석 0) · 착지됐는데 진행 1" ] && ok "ⓝ 백틱 한 쌍 + 뒤 설명 → K 1" || bad "ⓝ 백틱"
+[ "$(k4 "\`${LANDED}\` (DA 닫힘)")" = "카드 대기 0 · 진행 1(좌석 0 · 관찰 대기 0) · 착지됐는데 진행 1" ] && ok "ⓝ 백틱 한 쌍 + 뒤 설명 → K 1" || bad "ⓝ 백틱"
 [ "$(k4 "\`${LANDED}")" = "$Z" ] && ok "ⓝ 백틱 한쪽만 → K 0" || bad "ⓝ 한쪽 백틱"
 [ "$(k4 "TODO ${LANDED}")" = "$Z" ] && ok "ⓝ 둘째 낱말이 40hex(첫 낱말 아님) → K 0 (r4 보강 ①)" || bad "ⓝ 둘째 낱말 «$(k4 "TODO ${LANDED}")"""
-[ "$(k4 "\`${LANDED:0:7}\` (약식)")" = "카드 대기 0 · 진행 1(좌석 0) · 착지됐는데 진행 1" ] && ok "ⓝ 백틱 벗긴 7자 → K 1" || bad "ⓝ 백틱 7자"
+[ "$(k4 "\`${LANDED:0:7}\` (약식)")" = "카드 대기 0 · 진행 1(좌석 0 · 관찰 대기 0) · 착지됐는데 진행 1" ] && ok "ⓝ 백틱 벗긴 7자 → K 1" || bad "ⓝ 백틱 7자"
 
 # ⓒ 좌석 M: tmux 서버 없음 = M 0 · 그 밖 tmux 실패 = rc1(조용한 0 금지)
-rm -f "$SESS"; o="$(run)"; has "$o" "진행 4(좌석 0)" "ⓒ 서버 없음 → 좌석 0"
+rm -f "$SESS"; o="$(run)"; has "$o" "진행 4(좌석 0 · 관찰 대기 0)" "ⓒ 서버 없음 → 좌석 0"
 sess "byz-alpha-nano-live1#0"; touch "$T/tmux.fail"; o="$(run)"; rc=$?
 { [ "$rc" = 1 ] && [[ "$o" == *"FAIL ft-card-flow"* ]]; } && ok "ⓒ tmux 실패 → rc1 + FAIL 줄" || bad "ⓒ rc=$rc «${o}»"; rm -f "$T/tmux.fail"
 
@@ -96,7 +96,7 @@ NR="$R"; echo '{}' > "$NR/.fable-team/seats.json"; mkdir -p "$T/tmpn"
 printf '| 팀 | 폴더 |\n|---|---|\n| alpha | `design/alpha/` |\n' > "$R/design/TEAMS.md"
 tick() { (cd "$NR" && PATH="$FAKE:$PATH" TMPDIR="$T/tmpn" FT_NEWS_ROOT="$NR" FT_ME=me FT_CARD_FLOW_TEAMS="${TEAMS:-alpha}" bash "$KIT/ft-news-tick.sh" 2>&1); }
 o="$(tick)"
-has "$o" "alpha: 카드 대기 2 · 진행 4(좌석 2) · 착지됐는데 진행 1" "ⓓ news-tick 에 팀 숫자 줄 1개"
+has "$o" "alpha: 카드 대기 2 · 진행 4(좌석 2 · 관찰 대기 0) · 착지됐는데 진행 1" "ⓓ news-tick 에 팀 숫자 줄 1개"
 [ "$(printf '%s\n' "$o" | grep -c '^alpha: 카드 대기')" = 1 ] && ok "ⓓ 팀당 정확히 1줄" || bad "ⓓ 줄 수"
 o="$(FT_CARD_FLOW_TIMEOUT_SEC=0 tick)"; has "$o" "alpha: 카드 숫자 확인 불가(시간 초과)" "ⓓ news-tick 시간 초과 = 확인 불가 줄(빈칸 0)"
 
@@ -110,7 +110,7 @@ o="$(FT_CARD_FLOW_FINISHED="$T/err.sh" PATH="$FAKE:$PATH" bash "$CF" --team g --
 has "$o" "확인 불가 1(가지 판정 실패)" "ⓓ2 판정 rc≠0 → 확인 불가 1(실패)"
 printf '#!/bin/sh\necho "FINISHED $1"\n' > "$T/fast.sh"
 o="$(FT_CARD_FLOW_FINISHED="$T/fast.sh" PATH="$FAKE:$PATH" bash "$CF" --team g --root "$R" --dir "$T/d5" --branch-check 2>&1)"
-[ "$o" = "카드 대기 0 · 진행 1(좌석 0) · 착지됐는데 진행 1" ] && ok "ⓓ2 제때 FINISHED → K 1 · 확인 불가 줄 0" || bad "ⓓ2 정상 «${o}»"
+[ "$o" = "카드 대기 0 · 진행 1(좌석 0 · 관찰 대기 0) · 착지됐는데 진행 1" ] && ok "ⓓ2 제때 FINISHED → K 1 · 확인 불가 줄 0" || bad "ⓓ2 정상 «${o}»"
 
 # ⓞ (r3) 가지 판정 실패·시간 초과 × 모든 모드(일반 · --warn) × (시간 초과 · rc2 · 빈 출력) → 모드마다 «확인 불가» 줄 ≥1 · 상한 안에서 끝남
 printf '#!/bin/sh\nsleep 12\necho "ACTIVE $1"\n' > "$T/slow2.sh"; printf '#!/bin/sh\nexit 2\n' > "$T/rc2.sh"; printf '#!/bin/sh\nexit 0\n' > "$T/empty.sh"
@@ -146,7 +146,7 @@ o="$(PATH="$FG:$FAKE:$PATH" FT_CARD_FLOW_FINISHED="$T/fast.sh" bash "$CF" --team
 has "$o" "확인 불가 1(가지 판정 시작 실패)" "ⓟ-3 show-ref rc2 → 확인 불가 줄(건너뛰지 않음)"
 mkdir -p "$T/d7/indices/진행" "$T/d7/indices/대기"; printf '# nb\n' > "$T/d7/indices/진행/nb.md"
 o="$(PATH="$FAKE:$PATH" FT_CARD_FLOW_FINISHED="$T/fast.sh" bash "$CF" --team g --root "$R" --dir "$T/d7" --branch-check 2>&1)"
-[ "$o" = "카드 대기 0 · 진행 1(좌석 0) · 착지됐는데 진행 0" ] && ok "ⓟ-3 가지 없음(show-ref rc1) → 확인 불가 0(대상 아님)" || bad "ⓟ-3 rc1 «${o}»"
+[ "$o" = "카드 대기 0 · 진행 1(좌석 0 · 관찰 대기 0) · 착지됐는데 진행 0" ] && ok "ⓟ-3 가지 없음(show-ref rc1) → 확인 불가 0(대상 아님)" || bad "ⓟ-3 rc1 «${o}»"
 # ⓟ-4 (r4) 카드 파일 자체를 못 읽음(권한 000) → 빈 카드 아니라 «확인 불가»
 mkdir -p "$T/d8/indices/진행" "$T/d8/indices/대기"; printf '# u\n- 착지: %s\n' "$LANDED" > "$T/d8/indices/진행/u1.md"
 if [ "$(id -u)" = 0 ]; then ok "ⓟ-4 (root — 파일 권한 000 시험 건너뜀)"; else
@@ -195,7 +195,7 @@ e2c="$o"
 # ⓥ3 ENOENT 만 «없음» — 대기/ 폴더 자체가 없음 = 그 상태 카드 0장(현행 유지 rc0) · indices/ 자체가 없음 = 확인 불가 rc3
 mkdir -p "$T/r9/design/alpha/indices/진행"; printf '# n\n' > "$T/r9/design/alpha/indices/진행/n1.md"
 o="$(vrun "$T/r9/design/alpha" "")"; rc=$?
-{ [ "$rc" = 0 ] && [ "$o" = "카드 대기 0 · 진행 1(좌석 0) · 착지됐는데 진행 0" ]; } \
+{ [ "$rc" = 0 ] && [ "$o" = "카드 대기 0 · 진행 1(좌석 0 · 관찰 대기 0) · 착지됐는데 진행 0" ]; } \
   && ok "ⓥ3 대기/ 폴더 없음 → 카드 0장 정상 rc0(현행 유지)" || bad "ⓥ3 rc=$rc «${o}»"
 mkdir -p "$T/r10/design/alpha"
 o="$(vrun "$T/r10/design/alpha" "")"; rc=$?
@@ -218,7 +218,7 @@ mkdir -p "$T/v5/design/alpha/indices/대기" "$T/v5/design/alpha/indices/진행"
 printf '# no landing\n' > "$T/v5/design/alpha/indices/진행/$(printf 'a\nC L 0 b').md"
 for n in c1 c2 c3; do printf '# c\n' > "$T/v5/design/alpha/indices/진행/$n.md"; done
 o="$(vrun "$T/v5/design/alpha" "")"; rc=$?
-{ [ "$rc" = 0 ] && [ "$o" = "카드 대기 0 · 진행 4(좌석 0) · 착지됐는데 진행 0" ]; } \
+{ [ "$rc" = 0 ] && [ "$o" = "카드 대기 0 · 진행 4(좌석 0 · 관찰 대기 0) · 착지됐는데 진행 0" ]; } \
   && ok "ⓥ5 개행 이름 카드 = 1장 · K 0(이름 조각을 카드 줄로 읽지 않는다)" || bad "ⓥ5 일반 rc=$rc «${o}»"
 o="$(FT_CARD_CAP_FLOOR=2 vrun "$T/v5/design/alpha" "--warn")"; rc=$?   # r1693: 상한 바닥 10 이라 옛 «> M+2» 경보를 보려면 바닥을 2 로
 { [ "$rc" = 0 ] && [ "$(printf '%s\n' "$o" | wc -l | tr -d ' ')" = 1 ] \
@@ -271,7 +271,7 @@ EOF
 chmod 755 "$FAKE/tmm"
 sess "byz-alpha-master-claude#1" "byz-alpha-nano-live1#0" "byz-alpha-nano-live2#0"
 o="$(sp)"; rc_on=$?; o_off="$(FT_CARD_FLOW=0 sp)"; rc_off=$?
-has "$o" "WARN 카드 흐름 — alpha 진행 4(좌석 2) · 착지됐는데 진행 1 · 이동 먼저: done1.md" "ⓔ K>0 → WARN 이동 먼저(착지 카드 지목)"
+has "$o" "WARN 카드 흐름 — alpha 진행 4(좌석 2 · 관찰 대기 0) · 착지됐는데 진행 1 · 이동 먼저: done1.md" "ⓔ K>0 → WARN 이동 먼저(착지 카드 지목)"
 [ "$(printf '%s\n' "$o" | grep -c 'WARN 카드 흐름')" = 1 ] && ok "ⓔ WARN 정확히 1줄" || bad "ⓔ WARN 줄 수"
 [ "$rc_on" = "$rc_off" ] && ok "ⓔ rc 불변(경보 $rc_on = 끔 $rc_off)" || bad "ⓔ rc 바뀜 on=$rc_on off=$rc_off"
 hasnt "$o_off" "WARN 카드 흐름" "ⓔ FT_CARD_FLOW=0 → 경보 0"
@@ -280,8 +280,8 @@ rm -f "$R/design/alpha/indices/진행/done1.md" "$R/design/alpha/indices/진행/
 o="$(sp)"; hasnt "$o" "WARN 카드 흐름" "ⓔ 건강(진행 2 ≤ 좌석 2+2 · K 0) → 경보 0"
 # ⓔ-3 r1292: 진행 > 좌석 + 2 인 팀의 «대기» 카드 spawn 은 이제 막는다(REJECT 1줄) — 옛 WARN 줄은 FT_CARD_CAP=0(끄기) 에서만
 card 진행 o1; card 진행 o2; card 진행 o3; sess "byz-alpha-master-claude#1" "byz-alpha-nano-other#0"
-o="$(sp)"; has "$o" "REJECT 카드 상한 — alpha 진행 5(좌석 0) > 0+2" "ⓔ-3 r1292 상한 넘으면 대기 spawn 막힘"
-o="$(FT_CARD_CAP=0 sp)"; has "$o" "WARN 카드 흐름 — alpha 진행 5(좌석 0) · 착지됐는데 진행 0 · 이동 먼저:" "ⓔ-3 끄면(FT_CARD_CAP=0) 진행 > 좌석+2 → WARN"
+o="$(sp)"; has "$o" "REJECT 카드 상한 — alpha 진행 5(좌석 0 · 관찰 대기 0) > 0+2" "ⓔ-3 r1292 상한 넘으면 대기 spawn 막힘"
+o="$(FT_CARD_CAP=0 sp)"; has "$o" "WARN 카드 흐름 — alpha 진행 5(좌석 0 · 관찰 대기 0) · 착지됐는데 진행 0 · 이동 먼저:" "ⓔ-3 끄면(FT_CARD_CAP=0) 진행 > 좌석+2 → WARN"
 
 [ "$fail" = 0 ] && echo "ALL PASS" || echo "FAILED $fail"
 exit $fail

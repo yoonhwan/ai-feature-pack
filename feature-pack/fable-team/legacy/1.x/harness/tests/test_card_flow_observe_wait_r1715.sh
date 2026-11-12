@@ -6,7 +6,7 @@
 #   카드 읽기 실패 = 확인 불가 rc3(관찰 대기로 빼지 않음 · C5) · 문구 = «진행 P(좌석 M · 관찰 대기 K)»(C6)
 # 전부 mktemp — 임시 저장소·가짜 tmux(PATH)만. 실 좌석·실 카드·실 tmux 0. 사례 70초·sleep 0·자기 재호출 0
 set -uo pipefail
-unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY FT_CARD_CAP_FLOOR FT_CARD_CAP_OK FT_FINISHED_MAIN FT_R1715_FULL
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY FT_CARD_CAP_FLOOR FT_CARD_CAP_OK FT_FINISHED_MAIN
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$HERE/../.."; BIN="$REPO/harness/bin"; KIT="$REPO/harness/kit/fable-team/bin"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
@@ -114,7 +114,7 @@ n="$(timeout 70 bash "$HERE/test_card_flow_cap_floor_r1693.sh" 2>&1 | grep -c '^
 if [ -n "${FT_R1715_FULL:-}" ]; then   # r954 19초 · r1292 16초 — 단독 예산 밖: 이 표식이 있을 때만 함께 본다
   k="$(timeout 70 bash "$HERE/test_card_flow_r954.sh" 2>&1 | grep '^FAIL ' | grep -vc '^FAIL ⓔ')"
   [ "$k" = 0 ] && ok "ⓖ 회귀 r954 — 기존 ⓔ(spawn 게이트) 밖 새 FAIL 0" || bad "ⓖ 회귀 r954 새 FAIL $k"
-  c="$(timeout 70 bash "$HERE/test_card_cap_gate_r1292.sh" 2>&1 | grep '^FAIL ' | grep -vc '^FAIL R')"
-  [ "$c" = 0 ] && ok "ⓖ 회귀 r1292 — 기존 R(spawn·실 상태) 밖 새 FAIL 0" || bad "ⓖ 회귀 r1292 새 FAIL $c"
+  c="$(timeout 70 bash "$HERE/test_card_cap_gate_r1292.sh" 2>&1 | grep '^FAIL ' | grep -v '^FAIL R' | grep -vc '^FAIL 변이 2 — R1 가 변이를 못 잡음')"   # 변이 2 줄은 앞 판에도 있다(sed 대상 «-gt $((seat + 2))» 가 이미 없는 줄)
+  [ "$c" = 0 ] && ok "ⓖ 회귀 r1292 — 기존 R·변이 2 밖 새 FAIL 0" || bad "ⓖ 회귀 r1292 새 FAIL $c"
 else ok "ⓖ 회귀 r954·r1292 — FT_R1715_FULL=1 일 때만(단독 19·16초 · 보고에서 따로 비교)"; fi
 echo "FAILED $fail"; [ "$fail" = 0 ] && echo "ALL PASS"; exit $([ "$fail" = 0 ] && echo 0 || echo 1)
