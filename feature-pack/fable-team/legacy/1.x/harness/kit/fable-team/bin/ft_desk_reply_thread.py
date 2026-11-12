@@ -36,6 +36,17 @@ def judge_after(check: str, q: str, after: str) -> tuple[int, str]:  # 7초 · �
     return last
 
 
+def tcur(p, i=None):  # r1764 보정 · 스레드 줄 순환 위치(<장부>.thread.cursor) — 열린 줄이 상한(4)보다 많아도 다음 주기에 이어진다
+    f = p.parent / (p.name + ".thread.cursor")
+    try:
+        if i is not None:
+            f.write_text("%d\n" % i, encoding="utf-8")
+            return i
+        return int(f.read_text(encoding="utf-8").strip() or 0)
+    except (OSError, ValueError):
+        return 0
+
+
 def register_thread(h, a: list, now: float) -> int:  # A1 · 같은 ts 같은 키 = 멱등 · 다른 키 = 거절
     row = {"q_ts": a[0] if a else "", "kind": "thread", "key": a[1] if len(a) > 1 else "", "at": int(now), "deadline": int(now + DAY), "state": "open"}
     if len(a) != 2 or not TS.match(row["q_ts"]) or not KEY.match(row["key"]):
@@ -71,7 +82,11 @@ def scan_threads(h, rows: list, now: float) -> tuple[dict, int, int, int]:  # A2
     up: dict[str, dict] = {}
     sent = shut = nbad = 0
     open_rows = [(i, r) for i, r in enumerate(rows) if r.get("kind") == "thread" and r.get("state") != "closed"]
-    for _, row in open_rows[: max(1, h.maxn)]:
+    cur = tcur(h.led) % len(rows) if rows else 0
+    order = [i for i, _ in open_rows if i >= cur] + [i for i, _ in open_rows if i < cur]
+    picked = order[: max(1, h.maxn)]
+    for i in picked:
+        row = rows[i]
         q, key = row.get("q_ts"), row.get("key")
         if not isinstance(q, str) or not isinstance(key, str) or not TS.match(q) or not KEY.match(key):
             bad("thread 줄 꼴 아님: %s" % json.dumps(row, ensure_ascii=False)[:120])
@@ -102,6 +117,8 @@ def scan_threads(h, rows: list, now: float) -> tuple[dict, int, int, int]:  # A2
             continue
         up[q] = {"notified_ts": m.group(1), "notified_at": int(now)}  # 줄은 열린 채(다음 글이 오면 또 1통)
         sent += 1
+    if picked:
+        tcur(h.led, (picked[-1] + 1) % len(rows))  # 다음 주기는 그 다음 줄부터(상한 넘는 줄도 차례가 온다)
     return up, sent, shut, nbad
 
 

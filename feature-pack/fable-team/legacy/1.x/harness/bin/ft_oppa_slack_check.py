@@ -156,11 +156,12 @@ def main(argv: list) -> int:
     if len(args) < 2 or not re.fullmatch(r"[0-9]+\.[0-9]{6}", args[0]):
         print("usage: ft_oppa_slack_check.py [--reply-only] <질문 글 ts> [<40hex>…]", file=sys.stderr)
         return 2
+    parent = args[0]  # r1764 보정 · NoReply 문구는 부모 ts(예전 argv[1] 재할당 빠짐으로 «parent=--reply-only» 가 새었나)
     try:
-        print("\n".join(judge(args[0], args[1:], after)))
+        print("\n".join(judge(parent, args[1:], after)))
         return 0
     except NoReply as e:  # r1591 · 답글 아직 없음 = 정상 열린 질문(판정 불가 아님 · ANSWERED 아님)
-        print("REPLY-NONE parent=%s — %s" % (argv[1], e), file=sys.stderr)
+        print("REPLY-NONE parent=%s — %s" % (parent, e), file=sys.stderr)
         return 3
     except json.JSONDecodeError:
         why = "판정 불가: 응답이 JSON 아님"
