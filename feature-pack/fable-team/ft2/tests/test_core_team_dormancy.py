@@ -117,7 +117,7 @@ def test_4_dirty_blocks_but_serena_noise_passes(tmp_path):
     assert (out.status, out.blockers) == ("NOT_DORMANT", ("dirty:1",))
     assert _marker(blocked) is False
     passed = lifecycle.Lifecycle(str(tmp_path / "c4b"), TEAM, **CLOCK)
-    noise = passed.dormant(_board(dirty=[".serena/project.yml", ".serena/cache/x.pkl"]))
+    noise = passed.dormant(_board(dirty=[".serena/project.yml"]))   # 예외는 이 한 파일뿐(R2)
     assert (noise.status, noise.written) == ("DORMANT", True)
 
 
@@ -384,3 +384,55 @@ def test_m4_without_claim_branch_breaks_case_10(tmp_path):
 def test_m5_without_uncertain_branch_breaks_case_11(tmp_path):
     node = _NoUncertainBranch(str(tmp_path / "m5"), TEAM, **CLOCK)
     assert node.dormant(_board()).status != "ABORTED"             # 계약은 ABORTED
+
+
+# --- DA #288609 HOLD 반례 2건(R1 팀 기록 필수 칸 · R2 .serena 잡음 경계) ---
+
+
+@pytest.mark.parametrize("missing", ["revision", "generation", "last_step", "resume"])
+def test_12_team_record_missing_key_is_not_a_receipt(tmp_path, missing):
+    """R1 — team_record 필수 칸 하나가 빠지면 영수 0 + 이유 1줄(`None` 영수 뒤 DORMANT = 위반)."""
+    node = lifecycle.Lifecycle(str(tmp_path / ("r1-" + missing)), TEAM, **CLOCK)
+    row = {"revision": 0, "generation": "g1", "last_step": "team-lead", "resume": "runtime/"}
+    row.pop(missing)
+    out = node.dormant(_board(team_record=row))
+    assert out.status != "DORMANT"                                # 휴면 0
+    assert out.written is False or "team-record" not in out.steps  # 그 단계 영수 0
+    assert "team-record" in out.reason and "\n" not in out.reason  # 이유 1줄
+    assert "team-record" not in " ".join(_close_keys(node))
+    assert _marker(node) is False
+
+
+def test_13_serena_memories_dirty_blocks(tmp_path):
+    """R2 — 미커밋 예외는 `.serena/project.yml` 하나뿐 — `.serena/memories/*.md` 는 미커밋이다."""
+    node = lifecycle.Lifecycle(str(tmp_path / "r2"), TEAM, **CLOCK)
+    out = node.dormant(_board(dirty=[".serena/memories/team-decisions.md"]))
+    assert (out.status, out.blockers) == ("NOT_DORMANT", ("dirty:1",))
+    assert _marker(node) is False
+
+
+class _NoRecordKeyCheck(lifecycle.Lifecycle):
+    """M6 — 팀 기록 필수 칸 검사 삭제(빠진 칸을 `None` 으로 영수한다)."""
+
+    def _record_body(self, row):
+        return True, "R=%s gen=%s last=%s resume=%s" % (tuple((row or {}).get(name) for name in
+                                                              lifecycle.DORMANCY_RECORD_FIELDS))
+
+
+class _SerenaDirNoise(lifecycle.Lifecycle):
+    """M7 — 미커밋 예외를 `.serena/` 디렉터리 통째로 넓힌다."""
+
+    def _dirty_kept(self, dirty):
+        return [path for path in dirty if not str(path).startswith(".serena/")]
+
+
+def test_m6_without_record_key_check_breaks_case_12(tmp_path):
+    node = _NoRecordKeyCheck(str(tmp_path / "m6"), TEAM, **CLOCK)
+    row = {"revision": 0, "generation": "g1", "last_step": "team-lead"}
+    assert node.dormant(_board(team_record=row)).status == "DORMANT"    # 계약은 휴면 0
+
+
+def test_m7_wider_serena_exception_breaks_case_13(tmp_path):
+    node = _SerenaDirNoise(str(tmp_path / "m7"), TEAM, **CLOCK)
+    out = node.dormant(_board(dirty=[".serena/memories/team-decisions.md"]))
+    assert out.status == "DORMANT"                                     # 계약은 휴면 0
