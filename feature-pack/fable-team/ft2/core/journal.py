@@ -19,7 +19,8 @@ SUBMIT_OPS = ("body_tmp_write", "body_file_fsync", "body_rename", "body_dir_fsyn
               "journal_write", "journal_fsync", "state_write", "receipt")   # 접수 1건의 ops 줄
 WRITER_OPS = ("journal_write", "journal_fsync", "state_write")               # 내부 writer 1줄
 PROJ_FIELDS = ("generations", "owners", "reservations", "deliveries", "done",
-               "reassess_done", "released", "owners_recovered", "uncertain", "refusals")
+               "reassess_done", "released", "owners_recovered", "uncertain", "reopens",
+               "lifted", "refusals")   # r1727: reopens·lifted
 
 
 def _load_record():
@@ -281,6 +282,8 @@ class Journal:
         + dispatch 의도가 deliver 로 닫힘 (DA R1 ④)."""
         rows = [rec for rec in records if rec.get("work") == work]
         done = (state.get("done") or {}).get(work)
+        if done is None and work in (state.get("lifted") or {}):   # r1727 R2: 재개가 해제한 휴면 키 = 닫힘(close 줄만)
+            return True
         if done is None or work in (state.get("owners") or {}) or work in (state.get("uncertain") or {}):
             return False
         if (done or {}).get("marker") == "required" and work not in (state.get("reassess_done") or {}):

@@ -40,9 +40,10 @@ VERBS = {
     "resolve": ("RefuseHistory", "resolve", ("work", "place", "gen", "cause", "artifact", "event", "why"), ()),
     "record-read": ("TeamRecord", "read", (), ()),     # 읽기 동사 — 잠금·쓰기 0 (r1723)
     "record-write": ("TeamRecord", "write", ("seat", "expect", "fields_file"), ()),
+    "reopen": ("Reopen", "reopen", ("revision", "event", "lead"), ("ack",)),   # r1727 — CLI 에는 probe 가 없다
 }
 LISTS = ("pre", "evidence", "resources")      # 쉼표 = 여러 값
-INTS = ("gen", "expect")
+INTS = ("gen", "expect", "revision")
 BOOLS = ("rotation",)
 GLOBAL = ("root", "team")
 
@@ -116,6 +117,7 @@ def call(verb, given, clock):
     classes = {"Intake": _load("intake").Intake, "Execution": _load("execution").Execution,
                "Dispatch": _load("dispatch").Dispatch, "TeamRecord": _load("team_record").TeamRecord}
     classes["RefuseHistory"] = _load("refuse_history").RefuseHistory   # r1724 회수 거절 이력
+    classes["Reopen"] = _load("reopen").Reopen                         # r1727 재개 = 팀장 1번만
     cls_name, method, required, optional = VERBS[verb]
     root, team = os.path.abspath(given["root"]), given["team"]
     if cls_name == "Projection":                        # 읽기 동사 — 인스턴스·잠금 없이 투영만 읽는다
