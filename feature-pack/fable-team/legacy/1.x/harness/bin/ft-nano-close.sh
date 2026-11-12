@@ -1866,7 +1866,36 @@ else
   bad+=("⑤cherry 게이트 스크립트 없음: $HERE/ft-nano-cherry-gate.sh (런타임 bin 에 같이 복사)")
 fi
 [ "$BACKFILL" != 1 ] || [ "${#bad[@]}" -eq 0 ] || bad=("③세션 없음: $SEAT" "${bad[@]}")   # r1123: backfill 이 못 닫으면 지금 문구 그대로 + 착지·⑥ 사유
-if [ "${#bad[@]}" -gt 0 ]; then echo "REJECT $SEAT"; printf '  - %s\n' "${bad[@]}"; exit 1; fi
+# ★r1733★ ⑥ REJECT 가 «무엇이 틀렸나» 만 말하고 «같은 번호 카드가 어디 있고 어느 모드가 맞나» 를 안 말하던 자리 — 사유 줄들 «뒤» 에 «다음:» 1줄을 더 찍는다(r1733-mut:hint).
+#   대상 = ⑥«카드 못 찾음»(4곳) 과 ⑥--landed-pr NOT-EQUIV 한 갈래뿐 — 그 밖 REJECT 갈래는 이 줄 0 · 첫 줄·사유 줄·rc 1·명부·원장·kill 은 기준판 그대로(A4).
+#   번호 = 명부 index 파일 이름의 r<숫자> · 찾는 곳 = 카드 루트의 indices/{진행,완성,아카이브}/r<번호>-*.md · 정확히 1개일 때만 --superseded-by 꼴을 보여 준다(추측 0 · 0·2개 이상 = 개수만).
+#   폴더 조회 실패·번호 못 뽑음 = «판정 불가» 1줄(하드 룰 20) — 판정을 바꾸지 않는다.
+nf_superseded_next_hint() {
+  local _h=0 _b _nm _num _rt _own _d _bs _f _rel _hit="" _cnt=0 _one=""
+  for _b in "${bad[@]}"; do case "$_b" in
+    "⑥카드 못 찾음:"*|*"«세트 + main 병합뿐» 도 아님(판정기 rc="*) _h=1;;   # ⑥카드 못 찾음 4곳(:1650·:1658·:1741·:1765) · ⑥--landed-pr NOT-EQUIV(:1076)
+  esac; done
+  [ "$_h" -eq 1 ] || return 0
+  _nm="${IDX##*/}"
+  case "$_nm" in r[0-9]*) _num="${_nm#r}"; _num="${_num%%[!0-9]*}";;
+    *) echo "다음: 판정 불가 — 명부 index 파일 이름에 r<번호> 가 없다(index=${IDX:-<빈 값>})"; return 0;; esac
+  case "${IDX:-}" in */indices/*) _rt="${IDX%%/indices/*}";;
+    *) echo "다음: 판정 불가 — 명부 index 가 indices/<단계>/<파일> 꼴이 아니다(index=${IDX:-<빈 값>})"; return 0;; esac
+  _own="$_rt${IDX#*"${IDX%%/indices/*}"}"   # 내 명부 index 자신(옛 경로)은 «같은 번호 카드» 가 아니다(A2)
+  [[ "$_rt" =~ ^(.*/)?\.worktrees/[^/]+/(.*)$ ]] && { _rt="${BASH_REMATCH[2]}"; _own="$_rt${IDX#*"${IDX%%/indices/*}"}"; }   # r1070 과 같은 접두 떼기 — 인쇄 경로는 리포 상대
+  for _d in 진행 완성 아카이브; do for _bs in "$WT" "$ROOT" "$LEDGER_WT"; do
+    for _f in "$_bs/$_rt/indices/$_d/r$_num"-*.md; do
+      [ -f "$_f" ] || continue; _rel="$_rt/indices/$_d/${_f##*/}"; [ "$_rel" = "$_own" ] && continue
+      case "|$_hit|" in *"|$_rel|"*) continue;; esac   # 같은 파일이 여러 사본(WT·ROOT·원장 WT)이면 1개로 센다
+      _hit="$_hit|$_rel"; _cnt=$((_cnt+1)); _one="$_rel"
+    done; done; done
+  case "$_cnt" in
+    1) echo "다음: 같은 번호 카드 $_one — 대체됐으면 bash ft-nano-close.sh $SEAT --superseded-by $_one --result ${RESULT:-<산출>} --recv ${RECV:-<seq>} (먼저 ft-nano-superseded-check)";;
+    0) echo "다음: 같은 번호 카드 0개 — 명부 index 를 확인해라(추측 0)";;
+    *) echo "다음: 같은 번호 카드 ${_cnt}개 — 명부 index 를 확인해라(추측 0)";;
+  esac
+}
+if [ "${#bad[@]}" -gt 0 ]; then echo "REJECT $SEAT"; printf '  - %s\n' "${bad[@]}"; nf_superseded_next_hint; exit 1; fi
 # r450 중단: 조건이 전부 통과한 뒤에만 카드 «## 상태» 끝에 중단 줄(멱등) — 못 쓰면 명부·원장·세션 변경 전에 REJECT
 if [ "$SUSP" = 1 ]; then
   # r938 r2 N1: 여기가 첫 쓰기다(⑤⑥ 상한 검사를 다 지난 뒤) — [wip] 커밋 → 중단 검사(HEAD·미커밋 0) → 카드 줄 적용.
