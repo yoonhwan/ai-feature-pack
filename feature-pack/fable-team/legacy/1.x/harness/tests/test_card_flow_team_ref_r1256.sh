@@ -54,18 +54,18 @@ run() { PATH="$FAKE:$PATH" bash "$CF" --root "$R" "$@" 2>&1; }
 # R1·R2: alpha — ref 기준(진행 B·c·land1 = 3 · 좌석 1 = c · 착지됐는데 진행 1 = land1 · 대기 W 1) · A 는 어디에도 없다
 sess "byz-alpha-nano-c#0"
 o="$(run --team alpha)"; rc=$?
-[ "$rc" = 0 ] && [ "$o" = "카드 대기 1 · 진행 3(좌석 1) · 착지됐는데 진행 1" ] && ok "R1·R2 ref 기준 숫자 · 표시 없음 · rc0" || bad "R1·R2 rc=$rc «${o}»"
+[ "$rc" = 0 ] && [ "$o" = "카드 대기 1 · 진행 3(좌석 1 · 관찰 대기 0) · 착지됐는데 진행 1" ] && ok "R1·R2 ref 기준 숫자 · 표시 없음 · rc0" || bad "R1·R2 rc=$rc «${o}»"
 w="$(run --team alpha --warn)"
-has "$w" "WARN 카드 흐름 — alpha 진행 3(좌석 1)" "R1 --warn 줄(진행 3)"
+has "$w" "WARN 카드 흐름 — alpha 진행 3(좌석 1 · 관찰 대기 0)" "R1 --warn 줄(진행 3)"
 has "$w" "land1.md" "R2·착지 카드는 이동 먼저에 든다"
 hasnt "$w" "A.md" "R1 이동 먼저에 A 0"
 sess "byz-alpha-nano-zz#0"
 w="$(run --team alpha --warn)"
-has "$w" "진행 3(좌석 0)" "R2 ref 에만 있는 B 포함 → 진행 3(B·c·land1 · A 빠짐)"
+has "$w" "진행 3(좌석 0 · 관찰 대기 0)" "R2 ref 에만 있는 B 포함 → 진행 3(B·c·land1 · A 빠짐)"
 
 # R3: 표에 없는 팀 beta = 체크아웃 파일 길 + 출력 끝 «(체크아웃 기준)»
 o="$(run --team beta)"; rc=$?
-[ "$rc" = 0 ] && [ "$o" = "카드 대기 0 · 진행 1(좌석 0) · 착지됐는데 진행 0 (체크아웃 기준)" ] && ok "R3 표 없는 팀 = 파일 길 + «(체크아웃 기준)»" || bad "R3 rc=$rc «${o}»"
+[ "$rc" = 0 ] && [ "$o" = "카드 대기 0 · 진행 1(좌석 0 · 관찰 대기 0) · 착지됐는데 진행 0 (체크아웃 기준)" ] && ok "R3 표 없는 팀 = 파일 길 + «(체크아웃 기준)»" || bad "R3 rc=$rc «${o}»"
 
 # R4: ref 없음 = 확인 불가 rc3 (빈칸·0 금지)
 o="$(run --team gamma)"; rc=$?
@@ -73,6 +73,6 @@ o="$(run --team gamma)"; rc=$?
 
 # R5: 체크아웃 = ref(delta 는 두 커밋이 안 건드림) → 파일 길(--dir)과 같은 출력(회귀)
 a="$(run --team delta)"; b="$(run --team delta --dir "$R/design/delta")"
-[ "$a" = "$b" ] && [ "$a" = "카드 대기 0 · 진행 1(좌석 0) · 착지됐는데 진행 0" ] && ok "R5 낡음 0 → 파일 길과 같은 출력" || bad "R5 ref «${a}» ≠ 파일 «${b}»"
+[ "$a" = "$b" ] && [ "$a" = "카드 대기 0 · 진행 1(좌석 0 · 관찰 대기 0) · 착지됐는데 진행 0" ] && ok "R5 낡음 0 → 파일 길과 같은 출력" || bad "R5 ref «${a}» ≠ 파일 «${b}»"
 
 echo "fail=$fail"; [ "$fail" -eq 0 ]
