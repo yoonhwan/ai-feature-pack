@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """autonomy_scope_classify.py — 오빠 부재 중 사전 승인(R298)의 «세트 종류» 분류기 (설계 DESIGN-r298-away-preapproval-merge §3·§7 · 판정 2055).
 
-  classify <40hex> --repo <dir> [--remote origin] [--target main] --scope S<n> [--table <분류표.tsv>] [--ddl-records <기록표.tsv>] [--learned <키,…>]
+  classify <40hex> --repo <dir> [--remote origin] [--target main] --scope S<n> [--table <분류표.tsv>] [--ddl-records <기록표.tsv>] [--learned <키,…>] [--card <카드.md>]
       `CLASS docs|ff|revert|code[ kind=<키,…> learned]` rc0 | `FORBID kind=<키> <사유>` rc3 | `ERROR <사유>` rc1 (못 판단 = 닫힌 쪽 · 호출자 REJECT)
       --critical (r1577 D2 «크리티컬 종류» · --scope 불요) → `CRITICAL-OK` rc0 | `CRITICAL kind=<launchd|config|secret|destroy> <사유>` rc3 · scope 표와 «분리»
   autonomy_scope_classify.py check-revert --repo <dir> [--remote origin] [--target main] --scope S<n>
@@ -93,7 +93,7 @@ def show_at(repo, sha):   # sha 트리의 파일 본문(없으면 "")
     return lambda path: run(repo, ["show", "%s:%s" % (sha, path)]).stdout
 
 
-def classify(repo, remote, target, scope, sha, table=None, records=None, learned=()):
+def classify(repo, remote, target, scope, sha, table=None, records=None, learned=(), card=None):
     ref = "refs/remotes/%s/%s" % (remote, target)
     git(repo, "rev-parse", "--verify", "-q", ref + "^{commit}")
     git(repo, "rev-parse", "--verify", "-q", sha + "^{commit}")
@@ -108,8 +108,8 @@ def classify(repo, remote, target, scope, sha, table=None, records=None, learned
     ddl_ok = lambda p: rules.ddl_recorded(records or [], p, added, show_at(repo, sha))  # noqa: E731
     full = secret_lines.read_new(repo, sha, [p for p, _i, _n in blocks if p and rules.ENV_TEMPLATE.search(p)])   # .env 견본 = 바뀐 뒤 전문(따옴표 값 «안» 줄 판별 · 칸 3)
     env_ok = lambda p: rules.env_added_values_ok(full.get(p), [(n, t) for q, items, _n in blocks if q == p for n, t in items])  # noqa: E731
-    table = table or rules.BYZ_TABLE   # D+A 짝 맞추기(카드 이동)를 먼저 · 판정은 행마다
-    judged = [rules.judge_row(table, r, ddl_ok, env_ok) for r in rules.pair_card_moves(table, rows)]
+    table, card_scope = table or rules.BYZ_TABLE, rules.card_scope_file(card, repo)   # 판정 입력 · 카드 범위 = «- 대상:» 줄·«## 구현 범위» 경로(못 읽으면 빈 집합 = 닫힌 쪽)
+    judged = [rules.judge_row(table, r, ddl_ok, env_ok, card_scope) for r in rules.pair_card_moves(table, rows)]   # D+A 짝(카드 이동)을 먼저 · 판정은 행마다
     secret = secret_lines.reason(blocks, lambda p: rules.path_class(table, p), repo, sha)   # code 전문 · 문서는 실행 줄만(r559)
     if secret:
         judged.append(("forbid", "secret", secret))
@@ -129,7 +129,7 @@ def classify(repo, remote, target, scope, sha, table=None, records=None, learned
 def critical_check(repo, remote, target, sha):   # r1577 D2 — 되돌릴 수 없는 일이면 승인 0(Slack 길로)
     ref = "refs/remotes/%s/%s" % (remote, target); git(repo, "rev-parse", "--verify", "-q", ref + "^{commit}"); git(repo, "rev-parse", "--verify", "-q", sha + "^{commit}")
     base = git(repo, "merge-base", ref, sha).strip(); blocks = secret_lines.parse_added(git, repo, base, sha)
-    if not blocks: raise Err("빈 diff(판정할 변경 없음)")
+    if not blocks: return 0, "CRITICAL-OK"   # r1778: 삭제만 있는 diff = 새 줄 0 → 비밀·파괴 명령·새 설정 줄이 없다(② 가 이미 경로를 판정 · 되돌림 가능)
     doc = lambda p: ("docs", "docs") if p.endswith(".md") else ("code", "code")   # .md = 산문 · 그 밖 = 전문(닫힌 쪽)
     hit = rules.critical_kinds(blocks, lambda: secret_lines.reason(blocks, doc, repo, sha), show_at(repo, sha))   # r1597: 본문(show)까지 넘긴다
     return (3, "CRITICAL kind=%s %s" % hit) if hit else (0, "CRITICAL-OK")
@@ -161,7 +161,7 @@ def parse_args(argv):
     cmd = argv[0]; critical = "--critical" in argv[1:]   # r1577 D2 크리티컬 판정 = --scope 불요 · 표(t)도 안 본다
     rest = [k for k in argv[1:] if k != "--critical"]
     sha = rest.pop(0) if cmd == "classify" and rest and not rest[0].startswith("--") else None
-    opts = {"--repo": None, "--remote": "origin", "--target": "main", "--scope": None, "--table": None, "--ddl-records": None, "--learned": "", "--critical": critical}
+    opts = {"--repo": None, "--remote": "origin", "--target": "main", "--scope": None, "--table": None, "--ddl-records": None, "--learned": "", "--card": None, "--critical": critical}
     while rest:
         key = rest.pop(0)
         if key not in opts or not rest:
@@ -184,8 +184,7 @@ def main(argv):
         if cmd == "classify" and o["--critical"]:
             rc, line = critical_check(repo, remote, target, sha)   # r1577 D2 — 크리티컬이면 승인 0(Slack 길)
         elif cmd == "classify":
-            table, records = rules.load_table(o["--table"]), rules.load_ddl_records(o["--ddl-records"])
-            rc, line = classify(repo, remote, target, scope, sha, table, records, learned)
+            rc, line = classify(repo, remote, target, scope, sha, rules.load_table(o["--table"]), rules.load_ddl_records(o["--ddl-records"]), learned, o["--card"])
         else:
             rc, line = check_revert(repo, remote, target, scope)
     except (Err, rules.TableErr, secret_lines.ImportErr, OSError) as e:

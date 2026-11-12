@@ -37,7 +37,7 @@ mkpr() {  # mkpr <번호> <브랜치> <시작점>
   git -C "$W" push -q origin "$2:refs/pull/$1/head"; PRSHA="$(sha "$W" HEAD)"
   python3 -c 'import json,sys;print(json.dumps({"headRefOid":sys.argv[1],"title":"feat: PR "+sys.argv[2],"body":"b","state":"OPEN","baseRefName":"main"}))' "$PRSHA" "$1" > "$STUB_JSON"
 }
-land() { apv "$@"; out="$(bash "$LAND" "$@" --repo "$W" 2>&1)"; rc=$?; }
+land() { apv "$@"; out="$(cd "$T" && bash "$LAND" "$@" --repo "$W" 2>&1)"; rc=$?; }   # cwd = git 밖(교차 리포 판정 회피 · 픽스처 원격은 로컬 경로 · r1687 꼴)
 lag() { out="$(bash "$LAG" "$@" --repo "$W" 2>&1)"; rc=$?; }
 mainc() {  # mainc <파일> <몇 초 전> — origin main 에 커밋 1개(committer 시각 지정)
   git -C "$W" checkout -q main; echo "$1" >> "$W/m.txt"; git -C "$W" add -A

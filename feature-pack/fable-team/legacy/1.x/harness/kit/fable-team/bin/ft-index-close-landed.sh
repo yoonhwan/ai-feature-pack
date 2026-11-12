@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # ft-index-close-landed.sh <판정문> [--team <팀>] [--dry-run]   (r456 · 판정 2349)
 #   «이미 main 에 착지한» 카드를 DA 닫힘 판정문 1장으로 N장 닫는다 — 재설계 해제 쪽지 불요.
-#   판정문 행 꼴: `## §N …` 절 안 «닫힘 — <카드 stem> — main `<40hex>` / PR …» — «main(팩) `<40hex>`» = 팩 리포 착지(r937).
+#   판정문 행 꼴: `## §N …` 절 안 이 카드 닫힘 표식 — 꼴·리포 선택자·착지 ref = ft-team-lib.sh 의 ft_close_marker 한 곳(r1784 · main·main(팩)·BYZ <ref>·팩 <ref>).
 #   행마다: 팀 폴더(ft_team_root · 글자 조립 0) 대기/·진행/ 에서 카드 실재 → 착지 리포 판정(ft_landed_repo · sha 가 실제로 있는 리포) →
-#     그 리포의 FT_LAND_REF(기본 origin/main) 조상 →
+#     그 리포의 유효 ref(ft_close_marker 셋째 칸) 조상 →
 #     (실행) 카드 «## 상태» 끝에 `- 착지: <sha> (DA 닫힘 <판정문>#§N · <날짜>)` 1줄(없을 때만) → ft-index-move <카드> 완성 --da <판정문>#§N --landed <sha>
 #     (--dry-run) 쓰기 0 · 표만 «§N · 카드 · 위치 · 조상 · 착지 줄 · 예상(판정기 --closing 첫 줄)»
 #   결과 1줄/카드: MOVED · REJECT <원문 첫 줄> · SKIP 카드 없음|이미 완성 · 끝 집계 1줄. 카드 없는 행·조상 아닌 sha 는 쓰기 0.
@@ -26,32 +26,37 @@ fi
 PACKH=""; [ -f "$HERE/ft-harness-root.sh" ] && PACKH="$(. "$HERE/ft-harness-root.sh" && ft_harness_root "$HERE" 2>/dev/null)"
 PACK=""; [ -n "$PACKH" ] && { PACK="$(ft_git_capped 7 "$PACKH" rev-parse --show-toplevel)" || { echo "ERROR 팩 리포($PACKH) 루트 조회 실패(rc=$?) — 통과 0" >&2; exit 2; }; }
 [ -d "$TROOT/indices" ] || { echo "ERROR 팀 폴더에 indices/ 없음: $TROOT (--team <팀>)" >&2; exit 2; }
-ROWS="$(python3 -I - "$DAF" <<'PY'
-import re, sys
-sec = ""
+ROWS="$(python3 -I - "$DAF" "$HERE/ft-team-lib.sh" <<'PY'
+import re, subprocess, sys
+secs, sec = {}, ""   # r1784: 절마다 카드 이름만 모으고 표식은 ft_close_marker(한 곳)가 읽는다 → «§ 카드 선택자 종류 유효ref sha» 또는 «§ 카드 거절 줄»
 for ln in open(sys.argv[1], encoding="utf-8", errors="replace"):
     h = re.match(r"^## .*?(§\d+)(?!\d)", ln)
     if ln.startswith("## "):
         sec = h.group(1) if h else ""
-    m = re.search(r"닫힘\s*—\s*(\S+)\s*—\s*main\s*(\(\s*팩\s*\))?\s*\x60?([0-9a-f]{40})\b", ln)
-    if m and sec:
-        print(f"{sec}\t{m.group(1)}\t{m.group(3)}\t{'pack' if m.group(2) else 'card'}")
+    if sec:
+        secs.setdefault(sec, []).append(ln)
+for sec, ls in secs.items():
+    for stem in dict.fromkeys(re.findall(r"(?:닫힘|CLOSE)\s*—\s*(\S+)\s*—\s*(?:main|BYZ\s|팩\s)", "".join(ls))):
+        r = subprocess.run(["bash", "-c", '. "$1" >/dev/null 2>&1 && ft_close_marker "$2"', "x", sys.argv[2], stem], input="".join(ls).encode(), capture_output=True, timeout=7)
+        out = r.stdout.decode("utf-8", "replace").strip()
+        if out:
+            print(f"{sec}\t{stem}\t{out.splitlines()[0]}")
 PY
 )"
 [ -n "$ROWS" ] || { echo "ERROR 판정문에 «닫힘 — <카드> — main \`<40hex>\`» 행 0: $DAF" >&2; exit 2; }
 n=0; mv=0; rj=0; sk=0; today="$(date '+%Y-%m-%d')"
 [ "$DRY" = 1 ] && printf '%s\n' "| § | 카드 | 위치 | 조상 | 착지 줄 | 예상 |" "|---|---|---|---|---|---|"
-while IFS=$'\t' read -r sec stem sha mkr; do n=$((n+1))
+while IFS=$'\t' read -r sec stem mkr _kind lref sha; do n=$((n+1))
   card=""; where=없음
   for d in 진행 대기; do [ -f "$TROOT/indices/$d/$stem.md" ] && { card="$TROOT/indices/$d/$stem.md"; where="$d"; break; }; done
   [ -z "$card" ] && [ -f "$TROOT/indices/완성/$stem.md" ] && where=완성
   anc=no; ancwhy=not-ancestor
-  MK="닫힘 — $stem — main$([ "$mkr" = pack ] && printf '(팩)') \`$sha\`"
-  if LR="$(ft_landed_repo "$sha" "$REPO" "$PACK" "$MK")"; then
+  case "$mkr" in card|pack) ;; *) LR="$mkr"; sha=""; mkr="";; esac   # r1784: 거절 줄(표식 여러 개·ref-mismatch) = 조상 검사 0 · 그 줄을 사유로
+  if [ -n "$mkr" ] && LR="$(ft_landed_repo "$sha" "$REPO" "$PACK" "$mkr")"; then
     LREPO="${LR%%$'\t'*}"; _lrc=0
-    ft_git_capped 7 "$LREPO" merge-base --is-ancestor "$sha" "${FT_LAND_REF:-origin/main}" >/dev/null 2>&1 || _lrc=$?
+    ft_git_capped 7 "$LREPO" merge-base --is-ancestor "$sha" "$lref" >/dev/null 2>&1 || _lrc=$?
     case "$_lrc" in 0) anc=ok;; 1) ancwhy=not-ancestor;; *) ancwhy=lookup-failed;; esac
-  else ancwhy=not-found; fi
+  elif [ -n "$mkr" ]; then ancwhy=not-found; else ancwhy="marker ${LR#REJECT }"; fi
   has=무; [ -n "$card" ] && grep -qE "^- 착지:[[:space:]]*\`?$sha" "$card" && has=유
   if [ "$DRY" = 1 ]; then
     if [ "$where" = 완성 ]; then exp="SKIP 이미 완성"; elif [ -z "$card" ]; then exp="SKIP 카드 없음"; elif [ "$anc" != ok ]; then exp="REJECT LANDED-INVALID $ancwhy"
@@ -62,6 +67,7 @@ while IFS=$'\t' read -r sec stem sha mkr; do n=$((n+1))
   if [ -z "$card" ]; then echo "SKIP $stem 카드 없음"; sk=$((sk+1)); continue; fi
   if [ "$anc" != ok ]; then
     if [ "$ancwhy" = not-found ]; then echo "REJECT $stem LANDED-INVALID not-found ${LR#REJECT } (쓰기 0)"
+    elif [ "${ancwhy%% *}" = marker ]; then echo "REJECT $stem ${ancwhy#marker } (쓰기 0)"
     else echo "REJECT $stem LANDED-INVALID not-ancestor $sha (쓰기 0)"; fi
     rj=$((rj+1)); continue; fi
   if [ "$has" = 무 ]; then

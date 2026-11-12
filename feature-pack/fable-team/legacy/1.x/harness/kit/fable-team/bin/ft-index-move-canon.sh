@@ -2,9 +2,9 @@
 # ft-index-move-canon.sh <카드> <워크트리> <landed:""|S|T..S>   (stdin = 판정문 §N 절 본문)
 #   ft-index-move.sh 진행→완성의 정본 게이트 + 랜딩 commit 사실 검사 (판정 440 설계 r2 §6-1 · 판정 444).
 #   출력 한 줄: `OK<TAB>정본 <경로> §<절>[ · 정본 …]` 또는 `OK<TAB>정본 영향 없음: <이유>` 또는 `REJECT<TAB><사유>` · 항상 exit 0.
-#   랜딩 브랜치 ref = env FT_LAND_REF(기본 origin/main) · 검사 전 fetch 하지 않는다 · 검사를 끄는 값 없음.
+#   랜딩 브랜치 ref = ft_close_marker 의 유효 ref(표식 없으면 env FT_LAND_REF › origin/main · r1784) · 검사 전 fetch 하지 않는다 · 검사를 끄는 값 없음.
 #   r937: 착지 리포 판정 = ft_landed_repo(ft-team-lib.sh) — sha 가 실제로 있는 리포(카드 리포·팩 리포)와 그 리포의 ref 를 쓴다.
-#     표식 = 판정문 §절의 «닫힘 — <카드> — main|main(팩) `<sha>`» 줄(main(팩) = 팩 리포 · main = 카드 리포).
+#     표식 = 판정문 §절의 이 카드 닫힘 표식 — 꼴·선택자 = ft-team-lib.sh 의 ft_close_marker 한 곳(r1784).
 #   r1628: 팀 정본 목록 design/harness/CANON-FILES.txt 한 줄 = 리포 상대경로 — 목록에 있는 경로는 작업 트리에 없어도 된다.
 #     실재·절 확인은 착지 ref(FT_LAND_REF)의 blob 으로 한다 · md = «#» 머리줄 · html = <h1>~<h6> 글자 · 조회 실패 = 판정 불가(없음으로 읽지 않는다).
 set -uo pipefail
@@ -13,9 +13,11 @@ BODY="$(cat)"
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 rej() { printf 'REJECT\t%s\n' "$1"; exit 0; }
 . "$HERE/ft-team-lib.sh" 2>/dev/null || rej "ft-team-lib.sh 를 못 읽었다: $HERE (착지 리포를 못 정한다)"
+STEM="$(basename "$CARD" .md)"; CM="$(printf '%s\n' "$BODY" | ft_close_marker "$STEM")"   # r1784: 표식 읽기 한 곳 — 선택자·유효 ref 를 받아 그대로 쓴다
+REF="$(printf '%s' "$CM" | cut -s -f3)"; REF="${REF:-${FT_LAND_REF:-origin/main}}"
 
 # ① 카드 줄 검사 — 「정본 갱신:」 줄 «전부» 파일·절 실재 · 없으면 「정본 영향 없음」 · 출력 UPD 줄들 + 마지막 OK/REJECT
-RES="$(python3 - "$CARD" "$WT" "${FT_LAND_REF:-origin/main}" "$HERE" <<'PY'
+RES="$(python3 - "$CARD" "$WT" "$REF" "$HERE" <<'PY'
 import re, sys, os
 card = open(sys.argv[1], encoding="utf-8").read().splitlines()
 wt = sys.argv[2]
@@ -140,15 +142,13 @@ if [ -z "$LANDED" ]; then
   printf '%s\n' "$LAST"; exit 0
 fi
 case "$LANDED" in *..*) T="${LANDED%%..*}"; S="${LANDED##*..}";; *) T=""; S="$LANDED";; esac
-REF="${FT_LAND_REF:-origin/main}"
-# r937: 착지 리포 = sha 가 실제로 있는 리포(ft_landed_repo) — 표식 줄 = 이 카드의 «닫힘 — <카드> — main…» 줄(§절 본문에서)
-STEM="$(basename "$CARD" .md)"
-MARKER="$(printf '%s\n' "$BODY" | awk -v s="$STEM" 'BEGIN{p="(닫힘|CLOSE)[[:space:]]*—[[:space:]]*" s "[[:space:]]*—[[:space:]]*main"} $0 ~ p{print;exit}')"   # r959: «닫힘 — <카드> — main…» 정확한 모양만 — 절 헤더 오인 금지
+# r937: 착지 리포 = sha 가 실제로 있는 리포(ft_landed_repo) — 선택자 = 위 ft_close_marker 결과(r1784 · 절 헤더 오인 0 = r959 그대로)
+case "$CM" in REJECT*|LANDED-INVALID*) rej "${CM#REJECT }";; esac
 PACK=""; [ -f "$HERE/ft-harness-root.sh" ] && PACK="$(. "$HERE/ft-harness-root.sh" && ft_harness_root "$HERE" 2>/dev/null)"
 # r937 r3: 루트 조회도 ft_git_capped — 한 후보의 루트 조회가 실패(rc≠0 · 시간 초과 포함)면 그 후보를 빈 값으로 넘기지 않고 REJECT
 if [ -n "$PACK" ]; then PACK_H="$PACK"; PACK="$(ft_git_capped 7 "$PACK_H" rev-parse --show-toplevel)" || rej "팩 리포($PACK_H) 루트 조회 실패(rc=$?) — 통과 0"; fi
 # r959: «표식 오기(팩 착지)» 보정은 ft_landed_repo 의 기본 동작 — 부르는 쪽마다 붙이지 않는다(네 호출이 같은 판정)
-LR="$(ft_landed_repo "$S" "$WT" "$PACK" "$MARKER")" || rej "${LR#REJECT }"
+LR="$(ft_landed_repo "$S" "$WT" "$PACK" "$(printf '%s' "$CM" | cut -s -f1)")" || rej "${LR#REJECT }"
 REPO_LANDED="${LR%%$'\t'*}"; SFULL="${LR##*$'\t'}"
 # r937 r2 (T1·T2): 모든 git 조회 = ft_git_capped(7초 · 재시도 1) · 허용 rc 를 넘은 값(124 시간 초과 · 128 실행 실패)은 «조회 실패» = REJECT(«없음» 으로 읽지 않는다)
 #   gq <허용 rc> <사유> <git 인자…> → GQ_OUT = 출력 · rc 그대로. 허용 rc 초과 = «조회 실패» = REJECT (rej 는 이 셸에서 돌아야 하므로 $( ) 안에서 부르지 않는다)

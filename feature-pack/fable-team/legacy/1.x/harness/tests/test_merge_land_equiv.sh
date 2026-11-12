@@ -87,7 +87,8 @@ exec "$REAL_GIT" "\$@"
 EOF
 chmod +x "$T/shim2/git"
 own 20; setpr 20; M="$(omain)"; : > "$STUB_LOG"
-apv --approve-sha "$A"; out="$(PATH="$T/shim2:$PATH" RACE_AT=2 bash "$LAND" 20 --approve-sha "$A" --repo "$W" 2>&1)"; rc=$?
+# origin/main 읽기 차례: ①ft-land-overlap.sh(사전 경고) ②ft-merge-gate.sh ③ft-merge-land.sh 본문 → 3번째 = 게이트 «뒤» 전진
+apv --approve-sha "$A"; out="$(PATH="$T/shim2:$PATH" RACE_AT=3 bash "$LAND" 20 --approve-sha "$A" --repo "$W" 2>&1)"; rc=$?
 [ "$rc" = 1 ] && [[ "$out" == *"main 이 움직였다"* ]] && [ "$(omain)" != "$M" ] && [ "$(git -C "$ORIGIN" show main:m1.txt 2>/dev/null)" = m1 ] && [ ! -s "$STUB_LOG" ]; ck "ⓚ 게이트 뒤 main 전진(M1) → REJECT · 착지 0 · M1 새 파일 main 에 보존" $?
 G fetch -q origin; G checkout -q -B pr20 origin/main; echo own20b > "$W/own20b.txt"; cm "$W" own20b; A="$(sha "$W" HEAD)"; setpr 20; : > "$STUB_LOG"; land 20 --approve-sha "$A"
 [ "$rc" = 0 ] && [ "$(git -C "$ORIGIN" show main:m1.txt)" = m1 ]; ck "ⓚ 최신화한 세트는 착지 · M1 보존" $?
