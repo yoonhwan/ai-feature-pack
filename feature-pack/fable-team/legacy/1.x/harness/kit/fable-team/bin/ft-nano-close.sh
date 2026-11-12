@@ -686,7 +686,7 @@ _resolve_landed_wt() {
   br="$(git -C "$top" symbolic-ref --short -q HEAD)"; case "$br" in nano/?*) ;; *) SEAT_WT_ERR="--wt($top)의 체크아웃 가지(${br:-detached})가 nano/* 가 아니다 — 좌석 워크트리가 아니다"; return 0;; esac
   to="$(tmux ls -F '#{session_name}' 2>&1)"; trc=$?
   if [ "$trc" -ne 0 ]; then case "$trc:$to" in 1:*"no server running"*) to="";; *) SEAT_WT_ERR="--wt($top) 좌석 세션 조회 실패(rc=$trc) — 판정 불가로 받지 않는다"; return 0;; esac; fi
-  okey="${br#nano/}"; okey="${okey%-r[0-9]*}"
+  okey="${br#nano/}"; [[ "$okey" =~ ^(.*)-r[0-9]+$ ]] && okey="${BASH_REMATCH[1]}"   # r1737 R1: «끝의» 재착수 번호만 뗀다(중간 -r숫자- 뒤를 자르면 남의 owner 를 놓친다)
   for p in $(printf '%s\n' $_NANO_PREFIXES | awk '!s[$0]++'); do live="$live$(printf '%s\n' "$to" | grep -x "${p}${okey}#[0-9]*" | grep -vxF "$SEAT" | tr '\n' ' ')"; done
   [ -z "$live" ] || { SEAT_WT_ERR="--wt($top)의 가지($br)를 키로 하는 다른 좌석 세션이 살아 있다(${live% }) — 남의 좌석 가지 · 추측 금지"; return 0; }
   SEAT_WT="$top"; SEAT_BR="$br"; _lp_wt_seat=1
