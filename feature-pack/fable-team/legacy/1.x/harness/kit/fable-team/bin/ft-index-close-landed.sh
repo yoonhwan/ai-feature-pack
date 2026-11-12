@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # ft-index-close-landed.sh <판정문> [--team <팀>] [--dry-run]   (r456 · 판정 2349)
 #   «이미 main 에 착지한» 카드를 DA 닫힘 판정문 1장으로 N장 닫는다 — 재설계 해제 쪽지 불요.
-#   판정문 행 꼴: `## §N …` 절 안 «닫힘 — <카드 stem> — main `<40hex>` / PR …» — «main(팩) `<40hex>`» = 팩 리포 착지(r937).
+#   판정문 행 꼴: `## §N …` 절 안 이 카드 닫힘 표식 — 꼴·리포 선택자·착지 ref = ft-team-lib.sh 의 ft_close_marker 한 곳(r1784 · main·main(팩)·BYZ <ref>·팩 <ref>).
 #   행마다: 팀 폴더(ft_team_root · 글자 조립 0) 대기/·진행/ 에서 카드 실재 → 착지 리포 판정(ft_landed_repo · sha 가 실제로 있는 리포) →
-#     그 리포의 FT_LAND_REF(기본 origin/main) 조상 →
+#     그 리포의 유효 ref(ft_close_marker 셋째 칸) 조상 →
 #     (실행) 카드 «## 상태» 끝에 `- 착지: <sha> (DA 닫힘 <판정문>#§N · <날짜>)` 1줄(없을 때만) → ft-index-move <카드> 완성 --da <판정문>#§N --landed <sha>
 #     (--dry-run) 쓰기 0 · 표만 «§N · 카드 · 위치 · 조상 · 착지 줄 · 예상(판정기 --closing 첫 줄)»
 #   결과 1줄/카드: MOVED · REJECT <원문 첫 줄> · SKIP 카드 없음|이미 완성 · 끝 집계 1줄. 카드 없는 행·조상 아닌 sha 는 쓰기 0.

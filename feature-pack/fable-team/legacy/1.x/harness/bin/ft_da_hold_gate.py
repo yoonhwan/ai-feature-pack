@@ -11,10 +11,10 @@
     budget_left = 사건<CAP ? CAP−사건 : 미소진 유효 해제 수 · rc3 ⇔ budget_left ≤ 0. CAP = 3 (r1042 · 문서 r1038 «DA 기본 3회» 와 같은 숫자 · 상한은 이 상수 하나가 정한다).
 출력 첫 줄 `HOLD events=<n> reviews=<m> releases=<유효>/<소진> budget_left=<b>` | `UNPARSED <줄>` | `NO-ORDER-LINE <단계> r<N>` | `DUP-ENTRY <단계>r<N>` | `ENTRY-WRITE-FAIL …` (+ 해제 줄들 RELEASE-OK·INVALID·DUP).
 rc 0 = 통과 · 3 = 막음 · 2 = 인자·파일 오류. --closing = 완성 이동 검사(사건 ≥ CAP 인데 유효 해제 0 이면 막음) · --lint = ft-index-lint 용 `INFO`/`BAD` 줄(항상 rc 0).
-  착지(r456 · --closing 만) = 카드 «## 상태» `- 착지: <sha>`(또는 --landed · 둘 다면 일치) ∧ sha 가 착지 ref 조상(env FT_LAND_REF · 기본 origin/main) ∧ --da 판정문(§N 절)에
-    «닫힘 — <카드 stem> — main `<같은 sha>`» 행 → 첫 줄 `LANDED-CLOSE sha=<sha> da=<--da>` rc0. 하나라도 빠지면 기존 판정 불변 + `LANDED-INVALID <사유>` 줄.
+  착지(r456 · --closing 만) = 카드 «## 상태» `- 착지: <sha>`(또는 --landed · 둘 다면 일치) ∧ sha 가 착지 ref 조상 ∧ --da 판정문(§N 절)에 이 카드 닫힘 표식(같은 sha) → 첫 줄 `LANDED-CLOSE sha=<sha> da=<--da>` rc0.
+    표식 꼴·리포 선택자·착지 ref = ft-team-lib.sh 의 ft_close_marker 한 곳(r1784). 하나라도 빠지면 기존 판정 불변 + `LANDED-INVALID <사유>` 줄.
   r937: 착지 리포는 ft-team-lib.sh 의 ft_landed_repo(bash · 리포 판정 단일 출처)가 정한다 — sha 가 카드 리포에 없고 팩(하네스 코드 루트) 리포에 있으면 그 리포 ·
-    판정문 행 «닫힘 — <카드> — main(팩) `<40hex>`» = 팩 리포 표식 · 표식과 실제가 어긋나면 `LANDED-INVALID marker-mismatch` · 어느 리포에도 없으면 `LANDED-INVALID not-found`.
+    표식 선택자 pack = 팩 리포 · 표식과 실제가 어긋나면 `LANDED-INVALID marker-mismatch` · 어느 리포에도 없으면 `LANDED-INVALID not-found`.
 """
 from __future__ import annotations
 
@@ -236,7 +236,7 @@ def landed_check(card: str, lines: list[str], root: str, landed: str, da: str) -
     if not os.path.isfile(path):
         return "", "LANDED-INVALID da-missing " + path
     if msha != sha:
-        return "", f"LANDED-INVALID no-da-row «닫힘 — {stem} — main `{sha[:10]}…`» 없음 ({da})"
+        return "", f"LANDED-INVALID no-da-row «닫힘 — {stem} — main|main(팩)|BYZ <ref>|팩 <ref> `{sha[:10]}…`» 없음 ({da})"
     return f"LANDED-CLOSE sha={sha} da={da}", ""
 
 

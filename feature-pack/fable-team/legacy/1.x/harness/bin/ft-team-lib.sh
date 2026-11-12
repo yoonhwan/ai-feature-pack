@@ -312,16 +312,32 @@ _ft_git_retry() { ft_git_capped "$@"; }   # 옛 이름 — 재시도가 실행�
 #   r1401: 착지 여부는 «로컬에 있는 객체» 만 본다 — GIT_NO_LAZY_FETCH=1 이 없으면 partial clone(blob:none)이 없는 sha 를 원격 lazy fetch 로 받으려 해 7초 상한을 넘는다(실측 13.1초 → 0.1초). 다른 ft_git_capped 호출에는 넣지 않는다(blob 이 필요한 조회가 «없음» 으로 바뀐다)
 _ft_landed_git() { GIT_NO_LAZY_FETCH=1 _ft_git_retry 7 "$1" rev-parse --verify -q "${2}^{commit}"; }
 #   ft_close_marker <stem|빈 값 = 아무 카드> (stdin = 판정문 절 본문) : DA 닫힘 표식 읽기 «한 곳» (r1784 · 보류 가드·정본·close-landed·index-move·ft_landed_repo 가 같이 부른다)
-#     stdout `<card|pack>\t<legacy>\t<유효 ref>\t<sha40>` rc0 · 표식 없음 = 빈 줄 rc1 · 부르는 쪽은 원문 문법을 다시 읽지 않고 받은 선택자·ref 를 그대로 쓴다
-#     꼴: «(닫힘|CLOSE) — <stem> — main `<sha>`» = card · «… — main(팩) `<sha>`» = pack · sha 앞 백틱·역슬래시 허용(옛 awk 꼴 호환) · 유효 ref = FT_LAND_REF › origin/main · 절 헤더(«## §N <카드> — 닫힘 (CLOSE)»)는 표식 아님(r959)
+#     stdout `<card|pack>\t<legacy|explicit>\t<유효 ref>\t<sha40>` rc0 · 표식 없음 = 빈 줄 rc1 · 거절 = `REJECT 표식 여러 개 …`·`LANDED-INVALID ref-mismatch <env> ≠ <표식>` rc1
+#     꼴 «(닫힘|CLOSE) — <stem> — X `<sha>`»: X = main → card·legacy · main(팩) → pack·legacy · BYZ <remote>/<ref> → card·explicit · 팩 <remote>/<ref> → pack·explicit
+#     유효 ref: legacy = FT_LAND_REF › origin/main · explicit = 표식 ref(FT_LAND_REF 가 있고 다르면 ref-mismatch) · 부르는 쪽은 원문을 다시 읽지 않고 받은 값을 그대로 쓴다
+#     여러 줄: 같은 값 = 1줄 · 같은 선택자·sha 의 legacy+explicit 짝 = explicit(실 r1763 꼴) · 그 밖 = REJECT · sha 앞 백틱·역슬래시 허용 · 절 헤더(«## §N <카드> — 닫힘 (CLOSE)»)는 표식 아님(r959)
 _FT_CLOSE_MARKER_PY='
 import os, re, sys
 sys.stdout.reconfigure(encoding="utf-8")
 st = re.escape(sys.argv[1]) if sys.argv[1] else r"\S+"
-m = re.search(r"(?:닫힘|CLOSE)\s*—\s*" + st + r"\s*—\s*main\s*(\(\s*팩\s*\))?[\s`\\]*([0-9a-f]{40})\b", sys.stdin.buffer.read().decode("utf-8", "replace"))
-if not m:
+pat = r"(?:닫힘|CLOSE)\s*—\s*" + st + r"\s*—\s*(?:main\s*(\(\s*팩\s*\))?|(BYZ|팩)\s+([\w.-]+/[\w./-]+))[\s`\\]*([0-9a-f]{40})\b"
+rows = []
+for m in re.finditer(pat, sys.stdin.buffer.read().decode("utf-8", "replace")):
+    r = ("pack" if m.group(1) or m.group(2) == "팩" else "card", "explicit" if m.group(2) else "legacy", m.group(3) or "", m.group(4))
+    rows += [] if r in rows else [r]
+if not rows:
     sys.exit(1)
-print("\t".join(("pack" if m.group(1) else "card", "legacy", os.environ.get("FT_LAND_REF") or "origin/main", m.group(2))))
+if len(rows) == 2 and {r[1] for r in rows} == {"legacy", "explicit"} and rows[0][0] == rows[1][0] and rows[0][3] == rows[1][3]:
+    rows = [r for r in rows if r[1] == "explicit"]
+if len(rows) > 1:
+    print("REJECT 표식 여러 개 — " + " · ".join("%s/%s/%s/%s" % (r[0], r[1], r[2] or "-", r[3][:10]) for r in rows))
+    sys.exit(1)
+sel, kind, mref, sha = rows[0]
+env = os.environ.get("FT_LAND_REF") or ""
+if kind == "explicit" and env and env != mref:
+    print("LANDED-INVALID ref-mismatch %s ≠ %s" % (env, mref))
+    sys.exit(1)
+print("\t".join((sel, kind, mref or env or "origin/main", sha)))
 '
 ft_close_marker() { python3 -I -c "$_FT_CLOSE_MARKER_PY" "${1:-}"; }
 ft_landed_repo() { local sha="$1" cr="${2:-}" pr="${3:-}" mk="${4:-}" cs="" ps="" want=""

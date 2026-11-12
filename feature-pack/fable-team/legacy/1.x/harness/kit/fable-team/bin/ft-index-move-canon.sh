@@ -2,9 +2,9 @@
 # ft-index-move-canon.sh <카드> <워크트리> <landed:""|S|T..S>   (stdin = 판정문 §N 절 본문)
 #   ft-index-move.sh 진행→완성의 정본 게이트 + 랜딩 commit 사실 검사 (판정 440 설계 r2 §6-1 · 판정 444).
 #   출력 한 줄: `OK<TAB>정본 <경로> §<절>[ · 정본 …]` 또는 `OK<TAB>정본 영향 없음: <이유>` 또는 `REJECT<TAB><사유>` · 항상 exit 0.
-#   랜딩 브랜치 ref = env FT_LAND_REF(기본 origin/main) · 검사 전 fetch 하지 않는다 · 검사를 끄는 값 없음.
+#   랜딩 브랜치 ref = ft_close_marker 의 유효 ref(표식 없으면 env FT_LAND_REF › origin/main · r1784) · 검사 전 fetch 하지 않는다 · 검사를 끄는 값 없음.
 #   r937: 착지 리포 판정 = ft_landed_repo(ft-team-lib.sh) — sha 가 실제로 있는 리포(카드 리포·팩 리포)와 그 리포의 ref 를 쓴다.
-#     표식 = 판정문 §절의 «닫힘 — <카드> — main|main(팩) `<sha>`» 줄(main(팩) = 팩 리포 · main = 카드 리포).
+#     표식 = 판정문 §절의 이 카드 닫힘 표식 — 꼴·선택자 = ft-team-lib.sh 의 ft_close_marker 한 곳(r1784).
 #   r1628: 팀 정본 목록 design/harness/CANON-FILES.txt 한 줄 = 리포 상대경로 — 목록에 있는 경로는 작업 트리에 없어도 된다.
 #     실재·절 확인은 착지 ref(FT_LAND_REF)의 blob 으로 한다 · md = «#» 머리줄 · html = <h1>~<h6> 글자 · 조회 실패 = 판정 불가(없음으로 읽지 않는다).
 set -uo pipefail
