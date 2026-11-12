@@ -8,6 +8,7 @@ PATH 앞의 가짜 `git`·`tmux`(argv·env 를 파일에 1줄씩 기록 · rc �
 """
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -325,11 +326,26 @@ def case_repo_dry(tmp, launcher=LAUNCH):
     assert _snapshot(root) == before, "런타임 바이트 그대로"
 
 
+def case_recovery_quoted(tmp, launcher=LAUNCH):
+    """⑯ 공백 든 repo·root — 복구 안내 ⓐ 줄의 경로가 인용돼(quot) bash 로 넘겨도 갈라지지 않는다(DA 보정 291508)."""
+    base = Path(tmp) / "space here"
+    root, fake = _paths(base)
+    _runtime(root)
+    repo = _git_repo(base / "repo B")
+    out, rc = _launch(root, fake, launcher, extra=["--repo", str(repo)],
+                      env_extra=_repo_env({"FAKE_GIT_RC": "124"}))
+    assert (out["result"], rc, out.get("step")) == ("복구 필요", 2, "git"), out
+    cmd = out["reason"].split("복구 ⓐ ", 1)[1].split(" (반쪽", 1)[0]
+    assert shlex.split(cmd) == ["git", "-C", str(repo), "worktree", "remove", "--force", "--force",
+                                str(_worktree(root))], cmd
+    assert "새 attempt" in out["reason"], out["reason"]
+
+
 CASES = {"refused": case_refused, "dry": case_dry, "open": case_open, "again": case_again,
          "race": case_race, "fail": case_fail, "role": case_role, "guard": case_guard,
          "detach": case_detach, "latest": case_latest_dispatch, "budget": case_git_budget,
          "repo": case_repo_target, "repo_refused": case_repo_refused, "git_failed": case_git_failed,
-         "repo_dry": case_repo_dry}
+         "repo_dry": case_repo_dry, "recovery_quoted": case_recovery_quoted}
 MUTANTS = {
     "M1": ("launch.py", "    if holder is None:", "    if holder is None and False:"),
     "M2": ("launch.py", '    if given.get("dry"):',
@@ -341,8 +357,8 @@ MUTANTS = {
     "M5": ("launch_plan.py", '+ pairs + ["pi"]', '+ [] + ["pi"]'),
     "M6": ("launch.py", "GIT_TIMEOUT, TMUX_TIMEOUT, USAGE = 25, 7, 64", "GIT_TIMEOUT, TMUX_TIMEOUT, USAGE = 7, 7, 64"),
     "M7": ("launch.py", 'repo = os.path.abspath(given.get("repo") or root)', 'repo = os.path.abspath(root)'),
-    "M8": ("launch.py", '        if rc != 0:\n            return dict(result=REFUSED',
-           '        if rc != 0 and False:\n            return dict(result=REFUSED'),
+    "M8": ("launch.py", '        if rc != 0:\n            os.unlink(plan["intent"])',
+           '        if rc != 0 and False:\n            os.unlink(plan["intent"])'),
     "M9": ("launch.py", '    if step == "git":', '    if False:'),
 }
 # 변이가 깨뜨려야 하는 사례 — 카드 §변이 그대로
@@ -351,14 +367,16 @@ MUTANT_CASE = {"M1": "refused", "M2": "dry", "M3": "again", "M4": "fail", "M5": 
 
 
 def _mutant(tmp, name):
-    """ft2 사본 1개 + launch.py·launch_plan.py 손상 1곳(원본 무수정)."""
+    """ft2 사본 1개 + launch.py·launch_plan.py 손상 1곳(원본 무수정). 치환 0 = 시험 빨강(RuntimeError · AssertionError 아님)."""
     filename, needle, replacement = MUTANTS[name]
     dest = Path(tmp) / "mutant" / "feature-pack" / "fable-team" / "ft2"
     shutil.copytree(FT2, dest, ignore=shutil.ignore_patterns("__pycache__"))
     target = dest / "adapters" / "pi" / filename
     text = target.read_text(encoding="utf-8")
-    assert needle in text, name
-    target.write_text(text.replace(needle, replacement, 1), encoding="utf-8")
+    mutated = text.replace(needle, replacement, 1) if needle in text else text
+    target.write_text(mutated, encoding="utf-8")
+    if mutated == text or replacement not in target.read_text(encoding="utf-8"):
+        raise RuntimeError("%s 치환 0 — needle 불일치(원본 손상 아님 · 사례를 통과로 세면 안 된다)" % name)
     return dest / "adapters" / "pi" / "launch.py"
 
 
@@ -404,10 +422,11 @@ def test_10_latest_dispatch_not_delivered(tmp_path):
 
 @pytest.mark.parametrize("name", sorted(MUTANTS))
 def test_mutants(tmp_path, name):
-    """변이 1개 = 그 사례가 빨강 · 같은 사례를 원본으로 1회 더 = 초록."""
+    """변이 1개 = 그 사례가 빨강 · 같은 사례를 원본으로 1회 더 = 초록. 변이 만들기(치환)가 실패하면 시험이 빨강."""
     case = CASES[MUTANT_CASE[name]]
+    launcher = _mutant(tmp_path / name, name)
     with pytest.raises(AssertionError):
-        case(tmp_path / name, _mutant(tmp_path / name, name))
+        case(tmp_path / name, launcher)
     case(tmp_path / (name + "-orig"), LAUNCH)
 
 
@@ -429,3 +448,7 @@ def test_14_git_step_recovery(tmp_path):
 
 def test_15_repo_dry_run(tmp_path):
     case_repo_dry(tmp_path)
+
+
+def test_16_recovery_quoted_paths(tmp_path):
+    case_recovery_quoted(tmp_path)
