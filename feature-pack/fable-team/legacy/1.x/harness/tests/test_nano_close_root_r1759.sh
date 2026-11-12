@@ -68,7 +68,37 @@ run_close "$PACK" "$TSV_DUP"
   && has "⑦ 사유 = «루트 해석: roots.tsv — 좌석 명부 2곳»" "$OUT" "(루트 해석: roots.tsv — 좌석 명부 2곳)" \
   && hasnt "⑦ ROOT-PICK(닫기 진행) 0" "$OUT" "ROOT-PICK"; } || bad "⑦" "rc=$RC $OUT"
 
-# ── 변이 M4·M5 (사본에서만 · 변이마다 원본 대조 1회) ─────────────────────────
+# ⑧ DA R1 — roots.tsv 후보 하나의 명부를 못 읽으면 «유일한 곳» 을 확정하지 않는다(0곳으로 세어 다른 후보를 고르면 오판정이다)
+#    cwd = 팩 꼴 · roots.tsv = [R1(명부 못 읽음), R2(명부 정상 + 가짜 팀 env)] → 팩 유지 · 사유 «명부 읽기 실패 <파일>» · rc1 · ROOT-PICK 0
+mk8() {  # ⑧ 픽스처(사례마다 새로 — 명부 파일을 망치는 사례라 재사용하면 앞 사례가 흔든다)
+  C8="$T/c8"; PACK8="$C8/pack"; R18="$C8/r1"; R28="$C8/r2"; TSV8="$C8/roots.tsv"
+  mkrepo "$PACK8"; roster "$R18" "$SEAT"; roster "$R28" "$SEAT"; teamenv "$R28"
+}
+corrupt8() {  # corrupt8 <bad-json|plain> — R1 명부 «내용만» 못 읽는 꼴로 바꿔쓴다(DA 재현)
+  case "$1" in
+    bad-json) printf '{"%s": {"role": "nano"' "$SEAT" > "$R18/.fable-team/seats-harness.json";;
+    *) printf '좌석 명부 아님\n' > "$R18/.fable-team/seats-harness.json";;
+  esac
+}
+run_case8() {  # run_case8 <bin> <꼴> — ⑧ 을 그 bin 으로 돌린다 → OUT·RC(전역)
+  local keep="$BIN"; BIN="$1"; mk8; corrupt8 "$2"; tsv "$TSV8" "$R18" "$R28"; run_close "$PACK8" "$TSV8"; BIN="$keep"
+}
+ok8() {  # ok8 <bin> — ⑧ Green 인가(팩 유지 · 읽기 실패 사유 · ROOT-PICK 0)
+  run_case8 "$1" bad-json
+  local rc="$RC" out="$OUT"
+  [ "$rc" = 1 ] || return 1
+  case "$out" in *"REJECT 팀 env 없음: $PACK8/.fable-team/bin-harness/harness-env.sh"*) ;; *) return 1;; esac
+  case "$out" in *"(루트 해석: roots.tsv — 명부 읽기 실패 $R18/.fable-team/seats-harness.json)"*) return 0;; esac
+  return 1
+}
+for form in bad-json plain; do
+  run_case8 "$BIN" "$form"
+  { [ "$RC" = 1 ] && has "⑧($form) 명부 읽기 실패 = 팩 꼴 유지 REJECT" "$OUT" "REJECT 팀 env 없음: $PACK8/.fable-team/bin-harness/harness-env.sh" \
+    && has "⑧($form) 사유 = «루트 해석: roots.tsv — 명부 읽기 실패 <파일>»" "$OUT" "(루트 해석: roots.tsv — 명부 읽기 실패 $R18/.fable-team/seats-harness.json)" \
+    && hasnt "⑧($form) ROOT-PICK 0(유일 루트 확정 0)" "$OUT" "ROOT-PICK"; } || bad "⑧($form)" "rc=$RC $OUT"
+done
+
+# ── 변이 M4~M6 (사본에서만 · 변이마다 원본 대조 1회) ─────────────────────────
 mutcopy() {  # mutcopy <이름> <옛 글> <새 글> — bin 사본(그 자리만 바꿈 · 원본 불변)
   MB="$T/mut-$1"; rm -rf "$MB"; cp -R "$BIN" "$MB"
   python3 - "$MB/ft-nano-close.sh" "$2" "$3" <<'PY'
@@ -94,8 +124,12 @@ mutcase() {  # mutcase <M번호> <사례> <옛 글> <새 글>
   keep_bin
   if case_out "$BIN" "$2"; then ok "$1 원본 대조 → $2 통과"; else bad "$1 원본 대조가 FAIL($2)" "$OUT"; fi
 }
-mutcase M4 ⑤ 'hit = [r for r in dict.fromkeys(rows) if r and has(r, seat)]' 'hit = []'
-mutcase M5 ⑦ 'if len(hit) == 1:' 'if hit:'
+mutcase M4 ⑤ 'hit = [r for r in dict.fromkeys(rows) if r and has(r, seat, bad)]' 'hit = []'
+mutcase M5 ⑦ 'if len(hit) == 1 and not bad:' 'if len(hit) >= 1:'
+mutcopy M6 'if len(hit) == 1 and not bad:' 'if len(hit) == 1:'   # 명부 읽기 실패 보존 지움(DA R1 이 잡은 자리)
+if ok8 "$MB"; then bad "M6 변이를 못 잡음(⑧)"; else ok "M6 변이 → ⑧ FAIL(잡힘)"; fi
+keep_bin
+if ok8 "$BIN"; then ok "M6 원본 대조 → ⑧ 통과"; else bad "M6 원본 대조가 FAIL(⑧)" "$OUT"; fi
 # 짝(추적본 bin = kit 사본) 같음
 cmp -s "$BIN/ft-nano-close.sh" "$BIN/../kit/fable-team/bin/ft-nano-close.sh" && ok "짝 cmp0 ft-nano-close.sh" || bad "짝 다름 ft-nano-close.sh" ""
 finish
