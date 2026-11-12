@@ -94,7 +94,7 @@ eq "R4 worker 거절 1줄" "$(grep -c "$L/r3f" "$LOG")" 1
 eval "$(grep -m1 '^_LWX=' "$SPAWN")"
 has "D1 설치 = master 몫" "$_LWX" "«설치:»·«켜기» 줄 = master 몫(나노 지시 아님)"
 has "D2 산출 보고 1줄" "$_LWX" "«설치 h 필요» 1줄만"
-eq "D3 BODY 에 문단 1회" "$(grep -c '\${_AFX}\${_RLX}\${_LWX}\$_PKX' "$SPAWN")" 1
+eq "D3 BODY 에 문단 1회" "$(grep -c '^BODY=.*\${_LWX}' "$SPAWN")" 1
 eq "D4 dry-run 출력 줄" "$(grep -c '^echo "BODY+\${_LWX}"' "$SPAWN")" 1
 # ── 변이 M1~M4 (사본에서만) ──
 mut(){ python3 -c 'import sys;s=open(sys.argv[1]).read();a,b=sys.argv[3],sys.argv[4]
@@ -107,7 +107,7 @@ mut "$X.ts" "$T/m2.ts" 'const p = realish(t), hit' 'const p = t, hit'
 hit "$T/m2.ts" b-symlink "" PASS && ok "M2 탐지 = realpath 삭제 → 심링크 우회 통과" || bad "M2 미탐지"
 mut "$X.ts" "$T/m3.ts" 'if (!seat || !NANO.test(seat)) return;' 'if (!seat) return;'
 hit "$T/m3.ts" a-write "byz-harness-master-pi#196" BLOCK && ok "M3 탐지 = 나노 꼴 검사 삭제 → master 차단" || bad "M3 미탐지"
-mut "$SPAWN" "$T/m4.sh" '${_LWX}$_PKX' '$_PKX'
+python3 -c 'import sys,re;a,b=sys.argv[1:];s=open(a).read();t=re.sub(r"(?m)^(BODY=.*?)\$\{_LWX\}", r"\1", s, count=1);assert t != s, "BODY 줄에 ${_LWX} 없음";open(b,"w").write(t)' "$SPAWN" "$T/m4.sh"
 eq "M4 탐지 = 고정 문단 삭제" "$(grep -c '\${_LWX}' "$T/m4.sh")" 1
 mut "$WG" "$T/m5.sh" 'if base == "sed":' 'if base == "sed_off":'
 wgm(){ printf '%s' "$1" | FT_WORKER_ROLE=implementer FT_LIVE_ROOT="$R" FT_SEAT_NAME=byz-harness-nano-worker#0 bash "$T/m5.sh" >/dev/null 2>&1; echo $?; }
