@@ -56,5 +56,11 @@ EV="$(grep -m1 -E '^[[:space:]]*-[[:space:]]*실사건:' "$CARD")"
 printf '%s' "$EV" | grep -qE '#[0-9]+|[A-Za-z0-9_./-]+\.[A-Za-z0-9]+:[0-9]+|ledger[:=][^[:space:]]+' || rej "「- 실사건:」 줄에 증거 토큰 없음(mbox #N · 경로:줄 · ledger 키)"
 ROOT="${CROOT:-$WT}"   # r959: 같은 공용 루트 — 위에서 7초 상한으로 이미 풀었다(중복 git 호출 0)
 PD="${FT_INSTALL_PENDING_DIR:-${ROOT:-$WT}/.fable-team/state/install-pending}"
-for s in $(ft_git_capped 7 "$WT" rev-list "$RANGE"); do rm -f "$PD/$s.txt"; done
+# r1738: 대기 파일 셈 = «착지 리포» 에서(카드 리포 아님 — 팩 착지 sha 는 카드 리포에 없다). 실패·0개는 «판정 불가» 1줄(통과·이동은 그대로)
+PSHAS="$(ft_git_capped 7 "$LRREPO" rev-list "$RANGE")"; prc=$?
+if [ "$prc" -ne 0 ] || [ -z "$PSHAS" ]; then
+  printf 'INFO 대기 파일 지우기 판정 불가 — %s rev-list %s rc=%s\n' "$LRREPO" "$RANGE" "$prc"
+else
+  while IFS= read -r s; do [ -n "$s" ] && rm -f "$PD/$s.txt"; done <<< "$PSHAS"
+fi
 echo "OK 설치 확인 — $COUT · 데몬 재기동 0"
