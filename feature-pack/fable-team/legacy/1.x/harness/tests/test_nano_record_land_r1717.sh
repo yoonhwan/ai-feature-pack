@@ -62,7 +62,7 @@ c1() {  # ① 착지 1건 · 카드 1장 · 현역 나노
   t "① 착지 쪽지([착지] → 팀장)는 그대로 1통" [ "$(nto "$MASTER" "\[착지\] pr=$p ")" = 1 ]; return $E
 }
 c2() {  # ② 장부 쓰기 실패(쓰기 자리 오류 주입) → WARN 1줄 · rc·LANDED 줄 그대로
-  E=0; fullbin w2 ft-merge-lib.sh '"$@") >>"$f"; }' '"$@") >>"/dev/null/x"; }'; BIN="$MB"; mland 2
+  E=0; fullbin w2 ft-merge-lib.sh '${cd[@]+"${cd[@]}"} >>"$f"; }' '${cd[@]+"${cd[@]}"} >>"/dev/null/x"; }'; BIN="$MB"; mland 2
   t "② 착지 rc 불변" [ "$RC" = 0 ]; t "② WARN 1줄" [ "$(printf '%s\n' "$OUT" | grep -c '^WARN 착지 차례 장부 쓰기 실패')" = 1 ]
   t "② LANDED 줄 꼴 그대로" [ "$(printf '%s\n' "$OUT" | grep -cE "^LANDED pr=2 sha=[0-9a-f]{40} main_before=[0-9a-f]{40} head=$PRSHA tree=[0-9a-f]{40}$")" = 1 ]
   t "② 장부 0" [ ! -s "$LEDGER" ]; return $E
@@ -94,7 +94,7 @@ c10() {  # ⑩ 발주문에 «[정리 차례]» 문장 정확히 1회(추적본�
 }
 step "사례 ①②⑧⑨⑩"; run "① 착지 → 장부 1줄 + 나노 쪽지 1통" c1 1; run "② 장부 쓰기 실패 = WARN · rc 불변" c2; run "⑧ mbox 실패 = 착지 rc 불변" c8; run "⑨ 꼬리 시간 0 → 점검이 보냄" c9; run "⑩ 발주문 문장" c10
 step "변이 M1 (장부 append 삭제 → ① FAIL · 원본 대조)"
-fullbin m1 ft-merge-lib.sh '"$@") >>"$f"; }' '"$@") >/dev/null; }'; mutcase M1 c1 5
+fullbin m1 ft-merge-lib.sh '${cd[@]+"${cd[@]}"} >>"$f"; }' '${cd[@]+"${cd[@]}"} >/dev/null; }'; mutcase M1 c1 5
 step "기준판 ① (팩 103be13029fc16eb35fb0a305defcbad6c46ce10 — 나노 쪽지 0)"
 BASE="$T/base"; mkdir -p "$BASE"
 if git -C "$H" archive 103be13029fc16eb35fb0a305defcbad6c46ce10 -- bin 2>/dev/null | tar -x -C "$BASE" 2>/dev/null && [ -f "$BASE/bin/ft-merge-land.sh" ]; then
