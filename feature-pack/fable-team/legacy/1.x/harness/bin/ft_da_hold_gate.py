@@ -23,6 +23,7 @@ import datetime
 import json
 import os
 import re
+import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -184,6 +185,16 @@ def landed_repo(sha: str, card_repo: str, marker: str) -> tuple[str, str, str]:
     return repo, full, ""
 
 
+def close_marker(stem: str, txt: str) -> str:
+    """표식 읽기 단일 출처 = ft-team-lib.sh 의 ft_close_marker(bash · r1784) 첫 줄 — `<card|pack>\t<종류>\t<유효 ref>\t<sha>` | 마크 없음 "" | 거절 줄."""
+    lib = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ft-team-lib.sh")
+    try:
+        r = subprocess.run(["bash", "-c", '. "$1" >/dev/null 2>&1 || exit 9; ft_close_marker "$2"', "x", lib, stem], input=txt.encode("utf-8"), capture_output=True, timeout=7)
+    except subprocess.TimeoutExpired:
+        return "LANDED-INVALID lookup-failed 표식 읽기 시간 초과(7초) — 통과 0"
+    return (r.stdout.decode("utf-8", "replace").strip().splitlines() or [""])[0]
+
+
 def landed_check(card: str, lines: list[str], root: str, landed: str, da: str) -> tuple[str, str]:
     """(LANDED-CLOSE 첫 줄 | "", LANDED-INVALID 사유 | "") — 착지 주장(카드 줄·--landed)이 없으면 둘 다 ""."""
     claims = [m.group(1) for m in (LANDED.match(ln.strip()) for ln in lines) if m]
@@ -197,17 +208,19 @@ def landed_check(card: str, lines: list[str], root: str, landed: str, da: str) -
         path = path if os.path.isfile(path) or not root else os.path.join(root, path)
         if os.path.isfile(path):
             sec_txt = da_section(path, sec)
-    # 표식 = 이 카드의 «닫힘 — <카드> — main|main(팩) `<40hex>`» 행 — 리포 선택자(main(팩) = 팩 리포 · r937)
-    m = re.search(r"닫힘\s*—\s*" + re.escape(stem) + r"\s*—\s*main\s*(\(\s*팩\s*\))?\s*`?([0-9a-f]{40})\b", sec_txt)
-    marker = "" if not m else "닫힘 — %s — main%s `%s`" % (stem, "(팩)" if m.group(1) else "", m.group(2))
-    repo, sha, why = landed_repo(landed or claims[0], root, marker)
+    # 표식 = ft_close_marker 한 곳(r1784) — 선택자·유효 ref·sha 를 받아 그대로 쓴다(원문 문법을 다시 읽지 않는다)
+    cm = close_marker(stem, sec_txt) if sec_txt else ""
+    if cm.startswith(("LANDED-INVALID", "REJECT")):
+        return "", cm if cm.startswith("LANDED-INVALID") else "LANDED-INVALID marker-multi " + cm[len("REJECT "):]
+    sel, _kind, mref, msha = (cm.split("\t") + ["", "", "", ""])[:4]
+    repo, sha, why = landed_repo(landed or claims[0], root, sel)
     if why:
         return "", why
     if landed and claims:
         for c in claims:
-            if landed_repo(c, root, marker)[1] != sha:
+            if landed_repo(c, root, sel)[1] != sha:
                 return "", "LANDED-INVALID mismatch 카드 착지 줄 ≠ --landed"
-    ref = os.environ.get("FT_LAND_REF") or "origin/main"
+    ref = mref or os.environ.get("FT_LAND_REF") or "origin/main"
     rrc, _ = git_capped(repo, "rev-parse", "--verify", "-q", ref + "^{commit}")
     if rrc > 1:
         return "", "LANDED-INVALID lookup-failed %s ref(%s) 조회 실패 rc=%s (통과 0)" % (repo, ref, rrc)
@@ -222,7 +235,7 @@ def landed_check(card: str, lines: list[str], root: str, landed: str, da: str) -
         return "", "LANDED-INVALID no-da (--da <판정문#§N> 없음)"
     if not os.path.isfile(path):
         return "", "LANDED-INVALID da-missing " + path
-    if not m or m.group(2) != sha:
+    if msha != sha:
         return "", f"LANDED-INVALID no-da-row «닫힘 — {stem} — main `{sha[:10]}…`» 없음 ({da})"
     return f"LANDED-CLOSE sha={sha} da={da}", ""
 

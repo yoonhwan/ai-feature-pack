@@ -13,9 +13,11 @@ BODY="$(cat)"
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 rej() { printf 'REJECT\t%s\n' "$1"; exit 0; }
 . "$HERE/ft-team-lib.sh" 2>/dev/null || rej "ft-team-lib.sh 를 못 읽었다: $HERE (착지 리포를 못 정한다)"
+STEM="$(basename "$CARD" .md)"; CM="$(printf '%s\n' "$BODY" | ft_close_marker "$STEM")"   # r1784: 표식 읽기 한 곳 — 선택자·유효 ref 를 받아 그대로 쓴다
+REF="$(printf '%s' "$CM" | cut -s -f3)"; REF="${REF:-${FT_LAND_REF:-origin/main}}"
 
 # ① 카드 줄 검사 — 「정본 갱신:」 줄 «전부» 파일·절 실재 · 없으면 「정본 영향 없음」 · 출력 UPD 줄들 + 마지막 OK/REJECT
-RES="$(python3 - "$CARD" "$WT" "${FT_LAND_REF:-origin/main}" "$HERE" <<'PY'
+RES="$(python3 - "$CARD" "$WT" "$REF" "$HERE" <<'PY'
 import re, sys, os
 card = open(sys.argv[1], encoding="utf-8").read().splitlines()
 wt = sys.argv[2]
@@ -140,15 +142,13 @@ if [ -z "$LANDED" ]; then
   printf '%s\n' "$LAST"; exit 0
 fi
 case "$LANDED" in *..*) T="${LANDED%%..*}"; S="${LANDED##*..}";; *) T=""; S="$LANDED";; esac
-REF="${FT_LAND_REF:-origin/main}"
-# r937: 착지 리포 = sha 가 실제로 있는 리포(ft_landed_repo) — 표식 줄 = 이 카드의 «닫힘 — <카드> — main…» 줄(§절 본문에서)
-STEM="$(basename "$CARD" .md)"
-MARKER="$(printf '%s\n' "$BODY" | awk -v s="$STEM" 'BEGIN{p="(닫힘|CLOSE)[[:space:]]*—[[:space:]]*" s "[[:space:]]*—[[:space:]]*main"} $0 ~ p{print;exit}')"   # r959: «닫힘 — <카드> — main…» 정확한 모양만 — 절 헤더 오인 금지
+# r937: 착지 리포 = sha 가 실제로 있는 리포(ft_landed_repo) — 선택자 = 위 ft_close_marker 결과(r1784 · 절 헤더 오인 0 = r959 그대로)
+case "$CM" in REJECT*|LANDED-INVALID*) rej "${CM#REJECT }";; esac
 PACK=""; [ -f "$HERE/ft-harness-root.sh" ] && PACK="$(. "$HERE/ft-harness-root.sh" && ft_harness_root "$HERE" 2>/dev/null)"
 # r937 r3: 루트 조회도 ft_git_capped — 한 후보의 루트 조회가 실패(rc≠0 · 시간 초과 포함)면 그 후보를 빈 값으로 넘기지 않고 REJECT
 if [ -n "$PACK" ]; then PACK_H="$PACK"; PACK="$(ft_git_capped 7 "$PACK_H" rev-parse --show-toplevel)" || rej "팩 리포($PACK_H) 루트 조회 실패(rc=$?) — 통과 0"; fi
 # r959: «표식 오기(팩 착지)» 보정은 ft_landed_repo 의 기본 동작 — 부르는 쪽마다 붙이지 않는다(네 호출이 같은 판정)
-LR="$(ft_landed_repo "$S" "$WT" "$PACK" "$MARKER")" || rej "${LR#REJECT }"
+LR="$(ft_landed_repo "$S" "$WT" "$PACK" "$(printf '%s' "$CM" | cut -s -f1)")" || rej "${LR#REJECT }"
 REPO_LANDED="${LR%%$'\t'*}"; SFULL="${LR##*$'\t'}"
 # r937 r2 (T1·T2): 모든 git 조회 = ft_git_capped(7초 · 재시도 1) · 허용 rc 를 넘은 값(124 시간 초과 · 128 실행 실패)은 «조회 실패» = REJECT(«없음» 으로 읽지 않는다)
 #   gq <허용 rc> <사유> <git 인자…> → GQ_OUT = 출력 · rc 그대로. 허용 rc 초과 = «조회 실패» = REJECT (rej 는 이 셸에서 돌아야 하므로 $( ) 안에서 부르지 않는다)

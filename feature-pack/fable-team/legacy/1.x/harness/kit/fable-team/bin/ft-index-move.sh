@@ -25,8 +25,8 @@ case "$DST" in 대기|진행|완성|아카이브) ;; *) echo "REJECT dst 는 대
 [ -f "$SRC" ] || { echo "REJECT 없음: $SRC"; exit 1; }
 SRC="$(cd -- "$(dirname -- "$SRC")" && pwd)/$(basename -- "$SRC")"   # 절대경로 — 상대경로면 아래 git -C ls-files 추적 판정이 untracked 로 떨어져 mv 가 된다(DA r1 R5)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-# 착지 표식 정규식 «단일 출처» — 완성 갈래(FT_LANDED_MARKER)와 아카이브 갈래가 같이 쓴다(두 벌 금지 · r1000 r1 F2).
-# «닫힘|CLOSE» 둘 다 인정 · 카드 이름은 «정확» 일치 · 세 번째 칸이 main 으로 시작해야 착지.
+# 착지 표식 읽기 «단일 출처» = ft-team-lib.sh 의 ft_close_marker(r1784) — 완성 갈래(FT_LANDED_MARKER = 선택자)와 아카이브 갈래가 같이 쓴다(두 벌 금지 · r1000 r1 F2).
+# «닫힘|CLOSE» 둘 다 인정 · 카드 이름은 «정확» 일치 · 꼴은 그 함수 머리 주석.
 seat_roster() {  # r1705 <root> — 좌석 명부 파일(FT_SEATS_JSON 이 이김 · 없으면 카드 팀 명부 하나) — nano_close_card 와 «같은» 한 함수
   local root="$1" seats="${FT_SEATS_JSON:-}" t hits=()
   if [ -z "$seats" ] && . "$HERE/ft-team-lib.sh" 2>/dev/null; then
@@ -70,7 +70,7 @@ print("SEAT-INDEX %s → %s" % (seat, rel))
 PY
   local prc=$?; rmdir "$lk" 2>/dev/null; trap - EXIT; return "$prc"
 }
-landed_marker_re() { printf '(닫힘|CLOSE)[[:space:]]*—[[:space:]]*%s[[:space:]]*—[[:space:]]*main' "$1"; }
+close_marker() { ( . "$HERE/ft-team-lib.sh" >/dev/null 2>&1 && ft_close_marker "$@" ); }   # r1784: 표식 읽기 한 곳(ft-team-lib.sh · 하위 셸)
 [ ! -f "$HERE/ft-team-lib.sh" ] || ( . "$HERE/ft-team-lib.sh" && ft_card_location_ok "$SRC" ) || exit 1   # r447: 명단 새 꼴 팀 카드가 옛 꼴 폴더면 REJECT(이동 0)
 IDX_ROOT="$(cd "$(dirname "$SRC")/.." && pwd)"
 FROM="$(basename "$(dirname "$SRC")")"
@@ -149,9 +149,9 @@ PY
   printf '%s' "$body" | grep -Fq -- "$CARDID" || { echo "REJECT $DA 은 $CARDID 를 닫은 절이 아니다(절에 카드 이름 없음) — 그 판정 절에 「대상 카드: ${CARDID}」 줄을 넣고 다시. 이동 0"; exit 1; }
   # 정본 게이트 + 랜딩 commit 사실 검사(ft-index-move-canon.sh · 판정 440 r2 §6-1) — 이동 «전»에 검사한다.
   WT="$(git -C "$IDX_ROOT" rev-parse --show-toplevel 2>/dev/null || echo "$IDX_ROOT")"
-  # r937: 착지 리포 표식 = 이 카드의 «닫힘 — <카드> — main|main(팩) `<sha>`» 줄 — 정본·설치 게이트가 같은 리포를 골라 쓰게 넘기는 값
-  # r959: 표식 줄 = «닫힘 — <카드> — main…» 정확한 모양만 — 절 헤더 «## §32 <카드> — 닫힘 (CLOSE)» 를 표식으로 오인하지 않는다(카드 이름에 «main» 이 들면 카드 리포로 잘못 풀린다 · r462·r560·r756)
-  FT_LANDED_MARKER="$(printf '%s\n' "$body" | awk -v p="$(landed_marker_re "$(basename "$SRC" .md)")" '$0 ~ p{print;exit}')"; export FT_LANDED_MARKER
+  # r937: 착지 리포 선택자(card|pack) — 정본·설치 게이트가 같은 리포를 골라 쓰게 넘기는 값 · r1784: ft_close_marker 결과 첫 칸
+  # r959: 절 헤더 «## §32 <카드> — 닫힘 (CLOSE)» 는 표식이 아니다(함수가 정확한 모양만 읽는다 · r462·r560·r756)
+  FT_LANDED_MARKER="$(printf '%s\n' "$body" | close_marker "$(basename "$SRC" .md)" | cut -s -f1)"; export FT_LANDED_MARKER
   CANON_RES="$(printf '%s\n' "$body" | bash "$HERE/ft-index-move-canon.sh" "$SRC" "$WT" "$LANDED")"
   CANON_KIND="$(printf '%s' "$CANON_RES" | cut -f1)"; CANON_NOTE="$(printf '%s' "$CANON_RES" | cut -f2-)"
   case "$CANON_KIND" in
@@ -190,10 +190,10 @@ if [ "$DST" = 아카이브 ]; then
   [ -n "$body" ] || { echo "REJECT $DAF 에 절 «${SEC}» 없음"; exit 1; }
   CARDID="$(basename "$SRC" .md)"
   # 판정 종류 = «절 전체» 로 본다(r1000 r1 F1·F2) — 착지 줄이 «하나라도» 있으면 착지(뒤에 있거나 CLOSE 표기여도 잡는다).
-  #   착지 = 완성 갈래와 같은 정규식(landed_marker_re) · 버림·쓸모 없음 = 줄 «사두리» 에서 «닫힘|CLOSE — <카드> — …»(이름 정확 일치).
-  _verdict="$(printf '%s\n' "$body" | awk -v c="$CARDID" -v mk="$(landed_marker_re "$CARDID")" '
+  #   착지 = 완성 갈래와 같은 함수(close_marker · r1784) · 버림·쓸모 없음 = 줄 «사두리» 에서 «닫힘|CLOSE — <카드> — …»(이름 정확 일치).
+  _verdict="$(printf '%s\n' "$body" | awk -v c="$CARDID" -v land="$(printf '%s\n' "$body" | FT_LAND_REF= close_marker "$CARDID" | grep -q . && echo 1)" '
     { s=$0; gsub(/[[:space:]]+/," ",s); sub(/^ /,"",s); sub(/ $/,"",s) }
-    { if ($0 ~ mk) { land=1 }
+    { # 착지 = close_marker 가 표식(또는 표식 여러 개 거절)을 낸다 — r1784
       for (i=1;i<=2;i++) { pre=((i==1)?"닫힘":"CLOSE") " — " c " — "
         if (substr(s,1,length(pre "버림"))==pre "버림") { if (v=="") v="버림" }
         if (substr(s,1,length(pre "쓸모 없음"))==pre "쓸모 없음") { if (v=="") v="쓸모 없음" } } }
