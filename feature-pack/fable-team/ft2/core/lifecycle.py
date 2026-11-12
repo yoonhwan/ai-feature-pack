@@ -44,6 +44,7 @@ PROGRESS_KINDS = ("progress", "heartbeat", "external_wait")
 DORMANCY_STEPS = ("nano-cleanup", "rescan", "team-record", "arch-da", "team-lead")
 DORMANCY_COUNT_SLOTS = ("mail", "ownership", "cards", "lands", "hil", "cron")
 DORMANCY_NOISE = (".serena/project.yml",)          # closeout-policy 잡음 = 미커밋 0 에서 뺀다(A2 · PLAN :180)
+DORMANCY_RECORD_FIELDS = ("revision", "generation", "last_step", "resume")   # 3단계 필수 칸(DA #288609 R1)
 LATE_KINDS = ("accept", "claim", "uncertain")      # 재검사가 보는 «단계 1 뒤 새 기록»
 DORMANT, NOT_DORMANT, ABORTED = "DORMANT", "NOT_DORMANT", "ABORTED"
 Tick = collections.namedtuple("Tick", "result lane tick deadline written revision reason",
@@ -129,17 +130,24 @@ class Lifecycle:
         if step == "rescan":
             return True, "rescan=새 접수·실행권·미확정 0"
         if step == "team-record":
-            row = board.get("team_record")
-            if not isinstance(row, dict) or not row:
-                return False, "team_record 미기재(R·세대·마지막 단계·복구 위치)"
-            return True, "R=%s gen=%s last=%s resume=%s" % (row.get("revision"), row.get("generation"),
-                                                            row.get("last_step"), row.get("resume"))
+            return self._record_body(board.get("team_record"))
         if step == "arch-da":
             word = board.get("arch_da")
             if not isinstance(word, str) or not word.strip():
                 return False, "arch_da 미기재(arch·DA 확인)"
             return True, word.strip()
         return False, "미상 단계"
+
+    def _record_body(self, row):
+        """3단계 입력 — R·세대·마지막 단계·복구 위치 네 칸이 «다» 있어야 영수다(DA #288609 R1:
+        한 칸 빠진 것을 `None` 으로 영수하고 휴면하면 그 팀은 복구 위치를 잃는다)."""
+        if not isinstance(row, dict):
+            return False, "team_record 미기재(R·세대·마지막 단계·복구 위치)"
+        missing = [name for name in DORMANCY_RECORD_FIELDS if row.get(name) in (None, "")]
+        if missing:
+            return False, "team_record 필수 칸 누락(%s) = 영수 0" % ",".join(missing)
+        return True, "R=%s gen=%s last=%s resume=%s" % (row["revision"], row["generation"],
+                                                        row["last_step"], row["resume"])
 
     def _cleanup_body(self, proof):
         """단계 1 입력 — «실제 부재 확인» 만 영수다(r1498 행 7·9: rc0 만, 또는 판정 불가 = 영수 0 + 이유 1줄)."""
@@ -170,7 +178,7 @@ class Lifecycle:
         return list(self._blockers(state, records)) + self._board_blockers(board)
 
     def _board_blockers(self, board):
-        """journal 밖 7칸 — 쪽지·책임 이전·진행 카드·착지/설치·HIL·cron · 미커밋(.serena 잡음 제외).
+        """journal 밖 7칸 — 쪽지·책임 이전·진행 카드·착지/설치·HIL·cron · 미커밋(.serena/project.yml 만 예외).
         수 칸은 이름 목록도 받는다(좌석 cron 과 고아 주기 루프를 r1498 행 2·3 으로 가르기 위해)."""
         blockers = []
         for name in DORMANCY_COUNT_SLOTS:
@@ -185,11 +193,14 @@ class Lifecycle:
         if not isinstance(dirty, (list, tuple)):
             blockers.append("dirty:미기재")
         else:
-            kept = [path for path in dirty if str(path) not in DORMANCY_NOISE
-                    and not str(path).startswith(".serena/")]
+            kept = self._dirty_kept(dirty)
             if kept:
                 blockers.append("dirty:%d" % len(kept))
         return blockers
+
+    def _dirty_kept(self, dirty):
+        """미커밋 0 예외는 `.serena/project.yml` «하나» 뿐이다(DA #288609 R2 — 디렉터리 통째 예외 0)."""
+        return [path for path in dirty if str(path) not in DORMANCY_NOISE]
 
     def _late_records(self, snapshot):
         """재검사 — R(tick) 뒤 새 접수·실행권·미확정 줄(내 영수 close 줄은 여기 안 든다)."""
