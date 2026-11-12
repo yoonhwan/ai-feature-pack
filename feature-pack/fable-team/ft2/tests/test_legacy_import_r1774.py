@@ -170,7 +170,7 @@ def case_team(tmp, ft2=FT2):                                        # ④
 def _snapshot(w):
     st = _state(w.rt)
     return {"journal": (w.rt / "journal.jsonl").read_text(encoding="utf-8").splitlines(),
-            "owners": st["owners"], "generations": st["generations"], "pending": st["pending"]}
+            "owners": st.get("owners"), "generations": st.get("generations"), "pending": st.get("pending")}
 
 
 def _preserved(before, after, imported):
@@ -326,8 +326,8 @@ def test_c5_existing_state_preserved(tmp_path):
     case_preserve(tmp_path)
 
 
-REPLACE = ("core/legacy_import.py", "new = record.recover_state(state, records + [rec])",
-           'new = record.recover_state({"schema": 1, "revision": 0, "pending": [], "attempts": {}}, [rec])')
+REPLACE = ("core/legacy_import.py", 'new = dict(raw, imported=folded["imported"],',
+           'new = dict({"schema": 1, "pending": [], "attempts": {}}, imported=folded["imported"],')
 
 
 def _mutant(tmp, *edits):
@@ -393,8 +393,8 @@ def test_usage_rc64(tmp_path):
 MUTANTS = {
     "M1": (case_missing, [("tools/legacy_import.py", "c = len(plan) - n - a - b - e", "c = 0")]),
     "M2": (case_idempotent, [("core/legacy_import.py", 'if key in (state.get("imported") or {}):', "if False:")]),
-    "M4": (case_reclaim, [("core/journal.py", '"imported",   # r1774', "")]),
-    "M5": (case_submit_after, [("core/legacy_import.py", 'kind="import",', 'kind="import", holder=key,')]),
+    "M4": (case_reclaim, [("core/journal.py", '"imported",   # r1774: 가져온 기록(F6)', "")]),
+    "M5": (case_submit_after, [("core/legacy_import.py", 'kind="import",', 'kind="import", holder=row["key"],')]),
     "M6": (case_reclaim, [("core/journal.py", ' if rec["kind"] != "import"}', "}")]),
     "M7": (case_saturated, [("core/legacy_import.py", "row, dry, k=0)", "row, dry, k=1)")]),
     "M8": (case_overlap, [("core/legacy_import.py", "and name in receipts", "and False")]),

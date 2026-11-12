@@ -20,6 +20,7 @@ SUBMIT_OPS = ("body_tmp_write", "body_file_fsync", "body_rename", "body_dir_fsyn
 WRITER_OPS = ("journal_write", "journal_fsync", "state_write")               # 내부 writer 1줄
 PROJ_FIELDS = ("generations", "owners", "reservations", "deliveries", "done",
                "reopens", "lifted",   # r1727: reopens·lifted
+               "imported",   # r1774: 가져온 기록(F6)
                "reassess_done", "released", "owners_recovered", "uncertain", "close_receipts", "refusals")
 
 
@@ -273,9 +274,10 @@ class Journal:
         return {"result": "회수 결과", "reclaimed": removed, "bodies": len(bodies), "upto": new_upto}
 
     def _segment_closed(self, seg, records, state):
-        """그 segment 의 모든 줄이 «닫힌 work» — work 없는 줄(accept work=None)은 늘 열림(보존)."""
+        """그 segment 의 모든 줄이 «닫힌 work» — work 없는 줄(accept work=None)은 늘 열림(보존).
+        r1774 R1: import 줄은 닫힌 줄이다(내용 전부가 imported 에 접히고 PROJ_FIELDS 로 남는다)."""
         return all(work is not None and self._work_closed(work, records, state)
-                   for work in {rec.get("work") for rec in seg})
+                   for work in {rec.get("work") for rec in seg if rec["kind"] != "import"})
 
     def _work_closed(self, work, records, state):
         """done + (required 면 reassess_done) + owners·uncertain 없음 + 마지막 result 뒤 start·effect 없음
