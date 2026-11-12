@@ -202,7 +202,7 @@ untouched "ⓗ"
 set_origin "$REMOTE"
 
 echo "== 변이 «끝줄 찾기 끔» → ⓐ 가 잡는다(변이 FAIL)"
-mutant 'out="$(nf_bound "$cap" git -C "$repo" log refs/remotes/origin/main --fixed-strings --grep="$grepw" --format=%H 2>&1)"; rc=$?' 'out=""; rc=0'   # r1074: grep 인자가 ««PR #N (head » 접두로 바뀌었다(변이 자리만 따라옮김)
+mutant 'out="$(nf_bound "$cap" git -C "$repo" log "$LP_LAND_REFS" --fixed-strings --grep="$grepw" --format=%H 2>&1)"; rc=$?' 'out=""; rc=0'   # r1074: grep 인자가 ««PR #N (head » 접두로 바뀌었다(변이 자리만 따라옮김)
 setup CLOSED; squash_commit "squash 착지
 
 PR #363 (head $SET)"
@@ -210,7 +210,7 @@ out="$(CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 363)"; rc=$?
 [ "$rc" -eq 1 ] && ok "변이(끝줄 찾기 끔) → REJECT = ⓐ 가 잡는다(변이 FAIL)" || bad "변이 안 먹음 rc=$rc ← $(printf '%s' "$out" | tail -3)"
 
 echo "== 변이 «조상 검사 끔» → ⓒ 가 잡는다(변이 FAIL)"
-mutant 'if git -C "$repo" merge-base --is-ancestor "${_lp_head}" refs/remotes/origin/main 2>/dev/null; then' 'if false; then'
+mutant 'if git -C "$repo" merge-base --is-ancestor "${_lp_head}" "$LP_LAND_REFS" 2>/dev/null; then' 'if false; then'
 setup CLOSED; push_main "$SET"; git -C "$ROOT" fetch -q origin main
 out="$(CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 363)"; rc=$?
 [ "$rc" -eq 1 ] && ok "변이(조상 검사 끔) → REJECT = ⓒ 가 잡는다(변이 FAIL)" || bad "변이 안 먹음 rc=$rc ← $(printf '%s' "$out" | tail -3)"

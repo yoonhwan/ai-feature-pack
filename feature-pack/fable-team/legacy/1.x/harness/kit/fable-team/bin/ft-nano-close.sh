@@ -43,6 +43,8 @@
 #     ★r1053★ «대상:» 절대경로 0 이면 카드 «읽기 판» 이 사는 리포(ref 판 = ROOT · 가지 판 = SEAT_REPO · 파일 = 그 폴더 git 공통 루트)가 ROOT 일 때만 ROOT(INFO «카드 위치 근거 → ROOT») · 그 밖 = 지금처럼 REJECT(추측 0).
 #     판정기(fetch 포함)도 같은 리포에서 돈다 · 원장 행·출력 꼬리에 `repo=<owner/repo>`. (r1019 설치 뒤 실사건 3/3: BYZ cwd 에서 닫으면 gh 가 cwd 리포의 같은 번호 PR 을 읽어 head 가 틀렸다.)
 #     다른 모드(--never-started·--superseded-by·--suspended·--research·--cherry-override·--shared-wt·--branch·--plan-only·--replan)와 동시 = usage 2 · --wt 만 함께 오면 «리포 힌트» 하나(좌석 워크트리 해석·정리는 기존 그대로) · 인자 없으면 동작 불변.
+#   ★r1737★ 착지 ref = FT_LAND_REF(기본 origin/main · 꼴 «origin/<가지>» 만 · 그 밖 = usage 2) — fetch refspec·ff 조상·squash 끝줄이 «같은 ref» 를 본다(A1 · env 없으면 동작 불변).
+#   ★r1737★ `--landed-pr N --wt <경로>` = 그 워크트리가 «좌석 워크트리» 인지 확인해 받는다(A3) — $ROOT/.worktrees/ 등록 ∧ 가지 nano/* ∧ 그 가지 키의 «다른» 살아 있는 세션 0 ∧ HEAD == 카드 «세트:». 거짓 = REJECT 1줄(A4 · 추측 0).
 #   ★r1123 backfill★ --landed-pr 인데 좌석이 «세션 없음 ∧ 워크트리 없음»(③세션 없음 꼴)이면 ③ REJECT 를 미루고 위 착지 판정을 그대로 돈다 — 통과하면 명부 행만 닫는다
 #     (원장 꼬리 backfill=1 · 출력 `CLOSED-BACKFILL <좌석> landed-pr=<N> …` · tmux kill·태그·워크트리 정리 계획·브랜치 손 0). 이 길에서만 ⑥ «세트 ≠ PR head»(equiv·cherry 까지 실패)와
 #     «카드 못 찾음» 을 WARN 1줄로 바꾼다(꼬리 warn=세트불일치|카드없음 · 카드 없음이면 리포 = 좌석 가지 nano/<키> 가 사는 리포 하나(ROOT·팩 · 0곳·2곳 = REJECT)).
@@ -131,6 +133,10 @@ if [ "$HAVE_LPR" -eq 1 ]; then
   [ "$NEVER" -eq 0 ] && [ "$SUPER" -eq 0 ] && [ "$SUSP" -eq 0 ] && [ "$RESEARCH" -eq 0 ] && [ "$HAVE_CHERRY_OVERRIDE" -eq 0 ] && [ "$SHARED" -eq 0 ] && [ "$HAVE_NBR" -eq 0 ] && [ "$PLAN_ONLY" -eq 0 ] && [ "$REPLAN" -eq 0 ] \
     || { echo "usage: --landed-pr 는 다른 모드(--never-started·--superseded-by·--suspended·--research·--cherry-override·--shared-wt·--branch·--plan-only·--replan)와 동시에 못 쓴다(닫기 경로가 둘이 된다) · --wt 는 리포 힌트로만 쓸 수 있다" >&2; exit 2; }
 fi
+# ★r1737 A1★ FT_LAND_REF = 착지 판정 ref(기본 origin/main · 꼴 «origin/<가지>» 만 · 그 밖 = usage 2) — fetch·조상·끝줄이 «같은 변수» 를 본다.
+LP_LAND_REF="${FT_LAND_REF:-origin/main}"
+case "${LP_LAND_REF#origin/}" in ''|"$LP_LAND_REF") echo "usage: FT_LAND_REF 는 «origin/<가지>» 꼴이어야 한다(받은 값: ${LP_LAND_REF:-<빈 값>})" >&2; exit 2;; esac
+LP_LAND_REFS="refs/remotes/$LP_LAND_REF"; LP_LAND_FETCH="+refs/heads/${LP_LAND_REF#origin/}:$LP_LAND_REFS"
 # --approved(r1670): 승인 갈래 — ⑤ cherry·⑥ 착지 증거 대신 «그 자리에서 ⓑ 를 다시 계산»(ft-nano-close-due.sh --approve-gate)한다. 빈 값·다른 모드와 동시 = usage(2).
 if [ -n "$APPROVED" ]; then
   [ -n "${APPROVED//[[:space:]]/}" ] || { echo "usage: --approved 판정문 경로가 비어 있음(빈 경로로 닫지 않는다)" >&2; exit 2; }
@@ -672,8 +678,23 @@ _resolve_std_wt_other() {
   [ -z "$live" ] || { SEAT_WT_ERR="표준 경로 워크트리 ${hits[0]} 의 가지(${brs[0]})를 키로 하는 좌석 세션이 살아 있다(${live% }) — 남의 좌석 가지 · 추측 금지"; return 0; }
   SEAT_WT="${hits[0]}"; SEAT_BR="${brs[0]}"; SEAT_WT_OTHER=1
 }
+# ★r1737 A3★ --landed-pr + --wt — 가지 이름이 좌석 키와 달라도 «--wt 가 그 좌석의 워크트리» 인지 확인해 받는다(r1722#0: 고침 중 새 가지를 판 좌석은 후보 0 으로 막혔다).
+#   확인 = ①$ROOT/.worktrees/ 등록 ②가지 nano/* ③그 가지를 «키로 하는» 다른 살아 있는 좌석 세션 0(자기 제외) ④HEAD == 카드 «세트:»(_lp_wt_head_gate · 카드를 읽은 뒤). 거짓 = SEAT_WT_ERR 1줄 → ③ REJECT(닫기 0).
+_lp_wt_seat=0
+_resolve_landed_wt() {
+  local top wl br to trc okey p live=""
+  top="$(cd "$NWT" 2>/dev/null && pwd -P)"; [[ "$top" == "$ROOT/.worktrees/"?* ]] || { SEAT_WT_ERR="--wt($NWT)가 이 리포($ROOT) .worktrees/ 아래 등록 워크트리가 아니다 — 좌석 워크트리로 받지 않는다"; return 0; }
+  wl="$(git -C "$ROOT" worktree list --porcelain 2>/dev/null)" || wl=""; grep -qxF "worktree $top" <<<"$wl" || { SEAT_WT_ERR="--wt($top)가 이 리포($ROOT) 등록 워크트리가 아니다"; return 0; }
+  br="$(git -C "$top" symbolic-ref --short -q HEAD)"; case "$br" in nano/?*) ;; *) SEAT_WT_ERR="--wt($top)의 체크아웃 가지(${br:-detached})가 nano/* 가 아니다 — 좌석 워크트리가 아니다"; return 0;; esac
+  to="$(tmux ls -F '#{session_name}' 2>&1)"; trc=$?
+  if [ "$trc" -ne 0 ]; then case "$trc:$to" in 1:*"no server running"*) to="";; *) SEAT_WT_ERR="--wt($top) 좌석 세션 조회 실패(rc=$trc) — 판정 불가로 받지 않는다"; return 0;; esac; fi
+  okey="${br#nano/}"; [[ "$okey" =~ ^(.*)-r[0-9]+$ ]] && okey="${BASH_REMATCH[1]}"   # r1737 R1: «끝의» 재착수 번호만 뗀다(중간 -r숫자- 뒤를 자르면 남의 owner 를 놓친다)
+  for p in $(printf '%s\n' $_NANO_PREFIXES | awk '!s[$0]++'); do live="$live$(printf '%s\n' "$to" | grep -x "${p}${okey}#[0-9]*" | grep -vxF "$SEAT" | tr '\n' ' ')"; done
+  [ -z "$live" ] || { SEAT_WT_ERR="--wt($top)의 가지($br)를 키로 하는 다른 좌석 세션이 살아 있다(${live% }) — 남의 좌석 가지 · 추측 금지"; return 0; }
+  SEAT_WT="$top"; SEAT_BR="$br"; _lp_wt_seat=1
+}
 _resolve_seat_wt() {
-  SEAT_WT=""; SEAT_BR=""; SEAT_WT_ERR=""; SEAT_WT_NOCAND=0; SEAT_WT_OTHER=0
+  SEAT_WT=""; SEAT_BR=""; SEAT_WT_ERR=""; SEAT_WT_NOCAND=0; SEAT_WT_OTHER=0; _lp_wt_seat=0
   local top="" p br rel i hits=() brs=() lp=() lb=() base="$ROOT/.worktrees/"
   while IFS=$'\t' read -r p br; do
     rel="${p#"$base"}"; [ "$rel" != "$p" ] || continue
@@ -695,6 +716,8 @@ _resolve_seat_wt() {
   elif [ "${#hits[@]}" -gt 1 ]; then SEAT_WT_ERR="좌석 워크트리 후보 ${#hits[@]}개(${hits[*]}) — 추측 금지, 어느 것인지 사람 판정"
   elif [ -n "$cwd" ]; then SEAT_WT_ERR="pane cwd($cwd)가 등록된 좌석 워크트리가 아니고 ${WT_PREFIX}<key>[-rN] 후보도 0개 — 추측 금지"; SEAT_WT_NOCAND=1
   else _resolve_std_wt_other; fi   # r599: 후보 0 · 오류 0 = 세션 없이 남은 좌석 — 표준 경로 + 다른 nano/ 가지만 인정
+  # ★r1737 A3★ --landed-pr + --wt = 표준 해석이 «pane 살아 있는데 후보 0»(SEAT_WT_NOCAND)으로 남긴 구멍만 메운다 — 그 밖(①r1023 팩 --wt 힌트)은 기준판 그대로.
+  if [ "$SEAT_WT_NOCAND" = 1 ] && [ "$HAVE_LPR" -eq 1 ] && [ "$HAVE_NWT" -eq 1 ]; then SEAT_WT_NOCAND=0; SEAT_WT_ERR=""; _resolve_landed_wt; fi
 }
 # ★r566 재실행 워크트리 정리★ — 재실행 분기(:414)가 워크트리를 «원장 wt=» 에서만 찾아 정리를 통째로 건너뛰던 자리(표준 나노 행은 wt=planned·wt=skipped:… 같은 상태 말).
 #   표준 나노 좌석만: 워크트리를 좌석 이름으로 재해석(_resolve_seat_wt) · 조건 4(세션 0 · nano/<키> · $ROOT/.worktrees/ 등록 · HEAD 가 어떤 원격 ref 에 포함) 전부 참일 때만 실행.
@@ -809,6 +832,14 @@ _lp_card_set() {  # r1308: 카드 «## 상태» 절 «안» 의 마지막 «세�
   # 절 경계 = 다음 `## ` 머리(DA⑥ r2 HOLD ①: 파일 뒤 절의 세트 줄을 집으면 거짓 통과)
   awk '/^##[[:space:]]/{inb = ($0 ~ /^##[[:space:]]*상태[[:space:]]*$/)} inb && /세트:/{l=$0} END{if (l!="") print l}' "$f" 2>/dev/null | sed -nE 's/.*세트:[[:space:]]*([0-9a-f]{40}).*/\1/p'
 }
+# ★r1737 A3 ④★ --wt 좌석 워크트리의 HEAD == 카드 «세트:» = «이 워크트리가 이 카드의 산출» 확인(r1722 실측: HEAD 9d1f012c75 == 카드 세트). 다르면 REJECT 1줄.
+_lp_wt_head_err=""; _lp_wt_head_gate() {
+  local h; _lp_wt_head_err=""
+  h="$(git -C "$SEAT_WT" rev-parse HEAD 2>/dev/null)" || h=""
+  [ -n "$h" ] || { _lp_wt_head_err="⑥--landed-pr --wt($SEAT_WT) 의 HEAD 를 읽을 수 없다 — 판정 불가로 닫지 않는다"; return 1; }
+  [ "$h" = "$_lp_set" ] || { _lp_wt_head_err="⑥--landed-pr --wt($SEAT_WT) HEAD(${h:0:9}) ≠ 카드 세트 ${_lp_set:0:9} — 이 워크트리가 이 카드의 산출이 아니다 · 추측 금지"; return 1; }
+  echo "INFO 좌석 워크트리 ← --wt (HEAD = 세트 ${h:0:9} · branch=$SEAT_BR)"
+}
 _lp_card_home() {  # r1053: 읽기 판 CARD_READ 가 «사는» 리포 루트(실경로) — ref 판(_CR_TMP) = ROOT · 가지 판(_CB_TMP) = SEAT_REPO · 파일 = 그 폴더의 git 공통 루트 · 못 정하면 빈 값
   local d
   if [ -n "${_CR_TMP:-}" ] && [ "$CARD_READ" = "$_CR_TMP" ]; then d="$ROOT"
@@ -916,13 +947,13 @@ _lp_landed_gate() {
   cap="${FT_NANO_LANDED_PR_CAP_S:-7}"; case "$cap" in ''|*[!0-9]*|0) cap=7;; esac
   [ -n "$repo" ] || { _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · 리포 없음 — 판정 불가로 닫지 않는다"; return 1; }
   step landed-ancestry
-  if ! nf_fetch "$repo" origin "+refs/heads/main:refs/remotes/origin/main" >/dev/null 2>&1; then
-    _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · origin/main 을 받지 못했다(fetch 실패 · 7초 상한 + 재시도 1) — 판정 불가로 닫지 않는다(옛 ref 대조 0)"
+  if ! nf_fetch "$repo" origin "$LP_LAND_FETCH" >/dev/null 2>&1; then
+    _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · $LP_LAND_REF 을 받지 못했다(fetch 실패 · 7초 상한 + 재시도 1) — 판정 불가로 닫지 않는다(옛 ref 대조 0)"
     return 1
   fi
-  if git -C "$repo" merge-base --is-ancestor "${_lp_head}" refs/remotes/origin/main 2>/dev/null; then
+  if git -C "$repo" merge-base --is-ancestor "${_lp_head}" "$LP_LAND_REFS" 2>/dev/null; then
     _lp_landed=ff
-    echo "INFO ⑥--landed-pr 착지 확인: ff · PR state=$_lp_state"
+    echo "INFO ⑥--landed-pr 착지 확인: ff · PR state=$_lp_state · ref=$LP_LAND_REF"
     return 0
   fi
   # ★r1074★ 후보 찾기를 «끝줄 head = 지금 PR head» 정확 일치에서 «PR #<N> (head » 접두로 넓힌다.
@@ -932,7 +963,7 @@ _lp_landed_gate() {
   #   main 이 이미 그 변경을 가졌서 지금 자기 변경이 0 이 돼 «착지된 가지일수록» NOT-EQUIV 가 난다(ccu 4166 실측). 그래서 이 자리엔 도구가 다르다 — git 3칸으로 본다.
   want="PR #$LANDED_PR (head $_lp_head)"
   grepw="PR #$LANDED_PR (head "
-  out="$(nf_bound "$cap" git -C "$repo" log refs/remotes/origin/main --fixed-strings --grep="$grepw" --format=%H 2>&1)"; rc=$?
+  out="$(nf_bound "$cap" git -C "$repo" log "$LP_LAND_REFS" --fixed-strings --grep="$grepw" --format=%H 2>&1)"; rc=$?
   if [ "$rc" -eq 124 ]; then _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · main 끝줄 찾기 시간 초과(${cap}초 상한 · 하드 룰 12) — 판정 불가로 닫지 않는다"; return 1; fi
   if [ "$rc" -ne 0 ]; then _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · git log 실패(rc=$rc: $(printf '%s' "$out" | head -1 | cut -c1-160)) — 판정 불가로 닫지 않는다"; return 1; fi
   while IFS= read -r cand; do
@@ -943,7 +974,7 @@ _lp_landed_gate() {
       _lp_land_x="$_lp_head"   # r1084: 이 경로의 끝줄 head = 지금 PR head(끝줄 «PR #N (head <_lp_head>)» 정확 일치)
       _lp_landed=squash
       _lp_landed_short="$(git -C "$repo" rev-parse --short "$cand" 2>/dev/null)"
-      echo "INFO ⑥--landed-pr 착지 확인: squash ${_lp_landed_short:-${cand:0:9}} · PR state=$_lp_state$(_lp_state_note)"
+      echo "INFO ⑥--landed-pr 착지 확인: squash ${_lp_landed_short:-${cand:0:9}} · PR state=$_lp_state$(_lp_state_note) · ref=$LP_LAND_REF"
       return 0
     fi
     x="$(_lp_lastline_head "$LANDED_PR" "$last")"   # 꼴 밖(접두 겹침·꼬리·가운데 줄) = 빈 값 → 후보 0
@@ -966,7 +997,7 @@ _lp_landed_gate() {
       _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · main 에 산출 없음(ff 0 · squash 끝줄 0 — ⓑ 거짓: 끝줄 head ${_lp_equiv_x:0:9} 이후 main 병합 아닌 일반 커밋 ${efirst}개 · 첫 = $(printf '%s' "$eout" | head -1 | cut -c1-12))"
       return 1
     fi
-    mb="$(git -C "$repo" merge-base "$_lp_head" refs/remotes/origin/main 2>/dev/null)"
+    mb="$(git -C "$repo" merge-base "$_lp_head" "$LP_LAND_REFS" 2>/dev/null)"
     if [ -z "$mb" ]; then _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · merge-base(PR head, origin/main) 없음 — 판정 불가로 닫지 않는다"; return 1; fi
     nf_bound "$ecap" git -C "$repo" diff --quiet "$mb" "$_lp_head" 2>/dev/null; rc3=$?
     if [ "$rc3" -eq 124 ]; then _lp_pr_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · main 대비 자기 변경 검사 시간 초과(${ecap}초 상한 · 하드 룰 12) — 판정 불가로 닫지 않는다"; return 1; fi
@@ -1011,10 +1042,10 @@ _lp_sx_gate() {  # <카드 세트 S>
   if [ "$rc" -ne 0 ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · git rev-list 실패(rc=$rc: $(printf '%s' "$out" | head -1 | cut -c1-160)) — 판정 불가로 닫지 않는다"; return 2; fi
   [ -z "$out" ] || return 1
   # ⓒ merge-base 대비 «자기 변경» 이 같다 — patch-id 두 값 모두 비어 있지 않고 같아야 한다(빈 diff = 조건 거짓)
-  mb1="$(nf_bound "$ecap" git -C "$repo" merge-base "$s" refs/remotes/origin/main 2>&1)"; rc=$?
+  mb1="$(nf_bound "$ecap" git -C "$repo" merge-base "$s" "$LP_LAND_REFS" 2>&1)"; rc=$?
   if [ "$rc" -eq 124 ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · merge-base(세트, origin/main) 시간 초과(${ecap}초 상한 · 하드 룰 12) — 판정 불가로 닫지 않는다"; return 2; fi
   if [ "$rc" -ne 0 ] || [ -z "$mb1" ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · merge-base(세트 ${s:0:9}, origin/main) 없음(rc=$rc: $(printf '%s' "$mb1" | head -1 | cut -c1-120)) — 판정 불가로 닫지 않는다"; return 2; fi
-  mb2="$(nf_bound "$ecap" git -C "$repo" merge-base "$x" refs/remotes/origin/main 2>&1)"; rc=$?
+  mb2="$(nf_bound "$ecap" git -C "$repo" merge-base "$x" "$LP_LAND_REFS" 2>&1)"; rc=$?
   if [ "$rc" -eq 124 ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · merge-base(끝줄 head, origin/main) 시간 초과(${ecap}초 상한 · 하드 룰 12) — 판정 불가로 닫지 않는다"; return 2; fi
   if [ "$rc" -ne 0 ] || [ -z "$mb2" ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · merge-base(끝줄 head ${x:0:9}, origin/main) 없음(rc=$rc: $(printf '%s' "$mb2" | head -1 | cut -c1-120)) — 판정 불가로 닫지 않는다"; return 2; fi
   p1="$(nf_bound "$ecap" bash -c 'set -o pipefail; git -C "$1" diff "$2" "$3" | git patch-id --stable' _ "$repo" "$mb1" "$s" 2>&1)"; rc=$?
@@ -1061,8 +1092,8 @@ _lp_equiv_gate() {
     _lp_undecided=1; _lp_equiv_err="⑥--landed-pr head ${_lp_head:0:9} 객체를 받지 못했다(fetch origin 실패 · 7초 상한) — 판정 불가로 닫지 않는다"; return 1
   fi
   # r1019 r2(DA 1/2 동작②): head 가 이미 origin/main 안 = «머지 커밋 PR». 우리 착지 도구(ft-merge-land)는 squash 만 만들므로 이 경로 밖 — 판정기를 부르지 않고 1줄로 끝낸다(하드 룰 20 · 틀린 사유 NOT-EQUIV 0).
-  if git -C "$repo" merge-base --is-ancestor "$_lp_head" refs/remotes/origin/main 2>/dev/null; then
-    _lp_equiv_err="⑥--landed-pr head ${_lp_head:0:9} 가 origin/main 조상 = 머지 커밋 PR(squash 착지 아님) — 이 경로 밖 · 수동 닫기(기존 경로)"; return 1
+  if git -C "$repo" merge-base --is-ancestor "$_lp_head" "$LP_LAND_REFS" 2>/dev/null; then
+    _lp_equiv_err="⑥--landed-pr head ${_lp_head:0:9} 가 $LP_LAND_REF 조상 = 머지 커밋 PR(squash 착지 아님) — 이 경로 밖 · 수동 닫기(기존 경로)"; return 1
   fi
   cap="$(nf_cap "$(nf_fixed equiv)" 1)"
   out="$(nf_bound "$cap" bash "$HERE/ft-approval-equiv.sh" "$_lp_set" "$_lp_head" --repo "$repo" 2>&1)"; rc=$?
@@ -1094,7 +1125,7 @@ _lp_cherry_gate() {
   [ -n "${_lp_landed:-}" ] || return 1
   ecap="$(nf_cap "$(nf_fixed equiv)" 1)"
   step landed-pr-cherry
-  mb="$(nf_bound "$ecap" git -C "$repo" merge-base "$_lp_set" refs/remotes/origin/main 2>&1)"; rc=$?
+  mb="$(nf_bound "$ecap" git -C "$repo" merge-base "$_lp_set" "$LP_LAND_REFS" 2>&1)"; rc=$?
   if [ "$rc" -ne 0 ] || [ -z "$mb" ]; then _lp_cherry_err="⑥--landed-pr #$LANDED_PR cherry 착지 판정 불가 — merge-base(세트 ${_lp_set:0:9}, origin/main) rc=$rc: $(printf '%s' "$mb" | head -1 | cut -c1-120)"; return 2; fi
   # r1112 r2(DA① HOLD): -z = 따옴표 0 — core.quotePath=true(git 기본)면 한글·역슬래시 경로가 «"…"» 로 감싸져 제외 규칙·blob 조회가 빗나간다
   out="$(nf_bound "$ecap" bash -c 'set -o pipefail; git -C "$1" diff -z --no-renames --name-only "$2" "$3" | tr "\0" "\n"' _ "$repo" "$mb" "$_lp_set" 2>&1)"; rc=$?
@@ -1745,6 +1776,7 @@ elif [ -n "$LANDED_PR" ]; then
   else
     _lp_set="$(_lp_card_set)"   # r1011-mut:set · r1308: 읽기 규칙은 _lp_card_set 한 곳(리포 고르기와 공용)
     _lp_land=""; grep -qE '^[[:space:]]*-[[:space:]]*착지:' "$CARD_READ" 2>/dev/null && _lp_land=1   # r1011-mut:land
+    if [ "$_lp_wt_seat" = 1 ] && [ -n "$_lp_set" ]; then _lp_wt_head_gate || bad+=("$_lp_wt_head_err"); fi   # r1737-mut:wthead
     if [ -z "$_lp_set" ]; then bad+=("⑥--landed-pr 카드 «## 상태» 절에 «세트:» 40-hex 줄이 없다: $CARD_READ — 대조할 세트가 없으면 닫지 않는다")
     elif [ -z "$_lp_land" ]; then bad+=("⑥--landed-pr 카드에 «- 착지:» 줄이 없다: $CARD_READ — 착지 기록 없는 좌석은 이 경로로 닫지 않는다")
     elif [ "$_lp_head" != "$_lp_set" ]; then   # r1019: head ≠ 세트 = 판정기 1회 — EQUIV(세트 + main 병합뿐)만 통과   # r1011-mut:head
