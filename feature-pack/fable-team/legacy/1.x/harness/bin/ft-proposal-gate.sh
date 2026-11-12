@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # ft-proposal-gate.sh --issue <M> | --card <인덱스카드.md> | --writing-card <인덱스카드.md> — «오빠가 본 승인» 게이트 (R77 r1 · 판정 826 · 정본 = 제안 GitHub Issue 하나)
 #   --issue M : 읽기 전용(gh issue view + timeline)으로 승인 증거를 «Issue» 에서만 본다. 하나라도 빠지면 REJECT(통과 0 · #0 RULE).
-#     라벨 proposal+approved · rejected·needs-reply 없음 · 작성자 byz-tank · 본문 첫 줄 표식 `<!-- byz-proposal-id: <팀>/<slug> -->` · 필수 칸 6개(결론·오빠가 결정할 것·배경·제안·되돌림·근거)
-#     비어 있지 않음 · `## 근거` 에 sha(7~40 hex · 숫자 1개 이상) · 마지막 `approved` 라벨 단 사람 ⓐ오빠 계정(FT_OPPA_GH_LOGINS) 또는 ⓑbyz-tank + 코멘트 `[인터뷰 판정 N]` + planner 원장 N 행(줄머리 `N 오빠 인터뷰` 또는 표 행 `| N | … (오빠 인터뷰`) 에 github.com/<저장소>/issues/M(저장소 포함)
+#     라벨 proposal+approved|status:approved · rejected·needs-reply 없음 · 작성자 byz-tank · 본문 첫 줄 표식 `<!-- byz-proposal-id: <팀>/<slug> -->` · 필수 칸 6개(결론·오빠가 결정할 것·배경·제안·되돌림·근거)
+#     비어 있지 않음 · `## 근거` 에 sha(7~40 hex · 숫자 1개 이상) · 마지막 `approved|status:approved` 라벨(지금 labels 에 남은 이름의 사건만 · r1788) 단 사람 ⓐ오빠 계정(FT_OPPA_GH_LOGINS) 또는 ⓑbyz-tank + 코멘트 `[인터뷰 판정 N]` + planner 원장 N 행(줄머리 `N 오빠 인터뷰` 또는 표 행 `| N | … (오빠 인터뷰`) 에 github.com/<저장소>/issues/M(저장소 포함)
 #     ★r492: 원장 = ref(FT_TEAMS_REF · 기본 origin/main) 트리 — 명단 `<ref>:design/TEAMS.md` 후보 중 `<ref>` 에 VERDICTS-planner-*.md 가 있는 폴더 정확히 1개를 `git show` 로 읽는다(체크아웃 파일 0 · 0·2+ 개 = REJECT)★
-#     승인(approved) 라벨 시각 «이후» 의 비-Tank 코멘트(시각 불명 포함) · Tank 「rN 변경」 코멘트가 있으면 REJECT(의견·본문 갱신에 과거 승인 재사용 0)
+#     승인(approved|status:approved) 라벨 시각 «이후» 의 비-Tank 코멘트(시각 불명 포함) · Tank 「rN 변경」 코멘트가 있으면 REJECT(의견·본문 갱신에 과거 승인 재사용 0)
 #     출력 `OK #M 승인 ⓐ` · `OK #M 승인 ⓑ 판정 N` rc0 · `REJECT <사유>` rc1 · usage rc2.  gh 호출은 7초 + 재시도 1회(전역 7초 룰) · 실패·빈 응답 = REJECT.
 #   --card 카드 : 나노 spawn 입구. 머리 `- 제안서: #M` → --issue M · `없음 — 사유` 인데 본문이 PROPOSAL-*.md 를 인용하거나 `- Issue:` 가 proposal 라벨 Issue 면 REJECT(우회 차단)
 #     · `proposal-*` 카드는 «제안서 작성 카드»(--writing-card)만 면제, 아니면 `#M` 이 아닌 한 REJECT(이름만으로 면제 0).
@@ -91,7 +91,9 @@ if not isinstance(v, dict):
 labels = {str(x.get("name")) for x in v.get("labels") or [] if isinstance(x, dict)}
 if mode == "labels":
     print(" ".join(sorted(labels))); sys.exit(0)
-miss = [f"라벨 {k} 없음" for k in ("proposal", "approved") if k not in labels] + [f"라벨 {k} 있음" for k in ("rejected", "needs-reply") if k in labels]
+APPROVE = ("approved", "status:approved")  # r1788: 승인 라벨 이름 집합 · 사건은 «집합 ∩ 지금 labels» 이름만(떼어진 이름은 근거 아님)
+cur = labels.intersection(APPROVE)
+miss = [f"라벨 {k} 없음" for k in ("proposal",) if k not in labels] + ([] if cur else ["라벨 approved 없음"]) + [f"라벨 {k} 있음" for k in ("rejected", "needs-reply") if k in labels]
 if ((v.get("author") or {}).get("login")) != tank:
     miss.append(f"작성자가 {tank} 가 아니다")
 body = str(v.get("body") or "")
@@ -107,11 +109,11 @@ if "근거" in secs and not re.search(r"(?<![0-9A-Za-z])(?=[0-9a-f]*[0-9])[0-9a-
     miss.append("「근거」 에 sha(7~40 hex) 없음")
 tl = gh("api", "--paginate", "--slurp", f"repos/{repo}/issues/{num}/timeline")
 ev = [e for p in (tl if isinstance(tl, list) else []) for e in (p if isinstance(p, list) else [p]) if isinstance(e, dict)]
-aev = [e for e in ev if e.get("event") == "labeled" and (e.get("label") or {}).get("name") == "approved"]
+aev = [e for e in ev if e.get("event") == "labeled" and (e.get("label") or {}).get("name") in cur]
 who = [(e.get("actor") or {}).get("login") for e in aev]
-at = str(aev[-1].get("created_at") or "") if aev else ""  # 마지막 approved 시각 — 이 시각 뒤에 온 의견·본문 변경에는 과거 승인을 재사용하지 않는다
+at = str(aev[-1].get("created_at") or "") if aev else ""  # 마지막 승인 라벨 사건 시각 — 이 시각 뒤에 온 의견·본문 변경에는 과거 승인을 재사용하지 않는다
 how = None
-if "approved" in labels and not who:
+if cur and not who:
     miss.append("approved 라벨을 단 사람을 timeline 에서 못 찾았다")
 elif who and who[-1] in [s.strip() for s in E["GATE_OPPA"].split(",")]:
     how = "ⓐ"
