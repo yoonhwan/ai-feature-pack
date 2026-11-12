@@ -5,6 +5,7 @@ F = S 의 first-parent 사슬에서 «M 의 조상인 첫 커밋». F == M(처�
 위치·순서는 보지 않는다(개수까지 포함하면 통과). 삭제·바이너리 변경·명령 실패는 전부 deny.
 r461: 다른 폴더로 옮긴 파일(git R, 또는 D 인데 S 트리에 같은 이름이 정확히 1개)은 옮긴 곳에서 줄을 센다 — 옛 경로 글자 → 새 경로 글자 1쌍 치환 허용 · 후보 0·2+ 는 삭제로 deny.
 r477: 비교 «전» main 이 더한 줄에 명단(ref FT_TEAMS_REF · 기본 origin/main) 기준 팀 폴더 정규화(옛 꼴 `design/<팀>/` → 새 꼴 `design/teams/<팀>/` · 명단 꼴2 팀만 · 한 방향)를 적용해 «정규화 뒤 같은 줄 = 같은 줄»(PATHSUBST). 후보 줄은 원문 그대로 — 새 꼴을 옛 꼴로 되돌린 줄은 소실. 명단 못 읽음 = 정규화 0 + stderr WARN 1줄(옛 동작 그대로).
+r1741 --replace-ok <리포 상대 경로>@<sha>#§<절>: DA 판정문(카드 리포 = FT_ROOT → 후보 리포)의 그 절 ```gate-replace 블록(첫 줄 `head <40hex>` · 다음 줄 `<경로>TAB<main 줄 원문>TAB<개수>`)에 적힌 (경로·원문) 만큼만 소실에서 뺀다. «판정:» 값이 APPROVE 로 시작하고 블록 head 가 S 이거나 S=«head 뒤 main 병합만 + 자기 변경 동일»(ft-approval-equiv)일 때만 유효 — 못 읽음·블록 없음·APPROVE 아님·head 불일치 = DENY(통과 0). 인자 없으면 옛 동작 바이트 그대로.
 exit 0 = 통과 · 1 = deny(사유 stdout) · 2 = 명령 실패(사유 stdout · deny 와 같게 취급)."""
 import collections
 import os
@@ -12,7 +13,8 @@ import re
 import subprocess
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
 try:
     from ft_team_lib import team_rows_ref
 except Exception:  # 옛 설치본(모듈·함수 없음) = 옛 동작 + WARN
@@ -120,14 +122,50 @@ def norm(line, table):
     return line
 
 
-def main(repo, m, s):
+def replace_ok(repo, spec, s):
+    """r1741 A1~A3: DA 판정문 §<절> 의 ```gate-replace 블록 → ({(경로, 원문): 개수}, «경로@sha10#§절») — 리포 = FT_ROOT(카드) → 후보.
+    못 읽음·절 없음·APPROVE 아님·블록 꼴 아님·head 불일치는 Fail(통과 0 · 게이트가 DENY … 판정 불가 로 낸다)."""
+    m = re.fullmatch(r"([^@\s]+)@([0-9a-f]{7,40})#§(\S+)", spec)
+    if not m: raise Fail("판정 불가 replace-ok 꼴 아님(<경로>@<sha>#§<절>): %s" % spec[:80])
+    path, sha, sec = m.groups()
+    text, why = None, "판정 불가 replace-ok 판정문 못 읽음 %s@%s" % (path, sha[:10])
+    for root in (os.environ.get("FT_ROOT") or "", repo):
+        try: text = git(root, "show", "%s:%s" % (sha, path)); break
+        except Fail: pass
+    if text is None: raise Fail(why)
+    hit = re.search(r"(?m)^#{1,6}\s[^\n]*§\s*%s(?![0-9])[^\n]*\n(.*?)(?=^#{1,6}\s|\Z)" % re.escape(sec), text, re.S)
+    if not hit: raise Fail("판정 불가 replace-ok §%s 절 없음(%s@%s)" % (sec, path, sha[:10]))
+    v = re.search(r"(?m)^\s*판정:\s*(.+)$", hit.group(1))
+    if not (v and v.group(1).strip().lstrip("*").startswith("APPROVE")):
+        raise Fail("판정 불가 replace-ok §%s APPROVE 아님(%.40s)" % (sec, v.group(1).strip() if v else "판정: 줄 없음"))
+    f = re.search(r"```gate-replace[ \t]*\nhead ([0-9a-f]{40})\n(.*?)```", hit.group(1), re.S)
+    if not f: raise Fail("판정 불가 replace-ok 블록 없음 또는 첫 줄 «head <40hex>» 아님(§%s)" % sec)
+    rows = [x.split("\t") for x in f.group(2).split("\n") if x.strip()]
+    if not all(len(c) == 3 and c[2].strip().isdigit() and int(c[2]) >= 1 for c in rows):
+        raise Fail("판정 불가 replace-ok 블록 줄 꼴 아님(경로<TAB>원문<TAB>개수)")
+    if f.group(1) != s and subprocess.run(   # A3: head == S 이거나 «head 뒤 main 병합만 + 자기 변경 동일»(ft-approval-equiv 판정 그대로)
+            ["bash", os.path.join(HERE, "ft-approval-equiv.sh"), f.group(1), s, "--repo", repo, "--remote", os.environ.get("FT_REPLACE_REMOTE", "origin"),
+             "--target", os.environ.get("FT_REPLACE_TARGET", "main")], capture_output=True).returncode != 0:
+        raise Fail("replace-ok head ≠ 후보(블록 %s · 후보 %s · main 병합만 차이도 아님)" % (f.group(1)[:10], s[:10]))
+    return {(c[0], c[1].rstrip("\r")): int(c[2]) for c in rows}, "%s@%s#§%s" % (path, sha[:10], sec)
+
+
+def main(repo, m, s, spec=""):
     f = fork_point(repo, m, s)
     if f == m:
         print("PASS 처음부터 main 위(F==M) — 보호 집합 빈 집합")
         return 0
+    rok, rok_disp = {}, ""
+    if spec:   # A2: 판정문 못 읽음·블록 없음·APPROVE 아님·head 불일치 = 통과 0(게이트가 DENY 로 낸다)
+        try:
+            rok, rok_disp = replace_ok(repo, spec, s)
+        except Fail as e:
+            print("DENY %s" % e)
+            return 1
     table = team_table(repo)
     adds, binary = added_lines(repo, f, m)
     changed, bad, moved, tree, pathsubst = m_to_s(repo, m, s), [], [], [], 0
+    rok_n = 0
     for path in sorted(set(adds) | binary):
         if path not in changed:
             continue
@@ -148,7 +186,9 @@ def main(repo, m, s):
             moved_line = l.replace(path, sp)
             raw_hit = max(raw[l], raw[moved_line])
             hit = max(raw[l], raw[moved_line], raw[norm(l, table)], raw[norm(moved_line, table)])
-            lost += max(0, n - hit)
+            allow = rok.get((path, l), 0)            # A4: (경로·원문)마다 블록 개수만큼만 소실에서 뺀다
+            lost += max(0, n - hit - allow)
+            rok_n += min(max(0, n - hit), allow)     # 실제로 사라진 줄만 REPLACE-OK 로 센다(안 사라진 줄은 무시)
             if min(n, hit) > min(n, raw_hit):  # 정규화로만 같아진 줄 = PATHSUBST
                 pathsubst += 1
         if lost:
@@ -161,14 +201,19 @@ def main(repo, m, s):
         return 1
     show = "".join("; MOVED " + x for x in moved[:3]) + (" 외 %d" % (len(moved) - 3) if len(moved) > 3 else "")
     sub = " · PATHSUBST %d줄" % pathsubst if pathsubst else ""
-    print("PASS 보호 집합 %d 파일 · F=%s · 이동 인정 %d%s%s" % (len(adds) + len(binary), f[:10], len(moved), show, sub))
+    ok = " · REPLACE-OK %d줄 (%s)" % (rok_n, rok_disp) if rok_n else ""
+    print("PASS 보호 집합 %d 파일 · F=%s · 이동 인정 %d%s%s%s" % (len(adds) + len(binary), f[:10], len(moved), show, sub, ok))
     return 0
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        print("usage: ft_merge_lines.py <repo> <M> <S>"); sys.exit(2)
+    av, spec = sys.argv[1:], ""
+    if "--replace-ok" in av:
+        i = av.index("--replace-ok")
+        av, spec = av[:i] + av[i + 2:], av[i + 1] if i + 1 < len(av) else ""
+    if len(av) != 3:
+        print("usage: ft_merge_lines.py <repo> <M> <S> [--replace-ok <리포 상대 경로>@<sha>#§<절>]"); sys.exit(2)
     try:
-        sys.exit(main(*sys.argv[1:]))
+        sys.exit(main(*av, spec))
     except Fail as e:
         print("ERROR %s" % e); sys.exit(2)
