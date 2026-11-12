@@ -200,9 +200,9 @@ EOF
 mutcls "$(git -C "$W" rev-parse m4)"; want "변이: YAML 판정 끔 → r3 반례2 빨강" 0 "CLASS code"
 mut; python3 - "$MUT/autonomy_scope_secret.py" <<'EOF'
 import sys; p = sys.argv[1]; t = open(p, encoding="utf-8").read()
-old = "for n, t in items if n in ctx)"
+old = "        if n not in ctx:"
 assert old in t
-open(p, "w", encoding="utf-8").write(t.replace(old, "for n, t in items if n in ctx and n not in shield)"))
+open(p, "w", encoding="utf-8").write(t.replace(old, "        if n not in ctx or n in shield:"))
 EOF
 mutcls "$(git -C "$W" rev-parse c4)"; want "변이: 문서 코드 울타리 통째 제외 복귀 → r5 반례 빨강" 0 "CLASS docs"
 mut; python3 - "$MUT/autonomy_scope_rules.py" <<'EOF'

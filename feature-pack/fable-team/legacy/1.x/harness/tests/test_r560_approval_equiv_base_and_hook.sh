@@ -158,10 +158,11 @@ cp "$EQP" "$LIVE/ft_approval_equiv.py"
 cd "$W2" && git checkout -q s 2>/dev/null
 g checkout -q -B oldmain "$A"; echo own-old > "$W/ownold.txt"; g add -A; g commit -qm oldmain; g2 checkout -q main 2>/dev/null
 runh5() { out="$(cd "$W" && printf '%s' "$(python3 -c 'import json,sys;print(json.dumps({"tool_name":"Bash","cwd":sys.argv[2],"tool_input":{"command":sys.argv[1]}},ensure_ascii=False))' "$1" "$W")" | "$BASH" "$MG" 2>"$T/err")"; rc=$?; }
-a approve-merge "$A" >/dev/null 2>&1; g checkout -q s5; OLDH="$(g rev-parse HEAD)"
+apw() { printf 'approve-merge %s A1 1\n' "$1" > "$AP/$1"; printf 'approve-merge %s A1 1\n' "$1" >> "$S/autonomy.log"; [ -f "$AP/$1" ] || { echo "FAIL ⓝ 승인 파일 없음 $1"; fail=$((fail+1)); }; }   # :144 꼴(승인 파일+같은 로그 줄)
+apw "$A"; g checkout -q s5; OLDH="$(g rev-parse HEAD)"
 runh5 "git push origin HEAD:main"; denied && has 'main 이 head 의 조상이 아님'; ck "ⓝ 옛 main 위 head 직접 main push → deny" $?
 g checkout -q -B s5ok refs/remotes/origin/main; echo ok > "$W/okpush.txt"; g add -A; g commit -qm okpush
-a approve-merge "$(g rev-parse HEAD)" >/dev/null 2>&1; runh5 "git push origin HEAD:main"; [ "$rc" = 0 ] && [ -z "$out" ]; ck "ⓝ 최신 main 을 품은 승인 head 직접 push 는 통과(막지 않음)" $?
+apw "$(g rev-parse HEAD)"; runh5 "git push origin HEAD:main"; [ "$rc" = 0 ] && [ -z "$out" ]; ck "ⓝ 최신 main 을 품은 승인 head 직접 push 는 통과(막지 않음)" $?
 
 # ⓞ 그래프 1 을 «범위 리포 안» 에서 같은 방식으로 만들고 scope-approve — class=equiv 비차감을 못 받아야 한다
 mkdir -p "$W2/harness"; cp -R "$SCOPE_BIN" "$W2/harness/bin"
