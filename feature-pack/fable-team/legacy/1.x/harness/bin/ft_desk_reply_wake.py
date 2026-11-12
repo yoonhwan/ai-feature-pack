@@ -5,6 +5,7 @@ CLI: (인자 없음) 점검 · `--register <질문ts> <h번호> <sha40>` 등록(
 점검 = 끝나지 않은 줄마다 ft_oppa_slack_check 1회(7초 · 재시도 1) → SLACK-OK 이면 seats-planner.json `_desk` 로 `[오빠 답글] h<N> ts=<답글> → 실행 차례` 1통.
 끝 = h 실행 기록(<HIL_DIR>/h<N>.ran) 생성 또는 끝 시각 경과(경과는 `_master` 로 `[답글 없음 24시간]` 1통) · 같은 답글 ts = 1통 · 질문 ts 키는 한 줄(재등록 멱등).
 r1591 · `--register-question <질문ts> <사유키>` = h·sha 칸이 없는 오빠 질문(설계 승인 등) 등록(kind=question · key 한 칸) → 점검은 `--reply-only` 로 보고 REPLY-SEEN 이면 `_master` 로 `[오빠 답글] <사유키> ts=<답글>` 1통(승인 판정 0).
+r1764 · thread 줄(`--register-thread <스레드ts> <사유키>`)은 등록된 스레드에 오빠 «새 글» 이 올 때마다 `_desk` 1통 · 끝 시각 경과 = 조용히 닫힘 · `--close <질문ts|사유키> [--reason <낱말>]` = 열린 줄 수동 닫기 — 갈래 셋은 ft_desk_reply_thread.py 에 있다(이 파일은 부르기만).
 장부 갱신 = 배타 잠금(<장부>.lock) 안에서 다시 읽고 합쳐 쓰기 · 조회는 <장부>.cursor 로 순환(열린 줄이 상한보다 많아도 모두 본다).
 장부 = <루트>/.fable-team/state/desk-reply-wait.jsonl(open|notified|closed) · env: FT_ROOT · FT_NOW · FT_MBOX_SH · FT_SEATS_PLANNER · FT_SLACK_CHECK · HIL_DIR · FT_DESK_REPLY_LEDGER · FT_DESK_REPLY_MAX(4)
 rc: 0 정상 · 1 발신·쓰기 실패 · 2 판정 불가(루트·장부·명부) · 3 등록 거절
@@ -19,6 +20,7 @@ import sys
 import time
 from contextlib import redirect_stderr
 from pathlib import Path
+from types import SimpleNamespace
 
 TS, SHA, HN = re.compile(r"[0-9]+\.[0-9]{6}$"), re.compile(r"[0-9a-f]{40}$"), re.compile(r"h[0-9]+$")
 PLAN = re.compile(r"(?<![\w-])approve-merge\s+([0-9a-fA-F]{40})(?![0-9a-fA-F])[^\n]*?(?<![\w-])--oppa-slack[ =]+([0-9]+\.[0-9]{6})(?![\w.-])")  # r1587 · ft_scope_plan_judge.OPPA 와 같은 꼴
@@ -28,6 +30,19 @@ KEY = re.compile(r"[a-z0-9][a-z0-9._-]{0,63}$")  # r1591 · 사유키 = 카드 s
 
 def bad(m: str) -> None:
     print("ft-desk-reply-wake 판정 불가 — " + m, file=sys.stderr)
+
+
+def thread_mod():  # r1764 · thread 줄·--close 갈래 = 같은 폴더 새 파일(이 파일은 부르기만) · 없으면 None(부른 자리가 1줄로 드러낸다)
+    sys.path[:0] = [str(Path(__file__).resolve().parent)]
+    try:
+        import ft_desk_reply_thread
+    except ImportError:
+        return None
+    return ft_desk_reply_thread
+
+
+def ns(base: Path, led: Path, seat: dict | None = None, check: str = "", maxn: int = MAX) -> SimpleNamespace:  # 새 파일에 넘기는 손잡이(잠금·장부·발신·명부)
+    return SimpleNamespace(base=base, led=led, lock=lock, ledger=ledger, send=send, seat=seat or {}, check=check, maxn=maxn)
 
 
 def lock(p: Path):  # 장부 배타 잠금 — 읽기→갱신 전체를 직렬화한다(등록과 점검이 겹쳐도 유실 0)
@@ -191,6 +206,8 @@ def scan(base: Path, led: Path, now: float) -> int:
         qn, h, q = row.get("kind") == "question", row.get("h") or row.get("key"), row.get("q_ts")  # r1591 · 질문 줄은 h 대신 key
         if row.get("state") == "closed":
             continue
+        if row.get("kind") == "thread":  # r1764 · thread 줄은 아래 scan_threads 가 본다(만료 = 조용히)
+            continue
         if not isinstance(h, str) or not isinstance(q, str):
             bad("장부 줄 꼴 아님: %s" % json.dumps(row, ensure_ascii=False)[:120])
             nbad += 1
@@ -234,6 +251,14 @@ def scan(base: Path, led: Path, now: float) -> int:
             continue
         up[q] = {"notified_ts": m.group(1), "notified_at": int(now)} | ({"state": "closed", "closed": "replied"} if qn else {"state": "notified"})  # r1591 · 질문 줄은 답글 알림 성공 = 그 줄 끝(DA #280338 R1: 24h 오알림 0)
         sent += 1
+    tm = thread_mod()  # r1764 · 스레드 새 글·조용한 만료
+    if tm is None:
+        bad("ft_desk_reply_thread.py 를 못 읽음 — thread 줄 알림 0(설치 확인)")
+        nbad += 1
+    else:
+        tup, tsent, tshut, tnbad = tm.scan_threads(ns(base, led, seat, check, maxn), rows, now)
+        up |= tup
+        sent, shut, nbad = sent + tsent, shut + tshut, nbad + tnbad
     if picked:
         cursor(led, (picked[-1] + 1) % len(rows))
     if up and not commit(led, up):
@@ -254,6 +279,12 @@ def main(argv: list) -> int:
         return register_plan(led, argv[2:], now)
     if argv[1:2] == ["--register-question"]:
         return register_question(led, argv[2:], now)
+    if argv[1:2] in (["--register-thread"], ["--close"]):  # r1764
+        tm = thread_mod()
+        if tm is None:
+            bad("ft_desk_reply_thread.py 를 못 읽음 — 설치 확인")
+            return 2
+        return tm.register_thread(ns(base, led), argv[2:], now) if argv[1:2] == ["--register-thread"] else tm.close(ns(base, led), argv[2:], now)
     return register(led, argv[2:], now) if argv[1:2] == ["--register"] else scan(base, led, now)
 
 
