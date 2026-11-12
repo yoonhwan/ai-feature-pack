@@ -82,7 +82,7 @@ run --close no-such-key >"$T/o5" 2>"$T/e5"; chk "⑤ rc=3" 3 "$?"
 chk "⑤ 1줄(장부 바이트 그대로)" "0 1" "$(cmp -s "$LEDGER" "$T/ledger.before" && echo 0 || echo 1) $(wc -l < "$T/e5" | tr -d ' ')"
 
 echo "== ⑥ 기존 길 그대로 =="
-reset; mk_replies "[$(oppa "$T1" "좋아 진행")]"
+reset; three
 b() { ( cd "$ROOT" && FT_SLACK_REPLIES_CMD="bash $T/replies.sh" timeout $TO python3 "$CHECK" "$@" ); }
 chk "⑥ --after 없는 --reply-only = REPLY-SEEN 1줄" "REPLY-SEEN parent=$QTS reply=$T1" "$(b --reply-only "$QTS" 2>/dev/null)"
 chk "⑥ --after = 그 시각 뒤 첫 글" "REPLY-SEEN parent=$QTS reply=$T2" "$(b --reply-only "$QTS" --after "$T1" 2>/dev/null)"
@@ -112,14 +112,14 @@ PY
 }
 echo "== 변이 M1 = --after 무시(첫 답글 고정) =="
 reset; three
-mut m1 ft_desk_reply_thread.py 'old = "[\"--reply-only\", q, \"--after\", after]"
+mut m1 ft_desk_reply_thread.py 'old = "\"--reply-only\", q, \"--after\", after]"
 assert old in t
-t = t.replace(old, "[\"--reply-only\", q]", 1)'
+t = t.replace(old, "\"--reply-only\", q]", 1)'
 run --register-thread "$QTS" "$KEY" >/dev/null 2>&1
 RUN_TOOL="$T/mut/m1/ft_desk_reply_wake.py" run >/dev/null 2>&1
 chk "M1 1주기 = t1(정상)" "1 [오빠 새 글] $KEY ts=$T1" "$(sends) $(lastbody)"
 RUN_TOOL="$T/mut/m1/ft_desk_reply_wake.py" run >/dev/null 2>&1
-chk "M1 2주기 = 0통 → ① «2주기 t2» 검사가 잡는다" "1" "$(sends)"
+chk "M1 2주기 = 0통(변이 적용) → ① «2주기 t2 1통» 검사가 잡는다" "1" "$(sends)"
 
 echo "== 변이 M2 = 알림 뒤 줄 닫기 =="
 reset; three
@@ -142,9 +142,9 @@ chk "M3 만료에 쪽지 1통 → ③ «쪽지 0통» 검사가 잡는다" "1" "
 
 echo "== 변이 M4 = --close 잠금 밖 쓰기·없는 키 rc0 =="
 reset; printf '{"q_ts":"1794400200.333333","kind":"question","key":"r1764b","at":%d,"deadline":%d,"state":"open"}\n' "$NOW" "$((NOW + 86400))" > "$LEDGER"
-mut m4 ft_desk_reply_thread.py 'old = "            print(\"감시 닫기 실패 — 열린 줄 없음: %s\" % tgt, file=sys.stderr); return 3"
+mut m4 ft_desk_reply_thread.py 'old = "            print(\"감시 닫기 실패 — 열린 줄 없음: %s\" % tgt, file=sys.stderr)\n            return 3"
 assert old in t
-t = t.replace(old, "            print(\"닫힘 0줄 — %s\" % tgt); return 0", 1)'
+t = t.replace(old, "            print(\"닫힘 0줄 — %s\" % tgt)\n            return 0", 1)'
 RUN_TOOL="$T/mut/m4/ft_desk_reply_wake.py" run --close no-such-key >/dev/null 2>&1
 chk "M4 없는 키 rc=0 → ⑤ «rc=3» 검사가 잡는다" "0" "$?"
 
