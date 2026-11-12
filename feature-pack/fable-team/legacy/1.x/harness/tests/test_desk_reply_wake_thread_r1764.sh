@@ -13,8 +13,10 @@
 #   ⑩ 스캔·--close 는 thread 줄만 건드린다(같은 ts question 줄 state·closed·notified_ts 불변) · 변이 M6(kind 검사 지움 → ⑨) · M7(장부 갱신 q_ts만 → ⑩)
 #   ⑫ 등록 «전» 글만 있는 스레드 = 쪽지 0통(기준점 = 등록 시각 · notified_ts 로 박힌다) · 다음 주기에도 옛 글 재생 0
 #   ⑬ 등록 «뒤» 새 글 1개 = 1통(ts=그 글) · 그 다음 주기 0통
+#   ⑭ desk 가 닫은 thread 줄을 같은 키로 다시 등록 = «새 열린 줄»(감시 0 조용히 남지 않는다 · 새 기준점)
+#   ⑮ 옛 줄(기준점 없음)은 그 줄의 등록 시각(at)을 기준점으로 채택(등록~첫 점검 사이 글 유실 0)
 #   ⑥ 에 --after 없는 길의 NoReply stderr 꼴(parent=<부모ts>)까지 본다(NG2)
-#   변이 M1 --after 무시 · M2 알림 뒤 닫기 · M3 만료에 쪽지 · M4 --close 잠금 밖·없는 키 rc0 · M8 기준점을 스레드 q_ts 로 되돌림 → 각각 잡힌다
+#   변이 M1 --after 무시 · M2 알림 뒤 닫기 · M3 만료에 쪽지 · M4 --close 잠금 밖·없는 키 rc0 · M8 기준점을 스레드 q_ts 로 되돌림 · M9 닫힌 줄도 «이미 등록» 으로 봄 → 각각 잡힌다
 #   격리: 임시 FT_ROOT·가짜 mbox(발신 기록)·가짜 replies(실 Slack 0)·가짜 시계 · 안전선(r1041): ulimit -u+64 · timeout 70 · 자기 재호출 0
 set -uo pipefail
 NPROC=$(ulimit -u 2>/dev/null || echo 3000); ulimit -u $((NPROC + 64)) 2>/dev/null || true
@@ -56,6 +58,7 @@ sends() { wc -l < "$SENT" 2>/dev/null | tr -d ' ' || echo 0; }
 qstate() { python3 -c 'import json,sys;r=[json.loads(x) for x in open(sys.argv[1],encoding="utf-8") if x.strip()];q=([x for x in r if x.get("kind")!="thread"] or [{}])[0];print("%s:%s:%s"%(q.get("state","—"),q.get("closed") or "",q.get("notified_ts","")))' "$LEDGER"; }
 tstate() { python3 -c 'import json,sys;r=[json.loads(x) for x in open(sys.argv[1],encoding="utf-8") if x.strip()];q=([x for x in r if x.get("kind")=="thread"] or [{}])[0];print("%s:%s:%s"%(q.get("state","—"),q.get("closed") or "",q.get("notified_ts","")))' "$LEDGER"; }
 lastbody() { tail -1 "$SENT" 2>/dev/null | cut -f2; }
+nopen() { python3 -c 'import json,sys;print(sum(1 for x in (json.loads(l) for l in open(sys.argv[1],encoding="utf-8") if l.strip()) if x.get("kind")=="thread" and x.get("state")!="closed"))' "$LEDGER"; }
 reset() { rm -f "$LEDGER" "$LEDGER.cursor" "$LEDGER.thread.cursor"; : > "$SENT"; rm -f "$T/replies.rc"; }
 
 echo "== ① thread_new_post_wakes_desk_once =="
@@ -162,6 +165,21 @@ run >/dev/null 2>&1; chk "⑬ 1주기 = 새 글 1통(받는이 _desk)" "1 $DESK"
 chk "⑬ 본문 = 새 글 ts · 줄은 열린 채" "[오빠 새 글] $KEY ts=$N1 open::$N1" "$(lastbody) $(tstate)"
 run >/dev/null 2>&1; chk "⑬ 2주기 = 같은 글 반복 0통" 1 "$(sends)"
 
+echo "== ⑭ 닫힌 thread 줄 재등록 = 새 열린 줄(감시 0 조용히 남지 않는다) =="
+reset; mk_replies "[$(oppa "$O1" "등록 전 옛 글 1"),$(oppa "$O2" "등록 전 옛 글 2")]"
+printf '{"q_ts":"%s","kind":"thread","key":"%s","at":%d,"deadline":%d,"state":"closed","closed":"manual:old-post-notify","notified_ts":"%s"}\n' "$QTS" "$KEY" "$NOW" "$((NOW + 86400))" "$QTS" > "$LEDGER"
+run --register-thread "$QTS" "$KEY" >/dev/null 2>&1; chk "⑭ 닫힌 줄 재등록 rc=0" 0 "$?"
+chk "⑭ 장부 2줄 · 열린 thread 1줄(새 줄)" "2 1" "$(wc -l < "$LEDGER" | tr -d ' ') $(nopen)"
+chk "⑭ 새 줄 기준점 = 등록 시각(옛 기준점 아님)" "$NOW.000000" "$(field notified_ts)"
+run >/dev/null 2>&1; chk "⑭ 첫 점검 = 옛 글 0통" 0 "$(sends)"
+run >/dev/null 2>&1; chk "⑭ 다음 주기도 0통 · 열린 채" "0 open" "$(sends) $(field state)"
+
+echo "== ⑮ 옛 줄(기준점 없음)은 그 줄의 등록 시각을 기준점으로 채택 =="
+reset; mk_replies "[$(oppa "$O1" "등록 전 옛 글 1"),$(oppa "$O2" "등록 전 옛 글 2")]"
+printf '{"q_ts":"%s","kind":"thread","key":"%s","at":%d,"deadline":%d,"state":"open"}\n' "$QTS" "$KEY" "$((NOW - 200))" "$((NOW + 86400))" > "$LEDGER"
+run >/dev/null 2>&1; chk "⑮ at 뒤 첫 글 1통(«지금» 채택이면 0통)" "1 [오빠 새 글] $KEY ts=$O1" "$(sends) $(lastbody)"
+run >/dev/null 2>&1; chk "⑮ 다음 주기 = 다음 글 1통(중복 0)" "2 [오빠 새 글] $KEY ts=$O2" "$(sends) $(lastbody)"
+
 mut() {  # $1 = 이름 · $2 = 파일 · $3 = 교체 스크립트(python heredoc 본문)  → $T/mut/$1 에 사본 3파일
   mkdir -p "$T/mut/$1"; cp "$TOOL" "$CHECK" "$THREAD" "$T/mut/$1"; python3 - "$T/mut/$1/$2" <<PY
 import pathlib, sys
@@ -217,10 +235,10 @@ for i in 1 2 3 4 5; do run --register-thread "179440000$i.100000" "r1764-t$i" >/
 for _ in 1 2 3; do RUN_TOOL="$T/mut/m5/ft_desk_reply_wake.py" RUN_REPLIES="bash $T/replies5.sh" run >/dev/null 2>&1; done
 chk "M5 3주기 조회 = 4줄 → ⑧ «5줄 모두» 검사가 잡는다" "4" "$(sort -u "$T/q8" | wc -l | tr -d ' ')"
 
-echo "== 변이 M6 = 충돌 검사를 kind 무관(q_ts 만) =="
+echo "== 변이 M6 = 충돌 검사를 kind·state 무관(q_ts 만) =="
 reset; : > "$SENT"
 printf '{"q_ts":"%s","kind":"question","key":"cfo-survey-turnkey","at":%d,"deadline":%d,"state":"closed","closed":"replied"}\n' "$QTS" "$NOW" "$((NOW + 86400))" > "$LEDGER"
-mut m6 ft_desk_reply_thread.py 'old = "r.get(\"q_ts\") == row[\"q_ts\"] and r.get(\"kind\") == \"thread\""
+mut m6 ft_desk_reply_thread.py 'old = "r.get(\"q_ts\") == row[\"q_ts\"] and r.get(\"kind\") == \"thread\" and r.get(\"state\") != \"closed\""
 assert old in t
 t = t.replace(old, "r.get(\"q_ts\") == row[\"q_ts\"]", 1)'
 RUN_TOOL="$T/mut/m6/ft_desk_reply_wake.py" run --register-thread "$QTS" "$KEY" >/dev/null 2>&1; R6=$?
@@ -245,5 +263,14 @@ RUN_TOOL="$T/mut/m8/ft_desk_reply_wake.py" run --register-thread "$QTS" "$KEY" >
 RUN_TOOL="$T/mut/m8/ft_desk_reply_wake.py" run >/dev/null 2>&1
 chk "M8 옛 글 1통 → ⑫ «0통» 검사가 잡는다" 1 "$(sends)"
 
-if [ "$fail" = 0 ]; then echo "ALL PASS (① ② ③ ④ ⑤ ⑥ ⑦ ⑧ ⑨ ⑩ ⑪ ⑫ ⑬ · 변이 M1~M8 · kit cmp0) — ${SECONDS}s"; exit 0; fi
+echo "== 변이 M9 = 닫힌 줄도 «이미 등록» 으로 봄 =="
+reset; mk_replies "[$(oppa "$O1" "등록 전 옛 글 1")]"
+printf '{"q_ts":"%s","kind":"thread","key":"%s","at":%d,"deadline":%d,"state":"closed","closed":"manual:old-post-notify"}\n' "$QTS" "$KEY" "$NOW" "$((NOW + 86400))" > "$LEDGER"
+mut m9 ft_desk_reply_thread.py 'old = " and r.get(\"state\") != \"closed\""
+assert old in t
+t = t.replace(old, "", 1)'
+RUN_TOOL="$T/mut/m9/ft_desk_reply_wake.py" run --register-thread "$QTS" "$KEY" >/dev/null 2>&1
+chk "M9 재등록이 «이미 등록» rc0 · 열린 줄 0 → ⑭ «열린 thread 1줄» 검사가 잡는다" "0" "$(nopen)"
+
+if [ "$fail" = 0 ]; then echo "ALL PASS (① ② ③ ④ ⑤ ⑥ ⑦ ⑧ ⑨ ⑩ ⑪ ⑫ ⑬ ⑭ ⑮ · 변이 M1~M9 · kit cmp0) — ${SECONDS}s"; exit 0; fi
 echo "FAIL 있음 — 위 FAIL 줄"; exit 1
