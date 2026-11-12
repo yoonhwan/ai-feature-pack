@@ -1,7 +1,8 @@
 """ft2 재개 1건 = 팀장 1번만 열기 시험 (r1727 · PLAN-ft20-team-reopen-from-record-20261112 · R1·R2) · 사례 = 2절 R1~R8 ·
 준비 = r1726 실제 휴면 + TeamRecord `휴면 revision` · 중단 = on_step 예외 · 격리 tmp · 고정 시계 · 가짜 probe·crontab shim ·
 sleep·tmux 0 · 변이(사본만) M1 키 중복 → R2·R2c · M2 큐 묶음 → R5 · M3 reopen 분기 → R1·R2c·R2r · M4 휴면 아님 → R2d ·
-M5 저장 키 현재 R → R3s-k · M6 unknown=absent → R2c-u · M7 booted done → R2r · M8 `_work_closed` lifted → R2l."""
+M5 저장 키 현재 R → R3s-k · M6 unknown=absent → R2c-u · M7 booted done → R2r · M8 `_work_closed` lifted → R2l ·
+M9 휴면 영수 R 대조 → A7-8 · M10 큐 dispatched 표시 → R5 (카드 반례 ⑦⑧ = A7-7·A7-8 · arch-pi#3 보정 G1~G3)."""
 import functools
 import importlib.util
 import json
@@ -112,6 +113,7 @@ def _r2r(root, m=M, ack=True):                     # R2l = 같은 준비 · R2i 
         if ack else base.get("upto", 0) < seq                               # 실제 전진 / intent 만 = 보존
     lines, again = _n(root, m), _go(root, m, probe="alive")
     assert (again.result, again.open, again.lead, _n(root, m)) == (HOLD, False, LEAD, lines)
+    assert again.reason[:5] == "판정 불가" if ack else True       # 회수로 휴면 영수 줄 사라짐 = 판정 불가(A7)
     return base
 
 def _r2l(root, m=M):
@@ -136,9 +138,20 @@ def _r5(root, m=M):
     assert [d.assign(w, LEAD, evidence=EV).result for w in ("W1", "W2", "W3")] == [OK] * 3
     assert d.rs.submit("q-W1", "x" * 8, "W1").result == HOLD               # 같은 command 재접수 = 같은 행(새 줄 0)
     assert len([rec for rec in _seen(root, m)[1] if rec["kind"] == "dispatch"]) == 3
+    again = _go(root, m)                                                    # 같은 키 재접수(probe absent) 탑재 목록
+    assert (again.open, [row["dispatched"] for row in again.load["queue"]], again.seats_needed) == (True, [True] * 3, [])
+
+def _a7(root, m=M, record="없음", ask=R, want="낡은 재개"):   # ⑦ 팀 기록 R 빈 칸 · ⑧ 팀 기록 6 · 영수 5 · 요청 6
+    _dormant(root, m)
+    _record(root, m, record, 1)
+    lines, out = _n(root, m), _go(root, m, r=ask)
+    assert (out.result, out.open, out.written, out.reason[:5], _n(root, m)) == (REFUSED, False, False, want, lines)
+
+_a7_8 = functools.partial(_a7, record=R + 1, ask=R + 1, want="휴면 영수")
 
 SCENARIOS = {"R1": _r1, "R1b": _r1b, "R2": _r2, "R2c": _r2c, "R2c-u": _r2cu, "R2d": _r2d, "R2r": _r2r, "R2l": _r2l,
-             "R2i": lambda root, m=M: _r2r(root, m, ack=False), "R3s-k": _r3sk, "R5": _r5, "R5d": _r5d}
+             "R2i": lambda root, m=M: _r2r(root, m, ack=False), "R3s-k": _r3sk, "R5": _r5, "R5d": _r5d,
+             "A7-7": _a7, "A7-8": _a7_8}
 
 @pytest.mark.parametrize("case", SCENARIOS.values(), ids=SCENARIOS.keys())
 def test_scenarios(tmp_path, case):
@@ -182,10 +195,12 @@ MUTANTS = (
     ("M2", "reopen.py", "dict.fromkeys(rows)", "rows", (_r5,)),
     ("M3", "record.py", 'elif kind == "reopen" and work:', "elif False:", (_r1, _r2c, _r2r)),
     ("M4", "reopen.py", "if self.lc._dormant_key() not in", "if False and self.lc._dormant_key() not in", (_r2d,)),
-    ("M5", "reopen.py", "stale = self._current(revision)   # 저장 키도", "stale = None   # 저장 키도", (_r3sk,)),
+    ("M5", "reopen.py", "stale = self._current(revision, records)   # 저장 키도", "stale = None   # 저장 키도", (_r3sk,)),
     ("M6", "reopen.py", 'if seen == "absent":', 'if seen != "alive":', (_r2cu,)),
     ("M7", "record.py", 'done[rec["work"]] = {"attempt": rec.get("ack")', '_ = {"attempt": rec.get("ack")', (_r2r,)),
     ("M8", "journal.py", 'if done is None and work in (state.get("lifted") or {}):', "if False:", (_r2l,)),
+    ("M9", "reopen.py", "if receipt != str(revision):", "if False:", (_a7_8,)),
+    ("M10", "reopen.py", '"dispatched": works.get(command) in sent', '"dispatched": False', (_r5,)),
 )
 
 @pytest.mark.parametrize("label,name,old,new,cases", MUTANTS, ids=[m[0] for m in MUTANTS])
