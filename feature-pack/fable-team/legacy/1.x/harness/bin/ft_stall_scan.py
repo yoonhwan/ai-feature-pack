@@ -469,13 +469,15 @@ class Scan:
             if tried.get(seat) == head:
                 continue
             crc, cout = run(["bash", close, *shlex.split(cmd)[2:]], {**os.environ, "FT_NANO_AUTO_CLOSE": "1"}, 70)
-            first = (cout.strip().splitlines() or [""])[0]
-            if crc == 0 and first.startswith("CLOSED"):
+            rows = cout.strip().splitlines()
+            closed = next((x for x in rows if x.startswith("CLOSED")), "")   # r1735 — 성공 = «CLOSED 로 시작하는 줄»(첫 줄 순서 의존 0)
+            if crc == 0 and closed:   # r1735 A3 — rc≠0 은 CLOSED 줄이 있어도 실패(rc 우선)
                 tried.pop(seat, None)
-                lines.append(f"{stamp} auto-close {first} set={head}")
+                lines.append(f"{stamp} auto-close {closed} set={head}")
             else:
                 tried[seat] = head
-                lines.append(f"{stamp} auto-close 실패 {seat} rc={crc} — {first[:120]}")
+                why = next((x for x in rows if not x.startswith("INFO")), (rows or [""])[0])[:120]   # r1735 A2 — INFO 줄은 사유가 아니다
+                lines.append(f"{stamp} auto-close 실패 {seat} rc={crc} — {why}")
         try:
             sf.parent.mkdir(parents=True, exist_ok=True)
             (sf.parent / (sf.name + ".tmp")).write_text(json.dumps(tried), encoding="utf-8")
