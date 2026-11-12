@@ -224,9 +224,21 @@ def case_detach(tmp, launcher=LAUNCH):
     assert "-b" not in git["argv"], git["argv"]
 
 
+def case_latest_dispatch(tmp, launcher=LAUNCH):
+    """⑩ a1 배정·전달 뒤 같은 일을 #1 에 다시 배정(a2 미전달) → rc1 «접수 거부» · 의도 0 · 바깥 호출 0 (DA R1)."""
+    root, fake = _paths(tmp)
+    _runtime(root)                                   # a1 배정 → 전달
+    got, arc = _cli(root, "assign", "--work", WORK, "--holder", "harness-seat#1", "--evidence", "v1,v2")
+    assert (got.get("attempt"), arc) == ("a2", 0), got
+    out, rc = _launch(root, fake, launcher)
+    assert (out.get("result"), rc) == ("접수 거부", 1), out
+    assert _intent(root).exists() is False, "의도 0"
+    assert _log(fake) == [], "바깥 호출 0"
+
+
 CASES = {"refused": case_refused, "dry": case_dry, "open": case_open, "again": case_again,
          "race": case_race, "fail": case_fail, "role": case_role, "guard": case_guard,
-         "detach": case_detach}
+         "detach": case_detach, "latest": case_latest_dispatch}
 MUTANTS = {
     "M1": ("    if holder is None:", "    if holder is None and False:"),
     "M2": ('    if given.get("dry"):',
@@ -287,6 +299,10 @@ def test_08_guard(tmp_path):
 
 def test_09_worktree_detach(tmp_path):
     case_detach(tmp_path)
+
+
+def test_10_latest_dispatch_not_delivered(tmp_path):
+    case_latest_dispatch(tmp_path)
 
 
 @pytest.mark.parametrize("name", sorted(MUTANTS))

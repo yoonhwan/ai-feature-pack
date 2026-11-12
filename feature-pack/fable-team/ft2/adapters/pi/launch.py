@@ -2,9 +2,10 @@
 """ft 2.0 호출자 좌석 열기 — 배정·전달된 일 1개를 워크트리 + pi 좌석으로 «한 번만» 연다 (r1765).
 
 코어는 일을 기록할 뿐 좌석을 열지 않는다(`close_next`·`reopen` 의 «spawn·tmux = 호출자»). 그 호출자가 이 명령이다.
-① 투영 읽기만(잠금·쓰기 0)으로 최신 dispatch(holder · attempt)를 찾는다 ② 열기 의도를 O_EXCL 로 «한 번만» 만들어
-두 번째 호출을 0 으로 만든다 ③ 의도가 잡히면 `git worktree add --detach` 1회 → `tmux new-session` 1회(-e K=V 5개).
-실행권(claim·start)은 좌석 몫이라 쓰지 않는다 · 바깥 호출 7초 · 실패는 의도 줄에 단계 + rc2 «복구 필요»(자동 재시도 0 · 세션 종료 0) · 결과 낱말은 계약 8낱말 밖 0.
+① journal·state 읽기만(잠금·쓰기 0)으로 «최신 dispatch»(holder · attempt)를 찾고 그 attempt 가 전달되지 않았으면 열지 않는다
+② 열기 의도를 O_EXCL 로 «한 번만» 만들어 두 번째 호출을 0 으로 만든다 ③ 의도가 잡히면 `git worktree add --detach` 1회 →
+`tmux new-session` 1회(-e K=V 5개 · 이미 뜬 서버의 새 pane 에도 env 가 간다). 실행권(claim·start)은 좌석 몫 · 바깥 호출 7초 ·
+실패는 의도 줄에 단계 + rc2 «복구 필요»(자동 재시도 0) · 결과 낱말은 계약 8낱말 밖 0 · 부르는 법:
     python3 adapters/pi/launch.py --root R --team T --work W [--worktree 경로] [--role 역할] [--dry-run]
 """
 import importlib.util
@@ -33,41 +34,48 @@ def _load(rel, alias):
     return module
 
 
-projection = _load(os.path.join("core", "projection.py"), "ft2_launch_projection")
+projection, journal, record = (_load(os.path.join("core", name + ".py"), "ft2_launch_" + name)
+                               for name in ("projection", "journal", "record"))
 models = _load(os.path.join("tools", "models.py"), "ft2_launch_models")
 
 
 def parse(argv):
     """`--이름 값` + `--dry-run` → 인자 dict. 모르는 이름·값 빠짐 = Usage(쓰기 «전»)."""
-    given, index = {}, 0
-    while index < len(argv):
-        token = argv[index]
-        if token == "--dry-run":
-            given["dry"], index = True, index + 1
-        elif token.startswith("--") and token[2:] in FIELDS and index + 1 < len(argv):
-            given[token[2:]], index = argv[index + 1], index + 2
-        else:
-            raise Usage("인자 꼴: --이름 값 (받은 것 %r)" % (token,))
+    given, rest = {"dry": "--dry-run" in argv}, [token for token in argv if token != "--dry-run"]
+    while rest:
+        name, rest = rest[0][2:], rest[1:]
+        if not name or name not in FIELDS or not rest:
+            raise Usage("인자 꼴: --이름 값 (받은 것 %r)" % ("--" + name,))
+        given[name], rest = rest[0], rest[1:]
     missing = [name for name in REQUIRED if not given.get(name)]
     if missing:
         raise Usage("값 빠짐: " + ",".join("--" + name for name in missing))
     return given
 
 
-def seat(projected, work):
-    """투영 1행 → (holder, attempt). 배정도 전달도 없으면 (None, None) — 열지 않는다(A1)."""
-    row = dict((projected.get("works") or {}).get(work) or {})
-    holder, deliveries = (row.get("owner") or {}).get("holder"), list(row.get("deliveries") or [])
-    return (holder, deliveries[-1]) if holder and deliveries else (None, None)
+def seat(root, team, work):
+    """최신 dispatch 줄 → (holder, attempt, 사유) — 그 attempt 가 전달 «되지 않았으면» 열지 않는다(A1 · DA R1).
+    투영의 `deliveries` 는 «과거 전달 목록» 이라 최신 배정의 전달 여부가 아니다 — journal 줄로 확인한다."""
+    runtime = projection.runtime_path(root, team)
+    if not os.path.isdir(runtime):
+        return None, None, "runtime 없음 = 배정·전달 없음(바깥 호출 0)"
+    node = journal.Journal(runtime, rec=record)
+    records = node.records()
+    state = record.recover_state(node.state(), records)
+    latest = [rec for rec in records if rec.get("kind") == "dispatch" and rec.get("work") == work]
+    if not latest:
+        return None, None, "배정 없음 — 열지 않는다(바깥 호출 0)"
+    attempt = latest[-1].get("attempt")
+    if attempt not in list((state.get("deliveries") or {}).get(work) or []):
+        return None, None, "최신 dispatch(%s) 미전달 — 열지 않는다(바깥 호출 0)" % attempt
+    return latest[-1].get("holder"), attempt, ""
 
 
 def plan_of(root, team, work, attempt, holder, role_argv, worktree):
-    """의도·워크트리·열기 argv — 런타임 자리는 코어와 같은 한 곳 · pi argv 는 역할 표 그대로(A5).
-    `--detach` = 가지를 몰래 만들지 않는다 · 좌석 env 는 tmux `-e` 로 넘긴다(이미 뜬 서버 pane 은 env 상속 0)."""
+    """의도·워크트리·열기 argv — `--detach`(가지 몰래 만들기 0) · pi argv 는 역할 표 그대로(A5) · env 는 tmux `-e`."""
     folder, tag = os.path.join(projection.runtime_path(root, team), "launch"), "%s@%s" % (work, attempt)
     path = os.path.abspath(worktree or os.path.join(root, ".fable-team", "teams", team, "worktrees", tag))
-    pairs = [word for key, value in seat_env(root, team, work, holder, attempt).items()
-             for word in ("-e", key + "=" + value)]
+    pairs = [word for key, value in seat_env(root, team, work, holder, attempt).items() for word in ("-e", key + "=" + value)]
     return {"intent": os.path.join(folder, tag + ".intent"), "worktree": path,
             "git": ["git", "worktree", "add", "--detach", path],
             "tmux": ["tmux", "new-session", "-d", "-s", holder, "-c", path] + pairs + ["pi"] + list(role_argv)}
@@ -96,8 +104,7 @@ def write_intent(path, payload):
 def read_intent(path):
     """의도 1줄 — 못 읽으면 {} (다른 호출이 만드는 중일 수 있다 · 추측 0)."""
     try:
-        with open(path, encoding="utf-8") as handle:
-            return json.load(handle)
+        return json.loads(open(path, encoding="utf-8").read())
     except (OSError, ValueError):
         return {}
 
@@ -106,49 +113,42 @@ def claimed(intent):
     """의도 1번 — O_EXCL 이 유일한 판정이다(«있나 보고 쓰기» 는 두 번 열린다 · M3)."""
     try:
         os.close(os.open(intent, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644))
+        return True
     except FileExistsError:
         return False
-    return True
 
 
 def failed(plan, env, step, detail):
     """실패 = 의도 줄에 단계 1개 — 그 줄이 있으면 다시 불러도 바깥 호출 0(자동 재시도 0)."""
     write_intent(plan["intent"], dict(env, state="failed", step=step, reason=detail, at=time.strftime(STAMP)))
-    return dict(result=CORRUPT, opened=False, intent=plan["intent"], step=step,
-                reason="%s 실패: %s — 자동 재시도 0" % (step, detail or "진단 없음")), 2
+    return dict(result=CORRUPT, opened=False, intent=plan["intent"], step=step, reason="%s 실패: %s — 자동 재시도 0" % (step, detail or "진단 없음")), 2
 
 
 def already(got, plan):
     """같은 일의 두 번째 호출 — 쓰기 0 · tmux 0. 열린 의도 = «이미 열림» · 실패 의도 = «복구 필요»."""
     if got.get("state") == "opened":
-        return dict(result=OK, opened=False, intent=plan["intent"], worktree=got.get("worktree"),
-                    reason="이미 열림 — 같은 일은 한 번만 연다"), 0
+        return dict(result=OK, opened=False, intent=plan["intent"], worktree=got.get("worktree"), reason="이미 열림 — 같은 일은 한 번만 연다"), 0
     if got.get("state") == "failed":
-        return dict(result=CORRUPT, opened=False, intent=plan["intent"], step=got.get("step"),
-                    reason="의도에 남은 실패(%s): %s — 자동 재시도 0" % (got.get("step"), got.get("reason"))), 2
+        return dict(result=CORRUPT, opened=False, intent=plan["intent"], step=got.get("step"), reason="의도에 남은 실패(%s): %s — 자동 재시도 0" % (got.get("step"), got.get("reason"))), 2
     return dict(result=CORRUPT, opened=False, intent=plan["intent"], reason="의도가 있으나 상태 불명 — 열림 여부는 사람이 확인한다"), 2
 
 
 def open_seat(given):
-    """(결과 dict, rc). 순서 = 투영 → 배정·전달 → 역할 → (dry-run) → 의도 1번 → git 1회 → tmux 1회."""
+    """(결과 dict, rc). 순서 = 최신 dispatch·전달 → 역할 → (dry-run) → 의도 1번 → git 1회 → tmux 1회."""
     root, team, work = os.path.abspath(given["root"]), given["team"], given["work"]
     role = given.get("role") or "session"
-    projected = projection.project(root, team)
-    if projected.get("result") != OK:
-        return dict(result=CORRUPT, work=work, reason=projected.get("reason") or "투영 판독 불가"), 2
-    holder, attempt = seat(projected, work)
+    holder, attempt, why = seat(root, team, work)
     if holder is None:
-        return dict(result=REFUSED, work=work, reason="배정·전달 없음 — 열지 않는다(바깥 호출 0)"), 1
+        return dict(result=REFUSED, work=work, reason=why), 1
     item = models.role(role)
     if item is None:
-        return dict(result=CORRUPT, work=work, role=role,
-                    reason="불명(역할 %s — role-defaults.tsv 행 없음 · 다른 역할로 대신 0)" % role), 2
+        return dict(result=CORRUPT, work=work, role=role, reason="불명(역할 %s — role-defaults.tsv 행 없음 · 대신 0)" % role), 2
     plan = plan_of(root, team, work, attempt, holder, item["argv"], given.get("worktree"))
     env = seat_env(root, team, work, holder, attempt)
     if given.get("dry"):
         return dict(result=OK, dry_run=True, work=work, attempt=attempt, holder=holder, role=item["role"],
-                    model=item["model"], effort=item["effort"], paths=plan,
-                    argv={"git": plan["git"], "tmux": plan["tmux"]}, env=env), 0
+                    model=item["model"], effort=item["effort"], paths=plan, argv={"git": plan["git"], "tmux": plan["tmux"]},
+                    env=env), 0
     os.makedirs(os.path.dirname(plan["intent"]), exist_ok=True)
     if not claimed(plan["intent"]):
         return already(read_intent(plan["intent"]), plan)
