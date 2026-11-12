@@ -415,3 +415,8 @@ ft_doc_card_landed() { local repo="$1" sha="$2" card="$3" ref="${FT_DOC_LAND_REF
     n=$((n+1))
   done <<< "$names"
   printf '인정 ref %s · 파일 %s\n' "$ref" "$n"; return 0; }
+# r1785 ft_pack_card <카드> : 팩 나노 카드 판별 한 출처(nano-close ⓐ 팩 경로 · nano-spawn 팩 작업 폴더 줄) — rc0 = 팩 카드 · rc1 = 아님·카드 없음·못 읽음
+#   표지 ⓐ 첫 5줄 원장 줄 `<!-- ledger: …/GOAL-harness.md -->`(r621·r688 · 머리 `- 설치:` 줄 무관)
+ft_pack_card() { local c="${1:-}"
+  [ -n "$c" ] && [ -f "$c" ] && [ -r "$c" ] || return 1
+  head -5 "$c" | grep -qE '<!-- ledger: [^ ]*/GOAL-harness\.md -->'; }

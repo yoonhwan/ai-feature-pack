@@ -781,7 +781,7 @@ echo "BODY+${_RTX}"
 #   세션 스크래치에 만들면 nano-close --wt 팩 모드(r508 · 팩 .worktrees/ 아래만)가 거절한다(r517 실사건) · 그 밖 카드 = 출력 0
 # r1205: 판별 = nano-close r621·r688 과 같은 «첫 5줄 원장 줄» — `- 설치:` 줄로 보면 시험만 고치는 하네스 카드(설치: 없음)가 스크래치에서 일해 닫기가 막힌다(r1197·r1204)
 pack_wt_line() {
-  head -5 "$1" | grep -qE '<!-- ledger: [^ ]*/GOAL-harness\.md -->' || return 0
+  ft_pack_card "$1" || return 0   # r1785: 판별 = ft-team-lib.sh ft_pack_card 한 출처(nano-close ⓐ 와 같음)
   local pk="${FT_PACK_ROOT:-$HOME/Project/ai-feature-pack}"
   printf ' ★팩 작업 폴더 = %s/.worktrees/%s (git -C %s worktree add %s/.worktrees/%s -b %s origin/main · 세션 스크래치 0 — 닫기 = nano-close --wt %s/.worktrees/%s --branch %s)★' \
     "$pk" "$2" "$pk" "$pk" "$2" "$3" "$pk" "$2" "$3"

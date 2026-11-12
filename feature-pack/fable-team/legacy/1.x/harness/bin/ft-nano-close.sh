@@ -1683,8 +1683,7 @@ _ev_run() {  # r938 ⓒ(r2 N2·N3): 증거 검사도 상한 안에서 — 상한
 }
 # r508 ⓐ 카드 · r621: 판별 = 카드 첫 5줄의 원장 줄(하네스 카드는 둘째 줄 `<!-- ledger: design/harness/GOAL-harness.md -->`) — 머리 `- 설치:` 줄로 보면 시험만 고치는 하네스 카드(설치: 없음)가 막혀 --suspended 로 우회하게 된다(r604·r618). 제품 카드·카드 못 찾음은 지금 ⓐ REJECT 문구 그대로
 # r688: 표지는 경로가 아니라 카드 안 글자 — 팀 폴더 글자 없이 «원장 파일 이름» 으로 맞춘다(팀 경로 리터럴 린트 오인 0 · 하네스 폴더가 design/teams/ 로 옮겨도 같은 표지)
-HARNESS_LEDGER_MARK_RE='<!-- ledger: [^ ]*/GOAL-harness\.md -->'
-if [ "$PACK_WT" = 1 ] && ! { [ -n "$CARD_READ" ] && head -5 "$CARD_READ" | grep -qE "$HARNESS_LEDGER_MARK_RE"; }; then
+if [ "$PACK_WT" = 1 ] && ! ft_pack_card "$CARD_READ"; then   # r1785: 판별 = ft-team-lib.sh ft_pack_card 한 출처(spawn pack_wt_line 과 같음)
   bad+=("ⓐ--wt($_nw)가 이 리포($ROOT)에 등록된 .worktrees/ 아래 워크트리가 아니다 · 팩 경로는 하네스 카드(원장 GOAL-harness)만 (카드 ${CARD_READ:-못 찾음})")
 fi
 # ④ 면제: 나노는 press 금지(single_set_testing) — 이 좌석 브랜치에 press 산출(poller_dom.jsonl)이 없으면 checkpoint 를 요구하지 않는다(10-03 문서·유닛 나노 4석 막힘 · master-claude#131).
