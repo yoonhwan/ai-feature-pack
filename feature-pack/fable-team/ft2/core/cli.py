@@ -114,8 +114,8 @@ def clock_from_env():
 def call(verb, given, clock):
     """동사 1개 → 공개 메서드 1개. 반환은 라이브러리 그대로(JSON 낼 수 있는 꼴)."""
     classes = {"Intake": _load("intake").Intake, "Execution": _load("execution").Execution,
-               "Dispatch": _load("dispatch").Dispatch, "TeamRecord": _load("team_record").TeamRecord,
-               "RefuseHistory": _load("refuse_history").RefuseHistory}   # r1724 회수 거절 이력
+               "Dispatch": _load("dispatch").Dispatch, "TeamRecord": _load("team_record").TeamRecord}
+    classes["RefuseHistory"] = _load("refuse_history").RefuseHistory   # r1724 회수 거절 이력
     cls_name, method, required, optional = VERBS[verb]
     root, team = os.path.abspath(given["root"]), given["team"]
     if cls_name == "Projection":                        # 읽기 동사 — 인스턴스·잠금 없이 투영만 읽는다
