@@ -20,7 +20,7 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 
-from ft_nano_record import ENV, SET_RX, Ctx, Reject, Unjudged, left_free, left_of, marks, need, rec_of, run, section
+from ft_nano_record import ENV, SET_RX, Ctx, Reject, Unjudged, check_test, left_free, left_of, marks, need, rec_of, run, section
 from ft_nano_record_due import card_key, owners
 from ft_nano_record_notify import close_request, send, seq_known, try_record, update
 
@@ -67,6 +67,8 @@ def read_sec(ctx, team, iroot, stem):   # 카드 ref 를 새로 받아 → (끝 
     lines, st, en = section(raw.decode("utf-8"))
     if st is None:
         raise Reject(f"카드에 «## 상태» 절 없음({path})")
+    if ctx.store()["tips"].get(team) != ctx.tip(team)["sha"]:   # 마지막에 본 원격 끝 — due 의 fetch 0 판이 이 뒤로 물러서지 않게
+        update(ctx, lambda s: s["tips"].__setitem__(team, ctx.tip(team)["sha"]))
     return ctx.tip(team), path, lines, st, en
 
 
@@ -145,8 +147,8 @@ def cmd_landed(ctx, a):
         raise Reject(f"장부에 (PR #{a.pr} · {a.card}) 줄 없음")
     e, cpath = hit[-1]
     team, iroot, stem = card_key(cpath)
-    if a.test is not None and (not re.search(r"\brc=0\s*$", a.test) or re.search(r"<[^<>]*>", a.test)):
-        raise Reject("시험 rc≠0 — 통과한 시험만 세트 줄에 적는다" if not re.search(r"\brc=0\s*$", a.test) else "--test 자리표시 그대로 — 실제로 돌린 시험 명령을 적는다")
+    if a.test is not None:
+        check_test(a.test)
     q, repo, target = e["landed"], str(e.get("repo") or ""), str(e.get("target") or "main")
     rc, _o, _e = run(["git", "-C", repo, "merge-base", "--is-ancestor", q, f"refs/remotes/origin/{target}"])   # r1717-mut:ancestor
     if rc == 1:

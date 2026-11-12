@@ -54,6 +54,13 @@ def left_free(text, master=""):   # A15 — 잔여 판정 «한 곳»: «없음�
     return t in ("", "없음") or all(re.fullmatch(rf"[^=\s]+=({who})", w) for w in t.split())
 
 
+def check_test(test):   # A6 ④·A12 — --test 는 `rc=0` 으로 끝나고 쪽지 견본의 `<…>` 자리표시가 남아 있지 않다
+    if not re.search(r"\brc=0\s*$", test):
+        raise Reject("시험 rc≠0 — 통과한 시험만 세트 줄에 적는다")
+    if re.search(r"<[^<>]*>", test):
+        raise Reject("--test 자리표시 그대로 — 실제로 돌린 시험 명령을 적는다")
+
+
 def section(text):   # → (줄들, 상태 절 머리 줄 번호|None, 절 끝 번호) · 머리 꼴 = ft-nano-close _lp_card_set 과 같다
     lines = text.split("\n")
     st = next((n for n, ln in enumerate(lines) if re.fullmatch(r"##\s*상태\s*", ln)), None)
@@ -79,8 +86,8 @@ def rec_of(m):   # A11 기록 지문 = ⓢ + ⓛ + ⓒ 줄을 이은 글의 sha2
 
 
 class Ctx:
-    def __init__(self):
-        r = os.environ.get("FT_ROOT") or os.environ.get("FT_REPO_ROOT") or "."
+    def __init__(self, root=None):
+        r = (str(root) if root else "") or os.environ.get("FT_ROOT") or os.environ.get("FT_REPO_ROOT") or "."
         rc, out, _e = run(["git", "-C", r, "rev-parse", "--path-format=absolute", "--git-common-dir"])
         c = out.strip()
         if rc != 0 and r == ".":
@@ -95,7 +102,7 @@ class Ctx:
             d = json.loads((self.state / "land-record-notified.json").read_text(encoding="utf-8"))
         except (OSError, ValueError):
             d = {}
-        return {k: d.get(k) if isinstance(d.get(k), dict) else {} for k in ("sent", "close", "left", "refused", "rejrec", "done")}
+        return {k: d.get(k) if isinstance(d.get(k), dict) else {} for k in ("sent", "close", "left", "refused", "rejrec", "done", "tips")}
 
     def ledger(self):   # 장부 → 착지 항목들(같은 pr 은 뒤 줄이 이긴다 · settle 덧줄 반영)
         ents = {}
@@ -149,6 +156,9 @@ class Ctx:
             _, sha = need(["git", "-C", root, "rev-parse", "--verify", "-q", name + "^{commit}"], f"카드 ref 읽기 {ref}")
             if name == priv:
                 run(["git", "-C", root, "update-ref", "-d", priv])
+            else:   # fetch 0 판 — landed·done 이 마지막에 본 원격 끝(tips)이 remote-tracking 보다 앞서 있으면 그쪽(자기가 보낸 줄을 낡은 판으로 판정하지 않는다)
+                own = str(self.store()["tips"].get(team) or "")
+                sha = own if own and run(["git", "-C", root, "merge-base", "--is-ancestor", sha.strip(), own])[0] == 0 else sha
             self._tips[team] = {"ref": ref, "url": url, "br": br, "sha": sha.strip(), "files": {}}
         return self._tips[team]
 

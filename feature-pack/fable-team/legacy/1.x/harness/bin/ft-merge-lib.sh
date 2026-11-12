@@ -352,7 +352,7 @@ print(v if isinstance(v,str) else "")' "$seats" 2>/dev/null)"
 fm_cards_by_tokens() {
   local root="$1"; shift
   [ -n "$root" ] && [ $# -gt 0 ] || return 0
-  git -C "$root" ls-files -- 'design/*/indices/*/*.md' 'design/teams/*/indices/*/*.md' 2>/dev/null | while IFS= read -r p; do
+  git -c core.quotepath=false -C "$root" ls-files -- 'design/*/indices/*/*.md' 'design/teams/*/indices/*/*.md' 2>/dev/null | while IFS= read -r p; do   # r1717: 한글 폴더(진행·완성)를 따옴표 꼴로 내지 않게 — 차례 장부가 이 경로를 그대로 쓴다
     local b t; b="-${p##*/}"; b="${b%.md}-"
     for t in "$@"; do
       case "$b" in *"-$t-"*) printf '%s/%s\n' "$root" "$p"; break;; esac
