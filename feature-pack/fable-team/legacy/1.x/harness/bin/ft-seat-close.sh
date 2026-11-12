@@ -10,6 +10,8 @@
 #   r1481 ``--verdict`` 원장 관문 — ②③ 면제의 근거는 «사람 판정 1건»이므로 번호가 planner 판정 원장(``${FT_TEAMS_REF:-origin/main}``:``design/teams/planner/VERDICTS-planner-*.md`` · fetch 0)에 실재할 때만 닫는다. 못 읽음·번호 없음 = REJECT rc 1(명부 쓰기 0 · kill 0).
 #   r1568 — 승계 끝 확인: reap 이 남기면 «1회 더» 보고(짧은 git 자식이 스스로 사라지는 사이), kill 뒤에 «세션 부재 ∧ 최종 재조사 left=0» 을 한 번 더 재서 CLOSED(둘 중 하나라도 거짓 = CLOSE-FAIL rc≠0 — 거짓 성공 0). 최종 실패 = 기록 1개(<루트>/.fable-team/state/close-fail/<좌석>.txt · 좌석·담당·이유·남은 것·다음 실행) + master 쪽지 1통(다음 닫기 성공 때만 지운다) · 최종 재조사 원문(reap 줄)은 stderr 에 남는다.
 set -uo pipefail
+# r1718 A5·A7: 자기 감싸기 1곳 — 본 작업은 자식 1회 · 출력·rc 그대로 · rc 1 REJECT 에 «진행» 아닌 사유가 있으면 desk [크리티컬] 1통 · rc 0 = 해결
+[ "${FT_CRITICAL_IN:-}" = "$PPID" ] || [ "${FT_CRITICAL_OFF:-0}" = 1 ] || [ ! -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-critical-notify.sh" ] || exec bash "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-critical-notify.sh" --wrap ft-seat-close "${BASH_SOURCE[0]:-$0}" "$@"   # r1718-mut:seatcall
 USAGE="usage: $0 <좌석> --reason \"<1줄>\" [--seats <파일>] [--verdict <번호>] | $0 --reopen <좌석> [--seats <파일>]"
 REOPEN=0; [ "${1:-}" != --reopen ] || { REOPEN=1; shift; }
 SEAT="${1:-}"; case "$SEAT" in ""|--*) echo "$USAGE" >&2; exit 2;; esac

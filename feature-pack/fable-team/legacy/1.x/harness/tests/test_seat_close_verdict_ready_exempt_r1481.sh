@@ -94,6 +94,7 @@ close_ "$O" --reason r --seats "$S"; chk "T3 ft-seat-close rc1 · 승계 마무�
 
 # ── T4: 원장에 번호 없음 → REJECT rc1 · close-check 호출 0 · retire 0 · 명부 바이트 동일 · kill 0 (번호 경계 = fv_row_re)
 export FT_MBOX_PY="$T/bin/mbox-stub.py" MBOX_STUB_LOG="$T/mboxstub.log"
+export FT_CRITICAL_OFF=1   # r1718 A9: T4 는 거절 출력을 «줄 전체» 로 대조한다(2>&1) — 이 시험 환경에는 desk 명부가 없어 [크리티컬] 알림이 WARN 1줄을 덧붙인다 · 알림은 이 시험 대상이 아니다(test_reject_critical_r1718*)
 new_env; hando; roster 1; S="$E/seats/seats-feature.json"; cp "$S" "$T/roster4.orig"; : > "$MBOX_STUB_LOG"; : > "$RETIRE_LOG"; : > "$TMUX_LOG"
 close_ "$O" --reason r --seats "$S" --verdict 99999
 chk "T4a 판정 99999 없음 → REJECT rc1 · 원장 문구" "$RC $([[ "$OUT" == "REJECT $O 판정 99999 이 main 원장(VERDICTS-planner-*.md)에 없음 — 쓰기 0 · kill 0" ]] && echo msg)" "1 msg"

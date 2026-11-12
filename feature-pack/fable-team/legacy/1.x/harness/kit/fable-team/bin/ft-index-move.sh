@@ -359,6 +359,10 @@ PY
     note="ft-nano-close rc=$rc"; [ -n "$seq" ] || note="우편함에 이 좌석 발신 0 — 닫기 0"
     first="$(printf '%s\n' "$out" | grep -m1 '^REJECT' || printf '%s\n' "$out" | grep -m1 -v '^[[:space:]]*$' || true)"   # r1649 r2 ⓑ: rc 만 남기면 무엇을 고칠지 모른다 — 출력 첫 REJECT 줄을 h 주석·NANO-CLOSE 줄에
     [ -z "$first" ] || note="$note — ${first:0:200}"
+    if [ "$rc" = 1 ] && [[ "$first" == REJECT* ]]; then   # r1718 A10: 거절(rc 1)은 같은 입력으로 다시 돌려도 거절이다 — h 계획 0 · 알림은 ft-nano-close 자신이 desk 에 보낸다(A5 · 두 번 0)   r1718-mut:noplan
+      note="$(printf '%s\n' "$out" | grep -A1 -m1 '^REJECT' | sed -n '2s/^  - //p')"; first="$first${note:+ · $note}"
+      echo "NANO-CLOSE $seat rc=1 계획 0 — ${first:0:200}"; continue
+    fi
     plan="$(mktemp -d "${TMPDIR:-/tmp}/r1649-close-XXXXXX" 2>/dev/null)" && { plan="$plan/plan.sh"; printf '# %s\n' "$note" > "$plan"; printf 'bash %q %q --result %q%s\n' "${FT_NANO_CLOSE_BIN:-$HERE/ft-nano-close.sh}" "$seat" "$new" "${seq:+ --recv $seq}" >> "$plan"; }   # macOS mktemp 는 접미사 뒤 XXXXXX 를 안 바꾼다 — 폴더 + 고정 이름
     hn="$(bash "${FT_HIL_BIN:-$HERE/ft-hil.sh}" --add ${plan:+"$plan"} 2>&1 | sed -n 's|.*/h\([0-9][0-9]*\).*|\1|p' | head -1)"   # r1649-mut:hil
     echo "NANO-CLOSE $seat rc=${rc:--} → h${hn:-?} — $note"
