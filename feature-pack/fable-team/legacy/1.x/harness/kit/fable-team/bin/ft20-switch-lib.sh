@@ -6,7 +6,10 @@
 FT20_SWITCH_REL=".fable-team/state/ft20-switch"
 ft20_root_of() {   # <경로> → .fable-team 이 있는 리포 루트 · FT_FT20_ROOT 가 이긴다(시험용 임시 루트)
   if [ -n "${FT_FT20_ROOT:-}" ]; then printf '%s' "$FT_FT20_ROOT"; return 0; fi
-  local r; r="$(git -C "${1:-.}" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || return 1
+  local p="${1:-.}" r
+  [ -f "$p" ] && p="$(dirname -- "$p")"   # r1767 A1 — 카드 «파일» 경로면 그 폴더
+  while [ ! -e "$p" ]; do p="$(dirname -- "$p")"; done   # r1767 A1 — 아직 없는 경로(쌍둥이 경로)는 존재하는 가장 가까운 상위
+  r="$(git -C "$p" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || return 1
   printf '%s' "${r%/.git}"
 }
 ft20_switch_dir() { printf '%s/%s' "${1%/}" "$FT20_SWITCH_REL"; }
@@ -116,6 +119,7 @@ ft20_guard_spawn() {
   [ -z "${FT_TEAM:-}" ] || teams+=("$FT_TEAM")
   case "$card" in */indices/*) t="${card%/indices/*}"; teams+=("${t##*/}");; esac
   [ -z "${3:-}" ] || { t="$(ft20_team_of_file "$3")" && teams+=("$t"); }
+  [ -n "$root" ] || [ "${#teams[@]}" -eq 0 ] || { echo "REJECT 데이터 루트 판정 불가 — 2.0 전환 표식 검사 못 함 · 1.x 쓰기 0" >&2; return 3; }   # r1767 A3 — spawn 입구만(하드 룰 20)
   ft20_switch_guard_multi "$root" ${teams[@]+"${teams[@]}"}
 }
 # ft20_guard_roster <루트> <명부파일> — 역할 좌석 개설·틱 승계처럼 «그 명부 한 장»에 쓰는 입구
