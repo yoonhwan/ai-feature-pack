@@ -76,7 +76,7 @@ def _mail_line(path, seq):
         for line in handle:
             try:
                 if json.loads(line).get("seq") == seq:
-                    return line.rstrip(b"\n")
+                    return line                 # 원본 줄 바이트 그대로(끝 LF 포함 · DA R1)
             except (ValueError, AttributeError):
                 continue
     raise Skip("원본 없음")
