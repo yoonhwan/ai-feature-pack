@@ -70,6 +70,8 @@
 #   FT_WT_AUTOCLEAN=0 = 실행 경로 전부 끔(계획만 남김). 원장 경로는 리포 고정(ROOT 기준 · DA r2 MINOR C) — FT_NANO_LEDGER 로 override.
 set -uo pipefail
 [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
+# r1718 A5·A7: 자기 감싸기 1곳 — 본 작업은 자식 1회 · 출력·rc 그대로 · rc 1 REJECT 에 «진행» 아닌 사유가 있으면 desk [크리티컬] 1통 · rc 0 = 해결 (REJECT 출구 손 0)
+[ "${FT_CRITICAL_IN:-}" = "$PPID" ] || [ "${FT_CRITICAL_OFF:-0}" = 1 ] || [ ! -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-critical-notify.sh" ] || exec bash "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-critical-notify.sh" --wrap ft-nano-close "${BASH_SOURCE[0]:-$0}" "$@"   # r1718-mut:nanocall
 # ★r938 ⓐ 단계 시각 줄★ — ④checkpoint 뒤 단계마다 «STEP <이름> +<초>s» 를 stderr 에 찍는다. 지금은 그 단계들의 출력이 변수에 담겨 끝에 한꺼번에 나와
 #   «어느 단계에서 멈췄는지» 화면으로 알 길이 0(실측: ④ WARN 뒤 70초+ 무출력 · master#114 #169157). stdout 은 손대지 않는다(사람 출력 회귀 0 · 시험 ⓐ).
 T0="$(date +%s)"
