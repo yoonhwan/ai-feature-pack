@@ -207,6 +207,7 @@ scope_classify() {  # <sha> → CLS(종류) CLS_LEARNED(학습 키 · 없으면 
   if [ "$SCOPE_RK" = pack ]; then t="${FT_SCOPE_PACK_TABLE:-$(tpl_file scope-classes-pack.tsv)}" || scope_err "팩 분류표 없음(templates/scope-classes-pack.tsv)"; a+=(--table "$t")
   elif t="${FT_SCOPE_DDL_RECORDS:-$(tpl_file scope-ddl-record.tsv)}"; then a+=(--ddl-records "$t"); fi
   [ -z "$lk" ] || a+=(--learned "$lk")
+  [ -z "${card:-}" ] || a+=(--card "$card")   # r1799: scope-approve --card → 분류기 카드 범위 삭제 갈래(r1778) · 빈 값 = 인자 그대로
   scope_run_cls classify "$1" "${a[@]}"
   if [ "$RC" = 3 ] && [[ "$FIRST" =~ ^FORBID\ kind=([a-z][a-z0-9-]*)\  ]]; then
     mkdir -p "$SDIR" && printf '%s\t%s\t%s\n' "$1" "${BASH_REMATCH[1]}" "$(now_epoch)" >> "$SDIR/denied.tsv" || scope_wfail "$SDIR/denied.tsv"
