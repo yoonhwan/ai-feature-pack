@@ -94,6 +94,7 @@ ft20_guard_seat() {
 # ft20_guard_retire <루트> <옛좌석> [<명부파일>] [<후계이름>] — 명부 쓰기 입구(은퇴·승계)
 #   쓰기 대상 명부 «전부» + ★R282② 가 새 행을 만들 이름의 팀 명부★(명부에 행이 없어도 그 팀에 쓴다 · DA R1)
 #   옛 이름이 lint 실패면 R282② 는 «후계 이름»의 팀을 쓴다 → 그때만 후계 팀을 더한다(과차단 0)
+#   r1777(R336) — 표식이 «없는» 교대 창이면 보관본(unmarked-<ts>)의 h 로 같은 자율 조건을 본다(ft20_window_guard).
 ft20_guard_retire() {
   local root="${1:-}" seat="${2:-}" f="${3:-}" new="${4:-}" teams rc t src
   teams="$(ft20_teams_writing_seat "$root" "$seat" "$f")"; rc=$?
@@ -103,7 +104,8 @@ ft20_guard_retire() {
   t="$(ft20_team_of_name "$src")" && teams="${teams}${teams:+
 }$t"
   [ -n "$teams" ] || { echo "INFO 팀 판정 불가 — $seat 이 어느 명부에도 없고 이름에서 팀도 못 뽑음 · 2.0 전환 표식 검사 건너뜀" >&2; return 0; }
-  ft20_switch_guard_multi "$root" $teams
+  ft20_switch_guard_multi "$root" $teams || return $?
+  ft20_window_guard "$root" $teams
 }
 # ft20_guard_move <루트> <카드경로> — 카드 이동(카드 경로 팀 우선 · 경로로 못 풀 때만 FT_TEAM · arch #3917 ②)
 ft20_guard_move() {
@@ -120,3 +122,64 @@ ft20_guard_spawn() {
 }
 # ft20_guard_roster <루트> <명부파일> — 역할 좌석 개설·틱 승계처럼 «그 명부 한 장»에 쓰는 입구
 ft20_guard_roster() { ft20_switch_guard "${1:-}" "$(ft20_team_of_file "${2:-}")"; }
+
+# ── r1777(R336) 교대 창 = unmark → retire → remark 를 Slack 질문 0 으로 ─────────
+#   표식 h 가 `A<N>`(자율 사건)이면 «자율 정합 ON ∧ 레벨 full ∧ A<N> = 지금 이벤트» 일 때만 받는다.
+#   숫자 h 길은 손대지 않는다(옛 1.x 손 승계 그대로 · 하드 룰 16 «느슨하게 하지 않는다» 는 mark·unmark 에 그대로).
+#   도구 자리 = FT20_AUTONOMY_BIN → 같은 폴더 ft-autonomy.sh (시험은 사본 경로를 준다)
+ft20_autonomy_bin() { printf '%s' "${FT20_AUTONOMY_BIN:-$FT20_HERE/ft-autonomy.sh}"; }
+ft20_autonomy_level() {   # 레벨 칸(ft-autonomy-level.sh 의 jfield level 과 같은 기본값 = full · 못 읽으면 빈 값)
+  local d; d="$(bash "$(ft20_autonomy_bin)" state-dir 2>/dev/null)" || { printf 'full'; return 0; }
+  python3 -c 'import json,sys
+try: d=json.load(open(sys.argv[1],encoding="utf-8"))
+except Exception: print(""); raise SystemExit(0)
+print(str(d.get("level") or "full"))' "$d/autonomy.json" 2>/dev/null
+}
+# ft20_autonomy_ok <h> → 0 허용 · 2 거절(사유 1줄 stderr · 쓰기 0)
+ft20_autonomy_ok() {
+  local h="${1:-}" s m ev l
+  s="$(ft20_autonomy_bin)"
+  [ -f "$s" ] || { echo "REJECT 자율 상태 도구 없음($s) — 교대 창 h=$h 판정 불가 · 1.x 쓰기 0" >&2; return 2; }
+  ev="$(bash "$s" event 2>/dev/null)"
+  if [ "$ev" != "$h" ]; then echo "REJECT 교대 창 h=$h 는 지금 이벤트(${ev:-없음})가 아님 — 지난 사건이거나 자율 OFF · 1.x 쓰기 0" >&2; return 2; fi
+  m="$(bash "$s" mode 2>/dev/null)"
+  if [ "$m" != on ]; then echo "REJECT 교대 창 h=$h — 자율이 ON 이 아님(mode=${m:-?} · 위변조 포함) · 1.x 쓰기 0" >&2; return 2; fi
+  l="$(ft20_autonomy_level)"
+  if [ "$l" != full ]; then echo "REJECT 교대 창 h=$h — 자율 레벨이 full 이 아님(${l:-?}) · 1.x 쓰기 0" >&2; return 2; fi
+  return 0
+}
+# ft20_window_backup <루트> <팀> → 가장 새 보관본 1줄 · 없으면 rc1
+ft20_window_backup() {
+  local d dst; d="$(ft20_switch_dir "${1%/}")"; [ -d "$d" ] || return 1
+  dst="$(printf '%s\n' "$d/${2:-}.json.unmarked-"* | sort -r | head -1)"
+  [ -f "$dst" ] || return 1
+  printf '%s' "$dst"
+}
+# ft20_window_guard <루트> <팀...> → 0 통과 · 2 자율 조건 불일치 · 3 보관본 판정 불가 (전부 «1.x 쓰기 0»)
+#   교대 창 = 표식 없음 ∧ 보관본 있음 · 보관본 h 가 A<N> 꼴일 때만 자율 조건을 본다(숫자 h = 옛 손 승계 그대로 통과)
+ft20_window_guard() {
+  local root="${1:-}" t dst h; shift || true
+  [ -n "$root" ] || return 0
+  for t in "$@"; do
+    [ -n "$t" ] || continue
+    [ ! -e "$(ft20_switch_marker "$root" "$t")" ] || continue
+    dst="$(ft20_window_backup "$root" "$t")" || continue
+    h="$(python3 -c 'import json,sys
+d=json.load(open(sys.argv[1],encoding="utf-8"));print(str(d.get("h") or ""))' "$dst" 2>/dev/null)" \
+      || { echo "REJECT 팀 $t 교대 창 보관본 판정 불가 — $dst 못 읽음(깨진 JSON·권한) · 1.x 쓰기 0" >&2; return 3; }
+    case "$h" in A[0-9]*) ft20_autonomy_ok "$h" || return 2;; esac
+  done
+  return 0
+}
+# ft20_switch_window <루트> <팀> <h> [명령...] — 교대 창 1회: unmark → 명령(retire 등) → remark
+#   unmark 실패 = 아무것도 안 바꿨으니 되돌림 0 · retire·remark 중 하나라도 rc≠0 이면 «그 자리에서» restore(보관본 → 표식)
+#   남는 것 = 표식 원래 내용 그대로 · 1.x writer 는 다시 rc3
+ft20_switch_window() {
+  local root="${1:-}" team="${2:-}" h="${3:-}" tool rc=0; shift 3 || return 2
+  tool="$FT20_HERE/ft-team-switch.sh"
+  bash "$tool" unmark "$team" --h "$h" --root "$root" >/dev/null || { rc=$?; echo "REJECT 교대 창 열기 실패(unmark $team · h=$h · rc=$rc) — 표식 그대로" >&2; return "$rc"; }
+  [ $# -eq 0 ] || { "$@" >&2 || rc=$?; }
+  if [ "$rc" = 0 ]; then bash "$tool" mark "$team" --h "$h" --root "$root" >/dev/null || rc=$?; fi   # remark
+  if [ "$rc" != 0 ]; then bash "$tool" restore "$team" --root "$root" >&2 || echo "WARN 교대 창 되돌림(restore $team) 실패 rc=$? — 보관본에서 손으로 되살린다" >&2; return "$rc"; fi
+  return 0
+}
