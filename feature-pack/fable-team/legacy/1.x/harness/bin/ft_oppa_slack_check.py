@@ -6,7 +6,8 @@ CLI: ft_oppa_slack_check.py <질문 글 ts> <40hex>… → 각 sha `SLACK-OK <sh
 r1606: 창 안 오빠 답글의 «내용» 도 본다 — 답글을 토막(공백·쉼표)으로 나눠 토막 전부가 승인 낱말일 때만 승인, 거절 토막이 하나라도 있으면 REJECT, 모르는 토막이 있으면 REJECT «판정 불가: 답글 내용». «오빠가 답했다» ≠ «오빠가 승인했다».
 env: FT_SLACK_REPLIES_CMD(시험용 · 이 명령의 stdout = conversations.replies JSON · 조회할 ts 는 env FT_SLACK_TS 로 준다) · FT_SCOPE_SLACK_TOKEN_FILE · FT_SCOPE_SLACK_CHANNEL
 --reply-only <질문 ts>(r1591) = sha 칸이 없는 질문(설계 승인 등) 모드 — stdout 은 `REPLY-SEEN parent=<ts> reply=<ts>` 한 줄(rc0) · 답글 아직 없으면 rc3 · 판정 불가 rc2 · SLACK-OK 를 «한 줄도» 내지 않는다(승인 길에 못 쓴다).
-r1764: `--reply-only <부모 ts> --after <글 ts>` = 그 시각 «뒤» 첫 오빠 글만 본다(스레드 새 글 감시 · 글이 더 없으면 rc3) — 승인 길·--after 없는 길은 그대로."""
+r1764: `--reply-only <부모 ts> --after <글 ts>` = 그 시각 «뒤» 첫 오빠 글만 본다(스레드 새 글 감시 · 글이 더 없으면 rc3) — 승인 길·--after 없는 길은 그대로.
+r1776: `--reply-only <질문 ts> [--after <ts>] [--stop-at <ts>[,<ts>…]]`(순서 무관) = 같은 스레드에 있는 stop ts 중 질문 뒤 가장 이른 것 앞에서 창을 끊는다(스레드에 없는 ts 무시) · 승인 길(sha)에 --stop-at = rc2 usage."""
 import json
 import os
 import re
@@ -95,7 +96,7 @@ def locate(ts: str) -> list:
 
 
 
-def judge(ts: str, shas: list, after: str | None = None) -> list:  # r1764 · after = 이 ts «뒤» 만(스레드 새 글 감시)
+def judge(ts: str, shas: list, after: str | None = None, stop: list | None = None) -> list:  # r1764 · after = 이 ts «뒤» 만(스레드 새 글 감시) · r1776 stop = 다음 질문 ts
     msgs = locate(ts)
     q = next(m for m in msgs if m.get("ts") == ts)
     if not isinstance(q.get("text"), str):
@@ -107,6 +108,7 @@ def judge(ts: str, shas: list, after: str | None = None) -> list:  # r1764 · af
         raise Unjudgeable("edited 꼴 아님")
     me = [q.get("user"), q.get("bot_id")]
     after_msgs = sorted(((dec(m.get("ts")), m.get("user"), m) for m in msgs if m is not q), key=lambda x: x[0])
+    stops, seen = [dec(s) for s in stop or []], {t for t, _, _ in after_msgs}  # r1776
     # r1696 ⓐ — 창 끝 = parent 뒤 «같은 작성자의 다음 글»(지금 그대로) · 단 그 글이 «이 sha 를 담고» 있으면(재게시·sha 적은 독촉) 끊지 않고 잇는다.
     #   40hex 없는 같은 작성자 글은 지금처럼 끊는다(«4. 다음 질문» = 창 끝) · sha 마다 다르게 판정하므로 «다른 sha 를 물은 글» 도 그 sha 의 창을 끊는다.
     mine = sorted([(parent, text)] + [(t, m.get("text") if isinstance(m.get("text"), str) else "") for t, _, m in after_msgs
@@ -121,6 +123,8 @@ def judge(ts: str, shas: list, after: str | None = None) -> list:  # r1764 · af
             raise ValueError("질문 글에 %s 없음" % sha)
         # r1709: 승인 판정이 없는 질문 감시(sha 빈 값 = --reply-only)는 창을 끊지 않는다 — 같은 스레드 desk 정정·보충 글이 창을 끊어 그 뒤 오빠 답을 영영 못 보던 것(승인 0줄이라 새는 승인도 0)
         brk = [] if not sha else [x for x, txt in mine if x > parent and not has_sha(txt, sha)]   # 이 sha 의 창을 끊는 글 = sha 를 안 담은 같은 작성자 글
+        if not sha and stops:  # r1776 · 다음 질문(장부에 있는 ts · 이 스레드 안) 앞에서만 끊는다 · 작성자로 끊지 않음(r1709 정정 글 허용 그대로)
+            brk = sorted(x for x in stops if x > parent and x in seen)
         nxt = brk[0] if brk else None
         ok = [(t, m) for t, u, m in after_msgs if u == OPPA_SLACK_UID and t > parent and (nxt is None or t < nxt) and (edited is None or dec(edited["ts"]) < t)
               and (floor is None or t > floor)]
@@ -141,13 +145,16 @@ def judge(ts: str, shas: list, after: str | None = None) -> list:  # r1764 · af
 
 
 def main(argv: list) -> int:
-    args, after = argv[1:], None
-    if "--after" in args:  # r1764 · --reply-only 전용(승인 길에 새 인자를 끼우지 않는다)
-        i = args.index("--after")
-        if len(args) != i + 2 or args[0] != "--reply-only" or not re.fullmatch(r"[0-9]+\.[0-9]{6}", args[i + 1]):
-            print("usage: ft_oppa_slack_check.py --reply-only <부모 글 ts> [--after <이 ts 뒤>]", file=sys.stderr)
-            return 2
-        args, after = args[:i], args[i + 1]
+    args, opt = argv[1:], {}
+    for flag in ("--after", "--stop-at"):  # r1764·r1776 · --reply-only 전용(승인 길에 새 인자를 끼우지 않는다) · 순서 무관
+        if flag in args:
+            i = args.index(flag)
+            v = args[i + 1] if i + 1 < len(args) else ""
+            if args[0] != "--reply-only" or not re.fullmatch(r"[0-9]+\.[0-9]{6}" + (r"(,[0-9]+\.[0-9]{6})*" if flag == "--stop-at" else ""), v):
+                print("usage: ft_oppa_slack_check.py --reply-only <부모 글 ts> [--after <이 ts 뒤>] [--stop-at <ts>[,<ts>…]]", file=sys.stderr)
+                return 2
+            args, opt[flag] = args[:i] + args[i + 2:], v
+    after, stop = opt.get("--after"), opt["--stop-at"].split(",") if "--stop-at" in opt else None
     if args[:1] == ["--reply-only"]:  # r1591 · h·sha 칸이 없는 질문(설계 승인 등) — 빈 sha = 답글 확인 모드(REPLY-SEEN 만)
         if len(args) != 2 or not re.fullmatch(r"[0-9]+\.[0-9]{6}", args[1]):
             print("usage: ft_oppa_slack_check.py --reply-only <질문 글 ts>", file=sys.stderr)
@@ -158,7 +165,7 @@ def main(argv: list) -> int:
         return 2
     parent = args[0]  # r1764 보정 · NoReply 문구는 부모 ts(예전 argv[1] 재할당 빠짐으로 «parent=--reply-only» 가 새었나)
     try:
-        print("\n".join(judge(parent, args[1:], after)))
+        print("\n".join(judge(parent, args[1:], after, stop)))
         return 0
     except NoReply as e:  # r1591 · 답글 아직 없음 = 정상 열린 질문(판정 불가 아님 · ANSWERED 아님)
         print("REPLY-NONE parent=%s — %s" % (parent, e), file=sys.stderr)

@@ -5,6 +5,7 @@ CLI: (인자 없음) 점검 · `--register <질문ts> <h번호> <sha40>` 등록(
 점검 = 끝나지 않은 줄마다 ft_oppa_slack_check 1회(7초 · 재시도 1) → SLACK-OK 이면 seats-planner.json `_desk` 로 `[오빠 답글] h<N> ts=<답글> → 실행 차례` 1통.
 끝 = h 실행 기록(<HIL_DIR>/h<N>.ran) 생성 또는 끝 시각 경과(경과는 `_master` 로 `[답글 없음 24시간]` 1통) · 같은 답글 ts = 1통 · 질문 ts 키는 한 줄(재등록 멱등).
 r1591 · `--register-question <질문ts> <사유키>` = h·sha 칸이 없는 오빠 질문(설계 승인 등) 등록(kind=question · key 한 칸) → 점검은 `--reply-only` 로 보고 REPLY-SEEN 이면 `_master` 로 `[오빠 답글] <사유키> ts=<답글>` 1통(승인 판정 0).
+r1776 · question 줄 조회 = `--reply-only <q> --stop-at <장부의 더 늦은 question ts> [--after <notified_ts>]` → 새 글마다 `[오빠 새 글] <키> ts=<글> → 원문 확인 · 답이면 --close <키>` 1통 · 줄은 notified(닫기 = --close) · notified 줄 끝 시각 = 조용히 timeout-notified.
 r1764 · thread 줄(`--register-thread <스레드ts> <사유키>`)은 등록된 스레드에 오빠 «새 글» 이 올 때마다 `_desk` 1통 · 끝 시각 경과 = 조용히 닫힘 · `--close <질문ts|사유키> [--reason <낱말>]` = 열린 줄 수동 닫기 — 갈래 셋은 ft_desk_reply_thread.py 에 있다(이 파일은 부르기만).
 장부 갱신 = 배타 잠금(<장부>.lock) 안에서 다시 읽고 합쳐 쓰기 · 조회는 <장부>.cursor 로 순환(열린 줄이 상한보다 많아도 모두 본다).
 장부 = <루트>/.fable-team/state/desk-reply-wait.jsonl(open|notified|closed) · env: FT_ROOT · FT_NOW · FT_MBOX_SH · FT_SEATS_PLANNER · FT_SLACK_CHECK · HIL_DIR · FT_DESK_REPLY_LEDGER · FT_DESK_REPLY_MAX(4)
@@ -19,6 +20,7 @@ import subprocess
 import sys
 import time
 from contextlib import redirect_stderr
+from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -106,11 +108,11 @@ def send(base: Path, to: str, body: str) -> int:  # 0 = mbox 접수 · 25초 상
         return 1
 
 
-def judge(cmd: str, q: str, sha: str) -> tuple[int, str]:  # 7초 · 재시도 1
+def judge(cmd: str, q: str, sha: str, argv: list | None = None) -> tuple[int, str]:  # 7초 · 재시도 1 · r1776 argv = question 줄 전용(h 줄은 [q, sha] 그대로)
     last = (1, "점검 도구 실행 실패")
     for _ in range(2):
         try:
-            r = subprocess.run([sys.executable, cmd, q, sha], capture_output=True, text=True, timeout=TO)
+            r = subprocess.run([sys.executable, cmd] + (argv or [q, sha]), capture_output=True, text=True, timeout=TO)
         except subprocess.SubprocessError:
             last = (124, "조회 %d초 초과" % TO)
             continue
@@ -221,6 +223,10 @@ def scan(base: Path, led: Path, now: float) -> int:
             shut += 1
             continue
         if now >= float(row.get("deadline") or 0):  # ⓒ 24시간 경과 = 닫고 planner master 1통
+            if qn and row.get("state") == "notified":  # r1776 A4ⓑ · 새 글 알림이 간 질문 줄 = 조용히 닫힘(24h 오알림 0)
+                up[rowkey(row)] = {"state": "closed", "closed": "timeout-notified"}
+                shut += 1
+                continue
             if not seat.get("_master") or send(base, seat["_master"], "[답글 없음 24시간] %s ts=%s → 장부 줄 닫힘" % (h, q)):
                 bad("쪽지 발신 실패·수신자 없음 — %s 줄은 열린 채로 둔다" % h)
                 nbad += 1
@@ -239,7 +245,9 @@ def scan(base: Path, led: Path, now: float) -> int:
             bad("%s 없음 — %s 알림 0(다음 주기 재시도)" % ("_master" if qn else "_desk", h))
             nbad += 1
             continue
-        rc, out = judge(check, q, row.get("sha") or "")
+        later = sorted({r["q_ts"] for r in rows if r.get("kind") == "question" and TS.match(str(r.get("q_ts"))) and TS.match(q) and Decimal(r["q_ts"]) > Decimal(q)}, key=Decimal) if qn else []  # r1776 A2 · state 무관
+        args = (["--reply-only", q] + (["--stop-at", ",".join(later)] if later else []) + (["--after", row["notified_ts"]] if row.get("notified_ts") else [])) if qn else None
+        rc, out = judge(check, q, row.get("sha") or "", args)
         if rc == 3:  # r1591 · 질문 줄의 답글 아직 없음 = 정상 열린 줄(판정 불가 아님)
             continue
         m = re.search(r"reply=([0-9]+\.[0-9]+)$", out.strip().splitlines()[-1]) if rc == 0 and out.strip() else None
@@ -249,11 +257,11 @@ def scan(base: Path, led: Path, now: float) -> int:
             continue
         if row.get("notified_ts") == m.group(1):  # ⓑ 중복 억제 키 = 질문 ts·답글 ts(다른 답글 ts 면 1통 더)
             continue
-        if send(base, tgt, "[오빠 답글] %s ts=%s%s" % (h, m.group(1), "" if qn else " → 실행 차례")):
+        if send(base, tgt, "[오빠 새 글] %s ts=%s → 원문 확인 · 답이면 --close %s" % (h, m.group(1), h) if qn else "[오빠 답글] %s ts=%s → 실행 차례" % (h, m.group(1))):  # r1776 A3
             bad("쪽지 발신 실패 — %s 알림 0(다음 주기 재시도)" % h)
             nbad += 1
             continue
-        up[rowkey(row)] = {"notified_ts": m.group(1), "notified_at": int(now)} | ({"state": "closed", "closed": "replied"} if qn else {"state": "notified"})  # r1591 · 질문 줄은 답글 알림 성공 = 그 줄 끝(DA #280338 R1: 24h 오알림 0)
+        up[rowkey(row)] = {"notified_ts": m.group(1), "notified_at": int(now), "state": "notified"}  # r1776 · 질문 줄도 알림만 · 닫기 = --close 또는 끝 시각(timeout-notified)
         sent += 1
     tm = thread_mod()  # r1764 · 스레드 새 글·조용한 만료
     if tm is None:
