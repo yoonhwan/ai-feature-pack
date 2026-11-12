@@ -10,6 +10,7 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 TRACKED="$HERE/../../harness/bin/ft-nano-spawn.sh"
 KIT="$HERE/../../harness/kit/fable-team/bin/ft-nano-spawn.sh"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
+. "$HERE/../../harness/bin/ft-team-lib.sh"   # r1785: pack_wt_line → ft_pack_card(추적 lib 한 출처) — lib 로드 준비만
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
