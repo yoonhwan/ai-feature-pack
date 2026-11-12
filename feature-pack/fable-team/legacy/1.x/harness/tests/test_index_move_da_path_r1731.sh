@@ -31,11 +31,13 @@ printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness
 card() { { echo "# 인덱스: $1"; echo "## 상태"; echo "- 정본 영향 없음: 하네스 도구만 바뀐 카드 — 제품 정본 없음"
   echo "- 규칙: 없음 — 시험 fixture 카드(규칙 무관)"; echo "- 설치: 없음"; } > "$IDX/진행/$1.md"; }
 verdict() { printf '# 판정문\n## %s %s — 닫힘 (CLOSE)\n닫힘 — %s — main\n' "$2" "$3" "$3" > "$1"; }
-for n in 1 2 3 4 5 6 7 8; do card "k$n"; done
+for n in 1 2 3 4 5 6 7 8 9; do card "k$n"; done
 g "$CR" add -A; g "$CR" commit -qm c0
 WT2="$T/wt2"; g "$CR" worktree add -q "$WT2" -b wt2
 WT3="$T/wt#198"; g "$CR" worktree add -q "$WT3" -b wt198
 WT6="$T/wt6"; g "$CR" worktree add -q "$WT6" -b wt6
+mkdir -p "$CR/.git/info"; printf '.worktrees/\n' >> "$CR/.git/info/exclude"   # 실 BYZ 배치: linked worktree 가 리포 «안» .worktrees/ 아래
+WTL="$CR/.worktrees/wt1"; g "$CR" worktree add -q "$WTL" -b wt1
 mkdir -p "$WT2/design/harness" "$WT3/design/harness" "$WT6/design/harness" "$T/outside"
 verdict "$WT2/design/harness/DA-1.md" "§1" k1          # ① 커밋본
 verdict "$WT2/design/harness/DA-4.md" "§4" k4          # ④ 미커밋
@@ -43,14 +45,17 @@ verdict "$WT2/design/harness/DA-5.md" "§5" k5          # ⑤ 커밋 뒤 작업 
 verdict "$WT3/design/harness/DA-2.md" "§2" k2          # ② 경로에 # 이 든 워크트리
 verdict "$WT6/design/harness/DA-6.md" "§6" k6          # ⑥ git 조회 실패
 verdict "$T/outside/DA-3.md" "§3" k3                   # ③ 리포 밖
+mkdir -p "$WTL/design/harness"
+verdict "$WTL/design/harness/DA-1b.md" "§1b" k9        # ①b 카드 리포 «안» linked worktree(실 BYZ 배치)
 OR="$T/other"; mkdir -p "$OR/design/harness"; g "$OR" init -q -b main   # ③b «다른 리포» 안 판정문(같은 리포 아님)
 verdict "$OR/design/harness/DA-3b.md" "§3b" k8; g "$OR" add -A; g "$OR" commit -qm o0
 printf '# 판정문\n## §9 k7 — 닫힘 (CLOSE)\n닫힘 — k7 — main\n' > "$WT2/design/harness/DA-7.md"   # ⑦ §1 없음
 g "$WT2" add design/harness/DA-1.md design/harness/DA-5.md design/harness/DA-7.md; g "$WT2" commit -qm d1
 g "$WT3" add -A; g "$WT3" commit -qm d2
 g "$WT6" add -A; g "$WT6" commit -qm d6
-S1="$(g "$WT2" rev-parse HEAD)"; S2="$(g "$WT3" rev-parse HEAD)"; S6="$(g "$WT6" rev-parse HEAD)"
-S1="${S1:0:10}"; S2="${S2:0:10}"; S6="${S6:0:10}"
+g "$WTL" add -A; g "$WTL" commit -qm dl
+S1="$(g "$WT2" rev-parse HEAD)"; S2="$(g "$WT3" rev-parse HEAD)"; S6="$(g "$WT6" rev-parse HEAD)"; SL="$(g "$WTL" rev-parse HEAD)"
+S1="${S1:0:10}"; S2="${S2:0:10}"; S6="${S6:0:10}"; SL="${SL:0:10}"
 printf -- '- 커밋 뒤 고친 줄\n' >> "$WT2/design/harness/DA-5.md"                            # ⑤ HEAD 와 바이트 다름
 
 export FT_HARNESS_ROOT="$KD"
@@ -62,6 +67,10 @@ DAV='· DA '
 mv_ "$IDX/진행/k1.md" 완성 --da "$WT2/design/harness/DA-1.md#§1" --seat s
 r1="$(rec k1)"; ck "① 같은 리포 워크트리 커밋본 → «design/harness/DA-1.md@$S1#§1» (rc=$rc) :: $r1" \
   "$([ "$rc" = 0 ] && [[ "$r1" == *"${DAV}design/harness/DA-1.md@$S1#§1" ]] && echo 0 || echo 1)"
+# ①b 카드 리포 «안» .worktrees/ linked worktree(실 BYZ 배치) → 가장 깊은 워크트리 기준 상대 경로
+mv_ "$IDX/진행/k9.md" 완성 --da "$WTL/design/harness/DA-1b.md#§1b" --seat s
+r1b="$(rec k9)"; ck "①b 리포 안 linked worktree → «design/harness/DA-1b.md@$SL#§1b» (rc=$rc) :: $r1b" \
+  "$([ "$rc" = 0 ] && [[ "$r1b" == *"${DAV}design/harness/DA-1b.md@$SL#§1b" ]] && echo 0 || echo 1)"
 # ② 경로에 # 이 든 워크트리 → 상대 경로 · 절 = «마지막 #» 뒤
 mv_ "$IDX/진행/k2.md" 완성 --da "$WT3/design/harness/DA-2.md#§2" --seat s
 r2="$(rec k2)"; ck "② 경로에 # 이 든 워크트리 → «design/harness/DA-2.md@$S2#§2» (rc=$rc) :: $r2" \
