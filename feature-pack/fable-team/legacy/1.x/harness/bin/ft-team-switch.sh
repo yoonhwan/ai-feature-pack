@@ -12,6 +12,7 @@
 #   rc 3 = 표식 파일을 못 읽음(판정 불가 · 하드 룰 20) · rc 2 = usage/이미 전환/표식 없음/데이터 루트 아님
 #   r1777(R336) — 교대 창(unmark → retire → remark)을 Slack 질문 0 으로: `--h A<N>(자율 사건)` 은 「자율 정합 ON ∧ 레벨 full ∧ A<N> = 지금 이벤트」 일 때만 받는다(아니면 rc2 · 쓰기 0 · 숫자 h 길은 그대로).
 #     restore = 교대 창 되돌림: 표식이 없고 <팀>.json.unmarked-<ts> 가 있으면 가장 새 보관본을 <팀>.json 으로 rename(차단을 «거는» 방향이라 자율 조건·h 없이 허용) · 표식이 이미 있으면 rc0 «이미 있음»(덮어쓰기 0) · 되살릴 보관본도 없으면 rc2.
+#     A<N> 로 연 교대는 원표식 JSON 을 건드리지 않고 «승인 사건» 을 <보관본>.window 에 남긴다 — 숫자 원표식(h=8260) 팀을 A17 로 연 교대도 A17 문맥을 잃지 않는다(DA #292018) · restore 가 그 쏙파일을 지우고 표식을 원문 그대로 되살린다.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 . "$HERE/ft20-switch-lib.sh"
@@ -67,6 +68,8 @@ PY
     [ -e "$M" ] || { echo "REJECT 표식 없음(전환 안 한 팀): $M" >&2; exit 2; }
     TS="$(date +%Y%m%dT%H%M%S)"; DST="$M.unmarked-$TS"
     mv "$M" "$DST" || { echo "REJECT 표식 rename 실패: $M → $DST" >&2; exit 1; }
+    # r1777 DA #292018 — A<N> 로 연 교대면 «승인 사건» 을 옆파일에 보존(원표식 JSON 은 손대지 않는다 · 숫자 원표식 팀도 A17 로 열 수 있다)
+    ft20_window_mark "$DST" "$H" || { mv "$DST" "$M"; echo "REJECT 교대 사건 기록 실패(A<N> 쏙파일) — 표식 되돌렸다: $M" >&2; exit 1; }
     echo "UNMARKED $DST team=$TEAM h=$H by=${BY:-unknown}"
     ;;
   restore)
@@ -75,6 +78,7 @@ PY
     [ ! -e "$M" ] || { echo "RESTORE keep $M team=$TEAM (이미 있음 · 덮어쓰기 0)"; exit 0; }
     SRC="$(ft20_window_backup "$ROOT" "$TEAM")" || { echo "REJECT 되살릴 보관본 없음(전환 안 한 팀): $DIR/$TEAM.json.unmarked-*" >&2; exit 2; }
     mv "$SRC" "$M" || { echo "REJECT 보관본 rename 실패: $SRC → $M" >&2; exit 1; }
+    rm -f "$SRC.window"   # 사건 쏙파일은 표식에 가지 않는다(원표식 내용 그대로 되살림)
     echo "RESTORED $M team=$TEAM from=${SRC##*/}"
     ;;
   status)

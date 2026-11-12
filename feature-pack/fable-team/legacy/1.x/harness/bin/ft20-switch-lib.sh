@@ -151,12 +151,41 @@ ft20_autonomy_ok() {
 # ft20_window_backup <루트> <팀> → 가장 새 보관본 1줄 · 없으면 rc1
 ft20_window_backup() {
   local d dst; d="$(ft20_switch_dir "${1%/}")"; [ -d "$d" ] || return 1
-  dst="$(printf '%s\n' "$d/${2:-}.json.unmarked-"* | sort -r | head -1)"
+  dst="$(printf '%s\n' "$d/${2:-}.json.unmarked-"* | grep -v '\.window$' | sort -r | head -1)"   # 사건 쏙파일(<보관분>.window)은 보관본이 아니다
   [ -f "$dst" ] || return 1
   printf '%s' "$dst"
 }
+# ft20_marker_h <표식·보관본·쪽파일 경로> → h 칸 1줄(없으면 빈 줄) · 못 읽으면 rc1
+ft20_marker_h() {
+  python3 - "${1:-}" <<'PYH' 2>/dev/null
+import json, sys
+try:
+    d = json.load(open(sys.argv[1], encoding="utf-8"))
+except Exception:
+    sys.exit(1)
+print(str((d or {}).get("h") or ""))
+PYH
+}
+# ft20_window_mark <보관본 경로> <h> — A<N> 로 연 교대에만 «승인 사건» 쪽파일(<보관분>.window)을 남긴다
+#   원표식 JSON 은 손대지 않는다 — 숫자 원표식(h=8260) 팀을 A17 로 열어도 restore 가 원문 그대로 되살린다(DA #292018)
+#   숫자 h 로 연 옛 교대 = 쪽파일 0(지금 동작 그대로) · 쓰기 실패 = rc1(부르는 쪽이 표식을 되돌린다)
+ft20_window_mark() {
+  local dst="${1:-}" h="${2:-}" t
+  case "$h" in A[0-9]*) ;; *) return 0;; esac
+  [ -n "$dst" ] || return 1
+  t="$(date +%Y%m%dT%H%M%S)"
+  { printf '{"h":"%s","at":"%s"}\n' "$h" "$t" > "$dst.window.tmp.$$" && mv "$dst.window.tmp.$$" "$dst.window"; } || { rm -f "$dst.window.tmp.$$"; return 1; }
+}
+# ft20_window_event <보관본 경로> → 그 창을 연 자율 사건 A<N> 1줄 · 쪽파일 없음/숫자 교대 = 빈 줄 · 쪽파일 깨짐 = rc1
+ft20_window_event() {
+  local dst="${1:-}" h
+  [ -f "$dst.window" ] || return 0
+  h="$(ft20_marker_h "$dst.window")" || return 1
+  printf '%s' "$h"
+}
 # ft20_window_guard <루트> <팀...> → 0 통과 · 2 자율 조건 불일치 · 3 보관본 판정 불가 (전부 «1.x 쓰기 0»)
-#   교대 창 = 표식 없음 ∧ 보관본 있음 · 보관본 h 가 A<N> 꼴일 때만 자율 조건을 본다(숫자 h = 옛 손 승계 그대로 통과)
+#   교대 창 = 표식 없음 ∧ 보관본 있음 · 조건을 보는 h = ⓐ 쪽파일의 사건 A<N>(A<N> 로 연 교대) ⓑ 없으면 보관본 자산의 h 가 A<N> 꼴
+#   숫자 h 보관본이고 쪽파일도 없으면 = 옛 손 승계 그대로 통과
 ft20_window_guard() {
   local root="${1:-}" t dst h; shift || true
   [ -n "$root" ] || return 0
@@ -164,8 +193,9 @@ ft20_window_guard() {
     [ -n "$t" ] || continue
     [ ! -e "$(ft20_switch_marker "$root" "$t")" ] || continue
     dst="$(ft20_window_backup "$root" "$t")" || continue
-    h="$(python3 -c 'import json,sys
-d=json.load(open(sys.argv[1],encoding="utf-8"));print(str(d.get("h") or ""))' "$dst" 2>/dev/null)" \
+    h="$(ft20_window_event "$dst")" \
+      || { echo "REJECT 팀 $t 교대 창 사건 쪽파일 판정 불가 — $dst.window 못 읽음(깨진 JSON) · 1.x 쓰기 0" >&2; return 3; }
+    [ -n "$h" ] || h="$(ft20_marker_h "$dst")" \
       || { echo "REJECT 팀 $t 교대 창 보관본 판정 불가 — $dst 못 읽음(깨진 JSON·권한) · 1.x 쓰기 0" >&2; return 3; }
     case "$h" in A[0-9]*) ft20_autonomy_ok "$h" || return 2;; esac
   done

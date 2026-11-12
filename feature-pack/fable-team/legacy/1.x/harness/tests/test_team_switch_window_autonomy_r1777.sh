@@ -106,6 +106,36 @@ b1="$(hsh "$R/.fable-team/state/ft20-switch/aifp.json")"
 ck "⑧-b restore rc=$rc · 표식 = 원래 내용(바이트 일치)" "$([ "$rc" = 0 ] && [ "$b0" = "$b1" ] && echo 0 || echo 1)"
 ( . "$LIB"; ft20_switch_guard "$R" aifp ) >"$T/o" 2>&1
 ck "⑧-c 되살린 표식 → 1.x writer rc3(차단 유지)" "$([ $? = 3 ] && echo 0 || echo 1)"
+# ── ⑩ DA #292018 회귀: 숫자 원표식(h=8260) 팀을 A17 로 연 교대 → 사건 보존 → OFF 면 은퇴 rc2, restore 는 원문 그대로 ─
+aut_clear; rm -f "$R/.fable-team/state/ft20-switch/aifp.json" "$R/.fable-team/state/ft20-switch"/aifp.json.unmarked-*
+bash "$SH" mark aifp --h 8260 --root "$R" >/dev/null 2>&1
+aut_on A17 full
+bash "$SH" unmark aifp --h A17 --root "$R" >"$T/o" 2>&1; rc=$?
+wk="$(ls "$R/.fable-team/state/ft20-switch"/aifp.json.unmarked-*.window 2>/dev/null | head -1)"
+ck "⑩ 숫자 원표식 8260 팀 · unmark --h A17 rc=$rc · 사건 쪽파일 있음" "$([ "$rc" = 0 ] && [ -n "$wk" ] && grep -q '"h":"A17"' "$wk" && echo 0 || echo 1)"
+ck "⑩-b 보관본 JSON 은 원표식 h=8260 그대로(변형 0)" \
+  "$([ "$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("h"))' "${wk%.window}" 2>/dev/null)" = 8260 ] && echo 0 || echo 1)"
+( . "$LIB"; ft20_window_guard "$R" aifp ) >"$T/o" 2>&1; ck "⑩-c 창 안(ON A17 full) 은퇴 가드 rc0" "$([ $? = 0 ] && echo 0 || echo 1)"
+aut_off A17
+( . "$LIB"; ft20_guard_retire "$R" 'fx-aifp-nano#0' ) >"$T/o" 2>&1; rc=$?
+ck "⑩-d 자율 OFF 뒤 은퇴 가드 rc=$rc(기대 rc2 · DA HOLD 원인 닫힘)" "$([ "$rc" = 2 ] && echo 0 || echo 1)"
+aut_on A18 full
+( . "$LIB"; ft20_window_guard "$R" aifp ) >"$T/o" 2>&1; rc=$?
+ck "⑩-e 이벤트 A18 로 바뀌어도 A17 창 은퇴 rc=$rc(rc2)" "$([ "$rc" = 2 ] && echo 0 || echo 1)"
+aut_on A17 full
+b0="$(python3 -c 'import json,sys;print(json.dumps(json.load(open(sys.argv[1])),ensure_ascii=False,sort_keys=True))' "${wk%.window}" 2>/dev/null)"
+bash "$SH" restore aifp --root "$R" >"$T/o" 2>&1; rc=$?
+b1="$(python3 -c 'import json,sys;print(json.dumps(json.load(open(sys.argv[1])),ensure_ascii=False,sort_keys=True))' "$R/.fable-team/state/ft20-switch/aifp.json" 2>/dev/null)"
+ck "⑩-f restore rc=$rc · 표식 = 원표식 8260 그대로(쪽파일은 표식에 안 감)" \
+  "$([ "$rc" = 0 ] && [ "$(marker_h aifp)" = 8260 ] && [ "$b0" = "$b1" ] && [ ! -e "${wk%.window}.window" ] && echo 0 || echo 1)"
+( . "$LIB"; ft20_switch_guard "$R" aifp ) >"$T/o" 2>&1; ck "⑩-g 되살린 표식 → writer rc3" "$([ $? = 3 ] && echo 0 || echo 1)"
+# ── ⑪ 숫자로 연 기존 교대는 쪽파일 0 · 옛 동작 그대로 ──────────────────
+bash "$SH" unmark aifp --h 9001 --root "$R" >/dev/null 2>&1
+aut_off A18
+ck "⑪ 숫자(9001)로 연 교대 = 쪽파일 0" "$([ "$(ls "$R/.fable-team/state/ft20-switch"/aifp.json.unmarked-*.window 2>/dev/null | grep -c .)" = 0 ] && echo 0 || echo 1)"
+( . "$LIB"; ft20_window_guard "$R" aifp ) >"$T/o" 2>&1; rc=$?
+ck "⑪-b 숫자 교대 · 자율 OFF 에서도 은퇴 가드 rc=$rc(옛 동작 그대로)" "$([ "$rc" = 0 ] && echo 0 || echo 1)"
+bash "$SH" restore aifp --root "$R" >/dev/null 2>&1
 # ── 변이 3종(사본에서만 · 실 파일 치환 0) ────────────────────────────────────
 mut() {  # $1 이름 $2 원문 $3 바꿀 글 → $T/mut-$1/ 에 lib·도구 사본(같은 폴더 = FT20_HERE)
   local d="$T/mut-$1"; rm -rf "$d"; mkdir -p "$d"; cp -p "$LIB" "$RK/bin/ft-team-switch.sh" "$d/"
@@ -128,7 +158,19 @@ mut M2 '  if [ "$l" != full ]; then echo "REJECT 교대 창 h=$h — 자율 레�
 aut_on A17 mid
 ( . "$T/mut-M2/ft20-switch-lib.sh"; ft20_autonomy_ok A17 ) >"$T/o" 2>&1; rc=$?
 ck "M2 «∧ full» 삭제 → mid 가 rc=${rc} 로 새서 ④ FAIL" "$([ "$rc" = 0 ] && echo 0 || echo 1)"
-# M3 실패 뒤 restore 호출 삭제 → ⑧ 이 표식 부재로 FAIL
+# M4 사건 쏙파일 읽기 무시(원표식 h 만 보기) → ⑩-d(OFF 뒤 은퇴)가 새어 rc0 으로 ⑩ FAIL
+mut M4 'h="$(ft20_window_event "$dst")"' 'h=""'
+aut_on A17 full
+bash "$SH" mark aifp --h 8260 --root "$R" >/dev/null 2>&1
+bash "$SH" unmark aifp --h A17 --root "$R" >/dev/null 2>&1
+aut_off A17
+( . "$T/mut-M4/ft20-switch-lib.sh"; ft20_window_guard "$R" aifp ) >"$T/o" 2>&1; rc=$?
+ck "M4 사건 쏙파일 무시 → OFF 인데 rc=${rc} 로 새서 ⑩-d FAIL" "$([ "$rc" = 0 ] && echo 0 || echo 1)"
+( . "$LIB"; ft20_window_guard "$R" aifp ) >"$T/o" 2>&1; rc=$?
+ck "⑩-h (정본) 같은 창 · OFF 면 rc=$rc(rc2)" "$([ "$rc" = 2 ] && echo 0 || echo 1)"
+bash "$SH" restore aifp --root "$R" >/dev/null 2>&1
+
+# ── M3 실패 뒤 restore 호출 삭제 → ⑧ 이 표식 부재로 FAIL
 mut M3 'bash "$tool" restore "$team" --root "$root" >&2' 'true'
 aut_on A17 full
 ( . "$T/mut-M3/ft20-switch-lib.sh"; ft20_switch_window "$R" aifp A17 false ) >"$T/o" 2>&1; rc=$?
