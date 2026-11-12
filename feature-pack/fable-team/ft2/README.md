@@ -12,7 +12,7 @@ ft 2.0 의 새 뼈대다. 2.0 활성 소스는 이 폴더 안에서만 쓴다.
 | `contracts/models/` | 모델 표 3개(model-scope·model-fallback·provider-of-model) 정본 자리 — `tools/models.py` 가 읽는다 | PR② |
 | `adapters/slack/` | Slack 수신·발행 어댑터 | PR③ |
 | `adapters/codex/` | Codex 실행 어댑터 | PR④ |
-| `adapters/pi/` | Pi 실행 어댑터 | PR④ |
+| `adapters/pi/` | Pi 실행 어댑터 · 호출자 좌석 열기(`launch.py`) | PR④ |
 | `doctor/` | 설치·환경 진단 | PR④ |
 | `tools/` | 검사기·보조 도구 | 공통 |
 | `tests/` | ft2 시험 | 공통 |
