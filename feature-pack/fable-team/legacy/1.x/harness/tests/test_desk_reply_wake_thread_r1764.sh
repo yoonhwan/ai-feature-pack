@@ -8,6 +8,9 @@
 #   ⑥ 기존 길 그대로(--after 없는 --reply-only · SLACK-OK · h 줄 · question 줄 = 기존 2시험 rc0)
 #   ⑦ 조회 rc2 → «판정 불가» 1줄 · notified_ts 그대로 · 알림 0통
 #   ⑧ 열린 thread 줄이 상한(FT_DESK_REPLY_MAX=4)보다 많아도 <장부>.thread.cursor 순환으로 3주기 안에 5줄 모두 1회 이상 조회
+#   ⑨ 같은 q_ts 의 closed question 줄이 있어도 thread 줄은 등록된다(충돌 검사 = kind=thread 줄만) · 같은 key 재등록 중복 0 · 다른 key thread = rc3
+#   ⑪ thread 줄이 있는 ts 에도 --register-question·--register(h) 는 그 갈래대로(thread 줄은 충돌 아님)
+#   ⑩ 스캔·--close 는 thread 줄만 건드린다(같은 ts question 줄 state·closed·notified_ts 불변) · 변이 M6(kind 검사 지움 → ⑨) · M7(장부 갱신 q_ts만 → ⑩)
 #   ⑥ 에 --after 없는 길의 NoReply stderr 꼴(parent=<부모ts>)까지 본다(NG2)
 #   변이 M1 --after 무시 · M2 알림 뒤 닫기 · M3 만료에 쪽지 · M4 --close 잠금 밖·없는 키 rc0 → 각각 잡힌다
 #   격리: 임시 FT_ROOT·가짜 mbox(발신 기록)·가짜 replies(실 Slack 0)·가짜 시계 · 안전선(r1041): ulimit -u+64 · timeout 70 · 자기 재호출 0
@@ -48,6 +51,8 @@ run() { ( cd "$ROOT" || exit 1
   timeout $TO python3 "${RUN_TOOL:-$TOOL}" "$@" ); }
 field() { python3 -c 'import json,sys;rows=[json.loads(x) for x in open(sys.argv[1],encoding="utf-8") if x.strip()];r=[x for x in rows if x.get("state")!="closed"] or rows;print((r[-1] if r else {}).get(sys.argv[2],"—"))' "$LEDGER" "$1" 2>/dev/null; }
 sends() { wc -l < "$SENT" 2>/dev/null | tr -d ' ' || echo 0; }
+qstate() { python3 -c 'import json,sys;r=[json.loads(x) for x in open(sys.argv[1],encoding="utf-8") if x.strip()];q=([x for x in r if x.get("kind")!="thread"] or [{}])[0];print("%s:%s:%s"%(q.get("state","—"),q.get("closed") or "",q.get("notified_ts","")))' "$LEDGER"; }
+tstate() { python3 -c 'import json,sys;r=[json.loads(x) for x in open(sys.argv[1],encoding="utf-8") if x.strip()];q=([x for x in r if x.get("kind")=="thread"] or [{}])[0];print("%s:%s:%s"%(q.get("state","—"),q.get("closed") or "",q.get("notified_ts","")))' "$LEDGER"; }
 lastbody() { tail -1 "$SENT" 2>/dev/null | cut -f2; }
 reset() { rm -f "$LEDGER" "$LEDGER.cursor" "$LEDGER.thread.cursor"; : > "$SENT"; rm -f "$T/replies.rc"; }
 
@@ -119,6 +124,27 @@ for _ in 1 2 3; do RUN_REPLIES="bash $T/replies5.sh" run >/dev/null 2>&1; done
 chk "⑧ 3주기 = 5줄 모두 1회 이상 조회(다섯째도 본다)" "5" "$(sort -u "$T/q8" | wc -l | tr -d ' ')"
 chk "⑧ 새 글 없는 줄은 열린 채(쪽지 0)" "0 0" "$(grep -c '\"closed\"' "$LEDGER" || true) $(sends)"
 
+echo "== ⑨ 같은 ts 의 closed question 줄이 있어도 thread 줄은 등록된다 =="
+reset; : > "$SENT"
+printf '{"q_ts":"%s","kind":"question","key":"cfo-survey-turnkey","at":%d,"deadline":%d,"state":"closed","closed":"replied"}\n' "$QTS" "$NOW" "$((NOW + 86400))" > "$LEDGER"
+run --register-thread "$QTS" "$KEY" >"$T/o9" 2>"$T/e9"; chk "⑨ 등록 rc=0(closed question 줄에 막히지 않는다)" 0 "$?"
+chk "⑨ 장부 2줄 · thread 줄 open" "2 open" "$(wc -l < "$LEDGER" | tr -d ' ') $(tstate | cut -d: -f1)"
+run --register-thread "$QTS" "$KEY" >/dev/null 2>&1; R9=$?; chk "⑨ 같은 key 재등록 = rc0 · 줄 안 늘어남" "0 2" "$R9 $(wc -l < "$LEDGER" | tr -d ' ')"
+run --register-thread "$QTS" r1764-other >/dev/null 2>&1; chk "⑨ 다른 key thread 같은 ts = rc3(그대로)" 3 "$?"
+
+echo "== ⑩ 스캔·--close 는 thread 줄만 건드린다 =="
+three
+run >/dev/null 2>&1; chk "⑩ 스캔 1통 = [오빠 새 글]" "1 [오빠 새 글] $KEY ts=$T1" "$(sends) $(lastbody)"
+chk "⑩ question 줄(closed replied) 불변 · notified_ts 안 붙음" "closed:replied:" "$(qstate)"
+chk "⑩ thread 줄은 열린 채 notified_ts=t1" "open::$T1" "$(tstate)"
+run --close "$KEY" --reason pane >/dev/null 2>&1; chk "⑩ --close 사유키는 thread 줄만(question 줄 그대로)" "closed:manual:pane:$T1 / closed:replied:" "$(tstate) / $(qstate)"
+
+echo "== ⑪ thread 줄이 있는 ts 에도 질문·h 등록은 그 갈래대로 된다 =="
+reset; run --register-thread "$QTS" "$KEY" >/dev/null 2>&1
+run --register-question "$QTS" r1764-q >/dev/null 2>&1; chk "⑪ --register-question 같은 ts = rc0(thread 줄에 안 막힘)" 0 "$?"
+reset; run --register-thread "$QTS" "$KEY" >/dev/null 2>&1
+run --register "$QTS" h77 0123456789abcdef0123456789abcdef01234567 >/dev/null 2>&1; chk "⑪ --register(h) 같은 ts = rc0(thread 줄에 안 막힘)" 0 "$?"
+
 mut() {  # $1 = 이름 · $2 = 파일 · $3 = 교체 스크립트(python heredoc 본문)  → $T/mut/$1 에 사본 3파일
   mkdir -p "$T/mut/$1"; cp "$TOOL" "$CHECK" "$THREAD" "$T/mut/$1"; python3 - "$T/mut/$1/$2" <<PY
 import pathlib, sys
@@ -140,9 +166,9 @@ chk "M1 2주기 = 0통(변이 적용) → ① «2주기 t2 1통» 검사가 잡�
 
 echo "== 변이 M2 = 알림 뒤 줄 닫기 =="
 reset; three
-mut m2 ft_desk_reply_thread.py 'old = "up[q] = {\"notified_ts\": m.group(1), \"notified_at\": int(now)}"
+mut m2 ft_desk_reply_thread.py 'old = "up[rowkey(q)] = {\"notified_ts\": m.group(1), \"notified_at\": int(now)}"
 assert old in t
-t = t.replace(old, "up[q] = {\"notified_ts\": m.group(1), \"notified_at\": int(now), \"state\": \"closed\"}", 1)'
+t = t.replace(old, "up[rowkey(q)] = {\"notified_ts\": m.group(1), \"notified_at\": int(now), \"state\": \"closed\"}", 1)'
 run --register-thread "$QTS" "$KEY" >/dev/null 2>&1
 RUN_TOOL="$T/mut/m2/ft_desk_reply_wake.py" run >/dev/null 2>&1
 RUN_TOOL="$T/mut/m2/ft_desk_reply_wake.py" run >/dev/null 2>&1
@@ -150,9 +176,9 @@ chk "M2 2주기 = 0통(줄 닫힘) · 상태 closed → ① 검사가 잡는다"
 
 echo "== 변이 M3 = 만료에 쪽지 =="
 reset; three
-mut m3 ft_desk_reply_thread.py 'old = "up[q] = {\"state\": \"closed\", \"closed\": \"expired\"}"
+mut m3 ft_desk_reply_thread.py 'old = "up[rowkey(q)] = {\"state\": \"closed\", \"closed\": \"expired\"}"
 assert old in t
-t = t.replace(old, "up[q] = {\"state\": \"closed\", \"closed\": \"expired\"}; h.send(h.base, h.seat.get(\"_desk\") or \"?\", \"[답글 없음 24시간] \" + key)", 1)'
+t = t.replace(old, "up[rowkey(q)] = {\"state\": \"closed\", \"closed\": \"expired\"}; h.send(h.base, h.seat.get(\"_desk\") or \"?\", \"[답글 없음 24시간] \" + key)", 1)'
 run --register-thread "$QTS" "$KEY" >/dev/null 2>&1
 RUN_TOOL="$T/mut/m3/ft_desk_reply_wake.py" RUN_NOW=$((NOW + 86401)) run >/dev/null 2>&1
 chk "M3 만료에 쪽지 1통 → ③ «쪽지 0통» 검사가 잡는다" "1" "$(sends)"
@@ -174,5 +200,24 @@ for i in 1 2 3 4 5; do run --register-thread "179440000$i.100000" "r1764-t$i" >/
 for _ in 1 2 3; do RUN_TOOL="$T/mut/m5/ft_desk_reply_wake.py" RUN_REPLIES="bash $T/replies5.sh" run >/dev/null 2>&1; done
 chk "M5 3주기 조회 = 4줄 → ⑧ «5줄 모두» 검사가 잡는다" "4" "$(sort -u "$T/q8" | wc -l | tr -d ' ')"
 
-if [ "$fail" = 0 ]; then echo "ALL PASS (① ② ③ ④ ⑤ ⑥ ⑦ ⑧ · 변이 M1~M5 · kit cmp0) — ${SECONDS}s"; exit 0; fi
+echo "== 변이 M6 = 충돌 검사를 kind 무관(q_ts 만) =="
+reset; : > "$SENT"
+printf '{"q_ts":"%s","kind":"question","key":"cfo-survey-turnkey","at":%d,"deadline":%d,"state":"closed","closed":"replied"}\n' "$QTS" "$NOW" "$((NOW + 86400))" > "$LEDGER"
+mut m6 ft_desk_reply_thread.py 'old = "r.get(\"q_ts\") == row[\"q_ts\"] and r.get(\"kind\") == \"thread\""
+assert old in t
+t = t.replace(old, "r.get(\"q_ts\") == row[\"q_ts\"]", 1)'
+RUN_TOOL="$T/mut/m6/ft_desk_reply_wake.py" run --register-thread "$QTS" "$KEY" >/dev/null 2>&1; R6=$?
+chk "M6 같은 ts 등록 rc=3 → ⑨ «rc=0» 검사가 잡는다" "3" "$R6"
+
+echo "== 변이 M7 = 장부 갱신을 q_ts 로만 고름(thread↔question 섬임) =="
+reset; : > "$SENT"; three
+printf '{"q_ts":"%s","kind":"question","key":"cfo-survey-turnkey","at":%d,"deadline":%d,"state":"closed","closed":"replied"}\n' "$QTS" "$NOW" "$((NOW + 86400))" > "$LEDGER"
+run --register-thread "$QTS" "$KEY" >/dev/null 2>&1
+mut m7 ft_desk_reply_wake.py 'old = "            u = up.get(rowkey(r)) or up.get(r.get(\"q_ts\"))"
+assert old in t
+t = t.replace(old, "            u = up.get((\"thread\", r.get(\"q_ts\"))) or up.get(r.get(\"q_ts\"))", 1)'
+RUN_TOOL="$T/mut/m7/ft_desk_reply_wake.py" run >/dev/null 2>&1
+chk "M7 question 줄에 notified_ts 가 붙음 → ⑩ «불변» 검사가 잡는다" "closed:replied:$T1" "$(qstate)"
+
+if [ "$fail" = 0 ]; then echo "ALL PASS (① ② ③ ④ ⑤ ⑥ ⑦ ⑧ ⑨ ⑩ ⑪ · 변이 M1~M7 · kit cmp0) — ${SECONDS}s"; exit 0; fi
 echo "FAIL 있음 — 위 FAIL 줄"; exit 1
