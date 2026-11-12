@@ -23,6 +23,9 @@ def error_state(message):
         return "UNAVAILABLE", "connection"
     if re.search(r"\b(?:503|429)\b", evidence):
         return "UNAVAILABLE", "http_unavailable"
+    # r1761 A1: 모델 쪽 일시 오류(OpenGateway·cliproxy) — 결속 실패가 아니라 «모델 일시 오류» 다
+    if any(x in evidence for x in ("temporarily unavailable", "overloaded")):
+        return "UNAVAILABLE", "model_unavailable"
     return "UNKNOWN", "error_without_class"
 
 
