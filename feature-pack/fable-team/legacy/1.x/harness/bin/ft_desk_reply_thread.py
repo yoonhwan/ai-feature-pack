@@ -4,8 +4,10 @@
 CLI(ft_desk_reply_wake.py 가 넘긴다):
   `--register-thread <스레드 ts> <사유키>` = kind=thread 줄 등록(끝 시각 = 등록 + 24h · 같은 ts 같은 키 = 멱등 · 다른 키 = rc3)
   `--close <질문ts|사유키> [--reason <낱말>]` = 열린 줄(종류 무관) 닫기 · closed=«manual:<사유>» · 키가 열린 줄 여럿이면 전부 · 0개 = rc3
-점검(ft_desk_reply_wake.scan 이 부른다): thread 줄마다 `ft_oppa_slack_check.py --reply-only <ts> --after <notified_ts|q_ts>` 1회
-  → 그 시각 «뒤» 첫 오빠 글 1개 → `_desk` 로 `[오빠 새 글] <사유키> ts=<글>` 1통 · notified_ts 갱신 · 줄은 열린 채(다음 글이 오면 또 1통).
+점검(ft_desk_reply_wake.scan 이 부른다): thread 줄마다 `ft_oppa_slack_check.py --reply-only <ts> --after <기준점>` 1회
+  기준점 = 등록 시각(등록 때 notified_ts 로 박는다) → 등록 «전» 옛 글은 알림 0 · 등록 «뒤» 새 글은 1통(다음 글이 오면 또 1통).
+  옛 판이 등록한 줄(기준점 없음)은 첫 점검에서 «지금»을 기준점으로 채택한다(옛 글 재생 0 · 쪽지 0).
+  → 그 시각 «뒤» 첫 오빠 글 1개 → `_desk` 로 `[오빠 새 글] <사유키> ts=<글>` 1통 · notified_ts 갱신 · 줄은 열린 채.
   끝 시각 경과 = 조용히 closed(«expired») · 쪽지 0.
 장부 잠금·읽기·쓰기·쪽지·루트는 ft_desk_reply_wake.py 것을 h 로 받는다(같은 줄에서 겹치지 않게 한 파일이 잠금을 쥔다).
 """
@@ -51,8 +53,8 @@ def tcur(p, i=None):  # r1764 보정 · 스레드 줄 순환 위치(<장부>.thr
         return 0
 
 
-def register_thread(h, a: list, now: float) -> int:  # A1 · 같은 ts 같은 키 = 멱등 · 다른 키 = 거절
-    row = {"q_ts": a[0] if a else "", "kind": "thread", "key": a[1] if len(a) > 1 else "", "at": int(now), "deadline": int(now + DAY), "state": "open"}
+def register_thread(h, a: list, now: float) -> int:  # A1 · 기준점 = 등록 시각(등록 전 옛 글 재생 0) · 같은 ts 같은 키 = 멱등 · 다른 키 = 거절
+    row = {"q_ts": a[0] if a else "", "kind": "thread", "key": a[1] if len(a) > 1 else "", "at": int(now), "deadline": int(now + DAY), "state": "open", "notified_ts": "%.6f" % now}
     if len(a) != 2 or not TS.match(row["q_ts"]) or not KEY.match(row["key"]):
         print("감시 등록 실패 — 사용: --register-thread <스레드 ts(1794295513.494289)> <사유키(r1590)>", file=sys.stderr)
         return 3
@@ -105,7 +107,12 @@ def scan_threads(h, rows: list, now: float) -> tuple[dict, int, int, int]:  # A2
             bad("_desk 없음 — %s 알림 0(다음 주기 재시도)" % key)
             nbad += 1
             continue
-        rc, out = judge_after(h.check, q, row.get("notified_ts") or q)  # A2 «이 시각 뒤» 첫 오빠 글
+        base = row.get("notified_ts")  # A2 기준점 = 등록 때 박은 등록 시각
+        if not isinstance(base, str) or not TS.match(base):  # 옛 판이 등록한 줄(기준점 없음) = 첫 점검에서 «지금»을 기준점으로 채택(옛 글 알림 0 · 쪽지 0)
+            print("thread 줄 기준점 없음 — %s q_ts=%s · 지금을 기준점으로 채택" % (key, q), file=sys.stderr)
+            up[rowkey(q)] = {"notified_ts": "%.6f" % now}
+            continue
+        rc, out = judge_after(h.check, q, base)  # A2 «기준점 뒤» 첫 오빠 글
         if rc == 3:  # 새 글 없음 = 정상 열린 줄
             continue
         m = re.search(r"reply=([0-9]+\.[0-9]+)$", out.strip().splitlines()[-1]) if rc == 0 and out.strip() else None
