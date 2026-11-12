@@ -11,8 +11,10 @@
 #   ⑨ 같은 q_ts 의 closed question 줄이 있어도 thread 줄은 등록된다(충돌 검사 = kind=thread 줄만) · 같은 key 재등록 중복 0 · 다른 key thread = rc3
 #   ⑪ thread 줄이 있는 ts 에도 --register-question·--register(h) 는 그 갈래대로(thread 줄은 충돌 아님)
 #   ⑩ 스캔·--close 는 thread 줄만 건드린다(같은 ts question 줄 state·closed·notified_ts 불변) · 변이 M6(kind 검사 지움 → ⑨) · M7(장부 갱신 q_ts만 → ⑩)
+#   ⑫ 등록 «전» 글만 있는 스레드 = 쪽지 0통(기준점 = 등록 시각 · notified_ts 로 박힌다) · 다음 주기에도 옛 글 재생 0
+#   ⑬ 등록 «뒤» 새 글 1개 = 1통(ts=그 글) · 그 다음 주기 0통
 #   ⑥ 에 --after 없는 길의 NoReply stderr 꼴(parent=<부모ts>)까지 본다(NG2)
-#   변이 M1 --after 무시 · M2 알림 뒤 닫기 · M3 만료에 쪽지 · M4 --close 잠금 밖·없는 키 rc0 → 각각 잡힌다
+#   변이 M1 --after 무시 · M2 알림 뒤 닫기 · M3 만료에 쪽지 · M4 --close 잠금 밖·없는 키 rc0 · M8 기준점을 스레드 q_ts 로 되돌림 → 각각 잡힌다
 #   격리: 임시 FT_ROOT·가짜 mbox(발신 기록)·가짜 replies(실 Slack 0)·가짜 시계 · 안전선(r1041): ulimit -u+64 · timeout 70 · 자기 재호출 0
 set -uo pipefail
 NPROC=$(ulimit -u 2>/dev/null || echo 3000); ulimit -u $((NPROC + 64)) 2>/dev/null || true
@@ -21,8 +23,8 @@ TOOL="$BIN/ft_desk_reply_wake.py"; CHECK="$BIN/ft_oppa_slack_check.py"; THREAD="
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0
 chk() { if [ "$2" = "$3" ]; then echo "  OK   $1"; else echo "  FAIL $1 — 기대[$2] 실제[$3]"; fail=1; fi; }
-NOW=1794401443; QTS=1794400000.100000; T1=1794400600.100000; T2=1794400700.100000; T3=1794400800.100000
-DTS=1794400650.500000; KEY=r1764-desk; OPPA=U0AC2JF0M7D; DESKU=U0C9GRFHJ; DESK="byz-planner-desk-pi#127"; MASTER="byz-planner-master-pi#249"
+NOW=1794400100; QTS=1794400000.100000; T1=1794400600.100000; T2=1794400700.100000; T3=1794400800.100000
+DTS=1794400650.500000; O1=1794400020.100000; O2=1794400040.200000; N1=1794400160.600000; KEY=r1764-desk; OPPA=U0AC2JF0M7D; DESKU=U0C9GRFHJ; DESK="byz-planner-desk-pi#127"; MASTER="byz-planner-master-pi#249"
 ROOT="$T/root"; mkdir -p "$ROOT/.fable-team/state" "$T/hil"
 LEDGER="$ROOT/.fable-team/state/desk-reply-wait.jsonl"; SENT="$T/sent.tsv"; : > "$SENT"
 printf '{"_master":"%s","_desk":"%s"}\n' "$MASTER" "$DESK" > "$ROOT/.fable-team/seats-planner.json"
@@ -113,7 +115,7 @@ reset; three
 run --register-thread "$QTS" "$KEY" >/dev/null 2>&1
 B_TS="$(field notified_ts)"; echo 2 > "$T/replies.rc"
 run >"$T/o7" 2>"$T/e7"; chk "⑦ 판정 불가 경로 rc=1" 1 "$?"
-chk "⑦ «판정 불가» 1줄 · notified_ts 그대로 · 쪽지 0통" "1 — 0" "$(grep -c '판정 불가' "$T/e7") $B_TS $(sends)"
+chk "⑦ «판정 불가» 1줄 · notified_ts 그대로 · 쪽지 0통" "1 0 $B_TS" "$(grep -c '판정 불가' "$T/e7") $(sends) $(field notified_ts)"
 rm -f "$T/replies.rc"
 
 echo "== ⑧ 열린 thread 줄이 상한(4)보다 많아도 순환해서 모두 본다 =="
@@ -144,6 +146,21 @@ reset; run --register-thread "$QTS" "$KEY" >/dev/null 2>&1
 run --register-question "$QTS" r1764-q >/dev/null 2>&1; chk "⑪ --register-question 같은 ts = rc0(thread 줄에 안 막힘)" 0 "$?"
 reset; run --register-thread "$QTS" "$KEY" >/dev/null 2>&1
 run --register "$QTS" h77 0123456789abcdef0123456789abcdef01234567 >/dev/null 2>&1; chk "⑪ --register(h) 같은 ts = rc0(thread 줄에 안 막힘)" 0 "$?"
+
+echo "== ⑫ 등록 전 옛 글은 알림 0통(기준점 = 등록 시각) =="
+reset; mk_replies "[$(oppa "$O1" "등록 전 옛 글 1"),$(oppa "$O2" "등록 전 옛 글 2")]"
+run --register-thread "$QTS" "$KEY" >/dev/null 2>&1; chk "⑫ 등록 rc=0" 0 "$?"
+chk "⑫ 줄에 기준점(등록 시각)이 박힌다" "$NOW.000000" "$(field notified_ts)"
+run >/dev/null 2>&1; chk "⑫ 1주기 = 옛 글 2개 무시 쪽지 0통" 0 "$(sends)"
+run >/dev/null 2>&1; chk "⑫ 2주기 = 옛 글 재생 0통" "0 open" "$(sends) $(field state)"
+
+run >/dev/null 2>&1
+echo "== ⑬ 등록 뒤 새 글 1개 = 1통 =="
+reset; mk_replies "[$(oppa "$N1" "등록 뒤 새 글")]"
+run --register-thread "$QTS" "$KEY" >/dev/null 2>&1
+run >/dev/null 2>&1; chk "⑬ 1주기 = 새 글 1통(받는이 _desk)" "1 $DESK" "$(sends) $(cut -f1 "$SENT")"
+chk "⑬ 본문 = 새 글 ts · 줄은 열린 채" "[오빠 새 글] $KEY ts=$N1 open::$N1" "$(lastbody) $(tstate)"
+run >/dev/null 2>&1; chk "⑬ 2주기 = 같은 글 반복 0통" 1 "$(sends)"
 
 mut() {  # $1 = 이름 · $2 = 파일 · $3 = 교체 스크립트(python heredoc 본문)  → $T/mut/$1 에 사본 3파일
   mkdir -p "$T/mut/$1"; cp "$TOOL" "$CHECK" "$THREAD" "$T/mut/$1"; python3 - "$T/mut/$1/$2" <<PY
@@ -219,5 +236,14 @@ t = t.replace(old, "            u = up.get((\"thread\", r.get(\"q_ts\"))) or up.
 RUN_TOOL="$T/mut/m7/ft_desk_reply_wake.py" run >/dev/null 2>&1
 chk "M7 question 줄에 notified_ts 가 붙음 → ⑩ «불변» 검사가 잡는다" "closed:replied:$T1" "$(qstate)"
 
-if [ "$fail" = 0 ]; then echo "ALL PASS (① ② ③ ④ ⑤ ⑥ ⑦ ⑧ ⑨ ⑩ ⑪ · 변이 M1~M7 · kit cmp0) — ${SECONDS}s"; exit 0; fi
+echo "== 변이 M8 = 기준점을 스레드 q_ts 로 되돌림(옛 글 재생) =="
+reset; mk_replies "[$(oppa "$O1" "등록 전 옛 글 1"),$(oppa "$O2" "등록 전 옛 글 2")]"
+mut m8 ft_desk_reply_thread.py 'old = "\"notified_ts\": \"%.6f\" % now"
+assert old in t
+t = t.replace(old, "\"notified_ts\": a[0] if a else \"\"", 1)'
+RUN_TOOL="$T/mut/m8/ft_desk_reply_wake.py" run --register-thread "$QTS" "$KEY" >/dev/null 2>&1
+RUN_TOOL="$T/mut/m8/ft_desk_reply_wake.py" run >/dev/null 2>&1
+chk "M8 옛 글 1통 → ⑫ «0통» 검사가 잡는다" 1 "$(sends)"
+
+if [ "$fail" = 0 ]; then echo "ALL PASS (① ② ③ ④ ⑤ ⑥ ⑦ ⑧ ⑨ ⑩ ⑪ ⑫ ⑬ · 변이 M1~M8 · kit cmp0) — ${SECONDS}s"; exit 0; fi
 echo "FAIL 있음 — 위 FAIL 줄"; exit 1
