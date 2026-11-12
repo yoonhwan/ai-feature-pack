@@ -25,16 +25,18 @@ RESULT_WORDS = (
 REQUIRED_FIELDS = ("schema", "team", "seq", "kind", "command", "attempt", "at", "body", "work")
 # r1579: 실행권·세대 종류 추가(세대 교체는 claim 의 gen 으로 표현). schema 1 유지 = 필드 추가만.
 # r1594: 진행 구분(progress)·골 마감(close) 추가 — lifecycle.py 만 쓴다. r1724: refuse·resolve — refuse_history.py 만.
-# r1725: close_receipt(닫기 영수) — close_next.py 만. r1727: reopen(팀장 개설 의도·부팅 보고) — reopen.py 만.
+# r1725: close_receipt(닫기 영수) — close_next.py 만.
+# r1727: reopen(팀장 개설 의도·부팅 보고) — reopen.py 만.
 KINDS = ("accept", "claim", "start", "effect", "result", "uncertain",
          "dispatch", "deliver", "execute", "complete", "reassess", "progress", "close", "refuse", "resolve",
-         "close_receipt", "reopen")
+         "reopen",
+         "close_receipt")
 STATE_FIELDS = ("revision", "pending", "attempts")
 # 확장 state 칸 — 없으면 기본값 {} 로 채운다(다른 writer 가 병합해 보존한다 · ⓘ).
 EXTENDED_STATE_FIELDS = ("generations", "owners", "uncertain", "deliveries", "reservations",
                          "done", "reassess_done", "released", "owners_recovered", "executed",
-                         "journal_base", "refusals", "close_receipts",   # r1584 base · r1724 거절 · r1725 닫기 영수
-                         "reopens", "lifted")                           # r1727 재개
+                         "reopens", "lifted",   # r1727 재개
+                         "journal_base", "refusals", "close_receipts")   # r1584: base checkpoint · r1724: 거절 이력 · r1725: 닫기 영수
 
 
 class RecordError(ValueError):
@@ -213,7 +215,8 @@ def recover_state(state, records):
     return dict(state, revision=max(state["revision"], count + len(rows)), generations=gens, owners=owners,
                 reservations=kept, deliveries=sent, done=done, reassess_done=reassessed,
                 released=released, owners_recovered=recovered, uncertain=uncertain, lanes=lanes, refusals=refusals,
-                close_receipts=closes, reopens=reopens, lifted=lifted)
+                reopens=reopens, lifted=lifted,
+                close_receipts=closes)
 
 
 def build(team, seq, command, attempt, at, body, work=None, goal=None, kind="accept",
