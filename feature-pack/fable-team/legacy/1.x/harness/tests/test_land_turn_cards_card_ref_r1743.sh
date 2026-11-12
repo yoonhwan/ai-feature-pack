@@ -83,5 +83,20 @@ echo "### 회귀: 같은 ref 를 두 행에 적어도 1줄"
 tbl origin/main origin/main
 run fm_cards_by_tokens "$R" r9001
 ck "회귀 같은 ref 2행 = 1줄" [ "$(n '진행/r9001-x.md')" = 1 ]
+echo "### R1 임시 파일 생성 실패(TMPDIR 없음) = 조용한 0장 금지(A3 · 하드 룰 20)"
+tbl
+MISS="$T/missing-tmpdir"
+( Q="$(git -C "$R" rev-parse HEAD)"; HEADSHA="$Q"; REPO="$R"; TARGET=main; FT_SEAT=byz-harness-nano-x#0
+  TMPDIR="$MISS" fm_land_turn "$R" 9003 0 r9001 ) >/dev/null 2>&1
+ck "R1 임시 파일 실패 = cards_err 사유 남음" grep -q '"pr": 9003, .*"cards": \[\], .*"cards_err": "' "$L"
+run env FT_ROOT="$R" bash "$REC" due --pr 9003 --no-fetch
+ck "R1 due = «판정 불가 카드 ref»" [ "$(n '^판정 불가 카드 ref ')" = 1 ] && ck "R1 due rc=3" [ "$rc" = 3 ]
+ck "R1 due 에 «카드 없음» 글자 0" [ "$(n '카드 없음')" = 0 ]
+( Q="$(git -C "$R" rev-parse HEAD)"; HEADSHA="$Q"; REPO="$R"; TARGET=main; FT_SEAT=byz-harness-nano-x#0
+  TMPDIR="$T" fm_land_turn "$R" 9004 0 r9001 ) >/dev/null 2>&1; rc=$?
+ck "R1 대조(정상 TMPDIR) = 착지 rc0" [ "$rc" = 0 ]
+ck "R1 대조 = 카드 1줄 · cards_err 없음" [ "$(grep -c '9004' "$L")" = 1 ] && ! grep -q '"pr": 9004, .*cards_err' "$L"
+ck "R1 대조 = 장부에 카드 경로" grep -q '"pr": 9004, .*진행/r9001-x.md"' "$L"
+
 printf '### 결과: %s\n' "$([ "$fail" = 0 ] && echo PASS || echo "FAIL $fail")"
 [ "$fail" = 0 ]
