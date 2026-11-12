@@ -33,6 +33,9 @@ def role_key(name: str) -> str:
 HEARTBEAT_TOKEN = "[정리]"  # 팀장이 틱마다 보내는 «한 일 정리» 쪽지의 본문 머리
 FUTURE = re.compile(r"하겠습니다|할게요|진행하겠|착수하겠|진행할게")
 REST = "[완료·휴식]"
+REST_MARK = re.compile(r"\[다음 없음\]|막힘 = 사람 답\(\d{10}\.\d{6}\)")  # r1729 — 쉼 심박 표식(첫 줄만 · A1)
+LEAD_REST_MAX_MIN = 240.0  # r1729 — 쉼 면제 상한 4시간(A3)
+_HB_EXTRA: dict[str, Any] = {}  # r1729 — _hb_line 이 같은 파싱에서 모으는 «쉼 심박 ts · 사건 ts»(읽기 1회)
 REF = re.compile(r"indices/(대기|진행|완성)/([\w.\-]+)\.md")
 OFF_ROLES = ("stop-ready", "closed")
 AGENT = re.compile(r"(?:^|[\s/])(claude|codex)(?:\s|$)")
@@ -636,6 +639,13 @@ def _is_heartbeat_body(body: object) -> bool:
     return head.startswith(HEARTBEAT_TOKEN) or (head.startswith("[HIL]") and bool(PROMOTED.search(head.split("\n", 1)[0].strip())))
 
 
+def _rest_mark(body: object) -> bool:
+    """r1729 — 쉼 표식은 «첫 줄» 에서만 센다(A1 · 반례 ④): 둘째 줄 이후에 붙은 표식은 세지 않는다."""
+    if not isinstance(body, str):
+        return False
+    return bool(REST_MARK.search(body.lstrip().split("\n", 1)[0]))
+
+
 def _hb_line(line: str, masters: set[str], recipients: set[str], now: float) -> tuple[float | None, bool, bool]:
     """쪽지 1줄 → (ts, 심박인가, 깨진 줄인가). ts 는 «모든» 줄에서 뽑는다 — 로그를 끝에서 읽으며 창 밖에서 멈추는 기준(r1020)."""
     try:
@@ -650,11 +660,16 @@ def _hb_line(line: str, masters: set[str], recipients: set[str], now: float) -> 
         return None, False, True
     if ts > now + 5:  # 미래 ts = 시계 어긋남 — 신선으로 읽지 않는다
         return ts, False, True
+    keys = {role_key(x) for x in masters}  # r1729 — «그 팀장» 과 오간 쪽지 = 사건(A2)
+    if r.get("from") != "ft-stall-scan" and (role_key(str(r.get("to"))) in keys or role_key(str(r.get("from"))) in keys):
+        _HB_EXTRA.setdefault("ev", []).append(ts)  # 스캐너의 [멈춤] 은 사건이 아니다(반례 ⑧)
     body = r.get("body")
     if not _is_heartbeat_body(body):
         return ts, False, False  # 심박 아닌 쪽지(발주·보고)는 판정 대상이 아니다
     if r.get("from") not in masters or role_key(str(r.get("to"))) not in {role_key(x) for x in recipients}:
         return ts, False, False  # 발신자가 현역 팀장이 아니거나, 받는이가 master/planner «역할» 이 아니면 심박이 아니다(반례 2·4·5)
+    if _rest_mark(body):  # r1729 — 쉼 심박(첫 줄 표식 · A1)
+        _HB_EXTRA["rest"] = max(ts, _HB_EXTRA.get("rest") or 0.0)
     return ts, True, False
 
 
@@ -763,6 +778,41 @@ def lead_heartbeat_min() -> float:
     return v if v > 0 else LEAD_HEARTBEAT_MIN
 
 
+def lead_rest_max_min() -> float:
+    """면제 상한 = FT_LEAD_REST_MAX_MIN(기본 240분 = 4시간 · r1729 A3). 값이 이상하면 기본을 쓴다."""
+    try:
+        v = float(os.environ.get("FT_LEAD_REST_MAX_MIN") or LEAD_REST_MAX_MIN)
+    except ValueError:
+        return LEAD_REST_MAX_MIN
+    return v if v > 0 else LEAD_REST_MAX_MIN
+
+
+def lead_rest_state(comm: Path, masters: set[str], recipients: set[str], now: float) -> tuple[str, float | None, float | None]:
+    """r1729 — 쉼 심박(A1)과 그 뒤 첫 사건(A2)을 «면제 상한» 창까지 한 번 더 읽어 낸다.
+    → ("ok", 쉼 심박 ts|None, 그 뒤 첫 사건 ts|None) · ("ERROR", None, None) = 판정 불가(깨진 줄·7초 예산 · A4).
+    쉼 심박이 상한(FT_LEAD_REST_MAX_MIN · A3)을 넘었으면 ("ok", None, None) = 면제 0(지금 판정 그대로).
+    읽기는 lead_heartbeat 와 같은 끝 읽기·예산을 쓰고 로그 창만 상한까지 넓힌다(A4)."""
+    budget = float(os.environ.get("FT_STALL_HEARTBEAT_BUDGET") or 7)
+    t0 = time.monotonic()
+    cap = lead_rest_max_min()
+    _HB_EXTRA.clear()  # 같은 파싱에서 모은 쉼·사건은 이번 읽기의 것만 쓴다
+    err, _best, broken, _n = _read_mailbox(comm / "mailbox.jsonl", masters, recipients, now, budget, t0)
+    if err:
+        return "ERROR", None, None
+    err, _ts, bad, _n2 = _read_mailbox_log(comm.joinpath("mailbox.log.jsonl"), masters, recipients, now, cap, budget, t0)
+    if err:
+        return "ERROR", None, None
+    if broken + bad:
+        return "ERROR", None, None  # 판정 불가 = 처리 0 + u(A4 · 반례 ⑪)
+    if time.monotonic() - t0 > budget:
+        return "ERROR", None, None
+    rest = _HB_EXTRA.get("rest")
+    if rest is None or (now - rest) / 60 > cap:
+        return "ok", None, None
+    ev = [t for t in _HB_EXTRA.get("ev", []) if t > rest]
+    return "ok", rest, min(ev) if ev else None
+
+
 def lead_recipients(root: Path, warn: bool = False) -> set[str]:
     """심박 받는이 = 명부 «전체» 의 현역 role=master + 현역 planner(planner 팀장도 role=master) — DA r2 반례 2.
     자기 팀 _master 로 좁히면 «다른 팀 현역 master 에게 보낸 신선한 [정리]» 를 놓쳐 멀쩡한 팀장이 멈춤으로 읽힌다.
@@ -784,6 +834,14 @@ def lead_alert(root: Path, comm: Path, master: str, now: float) -> tuple[bool, f
     state, ts, _why = lead_heartbeat(comm, lead_names(root, master), lead_recipients(root), now)
     if state == "ERROR":
         return False, None, True
+    if ts is None or (now - ts) / 60 > lead_heartbeat_min():  # r1729 — 경보 후보일 때만 쉼 면제를 본다(늘 읽기 1회 더는 아니다)
+        rstate, rest, first_ev = lead_rest_state(comm, lead_names(root, master), lead_recipients(root), now)
+        if rstate == "ERROR":
+            return False, None, True
+        if rest is not None:  # 쉼 심박 뒤 사건 0 = 경보 0(A1) · 사건이 있으면 첫 사건 ts 부터 다시 센다(A2)
+            if first_ev is None:
+                return False, (now - rest) / 60, False
+            return (now - first_ev) / 60 > lead_heartbeat_min(), (now - first_ev) / 60, False
     if ts is None:
         return True, None, False  # 심박 창(20분) 안 [정리] 0 = 멈춤 — 로그는 창 안만 읽으므로 «한 번도 안 보냄» 이 아니다(r1143)
     age = (now - ts) / 60
