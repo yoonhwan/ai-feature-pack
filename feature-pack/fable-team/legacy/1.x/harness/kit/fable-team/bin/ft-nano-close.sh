@@ -250,24 +250,28 @@ _root_pick() {  # <좌석> <cwd 공용 루트> <FT_ROOT> <roots.tsv> — stdout 
 import glob, json, os, sys
 seat, cur, ftroot, tsv = ([*sys.argv[1:], "", "", "", ""])[:4]
 
-def has(pt, s):   # 그 루트의 명부(.fable-team/seats*.json)에 이 좌석 행이 있나(읽기 실패 = 없는 것으로 — 추측 0)
+def has(pt, s, bad):   # True/False — 읽기 실패(OSError·ValueError·dict 아님)는 bad 에 파일을 남긴다: 후보 집합이 불완전하면 유일 루트를 확정하지 않는다(DA R1)
+    ok = False
     for f in sorted(glob.glob(os.path.join(pt, ".fable-team", "seats*.json"))):
         try:
             d = json.load(open(f, encoding="utf-8"))
         except (OSError, ValueError):
-            continue
-        if isinstance(d, dict) and s in d:
-            return True
-    return False
+            bad.append(f); continue
+        if not isinstance(d, dict):
+            bad.append(f); continue
+        if s in d:
+            ok = True
+    return ok
 
 def out(root, note=""):
     print(root)
     print(note)
     raise SystemExit(0)
 
-if ftroot and os.path.isdir(os.path.join(ftroot, ".fable-team")) and has(ftroot, seat):
+bad = []
+if ftroot and os.path.isdir(os.path.join(ftroot, ".fable-team")) and has(ftroot, seat, bad):
     out(ftroot)                                              # ① FT_ROOT 가 데이터 루트(그 명부에 이 좌석 행이 있다)
-if has(cur, seat):
+if has(cur, seat, bad):
     out(cur)                                                 # ② cwd 공용 루트 명부에 그 좌석 = 지금 값 그대로
 try:
     rows = []
@@ -280,10 +284,11 @@ try:
 except (OSError, ValueError):
     out(cur, "(루트 해석: roots.tsv — 읽기 실패)")            # ④-ㄱ
 rows = [r for r in dict.fromkeys(rows) if r]
-hit = [r for r in dict.fromkeys(rows) if r and has(r, seat)]
-if len(hit) == 1:
+hit = [r for r in dict.fromkeys(rows) if r and has(r, seat, bad)]
+if len(hit) == 1 and not bad:                                 # 유일 루트 확정 = 후보 집합이 온전할 때만(DA R1)
     out(hit[0])                                              # ③ roots.tsv 명부 «정확히 1곳»
-out(cur, f"(루트 해석: roots.tsv — 좌석 명부 {len(hit)}곳)")  # ④-ㄴ 0곳·2곳 이상 = 지금 값 + 사유(하드 룰 20)
+why = f"명부 읽기 실패 {bad[0]}" if bad else f"좌석 명부 {len(hit)}곳"
+out(cur, f"(루트 해석: roots.tsv — {why})")                    # ④ 0곳·2곳 이상·읽기 실패 = 지금 값 + 사유(하드 룰 20)
 PY
 }
 ROOT_NOTE=""
