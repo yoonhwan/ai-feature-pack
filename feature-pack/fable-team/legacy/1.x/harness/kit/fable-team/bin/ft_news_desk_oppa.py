@@ -133,9 +133,17 @@ def _unknown(name: str, prev: dict, now: datetime, e: Exception) -> str:
     return f"- {name}: 확인 불가 · ({prev['at']} 기준 {str(prev.get('value', '')).splitlines()[0]}) · 사유 {_why(e)}"
 
 
+def _autonomy(root: Path) -> str:  # r1745 A6 오빠 손 첫 줄 = 자율 상태 1줄(ft-autonomy.sh brief · 읽기만)
+    try:
+        done = _tool(["bash", os.environ.get("FT_DESK_AUTONOMY") or str(HERE / "ft-autonomy.sh"), "brief"], "FT_DESK_TOOL_TIMEOUT")
+    except (RuntimeError, OSError) as e:
+        return f"자율 상태 확인 불가({_why(e)})"
+    return next((x.strip() for x in done.stdout.splitlines() if x.strip()), "") or "자율 상태 확인 불가(brief 빈 응답)"
+
+
 def oppa_block(root: Path, now: datetime | None = None) -> list[str]:
-    """③오빠 손 — 칸 3개 늘 있음(K6) · 칸마다 7초+재시도 1 · 실패 = _unknown(R2′)."""
-    out = ["## 오빠 손"]
+    """③오빠 손 — 칸 3개 늘 있음(K6) · 칸마다 7초+재시도 1 · 실패 = _unknown(R2′) · 첫 줄 = 자율 상태 1줄(r1745 A6)."""
+    out = ["## 오빠 손", f"- 자율: {_autonomy(root)}"]
     now = now or datetime.now()
     for name, fn in (("실행할 스크립트", _hil), ("답 대기 질문", _questions), ("오늘 착지", _landed)):
         try:
