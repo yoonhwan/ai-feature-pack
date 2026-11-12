@@ -391,7 +391,7 @@ fm_land_notify_land() {
 fm_land_turn() {
   local root="$1" pr="$2" t0="$3" c f cap el of err="" p; local -a cd=(); shift 3; c="$(git -C "$root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; c="${c%/.git}"; c="${c:-$root}"; f="$c/.fable-team/state/land-record-turn.jsonl"
   of="$(mktemp "${TMPDIR:-/tmp}/fm-cards.XXXXXX" 2>/dev/null)" || of=""   # r1743 A3: FM_CARDS_ERR 를 부른 쪽 셸에서 읽는다(명령 치환 = 서브셸이면 표지가 안 남는다)
-  if [ -n "$of" ]; then fm_cards_by_tokens "$root" "$@" >"$of"; err="$FM_CARDS_ERR"; while IFS= read -r p; do [ -z "$p" ] || cd[${#cd[@]}]="$p"; done <"$of"; rm -f "$of"; fi
+  if [ -n "$of" ]; then fm_cards_by_tokens "$root" "$@" >"$of"; err="$FM_CARDS_ERR"; while IFS= read -r p; do [ -z "$p" ] || cd[${#cd[@]}]="$p"; done <"$of"; rm -f "$of"; else err="카드 목록 임시 파일 생성 실패 — mktemp(${TMPDIR:-/tmp})"; echo "WARN cards_err: $err" >&2; fi   # r1743 R1: 임시 파일 실패도 조용한 0장 금지(하드 룰 20)
   { mkdir -p "${f%/*}" && python3 -c 'import json,sys,time;a=sys.argv;d={"pr":int(a[1]),"repo":a[2],"target":a[3],"landed":a[4],"pr_head":a[5],"by":a[6],"cards":a[8:],"ts":time.strftime("%Y-%m-%dT%H:%M:%S")};a[7] and d.update(cards_err=a[7]);print(json.dumps(d,ensure_ascii=False))' "$pr" "$(cd -- "${REPO:-$root}" 2>/dev/null && pwd -P)" "${TARGET:-main}" "${Q:-}" "${HEADSHA:-}" "${FT_SEAT:-}" "$err" ${cd[@]+"${cd[@]}"} >>"$f"; } 2>/dev/null || echo "WARN 착지 차례 장부 쓰기 실패($f) — 착지는 성공"   # r1717-mut:ledger
   cap=$((7 - (SECONDS - t0))); if el="$(fm_fetch_deadline_rem)"; then [ "$el" -ge "$cap" ] || cap="$el"; fi
   [ "$cap" -lt 1 ] || [ ! -f "$FM_HERE/ft-nano-record.sh" ] || FT_ROOT="$c" fm_try "$cap" bash "$FM_HERE/ft-nano-record.sh" notify --pr "$pr" --no-fetch 2>&1 || true
