@@ -71,7 +71,7 @@ mk "$T/cards/planner-prod.md" "$PL" '- 정본 영향: 제품 docs' ""
 mk "$T/cards/planner-hprod.md" "$PL" '- 정본 영향: 하네스 제품 docs' ""
 mk "$T/cards/planner-body.md" "$PL" '- 정본 영향: 제품 docs' '- 정본 영향: 하네스 bin + 팩 원본'
 
-run() { ( cd "$R" && env -i HOME="$HOME" FT_SHEET_ROOT="$FT_SHEET_ROOT" HIL_DIR="$T/hil" HIL_CLIP=0 PATH="$T/fake:$PATH" FAKE_PANES="$T/panes" FAKE_CWD="$T/cwd" FAKE_PANE_CWDS="$T/pane-cwds" FAKE_LOG="$T/tlog" "$@" 2>&1 ); }
+run() { ( cd "$R" && env -i HOME="$HOME" FT_SHEET_ROOT="$FT_SHEET_ROOT" HIL_DIR="$T/hil" HIL_CLIP=0 PATH="$T/fake:$PATH" FAKE_PANES="$T/panes" FAKE_CWD="$T/cwd" FAKE_PANE_CWDS="$T/pane-cwds" FAKE_LOG="$T/tlog" bash -c 'while [ $# -gt 0 ]; do case "$1" in [A-Z_]*=*) export "$1"; shift;; *) break;; esac; done; exec "$@"' _ "$@" 2>&1 ); }   # env 뒤 첫 낱말 = 글자 명령(범위 분류기) · 인자 앞 VAR=값 은 안쪽에서 export
 setup() {  # setup <카드 종류>
   printf '{"%s":{"role":"nano","index":"design/harness/indices/진행/k.md"}}\n' "$SEAT" > "$R/.fable-team/seats-harness.json"
   printf '%s|%%1\n' "$SEAT" > "$T/panes"; printf '%s|%s\n' "$SEAT" "$RW" > "$T/pane-cwds"; printf '%s' "$RW" > "$T/cwd"
