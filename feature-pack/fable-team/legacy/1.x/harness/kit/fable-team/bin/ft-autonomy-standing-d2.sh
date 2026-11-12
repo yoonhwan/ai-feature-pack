@@ -4,20 +4,35 @@
 #       되돌릴 수 있는 병합은 revert 로 되돌아간다 → 그 팀 master 가 결정하고 병합 «뒤» Slack 1줄로 알린다. 되돌릴 수 «없는» 종류만 오빠 답글 길(판정 2904)로 남긴다.
 #   approve-standing D2 --repos byz,pack --classes code,docs --oppa-decision <Slack ts>   ← 켜기 = planner master 좌석(오빠 `!` 0) · ①오빠 답글 확인(새 질문 0) ②켜짐 Slack 1글 먼저 → grants.audit(slack_ts·oppa_decision) → log
 #   standing-approve D2 <head40> --pr <N> --repo byz|pack --verdict <판정문> --card <카드>   ← 쓰기 = 그 팀 master 좌석(ft_doc_exempt team-master-seat)
-#       ①D2 켜짐 ②분류(--repo ⊆ repos · byz=내장표/pack=팩표 · FORBID·ERROR·시간초과=거절 · 종류(ff→docs) ∈ classes) ③D1 ③~⑥ 그대로 — 단 ③ 이 읽는 ref 만 DA 판정 가지(D2_VREF · r1590) ④카드 시험 세트(code) ⑤크리티컬 0
+#       ①D2 켜짐 ∨ (r1775 자율 길: 자율 정합 ON ∧ 레벨 full ∧ 지금 이벤트의 활성 approve-scope S<M>) ②분류(--repo ⊆ repos · byz=내장표/pack=팩표 · FORBID·ERROR·시간초과=거절 · 종류(ff→docs) ∈ classes) ③D1 ③~⑥ 그대로 — 단 ③ 이 읽는 ref 만 DA 판정 가지(D2_VREF · r1590) ④카드 시험 세트(code) ⑤크리티컬 0 ⑥r1775 자율 길만 ft-merge-gate ALLOW 재확인
 #       하나라도 못 지나면 STANDING-REJECT rc2 · 쓰기 0 · 끝줄 «다시: 오빠 h(approve-merge --oppa-slack)» (oppa_gate·ft_oppa_slack_check 변경 0 — D2 는 승인 기록을 직접 발급)
 #   standing-stop D2 "<사유>"   누구나 · 멈춘 뒤 standing-approve D2 = 거절 · 다시 켜기 = approve-standing D2
 # 원장 $STATE/autonomy-standing/D2.ledger.tsv 7칸 = 시각·head·PR·da=<A>·DA 원문 경로·착지 sha·되돌림 명령(D1 과 같은 칸 · ft-merge-land 가 채운다)
 D2_VREF='refs/remotes/origin/docs/da-278062'   # r1590 ③ 판정문 읽는 ref = DA 판정 가지(코드 상수 · 호출자가 못 고른다)
 D2="$STATE/autonomy-standing"; . "$HERE/ft-autonomy-standing.sh"   # D1 헬퍼(std_t7·std_field·std_verdict·std_da_out·std_equiv·std_seat_probe·std_plain) 재사용 — 사본 0
 D2_GRANT_RE='^approve-standing D2 [0-9]+ repos=(byz|pack|byz,pack) classes=(code|docs)(,(code|docs))? oppa_decision=[0-9]+\.[0-9]{6}$'
-std_err() { echo "STANDING-REJECT $1" >&2; echo "다시: 오빠 h(approve-merge --oppa-slack) — 크리티컬·판정문·시험 중 하나라도 못 지나면 건마다 오빠 답글" >&2; exit 2; }
+d2_foot() {  # r1775 ⑧ 자율 길이면 «고친 뒤 다시» — 되돌릴 수 없는 종류(NEVER_LEARN·secret·repo-outside·scope-table·mode)만 오빠 답글 길
+  case "$1" in *NEVER_LEARN*|*secret*|*repo-outside*|*scope-table*|*"승인 범위(repos="*|*mode*) ;; *) echo "다시: 사유를 고친 뒤 다시 standing-approve"; return ;; esac
+  echo "다시: 오빠 h(approve-merge --oppa-slack) — 크리티컬·판정문·시험 중 하나라도 못 지나면 건마다 오빠 답글"; }
+std_err() { echo "STANDING-REJECT $1" >&2; if [ -n "${D2_VIA_S:-}" ]; then d2_foot "$1" >&2; else echo "다시: 오빠 h(approve-merge --oppa-slack) — 크리티컬·판정문·시험 중 하나라도 못 지나면 건마다 오빠 답글" >&2; fi; exit 2; }
 scope_err() { std_err "④ $1"; }   # scope 시험 도구의 거절도 D2 끝줄 하나로(사본 0)
 d2_on() {  # rc0 = 마지막 approve-standing D2 줄(꼴 맞음)이 마지막 standing-stop D2 줄보다 뒤 → D2_LINE D2_REPOS D2_CLASSES
   local g s; g="$(grep -n '^approve-standing D2 ' "$LOG" 2>/dev/null | tail -1)"; s="$(grep -n '^standing-stop D2 ' "$LOG" 2>/dev/null | tail -1)"
   [ -n "$g" ] || return 1; D2_LINE="${g#*:}"; [[ "$D2_LINE" =~ $D2_GRANT_RE ]] || return 1
   D2_REPOS="${D2_LINE#* repos=}"; D2_REPOS="${D2_REPOS%% *}"; D2_CLASSES="${D2_LINE#* classes=}"; D2_CLASSES="${D2_CLASSES%% *}"
   [ -z "$s" ] || [ "${g%%:*}" -gt "${s%%:*}" ]
+}
+d2_scope_via() {  # r1775 자율 길 ① — 자율 정합 ON ∧ 레벨 full ∧ 지금 이벤트의 활성 approve-scope → D2_REPOS D2_CLASSES D2_VIA_S D2_VIA_A(옛 approve-standing D2 줄의 범위는 «안 읽는다» · 승인 범위 repos 칸이 없으면 byz)
+  [ "$(mode)" = on ] || std_err "① 상시 승인 D2 꺼짐 · 자율 모드 ON 아님(mode=$(mode))"
+  [ "$(jfield level)" = full ] || std_err "① 자율 레벨 full 아님(level=$(jfield level)) — 풀자동만 범위 승인 길"
+  scope_load || std_err "A 진입 범위 없음 — approve-scope 줄 없음(범위 승인 없는 자율 승인 0)"
+  scope_block; [ -z "$BLOCK" ] || std_err "A 진입 범위 없음 — $G_S $BLOCK"
+  D2_REPOS="$G_REPOS"; D2_CLASSES="$G_CLASSES"; D2_VIA_S="$G_S"; D2_VIA_A="$G_A"
+}
+d2_gate() {  # r1775 ⑤ 자율 길 — 착지 게이트가 같은 sha 를 ALLOW 하나(확인 실패·DENY = 거절 · D2 길은 앞 판 그대로)
+  std_t7 "$BASH" "$HERE/ft-merge-gate.sh" "$1" --repo "$D2_REPO"
+  [ "$RC" = 0 ] && [[ "$FIRST" == ALLOW* ]] && return 0
+  std_err "⑦ merge-gate ALLOW 아님 rc=$RC: ${FIRST:-출력 없음(시간 초과 7초 포함)}"
 }
 d2_oppa_decision() {  # <ts> — 그 ts 가 «오빠가 쓴» 글인가(기존 읽기·사용자 식별 재사용 · 새 질문 0 · 판정 못 함 = 거절)
   local dx="$HERE/ft_oppa_slack_check.py" out rc; [ -f "$dx" ] || std_err "오빠 답글 확인 도구 없음: $dx"
@@ -126,10 +141,11 @@ d2_write() {  # <head> <pr> <A> <원문> — log(standing-use → approve-merge)
   printf '%s\n' "$line" >> "$LOG" || std_wfail log
   { printf '%s\n' "$line" > "$dir/$1.tmp" && mv "$dir/$1.tmp" "$dir/$1"; } || std_wfail "$dir/$1"
   printf '%s\t%s\t%s\tda=%s\t%s\t\t\n' "$now" "$1" "$2" "$3" "$4" >> "$D2/D2.ledger.tsv" || std_wfail "$D2/D2.ledger.tsv"
-  echo "STANDING-OK $1 pr=$2 repo=$D2_RK da=$3 card=$(basename "$D2_CARD") by=$D2_BY${STD_EQ:+ equiv=$STD_EQ}"
+  [ -z "${D2_VIA_S:-}" ] || printf '%s\t%s\t%s\t%s\n' "$now" "$1" "$D2_VIA_A" "$D2_VIA_S" >> "$D2/D2.via.tsv" || std_wfail "$D2/D2.via.tsv"   # r1775 ⑦ 출처는 log 밖(별도 상태 파일 · log 형식 불변)
+  echo "STANDING-OK $1 pr=$2 repo=$D2_RK da=$3 card=$(basename "$D2_CARD") by=$D2_BY${STD_EQ:+ equiv=$STD_EQ}${D2_VIA_S:+ via=$D2_VIA_S}"
 }
 cmd_standing_approve() {
-  local d="${1:-}" head pr="" rk="" vf="" card=""
+  local d="${1:-}" head pr="" rk="" vf="" card="" D2_VIA_S="" D2_VIA_A=""
   [ "$d" = D2 ] || std_usage "usage: standing-approve D2 <head40> --pr <N> --repo byz|pack --verdict <판정문.md> --card <카드.md>"
   shift; head="${1:-}"; [[ "$head" =~ ^[0-9a-f]{40}$ ]] || std_usage "sha 형식 틀림(40hex 소문자): $head (usage: standing-approve D2 <head40> --pr <N> --repo byz|pack --verdict <판정문.md> --card <카드.md>)"
   STD_SHA="$head"; shift
@@ -139,12 +155,13 @@ cmd_standing_approve() {
   D2_CARD="$card"; D2_DESK=""; d2_seat
   lock; [ "$(mode)" = tamper ] && std_err "자율 상태 위변조(tamper) — 승인 기록 없음"
   [ -z "${D2_DESK:-}" ] || d2_full_autonomy   # R1: 좌석 검사(잠금 앞)와 쓰기 사이에 OFF 가 됐을 수 있다 — 잠금 안에서 다시 본다
-  d2_on || std_err "① 상시 승인 D2 꺼짐(approve-standing D2 줄 없음 또는 standing-stop 뒤)"
+  d2_on || d2_scope_via || std_err "① 상시 승인 D2 꺼짐(approve-standing D2 줄 없음 또는 standing-stop 뒤)"   # r1775: ① 진입 조건 = D2 켜짐 ∨ 자율 풀자동 범위 승인
   d2_repo "$rk"
   if grep -q "^standing-use D2 $head " "$LOG" 2>/dev/null; then echo "STANDING-NOOP $head (이미 상시 승인함)"; return 0; fi
   d2_classify "$head"; std_verdict "$vf" "$D2_VREF"; std_da_out "$V_OUT" "$V_A"; std_equiv "$V_A" "$head"
   [ "$D2_CLS" != code ] || scope_code_check "$head" "$card"   # ④ 카드 시험 세트(rc≠0 = scope_err = STANDING-REJECT)
   d2_critical "$head"
+  [ -z "${D2_VIA_S:-}" ] || d2_gate "$head"   # r1775 ⑤ 자율 길에만 게이트 ALLOW 재확인
   [ -z "${D2_DESK:-}" ] || d2_merge_tree "$head"   # r1708 N2 — desk 길에만 충돌 0(팀 master 길은 앞 판 그대로)
   d2_write "$head" "$pr" "$V_A" "$V_OUT"
 }
