@@ -24,14 +24,16 @@ RESULT_WORDS = (
 
 REQUIRED_FIELDS = ("schema", "team", "seq", "kind", "command", "attempt", "at", "body", "work")
 # r1579: 실행권·세대 종류 추가(세대 교체는 claim 의 gen 으로 표현). schema 1 유지 = 필드 추가만.
-# r1594: 진행 구분(progress)·골 마감(close) 추가 — lifecycle.py 만 쓴다.
+# r1594: 진행 구분(progress)·골 마감(close) 추가 — lifecycle.py 만 쓴다. r1724: refuse·resolve — refuse_history.py 만.
+# r1725: close_receipt(닫기 영수) — close_next.py 만.
 KINDS = ("accept", "claim", "start", "effect", "result", "uncertain",
-         "dispatch", "deliver", "execute", "complete", "reassess", "progress", "close")
+         "dispatch", "deliver", "execute", "complete", "reassess", "progress", "close", "refuse", "resolve",
+         "close_receipt")
 STATE_FIELDS = ("revision", "pending", "attempts")
 # 확장 state 칸 — 없으면 기본값 {} 로 채운다(다른 writer 가 병합해 보존한다 · ⓘ).
 EXTENDED_STATE_FIELDS = ("generations", "owners", "uncertain", "deliveries", "reservations",
                          "done", "reassess_done", "released", "owners_recovered", "executed",
-                         "journal_base")   # r1584: 회수 base checkpoint {upto,count,proj,receipts}
+                         "journal_base", "refusals", "close_receipts")   # r1584: base checkpoint · r1724: 거절 이력 · r1725: 닫기 영수
 
 
 class RecordError(ValueError):
@@ -89,6 +91,39 @@ def _lane_row(row, kind, tick, deadline):
     return out
 
 
+def _fold_refusal(refusals, rec):
+    """r1724 처리 이력 판정의 유일한 구현(순수 · 같은 사건 = 입력 그대로). 거절 1 자동 해소 · 2 재시도 ·
+    3+ 열린 재시도 1 소비 또는 유보(사람 요청 키당 1회) · 해소 1건 = 열린 재시도 +1. 쓰기·재생이 이 함수를 같이 쓴다."""
+    key, event = rec.get("key"), rec.get("event")
+    row = dict(refusals.get(key) or {"attempts": 0, "auto_done": False, "requested": False, "held": False,
+                                     "events": [], "resolutions": [], "open_retries": 0, "last": None})
+    if rec["kind"] == "refuse":
+        if event in row["events"]:
+            return refusals
+        row.update(events=row["events"] + [event], attempts=row["attempts"] + 1, auto_done=True)
+        step, request = ("자동 해소" if row["attempts"] == 1 else "재시도"), False
+        if row["attempts"] > 2 and row["open_retries"] > 0:
+            row["open_retries"] -= 1
+        elif row["attempts"] > 2:
+            step, request = "유보", not row["requested"]
+            row["requested"] = True
+        row["held"], row["last"] = step == "유보", {"event": event, "next": step, "request_human": request}
+    else:
+        if event in [res["event"] for res in row["resolutions"]]:
+            return refusals
+        row["resolutions"] = row["resolutions"] + [{"event": event, "why": rec.get("why")}]
+        row["open_retries"] += 1
+    return dict(refusals, **{key: row})
+
+
+def _close_done(closes, done, team, work, at):
+    """r1725 보정 2 — 영수 키 close:<팀>:<event> 의 done. next 없는 영수 = 그 줄(work=None) · next 있는 영수 =
+    그 next 의 deliver 줄에서 세운다(새 줄 0). 없으면 Journal._segment_closed 가 그 줄을 늘 열림으로 본다."""
+    marks = {"close:%s:%s" % (team, event): {"attempt": event, "at": at, "marker": ""}
+             for event, row in closes.items() if row.get("next") == work and "close:%s:%s" % (team, event) not in done}
+    return marks
+
+
 def remaining(state, records):
     """«남은 일» 장부 — 접수 command(활성 journal + state.pending) 중 회수된 영수(receipts)와 done work 를 뺀 것.
     intake 용량 상한과 lifecycle 마감 판정이 «같은» 곳을 보게 하는 한 점이다(r1616 보정 2)."""
@@ -119,6 +154,8 @@ def recover_state(state, records):
     released, recovered = dict(proj.get("released") or {}), dict(proj.get("owners_recovered") or {})
     uncertain = dict(proj.get("uncertain") or {})
     lanes = dict(state.get("lanes") or {})
+    refusals = dict(proj.get("refusals") or {})       # r1724: 시작값 = checkpoint · state.refusals 는 쓰지 않는다
+    closes = dict(proj.get("close_receipts") or {})   # r1725: 같은 꼴(시작값 = checkpoint · event 멱등)
     for rec in rows:
         work, kind, gen = rec.get("work"), rec["kind"], rec.get("gen") or 0
         if kind in ("claim", "dispatch") and work and gen > gens.get(work, 0):
@@ -128,6 +165,7 @@ def recover_state(state, records):
                 kept.setdefault(res, {"work": work, "attempt": rec.get("attempt")})
         elif kind == "deliver" and work:
             sent[work] = list(sent.get(work) or []) + [rec.get("attempt")]
+            done.update(_close_done(closes, done, rec["team"], work, rec["at"]))
         elif kind == "uncertain" and work:
             uncertain[work] = {"gen": gen, "holder": rec.get("holder"), "at": rec["at"],
                                "confirm_by": rec.get("confirm_by"), "reason": rec.get("body")}
@@ -147,9 +185,16 @@ def recover_state(state, records):
                                            rec.get("tick"), rec.get("wait_deadline"))
         elif kind == "close" and work:
             done[work] = {"attempt": rec.get("attempt"), "at": rec["at"], "marker": ""}
+        elif kind in ("refuse", "resolve") and work:
+            refusals = _fold_refusal(refusals, rec)
+        elif kind == "close_receipt" and work:
+            closes.setdefault(rec.get("event"), {"seat": rec.get("seat"), "gen": gen, "work": rec.get("closed_work"),
+                                                 "next": rec.get("next"), "holder": rec.get("holder"), "at": rec["at"]})
+            done.update(_close_done(closes, done, rec["team"], None, rec["at"]))
     return dict(state, revision=max(state["revision"], count + len(rows)), generations=gens, owners=owners,
                 reservations=kept, deliveries=sent, done=done, reassess_done=reassessed,
-                released=released, owners_recovered=recovered, uncertain=uncertain, lanes=lanes)
+                released=released, owners_recovered=recovered, uncertain=uncertain, lanes=lanes, refusals=refusals,
+                close_receipts=closes)
 
 
 def build(team, seq, command, attempt, at, body, work=None, goal=None, kind="accept",

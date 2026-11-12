@@ -474,7 +474,7 @@ def test_g_public_faces_and_legacy_guard(tmp_path):
                                        "confirm_by", "reason")
     assert dispatch.Grant._fields == ("result", "work", "stage", "attempt", "gen", "holder", "revision",
                                       "written", "released", "reason")
-    assert (record.SCHEMA_VERSION, len(record.RESULT_WORDS), len(record.KINDS)) == (1, 8, 13)   # r1594: progress · close
+    assert (record.SCHEMA_VERSION, len(record.RESULT_WORDS), len(record.KINDS)) == (1, 8, 16)   # r1594: progress · close · r1724: refuse · resolve · r1725: close_receipt
     assert subprocess.run([sys.executable, "-I", GUARD], capture_output=True, timeout=25).returncode == 0
     suite = [os.path.join(HERE, name) for name in ("test_core_intake.py", "test_core_execution.py",
                                                    "test_core_dispatch.py")]

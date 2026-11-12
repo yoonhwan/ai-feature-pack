@@ -7,6 +7,7 @@
 #     ⓑ HEAD 가 origin/main 의 조상(ff) ∨ origin/main 커밋 «끝줄» 이 정확히 «PR #<N> (head <HEAD 40hex>)»(squash · nano-close _lp_landed_gate 와 같은 꼴)
 #     ⓒ `git status --porcelain` 0줄 ⓓ `ft-seat-status.sh turn <좌석>` STATE = IDLE · 워크트리 = 그 세션 pane 의 «지금» cwd(명부 cwd 칸에 기대지 않음)
 #   출력: «닫기 차례 <좌석> 팀=<팀> 가지=<가지|detached> landed=<ff|squash> main=<짧은 sha> — bash ft-nano-close.sh <좌석> --landed-pr <N|-> --result <산출> --recv <seq>»
+#         r1717 A11: 그 좌석의 착지 뒤 기록(완료 줄 잔여 없음 · 착지 줄 · 전달된 닫기 요청 · 세션 기록 파일)이 다 서면 자리표시 대신 실제 값 + «갈래=착지기록 rec=<지문> set=<세트>» · 하나라도 없으면 자리표시 그대로 + 끝에 «빠짐=<항목> 채울 이=<좌석|팀장>»
 #         조회 실패(tmux·git·fetch·seat-status·카드 읽기 rc≠0 · 시간 상한) = «판정 불가 <좌석> <명령> rc=<n>» 1줄(목록에 안 넣음 · 하드 룰 20) · --why = «제외 <좌석> <사유>» 줄도 낸다
 #         --summary = «닫기 차례 <팀>=<n> …» 1줄 · 판정 불가가 있는 팀은 «<팀>=<n>+판정불가<m>» 로 써서 정상 0석으로 안 보이게 한다(A23)
 #   반환값(A23): 0 = 모든 좌석을 판정함 · 3 = 판정 불가 1건 이상(--summary 에도 같음) · 2 = usage
@@ -24,6 +25,8 @@ import json, os, re, subprocess, sys, time
 from pathlib import Path
 sys.path.insert(0, os.environ["FT_CLOSE_DUE_HERE"])
 from ft_team_lib import rosters, repo_root, TeamPathError
+try: from ft_nano_record_auto import land_fill   # r1717 A11 — 착지 갈래 줄의 자리표시를 기록(전달된 닫기 요청·세션 기록)으로 채운다 · 도구 없음 = 지금 출력 그대로
+except ImportError: land_fill = None
 
 HERE = os.environ["FT_CLOSE_DUE_HERE"]
 args = sys.argv[1:]
@@ -380,8 +383,12 @@ def judge(t, k, row, card_dirs):   # → 줄 | None(제외 · exc 에 사유) ·
     _, out = need([SEAT_STATUS, "turn", k], cap(), "ft-seat-status turn")
     st = (out.split() or [""])[0]
     if st != "IDLE": exc.append(f"제외 {k} 상태 {st or '-'} (IDLE 아님)"); return None
-    return (f"닫기 차례 {k} 팀={t} 가지={'detached' if br in (None, '(detached)') else br} landed={landed} main={main_sha}"
-            f" — bash ft-nano-close.sh {k} --landed-pr {pr} --result <산출> --recv <seq>")
+    head_ln = f"닫기 차례 {k} 팀={t} 가지={'detached' if br in (None, '(detached)') else br} landed={landed} main={main_sha}"
+    master = next((str(r["doc"].get("_master") or "") for r in rows if r["team"] == t and isinstance(r["doc"], dict)), "")
+    fill, miss = land_fill(root / ".fable-team" / "state", k, sec, master) if land_fill else (None, "")   # r1717 A11 — 다 서야 채운다(하나라도 없으면 자리표시 그대로 + «빠짐=»)
+    if fill:   # 갈래 토큰은 « — » 앞(auto_close 가 « — » 뒤를 명령으로 읽는다)
+        return f"{head_ln} 갈래=착지기록 rec={fill['rec']} set={fill['set']} — bash ft-nano-close.sh {k} --landed-pr {fill['pr'] if pr == '-' else pr} {fill['args']}"
+    return f"{head_ln} — bash ft-nano-close.sh {k} --landed-pr {pr} --result <산출> --recv <seq>" + (f" {miss}" if miss else "")
 
 
 def gate_mode(seat):   # --approve-gate — 승인 갈래를 «지금 사실» 로 다시 계산(목록 판정과 같은 judge 한 곳 · 추측 0)

@@ -276,12 +276,31 @@ if [ "$DST" = 완성 ]; then
     echo "★되돌리기 실패 — 카드 ${NEW} · 원장 0 · 복구: git mv ${NEW} ${SRC}★" >&2; exit 3
   fi
 fi
+# r1731 — DA 칸에 «적는 글자»: 판정문이 카드와 같은 리포의 워크트리에 HEAD 와 같은 바이트로 커밋돼 있으면 «리포 상대 경로@HEAD10#§N».
+#   리포 밖·미커밋·HEAD 와 다름 = 받은 글자 그대로 · git 조회 실패 = 그대로 + INFO 1줄(이동을 막지 않는다) · 판정 검사는 원래 --da 경로(위에서 끝났다).
+#   판정문 자리(임시 워크트리)가 사라져도 `git show <@뒤 sha>:<@앞 경로>` 로 근거를 따라갈 수 있게 한다(r1723 완성 줄 실사건).
+ da_record() {
+  local daf="$1" sec="$2" p w="" rel sha wts line d
+  p="$(cd -- "$(dirname -- "$daf")" 2>/dev/null && pwd -P)/$(basename -- "$daf")" || p="$daf"   # /var ↔ /private/var 심링크 차이 제거
+  wts="$(git -C "$IDX_ROOT" worktree list --porcelain 2>/dev/null)"
+  [ -n "$wts" ] || { echo "INFO DA 경로 정규화 불가 — 원문 그대로" >&2; printf '%s#%s' "$daf" "$sec"; return 0; }
+  while IFS= read -r line; do case "$line" in worktree\ *)
+    d="${line#worktree }"; d="$(cd -- "$d" 2>/dev/null && pwd -P)" || continue
+    case "$p" in "$d"/*) [ "${#d}" -gt "${#w}" ] && w="$d";; esac;; esac; done <<< "$wts"   # 가장 긴(가장 깊은) 일치 = 판정문이 실제 속한 워크트리 — 리포 안 .worktrees/ linked worktree 가 부모에 가려지지 않게(R1)
+  [ -n "$w" ] || { printf '%s#%s' "$daf" "$sec"; return 0; }
+  sha="$(git -C "$w" rev-parse HEAD 2>/dev/null)"
+  [ -n "$sha" ] || { echo "INFO DA 경로 정규화 불가 — 원문 그대로" >&2; printf '%s#%s' "$daf" "$sec"; return 0; }
+  rel="${p#"$w"/}"
+  if git -C "$w" cat-file blob "HEAD:$rel" 2>/dev/null | cmp -s - "$p"; then printf '%s@%s#%s' "$rel" "${sha:0:10}" "$sec"
+  else printf '%s#%s' "$daf" "$sec"; fi   # 미커밋·HEAD 와 다름
+}
 # r1000 r2 (DA⑥ r2 반례 1): 카드 끝 바이트가 줄바꿈이 아니면 덧붙인 기록이 «앞 줄 끝» 에 붙는다 — 기록을 쓰기 전에 줄바꿈 1개를 보장한다(이동 길 전부).
 if [ -s "$NEW" ] && [ -n "$(tail -c 1 "$NEW")" ]; then printf '\n' >> "$NEW"; fi
 if [ "$DST" = 아카이브 ]; then
   printf -- '- %s — %s→아카이브 · 좌석 %s · 판정 %s\n' "$(date '+%Y-%m-%d %H:%M')" "$FROM" "$SEAT" "$DA" >> "$NEW"
 else
-  printf -- '- %s — %s→%s%s%s\n' "$(date '+%Y-%m-%d %H:%M')" "$FROM" "$DST" "${SEAT:+ · 좌석 $SEAT}" "${DA:+ · DA $DA}" >> "$NEW"
+  DAREC=""; [ -z "$DA" ] || DAREC="$(da_record "$DAF" "$SEC")"
+  printf -- '- %s — %s→%s%s%s\n' "$(date '+%Y-%m-%d %H:%M')" "$FROM" "$DST" "${SEAT:+ · 좌석 $SEAT}" "${DAREC:+ · DA $DAREC}" >> "$NEW"
 fi
 # r1009 — 완성 이동이면 머리의 `- 상태:` 줄을 «완성 · 시각 · 좌석» 으로 바꾼다(매거진이 머리 «대기» 를 실어 «대기» 로 보이던 자리).
 #   머리 = 첫 `## ` 절 «앞» 구역 · 그 줄이 없으면 0(새 줄을 만들지 않는다) · 다른 갈래는 손대지 않는다.

@@ -28,6 +28,7 @@ import ft_stall_headline as headline
 from ft_stall_detect import IDLE_MIN, all_stop, all_stop_note, agent_sessions, api_outage, card_gate, ctx_pct, lead_alert, lead_heartbeat_min, lead_names, load_teams, off_roster_live, pending_mail, policy_stop, run, spawn_capacity, waiting_cards, RefUnavailable
 from ft_stall_seats import Seats
 import ft_stall_state as stm
+from ft_nano_record_auto import land_close
 
 HERE = Path(__file__).resolve().parent
 REPEAT_S = stm.REPEAT_S
@@ -469,13 +470,17 @@ class Scan:
             if tried.get(seat) == head:
                 continue
             crc, cout = run(["bash", close, *shlex.split(cmd)[2:]], {**os.environ, "FT_NANO_AUTO_CLOSE": "1"}, 70)
-            first = (cout.strip().splitlines() or [""])[0]
-            if crc == 0 and first.startswith("CLOSED"):
+            rows = cout.strip().splitlines()
+            closed = next((x for x in rows if x.startswith("CLOSED")), "")   # r1735 — 성공 = «CLOSED 로 시작하는 줄»(첫 줄 순서 의존 0)
+            if crc == 0 and closed:   # r1735 A3 — rc≠0 은 CLOSED 줄이 있어도 실패(rc 우선)
                 tried.pop(seat, None)
-                lines.append(f"{stamp} auto-close {first} set={head}")
+                lines.append(f"{stamp} auto-close {closed} set={head}")
             else:
                 tried[seat] = head
-                lines.append(f"{stamp} auto-close 실패 {seat} rc={crc} — {first[:120]}")
+                why = next((x for x in rows if not x.startswith("INFO")), (rows or [""])[0])[:120]   # r1735 A2 — INFO 줄은 사유가 아니다
+                lines.append(f"{stamp} auto-close 실패 {seat} rc={crc} — {why}")
+        for ln in [x for x in out.splitlines() if x.startswith("닫기 차례 ") and "갈래=착지기록" in x]:  # r1717 A11 — 기록이 다 선 착지 갈래(열쇠 = 좌석·set·rec)
+            lines += land_close(ln, tried, stamp, close, run, self.root)
         try:
             sf.parent.mkdir(parents=True, exist_ok=True)
             (sf.parent / (sf.name + ".tmp")).write_text(json.dumps(tried), encoding="utf-8")
@@ -483,6 +488,12 @@ class Scan:
         except OSError as e:
             lines.append(f"{stamp} WARN auto-close 상태 파일 쓰기 실패: {e}")
         return lines
+
+    def record_notify(self, stamp: str) -> list[str]:
+        """r1717 A4 ⓑ — 착지 뒤 «정리 차례» 장부의 열린 줄마다 쪽지(1회·재촉 1회 셈은 도구 몫) · FT_NANO_AUTO_CLOSE 와 무관 · rc≠0 = 로그 1줄."""
+        tool = os.environ.get("FT_NANO_RECORD") or str(HERE / "ft-nano-record.sh")
+        rc, _out = run(["bash", tool, "notify"], {**os.environ, "FT_ROOT": str(self.root)}, 25)
+        return [] if rc == 0 else [f"{stamp} 판정 불가 record-notify rc={rc}"]
 
     def run(self, dry: bool) -> int:
         pen = ft_penalty.load()
@@ -523,6 +534,7 @@ class Scan:
                 handled[key] = self.now
                 log.append(f"{stamp} {res} key={f['kind']}:{f['seat']} {f['why']}")
         log += [f"{stamp} {e}" for e in self.errs]
+        log += self.record_notify(stamp)  # r1717 A4 ⓑ — auto_close 앞 1회
         ac = self.auto_close()  # r1670 ⓔ — FT_NANO_AUTO_CLOSE=1 일 때만(기본 0 = 로그·출력 그대로)
         if ac:
             log += ac
