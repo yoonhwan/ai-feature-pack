@@ -270,7 +270,13 @@ if ftroot and os.path.isdir(os.path.join(ftroot, ".fable-team")) and has(ftroot,
 if has(cur, seat):
     out(cur)                                                 # ② cwd 공용 루트 명부에 그 좌석 = 지금 값 그대로
 try:
-    rows = [ln.split("\t")[0].strip() for ln in open(tsv, encoding="utf-8")]
+    rows = []
+    for ln in open(tsv, encoding="utf-8"):
+        if not ln.strip() or ln.lstrip().startswith("#"):     # # 머리·빈 줄 건너뜀(실 roots.tsv 꼴 · 하드 룰 18)
+            continue
+        cols = ln.rstrip("\n").split("\t")
+        if len(cols) >= 2 and cols[1].strip():                 # 2열 = 경로(1열 = 이름 · 실 꼴 탭 6칸: 이름·경로·상태·기준ref·사람우편함·틱잠금접두)
+            rows.append(cols[1].strip())
 except (OSError, ValueError):
     out(cur, "(루트 해석: roots.tsv — 읽기 실패)")            # ④-ㄱ
 rows = [r for r in dict.fromkeys(rows) if r]
