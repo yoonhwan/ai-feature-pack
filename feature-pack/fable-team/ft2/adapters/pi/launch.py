@@ -3,9 +3,8 @@
 
 코어는 일을 기록할 뿐 좌석을 열지 않는다(`close_next`·`reopen` 의 «spawn·tmux = 호출자»). 그 호출자가 이 명령이다.
 ① 투영 읽기만(잠금·쓰기 0)으로 최신 dispatch(holder · attempt)를 찾는다 ② 열기 의도를 O_EXCL 로 «한 번만» 만들어
-두 번째 호출을 0 으로 만든다 ③ 의도가 잡히면 `git worktree add` 1회 → `tmux new-session` 1회(env 5개).
-실행권(claim·start)은 좌석 몫이라 쓰지 않는다. 바깥 호출 7초 · 실패는 의도 줄에 단계로 남기고 rc2 «복구 필요»
-(자동 재시도 0 · 세션 종료 0). 결과 낱말은 계약 8낱말 밖으로 나가지 않는다.
+두 번째 호출을 0 으로 만든다 ③ 의도가 잡히면 `git worktree add --detach` 1회 → `tmux new-session` 1회(-e K=V 5개).
+실행권(claim·start)은 좌석 몫이라 쓰지 않는다 · 바깥 호출 7초 · 실패는 의도 줄에 단계 + rc2 «복구 필요»(자동 재시도 0 · 세션 종료 0) · 결과 낱말은 계약 8낱말 밖 0.
     python3 adapters/pi/launch.py --root R --team T --work W [--worktree 경로] [--role 역할] [--dry-run]
 """
 import importlib.util
@@ -63,18 +62,20 @@ def seat(projected, work):
 
 
 def plan_of(root, team, work, attempt, holder, role_argv, worktree):
-    """의도·워크트리·열기 argv. 런타임 자리는 코어와 같은 한 곳 · pi argv 는 역할 표 그대로(A5)."""
+    """의도·워크트리·열기 argv — 런타임 자리는 코어와 같은 한 곳 · pi argv 는 역할 표 그대로(A5).
+    `--detach` = 가지를 몰래 만들지 않는다 · 좌석 env 는 tmux `-e` 로 넘긴다(이미 뜬 서버 pane 은 env 상속 0)."""
     folder, tag = os.path.join(projection.runtime_path(root, team), "launch"), "%s@%s" % (work, attempt)
     path = os.path.abspath(worktree or os.path.join(root, ".fable-team", "teams", team, "worktrees", tag))
+    pairs = [word for key, value in seat_env(root, team, work, holder, attempt).items()
+             for word in ("-e", key + "=" + value)]
     return {"intent": os.path.join(folder, tag + ".intent"), "worktree": path,
-            "git": ["git", "worktree", "add", path],
-            "tmux": ["tmux", "new-session", "-d", "-s", holder, "-c", path, "pi"] + list(role_argv)}
+            "git": ["git", "worktree", "add", "--detach", path],
+            "tmux": ["tmux", "new-session", "-d", "-s", holder, "-c", path] + pairs + ["pi"] + list(role_argv)}
 
 
 def seat_env(root, team, work, holder, attempt):
-    """좌석 env 5개 — 좌석 도구(`ft2_claim` 등)가 자기를 아는 데 필요한 전부."""
-    return {"FT2_ROOT": root, "FT2_TEAM": team, "FT2_WORK": work, "FT2_HOLDER": holder,
-            "FT2_ATTEMPT": attempt}
+    """좌석 env 5개 — `-e K=V` 로 tmux 에 넘기는 값과 같다(좌석 도구가 자기를 아는 데 필요한 전부)."""
+    return dict(zip(("FT2_ROOT", "FT2_TEAM", "FT2_WORK", "FT2_HOLDER", "FT2_ATTEMPT"), (root, team, work, holder, attempt)))
 
 
 def call(cmd, cwd, env):
@@ -125,8 +126,7 @@ def already(got, plan):
     if got.get("state") == "failed":
         return dict(result=CORRUPT, opened=False, intent=plan["intent"], step=got.get("step"),
                     reason="의도에 남은 실패(%s): %s — 자동 재시도 0" % (got.get("step"), got.get("reason"))), 2
-    return dict(result=CORRUPT, opened=False, intent=plan["intent"],
-                reason="의도가 있으나 상태 불명 — 열림 여부는 사람이 확인한다"), 2
+    return dict(result=CORRUPT, opened=False, intent=plan["intent"], reason="의도가 있으나 상태 불명 — 열림 여부는 사람이 확인한다"), 2
 
 
 def open_seat(given):

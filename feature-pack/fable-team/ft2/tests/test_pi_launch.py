@@ -124,8 +124,9 @@ def case_dry(tmp, launcher=LAUNCH):
     before = _snapshot(root)
     out, rc = _launch(root, fake, launcher, extra=["--dry-run"])
     assert rc == 0 and out["dry_run"] is True, out
-    assert out["argv"]["git"] == ["git", "worktree", "add", str(_worktree(root))], out["argv"]
+    assert out["argv"]["git"] == ["git", "worktree", "add", "--detach", str(_worktree(root))], out["argv"]
     assert out["argv"]["tmux"][:5] == ["tmux", "new-session", "-d", "-s", HOLDER], out["argv"]
+    assert out["argv"]["tmux"].count("-e") == 5, out["argv"]
     assert out["argv"]["tmux"][-4:] == SESSION_ARGV, out["argv"]
     assert sorted(out["env"]) == sorted(SEAT_ENV), out["env"]
     assert _log(fake) == [], _log(fake)
@@ -140,11 +141,15 @@ def case_open(tmp, launcher=LAUNCH):
     assert (out["result"], rc, out["opened"]) == ("접수 성공", 0, True), out
     lines = _log(fake)
     assert [line["prog"] for line in lines] == ["git", "tmux"], lines
-    assert lines[0]["argv"] == ["worktree", "add", out["worktree"]], lines[0]
+    assert lines[0]["argv"] == ["worktree", "add", "--detach", out["worktree"]], lines[0]
     assert lines[1]["argv"][:5] == ["new-session", "-d", "-s", HOLDER, "-c"], lines[1]
     assert lines[1]["argv"][5] == out["worktree"], lines[1]
-    assert all(lines[1]["env"][key] for key in SEAT_ENV), lines[1]["env"]
-    assert (lines[1]["env"]["FT2_WORK"], lines[1]["env"]["FT2_ATTEMPT"]) == (WORK, ATTEMPT), lines[1]["env"]
+    pairs = lines[1]["argv"][6:16]
+    assert pairs[::2] == ["-e"] * 5, pairs
+    assert dict(item.split("=", 1) for item in pairs[1::2]) == {
+        "FT2_ROOT": str(root), "FT2_TEAM": TEAM, "FT2_WORK": WORK,
+        "FT2_HOLDER": HOLDER, "FT2_ATTEMPT": ATTEMPT}, pairs
+    assert lines[1]["argv"][16] == "pi" and lines[1]["argv"][-4:] == SESSION_ARGV, lines[1]["argv"]
     intents = list(_launch_dir(root).glob("*.intent"))
     assert [path.name for path in intents] == [_intent(root).name], intents
     assert json.loads(intents[0].read_text(encoding="utf-8"))["state"] == "opened"
@@ -208,8 +213,20 @@ def case_guard(tmp, launcher=LAUNCH):
     assert "kill" not in Path(launcher).read_text(encoding="utf-8").lower(), "세션 종료 0"
 
 
+def case_detach(tmp, launcher=LAUNCH):
+    """⑨ worktree add 는 가지를 몰래 만들지 않는다(--detach) — 데이터 루트 가지 누적 0."""
+    root, fake = _paths(tmp)
+    _runtime(root)
+    out, rc = _launch(root, fake, launcher)
+    assert rc == 0, out
+    git = [line for line in _log(fake) if line["prog"] == "git"][0]
+    assert git["argv"] == ["worktree", "add", "--detach", out["worktree"]], git["argv"]
+    assert "-b" not in git["argv"], git["argv"]
+
+
 CASES = {"refused": case_refused, "dry": case_dry, "open": case_open, "again": case_again,
-         "race": case_race, "fail": case_fail, "role": case_role, "guard": case_guard}
+         "race": case_race, "fail": case_fail, "role": case_role, "guard": case_guard,
+         "detach": case_detach}
 MUTANTS = {
     "M1": ("    if holder is None:", "    if holder is None and False:"),
     "M2": ('    if given.get("dry"):',
@@ -218,9 +235,10 @@ MUTANTS = {
     "M3": ("os.O_CREAT | os.O_EXCL | os.O_WRONLY", "os.O_CREAT | os.O_WRONLY"),
     "M4": ('    rc, detail = call(plan["tmux"], None, dict(os.environ, **env))\n    if rc != 0:',
            '    rc, detail = call(plan["tmux"], None, dict(os.environ, **env))\n    rc = 0\n    if rc != 0:'),
+    "M5": ('+ pairs + ["pi"]', '+ [] + ["pi"]'),
 }
 # 변이가 깨뜨려야 하는 사례 — 카드 §변이 그대로
-MUTANT_CASE = {"M1": "refused", "M2": "dry", "M3": "again", "M4": "fail"}
+MUTANT_CASE = {"M1": "refused", "M2": "dry", "M3": "again", "M4": "fail", "M5": "open"}
 
 
 def _mutant(tmp, name):
@@ -265,6 +283,10 @@ def test_07_unknown_role(tmp_path):
 
 def test_08_guard(tmp_path):
     case_guard(tmp_path)
+
+
+def test_09_worktree_detach(tmp_path):
+    case_detach(tmp_path)
 
 
 @pytest.mark.parametrize("name", sorted(MUTANTS))
