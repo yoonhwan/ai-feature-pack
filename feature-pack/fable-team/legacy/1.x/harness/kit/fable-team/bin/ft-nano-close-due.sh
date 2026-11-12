@@ -55,14 +55,20 @@ def now():   # 전체 예산 시계 — 시험은 좌석 1개당 STEP 초씩 가
 SEAT_STATUS = os.environ.get("FT_CLOSE_DUE_SEAT_STATUS") or HERE + "/ft-seat-status.sh"
 env = {**os.environ, "LC_ALL": "C"}
 lines, unk, exc = [], {}, []   # 출력 줄 · 팀별 판정 불가 수 · 제외 줄
+steps, _skew = [], [0.0]   # r1718 A11 — 이 좌석에서 부른 바깥 호출 (이름, 걸린 초) · 시험용 가짜 시계 FT_CLOSE_DUE_FAKE_CALL_S="<이름>=<초>"(그 호출이 그만큼 걸린 것으로 센다 · sleep 0)
+FAKE_CALL = dict(x.split("=", 1) for x in (os.environ.get("FT_CLOSE_DUE_FAKE_CALL_S") or "").split() if "=" in x)
+mono = lambda: time.monotonic() + _skew[0]
 
 
 def run(cmd, cap=7.0):   # → (rc, stdout, 이유) · 시간 초과·실행 불가 = rc None
+    b = os.path.basename(cmd[0]); rest = cmd[3:] if cmd[1:2] == ["-C"] else cmd[1:]; t0 = mono()
+    name = f"{b}-{rest[0]}" if b in ("git", "tmux") and rest else re.sub(r"^ft-|\.sh$", "", b)   # git-status · tmux-display-message · seat-status
     try:
         p = subprocess.run(cmd, capture_output=True, text=True, timeout=max(0.5, cap), env=env)
         return p.returncode, p.stdout, p.stderr
     except subprocess.TimeoutExpired: return None, "", "시간 초과"
     except OSError as e: return None, "", str(e)
+    finally: _skew[0] += float(FAKE_CALL.get(name) or 0); steps.append((name, mono() - t0))   # r1718-mut:steps
 
 
 class Unjudged(Exception): pass
@@ -315,10 +321,10 @@ def pack_remote(sha, cap):   # r1701 ③ r6 — 세트가 팩 «origin/*» 원�
 
 
 def judge(t, k, row, card_dirs):   # → 줄 | None(제외 · exc 에 사유) · 조회 실패 = Unjudged
-    seat_t0 = time.monotonic()
-    cap = lambda: 7.0 - (time.monotonic() - seat_t0)
-    def chk():
-        if cap() <= 0: raise Unjudged("좌석 7초 상한 rc=-")
+    seat_t0 = mono(); steps.clear()
+    cap = lambda: 7.0 - (mono() - seat_t0)
+    def chk():   # r1718 A11 — 상한에 걸리면 그 줄 끝에 «단계: <이름>=<초>s …»(부른 순서 · 판정·상한·rc 불변)
+        if cap() <= 0: raise Unjudged("좌석 7초 상한 rc=-" + "".join([" 단계:"] + [f" {n}={s:.1f}s" for n, s in steps]))
     if "-research#" in k: exc.append(f"제외 {k} 리서치 좌석(자기 근거 칸 = --research 닫기)"); return None
     sha_card, why_, sec = basis(card_dirs, row.get("index") or "", t)
     if sha_card is None: exc.append(f"제외 {k} {why_}"); return None

@@ -539,6 +539,7 @@ class Scan:
         if ac:
             log += ac
             print("\n".join(ac))
+        self.critical(ac)  # r1718 A2ⓑ·A8 — 밀린 [크리티컬] 배출 · 되풀이 판정 불가 알림(r1718-mut:drain)
         log += [f"{stamp} {n}" for n in self.notes if n.startswith(("보류 — API 장애", "유예 — API 장애", "보류 ", "판정 불가 ALL_STOP"))]  # r1238 B·r1371 — 감시기 로그에 남는 증거 줄(실사건 확인용)
         if trig and pen is None and os.environ.get("FT_STALL_PENALTY_AUTO", "1") != "0":
             _ = ft_penalty.turn_on("같은 멈춤을 처리 뒤에도 또 감지: " + ",".join(trig))
@@ -558,6 +559,26 @@ class Scan:
         for note in headline_seats.draft(self.root, load_teams(self.root, warn=False), self.seats, set(self.live), self.now):  # r1290 — 처리·저장을 끝낸 뒤에만 초안 1줄씩
             print(note)
         return 0
+
+    def critical(self, ac: list[str]) -> None:
+        """r1718 A2ⓑ·A8 — 회차마다 밀린 [크리티컬] 배출 1회(FT_NANO_AUTO_CLOSE 무관) · 같은 (좌석·사유) «판정 불가» 가 연속 N 회차면 desk 1통. 셈 = state/nano-auto-close-unjudged.json(그 좌석이 판정되면 0)."""
+        tool, cf, cur, env = str(HERE / "ft-critical-notify.sh"), self.state_dir / "nano-auto-close-unjudged.json", {}, {**os.environ, "FT_MBOX": self.mbox, "FT_MBOX_DIR": str(self.comm)}
+        if os.environ.get("FT_CRITICAL_OFF") == "1" or not os.path.isfile(tool):
+            return
+        try:
+            old = dict(json.loads(cf.read_text(encoding="utf-8")))
+        except (OSError, ValueError, TypeError):
+            old = {}
+        for seat, _, why in (ln.partition(" 판정 불가 auto-close ")[2].partition(" ") for ln in ac if "#" in ln.partition(" 판정 불가 auto-close ")[2].split(" ")[0]):
+            k = seat + "\t" + why.split(" 단계:")[0]  # 열쇠 = 좌석 + «단계:» 꼬리를 떼 사유 · 이번 회차에 없는 열쇠는 cur 에 안 들어가 셈 0(r1718-mut:count)
+            cur[k] = {"n": old.get(k, {}).get("n", 0) + 1, "t0": old.get(k, {}).get("t0", int(self.now))}
+            if cur[k]["n"] >= int(os.environ.get("FT_CRITICAL_UNJUDGED_N") or 5):
+                _ = run(["bash", tool, "ft-stall-scan", seat, "--event", f"{k.split(chr(9))[1]}:{cur[k]['t0']}", "--what", f"판정 불가 {why} {cur[k]['n']}회 연속", "--next", "그 좌석 ft-nano-close-due --why 1회 → arch", "--where", seat], env, 15)
+        try:
+            _ = cf.write_text(json.dumps(cur, ensure_ascii=False), encoding="utf-8") if cur != old else 0
+        except OSError as e:
+            print(f"WARN 판정 불가 셈 파일 쓰기 실패: {e}")
+        _ = run(["bash", tool, "--drain"], env, 15)
 
 
 def main(argv: list[str]) -> int:
