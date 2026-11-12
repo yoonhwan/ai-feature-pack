@@ -14,7 +14,7 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 HOME="$T/home" LC_ALL=C
 mkdir -p "$HOME"
 unset FT_HARNESS_ROOT FT_INSTALL_CHECK FT_INSTALL_PENDING_DIR FT_LANDED_MARKER FT_LAND_REF FT_TEAMS_MD FT_TRACK FT_SEATS_JSON FT_MBOX FT_ROOT
 BIN="$T/bin"; mkdir -p "$BIN"
-cp -p "$SRC"/ft-index-move.sh "$SRC"/ft_da_hold_gate.py "$SRC"/ft_git_capped.py "$BIN/"
+cp -p "$SRC"/ft-index-move.sh "$SRC"/ft_da_hold_gate.py "$SRC"/ft_git_capped.py "$SRC"/ft-team-lib.sh "$BIN/"   # r1784: 착지 표식 읽기 = ft-team-lib.sh ft_close_marker(라이브 설치와 같은 짝)
 printf '#!/bin/bash\nexit 0\n' > "$BIN/ft-index-lint.sh"; chmod 755 "$BIN/ft-index-lint.sh"   # lint 는 이 카드의 계약이 아니다
 g() { git -C "$1" -c user.name=t -c user.email=t@t "${@:2}"; }
 
