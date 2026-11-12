@@ -101,10 +101,11 @@ d2_seat() {  # ⓑ 쓰기 좌석 = 그 팀 master ∨ (r1708 N2 · desk ∧ 자�
   if [ -n "$seat" ] && d2_is_desk "$seat"; then d2_full_autonomy || exit 2; D2_BY="$seat"; D2_DESK=1; return 0; fi
   std_err "ⓑ 팀 master 좌석만 rc=$RC ${FIRST:-출력 없음(시간 초과 7초 포함)}"
 }
-d2_classify() {  # ② <head> → D2_CLS — byz = 내장 BYZ 표 · pack = 팩 표 · FORBID·ERROR·시간 초과 = 거절
+d2_classify() {  # ② <head> → D2_CLS — byz = 내장 BYZ 표 · pack = 팩 표 · FORBID·ERROR·시간 초과 = 거절 · r1778 카드 범위(--card) 전달
   local cls="${FT_SCOPE_CLASSIFY:-$HERE/autonomy_scope_classify.py}" a=() t k; [ -f "$cls" ] || std_err "분류기 없음: $cls"
   if [ "$D2_RK" = pack ]; then t="${FT_SCOPE_PACK_TABLE:-$(tpl_file scope-classes-pack.tsv)}" || std_err "② 팩 분류표 없음(templates/scope-classes-pack.tsv)"; a+=(--table "$t")
   elif t="${FT_SCOPE_DDL_RECORDS:-$(tpl_file scope-ddl-record.tsv)}"; then a+=(--ddl-records "$t"); fi
+  [ -z "${D2_CARD:-}" ] || a+=(--card "$D2_CARD")   # 카드 범위 삭제 판정 — 카드 못 읽으면 분류기가 닫힌 쪽(삭제는 그대로 거절)
   std_t7 python3 "$cls" classify "$1" --repo "$D2_REPO" --remote origin --target main --scope S0 "${a[@]}"
   [ "$RC" = 0 ] || std_err "② 분류기 거절 rc=$RC: ${FIRST:-출력 없음(시간 초과 7초 포함)}"
   [[ "$FIRST" =~ ^CLASS\ (docs|ff|code)$ ]] || std_err "② 종류가 code·docs 아님: $FIRST"
