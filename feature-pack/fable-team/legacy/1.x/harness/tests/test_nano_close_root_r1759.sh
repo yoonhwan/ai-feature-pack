@@ -35,8 +35,10 @@ teamenv() {  # teamenv <루트> — 가짜 팀 env: source 되는 자리에서 R
   mkdir -p "$1/.fable-team/bin-harness"
   printf '#!/usr/bin/env bash\nprintf "ROOT-PICK %%s\\n" "$ROOT"\nexit 0\n' > "$1/.fable-team/bin-harness/harness-env.sh"
 }
-tsv() {  # tsv <파일> <루트…>
-  local f="$1"; shift; : > "$f"; local r; for r in "$@"; do printf '%s\n' "$r" >> "$f"; done
+tsv() {  # tsv <파일> <루트…> — 실 roots.tsv 꼴(# 머리 + 탭 6칸: 이름·경로·상태·기준ref·사람우편함·틱잠금접두 · ~/.claude/fable-team/roots.tsv 와 같은 꼴)
+  local f="$1"; shift; local i=0 r
+  { printf '# 기계 루트 명부 (시험 픽스처 · 탭 6칸: 이름 경로 상태 기준ref 사람우편함 틱잠금접두)\n'
+    for r in "$@"; do i=$((i+1)); printf 'r%s\t%s\t현역\torigin/main\t.\t/tmp/ft-tick-root-r%s\n' "$i" "$r" "$i"; done; } > "$f"
 }
 run_close() {  # run_close <cwd> <roots.tsv> [FT_ROOT] — ft-nano-close 1회(팀 env 가짜가 도는 «루트 해석»까지만)
   OUT="$(cd "$1" && { [ -z "${3:-}" ] || export FT_ROOT="$3"; FT_ROOTS_TSV="$2" bash "$BIN/ft-nano-close.sh" "$SEAT" --result "$T/x.md" --recv 7; } 2>&1)"; RC=$?
