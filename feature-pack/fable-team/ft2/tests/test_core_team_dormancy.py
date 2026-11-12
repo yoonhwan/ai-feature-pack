@@ -193,6 +193,24 @@ def test_9_missing_board_slot_never_passes(tmp_path):
     assert _marker(node) is False
 
 
+class _LateKind(lifecycle.Lifecycle):
+    """⑨⑩ 입력 — 재검사가 «단계 1 뒤 실행권(claim)/미확정(uncertain)» 1줄을 본다(잠금 밖 가짜 journal 줄)."""
+    KIND = "claim"
+
+    def _rescan_records(self):
+        records = list(super()._rescan_records())
+        records.append({"seq": records[-1]["seq"] + 1, "kind": self.KIND, "work": "q-1"})
+        return records
+
+
+class _LateClaim(_LateKind):
+    KIND = "claim"
+
+
+class _LateUncertain(_LateKind):
+    KIND = "uncertain"
+
+
 class _LateAccept(lifecycle.Lifecycle):
     """⑤ 입력 — 재검사가 «단계 1 뒤 접수 q-late» 1줄을 본다(잠금 밖 가짜 journal 줄)."""
 
@@ -200,6 +218,28 @@ class _LateAccept(lifecycle.Lifecycle):
         records = list(super()._rescan_records())
         records.append({"seq": records[-1]["seq"] + 1, "kind": "accept", "work": "q-late"})
         return records
+
+
+def test_10_claim_after_step_one_aborts_at_rescan(tmp_path):
+    """⑨ 단계 1 뒤 «실행권(claim)» → 2단계 중단 · 표식 0(변이 M4 claim 갈래 삭제 = FAIL)."""
+    node = _LateClaim(str(tmp_path / "c10"), TEAM, **CLOCK)
+    out = node.dormant(_board())
+    assert (out.result, out.status) == (HOLD, "ABORTED")
+    assert out.steps == ("nano-cleanup",)
+    assert out.blockers == ("claim:q-1",)
+    assert "claim" in out.reason and "\n" not in out.reason
+    assert _marker(node) is False                                 # 팀장 그대로
+
+
+def test_11_uncertain_after_step_one_aborts_at_rescan(tmp_path):
+    """⑩ 단계 1 뒤 «미확정(uncertain)» → 2단계 중단 · 표식 0(변이 M5 uncertain 갈래 삭제 = FAIL)."""
+    node = _LateUncertain(str(tmp_path / "c11"), TEAM, **CLOCK)
+    out = node.dormant(_board())
+    assert (out.result, out.status) == (HOLD, "ABORTED")
+    assert out.steps == ("nano-cleanup",)
+    assert out.blockers == ("uncertain:q-1",)
+    assert "uncertain" in out.reason and "\n" not in out.reason
+    assert _marker(node) is False
 
 
 class _NoLateCheck(lifecycle.Lifecycle):
@@ -320,3 +360,27 @@ def test_r1498_row11_landing_or_install_wait_blocks(tmp_path):
     out = node.dormant(_board(lands=1))
     assert (out.status, out.blockers) == ("NOT_DORMANT", ("lands:1",))
     assert _marker(node) is False
+
+
+class _NoClaimBranch(lifecycle.Lifecycle):
+    """M4 — 재검사에서 «실행권(claim)» 갈래 삭제(접수·미확정만 본다)."""
+
+    def _late_records(self, snapshot):
+        return [rec for rec in super()._late_records(snapshot) if rec["kind"] != "claim"]
+
+
+class _NoUncertainBranch(lifecycle.Lifecycle):
+    """M5 — 재검사에서 «미확정(uncertain)» 갈래 삭제(접수·실행권만 본다)."""
+
+    def _late_records(self, snapshot):
+        return [rec for rec in super()._late_records(snapshot) if rec["kind"] != "uncertain"]
+
+
+def test_m4_without_claim_branch_breaks_case_10(tmp_path):
+    node = _NoClaimBranch(str(tmp_path / "m4"), TEAM, **CLOCK)
+    assert node.dormant(_board()).status != "ABORTED"             # 계약은 ABORTED
+
+
+def test_m5_without_uncertain_branch_breaks_case_11(tmp_path):
+    node = _NoUncertainBranch(str(tmp_path / "m5"), TEAM, **CLOCK)
+    assert node.dormant(_board()).status != "ABORTED"             # 계약은 ABORTED
