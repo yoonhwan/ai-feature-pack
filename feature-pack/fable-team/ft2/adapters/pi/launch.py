@@ -7,7 +7,7 @@
 `tmux new-session` 1회(-e K=V 5개 · 이미 뜬 서버의 새 pane 에도 env 가 간다). 실행권(claim·start)은 좌석 몫 ·
 상한은 두 값이다(r1769): git·로컬 하네스 25초 · tmux(바깥 호출) 7초 · `--repo` 를 주면 그 리포에서 worktree 를 만든다 ·
 실패는 의도 줄에 단계 + rc2 «복구 필요»(자동 재시도 0) + 복구 2줄 · 결과 낱말은 계약 8낱말 밖 0 · 부르는 법:
-    python3 adapters/pi/launch.py --root R --team T --work W [--worktree 경로] [--repo 경로] [--role 역할] [--dry-run]
+    python3 adapters/pi/launch.py --root R --team T --work W [--worktree 경로] [--repo 경로] [--role 역할] [--base ref] [--dry-run]
 """
 import importlib.util
 import json
@@ -20,7 +20,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 FT2 = os.path.dirname(os.path.dirname(HERE))
 GIT_TIMEOUT, TMUX_TIMEOUT, USAGE = 25, 7, 64
 OK, REFUSED, CORRUPT = "접수 성공", "접수 거부", "복구 필요"
-FIELDS, REQUIRED = ("root", "team", "work", "worktree", "repo", "role"), ("root", "team", "work")
+FIELDS, REQUIRED = ("root", "team", "work", "worktree", "repo", "role", "base"), ("root", "team", "work")
 STAMP = "%Y-%m-%dT%H:%M:%S"
 
 
@@ -134,31 +134,33 @@ def open_seat(given):
     if item is None:
         return dict(result=CORRUPT, work=work, role=role, reason="불명(역할 %s — role-defaults.tsv 행 없음 · 대신 0)" % role), 2
     repo = os.path.abspath(given.get("repo") or root)
+    base = given.get("base") or planner.DEFAULT_BASE      # r1780 A1: 기준 ref 이름(원문 보존)
     env = planner.seat_env(root, team, work, holder, attempt)
     folder, tag = os.path.join(projection.runtime_path(root, team), "launch"), "%s@%s" % (work, attempt)
-    plan = planner.plan_of(folder, tag, root, team, holder, item["argv"], given.get("worktree"), repo, env)
+    plan = planner.plan_of(folder, tag, root, team, holder, item["argv"], given.get("worktree"), repo, env, base)
     if given.get("dry"):
-        return dict(result=OK, dry_run=True, work=work, attempt=attempt, holder=holder, role=item["role"], repo=repo,
+        return dict(result=OK, dry_run=True, work=work, attempt=attempt, holder=holder, role=item["role"], repo=repo, base=base,
                     model=item["model"], effort=item["effort"], timeouts={"git": GIT_TIMEOUT, "tmux": TMUX_TIMEOUT},
                     paths=plan, argv={"git": plan["git"], "tmux": plan["tmux"]}, env=env), 0
     os.makedirs(os.path.dirname(plan["intent"]), exist_ok=True)
     if not claimed(plan["intent"]):
         return already(read_intent(plan["intent"]), plan)
-    if given.get("repo"):                       # A2: 대상 리포 확인 1회 — 실패면 아무것도 열지 않는다
-        rc, detail = call(planner.repo_check(repo), repo, None, GIT_TIMEOUT)
+    for argv, label in planner.checks(repo, base, given.get("repo")):   # A2: 리포(--repo 때만)·기준 ref(늘 · r1780) 확인 — 실패면 아무것도 열지 않는다
+        rc, detail = planner.checked(argv, *call(argv, repo, None, GIT_TIMEOUT))
         if rc != 0:
             os.unlink(plan["intent"])         # 거절 = 의도 0(방금 만든 표식만 지운다)
-            return dict(result=REFUSED, work=work, repo=repo,
-                        reason="대상 리포 아님(%s): %s — 바깥 호출 0" % (repo, detail or "진단 없음")), 1
-    write_intent(plan["intent"], dict(env, state="opening", repo=repo, at=time.strftime(STAMP)))
+            return dict(result=REFUSED, work=work, repo=repo, base=base,
+                        reason="%s: %s — 바깥 호출 0" % (label, detail or "진단 없음")), 1
+    sha = detail                                # 마지막 확인 = 기준 ref → 40자 sha(실제 argv 끝 · 의도 base_sha)
+    write_intent(plan["intent"], dict(env, state="opening", repo=repo, base=base, base_sha=sha, at=time.strftime(STAMP)))
     os.makedirs(os.path.dirname(plan["worktree"]), exist_ok=True)
-    rc, detail = call(plan["git"], repo, None, GIT_TIMEOUT)
+    rc, detail = call(planner.at_sha(plan["git"], sha), repo, None, GIT_TIMEOUT)
     if rc != 0:
         return failed(plan, env, "git", detail, repo)
     rc, detail = call(plan["tmux"], None, dict(os.environ, **env), TMUX_TIMEOUT)
     if rc != 0:
         return failed(plan, env, "tmux", detail, repo)
-    write_intent(plan["intent"], dict(env, state="opened", worktree=plan["worktree"], at=time.strftime(STAMP)))
+    write_intent(plan["intent"], dict(env, state="opened", worktree=plan["worktree"], base=base, base_sha=sha, at=time.strftime(STAMP)))
     return dict(result=OK, opened=True, work=work, attempt=attempt, holder=holder,
                 worktree=plan["worktree"], intent=plan["intent"]), 0
 

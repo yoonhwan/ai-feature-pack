@@ -1,10 +1,13 @@
 """ft 2.0 좌석 열기의 계획 만들기 — launch.py 가 부르기만 한다(r1769 · 파일 200줄 규칙 분리).
 
-여기 있는 것은 «바깥 호출 전에 정해지는 값» 뿐이다: 열기 argv · 좌석 env 5개 · 실패 사유의 복구 2줄.
+여기 있는 것은 «바깥 호출 전에 정해지는 값» 뿐이다: 열기 argv · 좌석 env 5개 · 확인 argv·판정(r1780) · 실패 사유의 복구 2줄.
 바깥 호출·의도 쓰기는 launch.py 몫이다.
 """
 import os
 import shlex
+
+DEFAULT_BASE = "origin/main"          # r1780 A1: 기본 가지 자동 판정 0(origin/HEAD 는 리포마다 다르다) · 이름 고정
+HEX = frozenset("0123456789abcdef")
 
 
 def seat_env(root, team, work, holder, attempt):
@@ -12,18 +15,43 @@ def seat_env(root, team, work, holder, attempt):
     return dict(zip(("FT2_ROOT", "FT2_TEAM", "FT2_WORK", "FT2_HOLDER", "FT2_ATTEMPT"), (root, team, work, holder, attempt)))
 
 
-def plan_of(folder, tag, root, team, holder, role_argv, worktree, repo, env):
-    """의도·워크트리·열기 argv — `--detach`(가지 몰래 만들기 0) · git 은 `-C <repo>`(A2) · pi argv 는 역할 표 그대로(A5)."""
+def plan_of(folder, tag, root, team, holder, role_argv, worktree, repo, env, base=DEFAULT_BASE):
+    """의도·워크트리·열기 argv — `--detach`(가지 몰래 만들기 0) · git 은 `-C <repo>`(A2) · pi argv 는 역할 표 그대로(A5).
+    git argv 끝 = 기준 ref 이름(r1780) — dry-run 은 이 이름 그대로 보이고, 실제 실행은 `at_sha` 로 확인한 sha 로 바꾼다."""
     path = os.path.abspath(worktree or os.path.join(root, ".fable-team", "teams", team, "worktrees", tag))
     pairs = [word for key, value in env.items() for word in ("-e", key + "=" + value)]
     return {"intent": os.path.join(folder, tag + ".intent"), "worktree": path,
-            "git": ["git", "-C", repo, "worktree", "add", "--detach", path],
+            "git": ["git", "-C", repo, "worktree", "add", "--detach", path, base],
             "tmux": ["tmux", "new-session", "-d", "-s", holder, "-c", path] + pairs + ["pi"] + list(role_argv)}
 
 
 def repo_check(repo):
     """대상 리포 확인 명령 1회(A2) — `--repo` 를 준 호출에서만 부른다(기본 = 지금 그대로)."""
     return ["git", "-C", repo, "rev-parse", "--show-toplevel"]
+
+
+def base_check(repo, ref):
+    """기준 ref 확인 1회(r1780 A2) — `--repo` 유무와 무관하게 늘 부른다 · 성공 = stdout 40자 sha · fetch 0(A5)."""
+    return ["git", "-C", repo, "rev-parse", "--verify", "--quiet", ref + "^{commit}"]
+
+
+def checks(repo, base, explicit):
+    """git 단계 앞 확인 목록 = (argv, 거절 사유 머리). 리포 확인은 `--repo` 때만 · 기준 ref 확인은 늘 · 기준이 마지막."""
+    head = [(repo_check(repo), "대상 리포 아님(%s)" % repo)] if explicit else []
+    return head + [(base_check(repo, base), "기준 ref 없음(%s)" % base)]
+
+
+def checked(argv, rc, detail):
+    """확인 1회 결과 → (rc, 진단 또는 sha). 기준 ref 확인은 rc0 이어도 유효 40자 sha 가 없으면 거절이다(추측 0)."""
+    if "--verify" not in argv:
+        return rc, detail
+    sha = next((word for word in (detail or "").split() if len(word) == 40 and set(word) <= HEX), "") if rc == 0 else ""
+    return (0, sha) if sha else (1, "rc %s · %s" % (rc, detail or "빈 출력"))
+
+
+def at_sha(git, sha):
+    """실제 실행 git argv — 끝의 ref 이름을 확인한 sha 로 바꾼다(보정1 R1 · 확인 뒤 ref 가 움직여도 자리 = 기록한 sha)."""
+    return git[:-1] + [sha]
 
 
 def recovery(repo, path):
