@@ -4,6 +4,7 @@
   변형(0개 이상, 기본 = ⓐ 승인 OK): b(ⓑ byz-tank 승인 + 인터뷰 코멘트) · b-nocomment · noapproved · rejected · needsreply · otherauthor · emptysec · nosha · nomarker ·
   otheractor · split(근거 칸이 이어서 코멘트에) · noevent(라벨은 있는데 timeline 에 없음) ·
   oppa-late(승인 뒤 오빠 코멘트) · oppa-early(승인 전 오빠 코멘트) · oppa-nots(시각 없는 오빠 코멘트) · rev-late(승인 뒤 Tank 「r1 변경」 코멘트) · rev-early(승인 전)
+  r1788: sa(승인 라벨 이름 status:approved) · both(approved 도 지금 라벨) · inprog(status:in-progress 라벨) · two(01:00 labeled approved 먼저) · unl(04:00 labeled approved 오빠 → 05:00 unlabeled)
   — 승인(approved) 라벨 시각 = APPROVED_AT
 """
 import json
@@ -27,7 +28,8 @@ def body(v: set[str]) -> str:
 
 def main(a: list[str]) -> int:
     d, num, v = Path(a[0]), int(a[1]), set(a[2:])
-    labels = ["proposal"] + ([] if v & {"noapproved"} else ["approved"]) + (["rejected"] if "rejected" in v else []) + (["needs-reply"] if "needsreply" in v else [])
+    lab = "status:approved" if "sa" in v else "approved"
+    labels = ["proposal"] + ([] if v & {"noapproved"} else [lab]) + (["approved"] if "both" in v else []) + (["status:in-progress"] if "inprog" in v else []) + (["rejected"] if "rejected" in v else []) + (["needs-reply"] if "needsreply" in v else [])
     comments: list[dict[str, object]] = []
     if "split" in v:
         comments.append({"author": {"login": "byz-tank"}, "body": "(이어서 2/2)\n## 근거\n- 경로:줄 · 커밋 8b64a2dda4\n"})
@@ -40,8 +42,12 @@ def main(a: list[str]) -> int:
     actor = "byz-tank" if v & {"b", "b-nocomment"} else ("someone" if "otheractor" in v else "yoonhwan")
     view = {"number": num, "author": {"login": "other" if "otherauthor" in v else "byz-tank"}, "labels": [{"name": x} for x in labels], "body": body(v), "comments": comments}
     ev = [{"event": "labeled", "label": {"name": "proposal"}, "actor": {"login": "byz-tank"}}]
-    if "approved" in labels and "noevent" not in v:
-        ev.append({"event": "labeled", "label": {"name": "approved"}, "actor": {"login": actor}, "created_at": APPROVED_AT})
+    if lab in labels and "noevent" not in v:
+        if "two" in v:
+            ev.append({"event": "labeled", "label": {"name": "approved"}, "actor": {"login": actor}, "created_at": "2026-10-10T01:00:00Z"})
+        ev.append({"event": "labeled", "label": {"name": lab}, "actor": {"login": actor}, "created_at": APPROVED_AT})
+    if "unl" in v:
+        ev += [{"event": e, "label": {"name": "approved"}, "actor": {"login": "yoonhwan"}, "created_at": t} for e, t in (("labeled", "2026-10-10T04:00:00Z"), ("unlabeled", "2026-10-10T05:00:00Z"))]
     (d / f"view-{num}.json").write_text(json.dumps(view, ensure_ascii=False), encoding="utf-8")
     (d / f"timeline-{num}.json").write_text(json.dumps([ev], ensure_ascii=False), encoding="utf-8")
     return 0

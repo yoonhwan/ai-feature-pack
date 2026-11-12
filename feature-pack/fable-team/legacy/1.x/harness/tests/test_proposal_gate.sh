@@ -63,6 +63,15 @@ ledger "816 오빠 인터뷰(A안 · Issue https://evilgithub.com/o/r/issues/12)
 ledger "816 오빠 인터뷰(A안 · Issue https://GitHub.com/O/R/issues/12): 대소문자만 다름"
                          expect "19c 저장소 대소문자 무시 → OK" 0 '^OK #12 승인 ⓑ 판정 816$'
 ledger "816 오빠 인터뷰(A안 · Issue https://github.com/o/r/issues/12): 채택"
+# ── r1788: 승인 라벨 이름 = approved|status:approved · 사건 = 이름 집합 ∩ 지금 labels · 단 사람·승인 뒤 검사 그대로 ──
+fx sa;                   expect "① status:approved 오빠 계정 → OK" 0 '^OK #12 승인 ⓐ$'
+fx sa b;                 expect "② status:approved byz-tank + 인터뷰 + 원장 → OK" 0 '^OK #12 승인 ⓑ 판정 816$'
+fx sa b-nocomment;       expect "③ status:approved byz-tank 인터뷰 코멘트 없음(#7416 꼴) → REJECT" 1 '^REJECT #12 .*ⓑ byz-tank 가 단 approved 인데 코멘트'
+fx sa otheractor;        expect "④ status:approved 단 사람 오빠·Tank 아님 → REJECT" 1 '^REJECT #12 .*someone 은 오빠 계정도 byz-tank 도 아니다'
+fx sa two b oppa-late;   expect "⑤ #2659 꼴 approved→status:approved · 늦은 사건 뒤 코멘트 → REJECT" 1 '^REJECT #12 .*승인 이후\(또는 시각 불명\) 미답변 코멘트 1건'
+fx sa both two oppa-early; expect "⑤b 두 라벨 다 있음 · 두 사건 사이 코멘트 → OK(승인 시각 = 마지막 사건)" 0 '^OK #12 승인 ⓐ$'
+fx noapproved inprog;    expect "⑥ status:in-progress 는 승인 아님 → REJECT" 1 '^REJECT #12 .*라벨 approved 없음'
+fx sa otheractor unl;    expect "⑥b 떼어진 approved 오빠 사건은 근거 아님 → REJECT someone" 1 '^REJECT #12 .*someone 은 오빠 계정도 byz-tank 도 아니다'
 
 # ── r492: 원장 = ref(origin/main) 트리 · 체크아웃 파일 0(옛 라이브 모사) · 표 행 꼴 ──
 V="$T/vrepo"; VO="$T/vorigin.git"; git init -q --bare "$VO"; git init -q "$V"
