@@ -103,7 +103,7 @@ echo "== ⓒ 제품 카드(원장 줄이 하네스 아님) + 팩 경로 → ⓐ 
 setup "있음 — 팩 키트 1" '<!-- ledger: design/product/GOAL-product.md -->'; out="$(close --wt "$PW" --branch nano/k)"; rc=$?
 [ "$rc" -eq 1 ] && has "$out" "REJECT $SEAT" "ⓒ 제품 카드 → REJECT" || bad "ⓒ rc=$rc ← ${out:0:600}"
 has "$out" "ⓐ--wt($PW)가 이 리포($R)에 등록된 .worktrees/ 아래 워크트리가 아니다" "  └ 지금 ⓐ 문구 그대로"
-has "$out" "팩 경로는 하네스 카드(원장 GOAL-harness)만" "  └ 덧말(원장 기준)"
+has "$out" "팩 경로는 팩 카드(원장 GOAL-harness 또는 정본 영향 «팩 원본»)만" "  └ 덧말(원장 기준)"
 untouched
 
 echo "== ⓓ 카드 못 찾음 → REJECT(원장 줄 판정 불가)"
