@@ -789,9 +789,10 @@ def lead_rest_max_min() -> float:
 
 def lead_rest_state(comm: Path, masters: set[str], recipients: set[str], now: float) -> tuple[str, float | None, float | None]:
     """r1729 — 쉼 심박(A1)과 그 뒤 첫 사건(A2)을 «면제 상한» 창까지 한 번 더 읽어 낸다.
-    → ("ok", 쉼 심박 ts|None, 그 뒤 첫 사건 ts|None) · ("ERROR", None, None) = 판정 불가(깨진 줄·7초 예산 · A4).
+    → ("ok", 쉼 심박 ts|None, 그 뒤 첫 사건 ts|None) · ("ERROR", None, None) = 쉼 로그 판정 불가(깨진 줄·7초 예산 · A4).
     쉼 심박이 상한(FT_LEAD_REST_MAX_MIN · A3)을 넘었으면 ("ok", None, None) = 면제 0(지금 판정 그대로).
-    읽기는 lead_heartbeat 와 같은 끝 읽기·예산을 쓰고 로그 창만 상한까지 넓힌다(A4)."""
+    읽기는 lead_heartbeat 와 같은 끝 읽기·예산을 쓰고 로그 창만 상한까지 넓힌다(A4).
+    ERROR 는 «면제 0» 이다 — 부르는 쪽(lead_alert)은 이때 지금 판정(경보 후보 = 경보 1)을 그대로 쓴다(A5 · 탐침 ⑬)."""
     budget = float(os.environ.get("FT_STALL_HEARTBEAT_BUDGET") or 7)
     t0 = time.monotonic()
     cap = lead_rest_max_min()
@@ -836,12 +837,10 @@ def lead_alert(root: Path, comm: Path, master: str, now: float) -> tuple[bool, f
         return False, None, True
     if ts is None or (now - ts) / 60 > lead_heartbeat_min():  # r1729 — 경보 후보일 때만 쉼 면제를 본다(늘 읽기 1회 더는 아니다)
         rstate, rest, first_ev = lead_rest_state(comm, lead_names(root, master), lead_recipients(root), now)
-        if rstate == "ERROR":
-            return False, None, True
-        if rest is not None:  # 쉼 심박 뒤 사건 0 = 경보 0(A1) · 사건이 있으면 첫 사건 ts 부터 다시 센다(A2)
-            if first_ev is None:
+        if rstate == "ok" and rest is not None:  # rstate ERROR = 쉼 로그 판정 불가 → 면제 0 = 지금 판정 그대로(A5 · 진짜 멈춤을 가리지 않는다)
+            if first_ev is None:  # 쉼 심박 뒤 사건 0 = 경보 0(A1)
                 return False, (now - rest) / 60, False
-            return (now - first_ev) / 60 > lead_heartbeat_min(), (now - first_ev) / 60, False
+            return (now - first_ev) / 60 > lead_heartbeat_min(), (now - first_ev) / 60, False  # 사건이 있으면 첫 사건 ts 부터 다시 센다(A2)
     if ts is None:
         return True, None, False  # 심박 창(20분) 안 [정리] 0 = 멈춤 — 로그는 창 안만 읽으므로 «한 번도 안 보냄» 이 아니다(r1143)
     age = (now - ts) / 60

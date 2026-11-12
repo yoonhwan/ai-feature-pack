@@ -3,6 +3,7 @@
 계약: A1 쉼 표식 = 심박 첫 줄의 `[다음 없음]` 또는 `막힘 = 사람 답(<10>.<6>)` · A2 사건 = 그 팀장이 오간 쪽지(발신 ft-stall-scan 제외) · 사건이 있으면 첫 사건부터 다시 센다 ·
 A3 면제 상한 FT_LEAD_REST_MAX_MIN(기본 240분) · A4 읽기 규칙 그대로(깨진 줄·7초 예산 = 판정 불가) · A5 그 밖 팀장 판정은 지금과 같다.
 R1729_BIN = 시험할 bin 폴더(기본 kit) — 변이 사본을 넣어 반대 결과를 대조한다.
+⑬ = arch R1 탐침: 표식 없는 팀장도 20분 창 밖 깨진 줄 하나로 u 가 되면 안 된다(면제 0 = 지금 판정 그대로).
 """
 import json
 import os
@@ -68,13 +69,9 @@ def test_rest_mark_is_exempt(w: World, body: str) -> None:
     assert not w.mbox_log()
 
 
-def test_r3b_blocked_without_ts_is_not_a_rest_mark(w: World) -> None:  # ③ ts 없는 «막힘 = 사람 답»
-    assert rest_lead(w, 60, "[정리] 한 일 3줄 · 막힘 = 사람 답")["f"] == "1"
-    assert len(sends(w, "t1-master#1")) == 1
-
-
-def test_r4_mark_on_second_line_does_not_count(w: World) -> None:  # ④ 첫 줄 밖 표식 = 표식 아님
-    assert rest_lead(w, 60, "[정리] 한 일 3줄\n[다음 없음]")["f"] == "1"
+@pytest.mark.parametrize("body", ["[정리] 한 일 3줄 · 막힘 = 사람 답", "[정리] 한 일 3줄\n[다음 없음]"], ids=["③b ts 없는 막힘", "④ 둘째 줄 표식"])
+def test_r3b_r4_not_a_rest_mark(w: World, body: str) -> None:  # ③b · ④ 표식이 아니면 지금 판정 그대로
+    assert rest_lead(w, 60, body)["f"] == "1"
     assert len(sends(w, "t1-master#1")) == 1
 
 
@@ -127,18 +124,17 @@ def test_r10b_rest_under_cap_is_quiet(w: World) -> None:  # ⑩ 239분 → 경�
     assert not w.mbox_log()
 
 
-# ── ⑪ 판정 불가 = 처리 0 (깨진 줄 · 미래 ts) ───────────────────────────────────
-def test_r11a_broken_line_after_rest_is_undecidable(w: World) -> None:
-    candidate(w)
-    w.heartbeat("t1-master#1", 60, body=REST)
-    log_mail(w, "planner#1", 5, 3, frm="planner#1", body="발주")
+# ── ⑪⑬ 창 밖 깨진 줄·미래 ts = 면제 0 · 처리 0 ──────────────────────────────
+@pytest.mark.parametrize("body", [REST, "[정리] 한 일 3줄"], ids=["⑪a 쉼 표식", "⑬ 표식 없음"])
+def test_r11a_old_broken_line_outside_window_is_not_exempt(w: World, body: str) -> None:
+    """깨진 줄이 20분 창 밖(240분 안)에 있으면 쉼 로그만 판정 불가 → 면제 0 = 지금 판정 그대로(경보 1 · u 0).
+    표식 없는 팀장도 같다(A5 · arch R1 탐침 = ⑬) — 진짜 멈춤을 u 칸으로 가리지 않는다."""
     with open(w.root / ".fable-team/comm/mailbox.log.jsonl", "a", encoding="utf-8") as f:
-        _ = f.write("{ 깨진 줄\n")
-    r = subprocess.run(["bash", str(BIN / "ft-stall-scan.sh")], env=w.env, capture_output=True, text=True, timeout=70)
-    c = counts(r.stdout)
-    assert c["u"] == "1" and c["f"] == "0", r.stdout
-    assert "팀장 심박 판정 불가" in r.stdout
-    assert not w.mbox_log()
+        _ = f.write("{ 깨진 줄\n")  # 파일 앞(오래된 자리) — 끝에서 읽는 20분 창은 이 줄에 닿지 않는다
+    log_mail(w, "planner#1", 7, 60, frm="x", body="발주")  # 창 밖(20분 밖 · 240분 안)
+    c = rest_lead(w, 60, body)
+    assert c["f"] == "1" and c["u"] == "0", c
+    assert len(sends(w, "t1-master#1")) == 1
 
 
 def test_r11b_future_rest_heartbeat_is_not_fresh(w: World) -> None:  # ⑪ 미래 ts 쉼 심박 = 판정 불가
