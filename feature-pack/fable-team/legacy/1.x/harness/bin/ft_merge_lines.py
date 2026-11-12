@@ -124,14 +124,18 @@ def norm(line, table):
 
 def replace_ok(repo, spec, s):
     """r1741 A1~A3: DA 판정문 §<절> 의 ```gate-replace 블록 → ({(경로, 원문): 개수}, «경로@sha10#§절») — 리포 = FT_ROOT(카드) → 후보.
-    못 읽음·절 없음·APPROVE 아님·블록 꼴 아님·head 불일치는 Fail(통과 0 · 게이트가 DENY … 판정 불가 로 낸다)."""
+    못 읽음(카드 리포 FT_ROOT 하나 · 7초 상한)·절 없음·APPROVE 아님·블록 꼴 아님·head 불일치는 Fail(통과 0 · 게이트가 DENY … 판정 불가 로 낸다)."""
     m = re.fullmatch(r"([^@\s]+)@([0-9a-f]{7,40})#§(\S+)", spec)
     if not m: raise Fail("판정 불가 replace-ok 꼴 아님(<경로>@<sha>#§<절>): %s" % spec[:80])
     path, sha, sec = m.groups()
-    text, why = None, "판정 불가 replace-ok 판정문 못 읽음 %s@%s" % (path, sha[:10])
-    for root in (os.environ.get("FT_ROOT") or "", repo):
-        try: text = git(root, "show", "%s:%s" % (sha, path)); break
-        except Fail: pass
+    root, why = os.environ.get("FT_ROOT") or "", "판정 불가 replace-ok 판정문 못 읽음 %s@%s" % (path, sha[:10])
+    text = None   # 판정문 리포 = 카드 리포(FT_ROOT) 하나뿐 — 후보 리포 폴백 0 · FT_ROOT 가 빈 값이면 git -C ""(=cwd 리포)를 부르지도 않는다
+    if root:
+        try:
+            p = subprocess.run(["git", "-C", root, "-c", "core.quotepath=off", "show", "%s:%s" % (sha, path)], capture_output=True, timeout=7)
+            text = p.stdout.decode("utf-8", "replace") if p.returncode == 0 else None
+        except subprocess.TimeoutExpired:
+            raise Fail(why + " — 7초 초과")
     if text is None: raise Fail(why)
     hit = re.search(r"(?m)^#{1,6}\s[^\n]*§\s*%s(?![0-9])[^\n]*\n(.*?)(?=^#{1,6}\s|\Z)" % re.escape(sec), text, re.S)
     if not hit: raise Fail("판정 불가 replace-ok §%s 절 없음(%s@%s)" % (sec, path, sha[:10]))
@@ -143,10 +147,15 @@ def replace_ok(repo, spec, s):
     rows = [x.split("\t") for x in f.group(2).split("\n") if x.strip()]
     if not all(len(c) == 3 and c[2].strip().isdigit() and int(c[2]) >= 1 for c in rows):
         raise Fail("판정 불가 replace-ok 블록 줄 꼴 아님(경로<TAB>원문<TAB>개수)")
-    if f.group(1) != s and subprocess.run(   # A3: head == S 이거나 «head 뒤 main 병합만 + 자기 변경 동일»(ft-approval-equiv 판정 그대로)
-            ["bash", os.path.join(HERE, "ft-approval-equiv.sh"), f.group(1), s, "--repo", repo, "--remote", os.environ.get("FT_REPLACE_REMOTE", "origin"),
-             "--target", os.environ.get("FT_REPLACE_TARGET", "main")], capture_output=True).returncode != 0:
-        raise Fail("replace-ok head ≠ 후보(블록 %s · 후보 %s · main 병합만 차이도 아님)" % (f.group(1)[:10], s[:10]))
+    if f.group(1) != s:   # A3: head == S 이거나 «head 뒤 main 병합만 + 자기 변경 동일»(ft-approval-equiv 판정 그대로) — 호출 상한 7초
+        try:
+            eq = subprocess.run(["bash", os.path.join(HERE, "ft-approval-equiv.sh"), f.group(1), s, "--repo", repo,
+                                 "--remote", os.environ.get("FT_REPLACE_REMOTE", "origin"),
+                                 "--target", os.environ.get("FT_REPLACE_TARGET", "main")], capture_output=True, timeout=7).returncode == 0
+        except subprocess.TimeoutExpired:
+            raise Fail("판정 불가 replace-ok head 대조 7초 초과(블록 %s · 후보 %s)" % (f.group(1)[:10], s[:10]))
+        if not eq:
+            raise Fail("replace-ok head ≠ 후보(블록 %s · 후보 %s · main 병합만 차이도 아님)" % (f.group(1)[:10], s[:10]))
     return {(c[0], c[1].rstrip("\r")): int(c[2]) for c in rows}, "%s@%s#§%s" % (path, sha[:10], sec)
 
 

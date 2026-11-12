@@ -55,6 +55,19 @@ CN="$(dac APPROVE -)"; gate "$S0" --replace-ok "$DAP@$CN#§2"; [ "$rc" = 1 ] && 
 CH="$(dac HOLD "$S0" "a.txt|KIND == (1, 16)|1" "b.txt|CAP == (1, 16)|1")"
 gate "$S0" --replace-ok "$DAP@$CH#§2"; [ "$rc" = 1 ] && [[ "$out" == *"DENY 판정 불가 replace-ok §2 APPROVE 아님"* ]] && ! [[ "$out" == *"REPLACE-OK"* ]]; ck "②e 판정: HOLD → DENY · 통과 0(M1)" $?
 
+# ②f X1 꼴: 판정문을 «후보(팩) 리포 다른 가지» 에만 커밋 + FT_ROOT = 판정문 없는 카드 리포 → 후보 리포 폴백 0 = DENY(M4 대조)
+git -C "$W" checkout -q -b sidex "$S0"; mkdir -p "$W/design/harness"
+printf '# 가짜 판정문\n\n## §2 x\n\n판정: APPROVE\n\n```gate-replace\nhead %s\na.txt\tKIND == (1, 16)\t1\nb.txt\tCAP == (1, 16)\t1\n```\n' "$S0" > "$W/$DAP"
+cm "$W" "DA 판정문을 팩 가지에"; DX="$(sha "$W" HEAD)"; git -C "$W" checkout -q pr16
+git -C "$CARD" cat-file -e "$DX" 2>/dev/null && echo "CARD 에도 있는 개체(시험 무효)" || true
+EC="$T/card2"; mkdir -p "$EC"; git init -q -b main "$EC"; git -C "$EC" config user.name t; git -C "$EC" config user.email t@t; git -C "$EC" commit -q --allow-empty -m empty
+out="$(FT_ROOT="$EC" bash "$GATE" "$S0" --replace-ok "$DAP@$DX#§2" --repo "$W" --base-head-file "$T/none" 2>&1)"; rc=$?
+[ "$rc" = 1 ] && [[ "$out" == *"DENY 판정 불가 replace-ok 판정문 못 읽음"* ]] && ! [[ "$out" == *"REPLACE-OK"* ]]
+ck "②f 판정문이 팩 리포 가지에만 있음 → 후보 리포 폴백 0 = DENY(M4 이 되살리면 FAIL)" $?
+out="$(FT_ROOT= bash "$GATE" "$S0" --replace-ok "$DAP@$DX#§2" --repo "$W" --base-head-file "$T/none" 2>&1)"; rc=$?
+[ "$rc" = 1 ] && [[ "$out" == *"DENY 판정 불가 replace-ok 판정문 못 읽음"* ]]
+ck "②g FT_ROOT 빈 값 → cwd·후보 리포로 안 새고 DENY(git -C \"\" 금지)" $?
+
 # main 이 한 칸 더 간 뒤(M2) = ③ 의 «head 뒤 main 병합만» 후보를 만들 수 있다
 git -C "$W" checkout -q main; echo d1 > "$W/d.txt"; cm "$W" "main 뒤 커밋"; git -C "$W" push -q origin main; git -C "$W" fetch -q origin
 git -C "$W" checkout -q -b pr16m "$S0"; git -C "$W" merge -q --no-edit origin/main; SM="$(sha "$W" HEAD)"
