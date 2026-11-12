@@ -19,7 +19,7 @@ SUBMIT_OPS = ("body_tmp_write", "body_file_fsync", "body_rename", "body_dir_fsyn
               "journal_write", "journal_fsync", "state_write", "receipt")   # 접수 1건의 ops 줄
 WRITER_OPS = ("journal_write", "journal_fsync", "state_write")               # 내부 writer 1줄
 PROJ_FIELDS = ("generations", "owners", "reservations", "deliveries", "done",
-               "reassess_done", "released", "owners_recovered", "uncertain")
+               "reassess_done", "released", "owners_recovered", "uncertain", "refusals")
 
 
 def _load_record():
