@@ -352,7 +352,7 @@ print(v if isinstance(v,str) else "")' "$seats" 2>/dev/null)"
 fm_cards_by_tokens() {
   local root="$1"; shift
   [ -n "$root" ] && [ $# -gt 0 ] || return 0
-  git -C "$root" ls-files -- 'design/*/indices/*/*.md' 'design/teams/*/indices/*/*.md' 2>/dev/null | while IFS= read -r p; do
+  git -c core.quotepath=false -C "$root" ls-files -- 'design/*/indices/*/*.md' 'design/teams/*/indices/*/*.md' 2>/dev/null | while IFS= read -r p; do   # r1717: 한글 폴더(진행·완성)를 따옴표 꼴로 내지 않게 — 차례 장부가 이 경로를 그대로 쓴다
     local b t; b="-${p##*/}"; b="${b%.md}-"
     for t in "$@"; do
       case "$b" in *"-$t-"*) printf '%s/%s\n' "$root" "$p"; break;; esac
@@ -363,13 +363,22 @@ fm_cards_by_tokens() {
 #     카드 = 제목·본문의 r<숫자> 토큰 · 설치 칸 = OK(대조 n>=1) | PENDING(검사 rc!=0 · 시간 초과 포함) | SKIP(범위에 하네스 파일 0)
 #     받은 root 는 FM_NOTIFY_REPO 로 넘긴다(env 가 다른 리포를 가리켜도 카드 리포가 이김 · DA HOLD #274782 F2)
 fm_land_notify_land() {
-  local root="$1" pr="$2" sh="$3" txt="$4" irc="$5" iout="$6" nst=SKIP tok
+  local root="$1" pr="$2" sh="$3" txt="$4" irc="$5" iout="$6" nst=SKIP tok t0=$SECONDS
   printf '%s\n' "$iout" | head -n1 | grep -qE '^OK n=[1-9]' && nst=OK
   [ "${irc:-0}" = 0 ] || nst=PENDING
   tok="$(printf '%s\n' "$txt" | grep -oE 'r[0-9]{2,5}' | sort -u | tr '\n' ' ')"
   tok="${tok% }"
   # shellcheck disable=SC2086
   FM_NOTIFY_REPO="$root" fm_land_notify 착지 "[착지] pr=$pr sha=$sh 카드 ${tok:-없음} · 설치 $nst" $(fm_cards_by_tokens "$root" $tok)
+  fm_land_turn "$root" "$pr" "$t0" $tok
+}
+#   fm_land_turn <카드리포루트> <PR> <시작 SECONDS> [<r토큰>…] : r1717 A1·A4ⓐ — ①차례 장부 1줄 append(<공용 루트>/.fable-team/state/land-record-turn.jsonl · 카드 0장도 cards:[] · 쓰기 실패 = WARN 1줄 · 네트워크 0) ②ft-nano-record.sh notify --pr <N> --no-fetch 1회
+#     ② 상한 = 착지 쪽지와 같은 7초 몫의 «남은 시간»(착지 마감이 더 짧으면 그 값 · < 1초 = 호출 0 → 장부가 남아 ft_stall_scan 이 보낸다) · 착지 값(Q·HEADSHA·REPO·TARGET)은 부른 ft-merge-land 의 변수 · 반환 0 고정(착지 rc 불변)
+fm_land_turn() {
+  local root="$1" pr="$2" t0="$3" c f cap el; shift 3; c="$(git -C "$root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; c="${c%/.git}"; c="${c:-$root}"; f="$c/.fable-team/state/land-record-turn.jsonl"
+  { mkdir -p "${f%/*}" && python3 -c 'import json,sys,time;a=sys.argv;print(json.dumps({"pr":int(a[1]),"repo":a[2],"target":a[3],"landed":a[4],"pr_head":a[5],"by":a[6],"cards":a[7:],"ts":time.strftime("%Y-%m-%dT%H:%M:%S")},ensure_ascii=False))' "$pr" "$(cd -- "${REPO:-$root}" 2>/dev/null && pwd -P)" "${TARGET:-main}" "${Q:-}" "${HEADSHA:-}" "${FT_SEAT:-}" $(fm_cards_by_tokens "$root" "$@") >>"$f"; } 2>/dev/null || echo "WARN 착지 차례 장부 쓰기 실패($f) — 착지는 성공"   # r1717-mut:ledger
+  cap=$((7 - (SECONDS - t0))); if el="$(fm_fetch_deadline_rem)"; then [ "$el" -ge "$cap" ] || cap="$el"; fi
+  [ "$cap" -lt 1 ] || [ ! -f "$FM_HERE/ft-nano-record.sh" ] || FT_ROOT="$c" fm_try "$cap" bash "$FM_HERE/ft-nano-record.sh" notify --pr "$pr" --no-fetch 2>&1 || true
 }
 #   fm_land_notify_d2 <PR> <착지 sha> <PR 제목·본문> : r1577 — D2 승인 줄로 착지했을 때 슬랙 1줄(«병합함: PR #N · 카드 · DA APPROVE · 되돌림 명령»)
 #     게시 = ft-autonomy-scope.sh 의 scope_slack_post 재사용(사본 0 · 서브셸이라 scope_err 의 exit 이 착지 rc 를 못 건드린다) · 실패 = stderr 1줄 · 착지 rc 불변
