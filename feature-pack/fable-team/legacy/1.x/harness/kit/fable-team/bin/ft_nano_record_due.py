@@ -15,6 +15,8 @@ from pathlib import Path
 
 from ft_nano_record import CARD_RX, DONE_RX, Ctx, Reject, Unjudged, left_free, left_of, marks, rec_of, section
 
+DOCW = "문서 PR · 구현 착지 아님"   # r1782 A2: 장부 doc_only(착지 파일 전부 design/·docs/) 줄의 «끝» 사유
+
 
 def card_key(path):   # 카드 경로 → (팀, indices 뿌리, stem) | None
     m = CARD_RX.search(path or "")
@@ -73,6 +75,8 @@ def card_rows(ctx, e, path):
         lines, st, en = section(raw.decode("utf-8", "replace"))
         sec = lines[st + 1:en] if st is not None else []   # r1717-mut:section
         own = owners(ctx, doc, stem, sec)
+        if e.get("doc_only") and not any(k == "닫기" for _s, k, _c in own):   # r1782 A2ⓑ: 문서만 바꾼 착지 · 카드 쥔 나노 없음 = 끝(쪽지 0)
+            return [{**base, "k": "끝", "why": DOCW}]
         gone = sorted({m.group(1) for ln in sec for m in [DONE_RX.match(ln)] if m and f"착지 {e['landed'][:10]}" in ln} - {s for s, _k, _c in own})
         out = [{**judge(ctx, base, s, k, sec), "cur": c} for s, k, c in own] + [judge(ctx, base, s, None, sec, alive=False) for s in gone]
     except Unjudged as u:
@@ -102,7 +106,7 @@ def rows(ctx, pr=None):   # 장부 줄마다 카드별 줄
         if e.get("cards_err"):   # r1743 A3: ref 못 읽음 = «카드 없음» 아님 · 판정 불가(하드 룰 20)
             out.append({**base, "k": "카드ref불가", "why": str(e["cards_err"])})
             continue
-        out.append({**base, "k": "끝", "why": f"카드 없음 확정 · {e['nocard']}"} if e["nocard"] else {**base, "k": "카드없음"})
+        out.append({**base, "k": "끝", "why": f"카드 없음 확정 · {e['nocard']}"} if e["nocard"] else {**base, "k": "끝", "why": DOCW} if e.get("doc_only") else {**base, "k": "카드없음"})   # r1782 A2ⓒ
     return out
 
 
