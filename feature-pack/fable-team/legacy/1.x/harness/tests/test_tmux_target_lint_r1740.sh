@@ -35,9 +35,14 @@ printf '%s\n' 'run(["tmux", "capture-pane", "-p", "-t", "=" + seat + ":", "-S", 
 run "$SUT" "$T/c/py2ok.py"; { [ "$RC" = 0 ] && [ "$OUT" = "OK tmux-target 0" ]; }; ck "② 파이썬 «\"=\" + seat + \":\"» → 0" $?
 step "①②"
 
-# ===== ③ has-session·kill-session 은 «=이름» 이 맞다 → 0 =====
-printf '%s\n' 'tmux has-session -t "=$S" 2>/dev/null' 'tmux kill-session -t "=$S" 2>/dev/null' > "$T/c/sh3.sh"
-run "$SUT" "$T/c/sh3.sh"; { [ "$RC" = 0 ] && [ "$OUT" = "OK tmux-target 0" ]; }; ck "③ has-session·kill-session -t \"=\$S\" → 0" $?
+# ===== ③ 세션 대상 명령은 «=이름» 이 맞다 → 0 · 옵션 명령(show-options·set-option)은 pane 대상 → ERR =====
+printf '%s\n' 'tmux has-session -t "=$S" 2>/dev/null' 'tmux kill-session -t "=$S" 2>/dev/null' \
+  'tmux list-clients -t "=$S" -F "#{client_tty}"' 'tmux switch-client -c "$tty" -t "=$S"' \
+  'tmux show-environment -t "=$S" TMUX' 'tmux list-panes -t "=$S" -F "#{pane_id}"' > "$T/c/sh3.sh"
+run "$SUT" "$T/c/sh3.sh"; { [ "$RC" = 0 ] && [ "$OUT" = "OK tmux-target 0" ]; }; ck "③ 세션 대상 6종(has-session·kill-session·list-clients·switch-client·show-environment·list-panes) -t \"=\$S\" → 0" $?
+printf '%s\n' 'tmux show-options -qv -t "=$S" @tag' 'tmux set-option -t "=$S" -u @tag' > "$T/c/sh3opt.sh"
+run "$SUT" "$T/c/sh3opt.sh"
+{ [ "$RC" = 1 ] && has "ERR $T/c/sh3opt.sh:1 tmux show-options" && has "ERR $T/c/sh3opt.sh:2 tmux set-option" && has "ERR tmux-target 2"; }; ck "③ 옵션 명령(show-options·set-option) -t \"=\$S\" → ERR 2(실 tmux «no such session»)" $?
 
 # ===== ⑤ 주석은 보지 않는다 → 0 =====
 printf '%s\n' '# tmux display-message -p -t "=$NAME" 는 has-session 에만 통한다' 'echo hi   # tmux send-keys -t "=$S" Enter' > "$T/c/sh5.sh"
@@ -52,7 +57,14 @@ printf '%s\n' 'echo note' > "$T/c/corpus/skip.txt"
 run "$SUT" "$T/c/corpus"
 { [ "$RC" = 1 ] && has "ERR $T/c/corpus/sub/deep.py:1 tmux send-keys" && has "ERR tmux-target 1" && ! has "skip.txt"; }; ck "⑥ 폴더 = 하위 폴더 *.sh·*.py 재귀(.txt 제외)" $?
 run "$SUT" "$BIN" "$REPO/design/harness/evidence"
-{ [ "$RC" = 0 ] || { has "ERR tmux-target" && ! has "tmux display-message " && ! has "tmux capture-pane " && ! has "tmux send-keys "; }; }; ck "⑥ 실코퍼스(pack bin + design/harness/evidence) — pane 명령 위반 0 (남은 ERR = 세션 대상 명령 · 카드 ⑥ 기대값 0 과 어긋남은 보고)" $?
+{ [ "$RC" = 0 ] || { has "ERR tmux-target" && ! has "tmux display-message " && ! has "tmux capture-pane " && ! has "tmux send-keys "; }; }; ck "⑥ 실코퍼스(pack bin + design/harness/evidence) — pane 명령 위반 0" $?
+LIVE="${FT_LIVE_BIN:-$(ls -d "$HOME"/.claude/fable-team/live/*/bin 2>/dev/null | sort -V | tail -1)}"
+if [ -n "$LIVE" ] && [ -d "$LIVE" ]; then   # 카드 ⑥ = 라이브 bin 전수 · ERR 는 옵션 명령 함정뿐(세션 대상 줄 0) · r1742 착지 뒤면 0
+  run "$SUT" "$LIVE"; OPT="$(printf '%s\n' "$OUT" | grep -cE '^ERR .* tmux (show|set)-options? ' || true)"; SESS="$(printf '%s\n' "$OUT" | grep -cE '^ERR .* tmux (has-session|kill-session|list-clients|switch-client|(show|set)-environment|list-windows|list-panes|attach-session|rename-session|lock-session|detach-client) ' || true)"
+  { [ "$SESS" = 0 ] && { [ "$RC" = 0 ] || { [ "$RC" = 1 ] && [ "$OPT" -ge 1 ] && has "ERR tmux-target $OPT"; }; }; }; ck "⑥ 라이브 bin($LIVE) — 세션 대상 명령 오탐 0 · ERR = 옵션 명령 함정 ${OPT}줄(r1742 착지 뒤면 0)" $?
+else echo "SKIP ⑥ 라이브 bin 없음(FT_LIVE_BIN 미지정 · 이 기계에 라이브 자리 0)"; fi
+BYZ="${FT_BYZ_EVIDENCE:-$HOME/Project/Agent/BYZ-Work/BYZ-Agents/design/harness/evidence}"
+if [ -d "$BYZ" ]; then run "$SUT" "$BYZ"; { [ "$RC" = 0 ] && [ "$OUT" = "OK tmux-target 0" ]; }; ck "⑥ BYZ design/harness/evidence — 0" $?; else echo "SKIP ⑥ BYZ evidence 없음"; fi
 step "⑥"
 
 # ===== ④ --range 는 «추가된 줄» 만 · ft-merge-land 사본이 그 PR 을 거절 =====
@@ -99,8 +111,8 @@ assert old in s, "변이 대상 없음"
 open(p, "w", encoding="utf-8").write(s.replace(old, new, 1))
 PY
   printf '%s' "$d/ft-tmux-target-lint.sh"; }
-M1="$(mutl M1 'SAFE = ("has-session", "kill-session")' 'SAFE = ()')"
-run "$M1" "$T/c/sh3.sh"; { [ "$RC" = 1 ] && has "ERR tmux-target 2"; }; ck "변이 M1(세션 명령 예외 삭제) → ③ FAIL 재현" $?
+M1="$(mutl M1 'if sub in SAFE: continue' 'if False: continue')"
+run "$M1" "$T/c/sh3.sh"; { [ "$RC" = 1 ] && has "ERR tmux-target 6"; }; ck "변이 M1(세션 대상 명령 예외 삭제) → ③ FAIL 재현(세션 대상 6줄이 ERR)" $?
 run "$SUT" "$T/c/sh3.sh"; { [ "$RC" = 0 ] && [ "$OUT" = "OK tmux-target 0" ]; }; ck "M1 대조: 원본은 ③ 0" $?
 M2="$(mutl M2 '    return added(dif)' '    return file_srcs([p for p in git("diff", "--name-only", "--diff-filter=AM", f"{a}...{b}", "--", "*.sh", "*.py").splitlines() if p], b)')"
 run "$M2" --range "origin/main..c41" --repo "$W"; { [ "$RC" = 1 ] && has "ERR bin/mix.sh:1"; }; ck "변이 M2(«추가된 줄만» → 파일 전체) → ④ 앞 절반 FAIL 재현" $?

@@ -14,7 +14,7 @@ exec python3 - "$RANGE" "$REPO" "${ARGS[@]}" <<'PY'
 import os, re, subprocess, sys
 rng, repo, args = sys.argv[1], sys.argv[2], sys.argv[3:]
 SUF = (".sh", ".py")
-SAFE = ("has-session", "kill-session")   # 세션 대상 명령만 «=<이름>» 이 맞다
+SAFE = ("has-session", "kill-session", "list-clients", "switch-client", "show-environment", "set-environment", "list-windows", "list-panes", "attach-session", "rename-session", "lock-session", "detach-client")   # 계약 A1 고정 목록 — `-t` 가 target-session 인 명령만 «=<이름>» 이 맞다(tmux 단축 이름 has·attach·rename·lock·detach 는 목록 밖 — 실 tmux 3.6a arch 실측)
 def git(*a):
     r = subprocess.run(["git", "-C", repo, *a], capture_output=True, text=True, timeout=7)
     if r.returncode != 0: print(f"ERR tmux-target git {' '.join(a[:2])} 실패: {r.stderr.strip()[:80]}"); sys.exit(2)
@@ -78,7 +78,7 @@ for name, num, text in srcs:
     r = hit(code(text))
     if r: bad.append((name, num, r[0], r[1]))
 for name, num, sub, val in bad:
-    print(f"ERR {name}:{num} tmux {sub} -t {val} — 끝 «:» 없음(pane 명령은 «=<이름>:» · has-session·kill-session 만 «=<이름>»)")
+    print(f"ERR {name}:{num} tmux {sub} -t {val} — 끝 «:» 없음(pane·옵션 명령은 «=<이름>:» · 세션 대상 명령만 «=<이름>»)")
 print(f"ERR tmux-target {len(bad)}" if bad else "OK tmux-target 0")
 sys.exit(1 if bad else 0)
 PY
