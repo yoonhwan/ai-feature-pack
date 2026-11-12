@@ -43,7 +43,7 @@ mkpr() {  # mkpr <PR번호> <가지> <제목> <본문> <경로=내용>...
     "$PRSHA" "$b" "$ttl" "$bdy" > "$STUB_JSON"
 }
 land() { local b="$1"; shift; apv "$@"; : > "$STUB_LOG"; : > "$MBOX_LOG"; out="$(bash "$b" "$@" --repo "$W" 2>&1)"; rc=$?; }
-mbox_n() { if [ -f "$MBOX_LOG" ]; then grep -c . "$MBOX_LOG" || true; else echo 0; fi; }
+mbox_n() { if [ -f "$MBOX_LOG" ]; then grep -vcF '[정리 차례' "$MBOX_LOG" || true; else echo 0; fi; }   # r1717: «[정리 차례 …]» 쪽지는 착지 쪽지와 별개(계약 A3 · 시험 = test_nano_record_r1717.sh) — 여기서는 착지·이동 쪽지만 센다
 
 # ── 사전: 문법 · 줄 수 · 짝 사본 · 명단·카드·명부 픽스처(임시 리포) ──
 bash -n "$LAND"; ck "bash -n ft-merge-land.sh" $?

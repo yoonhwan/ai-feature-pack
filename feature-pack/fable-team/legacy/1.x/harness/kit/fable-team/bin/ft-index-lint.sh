@@ -11,14 +11,13 @@ default_ledger() { [ -z "${FT_GOAL_LEDGER:-}" ] || { printf '%s' "$ROOT/$FT_GOAL
 # 하네스 자체 작업(Seatbelt 단위)은 제품 골 원장에 행이 없다. 파일 머리에 `<!-- ledger: <경로> -->` 를 «선언»하면
 # 그 문서를 닫는 증거의 정본으로 쓴다 — 예외 목록이 아니라 파일이 스스로 밝히고, 결과 줄에 어느 정본을 봤는지 찍는다.
 ledger_for() { local d; d="$(grep -oE '<!-- *ledger: *[^ >]+ *-->' "$1" | head -1 | sed -E 's/<!-- *ledger: *([^ >]+) *-->/\1/')"; [ -n "$d" ] && printf '%s' "$ROOT/$d" || default_ledger; }
-# 골 3줄 — FT_GOAL_LINES_FILE(3행 텍스트)이 있으면 그 파일, 비어 있으면 v65 3줄(예시).
-if [ -n "${FT_GOAL_LINES_FILE:-}" ] && [ -f "$FT_GOAL_LINES_FILE" ]; then
-  GOAL1="$(sed -n 1p "$FT_GOAL_LINES_FILE")"; GOAL2="$(sed -n 2p "$FT_GOAL_LINES_FILE")"; GOAL3="$(sed -n 3p "$FT_GOAL_LINES_FILE")"
-else
-  GOAL1='목표는 빠른 유용 원문, 실시간 교정, N언어의 병렬·독립 발행, 소실·비의도 중복 없는 최종 말풍선이다.'
-  GOAL2='LST ON 우선이며 LST OFF/전환과 기존 M0–M7·통합 조건도 남긴다.'
-  GOAL3='단순히 실패 사례를 많이 모았다는 이유로 실험을 닫지 않는다.'
-fi
+# 골 3줄 — FT_GOAL_LINES_FILE(3행 텍스트)이 있으면 그 파일, 비어 있으면 v65 3줄(예시) · 그 파일은 «카드마다» 정한다(r1734 · r1166 규칙을 move 에서 옮김: 명시값이 이긴다).
+goal_lines_for() {  # $1=카드 → 골 3줄 stdout · 출처 INFO 는 stderr · 팀 env 는 «하위 셸» 로 읽어 다른 변수는 안 바꾼다
+  local f="$1" g="${FT_GOAL_LINES_FILE:-}" t="" e="" r="" w=""; case "$f" in */indices/*) t="${f%/indices/*}"; t="${t##*/}";; esac
+  if [ -n "$g" ] && [ ! -f "$g" ]; then w="FT_GOAL_LINES_FILE 실재하지 않음 ($g)"; g=""; fi
+  if [ -z "$g" ] && [ -n "$t" ] && [ "$t" != v65 ]; then r="$(git -C "$(dirname -- "$f")" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; r="${r%/.git}"; e="$r/.fable-team/bin-$t/$t-env.sh"
+    [ -z "$r" ] || [ ! -f "$e" ] || g="$( . "$e" >/dev/null 2>&1; printf '%s' "${FT_GOAL_LINES_FILE:-}" )"; [ -n "$g" ] && w="팀 $t env ($g)" || w="${w:-팀 $t env 없음 또는 FT_GOAL_LINES_FILE 비음 (${e:-경로 못 풂})}"; fi
+  [ -n "$g" ] && { [ -z "$w" ] || echo "INFO 골 줄 출처 = $w" >&2; sed -n 1,3p "$g"; } || { echo "INFO 골 줄 출처 = v65 기본 — ${w:-팀 ${t:-못 정함}}" >&2; printf '%s\n' '목표는 빠른 유용 원문, 실시간 교정, N언어의 병렬·독립 발행, 소실·비의도 중복 없는 최종 말풍선이다.' 'LST ON 우선이며 LST OFF/전환과 기존 M0–M7·통합 조건도 남긴다.' '단순히 실패 사례를 많이 모았다는 이유로 실험을 닫지 않는다.'; }; }
 SECTIONS=('골 원문' '골좌표' '배경' '구현 범위' '완료 조건' '상태')
 MAX_CITES="${FT_INDEX_MAX_CITES:-4}"; rc=0
 section_body() {  # $1=file $2=heading-prefix → 그 절 본문(다음 ## 전까지)
@@ -124,6 +123,7 @@ for f in "$@"; do
   LEDGER="$(ledger_for "$f")"
   [ -f "$LEDGER" ] || { echo "REJECT $f — 선언된 정본 없음: $LEDGER"; rc=1; continue; }
   LEDGER_N="$(norm < "$LEDGER")"
+  { read -r GOAL1; read -r GOAL2; read -r GOAL3; } < <(goal_lines_for "$f")
   grep -qxF -- "$GOAL1" "$f" || bad+=("골 1줄 불일치")
   grep -qxF -- "$GOAL2" "$f" || bad+=("골 2줄 불일치")
   grep -qxF -- "$GOAL3" "$f" || bad+=("골 3줄 불일치")
