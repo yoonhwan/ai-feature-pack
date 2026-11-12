@@ -3,6 +3,7 @@
 #   사례1 나노 1석 닫기 rc0 → NANO-CLOSE rc=0 · h 0 · 사례2 가짜 닫기 rc1 → h 1장 · 이동 rc0 · 사례3 _replaced_by·다른 카드 행 = 호출 0 ·
 #   사례4 완성 아닌 이동(대기→진행) = 호출 0. 사례2b 우편함 발신 0 = 닫기 0 → h 1장(ⓑ).
 #   사례1b 발신이 «로그(mailbox.log.jsonl)에만» 있어도 그 seq 로 닫는다(r2 ⓐ) · 사례2c 닫기 실패의 첫 REJECT 줄이 h 주석·NANO-CLOSE 줄에 남는다(r2 ⓑ).
+#   r1718 A10: 닫기가 rc 1 + REJECT(거절)이면 h 계획을 만들지 않는다(사례2c ⓐ) — h 주석에 첫 REJECT 줄이 남는 것은 rc 1 이 아닌 실패(사례2c ⓑ).
 #   임시 리포·가짜 판정문·가짜 명부(FT_SEATS_JSON)·가짜 ft-nano-close(FT_NANO_CLOSE_BIN)·가짜 ft-hil(FT_HIL_BIN)만 — 실 tmux·실 우편함·실 명부 0 · sleep 0.
 set -uo pipefail
 export LC_ALL=C
@@ -85,13 +86,20 @@ eq "$rc2" "0" "2b 이동 rc 불변(닫기 실패가 완성을 되돌리지 않�
 eq "$(wc -l < "$HIL_LOG" | tr -d ' ')" "1" "2d h 등록 1장(성공 좌석 0)"
 case "$(cat "$HIL_LOG")" in *"--add "*/plan.sh) ok "2e h 에 계획 파일 경로가 넘어간다";; *) bad "2e h 인자: $(cat "$HIL_LOG")";; esac
 
-# ══ 사례2c — 닫기 실패의 첫 REJECT 줄이 h 주석·NANO-CLOSE 줄에 남는다 ══════════════════════════
+# ══ 사례2c — ⓐ rc 1 + REJECT = 계획 0(r1718 A10) · ⓑ rc 1 아닌 실패의 첫 REJECT 줄이 h 주석·NANO-CLOSE 줄에 남는다 ════════
 c2c="$(card k2c)"; d2c="$(da da2c "## §1 닫힘: k2c")"
 seats '{"_arch":"","byz-nano-e#0":{"role":"nano","index":"design/harness/indices/진행/k2c.md"}}'
 printf '{"seq":41,"from":"byz-nano-e#0","to":"byz-harness-master-pi#193","body":"산출"}\n' >> "$T/comm/mailbox.jsonl"
 printf 'REJECT 테스트 실패 — ⑥ 증거 줄 없음\n  - 세부 줄\n' > "$T/close.out"; echo 1 > "$CLOSE_RC"; : > "$HIL_LOG"
-out="$(mv_ "$c2c" 완성 --da "$d2c#§1" --seat s)"
-has "$out" "NANO-CLOSE byz-nano-e#0 rc=1 → h7 — ft-nano-close rc=1 — REJECT 테스트 실패" "2h NANO-CLOSE 줄 끝에 실패 첫 REJECT 줄"
+out="$(mv_ "$c2c" 완성 --da "$d2c#§1" --seat s)"; rc2c=$?
+has "$out" "NANO-CLOSE byz-nano-e#0 rc=1 계획 0 — REJECT 테스트 실패 — ⑥ 증거 줄 없음 · 세부 줄" "2h rc 1 + REJECT → «계획 0» 줄(머리 줄 + 첫 사유 줄)"
+[ ! -s "$HIL_LOG" ] && ok "2h2 거절 판 h 계획 0(같은 입력으로 다시 돌려도 거절)" || bad "2h2 h 가 불렸다: $(cat "$HIL_LOG")"
+eq "$rc2c" "0" "2h3 이동 rc 불변"
+c2d="$(card k2d)"; d2d="$(da da2d "## §1 닫힘: k2d")"
+seats '{"_arch":"","byz-nano-e#0":{"role":"nano","index":"design/harness/indices/진행/k2d.md"}}'
+echo 3 > "$CLOSE_RC"; : > "$HIL_LOG"
+out="$(mv_ "$c2d" 완성 --da "$d2d#§1" --seat s)"
+has "$out" "NANO-CLOSE byz-nano-e#0 rc=3 → h7 — ft-nano-close rc=3 — REJECT 테스트 실패" "2h4 rc 1 아닌 실패 → NANO-CLOSE 줄 끝에 실패 첫 REJECT 줄(지금 그대로)"
 plan="$(sed -n 's/^--add //p' "$HIL_LOG" | head -1)"
 [ -f "$plan" ] && grep -q '^# .*REJECT 테스트 실패' "$plan" && ok "2i h 계획 주석에 실패 첫 줄" || bad "2i h 계획 주석: $(cat "$plan" 2>/dev/null | head -3)"
 grep -q -- '--recv 41' "$plan" 2>/dev/null && ok "2j h 계획 = 같은 ft-nano-close 한 줄(seq 보존)" || bad "2j h 계획: $(cat "$plan" 2>/dev/null)"
