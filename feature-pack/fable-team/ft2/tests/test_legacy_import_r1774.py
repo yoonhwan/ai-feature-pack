@@ -378,6 +378,34 @@ def test_c11_held_differs_rc2(tmp_path):
     case_held_differs(tmp_path)
 
 
+def _mail_raw(w):
+    """mailbox 원본의 seq 41 줄 바이트(끝 LF 포함 · 일반 LF 끝 파일)."""
+    data = (Path(w.root) / ".fable-team" / "comm" / "mailbox.jsonl").read_bytes()
+    assert data.endswith(b"\n")
+    return [line for line in data.splitlines(keepends=True) if b'"seq": 41' in line][0]
+
+
+def test_r1_mail_line_keeps_lf(tmp_path):                           # DA R1: 원본 = held = import SHA·bytes
+    w = _world(tmp_path)
+    raw = _mail_raw(w)
+    assert _run(w)[0] == 0
+    held = (w.held / "intake" / "mbox-41.json").read_bytes()
+    rec = [rec for rec in _imports(w.rt) if rec["key"] == "intake/mbox/41"][0]
+    assert held == raw and (rec["sha256"], rec["bytes"]) == (_sha(raw), len(raw)), (held, raw, rec)
+
+
+def test_r1_mail_lf_removed_midway_rc1(tmp_path):                    # DA R1: 끝 재측정 = LF 포함 바이트
+    w = _world(tmp_path)
+    path, seen = Path(w.root) / ".fable-team" / "comm" / "mailbox.jsonl", []
+
+    def step(name):
+        if name == "after_state" and not seen:
+            seen.append(name)
+            path.write_bytes(path.read_bytes().rstrip(b"\n"))
+    rc, last, _ = _run(w, on_step=step)
+    assert rc == 1 and "원본 sha 변화 1" in last, last
+
+
 def test_dry_run_writes_nothing(tmp_path):
     w = _world(tmp_path)
     before = (w.rt / "journal.jsonl").read_bytes()
