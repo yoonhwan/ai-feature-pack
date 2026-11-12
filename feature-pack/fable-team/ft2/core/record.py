@@ -26,13 +26,16 @@ REQUIRED_FIELDS = ("schema", "team", "seq", "kind", "command", "attempt", "at", 
 # r1579: 실행권·세대 종류 추가(세대 교체는 claim 의 gen 으로 표현). schema 1 유지 = 필드 추가만.
 # r1594: 진행 구분(progress)·골 마감(close) 추가 — lifecycle.py 만 쓴다. r1724: refuse·resolve — refuse_history.py 만.
 # r1725: close_receipt(닫기 영수) — close_next.py 만.
+# r1727: reopen(팀장 개설 의도·부팅 보고) — reopen.py 만.
 KINDS = ("accept", "claim", "start", "effect", "result", "uncertain",
          "dispatch", "deliver", "execute", "complete", "reassess", "progress", "close", "refuse", "resolve",
+         "reopen",
          "close_receipt")
 STATE_FIELDS = ("revision", "pending", "attempts")
 # 확장 state 칸 — 없으면 기본값 {} 로 채운다(다른 writer 가 병합해 보존한다 · ⓘ).
 EXTENDED_STATE_FIELDS = ("generations", "owners", "uncertain", "deliveries", "reservations",
                          "done", "reassess_done", "released", "owners_recovered", "executed",
+                         "reopens", "lifted",   # r1727 재개
                          "journal_base", "refusals", "close_receipts")   # r1584: base checkpoint · r1724: 거절 이력 · r1725: 닫기 영수
 
 
@@ -124,6 +127,21 @@ def _close_done(closes, done, team, work, at):
     return marks
 
 
+def _fold_reopen(reopens, done, lifted, rec):
+    """r1727 재개 접기의 유일한 구현(키 멱등). intent = 휴면 표식 + 단계 영수 4키를 done 에서 지우고 지운 키마다
+    lifted[키] = 그 seq(R2 · 회수가 close 줄을 닫힌 work 로 본다) · booted = done[재개 work](논리 완료 · R2)."""
+    key, row, team = rec.get("key"), reopens.get(rec.get("key")), rec["team"]
+    if rec.get("phase") == "intent" and row is None:
+        for name in [n for n in done if n == "goal:dormant:" + team or n.startswith("goal:dormant-step:%s:" % team)]:
+            done.pop(name)
+            lifted[name] = rec["seq"]
+        reopens = dict(reopens, **{key: {"lead": rec.get("lead"), "phase": "intent", "ack": None, "at": rec["at"]}})
+    elif rec.get("phase") == "booted" and row is not None and row["phase"] == "intent":
+        reopens = dict(reopens, **{key: dict(row, phase="booted", ack=rec.get("ack"), at=rec["at"])})
+        done[rec["work"]] = {"attempt": rec.get("ack"), "at": rec["at"], "marker": ""}
+    return reopens
+
+
 def remaining(state, records):
     """«남은 일» 장부 — 접수 command(활성 journal + state.pending) 중 회수된 영수(receipts)와 done work 를 뺀 것.
     intake 용량 상한과 lifecycle 마감 판정이 «같은» 곳을 보게 하는 한 점이다(r1616 보정 2)."""
@@ -156,6 +174,7 @@ def recover_state(state, records):
     lanes = dict(state.get("lanes") or {})
     refusals = dict(proj.get("refusals") or {})       # r1724: 시작값 = checkpoint · state.refusals 는 쓰지 않는다
     closes = dict(proj.get("close_receipts") or {})   # r1725: 같은 꼴(시작값 = checkpoint · event 멱등)
+    reopens, lifted = dict(proj.get("reopens") or {}), dict(proj.get("lifted") or {})   # r1727: 같은 꼴
     for rec in rows:
         work, kind, gen = rec.get("work"), rec["kind"], rec.get("gen") or 0
         if kind in ("claim", "dispatch") and work and gen > gens.get(work, 0):
@@ -191,9 +210,12 @@ def recover_state(state, records):
             closes.setdefault(rec.get("event"), {"seat": rec.get("seat"), "gen": gen, "work": rec.get("closed_work"),
                                                  "next": rec.get("next"), "holder": rec.get("holder"), "at": rec["at"]})
             done.update(_close_done(closes, done, rec["team"], None, rec["at"]))
+        elif kind == "reopen" and work:
+            reopens = _fold_reopen(reopens, done, lifted, rec)
     return dict(state, revision=max(state["revision"], count + len(rows)), generations=gens, owners=owners,
                 reservations=kept, deliveries=sent, done=done, reassess_done=reassessed,
                 released=released, owners_recovered=recovered, uncertain=uncertain, lanes=lanes, refusals=refusals,
+                reopens=reopens, lifted=lifted,
                 close_receipts=closes)
 
 
