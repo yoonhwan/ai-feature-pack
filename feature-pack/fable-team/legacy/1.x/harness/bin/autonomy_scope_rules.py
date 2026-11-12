@@ -69,8 +69,9 @@ def forbid_text(kind, path):
     return "%s 경로: %s" % (LABEL.get(kind, kind), path)
 
 
-# r1778 카드 범위 — 카드 «- 대상:» 줄과 «## 구현 범위» 절의 backtick 경로만 목록으로 읽는다(그 밖 줄·산문 무시 · 닫힌 쪽)
-CARD_SPEC = re.compile(r"^[ \t]*[-*][ \t]*대상")            # «- 대상:» · «- 대상(…)» 만(«대상 밖» 같은 산문 줄 0)
+# r1778 카드 범위 — 카드 «- 대상:» 줄과 «## 구현 범위» 절의 backtick 경로만 목록으로 읽는다(제외 줄·그 밖 산문 무시 · 닫힌 쪽)
+CARD_SPEC = re.compile(r"^[ \t]*[-*][ \t]*대상[ \t]*[:：(]")            # «- 대상:» · «- 대상(…)» 만 — «- 대상 밖:» 은 목록 아님(DA HOLD 292120)
+CARD_EXCLUDE = re.compile(r"^[ \t]*[-*][ \t]*(?:안[ \t]*하는[ \t]*것|제외|대상[ \t]*밖)")   # 구현 범위 절 안의 제외 줄도 목록 아님
 CARD_SCOPE_HEAD = re.compile(r"^##[ \t]*구현[ \t]*범위")
 CARD_HEAD = re.compile(r"^##[ \t]")
 CARD_TICK = re.compile(r"`([^`\n]+)`")
@@ -80,8 +81,11 @@ CARD_PATH = re.compile(r"^(?:\./)?[^\s`:*?<>|\"'«»→·]+(?:/[^\s`:*?<>|\"'«�
 def card_scope_paths(text, root=None):   # 카드 본문 → 경로 집합(리포 기준 상대 · 폴더는 끝 «/») · 못 읽음 = 빈 집합(닫힌 쪽)
     out, inside = set(), False
     for line in (text or "").splitlines():
+        if CARD_EXCLUDE.match(line):
+            continue
         if CARD_SCOPE_HEAD.match(line):
-            inside = True; continue
+            inside = True
+            continue
         if inside and CARD_HEAD.match(line):
             inside = False
         if not (inside or CARD_SPEC.match(line)):

@@ -60,6 +60,13 @@ mk d7b 'echo n > design/new.md'; cls "$SHA"; want "⑦ --card 없음 + 문서 �
 # ── 카드 문맥: 목록 밖 낱말·예시 글롭은 목록 아님(닫힌 쪽)
 CT="$T/card-trap.md"; printf '# 카드\n\n- 대상: `design/x.md`\n\n## 구현 범위\n\n- `scripts/**` · `docs/a.md:3` · `path_class`\n\n## 상태\n- 2026\n' > "$CT"
 mk d8 'git rm -q docs/a.md'; cls "$SHA" --card "$CT"; want "글롭·줄번호가 붙은 경로는 목록 아님 → FORBID" 3 "FORBID kind=delete"
+# ── 제외 줄(DA HOLD 292120): «- 대상 밖:»·«- 안 하는 것:» 에 적힌 경로는 승인 목록 아님
+CO="$T/card-out.md"; printf '# 카드\n\n- 대상: `design/x.md`\n- 대상 밖: `docs/a.md`\n\n## 상태\n- 2026\n' > "$CO"
+CI="$T/card-inner.md"; printf '# 카드\n\n## 구현 범위\n\n- `design/x.md`\n- 안 하는 것: `docs/a.md`\n\n## 상태\n- 2026\n' > "$CI"
+mk d9 'git rm -q docs/a.md'; cls "$SHA" --card "$CO"; want "제외 줄 «대상 밖» 경로 삭제 → FORBID kind=delete" 3 "FORBID kind=delete"
+cls "$SHA" --card "$CI"; want "구현 범위 절 «안 하는 것» 경로 삭제 → FORBID kind=delete" 3 "FORBID kind=delete"
+mk d9b 'git rm -q design/x.md'; cls "$SHA" --card "$CO"; want "같은 카드의 긍정 대상 삭제 → CLASS docs" 0 "CLASS docs"
+cls "$SHA" --card "$CI"; want "같은 카드(구현 범위)의 긍정 대상 삭제 → CLASS docs" 0 "CLASS docs"
 
 # ── 변이 M1·M2 — 변이 판에서 «빨강이어야 할 칸» 이 통과해 버리는지
 mut() {  # mut <이름> <파일> <바꿀 줄(정확히 1회)> <새 줄>

@@ -71,6 +71,14 @@ rej "⑧3 카드 대상 밖 파일 삭제 PR → ② 거절(kind=delete · 쓰�
 fresh; grant; cardw "$T/없는카드.md"; sa "$A61" 61 "$V61"
 rej "⑧4 카드 파일이 없음 → ② 거절(닫힌 쪽)" "$A61" '② 분류기 거절 rc=3: FORBID kind=delete'
 
+# ══ 제외 줄 입력(DA HOLD 292120) — 카드에 «대상 밖:» 경로가 있어도 그 삭제는 승인 0
+mkdel 63 "$OUT_SCOPE"; A63="$PRSHA"; mkda ok63 APPROVE "$A63"; mkv ok63 "$A63" "$DAO"
+fresh; grant; cardw "$P/$IN_SCOPE"; printf -- '- 대상 밖: `%s`\n' "$P/$OUT_SCOPE" >> "$CARD"; sa "$A63" 63 "$VF"
+rej "⑧5 카드의 «대상 밖» 로 적힌 경로 삭제 → ② 거절(kind=delete · 승인 파일 0)" "$A63" '② 분류기 거절 rc=3: FORBID kind=delete'
+mkdel 64 "$IN_SCOPE"; A64="$PRSHA"; mkda ok64 APPROVE "$A64"; mkv ok64 "$A64" "$DAO"
+cardw "$P/$IN_SCOPE"; printf -- '- 대상 밖: `%s`\n' "$P/$OUT_SCOPE" >> "$CARD"; sa "$A64" 64 "$VF"
+[ "$rc" = 0 ] && has "^STANDING-OK $A64 pr=64 "; ck "⑧6 같은 카드의 긍정 대상 삭제는 그대로 통과(STANDING-OK)" $?
+
 # ══ 변이 M3 — d2_classify 의 --card 전달을 지우면 ⑧1 이 «거절» 로 뒤집힌다(그 칸이 전달을 실제로 잡는다)
 mb="$T/mut-m3"; mkdir -p "$mb"; for f in "$BIN"/*; do ln -s "$f" "$mb/$(basename "$f")"; done; rm -f "$mb/ft-autonomy-standing-d2.sh"
 python3 - "$BIN/ft-autonomy-standing-d2.sh" "$mb/ft-autonomy-standing-d2.sh" '[ -z "${D2_CARD:-}" ] || a+=(--card "$D2_CARD")' ':' <<'PY' || { echo "FAIL 변이 M3 못 만듦"; fail=$((fail+1)); }
