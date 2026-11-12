@@ -6,7 +6,8 @@ CLI(ft_desk_reply_wake.py 가 넘긴다):
   `--close <질문ts|사유키> [--reason <낱말>]` = 열린 줄(종류 무관) 닫기 · closed=«manual:<사유>» · 키가 열린 줄 여럿이면 전부 · 0개 = rc3
 점검(ft_desk_reply_wake.scan 이 부른다): thread 줄마다 `ft_oppa_slack_check.py --reply-only <ts> --after <기준점>` 1회
   기준점 = 등록 시각(등록 때 notified_ts 로 박는다) → 등록 «전» 옛 글은 알림 0 · 등록 «뒤» 새 글은 1통(다음 글이 오면 또 1통).
-  옛 판이 등록한 줄(기준점 없음)은 첫 점검에서 «지금»을 기준점으로 채택한다(옛 글 재생 0 · 쪽지 0).
+  옛 판이 등록한 줄(기준점 없음)은 그 줄의 등록 시각(at)을 기준점으로 채택한다(등록~첫 점검 사이 글 유실 0).
+  충돌·멱등 검사는 «열린» thread 줄만 본다 — desk 가 닫은 줄과 같은 키로 다시 등록하면 새 열린 줄(새 기준점)이 생긴다(감시 0 이 조용히 남지 않는다).
   → 그 시각 «뒤» 첫 오빠 글 1개 → `_desk` 로 `[오빠 새 글] <사유키> ts=<글>` 1통 · notified_ts 갱신 · 줄은 열린 채.
   끝 시각 경과 = 조용히 closed(«expired») · 쪽지 0.
 장부 잠금·읽기·쓰기·쪽지·루트는 ft_desk_reply_wake.py 것을 h 로 받는다(같은 줄에서 겹치지 않게 한 파일이 잠금을 쥔다).
@@ -68,7 +69,7 @@ def register_thread(h, a: list, now: float) -> int:  # A1 · 기준점 = 등록 
         if rows is None:
             print("감시 등록 실패 — 장부를 못 읽음: %s" % h.led, file=sys.stderr)
             return 3
-        old = next((r for r in rows if r.get("q_ts") == row["q_ts"] and r.get("kind") == "thread"), None)  # r1764 보정 · 충돌 검사 = thread 줄만(같은 ts 의 question·h 줄은 state 무관 건너뜀)
+        old = next((r for r in rows if r.get("q_ts") == row["q_ts"] and r.get("kind") == "thread" and r.get("state") != "closed"), None)  # r1764 보정 · 충돌 검사 = thread 줄만(같은 ts 의 question·h 줄은 state 무관 건너뜀)
         if old is not None:
             if old.get("kind") == "thread" and old.get("key") == row["key"]:
                 print("등록 %s q_ts=%s 끝=%s (이미 등록 — 중복 0)" % (row["key"], row["q_ts"], old.get("deadline")))
@@ -108,10 +109,10 @@ def scan_threads(h, rows: list, now: float) -> tuple[dict, int, int, int]:  # A2
             nbad += 1
             continue
         base = row.get("notified_ts")  # A2 기준점 = 등록 때 박은 등록 시각
-        if not isinstance(base, str) or not TS.match(base):  # 옛 판이 등록한 줄(기준점 없음) = 첫 점검에서 «지금»을 기준점으로 채택(옛 글 알림 0 · 쪽지 0)
-            print("thread 줄 기준점 없음 — %s q_ts=%s · 지금을 기준점으로 채택" % (key, q), file=sys.stderr)
-            up[rowkey(q)] = {"notified_ts": "%.6f" % now}
-            continue
+        if not isinstance(base, str) or not TS.match(base):  # 옛 판이 등록한 줄(기준점 없음) = 그 줄의 등록 시각(at)을 기준점으로 채택(등록~첫 점검 사이 글 유실 0)
+            base = "%.6f" % float(row.get("at") or now)
+            print("thread 줄 기준점 없음 — %s q_ts=%s · 등록 시각(%s)을 기준점으로 채택" % (key, q, base), file=sys.stderr)
+            up[rowkey(q)] = {"notified_ts": base}
         rc, out = judge_after(h.check, q, base)  # A2 «기준점 뒤» 첫 오빠 글
         if rc == 3:  # 새 글 없음 = 정상 열린 줄
             continue
