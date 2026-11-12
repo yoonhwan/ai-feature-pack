@@ -8,6 +8,7 @@ A = 오빠가 승인한 PR head, S = 지금 PR head. 아래 넷이 «전부 참�
  ★R281(rebase)★ A 가 S 의 조상이 아니면 위 1·2 대신: (a) mx = merge-base(S, main) 가 승인 이후 main(merge-base(A,main) 의 자손) (b) merge-base(A,main) 존재 (c) 3 과 같되 A 쪽 base = merge-base(A,main) · S 쪽 base = mx (d) merge-tree(A, mx) 와 같음 → `mode=rebase` (옛 main 위 rebase 도 EQUIV — 착지 단계 ft-merge-land 의 «main ⊂ S» 가 옛 main 착지를 막는다)
 출력 끝 칸: mode=merge|rebase · overlap=<n>(main 이 바꾼 파일 ∩ 자기 변경 파일 — 막지 않는 표지) · base=<mx 10자>)
 exit 0 = EQUIV · 1 = NOT-EQUIV(사유 stdout) · 3 = ERROR(판단 불가·승인 객체 로컬에 없음 = 통과 0)"""
+import os
 import subprocess
 import sys
 
@@ -20,9 +21,9 @@ class No(Exception):
     pass
 
 
-def run(repo, *a, ok=(0,)):
+def run(repo, *a, ok=(0,), env=None):
     try:
-        p = subprocess.run(["git", "-C", repo, "-c", "core.quotepath=off", *a], capture_output=True, timeout=30)
+        p = subprocess.run(["git", "-C", repo, "-c", "core.quotepath=off", *a], capture_output=True, timeout=30, env=env)
     except (OSError, subprocess.TimeoutExpired) as e:
         raise Fail("git %s 실행 실패: %s" % (a[0], e))
     if p.returncode not in ok:
@@ -35,7 +36,7 @@ def out(repo, *a):
 
 
 def resolve(repo, x):
-    p = run(repo, "rev-parse", "--verify", "-q", x + "^{commit}", ok=(0, 1))
+    p = run(repo, "rev-parse", "--verify", "-q", x + "^{commit}", ok=(0, 1), env=dict(os.environ, GIT_NO_LAZY_FETCH="1"))  # r1783: 존재 확인만 원격 lazy fetch 0(diff·merge-base 는 blob 필요 — env 0)
     return p.stdout.decode().strip() if p.returncode == 0 else None
 
 

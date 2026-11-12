@@ -96,9 +96,10 @@ scope_stop_reason() {  # <S> — log 의 마지막 stop 줄 사유(없으면 .st
 scope_used() { awk -v s="$1" '$1=="scope-use" && $2==s && $4!="revert" && $4!="equiv" {n++} END{print n+0}' "$LOG" 2>/dev/null; }
 scope_today() { awk -v s="$1" -v c="$(( $(now_epoch) - 86400 ))" '$1=="scope-use" && $2==s && $4!="revert" && $4!="equiv" && $5>c {n++} END{print n+0}' "$LOG" 2>/dev/null; }
 
-scope_ledger_shas() {  # <S> → 이 범위 원장에 이미 센 승인 sha(최신순 · 중복 0) — 판정기 대조 후보
+scope_ledger_shas() {  # <S> → 이 범위 원장에 이미 센 승인 sha(최신순 · 중복 0) — 판정기 대조 후보 · r1783: 원장 리포(ev 칸 repo=<값> · 없으면 byz) == SCOPE_RK 만(다른 리포 sha = partial clone lazy fetch 4~6초)
   [ -f "$SDIR/$1.ledger.tsv" ] || return 0
-  awk -F'\t' '$2 ~ /^[0-9a-f]{40}$/ && !seen[$2]++ {a[NR]=$2} END {for (i=NR; i>0; i--) print a[i]}' "$SDIR/$1.ledger.tsv" 2>/dev/null
+  awk -F'\t' -v rk="${SCOPE_RK:-byz}" 'function rp(e,  t,n,j,r) {r="byz"; n=split(e,t," "); for (j=1; j<=n; j++) if (t[j] ~ /^repo=/) r=substr(t[j],6); return r}
+    $2 ~ /^[0-9a-f]{40}$/ && rp($5)==rk && !seen[$2]++ {a[NR]=$2} END {for (i=NR; i>0; i--) print a[i]}' "$SDIR/$1.ledger.tsv" 2>/dev/null
 }
 
 scope_equiv_sha() {  # <sha> → stdout = 이미 센 승인 A(EQUIV rc0) · 없으면 rc 1 · 판단 못 함 = rc 1(셈 그대로 = 증가 — #0 RULE)
