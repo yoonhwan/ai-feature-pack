@@ -106,7 +106,7 @@ S6b="$T/s6b"; autolog "$S6b" full A16 "approve-scope S47 A16 $T0 until=$((T0 + 3
 L0="$(nlog "$S6b")"; sa "$S6b" "$A11" 11 "$V11"; rej0 "⑥b repos 칸 없음 → 기본 byz(팩 PR 거절)" "$S6b" "$A11" '② 저장소 pack 은 승인 범위\(repos=byz\) 밖'
 S7="$T/s7"; autolog "$S7" full A16 "$SC45"; mkda hold11 HOLD "$A11"; mkv hold11 "$A11" "$DAO"; VH="$VF"; L0="$(nlog "$S7")"; sa "$S7" "$A11" 11 "$VH"
 rej0 "⑧ 판정문 APPROVE 아님 → 거절" "$S7" "$A11" '⑤ DA 마지막 codex 블록이 APPROVE 아님'
-S8="$T/s8"; autolog "$S8" full A16 "$SC45"; mkpr 31 "$PRF" 'token="sk-abcdefghijklmnopqrstuvwxyz012345"'; A31="$PRSHA"; mkda sec31 APPROVE "$A31"; mkv sec31 "$A31" "$DAO"; card "$A31"; L0="$(nlog "$S8")"; sa "$S8" "$A31" 31 "$VF"
+S8="$T/s8"; autolog "$S8" full A16 "$SC45"; SKV="sk-$(printf 'x%.0s' $(seq 1 24))"; mkpr 31 "$PRF" "token=\"$SKV\""; A31="$PRSHA"; mkda sec31 APPROVE "$A31"; mkv sec31 "$A31" "$DAO"; card "$A31"; L0="$(nlog "$S8")"; sa "$S8" "$A31" 31 "$VF"
 [ "$rc" = 2 ] && has 'FORBID kind=secret' && has '다시: 오빠 h\(approve-merge --oppa-slack\)' && [ ! -e "$S8/autonomy-merge-approved/$A31" ] && [ "$(nlog "$S8")" = "$L0" ]; ck "⑨ secret 경로 → 오빠 답글 길(자율 0 · 쓰기 0)" $?
 S9="$T/s9"; autolog "$S9" full A16 "$SC45"; printf '모르는 줄 위변조\n' >> "$S9/autonomy.log"; card "$A11"; L0="$(nlog "$S9")"; sa "$S9" "$A11" 11 "$V11"
 rej0 "⑩ autonomy.log 위변조 → tamper 거절" "$S9" "$A11" '위변조'
