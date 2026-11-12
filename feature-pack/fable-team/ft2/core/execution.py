@@ -54,6 +54,9 @@ class Execution:
                 state, records = self._state_records()
                 if not accepted(records, work):        # r1632: 접수 영수 없는 일은 실행권 0(쓰기 0)
                     return Grant(REFUSED, work, holder=holder, reason="접수 영수 없음 · intake.submit 먼저")
+                dormant = self._dormant_marker(state)  # r1714: 휴면 표식 뒤 접수 = 닫는 세대 실행권 0(쓰기 0)
+                if dormant:
+                    return Grant(REFUSED, work, holder=holder, reason="휴면 표식 %s = 접수 거부" % dormant)
                 gen, hold, owner = self._claim_plan(state, records, work, holder, rotation)
                 if hold is not None:
                     if hold.get("marked"):
@@ -71,6 +74,11 @@ class Execution:
                 self.rs._unlock(lock)
         except intake.CorruptStateError as exc:
             return Grant(getattr(exc, "word", CORRUPT), work, holder=holder, written=getattr(exc, "written", False), reason=str(exc))
+
+    def _dormant_marker(self, state):
+        """휴면 표식 = `lifecycle.close("dormant:<팀>", R)` 가 세운 `goal:dormant:<팀>` 1줄(r1714)."""
+        key = "goal:dormant:%s" % self.team
+        return key if key in (state.get("done") or {}) else None
 
     def start(self, work, holder, gen):
         return self._step(work, holder, gen, "start", "")
