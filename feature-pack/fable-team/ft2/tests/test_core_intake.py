@@ -134,6 +134,26 @@ def test_case_08_full_keeps_pending_without_success_ack(tmp_path):
     second = crashed.submit("card-2", "본문-2")
     assert (second.result, second.written, os.path.exists(crashed.body_path("card-2"))) == (FULL, False, False)
 
+def _done_team(root, count, done):  # r1791: done 은 complete event 로(state.done 만 고치면 replay 가 덮는다 · DA)
+    client = _client(root, capacity=count)
+    assert all(client.submit("card-%d" % n, "본문", work="work-%d" % n).result == OK for n in range(1, count + 1))
+    if done:
+        client._append_journal(record.build(TEAM, count + 1, "done-1", "a1", "2026-11-13T00:00:00", "",
+                                            work="work-1", kind="complete", extra={"after": "a1", "marker": ""}))
+    return client
+
+def test_r1791_full_reason_counts_remaining_with_ledger_in_parens(tmp_path):
+    for name, count, done, cap, want in (("c1", 3, True, 2, "남은 일 2 >= 상한 2 (접수 장부 3)"),
+                                         ("c2", 2, False, 2, "남은 일 2 >= 상한 2 (접수 장부 2)"), ("c3", 3, True, 3, None)):
+        client = _done_team(tmp_path / name, count, done)
+        client.capacity, before = cap, (_state_bytes(client), Path(client.journal_path).read_bytes())
+        got = client.submit("new-card", "본문-new", work="new-work")
+        if want is None:
+            assert (got.result, got.written) == (OK, True)
+            continue
+        assert (got.result, got.reason, got.attempt, got.written) == (FULL, want, None, False)
+        assert (_state_bytes(client), Path(client.journal_path).read_bytes()) == before
+
 def test_case_12_corrupt_state_needs_recovery(tmp_path):
     client = _client(tmp_path / "team")
     assert client.submit("card-1", "본문-1").result == OK
