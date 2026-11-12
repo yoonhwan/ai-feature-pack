@@ -36,9 +36,11 @@ VERBS = {
     "recover": ("Dispatch", "recover", (), ("mode",)),
     "reclaim": ("Journal", "reclaim", (), ()),
     "project": ("Projection", "project", (), ()),      # 읽기 동사 — 잠금·쓰기 0 (r1617)
+    "record-read": ("TeamRecord", "read", (), ()),     # 읽기 동사 — 잠금·쓰기 0 (r1723)
+    "record-write": ("TeamRecord", "write", ("seat", "expect", "fields_file"), ()),
 }
 LISTS = ("pre", "evidence", "resources")      # 쉼표 = 여러 값
-INTS = ("gen",)
+INTS = ("gen", "expect")
 BOOLS = ("rotation",)
 GLOBAL = ("root", "team")
 
@@ -83,7 +85,20 @@ def parse(argv):
     missing = [name for name in required + GLOBAL if name not in given]
     if missing:
         raise Usage("값 빠짐: " + ",".join("--" + name for name in missing))
+    if "fields_file" in given:                       # r1723: 칸 묶음 = JSON 1개 경로 · 못 읽으면 쓰기 전 64
+        given["fields_file"] = _fields_file(given["fields_file"])
     return verb, given
+
+
+def _fields_file(path):
+    try:
+        with open(path, encoding="utf-8") as handle:
+            fields = json.load(handle)
+    except (OSError, ValueError) as exc:
+        raise Usage("fields_file 판독 불가: %s" % exc)
+    if isinstance(fields, dict):
+        return fields
+    raise Usage("fields_file 은 JSON 객체 1개여야 한다: %s" % path)
 
 
 def clock_from_env():
@@ -97,7 +112,7 @@ def clock_from_env():
 def call(verb, given, clock):
     """동사 1개 → 공개 메서드 1개. 반환은 라이브러리 그대로(JSON 낼 수 있는 꼴)."""
     classes = {"Intake": _load("intake").Intake, "Execution": _load("execution").Execution,
-               "Dispatch": _load("dispatch").Dispatch}
+               "Dispatch": _load("dispatch").Dispatch, "TeamRecord": _load("team_record").TeamRecord}
     cls_name, method, required, optional = VERBS[verb]
     root, team = os.path.abspath(given["root"]), given["team"]
     if cls_name == "Projection":                        # 읽기 동사 — 인스턴스·잠금 없이 투영만 읽는다
