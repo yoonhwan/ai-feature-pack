@@ -69,6 +69,55 @@ def forbid_text(kind, path):
     return "%s 경로: %s" % (LABEL.get(kind, kind), path)
 
 
+# r1778 카드 범위 — 카드 «- 대상:» 줄과 «## 구현 범위» 절의 backtick 경로만 목록으로 읽는다(제외 줄·그 밖 산문 무시 · 닫힌 쪽)
+CARD_SPEC = re.compile(r"^[ \t]*[-*][ \t]*대상[ \t]*[:：(]")            # «- 대상:» · «- 대상(…)» 만 — «- 대상 밖:» 은 목록 아님(DA HOLD 292120)
+CARD_EXCLUDE = re.compile(r"^[ \t]*[-*][ \t]*(?:안[ \t]*하는[ \t]*것|제외|대상[ \t]*밖)")   # 구현 범위 절 안의 제외 줄도 목록 아님
+CARD_SCOPE_HEAD = re.compile(r"^##[ \t]*구현[ \t]*범위")
+CARD_HEAD = re.compile(r"^##[ \t]")
+CARD_TICK = re.compile(r"`([^`\n]+)`")
+CARD_PATH = re.compile(r"^(?:\./)?[^\s`:*?<>|\"'«»→·]+(?:/[^\s`:*?<>|\"'«»→·]+)*/?$")   # 경로 꼴만(예시 `a/**`·`sym:12`·`x → y` 는 목록 아님)
+
+
+def card_scope_paths(text, root=None):   # 카드 본문 → 경로 집합(리포 기준 상대 · 폴더는 끝 «/») · 못 읽음 = 빈 집합(닫힌 쪽)
+    out, inside = set(), False
+    for line in (text or "").splitlines():
+        if CARD_EXCLUDE.match(line):
+            continue
+        if CARD_SCOPE_HEAD.match(line):
+            inside = True
+            continue
+        if inside and CARD_HEAD.match(line):
+            inside = False
+        if not (inside or CARD_SPEC.match(line)):
+            continue
+        for tok in CARD_TICK.findall(line):
+            if "/" not in tok or not CARD_PATH.match(tok):
+                continue
+            tok = tok[2:] if tok.startswith("./") else tok
+            if tok.startswith("/"):   # 절대 경로 = 이 리포 안일 때만(밖이면 목록 아님) · 실경로로 풀어 비교(/var → /private/var 같은 심링크)
+                pre = os.path.realpath(root or "").rstrip("/") + "/"
+                tok = os.path.realpath(tok)
+                if not root or not tok.startswith(pre):
+                    continue
+                tok = tok[len(pre):]
+            out.add(tok)
+    return out
+
+
+def card_scope_file(path, root=None):   # 카드 파일 → 집합 · 파일 없음·읽기 실패 = 빈 집합(닫힌 쪽 · 판정은 행마다 불러도 1회 읽기)
+    if not path:
+        return set()
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            return card_scope_paths(f.read(), root)
+    except OSError:
+        return set()
+
+
+def in_card_scope(scope, path):   # 목록 안 = 같은 경로 ∨ «끝 /» 로 명시된 폴더 아래 · 폴더를 안 적었으면 그 하위 파일은 밖(⑤)
+    return bool(scope) and (path in scope or any(p.endswith("/") and path.startswith(p) for p in scope))
+
+
 ENV_TEMPLATE = re.compile(r"\.env\.(?:example|sample|template)$")   # 값 없는 견본 파일(r909 칸 3)
 DOTENV_LINE = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=(.*)$")
 ENV_PLACEHOLDER = re.compile(r"^<[^>]*>$")
@@ -167,7 +216,7 @@ def kind_of(table, path, env_ok):   # 분류표 판정 + .env.example 류 «이�
     return ("code", "code") if cls == "forbid" and kind == "key" and ENV_TEMPLATE.search(path) and env_ok(path) else (cls, kind)
 
 
-def judge_row(table, row, ddl_ok, env_ok=lambda p: False):   # (옛 모드, 새 모드, 상태, [경로…]) → (종류, 키, 사유|None) · ddl_ok(경로) = 적용 기록 있는 새 sql · env_ok(경로) = .env.example 류에 «이름만» 추가
+def judge_row(table, row, ddl_ok, env_ok=lambda p: False, card_scope=None):   # (옛 모드, 새 모드, 상태, [경로…]) → (종류, 키, 사유|None) · ddl_ok(경로) = 적용 기록 있는 새 sql · env_ok(경로) = .env.example 류에 «이름만» 추가 · card_scope = 카드 «대상» 경로 집합(D 판정용 · 없으면 지금과 같다)
     om, nm, st, paths = row
     classes = [kind_of(table, p, env_ok) for p in paths]
     bad = next(((k, p) for (c, k), p in zip(classes, paths) if c == "forbid"), None)
@@ -179,6 +228,9 @@ def judge_row(table, row, ddl_ok, env_ok=lambda p: False):   # (옛 모드, 새 
         if om == nm and all(c == "docs" for c, _ in classes) and (same_card(table, om, nm, paths[0], paths[1]) or (st == "R100" and same)):
             return "docs", "move", None
         return "forbid", "rename" if st == "R100" else "move-changed", "상태 %s: %s" % (st, " → ".join(paths))
+    if st[0] == "D" and card_scope and all(in_card_scope(card_scope, p) for p in paths):   # r1778 §3 — 카드가 지목한 파일 삭제는 경로 분류로(경계 종류는 그대로 ④)
+        bad = next(((k, p) for (c, k), p in zip(classes, paths) if c == "forbid"), None)
+        return ("forbid", bad[0], forbid_text(bad[0], bad[1])) if bad else (classes[-1][0], classes[-1][1], None)
     if st[0] not in "AM":
         return "forbid", STATUS_KIND.get(st[0], "status"), "상태 %s: %s" % (st, " → ".join(paths))   # 삭제·복사·타입 변경
     if (st[0] == "M" and om != nm) or (st[0] == "A" and nm != "100644"):
