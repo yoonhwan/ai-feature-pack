@@ -14,6 +14,7 @@ import json
 import os
 import re
 import shlex
+from pathlib import Path
 
 from ft_nano_record import DONE_RX, HERE, LAND_RX, SET_RX, Ctx, Unjudged, left_free, left_of, marks, rec_of
 from ft_nano_record import run as git_run
@@ -83,7 +84,8 @@ def land_close(ln, tried, stamp, close, run, root=None):
         tried[seat] = key
         alert(ctx, seat, master, tok["rec"], bad)
         return [f"{stamp} auto-close 실패 {seat} 갈래=착지기록 — {bad} · 집행 0"]
-    crc, cout = run(["bash", close, *shlex.split(cmd)[2:]], {**os.environ, "FT_NANO_AUTO_CLOSE": "1"}, 70)
+    cwd = Path(root) if root else None   # ★r1759 A1★ 데이터 루트(FT_ROOT) 안에서 부른다 — launchd 작업 폴더(팩)를 물려주지 않는다
+    crc, cout = run(["bash", close, *shlex.split(cmd)[2:]], {**os.environ, "FT_NANO_AUTO_CLOSE": "1"}, 70, cwd=cwd)
     closed = next((x for x in cout.splitlines() if x.startswith("CLOSED")), "")
     if crc == 0 and closed:
         tried.pop(seat, None)
