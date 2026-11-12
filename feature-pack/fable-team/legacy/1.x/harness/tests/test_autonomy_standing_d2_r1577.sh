@@ -257,5 +257,5 @@ git -C "$B" checkout -q main
 
 # ══ 키트 사본 · 크기
 for f in ft-autonomy.sh ft-autonomy-standing-d2.sh ft-merge-land.sh ft-merge-lib.sh ft_doc_exempt.py autonomy_scope_rules.py autonomy_scope_classify.py; do cmp -s "$BIN/$f" "$BIN/../kit/fable-team/bin/$f"; ck "키트 사본 cmp0 $f" $?; done
-[ "$(wc -l < "$BIN/ft-autonomy.sh")" -le 200 ] && [ "$(wc -l < "$BIN/ft-autonomy-standing.sh")" -le 194 ] && [ "$(wc -l < "$BIN/ft-autonomy-standing-d2.sh")" -le 200 ] && [ "$(wc -l < "$BIN/ft-merge-land.sh")" -le 120 ]; ck "줄 수 상한(autonomy 200 · standing 194 · standing-d2 200 · merge-land 120)   # r1708 N2: desk 갈래로 154" $?
+[ "$(wc -l < "$BIN/ft-autonomy.sh")" -le 200 ] && [ "$(wc -l < "$BIN/ft-autonomy-standing.sh")" -le 198 ] && [ "$(wc -l < "$BIN/ft-autonomy-standing-d2.sh")" -le 200 ] && [ "$(wc -l < "$BIN/ft-merge-land.sh")" -le 120 ]; ck "줄 수 상한(autonomy 200 · standing 198 · standing-d2 200 · merge-land 120)   # r1708 N2: desk 갈래로 154 · r1745: standing-status D1·D2 두 줄(+1 → 198)" $?
 [ "$fail" = 0 ] && echo "ALL PASS" || { echo "FAILED $fail"; exit 1; }

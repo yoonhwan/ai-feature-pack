@@ -190,5 +190,6 @@ cmd_standing_status() {
     *) std_usage "usage: standing-status [--since <epoch>]" ;;
   esac
   if std_on; then echo "[상시 승인 D1 켜짐 · 팩 $(std_plain "$STD_CLASSES") · 외부 DA 승인 + 격리 시험 통과만]"; else echo "[상시 승인 D1 꺼짐]"; fi
+  if type -t d2_on >/dev/null && d2_on; then echo "[상시 승인 D2 켜짐 · $(std_plain "$D2_CLASSES") · DA 승인 + 카드 시험 통과 · 크리티컬 0]"; else echo "[상시 승인 D2 꺼짐]"; fi   # r1745 ⑨: D1·D2 한 줄씩(켜진 D2 가 어느 줄에도 안 보이던 빈칸)
   [ -z "$since" ] || std_digest "$since"
 }
