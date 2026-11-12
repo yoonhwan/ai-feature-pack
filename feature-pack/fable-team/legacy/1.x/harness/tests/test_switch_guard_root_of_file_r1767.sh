@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_switch_guard_root_of_file_r1767.sh — r1767 2.0 전환 가드가 카드 «파일» 경로에서 데이터 루트를 찾고, 루트 모름은 rc3 로 멈춘다.
-#   반례 ① 카드 파일 → 루트 · spawn rc3  ② 아직 없는 카드·폴더 → 가까운 상위로 루트 · rc3  ③ git 밖 파일 → root_of rc1 · guard rc3 «데이터 루트 판정 불가» 1줄
+#   반례 ① 카드 파일 → 루트 · spawn rc3  ② 아직 없는 카드·폴더 → 가까운 상위로 루트 · rc3  ③ git 밖 파일 → root_of rc1 · guard_spawn rc3 «데이터 루트 판정 불가» 1줄
+#        (결정 #291695 (가) — 루트 빈 값 rc3 는 spawn 입구만 · switch_guard 루트 빈 값 INFO rc0 은 r1675 그대로)
 #        ④ 팀 모름(루트 있음) = INFO rc0 그대로  ⑤ 표식 없음 rc0·쓰기 0 · 깨진 표식 rc3  ⑥ 기존 r1675·r1694 시험 rc0
 #   변이 M1~M4 = lib 사본에서만 · 변이마다 원본으로 같은 사례 1회 더(대조)
 #   격리: 임시 git 리포(git init · 임시 폴더 안) · FT_FT20_ROOT·FT_TEAM 비움 · 실 표식·명부·카드 0 · sleep 0
@@ -34,7 +35,7 @@ cases() {  # $1 = lib 경로 · 사례 ①~⑤ 결과를 "<사례> <0|1>" 줄로
   ( . "$L"; r="$(ft20_root_of "$OCARD")"; rc=$?; [ "$rc" = 1 ] && [ -z "$r" ] ) >/dev/null 2>&1; echo "③root $?"
   ( . "$L"; ft20_guard_spawn "$(ft20_root_of "$OCARD" 2>/dev/null)" "$OCARD" "" ) >"$o" 2>&1; rc=$?
   echo "③spawn $([ "$rc" = 3 ] && [ "$(grep -c . "$o")" = 1 ] && grep -q 'REJECT 데이터 루트 판정 불가' "$o" && echo 0 || echo 1)"
-  ( . "$L"; ft20_switch_guard "" harness ) >"$o" 2>&1; rc=$?
+  ( . "$L"; FT_TEAM=harness ft20_guard_spawn "" "$OUT/note.md" "" ) >"$o" 2>&1; rc=$?
   echo "③guard $([ "$rc" = 3 ] && [ "$(grep -c . "$o")" = 1 ] && grep -q '데이터 루트 판정 불가' "$o" && echo 0 || echo 1)"
   ( . "$L"; ft20_guard_retire "$R" 'nobody-#0' ) >"$o" 2>&1; rc=$?
   echo "④retire $([ "$rc" = 0 ] && grep -q 'INFO 팀 판정 불가' "$o" && echo 0 || echo 1)"
@@ -54,7 +55,7 @@ name() { case "$1" in
   ①root) echo "① root_of(카드 파일) = 리포 루트";; ①spawn) echo "① guard_spawn(카드 파일) rc3 «2.0 전환됨»";;
   ②root) echo "② root_of(없는 카드·폴더) = 가까운 상위의 리포 루트";; ②spawn) echo "② guard_spawn(없는 카드) rc3";;
   ③root) echo "③ root_of(git 밖 파일) rc1 · 빈 값";; ③spawn) echo "③ guard_spawn(git 밖 카드) rc3 «데이터 루트 판정 불가» 1줄";;
-  ③guard) echo "③ switch_guard(루트 빈 값) rc3 1줄";; ④retire) echo "④ guard_retire(명부·이름 팀 없음) INFO rc0";;
+  ③guard) echo "③ guard_spawn(루트 빈 값 · FT_TEAM 팀) rc3 1줄";; ④retire) echo "④ guard_retire(명부·이름 팀 없음) INFO rc0";;
   ④guard) echo "④ switch_guard(팀 빈 값 · 루트 있음) INFO rc0";; ④move) echo "④ guard_move(경로 팀 없음) INFO rc0";;
   ⑤none) echo "⑤ 표식 없는 팀 rc0 · 보류 쓰기 0";; ⑤broken) echo "⑤ 깨진 표식 rc3 판정 불가";; *) echo "$1";; esac; }
 t=$(now)
@@ -88,8 +89,8 @@ mcheck() {  # $1 이름 $2 원문 $3 바꿀 글 $4 깨져야 할 사례
 }
 mcheck M1 '  [ -f "$p" ] && p="$(dirname -- "$p")"' '  :' ①spawn
 mcheck M2 '  while [ ! -e "$p" ]; do p="$(dirname -- "$p")"; done' '  :' ②spawn
-mcheck M3 '  [ -n "$root" ] || { echo "REJECT 데이터 루트 판정 불가 — 2.0 전환 표식 검사 못 함 · 1.x 쓰기 0" >&2; return 3; }' '  [ -n "$root" ] || { echo "REJECT 데이터 루트 판정 불가 — 2.0 전환 표식 검사 못 함 · 1.x 쓰기 0" >&2; return 0; }' ③spawn
-mcheck M4 '  [ -n "$team" ] || { echo "INFO 팀 판정 불가 — 2.0 전환 표식 검사 건너뜀(표식 없는 팀으로 본다)" >&2; return 0; }' '  [ -n "$team" ] || { echo "INFO 팀 판정 불가 — 2.0 전환 표식 검사 건너뜀(표식 없는 팀으로 본다)" >&2; return 3; }' ④guard
+mcheck M3 '|| { echo "REJECT 데이터 루트 판정 불가 — 2.0 전환 표식 검사 못 함 · 1.x 쓰기 0" >&2; return 3; }' '|| { echo "REJECT 데이터 루트 판정 불가 — 2.0 전환 표식 검사 못 함 · 1.x 쓰기 0" >&2; return 0; }' ③spawn
+mcheck M4 '[ -n "$team" ] || { echo "INFO 팀 판정 불가 — 2.0 전환 표식 검사 건너뜀(표식 없는 팀으로 본다)" >&2; return 0; }' '[ -n "$team" ] || { echo "INFO 팀 판정 불가 — 2.0 전환 표식 검사 건너뜀(표식 없는 팀으로 본다)" >&2; return 3; }' ④guard
 echo "변이 M1~M4 $(secs "$t")"
 
 echo "RUN 1회차 $(secs "$t0") · 사례 $n"
