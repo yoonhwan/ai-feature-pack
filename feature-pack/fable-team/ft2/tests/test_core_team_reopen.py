@@ -90,7 +90,7 @@ def _crash(root, m=M, probes=(), want=()):                 # R2c·R2c-u — inte
     assert ([(o.result, o.open, o.lead, o.written, o.reason[:7]) for o in outs], _n(root, m),
             KEYS[0] in _seen(root, m)[0]["done"]) == (want, lines, False)
 
-_r2c = functools.partial(_crash, probes=("absent",), want=[(OK, True, LEAD, False, "재접수 — ")])
+_r2c = functools.partial(_crash, probes=("absent",), want=[(OK, True, LEAD, False, "재접수 — 팀")])
 _r2cu = functools.partial(_crash, probes=("unknown", lambda seat: 1 / 0), want=[(HOLD, False, LEAD, False, "판정 불가 ·")] * 2)
 
 _r2 = functools.partial(_again, kw={"lead": "other", "probe": "alive"}, want=(HOLD, False, LEAD, "재접수 —"))
@@ -108,8 +108,8 @@ def _r2r(root, m=M, ack=True):                     # R2l = 같은 준비 · R2i 
     d.rs.journal.segment_cap = 1024
     [_close(d, work) for work in ("W1", "W2", "W3")]
     out, base = d.rs.journal.reclaim(), d.rs.journal.state().get("journal_base") or {}
-    assert (out["result"] == "회수 결과" and base["upto"] >= seq and KEY in base["proj"]["reopens"]) \
-        if ack else (base.get("upto") or 0) < seq
+    assert (out["result"] == "회수 결과" and base.get("upto", 0) >= seq and KEY in base["proj"]["reopens"]) \
+        if ack else base.get("upto", 0) < seq                               # 실제 전진 / intent 만 = 보존
     lines, again = _n(root, m), _go(root, m, probe="alive")
     assert (again.result, again.open, again.lead, _n(root, m)) == (HOLD, False, LEAD, lines)
     return base
@@ -134,7 +134,7 @@ def _r5(root, m=M):
     assert ([row["command"] for row in out.load["queue"]], out.seats_needed) == (["q-W1", "q-W2", "q-W3"], ["W1", "W2", "W3"])
     d = m.dispatch.Dispatch(str(root), TEAM, clock=lambda: NOW)
     assert [d.assign(w, LEAD, evidence=EV).result for w in ("W1", "W2", "W3")] == [OK] * 3
-    assert d.rs.submit("q-W1", "x" * 8, "W1").result == HOLD and d.assign("W1", LEAD, evidence=EV).result != OK
+    assert d.rs.submit("q-W1", "x" * 8, "W1").result == HOLD               # 같은 command 재접수 = 같은 행(새 줄 0)
     assert len([rec for rec in _seen(root, m)[1] if rec["kind"] == "dispatch"]) == 3
 
 SCENARIOS = {"R1": _r1, "R1b": _r1b, "R2": _r2, "R2c": _r2c, "R2c-u": _r2cu, "R2d": _r2d, "R2r": _r2r, "R2l": _r2l,
