@@ -186,6 +186,13 @@ mkstate "$S" '[{"name":"proposal"},{"name":"approved"}]'; setbody "$LNK"$'\n처�
 [ $RC -eq 3 ] && grep -q "비었거나 무효" <<<"$OUT" && ok "⑧d 미기입 견본(마무리|발주) → 일반 경로" || bad "⑧d rc=$RC $OUT"
 mkstate "$S" '[{"name":"proposal"}]'; setbody "$LNK"$'\n처리: 마무리'; gate "$S" 0 ""
 [ $RC -eq 3 ] && grep -q "approved" <<<"$OUT" && ok "⑧e approved 없음은 ⑦ 그대로 rc3" || bad "⑧e rc=$RC $OUT"
+# ⑧f r1789 · 승인 라벨 이름 = approved|status:approved — ⑦·⑧ 와 같은 결과(rc·kind·문구)
+SA='[{"name":"proposal"},{"name":"status:approved"}]'; ck() { K="$(bash "$BIN/ft-issue-close-check.sh" 9000 $1 --from-json "$S" --repo "$R" 2>&1)"; KRC=$?; }
+mkstate "$S" "$SA" "$Y0"; w "$Y0"; gate "$S" 0 "$CF"; [ $RC -eq 0 ] && ok "⑧f① proposal+status:approved → 통과" || bad "⑧f① rc=$RC $OUT"
+mkstate "$S" "$SA"; setbody "$LNK"$'\n처리: 마무리'; ck --gate; [ $KRC -eq 0 ] && grep -qx "GATE rc=0 kind=proposal_close" <<<"$K" && ok "⑧f② status:approved+링크+마무리 → proposal_close" || bad "⑧f② rc=$KRC $K"
+ck ""; [ $KRC -eq 0 ] && grep -q "^PASS #9000 제안 마무리(" <<<"$K" && ok "⑧f⑤ 비-gate → PASS 제안 마무리" || bad "⑧f⑤ rc=$KRC $K"
+mkstate "$S" "$SA"; setbody $'처리: 마무리'; ck --gate; [ $KRC -eq 3 ] && grep -q "kind=proposal_incomplete" <<<"$K" && ok "⑧f③ status:approved 링크 없음 → proposal_incomplete" || bad "⑧f③ rc=$KRC $K"
+mkstate "$S" '[{"name":"proposal"},{"name":"status:in-progress"}]' "$Y0"; ck --gate; [ $KRC -eq 3 ] && grep -qx "GATE rc=3 kind=proposal_unapproved marker=1 label=1 reason=approved 라벨 없음" <<<"$K" && ok "⑧f④ status:in-progress → proposal_unapproved" || bad "⑧f④ rc=$KRC $K"
 
 # ⑨ 처리:·링크 출처 = 본문 + byz-tank 코멘트만 (R234 교정 2) — 남의 코멘트 «처리: 마무리» 는 무시
 addc() { jq --arg l "$1" --arg b "$2" '.comments += [{author:{login:$l},body:$b}]' "$S" > "$S.t" && mv "$S.t" "$S"; }
