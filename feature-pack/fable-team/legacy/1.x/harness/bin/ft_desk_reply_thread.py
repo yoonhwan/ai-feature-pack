@@ -36,6 +36,10 @@ def judge_after(check: str, q: str, after: str) -> tuple[int, str]:  # 7초 · �
     return last
 
 
+def rowkey(q: str) -> tuple[str, str]:  # r1764 보정 · 장부 갱신 열쇠 = (kind, q_ts) — 같은 ts 의 question 줄과 섬이지 않는다
+    return ("thread", q)
+
+
 def tcur(p, i=None):  # r1764 보정 · 스레드 줄 순환 위치(<장부>.thread.cursor) — 열린 줄이 상한(4)보다 많아도 다음 주기에 이어진다
     f = p.parent / (p.name + ".thread.cursor")
     try:
@@ -62,7 +66,7 @@ def register_thread(h, a: list, now: float) -> int:  # A1 · 같은 ts 같은 �
         if rows is None:
             print("감시 등록 실패 — 장부를 못 읽음: %s" % h.led, file=sys.stderr)
             return 3
-        old = next((r for r in rows if r.get("q_ts") == row["q_ts"]), None)
+        old = next((r for r in rows if r.get("q_ts") == row["q_ts"] and r.get("kind") == "thread"), None)  # r1764 보정 · 충돌 검사 = thread 줄만(같은 ts 의 question·h 줄은 state 무관 건너뜀)
         if old is not None:
             if old.get("kind") == "thread" and old.get("key") == row["key"]:
                 print("등록 %s q_ts=%s 끝=%s (이미 등록 — 중복 0)" % (row["key"], row["q_ts"], old.get("deadline")))
@@ -93,7 +97,7 @@ def scan_threads(h, rows: list, now: float) -> tuple[dict, int, int, int]:  # A2
             nbad += 1
             continue
         if now >= float(row.get("deadline") or 0):  # A3 끝 시각 경과 = 조용히 닫힘(쪽지 0)
-            up[q] = {"state": "closed", "closed": "expired"}
+            up[rowkey(q)] = {"state": "closed", "closed": "expired"}
             shut += 1
             continue
         tgt = h.seat.get("_desk")
@@ -115,7 +119,7 @@ def scan_threads(h, rows: list, now: float) -> tuple[dict, int, int, int]:  # A2
             bad("쪽지 발신 실패 — %s 알림 0(다음 주기 재시도)" % key)
             nbad += 1
             continue
-        up[q] = {"notified_ts": m.group(1), "notified_at": int(now)}  # 줄은 열린 채(다음 글이 오면 또 1통)
+        up[rowkey(q)] = {"notified_ts": m.group(1), "notified_at": int(now)}  # 줄은 열린 채(다음 글이 오면 또 1통)
         sent += 1
     if picked:
         tcur(h.led, (picked[-1] + 1) % len(rows))  # 다음 주기는 그 다음 줄부터(상한 넘는 줄도 차례가 온다)

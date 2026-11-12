@@ -65,6 +65,10 @@ def ledger(p: Path, rows: list | None = None) -> list | None:  # rows 없으면 
         return None
 
 
+def rowkey(r: dict) -> tuple[str, str]:  # r1764 보정 · 같은 q_ts 라도 kind 가 다르면 «다른 줄»(thread ↔ question 갱신 섬임 0)
+    return (r.get("kind") or "h", r.get("q_ts"))
+
+
 def commit(p: Path, up: dict) -> bool:  # 락 안에서 «다시 읽고» 바뀐 칸만 합쳐 쓴다(점검 중 들어온 등록 보존)
     try:
         fh = lock(p)
@@ -75,7 +79,7 @@ def commit(p: Path, up: dict) -> bool:  # 락 안에서 «다시 읽고» 바뀐
         if rows is None:
             return False
         for r in rows:
-            u = up.get(r.get("q_ts"))
+            u = up.get(rowkey(r)) or up.get(r.get("q_ts"))  # 앞 = r1764 갈래 열쇠((kind, ts)) · 뒤 = 옛 꼴(q_ts 만) — h 줄 호환
             if u:
                 r.update(u)
         return bool(ledger(p, rows))
@@ -132,7 +136,7 @@ def register(led: Path, a: list, now: float) -> int:  # ⓐ 등록 · 같은 질
         if rows is None:
             print("감시 등록 실패 — 장부를 못 읽음: %s" % led, file=sys.stderr)
             return 3
-        same = next((r for r in rows if r.get("q_ts") == row["q_ts"]), None)
+        same = next((r for r in rows if r.get("q_ts") == row["q_ts"] and r.get("kind") != "thread"), None)  # r1764 보정 · thread 줄은 다른 갈래(같은 ts 라도 충돌 아님)
         if same is not None:
             if same.get("h") == h and same.get("sha") == row["sha"]:
                 print("등록 %s q_ts=%s 끝=%s (이미 등록 — 중복 0)" % (h, row["q_ts"], same.get("deadline")))
@@ -156,7 +160,7 @@ def register_question(led: Path, a: list, now: float) -> int:  # r1591 · h·sha
     try:
         with lock(led):
             rows = ledger(led)
-            old = next((r for r in rows or [] if r.get("q_ts") == row["q_ts"]), None)
+            old = next((r for r in rows or [] if r.get("q_ts") == row["q_ts"] and r.get("kind") != "thread"), None)  # r1764 보정 · thread 줄은 다른 갈래
             if rows is None or (old and old.get("key") != row["key"]) or (old is None and not ledger(led, rows + [row])):
                 print("감시 등록 실패 — 장부를 못 읽음·못 씀 또는 같은 질문 ts 가 다른 사유키로 이미 등록됨: %s" % led, file=sys.stderr)
                 return 3
@@ -213,7 +217,7 @@ def scan(base: Path, led: Path, now: float) -> int:
             nbad += 1
             continue
         if not qn and (hil / (h + ".ran")).exists():  # ⓒ h 실행 기록 = 그 줄 닫힘(질문 줄은 h 실행 기록이 없다)
-            up[q] = {"state": "closed", "closed": "executed"}
+            up[rowkey(row)] = {"state": "closed", "closed": "executed"}
             shut += 1
             continue
         if now >= float(row.get("deadline") or 0):  # ⓒ 24시간 경과 = 닫고 planner master 1통
@@ -221,7 +225,7 @@ def scan(base: Path, led: Path, now: float) -> int:
                 bad("쪽지 발신 실패·수신자 없음 — %s 줄은 열린 채로 둔다" % h)
                 nbad += 1
                 continue
-            up[q] = {"state": "closed", "closed": "timeout"}
+            up[rowkey(row)] = {"state": "closed", "closed": "timeout"}
             shut += 1
             continue
         cands.append(i)
@@ -249,7 +253,7 @@ def scan(base: Path, led: Path, now: float) -> int:
             bad("쪽지 발신 실패 — %s 알림 0(다음 주기 재시도)" % h)
             nbad += 1
             continue
-        up[q] = {"notified_ts": m.group(1), "notified_at": int(now)} | ({"state": "closed", "closed": "replied"} if qn else {"state": "notified"})  # r1591 · 질문 줄은 답글 알림 성공 = 그 줄 끝(DA #280338 R1: 24h 오알림 0)
+        up[rowkey(row)] = {"notified_ts": m.group(1), "notified_at": int(now)} | ({"state": "closed", "closed": "replied"} if qn else {"state": "notified"})  # r1591 · 질문 줄은 답글 알림 성공 = 그 줄 끝(DA #280338 R1: 24h 오알림 0)
         sent += 1
     tm = thread_mod()  # r1764 · 스레드 새 글·조용한 만료
     if tm is None:
