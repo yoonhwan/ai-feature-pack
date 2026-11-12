@@ -2,7 +2,7 @@
 # pyright: basic
 """ft_nano_record_due.py — r1717 A2 판정(읽기만): `due [--pr N] [--no-fetch]` · `settle --seat <좌석> --pr <N> (--card <stem>… | --no-card "<사유>")`.
 due 줄: «차례 <좌석> 종류=<닫기|기록만> 빠짐=<ⓢⓛⓒ>» · «닫기 요청 밀림 <좌석>» · «끝 … (닫기 요청 #seq|기록만|남은 일 — 닫기 요청 0|주인 기록|카드 없음 확정)» ·
-  «주인 없음 <카드> 담당=<팀장>» · «카드 없음 PR #N 담당=<팀장>» · «판정 불가 <카드> <명령> rc=<n>» — 뜻 = 카드 r1717 A2. rc 0 = 전부 판정 · 3 = 판정 불가 1건 이상.
+  «주인 없음 <카드> 담당=<팀장>» · «카드 없음 PR #N 담당=<팀장>» · «판정 불가 카드 ref <사유> pr=N»(r1743 A3 · cards_err 줄) · «판정 불가 <카드> <명령> rc=<n>» — 뜻 = 카드 r1717 A2. rc 0 = 전부 판정 · 3 = 판정 불가 1건 이상.
 settle = «카드 없음» 장부 줄을 팀장·arch 가 닫는다(장부에 덧줄 1개 append · role=nano 좌석 = REJECT)."""
 from __future__ import annotations
 
@@ -99,6 +99,9 @@ def rows(ctx, pr=None):   # 장부 줄마다 카드별 줄
             base["master"] = str(ctx.seats(team).get("_master") or "") if team else ""
         except Unjudged:
             pass
+        if e.get("cards_err"):   # r1743 A3: ref 못 읽음 = «카드 없음» 아님 · 판정 불가(하드 룰 20)
+            out.append({**base, "k": "카드ref불가", "why": str(e["cards_err"])})
+            continue
         out.append({**base, "k": "끝", "why": f"카드 없음 확정 · {e['nocard']}"} if e["nocard"] else {**base, "k": "카드없음"})
     return out
 
@@ -125,6 +128,8 @@ def fmt(r):
         return f"주인 없음 {r['stem']} 담당={r['master'] or '-'} 빠짐={r['miss']} {tail}"
     if k == "카드없음":
         return f"카드 없음 PR #{r.get('pr')} 담당={r['master'] or '-'} 착지={str(r.get('q') or '')[:10]}"
+    if k == "카드ref불가":
+        return f"판정 불가 카드 ref {r['why']} pr={r.get('pr')} 착지={str(r.get('q') or '')[:10]}"
     return f"판정 불가 {r['stem']} {r['why']}"
 
 
@@ -176,7 +181,7 @@ def main(argv):
         return 3
     for r in out:
         print(fmt(r))
-    return 3 if any(r["k"] == "판정불가" for r in out) else 0
+    return 3 if any(r["k"] in ("판정불가", "카드ref불가") for r in out) else 0
 
 
 if __name__ == "__main__":
