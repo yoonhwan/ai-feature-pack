@@ -15,6 +15,9 @@ ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
 has() { case "$1" in *"$2"*) ok "$3";; *) bad "$3 — 없음: «$2» ← ${1:0:400}";; esac; }
 hasnt() { case "$1" in *"$2"*) bad "$3 — 있으면 안 됨: «$2»";; *) ok "$3";; esac; }
+# r1715: ft-card-flow 문구가 «진행 P(좌석 M · 관찰 대기 K)» 로 늘었다 — 이 시험 단언은 좌석 꼴만 보므로 양쪽에서 « · 관찰 대기 N» 을 지우고 본다(꼴 자체는 test_card_flow_observe_wait_r1715.sh ⑥ 이 직접 본다 · 단언 줄은 r1707 판 그대로)
+_cfn() { printf '%s' "$1" | sed 's/ · 관찰 대기 [0-9][0-9]*)/)/g'; }
+has() { case "$(_cfn "$1")" in *"$(_cfn "$2")"*) ok "$3";; *) bad "$3 — 없음: «$2» ← ${1:0:400}";; esac; }
 
 for f in ft-card-flow.sh ft-news-tick.sh ft-nano-spawn.sh; do
   /bin/bash -n "$BIN/$f" && ok "3.2 문법(/bin/bash -n) $f" || bad "3.2 문법(/bin/bash -n) $f"
@@ -83,7 +86,7 @@ U="$(printf '%s' "$LANDED" | tr a-f A-F)"; [ "$(k4 "$U")" = "$Z" ] && ok "ⓝ �
 [ "$(k4 "\`${LANDED:0:7}\` (약식)")" = "카드 대기 0 · 진행 1(좌석 0 · 관찰 대기 0) · 착지됐는데 진행 1" ] && ok "ⓝ 백틱 벗긴 7자 → K 1" || bad "ⓝ 백틱 7자"
 
 # ⓒ 좌석 M: tmux 서버 없음 = M 0 · 그 밖 tmux 실패 = rc1(조용한 0 금지)
-rm -f "$SESS"; o="$(run)"; has "$o" "진행 4(좌석 0 · 관찰 대기 0)" "ⓒ 서버 없음 → 좌석 0"
+rm -f "$SESS"; o="$(run)"; has "$o" "진행 4(좌석 0)" "ⓒ 서버 없음 → 좌석 0"
 sess "byz-alpha-nano-live1#0"; touch "$T/tmux.fail"; o="$(run)"; rc=$?
 { [ "$rc" = 1 ] && [[ "$o" == *"FAIL ft-card-flow"* ]]; } && ok "ⓒ tmux 실패 → rc1 + FAIL 줄" || bad "ⓒ rc=$rc «${o}»"; rm -f "$T/tmux.fail"
 
@@ -96,7 +99,7 @@ NR="$R"; echo '{}' > "$NR/.fable-team/seats.json"; mkdir -p "$T/tmpn"
 printf '| 팀 | 폴더 |\n|---|---|\n| alpha | `design/alpha/` |\n' > "$R/design/TEAMS.md"
 tick() { (cd "$NR" && PATH="$FAKE:$PATH" TMPDIR="$T/tmpn" FT_NEWS_ROOT="$NR" FT_ME=me FT_CARD_FLOW_TEAMS="${TEAMS:-alpha}" bash "$KIT/ft-news-tick.sh" 2>&1); }
 o="$(tick)"
-has "$o" "alpha: 카드 대기 2 · 진행 4(좌석 2 · 관찰 대기 0) · 착지됐는데 진행 1" "ⓓ news-tick 에 팀 숫자 줄 1개"
+has "$o" "alpha: 카드 대기 2 · 진행 4(좌석 2) · 착지됐는데 진행 1" "ⓓ news-tick 에 팀 숫자 줄 1개"
 [ "$(printf '%s\n' "$o" | grep -c '^alpha: 카드 대기')" = 1 ] && ok "ⓓ 팀당 정확히 1줄" || bad "ⓓ 줄 수"
 o="$(FT_CARD_FLOW_TIMEOUT_SEC=0 tick)"; has "$o" "alpha: 카드 숫자 확인 불가(시간 초과)" "ⓓ news-tick 시간 초과 = 확인 불가 줄(빈칸 0)"
 
@@ -271,7 +274,7 @@ EOF
 chmod 755 "$FAKE/tmm"
 sess "byz-alpha-master-claude#1" "byz-alpha-nano-live1#0" "byz-alpha-nano-live2#0"
 o="$(sp)"; rc_on=$?; o_off="$(FT_CARD_FLOW=0 sp)"; rc_off=$?
-has "$o" "WARN 카드 흐름 — alpha 진행 4(좌석 2 · 관찰 대기 0) · 착지됐는데 진행 1 · 이동 먼저: done1.md" "ⓔ K>0 → WARN 이동 먼저(착지 카드 지목)"
+has "$o" "WARN 카드 흐름 — alpha 진행 4(좌석 2) · 착지됐는데 진행 1 · 이동 먼저: done1.md" "ⓔ K>0 → WARN 이동 먼저(착지 카드 지목)"
 [ "$(printf '%s\n' "$o" | grep -c 'WARN 카드 흐름')" = 1 ] && ok "ⓔ WARN 정확히 1줄" || bad "ⓔ WARN 줄 수"
 [ "$rc_on" = "$rc_off" ] && ok "ⓔ rc 불변(경보 $rc_on = 끔 $rc_off)" || bad "ⓔ rc 바뀜 on=$rc_on off=$rc_off"
 hasnt "$o_off" "WARN 카드 흐름" "ⓔ FT_CARD_FLOW=0 → 경보 0"
@@ -280,8 +283,8 @@ rm -f "$R/design/alpha/indices/진행/done1.md" "$R/design/alpha/indices/진행/
 o="$(sp)"; hasnt "$o" "WARN 카드 흐름" "ⓔ 건강(진행 2 ≤ 좌석 2+2 · K 0) → 경보 0"
 # ⓔ-3 r1292: 진행 > 좌석 + 2 인 팀의 «대기» 카드 spawn 은 이제 막는다(REJECT 1줄) — 옛 WARN 줄은 FT_CARD_CAP=0(끄기) 에서만
 card 진행 o1; card 진행 o2; card 진행 o3; sess "byz-alpha-master-claude#1" "byz-alpha-nano-other#0"
-o="$(FT_CARD_CAP_FLOOR=2 sp)"; has "$o" "REJECT 카드 상한 — alpha 진행 5(좌석 0 · 관찰 대기 0) > 상한 2(max(2, 0+2))" "ⓔ-3 r1292 상한 넘으면 대기 spawn 막힘"
-o="$(FT_CARD_CAP=0 FT_CARD_CAP_FLOOR=2 sp)"; has "$o" "WARN 카드 흐름 — alpha 진행 5(좌석 0 · 관찰 대기 0) · 착지됐는데 진행 0 · 이동 먼저:" "ⓔ-3 끄면(FT_CARD_CAP=0) 진행 > 좌석+2 → WARN"
+o="$(FT_CARD_CAP_FLOOR=2 sp)"; has "$o" "REJECT 카드 상한 — alpha 진행 5(좌석 0) > 상한 2(max(2, 0+2))" "ⓔ-3 r1292 상한 넘으면 대기 spawn 막힘"
+o="$(FT_CARD_CAP=0 FT_CARD_CAP_FLOOR=2 sp)"; has "$o" "WARN 카드 흐름 — alpha 진행 5(좌석 0) · 착지됐는데 진행 0 · 이동 먼저:" "ⓔ-3 끄면(FT_CARD_CAP=0) 진행 > 좌석+2 → WARN"
 
 [ "$fail" = 0 ] && echo "ALL PASS" || echo "FAILED $fail"
 exit $fail
