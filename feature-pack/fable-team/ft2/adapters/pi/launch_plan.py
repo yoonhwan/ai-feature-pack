@@ -4,6 +4,7 @@
 바깥 호출·의도 쓰기는 launch.py 몫이다.
 """
 import os
+import shlex
 
 
 def seat_env(root, team, work, holder, attempt):
@@ -26,6 +27,10 @@ def repo_check(repo):
 
 
 def recovery(repo, path):
-    """git 단계 실패 사유에 붙는 복구 2줄 — 자동 지우기·자동 재시도 0(하드 룰 2 · A3)."""
+    """git 단계 실패 사유에 붙는 복구 2줄 — 자동 지우기·자동 재시도 0(하드 룰 2 · A3).
+
+    경로는 shlex.quote 로 인용한다 — 공백·따진부호가 든 repo·worktree 에서 안내를 bash 에 그대로 넘겨도
+    경로가 갈라지지 않아야 한다(DA 보정 291508).
+    """
     return ("복구 ⓐ git -C %s worktree remove --force --force %s (반쪽 worktree 가 남았을 때 · 사람 실행) "
-            "ⓑ 같은 일 새 attempt = cli assign → deliver → launch" % (repo, path))
+            "ⓑ 같은 일 새 attempt = cli assign → deliver → launch" % (shlex.quote(repo), shlex.quote(path)))
