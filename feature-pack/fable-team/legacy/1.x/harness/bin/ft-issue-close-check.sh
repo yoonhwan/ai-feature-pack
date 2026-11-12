@@ -118,10 +118,11 @@ gate_eval() { # → G_RC(0|3) G_KIND G_MSG G_MARKER G_LABEL G_REASON
     G_KIND=n_or_hold; G_MSG="REJECT close #$N — 원인 확정=$K7 · 같은 증상 보류=$V8 → 닫지 않고 «관찰 중»(status:observing). 닫는 조건 = 오빠 폰에서 서로 다른 판(sha) 2회 재현 0 — 코멘트에 「관찰: 판=<40hex> · 결과=재현 0 · 판정=<번호>」 2줄(판이 서로 달라야 함)."
   else G_RC=0; G_KIND=pass; fi
 }
+APPROVED_LABELS='["approved","status:approved"]'   # r1789 · 승인 라벨 이름 집합(r1788 과 같은 두 이름) — proposal_close_eval·--gate 거절이 함께 쓴다
 proposal_close_eval() { # R234 교정 1 · 제안 마무리 경로 → P_RC: 0 통과 · 3 미비 · 9 해당 없음(일반 경로)
   local ALLTXT P
   P_RC=9; P_KIND=""; P_MSG=""
-  jq -e '[.labels[]?.name] as $l | ($l | index("proposal")) and ($l | index("approved"))' <<<"$JSON" >/dev/null 2>&1 || return 0
+  jq -e --argjson ok "$APPROVED_LABELS" '[.labels[]?.name] as $l | ($l | index("proposal")) and any($l[]; IN($ok[]))' <<<"$JSON" >/dev/null 2>&1 || return 0
   ALLTXT="$(jq -r --arg tank "${FT_TANK_LOGIN:-byz-tank}" '[.body // "", (.comments[] | select(.author.login == $tank) | .body)] | join("\n")' <<<"$JSON")"   # 출처 = 본문 + Tank 코멘트만
   P="$(jq -rn --arg t "$ALLTXT" --arg p "$KEYP" '[$t | split("\n")[] | select(test($p + "처리\\s*[:：]"))] | last // empty | sub($p + "처리\\s*[:：]\\s*"; "") | sub("\\s+$"; "")')"
   case "$P" in *발주*) return 0;; esac   # 값에 «발주» 가 들어 있으면 언제나 일반 경로(교정 3 H2)
@@ -131,7 +132,7 @@ proposal_close_eval() { # R234 교정 1 · 제안 마무리 경로 → P_RC: 0 �
   else P_RC=3; P_KIND=proposal_incomplete; P_MSG="REJECT close #$N — 「처리: 마무리」 인데 제안서 링크(design/….md 경로 또는 우리 저장소 github blob/<ref>/<경로>.md URL)가 본문·Tank 코멘트에 없음."; fi
 }
 if [ "$GATE" = 1 ]; then
-  if jq -e '[.labels[]?.name] as $l | ($l | index("proposal")) and (($l | index("approved")) | not)' <<<"$JSON" >/dev/null 2>&1; then   # R234 · 제안 Issue = approved 라벨 없이 닫지 않는다
+  if jq -e --argjson ok "$APPROVED_LABELS" '[.labels[]?.name] as $l | ($l | index("proposal")) and (any($l[]; IN($ok[])) | not)' <<<"$JSON" >/dev/null 2>&1; then   # R234 · 제안 Issue = approved|status:approved 라벨 없이 닫지 않는다
     echo "REJECT close #$N — 제안 Issue(proposal)에 approved 라벨 없음 — 오빠 승인(R77 게이트) 뒤에만 닫는다." >&2
     echo "GATE rc=3 kind=proposal_unapproved marker=1 label=1 reason=approved 라벨 없음"; exit 3
   fi
