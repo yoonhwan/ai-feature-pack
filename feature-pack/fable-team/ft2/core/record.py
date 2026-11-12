@@ -26,16 +26,17 @@ REQUIRED_FIELDS = ("schema", "team", "seq", "kind", "command", "attempt", "at", 
 # r1579: 실행권·세대 종류 추가(세대 교체는 claim 의 gen 으로 표현). schema 1 유지 = 필드 추가만.
 # r1594: 진행 구분(progress)·골 마감(close) 추가 — lifecycle.py 만 쓴다. r1724: refuse·resolve — refuse_history.py 만.
 # r1725: close_receipt(닫기 영수) — close_next.py 만.
-# r1727: reopen(팀장 개설 의도·부팅 보고) — reopen.py 만.
+# r1727: reopen(팀장 개설 의도·부팅 보고) — reopen.py 만. r1774: import(1.x 가져오기 · work=None) — legacy_import.py 만.
 KINDS = ("accept", "claim", "start", "effect", "result", "uncertain",
          "dispatch", "deliver", "execute", "complete", "reassess", "progress", "close", "refuse", "resolve",
-         "reopen",
+         "reopen", "import",
          "close_receipt")
 STATE_FIELDS = ("revision", "pending", "attempts")
 # 확장 state 칸 — 없으면 기본값 {} 로 채운다(다른 writer 가 병합해 보존한다 · ⓘ).
 EXTENDED_STATE_FIELDS = ("generations", "owners", "uncertain", "deliveries", "reservations",
                          "done", "reassess_done", "released", "owners_recovered", "executed",
                          "reopens", "lifted",   # r1727 재개
+                         "imported",            # r1774 가져온 기록
                          "journal_base", "refusals", "close_receipts")   # r1584: base checkpoint · r1724: 거절 이력 · r1725: 닫기 영수
 
 
@@ -175,6 +176,7 @@ def recover_state(state, records):
     refusals = dict(proj.get("refusals") or {})       # r1724: 시작값 = checkpoint · state.refusals 는 쓰지 않는다
     closes = dict(proj.get("close_receipts") or {})   # r1725: 같은 꼴(시작값 = checkpoint · event 멱등)
     reopens, lifted = dict(proj.get("reopens") or {}), dict(proj.get("lifted") or {})   # r1727: 같은 꼴
+    imported = dict(proj.get("imported") or {})       # r1774: 같은 꼴(시작값 = checkpoint · key 멱등)
     for rec in rows:
         work, kind, gen = rec.get("work"), rec["kind"], rec.get("gen") or 0
         if kind in ("claim", "dispatch") and work and gen > gens.get(work, 0):
@@ -212,10 +214,13 @@ def recover_state(state, records):
             done.update(_close_done(closes, done, rec["team"], None, rec["at"]))
         elif kind == "reopen" and work:
             reopens = _fold_reopen(reopens, done, lifted, rec)
+        elif kind == "import":
+            imported.setdefault(rec["key"], {"sha256": rec.get("sha256"), "held": rec["body"], "src": rec.get("src"),
+                                             "seq": rec["seq"], "at": rec["at"]})
     return dict(state, revision=max(state["revision"], count + len(rows)), generations=gens, owners=owners,
                 reservations=kept, deliveries=sent, done=done, reassess_done=reassessed,
                 released=released, owners_recovered=recovered, uncertain=uncertain, lanes=lanes, refusals=refusals,
-                reopens=reopens, lifted=lifted,
+                reopens=reopens, lifted=lifted, imported=imported,
                 close_receipts=closes)
 
 
