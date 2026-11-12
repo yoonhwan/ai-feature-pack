@@ -55,24 +55,24 @@ card() { local f="$IDX/$2/$1.md"
 for n in r1 r2 r3 r4 r5 r6 r9 r10; do card "$n" 진행 >/dev/null; done; card r7 대기 >/dev/null
 g "$CR" add -A; g "$CR" commit -qm cards
 sec() { awk -v s="## §$1 " 'index($0,"## ")==1{f=(index($0,s)==1)} f' "$DAF"; }
-cm() { local n="$1"; shift; sec "$n" | env "$@" bash -c '. "$1" >/dev/null 2>&1; ft_close_marker "$2"' x "$BIN/ft-team-lib.sh" "r$n" 2>&1; }
-gate() { local n="$1" e="$2"; shift 2; env $e python3 "$BIN/ft_da_hold_gate.py" "$IDX/진행/r$n.md" --root "$CR" --seats-dir "$T/none" --comm "$T/none" --closing --da "$DAF#§$n" "$@" 2>&1; }
+cm() { local n="$1"; shift; sec "$n" | ( for a in "$@"; do export "$a"; done; bash -c '. "$1" >/dev/null 2>&1; ft_close_marker "$2"' x "$BIN/ft-team-lib.sh" "r$n" 2>&1 ); }
+gate() { local n="$1" e="$2"; shift 2; ( [ -z "$e" ] || export "$e"; python3 "$BIN/ft_da_hold_gate.py" "$IDX/진행/r$n.md" --root "$CR" --seats-dir "$T/none" --comm "$T/none" --closing --da "$DAF#§$n" "$@" 2>&1 ); }
 TAB=$'\t'
 mkdir -p "$T/state" "$T/stub"; printf '#!/bin/sh\nexit 1\n' > "$T/stub/tmux"; chmod +x "$T/stub/tmux"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$T/fake-mbox.sh"; chmod 755 "$T/fake-mbox.sh"
-mv_() { ( cd "$CR" && env FT_MBOX="$T/fake-mbox.sh" FT_INDEX_STATE_DIR="$T/state" FT_SEATS_JSON="$T/none.json" FT_THREAD_POST="$T/none.py" FT_ROOT="$CR" PATH="$T/stub:$PATH" "$@" 2>&1 ); }
+mv_() { ( cd "$CR" && export FT_MBOX="$T/fake-mbox.sh" FT_INDEX_STATE_DIR="$T/state" FT_SEATS_JSON="$T/none.json" FT_THREAD_POST="$T/none.py" FT_ROOT="$CR" PATH="$T/stub:$PATH" && bash "$@" 2>&1 ); }
 
 # ① BYZ origin/ops/main-base 표식 · env 없음 → 보류 가드 LANDED-CLOSE rc0
 o="$(gate 1 "" --landed "$SOPS")"; rc=$?
 { [ "$rc" = 0 ] && [[ "${o%%$'\n'*}" == "LANDED-CLOSE sha=$SOPS"* ]]; } && ok "① BYZ ops 표식 · env 없음 → LANDED-CLOSE rc0" || bad "① rc=$rc ${o:0:300}"
 o="$(cm 1)"; [ "$o" = "card${TAB}explicit${TAB}origin/ops/main-base${TAB}$SOPS" ] && ok "① ft_close_marker = card·explicit·origin/ops/main-base·sha" || bad "① cm «${o}»"
 # ② 같은 꼴로 ft-index-move 완성 갈래 끝까지 → 이동 rc0
-o="$(mv_ bash "$BIN/ft-index-move.sh" "$IDX/진행/r2.md" 완성 --da "$DAF#§2" --landed "$SOPS")"; rc=$?
+o="$(mv_ "$BIN/ft-index-move.sh" "$IDX/진행/r2.md" 완성 --da "$DAF#§2" --landed "$SOPS")"; rc=$?
 { [ "$rc" = 0 ] && [ -f "$IDX/완성/r2.md" ]; } && ok "② ft-index-move 완성 rc0(정본 검사 포함)" || bad "② rc=$rc $(printf '%s' "$o" | grep -m1 REJECT)"
 # ③ ① + FT_LAND_REF=origin/main → ref-mismatch · 이동 0
 o="$(gate 3 FT_LAND_REF=origin/main --landed "$SOPS")"; has "③ 보류 가드: env origin/main ≠ 표식 → LANDED-INVALID ref-mismatch" "$o" "LANDED-INVALID ref-mismatch origin/main ≠ origin/ops/main-base"
 [[ "$o" != *LANDED-CLOSE* ]] && ok "③ LANDED-CLOSE 0" || bad "③ LANDED-CLOSE 나옴"
-o="$(mv_ env FT_LAND_REF=origin/main bash "$BIN/ft-index-move.sh" "$IDX/진행/r3.md" 완성 --da "$DAF#§3" --landed "$SOPS")"; rc=$?
+o="$(FT_LAND_REF=origin/main mv_ "$BIN/ft-index-move.sh" "$IDX/진행/r3.md" 완성 --da "$DAF#§3" --landed "$SOPS")"; rc=$?
 { [ "$rc" = 1 ] && [ -f "$IDX/진행/r3.md" ] && [[ "$o" == *ref-mismatch* ]]; } && ok "③ ft-index-move: ref-mismatch REJECT · 이동 0" || bad "③ move rc=$rc $(printf '%s' "$o" | grep -m1 REJECT)"
 # ④ 팩 origin/ops/x 표식 · sha 팩에만 → pack 리포에서 LANDED-CLOSE
 o="$(cm 4)"; [ "$o" = "pack${TAB}explicit${TAB}origin/ops/x${TAB}$PX" ] && ok "④ ft_close_marker = pack·explicit·origin/ops/x" || bad "④ cm «${o}»"
@@ -85,7 +85,7 @@ o="$(gate 5 "" --landed "$SOPS")"; { [[ "$o" == *"표식 여러 개"* ]] && [[ "
 o="$(gate 6 FT_LAND_REF=origin/ops/main-base --landed "$SOPS")"; has "⑥ 절 헤더만 → LANDED-INVALID no-da-row" "$o" "LANDED-INVALID no-da-row"
 o="$(cm 6)"; rc=$?; { [ "$rc" = 1 ] && [ -z "$o" ]; } && ok "⑥ ft_close_marker: 표식 없음 = rc1 빈 줄" || bad "⑥ cm rc=$rc «${o}»"
 # ⑦ 아카이브 갈래: 새 꼴 표식이 있는 카드 → «착지한 카드» REJECT
-o="$(mv_ bash "$BIN/ft-index-move.sh" "$IDX/대기/r7.md" 아카이브 --da "$DAF#§7" --seat s)"; rc=$?
+o="$(mv_ "$BIN/ft-index-move.sh" "$IDX/대기/r7.md" 아카이브 --da "$DAF#§7" --seat s)"; rc=$?
 { [ "$rc" = 1 ] && [[ "$o" == *"착지한 카드"* ]] && [ -f "$IDX/대기/r7.md" ]; } && ok "⑦ 아카이브: BYZ 표식 카드 → 착지 카드 REJECT · 이동 0" || bad "⑦ rc=$rc ${o:0:300}"
 # ⑨ 실 r1763 §1 꼴: main <sha> + BYZ ops <sha> 같은 sha → explicit 이 이긴다 · env 없음 = env 일치
 want9="card${TAB}explicit${TAB}origin/ops/main-base${TAB}$SOPS"
@@ -103,7 +103,7 @@ o="$(gate 10 FT_LAND_REF=origin/ops/main-base --landed "$C1")"; has "⑩ 보류 
 o="$(cm 12)"; has "⑪ explicit 두 ref → REJECT 표식 여러 개" "$o" "REJECT 표식 여러 개"
 o="$(cm 13)"; has "⑪ main + 팩 ref(선택자 다름) → REJECT 표식 여러 개" "$o" "REJECT 표식 여러 개"
 # close-landed: BYZ ops 행을 읽고 그 ref 로 조상 검사(dry-run · 쓰기 0)
-o="$(mv_ bash "$BIN/ft-index-close-landed.sh" "$DAF" --dry-run)"
+o="$(mv_ "$BIN/ft-index-close-landed.sh" "$DAF" --dry-run)"
 has "close-landed dry-run: §1 r1 BYZ ops 행 → 조상 ok · LANDED-CLOSE" "$o" "| §1 | r1 | 진행 | ok | 무 | LANDED-CLOSE sha=$SOPS"
 
 echo "fail=$fail"; [ "$fail" = 0 ]
