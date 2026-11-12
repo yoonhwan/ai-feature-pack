@@ -2,12 +2,12 @@
 준비 = r1726 실제 휴면 + TeamRecord `휴면 revision` · 중단 = on_step 예외 · 격리 tmp · 고정 시계 · 가짜 probe·crontab shim ·
 sleep·tmux 0 · 변이(사본만) M1 키 중복 → R2·R2c · M2 큐 묶음 → R5 · M3 reopen 분기 → R1·R2c·R2r · M4 휴면 아님 → R2d ·
 M5 저장 키 현재 R → R3s-k · M6 unknown=absent → R2c-u · M7 booted done → R2r · M8 `_work_closed` lifted → R2l ·
-M9 휴면 영수 R 대조 → A7-8 · M10 큐 dispatched 표시 → R5 (카드 반례 ⑦⑧ = A7-7·A7-8 · arch-pi#3 보정 G1~G3)."""
+M9 휴면 영수 R 대조 → A7-8 · M10 큐 dispatched 표시 → R5 (카드 반례 ⑦⑧ = A7-7·A7-8 · arch-pi#3 보정 G1~G3) ·
+변이 시험 본체 = test_core_team_reopen_mutants.py(줄 상한 200 으로 나눔)."""
 import functools
 import importlib.util
 import json
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -189,27 +189,3 @@ def test_r6_r8_cli_rc_and_no_cron(tmp_path):
     assert (refused, rc, out["open"], out["lead"], _cli(root, "--revision", "5", *base, env=env)[0]) == (1, 0, True, LEAD, 1)
     assert _cli(root, "--revision", "x", *base)[0] == 64 and _cli(root, "--revision", "5")[0] == 64
     assert not log.exists() and {p.name for p in set(root.rglob("*")) - before} <= {"journal.jsonl", "state.json"}
-
-MUTANTS = (
-    ("M1", "reopen.py", "if row is not None:", "if False:", (_r2, _r2c)),
-    ("M2", "reopen.py", "dict.fromkeys(rows)", "rows", (_r5,)),
-    ("M3", "record.py", 'elif kind == "reopen" and work:', "elif False:", (_r1, _r2c, _r2r)),
-    ("M4", "reopen.py", "if self.lc._dormant_key() not in", "if False and self.lc._dormant_key() not in", (_r2d,)),
-    ("M5", "reopen.py", "stale = self._current(revision, records)   # 저장 키도", "stale = None   # 저장 키도", (_r3sk,)),
-    ("M6", "reopen.py", 'if seen == "absent":', 'if seen != "alive":', (_r2cu,)),
-    ("M7", "record.py", 'done[rec["work"]] = {"attempt": rec.get("ack")', '_ = {"attempt": rec.get("ack")', (_r2r,)),
-    ("M8", "journal.py", 'if done is None and work in (state.get("lifted") or {}):', "if False:", (_r2l,)),
-    ("M9", "reopen.py", "if receipt != str(revision):", "if False:", (_a7_8,)),
-    ("M10", "reopen.py", '"dispatched": works.get(command) in sent', '"dispatched": False', (_r5,)),
-)
-
-@pytest.mark.parametrize("label,name,old,new,cases", MUTANTS, ids=[m[0] for m in MUTANTS])
-def test_mutants_break_their_cases(tmp_path, label, name, old, new, cases):
-    copy = Path(shutil.copytree(CORE, tmp_path / "core"))
-    text = (copy / name).read_text(encoding="utf-8")
-    assert text.count(old) == 1, label
-    (copy / name).write_text(text.replace(old, new, 1), encoding="utf-8")
-    mutant = _core(str(copy), "ft2_mut_ro_%s_" % label)
-    for idx, case in enumerate(cases):
-        with pytest.raises((AssertionError, KeyError, TypeError)):
-            case(tmp_path / ("run%d" % idx), mutant)
