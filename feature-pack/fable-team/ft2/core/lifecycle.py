@@ -17,6 +17,11 @@ blockers 낱말은 원자료 `cases_c.py:99-146` 값 그대로다(`PENDING_NOT_Z
 `UNCERTAIN` · `<낱말>:<키>`). 결과 낱말은 `contracts/core` 7군(8낱말) 밖으로 나가지 않는다(새 낱말 0).
 잠금 = 팀별 writer.lock «비차단» 1회(dispatch 와 같은 꼴 · 점유 중 = BUSY · 쓰기 0).
 회수 규칙은 journal 그대로다 — 진행·마감 줄의 work 가 `_work_closed` 를 만족하면 그 segment 가 회수된다.
+
+팀 휴면(r1726) = 시작 조건 10칸을 «한 판» 에서 읽고(`dormant`) 5단계를 순서대로 영수한 뒤 r1714 표식
+(`goal:dormant:<팀>`) 1줄로 끝낸다. 단계 영수도 close 줄이라 crash 뒤 재실행이 «영수 있는 단계» 를 건너뛰고
+같은 단계를 두 번 쓰지 않는다. 조건 하나라도 어긋나면 휴면 0 + 이유 1줄(no_silent_fallback)이고,
+표식 뒤 접수는 닫는 세대 실행권 0 — 접수는 영속 큐에 그대로 남고 자동 재개설은 없다(r1714 경계 그대로).
 """
 import collections
 import importlib.util
@@ -36,12 +41,19 @@ def _load(name, alias):
 record, intake = _load("record", "ft2_core_record"), _load("intake", "ft2_core_intake")
 OK, HOLD, REFUSED, BUSY, CORRUPT = "접수 성공", "완료 유보", "접수 거부", "BUSY", "복구 필요"
 PROGRESS_KINDS = ("progress", "heartbeat", "external_wait")
+DORMANCY_STEPS = ("nano-cleanup", "rescan", "team-record", "arch-da", "team-lead")
+DORMANCY_COUNT_SLOTS = ("mail", "ownership", "cards", "lands", "hil", "cron")
+DORMANCY_NOISE = (".serena/project.yml",)          # closeout-policy 잡음 = 미커밋 0 에서 뺀다(A2 · PLAN :180)
+LATE_KINDS = ("accept", "claim", "uncertain")      # 재검사가 보는 «단계 1 뒤 새 기록»
+DORMANT, NOT_DORMANT, ABORTED = "DORMANT", "NOT_DORMANT", "ABORTED"
 Tick = collections.namedtuple("Tick", "result lane tick deadline written revision reason",
                               defaults=(None, None, None, None, False, None, ""))
 Scan = collections.namedtuple("Scan", "result lanes stalled_lanes tick revision written reason",
                               defaults=(None, None, None, None, None, False, ""))
 Close = collections.namedtuple("Close", "result goal status revision blockers written reason",
                                defaults=(None, None, None, None, None, False, ""))
+Dormant = collections.namedtuple("Dormant", "result status revision steps skipped blockers hil written reason",
+                                 defaults=(None, None, None, (), (), (), 0, False, ""))
 
 
 class Lifecycle:
@@ -64,6 +76,139 @@ class Lifecycle:
     def close(self, goal, revision):
         """골 마감 — 읽어 둔 revision 이 낡았으면 RETRY(쓰기 0), 남은 일이 있으면 거절, 아니면 close 1줄."""
         return self._locked(self._close, Close(HOLD, goal), goal, revision)
+
+    def dormant(self, board):
+        """팀 휴면 1회 — 시작 조건 10칸 판독 → 5단계 영수 → r1714 표식 1줄(읽기 1판 · writer.lock 1회).
+        `board` = journal 밖 7칸(mail · ownership · cards · lands · hil · cron · dirty) + 단계 입력
+        (`team_record` = R·세대·마지막 단계·복구 위치 · `arch_da` = arch·DA 확인 낱말).
+        kill 은 이 호출의 몫이 아니다 — 휴면 1회 = 승인 h 1장(`hil=1`)이고 브랜치·워크트리 삭제는 0(하드 룰 2)."""
+        return self._locked(self._dormant, Dormant(HOLD), dict(board or {}),
+                            k=len(DORMANCY_STEPS) + 1)
+
+    def _dormant(self, context, board):
+        state, records = context
+        done, marker = state.get("done") or {}, self._dormant_key()
+        if marker in done:                              # A5: 두 번째 휴면 = 멱등(쓰기 0 · 자동 재개설 0)
+            return Dormant(HOLD, DORMANT, state["revision"], (), DORMANCY_STEPS, (), 0, False,
+                           "이미 휴면 = 멱등(쓰기 0)")
+        blockers = self._start_blockers(state, records, board)
+        if blockers:                                    # A1: 한 칸이라도 어긋나면 휴면 0 + 이유 1줄
+            return Dormant(HOLD, NOT_DORMANT, state["revision"], (), self._receipted(done), tuple(blockers), 0,
+                           False, "휴면 0 — 막힌 칸 %d: %s" % (len(blockers), " · ".join(blockers)))
+        snapshot, receipted, ran = self._tick(records), self._receipted(done), []
+        for step in DORMANCY_STEPS:                     # A3·A4: 순서 고정 · 영수 있는 단계는 건너뛴다
+            if step in receipted:
+                continue
+            if step == "team-lead":                     # 5단계 = r1714 표식(같은 잠금 안 revision 대조 1건)
+                out = self._close((state, records), "dormant:%s" % self.team, state["revision"])
+                if out.result != OK:
+                    return Dormant(HOLD, ABORTED, out.revision, tuple(ran), receipted,
+                                   tuple(out.blockers), 0, bool(ran), "팀장 단계 중단: " + out.reason)
+                return Dormant(OK, DORMANT, out.revision, tuple(ran) + (step,), receipted, (), 1, True,
+                               "휴면 1회 = kill 승인 h 1장 · 브랜치·워크트리 삭제 0")
+            if step == "rescan":                        # 2단계 = 단계 1 뒤 들어온 접수·실행권·미확정에서 멈춘다
+                late = self._late_records(snapshot)
+                if late:
+                    return Dormant(HOLD, ABORTED, state["revision"], tuple(ran), receipted,
+                                   tuple("%s:%s" % (rec["kind"], rec.get("work")) for rec in late[:3]),
+                                   0, bool(ran), "재검사 중단 — 단계 1 뒤 새 %s %d건 · 팀장 그대로"
+                                   % (late[0]["kind"], len(late)))
+            ok, body = self._step_body(step, board)
+            if not ok:                                  # 판독 불가 = 통과가 아니다(하드 룰 20)
+                return Dormant(HOLD, ABORTED, state["revision"], tuple(ran), receipted,
+                               ("%s:미기재" % step,), 0, bool(ran), "%s 단계 중단 — %s" % (step, body))
+            state = self._write_receipt(state, records, step, body)
+            ran.append(step)
+        return Dormant(HOLD, NOT_DORMANT, state["revision"], tuple(ran), receipted,
+                       ("team-lead:미기재",), 0, bool(ran), "팀장 단계 없음 = 휴면 0")
+
+    def _step_body(self, step, board):
+        """단계 1·3·4 의 몫 — 코어는 «영수» 만 쓴다(정리·기록 확정·판정은 좌석 몫 · 이 호출에 kill 0)."""
+        if step == "nano-cleanup":
+            return self._cleanup_body(board.get("nano_cleanup", 0))
+        if step == "rescan":
+            return True, "rescan=새 접수·실행권·미확정 0"
+        if step == "team-record":
+            row = board.get("team_record")
+            if not isinstance(row, dict) or not row:
+                return False, "team_record 미기재(R·세대·마지막 단계·복구 위치)"
+            return True, "R=%s gen=%s last=%s resume=%s" % (row.get("revision"), row.get("generation"),
+                                                            row.get("last_step"), row.get("resume"))
+        if step == "arch-da":
+            word = board.get("arch_da")
+            if not isinstance(word, str) or not word.strip():
+                return False, "arch_da 미기재(arch·DA 확인)"
+            return True, word.strip()
+        return False, "미상 단계"
+
+    def _cleanup_body(self, proof):
+        """단계 1 입력 — «실제 부재 확인» 만 영수다(r1498 행 7·9: rc0 만, 또는 판정 불가 = 영수 0 + 이유 1줄)."""
+        if isinstance(proof, dict):
+            absent = proof.get("absent")
+            if isinstance(absent, bool) or not isinstance(absent, int) or absent < 0:
+                return False, "nano_cleanup 부재 확인 없음(rc0 만으로는 영수 0)"
+            return True, "nano-cleanup=absent:%d" % absent
+        if isinstance(proof, int) and not isinstance(proof, bool) and proof >= 0:
+            return True, "nano-cleanup=남은 나노 %d석" % proof
+        return False, "nano_cleanup 판정 불가 = 그 나노 손 0"
+
+    def _write_receipt(self, state, records, step, body):
+        """단계 영수 1줄 — close 줄이라 journal 복구(`record.recover_state`)가 done 으로 접는다(A4)."""
+        key, tick = self._step_key(step), self._tick(records) + 1
+        rec = record.build(self.team, tick, key, "%s#%s" % (self.team, step), self.clock(), body, key,
+                           kind="close", extra={"tick": tick, "goal": key})
+        row = {"attempt": rec["attempt"], "at": rec["at"], "marker": step, "tick": tick}
+        self._write(state, records, rec, {"done": {key: row}})
+        records.append(rec)
+        state = dict(state, revision=state["revision"] + 1, done={**(state.get("done") or {}), key: row})
+        self.on_step("after_dormancy_step")
+        return state
+
+    def _start_blockers(self, state, records, board):
+        """시작 조건 10칸 — journal 3칸(pending · 실행권 GRANTED/STARTED · 미확정) + 판독 7칸.
+        판독 칸이 «미기재» 면 통과가 아니라 막힘이다(하드 룰 20 — 판정 불가를 통과로 쓰지 않는다)."""
+        return list(self._blockers(state, records)) + self._board_blockers(board)
+
+    def _board_blockers(self, board):
+        """journal 밖 7칸 — 쪽지·책임 이전·진행 카드·착지/설치·HIL·cron · 미커밋(.serena 잡음 제외).
+        수 칸은 이름 목록도 받는다(좌석 cron 과 고아 주기 루프를 r1498 행 2·3 으로 가르기 위해)."""
+        blockers = []
+        for name in DORMANCY_COUNT_SLOTS:
+            value, names = board.get(name), ""
+            if isinstance(value, (list, tuple)):
+                value, names = len(value), ",".join(str(row) for row in value[:3])
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                blockers.append("%s:미기재" % name)
+            elif value:
+                blockers.append("%s:%d%s" % (name, value, "(" + names + ")" if names else ""))
+        dirty = board.get("dirty")
+        if not isinstance(dirty, (list, tuple)):
+            blockers.append("dirty:미기재")
+        else:
+            kept = [path for path in dirty if str(path) not in DORMANCY_NOISE
+                    and not str(path).startswith(".serena/")]
+            if kept:
+                blockers.append("dirty:%d" % len(kept))
+        return blockers
+
+    def _late_records(self, snapshot):
+        """재검사 — R(tick) 뒤 새 접수·실행권·미확정 줄(내 영수 close 줄은 여기 안 든다)."""
+        return [rec for rec in self._rescan_records()
+                if rec["seq"] > snapshot and rec["kind"] in LATE_KINDS]
+
+    def _rescan_records(self):
+        return self._state_records()[1]
+
+    def _receipted(self, done):
+        """이미 영수한 단계 — crash 뒤 재실행이 건너뛴다(A4 · 같은 단계 두 번 0)."""
+        return tuple(step for step in DORMANCY_STEPS if self._step_key(step) in done)
+
+    def _step_key(self, step):
+        return "goal:dormant-step:%s:%s" % (self.team, step)
+
+    def _dormant_key(self):
+        """r1714 표식 그대로 — `execution._dormant_marker` 가 이 키 하나만 본다(접두 대조 0)."""
+        return "goal:dormant:%s" % self.team
 
     def _locked(self, body, fail, *args, k=1):
         lock, word, written = self.rs._try_lock(), BUSY, False
