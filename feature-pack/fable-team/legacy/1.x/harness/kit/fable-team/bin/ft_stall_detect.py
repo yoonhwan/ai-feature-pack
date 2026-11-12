@@ -41,8 +41,8 @@ OFF_ROLES = ("stop-ready", "closed")
 AGENT = re.compile(r"(?:^|[\s/])(claude|codex)(?:\s|$)")
 
 
-def run(cmd: list[str], env: dict[str, str] | None = None, timeout: float = 15) -> tuple[int, str]:
-    return stm.grun(cmd, env, timeout)  # r1282 — 자식 묶음 정리 · 판정 단계 기한
+def run(cmd: list[str], env: dict[str, str] | None = None, timeout: float = 15, cwd: Path | None = None) -> tuple[int, str]:
+    return stm.grun(cmd, env, timeout, cwd)  # r1282 — 자식 묶음 정리 · 판정 단계 기한 · r1759 cwd 없음(기본) = 지금 그대로
 
 
 def load_teams(root: Path, warn: bool = True, active: bool = True, include_orphans: bool = False) -> list[dict[str, Any]]:

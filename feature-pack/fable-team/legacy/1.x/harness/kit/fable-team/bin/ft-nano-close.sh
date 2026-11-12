@@ -245,9 +245,65 @@ nf_fetch() {  # <repo> <remote> <ref> — 하드 룰 12 기준량: 시도당 7�
   for i in 1 2; do nf_bound 7 git -c gc.auto=0 -C "$1" fetch --quiet "$2" "$3" && return 0; rc=$?; done
   return "$rc"
 }
+_root_pick() {  # <좌석> <cwd 공용 루트> <FT_ROOT> <roots.tsv> — stdout 2줄: 고른 ROOT · 사유(없으면 빈 줄)
+  python3 - "$@" <<'PY'
+import glob, json, os, sys
+seat, cur, ftroot, tsv = ([*sys.argv[1:], "", "", "", ""])[:4]
+
+def has(pt, s, bad):   # True/False — 읽기 실패(OSError·ValueError·dict 아님)는 bad 에 파일을 남긴다: 후보 집합이 불완전하면 유일 루트를 확정하지 않는다(DA R1)
+    ok = False
+    for f in sorted(glob.glob(os.path.join(pt, ".fable-team", "seats*.json"))):
+        try:
+            d = json.load(open(f, encoding="utf-8"))
+        except (OSError, ValueError):
+            bad.append(f); continue
+        if not isinstance(d, dict):
+            bad.append(f); continue
+        if s in d:
+            ok = True
+    return ok
+
+def out(root, note=""):
+    print(root)
+    print(note)
+    raise SystemExit(0)
+
+bad = []
+if ftroot and os.path.isdir(os.path.join(ftroot, ".fable-team")) and has(ftroot, seat, bad):
+    out(ftroot)                                              # ① FT_ROOT 가 데이터 루트(그 명부에 이 좌석 행이 있다)
+if has(cur, seat, bad):
+    out(cur)                                                 # ② cwd 공용 루트 명부에 그 좌석 = 지금 값 그대로
+try:
+    rows = []
+    for ln in open(tsv, encoding="utf-8"):
+        if not ln.strip() or ln.lstrip().startswith("#"):     # # 머리·빈 줄 건너뜀(실 roots.tsv 꼴 · 하드 룰 18)
+            continue
+        cols = ln.rstrip("\n").split("\t")
+        if len(cols) >= 2 and cols[1].strip():                 # 2열 = 경로(1열 = 이름 · 실 꼴 탭 6칸: 이름·경로·상태·기준ref·사람우편함·틱잠금접두)
+            rows.append(cols[1].strip())
+except (OSError, ValueError):
+    out(cur, "(루트 해석: roots.tsv — 읽기 실패)")            # ④-ㄱ
+rows = [r for r in dict.fromkeys(rows) if r]
+hit = [r for r in dict.fromkeys(rows) if r and has(r, seat, bad)]
+if len(hit) == 1 and not bad:                                 # 유일 루트 확정 = 후보 집합이 온전할 때만(DA R1)
+    out(hit[0])                                              # ③ roots.tsv 명부 «정확히 1곳»
+why = f"명부 읽기 실패 {bad[0]}" if bad else f"좌석 명부 {len(hit)}곳"
+out(cur, f"(루트 해석: roots.tsv — {why})")                    # ④ 0곳·2곳 이상·읽기 실패 = 지금 값 + 사유(하드 룰 20)
+PY
+}
+ROOT_NOTE=""
 if [ "$REPLAN" -eq 0 ]; then   # r535 --replan 은 아래 입구(팀 env·드리프트·원장 해석·명부)를 건너뛴다 — 값은 옛 계획에 구워져 있다
 WT="$(git rev-parse --show-toplevel)"
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"
+# ★r1759 A6★ ROOT = «데이터 루트»(cwd 리포 아님) — ①FT_ROOT ②cwd 공용 루트 명부 ③roots.tsv 명부 «정확히 1곳» ④그 밖 = 지금 값 + 사유.
+#   팩 폴더에서 불리면(launchd 작업 폴더 · 팩 나노 자기 worktree) cwd 리포는 팩이라 닫을 좌석의 명부·팀 env 가 없다. WT(:249) 는 줄곧 cwd toplevel 그대로.
+_rp="$(_root_pick "$SEAT" "$ROOT" "${FT_ROOT:-}" "${FT_ROOTS_TSV:-$HOME/.claude/fable-team/roots.tsv}" 2>/dev/null)"
+_rprc=$?
+if [ "$_rprc" -eq 0 ] && [ -n "$_rp" ]; then
+  ROOT="${_rp%%$'\n'*}"; ROOT_NOTE="${_rp#*$'\n'}"
+else
+  ROOT_NOTE="(루트 해석: 판정 불가 — 해석기 rc=$_rprc)"   # 하드 룰 20 — 못 정했으면 지금 값 그대로 + 사유(닫기는 뒤 검사가 판정)
+fi
 # ★팀 env 자동 로드 (카드 nano-spawn-close-team-env §1)★: FT_NANO_PREFIX 가 이미 있으면 «명시가 이긴다» — 아무것도 안 한다.
 #   없으면 좌석 이름의 팀(공용 규칙 ft_teamset.py seat-info — 새 이름 byz-<팀>-nano-·옛 이름 둘 다 그 팀)으로 $ROOT/.fable-team/bin-<팀>/<팀>-env.sh 를 source.
 #   ★v65 는 env 파일이 없어도 된다(r655)★ — 없으면 기본값(공용 규칙)으로 간다. 다른 팀은 지금처럼 REJECT.
@@ -277,7 +333,7 @@ _FT_CALLER_LEDGER_WT="${FT_NANO_LEDGER_WT:-}"
 if [ -z "${FT_NANO_PREFIX:-}" ]; then
   if [ -n "$_team" ] && [ "$_team" != v65 ]; then
     _tenv="$ROOT/.fable-team/bin-$_team/$_team-env.sh"
-    [ -f "$_tenv" ] || { echo "REJECT 팀 env 없음: $_tenv"; exit 1; }
+    [ -f "$_tenv" ] || { echo "REJECT 팀 env 없음: $_tenv${ROOT_NOTE:+ $ROOT_NOTE}"; exit 1; }
     . "$_tenv"
   else
     _tenv="$ROOT/.fable-team/bin-v65/v65-env.sh"

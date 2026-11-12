@@ -244,7 +244,7 @@ def grun_raw(cmd: list[str], env: dict[str, str] | None = None, timeout: float =
     return p.returncode, out or b"", (err or b"").decode("utf-8", "replace")
 
 
-def grun(cmd: list[str], env: dict[str, str] | None = None, timeout: float = 15) -> tuple[int, str]:
-    """글자 꼴 grun — grun_raw 를 감싼다(stdout 만 글자로)."""
-    rc, out, _err = grun_raw(cmd, env, timeout)
+def grun(cmd: list[str], env: dict[str, str] | None = None, timeout: float = 15, cwd: Path | None = None) -> tuple[int, str]:
+    """글자 꼴 grun — grun_raw 를 감싼다(stdout 만 글자로). cwd 없음(기본) = 부른 쪽 폴더 그대로(r1759 A5)."""
+    rc, out, _err = grun_raw(cmd, env, timeout, cwd)
     return rc, out.decode("utf-8", "replace")

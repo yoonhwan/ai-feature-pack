@@ -455,12 +455,20 @@ class Scan:
             tried = {}
         stamp = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(self.now))
         lines: list[str] = []
+        due = [x for x in out.splitlines() if x.startswith("닫기 차례 ")]
         if rc == 3:   # r1701 ② — 판정 불가 좌석은 이름·사유를 1줄씩 남기고 나머지 «닫기 차례» 는 그대로 처리한다
             for u in [x for x in out.splitlines() if x.startswith("판정 불가 ")]:
                 u = u[len("판정 불가 "):]
                 seat, _, why = u.partition(" ")
                 lines.append(f"{stamp} 판정 불가 auto-close {seat} {why}".rstrip())
-        for ln in [x for x in out.splitlines() if x.startswith("닫기 차례 ") and "갈래=승인" in x]:
+        # ★r1759 A1·A2·A3★ 닫기 도구는 «데이터 루트(self.root · FT_ROOT)» 안에서 부른다 — launchd 작업 폴더(팩)·팩 나노 worktree 를 물려주면
+        #   닫기 도구가 팩을 루트로 보고 팀 env 를 못 찾는다. 데이터 루트가 없거나 폴더가 아니면 부르지 않는다(하드 룰 20 · tried 갱신 0).
+        root = getattr(self, "root", None)   # 단위 시험이 __init__ 을 건너뛰면 없음 = 지금 그대로(cwd 상속)
+        cwd = Path(root) if root else None
+        root_why = f"데이터 루트 없음({cwd})" if cwd is not None and not cwd.is_dir() else ""
+        if root_why:
+            return lines + [f"{stamp} 판정 불가 auto-close {(x.split() + ['', '', ''])[2]} {root_why}" for x in due]
+        for ln in [x for x in due if "갈래=승인" in x]:
             seat = ln.split()[2] if len(ln.split()) > 2 else ""
             head = next((t[4:] for t in ln.split() if t.startswith("set=")), "")
             cmd = ln.split(" — ", 1)[1] if " — " in ln else ""
@@ -469,7 +477,7 @@ class Scan:
                 continue
             if tried.get(seat) == head:
                 continue
-            crc, cout = run(["bash", close, *shlex.split(cmd)[2:]], {**os.environ, "FT_NANO_AUTO_CLOSE": "1"}, 70)
+            crc, cout = run(["bash", close, *shlex.split(cmd)[2:]], {**os.environ, "FT_NANO_AUTO_CLOSE": "1"}, 70, cwd=cwd)
             rows = cout.strip().splitlines()
             closed = next((x for x in rows if x.startswith("CLOSED")), "")   # r1735 — 성공 = «CLOSED 로 시작하는 줄»(첫 줄 순서 의존 0)
             if crc == 0 and closed:   # r1735 A3 — rc≠0 은 CLOSED 줄이 있어도 실패(rc 우선)
@@ -479,7 +487,7 @@ class Scan:
                 tried[seat] = head
                 why = next((x for x in rows if not x.startswith("INFO")), (rows or [""])[0])[:120]   # r1735 A2 — INFO 줄은 사유가 아니다
                 lines.append(f"{stamp} auto-close 실패 {seat} rc={crc} — {why}")
-        for ln in [x for x in out.splitlines() if x.startswith("닫기 차례 ") and "갈래=착지기록" in x]:  # r1717 A11 — 기록이 다 선 착지 갈래(열쇠 = 좌석·set·rec)
+        for ln in [x for x in due if "갈래=착지기록" in x]:  # r1717 A11 — 기록이 다 선 착지 갈래(열쇠 = 좌석·set·rec)
             lines += land_close(ln, tried, stamp, close, run, self.root)
         try:
             sf.parent.mkdir(parents=True, exist_ok=True)
