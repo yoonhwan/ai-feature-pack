@@ -47,6 +47,23 @@ run "$SUT" "$T/c/sh3opt.sh"
 # ===== ⑤ 주석은 보지 않는다 → 0 =====
 printf '%s\n' '# tmux display-message -p -t "=$NAME" 는 has-session 에만 통한다' 'echo hi   # tmux send-keys -t "=$S" Enter' > "$T/c/sh5.sh"
 run "$SUT" "$T/c/sh5.sh"; { [ "$RC" = 0 ] && [ "$OUT" = "OK tmux-target 0" ]; }; ck "⑤ 주석 줄·줄 끝 주석 속 꼴 → 0" $?
+# ===== R1(DA HOLD · DA-r1740-289291 §1): 네 입력이 반례 =====
+printf '%s\n' 'def f(seat):' '    subprocess.run(["tmux", "display-message", "-p", "-t", f"={seat}", "#{pane_current_path}"])' > "$T/c/r1a.py"
+run "$SUT" "$T/c/r1a.py"; { [ "$RC" = 1 ] && has "ERR $T/c/r1a.py:2 tmux display-message -t ={seat}" && has "ERR tmux-target 1"; }; ck "R1① 파이썬 f\"={seat}\" → ERR 1(f 접두 때문에 놓치지 않는다)" $?
+printf '%s\n' 'def f(seat, cwd):' '    run(["tmux", "display-message", "-p", "-t", "=" + seat, cwd])' > "$T/c/r1b.py"
+run "$SUT" "$T/c/r1b.py"; { [ "$RC" = 1 ] && has "-t =+seat " && ! has "cwd"; }; ck "R1② «\"=\" + seat» 다음 인자 cwd → ERR(값에 cwd 가 섞이지 않는다)" $?
+printf '%s\n' 'def f(seat, fmt):' '    run(["tmux", "display-message", "-p", "-t", "=" + seat, fmt])' > "$T/c/r1b2.py"
+run "$SUT" "$T/c/r1b2.py"; { [ "$RC" = 1 ] && has "-t =+seat "; }; ck "R1② 대조: 다음 인자가 변수여도 값 = \"=\"+seat 만" $?
+printf '%s\n' 'tmux -L ft has-session -t "=$S" 2>/dev/null' 'tmux -L ft list-panes -t "=$S" -F "#{pane_id}"' > "$T/c/r1c.sh"
+run "$SUT" "$T/c/r1c.sh"; { [ "$RC" = 0 ] && [ "$OUT" = "OK tmux-target 0" ]; }; ck "R1③ tmux -L ft has-session·list-panes → 0(전역 옵션 뒤 하위 명령을 본다 · 오탐 0)" $?
+printf '%s\n' 'tmux -L ft set-option -t "=$S" -u @tag' > "$T/c/r1c2.sh"
+run "$SUT" "$T/c/r1c2.sh"; { [ "$RC" = 1 ] && has "tmux set-option -t =\$S"; }; ck "R1③ 대조: tmux -L ft set-option 은 그대로 ERR" $?
+printf '%s\n' 'tmux has-session -t "=$A" \; capture-pane -p -t "=$B" -S -20' > "$T/c/r1d.sh"
+run "$SUT" "$T/c/r1d.sh"; { [ "$RC" = 1 ] && has "tmux capture-pane -t =\$B" && has "ERR tmux-target 1"; }; ck "R1④ «\\;» 뒤 둘째 capture-pane → ERR 1(첫 명령이 세션 대상이어도 뒤를 본다)" $?
+printf '%s\n' 'tmux has-session -t "=$A" \; capture-pane -p -t "=$B:" -S -20' > "$T/c/r1d2.sh"
+run "$SUT" "$T/c/r1d2.sh"; { [ "$RC" = 0 ] && [ "$OUT" = "OK tmux-target 0" ]; }; ck "R1④ 대조: 둘째도 «=\$B:» 면 0" $?
+step "R1"
+
 step "③⑤"
 
 # ===== ⑥ 폴더 재귀(.sh·.py) + 실코퍼스에 pane 명령 위반 0 =====
@@ -127,6 +144,9 @@ open(sys.argv[2], "w", encoding="utf-8").write(s.replace(sn[0] + "\n", "", 1))
 PY
 land "$M3/ft-merge-land.sh" 42 --approve-sha "$PRSHA"
 { [ "$RC" = 0 ] && has "LANDED pr=42 "; }; ck "변이 M3(merge-land 호출 줄 삭제) → ④ 뒤 절반 FAIL 재현(함정 PR 이 착지)" $?
+mkpr 43 c43 "bin/ok2.sh=echo ok2"; land "$LAND" 43 --approve-sha "$PRSHA"
+R2LOG="$T/state/merge-gate.log"
+{ [ "$RC" = 0 ] && has "LANDED pr=43 " && has "OK tmux-target 0" && grep -qF "OK tmux-target 0" "$R2LOG"; }; ck "R2 정상 착지 stdout·state/merge-gate.log 에 «OK tmux-target 0» 1줄" $?
 M4="$(mutl M4 '    r = hit(code(text))' '    r = hit(text)')"
 run "$M4" "$T/c/sh5.sh"; { [ "$RC" = 1 ] && has "ERR tmux-target 2"; }; ck "변이 M4(주석 건너뛰기 삭제) → ⑤ FAIL 재현" $?
 run "$SUT" "$T/c/sh5.sh"; { [ "$RC" = 0 ] && [ "$OUT" = "OK tmux-target 0" ]; }; ck "M4 대조: 원본은 ⑤ 0" $?
