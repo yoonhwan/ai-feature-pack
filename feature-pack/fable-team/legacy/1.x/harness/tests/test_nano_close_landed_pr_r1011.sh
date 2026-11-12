@@ -376,7 +376,7 @@ out="$(CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 363)"; rc=$?
 [ "$rc" -eq 0 ] && ok "r1019 r2 변이(mode 검사 끔) → rebase 머리인데 닫힘 = r1019 r2 ⓚ 가 잡는다(변이 FAIL)" || bad "r1019 r2 변이 rc=$rc — 변이가 안 먹었다: $(printf '%s' "$out" | head -3)"
 
 echo "== r1019 r2 변이 «is-ancestor 검사 끔» → r1019 r2 ⓛ 가 잡는다(변이 FAIL)"
-mutant 'if git -C "$repo" merge-base --is-ancestor "$_lp_head" refs/remotes/origin/main 2>/dev/null; then' 'if false; then'
+mutant 'if git -C "$repo" merge-base --is-ancestor "$_lp_head" "$LP_LAND_REFS" 2>/dev/null; then' 'if false; then'
 eqstub "$T/mutbin" merge 1
 setup; git -C "$REPO" reset -q --hard "$H1"; printf '{"state":"MERGED","mergeCommit":{"oid":"%s"},"headRefOid":"%s"}\n' "$H1" "$H1" > "$T/gh.json"
 out="$(CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 363)"; rc=$?

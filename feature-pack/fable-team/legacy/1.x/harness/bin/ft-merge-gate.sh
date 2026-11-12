@@ -3,13 +3,15 @@
 #   병합·main push 게이트 — «후보 sha 가 현재 main 을 이미 포함하고 main 이 더한 줄을 지우지 않는가». 자율 ON/OFF 무관 · 읽기 전용(fetch 1회만).
 #   ① 검사 시각에 fetch(시도당 상한 = 25초(판정 4114) · FT_LAND_DEADLINE 있으면 min(25, 남은) · r1363 · 실패 = deny) · 마지막 줄 «INFO fetch 상한 <초>(판정 4114)»(지정 없음만) ② 기준 헤드 파일(.fable-team/state/base-head · 대상 가지가 main 이 아니면 base-head@<가지> · 1줄 40hex · r1687) 있으면 «손상 아님 + 후보의 조상» · 없음 = 이 검사만 생략
 #   ③ is-ancestor <main> <sha> 거짓 = deny(ft-head-sync 로 최신화) ④ 줄 계약(ft_merge_lines.py: main 이 더한 줄이 후보에서 사라지면 deny)
+#   --replace-ok <리포 상대 경로>@<sha>#§<절> (r1741) = DA 판정문의 «gate-replace» 블록에 적힌 (경로·줄) 만큼만 소실을 빼고 센다 — 그대로 ft_merge_lines.py 에 넘긴다.
 #   exit 0 = ALLOW · 1 = DENY(사유 stdout) · 2 = usage. 명령 실패는 «거짓» 과 사유를 가른다(DENY … 판정 불가).
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 . "$HERE/ft-merge-lib.sh"
-SHA=""; BHF=""; REPO=""; REMOTE="origin"; TARGET="main"
-usage() { echo "usage: $0 <sha> [--base-head-file <경로>] [--repo <dir>] [--remote origin] [--target main]" >&2; exit 2; }
+SHA=""; BHF=""; REPO=""; REMOTE="origin"; TARGET="main"; ROK=""
+usage() { echo "usage: $0 <sha> [--base-head-file <경로>] [--repo <dir>] [--remote origin] [--target main] [--replace-ok <경로>@<sha>#§<절>]" >&2; exit 2; }
 while [ $# -gt 0 ]; do case "$1" in
+  --replace-ok) [ $# -ge 2 ] || usage; ROK="$2"; shift 2;;
   --base-head-file) [ $# -ge 2 ] || usage; BHF="$2"; shift 2;;
   --repo) [ $# -ge 2 ] || usage; REPO="$2"; shift 2;;
   --remote) [ $# -ge 2 ] || usage; REMOTE="$2"; shift 2;;
@@ -47,6 +49,7 @@ fi
 
 anc "$M" "$S"; case $? in 0) ;; 1) deny "후보 ${S:0:10} 가 현재 main ${M:0:10} 을 포함하지 않음 — ft-head-sync.sh 로 최신화 먼저";; *) deny "main 포함 판정 불가(명령 실패 또는 shallow)";; esac
 
-OUT="$(python3 -I "$HERE/ft_merge_lines.py" "$REPO" "$M" "$S")"; rc=$?
+PA=("$REPO" "$M" "$S"); [ -z "$ROK" ] || PA+=(--replace-ok "$ROK")
+OUT="$(FT_REPLACE_REMOTE="$REMOTE" FT_REPLACE_TARGET="$TARGET" python3 -I "$HERE/ft_merge_lines.py" "${PA[@]}")"; rc=$?
 [ "$rc" -eq 0 ] || deny "${OUT#DENY }$([ "$rc" -eq 2 ] && echo ' (판정 불가 — 명령 실패)')"
 echo "ALLOW sha=$S main=$M tree=$(G rev-parse "$S^{tree}") · $OUT"
