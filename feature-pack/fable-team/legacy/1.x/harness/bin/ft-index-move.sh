@@ -286,7 +286,7 @@ fi
   [ -n "$wts" ] || { echo "INFO DA 경로 정규화 불가 — 원문 그대로" >&2; printf '%s#%s' "$daf" "$sec"; return 0; }
   while IFS= read -r line; do case "$line" in worktree\ *)
     d="${line#worktree }"; d="$(cd -- "$d" 2>/dev/null && pwd -P)" || continue
-    case "$p" in "$d"/*) w="$d"; break;; esac;; esac; done <<< "$wts"   # 같은 리포 워크트리만 후보(다른 리포 = 리포 밖)
+    case "$p" in "$d"/*) [ "${#d}" -gt "${#w}" ] && w="$d";; esac;; esac; done <<< "$wts"   # 가장 긴(가장 깊은) 일치 = 판정문이 실제 속한 워크트리 — 리포 안 .worktrees/ linked worktree 가 부모에 가려지지 않게(R1)
   [ -n "$w" ] || { printf '%s#%s' "$daf" "$sec"; return 0; }
   sha="$(git -C "$w" rev-parse HEAD 2>/dev/null)"
   [ -n "$sha" ] || { echo "INFO DA 경로 정규화 불가 — 원문 그대로" >&2; printf '%s#%s' "$daf" "$sec"; return 0; }
