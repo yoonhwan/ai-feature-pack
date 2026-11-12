@@ -4,6 +4,8 @@
 PATH 앞의 가짜 `git`·`tmux`(argv·env 를 파일에 1줄씩 기록 · rc 는 `FAKE_<이름>_RC`)가 받는다 — 실 tmux·
 실 git worktree·실 좌석 0 · 격리 tmp 뿐 · sleep 0 · 70초 안.
 `--repo` 사례만 가짜 git 이 `rev-parse` 를 진짜 git 에 넘긴다(실 리포·실 아닌 폴더를 가른다) — `FAKE_GIT_REAL_REVPARSE=1`.
+r1780: 가짜 git 은 기준 ref 확인(`rev-parse --verify`) rc0 에 유효 40자 sha(`FAKE_GIT_SHA`)를 낸다 · 기준 ref 사례(B①~B⑤ ·
+B①b)는 임시 리포(HEAD=B ≠ origin/main=A)에서 진짜 rev-parse 를 쓴다 · B①b 만 `worktree add` 도 진짜 git(임시 리포 안).
 변이 M1~M9 는 ft2 사본에서만 고치고, 변이마다 «원본으로 같은 사례 1회 더» 를 같은 시험에서 돌린다.
 """
 import json
@@ -25,6 +27,8 @@ ATTEMPT = "a1"
 ENV0 = dict(os.environ, FT_NOW=NOW)
 SEAT_ENV = ("FT2_ROOT", "FT2_TEAM", "FT2_WORK", "FT2_HOLDER", "FT2_ATTEMPT")
 SESSION_ARGV = ["--model", "claude-opus-5-5", "--thinking", "medium"]
+FAKE_SHA = "0123456789abcdef0123456789abcdef01234567"     # 가짜 git 기준 ref 확인의 40자 sha(r1780)
+BASE = "origin/main"
 FAKE = '''#!__PY__
 import json, os, sys
 name, argv = os.path.basename(sys.argv[0]), sys.argv[1:]
@@ -34,10 +38,24 @@ rec = {"prog": name, "argv": argv, "sub": sub,
        "env": {k: os.environ.get(k) for k in __SEAT__}}
 with open(os.environ["FAKE_LOG"], "a", encoding="utf-8") as fh:
     fh.write(json.dumps(rec, ensure_ascii=False) + "\\n")
+real = os.environ.get("REAL_GIT") or ""
 if name == "git" and sub == "rev-parse" and os.environ.get("FAKE_GIT_REAL_REVPARSE") == "1":
-    os.execv(os.environ["REAL_GIT"], [os.environ["REAL_GIT"]] + argv)
+    if "--verify" in argv and os.environ.get("FAKE_GIT_MOVE_REF"):   # B①b: 확인 «뒤» 같은 ref 를 옮긴다(경주)
+        import subprocess
+        done = subprocess.run([real] + argv, capture_output=True, text=True, timeout=25)
+        ref, to = os.environ["FAKE_GIT_MOVE_REF"].split("=", 1)
+        subprocess.run([real, "-C", argv[1], "update-ref", ref, to], check=True, timeout=25)
+        sys.stdout.write(done.stdout)
+        sys.stderr.write(done.stderr)
+        sys.exit(done.returncode)
+    os.execv(real, [real] + argv)
+if name == "git" and sub == "worktree" and os.environ.get("FAKE_GIT_REAL_WORKTREE") == "1":
+    os.execv(real, [real] + argv)
 key = "FAKE_" + name.upper() + ("_REV_RC" if sub == "rev-parse" else "_RC")
-sys.exit(int(os.environ.get(key) or 0))
+rc = int(os.environ.get(key) or 0)
+if name == "git" and sub == "rev-parse" and "--verify" in argv and rc == 0:
+    sys.stdout.write((os.environ.get("FAKE_GIT_SHA") or "__SHA__") + "\\n")
+sys.exit(rc)
 '''
 
 
@@ -46,7 +64,7 @@ def _paths(tmp):
     root, fake = Path(tmp) / "root", Path(tmp) / "bin"
     root.mkdir(parents=True)
     fake.mkdir()
-    body = FAKE.replace("__PY__", sys.executable).replace("__SEAT__", str(list(SEAT_ENV)).replace("'", '"'))
+    body = FAKE.replace("__PY__", sys.executable).replace("__SHA__", FAKE_SHA).replace("__SEAT__", str(list(SEAT_ENV)).replace("'", '"'))
     for name in ("git", "tmux"):
         (fake / name).write_text(body, encoding="utf-8")
         (fake / name).chmod(0o755)
@@ -132,7 +150,7 @@ def case_dry(tmp, launcher=LAUNCH):
     before = _snapshot(root)
     out, rc = _launch(root, fake, launcher, extra=["--dry-run"])
     assert rc == 0 and out["dry_run"] is True, out
-    assert out["argv"]["git"] == ["git", "-C", str(root), "worktree", "add", "--detach", str(_worktree(root))], out["argv"]
+    assert out["argv"]["git"] == ["git", "-C", str(root), "worktree", "add", "--detach", str(_worktree(root)), BASE], out["argv"]
     assert out["argv"]["tmux"][:5] == ["tmux", "new-session", "-d", "-s", HOLDER], out["argv"]
     assert out["argv"]["tmux"].count("-e") == 5, out["argv"]
     assert out["argv"]["tmux"][-4:] == SESSION_ARGV, out["argv"]
@@ -148,16 +166,17 @@ def case_open(tmp, launcher=LAUNCH):
     out, rc = _launch(root, fake, launcher)
     assert (out["result"], rc, out["opened"]) == ("접수 성공", 0, True), out
     lines = _log(fake)
-    assert [line["prog"] for line in lines] == ["git", "tmux"], lines
-    assert lines[0]["argv"] == ["-C", str(root), "worktree", "add", "--detach", out["worktree"]], lines[0]
-    assert lines[1]["argv"][:5] == ["new-session", "-d", "-s", HOLDER, "-c"], lines[1]
-    assert lines[1]["argv"][5] == out["worktree"], lines[1]
-    pairs = lines[1]["argv"][6:16]
+    assert [line["prog"] for line in lines] == ["git", "git", "tmux"], lines
+    assert lines[0]["argv"] == ["-C", str(root), "rev-parse", "--verify", "--quiet", BASE + "^{commit}"], lines[0]
+    assert lines[1]["argv"] == ["-C", str(root), "worktree", "add", "--detach", out["worktree"], FAKE_SHA], lines[1]
+    assert lines[2]["argv"][:5] == ["new-session", "-d", "-s", HOLDER, "-c"], lines[2]
+    assert lines[2]["argv"][5] == out["worktree"], lines[2]
+    pairs = lines[2]["argv"][6:16]
     assert pairs[::2] == ["-e"] * 5, pairs
     assert dict(item.split("=", 1) for item in pairs[1::2]) == {
         "FT2_ROOT": str(root), "FT2_TEAM": TEAM, "FT2_WORK": WORK,
         "FT2_HOLDER": HOLDER, "FT2_ATTEMPT": ATTEMPT}, pairs
-    assert lines[1]["argv"][16] == "pi" and lines[1]["argv"][-4:] == SESSION_ARGV, lines[1]["argv"]
+    assert lines[2]["argv"][16] == "pi" and lines[2]["argv"][-4:] == SESSION_ARGV, lines[2]["argv"]
     intents = list(_launch_dir(root).glob("*.intent"))
     assert [path.name for path in intents] == [_intent(root).name], intents
     assert json.loads(intents[0].read_text(encoding="utf-8"))["state"] == "opened"
@@ -227,8 +246,8 @@ def case_detach(tmp, launcher=LAUNCH):
     _runtime(root)
     out, rc = _launch(root, fake, launcher)
     assert rc == 0, out
-    git = [line for line in _log(fake) if line["prog"] == "git"][0]
-    assert git["argv"] == ["-C", str(root), "worktree", "add", "--detach", out["worktree"]], git["argv"]
+    git = [line for line in _log(fake) if line["prog"] == "git" and line["sub"] == "worktree"][0]
+    assert git["argv"] == ["-C", str(root), "worktree", "add", "--detach", out["worktree"], FAKE_SHA], git["argv"]
     assert "-b" not in git["argv"], git["argv"]
 
 
@@ -244,10 +263,30 @@ def case_latest_dispatch(tmp, launcher=LAUNCH):
     assert _log(fake) == [], "바깥 호출 0"
 
 
-def _git_repo(path):
-    """실 리포 1개 — `rev-parse` 를 진짜 git 으로 부른다(가짜 git 은 rev-parse 만 exec 한다)."""
+def _git(path, *args):
+    """진짜 git 1회(임시 리포 만들기만) — stdout 1줄."""
+    done = subprocess.run([shutil.which("git"), "-C", str(path), "-c", "user.name=t", "-c", "user.email=t@t",
+                           "-c", "commit.gpgsign=false"] + list(args),
+                          check=True, capture_output=True, text=True, timeout=25)
+    return done.stdout.strip()
+
+
+def _commits(path):
+    """임시 리포에 커밋 A→B · HEAD=B · refs/remotes/origin/main=A(B 의 부모) · origin/release=B. (A, B) 40자."""
     path.mkdir(parents=True, exist_ok=True)
     subprocess.run([shutil.which("git"), "init", "-q", str(path)], check=True, timeout=25)
+    _git(path, "commit", "-q", "--allow-empty", "-m", "A")
+    first = _git(path, "rev-parse", "HEAD")
+    _git(path, "commit", "-q", "--allow-empty", "-m", "B")
+    second = _git(path, "rev-parse", "HEAD")
+    _git(path, "update-ref", "refs/remotes/origin/main", first)
+    _git(path, "update-ref", "refs/remotes/origin/release", second)
+    return first, second
+
+
+def _git_repo(path):
+    """실 리포 1개 — `rev-parse` 를 진짜 git 으로 부른다 · 기준 ref(origin/main) 준비(r1780 A5)."""
+    _commits(path)
     return path
 
 
@@ -275,10 +314,12 @@ def case_repo_target(tmp, launcher=LAUNCH):
     out, rc = _launch(root, fake, launcher, extra=["--repo", str(repo)], env_extra=_repo_env())
     assert (out["result"], rc) == ("접수 성공", 0), out
     lines = _log(fake)
-    assert [line["prog"] for line in lines] == ["git", "git", "tmux"], lines
+    assert [line["prog"] for line in lines] == ["git", "git", "git", "tmux"], lines
     assert lines[0]["argv"] == ["-C", str(repo), "rev-parse", "--show-toplevel"], lines[0]
-    assert lines[1]["argv"] == ["-C", str(repo), "worktree", "add", "--detach", str(_worktree(root))], lines[1]
-    assert lines[2]["argv"][5] == str(_worktree(root)), lines[2]
+    assert lines[1]["argv"] == ["-C", str(repo), "rev-parse", "--verify", "--quiet", BASE + "^{commit}"], lines[1]
+    base_sha = _git(repo, "rev-parse", "refs/remotes/origin/main")
+    assert lines[2]["argv"] == ["-C", str(repo), "worktree", "add", "--detach", str(_worktree(root)), base_sha], lines[2]
+    assert lines[3]["argv"][5] == str(_worktree(root)), lines[3]
 
 
 def case_repo_refused(tmp, launcher=LAUNCH):
@@ -321,7 +362,7 @@ def case_repo_dry(tmp, launcher=LAUNCH):
     out, rc = _launch(root, fake, launcher, extra=["--repo", str(repo), "--dry-run"], env_extra=_repo_env())
     assert rc == 0 and out["dry_run"] is True, out
     assert out["repo"] == str(repo), out
-    assert out["argv"]["git"] == ["git", "-C", str(repo), "worktree", "add", "--detach", str(_worktree(root))], out["argv"]
+    assert out["argv"]["git"] == ["git", "-C", str(repo), "worktree", "add", "--detach", str(_worktree(root)), BASE], out["argv"]
     assert _log(fake) == [], _log(fake)
     assert _snapshot(root) == before, "런타임 바이트 그대로"
 
@@ -341,11 +382,91 @@ def case_recovery_quoted(tmp, launcher=LAUNCH):
     assert "새 attempt" in out["reason"], out["reason"]
 
 
+def _base_root(tmp):
+    """기준 ref 사례 공통(r1780) — 격리 루트 자체가 임시 리포(HEAD=B ≠ origin/main=A) · 런타임 = 배정·전달 끝."""
+    root, fake = _paths(tmp)
+    first, second = _commits(root)
+    _runtime(root)
+    return root, fake, first, second
+
+
+def _worktree_call(fake):
+    return [line for line in _log(fake) if line["prog"] == "git" and line["sub"] == "worktree"]
+
+
+def case_base_default(tmp, launcher=LAUNCH):
+    """B① 인자 없이 열기 → worktree add argv 끝 = origin/main 의 A 40자(로컬 HEAD B 아님) · 결과 rc0."""
+    root, fake, first, second = _base_root(tmp)
+    out, rc = _launch(root, fake, launcher, env_extra=_repo_env())
+    assert (out["result"], rc) == ("접수 성공", 0), out
+    calls = _worktree_call(fake)
+    assert len(calls) == 1 and calls[0]["argv"][-1] == first != second, calls
+    assert calls[0]["argv"][:-1] == ["-C", str(root), "worktree", "add", "--detach", str(_worktree(root))], calls
+
+
+def case_base_race(tmp, launcher=LAUNCH):
+    """B①b 확인(A 반환) 뒤 worktree add 전에 origin/main 을 B 로 옮김 → 만든 자리 HEAD = A = 의도 base_sha = argv 끝."""
+    root, fake, first, second = _base_root(tmp)
+    race = _repo_env({"FAKE_GIT_MOVE_REF": "refs/remotes/origin/main=" + second, "FAKE_GIT_REAL_WORKTREE": "1"})
+    out, rc = _launch(root, fake, launcher, env_extra=race)
+    assert (out["result"], rc) == ("접수 성공", 0), out
+    assert _git(root, "rev-parse", "refs/remotes/origin/main") == second, "경주가 실제로 일어났다(ref 이동)"
+    head = _git(_worktree(root), "rev-parse", "HEAD")
+    got = json.loads(_intent(root).read_text(encoding="utf-8"))
+    assert head == first == got.get("base_sha"), (head, first, got)
+    assert _worktree_call(fake)[0]["argv"][-1] == first, _log(fake)
+
+
+def case_base_named(tmp, launcher=LAUNCH):
+    """B② `--base origin/release` → argv 끝 = origin/release 의 40자 · 의도 base=origin/release."""
+    root, fake, first, second = _base_root(tmp)
+    out, rc = _launch(root, fake, launcher, extra=["--base", "origin/release"], env_extra=_repo_env())
+    assert (out["result"], rc) == ("접수 성공", 0), out
+    assert _worktree_call(fake)[0]["argv"][-1] == second != first, _log(fake)
+    got = json.loads(_intent(root).read_text(encoding="utf-8"))
+    assert (got.get("base"), got.get("base_sha")) == ("origin/release", second), got
+
+
+def case_base_missing(tmp, launcher=LAUNCH):
+    """B③ `--base origin/없음` → 확인 실패 → rc1 «접수 거부» · 의도 0 · worktree add 0 · tmux 0."""
+    root, fake, first, second = _base_root(tmp)
+    out, rc = _launch(root, fake, launcher, extra=["--base", "origin/없음"], env_extra=_repo_env())
+    assert (out.get("result"), rc) == ("접수 거부", 1), out
+    assert [(line["prog"], line["sub"]) for line in _log(fake)] == [("git", "rev-parse")], _log(fake)
+    assert _log(fake)[0]["argv"][-1] == "origin/없음^{commit}", _log(fake)
+    assert _intent(root).exists() is False, "의도 0"
+    assert _worktree(root).exists() is False, "자리 0"
+
+
+def case_base_intent(tmp, launcher=LAUNCH):
+    """B④ 열기 성공 → 의도 opened 줄 base=origin/main · base_sha=A 40자(= 실제 argv 끝)."""
+    root, fake, first, second = _base_root(tmp)
+    out, rc = _launch(root, fake, launcher, env_extra=_repo_env())
+    assert (out["result"], rc) == ("접수 성공", 0), out
+    got = json.loads(_intent(root).read_text(encoding="utf-8"))
+    assert got["state"] == "opened", got
+    assert (got.get("base"), got.get("base_sha")) == (BASE, first), got
+    assert _worktree_call(fake)[0]["argv"][-1] == got["base_sha"], _log(fake)
+
+
+def case_base_dry(tmp, launcher=LAUNCH):
+    """B⑤ `--dry-run` → JSON base=origin/main · argv 끝 = 이름 `origin/main`(A4) · 바깥 호출 0(확인도 0)."""
+    root, fake, first, second = _base_root(tmp)
+    before = _snapshot(root)
+    out, rc = _launch(root, fake, launcher, extra=["--dry-run"], env_extra=_repo_env())
+    assert rc == 0 and out["dry_run"] is True, out
+    assert out.get("base") == BASE and out["argv"]["git"][-1] == BASE, out
+    assert _log(fake) == [], _log(fake)
+    assert _snapshot(root) == before, "런타임 바이트 그대로"
+
+
 CASES = {"refused": case_refused, "dry": case_dry, "open": case_open, "again": case_again,
          "race": case_race, "fail": case_fail, "role": case_role, "guard": case_guard,
          "detach": case_detach, "latest": case_latest_dispatch, "budget": case_git_budget,
          "repo": case_repo_target, "repo_refused": case_repo_refused, "git_failed": case_git_failed,
-         "repo_dry": case_repo_dry, "recovery_quoted": case_recovery_quoted}
+         "repo_dry": case_repo_dry, "recovery_quoted": case_recovery_quoted,
+         "base_default": case_base_default, "base_race": case_base_race, "base_named": case_base_named,
+         "base_missing": case_base_missing, "base_intent": case_base_intent, "base_dry": case_base_dry}
 MUTANTS = {
     "M1": ("launch.py", "    if holder is None:", "    if holder is None and False:"),
     "M2": ("launch.py", '    if given.get("dry"):',
@@ -360,10 +481,18 @@ MUTANTS = {
     "M8": ("launch.py", '        if rc != 0:\n            os.unlink(plan["intent"])',
            '        if rc != 0 and False:\n            os.unlink(plan["intent"])'),
     "M9": ("launch.py", '    if step == "git":', '    if False:'),
+    # r1780 기준 ref 변이(카드 M1~M5 · 이름 앞에 B)
+    "BM1": ("launch_plan.py", "    return git[:-1] + [sha]", "    return git[:-1]"),
+    "BM2": ("launch.py", 'given.get("base") or planner.DEFAULT_BASE', 'planner.DEFAULT_BASE'),
+    "BM3": ("launch_plan.py", "return (0, sha) if sha else (1,", "return (0, sha) if True else (1,"),
+    "BM4": ("launch.py", 'worktree=plan["worktree"], base=base, base_sha=sha,', 'worktree=plan["worktree"], base=base,'),
+    "BM5": ("launch_plan.py", "    return git[:-1] + [sha]", "    return git"),
 }
 # 변이가 깨뜨려야 하는 사례 — 카드 §변이 그대로
 MUTANT_CASE = {"M1": "refused", "M2": "dry", "M3": "again", "M4": "fail", "M5": "open",
-               "M6": "budget", "M7": "repo", "M8": "repo_refused", "M9": "git_failed"}
+               "M6": "budget", "M7": "repo", "M8": "repo_refused", "M9": "git_failed",
+               "BM1": "base_default", "BM2": "base_named", "BM3": "base_missing", "BM4": "base_intent",
+               "BM5": "base_race"}
 
 
 def _mutant(tmp, name):
@@ -452,3 +581,27 @@ def test_15_repo_dry_run(tmp_path):
 
 def test_16_recovery_quoted_paths(tmp_path):
     case_recovery_quoted(tmp_path)
+
+
+def test_b01_base_default_origin_main(tmp_path):
+    case_base_default(tmp_path)
+
+
+def test_b01b_base_race_records_checked_sha(tmp_path):
+    case_base_race(tmp_path)
+
+
+def test_b02_base_named(tmp_path):
+    case_base_named(tmp_path)
+
+
+def test_b03_base_missing_refused(tmp_path):
+    case_base_missing(tmp_path)
+
+
+def test_b04_base_in_intent(tmp_path):
+    case_base_intent(tmp_path)
+
+
+def test_b05_base_dry_run(tmp_path):
+    case_base_dry(tmp_path)
