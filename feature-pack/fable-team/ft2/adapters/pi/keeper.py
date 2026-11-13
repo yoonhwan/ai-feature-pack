@@ -173,7 +173,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
             if row.get("done") or self.timed("b1", lambda: self.complete(team, work, attempt, self.landing(team, work))):
                 if self.sock:
                     self.timed("b2", self.close, team, work, attempt, row, dispatched)
-            else:
+            elif self.sock:   # r1817 fix1 R1 — 소켓 실패 바퀴 = 깨움·재배정도 0
                 self.stall.check(team, work, attempt, rows)   # r1813 — 진척 0 좌석 깨움 1회 → 재배정
 
 
