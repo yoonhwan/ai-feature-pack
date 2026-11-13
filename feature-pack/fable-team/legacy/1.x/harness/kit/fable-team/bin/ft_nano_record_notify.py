@@ -106,12 +106,12 @@ def close_request(ctx, r, path):   # A10 — 팀장에 «[완료·닫기 요청]
 
 def body_of(ctx, r):   # 열린 줄 → (받는 이, 본문)
     q10, tool = r["q"][:10], f"FT_ROOT={ctx.root} bash {HERE}/ft-nano-record.sh"
+    test = ' --test "<그 세트에서 돌린 시험 명령> rc=0"' if "ⓢ" in r.get("miss", "") else ""
     if r["k"] == "차례":
-        test = ' --test "<그 세트에서 돌린 시험 명령> rc=0"' if "ⓢ" in r["miss"] else ""
         return r["seat"], (f"[정리 차례] {r['stem']} 착지 {q10}(PR #{r['pr']} · 종류 {r['sort']} · 빠짐 {r['miss']}) — 실행: {tool} landed --seat {r['seat']}"
                            f" --pr {r['pr']} --card {r['stem']}{test} · 남은 일이 있으면 --left \"<종류>=<담당>\"")
     if r["k"] == "주인없음":
-        return r["master"], f"[정리 차례 · 주인 없음] {r['stem']} 착지 {q10}(PR #{r['pr']}) — 기록 담당 = 팀장 · 빠짐 {r['miss']} · 닫는 길 = 카드에 세트·착지 두 줄"
+        return r["master"], f"[정리 차례 · 주인 없음] {r['stem']} 착지 {q10}(PR #{r['pr']}) — 기록 담당 = 팀장 · 빠짐 {r['miss']} · 닫는 길 = {tool} landed --seat {r['master']} --pr {r['pr']} --card {r['stem']}{test}"
     return r["master"], (f"[정리 차례 · 카드 없음] PR #{r['pr']} 착지 {q10} — 기록 담당 = 팀장 · 닫는 길 = {tool} settle --seat <좌석> --pr {r['pr']}"
                          " (--card <stem> | --no-card \"<사유>\")")
 
