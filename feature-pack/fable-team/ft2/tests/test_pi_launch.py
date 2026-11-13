@@ -65,6 +65,8 @@ def _paths(tmp):
     root.mkdir(parents=True)
     fake.mkdir()
     body = FAKE.replace("__PY__", sys.executable).replace("__SHA__", FAKE_SHA).replace("__SEAT__", str(list(SEAT_ENV)).replace("'", '"'))
+    (root / ".fable-team" / "state").mkdir(parents=True)   # r1895: 첫 본문 카드 경로 = 카드 루트 표 행(없음 = launch 거절)
+    (root / ".fable-team" / "state" / "directive-roots.tsv").write_text("harness\t.\torigin/main\tdesign/*/indices\n", encoding="utf-8")
     for name in ("git", "tmux", "pi"):                # r1892: pi = 가짜 bin 의 절대 경로로 tmux 에 간다
         (fake / name).write_text(body, encoding="utf-8")
         (fake / name).chmod(0o755)
@@ -153,7 +155,7 @@ def case_dry(tmp, launcher=LAUNCH):
     assert out["argv"]["git"] == ["git", "-C", str(root), "worktree", "add", "--no-checkout", "--detach", str(_worktree(root)), BASE], out["argv"]
     assert out["argv"]["tmux"][:5] == ["tmux", "new-session", "-d", "-s", HOLDER], out["argv"]
     assert out["argv"]["tmux"].count("-e") == 5, out["argv"]
-    assert out["argv"]["tmux"][-4:] == SESSION_ARGV, out["argv"]
+    assert out["argv"]["tmux"][-5:-1] == SESSION_ARGV, out["argv"]
     assert sorted(out["env"]) == sorted(SEAT_ENV), out["env"]
     assert _log(fake) == [], _log(fake)
     assert _snapshot(root) == before, "런타임 바이트 그대로"
@@ -177,7 +179,7 @@ def case_open(tmp, launcher=LAUNCH):
     assert dict(item.split("=", 1) for item in pairs[1::2]) == {
         "FT2_ROOT": str(root), "FT2_TEAM": TEAM, "FT2_WORK": WORK,
         "FT2_HOLDER": HOLDER, "FT2_ATTEMPT": ATTEMPT}, pairs
-    assert lines[2]["argv"][16] == str(Path(fake) / "pi") and lines[2]["argv"][-4:] == SESSION_ARGV, lines[2]["argv"]
+    assert lines[2]["argv"][16] == str(Path(fake) / "pi") and lines[2]["argv"][-5:-1] == SESSION_ARGV, lines[2]["argv"]
     intents = list(_launch_dir(root).glob("*.intent"))
     assert [path.name for path in intents] == [_intent(root).name], intents
     assert json.loads(intents[0].read_text(encoding="utf-8"))["state"] == "opened"

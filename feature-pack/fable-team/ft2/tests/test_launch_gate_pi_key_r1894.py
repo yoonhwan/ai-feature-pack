@@ -51,7 +51,7 @@ def test_mutant_old_read_key(tmp_path):
     """M1 → 관문 REJECT(같은 줄 꼴) · no_pi 사례 FAIL(KeyError) · 원본은 no_pi PASS."""
     launcher = pp.pl._mutant(tmp_path, "K1")
     rc, line = gate(launcher.parents[2], tmp_path / "pkg")
-    assert rc == 1 and LITERAL in line and line.endswith("adapters/pi/launch.py:148"), line
+    assert rc == 1 and LITERAL in line and line.endswith("adapters/pi/launch.py:152"), line
     with pytest.raises(AssertionError, match="KeyError"):
         pp.case_no_pi(tmp_path / "bad", launcher)
     pp.case_no_pi(tmp_path / "good")

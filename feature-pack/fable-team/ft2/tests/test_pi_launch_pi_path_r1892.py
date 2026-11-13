@@ -38,7 +38,7 @@ def case_home_pi(tmp, launcher=pl.LAUNCH):
     out, rc = pl._launch(root, fake, launcher, env_extra=extra)
     assert (out["result"], rc, out.get("opened")) == ("접수 성공", 0, True), out
     new = pl._log(fake)[4]["argv"]
-    assert new[16] == str(home / ".local" / "bin" / "pi") and new[-4:] == pl.SESSION_ARGV, new
+    assert new[16] == str(home / ".local" / "bin" / "pi") and new[-5:-1] == pl.SESSION_ARGV, new
 
 
 def case_no_pi(tmp, launcher=pl.LAUNCH):
