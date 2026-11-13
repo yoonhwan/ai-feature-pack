@@ -176,20 +176,22 @@ case "$cmd" in
         *) path="$1"; shift ;;
       esac
     done
-    # K1·K2·K5 (E1·E2·E5): probe 0.6.0 은 markdown 청커(src/language/markdown.rs:240)가 다중 바이트
-    #   md 를 바이트로 잘라 panic(SIGABRT=134) 한다. 자리가 앞 카드(출력 단계)와 달라 폴백으로도 경고가
-    #   남고, md 를 다 읽느라 7초 근처가 된다(timeout 7 이면 rc 124). 그래서 질의 문자와 상관없이
-    #   probe 에는 md 를 늘 빼고(-i '*.md' = 제외) md 는 rg 절로 따로 찾는다(실측 2.89초 · panic 0).
-    echo "[info] markdown 은 rg 로 분리 검색(probe panic 회피)" >&2
-    md_excl=1
+    # Y1·Y2·Y5 (카드 ci-search-yaml-panic · 설계 1쪽 §3): probe 0.6.0 은 입력 단계 청커가 다중 바이트
+    #   파일을 바이트로 잘라 panic(SIGABRT=134) 한다 — markdown(markdown.rs:240) · yaml(yaml.rs:232).
+    #   앞 카드는 md 만 뺐고 같은 꼴이 yaml 에서 또 났다. 그래서 뺄 확장자를 목록 1개로 묶는다
+    #   (세 번째 언어는 목록에 낱말 1개 추가). 목록은 스크립트 상수다 — 환경 변수로 열지 않는다.
+    _PROBE_SKIP=(md yml yaml)
+    echo "[info] markdown·yaml 은 rg 로 분리 검색(probe panic 회피)" >&2
+    skip_excl=1
 
     # 출력 보류(D1a·C8): 어느 단계든 panic 이면 첫 단계 «No results found» 까지 버려야 하므로
     #   모든 단계의 stdout·stderr 를 임시 폴더에 받고, 판정(OR 재시도 여부)이 끝난 뒤 한 번에 낸다.
     _SE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ci-search.XXXXXX")" || { echo "판정 불가 ci search: 임시 폴더를 만들지 못했다" >&2; exit 3; }
     trap 'rm -rf "$_SE_DIR"' EXIT
 
-    # 1단계 — 질의 종류와 상관없이 md 는 빼고 부른다(K1).
-    _probe_search "$q" "$path" "$max" 1 -i '*.md'
+    # 1단계 — 질의 종류와 상관없이 목록 확장자는 빼고 부른다(K1·Y2).
+    _skip_probe=(); for x in "${_PROBE_SKIP[@]}"; do _skip_probe+=(-i "*.$x"); done
+    _probe_search "$q" "$path" "$max" 1 "${_skip_probe[@]}"
     if [ "$SE_TIMEOUT" = 1 ]; then
       echo "판정 불가 ci search: probe 시간 초과 rc=124 — scope 를 좁히세요" >&2
       exit 124
@@ -197,41 +199,43 @@ case "$cmd" in
     rc=$SE_RC; panic=$SE_PANIC; out1=$SE_OUT; err1=$SE_ERR
     panic_rc=$SE_RC; panic_err=$SE_ERR; orq=""
 
-    # md 결과를 OR 재시도 «앞» 에 확보한다(DA 4202 R1) — 기준판은 md hit 이 있으면 rc1→0 보정을 먼저 해
-    #   OR 를 부르지 않는다. 출력은 지금처럼 probe 출력 뒤에 낸다(순서 보존).
-    # K3·K4 (E3·E4): 글자 그대로(-F · 낱말마다 -e · glob 확장 0) · RG_BIN → _resolve rg
-    #   · 상한 min(CI_RG_TIMEOUT, 25) · 실패(rc ≥ 2 · 124)면 md 절 0 + 경고 1줄(probe 결과·rc 그대로).
-    md_hits=""; md_bad=0; md_rg_rc=""
-    read -ra md_words <<< "$q"
-    set --; for w in "${md_words[@]}"; do set -- "$@" -e "$w"; done
-    md_rg="${RG_BIN:-$(_resolve rg || true)}"
-    md_rgt="${CI_RG_TIMEOUT:-25}"; case "$md_rgt" in ''|*[!0-9]*) md_rgt=25 ;; esac
-    [ "$md_rgt" -ge 1 ] || md_rgt=25; [ "$md_rgt" -gt 25 ] && md_rgt=25
-    if [ -z "$md_rg" ] || ! command -v "$md_rg" >/dev/null 2>&1; then
-      md_bad=1; md_rg_rc="-"
+    # 목록 확장자(rg 절) 결과를 OR 재시도 «앞» 에 확보한다(DA 4202 R1) — 기준판은 hit 이 있으면 rc1→0
+    #   보정을 먼저 해 OR 를 부르지 않는다. 출력은 지금처럼 probe 출력 뒤에 낸다(순서 보존).
+    # K3·K4 (E3·E4)·Y3: 글자 그대로(-F · 낱말마다 -e · glob 확장 0) · RG_BIN → _resolve rg
+    #   · 상한 min(CI_RG_TIMEOUT, 25) · 실패(rc ≥ 2 · 124)면 절 0 + 경고 1줄(probe 결과·rc 그대로).
+    #   glob = 목록마다 -g '*.<x>' (md 만이 아니라 md·yml·yaml 을 한 절에서 찾는다).
+    skip_hits=""; skip_bad=0; skip_rg_rc=""
+    read -ra skip_words <<< "$q"
+    set --; for w in "${skip_words[@]}"; do set -- "$@" -e "$w"; done
+    skip_rg="${RG_BIN:-$(_resolve rg || true)}"
+    skip_rgt="${CI_RG_TIMEOUT:-25}"; case "$skip_rgt" in ''|*[!0-9]*) skip_rgt=25 ;; esac
+    [ "$skip_rgt" -ge 1 ] || skip_rgt=25; [ "$skip_rgt" -gt 25 ] && skip_rgt=25
+    _skip_glob=(); for x in "${_PROBE_SKIP[@]}"; do _skip_glob+=(-g "*.$x"); done
+    if [ -z "$skip_rg" ] || ! command -v "$skip_rg" >/dev/null 2>&1; then
+      skip_bad=1; skip_rg_rc="-"
     else
-      _cap "$md_rgt" "$md_rg" -F -H -n --no-heading --color never -m 1 "$@" -g '*.md' -g '!**/.git/**' -- "$path" >"$_SE_DIR/md.out" 2>/dev/null
-      md_rg_rc=$?
-      if [ "$md_rg_rc" -eq 124 ] || [ "$md_rg_rc" -ge 2 ]; then md_bad=1; fi
+      _cap "$skip_rgt" "$skip_rg" -F -H -n --no-heading --color never -m 1 "$@" "${_skip_glob[@]}" -g '!**/.git/**' -- "$path" >"$_SE_DIR/skip.out" 2>/dev/null
+      skip_rg_rc=$?
+      if [ "$skip_rg_rc" -eq 124 ] || [ "$skip_rg_rc" -ge 2 ]; then skip_bad=1; fi
     fi
-    if [ "$md_bad" = 1 ]; then
-      echo "[warn] markdown rg 실패 rc=$md_rg_rc" >&2
+    if [ "$skip_bad" = 1 ]; then
+      echo "[warn] markdown·yaml rg 실패 rc=$skip_rg_rc" >&2
     else
-      md_hits="$(head -n "$max" "$_SE_DIR/md.out" 2>/dev/null)"
+      skip_hits="$(head -n "$max" "$_SE_DIR/skip.out" 2>/dev/null)"
     fi
-    [ -n "$md_hits" ] && [ "$panic" -eq 0 ] && [ "$rc" -eq 1 ] && rc=0
+    [ -n "$skip_hits" ] && [ "$panic" -eq 0 ] && [ "$rc" -eq 1 ] && rc=0
 
-    # D5: panic 이면 md 뺀 재시도 0(panic 자리가 md 청커가 아니라 출력 단계다).
+    # D5: panic 이면 목록 빼고 재시도 0(panic 자리가 입력 청커가 아니라 출력 단계일 수 있다).
     # D6: OR 재시도는 «첫 단계가 panic 아님 + rc1 + 질의에 공백» 일 때만.
     if [ "$panic" -eq 0 ] && [ "$rc" -eq 1 ] && printf '%s' "$q" | grep -q '[[:space:]]'; then
       orq="$(printf '%s' "$q" | tr -s '[:space:]' '\n' | grep -v '^$' | paste -sd '|' - | sed 's/|/ OR /g')"
-      _probe_search "$orq" "$path" "$max" 2 -i '*.md'
+      _probe_search "$orq" "$path" "$max" 2 "${_skip_probe[@]}"
       if [ "$SE_TIMEOUT" = 1 ]; then
         echo "판정 불가 ci search: probe 시간 초과 rc=124 — scope 를 좁히세요" >&2
         exit 124
       fi
       rc=$SE_RC; out2=$SE_OUT; err2=$SE_ERR
-      if [ "$SE_PANIC" -eq 1 ]; then panic=1; panic_rc=$SE_RC; panic_err=$SE_ERR; md_excl=1; fi
+      if [ "$SE_PANIC" -eq 1 ]; then panic=1; panic_rc=$SE_RC; panic_err=$SE_ERR; skip_excl=1; fi
     fi
 
     if [ "$panic" -eq 1 ]; then
@@ -253,7 +257,7 @@ case "$cmd" in
       if [ -z "$RG" ] || ! command -v "$RG" >/dev/null 2>&1; then
         failwhy="rg 없음 rc=-"
       else
-        gopts=(-g '!**/.git/**'); [ "$md_excl" = 1 ] && gopts+=(-g "!*.md")   # panic 난 probe 가 md 를 뺐으면 rg 도 뺐다(C4)
+        gopts=(-g '!**/.git/**'); if [ "$skip_excl" = 1 ]; then for x in "${_PROBE_SKIP[@]}"; do gopts+=(-g "!*.$x"); done; fi   # probe 가 뺀 목록은 rg 도 뺀다(C4·Y4 · 겹침 0)
         timeout "$rgt" "$RG" -H -n --no-heading --color never -F -m 1 "$@" "${gopts[@]}" -- "$path" >"$_SE_DIR/rg.out" 2>"$_SE_DIR/rg.err"
         rgrc=$?
         if [ "$rgrc" -eq 124 ]; then failwhy="시간 초과 rc=124"
@@ -286,11 +290,11 @@ case "$cmd" in
       fi
     fi
 
-    # md 절 — 지금과 같은 자리(D8) · 결과는 위에서 이미 확보(R1)
-    if [ -n "$md_hits" ]; then
+    # 목록 확장자 절 — 지금과 같은 자리(D8) · 결과는 위에서 이미 확보(R1). 머리·문구는 고정 글자(Y5).
+    if [ -n "$skip_hits" ]; then
       echo
-      echo "== markdown (rg 폴백 · probe panic 회피) =="
-      printf '%s\n' "$md_hits" | while IFS= read -r line; do
+      echo "== markdown·yaml (rg 폴백 · probe panic 회피) =="
+      printf '%s\n' "$skip_hits" | while IFS= read -r line; do
         f="${line%%:*}"; rest="${line#*:}"; ln="${rest%%:*}"; txt="${rest#*:}"
         printf '%s:%s\n  %s\n' "$f" "$ln" "$(_cut160 "$txt")"
       done
