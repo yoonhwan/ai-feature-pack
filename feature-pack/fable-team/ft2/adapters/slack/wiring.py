@@ -254,7 +254,7 @@ def main(argv, post=None, sleep=None):
     pub = publish.SlackPublish(opts["root"], team=opts["team"], bindings=ledger,
                                post=lambda root_ts, text, marker, metadata: post(key.channel, root_ts, text, metadata),
                                sleep=sleep or (lambda s: time.sleep(min(float(s), 7))),
-                               delegate=_desk(opts["root"], opts["team"]))
+                               delegate=lambda: _desk(opts["root"], opts["team"]))  # R1 게시 직전마다 다시 읽음
     if verb == "reply":  # 역할 답 의도 키 = 업무 command 그대로 · gen = binding 에서
         intent, seat, gen = opts["command"], opts["seat"], now.gen
     else:  # notify — 의도 키 = notify:<root>:<본문 sha12> · 담당 검사 대신 열린 binding 만

@@ -199,8 +199,9 @@ class SlackPublish:
         if now is None or not now.open:  # 닫히면 담당 없음 = 답 거절(줄 14)
             return self._refused(key, command, "reply_refused", reason="닫히면 담당 없음 = 답 거절",
                                  owner=None if now is None else now.owner)
+        desk = self.delegate() if callable(self.delegate) else self.delegate  # r1862 R1 판정마다 현역 _desk 재판독
         if seat is not None and (seat, gen) != (now.seat, now.gen) and not (
-                self.delegate and seat == self.delegate and gen == now.gen):  # r1862 desk 대신 답 · binding 쓰기 0
+                desk and seat == desk and gen == now.gen):  # r1862 desk 대신 답 · binding 쓰기 0
             return self._refused(key, command, "stale_owner", seat=owner_label(seat, gen or 0),
                                  owner=now.owner, reason="옛 세대 답 거절")
         return None
