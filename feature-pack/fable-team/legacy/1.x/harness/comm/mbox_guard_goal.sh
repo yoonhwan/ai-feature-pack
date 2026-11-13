@@ -26,6 +26,12 @@ _goal_trim() { awk '/^★골 표 A6 \(/{f=1} !f{print} /^★\/골 표★$/{f=0}'
 _guard_goal_lint() {
   local body="$1" from="${2:-}" attach="${3:-}" first tool res rc why text coord="" cut=0
   first="${body%%$'\n'*}"; first="${first#"${first%%[![:space:]]*}"}"
+  if ! printf '%s' "$first" | grep -qE "$GOAL_TABLE_HEADS|$GOAL_COORD_HEADS"; then   # r1847 표·좌표 머리 밖 = 붙은 표만 뗀다(머리·발신자 검사 앞 · 판정 0 · 좌표 머리는 아래 r1830 그대로)
+    case "$GUARD_BODY" in *"★골 표 A6 ("*) text="$(printf '%s\n' "$GUARD_BODY" | _goal_trim)"
+      cut=$(( $(printf '%s' "$GUARD_BODY" | wc -c) - $(printf '%s' "$text" | wc -c) )); GUARD_BODY="$text";; esac
+    [ -n "$attach" ] && grep -q '^★골 표 A6 (' "$attach" 2>/dev/null && GUARD_TMP="$(mktemp -d "$GUARD_STATE/goal-relay.XXXXXX" 2>/dev/null)" \
+      && _goal_trim < "$attach" > "$GUARD_TMP/$(basename "$attach")" && GUARD_FILE="$GUARD_TMP/$(basename "$attach")" && cut=$(( cut + $(wc -c < "$attach") - $(wc -c < "$GUARD_FILE") ))   # relay = 사본만(원본 손 0)
+    [ "$cut" = 0 ] || echo "GOAL-TRIM ${cut}B" >&2; return 0; fi
   printf '%s' "$first" | grep -qE "$GOAL_HEADS" || return 0
   [ -n "$from" ] || return 0
   _goal_sender_in_roles "$from"; rc=$?

@@ -9,6 +9,7 @@ GUARD_STATE="$DIR/../state"; US=$'\037'
 # 무장 표식 $GUARD_STATE/goal-gate.armed — 파이썬 ft_goal_gate.armed·매거진 magazine_goal.armed 와 같은 경로·의미(교차 계약 시험 test_goal_gate_armed_contract.py).
 GOAL_HEADS='^\[(부팅|틱|발주|팀 발주|착지 차례|A6|완료·휴식)'
 GOAL_COORD_HEADS='^\[(발주|팀 발주|착지 차례)'   # r1830 G1 좌표 머리 = `골좌표:` 1줄만(붙은 골 표는 뗀다) · 나머지(부팅·틱·A6·완료·휴식) = 표 머리(블록 + 골좌표 그대로)
+GOAL_TABLE_HEADS='^\[(부팅|틱|A6|완료·휴식)'   # r1847 표 머리 = 블록 그대로 · 표·좌표 머리 밖 쪽지는 붙은 표를 뗀다(mbox_guard_goal.sh)
 goal_armed() { [ -f "$GUARD_STATE/goal-gate.armed" ]; }
 _goal_sender_in_roles() {  # rc 0 = 어느 명부든 _master·_desk·_arch 값 · 1 = 아님 · 2 = 명부 읽기 실패·명부 없음으로 판정 불가(H1②)
   python3 - "$(dirname "$(_seats_json)")" "$1" <<'PY' 2>/dev/null
