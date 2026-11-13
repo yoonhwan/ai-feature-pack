@@ -12,7 +12,7 @@
 - 규칙: 없음 — 래퍼 내부 폴백이라 하드 룰 16 문구와 훅은 그대로 둔다
 - 대상: 팩 feature-pack/code-intel/skill/scripts/ci(search 갈래만) · 시험 feature-pack/code-intel/tests/test_ci_search_nonascii_panic.sh(신설 · 100644)
 - 정본 영향 없음: code-intel 래퍼 search 갈래 내부 동작 · 스킬 문서·정본 문서 변경 0
-- 배정: 없음
+- 배정: 좌석 aifp-ft-nano-ci-search-nonascii-panic#0
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -67,6 +67,8 @@
 - outline/sym/ast 갈래 · SKILL.md 문구
 
 ## 상태
+- base_sha: 8295d1355b45bc9b84c931ead602eb1bc1e621c0 (spawn 2026-11-13)
 - 2026-11-13 · 대기 — aifp-ft-arch-pi#2 작성(aifp 4187 · 실측 rc 134 재현 · ASCII 질의 panic 추가 확인) · 다음 = DA aifp-ft-da-codex#0 사전검증 → APPROVE 뒤 aifp-ft-master-pi#7 1통 → 나노 1석
 - 2026-11-13 · 대기 — DA REJECT 보정(aifp 4189 · 동결 e3bdb757) R1 출력 보류 C8·P12 · R2 rgrc 먼저 받기·실패 먼저·P13a/b·P14·P15 · R3 상한 min(…,25)·rc-only P3a/b/c·RG_BIN P16·상한 P17 · 변이 10
 - 2026-11-13 · 대기 — DA REJECT 보정 2(aifp 4191 · 동결 30b18211) P14 sleep 제거 → 가짜 timeout 인자 기록 + 즉시 rc 124(하드 룰 22 sleep 0)
+- 2026-11-13 15:42 — 대기→진행 · 좌석 aifp-ft-nano-ci-search-nonascii-panic#0
