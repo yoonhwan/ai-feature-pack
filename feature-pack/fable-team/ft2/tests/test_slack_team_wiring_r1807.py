@@ -1,4 +1,4 @@
-"""r1807 ft2 Slack 팀 도구 배선 시험 — 사례 ①~⑪(⑤′ 포함) · 임시 root · 가짜 명부·깨움(FT2_SLACK_WAKE)·post.
+"""r1807 ft2 Slack 팀 도구 배선 시험 — 사례 ①~⑪(⑤′ 포함) · 보정1 ⑫(R1 허용 밖 채널) ⑬(R2 ack 직후 crash 복구) · 임시 root · 가짜 명부·깨움(FT2_SLACK_WAKE)·post.
 실 우편함·실 Slack·실 명부 0 · sleep 0 · 기준판(wiring 없음)에서 ①⑦⑩ Red."""
 import importlib.util, json, os, subprocess, sys  # noqa: E401
 import pytest
@@ -176,8 +176,8 @@ def test_9_reply_429_twice_visible_failure(env, capsys):
 
 
 def test_10_notify_named_thread_only_and_body_intent(env, capsys):
-    one, two, post = "1800000010.000100", "1800000010.000200", Post()
-    _bound(env, one, two)
+    one, two, post, listener = "1800000010.000100", "1800000010.000200", Post(), _listener(env, [])
+    listener.route(_msg(one)), listener.route(_msg(two))  # 수신 채널 root = S-1 이 받아 묶은 thread
     assert _run(capsys, _cmd(env, "notify", "알림 가", thread=one, seat=DESK), post)[0] == 0
     assert [c["thread_ts"] for c in post.calls] == [one]
     rc, out = _run(capsys, _cmd(env, "notify", "알림 가", thread=one, seat=DESK), post)
@@ -198,3 +198,27 @@ def test_11_notify_needs_open_named_thread(env, capsys):
         rc, out = _run(capsys, _cmd(env, "notify", thread=thread, seat=DESK), post)
         assert rc == 2 and out.startswith("state=refused")
     assert post.calls == []
+
+
+def test_12_notify_refuses_foreign_channel_binding(env, capsys):  # 보정1 R1 — 수신 채널 thread 만
+    ts, post, binding = "1800000012.000100", Post(), _load("binding")
+    binding.ThreadBinding(str(env), "planner").bind(binding.thread_key(W, "COTHER", ts), MASTER)
+    rc, out = _run(capsys, _cmd(env, "notify", thread=ts, seat=DESK), post)
+    assert rc == 2 and out.startswith("state=refused") and post.calls == []
+
+
+def test_13_crash_after_ack_recover_wakes_once(env):  # 보정1 R2 — 복구 dispatched 도 깨움·issues 1 · 재기동 중복 0
+    ts, posts = "1800000013.000100", []
+    first = _listener(env, posts)
+    def crash(step):
+        if step == "ack":
+            raise RuntimeError("ack 직후 crash")
+    first.receive.on_step = crash
+    with pytest.raises(RuntimeError):
+        first.route(_msg(ts))
+    for _ in range(2):  # 재기동 2번 — 두 번째는 깨움·attempt·게시 0
+        _listener(env, posts).run(sessions=0)
+    intake = _load("receive").intake.Intake
+    assert len(_wakes(env, MASTER)) == 1 and len(posts) == 1
+    assert [r["command"] for r in intake(str(env), "issues").records()] == [cmd(ts)]
+    assert intake(str(env), "planner").lookup(cmd(ts)).attempt == cmd(ts) + "#a1"
