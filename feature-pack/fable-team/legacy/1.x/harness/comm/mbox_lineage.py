@@ -3,6 +3,7 @@
 #   계보 규칙은 mbox_guard.sh 의 명부 규칙(tfile 팀 명부 · _replaced_by · 명부 충돌 · closed/stopped)과 같다. 외부 호출 0(json·큐 파일만).
 from mbox_conf import *
 from mbox_store import _load, _locked, _save
+import re
 import mbox_teamfile   # 명부 파일 고르기 = mbox_guard.sh 와 «같은 함수»(개명 별칭 · r745)
 CANON = None   # mbox.py 가 묶는다
 
@@ -138,7 +139,30 @@ def _mine(names, me):
     return mine
 
 
-def claim(dirs, names, frm, limit, me=None, on_take=None, only=None):
+_SLACK_HEAD = re.compile(r"^\[Slack\] .* · thread (\S+) · command (\S+)")   # wiring.py 깨움·알림 첫 줄
+_SLACK_CMD = re.compile(r"^slack:([^:\s]+):([^:\s]+):\S+$")
+
+
+def thread_key(r):   # r1842 T1 — 일반 = None · Slack = (workspace, channel, root ts) · 식별 불가 = 자기 seq 단독
+    m = r.get("from") == "ft2-slack-listen" and _SLACK_HEAD.match((r.get("body") or "").split("\n", 1)[0])
+    if not m:
+        return None
+    c = _SLACK_CMD.match(m.group(2))   # command 끝 ts = 답글 ts(root 아님) → 키에 안 씀
+    return (c.group(1), c.group(2), m.group(1)) if c else ("#seq", r.get("seq"))
+
+
+def thread_batch(got, left):   # r1842 T2 — 가장 오래된 후보의 묶음만 돌려준다 · 나머지는 left 에(소비 0)
+    k = thread_key(min(got, key=lambda x: x[1]["seq"])[1]) if got else None
+    left.extend(x for x in got if thread_key(x[1]) != k)
+    return [x for x in got if thread_key(x[1]) == k]
+
+
+def wait_line(left):   # r1842 T3 — 남은 수만(본문·thread 키·글쓴이 0)
+    th = {thread_key(r) for _, r in left} - {None}
+    return "WAIT thread %d · 일반 %d — 이 묶음 답 뒤 recv 다시" % (len(th), sum(1 for _, r in left if thread_key(r) is None))
+
+
+def claim(dirs, names, frm, limit, me=None, on_take=None, only=None, pick=None):
     """★선택과 소비를 «같은 잠금» 안에서 한다★ — 조회 잠금과 소비 잠금이 갈라져 있으면 옛 좌석 recv 와 후계 recv 가
     같은 행을 둘 다 읽는다. 우편함이 여럿(legacy)이면 정해진 순서로 전부 잡고 한 번에 처리한다(send 는 CANON 하나만 잡아 교착 0).
     표시 상한 밖(held)은 소비하지 않는다. 반환 = (읽은 [(디렉터리, 행)] LIFO, 남긴 [(디렉터리, 행)]).
@@ -154,6 +178,7 @@ def claim(dirs, names, frm, limit, me=None, on_take=None, only=None):
         got = [(d, r) for d, rows in per for r in rows
                if role_key(r.get("to")) in keys and mine(r.get("to")) and (frm is None or r.get("from") == frm)
                and (me is None or r.get("from") != me) and (only is None or only(r))]
+        got = pick(got) if pick else got   # r1842 — 고르지 않은 행 = 소비 0(큐에 남음)
         got.sort(key=lambda x: x[1]["seq"], reverse=True)   # LIFO
         held = []
         if limit is not None and len(got) > limit:
