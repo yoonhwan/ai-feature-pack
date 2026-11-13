@@ -22,6 +22,7 @@ import time
 from pathlib import Path
 
 import ft_card_assign_pause as pause
+from ft_api_outage_util import epoch, records  # r1882 — pi jsonl 꼬리·timestamp 읽기 한 벌
 import ft_headline_seats as headline_seats
 import ft_penalty
 import ft_stall_headline as headline
@@ -32,6 +33,16 @@ from ft_nano_record_auto import land_close
 
 HERE = Path(__file__).resolve().parent
 REPEAT_S = stm.REPEAT_S
+G_MIN_S = 120  # r1882 g — pi 오류 턴이 이만큼 지나야 «오류 멈춤»
+
+
+def pi_error_at(path: str) -> float | None:
+    """r1882 — pi jsonl(꼬리 1MB) 마지막 assistant 가 오류(stopReason=error·errorMessage)면 그 바깥 timestamp epoch · 아니거나 못 읽으면 None(처리 0)."""
+    try:
+        last = [r for r in records(path) if r.get("type") == "message" and r["message"].get("role") == "assistant"][-1]
+        return epoch(last) if last["message"].get("stopReason") == "error" or "errorMessage" in last["message"] else None
+    except (OSError, IndexError, KeyError, TypeError, AttributeError):
+        return None
 
 
 def _last_sent(comm: Path, names: set[str]) -> str:
@@ -202,6 +213,11 @@ class Scan:
                 if state == "LOGGEDOUT":  # r849 — 쉬는 좌석 아님(a·b·d 0) · 팀장 1통은 act_l
                     self.loggedout.append((s, t["master"], end))
                     continue
+                if state == "UNAVAILABLE":  # r1882 g — pi 모델 일시 오류로 끝난 턴(판정 = ft_seat_pi_turn 그대로 · RATELIMITED·UNKNOWN 은 지금 그대로)
+                    at = pi_error_at(self.seats.info(s)["path"])
+                    if at is not None and self.now - at >= G_MIN_S:
+                        out.append(dict(kind="g", seat=s, team=t["team"], age=(self.now - at) / 60, why=f"pi 오류 멈춤 {time.strftime('%H:%M:%S', time.localtime(at))}", sig=f"{s}@{at:.0f}", lead=t["master"] if t["master"] != s else next((x["master"] for x in teams if x["diag"] == "OK" and x["team"] == "planner"), None)))
+                    continue
                 if state in ("IDLE", "WORKING"):  # r849 — 정상 턴 = 로그아웃 아님(칸 지움) · UNKNOWN 은 칸 그대로
                     self.recovered.add(s)
                 if state == "UNKNOWN" or end is None and state == "IDLE":
@@ -299,6 +315,25 @@ class Scan:
             sigs[f["seat"]] = f["sig"]
             log.append(f"{stamp} act=e seat={f['seat']} notify={','.join(to) or '-'} {f['why']}")
         _ = path.write_text(json.dumps({s: v for s, v in sigs.items() if s in self.live}), encoding="utf-8")
+        return log
+
+    def act_g(self, found: list[dict], stamp: str) -> list[str]:
+        """r1882 g — 서명(좌석@오류 시각) 처음 = 직전 재확인 뒤 고정 [재개] 큐 적재 + 표준 ring 1회 · 둘째 = 계보 현역 master(자기 자신이면 planner) [멈춤] 1통 · 셋째부터 0 · 서명 파일 state/stall-scan.g.json."""
+        path, keep, log = self.state_dir / "stall-scan.g.json", {}, []
+        try:
+            sigs = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            sigs = {}
+        for f in (x for x in found if x["kind"] == "g" and (x["sig"] in sigs or self.turn(x["seat"], fresh=True)[0] == "UNAVAILABLE")):  # 처음이면 직전 재확인(그 사이 새 턴 = 0)
+            n = sigs.get(f["sig"], 0)
+            keep[f["sig"]], at = min(n + 1, 2), f["why"].rsplit(" ", 1)[1]
+            if n == 0:
+                self.send(f["seat"], f"[재개] 모델 일시 오류로 턴이 끝났다({at}) · 마지막 일을 이어서", urgent=False)
+                run(["bash", self.mbox, "ring", f["seat"]])
+            elif n == 1 and f["lead"]:
+                self.send(f["lead"], f"[멈춤] {f['seat']} pi 모델 일시 오류({at}) 뒤 깨워도 멈춤 · 재개·인계 판단 (ft-stall-scan g)")
+            log += [f"{stamp} act=g seat={f['seat']} n={n + 1} to={f['seat'] if n == 0 else f['lead']} {f['why']}"] if n < 2 else []
+        _ = path.write_text(json.dumps(keep), encoding="utf-8")
         return log
 
     def cell(self, seat: str) -> Path:
@@ -510,10 +545,10 @@ class Scan:
         found, unknown = self.gate_a(found, unknown)  # r1238 A — 처리 단계 첫 일(keys·counts·trig 전)
         handled, prev = self.st.get("handled", {}), set(self.st.get("prev", []))
         keys = {f"{f['kind']}:{f['seat']}": f for f in found if f["kind"] != "h"}
-        counts = {k: sum(1 for f in found if f["kind"] == k) for k in "abcdefh"}
+        counts = {k: sum(1 for f in found if f["kind"] == k) for k in "abcdefgh"}
         trig = sorted(k for k, f in keys.items() if k[0] in "abd" and k in prev and f["seat"] in handled and not f["attached"] and not f["held"])
-        lines = [f"stall={len(found) - counts['h']} a={counts['a']} b={counts['b']} c={counts['c']} d={counts['d']} e={counts['e']} seats={len(self.live)} u={unknown} ts={int(self.now)} l={len(self.loggedout)} f={counts['f']} h={counts['h']}"]
-        lines += [f"{f['kind']} {f['seat']} {f['age']:.0f} {f['why']}" + ("" if f["kind"] in ("e", "h") else " (attached·처리 0)" if f["attached"] else " (전팀 정지 처리 0)" if f.get("all_stop") else " (정지 중 처리 0)" if f["held"] else "") for f in found]
+        lines = [f"stall={len(found) - counts['h']} a={counts['a']} b={counts['b']} c={counts['c']} d={counts['d']} e={counts['e']} seats={len(self.live)} u={unknown} ts={int(self.now)} l={len(self.loggedout)} f={counts['f']} h={counts['h']} g={counts['g']}"]
+        lines += [f"{f['kind']} {f['seat']} {f['age']:.0f} {f['why']}" + ("" if f["kind"] in ("e", "h", "g") else " (attached·처리 0)" if f["attached"] else " (전팀 정지 처리 0)" if f.get("all_stop") else " (정지 중 처리 0)" if f["held"] else "") for f in found]
         lines += [f"l {s} 첫 실패 {e if e is None else int(e)} 로그아웃(재개 = 재시작)" for s, _, e in self.loggedout]
         lines += self.notes
         print("\n".join(lines))
@@ -528,11 +563,12 @@ class Scan:
         if not cell_err:
             log += self.act_e(found, stamp)  # e 는 알림만 — attached·페널티·10분 창과 무관, 서명으로만 1회
             log += self.act_l(stamp)  # r849 — 로그아웃 좌석 팀장 1통 · 칸(좌석 계보)으로만 1회
+            log += self.act_g(found, stamp)  # r1882 — pi 오류 멈춤 · 서명으로만(10분 창·attached 무관)
             headline_notes = headline.headline_alerts(self.root, self.comm, found, self.live, self.now, self.send_headline, self.astop)  # r1371 — 같은 표식(조회 1회)
             for note in headline_notes:
                 print(note)
         for f in found:
-            if cell_err or f["kind"] in ("e", "h") or f["kind"] == "b" and f["seat"] in d_seats:  # b+d 동시 = d 한 번(가장 오래된 pending seq ring · 새 send 생략)
+            if cell_err or f["kind"] in ("e", "h", "g") or f["kind"] == "b" and f["seat"] in d_seats:  # b+d 동시 = d 한 번(가장 오래된 pending seq ring · 새 send 생략)
                 continue
             key = f.get("key", f["seat"])  # r1001 r3 — 팀장 경보 억제 키 = 팀(대상 좌석이 바뀌어도 같은 팀 10분 0통)
             if f["attached"] or f["held"] or f.get("all_stop") or self.now - float(handled.get(key, 0)) < REPEAT_S or f["kind"] != "f" and stm.recent_in_log(self.state_dir, f["seat"], self.now):
