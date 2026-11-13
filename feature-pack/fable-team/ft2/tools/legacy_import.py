@@ -20,7 +20,7 @@ import re
 import sys
 
 _CORE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "core", "legacy_import.py")
-TARGET = re.compile(r"^2\.0 (?:record: |intake: )?(card/r\d+|mbox/\d+|seat/.+)$")
+TARGET = re.compile(r"^2\.0 (?:record: |intake: )?(card/(?:r\d+|(?!r\d+[-_]|.*\.md$)[^/\n\t]+)|mbox/\d+|seat/.+)$")  # r1811 이름 열쇠
 USAGE = 64
 
 
@@ -82,8 +82,8 @@ def _mail_line(path, seq):
     raise Skip("원본 없음")
 
 
-def _source(root, cards, team, row, cat, stem):
-    """원본 바이트 1개. 없거나 팀 밖이면 Skip."""
+def _source(root, cards, team, row, cat, stem, meta=None):
+    """원본 바이트 1개. 없거나 팀 밖이면 Skip. 명부 = meta.seats(r1811 대조기가 푼 이름) · 없으면 seats-<팀>.json."""
     loc = str(row.get("loc") or "")
     try:
         if cat == "card":
@@ -92,7 +92,7 @@ def _source(root, cards, team, row, cat, stem):
                 return handle.read()
         if cat == "intake":
             return _mail_line(os.path.join(root, loc.split("#", 1)[0]), int(stem))
-        if os.path.basename(loc) != "seats-%s.json" % team:
+        if os.path.basename(loc) != os.path.basename(str((meta or {}).get("seats") or "seats-%s.json" % team)):
             raise Skip("팀 밖")
         with open(os.path.join(root, loc), encoding="utf-8") as handle:
             seats = json.load(handle)
@@ -176,7 +176,7 @@ def main(argv, caps=None, on_step=None, out=None):
         try:
             key, cat, stem = _key(row)
             name = _name(row, cat, stem)
-            plan.append((row, key, cat, stem, name, _source(root, cards, args.team, row, cat, stem), ""))
+            plan.append((row, key, cat, stem, name, _source(root, cards, args.team, row, cat, stem, meta), ""))
         except Skip as why:
             plan.append((row, row.get("target_id"), None, None, None, None, str(why)))
     n = a = b = e = broken = 0
@@ -209,7 +209,7 @@ def main(argv, caps=None, on_step=None, out=None):
     for row, key, cat, stem, name, data, why in plan:
         if data is not None:
             try:
-                changed += _source(root, cards, args.team, row, cat, stem) != data
+                changed += _source(root, cards, args.team, row, cat, stem, meta) != data
             except Skip:
                 changed += 1
     try:
