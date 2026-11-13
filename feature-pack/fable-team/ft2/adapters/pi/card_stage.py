@@ -86,6 +86,7 @@ def stage(byz, path, at, now):
     with tempfile.TemporaryDirectory(prefix="ft2-card-stage-") as tmp:
         wt, dst = os.path.join(tmp, "wt"), path.replace("/indices/진행/", "/indices/완성/", 1)
         run(byz, "worktree", "add", "-q", "--detach", wt, REF)
+        out = Unsure("git 시간초과")   # 본문이 TimeoutExpired 로 끝나면 이 값이 남는다
         try:
             os.makedirs(os.path.dirname(os.path.join(wt, dst)), exist_ok=True)
             run(wt, "mv", path, dst)
@@ -95,12 +96,13 @@ def stage(byz, path, at, now):
             out = doc.stem, push(wt)
         except Unsure as exc:
             out = exc
-        try:
-            gone = git(byz, "worktree", "remove", "--force", wt)[0]
-        except subprocess.TimeoutExpired:
-            gone = 124
-    if gone:   # R1 — 정리 rc 를 버리지 않는다 · 앞 결과를 같이 낸다(재실행 = NOOP 수렴)
-        raise Unsure("worktree 정리 실패 rc %s %s 등록 잔존 · %s" % (gone, wt, out if isinstance(out, Unsure) else "STAGED %s %s" % out))
+        finally:   # R2 — add 뒤에는 성공·Unsure·TimeoutExpired 모두 이 정리 1곳을 탄다
+            try:
+                gone = git(byz, "worktree", "remove", "--force", wt)[0]
+            except subprocess.TimeoutExpired:
+                gone = 124
+            if gone:   # R1 — 정리 rc 를 버리지 않는다 · 앞 결과를 같이 낸다(재실행 = NOOP 수렴)
+                raise Unsure("worktree 정리 실패 rc %s %s 등록 잔존 · %s" % (gone, wt, out if isinstance(out, Unsure) else "STAGED %s %s" % out))
     if isinstance(out, Unsure):
         raise out
     return out
