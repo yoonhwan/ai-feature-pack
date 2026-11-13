@@ -100,6 +100,13 @@ def test_r3_comment_dot_word_is_not_source(w):  # r3 R3: 주석 속 «). 낱말�
     rc, out = check(w, case(w, entry_sh='x=1; . "$X/lib.sh"   # (참고). 메모\n'))
     assert rc == 1 and "결합 불가" in out and "entry.sh:1" in out, out
 
+def test_r4_bash_source_single_percent_dir(w):  # r4: ${BASH_SOURCE[0]%/*} = 그 스크립트 폴더(% 하나 꼴도 글자 그대로)
+    p = case(w, lib_sh="y=1\n", entry_sh='runner=/usr/bin/true\n. "${BASH_SOURCE[0]%/*}/lib.sh"\n"$runner" exec sample\n')
+    rows = record_baseline(w)
+    assert rows and rows[0][2] != "-" and check(w, p) == (0, "ALLOW com.byz.ft-fx"), rows
+    put(w / "bin/lib.sh", f"runner={w / 'ext'}/codex\n", 0o644)
+    assert "기준선 결합 불일치" in check(w, p)[1]
+
 def test_1c_variable_source_path_unbindable(w):
     p = case(w, lib_sh="x=1\n", entry_sh='. "$X/lib.sh"\nrunner=/usr/bin/true\n"$runner" exec sample\n')
     rc, out = record_baseline(w) and check(w, p)
