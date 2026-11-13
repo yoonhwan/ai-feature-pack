@@ -40,6 +40,8 @@ fm_fetch_deadline_rem() {
   { [ -n "$d" ] && printf '%s' "$d" | grep -Eq '^[0-9]+$'; } || return 1
   echo $(( d - $(date +%s) ))
 }
+#   fm_tail_s <상한초> : r1389 — 착지 뒤 단계 1개(설치 대조 · 뒤처짐 알림)의 상한 = min(상한, FT_LAND_DEADLINE 남은 초) · 남은 ≤ 0 = 0(부른 쪽이 호출 0 — timeout 0 = 무한) · 마감 없음 = 상한 그대로
+fm_tail_s() { local r; r="$(fm_fetch_deadline_rem)" || { echo "$1"; return 0; }; [ "$r" -gt 0 ] || r=0; if [ "$r" -lt "$1" ] 2>/dev/null; then echo "$r"; else echo "$1"; fi; }
 #   fm_fetch_banner : 「오빠 예외 판정[ <N>] · 지정 <초>」 한 줄 — FT_FETCH_TIMEOUT_SEC 가 유효 지정일 때만(아니면 출력 0). N = FT_FETCH_EXCEPTION_ID(영숫자만 · 없으면 빈칸)
 fm_fetch_banner() {
   local id; [ "${FM_FETCH_SEC_VALID:-0}" = 1 ] || return 0
