@@ -5,7 +5,8 @@
 (`<루트>/.fable-team/state/ft20-switch/<팀>.held/<cat>/<이름>`)을 두고, core/legacy_import.py 로 import 줄 1개를 더한다.
 원본 삭제·이동 0 · 표식 쓰기 0 · 쓰는 runtime = `--team` 하나뿐(경로 인자 없음).
 
-    python3 tools/legacy_import.py --root R --team T --reconcile <reconcile.json> [--dry-run | --precheck]
+    python3 tools/legacy_import.py --root R --team T --reconcile <reconcile.json> [--dry-run | --precheck] [--rehold]
+--rehold(r1875) = «held 사본 sha 다름» 행 중 아직 import 안 된 key 만 옛 held → `<이름>.prev-<ts>` 뒤 다시 쓴다.
 
 끝 1줄 = «가져온 수 N · 건너뜀 M(이미 가져옴 a · 겹침 b) · 용량 거절 e · 누락 c · 원본 sha 변화 d · revision 전->후».
 rc 0 = 누락·sha 변화·용량 거절 0 · 1 = 누락·sha 변화·팀 거부·용량 거절 · 2 = 판정 불가·복구 필요 · 64 = 인자.
@@ -18,10 +19,12 @@ import json
 import os
 import re
 import sys
+import time
 
 _CORE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "core", "legacy_import.py")
 TARGET = re.compile(r"^2\.0 (?:record: |intake: )?(card/(?:r\d+|(?!r\d+[-_]|.*\.md$)[^/\n\t]+)|mbox/\d+|seat/.+)$")  # r1811 이름 열쇠
 USAGE = 64
+_ts = lambda: time.strftime("%Y%m%dT%H%M%S")  # noqa: E731 — r1875 .prev 꼬리(시험이 바꾼다)
 
 
 def _core():
@@ -146,6 +149,28 @@ def _held(path, data, dry):
     return True
 
 
+def _prev(path):
+    """r1875 옛 held → <이름>.prev-<ts>(충돌 = .1·.2 순번) · link 라 덮어쓰기 0."""
+    base = dst = "%s.prev-%s" % (path, _ts())
+    while True:
+        try:
+            os.link(path, dst)
+            break
+        except FileExistsError:
+            dst = "%s.%d" % (base, int(dst[len(base) + 1:] or 0) + 1)
+    os.unlink(path)
+    return dst
+
+
+def _inventory(meta):
+    """r1875 수집값 {loc: sha256} — 못 읽으면 빈 dict(그 행 = 판정 불가)."""
+    try:
+        with open(str(meta.get("inventory") or ""), encoding="utf-8") as handle:
+            return {str(item.get("loc")): item.get("sha256") for item in json.load(handle)["items"]}
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return {}
+
+
 def main(argv, caps=None, on_step=None, out=None):
     out, step, say = out or sys.stdout, on_step or (lambda name: None), (lambda text: out.write(text + "\n"))
     parser = argparse.ArgumentParser(prog="legacy_import.py")
@@ -153,6 +178,7 @@ def main(argv, caps=None, on_step=None, out=None):
         parser.add_argument(name, required=True)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--precheck", action="store_true")
+    parser.add_argument("--rehold", action="store_true")
     try:
         args = parser.parse_args(argv)
     except SystemExit as exc:                           # argparse 오류(2) = 64 · --help = 0
@@ -179,7 +205,7 @@ def main(argv, caps=None, on_step=None, out=None):
         return 2
     cards, held_root = str(meta.get("cards_root") or root), os.path.join(
         root, ".fable-team", "state", "ft20-switch", args.team + ".held")
-    plan = []
+    plan, inv = [], _inventory(meta) if args.rehold else {}
     for row in rows:
         try:
             key, cat, stem = _key(row)
@@ -202,10 +228,19 @@ def main(argv, caps=None, on_step=None, out=None):
             reasons.update(["줄 > %d" % limit] if size > limit else [])
             n += size <= limit
             continue
-        if not _held(os.path.join(held_root, cat, name), data, args.dry_run):
-            broken += 1
-            say("복구 필요 %s: held 사본 sha 다름 = 그 행 쓰기 0" % key)
-            continue
+        if not _held(held := os.path.join(held_root, cat, name), data, args.dry_run):
+            if args.rehold and key in (imp.lc._state_records()[0].get("imported") or {}):
+                a += 1                                  # DA r1875 R1: held·import 둘 다 손 0
+                say("이미 가져옴 %s: 원본 바뀜 = 보존" % key)
+                continue
+            if not args.rehold or inv.get(str(row.get("loc"))) != _sha(data):
+                broken += 1
+                say("판정 불가 %s: 원본 sha ≠ inventory 수집값 = 그 행 쓰기 0" % key if args.rehold
+                    else "복구 필요 %s: held 사본 sha 다름 = 그 행 쓰기 0" % key)
+                continue
+            if not args.dry_run:
+                say("held 다시 씀 %s: 옛 사본 = %s" % (key, os.path.basename(_prev(held))))
+                _held(held, data, False)
         step("after_held")
         res = imp.put(dict(key=key, body=cat + "/" + name, src=_src(row, name), sha256=_sha(data),
                            bytes=len(data)), args.dry_run)
