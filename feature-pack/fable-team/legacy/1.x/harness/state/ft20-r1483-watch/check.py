@@ -96,6 +96,7 @@ DOORBELL_MAX_BYTES = 200  # r1625: 입력창에 넣는 지침 문구는 1줄 · 
 DOORBELL = '[ft20-check 300초] 지침 = %s sha %s · 그 형식으로 점검'  # r1625: 경로 + 지침 지문
 ENGINE = None  # r1621: None|'codex' = 지금 경로 그대로 · 'pi' = Pi 판독기 (engine 키를 더하기만)
 TYPED_AT = None  # r1621 B1: 우리가 상자에 글을 넣은 시각 (그 뒤 사람 흔적 0 판정용)
+BOX_WHY = ''  # r1836 B4: 이 회차 Pi 입력창 판정 불가 이유
 
 
 def stamp_of(value):
@@ -148,9 +149,9 @@ def reason(state, terminal, previous, pane):
         return state
     if terminal == previous:
         return 'ALREADY_NOTIFIED'
-    if ENGINE == 'pi':  # r1621 ⓔ: Pi 바쁨 표식 · 입력 상자 (마지막 두 ─── 줄 사이)
-        return ('PANE_BUSY' if pi_reader().busy(pane) else
-                'INPUT_PRESENT' if pi_reader().box(pane) else 'READY')
+    if ENGINE == 'pi':  # r1621 ⓔ: Pi 바쁨 표식 · 입력 상자 (마지막 두 ─── 줄 사이) · r1836 B3: 판정 불가 = READY 0
+        return ('PANE_BUSY' if pi_reader().busy(pane) else 'INPUT_UNDECIDABLE' if undecidable(pane) else
+                'INPUT_PRESENT' if box_filled(pane) else 'READY')
     if re.search(r'esc to interrupt|Working \(|Thinking', pane):
         return 'PANE_BUSY'
     prompts = re.findall(r'^›\s*(.*)$', pane, flags=re.M)
@@ -226,19 +227,26 @@ def exact_input(capture, message):
     return ''.join(editor.split()) == ''.join(message.split())
 
 
+def undecidable(capture):  # r1836 B3: Pi 입력창 판정 불가면 이유(그 회차 기록) · 아니면 ''
+    global BOX_WHY
+    state, _text, why = pi_reader().box_state(capture) if ENGINE == 'pi' else ('', '', '')
+    BOX_WHY = why if state == 'unknown' else BOX_WHY
+    return why if state == 'unknown' else ''
+
+
 def box_filled(capture):  # r1621 ⓔ: 입력창에 글이 있나 (Pi 상자 · codex 마지막 › 줄 · 빈 칸 힌트 제외)
-    if ENGINE == 'pi':
-        return bool(pi_reader().box(capture))
+    if ENGINE == 'pi':  # r1836 B3: text 만 참 (unknown 은 reason·deliver 가 먼저 막는다)
+        return pi_reader().box_state(capture)[0] == 'text'
     return (re.findall(r'^› ?(.*)$', capture, flags=re.M) or [''])[-1].strip() not in ('', 'Ask Codex to do anything')
 
 
-def alert_master(cfg, result):  # r1834 E2: 남의 글 = 깨움 보류 · master 쪽지 (같은 terminal 1회 · 실패 = alert_rc)
+def alert_master(cfg, result, what='입력창에 남의 글'):  # r1834 E2: 깨움 보류 · master 쪽지 (같은 terminal 1회 · 실패 = alert_rc)
     if result.get('input_alerted_terminal') == result['terminal']:
         return
     try:
         master = json.loads(Path(cfg.get('roster') or FT / 'seats-harness.json').read_text(encoding='utf-8'))['_master']
         run(['bash', str(FT / 'comm' / 'mbox.sh'), 'send', master, 'ft20-r1483-watch',
-             '[막힘] ft20-check 300초 — %s 입력창에 남의 글 · 깨움 보류 · terminal %s' % (cfg['seat'], result['terminal'])])
+             '[막힘] ft20-check 300초 — %s %s · 깨움 보류 · terminal %s' % (cfg['seat'], what, result['terminal'])])
         result.update(alert_rc=0, input_alerted_terminal=result['terminal'])
     except subprocess.CalledProcessError as error:
         result['alert_rc'] = error.returncode
@@ -278,6 +286,8 @@ def deliver(pane, cfg, terminal, message, read_events, judge, result, gate=None)
     capture = run(['tmux', 'capture-pane', '-pt', pane, '-S', '-25'])
     if ENGINE == 'pi' and pi_reader().busy(capture):  # r1621 R1: Pi «Working» 이면 입력·Enter 0 (pending 칸 보존)
         return 'PANE_BUSY'
+    if undecidable(capture):  # r1836 B3: 입력 전 판정 불가 = 입력·Enter·claim 손 0
+        return 'INPUT_UNDECIDABLE'
     if not exact_input(capture, message):
         # r1834 E1: 두 번 넣고 손 뗀 상태는 빈 입력창이면 마지막 입력 뒤 상한(600초)에 새 시도 1회로 풀린다
         expired = time.time() - (result.get('typed_at') or 0) >= MAX_DELAY_SECONDS
@@ -296,6 +306,8 @@ def deliver(pane, cfg, terminal, message, read_events, judge, result, gate=None)
         if stamps:
             return classify(stamps, result)  # r1620 ⓑ: 우리 Enter 전 영수 = 사람·불명
         capture = run(['tmux', 'capture-pane', '-pt', pane, '-S', '-25'])
+        if undecidable(capture):  # r1836 B3: 입력 뒤 깨짐 = 방금 claim 보존 · Enter 0
+            return 'INPUT_UNDECIDABLE'
         if not exact_input(capture, message):
             return 'DELIVERY_INPUT_CHANGED'
     elif not typed:
@@ -315,11 +327,14 @@ def check():
               'sent_at': old.get('sent_at'), 'first_seen_at': old.get('first_seen_at'),
               'input_alerted_terminal': old.get('input_alerted_terminal'), 'alert_rc': old.get('alert_rc')}
     other = {}  # r1834 E2: 이 회차 입력창에 남의 글이 있었나
-    global TYPED_AT
-    TYPED_AT = result.get('typed_at')
+    global TYPED_AT, BOX_WHY
+    TYPED_AT, BOX_WHY = result.get('typed_at'), ''
     def finish(status):
         result['status'] = status
-        if other.get('text') and status in ('INPUT_PRESENT', 'DELIVERY_INPUT_CHANGED'):
+        if status == 'INPUT_UNDECIDABLE':  # r1836 B4: other.text 없이 판정 불가 자체로 기록·알림
+            result['box_undecidable'] = BOX_WHY
+            alert_master(cfg, result, '입력창 판정 불가(%s)' % BOX_WHY)
+        elif other.get('text') and status in ('INPUT_PRESENT', 'DELIVERY_INPUT_CHANGED'):
             alert_master(cfg, result)
         save(latest, result)
         return status

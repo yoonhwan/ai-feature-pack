@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from test_check_r1621 import (HERE, check, watch, latest, iso, row, append, MESSAGE, SEAT, T0, SEP, TAIL,
+from test_check_r1621 import (HERE, check, watch, latest, iso, row, append, MESSAGE, SEAT, T0, SEP, TAIL, FOOT,
                               BRIEF, LONG, PANE_EMPTY, PANE_OURS, PANE_HUMAN, PANE_BUSY, PANE_CLIPPED, PANE_OTHER)
 
 SUFFIX_ONLY = SEP + '\n' + TAIL[-200:] + '\n' + SEP  # 상자 전체가 보이는데 꼬리만 같다
@@ -72,7 +72,7 @@ def test_b1_human_activity_after_typing_blocks_enter(watch):  # B1: check 회차
     cfg['brief'] = str(brief)
     (base / 'config.json').write_text(json.dumps(cfg), encoding='utf-8')
     message = check.doorbell_line({'brief': str(brief)})
-    clipped = '── ↑ 24 more ' + '─' * 50 + '\n' + message[-130:] + '\n' + SEP + '\n~/proj'
+    clipped = '── ↑ 24 more ' + '─' * 50 + '\n' + message[-130:] + '\n' + SEP + FOOT
     state['screens'] = [clipped, clipped]  # 잘린 상자 = 우리 글 꼬리
     state['clients'] = str(int(T0 + 10))  # typed_at 뒤 사람 client 입력
     (base / 'latest.json').write_text(json.dumps(
