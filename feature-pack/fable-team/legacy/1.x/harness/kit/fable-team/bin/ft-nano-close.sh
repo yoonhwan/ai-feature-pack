@@ -809,13 +809,15 @@ _wt_clean_rerun() {
 #   찾기 = 팩 리포(FT_PACK_ROOT · ROOT 와 같으면 건너뜀) 등록 워크트리 중 .worktrees/ 아래 ∧ (이름 <키>[-rN] ∨ 가지 [nano/]<키>[-rN]) — 정확히 1개만 · 2개 이상 = INFO + 정리 0 · 0개 = 조용히 0(BYZ 나노 출력 불변).
 #   생성 = 가지 nano/<키>[-rN] ∧ 착지(ft-landed-check rc0)일 때만 · 같은 생성기(_wt_clean_plan · 가드 그대로) · 폴더 = <팩>/.fable-team/state/wt-clean(sweep 순회 밖) · 실행 = kill 뒤 _pk_run · 브랜치 삭제 0.
 #   BYZ 계획(PLAN·WT_MARK)과 따로 둔다 — BYZ 쪽 해석·게이트·계획은 손대지 않는다. 가지는 close 가 확인한 값을 계획에 굽는다(NAMED_BR 칸 · 팩 .worktree-info.json 은 추적 파일이라 가지 값이 낡았다).
-PK_PLAN=""; _PK_ON=0; _PK_INFO=""; _PK_WT=""; _PK_BR=""; _PK_ROOT=""
-_pack_find() {  # → _PK_WT·_PK_BR·_PK_ROOT 정하고 rc0 · 못 정하면 rc1(_PK_INFO 1줄 또는 빈 값)
-  local pk porc p br rel hits=() brs=()
+#   rc 꼴(_pack_find·_pack_check 공통): 0 = 정리 · 1 = 정리 0(후보 0·후보 2+·가지 이름·미착지 — INFO) · 2 = 판정 불가(git·판정기 실패) → 부르는 쪽이 상태를 바꾸기 «전» REJECT rc1(하드 룰 20 · DA HOLD 298689).
+PK_PLAN=""; _PK_ON=0; _PK_INFO=""; _PK_WT=""; _PK_BR=""; _PK_ROOT=""; _PK_LW=""; _PK_GO=0
+_pack_find() {  # → rc0 = _PK_WT·_PK_BR·_PK_ROOT 정함 · rc1 = 대상 0(_PK_INFO 1줄 또는 빈 값) · rc2 = 판정 불가(_PK_INFO)
+  local pk porc p br rel prc hits=() brs=()
   _PK_INFO=""; _PK_WT=""; _PK_BR=""; _PK_ROOT=""
   pk="$(cd "${FT_PACK_ROOT:-$HOME/Project/ai-feature-pack}" 2>/dev/null && pwd -P)" || return 1
   [ "$pk" != "$ROOT" ] || return 1   # 팩이 곧 ROOT = BYZ 쪽 계획이 이미 그 워크트리를 본다(계획 둘 0)
-  porc="$(git -C "$pk" worktree list --porcelain 2>/dev/null)" || { _PK_INFO="INFO 팩 워크트리 — $pk 목록 조회 실패 · 정리 0"; return 1; }
+  porc="$(git -C "$pk" worktree list --porcelain 2>&1)"; prc=$?
+  [ "$prc" -eq 0 ] || { _PK_INFO="팩 워크트리 판정 불가 — git -C $pk worktree list rc=$prc: $(printf '%s' "$porc" | head -1 | cut -c1-100)"; return 2; }   # r1405-mut:gitfail
   while IFS=$'\t' read -r p br; do
     rel="${p#"$pk/.worktrees/"}"; [ "$rel" != "$p" ] && [ -n "$rel" ] || continue
     [[ "$rel" =~ ^${_KEY}(-r[0-9]+)?$ ]] || [[ "${br#nano/}" =~ ^${_KEY}(-r[0-9]+)?$ ]] || continue   # r1405-mut:key
@@ -825,16 +827,37 @@ _pack_find() {  # → _PK_WT·_PK_BR·_PK_ROOT 정하고 rc0 · 못 정하면 rc
   [ "${#hits[@]}" -eq 1 ] || return 1
   _PK_WT="${hits[0]}"; _PK_BR="${brs[0]}"; _PK_ROOT="$pk"
 }
-_pack_plan() {  # <팩 워크트리> <가지> <팩 루트> → PK_PLAN(못 만들면 빈 값 + INFO 1줄) · BYZ 쪽 PLAN·WT_MARK·SEAT_WT 는 되돌려 둔다
-  local wt="$1" br="$2" pk="$3" mref lw sw="${SEAT_WT:-}" sb="${SEAT_BR:-}" sp="${PLAN:-}" sm="${WT_MARK:-}" sd="$WT_CLEAN_DIR"   # 재실행 갈래는 PLAN·WT_MARK 미정(set -u)
-  PK_PLAN=""
-  _is_seat_branch "$br" || { echo "INFO 팩 워크트리 $wt — 가지 이름 nano/${_KEY}[-rN] 아님(${br:-detached}) · 정리 0(손 정리 = 사람)"; return 0; }   # r1405-mut:nano
+_pack_check() {  # <팩 워크트리> <가지> <팩 루트> → rc0 = 정리(_PK_LW = 착지 근거) · rc1 = 정리 0(_PK_INFO) · rc2 = 판정 불가(_PK_INFO) — 읽기만
+  local wt="$1" br="$2" pk="$3" mref lrc
+  _PK_INFO=""; _PK_LW=""
+  _is_seat_branch "$br" || { _PK_INFO="INFO 팩 워크트리 $wt — 가지 이름 nano/${_KEY}[-rN] 아님(${br:-detached}) · 정리 0(손 정리 = 사람)"; return 1; }   # r1405-mut:nano
   mref=origin/main; git -C "$pk" rev-parse -q --verify "$mref^{commit}" >/dev/null 2>&1 || mref=main
-  lw="$(nf_bound 25 bash "$HERE/ft-landed-check.sh" "$pk" "$mref" "$br" "$_KEY" 2>&1)" || { echo "INFO 팩 워크트리 $wt — 착지 확인 안 됨($mref · ${lw##*$'\n'}) · 정리 0"; return 0; }
+  _PK_LW="$(nf_bound 25 bash "$HERE/ft-landed-check.sh" "$pk" "$mref" "$br" "$_KEY" 2>&1)"; lrc=$?
+  case "$lrc" in
+    0) return 0;;
+    1) _PK_INFO="INFO 팩 워크트리 $wt — 착지 아님($mref · ${_PK_LW##*$'\n'}) · 정리 0"; return 1;;
+    *) _PK_INFO="팩 워크트리 판정 불가 — 착지 판정기 rc=$lrc($wt · $br · $(printf '%s' "$_PK_LW" | tail -1 | cut -c1-100))"; return 2;;   # r1405-mut:landfail
+  esac
+}
+_pk_decide() {  # <갈래 이름> — 찾기(또는 PACK_WT 값)·판정을 상태 변경 «전» 에 1회 · rc2 = 그 자리 REJECT exit 1 · rc0 = _PK_GO=1
+  local r
+  _PK_GO=0
+  if [ "${PACK_WT:-0}" = 1 ]; then _PK_WT="$SEAT_WT"; _PK_BR="$SEAT_BR"; _PK_ROOT="$SEAT_REPO"; r=0
+  else _pack_find; r=$?; fi   # r1405-mut:find
+  [ "$r" -ne 0 ] || { _pack_check "$_PK_WT" "$_PK_BR" "$_PK_ROOT"; r=$?; }
+  case "$r" in
+    0) _PK_GO=1;;
+    2) echo "REJECT $SEAT"; echo "  - ⑦$1$_PK_INFO — 닫지 않음(명부·원장·kill·정리 손 0 · 원인을 고친 뒤 같은 close 재실행)"; exit 1;;
+    *) [ -z "$_PK_INFO" ] || echo "$_PK_INFO";;
+  esac
+}
+_pack_plan() {  # <팩 워크트리> <가지> <팩 루트> → PK_PLAN(_pack_check 통과 뒤에만 부른다) · BYZ 쪽 PLAN·WT_MARK·SEAT_WT 는 되돌려 둔다
+  local wt="$1" br="$2" pk="$3" sw="${SEAT_WT:-}" sb="${SEAT_BR:-}" sp="${PLAN:-}" sm="${WT_MARK:-}" sd="$WT_CLEAN_DIR"   # 재실행 갈래는 PLAN·WT_MARK 미정(set -u)
+  PK_PLAN=""
   SEAT_WT="$wt"; SEAT_BR="$br"; WT_CLEAN_DIR="$pk/.fable-team/state/wt-clean"; _PK_ON=1
   _wt_clean_plan; PK_PLAN="$PLAN"   # r1405-mut:plan
   _PK_ON=0; SEAT_WT="$sw"; SEAT_BR="$sb"; PLAN="$sp"; WT_MARK="$sm"; WT_CLEAN_DIR="$sd"
-  [ -z "$PK_PLAN" ] || echo "워크트리 정리 계획(팩): $PK_PLAN (팩 리포 $pk · $br 착지=${lw%%$'\n'*} · 세션 kill 직후 실행 · 브랜치 삭제 0)"
+  [ -z "$PK_PLAN" ] || echo "워크트리 정리 계획(팩): $PK_PLAN (팩 리포 $pk · $br 착지=${_PK_LW%%$'\n'*} · 세션 kill 직후 실행 · 브랜치 삭제 0)"
 }
 _pk_run() {  # kill 뒤(또는 세션이 이미 없을 때) 팩 계획 실행 — BYZ 와 같은 _wt_clean_run(잠금·.done/.hil 이동·원장 표식)
   [ -n "$PK_PLAN" ] && [ "${FT_WT_AUTOCLEAN:-1}" != 0 ] || return 0
@@ -1271,6 +1294,7 @@ if [ "$_hrc" -eq 1 ] && [ -n "$_lrow" ]; then
     [ -z "$SEAT_WT_ERR" ] || echo "INFO 재실행 — 워크트리 후보 판정 불가($SEAT_WT_ERR) — 정리 계획 0"
   else _RERUN_ZERO_WHY="공유 워크트리(--shared-wt)"
   fi
+  PACK_WT=0; [ "$SHARED" = 1 ] || _pk_decide "재실행: "   # r1405: 팩 워크트리 판정 = reap·kill «앞»(판정 불가면 여기서 REJECT rc1)
   _tp="$(tmux list-panes -a -F '#{session_name}|#{pane_id}' 2>&1)"; _trc=$?
   case "$_trc:$_tp" in
     0:*) PANE="$(printf '%s\n' "$_tp" | awk -F'|' -v s="$SEAT" '$1==s{print $2; exit}')";;
@@ -1286,8 +1310,8 @@ if [ "$_hrc" -eq 1 ] && [ -n "$_lrow" ]; then
     echo "KILLED $SEAT (@zc_v65_active 해제 · 세션 kill · 브랜치 보존)"
   fi
   _oc_close
-  # r1405: 재실행도 좌석 키로 팩 워크트리를 찾는다(원장 wt=none 으로 닫힌 팩 나노 · 착지 뒤 같은 close 재실행이 정리)
-  if [ "$SHARED" != 1 ]; then if _pack_find; then _pack_plan "$_PK_WT" "$_PK_BR" "$_PK_ROOT"; _pk_run; elif [ -n "$_PK_INFO" ]; then echo "$_PK_INFO"; fi; fi
+  # r1405: 재실행도 좌석 키로 팩 워크트리를 찾는다(원장 wt=none 으로 닫힌 팩 나노 · 착지 뒤 같은 close 재실행이 정리) — 판정은 reap·kill 앞에서 끝났다
+  [ "$_PK_GO" != 1 ] || { _pack_plan "$_PK_WT" "$_PK_BR" "$_PK_ROOT"; _pk_run; }
   if [ "$_RERUN_STD" = 1 ]; then _wt_clean_rerun
   elif [ "$_RERUN_INFOED" = 1 ]; then :   # 사유 INFO 는 위에서 이미 냈다(중복 0)
   elif [ -f "$WT_CLEAN_DIR/$SEAT.sh" ]; then echo "INFO 워크트리 정리 계획 $WT_CLEAN_DIR/$SEAT.sh — ft-wt-sweep.sh 가 이어서 실행"
@@ -2022,6 +2046,8 @@ nf_superseded_next_hint() {
   esac
 }
 if [ "${#bad[@]}" -gt 0 ]; then echo "REJECT $SEAT"; printf '  - %s\n' "${bad[@]}"; nf_superseded_next_hint; exit 1; fi
+# r1405: 팩 워크트리 판정 = 첫 쓰기(중단 [wip]·카드 줄·pid 기록·sheet·명부·원장) «전» — git·판정기 실패 = 여기서 REJECT rc1 · 착지 전 보존·후계 공유·never-started·공유 워크트리는 보지 않는다
+_PK_GO=0; if [ "$SHARED" != 1 ] && [ -z "$APPROVED" ] && [ -z "$NS_SUCC" ] && [ -z "$NS_LAND" ]; then _pk_decide ""; fi
 # r450 중단: 조건이 전부 통과한 뒤에만 카드 «## 상태» 끝에 중단 줄(멱등) — 못 쓰면 명부·원장·세션 변경 전에 REJECT
 if [ "$SUSP" = 1 ]; then
   # r938 r2 N1: 여기가 첫 쓰기다(⑤⑥ 상한 검사를 다 지난 뒤) — [wip] 커밋 → 중단 검사(HEAD·미커밋 0) → 카드 줄 적용.
@@ -2098,11 +2124,7 @@ else _wt_clean_plan; fi
 [ "${SEAT_WT_OTHER:-0}" != 1 ] || WT_MARK="mode=std-wt-other-branch wt=$SEAT_WT branch=$SEAT_BR (표준 경로 · 가지 이름만 다름 · 계획 .sh · 브랜치 0)"
 # r1405: 팩 워크트리 정리 계획 — BYZ 계획과 따로(착지 전 보존·후계 공유·never-started·공유 워크트리는 손대지 않는다)
 PK_PLAN=""; _pk_tag=""
-if [ "$SHARED" != 1 ] && [ -z "$APPROVED" ] && [ -z "$NS_SUCC" ] && [ -z "$NS_LAND" ]; then
-  if [ "$PACK_WT" = 1 ]; then _pack_plan "$SEAT_WT" "$SEAT_BR" "$SEAT_REPO"
-  elif _pack_find; then _pack_plan "$_PK_WT" "$_PK_BR" "$_PK_ROOT"; [ -z "$PK_PLAN" ] || _pk_tag=" · pack=$_PK_WT"   # r1405-mut:find
-  elif [ -n "$_PK_INFO" ]; then echo "$_PK_INFO"; fi
-fi
+if [ "$_PK_GO" = 1 ]; then _pack_plan "$_PK_WT" "$_PK_BR" "$_PK_ROOT"; [ "$PACK_WT" = 1 ] || [ -z "$PK_PLAN" ] || _pk_tag=" · pack=$_PK_WT"; fi   # 판정은 sheet prepare 앞(_pk_decide)에서 끝났다
 [ "$PACK_WT" != 1 ] || WT_MARK="mode=pack-wt wt=$SEAT_WT branch=$NBR repo=$SEAT_REPO ($([ -n "$PK_PLAN" ] && echo "계획 $PK_PLAN · kill 뒤 실행" || echo "계획 0 · 정리 0") · 브랜치 0)"
 # 원장 append 도 계획의 mark() 와 «같은» mkdir 락(<원장>.lock) 아래 — 락 밖 >> 와 mark 의 read→replace 가 겹치면 행이 소실된다(DA r3 실측 204/8000). 락 실패는 REJECT 가 아니라 append 강행(닫힘 행이 없는 것이 더 나쁘다) + 경고.
 _lock="$LEDGER.lock"; _i=0

@@ -9,7 +9,8 @@
 # P5 같은 키 팩 워크트리 2개(nano/k · nano/k-r2) → 계획 0 + INFO «후보 2» · 손 0
 # P6 BYZ 나노(팩 후보 0) → 출력 = 기준판(STEP 줄 제외) · 팩 계획 폴더 0
 # P7 실사건 꼴 재실행(명부 행 0 · 원장 wt=none · 세션 0) → 같은 close 재실행이 팩 워크트리 정리
-# 기준판 FAIL = P1·P2 · 변이 4: 계획 0 으로 되돌림 → P1·P2 · 키로 찾기 삭제 → P2 · nano/ 검사 삭제 → P4 · 후보 수 검사 삭제 → P5 (전부 FAIL 이어야 한다)
+# P8 git 실패(팩 worktree list rc42 주입) · 착지 판정기 rc2 → 초회·재실행 모두 «판정 불가» + rc≠0 · 닫기·정리 0 (하드 룰 20 · DA HOLD 298689)
+# 기준판 FAIL = P1·P2 · 변이 6(5 = git 실패를 정리 0 으로 합침 → P8a·P8b · 6 = 판정기 rc2 를 미착지로 합침 → P8c): 계획 0 으로 되돌림 → P1·P2 · 키로 찾기 삭제 → P2 · nano/ 검사 삭제 → P4 · 후보 수 검사 삭제 → P5 (전부 FAIL 이어야 한다)
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -50,6 +51,12 @@ case "$1" in
   set-option) echo "$*" >> "$FAKE_LOG";;
   kill-session) echo "$*" >> "$FAKE_LOG"; : > "$FAKE_PANES"; : > "$FAKE_PANE_CWDS";;   # kill 뒤 세션 0(계획 ① 계보 검사가 본다)
 esac
+EOF
+# P8: 팩 리포 «git worktree list» 만 rc42 로 주입(그 밖 git 은 진짜) — 표식 파일이 있을 때만
+cat > "$T/fake/git" <<EOF
+#!/usr/bin/env bash
+if [ -e "$T/gitfail" ]; then case " \$* " in *" -C $T/pack worktree list"*) echo "fatal: injected rc42" >&2; exit 42;; esac; fi
+exec $(command -v git) "\$@"
 EOF
 cat > "$T/fake/gh" <<'EOF'
 #!/usr/bin/env bash
@@ -93,7 +100,7 @@ reset_all() {  # 팩 워크트리·가지·계획 폴더·원격 main 을 처음
   git -C "$P" worktree prune
   for b in $(git -C "$P" for-each-ref --format='%(refname:short)' refs/heads/ | grep -vx main); do git -C "$P" branch -q -D "$b"; done
   git -C "$P" push -q -f origin main:main; git -C "$P" fetch -q --prune origin
-  rm -rf "$P/.fable-team" "$T/wtclean"; mkdir -p "$T/wtclean"
+  rm -rf "$P/.fable-team" "$T/wtclean" "$T/gitfail"; mkdir -p "$T/wtclean"
   : > "$T/panes"; : > "$T/pane-cwds"; printf '%s' "$R" > "$T/cwd"; : > "$T/tlog"; : > "$T/ghlog"; : > "$T/baton.calls"; : > "$T/sweep.calls"; : > "$LEDGER"
   printf '{"%s":{"role":"nano","index":"design/harness/indices/진행/k.md"}}\n' "$SEAT" > "$SEATS"
 }
@@ -186,6 +193,24 @@ has "$out" "워크트리 정리: cleaned" "  └ 실행 결과 cleaned"
 cleaned P7
 has "$(cat "$LEDGER")" "· wt=cleaned" "  └ 원장 wt=none → wt=cleaned"
 
+echo "== P8 git 실패(팩 worktree list rc42) · 착지 판정기 rc2 → «판정 불가» 1줄 + rc≠0 · 닫기·정리 0 (하드 룰 20 · DA HOLD 298689)"
+reset_all; pack_wt k nano/k 1; card_byz; : > "$T/gitfail"; out="$(close --landed-pr 77)"; rc=$?
+[ "$rc" -ne 0 ] && ok "P8a 초회 rc=$rc(≠0)" || bad "P8a 초회 rc=0 ← ${out:0:600}"
+has "$out" "판정 불가" "  └ P8a «판정 불가» 줄"
+hasnt "$out" "CLOSED-BACKFILL" "  └ P8a CLOSED-BACKFILL 0"
+[ -d "$PW" ] && jq -e --arg s "$SEAT" 'has($s)' "$SEATS" >/dev/null && [ ! -s "$LEDGER" ] && ok "  └ P8a 워크트리·명부 그대로 · 원장 행 0" || bad "P8a: 상태 바뀜"
+reset_all; pack_wt k nano/k 1; card_byz; printf '{}\n' > "$SEATS"; : > "$T/gitfail"
+printf -- '- **[2026-11-05 22:56 KST] `%s` 닫힘(ft-nano-close)**: ①결과 x. kill=1 · wt=none\n' "$SEAT" > "$LEDGER"
+out="$(close)"; rc=$?
+[ "$rc" -ne 0 ] && ok "P8b 재실행 rc=$rc(≠0)" || bad "P8b 재실행 rc=0 ← ${out:0:600}"
+has "$out" "판정 불가" "  └ P8b «판정 불가» 줄"
+hasnt "$out" "CLOSED $SEAT" "  └ P8b CLOSED 0"
+[ -d "$PW" ] && ok "  └ P8b 워크트리 그대로" || bad "P8b: 워크트리 손댐"
+rm -rf "$T/lcbin"; cp -R "$T/bin" "$T/lcbin"; printf '#!/bin/sh\necho no; echo "ref 없음" >&2; exit 2\n' > "$T/lcbin/ft-landed-check.sh"
+reset_all; pack_wt k nano/k 1; card_byz; out="$(CLOSE_BIN="$T/lcbin/ft-nano-close.sh" close --landed-pr 77)"; rc=$?
+[ "$rc" -ne 0 ] && has "$out" "판정 불가" "P8c 착지 판정기 rc2 → 판정 불가 rc=$rc" || bad "P8c rc=$rc ← ${out:0:600}"
+[ -d "$PW" ] && [ ! -s "$LEDGER" ] && ok "  └ P8c 워크트리 그대로 · 원장 행 0" || bad "P8c: 상태 바뀜"
+
 echo "== 기준판 — P1·P2 가 FAIL 이어야 한다(팩 워크트리 남음)"
 CLOSE_BIN="$T/basebin/ft-nano-close.sh" p1; [ -d "$PW" ] && ok "  └ 기준판 P1 FAIL(워크트리 남음 rc=$rc)" || bad "기준판 P1 이 통과 — 시험이 못 가른다"
 CLOSE_BIN="$T/basebin/ft-nano-close.sh" p2; [ -d "$PW" ] && ok "  └ 기준판 P2 FAIL(워크트리 남음 rc=$rc)" || bad "기준판 P2 이 통과 — 시험이 못 가른다"
@@ -194,14 +219,25 @@ echo "== 변이 — 전부 FAIL 이어야 한다"
 mutant '_wt_clean_plan; PK_PLAN="$PLAN"   # r1405-mut:plan' 'PK_PLAN=""'
 CLOSE_BIN="$T/mutbin/ft-nano-close.sh" p1; [ -d "$PW" ] && ok "  └ 변이 1(계획 0) → P1 FAIL" || bad "변이 1 P1 통과"
 CLOSE_BIN="$T/mutbin/ft-nano-close.sh" p2; [ -d "$PW" ] && ok "  └ 변이 1(계획 0) → P2 FAIL" || bad "변이 1 P2 통과"
-mutant 'elif _pack_find; then _pack_plan "$_PK_WT" "$_PK_BR" "$_PK_ROOT"; [ -z "$PK_PLAN" ] || _pk_tag=" · pack=$_PK_WT"   # r1405-mut:find' 'elif false; then :'
+mutant '  else _pack_find; r=$?; fi   # r1405-mut:find' '  else r=1; fi'
 CLOSE_BIN="$T/mutbin/ft-nano-close.sh" p2; [ -d "$PW" ] && ok "  └ 변이 2(키로 찾기 삭제) → P2 FAIL" || bad "변이 2 P2 통과"
-mutant '_is_seat_branch "$br" || { echo "INFO 팩 워크트리 $wt — 가지 이름' 'true || { echo "INFO 팩 워크트리 $wt — 가지 이름'
+mutant '_is_seat_branch "$br" || { _PK_INFO="INFO 팩 워크트리 $wt — 가지 이름' 'true || { _PK_INFO="INFO 팩 워크트리 $wt — 가지 이름'
 reset_all; pack_wt k k 1; card_byz; out="$(CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 77)"
 [ ! -d "$PW" ] && ok "  └ 변이 3(nano/ 검사 삭제) → P4 FAIL(워크트리 지워짐)" || bad "변이 3 P4 통과 ← $(printf '%s' "$out" | tail -4 | tr '\n' '|')"
 mutant 'if [ "${#hits[@]}" -gt 1 ]; then _PK_INFO=' 'if false; then _PK_INFO='
 reset_all; pack_wt k nano/k 1; pack_wt k-r2 nano/k-r2 1; card_byz; out="$(CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 77)"
 case "$out" in *"후보 2("*) bad "변이 4 P5 통과";; *) ok "  └ 변이 4(후보 수 검사 삭제) → P5 FAIL(INFO 없음)";; esac
+mutant 'return 2; }   # r1405-mut:gitfail' 'return 1; }'
+reset_all; pack_wt k nano/k 1; card_byz; : > "$T/gitfail"; CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 77 >/dev/null; rc=$?
+[ "$rc" -eq 0 ] && ok "  └ 변이 5(git 실패 = 정리 0 으로 합침) → P8a FAIL(rc0 닫힘)" || bad "변이 5 P8a 통과 rc=$rc"
+reset_all; pack_wt k nano/k 1; card_byz; printf '{}\n' > "$SEATS"; : > "$T/gitfail"
+printf -- '- **[2026-11-05 22:56 KST] `%s` 닫힘(ft-nano-close)**: ①결과 x. kill=1 · wt=none\n' "$SEAT" > "$LEDGER"
+CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close >/dev/null; rc=$?
+[ "$rc" -eq 0 ] && ok "  └ 변이 5 → P8b FAIL(재실행 rc0)" || bad "변이 5 P8b 통과 rc=$rc"
+mutant 'return 2;;   # r1405-mut:landfail' 'return 1;;'
+cp "$T/lcbin/ft-landed-check.sh" "$T/mutbin/ft-landed-check.sh"
+reset_all; pack_wt k nano/k 1; card_byz; CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 77 >/dev/null; rc=$?
+[ "$rc" -eq 0 ] && ok "  └ 변이 6(판정기 rc2 = 미착지로 합침) → P8c FAIL(rc0 닫힘)" || bad "변이 6 P8c 통과 rc=$rc"
 
 echo
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }
