@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- r1812 ft2 keeper launchd 틀 — 60초마다 1바퀴(끝나면 프로세스 끝 · 겹침 = keeper.lock O_EXCL 로 두 번째 0).
+     치환: @FT2_HOME@(~/.claude/fable-team/ft2) @ROOT@(데이터 루트) @PACK_REPO@(팩 리포) @SEAT_CLOSE@(1.x 라이브 ft-seat-close.sh 절대 경로).
+     기동마다 @FT2_HOME@/CURRENT 가 가리키는 버전의 core/cli.py 를 부른다(버전이 바뀌어도 틀은 그대로).
+     등록·kickstart·해제 = 설치 h(사람 승인 · 크리티컬 kind=launchd) 몫 · 로그 폴더 @ROOT@/.fable-team/state/ft2-keeper/ 는 설치가 먼저 만든다. -->
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.byz.ft2-keeper</string>
+  <key>ProgramArguments</key><array>
+    <string>/opt/homebrew/bin/python3</string>
+    <string>-c</string>
+    <string>import runpy,sys;h=sys.argv[1];v=open(h+'/CURRENT').read().strip();p=h+'/versions/'+v+'/core/cli.py';sys.argv=[p]+sys.argv[2:];runpy.run_path(p,run_name='__main__')</string>
+    <string>@FT2_HOME@</string>
+    <string>keeper</string>
+    <string>--root</string><string>@ROOT@</string>
+    <string>--once</string>
+  </array>
+  <key>WorkingDirectory</key><string>@ROOT@</string>
+  <key>EnvironmentVariables</key><dict>
+    <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>LANG</key><string>ko_KR.UTF-8</string>
+    <key>FT2_PACK_REPO</key><string>@PACK_REPO@</string>
+    <key>FT_SEAT_CLOSE_BIN</key><string>@SEAT_CLOSE@</string>
+  </dict>
+  <key>StartInterval</key><integer>60</integer>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><false/>
+  <key>ProcessType</key><string>Background</string>
+  <key>StandardOutPath</key><string>@ROOT@/.fable-team/state/ft2-keeper/launchd.log</string>
+  <key>StandardErrorPath</key><string>@ROOT@/.fable-team/state/ft2-keeper/launchd.log</string>
+</dict></plist>
