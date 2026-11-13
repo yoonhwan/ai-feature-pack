@@ -57,7 +57,7 @@ OUT="$(cd "$ENVROOT" && xenv bash "$BIN/ft-seat-retire.sh" "$O" "$N" --seats "$E
 sh_ handover "$O" "$N" "백그라운드 pytest 1개"
 H="$(grep -o '"seq": [0-9]*, "ts": "[^"]*", "to": "'"$N"'", "from": "'"$O"'"' "$Q" | grep -o '"seq": [0-9]*' | grep -o '[0-9]*$')"
 B="$(python3 -c 'import json,sys;print([json.loads(l) for l in open(sys.argv[1]) if l.strip()][-1]["body"])' "$Q")"
-[ "$RC" = 0 ] && [ -n "$H" ] && case "$B" in *"- #1 [slack-oppa]"*"- #2 [slack-oppa]"*"- h62 "*"- bg:"*"tail -f /dev/null"*"- bg:x1 백그라운드 pytest 1개"*) true;; *) false;; esac \
+[ "$RC" = 0 ] && [ -n "$H" ] && case "$B" in *"오빠 질문 먼저 = #1 #2"*"항목: #1 #2 h62 bg:"*"- bg:x1 백그라운드 pytest 1개"*) true;; *) false;; esac \
   && case "$OUT" in *"MARKED $O 인계 1,2"*) true;; *) false;; esac && ok "② [인계] #$H 항목(오빠 질문 2·h62·bg·손) + #1·#2 인계 표시" || bad "② handover rc=$RC :: $OUT :: $B"
 py close-check "$O" --no-ready; [ "$RC" = 0 ] && ok "② 표시 뒤 retire 관문 통과(CLOSE-OK)" || bad "② 표시 뒤 관문 :: $OUT"
 
