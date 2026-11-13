@@ -35,7 +35,9 @@ def c3(w):   # ③ 착지 줄 없음 → 쓰기 0 · 쪽지 0 · ③′ 미도�
 def c4(w):   # ④·⑫′ done + 조상 + 유휴 → kill 1 → 부재 확인 → close_receipt 1 (순서 = 닫기 → 영수)
     w.enable(), w.card("r9004", w.pack_sha())
     holder = w.work("r9004", done=True, alive=True)
+    w.CLI.run(["submit", "--command", "c-r9099", "--body", "대기 일", "--work", "r9099", "--root", str(w.root), "--team", TEAM])
     assert [x.split()[0] for x in w.round() if "r9004" in x] == ["CLOSED-SESSION", "RECEIPT"]
+    assert [r for r in w.journal() if r["kind"] == "dispatch" and r.get("work") == "r9099"] == []   # 다음 배정 0(팀장 몫)
     assert w.tmux("kill-session") == [["kill-session", "-t", "=" + holder]] and w.kinds("close_receipt") == 1
 def c4b(w):  # ④′ pane «Working» → kill 0 · HELD
     w.enable(), w.card("r9014", w.pack_sha()), w.work("r9014", done=True, alive=True, pane="⠋ Working...\n")

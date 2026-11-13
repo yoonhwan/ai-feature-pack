@@ -136,14 +136,14 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
         if proj.get("result") != OK:
             return self.log("판정 불가", team, "투영 %s" % proj.get("reason", ""))
         node = projection.journal.Journal(projection.runtime_path(self.root, team), rec=projection.record)
-        latest = {rec["work"]: rec.get("attempt") for rec in node.records()
+        latest = {rec["work"]: (rec.get("attempt"), rec.get("holder")) for rec in node.records()
                   if rec.get("kind") == "dispatch" and rec.get("work")}
-        for work, attempt in sorted(latest.items()):
+        for work, (attempt, dispatched) in sorted(latest.items()):
             row = proj["works"].get(work) or {}
             if "%s|%s@%s" % (team, work, attempt) in self.state["handled"]:
                 continue
             if row.get("done") or self.complete(team, work, attempt, self.landing(team, work)):
-                self.close(team, work, attempt, row)
+                self.close(team, work, attempt, row, dispatched)
 
 
 def main(argv):
