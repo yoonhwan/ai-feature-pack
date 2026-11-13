@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # test_nano_detached_base_on_main_r1162.sh — 카드 r1162: --base 없이 detached 사본(r1120 길)에서 spawn 할 때 그 커밋이 origin/main 의 조상이 아니면
 #   카드·워크트리·명부·tmux 쓰기 «전» REJECT 1줄(«--base origin/main 으로 다시»). 착지된 detached · 이름 있는 가지 · --base 지정은 그대로.
-# 계약↔시험: ⓐ R1 + 변이(조상 검사 끔) · ⓑ R2 · ⓒ R3·R4 · ⓓ bin·kit cmp · ⓔ 회귀(test_nano_detached_base_r1120.sh 는 따로 돈다)
+# r1390 흡수: --base 없음이면 detached·이름 있는 가지 모두 base = fetch 한 origin/main(미착지 HEAD 를 굽지 않는다 · REJECT 대신 origin/main 으로 연다).
+# 계약↔시험: ⓐ R1 + 변이(기본 base 끔) · ⓑ R2 · ⓒ R3·R4 · ⓓ bin·kit cmp · ⓔ 회귀(test_nano_detached_base_r1120.sh 는 따로 돈다)
 # 임시 리포 + 가짜 원격(bare · main 2커밋) + --detach linked worktree 사본 + 가짜 tmux/tmuxc/tmm(PATH 앞) · --dry-run 만(좌석·tmux 0)
 #   실 리포·실 원격·실 명부 0 · 고정 sleep 0 · 자기 재호출 = real_state_guard 재진입 표지(RSG_ACTIVE)뿐. 꼴 = test_r975_nano_spawn_reply_target.sh
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
@@ -67,40 +68,39 @@ sp() {  # sp <cwd 사본> <bindir> [인자…] — env -i 격리 · --dry-run �
       FT_TEAMSET=0 FT_RES_ROOT="$T/res" FT_SHEET_ROOT="$FT_SHEET_ROOT" FT_ROOT="$D" FT_RECLAIM_SH="$T/reclaim.sh" \
       bash "$bd/ft-nano-spawn.sh" "$CARDX" --dry-run "$@" 2>&1 )
 }
-r1_check() {  # r1_check <bindir> → 0 = R1 통과(REJECT 1줄 · rc1 · 카드 바이트 그대로 · PLAN 0)
+r1_check() {  # r1_check <bindir> → 0 = R1 통과(rc0 · base=origin/main · 미착지 HEAD 를 base 로 안 굽는다 · 카드 바이트 그대로)
   local out rc n=0
   cp "$T/unl/$CARDX" "$T/card.before"
   out="$(sp "$T/unl" "$1")"; rc=$?
-  [ "$rc" = 1 ] || { n=$((n+1)); echo "  R1 rc=$rc"; }
-  case "$out" in *"REJECT 기준 커밋 ${UNL:0:10} 가 origin/main 에 없다(미착지·squash) — --base origin/main 으로 다시"*) ;; *) n=$((n+1)); echo "  R1 REJECT 줄 없음 ← ${out: -400}";; esac
-  [ "$(printf '%s\n' "$out" | grep -c '^REJECT')" = 1 ] || { n=$((n+1)); echo "  R1 REJECT 줄 수 ≠ 1"; }
-  case "$out" in *"PLAN seat="*) n=$((n+1)); echo "  R1 PLAN 줄이 나왔다(열기 진행)";; esac
+  [ "$rc" = 0 ] || { n=$((n+1)); echo "  R1 rc=$rc"; }
+  [[ "$out" == *"base=origin/main index="* ]] || { n=$((n+1)); echo "  R1 base=origin/main 아님 ← ${out: -400}"; }
+  case "$out" in *"$UNL"*) n=$((n+1)); echo "  R1 미착지 커밋이 base 로 나왔다";; esac
   cmp -s "$T/card.before" "$T/unl/$CARDX" || { n=$((n+1)); echo "  R1 카드 바이트가 바뀜"; }
   return "$n"
 }
 
-s=$SECONDS; echo "== ⓐ R1 detached 사본 HEAD = 미착지 커밋 · --base 없음 → REJECT 1줄 · 카드 그대로"
-r1o="$(r1_check "$BINX")" && ok "R1 REJECT «${UNL:0:10} 가 origin/main 에 없다» · rc1 · 카드 cmp 같음" || bad "R1$(printf '\n%s' "$r1o")"
+s=$SECONDS; echo "== ⓐ R1 detached 사본 HEAD = 미착지 커밋 · --base 없음 → base=origin/main(r1390) · 카드 그대로"
+r1o="$(r1_check "$BINX")" && ok "R1 base=origin/main(미착지 ${UNL:0:10} 아님) · rc0 · 카드 cmp 같음" || bad "R1$(printf '\n%s' "$r1o")"
 echo "  (R1 $((SECONDS-s))초)"
 
-s=$SECONDS; echo "== ⓑ R2 detached 사본 HEAD = origin/main 조상 → OK · base = 그 40hex(detached)"
+s=$SECONDS; echo "== ⓑ R2 detached 사본 HEAD = origin/main 조상 → OK · base=origin/main(r1390)"
 out="$(sp "$T/landed" "$BINX")"; rc=$?
-{ [ "$rc" = 0 ] && [[ "$out" == *"base=$M1(detached) index="* ]]; } && ok "R2 OK · base=$M1(detached)" || bad "R2 rc=$rc ← ${out: -400}"
+{ [ "$rc" = 0 ] && [[ "$out" == *"base=origin/main index="* ]]; } && ok "R2 OK · base=origin/main" || bad "R2 rc=$rc ← ${out: -400}"
 echo "  (R2 $((SECONDS-s))초)"
 
-s=$SECONDS; echo "== ⓒ R3 이름 있는 가지(feat/x · main 조상 아님) → OK(검사 0)"
+s=$SECONDS; echo "== ⓒ R3 이름 있는 가지(feat/x · main 조상 아님) → OK · base=origin/main(r1390)"
 out="$(sp "$T/feat" "$BINX")"; rc=$?
-{ [ "$rc" = 0 ] && [[ "$out" == *"base=feat/x index="* ]]; } && ok "R3 OK · base=feat/x" || bad "R3 rc=$rc ← ${out: -400}"
+{ [ "$rc" = 0 ] && [[ "$out" == *"base=origin/main index="* ]]; } && ok "R3 OK · base=origin/main" || bad "R3 rc=$rc ← ${out: -400}"
 echo "== ⓒ R4 detached 미착지 + --base origin/main → OK"
 out="$(sp "$T/unl" "$BINX" --base origin/main)"; rc=$?
 { [ "$rc" = 0 ] && [[ "$out" == *"base=origin/main index="* ]]; } && ok "R4 OK · base=origin/main" || bad "R4 rc=$rc ← ${out: -400}"
 echo "  (R3·R4 $((SECONDS-s))초)"
 
-s=$SECONDS; echo "== 변이: 조상 검사 끔(is-ancestor → cat-file -e) → R1 FAIL 이어야 한다"
+s=$SECONDS; echo "== 변이: 기본 base 끔(BASE_REF=origin/main → :) → R1 FAIL 이어야 한다"
 BINM="$T/binm"; cp -R "$BINX" "$BINM"
-sed 's/merge-base --is-ancestor "\$_dh" refs\/remotes\/origin\/main/cat-file -e "$_dh"/' "$BINX/ft-nano-spawn.sh" > "$BINM/ft-nano-spawn.sh"
+sed 's/^    BASE_REF=origin\/main$/    :/' "$BINX/ft-nano-spawn.sh" > "$BINM/ft-nano-spawn.sh"
 cmp -s "$BINM/ft-nano-spawn.sh" "$BINX/ft-nano-spawn.sh" && bad "변이 적용 0(패턴 없음)" || {
-  r1_check "$BINM" >/dev/null && bad "변이가 R1 을 통과 — 시험이 조상 검사를 못 본다" || ok "변이 → R1 FAIL(잡힘)"; }
+  r1_check "$BINM" >/dev/null && bad "변이가 R1 을 통과 — 시험이 기본 base 를 못 본다" || ok "변이 → R1 FAIL(잡힘)"; }
 echo "  (변이 $((SECONDS-s))초)"
 
 echo
