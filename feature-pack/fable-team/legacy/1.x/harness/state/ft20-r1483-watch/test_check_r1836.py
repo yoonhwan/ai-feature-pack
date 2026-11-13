@@ -46,6 +46,8 @@ OVER_BLANK = pane(OVER, '', SEP, CWD, STATUS)  # ③′
 FOOTER = pane(SEP, '', SEP, 'ft-reload-request: inactive seat=x — 요청 파일 그대로', STATUS)  # ④
 NUDGE = pane(SEP, '  ft-idle-nudge: 판정 불가 — 카드판 rc=0', SEP, CWD, STATUS)  # ⑨
 BROKEN = pane(SEP, 'ft-idle-nudge: 판정 불가 — 턴 0' + '─' * 12, SEP, CWD, STATUS)  # ⓒ
+NO_STATUS = pane('대화', SEP, '', SEP, CWD)  # ⓓ 정상 빈 상자에서 상태 줄만 뺌 (DA HOLD R1 재현)
+FIXTURE_NO_STATUS = '\n'.join(FIXTURE.splitlines()[:-1])  # ⓓ 고정본에서 상태 줄만 뺌
 
 
 def iso(epoch):
@@ -54,9 +56,10 @@ def iso(epoch):
 
 @pytest.mark.parametrize('capture,expected', [
     (FIXTURE, ('unknown', 'no-bottom')), ('', ('unknown', 'no-bottom')), (FOOTER, ('unknown', 'foreign-footer')),
-    (BROKEN, ('unknown', 'broken-border')), (EMPTY, ('empty', '')), (OVER_TEXT, ('text', '')),
+    (BROKEN, ('unknown', 'broken-border')), (NO_STATUS, ('unknown', 'no-status')),
+    (FIXTURE_NO_STATUS, ('unknown', 'no-bottom')), (EMPTY, ('empty', '')), (OVER_TEXT, ('text', '')),
     (OVER_BLANK, ('text', '')), (NUDGE, ('text', ''))],
-    ids=['1_fixture', '5_blank', '4_footer', 'c_broken', '2_empty', '3_overflow', '3b_overflow_blank', '9_nudge'])
+    ids=['1_fixture', '5_blank', '4_footer', 'c_broken', 'd_no_status', 'd_fixture_no_status', '2_empty', '3_overflow', '3b_overflow_blank', '9_nudge'])
 def test_box_state_three_values(capture, expected):  # B1 B2 · M1 M2 M3
     state, _text, why = seat.box_state(capture)
     assert (state, why) == expected
@@ -149,6 +152,16 @@ def test_1_fixture_types_nothing_and_alerts(world, pending):  # ① · M1 (기�
     assert len(state['mbox']) == 1 and state['mbox'][0][-4:-1] == ['send', 'master#1', 'ft20-r1483-watch']
     assert state['mbox'][0][-1] == BODY % state['terminal']
     assert (after['input_alerted_terminal'], after['alert_rc']) == (state['terminal'], 0)
+
+
+@pytest.mark.parametrize('screen,why', [(NO_STATUS, 'no-status'), (FIXTURE_NO_STATUS, 'no-bottom')],
+                         ids=['no_status', 'fixture_no_status'])
+def test_d_no_status_types_nothing(world, screen, why):  # ⓓ · DA HOLD R1: 지금 판 = empty·NOTIFIED·문자1·Enter1
+    base, state = world
+    state['screens'] = [screen]
+    assert check.check() == 'INPUT_UNDECIDABLE'
+    assert state['typed'] == 0 and state['enters'] == 0 and len(state['mbox']) == 1
+    assert saved(base)['box_undecidable'] == why and ('판정 불가(%s)' % why) in state['mbox'][0][-1]
 
 
 def test_7_alert_once_per_terminal_and_rc(world):  # ⑦ · M6

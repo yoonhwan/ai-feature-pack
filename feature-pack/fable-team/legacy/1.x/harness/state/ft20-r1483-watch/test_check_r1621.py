@@ -23,12 +23,13 @@ BRIEF = LONG = (HERE / 'CHECK-BRIEF.md').read_text(encoding='utf-8')  # r1625: �
 MESSAGE = check.doorbell_line({'brief': str(SHORT_BRIEF)})  # r1625: 보내는 글 = doorbell 1줄
 SEAT, T0 = 'byz-harness-qa-ft20-pi#0', datetime(2026, 11, 11, 8, 0, 0, tzinfo=timezone.utc).timestamp()
 SEP, TAIL = '─' * 80, LONG[-420:]  # 실측: 80x24 pane 에서 1146자 본문은 상자를 넘겨 바닥 경계선만 남는다
-PANE_EMPTY, PANE_OURS = SEP + '\n\n' + SEP + '\n~/proj', SEP + '\n' + MESSAGE + '\n' + SEP
-PANE_HUMAN = SEP + '\n사람이 쓴 글\n' + SEP
+FOOT = '\n~/proj\n↑126 ↓31k R3.8M W209k CH99.5% 12.0%/1.0M  opus'  # r1836: 실제 Pi 바닥 = cwd 줄 + 상태 줄
+PANE_EMPTY, PANE_OURS = SEP + '\n\n' + SEP + FOOT, SEP + '\n' + MESSAGE + '\n' + SEP + FOOT
+PANE_HUMAN = SEP + '\n사람이 쓴 글\n' + SEP + FOOT
 PANE_BUSY = SEP + '\n\n' + SEP + '\n── ⠦ Working ' + '─' * 60
 PANE_CLIPPED = '── ↑ 24 more ' + '─' * 50 + '\n' + '\n'.join(
-    TAIL[i:i + 70] for i in range(0, len(TAIL), 70)) + '\n' + SEP + '\n~/proj'
-PANE_OTHER = '── ↑ 24 more ' + '─' * 50 + '\n사람이 쓴 다른 글\n' + SEP + '\n~/proj'
+    TAIL[i:i + 70] for i in range(0, len(TAIL), 70)) + '\n' + SEP + FOOT
+PANE_OTHER = '── ↑ 24 more ' + '─' * 50 + '\n사람이 쓴 다른 글\n' + SEP + FOOT
 CODEX_HINT = '› Ask Codex to do anything'
 sys.path.insert(0, str(HELPER))
 sys.path.insert(0, str(HERE))

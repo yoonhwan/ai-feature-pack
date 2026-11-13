@@ -80,6 +80,8 @@ def box_state(pane):  # r1836 B1·B2: (empty|text|unknown, 글, 이유) — 경�
         return 'unknown', text, 'foreign-footer'  # 아래 경계선 밑 = cwd·상태 줄만
     if any(BROKEN.search(s) and not MARK.match(s) and not DIVIDER.fullmatch(s) for s in map(str.strip, lines[start:])):
         return 'unknown', text, 'broken-border'  # ─ 로 끝나는 덮인 경계선
+    if not any(STATUS.match(x.strip()) for x in lines[last + 1:]):
+        return 'unknown', text, 'no-status'  # ⓓ 상태 줄 없음 = 화면 바닥을 못 봄
     top = next((i for i in range(last - 1, -1, -1) if DIVIDER.fullmatch(lines[i].strip()) or MARK.match(lines[i].strip())), None)
     if top is not None and OVERFLOW.match(lines[top].strip()):
         return 'text', text, ''  # 넘친 상자 = 글 있음 (보이는 글 0 이어도)
