@@ -11,6 +11,7 @@ FT2 = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))
 _SPEC = importlib.util.spec_from_file_location("ft2_keeper_land_cli", os.path.join(FT2, "core", "cli.py"))
 cli = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(cli)
+PROJ = cli._load("projection")   # r1893 최신 dispatch attempt · launch intent 경로
 OK = "접수 성공"
 
 REFS = ("origin/ops/main-base", "origin/main")       # BYZ 카드·착지 ref (B1r 순서)
@@ -128,8 +129,18 @@ class Landing:
         sha = shas[0]
         for repo, ref in ((self.pack, "origin/main"), (self.root, REFS[0]), (self.root, REFS[1])):
             if self.git(repo, "merge-base", "--is-ancestor", sha, ref)[0] == 0:
-                return sha, ("pack:" if repo == self.pack else "byz:") + ref, ""
+                old = self.pre_attempt(team, work, repo, sha)
+                return (None, None, old) if old else (sha, ("pack:" if repo == self.pack else "byz:") + ref, "")
         return sha, None, "미도달"
+
+    def pre_attempt(self, team, work, repo, sha):
+        """r1893 — 최신 dispatch attempt intent base_sha 대조 · rc0 = 옛 줄 · rc1 = 조상 아님(진행) · 그 밖 = 판정 불가 · intent·base_sha 없음 = ""."""
+        runtime = PROJ.runtime_path(self.root, team)
+        recs = PROJ.journal.Journal(runtime, rec=PROJ.record).records()
+        att = ([r.get("attempt") for r in recs if r.get("kind") == "dispatch" and r.get("work") == work] or [None])[-1]
+        base = self.read_json(os.path.join(runtime, "launch", "%s@%s.intent" % (work, att))).get("base_sha") if att else None
+        rc = self.git(repo, "merge-base", "--is-ancestor", sha, base)[0] if base else 1
+        return "옛 착지 줄(attempt 전) " + sha[:8] if rc == 0 else "" if rc == 1 else "판정 불가 · 옛 착지 대조 git rc %s" % rc
 
     def done(self, team, work):
         proj = self.project(self.root, team)
