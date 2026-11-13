@@ -40,10 +40,10 @@
 3. 회귀: feature-pack/code-intel/tests/test_ci_ast_probe_panic.sh · test_ci_outline_missing_path.sh · test_ci_lsp_crashloop.sh rc0
 
 ## 완료 조건
-1. [ ] 나노: 시험 전체(앞 카드 175 + B1~B9) rc0 · 걸린 초
-2. [ ] 나노: 기준판(origin/main ci) B1·B2·B3·B6 FAIL 원문
-3. [ ] 나노: 변이 X1~X4 각각 지정 반례 FAIL(4/4)
-4. [ ] 나노: 회귀 3파일 rc0 · 시험 파일 100644 · B8 `.YAML` 실측 1줄
+1. [x] 나노: 시험 전체(앞 카드 175 + B1~B9) rc0 · 걸린 초 — 235 검사 · 실패 0 · 8.8초(P1~P21 · A1~A9 · B1~B8)
+2. [x] 나노: 기준판(origin/main ci) B1·B2·B3·B6 FAIL 원문 — B1 5건 · B2 3건 · B3 3건 · B6 4건 FAIL(위 상태 절)
+3. [x] 나노: 변이 X1~X4 각각 지정 반례 FAIL(4/4) — X1a·X1b·X2·X3·X4 = 5/5 잡힘(목록에서 yml 빼기 · !glob md 만 · rg glob md 만 · probe 인자 md 하드코딩)
+4. [x] 나노: 회귀 3파일 rc0 · 시험 파일 100644 · B8 `.YAML` 실측 1줄 — B8 = probe `-i` glob 은 대소문자를 가린다(`.YAML` 은 목록 밖 → probe 그대로 · rg `*.yaml` 도 안 걸림 · 겹침 0)
 5. [ ] master: 착지 sha → 설치(루트 main 반영 · 사본 2곳 cmp0)
 6. [ ] master: 재현 명령 원문(BYZ ops-lead · `ci search "consent gate" . --max 3`) — panic 경고 0 · 버린 줄 0 · real 7초 안 · 최종 구현 전체 명령 1회의 real·rc·panic·버린 줄 기록 · 추가 확인은 사유 1줄과 함께 1회까지 · 실행한 결과 전부 보존 · 7초를 넘은 결과를 빼고 통과시키지 않음 · 한 번이라도 7초 넘으면 완료 조건 미충족 · 설계 §1 실험 5.74~6.83초는 실험 사본 값 · 최종 증거 아님 → ops arch#107·harness#243·planner#291 1통
 7. [ ] master: 앞 카드 재현(BYZ harness-ops-m175 · `ci search "request register" . --max 3`) 원문 — 앞 카드 끝 기준 그대로
@@ -69,3 +69,8 @@
 - 2026-11-13 · 대기 — aifp-ft-arch-pi#3 작성(aifp 4352 · 실측 재현 panic 1·버린 줄 2·8.75초 · yaml 뺀 실험 사본 5.74~6.83초 panic 0) · 다음 = DA aifp-ft-da-codex#0 사전검증 → APPROVE 뒤 aifp-ft-master-pi#10 → 나노 1석
 - 2026-11-13 22:38 — 대기→진행 · 좌석 aifp-ft-nano-ci-search-yaml-panic#0
 - [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
+- 2026-11-13 · 나노 완료 보고(aifp-ft-nano-ci-search-yaml-panic#0) — 래퍼 search 갈래 목록 1개화(`_PROBE_SKIP=(md yml yaml)` · L1~L5) · 시험 B1~B8 덧붙임 · 회귀 3파일 rc0 · 브랜치 nano/ci-search-yaml-panic(코드 커밋 ed261f0b · HEAD ade61bc2 = 워크트리 정보 커밋 · push 0)
+- 세트: ed261f0b5cca1093ab562df4d85ab736f1f2d36d · 시험: bash feature-pack/code-intel/tests/test_ci_search_nonascii_panic.sh rc=0 (235 검사 · 8.8초) · 이슈: 0
+- 회귀: test_ci_ast_probe_panic.sh rc=0(26 검사) · test_ci_outline_missing_path.sh rc=0(19/19) · test_ci_lsp_crashloop.sh rc=0(44 검사) · ft-test-reentry-lint.sh rc=0 · 시험 파일 100644
+- 실측(B8): probe-code 0.6.0 `-i '*.yaml'` 은 대소문자를 가린다 — `/tmp` 픽스처에서 `.YAML` 이 결과에 남고 `.yaml` 만 빠졌다. 그래서 `.YAML` 은 목록 밖(probe 그대로) · rg `*.yaml` 도 안 걸려 겹침 0 이다.
+- 남은 것 = 완료 조건 5·6·7(master 몫: 착지 sha → 설치 cmp0 · BYZ ops-lead 재현 · 앞 카드 재현). 나노가 못 닫는 이유 = 라이브 설치·다른 리포 재현은 좌석 권한 밖(r1672). press 필요 0.
