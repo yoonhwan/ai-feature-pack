@@ -799,9 +799,44 @@ echo "BODY+${_RTX}"
 pack_wt_line() {
   ft_pack_card "$1" || return 0   # r1785: 판별 = ft-team-lib.sh ft_pack_card 한 출처(nano-close ⓐ 와 같음)
   local pk="${FT_PACK_ROOT:-$HOME/Project/ai-feature-pack}"
-  printf ' ★팩 작업 폴더 = %s/.worktrees/%s (git -C %s worktree add %s/.worktrees/%s -b %s origin/main · 세션 스크래치 0 — 닫기 = nano-close --wt %s/.worktrees/%s --branch %s)★' \
-    "$pk" "$2" "$pk" "$pk" "$2" "$3" "$pk" "$2" "$3"
+  printf ' ★팩 작업 폴더 = %s/.worktrees/%s (이미 만들어 둠 · 가지 %s · 팩 루트 %s 에서 checkout/switch 금지 · 세션 스크래치 0 — 닫기 = nano-close --wt %s/.worktrees/%s --branch %s)★' \
+    "$pk" "$2" "$3" "$pk" "$pk" "$2" "$3"
 }
+# r1408: 팩 작업 폴더를 spawn 이 «좌석 열기 전» 직접 만든다 — 글로만 시키면 건너뛴 나노가 공용 팩 루트에서 가지를 바꿔 전 팀 spawn DRIFT(r1392 실사건).
+#   ⓐ 팩 루트 HEAD = main 가지(ft2 설치 h 계약 · ff-only) 또는 detached → 허용 · 그 밖의 가지면 REJECT(자동 되돌림 0 = 사람·master 판단 · DA #298790 보정) ⓑ <팩>/.worktrees/<slug> 가 없으면 origin/main(fetch 25초)에서 가지 <branch> 로 만든다(가지가 이미 있으면 재부착)
+#   · 있으면 그 워크트리 가지가 <branch> 인지 본다(다르면 REJECT) ⓒ stdout «PACK-WT <경로> 만듦|재사용» 1줄 · --dry-run = 판정만(쓰기 0 · «만들 예정»)
+#   git 조회 실패 = «판정 불가» REJECT(하드 룰 20) · 하네스 밖 카드 = 출력 0(지금과 같다) · 좌석·명부·BYZ 워크트리 «전» 자리
+pack_wt_prepare() {  # $1 카드 $2 slug $3 가지 $4 dry(1|0) → rc0 + PACK-WT 1줄(하네스 밖 = 출력 0) · rc1 + REJECT 1줄
+  ft_pack_card "$1" || return 0
+  local pk="${FT_PACK_ROOT:-$HOME/Project/ai-feature-pack}" ref rc=0 wt wtp cur how args
+  pk="$(cd "$pk" 2>/dev/null && pwd -P)" || { echo "REJECT 팩 루트 판정 불가 — 폴더 없음(${FT_PACK_ROOT:-$HOME/Project/ai-feature-pack}) · 좌석·명부·워크트리 0"; return 1; }
+  ref="$(ft_git_capped 7 "$pk" symbolic-ref -q --short HEAD)" || rc=$?
+  case "$rc" in
+    0) [ "$ref" = main ] || { echo "REJECT 팩 루트가 가지 $ref 에 있음(main·detached 아님) — main 또는 detached origin/main 으로 되돌린 뒤 다시($pk · 좌석·명부·워크트리 0)"; return 1; };;
+    1) ;;
+    *) echo "REJECT 팩 루트 HEAD 판정 불가(rc=$rc · $pk) — 좌석·명부·워크트리 0"; return 1;;
+  esac
+  wt="$pk/.worktrees/$2"
+  if [ -e "$wt" ]; then
+    wtp="$(cd "$wt" 2>/dev/null && pwd -P)" || wtp="$wt"
+    cur="$(ft_git_capped 7 "$pk" worktree list --porcelain)" || { echo "REJECT 팩 워크트리 목록 판정 불가($pk) — 좌석·명부·워크트리 0"; return 1; }
+    cur="$(printf '%s\n' "$cur" | awk -v a="$wt" -v b="$wtp" '/^worktree /{w=substr($0,10)} (w==a||w==b) && /^branch /{sub("^branch refs/heads/",""); print; exit} (w==a||w==b) && /^detached/{print "(detached)"; exit}')"
+    [ "$cur" = "$3" ] || { echo "REJECT 팩 작업 폴더 $wt 가 가지 ${cur:-(워크트리 아님)} 에 있음 — $3 이어야 한다(지우기·덮기 0 · 판단 master)"; return 1; }
+    echo "PACK-WT $wt 재사용"; return 0
+  fi
+  [ "$4" != 1 ] || { echo "PACK-WT $wt 만들 예정(dry-run · 쓰기 0 · 가지 $3 · origin/main)"; return 0; }
+  ft_git_capped 25 "$pk" fetch -q origin +refs/heads/main:refs/remotes/origin/main >/dev/null || { echo "REJECT 팩 origin main fetch 실패($pk) — 좌석·명부·워크트리 0"; return 1; }
+  rc=0; ft_git_capped 7 "$pk" rev-parse --verify -q "refs/heads/$3" >/dev/null || rc=$?
+  case "$rc" in
+    0) how="만듦(가지 재부착)"; args=("$wt" "$3");;
+    1) how="만듦"; args=(-b "$3" "$wt" origin/main);;
+    *) echo "REJECT 팩 가지 $3 판정 불가(rc=$rc) — 좌석·명부·워크트리 0"; return 1;;
+  esac
+  ft_git_capped 25 "$pk" worktree add -q "${args[@]}" >/dev/null || { echo "REJECT 팩 작업 폴더 만들기 실패($wt · 가지 $3) — 좌석·명부 0"; return 1; }
+  echo "PACK-WT $wt $how"
+}
+_PKW="$(pack_wt_prepare "$IDX" "$SLUG" "$BRANCH" "$DRY")" || { printf '%s\n' "$_PKW"; exit 1; }
+[ -z "$_PKW" ] || printf '%s\n' "$_PKW"
 _PKX="$(pack_wt_line "$IDX" "$SLUG" "$BRANCH")"
 [ -z "$_PKX" ] || echo "BODY+${_PKX}"
 # R81 ⓐ 슬랙 장부 사전 확인 — 카드에 「- 슬랙:」 줄이 있으면 부작용 «전»에 check(dry-run 도 같다): rc 0·1 통과 · 3 = 장부 불명 · 그 밖·도구 없음 = REJECT

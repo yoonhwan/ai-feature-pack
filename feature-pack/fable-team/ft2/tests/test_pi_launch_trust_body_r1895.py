@@ -21,7 +21,9 @@ MARK = "[발주] ft2 harness %s@a1" % W
 
 def body(root, team, work, holder):
     return ("[발주] ft2 %s %s@a1 좌석 %s — 카드 %s origin/main:design/%s/indices/대기/%s.md 를 통째로 읽고 그대로 수행 · "
-            "ft2_claim → ft2_start 부터 · 산출·막힘은 팀 master 에 mbox" % (team, work, holder, os.path.abspath(str(root)), team, work))
+            "ft2_claim → ft2_start 부터 · 산출·막힘은 팀 master 에 mbox · 산출 = 가지 nano/<work> push + master 보고까지 · "
+            "main·ops/main-base push·병합·착지·설치·심링크·가지 삭제 0(= master·h 몫) · AGENTS.md «Landing the Plane» 은 이 좌석에 적용 0"
+            % (team, work, holder, os.path.abspath(str(root)), team, work))   # r1900 끝 1구
 
 def l1(tmp, ft2=FT2):   # ① dry-run argv = pi · --approve · 역할 argv · 첫 본문 1개 인자 · ② 본문 정확 · 실제 실행 intent body_mark
     root, fake = pl._paths(tmp)   # _paths 가 표 harness 행을 쓴다

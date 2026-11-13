@@ -169,15 +169,23 @@ def bridge(to: str, frm: str, body: str) -> str | None:
             continue
         comm = comm_of(Path(str(row["path"])))
         try:
-            p = _child(comm, "send", to, frm, body, extra_env={"FT_MBOX_BRIDGED": "1"})
+            p = _child(comm, "send", to, frm, body, extra_env={"FT_MBOX_BRIDGED": "1", "FT_MBOX_RECEIPT": "done"})
         except (OSError, subprocess.SubprocessError, RootsError) as e:
             print(f"ERROR 우편 다리 판정 불가({row['name']} · {type(e).__name__}) — 받는이 {to}", file=sys.stderr)
             sys.exit(4)
         out = (p.stdout or "") + (p.stderr or "")
         seq = re.search(r"QUEUED seq=(\d+)", out)
         if p.returncode == 0 and seq:
+            import mbox_receipt   # r1416 — 보낸 쪽 기록에 영수 1줄(늦은 import = 두 모듈 서로 부름)
+            mbox_receipt.receipt(comm_of(me), to, frm, body, str(row["name"]), int(seq.group(1)))
             return f"BRIDGED → {row['name']} seq={seq.group(1)} to={to} (내 큐 쓰기 0)"
         print(f"ERROR 우편 다리 판정 불가({row['name']} rc={p.returncode}) — 받는이 {to}\n{out.strip()[:200]}", file=sys.stderr)
         sys.exit(4)
     print(f"받는이 판정 불가: {to} — 내 루트({me})와 roots.tsv 현역 루트 어느 명부에도 없다. 큐 쓰기 0", file=sys.stderr)
     sys.exit(2)
+
+
+def home_receipt(to: str, frm: str, body: str, seq: int) -> None:
+    """r1416 B6 — 본문 = mbox_receipt.home(늦은 import · 두 모듈이 서로 부른다)."""
+    import mbox_receipt
+    mbox_receipt.home(to, frm, body, seq)
