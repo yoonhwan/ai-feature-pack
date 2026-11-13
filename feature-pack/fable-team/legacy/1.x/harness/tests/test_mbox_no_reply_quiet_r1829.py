@@ -112,6 +112,12 @@ def main():
     ck("B3 recv 로 빈 뒤 0", b7.inj() == 0 and "followup" not in o, o)
     o = b8.run(W0 + 10, "sweep", FT_MBOX_PEEK_CMD=str(T / "failpeek.sh"))
     ck("B3 peek 실패 = 울림", b8.inj() == 1, o)
+    b9, t1 = Box("b9"), W0 + 1802  # fix1 R1 — 빈 recv 뒤 새 묶음 = 새 ts(sweep 없이 recv → 새 send)
+    b9.send(W0, "[받음] old")
+    o = b9.run(W0 + 1801, "recv", "a#1") + b9.send(t1, "[받음] new")
+    ck("R1 recv 뒤 새 send pane 0", b9.inj() == 0 and "followup" not in o, o)
+    o = b9.run(t1 + 1799, "sweep") + " | " + b9.run(t1 + 1801, "sweep")
+    ck("R1 새 ts 1799초 0 · 1801초 1", b9.inj() == 1 and "followup" not in o.split(" | ")[0] and "followup=a#1" in o, o)
     shutil.rmtree(T, ignore_errors=True)
     print("---\n" + ("ALL PASS" if not FAIL else f"FAIL {len(FAIL)}"))
     return 1 if FAIL else 0
