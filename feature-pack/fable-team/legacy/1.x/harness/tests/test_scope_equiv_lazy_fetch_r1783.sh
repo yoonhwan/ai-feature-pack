@@ -54,6 +54,7 @@ t3=$SECONDS
 SB="$T/h/bin"; mkdir -p "$T/h"; cp -R "$BIN" "$SB"; cp -R "$HERE/../kit/fable-team/templates" "$T/h/templates"   # tpl_file = <bin>/../templates
 cat > "$SB/ft-approval-equiv.sh" <<EOF
 #!/usr/bin/env bash
+if [ "\$2" = --candidates ]; then while read -r x; do printf '%s %s %s\n' "\$x" "\$1" "\$5" >> "$T/equiv.log"; echo "\$x NOT-EQUIV stub"; done; exit 1; fi   # r1815: 여러 후보 꼴(<S> --candidates - --repo R) — 후보마다 같은 기록
 printf '%s %s %s\n' "\$1" "\$2" "\$4" >> "$T/equiv.log"
 echo "NOT-EQUIV stub"; exit 1
 EOF
