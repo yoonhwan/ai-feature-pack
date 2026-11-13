@@ -30,16 +30,12 @@ def call(w, capsys, mod=None, work="r9"):
     return rc, capsys.readouterr().out.strip()
 
 
-def remote(w, ref="ops/main-base"):
-    return kw._git(w.tmp, "--git-dir", str(w.tmp / "byz.git"), "ls-tree", "-r", "--name-only", ref).splitlines()
+def bare(w, *a):
+    return kw._git(w.tmp, "--git-dir", str(w.tmp / "byz.git"), *a)
 
 
-def show(w, path, ref="ops/main-base"):
-    return kw._git(w.tmp, "--git-dir", str(w.tmp / "byz.git"), "show", "%s:%s" % (ref, path))
-
-
-def head(w):
-    return kw._git(w.tmp, "--git-dir", str(w.tmp / "byz.git"), "rev-parse", "ops/main-base")
+def remote(w):
+    return bare(w, "ls-tree", "-r", "--name-only", "ops/main-base").splitlines()
 
 
 def done_world(tmp, mp, done=True):
@@ -53,30 +49,28 @@ def test_1_done_moves_card_to_complete(tmp_path, monkeypatch, capsys):
     w = done_world(tmp_path, monkeypatch)
     rc, out = call(w, capsys)
     assert rc == 0 and out.startswith("STAGED r9-x 진행→완성 "), out
-    names = remote(w)
-    assert CARD % "완성" in names and CARD % "진행" not in names
-    body = show(w, CARD % "완성")
+    assert CARD % "완성" in remote(w) and CARD % "진행" not in remote(w)
+    body = bare(w, "show", "ops/main-base:" + CARD % "완성")
     assert "\n- 상태: 완성 · %s · ft2 complete " % NOW in body and "- 상태: 대기" not in body
     assert body.rstrip().splitlines()[-1].startswith("- %s · ft2 card_stage 진행→완성" % NOW)
-    assert out.split()[-1] == head(w)
-    assert "[docs] r9-x 2.0 완성 폴더(ft2 done)" in kw._git(w.tmp, "--git-dir", str(w.tmp / "byz.git"), "log", "-1", "--format=%s", "ops/main-base")
+    assert out.split()[-1] == bare(w, "rev-parse", "ops/main-base")
+    assert "[docs] r9-x 2.0 완성 폴더(ft2 done)" in bare(w, "log", "-1", "--format=%s", "ops/main-base")
     assert len(kw._git(w.root, "worktree", "list").splitlines()) == 1
 
 
 def test_2_rerun_is_noop(tmp_path, monkeypatch, capsys):
     w = done_world(tmp_path, monkeypatch)
     assert call(w, capsys)[0] == 0
-    sha = head(w)
+    sha = bare(w, "rev-parse", "ops/main-base")
     rc, out = call(w, capsys)
-    assert (rc, out.split()[0]) == (0, "NOOP") and head(w) == sha, out
+    assert (rc, out.split()[0]) == (0, "NOOP") and bare(w, "rev-parse", "ops/main-base") == sha, out
 
 
 def test_3_not_done_rejects_without_write(tmp_path, monkeypatch, capsys):
     w = done_world(tmp_path, monkeypatch, done=False)
-    sha = head(w)
+    sha = bare(w, "rev-parse", "ops/main-base")
     rc, out = call(w, capsys)
-    assert (rc, out) == (1, "REJECT done 없음 r9") and head(w) == sha
-    assert CARD % "진행" in remote(w)
+    assert (rc, out) == (1, "REJECT done 없음 r9") and bare(w, "rev-parse", "ops/main-base") == sha and CARD % "진행" in remote(w)
 
 
 def test_4_two_prefix_cards_unsure(tmp_path, monkeypatch, capsys):
@@ -84,25 +78,19 @@ def test_4_two_prefix_cards_unsure(tmp_path, monkeypatch, capsys):
     w.commit("byz", {"design/harness/indices/진행/r9-a.md": "- 상태: 대기\n",
                      "design/harness/indices/진행/r9-b.md": "- 상태: 대기\n"}, "ops/main-base")
     w.work("r9", done=True, intent=False, turn=None)
-    sha = head(w)
+    sha = bare(w, "rev-parse", "ops/main-base")
     rc, out = call(w, capsys)
-    assert rc == 3 and out.startswith("판정 불가 ") and head(w) == sha, out
+    assert rc == 3 and out.startswith("판정 불가 ") and bare(w, "rev-parse", "ops/main-base") == sha, out
 
 
 def test_5_remote_ahead_rebases_once(tmp_path, monkeypatch, capsys):
     w = done_world(tmp_path, monkeypatch)
-    mod, seen = tool(w), []
-    real = mod.git
-
-    def git(cwd, *args):
-        if args[:1] == ("push",) and not seen:
-            seen.append(w.commit("byz", {"other.txt": "앞선 커밋"}, "ops/main-base"))
-        return real(cwd, *args)
-    monkeypatch.setattr(mod, "git", git)
-    rc, out = call(w, capsys, mod)
+    seen = []   # 첫 push 직전에 원격이 앞선다(다른 커밋 1)
+    rc, out = call(w, capsys, fake(w, monkeypatch, "push", lambda real, cwd, *a: (
+        seen or seen.append(w.commit("byz", {"other.txt": "앞선 커밋"}, "ops/main-base")), real(cwd, *a))[1]))
     assert rc == 0 and out.startswith("STAGED "), out
     assert "other.txt" in remote(w) and CARD % "완성" in remote(w)
-    assert kw._git(w.tmp, "--git-dir", str(w.tmp / "byz.git"), "merge-base", "--is-ancestor", seen[0], "ops/main-base") == ""
+    assert bare(w, "merge-base", "--is-ancestor", seen[0], "ops/main-base") == ""
 
 
 def test_6_journal_done_without_checkpoint_stages(tmp_path, monkeypatch, capsys):
@@ -114,17 +102,18 @@ def test_6_journal_done_without_checkpoint_stages(tmp_path, monkeypatch, capsys)
     assert w.kinds("complete") == 1
     rc, out = call(w, capsys)
     assert rc == 0 and out.startswith("STAGED "), out
-    assert "ft2 complete 20" in show(w, CARD % "완성")
+    assert "ft2 complete 20" in bare(w, "show", "ops/main-base:" + CARD % "완성")
 
 
 def test_7_push_timeout_is_unknown(tmp_path, monkeypatch, capsys):
     w = done_world(tmp_path, monkeypatch)
-
-    def slow(real, cwd, *a):
-        raise subprocess.TimeoutExpired(["git", "push"], 7)
     rc, out = call(w, capsys, fake(w, monkeypatch, "push", slow))
     assert (rc, out) == (3, "판정 불가 push 결과 불명") and "원격 쓰기 0" not in out, out
     assert len(kw._git(w.root, "worktree", "list").splitlines()) == 1
+
+
+def slow(real, cwd, *a):
+    raise subprocess.TimeoutExpired(["git"] + list(a[:1]), 7)
 
 
 def fake(w, monkeypatch, verb, answer):
@@ -148,3 +137,13 @@ def test_9_push_answer_lost_is_unknown(tmp_path, monkeypatch, capsys):
     assert rc == 3 and out.startswith("판정 불가 push 결과 불명") and "원격 쓰기 0" not in out and "거절" not in out, out
     assert CARD % "완성" in remote(w)
     assert call(w, capsys)[1].startswith("NOOP")
+
+
+def test_10_commit_timeout_still_cleans(tmp_path, monkeypatch, capsys):
+    w, seen = done_world(tmp_path, monkeypatch), []
+    mod = fake(w, monkeypatch, "commit", slow)
+    inner = mod.git
+    monkeypatch.setattr(mod, "git", lambda cwd, *a: seen.append(a[:2]) or inner(cwd, *a))
+    rc, out = call(w, capsys, mod)
+    assert rc == 3 and out.startswith("판정 불가") and seen.count(("worktree", "remove")) == 1, out
+    assert len(kw._git(w.root, "worktree", "list").splitlines()) == 1 and CARD % "진행" in remote(w)
