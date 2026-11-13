@@ -136,9 +136,10 @@ class Closing:
     def retired(self):
         """B3② — 명부 `_replaced_by` 행 + 세션 생존 → ft-seat-close 1회."""
         for path in sorted(glob.glob(os.path.join(self.root, ".fable-team", "seats*.json"))):
+            team = os.path.basename(path)[6:-5]   # r1835 K2 — 명부 팀(seats-<팀>) 또는 좌석 이름 byz-<팀> 이 제외 팀 = 손 0
             for seat, row in sorted(self.read_json(path).items()):
                 new = row.get("_replaced_by") if isinstance(row, dict) else None
-                if isinstance(new, str) and new and self.retire_one(path, seat, new) == "stop":
+                if isinstance(new, str) and new and not {team, (seat.split("-") + [""])[1]} & self.skip and self.retire_one(path, seat, new) == "stop":
                     return
 
     def retire_one(self, path, seat, new):
