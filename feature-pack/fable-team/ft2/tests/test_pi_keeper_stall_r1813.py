@@ -1,4 +1,4 @@
-"""r1813 ft2 keeper 멈춤 갈래 — 깨움 1회 → 재배정 시험 (카드 r3 반례 ①~⑦ · R1-a · R2-a~c · R3-a~b · 변이 M1~M8).
+"""r1813 ft2 keeper 멈춤 갈래 — 깨움 1회 → 재배정 시험 (카드 r3 반례 ①~⑦ · R1-a · R2-a~c · R3-a~b · 변이 M1~M8 · 보정1 R1-b · M9).
 입력(카드 r3 · DA#10): 임시 데이터 root 에 ★실제 core★(cli.run 으로 submit·assign·deliver·start·effect · Lifecycle.progress) ·
 업무 repo = 데이터 root 와 다른 임시 git repo(옛 worktree = 그 repo 의 worktree) · ★실제 launch.py★(실행 회차는 PATH 앞 tmux 대역만 ·
 `--dry-run` 결과 대조) · 대역 3가지뿐 = tmux(capture 고정 · send·kill·new 기록) · pi 프로세스 argv(ps) · pi 세션 파일(mtime 주입).
@@ -20,7 +20,7 @@ n = sum(1 for p in glob.glob(os.path.join(os.environ["FAKE_RUNTIME"], "journal*.
 open(st + ".log", "a").write(json.dumps({"a": a, "dispatch": n}) + "\n")
 if a[0] == "kill-session": d["alive"].remove(name)
 if a[0] == "new-session": d["alive"].append(name)
-if a[0] == "send-keys" and "-l" in a: d["pane"][name] = d["pane"].get(name, "") + a[-1]
+if a[0] == "send-keys" and "-l" in a and not d.get("noecho"): d["pane"][name] = d["pane"].get(name, "") + a[-1]
 json.dump(d, open(st, "w"))
 if a[0] == "capture-pane": sys.stdout.write(d["pane"].get(name, "✻ Brewed for 3s\n❯ "))
 if a[0] == "display-message": sys.stdout.write("4242\n")
@@ -236,6 +236,16 @@ def r3b(w):  # R3-b 옛 intent 열림 아님 / worktree 미커밋 변경 / argv 
         assert len(v.notes()) == 1 and field in v.notes()[0], (sub, v.notes())
 
 
+def r1b(w):  # 보정1 R1(DA#10 #294192) — 깨움 문구 도달 확인 3회 실패 → woke 기록 0 · 11분 뒤 kill·dispatch·launch 0 · 판정 불가 보고만
+    w.seat()
+    _put(w.tm, dict(json.loads(w.tm.read_text(encoding="utf-8")), noecho=True))
+    assert any("깨움 도달 확인 3회 실패" in x for x in w.round()) and not any(x.startswith("WOKE") for x in w.k.lines)
+    assert w.k.state["woke"] == {} and len(w.tmux("send-keys")) == 3
+    lines = w.round(11 * M)
+    assert w.tmux("kill-session") == [] and w.kinds("dispatch") == 1 and w.tmux("new-session") == []
+    assert any("판정 불가" in x and "깨움 도달 미확인" in x for x in lines) and len(w.tmux("send-keys")) == 3
+
+
 def c5(w):   # ⑤ 같은 work 두 번째 멈춤(attempt a2) → S3 0 · 쪽지 1 · 같은 날 다시 → 쪽지 0
     w.seat(), w.round(), w.round(11 * M)
     w.session(w.tree("a2"), 11 * M)
@@ -263,7 +273,7 @@ def c7(w):   # ⑦ pi 세션 파일 못 찾음 → 판정 불가 1줄 · 행동 
 
 
 CASES = {"①": c1, "②": c2, "②′": c2b, "②″": c2c, "③": c3, "③′": c3b, "④": c4, "R1-a": r1a,
-         "R2-a": r2a, "R2-b": r2b, "R2-c": r2c, "R3-a": r3a, "R3-b": r3b, "⑤": c5, "⑥": c6, "⑥′": c6b, "⑦": c7}
+         "R2-a": r2a, "R2-b": r2b, "R2-c": r2c, "R3-a": r3a, "R3-b": r3b, "R1-b": r1b, "⑤": c5, "⑥": c6, "⑥′": c6b, "⑦": c7}
 KS = "adapters/pi/keeper_stall.py"
 MUTANTS = {"M1": ("if BUSY.search(pane[-2000:]):", "if False:", c2),
            "M2": ('[facts["mtime"]] if woke is None', '[] if woke is None', c2b),
@@ -272,7 +282,8 @@ MUTANTS = {"M1": ("if BUSY.search(pane[-2000:]):", "if False:", c2),
            "M5": ('if wk in k.state.setdefault("reassigned", {}):', "if False:", c5),
            "M6": ("if not holder:", 'if not (holder := holder or [r for r in rows if r.get("kind") == "dispatch" and r.get("work") == work][-1]["holder"]):', c6),
            "M7": ('(r.get("kind") == "progress" and r.get("tick_kind") == "progress")', '(r.get("kind") == "progress")', r2a),
-           "M8": (', "--repo", p["repo"], "--base", p["base"], "--role", p["role"]]', "]", r3a)}
+           "M8": (', "--repo", p["repo"], "--base", p["base"], "--role", p["role"]]', "]", r3a),
+           "M9": ("        for _ in range(3):\n", '        k.state["woke"][key] = k.now()\n        for _ in range(3):\n', r1b)}   # 보정1: woke 를 확인 전에 기록
 
 
 @pytest.mark.parametrize("name", list(CASES))
