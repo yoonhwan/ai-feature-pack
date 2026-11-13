@@ -75,3 +75,5 @@
 - 실측(B8): probe-code 0.6.0 `-i '*.yaml'` 은 대소문자를 가린다 — `/tmp` 픽스처에서 `.YAML` 이 결과에 남고 `.yaml` 만 빠졌다. 그래서 `.YAML` 은 목록 밖(probe 그대로) · rg `*.yaml` 도 안 걸려 겹침 0 이다.
 - 남은 것 = 완료 조건 5·6·7(master 몫: 착지 sha → 설치 cmp0 · BYZ ops-lead 재현 · 앞 카드 재현). 나노가 못 닫는 이유 = 라이브 설치·다른 리포 재현은 좌석 권한 밖(r1672). press 필요 0.
 - 완성: PR #1096 14ef74acf8
+- 세트: 12aa73a586963bae81b4e6e57b0d780f3aa5537b · ed261f0b 의 cherry-pick(PR #1096 head · 코드 같음) · 시험 235/0 rc0 9초(팀장)
+- 착지: PR #1096 squash 14ef74acf8db0934ae90ae74f296cb06c8d9bacf(오빠 «네» Slack reply 1794580640.715179)
