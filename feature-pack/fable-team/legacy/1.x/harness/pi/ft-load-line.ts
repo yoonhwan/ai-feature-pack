@@ -4,10 +4,11 @@
 //    메시지 주입(send*)은 쓰지 않는다 — triggerTurn 없이라도 «컨텍스트에 들어가는» 메시지라 이 카드의 계약(턴 0 · 컨텍스트 0) 밖이다.
 //  · 판 = 설치본 파일 내용 sha256 앞 8자 — 설치가 «cp 1개» 라 판 문자열이 따로 없고, 내용 지문이 «새 판이 실렸나» 를 그대로 답한다.
 //    못 읽으면 «판 불명»(빈칸 0) · 설치 폴더 = 이 파일의 폴더(설치본이면 ~/.pi/agent/extensions) · env FT_PI_EXT_DIR 이 이긴다.
-//  · 기록 실패 = console.error 1줄(no_silent_fallback) · 확장 본 기능 등록은 계속 — 로드 줄이 확장을 죽이지 않는다.
+//  · 기록 실패 = say() 1줄(no_silent_fallback · r1837) · 확장 본 기능 등록은 계속 — 로드 줄이 확장을 죽이지 않는다.
 //  · 시험 = harness/tests/test_pi_ext_load_line_r1537.sh
 import * as fs from "node:fs";
 import * as path from "node:path";
+import * as os from "node:os";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
@@ -30,7 +31,21 @@ export function versionOf(dir: string, file: string): string {
 export function appendLoadLine(pi: AppendOnly, card: string, file: string): void {
   const version = versionOf(process.env.FT_PI_EXT_DIR || installDir(), file), line = `로드 ${card} ${version}`;
   try { pi.appendEntry(LOAD_TYPE, { card, version, file, line }); }
-  catch (e) { console.error(`ERROR ft-load-line: 세션 기록 실패 ${line} (${file}) — ${e}`); }
+  catch (e) { say(`ERROR ft-load-line: 세션 기록 실패 ${line} (${file}) — ${e}`); }
+}
+
+// r1837 — 확장 진단 1줄의 출력 길. TUI(stderr=터미널)면 화면 위에 찍혀 입력창 경계선을 덮는다 → 파일 로그 1줄 · 터미널 0.
+//  그 밖(시험·print·json·파이프) = 종전 console.error 1회. 로그 = FT_PI_EXT_LOG || ~/.pi/agent/logs/ft-ext.log · 좌석 = FT_SEAT || TMUX_PANE || ?
+//  쓰기 실패 = 터미널 0 · 프로세스 첫 실패 1회만 tmpdir/ft-ext-<uid>.log · 둘 다 실패 = 버림. 시험 = tests/test_pi_ext_say_r1837.sh
+let tmpTried = false;
+export function say(line: string): void {
+  if (process.stderr.isTTY !== true) { console.error(line); return; }
+  const seat = process.env.FT_SEAT || process.env.TMUX_PANE || "?", row = `${new Date().toISOString()} ${seat} ${line}\n`;
+  const file = process.env.FT_PI_EXT_LOG || path.join(os.homedir(), ".pi", "agent", "logs", "ft-ext.log");
+  try { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.appendFileSync(file, row); return; } catch { /* 아래 tmpdir 1회 */ }
+  if (tmpTried) return;
+  tmpTried = true;
+  try { fs.appendFileSync(path.join(os.tmpdir(), `ft-ext-${process.getuid?.() ?? "u"}.log`), row); } catch { /* 둘 다 실패 = 버림(S3) */ }
 }
 
 // ★이 파일도 «확장 파일» 이다★ — pi 는 설치 폴더의 .ts 를 «전부» 확장으로 로드하고 default factory 가 없으면

@@ -12,13 +12,14 @@ import * as path from "node:path";
 import { execFile, execFileSync, execSync } from "node:child_process";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { appendLoadLine } from "./ft-load-line.ts"; // r1537 — 세션 기록 «로드 <카드> <판>» 1줄(턴 0)
+import { say } from "./ft-load-line.ts"; // r1837 — 진단 1줄 출력 길(TUI = 파일 로그)
 
 type Verdict = "merged" | "missing" | "unknown";
 export type Item = { sha: string; file: string; pending: number; verdict: Verdict; reason: string };
 
-const sh = (cmd: string): string => { try { return execSync(cmd, { encoding: "utf-8", timeout: 7000 }).trim(); } catch { return ""; } };
-const log = (m: string) => console.error(`ft-land-next: ${m}`);
-const fail = (m: string) => console.error(`ERROR ft-land-next: ${m}`);
+const sh = (cmd: string): string => { try { return execSync(cmd, { encoding: "utf-8", timeout: 7000, stdio: ["ignore", "pipe", "pipe"] }).trim(); } catch { return ""; } };
+const log = (m: string) => say(`ft-land-next: ${m}`);
+const fail = (m: string) => say(`ERROR ft-land-next: ${m}`);
 export const seatName = (): string => process.env.FT_SEAT || sh('tmux display-message -p "#S"');
 // root = «git 공용 루트» — pi pane 의 cwd 는 워크트리일 수 있다(ft-mbox-wake r1530 과 같은 식).
 const gitRoot = (): string => { const d = sh("git rev-parse --path-format=absolute --git-common-dir"); return d ? path.dirname(d) : ""; };

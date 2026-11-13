@@ -7,6 +7,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { execSync } from "node:child_process";
+import { say } from "./ft-load-line.ts"; // r1837 — 진단 1줄 출력 길(TUI = 파일 로그)
 import { type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const TOOLS = [
@@ -35,7 +36,7 @@ const gitRoot = (): string => {
 // h 폴더 = «실행되면 h<N>.ran 을 남기는» ft-hil 진입 파일 폴더. 읽기 실패 = 제안 0 + ERROR 1줄(가짜 목록 0).
 export function hItems(dir: string, cap = H_CAP, show = H_SHOW): Item[] {
   let names: string[];
-  try { names = fs.readdirSync(dir); } catch (e) { console.error(`ERROR ft-suggest: h 폴더 읽기 실패 ${dir} — ${e}`); return []; }
+  try { names = fs.readdirSync(dir); } catch (e) { say(`ERROR ft-suggest: h 폴더 읽기 실패 ${dir} — ${e}`); return []; }
   const nums: { name: string; num: number }[] = [];
   for (const name of names) {
     const m = /^h(\d+)$/.exec(name);

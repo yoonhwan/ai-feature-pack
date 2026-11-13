@@ -12,6 +12,7 @@ import { execFile, execFileSync, execSync } from "node:child_process";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { piMasterFile } from "./ft-mbox-wake.ts";
 import { appendLoadLine } from "./ft-load-line.ts"; // r1537 — 세션 기록 «로드 <카드> <판>» 1줄(턴 0)
+import { say } from "./ft-load-line.ts"; // r1837 — 진단 1줄 출력 길(TUI = 파일 로그)
 
 type Got = { goal: boolean; prog: number; h: number; unread: number; last: number; open: number; stale: number; oldest: number };
 // r1699: «회신 대기 발주» — 닫는 머리(이미 처리·보고) 4종 · 창(분) 기본 30 · 정수 아님 = 30
@@ -39,7 +40,7 @@ export function openOrdersOf(rows: OrderRow[], seat: string, live: Set<string>, 
 }
 type Run = { rc: number; out: string };
 const keyOf = (s: string) => s.replace(/[^A-Za-z0-9._#-]/g, "_");
-const log = (m: string) => console.error(`ft-idle-nudge: ${m}`);
+const log = (m: string) => say(`ft-idle-nudge: ${m}`);
 const sh = (cmd: string): string => { try { return execSync(cmd, { encoding: "utf-8", timeout: 7000, stdio: ["ignore", "pipe", "ignore"] }).trim(); } catch { return ""; } };
 const gitRoot = (): string => { const d = sh("git rev-parse --path-format=absolute --git-common-dir"); return d ? path.dirname(d) : ""; };
 export const NUDGE = "다음 발주 또는 막힌 이유 1줄";

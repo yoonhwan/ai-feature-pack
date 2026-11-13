@@ -8,6 +8,7 @@ import * as path from "node:path";
 import { spawnSync, execSync } from "node:child_process";
 import { createLocalBashOperations, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { appendLoadLine } from "./ft-load-line.ts"; // r1537 — 세션 기록 «로드 <카드> <판>» 1줄(턴 0)
+import { say } from "./ft-load-line.ts"; // r1837 — 진단 1줄 출력 길(TUI = 파일 로그)
 type Row = { seq: number; to: string; body: string; from: string };
 const QUIET = ["[정리]", "[회신]", "[완료 보고]"]; // r1476 종류 표와 같은 값 — 큐만
 const LOUD = ["[긴급]", "[인계]", "[레디]"]; // 예산 밖 즉시
@@ -29,8 +30,8 @@ export const loud = (rows: Row[]) => rows.some((r) => LOUD.includes(headOf(r.bod
 // mbox_wakegate.sh:12~18 «사람 발신» 경계 — planner 표식(slack-*·*-oppa·oppa) + 좌석 _master. 미등록 좌석은 사람이 아니다.
 export const humanSender = (from: string, master: string) => from === master || from === "oppa" || from.startsWith("slack-") || from.endsWith("-oppa");
 const keyOf = (s: string) => s.replace(/[^A-Za-z0-9._#-]/g, "_");
-const log = (m: string) => console.error(`ft-mbox-wake: ${m}`);
-const fail = (m: string) => console.error(`ERROR ft-mbox-wake: ${m}`);
+const log = (m: string) => say(`ft-mbox-wake: ${m}`);
+const fail = (m: string) => say(`ERROR ft-mbox-wake: ${m}`);
 const sh = (cmd: string): string => { try { return execSync(cmd, { encoding: "utf-8", timeout: 7000, stdio: ["ignore", "pipe", "ignore"] }).trim(); } catch { return ""; } };
 const seatName = (): string => process.env.FT_SEAT || sh('tmux display-message -p "#S"');
 // ★root = «git 공용 루트»★ — pi pane 의 cwd 는 워크트리일 수 있다(실측 11-09 18:20 planner pi#245). 다른 ft 도구와 같은 식.
