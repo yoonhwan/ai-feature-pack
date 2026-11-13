@@ -17,7 +17,7 @@ receive, route, publish, binding, backfill, wiring = map(_adapter, ("receive", "
 class Undecided(Exception):
     """판정 불가(rc 3) — 메시지에는 이름만 담는다(하드 룰 20)."""
 
-def read_inputs(env_path, seats_path):  # 자격 파일 → 이름별 값(돌려주기만) · owner-seats → _master · 못 읽음 = Undecided
+def read_inputs(env_path, seats_path):  # 자격 파일 → 이름별 값(돌려주기만) · owner-seats → _master·_desk(없음 None · r1861) · _master 못 읽음 = Undecided
     try:
         with open(env_path, encoding="utf-8") as handle:
             pairs = [line.strip().split("=", 1) for line in handle if "=" in line and not line.lstrip().startswith("#")]
@@ -29,12 +29,12 @@ def read_inputs(env_path, seats_path):  # 자격 파일 → 이름별 값(돌려
         raise Undecided("이름 없음: " + missing)
     try:
         with open(seats_path, encoding="utf-8") as handle:
-            master = json.load(handle).get("_master")
+            master, desk = map(json.load(handle).get, ("_master", "_desk"))
     except (OSError, ValueError, AttributeError):
         master = None
     if not master:
         raise Undecided("owner-seats _master 판독 불가")
-    return names, str(master)
+    return names, str(master), str(desk) if desk else None
 
 def web_api(method, token, params=None, retry=True):  # 7초 + 재시도 1(하드 룰 12) · 게시는 retry=False(유실 = 재송 0)
     req = urllib.request.Request("https://slack.com/api/" + method, headers={"Authorization": "Bearer " + token},
@@ -68,10 +68,10 @@ def _ws_connect(url):
     return connect(url, open_timeout=7, max_size=2 ** 22)
 
 class Listener:  # 상주 수신기 1개 = 연결 1개 · 채널 쉼표 목록(첫 = 주 채널 · r1833 C1) · 팀 1곳 · 어댑터 5파일은 공개 API 로만
-    def __init__(self, root, *, channel, app_token, bot_token, master, team="planner", users=(), bot_users=(),
+    def __init__(self, root, *, channel, app_token, bot_token, master, desk=None, team="planner", users=(), bot_users=(),
                  web=web_api, connect=_ws_connect, sleep=time.sleep, mono=time.monotonic, notify=None, clock=None):
-        self.channels = tuple(c.strip() for c in str(channel).split(",") if c.strip())  # 묶기 = 목록 전부(r1861) · 게시 = 주 채널만
-        self.channel, self.master, self.web, self.connect, self.sleep = self.channels[0], master, web, connect, sleep
+        self.channels = tuple(c.strip() for c in str(channel).split(",") if c.strip())  # 묶기 = 목록 전부(주 = master · 그 밖 = desk · desk None = 묶기 0 · r1861) · 게시 = 주 채널만
+        self.channel, self.master, self.desk, self.web, self.connect, self.sleep = self.channels[0], master, desk, web, connect, sleep
         self.app_token, self.bot_token, self.mono, self.ws, self.envelope = app_token, bot_token, mono, None, None
         same = dict(team=team, clock=clock)
         self.bindings = binding.ThreadBinding(root, **same)  # slack 폴더를 만든다
@@ -152,9 +152,9 @@ class Listener:  # 상주 수신기 1개 = 연결 1개 · 채널 쉼표 목록(�
     def route(self, event):  # 새 envelope·보충(Backfill 이 부름) 모두 이 길 — bind → route → dispatched 영수(R1)
         key = event and route.thread_key(event)
         human = event and not (event.get("bot_id") or event.get("subtype")) and event.get("user") in self.receive.allowed_users
-        if human and event.get("channel") in self.channels and not event.get("thread_ts") and not [
+        if human and (owner := self.master if event.get("channel") == self.channel else self.desk) and event.get("channel") in self.channels and not event.get("thread_ts") and not [
                 row for row in self.bindings.entries() if row.get("key") == list(key)]:
-            self.bindings.bind(key, self.master)  # 새 root 첫 binding(A5b) — 닫힌 적 있으면 묶지 않는다
+            self.bindings.bind(key, owner)  # 새 root 첫 binding(A5b) — 닫힌 적 있으면 묶지 않는다
         return self._receipt(key, self.router.route(event)) if event else self.router.route(None)
     def _receipt(self, key, row):  # r1818 E3 — 접수 = receive 장부 기록만 · Slack 게시 0(역할 답이 첫 반응)
         return row
@@ -193,12 +193,12 @@ def main(argv):
     if len(argv) % 2 or len(opts) * 2 != len(argv) or set(opts) - set(NEED + OPTS) or set(NEED) - set(opts):
         return say("사용법", "--root --channel --env --owner-seats [--team --users]", USAGE)
     try:
-        names, master = read_inputs(opts["env"], opts["owner-seats"])
+        names, master, desk = read_inputs(opts["env"], opts["owner-seats"])
     except Undecided as exc:
         return say("판정 불가", str(exc), UNDECIDED)
     record_env_path(opts["root"], opts.get("team", "planner"), opts["env"])
     listener = Listener(opts["root"], channel=opts["channel"], app_token=names["SLACK_APP_TOKEN"],
-                        bot_token=names["SLACK_BOT_TOKEN"], master=master, team=opts.get("team", "planner"),
+                        bot_token=names["SLACK_BOT_TOKEN"], master=master, desk=desk, team=opts.get("team", "planner"),
                         users=tuple(u for u in opts.get("users", "").split(",") if u),
                         bot_users=tuple(u for u in (names.get("SLACK_BOT_USER_ID"),) if u))
     return say("경쟁 수신 있음", "hello num_connections > 1", RIVAL) if listener.run() == RIVAL else 0
