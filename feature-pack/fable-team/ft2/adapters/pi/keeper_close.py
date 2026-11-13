@@ -7,6 +7,7 @@ kill = tmux 세션 1개씩(kill-server 0) · 워크트리·가지·명부 행 �
 B3 = 1.x ft-seat-close(가드 그대로) 1회 · 실패·HELD 는 10분 안 재시도 0.
 """
 import glob
+import hashlib
 import importlib.util
 import json
 import os
@@ -17,6 +18,8 @@ FT2 = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))
 GIT_S, RETRY_S = 25, 600
 BUSY = re.compile("Working|[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]")
 OK = "접수 성공"
+NOCARD, NOLAND = "판정 불가 · 카드 후보 0", "keeper-noland-close.tsv"   # r1841 N1 · 사람·master 가 쓰고 keeper 는 읽기만
+APPROVE = re.compile(r"\S+ #\d+")
 
 
 def _load(name):
@@ -73,7 +76,12 @@ class Closing:
             return
         if not self.protected_ok(team, work, attempt, holder, dispatched):
             return
-        seen = self.landing(team, work)[2] or self.probe(holder)
+        seen = self.landing(team, work)[2]
+        if seen == NOCARD:   # r1841 N3·N4 — 카드 후보 0 일 때만 목록을 본다
+            seen = self.nocard(team, work, attempt, holder)
+            if seen is None:
+                return
+        seen = seen or self.probe(holder)
         if seen == "alive":
             self.state["open"].setdefault(holder, {"team": team, "since": self.now()})
             if not self.idle(team, work, holder):
@@ -91,6 +99,49 @@ class Closing:
             return self.log("HELD", team, "%s %s %s" % (work, holder, seen))
         self.state["open"].pop(holder, None)
         self.receipt(team, work, attempt, holder, gen)
+
+    def noland_rows(self, team):
+        """N1·N2 목록 → {(work, attempt): [근거, 승인]} · 파일 없음 = {} · 못 읽음·꼴 틀림·중복 = 판정 불가 문자열(sha 포함)."""
+        try:
+            with open(os.path.join(projection.runtime_path(self.root, team), NOLAND), "rb") as fh:
+                raw = fh.read()
+            text, rows = raw.decode("utf-8"), {}
+        except FileNotFoundError:
+            return {}
+        except (OSError, UnicodeError) as exc:
+            return "판정 불가 · 목록 못 읽음 %s" % type(exc).__name__
+        for n, line in [(n, x) for n, x in enumerate(text.splitlines(), 1) if x.strip() and not x.startswith("#")]:
+            cells = line.split("\t")
+            if len(cells) != 4 or tuple(cells[:2]) in rows:
+                return "판정 불가 · 목록 %d줄 %s sha %s" % (n, "중복" if len(cells) == 4 else "꼴 틀림", hashlib.sha256(raw).hexdigest()[:12])
+            rows[tuple(cells[:2])] = cells[2:]
+        return rows
+
+    def noland(self, team, work, attempt):
+        """N2 — 정확히 (work, attempt) 1줄 ∧ 근거 세 낱말 ∧ 승인 `<좌석> #<seq>` = True · 그 밖 False · 판정 불가 = 문자열."""
+        rows = self.noland_rows(team)
+        if isinstance(rows, str):
+            return rows
+        ground, ok = rows.get((work, attempt), ("", ""))
+        return all(w in ground for w in ("카드 없음", "tmux 0")) and bool(re.search(r"발주문 \S", ground)) and bool(APPROVE.fullmatch(ok))
+
+    def nocard(self, team, work, attempt, holder):
+        """N3·N5 — 목록 밖 = NOCARD(지금 그대로) · absent = CLOSED-NOLAND 뒤 "absent"(기존 영수 길) · None = 끝(HELD 했음 · kill 0)."""
+        key = "noland|%s|%s@%s" % (team, work, attempt)
+        ok = self.noland(team, work, attempt)
+        if ok is False:
+            return NOCARD
+        if ok is not True:   # N5 같은 사유(파일 sha 포함)는 1회만 · held 키는 좌석 이름과 겹치지 않는 noland| 접두
+            if self.state["held"].get(key) != ok:
+                self.state["held"][key] = ok
+                self.log("HELD", team, "%s %s %s · %s" % (work, holder, NOCARD, ok))
+            return None
+        seen = self.probe(holder)
+        if seen == "alive":
+            return self.log("HELD", team, "%s %s 목록 있음 · 세션 살아 있음 — 닫기 0" % (work, holder))
+        if seen == "absent":
+            self.log("CLOSED-NOLAND", team, "%s %s 근거 %s" % (work, holder, self.noland_rows(team).get((work, attempt), ("", ""))[1]))
+        return seen
 
     def idle(self, team, work, holder):
         """pane 에 Working·스피너 없음 = 참 · capture 실패 = 판정 불가(거짓)."""
