@@ -22,7 +22,23 @@ def pi_path(env_path):
     return os.path.abspath(found) if found else None
 
 
-def plan_of(folder, tag, root, team, holder, role_argv, worktree, repo, env, base=DEFAULT_BASE):
+def card_row(root, team):
+    """카드 루트 행(keeper_next.cards 와 같은 표 · 팀 행 > * 행) → (repo 절대 경로, ref, 카드 폴더) · 없음 = None(r1895)."""
+    try:
+        rows = [x.rstrip("\n").split("\t") for x in open(os.path.join(root, ".fable-team", "state", "directive-roots.tsv"), encoding="utf-8") if not x.startswith("#") and len(x.split("\t")) >= 4]
+    except (OSError, UnicodeError):
+        return None
+    r = next((x for x in rows if x[0] == team), None) or next((x for x in rows if x[0] == "*"), None)
+    return (os.path.abspath(os.path.join(root, r[1])), r[2], r[3].replace("*", team)) if r else None
+
+
+def first_body(env, row):
+    """(body_mark, 첫 본문 1줄) — pi `[messages...]` 첫 메시지 · 카드 = 표의 repo + ref:path 그대로(r1895 · 바깥 호출 0)."""
+    mark = "[발주] ft2 %s %s@%s" % (env["FT2_TEAM"], env["FT2_WORK"], env["FT2_ATTEMPT"])
+    return mark, "%s 좌석 %s — 카드 %s %s:%s/대기/%s.md 를 통째로 읽고 그대로 수행 · ft2_claim → ft2_start 부터 · 산출·막힘은 팀 master 에 mbox" % (mark, env["FT2_HOLDER"], *row, env["FT2_WORK"])
+
+
+def plan_of(folder, tag, root, team, holder, role_argv, worktree, repo, env, body, base=DEFAULT_BASE):
     """의도·워크트리·열기 argv — `--detach`(가지 몰래 만들기 0) · git 은 `-C <repo>`(A2) · pi argv 는 역할 표 그대로(A5).
     git argv 끝 = 기준 ref 이름(r1780) — dry-run 은 이 이름 그대로 보이고, 실제 실행은 `at_sha` 로 확인한 sha 로 바꾼다."""
     path = os.path.abspath(worktree or os.path.join(root, ".fable-team", "teams", team, "worktrees", tag))
@@ -33,7 +49,7 @@ def plan_of(folder, tag, root, team, holder, role_argv, worktree, repo, env, bas
             # r1846: 빈 자리 → sparse(출처 = 1.x r835 ft_sparse_patterns · 남의 팀 design 제외) → checkout · 큰 리포도 25초 안
             "sparse": ["git", "-C", path, "sparse-checkout", "set", "--no-cone", "/*", "!/design/teams/*/", "/design/teams/%s/" % team],
             "checkout": ["git", "-C", path, "checkout", "-q"],
-            "tmux": ["tmux", "new-session", "-d", "-s", holder, "-c", path] + pairs + [pi or "pi"] + list(role_argv),
+            "tmux": ["tmux", "new-session", "-d", "-s", holder, "-c", path] + pairs + [pi or "pi"] + ["--approve"] + list(role_argv) + [body],
             "pi_bin": pi, "alive": ["tmux", "has-session", "-t", "=" + holder]}   # r1892: new-session rc0 뒤 1회
 
 

@@ -137,7 +137,11 @@ def open_seat(given):
     base = given.get("base") or planner.DEFAULT_BASE      # r1780 A1: 기준 ref 이름(원문 보존)
     env = planner.seat_env(root, team, work, holder, attempt)
     folder, tag = os.path.join(projection.runtime_path(root, team), "launch"), "%s@%s" % (work, attempt)
-    plan = planner.plan_of(folder, tag, root, team, holder, item["argv"], given.get("worktree"), repo, env, base)
+    row = planner.card_row(root, team)               # r1895: 첫 본문 카드 경로 · 표 행 없음 = 거절(바깥 호출 0)
+    if row is None:
+        return dict(result=REFUSED, work=work, reason="카드 루트 표 행 없음 — 바깥 호출 0"), 1
+    mark, body = planner.first_body(env, row)
+    plan = planner.plan_of(folder, tag, root, team, holder, item["argv"], given.get("worktree"), repo, env, body, base)
     if given.get("dry"):
         return dict(result=OK, dry_run=True, work=work, attempt=attempt, holder=holder, role=item["role"], repo=repo, base=base,
                     model=item["model"], effort=item["effort"], timeouts={"git": GIT_TIMEOUT, "tmux": TMUX_TIMEOUT},
@@ -154,7 +158,7 @@ def open_seat(given):
             return dict(result=REFUSED, work=work, repo=repo, base=base,
                         reason="%s: %s — 바깥 호출 0" % (label, detail or "진단 없음")), 1
     sha = detail                                # 마지막 확인 = 기준 ref → 40자 sha(실제 argv 끝 · 의도 base_sha)
-    write_intent(plan["intent"], dict(env, state="opening", role=item["role"], repo=repo, base=base, base_sha=sha, at=time.strftime(STAMP)))
+    write_intent(plan["intent"], dict(env, state="opening", role=item["role"], repo=repo, base=base, base_sha=sha, body_mark=mark, at=time.strftime(STAMP)))
     os.makedirs(os.path.dirname(plan["worktree"]), exist_ok=True)
     for step, argv in (("git add", planner.at_sha(plan["git"], sha)), ("git sparse", plan["sparse"]), ("git checkout", plan["checkout"])):
         rc, detail = call(argv, repo, None, GIT_TIMEOUT)   # r1846: 호출마다 25초 · 실패 = 그 단계 이름 · 뒤 호출 0
@@ -166,7 +170,7 @@ def open_seat(given):
     rc, detail = call(plan["alive"], None, dict(os.environ, **env), TMUX_TIMEOUT)   # r1892: 살아 있음 1회
     if rc != 0:
         return failed(plan, env, "tmux 즉시 종료", "세션 없음 — pi 실행 실패(PATH·인증) 의심 · %s" % (detail or "진단 없음"), repo)
-    write_intent(plan["intent"], dict(env, state="opened", role=item["role"], worktree=plan["worktree"], base=base, base_sha=sha, at=time.strftime(STAMP)))
+    write_intent(plan["intent"], dict(env, state="opened", role=item["role"], worktree=plan["worktree"], base=base, base_sha=sha, body_mark=mark, at=time.strftime(STAMP)))
     return dict(result=OK, opened=True, work=work, attempt=attempt, holder=holder,
                 worktree=plan["worktree"], intent=plan["intent"]), 0
 
