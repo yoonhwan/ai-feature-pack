@@ -5,6 +5,9 @@
 # S3 추적 수정 1개가 새 판과 다름(손 쓰기) → RESUME 0 · rc3 ERROR(지금 문구) · 손 쓴 내용 보존
 # S4 새 판에 없는 미추적(뉴스 html) → 판정 밖 · SYNC 정상 · 파일 보존
 # S5 깨끗한 사본 + 새 커밋 1 → «SYNC <옛>..<새>» (회귀 0)
+# S6 (DA#10 R1) NEW 에 없는 미추적이 NEW 경로와 조상·자손 충돌 → rc3 · checkout 0 · 미추적 보존
+#    a: NEW 에 파일 news 추가 + tracked.txt 수정(흔적) ↔ 작업 트리 news/local.html 미추적
+#    b: NEW 에 news2/a.md 추가 + tracked.txt 수정(흔적) ↔ 작업 트리 파일 news2 미추적
 # 픽스처 = 임시 bare origin · 실 사본·실 원격 0 · 실제 kill 0 · sleep 0 · 반쯤 checkout = 작업 트리만 새 판 파일로 덮고 index·HEAD 는 옛 판
 set -uo pipefail
 for v in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY; do unset "$v"; done
@@ -108,6 +111,24 @@ OUT="$(run "$T/s4")"; RC=$?
 copy s5
 OUT="$(run "$T/s5")"; RC=$?
 [ "$RC" = 0 ] && [ "$OUT" = "SYNC ${A:0:10}..${B:0:10}" ] && [ -z "$(git -C "$T/s5" status --porcelain -uall)" ] && ok "S5 깨끗한 전진 → $OUT" || bad "S5 rc=$RC out=$OUT"
+
+# S6 — 별도 origin: 판 P(tracked.txt=t1) → 판 Q(tracked.txt=t2 + news 파일 + news2/a.md)
+g init -q --bare "$T/o6.git"
+g clone -q "$T/o6.git" "$T/w6" 2>/dev/null
+echo t1 > "$T/w6/tracked.txt"; g -C "$T/w6" add -A && g -C "$T/w6" commit -qm P
+P="$(git -C "$T/w6" rev-parse HEAD)"
+echo t2 > "$T/w6/tracked.txt"; echo n > "$T/w6/news"; mkdir -p "$T/w6/news2"; echo a > "$T/w6/news2/a.md"
+g -C "$T/w6" add -A && g -C "$T/w6" commit -qm Q
+g -C "$T/w6" push -q origin HEAD:main
+for k in a b; do
+  d="$T/s6$k"; g clone -q "$T/o6.git" "$d" 2>/dev/null; git -C "$d" checkout -q --detach "$P"
+  echo t2 > "$d/tracked.txt"
+  if [ "$k" = a ]; then mkdir -p "$d/news"; echo html > "$d/news/local.html"; KEEP="$d/news/local.html"
+  else echo html > "$d/news2"; KEEP="$d/news2"; fi
+  OUT="$(run "$d")"; RC=$?
+  case "$OUT" in "ERROR ledger 사본 "*) F=1;; *) F=0;; esac
+  [ "$RC" = 3 ] && [ "$F" = 1 ] && [ "$(git -C "$d" rev-parse HEAD)" = "$P" ] && [ "$(cat "$KEEP" 2>/dev/null)" = html ] && ok "S6$k 미추적 조상·자손 충돌 → rc3 · checkout 0 · 보존" || bad "S6$k rc=$RC out=$OUT"
+done
 
 [ "$fail" = 0 ] && echo "ALL PASS" || echo "FAILED $fail"
 exit "$fail"
