@@ -349,17 +349,22 @@ print(v if isinstance(v,str) else "")' "$seats" 2>/dev/null)"
 }
 #   fm_cards_by_tokens <리포루트> <r<숫자> 토큰…> : stdout = 이름에 그 토큰이 든 카드 파일 절대경로(design/**/indices/*/*.md) · 토큰 0 = 출력 0
 #   ★r1743 A1: 출처 = «카드 ref 트리»(directive-roots.tsv 3칸의 서로 다른 ref · 표 없음 = FT_CARD_REF|origin/main) ls-tree 1/ref(7초) · 루트 index·디스크 안 봄 · A2 중복 1줄 · A3 ref 전부 못 읽으면 stdout 0 + FM_CARDS_ERR + stderr WARN★
+#   ★r1821: 표 = <root> 의 표 → 없으면 git common root 의 표 · 토큰 있는데 0장 = FM_CARDS_ERR · 부른 쪽 셸에 FM_CARDS_TAB·FM_CARDS_REFS(결과 줄용)★
 #     카드 이름 꿴 «r1478-…» · 다른 글자로 이어진 «ar1478» 은 안 잡는다(-<토큰>- 로 본다)
 fm_cards_by_tokens() {
-  local root="$1"; shift; FM_CARDS_ERR=""
+  local root="$1"; shift; FM_CARDS_ERR=""; FM_CARDS_TAB=""; FM_CARDS_REFS=""
   [ -n "$root" ] && [ $# -gt 0 ] || return 0
-  local ref refs out rc ok=0 bad="" p b t; local -a hit=()
-  refs="$(awk -F'\t' 'NF>=3 && $3!="" && !s[$3]++{print $3}' "$root/.fable-team/state/directive-roots.tsv" 2>/dev/null)"
-  [ -n "$refs" ] || refs="${FT_CARD_REF:-origin/main}"
+  local ref refs out rc ok=0 bad="" rd="" p b t c tab="$root/.fable-team/state/directive-roots.tsv"; local -a hit=()
+  if [ ! -f "$tab" ]; then   # r1821 C1: root 자신의 표 먼저 → 없으면 git common root(라이브 worktree 로 불려도 공용 표) · 카드는 그대로 root 의 ref 트리
+    c="$(git -C "$root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; tab=""; [ -z "$c" ] || tab="${c%/*}/.fable-team/state/directive-roots.tsv"
+  fi
+  [ -f "$tab" ] || tab=""; FM_CARDS_TAB="${tab:-없음}"
+  refs="$(awk -F'\t' 'NF>=3 && $3!="" && !s[$3]++{print $3}' "${tab:-/dev/null}" 2>/dev/null)"
+  [ -n "$refs" ] || refs="${FT_CARD_REF:-origin/main}"; FM_CARDS_REFS="$(printf '%s\n' $refs | paste -sd, -)"
   for ref in $refs; do
     out="$(fm_try 7 git -c core.quotepath=false -C "$root" ls-tree -r --name-only "$ref" -- design 2>/dev/null)"; rc=$?
     if [ "$rc" -ne 0 ]; then bad="${bad:+$bad, }$ref(rc=$rc)"; continue; fi
-    ok=$((ok + 1))
+    ok=$((ok + 1)); rd="${rd:+$rd,}$ref"
     while IFS= read -r p; do   # r1717: 한글 폴더(진행·완성)를 따옴표 꼴로 내지 않게 — 차례 장부가 이 경로를 그대로 쓴다
       case "$p" in design/*/indices/*/*.md|design/teams/*/indices/*/*.md) ;; *) continue;; esac
       b="-${p##*/}"; b="${b%.md}-"
@@ -370,7 +375,9 @@ fm_cards_by_tokens() {
     FM_CARDS_ERR="카드 ref 를 하나도 못 읽음 — $bad"; echo "WARN cards_err: $FM_CARDS_ERR" >&2; return 0
   fi
   [ -z "$bad" ] || echo "WARN 카드 ref 일부 못 읽음 — $bad(나머지 ref 결과만)" >&2
-  [ "${#hit[@]}" -gt 0 ] || return 0
+  if [ "${#hit[@]}" -eq 0 ]; then   # r1821 C2: 토큰이 있는데 0장 = 판정 불가(«카드 없음» 아님)
+    FM_CARDS_ERR="토큰 $* 카드 0장 · 읽은 ref $rd · 표 $FM_CARDS_TAB"; echo "WARN cards_err: $FM_CARDS_ERR" >&2; return 0
+  fi
   printf '%s\n' "${hit[@]}" | awk '!s[$0]++' | while IFS= read -r p; do printf '%s/%s\n' "$root" "$p"; done
 }
 #   fm_land_notify_land <카드리포루트> <PR> <착지 sha 앞자리> <PR 제목·본문> <설치 검사 rc> <설치 검사 출력> : r1478 — ft-merge-land 끝 1줄
@@ -392,6 +399,7 @@ fm_land_turn() {
   local root="$1" pr="$2" t0="$3" c f cap el of err="" p dk="" dn=""; local -a cd=(); shift 3; c="$(git -C "$root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; c="${c%/.git}"; c="${c:-$root}"; f="$c/.fable-team/state/land-record-turn.jsonl"
   of="$(mktemp "${TMPDIR:-/tmp}/fm-cards.XXXXXX" 2>/dev/null)" || of=""   # r1743 A3: FM_CARDS_ERR 를 부른 쪽 셸에서 읽는다(명령 치환 = 서브셸이면 표지가 안 남는다)
   if [ -n "$of" ]; then fm_cards_by_tokens "$root" "$@" >"$of"; err="$FM_CARDS_ERR"; while IFS= read -r p; do [ -z "$p" ] || cd[${#cd[@]}]="$p"; done <"$of"; rm -f "$of"; else err="카드 목록 임시 파일 생성 실패 — mktemp(${TMPDIR:-/tmp})"; echo "WARN cards_err: $err" >&2; fi   # r1743 R1: 임시 파일 실패도 조용한 0장 금지(하드 룰 20)
+  [ $# -eq 0 ] || echo "카드 root=$root 표=${FM_CARDS_TAB:-없음} refs=${FM_CARDS_REFS:-없음} cards=${#cd[@]}"   # r1821 C3: 착지 결과 1줄(카드 stdout 과 따로)
   cap=$((7 - (SECONDS - t0))); if el="$(fm_fetch_deadline_rem)"; then [ "$el" -ge "$cap" ] || cap="$el"; fi   # r1782 A1: 착지가 main 에 더한 파일(M→Q · 실제 착지 REPO · 남은 7초 몫) · 전부 design/·docs/ = doc_only · 실패 = doc_err(구현으로 본다)
   if [ -z "${M:-}" ] || [ -z "${Q:-}" ]; then dk="M·Q 빈 값"; elif [ "$cap" -lt 1 ]; then dk="시간 초과(남은 0초)"; else dn="$(fm_try "$cap" git -C "${REPO:-$root}" diff --no-renames --name-only -z "$M" "$Q" | tr '\0' '\n'; exit "${PIPESTATUS[0]}")" || dk="git diff 실패 rc=$?"; fi
   [ -z "$dk" ] || { dn=""; echo "WARN doc_err: $dk — 구현 착지로 본다(pr=$pr)" >&2; }; [ -n "$dn" ] && ! grep -qvE '^(design|docs)/' <<<"$dn" && dn=1 || dn=""
