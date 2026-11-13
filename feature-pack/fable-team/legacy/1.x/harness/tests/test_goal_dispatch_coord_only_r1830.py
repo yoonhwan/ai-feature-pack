@@ -19,8 +19,7 @@ FT = R / ".fable-team"
 NOW, LATE = "2026-11-13 12:00", "2026-11-14 13:00"   # LATE = 번호표 바뀐 뒤 25시간(유예 24시간 밖)
 PM, HM, NANO, TO = "byz-planner-master-claude#9", "byz-harness-master-claude#64", "byz-harness-nano-x#0", "byz-zz-nano-q#0"
 G6 = ["v65 마이크 넘기기 완성", "룸 이전 사용성", "강의 이전 PiP", "하네스 운영 정리 — 끝난 일", "전팀 지침 재기동", "메모리 제한 완성"]
-C4 = "골좌표: 4 — 하네스 운영 정리 —"
-FAIL = []
+C4, FAIL = "골좌표: 4 — 하네스 운영 정리 —", []
 
 def ck(name, cond, info=""):
     print(("PASS " if cond else "FAIL ") + name + ("" if cond else f" :: {str(info)[:400]}"))
@@ -32,8 +31,7 @@ def run(*a, inp=None, now=NOW):
                FT_GOAL_A6_LEDGER=str(T / "없는원장.md"), FT_GOAL_REPO=str(R), FT_LEDGER_REPO=str(R), FT_MBOX=str(T / "stub/mbox"),
                FT_SEATS_JSON=str(R / "seats/seats.json"), FT_MBOX_DIR=str(FT / "comm"), FT_MBOX_RATE_N="999",
                FT_MBOX_FANOUT_WINDOW="0", FT_MBOX_RESEND_COOLDOWN="0")
-    for k in ("FT_PLANNER_HEAD_MODE", "FT_BIN", "FT_GOAL_RENUMBER_GRACE_H", "FT_TEAMS_REF"):
-        env.pop(k, None)
+    [env.pop(k, None) for k in ("FT_PLANNER_HEAD_MODE", "FT_BIN", "FT_GOAL_RENUMBER_GRACE_H", "FT_TEAMS_REF")]
     p = subprocess.run([str(x) for x in a], input=inp, env=env, cwd=R, capture_output=True, text=True, timeout=60)
     return p.returncode, p.stdout, p.stderr
 
@@ -43,9 +41,8 @@ def git(*a):
 def canon(goals):
     rows = "".join(f"| {g} | 팀x | 착지 sha |\n" for g in goals)
     (R / CP).write_text("# 자율 골 A6 (시험)\n\n## 골 → 팀 → 닫는 증거\n\n| 골(원문) | 담당 팀 | 닫는 증거 |\n|---|---|---|\n" + rows, encoding="utf-8")
-    git("add", "design")
-    git("commit", "-qm", "canon")
-    git("update-ref", "refs/remotes/origin/main", "HEAD")
+    for a in (("add", "design"), ("commit", "-qm", "canon"), ("update-ref", "refs/remotes/origin/main", "HEAD")):
+        git(*a)
     rc, out, err = run("bash", FT / "bin/ft-goal-table.sh")
     return out.strip() if rc == 0 else f"render rc={rc} {err}"
 
@@ -59,8 +56,7 @@ def setup():
     for name, v in {"seats-planner.json": {"_master": PM}, "seats-harness.json": {"_master": HM, NANO: {"role": "nano"}}, "seats.json": {}}.items():
         (R / "seats" / name).write_text(json.dumps(v), encoding="utf-8")
     for name, body in (("tmux", "exit 1"), ("mbox", "exit 0")):
-        (T / "stub" / name).write_text(f"#!/bin/sh\n{body}\n")
-        (T / "stub" / name).chmod(0o755)
+        (T / "stub" / name).write_text(f"#!/bin/sh\n{body}\n") or (T / "stub" / name).chmod(0o755)
     subprocess.run(["git", "init", "-q", "-b", "main", str(R)], check=True)
 
 def box():
@@ -91,7 +87,6 @@ def trimmed(head):
     rc, out, b = send(PM, f"{head} 표 붙음\n{BLOCK}\n{C4}\n나머지 본문")
     return (rc == 0 and b == f"{head} 표 붙음\n{C4}\n나머지 본문" and len(re.findall(r"^GOAL-TRIM \d+B$", out, re.M)) == 1), f"rc={rc} b={b!r} {out}"
 
-
 ok, info = trimmed("[발주]")
 ck("② [발주] + 골 표 블록 + 골좌표 → 블록만 떼고 적재 · GOAL-TRIM 1줄", ok, info)
 
@@ -119,13 +114,21 @@ rc, out, b = send(PM, "[발주] 비무장\n본문", armed=False)
 log = (FT / "state/mbox-guard-goal.log").read_text(encoding="utf-8") if (FT / "state/mbox-guard-goal.log").exists() else ""
 ck("⑥ 비무장 · [발주] 골좌표 없음 → WOULD-REJECT 로그 · 적재 1", rc == 0 and b is not None and "WOULD-REJECT" in log.splitlines()[-1], f"rc={rc} log={log[-200:]} {out}")
 
-att = T / "att.md"
-att.write_text(f"{BLOCK}\n첨부 본문\n", encoding="utf-8")
-rc, out, b = send(PM, "[발주] relay 시험\n" + C4, verb="relay", attach=str(att))
-snap = re.search(r"상세\(전문\): (\S+)", b or "")
-stext = Path(snap[1]).read_text(encoding="utf-8") if snap and Path(snap[1]).exists() else ""
-ck("② relay 좌표 머리 → 첨부 사본에서 블록만 뗌 · 원본 손 0", rc == 0 and "첨부 본문" in stext and "★골 표" not in stext and BLOCK in att.read_text(encoding="utf-8"),
-   f"rc={rc} snap={stext!r} {out}")
+def relay(sb, ab, name):   # G3 relay 경계(fix1 · DA HOLD R1) — 요약·첨부 어느 쪽에서 뗐든 쪽지당 GOAL-TRIM 1줄 · 양수 바이트 · 첨부 원본 손 0
+    att, araw = T / f"att{sb}{ab}.md", (f"{BLOCK}\n" if ab else "") + "첨부 본문\n"
+    att.write_text(araw, encoding="utf-8")
+    rc, out, b = send(PM, "[발주] relay 시험\n" + (f"{BLOCK}\n" if sb else "") + C4, verb="relay", attach=str(att))
+    snap = re.search(r"상세\(전문\): (\S+)", b or "")
+    stext = Path(snap[1]).read_text(encoding="utf-8") if snap and Path(snap[1]).exists() else ""
+    n = [int(x) for x in re.findall(r"^GOAL-TRIM (\d+)B$", out, re.M)]
+    ck(name, rc == 0 and len(n) == 1 and n[0] > 0 and stext == "첨부 본문\n" and "★골 표" not in b and C4 in b and att.read_text(encoding="utf-8") == araw,
+       f"rc={rc} n={n} snap={stext!r} {out}")
+    return n[0] if len(n) == 1 else -1
+
+nb = relay(1, 0, "② relay 요약에만 블록 → 요약에서 뗌 · GOAL-TRIM 1줄")
+na = relay(0, 1, "② relay 첨부에만 블록 → 사본에서만 뗌(원본 손 0) · GOAL-TRIM 1줄")
+n2 = relay(1, 1, "② relay 양쪽 블록 → 둘 다 뗌 · GOAL-TRIM 1줄")
+ck("② relay 양쪽 GOAL-TRIM 바이트 = 요약분 + 첨부분", n2 == nb + na and nb > 0 and na > 0, f"{nb}+{na} vs {n2}")
 
 rc, out = check("본문\n" + C4, "--coord-only")
 ck("⑦ check - --coord-only · 블록 없음 + 지금 번호표 골좌표 → rc0 GOAL-OK n=4", rc == 0 and "GOAL-OK n=4" in out and "유예" not in out, f"rc={rc} {out}")
