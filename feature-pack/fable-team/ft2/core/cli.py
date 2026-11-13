@@ -162,6 +162,12 @@ def run(argv):
 
 
 def main(argv):
+    if argv[:2] == ["slack", "listen"]:   # r1806 Socket Mode 상주 수신기 — 동사 표 밖 진입 1곳(비모델)
+        path = os.path.join(os.path.dirname(_HERE), "adapters", "slack", "socket.py")
+        spec = importlib.util.spec_from_file_location("ft2_slack_socket", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module.main(argv[2:])
     out, rc = run(argv)
     sys.stdout.write(json.dumps(out, ensure_ascii=False, sort_keys=True) + "\n")
     return rc
