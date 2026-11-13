@@ -102,11 +102,12 @@ if [ "${1:-}" = "--launchd" ]; then
     lpo="$(bash "$SELF" --land-plan 2>&1)"; lprc=$?; out="$out"$'\n'"$lpo"
     [ "$lprc" -ne 0 ] && rc="$lprc"   # ★r880 재설계 r5★ land-plan 의 rc 를 최종 rc 에 반영(rc0 으로 덮던 길 0 · DA r3 미종결 ⑥)
   fi
+    nfail=0   # r1376: 알림 실패 칸 — 판정 불가(rc)와 다른 칸(요약 notify_fail=)
     if [ "${FT_TEAM_ATTACH_DAILY:-1}" != 0 ]; then
       ATTACH="$(dirname -- "$SELF")/ft-team-attach.sh"   # r1298 단계 4: 루트 shim 폴더가 아니라 이 스크립트가 있는 LIVE_BIN 사본
       MARKER="$FT_ROOT/.fable-team/state/team-attach-lint/$(date '+%F').sent"
       if [ -f "$MARKER" ]; then
-        out="$out"$'\n'"team-roster-lint already checked today"
+        out="$out"$'\n'"team-roster-lint already sent today ($MARKER)"
       elif [ -x "$ATTACH" ]; then
         planner="$(python3 - "$FT_ROOT" "$(dirname "$ATTACH")" <<'PY'
 import sys
@@ -120,7 +121,8 @@ PY
         if [ -n "$planner" ]; then
           lint="$(FT_ROOT="$FT_ROOT" bash "$ATTACH" --all --check --notify "$planner" 2>&1)"; lrc=$?
           out="$out"$'\n'"$lint"
-          [ "$lrc" -gt 1 ] && [ "$rc" = 0 ] && rc="$lrc"
+          if printf '%s\n' "$lint" | grep -q '^NOTIFY-FAIL '; then nfail=1   # 알림 실패 = NOTIFY-FAIL 줄(거절 줄 전체) + notify_fail=1 · rc 는 안 바꿈
+          elif [ "$lrc" -gt 1 ] && [ "$rc" = 0 ]; then rc="$lrc"; fi
         else
           out="$out"$'\n'"WARN 팀 명부 lint planner _master 판정 불가"
           [ "$rc" = 0 ] && rc=1
@@ -165,9 +167,9 @@ print(m if isinstance(v,dict) and not v.get("_replaced_by") else "")' "$1" 2>/de
       gitfail1 "$FT_ROOT" for-each-ref "$?"; [ "$rc" -ne 0 ] || rc=1
     fi
   fi
-  printf '%s rc=%s cleaned=%s wait=%s hil=%s stale=%s carry=%s resume=%s routed=%s route_fail=%s archived=%s archive_skip=%s replanned=%s hil_files=%s orphans=%s freed_kb=%s\n' "$(date '+%F %T')" "$rc" \
+  printf '%s rc=%s cleaned=%s wait=%s hil=%s stale=%s carry=%s resume=%s routed=%s route_fail=%s archived=%s archive_skip=%s replanned=%s hil_files=%s orphans=%s freed_kb=%s notify_fail=%s\n' "$(date '+%F %T')" "$rc" \
     "$(num 'cleaned/none')" "$(num wait)" "$(num hil)" "$(num stale)" "$(num 이월)" "$(num 이어정리)" "$routed" "$rfail" "$ar" "$ask" \
-    "$(num replanned)" "$(num hil_files)" "$(num orphans)" "$(num freed_kb)" >> "$LST/wt-sweep.log"
+    "$(num replanned)" "$(num hil_files)" "$(num orphans)" "$(num freed_kb)" "$nfail" >> "$LST/wt-sweep.log"
   tail -1 "$LST/wt-sweep.log"; exit "$rc"
 fi
 

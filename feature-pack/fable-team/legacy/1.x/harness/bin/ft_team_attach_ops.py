@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from ft_team_lib import basis_ref, team_rel
+from ft_team_lib import basis_ref, rosters, team_rel
 from ft_team_attach_lib import AttachError, cards_path, command, directive_ok, origin_teamset_row, paths, safe, set_teamset_row, state_of, teamset_row, tick_status, tick_table, write
 from ft_team_main_assign import ensure_team   # r1322 G5 — 새 팀 배정표 틀(render 와 같은 함수)
 
@@ -185,16 +185,24 @@ def own_tick_apply(root: Path, team: str, p: dict[str, Path], dry: bool, pre: tu
     return int(before is None or plist.read_bytes() != before)
 
 def notify_daily(root: Path, recipient: str, bad: int) -> None:
+    """r1376 — 표식 1곳(<root>/.fable-team/state/team-attach-lint/<날>.sent) · 받는 이 = 보내기 직전 명부 _master · 실패 = 거절 줄 전체."""
     day = datetime.now().strftime("%F")
     marker = safe(root, Path(f".fable-team/state/team-attach-lint/{day}.sent"))
     if marker.exists():
+        print(f"team-roster-lint already sent {day} ({marker})")
         return
     if bad:
+        docs = [r["doc"] for r in rosters(root) if isinstance(r["doc"], dict) and r["doc"].get("_master")]
+        to = next((str(d["_master"]) for d in docs if recipient == d["_master"] or recipient in d), recipient)
+        if to != recipient:
+            print(f"INFO 받는 이 명부 다시 읽음 {recipient} → {to}")
         mbox = os.environ.get("FT_MBOX_SH") or str(root / ".fable-team/comm/mbox.sh")
-        body = f"[ft-team-attach->{recipient}] [정리] 팀 명부 어긋남 {bad} — --all --check 결과를 다시 확인해 주세요"
-        rc, out, err = command("bash", mbox, "send", recipient, "ft-team-attach", body, timeout=7)
+        body = f"[ft-team-attach->{to}] [정리] 팀 명부 어긋남 {bad} — --all --check 결과를 다시 확인해 주세요"
+        rc, out, err = command("bash", mbox, "send", to, "ft-team-attach", body, timeout=7)
         if rc:
-            rc, out, err = command("bash", mbox, "send", recipient, "ft-team-attach", body, timeout=7)
-        if rc:
-            raise AttachError(f"ERROR 팀 명부 알림 전송 실패 rc={rc}: {(err or out).strip()[:160]}")
+            rc, out, err = command("bash", mbox, "send", to, "ft-team-attach", body, timeout=7)
+        if rc:   # WARN 줄은 싣지 않는다 — «REJECT» 로 시작하는 줄 전체(없으면 마지막 줄)
+            lines = [x.strip() for x in f"{err}\n{out}".splitlines() if x.strip()]
+            why = next((x for x in lines if x.startswith("REJECT")), lines[-1] if lines else "(출력 없음)")
+            raise AttachError(f"NOTIFY-FAIL rc={rc} {why}")
     write(marker, (f"{day}\t{bad}\n").encode())
