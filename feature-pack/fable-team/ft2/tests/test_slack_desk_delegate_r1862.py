@@ -77,3 +77,31 @@ def test_4_closed_binding_refused_first(tmp_path, capsys):
     pub = publish.SlackPublish(str(tmp_path), team="planner", post=posts.append, delegate=DESK)
     row = pub.reply(binding.thread_key(W, C, TS), CMD + ":x", "답", DESK, 5)
     assert row["k"] == "reply_refused" and posts == []  # 닫힘 우선
+
+
+def _rotate_reply(root, during, posts):  # R1 — 첫 post 429 · 대기 callback 사이 명부 바꿈 → 재시도 직전 재판독
+    (body := root / "body.txt").write_text("사람이 읽을 답", encoding="utf-8")
+    wiring = _load("wiring")
+    def post(ch, ts, text, meta):
+        posts.append(text)
+        if len(posts) == 1:
+            raise wiring.publish.RateLimited(0)
+        return "1.6"
+    argv = ["reply", "--root", str(root), "--team", "planner", "--thread", TS, "--seat", DESK,
+            "--body-file", str(body), "--command", CMD]
+    return wiring.main(argv, post=post, sleep=lambda s: during(root / ".fable-team" / "seats-planner.json"))
+
+
+def test_5_desk_rotated_during_429_wait_no_post(tmp_path, capsys):
+    _setup(tmp_path)
+    posts = []
+    rotate = lambda roster: roster.write_text(json.dumps({"_desk": "byz-planner-desk-pi#3"}))  # noqa: E731
+    assert _rotate_reply(tmp_path, rotate, posts) == 2
+    assert "reason=stale_owner" in capsys.readouterr().out and len(posts) == 1  # 옛 desk 두 번째 post 0
+
+
+def test_6_roster_unreadable_on_reread_no_post(tmp_path, capsys):
+    _setup(tmp_path)
+    posts = []
+    assert _rotate_reply(tmp_path, lambda roster: roster.write_text("{깨짐"), posts) == 2
+    assert "reason=stale_owner" in capsys.readouterr().out and len(posts) == 1  # 못 읽음 = 대신 답 0
