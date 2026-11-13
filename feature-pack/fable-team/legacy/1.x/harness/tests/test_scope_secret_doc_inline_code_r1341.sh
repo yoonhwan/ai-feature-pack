@@ -2,6 +2,7 @@
 # test_scope_secret_doc_inline_code_r1341.sh — r1341: 문서(.md) 줄이 «백틱이 있다» 는 이유만으로 골라졌으면
 #   줄 전체가 아니라 짝 맞는 백틱 안 글(인라인 코드)만 셸 판정기에 넘긴다(표 «|»·산문 «env» 오탐 0).
 #   A1 울타리·들여쓰기·«$ »/«! »/«> » 줄 = 줄 전체 · A2 백틱 때문에만 고른 줄 = 백틱 안 글만 · A3 홀수 백틱 = 줄 전체 · A4 다른 갈래 그대로
+#   r1387 갱신: 산문 줄의 백틱은 아예 판정 밖 — A2(백틱 안 글만)·A3(홀수 백틱 = 줄 전체) 갈래는 걷어냄 · S3'·S6·S9 = CLASS · 변이 M1~M4 대상 코드 없음(r1387 시험 변이 1 이 대신함)
 #   임시 origin(bare)+clone · 기준판 = git HEAD 판 사본($T/base) · 변이는 사본($T/mut)에서만 · 실 저장소·네트워크 0
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -43,7 +44,7 @@ run "$CLS" "$SHA"; want "S2 산문 (env 인라인 코드) → secret 0" 0 "CLASS
 # S3' — 백틱 안 진짜 명령 = 지금처럼 검출(회귀)
 mkf s3 'design/teams/ops/indices/대기/s3.md' '실행: `env "$X" bash x.sh`'
 run "$BASE/autonomy_scope_classify.py" "$SHA"; want "S3' 기준판도 검출(FORBID)" 3 "FORBID kind=secret"   # 둘 다 검출 · 이유 글자는 갈래마다 다를 수 있다
-run "$CLS" "$SHA"; want "S3' 백틱 안 env 진짜 명령 → secret(회귀)" 3 "FORBID kind=secret"
+run "$CLS" "$SHA"; want "S3' 백틱 안 env 명령 → 판정 밖(r1387 · 울타리·«\$ » 줄은 판정)" 0 "CLASS "
 # S4 — PR 6020 꼴 «VAR_DSN=… timeout pytest» = 둘 다 0
 mkf s4 'design/teams/ops/indices/대기/s4.md' '`VAR_DSN=postgres://u:p@h/db timeout 70 pytest`'
 run "$CLS" "$SHA"; want "S4 «VAR_DSN=… timeout» → secret 0" 0 "CLASS "
@@ -54,8 +55,7 @@ run "$CLS" "$SHA"; want "S5 울타리 안 «env \"\$X\"» → secret(A1)" 3 "FOR
 same "S5 기준판 대조" s5
 # S6 — 홀수 백틱 = 줄 전체(A3)
 mkf s6 'design/teams/ops/indices/대기/s6.md' 'env `X 1개'
-run "$CLS" "$SHA"; want "S6 백틱 홀수 «env \`X 1개» → secret(A3)" 3 "FORBID kind=secret"
-same "S6 기준판 대조" s6
+run "$CLS" "$SHA"; want "S6 백틱 홀수 «env \`X 1개» → 판정 밖(r1387 · A3 걷어냄)" 0 "CLASS "
 # S7 — .sh 추가 줄은 문서 갈래 아님(A4)
 mkf s7 'scripts/x.sh' 'env "${ENV[@]}" bash x.sh'
 run "$CLS" "$SHA"; want "S7 .sh «env \"\${ENV[@]}\" bash x.sh» → secret(A4)" 3 "FORBID kind=secret"
@@ -68,31 +68,8 @@ same "S8 기준판 대조" s8
 
 # S9 — 이중 백틱 구간 안 명령(DA R1): 같은 길이 run 끼리 짝 = 구간 전체를 판정 · 차례로 묶으면 안쪽 명령이 사라진다
 mkf s9 'design/teams/ops/indices/대기/s9.md' '실행: ``echo `env "$X" bash x.sh` ``'
-run "$CLS" "$SHA"; want "S9 이중 백틱 구간 안 «env» → secret(구간 전체 판정)" 3 "FORBID kind=secret"
+run "$CLS" "$SHA"; want "S9 이중 백틱 구간 안 «env» → 판정 밖(r1387)" 0 "CLASS "
 run "$BASE/autonomy_scope_classify.py" "$SHA"; want "S9 기준판도 검출(FORBID)" 3 "FORBID kind=secret"
-
-# 변이 — 사본에서만
-mut() {  # mut <이름> <원문> <바꿀 글>
-  local d="$T/mut-$1"; rm -rf "$d"; mkdir -p "$d"; cp "$BIN"/autonomy_scope_*.py "$BIN"/ft_secret_*.py "$d"/
-  python3 - "$d/autonomy_scope_secret.py" "$2" "$3" <<'PYM' || { echo "FAIL 변이 $1 — 자리 못 찾음"; fail=$((fail+1)); return 1; }
-import sys
-p, a, b = sys.argv[1:]
-s = open(p, encoding="utf-8").read()
-assert s.count(a) == 1, s.count(a)
-open(p, "w", encoding="utf-8").write(s.replace(a, b))
-PYM
-}
-mut M1 'spans = _inline_spans(t) if n in inline else None' 'spans = None'
-run "$T/mut-M1/autonomy_scope_classify.py" "$(git -C "$W" rev-parse s1)"; want "변이 1 A2 뺌(줄 전체) → S1 빨강" 3 "FORBID kind=secret"
-run "$T/mut-M1/autonomy_scope_classify.py" "$(git -C "$W" rev-parse s2)"; want "변이 1 A2 뺌 → S2 빨강" 3 "FORBID kind=secret"
-mut M2 'out += spans if spans is not None else [_promptless(shield.get(n, t))]' 'out += [] if n in inline else [_promptless(shield.get(n, t))]'
-run "$T/mut-M2/autonomy_scope_classify.py" "$(git -C "$W" rev-parse s3)"; want "변이 2 백틱 구간 버림 → S3' 빨강(0)" 0 "CLASS "
-mut M3 '        if j is None:
-            return None   # 짝 없는 run = 닫힌 쪽(A3)' '        if j is None:
-            break   # 변이 = 짝 없는 run 을 버린다'
-run "$T/mut-M3/autonomy_scope_classify.py" "$(git -C "$W" rev-parse s6)"; want "변이 3 A3 홀수 처리 제거 → S6 빨강(0)" 0 "CLASS "
-mut M4 'j = next((k for k in range(i + 1, len(runs)) if runs[k][2] == n), None)' 'j = i + 1 if i + 1 < len(runs) else None   # 변이 = 길이 무시하고 차례로 묶기'
-run "$T/mut-M4/autonomy_scope_classify.py" "$(git -C "$W" rev-parse s9)"; want "변이 4 길이 무시 짝짓기 → S9 빨강(0)" 0 "CLASS "
 
 cmp -s "$BIN/autonomy_scope_secret.py" "$KIT/autonomy_scope_secret.py"; ck "kit 사본 cmp0" $?
 [ "$(stat -f %Lp "$HERE/test_scope_secret_doc_inline_code_r1341.sh")" = 644 ]; ck "새 시험 파일 모드 644(실행 비트 0)" $?
