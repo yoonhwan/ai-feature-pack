@@ -81,6 +81,8 @@ class Stall:
         idle = k.now() - max([facts["journal"], facts["head"]] + ([facts["mtime"]] if woke is None else [woke]))
         if idle < (self.stall_s if woke is None else self.after_s) or not self.ready(team, work, holder, facts["session"], rows):
             return
+        if woke is None and key in k.state.setdefault("unsure", {}):   # 보정1 R1 — 미확인 깨움 = S3 진입 0
+            return k.log("판정 불가", team, "%s %s 깨움 도달 미확인(%s) — 재깨움·재배정 0" % (work, holder, k.state["unsure"][key]))
         if woke is None:
             return self.wake(team, work, holder, key, idle)
         return self.reassign(team, work, attempt, holder, tree, intent, rows)
@@ -134,17 +136,19 @@ class Stall:
             return k.log("판정 불가", team, "%s lifecycle scan %s — 행동 0" % (work, scan.result))
         return not any((scan.lanes.get(lane) or {}).get("reason") == "EXTERNAL_WAIT_WITHIN_DEADLINE" for lane in lanes)
     def wake(self, team, work, holder, key, idle):
-        """S2 — Escape 1 → 문구 -l → Enter(따로) → 도달 확인 3회 · 보낸 뒤에는 같은 attempt 깨움 0."""
+        """S2 — Escape 1 → 문구 -l → Enter(따로) → 도달 확인 3회 · 보낸 뒤에는 같은 attempt 깨움 0.
+        woke(재배정 시계의 기준) = 도달 확인 뒤에만 · 확인 3회 실패 = unsure(보정1 R1 · 재배정 0 · 판정 불가 보고만)."""
         k, t, text = self.k, ["-t", "=" + holder], WAKE % (work, idle // 60)
         for argv in (["send-keys"] + t + ["Escape"], ["send-keys"] + t + ["-l", text], ["send-keys"] + t + ["Enter"]):
             rc = k.call([k.tmux] + argv)[0]
             if rc != 0:
                 return k.log("판정 불가", team, "%s %s 깨움 %s rc %s — 다음 단계 0" % (work, holder, argv[-1][:8], rc))
-        k.state["woke"][key] = k.now()
         for _ in range(3):
             rc, pane, _ = k.call([k.tmux, "capture-pane", "-p"] + t)
             if rc == 0 and ("[깨움] ft2 keeper" in pane or BUSY.search(pane[-2000:])):
+                k.state.setdefault("woke", {})[key] = k.now()
                 return k.log("WOKE", team, "%s %s" % (work, holder))
+        k.state.setdefault("unsure", {})[key] = k.now()
         return k.log("판정 불가", team, "%s %s 깨움 도달 확인 3회 실패" % (work, holder))
     def stop(self, team, work, attempt, step, text):
         self.k.log("HELD-STALL", team, text)
