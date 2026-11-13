@@ -190,7 +190,7 @@ class Gate:
         self.roots, self.label = roots, a.label
         self.shims = {r[1].strip() for r in a.root_rows if r[0] == "@shim"}
         self.base = {(r[0], r[1]): r[2] for r in tsv(a.baseline, 4) if r[3].strip()}
-        self.allowed = any(r[0] == a.label and re.fullmatch(r"\d+\.\d+", r[1].strip()) for r in tsv(a.allow, 2))
+        self.allowed = any(len(r) < 4 and r[0] == a.label and re.fullmatch(r"\d+\.\d+", r[1].strip()) for r in tsv(a.allow, 2))  # R1: 2칸(·3칸 메모 · r1838 꼴)만 · 4칸 이상 = 통째 0
         self.lines = {(r[1], r[2]) for r in tsv(a.allow, 4) if len(r) == 4 and r[0] == a.label  # r1867: 꼴 틀림 = 무시(닫힌 쪽)
                       and re.fullmatch(r"[0-9a-f]{16}", r[2]) and re.fullmatch(r"\d+\.\d+", r[3].strip())}
         self.seen, self.memo, self.dyn = set(), {}, []
