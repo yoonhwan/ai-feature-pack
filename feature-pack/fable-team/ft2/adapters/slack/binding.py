@@ -90,6 +90,11 @@ class ThreadBinding:
             return self._reject(key, now, "not_open")
         return self._write(key, seat, now.gen + 1, True, BOUND)
 
+    def handover_seat(self, old, new):
+        """좌석 교대(r1827 B1) — 유효본(settled) 중 open·seat==old 마다 handover 1회(gen+1). 넘긴 수."""
+        keys = [Key(*k) for k, e in self.settled().items() if e.get("open") and e.get("seat") == old]
+        return sum(1 for key in keys if self.handover(key, new)["state"] == BOUND)
+
     def close(self, key):
         """채널 닫힘 — 담당 없음(owner None) · open=false · gen 은 그대로(사례 c6)."""
         now = self.get(key)
@@ -114,3 +119,22 @@ class ThreadBinding:
                              "owner": None if now is None else now.owner,
                              "gen": None if now is None else now.gen,
                              "open": False if now is None else now.open})
+
+
+def main(argv):
+    """`slack handover-seat --root R --from OLD --to NEW` (r1827 B2) — 장부 있는 팀마다 B1 · 실패 팀 = 판정 불가 rc 1."""
+    args = dict(zip(argv[::2], argv[1::2]))
+    if len(argv) != 6 or set(args) != {"--root", "--from", "--to"}:
+        return print("usage: slack handover-seat --root R --from OLD --to NEW") or 64
+    root, moved, rc = os.path.abspath(args["--root"]), [], 0
+    teams = os.path.join(root, ".fable-team", "teams")
+    for team in sorted(os.listdir(teams) if os.path.isdir(teams) else []):
+        if not os.path.isfile(os.path.join(teams, team, "slack", "bindings.jsonl")):
+            continue
+        try:
+            moved.append((team, ThreadBinding(root, team).handover_seat(args["--from"], args["--to"])))
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            print("SLACK-BINDING 판정 불가 %s %s" % (team, (str(exc) or type(exc).__name__).replace("\n", " ")))
+            rc = 1
+    print("SLACK-BINDING moved=%d teams=[%s]" % (sum(n for _, n in moved), " ".join("%s:%d" % m for m in moved)))
+    return rc
