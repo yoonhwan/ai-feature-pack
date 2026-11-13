@@ -50,6 +50,12 @@ expect 2 "while … done < <(ls-remote --heads)" 'while read s r; do git fetch o
 expect 2 "xargs -I{} sh -c 'git fetch origin {}'" "git branch -r | xargs -I{} sh -c 'git fetch origin {}'"
 expect 2 "bash -c 문자열 속 루프" "bash -c 'for b in \$(git branch -r); do git fetch origin \$b; done'"
 
+echo "== DA HOLD1 반례(#298471) — 실행 머리 판정 · 큰따옴표 속 실행치환"
+expect 0 "R1 루프 본문 echo git fetch(실제 fetch 0)" 'for b in $(git branch -r); do echo git fetch origin "$b"; done'
+expect 0 "R1 xargs echo git fetch(실제 fetch 0)" 'git branch -r | xargs -n1 echo git fetch origin'
+expect 2 "R2 result=\"\$(for … git fetch … done)\"" 'result="$(for b in $(git branch -r); do git fetch origin "$b"; done)"'
+expect 2 "R2 echo \"\$(git branch -r | xargs -n1 git fetch origin)\"" 'echo "$(git branch -r | xargs -n1 git fetch origin)"'
+
 echo "== B5~B9 통과"
 expect 0 "B5 git fetch origin main" 'git fetch origin main'
 expect 0 "B6 ls-remote refs/heads 만(fetch 없음)" "git ls-remote origin 'refs/heads/*' | wc -l"
