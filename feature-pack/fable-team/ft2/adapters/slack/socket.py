@@ -44,17 +44,20 @@ def current_desk(seats_path):  # owner-seats 의 지금 _desk · 칸 없음·판
         return None
     return str(desk) if desk else None
 
-def web_api(method, token, params=None, retry=True):  # 7초 + 재시도 1(하드 룰 12) · 게시는 retry=False(유실 = 재송 0)
+def web_api(method, token, params=None, retry=True, deadline=None, mono=time.monotonic):  # 7초 + 재시도 1(하드 룰 12) · 게시는 retry=False(유실 = 재송 0)
     req = urllib.request.Request("https://slack.com/api/" + method, headers={"Authorization": "Bearer " + token},
                                  data=urllib.parse.urlencode(params or {}).encode("utf-8"))
     for left in ((1, 0) if retry else (0,)):
+        wait = 7 if deadline is None else min(7, deadline - mono())  # r1899 — 배치 deadline 안에서만
+        if wait <= 0:
+            raise TimeoutError("예산 끝")
         try:
-            with urllib.request.urlopen(req, timeout=7) as resp:
+            with urllib.request.urlopen(req, timeout=wait) as resp:
                 out = json.loads(resp.read().decode("utf-8"))
         except OSError as exc:  # HTTPError 도 여기 — 429 만 Retry-After 로 넘긴다
             if getattr(exc, "code", None) == 429:
                 raise publish.RateLimited(exc.headers.get("Retry-After") or 1)
-            if left:
+            if left and (deadline is None or deadline - mono() >= 7):  # 재시도 = 남은 초 ≥ 7 일 때만
                 continue
             raise
         if not out.get("ok"):  # Slack 오류 응답 = 보이는 실패(재시도 0)
@@ -82,12 +85,14 @@ class Listener:  # 상주 수신기 1개 = 연결 1개 · 채널 쉼표 목록(�
         self.channel, self.master, self.desk, self.web, self.connect, self.sleep = self.channels[0], master, desk, web, connect, sleep
         self.seats = seats  # owner-seats 경로 · desk 교대를 재기동 없이 따라감(r1861 R1)
         self.app_token, self.bot_token, self.mono, self.ws, self.envelope = app_token, bot_token, mono, None, None
+        self.deadline = mono() + 60  # r1899 — recover full 갈래 배치 예산(고정비 포함 70초 안)
         same = dict(team=team, clock=clock)
         self.bindings = binding.ThreadBinding(root, **same)  # slack 폴더를 만든다
         self.log = listen_log(os.path.dirname(self.bindings.path))
         self.notify = notify or (lambda row: self.log("[notify] " + json.dumps(row, ensure_ascii=False)))
         self.receive = receive.SlackReceive(root, ack=self._ack, allowed_users=users, allowed_channels=self.channels,
-                                            bot_users=bot_users, notify=self.notify, **same)
+                                            bot_users=bot_users, notify=self.notify, replies=self._replies,
+                                            deadline=self.deadline, mono=mono, log=self.log, **same)
         self.router, self.notify = wiring.wire(root, receive=self.receive, bindings=self.bindings, notify=notify,
                                                log=self.log, team=team, clock=clock)  # r1807 깨움·issues·desk 배선
         self.publish = publish.SlackPublish(root, post=self._post, bindings=self.bindings, notify=self.notify, **same)
@@ -175,6 +180,12 @@ class Listener:  # 상주 수신기 1개 = 연결 1개 · 채널 쉼표 목록(�
                             metadata=json.dumps(metadata, ensure_ascii=False)), retry=False)["ts"]
         except OSError as exc:
             raise publish.ResponseLost(type(exc).__name__)
+    def _replies(self, channel, thread):  # r1899 — 기동 recover 의 답 확인 1회 · 200 넘침 = 판정 불가
+        out = self.web("conversations.replies", self.bot_token, dict(channel=channel, ts=thread, limit=200),
+                       deadline=self.deadline, mono=self.mono)
+        if out.get("has_more"):
+            raise RuntimeError("넘침")
+        return out.get("messages") or []
     def _fetch(self, channel, thread, after, limit):
         team = next((r["key"][0] for r in self.bindings.settled().values() if r["key"][1:] == [channel, thread]), "")
         out = self.web("conversations.replies", self.bot_token,
