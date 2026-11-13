@@ -151,7 +151,7 @@ def remaining(state, records):
                        if isinstance(cmd, str) and cmd not in by_command})
     folded, done = (state.get("journal_base") or {}).get("receipts") or {}, state.get("done") or {}
     return [cmd for cmd, work in by_command.items()
-            if cmd not in folded and not (isinstance(work, str) and work in done)]
+            if cmd not in folded and (work if isinstance(work, str) else cmd) not in done]
 
 
 def recover_state(state, records):
