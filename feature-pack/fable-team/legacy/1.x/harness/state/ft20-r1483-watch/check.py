@@ -226,6 +226,26 @@ def exact_input(capture, message):
     return ''.join(editor.split()) == ''.join(message.split())
 
 
+def box_filled(capture):  # r1621 ⓔ: 입력창에 글이 있나 (Pi 상자 · codex 마지막 › 줄 · 빈 칸 힌트 제외)
+    if ENGINE == 'pi':
+        return bool(pi_reader().box(capture))
+    return (re.findall(r'^› ?(.*)$', capture, flags=re.M) or [''])[-1].strip() not in ('', 'Ask Codex to do anything')
+
+
+def alert_master(cfg, result):  # r1834 E2: 남의 글 = 깨움 보류 · master 쪽지 (같은 terminal 1회 · 실패 = alert_rc)
+    if result.get('input_alerted_terminal') == result['terminal']:
+        return
+    try:
+        master = json.loads(Path(cfg.get('roster') or FT / 'seats-harness.json').read_text(encoding='utf-8'))['_master']
+        run(['bash', str(FT / 'comm' / 'mbox.sh'), 'send', master, 'ft20-r1483-watch',
+             '[막힘] ft20-check 300초 — %s 입력창에 남의 글 · 깨움 보류 · terminal %s' % (cfg['seat'], result['terminal'])])
+        result.update(alert_rc=0, input_alerted_terminal=result['terminal'])
+    except subprocess.CalledProcessError as error:
+        result['alert_rc'] = error.returncode
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError):
+        result['alert_rc'] = -1
+
+
 def submit(pane, cfg, terminal, message, read_events, judge, offset, gate=None, result=None):
     if judge(read_events(cfg['rollout'])[0])[:2] != ('IDLE', terminal):
         return 'DELIVERY_STATE_CHANGED'
@@ -259,10 +279,9 @@ def deliver(pane, cfg, terminal, message, read_events, judge, result, gate=None)
     if ENGINE == 'pi' and pi_reader().busy(capture):  # r1621 R1: Pi «Working» 이면 입력·Enter 0 (pending 칸 보존)
         return 'PANE_BUSY'
     if not exact_input(capture, message):
-        box_filled = bool(pi_reader().box(capture)) if ENGINE == 'pi' else (  # r1621 ⓔ: Pi 상자 글
-            (re.findall(r'^› ?(.*)$', capture, flags=re.M) or [''])[-1].strip()
-            not in ('', 'Ask Codex to do anything'))  # empty box shows that hint
-        if box_filled or (typed and result.get('retyped')):
+        # r1834 E1: 두 번 넣고 손 뗀 상태는 빈 입력창이면 마지막 입력 뒤 상한(600초)에 새 시도 1회로 풀린다
+        expired = time.time() - (result.get('typed_at') or 0) >= MAX_DELAY_SECONDS
+        if box_filled(capture) or (typed and result.get('retyped') and not expired):
             return 'DELIVERY_INPUT_CHANGED'  # someone else's text, or typed twice already.
         if gate is not None and not gate():  # r1605: 문자 입력 직전 유휴 300초 재확인
             return 'IDLE_DEBOUNCE'
@@ -293,11 +312,15 @@ def check():
               'pending_terminal': old.get('pending_terminal'),
               'pending_offset': old.get('pending_offset'), 'retyped': old.get('retyped'),
               'pending_sha': old.get('pending_sha'), 'typed_at': old.get('typed_at'),
-              'sent_at': old.get('sent_at'), 'first_seen_at': old.get('first_seen_at')}
+              'sent_at': old.get('sent_at'), 'first_seen_at': old.get('first_seen_at'),
+              'input_alerted_terminal': old.get('input_alerted_terminal'), 'alert_rc': old.get('alert_rc')}
+    other = {}  # r1834 E2: 이 회차 입력창에 남의 글이 있었나
     global TYPED_AT
     TYPED_AT = result.get('typed_at')
     def finish(status):
         result['status'] = status
+        if other.get('text') and status in ('INPUT_PRESENT', 'DELIVERY_INPUT_CHANGED'):
+            alert_master(cfg, result)
         save(latest, result)
         return status
     if not cfg['enabled']:
@@ -310,7 +333,7 @@ def check():
         return finish(problem[0])
     if old.get('seat') != seat:  # r1666 ⓕ: 대상이 바뀌면 «그 좌석의 입력 위치» 만 비운다 (사건 이력은 이월)
         # seat 칸 없는 구판 latest 도 «대상 바뀜» 이다 — 옛 좌석의 위치 값이 새 좌석에 뜻이 없다 (DA 단계 2 R2①)
-        result.update(pending_offset=None, pending_sha=None, sent_terminal=None)
+        result.update(pending_offset=None, pending_sha=None, sent_terminal=None, input_alerted_terminal=None)
     cfg['seat'] = seat
     core = Path(cfg['core']).read_text(encoding='utf-8')
     stages = json.loads(re.search(r'const stages = (.*?);', core).group(1))
@@ -356,6 +379,7 @@ def check():
     result.update(read_bytes=size, state=state, reason=why, pane=pane)
     capture = run(['tmux', 'capture-pane', '-pt', pane, '-S', '-25'])
     ours = exact_input(capture, message)
+    other['text'] = not ours and box_filled(capture)
     if terminal == result['sent_terminal'] and not ours:
         return finish('ALREADY_NOTIFIED')
     # r1605: 마지막 활동 뒤 300초가 차기 전에는 알림도 입력도 없다 (같은 관문을 입력 직전에 재확인).
