@@ -10,7 +10,7 @@
 #        r1708: 팀 master = 어느 명부(seats*.json)든 `_master` 칸의 «계보 번호»(같은 베이스 이름 #N 전부) · 나노·arch·tester·이름만 맞는 좌석은 그대로 REJECT
 #   ⓑ planner 밖 → desk          = REJECT («desk 에는 planner 가 보내요») — 예외 2개만, «방향 한정»:
 #        ① 머리 [HIL] ② «[h<N> 결과]» ∧ 판정 재료 «전체»(요약 + relay 전문)가 1줄 ∧ `_master` 계보가 그 팀 좌석에 보낸 쪽지(회전 로그 전부 · 오늘)에 정확히 h<N>
-#   ⓒ desk↔desk(계보 인계) · planner↔desk · 도구 발신(ft-* · # 없음) · slack-*(오빠) = 통과
+#   ⓒ desk↔desk(계보 인계) · planner↔desk · 도구 발신(ft-* · # 없음 · r1851 Slack 수신기 정확 이름 ft2-slack-listen) · slack-*(오빠) = 통과
 #   ⓓ 명부 없음·깨짐·`_desk`/`_master` 칸 없음 = 판정 0(통과 + stderr WARN 1줄 — 조용히 막지 않는다 · 카드 ⓕ)
 # relay 두 길이 «기계가 붙이는» 꼬리줄(상세(전문): <경로> (<n> B))은 보낸 사람이 쓴 줄이 아니므로 «1줄» 판정에서만 뺀다 — 전문 내용은 --attach 로 «판정 재료»에 들어온다.
 import argparse
@@ -119,7 +119,7 @@ def verdict(to, frm, body, attach, seats_dir, comm):
 
     if not (is_desk(to) or is_desk(frm)):
         return None                                          # desk 무관 = 판정 0
-    if (frm.startswith("ft-") and "#" not in frm) or frm.startswith("slack-") or frm.startswith("slack_"):
+    if (frm.startswith("ft-") and "#" not in frm) or frm == "ft2-slack-listen" or frm.startswith("slack-") or frm.startswith("slack_"):
         return None                                          # 도구 발신 · 오빠 슬랙
     if is_desk(frm) and is_desk(to):
         return None                                          # desk 계보 인계(desk 37 → desk 38)
