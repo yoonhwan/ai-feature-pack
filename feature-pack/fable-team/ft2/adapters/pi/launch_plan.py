@@ -5,6 +5,7 @@
 """
 import os
 import shlex
+import shutil
 
 DEFAULT_BASE = "origin/main"          # r1780 A1: 기본 가지 자동 판정 0(origin/HEAD 는 리포마다 다르다) · 이름 고정
 HEX = frozenset("0123456789abcdef")
@@ -15,17 +16,25 @@ def seat_env(root, team, work, holder, attempt):
     return dict(zip(("FT2_ROOT", "FT2_TEAM", "FT2_WORK", "FT2_HOLDER", "FT2_ATTEMPT"), (root, team, work, holder, attempt)))
 
 
+def pi_path(env_path):
+    """pi 절대 경로 — tmux 는 부른 쪽 PATH 로 명령을 찾고 keeper(launchd) PATH 엔 ~/.local/bin 이 없다(r1892) · 못 찾음 = None."""
+    found = shutil.which("pi", path=os.pathsep.join([env_path or "", os.path.expanduser("~/.local/bin")]))
+    return os.path.abspath(found) if found else None
+
+
 def plan_of(folder, tag, root, team, holder, role_argv, worktree, repo, env, base=DEFAULT_BASE):
     """의도·워크트리·열기 argv — `--detach`(가지 몰래 만들기 0) · git 은 `-C <repo>`(A2) · pi argv 는 역할 표 그대로(A5).
     git argv 끝 = 기준 ref 이름(r1780) — dry-run 은 이 이름 그대로 보이고, 실제 실행은 `at_sha` 로 확인한 sha 로 바꾼다."""
     path = os.path.abspath(worktree or os.path.join(root, ".fable-team", "teams", team, "worktrees", tag))
     pairs = [word for key, value in env.items() for word in ("-e", key + "=" + value)]
+    pi = pi_path(os.environ.get("PATH"))
     return {"intent": os.path.join(folder, tag + ".intent"), "worktree": path,
             "git": ["git", "-C", repo, "worktree", "add", "--no-checkout", "--detach", path, base],
             # r1846: 빈 자리 → sparse(출처 = 1.x r835 ft_sparse_patterns · 남의 팀 design 제외) → checkout · 큰 리포도 25초 안
             "sparse": ["git", "-C", path, "sparse-checkout", "set", "--no-cone", "/*", "!/design/teams/*/", "/design/teams/%s/" % team],
             "checkout": ["git", "-C", path, "checkout", "-q"],
-            "tmux": ["tmux", "new-session", "-d", "-s", holder, "-c", path] + pairs + ["pi"] + list(role_argv)}
+            "tmux": ["tmux", "new-session", "-d", "-s", holder, "-c", path] + pairs + [pi or "pi"] + list(role_argv),
+            "pi": pi, "alive": ["tmux", "has-session", "-t", "=" + holder]}   # r1892: new-session rc0 뒤 1회
 
 
 def repo_check(repo):
