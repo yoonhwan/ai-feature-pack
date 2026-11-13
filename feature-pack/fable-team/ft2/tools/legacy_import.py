@@ -5,7 +5,7 @@
 (`<루트>/.fable-team/state/ft20-switch/<팀>.held/<cat>/<이름>`)을 두고, core/legacy_import.py 로 import 줄 1개를 더한다.
 원본 삭제·이동 0 · 표식 쓰기 0 · 쓰는 runtime = `--team` 하나뿐(경로 인자 없음).
 
-    python3 tools/legacy_import.py --root R --team T --reconcile <reconcile.json> [--dry-run]
+    python3 tools/legacy_import.py --root R --team T --reconcile <reconcile.json> [--dry-run | --precheck]
 
 끝 1줄 = «가져온 수 N · 건너뜀 M(이미 가져옴 a · 겹침 b) · 용량 거절 e · 누락 c · 원본 sha 변화 d · revision 전->후».
 rc 0 = 누락·sha 변화·용량 거절 0 · 1 = 누락·sha 변화·팀 거부·용량 거절 · 2 = 판정 불가·복구 필요 · 64 = 인자.
@@ -57,16 +57,24 @@ def _name(row, cat, stem):
     return name
 
 
-def line_size(team, seq, at, row):
-    """원본 없이 import 줄 크기만 잰다(실제 원자료 줄 길이 확인용) — 꼴이 다르면 None."""
+def _src(row, name):
+    """r1831 I1 — loc 끝 이름 = held 이름이면 폴더만(원본 경로 = src + "/" + held 이름) · 다르면(intake 등) loc 그대로."""
+    loc = str(row.get("loc"))
+    head, tail = os.path.split(loc)
+    return head if head and tail == name else loc
+
+
+def line_size(team, seq, at, row, nbytes=99999999, core=None):
+    """원본 없이 import 줄 크기만 잰다(실제 build_line·line_bytes) — 꼴이 다르면 None."""
     try:
         key, cat, stem = _key(row)
-        body = cat + "/" + _name(row, cat, stem)
+        name = _name(row, cat, stem)
     except Skip:
         return None
-    rec = _core().build_line(team, seq, at, dict(key=key, body=body, src=str(row.get("loc")),
-                                                 sha256="0" * 64, bytes=99999999))
-    return _core().journal.line_bytes(rec)
+    core = core or _core()
+    rec = core.build_line(team, seq, at, dict(key=key, body=cat + "/" + name, src=_src(row, name),
+                                              sha256="0" * 64, bytes=nbytes))
+    return core.journal.line_bytes(rec)
 
 
 def _mail_line(path, seq):
@@ -139,12 +147,12 @@ def _held(path, data, dry):
 
 
 def main(argv, caps=None, on_step=None, out=None):
-    out, step = out or sys.stdout, on_step or (lambda name: None)
-    say = lambda text: out.write(text + "\n")
+    out, step, say = out or sys.stdout, on_step or (lambda name: None), (lambda text: out.write(text + "\n"))
     parser = argparse.ArgumentParser(prog="legacy_import.py")
     for name in ("--root", "--team", "--reconcile"):
         parser.add_argument(name, required=True)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--precheck", action="store_true")
     try:
         args = parser.parse_args(argv)
     except SystemExit as exc:                           # argparse 오류(2) = 64 · --help = 0
@@ -163,9 +171,9 @@ def main(argv, caps=None, on_step=None, out=None):
     core = _core()
     imp = core.LegacyImport(root, args.team, on_step=step, caps=caps)
     try:
-        if imp.lc is None:
+        if imp.lc is None and not args.precheck:
             raise core.record.CorruptStateError("runtime 없음: %s" % imp.runtime)
-        before = imp.revision()
+        before = imp.revision() if imp.lc else None
     except ValueError as exc:
         say("복구 필요 · %s = 쓰기 0" % exc)
         return 2
@@ -179,19 +187,27 @@ def main(argv, caps=None, on_step=None, out=None):
             plan.append((row, key, cat, stem, name, _source(root, cards, args.team, row, cat, stem, meta), ""))
         except Skip as why:
             plan.append((row, row.get("target_id"), None, None, None, None, str(why)))
-    n = a = b = e = broken = 0
-    reasons, stop = collections.Counter(), False
+    args.dry_run, say = args.dry_run or args.precheck, (lambda text: None) if args.precheck else say  # r1831 쓰기 0 · 1줄
+    limit = (imp.lc.rs.journal if imp.lc else core.journal.Journal(imp.runtime)).line_max
+    n = a = b = e = broken = top = 0
+    reasons, stop = collections.Counter(), None
     for row, key, cat, stem, name, data, why in plan:
+        size = 0 if why else line_size(args.team, 9999999, "2026-01-01T00:00:00", row, len(data), core)  # 보수 seq
+        top = max(top, size)
         if why or stop:
-            reasons[why or "용량 거절 뒤"] += 1
-            say("누락 %s: %s" % (key, why or "용량 거절 뒤"))
+            reasons[why or stop + " 뒤"] += 1
+            say("누락 %s: %s" % (key, why or stop + " 뒤"))
+            continue
+        if imp.lc is None:                              # precheck · runtime 없음 = 줄 크기만 잰다(쓰기 0)
+            reasons.update(["줄 > %d" % limit] if size > limit else [])
+            n += size <= limit
             continue
         if not _held(os.path.join(held_root, cat, name), data, args.dry_run):
             broken += 1
             say("복구 필요 %s: held 사본 sha 다름 = 그 행 쓰기 0" % key)
             continue
         step("after_held")
-        res = imp.put(dict(key=key, body=cat + "/" + name, src=str(row.get("loc")), sha256=_sha(data),
+        res = imp.put(dict(key=key, body=cat + "/" + name, src=_src(row, name), sha256=_sha(data),
                            bytes=len(data)), args.dry_run)
         status = res.status if res.result == core.OK else res.result
         if status in (core.IMPORTED, core.ALREADY, core.OVERLAP):
@@ -199,12 +215,19 @@ def main(argv, caps=None, on_step=None, out=None):
             if status == core.OVERLAP:
                 say("건너뜀 %s: %s" % (key, res.reason))
         elif status == "용량 부족":
-            e, stop = 1, True
+            e, stop = 1, "용량 부족"
             say("용량 거절 %s: %s" % (key, res.reason))
-        else:
-            broken, stop = broken + 1, status != core.UNKNOWN
-            say("%s %s: %s" % (status, key, res.reason))
+        else:                                           # I2 줄 크기 거절 = 그 행만 누락 · 그 밖 = 멈춤
+            size_refused = status == core.REFUSED and re.match(r"줄 \d+ 바이트 > \d+", res.reason or "")
+            stop = None if size_refused else status
+            broken += not size_refused
+            reasons.update(["줄 > %d" % limit] if size_refused else [])
+            say("누락 %s: %s" % (key, res.reason.split(" = ")[0]) if size_refused else "%s %s: %s" % (status, key, res.reason))
     c = len(plan) - n - a - b - e
+    if args.precheck:
+        detail = "(%s)" % " · ".join("%s %d" % item for item in sorted(reasons.items())) if reasons else ""
+        out.write("가져올 수 %d · 누락 %d%s · 최대 줄 %d 바이트 / %d\n" % (n, c, detail, top, limit))
+        return 2 if broken else 1 if c else 0
     changed = 0
     for row, key, cat, stem, name, data, why in plan:
         if data is not None:
