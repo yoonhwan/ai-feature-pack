@@ -15,7 +15,7 @@ TMUX = r'''#!__PY__
 import glob, json, os, sys
 st, a = os.environ["FAKE_TMUX"], sys.argv[1:]
 d = json.load(open(st))
-name = a[a.index("-t") + 1].lstrip("=") if "-t" in a else (a[a.index("-s") + 1] if "-s" in a else "")
+name = a[a.index("-t") + 1].lstrip("=").rstrip(":") if "-t" in a else (a[a.index("-s") + 1] if "-s" in a else "")
 n = sum(1 for p in glob.glob(os.path.join(os.environ["FAKE_RUNTIME"], "journal*.jsonl")) for x in open(p) if '"dispatch"' in x)
 open(st + ".log", "a").write(json.dumps({"a": a, "dispatch": n}) + "\n")
 if a[0] == "kill-session": d["alive"].remove(name)
