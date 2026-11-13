@@ -79,9 +79,12 @@ RESULT=$(python3 - "$INPUT" "$WARN_AT_ARG" "$BLOCK_AT_ARG" "$EXEMPT_MODELS" "$MO
 import json, sys, os, re, shlex, subprocess, time
 TAIL_CAP = 16 * 1024 * 1024
 TAIL_CHUNK = 262144
-WARN_DEFAULT = int(os.environ.get("FT_DISTILL_WARN") or 250_000)      # r1427: 문턱 한 곳(bin/ft-thresholds.sh)
-BLOCK_DEFAULT = int(os.environ.get("FT_DISTILL_BLOCK") or 300_000)    # 250k 경고 · 300k 차단(오빠 2026-11-06)
-RECV_DEFAULT = int(os.environ.get("FT_DISTILL_RECV") or 250_000)      # R107: 승계 도달 전 recv 차단선 = 경고선과 같이 이동
+def thr(k):  # r1427·r1860: 문턱 한 곳(bin/ft-thresholds.sh → 파일 없으면 thresholds.env.sample) · 숫자 기본값 0 · 없으면 판정 불가(ERROR)
+    v = (os.environ.get(k) or "").strip()
+    if not v.isdigit():
+        raise ValueError("문턱 %s 못 읽음(thresholds.env·sample 없음)" % k)
+    return int(v)
+# FT_DISTILL_RECV = 따로 정하는 키(경고선과 묶이지 않는다) · R107 승계 도달 전 recv 차단선
 
 def norm_model(m):
     if isinstance(m, dict):
@@ -120,11 +123,11 @@ def scan_last_real_usage(path):
 
 try:
     data = json.loads(sys.argv[1])
-    warn_at = int(sys.argv[2]) if sys.argv[2].strip() else WARN_DEFAULT
-    block_at = int(sys.argv[3]) if sys.argv[3].strip() else BLOCK_DEFAULT
+    warn_at = int(sys.argv[2]) if sys.argv[2].strip() else thr("FT_DISTILL_WARN")
+    block_at = int(sys.argv[3]) if sys.argv[3].strip() else thr("FT_DISTILL_BLOCK")
     exempt_re = sys.argv[4].strip()
     mode = sys.argv[5]
-    recv_at = int(sys.argv[6]) if len(sys.argv) > 6 and sys.argv[6].strip() else RECV_DEFAULT
+    recv_at = int(sys.argv[6]) if len(sys.argv) > 6 and sys.argv[6].strip() else thr("FT_DISTILL_RECV")
 except Exception as e:
     print("ERROR|branch=other input parse: %s" % e); sys.exit(0)
 
