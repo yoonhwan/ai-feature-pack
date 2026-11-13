@@ -41,7 +41,7 @@ case "$1" in
                esac;;
   display) printf '%s %s\n' "$$" "$TWD" ;;
   list-sessions) printf '%s\n' ${FAKE_SESSIONS:-} ;;
-  display-message) echo caller#0;;
+  display-message) case "$*" in *session_attached*) echo 0;; *) echo caller#0;; esac;;   # r1839 사람 화면 0 = 지금 동작 그대로
   *) exit 0;;
 esac
 EOF
