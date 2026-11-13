@@ -176,7 +176,7 @@ mode_on; a off >/dev/null; [ "$(a mode)" = off ] && a on >/dev/null 2>&1 && [ "$
 rm -rf "$T/mutbin"; cp -R "$BIN" "$T/mutbin"
 axis_h2() { rm -rf "$S/autonomy.json" "$LOGF"; "$BASH" "$1" on >/dev/null 2>&1; printf '2\toff\n' >> "$LOGF"; [ "$("$BASH" "$1" mode)" = tamper ]; }
 axis_h2 "$BIN/ft-autonomy.sh"; ck "변이 기준: 원본은 ⓗ② 를 통과(tamper)" $?
-mutate "$BIN/ft-autonomy.sh" "$T/mutbin/ft-autonomy.sh" "else bad=1; fi" "else :; fi"; ! cmp -s "$BIN/ft-autonomy.sh" "$T/mutbin/ft-autonomy.sh"; ck "변이 4 적용됨(ⓒ 판정 제거 = 불완전 줄 버림)" $?
+mutate "$BIN/ft-autonomy.sh" "$T/mutbin/ft-autonomy.sh" "if (\$0 ~ r[i]) next; bad = 1 }" "if (\$0 ~ r[i]) next }"; ! cmp -s "$BIN/ft-autonomy.sh" "$T/mutbin/ft-autonomy.sh"; ck "변이 4 적용됨(ⓒ 판정 제거 = 불완전 줄 버림)" $?
 ! axis_h2 "$T/mutbin/ft-autonomy.sh"; ck "변이 4 → ⓗ② 실패(검출)" $?
 
 # ===== 변이 3: 장치를 깨뜨리면 해당 축이 실패해야 한다 =====
