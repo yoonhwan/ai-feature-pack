@@ -22,7 +22,7 @@ PY
   local rc=$?; [ "$rc" = 0 ] || [ "$rc" = 1 ] || rc=2; return $rc
 }
 _goal_refuse() {  # <발신자> <머리> <사유> — 무장 = REJECT rc 3 + 로그 · 비무장 = WOULD-REJECT 로그 + rc 0(설치 전환 · 되돌림 = 표식 삭제)
-  if goal_armed; then guard_log mbox-guard-goal.log "REJECT from=$1 head=${2:0:20} $3"; echo "REJECT 골 없음 — $3" >&2; return 3; fi
+  if goal_armed; then guard_log mbox-guard-goal.log "REJECT from=$1 head=${2:0:20} $3"; [ -z "${GOAL_COLLECT:-}" ] || { GOAL_WHY="$3"; return 3; }; echo "REJECT 골 없음 — $3" >&2; return 3; fi
   guard_log mbox-guard-goal.log "WOULD-REJECT from=$1 head=${2:0:20} $3"; return 0
 }
 if [ -f "$DIR/mbox_guard_goal.sh" ]; then source "$DIR/mbox_guard_goal.sh"   # 본체가 없으면(설치 순서) 대상 메시지는 무장 = REJECT · 비무장 = WOULD-REJECT(H1①)
@@ -142,14 +142,16 @@ PY
 
 # [부팅 보고] 본문 검사(P4 · r1319) — 승계 retire=<구>-><후계> rc=0 + 남은 `_*` 칸 · master/arch cron=<id>. 발신자=$from · lint 부재 = WARN + 전송.
 #   발동(R577 → r1319 C3 로 확장) = 앞 3줄 « · » 조각 머리가 «[부팅»·«부팅 보고»·«부팅 끝»·«부팅 완료»·«부팅:» 이고 머리 뒤 40자 안에 내 이름/«#N» · 또는 옛 첫 줄 판정(머리 대괄호 안 또는 첫 줄 시작 «부팅 보고») — 판정기 = ft-boot-report-lint.py(C3) · 남의 부팅 보고를 언급한 쪽지 = 0. lint rc≠0 = REJECT(fail-closed).
-_guard_boot_lint() {
-  local lint="" f res rc; case "$1" in *부팅*) ;; *) return 0;; esac   # r1319 값싼 선별만 — «앞 3줄»·머리·40자 판정은 lint(C3) 한 곳에서만 한다(규칙이 둘로 갈라지지 않게)
+_guard_boot_lint() {  # <본문> [발신자] [relay 첨부]
+  local lint="" f res rc gm="" gw=""; case "$1" in *부팅*) ;; *) return 0;; esac   # r1319 값싼 선별만 — «앞 3줄»·머리·40자 판정은 lint(C3) 한 곳에서만 한다(규칙이 둘로 갈라지지 않게)
   for f in "$DIR/ft-boot-report-lint.py" "$DIR/../../.claude/fable-team/bin/ft-boot-report-lint.py"; do [ -f "$f" ] && { lint="$f"; break; }; done
   [ -n "$lint" ] || { echo "WARN 부팅 보고 lint 파일 없음 — 검사 없이 전송 (설치 순서)" >&2; return 0; }
-  res="$(printf '%s' "$1" | python3 "$lint" --from "${from:-}" --seats-dir "$(dirname "$(_seats_json)")")"; rc=$?
+  [ -n "${3:-}" ] || { GOAL_COLLECT=1; GOAL_WHY=""; _guard_goal_lint "$1" "${2:-}"; GOAL_COLLECT=""; GOAL_DONE=1; gw="$GOAL_WHY"; }   # r1828 A2 — 골 표 판정을 lint 앞에서 1회(대상·역할·제외·무장 판별 그대로) · 뒤쪽 골 검사는 건너뜀(이중 검사 0)
+  case "$gw" in 판정기\ 없음*|판정기\ 실행\ 실패*|발신자\ 대상\ 여부\ 판정\ 불가*|골\ 표\ 문\ 파일\ 없음*) ;; *) gm="$gw";; esac   # A3 실행 실패·판정 불가 = 모으지 않음(relay 첨부 = 지금 순서 그대로)
+  res="$(printf '%s' "$1" | python3 "$lint" --from "${from:-}" --seats-dir "$(dirname "$(_seats_json)")" ${gm:+--goal-miss "$gm"})"; rc=$?
   case "$rc" in
-    0) return 0;;
-    1) echo "REJECT ${res#REJECT }" >&2; return 3;;
+    0) [ -z "$gw" ] || { echo "REJECT 골 없음 — $gw" >&2; return 3; }; return 0;;   # 부팅 보고 아님 = 골 표 문구 그대로
+    1) [ -z "$gw" ] || [ -n "$gm" ] || { echo "REJECT 골 없음 — $gw" >&2; return 3; }; echo "REJECT ${res#REJECT }" >&2; return 3;;
     *) echo "REJECT 부팅 보고 판정 불가 rc=$rc — ${res#REJECT } (하드 룰 20 — 확인 못 하면 통과가 아니다)" >&2; return 3;;   # r1319 C4·C6 fail-closed
   esac
 }
@@ -218,7 +220,7 @@ _guard_hold_lint() {
 # guard_check <to> <body> [from] [relay 첨부] — GUARD_TO·GUARD_BODY(+relay 는 GUARD_FILE·GUARD_TMP)를 정한다. rc 3 = REJECT(큐 적재 0).
 guard_check() {
   GUARD_TO="$1"; GUARD_BODY="$2"; GUARD_FILE=""; GUARD_TMP=""
-  local first safe=0 out verb new msg rej="" _pf _pn
+  local first safe=0 out verb new msg rej="" _pf _pn; GOAL_DONE=""
   _guard_utf8_lint "$2" "${4:-}" || return $?   # r1678 ⓐ 입구 = 받는이 판정보다 먼저(디코드 고장이 «위반» 으로 읽히지 않게)
   first="${2%%$'\n'*}"; first="${first#"${first%%[![:space:]]*}"}"
   case "$first" in '[HIL]'*|'[HIL·'*|'[긴급]'*) safe=1;; esac
@@ -248,9 +250,9 @@ guard_check() {
   done <<< "$out"
   [ -z "$rej" ] || { echo "REJECT $rej" >&2; return 3; }
   _guard_bang_lint "$2" || return $?
-  _guard_boot_lint "$2" || return $?
+  _guard_boot_lint "$2" "${3:-}" "${4:-}" || return $?
   _guard_hold_lint "$2" || return $?; _guard_morning_lint "$2" "${4:-}" || return $?
   _guard_da_lint "$GUARD_TO" "$2" "${4:-}" || return $?
-  _guard_goal_lint "$2" "${3:-}" "${4:-}" || return $?
+  [ -n "$GOAL_DONE" ] || _guard_goal_lint "$2" "${3:-}" "${4:-}" || return $?
   return 0
 }
