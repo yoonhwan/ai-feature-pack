@@ -206,14 +206,28 @@ def _desk(root, team):  # r1862 명부 seats-<team>.json `_desk` 읽기만 · �
         return None
 
 
-def say(state, ts="", rc=0, reason=""):
-    sys.stdout.write(("state=%s ts=%s" % (state, ts or "")) + (" reason=%s" % reason if reason else "") + "\n")
+def _bind(opts, ledger, key, ask):  # r1879 bind 성공 뒤에만 요청 등록 1회(id = post 의도 키) · 실패 = stderr 1줄 · 게시 결과 그대로
+    got = ledger.bind(key, opts["seat"])
+    if got["state"] != binding.BOUND:  # 이미 있음 = 덮어쓰기 0 · 등록 0
+        return sys.stderr.write("binding 실패 · 판정 불가 — %s %s\n" % (got.get("k"), got.get("has"))) and ""
+    try:  # 정상 SlackReceive 를 넘긴다(receive=None = 생성자 AttributeError · DA 296903) · ack 호출 0 · 실 Slack 0
+        route.SlackRoute(opts["root"], receive=receive.SlackReceive(opts["root"], ack=lambda e: None, team=opts["team"]),
+                         bindings=ledger, team=opts["team"]).register(key, ask)
+    except Exception as exc:  # binding 은 그대로(답글은 이미 나감 · 하드 룰 20)
+        return sys.stderr.write("요청 등록 실패 · 판정 불가 — %s\n" % type(exc).__name__) and ""
+    return " bound=%s req=%s" % (got["owner"], ask)
+
+
+def say(state, ts="", rc=0, reason="", tail=""):
+    sys.stdout.write(("state=%s ts=%s" % (state, ts or "")) + (" reason=%s" % reason if reason else "") + tail + "\n")
     return rc
 
 
 def main(argv, post=None, sleep=None):
     """`reply|notify --root R --team T --thread TS --seat S --body-file F [--command C] [--env E]` → 출력 1줄."""
     verb = (argv or [""])[0]  # r1852 `post --channel C` = 수신 채널 새 root(thread 없음)
+    bind = verb == "post" and "--bind" in argv  # r1879 값 없는 선택 인자 · 없으면 r1852 그대로(자동 bind 0)
+    argv = [a for a in argv if not (bind and a == "--bind")]
     need = {"reply": ("thread", "command"), "notify": ("thread",), "post": ("channel",)}.get(verb)
     opts = {k[2:]: v for k, v in zip(argv[1::2], argv[2::2]) if k.startswith("--")}
     known = {"root", "team", "seat", "body-file", "env", "seq"} | set(need or ())
@@ -259,9 +273,9 @@ def main(argv, post=None, sleep=None):
         intent, seat, gen = opts["command"], opts["seat"], now.gen
     else:  # notify — 의도 키 = notify:<root>:<본문 sha12> · 담당 검사 대신 열린 binding 만
         intent, seat, gen = "notify:%s:%s" % (key.root, hashlib.sha256(body.encode()).hexdigest()[:12]), None, None
+    ask = "post:%s:%s:%s" % (key.channel, opts["seat"], hashlib.sha256(body.encode()).hexdigest()[:12])
     try:
-        row = pub.post_root(key, "post:%s:%s:%s" % (key.channel, opts["seat"], hashlib.sha256(
-            body.encode()).hexdigest()[:12]), body) if verb == "post" else pub.reply(key, intent, body, seat, gen)
+        row = pub.post_root(key, ask, body) if verb == "post" else pub.reply(key, intent, body, seat, gen)
     except Exception as exc:  # 429 두 번(post_failed)·Slack 오류 응답 = 보이는 실패 1줄(하드 룰 20)
         return say("failed", rc=1, reason=(getattr(exc, "row", None) or {}).get("k") or type(exc).__name__)
     if row["state"] == publish.REFUSED:
@@ -269,4 +283,6 @@ def main(argv, post=None, sleep=None):
             return say(publish.UNCERTAIN, rc=1, reason=row.get("k"))
         same = row.get("k") == "same_intent"
         return say("duplicate" if same else "refused", row.get("ts"), 0 if same else USAGE, "" if same else row.get("k"))
-    return say(row["state"], row.get("ts"), 0 if row["state"] == publish.POSTED else 1)
+    tail = _bind(opts, ledger, binding.thread_key(key.workspace, key.channel, row.get("ts")), ask) if bind and (
+        row["state"] == publish.POSTED and row.get("ts")) else ""  # UNCERTAIN·ERROR = bind 0 · 등록 0
+    return say(row["state"], row.get("ts"), 0 if row["state"] == publish.POSTED else 1, tail=tail)
