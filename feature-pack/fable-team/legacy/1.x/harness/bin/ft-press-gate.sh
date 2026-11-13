@@ -368,9 +368,10 @@ if [ -n "$LIVE_WT" ] && ! git rev-parse --verify -q "$FEAT^{commit}" >/dev/null 
 fi
 # ★r1414: 기준 줄기 꾸밈 막기★ — FT_NANO_FEAT 를 «준» 회차만(기본 origin/main = 지금과 같음). 나노 HEAD·N^{commit}·축약 sha 를 주면 FEAT..HEAD 가 비어 ① 이 «미랜딩 0» 으로 통과했다(r1411 사전 DA).
 #   받는 값 ⓐ 알려진 줄기 ref 이름 = refs/heads·refs/remotes 에 그 이름 그대로 있는 가지(현역 나노 가지는 아님) — 팀 줄기(feat/feature-main 등)는 origin/main 조상이 아니라 이 길로 받는다
-#           ⓑ 그 밖(sha·식)은 풀린 커밋이 origin/main 의 조상(같음 포함)이고, origin/main 위에서 뜬 현역 나노 base_sha 모두의 후손일 때만(옛 조상 A 로 «다른 줄기» 빼기 0)
+#           ⓑ 그 밖(sha·식)은 풀린 커밋이 origin/main 의 조상(같음 포함)이고, main 줄기 현역 나노 base_sha 모두의 후손일 때만(옛 조상 A 로 «다른 줄기» 빼기 0)
+#           main 줄기 나노 = 선언 base 가 main·origin/main(로컬 main 선행으로 base_sha 가 origin/main 밖이어도 넣는다 · DA #298942) 또는 base_sha ⊂ origin/main
 _feat_guard(){ # → 막을 이유 1줄 · 빈 출력 = 받음
-  local fs ms w b sha
+  local fs ms w b sha decl base
   if git show-ref -q --verify "refs/heads/$FEAT" || git show-ref -q --verify "refs/remotes/$FEAT"; then
     for w in $LIVE_WT; do
       b="$(git -C "$ROOT/.worktrees/$w" symbolic-ref -q --short HEAD 2>/dev/null)" || continue
@@ -382,8 +383,9 @@ _feat_guard(){ # → 막을 이유 1줄 · 빈 출력 = 받음
   fs="$(git rev-parse -q --verify "$FEAT^{commit}" 2>/dev/null)" || { printf 'FT_NANO_FEAT=%s 를 못 풂' "$FEAT"; return; }
   git merge-base --is-ancestor "$fs" "$ms" 2>/dev/null || { printf 'FT_NANO_FEAT=%s 은 origin/main 의 조상 아님' "$FEAT"; return; }
   for w in $LIVE_WT; do
-    sha="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["base_sha"])' "$ROOT/.worktrees/$w/.worktree-info.json" 2>/dev/null)" && [ -n "$sha" ] || continue
-    git merge-base --is-ancestor "$sha" "$ms" 2>/dev/null || continue   # origin/main 밖 base = 다른 줄기 나노(_other_trunk 몫)
+    decl="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d.get("base","") + "\t" + d["base_sha"])' "$ROOT/.worktrees/$w/.worktree-info.json" 2>/dev/null)" || continue
+    base="${decl%%$'\t'*}"; sha="${decl#*$'\t'}"; [ -n "$sha" ] || continue
+    case "$base" in main|origin/main) ;; *) git merge-base --is-ancestor "$sha" "$ms" 2>/dev/null || continue ;; esac   # 그 밖 base · origin/main 밖 = 다른 팀 줄기 나노(_other_trunk 몫)
     git merge-base --is-ancestor "$sha" "$fs" 2>/dev/null || { printf 'FT_NANO_FEAT=%s 는 현역 나노(%s) base %s 보다 앞선 값' "$FEAT" "$w" "${sha:0:10}"; return; }
   done
 }
