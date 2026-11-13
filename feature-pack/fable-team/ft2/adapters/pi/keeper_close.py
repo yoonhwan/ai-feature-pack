@@ -29,6 +29,11 @@ def _load(name):
 projection, close_next = _load("projection"), _load("close_next")
 
 
+def pane_target(holder):
+    """r1822 — pane 대상(capture-pane·send-keys·pane PID) = `=이름:` · `=이름` 은 세션 대상(has-session·kill-session 만)."""
+    return "=" + holder + ":"
+
+
 class Closing:
     def probe(self, seat):
         """tmux 부재 판독기 — rc1 + «can't find session»(서버 없음 포함) = absent · rc0 = alive · 그 밖 = 판정 불가 문자열."""
@@ -67,7 +72,7 @@ class Closing:
 
     def idle(self, team, work, holder):
         """pane 에 Working·스피너 없음 = 참 · capture 실패 = 판정 불가(거짓)."""
-        rc, pane, _ = self.call([self.tmux, "capture-pane", "-p", "-t", "=" + holder])
+        rc, pane, _ = self.call([self.tmux, "capture-pane", "-p", "-t", pane_target(holder)])
         if rc != 0:
             return self.log("HELD", team, "%s %s 판정 불가 · capture rc %s" % (work, holder, rc))
         if BUSY.search(pane[-2000:]):
