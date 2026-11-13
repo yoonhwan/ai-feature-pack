@@ -750,8 +750,48 @@ _resolve_landed_wt() {
   [ -z "$live" ] || { SEAT_WT_ERR="--wt($top)의 가지($br)를 키로 하는 다른 좌석 세션이 살아 있다(${live% }) — 남의 좌석 가지 · 추측 금지"; return 0; }
   SEAT_WT="$top"; SEAT_BR="$br"; _lp_wt_seat=1
 }
+# ★r1417★ --landed-pr(--wt 없음) — pane 살아 있는데 후보 0(SEAT_WT_NOCAND) 인 좌석이 «표준 경로에서 가지만 바꾼» 워크트리면 받는다(r599 규칙을 살아 있는 좌석에 · --landed-pr 한정).
+#   인정 = ①pane cwd 최상위 = 등록된 $ROOT/.worktrees/<WT 접두><키>[-rN] ②그 꼴 경로 후보(nano/* ∧ info 가지 == 체크아웃 가지 또는 닫는 좌석 가지 nano/<키>[-rN] · r1486: nano/* 밖 가지는 info == nano/<키>[-rN] 일 때만)가 정확히 1개이고 그것
+#   ③가지 키(nano/ 뒤 전부 · 끝이 -r<숫자> 면 뗀 키도)의 살아 있는 나노 좌석(팀 접두 무관 · seat-info)이 닫는 SEAT 밖에 0 ④HEAD 트리 == 착지 PR head 트리(⑥ 자리 _lp_cwd_head_gate · 첫 쓰기 전).
+#   거짓 = SEAT_WT_ERR(③ REJECT) 또는 bad 1줄 — kill·명부·원장·계획 0.
+_lp_cwd_seat=0
+_lp_live_owners() {  # <키…> → 그 키의 살아 있는 나노 좌석(닫는 SEAT 제외) · rc≠0 = 조회 실패
+  local to trc
+  to="$(tmux ls -F '#{session_name}' 2>&1)"; trc=$?
+  if [ "$trc" -ne 0 ]; then case "$trc:$to" in 1:*"no server running"*) to="";; *) return 1;; esac; fi
+  printf '%s\n' "$to" | python3 -c '
+import sys; sys.path.insert(0, sys.argv[1]); from ft_teamset import seat_info
+seat, pfx, keys = sys.argv[2], sys.argv[3].replace(",", " ").split(), set(sys.argv[4:])
+for s in sys.stdin.read().split():
+    i = seat_info(s)
+    k = i[3] if i else next((s[len(p):].rsplit("#", 1)[0] for p in pfx if s.startswith(p) and "#" in s), None)
+    if s != seat and k in keys:
+        print(s)
+' "$HERE" "$SEAT" "$_NANO_PREFIXES" "$@"
+}
+_resolve_landed_cwd() {
+  local top p br rel txt hits=() brs=() okey keys live why=""
+  top="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)"
+  while IFS=$'\t' read -r p br; do
+    rel="${p#"$ROOT/.worktrees/"}"; [ "$rel" != "$p" ] || continue
+    [[ "$rel" =~ ^${WT_PREFIX}${_KEY}(-r[0-9]+)?$ ]] || continue
+    txt="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("branch",""))' "$p/.worktree-info.json" 2>/dev/null)"
+    if [[ "$txt" =~ ^nano/${_KEY}(-r[0-9]+)?$ ]]; then :; else case "$br" in nano/?*) [ "$txt" = "$br" ] || continue;; *) continue;; esac; fi
+    hits+=("$p"); brs+=("$br")
+  done < <(git -C "$ROOT" worktree list --porcelain 2>/dev/null | awk '/^worktree /{p=substr($0,10)} /^branch /{b=substr($0,8); sub("^refs/heads/","",b); print p "\t" b}')
+  if [ "${#hits[@]}" -ne 1 ]; then why="표준 경로 가지만 바꾼 후보 ${#hits[@]}개(${hits[*]:-}) — 정확히 1개일 때만"
+  elif [ -z "$top" ] || [ "${hits[0]}" != "$top" ]; then why="표준 경로 후보 ${hits[0]} ≠ pane cwd 최상위(${top:-없음})"
+  else
+    br="${brs[0]}"; keys="$_KEY"
+    case "$br" in nano/?*) okey="${br#nano/}"; keys="$okey"; [[ "$okey" =~ ^(.*)-r[0-9]+$ ]] && keys="$keys ${BASH_REMATCH[1]}";; esac   # 전체 키 먼저 · 끝 -rN 만 꼬리
+    if ! live="$(_lp_live_owners $keys)"; then why="좌석 세션 조회 실패 — 판정 불가로 받지 않는다"
+    elif [ -n "$live" ]; then why="그 가지($br)는 살아 있는 좌석 $(printf '%s' "$live" | tr '\n' ' ')의 것 — 남의 좌석 가지 · 추측 금지"; fi
+  fi
+  [ -z "$why" ] || { SEAT_WT_ERR="$SEAT_WT_ERR · r1417 --landed-pr: $why"; return 0; }
+  SEAT_WT_NOCAND=0; SEAT_WT_ERR=""; SEAT_WT="$top"; SEAT_BR="$br"; SEAT_WT_OTHER=1; _lp_cwd_seat=1
+}
 _resolve_seat_wt() {
-  SEAT_WT=""; SEAT_BR=""; SEAT_WT_ERR=""; SEAT_WT_NOCAND=0; SEAT_WT_OTHER=0; _lp_wt_seat=0
+  SEAT_WT=""; SEAT_BR=""; SEAT_WT_ERR=""; SEAT_WT_NOCAND=0; SEAT_WT_OTHER=0; _lp_wt_seat=0; _lp_cwd_seat=0
   local top="" p br rel i hits=() brs=() lp=() lb=() base="$ROOT/.worktrees/"
   while IFS=$'\t' read -r p br; do
     rel="${p#"$base"}"; [ "$rel" != "$p" ] || continue
@@ -775,6 +815,7 @@ _resolve_seat_wt() {
   else _resolve_std_wt_other; fi   # r599: 후보 0 · 오류 0 = 세션 없이 남은 좌석 — 표준 경로 + 다른 nano/ 가지만 인정
   # ★r1737 A3★ --landed-pr + --wt = 표준 해석이 «pane 살아 있는데 후보 0»(SEAT_WT_NOCAND)으로 남긴 구멍만 메운다 — 그 밖(①r1023 팩 --wt 힌트)은 기준판 그대로.
   if [ "$SEAT_WT_NOCAND" = 1 ] && [ "$HAVE_LPR" -eq 1 ] && [ "$HAVE_NWT" -eq 1 ]; then SEAT_WT_NOCAND=0; SEAT_WT_ERR=""; _resolve_landed_wt; fi
+  if [ "$SEAT_WT_NOCAND" = 1 ] && [ "$HAVE_LPR" -eq 1 ] && [ "$HAVE_NWT" -eq 0 ]; then _resolve_landed_cwd; fi   # r1417-mut:cwd
 }
 # ★r566 재실행 워크트리 정리★ — 재실행 분기(:414)가 워크트리를 «원장 wt=» 에서만 찾아 정리를 통째로 건너뛰던 자리(표준 나노 행은 wt=planned·wt=skipped:… 같은 상태 말).
 #   표준 나노 좌석만: 워크트리를 좌석 이름으로 재해석(_resolve_seat_wt) · 조건 4(세션 0 · nano/<키> · $ROOT/.worktrees/ 등록 · HEAD 가 어떤 원격 ref 에 포함) 전부 참일 때만 실행.
@@ -954,6 +995,22 @@ _lp_wt_head_err=""; _lp_wt_head_gate() {
   [ -n "$h" ] || { _lp_wt_head_err="⑥--landed-pr --wt($SEAT_WT) 의 HEAD 를 읽을 수 없다 — 판정 불가로 닫지 않는다"; return 1; }
   [ "$h" = "$_lp_set" ] || { _lp_wt_head_err="⑥--landed-pr --wt($SEAT_WT) HEAD(${h:0:9}) ≠ 카드 세트 ${_lp_set:0:9} — 이 워크트리가 이 카드의 산출이 아니다 · 추측 금지"; return 1; }
   echo "INFO 좌석 워크트리 ← --wt (HEAD = 세트 ${h:0:9} · branch=$SEAT_BR)"
+}
+# ★r1417 ④★ pane cwd 로 받은 좌석 워크트리의 «지금 HEAD» 가 가진 변경이 전부 착지 PR 에 있어야 한다 — HEAD 트리 == PR head 트리(squash 착지 A·B→S 도 통과 · LANDED-PR-OK 에 «더해서»).
+_lp_cwd_head_err=""; _lp_cwd_head_gate() {
+  local h n rc; _lp_cwd_head_err=""
+  h="$(git -C "$SEAT_WT" rev-parse -q --verify HEAD 2>/dev/null)" || h=""
+  [ -n "$h" ] || { _lp_cwd_head_err="⑥--landed-pr 좌석 워크트리($SEAT_WT) HEAD 를 읽을 수 없다 — 판정 불가로 닫지 않는다"; return 1; }
+  if [ "$h" != "$_lp_head" ]; then
+    git -C "$SEAT_WT" cat-file -e "$_lp_head^{commit}" 2>/dev/null || { _lp_cwd_head_err="⑥--landed-pr PR head ${_lp_head:0:9} 객체가 좌석 워크트리($SEAT_WT)에 없다 — 판정 불가로 닫지 않는다"; return 1; }
+    git -C "$SEAT_WT" diff --quiet "$_lp_head" "$h" --; rc=$?
+    case "$rc" in 0) ;;
+      1) n="$(git -C "$SEAT_WT" rev-list --count "$_lp_head..$h" 2>/dev/null)"
+         _lp_cwd_head_err="⑥--landed-pr 미착지 커밋 ${n:-?}개 — 좌석 워크트리($SEAT_WT) HEAD ${h:0:9} 트리 ≠ PR head ${_lp_head:0:9} 트리 · 닫지 않음"; return 1;;
+      *) _lp_cwd_head_err="⑥--landed-pr HEAD·PR head 트리 대조 실패(git diff rc=$rc) — 판정 불가로 닫지 않는다"; return 1;;
+    esac
+  fi
+  echo "INFO 좌석 워크트리 ← pane cwd (표준 경로 · branch=$SEAT_BR · HEAD ${h:0:9} 트리 = PR head ${_lp_head:0:9} 트리)"
 }
 _lp_card_home() {  # r1053: 읽기 판 CARD_READ 가 «사는» 리포 루트(실경로) — ref 판(_CR_TMP) = ROOT · 가지 판(_CB_TMP) = SEAT_REPO · 파일 = 그 폴더의 git 공통 루트 · 못 정하면 빈 값
   local d
@@ -1898,6 +1955,7 @@ elif [ -n "$LANDED_PR" ]; then
     _lp_set="$(_lp_card_set)"   # r1011-mut:set · r1308: 읽기 규칙은 _lp_card_set 한 곳(리포 고르기와 공용)
     _lp_land=""; grep -qE '^[[:space:]]*-[[:space:]]*착지:' "$CARD_READ" 2>/dev/null && _lp_land=1   # r1011-mut:land
     if [ "$_lp_wt_seat" = 1 ] && [ -n "$_lp_set" ]; then _lp_wt_head_gate || bad+=("$_lp_wt_head_err"); fi   # r1737-mut:wthead
+    if [ "$_lp_cwd_seat" = 1 ]; then _lp_cwd_head_gate || bad+=("$_lp_cwd_head_err"); fi   # r1417-mut:cwdhead
     if [ -z "$_lp_set" ]; then bad+=("⑥--landed-pr 카드 «## 상태» 절에 «세트:» 40-hex 줄이 없다: $CARD_READ — 대조할 세트가 없으면 닫지 않는다")
     elif [ -z "$_lp_land" ]; then bad+=("⑥--landed-pr 카드에 «- 착지:» 줄이 없다: $CARD_READ — 착지 기록 없는 좌석은 이 경로로 닫지 않는다")
     elif [ "$_lp_head" != "$_lp_set" ]; then   # r1019: head ≠ 세트 = 판정기 1회 — EQUIV(세트 + main 병합뿐)만 통과   # r1011-mut:head
