@@ -1347,9 +1347,53 @@ team_paused_state() {
   else printf '%s' "$out"; fi
 }
 
+# r1419: 팀장 정지 경보 전 «카드 기다림» 판독 — ft_stall_detect 정본 그대로(waiting_cards 원장 대조 = stall-scan a 칸 · lead_alert 심박 = stall-scan f 칸 · 함수 추가 0).
+#   stdout «종류<TAB>N<TAB>K<TAB>심박<TAB>원문» 1줄 · 종류 wait = waiting 아닌 ready 대기 카드 N=0 ∧ 심박 신선 / work = N≥1 ∨ 심박 끊김·판정 불가 / none = 팀이 TEAMS 명단에 없음(지금처럼 경보)
+#   q = 판독 실패(명부·카드 폴더·원장 꼴·ref 트리 · 하드 룰 20 · 조용한 통과 0) · python 실행 실패·칸 수 ≠ 5 도 q.
+team_card_wait() {
+  local out rc
+  out="$(FT_ROOT="$ROOT" python3 -I -c '
+import os, sys
+sys.path.insert(0, sys.argv[1])
+from pathlib import Path
+import ft_stall_state as stm
+from ft_stall_detect import load_teams, waiting_cards, lead_alert
+from ft_team_lib import team_names
+here, root, team, now = Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3], float(sys.argv[4])
+def say(*cells):
+    print(*(str(c).replace(chr(9), " ").replace(chr(10), " ") for c in cells), sep=chr(9))
+try:
+    known = team in team_names(root)
+except Exception:
+    known = False
+t = next((x for x in load_teams(root, warn=False) if x["team"] == team), None) if known else None
+if t is None:
+    say("none", "", "", "", "")
+    raise SystemExit(0)
+try:
+    if t["diag"] != "OK":
+        raise ValueError("팀 " + team + " 명부 " + t["diag"])
+    lint = os.environ.get("FT_INDEX_LINT") or str(here / "ft-index-lint.sh")
+    st = stm.load(Path(os.environ.get("FT_STALL_STATE_DIR") or root / ".fable-team/state"))
+    cache = stm.lint_load(st)
+    todo = waiting_cards(t["cards"], lint, root, now, stm.nudged_load(st), [], cache=cache)[0]
+    ready = waiting_cards(t["cards"], lint, root, None, cache=cache)[0]
+except Exception as e:
+    say("q", "", "", "", e.__class__.__name__ + ": " + str(e)[:160])
+    raise SystemExit(0)
+alert, age, undec = lead_alert(root, Path(os.environ.get("FT_MBOX_DIR") or root / ".fable-team/comm"), t["master"], now)
+hb = "판정 불가" if undec else ("없음" if age is None else "%.0f분" % age)
+say("wait" if not todo and not alert and not undec else "work", len(todo), len(ready) - len(todo), hb, ", ".join(todo[:3]))
+' "$HERE" "$ROOT" "$1" "$(now)" 2>&1)"; rc=$?
+  if [ "$rc" != 0 ] || [ "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" != 1 ] || [ "$(printf '%s' "$out" | awk -F'\t' '{print NF}')" != 5 ]; then
+    printf 'q\t\t\t\tpython 실행 실패 rc=%s %s' "$rc" "$(printf '%s' "$out" | tail -1 | cut -c1-120)"
+  else printf '%s' "$out"; fi
+}
+
 # ③ 누적 정지 — IDLE 지속 ≥ IDLE_STALL_MIN 분 ∧ 받은 발주 0 ∧ 완료·휴식 아님. master 도 대상(master 정지 → planner · 그 밖 → master). 같은 정지(turn_end 같음)는 1회만.
 idle_long_watch() {
   local rows master route seat role p st end dur rep src ep mins pend jl to sdir body nn lists nanotag team tp tp_cache tst tn
+  local cw cw_cache="" cwk cwnote   # r1419 «팀<TAB>종류<TAB>N<TAB>K<TAB>심박<TAB>원문» 줄들 — 틱 1바퀴 지역
   local nanos="" nanos_read=0
   [ "${FT_TICK_IDLE_LONG:-1}" = 1 ] || return 0
   [ -f "$SEAT_STATUS" ] || return 0
@@ -1393,13 +1437,29 @@ idle_long_watch() {
         fi
       fi
     fi
+    # r1419: 팀장 좌석 — 팀 ready 대기 카드가 전부 원장 waiting(또는 0장) ∧ 심박([정리]) 20분 안 = «기다림» · 경보 0 · 로그 1줄 · 서명 파일은 그대로.
+    cwnote=""
+    if [ "$role" = master ] && [ "$nn" = 0 ]; then
+      [ -n "$team" ] || team="$(team_of_seat "$seat")"
+      if [ -n "$team" ]; then
+        cw="$(printf '%s\n' "$cw_cache" | awk -F'\t' -v t="$team" '$1==t{sub(/^[^\t]*\t/,""); print; exit}')"
+        [ -n "$cw" ] || { cw="$(team_card_wait "$team")"; cw_cache="$cw_cache$team"$'\t'"$cw"$'\n'; }
+        cwk="$(printf '%s' "$cw" | cut -f1)"
+        if [ "$cwk" = wait ]; then
+          if [ "$DRY" = 1 ]; then echo "DRY kind=idle-long-card-waiting seat=$seat team=$team cards=$(printf '%s' "$cw" | cut -f3)"; else log "idle_long_watch: $seat 정지 ${mins}분 — 카드 전부 waiting($(printf '%s' "$cw" | cut -f3)장) · 심박 $(printf '%s' "$cw" | cut -f4)"; fi
+          continue
+        fi
+        [ "$cwk" = work ] && [ "$(printf '%s' "$cw" | cut -f2)" != 0 ] && cwnote=" · waiting 아닌 카드 $(printf '%s' "$cw" | cut -f2)장: $(printf '%s' "$cw" | cut -f5)"
+        [ "$cwk" = q ] && cwnote=" · 카드 판독 불가 $(printf '%s' "$cw" | cut -f5)"
+      fi
+    fi
     to="$master"; [ "$seat" = "$master" ] && to="$route"
     [ -n "$to" ] && [ "$to" != "$seat" ] || { echo "$(date '+%F %T') idle_long_watch: $seat 정지 ${mins}분 — 알릴 상위 좌석 없음" >&2; continue; }
     if [ "$DRY" = 1 ]; then echo "DRY kind=idle-long seat=$seat mins=$mins to=$to$nanotag"; continue; fi
     if [ "$nn" -gt 0 ]; then   # 문턱(6×)을 넘겨도 나노가 살아 있으면 사유를 «나노 회신 대기» 로 적는다
       body="[정지 ${mins}분] $seat role=$role — 기다리는 것 = 나노 ${nn} 회신(${lists}) · 나노 대기 ${mins}분 · 나노 pane 확인·깨우기·닫기 중 하나"
     else
-      body="[정지 ${mins}분] $seat role=$role — IDLE 지속 · 받은 발주 0 · 기다리는 것 = 없음(할 일을 못 받았다). 다음 발주·닫기·깨우기 중 하나"
+      body="[정지 ${mins}분] $seat role=$role — IDLE 지속 · 받은 발주 0 · 기다리는 것 = 없음(할 일을 못 받았다). 다음 발주·닫기·깨우기 중 하나$cwnote"
     fi
     bash "$MBOX" send "$to" ft-tick "$body" >/dev/null 2>&1 \
       && echo "$end" > "$sdir/$seat" || echo "$(date '+%F %T') idle_long_watch: mbox failed seat=$seat" >&2
