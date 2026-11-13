@@ -62,8 +62,8 @@ class SlackPublish:
     MAX_POSTS = 2  # 누적 예산 = 첫 시도 + 재시도 1 — 재기동이 장부에서 복원한다(하드 룰 12)
 
     def __init__(self, root, *, post, lookup=None, sleep=None, notify=None, team="harness",
-                 bindings=None, clock=None, on_step=None):
-        self.post, self.notify = post, notify or (lambda row: None)
+                 bindings=None, clock=None, on_step=None, delegate=None):
+        self.post, self.notify, self.delegate = post, notify or (lambda row: None), delegate  # r1862 명부 _desk
         self.lookup, self.sleep = lookup or (lambda marker: UNDECIDABLE), sleep or (lambda seconds: None)
         self.clock = clock or (lambda: time.strftime("%Y-%m-%dT%H:%M:%S"))
         self.binding, self.on_step, self.steps = (
@@ -199,7 +199,9 @@ class SlackPublish:
         if now is None or not now.open:  # 닫히면 담당 없음 = 답 거절(줄 14)
             return self._refused(key, command, "reply_refused", reason="닫히면 담당 없음 = 답 거절",
                                  owner=None if now is None else now.owner)
-        if seat is not None and (seat, gen) != (now.seat, now.gen):
+        desk = self.delegate() if callable(self.delegate) else self.delegate  # r1862 R1 판정마다 현역 _desk 재판독
+        if seat is not None and (seat, gen) != (now.seat, now.gen) and not (
+                desk and seat == desk and gen == now.gen):  # r1862 desk 대신 답 · binding 쓰기 0
             return self._refused(key, command, "stale_owner", seat=owner_label(seat, gen or 0),
                                  owner=now.owner, reason="옛 세대 답 거절")
         return None
