@@ -25,7 +25,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 TS, SHA, HN = re.compile(r"[0-9]+\.[0-9]{6}$"), re.compile(r"[0-9a-f]{40}$"), re.compile(r"h[0-9]+$")
-PLAN = re.compile(r"(?<![\w-])approve-merge\s+([0-9a-fA-F]{40})(?![0-9a-fA-F])[^\n]*?(?<![\w-])--oppa-slack[ =]+([0-9]+\.[0-9]{6})(?![\w.-])")  # r1587 · ft_scope_plan_judge.OPPA 와 같은 꼴
+PLAN = re.compile(r"(?<![\w-])approve-merge\s+([0-9a-fA-F]{40})(?![0-9a-fA-F])[^\n]*?(?<![\w-])--oppa-slack[ =]+(?:(C[A-Z0-9]{8,12}):)?([0-9]+\.[0-9]{6})(?![\w.-])")  # r1587 · r1857 채널 칸 · ft_scope_plan_judge.OPPA 와 같은 꼴
 TO, SEND_TO, MAX, DAY = 7, 25, 4, 86400  # 7초·재시도 1(하드 룰 12) · 발신 25초(로컬 하네스 상한) · 한 주기 4줄 · 24시간
 KEY = re.compile(r"[a-z0-9][a-z0-9._-]{0,63}$")  # r1591 · 사유키 = 카드 slug 꼴
 
@@ -122,9 +122,9 @@ def judge(cmd: str, q: str, sha: str, argv: list | None = None) -> tuple[int, st
     return last
 
 
-def register(led: Path, a: list, now: float) -> int:  # ⓐ 등록 · 같은 질문 ts = 멱등 · 다른 값 = 거절(조용한 중복 0)
+def register(led: Path, a: list, now: float, chan: str = "") -> int:  # ⓐ 등록 · 같은 질문 ts = 멱등 · 다른 값 = 거절(조용한 중복 0)
     h = a[1] if len(a) > 1 and HN.match(a[1]) else ("h" + a[1] if len(a) > 1 and a[1].isdigit() else "")
-    row = {"q_ts": a[0] if a else "", "h": h, "sha": a[2].lower() if len(a) > 2 else "", "at": int(now), "deadline": int(now + DAY), "state": "open"}
+    row = {"q_ts": a[0] if a else "", "h": h, "sha": a[2].lower() if len(a) > 2 else "", "at": int(now), "deadline": int(now + DAY), "state": "open", **({"channel": chan} if chan else {})}  # r1857 · 채널 칸 없는 옛 줄 = byz-desk
     if len(a) != 3 or not TS.match(row["q_ts"]) or not h or not SHA.match(row["sha"]):
         print("감시 등록 실패 — 사용: --register <질문ts(1794295513.494289)> <h번호> <sha40>", file=sys.stderr)
         return 3
@@ -185,10 +185,10 @@ def register_plan(led: Path, a: list, now: float) -> int:  # r1587: 계획의 `a
         print("감시 등록 판정 불가 — approve-merge --oppa-slack 줄이 %d개: %s" % (len(hits), a[0]), file=sys.stderr)
         return 3
     with redirect_stderr(err := io.StringIO()):  # 실패는 «감시 등록 실패 <ts>» 1줄로 모아 드러낸다(조용한 실패 0)
-        rc = register(led, [hits[0][1], a[1], hits[0][0].lower()], now)
+        rc = register(led, [hits[0][2], a[1], hits[0][0].lower()], now, hits[0][1])
     if rc:
         why = (err.getvalue().strip().splitlines() or ["알 수 없음"])[-1].replace("감시 등록 실패 — ", "")
-        print("감시 등록 실패 %s — %s" % (hits[0][1], why), file=sys.stderr)
+        print("감시 등록 실패 %s — %s" % (hits[0][2], why), file=sys.stderr)
     return rc
 
 
@@ -247,7 +247,7 @@ def scan(base: Path, led: Path, now: float) -> int:
             continue
         later = sorted({r["q_ts"] for r in rows if r.get("kind") == "question" and TS.match(str(r.get("q_ts"))) and TS.match(q) and Decimal(r["q_ts"]) > Decimal(q)}, key=Decimal) if qn else []  # r1776 A2 · state 무관
         args = (["--reply-only", q] + (["--stop-at", ",".join(later)] if later else []) + (["--after", row["notified_ts"]] if row.get("notified_ts") else [])) if qn else None
-        rc, out = judge(check, q, row.get("sha") or "", args)
+        rc, out = judge(check, row["channel"] + ":" + q if row.get("channel") else q, row.get("sha") or "", args)  # r1857
         if rc == 3:  # r1591 · 질문 줄의 답글 아직 없음 = 정상 열린 줄(판정 불가 아님)
             continue
         m = re.search(r"reply=([0-9]+\.[0-9]+)$", out.strip().splitlines()[-1]) if rc == 0 and out.strip() else None

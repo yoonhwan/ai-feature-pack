@@ -21,7 +21,7 @@ TEXT = {"echo", "printf", ":", "grep", "rg"}  # 인자가 글자일 뿐인 명�
 WORD = re.compile(r"(?<![\w-])approve-merge(?![\w-])")
 ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 ALIVE = re.compile(r"^\[범위 승인 (S[0-9]+) · ")
-OPPA = re.compile(r"(?<![\w-])--oppa-slack[ =]+[0-9]+\.[0-9]{6}(?![\w.-])")
+OPPA = re.compile(r"(?<![\w-])--oppa-slack[ =]+(?:C[A-Z0-9]{8,12}:)?[0-9]+\.[0-9]{6}(?![\w.-])")
 IDLE = re.compile(r"^\[범위 승인 (없음|S[0-9]+ 정지: )")
 WHY = "범위 승인 %s 중 approve-merge — scope-approve <sha> --pr <N> [--card <카드>] [--repo byz|pack] 로 (판정 2904) — 줄 %d"
 
