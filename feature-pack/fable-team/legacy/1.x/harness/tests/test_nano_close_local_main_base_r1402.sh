@@ -90,7 +90,9 @@ mutate "$T/bin/m3-close.sh" "$COND" 'if [ "$_INFO_FEAT" = main ]; then' || bad "
 
 ENVFEAT=""
 run() { ( cd "$REPO" && env -i HOME="$HOME" FT_SHEET_ROOT="$FT_SHEET_ROOT" PATH="$T/fake:$PATH" FT_PACK_ROOT="$T/nopack" FAKE_PANES="$T/panes" FAKE_CWD="$T/cwd" \
-  FAKE_PANE_CWDS="$T/pane-cwds" FAKE_LOG="$T/tlog" FAKE_GH_LOG="$T/ghlog" FAKE_GH_JSON="$T/gh.json" ${ENVFEAT:+FT_NANO_FEAT="$ENVFEAT"} "$@" 2>&1 ); }
+  FAKE_PANE_CWDS="$T/pane-cwds" FAKE_LOG="$T/tlog" FAKE_GH_LOG="$T/ghlog" FAKE_GH_JSON="$T/gh.json" ${ENVFEAT:+FT_NANO_FEAT="$ENVFEAT"} \
+  FT_NANO_PREFIX=byz-ops-nano- FT_SEATS_JSON="$REPO/.fable-team/seats-ops.json" FT_NANO_LEDGER="$T/ledger.md" \
+  FT_INBOX_ROOT="$T/comm" FT_NANO_IDLE_MIN=0 FT_WT_CLEAN_DIR="$T/wtclean" FT_WT_AUTOCLEAN=0 bash "$@" 2>&1 ); }   # env 뒤 명령 = 글자 bash(비밀 분류기)
 # setup <info base> <로컬 main> <origin/main 추적 ref | -(없음)> [원격 url 막음 1]
 setup() {
   printf '{"branch":"%s","base":"%s","purpose":"t"}\n' "$BR" "$1" > "$NW/.worktree-info.json"
@@ -103,8 +105,7 @@ setup() {
   else git -C "$REPO" config --unset "url.$T/missing.git.insteadOf" 2>/dev/null; git -C "$REPO" config "url.$BARE.insteadOf" "$URL"; fi
   printf '## 상태\n- 세트: %s · 시험: bash t.sh rc=0 · 이슈: 0\n' "$SHA" > "$CARD"
 }
-close() { local cl="$1"; shift; run FT_NANO_PREFIX=byz-ops-nano- FT_SEATS_JSON="$REPO/.fable-team/seats-ops.json" FT_NANO_LEDGER="$T/ledger.md" \
-  FT_INBOX_ROOT="$T/comm" FT_NANO_IDLE_MIN=0 FT_WT_CLEAN_DIR="$T/wtclean" FT_WT_AUTOCLEAN=0 bash "$cl" "$SEAT" --result "$T/result.md" --recv 1 --wt "$NW" --branch "$BR" "$@"; }
+close() { local cl="$1"; shift; run "$cl" "$SEAT" --result "$T/result.md" --recv 1 --wt "$NW" --branch "$BR" "$@"; }
 INFO='INFO base main → origin/main'
 WARNIG='무시(둘 다 있고 다름)'
 cnt() { printf '%s\n' "$1" | grep -cF -- "$2"; }
