@@ -1,6 +1,6 @@
 # 인덱스: ci-search-nonascii-panic — 끝: ci search 가 probe 결과 줄 panic(rc 134·101 · stderr «panicked at»)을 감지하면 부분 출력을 버리고 rg 폴백 결과를 낸다 · stdout 첫 줄 = 폴백 표지 · rc 정직(결과 0 / 0건 1 / 폴백 실패 3 · 134 그대로 내보냄 0) · 반례 시험 1개 rc0 · 기준판 FAIL · 착지 · 설치 cmp0 · 실 명령 panic 0
 <!-- ledger: feature-pack/fable-team/legacy/1.x/harness/design/harness/GOAL-harness.md -->
-- Issue: 없음 — planner#286 aifp 4186 · harness#235 BYZ #295172 · 발주 aifp-ft-master-pi#7 aifp 4187(발주서 .fable-team/state/team-main/aifp-ft/orders/ci-search-nonascii-panic-20261113.md) · 하드 룰 16(ci 불가 = 결함)
+- Issue: #8510 — 등록 planner#287 aifp 4195 · 요청 planner#286 aifp 4186 · harness#235 BYZ #295172 · 발주 aifp-ft-master-pi#7 aifp 4187(발주서 .fable-team/state/team-main/aifp-ft/orders/ci-search-nonascii-panic-20261113.md) · 하드 룰 16(ci 불가 = 결함)
 - 제안서: 없음 — 래퍼 1곳 결함 복구(새 안 0) · 설계 1쪽 = design/aifp/arch-ci-search-nonascii-panic-20261113.md(감지 조건·폴백 꼴·rc 규칙·반례)
 - 근거: 실측 2026-11-13(aifp-ft-arch-pi#2 · origin/main a7f459c5 · probe-code 0.6.0) — `ci search "판정 불가" feature-pack/fable-team/ft2/core --max 3` rc 134 · stderr `src/search/search_output.rs:2566:31 end byte index 30 is not a char boundary; it is inside '·'` · stdout 앞 40줄만 · ASCII `reopen` 도 rc 134(panic 2회 = md 뺀 재시도도 panic) · `verdict` rc 0 · `… 2>/dev/null | head -3` 의 `$?`=0 · `PIPESTATUS[0]`=134
 - 원인 1줄: probe 0.6.0 이 결과 줄을 출력할 때 바이트로 자른다(파일 종류·질의 문자 무관) · 래퍼 feature-pack/code-intel/skill/scripts/ci search 갈래(:127~174)는 «markdown AST panic» 만 가정해 md 만 빼고 재시도 → 다시 panic → rc 134·부분 stdout 이 그대로 나감
@@ -12,7 +12,7 @@
 - 규칙: 없음 — 래퍼 내부 폴백이라 하드 룰 16 문구와 훅은 그대로 둔다
 - 대상: 팩 feature-pack/code-intel/skill/scripts/ci(search 갈래만) · 시험 feature-pack/code-intel/tests/test_ci_search_nonascii_panic.sh(신설 · 100644)
 - 정본 영향 없음: code-intel 래퍼 search 갈래 내부 동작 · 스킬 문서·정본 문서 변경 0
-- 배정: 대기(DA · 2026-11-13T15:23)
+- 배정: 없음
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
