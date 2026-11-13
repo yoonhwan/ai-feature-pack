@@ -147,7 +147,7 @@ def test_7_reply_after_receipt_then_duplicate_then_receipt_refused(env, capsys):
     assert posts == []  # r1818 — S-1 접수 게시 0(장부만)
     rc, out = _run(capsys, _cmd(env, "reply", thread=ts, command=cmd(ts), seat=MASTER), post)
     assert (rc, out) == (0, "state=posted ts=1800000088.000001") and post.calls[0]["thread_ts"] == ts
-    assert post.calls[0]["channel"] == C and post.calls[0]["text"] == "답"  # r1818 본문 = 사람 글만
+    assert post.calls[0]["channel"] == C and post.calls[0]["text"] == "답\n\n보낸이 planner-master"  # r1818 사람 글 + r1850 보낸이 줄
     assert post.calls[0]["metadata"]["event_payload"]["command"] == cmd(ts)
     rc, out = _run(capsys, _cmd(env, "reply", thread=ts, command=cmd(ts), seat=MASTER), post)
     assert (rc, out) == (0, "state=duplicate ts=1800000088.000001") and len(post.calls) == 1

@@ -35,9 +35,9 @@ def http(monkeypatch):
     monkeypatch.setenv("FT2_SLACK_WAKE", "%s -c pass" % sys.executable)  # 깨움 대역 — 실 우편함 0
     return calls
 
-def _human(text, metadata):
+def _human(text, metadata, want=BODY):  # wiring 경로 = 사람 글 + 맨 끝 보낸이 줄 1개(r1850 설계 §4)
     meta = json.loads(metadata)  # Python repr(작은따옴표)이면 여기서 깨진다
-    assert text == BODY and not [m for m in MACHINE if m in text], text
+    assert text == want and not [m for m in MACHINE if m in text], text
     assert meta["event_type"] == "ft2_reply" and meta["event_payload"]["command"] == CMD
     return meta
 
@@ -112,7 +112,7 @@ def test_5_env_path_default_posts_http(tmp_path, http, capsys):
     rc, out = _reply(tmp_path, capsys)
     assert (rc, out.split()[0]) == (0, "state=posted") and "xoxb" not in out
     assert [c["auth"] for c in http] == ["Bearer xoxb-ENVPATH"]
-    _human(http[0]["text"], http[0]["metadata"])  # wiring lambda·slack_post 경로도 JSON metadata
+    _human(http[0]["text"], http[0]["metadata"], BODY + "\n\n보낸이 planner-master")  # wiring lambda·slack_post 경로도 JSON metadata
 
 @pytest.mark.parametrize("case", ["arg", "ft2_env"])
 def test_5b_explicit_env_wins(tmp_path, http, capsys, monkeypatch, case):
