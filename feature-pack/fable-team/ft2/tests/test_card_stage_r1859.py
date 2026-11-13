@@ -119,15 +119,32 @@ def test_6_journal_done_without_checkpoint_stages(tmp_path, monkeypatch, capsys)
 
 def test_7_push_timeout_is_unknown(tmp_path, monkeypatch, capsys):
     w = done_world(tmp_path, monkeypatch)
+
+    def slow(real, cwd, *a):
+        raise subprocess.TimeoutExpired(["git", "push"], 7)
+    rc, out = call(w, capsys, fake(w, monkeypatch, "push", slow))
+    assert (rc, out) == (3, "판정 불가 push 결과 불명") and "원격 쓰기 0" not in out, out
+    assert len(kw._git(w.root, "worktree", "list").splitlines()) == 1
+
+
+def fake(w, monkeypatch, verb, answer):
     mod = tool(w)
     real = mod.git
+    monkeypatch.setattr(mod, "git", lambda cwd, *a: answer(real, cwd, *a) if " ".join(a).startswith(verb) else real(cwd, *a))
+    return mod
 
-    def git(cwd, *args):
-        if args[:1] == ("push",):
-            raise subprocess.TimeoutExpired(["git", "push"], 7)
-        return real(cwd, *args)
-    monkeypatch.setattr(mod, "git", git)
-    rc, out = call(w, capsys, mod)
-    assert (rc, out) == (3, "판정 불가 push 결과 불명"), out
-    assert "원격 쓰기 0" not in out
-    assert len(kw._git(w.root, "worktree", "list").splitlines()) == 1
+
+def test_8_cleanup_failure_is_unsure(tmp_path, monkeypatch, capsys):
+    w = done_world(tmp_path, monkeypatch)
+    rc, out = call(w, capsys, fake(w, monkeypatch, "worktree remove", lambda real, cwd, *a: (1, "")))
+    assert rc == 3 and out.startswith("판정 불가 worktree 정리 실패") and "등록 잔존" in out, out
+    assert len(kw._git(w.root, "worktree", "list").splitlines()) == 2
+    assert call(w, capsys)[1].startswith("NOOP")
+
+
+def test_9_push_answer_lost_is_unknown(tmp_path, monkeypatch, capsys):
+    w = done_world(tmp_path, monkeypatch)
+    rc, out = call(w, capsys, fake(w, monkeypatch, "push", lambda real, cwd, *a: (real(cwd, *a)[0] or 128, "")))
+    assert rc == 3 and out.startswith("판정 불가 push 결과 불명") and "원격 쓰기 0" not in out and "거절" not in out, out
+    assert CARD % "완성" in remote(w)
+    assert call(w, capsys)[1].startswith("NOOP")
