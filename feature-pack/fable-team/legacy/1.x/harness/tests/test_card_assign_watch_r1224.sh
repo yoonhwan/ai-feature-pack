@@ -158,7 +158,7 @@ FT_DIRECTIVE_NOW=$(( ${ST%%-*} + 1860 )) lint "$BOOT $HEAD1"; r_old=$LRC; STAMPS
 lint "$BOOT 배정 감시 판정 불가 · git 상한 넘김"; r_und=$LRC; und="$LOUT"; lint "$BOOT $HEAD1"; r_ok=$LRC
 lint "${BOOT/ $DIR/} $HEAD1"; r_dir=$LRC; dir="$LOUT"
 [ "$r_none$r_row$r_num$r_old$r_nof" = 11111 ] && case "$nof" in *'배정 판본 파일 없음'*) true;; *) false;; esac && [ "$r_und" = 0 ] && case "$und" in *WARN*배정*) true;; *) false;; esac && [ "$r_ok" = 0 ] \
-  && [ "$r_dir" = 1 ] && case "$dir" in *'반송 — 지시 칸 없음'*) true;; *) false;; esac \
+  && [ "$r_dir" = 1 ] && case "$dir" in *'반송 — 빠진 칸 1: ①지시 칸 없음'*) true;; *) false;; esac \
   && ok "R8 배정 칸 없음·행 없음·N 다름·31분·파일 없음 → 반송 · 판정 불가 → 통과+WARN · 맞는 머리 OK · 지시 칸 검사 그대로(독립)" || bad "R8 $r_none$r_row$r_num$r_old$r_nof und=$r_und ok=$r_ok dir=$r_dir :: $und :: $nof :: $dir"
 lap R8
 # ⓘ R9·R10 strict 루트·예산·prepare 분리·완성 이동 원장 삭제
