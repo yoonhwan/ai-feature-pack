@@ -166,6 +166,8 @@ class Stall:
         rc, pane, _ = k.call([k.tmux, "capture-pane", "-p", "-t", pane_target(holder)])
         if rc != 0 or BUSY.search(pane[-2000:]):
             return k.log("HELD", team, "%s %s 재배정 직전 Working·capture rc %s — 다음 바퀴" % (work, holder, rc))
+        if k.held_attached(team, work, holder):
+            return
         k.call([k.tmux, "kill-session", "-t", "=" + holder])
         if k.probe(holder) != "absent":
             return self.stop(team, work, attempt, "kill", "%s %s kill 뒤 부재 확인 없음 — 재배정 0" % (work, holder))

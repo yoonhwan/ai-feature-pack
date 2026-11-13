@@ -28,7 +28,7 @@ case "$1" in
   show-options) [ "${FAKE_TAG:-1}" = 1 ] && echo 1; exit 0;;
   list-sessions) for x in ${FAKE_LIVE:-}; do echo "$x"; done;;
   list-panes) exit 0;;
-  display-message) echo caller#0;;
+  display-message) case "$*" in *session_attached*) echo 0;; *) echo caller#0;; esac;;   # r1839 사람 화면 0 = 지금 동작 그대로
 esac
 exit 0
 EOF

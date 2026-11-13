@@ -25,7 +25,7 @@ case "$1" in
   set-option) exit 0;;
   kill-session) exit "${FAKE_KILL_RC:-0}";;
   list-sessions) for x in ${FAKE_LIVE:-}; do echo "$x"; done;;
-  display-message) echo caller#0;;
+  display-message) case "$*" in *session_attached*) echo 0;; *) echo caller#0;; esac;;   # r1839 사람 화면 0 = 지금 동작 그대로
 esac
 EOF
 chmod +x "$TMP/bin/tmux"

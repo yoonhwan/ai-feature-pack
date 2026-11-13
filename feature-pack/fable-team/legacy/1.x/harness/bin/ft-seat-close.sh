@@ -158,8 +158,13 @@ final() {   # r1568 ④ — 닫힘 확인: 세션 부재 ∧ 최종 재조사 le
   L="$(printf '%s\n' "$o" | grep -oE 'left=[0-9?]+' | tail -1)"
   cfail fail-final "final ${L:-left=?} rc=$r session=$g" "$o"
 }
+seat_attached() {   # r1839 A1·A3 — 사람 화면 수 1회: free | attached <N> | unknown <사유> · 대상 `=<세션>:` 고정(콜론 없으면 rc0 빈 줄 = 전부 unknown)
+  local o r; o="$(tmux display-message -p -t "=$SEAT:" '#{session_attached}' 2>&1)"; r=$?
+  if [ "$r" = 0 ] && [[ "$o" =~ ^[0-9]+$ ]]; then if [ "$o" -ge 1 ]; then echo "attached $o"; else echo free; fi; else echo "unknown rc=$r ${o%%$'\n'*}"; fi
+}
 if tmux has-session -t "=$SEAT" 2>/dev/null; then
   [ -n "$VERDICT" ] || lineage_ok || renamed_ok || finish 3 "CLOSED-SESSION $SEAT file=$FILE role_was=$WAS kill=held(표준승인 밖 — 나노는 ft-nano-close · 그 밖은 [HIL])"   # --verdict = 판정 승인 1건 + 재개 기록 확인됨 · r1691 = 이름 접두가 바뀐 승계도 같은 근거면 통과
+  ATT="$(seat_attached)"; case "$ATT" in free) ;; attached*) finish 3 "HELD $SEAT 사람 화면 attached=${ATT#attached } — kill 0 · reap 0 · 명부 표기는 남음 file=$FILE";; *) finish 3 "HELD $SEAT 판정 불가 attached(${ATT#unknown }) — kill 0 · reap 0 · 명부 표기는 남음 file=$FILE";; esac   # r1839 A4 — 계보 근거 뒤 · reap 앞(사람 화면이면 자식 정리도 0)
   reap
   if [ -n "$(tmux show-options -qv -t "=$SEAT" @zc_v65_active 2>/dev/null)" ]; then
     tmux set-option -t "=$SEAT" -u @zc_v65_active || { vlog fail-tag; finish 1 "FAIL tag $SEAT — @zc_v65_active 해제 실패(세션 잔존 · 명부 표기는 남음 file=$FILE)"; }

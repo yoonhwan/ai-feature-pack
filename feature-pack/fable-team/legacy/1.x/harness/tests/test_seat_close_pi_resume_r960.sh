@@ -43,7 +43,7 @@ case "$1" in
   show-options) exit 0;;                                                       # @zc_v65_active 없음
   list-sessions) printf '%s\n' ${FAKE_SESSIONS:-} ;;                            # ⓦr5-4 lineage_ok 의 같은 계보 더 큰 번호 생존
   set-option|kill-session) exit 0;;
-  display-message) echo caller#0;;
+  display-message) case "$*" in *session_attached*) echo 0;; *) echo caller#0;; esac;;   # r1839 사람 화면 0 = 지금 동작 그대로
 esac
 EOF
 chmod +x "$T/bin/"*

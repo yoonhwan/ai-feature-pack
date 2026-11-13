@@ -44,6 +44,26 @@ class Closing:
             return "alive"
         return "판정 불가 · tmux has-session rc %s %s" % (rc, err)
 
+    def attached(self, seat):
+        """r1839 A1·A2 — 사람 화면 수 1회 · 대상 `=이름:` 고정(콜론 없으면 rc0 빈 줄) → free | attached <N> | unknown · <rc> <err>."""
+        rc, out, err = self.call([self.tmux, "display-message", "-p", "-t", "=" + seat + ":", "#{session_attached}"])
+        n = out.strip()
+        if rc == 0 and n.isdigit() and n.isascii():
+            n = int(n)
+            if n >= 1:
+                return "attached %d" % n
+            return "free"
+        return "unknown · %s %s" % (rc, err)
+
+    def held_attached(self, team, work, holder):
+        """kill 직전 가드(keeper_close·keeper_stall 공용) — free 가 아니면 HELD 1줄 · 참 = 닫기 0(영수·재배정 0 · 다음 바퀴에 다시 봄)."""
+        why = self.attached(holder)
+        if why == "free":
+            return False
+        text = "사람 화면 attached=%s" % why[9:] if why.startswith("attached ") else "판정 불가 attached(%s)" % why[10:]
+        self.log("HELD", team, "%s %s %s · kill 0" % (work, holder, text))
+        return True
+
     def close(self, team, work, attempt, row, dispatched=None):
         """B2 — intent holder 나노(B5) · 착지 조상 · 유휴(pane ∧ Pi 턴 끝) → kill 1 → 부재 확인 → 닫기 영수."""
         launch = os.path.join(projection.runtime_path(self.root, team), "launch")
@@ -59,6 +79,8 @@ class Closing:
             if not self.idle(team, work, holder):
                 return
             if not self.turn_ended(team, work, holder, intent):
+                return
+            if self.held_attached(team, work, holder):
                 return
             self.call([self.tmux, "kill-session", "-t", "=" + holder])
             seen = self.probe(holder)
