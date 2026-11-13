@@ -185,6 +185,7 @@ cmd_approve_merge() {  # <40hex>… — 검증을 전부 마친 뒤에만 쓴다
   done; echo "EQUIV 허용 범위: 이 승인은 같은 변경 집합(승인 sha 위에 main 병합만 더한 head)에도 유효 — 병합 훅이 ft_approval_equiv 로 대조(r462)" >&2
 }
 
+case "${1:-}" in status|scope-status|scope-approve) live_match || exit 1 ;; esac   # r1858: FT_ROOT·라이브 루트 어긋남 = 남의 state 를 읽지 않고 REJECT rc1(«자율 OFF» 오판 0) · mode·event·state-dir 손 0
 case "${1:-}" in on|status|mode|event|*-status) llm_load ;; esac   # r1815: 잠금 전에 읽는 명령만 부모 셸에서 1회($(mode) 하위 셸이 같은 값) · 잠금 명령은 lock 이 읽는다
 case "${1:-}" in
   on) shift; cmd_on "$@" ;; approve-merge) shift; cmd_approve_merge "$@" ;;
