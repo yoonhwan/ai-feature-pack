@@ -114,7 +114,7 @@ def lines_for(ctx, e, stem, a, info, sec):   # A7 — 줄마다 «없을 때만�
         want = (a.left or "").strip() or "없음"
         if not m["c"] or left_of(m["c"]) != want:
             add.append(f"- 완료: {a.seat} · 병합 상태: 착지 {q[:10]} · 남은 일: {want} · 차례 #{turn}")
-    elif not m["c"]:
+    elif not m["c"] and info["sort"] != "팀장":   # r1814 A1: 팀장 갈래 = 세트·착지 두 줄뿐(due «끝 주인 기록»)
         add.append(f"- 완료: {a.seat} · 병합 상태: 착지 {q[:10]} · 좌석 계속(지금 카드 {info['cur']}) · 차례 #{turn}")
     return add
 
@@ -159,7 +159,7 @@ def cmd_landed(ctx, a):
 
     def plan(sec):
         own = {s: (k, c) for s, k, c in owners(ctx, doc, stem, sec)}
-        own = own or {s: ("닫기", stem) for s in [doc.get("_master")] if s and s == a.seat}   # r1805 A1
+        own = own or {s: ("팀장", stem) for s in [doc.get("_master")] if s and s == a.seat}   # r1805 A1 · r1814 A1
         if a.seat not in own:   # r1717-mut:turnseat
             raise Reject(f"{a.seat} 은 {stem} 의 차례 좌석이 아님(지금 차례 = {' '.join(own) or '없음'})")
         info["sort"], info["cur"] = own.get(a.seat) or ("닫기", stem)

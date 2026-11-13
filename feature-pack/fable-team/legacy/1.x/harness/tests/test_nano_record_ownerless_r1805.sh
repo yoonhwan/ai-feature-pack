@@ -27,11 +27,11 @@ PY
 own0() {  # own0 <stem> <PR> — harness 카드 · 나노 없음 · 장부 by = planner desk
   fresh; land "$2"; card "$1"; seats; TURN_BY="$PDESK" turn "$2" "$1"
 }
-c1() {  # ① harness 팀장 landed --test → DONE · 세트·착지·완료 1커밋
+c1() {  # ① harness 팀장 landed --test → DONE · 세트·착지 1커밋(r1814 A1: 팀장 갈래 = 완료 줄 0)
   local s="c1$1" c0; own0 "$s" 31; c0="$(ncommit)"
   landed "$MASTER" 31 "$s" --test "$TST"; t "① DONE" inc "$OUT" "DONE"; t "① rc0" [ "$RC" = 0 ]
   t "① 1커밋" [ "$(ncommit)" = "$((c0 + 1))" ]; t "① 세트 줄" [ "$(nline "$s" "^- 세트: $PH · 시험: $TST")" = 1 ]
-  t "① 착지 줄" [ "$(nline "$s" "^- 착지: $Q ")" = 1 ]; t "① 완료 줄 좌석 = 팀장" [ "$(nline "$s" "^- 완료: $MASTER · 병합 상태: 착지 ${Q:0:10}")" = 1 ]
+  t "① 착지 줄" [ "$(nline "$s" "^- 착지: $Q ")" = 1 ]; t "① 완료 줄 0(r1814 A1)" [ "$(nline "$s" "^- 완료:")" = 0 ]
   return $E
 }
 c1b() {  # ①′ 같은 입력에 --test 없음 → «세트 줄 없음 — --test 필요» REJECT · 쓰기 0
@@ -81,9 +81,9 @@ step "사례 ①·①′·②·③·④·④b·④c·⑤"
 run "① 팀장 landed DONE" c1; run "①′ --test 없음 REJECT" c1b; run "② planner 팀장 REJECT" c2; run "③ 나노 있는 카드 REJECT" c3
 run "④ 담당·쪽지 끝 명령" c4; run "④b 쪽지 명령 실행 → 끝" c4b; run "④c planner 카드 담당(회귀)" c4c; run "⑤ 명부 실패 rc3" c5
 step "변이 M1~M4 (+원본 대조)"
-W='        own = own or {s: ("닫기", stem) for s in [doc.get("_master")] if s and s == a.seat}   # r1805 A1'
-mutbin m1 ft_nano_record_write.py "$W" '        own = own | {s: ("닫기", stem) for s in [doc.get("_master")] if s and s == a.seat}'; mutcase M1 c3 1
-mutbin m2 ft_nano_record_write.py "$W" '        own = own or {s: ("닫기", stem) for s in [ctx.seats((str(e.get("by") or "").split("-") + ["", ""])[1]).get("_master")] if s and s == a.seat}'; mutcase M2 c1 2; mutcase M2 c2 2
+W='        own = own or {s: ("팀장", stem) for s in [doc.get("_master")] if s and s == a.seat}   # r1805 A1 · r1814 A1'
+mutbin m1 ft_nano_record_write.py "$W" '        own = own | {s: ("팀장", stem) for s in [doc.get("_master")] if s and s == a.seat}'; mutcase M1 c3 1
+mutbin m2 ft_nano_record_write.py "$W" '        own = own or {s: ("팀장", stem) for s in [ctx.seats((str(e.get("by") or "").split("-") + ["", ""])[1]).get("_master")] if s and s == a.seat}'; mutcase M2 c1 2; mutcase M2 c2 2
 mutbin m3 ft_nano_record_write.py '    doc, info = ctx.seats(team), {}' '    try:
         doc = ctx.seats(team)
     except Unjudged:
