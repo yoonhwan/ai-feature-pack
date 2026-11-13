@@ -37,9 +37,12 @@ printf '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n' > "$T/bin/ft-seat-rea
 cat > "$T/bin/tmux" <<'EOF'
 #!/usr/bin/env bash
 echo "$*" >> "$TMUX_LOG"
+[ "$1" = -u ] && shift   # r1864: ft_seat_pi(r1855) 결속 조회는 tmux -u <명령>
 case "$1" in
-  has-session) n=""; for a in "$@"; do case "$a" in =*) n="${a#=}";; esac; done; [ "${FAKE_SESSION:-1}" = 1 ] && ! { [ -n "$TMUX_LOG" ] && [ -n "$n" ] && grep -qE "=$n(\$| )" <<<"$(grep '^kill-session' "$TMUX_LOG")"; } || exit 1;;   # r1568: «그 세션» kill-session 뒤엔 세션 없음(앞 사례 kill 이 뒤 사례를 가리지 않는다)
+  has-session) n=""; for a in "$@"; do case "$a" in =*) n="${a#=}";; esac; done; [ "${FAKE_SESSION:-1}" = 1 ] && ! { [ -n "$TMUX_LOG" ] && [ -n "$n" ] && grep -qE "=$n(\$| )" <<<"$(grep '^kill-session' "$TMUX_LOG")"; } || { echo "can't find session: $n" >&2; exit 1; };;   # r1864 PI_ABSENT 문구 · r1568: «그 세션» kill-session 뒤엔 세션 없음(앞 사례 kill 이 뒤 사례를 가리지 않는다)
   display) printf '%s %s\n' "${FAKE_PANE_PID:-1}" "${FAKE_PANE_CWD:-/tmp}" ;;  # ft_roster_lib.pi_seat_resume 의 결속 조회
+  show-environment) [ "${FAKE_SESSION:-1}" = 1 ] || { echo "can't find session" >&2; exit 1; }; echo "TMUXC_PI_SESSION_ID=aaaa-1111";;   # r1864 v3 결속: pane 의 pi 세션 id
+  list-panes) n="$(grep -o 'show-environment -t =[^ ]*' "$TMUX_LOG" | tail -1)"; [ "${FAKE_SESSION:-1}" = 1 ] && printf '%s\t%s\t%s\t0\n' "${n##*=}" "${FAKE_PANE_PID:-1}" "${FAKE_PANE_CWD:-/tmp}";;   # r1864 방금 조회한 좌석의 산 pane 1개
   show-options) exit 0;;                                                       # @zc_v65_active 없음
   list-sessions) printf '%s\n' ${FAKE_SESSIONS:-} ;;                            # ⓦr5-4 lineage_ok 의 같은 계보 더 큰 번호 생존
   set-option|kill-session) exit 0;;
@@ -60,7 +63,8 @@ SESS="$FT_PI_SESSIONS/enc/2026-10-26T10-00-00-000Z_aaaa.jsonl"
 PDIR="$T/worktree"; mkdir -p "$PDIR"
 NOW="$(date -u +%Y-%m-%dT%H:%M:%S)"
 pifile() {  # pifile <시각 문자열> [cwd] — pi 세션 파일 1개(첫 줄 type=session) · 나머지 줄은 안 읽힌다
-  printf '{"type":"session","version":3,"id":"aaaa-1111","timestamp":"%s","cwd":"%s"}\n{"type":"session_info","name":"pi#0"}\n' "${1:-$NOW}" "${2:-$PDIR}" > "$SESS"; }
+  printf '{"type":"session","version":3,"id":"aaaa-1111","timestamp":"%s","cwd":"%s","modelId":"t/m"}\n' "${1:-$NOW}" "${2:-$PDIR}" > "$SESS"; pinames; }
+pinames() { for s in pi#0 pi#2 pi#5 pi#8 pi#10 pi#u1 pi#u3 o#2 dup#1 pi#s3 pi#m3; do printf '{"type":"session_info","name":"%s"}\n' "$s"; done >> "$SESS"; }   # r1864 v3 결속 = session_info name 에 좌석
 seats_pi() { printf '{"_master":"M#1","M#1":{"role":"master","tick":"t"},"%s":{"role":"nano","agent":"%s","model":"m","tick":null,"index":"x.md"}}\n' "${1:-pi#0}" "${2:-pi}" > "$REPO/.fable-team/seats.json"; }
 run() { ( cd "$REPO" && env PATH="$T/bin:$PATH" TMUX_LOG="$TMUX_LOG" FT_ROOT="$FT_ROOT" ZC_RESUME_DIR="$ZC_RESUME_DIR" FT_PI_SESSIONS="$FT_PI_SESSIONS" HOME="$HOME" FT_SEAT_RETIRE_BIN="${RT_BIN:-$T/bin/ft-seat-retire.sh}" \
   FAKE_SESSION="${FAKE_SESSION:-1}" FAKE_PANE_PID="$$" FAKE_PANE_CWD="${FAKE_PANE_CWD:-$PDIR}" ZC_RESUME_DIR="${RDIR:-$ZC_RESUME_DIR}" FT_SEATS_JSON="${SEATS_ENV:-}" FT_TEAMS_REF=main "$@" 2>&1 ); }
@@ -136,7 +140,7 @@ has "$nl" "NORECORD pi#7 " "  └ NORECORD 줄에 좌석 이름"
 has "$nl" "pi 세션 없음 — 산출 커밋 보존" "  └ NORECORD 줄에 산출 보존 사유"
 
 echo "== ⓢ r2 DA HOLD2 — 머리 줄 session + 뒤 줄 model_change.modelId → 재개 기록 ok · model = 마지막 model_change"
-pifile_mc() { printf '{"type":"session","version":3,"id":"aaaa-1111","timestamp":"%s","cwd":"%s"}\n{"type":"model_change","id":"b","modelId":"first/model"}\n{"type":"message","id":"c","message":{"role":"user"}}\n{"type":"model_change","id":"d","modelId":"opengateway/deepseek/last-model"}\n' "$NOW" "$PDIR" > "$SESS"; }
+pifile_mc() { printf '{"type":"session","version":3,"id":"aaaa-1111","timestamp":"%s","cwd":"%s"}\n{"type":"model_change","id":"b","modelId":"first/model"}\n{"type":"message","id":"c","message":{"role":"user"}}\n{"type":"model_change","id":"d","modelId":"opengateway/deepseek/last-model"}\n' "$NOW" "$PDIR" > "$SESS"; pinames; }
 pifile_mc
 printf '{"_master":"M#1","M#1":{"role":"master","tick":"t"},"pi#8":{"role":"nano","agent":"pi","tick":null,"index":"x.md"}}\n' > "$REPO/.fable-team/seats.json"
 out="$(retire_rec 'pi#8')"; rc=$?
