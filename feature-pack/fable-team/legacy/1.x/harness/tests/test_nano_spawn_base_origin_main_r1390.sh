@@ -145,7 +145,7 @@ GIT "$D" update-ref refs/remotes/origin/main "$M1"   # 변이1 B1 이 fetch 결�
 mut default-head 's/^    BASE_REF=origin\/main$/    :/' b1
 mut default-head2 's/^    BASE_REF=origin\/main$/    :/' b2
 mut no-ancestor 's/merge-base --is-ancestor "\$_bs" refs\/remotes\/origin\/main/cat-file -e "$_bs"/' b4
-mut fetch-fallback 's/^if git -C "\$WT" config --get remote.origin.url >\/dev\/null 2>&1; then$/if git -C "$WT" fetch -q origin main >\/dev\/null 2>\&1; then/' b6
+mut fetch-fallback 's/^if \[ -n "\$_bw" \] \&\& git -C "\$_bw" config --get remote.origin.url >\/dev\/null 2>&1; then$/if [ -n "$_bw" ] \&\& git -C "$_bw" fetch -q origin main >\/dev\/null 2>\&1; then/' b6
 echo "  (변이 $((SECONDS-s))초)"
 
 echo

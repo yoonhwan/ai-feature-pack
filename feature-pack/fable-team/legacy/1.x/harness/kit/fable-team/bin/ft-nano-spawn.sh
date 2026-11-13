@@ -198,6 +198,32 @@ ns = [int(m.group(1)) for n in names for m in [pat.match(n)] if m]
 print(max(ns) + 1 if ns else 0)
 PY
 }
+# r1390: 나노 기준 = fetch 한 origin/main — «부른 워크트리 HEAD» 가 아니다(낡은 루트·문서 가지의 미착지 커밋이 나노 PR 에 섞이던 사고 · PR 7518 · r1115 가지).
+#   --base 없음 → origin main 1 ref fetch(7초 · 재시도 1 = ft_git_capped) 뒤 BASE_REF=origin/main(r1162 detached 검사는 이 갈래에 흡수).
+#   --base 명시 → 그 커밋이 origin/main 조상이면 그대로 · 아니면 --base-reason 이 있어야 연다(사유 = 카드 상태·명부 base_reason 1줄).
+#   origin 은 있는데 fetch·조상 판정 실패 = «판정 불가» REJECT 1줄(하드 룰 20 · 옛 HEAD 로 대신 열기 0) · 카드·워크트리·명부·tmux 쓰기 «전» · --dry-run 도 같은 판정.
+#   origin 원격이 없는 리포 = 카드 범위 밖 → 옛 동작(부른 곳 HEAD) 그대로.
+#   자리(arch #298446 B4) = 카드 첫 쓰기(원장 init 거울) «앞» — 거부 = 카드·원장·워크트리·명부 쓰기 0(거울 예외 0 · «대기(선행)» 를 남기지 않는다).
+_bw="$(git rev-parse --show-toplevel 2>/dev/null)"   # 호출 워크트리(아래 WT 와 같은 값 · 카드 첫 쓰기 «전» 에 판정하려고 먼저 푼다)
+if [ -n "$_bw" ] && git -C "$_bw" config --get remote.origin.url >/dev/null 2>&1; then
+  [ -f "$HERE/ft-team-lib.sh" ] || { echo "REJECT ft-team-lib.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
+  . "$HERE/ft-team-lib.sh"   # ft_git_capped(7초 · 재시도 1)
+  ft_git_capped 7 "$_bw" fetch -q origin +refs/heads/main:refs/remotes/origin/main >/dev/null \
+    || { echo "REJECT 기준 판정 불가 — origin main fetch 실패($_bw) · 옛 HEAD 로 열지 않는다"; exit 1; }
+  if [ -z "${BASE_REF:-}" ]; then
+    BASE_REF=origin/main
+  else
+    _bs="$(git -C "$_bw" rev-parse --verify -q "$BASE_REF^{commit}")" || { echo "REJECT 기준 ref(--base) 조회 실패: $BASE_REF"; exit 1; }
+    _arc=0; ft_git_capped 7 "$_bw" merge-base --is-ancestor "$_bs" refs/remotes/origin/main || _arc=$?
+    case "$_arc" in
+      0) BASE_REASON="";;
+      1) [ -n "${BASE_REASON//[[:space:]]/}" ] || { echo "REJECT 기준 ${_bs:0:10} 가 origin/main 위가 아니다 — --base origin/main 또는 --base-reason \"<사유>\""; exit 1; }
+         echo "BASE-REASON ${_bs:0:10} origin/main 위 아님 — $BASE_REASON"
+         _BR_LINE="base_reason: $BASE_REF(${_bs:0:10}) origin/main 위 아님 — $BASE_REASON";;   # 카드 «## 상태» 1줄 — 로컬·origin 사본 두 길이 같은 글자
+      *) echo "REJECT 기준 ${_bs:0:10} 조상 판정 불가(rc=$_arc)"; exit 1;;
+    esac
+  fi
+fi
 # r1409: 공용 루트 카드(--reopen)면 아래 원장 init 의 거울 «없음» 줄도 루트 카드(=루트 작업본)에 쓰지 않는다 — 판정은 카드 경로의 체크아웃 접두로 «첫 쓰기 전» 에 한 번.
 _REOPEN_ROOT=0
 if [ "$REOPEN" = 1 ]; then case "$IDX" in /*/design/*) root_checkout "${IDX%%/design/*}"; case "$?" in 0|2) _REOPEN_ROOT=1;; esac;; esac; fi
@@ -611,28 +637,6 @@ print(' '.join(k.replace(' ', '_') for k in ('Issue', '상태', '선행', '시�
 awk '/^##[[:space:]]/{exit} {print}' "$IDX" | grep -Eq '^[[:space:]]*[-*]?[[:space:]]*기준값:[[:space:]]*[^[:space:]]' \
   || echo "WARN 후보 제외 — 카드 머리줄 기준값 없음 또는 빈칸 (REJECT 아님 · 지표 없으면 「기준값: 없음 → 대체 축 <무엇>」 · 하네스 팀 폴더의 BASELINE-TEMPLATE.md): $IDX"
 
-# r1390: 나노 기준 = fetch 한 origin/main — «부른 워크트리 HEAD» 가 아니다(낡은 루트·문서 가지의 미착지 커밋이 나노 PR 에 섞이던 사고 · PR 7518 · r1115 가지).
-#   --base 없음 → origin main 1 ref fetch(7초 · 재시도 1 = ft_git_capped) 뒤 BASE_REF=origin/main(r1162 detached 검사는 이 갈래에 흡수).
-#   --base 명시 → 그 커밋이 origin/main 조상이면 그대로 · 아니면 --base-reason 이 있어야 연다(사유 = 카드 상태·명부 base_reason 1줄).
-#   origin 은 있는데 fetch·조상 판정 실패 = «판정 불가» REJECT 1줄(하드 룰 20 · 옛 HEAD 로 대신 열기 0) · 카드·워크트리·명부·tmux 쓰기 «전» · --dry-run 도 같은 판정.
-#   origin 원격이 없는 리포 = 카드 범위 밖 → 옛 동작(부른 곳 HEAD) 그대로.
-if git -C "$WT" config --get remote.origin.url >/dev/null 2>&1; then
-  ft_git_capped 7 "$WT" fetch -q origin +refs/heads/main:refs/remotes/origin/main >/dev/null \
-    || { echo "REJECT 기준 판정 불가 — origin main fetch 실패($WT) · 옛 HEAD 로 열지 않는다"; exit 1; }
-  if [ -z "${BASE_REF:-}" ]; then
-    BASE_REF=origin/main
-  else
-    _bs="$(git -C "$WT" rev-parse --verify -q "$BASE_REF^{commit}")" || { echo "REJECT 기준 ref(--base) 조회 실패: $BASE_REF"; exit 1; }
-    _arc=0; ft_git_capped 7 "$WT" merge-base --is-ancestor "$_bs" refs/remotes/origin/main || _arc=$?
-    case "$_arc" in
-      0) BASE_REASON="";;
-      1) [ -n "${BASE_REASON//[[:space:]]/}" ] || { echo "REJECT 기준 ${_bs:0:10} 가 origin/main 위가 아니다 — --base origin/main 또는 --base-reason \"<사유>\""; card_assign_record "$IDX" waiting 선행; exit 1; }
-         echo "BASE-REASON ${_bs:0:10} origin/main 위 아님 — $BASE_REASON"
-         _BR_LINE="base_reason: $BASE_REF(${_bs:0:10}) origin/main 위 아님 — $BASE_REASON";;   # 카드 «## 상태» 1줄 — 로컬·origin 사본 두 길이 같은 글자
-      *) echo "REJECT 기준 ${_bs:0:10} 조상 판정 불가(rc=$_arc)"; exit 1;;
-    esac
-  fi
-fi
 
 # ①b 카드 base_sha 대조 (M7 · single_set_testing §1 규칙 2 · 오빠 ORDERS 102): 09-25 카드를 10-02 코드에 재대조 없이 집행한 사고 차단.
 #   카드 «## 상태» 에 `base_sha: <40-hex>` 가 없으면 첫 개설 = 현재 기준 브랜치 HEAD 를 써넣고 진행(REJECT 0).

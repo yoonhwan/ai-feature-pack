@@ -66,15 +66,17 @@ lclear; o="$(FT_DISK_HARD_MIN_MIB=9999999 sp)"; load="$(L3)"
 lclear; o="$(sp)"; lintv="$(L3)"; lclear; o="$(FT_CARD_REQUIRE_PREVERIFY=1 sp)"; dav="$(L3)"
 # 선행 — lint·제안서·이슈 게이트를 지나는 카드 + 분리 HEAD 가 origin/main 조상 아님
 #   r1390: --base 없음은 이제 origin/main 으로 연다 — 선행 갈래 = 그 미착지 커밋을 --base 로 명시 · --base-reason 없음
+#   r1390 B4(arch #298446 «거울 예외 0»): base 거부는 카드 첫 쓰기 «앞» — 원장 파일 0 · 카드 바이트 그대로(--dry-run 없는 실제 길)
 CY="$SR/design/alpha/indices/대기/y.md"
 { printf '%s\n' '# 인덱스: y' '- 제안서: 없음 — 시험 카드' '- Issue: #5342' '- 배정: 없음' '## 골 원문' '골 1' '골 2' '골 3' '## 골좌표' '닫는 증거: 「닫는 증거는 이 문장 전체를 복붙한 것이어야 한다.」' '## 배경' '시험.' '## 구현 범위' '1. src/t.sh 수정' '## 완료 조건' '- 시험.' '## 계약↔시험 대응표' '| 계약 | 시험 |' '|---|---|' '| ① 시험 | ⓐ 시험 |' '## 상태' '- 시험'; } > "$CY"
 git -C "$SR" add -A; gc "$SR" "$NOW +0900" y; git -C "$SR" checkout -q --detach; gc "$SR" "$NOW +0900" detached
-lclear; o="$(CARD="$CY" GH_REPO=x/y sp --base "$(git -C "$SR" rev-parse HEAD)")"; po="$o"; prev="$(L3 y)"; git -C "$SR" checkout -q main
+DET="$(git -C "$SR" rev-parse HEAD)"; cp "$CY" "$SP/cy.before"
+lclear; o="$(CARD="$CY" GH_REPO=x/y sp --base "$DET")"; po="$o"; prev="$(L3 y)"; cyd="$(cmp -s "$SP/cy.before" "$CY" && echo 0 || echo 1)"; git -C "$SR" checkout -q main
 lclear; printf '#!/bin/sh\n[ "$3 $4 $5" = "--agent claude --model" ] && [ -n "$6" ] || exit 9\necho "PAUSED claude/sonnet-5-5 until_hhmm=12:00 round=t1"; exit 3\n' > "$KB/ft-acct-pause.sh"; o="$(CARD="$CY" GH_REPO=x/y sp)"; acct="$(L3 y)"; rm -f "$KB/ft-acct-pause.sh"
 # 면제대기 — 이 스크립트에 분기가 없다(카드 조사 근거 대조) → 도구 record 1줄로 같은 원장 꼴
 lclear; (cd "$SR" && FT_ROOT="$SR" python3 "$TOOL" record "$CX" waiting 면제대기 >/dev/null); exm="$(L3)"
 [ "$dry" = "none:0" ] && [ "$hold" = "waiting 정지 hold 2932" ] && [ "$keep" = 1 ] && [ "$init_first" = 1 ] && [ "$acct" = "waiting 정지 acct claude/sonnet-5-5" ] \
-  && [ "$seat_rc:$seat" = "7:waiting 석 - -" ] && [ "$load" = "none - - -" ] && [ "$lintv" = "waiting lint - -" ] && [ "$dav" = "waiting DA - -" ] && [ "$prev" = "waiting 선행 - -" ] && [ "$exm" = "waiting 면제대기 - -" ] \
+  && [ "$seat_rc:$seat" = "7:waiting 석 - -" ] && [ "$load" = "none - - -" ] && [ "$lintv" = "waiting lint - -" ] && [ "$dav" = "waiting DA - -" ] && [ "$prev" = "none" ] && [ "$exm" = "waiting 면제대기 - -" ] \
   && ok "R3 실제 spawn 진입점 — dry 0 · 정지 hold 2932 · 정지 acct(r1214 게이트 rc3 → key P/M) · 석 rc7 · 문지기 REJECT = 부하 사유 기록 0(판정 3914) · lint · DA · 선행 · 면제대기(record) · init 이 정지 판정 앞 · 거절 거울 «대기(정지 · since)» 1줄 + 다른 줄 바이트 불변" \
   || bad "R3 po=$(printf '%s' "$po" | grep -E '^(REJECT|ERROR|EXPIRED|BASE)' | head -3) dry=$dry hold=$hold keep=$keep init=$init_first acct=$acct seat=$seat_rc:$seat load=$load lint=$lintv da=$dav prev=$prev exm=$exm :: $o"
 # 성공 분기 — 진짜 spawn 의 함수 본문 + 성공 2줄(seat 기록 · 실제 ft-index-move)을 떼어 돌림(tmux 좌석 열기 대신) → master 이동 커밋 대역 → 커밋된 진행/ 카드에 거울 · 미커밋 줄 보존
@@ -95,6 +97,19 @@ new_root; card "$R" "$H/대기/cc.md" "$NOW" "- 상태: 대기"
 ( cd "$R"; FT_ROOT="$R" FT_CARD_ASSIGN_NOW=$((NOW-10)) python3 "$TOOL" record "$R/$H/대기/cc.md" waiting 석 >/dev/null & FT_ROOT="$R" FT_CARD_ASSIGN_NOW=$((NOW-50)) python3 "$TOOL" record "$R/$H/대기/cc.md" waiting 선행 >/dev/null & wait )
 cc="$(python3 -c 'import json,sys;j=json.load(open(sys.argv[1]));print(j["state"], j["reason"] in ("석","선행"), j["since"]==int(sys.argv[2]))' "$R/.fable-team/state/card-assign/cc.json" "$((NOW-50))")"
 [ "$cc" = "waiting True True" ] && [ "$(ls "$R/.fable-team/state/card-assign/" | grep -c '\.json$')" = 1 ] && [ "$(grep -c '^- 배정:' "$R/$H/대기/cc.md")" = 1 ] && ok "R3″ 동시 기록 2건 → 원장 1파일 · reason 둘 중 하나 · since = 이른 시작 · 거울 1줄 · 손실 0" || bad "R3″ $cc"
+{ [ "$prev:$cyd" = "none:0" ] && [[ "$po" == *"REJECT 기준 ${DET:0:10} 가 origin/main 위가 아니다"* ]]; } && ok "R3b r1390 B4 실제 길 base 거부 → 원장 파일 0 · 카드 diff 0" || bad "R3b prev=$prev 카드diff=$cyd po=$(printf '%s' "$po" | grep -E '^REJECT' | head -2)"
+# 변이 r1390-B4: base 판정을 카드 첫 쓰기(init) «뒤» 로 되돌림 → R3b 빨강이어야 한다
+KBM="$SP/binm"; rm -rf "$KBM"; cp -R "$KB" "$KBM"
+python3 - "$KB/ft-nano-spawn.sh" "$KBM/ft-nano-spawn.sh" <<'PY2'
+import sys
+src, dst = sys.argv[1:3]; s = open(src, encoding="utf-8").read()
+a = s.index("# r1390: 나노 기준"); b = s.index("\nfi\n", a) + 4; blk = s[a:b]; s = s[:a] + s[b:]
+init = '[ "$_REOPEN_ROOT" = 1 ] || card_assign_record "$IDX" init\n'; assert s.count(init) == 1
+open(dst, "w", encoding="utf-8").write(s.replace(init, init + blk))
+PY2
+git -C "$SR" checkout -q --detach "$DET"; cp "$CY" "$SP/cy.before"
+lclear; KB="$KBM"; o="$(CARD="$CY" GH_REPO=x/y sp --base "$DET")"; KB="$SP/bin"; mprev="$(L3 y)"; mcyd="$(cmp -s "$SP/cy.before" "$CY" && echo 0 || echo 1)"; git -C "$SR" checkout -q main
+[ "$mprev:$mcyd" != "none:0" ] && ok "변이 r1390-B4(판정을 init 뒤로) → R3b 빨강(원장=$mprev · 카드diff=$mcyd)" || bad "변이 r1390-B4 가 R3b 에 안 잡힘"
 lap R3
 
 # ── 변이 1 (spawn 칸)
