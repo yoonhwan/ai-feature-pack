@@ -99,13 +99,13 @@ def test_1_aux_channel_thread_reply_received_desk_wake(env):  # ① B 묶임 없
     assert web.posts == [] and _rows(env, "publish.jsonl") == [] and _rows(env, "bindings.jsonl") == []
 
 
-def test_1b_bind_only_main_channel_no_post(env):  # ①′ B 새 root = 묶기 0 · A 새 root = 2ea518 그대로 · 게시 0
+def test_1b_bind_only_main_channel_no_post(env):  # ①′ B 새 root = binding 1 · 게시 0(r1861) · A 새 root = 2ea518 그대로
     web, tb, ta = Web({A: True, B: True}), "1800000002.000100", "1800000003.000100"
     listener = _listener(env, "%s,%s" % (A, B), web)
     listener.route(_msg(tb, B))
-    assert _rows(env, "bindings.jsonl") == [] and web.posts == [] and _rows(env, "publish.jsonl") == []
+    assert [(b["state"], b["key"][1]) for b in _rows(env, "bindings.jsonl")] == [("bound", B)] and web.posts == []
     listener.route(_msg(ta, A))
-    assert [(b["state"], b["key"][1]) for b in _rows(env, "bindings.jsonl")] == [("bound", A)]
+    assert [(b["state"], b["key"][1]) for b in _rows(env, "bindings.jsonl")] == [("bound", B), ("bound", A)]
     assert [r["state"] for r in _rows(env, "receive.jsonl") if r["key"][1] == A] == ["received", "dispatched"]
     assert len(_wakes(env, MASTER)) == 1 and web.posts == [] and _rows(env, "publish.jsonl") == []
 
