@@ -1,0 +1,122 @@
+"""ft 2.0 keeper 다음 카드 (r1871 · keeper_close.close 가 닫기 영수 자리에서 부른다 · 코어 손 0).
+고르기(읽기만) = 팀 카드 루트(directive-roots.tsv) 대기/ 카드 중 원장 seat·막힌 사유·ft2 owner 없음 → 긴급 → 우선 높음 → since 순 1장.
+잇기 = submit → 최초이자 유일한 영수 1회(next·새 holder·evidence) → launch → record · 복구 = 저장 next·holder 로만 launch·record 를
+«각각» 맞춘다(새 고르기 0 · handled 는 그 뒤) · 고를 카드 0 일 때만 팀장 [다음 없음] 1통(하루·팀 1키)."""
+import importlib.util, os, re, sys  # noqa: E401
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+FT2, GIT_S, LAUNCH_S = os.path.dirname(os.path.dirname(HERE)), 25, 25
+OK, BLOCK, NONE = "접수 성공", ("정지", "석", "선행", "DA", "사람"), "[다음 없음]"
+URGENT, HIGH = re.compile(r"- 긴급:\s*예\s*$"), re.compile(r"- 우선(?:순위)?:\s*높음")
+def _load(name):
+    spec = importlib.util.spec_from_file_location("ft2_keeper_next_" + name, os.path.join(FT2, "core", name + ".py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+cli, dispatch = _load("cli"), _load("dispatch")
+def ft2_state(k, team):
+    try:
+        return dispatch.Dispatch(k.root, team).ex._state_records()[0]
+    except ValueError:
+        return None
+def ledger(k, stem):
+    return k.read_json(os.path.join(k.root, ".fable-team", "state", "card-assign", stem + ".json"))
+def gates(k, team):
+    """참 = 다음 카드 칸이 열림 · 거짓 = 0(켜기 전·팀 정지·spawn·계정 정지·나노 상한 · 판정 불가 포함)."""
+    st = os.path.join(k.root, ".fable-team", "state")
+    if not os.path.exists(os.path.join(k.root, ".fable-team", "teams", team, "CLOSE-NEXT.enabled")) or os.path.lexists(os.path.join(st, "%s-tick" % team, "PAUSED")):
+        return False
+    for name, tool, args, on in (("SPAWN_HOLD", "spawn-hold", [str(k.read_json(os.path.join(st, "SPAWN_HOLD")).get("verdict"))], 0), ("ACCT_PAUSE", "acct-pause", ["--agent", "pi"], 3)):
+        rc = k.call(["bash", os.path.join(os.path.dirname(k.close_bin or ""), "ft-%s.sh" % tool), "status", "--check"] + args)[0] if os.path.lexists(os.path.join(st, name)) else 3 - on
+        if rc != 3 - on:   # 끔 = hold rc3 · acct rc0 — 유효·판정 불가 = 0
+            return k.log("NEXT-HOLD", team, "%s %s rc %s — 다음 카드 0" % (name, "유효" if rc == on else "판정 불가", rc))
+    home = os.path.join(k.env.get("HOME") or os.path.expanduser("~"), ".claude", "fable-team", "thresholds.env")   # r1860 순서 = env > 루트 > ~/.claude > 샘플
+    files = [p for p in (os.path.join(k.root, ".fable-team", "thresholds.env"), home, os.path.join(HERE, "thresholds.env.sample")) if os.path.isfile(p)]
+    cap = (k.env.get("FT2_TEAM_NANO_MAX") or next((x.split("=", 1)[1].strip() for p in files for x in open(p, encoding="utf-8") if x.startswith("FT2_TEAM_NANO_MAX=")), "")).strip()
+    if not (cap.isascii() and cap.isdigit()):   # R3 — 못 정함 = 새 실행 0(임의 기본값 0)
+        return k.log("판정 불가", team, "나노 상한 FT2_TEAM_NANO_MAX 못 정함(%r · env·thresholds.env) — 다음 카드 0" % cap[:20])
+    rc, out, _ = k.call([k.tmux, "list-sessions", "-F", "#{session_name}"])
+    live = sum(x.startswith("byz-%s-nano-" % team) for x in out.split()) if rc == 0 else None
+    return True if live is not None and live < int(cap) else k.log("NEXT-HOLD", team, "나노 %s / 상한 %s — 다음 카드 0" % (live, cap))
+def cards(k, team):
+    """({stem: [긴급, 높음, 대상 줄들]}, 루트 행) · 판독 실패 = 사유 문자열 (git 2회 · 작업 트리 0)."""
+    try:
+        with open(os.path.join(k.root, ".fable-team", "state", "directive-roots.tsv"), encoding="utf-8") as fh:
+            rows = [x.rstrip("\n").split("\t") for x in fh if not x.startswith("#") and len(x.split("\t")) >= 4]
+    except (OSError, UnicodeError):
+        rows = []
+    r = next((x for x in rows if x[0] == team), None) or next((x for x in rows if x[0] == "*"), None)
+    if not r:
+        return "카드 루트 표 행 없음"
+    r = [r[0], os.path.join(k.root, r[1]), r[2], r[3].replace("*", team)]
+    rc, names, err = k.git(r[1], "ls-tree", "--name-only", r[2], "--", r[3] + "/대기/")
+    rc2, heads, _ = k.git(r[1], "grep", "-I", "-E", r"^- (긴급|우선|대상)", r[2], "--", r[3] + "/대기/")
+    if rc != 0 or rc2 not in (0, 1):
+        return "카드 루트 git rc %s/%s %s" % (rc, rc2, err[:60])
+    found = {os.path.basename(p)[:-3]: [False, False, []] for p in names.splitlines() if p.endswith(".md")}
+    for path, _, line in (x[len(r[2]) + 1:].partition(":") for x in heads.splitlines()):
+        row = found.get(os.path.basename(path)[:-3])
+        if row is not None:
+            row[0], row[1] = row[0] or bool(URGENT.match(line)), row[1] or bool(HIGH.match(line))
+            row[2] += [line] if line.startswith("- 대상") else []
+    return found, r
+def target(k, r, lines):
+    """(리포, base) — 팩·feature-pack/ = 팩 origin/main · 없음 = 루트 리포·표 ref · 팩·BYZ 둘 다 = None."""
+    pack, byz = any("팩" in x or "feature-pack/" in x for x in lines), any("BYZ" in x for x in lines)
+    return None if pack and byz else (k.pack, "origin/main") if pack else (r[1], r[2])
+def choose(k, team):
+    """(stem, 리포, base) · 고를 카드 0 = None(그때만 [다음 없음] 1통) · 판독 실패 = None(쪽지 0)."""
+    got, state = cards(k, team), ft2_state(k, team)
+    if isinstance(got, str) or state is None:
+        return k.log("판정 불가", team, "다음 카드 고르기 %s — 다음 카드 0" % (got if isinstance(got, str) else "ft2 state"))
+    (found, r), owners, why, ready = got, state.get("owners") or {}, {}, []
+    for stem, (urgent, high, lines) in sorted(found.items()):
+        led = ledger(k, stem)
+        block = "배정됨" if led.get("state") == "seat" or stem in owners else led.get("reason") if led.get("reason") in BLOCK else ""
+        place = None if block else target(k, r, lines)
+        if not block and place is None:
+            block = k.log("판정 불가", team, "%s 대상 팩·BYZ 둘 다 — 건너뜀" % stem) or "대상"
+        ready.append(((not urgent, not high, led.get("since") or 0), stem) + place) if not block else why.update({block: why.get(block, 0) + 1})
+    if ready:
+        return min(ready)[1:]
+    k.notify(team, "%s|next-none|%s" % (k.stamp()[:10], team), "%s %s · 배정 없는 카드 0 · 막힌 사유별 %s" % (NONE, team, " ".join("%s %d" % kv for kv in sorted(why.items())) or "0"))
+def close(k, team, work, attempt, holder, gen):
+    """닫기 영수 1회(지금 자리) + 다음 카드. 반환 = 영수 결과."""
+    seen = ((ft2_state(k, team) or {}).get("close_receipts") or {}).get("keeper:%s@%s" % (work, attempt))
+    if seen is None:
+        pick = choose(k, team) if gates(k, team) else None
+        if pick:
+            out, rc = cli.run(["submit", "--command", "keeper-next-" + pick[0], "--body", "카드 " + pick[0], "--work", pick[0], "--root", k.root, "--team", team])
+            pick = pick if rc == 0 or "재부여 0" in str(out.get("reason")) else k.log("판정 불가", team, "%s submit %s" % (pick[0], out.get("result")))
+        stem, nh = (pick[0], "byz-%s-nano-%s#0" % (team, pick[0][:40])) if pick else (None, None)
+    else:
+        stem, nh = seen.get("next"), seen.get("holder")
+    if not stem:
+        return k.receipt(team, work, attempt, holder, gen)
+    out = k.receipt(team, work, attempt, holder, gen, next_work=stem, next_holder=nh, evidence=dispatch.Dispatch.REQUIRED_EVIDENCE, mark=False)
+    if out.result == OK and out.next == stem or "재접수" in out.reason:
+        reconcile(k, team, work, attempt, stem, nh, pick if seen is None else None)
+    elif out.result == "접수 거부" and seen is None:   # 거부 = 쓰기 0 → 지금처럼 () 영수 1회
+        return k.receipt(team, work, attempt, holder, gen)
+    return out
+def reconcile(k, team, work, attempt, stem, nh, pick):
+    """launch(세션 없음) · record(원장 ≠ seat) 를 따로 맞춘다 · 실패 = 단계 + «복구 필요» 1줄(재시도 0) · 그 뒤 handled."""
+    seen, led = k.probe(nh), ledger(k, stem)
+    if seen not in ("absent", "alive"):
+        return k.log("판정 불가", team, "%s -> %s %s %s — 다음 바퀴" % (work, stem, nh, seen))
+    need = (seen == "absent", (led.get("state"), led.get("seat")) != ("seat", nh))
+    def done(kind, text):   # handled = 두 단계를 맞춘 뒤 또는 «복구 필요» 뒤에만
+        return k.state["handled"].update({"%s|%s@%s" % (team, work, attempt): k.stamp()}) or k.log(kind, team, "%s -> %s %s%s" % (work, stem, nh, text))
+    if need[0]:
+        if pick is None and not gates(k, team):   # R2 — 복구 launch 직전 현재 가드 · 막힘 = handled 0(허용 뒤 같은 사건 재개)
+            return None
+        place = pick[1:] if pick else (lambda g: None if isinstance(g, str) or stem not in g[0] else target(k, g[1], g[0][stem][2]))(cards(k, team))
+        argv = [sys.executable, k.env.get("FT2_KEEPER_LAUNCH") or os.path.join(HERE, "launch.py"), "--root", k.root, "--team", team, "--work", stem, "--repo", place[0], "--base", place[1], "--role", "nano"] if place else None
+        rc, text, err = k.call(argv, LAUNCH_S) if argv else (None, "", "대상 못 정함")
+        if rc != 0:
+            return done("HELD-NEXT", " launch rc %s %s · 복구 필요" % (rc, (text or err).strip()[:80]))
+    if need[1]:
+        rc, text, err = k.call(["bash", k.env.get("FT2_CARD_ASSIGN_BIN") or os.path.join(os.path.dirname(k.close_bin or ""), "ft-card-assign-watch.sh"), "record", stem, "seat", nh], GIT_S)
+        if rc != 0:
+            return done("HELD-NEXT", " record rc %s %s · 복구 필요" % (rc, (text or err).strip()[:80]))
+    done("NEXT", "")
