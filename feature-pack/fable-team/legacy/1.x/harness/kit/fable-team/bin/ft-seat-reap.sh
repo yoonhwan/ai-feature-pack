@@ -48,7 +48,7 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 DDIR="${FT_REAP_DEFER_DIR:-}"; PDIR="${FT_PERMIT_DIR:-}"; LDG="${FT_BG_FINITE_LEDGER:-}"   # 못 풀면 빈 값 — 미룸이 실제로 필요할 때만 python 이 rc 20
 if [ -z "$DDIR" ] || [ -z "$PDIR" ] || [ -z "$LDG" ]; then DR="$(. "$HERE/ft-harness-root.sh" && ft_data_root "$HERE" 2>/dev/null)" || DR=""; DDIR="${DDIR:-${DR:+$DR/.fable-team/state/reap-deferred}}"; PDIR="${PDIR:-${DR:+$DR/.fable-team/state/permits}}"; LDG="${LDG:-${DR:+$DR/.fable-team/state/bg-finite.tsv}}"; fi
 exec python3 - "$SEAT" "$DRY" "$WT" "$ORPH" "$HERE/ft-leak-reap.sh" "$DEFER" "$DDIR" "$PDIR" "$HAND" "$LDG" <<'PY'
-import ast, json, os, re, signal, subprocess, sys, time
+import ast, json, os, re, shutil, signal, subprocess, sys, time
 seat, dry, wt_arg, orph, leak = sys.argv[1], sys.argv[2] == "1", sys.argv[3], sys.argv[4] == "1", sys.argv[5]
 defer, ddir, pdir, HAND = sys.argv[6] == "1", sys.argv[7], sys.argv[8], sys.argv[9]
 LEDGER_ARG = sys.argv[10]
@@ -64,11 +64,15 @@ def cap_sec():   # r1406 — 로컬 하네스 외부 호출 상한(판정 4114 =
 CAP = cap_sec()
 def tmo(what):   # 상한 초과 = «판정 불가» die(rc 20 · 조용한 통과 0 · 문구에 상한 초 1개)
     die(f"{what} 시간 초과 — 상한 {CAP}초(판정 불가 · FT_SEAT_REAP_CAP_SEC 1~70)")
+def tool(key, fixed, name):   # r1817 D1b — launchd 좁은 PATH(/usr/sbin 없음)에서도 절대 경로 먼저 → PATH · 둘 다 없음 = 이름 그대로(실행 실패 rc 20)
+    p = os.environ.get(key) or fixed
+    return p if os.access(p, os.X_OK) else (shutil.which(name) or name)
+LSOF, PS = tool("FT_LSOF", "/usr/sbin/lsof", "lsof"), tool("FT_PS", "/bin/ps", "ps")
 def run(cmd, ok_err=()):
     try: r = subprocess.run(cmd, capture_output=True, text=True, timeout=CAP, env={**os.environ, "LC_ALL": "C", "TZ": "UTC"})
-    except subprocess.TimeoutExpired: tmo(cmd[0])
-    except (OSError, subprocess.SubprocessError) as e: die(f"{cmd[0]} 실행 실패: {e}")
-    if r.returncode != 0 and not any(s in r.stderr for s in ok_err): die(f"{cmd[0]} rc={r.returncode}: {r.stderr.strip()[:80]}")
+    except subprocess.TimeoutExpired: tmo(os.path.basename(cmd[0]))
+    except (OSError, subprocess.SubprocessError) as e: die(f"{os.path.basename(cmd[0])} 실행 실패: {e}")
+    if r.returncode != 0 and not any(s in r.stderr for s in ok_err): die(f"{os.path.basename(cmd[0])} rc={r.returncode}: {r.stderr.strip()[:80]}")
     return r.stdout if r.returncode == 0 else ""
 try: PROTECT = ast.literal_eval(re.search(r"^PROTECT_EXE = (\{.*\})$", open(leak, encoding="utf-8").read(), re.M).group(1))
 except (OSError, AttributeError, ValueError, SyntaxError) as e: die(f"보호 목록을 못 읽음 {leak}: {e}")
@@ -83,7 +87,7 @@ LDG = os.environ.get("FT_BG_FINITE_LEDGER") or LEDGER_ARG   # 빈 값 = bash 가
 BGF = os.path.join(os.path.dirname(os.path.abspath(leak)), "ft-bg-finite.sh")
 def ps_table():   # pid → (ppid, pgid, uid, lstart, cmd, ft_seat|None)
     t = {}
-    for ln in run(["ps", "-axww", "-o", "pid=,ppid=,pgid=,uid=,lstart=,command="]).splitlines():
+    for ln in run([PS, "-axww", "-o", "pid=,ppid=,pgid=,uid=,lstart=,command="]).splitlines():
         f = ln.split(None, 9)
         if len(f) < 10 or not f[0].isdigit(): continue
         t[int(f[0])] = [int(f[1]), int(f[2]), int(f[3]), " ".join(f[4:9]), f[9], None, None]
@@ -95,7 +99,7 @@ def ps_table():   # pid → (ppid, pgid, uid, lstart, cmd, ft_seat|None)
             row[5] = next((e[8:] for e in env if e.startswith("FT_SEAT=")), None)
             row[6] = next((e[13:] for e in env if e.startswith("FT_BG_FINITE=")), None)
     if not LINUX:   # macOS: -E 는 command 뒤에 env 를 붙인다 — 앞의 command 를 떼고 env 부분에서만 찾는다(인자 속 글자 오인 0)
-        for ln in run(["ps", "-axEww", "-o", "pid=,command="]).splitlines():
+        for ln in run([PS, "-axEww", "-o", "pid=,command="]).splitlines():
             f = ln.strip().split(None, 1)
             if len(f) < 2 or not f[0].isdigit() or int(f[0]) not in t: continue
             c = t[int(f[0])][4]; env = f[1][len(c):] if f[1].startswith(c) else ""
@@ -175,7 +179,7 @@ def cwds():
                 try: r[int(d)] = os.readlink(f"/proc/{d}/cwd")
                 except OSError: pass
         return r
-    try: o = subprocess.run(["lsof", "-a", "-d", "cwd", "-Fpn", "-u", str(os.getuid())], capture_output=True, text=True, timeout=CAP)
+    try: o = subprocess.run([LSOF, "-a", "-d", "cwd", "-Fpn", "-u", str(os.getuid())], capture_output=True, text=True, timeout=CAP)
     except subprocess.TimeoutExpired: tmo("lsof cwd")
     except (OSError, subprocess.SubprocessError) as e: die(f"lsof 실행 실패: {e}")
     if not o.stdout.strip(): die(f"lsof cwd 표가 비어 있음 rc={o.returncode}: {o.stderr.strip()[:80]}")   # rc 1 = 일부 프로세스 못 읽음(표는 있음)
@@ -193,7 +197,7 @@ def desc(t, roots):
             if k not in out: out.add(k); st.append(k)
     return out
 def services(t):   # pid → why — 서비스 나무(r505): ⓐLISTEN 을 쥔 프로세스 + 조상 + 자손 ⓑ서비스 명령 꼴 + 자손
-    try: o = subprocess.run(["lsof", "-nP", "-iTCP", "-sTCP:LISTEN", "-Fp"], capture_output=True, text=True, timeout=CAP, env={**os.environ, "LC_ALL": "C"})
+    try: o = subprocess.run([LSOF, "-nP", "-iTCP", "-sTCP:LISTEN", "-Fp"], capture_output=True, text=True, timeout=CAP, env={**os.environ, "LC_ALL": "C"})
     except subprocess.TimeoutExpired: tmo("lsof LISTEN")
     except (OSError, subprocess.SubprocessError) as e: die(f"lsof LISTEN 실행 실패: {e}")
     lis = {int(l[1:]) for l in o.stdout.splitlines() if l[:1] == "p" and l[1:].isdigit()}
