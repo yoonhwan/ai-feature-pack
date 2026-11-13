@@ -16,7 +16,7 @@ TEAMS = "| 팀 | 폴더 |\n|---|---|\n| harness | `$FT_HARNESS_ROOT/design/harne
 TMUX = r'''#!__PY__
 import json, os, sys
 st, a = os.environ["FAKE_TMUX"], sys.argv[1:]
-d, name = json.load(open(st)), sys.argv[-1].lstrip("=")
+d, name = json.load(open(st)), sys.argv[-1].lstrip("=").rstrip(":")  # r1822 pane 대상 `=이름:`
 open(st + ".log", "a").write(json.dumps(a) + "\n")
 if a[0] == "kill-session": d["alive"].remove(name); json.dump(d, open(st, "w"))
 if a[0] == "capture-pane": sys.stdout.write(d["pane"].get(name, ""))
