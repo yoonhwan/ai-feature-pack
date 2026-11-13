@@ -49,7 +49,8 @@ def ledger(k, n, holder, seq):
     for path, _, body in (x[len(r[2]) + 1:].partition(":") for x in out.splitlines()):
         row, num = MD_ROW.match(body), re.search(r"planner-(\d+)-", path)
         if row and num and (row.group(1) or row.group(2)) == n:
-            hits.setdefault(int(num.group(1)), []).append(body[row.end():].strip(" |"))
+            rest = body[row.end():]   # R1 — md_row 같이: 글머리 = 나머지 · table = 시각 column 떼고 내용만
+            hits.setdefault(int(num.group(1)), []).append(rest.strip() if row.group(1) else "|".join(rest.split("|")[1:]).strip(" |"))
     rows = hits[max(hits)] if hits else []
     if len(rows) != 1:
         return "판정 %s 원장 행 %d개" % (n, len(rows))
