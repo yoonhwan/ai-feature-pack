@@ -7,11 +7,12 @@ import importlib.util, json, logging.handlers, os, sys, time, urllib.parse, urll
 NAMES, NEED, OPTS = ("SLACK_APP_TOKEN", "SLACK_BOT_TOKEN"), ("root", "channel", "env", "owner-seats"), ("team", "users")
 SEG, TOTAL = 65536, 8388608  # core journal.py:70 과 같은 상한 — listen.log 에만
 USAGE, UNDECIDED, RIVAL = 64, 3, 4
-for _name in ("receive", "route", "publish", "binding", "backfill"):  # 어댑터 5파일 = 경로로 읽기만(수정 0)
-    _spec = importlib.util.spec_from_file_location(
-        "ft2_slack_" + _name, os.path.join(os.path.dirname(os.path.abspath(__file__)), _name + ".py"))
-    globals()[_name] = importlib.util.module_from_spec(_spec)
-    _spec.loader.exec_module(globals()[_name])
+def _adapter(name):  # 어댑터 5파일 = 경로로 읽기만(수정 0) · wiring = r1807
+    spec = importlib.util.spec_from_file_location(
+        "ft2_slack_" + name, os.path.join(os.path.dirname(os.path.abspath(__file__)), name + ".py"))
+    spec.loader.exec_module(module := importlib.util.module_from_spec(spec))
+    return module
+receive, route, publish, binding, backfill, wiring = map(_adapter, ("receive", "route", "publish", "binding", "backfill", "wiring"))
 
 class Undecided(Exception):
     """판정 불가(rc 3) — 메시지에는 이름만 담는다(하드 룰 20)."""
@@ -77,11 +78,13 @@ class Listener:  # 상주 수신기 1개 = 채널 1개 · 팀 1곳 · 어댑터 
         self.notify = notify or (lambda row: self.log("[notify] " + json.dumps(row, ensure_ascii=False)))
         self.receive = receive.SlackReceive(root, ack=self._ack, allowed_users=users, allowed_channels=(channel,),
                                             bot_users=bot_users, notify=self.notify, **same)
-        self.router = route.SlackRoute(root, receive=self.receive, bindings=self.bindings, notify=self.notify, **same)
+        self.router, self.notify = wiring.wire(root, receive=self.receive, bindings=self.bindings, notify=notify,
+                                               log=self.log, team=team, clock=clock)  # r1807 깨움·issues·desk 배선
         self.publish = publish.SlackPublish(root, post=self._post, bindings=self.bindings, notify=self.notify, **same)
         self.backfill = backfill.Backfill(root, route=self, fetch=self._fetch, notify=self.notify, **same)
     def run(self, sessions=None):  # 상주 루프 — 반환 = rc(경쟁 수신 4) · sessions = 시험용 연결 횟수 상한
         for verdict in self.receive.recover():  # 재기동 1회 복구(A4) — dispatched 면 영수도 같은 길(R1)
+            self.router.recovered(verdict)  # r1807 보정1 R2 — 복구 dispatched 도 입구 기록·좌석 깨움
             rows = [r["key"] for r in self.router.entries("route") if r.get("command") == verdict.get("command")]
             self._receipt(route.binding.thread_key(*(rows or [verdict["key"]])[-1]), verdict)
         count = fails = 0
