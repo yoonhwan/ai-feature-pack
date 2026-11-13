@@ -52,11 +52,13 @@ data_root() {
   printf '{"_master":"%s","_arch":"byz-kakao-arch-claude#3","%s":{"role":"master","agent":"claude","model":"m"}}\n' "$OLD" "$OLD" > "$d/.fable-team/seats-kakao.json"
 }
 # run <cwd> <wt> [KEY=VAL…] — 출력 $T/out · rc $RC · 호출마다 로그·표식 초기화
+#   추가 대입(FT_ROOT·FT_RES_ROOT·FT_TEAMSET_MD)은 서브셸 export 로 env 줄 밖에서 — env 줄 = 글자 대입 + 글자 bash(비밀 분류기 env_strip)
 run() {
   local cwd="$1" wt="$2"; shift 2; rm -f "$LOG" "$CNT" "$OPENED"; : > "$LOG"
-  (cd "$cwd" && env HOME="$T/home" PATH="$FK:$SENSORS:$PATH" LOG="$LOG" CNT="$CNT" OPENED="$OPENED" SENSORS="$SENSORS" PANE_CWD="$wt" \
-     FT_SO_POLL=0 FT_SO_WAIT_MAX=2 FT_GOV_MD="$T/gov.md" FT_TEAMSET_MD="$T/teamset-none.md" FT_SEND_VERIFIED="$FK/send" \
-     FT_REACH_CHECK="$FK/reach" FT_SEAT_OPEN_WORK="$FK/openwork" FT_SEAT_RETIRE="$FK/retire" FT_RECLAIM=0 "$@" \
+  (cd "$cwd" || exit 1; export FT_TEAMSET_MD="$T/teamset-none.md"; for a in "$@"; do export "$a"; done
+   env HOME="$T/home" PATH="$FK:$SENSORS:$PATH" LOG="$LOG" CNT="$CNT" OPENED="$OPENED" SENSORS="$SENSORS" PANE_CWD="$wt" \
+     FT_SO_POLL=0 FT_SO_WAIT_MAX=2 FT_GOV_MD="$T/gov.md" FT_SEND_VERIFIED="$FK/send" \
+     FT_REACH_CHECK="$FK/reach" FT_SEAT_OPEN_WORK="$FK/openwork" FT_SEAT_RETIRE="$FK/retire" FT_RECLAIM=0 \
      bash "$SO" "$OLD" "$wt" --name "$NEW" --agent claude --model m --body-file "$T/body.txt") > "$T/out" 2>&1
   RC=$?
 }
