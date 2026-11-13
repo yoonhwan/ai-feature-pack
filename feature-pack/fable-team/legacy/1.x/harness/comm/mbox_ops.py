@@ -84,8 +84,10 @@ def send(to, frm, body, force=False, desk_attach=""):
         sys.stderr.write("BLOCKED %s\n%s\n→ BLOCKED %s%s\n" % (reason, hint, reason, tail))
         sys.exit(3)
     seq, pend, dropped, oldest, overflow, seqs = res
+    # ★r1820 B2★ 이 호출의 쪽지 자신이 버려졌으면 QUEUED 0 · DROPPED-SELF + rc 5(보낸 쪽이 다시 보낼 주체) · 옛 seq 만 버림 = QUEUED rc0
+    self_drop = seq in seqs
     # ★«어느 파일에 몇 바이트» 를 찍는다★ — QUEUED 를 «도착»으로도 «온전»으로도 읽지 않게.
-    print(f"QUEUED seq={seq} to={to} pending={pend} "
+    print(f"DROPPED-SELF seq={seq} to={to}" if self_drop else f"QUEUED seq={seq} to={to} pending={pend} "
           f"file={_mbox(CANON)} bytes={len(body.encode('utf-8'))}")
     if dropped:
         sys.stderr.write(
@@ -102,6 +104,8 @@ def send(to, frm, body, force=False, desk_attach=""):
     #   메시지는 이미 큐에 들어갔고 발신자는 이미 결과를 받았다. relay 는 send 를
     #   타므로 여기 한 곳이면 두 경로가 모두 덮인다.
     _prune_bodies(CANON)
+    if self_drop:
+        raise SystemExit(5)   # r1820 B2 — 지금 송신 버림 = rc 5
 
 
 def relay(to, frm, path, summary):

@@ -108,18 +108,18 @@ def seat(name: str) -> bool:
 def kind(r):
     """행 하나의 등급 — 버리는 순서는 이 값의 «오름차순»(SYS_PLAIN → SYS_HEAD → NORMAL), HUMAN 은 제외."""
     frm = str(r.get("from") or "")
-    if frm and frm == str(r.get("to") or ""):
-        return SYS_PLAIN                  # ★자기에게 보낸 사건 알림([착지]·[카드 이동]) = 가장 먼저 버린다(r1651)
     head = str(r.get("body") or "").lstrip().startswith(HUMAN_HEADS)
     done = str(r.get("body") or "").lstrip().startswith(REAL_HEADS)
+    if (head or done) and seat(frm):
+        return HUMAN                      # r1820 좌석의 [HIL]·[긴급]·[완료] = 사람 판정 대상 · 자기 발신 [완료·닫기 요청] 도(from == to 보다 먼저)
+    if frm and frm == str(r.get("to") or ""):
+        return SYS_PLAIN                  # ★자기에게 보낸 사건 알림([착지]·[카드 이동]) = 가장 먼저 버린다(r1651)
     if frm in HUMAN_SENDERS:
         return HUMAN                      # 보낸 이가 사람 — 머리와 무관
     if REAL_SENDERS.match(frm):
         return HUMAN                      # h 완료 보고(ft-hil-h<N>) = 실보고 · 버리지 않는다(r1651)
     if frm in SYSTEM_SENDERS:
         return SYS_HEAD if head else SYS_PLAIN   # 자동 도구는 머리가 있어도 «자동»(사람 칸 0)
-    if (head or done) and seat(frm):
-        return HUMAN                      # 좌석이 올린 [HIL]·[긴급]·[완료] = 사람 판정 대상
     return NORMAL
 
 

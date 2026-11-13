@@ -85,6 +85,16 @@ def rec_of(m):   # A11 기록 지문 = ⓢ + ⓛ + ⓒ 줄을 이은 글의 sha2
     return hashlib.sha256("\n".join(m[k].strip() for k in "slc").encode()).hexdigest()[:12]
 
 
+def seq_dropped(ctx, seq):   # r1820 B3 — 전달 기록 seq 가 mailbox.drops.log 의 seqs= 에 있나(숫자 토큰 정확 비교) · 원장 없음 = 아니오 · 판독 실패 = Unjudged
+    try:
+        raw = (ctx.comm / "mailbox.drops.log").read_text(encoding="utf-8") if seq else ""
+    except FileNotFoundError:
+        return False
+    except (OSError, UnicodeDecodeError) as e:
+        raise Unjudged(f"우편함 버림 원장 읽기 rc=1 — {type(e).__name__}") from e
+    return any(str(seq) in m.group(1).split(",") for m in re.finditer(r"(?:^|\s)seqs=(\S*)", raw))
+
+
 class Ctx:
     def __init__(self, root=None):
         r = (str(root) if root else "") or os.environ.get("FT_ROOT") or os.environ.get("FT_REPO_ROOT") or "."
