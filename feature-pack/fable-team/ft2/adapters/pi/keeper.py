@@ -48,7 +48,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
         self.project, self.lines, self.cache = projection.project, [], {}
         self.state = {key: {} for key in ("held", "open", "sent", "handled", "woke", "reassigned")}
         self.stall = _load(os.path.join(HERE, "keeper_stall.py"), "ft2_keeper_stall").Stall(self)   # r1813 S1~S5
-        self.spent, self.sock = dict.fromkeys(("fetch", "b1", "b2", "b3"), 0.0), True
+        self.spent, self.sock, self.skip = dict.fromkeys(("fetch", "b1", "b2", "b3"), 0.0), True, set()
 
     def call(self, argv, timeout=CALL_S, retry=0):
         """바깥 호출 1곳 → (rc, stdout, stderr 1줄) · 넘침·실행 실패 = rc None · retry = rc≠0 때 다시 부르는 횟수."""
@@ -110,7 +110,16 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
         return self.locked(self._round) or 0
 
     def report_once(self):
-        return self.locked(self.report) or "판정 불가 · 바퀴 진행 중"
+        self.skip = self.skipped()   # r1835 K4 — 판독 실패 = probe·쪽지 0 · 출력 1줄(로그 줄 0)
+        return "판정 불가 · SKIP_TEAMS 판독 실패" if self.skip is None else self.locked(self.report) or "판정 불가 · 바퀴 진행 중"
+
+    def skipped(self):
+        """r1835 K1 — SKIP_TEAMS 줄마다 팀 1개(빈 줄·# 무시) · 바퀴마다 읽음 · 없음 = 빈 집합 · 못 읽음 = None."""
+        try:
+            with open(os.path.join(self.dir, "SKIP_TEAMS"), encoding="utf-8") as fh:
+                return {x.strip() for x in fh if x.strip() and not x.strip().startswith("#")}
+        except (OSError, UnicodeDecodeError) as exc:
+            return set() if isinstance(exc, FileNotFoundError) else None
 
     def timed(self, stage, fn, *args):
         """r1817 D3 — 단계별 초(주입 시계 self.now) 누적 · 반환 = fn 결과."""
@@ -131,7 +140,9 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
         return self.log("판정 불가", text="tmux 소켓 %s ≠ 기준 %s (rc %s) — 이 바퀴 닫기 0" % (out.strip() or err or "-", want, rc))
 
     def _round(self):
-        start = time.monotonic()
+        start, self.skip = time.monotonic(), self.skipped()
+        if self.skip is None:
+            return self.log("판정 불가", text="SKIP_TEAMS 판독 실패 — 이 바퀴 B1·B2·B3·B4 0")
         def fetch(repo):
             return self.git(repo, "fetch", "-q", "origin", retry=1)[0]
         bad = [repo for repo in (self.root, self.pack) if self.timed("fetch", fetch, repo) != 0]
@@ -148,14 +159,14 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
         self.report()
         s = sum(self.spent.values())
         cells = " ".join("%s=%g" % (key, round(val, 1)) for key, val in self.spent.items())
-        self.log("ROUND", text="s=%g %s%s" % (round(s, 1), cells, " OVER" if s > ROUND_S else ""))
+        self.log("ROUND", text="s=%g %s%s%s" % (round(s, 1), cells, " OVER" if s > ROUND_S else "", self.skip and " skip=" + ",".join(sorted(self.skip)) or ""))
 
     def teams(self):
         """대상 팀 = ft20-switch/<팀>.json ∪ <팀>.held 가 있고 runtime 이 있는 팀."""
         switch = os.path.join(self.root, ".fable-team", "state", "ft20-switch")
         found = os.listdir(switch) if os.path.isdir(switch) else []
         names = {name.rsplit(".", 1)[0] for name in found if name.endswith((".json", ".held"))}
-        return sorted(team for team in names if os.path.isdir(projection.runtime_path(self.root, team)))
+        return sorted(team for team in names if os.path.isdir(projection.runtime_path(self.root, team)) and team not in self.skip)
 
     def team_round(self, team):
         """최신 묶음 = work 마다 최신 dispatch 1줄의 (attempt · holder) (launch.seat 와 같은 규칙 · 옛 intent 로 대신 0)."""
