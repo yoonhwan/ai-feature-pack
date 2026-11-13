@@ -51,7 +51,7 @@ if name == "git" and sub == "rev-parse" and os.environ.get("FAKE_GIT_REAL_REVPAR
     os.execv(real, [real] + argv)
 if name == "git" and sub == "worktree" and os.environ.get("FAKE_GIT_REAL_WORKTREE") == "1":
     os.execv(real, [real] + argv)
-key = "FAKE_" + name.upper() + ("_REV_RC" if sub == "rev-parse" else "_RC")
+key = "FAKE_" + name.upper() + ("_REV_RC" if sub == "rev-parse" else "_SPARSE_RC" if sub == "sparse-checkout" else "_RC")
 rc = int(os.environ.get(key) or 0)
 if name == "git" and sub == "rev-parse" and "--verify" in argv and rc == 0:
     sys.stdout.write((os.environ.get("FAKE_GIT_SHA") or "__SHA__") + "\\n")
@@ -150,7 +150,7 @@ def case_dry(tmp, launcher=LAUNCH):
     before = _snapshot(root)
     out, rc = _launch(root, fake, launcher, extra=["--dry-run"])
     assert rc == 0 and out["dry_run"] is True, out
-    assert out["argv"]["git"] == ["git", "-C", str(root), "worktree", "add", "--detach", str(_worktree(root)), BASE], out["argv"]
+    assert out["argv"]["git"] == ["git", "-C", str(root), "worktree", "add", "--no-checkout", "--detach", str(_worktree(root)), BASE], out["argv"]
     assert out["argv"]["tmux"][:5] == ["tmux", "new-session", "-d", "-s", HOLDER], out["argv"]
     assert out["argv"]["tmux"].count("-e") == 5, out["argv"]
     assert out["argv"]["tmux"][-4:] == SESSION_ARGV, out["argv"]
@@ -166,9 +166,10 @@ def case_open(tmp, launcher=LAUNCH):
     out, rc = _launch(root, fake, launcher)
     assert (out["result"], rc, out["opened"]) == ("접수 성공", 0, True), out
     lines = _log(fake)
-    assert [line["prog"] for line in lines] == ["git", "git", "tmux"], lines
+    assert [line["prog"] for line in lines] == ["git"] * 4 + ["tmux"], lines
     assert lines[0]["argv"] == ["-C", str(root), "rev-parse", "--verify", "--quiet", BASE + "^{commit}"], lines[0]
-    assert lines[1]["argv"] == ["-C", str(root), "worktree", "add", "--detach", out["worktree"], FAKE_SHA], lines[1]
+    assert lines[1]["argv"] == ["-C", str(root), "worktree", "add", "--no-checkout", "--detach", out["worktree"], FAKE_SHA], lines[1]
+    lines = lines[:2] + lines[4:]                     # r1846: sparse·checkout 2줄은 case_sparse_order 가 본다
     assert lines[2]["argv"][:5] == ["new-session", "-d", "-s", HOLDER, "-c"], lines[2]
     assert lines[2]["argv"][5] == out["worktree"], lines[2]
     pairs = lines[2]["argv"][6:16]
@@ -247,7 +248,7 @@ def case_detach(tmp, launcher=LAUNCH):
     out, rc = _launch(root, fake, launcher)
     assert rc == 0, out
     git = [line for line in _log(fake) if line["prog"] == "git" and line["sub"] == "worktree"][0]
-    assert git["argv"] == ["-C", str(root), "worktree", "add", "--detach", out["worktree"], FAKE_SHA], git["argv"]
+    assert git["argv"] == ["-C", str(root), "worktree", "add", "--no-checkout", "--detach", out["worktree"], FAKE_SHA], git["argv"]
     assert "-b" not in git["argv"], git["argv"]
 
 
@@ -314,12 +315,12 @@ def case_repo_target(tmp, launcher=LAUNCH):
     out, rc = _launch(root, fake, launcher, extra=["--repo", str(repo)], env_extra=_repo_env())
     assert (out["result"], rc) == ("접수 성공", 0), out
     lines = _log(fake)
-    assert [line["prog"] for line in lines] == ["git", "git", "git", "tmux"], lines
+    assert [line["prog"] for line in lines] == ["git"] * 5 + ["tmux"], lines
     assert lines[0]["argv"] == ["-C", str(repo), "rev-parse", "--show-toplevel"], lines[0]
     assert lines[1]["argv"] == ["-C", str(repo), "rev-parse", "--verify", "--quiet", BASE + "^{commit}"], lines[1]
     base_sha = _git(repo, "rev-parse", "refs/remotes/origin/main")
-    assert lines[2]["argv"] == ["-C", str(repo), "worktree", "add", "--detach", str(_worktree(root)), base_sha], lines[2]
-    assert lines[3]["argv"][5] == str(_worktree(root)), lines[3]
+    assert lines[2]["argv"] == ["-C", str(repo), "worktree", "add", "--no-checkout", "--detach", str(_worktree(root)), base_sha], lines[2]
+    assert lines[5]["argv"][5] == str(_worktree(root)), lines[5]
 
 
 def case_repo_refused(tmp, launcher=LAUNCH):
@@ -341,12 +342,12 @@ def case_git_failed(tmp, launcher=LAUNCH):
     repo = _git_repo(Path(tmp) / "repoC")
     extra, bad = ["--repo", str(repo)], _repo_env({"FAKE_GIT_RC": "124"})
     out, rc = _launch(root, fake, launcher, extra=extra, env_extra=bad)
-    assert (out["result"], rc, out.get("step")) == ("복구 필요", 2, "git"), out
+    assert (out["result"], rc, out.get("step")) == ("복구 필요", 2, "git add"), out
     reason = out["reason"]
     assert "worktree remove --force --force %s" % _worktree(root) in reason, reason
     assert "새 attempt" in reason, reason
     got = json.loads(_intent(root).read_text(encoding="utf-8"))
-    assert (got["state"], got["step"]) == ("failed", "git"), got
+    assert (got["state"], got["step"]) == ("failed", "git add"), got
     calls = len(_log(fake))
     again, rc2 = _launch(root, fake, launcher, extra=extra, env_extra=bad)
     assert (again.get("result"), rc2) == ("복구 필요", 2), again
@@ -362,7 +363,7 @@ def case_repo_dry(tmp, launcher=LAUNCH):
     out, rc = _launch(root, fake, launcher, extra=["--repo", str(repo), "--dry-run"], env_extra=_repo_env())
     assert rc == 0 and out["dry_run"] is True, out
     assert out["repo"] == str(repo), out
-    assert out["argv"]["git"] == ["git", "-C", str(repo), "worktree", "add", "--detach", str(_worktree(root)), BASE], out["argv"]
+    assert out["argv"]["git"] == ["git", "-C", str(repo), "worktree", "add", "--no-checkout", "--detach", str(_worktree(root)), BASE], out["argv"]
     assert _log(fake) == [], _log(fake)
     assert _snapshot(root) == before, "런타임 바이트 그대로"
 
@@ -375,7 +376,7 @@ def case_recovery_quoted(tmp, launcher=LAUNCH):
     repo = _git_repo(base / "repo B")
     out, rc = _launch(root, fake, launcher, extra=["--repo", str(repo)],
                       env_extra=_repo_env({"FAKE_GIT_RC": "124"}))
-    assert (out["result"], rc, out.get("step")) == ("복구 필요", 2, "git"), out
+    assert (out["result"], rc, out.get("step")) == ("복구 필요", 2, "git add"), out
     cmd = out["reason"].split("복구 ⓐ ", 1)[1].split(" (반쪽", 1)[0]
     assert shlex.split(cmd) == ["git", "-C", str(repo), "worktree", "remove", "--force", "--force",
                                 str(_worktree(root))], cmd
@@ -401,7 +402,7 @@ def case_base_default(tmp, launcher=LAUNCH):
     assert (out["result"], rc) == ("접수 성공", 0), out
     calls = _worktree_call(fake)
     assert len(calls) == 1 and calls[0]["argv"][-1] == first != second, calls
-    assert calls[0]["argv"][:-1] == ["-C", str(root), "worktree", "add", "--detach", str(_worktree(root))], calls
+    assert calls[0]["argv"][:-1] == ["-C", str(root), "worktree", "add", "--no-checkout", "--detach", str(_worktree(root))], calls
 
 
 def case_base_race(tmp, launcher=LAUNCH):
@@ -460,13 +461,53 @@ def case_base_dry(tmp, launcher=LAUNCH):
     assert _snapshot(root) == before, "런타임 바이트 그대로"
 
 
+def _sparse_argv(root):
+    """r1846 ⓑⓒ — 패턴 = 1.x r835 ft_sparse_patterns 와 같은 3줄(자기 팀 design 만)."""
+    path = str(_worktree(root))
+    return (["-C", path, "sparse-checkout", "set", "--no-cone", "/*", "!/design/teams/*/", "/design/teams/%s/" % TEAM],
+            ["-C", path, "checkout", "-q"])
+
+
+def case_sparse_order(tmp, launcher=LAUNCH):
+    """S① git 단계 = ⓐ add --no-checkout → ⓑ sparse-checkout set → ⓒ checkout 순서 · tmux 는 그 뒤(기준판 add 1회 = Red)."""
+    root, fake = _paths(tmp)
+    _runtime(root)
+    out, rc = _launch(root, fake, launcher)
+    assert (out["result"], rc) == ("접수 성공", 0), out
+    lines = _log(fake)
+    assert [line["sub"] for line in lines] == ["rev-parse", "worktree", "sparse-checkout", "checkout", "new-session"], lines
+    assert "--no-checkout" in lines[1]["argv"], lines[1]
+    assert (lines[2]["argv"], lines[3]["argv"]) == _sparse_argv(root), lines[2:4]
+
+
+def case_sparse_fail(tmp, launcher=LAUNCH):
+    """S② ⓑ rc1 → rc2 «복구 필요» step «git sparse» · 복구 2줄 · ⓒ·tmux 호출 0."""
+    root, fake = _paths(tmp)
+    _runtime(root)
+    out, rc = _launch(root, fake, launcher, env_extra={"FAKE_GIT_SPARSE_RC": "1"})
+    assert (out.get("result"), rc, out.get("step")) == ("복구 필요", 2, "git sparse"), out
+    assert "worktree remove --force --force" in out["reason"], out
+    assert [line["sub"] for line in _log(fake)] == ["rev-parse", "worktree", "sparse-checkout"], _log(fake)
+
+
+def case_sparse_dry(tmp, launcher=LAUNCH):
+    """S③ dry-run → 계획 줄에 git 3호출(add·sparse·checkout) · 의도 파일 쓰기 0 · 바깥 호출 0."""
+    root, fake = _paths(tmp)
+    _runtime(root)
+    out, rc = _launch(root, fake, launcher, extra=["--dry-run"])
+    assert rc == 0 and out["argv"]["git"][4:6] == ["add", "--no-checkout"], out["argv"]
+    assert (out["argv"]["sparse"][1:], out["argv"]["checkout"][1:]) == _sparse_argv(root), out["argv"]
+    assert _log(fake) == [] and _intent(root).exists() is False, _log(fake)
+
+
 CASES = {"refused": case_refused, "dry": case_dry, "open": case_open, "again": case_again,
          "race": case_race, "fail": case_fail, "role": case_role, "guard": case_guard,
          "detach": case_detach, "latest": case_latest_dispatch, "budget": case_git_budget,
          "repo": case_repo_target, "repo_refused": case_repo_refused, "git_failed": case_git_failed,
          "repo_dry": case_repo_dry, "recovery_quoted": case_recovery_quoted,
          "base_default": case_base_default, "base_race": case_base_race, "base_named": case_base_named,
-         "base_missing": case_base_missing, "base_intent": case_base_intent, "base_dry": case_base_dry}
+         "base_missing": case_base_missing, "base_intent": case_base_intent, "base_dry": case_base_dry,
+         "sparse_order": case_sparse_order, "sparse_fail": case_sparse_fail, "sparse_dry": case_sparse_dry}
 MUTANTS = {
     "M1": ("launch.py", "    if holder is None:", "    if holder is None and False:"),
     "M2": ("launch.py", '    if given.get("dry"):',
@@ -480,19 +521,23 @@ MUTANTS = {
     "M7": ("launch.py", 'repo = os.path.abspath(given.get("repo") or root)', 'repo = os.path.abspath(root)'),
     "M8": ("launch.py", '        if rc != 0:\n            os.unlink(plan["intent"])',
            '        if rc != 0 and False:\n            os.unlink(plan["intent"])'),
-    "M9": ("launch.py", '    if step == "git":', '    if False:'),
+    "M9": ("launch.py", '    if step.startswith("git"):', '    if False:'),
     # r1780 기준 ref 변이(카드 M1~M5 · 이름 앞에 B)
     "BM1": ("launch_plan.py", "    return git[:-1] + [sha]", "    return git[:-1]"),
     "BM2": ("launch.py", 'given.get("base") or planner.DEFAULT_BASE', 'planner.DEFAULT_BASE'),
     "BM3": ("launch_plan.py", "return (0, sha) if sha else (1,", "return (0, sha) if True else (1,"),
     "BM4": ("launch.py", 'worktree=plan["worktree"], base=base, base_sha=sha,', 'worktree=plan["worktree"], base=base,'),
     "BM5": ("launch_plan.py", "    return git[:-1] + [sha]", "    return git"),
+    # r1846 sparse 변이(카드 M1·M2 · 이름 앞에 S)
+    "SM1": ("launch_plan.py", '"add", "--no-checkout", "--detach"', '"add", "--detach"'),
+    "SM2": ("launch.py", "        if rc != 0:\n            return failed(plan, env, step,",
+            '        if rc != 0 and step != "git sparse":\n            return failed(plan, env, step,'),
 }
 # 변이가 깨뜨려야 하는 사례 — 카드 §변이 그대로
 MUTANT_CASE = {"M1": "refused", "M2": "dry", "M3": "again", "M4": "fail", "M5": "open",
                "M6": "budget", "M7": "repo", "M8": "repo_refused", "M9": "git_failed",
                "BM1": "base_default", "BM2": "base_named", "BM3": "base_missing", "BM4": "base_intent",
-               "BM5": "base_race"}
+               "BM5": "base_race", "SM1": "sparse_order", "SM2": "sparse_fail"}
 
 
 def _mutant(tmp, name):
@@ -605,3 +650,15 @@ def test_b04_base_in_intent(tmp_path):
 
 def test_b05_base_dry_run(tmp_path):
     case_base_dry(tmp_path)
+
+
+def test_s01_sparse_order(tmp_path):
+    case_sparse_order(tmp_path)
+
+
+def test_s02_sparse_fail_stops(tmp_path):
+    case_sparse_fail(tmp_path)
+
+
+def test_s03_sparse_dry_run(tmp_path):
+    case_sparse_dry(tmp_path)
