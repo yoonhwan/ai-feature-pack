@@ -6,8 +6,8 @@
     "제안 미결정": "제안서 결정 대기", "제안": "제안서", "관찰 중": "지켜보는 중"
   },
   "events": {
-    "spawn": "일 시작", "nano-close": "일 끝(작업 좌석 닫힘)", "issue-close": "이슈 닫힘", "label": "라벨 바뀜",
-    "land-candidate": "합칠 후보 확정", "merge-queue": "합치기 줄 변동", "stop-ready": "멈춤 알림", "done": "끝났다는 알림"
+    "spawn": "spawn", "nano-close": "일 끝(작업 좌석 닫힘)", "issue-close": "이슈 닫힘", "label": "라벨 바뀜",
+    "land-candidate": "land-candidate", "merge-queue": "merge-queue", "stop-ready": "멈춤 알림", "done": "끝났다는 알림"
   },
   "sources": [
     ["⓪ 오빠가 정할 것", "planner · 팀 master · Tank", "ft-verdict todo · ft-hil-ask · ft-merge-queue add · 라벨"],
