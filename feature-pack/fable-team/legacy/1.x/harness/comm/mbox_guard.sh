@@ -8,6 +8,7 @@ GUARD_STATE="$DIR/../state"; US=$'\037'
 # 문 ③ 골 표 상시 게재(R362) — 대상 판별(머리 7종 ∧ 명부 역할)·무장 표식은 «항상 있는» 이 파일에 둔다(본체 mbox_guard_goal.sh 가 없어도 같은 판별로 fail-closed).
 # 무장 표식 $GUARD_STATE/goal-gate.armed — 파이썬 ft_goal_gate.armed·매거진 magazine_goal.armed 와 같은 경로·의미(교차 계약 시험 test_goal_gate_armed_contract.py).
 GOAL_HEADS='^\[(부팅|틱|발주|팀 발주|착지 차례|A6|완료·휴식)'
+GOAL_COORD_HEADS='^\[(발주|팀 발주|착지 차례)'   # r1830 G1 좌표 머리 = `골좌표:` 1줄만(붙은 골 표는 뗀다) · 나머지(부팅·틱·A6·완료·휴식) = 표 머리(블록 + 골좌표 그대로)
 goal_armed() { [ -f "$GUARD_STATE/goal-gate.armed" ]; }
 _goal_sender_in_roles() {  # rc 0 = 어느 명부든 _master·_desk·_arch 값 · 1 = 아님 · 2 = 명부 읽기 실패·명부 없음으로 판정 불가(H1②)
   python3 - "$(dirname "$(_seats_json)")" "$1" <<'PY' 2>/dev/null

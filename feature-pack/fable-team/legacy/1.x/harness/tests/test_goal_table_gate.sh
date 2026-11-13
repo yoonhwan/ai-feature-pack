@@ -201,7 +201,7 @@ WITH="$BLOCK"$'\n골좌표: 4 — 하네스팀 랜딩부터'
 # ⓔ planner 팀 발주 머리 4종 — 블록 없으면 REJECT·큐 0, 블록+좌표면 통과
 for h in '[발주 #1]' '[팀 발주]' '[착지 차례]' '[A6 점검]'; do
   new_env; send_from "$PM" "$h 해라"$'\n본문'
-  [ "$RC" = 3 ] && case "$OUT" in *'골 없음'*'ft-goal-table.sh'*) true;; *) false;; esac && [ "$(queued)" = 0 ] && ok "ⓔ $h 블록 없음 → REJECT·큐 0" || bad "ⓔ $h rc=$RC q=$(queued) :: $OUT"
+  [ "$RC" = 3 ] && case "$OUT" in *'골 없음'*'ft-goal-table.sh'*|*'골 없음'*'골좌표'*) true;; *) false;; esac && [ "$(queued)" = 0 ] && ok "ⓔ $h 블록·좌표 없음 → REJECT·큐 0" || bad "ⓔ $h rc=$RC q=$(queued) :: $OUT"
   new_env; send_from "$PM" "$h 해라"$'\n'"$WITH"
   [ "$RC" = 0 ] && [ "$(queued)" = 1 ] && ok "ⓔ $h 블록+좌표 → 통과" || bad "ⓔ $h 통과 rc=$RC :: $OUT"
 done
@@ -243,7 +243,7 @@ relay_from() {  # <from> <첨부 파일> <요약> → RC·OUT
     bash "$ENVROOT/.fable-team/comm/mbox.sh" relay 'byz-zz-nano-q#0' "$1" "$2" "$3" 2>&1)"; RC=$?
 }
 printf '%s\n본문\n' "$BLOCK" > "$T/attach-ok.md"; printf '본문만\n' > "$T/attach-no.md"
-SUM=$'[발주 #2] 긴 발주\n골좌표: 4 — 하네스팀 랜딩부터'
+SUM=$'[A6 #2] 긴 점검\n골좌표: 4 — 하네스팀 랜딩부터'   # r1830: 첨부 블록 요구 = 표 머리만(좌표 머리 [발주] 는 블록 요구 0)
 new_env; relay_from "$PM" "$T/attach-ok.md" "$SUM"
 [ "$RC" = 0 ] && [ "$(queued)" = 1 ] && ok "ⓝ relay 첨부에 블록 + 요약에 좌표 → 통과" || bad "ⓝ relay 통과 rc=$RC :: $OUT"
 new_env; relay_from "$PM" "$T/attach-no.md" "$SUM"

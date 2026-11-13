@@ -14,7 +14,7 @@ check   : 본문에 ⓐ마커 블록(N행 = 마커 sha10 의 정본 골 칸과 �
           r726 r3(DA⑥ r1 처방 5): 표식 두 줄 형식을 «정확히» 본다(`<sha10>\t<지문12>` · `prev\t<sha10>\t<지문12>\t<유한 정수 epoch>`, 아니면 유예 0) · «직전 판» 을 `git show <rec[0]>:<정본>` 으로 다시 계산해 지문 대조 · 표식 첫 줄 지문 == 지금 정본 지문 · 경과는 `0 <= 경과 < 유예`(미래 시각 0) · env 유예는 `min(env,24)` 로 줄이기만(0 = 끄기 · NaN/Inf = 기본).
           r728: 번호 공지·표식 쓰기는 «기본 ref(FT_TEAMS_REF·origin/main) 의 gitref + 정본 꼴 이름(AUTONOMY-GOAL-A6-<8자리>.md)» 일 때만 — 시안·시험 렌더(FT_GOAL_A6_MD 에 파일 경로 · 다른 ref · 다른 이름을 주입)는 표만 그리고 공지·표식 0 + stderr `INFO 시안 렌더 — 번호 공지·표식 0 (정본 <spec>)` 1줄(시안 렌더가 표식을 옛 판으로 밀어 다음 진짜 렌더가 재공지하던 것).
           r600: gitref 정본이면 마커 sha 신선도도 본다 — 지금 ref 첫 부모 줄기에서 STALE_FP_MAX(12) 넘게 뒤 = `REJECT 골 표 낡음 — …` rc3 · 줄기에 없음 = rc3 · git 실패 = `REJECT 골 표 신선도 확인 실패` rc3(fail-closed · 파일 정본은 검사 생략).
-          `--block-only` = ⓑ 생략(다골 글: 뉴스·매거진).
+          `--block-only` = ⓑ 생략(다골 글: 뉴스·매거진) · `--coord-only` = ⓐ 생략(r1830 · 좌표 머리 쪽지 — 지금 정본 번호표 · 번호표가 바뀐 판이면 직전 판 1개 유예).
 teams   : 원장 `## 팀별 완성 진행` 첫 표(팀 | 끝선 N/M | 마지막 착지 | 지금 하는 것) → 마커 2줄(`★팀별 완성 진행 (<원장 sha10>)★` … `★/팀별 완성 진행★`) 사이 표(≤1600B · R458).
           표 없음·예산 초과 = 빈 출력 + stderr WARN rc0 — 거절 게이트 0(뉴스·매거진을 멈추지 않는다 · check 는 골 표만).
 procs   : 원장 «메인 골 …줄» 만 읽어 안 보이던 오늘 등록 표준절차 골(r644) — planner 팀 폴더(ref 트리) 의 `GOAL-*-<8자리 날짜>.md` 마다 1줄(골 이름 = 파일 머리 `# 골 — …` · 담당 = 진행표 «담당» 칸 → 골 파일 `담당:` 줄 → `—`) · «지금 단계» = 원장 `## 표준절차 골 진행표` 의 «골 파일» 칸이 그 파일인 행(없으면 «진행표 행 없음» + stderr WARN) → 마커 2줄(`★표준절차 골 (<원장 sha10>)★` … `★/표준절차 골★`).
@@ -653,6 +653,12 @@ def check(body: str, block_only: bool = False) -> tuple[int, str]:
         return 3, f"REJECT 골 없음 — 블록의 {len(got)}행이 정본(마커 sha10) {n}행과 다르다 · 새 번호표 {len(cur)}줄: {numbering(cur)}"
     if block_only:
         return 0, "GOAL-OK block-only" + grace
+    return _coord_verdict(lines, canon, cur, grace)
+
+
+def _coord_verdict(lines: list[str], canon: list[list[str]], cur: list[list[str]], grace: str) -> tuple[int, str]:
+    """`골좌표:` 줄 대조 — check 와 check_coord 가 같이 쓴다(r1830 · 문구·rc 는 check 그대로)."""
+    n = len(canon)
     for ln in lines:
         if m := COORD.match(ln.strip()):
             num, want = int(m[1]), _norm(canon[int(m[1]) - 1][0]) if 1 <= int(m[1]) <= n else ""
@@ -663,12 +669,30 @@ def check(body: str, block_only: bool = False) -> tuple[int, str]:
     return 3, f"REJECT 골 없음 — `골좌표: <1~{n}> — <골 원문 앞 12자>` 줄이 없다 · 새 번호표 {len(cur)}줄: {numbering(cur)}"
 
 
+def check_coord(body: str) -> tuple[int, str]:
+    """r1830 G2 — 블록 검사 0 · 지금 정본으로 대조 → 안 맞으면 표식 직전 판 1개를 _grace(r726) 그대로 한 번 더(그 밖 = 첫 REJECT 그대로)."""
+    lines, cur = body.splitlines(), parse_rows(load_canon()[0])
+    rc, msg = _coord_verdict(lines, cur, cur, "")
+    mark, spec = _grace_mark(), _spec()
+    rec = _prev_record(mark) if rc and mark is not None else None
+    if rec is None or not spec.startswith("gitref:"):
+        return rc, msg
+    try:
+        old = parse_rows(_git(_repo(), "show", f"{rec[0]}:{spec.split(':', 2)[2]}"))
+    except GoalError:
+        return rc, msg
+    if _coord_verdict(lines, old, cur, "")[0] == 0 and (grace := _grace(rec[0], numbering(old), cur)):
+        return _coord_verdict(lines, old, cur, grace)
+    return rc, msg
+
+
 def main(argv: list[str]) -> int:
     try:
         if argv[:1] == ["check"]:
-            args = [a for a in argv[1:] if a != "--block-only"]
+            args = [a for a in argv[1:] if a not in ("--block-only", "--coord-only")]
             src = args[0] if args else "-"
-            rc, msg = check(sys.stdin.read() if src == "-" else Path(src).read_text(encoding="utf-8"), "--block-only" in argv)
+            text = sys.stdin.read() if src == "-" else Path(src).read_text(encoding="utf-8")
+            rc, msg = check_coord(text) if "--coord-only" in argv else check(text, "--block-only" in argv)
             print(msg)
             return rc
         sys.stdout.write({"teams": render_teams, "procs": render_procs}.get(argv[0] if argv else "", render)())
