@@ -77,11 +77,13 @@ class Listener:  # 상주 수신기 1개 = 채널 1개 · 팀 1곳 · 어댑터 
         self.notify = notify or (lambda row: self.log("[notify] " + json.dumps(row, ensure_ascii=False)))
         self.receive = receive.SlackReceive(root, ack=self._ack, allowed_users=users, allowed_channels=(channel,),
                                             bot_users=bot_users, notify=self.notify, **same)
-        self.route = route.SlackRoute(root, receive=self.receive, bindings=self.bindings, notify=self.notify, **same)
+        self.router = route.SlackRoute(root, receive=self.receive, bindings=self.bindings, notify=self.notify, **same)
         self.publish = publish.SlackPublish(root, post=self._post, bindings=self.bindings, notify=self.notify, **same)
-        self.backfill = backfill.Backfill(root, route=self.route, fetch=self._fetch, notify=self.notify, **same)
+        self.backfill = backfill.Backfill(root, route=self, fetch=self._fetch, notify=self.notify, **same)
     def run(self, sessions=None):  # 상주 루프 — 반환 = rc(경쟁 수신 4) · sessions = 시험용 연결 횟수 상한
-        self.receive.recover()  # 재기동 1회 복구(A4)
+        for verdict in self.receive.recover():  # 재기동 1회 복구(A4) — dispatched 면 영수도 같은 길(R1)
+            rows = [r["key"] for r in self.router.entries("route") if r.get("command") == verdict.get("command")]
+            self._receipt(route.binding.thread_key(*(rows or [verdict["key"]])[-1]), verdict)
         count = fails = 0
         while sessions is None or count < sessions:
             count += 1
@@ -93,8 +95,8 @@ class Listener:  # 상주 수신기 1개 = 채널 1개 · 팀 1곳 · 어댑터 
                 return RIVAL
             self.log("연결 끝 %s" % outcome)
             if sessions is None or count < sessions:
-                fails = 0 if outcome is True else fails + 1
-                self.sleep(min(2 ** min(fails, 6), 60))  # 1·2·4·…·60초
+                fails = 0 if outcome is True else min(fails + 1, 7)
+                self.sleep(min(2 ** max(fails - 1, 0), 60))  # 정상 끝 뒤 1 · 연속 실패 1·2·4·…·60초(R2)
         return 0
     def _session(self, reconnect):  # 연결 1번 — 반환 = True(disconnect·끊김 = 재연결 사건) 또는 RIVAL
         with self.connect(self.web("apps.connections.open", self.app_token)["url"]) as self.ws:
@@ -107,8 +109,7 @@ class Listener:  # 상주 수신기 1개 = 채널 1개 · 팀 1곳 · 어댑터 
                 except Exception:  # 끊김·처리 실패 = 재연결 사건(미확인 envelope 는 Slack 이 재전달 → duplicate)
                     out = True
             return out
-    def on_idle(self):
-        """envelope 0 인 1초 — Slack 읽기·기록 증가·모델 호출 0(타이머로 Slack 을 읽는 코드 0)."""
+    def on_idle(self):  # envelope 0 인 1초 — Slack 읽기·기록 증가·모델 호출 0(타이머로 Slack 을 읽는 코드 0)
         self.receive.pass_idle()
     def _hello(self, env, reconnect):
         if env.get("type") != "hello":
@@ -119,14 +120,12 @@ class Listener:  # 상주 수신기 1개 = 채널 1개 · 팀 1곳 · 어댑터 
         if reconnect:  # 재연결 사건 1회 = 보충 1회(주기 폴링 0)
             self.backfill.run(backfill.RECONNECT, [(r["seat"], r["key"][1], r["key"][2])
                                                    for r in self.bindings.settled().values() if r["open"]])
-        return None
     def _frame(self, env):
         if env.get("type") == "disconnect":
             return True
-        self.envelope, payload = env.get("envelope_id"), env.get("payload") or {}
-        event = payload.get("event") or {}
+        self.envelope, event = env.get("envelope_id"), (payload := env.get("payload") or {}).get("event") or {}
         if env.get("type") == "events_api" and event.get("type") == "message":
-            self._message(dict(event, team=event.get("team") or payload.get("team_id") or ""))
+            self.route(dict(event, team=event.get("team") or payload.get("team_id") or ""))
         else:
             self.log("버림 %s %s" % (env.get("type"), event.get("type") or ""))
         return self._ack(None)  # receive 가 이미 확인했으면 0회
@@ -134,20 +133,21 @@ class Listener:  # 상주 수신기 1개 = 채널 1개 · 팀 1곳 · 어댑터 
         if self.envelope and self.ws is not None:
             self.ws.send(json.dumps({"envelope_id": self.envelope}))
             self.envelope = None  # envelope 1개 = 확인 1회 · 확인 ≠ 접수
-    def _message(self, event):
-        key = route.thread_key(event)
-        human = not (event.get("bot_id") or event.get("subtype")) and event.get("user") in self.receive.allowed_users
+    def route(self, event):  # 새 envelope·보충(Backfill 이 부름) 모두 이 길 — bind → route → dispatched 영수(R1)
+        key = event and route.thread_key(event)
+        human = event and not (event.get("bot_id") or event.get("subtype")) and event.get("user") in self.receive.allowed_users
         if human and event.get("channel") == self.channel and not event.get("thread_ts") and not [
                 row for row in self.bindings.entries() if row.get("key") == list(key)]:
             self.bindings.bind(key, self.master)  # 새 root 첫 binding(A5b) — 닫힌 적 있으면 묶지 않는다
-        row, now = self.route.route(event), self.bindings.get(key)
-        if row.get("state") != route.DISPATCHED or now is None or not now.open:
-            return  # duplicate·ignored·idle·full·닫힘 = 게시 0
-        got = (self.receive.latest().get(row["command"]) or {}).get("receipt") or {}
+        return self._receipt(key, self.router.route(event)) if event else self.router.route(None)
+    def _receipt(self, key, row):  # dispatched 1건 = 같은 thread 영수 1줄 · 그 밖(duplicate·hold·닫힘 등) = 게시 0
+        got = (self.receive.latest().get(row.get("command")) or {}).get("receipt") or {}
         try:
-            self.publish.reply(key, "receipt:" + row["command"], "접수 %s" % got.get("attempt"), now.seat, now.gen)
+            if row.get("state") == route.DISPATCHED and (now := self.bindings.get(key)) is not None and now.open:
+                self.publish.reply(key, "receipt:" + row["command"], "접수 %s" % got.get("attempt"), now.seat, now.gen)
         except Exception as exc:
             self.log("영수 게시 실패 %s" % type(exc).__name__)
+        return row
     def _post(self, root_ts, text, marker):
         try:  # 응답 유실 = 결과 불명 · 재송 0(publish 계약 11)
             return self.web("chat.postMessage", self.bot_token,
