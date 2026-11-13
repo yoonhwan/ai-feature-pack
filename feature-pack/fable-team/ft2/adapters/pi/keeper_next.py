@@ -37,6 +37,7 @@ def gates(k, team):
         return k.log("판정 불가", team, "나노 상한 FT2_TEAM_NANO_MAX 못 정함(%r · env·thresholds.env) — 다음 카드 0" % cap[:20])
     rc, out, _ = k.call([k.tmux, "list-sessions", "-F", "#{session_name}"])
     live = sum(x.startswith("byz-%s-nano-" % team) for x in out.split()) if rc == 0 else None
+    k.fa.observe(k.root, "나노 정원", team, live, int(cap), "다음 카드")   # r1886 ⓑ 열림·NEXT-HOLD 둘 다
     return True if live is not None and live < int(cap) else k.log("NEXT-HOLD", team, "나노 %s / 상한 %s — 다음 카드 0" % (live, cap))
 def cards(k, team):
     """({stem: [긴급, 높음, 대상 줄들]}, 루트 행) · 판독 실패 = 사유 문자열 (git 2회 · 작업 트리 0)."""
@@ -93,6 +94,7 @@ def close(k, team, work, attempt, holder, gen):
         pick = choose(k, team) if gates(k, team) else None
         if pick:
             out, rc = cli.run(["submit", "--command", "keeper-next-" + pick[0], "--body", "카드 " + pick[0], "--work", pick[0], "--root", k.root, "--team", team])
+            k.fa.remaining(k.root, team, out.get("result"), "카드 " + pick[0])   # r1886 ⓐ keeper submit
             pick = pick if rc == 0 or "재부여 0" in str(out.get("reason")) else k.log("판정 불가", team, "%s submit %s" % (pick[0], out.get("result")))
         stem, nh = (pick[0], "byz-%s-nano-%s#0" % (team, pick[0][:40])) if pick else (None, None)
     else:

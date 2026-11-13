@@ -12,6 +12,8 @@ def _adapter(name):  # 경로로 읽기만(수정 0)
     return module
 route, publish, receive, sender_tag = map(_adapter, ("route", "publish", "receive", "sender_tag"))
 binding, SENDER, USAGE, UNDECIDED = route.binding, "ft2-slack-listen", 2, 3
+_fa = importlib.util.spec_from_file_location("ft2_wire_full_alert", os.path.join(os.path.dirname(_HERE), "pi", "full_alert.py"))
+_fa.loader.exec_module(full_alert := importlib.util.module_from_spec(_fa))  # r1886 ⓐ
 
 
 class Wiring:
@@ -123,7 +125,9 @@ def wire(root, *, receive, bindings, notify=None, log=None, team="planner", cloc
     """S-1 route 생성 1곳 대체 — (route, notify). notify 를 주입받았으면 그대로 쓴다(시험·대역)."""
     hub = Wiring(root, team=team, log=log, clock=clock, wake=wake)
     alert = notify or hub.alert
-    hub.receive, receive.notify = receive, alert
+    hub.receive, receive.notify, submit = receive, alert, receive.client.submit
+    receive.client.submit = lambda command, *a, **kw: (lambda got: (full_alert.remaining(  # r1886 ⓐ 접수 결과마다
+        root, receive.client.team, got.result, command), got)[1])(submit(command, *a, **kw))
     hub.router = route.SlackRoute(root, receive=receive, bindings=bindings, notify=alert, deliver=hub.deliver,
                                   team=team, clock=clock)
     hub.router.recovered = hub.recovered  # 보정1 R2 — S-1 복구 갈래가 부른다

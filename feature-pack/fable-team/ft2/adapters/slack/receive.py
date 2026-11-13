@@ -20,6 +20,8 @@ _SPEC = importlib.util.spec_from_file_location(
     "ft2_core_intake", os.path.join(os.path.dirname(os.path.dirname(_HERE)), "core", "intake.py"))
 intake = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(intake)
+_FA = importlib.util.spec_from_file_location("ft2_receive_full_alert", os.path.join(os.path.dirname(_HERE), "pi", "full_alert.py"))
+_FA.loader.exec_module(full_alert := importlib.util.module_from_spec(_FA))  # r1885 보류 노출 = r1886 observe
 
 RESULT_OK, RESULT_FULL = intake.RESULT_OK, intake.RESULT_FULL
 DISPATCHED, DUPLICATE, IGNORED = "dispatched", "duplicate", "ignored"
@@ -60,7 +62,7 @@ class SlackReceive:
     _key = staticmethod(message_key)
     def __init__(self, root, *, ack, client=None, team="harness", capacity=8, allowed_users=(),
                  allowed_channels=(), bot_users=(), notify=None, clock=None, on_step=None):
-        self.ack = ack
+        self.ack, self.root, self.team, self.capacity = ack, os.path.abspath(str(root)), team, capacity
         self.notify = notify or (lambda verdict: None)
         self.allowed_users, self.allowed_channels = set(allowed_users), set(allowed_channels)
         self.bot_users, self.clock = set(bot_users), clock or (lambda: time.strftime("%Y-%m-%dT%H:%M:%S"))
@@ -130,9 +132,19 @@ class SlackReceive:
         return {"state": IDLE, "reason": "무변화", "command": None}
 
     def recover(self):
-        """재기동 1회 — 미완 기록마다 lookup 먼저(새 attempt 0). 반환 = 판정 목록."""
-        return [self._recover(command, entry=entry)
-                for command, entry in sorted(self.latest().items()) if entry.get("state") in UNFINISHED]
+        """재기동 1회 — 미완 기록마다 lookup 먼저(새 attempt 0). 반환 = 판정 목록. r1885: received·hold 먼저 → full 은
+        예산 = max(0, capacity − 그때 남은 일)만큼 새 글(ts 큰 순) 먼저 · 나머지 full 손 0 · 남은 full 수 = observe «보류» 1곳."""
+        rows, ts = sorted(self.latest().items()), lambda row: float((row[1].get("key") or [0, 0, 0])[2] or 0)
+        out = [self._recover(command, entry=entry) for command, entry in rows if entry.get("state") in (RECEIVED, HOLD)]
+        team = getattr(self.client, "team", self.team)
+        room = max(0, getattr(self.client, "capacity", self.capacity) - full_alert.projection.project(self.root, team)["remaining"])
+        full = sorted((row for row in rows if row[1].get("state") == FULL), key=ts, reverse=True)
+        out += [self._recover(command, entry=entry) for command, entry in full[:room]]
+        held = sorted((row for row in self.latest().items() if row[1].get("state") == FULL), key=ts) or [("-", {})]
+        oldest = time.strftime("%m-%d %H:%M", time.localtime(ts(held[0]))) if held[0][1] else "-"
+        count = len(held) if held[0][1] else 0
+        full_alert.observe(self.root, "보류", team, count, 1, "full %d건 · 가장 오래된 %s %s · 정리 = desk 대조 뒤 complete" % (count, oldest, held[0][0]))
+        return out
 
     def _drop_reason(self, event):
         if event.get("type", "message") != "message":
