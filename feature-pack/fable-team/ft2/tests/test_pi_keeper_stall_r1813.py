@@ -23,7 +23,8 @@ if a[0] == "new-session": d["alive"].append(name)
 if a[0] == "send-keys" and "-l" in a and not d.get("noecho"): d["pane"][name] = d["pane"].get(name, "") + a[-1]
 json.dump(d, open(st, "w"))
 if a[0] == "capture-pane": sys.stdout.write(d["pane"].get(name, "✻ Brewed for 3s\n❯ "))
-if a[0] == "display-message": sys.stdout.write("4242\n")
+if a[0] == "display-message":   # r1839 #{session_attached} = 콜론 끝 대상만 숫자 · `=이름` = rc0 빈 줄(실제 tmux 꼴)
+    t = a[a.index("-t") + 1]; sys.stdout.write(("%s\n" % d.get("att", {}).get(name, 0) if t.endswith(":") else "\n") if "#{session_attached}" in a else "4242\n")
 if a[0] == "has-session" and name not in d["alive"]: sys.stderr.write("can't find session: %s\n" % name)
 sys.exit(1 if a[0] == "has-session" and name not in d["alive"] else 0)
 '''

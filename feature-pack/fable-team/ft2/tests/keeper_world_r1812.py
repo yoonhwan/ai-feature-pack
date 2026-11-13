@@ -21,6 +21,8 @@ open(st + ".log", "a").write(json.dumps(a) + "\n")
 if a[0] == "kill-session": d["alive"].remove(name); json.dump(d, open(st, "w"))
 if a[0] == "capture-pane": sys.stdout.write(d["pane"].get(name, ""))
 if a[0] == "has-session" and name not in d["alive"]: sys.stderr.write("can't find session: %s\n" % name)
+if a[0] == "display-message":   # r1839 #{session_attached} · 실제 tmux 처럼 `=이름`(콜론 없음)·없는 세션 = rc0 빈 줄
+    t = a[a.index("-t") + 1]; sys.stdout.write("%s\n" % (d.get("att", {}).get(t[1:-1], 0) if t.endswith(":") and t[1:-1] in d["alive"] else "")); sys.exit(d.get("att_rc", 0))
 sys.exit(0 if name in d["alive"] or a[0] == "kill-session" else 1)
 '''
 STUB = '#!/bin/sh\nprintf "%s\\n" "$*" >> "$0.log"\necho "STUB $1"\nexit "$(cat "$0.rc" 2>/dev/null || echo 0)"\n'
