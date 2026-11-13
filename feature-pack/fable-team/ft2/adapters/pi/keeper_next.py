@@ -69,10 +69,16 @@ def choose(k, team):
     got, state = cards(k, team), ft2_state(k, team)
     if isinstance(got, str) or state is None:
         return k.log("판정 불가", team, "다음 카드 고르기 %s — 다음 카드 0" % (got if isinstance(got, str) else "ft2 state"))
-    (found, r), owners, why, ready = got, state.get("owners") or {}, {}, []
+    cmap, pair = k.cardmap(team), {}   # r1887 짝 표 {work: [경로]} → {카드 stem: 짝 work 집합} · 판독 실패 = 짝 0(stem 만)
+    for work, paths in (cmap.items() if isinstance(cmap, dict) else ()):
+        for p in paths:
+            pair.setdefault(os.path.basename(p)[:-3], set()).add(work)
+    (found, r), done, why, ready = got, state.get("done") or {}, {}, []
+    owners = {s for s in found if ({s} | pair.get(s, set())) & set(state.get("owners") or {})}   # stem·짝 work 중 owner 있음
     for stem, (urgent, high, lines) in sorted(found.items()):
         led = ledger(k, stem)
         block = "배정됨" if led.get("state") == "seat" or stem in owners else led.get("reason") if led.get("reason") in BLOCK else ""
+        block = block or ("끝남" if stem in done or pair.get(stem, set()) & set(done) else "")   # r1887 stem·짝 work done
         place = None if block else target(k, r, lines)
         if not block and place is None:
             block = k.log("판정 불가", team, "%s 대상 팩·BYZ 둘 다 — 건너뜀" % stem) or "대상"
