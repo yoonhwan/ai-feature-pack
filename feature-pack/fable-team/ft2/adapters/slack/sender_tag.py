@@ -7,8 +7,13 @@ AGENTS = frozenset("claude codex opencode cmd pi".split())  # ft-name-lint.sh AG
 _NAME = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+){2,}#[0-9]+")
 
 
-def sender_tag(seat):
-    """`byz-planner-desk-pi#147` → `보낸이 planner-desk` · nano = `<팀>-nano` · qa 범위 1토큰은 역할에 붙임."""
+def sender_tag(seat, seq=None):
+    """`byz-planner-desk-pi#147` → `보낸이 planner-desk` · nano = `<팀>-nano` · qa 범위 1토큰은 역할에 붙임 · r1856 seq = 끝 숫자 1개."""
+    tag = _tag(seat)
+    return "%s %s" % (tag, seq) if tag and seq else tag
+
+
+def _tag(seat):
     if not isinstance(seat, str) or len(seat) > 60 or not _NAME.fullmatch(seat):
         return None
     _project, team, role, *tail = seat.rsplit("#", 1)[0].split("-")
