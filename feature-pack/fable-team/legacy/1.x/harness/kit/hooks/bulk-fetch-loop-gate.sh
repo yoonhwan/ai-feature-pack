@@ -22,6 +22,7 @@ MAX_FILE = 256 * 1024
 SHELLS = {"bash", "sh", "zsh", "dash"}
 LEAD = {"do", "then", "else", "elif", "if", "while", "until", "{", "!", "time"}
 WRAP = {"env", "nohup", "nice", "stdbuf", "command", "exec", "timeout", "gtimeout"}
+XARGS_ARG = {"-n", "-I", "-P", "-L", "-s", "-d", "-a", "-E", "-J", "-R", "-S"}
 GIT_OPT_ARG = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path"}
 W = r"(?<![\w./-])%s(?![\w./-])"
 LOOP_RE = re.compile(W % r"(for|while|until)")
@@ -52,10 +53,16 @@ def mask(text):
                 masked[i:i + 2] = "x" * len(masked[i:i + 2])
             i += 2; continue
         if c in "'\"":
-            j = i + 1
+            j, subs = i + 1, []
             while j < n and text[j] != c:
-                j += 2 if c == '"' and text[j] == "\\" else 1
+                if c == '"' and text.startswith("$(", j):   # r1399 DA R2: 큰따옴표 안 $( ) 는 실행된다 — 가리지 않는다
+                    k = close_paren(text, j + 2); subs.append((j + 2, k)); j = k + 1
+                else:
+                    j += 2 if c == '"' and text[j] == "\\" else 1
             masked[i:j + 1] = "x" * len(masked[i:j + 1])
+            for a, b in subs:
+                ic, im = mask(text[a:b])
+                clean[a:b], masked[a - 2:b + 1] = ic, "$(" + im + text[b:b + 1]
             i = j + 1; continue
         if c == "#" and (i == 0 or text[i - 1] in " \t\n;&|()"):
             j = text.find("\n", i); j = n if j < 0 else j
@@ -76,6 +83,25 @@ def mask(text):
             pending = []; i = j; continue
         i += 1
     return "".join(clean), "".join(masked)
+
+
+def close_paren(text, p):
+    """p = $( 바로 뒤 — 짝 ) 자리(없으면 끝) · 안의 따옴표 덩어리는 건너뛴다."""
+    depth, n = 1, len(text)
+    while p < n:
+        c = text[p]
+        if c == "\\":
+            p += 2; continue
+        if c in "'\"":
+            q = p + 1
+            while q < n and text[q] != c:
+                q += 2 if c == '"' and text[q] == "\\" else 1
+            p = q + 1; continue
+        depth += {"(": 1, ")": -1}.get(c, 0)
+        if depth == 0:
+            return p
+        p += 1
+    return n
 
 
 def pieces(m):
@@ -157,16 +183,36 @@ def unwrap(toks):
     return toks[i:]
 
 
+def heads(toks, depth=0):
+    """실제로 실행되는 명령 토큰들 — 감싸개 벗긴 첫 낱말 · xargs 뒤 명령 · sh -c 문자열 속 조각(r1399 DA R1: echo 인자는 명령이 아니다)."""
+    et = unwrap(toks)
+    if not et:
+        return
+    if et[0].rsplit("/", 1)[-1] == "xargs":
+        j = 1
+        while j < len(et) and et[j].startswith("-"):
+            j += 2 if et[j] in XARGS_ARG else 1
+        yield from heads(et[j:], depth)
+        return
+    inner = shell_c(et)
+    if inner is None:
+        yield et
+    elif depth < 3:
+        c, m = mask(inner)
+        for s, e in pieces(m):
+            yield from heads(tokens(c, s, e), depth + 1)
+
+
 def git_subs(toks):
-    """토큰 속 git 호출마다 (하위 명령, 인자) — 전역 옵션(-C 경로 등)은 건너뛴다."""
-    for i, t in enumerate(toks):
-        if t.rsplit("/", 1)[-1] != "git":
+    """실행 머리가 git 인 호출마다 (하위 명령, 인자) — 전역 옵션(-C 경로 등)은 건너뛴다."""
+    for et in heads(toks):
+        if et[0].rsplit("/", 1)[-1] != "git":
             continue
-        j = i + 1
-        while j < len(toks) and toks[j].startswith("-"):
-            j += 2 if toks[j] in GIT_OPT_ARG else 1
-        if j < len(toks):
-            yield toks[j], toks[j + 1:]
+        j = 1
+        while j < len(et) and et[j].startswith("-"):
+            j += 2 if et[j] in GIT_OPT_ARG else 1
+        if j < len(et):
+            yield et[j], et[j + 1:]
 
 
 def is_source(toks):
@@ -190,16 +236,8 @@ def shell_c(et):
     return None
 
 
-def has_fetch(toks, depth=0):
-    if any(sub == "fetch" for sub, _ in git_subs(toks)):
-        return True
-    inner = next((shell_c(toks[k:]) for k in range(len(toks)) if shell_c(toks[k:]) is not None), None)
-    if inner is None or depth >= 3:
-        return False
-    try:
-        return has_fetch(shlex.split(inner, posix=True), depth + 1)
-    except ValueError:
-        return has_fetch(inner.split(), depth + 1)
+def has_fetch(toks):
+    return any(sub == "fetch" for sub, _ in git_subs(toks))
 
 
 def script_of(et, cwd):
@@ -261,7 +299,7 @@ def scan(text, cwd, src=None, depth=0):
                 return where(lm.start(), done.end())
         for s, e, t in ps:
             et = unwrap(t)
-            if et and et[0].rsplit("/", 1)[-1] == "xargs" and has_fetch(et[1:]) and fed([(stmt_left(m, s), s)]):
+            if et and et[0].rsplit("/", 1)[-1] == "xargs" and has_fetch(et) and fed([(stmt_left(m, s), s)]):
                 return where(stmt_left(m, s), e)
     for s, e, t in ps:
         et = unwrap(t)
