@@ -3,7 +3,7 @@ A2 deliver = 깨움 명령 1회(FT2_SLACK_WAKE · 기본 <root>/.fable-team/comm
 같은 command 기록만 · A4 notify = desk 깨움(같은 command·사유 재알림 0) · A5/A6 `slack reply`·`slack notify` = SlackPublish
 1회. 어댑터 5파일·route 규칙은 손대지 않는다 · 모델 호출 0 · 실패는 rc≠0 기록 1줄(조용한 성공 0)."""
 
-import hashlib, importlib.util, json, os, shlex, subprocess, sys, time  # noqa: E401
+import collections, hashlib, importlib.util, json, os, shlex, subprocess, sys, time  # noqa: E401
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 def _adapter(name):  # 경로로 읽기만(수정 0)
@@ -41,14 +41,31 @@ class Wiring:
         except (OSError, ValueError, AttributeError):
             return None
 
-    def wake(self, to, body, command):  # 깨움 1회 · 7초(하드 룰 12) · 실패 = rc≠0 기록 1줄
+    def wake(self, to, body, command):  # 깨움 1회 · 상한 25초(하드 룰 12 로컬 하네스 · r1833 C3) · 실패 = rc≠0 기록 1줄 · 재시도 0
+        row, head = {}, body.splitlines()[0]
         try:
             rc = subprocess.run(self.wake_argv + ["send", str(to), SENDER, body], capture_output=True,
-                                timeout=7).returncode
+                                timeout=float(os.environ.get("FT2_SLACK_WAKE_TIMEOUT") or 25)).returncode
         except (OSError, subprocess.SubprocessError) as exc:
             rc = self.log("깨움 실패 %s" % type(exc).__name__) or -1
-        self._append({"t": "wake", "to": to, "command": command, "rc": rc, "head": body.splitlines()[0]})
+            if isinstance(exc, subprocess.TimeoutExpired):  # 잘린 send = 적재 3값 판정 1줄(조용한 유실 0)
+                row = {"why": "상한 초과 · 적재 " + self.landed(head)}
+        self._append(dict({"t": "wake", "to": to, "command": command, "rc": rc, "head": head}, **row))
         return rc
+
+    def landed(self, head):  # 우편함 log 끝 200줄에 그 본문 첫 줄이 있나(읽기만) · 못 읽음 = 판정 불가
+        try:
+            with open(os.path.join(self.root, ".fable-team", "comm", "mailbox.log.jsonl"), encoding="utf-8") as handle:
+                tail = collections.deque(handle, 200)
+        except (OSError, ValueError):
+            return "판정 불가"
+        for line in tail:
+            try:
+                if (json.loads(line).get("body") or "").splitlines()[:1] == [head]:
+                    return "있음"
+            except (ValueError, AttributeError):
+                continue
+        return "없음"
 
     def deliver(self, to, kind, lines, row=None):  # route 가 dispatched 뒤에만 부른다(A7) — 방금 쓴 route 행이 그 사건이다
         row = row or self.router.entries(route.ROUTE)[-1]
