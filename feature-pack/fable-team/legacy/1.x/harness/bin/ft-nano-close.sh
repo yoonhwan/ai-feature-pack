@@ -410,7 +410,7 @@ _wt_clean_plan() {
   [ -n "$wt" ] && [ -d "$wt" ] || return 0
   mkdir -p "$WT_CLEAN_DIR"; PLAN="$WT_CLEAN_DIR/$SEAT.sh"; WT_MARK=planned
   # --wt/--branch: 자율 정리 범위 밖(브랜치 nano/* 아님) — sweep(*.sh 순회) 밖인 .sh.hil 로만 생성한다. 실행은 사람(! bash <계획>).
-  [ "$NAMED" != 1 ] || [ "${_RERUN_STD:-0}" = 1 ] || PLAN="$WT_CLEAN_DIR/$SEAT.sh.hil"   # r572: 같은-값 named 재실행(_RERUN_STD=1)은 표준 좌석이므로 실행 계획(.sh)
+  [ "$NAMED" != 1 ] || [ "${_RERUN_STD:-0}" = 1 ] || [ "${_PK_ON:-0}" = 1 ] || PLAN="$WT_CLEAN_DIR/$SEAT.sh.hil"   # r1405: 팩 계획(_PK_ON)도 실행 계획(.sh) · r572: 같은-값 named 재실행(_RERUN_STD=1)은 표준 좌석이므로 실행 계획(.sh)
   [ "${FT_WT_AUTOCLEAN:-1}" != 0 ] || WT_MARK="planned(autoclean=0)"
   # r166 계획 버전 표식 — 이 생성기 파일의 blob sha. ft-wt-sweep.sh 가 «옆의 라이브 생성기» 와 대조해 다르면 실행을 거부한다(옛 생성기 계획 = 옛 가드).
   local planver; planver="$(git hash-object -- "$HERE/ft-nano-close.sh" 2>/dev/null)"
@@ -419,7 +419,7 @@ _wt_clean_plan() {
     printf '# plan-ver: %s\n' "$planver"
     printf '# baton 부작용(승인 범위에 명시): 아카이브 30일 초과분 prune · 분기 원장(.baton/branches.json) 의 같은 child_branch 행 status=abandoned.\n'
     # FT_NANO_WIP 는 close 실행 시점 값을 계획에 «굽는다» — sweep 은 나중 다른 프로세스/환경에서 돌아 close 의 env 를 못 물려받는다.
-    printf 'SEAT=%q; KEY=%q; WT=%q; PREFIX=%q; LEDGER=%q; PLAN=%q; FT_NANO_WIP=%q; NAMED_BR=%q; SWEEPER=%q; GEN=%q; PLANVER=%q; PLAN_ONLY=%q; LANDCHK=%q; MAINREF=%q; ROOTR=%q\n' "$SEAT" "$key" "$wt" "$NANO_PREFIX" "$LEDGER" "$PLAN" "${FT_NANO_WIP:-0}" "$([ "$NAMED" = 1 ] && echo "$NBR")" "$HERE/ft-wt-sweep.sh" "$HERE/ft-nano-close.sh" "$planver" "$PLAN_ONLY" "$HERE/ft-landed-check.sh" "${PO_MAINREF:-}" "$ROOT"
+    printf 'SEAT=%q; KEY=%q; WT=%q; PREFIX=%q; LEDGER=%q; PLAN=%q; FT_NANO_WIP=%q; NAMED_BR=%q; SWEEPER=%q; GEN=%q; PLANVER=%q; PLAN_ONLY=%q; LANDCHK=%q; MAINREF=%q; ROOTR=%q\n' "$SEAT" "$key" "$wt" "$NANO_PREFIX" "$LEDGER" "$PLAN" "${FT_NANO_WIP:-0}" "$([ "${_PK_ON:-0}" = 1 ] && echo "$SEAT_BR" || { [ "$NAMED" = 1 ] && echo "$NBR"; })" "$HERE/ft-wt-sweep.sh" "$HERE/ft-nano-close.sh" "$planver" "$PLAN_ONLY" "$HERE/ft-landed-check.sh" "${PO_MAINREF:-}" "$ROOT"
     cat <<'SH'
 # r173 자기검사 — 어떤 동작보다 먼저: 생성기의 «지금» blob sha 가 굽힌 plan-ver 와 같을 때만 계속한다(사람이 bash 로 직접 실행하는 .sh.hil 도 sweep 을 거치지 않고 여기서 멈춘다). 비교 불능(생성기 없음·hash 실패·빈 plan-ver)도 STALE.
 _lv="$(git hash-object -- "$GEN" 2>/dev/null)" || _lv=""
@@ -804,6 +804,41 @@ _wt_clean_rerun() {
   [ -n "$PLAN" ] && [ -f "$PLAN" ] || { echo "INFO 재실행 — 계획 생성 실패(정리 계획 0)"; return 0; }
   WT_RERUN=1
   _wt_clean_run
+}
+# ★r1405★ 팩 나노 정리 — r508 이 «별 경로» 로 미룬 자리(그 길은 만들어진 적 없음 → 착지 끝 팩 워크트리가 남았다 · 손 정리는 파괴 훅이 막는다).
+#   찾기 = 팩 리포(FT_PACK_ROOT · ROOT 와 같으면 건너뜀) 등록 워크트리 중 .worktrees/ 아래 ∧ (이름 <키>[-rN] ∨ 가지 [nano/]<키>[-rN]) — 정확히 1개만 · 2개 이상 = INFO + 정리 0 · 0개 = 조용히 0(BYZ 나노 출력 불변).
+#   생성 = 가지 nano/<키>[-rN] ∧ 착지(ft-landed-check rc0)일 때만 · 같은 생성기(_wt_clean_plan · 가드 그대로) · 폴더 = <팩>/.fable-team/state/wt-clean(sweep 순회 밖) · 실행 = kill 뒤 _pk_run · 브랜치 삭제 0.
+#   BYZ 계획(PLAN·WT_MARK)과 따로 둔다 — BYZ 쪽 해석·게이트·계획은 손대지 않는다. 가지는 close 가 확인한 값을 계획에 굽는다(NAMED_BR 칸 · 팩 .worktree-info.json 은 추적 파일이라 가지 값이 낡았다).
+PK_PLAN=""; _PK_ON=0; _PK_INFO=""; _PK_WT=""; _PK_BR=""; _PK_ROOT=""
+_pack_find() {  # → _PK_WT·_PK_BR·_PK_ROOT 정하고 rc0 · 못 정하면 rc1(_PK_INFO 1줄 또는 빈 값)
+  local pk porc p br rel hits=() brs=()
+  _PK_INFO=""; _PK_WT=""; _PK_BR=""; _PK_ROOT=""
+  pk="$(cd "${FT_PACK_ROOT:-$HOME/Project/ai-feature-pack}" 2>/dev/null && pwd -P)" || return 1
+  [ "$pk" != "$ROOT" ] || return 1   # 팩이 곧 ROOT = BYZ 쪽 계획이 이미 그 워크트리를 본다(계획 둘 0)
+  porc="$(git -C "$pk" worktree list --porcelain 2>/dev/null)" || { _PK_INFO="INFO 팩 워크트리 — $pk 목록 조회 실패 · 정리 0"; return 1; }
+  while IFS=$'\t' read -r p br; do
+    rel="${p#"$pk/.worktrees/"}"; [ "$rel" != "$p" ] && [ -n "$rel" ] || continue
+    [[ "$rel" =~ ^${_KEY}(-r[0-9]+)?$ ]] || [[ "${br#nano/}" =~ ^${_KEY}(-r[0-9]+)?$ ]] || continue   # r1405-mut:key
+    hits+=("$p"); brs+=("$br")
+  done < <(awk '/^worktree /{if(p!="") print p "\t" b; p=substr($0,10); b=""} /^branch /{b=substr($0,8); sub("^refs/heads/","",b)} END{if(p!="") print p "\t" b}' <<<"$porc")
+  if [ "${#hits[@]}" -gt 1 ]; then _PK_INFO="INFO 팩 워크트리 — 좌석 키(${_KEY}) 후보 ${#hits[@]}(${hits[*]}) · 추측 금지 · 정리 0"; return 1; fi   # r1405-mut:count
+  [ "${#hits[@]}" -eq 1 ] || return 1
+  _PK_WT="${hits[0]}"; _PK_BR="${brs[0]}"; _PK_ROOT="$pk"
+}
+_pack_plan() {  # <팩 워크트리> <가지> <팩 루트> → PK_PLAN(못 만들면 빈 값 + INFO 1줄) · BYZ 쪽 PLAN·WT_MARK·SEAT_WT 는 되돌려 둔다
+  local wt="$1" br="$2" pk="$3" mref lw sw="${SEAT_WT:-}" sb="${SEAT_BR:-}" sp="${PLAN:-}" sm="${WT_MARK:-}" sd="$WT_CLEAN_DIR"   # 재실행 갈래는 PLAN·WT_MARK 미정(set -u)
+  PK_PLAN=""
+  _is_seat_branch "$br" || { echo "INFO 팩 워크트리 $wt — 가지 이름 nano/${_KEY}[-rN] 아님(${br:-detached}) · 정리 0(손 정리 = 사람)"; return 0; }   # r1405-mut:nano
+  mref=origin/main; git -C "$pk" rev-parse -q --verify "$mref^{commit}" >/dev/null 2>&1 || mref=main
+  lw="$(nf_bound 25 bash "$HERE/ft-landed-check.sh" "$pk" "$mref" "$br" "$_KEY" 2>&1)" || { echo "INFO 팩 워크트리 $wt — 착지 확인 안 됨($mref · ${lw##*$'\n'}) · 정리 0"; return 0; }
+  SEAT_WT="$wt"; SEAT_BR="$br"; WT_CLEAN_DIR="$pk/.fable-team/state/wt-clean"; _PK_ON=1
+  _wt_clean_plan; PK_PLAN="$PLAN"   # r1405-mut:plan
+  _PK_ON=0; SEAT_WT="$sw"; SEAT_BR="$sb"; PLAN="$sp"; WT_MARK="$sm"; WT_CLEAN_DIR="$sd"
+  [ -z "$PK_PLAN" ] || echo "워크트리 정리 계획(팩): $PK_PLAN (팩 리포 $pk · $br 착지=${lw%%$'\n'*} · 세션 kill 직후 실행 · 브랜치 삭제 0)"
+}
+_pk_run() {  # kill 뒤(또는 세션이 이미 없을 때) 팩 계획 실행 — BYZ 와 같은 _wt_clean_run(잠금·.done/.hil 이동·원장 표식)
+  [ -n "$PK_PLAN" ] && [ "${FT_WT_AUTOCLEAN:-1}" != 0 ] || return 0
+  local PLAN="$PK_PLAN"; _wt_clean_run
 }
 OC_BIN="${FT_OC_REAP_BIN:-$HERE/ft-opencode-reap.sh}"; OC_PF="${FT_OC_STATE_DIR:-$HOME/.claude/state/opencode}/$(printf '%s' "$SEAT" | tr -c 'A-Za-z0-9._#-' '_').pids"
 # r286 + R387 §7-3·§9-3 — opencode 좌석 = ft-opencode-reap.sh --apply(세션 kill «뒤» · 부모 잃은 serve 까지) · left≠0 ∨ rc≠0 = CLOSE-FAIL + exit 1(명부는 삭제됨 → 같은 close 재실행 = pid 파일로 다시 회수)
@@ -1251,6 +1286,8 @@ if [ "$_hrc" -eq 1 ] && [ -n "$_lrow" ]; then
     echo "KILLED $SEAT (@zc_v65_active 해제 · 세션 kill · 브랜치 보존)"
   fi
   _oc_close
+  # r1405: 재실행도 좌석 키로 팩 워크트리를 찾는다(원장 wt=none 으로 닫힌 팩 나노 · 착지 뒤 같은 close 재실행이 정리)
+  if [ "$SHARED" != 1 ]; then if _pack_find; then _pack_plan "$_PK_WT" "$_PK_BR" "$_PK_ROOT"; _pk_run; elif [ -n "$_PK_INFO" ]; then echo "$_PK_INFO"; fi; fi
   if [ "$_RERUN_STD" = 1 ]; then _wt_clean_rerun
   elif [ "$_RERUN_INFOED" = 1 ]; then :   # 사유 INFO 는 위에서 이미 냈다(중복 0)
   elif [ -f "$WT_CLEAN_DIR/$SEAT.sh" ]; then echo "INFO 워크트리 정리 계획 $WT_CLEAN_DIR/$SEAT.sh — ft-wt-sweep.sh 가 이어서 실행"
@@ -2059,7 +2096,14 @@ else _wt_clean_plan; fi
 [ "$SHARED" != 1 ] || WT_MARK="mode=shared-wt wt=$SH_TOP (정리 0 · 브랜치 0)"   # 계획·정리 0 — 원장 행에 모드를 남긴다
 [ "$NAMED" != 1 ] || WT_MARK="mode=named-wt wt=$SEAT_WT branch=$NBR (계획만 · 정리 0 · 브랜치 0)"
 [ "${SEAT_WT_OTHER:-0}" != 1 ] || WT_MARK="mode=std-wt-other-branch wt=$SEAT_WT branch=$SEAT_BR (표준 경로 · 가지 이름만 다름 · 계획 .sh · 브랜치 0)"
-[ "$PACK_WT" != 1 ] || WT_MARK="mode=pack-wt wt=$SEAT_WT branch=$NBR repo=$SEAT_REPO (계획 0 · 정리 0 · 브랜치 0)"
+# r1405: 팩 워크트리 정리 계획 — BYZ 계획과 따로(착지 전 보존·후계 공유·never-started·공유 워크트리는 손대지 않는다)
+PK_PLAN=""; _pk_tag=""
+if [ "$SHARED" != 1 ] && [ -z "$APPROVED" ] && [ -z "$NS_SUCC" ] && [ -z "$NS_LAND" ]; then
+  if [ "$PACK_WT" = 1 ]; then _pack_plan "$SEAT_WT" "$SEAT_BR" "$SEAT_REPO"
+  elif _pack_find; then _pack_plan "$_PK_WT" "$_PK_BR" "$_PK_ROOT"; [ -z "$PK_PLAN" ] || _pk_tag=" · pack=$_PK_WT"   # r1405-mut:find
+  elif [ -n "$_PK_INFO" ]; then echo "$_PK_INFO"; fi
+fi
+[ "$PACK_WT" != 1 ] || WT_MARK="mode=pack-wt wt=$SEAT_WT branch=$NBR repo=$SEAT_REPO ($([ -n "$PK_PLAN" ] && echo "계획 $PK_PLAN · kill 뒤 실행" || echo "계획 0 · 정리 0") · 브랜치 0)"
 # 원장 append 도 계획의 mark() 와 «같은» mkdir 락(<원장>.lock) 아래 — 락 밖 >> 와 mark 의 read→replace 가 겹치면 행이 소실된다(DA r3 실측 204/8000). 락 실패는 REJECT 가 아니라 append 강행(닫힘 행이 없는 것이 더 나쁘다) + 경고.
 _lock="$LEDGER.lock"; _i=0
 until mkdir "$_lock" 2>/dev/null; do _i=$((_i+1)); [ "$_i" -lt 100 ] || { echo "WARN 원장 락 10s 초과($_lock) — 락 없이 처리" >&2; _lock=""; break; }; sleep 0.1; done
@@ -2087,7 +2131,7 @@ elif [ "$RERUN" = 1 ] && [ "$_rowexists" = 1 ]; then
   [ -z "$_lock" ] || rmdir "$_lock"
 else
   printf -- '- **[%s KST, `date` 실측] `%s` 닫힘(ft-nano-close)**: ①결과 `%s` ②회수 seq %s ③%s. kill=%s%s · %s\n' \
-    "$(date '+%Y-%m-%d %H:%M')" "$SEAT" "$RESULT" "$RECV" "$(if [ "$ABSENT" = 1 ]; then echo "세션 없음(백필)"; elif [ "$BACKFILL" = 1 ]; then echo "세션·워크트리 없음(backfill · 착지 PR)"; else echo "유휴 jsonl 기록/mtime(codex) ≥${IDLE_MIN}분"; fi)" "$KILL" "$([ "$SUPER" = 1 ] && echo " · superseded-by=$SUPERSEDED")${_su_tag:+ ·$_su_tag}" "$([ "$SHARED" = 1 ] || [ "$NAMED" = 1 ] || [ "${SEAT_WT_OTHER:-0}" = 1 ] && echo "$WT_MARK" || echo "wt=$WT_MARK")" >> "$LEDGER"
+    "$(date '+%Y-%m-%d %H:%M')" "$SEAT" "$RESULT" "$RECV" "$(if [ "$ABSENT" = 1 ]; then echo "세션 없음(백필)"; elif [ "$BACKFILL" = 1 ]; then echo "세션·워크트리 없음(backfill · 착지 PR)"; else echo "유휴 jsonl 기록/mtime(codex) ≥${IDLE_MIN}분"; fi)" "$KILL" "$([ "$SUPER" = 1 ] && echo " · superseded-by=$SUPERSEDED")${_su_tag:+ ·$_su_tag}$_pk_tag" "$([ "$SHARED" = 1 ] || [ "$NAMED" = 1 ] || [ "${SEAT_WT_OTHER:-0}" = 1 ] && echo "$WT_MARK" || echo "wt=$WT_MARK")" >> "$LEDGER"
   _arc=$?; [ -z "$_lock" ] || rmdir "$_lock"
   [ "$_arc" -eq 0 ] || { echo "FAIL $SEAT — 원장 append 실패(rc=$_arc · 명부는 삭제됨 · 같은 close 재실행이 RERUN 으로 이어간다): $LEDGER"; exit 1; }   # R400 r3 ④ — CLOSED 0
 fi
@@ -2096,7 +2140,7 @@ if [ "$NAMED" = 1 ]; then
   _hb="$(dirname "$0")/ft-hil.sh"; _hm=""  # R83: 사람 ! 실행 안내 = 짧은 링크 · ft-hil.sh 없거나 실패면 지금 문구 + WARN
   [ -z "$PLAN" ] || { command -v "$_hb" >/dev/null 2>&1 && _hm="$("$_hb" --add "$PLAN" 2>/dev/null | tail -1)"; [ -n "$_hm" ] || echo "WARN ft-hil 실패 — 경로 안내로 후퇴" >&2; }
   [ -z "$PLAN" ] || echo "워크트리 정리 계획: $PLAN — $_why 자율 정리 범위 밖 — 사람 ! 실행: ${_hm:-! bash $PLAN} (자동 wt-clean 0 · 브랜치 삭제 0)"
-  [ "$PACK_WT" != 1 ] || echo "INFO 팩 워크트리 정리 = 별 경로 — $SEAT_WT (팩 리포 $SEAT_REPO · 이 닫기는 계획 0 · BYZ 쪽 같은 이름 워크트리는 기존 규칙 그대로)"
+  [ "$PACK_WT" != 1 ] || [ -n "$PK_PLAN" ] || echo "INFO 팩 워크트리 정리 = 별 경로 — $SEAT_WT (팩 리포 $SEAT_REPO · 이 닫기는 계획 0 · BYZ 쪽 같은 이름 워크트리는 기존 규칙 그대로)"
 elif [ -n "$PLAN" ]; then echo "워크트리 정리 계획: $PLAN (실행은 세션 kill 직후 — 미완이면 ft-wt-sweep.sh)"; fi
 # r6(DA r5 MINOR e): 명부 pop 은 ABSENT 여부와 무관하게 위에서 항상 실행된다 — 「명부 확인」은 사실과 달랐다.
 nf_bound "${_SHCAP:-$(nf_cap "$(nf_fixed sheet)" 1)}" bash "$HERE/ft-sheet-events.sh" commit "$_SK" >/dev/null || true   # 원장 append 직후 = 닫힘 사건 성공(append 실패는 stderr SHEET-EVENT-PENDING)
@@ -2105,8 +2149,8 @@ _sp_tag+="$_su_tag"   # r450
 # r448: 세션 kill «앞»(세션이 이미 없어도) 그 좌석이 띄운 백그라운드 루프 정지 — left≠0 ∨ rc≠0 = CLOSE-FAIL + exit 1(세션 보존 · 명부는 삭제됨 → 같은 close 재실행이 RERUN 으로 이어간다)
 _wtarg=(); [ "$SHARED" = 1 ] || [ -z "${SEAT_WT:-}" ] || _wtarg=(--wt "$SEAT_WT")
 _seat_reap || { echo "CLOSE-FAIL reap ${_rp_left:-left=?} rc=$_rp_rc — $SEAT 세션 보존(명부는 삭제됨 · 루프를 멈춘 뒤 같은 close 재실행)"; exit 1; }
-if [ "$ABSENT" = 1 ]; then _oc_close; echo "CLOSED-ABSENT $SEAT$_sp_tag (명부 삭제 · 원장 표식) — 워크트리 정리 계획만 · reap left=0 rc=0"; exit 0; fi
-if [ "$BACKFILL" = 1 ]; then _oc_close; echo "CLOSED-BACKFILL $SEAT$_sp_tag (명부 삭제 · 원장 append) — 세션·워크트리 없음 · kill 0 · 정리 계획 0 · 브랜치 보존 · reap left=0 rc=0"; exit 0; fi   # r1123
+if [ "$ABSENT" = 1 ]; then _oc_close; _pk_run; echo "CLOSED-ABSENT $SEAT$_sp_tag (명부 삭제 · 원장 표식) — 워크트리 정리 계획만 · reap left=0 rc=0"; exit 0; fi
+if [ "$BACKFILL" = 1 ]; then _oc_close; _pk_run; echo "CLOSED-BACKFILL $SEAT$_sp_tag (명부 삭제 · 원장 append) — 세션·워크트리 없음 · kill 0 · 정리 계획 0 · 브랜치 보존 · reap left=0 rc=0"; exit 0; fi   # r1123
 echo "CLOSED $SEAT$_sp_tag (명부 삭제 · 원장 append) — 좌석은 정지 레디 · reap left=0 rc=0"
 # 슬롯 채움(오빠 2026-10-02): 닫은 같은 턴에 빈 석·후보를 보인다 — 출력만, 실패해도 close 결과는 그대로.
 step slots
@@ -2121,4 +2165,5 @@ echo "KILLED $SEAT (@zc_v65_active 해제 · 세션 kill · 브랜치 보존)"
 _oc_close   # r286 + R387 — 위 정의(세션 kill «뒤»)
 # 세션이 사라졌다 — 이제 계획을 실행한다(계보의 다른 세션·cwd 보유가 남아 있으면 계획이 skipped:좌석/cwd 로 대기시킨다)
 [ "$NAMED" != 1 ] && [ -n "$PLAN" ] && [ "${FT_WT_AUTOCLEAN:-1}" != 0 ] && _wt_clean_run   # --wt/--branch 는 자동 실행 0(계획만 · 사람 ! 실행)
+_pk_run   # r1405: 팩 워크트리 계획(있으면) — 세션이 사라진 뒤 바로 실행(sweep 은 팩 폴더를 돌지 않는다)
 exit 0
