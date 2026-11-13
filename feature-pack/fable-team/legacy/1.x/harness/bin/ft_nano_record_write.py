@@ -159,6 +159,7 @@ def cmd_landed(ctx, a):
 
     def plan(sec):
         own = {s: (k, c) for s, k, c in owners(ctx, doc, stem, sec)}
+        own = own or {s: ("닫기", stem) for s in [doc.get("_master")] if s and s == a.seat}   # r1805 A1
         if a.seat not in own:   # r1717-mut:turnseat
             raise Reject(f"{a.seat} 은 {stem} 의 차례 좌석이 아님(지금 차례 = {' '.join(own) or '없음'})")
         info["sort"], info["cur"] = own.get(a.seat) or ("닫기", stem)
