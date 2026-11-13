@@ -10,7 +10,7 @@ def _adapter(name):  # 경로로 읽기만(수정 0)
     spec = importlib.util.spec_from_file_location("ft2_wire_" + name, os.path.join(_HERE, name + ".py"))
     spec.loader.exec_module(module := importlib.util.module_from_spec(spec))
     return module
-route, publish, receive = map(_adapter, ("route", "publish", "receive"))
+route, publish, receive, sender_tag = map(_adapter, ("route", "publish", "receive", "sender_tag"))
 binding, SENDER, USAGE, UNDECIDED = route.binding, "ft2-slack-listen", 2, 3
 
 
@@ -188,6 +188,10 @@ def main(argv, post=None, sleep=None):
         body = open(opts["body-file"], encoding="utf-8").read()
     except OSError:
         return say("usage", rc=USAGE, reason="body-file 판독 불가")
+    if tag := sender_tag.sender_tag(opts["seat"]):  # r1850 — 장부 기록 앞 = 재송·되살림도 같은 바이트
+        body = "%s\n\n%s" % (body, tag)
+    else:  # lint 실패 = 표시 0 · 게시는 그대로
+        sys.stderr.write("보낸이 표시 0 — 좌석 이름 lint 실패: %s\n" % opts["seat"])
     ledger = binding.ThreadBinding(opts["root"], opts["team"])
     rows = [r for r in ledger.settled().values() if r["key"][2] == opts["thread"]]
     if verb == "notify":  # 수신 채널 thread 만 — 허용 밖 채널 binding = 게시 0(보정1 R1)
