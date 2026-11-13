@@ -145,6 +145,7 @@ class Landing:
             return self.log("HELD", team, "%s %s" % (work, why))
         argv = ["complete", "--root", self.root, "--team", team, "--work", work, "--attempt", attempt]
         out, _rc = cli.run(argv)
+        self.fa.journal(self.root, team, out, work)   # r1886 ⓓ 쓰기 거절·성공 둘 다
         if not self.done(team, work):
             return self.log("판정 불가", team, "%s complete 뒤 done 확인 못 함(%s) — B2 0" % (work, out.get("result")))
         self.log("COMPLETED", team, "%s 착지 %s ref %s" % (work, sha, ref))
