@@ -120,22 +120,33 @@ def _received(root, team):  # 수신기가 받아들인 글 키(거른 글 = ign
                 if r.get("key") and r.get("state") != receive.IGNORED}
 
 
-def _token(path):
+def _env_path(root, team):  # r1818 E5 — 수신기가 남긴 env 경로 · 파일 없음 = None(다음 단계) · 못 읽음 = ""
+    try:
+        with open(os.path.join(os.path.abspath(root), ".fable-team", "teams", team, "slack", "ENV_PATH"),
+                  encoding="utf-8") as handle:
+            return handle.read().strip()
+    except FileNotFoundError:
+        return None
+    except (OSError, ValueError):
+        return ""
+
+
+def _token(path, fallback=True):
     try:
         with open(path, encoding="utf-8") as handle:
             pairs = [ln.strip().split("=", 1) for ln in handle if "=" in ln and not ln.lstrip().startswith("#")]
-    except (OSError, TypeError):  # 경로 없음 = 환경변수
-        return os.environ.get("SLACK_BOT_TOKEN")
+    except (OSError, TypeError, ValueError):  # 경로 없음 = 환경변수 · ENV_PATH 대상(fallback=False) = False(판독 불가)
+        return os.environ.get("SLACK_BOT_TOKEN") if fallback else False
     return {k.replace("export ", "", 1).strip(): v.strip().strip("'\"") for k, v in pairs}.get("SLACK_BOT_TOKEN")
 
 
 def slack_post(token):  # chat.postMessage · 7초 · 재시도는 publish MAX_POSTS 몫(여기 0) · 응답 유실 = ResponseLost
     spec = importlib.util.spec_from_file_location("ft2_wire_socket", os.path.join(_HERE, "socket.py"))
     spec.loader.exec_module(socket := importlib.util.module_from_spec(spec))  # 늦게 읽음 = 순환 import 0
-    def post(channel, thread_ts, text):
+    def post(channel, thread_ts, text, metadata):  # metadata = JSON 문자열(form 의 dict repr 0 · r1818 E1)
         try:
-            return socket.web_api("chat.postMessage", token, dict(channel=channel, thread_ts=thread_ts, text=text),
-                                  retry=False)["ts"]
+            return socket.web_api("chat.postMessage", token, dict(channel=channel, thread_ts=thread_ts, text=text,
+                                  metadata=json.dumps(metadata, ensure_ascii=False)), retry=False)["ts"]
         except socket.publish.RateLimited as exc:
             raise publish.RateLimited(exc.retry_after)
         except OSError as exc:
@@ -168,13 +179,17 @@ def main(argv, post=None, sleep=None):
     if not now or not now.open:  # binding 없음·닫힘 = 게시 0(새 root 를 만드는 길 0)
         return say("refused", rc=USAGE, reason="binding 없음" if not now else "닫힘")
     if post is None:
-        token = _token(opts.get("env") or os.environ.get("FT2_SLACK_ENV"))
+        path = opts.get("env") or os.environ.get("FT2_SLACK_ENV")  # --env → FT2_SLACK_ENV → ENV_PATH → 셸 env
+        saved = None if path else _env_path(opts["root"], opts["team"])
+        token = _token(path) if saved is None else _token(saved, fallback=False)
+        if token is False:  # ENV_PATH 가 가리킨 파일 판독 실패 = 다음 단계로 넘기지 않는다
+            return say("판정불가", rc=UNDECIDED, reason="ENV_PATH %s 판독 불가" % (saved or '""'))
         if not token:
             return say("판정불가", rc=UNDECIDED, reason="SLACK_BOT_TOKEN 없음")
         post = slack_post(token)
     key = binding.thread_key(now.workspace, now.channel, now.root)
     pub = publish.SlackPublish(opts["root"], team=opts["team"], bindings=ledger,
-                               post=lambda root_ts, text, marker: post(key.channel, root_ts, text),
+                               post=lambda root_ts, text, marker, metadata: post(key.channel, root_ts, text, metadata),
                                sleep=sleep or (lambda s: time.sleep(min(float(s), 7))))
     if verb == "reply":  # 역할 답 의도 키 = 업무 command 그대로 · gen = binding 에서
         intent, seat, gen = opts["command"], opts["seat"], now.gen

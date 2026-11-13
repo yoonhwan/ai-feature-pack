@@ -143,18 +143,12 @@ class Listener:  # 상주 수신기 1개 = 채널 1개 · 팀 1곳 · 어댑터 
                 row for row in self.bindings.entries() if row.get("key") == list(key)]:
             self.bindings.bind(key, self.master)  # 새 root 첫 binding(A5b) — 닫힌 적 있으면 묶지 않는다
         return self._receipt(key, self.router.route(event)) if event else self.router.route(None)
-    def _receipt(self, key, row):  # dispatched 1건 = 같은 thread 영수 1줄 · 그 밖(duplicate·hold·닫힘 등) = 게시 0
-        got = (self.receive.latest().get(row.get("command")) or {}).get("receipt") or {}
-        try:
-            if row.get("state") == route.DISPATCHED and (now := self.bindings.get(key)) is not None and now.open:
-                self.publish.reply(key, "receipt:" + row["command"], "접수 %s" % got.get("attempt"), now.seat, now.gen)
-        except Exception as exc:
-            self.log("영수 게시 실패 %s" % type(exc).__name__)
+    def _receipt(self, key, row):  # r1818 E3 — 접수 = receive 장부 기록만 · Slack 게시 0(역할 답이 첫 반응)
         return row
-    def _post(self, root_ts, text, marker):
-        try:  # 응답 유실 = 결과 불명 · 재송 0(publish 계약 11)
-            return self.web("chat.postMessage", self.bot_token,
-                            dict(channel=self.channel, thread_ts=root_ts, text=text), retry=False)["ts"]
+    def _post(self, root_ts, text, marker, metadata):
+        try:  # 응답 유실 = 결과 불명 · 재송 0(publish 계약 11) · metadata = JSON 문자열(form 의 dict repr 0)
+            return self.web("chat.postMessage", self.bot_token, dict(channel=self.channel, thread_ts=root_ts, text=text,
+                            metadata=json.dumps(metadata, ensure_ascii=False)), retry=False)["ts"]
         except OSError as exc:
             raise publish.ResponseLost(type(exc).__name__)
     def _fetch(self, channel, thread, after, limit):
@@ -163,6 +157,19 @@ class Listener:  # 상주 수신기 1개 = 채널 1개 · 팀 1곳 · 어댑터 
                        dict(channel=channel, ts=thread, limit=limit, **({"oldest": after} if after else {})))
         rows = [dict(m, team=team, root=m.get("ts") == thread) for m in out.get("messages") or []]
         return {"rows": rows, "next": out.get("has_more") and (out.get("response_metadata") or {}).get("next_cursor") or ""}
+
+def record_env_path(root, team, env):  # r1818 E4 — 읽은 --env 절대경로 1줄(토큰 값 0) · 같으면 쓰기 0 · 임시→mv
+    path, line = os.path.join(os.path.abspath(root), ".fable-team", "teams", team, "slack", "ENV_PATH"), os.path.abspath(env) + "\n"
+    try:
+        with open(path, encoding="utf-8") if os.path.exists(path) else open(os.devnull) as handle:
+            if handle.read() == line:
+                return
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path + ".tmp", "w", encoding="utf-8") as handle:
+            handle.write(line)
+        os.replace(path + ".tmp", path)
+    except (OSError, ValueError) as exc:  # 기록 실패 = 수신은 계속 · 보이는 줄 1(좌석은 --env 로 우회)
+        sys.stderr.write("ENV_PATH 기록 실패 %s\n" % type(exc).__name__)
 
 def say(word, reason, rc):
     sys.stdout.write(json.dumps({"result": word, "reason": reason}, ensure_ascii=False) + "\n")
@@ -176,6 +183,7 @@ def main(argv):
         names, master = read_inputs(opts["env"], opts["owner-seats"])
     except Undecided as exc:
         return say("판정 불가", str(exc), UNDECIDED)
+    record_env_path(opts["root"], opts.get("team", "planner"), opts["env"])
     listener = Listener(opts["root"], channel=opts["channel"], app_token=names["SLACK_APP_TOKEN"],
                         bot_token=names["SLACK_BOT_TOKEN"], master=master, team=opts.get("team", "planner"),
                         users=tuple(u for u in opts.get("users", "").split(",") if u),
