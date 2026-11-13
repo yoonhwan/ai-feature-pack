@@ -366,6 +366,31 @@ FEAT_OK=1
 if [ -n "$LIVE_WT" ] && ! git rev-parse --verify -q "$FEAT^{commit}" >/dev/null 2>&1; then
   say "✗" "① 판정 불가 — 기준 줄기 $FEAT 를 못 풂(FT_NANO_FEAT 확인)"; FAIL=1; FEAT_OK=0; LIVE_WT=""
 fi
+# ★r1414: 기준 줄기 꾸밈 막기★ — FT_NANO_FEAT 를 «준» 회차만(기본 origin/main = 지금과 같음). 나노 HEAD·N^{commit}·축약 sha 를 주면 FEAT..HEAD 가 비어 ① 이 «미랜딩 0» 으로 통과했다(r1411 사전 DA).
+#   받는 값 ⓐ 알려진 줄기 ref 이름 = refs/heads·refs/remotes 에 그 이름 그대로 있는 가지(현역 나노 가지는 아님) — 팀 줄기(feat/feature-main 등)는 origin/main 조상이 아니라 이 길로 받는다
+#           ⓑ 그 밖(sha·식)은 풀린 커밋이 origin/main 의 조상(같음 포함)이고, origin/main 위에서 뜬 현역 나노 base_sha 모두의 후손일 때만(옛 조상 A 로 «다른 줄기» 빼기 0)
+_feat_guard(){ # → 막을 이유 1줄 · 빈 출력 = 받음
+  local fs ms w b sha
+  if git show-ref -q --verify "refs/heads/$FEAT" || git show-ref -q --verify "refs/remotes/$FEAT"; then
+    for w in $LIVE_WT; do
+      b="$(git -C "$ROOT/.worktrees/$w" symbolic-ref -q --short HEAD 2>/dev/null)" || continue
+      if [ "$b" = "$FEAT" ] || [ "origin/$b" = "$FEAT" ]; then printf '기준 줄기 %s 는 현역 나노(%s)의 가지' "$FEAT" "$w"; return; fi
+    done
+    return
+  fi
+  ms="$(git rev-parse -q --verify 'origin/main^{commit}' 2>/dev/null)" || { printf 'FT_NANO_FEAT=%s 를 대조할 origin/main 을 못 풂' "$FEAT"; return; }
+  fs="$(git rev-parse -q --verify "$FEAT^{commit}" 2>/dev/null)" || { printf 'FT_NANO_FEAT=%s 를 못 풂' "$FEAT"; return; }
+  git merge-base --is-ancestor "$fs" "$ms" 2>/dev/null || { printf 'FT_NANO_FEAT=%s 은 origin/main 의 조상 아님' "$FEAT"; return; }
+  for w in $LIVE_WT; do
+    sha="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["base_sha"])' "$ROOT/.worktrees/$w/.worktree-info.json" 2>/dev/null)" && [ -n "$sha" ] || continue
+    git merge-base --is-ancestor "$sha" "$ms" 2>/dev/null || continue   # origin/main 밖 base = 다른 줄기 나노(_other_trunk 몫)
+    git merge-base --is-ancestor "$sha" "$fs" 2>/dev/null || { printf 'FT_NANO_FEAT=%s 는 현역 나노(%s) base %s 보다 앞선 값' "$FEAT" "$w" "${sha:0:10}"; return; }
+  done
+}
+if [ -n "${FT_NANO_FEAT:-}" ] && [ -n "$LIVE_WT" ] && [ "$FEAT_OK" = "1" ]; then
+  _fg="$(_feat_guard)"
+  [ -z "$_fg" ] || { say "✗" "① 판정 불가 — $_fg (조용한 통과 0)"; FAIL=1; FEAT_OK=0; LIVE_WT=""; }
+fi
 # ★r1201: 가지 단위 착지 판정★ — ft-merge-land 의 squash 는 PR 제목 + 끝줄 «PR #N (head X)» 만 남겨 아래 ⒜⒝⒞(커밋 단위)가 셋 다 거짓이다.
 #   FEAT 최근 60커밋(FEAT_BODY 와 같은 범위)의 끝줄(문서 자동 병합 꼬리 «main 자동 병합(문서 전용 · 겹침 0) C=<40hex>» 1줄은 건너뜀)이
 #   정확히 «PR #<수> (head <40hex>)» 인 X 를 모은다(ft-nano-close _lp_lastline_head 와 같은 꼴).
