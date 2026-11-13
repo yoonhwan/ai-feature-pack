@@ -273,7 +273,8 @@ def shell_text(path, is_doc, items, full):   # plan() 에 넘길 글 · "" = 이
     if ext in YAML_EXT:
         return yaml_added(items)       # 기준판 동작 + 추가 줄만
     if ext in CODE_EXT and full is not None:   # 코드 = «문자열 리터럴 안» 글만(r1195 · 식별자 괄호 «(env)» 는 부분 셸 아님)
-        mask = _in_literals(full)
+        import autonomy_scope_code_word   # r1801: 첨자 키·dict 키·실행 아닌 함수 인자의 한 낱말은 뺀다(이 갈래에서만 부른다)
+        mask = autonomy_scope_code_word.drop(full, _in_literals(full))
         kept = "".join(c if m or c == "\n" else " " for c, m in zip(full, mask)).split("\n")   # 줄 번호는 그대로
         return "\n".join(kept[n - 1] if 0 < n <= len(kept) else t for n, t in items)
     return text   # 그 밖 = 판정한다(닫힌 쪽)
