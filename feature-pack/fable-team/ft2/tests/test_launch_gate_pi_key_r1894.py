@@ -52,6 +52,6 @@ def test_mutant_old_read_key(tmp_path):
     launcher = pp.pl._mutant(tmp_path, "K1")
     rc, line = gate(launcher.parents[2], tmp_path / "pkg")
     assert rc == 1 and LITERAL in line and line.endswith("adapters/pi/launch.py:148"), line
-    with pytest.raises(AssertionError, match="KeyError|result"):
+    with pytest.raises(AssertionError, match="KeyError"):
         pp.case_no_pi(tmp_path / "bad", launcher)
     pp.case_no_pi(tmp_path / "good")
