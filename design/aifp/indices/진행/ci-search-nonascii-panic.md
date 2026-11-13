@@ -72,3 +72,5 @@
 - 2026-11-13 · 대기 — DA REJECT 보정(aifp 4189 · 동결 e3bdb757) R1 출력 보류 C8·P12 · R2 rgrc 먼저 받기·실패 먼저·P13a/b·P14·P15 · R3 상한 min(…,25)·rc-only P3a/b/c·RG_BIN P16·상한 P17 · 변이 10
 - 2026-11-13 · 대기 — DA REJECT 보정 2(aifp 4191 · 동결 30b18211) P14 sleep 제거 → 가짜 timeout 인자 기록 + 즉시 rc 124(하드 룰 22 sleep 0)
 - 2026-11-13 15:42 — 대기→진행 · 좌석 aifp-ft-nano-ci-search-nonascii-panic#0
+- 세트: 9670ea66c8c914d65b81a126acc054440a9dd16b · 시험: bash feature-pack/code-intel/tests/test_ci_search_nonascii_panic.sh rc=0 · 이슈: 0
+- 완료: aifp-ft-nano-ci-search-nonascii-panic#0 · 한 일: ci search probe panic 감지→rg 폴백 + DA 4202 반례 4건 보정(R1~R4) · 산출: nano/ci-search-nonascii-panic@9670ea66c8 · 병합 상태: 착지 전(push 전) · 남은 일: 없음
