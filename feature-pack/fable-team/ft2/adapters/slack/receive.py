@@ -24,7 +24,7 @@ _FA = importlib.util.spec_from_file_location("ft2_receive_full_alert", os.path.j
 _FA.loader.exec_module(full_alert := importlib.util.module_from_spec(_FA))  # r1885 보류 노출 = r1886 observe
 
 RESULT_OK, RESULT_FULL = intake.RESULT_OK, intake.RESULT_FULL
-DISPATCHED, DUPLICATE, IGNORED = "dispatched", "duplicate", "ignored"
+DISPATCHED, DUPLICATE, IGNORED, SETTLED = "dispatched", "duplicate", "ignored", "settled"  # settled = 밖에서 답함(r1899)
 RECEIVED, FULL, HOLD, IDLE = "received", "full", "hold", "idle"
 UNFINISHED = (RECEIVED, HOLD, FULL)
 BOT_SUBTYPES = ("bot_message", "bot_add")
@@ -61,8 +61,12 @@ class SlackReceive:
     """Slack 사건 1건 = 판정 1개. 상태는 `state` 한 낱말로만 말한다."""
     _key = staticmethod(message_key)
     def __init__(self, root, *, ack, client=None, team="harness", capacity=8, allowed_users=(),
-                 allowed_channels=(), bot_users=(), notify=None, clock=None, on_step=None):
+                 allowed_channels=(), bot_users=(), notify=None, clock=None, on_step=None,
+                 replies=None, deadline=None, mono=None, log=None):
         self.ack, self.root, self.team, self.capacity = ack, os.path.abspath(str(root)), team, capacity
+        # r1899 — replies(channel, thread) → 메시지 목록 · deadline = 기동 monotonic + 60 · 없음 = 2.0.31 동작
+        self.replies, self.deadline, self.mono = replies, deadline, mono or time.monotonic
+        self.log = log or (lambda line: None)
         self.notify = notify or (lambda verdict: None)
         self.allowed_users, self.allowed_channels = set(allowed_users), set(allowed_channels)
         self.bot_users, self.clock = set(bot_users), clock or (lambda: time.strftime("%Y-%m-%dT%H:%M:%S"))
@@ -117,7 +121,7 @@ class SlackReceive:
             return self._append({"state": IGNORED, "command": command, "key": list(key),
                                  "reason": reason, "attempts": 0, "acked": True})
         prior = self.latest().get(command)
-        if prior and prior.get("state") in (DISPATCHED, DUPLICATE, IGNORED):
+        if prior and prior.get("state") in (DISPATCHED, DUPLICATE, IGNORED, SETTLED):
             self.ack(event)  # 같은 키 재전달 = 새 접수 0, 버린 사건은 계속 버린다(줄 15·16)
             self._step("ack")
             again = IGNORED if prior["state"] == IGNORED else DUPLICATE
@@ -138,13 +142,56 @@ class SlackReceive:
         out = [self._recover(command, entry=entry) for command, entry in rows if entry.get("state") in (RECEIVED, HOLD)]
         team = getattr(self.client, "team", self.team)
         room = max(0, getattr(self.client, "capacity", self.capacity) - full_alert.projection.project(self.root, team)["remaining"])
-        full = sorted((row for row in rows if row[1].get("state") == FULL), key=ts, reverse=True)
-        out += [self._recover(command, entry=entry) for command, entry in full[:room]]
+        full = sorted((row for row in rows if row[1].get("state") == FULL), key=lambda row: (row[1].get("unknown", 0), -ts(row)))
+        out += self._recover_full(full, room)
         held = sorted((row for row in self.latest().items() if row[1].get("state") == FULL), key=ts) or [("-", {})]
         oldest = time.strftime("%m-%d %H:%M", time.localtime(ts(held[0]))) if held[0][1] else "-"
         count = len(held) if held[0][1] else 0
         full_alert.observe(self.root, "보류", team, count, 1, "full %d건 · 가장 오래된 %s %s · 정리 = desk 대조 뒤 complete" % (count, oldest, held[0][0]))
         return out
+
+    def _recover_full(self, full, room):
+        """r1899 — 정렬 순서로 1건씩: 봇 답 있음 = settled(넣기 0) · 답 없음 = 넣기(room 1칸) · 판정 불가 = full 에 unknown+1.
+        room 이 차면 멈춤 · deadline 지나면 남은 full 손 0 + listen.log 1줄 · replies 없음 = 앞에서 room 개 넣기."""
+        out, seen, unknown = [], {}, 0
+        for index, (command, entry) in enumerate(full):
+            if len(out) >= room:
+                break
+            if self.replies is not None and self.deadline is not None and self.mono() >= self.deadline:
+                self.log("recover 예산 끝 · 남은 full %d건 · 다음 기동" % (len(full) - index))
+                break
+            word, why = self._answered(command, entry, seen) if self.replies is not None else ("", "")
+            if word == SETTLED:
+                self._append({"state": SETTLED, "command": command, "key": entry.get("key"),
+                              "attempts": entry.get("attempts", 1), "reason": why})
+            elif word:
+                unknown += 1
+                self._append(dict(entry, unknown=entry.get("unknown", 0) + 1, reason="판정 불가 " + why))
+            else:
+                out.append(self._recover(command, entry=entry))
+        if unknown:
+            self.log("recover 판정 불가 %d건 · full 그대로 · 다음 기동" % unknown)
+        return out
+
+    def _answered(self, command, entry, seen):
+        """thread = route 의 그 command 최신 key[2](없으면 글 ts) · thread 당 1번 읽음 → (settled|unknown|"", 이유)."""
+        key = entry.get("key") or ["", "", "0"]
+        route = os.path.join(os.path.dirname(self.path), "route.jsonl")
+        rows = []
+        if os.path.exists(route):
+            with open(route, encoding="utf-8") as handle:
+                rows = [json.loads(line) for line in handle if line.strip()]
+        thread = ([r["key"][2] for r in rows if r.get("command") == command and r.get("key")] or [key[2]])[-1]
+        if (key[1], thread) not in seen:
+            try:
+                seen[(key[1], thread)] = list(self.replies(key[1], thread))
+            except Exception as exc:  # 넘침·ok false·시간 초과 = 판정 불가(답 없음으로 대신하지 않는다)
+                seen[(key[1], thread)] = type(exc).__name__
+        found = seen[(key[1], thread)]
+        if isinstance(found, str):
+            return "unknown", found
+        later = [m["ts"] for m in found if m.get("bot_id") and float(m.get("ts") or 0) > float(key[2] or 0)]
+        return (SETTLED, "봇 답 있음 %s" % later[0]) if later else ("", "")
 
     def _drop_reason(self, event):
         if event.get("type", "message") != "message":
