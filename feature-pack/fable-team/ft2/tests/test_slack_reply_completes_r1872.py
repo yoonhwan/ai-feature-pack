@@ -169,3 +169,32 @@ MUTANTS = [  # (변이, 파일, 바꿀 줄 목록, 시나리오, 깨짐 판정)
 def test_mutants_caught(tmp_path, mid, rel, edits, scenario, broken):
     assert broken(scenario(_mutant(tmp_path, rel, edits), tmp_path / "world")), mid
     assert not broken(scenario(M, tmp_path / "base")), mid  # 같은 시나리오가 원판에서는 통과
+
+ROUTE = importlib.util.spec_from_file_location("ft2_r1872_route", os.path.join(FT2, "adapters/slack/route.py"))
+ROUTE.loader.exec_module(route := importlib.util.module_from_spec(ROUTE))
+
+def thread_full(root):  # R1 — thread T 의 답글 글 1개가 실제 SlackRoute 길로 «용량 부족»
+    publisher, key = eight(root)
+    inbox = M.receive.SlackReceive(str(root), ack=lambda e: 0, team=TEAM, allowed_users={"U1"}, allowed_channels={C})
+    router = route.SlackRoute(str(root), receive=inbox, team=TEAM)
+    assert router.route({"type": "message", "team": W, "channel": C, "thread_ts": T, "ts": "1800000002.000100",
+                         "user": "U1", "text": "thread 답글"})["state"] == "full"
+    return publisher, key, inbox, cmd("1800000002.000100")
+
+def test_r1a_requeued_post_keeps_route_and_completes_in_its_thread(tmp_path):
+    publisher, key, inbox, late = thread_full(tmp_path)
+    publisher.reply(key, cmd(A), "답", SEAT, 1)
+    accepted = [r for r in M.dispatch.intake.Intake(str(tmp_path), TEAM).records() if r["command"] == late][-1]
+    assert (accepted["work"]["route"]["thread"], inbox.latest()[late]["state"]) == (T, "dispatched")
+    publisher.reply(key, late, "밀렸던 글 답", SEAT, 1)  # 원래 thread T 에서 그 글에 답
+    assert (publisher.settled["completed"], late in ledger(M, tmp_path)[0]) == ([late], True)
+
+def test_r1b_requeue_failure_recovered_by_same_post_recheck(tmp_path, monkeypatch, capsys):
+    publisher, key, inbox, late = thread_full(tmp_path)
+    with monkeypatch.context() as patch:
+        patch.setattr(M.publish.reply_done, "_requeue", lambda *a: (_ for _ in ()).throw(RuntimeError("주입")))
+        assert publisher.reply(key, cmd(A), "답", SEAT, 1)["state"] == "posted"  # 게시 결과 그대로
+    assert (publisher.settled["state"], inbox.latest()[late]["state"], len(ledger(M, tmp_path)[1])) == ("판정 불가", "full", 7)
+    assert "판정 불가" in capsys.readouterr().err
+    assert publisher.resolve(key)["state"] == "posted"  # 새 post 0 · 새 완료 0 · 남은 재접수만
+    assert (publisher.settled["requeued"], inbox.latest()[late]["state"], len(ledger(M, tmp_path)[1])) == ([late], "dispatched", 8)
