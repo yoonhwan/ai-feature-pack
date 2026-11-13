@@ -7,8 +7,11 @@ A = 오빠가 승인한 PR head, S = 지금 PR head. 아래 넷이 «전부 참�
  ★r560 기준 main★ mx = merge-base(S, origin/main) = «세트가 이미 품은 가장 새 main». 병합 커밋들의 main 쪽 부모는 전부 mx 의 조상이어야 하고(아니면 «main 부모 역행» = NOT-EQUIV), mx 는 merge-base(A,main) 의 자손이어야 한다(승인 이후 main). 옛 규칙은 «지금 origin/main» 과 비교해 main 이 한 칸만 더 가도 NOT-EQUIV 였다(같은 세트 재승인 폭주 · 판정 1917 의 뜻 = 세트가 병합한 main 기준). ★DA⑥ r1★ «마지막 병합의 main 쪽 부모» 만 쓰면 뒤 병합이 더 옛 main 을 병합한 그래프에서 main 이 지운 파일 부활이 EQUIV 로 샌다 — merge-base 가 그 구멍을 닫는다.
  ★R281(rebase)★ A 가 S 의 조상이 아니면 위 1·2 대신: (a) mx = merge-base(S, main) 가 승인 이후 main(merge-base(A,main) 의 자손) (b) merge-base(A,main) 존재 (c) 3 과 같되 A 쪽 base = merge-base(A,main) · S 쪽 base = mx (d) merge-tree(A, mx) 와 같음 → `mode=rebase` (옛 main 위 rebase 도 EQUIV — 착지 단계 ft-merge-land 의 «main ⊂ S» 가 옛 main 착지를 막는다)
 출력 끝 칸: mode=merge|rebase · overlap=<n>(main 이 바꾼 파일 ∩ 자기 변경 파일 — 막지 않는 표지) · base=<mx 10자>)
-exit 0 = EQUIV · 1 = NOT-EQUIV(사유 stdout) · 3 = ERROR(판단 불가·승인 객체 로컬에 없음 = 통과 0)"""
+exit 0 = EQUIV · 1 = NOT-EQUIV(사유 stdout) · 3 = ERROR(판단 불가·승인 객체 로컬에 없음 = 통과 0)
+r1815 여러 후보: ft_approval_equiv.py --many <repo> <S> <remote> <target> < 후보(줄마다 A 40hex) → 후보마다 «<A> + 단건 출력» · 첫 EQUIV 에서 멈춤 · rc 0 = EQUIV 있음 · 1 = 없음 · 2 = 입력 오류
+  한 실행 공유 값(S·main 에만 기대는 git 호출 · share=True)은 1회만 · 존재 확인 = cat-file --batch-check 1프로세스(GIT_NO_LAZY_FETCH=1) · 후보별 조상·diff·merge-tree 는 공유 0"""
 import os
+import re
 import subprocess
 import sys
 
@@ -21,21 +24,31 @@ class No(Exception):
     pass
 
 
-def run(repo, *a, ok=(0,), env=None):
-    try:
-        p = subprocess.run(["git", "-C", repo, "-c", "core.quotepath=off", *a], capture_output=True, timeout=30, env=env)
-    except (OSError, subprocess.TimeoutExpired) as e:
-        raise Fail("git %s 실행 실패: %s" % (a[0], e))
+MEMO = None   # r1815 --many: {git 인자: 결과} — share=True 호출(S·main 만 기대는 값)만 · 단건 = None(지금 그대로)
+RES = {}      # r1815 --many: {rev: commit sha|None} — cat-file --batch-check 1회로 미리 채움
+
+
+def run(repo, *a, ok=(0,), env=None, share=False):
+    p = MEMO.get(a) if share and MEMO is not None else None
+    if p is None:
+        try:
+            p = subprocess.run(["git", "-C", repo, "-c", "core.quotepath=off", *a], capture_output=True, timeout=30, env=env)
+        except (OSError, subprocess.TimeoutExpired) as e:
+            raise Fail("git %s 실행 실패: %s" % (a[0], e))
+        if share and MEMO is not None:
+            MEMO[a] = p
     if p.returncode not in ok:
         raise Fail("git %s 실패(rc=%d): %s" % (" ".join(a[:2]), p.returncode, p.stderr.decode("utf-8", "replace").strip()[:100]))
     return p
 
 
-def out(repo, *a):
-    return run(repo, *a).stdout.decode("latin-1")
+def out(repo, *a, share=False):
+    return run(repo, *a, share=share).stdout.decode("latin-1")
 
 
 def resolve(repo, x):
+    if MEMO is not None and x in RES:
+        return RES[x]
     p = run(repo, "rev-parse", "--verify", "-q", x + "^{commit}", ok=(0, 1), env=dict(os.environ, GIT_NO_LAZY_FETCH="1"))  # r1783: 존재 확인만 원격 lazy fetch 0(diff·merge-base 는 blob 필요 — env 0)
     return p.stdout.decode().strip() if p.returncode == 0 else None
 
@@ -47,11 +60,11 @@ def anc(repo, a, b, shallow):
     return rc == 0
 
 
-def norm(repo, base, tip):
+def norm(repo, base, tip, share=False):
     """base→tip diff 를 {'diff --git 줄': [모드·경로 머리 줄 + 순서 있는 +/- 줄 (+ 바이너리는 새 blob)]} 로 정규화."""
     recs, key, hunk, new = {}, None, False, ""
     args = ("diff", "--no-color", "--no-ext-diff", "--no-textconv", "--no-renames", "--full-index", "--unified=0", base, tip)
-    for ln in out(repo, *args).split("\n"):
+    for ln in out(repo, *args, share=share).split("\n"):
         if hunk and ln[:1] in ("+", "-", "\\"):
             recs[key].append(ln)
         elif ln.startswith("diff --git "):
@@ -69,7 +82,7 @@ def norm(repo, base, tip):
 
 
 def check(repo, a, s, remote, target):
-    shallow = out(repo, "rev-parse", "--is-shallow-repository").strip() == "true"
+    shallow = out(repo, "rev-parse", "--is-shallow-repository", share=True).strip() == "true"
     m = resolve(repo, "refs/remotes/%s/%s" % (remote, target))
     sc = resolve(repo, s)
     if not m or not sc:
@@ -91,21 +104,21 @@ def check(repo, a, s, remote, target):
     for c, first, *rest in merges:
         if first not in trunk or not rest or not all(anc(repo, p, m, shallow) for p in rest):
             raise No("병합 %s 가 «승인 줄기 + main» 병합이 아님(다른 브랜치·거꾸로 병합)" % c[:10])
-    mx = out(repo, "merge-base", sc, m).strip()   # r560 DA⑥: «S 가 이미 품은 가장 새 main» (뒤 병합이 옛 main 을 병합해도 여기서 드러난다)
+    mx = out(repo, "merge-base", sc, m, share=True).strip()   # r560 DA⑥: «S 가 이미 품은 가장 새 main» (뒤 병합이 옛 main 을 병합해도 여기서 드러난다)
     if not mx or not anc(repo, out(repo, "merge-base", ac, m).strip(), mx, shallow):
         raise No("세트가 품은 main(%s)이 승인 이후 main 이 아님 — 기준 삼을 수 없음" % (mx[:10] or "없음"))
     if [p for c, first, *rest in merges for p in (rest or [mx]) if not anc(repo, p, mx, shallow)]:
         raise No("병합 커밋의 main 쪽 부모가 기준 main(%s)보다 앞섬(역행 그래프) — 같은 승인으로 볼 수 없음" % mx[:10])
     mb = out(repo, "merge-base", ac, mx).strip()
     da = norm(repo, mb, ac)
-    ds = norm(repo, out(repo, "merge-base", sc, mx).strip(), sc)
+    ds = norm(repo, out(repo, "merge-base", sc, mx, share=True).strip(), sc, share=True)
     if da != ds:
         diff = sorted(k.split(" b/")[-1] for k in set(da) | set(ds) if da.get(k) != ds.get(k))
         raise No("자기 변경이 승인 때와 다름(main 대비 diff 불일치: %s)" % ", ".join(diff[:3]))
     p = run(repo, "merge-tree", "--write-tree", "--no-messages", ac, mx, ok=(0, 1))
     if p.returncode == 1:
         raise No("승인 세트와 main 이 깨끗이 병합되지 않음(충돌) — 충돌 해소는 새 세트")
-    if p.stdout.decode().split()[0] != out(repo, "rev-parse", sc + "^{tree}").strip():
+    if p.stdout.decode().split()[0] != out(repo, "rev-parse", sc + "^{tree}", share=True).strip():
         raise No("S 트리가 «승인 세트 + main 의 깨끗한 병합»과 다름(병합 커밋이 그 밖의 변경을 담음)")
     return "EQUIV approve=%s head=%s merges=%d files=%d mode=merge overlap=%d base=%s%s" % (ac, sc, len(merges), len(da), overlap(repo, da, mb, mx), mx[:10], ov_names(repo, da, mb, mx))
 
@@ -126,7 +139,7 @@ def overlap(repo, da, mb, m):
 def rebased(repo, ac, sc, m, shallow):
     """R281 rebase 동일 + r560 기준 main: A ⊄ S 이면 (a) mx = merge-base(S, main) 이 승인 이후 main(merge-base(A,main) 의 자손) (b) merge-base(A,main) 존재 (c) 자기 변경 동일 (d) merge-tree(A, mx) 깨끗 ∧ == S 트리.
     r560: 옛 (a) «지금 main ⊂ S» 폐기 — main 이 한 칸 더 가면 같은 세트가 NOT-EQUIV 가 됐다. 옛 main 위 head 는 착지 단계(ft-merge-land 의 «main ⊂ S»)가 막는다."""
-    p = run(repo, "merge-base", sc, m, ok=(0, 1))
+    p = run(repo, "merge-base", sc, m, ok=(0, 1), share=True)
     if p.returncode == 1:
         raise No("승인 sha %s 가 PR head %s 의 조상이 아니고 PR head 와 main 의 공통 조상도 없음" % (ac[:10], sc[:10]))
     mx = p.stdout.decode().strip()
@@ -136,19 +149,44 @@ def rebased(repo, ac, sc, m, shallow):
     mb = p.stdout.decode().strip()
     if not mx or not anc(repo, mb, mx, shallow):
         raise No("PR head 가 올라탄 main(%s)이 승인 이후 main 이 아님 — rebase 동일로 볼 수 없음" % (mx[:10] or "없음"))
-    da, ds = norm(repo, mb, ac), norm(repo, mx, sc)
+    da, ds = norm(repo, mb, ac), norm(repo, mx, sc, share=True)
     if da != ds:
         diff = sorted(k.split(" b/")[-1] for k in set(da) | set(ds) if da.get(k) != ds.get(k))
         raise No("rebase 한 자기 변경이 승인 때와 다름(main 대비 diff 불일치: %s)" % ", ".join(diff[:3]))
     p = run(repo, "merge-tree", "--write-tree", "--no-messages", ac, mx, ok=(0, 1))
     if p.returncode == 1:
         raise No("승인 세트와 main 이 깨끗이 병합되지 않음(충돌) — 충돌 해소는 새 세트")
-    if p.stdout.decode().split()[0] != out(repo, "rev-parse", sc + "^{tree}").strip():
+    if p.stdout.decode().split()[0] != out(repo, "rev-parse", sc + "^{tree}", share=True).strip():
         raise No("S 트리가 «승인 세트 + 지금 main 의 깨끗한 병합»과 다름(rebase 중 손 편집)")
     return "EQUIV approve=%s head=%s merges=0 files=%d mode=rebase overlap=%d base=%s%s" % (ac, sc, len(da), overlap(repo, da, mb, mx), mx[:10], ov_names(repo, da, mb, mx))
 
 
+def many(repo, s, remote, target, cands):
+    """r1815 A1·A2: 후보 순서대로 단건 판정 · 줄 = «<A> » + 단건 출력 바이트 · 첫 EQUIV 에서 멈춤."""
+    global MEMO
+    MEMO = {}
+    revs = ["refs/remotes/%s/%s" % (remote, target), s] + cands
+    try:
+        p = subprocess.run(["git", "-C", repo, "cat-file", "--batch-check"], input="".join(x + "^{commit}\n" for x in revs).encode(),
+                           capture_output=True, timeout=30, env=dict(os.environ, GIT_NO_LAZY_FETCH="1"))
+        got = [g.split() for g in p.stdout.decode("latin-1").split("\n")]
+        RES.update((x, g[0] if len(g) == 3 else None) for x, g in zip(revs, got) if p.returncode == 0 and len(got) > len(revs))
+    except (OSError, subprocess.TimeoutExpired):
+        pass   # 미리 채우기 실패 = 단건 resolve 그대로(판정 같음)
+    for a in cands:
+        try:
+            return print("%s %s" % (a, check(repo, a, s, remote, target)), flush=True) or 0
+        except No as e:
+            print("%s NOT-EQUIV %s" % (a, e), flush=True)
+        except Exception as e:
+            print("%s ERROR %s" % (a, e), flush=True)
+    return 1
+
+
 if __name__ == "__main__":
+    if len(sys.argv) == 6 and sys.argv[1] == "--many":
+        c = [x for x in sys.stdin.read().split("\n") if x]
+        sys.exit(many(*sys.argv[2:], c) if c and all(re.fullmatch("[0-9a-f]{40}", x) for x in c) else 2)
     if len(sys.argv) != 6:
         print("usage: ft_approval_equiv.py <repo> <A> <S> <remote> <target>")
         sys.exit(2)

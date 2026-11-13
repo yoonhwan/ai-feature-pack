@@ -225,7 +225,7 @@ mut m3 "$SD" 'git -C "$ROOT" cat-file -e "$ref:$rel" 2>/dev/null ||' 'true ||' '
 rm -f "$VL"
 mut m4 "$SD" '[ "$got" = "$sum" ] ||' 'true ||'; msa m4 "$A6" 6 "$VSW"
 [ "$rc" = 0 ]; ck "ⓘ4 변이(sha256 대조 끔) → ⓑ6 칸 빨강" $?
-mut m5 ft-autonomy.sh ' || "$line" =~ $STANDING_GRANT_RE || "$line" =~ $STANDING_USE_RE || "$line" =~ $STANDING_STOP_RE' ''
+mut m5 ft-autonomy.sh ' "$STANDING_GRANT_RE" "$STANDING_USE_RE" "$STANDING_STOP_RE"' ''   # r1815: log 판독 = awk 1프로세스 — 상시 3꼴 정규식 인자 빼기
 rm -rf "$T/ms-m5"; mkdir -p "$T/ms-m5"; printf '%s\ton\tA1\n' "$T0" > "$T/ms-m5/autonomy.log"; printf '{"mode":"on","since":%s,"event":"A1","until":null}\n' "$T0" > "$T/ms-m5/autonomy.json"
 FT_AUTONOMY_STATE_DIR="$T/ms-m5" FT_NOW="$T0" "$BASH" "$MB/ft-autonomy.sh" approve-standing D1 --repos pack --classes code,docs >/dev/null 2>&1
 [ "$(FT_AUTONOMY_STATE_DIR="$T/ms-m5" "$BASH" "$MB/ft-autonomy.sh" mode)" = tamper ]; ck "ⓘ5 변이(log 새 꼴 등록 끔) → ⓔ1 칸 빨강(tamper)" $?

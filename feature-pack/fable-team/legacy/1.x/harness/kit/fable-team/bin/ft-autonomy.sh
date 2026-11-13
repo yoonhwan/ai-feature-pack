@@ -33,22 +33,18 @@ SCOPE_GRANT_RE='^approve-scope S[0-9]+ A[0-9]+ [0-9]+ until=[0-9]+ max=[0-9]+ da
 SCOPE_USE_RE='^scope-use S[0-9]+ [0-9a-f]{40} (docs|ff|revert|code|equiv) [0-9]+( repo=pack)?( learned=[a-z0-9,-]+)?$'; SCOPE_STOP_RE=$'^scope-stop S[0-9]+ [0-9]+ [^\t]+$';   DOC_EXEMPT_RE='^doc-exempt [0-9a-f]{40} team=[a-z0-9][a-z0-9_-]* files=[0-9]+ by=[A-Za-z0-9#_-]+$'; DOC_EXEMPT_REJ_RE='^doc-exempt-reject [0-9a-f]{40} by=[A-Za-z0-9#_-]+$'   # R725 문서 전용 PR 예외 착지 기록(ft_doc_exempt.py · merge-land·가드) — 형식 고정
 STANDING_GRANT_RE='^approve-standing (D1 [0-9]+ repos=pack classes=(code|docs)(,(code|docs))? da=external|D2 [0-9]+ repos=(byz|pack|byz,pack) classes=(code|docs)(,(code|docs))? oppa_decision=[0-9]+\.[0-9]{6})$'; STANDING_USE_RE='^standing-use (D1 [0-9a-f]{40} [0-9]+ pr=[0-9]+ repo=pack|D2 [0-9a-f]{40} [0-9]+ pr=[0-9]+ repo=(byz|pack)) da=[0-9a-f]{40}$'; STANDING_STOP_RE=$'^standing-stop (D1|D2) [0-9]+ [^\t]+$'   # r947 상시 승인 D1 3꼴 · r1577 D2(repos·oppa_decision·repo=byz 허용) — ft-autonomy-standing(-d2).sh 가 쓴다
 # log 를 ⓐ정상 모드 줄 ⓑ정당한 부가 줄(승인 줄·범위 승인 줄·형식 고정) ⓒ그 밖 으로 가른다. stdout = 마지막 정상 모드 줄 · rc 1 = 그 뒤에 ⓒ(불완전·모르는 줄) 가 있음 = 위변조
-log_last_mode() {
-  local line last="" bad=0
-  while IFS= read -r line || [ -n "$line" ]; do
-    if [[ "$line" =~ $MODE_RE ]]; then last="$line"; bad=0
-    elif [[ "$line" =~ $APPROVE_RE || "$line" =~ $SCOPE_GRANT_RE || "$line" =~ $SCOPE_USE_RE || "$line" =~ $SCOPE_STOP_RE || "$line" =~ $DOC_EXEMPT_RE || "$line" =~ $DOC_EXEMPT_REJ_RE || "$line" =~ $STANDING_GRANT_RE || "$line" =~ $STANDING_USE_RE || "$line" =~ $STANDING_STOP_RE ]]; then :
-    else bad=1; fi
-  done 2>/dev/null < "$LOG"
-  printf '%s' "$last"; return $bad
-}
+log_last_mode() { [ -r "$LOG" ] || return 0; LC_ALL=C awk 'BEGIN { for (i = 1; i < ARGC; i++) { r[i] = ARGV[i]; delete ARGV[i] } }
+  $0 ~ r[1] { last = $0; bad = 0; next } { for (i = 2; i in r; i++) if ($0 ~ r[i]) next; bad = 1 } END { printf "%s", last; exit bad }' \
+  "$MODE_RE" "$APPROVE_RE" "$SCOPE_GRANT_RE" "$SCOPE_USE_RE" "$SCOPE_STOP_RE" "$DOC_EXEMPT_RE" "$DOC_EXEMPT_REJ_RE" "$STANDING_GRANT_RE" "$STANDING_USE_RE" "$STANDING_STOP_RE" < "$LOG" 2>/dev/null; }
+LLM_SET=0; llm_load() { LLM_LAST="$(log_last_mode)"; LLM_BAD=$?; LLM_SET=1; }   # r1815 A4: 판독 = awk 1프로세스(같은 정규식·갈래 · 바이트 · 줄마다 전체 일치) · 한 실행 1회 — lock 뒤·write_state 뒤 다시(잠금 안 재확인 · 자기 모드 줄)
+log_mode() { [ "$LLM_SET" = 1 ] || llm_load; printf '%s' "$LLM_LAST"; return "$LLM_BAD"; }
 
 # json·log 정합 상태 → "on|off|tamper" (파일 없음 = off) — 끝 시각은 보지 않는다
 valid_mode() {
   local m s e last bad
   [ -f "$JSON" ] || { echo off; return; }
   m="$(jfield mode)"; s="$(jfield since)"; e="$(jfield event)"
-  last="$(log_last_mode)"; bad=$?
+  last="$(log_mode)"; bad=$?
   if [ -n "$m" ] && [ "$bad" = 0 ] && [ "$last" = "$(printf '%s\t%s\t%s' "$s" "$m" "$e")" ] && { [ "$m" = on ] || [ "$m" = off ]; }; then
     echo "$m"
   else
@@ -70,7 +66,7 @@ mode() {
 }
 
 # 마지막 사건 번호(마지막 모드 줄) — 없으면 빈 값
-event() { log_last_mode | cut -f3; }
+event() { log_mode | cut -f3; }
 
 count_proxy() {  # <A<N>> — 판정 원장의 대리 줄 수
   local n pd; pd="$(planner_dir)" || { echo "?"; return 0; }; n="$(cat "$pd"/VERDICTS-*.md 2>/dev/null | grep -cF "[대리 · 자율 ON $1]")"; echo "${n:-0}"
@@ -96,7 +92,7 @@ write_state() {  # <모드> <사건> [until epoch|null] [레벨] — log 먼저,
   local now; now="$(now_epoch)"
   mkdir -p "$STATE" || { echo "REJECT 상태 폴더를 못 만들었다: $STATE" >&2; exit 1; }
   printf '%s\t%s\t%s\n' "$now" "$1" "$2" >> "$LOG" || { echo "REJECT log 쓰기 실패" >&2; exit 1; }
-  printf '{"mode":"%s","since":%s,"event":"%s","until":%s%s}\n' "$1" "$now" "$2" "${3:-null}" "${4:+,\"level\":\"$4\"}" > "$JSON.tmp.$$" && mv "$JSON.tmp.$$" "$JSON" || { echo "REJECT json 쓰기 실패" >&2; exit 1; }
+  printf '{"mode":"%s","since":%s,"event":"%s","until":%s%s}\n' "$1" "$now" "$2" "${3:-null}" "${4:+,\"level\":\"$4\"}" > "$JSON.tmp.$$" && mv "$JSON.tmp.$$" "$JSON" || { echo "REJECT json 쓰기 실패" >&2; exit 1; }; llm_load
 }
 
 # 상태 쓰기 전부(on·off·expire·approve-merge)는 같은 mkdir 잠금 안에서 «재확인 → 기록 → 교체» (R185 r3 · DA⑥ H1 · ft-proxy-decide.sh 의 잠금 꼴) — 상한 5초 뒤 rc 1(조용한 통과 0)
@@ -105,7 +101,7 @@ unlock() { [ "$HELD" = 1 ] && rmdir "$LOCKD" 2>/dev/null; HELD=0; }
 lock() {
   local i=0; mkdir -p "$STATE" || { echo "REJECT 상태 폴더를 못 만들었다: $STATE" >&2; exit 1; }
   until mkdir "$LOCKD" 2>/dev/null; do i=$((i+1)); [ "$i" -le 50 ] || { echo "REJECT 상태 잠금 선점 중: $LOCKD" >&2; exit 1; }; sleep 0.1; done
-  HELD=1; trap unlock EXIT
+  HELD=1; trap unlock EXIT; llm_load
 }
 
 reject() { echo "REJECT $1 (usage: on [--until HH:MM | --for <N>h|<N>m] [--level full|mid|each] [--max n --daily n --code-max n])" >&2; exit 2; }
@@ -189,6 +185,7 @@ cmd_approve_merge() {  # <40hex>… — 검증을 전부 마친 뒤에만 쓴다
   done; echo "EQUIV 허용 범위: 이 승인은 같은 변경 집합(승인 sha 위에 main 병합만 더한 head)에도 유효 — 병합 훅이 ft_approval_equiv 로 대조(r462)" >&2
 }
 
+case "${1:-}" in on|status|mode|event|*-status) llm_load ;; esac   # r1815: 잠금 전에 읽는 명령만 부모 셸에서 1회($(mode) 하위 셸이 같은 값) · 잠금 명령은 lock 이 읽는다
 case "${1:-}" in
   on) shift; cmd_on "$@" ;; approve-merge) shift; cmd_approve_merge "$@" ;;
   forget-kind|interview-note|on-check) c="cmd_${1//-/_}"; shift; "$c" "$@" ;;   # r466 학습표에서 종류 빼기(오빠 `!` 전용) · desk 에 [자율 인터뷰] 1통(틱 expire 뒤 · off 는 스스로) · on 인자 검사만(쓰기 0)

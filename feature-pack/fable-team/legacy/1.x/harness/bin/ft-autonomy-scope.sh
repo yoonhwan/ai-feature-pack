@@ -102,14 +102,10 @@ scope_ledger_shas() {  # <S> → 이 범위 원장에 이미 센 승인 sha(최�
     $2 ~ /^[0-9a-f]{40}$/ && rp($5)==rk && !seen[$2]++ {a[NR]=$2} END {for (i=NR; i>0; i--) print a[i]}' "$SDIR/$1.ledger.tsv" 2>/dev/null
 }
 
-scope_equiv_sha() {  # <sha> → stdout = 이미 센 승인 A(EQUIV rc0) · 없으면 rc 1 · 판단 못 함 = rc 1(셈 그대로 = 증가 — #0 RULE)
-  local a t0; t0="$(now_epoch)"
-  for a in $(scope_ledger_shas "$G_S"); do
-    [ "$a" = "$1" ] && continue
-    [ $(( $(now_epoch) - t0 )) -lt 21 ] || break   # 판정기 7초 × 3 — 승인 한 건을 오래 붙잡지 않는다(판정 666)
-    scope_code_tool ft-approval-equiv.sh "$a" "$1" --repo "${SCOPE_REPO:-$ROOT}"
-    [ "$RC" = 0 ] && [[ "$FIRST" == EQUIV\ * ]] && { printf '%s' "$a"; return 0; }
-  done
+scope_equiv_sha() {  # <sha> → stdout = 이미 센 승인 A(EQUIV rc0) · 없으면 rc 1 · 판단 못 함 = rc 1(셈 그대로 = 증가 — #0 RULE) · r1815: 후보 전부를 판정기 1프로세스(--candidates)로 · 상한 21초 1회(판정 666)
+  local c; c="$(scope_ledger_shas "$G_S" | grep -vx -e "$1" -e "")" || return 1; [ -f "$HERE/ft-approval-equiv.sh" ] || scope_err "code 검사 도구 없음: $HERE/ft-approval-equiv.sh"
+  OUT="$(printf '%s\n' "$c" | perl -e 'alarm 21; exec @ARGV' -- "$BASH" "$HERE/ft-approval-equiv.sh" "$1" --candidates - --repo "${SCOPE_REPO:-$ROOT}" 2>&1)"; RC=$?
+  [ "$RC" = 0 ] && [[ "${OUT##*$'\n'}" =~ ^([0-9a-f]{40})\ EQUIV\  ]] && grep -qx "${BASH_REMATCH[1]}" <<<"$c" && { printf '%s' "${BASH_REMATCH[1]}"; return 0; }
   return 1
 }
 
