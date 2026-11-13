@@ -162,8 +162,9 @@ def slack_post(token):  # chat.postMessage · 7초 · 재시도는 publish MAX_P
     spec.loader.exec_module(socket := importlib.util.module_from_spec(spec))  # 늦게 읽음 = 순환 import 0
     def post(channel, thread_ts, text, metadata):  # metadata = JSON 문자열(form 의 dict repr 0 · r1818 E1)
         try:
-            return socket.web_api("chat.postMessage", token, dict(channel=channel, thread_ts=thread_ts, text=text,
-                                  metadata=json.dumps(metadata, ensure_ascii=False)), retry=False)["ts"]
+            form = dict(channel=channel, text=text, metadata=json.dumps(metadata, ensure_ascii=False))
+            return socket.web_api("chat.postMessage", token, dict(form, **({"thread_ts": thread_ts} if thread_ts
+                                  else {})), retry=False)["ts"]  # r1852 빈 thread_ts = 새 root
         except socket.publish.RateLimited as exc:
             raise publish.RateLimited(exc.retry_after)
         except OSError as exc:
@@ -178,9 +179,10 @@ def say(state, ts="", rc=0, reason=""):
 
 def main(argv, post=None, sleep=None):
     """`reply|notify --root R --team T --thread TS --seat S --body-file F [--command C] [--env E]` → 출력 1줄."""
-    verb, need = (argv or [""])[0], {"reply": ("command",), "notify": ()}.get((argv or [""])[0])
+    verb = (argv or [""])[0]  # r1852 `post --channel C` = 수신 채널 새 root(thread 없음)
+    need = {"reply": ("thread", "command"), "notify": ("thread",), "post": ("channel",)}.get(verb)
     opts = {k[2:]: v for k, v in zip(argv[1::2], argv[2::2]) if k.startswith("--")}
-    known = {"root", "team", "thread", "seat", "body-file", "env"} | set(need or ())
+    known = {"root", "team", "seat", "body-file", "env"} | set(need or ())
     if need is None or len(argv) % 2 == 0 or len(opts) * 2 != len(argv) - 1 or set(opts) - known \
             or known - {"env"} - set(opts) or opts.get("command", "").startswith("receipt:"):
         return say("usage", rc=USAGE, reason="reply|notify --root --team --thread --seat --body-file [--command]")
@@ -193,11 +195,14 @@ def main(argv, post=None, sleep=None):
     else:  # lint 실패 = 표시 0 · 게시는 그대로
         sys.stderr.write("보낸이 표시 0 — 좌석 이름 lint 실패: %s\n" % opts["seat"])
     ledger = binding.ThreadBinding(opts["root"], opts["team"])
-    rows = [r for r in ledger.settled().values() if r["key"][2] == opts["thread"]]
+    heard = {k[1]: k[0] for k in _received(opts["root"], opts["team"])}.get(opts.get("channel"))
+    if verb == "post" and heard is None:  # 수신 증거 없는 채널 = 게시 0(notify 와 같은 근거)
+        return say("refused", rc=USAGE, reason="수신 증거 없는 채널")
+    rows = [r for r in ledger.settled().values() if r["key"][2] == opts.get("thread")]
     if verb == "notify":  # 수신 채널 thread 만 — 허용 밖 채널 binding = 게시 0(보정1 R1)
         rows = [r for r in rows if tuple(r["key"]) in _received(opts["root"], opts["team"])]
     now = rows and ledger.get(binding.thread_key(*rows[-1]["key"]))
-    if not now or not now.open:  # binding 없음·닫힘 = 게시 0(새 root 를 만드는 길 0)
+    if verb != "post" and (not now or not now.open):  # binding 없음·닫힘 = 게시 0(새 root 를 만드는 길 0)
         return say("refused", rc=USAGE, reason="binding 없음" if not now else "닫힘")
     if post is None:
         path = opts.get("env") or os.environ.get("FT2_SLACK_ENV")  # --env → FT2_SLACK_ENV → ENV_PATH → 셸 env
@@ -208,7 +213,8 @@ def main(argv, post=None, sleep=None):
         if not token:
             return say("판정불가", rc=UNDECIDED, reason="SLACK_BOT_TOKEN 없음")
         post = slack_post(token)
-    key = binding.thread_key(now.workspace, now.channel, now.root)
+    key = binding.thread_key(heard, opts["channel"], "") if verb == "post" else binding.thread_key(
+        now.workspace, now.channel, now.root)
     pub = publish.SlackPublish(opts["root"], team=opts["team"], bindings=ledger,
                                post=lambda root_ts, text, marker, metadata: post(key.channel, root_ts, text, metadata),
                                sleep=sleep or (lambda s: time.sleep(min(float(s), 7))))
@@ -217,7 +223,8 @@ def main(argv, post=None, sleep=None):
     else:  # notify — 의도 키 = notify:<root>:<본문 sha12> · 담당 검사 대신 열린 binding 만
         intent, seat, gen = "notify:%s:%s" % (key.root, hashlib.sha256(body.encode()).hexdigest()[:12]), None, None
     try:
-        row = pub.reply(key, intent, body, seat, gen)
+        row = pub.post_root(key, "post:%s:%s:%s" % (key.channel, opts["seat"], hashlib.sha256(
+            body.encode()).hexdigest()[:12]), body) if verb == "post" else pub.reply(key, intent, body, seat, gen)
     except Exception as exc:  # 429 두 번(post_failed)·Slack 오류 응답 = 보이는 실패 1줄(하드 룰 20)
         return say("failed", rc=1, reason=(getattr(exc, "row", None) or {}).get("k") or type(exc).__name__)
     if row["state"] == publish.REFUSED:

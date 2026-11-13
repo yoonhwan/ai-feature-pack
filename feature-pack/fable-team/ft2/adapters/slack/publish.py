@@ -97,6 +97,17 @@ class SlackPublish:
         self._step("after_intent")
         return self._post(key, command, body, seat, gen, owner, via=POSTED)
 
+    def post_root(self, key, intent, body):
+        """r1852 채널 새 root 1건 — key root = "" · 채널 허용은 부르는 쪽 · binding 검사 건너뜀 · binding 자동 열기 0."""
+        self.steps = []
+        repeated = self._repeated(key, intent)  # 같은 의도 = duplicate·미해소 보류(게시 0)
+        if repeated is not None:
+            return self._append(repeated)
+        self._append({"state": INTENT, "root": key.root, "key": list(key), "command": intent, "owner": None,
+                      "gen": None, "marker": marker_for(key, intent), "body": body, "post_calls": 0})
+        self._gate = lambda *args: None  # 이 인스턴스만 · INTENT→ATTEMPT→POSTED|UNCERTAIN 은 _post 그대로
+        return self._post(key, intent, body, None, None, None, via=POSTED)
+
     def resolve(self, key):
         """재기동·유실 뒤 판정 — 표식 조회 먼저 · 새 게시 0. 반환 = 판정 1개."""
         self.steps = []
