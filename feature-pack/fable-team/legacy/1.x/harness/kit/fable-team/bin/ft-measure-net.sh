@@ -74,6 +74,8 @@ def mail_rows() -> list[dict]:
                 continue
             try:
                 r = json.loads(line)
+                if "seq" not in r and "bridged" in r:
+                    continue  # r1416 다른 루트로 간 쪽지 영수(seq 는 받는 루트 것) = 이 루트 쪽지 아님
                 by_seq.setdefault(int(r["seq"]), {"seq": int(r["seq"]), "ts": dt.datetime.fromisoformat(r["ts"]),
                                                   "from": str(r["from"]), "to": str(r["to"]), "body": str(r["body"])})
             except (ValueError, KeyError, TypeError):

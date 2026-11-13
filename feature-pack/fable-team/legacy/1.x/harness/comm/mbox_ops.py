@@ -100,9 +100,8 @@ def send(to, frm, body, force=False, desk_attach=""):
         sys.stderr.write(
             "ERROR 사람 글로 큐 넘침 — to=%s pending=%d (ring=%d) · 버리기 0 · 받는 좌석 확인\n"
             % (to, pend, MAX_PER_TO))
-    # ★청소는 «QUEUED 를 찍은 뒤», «잠금 밖»에서★ — 이 호출이 실패하거나 느려도
-    #   메시지는 이미 큐에 들어갔고 발신자는 이미 결과를 받았다. relay 는 send 를
-    #   타므로 여기 한 곳이면 두 경로가 모두 덮인다.
+    # ★청소는 «QUEUED 를 찍은 뒤», «잠금 밖»에서★ — 이 호출이 실패하거나 느려도 메시지는 이미 큐에 들어갔고
+    #   발신자는 이미 결과를 받았다. relay 는 send 를 타므로 여기 한 곳이면 두 경로가 모두 덮인다.
     _prune_bodies(CANON)
     if self_drop:
         raise SystemExit(5)   # r1820 B2 — 지금 송신 버림 = rc 5
