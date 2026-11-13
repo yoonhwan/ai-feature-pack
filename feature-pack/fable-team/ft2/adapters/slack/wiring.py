@@ -50,14 +50,35 @@ class Wiring:
         self._append({"t": "wake", "to": to, "command": command, "rc": rc, "head": body.splitlines()[0]})
         return rc
 
-    def deliver(self, to, kind, lines):  # route 가 dispatched 뒤에만 부른다(A7) — 방금 쓴 route 행이 그 사건이다
-        row = self.router.entries(route.ROUTE)[-1]
+    def deliver(self, to, kind, lines, row=None):  # route 가 dispatched 뒤에만 부른다(A7) — 방금 쓴 route 행이 그 사건이다
+        row = row or self.router.entries(route.ROUTE)[-1]
         command, thread = row.get("command"), row["key"][2]
         if kind == route.NEW:
             self.record_issue(command)
         body = "\n".join(["[Slack] %s · thread %s · command %s" % (kind, thread, command)] + list(lines))
         if self.wake(to, body, command) != 0:
             self.alert(dict(row, reason="깨움 실패"), quiet=True)
+
+    def recovered(self, verdict):  # 보정1 R2 — 재기동 복구 dispatched 도 정상 길처럼 입구 기록·좌석 깨움 1회
+        command, router = verdict.get("command"), self.router
+        if verdict.get("state") != route.DISPATCHED or any(  # 이미 좌석에 넘긴 글 = 깨움 0
+                r.get("command") == command and not r["head"].startswith("[Slack] 알림") for r in self.entries("wake")):
+            return None
+        rows = [r for r in router.entries(route.ROUTE) if r.get("command") == command and r.get("state") == route.DISPATCHED]
+        if not rows:  # route 앞에서 죽은 글 — S-1 이 묶은 root 만 이어 받는다(답글은 thread 불명 = desk)
+            key, src = binding.thread_key(*verdict["key"]), ([r for r in self.receive.entries()
+                                                            if r.get("command") == command and r.get("state") == "received"] or [{}])[-1]
+            if router.binding.get(key) is None:
+                return self.alert(dict(verdict, reason="복구 thread 불명"), quiet=True)
+            content = route.digest(src.get("text"))
+            kind, to = router._plan(key, router.binding.get(key), route.QUESTION, content)[:2]
+            rows = [router._record(key, kind, to, route.DISPATCHED, route.QUESTION, content, receipt=True, command=command)]
+            router._append({"t": route.NOTE, "key": list(key), "line": "%s %s %s" % (
+                key.root, src.get("user") or "", " ".join(str(src.get("text") or "").split()))})
+            if to == route.DESK:
+                return self.alert(rows[0])
+        if rows[-1]["to"] != route.DESK:  # 닫힘(desk)은 settled 가 이미 알렸다
+            self.deliver(rows[-1]["to"], rows[-1]["kind"], router.context(binding.thread_key(*rows[-1]["key"])), rows[-1])
 
     def record_issue(self, command):  # A3 — issues 입구에 같은 command 기록만(새 attempt 0 · issues 깨움 0)
         issues = receive.intake.Intake(self.root, "issues", clock=self.clock)
@@ -88,7 +109,15 @@ def wire(root, *, receive, bindings, notify=None, log=None, team="planner", cloc
     hub.receive, receive.notify = receive, alert
     hub.router = route.SlackRoute(root, receive=receive, bindings=bindings, notify=alert, deliver=hub.deliver,
                                   team=team, clock=clock)
+    hub.router.recovered = hub.recovered  # 보정1 R2 — S-1 복구 갈래가 부른다
     return hub.router, alert
+
+
+def _received(root, team):  # 수신기가 받아들인 글 키(거른 글 = ignored 제외) = 수신 채널 증거(보정1 R1)
+    path = os.path.join(os.path.abspath(root), ".fable-team", "teams", team, "slack", "receive.jsonl")
+    with open(path, encoding="utf-8") if os.path.exists(path) else open(os.devnull) as handle:
+        return {tuple(r["key"]) for r in map(json.loads, filter(str.strip, handle))
+                if r.get("key") and r.get("state") != receive.IGNORED}
 
 
 def _token(path):
@@ -133,6 +162,8 @@ def main(argv, post=None, sleep=None):
         return say("usage", rc=USAGE, reason="body-file 판독 불가")
     ledger = binding.ThreadBinding(opts["root"], opts["team"])
     rows = [r for r in ledger.settled().values() if r["key"][2] == opts["thread"]]
+    if verb == "notify":  # 수신 채널 thread 만 — 허용 밖 채널 binding = 게시 0(보정1 R1)
+        rows = [r for r in rows if tuple(r["key"]) in _received(opts["root"], opts["team"])]
     now = rows and ledger.get(binding.thread_key(*rows[-1]["key"]))
     if not now or not now.open:  # binding 없음·닫힘 = 게시 0(새 root 를 만드는 길 0)
         return say("refused", rc=USAGE, reason="binding 없음" if not now else "닫힘")

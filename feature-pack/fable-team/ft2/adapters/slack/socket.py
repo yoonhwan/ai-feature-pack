@@ -84,6 +84,7 @@ class Listener:  # 상주 수신기 1개 = 채널 1개 · 팀 1곳 · 어댑터 
         self.backfill = backfill.Backfill(root, route=self, fetch=self._fetch, notify=self.notify, **same)
     def run(self, sessions=None):  # 상주 루프 — 반환 = rc(경쟁 수신 4) · sessions = 시험용 연결 횟수 상한
         for verdict in self.receive.recover():  # 재기동 1회 복구(A4) — dispatched 면 영수도 같은 길(R1)
+            self.router.recovered(verdict)  # r1807 보정1 R2 — 복구 dispatched 도 입구 기록·좌석 깨움
             rows = [r["key"] for r in self.router.entries("route") if r.get("command") == verdict.get("command")]
             self._receipt(route.binding.thread_key(*(rows or [verdict["key"]])[-1]), verdict)
         count = fails = 0
