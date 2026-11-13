@@ -3,7 +3,7 @@ A2 deliver = 깨움 명령 1회(FT2_SLACK_WAKE · 기본 <root>/.fable-team/comm
 같은 command 기록만 · A4 notify = desk 깨움(같은 command·사유 재알림 0) · A5/A6 `slack reply`·`slack notify` = SlackPublish
 1회. 어댑터 5파일·route 규칙은 손대지 않는다 · 모델 호출 0 · 실패는 rc≠0 기록 1줄(조용한 성공 0)."""
 
-import collections, hashlib, importlib.util, json, os, shlex, subprocess, sys, time  # noqa: E401
+import collections, glob, hashlib, importlib.util, json, os, re, shlex, subprocess, sys, time  # noqa: E401
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 def _adapter(name):  # 경로로 읽기만(수정 0)
@@ -172,6 +172,32 @@ def slack_post(token):  # chat.postMessage · 7초 · 재시도는 publish MAX_P
     return post
 
 
+def _rows(pattern, word=""):  # r1856 그 파일들의 JSON 행(word 든 줄만 · 깨진 줄 건너뜀) · 읽기만
+    for path in sorted(glob.glob(pattern)):
+        with open(path, encoding="utf-8", errors="replace") as handle:
+            for line in (ln for ln in handle if word in ln):
+                try:
+                    yield dict(json.loads(line))
+                except (ValueError, TypeError):
+                    continue
+
+
+def _human_ts(command):  # 의도 키 slack:<ws>:<채널>:<사람 글 ts>:<꼬리> 의 4번째 칸 · 아니면 None
+    parts = str(command or "").split(":")
+    return parts[3] if len(parts) > 3 and parts[0] == "slack" and parts[3] else None
+
+
+def _seq(opts):  # r1856 요청 번호 = (숫자|None, 숫자 0 사유) · --seq = 숫자만 ∧ BYZ 우편함 기록에 있음
+    base, ts = os.path.join(glob.escape(opts["root"]), ".fable-team"), _human_ts(opts.get("command"))
+    if "seq" in opts:
+        want = opts["seq"] if re.fullmatch(r"[0-9]+", opts["seq"]) else ""
+        ok = want and any(r.get("seq") == int(want) for r in _rows(base + "/comm/mailbox.log.jsonl*", want))
+        return (want, "") if ok else (None, "--seq %r 우편함 기록 없음" % opts["seq"])
+    found = [m[1] for r in _rows(base + "/teams/%s/slack/publish.jsonl" % glob.escape(opts["team"]))  # 같은 사람 글 ts 만
+             if ts and _human_ts(r.get("command")) == ts for m in [re.search(r"\n보낸이 \S+ ([0-9]+)\Z", str(r.get("body")))] if m]
+    return (found[-1], "") if found else (None, "같은 사람 글 ts 의 장부 번호 없음")
+
+
 def say(state, ts="", rc=0, reason=""):
     sys.stdout.write(("state=%s ts=%s" % (state, ts or "")) + (" reason=%s" % reason if reason else "") + "\n")
     return rc
@@ -182,16 +208,18 @@ def main(argv, post=None, sleep=None):
     verb = (argv or [""])[0]  # r1852 `post --channel C` = 수신 채널 새 root(thread 없음)
     need = {"reply": ("thread", "command"), "notify": ("thread",), "post": ("channel",)}.get(verb)
     opts = {k[2:]: v for k, v in zip(argv[1::2], argv[2::2]) if k.startswith("--")}
-    known = {"root", "team", "seat", "body-file", "env"} | set(need or ())
+    known = {"root", "team", "seat", "body-file", "env", "seq"} | set(need or ())
     if need is None or len(argv) % 2 == 0 or len(opts) * 2 != len(argv) - 1 or set(opts) - known \
-            or known - {"env"} - set(opts) or opts.get("command", "").startswith("receipt:"):
+            or known - {"env", "seq"} - set(opts) or opts.get("command", "").startswith("receipt:"):
         return say("usage", rc=USAGE, reason="reply|notify --root --team --thread --seat --body-file [--command]")
     try:
         body = open(opts["body-file"], encoding="utf-8").read()
     except OSError:
         return say("usage", rc=USAGE, reason="body-file 판독 불가")
-    if tag := sender_tag.sender_tag(opts["seat"]):  # r1850 — 장부 기록 앞 = 재송·되살림도 같은 바이트
-        body = "%s\n\n%s" % (body, tag)
+    if sender_tag.sender_tag(opts["seat"]):  # r1850 — 장부 기록 앞 = 재송·되살림도 같은 바이트
+        seq, why = _seq(opts)  # r1856 — 못 찾음 = 숫자 0 · 게시는 그대로 · stderr 1줄
+        body = "%s\n\n%s" % (body, sender_tag.sender_tag(opts["seat"], seq))
+        sys.stderr.write("" if seq else "요청 번호 0 — %s\n" % why)
     else:  # lint 실패 = 표시 0 · 게시는 그대로
         sys.stderr.write("보낸이 표시 0 — 좌석 이름 lint 실패: %s\n" % opts["seat"])
     ledger = binding.ThreadBinding(opts["root"], opts["team"])
