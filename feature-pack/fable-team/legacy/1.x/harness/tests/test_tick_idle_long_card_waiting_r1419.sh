@@ -2,7 +2,8 @@
 # test_tick_idle_long_card_waiting_r1419.sh — R1419: ft-tick 누적 정지 경보(idle_long_watch)가 팀장 좌석이면 배정 원장(card-assign/<카드>.json)과 팀장 심박([정리])을 읽는다.
 #   T1 대기 5장 전부 원장 waiting 선행(2시간 안) · 심박 10분 = 경보 0 · 로그 1줄 / T2 T1 + waiting 아닌 카드 1장 = 경보 1 + 그 카드 이름
 #   T3 T1 + 심박 25분 = 경보 1 / T4 waiting 선행이 2시간 창 밖 = 경보 1(stall-scan 같은 판독) / T5 원장 꼴 깨짐 = 경보 1 + «카드 판독 불가»
-#   T6 role=arch 좌석 = 지금과 같은 경보 / T7 팀이 TEAMS 명단 밖 = 지금 문구 그대로
+#   T6 role=arch 좌석 = 지금과 같은 경보 / T7 팀이 TEAMS 명단 밖 = 지금 문구 그대로 / T8 FT_ROOT 없는 호출 env
+#   T9 lint 실행 rc2 = 경보 + «카드 판독 불가» / T10 빈 대기 폴더 = 경보 0 / T11 lint rc1(REJECT) = 판독 불가 아님
 # 모든 쓰기는 mktemp scratch — 실 tmux·실 우편함·실 /tmp 상태 0. tmux·mbox·seat-status·lint 는 가짜. 고정 sleep 0.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
@@ -129,5 +130,19 @@ awk '/^team_card_wait\(\) \{/,/^\}/' "$LIVE" > "$TMP/fn.sh"
 T8="$(cd "$TMP" && env -u FT_ROOT FT_INDEX_LINT="$TMP/lint.sh" FT_MBOX_DIR="$FT/comm" FT_STALL_STATE_DIR="$FT/state" FT_TEAMS_MD="$R/design/TEAMS.md" \
   timeout 70 bash -c 'HERE="$1"; ROOT="$2"; now() { date +%s; }; . "$3"; team_card_wait alpha' _ "$FT/bin" "$R" "$TMP/fn.sh" | cut -f1-4)"
 chk "T8 FT_ROOT 없는 env = wait 5장" "$T8" "wait	0	5	10분"
+
+# ── T9 (DA HOLD 299178 R1) 카드·원장·심박 정상 · index-lint 실행만 rc2(usage = 판정 불가) = 경보 1 + «카드 판독 불가» ──
+world 10; m15 "$MA"; printf '#!/bin/sh\nexit 2\n' > "$TMP/lint-rc2.sh"; chmod +x "$TMP/lint-rc2.sh"
+runtick t9 FT_INDEX_LINT="$TMP/lint-rc2.sh"
+chk "T9 lint rc2 = 경보 1" "$(stops)" 1
+has "T9 문구에 판독 불가 원문(rc2)" "$(stopbody)" "$BASE_M · 카드 판독 불가 ValueError: lint 실행 실패 rc=2"
+
+# ── T10 유효한 빈 대기 폴더(0장) · lint rc2 여도 부를 카드 0 = 지금처럼 기다림(경보 0) / T11 lint rc1(REJECT) = 판정된 카드(판독 불가 아님) ──
+world 10; m15 "$MA"; rm -f "$R/cards/alpha/대기/"*.md
+runtick t10 FT_INDEX_LINT="$TMP/lint-rc2.sh"
+chk "T10 빈 폴더 = 경보 0 · 로그(0장)" "$(stops) $(grep -c '카드 전부 waiting(0장)' "$TMP/t10/out")" "0 1"
+world 10; m15 "$MA"; printf '#!/bin/sh\nexit 1\n' > "$TMP/lint-rc1.sh"; chmod +x "$TMP/lint-rc1.sh"
+runtick t11 FT_INDEX_LINT="$TMP/lint-rc1.sh"
+chk "T11 lint rc1 = 판독 불가 아님" "$(grep -c '카드 판독 불가' "$SENT_LOG")" 0
 
 echo "fail=$fail"; [ "$fail" = 0 ] && echo "ALL PASS"; exit "$fail"
