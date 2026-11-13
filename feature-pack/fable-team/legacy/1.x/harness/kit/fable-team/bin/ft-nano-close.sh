@@ -54,7 +54,7 @@
 #     나머지(①②③④ · 세션 kill · 명부 CLOSED · 원장 행)는 기존 경로 그대로 · ★브랜치·워크트리 삭제 0★(정리 계획도 만들지 않는다 · 산출이 아직 착지 전이다) · 원장 행·출력 꼬리 `approved=1 set=<HEAD>`. 다른 모드와 동시 = usage 2.
 #   --plan-only <워크트리 경로> = 이미 좌석이 사라졌는데 정리 계획이 없는 나노 워크트리의 «계획만» 만든다(r-disk-drop-worktree-scratch-census · ft-disk-census.sh --plan 이 부른다). ①②③ 종료조건·cherry 게이트·명부·원장 행·kill 전부 건너뛰고
 #     확인: 좌석 세션 0(tmux 조회 성공) · 그 경로가 이 리포 .worktrees/ 아래 등록 워크트리 · 가지가 nano/<좌석 키>[-rN]. 통과하면 <wt-clean>/<seat>.sh 생성 + `PLANNED <경로>` + exit 0 — 실행은 기존 ft-wt-sweep.sh. 착지 판정은 호출자(census) 몫이고, 원장에 닫힘 행이 없어도 계획은 표식 실패로 멈추지 않는다.
-#   --replan <옛 계획 파일> = 옛 판(plan-ver ≠ 이 생성기) 계획을 같은 좌석·같은 WT 로 다시 만든다(r535 · ft-wt-sweep.sh 가 부른다). 굽힌 값(SEAT·KEY·WT·PREFIX·LEDGER·FT_NANO_WIP·PLAN_ONLY·MAINREF)만 옛 계획에서 읽고
+#   --replan <옛 계획 파일> = 옛 판(plan-ver ≠ 이 생성기) 계획을 같은 좌석·같은 WT 로 다시 만든다(r535 · ft-wt-sweep.sh 가 부른다). 굽힌 값(SEAT·CARD_SLUG(옛 판 KEY)·WT·PREFIX·LEDGER·FT_NANO_WIP·PLAN_ONLY·MAINREF)만 옛 계획에서 읽고
 #     몸통·가드는 지금 생성기 그대로 — 종료조건·팀 env·드리프트·원장 해석·명부·kill 전부 건너뜀. 새 계획 = <옛 계획 폴더>/<seat>.sh(FT_WT_CLEAN_DIR 가 이긴다).
 #     rc 0 `PLANNED <경로>` · 4 = WAIT(계보 세션 살아 있음 · tmux 조회 실패) · 1 = REJECT 사유 1줄(좌석 불일치 · --wt/--branch 계획 · WT 없음 · 가지 nano/* 아님 · 원장 값 없음) · 실행 0.
 #   Seatbelt 0.3 · 나노 좌석을 «값으로» 닫는다 (SEATBELT-README §3 닫기 · NANO-LEDGER 종료조건 3).
@@ -402,9 +402,9 @@ WT_CLEAN_DIR="${FT_WT_CLEAN_DIR:-$ROOT/.fable-team/state/wt-clean}"
 fi
 
 # 계획 «생성» — 좌석의 워크트리 = $ROOT/.worktrees/<WT 접두(기본 v65-)><seat 에서 접두·#N 제거>. 없으면 PLAN="" · WT_MARK=none.
-# key 는 $_KEY(하단 ③ 에서 1회 계산) 를 그대로 쓴다 — 두 곳에서 따로 계산하면 한쪽만 바뀔 때 ABSENT 판정과 계획 워크트리가 어긋난다(DA r5 MINOR 3).
+# card_slug 는 $_KEY(하단 ③ 에서 1회 계산) 를 그대로 쓴다 — 두 곳에서 따로 계산하면 한쪽만 바뀔 때 ABSENT 판정과 계획 워크트리가 어긋난다(DA r5 MINOR 3).
 _wt_clean_plan() {
-  local key="$_KEY"
+  local card_slug="$_KEY"
   local wt="$SEAT_WT"   # _resolve_seat_wt 의 값(-rN 포함) — 여기서 다시 조립하지 않는다
   PLAN=""; WT_MARK=none
   [ -n "$wt" ] && [ -d "$wt" ] || return 0
@@ -419,7 +419,7 @@ _wt_clean_plan() {
     printf '# plan-ver: %s\n' "$planver"
     printf '# baton 부작용(승인 범위에 명시): 아카이브 30일 초과분 prune · 분기 원장(.baton/branches.json) 의 같은 child_branch 행 status=abandoned.\n'
     # FT_NANO_WIP 는 close 실행 시점 값을 계획에 «굽는다» — sweep 은 나중 다른 프로세스/환경에서 돌아 close 의 env 를 못 물려받는다.
-    printf 'SEAT=%q; KEY=%q; WT=%q; PREFIX=%q; LEDGER=%q; PLAN=%q; FT_NANO_WIP=%q; NAMED_BR=%q; SWEEPER=%q; GEN=%q; PLANVER=%q; PLAN_ONLY=%q; LANDCHK=%q; MAINREF=%q; ROOTR=%q\n' "$SEAT" "$key" "$wt" "$NANO_PREFIX" "$LEDGER" "$PLAN" "${FT_NANO_WIP:-0}" "$([ "${_PK_ON:-0}" = 1 ] && echo "$SEAT_BR" || { [ "$NAMED" = 1 ] && echo "$NBR"; })" "$HERE/ft-wt-sweep.sh" "$HERE/ft-nano-close.sh" "$planver" "$PLAN_ONLY" "$HERE/ft-landed-check.sh" "${PO_MAINREF:-}" "$ROOT"
+    printf 'SEAT=%q; CARD_SLUG=%q; WT=%q; PREFIX=%q; LEDGER=%q; PLAN=%q; FT_NANO_WIP=%q; NAMED_BR=%q; SWEEPER=%q; GEN=%q; PLANVER=%q; PLAN_ONLY=%q; LANDCHK=%q; MAINREF=%q; ROOTR=%q\n' "$SEAT" "$card_slug" "$wt" "$NANO_PREFIX" "$LEDGER" "$PLAN" "${FT_NANO_WIP:-0}" "$([ "${_PK_ON:-0}" = 1 ] && echo "$SEAT_BR" || { [ "$NAMED" = 1 ] && echo "$NBR"; })" "$HERE/ft-wt-sweep.sh" "$HERE/ft-nano-close.sh" "$planver" "$PLAN_ONLY" "$HERE/ft-landed-check.sh" "${PO_MAINREF:-}" "$ROOT"
     cat <<'SH'
 # r173 자기검사 — 어떤 동작보다 먼저: 생성기의 «지금» blob sha 가 굽힌 plan-ver 와 같을 때만 계속한다(사람이 bash 로 직접 실행하는 .sh.hil 도 sweep 을 거치지 않고 여기서 멈춘다). 비교 불능(생성기 없음·hash 실패·빈 plan-ver)도 STALE.
 _lv="$(git hash-object -- "$GEN" 2>/dev/null)" || _lv=""
@@ -450,7 +450,7 @@ PY
 }
 fail() { mark "skipped:$1"; echo "skipped:$1"; exit 1; }
 [ -d "$WT" ] || { mark none; echo none; exit 0; }
-# ① 계보(<PREFIX><KEY>#N) 세션 — «자기 포함» 0. tmux 실패는 「no server running」만 0세션으로 인정, 그 외(바이너리 없음·소켓 오류)는 skipped (DA r2 R12)
+# ① 계보(<PREFIX><CARD_SLUG>#N) 세션 — «자기 포함» 0. tmux 실패는 「no server running」만 0세션으로 인정, 그 외(바이너리 없음·소켓 오류)는 skipped (DA r2 R12)
 # r8(DA r7 조건1): rc=1 요건 추가 — 「소켓 없음」 문구만 0세션(그 외 rc1 연결 장애는 skipped, close 쪽과 같은 좁힘).
 [ -x "$TMUX_BIN" ] || fail "tmux 실행 불가($TMUX_BIN)"
 out="$("$TMUX_BIN" ls -F '#{session_name}' 2>&1)"; rc=$?
@@ -472,7 +472,7 @@ if [ "$rc" -ne 0 ]; then
     *) fail "tmux 조회 실패(rc=$rc: ${out:0:60})";;
   esac
 fi
-live="$(printf '%s\n' "$out" | grep -x "${PREFIX}${KEY}#[0-9]*" | tr '\n' ' ')"
+live="$(printf '%s\n' "$out" | grep -x "${PREFIX}${CARD_SLUG}#[0-9]*" | tr '\n' ' ')"
 [ -z "$live" ] || fail "좌석 ${live% }"
 # ② 워크트리를 cwd 로 쥔 프로세스 0 (tmux 밖 node·mcp·zsh 포함). lsof 절대경로 + 실행 가능 + 종료코드를 grep 과 분리(fail-closed · DA r2 R12)
 #   r992: 이 한 줄이 머신 전체(수천 프로세스)를 훑어 부하 19 에서 7초를 넘겼다(ops 나노 닫기 3종 막힘 ③) — «내 uid ∧ cwd fd» 로 좁히고 7초 상한을 건다. 넘으면 pid 반 쪼개기 1회, 그래도 넘으면 단계 이름 있는 ERROR(조용한 통과 0).
@@ -560,9 +560,9 @@ fi
 # ④ 도달성 — HEAD 브랜치 = info branch(detached 금지) 이고 HEAD 가 refs/heads/<br> 에 포함 (DA r1 R1②)
 SIB=""
 hb="$(git -C "$WT" symbolic-ref --short -q HEAD)"
-# r574: 같은 좌석 키의 -rN 형제 가지로 갈아탄 워크트리(착지 게이트 때문에 재착수)는 info 가지와 HEAD 가지가 다르다 — 둘 다 nano/<KEY>[-rN] 이면 HEAD 가지로 판정한다(가지 이름은 리포 안에서 유일 → 다른 좌석·다른 팀 가지는 이 꼴에 들 수 없다). 그 밖은 아래 fail 그대로.
+# r574: 같은 좌석 키의 -rN 형제 가지로 갈아탄 워크트리(착지 게이트 때문에 재착수)는 info 가지와 HEAD 가지가 다르다 — 둘 다 nano/<CARD_SLUG>[-rN] 이면 HEAD 가지로 판정한다(가지 이름은 리포 안에서 유일 → 다른 좌석·다른 팀 가지는 이 꼴에 들 수 없다). 그 밖은 아래 fail 그대로.
 if [ "$hb" != "$br" ] && [ -z "$NAMED_BR" ] \
-   && [[ "$hb" =~ ^nano/${KEY}(-r[0-9]+)?$ ]] && [[ "$br" =~ ^nano/${KEY}(-r[0-9]+)?$ ]]; then
+   && [[ "$hb" =~ ^nano/${CARD_SLUG}(-r[0-9]+)?$ ]] && [[ "$br" =~ ^nano/${CARD_SLUG}(-r[0-9]+)?$ ]]; then
   echo "INFO ④ 형제 가지 — info $br · HEAD $hb (같은 키) · HEAD 가지로 판정"
   SIB=" · 형제=$hb"
   br="$hb"
@@ -655,11 +655,12 @@ SH
 if [ "$REPLAN" -eq 1 ]; then
   _rs="$SEAT"; _vl="$(grep -m1 '^SEAT=' "$RP_OLD")"
   [ -n "$_vl" ] || { echo "REJECT --replan: 굽힌 값 줄(SEAT=…) 없음: $RP_OLD"; exit 1; }
-  NAMED_BR=""; PLAN_ONLY=0; MAINREF=""; PREFIX=""; KEY=""; LEDGER=""; FT_NANO_WIP=0
+  NAMED_BR=""; PLAN_ONLY=0; MAINREF=""; PREFIX=""; CARD_SLUG=""; KEY=""; LEDGER=""; FT_NANO_WIP=0
   eval "$_vl" || { echo "REJECT --replan: 굽힌 값 줄을 못 읽음: $RP_OLD"; exit 1; }   # 신뢰 경계 = 계획 파일 자체(sweep 이 어차피 실행하는 파일)
   [ "$SEAT" = "$_rs" ] || { echo "REJECT --replan: 좌석 불일치(인자 $_rs ≠ 계획 $SEAT)"; exit 1; }
   [ -z "$NAMED_BR" ] || { echo "REJECT --replan: --wt/--branch 계획(사람 경로 · 자율 재생성 대상 아님)"; exit 1; }
-  { [ -n "$KEY" ] && [ -n "$PREFIX" ] && [ -n "$LEDGER" ]; } || { echo "REJECT --replan: 원장 값 없음(KEY·PREFIX·LEDGER)"; exit 1; }
+  [ -n "$CARD_SLUG" ] || CARD_SLUG="$KEY"   # r1405: 옛 판 계획(굽힌 이름 KEY=)도 그대로 다시 만든다(동작 0)
+  { [ -n "$CARD_SLUG" ] && [ -n "$PREFIX" ] && [ -n "$LEDGER" ]; } || { echo "REJECT --replan: 원장 값 없음(CARD_SLUG·PREFIX·LEDGER)"; exit 1; }
   [ -d "$WT" ] || { echo "REJECT --replan: WT 없음($WT)"; exit 1; }
   _rb="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("branch",""))' "$WT/.worktree-info.json" 2>/dev/null)"
   [ -n "$_rb" ] || _rb="$(git -C "$WT" symbolic-ref --short -q HEAD)"
@@ -667,9 +668,9 @@ if [ "$REPLAN" -eq 1 ]; then
   _tb="${FT_TMUX_BIN:-$(command -v tmux 2>/dev/null || echo /opt/homebrew/bin/tmux)}"
   _to="$("$_tb" ls -F '#{session_name}' 2>&1)"; _trc=$?
   if [ "$_trc" -ne 0 ]; then case "$_trc:$_to" in 1:*"no server running"*) _to="";; *) echo "WAIT --replan: tmux 조회 실패(rc=$_trc: ${_to:0:60}) — 좌석 생존 불명"; exit 4;; esac; fi
-  _lv="$(printf '%s\n' "$_to" | grep -x "${PREFIX}${KEY}#[0-9]*" | tr '\n' ' ')"
+  _lv="$(printf '%s\n' "$_to" | grep -x "${PREFIX}${CARD_SLUG}#[0-9]*" | tr '\n' ' ')"
   [ -z "$_lv" ] || { echo "WAIT --replan: 계보 세션 살아 있음(${_lv% })"; exit 4; }
-  _KEY="$KEY"; SEAT_WT="$WT"; NANO_PREFIX="$PREFIX"; PO_MAINREF="$MAINREF"; NAMED=0
+  _KEY="$CARD_SLUG"; SEAT_WT="$WT"; NANO_PREFIX="$PREFIX"; PO_MAINREF="$MAINREF"; NAMED=0
   ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
   [ -n "$ROOT" ] || { echo "REJECT --replan: 리포 루트 판별 실패($WT)"; exit 1; }
   WT_CLEAN_DIR="${FT_WT_CLEAN_DIR:-$(cd "$(dirname "$RP_OLD")" && pwd)}"
