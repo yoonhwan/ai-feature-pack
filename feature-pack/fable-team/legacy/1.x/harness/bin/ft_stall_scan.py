@@ -28,6 +28,7 @@ import ft_penalty
 import ft_stall_headline as headline
 from ft_stall_detect import IDLE_MIN, all_stop, all_stop_note, agent_sessions, api_outage, card_gate, ctx_pct, lead_alert, lead_heartbeat_min, lead_names, load_teams, off_roster_live, pending_mail, policy_stop, run, spawn_capacity, waiting_cards, RefUnavailable
 from ft_stall_seats import Seats
+from ft_team_lib import rosters  # r1883 — _master 빈 팀의 카드 경로(명부 doc)
 import ft_stall_state as stm
 from ft_nano_record_auto import land_close
 
@@ -168,7 +169,18 @@ class Scan:
             return hold or lag is not None and min(age, lag) < lead_heartbeat_min()
 
         teams, hbd = load_teams(self.root), {}
+        docs = {r["team"]: r["doc"] or {} for r in rosters(self.root)} if any(t["diag"] == "_master 빔" for t in teams) else {}
         for t in teams:
+            d = docs.get(t["team"]) or {}  # r1883 m — 팀장 손 없음(_master 빈 값 ∨ 세션 없음) ∧ 배정 가능(card_ready==ready) 대기 카드 ≥ 1 · diag 제외보다 앞
+            mc = t["cards"] if t["diag"] == "OK" else ((self.root / ".worktrees" / str(d["_cards_wt"]) if d.get("_cards_wt") else self.root) / str(d["_cards"]) if d.get("_cards") else None)
+            if mc and t["diag"] in ("OK", "_master 빔") and t["master"] not in self.live:
+                try:
+                    m_names = waiting_cards(mc, self.lint, self.root, self.now, {}, notes, cache=self.lint_cache, seen=self.lint_seen, budget=stm.lint_budget)[0]
+                except RefUnavailable as e:
+                    m_names = []
+                    notes.append(f"m? {t['team']} 대기 카드 판정 불가 — {e}")
+                if m_names:
+                    keep(dict(kind="m", seat=t["master"] or "-", team=t["team"], age=0.0, n=len(m_names), lead=t["master"] or "빈 값", sig=f"{t['team']}|{t['master'] or ''}", why=f"팀장 없음 · 대기 카드 {len(m_names)} · _master {t['master'] or '빈 값'}"))
             if t["diag"] != "OK":
                 unknown += 1
                 self.lint_unread += 1
@@ -333,6 +345,24 @@ class Scan:
             elif n == 1 and f["lead"]:
                 self.send(f["lead"], f"[멈춤] {f['seat']} pi 모델 일시 오류({at}) 뒤 깨워도 멈춤 · 재개·인계 판단 (ft-stall-scan g)")
             log += [f"{stamp} act=g seat={f['seat']} n={n + 1} to={f['seat'] if n == 0 else f['lead']} {f['why']}"] if n < 2 else []
+        _ = path.write_text(json.dumps(keep), encoding="utf-8")
+        return log
+
+    def act_m(self, found: list[dict], stamp: str) -> list[str]:
+        """r1883 m — 서명(팀|_master) 처음 = planner·harness master 에 1통씩 · 같은 서명 재알림 0 · 정지 중·전팀 정지 = 발신 0(서명도 0) · 자동 개설 0 · 서명 파일 state/stall-scan.m.json."""
+        path, keep, log = self.state_dir / "stall-scan.m.json", {}, []
+        try:
+            sigs = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            sigs = {}
+        to = [x for x in dict.fromkeys(t["master"] for t in load_teams(self.root, warn=False) if t["diag"] == "OK" and t["team"] in ("planner", "harness")) if x]
+        for f in (x for x in found if x["kind"] == "m" and not x["held"] and not x.get("all_stop")):
+            keep[f["sig"]] = 1
+            if f["sig"] in sigs:
+                continue
+            for x in to:
+                self.send(x, f"[팀장 없음] {f['team']} · 대기 카드 {f['n']} · _master {f['lead']} · 열기 = successor-open (ft-stall-scan m)")
+            log.append(f"{stamp} act=m team={f['team']} notify={','.join(to) or '-'} {f['why']}")
         _ = path.write_text(json.dumps(keep), encoding="utf-8")
         return log
 
@@ -545,9 +575,9 @@ class Scan:
         found, unknown = self.gate_a(found, unknown)  # r1238 A — 처리 단계 첫 일(keys·counts·trig 전)
         handled, prev = self.st.get("handled", {}), set(self.st.get("prev", []))
         keys = {f"{f['kind']}:{f['seat']}": f for f in found if f["kind"] != "h"}
-        counts = {k: sum(1 for f in found if f["kind"] == k) for k in "abcdefgh"}
+        counts = {k: sum(1 for f in found if f["kind"] == k) for k in "abcdefghm"}
         trig = sorted(k for k, f in keys.items() if k[0] in "abd" and k in prev and f["seat"] in handled and not f["attached"] and not f["held"])
-        lines = [f"stall={len(found) - counts['h']} a={counts['a']} b={counts['b']} c={counts['c']} d={counts['d']} e={counts['e']} seats={len(self.live)} u={unknown} ts={int(self.now)} l={len(self.loggedout)} f={counts['f']} h={counts['h']} g={counts['g']}"]
+        lines = [f"stall={len(found) - counts['h']} a={counts['a']} b={counts['b']} c={counts['c']} d={counts['d']} e={counts['e']} seats={len(self.live)} u={unknown} ts={int(self.now)} l={len(self.loggedout)} f={counts['f']} h={counts['h']} g={counts['g']} m={counts['m']}"]
         lines += [f"{f['kind']} {f['seat']} {f['age']:.0f} {f['why']}" + ("" if f["kind"] in ("e", "h", "g") else " (attached·처리 0)" if f["attached"] else " (전팀 정지 처리 0)" if f.get("all_stop") else " (정지 중 처리 0)" if f["held"] else "") for f in found]
         lines += [f"l {s} 첫 실패 {e if e is None else int(e)} 로그아웃(재개 = 재시작)" for s, _, e in self.loggedout]
         lines += self.notes
@@ -563,12 +593,13 @@ class Scan:
         if not cell_err:
             log += self.act_e(found, stamp)  # e 는 알림만 — attached·페널티·10분 창과 무관, 서명으로만 1회
             log += self.act_l(stamp)  # r849 — 로그아웃 좌석 팀장 1통 · 칸(좌석 계보)으로만 1회
+            log += self.act_m(found, stamp)  # r1883 — 팀장 없는 팀 · 서명으로만(10분 창 무관)
             log += self.act_g(found, stamp)  # r1882 — pi 오류 멈춤 · 서명으로만(10분 창·attached 무관)
             headline_notes = headline.headline_alerts(self.root, self.comm, found, self.live, self.now, self.send_headline, self.astop)  # r1371 — 같은 표식(조회 1회)
             for note in headline_notes:
                 print(note)
         for f in found:
-            if cell_err or f["kind"] in ("e", "h", "g") or f["kind"] == "b" and f["seat"] in d_seats:  # b+d 동시 = d 한 번(가장 오래된 pending seq ring · 새 send 생략)
+            if cell_err or f["kind"] in ("e", "h", "g", "m") or f["kind"] == "b" and f["seat"] in d_seats:  # b+d 동시 = d 한 번(가장 오래된 pending seq ring · 새 send 생략)
                 continue
             key = f.get("key", f["seat"])  # r1001 r3 — 팀장 경보 억제 키 = 팀(대상 좌석이 바뀌어도 같은 팀 10분 0통)
             if f["attached"] or f["held"] or f.get("all_stop") or self.now - float(handled.get(key, 0)) < REPEAT_S or f["kind"] != "f" and stm.recent_in_log(self.state_dir, f["seat"], self.now):
