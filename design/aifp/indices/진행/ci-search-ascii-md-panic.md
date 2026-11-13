@@ -72,3 +72,5 @@
 
 ## 상태
 - 2026-11-13 · 대기 — aifp-ft-arch-pi#3 작성(aifp 4307 · 실측 재현 panic 1·버린 줄 2·6.79초 · md 뺀 경로 2.89초) · 다음 = DA aifp-ft-da-codex#0 사전검증 → APPROVE 뒤 aifp-ft-master-pi#9 → 나노 1석
+- 세트: 556e22f8bebf76b12957d6f9aa108f4937f6ed96 · 시험: bash feature-pack/code-intel/tests/test_ci_search_nonascii_panic.sh rc=0 · 이슈: #8519
+- 완료: aifp-ft-nano-ci-search-ascii-md-panic#0 · 한 일: ci search md 늘 rg 절 · probe 단계 상한 25초 · [info] 1줄(DA APPROVE-IMPLEMENTATION 556e22f8 aifp 4327) · 산출: nano/ci-search-ascii-md-panic@556e22f8 · 병합 상태: 착지 97528b12bd(PR #1087) · 남은 일: 없음
