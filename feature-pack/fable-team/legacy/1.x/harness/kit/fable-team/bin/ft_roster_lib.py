@@ -125,14 +125,17 @@ def seat_facts(arg, env, root, seat, rd):   # r5 — 명부 경로·좌석 행·
 
 
 def pi_seat_resume(seat, model, retired_by):   # Pi 계약 v3 — 상태 판정과 동일 locator만 사용한다.
-    from ft_seat_pi import locate
+    from ft_seat_pi import binding   # r1855 ⓒ 결속 하나 재사용 — binding dict 통째(다시 만들기 0)
     try:
-        path, head, pid, cwd = locate(seat)
+        b = binding(seat)
+        with open(b["jsonl"], encoding="utf-8") as f:
+            head = json.loads(f.readline())
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
-        # PI_NOREC는 close가 자동 수용하므로 결속 오류에는 쓰지 않는다.
-        return None, "Pi 결속 판정 불가 · " + type(error).__name__
+        # PI_NOREC는 close가 자동 수용하므로 결속 오류에는 쓰지 않는다. r1855 ⓓ 세션 바뀜은 사유 그대로.
+        return None, "Pi 결속 판정 불가 · " + ("세션 바뀜" if str(error) == "세션 바뀜" else type(error).__name__)
+    path = b["jsonl"]
     use = model if isinstance(model, str) and model else _pi_model(path, head)
     if not use:
         return None, "pi 좌석 · model 못 읽음(세션 파일·명부)"
-    return collections.OrderedDict(name=seat, engine="pi", pid=int(pid), uuid=head["id"], jsonl=path, cwd=cwd, model=use, retired_by=retired_by,
-                                   at=datetime.datetime.now().isoformat(timespec="seconds"), binding=dict(source="pi-session", session=seat, uuid=head["id"], jsonl=path, pid=int(pid))), ""
+    return collections.OrderedDict(name=seat, engine="pi", pid=b["pid"], uuid=b["uuid"], jsonl=path, cwd=b["cwd"], model=use, retired_by=retired_by,
+                                   at=datetime.datetime.now().isoformat(timespec="seconds"), binding=b["binding"]), ""

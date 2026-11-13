@@ -4,7 +4,9 @@
 Live binding uses a live pane, its cwd, TMUXC_PI_SESSION_ID and session_info.name.
 FT_TMUX / FT_PI_SESSIONS select isolated sources for tests. No model calls.
 --if-file classifies an explicitly supplied Pi file without proving live ownership.
+r1855: no TMUXC_PI_SESSION_ID = ft2 launch seat branch (ft_seat_pi_ft2 · binding.source ft2-intent).
 """
+import glob
 import json
 import os
 import subprocess
@@ -33,10 +35,26 @@ def roster_dir():
 
 
 def is_pi(seat, directory=None):
-    return agent_of(seat, directory or roster_dir()) == "pi"
+    directory = directory or roster_dir()
+    if any(isinstance(json.load(open(f, encoding="utf-8")).get(seat), dict) for f in glob.glob(os.path.join(directory, "seats*.json"))):
+        return agent_of(seat, directory) == "pi"
+    return ft2_identity(seat) is not None   # r1855 명부 행 없을 때만 — ft2 launch 3조건
 
 
-def live_identity(seat, tmux=None):
+def tmux_env(seat, tmux):
+    return dict(ln.split("=", 1) for ln in run([tmux, "-u", "show-environment", "-t", "=" + seat]).splitlines() if "=" in ln)
+
+
+def ft2_identity(seat, tmux=None, env=None):   # r1855 판단 한 곳(is_pi·결속 공용) · 모듈 없음·조회 실패 = None(지금 그대로)
+    tmux = tmux or os.environ.get("FT_TMUX", "tmux")
+    try:
+        from ft_seat_pi_ft2 import identity
+        return identity(seat, tmux, tmux_env(seat, tmux) if env is None else env, run, lambda s, t: live_identity(s, t, False))
+    except (ImportError, OSError, ValueError, RuntimeError, subprocess.SubprocessError):
+        return None
+
+
+def live_identity(seat, tmux=None, need_id=True):
     tmux = tmux or os.environ.get("FT_TMUX", "tmux")
     raw = run([tmux, "-u", "list-panes", "-a", "-F",
                "#{session_name}\t#{pane_pid}\t#{pane_current_path}\t#{pane_dead}"])
@@ -48,6 +66,8 @@ def live_identity(seat, tmux=None):
         raise ValueError("Pi pane 생존/cwd 확인 불가")
     if run(["ps", "-p", pid, "-o", "pid="]).strip() != pid:
         raise ValueError("Pi pane 프로세스 확인 불가")
+    if not need_id:
+        return pid, cwd
     env = run([tmux, "-u", "show-environment", "-t", "=" + seat, "TMUXC_PI_SESSION_ID"])
     ids = [ln.partition("=")[2] for ln in env.splitlines() if ln.startswith("TMUXC_PI_SESSION_ID=")]
     if len(ids) != 1 or not ids[0]:
@@ -55,10 +75,18 @@ def live_identity(seat, tmux=None):
     return pid, os.path.realpath(cwd), ids[0]
 
 
-def locate(seat, tmux=None):
-    """Return (path, first session record, pane pid, real cwd); never choose newest."""
-    pid, cwd, sid = live_identity(seat, tmux)
+def locate(seat, tmux=None, source=False):
+    """Return (path, first session record, pane pid, real cwd)[, binding source]; never choose newest."""
+    tmux = tmux or os.environ.get("FT_TMUX", "tmux")
+    env = tmux_env(seat, tmux)
     root = Path(os.path.expanduser(os.environ.get("FT_PI_SESSIONS") or os.environ.get("FT_PI_SESSIONS_DIR") or "~/.pi/agent/sessions"))
+    if "TMUXC_PI_SESSION_ID" not in env:   # r1855 ⓑ 없을 때만 2.0 갈래 · 있으면 아래 v3 그대로
+        got = ft2_identity(seat, tmux, env)
+        if got is None:
+            raise ValueError("Pi session ID 확인 불가")
+        from ft_seat_pi_ft2 import first_session
+        return first_session(got, root) + (("ft2-intent",) if source else ())
+    pid, cwd, sid = live_identity(seat, tmux)
     found = []
     for path in root.glob("*/*.jsonl"):
         try:
@@ -82,7 +110,7 @@ def locate(seat, tmux=None):
             continue
     if len(found) != 1:
         raise ValueError(f"Pi session 후보 {len(found)}개")
-    return found[0]
+    return found[0] + (("pi-session",) if source else ())
 
 
 def row(seat, tmux=None):
@@ -90,10 +118,10 @@ def row(seat, tmux=None):
 
 
 def binding(seat):
-    path, head, pid, cwd = locate(seat)
+    path, head, pid, cwd, src = locate(seat, source=True)
     return dict(rc=0, reason="", engine="pi", pid=int(pid), uuid=head["id"], cwd=cwd,
-                jsonl=path, name=seat, name_source="session_info",
-                binding=dict(source="pi-session", session=seat, uuid=head["id"], jsonl=path, pid=int(pid)))
+                jsonl=path, name=seat, name_source="session_info" if src == "pi-session" else src,
+                binding=dict(source=src, session=seat, uuid=head["id"], jsonl=path, pid=int(pid)))
 
 
 def bind_result(seat, expected=None):
