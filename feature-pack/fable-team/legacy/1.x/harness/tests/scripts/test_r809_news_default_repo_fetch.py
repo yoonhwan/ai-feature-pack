@@ -178,7 +178,7 @@ def test_d_fetch_ok_and_no_new_commit_keeps_change_line(world, tmp_path, monkeyp
 # ── ⓔ 옛 판(FT_NEWS_MODE 없음) = sync_repo() 그대로 ─────────────────
 
 def test_e_old_mode_path_still_calls_sync_repo(world, tmp_path, monkeypatch):
-    """ⓔ 모드 없음 = 옛 판 경로 — sync_repo 1회 · 원장 ref 받기 스텁 0(동작 무변경)."""
+    """ⓔ 모드 없음 = 옛 판 경로 — sync_repo 1회(r1373: 스크립트 2단계 --fetch-only·--advance = 스텁 2번) · 원장 ref 받기 스텁 0(동작 무변경)."""
     monkeypatch.delenv("FT_NEWS_MODE", raising=False)
     sync_stub, sync_counter = _stub(tmp_path, monkeypatch, 'echo x >> "$CNT"\necho "사본 동기화 ok"\nexit 0\n', name="sync")
     fetch_stub, fetch_counter = _stub(tmp_path, monkeypatch, FETCH_OK, name="fetch")
@@ -186,7 +186,7 @@ def test_e_old_mode_path_still_calls_sync_repo(world, tmp_path, monkeypatch):
     monkeypatch.setenv("FT_LEDGER_FETCH", str(fetch_stub))
     monkeypatch.setenv("FT_LEDGER_REPO", str(world["live"]))
     assert fl._run(world["root"], world["state"]) == (0, "원장 커밋 0")
-    assert _count(sync_counter) == 1 and _count(fetch_counter) == 0
+    assert _count(sync_counter) == 2 and _count(fetch_counter) == 0
     assert world["made"] == [] and world["lines"] == []
 
 

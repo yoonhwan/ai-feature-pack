@@ -211,7 +211,7 @@ def test_magazine_rejects_uncommitted_ledger_edit_and_uncommitted_file(env):
 # ── r503 원장 사본 전진 호출: 가짜 sync rc3 → 뉴스 발행 계속 + 머리 ERROR 줄 · 매거진 exit 6 · 매거진 기본값 = 뉴스 사본·새 경로 ──
 def fake_sync(tmp: Path, rc: int, line: str) -> Path:
     f = tmp / f"fake-sync-{rc}.sh"
-    f.write_text(f'#!/usr/bin/env bash\necho "$1" >> "{tmp}/sync.calls"\necho "{line}"\nexit {rc}\n', encoding="utf-8")
+    f.write_text(f'#!/usr/bin/env bash\necho "$*" >> "{tmp}/sync.calls"\necho "{line}"\nexit {rc}\n', encoding="utf-8")
     return f
 
 
@@ -224,7 +224,7 @@ def test_r503_news_sync_fail_still_publishes_with_error_head_line(env, monkeypat
     monkeypatch.setenv("FT_LEDGER_SYNCED", "0")  # 다음 틱(새 프로세스)
     commit(repo, REAL.replace(ROW_OLD, ROW_NEW))
     assert nl.run() == 0 and len(news_files(root)) == 1
-    assert (tmp / "sync.calls").read_text(encoding="utf-8").splitlines() == [str(repo)] * 2
+    assert (tmp / "sync.calls").read_text(encoding="utf-8").splitlines() == [f"--fetch-only {repo}"] * 2  # r1373: fetch 단계 실패 = advance 0
     log = (tmp / "stub.log").read_text(encoding="utf-8")
     assert "원장 사본 갱신 안 됨 — ERROR ledger 사본이 가지 main 위 — 전진 0" in log and "다시 손봄" in log
 
@@ -234,10 +234,10 @@ def test_r503_news_sync_ok_once_per_tick_and_only_for_explicit_repo(env, monkeyp
     for k, v in {"FT_LEDGER_SYNCED": "0", "FT_LEDGER_SYNC_ERROR": "", "FT_LEDGER_SYNC": str(fake_sync(tmp, 0, "SYNC aaaaaaaaaa..bbbbbbbbbb"))}.items():
         monkeypatch.setenv(k, v)
     assert nl.sync_repo() == "" and nl.sync_repo() == ""  # 같은 틱 두 번째 = 건너뜀
-    assert (tmp / "sync.calls").read_text(encoding="utf-8").splitlines() == [str(repo)]
+    assert (tmp / "sync.calls").read_text(encoding="utf-8").splitlines() == [f"--fetch-only {repo}", f"--advance {repo}"]  # r1373: 2단계
     monkeypatch.setenv("FT_LEDGER_SYNCED", "0")
     monkeypatch.delenv("FT_LEDGER_REPO")
-    assert nl.sync_repo() == "" and len((tmp / "sync.calls").read_text(encoding="utf-8").splitlines()) == 1  # 기본 LIVE_ROOT = 옮기지 않음
+    assert nl.sync_repo() == "" and len((tmp / "sync.calls").read_text(encoding="utf-8").splitlines()) == 2  # 기본 LIVE_ROOT = 옮기지 않음
 
 
 def test_r503_magazine_sync_fail_exits_6_and_publishes_nothing(env):
