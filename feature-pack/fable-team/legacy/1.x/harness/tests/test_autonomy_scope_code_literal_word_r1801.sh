@@ -18,7 +18,7 @@ crit() { out="$(python3 "$1" classify "$2" --repo "${3:-$W}" --critical 2>&1)"; 
 want() { [ "$rc" = "$2" ] && [[ "$out" == $3* ]]; ck "$1" $?; }
 cp_bin() { mkdir -p "$1"; cp "$BIN"/autonomy_scope_*.py "$BIN"/ft_secret_*.py "$1"/; }
 BASE="$T/base"; cp_bin "$BASE"
-printf 'def drop(text, mask):\n    return mask\n' > "$BASE/autonomy_scope_code_word.py"   # 기준판 = 빼기 없음(r1801 전 동작)
+printf 'def drop(text, mask, *_opt):\n    return mask\n' > "$BASE/autonomy_scope_code_word.py"   # 기준판 = 빼기 없음(r1801 전 동작)
 ck "기준판 사본(빼기 없음)" $?
 python3 -I -m py_compile "$BIN/autonomy_scope_secret.py" "$BIN/autonomy_scope_code_word.py"; ck "py_compile secret·code_word" $?
 same() {  # same <이름> — 지금 가지(SHA)에서 새 판과 기준판 출력·rc 가 같다(바이트 비교)
@@ -55,6 +55,11 @@ keep_no "④b .md bash 울타리 env" c4b docs/a.md '```bash' 'env' '```'
 keep_no "④c 셔뱅 sh + 확장자 없음 set" c4c tools/run1 '#!/bin/sh' 'set'
 # ⑤ 여러 줄 리터럴(ⓐ 위반) = 그대로
 keep_eq "⑤ 세 따옴표 안 set" c5 app/o.py 'X = """' 'set' '"""'
+# 보정1(DA HOLD #293603 동결 반례) — R1 주석 안 «)» 는 괄호가 아니다 · R2 첨자 «[» 앞 공백 허용 · 실행 이름표는 «(» 호출에만
+keep_no "R1 주석 안 ) 뒤 os.system 여러 줄" f1 app/p.py 'import os' 'os.system( # close )' '    str("set"))'
+pass_new "R2a 공백 첨자 result [ \"set\" ]" f2a app/q.py 'x = result [ "set" ]'
+pass_new "R2b 첨자 run[\"set\"](호출 아님)" f2b app/r.py 'x = run["set"]'
+keep_eq "R2c 키워드 뒤 목록 return [\"env\"] = 그대로" f2c app/s.py 'def f():' '    return ["env"]'
 
 # 변이 M1·M3·M6 — 사본에서만 · 변이마다 원본으로 같은 사례 1회
 mut() {  # mut <이름> <가지> <옛 글> <새 글> → 변이판 출력 out·rc
