@@ -75,6 +75,13 @@ fi
 CARRY="${CARRY:-0}"
 printf '%s\n%s\n' "$OLD" "$NAME" | grep -qvE '^[A-Za-z0-9._#-]+$' && { echo "REJECT 좌석명은 [A-Za-z0-9._#-] 만" >&2; exit 2; }
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+# ★r1412 데이터 루트 = env FT_ROOT 먼저★ (r1404 ft-role-spawn 과 같은 규칙): kakao 처럼 데이터 루트가 깃 공용 루트와 다른 팀은 FT_ROOT 로 명부·팀 명단·state 를 푼다.
+#   끝 / 제거 · .fable-team 없으면 부작용 전 REJECT · FT_ROOT 없으면 DROOT 빈 값 = 지금처럼(깃 공용 루트).
+DROOT=""
+if [ -n "${FT_ROOT:-}" ]; then
+  DROOT="${FT_ROOT%/}"
+  [ -d "$DROOT/.fable-team" ] || { echo "REJECT FT_ROOT 에 .fable-team 없음: $DROOT"; exit 1; }
+fi
 # ★spawn 정지 파일 (R320)★: 승계는 1석 교대(순증 0)라 정지 중이어도 막지 않고 WARN 1줄만(문지기 --succession 과 같은 원칙).
 if [ -f "$HERE/ft-spawn-hold.sh" ]; then
   _hold="$(bash "$HERE/ft-spawn-hold.sh" status 2>&1)" || echo "WARN spawn 정지 중이나 승계는 막지 않는다 — $_hold" >&2
@@ -85,7 +92,7 @@ fi
 . "$HERE/ft-reclaim-capped.sh"
 [ -f "$HERE/ft-resource-gate.sh" ] || { echo "REJECT ft-resource-gate.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
 # R213 DA⑥ H3(r2): agents 면제(--succession)는 «실제 1석 교대» 일 때만 — ①NAME == OLD 계보 베이스#(N+1) ②OLD 가 팀 명부(seats*.json)의 역할 키(_master·_arch 등 `_` 시작 키) 값 ③OLD tmux 세션 생존. 하나라도 아니면 일반 새 좌석 문턱.
-_rgroot="${FT_RES_ROOT:-$(. "$HERE/ft-harness-root.sh" && ft_repo_root "$HERE" 2>/dev/null)}"; _rgsucc=""   # r385b: 옛 설치 꼴 · cwd 리포 공용 루트
+_rgroot="${FT_RES_ROOT:-${DROOT:-$(. "$HERE/ft-harness-root.sh" && ft_repo_root "$HERE" 2>/dev/null)}}"; _rgsucc=""   # r385b: 옛 설치 꼴 · cwd 리포 공용 루트 · r1412: FT_RES_ROOT(시험 손잡이) > 데이터 루트 > 공용 루트
 if [[ "$OLD" =~ ^(.+)#([0-9]+)$ ]] && [ "$NAME" = "${BASH_REMATCH[1]}#$((BASH_REMATCH[2]+1))" ] && tmux has-session -t "=$OLD" 2>/dev/null \
    && python3 -c 'import glob,json,sys
 for f in glob.glob(sys.argv[1]+"/.fable-team/seats*.json"):
@@ -122,6 +129,7 @@ for _sib in "$SEND" "$REACH"; do
 done
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
 [ -n "$ROOT" ] || { echo "REJECT 워크트리가 git 이 아니다: $WT"; exit 1; }
+ROOT="${DROOT:-$ROOT}"   # r1412: 명부·mbox·도달 파일·받을 일 판정 = 데이터 루트(FT_ROOT 먼저) · 워크트리 git 검사는 그대로
 # ★r1539 받을 일 판정 — 받을 일 0 이면 후계를 열지 않는다★ (closeout-policy 1·5항 · 오빠 11-08 #274576)
 #   판정은 도구 하나(ft-seat-open-work.py)에만 묻는다: 미처리 쪽지 · 진행 카드 «- 배정: 좌석» · state/card-assign · 팀장이면 팀 진행.
 #   rc0 = 받을 일 0 → 열기 0 · 팀장에 «[다음 없음]» 1통 · 이 도구 rc6 (닫기·kill·명부 쓰기는 이 도구 몫이 아니다 — 닫기 = R400 --verdict 사람 판정)
