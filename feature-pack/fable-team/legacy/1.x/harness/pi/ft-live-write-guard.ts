@@ -7,11 +7,11 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { execSync } from "node:child_process";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { appendLoadLine } from "./ft-load-line.ts"; // r1537 — 세션 기록 «로드 <카드> <판>» 1줄(턴 0)
+import { appendLoadLine, say } from "./ft-load-line.ts"; // r1537 로드 줄 · r1837 진단 1줄 출력 길(TUI = 파일 로그)
 
 export const WHY = "라이브 설치는 master h — 팩 가지에 커밋하고 산출 보고에 «설치 h 필요» 1줄";
 const NANO = /(^|[-_/.])nano([-_#./]|$)/, WRITE_CMDS = /^(cp|mv|install|rsync|tee|ln|dd)$/, OPS = /^(;|&&|\|\||\||>|>>)$/;
-const note = (m: string) => console.error(`NOTE ft-live-write-guard: ${m}`), under = (p: string, b: string) => p === b || p.startsWith(b.endsWith(path.sep) ? b : b + path.sep);
+const note = (m: string) => say(`NOTE ft-live-write-guard: ${m}`), under = (p: string, b: string) => p === b || p.startsWith(b.endsWith(path.sep) ? b : b + path.sep);
 export const seatOf = (): string => process.env.FT_SEAT_NAME || process.env.FT_SEAT || "";
 // 루트 = git 공용 루트(워크트리에서도 같은 자리) · FT_LIVE_ROOT 가 이긴다(시험 손잡이)
 export function rootOf(): string {
@@ -85,7 +85,7 @@ export function logBlock(root: string, seat: string, tool: string, target: strin
     const prev = fs.existsSync(f) ? fs.readFileSync(f, "utf-8") : "";
     if (prev.split("\n").some((l) => l.includes(` ${seat} `) && l.trimEnd().endsWith(` ${target}`))) return;
     fs.mkdirSync(path.dirname(f), { recursive: true }); fs.appendFileSync(f, `${new Date().toISOString()} ${seat} ${tool} ${target}\n`, { mode: 0o644 });
-  } catch (e) { console.error(`ERROR ft-live-write-guard: 감지 로그 실패 ${f} — ${e}`); }
+  } catch (e) { say(`ERROR ft-live-write-guard: 감지 로그 실패 ${f} — ${e}`); }
 }
 
 export default function (pi: ExtensionAPI) {

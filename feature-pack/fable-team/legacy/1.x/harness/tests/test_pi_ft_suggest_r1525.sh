@@ -30,7 +30,7 @@ bash -n "$0" && ok "S4 bash -n rc0" || bad "S4 bash -n rc0"
 T="$(mktemp -d "${TMPDIR:-/tmp}/r1525-suggest.XXXXXX")"
 trap 'rm -rf "$T"' EXIT
 mkdir -p "$T/ext" "$T/node_modules/@earendil-works/pi-coding-agent"
-cp "$EXT" "$T/ext/ft-suggest.ts"
+cp "$EXT" "$T/ext/ft-suggest.ts"; cp "$(dirname "$EXT")/ft-load-line.ts" "$T/ext/" # r1837 공용 출력 헬퍼 say()
 cmp -s "$EXT" "$T/ext/ft-suggest.ts" && ok "S5 시험 사본 = 원본 바이트 일치" || bad "S5 시험 사본 = 원본 바이트 일치"
 printf '{"name":"@earendil-works/pi-coding-agent","type":"module","main":"index.mjs","exports":"./index.mjs"}\n' \
   > "$T/node_modules/@earendil-works/pi-coding-agent/package.json"

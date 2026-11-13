@@ -10,10 +10,11 @@ import * as path from "node:path";
 import { execSync } from "node:child_process";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { appendLoadLine } from "./ft-load-line.ts"; // r1537 — 세션 기록 «로드 <카드> <판>» 1줄(턴 0)
+import { say as extSay } from "./ft-load-line.ts"; // r1837 — 진단 1줄 출력 길 · 지역 이름 say(activeSeat 인자)와 겹쳐 alias
 type Ctx = { isIdle(): boolean }; // ExtensionContext 중 필요한 칸만 — 시험이 ctx 를 흉내 낼 수 있게 좁힌다
 const CMD = "/ft-reload-runtime";
 const keyOf = (s: string) => s.replace(/[^A-Za-z0-9._#-]/g, "_");
-const fail = (m: string) => console.error(`ERROR ft-reload-request: ${m}`);
+const fail = (m: string) => extSay(`ERROR ft-reload-request: ${m}`);
 const sh = (cmd: string): string => { try { return execSync(cmd, { encoding: "utf-8", timeout: 7000, stdio: ["ignore", "pipe", "ignore"] }).trim(); } catch { return ""; } };
 const seatName = (): string => process.env.FT_SEAT || sh('tmux display-message -p "#S"');
 // ★root = «git 공용 루트»★ — pi pane 의 cwd 는 워크트리일 수 있다(ft-mbox-wake.ts 와 같은 식).
@@ -43,7 +44,7 @@ export default function (pi: ExtensionAPI) {
     const mine = !!seat && activeFlag();
     if (mine) { announced = ""; return true; }
     const why = `inactive seat=${seat || "?"} — 요청 파일 그대로 · reload 0`;
-    if (say && announced !== why) { console.error(`ft-reload-request: ${why}`); announced = why; }
+    if (say && announced !== why) { extSay(`ft-reload-request: ${why}`); announced = why; }
     return false;
   };
   const hasReq = (): boolean => fs.existsSync(req);
@@ -65,7 +66,7 @@ export default function (pi: ExtensionAPI) {
   function guard(ctx: Ctx | null): boolean { // reload 직전 재확인 — 일하는 중이면 reload 0 · 요청 복원 · 다음 정상 settled 1회
     if (ctx ? idleOf(ctx) : idle()) return true; // ★핸들러 ctx 가 있으면 그가 정본★ — ctxNow(마지막 settled) 는 한 턴 뒤처질 수 있다
     restore(); pending = true;
-    if (denied !== 1) { denied = 1; console.error("ft-reload-request: reload 거절(일하는 중) — 요청 복원"); } // 같은 거절 반복 = 1줄
+    if (denied !== 1) { denied = 1; extSay("ft-reload-request: reload 거절(일하는 중) — 요청 복원"); } // 같은 거절 반복 = 1줄
     return false;
   }
   function check(): void {
