@@ -120,6 +120,34 @@ ci — code-intel (probe + tilth)
 EOF
 }
 
+# ── search 단계 실행기 (r1850 · 카드 ci-search-nonascii-panic) ─────────────
+#  probe 0.6.0 은 결과 «출력» 단계에서 바이트로 자른다(src/search/search_output.rs:2566). 결과 줄에
+#  다중 바이트 글자가 잘림 자리에 걸리면 파일 종류(.py)·질의 문자(ASCII)와 무관하게 panic 한다.
+#  이 함수는 stdout 에 아무것도 쓰지 않는다 — 단계 출력은 $_SE_DIR 안 파일로만 받고(출력 보류 C8),
+#  판정만 전역 SE_RC · SE_PANIC 에 남긴다. 함수 rc 는 늘 0(판정은 두 전역으로만 본다).
+_probe_search() { # $1=<q> $2=<path> $3=<max> $4=<단계 이름> [probe 추가 인자…]
+  local q="$1" p="$2" mx="$3" st="$4"; shift 4
+  SE_OUT="$_SE_DIR/out.$st"; SE_ERR="$_SE_DIR/err.$st"
+  "$PROBE" search "$q" "$p" --max-results "$mx" --timeout "${CI_TIMEOUT:-90}" "$@" >"$SE_OUT" 2>"$SE_ERR" &
+  wait $! 2>/dev/null   # 백그라운드+wait = 셸의 «Abort trap: 6» 통지를 삼킨다(경고 1줄 규칙 · 부분 출력 금지)
+  SE_RC=$?
+  SE_PANIC=0
+  case "$SE_RC" in 101|133|134) SE_PANIC=1 ;; esac           # rc 만으로도 panic (stderr 가 빌 수 있다)
+  grep -q "panicked at" "$SE_ERR" 2>/dev/null && SE_PANIC=1   # rc 0 이어도 panic (stderr 표지)
+  return 0
+}
+
+# 결과 본문 자르기 = 문자 단위(바이트로 자르면 UTF-8 이 깨진다 — panic 의 원인과 같은 실수).
+#   locale 무관(DA 4202 R2): cut -c 는 LC_ALL=C 에서 바이트를 자른다 → python3 로 UTF-8 디코드 뒤 문자로 자르고,
+#   python3 가 없으면 바이트 160 으로 자른 뒤 iconv -c 로 불완전 꼬리를 떨어낸다(문자 수 ≤ 바이트 수 = 유효).
+_cut160() {
+  if [ -z "${_CUT_PY+x}" ]; then _CUT_PY="$(command -v python3 2>/dev/null || true)"; fi
+  if [ -n "$_CUT_PY" ] && printf '%s' "$1" | "$_CUT_PY" -c 'import sys; sys.stdout.write(sys.stdin.buffer.read().decode("utf-8", "ignore")[:160])' 2>/dev/null; then
+    return 0
+  fi
+  printf '%s' "$1" | LC_ALL=C cut -b1-160 | LC_ALL=C iconv -c -f UTF-8 -t UTF-8 2>/dev/null
+}
+
 # ---- 서브커맨드 파싱 -------------------------------------------------------
 cmd="${1:-}"; shift || true
 
@@ -138,37 +166,104 @@ case "$cmd" in
     #   원인 = markdown AST 청커가 바이트 50 에서 UTF-8 경계 무시 절단. 고칠 수 없는 외부 바이너리라
     #   «비ASCII 질의면 처음부터 md 를 빼고 probe + md 는 rg 로 따로» 돌려 커버리지를 유지한다.
     nonascii=0; printf '%s' "$q" | LC_ALL=C grep -q '[^ -~]' && nonascii=1
+
+    # 출력 보류(D1a·C8): 어느 단계든 panic 이면 첫 단계 «No results found» 까지 버려야 하므로
+    #   모든 단계의 stdout·stderr 를 임시 폴더에 받고, 판정(OR 재시도 여부)이 끝난 뒤 한 번에 낸다.
+    _SE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ci-search.XXXXXX")" || { echo "판정 불가 ci search: 임시 폴더를 만들지 못했다" >&2; exit 3; }
+    trap 'rm -rf "$_SE_DIR"' EXIT
+
+    # 1단계 — 비ASCII 갈래는 md 를 빼고(-i '*.md' = 제외) 부른다(11-09 동작 그대로).
+    md_excl=0
     if [ "$nonascii" = 1 ]; then
       echo "[info] 비ASCII 질의 → markdown 은 rg 로 분리 검색(probe panic 회피)" >&2
-      "$PROBE" search "$q" "$path" --max-results "$max" --timeout "${CI_TIMEOUT:-90}" -i '*.md'
-      rc=$?
+      _probe_search "$q" "$path" "$max" 1 -i '*.md'
+      md_excl=1
+    else
+      _probe_search "$q" "$path" "$max" 1
+    fi
+    rc=$SE_RC; panic=$SE_PANIC; out1=$SE_OUT; err1=$SE_ERR
+    panic_rc=$SE_RC; panic_err=$SE_ERR; orq=""
+
+    # md 결과를 OR 재시도 «앞» 에 확보한다(DA 4202 R1) — 기준판은 md hit 이 있으면 rc1→0 보정을 먼저 해
+    #   OR 를 부르지 않는다. 출력은 지금처럼 probe 출력 뒤에 낸다(순서 보존).
+    md_hits=""
+    if [ "$nonascii" = 1 ]; then
       md_pat="$q"
       case "$q" in *" "*) md_pat="$(printf '%s' "$q" | tr -s '[:space:]' '|' | sed 's/|$//')";; esac
-      md_hits="$(rg -n --no-heading -m 1 --color never -g '*.md' -g '!**/.git/**' -- "$md_pat" "$path" 2>/dev/null | head -n "$max")"
-      if [ -n "$md_hits" ]; then
-        echo
-        echo "== markdown (rg 폴백 · probe panic 회피) =="
-        printf '%s\n' "$md_hits" | while IFS= read -r line; do
+      md_hits="$(rg -H -n --no-heading -m 1 --color never -g '*.md' -g '!**/.git/**' -- "$md_pat" "$path" 2>/dev/null | head -n "$max")"
+      [ -n "$md_hits" ] && [ "$panic" -eq 0 ] && [ "$rc" -eq 1 ] && rc=0
+    fi
+
+    # D5: panic 이면 md 뺀 재시도 0(panic 자리가 md 청커가 아니라 출력 단계다).
+    # D6: OR 재시도는 «첫 단계가 panic 아님 + rc1 + 질의에 공백» 일 때만.
+    if [ "$panic" -eq 0 ] && [ "$rc" -eq 1 ] && printf '%s' "$q" | grep -q '[[:space:]]'; then
+      orq="$(printf '%s' "$q" | tr -s '[:space:]' '\n' | grep -v '^$' | paste -sd '|' - | sed 's/|/ OR /g')"
+      _probe_search "$orq" "$path" "$max" 2 -i '*.md'
+      rc=$SE_RC; out2=$SE_OUT; err2=$SE_ERR
+      if [ "$SE_PANIC" -eq 1 ]; then panic=1; panic_rc=$SE_RC; panic_err=$SE_ERR; md_excl=1; fi
+    fi
+
+    if [ "$panic" -eq 1 ]; then
+      # ── D3 폴백: 부분 stdout 전부 버리고 rg 결과만 낸다 · stdout 첫 줄 = 표지 ──
+      loc="$(sed -n 's/.*panicked at *//p' "$panic_err" 2>/dev/null | head -n 1)"
+      [ -n "$loc" ] || loc="stderr 없음"
+      dl="$(wc -l < "$out1" 2>/dev/null | tr -d ' ')"; [ -n "$dl" ] || dl=0
+      if [ -n "${orq}" ] && [ -f "${out2:-}" ]; then dl=$((dl + $(wc -l < "$out2" | tr -d ' '))); fi
+      echo "[warn] probe panic rc=$panic_rc ($loc) → rg 폴백 · 부분 출력 ${dl}줄 버림" >&2
+
+      # 낱말 OR(-F 글자 그대로) · 파일당 1줄(-m 1) · 파일명 강제(-H · 단일 파일 갈래도 파일:줄)
+      # 낱말 분리 = read -a (glob 확장 0 · DA 4202 R3) · rg 원래 rc 를 이 자리에서 바로 받는다(R2 · 파이프 0)
+      read -ra words <<< "$q"
+      set --; for w in "${words[@]}"; do set -- "$@" -e "$w"; done
+      RG="${RG_BIN:-$(_resolve rg || true)}"
+      rgt="${CI_RG_TIMEOUT:-25}"; case "$rgt" in ''|*[!0-9]*) rgt=25 ;; esac
+      [ "$rgt" -ge 1 ] || rgt=25; [ "$rgt" -gt 25 ] && rgt=25     # 로컬 하네스 상한 25초(하드 룰 12)
+      rgrc=""; failwhy=""
+      if [ -z "$RG" ] || ! command -v "$RG" >/dev/null 2>&1; then
+        failwhy="rg 없음 rc=-"
+      else
+        gopts=(-g '!**/.git/**'); [ "$md_excl" = 1 ] && gopts+=(-g "!*.md")   # panic 난 probe 가 md 를 뺐으면 rg 도 뺐다(C4)
+        timeout "$rgt" "$RG" -H -n --no-heading --color never -F -m 1 "$@" "${gopts[@]}" -- "$path" >"$_SE_DIR/rg.out" 2>"$_SE_DIR/rg.err"
+        rgrc=$?
+        if [ "$rgrc" -eq 124 ]; then failwhy="시간 초과 rc=124"
+        elif [ "$rgrc" -ge 2 ]; then failwhy="rg 실패 rc=$rgrc"
+        fi
+      fi
+      # C3 실패 먼저 — stdout 전체 0줄(rg 가 낸 줄·md 절도 내지 않는다) · 134/133/101 그대로 내보냄 0
+      if [ -n "$failwhy" ]; then
+        echo "판정 불가 ci search: probe panic rc=$panic_rc · rg 폴백 실패($failwhy)" >&2
+        exit 3
+      fi
+      echo "== rg 폴백 (probe panic rc=$panic_rc) =="
+      if [ "$rgrc" -eq 1 ]; then
+        echo "(0건)"; rc=1
+      else
+        head -n "$max" "$_SE_DIR/rg.out" | while IFS= read -r line; do
           f="${line%%:*}"; rest="${line#*:}"; ln="${rest%%:*}"; txt="${rest#*:}"
-          printf '%s:%s\n  %s\n' "$f" "$ln" "$(printf '%s' "$txt" | cut -c1-160)"
+          printf '%s:%s\n  %s\n' "$f" "$ln" "$(_cut160 "$txt")"
         done
-        [ "$rc" -eq 1 ] && rc=0
+        rc=0
       fi
     else
-      "$PROBE" search "$q" "$path" --max-results "$max" --timeout "${CI_TIMEOUT:-90}"
-      rc=$?
-      if [ "$rc" -eq 134 ] || [ "$rc" -eq 133 ]; then
-        echo "[warn] probe aborted (markdown AST panic 추정) → '*.md' 제외 후 재시도" >&2
-        "$PROBE" search "$q" "$path" --max-results "$max" --timeout "${CI_TIMEOUT:-90}" -i '*.md'
-        rc=$?
+      # ── panic 아님 = 지금과 같은 stdout·stderr·순서(C6) ──
+      [ -s "$err1" ] && cat "$err1" >&2
+      cat "$out1"
+      if [ -n "$orq" ]; then
+        echo "[hint] 0건 — AND 해석이었을 가능성. OR 재시도: $orq" >&2
+        [ -s "${err2:-}" ] && cat "$err2" >&2
+        cat "${out2:-}"
       fi
     fi
-    # 다중어 쿼리는 기본 AND 로 해셕돼 0건이 되기 쉽다 → OR 로 1회 재시도.
-    if [ "$rc" -eq 1 ] && printf '%s' "$q" | grep -q '[[:space:]]'; then
-      orq="$(printf '%s' "$q" | tr -s '[:space:]' '\n' | grep -v '^$' | paste -sd '|' - | sed 's/|/ OR /g')"
-      echo "[hint] 0건 — AND 해석이었을 가능성. OR 재시도: $orq" >&2
-      "$PROBE" search "$orq" "$path" --max-results "$max" --timeout "${CI_TIMEOUT:-90}" -i '*.md'
-      rc=$?
+
+    # md 절 — 지금과 같은 자리(D8) · 결과는 위에서 이미 확보(R1)
+    if [ "$nonascii" = 1 ] && [ -n "$md_hits" ]; then
+      echo
+      echo "== markdown (rg 폴백 · probe panic 회피) =="
+      printf '%s\n' "$md_hits" | while IFS= read -r line; do
+        f="${line%%:*}"; rest="${line#*:}"; ln="${rest%%:*}"; txt="${rest#*:}"
+        printf '%s:%s\n  %s\n' "$f" "$ln" "$(_cut160 "$txt")"
+      done
+      [ "$rc" -eq 1 ] && rc=0
     fi
     exit "$rc"
     ;;
