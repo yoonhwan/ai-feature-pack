@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_team_switch_guard_r1675.sh — r1675 팀 2.0 전환 표식 + 1.x 쓰기 입구 가드.
 #   사례 ⓐ 표식 도구(mark·unmark·status · rename · 이미 전환 rc2) ⓑ 쓰기 전 멈춤·판정 불가 ⓒ 입구 1개씩 ⓓ 새 입력 보존(보류) ⓔ 표식 0 회귀
+#   r1888: 우편함(mbox) 차단 갈래는 test_r1888_mbox_ft20_comm_exempt.sh 로 옮겼다(통신 = 가드 대상 아님)
 #   변이 3종(M1 표식 확인 삭제 · M2 보류 쓰기 삭제 · M3 깨진 표식을 «없음» 으로) — 전부 사본에서만
 #   격리: 실 .fable-team·실 우편함·실 명부 쓰기 0 — 임시 데이터 루트(FT_FT20_ROOT) + comm 사본 · press 0 · sleep 0
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
@@ -44,11 +45,7 @@ ck "ⓔ 표식 0 이면 우편함 쓰기 그대로 rc=$rc" "$([ "$rc" = 0 ] && [
 
 # ── ⓑ·ⓒ·ⓓ 표식 켜고 입구 5 + 가드 본체 ───────────────────────────────────
 bash "$SH" mark aifp --h 8260 --root "$R" >/dev/null 2>&1
-t=$(now); send "차단-본문-한글"; rc=$?
-ck "ⓒ① mbox send rc=$rc · 큐 0 · $(grep -c . "$R/.fable-team/comm/mailbox.jsonl")행 $(secs "$t")" \
-  "$([ "$rc" = 3 ] && [ "$(grep -c . "$R/.fable-team/comm/mailbox.jsonl")" = 1 ] && grep -q '2.0 전환됨' "$T/mbox.log" && echo 0 || echo 1)"
-hd="$(ls "$R/.fable-team/state/ft20-switch/aifp.held"/*.txt 2>/dev/null | head -1)"
-ck "ⓓ 보류 파일 = 본문 바이트 그대로($hd)" "$([ -n "$hd" ] && [ "$(cat "$hd")" = "차단-본문-한글" ] && echo 0 || echo 1)"
+# ⓒ①·ⓓ mbox 갈래(send 차단·본문 보류·같은 초 2통·lib 없는 mbox) = r1888 로 옮김 — 우편함 통신은 가드 대상 아님(test_r1888_mbox_ft20_comm_exempt.sh)
 bash "$SH" status harness --root "$R" >/dev/null 2>&1   # 미전환 팀은 그대로 통과해야 한다
 ( . "$LIB"; ft20_switch_guard "$R" harness >"$T/o" 2>&1 ); ck "ⓑ 표식 없는 팀 = rc0 통과" $?
 ( . "$LIB"; ft20_switch_guard "$R" aifp >"$T/o" 2>&1 ); ck "ⓑ 표식 팀 = rc3" "$([ $? -eq 3 ] && grep -q 'REJECT 팀 aifp 은 2.0 전환됨' "$T/o" && echo 0 || echo 1)"
@@ -59,12 +56,6 @@ printf '{"bad' > "$R/.fable-team/seats-broken.json"
 ( . "$LIB"; ft20_guard_seat "$R" 'fx-nano#0' >"$T/o" 2>&1 ); ck "ⓑ 명부 깨짐 = 판정 불가 rc3" "$([ $? -eq 3 ] && grep -q '명부 못 읽음' "$T/o" && echo 0 || echo 1)"
 rm -f "$R/.fable-team/seats-broken.json"
 ( . "$LIB"; ft20_guard_seat "$R" 'nobody#0' >"$T/o" 2>&1 ); ck "ⓑ 명부에 없는 좌석 = 팀 없음 통과 rc0 + INFO" "$([ $? -eq 0 ] && grep -q '어느 명부에도 없음' "$T/o" && echo 0 || echo 1)"
-# ⓓ 같은 초·같은 보낸 좌석 2통 = 덮어쓰기 0(본문 유실 0 · arch #3922 ①)
-send "첫째-본문"; send "둘째-본문"
-cnt="$(ls "$R/.fable-team/state/ft20-switch"/aifp.held/*.txt 2>/dev/null | grep -c .)"
-one="$(grep -l '^첫째-본문$' "$R/.fable-team/state/ft20-switch"/aifp.held/*.txt 2>/dev/null | grep -c .)"
-two="$(grep -l '^둘째-본문$' "$R/.fable-team/state/ft20-switch"/aifp.held/*.txt 2>/dev/null | grep -c .)"
-ck "ⓓ 같은 초 2통 = 보류 ${cnt}개 · 앞 본문 살아 있음(one=${one} two=${two})" "$([ "$cnt" -ge 2 ] && [ "$one" -ge 1 ] && [ "$two" -ge 1 ] && echo 0 || echo 1)"
 mkdir -p "$R/.fable-team/state/ft20-switch/aifp.held.block"; rm -rf "$R/.fable-team/state/ft20-switch/aifp.held"; printf 'x' > "$R/.fable-team/state/ft20-switch/aifp.held"
 ( . "$LIB"; ft20_switch_guard "$R" aifp "본문" me >"$T/o" 2>&1 ); ck "ⓓ 보류 폴더 쓰기 실패 = rc3 + «보류 실패»" "$([ $? -eq 3 ] && grep -q '보류 실패' "$T/o" && echo 0 || echo 1)"
 rm -f "$R/.fable-team/state/ft20-switch/aifp.held"
@@ -78,11 +69,6 @@ bash "$RK/bin/ft-nano-spawn.sh" "$R/design/aifp/indices/진행/c.md" --agent pi 
 ck "ⓒ④ ft-nano-spawn rc=$rc (첫 게이트)" "$([ "$rc" = 3 ] && grep -q '2.0 전환됨' "$T/o" && echo 0 || echo 1)"
 bash "$RK/bin/ft-successor-open.sh" 'fx-nano#0' "$R" --name 'fx-nano#1' --agent pi --model deepseek-v4 --body-file "$T/body.txt" >"$T/o" 2>&1; rc=$?
 ck "ⓒ⑤ ft-successor-open rc=$rc (state/successor 쓰기 0)" "$([ "$rc" = 3 ] && [ ! -e "$R/.fable-team/state/successor" ] && echo 0 || echo 1)"
-# ⓓ lib 없는 설치본(표식 있음)에서도 본문은 남는다 — <팀>.held 대신 _unjudged.held + 경로 알림(DA R3)
-mkdir -p "$T/nolib2"
-FT_BIN="$T/nolib2" bash "$RK/comm/mbox.sh" send 'fx-nano#0' 'fx-tester#0' 'lib-없는-본문' >"$T/o" 2>&1; rc=$?
-hp="$(ls "$R/.fable-team/state/ft20-switch"/_unjudged.held/*.txt 2>/dev/null | head -1)"
-ck "ⓓ lib 부재 + 표식 = rc=$rc · 본문 보류(${hp##*/}) · 경로 알림" "$([ "$rc" = 3 ] && [ -n "$hp" ] && [ "$(cat "$hp")" = 'lib-없는-본문' ] && grep -q '보류 ' "$T/o" && echo 0 || echo 1)"
 # ⓒ⑥ 명부에 «없는» 옛 좌석 retire = R282② 가 이름의 팀 명부에 새 행을 쓴다 → 그 팀도 실제 쓰기 대상(DA R1)
 st0="$(python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$R/.fable-team/seats-aifp.json")"
 bash "$RK/bin/ft-seat-retire.sh" 'byz-aifp-da-codex#100' 'byz-aifp-da-codex#101' >"$T/o" 2>&1; rc=$?
