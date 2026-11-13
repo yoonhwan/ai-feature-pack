@@ -72,6 +72,10 @@ class Stall:
             return                                    # S5 — intent 없는 좌석 = 깨움·재배정 0
         if not any(r.get("kind") == "deliver" and r.get("work") == work and r.get("attempt") == attempt for r in rows):
             return
+        mine = [r for r in rows if r.get("work") == work]   # r1840 K1 — 최신 dispatch 뒤 마지막 단계 = result(착지 대기) = 멈춤 아님
+        cut = max([i for i, r in enumerate(mine) if r.get("kind") == "dispatch"] or [0])   # result.attempt(holder#g) ≠ dispatch attempt
+        if [r.get("kind") for r in mine[cut:] if r.get("kind") in STEPS][-1:] == ["result"]:
+            return
         seen = k.probe(holder)
         if seen != "alive":
             return None if seen == "absent" else k.log("판정 불가", team, "%s %s %s — 행동 0" % (work, holder, seen))
@@ -161,6 +165,8 @@ class Stall:
             k.notify(team, "%s|stall-repeat|%s" % (k.stamp()[:10], wk), "[크리티컬] 같은 일 두 번 멈춤 %s %s %s — 자동 재배정 0" % (team, work, holder))
             return
         p = self.plan(team, work, holder, tree, intent, rows)
+        if p is None:
+            return                                    # r1840 K3 — 역할만 못 정함 = plan 이 판정 불가 1줄 · 크리티컬 0
         if isinstance(p, str):
             return self.stop(team, work, attempt, "pre", "%s %s 재배정 0 — %s" % (work, holder, p))
         rc, pane, _ = k.call([k.tmux, "capture-pane", "-p", "-t", pane_target(holder)])
@@ -211,7 +217,14 @@ class Stall:
             sha = sha.strip() if rc == 0 else ""
             rc, dirty, _ = k.git(tree, "status", "--porcelain")
             missing += [n for n, bad in (("repo", not repo), ("base", not SHA.match(sha)), ("clean", rc != 0 or dirty.strip())) if bad]
-        role = self.role(holder)
+        try:   # r1840 K3 — ⓐ intent role 칸(표에 있을 때만) ⓑ argv 판독 ⓒ 둘 다 못 정함 = 판정 불가
+            role = intent.get("role") if intent.get("role") in models.role_defaults() else None
+        except (OSError, ValueError):
+            role = None
+        role, why = (role, "") if role else self.argv_role(holder)
+        if not role and not missing:
+            got = "%s 표에 없음" % intent["role"] if "role" in intent else "칸 없음"
+            return k.log("판정 불가", team, "%s %s 역할 못 정함(intent role %s · argv %s) — 재배정 0" % (work, holder, got, why))
         if not role:
             missing.append("role")
         if missing:
@@ -219,17 +232,20 @@ class Stall:
         return {"pre": pre, "next": m.group(1) + str(int(m.group(2)) + 1), "repo": repo, "base": sha, "role": role}
     def role(self, holder):
         """옛 holder pi 프로세스 argv 의 --model·--thinking 과 (모델·effort) 가 같은 role-defaults 행 «정확히 1개» — 아니면 None."""
+        return self.argv_role(holder)[0]
+    def argv_role(self, holder):
+        """role() 과 같은 판독 — (역할, "") · 못 정함 = (None, 사유) (r1840 K3 판정 불가 문구용)."""
         k = self.k
         rc, pid, _ = k.call([k.tmux, "display-message", "-p", "-t", pane_target(holder), "#{pane_pid}"])
         if rc != 0 or not pid.strip().isdigit():
-            return None
+            return None, "pane_pid rc %s" % rc
         rc, args, _ = k.call([self.ps, "-o", "args=", "-p", pid.strip()])
         words = args.split() if rc == 0 else []
         got = {w: words[i + 1] for i, w in enumerate(words[:-1]) if w in ("--model", "--thinking")}
         if len(got) != 2:
-            return None
+            return None, "--model·--thinking 칸 %d개(ps rc %s)" % (len(got), rc)
         try:
             hits = [n for n, v in models.role_defaults().items() if v == (models.base_model(got["--model"]), got["--thinking"])]
-        except (OSError, ValueError):
-            return None
-        return hits[0] if len(hits) == 1 else None
+        except (OSError, ValueError) as exc:
+            return None, "role-defaults %s" % exc
+        return (hits[0], "") if len(hits) == 1 else (None, "표 일치 %d행" % len(hits))
