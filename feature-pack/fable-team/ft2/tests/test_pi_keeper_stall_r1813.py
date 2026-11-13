@@ -234,6 +234,9 @@ def r3b(w):  # R3-b 옛 intent 열림 아님 / worktree 미커밋 변경 / argv 
             _put(v.ps, "pi --model gpt-x --thinking low\n")
         v.round(), v.round(11 * M)
         assert v.tmux("kill-session") == [] and v.kinds("dispatch") == 1, sub
+        if sub == "r":   # r1840 K3 — 역할만 못 정함 = 판정 불가 1줄 · 크리티컬 0
+            assert v.notes() == [] and sum("역할 못 정함" in x for x in v.k.lines) == 1, v.k.lines
+            continue
         assert len(v.notes()) == 1 and field in v.notes()[0], (sub, v.notes())
 
 

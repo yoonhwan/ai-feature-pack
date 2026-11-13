@@ -152,7 +152,7 @@ def open_seat(given):
             return dict(result=REFUSED, work=work, repo=repo, base=base,
                         reason="%s: %s — 바깥 호출 0" % (label, detail or "진단 없음")), 1
     sha = detail                                # 마지막 확인 = 기준 ref → 40자 sha(실제 argv 끝 · 의도 base_sha)
-    write_intent(plan["intent"], dict(env, state="opening", repo=repo, base=base, base_sha=sha, at=time.strftime(STAMP)))
+    write_intent(plan["intent"], dict(env, state="opening", role=item["role"], repo=repo, base=base, base_sha=sha, at=time.strftime(STAMP)))
     os.makedirs(os.path.dirname(plan["worktree"]), exist_ok=True)
     rc, detail = call(planner.at_sha(plan["git"], sha), repo, None, GIT_TIMEOUT)
     if rc != 0:
@@ -160,7 +160,7 @@ def open_seat(given):
     rc, detail = call(plan["tmux"], None, dict(os.environ, **env), TMUX_TIMEOUT)
     if rc != 0:
         return failed(plan, env, "tmux", detail, repo)
-    write_intent(plan["intent"], dict(env, state="opened", worktree=plan["worktree"], base=base, base_sha=sha, at=time.strftime(STAMP)))
+    write_intent(plan["intent"], dict(env, state="opened", role=item["role"], worktree=plan["worktree"], base=base, base_sha=sha, at=time.strftime(STAMP)))
     return dict(result=OK, opened=True, work=work, attempt=attempt, holder=holder,
                 worktree=plan["worktree"], intent=plan["intent"]), 0
 
