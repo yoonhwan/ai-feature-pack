@@ -71,7 +71,7 @@ cls "$SHA"; want "ⓚ 문서(.md) 산문 속 명령 줄 → CLASS docs(f10 과 �
 mk k2b "$BASE" 'mkdir -p design/teams/x && printf "예시:\n\n\x60\x60\x60bash\ncat secrets/db.cred\n\x60\x60\x60\n" > design/teams/x/fence.md'
 cls "$SHA"; want "ⓚ f10b 코드 울타리 안 명령 줄 → FORBID(잡힘)" 3 "FORBID kind="
 mk k2c "$BASE" 'mkdir -p design/teams/x && printf "\x60cat secrets/db.cred\x60 를 쓰지 말 것\n" > design/teams/x/inline.md'
-cls "$SHA"; want "ⓚ 한 줄 코드 표기(\x60…\x60) 안 명령 → FORBID(잡힘)" 3 "FORBID kind="
+cls "$SHA"; want "ⓚ 한 줄 코드 표기(\x60…\x60) 안 명령 → CLASS docs(판정 밖 · r1387 · 같은 글을 울타리·«\x24 » 줄머리로 쓰면 FORBID = k2b·k2d)" 0 "CLASS docs"
 mk k2d "$BASE" 'mkdir -p design/teams/x && printf "\x24 cat secrets/db.cred\n" > design/teams/x/dollar.md'
 cls "$SHA"; want "ⓚ 줄머리 «\x24 » 명령 → FORBID(잡힘)" 3 "FORBID kind="
 mk k3 "$BASE" 'mkdir -p design/teams/x && echo "-----BEGIN RSA PRIVATE KEY-----" > design/teams/x/leak.md'
@@ -93,7 +93,7 @@ cls "$SHA"; want "ⓞ 4칸 들여쓰기 코드 블록 명령 → FORBID(H2)" 3 "
 mk o2 "$BASE" 'mkdir -p design/teams/x && printf "예시\n\n~~~\ncat secrets/x.cred\n~~~\n" > design/teams/x/tilde.md'
 cls "$SHA"; want "ⓞ ~~~ 울타리 안 명령 → FORBID(H2)" 3 "FORBID kind="
 mk o3 "$BASE" 'mkdir -p design/teams/x && printf "| 방법 | 값 |\n|---|---|\n| 확인 | \x60cat secrets/x.cred\x60 |\n" > design/teams/x/table.md'
-cls "$SHA"; want "ⓞ 표 칸 안 백틱 명령 → FORBID(H2)" 3 "FORBID kind="
+cls "$SHA"; want "ⓞ 표 칸 안 백틱 명령 → CLASS docs(한 줄 코드 표기 = 판정 밖 · r1387)" 0 "CLASS docs"
 mk p1 "$BASE" 'mkdir -p design/teams/x/evidence-t1 && echo "" > design/teams/x/evidence-t1/__init__.py'
 cls "$SHA"; want "ⓟ evidence __init__.py → CLASS code(H3)" 0 "CLASS code"
 mk p2 "$BASE" 'mkdir -p design/teams/x/evidence-t1 && echo "def helper(): pass" > design/teams/x/evidence-t1/helper.py'
