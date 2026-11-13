@@ -68,6 +68,7 @@ class World:
         s.tm, s.ps, s.mbox = b / "tmux.json", b / "ps.txt", b / "mbox"
         _put(s.tm, {"alive": [], "pane": {}}), _put(s.ps, "node /x/pi --model claude-opus-5-5 --thinking medium\n")
         _put(s.root / ".fable-team" / "seats-harness.json", {"_master": "M-harness"})
+        _put(s.root / ".fable-team" / "state" / "directive-roots.tsv", "harness\t.\torigin/main\tdesign/*/indices\n")   # r1895 첫 본문 카드 루트
         s.env = dict(os.environ, FT_TMUX=str(b / "tmux"), FAKE_TMUX=str(s.tm), FAKE_PS=str(s.ps), FT2_KEEPER_PS=str(b / "ps"),
                      PATH=str(b) + os.pathsep + os.environ["PATH"], FT2_PI_SESSIONS=str(s.sess), FT2_KEEPER_MBOX=str(s.mbox),
                      FAKE_RUNTIME=str(s.runtime()), FT2_PACK_REPO=str(tmp / "없음"))

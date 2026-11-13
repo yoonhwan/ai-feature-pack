@@ -17,7 +17,7 @@ STEPS, STAMP, TAIL = ("start", "effect", "result", "complete"), "%Y-%m-%dT%H:%M:
 WAKE = "[깨움] ft2 keeper — 일 %s 진척 0 %d분 · 이어서 진행하거나 result 로 막힘을 기록하라"
 BUSY = re.compile("Working|[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]")
 NEXT, SHA = re.compile(r"^(.*#)(\d+)$"), re.compile(r"^[0-9a-f]{40}$")
-AUTH = ("authentication_failed", "invalid_api_key", "not logged in")
+AUTH, TRUST = ("authentication_failed", "invalid_api_key", "not logged in"), "Trust project folder"
 
 
 def _load(rel, alias):
@@ -79,6 +79,8 @@ class Stall:
         seen = k.probe(holder)
         if seen != "alive":
             return None if seen == "absent" else k.log("판정 불가", team, "%s %s %s — 행동 0" % (work, holder, seen))
+        if self.first(team, work, attempt, holder, tree, intent, rows):
+            return                                    # r1895 — 첫 본문 도달 0 = 깨움 없이 S3 1회(facts 전)
         facts, key = self.facts(work, attempt, rows, tree), "%s|%s@%s" % (team, work, attempt)
         if isinstance(facts, str):
             return k.log("판정 불가", team, "%s %s %s — 행동 0" % (work, holder, facts))
@@ -91,6 +93,25 @@ class Stall:
         if woke is None:
             return self.wake(team, work, holder, key, idle)
         return self.reassign(team, work, attempt, holder, tree, intent, rows)
+    def first(self, team, work, attempt, holder, tree, intent, rows):
+        """r1895 도달 확인 1회(body 키) — 새 intent(body_mark) at+60초 표식 user 줄 0 · 옛 intent 세션 0 ∧ stall_s ∧ Working 0 → S3 · 판독 불가 = 0."""
+        k, key, body = self.k, "%s|%s@%s" % (team, work, attempt), self.k.state.setdefault("body", {})
+        mark = intent.get("body_mark")
+        session = self.session(tree) if tree and key not in body else None
+        try:
+            age = k.now() - time.mktime(time.strptime(intent["at"], STAMP))
+            seen = [json.loads(x) for x in open(session, encoding="utf-8", errors="replace")] if session and mark and age >= 60 else []
+        except (KeyError, TypeError, ValueError, OSError):
+            return False
+        if key in body or intent.get("state") != "opened" or age < (60 if mark else self.stall_s) or (session and not mark):
+            return False
+        rc, pane, _ = (0, "", "") if mark else k.call([k.tmux, "capture-pane", "-p", "-t", pane_target(holder)])
+        if rc != 0 or BUSY.search(pane[-2000:]):
+            return False
+        if body.setdefault(key, k.stamp()) and any(isinstance(r, dict) and (r.get("message") or {}).get("role") == "user" and mark + " " in json.dumps(r["message"], ensure_ascii=False) for r in seen):
+            return False
+        k.log("HELD", team, "%s %s 본문 도달 0(%s) — 깨움 0 · 재배정 1회" % (work, holder, "표식 줄 0" if session else "세션 파일 0"))
+        return self.reassign(team, work, attempt, holder, tree, intent, rows) or True
     def facts(self, work, attempt, rows, tree):
         """마지막 진척 재료 4개(wall 시각 · 논리 tick 과 섞지 않는다) — 못 읽음 = 사유 문자열."""
         mine = [r for r in rows if r.get("work") == work]
@@ -144,6 +165,9 @@ class Stall:
         """S2 — Escape 1 → 문구 -l → Enter(따로) → 도달 확인 3회 · 보낸 뒤에는 같은 attempt 깨움 0.
         woke(재배정 시계의 기준) = 도달 확인 뒤에만 · 확인 3회 실패 = unsure(보정1 R1 · 재배정 0 · 판정 불가 보고만)."""
         k, t, text = self.k, ["-t", pane_target(holder)], WAKE % (work, idle // 60)
+        rc, pane, _ = k.call([k.tmux, "capture-pane", "-p"] + t)   # r1895 — trust 창의 Escape = 거절 → 키 0
+        if rc == 0 and TRUST in pane:
+            return self.stop(team, work, key.rsplit("@", 1)[1], "trust", "%s %s trust 창 — 키 0" % (work, holder))
         for argv in (["send-keys"] + t + ["Escape"], ["send-keys"] + t + ["-l", text], ["send-keys"] + t + ["Enter"]):
             rc = k.call([k.tmux] + argv)[0]
             if rc != 0:
