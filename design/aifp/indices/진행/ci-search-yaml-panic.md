@@ -13,7 +13,7 @@
 - 규칙: 없음 — 래퍼 내부 동작이라 하드 룰 16 문구와 훅은 그대로 둔다
 - 대상: 팩 feature-pack/code-intel/skill/scripts/ci(search 갈래 · probe 인자 2곳 · rg 절 · 폴백 rg glob) · 시험 feature-pack/code-intel/tests/test_ci_search_nonascii_panic.sh(덧붙임)
 - 정본 영향 없음: code-intel 래퍼 search 갈래 내부 동작 · 스킬 문서·정본 문서 변경 0
-- 배정: 대기(DA · 2026-11-13T22:28)
+- 배정: 좌석 aifp-ft-nano-ci-search-yaml-panic#0
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -65,4 +65,7 @@
 - 다른 언어 청커 panic(목록 낱말 1개 · 새 카드) · outline/sym/refs/ast 갈래 · SKILL.md 문구
 
 ## 상태
+- base_sha: f5697f93a38a54f575ec2a97d80b452dae2df247 (spawn 2026-11-13)
 - 2026-11-13 · 대기 — aifp-ft-arch-pi#3 작성(aifp 4352 · 실측 재현 panic 1·버린 줄 2·8.75초 · yaml 뺀 실험 사본 5.74~6.83초 panic 0) · 다음 = DA aifp-ft-da-codex#0 사전검증 → APPROVE 뒤 aifp-ft-master-pi#10 → 나노 1석
+- 2026-11-13 22:38 — 대기→진행 · 좌석 aifp-ft-nano-ci-search-yaml-panic#0
+- [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
