@@ -1,11 +1,11 @@
-"""r1861 r1 받는 채널 목록 «채널별 주인» binding 시험 — 반례 ①~⑤ · 변이 M1·M2·M3 · 주 채널 = _master · 그 밖 = _desk.
+"""r1861 r1 받는 채널 목록 «채널별 주인» binding 시험 — 반례 ①~⑦ · 변이 M1·M2·M3·M4 · 주 채널 = _master · 그 밖 = _desk.
 임시 root · 가짜 web·깨움 · post 대역 · 실 Slack·실 장부·설치 0 · sleep 0 · 기준판에서 ① ⑤ Red."""
 import importlib.util, json, os, sys  # noqa: E401
 import pytest
 
 SLACK = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "adapters", "slack")
 W, A, B, C, U = "TFAKE", "CMAIN", "CDESK", "COTHER", "UOPPA"
-MASTER, DESK = "byz-planner-master-pi#1", "byz-planner-desk-pi#1"
+MASTER, DESK, DESK2 = "byz-planner-master-pi#1", "byz-planner-desk-pi#1", "byz-planner-desk-pi#2"
 WAKE = "import json, os, sys\nopen(os.environ['FAKE_WAKE_OUT'], 'a').write(json.dumps(sys.argv[1:]) + '\\n')\n"
 
 
@@ -26,12 +26,18 @@ def env(tmp_path, monkeypatch):
     return tmp_path
 
 
-def _route(root, event, desk=DESK):  # 수신기 1개로 가짜 글 1개 — 반환 = Slack 게시 호출 수
+def _listener(root, desk=DESK, seats=None):  # 상주 수신기 1개(seats = owner-seats 경로 · R1 재판독)
     sent = []
-    _load("socket").Listener(str(root), channel="%s,%s" % (A, B), app_token="xapp-F", bot_token="xoxb-F", master=MASTER,
-                             desk=desk, users=(U,), web=lambda method, *a, **k: sent.append(method) or {"ok": True},
-                             connect=None, clock=lambda: "2026-11-13T00:00:00").route(event)
-    return len([m for m in sent if m == "chat.postMessage"])
+    li = _load("socket").Listener(str(root), channel="%s,%s" % (A, B), app_token="xapp-F", bot_token="xoxb-F", master=MASTER,
+                                  desk=desk, users=(U,), web=lambda method, *a, **k: sent.append(method) or {"ok": True},
+                                  connect=None, clock=lambda: "2026-11-13T00:00:00", **({"seats": seats} if seats else {}))
+    li.sent = sent
+    return li
+
+
+def _route(root, event, desk=DESK, li=None):  # 가짜 글 1개 — 반환 = Slack 게시 호출 수
+    (li := li or _listener(root, desk)).route(event)
+    return li.sent.count("chat.postMessage")
 
 
 def _msg(ts, channel, **extra):
@@ -83,4 +89,26 @@ def test_5_no_desk_seat_keeps_desk_door(env):  # ⑤ 명부 _desk 칸 없음 →
         (owner := env / "owner.json").write_text(json.dumps(seats), encoding="utf-8")
         assert _load("socket").read_inputs(str(creds), str(owner))[1:] == (MASTER, want)
     assert _route(env, _msg("1800000005.000100", B), desk=None) == 0 and _state(env) == ([], 0, 1)
+    assert [(r["kind"], r["to"]) for r in _rows(env, "route.jsonl") if r["t"] == "route"] == [("재개 필요", "@team-desk")]
+
+
+def test_6_desk_relief_new_root_goes_current_desk(env, capsys):  # ⑥ 상주 중 D#1→D#2 교대 뒤 새 root = D#2 bind·wake·reply
+    (seats := env / "owner.json").write_text(json.dumps({"_master": MASTER, "_desk": DESK}), encoding="utf-8")
+    li, t1, t2, posts = _listener(env, DESK, str(seats)), "1800000006.000100", "1800000006.000200", []
+    _route(env, _msg(t1, B), li=li)
+    seats.write_text(json.dumps({"_master": MASTER, "_desk": DESK2}), encoding="utf-8")
+    assert _load("binding").ThreadBinding(str(env), "planner").handover_seat(DESK, DESK2) == 1
+    assert _route(env, _msg(t2, B), li=li) == 0
+    owners = {k[2]: e["seat"] for k, e in _load("binding").ThreadBinding(str(env), "planner").settled().items()}
+    assert owners == {t1: DESK2, t2: DESK2} and [r[1] for r in _rows(env, "wakes")] == [DESK, DESK2]
+    assert _send(env, "reply", ["--thread", t2, "--command", "slack:%s:%s:%s:a" % (W, B, t2)], posts, DESK2) == 0
+    assert capsys.readouterr().out.startswith("state=posted ") and posts == [(B, t2)]
+
+
+@pytest.mark.parametrize("text", [json.dumps({"_master": MASTER}), "{깨짐"])
+def test_7_desk_removed_or_unreadable_no_binding(env, text):  # ⑦ 시작 뒤 _desk 삭제·판독 불가 → 묶기 0 · desk 문
+    (seats := env / "owner.json").write_text(json.dumps({"_master": MASTER, "_desk": DESK}), encoding="utf-8")
+    li = _listener(env, DESK, str(seats))
+    seats.write_text(text, encoding="utf-8")
+    assert _route(env, _msg("1800000007.000100", B), li=li) == 0 and _state(env) == ([], 0, 1)
     assert [(r["kind"], r["to"]) for r in _rows(env, "route.jsonl") if r["t"] == "route"] == [("재개 필요", "@team-desk")]
