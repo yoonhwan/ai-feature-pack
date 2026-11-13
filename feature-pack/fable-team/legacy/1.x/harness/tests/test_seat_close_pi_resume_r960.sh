@@ -2,8 +2,8 @@
 # test_seat_close_pi_resume_r960.sh — r960 ⓒⓓⓕ: pi 좌석(agent=pi)은 재개 기록을 pi 세션 파일에서 만들고, 없으면 «산출 커밋 보존» 사유로 살아 있어도 닫는다.
 # 임시 git 리포 + 가짜 tmux(PATH 앞) + 가짜 HOME(~/.pi/agent/sessions) + 실제 ft-seat-retire/close 만 쓴다 — 실제 리포·명부·tmux·pi 세션은 건드리지 않는다.
 # 축 ⓒ agent=pi · 살아 있는 좌석 · pane cwd 의 pi 세션 파일 1개 → RETIRED 경로 RESUME ok(engine=pi · jsonl=세션 파일) · CLOSED-ROLE rc 0 · 명부 닫힘
-#    ⓒ2 세션 파일이 좌석 프로세스 시작 «전» → 그 파일은 이 좌석 것이 아니다(NORECORD)
-#    ⓓ agent=pi 세션 파일 0 → NORECORD «pi 세션 없음 — 산출 커밋 보존» 인데도 닫기 진행(rc 0) · claude 좌석 같은 상황은 HELD rc 3(동작 불변)
+#    ⓒ2 r1864(r1855 v3 결속): sid·cwd·session_info 이름이 맞으면 옛 timestamp 만으로 거절 0 · cwd 불일치 = REJECT 결속 판정 불가
+#    ⓓ r1864(r1674): 산 pi 좌석 · 세션 파일 0 = 결속 불가 → HELD rc 3 · kill 0 · 죽은 pi 좌석만 NORECORD «pi 좌석 tmux 없음 — 산출 커밋 보존» 으로 닫힘 · claude 좌석 같은 상황은 HELD rc 3(동작 불변)
 #    ⓥ r4 DA 반례: agent=claude · 세션 없음 · 재개 기록 경로에 «pi 세션 없음» 글자 → HELD rc 3 · kill 0 · role 불변(판정은 출력 글자가 아니라 명부 agent 칸)
 #    ⓦ r4: 명부에 agent 칸 없음 → pi 수용 0 = HELD rc 3 · kill 0(조용한 수용 0)
 #    ⓕ 변이: pi 갈래 끔 → ⓒ FAIL · 수용 조건을 출력 글자로 되돌림 → ⓥ FAIL · ⓖ 키트 짝 cmp0 · bash -n · 줄 수 상한 · 600/300·외부 호출 0
@@ -81,18 +81,20 @@ out="$(close 'pi#0' --reason "r960 pi 닫기 시험" --seats "$REPO/.fable-team/
 chk "ⓒclose rc 0 · CLOSED-ROLE record 경로" "$rc $(printf '%s' "$out" | grep -o "record=[^ ]*")" "0 record=$ZC_RESUME_DIR/pi#0.json"
 chk "ⓒ명부 닫힘(stop-ready · _closed.verdict)" "$(J "$REPO/.fable-team/seats.json" '.["pi#0"]|[.role,._closed.verdict]|join(",")')" "stop-ready,2400"
 
-echo "== ⓒ2 세션 파일이 좌석 프로세스 시작 «전» → 이 좌석 세션 아님(NORECORD)"
+echo "== ⓒ2 r1864(r1855 v3): sid·cwd·session_info 이름이 맞으면 옛 timestamp 만으로 거절 0 · cwd 불일치 = 결속 판정 불가 REJECT"
 seats_pi pi#2 pi; pifile "2020-01-01T00:00:00"
 out="$(retire_rec 'pi#2')"; rc=$?
-chk "ⓒ2 rc 0 · NORECORD" "$rc $(printf '%s' "$out" | head -1 | cut -d' ' -f1)" "0 NORECORD"
-has "$out" "pi 세션 없음 — 산출 커밋 보존" "  └ 사유에 «pi 세션 없음 — 산출 커밋 보존»"
-chk "ⓒ2 기록 파일 0" "$([ -f "$ZC_RESUME_DIR/pi#2.json" ] && echo yes || echo no)" no
+chk "ⓒ2 rc 0 · RESUME ok(옛 timestamp)" "$rc $(printf '%s' "$out" | head -1 | cut -d' ' -f1-2)" "0 RESUME ok"
+has "$out" "$ZC_RESUME_DIR/pi#2.json" "  └ 기록 경로 = 그 좌석"
+chk "ⓒ2 기록 파일 1" "$([ -f "$ZC_RESUME_DIR/pi#2.json" ] && echo yes || echo no)" yes
+seats_pi pi#2b pi; pifile "$NOW" /tmp; out="$(retire_rec 'pi#2b')"; rc=$?
+chk "ⓒ2b cwd 불일치 → rc 1 · REJECT 결속 판정 불가 · 기록 0" "$rc $(printf '%s' "$out" | grep -c '^REJECT Pi 결속 판정 불가') $([ -f "$ZC_RESUME_DIR/pi#2b.json" ] && echo yes || echo no)" "1 1 no"
 
-echo "== ⓓ agent=pi · 세션 파일 0 → NORECORD 인데도 닫기 진행 / claude 는 HELD rc 3(불변)"
+echo "== ⓓ r1864(r1674): 산 pi 좌석 · 세션 파일 0 = 결속 불가 → HELD rc 3 · kill 0 · role 유지 / claude 도 HELD rc 3(불변)"
 seats_pi pi#3 pi; rm -f "$SESS"; : > "$TMUX_LOG"
 out="$(close 'pi#3' --reason "r960 pi 세션 없음" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"; rc=$?
-chk "ⓓpi rc 0 · CLOSED-ROLE record=NORECORD" "$rc $(printf '%s' "$out" | grep -o 'record=[^ ]*')" "0 record=NORECORD"
-chk "ⓓpi 명부 닫힘" "$(J "$REPO/.fable-team/seats.json" '.["pi#3"].role')" stop-ready
+chk "ⓓpi rc 3 · HELD · 결속 판정 불가" "$rc $(printf '%s' "$out" | head -1 | cut -d' ' -f1) $(printf '%s' "$out" | grep -c 'REJECT Pi 결속 판정 불가')" "3 HELD 1"
+chk "ⓓpi 명부 안 닫힘 · kill 0" "$(J "$REPO/.fable-team/seats.json" '.["pi#3"].role') $(grep -c '^kill-session' "$TMUX_LOG" || true)" "nano 0"
 seats_pi cl#4 claude; : > "$TMUX_LOG"
 out="$(close 'cl#4' --reason "r960 claude 세션 없음" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"; rc=$?
 chk "ⓓclaude rc 3 · HELD(동작 불변)" "$rc $(printf '%s' "$out" | head -1 | cut -d' ' -f1)" "3 HELD"
@@ -116,28 +118,31 @@ open(dst, "w", encoding="utf-8").write(txt)
 print(hit)
 PY
 }
-n="$(mutate "$T/bin/ft-seat-retire.sh" "$T/bin/ft-seat-retire.mut.sh" "# r960-mut:pi" "    pass")"
-chk "변이 표지 r960-mut:pi 1줄" "$n" 1
+n="$(mutate "$T/bin/ft-seat-retire.sh" "$T/bin/ft-seat-retire.mut.sh" "# r960-mut:pi" "    pass")$(mutate "$T/bin/ft-seat-retire.mut.sh" "$T/bin/ft-seat-retire.mut.sh" '    if agent == "pi":
+        rec, why = pi_resume_checked' '    if False:
+        rec, why = pi_resume_checked' sub)"   # r1864: record() PI ADAPTER 가 find_resume 의 pi 줄을 가린다 → 두 갈래를 함께 끈다
+chk "변이 표지 r960-mut:pi 1줄 + PI ADAPTER 갈래 1곳" "$n" 11
 seats_pi pi#5 pi; pifile "$NOW"; rm -f "$ZC_RESUME_DIR/pi#5.json"; RT_BIN="$T/bin/ft-seat-retire.mut.sh"
 out="$(close 'pi#5' --reason "변이" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"; rc=$?
 chk "ⓕ pi 갈래 끔 → 재개 기록 파일 0(ⓒ FAIL)" "$([ -f "$ZC_RESUME_DIR/pi#5.json" ] && echo yes || echo no)" no
-chk "ⓕ 그래도 명부 agent=pi → NORECORD 줄 1 + 닫힘(계약 ①)" "$rc $(printf '%s\n' "$out" | grep -c '^NORECORD ')" "0 1"
+chk "ⓕ 기록 없음 → 닫기 직전 결속 대조 실패 = HELD rc 3 · NORECORD 원문 줄 1(r1674)" "$rc $(printf '%s\n' "$out" | grep -c '^NORECORD ')" "3 1"
 RT_BIN=""
 n="$(mutate "$T/bin/ft-seat-close.sh" "$T/bin/ft-seat-close.mut.sh" '[ "$AGENT" = pi ] && RK=NORECORD || held' 'RK=NORECORD' sub)"
 chk "변이 표지 agent 칸 판정 1줄" "$n" 1
-seats_pi cl#6 claude; rm -f "$SESS"; mkdir -p "$T/pi 세션 없음/resume"; printf '{}\n' > "$T/pi 세션 없음/resume/cl#6.json"; CLOSE_BIN=ft-seat-close.mut.sh
-out="$(RDIR="$T/pi 세션 없음/resume" close 'cl#6' --reason "변이" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"; rc=$?
+printf '#!/bin/sh\necho "NORECORD $1 pi 세션 없음 — 산출 커밋 보존"\n' > "$T/bin/stub-norec.sh"   # r1864 E: keep-existing {} 파일 간섭 없이 «출력 글자만 pi 사유» 입력을 격리
+seats_pi cl#6 claude; rm -f "$SESS"; CLOSE_BIN=ft-seat-close.mut.sh
+out="$(RT_BIN="$T/bin/stub-norec.sh" close 'cl#6' --reason "변이" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"; rc=$?
 chk "ⓕ «판정을 출력 글자로 되돌림» → rc 0 (ⓥ FAIL)" "$rc" 0
 CLOSE_BIN=""
 
-echo "== ⓡ r2 DA HOLD1 — pi 세션 파일 0: 수용한 NORECORD 원문 줄(좌석·사유)이 출력된다(조용한 통과 0)"
+echo "== ⓡ r2 DA HOLD1 — 수용한 NORECORD(r1674: 죽은 pi 좌석) 원문 줄(좌석·사유)이 출력된다(조용한 통과 0)"
 seats_pi pi#7 pi; rm -f "$SESS"
-out="$(close 'pi#7' --reason "r960 NORECORD 줄" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"; rc=$?
+out="$(FAKE_SESSION=0 close 'pi#7' --reason "r960 NORECORD 줄" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"; rc=$?
 nl="$(printf '%s\n' "$out" | grep '^NORECORD ' | head -1)"
-chk "ⓡ rc 0 · CLOSED-ROLE record=NORECORD" "$rc $(printf '%s' "$out" | grep -o 'record=[^ ]*')" "0 record=NORECORD"
+chk "ⓡ rc 0 · 결과 줄 record=NORECORD" "$rc $(printf '%s' "$out" | grep -o 'record=[^ ]*')" "0 record=NORECORD"
 chk "ⓡ NORECORD 줄 1개" "$(printf '%s\n' "$out" | grep -c '^NORECORD ')" 1
 has "$nl" "NORECORD pi#7 " "  └ NORECORD 줄에 좌석 이름"
-has "$nl" "pi 세션 없음 — 산출 커밋 보존" "  └ NORECORD 줄에 산출 보존 사유"
+has "$nl" "pi 좌석 tmux 없음 — 산출 커밋 보존" "  └ NORECORD 줄에 산출 보존 사유(r1674 PI_DEAD)"
 
 echo "== ⓢ r2 DA HOLD2 — 머리 줄 session + 뒤 줄 model_change.modelId → 재개 기록 ok · model = 마지막 model_change"
 pifile_mc() { printf '{"type":"session","version":3,"id":"aaaa-1111","timestamp":"%s","cwd":"%s"}\n{"type":"model_change","id":"b","modelId":"first/model"}\n{"type":"message","id":"c","message":{"role":"user"}}\n{"type":"model_change","id":"d","modelId":"opengateway/deepseek/last-model"}\n' "$NOW" "$PDIR" > "$SESS"; pinames; }
@@ -152,12 +157,12 @@ chk "ⓢ close rc 0 · 기록 경로 출력" "$rc $(printf '%s' "$out" | grep -o
 n="$(mutate "$T/bin/ft-seat-close.sh" "$T/bin/ft-seat-close.mut2.sh" 'elif [ "$REC" = NORECORD ]; then printf' '  :')"
 chk "변이 표지 finish NORECORD 줄 1줄" "$n" 1
 seats_pi pi#9 pi; rm -f "$SESS"; CLOSE_BIN=ft-seat-close.mut2.sh
-out="$(close 'pi#9' --reason "변이" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"
+out="$(FAKE_SESSION=0 close 'pi#9' --reason "변이" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"
 chk "ⓡ 변이 «수용 뒤 출력 생략» → NORECORD 줄 0 (ⓡ FAIL)" "$(printf '%s\n' "$out" | grep -c '^NORECORD ')" 0
 CLOSE_BIN=""
 cp "$T/bin/ft_roster_lib.py" "$T/bin/ft_roster_lib.py.orig"
-n="$(mutate "$T/bin/ft_roster_lib.py.orig" "$T/bin/ft_roster_lib.py" "# r960-mut:firstline" '    use = model if isinstance(model, str) and model else best[2].get("modelId")')"
-chk "변이 표지 r960-mut:firstline 1줄" "$n" 1
+n="$(mutate "$T/bin/ft_roster_lib.py.orig" "$T/bin/ft_roster_lib.py" 'else _pi_model(path, head)' 'else head.get("modelId")' sub)"   # r1864: 닻 = 현행 pi_seat_resume 의 model 줄
+chk "변이 표지 model «첫 줄만» 1곳" "$n" 1
 pifile_mc
 printf '{"_master":"M#1","M#1":{"role":"master","tick":"t"},"pi#10":{"role":"nano","agent":"pi","tick":null,"index":"x.md"}}\n' > "$REPO/.fable-team/seats.json"
 out="$(retire_rec 'pi#10')"; rc=$?
@@ -168,9 +173,9 @@ cp "$T/bin/ft_roster_lib.py.orig" "$T/bin/ft_roster_lib.py"
 echo "== ⓣ r3 DA HOLD — 죽은 pi 좌석(세션 파일·기존 기록 없음) → CLOSED-DEAD + NORECORD 줄 1"
 seats_pi pi#dead pi; rm -f "$SESS"
 out="$(FAKE_SESSION=0 close 'pi#dead' --reason "r3 죽은 pi" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"; rc=$?
-chk "ⓣ rc 0 · 첫 줄 CLOSED-DEAD" "$rc $(printf '%s' "$out" | head -1 | cut -d' ' -f1-2)" "0 CLOSED-DEAD pi#dead"
+chk "ⓣ rc 0 · 결과 줄 CLOSED-DEAD 1" "$rc $(printf '%s\n' "$out" | grep -c '^CLOSED-DEAD pi#dead record=NORECORD ')" "0 1"
 chk "ⓣ NORECORD 줄 1개" "$(printf '%s\n' "$out" | grep -c '^NORECORD ')" 1
-has "$out" "NORECORD pi#dead pi 세션 없음 — 산출 커밋 보존" "  └ NORECORD 줄에 좌석·사유"
+has "$out" "NORECORD pi#dead pi 좌석 tmux 없음 — 산출 커밋 보존" "  └ NORECORD 줄에 좌석·사유(r1674 PI_DEAD)"
 chk "ⓣ 명부 닫힘(stop-ready · _closed.dead)" "$(J "$REPO/.fable-team/seats.json" '.["pi#dead"]|[.role,._closed.dead]|join(",")')" "stop-ready,true"
 
 echo "== ⓤ 갈래 묶음(살아 있음 · 죽음 · HELD) × (세션 파일 있음 · 없음) → 각각 재개 기록 경로 또는 NORECORD 줄"
@@ -179,11 +184,11 @@ seats_pi pi#u1 pi; pifile "$NOW"
 out="$(close 'pi#u1' --reason "ⓤ 살아있음+파일" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"; rc=$?
 chk "ⓤ 살아있음+세션파일 → 재개 기록 경로" "$rc $(rec_or_norec "$out")" "0 yes"
 seats_pi pi#u2 pi; rm -f "$SESS"
-out="$(close 'pi#u2' --reason "ⓤ 살아있음+없음" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"
-chk "ⓤ 살아있음+세션없음 → NORECORD 줄 1" "$(rec_or_norec "$out") $(printf '%s\n' "$out" | grep -c '^NORECORD ')" "yes 1"
+out="$(close 'pi#u2' --reason "ⓤ 살아있음+없음" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"; rc=$?
+chk "ⓤ 살아있음+세션없음 → HELD rc 3 · kill 0(r1674 결속 불가)" "$rc $(printf '%s' "$out" | head -1 | cut -d' ' -f1) $(J "$REPO/.fable-team/seats.json" '.["pi#u2"].role')" "3 HELD nano"
 seats_pi pi#u3 pi; pifile "$NOW"
 out="$(FAKE_SESSION=0 close 'pi#u3' --reason "ⓤ 죽음+파일" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"
-chk "ⓤ 죽음+세션파일 → 재개 기록 경로(RESUME ok 줄1)" "$(rec_or_norec "$out") $(printf '%s\n' "$out" | grep -c '^RESUME ok ')" "yes 1"
+chk "ⓤ 죽음+세션파일 → 죽은 pane 결속 0 = NORECORD 줄 1(r1674)" "$(rec_or_norec "$out") $(printf '%s\n' "$out" | grep -c '^NORECORD pi#u3 pi 좌석 tmux 없음')" "yes 1"
 seats_pi pi#u4 pi; rm -f "$SESS"
 out="$(FAKE_SESSION=0 close 'pi#u4' --reason "ⓤ 죽음+없음" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"
 chk "ⓤ 죽음+세션없음 → NORECORD 줄 1" "$(rec_or_norec "$out") $(printf '%s\n' "$out" | grep -c '^NORECORD ')" "yes 1"
@@ -198,11 +203,11 @@ out="$(FAKE_SESSION=0 close 'pi#deadm' --reason "변이" --seats "$REPO/.fable-t
 chk "ⓣ 변이 «죽은 갈래 exit 를 함수 앞에» → NORECORD 줄 0 (ⓣ FAIL)" "$(printf '%s\n' "$out" | grep -c '^NORECORD ')" 0
 CLOSE_BIN=""
 
-echo "== ⓥ r4 DA 반례 — agent=claude · 세션 없음 · 재개 기록 «경로» 에 «pi 세션 없음» 글자 → HELD rc 3 · kill 0 · role 불변"
-seats_pi cl#v claude; rm -f "$SESS"; mkdir -p "$T/pi 세션 없음/resume"; printf '{}\n' > "$T/pi 세션 없음/resume/cl#v.json"; : > "$TMUX_LOG"
-out="$(RDIR="$T/pi 세션 없음/resume" close 'cl#v' --reason "r4 경로 글자" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"; rc=$?
+echo "== ⓥ r4 DA 반례 — agent=claude · 세션 없음 · 재개 기록 «출력» 에 «pi 세션 없음» 글자 → HELD rc 3 · kill 0 · role 불변"
+seats_pi cl#v claude; rm -f "$SESS"; : > "$TMUX_LOG"
+out="$(RT_BIN="$T/bin/stub-norec.sh" close 'cl#v' --reason "r4 출력 글자" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"; rc=$?
 chk "ⓥ rc 3 · HELD" "$rc $(printf '%s' "$out" | head -1 | cut -d' ' -f1)" "3 HELD"
-has "$out" "pi 세션 없음" "  └ 출력에 «pi 세션 없음» 경로 글자 실재(반례 성립)"
+has "$out" "pi 세션 없음" "  └ 출력에 «pi 세션 없음» 글자 실재(반례 성립)"
 chk "ⓥ 명부 role 불변(nano) · kill 0" "$(J "$REPO/.fable-team/seats.json" '.["cl#v"].role') $(grep -c '^kill-session' "$TMUX_LOG" || true)" "nano 0"
 
 echo "== ⓦ 명부에 agent 칸 없음 → pi 수용 0 = HELD rc 3 · kill 0(조용한 수용 0)"
@@ -237,7 +242,7 @@ rm -f "$REPO/.fable-team/seats-x.json"
 cat > "$T/bin/stub-retire.sh" <<EOF
 #!/usr/bin/env bash
 printf '%s\n' "\$@" > "$T/retire-args.txt"
-echo "RESUME ok \$ZC_RESUME_DIR/\$1.json"
+exec bash "$T/bin/ft-seat-retire.sh" "\$@"   # r1864 F: 실제 retire 로 현행 재개 기록(binding --expect 근거) 제공
 EOF
 chmod +x "$T/bin/stub-retire.sh"; seats_pi pi#s3 pi; pifile "$NOW"
 out="$(RT_BIN="$T/bin/stub-retire.sh" SEATS_ENV="" close 'pi#s3' --reason "r5 자식 인자" --verdict 2400)"; rc=$?
@@ -256,7 +261,7 @@ chk "ⓦr5-4 기록 없음 → kill=held rc 3(같은 경로를 본다)" "$rc $(p
 # ⓦr5-5 — 회귀 꼴: 세션 파일 없음 + pi → NORECORD 1줄 + 닫힘 · claude → HELD rc 3 · kill 0
 seats_pi pi#r5 pi; rm -f "$SESS"; : > "$TMUX_LOG"
 out="$(close 'pi#r5' --reason "r5 회귀 pi" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"; rc=$?
-chk "ⓦr5-5 pi rc 0 · NORECORD 줄 1" "$rc $(printf '%s\n' "$out" | grep -c '^NORECORD ')" "0 1"
+chk "ⓦr5-5 pi(산 좌석·결속 불가) rc 3 HELD · kill 0(r1674)" "$rc $(printf '%s' "$out" | head -1 | cut -d' ' -f1) $(grep -c '^kill-session' "$TMUX_LOG" || true)" "3 HELD 0"
 seats_pi cl#r5 claude; : > "$TMUX_LOG"
 out="$(close 'cl#r5' --reason "r5 회귀 claude" --seats "$REPO/.fable-team/seats.json" --verdict 2400)"; rc=$?
 chk "ⓦr5-5 claude rc 3 HELD · kill 0" "$rc $(printf '%s' "$out" | head -1 | cut -d' ' -f1) $(grep -c '^kill-session' "$TMUX_LOG" || true)" "3 HELD 0"
