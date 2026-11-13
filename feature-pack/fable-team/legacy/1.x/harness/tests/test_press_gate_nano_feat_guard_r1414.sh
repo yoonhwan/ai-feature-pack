@@ -6,6 +6,7 @@
 #   F4 FT_NANO_FEAT=<origin/main 조상 A> · 나노 base_sha=B(A 뒤) → 막힘(«다른 줄기» 로 빼는 길 0)
 #   F5 FT_NANO_FEAT=<origin/main tip sha> → 지금과 같음(착지 나노 = 통과 · 미랜딩 1 = 셈)
 #   F6 FT_NANO_FEAT=<현역 나노 가지 이름> → 막힘(알려진 줄기 ref 이름이 아니다)
+#   R1 로컬 main 이 origin/main 보다 앞섬 · main 기반 나노 base_sha=B(origin/main 밖) · FT_NANO_FEAT=<origin/main tip> → 막힘(DA #298942 · 건너뛰기 0)
 #   변이 4: 조상 검사 삭제 → F2 · 40hex 꼴만 검사 → F3 · base 후손 검사 삭제 → F4 · 나노 가지 검사 삭제 → F6
 #   임시 bare 원격 + 임시 리포만 · 가짜 tmux·sysctl·lsof·curl · 실 리포·실 허가 파일 0 · 고정 sleep 0 · 칸별 timeout 60
 set -uo pipefail
@@ -37,7 +38,7 @@ cm(){ mkdir -p "$1/$(dirname "$2")"; echo "$3" > "$1/$2"; g "$1" add -A >/dev/nu
 
 # 칸마다 새 루트: bare 원격 + origin/main(base → m1 → m2) + main tip 에서 뜬 나노 워크트리 v65-k(base=main · base_sha=tip)
 SEQ=0
-mkcase(){ # $1 이름 [$2 = own → 나노 미랜딩 worker 커밋 1] → CASE · R · W · A(base) · B(tip) · N(나노 HEAD)
+mkcase(){ # $1 이름 [$2 = own → 나노 미랜딩 worker 커밋 1] [$3 = ahead → push 뒤 로컬 main 1커밋 앞섬] → CASE · R · W · A(base) · O(origin/main) · B(나노 base) · N(나노 HEAD)
   SEQ=$((SEQ+1)); CASE="$T/case-$SEQ-$1"; R="$CASE/root"; W="$R/.worktrees/v65-k"
   git init -q --bare "$CASE/origin.git"
   git init -q -b main "$R"
@@ -48,7 +49,8 @@ mkcase(){ # $1 이름 [$2 = own → 나노 미랜딩 worker 커밋 1] → CASE �
   cm "$R" worker/a.py base; A="$(g "$R" rev-parse HEAD)"
   cm "$R" worker/m1.py "main landed 1"
   cm "$R" worker/m2.py "main landed 2"; B="$(g "$R" rev-parse HEAD)"
-  g "$R" remote add origin "$CASE/origin.git" && g "$R" push -q origin main 2>/dev/null
+  g "$R" remote add origin "$CASE/origin.git" && g "$R" push -q origin main 2>/dev/null; O="$B"
+  [ "${3:-}" = ahead ] && { cm "$R" worker/m3.py "local main ahead"; B="$(g "$R" rev-parse HEAD)"; }
   g "$R" worktree add -q -b nano/k "$W" main 2>/dev/null
   printf '{"base":"main","base_sha":"%s"}\n' "$B" > "$W/.worktree-info.json"
   [ "${2:-}" = own ] && cm "$W" worker/own.py "[fix] own change"
@@ -72,7 +74,8 @@ case_f4(){ mkcase f4 own; gate "$1" FT_NANO_FEAT="$A"; blocked "FT_NANO_FEAT=$A 
 case_f5a(){ mkcase f5a; gate "$1" FT_NANO_FEAT="$B"; has "✓ 미랜딩 제품 커밋 0" && ! has "① 판정 불가"; }
 case_f5b(){ mkcase f5b own; gate "$1" FT_NANO_FEAT="$B"; has "✗ 미랜딩 제품 커밋 1 — v65-k" && ! has "① 판정 불가"; }
 case_f6(){ mkcase f6 own; gate "$1" FT_NANO_FEAT=nano/k; blocked "기준 줄기 nano/k 는 현역 나노(v65-k)의 가지"; }
-ALL="f1 f2 f3a f3b f4 f5a f5b f6"
+case_r1(){ mkcase r1 own ahead; gate "$1" FT_NANO_FEAT="$O"; blocked "FT_NANO_FEAT=$O 는 현역 나노(v65-k) base ${B:0:10} 보다 앞선 값" && ! has "다른 줄기"; }
+ALL="f1 f2 f3a f3b f4 f5a f5b f6 r1"
 run_cases(){ # SUT 칸… → 실패 칸 이름은 BAD 에
   local sut="$1" c; shift; BAD=""
   for c in "$@"; do case_"$c" "$sut" >/dev/null 2>&1 && echo "  $c ok" || { BAD="$BAD $c"; LAST="$OUT"; }; done
@@ -80,7 +83,7 @@ run_cases(){ # SUT 칸… → 실패 칸 이름은 BAD 에
 
 # ⓐ 지금 게이트 — F1~F6 전부 통과
 run_cases "$GATE" $ALL
-[ -z "$BAD" ] && ok "F1~F6 게이트 통과" || { bad "게이트 실패 칸:$BAD"; printf '%s\n' "$LAST" | sed 's/^/    /'; }
+[ -z "$BAD" ] && ok "F1~F6·R1 게이트 통과" || { bad "게이트 실패 칸:$BAD"; printf '%s\n' "$LAST" | sed 's/^/    /'; }
 [ -n "${R1414_GATE:-}" ] && { echo "기준판 실행(R1414_GATE) — 변이·kit 생략"; [ "$fail" = 0 ] && exit 0 || exit 1; }
 
 # ⓑ 변이 사본: bin 형제 파일은 심링크($HERE 로 부르는 스크립트) · 게이트만 perl 로 바꾼다
