@@ -67,13 +67,13 @@
 | P12 | 다중어 질의 · 1단계 nohits rc 1 → 2단계(OR) panic (R1) | stdout 첫 줄 = 폴백 표지 · `No results found` 0 · FAKE_PARTIAL 0 · rc 0 | FAIL |
 | P13a | panic · RG_BIN 대역 = 결과 1줄 낸 뒤 rc 2 (R2) | rc 3 · stdout 0줄(대역 줄 0) | FAIL |
 | P13b | panic · 실제 rg · path = 없는 폴더(rg rc 2) | rc 3 · stdout 0줄 | FAIL |
-| P14 | panic · RG_BIN 대역 = 3초 sleep · `CI_RG_TIMEOUT=1` (R2·R3) | rc 3 · 사유 rc=124 · stdout 0줄 | FAIL |
+| P14 | panic · PATH 앞 가짜 `timeout` = 받은 인자 기록 후 rg 를 부르지 않고 즉시 rc 124 (sleep 0) (R2·R3) | rc 3 · 사유 rc=124 · stdout 0줄 · 기록된 인자에 RG 경로 | FAIL |
 | P15 | panic · fixture 10파일 모두 hit · `--max 3` (R2) | rc 0 · 결과 정확히 3개 · stderr 에 SIGPIPE·판정 불가 0 | FAIL |
 | P16 | panic · RG_BIN = 인자 기록 대역 · PATH 에 실제 rg 있음 (R3) | 대역이 불림(기록 1줄) · 결과 = 대역 줄 | FAIL |
 | P17 | panic · `CI_RG_TIMEOUT=300` · PATH 앞 가짜 `timeout`(첫 인자 기록 후 나머지 실행) (R3) | 기록된 상한 = 25 | FAIL |
 
 - 변이(원본 대조): V1 panic 판정 제거 → P1·P2 FAIL · V2 stderr `panicked` 조건 제거 → P4 FAIL · V3 rc-only 판정 제거(stderr 만 봄) → P3a·P3b·P3c FAIL · V4 rg 실패를 rc 0 으로 → P6·P13b FAIL · V5 바이트 자르기(`cut -b`) → P9 FAIL · V6 `-g '!*.md'` 제거 → P10 FAIL · V7 출력 보류 제거(단계마다 바로 출력) → P12 FAIL · V8 rg 를 `| head` 파이프로 잇고 파이프 rc 사용 → P13a FAIL · V9 25초 상한 제거 → P17 FAIL · V10 RG_BIN 무시 → P16 FAIL.
-- 시험 안전선: 임시 폴더 · HOME·TMPDIR 격리 · 네트워크 0 · 재진입 가드 · `ulimit -u` + `timeout 70` · sleep 은 P14 대역 3초 1번만 · 100644.
+- 시험 안전선: 임시 폴더 · HOME·TMPDIR 격리 · 네트워크 0 · 재진입 가드 · `ulimit -u` + `timeout 70` · sleep 0(하드 룰 22 · 시간 초과는 가짜 timeout 의 rc 124 로만 만든다) · 100644.
 
 ## 4. 닫는 증거 (발주서 그대로)
 

@@ -7,7 +7,7 @@
 - 상태: 대기
 - 설치: 있음 — ~/.local/bin/ci = 루트 checkout feature-pack/code-intel/skill/scripts/ci 심링크(착지 뒤 루트 main 반영 = 설치) · 사본 2곳 ~/.claude/skills/code-intel/scripts/ci · ~/.agents/skills/code-intel/scripts/ci ← 팩 판 cmp0
 - 선행: 없음(팩 origin/main)
-- 시험 입력: 임시 폴더 fixture(core/a.py · doc.md · 다중 바이트 400자 줄 · hit 10파일) · 가짜 probe(PROBE_BIN · 단계별 꼴 panic/rconly/nohits/hit/errpanic · rc 134/133/101/1/0) · RG_BIN 대역(결과 뒤 rc2 · 3초 sleep · 인자 기록)/없는 경로 · PATH 앞 가짜 timeout(상한 기록) · HOME·TMPDIR 격리 · 네트워크 0 · 실 probe 0 · 재진입 가드 · ulimit -u + timeout 70
+- 시험 입력: 임시 폴더 fixture(core/a.py · doc.md · 다중 바이트 400자 줄 · hit 10파일) · 가짜 probe(PROBE_BIN · 단계별 꼴 panic/rconly/nohits/hit/errpanic · rc 134/133/101/1/0) · RG_BIN 대역(결과 뒤 rc2 · 인자 기록)/없는 경로 · PATH 앞 가짜 timeout(인자 기록 · 즉시 rc 124 꼴 / 기록 후 실행 꼴) · sleep 0 · HOME·TMPDIR 격리 · 네트워크 0 · 실 probe 0 · 재진입 가드 · ulimit -u + timeout 70
 - 기준값: 실 명령 3개 중 2개 rc 134(판정 불가 · 판정 · reopen) · 부분 stdout 40줄 → 목표 = panic 새는 수 0 · rc 134 0
 - 규칙: 없음 — 래퍼 내부 폴백이라 하드 룰 16 문구와 훅은 그대로 둔다
 - 대상: 팩 feature-pack/code-intel/skill/scripts/ci(search 갈래만) · 시험 feature-pack/code-intel/tests/test_ci_search_nonascii_panic.sh(신설 · 100644)
@@ -69,3 +69,4 @@
 ## 상태
 - 2026-11-13 · 대기 — aifp-ft-arch-pi#2 작성(aifp 4187 · 실측 rc 134 재현 · ASCII 질의 panic 추가 확인) · 다음 = DA aifp-ft-da-codex#0 사전검증 → APPROVE 뒤 aifp-ft-master-pi#7 1통 → 나노 1석
 - 2026-11-13 · 대기 — DA REJECT 보정(aifp 4189 · 동결 e3bdb757) R1 출력 보류 C8·P12 · R2 rgrc 먼저 받기·실패 먼저·P13a/b·P14·P15 · R3 상한 min(…,25)·rc-only P3a/b/c·RG_BIN P16·상한 P17 · 변이 10
+- 2026-11-13 · 대기 — DA REJECT 보정 2(aifp 4191 · 동결 30b18211) P14 sleep 제거 → 가짜 timeout 인자 기록 + 즉시 rc 124(하드 룰 22 sleep 0)
