@@ -4,7 +4,7 @@
 core 는 일을 기록만 하고 좌석을 닫지 않는다(close_next «kill = 호출자»). 그 닫는 호출자가 이 명령이다.
 한 바퀴(--once) = 잠금 O_EXCL → git fetch(리포당 1회) → 팀마다 B1 complete 누락 잡기 → B2 착지 끝 나노 세션 닫기 →
 B3 승계 끝 옛 좌석 → B4 보고. 파일 넷: 이 파일(바퀴·잠금) · keeper_land.py(B1·B1r) · keeper_close.py(B2·B3) ·
-keeper_report.py(B4·쪽지).
+keeper_report.py(B4·쪽지). 끝나지 않은 일 = r1813 멈춤 갈래(keeper_stall.py · 깨움 → 재배정).
 core 손 0 — 공개 동사(cli.run)·공개 API(project·CloseNext)만 부른다. 상한: git 25초 · tmux·쪽지 7초 · 바퀴 60초.
     python3 core/cli.py keeper --root R (--once | --report) [--pack 팩리포]
 """
@@ -46,7 +46,8 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
         self.mbox = self.env.get("FT2_KEEPER_MBOX") or os.path.join(self.root, ".fable-team", "comm", "mbox.sh")
         self.dir = os.path.join(self.root, ".fable-team", "state", "ft2-keeper")
         self.project, self.lines, self.cache = projection.project, [], {}
-        self.state = {key: {} for key in ("held", "open", "sent", "handled")}
+        self.state = {key: {} for key in ("held", "open", "sent", "handled", "woke", "reassigned")}
+        self.stall = _load(os.path.join(HERE, "keeper_stall.py"), "ft2_keeper_stall").Stall(self)   # r1813 S1~S5
 
     def call(self, argv, timeout=CALL_S, retry=0):
         """바깥 호출 1곳 → (rc, stdout, stderr 1줄) · 넘침·실행 실패 = rc None · retry = rc≠0 때 다시 부르는 횟수."""
@@ -136,7 +137,8 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
         if proj.get("result") != OK:
             return self.log("판정 불가", team, "투영 %s" % proj.get("reason", ""))
         node = projection.journal.Journal(projection.runtime_path(self.root, team), rec=projection.record)
-        latest = {rec["work"]: (rec.get("attempt"), rec.get("holder")) for rec in node.records()
+        rows = node.records()
+        latest = {rec["work"]: (rec.get("attempt"), rec.get("holder")) for rec in rows
                   if rec.get("kind") == "dispatch" and rec.get("work")}
         for work, (attempt, dispatched) in sorted(latest.items()):
             row = proj["works"].get(work) or {}
@@ -144,6 +146,8 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
                 continue
             if row.get("done") or self.complete(team, work, attempt, self.landing(team, work)):
                 self.close(team, work, attempt, row, dispatched)
+            else:
+                self.stall.check(team, work, attempt, rows)   # r1813 — 진척 0 좌석 깨움 1회 → 재배정
 
 
 def main(argv):
