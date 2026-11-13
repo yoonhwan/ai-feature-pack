@@ -133,12 +133,25 @@ def shell_lines(text):
         n += 1
 
 
+def strip_comment(line):
+    """셸 주석(따옴표 밖 낱말 머리의 # 뒤) 걷기 — 주석 속 «). 축별» 을 source 로 읽지 않는다(r3 R3)."""
+    q, i = None, 0
+    while i < len(line):
+        c = line[i]
+        if q is None and c == "#" and (i == 0 or line[i - 1] in " \t;&|("):
+            return line[:i]
+        if c == "\\" and q != "'":
+            i += 1
+        elif c in "'\"" and q in (None, c):
+            q = None if q else c
+        i += 1
+    return line
+
+
 def sourced(line):
-    """셸 줄 → (source 대상 글자) 들 — 줄 시작만이 아니라 ; && || 로 나뉜 명령 조각마다(DA HOLD R1 #295443)."""
-    if line.lstrip().startswith("#"):
-        return []
+    """셸 줄 → (source 대상 글자) 들 — 줄 시작만이 아니라 ; && || 로 나뉜 명령 조각마다(DA HOLD R1 #295443) · 주석 빼고."""
     out = []
-    for seg in segments(line):
+    for seg in segments(strip_comment(line)):
         words = [w for w in seg.split() if w.strip("\"'")]
         while words and words[0] in SKIP_WORDS:
             words = words[1:]
@@ -227,18 +240,33 @@ class Gate:
             for n, ln, part in shell_lines(text) if kind(f, text) == "sh" else ():
                 for word in sourced(self.dirs(ln, f, zero)) if part == "sh" else ():
                     t = self.resolve(word, f, zero, env)
-                    todo += [t] if t and os.path.isfile(t) else []
-                    why = why or (None if t and os.path.isfile(t) else f"source 경로 불가 {self.rel(f)}:{n}")
+                    if t and os.path.isfile(t):
+                        todo.append(t)
+                    elif t and self.guarded(ln, t, f, zero, env):  # r3 R1: [ -f P ] && . P · P 없음 = 없음 표식(생기면 sha 바뀜)
+                        files += [("ABSENT", t)] if ("ABSENT", t) not in files else []
+                    else:
+                        why = why or f"source 경로 불가 {self.rel(f)}:{n}"
             for n, ln in enumerate(text.splitlines(), 1):
                 if kind(f, text) == "py" and (imp := re.match(r"\s*(?:from\s+([\w.]+)\s+import|import\s+([\w., ]+))", ln)):
                     for mod in re.split(r"\s*,\s*", (imp.group(1) or imp.group(2)).strip()):
                         top = mod.split()[0].split(".")[0] if mod else ""
-                        local = os.path.join(os.path.dirname(f), top + ".py")
-                        if os.path.isfile(local):
+                        local = self.module(f, top)
+                        if local:
                             todo.append(local)
                         elif top and top not in sys.stdlib_module_names and top != "__future__":
                             why = why or f"뿌리 밖 import {top} {self.rel(f)}:{n}"
-        return sha("".join(f"{os.path.relpath(f, os.path.dirname(path))}\0{read(f)}\0" for f in files)), why
+        return sha("".join(f"ABSENT\0{os.path.relpath(f[1], os.path.dirname(path))}\0" if isinstance(f, tuple)
+                           else f"{os.path.relpath(f, os.path.dirname(path))}\0{read(f)}\0" for f in files)), why
+
+    def guarded(self, line, target, path, zero, env):
+        """같은 줄에 [ -f P ] · [[ -r P ]] · test -e P 가드가 있고 P 가 target 으로 풀리나."""
+        return any(self.resolve(m.group(1), path, zero, env) == target
+                   for m in re.finditer(r"""(?:\[\[?|\btest)\s+(?:!\s+)?-[fre]\s+("[^"]*"|'[^']*'|[^\s\]]+)""", self.dirs(line, path, zero)))
+
+    def module(self, path, top):
+        """import 모듈 = 그 파일 폴더 또는 뿌리 폴더에 실재하는 <이름>.py(r3 R2) · 없으면 ""(뿌리 밖)."""
+        found = (os.path.join(d, top + ".py") for d in [os.path.dirname(path), *self.roots.values()] if top)
+        return next((m for m in found if os.path.isfile(m)), "")
 
     def dynamic(self, path, n, line, zero, var=None):
         key, h, (b, why) = self.rel(path), sha(line.strip())[:16], self.bind(path, zero)
@@ -278,7 +306,7 @@ class Gate:
                 continue
             if raw.lstrip().startswith("#") or not raw.strip():
                 continue
-            line = self.dirs(re.sub(r"(^|\s)#[^'\"]*$", "", raw), path, zero)
+            line = self.dirs(strip_comment(raw), path, zero)
             self.literal(line, path, n)
             for seg in segments(line):
                 words = [w for w in seg.split() if w.strip("\"'")]
@@ -286,7 +314,10 @@ class Gate:
                     words = words[2:] if words[0] == "timeout" else words[1:]
                 if len(words) > 1 and words[0] in (".", "source"):  # 명령 조각마다 source = 따라감(같은 줄 앞 명령 뒤 포함)
                     t = self.resolve(words[1], path, zero, env)
-                    self.follow(t, zero) if t and os.path.isfile(t) else self.reject("결합 불가(source 경로 불가)", path, n)
+                    if t and os.path.isfile(t):
+                        self.follow(t, zero)
+                    elif not (t and self.guarded(line, t, path, zero, env)):  # 가드된 없는 파일 = 결합 표식으로 본다
+                        self.reject("결합 불가(source 경로 불가)", path, n)
                     continue
                 if not words or words[0] in ("case", "for", "[[", "[", "test", "local", "export", "declare", "readonly", "return"):
                     continue
@@ -328,8 +359,8 @@ class Gate:
                 self.reject("글자 그대로 LLM 호출", path, n)
             if imp := re.match(r"\s*(?:from\s+([\w.]+)\s+import|import\s+([\w., ]+))", raw):
                 for mod in re.split(r"\s*,\s*", (imp.group(1) or imp.group(2)).strip()):
-                    local = os.path.join(os.path.dirname(path), mod.split()[0].split(".")[0] + ".py") if mod else ""
-                    os.path.isfile(local) and self.follow(local)
+                    local = self.module(path, mod.split()[0].split(".")[0]) if mod else ""
+                    local and self.follow(local)
             for m in PYCALL.finditer(raw):
                 arg = raw[m.end():].strip() or nxt.get(n + 1, "").strip()
                 lit = re.match(r"""\[?\s*(['"])([^'"]+)\1\s*(?:,\s*(['"])([^'"]+)\3)?""", arg)
