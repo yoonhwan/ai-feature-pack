@@ -4,105 +4,22 @@
 기준판(keeper 없음 · retire 끝 닫기 없음) = 전부 Red(① ④ ⑤ 포함). 변이는 사본에서만 고치고 변이마다 원본으로 같은 사례를 1회 더 돈다.
 M8 = resolver 완성/ 빼기 → ⑪ · M9 = complete 뒤 done 재확인 빼기 → ⑪″ (카드에 이름만 있어 R1·Q1 에서 정함).
 """
-import importlib.util, json, os, plistlib, shutil, subprocess, sys  # noqa: E401
+import importlib.util
+import plistlib
+import shutil
+import subprocess
+import sys
 from pathlib import Path
+
 import pytest
 
-FT2 = Path(__file__).resolve().parents[1]
-OLD = FT2.parent / "legacy" / "1.x" / "harness"          # ⑤ 1.x 승계 도구 — 임시 cwd 에서 스텁과만 실행
-T0, NOW, TEAM, AB = 1794000000.0, "2026-11-13T10:00:00", "harness", "ab" * 20
-TEAMS = "| 팀 | 폴더 |\n|---|---|\n| harness | `$FT_HARNESS_ROOT/design/harness/` |\n| planner | `design/teams/planner/` |\n"
-TMUX = r'''#!__PY__
-import json, os, sys
-st, a = os.environ["FAKE_TMUX"], sys.argv[1:]
-d, name = json.load(open(st)), sys.argv[-1].lstrip("=")
-open(st + ".log", "a").write(json.dumps(a) + "\n")
-if a[0] == "kill-session": d["alive"].remove(name); json.dump(d, open(st, "w"))
-if a[0] == "capture-pane": sys.stdout.write(d["pane"].get(name, ""))
-if a[0] == "has-session" and name not in d["alive"]: sys.stderr.write("can't find session: %s\n" % name)
-sys.exit(0 if name in d["alive"] or a[0] == "kill-session" else 1)
-'''
-STUB = '#!/bin/sh\nprintf "%s\\n" "$*" >> "$0.log"\necho "STUB $1"\nexit "$(cat "$0.rc" 2>/dev/null || echo 0)"\n'
-def _mod(path, alias):
-    spec = importlib.util.spec_from_file_location(alias, str(path))
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)   # 기준판 = keeper.py 없음 → Red
-    return module
-def _git(cwd, *a):
-    return subprocess.run(["git", "-C", str(cwd)] + list(a), capture_output=True, text=True, timeout=25, check=True).stdout.strip()
-def _lines(path):
-    return Path(str(path)).read_text(encoding="utf-8").splitlines() if Path(str(path)).exists() else []
-def _put(path, body):
-    Path(path).parent.mkdir(parents=True, exist_ok=True)
-    Path(path).write_text(body if isinstance(body, str) else json.dumps(body), encoding="utf-8")
-class World:
-    def __init__(s, tmp, mp, ft2=FT2, old=OLD):
-        mp.setenv("FT_NOW", NOW)
-        s.tmp, s.ft2, s.old, s.t, s.root, b = tmp, ft2, old, T0, tmp / "root", tmp / "bin"
-        s.CLI = _mod(ft2 / "core" / "cli.py", "kc_%d" % id(s))
-        for name in ("byz", "pack"):
-            _git(tmp.parent, "init", "-q", "--bare", "-b", "main", str(tmp / (name + ".git")))
-            _git(tmp, "init", "-q", "-b", "main", "seed-" + name)
-            for k, v in (("user.email", "t@t"), ("user.name", "t"), ("commit.gpgsign", "false"), ("remote.origin.url", str(tmp / (name + ".git")))):
-                _git(tmp / ("seed-" + name), "config", k, v)
-            s.commit(name, {"design/TEAMS.md": TEAMS}, "main")
-        s.commit("byz", {}, "ops/main-base", new=True)
-        _git(tmp, "clone", "-q", str(tmp / "byz.git"), "root"), _git(tmp, "clone", "-q", str(tmp / "pack.git"), "pack")
-        for name, body in (("tmux", TMUX.replace("__PY__", sys.executable)), ("close", STUB), ("mbox", STUB),
-                           ("reap", '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n')):
-            _put(b / name, body), (b / name).chmod(0o755)
-        s.tm, s.close, s.mbox, s.state = b / "tmux.json", b / "close", b / "mbox", s.root / ".fable-team" / "state"
-        _put(s.tm, {"alive": [], "pane": {}})
-        s.env = dict(os.environ, FT_TMUX=str(b / "tmux"), FAKE_TMUX=str(s.tm), FT2_PACK_REPO=str(tmp / "pack"),
-                     FT_SEAT_CLOSE_BIN=str(s.close), FT2_KEEPER_MBOX=str(s.mbox), FT_NOW=NOW)
-        for team in (TEAM, "planner"):
-            _put(s.root / ".fable-team" / ("seats-%s.json" % team), {"_master": "M-" + team})
-    @property
-    def K(s):
-        return _mod(s.ft2 / "adapters" / "pi" / "keeper.py", "kp_%d" % id(s))
-    def commit(s, name, files, branch, new=False):
-        seed = s.tmp / ("seed-" + name)
-        if _git(seed, "symbolic-ref", "--short", "HEAD") != branch:
-            _git(seed, "checkout", "-q", *(["-b"] if new else []), branch)
-        for rel, body in files.items():
-            _put(seed / rel, body)
-        _git(seed, "add", "-A"), _git(seed, "commit", "-q", "--allow-empty", "-m", "x"), _git(seed, "push", "-q", "origin", branch)
-        return _git(seed, "rev-parse", "HEAD")
-    def card(s, work, sha=None, stage="진행", folder="design/harness", refs=("main", "ops/main-base")):
-        for ref in refs:
-            s.commit("byz", {"%s/indices/%s/%s-x.md" % (folder, stage, work): "# 인덱스: %s\n- 상태: 대기\n" % work
-                             + ("- 착지: %s\n" % sha if sha else "")}, ref)
-    def pack_sha(s):
-        return s.commit("pack", {"p.txt": str(os.urandom(4))}, "main")
-    def work(s, work, done=False, team=TEAM, intent=True, alive=False, pane="✻ Brewed for 3s\n❯ "):
-        holder = "byz-%s-nano-%s-t#0" % (team, work)
-        steps = [["submit", "--command", "c-" + work, "--body", "본문-" + work, "--work", work],
-                 ["assign", "--work", work, "--holder", holder, "--evidence", "v1,v2"], ["deliver", "--work", work]]
-        for argv in steps + ([["complete", "--work", work, "--attempt", "a1"]] if done else []):
-            out, rc = s.CLI.run(argv + ["--root", str(s.root), "--team", team])
-            assert rc == 0, out
-        _put(s.state / "ft20-switch" / (team + ".json"), "{}")
-        if intent:
-            _put(s.runtime(team) / "launch" / ("%s@a1.intent" % work), {"FT2_HOLDER": holder, "state": "opened"})
-        d = json.loads(s.tm.read_text(encoding="utf-8"))
-        d["alive"], d["pane"][holder] = d["alive"] + ([holder] if alive else []), pane
-        return _put(s.tm, d) or holder
-    def runtime(s, team=TEAM):
-        return s.root / ".fable-team" / "teams" / team / "runtime"
-    def journal(s, team=TEAM):
-        return [json.loads(x) for p in sorted(s.runtime(team).glob("journal*.jsonl")) for x in _lines(p)]
-    def kinds(s, kind, team=TEAM):
-        return sum(rec["kind"] == kind for rec in s.journal(team))
-    def keeper(s):
-        return s.K.Keeper(str(s.root), env=s.env, now=lambda: s.t)
-    def round(s, k=None):
-        k = k or s.keeper()
-        assert k.run_once() == 0
-        return k.lines
-    def tmux(s, verb):
-        return [a for a in map(json.loads, _lines(str(s.tm) + ".log")) if a[0] == verb]
-    def enable(s, team=TEAM):
-        _put(s.root / ".fable-team" / "teams" / team / "CLOSE-NEXT.enabled", "enabled\n")
+_SPEC = importlib.util.spec_from_file_location("keeper_world_r1812", str(Path(__file__).with_name("keeper_world_r1812.py")))
+kw = importlib.util.module_from_spec(_SPEC)
+_SPEC.loader.exec_module(kw)
+World, FT2, OLD, T0, TEAM, AB, _git, _lines, _put = (kw.World, kw.FT2, kw.OLD, kw.T0, kw.TEAM, kw.AB,
+                                                    kw._git, kw._lines, kw._put)
+
+
 def c1(w):   # ① 팩 main 조상 + done=false → complete 1 · 두 번째 바퀴 쓰기 0
     w.card("r9001", w.pack_sha()), w.work("r9001", intent=False)
     assert any(x.startswith("COMPLETED harness r9001") for x in w.round()) and w.kinds("complete") == 1
@@ -154,8 +71,10 @@ def c5(w):   # ⑤ retire RETIRED rc0 → ft-seat-close 1회(<구> --reason) · 
     seats = w.tmp / "cwd" / "seats-zz.json"
     _put(seats, {"Z#1": {"role": "nano", "agent": "claude", "model": "m"}, "Q#1": {"role": "nano"},
                  "Q#2": {"role": "stop-ready", "_replaced_by": "Q#9"}}), _put(w.tm, {"alive": ["Z#1", "Q#1"], "pane": {}})
-    run = lambda a, b: subprocess.run(["bash", str(w.old / "bin" / "ft-seat-retire.sh"), a, b, "--seats", str(seats)],
-                                      cwd=str(w.tmp / "cwd"), env=env, capture_output=True, text=True, timeout=60)
+
+    def run(a, b):
+        return subprocess.run(["bash", str(w.old / "bin" / "ft-seat-retire.sh"), a, b, "--seats", str(seats)],
+                              cwd=str(w.tmp / "cwd"), env=env, capture_output=True, text=True, timeout=60)
     done = run("Z#1", "Z#2")
     assert done.returncode == 0 and done.stdout.startswith("RETIRED"), done.stdout + done.stderr
     assert _lines(str(w.close) + ".log") == ["Z#1 --reason retire -> Z#2 --seats %s" % seats] and "STUB Z#1" in done.stdout
@@ -192,16 +111,16 @@ def c10(w):  # ⑩ plist 틀 → ProgramArguments[0] 절대 경로 · StartInter
     assert data["Label"] == "com.byz.ft2-keeper" and data["ProgramArguments"][-3:] == ["--root", "/x/root", "--once"]
 CASES = {"①": c1, "②": c2, "③": c3, "④": c4, "④′": c4b, "④″": c4c, "⑤": c5, "⑥": c6, "⑦": c7, "⑧": c8, "⑨": c9, "⑩": c10,
          "⑪": c11, "⑪′": c11b, "⑪″": c11c, "⑫": c12, "⑫′": c4, "⑫″": c12c}
-KP = "adapters/pi/keeper.py"
-MUTANTS = {"M1": ("ft2", KP, '"--is-ancestor", sha, ref)[0] == 0', '"--is-ancestor", sha, ref)[0] in (0, 1, 128)', c3),
-           "M2": ("ft2", KP, '(self.pack, "origin/main"), (self.root, REFS[0]), (self.root, REFS[1])', '(self.pack, "origin/main"),', c2),
-           "M3": ("ft2", KP, "if BUSY.search(pane", "if False and BUSY.search(pane", c4b),
-           "M4": ("ft2", KP, 'self.call([self.tmux, "kill-session"', 'self.receipt(team, work, attempt, holder, gen); self.call([self.tmux, "kill-session"', c4),
+KP, KL, KC = "adapters/pi/keeper.py", "adapters/pi/keeper_land.py", "adapters/pi/keeper_close.py"
+MUTANTS = {"M1": ("ft2", KL, '"--is-ancestor", sha, ref)[0] == 0', '"--is-ancestor", sha, ref)[0] in (0, 1, 128)', c3),
+           "M2": ("ft2", KL, '(self.pack, "origin/main"), (self.root, REFS[0]), (self.root, REFS[1])', '(self.pack, "origin/main"),', c2),
+           "M3": ("ft2", KC, "if BUSY.search(pane", "if False and BUSY.search(pane", c4b),
+           "M4": ("ft2", KC, 'self.call([self.tmux, "kill-session"', 'self.receipt(team, work, attempt, holder, gen); self.call([self.tmux, "kill-session"', c4),
            "M5": ("old", "bin/ft-seat-retire.sh", '[ "$prc" -eq 0 ] && [ "$RECONLY" = 0 ] || exit "$prc"', '[ "$RECONLY" = 0 ] || exit "$prc"', c5),
-           "M6": ("ft2", KP, "< RETRY_S:", "< 0:", c6),
+           "M6": ("ft2", KC, "< RETRY_S:", "< 0:", c6),
            "M7": ("ft2", KP, "os.O_CREAT | os.O_EXCL | os.O_WRONLY", "os.O_CREAT | os.O_WRONLY", c8),
-           "M8": ("ft2", KP, 'STAGES = ("진행", "대기", "완성")', 'STAGES = ("진행", "대기")', c11),
-           "M9": ("ft2", KP, "if not self.done(team, work):", "if False:", c11c)}
+           "M8": ("ft2", KL, 'STAGES = ("진행", "대기", "완성")', 'STAGES = ("진행", "대기")', c11),
+           "M9": ("ft2", KL, "if not self.done(team, work):", "if False:", c11c)}
 @pytest.mark.parametrize("name", list(CASES))
 def test_case(name, tmp_path, monkeypatch):
     CASES[name](World(tmp_path, monkeypatch))
