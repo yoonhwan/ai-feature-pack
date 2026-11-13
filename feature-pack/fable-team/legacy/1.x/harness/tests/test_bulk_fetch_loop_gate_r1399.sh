@@ -85,7 +85,7 @@ t=time.perf_counter(); subprocess.run(["bash",sys.argv[1]],input=d.encode(),capt
 python3 -c 'import sys; sys.exit(0 if float(sys.argv[1]) < 1.0 else 1)' "$el" && ok "ⓙ 훅 1회 ${el}s < 1s" || bad "ⓙ 훅 ${el}s"
 [ -e "$T/called-git" ] && bad "ⓙ git 이 실행됨" || ok "ⓙ git 실행 0"
 grep -nE 'subprocess|os\.system|os\.kill|popen' "$GATE" && bad "ⓙ 훅 본문에 프로세스 호출 글자" || ok "ⓙ 훅 본문 프로세스 호출 글자 0"
-[ -x "$GATE" ] && ok "훅 실행 권한" || bad "훅 실행 권한 없음"
+[ -r "$GATE" ] && ok "훅 읽기 가능(모드 644 · bash 로 부른다)" || bad "훅 읽기 불가"
 bash -n "$GATE" && ok "bash -n" || bad "bash -n"
 
 echo "== 결과: FAIL=$fail"
