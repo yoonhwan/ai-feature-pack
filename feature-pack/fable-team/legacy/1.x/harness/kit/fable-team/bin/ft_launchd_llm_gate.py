@@ -133,6 +133,20 @@ def shell_lines(text):
         n += 1
 
 
+def sourced(line):
+    """셸 줄 → (source 대상 글자) 들 — 줄 시작만이 아니라 ; && || 로 나뉜 명령 조각마다(DA HOLD R1 #295443)."""
+    if line.lstrip().startswith("#"):
+        return []
+    out = []
+    for seg in segments(line):
+        words = [w for w in seg.split() if w.strip("\"'")]
+        while words and words[0] in SKIP_WORDS:
+            words = words[1:]
+        if len(words) > 1 and words[0] in (".", "source"):
+            out.append(words[1])
+    return out
+
+
 def tsv(path, need):
     if not path or not os.path.exists(path):
         return []
@@ -169,16 +183,16 @@ class Gate:
         if path in seen:
             return out
         seen.add(path)
-        for ln in (self.dirs(x, path, zero) for x in read(path).splitlines()):
+        for ln in (self.dirs(x, path, zero) for _, x, part in shell_lines(read(path)) if part == "sh"):
             for m in re.finditer(r"(?:^|[;&\s])(?:local\s+|export\s+|readonly\s+|declare\s+[-\w]*\s*)?([A-Za-z_]\w*)=(\"[^\"]*\"|'[^']*'|\S*)", ln):
                 val = self.resolve(m.group(2), path, zero, out)
                 out[m.group(1)] = val if out.get(m.group(1), val) == val and m.group(1) not in out or out.get(m.group(1)) == val else None
             for m in re.finditer(r"\b(?:for|read(?:\s+-\w+)*)\s+([A-Za-z_]\w*)", ln):
                 out.setdefault(m.group(1), None)
-            src = re.match(r"\s*(?:\.|source)\s+(\S+)", ln)
-            target = src and self.resolve(src.group(1), path, zero, out)
-            if target and os.path.isfile(target):
-                out.update({k: v for k, v in self.assigns(target, zero, seen).items() if k not in out})
+            for word in sourced(ln):
+                target = self.resolve(word, path, zero, out)
+                if target and os.path.isfile(target):
+                    out.update({k: v for k, v in self.assigns(target, zero, seen).items() if k not in out})
         if top:
             self.memo[(path, zero)] = out
         return out
@@ -210,12 +224,13 @@ class Gate:
                 continue
             files.append(f)
             text, env = read(f), self.assigns(f, zero)
-            for n, ln in enumerate(text.splitlines(), 1):
-                if kind(f, text) == "sh" and (src := re.match(r"\s*(?:\.|source)\s+(\S+)", self.dirs(ln, f, zero))):
-                    t = self.resolve(src.group(1), f, zero, env)
+            for n, ln, part in shell_lines(text) if kind(f, text) == "sh" else ():
+                for word in sourced(self.dirs(ln, f, zero)) if part == "sh" else ():
+                    t = self.resolve(word, f, zero, env)
                     todo += [t] if t and os.path.isfile(t) else []
                     why = why or (None if t and os.path.isfile(t) else f"source 경로 불가 {self.rel(f)}:{n}")
-                elif kind(f, text) == "py" and (imp := re.match(r"\s*(?:from\s+([\w.]+)\s+import|import\s+([\w., ]+))", ln)):
+            for n, ln in enumerate(text.splitlines(), 1):
+                if kind(f, text) == "py" and (imp := re.match(r"\s*(?:from\s+([\w.]+)\s+import|import\s+([\w., ]+))", ln)):
                     for mod in re.split(r"\s*,\s*", (imp.group(1) or imp.group(2)).strip()):
                         top = mod.split()[0].split(".")[0] if mod else ""
                         local = os.path.join(os.path.dirname(f), top + ".py")
@@ -265,14 +280,14 @@ class Gate:
                 continue
             line = self.dirs(re.sub(r"(^|\s)#[^'\"]*$", "", raw), path, zero)
             self.literal(line, path, n)
-            if src := re.match(r"\s*(?:\.|source)\s+(\S+)", line):
-                t = self.resolve(src.group(1), path, zero, env)
-                self.follow(t, zero) if t and os.path.isfile(t) else self.reject("결합 불가(source 경로 불가)", path, n)
-                continue
             for seg in segments(line):
                 words = [w for w in seg.split() if w.strip("\"'")]
                 while words and (words[0] in SKIP_WORDS or re.match(r"^[A-Za-z_]\w*=", words[0]) or words[0] == "timeout"):
                     words = words[2:] if words[0] == "timeout" else words[1:]
+                if len(words) > 1 and words[0] in (".", "source"):  # 명령 조각마다 source = 따라감(같은 줄 앞 명령 뒤 포함)
+                    t = self.resolve(words[1], path, zero, env)
+                    self.follow(t, zero) if t and os.path.isfile(t) else self.reject("결합 불가(source 경로 불가)", path, n)
+                    continue
                 if not words or words[0] in ("case", "for", "[[", "[", "test", "local", "export", "declare", "readonly", "return"):
                     continue
                 cmd = words[0].strip("\"'")
