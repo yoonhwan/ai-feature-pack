@@ -198,6 +198,14 @@ def _seq(opts):  # r1856 요청 번호 = (숫자|None, 숫자 0 사유) · --seq
     return (found[-1], "") if found else (None, "같은 사람 글 ts 의 장부 번호 없음")
 
 
+def _desk(root, team):  # r1862 명부 seats-<team>.json `_desk` 읽기만 · 못 읽음·칸 없음 = None(대신 답 0)
+    try:
+        with open(os.path.join(root, ".fable-team", "seats-%s.json" % team), encoding="utf-8") as handle:
+            return json.load(handle).get("_desk") or None
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
 def say(state, ts="", rc=0, reason=""):
     sys.stdout.write(("state=%s ts=%s" % (state, ts or "")) + (" reason=%s" % reason if reason else "") + "\n")
     return rc
@@ -245,7 +253,8 @@ def main(argv, post=None, sleep=None):
         now.workspace, now.channel, now.root)
     pub = publish.SlackPublish(opts["root"], team=opts["team"], bindings=ledger,
                                post=lambda root_ts, text, marker, metadata: post(key.channel, root_ts, text, metadata),
-                               sleep=sleep or (lambda s: time.sleep(min(float(s), 7))))
+                               sleep=sleep or (lambda s: time.sleep(min(float(s), 7))),
+                               delegate=_desk(opts["root"], opts["team"]))
     if verb == "reply":  # 역할 답 의도 키 = 업무 command 그대로 · gen = binding 에서
         intent, seat, gen = opts["command"], opts["seat"], now.gen
     else:  # notify — 의도 키 = notify:<root>:<본문 sha12> · 담당 검사 대신 열린 binding 만
