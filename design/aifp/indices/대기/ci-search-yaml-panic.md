@@ -45,7 +45,7 @@
 3. [ ] 나노: 변이 X1~X4 각각 지정 반례 FAIL(4/4)
 4. [ ] 나노: 회귀 3파일 rc0 · 시험 파일 100644 · B8 `.YAML` 실측 1줄
 5. [ ] master: 착지 sha → 설치(루트 main 반영 · 사본 2곳 cmp0)
-6. [ ] master: 재현 명령 원문 3회(BYZ ops-lead · `ci search "consent gate" . --max 3`) — panic 경고 0 · 버린 줄 0 · 최대 real 7초 안 → ops arch#107·harness#243·planner#291 1통
+6. [ ] master: 재현 명령 원문(BYZ ops-lead · `ci search "consent gate" . --max 3`) — panic 경고 0 · 버린 줄 0 · real 7초 안 · 최종 구현 전체 명령 1회의 real·rc·panic·버린 줄 기록 · 추가 확인은 사유 1줄과 함께 1회까지 · 실행한 결과 전부 보존 · 7초를 넘은 결과를 빼고 통과시키지 않음 · 한 번이라도 7초 넘으면 완료 조건 미충족 · 설계 §1 실험 5.74~6.83초는 실험 사본 값 · 최종 증거 아님 → ops arch#107·harness#243·planner#291 1통
 7. [ ] master: 앞 카드 재현(BYZ harness-ops-m175 · `ci search "request register" . --max 3`) 원문 — 앞 카드 끝 기준 그대로
 - 나노 끝선(5줄 이내): 바꾼 줄 범위 · 시험 결과 줄·초 · 기준판·변이 FAIL 목록 · 기대 글자 고친 검사 줄 · 설계와 다르게 한 점(없으면 «없음»)
 

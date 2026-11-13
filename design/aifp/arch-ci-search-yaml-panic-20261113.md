@@ -57,7 +57,7 @@ cwd = BYZ `.worktrees/ops-lead`(b4d6a5fa33 · yaml 158 · md 20086 · 전체 485
 
 ## 5. 닫는 증거 (발주서 ② 그대로)
 
-1. 재현 명령 `cd ~/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-lead && ci search "consent gate" . --max 3` → panic 경고 0 · 버린 줄 0 · real 7초 안 · rc 정직(0 결과 / 1 0건) · 3회 중 최대 초를 적는다(여유가 얇아서).
+1. 재현 명령 `cd ~/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/ops-lead && ci search "consent gate" . --max 3` → panic 경고 0 · 버린 줄 0 · real 7초 안 · rc 정직(0 결과 / 1 0건) · 최종 구현 전체 명령 1회의 real·rc·panic·버린 줄 기록 · 추가 확인은 사유 1줄과 함께 1회까지 · 실행한 결과 전부 보존 · 7초를 넘은 결과를 빼고 통과시키지 않음 · 한 번이라도 7초 넘으면 완료 조건 미충족 · 설계 §1 실험 5.74~6.83초는 실험 사본 값 · 최종 증거 아님.
 2. 앞 카드 재현 `cd ~/Project/Agent/BYZ-Work/BYZ-Agents/.worktrees/harness-ops-m175 && ci search "request register" . --max 3` → 앞 카드 끝 기준 그대로.
 3. 시험 rc 0 · 기준판 B1·B2·B3·B6 FAIL · 변이 X1~X4 4/4 FAIL · 회귀 3파일 rc 0 · 앞 카드 검사 175 PASS.
 
