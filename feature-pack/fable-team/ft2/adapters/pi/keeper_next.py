@@ -119,7 +119,7 @@ def reconcile(k, team, work, attempt, stem, nh, pick):
         if pick is None and not gates(k, team):   # R2 — 복구 launch 직전 현재 가드 · 막힘 = handled 0(허용 뒤 같은 사건 재개)
             return None
         place = pick[1:] if pick else (lambda g: None if isinstance(g, str) or stem not in g[0] else target(k, g[1], g[0][stem][2]))(cards(k, team))
-        argv = [sys.executable, k.env.get("FT2_KEEPER_LAUNCH") or os.path.join(HERE, "launch.py"), "--root", k.root, "--team", team, "--work", stem, "--repo", place[0], "--base", place[1], "--role", "nano"] if place else None
+        argv = [sys.executable, k.env.get("FT2_KEEPER_LAUNCH") or os.path.join(HERE, "launch.py"), "--root", k.root, "--team", team, "--work", stem, "--repo", place[0], "--base", place[1], "--role", "session"] if place else None
         rc, text, err = k.call(argv, LAUNCH_S) if argv else (None, "", "대상 못 정함")
         if rc != 0:
             return done("HELD-NEXT", " launch rc %s %s · 복구 필요" % (rc, (text or err).strip()[:80]))
