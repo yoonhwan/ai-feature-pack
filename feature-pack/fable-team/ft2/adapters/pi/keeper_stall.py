@@ -29,6 +29,7 @@ def _load(rel, alias):
 
 cli, dispatch, lifecycle, projection = (_load(os.path.join("core", n + ".py"), n) for n in ("cli", "dispatch", "lifecycle", "projection"))
 models = _load(os.path.join("tools", "models.py"), "models")
+pane_target = _load(os.path.join("adapters", "pi", "keeper_close.py"), "close").pane_target   # r1822 G1 1곳
 
 
 def turn(path):
@@ -123,7 +124,7 @@ class Stall:
             return k.log("LOGGEDOUT", team, "%s %s — 깨움·재배정 0(재개 = 재시작)" % (work, holder))
         if state != "IDLE":
             return False
-        rc, pane, _ = k.call([k.tmux, "capture-pane", "-p", "-t", "=" + holder])
+        rc, pane, _ = k.call([k.tmux, "capture-pane", "-p", "-t", pane_target(holder)])
         if rc != 0:
             return k.log("판정 불가", team, "%s %s capture rc %s — 행동 0" % (work, holder, rc))
         if BUSY.search(pane[-2000:]):
@@ -138,7 +139,7 @@ class Stall:
     def wake(self, team, work, holder, key, idle):
         """S2 — Escape 1 → 문구 -l → Enter(따로) → 도달 확인 3회 · 보낸 뒤에는 같은 attempt 깨움 0.
         woke(재배정 시계의 기준) = 도달 확인 뒤에만 · 확인 3회 실패 = unsure(보정1 R1 · 재배정 0 · 판정 불가 보고만)."""
-        k, t, text = self.k, ["-t", "=" + holder], WAKE % (work, idle // 60)
+        k, t, text = self.k, ["-t", pane_target(holder)], WAKE % (work, idle // 60)
         for argv in (["send-keys"] + t + ["Escape"], ["send-keys"] + t + ["-l", text], ["send-keys"] + t + ["Enter"]):
             rc = k.call([k.tmux] + argv)[0]
             if rc != 0:
@@ -162,7 +163,7 @@ class Stall:
         p = self.plan(team, work, holder, tree, intent, rows)
         if isinstance(p, str):
             return self.stop(team, work, attempt, "pre", "%s %s 재배정 0 — %s" % (work, holder, p))
-        rc, pane, _ = k.call([k.tmux, "capture-pane", "-p", "-t", "=" + holder])
+        rc, pane, _ = k.call([k.tmux, "capture-pane", "-p", "-t", pane_target(holder)])
         if rc != 0 or BUSY.search(pane[-2000:]):
             return k.log("HELD", team, "%s %s 재배정 직전 Working·capture rc %s — 다음 바퀴" % (work, holder, rc))
         k.call([k.tmux, "kill-session", "-t", "=" + holder])
@@ -217,7 +218,7 @@ class Stall:
     def role(self, holder):
         """옛 holder pi 프로세스 argv 의 --model·--thinking 과 (모델·effort) 가 같은 role-defaults 행 «정확히 1개» — 아니면 None."""
         k = self.k
-        rc, pid, _ = k.call([k.tmux, "display-message", "-p", "-t", "=" + holder, "#{pane_pid}"])
+        rc, pid, _ = k.call([k.tmux, "display-message", "-p", "-t", pane_target(holder), "#{pane_pid}"])
         if rc != 0 or not pid.strip().isdigit():
             return None
         rc, args, _ = k.call([self.ps, "-o", "args=", "-p", pid.strip()])
