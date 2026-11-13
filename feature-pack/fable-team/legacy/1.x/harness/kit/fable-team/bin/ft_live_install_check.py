@@ -12,6 +12,10 @@ r583: bin 행의 라이브 파일이 연결 파일(shim · SHIMMARK)이면 대�
 r961: 키트 상대 경로 = relpath(<HARNESS_ROOT>/kit, <HARNESS_ROOT 자기 show-toplevel>) — 라이브 하네스 루트가 같은 리포의 다른 워크트리여도 경로가 같다. «같은 리포» 판정 = 두 쪽 `git rev-parse --git-common-dir` 가 같음(r2 · 공용 루트 밖에 등록한 워크트리도 같은 리포) · 다르면 종전대로 outside_repo
 r1240: ~/.claude/skills/<이름> 이 «git 체크아웃 안을 가리키는 심링크» 면 그 체크아웃이 origin/main 보다 몇 커밋 뒤인지(behind) · skill 폴더 추적 파일 몇 개가 다른지(diff)를 `WARN skill-symlink` 1줄로 낸다(behind>0 또는 diff>0).
 심링크 아님(복사 설치) · 대상이 git 밖 = 줄 0 · git 이 못 읽음(깨진 .git · origin/main 없음) = `판정 불가` 1줄. WARN 은 PENDING 이 아니다 — 종료코드를 바꾸지 않는다(다른 점검 결과 그대로).
+r1407: 루트 명부(FT_ROOTS_TSV · 기본 ~/.claude/fable-team/roots.tsv) 각 루트와 그 .worktrees/*/ 의 .fable-team/LIVE_BIN 포인터 판 ≠ 머신 설치 판(--project 루트 LIVE_BIN 판 하나)
+→ `DRIFT live-bin <경로> pinned=<판> want=<판>` (옛 판 포인터로 좌석 열기가 막힌 airag 1.1.14 사건) · 포인터 없음 = 줄 0 · 절대경로 폴더 아님 = ERROR rc3 · 포인터 수정 0.
+  게이트 = 루트 포인터 + 살아 있는 tmux pane cwd 가 든 worktree 만(DA #298671) · 나머지 stale worktree = `INFO live-bin inactive=<n>`(rc 불변) ·
+  tmux(FT_TMUX) cwd 는 한 번만 · `no server running` = 빈 좌석 · 그 밖 실패 = 판정 불가 rc3.
 r1394: 이 머신에서 «의도로 끈» launchd 라벨은 NOTLOADED 로 세지 않는다 — LaunchAgents 에 <라벨>.plist 가 없고 <라벨>.plist.off-* 가 있거나, 프로젝트 루트 `.fable-team/state/launchd-intent-off.tsv`(탭 3칸: 라벨·사유·근거)에 그 라벨 행이 있으면 `SKIP 의도 끔 <라벨> — <사유>` 1줄(OK 집계 · PENDING 아님). 명단이 깨짐(칸 수 ≠3 · 빈 사유) = ERROR rc3 · 켜기·끄기 0.
 """
 import fnmatch
@@ -436,6 +440,67 @@ def pinned_drift(root):
     return out
 
 
+def live_bin_ver(lf):
+    """r1407: LIVE_BIN 포인터 → 판(/fable-team/live/<판>/bin/ 의 <판> · 판 경로 아니면 실제 경로) · 없음 = None · 절대경로 폴더 아님 = ERROR."""
+    if not os.path.isfile(lf):
+        return None
+    with open(lf, encoding="utf-8") as fh:
+        live = fh.readline().strip()
+    if not os.path.isabs(live) or not os.path.isdir(live):
+        die("LIVE_BIN 이 절대경로 폴더가 아님: %r (%s)" % (live, lf))
+    m = PINNED.search(live.rstrip("/") + "/")
+    return m.group(1) if m else os.path.realpath(live)
+
+
+def pane_cwds():
+    """r1407 보정: 살아 있는 tmux pane cwd 실제 경로 목록(한 번 스냅샷) · `no server running` = [] · 그 밖 실패 = 판정 불가 rc3(run 이 바이너리 실패도 끝냄)."""
+    r = run([os.environ.get("FT_TMUX", "tmux"), "list-panes", "-a", "-F", "#{pane_current_path}"])
+    if r.returncode == 0:
+        return [os.path.realpath(p) for p in r.stdout.splitlines() if p.strip()]
+    if "no server running" in r.stderr:
+        return []
+    die("판정 불가: tmux list-panes 실패(rc=%d) %s" % (r.returncode, r.stderr.strip()[:120]))
+
+
+def is_active(wt, cwds):
+    """pane cwd 가 worktree 자신이거나 그 하위('/' 경계 — w1 과 w12 오인 0)."""
+    w = os.path.realpath(wt)
+    return any(c == w or c.startswith(w + os.sep) for c in cwds)
+
+
+def live_bin_drift(root):
+    """r1407: 루트 명부의 루트 + 그 .worktrees/*/(깊이 1) LIVE_BIN 포인터가 머신 설치 판(<root> LIVE_BIN 판 하나)과 다르면 DRIFT 줄.
+    기준 판은 루트마다가 아니라 하나다(판 묶음). worktree 는 pane cwd 가 든 것만 DRIFT · 나머지는 inactive 개수로.
+    돌려줌 = (DRIFT 줄, inactive 개수) · 명부·기준 포인터 없음 = 검사 밖 · 읽기만."""
+    want = live_bin_ver(os.path.join(root, ".fable-team", "LIVE_BIN"))
+    tsv = os.environ.get("FT_ROOTS_TSV") or os.path.join(os.environ["HOME"], ".claude", "fable-team", "roots.tsv")
+    if want is None or not os.path.isfile(tsv):
+        return [], 0
+    with open(tsv, encoding="utf-8") as fh:
+        roots = [c[1] for c in (ln.split("\t") for ln in fh.read().splitlines() if ln.strip() and not ln.startswith("#")) if len(c) > 1]
+    out, seen, idle, cwds = [], set(), 0, None
+    for r in roots:
+        if not os.path.isabs(r) or not os.path.isdir(r):
+            continue  # 은퇴·없는 루트 = 검사 밖
+        wd = os.path.join(r, ".worktrees")
+        wts = sorted(os.path.join(wd, d) for d in os.listdir(wd)) if os.path.isdir(wd) else []
+        for base in [r] + [w for w in wts if os.path.isdir(w)]:
+            lf = os.path.join(base, ".fable-team", "LIVE_BIN")
+            if os.path.realpath(lf) in seen:
+                continue
+            seen.add(os.path.realpath(lf))
+            ver = live_bin_ver(lf)
+            if ver is None or ver == want:
+                continue
+            if base != r:
+                cwds = pane_cwds() if cwds is None else cwds  # 한 번만 — stale worktree 가 처음 나올 때
+                if not is_active(base, cwds):
+                    idle += 1
+                    continue
+            out.append("DRIFT live-bin %s pinned=%s want=%s" % (lf, ver, want))
+    return out, idle
+
+
 def plist_env(repo, blob, root):
     """r426: 설치기 관리 라벨(ft_plist_env.MANAGED)은 설치본이 템플릿 렌더본(FT_ROOT=프로젝트 루트 · inbox=LIVE_BIN)과 바이트 같아야 한다.
     설치 안 됨 = 검사 밖(NOTLOADED 가 센다) · LIVE_BIN·루트·설치값 없음 = ERROR(조용한 통과 0)."""
@@ -643,7 +708,11 @@ def main():
     bad += drift
     gone = missing_script_drift(os.path.join(os.environ["HOME"], "Library", "LaunchAgents"))  # r544: 실행 경로 스크립트가 없는 plist
     bad += gone
+    pins, idle = live_bin_drift(plist_root(repo, o["project"]))  # r1407: 루트·active 워크트리 LIVE_BIN 포인터 판 ≠ 설치 판
+    bad += pins
+    hints.update({"live-bin": "그 LIVE_BIN 1줄을 want 판 경로로 고친다(.bak 먼저 · 사람/master · 자동 수정 0)"} if pins else {})
     warns = skill_symlink_drift()  # r1240: 라이브 스킬 심링크가 «뒤처진 체크아웃» 을 가리키면 WARN — PENDING 아님(rc 불변)
+    warns += ["INFO live-bin inactive=%d (pane cwd 없는 worktree 포인터 판 ≠ 설치 판 · 게이트 밖)" % idle] if idle else []
     hl = []
     if drift:
         hl.append("bash %s/install.sh --apply --project %s" % (harness_root() or "<하네스>/harness", plist_root(repo, o["project"])))
