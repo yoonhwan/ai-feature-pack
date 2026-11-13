@@ -5,7 +5,7 @@ from mbox_guard import _guard_log, _guard_record, _guard_verdict, _log_sent, _re
 import mbox_keep   # r912 — 넘칠 때 버리는 순서(시스템 → 일반 · 사람 글 보존)
 import mbox_drops  # r1651 — 버린 seq 를 받는 좌석의 다음 recv 에 1줄(유실 표시)
 import mbox_roots  # r1309 — 다른 루트 받는이 = 우편 다리(roots.tsv)
-from mbox_lineage import claim, eligible, retired_to
+from mbox_lineage import claim, eligible, retired_to, thread_batch, wait_line
 import mbox_handover   # r1116 ③ 영수(받은 쪽지마다 1줄) — 승계 마무리 검사(close-check)의 재료
 from mbox_desk_gate import verdict as _desk_verdict   # r660 · DA⑥ r1 ⓒ: 판정 자리 = python send 층 하나(셸·python 직접·relay 전부)
 CANON = None   # mbox.py 가 묶는다
@@ -160,7 +160,8 @@ def recv(me, frm=None, limit=None):
         sys.stderr.write("WARN 현역 아님 %s → 현역 %s — 역할 우편함은 현역만 읽는다([레디] 만 받음)\n" % (me, succ))
         names, only = [me], lambda r: r.get("to") == me and r.get("body", "").lstrip().startswith("[레디]")
     # ★선택과 소비는 «같은 잠금 1회»★ — 표시한 것만 소비하고 상한 밖은 큐에 남긴다(전량 소비하면 나머지가 조용히 사라진다).
-    got, held = claim(dirs, names, frm, limit, me=me, on_take=lambda rows: mbox_handover.record(me, rows), only=only)
+    left = []   # r1842 — recv 1회 = Slack thread 1개 묶음 또는 일반 묶음 · 나머지 = 큐(PENDING-AFTER 가 셈)
+    got, held = claim(dirs, names, frm, limit, me=me, on_take=lambda rows: mbox_handover.record(me, rows), only=only, pick=lambda g: thread_batch(g, left))
     # ★어느 파일들을 봤는지, 계보가 실제로 합류했는지 찍는다★ — 안 찍으면 union·합류가 도는지 아무도 모른다.
     print(f"SCANNED {len(dirs)} mailbox(es): " + " ".join(_mbox(d) for d in dirs) + f" lineage={joined}")
     if not succ and (lost := mbox_drops.report(CANON, me, names)):   # r1651 — 현역만 표시를 소비한다(DA R1)
@@ -177,6 +178,8 @@ def recv(me, frm=None, limit=None):
         print(f"HELD {len(held)} more — 큐에 남겨둠. 전체는 `recv {me} --all`")
         for _, r in held:
             print(f"  · #{r['seq']} [{r['from']}] {r['body'][:70].replace(chr(10), ' ')}…")
+    if left:
+        print(wait_line(left))
 
 
 def peek(me):
