@@ -53,6 +53,8 @@ class Mail:
     def _take(line: str, by_seq: dict) -> bool:
         try:
             r = json.loads(line)
+            if "seq" not in r and "bridged" in r:
+                return True   # r1416 다른 루트로 간 쪽지 영수(보낸 쪽 기록 · seq 는 받는 루트 것) = 이 루트 쪽지 아님
             datetime.fromisoformat(r["ts"])
             by_seq.setdefault(int(r["seq"]), {"seq": int(r["seq"]), "ts": r["ts"], "to": str(r["to"]),
                                               "from": str(r["from"]), "body": str(r["body"])})

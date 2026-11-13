@@ -41,7 +41,8 @@ def read_rows(log: Path) -> list[dict[str, object]]:
         for ln in filter(str.strip, lines):
             try:
                 r = json.loads(ln)
-                rows[int(r["seq"])] = r
+                if "seq" in r or "bridged" not in r:  # r1416 다른 루트로 간 쪽지 영수(seq 칸 0) = 미러 대상 아님(받는 루트 미러가 올린다)
+                    rows[int(r["seq"])] = r
             except (ValueError, KeyError, TypeError) as e:
                 raise lib.MirrorError(f"{p.name} 손상 행: {ln[:60]!r}") from e
     return [rows[k] for k in sorted(rows)]
