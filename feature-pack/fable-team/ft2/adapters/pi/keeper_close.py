@@ -34,6 +34,8 @@ projection, close_next = _load("projection"), _load("close_next")
 _spec = importlib.util.spec_from_file_location("ft2_keeper_verdict", os.path.join(os.path.dirname(os.path.abspath(__file__)), "keeper_verdict.py"))
 verdicts = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(verdicts)   # r1865 판정 닫기 목록 · 원장·우편 로그 읽기 전용 대조
+keeper_next = importlib.util.module_from_spec(importlib.util.spec_from_file_location("ft2_keeper_next", os.path.join(os.path.dirname(os.path.abspath(__file__)), "keeper_next.py")))
+keeper_next.__spec__.loader.exec_module(keeper_next)   # r1871 다음 카드(영수 1회는 그 안에서)
 
 
 def pane_target(holder):
@@ -108,7 +110,7 @@ class Closing:
         elif seen != "absent":
             return self.log("HELD", team, "%s %s %s" % (work, holder, seen))
         self.state["open"].pop(holder, None)
-        self.receipt(team, work, attempt, holder, gen)
+        keeper_next.close(self, team, work, attempt, holder, gen)
 
     def noland_rows(self, team):
         """N1·N2 목록 → {(work, attempt): [근거, 승인]} · 파일 없음 = {} · 못 읽음·꼴 틀림·중복 = 판정 불가 문자열(sha 포함)."""
@@ -204,15 +206,15 @@ class Closing:
             return ""
         return "마지막 줄 %s/%s/%s" % (last.get("type"), message.get("role"), message.get("stopReason"))
 
-    def receipt(self, team, work, attempt, holder, gen, probe=None):
+    def receipt(self, team, work, attempt, holder, gen, probe=None, next_work=None, next_holder=None, evidence=(), mark=True):
         """닫기 영수 1건 · 증거 () = 다음 배정 0. 영수·켜기 전 유보·재접수 = 다시 보지 않음(handled)."""
         node = close_next.CloseNext(self.root, team, probe=probe or self.probe)
-        out = node.receipt(holder, gen, work, "keeper:%s@%s" % (work, attempt), holder, ())
+        out = node.receipt(holder, gen, work, "keeper:%s@%s" % (work, attempt), next_holder or holder, tuple(evidence), next_work=next_work)
         kind = {OK: "RECEIPT", "접수 거부": "RECEIPT-REFUSED"}.get(out.result)
         if kind is None:
             kind = "RECEIPT-HOLD" if "켜기 전" in out.reason else "RECEIPT-UNSURE"
         self.log(kind, team, "%s %s %s · %s" % (work, holder, out.result, out.reason))
-        if kind in ("RECEIPT", "RECEIPT-HOLD") or "재접수" in out.reason:
+        if mark and (kind in ("RECEIPT", "RECEIPT-HOLD") or "재접수" in out.reason):
             self.state["handled"]["%s|%s@%s" % (team, work, attempt)] = self.stamp()
         return out
 
