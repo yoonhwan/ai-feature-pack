@@ -15,7 +15,7 @@ import re
 import sys
 import time
 
-from ft_nano_record import HERE, Ctx, Unjudged, run
+from ft_nano_record import HERE, Ctx, Unjudged, run, seq_dropped
 from ft_nano_record_due import due_rows, fmt
 
 FROM = "ft-nano-record"
@@ -90,7 +90,13 @@ def close_request(ctx, r, path):   # A10 — 팀장에 «[완료·닫기 요청]
     key = f"{r['seat']}|{r['stem']}|{r['q']}"
     had = ctx.store()["close"].get(key) or {}
     if had.get("rec") == r["rec"]:
-        return had.get("seq")
+        try:   # r1820 B3 — 기록한 seq 가 우편함에서 버려졌으면 같은 rec 를 1회 다시 · 판독 실패 = «판정 불가» 1줄 · 재발신 0
+            if not seq_dropped(ctx, had.get("seq")):
+                return had.get("seq")
+        except Unjudged as e:
+            print(f"판정 불가 {e}")
+            return None
+        print(f"INFO 닫기 요청 #{had.get('seq')} 우편함에서 버려짐 → 다시 보냄")
     if not r["master"]:
         print(f"WARN 닫기 요청 생략 — 명부에 _master 없음({r['stem']})")
         return None

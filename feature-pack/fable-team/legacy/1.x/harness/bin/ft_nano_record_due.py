@@ -13,7 +13,7 @@ import sys
 import time
 from pathlib import Path
 
-from ft_nano_record import CARD_RX, DONE_RX, Ctx, Reject, Unjudged, left_free, left_of, marks, rec_of, section
+from ft_nano_record import CARD_RX, DONE_RX, Ctx, Reject, Unjudged, left_free, left_of, marks, rec_of, section, seq_dropped
 
 DOCW = "문서 PR · 구현 착지 아님"   # r1782 A2: 장부 doc_only(착지 파일 전부 design/·docs/) 줄의 «끝» 사유
 
@@ -55,7 +55,7 @@ def judge(ctx, base, seat, sort, sec, alive=True):   # 좌석 1개의 줄(단계
         return {**row, "k": "끝", "why": "남은 일 — 닫기 요청 0", "left": left_of(m["c"])}
     st, key, rec = ctx.store(), f"{seat}|{base['stem']}|{q}", rec_of(m)
     sent = st["close"].get(key) or {}
-    if sent.get("rec") == rec:
+    if sent.get("rec") == rec and not seq_dropped(ctx, sent.get("seq")):   # r1820 B3: 버린 seq = 미전달 → 밀림(다시 보냄)
         return {**row, "k": "끝", "why": f"닫기 요청 #{sent.get('seq')}", "rec": rec, "seq": sent.get("seq")}
     if st["rejrec"].get(key) == rec or not alive:
         return {**row, "k": "끝", "why": "닫기 거절 — 기록을 고친 뒤 다시" if alive else "좌석 없음 · 기록 있음", "rec": rec}
