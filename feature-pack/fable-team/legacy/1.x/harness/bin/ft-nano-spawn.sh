@@ -12,10 +12,11 @@ set -uo pipefail
 [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
 IDX="${1:-}"; shift || { echo "usage: $0 <indices/대기/X.md> [--agent claude|codex|cmd|opencode|pi] [--model M] [--effort E] [--raise \"<사유>\"] [--from SEAT] [--base REF] [--cherry-override \"<사유>\"] [--dry-run]" >&2; exit 2; }
 # r1385: 나노 기본 = pi (오빠 10-22 «pi = 모든 팀 기본» · 10-26 «pi deepseek 먼저») — 되돌림 손잡이 = FT_NANO_DEFAULT_AGENT
-AGENT="${FT_NANO_DEFAULT_AGENT:-pi}"; AGENT_SET=0; MODEL=""; EFFORT="high"; EFFORT_SET=0; FROM="${FT_SEND_FROM:-}"; FROM_SET=0; RESEARCH=0; REOPEN=0; DRY=0; FAST=""; TIER=""; RECHECK=""; BASE_REF=""; HAVE_CO=0; CO=""; RAISE=""
+AGENT="${FT_NANO_DEFAULT_AGENT:-pi}"; AGENT_SET=0; MODEL=""; EFFORT="high"; EFFORT_SET=0; FROM="${FT_SEND_FROM:-}"; FROM_SET=0; RESEARCH=0; REOPEN=0; DRY=0; FAST=""; TIER=""; RECHECK=""; BASE_REF=""; BASE_REASON=""; HAVE_CO=0; CO=""; RAISE=""
 while [ $# -gt 0 ]; do case "$1" in
   --agent) AGENT="$2"; AGENT_SET=1; shift 2;; --model) MODEL="$2"; shift 2;; --effort) EFFORT="$2"; EFFORT_SET=1; shift 2;; --raise) RAISE="${2:-}"; shift 2 2>/dev/null || shift;;
   --from) FROM="$2"; FROM_SET=1; shift 2;; --recheck) RECHECK="$2"; shift 2;; --dry-run) DRY=1; shift;; --research) RESEARCH=1; shift;; --reopen) REOPEN=1; shift;; --tier) TIER="$2"; shift 2;; --base) BASE_REF="$2"; shift 2;;
+  --base-reason) BASE_REASON="${2:-}"; shift 2 2>/dev/null || shift;;   # r1390: origin/main 위가 아닌 --base 를 여는 사유(카드 상태·명부 base_reason 1줄)
   --cherry-override) HAVE_CO=1; CO="${2:-}"; shift 2 2>/dev/null || shift;; *) echo "unknown $1" >&2; exit 2;; esac; done
 [ "$REOPEN" != 1 ] || [ "$RESEARCH" != 1 ] || { echo "usage: --reopen 과 --research 는 같이 못 쓴다(--reopen = 닫힌 진행 카드 나노 다시 열기 · --research = 리서치 좌석)" >&2; exit 2; }   # r1335 V8
 CO_ARGS=(); [ "$HAVE_CO" -eq 0 ] || { [ -n "${CO//[[:space:]]/}" ] || { echo "usage: --cherry-override \"<사유>\" — 사유가 비었다(사유 없는 우회 거부)" >&2; exit 2; }; CO_ARGS=(--override "$CO"); }
@@ -608,18 +609,26 @@ print(' '.join(k.replace(' ', '_') for k in ('Issue', '상태', '선행', '시�
 awk '/^##[[:space:]]/{exit} {print}' "$IDX" | grep -Eq '^[[:space:]]*[-*]?[[:space:]]*기준값:[[:space:]]*[^[:space:]]' \
   || echo "WARN 후보 제외 — 카드 머리줄 기준값 없음 또는 빈칸 (REJECT 아님 · 지표 없으면 「기준값: 없음 → 대체 축 <무엇>」 · 하네스 팀 폴더의 BASELINE-TEMPLATE.md): $IDX"
 
-# r1162: --base 없음 ∧ 호출 워크트리 detached(임시 사본 · r1120 길) → 그 커밋이 origin/main 의 조상인지 «열기 전» 확인.
-#   미착지·squash 착지 커밋을 base 로 굽으면 닫기 R42 조상 판정이 막힌다(lecture L89 2석) · 카드·워크트리·명부·tmux 쓰기 «전» · --dry-run 도 같은 판정.
-#   origin main 1 ref fetch(7초 · 재시도 1 = ft_git_capped) · git 실패 = «판정 불가» REJECT 1줄(하드 룰 20 · 열지 않음).
-if [ -z "${BASE_REF:-}" ] && [ "$(git -C "$WT" rev-parse --abbrev-ref HEAD)" = HEAD ]; then
-  _dh="$(git -C "$WT" rev-parse --verify HEAD)" && ft_git_capped 7 "$WT" fetch -q origin +refs/heads/main:refs/remotes/origin/main >/dev/null \
-    || { echo "REJECT detached HEAD 기준 커밋 판정 불가 — origin main fetch 실패($WT)"; exit 1; }
-  _arc=0; ft_git_capped 7 "$WT" merge-base --is-ancestor "$_dh" refs/remotes/origin/main || _arc=$?
-  case "$_arc" in
-    0) ;;
-    1) echo "REJECT 기준 커밋 ${_dh:0:10} 가 origin/main 에 없다(미착지·squash) — --base origin/main 으로 다시"; card_assign_record "$IDX" waiting 선행; exit 1;;
-    *) echo "REJECT detached HEAD 기준 커밋 ${_dh:0:10} 조상 판정 불가(rc=$_arc)"; exit 1;;
-  esac
+# r1390: 나노 기준 = fetch 한 origin/main — «부른 워크트리 HEAD» 가 아니다(낡은 루트·문서 가지의 미착지 커밋이 나노 PR 에 섞이던 사고 · PR 7518 · r1115 가지).
+#   --base 없음 → origin main 1 ref fetch(7초 · 재시도 1 = ft_git_capped) 뒤 BASE_REF=origin/main(r1162 detached 검사는 이 갈래에 흡수).
+#   --base 명시 → 그 커밋이 origin/main 조상이면 그대로 · 아니면 --base-reason 이 있어야 연다(사유 = 카드 상태·명부 base_reason 1줄).
+#   origin 은 있는데 fetch·조상 판정 실패 = «판정 불가» REJECT 1줄(하드 룰 20 · 옛 HEAD 로 대신 열기 0) · 카드·워크트리·명부·tmux 쓰기 «전» · --dry-run 도 같은 판정.
+#   origin 원격이 없는 리포 = 카드 범위 밖 → 옛 동작(부른 곳 HEAD) 그대로.
+if git -C "$WT" config --get remote.origin.url >/dev/null 2>&1; then
+  ft_git_capped 7 "$WT" fetch -q origin +refs/heads/main:refs/remotes/origin/main >/dev/null \
+    || { echo "REJECT 기준 판정 불가 — origin main fetch 실패($WT) · 옛 HEAD 로 열지 않는다"; exit 1; }
+  if [ -z "${BASE_REF:-}" ]; then
+    BASE_REF=origin/main
+  else
+    _bs="$(git -C "$WT" rev-parse --verify -q "$BASE_REF^{commit}")" || { echo "REJECT 기준 ref(--base) 조회 실패: $BASE_REF"; exit 1; }
+    _arc=0; ft_git_capped 7 "$WT" merge-base --is-ancestor "$_bs" refs/remotes/origin/main || _arc=$?
+    case "$_arc" in
+      0) BASE_REASON="";;
+      1) [ -n "${BASE_REASON//[[:space:]]/}" ] || { echo "REJECT 기준 ${_bs:0:10} 가 origin/main 위가 아니다 — --base origin/main 또는 --base-reason \"<사유>\""; card_assign_record "$IDX" waiting 선행; exit 1; }
+         echo "BASE-REASON ${_bs:0:10} origin/main 위 아님 — $BASE_REASON";;
+      *) echo "REJECT 기준 ${_bs:0:10} 조상 판정 불가(rc=$_arc)"; exit 1;;
+    esac
+  fi
 fi
 
 # ①b 카드 base_sha 대조 (M7 · single_set_testing §1 규칙 2 · 오빠 ORDERS 102): 09-25 카드를 10-02 코드에 재대조 없이 집행한 사고 차단.
@@ -1002,13 +1011,15 @@ tmux set-option -t "$PANE" "${FT_ACTIVE_TAG:-@zc_v65_active}" 1
 [ "$(tmux show-option -qv -t "$PANE" "${FT_ACTIVE_TAG:-@zc_v65_active}")" = 1 ] || fail_rb "REJECT 태그 확인 실패: $NAME"
 
 # ⑤ 명부(FT_SEATS_JSON) 등록 (tick=null → 알림 울림 — 대상 파일 = $SEATS · r1542: 첫 발주문에 이 경로를 적어 준다)
-python3 - "$SEATS" "$NAME" "$AGENT" "$MODEL" "$IDX_REL" "$ROLE" "$RAISE" "$FROM" <<'PY' || human "⑤ 명부 등록"
+python3 - "$SEATS" "$NAME" "$AGENT" "$MODEL" "$IDX_REL" "$ROLE" "$RAISE" "$FROM" "$BASE_REASON" <<'PY' || human "⑤ 명부 등록"
 import json, sys, collections, datetime
-p, name, agent, model, idx, role, raise_reason, by = sys.argv[1:9]
+p, name, agent, model, idx, role, raise_reason, by, base_reason = sys.argv[1:10]
 d = json.load(open(p, encoding="utf-8"), object_pairs_hook=collections.OrderedDict)
 d[name] = collections.OrderedDict([("role",role),("agent",agent),("tick",None),("model",model),("index",idx.replace("/대기/","/진행/"))])
 if raise_reason.strip():   # R149: 상향 좌석 «왜 올렸나·언제 내리나» — 카드(진행/)가 완성/ 으로 가거나 없어지면 ft-tick raised_watch 가 ▶내릴 것
     d[name]["raised"] = collections.OrderedDict([("reason",raise_reason.strip()),("card",d[name]["index"]),("by",by),("at",datetime.datetime.now().isoformat(timespec="seconds")),("close_on","card 가 완성/ 으로 가거나 없어짐 · 또는 좌석 닫기")])
+if base_reason.strip():   # r1390: origin/main 위가 아닌 --base 로 연 사유
+    d[name]["base_reason"] = base_reason.strip()
 json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2); open(p, "a").write("\n")
 PY
 
@@ -1032,6 +1043,7 @@ else
   git -C "$IDX_WT" ls-files --error-unmatch -- "$NEW_IDX" >/dev/null 2>&1 && { git -C "$IDX_WT" add -- "$NEW_IDX" || human "⑥ 거울 줄 준비"; }   # r1224: 이동이 준비한 진행 카드 1개를 거울 줄째 다시 준비 — 이동 커밋에 «좌석 <이름>» 이 실린다
 fi
 [ "$_REOPEN_ROOT" = 1 ] || { [ -z "$_ASG_LINE" ] || { _cn="$(card_note "$IDX_WT/$NEW_IDX" "$_ASG_LINE")" || echo "WARN 카드 배정 줄 기록 실패 — ${_cn:-rc≠0}" >&2; }; }   # r1217: 이동 «뒤» 경로 · r1409: 공용 루트 갈래는 사본에 쓴다(아래)
+[ -z "$BASE_REASON" ] || [ "$_REOPEN_ROOT" = 1 ] || { _cn="$(card_note "$IDX_WT/$NEW_IDX" "base_reason: $BASE_REF($(git -C "$WT" rev-parse --short "$BASE_REF^{commit}")) origin/main 위 아님 — $BASE_REASON")" || echo "WARN 카드 base_reason 줄 기록 실패 — ${_cn:-rc≠0}" >&2; }   # r1390
 [ "$_REOPEN_ROOT" != 1 ] || { [ "$DRY" = 1 ] || reopen_record_origin "$NEW_IDX" "$(date '+%FT%H:%M') 재개(--reopen) · 좌석 $NAME · wt=$REOPEN_WT" "$_ASG_LINE" || true; }   # r1409: 공용 루트 = 로컬 커밋 0 — origin/main 사본에서 커밋 → docs push(실패 = WARN 1줄)
 [ "$_REOPEN_ROOT" = 1 ] || [ "$REOPEN" != 1 ] || { git -C "$IDX_WT" add -- "$NEW_IDX" && git -C "$IDX_WT" commit -q -m "[docs] ${SLUG} 재개(--reopen) — 좌석 $NAME · wt=$REOPEN_WT" -- "$NEW_IDX" >/dev/null; } || echo "WARN 재개 카드 커밋 실패($NEW_IDX) — 좌석은 열렸다 · 카드 변경은 미커밋" >&2   # r1335: 이동 커밋 대신 카드 커밋 1개
 # ★R163 spawn 카드 기준선★ — 이 시각의 카드 내용 지문·브랜치·워크트리를 남겨 두면 자율 중 «nano-reopen» 대리 판정(r162)이 «승인 범위 그대로» 인지 비교한다.

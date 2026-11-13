@@ -65,10 +65,11 @@ lclear; o="$(FT_DISK_HARD_MIN_MIB=9999999 sp)"; load="$(L3)"
 # lint · DA(사전검증 미승인)
 lclear; o="$(sp)"; lintv="$(L3)"; lclear; o="$(FT_CARD_REQUIRE_PREVERIFY=1 sp)"; dav="$(L3)"
 # 선행 — lint·제안서·이슈 게이트를 지나는 카드 + 분리 HEAD 가 origin/main 조상 아님
+#   r1390: --base 없음은 이제 origin/main 으로 연다 — 선행 갈래 = 그 미착지 커밋을 --base 로 명시 · --base-reason 없음
 CY="$SR/design/alpha/indices/대기/y.md"
 { printf '%s\n' '# 인덱스: y' '- 제안서: 없음 — 시험 카드' '- Issue: #5342' '- 배정: 없음' '## 골 원문' '골 1' '골 2' '골 3' '## 골좌표' '닫는 증거: 「닫는 증거는 이 문장 전체를 복붙한 것이어야 한다.」' '## 배경' '시험.' '## 구현 범위' '1. src/t.sh 수정' '## 완료 조건' '- 시험.' '## 계약↔시험 대응표' '| 계약 | 시험 |' '|---|---|' '| ① 시험 | ⓐ 시험 |' '## 상태' '- 시험'; } > "$CY"
 git -C "$SR" add -A; gc "$SR" "$NOW +0900" y; git -C "$SR" checkout -q --detach; gc "$SR" "$NOW +0900" detached
-lclear; o="$(CARD="$CY" GH_REPO=x/y sp)"; po="$o"; prev="$(L3 y)"; git -C "$SR" checkout -q main
+lclear; o="$(CARD="$CY" GH_REPO=x/y sp --base "$(git -C "$SR" rev-parse HEAD)")"; po="$o"; prev="$(L3 y)"; git -C "$SR" checkout -q main
 lclear; printf '#!/bin/sh\n[ "$3 $4 $5" = "--agent claude --model" ] && [ -n "$6" ] || exit 9\necho "PAUSED claude/sonnet-5-5 until_hhmm=12:00 round=t1"; exit 3\n' > "$KB/ft-acct-pause.sh"; o="$(CARD="$CY" GH_REPO=x/y sp)"; acct="$(L3 y)"; rm -f "$KB/ft-acct-pause.sh"
 # 면제대기 — 이 스크립트에 분기가 없다(카드 조사 근거 대조) → 도구 record 1줄로 같은 원장 꼴
 lclear; (cd "$SR" && FT_ROOT="$SR" python3 "$TOOL" record "$CX" waiting 면제대기 >/dev/null); exm="$(L3)"
