@@ -16,6 +16,8 @@ OK = "접수 성공"
 REFS = ("origin/ops/main-base", "origin/main")       # BYZ 카드·착지 ref (B1r 순서)
 STAGES = ("진행", "대기", "완성")
 LAND = re.compile(r"^- 착지: ([0-9a-f]{40})(?=\s|$)", re.M)   # r1817 D2 — 40hex 뒤 공백(괄호 꼬리)·줄 끝만 · 짧은·41자·앞 글자 = 없음
+CARDMAP = os.path.join(".fable-team", "teams", "%s", "runtime", "cards.tsv")   # r1819 F2 짝 표 · 팀장 append · keeper 읽기만
+MAPPED = re.compile(r"^(design/.+)/indices/(?:진행|대기|완성)/([^/]+\.md)$")
 
 
 def team_row(md, team):
@@ -65,25 +67,64 @@ class Landing:
                 out += [(ref, path) for path in staged(folder, names)]
         return out
 
+    def cardmap(self, team):
+        """r1819 F2·F4 짝 표 {work: [경로…]} · 없음 = {} · 판독 실패 = 판정 불가 문자열 · 탭 없는 줄 = 무시 + 경고 1줄 · 팀마다 1회."""
+        if ("map", team) not in self.cache:
+            lines, rows = [], {}
+            try:
+                with open(os.path.join(self.root, CARDMAP % team), encoding="utf-8") as fh:
+                    lines = fh.read().splitlines()
+            except FileNotFoundError:
+                pass
+            except (OSError, ValueError) as exc:
+                rows = "판정 불가 · 짝 표 판독 실패 %s" % type(exc).__name__
+            for work, tab, path in (line.partition("\t") for line in lines if line.strip()):
+                if not tab:
+                    self.log("경고", team, "짝 표 탭 없는 줄 무시 · " + work[:40])
+                rows.setdefault(work.strip(), []).append(path.strip()) if tab else None
+            self.cache[("map", team)] = rows
+        return self.cache[("map", team)]
+
+    def mapped_cards(self, team, path):
+        """짝 표 경로 → 두 ref × 단계(진행·대기·완성)의 같은 이름 카드 · 팀 폴더 밖 허용."""
+        m, out = MAPPED.match(path), []
+        for ref in REFS if m else ():
+            rc, names, _ = self.git(self.root, "ls-tree", "-r", "--name-only", ref, "--", m.group(1) + "/indices")
+            if rc != 0:
+                return "판정 불가 · ls-tree %s rc %s" % (ref, rc)
+            out += [(ref, p) for p in staged(m.group(1), names) if os.path.basename(p) == m.group(2)]
+        return out or "판정 불가 · 짝 표 카드 없음 " + path
+
     def landing(self, team, work):
         """(sha, ref, 사유) — 후보 0·충돌 = 판정 불가 · 착지 줄 없음 · 어느 ref 에도 조상 아님 = 미도달."""
-        cards, hits = self.cards(team), {}
+        cards, hits = self.cardmap(team), {}
+        mapped = cards.get(work) if isinstance(cards, dict) else None
+        name = os.path.basename(mapped[0]) if mapped else work + ".md"
+        own = name == work + ".md" or name.startswith(work + "-")   # F3 자기 카드 · 그 밖 = 부모(행 수 무관 «착지(<work>)» 줄)
+        if mapped:   # F2 짝 표 먼저
+            cards = "판정 불가 · 짝 표 같은 work %d줄" % len(mapped) if len(mapped) > 1 else self.mapped_cards(team, mapped[0])
+        elif isinstance(cards, dict):
+            cards = self.cards(team)
         if isinstance(cards, str):
             return None, None, cards
+        names = {os.path.basename(path) for _, path in cards}
+        exact = work + ".md" in names   # F1 정확한 stem 먼저 · 없으면 «work-» 접두
+        land = LAND if own else re.compile(LAND.pattern.replace("착지:", "착지\\(%s\\):" % re.escape(work)), re.M)
         for ref, path in cards:
-            if not (os.path.basename(path).startswith(work + "-") and path.endswith(".md")):
+            base = os.path.basename(path)
+            if not mapped and not (base == work + ".md" if exact else base.startswith(work + "-") and base.endswith(".md")):
                 continue
             rc, body, _ = self.git(self.root, "show", "%s:%s" % (ref, path))
             if rc != 0:
                 return None, None, "판정 불가 · git show %s rc %s" % (path, rc)
-            hits[(ref, path)] = (LAND.findall(body) or [None])[-1]
+            hits[(ref, path)] = (land.findall(body) or [None])[-1]
         shas = sorted({sha for sha in hits.values() if sha})
         if not hits:
             return None, None, "판정 불가 · 카드 후보 0"
         if len(shas) > 1:
             return None, None, "판정 불가 · 착지 줄 충돌 " + " ".join(shas)
         if not shas:
-            return None, None, "착지 줄 없음"
+            return None, None, "착지 줄 없음" if own else "판정 불가 · 조각 착지 줄 없음"
         sha = shas[0]
         for repo, ref in ((self.pack, "origin/main"), (self.root, REFS[0]), (self.root, REFS[1])):
             if self.git(repo, "merge-base", "--is-ancestor", sha, ref)[0] == 0:
