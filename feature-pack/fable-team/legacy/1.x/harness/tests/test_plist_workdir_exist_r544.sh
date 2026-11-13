@@ -20,7 +20,7 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 # ── 픽스처 ─────────────────────────────────────────────────────────────────────
 export HOME="$T/home"; LA="$HOME/Library/LaunchAgents"; mkdir -p "$LA" "$T/proj/.fable-team/bin"
 P="$(cd "$T/proj" && pwd -P)"; RB="$P/.fable-team/bin"
-git -C "$P" init -q -b main && git -C "$P" -c user.name=t -c user.email=t@t commit -q --allow-empty -m p0   # 루트 = git 공용 루트
+git -C "$P" init -q -b main && git -C "$P" -c user.name=t -c user.email=t@t commit -q --allow-empty -m p0; printf '{"_hil_route":"fx#0"}\n' > "$P/.fable-team/seats-planner.json"   # r1825: 공용 잡 주인 루트 표식(없으면 launchd 렌더 SKIP)
 for t in ft-secret-scan.sh ft-weekly-review.sh ft-wt-sweep.sh; do printf '#!/bin/bash\n# ft-root-bin-shim: r544\n' > "$RB/$t"; done     # --need-exist 용 루트 shim(표식 있음 = 옛 사본 아님)
 VER="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$H/../manifest.json")"
 # 사건 당시 설치본 = r538 렌더본(ProgramArguments 만 루트 shim · WorkingDirectory 키 없음)
