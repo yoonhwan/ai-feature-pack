@@ -129,3 +129,34 @@ def test_mutant(name, tmp_path, monkeypatch):
     case(World(tmp_path / "w2", monkeypatch))   # 원본으로 같은 사례 1회 더 = PASS
 def test_reap_bin_kit_same_bytes():
     assert (OLD / "bin" / "ft-seat-reap.sh").read_bytes() == (OLD / "kit" / "fable-team" / "bin" / "ft-seat-reap.sh").read_bytes()
+
+
+_SS = importlib.util.spec_from_file_location("keeper_stall_world_r1817", str(Path(__file__).with_name("test_pi_keeper_stall_r1813.py")))
+sw = importlib.util.module_from_spec(_SS)
+_SS.loader.exec_module(sw)
+
+
+def stall_rounds(tmp, mp, sock):   # fix1 R1 — 실제 _round(run_once) · r1813 대역(실제 core·launch · 가짜 tmux) · fetch 만 rc0 대역
+    w = sw.World(tmp, mp)
+    w.seat()
+    _put(w.root / ".fable-team" / "state" / "ft20-switch" / (sw.TEAM + ".json"), "{}")
+    if sock:
+        w.env["FT2_TMUX_SOCKET"] = "/private/tmp/tmux-desk/default"   # 가짜 tmux display = 빈 출력 → 불일치
+    lines = []
+    for dt in (0, 11 * sw.M):
+        w.t = sw.T0 + dt
+        mp.setenv("FT_NOW", sw._stamp(w.t))
+        k = w.keeper()
+        git = k.git
+        k.git = lambda repo, *a, **o: (0, "", "") if a[0] == "fetch" else git(repo, *a, **o)
+        assert k.run_once() == 0
+        lines += k.lines
+    return w, lines
+def test_fix1_socket_fail_round_no_stall(tmp_path, monkeypatch):   # R1 소켓 불일치 바퀴 → 깨움·재배정·kill·launch 0
+    w, lines = stall_rounds(tmp_path, monkeypatch, True)
+    assert sum("판정 불가" in x and "소켓" in x for x in lines) == 2, lines
+    assert not any(x.startswith(("WOKE", "REASSIGNED")) for x in lines), lines
+    assert w.tmux("send-keys") == [] and w.tmux("kill-session") == [] and w.tmux("new-session") == [] and w.kinds("dispatch") == 1
+def test_fix1_socket_unset_stall_runs(tmp_path, monkeypatch):   # 대조: 기준 소켓 없음(셸 손 실행) → 같은 경로에서 WOKE → REASSIGNED
+    w, lines = stall_rounds(tmp_path, monkeypatch, False)
+    assert any(x.startswith("WOKE") for x in lines) and any(x.startswith("REASSIGNED") for x in lines), lines
