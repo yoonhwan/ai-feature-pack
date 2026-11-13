@@ -122,3 +122,13 @@ def test_mutants_caught(tmp_path, monkeypatch, name, old, new):
         assert s_plain(root, wiring, monkeypatch) != (0, 0, "재개 필요")
     else:
         assert s_answer(root, wiring, monkeypatch)[:2] == ("새 업무", None)
+
+def test_5b_bind_oserror_keeps_post_result(tmp_path, monkeypatch, capsys):  # R2 — POSTED 뒤 binding 저장 예외
+    wiring = _load("adapters/slack/wiring")
+    def broken(self, key, seat):
+        raise OSError("disk")
+    monkeypatch.setattr(wiring.binding.ThreadBinding, "bind", broken)
+    assert _post(tmp_path, wiring) == 0
+    out, err = capsys.readouterr()
+    assert out == "state=posted ts=%s\n" % ROOT_TS and err.count("binding 실패 · 판정 불가") == 1
+    assert [r for r in _rows(tmp_path, "route.jsonl") if r["t"] == "req"] == []
