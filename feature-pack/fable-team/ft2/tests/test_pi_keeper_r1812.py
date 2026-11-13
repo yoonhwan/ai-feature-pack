@@ -109,8 +109,24 @@ def c10(w):  # ⑩ plist 틀 → ProgramArguments[0] 절대 경로 · StartInter
     data = plistlib.loads(text.encode("utf-8"))
     assert data["ProgramArguments"][0].startswith("/") and data["StartInterval"] == 60 and data["KeepAlive"] is False
     assert data["Label"] == "com.byz.ft2-keeper" and data["ProgramArguments"][-3:] == ["--root", "/x/root", "--once"]
+def c13(w):  # 보정1 B2 Pi 턴 끝 근거 없음(파일 0 · toolUse) + capture rc0·빈 pane → 판정 불가 · kill 0 · 영수 0
+    w.enable(), w.card("r9041", w.pack_sha()), w.card("r9051", w.pack_sha())
+    w.work("r9041", done=True, alive=True, pane="", turn=None), w.work("r9051", done=True, alive=True, pane="", turn="toolUse")
+    lines = w.round()
+    assert [x.split()[0] for x in lines if "r9041" in x or "r9051" in x] == ["HELD", "HELD"], lines
+    assert all("판정 불가" in x for x in lines if "r9041" in x or "r9051" in x)
+    assert w.tmux("kill-session") == [] and w.kinds("close_receipt") == 0
+def c14(w):  # 보정1 B5 보호 역할(master holder) · intent holder ≠ 최신 dispatch holder → 닫기 0 · 영수 0
+    w.enable(), w.card("r9061", w.pack_sha()), w.card("r9071", w.pack_sha())
+    w.work("r9061", done=True, alive=True, holder="byz-harness-master-pi#999")
+    w.work("r9071", done=True, alive=True, seat="byz-harness-nano-other-t#0")
+    lines = w.round()
+    assert any(x.startswith("HELD harness r9061") and "보호 역할" in x for x in lines), lines
+    assert any(x.startswith("HELD harness r9071") and "holder 불일치" in x for x in lines), lines
+    assert w.tmux("kill-session") == [] and w.kinds("close_receipt") == 0
 CASES = {"①": c1, "②": c2, "③": c3, "④": c4, "④′": c4b, "④″": c4c, "⑤": c5, "⑥": c6, "⑦": c7, "⑧": c8, "⑨": c9, "⑩": c10,
-         "⑪": c11, "⑪′": c11b, "⑪″": c11c, "⑫": c12, "⑫′": c4, "⑫″": c12c}
+         "⑪": c11, "⑪′": c11b, "⑪″": c11c, "⑫": c12, "⑫′": c4, "⑫″": c12c,
+         "B2-pi": c13, "B5-role": c14}
 KP, KL, KC = "adapters/pi/keeper.py", "adapters/pi/keeper_land.py", "adapters/pi/keeper_close.py"
 MUTANTS = {"M1": ("ft2", KL, '"--is-ancestor", sha, ref)[0] == 0', '"--is-ancestor", sha, ref)[0] in (0, 1, 128)', c3),
            "M2": ("ft2", KL, '(self.pack, "origin/main"), (self.root, REFS[0]), (self.root, REFS[1])', '(self.pack, "origin/main"),', c2),
@@ -120,7 +136,9 @@ MUTANTS = {"M1": ("ft2", KL, '"--is-ancestor", sha, ref)[0] == 0', '"--is-ancest
            "M6": ("ft2", KC, "< RETRY_S:", "< 0:", c6),
            "M7": ("ft2", KP, "os.O_CREAT | os.O_EXCL | os.O_WRONLY", "os.O_CREAT | os.O_WRONLY", c8),
            "M8": ("ft2", KL, 'STAGES = ("진행", "대기", "완성")', 'STAGES = ("진행", "대기")', c11),
-           "M9": ("ft2", KL, "if not self.done(team, work):", "if False:", c11c)}
+           "M9": ("ft2", KL, "if not self.done(team, work):", "if False:", c11c),
+           "M10": ("ft2", KC, "if not self.turn_ended(", "if False and not self.turn_ended(", c13),
+           "M11": ("ft2", KC, "if not self.protected_ok(", "if False and not self.protected_ok(", c14)}
 @pytest.mark.parametrize("name", list(CASES))
 def test_case(name, tmp_path, monkeypatch):
     CASES[name](World(tmp_path, monkeypatch))

@@ -55,7 +55,8 @@ class World:
         s.tm, s.close, s.mbox, s.state = b / "tmux.json", b / "close", b / "mbox", s.root / ".fable-team" / "state"
         _put(s.tm, {"alive": [], "pane": {}})
         s.env = dict(os.environ, FT_TMUX=str(b / "tmux"), FAKE_TMUX=str(s.tm), FT2_PACK_REPO=str(tmp / "pack"),
-                     FT_SEAT_CLOSE_BIN=str(s.close), FT2_KEEPER_MBOX=str(s.mbox), FT_NOW=NOW)
+                     FT_SEAT_CLOSE_BIN=str(s.close), FT2_KEEPER_MBOX=str(s.mbox), FT_NOW=NOW,
+                     FT2_PI_SESSIONS=str(tmp / "pi-sessions"))
         for team in (TEAM, "planner"):
             _put(s.root / ".fable-team" / ("seats-%s.json" % team), {"_master": "M-" + team})
     @property
@@ -75,19 +76,27 @@ class World:
                              + ("- 착지: %s\n" % sha if sha else "")}, ref)
     def pack_sha(s):
         return s.commit("pack", {"p.txt": str(os.urandom(4))}, "main")
-    def work(s, work, done=False, team=TEAM, intent=True, alive=False, pane="✻ Brewed for 3s\n❯ "):
-        holder = "byz-%s-nano-%s-t#0" % (team, work)
+    def work(s, work, done=False, team=TEAM, intent=True, alive=False, pane="✻ Brewed for 3s\n❯ ", holder=None,
+             seat=None, turn="stop"):
+        """일 1개 = submit→assign→deliver(→complete) · intent(holder=seat) · Pi 세션 jsonl 마지막 줄 stopReason=turn(None=파일 0)."""
+        holder = holder or "byz-%s-nano-%s-t#0" % (team, work)
         steps = [["submit", "--command", "c-" + work, "--body", "본문-" + work, "--work", work],
                  ["assign", "--work", work, "--holder", holder, "--evidence", "v1,v2"], ["deliver", "--work", work]]
         for argv in steps + ([["complete", "--work", work, "--attempt", "a1"]] if done else []):
             out, rc = s.CLI.run(argv + ["--root", str(s.root), "--team", team])
             assert rc == 0, out
         _put(s.state / "ft20-switch" / (team + ".json"), "{}")
+        seat, tree = seat or holder, str(s.tmp / "wt" / work)
         if intent:
-            _put(s.runtime(team) / "launch" / ("%s@a1.intent" % work), {"FT2_HOLDER": holder, "state": "opened"})
+            body = {"FT2_HOLDER": seat, "state": "opened", "worktree": tree, "at": "2026-01-01T00:00:00"}
+            _put(s.runtime(team) / "launch" / ("%s@a1.intent" % work), body)
+        if turn:
+            last = {"type": "message", "message": {"role": "assistant", "stopReason": turn}}
+            _put(Path(s.env["FT2_PI_SESSIONS"]) / ("--%s--" % tree.strip("/").replace("/", "-")) / "s.jsonl",
+                 '{"type": "session"}\n' + json.dumps(last) + "\n")
         d = json.loads(s.tm.read_text(encoding="utf-8"))
-        d["alive"], d["pane"][holder] = d["alive"] + ([holder] if alive else []), pane
-        return _put(s.tm, d) or holder
+        d["alive"], d["pane"][seat] = d["alive"] + ([seat] if alive else []), pane
+        return _put(s.tm, d) or seat
     def runtime(s, team=TEAM):
         return s.root / ".fable-team" / "teams" / team / "runtime"
     def journal(s, team=TEAM):
