@@ -50,7 +50,7 @@ bash -n "$REAP" && ok "bash -n ft-seat-reap.sh" || bad "bash -n $REAP"
 
 CASE() {   # CASE <태그> <좌석> <LISTEN 지연> <cwd 지연> <CAP env> [reap 인자…] — 병렬 실행(시험 전체 시간 = 가장 긴 하나)
   local tag="$1" seat="$2" ld="$3" cwd="$4" capv="$5"; shift 5
-  ( export PATH="$ST/pbin:$PATH" FAKE_LSOF_LISTEN_DELAY="$ld" FAKE_LSOF_CWD_DELAY="$cwd" FT_SEAT_REAP_CAP_SEC="$capv"
+  ( export PATH="$ST/pbin:$PATH" FT_LSOF="$ST/pbin/lsof" FAKE_LSOF_LISTEN_DELAY="$ld" FAKE_LSOF_CWD_DELAY="$cwd" FT_SEAT_REAP_CAP_SEC="$capv"
     export LSOF_CALLS="$ST/lsof.calls" FT_BG_FINITE_LEDGER="$ST/ledger.tsv" FT_REAP_DEFER_DIR="$ST/defer"
     export FT_PERMIT_DIR="$ST/permits" FT_PRESS_RUNNER_RE="r1406-never-$$"
     bash "$REAP" "$seat" "$@" >"$ST/$tag.out" 2>&1; echo "$?" > "$ST/$tag.rc" ) &

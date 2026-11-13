@@ -104,7 +104,8 @@ def c9(w):   # ⑨ git fetch 실패 → B1·B2 판정 불가 1줄 · complete 0 
     assert w.kinds("complete") == 1 and w.tmux("kill-session") == []
 def c10(w):  # ⑩ plist 틀 → ProgramArguments[0] 절대 경로 · StartInterval 60 · KeepAlive false · plutil -lint rc0
     text = (w.ft2 / "adapters" / "pi" / "launchd" / "com.byz.ft2-keeper.plist.in").read_text(encoding="utf-8")
-    for key, value in (("@FT2_HOME@", "/x/ft2"), ("@ROOT@", "/x/root"), ("@PACK_REPO@", "/x/pack"), ("@SEAT_CLOSE@", "/x/c.sh")):
+    for key, value in (("@FT2_HOME@", "/x/ft2"), ("@ROOT@", "/x/root"), ("@PACK_REPO@", "/x/pack"), ("@SEAT_CLOSE@", "/x/c.sh"),
+                       ("@TMUX_SOCKET@", "/x/tmux-501/default")):   # r1817 D4 기준 소켓(설치 렌더 고정)
         text = text.replace(key, value)
     assert "@" not in text.split("-->")[-1] and _put(w.tmp / "k.plist", text) is None
     assert subprocess.run(["plutil", "-lint", str(w.tmp / "k.plist")], capture_output=True).returncode == 0

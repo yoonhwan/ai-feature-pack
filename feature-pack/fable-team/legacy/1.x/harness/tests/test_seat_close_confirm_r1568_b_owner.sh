@@ -50,25 +50,25 @@ EOS
 chmod 0755 "$TMP/psbin/ps"
 ARMG="$TMP/armed-g"; rm -f "$ARMG"; spawn_faux "$S" "$MKX-g" "$ARMG"
 L="$(pick "$MKX-g")"; echo "$L" > "$TMP/pid-g"
-out="$(PATH="$TMP/psbin:$PATH" PS_MODE=lstart PS_ARM="$ARMG" PS_PID="$TMP/pid-g" bash "$REAP" "$S")"; rc=$?
+out="$(PATH="$TMP/psbin:$PATH" FT_PS="$TMP/psbin/ps" PS_MODE=lstart PS_ARM="$ARMG" PS_PID="$TMP/pid-g" bash "$REAP" "$S")"; rc=$?
 chk "ⓖKILL 0 · 살아 있음 · rc≠0" "$(alive "$L") $rc" "alive 1"
 has "$out" "why=owner-changed" "ⓖ reap-skip why=owner-changed"
 mut M5 ft-seat-reap.sh 'if p in t and t[p][3] == cand[p][1] and p not in anc' 'if p in t and p not in anc' || bad "M5 치환 실패"
 ARMG2="$TMP/armed-g2"; rm -f "$ARMG2"; spawn_faux "$S" "$MKX-g2" "$ARMG2"
 L2="$(pick "$MKX-g2")"; echo "$L2" > "$TMP/pid-g2"
-PATH="$TMP/psbin:$PATH" PS_MODE=lstart PS_ARM="$ARMG2" PS_PID="$TMP/pid-g2" bash "$TMP/mb/M5/ft-seat-reap.sh" "$S" >/dev/null 2>&1
+PATH="$TMP/psbin:$PATH" FT_PS="$TMP/psbin/ps" PS_MODE=lstart PS_ARM="$ARMG2" PS_PID="$TMP/pid-g2" bash "$TMP/mb/M5/ft-seat-reap.sh" "$S" >/dev/null 2>&1
 chk "M5 lstart 비교 빼면 죽는다(변이 잡힘)" "$(alive "$L2")" "dead"
 kill_mk "$MKX-g"
 
 echo "== ⓗ 소유 바뀜(주입 ps 표: argv 에서 --seat 규칙이 사라짐) → KILL 0 · 살아 있음 (M4 소유 재확인 빼면 죽는다)"
 ARMS="$TMP/armed-s"; rm -f "$ARMS"; spawn_faux "$S" "$MKX-h" "$ARMS"
 H="$(pick "$MKX-h")"; echo "$H" > "$TMP/shim-h"
-out="$(PATH="$TMP/psbin:$PATH" PS_MODE=owner PS_ARM="$ARMS" PS_PID="$TMP/shim-h" bash "$REAP" "$S")"; rc=$?
+out="$(PATH="$TMP/psbin:$PATH" FT_PS="$TMP/psbin/ps" PS_MODE=owner PS_ARM="$ARMS" PS_PID="$TMP/shim-h" bash "$REAP" "$S")"; rc=$?
 chk "ⓗKILL 0 · 살아 있음(규칙이 사라져 후보 아님)" "$(alive "$H")" "alive"
 mut M4 ft-seat-reap.sh 'and p not in svc and still_mine(p, cand[p][0], t, tree, bg, cw, wt, oth)' 'and p not in svc' || bad "M4 치환 실패"
 ARMS2="$TMP/armed-s2"; rm -f "$ARMS2"; spawn_faux "$S" "$MKX-h2" "$ARMS2"
 H2="$(pick "$MKX-h2")"; echo "$H2" > "$TMP/shim-h2"
-PATH="$TMP/psbin:$PATH" PS_MODE=owner PS_ARM="$ARMS2" PS_PID="$TMP/shim-h2" bash "$TMP/mb/M4/ft-seat-reap.sh" "$S" >/dev/null 2>&1
+PATH="$TMP/psbin:$PATH" FT_PS="$TMP/psbin/ps" PS_MODE=owner PS_ARM="$ARMS2" PS_PID="$TMP/shim-h2" bash "$TMP/mb/M4/ft-seat-reap.sh" "$S" >/dev/null 2>&1
 chk "M4 소유 재확인 빼면 죽는다(변이 잡힘)" "$(alive "$H2")" "dead"
 kill_mk "$MKX-h"
 

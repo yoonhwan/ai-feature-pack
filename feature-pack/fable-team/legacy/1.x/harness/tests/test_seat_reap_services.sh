@@ -63,7 +63,7 @@ dry="$(FT_REAP_SERVICE_RE='^$no-match' bash "$REAP" "$S" --orphans-only --dry-ru
 has "$dry" "reap-cand pid=$SB via=②" "ⓔ덮기 → ⓑ 후보(via=②)"
 LE="$(orphan "$BASH_X" -c "while :; do sleep 1; done # loop2-$MK")"
 mkdir -p "$TMP/fakelsof"; printf '#!/bin/sh\necho "lsof: boom" >&2\nexit 2\n' > "$TMP/fakelsof/lsof"; chmod +x "$TMP/fakelsof/lsof"
-out="$(PATH="$TMP/fakelsof:$PATH" bash "$REAP" "$S" --orphans-only 2>&1)"; rc=$?
+out="$(PATH="$TMP/fakelsof:$PATH" FT_LSOF="$TMP/fakelsof/lsof" bash "$REAP" "$S" --orphans-only 2>&1)"; rc=$?
 chk "ⓔlsof 실패 → rc 20 · left=? · 아무것도 안 죽임" "$rc $(tail -1 <<< "$out") $(alive "$LE") $(alive "$SA")" "20 reap $S stopped=0 left=? rc=20 alive alive"
 kill "$LE" 2>/dev/null
 chk "ⓔ 600/300 0" "$(grep -nE '\b(600|300)\b' "$REAP" | wc -l | tr -d ' ')" 0
