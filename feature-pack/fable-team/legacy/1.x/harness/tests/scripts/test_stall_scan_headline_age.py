@@ -446,8 +446,8 @@ def test_r12_summary_appends_h_after_existing_fields(tmp_path: Path) -> None:
     room(w)
     headline(w, "room", 16)
     first = scan(w).stdout.splitlines()[0]
-    keys = [kv.split("=", 1)[0] for kv in first.split()]  # r1882 — 기존 칸(a~f·h) 순서 그대로 + 끝에 g 1칸
-    assert " h=1" in first and keys == ["stall", "a", "b", "c", "d", "e", "seats", "u", "ts", "l", "f", "h", "g"] and counts(first)["stall"] == "0"
+    keys = [kv.split("=", 1)[0] for kv in first.split()]  # r1882·r1883 — 기존 칸(a~f·h) 순서 그대로 + 끝에 g·m 1칸씩
+    assert " h=1" in first and keys == ["stall", "a", "b", "c", "d", "e", "seats", "u", "ts", "l", "f", "h", "g", "m"] and counts(first)["stall"] == "0"
 
 
 def test_r13_old_mtime_and_matching_clock_uses_full_age(tmp_path: Path) -> None:
