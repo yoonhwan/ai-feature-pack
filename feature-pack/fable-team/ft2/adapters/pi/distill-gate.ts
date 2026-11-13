@@ -18,9 +18,10 @@ const K = { warn: "FT_DISTILL_WARN", block: "FT_DISTILL_BLOCK", recv: "FT_DISTIL
 const SUBS = ["send", "relay", "recv", "peek", "ring", "handover", "ready", "mark", "unmarked", "close-check"];
 const SCRIPTS = ["ft-tmux-distill.sh", "ft-tmux-spawn.sh", "ft-role-spawn.sh", "ft-nano-spawn.sh", "ft-version.sh", "ft-successor-open.sh", "ft-reach-check.sh", "ft-send-verified.sh"];
 const MBOX = ["mbox.sh", "ft-mbox.sh"], EXT = [".md", ".json", ".jsonl", ".txt"], NEW = new Set(["startup", "new"]); // NEW = ⓙ 초기 예외가 허용되는 session_start reason
-/** thresholds.env 한 줄들 = KEY=VALUE(따옴표 벗김) · 파일 없음·읽기 실패 = null · 우선순위 = env > <루트>/.fable-team > ~/.claude/fable-team(r1553 그대로) */
+/** thresholds.env 한 줄들 = KEY=VALUE(따옴표 벗김) · 파일 없음·읽기 실패 = null · 우선순위 = env > <루트>/.fable-team > ~/.claude/fable-team > 설치본 thresholds.env.sample(r1860 · <루트>/.fable-team/LIVE_BIN 의 부모/templates · claude 도구와 같은 순서) */
 const read = (file: string | null | undefined): Record<string, string> | null => { try { return Object.fromEntries([...fs.readFileSync(file ?? "", "utf8").matchAll(/^\s*(?:export\s+)?([A-Z_][A-Z0-9_]*)=(.*)$/gm)].map((m) => [m[1], m[2].trim().replace(/^(['"])(.*)\1$/, "$2")])); } catch { return null; } };
-const envFiles = (env: Record<string, string | undefined>, root: string | null): Array<Record<string, string> | null> => [env.FT_DISTILL_THRESHOLDS, root && path.join(root, ".fable-team", "thresholds.env"), path.join(os.homedir(), ".claude", "fable-team", "thresholds.env")].map(read);
+const envFiles = (env: Record<string, string | undefined>, root: string | null): Array<Record<string, string> | null> => [env.FT_DISTILL_THRESHOLDS, root && path.join(root, ".fable-team", "thresholds.env"), path.join(os.homedir(), ".claude", "fable-team", "thresholds.env"), sample(root)].map(read);
+const sample = (root: string | null): string | null => { try { const bin = root ? fs.readFileSync(path.join(root, ".fable-team", "LIVE_BIN"), "utf8").trim() : ""; return bin ? path.join(path.dirname(bin), "templates", "thresholds.env.sample") : null; } catch { return null; } };
 /** 문턱 = 파일에서만 읽는다(extension 안 숫자 0) · 키 하나라도 없으면 null = 판정 불가. */
 export function thresholds(env: Record<string, string | undefined>, root: string | null): Lines | null {
   const files = envFiles(env, root);

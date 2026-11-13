@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # ft-thresholds.sh — 증류·리줌 문턱 «한 곳» (r1427)
 #   증류 게이트(context-distill-gate) · 리줌 게이트(ft-resume-gate) · 좌석 복구(ft-reboot-restore) 가 모두 이 파일 하나를 본다.
-#   해석 순서(먼저 있는 것 하나): ①$FT_THRESHOLDS ②<루트>/.fable-team/thresholds.env ③~/.claude/fable-team/thresholds.env ④기본값
+#   해석 순서(먼저 있는 것 하나): ①$FT_THRESHOLDS ②<루트>/.fable-team/thresholds.env ③~/.claude/fable-team/thresholds.env ④설치본 ../templates/thresholds.env.sample(r1860 · 숫자 기본값 0 · 샘플도 없음 = rc3 판정 불가)
 #   쓰기: --set KEY=V (기본 = ~/.claude/fable-team/thresholds.env · --file F 로 대상 변경) · --show 표 · --export `eval` 용 · --get KEY
 #   검증: 정수만 · BLOCK > WARN · RECV ≤ BLOCK · RESUME_MAX > 0. 위반 = REJECT rc2 · 쓰기 0.
 #   키: FT_DISTILL_WARN(경고) · FT_DISTILL_BLOCK(차단) · FT_DISTILL_RECV(승계 recv 차단) · FT_RESUME_MAX(리줌 상한)
 set -uo pipefail
-DEF_WARN=250000; DEF_BLOCK=300000; DEF_RECV=250000; DEF_RESUME=150000; DEF_NEWWORK=0
+DEF_NEWWORK=0   # 0 = 경고선과 같은 값(문턱 숫자 아님)
+SAMPLE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")/.." && pwd)/templates/thresholds.env.sample"
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")/../../.." && pwd 2>/dev/null || echo "$PWD")"
 USERFILE="$HOME/.claude/fable-team/thresholds.env"
 file=""
@@ -20,8 +21,9 @@ get() { # get KEY DEFAULT [FILE] — 우선순위: 명시 env > 파일 > 기본�
   [ -n "$f" ] && [ -f "$f" ] && v="$(sed -n "s/^[[:space:]]*$k[[:space:]]*=[[:space:]]*//p" "$f" | tail -1 | tr -d '"'"'"' \r')"
   [ -n "$v" ] && printf '%s' "$v" || printf '%s' "$d"
 }
-WARN="$(get FT_DISTILL_WARN "$DEF_WARN")"; BLOCK="$(get FT_DISTILL_BLOCK "$DEF_BLOCK")"
-RECV="$(get FT_DISTILL_RECV "$DEF_RECV")";  RESUME="$(get FT_RESUME_MAX "$DEF_RESUME")"
+sget() { get "$1" "$(FT_DISTILL_WARN= FT_DISTILL_BLOCK= FT_DISTILL_RECV= FT_RESUME_MAX= get "$1" "" "$SAMPLE")"; }   # 파일 값 없으면 샘플 값
+WARN="$(sget FT_DISTILL_WARN)"; BLOCK="$(sget FT_DISTILL_BLOCK)"
+RECV="$(sget FT_DISTILL_RECV)";  RESUME="$(sget FT_RESUME_MAX)"
 NEWWORK="$(get FT_DISTILL_NEWWORK "$DEF_NEWWORK")"; [ "$NEWWORK" = 0 ] && NEWWORK="$WARN"   # 기본 = 경고선과 같은 값
 valid() {
   for v in "$WARN" "$BLOCK" "$RECV" "$RESUME" "$NEWWORK"; do case "$v" in ''|*[!0-9]*) echo "REJECT 정수 아님: $v" >&2; return 2;; esac; done
@@ -31,6 +33,8 @@ valid() {
   return 0
 }
 cmd="${1:---show}"; shift || true
+if [ "$cmd" != --set ] && { [ -z "$WARN" ] || [ -z "$BLOCK" ] || [ -z "$RECV" ] || [ -z "$RESUME" ]; }; then
+  echo "UNKNOWN 문턱 못 읽음(파일·샘플 없음: $SAMPLE)" >&2; exit 3; fi
 TARGET="$USERFILE"; KEYV=""; POS=()
 while [ $# -gt 0 ]; do case "$1" in
   --file) TARGET="$2"; shift 2;; --file=*) TARGET="${1#--file=}"; shift;;
@@ -54,7 +58,7 @@ case "$cmd" in
     echo "SET $k=$v file=$TARGET";;
   --show|--table)
     valid || exit 2
-    echo "thresholds source = ${file:-<기본값>} (user default = $USERFILE)"
+    echo "thresholds source = ${file:-$SAMPLE} (user default = $USERFILE)"
     printf '  %-18s %10s   %s\n' KEY VALUE NOTE
     printf '  %-18s %10s   %s\n' FT_DISTILL_WARN "$WARN" "이상이면 매 턴 증류 경고"
     printf '  %-18s %10s   %s\n' FT_DISTILL_BLOCK "$BLOCK" "이상이면 증류 allowlist 밖 도구 차단"
