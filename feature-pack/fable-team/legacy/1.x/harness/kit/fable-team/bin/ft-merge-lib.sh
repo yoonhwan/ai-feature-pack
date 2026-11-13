@@ -380,14 +380,15 @@ fm_cards_by_tokens() {
   fi
   printf '%s\n' "${hit[@]}" | awk '!s[$0]++' | while IFS= read -r p; do printf '%s/%s\n' "$root" "$p"; done
 }
-#   fm_land_notify_land <카드리포루트> <PR> <착지 sha 앞자리> <PR 제목·본문> <설치 검사 rc> <설치 검사 출력> : r1478 — ft-merge-land 끝 1줄
-#     카드 = 제목·본문의 r<숫자> 토큰 · 설치 칸 = OK(대조 n>=1) | PENDING(검사 rc!=0 · 시간 초과 포함) | SKIP(범위에 하네스 파일 0)
+#   fm_land_notify_land <카드리포루트> <PR> <착지 sha 앞자리> <PR 제목> <설치 검사 rc> <설치 검사 출력> [<head 가지>] : r1478 — ft-merge-land 끝 1줄
+#     카드 = r1848: head 가 nano/r<N>- 이면 r<N> 하나 · 아니면 제목의 r<숫자> 토큰(본문 0 — 옛 카드 재알림 막음) · 설치 칸 = OK(대조 n>=1) | PENDING(검사 rc!=0 · 시간 초과 포함) | SKIP(범위에 하네스 파일 0)
 #     받은 root 는 FM_NOTIFY_REPO 로 넘긴다(env 가 다른 리포를 가리켜도 카드 리포가 이김 · DA HOLD #274782 F2)
 fm_land_notify_land() {
   local root="$1" pr="$2" sh="$3" txt="$4" irc="$5" iout="$6" nst=SKIP tok t0=$SECONDS
   printf '%s\n' "$iout" | head -n1 | grep -qE '^OK n=[1-9]' && nst=OK
   [ "${irc:-0}" = 0 ] || nst=PENDING
-  tok="$(printf '%s\n' "$txt" | grep -oE 'r[0-9]{2,5}' | sort -u | tr '\n' ' ')"
+  tok="$(printf '%s\n' "${7:-}" | grep -oE '^nano/r[0-9]{2,5}-' | grep -oE 'r[0-9]+')"
+  [ -n "$tok" ] || tok="$(printf '%s\n' "$txt" | grep -oE 'r[0-9]{2,5}' | sort -u | tr '\n' ' ')"
   tok="${tok% }"
   # shellcheck disable=SC2086
   FM_NOTIFY_REPO="$root" fm_land_notify 착지 "[착지] pr=$pr sha=$sh 카드 ${tok:-없음} · 설치 $nst" $(fm_cards_by_tokens "$root" $tok)
