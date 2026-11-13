@@ -236,6 +236,8 @@ plist_sync() {
 #   손 sed 렌더가 판 붙은 live 경로(live/1.1.16/bin)를 박아 키트를 올려도 옛 판이 돈 사건 · 설치 안 된 라벨 = SKIP(새로 깔지 않음) · 템플릿 밖 plist 손 0
 #   바꾸는 것 = 설치본의 ProgramArguments 하나(렌더본 것) — 머신별 env(FT_STALL_PENALTY_AUTO=0 · FT_NEWS_* 등)·주기는 설치본 그대로
 #   다르면 apply = .bak-r538(첫 원본) + .bak-<version>(직전) + 교체 + bootout·bootstrap(kickstart 0 — 주기 job 을 지금 돌리지 않는다) · 실패 = plist_restore · 렌더 실패 = ERROR rc1
+# r1825: com.byz.* = 머신 공용 잡 — 주인 루트(planner 명부 seats-planner.json 이 있는 BYZ 데이터 루트) 설치에서만 다시 그린다(팩 리포 설치가 덮던 사건)
+launchd_owner() { [ -f "$PROJECT/.fable-team/seats-planner.json" ]; }
 launchd_sync() {
   local label tpl dst new list n=0 ch=0 rs=0 need=()
   if [ -n "$COMMON" ] && [ "$PROJECT" != "$COMMON" ]; then echo "SKIP launchd (--project 가 git 공용 루트 아님: 루트=$COMMON — plist 는 루트 설치에서만)"; return 0; fi
@@ -245,6 +247,7 @@ launchd_sync() {
     [ -n "$label" ] || continue
     dst="$HOME_DIR/Library/LaunchAgents/$label.plist"
     if [ ! -f "$dst" ]; then echo "SKIP launchd $label (설치 안 됨 — 새로 깔지 않음)"; continue; fi
+    if ! launchd_owner; then echo "SKIP launchd $label (공용 잡 주인 루트 아님: $PROJECT — seats-planner.json 없음)"; continue; fi
     new="$(python3 "$KIT/bin/ft_plist_env.py" render-bin "$tpl" "$PROJECT" "$dst" ${need[@]+"${need[@]}"})" \
       || { echo "ERROR: launchd 렌더 실패 $label: $new" >&2; exit 1; }
     n=$((n + 1))
@@ -271,6 +274,7 @@ launchd_new() {
   for label in $NEW_LABELS; do
     tpl="$(printf '%s\n' "$list" | awk -F'\t' -v l="$label" '$1==l{print $2; exit}')"
     if [ -z "$tpl" ]; then echo "ERROR: launchd-new $label — 키트에 그 Label 템플릿이 없다(kit/*/*.plist.template)" >&2; rc=1; continue; fi
+    if ! launchd_owner; then echo "SKIP launchd $label (공용 잡 주인 루트 아님: $PROJECT — seats-planner.json 없음)"; continue; fi
     [ -f "$tpl" ] || tpl="$HARNESS/kit/$tpl"
     dst="$HOME_DIR/Library/LaunchAgents/$label.plist"
     dst_exists=1; [ -f "$dst" ] || dst_exists=""   # 처음 올리는 라벨 = 설치본 없음 → sync_args 없이 템플릿 렌더본을 그대로 쓴다

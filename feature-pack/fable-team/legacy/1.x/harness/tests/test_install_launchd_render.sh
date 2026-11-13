@@ -19,7 +19,7 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 # ── 픽스처 ─────────────────────────────────────────────────────────────────────
 export HOME="$T/home"; LA="$HOME/Library/LaunchAgents"; mkdir -p "$LA" "$T/proj/.fable-team/bin"
 P="$(cd "$T/proj" && pwd -P)"; RB="$P/.fable-team/bin"
-git -C "$P" init -q -b main && git -C "$P" -c user.name=t -c user.email=t@t commit -q --allow-empty -m p0   # 루트 = git 공용 루트
+git -C "$P" init -q -b main && git -C "$P" -c user.name=t -c user.email=t@t commit -q --allow-empty -m p0; printf '{"_hil_route":"fx#0"}\n' > "$P/.fable-team/seats-planner.json"   # r1825: 공용 잡 주인 루트 표식(없으면 launchd 렌더 SKIP)
 VER="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' "$H/../manifest.json")"
 # 손 렌더(사건 당시 방식 = r444 master-steps.md:11 «sed -e "s|__FT_BIN__|<LIVE_BIN>|g"»)
 hand() { sed -e "s|__FT_BIN__|$2|g" -e "s|__BYZ_ROOT__|$P|g" "$H/kit/launchd/$1.plist.template"; }

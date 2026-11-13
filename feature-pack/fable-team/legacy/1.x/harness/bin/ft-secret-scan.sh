@@ -98,7 +98,7 @@ if MODE == "report":
 seen = set()
 if os.path.exists(LOG):
     seen = {ln.split("\t", 1)[1].rstrip("\n") for ln in open(LOG) if "\t" in ln}
-plans = [p for p in E["SCAN_PLANS"].split("\n") if p] or glob.glob(root + "/design/**/*.sh.hil", recursive=True) + glob.glob("/tmp/h*")
+plans = [p for p in E["SCAN_PLANS"].split("\n") if p] or glob.glob(root + "/design/**/*.sh.hil", recursive=True) + [p for p in glob.glob("/tmp/h*") if os.path.isfile(p)]  # r1825: 기본 목록 = 일반 파일만(폴더 판정 0)
 logs = glob.glob(home + "/.claude/projects/**/*.jsonl", recursive=True) + glob.glob(home + "/.codex/sessions/**/rollout-*.jsonl", recursive=True)
 files, new, read, skipped = dict(st["files"]), [], 0, 0
 unknown = dict(st.get("unknown") or {})   # rd1341: 파일별 «연속 판정 불가» 횟수 · 사유

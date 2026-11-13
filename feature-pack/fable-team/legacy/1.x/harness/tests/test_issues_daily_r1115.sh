@@ -189,6 +189,7 @@ has "판정 불가" "$T/mbox/body-1.txt" "R7 쪽지 본문에 «판정 불가»"
 
 echo "== R8 check: 00:40 뒤 표 없음 → 1통 · 두 번째 틱 0 · 표 있으면 0 · 00:40 전 0 =="
 CHKROOT="$T/chkroot"; mkdir -p "$CHKROOT/.fable-team/state" "$CHKROOT/.fable-team/bin" "$CHKROOT/design/teams/issues/daily"
+printf '{"_hil_route":"fx#0"}\n' > "$CHKROOT/.fable-team/seats-planner.json"   # r1825: 공용 잡 주인 루트 표식(없으면 launchd-new SKIP)
 printf '{"_master":"byz-harness-master-claude#163"}\n' > "$CHKROOT/.fable-team/seats-harness.json"
 rm -f "$T/mbox"/body-*.txt
 chk_run() { # <epoch> [표있음=1]
