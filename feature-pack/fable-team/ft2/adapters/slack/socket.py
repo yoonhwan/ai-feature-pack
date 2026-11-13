@@ -67,16 +67,17 @@ def _ws_connect(url):
     from websockets.sync.client import connect
     return connect(url, open_timeout=7, max_size=2 ** 22)
 
-class Listener:  # 상주 수신기 1개 = 채널 1개 · 팀 1곳 · 어댑터 5파일은 공개 API 로만 부른다
+class Listener:  # 상주 수신기 1개 = 연결 1개 · 채널 쉼표 목록(첫 = 주 채널 · r1833 C1) · 팀 1곳 · 어댑터 5파일은 공개 API 로만
     def __init__(self, root, *, channel, app_token, bot_token, master, team="planner", users=(), bot_users=(),
                  web=web_api, connect=_ws_connect, sleep=time.sleep, mono=time.monotonic, notify=None, clock=None):
-        self.channel, self.master, self.web, self.connect, self.sleep = channel, master, web, connect, sleep
+        self.channels = tuple(c.strip() for c in str(channel).split(",") if c.strip())  # 묶기·게시 = 주 채널만
+        self.channel, self.master, self.web, self.connect, self.sleep = self.channels[0], master, web, connect, sleep
         self.app_token, self.bot_token, self.mono, self.ws, self.envelope = app_token, bot_token, mono, None, None
         same = dict(team=team, clock=clock)
         self.bindings = binding.ThreadBinding(root, **same)  # slack 폴더를 만든다
         self.log = listen_log(os.path.dirname(self.bindings.path))
         self.notify = notify or (lambda row: self.log("[notify] " + json.dumps(row, ensure_ascii=False)))
-        self.receive = receive.SlackReceive(root, ack=self._ack, allowed_users=users, allowed_channels=(channel,),
+        self.receive = receive.SlackReceive(root, ack=self._ack, allowed_users=users, allowed_channels=self.channels,
                                             bot_users=bot_users, notify=self.notify, **same)
         self.router, self.notify = wiring.wire(root, receive=self.receive, bindings=self.bindings, notify=notify,
                                                log=self.log, team=team, clock=clock)  # r1807 깨움·issues·desk 배선
@@ -120,9 +121,21 @@ class Listener:  # 상주 수신기 1개 = 채널 1개 · 팀 1곳 · 어댑터 
         if int(env.get("num_connections") or 1) > 1:  # 경쟁 소비자 — 연결 닫고 알림 1 · xclaw Tank 수신을 켜지 않는다
             self.notify({"state": "rival", "num_connections": env.get("num_connections")})
             return RIVAL
+        if len(self.channels) > 1:  # r1833 C2 — 시작·재연결마다 채널별 참여 확인(채널 1개 = 2ea518 그대로 · C4)
+            self._members()
         if reconnect:  # 재연결 사건 1회 = 보충 1회(주기 폴링 0)
             self.backfill.run(backfill.RECONNECT, [(r["seat"], r["key"][1], r["key"][2])
                                                    for r in self.bindings.settled().values() if r["open"]])
+    def _members(self):  # 미참여·판정 불가 = listen.log + notify 1줄 · 수신은 계속 · 자격 값 출력 0
+        for channel in self.channels:
+            try:
+                ok = (self.web("conversations.info", self.bot_token, {"channel": channel}).get("channel") or {}).get("is_member")
+                line = None if ok else "수신 불가 채널 %s — 봇 미참여(/invite 필요)" % channel
+            except Exception as exc:  # OSError·web_api RuntimeError(ok:false)·429 = 판정 불가(루프 종료 0)
+                line = "판정 불가 채널 %s — %s" % (channel, type(exc).__name__)
+            if line:
+                self.log(line)
+                self.notify({"state": "member", "channel": channel, "reason": line})
     def _frame(self, env):
         if env.get("type") == "disconnect":
             return True
