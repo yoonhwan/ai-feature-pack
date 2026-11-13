@@ -133,13 +133,34 @@ def c10(w):   # ⑩ 원장 git rc128(없는 ref) → HELD 못 읽음 · kill 0
     assert "못 읽음" in _held(w, "승인 대조")
 
 
-CASES = {"①": c1, "②": c2, "③": c3, "④": c4, "⑤": c5, "⑤′": c5b, "⑤″": c5c, "⑥": c6, "⑦": c7, "⑧": c8, "⑧′": c8b, "⑨": c9, "⑨′": c9b, "⑩": c10}
+def _table(word):   # R1 — table 원장 줄(번호·시각·내용) · 내용이 word 로 시작
+    return "| %s | 11-13 | %s · desk#150 #%s · %s 세션 닫기 |" % (N, word, SEQ, HOLDER)
+
+
+def c11(w):   # ⑪ table «무효» 줄 → HELD · kill 0 · receipt 0
+    _world(w, ledger=_table("무효"))
+    assert "무효·철회" in _held(w, "승인 대조")
+
+
+def c12(w):   # ⑫ table «철회» 줄 → 같음
+    _world(w, ledger=_table("철회"))
+    assert "무효·철회" in _held(w, "승인 대조")
+
+
+def c13(w):   # ⑬ table 정상 승인 줄 → CLOSED-VERDICT 그대로
+    _closed(w, _world(w, ledger=_table("승인")))
+
+
+CASES = {"①": c1, "②": c2, "③": c3, "④": c4, "⑤": c5, "⑤′": c5b, "⑤″": c5c, "⑥": c6, "⑦": c7, "⑧": c8, "⑧′": c8b, "⑨": c9, "⑨′": c9b, "⑩": c10,
+         "⑪": c11, "⑫": c12, "⑬": c13}
 KC, KV = "adapters/pi/keeper_close.py", "adapters/pi/keeper_verdict.py"
 MUTANTS = {"M1": (KC, "if self.held_attached(team, work, holder):", "if False:", c4),
            "M2": (KV, 'VERDICT.fullmatch(cells[2])', 'True', c5b),
            "M3": (KC, "if seen in (NOLINE, NOCARD):", "seen = seen or NOLINE\n        if True:", r1812.c4),
            "M4": (KV, "if not near(r\"[\\w#-]\", holder, body):", "if False:", c8),
-           "M5": (KV, "return mailbox(k, seq, seat, work)", "return \"\"", c7)}
+           "M5": (KV, "return mailbox(k, seq, seat, work)", "return \"\"", c7),
+           "M6": (KV, '"|".join(rest.split("|")[1:]).strip(" |")', 'rest.strip(" |")', c11),   # 시각 column 다시 남기기
+           "M6′": (KV, '"|".join(rest.split("|")[1:]).strip(" |")', 'rest.strip(" |")', c12)}
 
 
 @pytest.mark.parametrize("name", list(CASES))
