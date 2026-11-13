@@ -142,8 +142,10 @@ class CloseNext:
         return HOLD, "판정 불가 · %s" % seen
 
     def _pick_next(self, state, records, next_work, evidence, pre, resources):
-        """대기 카드 = accept 줄 있고 dispatch 줄 없는 work · accept seq 순 · 첫 «배정 가능»(Dispatch._eligible)."""
+        """대기 카드 = accept 줄 있고 dispatch 줄 없는 work · accept seq 순 · 첫 «배정 가능»(Dispatch._eligible).
+        카드 = 문자열 work 만 · Slack 접수 accept 의 dict work(route·slack payload)는 대기 카드가 아니다(r1881)."""
         waiting = list(dict.fromkeys(rec["work"] for rec in records if rec["kind"] == "accept" and rec.get("work")
+                                     and isinstance(rec["work"], str)
                                      and not self.d._assigned(records, rec["work"])))
         if next_work is not None:
             why = "대기 카드 아님" if next_work not in waiting else self.d._eligible(state, next_work, pre, evidence,
