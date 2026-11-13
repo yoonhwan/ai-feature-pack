@@ -89,10 +89,7 @@ mutate "$T/bin/m2-close.sh" "$COND" 'if case "$_INFO_FEAT" in main*) true;; *) f
 mutate "$T/bin/m3-close.sh" "$COND" 'if [ "$_INFO_FEAT" = main ]; then' || bad "M3 사본 실패"
 
 ENVFEAT=""
-run() { ( cd "$REPO" && env -i HOME="$HOME" FT_SHEET_ROOT="$FT_SHEET_ROOT" PATH="$T/fake:$PATH" FT_PACK_ROOT="$T/nopack" FAKE_PANES="$T/panes" FAKE_CWD="$T/cwd" \
-  FAKE_PANE_CWDS="$T/pane-cwds" FAKE_LOG="$T/tlog" FAKE_GH_LOG="$T/ghlog" FAKE_GH_JSON="$T/gh.json" ${ENVFEAT:+FT_NANO_FEAT="$ENVFEAT"} \
-  FT_NANO_PREFIX=byz-ops-nano- FT_SEATS_JSON="$REPO/.fable-team/seats-ops.json" FT_NANO_LEDGER="$T/ledger.md" \
-  FT_INBOX_ROOT="$T/comm" FT_NANO_IDLE_MIN=0 FT_WT_CLEAN_DIR="$T/wtclean" FT_WT_AUTOCLEAN=0 bash "$@" 2>&1 ); }   # env 뒤 명령 = 글자 bash(비밀 분류기)
+run() { ( cd "$REPO" && env -i HOME="$HOME" FT_SHEET_ROOT="$FT_SHEET_ROOT" PATH="$T/fake:$PATH" FT_PACK_ROOT="$T/nopack" FAKE_PANES="$T/panes" FAKE_CWD="$T/cwd" FAKE_PANE_CWDS="$T/pane-cwds" FAKE_LOG="$T/tlog" FAKE_GH_LOG="$T/ghlog" FAKE_GH_JSON="$T/gh.json" ${ENVFEAT:+FT_NANO_FEAT="$ENVFEAT"} FT_NANO_PREFIX=byz-ops-nano- FT_SEATS_JSON="$REPO/.fable-team/seats-ops.json" FT_NANO_LEDGER="$T/ledger.md" FT_INBOX_ROOT="$T/comm" FT_NANO_IDLE_MIN=0 FT_WT_CLEAN_DIR="$T/wtclean" FT_WT_AUTOCLEAN=0 bash "$@" 2>&1 ); }   # env 뒤 명령 = 글자 bash(비밀 분류기)
 # setup <info base> <로컬 main> <origin/main 추적 ref | -(없음)> [원격 url 막음 1]
 setup() {
   printf '{"branch":"%s","base":"%s","purpose":"t"}\n' "$BR" "$1" > "$NW/.worktree-info.json"
