@@ -31,7 +31,8 @@ def world(tmp, mp, cards=None, enable=True, ft2=kw.FT2):
     i = tm.index('if a[0] == "kill-session"')
     kw._put(b / "tmux", tm[:i] + LS + tm[i:])
     kw._put(b / "launch.py", LAUNCH), kw._put(b / "record", RECORD)
-    w.env.update(FT2_KEEPER_LAUNCH=str(b / "launch.py"), FT2_CARD_ASSIGN_BIN=str(b / "record"))
+    w.env.update(FT2_KEEPER_LAUNCH=str(b / "launch.py"), FT2_CARD_ASSIGN_BIN=str(b / "record"), HOME=str(tmp / "home"), FT2_TEAM_NANO_MAX="9",
+                 GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="core.quotepath", GIT_CONFIG_VALUE_0="false")   # 가짜 HOME = 실 ~/.claude 문턱 읽기 0
     kw._put(w.state / "directive-roots.tsv", "harness\t.\torigin/main\tdesign/harness/indices\n")
     if cards:
         w.commit("byz", {"design/harness/indices/대기/%s.md" % s: "# 인덱스: %s\n%s- 상태: 대기\n" % (s, h) for s, h in cards.items()}, "main")
@@ -123,6 +124,31 @@ def c12(w, mp):       # ⑫ launch 성공 직후 record 전 중단 → 다음 �
     w.commit("byz", {"design/harness/indices/대기/%s.md" % C: "# 인덱스: %s\n%s" % (C, URG)}, "main")
     assert "NEXT harness %s -> %s %s" % (W1, B, nh(B)) in w.round()
     assert launched(w) == [B] and len(log(w, "record")) == 1 and count(w, "accept", C) == 0
+def cR2(w, mp):       # R2 영수 직후 중단 → PAUSED → 재개 바퀴 launch 0 · 저장 next 유지 · handled 0 → 허용 뒤 같은 사건 launch 1
+    k = w.keeper()
+    crash_at_state(w, mp, k)
+    with pytest.raises(RuntimeError):
+        k.run_once()
+    paused = w.state / "harness-tick" / "PAUSED"
+    kw._put(paused, "판정 1 · 2026-11-13T09:00:00 · 시험용 팀 정지 표식\n")
+    assert not any(x.startswith("NEXT ") for x in w.round()) and launched(w) == [] and log(w, "record") == []
+    assert [r.get("next") for r in receipts(w)] == [B]
+    paused.unlink()
+    assert "NEXT harness %s -> %s %s" % (W1, B, nh(B)) in w.round() and launched(w) == [B] and len(receipts(w)) == 1
+def cR3(w, mp=None):  # R3 나노 상한 못 정함(키 없음·비숫자) → 새 실행 0 · 판정 불가 줄 · 영수는 지금처럼 1
+    lines = w.round()
+    assert any(x.startswith("판정 불가 harness 나노 상한") for x in lines), lines
+    assert launched(w) == [] and count(w, "accept", B) == 0 and notes(w) == [] and len(receipts(w)) == 1
+def cR3c(w, mp=None):  # R3′ env 없고 루트 thresholds.env 에 값 → 그 값으로 상한 검사 뒤 launch 1
+    w.round()
+    assert launched(w) == [B]
+def nokey(w):
+    w.env.pop("FT2_TEAM_NANO_MAX")
+def badkey(w):
+    w.env["FT2_TEAM_NANO_MAX"] = "없음"
+def rootkey(w):
+    w.env.pop("FT2_TEAM_NANO_MAX")
+    kw._put(w.root / ".fable-team" / "thresholds.env", "FT_DISTILL_WARN=1\nFT2_TEAM_NANO_MAX=5\n")
 def pre6(w):          # ⑥ 팀 나노 수 = 상한 → 0
     w.env["FT2_TEAM_NANO_MAX"] = "1"
     d = json.loads(w.tm.read_text(encoding="utf-8"))
@@ -130,7 +156,8 @@ def pre6(w):          # ⑥ 팀 나노 수 = 상한 → 0
 TWO = {A: "", B: URG}
 CASES = {"①": (c1, TWO, None), "②": (c2, None, None), "③": (c3, TWO, "off"), "④": (c4, {A: ""}, "사람"), "⑤": (c5, TWO, "paused"),
          "⑥": (c5, TWO, pre6), "⑦": (c7, TWO, None), "⑧": (c8, {A: "", B: URG + BOTH}, None), "Ⓓ": (cD, TWO, "seat"),
-         "⑨": (c9, TWO, None), "⑩": (c10, TWO, None), "⑪": (c11, TWO, None), "⑫": (c12, TWO, None)}
+         "⑨": (c9, TWO, None), "⑩": (c10, TWO, None), "⑪": (c11, TWO, None), "⑫": (c12, TWO, None),
+         "R2": (cR2, TWO, None), "R3": (cR3, TWO, nokey), "R3″": (cR3, TWO, badkey), "R3′": (cR3c, TWO, rootkey)}
 def run(name, tmp, mp, ft2=kw.FT2):
     case, cards, pre = CASES[name]
     w = world(tmp, mp, cards, enable=pre != "off", ft2=ft2)
@@ -151,7 +178,9 @@ MUTANTS = {"M1": ("ready.append(((not urgent,", "ready.append(((False,", "①"),
            "M5": ("        pick = choose(k, team) if gates(k, team) else None",
                   "        k.receipt(team, work, attempt, holder, gen, mark=False)\n        pick = choose(k, team) if gates(k, team) else None", "⑨"),
            "M6": ('stem, nh = seen.get("next"),', "stem, nh = (choose(k, team) or [None])[0],", "⑩"),
-           "M7": ("    if need[1]:", "    if need[0] and need[1]:", "⑫")}
+           "M7": ("    if need[1]:", "    if need[0] and need[1]:", "⑫"),
+           "M8": ('FT2_TEAM_NANO_MAX=")), "")', 'FT2_TEAM_NANO_MAX=")), "99")', "R3"),
+           "M9": ("if pick is None and not gates(k, team):", "if False:", "R2")}
 
 
 @pytest.mark.parametrize("name", list(CASES))
