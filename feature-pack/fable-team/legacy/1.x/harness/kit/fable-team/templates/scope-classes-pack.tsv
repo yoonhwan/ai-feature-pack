@@ -19,4 +19,5 @@ code	ft2-tools	^feature-pack/fable-team/ft2/tools/
 docs	ft2-md	^feature-pack/fable-team/ft2/README\.md$
 forbid	repo-outside	^feature-pack/fable-team/ft2/contracts/
 code	ft2-all	^feature-pack/fable-team/ft2/
+docs	pack-design-md	^design/[^/]+/.*\.md$
 forbid	repo-outside	.

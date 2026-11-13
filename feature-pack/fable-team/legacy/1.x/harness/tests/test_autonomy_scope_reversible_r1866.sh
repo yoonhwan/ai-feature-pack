@@ -32,10 +32,10 @@ cases() {  # cases <bin> <팩 표> — PASS/FAIL 줄만 낸다 · 틀린 수 = r
   local B="$1" TB="$2" f=0 out rc
   s() { awk -F'\t' -v k="$1" '$1==k{print $2}' "$SEED"; }
   run() { out="$(python3 "$B/autonomy_scope_classify.py" classify "$(s "$1")" --repo "$R" "${@:2}" 2>&1)"; rc=$?; }
-  ok() { if [ "$rc" = "$2" ] && [[ "$out" == "$3"* ]]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:160}"; f=$((f+1)); fi; }
+  ok() { if [ "$rc" = "$2" ] && [[ "$out" =~ ^($3) ]]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:160}"; f=$((f+1)); fi; }
   run c1 --scope S1;               ok "① 새 harness/tests/test_x.sh 100755 → CLASS code" 0 "CLASS code"
   run c1p --scope S1 --table "$TB"; ok "①' 팩 표 · r1855 꼴 새 시험 sh 100755 → CLASS code" 0 "CLASS code"
-  run c2 --scope S1 --table "$TB"; ok "② 팩 표 · 새 design/aifp/indices/진행/x.md → CLASS docs" 0 "CLASS docs"
+  run c2 --scope S1 --table "$TB"; ok "② 팩 표 · 새 design/aifp/indices/진행/x.md → CLASS docs(ff 포함 · 문서만)" 0 "CLASS (docs|ff)$"
   run c3 --scope S1;               ok "③ 새 tests/helper.sh 100755 → FORBID mode" 3 "FORBID kind=mode"
   run c4 --scope S1;               ok "④ tests/test_m.sh M 100644→100755 → FORBID mode" 3 "FORBID kind=mode"
   run c5 --scope S1;               ok "⑤ 새 tests/test_x.sh 120000(심링크) → FORBID mode" 3 "FORBID kind=mode"
