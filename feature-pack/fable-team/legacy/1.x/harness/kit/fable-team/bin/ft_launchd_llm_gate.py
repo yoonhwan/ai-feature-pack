@@ -133,6 +133,25 @@ def shell_lines(text):
         n += 1
 
 
+def read_vars(line):
+    """셸 줄의 read 명령마다 할당되는 변수 이름 전부(-a 배열 이름 포함 · 값을 받는 옵션 -d -p -t -u -n -N -i 의 값은 건너뜀)."""
+    out = []
+    for m in re.finditer(r"\bread\b([^;&|<>)]*)", line):
+        words, i = m.group(1).split(), 0
+        while i < len(words):
+            w = words[i]
+            if w.startswith("-"):
+                i += 2 if w[-1] in "dptunNia" and w[-1] != "r" else 1
+                if w[-1] == "a" and i - 1 < len(words):
+                    out.append(words[i - 1])
+                continue
+            if not re.fullmatch(r"[A-Za-z_]\w*", w):
+                break
+            out.append(w)
+            i += 1
+    return out
+
+
 def strip_comment(line):
     """셸 주석(따옴표 밖 낱말 머리의 # 뒤) 걷기 — 주석 속 «). 축별» 을 source 로 읽지 않는다(r3 R3)."""
     q, i = None, 0
@@ -200,8 +219,10 @@ class Gate:
             for m in re.finditer(r"(?:^|[;&\s])(?:local\s+|export\s+|readonly\s+|declare\s+[-\w]*\s*)?([A-Za-z_]\w*)=(\"[^\"]*\"|'[^']*'|\S*)", ln):
                 val = self.resolve(m.group(2), path, zero, out)
                 out[m.group(1)] = val if out.get(m.group(1), val) == val and m.group(1) not in out or out.get(m.group(1)) == val else None
-            for m in re.finditer(r"\b(?:for|read(?:\s+-\w+)*)\s+([A-Za-z_]\w*)", ln):
+            for m in re.finditer(r"\bfor\s+([A-Za-z_]\w*)", ln):
                 out.setdefault(m.group(1), None)
+            for v in read_vars(ln):  # r5: read [-옵션] v1 v2 … 의 변수 전부 = 할당(값은 비글자)
+                out.setdefault(v, None)
             for word in sourced(ln):
                 target = self.resolve(word, path, zero, out)
                 if target and os.path.isfile(target):
@@ -277,7 +298,7 @@ class Gate:
             self.reject(f"결합 불가({why})", path, n)
         if (key, h) not in self.base:
             self.reject("검사 불가 동적 실행", path, n)
-        if self.base[(key, h)] != b:
+        elif self.base[(key, h)] != b:
             self.reject("검사 불가 동적 실행(기준선 결합 불일치)", path, n)
 
     def follow(self, path, zero=None):
@@ -459,9 +480,7 @@ def main(argv):
         gate = Gate(a, roots_of(a))
         if a.verb == "list-dyncalls":  # 사람 h 나열 도구 = 25초 상한 없음(판정 아님)
             DEADLINE[0] = float("inf")
-            gate.dynamic = lambda path, n, line, zero, var=None: gate.dyn.append(  # noqa: E731 — 판정 없이 나열만
-                (gate.rel(path), sha(line.strip())[:16], Gate.bind(gate, path, zero)[0] if not Gate.bind(gate, path, zero)[1] else "-", f"{gate.rel(path)}:{n} {line.strip()[:120]}"))
-            gate.reject = lambda *x: None
+            gate.reject = lambda *x: None  # r5: 나열도 check 와 같은 dynamic(미할당 판정 포함) — 결합 불가 = '-' · 막지 않고 다음으로
             gate.allowed = True
         judge(a, gate)
     except Stop as s:
