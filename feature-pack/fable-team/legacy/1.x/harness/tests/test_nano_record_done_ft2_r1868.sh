@@ -28,7 +28,7 @@ PY
 nowrite() { t "$1 카드 ref 커밋 0" [ "$(ncommit)" = "$2" ]; t "$1 세트 줄 0" [ "$(nline "$3" '^- 세트: ')" = 0 ]; t "$1 팀장 쪽지 0" [ "$(nto "$MASTER")" = 0 ]; }
 step "사전: 짝 사본 · 줄 수"
 for f in ft_nano_record_done.py ft_nano_record_ft2.py; do cmp -s "$SRC/$f" "$KIT/$f" && ok "짝 사본 bin·kit cmp0 $f" || bad "짝 사본 다름 $f"; done
-[ "$({ wc -l < "$SRC/ft_nano_record_ft2.py"; } 2>/dev/null || echo 999)" -le 50 ] && ok "새 파일 ≤50줄" || bad "새 파일 50줄 넘음(또는 없음)"
+[ "$({ wc -l < "$SRC/ft_nano_record_ft2.py"; } 2>/dev/null || echo 999)" -le 70 ] && ok "새 파일 ≤70줄(r1873 result holder +20)" || bad "새 파일 70줄 넘음(또는 없음)"
 world
 
 c1() {  # ① 명부 행 0 + 원장 holder = 좌석 → 세트·완료 줄 rc0 · 팀장 1통 · ft2 는 project 읽기 1회
