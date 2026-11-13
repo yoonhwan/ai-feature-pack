@@ -118,7 +118,7 @@ echo "== 변이 M3 «소유 검사를 닫는 팀 접두로 좁힘» → N7 이 �
 mutant '    i = seat_info(s)' '    i = None'
 fresh; mkwt "$SW" nano/B nano/B; alive_at "$SW"; echo 'byz-ccu-nano-B#0' > "$T/sessions"; out="$(CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 363)"; rc=$?
 [ "$rc" -eq 0 ] && ok "M3 FAIL(닫힘) = N7 이 잡는다" || bad "M3 안 먹음 rc=$rc"
-echo "== 변이 M4 «키를 \${key%-r[0-9]*} 로 자름» → N8 이 잡는다"
+echo "== 변이 M4 «키 끝 -r 숫자 꼬리를 무조건 자름» → N8 이 잡는다"
 mutant 'okey="${br#nano/}"; keys="$okey"; [[ "$okey" =~ ^(.*)-r[0-9]+$ ]] && keys="$keys ${BASH_REMATCH[1]}"' 'okey="${br#nano/}"; okey="${okey%-r[0-9]*}"; keys="$okey"'
 n8; out="$(CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 363)"; rc=$?
 [ "$rc" -eq 0 ] && ok "M4 FAIL(닫힘) = N8 이 잡는다" || bad "M4 안 먹음 rc=$rc"
