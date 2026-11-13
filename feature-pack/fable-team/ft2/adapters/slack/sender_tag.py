@@ -12,8 +12,8 @@ def sender_tag(seat):
     if not isinstance(seat, str) or len(seat) > 60 or not _NAME.fullmatch(seat):
         return None
     _project, team, role, *tail = seat.rsplit("#", 1)[0].split("-")
-    if role == "nano":
-        return "보낸이 %s-nano" % team
+    if role == "nano":  # slug 꼬리 없음 = lint 실패 = None(DA HOLD R1)
+        return "보낸이 %s-nano" % team if tail else None
     scope = tail[:-1] if role == "qa" else []
     if role not in ROLES or len(tail) != len(scope) + 1 or len(scope) > 1 or tail[-1] not in AGENTS:
         return None
