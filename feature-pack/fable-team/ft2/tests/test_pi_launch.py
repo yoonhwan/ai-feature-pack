@@ -65,7 +65,7 @@ def _paths(tmp):
     root.mkdir(parents=True)
     fake.mkdir()
     body = FAKE.replace("__PY__", sys.executable).replace("__SHA__", FAKE_SHA).replace("__SEAT__", str(list(SEAT_ENV)).replace("'", '"'))
-    for name in ("git", "tmux"):
+    for name in ("git", "tmux", "pi"):                # r1892: pi = 가짜 bin 의 절대 경로로 tmux 에 간다
         (fake / name).write_text(body, encoding="utf-8")
         (fake / name).chmod(0o755)
     return root, fake
@@ -166,7 +166,7 @@ def case_open(tmp, launcher=LAUNCH):
     out, rc = _launch(root, fake, launcher)
     assert (out["result"], rc, out["opened"]) == ("접수 성공", 0, True), out
     lines = _log(fake)
-    assert [line["prog"] for line in lines] == ["git"] * 4 + ["tmux"], lines
+    assert [line["prog"] for line in lines] == ["git"] * 4 + ["tmux"] * 2, lines   # r1892: new-session 뒤 has-session 1회
     assert lines[0]["argv"] == ["-C", str(root), "rev-parse", "--verify", "--quiet", BASE + "^{commit}"], lines[0]
     assert lines[1]["argv"] == ["-C", str(root), "worktree", "add", "--no-checkout", "--detach", out["worktree"], FAKE_SHA], lines[1]
     lines = lines[:2] + lines[4:]                     # r1846: sparse·checkout 2줄은 case_sparse_order 가 본다
@@ -177,7 +177,7 @@ def case_open(tmp, launcher=LAUNCH):
     assert dict(item.split("=", 1) for item in pairs[1::2]) == {
         "FT2_ROOT": str(root), "FT2_TEAM": TEAM, "FT2_WORK": WORK,
         "FT2_HOLDER": HOLDER, "FT2_ATTEMPT": ATTEMPT}, pairs
-    assert lines[2]["argv"][16] == "pi" and lines[2]["argv"][-4:] == SESSION_ARGV, lines[2]["argv"]
+    assert lines[2]["argv"][16] == str(Path(fake) / "pi") and lines[2]["argv"][-4:] == SESSION_ARGV, lines[2]["argv"]
     intents = list(_launch_dir(root).glob("*.intent"))
     assert [path.name for path in intents] == [_intent(root).name], intents
     assert json.loads(intents[0].read_text(encoding="utf-8"))["state"] == "opened"
@@ -205,7 +205,7 @@ def case_race(tmp, launcher=LAUNCH):
         assert "Traceback" not in stderr, stderr
         assert json.loads(stdout)["result"] in ("접수 성공", "복구 필요"), stdout
         assert proc.returncode in (0, 2), proc.returncode
-    assert [line["prog"] for line in _log(fake)].count("tmux") == 1, _log(fake)
+    assert [line["sub"] for line in _log(fake)].count("new-session") == 1, _log(fake)
 
 
 def case_fail(tmp, launcher=LAUNCH):
@@ -315,7 +315,7 @@ def case_repo_target(tmp, launcher=LAUNCH):
     out, rc = _launch(root, fake, launcher, extra=["--repo", str(repo)], env_extra=_repo_env())
     assert (out["result"], rc) == ("접수 성공", 0), out
     lines = _log(fake)
-    assert [line["prog"] for line in lines] == ["git"] * 5 + ["tmux"], lines
+    assert [line["prog"] for line in lines] == ["git"] * 5 + ["tmux"] * 2, lines
     assert lines[0]["argv"] == ["-C", str(repo), "rev-parse", "--show-toplevel"], lines[0]
     assert lines[1]["argv"] == ["-C", str(repo), "rev-parse", "--verify", "--quiet", BASE + "^{commit}"], lines[1]
     base_sha = _git(repo, "rev-parse", "refs/remotes/origin/main")
@@ -475,7 +475,7 @@ def case_sparse_order(tmp, launcher=LAUNCH):
     out, rc = _launch(root, fake, launcher)
     assert (out["result"], rc) == ("접수 성공", 0), out
     lines = _log(fake)
-    assert [line["sub"] for line in lines] == ["rev-parse", "worktree", "sparse-checkout", "checkout", "new-session"], lines
+    assert [line["sub"] for line in lines] == ["rev-parse", "worktree", "sparse-checkout", "checkout", "new-session", "has-session"], lines
     assert "--no-checkout" in lines[1]["argv"], lines[1]
     assert (lines[2]["argv"], lines[3]["argv"]) == _sparse_argv(root), lines[2:4]
 
@@ -516,7 +516,7 @@ MUTANTS = {
     "M3": ("launch.py", "os.O_CREAT | os.O_EXCL | os.O_WRONLY", "os.O_CREAT | os.O_WRONLY"),
     "M4": ("launch.py", '    rc, detail = call(plan["tmux"], None, dict(os.environ, **env), TMUX_TIMEOUT)\n    if rc != 0:',
            '    rc, detail = call(plan["tmux"], None, dict(os.environ, **env), TMUX_TIMEOUT)\n    rc = 0\n    if rc != 0:'),
-    "M5": ("launch_plan.py", '+ pairs + ["pi"]', '+ [] + ["pi"]'),
+    "M5": ("launch_plan.py", '+ pairs + [pi or "pi"]', '+ [] + [pi or "pi"]'),
     "M6": ("launch.py", "GIT_TIMEOUT, TMUX_TIMEOUT, USAGE = 25, 7, 64", "GIT_TIMEOUT, TMUX_TIMEOUT, USAGE = 7, 7, 64"),
     "M7": ("launch.py", 'repo = os.path.abspath(given.get("repo") or root)', 'repo = os.path.abspath(root)'),
     "M8": ("launch.py", '        if rc != 0:\n            os.unlink(plan["intent"])',
