@@ -44,7 +44,7 @@ def card(byz, root, team, work):
     match = land.MAPPED.match(mapped[0]) if isinstance(mapped, list) and len(mapped) == 1 else None
     if not any(rows.values()) or isinstance(mapped, str) or len(mapped) > 1 or (mapped and not match):
         raise Unsure("카드 판독 %s" % ("TEAMS 팀 행 없음" if not any(rows.values()) else mapped if isinstance(mapped, str) else "짝 표 %s" % mapped))
-    doing, complete = {}, False
+    doing, wait, complete = {}, {}, False
     for ref, row in ((r, w) for r, w in rows.items() if w):
         names = [n for f in ([match.group(1)] if match else land.folders(row[1]))
                  for n in land.staged(f, run(byz, "ls-tree", "-r", "--name-only", ref, "--", f + "/indices"))]
@@ -52,6 +52,10 @@ def card(byz, root, team, work):
         exact = os.path.basename(mapped[0]) if mapped else work + ".md" if work + ".md" in base else None
         hits = [n for n in names if (os.path.basename(n) == exact if exact else os.path.basename(n).startswith(work + "-") and n.endswith(".md"))]
         doing[ref], complete = [n for n in hits if "/indices/진행/" in n], complete or any("/indices/완성/" in n for n in hits)
+        wait[ref] = [n for n in hits if "/indices/대기/" in n]   # r1889 — 2.0 팀은 대기/ 에서 바로 끝난다
+    if any(doing.values()) and any(wait.values()):
+        raise Unsure("진행·대기 둘 다 카드")
+    doing = doing if any(doing.values()) or complete else wait
     picks = [(ref, found[0]) for ref, found in doing.items() if found]
     if len(picks) > 1:
         raise Unsure("두 가지에 진행 카드")
@@ -60,7 +64,7 @@ def card(byz, root, team, work):
     if not picks or len(doing[picks[0][0]]) != 1:
         raise Unsure("진행 카드 %d개" % sum(map(len, doing.values())))
     return picks[0]
-def restate(text, at, now):
+def restate(text, at, now, frm="진행"):
     lines, top = text.rstrip("\n").split("\n"), "- 상태: 완성 · %s · ft2 complete %s" % (now, at)
     idx = next((i for i, line in enumerate(lines) if line.startswith("- 상태:")), None)
     pos = idx if idx is not None else 1
@@ -69,7 +73,7 @@ def restate(text, at, now):
     end = next((i for i in range(lines.index("## 상태") + 1, len(lines)) if lines[i].startswith("## ")), len(lines))
     while lines[end - 1] == "":
         end -= 1
-    return "\n".join(lines[:end] + ["- %s · ft2 card_stage 진행→완성(ft2 complete %s)" % (now, at)] + lines[end:]) + "\n"
+    return "\n".join(lines[:end] + ["- %s · ft2 card_stage %s→완성(ft2 complete %s)" % (now, frm, at)] + lines[end:]) + "\n"
 def push(wt, ref, rebased=False, timed=False):
     """7초 + 재시도 1 · 거절이면 rebase 1회. 보낸 뒤 실패는 전부 «결과 불명»(원격 쓰기 여부 모름 · R1 · «원격 쓰기 0» 주장 0)."""
     try:
@@ -89,16 +93,17 @@ def push(wt, ref, rebased=False, timed=False):
     return push(wt, ref, True, timed)
 def stage(byz, ref, path, at, now):
     with tempfile.TemporaryDirectory(prefix="ft2-card-stage-") as tmp:
-        wt, dst = os.path.join(tmp, "wt"), path.replace("/indices/진행/", "/indices/완성/", 1)
+        frm = "대기" if "/indices/대기/" in path else "진행"
+        wt, dst = os.path.join(tmp, "wt"), path.replace("/indices/%s/" % frm, "/indices/완성/", 1)
         run(byz, "worktree", "add", "-q", "--detach", wt, ref)
         out = Unsure("git 시간초과")   # 본문이 TimeoutExpired 로 끝나면 이 값이 남는다
         try:
             os.makedirs(os.path.dirname(os.path.join(wt, dst)), exist_ok=True)
             run(wt, "mv", path, dst)
             doc = pathlib.Path(wt, dst)
-            doc.write_text(restate(doc.read_text(encoding="utf-8"), at, now), encoding="utf-8")
+            doc.write_text(restate(doc.read_text(encoding="utf-8"), at, now, frm), encoding="utf-8")
             run(wt, "commit", "-q", "-am", "[docs] %s 2.0 완성 폴더(ft2 done)" % doc.stem)
-            out = doc.stem, push(wt, ref)
+            out = doc.stem, frm + "→완성", push(wt, ref)
         except Unsure as exc:
             out = exc
         finally:   # R2 — add 뒤에는 성공·Unsure·TimeoutExpired 모두 이 정리 1곳을 탄다
@@ -107,7 +112,7 @@ def stage(byz, ref, path, at, now):
             except subprocess.TimeoutExpired:
                 gone = 124
             if gone:   # R1 — 정리 rc 를 버리지 않는다 · 앞 결과를 같이 낸다(재실행 = NOOP 수렴)
-                raise Unsure("worktree 정리 실패 rc %s %s 등록 잔존 · %s" % (gone, wt, out if isinstance(out, Unsure) else "STAGED %s %s" % out))
+                raise Unsure("worktree 정리 실패 rc %s %s 등록 잔존 · %s" % (gone, wt, out if isinstance(out, Unsure) else "STAGED %s %s %s" % out))
     if isinstance(out, Unsure):
         raise out
     return out
@@ -120,7 +125,7 @@ def main(argv=None):
         at = done_at(root, a.team, a.work)
         path = at and run(byz, "fetch", "-q", "origin", *(r.split("/", 1)[1] for r in land.REFS)) is not None and card(byz, root, a.team, a.work)
         word, rc = ("REJECT done 없음 %s" % a.work, 1) if at is None else ("NOOP %s 이미 완성" % a.work, 0) if path is None \
-            else ("STAGED %s 진행→완성 %s" % stage(byz, *path, at, now), 0)
+            else ("STAGED %s %s %s" % stage(byz, *path, at, now), 0)
     except (Unsure, subprocess.TimeoutExpired) as exc:
         word, rc = "판정 불가 %s" % (exc if isinstance(exc, Unsure) else "git 시간초과"), 3
     print(word)
