@@ -16,7 +16,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ENV = {**os.environ, "LC_ALL": "C"}
-CARD_RX = re.compile(r"(design/(?:teams/([^/]+)|([^/]+))/indices)/[^/]+/([^/]+)\.md$")
+CARD_RX = re.compile(r"(design/(?:teams/([^/]+)|([^/]+))/indices)/[^/]+(?:/\d{4}-\d{2})?/([^/]+)\.md$")
 SET_RX = re.compile(r"세트:\s*([0-9a-f]{40})")
 LAND_RX = re.compile(r"^\s*-\s*착지:\s*([0-9a-f]{7,40})\b")
 DONE_RX = re.compile(r"^\s*-\s*완료:\s*(\S+)\s*·")
