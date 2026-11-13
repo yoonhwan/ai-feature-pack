@@ -207,7 +207,10 @@ def _desk(root, team):  # r1862 명부 seats-<team>.json `_desk` 읽기만 · �
 
 
 def _bind(opts, ledger, key, ask):  # r1879 bind 성공 뒤에만 요청 등록 1회(id = post 의도 키) · 실패 = stderr 1줄 · 게시 결과 그대로
-    got = ledger.bind(key, opts["seat"])
+    try:  # R2 저장 예외도 거절과 같은 줄(게시 결과·rc 그대로)
+        got = ledger.bind(key, opts["seat"])
+    except Exception as exc:
+        got = {"state": "error", "k": type(exc).__name__, "has": ""}
     if got["state"] != binding.BOUND:  # 이미 있음 = 덮어쓰기 0 · 등록 0
         return sys.stderr.write("binding 실패 · 판정 불가 — %s %s\n" % (got.get("k"), got.get("has"))) and ""
     try:  # 정상 SlackReceive 를 넘긴다(receive=None = 생성자 AttributeError · DA 296903) · ack 호출 0 · 실 Slack 0
