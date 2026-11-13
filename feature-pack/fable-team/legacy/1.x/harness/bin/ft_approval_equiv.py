@@ -14,6 +14,8 @@ import os
 import re
 import subprocess
 import sys
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
 
 class Fail(Exception):
@@ -25,18 +27,21 @@ class No(Exception):
 
 
 MEMO = None   # r1815 --many: {git 인자: 결과} — share=True 호출(S·main 만 기대는 값)만 · 단건 = None(지금 그대로)
-RES = {}      # r1815 --many: {rev: commit sha|None} — cat-file --batch-check 1회로 미리 채움
+RES = {}      # r1815 --many: {rev: commit sha|None} — cat-file --batch-check 1회로 미리 채움(r1880: worker 시작 전 · 뒤로는 읽기만)
+LOCK = threading.Lock()   # r1880: MEMO get/set 잠금(같은 키 두 번 계산은 허용 · 값 같음)
 
 
 def run(repo, *a, ok=(0,), env=None, share=False):
-    p = MEMO.get(a) if share and MEMO is not None else None
+    with LOCK:
+        p = MEMO.get(a) if share and MEMO is not None else None
     if p is None:
         try:
             p = subprocess.run(["git", "-C", repo, "-c", "core.quotepath=off", *a], capture_output=True, timeout=30, env=env)
         except (OSError, subprocess.TimeoutExpired) as e:
             raise Fail("git %s 실행 실패: %s" % (a[0], e))
         if share and MEMO is not None:
-            MEMO[a] = p
+            with LOCK:
+                MEMO[a] = p
     if p.returncode not in ok:
         raise Fail("git %s 실패(rc=%d): %s" % (" ".join(a[:2]), p.returncode, p.stderr.decode("utf-8", "replace").strip()[:100]))
     return p
@@ -173,14 +178,24 @@ def many(repo, s, remote, target, cands):
         RES.update((x, g[0] if len(g) == 3 else None) for x, g in zip(revs, got) if p.returncode == 0 and len(got) > len(revs))
     except (OSError, subprocess.TimeoutExpired):
         pass   # 미리 채우기 실패 = 단건 resolve 그대로(판정 같음)
-    for a in cands:
-        try:
-            return print("%s %s" % (a, check(repo, a, s, remote, target)), flush=True) or 0
-        except No as e:
-            print("%s NOT-EQUIV %s" % (a, e), flush=True)
-        except Exception as e:
-            print("%s ERROR %s" % (a, e), flush=True)
+    # r1880: 후보 4개씩 동시(git = 하위 프로세스) · 출력은 후보 순서대로 · 첫 EQUIV 줄 뒤 0 → 대기 future 취소(실행 중 git 은 끝까지 기다림)
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        for f in [ex.submit(one, repo, a, s, remote, target) for a in cands]:
+            rc, line = f.result()
+            print(line, flush=True)
+            if rc == 0:
+                ex.shutdown(wait=False, cancel_futures=True)
+                return 0
     return 1
+
+
+def one(repo, a, s, remote, target):
+    try:
+        return 0, "%s %s" % (a, check(repo, a, s, remote, target))
+    except No as e:
+        return 1, "%s NOT-EQUIV %s" % (a, e)
+    except Exception as e:
+        return 1, "%s ERROR %s" % (a, e)
 
 
 if __name__ == "__main__":
