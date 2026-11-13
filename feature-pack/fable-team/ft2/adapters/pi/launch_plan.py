@@ -21,7 +21,10 @@ def plan_of(folder, tag, root, team, holder, role_argv, worktree, repo, env, bas
     path = os.path.abspath(worktree or os.path.join(root, ".fable-team", "teams", team, "worktrees", tag))
     pairs = [word for key, value in env.items() for word in ("-e", key + "=" + value)]
     return {"intent": os.path.join(folder, tag + ".intent"), "worktree": path,
-            "git": ["git", "-C", repo, "worktree", "add", "--detach", path, base],
+            "git": ["git", "-C", repo, "worktree", "add", "--no-checkout", "--detach", path, base],
+            # r1846: 빈 자리 → sparse(출처 = 1.x r835 ft_sparse_patterns · 남의 팀 design 제외) → checkout · 큰 리포도 25초 안
+            "sparse": ["git", "-C", path, "sparse-checkout", "set", "--no-cone", "/*", "!/design/teams/*/", "/design/teams/%s/" % team],
+            "checkout": ["git", "-C", path, "checkout", "-q"],
             "tmux": ["tmux", "new-session", "-d", "-s", holder, "-c", path] + pairs + ["pi"] + list(role_argv)}
 
 

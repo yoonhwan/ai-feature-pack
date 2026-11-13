@@ -3,7 +3,7 @@
 
 코어는 일을 기록할 뿐 좌석을 열지 않는다(`close_next`·`reopen` 의 «spawn·tmux = 호출자»). 그 호출자가 이 명령이다.
 ① journal·state 읽기만(잠금·쓰기 0)으로 «최신 dispatch»(holder · attempt)를 찾고 그 attempt 가 전달되지 않았으면 열지 않는다
-② 열기 의도를 O_EXCL 로 «한 번만» 만들어 두 번째 호출을 0 으로 만든다 ③ 의도가 잡히면 `git worktree add --detach` 1회 →
+② 열기 의도를 O_EXCL 로 «한 번만» 만들어 두 번째 호출을 0 으로 만든다 ③ 의도가 잡히면 git 3호출(worktree add --no-checkout --detach → sparse-checkout set → checkout · r1846) →
 `tmux new-session` 1회(-e K=V 5개 · 이미 뜬 서버의 새 pane 에도 env 가 간다). 실행권(claim·start)은 좌석 몫 ·
 상한은 두 값이다(r1769): git·로컬 하네스 25초 · tmux(바깥 호출) 7초 · `--repo` 를 주면 그 리포에서 worktree 를 만든다 ·
 실패는 의도 줄에 단계 + rc2 «복구 필요»(자동 재시도 0) + 복구 2줄 · 결과 낱말은 계약 8낱말 밖 0 · 부르는 법:
@@ -109,7 +109,7 @@ def failed(plan, env, step, detail, repo):
     """실패 = 의도 줄에 단계 1개 — 그 줄이 있으면 다시 불러도 바깥 호출 0 · 사유에 복구 2줄(A3)."""
     write_intent(plan["intent"], dict(env, state="failed", step=step, reason=detail, repo=repo, at=time.strftime(STAMP)))
     reason = "%s 실패: %s — 자동 재시도 0" % (step, detail or "진단 없음")
-    if step == "git":
+    if step.startswith("git"):
         reason += " · " + planner.recovery(repo, plan["worktree"])
     return dict(result=CORRUPT, opened=False, intent=plan["intent"], step=step, reason=reason), 2
 
@@ -124,7 +124,7 @@ def already(got, plan):
 
 
 def open_seat(given):
-    """(결과 dict, rc). 순서 = 최신 dispatch·전달 → 역할 → (dry-run) → 의도 1번 → git 1회 → tmux 1회."""
+    """(결과 dict, rc). 순서 = 최신 dispatch·전달 → 역할 → (dry-run) → 의도 1번 → git 3호출 → tmux 1회."""
     root, team, work = os.path.abspath(given["root"]), given["team"], given["work"]
     role = given.get("role") or "session"
     holder, attempt, why = seat(root, team, work)
@@ -141,7 +141,7 @@ def open_seat(given):
     if given.get("dry"):
         return dict(result=OK, dry_run=True, work=work, attempt=attempt, holder=holder, role=item["role"], repo=repo, base=base,
                     model=item["model"], effort=item["effort"], timeouts={"git": GIT_TIMEOUT, "tmux": TMUX_TIMEOUT},
-                    paths=plan, argv={"git": plan["git"], "tmux": plan["tmux"]}, env=env), 0
+                    paths=plan, argv={key: plan[key] for key in ("git", "sparse", "checkout", "tmux")}, env=env), 0
     os.makedirs(os.path.dirname(plan["intent"]), exist_ok=True)
     if not claimed(plan["intent"]):
         return already(read_intent(plan["intent"]), plan)
@@ -154,9 +154,10 @@ def open_seat(given):
     sha = detail                                # 마지막 확인 = 기준 ref → 40자 sha(실제 argv 끝 · 의도 base_sha)
     write_intent(plan["intent"], dict(env, state="opening", role=item["role"], repo=repo, base=base, base_sha=sha, at=time.strftime(STAMP)))
     os.makedirs(os.path.dirname(plan["worktree"]), exist_ok=True)
-    rc, detail = call(planner.at_sha(plan["git"], sha), repo, None, GIT_TIMEOUT)
-    if rc != 0:
-        return failed(plan, env, "git", detail, repo)
+    for step, argv in (("git add", planner.at_sha(plan["git"], sha)), ("git sparse", plan["sparse"]), ("git checkout", plan["checkout"])):
+        rc, detail = call(argv, repo, None, GIT_TIMEOUT)   # r1846: 호출마다 25초 · 실패 = 그 단계 이름 · 뒤 호출 0
+        if rc != 0:
+            return failed(plan, env, step, detail, repo)
     rc, detail = call(plan["tmux"], None, dict(os.environ, **env), TMUX_TIMEOUT)
     if rc != 0:
         return failed(plan, env, "tmux", detail, repo)
