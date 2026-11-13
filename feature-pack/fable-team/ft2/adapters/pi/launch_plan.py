@@ -9,6 +9,8 @@ import shutil
 
 DEFAULT_BASE = "origin/main"          # r1780 A1: 기본 가지 자동 판정 0(origin/HEAD 는 리포마다 다르다) · 이름 고정
 HEX = frozenset("0123456789abcdef")
+LAND = ("· 산출 = 가지 nano/<work> push + master 보고까지 · main·ops/main-base push·병합·착지·설치·심링크·가지 삭제 0(= master·h 몫) · "
+        "AGENTS.md «Landing the Plane» 은 이 좌석에 적용 0")   # r1900 첫 본문 끝 고정 1구(나노 직접 착지 실사건)
 
 
 def seat_env(root, team, work, holder, attempt):
@@ -35,7 +37,7 @@ def card_row(root, team):
 def first_body(env, row):
     """(body_mark, 첫 본문 1줄) — pi `[messages...]` 첫 메시지 · 카드 = 표의 repo + ref:path 그대로(r1895 · 바깥 호출 0)."""
     mark = "[발주] ft2 %s %s@%s" % (env["FT2_TEAM"], env["FT2_WORK"], env["FT2_ATTEMPT"])
-    return mark, "%s 좌석 %s — 카드 %s %s:%s/대기/%s.md 를 통째로 읽고 그대로 수행 · ft2_claim → ft2_start 부터 · 산출·막힘은 팀 master 에 mbox" % (mark, env["FT2_HOLDER"], *row, env["FT2_WORK"])
+    return mark, "%s 좌석 %s — 카드 %s %s:%s/대기/%s.md 를 통째로 읽고 그대로 수행 · ft2_claim → ft2_start 부터 · 산출·막힘은 팀 master 에 mbox " % (mark, env["FT2_HOLDER"], *row, env["FT2_WORK"]) + LAND
 
 
 def plan_of(folder, tag, root, team, holder, role_argv, worktree, repo, env, body, base=DEFAULT_BASE):
