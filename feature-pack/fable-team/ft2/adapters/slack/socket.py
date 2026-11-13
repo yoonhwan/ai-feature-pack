@@ -70,7 +70,7 @@ def _ws_connect(url):
 class Listener:  # 상주 수신기 1개 = 연결 1개 · 채널 쉼표 목록(첫 = 주 채널 · r1833 C1) · 팀 1곳 · 어댑터 5파일은 공개 API 로만
     def __init__(self, root, *, channel, app_token, bot_token, master, team="planner", users=(), bot_users=(),
                  web=web_api, connect=_ws_connect, sleep=time.sleep, mono=time.monotonic, notify=None, clock=None):
-        self.channels = tuple(c.strip() for c in str(channel).split(",") if c.strip())  # 묶기·게시 = 주 채널만
+        self.channels = tuple(c.strip() for c in str(channel).split(",") if c.strip())  # 묶기 = 목록 전부(r1861) · 게시 = 주 채널만
         self.channel, self.master, self.web, self.connect, self.sleep = self.channels[0], master, web, connect, sleep
         self.app_token, self.bot_token, self.mono, self.ws, self.envelope = app_token, bot_token, mono, None, None
         same = dict(team=team, clock=clock)
@@ -152,7 +152,7 @@ class Listener:  # 상주 수신기 1개 = 연결 1개 · 채널 쉼표 목록(�
     def route(self, event):  # 새 envelope·보충(Backfill 이 부름) 모두 이 길 — bind → route → dispatched 영수(R1)
         key = event and route.thread_key(event)
         human = event and not (event.get("bot_id") or event.get("subtype")) and event.get("user") in self.receive.allowed_users
-        if human and event.get("channel") == self.channel and not event.get("thread_ts") and not [
+        if human and event.get("channel") in self.channels and not event.get("thread_ts") and not [
                 row for row in self.bindings.entries() if row.get("key") == list(key)]:
             self.bindings.bind(key, self.master)  # 새 root 첫 binding(A5b) — 닫힌 적 있으면 묶지 않는다
         return self._receipt(key, self.router.route(event)) if event else self.router.route(None)
