@@ -232,6 +232,11 @@ if noop: sys.exit(0)
 write_record(rec, why)
 PY
 prc=$?
+# r1827 B3 — RETIRED/RESUME 뒤 열린 Slack thread 담당을 후계로(ft2 `slack handover-seat` 1회 · 7초 · 재시도 1 · FT2_CLI 주입) · 결과 줄 그대로 · rc 에 섞지 않는다 · --record-only 0
+if [ "$prc" -eq 0 ] && [ "$RECONLY" = 0 ]; then C2="${FT2_CLI:-$HOME/.claude/fable-team/ft2/versions/$(cat "$HOME/.claude/fable-team/ft2/CURRENT" 2>/dev/null)/core/cli.py}"; SB="SLACK-BINDING 판정 불가 - ft2 cli 없음 $C2"
+  [ -f "$C2" ] && for _t in 1 2; do SB="$(python3 -c 'import subprocess as s, sys
+try: r = s.run([sys.executable] + sys.argv[1:], capture_output=True, text=True, timeout=7); print(r.stdout.strip() or "SLACK-BINDING 판정 불가 - 출력 없음 rc=%d" % r.returncode); sys.exit(r.returncode)
+except s.TimeoutExpired: print("SLACK-BINDING 판정 불가 - 7초 초과"); sys.exit(1)' "$C2" slack handover-seat --root "${ROOT:-.}" --from "$OLD" --to "$NEW")" && break; done; printf '%s\n' "$SB"; fi
 # r448: 은퇴 뒤 옛 좌석의 «고아(ppid 1)» 백그라운드 루프만 정지(--orphans-only — 살아 있는 에이전트·pane 나무는 zombie-clean 이 재개 기록으로 닫는다) · 기록 모드·실패는 0 · r690 --defer-press: press 중이면 «미룸»(관측기 보존 · 다음 reap 이 소화 · CLOSE-FAIL 아님) · r939: 승계는 닫기가 아니다 — 재개 기록을 쓴 «뒤» `--handover <후계>` 로 부른다. «곧 끝나는 일»(ft-da-codex.sh·install.sh·ft-scratch-repo.sh·timeout 묶인 것·FT_BG_FINITE=1)은 죽이지 않고 넘기고, 넘김 목록은 재개 기록의 "handed" 칸에 남는다(ⓑ) · 감시 루프만 정지 — left≠0 판정 그대로.
 [ "$prc" -eq 0 ] && [ "$RECONLY" = 0 ] || exit "$prc"
 RO="$(bash "${FT_SEAT_REAP_BIN:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft-seat-reap.sh}" "$OLD" --orphans-only --defer-press --handover "$NEW" 2>&1)"; rrc=$?; RL="$(printf '%s\n' "$RO" | grep -oE 'left=[0-9?]+' | tail -1)"; printf '%s\n' "$RO" >&2
