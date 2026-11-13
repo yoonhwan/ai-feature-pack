@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_mbox_bridge_receipt_r1416.sh — r1416: 다른 루트로 간 쪽지(다리 · 직접 송신)도 보낸 쪽 루트 기록에 영수 1줄(Issue #7802).
-#   본문 = tests/scripts/test_mbox_bridge_receipt_r1416.py (B1~B6) · 기준판(origin/main comm) = B1 FAIL
+#   본문 = tests/scripts/test_mbox_bridge_receipt_r1416.py (B1~B6 + R1 기록 읽는 도구 3종) · 기준판(origin/main comm) = B1 FAIL
 #   + 변이 4종(사본 치환 → 그 시험 FAIL → 복구) + 줄수·설치 감시 목록·모드 644.
 # 격리: 실 우편함·실 tmux·실 /tmp 상태 0 — 임시 루트 2 · 가짜 roots.tsv · 가짜 tmux 만.
 # ★rc 는 «명령이 낸 값» 을 먼저 변수로 받는다★ (r1309 REWORK r1 반례 2).
@@ -53,7 +53,9 @@ mutate "3 실패 때 영수 씀" mbox_roots.py '        except (OSError, subproc
 ' b3
 mutate "4 직접 송신 영수 0" mbox_ops.py '    mbox_roots.home_receipt(to, frm, body, seq)' '    None' b6
 
-for f in mbox_roots.py mbox_receipt.py; do [ "$(wc -l <"$COMM/$f")" -le 200 ]; ck "200줄 이하 $f ($(wc -l <"$COMM/$f" | tr -d ' ')줄)" $?; done
+for f in mbox_ops.py mbox_roots.py mbox_receipt.py; do nl="$(wc -l <"$COMM/$f" | tr -d ' ')"; [ "$nl" -le 200 ]; ok=$?; ck "200줄 이하 $f (${nl}줄)" "$ok"; done
+for f in ft_board_mail.py ft-measure-net.sh; do cmp -s "$BIN/$f" "$HERE/../kit/fable-team/bin/$f"; ck "짝 사본 bin↔kit $f" $?; done
+[ "$(wc -l <"$HERE/../kit/slack-mirror/byz_mbox_slack_mirror.py")" -le 200 ]; ck "200줄 이하 byz_mbox_slack_mirror.py" $?
 grep -q '"mbox_receipt.py|.fable-team/comm/mbox_receipt.py"' "$COMM/check-drift.sh"; ck "설치 감시 목록에 comm/mbox_receipt.py" $?
 [ "$(stat -f %Lp "$HERE/test_mbox_bridge_receipt_r1416.sh")" = 644 ]; ck "새 시험 모드 644(셸)" $?
 [ "$(stat -f %Lp "$SC/test_mbox_bridge_receipt_r1416.py")" = 644 ]; ck "새 시험 모드 644(py)" $?

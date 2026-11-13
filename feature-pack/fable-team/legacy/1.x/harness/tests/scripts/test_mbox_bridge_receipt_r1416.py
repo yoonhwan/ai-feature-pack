@@ -3,7 +3,7 @@
 실사건 = planner 가 aifp·kakao 좌석 [HIL] 에 «회신 #N» 을 보냈는데 ft-decision-count 가 «30분 넘은 팀 대기» 로 셈
   (회신 셈 answered_seqs = 보낸 쪽 루트 기록의 «from = 내 계보» 줄 · 다리는 받는 쪽 루트에만 줄을 썼다).
 세계 = 임시 루트 2개(byz 꼴 = planner 명부 · kakao 꼴 = 하위 폴더 루트) + 가짜 roots.tsv + 가짜 tmux(doorbell).
-환경: R1416_COMM(시험할 comm) · R1416_BIN(answered_seqs 를 부를 bin) — 셸 짝 tests/test_mbox_bridge_receipt_r1416.sh 가 변이 사본을 넣는다.
+환경: R1416_COMM(시험할 comm) · R1416_BIN(answered_seqs·상황판·측정 bin) · R1416_MIRROR(Slack 미러 폴더) — 셸 짝 tests/test_mbox_bridge_receipt_r1416.sh 가 변이 사본을 넣는다.
 격리: 실 우편함·실 tmux·실 /tmp 상태·실 좌석 0 · HOME 도 임시.
 """
 import json
@@ -20,6 +20,7 @@ from real_state_guard import guard_begin_module  # noqa: F401  r541: 실 상태 
 HERE = Path(__file__).resolve().parents[2]
 COMM = Path(os.environ.get("R1416_COMM") or HERE / "comm")
 BIN = Path(os.environ.get("R1416_BIN") or HERE / "bin")
+MIRROR = Path(os.environ.get("R1416_MIRROR") or HERE / "kit/slack-mirror")
 PLANNER = "byz-planner-master-claude#150"
 TEAMS_BYZ = "| 팀 | 폴더 | 상태 | 명부 |\n|---|---|---|---|\n| planner | design/planner/ | 현역 | seats-planner.json |\n"
 TEAMS_KAKAO = "| 팀 | 폴더 | 상태 | 명부 |\n|---|---|---|---|\n| kakao | design/kakao/ | 현역 | seats.json |\n"
@@ -149,3 +150,24 @@ def test_b6_direct_foreign_mailbox_reply_counts(w: World) -> None:
     rec = w.receipts(w.byz)
     assert len(rec) == 1 and rec[0]["bridged"] == "kakao" and "seq" not in rec[0], rec
     assert w.rows(w.byz, "mailbox.jsonl") == []
+
+
+# ── R1(DA #299004) — 영수 줄(seq 칸 0)이 기록을 읽는 도구를 깨지 않는다: 상황판 우편 · Slack 미러 · 측정
+def test_r1_receipt_keeps_log_readers_working(w: World) -> None:
+    assert w.send(w.byz, "byz-harness-master-claude#150", PLANNER, "상태 보고").returncode == 0
+    assert w.send(w.byz, "kakao-master#1", PLANNER, "회신 #7 진행하세요").returncode == 0
+    assert len(w.receipts(w.byz)) == 1
+    log = w.comm(w.byz) / "mailbox.log.jsonl"
+    code = (f"import sys, json; from pathlib import Path; sys.path.insert(0, {str(BIN)!r}); from ft_board_mail import Mail\n"
+            f"m = Mail(Path({str(w.byz)!r})); print(json.dumps([m.err, [r['seq'] for r in m.recs]]))")
+    got = subprocess.run([sys.executable, "-c", code], env=w.env, capture_output=True, text=True, timeout=30)
+    assert got.returncode == 0, got.stderr
+    err, seqs = json.loads(got.stdout)
+    assert err is None and len(seqs) == 1, (err, seqs)
+    code = (f"import sys; from pathlib import Path; sys.path.insert(0, {str(MIRROR)!r}); import byz_mbox_slack_mirror as x\n"
+            f"print(len(x.read_rows(Path({str(log)!r}))))")
+    got = subprocess.run([sys.executable, "-c", code], env=w.env, capture_output=True, text=True, timeout=30)
+    assert got.returncode == 0 and got.stdout.strip() == "1", got.stdout + got.stderr
+    got = subprocess.run(["bash", str(BIN / "ft-measure-net.sh"), "succession", "2000-01-01T00:00:00", "2099-12-31T23:59:59"],
+                         env={**w.env, "FT_ROOT": str(w.byz)}, capture_output=True, text=True, timeout=30)
+    assert got.returncode == 0, got.stderr
