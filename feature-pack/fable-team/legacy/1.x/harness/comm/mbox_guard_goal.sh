@@ -20,10 +20,11 @@ _goal_grace_note() {
 }
 
 _goal_block_of() { awk '/^★골 표 A6 \(/{f=1} f{print} /^★\/골 표★$/{f=0}' "$1"; }  # 파일에서 마커 블록만
+_goal_trim() { awk '/^★골 표 A6 \(/{f=1} !f{print} /^★\/골 표★$/{f=0}'; }  # r1830 G3: 마커 블록만 뗀다(나머지 줄 그대로)
 
 # _guard_goal_lint <본문> <발신자> [첨부 파일] — rc 3 = REJECT. 첨부가 있고 대상이면 GUARD_FILE·GUARD_TMP 를 정한다.
 _guard_goal_lint() {
-  local body="$1" from="${2:-}" attach="${3:-}" first tool res rc why text
+  local body="$1" from="${2:-}" attach="${3:-}" first tool res rc why text coord=""
   first="${body%%$'\n'*}"; first="${first#"${first%%[![:space:]]*}"}"
   printf '%s' "$first" | grep -qE "$GOAL_HEADS" || return 0
   [ -n "$from" ] || return 0
@@ -31,14 +32,18 @@ _guard_goal_lint() {
   [ "$rc" = 1 ] && return 0
   [ "$rc" = 0 ] || { _goal_refuse "$from" "$first" "발신자 대상 여부 판정 불가(명부 읽기 실패)"; return $?; }
   tool="$(_ft_live_bin ft-goal-table.sh 2>&1)" || { _goal_refuse "$from" "$first" "판정기 없음($tool)"; return $?; }
+  [ -n "${GOAL_COORD_HEADS:-}" ] && printf '%s' "$first" | grep -qE "$GOAL_COORD_HEADS" && coord=1   # r1830 G2 좌표 머리 = `check - --coord-only`(블록 요구 0)
+  [ -n "$coord" ] && case "$body" in *"★골 표 A6 ("*) text="$(printf '%s\n' "$body" | _goal_trim)"   # G3 붙은 표는 떼고 적재(GUARD_BODY)
+    echo "GOAL-TRIM $(( $(printf '%s' "$body" | wc -c) - $(printf '%s' "$text" | wc -c) ))B" >&2; body="$text"; GUARD_BODY="$text";; esac
   if [ -n "$attach" ]; then
     GUARD_TMP="$(mktemp -d "$GUARD_STATE/goal-relay.XXXXXX" 2>/dev/null)" && [ -f "$attach" ] && cp "$attach" "$GUARD_TMP/$(basename "$attach")" 2>/dev/null \
       && GUARD_FILE="$GUARD_TMP/$(basename "$attach")" && [ -r "$GUARD_FILE" ] || { GUARD_FILE=""; _goal_refuse "$from" "$first" "relay 첨부 사본 생성·읽기 실패($attach)"; return $?; }
+    if [ -n "$coord" ]; then { ! grep -q '^★골 표 A6 (' "$GUARD_FILE" || { _goal_trim < "$GUARD_FILE" > "$GUARD_FILE.t" && mv "$GUARD_FILE.t" "$GUARD_FILE"; }; }; text="$body"; else   # G3 사본만 뗀다(원본 손 0)
     res="$(bash "$tool" check - --block-only < "$GUARD_FILE" 2>&1)"; rc=$?
     [ "$rc" = 0 ] || { _goal_refuse "$from" "$first" "첨부 사본: ${res#REJECT 골 없음 — }"; return $?; }
-    text="$(_goal_block_of "$GUARD_FILE")"$'\n'"$body"   # 좌표는 요약에서만(첨부의 좌표 줄은 세지 않는다)
+    text="$(_goal_block_of "$GUARD_FILE")"$'\n'"$body"; fi   # 좌표는 요약에서만(첨부의 좌표 줄은 세지 않는다)
   else text="$body"; fi
-  res="$(printf '%s' "$text" | bash "$tool" check - 2>&1)"; rc=$?
+  res="$(printf '%s' "$text" | bash "$tool" check - ${coord:+--coord-only} 2>&1)"; rc=$?
   if [ "$rc" = 0 ]; then _goal_grace_note "$res"; return 0; fi
   why="${res#REJECT 골 없음 — }"; [ "$rc" = 3 ] || why="판정기 실행 실패 rc=$rc ${res:0:80}"
   _goal_refuse "$from" "$first" "$why"
