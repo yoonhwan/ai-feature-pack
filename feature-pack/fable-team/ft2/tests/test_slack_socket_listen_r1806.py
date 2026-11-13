@@ -37,6 +37,7 @@ class Band:
     """대역 = ws 서버(연결마다 대본 1개) + Web API(호출 계수). 확인이 오는 순간 receive.jsonl 상태를 찍는다."""
     def __init__(self, root, scripts):
         self.root, self.scripts, self.acks, self.calls, self.posts, self.sleeps = root, list(scripts), [], [], [], []
+        self.replies = []  # 보충 대역 응답(conversations.replies)
         self.server = serve(self._handler, "127.0.0.1", 0)
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
         self.url = "ws://127.0.0.1:%d" % self.server.socket.getsockname()[1]
@@ -53,7 +54,7 @@ class Band:
         if method == "chat.postMessage":
             self.posts.append(dict(params))
             return {"ok": True, "ts": "1800000099.%06d" % len(self.posts)}
-        return {"ok": True, "messages": [], "has_more": False}
+        return {"ok": True, "messages": self.replies, "has_more": False}
 
 @pytest.fixture
 def band_of():
@@ -71,10 +72,8 @@ def _listener(sock, root, band, **extra):
                          mono=extra.pop("mono", lambda: 0.0), clock=lambda: "2026-11-13T00:00:00", **extra)
 
 def test_1_credentials_undecidable_without_values(tmp_path):
-    seats = tmp_path / "seats.json"
-    seats.write_text(json.dumps({"_master": MASTER}), encoding="utf-8")
-    only_bot = tmp_path / "only-bot.env"
-    only_bot.write_text("SLACK_BOT_TOKEN=xoxb-SECRET-1\nSLACK_BOT_USER_ID=UBOT\n", encoding="utf-8")
+    (seats := tmp_path / "seats.json").write_text(json.dumps({"_master": MASTER}), encoding="utf-8")
+    (only_bot := tmp_path / "only-bot.env").write_text("SLACK_BOT_TOKEN=xoxb-SECRET-1\nSLACK_BOT_USER_ID=UBOT\n", encoding="utf-8")
     for env in (tmp_path / "none.env", only_bot):
         out = subprocess.run([sys.executable, CLI, "slack", "listen", "--root", str(tmp_path), "--team", "planner",
                               "--channel", C, "--env", str(env), "--owner-seats", str(seats)],
@@ -90,8 +89,7 @@ def test_2_rival_consumer_rc4(tmp_path, band_of):
 def test_3_new_root_bind_receipt_then_role_reply(tmp_path, band_of):
     sock, ts = _sock(), "1800000001.000100"
     band = band_of(tmp_path, [[HELLO, _env("E1", _msg(ts))]])
-    listener = _listener(sock, tmp_path, band)
-    assert listener.run(sessions=1) == 0
+    assert (listener := _listener(sock, tmp_path, band)).run(sessions=1) == 0
     assert [(b["state"], b["seat"], b["gen"]) for b in _rows(tmp_path, "bindings.jsonl")] == [("bound", MASTER, 1)]
     assert band.acks == [("E1", ["received"])]  # 기록 → 확인 → 입구
     assert [r["state"] for r in _rows(tmp_path, "receive.jsonl")] == ["received", "dispatched"]
@@ -100,15 +98,13 @@ def test_3_new_root_bind_receipt_then_role_reply(tmp_path, band_of):
     assert posted == ["receipt:" + _command % ts]
     assert len(band.posts) == 1 and band.posts[0]["thread_ts"] == ts and "접수 " in band.posts[0]["text"]
     key = sock.binding.thread_key(W, C, ts)  # ③″ 영수 뒤 같은 key·업무 command 역할 답 = posted
-    assert listener.publish.reply(key, _command % ts, "역할 답", seat=MASTER, gen=1)["state"] == "posted"
-    assert len(band.posts) == 2
+    assert listener.publish.reply(key, _command % ts, "역할 답", seat=MASTER, gen=1)["state"] == "posted" and len(band.posts) == 2
 
 def test_3b_closed_thread_no_bind_no_receipt(tmp_path, band_of):
     sock, ts = _sock(), "1800000002.000100"
     key = sock.binding.thread_key(W, C, ts)
     ledger = sock.binding.ThreadBinding(str(tmp_path), "planner")
-    ledger.bind(key, MASTER)
-    ledger.close(key)
+    ledger.bind(key, MASTER), ledger.close(key)
     band = band_of(tmp_path, [[HELLO, _env("E2", _msg(ts))]])
     _listener(sock, tmp_path, band).run(sessions=1)
     assert [b["state"] for b in _rows(tmp_path, "bindings.jsonl")] == ["bound", "closed"]
@@ -118,8 +114,7 @@ def test_3b_closed_thread_no_bind_no_receipt(tmp_path, band_of):
 def test_4_redelivery_duplicate_no_publish(tmp_path, band_of):
     ts = "1800000003.000100"
     band = band_of(tmp_path, [[HELLO, _env("E3", _msg(ts)), _env("E4", _msg(ts))]])
-    listener = _listener(_sock(), tmp_path, band)
-    listener.run(sessions=1)
+    (listener := _listener(_sock(), tmp_path, band)).run(sessions=1)
     assert [a[0] for a in band.acks] == ["E3", "E4"]
     assert [r["state"] for r in _rows(tmp_path, "receive.jsonl")] == ["received", "dispatched", "duplicate"]
     assert [p["state"] for p in _rows(tmp_path, "publish.jsonl")] == ["intent", "attempt", "posted"]
@@ -130,8 +125,7 @@ def test_5_bot_foreign_slash_ack_only(tmp_path, band_of):
     band = band_of(tmp_path, [[HELLO, _env("E5", _msg("1800000004.000100", bot_id="B1", user=BOT)),
                                _env("E6", _msg("1800000005.000100", channel="COTHER")),
                                {"type": "slash_commands", "envelope_id": "E7", "payload": {"command": "/x"}}]])
-    listener = _listener(_sock(), tmp_path, band)
-    listener.run(sessions=1)
+    (listener := _listener(_sock(), tmp_path, band)).run(sessions=1)
     assert [a[0] for a in band.acks] == ["E5", "E6", "E7"]
     assert [r["state"] for r in _rows(tmp_path, "receive.jsonl")] == ["ignored", "ignored"]
     assert band.posts == [] and _rows(tmp_path, "bindings.jsonl") == [] and listener.receive.client.records() == []
@@ -139,13 +133,21 @@ def test_5_bot_foreign_slash_ack_only(tmp_path, band_of):
     assert "버림 slash_commands" in open(log, encoding="utf-8").read()
 
 def test_6_disconnect_reconnect_backfill_once(tmp_path, band_of):
-    sock = _sock()
-    sock.binding.ThreadBinding(str(tmp_path), "planner").bind(sock.binding.thread_key(W, C, "1800000006.0001"), MASTER)
+    sock, root_ts = _sock(), "1800000006.000100"
+    sock.binding.ThreadBinding(str(tmp_path), "planner").bind(sock.binding.thread_key(W, C, root_ts), MASTER)
     band = band_of(tmp_path, [[HELLO, {"type": "disconnect", "reason": "refresh_requested"}], [HELLO]])
+    band.replies = [_msg("1800000006.000200", thread_ts=root_ts)]  # 끊긴 사이 새 사람 답글 1
     assert _listener(sock, tmp_path, band).run(sessions=2) == 0
     assert [r["reason"] for r in _rows(tmp_path, "backfill.jsonl")] == ["reconnect"]
-    assert band.calls == ["apps.connections.open", "apps.connections.open", "conversations.replies"]
-    assert band.sleeps == [1]
+    assert band.calls == ["apps.connections.open", "apps.connections.open", "conversations.replies", "chat.postMessage"]
+    assert band.sleeps == [1] and [p["thread_ts"] for p in band.posts] == [root_ts]  # 보충 dispatched → 영수 1(R1)
+    assert [p["command"] for p in _rows(tmp_path, "publish.jsonl") if p["state"] == "posted"] == [
+        "receipt:" + _command % "1800000006.000200"]
+
+def test_6b_failed_connects_wait_1_then_2(tmp_path, band_of):
+    (listener := _listener(_sock(), tmp_path, band := band_of(tmp_path, []))).web = lambda method, *rest, **kw: (
+        band.calls.append(method), (_ for _ in ()).throw(OSError("대역 연결 실패")))
+    assert listener.run(sessions=3) == 0 and band.sleeps == [1, 2] and len(band.calls) == 3  # R2 계약 1·2·4…
 
 def test_7_idle_61s_no_reads_no_model(tmp_path, band_of):
     now, band = [0.0], band_of(tmp_path, [])
@@ -154,26 +156,26 @@ def test_7_idle_61s_no_reads_no_model(tmp_path, band_of):
         now[0] += 1.0
         listener.on_idle()
     assert band.calls == [] and _rows(tmp_path, "receive.jsonl") == []
-    source = open(SOCKET, encoding="utf-8").read()
-    assert not re.search(r"^\s*(import|from)\s+(anthropic|openai|litellm|claude_agent_sdk|google)", source, re.M)
+    assert not re.search(r"^\s*(import|from)\s+(anthropic|openai|litellm|claude_agent_sdk|google)",
+                         open(SOCKET, encoding="utf-8").read(), re.M)
 
 def test_8_restart_recover_lookup_first(tmp_path, band_of):
     sock, ts = _sock(), "1800000007.000100"
+    sock.binding.ThreadBinding(str(tmp_path), "planner").bind(sock.binding.thread_key(W, C, ts), MASTER)
     sock.receive.intake.Intake(str(tmp_path), "planner").submit(_command % ts, "x", {})
     path = os.path.join(str(tmp_path), ".fable-team", "teams", "planner", "slack", "receive.jsonl")
-    os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as handle:  # 입구 영수까지 갔고 판정 줄 전에 죽은 꼴
         handle.write(json.dumps({"state": "received", "command": _command % ts, "key": [W, C, ts], "attempts": 1,
                                  "user": U, "text": "x", "acked": True}) + "\n")
-    _listener(sock, tmp_path, band_of(tmp_path, [[HELLO]])).run(sessions=1)
+    _listener(sock, tmp_path, band := band_of(tmp_path, [[HELLO]])).run(sessions=1)
     assert [(r["state"], r.get("via")) for r in _rows(tmp_path, "receive.jsonl")] == [
         ("received", None), ("dispatched", "lookup")]
     assert sock.receive.intake.Intake(str(tmp_path), "planner").lookup(_command % ts).attempt == _command % ts + "#a1"
+    assert [p["thread_ts"] for p in band.posts] == [ts]  # 복구 dispatched → 같은 영수 게시 1(R1)
 
 def test_9_plist_template(tmp_path):
     home = tmp_path / "ft2"
-    (home / "versions" / "9.9.9" / "core").mkdir(parents=True)
-    (home / "CURRENT").write_text("9.9.9\n", encoding="utf-8")
+    (home / "versions" / "9.9.9" / "core").mkdir(parents=True), (home / "CURRENT").write_text("9.9.9\n")
     (home / "versions" / "9.9.9" / "core" / "cli.py").write_text(
         "import json, sys\nprint(json.dumps(sys.argv[1:]))\n", encoding="utf-8")
     text = open(PLIST, encoding="utf-8").read()
@@ -182,8 +184,7 @@ def test_9_plist_template(tmp_path):
         text = text.replace(name, value)
     (out := tmp_path / "com.byz.ft2-slack-listen.plist").write_text(text, encoding="utf-8")
     assert subprocess.run(["plutil", "-lint", str(out)], capture_output=True).returncode == 0
-    data = plistlib.loads(text.encode("utf-8"))
-    args = data["ProgramArguments"]
+    args = (data := plistlib.loads(text.encode("utf-8")))["ProgramArguments"]
     assert data["Label"] == "com.byz.ft2-slack-listen" and data["KeepAlive"] is True and os.path.isabs(args[0])
     assert not TOKENS.search(text) and "@" not in "".join(args)
     assert data["StandardOutPath"] == str(tmp_path) + "/.fable-team/teams/planner/slack/listen.log"
@@ -191,8 +192,7 @@ def test_9_plist_template(tmp_path):
     assert json.loads(ran.stdout)[:4] == ["slack", "listen", "--root", str(tmp_path)]  # CURRENT 버전 cli
 
 def test_listen_log_rotation_cap(tmp_path, monkeypatch):
-    sock = _sock()
-    monkeypatch.setattr(sock, "SEG", 200), monkeypatch.setattr(sock, "TOTAL", 600)
+    monkeypatch.setattr(sock := _sock(), "SEG", 200), monkeypatch.setattr(sock, "TOTAL", 600)
     log = sock.listen_log(str(tmp_path))
     for index in range(80):
         log("줄 %03d" % index)
