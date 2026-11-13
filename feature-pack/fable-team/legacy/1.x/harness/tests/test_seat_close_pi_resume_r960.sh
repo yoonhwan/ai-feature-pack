@@ -31,7 +31,7 @@ chk "ft-seat-retire.sh ≤ 200줄" "$([ "$(wc -l < "$BIN/ft-seat-retire.sh")" -l
 chk "ft-seat-close.sh ≤ 120줄" "$([ "$(wc -l < "$BIN/ft-seat-close.sh")" -le 120 ] && echo yes || echo no)" yes
 
 mkdir -p "$T/bin" "$T/home"
-cp "$BIN/ft-seat-close.sh" "$BIN/ft-seat-retire.sh" "$BIN/ft_seat_bind.py" "$BIN/ft_roster_lib.py" "$BIN/ft-harness-root.sh" "$BIN/ft-verdict-row.sh" "$BIN/ft-team-lib.sh" "$T/bin/"   # r1481: --verdict 원장 관문이 쓰는 도우미 2종
+cp "$BIN/ft-seat-close.sh" "$BIN/ft-seat-retire.sh" "$BIN/ft_seat_bind.py" "$BIN/ft_roster_lib.py" "$BIN/ft_seat_pi.py" "$BIN/ft_seat_codex.py" "$BIN/ft_seat_pi_turn.py" "$BIN/ft-harness-root.sh" "$BIN/ft-verdict-row.sh" "$BIN/ft-team-lib.sh" "$T/bin/"   # r1481: --verdict 원장 관문이 쓰는 도우미 2종
 mkdir -p "$T/bin"; printf '#!/bin/sh\necho "QUIESCED $1 stub left=0"\n' > "$T/bin/ft-seat-quiesce.sh"   # r1113 자식 정리 = 같은 bin 스텁(실 프로세스 0)
 printf '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n' > "$T/bin/ft-seat-reap.sh"
 cat > "$T/bin/tmux" <<'EOF'

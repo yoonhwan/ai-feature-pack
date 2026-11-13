@@ -195,7 +195,7 @@ open(sys.argv[2], "w", encoding="utf-8").write(t[:i] + old_ok + t[j:])
 PY
 ! cmp -s "$MG" "$T/mut1.sh"; ck "변이 1 적용됨(가드가 merge-ok 를 다시 읽음)" $?
 ! axis_a "$T/mut1.sh"; ck "변이 1 → ⓐ 실패(검출)" $?
-mutate "$MG" "$T/mut2.sh" " and lines[0] in logged" ""; ! cmp -s "$MG" "$T/mut2.sh"; ck "변이 2 적용됨(log 대조 삭제)" $?
+mutate "$MG" "$T/mut2.sh" " and lines[0] in self.logged" ""; ! cmp -s "$MG" "$T/mut2.sh"; ck "변이 2 적용됨(log 대조 삭제)" $?
 ! axis_c "$T/mut2.sh"; ck "변이 2 → ⓒ 실패(검출)" $?
 mutate "$SG" "$T/mut3.sh" "autonomy-merge-approved|" ""; ! cmp -s "$SG" "$T/mut3.sh"; ck "변이 3 적용됨(PROT 의 approved 삭제)" $?
 ! axis_d "$T/mut3.sh"; ck "변이 3 → ⓓ 실패(검출)" $?

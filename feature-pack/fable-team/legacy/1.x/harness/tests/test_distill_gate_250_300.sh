@@ -46,7 +46,9 @@ cases() { # cases <이름> <훅>
     && ok "$n ⓑ 260k warn → 경고 1 (250k·300k 표기)" || bad "$n ⓑ rc=$RC out=$(cat "$TMP/out")"
 
   transcript 290000; run "$h" block Task "implement feature x"
-  [ "$RC" -eq 0 ] && ok "$n ⓒ 290k block Task → 허용" || bad "$n ⓒ rc=$RC err=$(cat "$TMP/err")"
+  { [ "$RC" -eq 2 ] && grep -q '새 일 수락 금지' "$TMP/err"; } && ok "$n ⓒ 290k block Task → 막음(r1429 새 일 금지)" || bad "$n ⓒ rc=$RC err=$(cat "$TMP/err")"
+  FT_DISTILL_NEWWORK=300000 run "$h" block Task "implement feature x"
+  [ "$RC" -eq 0 ] && ok "$n ⓒ′ NEWWORK=300000 · 290k Task → 허용" || bad "$n ⓒ′ rc=$RC err=$(cat "$TMP/err")"
 
   transcript 310000; run "$h" block Task "implement feature x"
   { [ "$RC" -eq 2 ] && grep -q '300k 절대값' "$TMP/err"; } && ok "$n ⓓ 310k block Task → exit 2" || bad "$n ⓓ rc=$RC err=$(cat "$TMP/err")"

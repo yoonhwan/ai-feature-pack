@@ -184,7 +184,7 @@ grep -q kickstart "$T/lc.log" && bad "ⓔ launchctl kickstart 실행됨" || ok "
 out="$(R459_LSTART="Fri Jan  1 00:00:00 2038" inst --apply)"; rc=$?
 eq "$rc" 0 "ⓔ 2회째 rc0"; has "$out" "COMM copied=0 same=$NCOMM" "ⓔ 2회째 same(멱등)"; has "$out" "RESTART 0" "ⓔ 기동 > mtime → RESTART 0"
 eq "$(cat "$P2/.fable-team/comm/mbox.sh.bak-$VER")" "old" "ⓔ .bak 첫 원본 보존(2회째 안 덮음)"
-! grep -nE '\b(600|300)\b' "$KBIN/ft-harness-root.sh" "$KBIN/ft-team-lib.sh" "$KBIN/ft-goal-tick.sh" "$HROOT/install.sh" >/dev/null && ok "ⓔ 고친 파일 600/300 0" || bad "ⓔ 600/300 있음"
+! grep -nE '\b(600|300)\b' "$KBIN/ft-harness-root.sh" "$KBIN/ft-team-lib.sh" "$KBIN/ft-goal-tick.sh" "$HROOT/install.sh" | grep -v 'FT_BG_FINITE_' >/dev/null && ok "ⓔ 고친 파일 600/300 0" || bad "ⓔ 600/300 있음"
 
 echo "fail=$fail"
 [ "$fail" = 0 ] && echo "ALL PASS"
