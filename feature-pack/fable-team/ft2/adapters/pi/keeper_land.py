@@ -3,6 +3,7 @@
 카드 후보 = TEAMS.md 의 팀 폴더(쌍둥이 포함) × indices/{진행,대기,완성} × BYZ ref(ops/main-base → main).
 읽기는 `git ls-tree`·`git show` 뿐(작업 트리 0). 착지 = 마지막 `- 착지: <sha40>` 줄 → 팩 origin/main ∨ BYZ 두 ref 의 조상.
 """
+import datetime
 import importlib.util
 import os
 import re
@@ -138,9 +139,25 @@ class Landing:
         runtime = PROJ.runtime_path(self.root, team)
         recs = PROJ.journal.Journal(runtime, rec=PROJ.record).records()
         att = ([r.get("attempt") for r in recs if r.get("kind") == "dispatch" and r.get("work") == work] or [None])[-1]
-        base = self.read_json(os.path.join(runtime, "launch", "%s@%s.intent" % (work, att))).get("base_sha") if att else None
+        intent = self.read_json(os.path.join(runtime, "launch", "%s@%s.intent" % (work, att))) if att else {}
+        base = intent.get("base_sha")
+        have = self.git(repo, "cat-file", "-e", base)[0] if base else 0   # r1910 rc1 = 명시적 missing(다른 repo) · 그 밖 = git 실패
+        if have == 1:
+            return self.pre_attempt_time(repo, sha, intent.get("at"))
+        if have != 0:
+            return "판정 불가 · 옛 착지 대조 cat-file rc %s" % have
         rc = self.git(repo, "merge-base", "--is-ancestor", sha, base)[0] if base else 1
         return "옛 착지 줄(attempt 전) " + sha[:8] if rc == 0 else "" if rc == 1 else "판정 불가 · 옛 착지 대조 git rc %s" % rc
+
+    def pre_attempt_time(self, repo, sha, at):
+        """r1910 — 다른 repo base · 착지 committer 시각(%cI) vs intent at(로컬 naive → 로컬 aware) 순간 비교 · 착지 ≥ at = 진행."""
+        rc, out, _ = self.git(repo, "log", "-1", "--format=%cI", sha)
+        try:
+            landed, opened = (datetime.datetime.fromisoformat(v) for v in (out.strip() if rc == 0 else None, at))
+            old = landed < opened.astimezone()   # naive at = 로컬 시각 → aware · 문자열 비교 0
+        except (TypeError, ValueError):
+            return "판정 불가 · 옛 착지 시각 대조 git rc %s · at %r" % (rc, at)
+        return "옛 착지 줄(attempt 전 · 다른 repo 시각) " + sha[:8] if old else ""
 
     def done(self, team, work):
         proj = self.project(self.root, team)
