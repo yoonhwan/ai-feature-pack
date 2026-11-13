@@ -259,7 +259,7 @@ def _run_sync(step: str, repo: str, budget: float) -> tuple[str, int]:
     return (lines[-1] if lines else f"rc={done.returncode} 출력 없음"), done.returncode
 
 
-ADVANCE_BUDGET_S = 30.0  # r1373 — --advance 단계 바깥 상한 = 스크립트 checkout 상한 25초 + 판정 여유 5초(안쪽 상한이 먼저 끊는다)
+ADVANCE_BUDGET_S = 25.0  # r1373 DA#10 R2 — --advance 단계 바깥 상한 = 로컬 25초 · 스크립트가 같은 25초 마감에서 유예 3초를 빼 checkout 상한을 잡아 안쪽이 먼저 끝난다
 FETCH_TIMEOUT_S = 30.0  # r847 — 이 경로(뉴스 원장 ref) 시도당 상한(오빠 «뉴스는 30초로 상향» · 하드 룰 12 «크기 아는 배치» 70초 천장 안 · 공용 fm_t7 7초는 그대로)
 FETCH_BUDGET_S = 70.0  # r569 — 재시도까지 합친 마감(전역 하드 룰 12 · env 로 크게 줘도 여기서 자름)
 LS_REMOTE_TIMEOUT_S = 7.0  # r847 — 원격 main sha 묻기·로컬 ref 조회(7초 룰)

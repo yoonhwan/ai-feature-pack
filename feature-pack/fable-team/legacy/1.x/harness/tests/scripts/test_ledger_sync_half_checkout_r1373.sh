@@ -8,6 +8,9 @@
 # S6 (DA#10 R1) NEW 에 없는 미추적이 NEW 경로와 조상·자손 충돌 → rc3 · checkout 0 · 미추적 보존
 #    a: NEW 에 파일 news 추가 + tracked.txt 수정(흔적) ↔ 작업 트리 news/local.html 미추적
 #    b: NEW 에 news2/a.md 추가 + tracked.txt 수정(흔적) ↔ 작업 트리 파일 news2 미추적
+# S7 (DA#10 R2) advance 마감 25초: 바깥 sync_repo advance timeout ≤ 25(S2 py) · 가짜 경과(FT_LEDGER_ADV_ELAPSED) 주입
+#    a: 남은 시간 부족(경과 22) → checkout 호출 0 · rc5 DEFER · HEAD·작업 트리 그대로(다음 회차 RESUME 가능)
+#    b: 충분(경과 10) → checkout timeout = 25 − 10 − SECONDS(0~1) − 유예 3 = 11~12 · RESUME 정상
 # 픽스처 = 임시 bare origin · 실 사본·실 원격 0 · 실제 kill 0 · sleep 0 · 반쯤 checkout = 작업 트리만 새 판 파일로 덮고 index·HEAD 는 옛 판
 set -uo pipefail
 for v in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY; do unset "$v"; done
@@ -83,7 +86,7 @@ def go(md):
 bad = 0
 r = go("ok")
 step = [("--fetch-only" in a, "--advance" in a, t) for a, t in calls]
-if len(step) == 2 and step[0][0] and step[0][2] == m.FETCH_BUDGET_S and step[1][1] and step[1][2] and r == "":
+if len(step) == 2 and step[0][0] and step[0][2] == m.FETCH_BUDGET_S and step[1][1] and step[1][2] and step[1][2] <= 25 and r == "":
     print("PASS S2 sync_repo = fetch 단계(상한 %.0f) + advance 단계(상한 %s)" % (m.FETCH_BUDGET_S, step[1][2]))
 else:
     print("FAIL S2 두 단계 아님 calls=%s" % step); bad += 1
@@ -128,6 +131,22 @@ for k in a b; do
   OUT="$(run "$d")"; RC=$?
   case "$OUT" in "ERROR ledger 사본 "*) F=1;; *) F=0;; esac
   [ "$RC" = 3 ] && [ "$F" = 1 ] && [ "$(git -C "$d" rev-parse HEAD)" = "$P" ] && [ "$(cat "$KEEP" 2>/dev/null)" = html ] && ok "S6$k 미추적 조상·자손 충돌 → rc3 · checkout 0 · 보존" || bad "S6$k rc=$RC out=$OUT"
+done
+
+# S7 — timeout 대역(PATH 앞)이 인자를 기록하고 진짜 timeout 으로 넘김
+REALTB="$(command -v timeout || command -v gtimeout)"; mkdir -p "$T/spy"
+printf '#!/bin/bash\necho "$*" >> "%s"\nexec "%s" "$@"\n' "$T/spy.log" "$REALTB" > "$T/spy/timeout"; chmod +x "$T/spy/timeout"
+for k in a b; do
+  copy "s7$k"; half "s7$k"; : > "$T/spy.log"; BEFORE="$(snap "s7$k")"
+  [ "$k" = a ] && E=22 || E=10
+  OUT="$(PATH="$T/spy:$PATH" FT_LEDGER_ADV_ELAPSED="$E" timeout 70 bash "$SYNC" --advance "$T/s7$k")"; RC=$?
+  CO="$(grep ' checkout ' "$T/spy.log")"; TS="$(printf '%s\n' "$CO" | awk '{print $3}')"
+  if [ "$k" = a ]; then
+    case "$OUT" in "DEFER ledger 사본 checkout 시간 부족"*) F=1;; *) F=0;; esac
+    [ "$RC" = 5 ] && [ "$F" = 1 ] && [ -z "$CO" ] && [ "$(snap s7a)" = "$BEFORE" ] && ok "S7a 경과 22 → checkout 0 · rc5 · 손댐 0" || bad "S7a rc=$RC out=$OUT co=$CO"
+  else
+    [ "$RC" = 0 ] && [ "$OUT" = "RESUME ${A:0:10}..${B:0:10} 경로 4" ] && { [ "$TS" = 12 ] || [ "$TS" = 11 ]; } && ok "S7b 경과 10 → checkout timeout $TS(남은 시간−유예)" || bad "S7b rc=$RC out=$OUT timeout=$TS"
+  fi
 done
 
 [ "$fail" = 0 ] && echo "ALL PASS" || echo "FAILED $fail"
