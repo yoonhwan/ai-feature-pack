@@ -99,7 +99,7 @@ def write_record(rec, why):   # 재개 기록(zombie-clean 이 직전 세대를 
         if checked["rc"] != 0:
             print("REJECT Pi 기록 직전 결속 판정 불가"); raise SystemExit(1)
     # PI ADAPTER END
-    if rec and rec["binding"].get("source") not in (DEAD_SRC, "pi-session"):   # 기록 직전 재확인 1회(R364) — 결속이 그새 바뀌었으면(pane·pid 교체) 기록 0 · r960 pi 세션 결속은 결속 비교 대상 아님(파일 경로가 증거)
+    if rec and rec.get("engine") != "pi" and rec["binding"].get("source") != DEAD_SRC:   # r1855 ⓒ pi = 위 PI ADAPTER 1회만(명부 밖 좌석이 claude bind 길로 새지 않게) · 기록 직전 재확인 1회(R364) — 결속이 그새 바뀌었으면(pane·pid 교체) 기록 0 · r960 pi 세션 결속은 결속 비교 대상 아님(파일 경로가 증거)
         b2 = ft_seat_bind.bind(old)
         if b2["rc"] != 0 or b2["binding"] != rec["binding"]: rec, why = None, "기록 직전 재확인 불일치"
     rd, rp = RD, RP
@@ -127,7 +127,7 @@ def record(model, retired_by, agent=None):   # 기록 모드 공통 — r427 --k
     if agent == "pi":
         rec, why = pi_resume_checked(old, model, retired_by)
         if not rec:
-            if why != PI_DEAD: print("REJECT " + why); raise SystemExit(1)
+            if why != PI_DEAD and not why.endswith("· 세션 바뀜"): print("REJECT " + why); raise SystemExit(1)   # r1855 ⓓ 세션 바뀜 = NORECORD 1줄
             write_record(None, why); return None   # 죽은 좌석 = NORECORD 1줄 · rc 에 안 섞는다(옛 기록 보존)
         write_record(rec, why); return rec
     # PI ADAPTER END
@@ -152,7 +152,8 @@ if verdict:   # R400 판정 닫기 — 현역 역할 좌석도 기록(판정 번
         for f in rosters:
             if active_in(f): reject(f"{old} 은 {os.path.basename(f)} 의 `_*` 칸 값인데 행이 없음 — 명부 확인 — 다른 리포 좌석이면: FT_ROOT=<그 설치본 루트> … --seats <그 루트>/.fable-team/seats.json")
         o = None
-    rec = record((o or {}).get("model"), f"verdict {verdict}", (o or {}).get("agent"))
+    ft2 = o is None and os.path.isfile(f"{here}/ft_seat_pi.py") and __import__("ft_seat_pi").is_pi(old, root + "/.fable-team")   # r1855 ⓐ 행 없을 때만 agent 출처 = is_pi 한 곳(ft2 launch 3조건)
+    rec = record((o or {}).get("model"), f"verdict {verdict}", "pi" if ft2 else (o or {}).get("agent"))
     if o is None and not rec: print("  - 다른 리포 좌석이면: FT_ROOT=<그 설치본 루트> … --seats <그 루트>/.fable-team/seats.json")   # R400 r3 §D — 행 없음 NORECORD 에도 같은 안내(첫 줄 꼴 그대로)
     sys.exit(0)
 if not cand and not arg and "#" in old and reconly == "1":   # R296 ④ — 행 없는 옛 좌석: ⓐⓑⓒ 셋 다 참일 때만 기록(명부 쓰기 0)
