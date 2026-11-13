@@ -1437,6 +1437,10 @@ if [ "$_INFO_FEAT" = HEAD ]; then
     _INFO_FEAT=""; bad+=("base 가 «HEAD»(detached spawn)인데 base_sha(${_HSHA:-없음})를 $SEAT_REPO 에서 못 푼다 — 판정 불가")
   fi
 fi
+# r1402: info base 가 정확히 «main»(로컬 가지 이름 · 루트 체크아웃이 뒤처질 수 있다)이고 원격 추적 ref 가 있으면 origin/main 으로 읽는다 — 아래 R22 fetch·⑥·⑤·freshness 가 원격 기준. 원격 ref 없음 = 지금처럼 로컬 main.
+if [ "$_INFO_FEAT" = main ] && git -C "$SEAT_REPO" rev-parse --verify -q refs/remotes/origin/main >/dev/null; then
+  _INFO_FEAT=origin/main; _FEAT=origin/main; echo "INFO base main → origin/main(로컬 가지 이름은 최신 보장 0)"
+fi
 if [ -n "$_INFO_FEAT" ]; then
   [ -z "$_ENV_FEAT" ] || [ "$_ENV_FEAT" = "$_INFO_FEAT" ] || echo "WARN 비교 기준 = 좌석 .worktree-info base($_INFO_FEAT) · FT_NANO_FEAT=$_ENV_FEAT 무시(둘 다 있고 다름)"
 else
