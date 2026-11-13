@@ -147,7 +147,9 @@ def _lineage(me):
     names, warns = eligible(me)
     for w in warns:
         sys.stderr.write("WARN lineage %s\n" % w)
-    return names, ",".join(names[1:]) or "0"
+    old = names[1:]   # r1854 — 찍는 글만 줄인다(4개 이상 = <N>:<가장 새>..<가장 옛>) · 합류 목록 names 는 손 0
+    short = "%d:%s..%s" % (len(old), old[0], old[-1]) if len(old) > 3 else ""
+    return names, short or ",".join(old) or "0"
 
 
 def recv(me, frm=None, limit=None):
