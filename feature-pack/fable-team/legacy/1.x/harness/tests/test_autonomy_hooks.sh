@@ -235,7 +235,7 @@ FT_AUTONOMY_SH=/nonexistent bal "$MG" "gh pr view 7" "ⓔ8d 도구 못 찾음 + 
 printf '%s\n' '- **100** (오빠) x 착수 승인' > "$T/planner/VERDICTS-planner-1.md"
 SHA=1111111111111111111111111111111111111111; SHB=2222222222222222222222222222222222222222
 printf '# [DA⑥ t] APPROVE — 0건\n\n고정 세트 `%s`\n' "$SHA" > "$T/da.md"
-printf '%s\n' '#!/bin/bash' 'case "$*" in *"pr view"*) echo "${GH_HEAD:-}";; *"pr checks"*) echo pass;; esac' > "$T/stubs/gh"; chmod +x "$T/stubs/gh"; export PATH="$T/stubs:$PATH"
+printf '%s\n' '#!/bin/bash' 'case "$*" in *"pr view"*) echo "${GH_HEAD:-}";; *"pr checks"*) echo pass;; *"issue list"*) echo "[]";; esac' > "$T/stubs/gh"; chmod +x "$T/stubs/gh"; export PATH="$T/stubs:$PATH"
 pd() { out="$(GH_HEAD="$1" "$BASH" "$BIN/ft-proxy-decide.sh" --kind push-merge --q "머지 승인 진행할까요 $4" --choice 머지 --why DA6 --undo "git revert $1" --sha "$1" --da "$2" --pr 7 2>"$T/err")"; rc=$?; }
 rm -rf "$OK" "$S/autonomy-merge-approved"; mode_on
 pd "$SHA" "$T/da.md" x a; [ "$rc" = 2 ] && grep -q '^QUEUE main 병합·main push = 오빠 값(판정 1675)' <<<"$out"; ck "ⓕ1 PR head·DA⑥·checks 전부 맞아도 push-merge = QUEUE rc 2" $?

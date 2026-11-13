@@ -34,8 +34,10 @@ print(json.dumps({"transcript_path":sys.argv[1],"cwd":sys.argv[2],"tool_name":t,
 cases() { # cases <이름> <훅>
   local n="$1" h="$2"
   /bin/bash -n "$h" && ok "$n /bin/bash -n" || bad "$n /bin/bash -n"
-  grep -q 'FT_DISTILL_WARN") or 250_000' "$h" && grep -q 'FT_DISTILL_BLOCK") or 300_000' "$h" && grep -q 'FT_DISTILL_RECV") or 250_000' "$h" \
-    && ok "$n 기본값 250_000/300_000/recv 250_000 (문턱 한 곳 경유)" || bad "$n 기본값 줄"
+  # r1860: 훅 안 숫자 기본값 0 · 기본값 = 설치본 thresholds.env.sample(250k·300k·250k)
+  local smp; smp="$(dirname -- "$h")/../thresholds.env.sample"
+  ! grep -q '250_000\|300_000' "$h" && grep -q '^FT_DISTILL_WARN=250000$' "$smp" && grep -q '^FT_DISTILL_BLOCK=300000$' "$smp" && grep -q '^FT_DISTILL_RECV=250000$' "$smp" \
+    && ok "$n 기본값 250k/300k/recv 250k = 샘플 한 곳(훅 숫자 0)" || bad "$n 기본값 줄"
 
   transcript 240000; run "$h" warn "" ""
   { [ "$RC" -eq 0 ] && [ ! -s "$TMP/out" ]; } && ok "$n ⓐ 240k warn → 출력 0" || bad "$n ⓐ rc=$RC out=$(cat "$TMP/out")"
@@ -46,7 +48,9 @@ cases() { # cases <이름> <훅>
     && ok "$n ⓑ 260k warn → 경고 1 (250k·300k 표기)" || bad "$n ⓑ rc=$RC out=$(cat "$TMP/out")"
 
   transcript 290000; run "$h" block Task "implement feature x"
-  [ "$RC" -eq 0 ] && ok "$n ⓒ 290k block Task → 허용" || bad "$n ⓒ rc=$RC err=$(cat "$TMP/err")"
+  { [ "$RC" -eq 2 ] && grep -q '새 일 수락 금지' "$TMP/err"; } && ok "$n ⓒ 290k block Task → 막음(r1429 새 일 금지)" || bad "$n ⓒ rc=$RC err=$(cat "$TMP/err")"
+  FT_DISTILL_NEWWORK=300000 run "$h" block Task "implement feature x"
+  [ "$RC" -eq 0 ] && ok "$n ⓒ′ NEWWORK=300000 · 290k Task → 허용" || bad "$n ⓒ′ rc=$RC err=$(cat "$TMP/err")"
 
   transcript 310000; run "$h" block Task "implement feature x"
   { [ "$RC" -eq 2 ] && grep -q '300k 절대값' "$TMP/err"; } && ok "$n ⓓ 310k block Task → exit 2" || bad "$n ⓓ rc=$RC err=$(cat "$TMP/err")"

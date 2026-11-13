@@ -22,7 +22,7 @@ mkdir -p "$R/.fable-team/state" "$L/.fable-team/state" "$R/.fable-team/plans"; p
 git init -q "$T/nolive" && mkdir -p "$T/nolive/.fable-team"   # R6: 리포 안 · LIVE_ROOT 없음
 mkdir -p "$T/old/.fable-team/state"                           # R8: 옛 설치 꼴(git 밖 · LIVE_ROOT 없음)
 
-hil()  { local b="$1"; shift; env -i HOME="$T/home" PATH="/usr/bin:/bin" HIL_DIR="$HD" HIL_CLIP=0 FT_SECRET_JUDGE="$T/none.py" FT_MBOX_DIR="$C" bash "$b/ft-hil.sh" "$@"; }
+hil()  { local b="$1"; shift; env -i HOME="$T/home" PATH="/usr/bin:/bin" HIL_DIR="$HD" HIL_CLIP=0 FT_SCOPE_STATUS_CMD="echo '[범위 승인 없음]'" FT_AUTONOMY_MODE_CMD="echo off" FT_SECRET_JUDGE="$T/none.py" FT_MBOX_DIR="$C" bash "$b/ft-hil.sh" "$@"; }
 runh() { local cwd="$1"; shift; ( cd "$cwd" && env -i HOME="$T/home" PATH="/usr/bin:/bin" "$@" ); }   # 오빠 `bash /tmp/h<N>` (env 는 인자로 준 것만)
 probe() {  # <bin> <이름> [머리 줄] → 리포 안 계획: pwd · FT_ROOT · state-dir 출력(+ 머리 줄)
   { echo '#!/usr/bin/env bash'; [ -z "${3:-}" ] || echo "$3"
@@ -51,7 +51,7 @@ check_approve() {  # <bin> → R4·R5 실패 수
   local b="$1" f0=$fail h e rc
   HD="$T/hd-$RANDOM"; mkdir -p "$HD"; clean_state
   approver "$b" r4 "export FT_ROOT='$R'"; h="$(hil "$b" --add "$R/.fable-team/plans/r4.sh.hil" 2>/dev/null)"; h="${h#! bash }"
-  e="$(runh /tmp bash "$h" 2>&1 >/dev/null)"; rc=$?
+  e="$(runh /tmp bash "$h" 2>&1)"; rc=$?   # r1382: 진입 파일이 계획 stderr 를 stdout(.out)으로 합친다
   [ "$rc" = 1 ] && ok "R4 계획 머리 export FT_ROOT=리포 루트 → rc 1" || bad "R4 rc=$rc"
   has "$e" "REJECT 승인 폴더 어긋남 — FT_ROOT=$R · 라이브 루트=$L" "R4 stderr «승인 폴더 어긋남»"
   [ "$(nfiles)" = 0 ] && ok "R4 승인 파일 0(어느 폴더에도)" || bad "R4 승인 파일 $(nfiles)개"
