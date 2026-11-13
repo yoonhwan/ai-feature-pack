@@ -174,6 +174,12 @@ def main(argv):
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         return module.main(argv[1:])
+    if argv[:1] == ["keeper"]:          # r1812 끝난 좌석 자동 닫기 — 동사 표 밖 진입 1곳(비모델 · launchd 60초 1바퀴)
+        path = os.path.join(os.path.dirname(_HERE), "adapters", "pi", "keeper.py")
+        spec = importlib.util.spec_from_file_location("ft2_keeper", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module.main(argv[1:])
     out, rc = run(argv)
     sys.stdout.write(json.dumps(out, ensure_ascii=False, sort_keys=True) + "\n")
     return rc

@@ -1,0 +1,166 @@
+#!/usr/bin/env python3
+"""ft 2.0 keeper — 끝난 좌석 자동 닫기 (r1812 · 카드 B0~B5 · DA r1 APPROVE).
+
+core 는 일을 기록만 하고 좌석을 닫지 않는다(close_next «kill = 호출자»). 그 닫는 호출자가 이 명령이다.
+한 바퀴(--once) = 잠금 O_EXCL → git fetch(리포당 1회) → 팀마다 B1 complete 누락 잡기 → B2 착지 끝 나노 세션 닫기 →
+B3 승계 끝 옛 좌석 → B4 보고. 파일 넷: 이 파일(바퀴·잠금) · keeper_land.py(B1·B1r) · keeper_close.py(B2·B3) ·
+keeper_report.py(B4·쪽지).
+core 손 0 — 공개 동사(cli.run)·공개 API(project·CloseNext)만 부른다. 상한: git 25초 · tmux·쪽지 7초 · 바퀴 60초.
+    python3 core/cli.py keeper --root R (--once | --report) [--pack 팩리포]
+"""
+import datetime
+import importlib.util
+import json
+import os
+import subprocess
+import sys
+import time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+FT2 = os.path.dirname(os.path.dirname(HERE))
+GIT_S, CALL_S, ROUND_S, STALE_S = 25, 7, 60, 600
+OK = "접수 성공"
+
+
+def _load(path, alias):
+    spec = importlib.util.spec_from_file_location(alias, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+projection = _load(os.path.join(FT2, "core", "projection.py"), "ft2_keeper_projection")
+land = _load(os.path.join(HERE, "keeper_land.py"), "ft2_keeper_land")
+closing = _load(os.path.join(HERE, "keeper_close.py"), "ft2_keeper_close")
+reporting = _load(os.path.join(HERE, "keeper_report.py"), "ft2_keeper_report")
+
+
+class Keeper(land.Landing, closing.Closing, reporting.Reporting):
+    def __init__(self, root, env=None, now=None):
+        self.root = os.path.abspath(root)
+        self.env = dict(os.environ if env is None else env)
+        self.now = now or time.time
+        self.pack = self.env.get("FT2_PACK_REPO") or os.path.expanduser("~/Project/ai-feature-pack")
+        self.tmux = self.env.get("FT_TMUX") or "tmux"
+        self.close_bin = self.env.get("FT_SEAT_CLOSE_BIN") or ""
+        self.mbox = self.env.get("FT2_KEEPER_MBOX") or os.path.join(self.root, ".fable-team", "comm", "mbox.sh")
+        self.dir = os.path.join(self.root, ".fable-team", "state", "ft2-keeper")
+        self.project, self.lines, self.cache = projection.project, [], {}
+        self.state = {key: {} for key in ("held", "open", "sent", "handled")}
+
+    def call(self, argv, timeout=CALL_S, retry=0):
+        """바깥 호출 1곳 → (rc, stdout, stderr 1줄) · 넘침·실행 실패 = rc None · retry = rc≠0 때 다시 부르는 횟수."""
+        for _ in range(retry + 1):
+            try:
+                done = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, env=self.env, cwd=self.root)
+                out = (done.returncode, done.stdout, done.stderr.strip()[:200])
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                out = (None, "", str(exc)[:200])
+            if out[0] == 0:
+                break
+        return out
+
+    def git(self, repo, *args, retry=0):
+        return self.call(["git", "-C", repo] + list(args), GIT_S, retry)
+
+    def stamp(self):
+        return datetime.datetime.fromtimestamp(self.now()).strftime("%Y-%m-%dT%H:%M:%S")
+
+    def log(self, kind, team="", text=""):
+        """로그 1줄 = 출력 + state/ft2-keeper/<YYYYMMDD>.jsonl append. 반환 None(= 거짓 · `return self.log(...)` 로 끝낸다)."""
+        line, at = " ".join(w for w in (kind, team, text) if w), self.stamp()
+        self.lines.append(line)
+        os.makedirs(self.dir, exist_ok=True)
+        with open(os.path.join(self.dir, at[:10].replace("-", "") + ".jsonl"), "a", encoding="utf-8") as fh:
+            fh.write(json.dumps({"at": at, "kind": kind, "team": team, "line": line}, ensure_ascii=False) + "\n")
+
+    @staticmethod
+    def read_json(path):
+        try:
+            with open(path, encoding="utf-8") as fh:
+                data = json.load(fh)
+        except (OSError, ValueError):
+            return {}
+        return data if isinstance(data, dict) else {}
+
+    def locked(self, body):
+        """잠금 O_EXCL 1개 — 앞 바퀴 진행 중 = 바퀴 0 · 로그 1줄. 10분 넘은 잠금(죽은 바퀴)은 지우고 1줄. 상태 = 원자 쓰기."""
+        os.makedirs(self.dir, exist_ok=True)
+        lock, path = os.path.join(self.dir, "keeper.lock"), os.path.join(self.dir, "state.json")
+        if os.path.exists(lock) and time.time() - os.path.getmtime(lock) > STALE_S:
+            os.unlink(lock)
+            self.log("STALE-LOCK", text="10분 넘은 잠금을 지움")
+        try:
+            os.close(os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644))
+        except FileExistsError:
+            return self.log("SKIP", text="앞 바퀴 진행 중(잠금) — 바퀴 0")
+        try:
+            self.state.update(self.read_json(path))
+            out = body()
+            with open(path + ".tmp", "w", encoding="utf-8") as fh:
+                json.dump(self.state, fh, ensure_ascii=False, sort_keys=True)
+            os.replace(path + ".tmp", path)
+            return out
+        finally:
+            os.unlink(lock)
+
+    def run_once(self):
+        return self.locked(self._round) or 0
+
+    def report_once(self):
+        return self.locked(self.report) or "판정 불가 · 바퀴 진행 중"
+
+    def _round(self):
+        start = time.monotonic()
+        bad = [repo for repo in (self.root, self.pack) if self.git(repo, "fetch", "-q", "origin", retry=1)[0] != 0]
+        if bad:
+            self.log("판정 불가", text="git fetch 실패 %s — 이 바퀴 B1·B2 0" % " ".join(bad))
+        for team in [] if bad else self.teams():
+            if time.monotonic() - start > ROUND_S:
+                self.log("ROUND-CAP", text="60초 넘음 — 남은 팀은 다음 바퀴")
+                break
+            self.team_round(team)
+        self.retired()
+        self.report()
+
+    def teams(self):
+        """대상 팀 = ft20-switch/<팀>.json ∪ <팀>.held 가 있고 runtime 이 있는 팀."""
+        switch = os.path.join(self.root, ".fable-team", "state", "ft20-switch")
+        found = os.listdir(switch) if os.path.isdir(switch) else []
+        names = {name.rsplit(".", 1)[0] for name in found if name.endswith((".json", ".held"))}
+        return sorted(team for team in names if os.path.isdir(projection.runtime_path(self.root, team)))
+
+    def team_round(self, team):
+        """최신 묶음 = work 마다 최신 dispatch 1줄의 (attempt · holder) (launch.seat 와 같은 규칙 · 옛 intent 로 대신 0)."""
+        proj = self.project(self.root, team)
+        if proj.get("result") != OK:
+            return self.log("판정 불가", team, "투영 %s" % proj.get("reason", ""))
+        node = projection.journal.Journal(projection.runtime_path(self.root, team), rec=projection.record)
+        latest = {rec["work"]: (rec.get("attempt"), rec.get("holder")) for rec in node.records()
+                  if rec.get("kind") == "dispatch" and rec.get("work")}
+        for work, (attempt, dispatched) in sorted(latest.items()):
+            row = proj["works"].get(work) or {}
+            if "%s|%s@%s" % (team, work, attempt) in self.state["handled"]:
+                continue
+            if row.get("done") or self.complete(team, work, attempt, self.landing(team, work)):
+                self.close(team, work, attempt, row, dispatched)
+
+
+def main(argv):
+    flags = [arg for arg in argv if arg in ("--once", "--report")]
+    rest = [arg for arg in argv if arg not in ("--once", "--report")]
+    opts = dict(zip(rest[::2], rest[1::2]))
+    if len(flags) != 1 or len(rest) % 2 or set(opts) - {"--root", "--pack"} or "--root" not in opts:
+        usage = {"result": "사용법", "reason": "keeper --root R (--once | --report) [--pack P]"}
+        sys.stdout.write(json.dumps(usage, ensure_ascii=False) + "\n")
+        return 64
+    env = dict(os.environ, **({"FT2_PACK_REPO": opts["--pack"]} if "--pack" in opts else {}))
+    keeper = Keeper(opts["--root"], env)
+    line = keeper.run_once() if flags[0] == "--once" else keeper.report_once()
+    tail = "" if flags[0] == "--once" else line + "\n"
+    sys.stdout.write("".join(text + "\n" for text in keeper.lines) + tail)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
