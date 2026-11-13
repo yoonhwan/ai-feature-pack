@@ -19,7 +19,7 @@ P="$T/pi"; mkdir -p "$I/bin" "$I/templates/hooks" "$R/.git" "$R/.fable-team" "$H
 cp "$KIT/bin/ft-thresholds.sh" "$KIT/bin/ft-resume-gate.sh" "$I/bin/"
 cp "$KIT/templates/hooks/context-distill-gate.sh" "$I/templates/hooks/"
 cp "$KIT/templates/thresholds.env.sample" "$I/templates/"
-cp "$PI_GATE" "$P/distill-gate.ts"; cp "$FT2_SAMPLE" "$P/" 2>/dev/null   # pi 어댑터 사본 + 옆 샘플
+cp "$PI_GATE" "$P/distill-gate.ts"; cp "$FT2_SAMPLE" "$P/thresholds.env.sample" 2>/dev/null   # pi 어댑터 사본 + 옆 샘플
 printf '#!/usr/bin/env bash\ncase "$1" in display) echo "byz-t-x-claude#1";; esac; exit 0\n' > "$FAKE/tmux"; chmod +x "$FAKE/tmux"
 unset FT_DISTILL_WARN FT_DISTILL_BLOCK FT_DISTILL_RECV FT_RESUME_MAX FT_DISTILL_NEWWORK FT_THRESHOLDS OMC_FT_BIN FT_DISTILL_THRESHOLDS FT_DISTILL_SAMPLE
 run(){ env HOME="$H" PATH="$FAKE:$PATH" TMUX_PANE=%1 "$@"; }
