@@ -17,6 +17,8 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _SPEC = importlib.util.spec_from_file_location("ft2_slack_binding", os.path.join(_HERE, "binding.py"))
 binding = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(binding)
+_SPEC_D = importlib.util.spec_from_file_location("ft2_slack_reply_done", os.path.join(_HERE, "reply_done.py"))
+_SPEC_D.loader.exec_module(reply_done := importlib.util.module_from_spec(_SPEC_D))  # r1872 답글 = 앞 글 완료
 
 owner_label = binding.owner_label
 POSTED, RESENT, UNCERTAIN, ERROR, REFUSED, IDLE = "posted", "resent", "uncertain", "error", "refused", "idle"
@@ -63,6 +65,7 @@ class SlackPublish:
 
     def __init__(self, root, *, post, lookup=None, sleep=None, notify=None, team="harness",
                  bindings=None, clock=None, on_step=None, delegate=None):
+        self.root, self.team, self.settled = root, team, None  # r1872 _settle 이 쓴다
         self.post, self.notify, self.delegate = post, notify or (lambda row: None), delegate  # r1862 명부 _desk
         self.lookup, self.sleep = lookup or (lambda marker: UNDECIDABLE), sleep or (lambda seconds: None)
         self.clock = clock or (lambda: time.strftime("%Y-%m-%dT%H:%M:%S"))
@@ -115,7 +118,7 @@ class SlackPublish:
         if entry is None:
             return {"state": IDLE, "reason": "게시 의도 없음", "key": list(key)}
         if entry["state"] not in UNSETTLED:
-            return entry
+            return self._settle(entry)
         command, owner, gen = entry.get("command"), entry.get("owner"), entry.get("gen")
         seat = owner.rsplit("#", 1)[0] if owner else None
         answer = self._lookup(entry)
@@ -123,7 +126,7 @@ class SlackPublish:
         settled = {"key": list(key), "command": command, "owner": owner, "gen": gen, "root": key.root,
                    "marker": entry["marker"], "body": entry.get("body", ""), "post_calls": entry.get("post_calls", 0)}
         if answer == FOUND:
-            return self._append(dict(settled, state=POSTED, via="lookup", resolve=POSTED))
+            return self._settle(self._append(dict(settled, state=POSTED, via="lookup", resolve=POSTED)))
         if answer == ABSENT:
             return self._post(key, command, entry.get("body", ""), seat, gen, owner, via=RESENT,
                               prior=entry.get("post_calls", 0))
@@ -161,9 +164,11 @@ class SlackPublish:
                                      "key": list(key), "command": command, "owner": owner, "gen": gen,
                                      "marker": marker_for(key, command), "body": body, "waits": waits,
                                      "post_calls": prior + calls, "attempts": prior + calls})
-            return self._append({"state": via, "resolve": via, "root": key.root, "key": list(key), "command": command,
-                                 "owner": owner, "gen": gen, "marker": marker_for(key, command), "ts": posted_ts,
-                                 "waits": waits, "post_calls": prior + calls, "attempts": prior + calls})
+            row = self._append({"state": via, "resolve": via, "root": key.root, "key": list(key), "command": command,
+                                "owner": owner, "gen": gen, "marker": marker_for(key, command), "ts": posted_ts,
+                                "waits": waits, "post_calls": prior + calls, "attempts": prior + calls})
+            self._step("after_posted")
+            return self._settle(row)
         return self._fail(key, command, owner, gen, waits, prior, "재시도 예산 소진(장부 누적)", code=None)
 
     def _fail(self, key, command, owner, gen, waits, calls, reason="두 번째 429 = 보이는 오류", code=429):
@@ -178,6 +183,7 @@ class SlackPublish:
         same = [entry for entry in self.entries() if entry.get("key") == list(key) and entry.get("command") == command]
         posted = next((entry for entry in same if entry["state"] in (POSTED, RESENT)), None)
         if posted is not None:
+            self._settle(posted)
             return self._refused(key, command, "same_intent", reason="같은 intent 재회신", ts=posted.get("ts"))
         if any(entry["state"] in UNSETTLED for entry in same):
             return self._refused(key, command, "same_intent_unsettled", reason="같은 intent 재회신 = 미해소 · resolve() 먼저")
@@ -209,6 +215,11 @@ class SlackPublish:
     def _refused(self, key, command, kind, **extra):
         return dict({"state": REFUSED, "k": kind, "key": list(key), "command": command, "root": key.root,
                      "posts": 0}, **extra)
+
+    def _settle(self, row):  # r1872 게시 확정 3곳 공통 · 멱등 · 실패 = 판정 불가 1줄(게시 결과 그대로)
+        if row.get("state") in (POSTED, RESENT):
+            self.settled = reply_done.settle(self.root, self.team, row)
+        return row
 
     def _step(self, name):
         self.steps.append(name)
