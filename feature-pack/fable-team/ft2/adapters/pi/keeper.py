@@ -33,9 +33,11 @@ projection = _load(os.path.join(FT2, "core", "projection.py"), "ft2_keeper_proje
 land = _load(os.path.join(HERE, "keeper_land.py"), "ft2_keeper_land")
 closing = _load(os.path.join(HERE, "keeper_close.py"), "ft2_keeper_close")
 reporting = _load(os.path.join(HERE, "keeper_report.py"), "ft2_keeper_report")
+full_alert = _load(os.path.join(HERE, "full_alert.py"), "ft2_keeper_full_alert")   # r1886
 
 
 class Keeper(land.Landing, closing.Closing, reporting.Reporting):
+    fa = full_alert   # r1886 keeper_land·keeper_next 도 이것으로 부른다
     def __init__(self, root, env=None, now=None):
         self.root = os.path.abspath(root)
         self.env = dict(os.environ if env is None else env)
@@ -152,8 +154,11 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
         for team in [] if bad else self.teams():
             if time.monotonic() - start > ROUND_S:
                 self.log("ROUND-CAP", text="60초 넘음 — 남은 팀은 다음 바퀴")
+                self.fa.observe(self.root, "keeper 바퀴", "keeper", max(int(time.monotonic() - start), ROUND_S), ROUND_S, "남은 팀 " + team)
                 break
             self.team_round(team)
+        else:   # r1886 ⓒ 60초 안 끝 = 정상 관측
+            self.fa.observe(self.root, "keeper 바퀴", "keeper", int(time.monotonic() - start), ROUND_S)
         if self.sock:
             self.timed("b3", self.retired)
         self.report()
