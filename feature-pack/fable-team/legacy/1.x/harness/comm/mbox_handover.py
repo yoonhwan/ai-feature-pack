@@ -7,7 +7,9 @@ import subprocess
 import mbox_lineage
 import mbox_retire_check   # r1319 승계 retire 관문(C0~C2·C7) — 이 파일 182줄·200줄 규칙, 검사 함수는 그 모듈에
 CANON = None   # mbox.py 가 묶는다
-ITEM = re.compile(r"^- (#\d+|h\d+|bg:[\w.-]+) ", re.M)   # [인계] 항목 줄 = «- <id> …» · [레디] 는 «<id> 받음»
+ITEM = re.compile(r"^- (#\d+|h\d+|bg:[\w.-]+) (\[억제 doorbell\] 미전달분 )?", re.M)   # 옛 꼴·손 항목 줄 = «- <id> …» · [레디] 는 «<id> 받음»
+IDS = re.compile(r"^항목:(.*)$", re.M)   # r1863 새 꼴 = «항목: #a #b! h1 bg:9»(«!» = 억제 doorbell · mark 제외)
+ID = re.compile(r"#\d+!?|h\d+|bg:[\w.-]+")
 HEAD_N = re.compile(r"^\[인계\] \S+ -> \S+ · 항목 (\d+) ")   # handover 가 쓰는 머리 — 항목 수가 «- <id>» 줄 수와 같아야 기계 [인계]
 ASK_HEADS = ("[HIL]", "[결정]", "[질문]", "[긴급]")
 IGNORE_BG = re.compile(r"(^|/)(claude|codex|node|pi|opencode|caffeinate|tmux|login|-?zsh|-?bash)( |$)|lsp|language-server|mcp|serena|pyright")
@@ -155,12 +157,16 @@ def group_items(gs):   # 묶음 항목 id 합집합(처음 나온 순서 · 중�
     return None if any(items(h) is None for h in gs) else list(dict.fromkeys(i for h in gs for i in items(h)))
 
 
-def _resent(old, new):   # r1653 ⓒ — 앞 [인계] 로 넘겼지만 뒤 [레디] 에 «받음» 이 아직 없는 쪽지 항목(같은 줄 꼴)
-    out, ln = [], lambda h, i: next((l for l in h.get("body", "").splitlines() if l.startswith("- %s " % i)), "")
+def _raw_ids(h):   # r1863 — 항목 id 원형(억제 «!» 보존) · 새 꼴 «항목:» 줄 + 옛 꼴·손 항목 «- <id>» 줄(옛 억제 줄 = #N!)
+    b = h.get("body", "")
+    return [t for ln in IDS.findall(b) for t in ln.split()] + [m.group(1) + ("!" if m.group(2) else "") for m in ITEM.finditer(b)]
+
+
+def _resent(old, new):   # r1653 ⓒ·r1863 — 앞 [인계] 로 넘겼지만 뒤 [레디] 에 «받음» 이 아직 없는 쪽지 id(id 로 재구성 · «!» 유지)
+    out = []
     for h in _handovers(old, new):
         got = "\n".join(r.get("body", "") for r in _readies(new, old, h.get("seq", 0)))
-        out += [x for x in (ln(h, i) for i in (items(h) or []) if i.startswith("#") and ("%s 받음" % i) not in got)
-                if x and x not in out]
+        out += [i for i in (_raw_ids(h) if items(h) is not None else []) if i[0] == "#" and "%s 받음" % i.rstrip("!") not in got and i not in out]
     return out
 
 
@@ -169,25 +175,19 @@ def handover_body(old, new, extra=()):
     if not mbox_lineage.retired_to(old):
         names, _ = mbox_lineage.eligible(old)
         mbox_lineage.claim([CANON], names, None, None, me=old, on_take=lambda rows: record(old, rows))
-    asks, rest = [], []
+    asks, ids = [], []   # r1863 — 항목마다 100자 요약 줄 대신 id 묶음 1줄(전문 = mailbox.log.jsonl seq)
     for r in unmarked(old):
-        ln = "- #%s [%s] %s (전문: %s)" % (r["seq"], r["from"], re.sub(r"\s+", " ", r["body"])[:100],
-                                         r.get("body_full") or "mailbox.log.jsonl seq %s" % r["seq"])
-        (asks if r["from"] == "slack-oppa" or _head(r["body"]) in ASK_HEADS else rest).append(ln)
-    rest += [ln for ln in _resent(old, new) if ln not in rest]   # r1653 ⓒ — 미받음 항목 재적재(받음 끝난 항목 0)
-    # ★r1665 ⓐ — 억제된 doorbell 은 «닫는 사건이 옛 좌석 recv» 뿐인데 증류 게이트 승계에서는 그 recv 가 막힌다 → 항목으로 넘겨 후계 [레디] 가 닫게 한다★
-    #   ★아래 항목 줄 꼴은 mbox.sh handover 갈래의 mark 목록 제외 sed 와 한 쌍★ — 꼴을 바꾸면 sed 도 같이 고친다(억제분만 빠지고 일반 쪽지는 계속 표시된다)
-    seen = {m.group(1) for m in (re.match(r"- (#\S+) ", ln) for ln in asks + rest) if m}
-    rest += ["- #%s [억제 doorbell] 미전달분 (전문: mailbox.log.jsonl seq %s)" % (s, s)
-             for s in _held_seqs(old) if re.fullmatch(r"\d+", s) and "#%s" % s not in seen]
+        (asks if r["from"] == "slack-oppa" or _head(r["body"]) in ASK_HEADS else ids).append("#%s" % r["seq"])
+    # ★r1665 ⓐ — 억제 doorbell 은 항목으로 넘겨 후계 [레디] 가 닫게 한다 · «#N!» 꼴은 mbox.sh handover 갈래의 mark 제외 sed 와 한 쌍★
+    for i in _resent(old, new) + ["#%s!" % s for s in _held_seqs(old) if re.fullmatch(r"\d+", s)]:
+        ids += [] if i.rstrip("!") in {x.rstrip("!") for x in asks + ids} else [i]   # r1653 ⓒ 미받음 재적재 · 같은 seq 1번
     hs, note = _h_items()
-    bg = _bg_items(old) + ["- bg:x%d %s" % (i + 1, e) for i, e in enumerate(extra)]
-    n = len(asks) + len(rest) + len(hs) + len(bg)
-    parts = ["[인계] %s -> %s · 항목 %d · [레디] 는 항목마다 «<id> 받음»(bash mbox.sh ready %s %s)" % (old, new, n, new, old)]
-    for title, xs in (("답 안 한 오빠 질문", asks), ("남은 회신·쪽지", rest), ("실행 중 h", hs), ("백그라운드 명령", bg)):
-        parts.append("%s: %s" % (title, len(xs) or "0")); parts += xs
-    if note: parts.append(note)
-    return "\n".join(parts)
+    hs, bg, hand = [x.split()[1] for x in hs], [x.split()[1] for x in _bg_items(old)], ["- bg:x%d %s" % (i + 1, e) for i, e in enumerate(extra)]
+    held = sum(i.endswith("!") for i in ids)
+    parts = ["[인계] %s -> %s · 항목 %d · [레디] 는 항목마다 «<id> 받음»(bash mbox.sh ready %s %s)" % (old, new, len(asks + ids + hs + bg + hand), new, old),
+             "수: 답 안 한 오빠 질문 %d · 남은 회신·쪽지 %d · 억제 doorbell %d · 실행 중 h %d · 백그라운드 %d" % (len(asks), len(ids) - held, held, len(hs), len(bg + hand)),
+             "전문: mailbox.log.jsonl seq 로 · 오빠 질문 먼저 = %s" % (" ".join(asks) or "0"), "항목:" + "".join(" " + i for i in asks + ids + hs + bg)]
+    return "\n".join(parts + hand + ([note] if note else []))
 
 
 def last_handover(old, new):
@@ -198,9 +198,8 @@ def last_handover(old, new):
 def items(h):
     """[인계] 항목 id 목록 · 형식 불명이면 None(r1116b ④) — 손으로 문장처럼 쓴 [인계] 는 «- #N» 줄이 없어 항목 0 으로 «전부 받음» 이 되던 자리.
     문장 속 «#숫자» 를 항목으로 세지 않는다: PR·Issue 번호와 구분이 안 돼 거짓 항목이 생긴다 → 머리 «항목 N» 과 줄 수가 다르면 거절이 더 단순하다."""
-    body = h.get("body", "")
-    m, ids = HEAD_N.match(body), ITEM.findall(body)
-    return ids if m and int(m.group(1)) == len(ids) else None
+    m, ids = HEAD_N.match(h.get("body", "")), _raw_ids(h)   # r1863 — 새 꼴 «항목:» 줄 + 옛 꼴 «- <id>» 줄 · 안내 줄 id 는 안 센다 · «!» 는 #seq 로
+    return [i.rstrip("!") for i in ids] if m and int(m.group(1)) == len(ids) and all(ID.fullmatch(i) for i in ids) else None
 
 
 def _gate(g, out=sys.stderr):   # r1319 — (rc, 문구) 관문 결과를 그대로 내고 끝낸다(0 통과)

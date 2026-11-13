@@ -107,8 +107,7 @@ chk_4() {
   row 1 "$O" "[HIL] q1"; row 2 "$O" "[HIL] q2"; sh_ recv "$O"; sh_ handover "$O" "$N"; H1="$(seqof)"; [ -n "$H1" ] || return 2
   roster 1; sh_ recv "$N"; sh_ send "$O" "$N" "[레디] $N <- $O · [인계] #$H1 받음 · 항목 1"$'\n'"#1 받음"   # #1 만 받음
   sh_ recv "$O"; sh_ handover "$O" "$N"; B="$(lastbody)"
-  case "$B" in *"- #2 "*) ;; *) return 1;; esac
-  case "$B" in *"- #1 "*) return 1;; esac
+  [ "$(printf '%s\n' "$B" | sed -n 's/^항목: *//p')" = "#2 h62" ]   # r1863 새 꼴 = id 묶음 줄
 }
 chk_4 mut_m2 && bad "M2 변이(재송신 재적재 삭제)가 ④ 에 안 잡힘" || ok "M2 변이(재송신 재적재 삭제) → ④ FAIL 확인"
 chk_4 && ok "④ 재 handover = 미받음 #2 만 재적재 · 받음 끝난 #1 0" || bad "④ 재적재 :: $B"
