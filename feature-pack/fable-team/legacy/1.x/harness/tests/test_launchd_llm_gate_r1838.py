@@ -73,6 +73,33 @@ def test_r1b_same_line_source_literal_helper(w):
     rc, out = check(w, case(w, lib_sh=f"{w / 'ext'}/codex exec x\n", entry_sh=f'true && source "{w / "bin"}/lib.sh"\n'))
     assert rc == 1 and "글자 그대로 LLM 호출" in out and "lib.sh:1" in out, out
 
+def test_r3_guarded_missing_source_marker(w):  # r3 R1: [ -f P ] && . P · P 없음 = 없음 표식 결합 · 생기면 불일치 · 가드 없으면 결합 불가
+    opt = w / "bin/opt.sh"
+    p = case(w, entry_sh=f'runner=/usr/bin/true\nif [ -f "{opt}" ]; then x="$(. "{opt}" && echo y)"; fi\n"$runner" exec sample\n')
+    assert record_baseline(w) and check(w, p) == (0, "ALLOW com.byz.ft-fx")
+    put(opt, f"runner={w / 'ext'}/codex\n", 0o644)
+    rc, out = check(w, p)
+    assert rc == 1 and "기준선 결합 불일치" in out and "entry.sh:3" in out, out
+    rc, out = check(w, case(w, entry_sh=f'runner=/usr/bin/true\n. "{w / "bin/none.sh"}"\n"$runner" exec sample\n'))
+    assert rc == 1 and "결합 불가" in out, out
+
+@pytest.mark.parametrize("where,expect", [("bin", 0), ("ext", 1)])
+def test_r3_python_import_from_root(w, where, expect):  # r3 R2: 뿌리 폴더 안 모듈 = 따라가 결합 · 뿌리 밖 = 결합 불가
+    (w / "roots.tsv").write_text(f"bin\t{w / 'bin'}\nst\t{w / 'st'}\n")
+    put(w / where / "seatmod.py", "def judge():\n    return 1\n", 0o644)
+    p = plist(w, "/usr/bin/python3", put(w / "st/check.py", "import subprocess, sys\nimport seatmod\nsubprocess.run(sys.argv[1:])\n"))
+    rc, out = record_baseline(w) and check(w, p)
+    assert rc == expect and ("결합 불가" in out if expect else out == "ALLOW com.byz.ft-fx"), out
+    if not expect:
+        put(w / "bin/seatmod.py", "import os\nos.system('true')\n", 0o644)
+        assert "기준선 결합 불일치" in check(w, p)[1]
+
+def test_r3_comment_dot_word_is_not_source(w):  # r3 R3: 주석 속 «). 낱말» ≠ source · 같은 줄 코드 . "$X" = 그대로 결합 불가
+    p = case(w, entry_sh='runner=/usr/bin/true\nN=$(date +%s); E=3600      # 단일 임계 (§4-3). 축별 상수 없음\n"$runner" exec sample\n')
+    assert record_baseline(w) and check(w, p) == (0, "ALLOW com.byz.ft-fx")   # 결합 계산(동적 지점 있음)에서도 주석 속 «. 축별» = source 0
+    rc, out = check(w, case(w, entry_sh='x=1; . "$X/lib.sh"   # (참고). 메모\n'))
+    assert rc == 1 and "결합 불가" in out and "entry.sh:1" in out, out
+
 def test_1c_variable_source_path_unbindable(w):
     p = case(w, lib_sh="x=1\n", entry_sh='. "$X/lib.sh"\nrunner=/usr/bin/true\n"$runner" exec sample\n')
     rc, out = record_baseline(w) and check(w, p)
