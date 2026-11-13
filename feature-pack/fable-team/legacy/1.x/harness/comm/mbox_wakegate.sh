@@ -7,7 +7,11 @@
 # ★왜 fail-closed 인가★ — 예산 소진·장부 손상·잠금 초과는 «울리지 않는다»(budget). 반대로 «미읽음 수 조회» 실패는 울리는 쪽(sent)이다
 #   — 안 울려 못 받는 쪽이 더 나쁘다(mbox_doorbell.sh:75 와 같은 원칙 · no_silent_fallback).
 # 본문 머리(첫 `[...]`) — 여러 낱말 머리(`[완료 보고]`)까지 정확히 잡는다(첫 토큰만 보면 «[완료» 가 된다).
-_wg_head() { local b="$1" h; for h in '[완료 보고]' '[정지 레디]' '[정리]' '[회신]' '[긴급]' '[인계]' '[레디]' '[HIL]' '[결정]' '[질문]' '[완료]'; do case "$b" in "$h"*) printf '%s' "$h"; return 0;; esac; done; return 0; }
+#   r1829 B1 — 회신 불요 머리 5개 + «첫 줄» 의 «회신 불요»(둘째 줄 아래는 보지 않는다 · 앞 머리가 있으면 그 머리가 이긴다) = [회신 불요] → quiet.
+_wg_head() { local b="$1" h; for h in '[받음]' '[전파]' '[정보]' '[독려]' '[참고]' '[완료 보고]' '[정지 레디]' '[정리]' '[회신]' '[긴급]' '[인계]' '[레디]' '[HIL]' '[결정]' '[질문]' '[완료]'; do case "$b" in "$h"*) printf '%s' "$h"; return 0;; esac; done; case "${b%%$'\n'*}" in *"회신 불요"*) printf '[회신 불요]';; esac; return 0; }
+# r1829 B3 — quiet 첫 적재 시각·그때 doorbell 스탬프를 state/doorbell-quiet/<좌석> 에 남긴다(gate = subshell · 파일이라야 sweep 이 본다 · 있으면 그대로).
+_wg_quiet_mark() { local d f; d="$(_wg_state)/doorbell-quiet"; f="$d/$(_wg_key "$1")"; [ -f "$f" ] && return 0; mkdir -p "$d" 2>/dev/null
+  printf 'quiet ts=%s seat=%s last=%s\n' "$(_wg_now)" "$1" "$(stat -f %m "${TMPDIR:-/tmp}/mbox-doorbell-$(_wg_key "$1")" 2>/dev/null || echo 0)" > "$f" 2>/dev/null; return 0; }
 
 # ★사람 글 판정★ — 예산 밖 즉시(발주·[HIL] 과 같은 등급). 좁게 잡는다: 미등록 좌석은 사람이 «아니다»(예산 우회 0).
 #   근거 = planner desk(`seats-planner.json _master`) 와 사람 표식 이름(slack-*·*-oppa).
@@ -38,9 +42,11 @@ doorbell_record_held() {
 }
 
 # 억제분의 닫는 사건 ⓐ — recv 가 전부 읽었으면(남은 큐 0) 파일 삭제. 남았으면 다음 sweep 이 잡는다.
+#   r1829 fix1 — quiet 기록도 여기서 닫는다(빈 큐 뒤 새 quiet = 새 묶음 · 옛 ts 로 즉시 깨움 0).
 doorbell_clear_held() {
   local f; f="$(_wg_state)/doorbell-held/$(_wg_key "$1")"
   [ -f "$f" ] && rm -f "$f" 2>/dev/null
+  rm -f "$(_wg_state)/doorbell-quiet/$(_wg_key "$1")" 2>/dev/null
   return 0
 }
 
@@ -49,7 +55,7 @@ doorbell_clear_held() {
 doorbell_gate() {
   local seat="$1" head="$2" out rc p pn stamp last now
   case "$head" in
-    '[정리]'|'[회신]'|'[완료 보고]') printf 'quiet'; return 0;;          # 보고 전용 = 큐만(예산 0)
+    '[받음]'|'[전파]'|'[정보]'|'[독려]'|'[참고]'|'[회신 불요]'|'[정리]'|'[회신]'|'[완료 보고]') _wg_quiet_mark "$seat"; printf 'quiet'; return 0;;   # 보고·회신 불요 = 큐만(예산 0)
     '[긴급]'|'[인계]'|'[레디]')      printf 'sent'; return 0;;          # 즉시 · 예산 밖(기존 force 경로 그대로)
   esac
   out="$(wake_budget_reserve "$seat" send)"; rc=$?
@@ -79,7 +85,7 @@ doorbell_gate() {
 doorbell_followup_sweep() {
   local d f ts why win now cur seat seqs lastseq out arc res rr fu="" nudge
   d="$(_wg_state)/doorbell-held"
-  [ -d "$d" ] || return 0
+  [ -d "$d" ] || { fu="$(_wg_quiet_sweep)"; [ -z "$fu" ] || printf '%s\n' "${fu# }"; return 0; }
   now="$(_wg_now)"; cur=$(( now / 3600 ))
   for f in "$d"/*; do
     [ -f "$f" ] || continue
@@ -114,6 +120,19 @@ doorbell_followup_sweep() {
       wake_budget_refund "$seat" followup >/dev/null 2>&1 || true
     fi
   done
+  fu="$fu$(_wg_quiet_sweep)"
   [ -z "$fu" ] || printf '%s\n' "${fu# }"
   return 0
 }
+# r1829 B3 굶김 상한 — 다른 깨움(스탬프 바뀜)·큐 0 = 기록만 지움 · 첫 적재 ≥ FT_MBOX_QUIET_MAX_SEC(1800) · 미읽음 ≥ FT_MBOX_QUIET_MAX_N(8) · 판정 불가 = doorbell 1회(예산 안).
+_wg_quiet_sweep() { local f seat ts p pn now; now="$(_wg_now)"
+  for f in "$(_wg_state)/doorbell-quiet"/*; do
+    [ -f "$f" ] || continue; seat="$(_wg_kv "$f" seat)"; ts="$(_wg_kv "$f" ts)"; [ -n "$seat" ] || continue; case "$ts" in ''|*[!0-9]*) ts=0;; esac
+    [ "$(stat -f %m "${TMPDIR:-/tmp}/mbox-doorbell-$(_wg_key "$seat")" 2>/dev/null || echo 0)" = "$(_wg_kv "$f" last)" ] || { rm -f "$f"; continue; }
+    if [ -n "${FT_MBOX_PEEK_CMD:-}" ]; then p="$(_wg_timeout 7 $FT_MBOX_PEEK_CMD "$seat" 2>/dev/null)"; else p="$(_wg_timeout 7 python3 "$MBOXPY" peek "$seat" 2>/dev/null)"; fi
+    pn="$(printf '%s\n' "$p" | sed -n 's/^pending=\([0-9][0-9]*\).*/\1/p' | head -1)"; [ "$pn" != 0 ] || { rm -f "$f"; continue; }
+    [ -z "$pn" ] || [ "$(( now - ts ))" -ge "${FT_MBOX_QUIET_MAX_SEC:-1800}" ] || [ "$pn" -ge "${FT_MBOX_QUIET_MAX_N:-8}" ] || continue
+    wake_budget_reserve "$seat" followup >/dev/null 2>&1 || continue
+    case "$(bash "$SELF" ring "$seat" --reserved 2>/dev/null)" in *doorbell=sent*) rm -f "$f"; printf ' followup=%s via=quiet' "$seat";;
+      *) wake_budget_refund "$seat" followup >/dev/null 2>&1 || true;; esac
+  done; return 0; }
