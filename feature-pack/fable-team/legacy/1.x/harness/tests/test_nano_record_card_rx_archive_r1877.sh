@@ -5,9 +5,9 @@ set -u
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 H="$(cd -- "$HERE/.." && pwd)"; SRC="$H/bin"; KIT="$H/kit/fable-team/bin"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
-PASS=0; FAIL=0
-ok() { PASS=$((PASS+1)); echo "  PASS $1"; }
-bad() { FAIL=$((FAIL+1)); echo "  FAIL $1"; }
+N_OK=0; N_BAD=0
+ok() { N_OK=$((N_OK+1)); echo "  PASS $1"; }
+bad() { N_BAD=$((N_BAD+1)); echo "  FAIL $1"; }
 key() {  # key <bin 폴더> <경로> → card_key 결과 1줄 (None | 팀|뿌리|stem)
   python3 - "$1" "$2" <<'PY'
 import sys
@@ -45,5 +45,5 @@ if [ $? -ne 0 ]; then bad "M1 변이 자리 없음(달 꼴 검사 미구현)"
 else r="$(key "$T/m1" '/x/BYZ/design/harness/indices/아카이브/foo/r1-x.md')"
   [ "$r" != "None" ] && ok "M1 → ③ 이 잡음 ($r)" || bad "M1 살아남음(③ 이 못 잡음)"
 fi
-echo "결과: PASS $PASS · FAIL $FAIL"
-[ "$FAIL" = 0 ]
+echo "결과: PASS $N_OK · FAIL $N_BAD"
+[ "$N_BAD" = 0 ]
