@@ -12,7 +12,8 @@
 - 묶음 판정: «규칙 한 줄로 끝나나» = 아니오 — «문서에 env 낱말 쓰지 말 것» 규칙은 13팀 산문 전부에 걸리고, 순수 이동 PR(6054)은 옛 카드 산문이라 고칠 수도 없다 · 읽는 쪽 1곳
 - 겹침 대조: r1195(완성 · 코드 확장자 «문자열 리터럴 안» 만 · 같은 생각을 문서 인라인 코드에) · PR 6020 «VAR_DSN=… timeout pytest» FORBID(메모리 · 문서 시험 입력 줄 · 백틱 안 진짜 명령 꼴 → 이 카드 뒤에도 그대로 판정 = 맞음)
 - 제안서: 없음 — 판정 1곳 · 되돌림 = revert 1커밋
-- 상태: 대기
+- 상태: 완성
+- 착지: 20b2beff4f8ea48c9e2082fe9a7eb63a3a0d6496(팩 main · PR #947)
 - 설치: 있음 — /Users/yoonhwan/.claude/fable-team/live/<LIVE_BIN 최신 sort -V>/bin/autonomy_scope_secret.py ← 팩 harness/bin 판 cmp0(kit 같은 판)
 - 선행: 없음(팩 origin/main)
 - 시험 입력: 임시 리포(base·head 커밋) · .md 추가 줄 S1~S6 · .sh 추가 줄 1 · 네트워크 0 · 자기 재호출 0 · ulimit -u 2000 + timeout 70 · cwd = /

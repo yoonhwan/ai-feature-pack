@@ -4,7 +4,7 @@
 - 제안서: 없음 — 래퍼 1곳 결함 복구(새 안 0) · 설계 1쪽 = design/aifp/arch-ci-search-nonascii-panic-20261113.md(감지 조건·폴백 꼴·rc 규칙·반례)
 - 근거: 실측 2026-11-13(aifp-ft-arch-pi#2 · origin/main a7f459c5 · probe-code 0.6.0) — `ci search "판정 불가" feature-pack/fable-team/ft2/core --max 3` rc 134 · stderr `src/search/search_output.rs:2566:31 end byte index 30 is not a char boundary; it is inside '·'` · stdout 앞 40줄만 · ASCII `reopen` 도 rc 134(panic 2회 = md 뺀 재시도도 panic) · `verdict` rc 0 · `… 2>/dev/null | head -3` 의 `$?`=0 · `PIPESTATUS[0]`=134
 - 원인 1줄: probe 0.6.0 이 결과 줄을 출력할 때 바이트로 자른다(파일 종류·질의 문자 무관) · 래퍼 feature-pack/code-intel/skill/scripts/ci search 갈래(:127~174)는 «markdown AST panic» 만 가정해 md 만 빼고 재시도 → 다시 panic → rc 134·부분 stdout 이 그대로 나감
-- 상태: 대기
+- 상태: 완성
 - 착지: a9ab9b3c0bd87f6c516751d595425b64c1f47414(팩 main · PR #1049 · ft-merge-land · 세트 9670ea66)
 - 설치: 있음 — ~/.local/bin/ci = 루트 checkout feature-pack/code-intel/skill/scripts/ci 심링크(착지 뒤 루트 main 반영 = 설치) · 사본 2곳 ~/.claude/skills/code-intel/scripts/ci · ~/.agents/skills/code-intel/scripts/ci ← 팩 판 cmp0
 - 선행: 없음(팩 origin/main)
