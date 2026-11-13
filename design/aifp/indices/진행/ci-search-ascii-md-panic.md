@@ -6,6 +6,7 @@
 - 원인 1줄: 래퍼 feature-pack/code-intel/skill/scripts/ci search 갈래는 비ASCII 질의만 md 를 probe 에서 뺀다 · ASCII 질의는 md 를 probe 의 markdown 청커(markdown.rs:240)에 넘기고, 다중 바이트 md 에서 panic 한다
 - 앞 카드: design/aifp/indices/완성/ci-search-nonascii-panic.md(착지 a9ab9b3c0bd87f6c516751d595425b64c1f47414 · PR #1049) — 이 카드는 그 카드 C6 «ASCII 정상 호출 그대로» 를 md 절·[info] 1줄 범위만 바꾼다
 - 상태: 진행
+- 착지: 97528b12bd16eec71dad28164ac651113f317ca8(팩 main · PR #1087 · 사람 승인 길 · 오빠 «네» 1794575543.474599 · 세트 556e22f8 · 설치 사본 2곳 cmp0)
 - DA: aifp-ft-da-codex#0 APPROVE-DESIGN 142ee11edecffd532d6cb6087dd41a7efe95323b(aifp 4312 · 판정문 .fable-team/state/team-main/aifp-ft/DA-ci-search-ascii-md-panic-design-142ee11e.md) · 구현 메모 3점: ① probe 25초 = 로컬 하네스 단계 상한(7초는 실 명령 별도 실측) ② C6 변경에 ASCII md hit rc1→0 보정·OR 재시도 생략 포함(P7·P8 기대 고침 · 검사 삭제 0) ③ 가짜 timeout 은 실행 대상으로 단계 구분(A7 probe · P14 폴백 rg · P17 rg 25초 기록) · A3 기준판 FAIL 검사에 [info] 1줄 포함
 - 설치: 있음 — ~/.local/bin/ci = 루트 checkout feature-pack/code-intel/skill/scripts/ci 심링크(착지 뒤 루트 main 반영 = 설치) · 사본 2곳 ~/.claude/skills/code-intel/scripts/ci · ~/.agents/skills/code-intel/scripts/ci ← 팩 판 cmp0
 - 선행: 없음(팩 origin/main)
