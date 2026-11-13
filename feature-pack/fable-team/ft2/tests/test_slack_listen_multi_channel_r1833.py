@@ -78,9 +78,9 @@ class Web:  # 가짜 Web API — member = 채널별 True/False/예외
         return {"ok": True, "messages": [], "has_more": False}
 
 
-def _listener(root, channel, web, scripts=(), notes=None):
+def _listener(root, channel, web, scripts=(), notes=None, desk=None):
     return _load("socket").Listener(
-        str(root), channel=channel, app_token="xapp-FAKE", bot_token="xoxb-FAKE", master=MASTER, users=(U,),
+        str(root), channel=channel, app_token="xapp-FAKE", bot_token="xoxb-FAKE", master=MASTER, users=(U,), **({"desk": desk} if desk else {}),
         web=web, connect=lambda url: WS(scripts.pop(0) if scripts else []), sleep=lambda s: None,
         notify=None if notes is None else notes.append, clock=lambda: "2026-11-13T00:00:00")
 
@@ -99,13 +99,13 @@ def test_1_aux_channel_thread_reply_received_desk_wake(env):  # ① B 묶임 없
     assert web.posts == [] and _rows(env, "publish.jsonl") == [] and _rows(env, "bindings.jsonl") == []
 
 
-def test_1b_bind_only_main_channel_no_post(env):  # ①′ B 새 root = binding 1 · 게시 0(r1861) · A 새 root = 2ea518 그대로
+def test_1b_bind_only_main_channel_no_post(env):  # ①′ B 새 root = desk 주인 binding 1 · 게시 0(r1861 r1) · A = 2ea518 그대로
     web, tb, ta = Web({A: True, B: True}), "1800000002.000100", "1800000003.000100"
-    listener = _listener(env, "%s,%s" % (A, B), web)
+    listener = _listener(env, "%s,%s" % (A, B), web, desk=DESK)
     listener.route(_msg(tb, B))
-    assert [(b["state"], b["key"][1]) for b in _rows(env, "bindings.jsonl")] == [("bound", B)] and web.posts == []
+    assert [(b["state"], b["key"][1], b["seat"]) for b in _rows(env, "bindings.jsonl")] == [("bound", B, DESK)] and web.posts == []
     listener.route(_msg(ta, A))
-    assert [(b["state"], b["key"][1]) for b in _rows(env, "bindings.jsonl")] == [("bound", B), ("bound", A)]
+    assert [(b["state"], b["key"][1], b["seat"]) for b in _rows(env, "bindings.jsonl")] == [("bound", B, DESK), ("bound", A, MASTER)]
     assert [r["state"] for r in _rows(env, "receive.jsonl") if r["key"][1] == A] == ["received", "dispatched"]
     assert len(_wakes(env, MASTER)) == 1 and web.posts == [] and _rows(env, "publish.jsonl") == []
 
