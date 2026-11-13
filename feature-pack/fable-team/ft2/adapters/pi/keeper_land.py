@@ -15,7 +15,7 @@ OK = "접수 성공"
 
 REFS = ("origin/ops/main-base", "origin/main")       # BYZ 카드·착지 ref (B1r 순서)
 STAGES = ("진행", "대기", "완성")
-LAND = re.compile(r"^- 착지: ([0-9a-f]{40})\s*$", re.M)
+LAND = re.compile(r"^- 착지: ([0-9a-f]{40})(?=\s|$)", re.M)   # r1817 D2 — 40hex 뒤 공백(괄호 꼬리)·줄 끝만 · 짧은·41자·앞 글자 = 없음
 
 
 def team_row(md, team):
