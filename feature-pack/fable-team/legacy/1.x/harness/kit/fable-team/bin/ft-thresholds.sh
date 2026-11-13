@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ft-thresholds.sh — 증류·리줌 문턱 «한 곳» (r1427)
 #   증류 게이트(context-distill-gate) · 리줌 게이트(ft-resume-gate) · 좌석 복구(ft-reboot-restore) 가 모두 이 파일 하나를 본다.
-#   해석 순서(먼저 있는 것 하나): ①$FT_THRESHOLDS ②<루트>/.fable-team/thresholds.env ③~/.claude/fable-team/thresholds.env ④설치본 ../templates/thresholds.env.sample(r1860 · 숫자 기본값 0 · 샘플도 없음 = rc3 판정 불가)
+#   해석 순서(문턱 네 키 = 키마다 그 키가 있는 첫 곳 · R1 · NEWWORK 는 첫 파일 하나): ①$FT_THRESHOLDS ②<루트>/.fable-team/thresholds.env ③~/.claude/fable-team/thresholds.env ④설치본 ../templates/thresholds.env.sample(r1860 · 숫자 기본값 0 · 샘플도 없음 = rc3 판정 불가)
 #   쓰기: --set KEY=V (기본 = ~/.claude/fable-team/thresholds.env · --file F 로 대상 변경) · --show 표 · --export `eval` 용 · --get KEY
 #   검증: 정수만 · BLOCK > WARN · RECV ≤ BLOCK · RESUME_MAX > 0. 위반 = REJECT rc2 · 쓰기 0.
 #   키: FT_DISTILL_WARN(경고) · FT_DISTILL_BLOCK(차단) · FT_DISTILL_RECV(승계 recv 차단) · FT_RESUME_MAX(리줌 상한)
@@ -21,7 +21,13 @@ get() { # get KEY DEFAULT [FILE] — 우선순위: 명시 env > 파일 > 기본�
   [ -n "$f" ] && [ -f "$f" ] && v="$(sed -n "s/^[[:space:]]*$k[[:space:]]*=[[:space:]]*//p" "$f" | tail -1 | tr -d '"'"'"' \r')"
   [ -n "$v" ] && printf '%s' "$v" || printf '%s' "$d"
 }
-sget() { get "$1" "$(FT_DISTILL_WARN= FT_DISTILL_BLOCK= FT_DISTILL_RECV= FT_RESUME_MAX= get "$1" "" "$SAMPLE")"; }   # 파일 값 없으면 샘플 값
+sget() { # R1: 키마다 env > $FT_THRESHOLDS > 루트 > 홈 > 샘플(pi distill-gate 와 같은 순서 · 빠진 키는 다음 파일에서)
+  local c v=""
+  for c in "${FT_THRESHOLDS:-}" "$ROOT/.fable-team/thresholds.env" "$USERFILE" "$SAMPLE"; do
+    [ -n "$c" ] && [ -f "$c" ] || continue
+    v="$(FT_DISTILL_WARN= FT_DISTILL_BLOCK= FT_DISTILL_RECV= FT_RESUME_MAX= get "$1" "" "$c")"; [ -n "$v" ] && break
+  done
+  get "$1" "$v" /dev/null; }
 WARN="$(sget FT_DISTILL_WARN)"; BLOCK="$(sget FT_DISTILL_BLOCK)"
 RECV="$(sget FT_DISTILL_RECV)";  RESUME="$(sget FT_RESUME_MAX)"
 NEWWORK="$(get FT_DISTILL_NEWWORK "$DEF_NEWWORK")"; [ "$NEWWORK" = 0 ] && NEWWORK="$WARN"   # 기본 = 경고선과 같은 값
