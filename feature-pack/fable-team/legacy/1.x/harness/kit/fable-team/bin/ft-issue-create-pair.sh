@@ -5,7 +5,7 @@
 #   생성 명령과 매니저 알림 mbox 1통을 한 묶음으로 만든다. 본문 끝에 마커 「ft-origin: seat」를 찍어 분류기(ft-issue-classify.sh)가 ②로 읽게 한다.
 # 작성자 = 봇 계정 토큰(FT_ISSUE_BOT_TOKEN 또는 ~/.config/byz-harness/issue-bot.token) — --apply 에 토큰이 없으면 exit 2.
 # 기본 = dry-run: 실행할 gh 명령과 알림 본문(Issue 번호는 자리표시)만 출력. --apply 때만 실제 실행.
-# 수신자 = seats-issues.json(FT_ISSUES_SEATS)의 _master — 없으면 raise(폴백 0). 보내는 좌석 = FT_ME > tmux 세션명.
+# 수신자 = seats-issues.json(FT_ISSUES_SEATS)의 _master(2.0 전환 팀 = 표식 intake · r1843) — 없으면 raise(폴백 0). 보내는 좌석 = FT_ME > tmux 세션명.
 # exit 0 = 완료 · 1 = 실행 실패(사유 stderr) · 2 = usage/입력 오류
 set -uo pipefail
 unset GH_TOKEN
@@ -34,8 +34,15 @@ done
 FROM="${FT_ME:-}"
 [ -z "$FROM" ] && [ -n "${TMUX:-}" ] && FROM="$(tmux display -p '#S' 2>/dev/null)"
 [ -n "$FROM" ] || die "보내는 좌석을 알 수 없다 — FT_ME 또는 tmux 안에서 실행" 2
-MANAGER="$(jq -r '._master // empty' "$ISSUES_SEATS" 2>/dev/null)"
-[ -n "$MANAGER" ] || die "issue-manager 좌석 없음 — $ISSUES_SEATS 의 _master" 2
+# r1843: 2.0 전환 팀(표식 있음)은 명부 _master 를 1.x 가 더 안 채운다 → 표식 intake 칸 · 없거나 못 읽으면 REJECT(폴백 0) · FT_ISSUES_SEATS 를 주면 그 명부만
+SW="$COMMON/.fable-team/state/ft20-switch/issues.json"; SWU=""
+if [ -z "${FT_ISSUES_SEATS:-}" ] && [ -e "$SW" ]; then
+  SWU=1; MANAGER="$(jq -r 'if type == "object" and (.intake | type) == "string" then .intake else empty end' "$SW" 2>/dev/null)"
+  [ -n "$MANAGER" ] || die "issue 접수자 없음 — 전환 팀 표식 $SW 의 intake (사람 h 로 기록)" 2
+else
+  MANAGER="$(jq -r '._master // empty' "$ISSUES_SEATS" 2>/dev/null)"
+  [ -n "$MANAGER" ] || die "issue-manager 좌석 없음 — $ISSUES_SEATS 의 _master" 2
+fi
 
 SHORT="$(clean "$TITLE")"
 notify_body() { echo "[Issue 등록] Issue #$1 등록 — 제목: ${SHORT:0:120} / 경로: 세션 에이전트(ft-origin: seat) / 등록 좌석: $FROM — 접수 검사(라벨 6) 요청."; }
@@ -84,6 +91,26 @@ STAMPED="$(mktemp)"; trap 'rm -f "$STAMPED"' EXIT
 URL="$(GH_TOKEN="$BOT_TOKEN" gh issue create --title "$TITLE" ${LABEL[@]+"${LABEL[@]}"} --body-file "$STAMPED" 2>&1)" || die "gh issue create 실패: $URL"
 NUM="$(printf '%s' "$URL" | sed -n 's#.*/issues/\([0-9][0-9]*\).*#\1#p' | tail -1)"
 [ -n "$NUM" ] || die "Issue 는 만들어졌을 수 있다 — 번호를 못 읽음: $URL"
+# r1843 I6: 번호 없는 역할 intake = 그 팀 명부(mbox_guard tfile·live 규칙)의 지금 현역 1개를 푼다 · 현역 == FROM 만 알림 0 · 판정 불가 = 알림 1 + WARN
+LIVE=""
+if [ -n "$SWU" ] && [[ ! "$MANAGER" =~ \#[0-9]+$ ]]; then
+  LIVE="$(python3 - "$COMMON/.fable-team" "$MANAGER" 2>/dev/null <<'PY'
+import glob, json, os, re, sys
+d, to = sys.argv[1], sys.argv[2]; m = re.match(r"^(?:byz|ft)-([a-z0-9]+)-", to); t = m.group(1) if m else sys.exit(1)
+def ld(p):
+    try: return json.load(open(p, encoding="utf-8"))
+    except Exception: return None
+f = d + ("/seats.json" if t == "v65" else "/seats-" + t + ".json")
+if not os.path.exists(f):
+    a = [p for p in glob.glob(d + "/seats*.json") if isinstance(ld(p), dict) and ld(p).get("_renamed_from") == t]; f = a[0] if len(a) == 1 else ""
+v = ld(f) if f else None; v = v if isinstance(v, dict) else sys.exit(1)
+L = [k for k, r in v.items() if isinstance(r, dict) and re.sub(r"#\d+$", "", k) == to and not r.get("_replaced_by") and r.get("role") not in ("closed", "stopped")]
+print(L[0]) if len(L) == 1 else sys.exit(1)
+PY
+)"
+  [ -n "$LIVE" ] || { echo "WARN intake 현역 판정 불가 — 알림 1" >&2; }
+fi
+[ -n "$LIVE" ] && [ "$FROM" = "$LIVE" ] && { echo "PAIR issue=#$NUM team=$TEAM manager=$MANAGER 알림 0(등록 좌석 = 접수 현역 $LIVE)"; exit 0; }
 # r1185: 매니저가 직접 등록하면 자기 알림 0 — recv 는 from == 나 인 행을 안 가져간다(r1155) → 못 읽는 쪽지가 쌓인다
 [ "$FROM" = "$MANAGER" ] && { echo "PAIR issue=#$NUM team=$TEAM manager=$MANAGER 알림 0(등록 좌석 = 매니저)"; exit 0; }
 OUT="$(bash "$MBOX" send "$MANAGER" "$FROM" "$(notify_body "$NUM")" 2>&1)" \
