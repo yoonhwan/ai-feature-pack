@@ -66,32 +66,44 @@ def restate(text, at, now):
         end -= 1
     return "\n".join(lines[:end] + ["- %s · ft2 card_stage 진행→완성(ft2 complete %s)" % (now, at)] + lines[end:]) + "\n"
 def push(wt, rebased=False, timed=False):
-    """7초 + 재시도 1 · 거절이면 rebase 1회 · 시간초과 2번 = 결과 불명(원격 쓰기 여부 모름)."""
+    """7초 + 재시도 1 · 거절이면 rebase 1회. 보낸 뒤 실패는 전부 «결과 불명»(원격 쓰기 여부 모름 · R1 · «원격 쓰기 0» 주장 0)."""
     try:
         rc = git(wt, "push", "-q", "origin", "HEAD:" + BRANCH)[0]
     except subprocess.TimeoutExpired:
         if timed:
             raise Unsure("push 결과 불명") from None
         return push(wt, rebased, True)
-    if rc and not rebased:
+    if rc == 0:
+        return run(wt, "rev-parse", "HEAD").strip()
+    try:
+        if rebased:
+            raise Unsure("rc %s" % rc)
         run(wt, "fetch", "-q", "origin", BRANCH), run(wt, "rebase", "-q", REF)
-        return push(wt, True, timed)
-    if rc:
-        raise Unsure("push 거절 rc %s" % rc)
-    return run(wt, "rev-parse", "HEAD").strip()
+    except (Unsure, subprocess.TimeoutExpired) as exc:
+        raise Unsure("push 결과 불명 %s" % (exc if isinstance(exc, Unsure) else "git 시간초과")) from None
+    return push(wt, True, timed)
 def stage(byz, path, at, now):
     with tempfile.TemporaryDirectory(prefix="ft2-card-stage-") as tmp:
         wt, dst = os.path.join(tmp, "wt"), path.replace("/indices/진행/", "/indices/완성/", 1)
+        run(byz, "worktree", "add", "-q", "--detach", wt, REF)
         try:
-            run(byz, "worktree", "add", "-q", "--detach", wt, REF)
             os.makedirs(os.path.dirname(os.path.join(wt, dst)), exist_ok=True)
             run(wt, "mv", path, dst)
             doc = pathlib.Path(wt, dst)
             doc.write_text(restate(doc.read_text(encoding="utf-8"), at, now), encoding="utf-8")
             run(wt, "commit", "-q", "-am", "[docs] %s 2.0 완성 폴더(ft2 done)" % doc.stem)
-            return doc.stem, push(wt)
-        finally:
-            git(byz, "worktree", "remove", "--force", wt)
+            out = doc.stem, push(wt)
+        except Unsure as exc:
+            out = exc
+        try:
+            gone = git(byz, "worktree", "remove", "--force", wt)[0]
+        except subprocess.TimeoutExpired:
+            gone = 124
+    if gone:   # R1 — 정리 rc 를 버리지 않는다 · 앞 결과를 같이 낸다(재실행 = NOOP 수렴)
+        raise Unsure("worktree 정리 실패 rc %s %s 등록 잔존 · %s" % (gone, wt, out if isinstance(out, Unsure) else "STAGED %s %s" % out))
+    if isinstance(out, Unsure):
+        raise out
+    return out
 def main(argv=None):
     ap = argparse.ArgumentParser(description="ft2 2.0 done 카드 진행→완성 (r1859)")
     [ap.add_argument(flag, required=flag != "--byz") for flag in ("--root", "--team", "--work", "--byz")]
