@@ -42,9 +42,11 @@ doorbell_record_held() {
 }
 
 # 억제분의 닫는 사건 ⓐ — recv 가 전부 읽었으면(남은 큐 0) 파일 삭제. 남았으면 다음 sweep 이 잡는다.
+#   r1829 fix1 — quiet 기록도 여기서 닫는다(빈 큐 뒤 새 quiet = 새 묶음 · 옛 ts 로 즉시 깨움 0).
 doorbell_clear_held() {
   local f; f="$(_wg_state)/doorbell-held/$(_wg_key "$1")"
   [ -f "$f" ] && rm -f "$f" 2>/dev/null
+  rm -f "$(_wg_state)/doorbell-quiet/$(_wg_key "$1")" 2>/dev/null
   return 0
 }
 
