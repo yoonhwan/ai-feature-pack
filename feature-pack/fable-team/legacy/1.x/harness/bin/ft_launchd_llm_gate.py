@@ -18,7 +18,7 @@ INTERP = re.compile(r"^(?:.*/)?(?:bash|sh|zsh|dash|python3?(?:\.\d+)?)$")
 SKIP_WORDS = {"if", "then", "do", "else", "elif", "while", "until", "!", "exec", "command", "nohup", "time", "builtin", "env", "{", "}"}
 ZERO = r"""\$\{?(?:0|BASH_SOURCE(?:\[0\])?)(?::-\$0)?\}?"""
 DIRS = [re.compile(r"""\$\(\s*cd\s+(?:--\s+)?"?\$\(\s*dirname\s+(?:--\s+)?"?(%s)"?\s*\)"?\s*&&\s*pwd(?:\s+-P)?\s*\)""" % ZERO),
-        re.compile(r"""\$\(\s*dirname\s+(?:--\s+)?"?(%s)"?\s*\)""" % ZERO), re.compile(r"""\$\{(0|BASH_SOURCE(?:\[0\])?)%%/\*\}""")]
+        re.compile(r"""\$\(\s*dirname\s+(?:--\s+)?"?(%s)"?\s*\)""" % ZERO), re.compile(r"""\$\{(0|BASH_SOURCE(?:\[0\])?)%{1,2}/\*\}""")]  # r4: % 하나(마지막 / 뒤 지움)도 · %% 꼴 그대로
 PYCALL = re.compile(r"(?<![\w.])(?:subprocess\.\w+|os\.(?:system|popen|exec\w*|spawn\w*)|runpy\.run_\w+|importlib\.import_module|__import__|exec|eval)\s*\(")
 SDK = re.compile(r"\s*(?:from|import)\s+(?:anthropic|openai|litellm|google\.generativeai|langchain\w*)\b")  # LLM SDK import = 글자 그대로 호출 꼴
 SHIM = "# ft-root-bin-shim:"
