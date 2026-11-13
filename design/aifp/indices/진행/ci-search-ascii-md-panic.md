@@ -1,6 +1,6 @@
 # 인덱스: ci-search-ascii-md-panic — 끝: ci search 가 질의 종류(ASCII·비ASCII)와 상관없이 markdown 을 probe 에 넘기지 않고 rg 절로 따로 찾는다 · BYZ harness-ops-m175 의 «request register» 가 panic 경고 0 · 버린 줄 0 · 7초 안 · rc 정직 · probe 단계 상한 25초
 <!-- ledger: feature-pack/fable-team/legacy/1.x/harness/design/harness/GOAL-harness.md -->
-- Issue: 없음 — 등록 전 · 요청 harness#242 aifp 4306 · 발견 harness arch#337 BYZ 296913·296914 · 발주 aifp-ft-master-pi#9 aifp 4307(발주서 .fable-team/state/team-main/aifp-ft/orders/ci-search-ascii-md-panic-20261113.md) · 하드 룰 12·16
+- Issue: #8519 — 등록 planner#291 aifp 4315 · 요청 harness#242 aifp 4306 · 발견 harness arch#337 BYZ 296913·296914 · 발주 aifp-ft-master-pi#9 aifp 4307(발주서 .fable-team/state/team-main/aifp-ft/orders/ci-search-ascii-md-panic-20261113.md) · 하드 룰 12·16
 - 제안서: 없음 — 앞 카드 남은 갈래 복구(새 안 0) · 설계 1쪽 = design/aifp/arch-ci-search-ascii-md-panic-20261113.md(길 3개 · 추천 (가) · 반례 A1~A9 · 변이 W1~W4)
 - 근거: 실측 2026-11-13 21:3x(aifp-ft-arch-pi#3 · 팩 origin/main 36509bff · probe-code 0.6.0) — BYZ .worktrees/harness-ops-m175 에서 `ci search "request register" . --max 3` rc 0 · real 6.79초 · stderr `[warn] probe panic rc=134 (src/language/markdown.rs:240:69:) → rg 폴백 · 부분 출력 2줄 버림` · 같은 자리 비ASCII 질의(md 를 probe 에서 뺌) real 2.89초 panic 0 · 팀장 재현 7.07초 · timeout 7 이면 rc 124
 - 원인 1줄: 래퍼 feature-pack/code-intel/skill/scripts/ci search 갈래는 비ASCII 질의만 md 를 probe 에서 뺀다 · ASCII 질의는 md 를 probe 의 markdown 청커(markdown.rs:240)에 넘기고, 다중 바이트 md 에서 panic 한다
