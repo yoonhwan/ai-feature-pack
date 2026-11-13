@@ -107,6 +107,13 @@ def test_r4_bash_source_single_percent_dir(w):  # r4: ${BASH_SOURCE[0]%/*} = 그
     put(w / "bin/lib.sh", f"runner={w / 'ext'}/codex\n", 0o644)
     assert "기준선 결합 불일치" in check(w, p)[1]
 
+def test_r5_read_all_vars_and_list_matches_check(w):  # r5: read -r a b … 의 변수 전부 = 할당 · list 에 sha 있는 줄 = check 가 결합 불가로 안 막음
+    p = case(w, entry_sh="printf 'x|/usr/bin/true\\n' | while IFS='|' read -r a b; do \"$b\" exec sample; done\n")
+    rows = record_baseline(w)
+    assert rows and all(r[2] != "-" for r in rows) and check(w, p) == (0, "ALLOW com.byz.ft-fx"), (rows, check(w, p))
+    p = case(w, entry_sh='"$UNSET" exec sample\n')
+    assert [r[2] for r in record_baseline(w)] == ["-"] and "결합 불가" in check(w, p)[1]   # 미할당 = list 도 '-' (같은 규칙)
+
 def test_1c_variable_source_path_unbindable(w):
     p = case(w, lib_sh="x=1\n", entry_sh='. "$X/lib.sh"\nrunner=/usr/bin/true\n"$runner" exec sample\n')
     rc, out = record_baseline(w) and check(w, p)
