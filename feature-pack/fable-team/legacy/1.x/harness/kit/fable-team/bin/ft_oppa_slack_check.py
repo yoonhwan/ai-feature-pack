@@ -4,7 +4,7 @@ CLI: ft_oppa_slack_check.py <질문 글 ts> <40hex>… → 각 sha `SLACK-OK <sh
 질문 글(부모)에 sha 40자가 낱말로 있고, 오빠(OPPA_SLACK_UID) 답글이 부모 뒤 · 부모 수정 전 · «다음 질문 전»(질문 글과 같은 작성자의 다음 글 전)에 있어야 통과. 꼴이 맞지 않으면 «판정 불가» rc2.
 질문 글이 결정 스레드 안 답글이어도 읽는다(단계 3): 조회 결과에서 ts 가 같은 글을 찾고, 없거나 답글 하나뿐이면 스레드 루트(thread_ts)로 한 번 더 받는다(조회 2회 상한).
 r1606: 창 안 오빠 답글의 «내용» 도 본다 — 답글을 토막(공백·쉼표)으로 나눠 토막 전부가 승인 낱말일 때만 승인, 거절 토막이 하나라도 있으면 REJECT, 모르는 토막이 있으면 REJECT «판정 불가: 답글 내용». «오빠가 답했다» ≠ «오빠가 승인했다».
-env: FT_SLACK_REPLIES_CMD(시험용 · 이 명령의 stdout = conversations.replies JSON · 조회할 ts 는 env FT_SLACK_TS 로 준다) · FT_SCOPE_SLACK_TOKEN_FILE · FT_SCOPE_SLACK_CHANNEL
+env: FT_SLACK_REPLIES_CMD(시험용 · 이 명령의 stdout = conversations.replies JSON · 조회할 ts 는 env FT_SLACK_TS 로 준다) · FT_SCOPE_SLACK_TOKEN_FILE · FT_SCOPE_SLACK_CHANNEL · r1857: 첫 인자 `<채널>:<ts>` 면 그 채널(env 보다 앞섬 · 가짜 조회엔 FT_SLACK_CHANNEL 로 준다)
 --reply-only <질문 ts>(r1591) = sha 칸이 없는 질문(설계 승인 등) 모드 — stdout 은 `REPLY-SEEN parent=<ts> reply=<ts>` 한 줄(rc0) · 답글 아직 없으면 rc3 · 판정 불가 rc2 · SLACK-OK 를 «한 줄도» 내지 않는다(승인 길에 못 쓴다).
 r1764: `--reply-only <부모 ts> --after <글 ts>` = 그 시각 «뒤» 첫 오빠 글만 본다(스레드 새 글 감시 · 글이 더 없으면 rc3) — 승인 길·--after 없는 길은 그대로.
 r1776: `--reply-only <질문 ts> [--after <ts>] [--stop-at <ts>[,<ts>…]]`(순서 무관) = 같은 스레드에 있는 stop ts 중 질문 뒤 가장 이른 것 앞에서 창을 끊는다(스레드에 없는 ts 무시) · 승인 길(sha)에 --stop-at = rc2 usage."""
@@ -19,6 +19,8 @@ from pathlib import Path
 
 OPPA_SLACK_UID = "U0AC2JF0M7D"  # 코드 상수 — 바꾸려면 착지·승인 거친 PR (seats-planner.json 은 좌석이 쓸 수 있어 출처로 안 쓴다)
 DESK_CHANNEL = "C0C9GRFHJE5"
+CHANNEL = None  # r1857 · 첫 인자 `<채널>:<ts>` 의 채널 — env FT_SCOPE_SLACK_CHANNEL·byz-desk 보다 앞선다
+CHAN_TS = re.compile(r"(?:(C[A-Z0-9]{8,12}):)?([0-9]+\.[0-9]{6})")
 # r1606 · 답글 «내용» 판정 — 답글을 토막으로 나눈 뒤 토막 전부가 승인 낱말일 때만 승인(«승인 안 함»·«네? 왜요» 는 승인 0). 오빠 확인 대상 — 바꾸려면 PR.
 APPROVE_WORDS = frozenset(("네", "예", "승인", "확정", "네 확정", "네, 확정", "진행", "ok", "ㅇㅋ", "go"))
 REJECT_WORDS = frozenset(("아니오", "아니요", "아니", "거절", "반려", "보류", "중지", "멈춰", "no", "stop"))
@@ -56,9 +58,9 @@ class NoReply(Exception):  # r1591 · 답글 아직 없음 = 정상 열린 질�
 
 
 def fetch(ts: str) -> list:
-    cmd = os.environ.get("FT_SLACK_REPLIES_CMD")
+    cmd, chan = os.environ.get("FT_SLACK_REPLIES_CMD"), CHANNEL or os.environ.get("FT_SCOPE_SLACK_CHANNEL") or DESK_CHANNEL
     if cmd:
-        r = subprocess.run(shlex.split(cmd), capture_output=True, text=True, timeout=7, env={**os.environ, "FT_SLACK_TS": ts})
+        r = subprocess.run(shlex.split(cmd), capture_output=True, text=True, timeout=7, env={**os.environ, "FT_SLACK_TS": ts, "FT_SLACK_CHANNEL": chan})
         if r.returncode != 0:
             raise Unjudgeable("조회 rc=%d" % r.returncode)
         body = json.loads(r.stdout)
@@ -67,7 +69,7 @@ def fetch(ts: str) -> list:
         return body["messages"]
     from mirror_lib import paged, read_token  # 7초 + 재시도 1(하드 룰 12) · 쪽 끝까지
     tok = read_token(Path(os.environ.get("FT_SCOPE_SLACK_TOKEN_FILE") or "~/.hermes/secrets/yoonhwan_bot.env").expanduser())
-    return paged("https://slack.com/api", tok, "conversations.replies", {"channel": os.environ.get("FT_SCOPE_SLACK_CHANNEL") or DESK_CHANNEL, "ts": ts, "limit": 100})
+    return paged("https://slack.com/api", tok, "conversations.replies", {"channel": chan, "ts": ts, "limit": 100})
 
 
 def dec(v) -> Decimal:
@@ -156,14 +158,15 @@ def main(argv: list) -> int:
             args, opt[flag] = args[:i] + args[i + 2:], v
     after, stop = opt.get("--after"), opt["--stop-at"].split(",") if "--stop-at" in opt else None
     if args[:1] == ["--reply-only"]:  # r1591 · h·sha 칸이 없는 질문(설계 승인 등) — 빈 sha = 답글 확인 모드(REPLY-SEEN 만)
-        if len(args) != 2 or not re.fullmatch(r"[0-9]+\.[0-9]{6}", args[1]):
+        if len(args) != 2 or not CHAN_TS.fullmatch(args[1]):
             print("usage: ft_oppa_slack_check.py --reply-only <질문 글 ts>", file=sys.stderr)
             return 2
         args = [args[1], ""]
-    if len(args) < 2 or not re.fullmatch(r"[0-9]+\.[0-9]{6}", args[0]):
-        print("usage: ft_oppa_slack_check.py [--reply-only] <질문 글 ts> [<40hex>…]", file=sys.stderr)
+    if len(args) < 2 or not CHAN_TS.fullmatch(args[0]):
+        print("usage: ft_oppa_slack_check.py [--reply-only] [<채널>:]<질문 글 ts> [<40hex>…]", file=sys.stderr)
         return 2
-    parent = args[0]  # r1764 보정 · NoReply 문구는 부모 ts(예전 argv[1] 재할당 빠짐으로 «parent=--reply-only» 가 새었나)
+    global CHANNEL
+    CHANNEL, parent = CHAN_TS.fullmatch(args[0]).groups()  # r1857  # r1764 보정 · NoReply 문구는 부모 ts(예전 argv[1] 재할당 빠짐으로 «parent=--reply-only» 가 새었나)
     try:
         print("\n".join(judge(parent, args[1:], after, stop)))
         return 0

@@ -5,7 +5,7 @@
 OPPA=""; OPPA_SHAS=()
 oppa_parse() {
   while [ $# -gt 0 ]; do case "$1" in
-    --oppa-slack) [[ "${2:-}" =~ ^[0-9]+\.[0-9]{6}$ ]] || { echo "REJECT --oppa-slack 값 꼴 틀림(숫자.숫자6자리): ${2:-없음}" >&2; exit 2; }; OPPA="$2"; shift 2 ;;
+    --oppa-slack) [[ "${2:-}" =~ ^(C[A-Z0-9]{8,12}:)?[0-9]+\.[0-9]{6}$ ]] || { echo "REJECT --oppa-slack 값 꼴 틀림([<채널>:]숫자.숫자6자리): ${2:-없음}" >&2; exit 2; }; OPPA="$2"; shift 2 ;;
     *) OPPA_SHAS+=("$1"); shift ;; esac; done
 }
 oppa_gate() {
