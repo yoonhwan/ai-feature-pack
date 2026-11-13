@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # r1850 — ci search: probe 결과 줄 출력 panic(rc 134/133/101 · stderr «panicked at») 감지 → 부분 출력 버리고 rg 폴백
-#   (카드 ci-search-nonascii-panic · 설계 design/aifp/arch-ci-search-nonascii-panic-20261113.md §3)
-#   P1~P17 반례 · 기준판(origin/main 판 ci) 대조 · 변이 V1~V10(원본 대조) · 실 probe 0 · sleep 0 · 네트워크 0.
+# r18xx — ASCII 질의도 markdown 을 probe 에 넘기지 않고 md 는 rg 절로 · probe 단계 상한 25초
+#   (카드 ci-search-nonascii-panic · ci-search-ascii-md-panic · 설계 design/aifp/arch-ci-search-ascii-md-panic-20261113.md §3)
+#   P1~P21 + A1~A9 반례 · 기준판(origin/main 판 ci) 대조 · 변이 V1~V13·W1~W4(원본 대조) · 실 probe 0 · sleep 0 · 네트워크 0.
 #   실행: bash feature-pack/code-intel/tests/test_ci_search_nonascii_panic.sh   (CI_UNDER_TEST=<ci 경로> 로 다른 판 대조)
 [ -n "${CI_SEARCH_PANIC_TEST_GUARD:-}" ] && exit 0        # 재진입 표지(자기 호출 가드)
 if [ -z "${CI_SEARCH_PANIC_TEST_TIMED:-}" ]; then
@@ -37,9 +38,12 @@ mkdir -p "$SB/home" "$SB/tmp" "$SB/core" "$SB/ten" "$SB/long" "$SB/pathfront"
 printf '판정 불가 · x = 1\nreopen y\n' > "$SB/core/a.py"
 printf '판정 불가 문서 줄\n'            > "$SB/core/doc.md"
 for i in 1 2 3 4 5 6 7 8 9 10; do printf '판정 불가 hit %s\n' "$i" > "$SB/ten/f$i.py"; done
-mkdir -p "$SB/glob" "$SB/single"
+mkdir -p "$SB/glob" "$SB/single" "$SB/mdref" "$SB/nomd"
 printf 'literal needle* exists\n' > "$SB/glob/needle.txt"      # R3 — cwd 파일명으로 glob 확장되는지
 printf 'reopen token\n'            > "$SB/single/single.py"    # R4 — 단일 파일 결과에 파일명이 남는지
+printf 'reopen alpha\n'            > "$SB/mdref/a.py"         # A1·A5 — md 를 뺀 probe 가 보는 파일
+printf 'reopen 문서 줄\nliteral a.b( exists\n' > "$SB/mdref/doc.md"   # A1·A5·A8 — md 절 대상
+printf 'reopen only\n'             > "$SB/nomd/a.py"           # A3 — md 없는 fixture
 python3 - "$SB/long/l.py" <<'PY'                                          # 다중 바이트 400자 한 줄(P9)
 import sys
 open(sys.argv[1], "w", encoding="utf-8").write("판정 불가 " + "가나다라마" * 80 + "\n")
@@ -60,6 +64,7 @@ case "$mode" in
   nohits)   printf 'No results found.\n'; exit 1 ;;
   hit)      printf 'File: a.py\n  1: reopen\n'; exit 0 ;;
   other)    printf 'SECOND_UNEXPECTED\n' >&2; exit "${FAKE_RC2:-2}" ;;
+  abort)    kill -ABRT $$ ;;                                    # A6 — 스스로 SIGABRT(134)
 esac
 exit 0
 FAKE
@@ -72,14 +77,21 @@ exit "${FAKE_RG_RC:-0}"
 FAKE
 cat > "$SB/pathfront/timeout" <<'FAKE'
 #!/usr/bin/env bash
-# 가짜 timeout — 받은 인자 전부 기록 · FAKE_TO_MODE: 124(rg 안 부르고 즉시 rc124) · run(나머지 실행)
+# 가짜 timeout — 받은 인자 전부 기록 · FAKE_TO_MODE: 124(즉시 rc124) · run(나머지 실행) · rg124(rg 만 124 · probe 는 실행)
 printf '%s\n' "$*" >> "$FAKE_TO_LOG"
 case "${FAKE_TO_MODE:-124}" in
   124) exit 124 ;;
+  rg124) case "$*" in *rg*) exit 124 ;; *) shift; exec "$@" ;; esac ;;
   run) shift; exec "$@" ;;
 esac
 FAKE
-chmod +x "$SB/probe" "$SB/rg-stub" "$SB/pathfront/timeout"
+cat > "$SB/rg-passthru" <<'FAKE'
+#!/usr/bin/env bash
+# 실제 rg 를 부르되 인자를 기록하는 대역 — A5·A6·A8(폴백 절과 md 절을 진짜 rg 의미로 가른다)
+printf '%s\n' "$*" >> "$FAKE_RG_LOG"
+exec "$(command -v rg)" "$@"
+FAKE
+chmod +x "$SB/probe" "$SB/rg-stub" "$SB/pathfront/timeout" "$SB/rg-passthru"
 
 E=(env HOME="$SB/home" TMPDIR="$SB/tmp" PROBE_BIN="$SB/probe" CI_TIMEOUT=10
    FAKE_LOG="$SB/probe.log" FAKE_RG_LOG="$SB/rg.log" FAKE_TO_LOG="$SB/to.log" FAKE_RG_PATH="$SB/core/a.py")
@@ -158,6 +170,7 @@ P7() { RUNENV=("${E[@]}" FAKE_PROBE_1=hit); run_ci "$CI" "reopen" "$SB/core" --m
   chk "P7 stdout 그대로" "$OUT" "File: a.py
   1: reopen"
   hasnt "P7 표지 0" "$OUT" "rg 폴백"
+  has "P7 [info] 1줄(E5)" "$ERR" "[info] markdown 은 rg 로 분리 검색"
 }
 P7
 
@@ -166,6 +179,7 @@ P8() { RUNENV=("${E[@]}" FAKE_PROBE_1=nohits); run_ci "$CI" "zzzz" "$SB/core" --
   chk "P8 rc" "$RC" "1"
   chk "P8 stdout 그대로" "$OUT" "No results found."
   hasnt "P8 표지 0" "$OUT" "rg 폴백"
+  has "P8 [info] 1줄(E5)" "$ERR" "[info] markdown 은 rg 로 분리 검색"
 }
 P8
 
@@ -230,7 +244,7 @@ P13b() { RUNENV=("${E[@]}"); run_ci "$CI" "reopen" "$SB/no-such-dir" --max 5
 P13b
 
 echo "== P14 가짜 timeout = 즉시 rc124 (sleep 0) → rc3 · 사유 rc=124 · rg 호출 0 =="
-P14() { RUNENV=("${E[@]}" PATH="$SB/pathfront:$PATH"); run_ci "$CI" "reopen" "$SB/core" --max 5
+P14() { RUNENV=("${E[@]}" PATH="$SB/pathfront:$PATH" FAKE_TO_MODE=rg124); run_ci "$CI" "reopen" "$SB/core" --max 5
   chk "P14 rc" "$RC" "3"
   chk "P14 stdout 0줄" "$OUT" ""
   has "P14 사유 rc=124" "$ERR" "rc=124"
@@ -251,7 +265,8 @@ P15
 echo "== P16 RG_BIN 대역 우선(PATH 에 실제 rg 있음) → 대역이 불린다 =="
 P16() { RUNENV=("${E[@]}" RG_BIN="$SB/rg-stub"); run_ci "$CI" "reopen" "$SB/core" --max 5
   chk "P16 rc" "$RC" "0"
-  has "P16 대역 결과" "$OUT" "FAKE_RG_MATCH"
+  # 대역 판정은 «폴백 절» 에서 본다(새 md 절도 같은 RG_BIN 을 쓰므로 stdout 전체로는 못 가른다 · 2026-11-13)
+  has "P16 대역 결과" "$(printf '%s\n' "$OUT" | sed -n '/^== rg 폴백/,$p' | sed -n '/^== markdown/q;p')" "FAKE_RG_MATCH"
   [ -s "$SB/rg.log" ] && ok "P16 대역 인자 기록 있음" || bad "P16 대역이 안 불렸다"
 }
 P16
@@ -259,7 +274,8 @@ P16
 echo "== P17 CI_RG_TIMEOUT=300 · 가짜 timeout(기록 후 실행) → 기록된 상한 = 25 =="
 P17() { RUNENV=("${E[@]}" CI_RG_TIMEOUT=300 PATH="$SB/pathfront:$PATH" FAKE_TO_MODE=run)
   run_ci "$CI" "reopen" "$SB/core" --max 5
-  chk "P17 기록된 상한" "$(awk '{print $1}' "$SB/to.log" | head -n 1)" "25"
+  # 1줄이 아닐 수 있다(probe 단계·md 절도 _cap 을 쓴다) — 마지막 rg(폴백 rg)를 부른 줄의 상한만 본다
+  chk "P17 기록된 상한" "$(awk '$2 ~ /(^|\/)rg$/ {v=$1} END {print v}' "$SB/to.log")" "25"
   chk "P17 rc" "$RC" "0"
 }
 P17
@@ -301,8 +317,98 @@ P21() { RUNENV=("${E[@]}"); run_ci "$CI" "reopen" "$SB/single/single.py" --max 3
 }
 P21
 
+# ── A1~A9 (카드 ci-search-ascii-md-panic · 설계 1쪽 §4) ──────────────────
+echo "== A1 ASCII 질의 + md 히트 → probe 에 -i '*.md' · md 절 1번 · panic 경고 0 =="
+A1() { RUNENV=("${E[@]}" FAKE_PROBE_1=hit); run_ci "$CI" "reopen" "$SB/mdref" --max 5
+  chk "A1 rc" "$RC" "0"
+  has "A1 probe 인자에 -i *.md" "$(cat "$SB/probe.log")" "-i *.md"
+  hasnt "A1 panic 경고 0" "$ERR" "[warn] probe panic"
+  chk "A1 md 절 1번" "$(cnt "$OUT" "$OUT" '^== markdown ')" "1"
+  has "A1 md 결과(doc.md:1)" "$(printf '%s\n' "$OUT" | sed -n '/^== markdown/,$p')" "doc.md:1"
+  has "A1 [info] 1줄" "$ERR" "[info] markdown 은 rg 로 분리 검색"
+}
+A1
+
+echo "== A2 비ASCII 질의 회귀(P1·P10·P18) — md 절 1번 · [info] 1줄 =="
+A2() { RUNENV=("${E[@]}"); run_ci "$CI" "판정 불가" "$SB/core" --max 5
+  chk "A2 rc" "$RC" "0"
+  chk "A2 md 절 1번" "$(cnt "$OUT" "$OUT" '^== markdown ')" "1"
+  chk "A2 doc.md 등장 1번" "$(cnt "$OUT" "$OUT" 'doc.md')" "1"
+  has "A2 [info] 1줄" "$ERR" "[info] markdown 은 rg 로 분리 검색"
+}
+A2
+
+echo "== A3 md 없는 fixture · ASCII 정상 hit → md 절 0 · stdout 그대로 · [info] 1줄 =="
+A3() { RUNENV=("${E[@]}" FAKE_PROBE_1=hit); run_ci "$CI" "reopen" "$SB/nomd" --max 5
+  chk "A3 rc" "$RC" "0"
+  chk "A3 stdout = probe 출력 그대로" "$OUT" "File: a.py
+  1: reopen"
+  hasnt "A3 md 절 0" "$OUT" "== markdown"
+  has "A3 [info] 1줄" "$ERR" "[info] markdown 은 rg 로 분리 검색"
+}
+A3
+
+echo "== A4 정상 nohits rc1 · ASCII 한 낱말 · md 히트 0 → rc1 · 표지 0 · md 절 0 =="
+A4() { RUNENV=("${E[@]}" FAKE_PROBE_1=nohits); run_ci "$CI" "zzzz" "$SB/mdref" --max 5
+  chk "A4 rc" "$RC" "1"
+  chk "A4 stdout 그대로" "$OUT" "No results found."
+  hasnt "A4 표지 0" "$OUT" "rg 폴백"
+  hasnt "A4 md 절 0" "$OUT" "== markdown"
+}
+A4
+
+echo "== A5 panic rc134 → 폴백은 md 를 뺀 채 · md 절 따로 1번 · 겹침 0 =="
+A5() { RUNENV=("${E[@]}" RG_BIN="$SB/rg-passthru"); run_ci "$CI" "reopen" "$SB/mdref" --max 5
+  chk "A5 rc" "$RC" "0"
+  chk "A5 stdout 첫 줄 = 표지" "$(first "$OUT")" "$POL"
+  has "A5 rg 1회차(md) = -g *.md" "$(sed -n '1p' "$SB/rg.log")" "*.md"
+  hasnt "A5 rg 1회차에 !*.md 0" "$(sed -n '1p' "$SB/rg.log")" "!*.md"
+  has "A5 rg 2회차(폴백) = !*.md" "$(sed -n '2p' "$SB/rg.log")" "!*.md"
+  chk "A5 md 절 1번" "$(cnt "$OUT" "$OUT" '^== markdown ')" "1"
+  chk "A5 doc.md 등장 1번" "$(cnt "$OUT" "$OUT" 'doc.md')" "1"
+  hasnt "A5 폴백 절에 md 0" "$(printf '%s\n' "$OUT" | sed -n '/^== rg 폴백/,/^== markdown/p')" "doc.md"
+}
+A5
+
+echo "== A6 가짜 probe 가 스스로 kill -ABRT · timeout 감싼 뒤에도 panic 판정 =="
+A6() { RUNENV=("${E[@]}" FAKE_PROBE_1=abort RG_BIN="$SB/rg-passthru"); run_ci "$CI" "reopen" "$SB/mdref" --max 5
+  chk "A6 rc" "$RC" "0"
+  chk "A6 stdout 첫 줄 = 표지(rc 134)" "$(first "$OUT")" "$POL"
+  has "A6 경고 1줄" "$ERR" "[warn] probe panic rc=134"
+  has "A6 폴백 결과(a.py)" "$OUT" "a.py:1"
+}
+A6
+
+echo "== A7 가짜 timeout rc124 · probe 단계 → stdout 0줄 · 판정 불가 · rc124 · 상한 25 =="
+A7() { RUNENV=("${E[@]}" CI_TIMEOUT=300 PATH="$SB/pathfront:$PATH"); run_ci "$CI" "reopen" "$SB/core" --max 5
+  chk "A7 rc" "$RC" "124"
+  chk "A7 stdout 0줄" "$OUT" ""
+  has "A7 판정 불가 1줄" "$ERR" "판정 불가 ci search: probe 시간 초과 rc=124"
+  chk "A7 기록된 probe 상한 = 25" "$(awk '$2 ~ /probe$/ {print $1; exit}' "$SB/to.log")" "25"
+}
+A7
+
+echo "== A8 ASCII 질의 a.b( → 글자 그대로(-F) · 정규식이면 rc2 로 0줄 =="
+A8() { RUNENV=("${E[@]}" FAKE_PROBE_1=hit RG_BIN="$SB/rg-passthru"); run_ci "$CI" "a.b(" "$SB/mdref" --max 5
+  chk "A8 rc" "$RC" "0"
+  chk "A8 md 절 1번" "$(cnt "$OUT" "$OUT" '^== markdown ')" "1"
+  has "A8 md 결과(doc.md:2)" "$(printf '%s\n' "$OUT" | sed -n '/^== markdown/,$p')" "doc.md:2"
+}
+A8
+
+echo "== A9 md rg 대역 rc2 → md 절 0 · [warn] 1줄 · probe 결과·rc 그대로 =="
+A9() { RUNENV=("${E[@]}" FAKE_PROBE_1=hit RG_BIN="$SB/rg-stub" FAKE_RG_RC=2); run_ci "$CI" "reopen" "$SB/mdref" --max 5
+  chk "A9 rc" "$RC" "0"
+  chk "A9 stdout = probe 출력 그대로" "$OUT" "File: a.py
+  1: reopen"
+  has "A9 md 경고 1줄" "$ERR" "[warn] markdown rg 실패 rc=2"
+  chk "A9 md 경고 1줄만" "$(printf '%s\n' "$ERR" | grep -c 'markdown rg 실패')" "1"
+  hasnt "A9 md 절 0" "$OUT" "== markdown"
+}
+A9
+
 # ── 기준판(origin/main 판 ci) 대조 ────────────────────────────────────────
-echo "== 기준판 대조 — P7·P8 만 PASS, 나머지 전부 FAIL 이어야 =="
+echo "== 기준판 대조 — 앞카드(비ASCII)까지 들어간 기준판: P1~P21 통과 · A1·A2·A3·A5·A7·A8·A9 FAIL =="
 ROOT="$(cd "$HERE/../../.." && pwd)"
 BASE_SHA="$(git -C "$ROOT" rev-parse origin/main 2>/dev/null || true)"
 BASE="$SB/ci-base"
@@ -318,8 +424,10 @@ if [ -n "$BASE_SHA" ] && git -C "$ROOT" show "$BASE_SHA:feature-pack/code-intel/
       [ "$changed" -eq 0 ] && ok "기준판 $f PASS(기대대로)" || bad "기준판 $f FAIL(${changed}건) — PASS 이어야"
     fi
   }
-  for f in P1 P2 P3a P3b P3c P4 P5 P6 P9 P10 P11 P12 P13a P13b P14 P15 P16 P17 P19 P20 P21; do bl "$f" fail; done
-  bl P7 pass; bl P8 pass; bl P18 pass
+  for f in P1 P2 P3a P3b P3c P4 P5 P6 P9 P10 P11 P12 P13a P13b P14 P15 P16 P17 P19 P20 P21; do bl "$f" pass; done
+  bl P7 fail; bl P8 fail; bl P18 pass        # P7·P8 은 [info] 1줄 기대를 더해 기준판이 FAIL(설계 §4 «바뀌는 기존 기대»)
+  for f in A1 A2 A3 A5 A7 A8 A9; do bl "$f" fail; done
+  bl A4 pass; bl A6 pass
 else
   bad "기준판 추출 실패(origin/main ci 를 git show 로 못 꺼냈다)"
 fi
@@ -368,6 +476,12 @@ vcheck V10 P16 'RG="${RG_BIN:-$(_resolve rg || true)}"@@RG="$(_resolve rg || tru
 vcheck V11 P18 '[ -n "$md_hits" ] && [ "$panic" -eq 0 ] && [ "$rc" -eq 1 ] && rc=0@@:'
 vcheck V12 P20 'read -ra words <<< "$q"@@words=($q)'
 vcheck V13 P21 'timeout "$rgt" "$RG" -H -n --no-heading@@timeout "$rgt" "$RG" -n --no-heading'
+
+# ── 변이 W1~W4 (카드 ci-search-ascii-md-panic · 설계 §4 — 각각 지정 반례가 FAIL 해야) ──
+vcheck W1 A1 "_probe_search \"\$q\" \"\$path\" \"\$max\" 1 -i '*.md'@@_probe_search \"\$q\" \"\$path\" \"\$max\" 1"
+vcheck W2 A8 '-F -H -n --no-heading --color never -m 1 "$@"@@-H -n --no-heading --color never -m 1 -- "$q"'
+vcheck W3 A7 '  [ "$pt" -gt 25 ] && pt=25@@:'
+vcheck W4 A9 'if [ "$md_rg_rc" -eq 124 ] || [ "$md_rg_rc" -ge 2 ]; then md_bad=1; fi@@:'
 
 echo "== 요약: $n 검사 · 실패 $fail =="
 [ "$fail" -eq 0 ] || exit 1
