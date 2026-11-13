@@ -186,7 +186,7 @@ def env_added_values_ok(full, items):   # .env.example 류: «추가된 대입 �
 
 
 STATUS_KIND = {"D": "delete", "C": "copy", "T": "type"}
-TEAM_CARD = re.compile(r"^(design/teams/[^/]+)/indices/(?:대기|진행|완성|보류)/[^/]+$")   # 팀 카드 폴더 = 같은 팀의 네 상태 폴더(r559)
+TEAM_CARD = re.compile(r"^(design/teams/[^/]+|design/aifp)/indices/(?:대기|진행|완성|보류)/[^/]+$")   # 팀 카드 폴더 = 같은 팀(또는 팩 aifp · r1869)의 네 상태 폴더(r559)
 
 
 def same_card(table, om, nm, a, b):   # 같은 팀 카드 폴더 사이 같은 이름 이동 = 모드 같음 ∧ 파일 이름 같음 ∧ 양쪽 docs(내용 변화 무관 · r559)
