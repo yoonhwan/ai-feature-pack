@@ -20,6 +20,7 @@ def _load(name):
     ("byz-planner-arch-claude#3", "보낸이 planner-arch"),
     ("byz-cfo-nano-cfo-pub-turnkey-atom-it-planner-rate#0", "보낸이 cfo-nano"),
     ("byz-planner-desk-gpt#1", None),  # lint 실패(에이전트 낱말 밖) = 표시 0
+    ("byz-cfo-nano#0", None),  # lint 실패(nano slug 꼬리 없음) = 표시 0 (DA HOLD R1)
 ])
 def test_1_sender_tag_table(seat, want):
     assert _load("sender_tag").sender_tag(seat) == want
@@ -44,9 +45,9 @@ def test_2_wiring_body_last_line_is_tag(tmp_path, capsys):
     assert posts == [BODY + "\n\n" + TAG] and posts[0].splitlines()[-1] == TAG  # 원문 그대로 · 근거 줄 뒤 · 맨 끝
 
 
-def test_2b_lint_fail_posts_without_tag(tmp_path, capsys, monkeypatch):
+@pytest.mark.parametrize("bad", ["byz-planner-desk-gpt#1", "byz-planner-nano#0"])
+def test_2b_lint_fail_posts_without_tag(tmp_path, capsys, bad):
     binding = _load("binding")
-    bad = "byz-planner-desk-gpt#1"
     binding.ThreadBinding(str(tmp_path), "planner").bind(binding.thread_key(W, C, TS), bad)
     posts = []
     assert _reply(tmp_path, lambda ch, ts, text, meta: posts.append(text) or "1.1", seat=bad) == 0
