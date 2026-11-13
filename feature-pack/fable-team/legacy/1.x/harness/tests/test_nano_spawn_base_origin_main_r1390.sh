@@ -116,8 +116,8 @@ echo "== B5 --base <미착지> --base-reason → 열림 · BASE-REASON 1줄"
 out="$(sp "$T/w" "$D" "$BINX" --base "$U" --base-reason "선행 카드 위에서")"; rc=$?
 { [ "$rc" = 0 ] && [ "$(printf '%s\n' "$out" | grep -c "^BASE-REASON ${U:0:10} origin/main 위 아님 — 선행 카드 위에서$")" = 1 ] && [[ "$out" == *"base=$U index="* ]]; } \
   && ok "B5 rc0 · BASE-REASON 1줄 · base=$U" || bad "B5 rc=$rc ← ${out: -300}"
-# B5 쓰기 자리(dry-run 은 쓰기 0 — 실 개설 길은 글자로만 본다): 명부 base_reason 칸 + 카드 «## 상태» card_note 1줄
-grep -q 'd\[name\]\["base_reason"\] = base_reason.strip()' "$BINX/ft-nano-spawn.sh" && grep -q 'card_note "$IDX_WT/$NEW_IDX" "base_reason: ' "$BINX/ft-nano-spawn.sh" \
+# B5 쓰기 자리(dry-run 은 쓰기 0 — 실제 쓰기는 test_nano_spawn_reopen_no_root_commit_r1409.sh E5·E6 이 본다): 명부 base_reason 칸 + 카드 «## 상태» card_note 1줄
+grep -q 'd\[name\]\["base_reason"\] = base_reason.strip()' "$BINX/ft-nano-spawn.sh" && grep -q 'card_note "$IDX_WT/$NEW_IDX" "$_BR_LINE"' "$BINX/ft-nano-spawn.sh" \
   && ok "B5 쓰기 자리 2곳(명부 base_reason · 카드 상태 줄) 있음" || bad "B5 쓰기 자리 없음"
 echo "== B5b --base-reason 이 공백뿐 → 사유 없음과 같다(REJECT)"
 out="$(sp "$T/w" "$D" "$BINX" --base "$U" --base-reason "  ")"; rc=$?

@@ -12,7 +12,7 @@ set -uo pipefail
 [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
 IDX="${1:-}"; shift || { echo "usage: $0 <indices/대기/X.md> [--agent claude|codex|cmd|opencode|pi] [--model M] [--effort E] [--raise \"<사유>\"] [--from SEAT] [--base REF] [--cherry-override \"<사유>\"] [--dry-run]" >&2; exit 2; }
 # r1385: 나노 기본 = pi (오빠 10-22 «pi = 모든 팀 기본» · 10-26 «pi deepseek 먼저») — 되돌림 손잡이 = FT_NANO_DEFAULT_AGENT
-AGENT="${FT_NANO_DEFAULT_AGENT:-pi}"; AGENT_SET=0; MODEL=""; EFFORT="high"; EFFORT_SET=0; FROM="${FT_SEND_FROM:-}"; FROM_SET=0; RESEARCH=0; REOPEN=0; DRY=0; FAST=""; TIER=""; RECHECK=""; BASE_REF=""; BASE_REASON=""; HAVE_CO=0; CO=""; RAISE=""
+AGENT="${FT_NANO_DEFAULT_AGENT:-pi}"; AGENT_SET=0; MODEL=""; EFFORT="high"; EFFORT_SET=0; FROM="${FT_SEND_FROM:-}"; FROM_SET=0; RESEARCH=0; REOPEN=0; DRY=0; FAST=""; TIER=""; RECHECK=""; BASE_REF=""; BASE_REASON=""; _BR_LINE=""; HAVE_CO=0; CO=""; RAISE=""
 while [ $# -gt 0 ]; do case "$1" in
   --agent) AGENT="$2"; AGENT_SET=1; shift 2;; --model) MODEL="$2"; shift 2;; --effort) EFFORT="$2"; EFFORT_SET=1; shift 2;; --raise) RAISE="${2:-}"; shift 2 2>/dev/null || shift;;
   --from) FROM="$2"; FROM_SET=1; shift 2;; --recheck) RECHECK="$2"; shift 2;; --dry-run) DRY=1; shift;; --research) RESEARCH=1; shift;; --reopen) REOPEN=1; shift;; --tier) TIER="$2"; shift 2;; --base) BASE_REF="$2"; shift 2;;
@@ -149,6 +149,8 @@ reopen_record_origin() {  # $1 = 카드 상대경로(진행/…) $2 = 재개 줄
   card_assign_record "$wt/$rel" seat "$NAME"
   if ! card_note "$wt/$rel" "$note" >/dev/null; then echo "WARN 재개 줄 push 실패 — 좌석은 열렸다 · 카드 변경은 사본에만: $wt" >&2; return 1; fi
   if [ -n "$asg" ] && ! card_note "$wt/$rel" "$asg" >/dev/null; then echo "WARN 재개 줄 push 실패 — 좌석은 열렸다 · 카드 변경은 사본에만: $wt" >&2; return 1; fi
+  # r1390: origin/main 위가 아닌 --base 사유도 사본 카드에(공용 루트 갈래 = 루트 카드 쓰기 0)
+  if [ -n "${_BR_LINE:-}" ] && ! card_note "$wt/$rel" "$_BR_LINE" >/dev/null; then echo "WARN 재개 줄 push 실패 — 좌석은 열렸다 · 카드 변경은 사본에만: $wt" >&2; return 1; fi
   # base_sha 기록·갱신도 사본에(루트 카드 = 루트 작업본에는 쓰지 않는다)
   if [ -n "${_BASE_STAMP:-}" ] && ! card_base_stamp "$wt/$rel" "$_BASE_STAMP" >/dev/null; then echo "WARN 재개 줄 push 실패 — 좌석은 열렸다 · 카드 변경은 사본에만: $wt" >&2; return 1; fi
   if [ -n "${_BASE_RENEW:-}" ] && ! card_base_renew "$wt/$rel" "$_BASE_RENEW" >/dev/null; then echo "WARN 재개 줄 push 실패 — 좌석은 열렸다 · 카드 변경은 사본에만: $wt" >&2; return 1; fi
@@ -625,7 +627,8 @@ if git -C "$WT" config --get remote.origin.url >/dev/null 2>&1; then
     case "$_arc" in
       0) BASE_REASON="";;
       1) [ -n "${BASE_REASON//[[:space:]]/}" ] || { echo "REJECT 기준 ${_bs:0:10} 가 origin/main 위가 아니다 — --base origin/main 또는 --base-reason \"<사유>\""; card_assign_record "$IDX" waiting 선행; exit 1; }
-         echo "BASE-REASON ${_bs:0:10} origin/main 위 아님 — $BASE_REASON";;
+         echo "BASE-REASON ${_bs:0:10} origin/main 위 아님 — $BASE_REASON"
+         _BR_LINE="base_reason: $BASE_REF(${_bs:0:10}) origin/main 위 아님 — $BASE_REASON";;   # 카드 «## 상태» 1줄 — 로컬·origin 사본 두 길이 같은 글자
       *) echo "REJECT 기준 ${_bs:0:10} 조상 판정 불가(rc=$_arc)"; exit 1;;
     esac
   fi
@@ -1043,7 +1046,7 @@ else
   git -C "$IDX_WT" ls-files --error-unmatch -- "$NEW_IDX" >/dev/null 2>&1 && { git -C "$IDX_WT" add -- "$NEW_IDX" || human "⑥ 거울 줄 준비"; }   # r1224: 이동이 준비한 진행 카드 1개를 거울 줄째 다시 준비 — 이동 커밋에 «좌석 <이름>» 이 실린다
 fi
 [ "$_REOPEN_ROOT" = 1 ] || { [ -z "$_ASG_LINE" ] || { _cn="$(card_note "$IDX_WT/$NEW_IDX" "$_ASG_LINE")" || echo "WARN 카드 배정 줄 기록 실패 — ${_cn:-rc≠0}" >&2; }; }   # r1217: 이동 «뒤» 경로 · r1409: 공용 루트 갈래는 사본에 쓴다(아래)
-[ -z "$BASE_REASON" ] || [ "$_REOPEN_ROOT" = 1 ] || { _cn="$(card_note "$IDX_WT/$NEW_IDX" "base_reason: $BASE_REF($(git -C "$WT" rev-parse --short "$BASE_REF^{commit}")) origin/main 위 아님 — $BASE_REASON")" || echo "WARN 카드 base_reason 줄 기록 실패 — ${_cn:-rc≠0}" >&2; }   # r1390
+[ -z "${_BR_LINE:-}" ] || [ "$_REOPEN_ROOT" = 1 ] || { _cn="$(card_note "$IDX_WT/$NEW_IDX" "$_BR_LINE")" || echo "WARN 카드 base_reason 줄 기록 실패 — ${_cn:-rc≠0}" >&2; }   # r1390
 [ "$_REOPEN_ROOT" != 1 ] || { [ "$DRY" = 1 ] || reopen_record_origin "$NEW_IDX" "$(date '+%FT%H:%M') 재개(--reopen) · 좌석 $NAME · wt=$REOPEN_WT" "$_ASG_LINE" || true; }   # r1409: 공용 루트 = 로컬 커밋 0 — origin/main 사본에서 커밋 → docs push(실패 = WARN 1줄)
 [ "$_REOPEN_ROOT" = 1 ] || [ "$REOPEN" != 1 ] || { git -C "$IDX_WT" add -- "$NEW_IDX" && git -C "$IDX_WT" commit -q -m "[docs] ${SLUG} 재개(--reopen) — 좌석 $NAME · wt=$REOPEN_WT" -- "$NEW_IDX" >/dev/null; } || echo "WARN 재개 카드 커밋 실패($NEW_IDX) — 좌석은 열렸다 · 카드 변경은 미커밋" >&2   # r1335: 이동 커밋 대신 카드 커밋 1개
 # ★R163 spawn 카드 기준선★ — 이 시각의 카드 내용 지문·브랜치·워크트리를 남겨 두면 자율 중 «nano-reopen» 대리 판정(r162)이 «승인 범위 그대로» 인지 비교한다.

@@ -122,6 +122,23 @@ eq "$(grep -c '' "$T/move.log" 2>/dev/null || echo 0)" 1 "E4 ft-index-move 1회"
 has "$(cat "$T/move.log" 2>/dev/null)" "대기/r1409w.md 진행" "E4 이동 인자 그대로"
 hasnt "$o" "REOPEN-CARD" "E4 사본 길 0"
 
+# ── E5 r1390: 공용 루트 --reopen + origin/main 위 아닌 --base + --base-reason → origin 카드에 base_reason 1줄 · 명부 base_reason · 루트 카드 0 ──
+unl() { git -C "$R" commit-tree "HEAD^{tree}" -p HEAD -m unlanded; }   # 가지 안 바꾼 미착지 커밋 1개
+reset; newcard r1409e; U="$(unl)"
+o="$(SP 진행/r1409e.md --reopen --base "$U" --base-reason "선행 카드 위에서")"; rc=$?
+rc_is "$rc" 0 "E5 rc"
+has "$o" "REOPEN-CARD origin ←" "E5 origin/main 사본에서 커밋·push"
+eq "$(origin_card r1409e | grep -c "^- base_reason: $U(${U:0:10}) origin/main 위 아님 — 선행 카드 위에서$")" 1 "E5 origin 카드에 base_reason 줄 1"
+eq "$(grep -c 'base_reason' "$R/design/v65/indices/진행/r1409e.md")" 0 "E5 루트 카드에 base_reason 0"
+eq "$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["byz-v65-nano-r1409e#0"].get("base_reason",""))' "$SEATS")" "선행 카드 위에서" "E5 명부 base_reason 칸"
+eq "$(root_extra)" 0 "E5 루트에 origin 에 없는 커밋 0"
+
+# ── E6 r1390: 전용 워크트리 --reopen + 같은 사유 → 그 워크트리 카드에 base_reason 1줄(로컬 길) ──
+reset; git -C "$R" worktree add -q "$T/teamwt" -b cardwt origin/main; cardwt; U="$(unl)"
+o="$(SPW 진행/r1409c.md --reopen --base "$U" --base-reason "선행 카드 위에서")"; rc=$?
+rc_is "$rc" 0 "E6 rc"
+eq "$(grep -c "^- base_reason: $U(${U:0:10}) origin/main 위 아님 — 선행 카드 위에서$" "$T/teamwt/design/v65/indices/진행/r1409c.md")" 1 "E6 워크트리 카드에 base_reason 줄 1"
+
 # ── 변이 3개: 계약이 실제로 시험을 통해 잡히나 ──
 _rc_old='  local rt p q no=0 name where rest'
 mutant m1 "$_rc_old" '  local rt p q no=0 name where rest; return 1' && ok "변이 1 사본(루트 판별 삭제)" || bad "변이 1 사본 실패"
@@ -141,5 +158,9 @@ reset; git -C "$R" worktree add -q "$T/teamwt" -b cardwt origin/main
 cardwt
 (cd "$R" && PATH="$T/fake:$PATH" FT_ROOT="$R" FT_SEATS_JSON="$SEATS" FT_ROOTS_TSV="$T/roots.tsv" bash "$T/mut-m3/ft-nano-spawn.sh" "$T/teamwt/design/v65/indices/진행/r1409c.md" --reopen >/dev/null 2>&1)
 eq "$(git -C "$T/teamwt" log --oneline origin/main..cardwt | wc -l | tr -d ' ')" 1 "변이 3 → E3 FAIL(그 워크트리에 재개 커밋 0)"
+
+mutant m4 '  if [ -n "${_BR_LINE:-}" ] && ! card_note "$wt/$rel"' '  if false && ! card_note "$wt/$rel"' && ok "변이 4 사본(origin 사본에 base_reason 안 넘김 · DA R2)" || bad "변이 4 사본 실패"
+reset; newcard r1409e; U="$(unl)"; SPM m4 진행/r1409e.md --reopen --base "$U" --base-reason "선행 카드 위에서" >/dev/null 2>&1
+eq "$(origin_card r1409e | grep -c '^- base_reason: ')" 0 "변이 4 → E5 FAIL(origin 카드 base_reason 0)"
 
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }
