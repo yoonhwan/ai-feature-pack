@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
 # test_nano_spawn_pack_wt_r1408.sh — 카드 r1408: 하네스 카드 spawn 이 팩 작업 폴더를 «좌석 열기 전» 직접 만들고, 팩 루트가 가지에 있으면 열지 않는다.
 #   왜: 팩 작업 폴더를 발주문 글로만 시켰더니 pi 나노가 건너뛰고 공용 팩 루트에서 가지를 바꿨다 → 전 팀 spawn DRIFT(r1392 실사건).
-#   W1 루트 detached · 폴더 없음 → «PACK-WT <경로> 만듦» 1줄 · 가지 nano/<slug> · 기준 origin/main · 루트 HEAD detached 유지
-#   W2 루트가 가지(r1392-…) → REJECT · 워크트리 0 · 루트 가지 그대로 (+ 실 spawn --dry-run 한 바퀴: REJECT rc1 · tmuxc·명부 0)
+#   (DA #298790 보정 · arch #298793) 팩 루트 = main 가지(ft2 설치 h 계약 · ff-only) 또는 detached → 허용 · 그 밖의 가지 → REJECT · 루트 손 0
+#   W1m 루트 main · 폴더 없음 → «PACK-WT <경로> 만듦» · 가지 nano/<slug> · 기준 fetch 한 origin/main · 루트 main 그대로
+#   W1r 루트 main · 같은 가지 폴더 있음 → «재사용»      W1d 루트 main · --dry-run → «만들 예정» · 쓰기 0 (+ 실 spawn --dry-run)
+#   W6 루트 detached · 폴더 없음 → 만듦(옛 W1 꼴 회귀) · 루트 HEAD detached 유지
+#   W2 루트가 다른 가지(main 아님 · r1392-…) → REJECT · 워크트리 0 · 루트 가지 그대로 (+ 실 spawn --dry-run 한 바퀴: REJECT rc1 · tmuxc·명부 0)
 #   W3 같은 slug 폴더 · 가지 nano/<slug> → «재사용» 1줄
 #   W4 같은 경로 폴더가 다른 가지 → REJECT · 폴더 가지 그대로
 #   W5 하네스 카드 아님(원장 줄 다름) → 출력 0 · 팩 쪽 동작 0
 #   D  --dry-run · 폴더 없음 → «만들 예정» · 쓰기 0 (실 spawn --dry-run 갈래 포함) · 발주 줄 = «이미 만들어 둠» + checkout/switch 금지
 #   S  호출 자리 = dry-run 종료·좌석 열기(tmuxc) 앞 · 실패 = exit 1 · bin·kit cmp0
 # 변이: FT_R1408_SPAWN=<바꾼 사본> → 함수 칸(W1~W5·D)만 그 사본으로 돈다(실 spawn·cmp 칸 건너뜀).
-#   루트 HEAD 검사 삭제 → W2 FAIL · 만들기 삭제 → W1 FAIL · 가지 확인 삭제 → W4 FAIL
+#   루트 HEAD 검사 삭제 → W2 FAIL · 만들기 삭제 → W1m·W6 FAIL · 가지 확인 삭제 → W4 FAIL · main 허용 삭제 → W1m FAIL
 # 꼴 = 임시 «팩 꼴» 리포(bare 원격 + 루트 detached) + 임시 bin 사본 · 실 팩·실 명부·실 tmux 0 · 자기 재호출 0.
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1
@@ -41,18 +44,18 @@ printf '# 인덱스: p\n<!-- ledger: design/v65/GOAL-LEDGER-v65.md -->\n- 설치
 
 fn="$(awk '/^pack_wt_prepare\(\) \{/,/^\}/' "$SPAWN")"
 if [ -z "$fn" ]; then
-  bad "W1 pack_wt_prepare 함수 없음(만들기 0)"; bad "W2 pack_wt_prepare 함수 없음(루트 HEAD 검사 0)"
+  bad "W1m pack_wt_prepare 함수 없음(만들기 0)"; bad "W6 함수 없음"; bad "W2 pack_wt_prepare 함수 없음(루트 HEAD 검사 0)"
   bad "W3 함수 없음"; bad "W4 함수 없음"; bad "D 함수 없음"
 else
   eval "$fn"
-  # W1 — 만듦 · 가지 · 기준 origin/main(fetch 한 최신) · 루트 detached 유지
+  # W6 — 루트 detached(옛 W1 꼴 회귀): 만듦 · 가지 · 기준 origin/main(fetch 한 최신) · 루트 detached 유지
   P="$(mkpack "$T/w1")"; NEW="$(G -C "$T/w1/seed" rev-parse HEAD)"
   O="$(FT_PACK_ROOT="$P" pack_wt_prepare "$T/h.md" s1 nano/s1 0)"; RC=$?
-  [ "$RC" = 0 ] && ok "W1 rc0" || bad "W1 rc=$RC ← ${O}"
-  [ "$O" = "PACK-WT $P/.worktrees/s1 만듦" ] && ok "W1 출력 = PACK-WT 만듦 1줄" || bad "W1 출력 «${O}»"
-  [ "$(G -C "$P/.worktrees/s1" symbolic-ref -q --short HEAD 2>/dev/null)" = nano/s1 ] && ok "W1 가지 nano/s1" || bad "W1 가지 다름/폴더 없음"
-  [ "$(G -C "$P/.worktrees/s1" rev-parse HEAD 2>/dev/null)" = "$NEW" ] && ok "W1 기준 = fetch 한 origin/main" || bad "W1 기준 다름"
-  G -C "$P" symbolic-ref -q HEAD >/dev/null && bad "W1 루트 HEAD 가 가지로 바뀜" || ok "W1 루트 HEAD detached 유지"
+  [ "$RC" = 0 ] && ok "W6 rc0" || bad "W6 rc=$RC ← ${O}"
+  [ "$O" = "PACK-WT $P/.worktrees/s1 만듦" ] && ok "W6 출력 = PACK-WT 만듦 1줄" || bad "W6 출력 «${O}»"
+  [ "$(G -C "$P/.worktrees/s1" symbolic-ref -q --short HEAD 2>/dev/null)" = nano/s1 ] && ok "W6 가지 nano/s1" || bad "W6 가지 다름/폴더 없음"
+  [ "$(G -C "$P/.worktrees/s1" rev-parse HEAD 2>/dev/null)" = "$NEW" ] && ok "W6 기준 = fetch 한 origin/main" || bad "W6 기준 다름"
+  G -C "$P" symbolic-ref -q HEAD >/dev/null && bad "W6 루트 HEAD 가 가지로 바뀜" || ok "W6 루트 HEAD detached 유지"
   # W3 — 같은 폴더 다시 = 재사용
   O="$(FT_PACK_ROOT="$P" pack_wt_prepare "$T/h.md" s1 nano/s1 0)"; RC=$?
   [ "$RC" = 0 ] && [ "$O" = "PACK-WT $P/.worktrees/s1 재사용" ] && ok "W3 재사용 1줄" || bad "W3 rc=$RC «${O}»"
@@ -66,11 +69,23 @@ else
   O="$(FT_PACK_ROOT="$P" pack_wt_prepare "$T/h.md" sd nano/sd 1)"; RC=$?
   [ "$RC" = 0 ] && has "D dry-run = 만들 예정" "$O" "PACK-WT $P/.worktrees/sd 만들 예정(dry-run" || bad "D rc=$RC «${O}»"
   [ ! -e "$P/.worktrees/sd" ] && ! G -C "$P" rev-parse -q --verify refs/heads/nano/sd >/dev/null && ok "D 쓰기 0(폴더·가지)" || bad "D 폴더나 가지가 생김"
-  # W2 — 루트가 가지 → REJECT · 워크트리 0 · 루트 그대로
+  # W1m·W1r·W1d — 루트 main 가지(ft2 설치 h 계약) = 허용 · 루트 손 0
+  PM="$(mkpack "$T/wm")"; G -C "$PM" checkout -q main; NEWM="$(G -C "$T/wm/seed" rev-parse HEAD)"; MAIN0="$(G -C "$PM" rev-parse main)"
+  O="$(FT_PACK_ROOT="$PM" pack_wt_prepare "$T/h.md" sd nano/sd 1)"; RC=$?
+  [ "$RC" = 0 ] && has "W1d 루트 main · dry-run = 만들 예정" "$O" "PACK-WT $PM/.worktrees/sd 만들 예정(dry-run" || bad "W1d rc=$RC «${O}»"
+  [ ! -e "$PM/.worktrees/sd" ] && ! G -C "$PM" rev-parse -q --verify refs/heads/nano/sd >/dev/null && ok "W1d 쓰기 0(폴더·가지)" || bad "W1d 폴더나 가지가 생김"
+  O="$(FT_PACK_ROOT="$PM" pack_wt_prepare "$T/h.md" sm nano/sm 0)"; RC=$?
+  [ "$RC" = 0 ] && [ "$O" = "PACK-WT $PM/.worktrees/sm 만듦" ] && ok "W1m 루트 main → 만듦 1줄" || bad "W1m rc=$RC «${O}»"
+  [ "$(G -C "$PM/.worktrees/sm" symbolic-ref -q --short HEAD 2>/dev/null)" = nano/sm ] && ok "W1m 가지 nano/sm" || bad "W1m 가지 다름/폴더 없음"
+  [ "$(G -C "$PM/.worktrees/sm" rev-parse HEAD 2>/dev/null)" = "$NEWM" ] && ok "W1m 기준 = fetch 한 origin/main" || bad "W1m 기준 다름"
+  [ "$(G -C "$PM" symbolic-ref -q --short HEAD)" = main ] && [ "$(G -C "$PM" rev-parse main)" = "$MAIN0" ] && ok "W1m 루트 main 그대로(checkout·이동 0)" || bad "W1m 루트가 바뀜"
+  O="$(FT_PACK_ROOT="$PM" pack_wt_prepare "$T/h.md" sm nano/sm 0)"; RC=$?
+  [ "$RC" = 0 ] && [ "$O" = "PACK-WT $PM/.worktrees/sm 재사용" ] && ok "W1r 루트 main · 같은 가지 → 재사용 1줄" || bad "W1r rc=$RC «${O}»"
+  # W2 — 루트가 다른 가지(main 아님) → REJECT · 워크트리 0 · 루트 그대로
   P2="$(mkpack "$T/w2")"; G -C "$P2" checkout -q -b r1392-x
   O="$(FT_PACK_ROOT="$P2" pack_wt_prepare "$T/h.md" s2 nano/s2 0)"; RC=$?
   [ "$RC" = 1 ] && ok "W2 rc1" || bad "W2 rc=$RC ← ${O}"
-  has "W2 REJECT 문구" "$O" "REJECT 팩 루트가 가지 r1392-x 에 있음 — detached origin/main 으로 되돌린 뒤 다시"
+  has "W2 REJECT 문구" "$O" "REJECT 팩 루트가 가지 r1392-x 에 있음(main·detached 아님) — main 또는 detached origin/main 으로 되돌린 뒤 다시"
   [ ! -e "$P2/.worktrees/s2" ] && ok "W2 워크트리 0" || bad "W2 워크트리 생김"
   [ "$(G -C "$P2" symbolic-ref -q --short HEAD)" = r1392-x ] && ok "W2 루트 가지 그대로(자동 되돌림 0)" || bad "W2 루트가 바뀜"
   # W5 — 하네스 밖 카드 → 출력 0 · 팩 쪽 동작 0(루트가 가지여도)
@@ -126,5 +141,8 @@ NOW_MD5="$(md5 -q "$R1/.fable-team/seats-alpha.json" 2>/dev/null || md5sum "$R1/
 [ "$RC" = 0 ] && has "D 실 spawn --dry-run = 만들 예정" "$O" "PACK-WT $P/.worktrees/x 만들 예정(dry-run" || bad "D 실 spawn rc=$RC ← $(printf '%s' "$O" | tail -5 | tr '\n' ';')"
 has "D 실 spawn 발주 줄(이미 만들어 둠)" "$O" "팩 작업 폴더 = $P/.worktrees/x (이미 만들어 둠"
 [ ! -e "$P/.worktrees/x" ] && ok "D 실 spawn 팩 쓰기 0" || bad "D 실 spawn 팩 폴더 생김"
+: > "$TL"; O="$(spr "$PM")"; RC=$?
+[ "$RC" = 0 ] && has "W1d 실 spawn --dry-run 루트 main = 만들 예정" "$O" "PACK-WT $PM/.worktrees/x 만들 예정(dry-run" || bad "W1d 실 spawn rc=$RC ← $(printf '%s' "$O" | tail -5 | tr '\n' ';')"
+[ ! -e "$PM/.worktrees/x" ] && [ "$(G -C "$PM" symbolic-ref -q --short HEAD)" = main ] && ok "W1d 실 spawn 팩 쓰기 0 · 루트 main 그대로" || bad "W1d 실 spawn 팩 쓰기/루트 바뀜"
 
 echo; [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

@@ -803,7 +803,7 @@ pack_wt_line() {
     "$pk" "$2" "$3" "$pk" "$pk" "$2" "$3"
 }
 # r1408: 팩 작업 폴더를 spawn 이 «좌석 열기 전» 직접 만든다 — 글로만 시키면 건너뛴 나노가 공용 팩 루트에서 가지를 바꿔 전 팀 spawn DRIFT(r1392 실사건).
-#   ⓐ 팩 루트 HEAD 가 가지면 REJECT(자동 되돌림 0 = 사람·master 판단) ⓑ <팩>/.worktrees/<slug> 가 없으면 origin/main(fetch 25초)에서 가지 <branch> 로 만든다(가지가 이미 있으면 재부착)
+#   ⓐ 팩 루트 HEAD = main 가지(ft2 설치 h 계약 · ff-only) 또는 detached → 허용 · 그 밖의 가지면 REJECT(자동 되돌림 0 = 사람·master 판단 · DA #298790 보정) ⓑ <팩>/.worktrees/<slug> 가 없으면 origin/main(fetch 25초)에서 가지 <branch> 로 만든다(가지가 이미 있으면 재부착)
 #   · 있으면 그 워크트리 가지가 <branch> 인지 본다(다르면 REJECT) ⓒ stdout «PACK-WT <경로> 만듦|재사용» 1줄 · --dry-run = 판정만(쓰기 0 · «만들 예정»)
 #   git 조회 실패 = «판정 불가» REJECT(하드 룰 20) · 하네스 밖 카드 = 출력 0(지금과 같다) · 좌석·명부·BYZ 워크트리 «전» 자리
 pack_wt_prepare() {  # $1 카드 $2 slug $3 가지 $4 dry(1|0) → rc0 + PACK-WT 1줄(하네스 밖 = 출력 0) · rc1 + REJECT 1줄
@@ -812,7 +812,7 @@ pack_wt_prepare() {  # $1 카드 $2 slug $3 가지 $4 dry(1|0) → rc0 + PACK-WT
   pk="$(cd "$pk" 2>/dev/null && pwd -P)" || { echo "REJECT 팩 루트 판정 불가 — 폴더 없음(${FT_PACK_ROOT:-$HOME/Project/ai-feature-pack}) · 좌석·명부·워크트리 0"; return 1; }
   ref="$(ft_git_capped 7 "$pk" symbolic-ref -q --short HEAD)" || rc=$?
   case "$rc" in
-    0) echo "REJECT 팩 루트가 가지 $ref 에 있음 — detached origin/main 으로 되돌린 뒤 다시($pk · 좌석·명부·워크트리 0)"; return 1;;
+    0) [ "$ref" = main ] || { echo "REJECT 팩 루트가 가지 $ref 에 있음(main·detached 아님) — main 또는 detached origin/main 으로 되돌린 뒤 다시($pk · 좌석·명부·워크트리 0)"; return 1; };;
     1) ;;
     *) echo "REJECT 팩 루트 HEAD 판정 불가(rc=$rc · $pk) — 좌석·명부·워크트리 0"; return 1;;
   esac
