@@ -41,10 +41,10 @@
 3. 회귀: feature-pack/code-intel/tests/test_ci_ast_probe_panic.sh · test_ci_outline_missing_path.sh · test_ci_lsp_crashloop.sh rc0
 
 ## 완료 조건
-1. [ ] 나노: 새 시험 P1~P17 rc0 · 걸린 초
-2. [ ] 나노: 기준판(origin/main ci) P7·P8 빼고 전부 FAIL · P7·P8 PASS 원문
-3. [ ] 나노: 변이 V1~V10 각각 지정 반례 FAIL(10/10)
-4. [ ] 나노: 회귀 3파일 rc0 · 시험 파일 100644
+1. [x] 나노: 새 시험 P1~P17 rc0 · 3초
+2. [x] 나노: 기준판(origin/main ci) P7·P8 빼고 전부 FAIL · P7·P8 PASS 원문
+3. [x] 나노: 변이 V1~V10 각각 지정 반례 FAIL(10/10)
+4. [x] 나노: 회귀 3파일 rc0 · 시험 파일 100644
 5. [ ] master: 착지 sha → 설치(루트 main 반영 · 사본 2곳 cmp0)
 6. [ ] master: 실 명령 `ci search "판정 불가" feature-pack/fable-team/ft2/core --max 3` 원문 — panic 새지 않음 · 폴백 표지 + 결과 · `PIPESTATUS[0]` ≠ 134 → planner#286 1통(착지 경로·sha)
 - 나노 끝선(5줄 이내): 바꾼 줄 범위 · 시험 결과 줄·초 · 기준판·변이 FAIL 목록 · 설계와 다르게 한 점(없으면 «없음») · «설치 h 필요» 1줄
@@ -72,3 +72,17 @@
 - 2026-11-13 · 대기 — DA REJECT 보정(aifp 4189 · 동결 e3bdb757) R1 출력 보류 C8·P12 · R2 rgrc 먼저 받기·실패 먼저·P13a/b·P14·P15 · R3 상한 min(…,25)·rc-only P3a/b/c·RG_BIN P16·상한 P17 · 변이 10
 - 2026-11-13 · 대기 — DA REJECT 보정 2(aifp 4191 · 동결 30b18211) P14 sleep 제거 → 가짜 timeout 인자 기록 + 즉시 rc 124(하드 룰 22 sleep 0)
 - 2026-11-13 15:42 — 대기→진행 · 좌석 aifp-ft-nano-ci-search-nonascii-panic#0
+- [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
+- 2026-11-13 · 나노 완료 — 세트: d629b2a6a6374e8bf659d05b08db7089256cceb9 · 시험: bash feature-pack/code-intel/tests/test_ci_search_nonascii_panic.sh (97 검사 · 실패 0 · 3초) rc=0 · 이슈: 0
+- 기준판: origin/main abd3abf7e357a7d452503871dea7ef7f24606d1b 판 ci — P7·P8 PASS · 나머지 18개 FAIL(기대대로)
+- 변이: V1~V10 각각 지정 반례 FAIL(10/10)
+- 회귀: test_ci_ast_probe_panic.sh · test_ci_outline_missing_path.sh(19/19) · test_ci_lsp_crashloop.sh rc=0 · ft-test-reentry-lint.sh OK rc=0 · 시험 파일 mode 644
+- 실 명령(워크트리 판 · 라이브 아님): ci search "판정 불가" feature-pack/fable-team/ft2/core --max 3 → rc=0 · stdout 첫 줄 = 폴백 표지 · PIPESTATUS[0]=0 · stderr = [info]+[warn] 2줄(panic 부분 출력 0) · ASCII reopen 도 같음
+- 설계와 다르게 한 점: ① probe 호출을 백그라운드+wait 로 돌려 셸의 «Abort trap: 6» 통지가 stderr 로 새지 않게 함(경고 1줄 규칙) ② rg -g 인자를 gopts 배열로 묶음(동작 동일 · 변이 V6 자리)
+- 설치 h 필요: 착지 뒤 루트 main 반영(=설치 심링크) · 사본 2곳 cmp0 확인은 master 몫
+- 2026-11-13 · 나노 보정 완료(DA REJECT d629b2a6 · aifp 4204 R1~R4) — 세트: 8d0876dc33c429b39b886360c5e31d44252f7f9b · 시험: bash feature-pack/code-intel/tests/test_ci_search_nonascii_panic.sh (118 검사 · 실패 0 · 4초) rc=0 · 이슈: 0
+- R1 C6: md 결과를 OR 재시도 «앞» 에 확보 → 기준판과 같은 rc0 · OR probe 호출 0 (P18 · 기준판도 PASS) · R2 C2: _cut160 = python3 로 UTF-8 디코드 뒤 문자 160자(locale 무관) · python3 없으면 cut -b + iconv -c 폴백 (P19 · LC_ALL=C) · R3 D3: 낱말 분리 read -ra (glob 확장 0) (P20 · needle*) · R4 C2: 폴백·md rg 에 -H (P21 · 단일 파일 경로)
+- 기준판(origin/main abd3abf7 판) 재대조: P7·P8·P18 PASS · 나머지 19개 FAIL · 변이 V1~V13 각각 지정 반례 FAIL(13/13)
+- 회귀: test_ci_ast_probe_panic · test_ci_outline_missing_path(19/19) · test_ci_lsp_crashloop rc=0 · ft-test-reentry-lint OK · 시험 파일 644 · 실 명령(워크트리 판) rc=0 · 폴백 표지 + 결과 · PIPESTATUS[0]=0(비ASCII·ASCII 둘 다)
+- DA 재현 스크립트 원문: python3 /tmp/aifp-da-ci-search-4202-check.py → R1 base/head 모두 rc0 동일 · R2 head utf8 true · R3 rc0(needle.txt:1) · R4 head single.py:1
+- 2026-11-13 · 세트 대조 갱신(master 가지 재구성 뒤 head) — 세트: 9670ea66c8c914d65b81a126acc054440a9dd16b · 시험: bash feature-pack/code-intel/tests/test_ci_search_nonascii_panic.sh (118 검사 · 실패 0 · 4초) rc=0 · 이슈: 0
