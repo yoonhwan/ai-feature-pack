@@ -30,14 +30,14 @@ def gates(k, team):
         rc = k.call(["bash", os.path.join(os.path.dirname(k.close_bin or ""), "ft-%s.sh" % tool), "status", "--check"] + args)[0] if os.path.lexists(os.path.join(st, name)) else 3 - on
         if rc != 3 - on:   # 끔 = hold rc3 · acct rc0 — 유효·판정 불가 = 0
             return k.log("NEXT-HOLD", team, "%s %s rc %s — 다음 카드 0" % (name, "유효" if rc == on else "판정 불가", rc))
-    files = [p for p in (os.path.join(k.root, ".fable-team", "thresholds.env"), os.path.expanduser("~/.claude/fable-team/thresholds.env")) if os.path.isfile(p)]
-    cap = k.env.get("FT2_TEAM_NANO_MAX") or next((x.split("=", 1)[1].strip() for p in files for x in open(p, encoding="utf-8") if x.startswith("FT2_TEAM_NANO_MAX=")), "")
-    if cap.isdigit():
-        rc, out, _ = k.call([k.tmux, "list-sessions", "-F", "#{session_name}"])
-        live = sum(x.startswith("byz-%s-nano-" % team) for x in out.split()) if rc == 0 else None
-        if live is None or live >= int(cap):
-            return k.log("NEXT-HOLD", team, "나노 %s / 상한 %s — 다음 카드 0" % (live, cap))
-    return True
+    home = os.path.join(k.env.get("HOME") or os.path.expanduser("~"), ".claude", "fable-team", "thresholds.env")   # r1860 순서 = env > 루트 > ~/.claude > 샘플
+    files = [p for p in (os.path.join(k.root, ".fable-team", "thresholds.env"), home, os.path.join(HERE, "thresholds.env.sample")) if os.path.isfile(p)]
+    cap = (k.env.get("FT2_TEAM_NANO_MAX") or next((x.split("=", 1)[1].strip() for p in files for x in open(p, encoding="utf-8") if x.startswith("FT2_TEAM_NANO_MAX=")), "")).strip()
+    if not (cap.isascii() and cap.isdigit()):   # R3 — 못 정함 = 새 실행 0(임의 기본값 0)
+        return k.log("판정 불가", team, "나노 상한 FT2_TEAM_NANO_MAX 못 정함(%r · env·thresholds.env) — 다음 카드 0" % cap[:20])
+    rc, out, _ = k.call([k.tmux, "list-sessions", "-F", "#{session_name}"])
+    live = sum(x.startswith("byz-%s-nano-" % team) for x in out.split()) if rc == 0 else None
+    return True if live is not None and live < int(cap) else k.log("NEXT-HOLD", team, "나노 %s / 상한 %s — 다음 카드 0" % (live, cap))
 def cards(k, team):
     """({stem: [긴급, 높음, 대상 줄들]}, 루트 행) · 판독 실패 = 사유 문자열 (git 2회 · 작업 트리 0)."""
     try:
@@ -108,6 +108,8 @@ def reconcile(k, team, work, attempt, stem, nh, pick):
     def done(kind, text):   # handled = 두 단계를 맞춘 뒤 또는 «복구 필요» 뒤에만
         return k.state["handled"].update({"%s|%s@%s" % (team, work, attempt): k.stamp()}) or k.log(kind, team, "%s -> %s %s%s" % (work, stem, nh, text))
     if need[0]:
+        if pick is None and not gates(k, team):   # R2 — 복구 launch 직전 현재 가드 · 막힘 = handled 0(허용 뒤 같은 사건 재개)
+            return None
         place = pick[1:] if pick else (lambda g: None if isinstance(g, str) or stem not in g[0] else target(k, g[1], g[0][stem][2]))(cards(k, team))
         argv = [sys.executable, k.env.get("FT2_KEEPER_LAUNCH") or os.path.join(HERE, "launch.py"), "--root", k.root, "--team", team, "--work", stem, "--repo", place[0], "--base", place[1], "--role", "nano"] if place else None
         rc, text, err = k.call(argv, LAUNCH_S) if argv else (None, "", "대상 못 정함")
