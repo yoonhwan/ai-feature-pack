@@ -6,10 +6,11 @@ A2 deliver = 깨움 명령 1회(FT2_SLACK_WAKE · 기본 <root>/.fable-team/comm
 import hashlib, importlib.util, json, os, shlex, subprocess, sys, time  # noqa: E401
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-for _name in ("route", "publish", "receive"):  # 경로로 읽기만(수정 0)
-    _spec = importlib.util.spec_from_file_location("ft2_wire_" + _name, os.path.join(_HERE, _name + ".py"))
-    globals()[_name] = importlib.util.module_from_spec(_spec)
-    _spec.loader.exec_module(globals()[_name])
+def _adapter(name):  # 경로로 읽기만(수정 0)
+    spec = importlib.util.spec_from_file_location("ft2_wire_" + name, os.path.join(_HERE, name + ".py"))
+    spec.loader.exec_module(module := importlib.util.module_from_spec(spec))
+    return module
+route, publish, receive = map(_adapter, ("route", "publish", "receive"))
 binding, SENDER, USAGE, UNDECIDED = route.binding, "ft2-slack-listen", 2, 3
 
 
@@ -93,7 +94,7 @@ def wire(root, *, receive, bindings, notify=None, log=None, team="planner", cloc
 def _token(path):
     try:
         with open(path, encoding="utf-8") as handle:
-            pairs = [l.strip().split("=", 1) for l in handle if "=" in l and not l.lstrip().startswith("#")]
+            pairs = [ln.strip().split("=", 1) for ln in handle if "=" in ln and not ln.lstrip().startswith("#")]
     except (OSError, TypeError):  # 경로 없음 = 환경변수
         return os.environ.get("SLACK_BOT_TOKEN")
     return {k.replace("export ", "", 1).strip(): v.strip().strip("'\"") for k, v in pairs}.get("SLACK_BOT_TOKEN")

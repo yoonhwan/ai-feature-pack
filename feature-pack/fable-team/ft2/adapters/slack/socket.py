@@ -7,11 +7,12 @@ import importlib.util, json, logging.handlers, os, sys, time, urllib.parse, urll
 NAMES, NEED, OPTS = ("SLACK_APP_TOKEN", "SLACK_BOT_TOKEN"), ("root", "channel", "env", "owner-seats"), ("team", "users")
 SEG, TOTAL = 65536, 8388608  # core journal.py:70 과 같은 상한 — listen.log 에만
 USAGE, UNDECIDED, RIVAL = 64, 3, 4
-for _name in ("receive", "route", "publish", "binding", "backfill", "wiring"):  # 어댑터 5파일 = 읽기만 · wiring = r1807
-    _spec = importlib.util.spec_from_file_location(
-        "ft2_slack_" + _name, os.path.join(os.path.dirname(os.path.abspath(__file__)), _name + ".py"))
-    globals()[_name] = importlib.util.module_from_spec(_spec)
-    _spec.loader.exec_module(globals()[_name])
+def _adapter(name):  # 어댑터 5파일 = 경로로 읽기만(수정 0) · wiring = r1807
+    spec = importlib.util.spec_from_file_location(
+        "ft2_slack_" + name, os.path.join(os.path.dirname(os.path.abspath(__file__)), name + ".py"))
+    spec.loader.exec_module(module := importlib.util.module_from_spec(spec))
+    return module
+receive, route, publish, binding, backfill, wiring = map(_adapter, ("receive", "route", "publish", "binding", "backfill", "wiring"))
 
 class Undecided(Exception):
     """판정 불가(rc 3) — 메시지에는 이름만 담는다(하드 룰 20)."""
