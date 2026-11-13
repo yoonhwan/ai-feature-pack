@@ -137,8 +137,16 @@ _probe_search() { # $1=<q> $2=<path> $3=<max> $4=<단계 이름> [probe 추가 �
   return 0
 }
 
-# 결과 본문 자르기 = 문자 단위(바이트로 자르면 UTF-8 이 깨진다 — panic 의 원인과 같은 실수)
-_cut160() { printf '%s' "$1" | cut -c1-160; }
+# 결과 본문 자르기 = 문자 단위(바이트로 자르면 UTF-8 이 깨진다 — panic 의 원인과 같은 실수).
+#   locale 무관(DA 4202 R2): cut -c 는 LC_ALL=C 에서 바이트를 자른다 → python3 로 UTF-8 디코드 뒤 문자로 자르고,
+#   python3 가 없으면 바이트 160 으로 자른 뒤 iconv -c 로 불완전 꼬리를 떨어낸다(문자 수 ≤ 바이트 수 = 유효).
+_cut160() {
+  if [ -z "${_CUT_PY+x}" ]; then _CUT_PY="$(command -v python3 2>/dev/null || true)"; fi
+  if [ -n "$_CUT_PY" ] && printf '%s' "$1" | "$_CUT_PY" -c 'import sys; sys.stdout.write(sys.stdin.buffer.read().decode("utf-8", "ignore")[:160])' 2>/dev/null; then
+    return 0
+  fi
+  printf '%s' "$1" | LC_ALL=C cut -b1-160 | LC_ALL=C iconv -c -f UTF-8 -t UTF-8 2>/dev/null
+}
 
 # ---- 서브커맨드 파싱 -------------------------------------------------------
 cmd="${1:-}"; shift || true
@@ -176,6 +184,16 @@ case "$cmd" in
     rc=$SE_RC; panic=$SE_PANIC; out1=$SE_OUT; err1=$SE_ERR
     panic_rc=$SE_RC; panic_err=$SE_ERR; orq=""
 
+    # md 결과를 OR 재시도 «앞» 에 확보한다(DA 4202 R1) — 기준판은 md hit 이 있으면 rc1→0 보정을 먼저 해
+    #   OR 를 부르지 않는다. 출력은 지금처럼 probe 출력 뒤에 낸다(순서 보존).
+    md_hits=""
+    if [ "$nonascii" = 1 ]; then
+      md_pat="$q"
+      case "$q" in *" "*) md_pat="$(printf '%s' "$q" | tr -s '[:space:]' '|' | sed 's/|$//')";; esac
+      md_hits="$(rg -H -n --no-heading -m 1 --color never -g '*.md' -g '!**/.git/**' -- "$md_pat" "$path" 2>/dev/null | head -n "$max")"
+      [ -n "$md_hits" ] && [ "$panic" -eq 0 ] && [ "$rc" -eq 1 ] && rc=0
+    fi
+
     # D5: panic 이면 md 뺀 재시도 0(panic 자리가 md 청커가 아니라 출력 단계다).
     # D6: OR 재시도는 «첫 단계가 panic 아님 + rc1 + 질의에 공백» 일 때만.
     if [ "$panic" -eq 0 ] && [ "$rc" -eq 1 ] && printf '%s' "$q" | grep -q '[[:space:]]'; then
@@ -193,8 +211,10 @@ case "$cmd" in
       if [ -n "${orq}" ] && [ -f "${out2:-}" ]; then dl=$((dl + $(wc -l < "$out2" | tr -d ' '))); fi
       echo "[warn] probe panic rc=$panic_rc ($loc) → rg 폴백 · 부분 출력 ${dl}줄 버림" >&2
 
-      # 낱말 OR(-F 글자 그대로) · 파일당 1줄(-m 1) · rg 원래 rc 를 이 자리에서 바로 받는다(R2 · 파이프 0)
-      set --; for w in $q; do set -- "$@" -e "$w"; done
+      # 낱말 OR(-F 글자 그대로) · 파일당 1줄(-m 1) · 파일명 강제(-H · 단일 파일 갈래도 파일:줄)
+      # 낱말 분리 = read -a (glob 확장 0 · DA 4202 R3) · rg 원래 rc 를 이 자리에서 바로 받는다(R2 · 파이프 0)
+      read -ra words <<< "$q"
+      set --; for w in "${words[@]}"; do set -- "$@" -e "$w"; done
       RG="${RG_BIN:-$(_resolve rg || true)}"
       rgt="${CI_RG_TIMEOUT:-25}"; case "$rgt" in ''|*[!0-9]*) rgt=25 ;; esac
       [ "$rgt" -ge 1 ] || rgt=25; [ "$rgt" -gt 25 ] && rgt=25     # 로컬 하네스 상한 25초(하드 룰 12)
@@ -203,7 +223,7 @@ case "$cmd" in
         failwhy="rg 없음 rc=-"
       else
         gopts=(-g '!**/.git/**'); [ "$md_excl" = 1 ] && gopts+=(-g "!*.md")   # panic 난 probe 가 md 를 뺐으면 rg 도 뺐다(C4)
-        timeout "$rgt" "$RG" -n --no-heading --color never -F -m 1 "$@" "${gopts[@]}" -- "$path" >"$_SE_DIR/rg.out" 2>"$_SE_DIR/rg.err"
+        timeout "$rgt" "$RG" -H -n --no-heading --color never -F -m 1 "$@" "${gopts[@]}" -- "$path" >"$_SE_DIR/rg.out" 2>"$_SE_DIR/rg.err"
         rgrc=$?
         if [ "$rgrc" -eq 124 ]; then failwhy="시간 초과 rc=124"
         elif [ "$rgrc" -ge 2 ]; then failwhy="rg 실패 rc=$rgrc"
@@ -235,20 +255,15 @@ case "$cmd" in
       fi
     fi
 
-    # 비ASCII 갈래 md 절 — 지금과 같은 자리(D8). 폴백이면 rg 가 md 를 뺐으므로 md 는 여기서만 나온다(C4).
-    if [ "$nonascii" = 1 ]; then
-      md_pat="$q"
-      case "$q" in *" "*) md_pat="$(printf '%s' "$q" | tr -s '[:space:]' '|' | sed 's/|$//')";; esac
-      md_hits="$(rg -n --no-heading -m 1 --color never -g '*.md' -g '!**/.git/**' -- "$md_pat" "$path" 2>/dev/null | head -n "$max")"
-      if [ -n "$md_hits" ]; then
-        echo
-        echo "== markdown (rg 폴백 · probe panic 회피) =="
-        printf '%s\n' "$md_hits" | while IFS= read -r line; do
-          f="${line%%:*}"; rest="${line#*:}"; ln="${rest%%:*}"; txt="${rest#*:}"
-          printf '%s:%s\n  %s\n' "$f" "$ln" "$(_cut160 "$txt")"
-        done
-        [ "$rc" -eq 1 ] && rc=0
-      fi
+    # md 절 — 지금과 같은 자리(D8) · 결과는 위에서 이미 확보(R1)
+    if [ "$nonascii" = 1 ] && [ -n "$md_hits" ]; then
+      echo
+      echo "== markdown (rg 폴백 · probe panic 회피) =="
+      printf '%s\n' "$md_hits" | while IFS= read -r line; do
+        f="${line%%:*}"; rest="${line#*:}"; ln="${rest%%:*}"; txt="${rest#*:}"
+        printf '%s:%s\n  %s\n' "$f" "$ln" "$(_cut160 "$txt")"
+      done
+      [ "$rc" -eq 1 ] && rc=0
     fi
     exit "$rc"
     ;;

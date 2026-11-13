@@ -13,6 +13,7 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CI="${CI_UNDER_TEST:-$HERE/../skill/scripts/ci}"
+CI="$(cd "$(dirname "$CI")" && pwd)/$(basename "$CI")"   # RUNCWD 로 cd 해도 경로가 살아 있게
 [ -f "$CI" ] || { echo "판정 불가: ci 파일 없음 — $CI"; exit 2; }
 
 # 사용자 프로세스 상한(지금 + 여유) — 시험이 fork 폭주로 다른 좌석을 막지 않게(r1041)
@@ -36,6 +37,9 @@ mkdir -p "$SB/home" "$SB/tmp" "$SB/core" "$SB/ten" "$SB/long" "$SB/pathfront"
 printf '판정 불가 · x = 1\nreopen y\n' > "$SB/core/a.py"
 printf '판정 불가 문서 줄\n'            > "$SB/core/doc.md"
 for i in 1 2 3 4 5 6 7 8 9 10; do printf '판정 불가 hit %s\n' "$i" > "$SB/ten/f$i.py"; done
+mkdir -p "$SB/glob" "$SB/single"
+printf 'literal needle* exists\n' > "$SB/glob/needle.txt"      # R3 — cwd 파일명으로 glob 확장되는지
+printf 'reopen token\n'            > "$SB/single/single.py"    # R4 — 단일 파일 결과에 파일명이 남는지
 python3 - "$SB/long/l.py" <<'PY'                                          # 다중 바이트 400자 한 줄(P9)
 import sys
 open(sys.argv[1], "w", encoding="utf-8").write("판정 불가 " + "가나다라마" * 80 + "\n")
@@ -55,6 +59,7 @@ case "$mode" in
   errpanic) printf "thread 'main' panicked at %s\n" "${FAKE_PANIC:-src/search/search_output.rs:2566:31}" >&2; exit 0 ;;
   nohits)   printf 'No results found.\n'; exit 1 ;;
   hit)      printf 'File: a.py\n  1: reopen\n'; exit 0 ;;
+  other)    printf 'SECOND_UNEXPECTED\n' >&2; exit "${FAKE_RC2:-2}" ;;
 esac
 exit 0
 FAKE
@@ -82,7 +87,8 @@ RUNENV=("${E[@]}")
 run_ci() { # $1=ci · $2..=ci 인자 → OUT · ERR · RC (대역 기록 초기화)
   local ci="$1"; shift
   : > "$SB/probe.log"; : > "$SB/rg.log"; : > "$SB/to.log"
-  OUT="$("${RUNENV[@]}" bash "$ci" search "$@" 2>"$SB/err")"; RC=$?
+  local d="${RUNCWD:-$PWD}"; RUNCWD=""
+  OUT="$( cd "$d" && "${RUNENV[@]}" bash "$ci" search "$@" 2>"$SB/err")"; RC=$?
   ERR="$(cat "$SB/err")"
 }
 first() { printf '%s\n' "$1" | head -n 1; }
@@ -170,7 +176,7 @@ P9() { RUNENV=("${E[@]}"); run_ci "$CI" "판정 불가" "$SB/long" --max 3
   len="$(printf '%s' "$body" | python3 -c 'import sys; print(len(sys.stdin.read()))' 2>/dev/null || echo -1)"
   chk "P9 rc" "$RC" "0"
   has "P9 결과 줄(l.py)" "$OUT" "l.py:1"
-  [ "$len" -ge 1 ] && [ "$len" -le 160 ] && ok "P9 본문 문자 수 <=160 ($len)" || bad "P9 본문 문자 수 — $len (1~160 이어야)"
+  chk "P9 본문 문자 수 = 160" "$len" "160"
   utf8 "P9 stdout UTF-8 유효" "$OUT"
 }
 P9
@@ -199,7 +205,7 @@ P11() {
 P11
 
 echo "== P12 다중어 · 1단계 nohits rc1 → 2단계(OR) panic → 출력 보류 =="
-P12() { RUNENV=("${E[@]}" FAKE_PROBE_1=nohits FAKE_PROBE_2=panic); run_ci "$CI" "판정 불가" "$SB/core" --max 5
+P12() { RUNENV=("${E[@]}" FAKE_PROBE_1=nohits FAKE_PROBE_2=panic); run_ci "$CI" "reopen token" "$SB/core" --max 5
   chk "P12 rc" "$RC" "0"
   chk "P12 stdout 첫 줄 = 표지" "$(first "$OUT")" "$POL"
   hasnt "P12 No results found 0" "$OUT" "No results found"
@@ -258,6 +264,43 @@ P17() { RUNENV=("${E[@]}" CI_RG_TIMEOUT=300 PATH="$SB/pathfront:$PATH" FAKE_TO_M
 }
 P17
 
+echo "== P18 [R1·C6] 정상 비ASCII · md hit + 1단계 rc1 → OR 재시도 0 · rc0 =="
+P18() { RUNENV=("${E[@]}" FAKE_PROBE_1=nohits FAKE_PROBE_2=other FAKE_RC2=2); run_ci "$CI" "판정 불가" "$SB/core" --max 5
+  chk "P18 rc" "$RC" "0"
+  chk "P18 probe 호출 1회(OR 0)" "$(wc -l < "$SB/probe.log" | tr -d ' ')" "1"
+  hasnt "P18 OR 대역 호출 0(SECOND_UNEXPECTED)" "$ERR" "SECOND_UNEXPECTED"
+  chk "P18 md 절 1번" "$(cnt "$OUT" "$OUT" '^== markdown ')" "1"
+  has "P18 1단계 출력 유지" "$OUT" "No results found."
+}
+P18
+
+echo "== P19 [R2·C2] LC_ALL=C · 다중 바이트 400자 → 본문 160자 · UTF-8 유효 =="
+P19() { RUNENV=("${E[@]}" LC_ALL=C); run_ci "$CI" "판정 불가" "$SB/long" --max 3
+  local body len
+  chk "P19 rc" "$RC" "0"
+  body="$(printf '%s\n' "$OUT" | grep -v '^==' | grep -v '^$' | tail -n 1 | sed 's/^  //')"
+  len="$(printf '%s' "$body" | python3 -c 'import sys; print(len(sys.stdin.read()))' 2>/dev/null || echo -1)"
+  chk "P19 본문 문자 수 = 160" "$len" "160"
+  utf8 "P19 stdout UTF-8 유효(C locale)" "$OUT"
+}
+P19
+
+echo "== P20 [R3·D3] 질의 needle* · cwd 에 needle.txt → 글자 그대로 찾는다(glob 확장 0) =="
+P20() { RUNCWD="$SB/glob"; RUNENV=("${E[@]}"); run_ci "$CI" "needle*" "$SB/glob/needle.txt" --max 3
+  chk "P20 rc" "$RC" "0"
+  has "P20 결과 줄(needle.txt)" "$OUT" "needle.txt:1"
+  hasnt "P20 0건 0" "$OUT" "(0건)"
+}
+P20
+
+echo "== P21 [R4·C2] 경로가 단일 파일 → 결과 머리에 파일:줄 이 남는다 =="
+P21() { RUNENV=("${E[@]}"); run_ci "$CI" "reopen" "$SB/single/single.py" --max 3
+  chk "P21 rc" "$RC" "0"
+  has "P21 파일:줄" "$OUT" "$SB/single/single.py:1"
+  hasnt "P21 줄번호만 남는 형태 0" "$(first "$(printf '%s\n' "$OUT" | tail -n +2)")" "1:reopen token"
+}
+P21
+
 # ── 기준판(origin/main 판 ci) 대조 ────────────────────────────────────────
 echo "== 기준판 대조 — P7·P8 만 PASS, 나머지 전부 FAIL 이어야 =="
 ROOT="$(cd "$HERE/../../.." && pwd)"
@@ -275,8 +318,8 @@ if [ -n "$BASE_SHA" ] && git -C "$ROOT" show "$BASE_SHA:feature-pack/code-intel/
       [ "$changed" -eq 0 ] && ok "기준판 $f PASS(기대대로)" || bad "기준판 $f FAIL(${changed}건) — PASS 이어야"
     fi
   }
-  for f in P1 P2 P3a P3b P3c P4 P5 P6 P9 P10 P11 P12 P13a P13b P14 P15 P16 P17; do bl "$f" fail; done
-  bl P7 pass; bl P8 pass
+  for f in P1 P2 P3a P3b P3c P4 P5 P6 P9 P10 P11 P12 P13a P13b P14 P15 P16 P17 P19 P20 P21; do bl "$f" fail; done
+  bl P7 pass; bl P8 pass; bl P18 pass
 else
   bad "기준판 추출 실패(origin/main ci 를 git show 로 못 꺼냈다)"
 fi
@@ -312,7 +355,7 @@ vcheck V1 P1 \
 vcheck V2 P4 'grep -q "panicked at" "$SE_ERR" 2>/dev/null && SE_PANIC=1@@:'
 vcheck V3 P3a 'case "$SE_RC" in 101|133|134) SE_PANIC=1 ;; esac@@:'
 vcheck V4 P13b 'failwhy="rg 실패 rc=$rgrc"@@failwhy=""'
-vcheck V5 P9 'cut -c1-160@@cut -b1-160'
+vcheck V5 P9 'decode("utf-8", "ignore")[:160]@@[:160].decode("utf-8", "ignore")'
 vcheck V6 P10 '[ "$md_excl" = 1 ] && gopts+=(-g "!*.md")@@:'
 vcheck V7 P12 'SE_RC=$?
   SE_PANIC=0@@SE_RC=$?
@@ -322,6 +365,9 @@ vcheck V8 P13a '-- "$path" >"$_SE_DIR/rg.out" 2>"$_SE_DIR/rg.err"@@-- "$path" 2>
   'set -uo pipefail@@set -uo'
 vcheck V9 P17 '[ "$rgt" -gt 25 ] && rgt=25@@:'
 vcheck V10 P16 'RG="${RG_BIN:-$(_resolve rg || true)}"@@RG="$(_resolve rg || true)"'
+vcheck V11 P18 '[ -n "$md_hits" ] && [ "$panic" -eq 0 ] && [ "$rc" -eq 1 ] && rc=0@@:'
+vcheck V12 P20 'read -ra words <<< "$q"@@words=($q)'
+vcheck V13 P21 'timeout "$rgt" "$RG" -H -n --no-heading@@timeout "$rgt" "$RG" -n --no-heading'
 
 echo "== 요약: $n 검사 · 실패 $fail =="
 [ "$fail" -eq 0 ] || exit 1
