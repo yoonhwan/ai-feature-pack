@@ -1,0 +1,10 @@
+# r1838 launchd LLM 0 판정기(bin/ft_launchd_llm_gate.py) 뿌리 표 — 사람 h(H1 · kind=launchd)로만 바꾼다 · 하드 룰 2
+# 줄 = <키>\t<경로 꼴> · 자리표시 __BYZ_ROOT__(= 설치 --project) · __LIVE_BIN__(= <루트>/.fable-team/LIVE_BIN 첫 줄) · __FT2_CURRENT__(= ~/.claude/fable-team/ft2/versions/<CURRENT>) · __HOME__
+# 입구(plist 의 스크립트)는 이 뿌리 안이어야 한다(G2) · 검사 범위 = 입구에서 글자 그대로 닿는 파일 통째(G1 = B · master #295034)
+# @shim\t<sha256> = ft-root-bin-shim.sh 가 만든 연결 파일의 정규화 sha(도구 이름 → @NAME@) — 이 sha 인 파일은 ../LIVE_BIN/<이름> 로 글자 그대로 따라간다
+byz-bin	__BYZ_ROOT__/.fable-team/bin
+live-bin	__LIVE_BIN__
+ft2-current	__FT2_CURRENT__
+r1483-watch	__BYZ_ROOT__/.fable-team/state/ft20-r1483-watch
+@shim	d25874c27a22cbef7bfe5a3bbaac48480aa2e931ac5d140798b085b4fba3f9fe
+@shim	2e708952a54bcac52cff05ee919505537e1e5606873ec92c255bfd652c98a74e

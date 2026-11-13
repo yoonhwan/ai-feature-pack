@@ -51,11 +51,11 @@ def log_write(root, op, version, prev, man_sha, rc):
         handle.write(json.dumps(line, ensure_ascii=False) + "\n")
 
 
-def _call(name, args):
-    """외부 명령 1회 7초 + 재시도 1 → (rc, stdout) · 두 번 다 실패면 None(하드 룰 12·20) · FT2_LAUNCHCTL·FT2_PS = 대역."""
+def _call(name, args, timeout=7):
+    """외부 명령 1회 7초 + 재시도 1 → (rc, stdout) · 두 번 다 실패면 None(하드 룰 12·20) · FT2_LAUNCHCTL·FT2_PS = 대역 · 판정기 = 30초(안에서 25초 상한)."""
     for _ in range(2):
         with contextlib.suppress(OSError, subprocess.TimeoutExpired):
-            proc = subprocess.run([os.environ.get("FT2_" + name.upper(), name), *args], capture_output=True, text=True, timeout=7, env={**os.environ, "LC_ALL": "C"})
+            proc = subprocess.run([os.environ.get("FT2_" + name.upper(), name), *args], capture_output=True, text=True, timeout=timeout, env={**os.environ, "LC_ALL": "C"})
             return proc.returncode, proc.stdout
 
 
@@ -127,6 +127,15 @@ def consistent(folder):
     return (False, f"MANIFEST 대조 다름 — {wrong[:3]}") if wrong else (True, "")
 
 
+def llm_gate(folder):
+    """r1838 — CURRENT 전환·되돌림 «전» 새 판 폴더를 launchd LLM 0 판정기(1.x 팩 하나 · 사본 0)로 1회 → (rc, 줄) · 판정기 없음·실패 = 판정 불가(rc 3)."""
+    data, here = os.environ.get("FT_ROOT", ""), os.path.dirname(os.path.abspath(__file__))
+    state = lambda name: os.environ.get(f"FT2_LLM_GATE_{name.split('-')[1].upper()}") or (os.path.join(data, ".fable-team/state", name) if data else "")  # noqa: E731
+    gate = next((p for p in (os.environ.get("FT2_LLM_GATE", ""), f"{here}/../../legacy/1.x/harness/bin/ft_launchd_llm_gate.py", f"{data}/.fable-team/bin/ft_launchd_llm_gate.py") if p and os.path.isfile(p)), "")
+    got = gate and _call(sys.executable, [gate, "check", "--root-dir", folder, "--baseline", state("launchd-dyncall-baseline.tsv"), "--allow", state("launchd-llm-allow.tsv")], 30)
+    return (got[0], got[1].strip()) if got else (3, f"UNDECIDABLE launchd-llm ft2-current 판정기 {'실행 실패' if gate else '없음'} {folder}")
+
+
 def install(pkg, root):
     doc = package_of(pkg)
     if doc is None:
@@ -142,6 +151,11 @@ def install(pkg, root):
         os.replace(target, bad)
         log_write(root, "install", version, prev, doc["manifest_sha256"], 1)
         return 1, f"다름 {version}: {reason} — 전환 0 · {os.path.basename(bad)} 로 옮겼다"
+    grc, gline = llm_gate(target)
+    if grc:
+        os.replace(target, os.path.join(root, "versions", f"{version}.llm-reject-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"))
+        log_write(root, "install", version, prev, doc["manifest_sha256"], 1)
+        return 1, f"{gline} — CURRENT 전환 0 · 복사본은 .llm-reject 로 옮겼다"
     set_current(root, version)
     log_write(root, "install", version, prev, doc["manifest_sha256"], 0)
     done = 0, f"설치 {version} (이전 {prev}) — 대조 맞음"
@@ -163,6 +177,10 @@ def rollback(root):
     if not ok:
         log_write(root, "rollback", prev, cur, None, 2)
         return 2, f"판정 불가 {prev}: 직전 판 대조 실패 — {reason}"
+    grc, gline = llm_gate(folder)
+    if grc:
+        log_write(root, "rollback", prev, cur, None, 1)
+        return 1, f"{gline} — 되돌림 0 · CURRENT {cur} 그대로"
     set_current(root, prev)
     log_write(root, "rollback", prev, cur, package_of(folder)["manifest_sha256"], 0)
     return switched(root, 0, f"되돌림 {cur} → {prev}")
