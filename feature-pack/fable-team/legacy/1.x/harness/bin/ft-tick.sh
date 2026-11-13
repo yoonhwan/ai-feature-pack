@@ -1353,7 +1353,7 @@ team_paused_state() {
 team_card_wait() {
   local out rc
   out="$(FT_ROOT="$ROOT" python3 -I -c '
-import os, sys
+import os, sys, tempfile
 sys.path.insert(0, sys.argv[1])
 from pathlib import Path
 import ft_stall_state as stm
@@ -1376,8 +1376,17 @@ try:
     lint = os.environ.get("FT_INDEX_LINT") or str(here / "ft-index-lint.sh")
     st = stm.load(Path(os.environ.get("FT_STALL_STATE_DIR") or root / ".fable-team/state"))
     cache = stm.lint_load(st)
-    todo = waiting_cards(t["cards"], lint, root, now, stm.nudged_load(st), [], cache=cache)[0]
-    ready = waiting_cards(t["cards"], lint, root, None, cache=cache)[0]
+    with tempfile.TemporaryDirectory(prefix="ft-tick-lint-") as td:  # 정본은 lint rc≠0 을 모두 blocked 로 접는다 — rc≥2(usage·실행 실패)는 감싼 lint 가 따로 적는다
+        wrap, bad = Path(td) / "lint.sh", Path(td) / "bad"
+        wrap.write_text("#!/bin/sh\n\"$FT_TICK_LINT_REAL\" \"$@\"; rc=$?\n[ \"$rc\" -le 1 ] && exit \"$rc\"\necho \"rc=$rc:$(basename \"$1\")\" >> \"$FT_TICK_LINT_BAD\"; exit 1\n", encoding="utf-8")
+        os.environ.update(FT_TICK_LINT_REAL=lint, FT_TICK_LINT_BAD=str(bad))
+        todo, _u, missed = waiting_cards(t["cards"], str(wrap), root, now, stm.nudged_load(st), [], cache=cache)
+        ready = waiting_cards(t["cards"], str(wrap), root, None, cache=cache)[0]
+        fails = sorted(set(bad.read_text(encoding="utf-8").split())) if bad.exists() else []  # 같은 장을 두 번 부른다 — 장 단위로 셈
+    if fails:
+        raise ValueError("lint 실행 실패 " + fails[0] + (" 외 %d장" % (len(fails) - 1) if len(fails) > 1 else ""))
+    if missed:
+        raise ValueError("lint 미판정 %d장" % missed)
 except Exception as e:
     say("q", "", "", "", e.__class__.__name__ + ": " + str(e)[:160])
     raise SystemExit(0)
