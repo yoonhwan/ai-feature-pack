@@ -59,8 +59,8 @@ def _listener(root, posts):
 class Post:
     def __init__(self, fail=None):
         self.calls, self.fail = [], fail
-    def __call__(self, channel, thread_ts, text):
-        self.calls.append({"channel": channel, "thread_ts": thread_ts, "text": text})
+    def __call__(self, channel, thread_ts, text, metadata):
+        self.calls.append({"channel": channel, "thread_ts": thread_ts, "text": text, "metadata": metadata})
         if self.fail:
             raise self.fail
         return "1800000088.%06d" % len(self.calls)
@@ -117,7 +117,7 @@ def test_4_redelivery_no_wake_no_issues_no_post(env):
     ts, posts = "1800000004.000100", []
     listener = _listener(env, posts)
     listener.route(_msg(ts)), listener.route(_msg(ts))
-    assert len(_wakes(env, MASTER)) == 1 and len(posts) == 1  # 영수 1뿐
+    assert len(_wakes(env, MASTER)) == 1 and posts == []  # r1818 접수 게시 0
     assert len(_load("receive").intake.Intake(str(env), "issues").records()) == 1
 
 
@@ -144,10 +144,11 @@ def test_6_wake_failure_recorded_and_desk_alerted(env, monkeypatch):
 def test_7_reply_after_receipt_then_duplicate_then_receipt_refused(env, capsys):
     ts, posts, post = "1800000007.000100", [], Post()
     _listener(env, posts).route(_msg(ts))
-    assert len(posts) == 1  # S-1 영수 posted
+    assert posts == []  # r1818 — S-1 접수 게시 0(장부만)
     rc, out = _run(capsys, _cmd(env, "reply", thread=ts, command=cmd(ts), seat=MASTER), post)
     assert (rc, out) == (0, "state=posted ts=1800000088.000001") and post.calls[0]["thread_ts"] == ts
-    assert post.calls[0]["channel"] == C and post.calls[0]["text"].startswith(cmd(ts))
+    assert post.calls[0]["channel"] == C and post.calls[0]["text"] == "답"  # r1818 본문 = 사람 글만
+    assert post.calls[0]["metadata"]["event_payload"]["command"] == cmd(ts)
     rc, out = _run(capsys, _cmd(env, "reply", thread=ts, command=cmd(ts), seat=MASTER), post)
     assert (rc, out) == (0, "state=duplicate ts=1800000088.000001") and len(post.calls) == 1
     rc, _out = _run(capsys, _cmd(env, "reply", thread=ts, command="receipt:" + cmd(ts), seat=MASTER), post)
@@ -219,6 +220,6 @@ def test_13_crash_after_ack_recover_wakes_once(env):  # 보정1 R2 — 복구 di
     for _ in range(2):  # 재기동 2번 — 두 번째는 깨움·attempt·게시 0
         _listener(env, posts).run(sessions=0)
     intake = _load("receive").intake.Intake
-    assert len(_wakes(env, MASTER)) == 1 and len(posts) == 1
+    assert len(_wakes(env, MASTER)) == 1 and posts == []  # r1818 접수 게시 0
     assert [r["command"] for r in intake(str(env), "issues").records()] == [cmd(ts)]
     assert intake(str(env), "planner").lookup(cmd(ts)).attempt == cmd(ts) + "#a1"

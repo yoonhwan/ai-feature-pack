@@ -94,11 +94,10 @@ def test_3_new_root_bind_receipt_then_role_reply(tmp_path, band_of):
     assert band.acks == [("E1", ["received"])]  # 기록 → 확인 → 입구
     assert [r["state"] for r in _rows(tmp_path, "receive.jsonl")] == ["received", "dispatched"]
     assert listener.receive.client.lookup(_command % ts).result == "접수 성공"
-    posted = [p["command"] for p in _rows(tmp_path, "publish.jsonl") if p["state"] == "posted"]
-    assert posted == ["receipt:" + _command % ts]
-    assert len(band.posts) == 1 and band.posts[0]["thread_ts"] == ts and "접수 " in band.posts[0]["text"]
-    key = sock.binding.thread_key(W, C, ts)  # ③″ 영수 뒤 같은 key·업무 command 역할 답 = posted
-    assert listener.publish.reply(key, _command % ts, "역할 답", seat=MASTER, gen=1)["state"] == "posted" and len(band.posts) == 2
+    assert _rows(tmp_path, "publish.jsonl") == [] and band.posts == []  # r1818 접수 = 장부만 · 게시 0
+    key = sock.binding.thread_key(W, C, ts)  # ③″ 접수 뒤 같은 key·업무 command 역할 답 = posted(첫 반응)
+    assert listener.publish.reply(key, _command % ts, "역할 답", seat=MASTER, gen=1)["state"] == "posted"
+    assert [(p["thread_ts"], p["text"]) for p in band.posts] == [(ts, "역할 답")]
 
 def test_3b_closed_thread_no_bind_no_receipt(tmp_path, band_of):
     sock, ts = _sock(), "1800000002.000100"
@@ -117,8 +116,8 @@ def test_4_redelivery_duplicate_no_publish(tmp_path, band_of):
     (listener := _listener(_sock(), tmp_path, band)).run(sessions=1)
     assert [a[0] for a in band.acks] == ["E3", "E4"]
     assert [r["state"] for r in _rows(tmp_path, "receive.jsonl")] == ["received", "dispatched", "duplicate"]
-    assert [p["state"] for p in _rows(tmp_path, "publish.jsonl")] == ["intent", "attempt", "posted"]
-    assert len(band.posts) == 1 and len(_rows(tmp_path, "bindings.jsonl")) == 1
+    assert _rows(tmp_path, "publish.jsonl") == [] and band.posts == []  # r1818 접수 게시 0
+    assert len(_rows(tmp_path, "bindings.jsonl")) == 1
     assert listener.receive.client.lookup(_command % ts).attempt == _command % ts + "#a1"
 
 def test_5_bot_foreign_slash_ack_only(tmp_path, band_of):
@@ -139,10 +138,10 @@ def test_6_disconnect_reconnect_backfill_once(tmp_path, band_of):
     band.replies = [_msg("1800000006.000200", thread_ts=root_ts)]  # 끊긴 사이 새 사람 답글 1
     assert _listener(sock, tmp_path, band).run(sessions=2) == 0
     assert [r["reason"] for r in _rows(tmp_path, "backfill.jsonl")] == ["reconnect"]
-    assert band.calls == ["apps.connections.open", "apps.connections.open", "conversations.replies", "chat.postMessage"]
-    assert band.sleeps == [1] and [p["thread_ts"] for p in band.posts] == [root_ts]  # 보충 dispatched → 영수 1(R1)
-    assert [p["command"] for p in _rows(tmp_path, "publish.jsonl") if p["state"] == "posted"] == [
-        "receipt:" + _command % "1800000006.000200"]
+    assert band.calls == ["apps.connections.open", "apps.connections.open", "conversations.replies"]
+    assert band.sleeps == [1] and band.posts == []  # 보충 dispatched → 접수 게시 0(r1818)
+    assert [r["command"] for r in _rows(tmp_path, "receive.jsonl") if r["state"] == "dispatched"] == [
+        _command % "1800000006.000200"]
 
 def test_6b_failed_connects_wait_1_then_2(tmp_path, band_of):
     (listener := _listener(_sock(), tmp_path, band := band_of(tmp_path, []))).web = lambda method, *rest, **kw: (
@@ -171,7 +170,7 @@ def test_8_restart_recover_lookup_first(tmp_path, band_of):
     assert [(r["state"], r.get("via")) for r in _rows(tmp_path, "receive.jsonl")] == [
         ("received", None), ("dispatched", "lookup")]
     assert sock.receive.intake.Intake(str(tmp_path), "planner").lookup(_command % ts).attempt == _command % ts + "#a1"
-    assert [p["thread_ts"] for p in band.posts] == [ts]  # 복구 dispatched → 같은 영수 게시 1(R1)
+    assert band.posts == []  # 복구 dispatched → 접수 게시 0(r1818 · 장부만)
 
 def test_9_plist_template(tmp_path):
     home = tmp_path / "ft2"

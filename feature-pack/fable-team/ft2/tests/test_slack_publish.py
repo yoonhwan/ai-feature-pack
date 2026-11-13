@@ -68,8 +68,8 @@ class _Band:  # Slack 전송 대역 — post·조회 응답을 시험이 정하�
         self.actions, self.answers = list(actions), list(answers)
         self.posts, self.waits, self.notify, self.lookups = [], [], [], []
 
-    def post(self, root, text, marker):
-        self.posts.append({"root": root, "text": text, "marker": marker})
+    def post(self, root, text, marker, metadata):
+        self.posts.append({"root": root, "text": text, "marker": marker, "metadata": metadata})
         action = self.actions.pop(0) if self.actions else ("ok",)
         if action[0] == "rate":
             raise publish.RateLimited(action[1])
@@ -96,15 +96,16 @@ def _publisher(root, band=None, cls=None, on_step=None):
                                         notify=band.on_notify, team=TEAM, on_step=on_step), band
 
 def test_a_line10_single_thread_and_request_number(tmp_path):
-    """ⓐ 줄 10 — 답은 binding thread 1곳 · 머리 요청 번호 = command 그대로(새 번호 0)."""
+    """ⓐ 줄 10 — 답은 binding thread 1곳 · metadata.command = command 그대로(새 번호 0 · r1818 본문 = 사람 글만)."""
     root, other = tmp_path / "a", _key("1800000002.000100")
     _binder(root).bind(_key(), SEAT_A)
     _binder(root).bind(other, SEAT_A)
     publisher, band = _publisher(root)
     verdict = publisher.reply(_key(), COMMAND, "답 본문", SEAT_A, 1)
-    head, marker, body = band.posts[0]["text"].split("\n")
-    assert (verdict["state"], [post["root"] for post in band.posts], head, body, band.posts[0]["marker"]) == (
-        "posted", [TS], COMMAND, "답 본문", marker)  # 머리 = 요청 번호 그대로 · 표식 1개로 조회·재송 판정
+    payload, marker = band.posts[0]["metadata"]["event_payload"], publish.marker_for(_key(), COMMAND)
+    assert (verdict["state"], [post["root"] for post in band.posts], payload["command"], band.posts[0]["text"],
+            band.posts[0]["marker"], payload["marker"]) == (
+        "posted", [TS], COMMAND, "답 본문", marker, marker)  # metadata.command = 요청 번호 · 표식 1개로 조회·재송 판정
     assert {entry["root"] for entry in publisher.entries()} == {TS}  # 의도·시도·결과 모두 같은 thread
     mutant, m_band = _publisher(root, cls=_M1)  # M1: thread_ts 없이 채널에 게시
     mutant.reply(other, COMMAND, "답 본문", SEAT_A, 1)
@@ -287,7 +288,7 @@ def test_m_r3_refusal_does_not_hide_unsettled_answer(tmp_path):
     stale = publisher.reply(_key(), COMMAND, "옛 답", "seat", 1)  # gen1 = 거절
     assert (stale["state"], len(band.posts)) == ("refused", 1)
     verdict = publisher.resolve(_key())
-    assert (verdict["state"], verdict["via"], band.posts[0]["text"].split("\n")[2]) == ("posted", "lookup", "유효한 답")
+    assert (verdict["state"], verdict["via"], band.posts[0]["text"]) == ("posted", "lookup", "유효한 답")
     m_binder = _binder(tmp_path / "m12")  # M12: 거절 행이 답을 가린다
     m_binder.bind(_key(), "seat")
     m_binder.handover(_key(), "seat")
@@ -347,7 +348,7 @@ def _mutant(**methods):
 
 def _m1_init(self, *args, **kwargs):  # M1 — thread_ts 없이 채널에 게시(실 호출만 채널로)
     post = kwargs.pop("post")
-    publish.SlackPublish.__init__(self, *args, **dict(kwargs, post=lambda root, text, marker: post(None, text, marker)))
+    publish.SlackPublish.__init__(self, *args, **dict(kwargs, post=lambda root, text, marker, metadata: post(None, text, marker, metadata)))
 
 def _m3_reply(self, key, command, body, seat=None, gen=None):  # M3 — 유실을 실패로 보고 자동 재송
     verdict = publish.SlackPublish.reply(self, key, command, body, seat, gen)

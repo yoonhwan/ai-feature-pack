@@ -1,6 +1,6 @@
 """ft2 Slack 답 발행 — 계약 줄 10·11·12·13·14 (r1582 · PR③ 둘째 장).
 
-답은 binding 이 가리키는 thread 1곳에만 나가고 머리의 요청 번호는 팀 도구 command 그대로다(줄 10). 게시 «의도»
+답은 binding 이 가리키는 thread 1곳에만 나가고 본문은 사람 글만 · metadata.command = 팀 도구 command 그대로다(줄 10 · r1818). 게시 «의도»
 (표식 · root · command · owner 세대 · 본문)와 시도 1회를 post 앞에 내구화한다 — crash 뒤 재기동은 표식 조회가
 먼저이고 429 예산은 장부 누적에서 복원된다(R2). 응답 유실 = UNCERTAIN · 자동 재송 0(줄 11). 표식 조회는 3값 —
 «있음» = posted(게시 1) · «없음 확인» = 같은 표식으로 재송 · «판정 불가» = 보존 + 사람 알림 1. 429 = Retry-After
@@ -135,8 +135,9 @@ class SlackPublish:
             self._append({"state": ATTEMPT, "root": key.root, "key": list(key), "command": command, "owner": owner,
                           "gen": gen, "marker": marker_for(key, command), "body": body, "post_calls": prior + calls})
             try:
-                text = "%s\n%s\n%s" % (command, marker_for(key, command), body)  # 첫 줄 = 요청 번호(줄 10)
-                posted_ts = self.post(key.root, text, marker_for(key, command))
+                marker = marker_for(key, command)  # 본문 = body 만 · metadata.command = 요청 번호(줄 10 · r1818 E1)
+                metadata = {"event_type": "ft2_reply", "event_payload": {"command": command, "marker": marker}}
+                posted_ts = self.post(key.root, body, marker, metadata)
             except RateLimited as exc:
                 waits.append(round(float(exc.retry_after), 1))
                 self.sleep(float(exc.retry_after))
