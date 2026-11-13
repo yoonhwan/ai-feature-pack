@@ -83,12 +83,42 @@ _lsp_crash_state() {
   date +%s > "$stamp"; return 1
 }
 
+# ── LSP 실패 보이기 (r1381) — 빈 status·초기화 멈춤·데몬 시간 초과를 «정상»·«참조 없음» 꼴로 두지 않는다 ──
+#  status 1회 → LS_OUT · LS_RC (상한 CI_LSP_STATUS_TIMEOUT 기본 10초 · 걸리면 rc124)
+_lsp_status() { LS_OUT="$(_cap "${CI_LSP_STATUS_TIMEOUT:-10}" "$PROBE" lsp status 2>/dev/null)"; LS_RC=$?; }
+#  «<언어> 초기화 멈춤» (stalled 우선) | «<언어> 초기화 중» | 빈 값
+_lsp_init_state() {
+  printf '%s\n' "$1" | awk '/^  [A-Za-z#+]+: /&&$1!~/^(Status|Version|Uptime):$/{l=$1; sub(/:$/,"",l)}
+    /stalled/{print l " 초기화 멈춤"; f=1; exit} /Initializing/&&i==""{i=l " 초기화 중"} END{if(!f&&i!="")print i}'
+}
+#  «status=<Status 값> · <언어>=<Readiness 값> …» 1줄 (status 출력 0 이면 status=출력 0)
+_lsp_brief() {
+  printf '%s\n' "$1" | awk '/^  Status: /{s=$2} /^  [A-Za-z#+]+: /&&$1!~/^(Status|Version|Uptime):$/{l=$1; sub(/:$/,"",l)}
+    /^ +Readiness: /{sub(/^ *Readiness: */,""); r=r " · " l "=" $0} END{printf "status=%s%s", (s=="" ? "출력 0" : s), r}'
+}
+#  refs/def/impl — exec 대신 결과·rc·stderr 를 받는다. 데몬 시간 초과 또는 rc≠0+stdout 0줄 = 판정 불가 1줄 rc3.
+#  정상 결과·probe 정상 0건(«No references found» rc0 · 재현 실측) = stdout·stderr·rc 그대로.
+_lsp_call() { # $1=ci 동사 · $2..=probe lsp call 인자
+  local verb="$1" d rc sec why t0=$SECONDS; shift
+  d="$(mktemp -d "${TMPDIR:-/tmp}/ci-lsp.XXXXXX")" || { echo "판정 불가 ci $verb: 임시 폴더를 만들지 못했다" >&2; exit 3; }
+  "$PROBE" lsp call "$@" >"$d/out" 2>"$d/err"; rc=$?
+  if grep -qE "Timeout (connecting to daemon|reading message)" "$d/err"; then
+    sec="$(sed -n 's/.*after \([0-9]*\)000ms.*/\1/p' "$d/err" | head -1)"; why="LSP 데몬 응답 없음(${sec:-$((SECONDS - t0))}s)"
+  elif [ "$rc" -ne 0 ] && [ ! -s "$d/out" ]; then why="probe rc=$rc 출력 0"
+  else cat "$d/err" >&2; cat "$d/out"; rm -rf "$d"; exit "$rc"; fi
+  rm -rf "$d"; _lsp_status
+  echo "판정 불가 ci $verb — $why · $(_lsp_brief "$LS_OUT")" >&2
+  exit 3
+}
+
 # LSP 계층은 온디맨드. CI_LSP_AUTO_INIT=1 이면 자동 init, 아니면 안내만.
 _lsp_ensure() {
   command -v "${PROBE:-probe}" >/dev/null 2>&1 || return 0
-  local cs st
+  local cs st w
   if cs="$(_lsp_crash_state slow)"; then echo "판정 불가 LSP 데몬 crash-loop — ci lsp repair ($cs)" >&2; exit 3; fi
-  st="$("$PROBE" lsp status 2>/dev/null)"
+  _lsp_status; st="$LS_OUT"
+  [ -z "$st" ] && { echo "[hint] LSP status 출력 0 (rc=$LS_RC) — 데몬 응답 없음일 수 있다 · ci doctor" >&2; return 0; }
+  w="$(_lsp_init_state "$st")"; [ -n "$w" ] && echo "[hint] LSP $w — refs 가 시간 초과될 수 있다 · ci lsp status" >&2
   case "$st" in
     *"No language servers initialized"*|*"Status: Not"*|*"not connected"*|*"unavailable"*)
       if [ "${CI_LSP_AUTO_INIT:-0}" = "1" ]; then
@@ -337,7 +367,7 @@ case "$cmd" in
     loc="${1:?location 'file#symbol' or 'file:line:col' required}"; shift || true
     fmt="terminal"; [ "${1:-}" = "--json" ] && fmt="json"
     _lsp_ensure
-    exec "$PROBE" lsp call references "$loc" --format "$fmt"
+    _lsp_call refs references "$loc" --format "$fmt"
     ;;
 
   def|impl|type|hover)
@@ -348,7 +378,7 @@ case "$cmd" in
       type) m="type-definition" ;; hover) m="hover" ;;
     esac
     _lsp_ensure
-    exec "$PROBE" lsp call "$m" "$loc"
+    _lsp_call "$cmd" "$m" "$loc"
     ;;
 
   ast)
@@ -428,7 +458,10 @@ case "$cmd" in
       cs="$(_lsp_crash_state slow)" && { printf "lsp   : CRASH-LOOP %s · 다음: ci lsp repair\nsmoke : (생략 — 데몬 crash-loop)\n" "$cs"; exit 3; }
       # doctor 는 진단만 — status 가 데몬을 자동 기동시키면 즉시 내려 상주를 남기지 않는다
       pre_lsp="$(pgrep -f "probe lsp start" | wc -l | tr -d ' ')"
-      printf "lsp   : %s\n" "$("$PROBE" lsp status 2>/dev/null | tr '\n' ' ' | cut -c1-90)"
+      _lsp_status; w="$(_lsp_init_state "$LS_OUT")"
+      if [ "$LS_RC" -ne 0 ] || [ -z "$LS_OUT" ]; then printf "lsp   : 판정 불가 status rc=%s 출력 %s\n" "$LS_RC" "$(printf '%s' "$LS_OUT" | grep -c .)"
+      elif [ -n "$w" ]; then printf "lsp   : WARN %s\n" "$w"
+      else printf "lsp   : %s\n" "$(printf '%s' "$LS_OUT" | tr '\n' ' ' | cut -c1-90)"; fi
       [ "$pre_lsp" = "0" ] && "$PROBE" lsp shutdown >/dev/null 2>&1
       printf "smoke : "
       out="$("$PROBE" search "function OR def" . --max-results 1 2>/dev/null | head -3 | tr '\n' ' ')"
