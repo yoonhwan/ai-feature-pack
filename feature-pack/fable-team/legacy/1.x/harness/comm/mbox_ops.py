@@ -106,6 +106,7 @@ def send(to, frm, body, force=False, desk_attach=""):
     _prune_bodies(CANON)
     if self_drop:
         raise SystemExit(5)   # r1820 B2 — 지금 송신 버림 = rc 5
+    mbox_roots.home_receipt(to, frm, body, seq)   # r1416 B6 — FT_MBOX_BRIDGED=1 직접 송신 = 보낸 이 루트 기록에 영수(다리 부모가 쓴 건 0)
 
 
 def relay(to, frm, path, summary):

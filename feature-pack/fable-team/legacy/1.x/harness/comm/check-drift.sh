@@ -31,6 +31,8 @@ MAP=(
   "mbox_lineage.py|.claude/fable-team/bin/mbox_lineage.py"
   # ★mbox_roots.py = mbox_ops.send 가 import 함(r1309 다른 루트 받는이 = 우편 다리 · roots.tsv) — 한쪽만 깔리면 전 좌석 send·recv ImportError★
   "mbox_roots.py|.fable-team/comm/mbox_roots.py"
+  # ★mbox_receipt.py = mbox_roots.py 가 import 함(r1416 다른 루트로 간 쪽지 영수 · mbox_ops.send → bridge·home_receipt) — 한쪽만 깔리면 전 좌석 send·recv ImportError★
+  "mbox_receipt.py|.fable-team/comm/mbox_receipt.py"
   # ★mbox_retire_check.py = mbox.py · mbox_handover.py · ft-boot-report-lint.py 가 import 함(r1319 승계 retire 관문 C0~C7) — 한쪽만 깔리면 전 좌석 send·recv ImportError 가 조용히 난다★
   "mbox_retire_check.py|.fable-team/comm/mbox_retire_check.py"
   # ★mbox_keep.py = mbox_ops.py 가 import 함(넘치는 큐에서 버릴 순서 · 사람 글 보존 · r912) — 한쪽만 깔리면 전 좌석 send ImportError★
