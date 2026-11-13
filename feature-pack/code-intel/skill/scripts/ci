@@ -193,9 +193,13 @@ case "$cmd" in
   outline)
     need_tilth
     f="${1:?file required}"; shift || true
-    if [ "${1:-}" = "--section" ]; then shift; _guard_run "$TILTH" "$f" --section "$1"; exit $?; fi
-    _guard_run "$TILTH" "$f"
-    exit $?
+    # r1832: 없는 파일 = tilth 0 · rc2(tilth 는 없는 경로를 검색어로 보고 리포 전체를 훑는다) · 상한 CI_OUTLINE_TIMEOUT(7초)
+    [ -f "$f" ] || { echo "[ci] 파일 없음: $f" >&2; exit 2; }
+    a=("$f"); [ "${1:-}" = "--section" ] && a+=(--section "$2")
+    [ "${CI_ALLOW_HEAVY:-0}" = "1" ] && exec "$TILTH" "${a[@]}"
+    to="${CI_OUTLINE_TIMEOUT:-7}"
+    # exec = 신호 주인 GNU timeout 1개(바깥 TERM·INT·HUP 가 곧바로 닿음 · 그룹째 전달) · 안 bash 는 안내 1줄만
+    exec timeout -s USR1 -k 1 "$to" bash -c 'trap "echo \"[timeout] ${0}s 초과 — ci outline <파일> --section <범위> 로 좁히세요.\" >&2; exit 124" USR1; "$@"; exit $?' "$to" "$TILTH" "${a[@]}"
     ;;
 
   refs)
