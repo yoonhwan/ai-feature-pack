@@ -146,7 +146,7 @@ def test_e_via_opencode_is_the_old_cli_path(tmp_path, oc, monkeypatch, llm):  # 
 
 def test_f_sync_skipped_within_120s(tmp_path, monkeypatch, caplog):
     script = tmp_path / "sync.sh"
-    script.write_text(f'#!/usr/bin/env bash\necho "$1" >> "{tmp_path}/calls"\necho "SYNC up-to-date"\n', encoding="utf-8")
+    script.write_text(f'#!/usr/bin/env bash\necho "$*" >> "{tmp_path}/calls"\necho "SYNC up-to-date"\n', encoding="utf-8")
     (tmp_path / "root" / ".fable-team").mkdir(parents=True)
     monkeypatch.setenv("FT_ROOT", str(tmp_path / "root"))
     monkeypatch.setenv("FT_LEDGER_REPO", str(tmp_path / "repo"))
@@ -157,12 +157,12 @@ def test_f_sync_skipped_within_120s(tmp_path, monkeypatch, caplog):
     assert nl.sync_repo() == ""  # 틱 1 = 실행
     monkeypatch.setenv("FT_LEDGER_SYNCED", "0")  # 다음 틱(새 프로세스)
     assert nl.sync_repo() == ""  # 2분 안 → 건너뜀
-    assert (tmp_path / "calls").read_text(encoding="utf-8").splitlines() == [str(tmp_path / "repo")]
+    assert (tmp_path / "calls").read_text(encoding="utf-8").splitlines() == [f"--fetch-only {tmp_path / 'repo'}", f"--advance {tmp_path / 'repo'}"]  # r1373: 2단계
     assert any("건너뜀" in r.message for r in caplog.records)
     (tmp_path / "stamp").write_text(f"{time.time() - 121:.0f}\n", encoding="utf-8")  # 121초 지남 → 다시 실행
     monkeypatch.setenv("FT_LEDGER_SYNCED", "0")
     assert nl.sync_repo() == ""
-    assert len((tmp_path / "calls").read_text(encoding="utf-8").splitlines()) == 2
+    assert len((tmp_path / "calls").read_text(encoding="utf-8").splitlines()) == 4
 
 
 # ── ⓖ 지도 실패 틱마다 «직전 판 유지» INFO 1줄 ──

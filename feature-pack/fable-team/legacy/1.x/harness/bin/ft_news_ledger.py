@@ -234,12 +234,9 @@ def sync_repo() -> str:
     if _recent_sync(now, float(os.environ.get("FT_LEDGER_SYNC_MIN", "120"))):
         LOG.info("원장 사본 동기화 건너뜀 — 마지막 성공 2분 안(%s)", _stamp_file())
         return os.environ.get("FT_LEDGER_SYNC_ERROR", "")
-    try:
-        done = subprocess.run(["bash", os.environ.get("FT_LEDGER_SYNC") or str(HERE / "ft-ledger-repo-sync.sh"), repo], capture_output=True, text=True, timeout=FETCH_BUDGET_S)  # r847: 스크립트 = ls-remote 7 + fetch 30 + 재시도 — 총 마감 70초
-        lines = (done.stdout.strip() or done.stderr.strip()).splitlines()
-        line, rc = (lines[-1] if lines else f"rc={done.returncode} 출력 없음"), done.returncode
-    except (OSError, subprocess.TimeoutExpired) as e:
-        line, rc = f"ERROR ledger 사본 sync 실행 실패: {e}", 1
+    line, rc = _run_sync("--fetch-only", repo, FETCH_BUDGET_S)  # r847: ls-remote 7 + fetch 30 + 재시도 — 총 마감 70초
+    if rc == 0:  # r1373: checkout 은 fetch 상한 밖에서 따로(중간에 끊기면 사본이 반쯤 바뀜)
+        line, rc = _run_sync("--advance", repo, ADVANCE_BUDGET_S)
     if rc == 0:
         LOG.info("%s", line)
         _mark_sync(now)
@@ -252,6 +249,17 @@ def sync_repo() -> str:
     return os.environ["FT_LEDGER_SYNC_ERROR"]
 
 
+def _run_sync(step: str, repo: str, budget: float) -> tuple[str, int]:
+    """r1373 — sync 스크립트 한 단계 · 반환 = (마지막 줄, rc) · 실행 실패·상한 = rc1 한 줄."""
+    try:
+        done = subprocess.run(["bash", os.environ.get("FT_LEDGER_SYNC") or str(HERE / "ft-ledger-repo-sync.sh"), step, repo], capture_output=True, text=True, timeout=budget)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        return f"ERROR ledger 사본 sync 실행 실패: {e}", 1
+    lines = (done.stdout.strip() or done.stderr.strip()).splitlines()
+    return (lines[-1] if lines else f"rc={done.returncode} 출력 없음"), done.returncode
+
+
+ADVANCE_BUDGET_S = 25.0  # r1373 DA#10 R2 — --advance 단계 바깥 상한 = 로컬 25초 · 스크립트가 같은 25초 마감에서 유예 3초를 빼 checkout 상한을 잡아 안쪽이 먼저 끝난다
 FETCH_TIMEOUT_S = 30.0  # r847 — 이 경로(뉴스 원장 ref) 시도당 상한(오빠 «뉴스는 30초로 상향» · 하드 룰 12 «크기 아는 배치» 70초 천장 안 · 공용 fm_t7 7초는 그대로)
 FETCH_BUDGET_S = 70.0  # r569 — 재시도까지 합친 마감(전역 하드 룰 12 · env 로 크게 줘도 여기서 자름)
 LS_REMOTE_TIMEOUT_S = 7.0  # r847 — 원격 main sha 묻기·로컬 ref 조회(7초 룰)
