@@ -5,6 +5,7 @@
 #   ④ 샘플도 없음 → ft-thresholds rc3 · pi null · 훅 판정 불가 1줄 · 리줌 UNKNOWN rc3.
 #   r1: pi 샘플 = ft2 adapters/pi/thresholds.env.sample(env FT_DISTILL_SAMPLE > 어댑터 옆 > ~/.claude/fable-team/ft2/versions/<CURRENT>/adapters/pi/)
 #   ⑤ 1.x kit 샘플과 ft2 사본 cmp 0 ⑥ ft2 legacy_guard 위반 0.
+#   R1: ⑦ 부분 root(WARN 만) + 홈 전체 + 명시 env(RECV) → 키마다 env > root > 홈 > 샘플 · 네 도구 270/350/260/200(설치본 = <root>/.fable-team/live → shell ROOT = root).
 #   임시 HOME·임시 설치본 사본만 · 실 홈·장부 쓰기 0 · sleep 0. 변이용 override: KIT=<kit/fable-team 사본> PI_GATE=<distill-gate.ts 사본> FT2_SAMPLE=<ft2 샘플 사본>.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
 set -uo pipefail
@@ -14,7 +15,7 @@ FT2="$(cd -- "$HERE/../../../../ft2" && pwd)"
 PI_GATE="${PI_GATE:-$FT2/adapters/pi/distill-gate.ts}"; FT2_SAMPLE="${FT2_SAMPLE:-$FT2/adapters/pi/thresholds.env.sample}"
 fail=0; ok(){ echo "PASS $1"; }; bad(){ echo "FAIL $1"; fail=$((fail+1)); }
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
-I="$T/inst"; R="$T/rep"; H="$T/home"; FAKE="$T/fakebin"
+R="$T/rep"; I="$R/.fable-team/live"; H="$T/home"; FAKE="$T/fakebin"
 P="$T/pi"; mkdir -p "$I/bin" "$I/templates/hooks" "$R/.git" "$R/.fable-team" "$H" "$FAKE" "$P"
 cp "$KIT/bin/ft-thresholds.sh" "$KIT/bin/ft-resume-gate.sh" "$I/bin/"
 cp "$KIT/templates/hooks/context-distill-gate.sh" "$I/templates/hooks/"
@@ -36,7 +37,7 @@ hook_vals(){ # hook_vals <warn> <recv 후보> · warn/block = 경고 문구의 �
   [ "$(hook_recv "$(( $2 * 1000 ))")" = 2 ] && [ "$(hook_recv "$(( $2 * 1000 - 1 ))")" = 0 ] && r="$2"
   echo "${w:-?} ${b:-?} $r"; }
 resume_val(){ tj 999999999; run bash "$I/bin/ft-resume-gate.sh" "$T/t.jsonl" 2>&1 | sed -n 's/.*max=\([0-9,]*\).*/\1/p' | tr -d , | python3 -c 'import sys;s=sys.stdin.read().strip();print(int(s)//1000 if s else "?")'; }
-pi_vals(){ HOME="$H" node --no-warnings --input-type=module -e 'const m=await import(process.argv[1]);const s=process.env.FT_DISTILL_SAMPLE;const t=m.thresholds(s?{FT_DISTILL_SAMPLE:s}:{},process.argv[2]);console.log(t?`${t.warn/1000} ${t.block/1000} ${t.recv/1000}`:"null")' "$(python3 -c 'import pathlib,sys;print(pathlib.Path(sys.argv[1]).resolve().as_uri())' "$P/distill-gate.ts")" "$R" 2>&1; }
+pi_vals(){ HOME="$H" node --no-warnings --input-type=module -e 'const m=await import(process.argv[1]);const e=Object.fromEntries(Object.entries(process.env).filter(([k])=>k.startsWith("FT_DISTILL_")));const t=m.thresholds(e,process.argv[2]);console.log(t?`${t.warn/1000} ${t.block/1000} ${t.recv/1000}`:"null")' "$(python3 -c 'import pathlib,sys;print(pathlib.Path(sys.argv[1]).resolve().as_uri())' "$P/distill-gate.ts")" "$R" 2>&1; }
 check(){ # check <이름> <warn> <block> <recv> <resume>
   local f h r p; f="$(ft_vals)"; h="$(hook_vals "$2" "$4")"; r="$(resume_val)"; p="$(pi_vals)"
   [ "$f" = "$2 $3 $4 $5" ] && ok "$1 ft-thresholds $f" || bad "$1 ft-thresholds 기대 $2 $3 $4 $5 실제 $f"
@@ -47,7 +48,9 @@ check(){ # check <이름> <warn> <block> <recv> <resume>
 mkdir -p "$H/.claude/fable-team"
 printf 'FT_DISTILL_WARN=330000\nFT_DISTILL_BLOCK=350000\nFT_DISTILL_RECV=280000\nFT_RESUME_MAX=200000\n' > "$H/.claude/fable-team/thresholds.env"
 check "① 홈 파일" 330 350 280 200
-rm -f "$H/.claude/fable-team/thresholds.env"
+printf 'FT_DISTILL_WARN=270000\n' > "$R/.fable-team/thresholds.env"; export FT_DISTILL_RECV=260000
+check "⑦ 부분 root + 홈 + env RECV" 270 350 260 200
+unset FT_DISTILL_RECV; rm -f "$R/.fable-team/thresholds.env" "$H/.claude/fable-team/thresholds.env"
 check "② 파일 없음 → 샘플" 250 300 250 150
 printf 'FT_DISTILL_WARN=260000\nFT_DISTILL_BLOCK=310000\nFT_DISTILL_RECV=240000\nFT_DISTILL_NEWWORK=310000\nFT_RESUME_MAX=160000\n' > "$I/templates/thresholds.env.sample"; cp "$I/templates/thresholds.env.sample" "$P/thresholds.env.sample"
 check "③ 샘플 260/310/240/160" 260 310 240 160
