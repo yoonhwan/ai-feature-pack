@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
-"""ft 2.0 설치 — install·verify·rollback·status 네 동사 하나. 설치 루트 꼴: `<루트>/versions/<버전>/`(패키지 복사본) · `<루트>/CURRENT`(일반 파일 1줄 · tmp 쓰고 os.replace) · `<루트>/install-log.jsonl`(한 줄 = {ts, op, version, prev, manifest_sha256, rc}). 판 전환은 PACKAGE.json manifest_sha256 = MANIFEST.json 바이트 sha · 숨은 파일 0 · MANIFEST 대조 rc0 일 때만 한다. 대조가 틀리면 CURRENT 를 건드리지 않고 복사본을 `<버전>.bad-<ts>` 로 rename 만 한다(지우기 0 · 하드 룰 2·19). 되돌림은 log 의 `prev` 로 가고, 그 판이 없거나 대조가 틀리면 rc2 이며 CURRENT 는 그대로다. 종료 코드: 0 = 됨/같음 · 1 = 대조 다름(전환 0) · 2 = 판정 불가(인자·손상·이미 있음·쓰기 실패) — traceback 0.
+"""ft 2.0 설치 — install·verify·rollback·status 네 동사 하나. 설치 루트 꼴: `<루트>/versions/<버전>/`(패키지 복사본) · `<루트>/CURRENT`(일반 파일 1줄 · tmp 쓰고 os.replace) · `<루트>/install-log.jsonl`(한 줄 = {ts, op, version, prev, manifest_sha256, rc}). 판 전환은 PACKAGE.json manifest_sha256 = MANIFEST.json 바이트 sha · 숨은 파일 0 · MANIFEST 대조 rc0 일 때만 한다. 대조가 틀리면 CURRENT 를 건드리지 않고 복사본을 `<버전>.bad-<ts>` 로 rename 만 한다(지우기 0 · 하드 룰 2·19). 되돌림은 log 의 `prev` 로 가고, 그 판이 없거나 대조가 틀리면 rc2 이며 CURRENT 는 그대로다. 종료 코드: 0 = 됨/같음 · 1 = 대조 다름(전환 0) · 3 = 판 바뀜·상주 라벨 재기동 확인 못 함(r1826) · 2 = 판정 불가(인자·손상·이미 있음·쓰기 실패) — traceback 0.
 """
+import contextlib
 import hashlib
 import json
 import os
+import plistlib
 import shutil
+import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -45,6 +49,43 @@ def log_write(root, op, version, prev, man_sha, rc):
     line = {"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "op": op, "version": version, "prev": prev, "manifest_sha256": man_sha, "rc": rc}
     with open(os.path.join(root, "install-log.jsonl"), "a", encoding="utf-8") as handle:
         handle.write(json.dumps(line, ensure_ascii=False) + "\n")
+
+
+def _call(name, args):
+    """외부 명령 1회 7초 + 재시도 1 → (rc, stdout) · 두 번 다 실패면 None(하드 룰 12·20) · FT2_LAUNCHCTL·FT2_PS = 대역."""
+    for _ in range(2):
+        with contextlib.suppress(OSError, subprocess.TimeoutExpired):
+            proc = subprocess.run([os.environ.get("FT2_" + name.upper(), name), *args], capture_output=True, text=True, timeout=7, env={**os.environ, "LC_ALL": "C"})
+            return proc.returncode, proc.stdout
+
+
+def _pid(label):  # 등록 안 됨 = "" · 멈춤 = "-" · 판독 불가 = None · 아니면 pid 글자
+    got = _call("launchctl", ["print", f"gui/{os.getuid()}/{label}"])
+    return None if got is None or got[0] not in (0, 113) else "" if got[0] else next((ln.split("=")[1].strip() for ln in got[1].splitlines() if ln.strip().startswith("pid =")), "-")
+
+
+def _started(pid):  # ps 기동 시각(지역 시각 · 초) → epoch 초 · 판독 불가 = None
+    got = _call("ps", ["-o", "lstart=", "-p", pid]) or (1, "")
+    with contextlib.suppress(ValueError):
+        return int(time.mktime(time.strptime(" ".join(got[1].split()), "%a %b %d %H:%M:%S %Y"))) if got[0] == 0 else None
+
+
+def switched(root, rc, out):
+    """R1·R2(r1826) — 판 전환 뒤 이 루트를 부르는 com.byz.ft2-* 중 KeepAlive true 만 kickstart -k 1회 · 확인 못 하면 rc3(판은 그대로 둔다)."""
+    agents, since, lines = os.environ.get("FT2_LAUNCH_AGENTS", os.path.expanduser("~/Library/LaunchAgents")), int(os.stat(os.path.join(root, "CURRENT")).st_mtime), [out]
+    for name in sorted(n for n in (os.listdir(agents) if os.path.isdir(agents) else []) if n.startswith("com.byz.ft2-") and n.endswith(".plist")):
+        doc = {"Label": name, "ProgramArguments": [root], "KeepAlive": True, "bad": 1}  # plist 판독 실패 = 판정 불가 줄(숨김 0)
+        with contextlib.suppress(OSError, ValueError):
+            doc = plistlib.load(open(os.path.join(agents, name), "rb"))
+        label, alive = doc.get("Label", name), doc.get("KeepAlive") is True
+        if os.path.realpath(root) in {os.path.realpath(str(arg)) for arg in doc.get("ProgramArguments") or []}:  # 다른 설치 루트 라벨 = 손 0
+            old = _pid(label) if alive and "bad" not in doc else None
+            new = (_pid(label) or "") if (kick := old and _call("launchctl", ["kickstart", "-k", f"gui/{os.getuid()}/{label}"])) and kick[0] == 0 else ""
+            began = _started(new) if new.isdigit() and new != old else None
+            why = "plist·launchctl 판독 실패" if old is None else "kickstart 실패" if not kick or kick[0] else "새 pid 없음" if not new.isdigit() else "pid 그대로" if new == old else "기동 시각 판독 실패" if began is None else "기동 < CURRENT" if began < since else ""
+            lines.append(f"SKIP {label} 바퀴마다 새로 뜸" if not alive else f"SKIP {label} 등록 안 됨" if old == "" else f"RELOAD 판정 불가 {label} {why}" if why
+                         else f"RELOADED {label} pid {old}→{new} 기동 {time.strftime('%Y-%m-%dT%H:%M:%S', time.localtime(began))} ≥ CURRENT {time.strftime('%Y-%m-%dT%H:%M:%S', time.localtime(since))}")
+    return (3 if any(line.startswith("RELOAD 판정 불가") for line in lines) else rc), "\n".join(lines)
 
 
 def hidden_files(root, known):
@@ -103,7 +144,8 @@ def install(pkg, root):
         return 1, f"다름 {version}: {reason} — 전환 0 · {os.path.basename(bad)} 로 옮겼다"
     set_current(root, version)
     log_write(root, "install", version, prev, doc["manifest_sha256"], 0)
-    return 0, f"설치 {version} (이전 {prev}) — 대조 맞음"
+    done = 0, f"설치 {version} (이전 {prev}) — 대조 맞음"
+    return switched(root, *done) if prev != version else done
 
 
 def rollback(root):
@@ -123,7 +165,7 @@ def rollback(root):
         return 2, f"판정 불가 {prev}: 직전 판 대조 실패 — {reason}"
     set_current(root, prev)
     log_write(root, "rollback", prev, cur, package_of(folder)["manifest_sha256"], 0)
-    return 0, f"되돌림 {cur} → {prev}"
+    return switched(root, 0, f"되돌림 {cur} → {prev}")
 
 
 def verify_root(root):
