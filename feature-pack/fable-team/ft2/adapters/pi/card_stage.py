@@ -95,9 +95,11 @@ def stage(byz, ref, path, at, now):
     with tempfile.TemporaryDirectory(prefix="ft2-card-stage-") as tmp:
         frm = "대기" if "/indices/대기/" in path else "진행"
         wt, dst = os.path.join(tmp, "wt"), path.replace("/indices/%s/" % frm, "/indices/완성/", 1)
-        run(byz, "worktree", "add", "-q", "--detach", wt, ref)
         out = Unsure("git 시간초과")   # 본문이 TimeoutExpired 로 끝나면 이 값이 남는다
-        try:
+        try:   # r1891 — 빈 자리 → 카드 indices/ 만 sparse → checkout(launch_plan 꼴) · add 끊김도 아래 정리 1곳
+            run(byz, "worktree", "add", "-q", "--no-checkout", "--detach", wt, ref)
+            run(wt, "sparse-checkout", "set", "--no-cone", "/%s/indices/" % path.split("/indices/", 1)[0])
+            run(wt, "checkout", "-q")
             os.makedirs(os.path.dirname(os.path.join(wt, dst)), exist_ok=True)
             run(wt, "mv", path, dst)
             doc = pathlib.Path(wt, dst)
@@ -106,7 +108,7 @@ def stage(byz, ref, path, at, now):
             out = doc.stem, frm + "→완성", push(wt, ref)
         except Unsure as exc:
             out = exc
-        finally:   # R2 — add 뒤에는 성공·Unsure·TimeoutExpired 모두 이 정리 1곳을 탄다
+        finally:   # R2 — add 부터 성공·Unsure·TimeoutExpired 모두 이 정리 1곳을 탄다
             try:
                 gone = git(byz, "worktree", "remove", "--force", wt)[0]
             except subprocess.TimeoutExpired:
