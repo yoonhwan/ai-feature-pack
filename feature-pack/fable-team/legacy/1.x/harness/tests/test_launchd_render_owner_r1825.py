@@ -47,6 +47,10 @@ def world(tmp_path):
     (t / "lc").write_text(FAKE_LC); (t / "lc").chmod(0o755)  # noqa: E702
     w = {"t": t, "home": home, "la": home / "Library/LaunchAgents", "owner": _repo(t / "byz", True), "pack": _repo(t / "pack", False)}
     w["run_env"] = _env(HOME=str(home), FT_LAUNCHCTL=str(t / "lc"), LC_LOG=str(t / "lc.log"))
+    rows = subprocess.run([sys.executable, str(H / "bin/ft_launchd_llm_gate.py"), "list-dyncalls", "--root-dir", str(H / "kit/fable-team/bin"), "--root-key", "live-bin"],
+                          capture_output=True, text=True, timeout=25).stdout.splitlines()   # r1838: H1 뒤 상태 = 키트 동적 지점 사람 확인 기준선(실 판정기 그대로)
+    (w["owner"] / ".fable-team/state").mkdir(exist_ok=True)
+    (w["owner"] / ".fable-team/state/launchd-dyncall-baseline.tsv").write_text("".join("\t".join(r.split("\t")[:3] + ["fx-h1"]) + "\n" for r in rows))
     return w
 
 def _render(w, root: Path, minute=17, extra_env=None) -> bytes:

@@ -186,6 +186,18 @@ comm_sync() {
   echo "COMM copied=$copied same=$same dest=$COMM_DST$([ "$APPLY" = 1 ] && echo " (덮은 파일의 되돌림 = <파일>.bak-$VERSION)")"
 }
 PLIST_FAIL=0
+# r1838: launchd 잡 LLM 0 판정기 — 렌더한 plist 마다 쓰기 «전» 1회 · REJECT/판정 불가 = 그 label 쓰기 0 + 1줄 + 끝 rc1 · 대역 = FT_LAUNCHD_GATE(시험)
+LLM_GATE_FAIL=0
+llm_gate() {  # <label> <렌더본> → rc0 = 통과
+  local tmp out rc=0
+  tmp="$(mktemp "${TMPDIR:-/tmp}/ft-llm-gate.XXXXXX")"; printf '%s\n' "$2" > "$tmp"
+  out="$(python3 "${FT_LAUNCHD_GATE:-$KIT/bin/ft_launchd_llm_gate.py}" check --plist "$tmp" --label "$1" --project "$PROJECT" --roots "$HARNESS/kit/launchd-roots.tsv" \
+    --baseline "$PROJECT/.fable-team/state/launchd-dyncall-baseline.tsv" --allow "$PROJECT/.fable-team/state/launchd-llm-allow.tsv" 2>&1)" || rc=$?
+  rm -f "$tmp"
+  [ "$rc" != 0 ] || return 0
+  [ "$APPLY" = 1 ] || { echo "${out:-UNDECIDABLE launchd-llm $1 판정기 출력 없음} (rc=$rc · dry-run 미리보기 — apply 면 쓰기 0 · rc1)"; return 0; }
+  echo "${out:-UNDECIDABLE launchd-llm $1 판정기 출력 없음} (rc=$rc · 등록·갱신 0 · 올라간 잡은 그대로)"; LLM_GATE_FAIL=1; return 1
+}
 # r464: bootout 은 비동기(launchd 가 프로세스 종료를 기다림) — 바로 bootstrap 하면 실패할 수 있다 → 1초 간격 최대 3회 · 7초 안(7초 룰)
 #   BOOT_TRY = 실패한 횟수 · BOOT_WHY = 마지막 launchctl 출력 1줄
 boot_retry() {
@@ -253,6 +265,7 @@ launchd_sync() {
     n=$((n + 1))
     if printf '%s\n' "$new" | cmp -s - "$dst"; then echo "OK launchd $label"; continue; fi
     ch=$((ch + 1)); echo "PENDING launchd $label (실행 경로 ≠ 렌더본 → $PROJECT/.fable-team/bin · env·주기는 설치본 그대로)"
+    llm_gate "$label" "$new" || continue
     [ "$APPLY" = 1 ] || continue
     [ -f "$dst.bak-r538" ] || cp -p "$dst" "$dst.bak-r538"
     cp -p "$dst" "$dst.bak-$VERSION"
@@ -282,6 +295,7 @@ launchd_new() {
       echo "ERROR: launchd-new 렌더 실패 $label: $new" >&2; rc=1; continue
     fi
     if [ -f "$dst" ] && printf '%s\n' "$new" | cmp -s - "$dst"; then echo "OK launchd-new $label (이미 같은 내용)"; continue; fi
+    llm_gate "$label" "$new" || continue
     if [ "$APPLY" != 1 ]; then echo "PLAN launchd-new $label → $dst"; continue; fi
     mkdir -p "$(dirname "$dst")"
     bak="$dst.bak-$VERSION"
@@ -459,6 +473,7 @@ launchd_new || LAUNCHD_NEW_FAIL=1   # r1115: --launchd-new 로 지정한 «처�
 restart_scan   # r459: plist 단계(재적재한 라벨은 새로 기동) «뒤» 의 기동 시각으로 판정
 hook_audit     # r491: 등록 훅 전수 — 손으로 들어온 훅의 실행 비트·실재도 여기서 걸린다
 if [ "$LAUNCHD_NEW_FAIL" = 1 ]; then echo "INSTALLED $VERSION · LAUNCHD-NEW ERROR — LIVE_BIN 전환은 끝났다 · 위 ERROR launchd-new 줄의 라벨은 미등록(등록 실패 = 잡이 안 돈다)"; echo "== 끝 =="; exit 1; fi
+if [ "$LLM_GATE_FAIL" = 1 ]; then echo "INSTALLED $VERSION · LAUNCHD-LLM REJECT — 위 REJECT/UNDECIDABLE launchd-llm 줄의 라벨은 쓰기 0(기준선·허용 장부 = 사람 h)"; echo "== 끝 =="; exit 1; fi
 if [ "$HOOK_FAIL" = 1 ]; then echo "INSTALLED $VERSION · HOOK-EXEC ERROR — 설치는 끝났다 · 위 ERROR HOOK-EXEC 줄의 훅을 고친다(chmod +x 또는 settings 등록 정리 = master)"; echo "== 끝 =="; exit 1; fi
 if [ "$PLIST_FAIL" = 1 ]; then echo "INSTALLED $VERSION · PLIST ERROR — LIVE_BIN 전환은 끝났다 · plist 는 위 RESTORED/ERROR 줄"; echo "== 끝 =="; exit 1; fi
 if [ "$WT_FAIL" = 1 ]; then echo "INSTALLED $VERSION · WT-SHIM ERROR — LIVE_BIN 전환은 끝났다 · 위 ERROR wt-shim 줄의 워크트리는 옛 판 그대로(손 = bash $LIVE/bin/ft-root-bin-shim.sh --root <워크트리> --live $LIVE/bin)"; echo "== 끝 =="; exit 1; fi

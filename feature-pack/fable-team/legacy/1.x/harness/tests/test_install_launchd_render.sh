@@ -40,6 +40,7 @@ fi
 exit 0
 EOF
 chmod +x "$T/fake-launchctl"
+printf 'import sys\nprint("ALLOW stub")\n' > "$T/gate-allow.py"; export FT_LAUNCHD_GATE="$T/gate-allow.py"   # r1838: 이 시험 = 렌더(r538) · LLM 0 판정기는 test_launchd_llm_gate_r1838.py 가 본다
 export FT_LAUNCHCTL="$T/fake-launchctl" LC_LOG="$T/lc.log" BOOT_CNT="$T/boot.cnt"; : > "$LC_LOG"
 nlc() { grep -cE '^(bootstrap|bootout|kickstart)' "$LC_LOG"; }
 nboot() { grep -c "^bootstrap gui/$(id -u) $LA/$1.plist" "$LC_LOG"; }

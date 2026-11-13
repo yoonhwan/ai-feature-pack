@@ -1,9 +1,10 @@
 """ft2 install 시험 — ⓐ설치·숨은 파일 0·MANIFEST 1바이트 · ⓑ대조 다름 = 전환 0 · ⓒ되돌림 · ⓓverify/status · ⓔ루트 밖 무변경 · ⓕ재설치·판정 불가 · 변이 M1~M6."""
-import hashlib, json, shutil, subprocess, sys
+import hashlib, json, os, shutil, subprocess, sys  # noqa: E401
 from pathlib import Path
 
 FT2 = Path(__file__).resolve().parents[1]
 TOOL, MANIFEST_TOOL = FT2 / "tools" / "install.py", FT2 / "tools" / "manifest.py"
+os.environ.setdefault("FT2_LLM_GATE", str(FT2.parent / "legacy/1.x/harness/bin/ft_launchd_llm_gate.py"))  # r1838: 변이 사본(tmp/tools)도 같은 판정기 1개를 부른다
 SOURCE = {"core/loader.py": "print('hi')\n", "tests/test_x.py": "x = 1\n", "README.md": "# ft2\n"}
 
 
