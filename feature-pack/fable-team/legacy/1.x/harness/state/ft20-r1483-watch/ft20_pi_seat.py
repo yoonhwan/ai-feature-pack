@@ -7,6 +7,9 @@ from datetime import datetime
 
 DIVIDER = re.compile(r'^─+$')
 MARK = re.compile(r'^─+ .+ ─+$')  # 내용 있는 ─ 줄 = 바쁨 표식·접힘 표식
+OVERFLOW = re.compile(r'^─+ ↑ \d+ more ─+$')  # r1836 B2: 넘친 상자 위 경계선
+STATUS = re.compile(r'^↑\d+\s+↓')  # r1836 B1: Pi 마지막 상태 줄
+BROKEN = re.compile(r'─{8,}$')  # r1836 B1 ⓒ: ─ 8개 이상으로 끝나는 줄
 
 def _pi():  # helper 경로는 check.py 가 sys.path 에 넣는다 → 지연 import
     return __import__('ft_seat_pi')
@@ -65,14 +68,25 @@ def _marks(pane):  # (줄들, «전부 ─» 줄 번호)
     lines = pane.splitlines()
     return lines, [i for i, line in enumerate(lines) if DIVIDER.fullmatch(line.strip())]
 
-def box(pane):  # ⓔ 상자 글 — 두 경계선 사이 · 바닥 경계선만 보이면 위쪽 글 꼬리
+def box_state(pane):  # r1836 B1·B2: (empty|text|unknown, 글, 이유) — 경계를 못 찾으면 «빈 칸» 아님
     lines, marks = _marks(pane)
     if not marks:
-        return ''
+        return 'unknown', '', 'no-bottom'
     last, start = marks[-1], marks[-2] + 1 if len(marks) >= 2 else marks[-1]
     while len(marks) < 2 and start > 0 and lines[start - 1].strip() and not MARK.match(lines[start - 1].strip()):
         start -= 1
-    return '\n'.join(line for line in lines[start:last] if not MARK.match(line.strip())).strip()
+    text = '\n'.join(line for line in lines[start:last] if not MARK.match(line.strip())).strip()
+    if any(not (s.startswith(('~/', '/')) or STATUS.match(s)) for s in (x.strip() for x in lines[last + 1:]) if s):
+        return 'unknown', text, 'foreign-footer'  # 아래 경계선 밑 = cwd·상태 줄만
+    if any(BROKEN.search(s) and not MARK.match(s) and not DIVIDER.fullmatch(s) for s in map(str.strip, lines[start:])):
+        return 'unknown', text, 'broken-border'  # ─ 로 끝나는 덮인 경계선
+    top = next((i for i in range(last - 1, -1, -1) if DIVIDER.fullmatch(lines[i].strip()) or MARK.match(lines[i].strip())), None)
+    if top is not None and OVERFLOW.match(lines[top].strip()):
+        return 'text', text, ''  # 넘친 상자 = 글 있음 (보이는 글 0 이어도)
+    return ('text' if text else 'empty'), text, ''
+
+def box(pane):  # ⓔ 상자 글 — 두 경계선 사이 · 바닥 경계선만 보이면 위쪽 글 꼬리 (r1836: 상태는 box_state)
+    return box_state(pane)[1]
 
 def busy(pane):  # ⓔ 바쁨 표식 «⠋ Working» 은 ── 사이에 박혀 있다
     return bool(re.search(r'^─+.*Working.*─+$', pane, flags=re.M))
