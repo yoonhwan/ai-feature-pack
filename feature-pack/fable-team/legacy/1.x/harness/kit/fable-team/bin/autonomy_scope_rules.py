@@ -233,7 +233,8 @@ def judge_row(table, row, ddl_ok, env_ok=lambda p: False, card_scope=None):   # 
         return ("forbid", bad[0], forbid_text(bad[0], bad[1])) if bad else (classes[-1][0], classes[-1][1], None)
     if st[0] not in "AM":
         return "forbid", STATUS_KIND.get(st[0], "status"), "상태 %s: %s" % (st, " → ".join(paths))   # 삭제·복사·타입 변경
-    if (st[0] == "M" and om != nm) or (st[0] == "A" and nm != "100644"):
+    new_test_sh = st == "A" and om == "000000" and nm == "100755" and re.search(r"(^|/)tests/test_[^/]*\.sh$", paths[0]) and classes[0][0] == "code"   # r1866: 새 시험 sh 실행 비트만 통과(M·심링크·helper = mode)
+    if not new_test_sh and ((st[0] == "M" and om != nm) or (st[0] == "A" and nm != "100644")):
         return "forbid", "mode", "모드 %s→%s: %s" % (om, nm, paths[0])
     new_sql = bool(bad) and bad[0] == "ddl" and st[0] == "A" and bad[1].endswith(".sql")
     if new_sql and ddl_ok(bad[1]):

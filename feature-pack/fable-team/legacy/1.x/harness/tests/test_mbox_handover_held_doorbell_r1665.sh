@@ -53,7 +53,7 @@ PY
 chk_a() {
   new_env "${1:-}" || return 2; held; queued
   sh_ handover "$O" "$N"; [ "$RC" = 0 ] || return 1
-  B="$(lastbody)"; for i in '· 항목 3 ' '- #1 ' '- #2 '; do case "$B" in *"$i"*) ;; *) return 1;; esac; done
+  B="$(lastbody)"; for i in '· 항목 3 ' $'\n항목: #1! #2! '; do case "$B" in *"$i"*) ;; *) return 1;; esac; done
   [ ! -f "$SD/doorbell-held/$O" ] && [ "$(ls "$SD/doorbell-held/done/" 2>/dev/null | grep -c "^$O-")" = 1 ] || return 1
   grep -qx 'seq=2' "$SD"/doorbell-held/done/"$O"-* 2>/dev/null || return 1
 }
@@ -91,7 +91,7 @@ chk_d && ok "ⓓ 막힌 close-check 둘째 줄 = 후계 pane 3명령" || bad "�
 # ⓔ 회귀 — 억제 기록 없는 승계 출력 불변
 chk_e() {
   new_env || return 2; queued
-  sh_ handover "$O" "$N"; [ "$RC" = 0 ] || return 1; B="$(lastbody)"; case "$B" in *"억제 doorbell"*) return 1;; esac
+  sh_ handover "$O" "$N"; [ "$RC" = 0 ] || return 1; B="$(lastbody)"; case "$B" in *"억제 doorbell 0 "*) ;; *) return 1;; esac
   [ -d "$SD/doorbell-held/done" ] && return 1; py_ close-check "$O" --no-ready; [ "$RC" = 0 ]
 }
 chk_e && ok "ⓔ 억제 기록 없는 승계 출력 불변" || bad "ⓔ rc=$RC :: $OUT :: $B"

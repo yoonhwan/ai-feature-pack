@@ -6,7 +6,7 @@ list-dyncalls (--roots T | --root-dir D | --plist P) … → 동적 지점 줄 `
 G1 입구(plist)에서 «글자 그대로» 닿는 파일만 따라가 통째 검사(절대경로·$0/BASH_SOURCE 기준 경로의 실행·source·import) · G2 입구 뿌리 밖 = REJECT
 G3 따라갈 수 없는 지점(명령 자리 변수·eval·bash -c 변수·변수/상대 경로 스크립트·파이썬 비글자 첫 인자) = 기준선 `<상대경로>\t<줄 sha16>\t<결합 sha256>\t<근거>`
    에 있고 결합 sha(그 파일 + 글자 그대로 source/import 한 파일 전체)가 같을 때만 통과 · 변수 경로 source·뿌리 밖 import·미할당 변수 = 결합 불가 REJECT
-G4 글자 그대로 LLM 호출 꼴 = REJECT(허용 장부 ts 있는 줄만 예외) · G6 판독 실패·25초 초과 = 판정 불가. 실행·네트워크 0 — 읽기만.
+G4 글자 그대로 LLM 호출 꼴 = REJECT(허용 장부 ts 있는 줄만 예외 · 2칸 <라벨>\t<ts> = 라벨 통째 · 4칸 <라벨>\t<상대경로>\t<줄 sha16>\t<ts> = 그 한 줄만 · r1867) · G6 판독 실패·25초 초과 = 판정 불가. 실행·네트워크 0 — 읽기만.
 """
 import argparse, functools, hashlib, os, plistlib, re, sys, time  # noqa: E401
 
@@ -190,7 +190,9 @@ class Gate:
         self.roots, self.label = roots, a.label
         self.shims = {r[1].strip() for r in a.root_rows if r[0] == "@shim"}
         self.base = {(r[0], r[1]): r[2] for r in tsv(a.baseline, 4) if r[3].strip()}
-        self.allowed = any(r[0] == a.label and re.fullmatch(r"\d+\.\d+", r[1].strip()) for r in tsv(a.allow, 2))
+        self.allowed = any(len(r) < 4 and r[0] == a.label and re.fullmatch(r"\d+\.\d+", r[1].strip()) for r in tsv(a.allow, 2))  # R1: 2칸(·3칸 메모 · r1838 꼴)만 · 4칸 이상 = 통째 0
+        self.lines = {(r[1], r[2]) for r in tsv(a.allow, 4) if len(r) == 4 and r[0] == a.label  # r1867: 꼴 틀림 = 무시(닫힌 쪽)
+                      and re.fullmatch(r"[0-9a-f]{16}", r[2]) and re.fullmatch(r"\d+\.\d+", r[3].strip())}
         self.seen, self.memo, self.dyn = set(), {}, []
 
     def rel(self, path):
@@ -200,11 +202,14 @@ class Gate:
                 return f"{key}/{os.path.relpath(real, root)}"
         return real
 
+    def ok(self, path, raw):  # G4 통과 = 라벨 통째 허용 또는 (상대경로, 줄 sha16) 허용 줄(sha16 = 기준선과 같은 sha(줄.strip())[:16])
+        return self.allowed or (self.rel(path), sha(raw.strip())[:16]) in self.lines
+
     def reject(self, why, path, n):
         raise Stop("REJECT", why, f"{self.rel(path)}:{n}")
 
-    def literal(self, line, path, n):
-        if not self.allowed and (NET.search(line) or MODEL.search(line)):
+    def literal(self, line, path, n, raw=None):
+        if not self.ok(path, raw or line) and (NET.search(line) or MODEL.search(line)):
             self.reject("글자 그대로 LLM 호출", path, n)
 
     def assigns(self, path, zero, seen=None):
@@ -328,7 +333,7 @@ class Gate:
             if raw.lstrip().startswith("#") or not raw.strip():
                 continue
             line = self.dirs(strip_comment(raw), path, zero)
-            self.literal(line, path, n)
+            self.literal(line, path, n, raw)
             for seg in segments(line):
                 words = [w for w in seg.split() if w.strip("\"'")]
                 while words and (words[0] in SKIP_WORDS or re.match(r"^[A-Za-z_]\w*=", words[0]) or words[0] == "timeout"):
@@ -348,7 +353,7 @@ class Gate:
                     self.dynamic(path, n, raw, zero, var and var.group(1))
                     t = self.resolve(cmd, path, zero, env)
                     t and os.path.isfile(t) and self.rel(t) != os.path.realpath(t) and self.follow(t)
-                elif CMD_LLM.match(cmd) and not self.allowed:
+                elif CMD_LLM.match(cmd) and not self.ok(path, raw):
                     self.reject("글자 그대로 LLM 호출", path, n)
                 elif INTERP.match(cmd):
                     args = [] if "-" in words[1:] else [w for w in words[1:] if not w.startswith(("-", "<", ">", "2>", "$__SUB"))]  # «-» = 표준입력 스크립트
@@ -376,7 +381,7 @@ class Gate:
             if raw.lstrip().startswith("#") or not raw.strip():
                 continue
             self.literal(raw, path, n)
-            if not self.allowed and (re.search(rf"""\[\s*['"](?:[\w./-]*/)?{LLM}['"]""", raw) or SDK.match(raw)):
+            if not self.ok(path, raw) and (re.search(rf"""\[\s*['"](?:[\w./-]*/)?{LLM}['"]""", raw) or SDK.match(raw)):
                 self.reject("글자 그대로 LLM 호출", path, n)
             if imp := re.match(r"\s*(?:from\s+([\w.]+)\s+import|import\s+([\w., ]+))", raw):
                 for mod in re.split(r"\s*,\s*", (imp.group(1) or imp.group(2)).strip()):
@@ -390,7 +395,7 @@ class Gate:
                     continue
                 first = lit.group(2).split()[0] if lit.group(2).split() else ""
                 second = lit.group(4) or (lit.group(2).split() + ["", ""])[1]
-                if CMD_LLM.match(first) and not self.allowed:
+                if CMD_LLM.match(first) and not self.ok(path, raw):
                     self.reject("글자 그대로 LLM 호출", path, n)
                 if INTERP.match(first):
                     self.follow(second) if second.startswith("/") and os.path.isfile(second) else self.dynamic(path, n, raw, zero)
@@ -429,7 +434,7 @@ def judge(a, gate):
     for x in args:
         gate.literal(x, a.plist, 0)
     a0 = args[0]
-    if CMD_LLM.match(a0) and not gate.allowed:
+    if CMD_LLM.match(a0) and not gate.ok(a.plist, a0):
         raise Stop("REJECT", "글자 그대로 LLM 호출", f"{a0}:0")
     if INTERP.match(a0) or os.path.basename(a0) == "env":
         rest = [x for x in args[1:] if not re.match(r"^[A-Za-z_]\w*=", x)] if os.path.basename(a0) == "env" else args[1:]

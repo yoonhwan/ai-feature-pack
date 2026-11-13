@@ -34,8 +34,10 @@ print(json.dumps({"transcript_path":sys.argv[1],"cwd":sys.argv[2],"tool_name":t,
 cases() { # cases <이름> <훅>
   local n="$1" h="$2"
   /bin/bash -n "$h" && ok "$n /bin/bash -n" || bad "$n /bin/bash -n"
-  grep -q 'FT_DISTILL_WARN") or 250_000' "$h" && grep -q 'FT_DISTILL_BLOCK") or 300_000' "$h" && grep -q 'FT_DISTILL_RECV") or 250_000' "$h" \
-    && ok "$n 기본값 250_000/300_000/recv 250_000 (문턱 한 곳 경유)" || bad "$n 기본값 줄"
+  # r1860: 훅 안 숫자 기본값 0 · 기본값 = 설치본 thresholds.env.sample(250k·300k·250k)
+  local smp; smp="$(dirname -- "$h")/../thresholds.env.sample"
+  ! grep -q '250_000\|300_000' "$h" && grep -q '^FT_DISTILL_WARN=250000$' "$smp" && grep -q '^FT_DISTILL_BLOCK=300000$' "$smp" && grep -q '^FT_DISTILL_RECV=250000$' "$smp" \
+    && ok "$n 기본값 250k/300k/recv 250k = 샘플 한 곳(훅 숫자 0)" || bad "$n 기본값 줄"
 
   transcript 240000; run "$h" warn "" ""
   { [ "$RC" -eq 0 ] && [ ! -s "$TMP/out" ]; } && ok "$n ⓐ 240k warn → 출력 0" || bad "$n ⓐ rc=$RC out=$(cat "$TMP/out")"

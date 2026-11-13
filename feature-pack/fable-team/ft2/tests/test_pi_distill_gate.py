@@ -85,7 +85,11 @@ def test_e_undecidable_blocks_and_notifies_once(tmp_path):
     other = run_gate(GATE, root, [{"tool": "read", "tokens": 300000, "model": CLAUDE, "seat": ""}], env={"FT_MBOX": str(mbox)})
     assert other[0]["action"] == "block" and "좌석 이름 못 읽음" in other[0]["reason"], other  # 좌석 불명 = 팀장 불명 = send 0
     (root / ".fable-team" / "thresholds.env").write_text("", encoding="utf-8")
-    assert (nofile := run_gate(GATE, root, cases(("read", 330000, {})), env={"FT_MBOX": str(mbox)}, home=tmp_path / "nohome"))[0]["action"] == "block" and "문턱 못 읽음" in nofile[0]["reason"], nofile
+    assert run_gate(GATE, root, [], op="thresholds", home=tmp_path / "nohome") == {"warn": 250000, "block": 300000, "recv": 250000}, "r1860: 파일 없음 = ft2 샘플 값"
+    bare = tmp_path / "bare" / "distill-gate.ts"  # 옆 샘플·설치본 없음 = 판정 불가
+    bare.parent.mkdir()
+    shutil.copy(GATE, bare)
+    assert (nofile := run_gate(bare, root, cases(("read", 330000, {})), env={"FT_MBOX": str(mbox)}, home=tmp_path / "nohome"))[0]["action"] == "block" and "문턱 못 읽음" in nofile[0]["reason"], nofile
     assert len(log.read_text(encoding="utf-8").strip().splitlines()) == 2, "이유가 다르면 다른 1통(좌석 불명은 팀장 불명 = send 0)"
 
 def test_e2_master_is_the_roster_that_holds_the_seat(tmp_path):

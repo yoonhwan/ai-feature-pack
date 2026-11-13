@@ -17,6 +17,7 @@ import sys
 
 from ft_nano_record import DONE_RX, SET_RX, Ctx, Reject, Unjudged, check_test, left_free, need, section
 from ft_nano_record_due import card_key, idx_stem
+from ft_nano_record_ft2 import ft2_card
 from ft_nano_record_notify import FROM, send, try_record, update
 from ft_nano_record_write import apply, lock
 
@@ -40,6 +41,8 @@ def branch_state(wt):   # 나노 작업 폴더 → (HEAD, 가지, 미커밋 줄 
 def checked(ctx, a):   # done 조건(A12·A14·A15) → (카드 키, 팀장, 남은 일, HEAD, 가지) · 아니면 Reject(쓰기 0)
     doc = ctx.seats((a.seat.split("-") + ["", ""])[1])
     row, master, left = doc.get(a.seat), str(doc.get("_master") or ""), (a.left or "").strip() or "없음"
+    if a.seat not in doc:   # r1868-mut:order — 명부 «행 없음» 만 ft2 원장 갈래(행이 있으면 꼴이 깨져도 아래 명부 검사 · 우회 0)
+        row = {"role": "nano", "index": ft2_card(ctx, doc, a.seat, a.card)}
     if not isinstance(row, dict) or row.get("role") != "nano":   # r1717-mut:role
         raise Reject(f"done 은 명부 role=nano 좌석만 — {a.seat}(arch·DA·팀장은 팀이 닫힐 때 닫힌다)")
     key = card_key(str(row.get("index") or ""))

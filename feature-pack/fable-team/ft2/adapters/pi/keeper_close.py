@@ -19,6 +19,7 @@ GIT_S, RETRY_S = 25, 600
 BUSY = re.compile("Working|[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]")
 OK = "접수 성공"
 NOCARD, NOLAND = "판정 불가 · 카드 후보 0", "keeper-noland-close.tsv"   # r1841 N1 · 사람·master 가 쓰고 keeper 는 읽기만
+NOLINE = "착지 줄 없음"
 APPROVE = re.compile(r"\S+ #\d+")
 
 
@@ -30,6 +31,9 @@ def _load(name):
 
 
 projection, close_next = _load("projection"), _load("close_next")
+_spec = importlib.util.spec_from_file_location("ft2_keeper_verdict", os.path.join(os.path.dirname(os.path.abspath(__file__)), "keeper_verdict.py"))
+verdicts = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(verdicts)   # r1865 판정 닫기 목록 · 원장·우편 로그 읽기 전용 대조
 
 
 def pane_target(holder):
@@ -81,6 +85,12 @@ class Closing:
             seen = self.nocard(team, work, attempt, holder)
             if seen is None:
                 return
+        verdict = None
+        if seen in (NOLINE, NOCARD):   # r1865 — 착지 줄 없음·카드 후보 0 만 판정 목록을 본다(착지·noland 길 손 0)
+            verdict = verdicts.gate(self, projection.runtime_path(self.root, team), team, work, attempt, holder)
+            if verdict is False:
+                return
+            seen = "" if verdict else seen
         seen = seen or self.probe(holder)
         if seen == "alive":
             self.state["open"].setdefault(holder, {"team": team, "since": self.now()})
@@ -94,7 +104,7 @@ class Closing:
             seen = self.probe(holder)
             if seen != "absent":
                 return self.log("HELD", team, "%s %s 부재 확인 없음(%s)" % (work, holder, seen))
-            self.log("CLOSED-SESSION", team, "%s %s" % (work, holder))
+            self.log("CLOSED-VERDICT" if verdict else "CLOSED-SESSION", team, " ".join(filter(None, (work, holder, verdict))))
         elif seen != "absent":
             return self.log("HELD", team, "%s %s %s" % (work, holder, seen))
         self.state["open"].pop(holder, None)
