@@ -62,6 +62,17 @@ def test_1b_sourced_lib_changed_rejects(w):
     rc, out = check(w, p)
     assert rc == 1 and "기준선 결합 불일치" in out and "entry.sh:3" in out, out
 
+def test_r1a_same_line_source_bound(w):  # DA HOLD R1(#295443): 앞 명령 뒤 같은 줄 source 도 결합·추적
+    p = case(w, lib_sh="y=1\n", entry_sh=f'runner=/usr/bin/true\ntrue; source "{w / "bin"}/lib.sh"\n"$runner" exec sample\n')
+    assert record_baseline(w) and check(w, p)[0] == 0
+    put(w / "bin/lib.sh", f"runner={w / 'ext'}/codex\n", 0o644)
+    rc, out = check(w, p)
+    assert rc == 1 and "기준선 결합 불일치" in out and "entry.sh:3" in out, out
+
+def test_r1b_same_line_source_literal_helper(w):
+    rc, out = check(w, case(w, lib_sh=f"{w / 'ext'}/codex exec x\n", entry_sh=f'true && source "{w / "bin"}/lib.sh"\n'))
+    assert rc == 1 and "글자 그대로 LLM 호출" in out and "lib.sh:1" in out, out
+
 def test_1c_variable_source_path_unbindable(w):
     p = case(w, lib_sh="x=1\n", entry_sh='. "$X/lib.sh"\nrunner=/usr/bin/true\n"$runner" exec sample\n')
     rc, out = record_baseline(w) and check(w, p)
