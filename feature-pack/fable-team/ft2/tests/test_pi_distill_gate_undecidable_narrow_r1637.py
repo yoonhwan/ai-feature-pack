@@ -1,5 +1,4 @@
-"""ft2 pi distill-gate r1637 시험 — 좌석 안 판정 불가 = recv 만 막음(ⓐ) · 읽기 전용 통과(ⓑ) · 그 밖 통과+기록(ⓒ) · 턴 주입 0(ⓓ) · ctx 읽은 경로 그대로(ⓔ) · 변이 M1~M3.
-node 로 judge()·확장 훅을 직접 부른다 · 픽스처 = tmp_path 뿐(실 좌석·실 우편함 0) · sleep 0."""
+"""ft2 pi distill-gate r1637 시험 — 좌석 안 판정 불가 = recv 만 막음(ⓐ) · 읽기 전용 통과(ⓑ) · 그 밖 통과+기록(ⓒ) · 턴 주입 0(ⓓ) · ctx 읽은 경로 그대로(ⓔ) · 변이 M1~M4 · node 로 judge()·확장 훅을 직접 부른다 · 픽스처 = tmp_path 뿐(실 좌석·실 우편함 0) · sleep 0."""
 import json
 import os
 import shutil
@@ -32,8 +31,7 @@ def run(gate, root, cases, env, op="judge", home=None):
 
 def build(tmp):
     root = tmp / "repo"
-    for d in (".git", ".fable-team/comm", ".fable-team/state"):
-        (root / d).mkdir(parents=True, exist_ok=True)
+    [(root / d).mkdir(parents=True, exist_ok=True) for d in (".git", ".fable-team/comm", ".fable-team/state")]
     (root / ".fable-team" / "thresholds.env").write_text("FT_DISTILL_WARN=300000\nFT_DISTILL_BLOCK=320000\nFT_DISTILL_RECV=250000\n", encoding="utf-8")
     (root / ".fable-team" / "seats-harness.json").write_text(json.dumps({"_master": "byz-x-master#1", SEAT: {"role": "nano"}}), encoding="utf-8")
     (tmp / "mbox.sh").write_text(f'#!/bin/bash\nprintf "%s\\n" "$*" >> "{tmp}/mbox.log"\n', encoding="utf-8")
@@ -48,8 +46,7 @@ def reasons(tmp, gate=GATE):
         if name == "모델 불명": over["model"] = ""
         if name == "문턱 못 읽음":
             (root / ".fable-team" / "thresholds.env").write_text("", encoding="utf-8")
-            g = d / "bare" / "distill-gate.ts"  # 옆 샘플 없음 = 문턱 못 읽음
-            g.parent.mkdir()
+            (g := d / "bare" / "distill-gate.ts").parent.mkdir()  # 옆 샘플 없음 = 문턱 못 읽음
             shutil.copy(gate, g)
         if name == "좌석 이름 못 읽음": over["seat"] = ""
         if name == "ctx usage 없음": over["tokens"], env["FT_DISTILL_FAILOPEN_MAX"] = None, "1"  # 연속 N(=1) 도달
@@ -62,14 +59,12 @@ PASS = [("write", {"path": "src/a.ts"}), ("edit", {"path": "src/a.ts"}), ("bash"
 
 def judge_all(tmp, rows, gate=GATE):
     for name, g, root, env, over, home in reasons(tmp, gate):
-        got = run(g, root, [{"tool": t, **over, **{k: (v.format(r=root) if isinstance(v, str) else v) for k, v in r.items()}} for t, r in rows], env, home=home)
-        yield name, root, got
+        yield name, root, run(g, root, [{"tool": t, **over, **{k: (v.format(r=root) if isinstance(v, str) else v) for k, v in r.items()}} for t, r in rows], env, home=home)
 
 def test_a_recv_blocked_in_each_reason_and_team_lead_once(tmp_path):
     for name, root, got in judge_all(tmp_path, [("bash", {"command": MB + " recv " + SEAT})] * 2):
         assert [(v["action"], v["rule"]) for v in got] == [("block", "undecidable-recv")] * 2 and name in got[0]["reason"], (name, got)
-        log = tmp_path / name.replace(" ", "_") / "mbox.log"
-        sent = log.read_text(encoding="utf-8").count("send ") if log.exists() else 0
+        sent = log.read_text(encoding="utf-8").count("send ") if (log := tmp_path / name.replace(" ", "_") / "mbox.log").exists() else 0
         assert sent == (0 if name == "좌석 이름 못 읽음" else 1), (name, sent)  # 좌석 불명 = 팀장 불명 = send 0(지금 notifyTeam 그대로)
 
 def test_b_readonly_always_pass(tmp_path):
@@ -85,18 +80,19 @@ def test_c_others_pass_and_logged(tmp_path):
 
 def ext_turns(gate, tmp):
     root, env = build(tmp)
-    recv = MB.format(r=root) + " recv " + SEAT
-    return run(gate, root, [{"tool": "turn"}, {"tool": "bash", "input": {"command": "ls"}}, {"tool": "ask_user"}, {"tool": "turn"}, {"tool": "bash", "input": {"command": recv}},
+    return run(gate, root, [{"tool": "turn"}, {"tool": "bash", "input": {"command": "ls"}}, {"tool": "ask_user"}, {"tool": "turn"}, {"tool": "bash", "input": {"command": MB.format(r=root) + " recv " + SEAT}},
                             {"tool": "turn", "tokens": 305000}, {"tool": "turn", "tokens": 305000}], env, op="ext")
+
+def warn_sessions(gate, tmp):  # 경고선 턴 2 → 새 세션 → 경고선 턴 2 · 주입 여부만
+    root, env, w = *build(tmp), {"tool": "turn", "tokens": 305000}
+    return [bool(x and x.get("message")) for x in run(gate, root, [w, w, {"tool": "session", "reason": "new"}, w, w], env, op="ext")["results"]]
 
 def test_d_no_turn_injection_warn_once(tmp_path):
     r = (got := ext_turns(GATE, tmp_path))["results"]
     assert r[:4] == [None] * 4 and r[4]["block"] is True and "recv" in r[4]["reason"], r  # 턴 주입 0 · ls·ask_user 통과 · recv 1회 막힘
     assert r[5]["message"]["content"].startswith("⚠️") and r[6] is None, r  # warn-line 은 세션당 1회
     assert sum(ln.startswith("ft2 distill-gate: turn undecidable") for ln in got["stderr"]) == 2, got["stderr"]  # 판정 불가 턴 = stderr 1줄씩
-    root, env, w = *build(tmp_path / "s"), {"tool": "turn", "tokens": 305000}  # DA HOLD #305492 반례1 — 새 세션 첫 경고는 다시 1회
-    r = run(GATE, root, [w, w, {"tool": "session", "reason": "new"}, w, w], env, op="ext")["results"]
-    assert [bool(x and x.get("message")) for x in r] == [True, False, False, True, False], r
+    assert warn_sessions(GATE, tmp_path / "s") == [True, False, False, True, False]  # DA HOLD #305492 반례1 — 새 세션 첫 경고는 다시 1회
 
 def test_e_ctx_read_paths_unchanged(tmp_path):
     root, env = build(tmp_path)
@@ -108,8 +104,7 @@ def test_e_ctx_read_paths_unchanged(tmp_path):
 def mutant(tmp, name, old, new):
     src = GATE.read_text(encoding="utf-8")
     assert src.count(old) == 1, name
-    p = tmp / name / "distill-gate.ts"
-    p.parent.mkdir(parents=True)
+    (p := tmp / name / "distill-gate.ts").parent.mkdir(parents=True)
     p.write_text(src.replace(old, new), encoding="utf-8")
     shutil.copy(GATE.parent / "thresholds.env.sample", p.parent)
     return p
@@ -121,3 +116,5 @@ def test_m_mutants_detected(tmp_path):
     assert any(v["action"] != "block" for _, _, got in judge_all(tmp_path / "2", [("bash", {"command": MB + " recv " + SEAT})], m2) for v in got), "M2 recv 차단 빼기 → ⓐ FAIL"
     m3 = mutant(tmp_path, "M3", 'if (v.action === "warn" && !warned)', 'if (v.action !== "allow" || /^undecidable/.test(v.rule))')
     assert ext_turns(m3, tmp_path / "3")["results"][0] is not None, "M3 턴 주입 되살리기 → ⓓ FAIL"
+    m4 = mutant(tmp_path, "M4", "warned = false; });", "});")  # arch #305496 변이 1
+    assert warn_sessions(m4, tmp_path / "4") != [True, False, False, True, False], "M4 session_start 의 warned 초기화 빼기 → 세션 경계 FAIL"
