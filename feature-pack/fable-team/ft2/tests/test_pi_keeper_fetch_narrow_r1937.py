@@ -57,9 +57,15 @@ def c6(w):   # ⑥ 원격 새 태그 → 로컬 태그 0(--no-tags)
     _git(w.tmp / "seed-byz", "tag", "v-r1937"), _git(w.tmp / "seed-byz", "push", "-q", "origin", "v-r1937")
     w.round()
     assert _git(w.root, "tag", "-l") == ""
-CASES = {"c1": c1, "c2": c2, "c3": c3, "c4": c4, "c5": c5, "c6": c6}
+def c7(w):   # R1(DA HOLD) — 원격 foo 실재 · clone 뒤 표에 새로 등록 · 로컬 origin/foo 없음 → 한 바퀴 뒤 처음 받음 · 원격에도 없는 bar = 기존처럼 빠짐(fetch 실패 0)
+    foo = w.commit("byz", {}, "foo", new=True)
+    _put(w.state / "directive-roots.tsv", "harness\t.\torigin/foo\td/h/i\nplanner\t.\torigin/bar\td/p/i\n")
+    assert ref(w, "foo") == ""
+    lines = w.round()
+    assert ref(w, "foo") == foo and ref(w, "bar") == "" and not [x for x in lines if x.startswith(FAIL)], lines
+CASES = {"c1": c1, "c2": c2, "c3": c3, "c4": c4, "c5": c5, "c6": c6, "c7": c7}
 MUTANTS = {"M1": ('"origin", *self.fetch_refs(repo)', '"origin"', c1),
-           "M2": ("timeout=FETCH_S)", "timeout=GIT_S)", c4),
+           "M2": ("timeout=FETCH_S)[0]", "timeout=GIT_S)[0]", c4),
            "M3": ('if repo == self.root and r[1] == "."', "if False", c2)}
 
 
