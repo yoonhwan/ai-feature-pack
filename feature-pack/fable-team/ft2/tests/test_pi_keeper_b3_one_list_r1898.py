@@ -24,7 +24,9 @@ def b3(w, ls=(0, ""), rows=3000, extra=None, held=None, skip=(), opened=None):
         calls.append(argv)
         if argv[1] == "list-sessions":   # 서버 응답 = LIVE 줄들 · has-session = 옛 probe 길(변이 M1 이 탐)
             return (ls[0], "".join(x + "\n" for x in LIVE) if ls[0] == 0 else "", ls[1])
-        return ((0, "", "") if argv[-1][1:] in LIVE else (1, "", "can't find session")) if argv[1] == "has-session" else (0, "STUB", "") if argv[0] == "bash" else (1, "", "?")
+        if argv[0] == "bash":   # 이미 닫은 좌석을 또 닫으면 rc 3(세션 없음 실패 → HELD-SEAT)
+            return (3, "", "no session") if argv[2] in [a[2] for a in calls[:-1] if a[0] == "bash"] else (0, "STUB", "")
+        return ((0, "", "") if argv[-1][1:] in LIVE else (1, "", "can't find session")) if argv[1] == "has-session" else (1, "", "?")
     k.call = call
     return k, calls if k.retired() is None else None
 def verb(calls, name):
@@ -72,7 +74,11 @@ def c5(w):   # ⑤ ROUND 줄 stall= 칸 = stall.check 에 쓴 초 · s = fetch+b
     k.git = lambda repo, *a, **o: (tick(5) if a[0] == "fetch" else None, git(repo, *a, **o))[1]
     k.complete, k.retired, k.stall.check = (lambda *a: tick(10, False)), (lambda: tick(3)), (lambda *a: tick(7))
     assert [x for x in w.round(k) if x.startswith("ROUND")] == ["ROUND s=30 fetch=10 b1=10 b2=0 b3=3 stall=7"]
-CASES = {"①": c1, "②": c2, "③": c3, "④": c4, "⑤": c5, "⑥": c6}
+def c7(w):   # ⑦ DA R1 — 같은 생존 좌석이 seats-harness.json·seats.json 둘 다 `_replaced_by` → close 1 · 허위 HELD-SEAT 0
+    _put(w.root / ".fable-team" / "seats.json", {LIVE[0]: {"_replaced_by": "byz-harness-nano-x-r1#1"}})
+    k, calls = b3(w, rows=5)
+    assert len(verb(calls, "close")) == 1 and not [x for x in k.lines if x.startswith("HELD-SEAT")], k.lines
+CASES = {"①": c1, "②": c2, "③": c3, "④": c4, "⑤": c5, "⑥": c6, "⑦": c7}
 KC, KP = "adapters/pi/keeper_close.py", "adapters/pi/keeper.py"
 MUTANTS = {"M1": (KC, "if seat not in alive:", 'if self.probe(seat) != "alive":', c1),
            "M2": (KC, 'return self.log("판정 불가", text="tmux list-sessions', 'return set() if True else self.log("판정 불가", text="tmux list-sessions', c4),
