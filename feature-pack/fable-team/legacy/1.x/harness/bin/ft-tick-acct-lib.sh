@@ -231,7 +231,7 @@ acct_notice() {
 # ── r2001 공통 진입점 acct_cycle (ft-tick 바퀴 · ft-acct-watch 5분 잡 공용 · 판정 DA#10 #304257) ─────────────────────
 #   acct_cycle <루트> [all|resume|notice] — 루트별 잠금 <루트>/.fable-team/state/acct-notice/cycle.lock(mkdir · 대기 0) 안에서만
 #   재개(acct_pause_watch) → 예측·정지·풀림(acct_notice) 을 돈다. 못 잡으면 쓰기 0 + 로그 1줄 + 다음 판. 다른 루트 = 다른 잠금.
-#   잠금 = 잡은 주체가 정상·실패 모두 닫는다(acct_lock_drop) · 끊긴 주체(KILL)의 잠금은 owner(pid·시작 시각)가 죽었을 때만 회수 —
+#   잠금 = 잡은 주체가 정상·실패 모두 닫는다(acct_lock_drop) · 끊긴 주체(KILL)의 잠금은 owner(pid·시작 시각)가 죽었을 때만 세대 표식으로 회수(보정 R2) —
 #   살아 있는 남의 잠금 삭제 0 · owner 를 쓰기 전 잠금(빈 폴더)은 FT_ACCT_LOCK_ORPHAN_SEC(120)초가 지나야 회수.
 #   소유 기록·주기 표식(STATE_DIR/acct-notice/)은 그대로 쓴다(이관 0) · DRY 는 잠금 없이 DRY 줄만.
 acct_me() { ACCT_ME="${BASHPID:-}"; [ -n "$ACCT_ME" ] || ACCT_ME="$(exec sh -c 'echo $PPID')"; }   # 지금 셸(배경 바퀴 subshell 포함)의 pid → ACCT_ME · 명령 치환 안에서 부르지 않는다
@@ -243,28 +243,60 @@ print(v if isinstance(v,str) else ""); sys.exit(0 if isinstance(v,str) and v els
 }
 acct_auto_entry() { case "$(acct_entry_field "$1" set_by)" in acct-auto:*) return 0;; *) return 1;; esac; }   # $1 provider → rc0 = 자동 주체가 건 항목
 acct_proc_start() { ps -o lstart= -p "$1" 2>/dev/null | sed 's/^ *//'; }
+acct_owner_put() { ( set -C; printf '%s\t%s\t%s\n' "$2" "$3" "${ACCT_LOCK_WHO:-acct}" > "$1/owner" ) 2>/dev/null; }   # $1 잠금 $2 pid $3 시작 시각 → owner 가 «없을 때만» 만든다(O_EXCL)
+acct_owner_line() { local x=""; IFS= read -r x 2>/dev/null < "$1/owner"; printf '%s' "$x"; }   # $1 잠금 → owner 첫 줄(없으면 빈 값)
+acct_reclaim_mark() {   # $1 잠금 $2 첫 표식 이름 $3 나 $4 내 시작 시각 → rc0 = 이 세대 회수 권리(ACCT_MARK) · rc1 = 물러남(로그 1줄)
+  #   r2001 보정 R2 ⓐⓓⓔ: 회수 권리 = 죽은 owner 세대 이름의 표식 mkdir 1회(원자 · 1명). 표식 안 owner = 회수자 pid·시작 시각.
+  #   표식이 이미 있으면 그 회수자가 살아 있으면 물러나고, 죽었으면 «<표식>.<죽은 회수자 pid>» 로 한 단 더(단마다 죽은 프로세스 1개 · 상한 8단).
+  local l="$1" m="$2" i ml mpid mst mm age
+  for i in 1 2 3 4 5 6 7 8; do
+    if mkdir "$l/$m" 2>/dev/null; then
+      printf '%s\t%s\n' "$3" "$4" > "$l/$m/owner" 2>/dev/null
+      ACCT_MARK="$l/$m"; return 0
+    fi
+    ml=""; IFS= read -r ml 2>/dev/null < "$l/$m/owner"; mpid=""; mst=""; IFS=$'\t' read -r mpid mst _ <<< "$ml"
+    if [ -z "$mpid" ]; then   # 표식 owner 없음 = 쓰는 중이거나 쓰기 전에 죽음 · 폴더가 없어졌으면 회수가 이미 끝남
+      mm="$(stat -f %m "$l/$m" 2>/dev/null || stat -c %Y "$l/$m" 2>/dev/null)"
+      [ -n "$mm" ] || { log "acct_cycle: 회수 경쟁(표식 사라짐) — 쓰기 0 · 다음 판"; return 1; }
+      age=$(( $(date +%s) - mm ))
+      [ "$age" -ge "${FT_ACCT_LOCK_ORPHAN_SEC:-120}" ] || { log "acct_cycle: 회수 경쟁($m 쓰는 중) — 쓰기 0 · 다음 판"; return 1; }
+      m="$m.noowner"; continue
+    fi
+    if kill -0 "$mpid" 2>/dev/null && [ "$(acct_proc_start "$mpid")" = "$mst" ]; then log "acct_cycle: 회수 경쟁(회수자 pid=$mpid 살아 있음) — 쓰기 0 · 다음 판"; return 1; fi
+    m="$m.$mpid"   # ⓓ 죽은 회수자 → 한 단 더
+  done
+  log "acct_cycle: 회수 표식 8단 넘음 — 쓰기 0 · 다음 판"; return 1
+}
 acct_lock_take() {   # $1 잠금 폴더 → rc0 잡음(ACCT_LOCK_HELD) · rc1 못 잡음(로그 1줄 · 쓰기 0)
-  local l="$1" me st opid ost m age stale
+  #   r2001 보정 R2(DA HOLD-IMPL #304538 B1): 잠금 폴더를 옮기는 회수 0 · 산 잠금을 지우는 길 0.
+  #   ⓐ owner 죽음 확인 → 표식 mkdir "$l/reclaim.<죽은 pid>"(owner 없는 옛 폴더 = reclaim.noowner · 120초 규칙) ⓑ 표식 뒤 owner 를 다시 읽어 처음 본 줄과 같을 때만
+  #   ⓒ rm -rf "$l" → mkdir "$l"(보통 획득자가 먼저면 rc1) → owner O_EXCL. 다르면 내 표식만 지우고 rc1(남의 폴더·owner 손 0).
+  local l="$1" me st line opid ost m age mark
   acct_me; me="$ACCT_ME"; st="$(acct_proc_start "$me")"
   mkdir -p "$(dirname "$l")" 2>/dev/null
-  if ! mkdir "$l" 2>/dev/null; then
-    opid=""; ost=""; IFS=$'\t' read -r opid ost _ 2>/dev/null < "$l/owner"
-    if [ -n "$opid" ]; then
-      if kill -0 "$opid" 2>/dev/null && [ "$(acct_proc_start "$opid")" = "$ost" ]; then log "acct_cycle: 잠금 사용 중(pid=$opid) — 쓰기 0 · 다음 판"; return 1; fi
-    else
-      m="$(stat -f %m "$l" 2>/dev/null || stat -c %Y "$l" 2>/dev/null)"; age=$(( $(date +%s) - ${m:-0} ))
-      [ -n "$m" ] || { log "acct_cycle: 잠금 판정 불가($l) — 쓰기 0 · 다음 판"; return 1; }
-      [ "$age" -ge "${FT_ACCT_LOCK_ORPHAN_SEC:-120}" ] || { log "acct_cycle: 잠금 owner 쓰는 중(${age}s) — 쓰기 0 · 다음 판"; return 1; }
-    fi
-    stale="$l.stale.$me.$RANDOM"   # 회수 = 옮기고(원자) → 옮긴 것이 «방금 본 죽은 owner» 인지 다시 보고 → 아니면 되돌린다
-    mv "$l" "$stale" 2>/dev/null || { log "acct_cycle: 잠금 회수 경쟁 — 쓰기 0 · 다음 판"; return 1; }
-    m=""; IFS=$'\t' read -r m _ 2>/dev/null < "$stale/owner"
-    if [ "$m" != "$opid" ]; then mv "$stale" "$l" 2>/dev/null; log "acct_cycle: 잠금 주인이 바뀜 — 회수 0 · 다음 판"; return 1; fi
-    rm -rf "$stale"; log "acct_cycle: 끊긴 주체 잠금 회수(pid=${opid:-없음})"
-    mkdir "$l" 2>/dev/null || { log "acct_cycle: 회수 뒤 잠금 경쟁 — 쓰기 0 · 다음 판"; return 1; }
+  if mkdir "$l" 2>/dev/null; then
+    acct_owner_put "$l" "$me" "$st" || { log "acct_cycle: 새 잠금 owner 를 다른 주체가 먼저 씀 — 쓰기 0 · 다음 판"; return 1; }
+    ACCT_LOCK_HELD="$l"; return 0
   fi
-  printf '%s\t%s\t%s\n' "$me" "$st" "${ACCT_LOCK_WHO:-acct}" > "$l/owner" 2>/dev/null
-  ACCT_LOCK_HELD="$l"; return 0
+  line="$(acct_owner_line "$l")"; opid=""; ost=""; IFS=$'\t' read -r opid ost _ <<< "$line"
+  if [ -z "$opid" ]; then
+    m="$(stat -f %m "$l" 2>/dev/null || stat -c %Y "$l" 2>/dev/null)"
+    [ -n "$m" ] || { log "acct_cycle: 잠금 판정 불가($l) — 쓰기 0 · 다음 판"; return 1; }
+    age=$(( $(date +%s) - m ))
+    [ "$age" -ge "${FT_ACCT_LOCK_ORPHAN_SEC:-120}" ] || { log "acct_cycle: 잠금 owner 쓰는 중(${age}s) — 쓰기 0 · 다음 판"; return 1; }
+    mark="reclaim.noowner"
+  else
+    if kill -0 "$opid" 2>/dev/null && [ "$(acct_proc_start "$opid")" = "$ost" ]; then log "acct_cycle: 잠금 사용 중(pid=$opid) — 쓰기 0 · 다음 판"; return 1; fi
+    mark="reclaim.$opid"
+  fi
+  acct_reclaim_mark "$l" "$mark" "$me" "$st" || return 1
+  if [ "$(acct_owner_line "$l")" != "$line" ]; then
+    rm -rf "$ACCT_MARK"; log "acct_cycle: 표식 뒤 owner 가 바뀜(다른 주체가 회수) — 내 표식만 지움 · 다음 판"; return 1
+  fi
+  rm -rf "$l"
+  mkdir "$l" 2>/dev/null || { log "acct_cycle: 회수 뒤 보통 획득자가 먼저 — 쓰기 0 · 다음 판"; return 1; }
+  acct_owner_put "$l" "$me" "$st" || { log "acct_cycle: 회수 뒤 owner 경쟁 — 쓰기 0 · 다음 판"; return 1; }
+  log "acct_cycle: 끊긴 주체 잠금 회수(${ACCT_MARK##*/})"; ACCT_LOCK_HELD="$l"; return 0
 }
 acct_lock_drop() {   # 내가 잡은 잠금만 닫는다(owner pid = 나) · 여러 번 불러도 안전
   local l="${ACCT_LOCK_HELD:-}" own=""
