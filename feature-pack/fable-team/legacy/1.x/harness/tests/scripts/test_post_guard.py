@@ -414,3 +414,20 @@ def test_r1710_r1_explicit_pr_and_bare_number_are_both_counted(gate):  # 보정 
     assert gate.calls == []
     _ask(f"2건 머지할까요?\n1. PR #950 {gate.new}\n2. #951 {gate.new2}")  # PR 마다 sha 가 있으면 나간다
     assert len(gate.calls) == 1
+
+
+R1927_TABLE, R1927_FENCED = "요약\n| a | b |\n|---|---|\n| 1 | 2 |", "요약\n```\n| a | b |\n|:---|---:|\n```"
+
+
+def test_r1927_10_markdown_table_rejected_on_human_channel_only():  # ⑩ 사람 채널 = 거절 · 기계 채널 = 통과
+    with pytest.raises(pg.PostGuardError, match="묶음2:마크다운 표"):
+        pg.check(R1927_TABLE, "C-any", human=True)
+    pg.check(R1927_TABLE, "C-machine")
+    pg.check(R1927_FENCED, "C-any", human=True)  # 코드 블록 안 표 = 제외
+    pg.check("a | b 는 파이프 1줄뿐", "C-any", human=True)
+
+
+def test_r1927_m5_table_pattern_removed_is_caught(monkeypatch):  # M5 표 패턴 삭제 → ⑩ 깨짐
+    monkeypatch.setattr(pg, "has_table", lambda text: False)
+    with pytest.raises(pytest.fail.Exception):
+        test_r1927_10_markdown_table_rejected_on_human_channel_only()

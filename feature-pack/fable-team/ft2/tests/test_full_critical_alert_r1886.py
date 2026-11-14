@@ -6,6 +6,7 @@ import pytest
 
 FT2 = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DESK, MASTER, W, C = "byz-planner-desk-pi#9", "byz-harness-master-pi#9", "TFAKE", "CFAKE"
+PMASTER = "byz-planner-master-pi#9"  # r1927 ③ 받는 곳 = 팀 master + harness master(desk 0 · 같은 좌석 1통)
 MBOX = '#!/bin/sh\nprintf "%s\\t%s\\t%s\\n" "$2" "$3" "$(printf "%s" "$4" | head -1)" >> "$0.log"\n'
 
 
@@ -24,7 +25,7 @@ dispatch = _load("core/dispatch.py", "dispatch")
 def root(tmp_path, monkeypatch):
     fable = tmp_path / ".fable-team"
     (fable / "comm").mkdir(parents=True)
-    (fable / "seats-planner.json").write_text(json.dumps({"_desk": DESK}), encoding="utf-8")
+    (fable / "seats-planner.json").write_text(json.dumps({"_desk": DESK, "_master": PMASTER}), encoding="utf-8")
     (fable / "seats-harness.json").write_text(json.dumps({"_master": MASTER}), encoding="utf-8")
     (fable / "comm" / "mbox.sh").write_text(MBOX, encoding="utf-8")
     monkeypatch.delenv("FT2_FULL_ALERT_WAKE", raising=False)
@@ -65,8 +66,8 @@ def keeper_at(root, **env):
 
 def test_c1_c2_c3_slack_full_once_then_release_and_new(root):
     dp, post = fill(root, "planner", 8), slack(root)
-    post()                                                   # ① 남은 일 8 + 글 1 → desk·master 각 1
-    assert sorted(r[0] for r in sent(root)) == sorted([DESK, MASTER]) and "남은 일 planner 8/8" in sent(root)[0][2]
+    post()                                                   # ① 남은 일 8 + 글 1 → planner master·harness master 각 1
+    assert sorted(r[0] for r in sent(root)) == sorted([PMASTER, MASTER]) and "남은 일 planner 8/8" in sent(root)[0][2]
     post(), post()                                           # ② 같은 상태 글 2 → 추가 0
     assert len(sent(root)) == 2
     finish(dp, "W0"), finish(dp, "W1")
@@ -86,8 +87,8 @@ def test_c4_keeper_submit_same_signature_merged_other_team_one(root, monkeypatch
     monkeypatch.setattr(kn, "choose", lambda k, t: ("r9001-x", "repo", "base"))
     kn.close(k, "planner", "W0", "a1", "h#0", 1)             # 같은 서명(남은 일 · planner) = 0
     assert len(sent(root)) == 2 and any("submit 용량 부족" in x for x in k.lines)
-    kn.close(k, "harness", "H0", "a1", "h#0", 1)             # 다른 팀 = 1(desk·master 각 1)
-    assert len(sent(root)) == 4 and "남은 일 harness 8/8" in sent(root)[-1][2]
+    kn.close(k, "harness", "H0", "a1", "h#0", 1)             # 다른 팀 = 1(harness master 1 · r1927 같은 좌석 1통)
+    assert len(sent(root)) == 3 and "남은 일 harness 8/8" in sent(root)[-1][2]
 
 
 def test_c5_next_hold_nano_cap(root):
@@ -95,19 +96,19 @@ def test_c5_next_hold_nano_cap(root):
     (root / ".fable-team" / "teams" / "harness" / "CLOSE-NEXT.enabled").write_text("", encoding="utf-8")
     k = keeper_at(root, FT2_TEAM_NANO_MAX="4")
     k.call = lambda argv, *a, **kw: (0, "\n".join("byz-harness-nano-r%d#0" % i for i in range(4)), "")
-    assert kn.gates(k, "harness") is None and len(sent(root)) == 2 and "나노 정원 harness 4/4" in sent(root)[0][2]
+    assert kn.gates(k, "harness") is None and len(sent(root)) == 1 and "나노 정원 harness 4/4" in sent(root)[0][2]
     k.call = lambda argv, *a, **kw: (0, "byz-harness-nano-r0#0", "")
-    assert kn.gates(k, "harness") is True and len(sent(root, "풀림")) == 2
+    assert kn.gates(k, "harness") is True and len(sent(root, "풀림")) == 1
 
 
 def test_c6_round_cap_then_release(root, monkeypatch):
     k, ticks = keeper_at(root), iter([0, 100, 200, 1000, 1001, 1002, 1003])
     monkeypatch.setattr(keeper, "time", types.SimpleNamespace(monotonic=lambda: next(ticks), time=__import__("time").time))
     k.teams, k.team_round, k.retired, k.report = lambda: ["harness"], lambda t: None, lambda: None, lambda: None
-    k.run_once()                                             # ROUND-CAP → 1통(desk·master 각 1)
-    assert any(x.startswith("ROUND-CAP") for x in k.lines) and len(sent(root)) == 2
+    k.run_once()                                             # ROUND-CAP → 1통(harness master 1)
+    assert any(x.startswith("ROUND-CAP") for x in k.lines) and len(sent(root)) == 1
     k.run_once()                                             # 다음 바퀴 60초 안 끝 = 풀림 1
-    assert len(sent(root, "풀림")) == 2 and len(sent(root)) == 2
+    assert len(sent(root, "풀림")) == 1 and len(sent(root)) == 1
 
 
 def test_c7_journal_refused_then_release(root):
@@ -118,7 +119,7 @@ def test_c7_journal_refused_then_release(root):
     big.write_bytes(b"0" * 8388608)                          # 총량 한계 넘김 = 실 Journal.reserve 가 «용량 부족»
     k = keeper_at(root)
     assert k.complete("harness", "J0", "a1", ("ab" * 20, "pack:main", "")) is None
-    assert len(sent(root)) == 2 and "journal harness" in sent(root)[0][2]
+    assert len(sent(root)) == 1 and "journal harness" in sent(root)[0][2]
     big.unlink()                                             # 다음 쓰기 성공 = 풀림 1
     assert k.complete("harness", "J0", "a1", ("ab" * 20, "pack:main", "")) is True
-    assert len(sent(root, "풀림")) == 2 and len(sent(root)) == 2
+    assert len(sent(root, "풀림")) == 1 and len(sent(root)) == 1
