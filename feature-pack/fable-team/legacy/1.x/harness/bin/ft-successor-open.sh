@@ -33,7 +33,7 @@ so_budget_stop() {   # $1 = 멈춘 단계 이름 · rc5 = 열렸으나 도달 �
   echo "다음: 같은 인자로 다시 실행(이어가기 r609)"
   exit 5
 }
-usage() { echo "usage: $0 <구 좌석> <워크트리> --name <후계> --agent claude|codex|cmd|opencode|pi --model M(sn=claude-sonnet-5-5 · op=claude-opus-5-5 · 팀장 이름이면 생략 시 claude-sonnet-5-5 · arch 이름(agent claude)이면 생략 시 claude-opus-5-5) [--carry 0|1] [--ctx C] [--effort E] --body-file F" >&2; exit 2; }
+usage() { echo "usage: $0 <구 좌석> <워크트리> --name <후계> [--agent claude|codex|cmd|opencode|pi(생략 = 역할 정책표 runtime-policy.tsv · r1569)] --model M(sn=claude-sonnet-5-5 · op=claude-opus-5-5 · 팀장 이름이면 생략 시 claude-sonnet-5-5 · arch 이름(agent claude)이면 생략 시 claude-opus-5-5) [--carry 0|1] [--ctx C] [--effort E] --body-file F" >&2; exit 2; }
 [ $# -ge 2 ] || usage
 OLD="$1"; WT="$2"; shift 2
 NAME=""; AGENT=""; MODEL=""; CTX=""; EFFORT=""; BODY=""; CARRY=""; CARRY_SET=0
@@ -41,6 +41,19 @@ while [ $# -gt 0 ]; do case "$1" in
   --name) NAME="${2:-}"; shift 2;; --agent) AGENT="${2:-}"; shift 2;; --model) MODEL="${2:-}"; shift 2;;
   --ctx) CTX="${2:-}"; shift 2;; --effort) EFFORT="${2:-}"; shift 2;; --body-file) BODY="${2:-}"; shift 2;;
   --carry) CARRY="${2:-}"; CARRY_SET=1; shift 2;; *) usage;; esac; done
+# ★r1569 후계 런타임 = 역할 정책표★ (오빠 #278888): --agent 를 생략하면 옛 좌석 습관 대신 정책표(역할 → agent·model)에서 고르고, 이름 꼬리도 고른 agent 로 바꾼다.
+#   역할 = 이름의 «-<역할>-» 토큰(표 위 행부터 첫 일치) · 표 없음·역할 없음 = rc2 + 이유 1줄(옛 agent 로 조용히 대체 0 · #0 RULE) · --agent 명시가 정책과 다르면 WARN 1줄(막지 않음 · 사람 지정 존중).
+POLICY="${FT_RUNTIME_POLICY:-$(dirname -- "${BASH_SOURCE[0]:-$0}")/runtime-policy.tsv}"
+_pol=""; [ -f "$POLICY" ] && _pol="$(awk -v n="-${NAME%%#*}-" '!/^#/ && NF>=3 && index(n, "-" $1 "-") {print $2, $3; exit}' "$POLICY")"
+if [ -z "$AGENT" ]; then
+  [ -f "$POLICY" ] || { echo "REJECT 런타임 정책표 없음: $POLICY — 표를 설치하거나 --agent 를 적어라(옛 좌석 agent 로 대체 0)" >&2; exit 2; }
+  [ -n "$_pol" ] || { echo "REJECT 정책표에 역할 없음: ${NAME%%#*} — $POLICY 에 1행을 더하거나 --agent 를 적어라(옛 좌석 agent 로 대체 0)" >&2; exit 2; }
+  AGENT="${_pol%% *}"; [ -n "$MODEL" ] || MODEL="${_pol#* }"
+  _nb0="${NAME%%#*}"; case "${_nb0##*-}" in claude|codex|cmd|opencode|pi) NAME="${_nb0%-*}-$AGENT${NAME#"$_nb0"}";; esac
+  echo "RUNTIME 정책표 → agent=$AGENT model=$MODEL name=$NAME" >&2
+elif [ -n "$_pol" ] && [ "$AGENT" != "${_pol%% *}" ]; then
+  echo "WARN --agent $AGENT 는 정책과 다름(정책 = ${_pol%% *} ${_pol#* }) — 사람 지정 존중 · 그대로 연다" >&2
+elif [ -n "$_pol" ] && [ -z "$MODEL" ]; then MODEL="${_pol#* }"; fi
 # r1675 — 옛 좌석의 팀이 2.0 전환됨이면 후계 개설(state/successor·쪽지) 전에 멈춘다(첫 게이트). 명부 자체 수정 0 = 명부 쓰기는 ft-seat-retire 가 따로 막는다.
 _ft20h="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"   # r1675 — HERE 정의(아래 74줄)보다 앞에서 도는 가드라 자기 폴더를 직접 푼다
 if [ -f "$_ft20h/ft20-switch-lib.sh" ]; then . "$_ft20h/ft20-switch-lib.sh"; ft20_guard_handover "$(ft20_root_of "$WT" 2>/dev/null)" "$OLD" "$NAME" "" || exit $?; else _ft20_r="${FT_FT20_ROOT:-$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)}"; compgen -G "${_ft20_r%/.git}/.fable-team/state/ft20-switch/*.json" >/dev/null 2>&1 && { echo "REJECT 2.0 전환 표식이 있는데 ft20-switch-lib.sh 없음(설치 누락) — 1.x 쓰기 0(판정 불가)" >&2; exit 3; }; fi
