@@ -28,13 +28,17 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from ft_goal_readjust_measure import ReadjustError, _env_h, measure
-from ft_goal_readjust_state import StatePathError, state_dir
+import ft_goal_ledger as gl
+from ft_goal_readjust_measure import ReadjustError, _env_h, _pin, _read_input, measure
+from ft_goal_readjust_state import MISS, StatePathError, state_dir
 
 BODY_MAX = 700
 SKIP = (".sent.json", ".send-failed.json")
 RC_ERROR, RC_USAGE, RC_SEND = 1, 2, 3
 ROUND_FILE = re.compile(r"^(?P<run>.+)-(?P<n>\d{2})(?P<suf>\.[a-z]+)$")
+VERDICTS = "VERDICTS-planner-225-20261104.md"   # r1945 B 판정 원장(planner#299 ①) · env FT_GOAL_VERDICTS 가 이긴다
+VERDICT = re.compile(r"골\s*(\d+)행\s*(?:닫기|재조정|유지\([^)]+\))")
+WHEN = re.compile(r"^\|[^|]*\|\s*(\d{2}-\d{2} \d{2}:\d)([\dx])")   # 원장 «시각» 칸 `MM-DD HH:Mx`(x = 0)
 
 
 def _now() -> datetime:
@@ -136,7 +140,7 @@ def _report(rec: dict, repeat: int) -> str:
              f"- 기준: {(rec.get('baseline') or {}).get('file') or '없음'} {('(' + rec['baseline_reason'] + ')') if rec.get('baseline_reason') else ''}".rstrip(),
              f"- 요청: {rec.get('request') or '-'}",
              f"- 입력: {json.dumps((rec.get('inputs') or {}).get('repos') or {}, ensure_ascii=False)}"]
-    if rec["status"] != "OK":
+    if rec["status"] not in ("OK", MISS):
         lines += ["", f"ERROR {rec.get('error', '')}"]
     else:
         lines += ["", "| n | 골 | 팀 | 라벨 | 카드 | 증거 | 원장 변화 | 행 나이(h) |", "|---|---|---|---|---|---|---|---|"]
@@ -180,6 +184,8 @@ def _need(rec: dict, prior: list[dict], d: Path, run: str) -> dict:
         return {"state": "unknown", "key": key, "reason": f"송신 상태 모름 {key}"}
     if prior:
         return {"state": "none", "key": key, "reason": "run 상한"}
+    if rec["status"] == "판정 불가":   # r1945 판독 실패 = 로그 1줄 · 쪽지 0
+        return {"state": "none", "key": key, "reason": "판독 실패(쪽지 0)"}
     if rec["status"] == "OK" and not (rec["alarms"] or rec["facts"]["close_candidates"] or rec["facts"]["goal_files_outside_canon"]):
         return {"state": "none", "key": key, "reason": "알릴 사실 없음"}
     if _planner() is None:
@@ -218,12 +224,13 @@ def _planner() -> tuple[str, Path] | None:
 def _body(rec: dict, repeat: int, report: Path) -> str:
     """쪽지 본문(≤700B) — [결정] 3줄 고정(비가역·선례·선택지) ∨ [긴급] 실패 1줄 · 머리에 GR-<run>(설계 §6)."""
     key = f"GR-{rec['run']}"
-    if rec["status"] != "OK":
+    if rec["status"] not in ("OK", MISS):
         return f"[긴급] 골 재조정 실패 {rec['run']} {key} — {' '.join(str(rec.get('error')).split())[:200]}"
     facts = rec["facts"]
     labels = " · ".join(f"{r['n']}={r['label']}" for r in rec["rows"])
     body = "\n".join([
-        f"[결정] 골 재조정 {rec['run']} {key} · 닫힘 후보 {len(facts['close_candidates'])} · 정본 밖 골 파일 {len(facts['goal_files_outside_canon'])} · 경보 {len(rec['alarms'])}",
+        f"[결정] 골 재조정 {rec['run']} {key} · 닫힘 후보 {len(facts['close_candidates'])} · 정본 밖 골 파일 {len(facts['goal_files_outside_canon'])} · 경보 {len(rec['alarms'])}"
+        + (f" · {MISS} {len(rec['verdict_missing'])}행 {rec['verdict_missing']}" if rec["status"] == MISS else ""),
         "비가역: 아니오 — 정본·원장은 사람 손만 · 이 쪽지는 사실·경보 목록",
         f"선례: {('기준 회차 라벨 ' + labels)[:200] if rec.get('baseline') else '없음(첫 회차)'}",
         "선택지: ① 원장 «지금 상태» 그 행 갱신 ② 정본 h(새 골·내림) ③ 응답 절 1줄(r714c 문법)",
@@ -291,6 +298,7 @@ def collect(retry: bool = False, request: str = "") -> int:
         rec = _error_round(run, now, str(e))
     except Exception as e:                     # 측정 예외 = ERROR 회차 파일(DA H9 — traceback 만 남기고 회차 파일 0 인 채 끝나지 않는다)
         rec = _error_round(run, now, f"{type(e).__name__}: {e}")
+    _verdict_gate(d, rec, run)
     rec["attempt"] = attempt
     rec["request"] = request
     rec["finished"] = (now if os.environ.get("FT_NOW") else datetime.now()).strftime("%Y-%m-%d %H:%M:%S")
@@ -321,6 +329,37 @@ def collect(retry: bool = False, request: str = "") -> int:
         print(f"ERROR 골 재조정 {run}-{attempt:02d} — 송신 {rec['send'].get('state')}: {rec['send'].get('error') or rec['send'].get('reason')}", file=sys.stderr)
         return RC_SEND
     return 0
+
+
+def _verdict_gate(d: Path, rec: dict, run: str) -> None:
+    """r1945 B — 멈춘 행(변화 0 ≥ FT_GOAL_STALL_H)·닫기 후보 행마다 원장 «골 <n>행 닫기|재조정|유지(사유)» 줄이 있어야 OK.
+    기준 시각 = 그 행이 «처음» 빠진 attempt 시각(같은 run 앞 attempt 의 verdict_since · 처음이면 지금) · 없으면 status «판정 빠짐»
+    (재시도 = _run_key 가 같은 run 을 잇는다 · 하루 상한 소모 0) · 원장 판독 실패 = «판정 불가»(쪽지 0 · OK 0)."""
+    stall = _env_h("FT_GOAL_STALL_H", 24)
+    need = sorted({r["n"] for r in rec["rows"] if r["label"].startswith("변화 0(") and (r.get("row_age_h") or 0) >= stall}
+                  | set(rec["facts"]["close_candidates"]))
+    if rec["status"] != "OK" or not need:
+        return
+    first: dict = {}
+    for p in _prior_rounds(d, run):
+        for n, t in (p.get("verdict_since") or {}).items():
+            first.setdefault(str(n), t)
+    try:
+        repo = Path(os.environ.get("FT_GOAL_REPO") or os.environ.get("FT_LEDGER_REPO") or gl.ledger_repo(ReadjustError))
+        commit = rec["inputs"]["repos"]["byz"]["commit"]
+        spec = os.environ.get("FT_GOAL_VERDICTS") or f"gitref:{commit}:{gl.planner_rel_in_ref(ReadjustError, commit, repo)}/{VERDICTS}"
+        text = _read_input(repo, commit, _pin(spec, commit))
+    except (ReadjustError, OSError, KeyError, TypeError) as e:
+        rec.update(status="판정 불가", error=f"원장 못 읽음: {' '.join(str(e).split())[:160]}")
+        return
+    seen: dict = {}
+    for m, w in ((VERDICT.search(ln), WHEN.match(ln)) for ln in text.splitlines()):
+        if m and w:
+            seen[m[1]] = max(seen.get(m[1], ""), f"{rec['started'][:4]}-{w[1]}{'0' if w[2] == 'x' else w[2]}:00")
+    miss = [n for n in need if seen.get(str(n), "") < first.get(str(n), rec["started"])]
+    if miss:
+        rec.update(status=MISS, verdict_missing=miss, error=f"행 {','.join(map(str, miss))}",
+                   verdict_since={str(n): first.get(str(n), rec["started"]) for n in miss})
 
 
 def _error_round(run: str, now: datetime, error: str) -> dict:
