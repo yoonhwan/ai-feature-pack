@@ -21,13 +21,13 @@ has "$OUT" "≠ HEAD" "ⓖ 제외 사유 = «세트 … ≠ HEAD»"
 # ⓓ2 진짜 squash — merge --squash + 끝줄 «PR #930 (head <세트>)» 단일 커밋 · 세트는 조상이 아니다
 git -C "$PACK" checkout -q -B sq "$S"; git -C "$PACK" merge -q --squash "$S2" >/dev/null 2>&1 || true
 git -C "$PACK" commit -q -m "squash $S2" -m "PR #930 (head $S2)"
-git -C "$PACK" update-ref refs/remotes/origin/main "$(git -C "$PACK" rev-parse HEAD)"
+pack_main "$(git -C "$PACK" rev-parse HEAD)"   # r1713: 원격 main 도 같이(close-due 가 팩을 fetch)
 git -C "$PACK" merge-base --is-ancestor "$S2" origin/main 2>/dev/null && bad "ⓓ2 픽스처: 세트가 origin/main 조상이다(squash 아님)" "세트 $S2" || ok "ⓓ2 픽스처: 세트는 origin/main 의 조상이 아니다"
 card "$S2"; cd_run "$BIN/ft-nano-close-due.sh"
 has "$OUT" "닫기 차례 $SEAT" "ⓓ2 세트가 팩 squash 착지(끝줄 PR #930) → 닫기 차례(pane HEAD 미착지여도)"
 hasnt "$OUT" "세트 $S2" "ⓓ2 «세트 ≠ HEAD» 제외 0"
 # ⓓ3/ⓓ4 미착지 팩 세트 — DA APPROVE + 팩 origin 원격 가지 有/無
-git -C "$PACK" update-ref refs/remotes/origin/main "$S"   # ⓓ2 squash 되돌림(미착지 상태로)
+pack_main "$S"   # ⓓ2 squash 되돌림(미착지 상태로)
 git -C "$PACK" update-ref refs/remotes/origin/hold "$S2"
 printf '## 판정: APPROVE — DA astra\n\n- 승인 sha: %s\n' "$S2" > "$T/verdict.md"
 printf '{"seq": 4242, "ts": "t", "to": "byz-harness-master-pi#203", "from": "%s", "body": "산출 보고 r1701"}\n' "$SEAT" > "$ROOT/.fable-team/comm/mailbox.jsonl"
@@ -64,12 +64,12 @@ hasnt "$OUT" "카드 파일 없음" "M5 원본 대조: «카드 파일 없음» 
 # M6 — squash 상태를 «직전에» 다시 걸고 본다(위 ⓓ3·ⓓ4 가 origin/main 을 S 로 되돌렸다)
 git -C "$PACK" checkout -q -B sq2 "$S"; git -C "$PACK" merge -q --squash "$S2" >/dev/null 2>&1 || true
 git -C "$PACK" commit -q -m "squash $S2" -m "PR #930 (head $S2)"
-git -C "$PACK" update-ref refs/remotes/origin/main "$(git -C "$PACK" rev-parse HEAD)"
+pack_main "$(git -C "$PACK" rev-parse HEAD)"   # r1713: 원격 main 도 같이(close-due 가 팩을 fetch)
 git -C "$PACK" merge-base --is-ancestor "$S2" origin/main 2>/dev/null && bad "M6 픽스처: 세트가 조상이다(squash 아님)" "" || ok "M6 픽스처: 세트는 조상이 아니다(squash)"
 card "$S2"; mut3 M6; cd_run "$T/m-M6/ft-nano-close-due.sh"
 hasnt "$OUT" "닫기 차례 $SEAT" "M6 judge squash 파서 끔 → ⓓ2 닫기 차례 0(변이 잡힘)"
 card "$S2"; cd_run "$BIN/ft-nano-close-due.sh"
 has "$OUT" "닫기 차례 $SEAT" "M6 원본 대조: squash 착지 → 닫기 차례 1줄"
-git -C "$PACK" update-ref refs/remotes/origin/main "$S"   # 되돌림
+pack_main "$S"   # 되돌림
 cmp -s "$BIN/ft-nano-close-due.sh" "$BIN/../kit/fable-team/bin/ft-nano-close-due.sh" && ok "짝 cmp0 ft-nano-close-due.sh" || bad "짝 다름" ""
 finish

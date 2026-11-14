@@ -34,7 +34,7 @@ printf '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n' > "$T/bin/ft-seat-rea
 cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-evidence-check.sh" "$SRC/ft-nano-cherry-gate.sh" "$SRC/ft-nano-superseded-check.sh" \
    "$SRC/ft-nano-suspended-check.sh" "$SRC/ft-wt-sweep.sh" "$SRC/ft-team-lib.sh" "$SRC/ft-card-target-lib.sh" "$SRC/ft_git_capped.py" "$SRC/ft_teamset.py" "$SRC/ft_team_lib.py" \
    "$SRC/ft-sheet-events.sh" "$SRC/ft_sheet_events.py" "$SRC/ft_sheet_confirm.py" "$SRC/ft_sheet_key.py" "$SRC/ft_board_env.py" "$SRC/ft_board_mail.py" \
-   "$SRC/ft-approval-equiv.sh" "$SRC/ft_approval_equiv.py" "$T/bin/"
+   "$SRC/ft-approval-equiv.sh" "$SRC/ft_approval_equiv.py" "$SRC/ft-landed-sx.sh" "$T/bin/"   # r1713: 3칸 본문 = 공용 ft-landed-sx.sh
 export FT_SHEET_ROOT="$T/sheet-root"; mkdir -p "$FT_SHEET_ROOT/.fable-team/state"
 # 계약 ① «판정기 호출 0» 을 재려면 판정기가 «세는» 존재여야 한다 — 로그만 남기고 rc1(진짜 판정기는 squash 착지 뒤 언제나 NOT-EQUIV 라 rc 로는 못 가른다).
 cat > "$T/bin/ft-approval-equiv.sh" <<'EOF'
@@ -150,9 +150,9 @@ gitcnt() {  # gitcnt <패턴> <기대 수> <이름> — 가짜 git 이 기록한
   local n; n="$(grep -c -- "$1" "$GITLOG" 2>/dev/null)"; [ -n "$n" ] || n=0
   [ "$n" -eq "$2" ] && ok "  └ git «$1» $2줄" || bad "$3: git «$1» ${n}줄(기대 $2)"
 }
-mutant() {  # mutant <old> <new> → $T/mutbin/ft-nano-close.sh
+mutant() {  # mutant <old> <new> → $T/mutbin/${MUTF:-ft-nano-close.sh} (r1713: 3칸 본문 변이 = MUTF=ft-landed-sx.sh)
   rm -rf "$T/mutbin"; cp -R "$T/bin" "$T/mutbin"
-  python3 - "$T/mutbin/ft-nano-close.sh" "$@" <<'PY'
+  python3 - "$T/mutbin/${MUTF:-ft-nano-close.sh}" "$@" <<'PY'
 import sys
 p = sys.argv[1]; pairs = sys.argv[2:]
 s = open(p, encoding='utf-8').read()
@@ -305,7 +305,7 @@ out="$(CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 363)"; rc=$?
 mutsx_lost "$out" "변이(새 칸 끔) → R1 의 S→X 통과 줄 사라짐 = 변이 FAIL(테스트가 잡는다)" "$rc"
 
 echo "== 변이 ⓑ «S..X 일반 커밋 0» 검사 끔 → R2(빈 커밋 1개)를 S→X 칸이 통과시킨다(변이 FAIL · r1204: cherry 줄 아닌 S→X 줄로 가른다)"
-mutant '  [ -z "$out" ] || return 1' '  : "$out"'
+MUTF=ft-landed-sx.sh mutant 'if out: sys.exit(1)' 'pass'
 setup CLOSED
 pr_reset
 git -C "$NW" commit -q --allow-empty -m "승인 뒤 고침"
@@ -316,8 +316,7 @@ out="$(CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 363)"; rc=$?
 mutsx_pass "$out" "변이(ⓑ 검사 끔) → R2 를 S→X 칸 통과로 오판 = 변이 FAIL(테스트가 잡는다)" "$rc"
 
 echo "== 변이 ⓒ patch-id 검사 끔 → R3(손댄 병합)이 통과한다(변이 FAIL)"
-mutant '  [ -n "$p1" ] && [ -n "$p2" ] || return 1
-  [ "$p1" = "$p2" ] || return 1' '  : "$p1$p2"'
+MUTF=ft-landed-sx.sh mutant 'if not p1 or not p2 or p1 != p2: sys.exit(1)' 'pass'
 setup CLOSED
 pr_reset
 main_add other1 g1.txt 1
