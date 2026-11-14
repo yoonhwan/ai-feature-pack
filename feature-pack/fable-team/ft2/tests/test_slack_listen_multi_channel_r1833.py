@@ -63,7 +63,7 @@ class WS:  # 가짜 ws — 대본 frame 을 차례로 주고 끝나면 disconnec
 class Web:  # 가짜 Web API — member = 채널별 True/False/예외
     def __init__(self, member):
         self.member, self.calls, self.posts = member, [], []
-    def __call__(self, method, token, params=None, retry=True):
+    def __call__(self, method, token, params=None, retry=True, **budget):  # r1923 hello deadline 인자
         self.calls.append((method, (params or {}).get("channel")))
         if method == "apps.connections.open":
             return {"ok": True, "url": "ws://fake"}
@@ -183,16 +183,15 @@ def test_4c_wake_timeout_log_unreadable_undecided(env, monkeypatch):
     assert rc == -1 and [r["why"] for r in hub.entries("wake")] == ["상한 초과 · 적재 판정 불가"]
 
 
-def test_5_single_channel_no_member_check(env):  # ⑤ 채널 1개 = 2ea518 동작 그대로(참여 확인 호출 0)
+def test_5_single_channel_no_member_check(env):  # ⑤ 채널 1개 = 참여 확인 0 · r1923 발견 호출 허용 · 주 채널·게시 불변
     web, notes = Web({}), []
     listener = _listener(env, A, web, [[HELLO, _msg_env("E1", _msg("1800000006.000100", A))]], notes)
     assert listener.run(sessions=1) == 0 and notes == []
-    assert [c[0] for c in web.calls] == ["apps.connections.open"]
+    assert [c[0] for c in web.calls] == ["apps.connections.open", "users.conversations"] and web.posts == []
     assert listener.channel == A and listener.receive.allowed_channels == {A}
 
 
-def test_5b_plist_channel_list_main_first(tmp_path):  # plist 틀 = @CHANNEL@ 1칸에 쉼표 목록(주 채널 먼저)
+def test_5b_plist_no_channel_arg(tmp_path):  # r1923 — 듣기 목록 = CHANNELS 파일 1곳 · plist 고정 값 0
     text = open(PLIST, encoding="utf-8").read()
-    assert "주 채널 먼저" in text
-    args = plistlib.loads(text.replace("@CHANNEL@", "%s,%s" % (A, B)).encode("utf-8"))["ProgramArguments"]
-    assert args[args.index("--channel") + 1] == "%s,%s" % (A, B)
+    args = plistlib.loads(text.encode("utf-8"))["ProgramArguments"]
+    assert "--channel" not in args and "@CHANNEL@" not in text and "CHANNELS" in text

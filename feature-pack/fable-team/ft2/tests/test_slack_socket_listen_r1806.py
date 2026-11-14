@@ -47,7 +47,7 @@ class Band:
             if frame.get("envelope_id"):
                 ack = json.loads(ws.recv(timeout=10))
                 self.acks.append((ack["envelope_id"], [r["state"] for r in _rows(self.root, "receive.jsonl")]))
-    def web(self, method, token, params=None, retry=True):
+    def web(self, method, token, params=None, retry=True, **budget):  # r1923 연결 deadline 인자
         self.calls.append(method)
         if method == "apps.connections.open":
             return {"ok": True, "url": self.url}
@@ -138,7 +138,8 @@ def test_6_disconnect_reconnect_backfill_once(tmp_path, band_of):
     band.replies = [_msg("1800000006.000200", thread_ts=root_ts)]  # 끊긴 사이 새 사람 답글 1
     assert _listener(sock, tmp_path, band).run(sessions=2) == 0
     assert [r["reason"] for r in _rows(tmp_path, "backfill.jsonl")] == ["reconnect"]
-    assert band.calls == ["apps.connections.open", "apps.connections.open", "conversations.replies"]
+    assert [c for c in band.calls if c != "users.conversations"] == [  # r1923 hello 발견 호출 허용
+        "apps.connections.open", "apps.connections.open", "conversations.replies"]
     assert band.sleeps == [1] and band.posts == []  # 보충 dispatched → 접수 게시 0(r1818)
     assert [r["command"] for r in _rows(tmp_path, "receive.jsonl") if r["state"] == "dispatched"] == [
         _command % "1800000006.000200"]

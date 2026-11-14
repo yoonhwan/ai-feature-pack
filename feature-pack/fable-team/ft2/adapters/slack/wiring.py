@@ -10,7 +10,7 @@ def _adapter(name):  # 경로로 읽기만(수정 0)
     spec = importlib.util.spec_from_file_location("ft2_wire_" + name, os.path.join(_HERE, name + ".py"))
     spec.loader.exec_module(module := importlib.util.module_from_spec(spec))
     return module
-route, publish, receive, sender_tag = map(_adapter, ("route", "publish", "receive", "sender_tag"))
+route, publish, receive, sender_tag, channels = map(_adapter, ("route", "publish", "receive", "sender_tag", "channels"))
 binding, SENDER, USAGE, UNDECIDED = route.binding, "ft2-slack-listen", 2, 3
 _fa = importlib.util.spec_from_file_location("ft2_wire_full_alert", os.path.join(os.path.dirname(_HERE), "pi", "full_alert.py"))
 _fa.loader.exec_module(full_alert := importlib.util.module_from_spec(_fa))  # r1886 ⓐ
@@ -80,7 +80,10 @@ class Wiring:
         command, thread = row.get("command"), row["key"][2]
         if kind == route.NEW:
             self.record_issue(command)
-        body = "\n".join(["[Slack] %s · thread %s · command %s" % (kind, thread, command)] + list(lines))
+        owner = channels.owner_of(self.root, self.team, row["key"][1])  # r1923 ⑪ 다른 팀 채널 = 수신기 --root/--team 답글 줄
+        tail = [] if owner in ("-", None) else ["답글: ft2 slack reply --root %s --team %s --thread %s --command %s --seat %s "
+                                                 "--body-file <파일>" % tuple(map(shlex.quote, map(str, (self.root, self.team, thread, command, to))))]
+        body = "\n".join(["[Slack] %s · thread %s · command %s" % (kind, thread, command)] + list(lines) + tail)
         if self.wake(to, body, command) != 0:
             self.alert(dict(row, reason="깨움 실패"), quiet=True)
 
@@ -269,6 +272,12 @@ def main(argv, post=None, sleep=None):
     heard = {k[1]: k[0] for k in _received(opts["root"], opts["team"])}.get(opts.get("channel"))
     if verb == "post" and heard is None:  # 수신 증거 없는 채널 = 게시 0(notify 와 같은 근거)
         return say("refused", rc=USAGE, reason="수신 증거 없는 채널")
+    owner = channels.owner_of(opts["root"], opts["team"], opts["channel"]) if verb == "post" else "-"  # r1923 ⑩ 주인 검사
+    seat = owner not in ("-", None) and channels.resolve(owner)
+    if owner is None or seat is None:
+        return say("판정불가", rc=UNDECIDED, reason="CHANNELS·채널 주인 명부 판독 불가")
+    if seat and seat != opts["seat"]:
+        return say("refused", rc=USAGE, reason="채널 주인 아님")
     rows = [r for r in ledger.settled().values() if r["key"][2] == opts.get("thread")]
     if verb == "notify":  # 수신 채널 thread 만 — 허용 밖 채널 binding = 게시 0(보정1 R1)
         rows = [r for r in rows if tuple(r["key"]) in _received(opts["root"], opts["team"])]
