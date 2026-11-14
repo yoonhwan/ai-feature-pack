@@ -2,15 +2,16 @@
 # ft-lead-tick.sh <팀장 좌석>   (r1472 · 팀장 «사건 턴»(쪽지 doorbell 로 깬 턴)의 도구 = 이 호출 1회 + 결정 필요 N)
 #   비모델이 재고 모델은 «결정 필요 N» 항목만 본다. 출력 ≤30줄 · 마지막 줄 `결정 필요: N`. 주기 호출 0(심박 아님).
 #   ① 결속: 팀 = 좌석 둘째 토큰 → seats-<팀>.json `_master` == 좌석 (아니면 recv 0 · send 0 · «결속 불일치» · rc1)
-#   ② 카드 수 = git ls-tree <REF> <_cards>/{대기,진행} (*.md) ③ 같은 팀 nano·da 행 × ft-seat-status(tmux·jsonl) → 20분+ 유휴만 줄
+#   ② 카드 수 = git ls-tree <REF> <_cards>/{대기,진행} (*.md) · REF = keeper 순서 origin/ops/main-base → origin/main 중 <_cards> 트리가 있는 첫 ref(r1472b)
+#   ③ 같은 팀 nano·da 행 × ft-seat-status(tmux·jsonl) → 20분+ 유휴만 줄
 #   ④ 열린 h(ft-hil.sh --pending · .notify 에 팀장 이름) ⑤ mbox recv 머리(seq·from·60자 · 전문은 상태 폴더)
-#   ⑥ [정리] 3줄(첫 줄 `카드 대기 N · 진행 N · 유휴 N · 다음 수 …`)을 스크립트가 조립해 보고처로 send
+#   ⑥ [정리] 4줄(첫 줄 `카드 대기 N · 진행 N · 유휴 N · 다음 수 …` → `골좌표: <N> — <골 앞 12자>` → [정리] → 회차)을 스크립트가 조립해 보고처로 send
 #   송신 규칙: 보고처 = `_report_to` · 없으면 planner `_master` · 자기·같은 좌석 = send 0 + «자기 송신 차단» rc1
 #             N=0 ∧ ②~④ 가 <상태>/<좌석>.last 와 같음 = send 0 (.last 에 «조용함 ts»)
 #   N = 받은 쪽지 중 [HIL]·[결정]·[긴급] 머리 + 20분+ 유휴 좌석 + 이 팀 열린 h + 판정 불가 항목.
 #   한 항목 실패 = «<항목> 판정 불가 rc=N» 1줄 · 나머지 계속 · 전체 rc1 (docs/rules/no_silent_fallback.md)
 #   항목당 7초 · 전체 FT_LEAD_TICK_BUDGET(기본 25초) — 남은 예산 0 이면 실행 0 · 전체 rc124. usage = 2.
-#   env(시험·이식용): FT_ROOT · FT_HIL_DIR · FT_LEAD_TICK_MBOX · FT_LEAD_TICK_HIL · FT_LEAD_TICK_SEAT_STATUS · FT_LEAD_TICK_CARDS_REF(origin/main)
+#   env(시험·이식용): FT_ROOT · FT_HIL_DIR · FT_LEAD_TICK_MBOX · FT_LEAD_TICK_HIL · FT_LEAD_TICK_SEAT_STATUS · FT_LEAD_TICK_CARDS_REF(있으면 그 ref 하나) · FT_GOAL_A6_MD
 #                     FT_LEAD_TICK_NOW(epoch) · FT_LEAD_TICK_STATE_DIR · FT_LEAD_TICK_IDLE_SEC(1200) · FT_LEAD_TICK_MAX_LINES · FT_LEAD_TICK_BUDGET
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -22,8 +23,8 @@ ROOT="${FT_ROOT:-$(git -C "$WT" rev-parse --path-format=absolute --git-common-di
 MBOX="${FT_LEAD_TICK_MBOX:-$ROOT/.fable-team/comm/mbox.sh}"
 HIL="${FT_LEAD_TICK_HIL:-$HERE/ft-hil.sh}"
 STATUS="${FT_LEAD_TICK_SEAT_STATUS:-$HERE/ft-seat-status.sh}"
-TMUX="${FT_LEAD_TICK_TMUX:-tmux}"
-REF="${FT_LEAD_TICK_CARDS_REF:-origin/main}"
+TMUX_BIN="${FT_LEAD_TICK_TMUX:-tmux}"   # TMUX(tmux 가 export 한 소켓) 는 대입·unset 0 — 자식 tmux·ft-seat-status 가 원래 값을 받는다(r1472b)
+REFS="${FT_LEAD_TICK_CARDS_REF:-origin/ops/main-base origin/main}"   # keeper(keeper_land.py REFS)와 같은 순서
 HILDIR="${FT_HIL_DIR:-/tmp}"
 NOW="${FT_LEAD_TICK_NOW:-$(date +%s)}"
 STATE="${FT_LEAD_TICK_STATE_DIR:-$ROOT/.fable-team/state/lead-tick}"
@@ -76,7 +77,8 @@ esac
 if [ "$BIND_OK" != 1 ]; then o "결정 필요: $((DEC+1))"; printf '%s\n' "${OUT[@]}"; [ "$BOUT" = 1 ] && exit 124; exit 1; fi
 
 # ② 카드 수
-WAIT="?"; DOING="?"
+WAIT="?"; DOING="?"; REF=""
+for r in $REFS; do REF="$r"; X git -C "$ROOT" cat-file -e "$r:$CARDS" 2>/dev/null && break; done   # 둘 다 없으면 끝 ref 로 아래 그대로
 lt="$(X git -C "$ROOT" ls-tree -r --name-only "$REF" -- "$CARDS/대기/" "$CARDS/진행/" 2>&1)"; rc=$?
 if [ "$rc" -ne 0 ]; then fail_line "카드($REF:$CARDS)" "$rc"; else
   WAIT="$(printf '%s\n' "$lt" | grep -c "^$CARDS/대기/[^/]*\.md$")"; DOING="$(printf '%s\n' "$lt" | grep -c "^$CARDS/진행/[^/]*\.md$")"
@@ -88,7 +90,7 @@ fi
 IDLE="미상"; IDLE_HEAD=""
 #   리드가 tmux list-sessions 1회(7초 · 재시도 0): «no server running» = 살아 있는 좌석 0 정상 · 그 밖 rc≠0 = 판정 불가
 #   status 에 명부 좌석 0 인데 tmux 목록에 명부 nano·da 가 있으면 모순 = 판정 불가(은폐 2중 막기 · 보정 R1)
-SNAME="좌석 상태(tmux)"; TL="$(X $TMUX list-sessions -F '#{session_name}' 2>&1)"; rc=$?
+SNAME="좌석 상태(tmux)"; TL="$(X $TMUX_BIN list-sessions -F '#{session_name}' 2>&1)"; rc=$?
 if [ "$rc" -ne 0 ] && printf '%s' "$TL" | grep -q 'no server running'; then TL=""; rc=0; fi
 if [ "$rc" -eq 0 ]; then SNAME="좌석 상태"; st="$(cd "$ROOT" && FT_SEATS_JSON="$ROSTER" X bash "$STATUS" list "^$PREFIX" --json 2>/dev/null)"; rc=$?; fi
 if [ "$rc" -ne 0 ]; then fail_line "$SNAME" "$rc"; else
@@ -152,7 +154,26 @@ if [ "$rc" -ne 0 ]; then fail_line 쪽지 "$rc"; else
   DEC=$((DEC+MD))
 fi
 
-# ⑥ [정리] 3줄 — 송신 규칙(보고처 · 자기 0 · N=0 무변화 0)
+# ⑥' 골좌표 — 정본 골 표(ft_goal_table load_canon·parse_rows)에서 팀 칸 첫 낱말 = 이 팀인 첫 행 · 꼴 = check --coord-only 가 받는 꼴(골 앞 12자)
+#   행 0·읽기 실패 = 골좌표 줄 0 + 판정 불가(지어내기 0 · 하드 룰 20)
+GOAL_LINE="$(cd "$ROOT" && X python3 - "$HERE" "$TEAM" <<'PY'
+import re, sys
+sys.path.insert(0, sys.argv[1])
+try:
+    from ft_goal_table import _norm, load_canon, parse_rows
+    rows = parse_rows(load_canon()[0])
+except Exception as e:
+    print(str(e)[:120], file=sys.stderr); sys.exit(6)
+for i, r in enumerate(rows, 1):
+    if re.split(r"[\s(·]", r[1].strip(), maxsplit=1)[0] == sys.argv[2]:
+        print("골좌표: %d — %s" % (i, _norm(r[0])[:12].rstrip())); sys.exit(0)
+sys.exit(4)
+PY
+)"; rc=$?
+[ "$rc" -eq 0 ] || { GOAL_LINE=""; fail_line 골좌표 "$rc"; }
+NL=$'\n'
+
+# ⑥ [정리] 4줄 — 송신 규칙(보고처 · 자기 0 · N=0 무변화 0)
 SIG="대기=$WAIT 진행=$DOING 유휴=$IDLE h=$HTEAM"; LAST="$STATE/$SEAT.last"
 NEXT="${MAIL_HEAD:-${IDLE_HEAD:-${H_HEAD:-없음}}}"
 if [ "$BOUT" = 1 ] || [ "$(left)" -lt 1 ]; then BOUT=1; o "예산 소진 — [정리] 송신 0"
@@ -163,11 +184,11 @@ elif [ "$DEC" -eq 0 ] && [ -f "$LAST" ] && [ "$(sed -n 1p "$LAST")" = "$SIG" ]; 
   printf '%s\n조용함 %s\n' "$SIG" "$NOWISO" > "$LAST" 2>/dev/null || fail_line ".last 기록" 1
   o "조용함 — 결정 0 · 직전과 같음 · [정리] 송신 0"
 else
-  body="$(printf '카드 대기 %s · 진행 %s · 유휴 %s · 다음 수 %s\n[정리] 리드 사건 턴 %s · 결정 필요 %d · 열린 h %s · 쪽지 %d\n회차 %s · 판정 불가 %d' \
-    "$WAIT" "$DOING" "$IDLE" "$(clean "$NEXT")" "$BASE" "$DEC" "$HTEAM" "$MAIL_N" "$NOWISO" "$FAILS")"
+  body="$(printf '카드 대기 %s · 진행 %s · 유휴 %s · 다음 수 %s\n%s[정리] 리드 사건 턴 %s · 결정 필요 %d · 열린 h %s · 쪽지 %d\n회차 %s · 판정 불가 %d' \
+    "$WAIT" "$DOING" "$IDLE" "$(clean "$NEXT")" "${GOAL_LINE:+$GOAL_LINE$NL}" "$BASE" "$DEC" "$HTEAM" "$MAIL_N" "$NOWISO" "$FAILS")"
   so="$(X bash "$MBOX" send "$REPORT" "$SEAT" "$body" 2>&1)"; rc=$?
   if [ "$rc" -ne 0 ]; then fail_line "[정리] 송신" "$rc"; else
-    o "[정리] → $REPORT (3줄)"
+    o "[정리] → $REPORT ($(printf '%s\n' "$body" | wc -l | tr -d ' ')줄)"
     { mkdir -p "$STATE" && printf '%s\n보냄 %s\n' "$SIG" "$NOWISO" > "$LAST"; } 2>/dev/null || fail_line ".last 기록" 1
   fi
 fi
