@@ -33,6 +33,7 @@ models = _load(os.path.join("tools", "models.py"), "models")
 pane_target = _load(os.path.join("adapters", "pi", "keeper_close.py"), "close").pane_target   # r1822 G1 1곳
 E = _load(os.path.join("adapters", "pi", "keeper_stall_error.py"), "error")   # r1921 세션 끝 줄 판독·오류 종류
 error_turn = E.error_turn
+endings = _load(os.path.join("adapters", "pi", "keeper_endings.py"), "endings")   # r1960 미확인 깨움 → 재깨움 1회
 
 
 def turn(path):
@@ -83,8 +84,8 @@ class Stall:
         idle = k.now() - max([facts["journal"], facts["head"]] + ([facts["mtime"]] if woke is None else [woke]))
         if idle < (self.stall_s if woke is None else self.after_s) or not self.ready(team, work, holder, facts["session"], rows):
             return
-        if woke is None and key in k.state.setdefault("unsure", {}):   # 보정1 R1 — 미확인 깨움 = S3 진입 0
-            return k.log("판정 불가", team, "%s %s 깨움 도달 미확인(%s) — 재깨움·재배정 0" % (work, holder, k.state["unsure"][key]))
+        if woke is None and key in k.state.setdefault("unsure", {}):   # 보정1 R1 — 미확인 깨움 = S3 진입 0 · r1960 after_s 뒤 재깨움 1회
+            return endings.unsure(self, team, work, holder, key, idle)
         if woke is None:
             return self.wake(team, work, holder, key, idle)
         return self.reassign(team, work, attempt, holder, tree, intent, rows)
@@ -100,8 +101,10 @@ class Stall:
         if at is None:
             return k.log("판정 불가", team, "%s %s 오류 턴 timestamp 판독 불가 — 행동 0" % (work, holder)) or True
         woke = k.state.setdefault("err_woke", {}).get(key)   # 보정1 R2 — 미확인 = 정상·오류 공통 unsure 하나
-        if woke is not None or key in k.state.setdefault("unsure", {}):
-            return "again" if woke is not None and at > woke else True
+        if woke is None and key in k.state.setdefault("unsure", {}):   # r1960 오류 턴 길도 같은 재깨움 1회(rewoke 키)
+            return (self.guard(team, work, holder, rows) and endings.unsure(self, team, work, holder, key, int(k.now() - at), ERR_WAKE, "err_")) or True
+        if woke is not None:
+            return "again" if at > woke else True
         if k.now() - at < self.err_s:
             return True
         if self.guard(team, work, holder, rows):   # 보정1 R1 — pane Working·external_wait 공통 가드
