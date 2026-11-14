@@ -24,7 +24,7 @@ def tail_rows(path):
     rows = []
     for x in lines:
         try:
-            rows.append(json.loads(x))
+            rows += [r for r in [json.loads(x)] if "seq" in r]  # r1468: prev_lineage 머리 줄은 쪽지 행이 아니다
         except json.JSONDecodeError:
             print(f"WARN r1052 깨진 큐 줄 건너뜀 {os.path.basename(path)}", file=sys.stderr)
     return rows, off > 0

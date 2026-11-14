@@ -73,6 +73,12 @@ if [ "$CARRY_SET" = 1 ]; then
   [ "${NAME#*-master-}" = "$NAME" ] && usage
 fi
 CARRY="${CARRY:-0}"
+# ★r1468 이름 꼬리 = --agent★ (BOOT 13 «byz-<팀>-<역할>-<에이전트>#N»): 꼬리 토큰(# 앞 마지막 -)이 에이전트 낱말인데 --agent 와 다르면 REJECT(옛 이름으로 조용히 열기 0).
+#   꼬리가 에이전트 낱말이 아닌 이름(나노 등 다른 꼴)은 이 검사 밖 — 지금처럼 연다.
+_nb="${NAME%%#*}"
+case "${_nb##*-}" in claude|codex|cmd|opencode|pi)
+  [ "${_nb##*-}" = "$AGENT" ] || { echo "REJECT 이름 꼬리 ${_nb##*-} ≠ --agent $AGENT — 이름 = ${_nb%-*}-$AGENT#N" >&2; exit 2; };;
+esac
 printf '%s\n%s\n' "$OLD" "$NAME" | grep -qvE '^[A-Za-z0-9._#-]+$' && { echo "REJECT 좌석명은 [A-Za-z0-9._#-] 만" >&2; exit 2; }
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 # ★r1412 데이터 루트 = env FT_ROOT 먼저★ (r1404 ft-role-spawn 과 같은 규칙): kakao 처럼 데이터 루트가 깃 공용 루트와 다른 팀은 FT_ROOT 로 명부·팀 명단·state 를 푼다.
@@ -91,9 +97,10 @@ fi
 [ -f "$HERE/ft-reclaim-capped.sh" ] || { echo "REJECT ft-reclaim-capped.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
 . "$HERE/ft-reclaim-capped.sh"
 [ -f "$HERE/ft-resource-gate.sh" ] || { echo "REJECT ft-resource-gate.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
-# R213 DA⑥ H3(r2): agents 면제(--succession)는 «실제 1석 교대» 일 때만 — ①NAME == OLD 계보 베이스#(N+1) ②OLD 가 팀 명부(seats*.json)의 역할 키(_master·_arch 등 `_` 시작 키) 값 ③OLD tmux 세션 생존. 하나라도 아니면 일반 새 좌석 문턱.
+# R213 DA⑥ H3(r2): agents 면제(--succession)는 «실제 1석 교대» 일 때만 — ①NAME == OLD 계보 베이스#(N+1) 또는 (OLD 베이스의 꼬리 토큰을 --agent 로 바꾼 것)#(N+1)(r1468) ②OLD 가 팀 명부(seats*.json)의 역할 키(_master·_arch 등 `_` 시작 키) 값 ③OLD tmux 세션 생존. 하나라도 아니면 일반 새 좌석 문턱.
 _rgroot="${FT_RES_ROOT:-${DROOT:-$(. "$HERE/ft-harness-root.sh" && ft_repo_root "$HERE" 2>/dev/null)}}"; _rgsucc=""   # r385b: 옛 설치 꼴 · cwd 리포 공용 루트 · r1412: FT_RES_ROOT(시험 손잡이) > 데이터 루트 > 공용 루트
-if [[ "$OLD" =~ ^(.+)#([0-9]+)$ ]] && [ "$NAME" = "${BASH_REMATCH[1]}#$((BASH_REMATCH[2]+1))" ] && tmux has-session -t "=$OLD" 2>/dev/null \
+if [[ "$OLD" =~ ^(.+)#([0-9]+)$ ]] && _ob="${BASH_REMATCH[1]}" && _on=$((BASH_REMATCH[2]+1)) \
+   && { [ "$NAME" = "$_ob#$_on" ] || { [ "${_ob%-*}" != "$_ob" ] && [ "$NAME" = "${_ob%-*}-$AGENT#$_on" ]; }; } && tmux has-session -t "=$OLD" 2>/dev/null \
    && python3 -c 'import glob,json,sys
 for f in glob.glob(sys.argv[1]+"/.fable-team/seats*.json"):
     try: d=json.load(open(f))
@@ -194,6 +201,8 @@ reached() {   # reached <seq|null>
   _rt="$(cd "$WT" && bash "$RETIRE" "$OLD" "$NAME" 2>&1)"; _rtrc=$?
   [ -n "$_rt" ] && printf '%s\n' "$_rt" | sed 's/^/retire: /'
   [ "$_rtrc" = 0 ] && echo "retire rc=0 — 명부 후계 $NAME" || echo "WARN retire rc=$_rtrc — 도달은 됨 · 구 좌석 쪽지 표시 뒤 후계·planner 가 다시 retire"
+  # r1468: 계보가 바뀐 교대(agent 꼬리 교체) = 하위 인박스 새 큐 머리에 옛 계보 1줄 · 같은 계보면 출력 0 · 실패는 WARN(rc 는 도달 쪽 0)
+  [ "$_rtrc" = 0 ] && { _lk="$(FT_ROOT="$ROOT" python3 "$HERE/ft-inbox.py" link "$OLD" "$NAME" 2>&1)" || _lk="WARN 인박스 계보 잇기 실패 — $_lk"; [ -z "$_lk" ] || printf '%s\n' "$_lk"; }
 }
 
 # ⓐ 본문 첫 3줄 = 골 원문 자리(하드 룰 7) — 하나라도 비면 열지 않는다

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """ft-inbox.py — 메인팀 인박스(좌석 없는 스크립트 큐). 판정 425-B·430 · 설계 DESIGN-news-tree-workqueue-viz-20261009 §6-3·§8.
 
-명령: ingest <seq> | show <좌석> [--seqs|--count] | rotate <좌석> --before <ISO ts> \"<판정 N 사유>\" | mark <seq|group> 처리|위임|보류 "<1줄>" [--seat <좌석>] | report <seq|group…> [--seat <좌석>] | close <seq|group…> "<사유>" [--seat <좌석>] | waive <좌석> --before <ISO ts> "<판정 N 사유>" | archive <좌석>
+명령: ingest <seq> | show <좌석> [--seqs|--count] | rotate <좌석> --before <ISO ts> \"<판정 N 사유>\" | mark <seq|group> 처리|위임|보류 "<1줄>" [--seat <좌석>] | report <seq|group…> [--seat <좌석>] | close <seq|group…> "<사유>" [--seat <좌석>] | waive <좌석> --before <ISO ts> "<판정 N 사유>" | archive <좌석> | link <구 좌석> <후계 좌석>(r1468 계보 잇기)
 경로: FT_ROOT/.fable-team/comm/{mailbox.jsonl,mailbox.log.jsonl,bodies/}(읽기) · FT_ROOT/.fable-team/state/inbox/<계보>.jsonl(큐) · 분류는 규칙표만(밖이면 미상 · 라벨 호출 0 = 퇴역 r1560) · 실패는 전부 stderr + exit≠0 (조용한 강등 0).
 show --seqs = 기계용(r1052) — 큐 파일 끝 창(ft_inbox_window.SEQ_N)만 읽고 본문 파일을 열지 않는다 · 창 위가 잘린 첫 묶음은 «보류(범위 밖)» 로 보수 보고.
 """
@@ -14,7 +14,7 @@ import time
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from ft_inbox_core import COMM, INBOX, PRIO, answered_seqs, die, find_mail, find_seq, group_closed, hits, lineage, locked, mail_files, norm_key, obligation_closed, qpath, read_q, rule_class, take_seat, write_q  # noqa: E402
+from ft_inbox_core import COMM, INBOX, PREV, PRIO, answered_seqs, chain, die, find_mail, find_seq, group_closed, hits, lineage, locked, mail_files, norm_key, obligation_closed, qpath, read_q, raw_q, rule_class, take_seat, write_q  # noqa: E402
 from ft_inbox_rotate import cmd_count, cmd_rotate, rotated_head, tidy_hits  # noqa: E402
 from ft_inbox_window import tail_rows, view, view_seqs  # noqa: E402
 
@@ -139,6 +139,22 @@ def cmd_archive(seat):
     print(f"ARCHIVED {len(move)} KEPT {len(stay)}")
 
 
+def cmd_link(old, new):
+    """r1468: 교대 뒤 계보가 다르면 새 큐 첫 줄에 prev_lineage 1행(없을 때만 · rename 0 · 옛 파일 무변경) · 같은 계보 = 출력 0."""
+    lo, np = lineage(old), qpath(new)
+    if lo == lineage(new):
+        return 0
+    if np in chain(qpath(old)):
+        die(f"인박스 계보 고리 — {lineage(new)} 가 이미 {lo} 의 이전 계보")
+    with locked(np):
+        head, rows = raw_q(np)
+        if head and head[PREV] != lo:
+            die(f"인박스 {lineage(new)} 에 다른 이전 계보 {head[PREV]} — {lo} 를 잇지 않는다")
+        if not head:
+            write_q(np, [{PREV: lo}] + rows)
+    print(f"INBOX-LINK {lineage(new)} ← {lo}" + (" (이미)" if head else ""))
+
+
 def main(a):
     c = a[0] if a else ""
     try:
@@ -160,6 +176,8 @@ def main(a):
             return cmd_waive(a[1], a[3], a[4], tidy=len(a) == 6)
         if c == "archive" and len(a) == 2:
             return cmd_archive(a[1])
+        if c == "link" and len(a) == 3:
+            return cmd_link(a[1], a[2])
     except (ValueError, TypeError, OSError, json.JSONDecodeError) as e:
         die(f"{c}: {e}", 2 if c == "waive" else 1)
     die("usage: ft-inbox.sh ingest <seq> | show <좌석> [--seqs|--count] | rotate <좌석> --before <ISO ts> \"<판정 N 사유>\" | mark <seq|group> 처리|위임|보류 \"<1줄>\" [--seat <좌석>] | report <seq|group…> [--seat <좌석>] | close <seq|group…> \"<사유>\" [--seat <좌석>] | waive <좌석> --before <ISO ts> \"<판정 N 사유>\" | archive <좌석>", 2)
