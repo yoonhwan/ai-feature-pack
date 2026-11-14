@@ -22,7 +22,7 @@ def c1(tmp, ft2):   # ① 같은 바퀴 같은 리포 열기 3개 → launching 
     nx, seen = _mod("r1967_nx_%d" % id(tmp), ft2 / "adapters" / "pi" / "keeper_next.py"), []
     nx.kl.launching = lambda k, team, stem, attempt, nh, argv: seen.append(stem) or True
     nx.ft2_state = lambda k, team: {"deliveries": {}}
-    k = types.SimpleNamespace(root=str(tmp), env={}, cache={}, lines=[], state={"handled": {}}, probe=lambda nh: "absent", read_json=lambda p: {})
+    k = types.SimpleNamespace(root=str(tmp), env={}, cache={}, stale=set(), lines=[], state={"handled": {}}, probe=lambda nh: "absent", read_json=lambda p: {})
     k.log = lambda kind, team, text: k.lines.append("%s %s %s" % (kind, team, text))
     for stem, repo in (("A", "/pack"), ("B", "/pack"), ("C", "/pack"), ("D", "/byz")):
         nx.reconcile(k, "harness", "w-" + stem, "a1", stem, "nano-" + stem, (stem, repo, "origin/main"))
