@@ -31,7 +31,7 @@ def world(tmp, mp, cards=None, enable=True, ft2=kw.FT2):
     i = tm.index('if a[0] == "kill-session"')
     kw._put(b / "tmux", tm[:i] + LS + tm[i:])
     kw._put(b / "launch.py", LAUNCH), kw._put(b / "record", RECORD)
-    w.env.update(FT2_KEEPER_LAUNCH=str(b / "launch.py"), FT2_CARD_ASSIGN_BIN=str(b / "record"), HOME=str(tmp / "home"), FT2_TEAM_NANO_MAX="9",
+    w.env.update(FT2_KEEPER_LAUNCH=str(b / "launch.py"), FT2_CARD_ASSIGN_BIN=str(b / "record"), HOME=str(tmp / "home"), FT2_TEAM_NANO_MAX="1",   # r1913 닫기 1장으로 꽉 참 = fill 0(닫기 길만 본다)
                  GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="core.quotepath", GIT_CONFIG_VALUE_0="false")   # 가짜 HOME = 실 ~/.claude 문턱 읽기 0
     kw._put(w.state / "directive-roots.tsv", "harness\t.\torigin/main\tdesign/harness/indices\n")
     if cards:
@@ -93,8 +93,8 @@ def c5(w, mp=None):   # ⑤ 팀 PAUSED → 0(쪽지도 0)
 def c7(w, mp=None):   # ⑦ launch rc2 → «복구 필요» 1줄 · record 0 · 다음 바퀴 재시도 0
     kw._put(w.tmp / "bin" / "launch.py.rc", "2")
     assert any(x.startswith("HELD-NEXT harness %s -> %s" % (W1, B)) and "복구 필요" in x for x in w.round())
-    w.round()
-    assert launched(w) == [B] and log(w, "record") == []
+    w.round()   # r1913 — 빈 칸은 fill 이 다른 장(A)으로 채운다 · B 재시도·B record 만 0
+    assert launched(w).count(B) == 1 and not any(B in x for x in log(w, "record"))
 def c8(w, mp=None):   # ⑧ 대상에 팩·BYZ 둘 다(긴급) → 건너뛰고 다음 카드
     assert "판정 불가 harness %s 대상 팩·BYZ 둘 다 — 건너뜀" % B in w.round() and launched(w) == [A]
 def cD(w, mp=None):   # Ⓓ 배정 원장 seat(ft2 owner 없음) → 같은 카드 두 번 배정 0
@@ -148,7 +148,7 @@ def badkey(w):
     w.env["FT2_TEAM_NANO_MAX"] = "없음"
 def rootkey(w):
     w.env.pop("FT2_TEAM_NANO_MAX")
-    kw._put(w.root / ".fable-team" / "thresholds.env", "FT_DISTILL_WARN=1\nFT2_TEAM_NANO_MAX=5\n")
+    kw._put(w.root / ".fable-team" / "thresholds.env", "FT_DISTILL_WARN=1\nFT2_TEAM_NANO_MAX=1\n")
 def pre6(w):          # ⑥ 팀 나노 수 = 상한 → 0
     w.env["FT2_TEAM_NANO_MAX"] = "1"
     d = json.loads(w.tm.read_text(encoding="utf-8"))

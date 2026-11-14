@@ -65,8 +65,8 @@ def target(k, r, lines):
     """(리포, base) — 팩·feature-pack/ = 팩 origin/main · 없음 = 루트 리포·표 ref · 팩·BYZ 둘 다 = None."""
     pack, byz = any("팩" in x or "feature-pack/" in x for x in lines), any("BYZ" in x for x in lines)
     return None if pack and byz else (k.pack, "origin/main") if pack else (r[1], r[2])
-def choose(k, team):
-    """(stem, 리포, base) · 고를 카드 0 = None(그때만 [다음 없음] 1통) · 판독 실패 = None(쪽지 0)."""
+def choose(k, team, skip=frozenset()):
+    """(stem, 리포, base) · skip = fill 보류 stem(r1913 «보류») · 고를 카드 0 = None(그때만 [다음 없음] 1통) · 판독 실패 = None(쪽지 0)."""
     got, state = cards(k, team), ft2_state(k, team)
     if isinstance(got, str) or state is None:
         return k.log("판정 불가", team, "다음 카드 고르기 %s — 다음 카드 0" % (got if isinstance(got, str) else "ft2 state"))
@@ -79,7 +79,7 @@ def choose(k, team):
     for stem, (urgent, high, lines) in sorted(found.items()):
         led = ledger(k, stem)
         block = "배정됨" if led.get("state") == "seat" or stem in owners else led.get("reason") if led.get("reason") in BLOCK else ""
-        block = block or ("끝남" if stem in done or pair.get(stem, set()) & set(done) else "")   # r1887 stem·짝 work done
+        block = block or ("보류" if stem in skip else "끝남" if stem in done or pair.get(stem, set()) & set(done) else "")   # r1887 stem·짝 work done
         place = None if block else target(k, r, lines)
         if not block and place is None:
             block = k.log("판정 불가", team, "%s 대상 팩·BYZ 둘 다 — 건너뜀" % stem) or "대상"
@@ -107,6 +107,26 @@ def close(k, team, work, attempt, holder, gen):
     elif out.result == "접수 거부" and seen is None:   # 거부 = 쓰기 0 → 지금처럼 () 영수 1회
         return k.receipt(team, work, attempt, holder, gen)
     return out
+def fill(k, team):
+    """r1913 빈 나노 칸 1장 = gates→choose→submit→assign→deliver→reconcile · 실패 = 1줄 + fill_hold(원장 쓰기 0 · 그 stem 재시도 0) · 풀림 = 원장 updated > 보류 시각."""
+    held = k.state.setdefault("fill_hold", {})
+    [held.pop(x) for x in list(held) if x.split("|")[0] == team and (ledger(k, x.split("|", 1)[1]).get("updated") or 0) > held[x]]   # 풀림
+    pick = choose(k, team, {x.split("|", 1)[1] for x in held if x.split("|")[0] == team}) if gates(k, team) else None
+    if not pick:
+        return None
+    stem, attempt, nh = pick[0], None, "byz-%s-nano-%s#0" % (team, pick[0][:40])
+    for verb, args, ok in (("submit", ["--command", "keeper-next-" + stem, "--body", "카드 " + stem], "재부여 0"),
+            ("assign", ["--holder", nh, "--evidence", ",".join(dispatch.Dispatch.REQUIRED_EVIDENCE)], "\0"),
+            ("deliver", ["--mode", "intent"], "전달 의도 없음")):
+        out, rc = cli.run([verb, "--work", stem, "--root", k.root, "--team", team] + args + (["--attempt", attempt] if verb == "deliver" and attempt else []))
+        if verb == "submit":
+            k.fa.remaining(k.root, team, out.get("result"), "카드 " + stem)   # r1886 ⓐ fill submit 도 같은 줄
+        attempt = out.get("attempt") if verb == "assign" else attempt
+        if rc != 0 and ok not in str(out.get("reason")):
+            k.log("HELD-NEXT", team, "fill %s %s rc %s %s %s" % (stem, verb, rc, out.get("result"), str(out.get("reason"))[:60]))
+            held["%s|%s" % (team, stem)] = k.now()   # 보류 시각 = 풀림 기준(keeper state · 바퀴마다 저장)
+            return k.notify(team, "%s|fill-hold|%s|%s" % (k.stamp()[:10], team, stem), "[다음 막힘] ft2 keeper fill %s %s %s — 같은 카드 자동 재시도 0 · 원장을 손보면 다시 시도" % (stem, verb, out.get("result"))) and None
+    return reconcile(k, team, "fill:" + stem, attempt, stem, nh, pick)
 def reconcile(k, team, work, attempt, stem, nh, pick):
     """launch(세션 없음) · record(원장 ≠ seat) 를 따로 맞춘다 · 실패 = 단계 + «복구 필요» 1줄(재시도 0) · 그 뒤 handled."""
     seen, led = k.probe(nh), ledger(k, stem)

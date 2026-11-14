@@ -197,6 +197,8 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
                     self.timed("b2", self.close, team, work, attempt, row, dispatched)
             elif self.sock:   # r1817 fix1 R1 — 소켓 실패 바퀴 = 깨움·재배정도 0
                 self.timed("stall", self.stall.check, team, work, attempt, rows)   # r1813 · r1898 ROUND stall 칸 — 진척 0 좌석 깨움 1회 → 재배정
+        if self.sock:   # r1913 — 닫힘이 없어도 빈 나노 칸 1장(팀마다 1회 · gates 재계산)
+            self.timed("b2", closing.keeper_next.fill, self, team)
 
 
 def main(argv):
