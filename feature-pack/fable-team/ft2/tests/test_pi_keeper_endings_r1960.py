@@ -1,10 +1,8 @@
-"""r1960 keeper — 일이 끝난 나노 자리는 어떤 결과로 끝났든 닫는다 (고정 카드 8b756f2f4d 반례 ①~⑦e · 변이 M1~M9 · DA #301612).
-대역 = r1812 World(임시 BYZ·팩 리포·가짜 tmux·쪽지·실제 core) + 가짜 gh(FT2_GH) + tmux 생애 값 · r1813·r1921 World(⑤ noecho) · 실 세션 0 · sleep 0.
-"""
+"""r1960 keeper — 일이 끝난 나노 자리는 어떤 결과로 끝났든 닫는다 (고정 카드 8b756f2f4d 반례 ①~⑦e · 변이 M1~M9 · DA #301612 · R1 ④d · R2 ①s·M10).
+대역 = r1812 World(임시 BYZ·팩 리포·가짜 tmux·쪽지·실제 core) + 가짜 gh(FT2_GH · 가지별 출력) + tmux 생애 값 · r1813·r1921 World(⑤ noecho) · 실 세션 0 · sleep 0."""
 import importlib.util, json, shutil  # noqa: E401
 from pathlib import Path
 import pytest
-
 FT2 = Path(__file__).resolve().parents[1]
 _S = importlib.util.spec_from_file_location("r1960_kw", str(FT2 / "tests" / "keeper_world_r1812.py"))
 kw = importlib.util.module_from_spec(_S)
@@ -15,7 +13,7 @@ ID = ["-c", "user.email=t@t", "-c", "user.name=t", "-c", "commit.gpgsign=false"]
 LIFE = '''if a[0] == "display-message" and "#{session_id}" in a[-1]:
     t = a[a.index("-t") + 1][1:-1]; sys.stdout.write(d.get("life", {}).get(t, "") + "\\n"); sys.exit(0 if t in d["alive"] else 1)
 if a[0] == "kill-session"'''
-GH = '#!/bin/sh\nprintf "%s\\n" "$*" >> "$FAKE_GH.log"\ncat "$FAKE_GH.out"\nexit "$(cat "$FAKE_GH.rc" 2>/dev/null || echo 0)"\n'
+GH = '#!/bin/sh\nprintf "%s\\n" "$*" >> "$FAKE_GH.log"\nf="$FAKE_GH.out-$(echo "$*" | sed "s/.*--head nano.\\([^ ]*\\).*/\\1/")"\n[ -f "$f" ] || f="$FAKE_GH.out"\ncat "$f"\nexit "$(cat "$FAKE_GH.rc" 2>/dev/null || echo 0)"\n'
 def world(case, tmp, mp, ft2=FT2):
     tmp.mkdir(parents=True, exist_ok=True)
     if case in (c5, c5e):
@@ -29,13 +27,13 @@ def tmuxset(w, **kv):
     d = json.loads(w.tm.read_text(encoding="utf-8"))
     [d.setdefault(key, {}).update(val) if isinstance(val, dict) else d[key].extend(val) for key, val in kv.items()]
     _put(w.tm, d)
-def pr(w, work, mode="merge", n=1, rc=0):
-    """팩 worktree(가지 nano/<work> · base = 팩 main 끝) · merge = HEAD 를 main 에 · squash = main 이 다른 커밋 · ff = 다른 work 커밋 F 로 ff · PR n개."""
-    base, pack, path = w.pack_sha(), w.tmp / "pack", w.tmp / "wt" / work
+def pr(w, work, mode="merge", n=1, rc=0, repo="pack"):
+    """repo(팩·BYZ) worktree(가지 nano/<work> · base = main 끝) · merge = HEAD 를 main 에 · squash = main 이 다른 커밋 · ff = 다른 work 커밋 F 로 ff · PR n개."""
+    base, pack, path = w.pack_sha() if repo == "pack" else w.commit("byz", {"b.txt": work}, "main"), w.tmp / "pack" if repo == "pack" else w.root, w.tmp / "wt" / work
     _git(pack, "fetch", "-q", "origin"), _git(pack, "worktree", "add", "-q", "-b", "nano/" + work, str(path), base)
     (w.pack_sha(), _git(path, "fetch", "-q", "origin"), _git(path, "merge", "-q", "--ff-only", "origin/main")) if mode == "ff" else _git(path, *ID, "commit", "-q", "--allow-empty", "-m", "n-" + work)
-    oid = (_git(path, "push", "-q", "origin", "HEAD:main"), _git(w.tmp / "seed-pack", "pull", "-q", "--ff-only", "origin", "main"), _git(path, "rev-parse", "HEAD"))[2] if mode == "merge" else w.pack_sha()
-    _put(str(w.tmp / "gh") + ".out", json.dumps([{"number": 7, "mergeCommit": {"oid": oid}, "baseRefName": "main"}] * n)), _put(str(w.tmp / "gh") + ".rc", str(rc))
+    oid = (_git(path, "push", "-q", "origin", "HEAD:main"), _git(w.tmp / ("seed-" + repo), "pull", "-q", "--ff-only", "origin", "main"), _git(path, "rev-parse", "HEAD"))[2] if mode == "merge" else w.pack_sha()
+    _put(str(w.tmp / "gh") + ".out-" + work, json.dumps([{"number": 7, "mergeCommit": {"oid": oid}, "baseRefName": "main"}] * n)), _put(str(w.tmp / "gh") + ".rc", str(rc))
     _put(w.runtime() / "launch" / ("%s@a1.intent" % work), {"FT2_HOLDER": "byz-harness-nano-%s-t#0" % work, "state": "opened", "worktree": str(path), "at": "2026-01-01T00:00:00", "base_sha": base})
     return oid
 def card(w, work, text, stage="진행", name=None):
@@ -60,6 +58,11 @@ def c1c(w):  # ①c PR 2개 → None · ①d gh 실패 → None
 def c1e(w):  # ①e squash 병합 PR(mergeCommit 조상 · HEAD 아님) → landed(sha = mergeCommit)
     w.card("r9641"), w.work("r9641", intent=False), (oid := pr(w, "r9641", "squash"))
     assert has(run(w)[0], "COMPLETED harness r9641", oid) and w.kinds("complete") == 1
+def c1s(w):  # ①s (DA R2 #302302) BYZ 신선 · 팩 fetch 실패 · 착지 줄 없음 · 팩 PR 1 merged → 판정 불가 · complete·kill 0 · ①t BYZ 리포 PR = 그대로 COMPLETED
+    w.enable(), w.card("r9651"), w.card("r9661"), w.work("r9651", intent=False, alive=True), w.work("r9661", intent=False), pr(w, "r9651"), pr(w, "r9661", repo="byz")
+    _git(w.tmp / "pack", "config", "remote.origin.url", str(w.tmp / "gone.git"))   # r1963 lose() 와 같은 낡음 입력
+    lines, kills = run(w)
+    assert has(lines, "HELD harness r9651", "판정 불가 · %s fetch 실패" % (w.tmp / "pack")) and kills == [] and has(lines, "COMPLETED harness r9661", "PR #7") and w.kinds("complete") == 1, lines
 def c2(w):   # ② (DA ⓑ) journal 에 그 work refuse(done=false) → ending None · CLOSED 0 · complete 0
     w.enable(), w.card("r9602"), w.work("r9602", alive=True)
     w.CLI.run(["refuse", "--work", "r9602", "--place", "keeper", "--gen", "1", "--cause", "c", "--artifact", "a", "--event", "e", "--root", str(w.root), "--team", TEAM])
@@ -94,29 +97,24 @@ def c4d(w):  # ④d (DA R1 #301944) a2 재배정 · a2 intent 없음 · 대체 a
     assert has(lines, "HELD harness r9634", "옛 착지 줄") and kills == [] and w.kinds("complete") == 0, lines
 def c4b(w):  # ④b intent 0 → HELD «intent 없음» 1줄(침묵 0) · 두 번째 바퀴 0
     w.card("r9614", w.pack_sha()), w.work("r9614", done=True, intent=False, alive=True)
-    assert sum("intent 없음(attempt a1)" in x for x in run(w)[0]) == 1
-    assert not [x for x in w.round() if "intent 없음" in x] and w.tmux("kill-session") == []
+    assert sum("intent 없음(attempt a1)" in x for x in run(w)[0]) == 1 and not [x for x in w.round() if "intent 없음" in x] and w.tmux("kill-session") == []
 def c5(w):   # ⑤ unsure · after_s 지남 → 재깨움 1회 · 또 미확인 → [크리티컬] 1통 · 같은 날 0 · kill·재배정 0
     w.seat(), _put(w.tm, dict(json.loads(w.tm.read_text(encoding="utf-8")), noecho=True)), w.round(), w.round(11 * B.M)
     assert len(w.tmux("send-keys")) == 6 and w.notes() == []
     w.round(12 * B.M), w.round(13 * B.M)
     assert len(w.notes()) == 1 and "[크리티컬]" in w.notes()[0] and "깨움 도달 미확인" in w.notes()[0] and len(w.tmux("send-keys")) == 6 and w.tmux("kill-session") == [] and w.kinds("dispatch") == 1
 def c5e(w):  # ⑤ 오류 턴 길에서도 같은 1회 · 또 미확인 → [크리티컬] 1통
-    R._seat(w, "503 Service Unavailable", 121), _put(w.tm, dict(json.loads(w.tm.read_text(encoding="utf-8")), noecho=True)), w.round()
-    w.round(11 * R.M), w.round(12 * R.M), w.round(13 * R.M)
+    R._seat(w, "503 Service Unavailable", 121), _put(w.tm, dict(json.loads(w.tm.read_text(encoding="utf-8")), noecho=True)), w.round(), w.round(11 * R.M), w.round(12 * R.M), w.round(13 * R.M)
     assert len(w.tmux("send-keys")) == 6 and len(w.notes()) == 1 and "[크리티컬]" in w.notes()[0] and w.tmux("kill-session") == []
 def c6(w):   # ⑥ 회귀 가드 — 끝 결과 있음 + Working → HELD · attached 1 → HELD · 역할 master → 0
-    w.enable()
     for work, kw_ in (("r9606", {"pane": "⠋ Working...\n"}), ("r9616", {}), ("r9626", {"holder": "byz-harness-master-pi#999"})):
         w.card(work, stage="아카이브/2026-11"), w.work(work, alive=True, **kw_)
-    tmuxset(w, att={"byz-harness-nano-r9616-t#0": 1})
+    w.enable(), tmuxset(w, att={"byz-harness-nano-r9616-t#0": 1})
     lines, kills = run(w)
-    assert all(has(lines, "HELD harness " + work, word) for work, word in (("r9606", "Working"), ("r9616", "사람 화면"), ("r9626", "보호 역할"))), lines
-    assert kills == [] and not has(lines, "CLOSED")
+    assert all(has(lines, "HELD harness " + work, word) for work, word in (("r9606", "Working"), ("r9616", "사람 화면"), ("r9626", "보호 역할"))) and kills == [] and not has(lines, "CLOSED"), lines
 def orphan(w, work, seat, life="$5\t100"):
     """고아 1석 — work(dispatch holder #0 · 세션 0) · 카드 아카이브 · seat 의 launch intent(영수 $5/100) · seat 생존(생애 = life)."""
-    w.card(work, stage="아카이브/2026-11"), w.work(work)
-    tree = str(w.tmp / "wt" / work)
+    w.card(work, stage="아카이브/2026-11"), w.work(work), (tree := str(w.tmp / "wt" / work))
     _put(w.runtime() / "launch" / ("%s@a9.intent" % work), {"FT2_HOLDER": seat, "state": "opened", "worktree": tree, "at": "2026-01-01T00:00:00", "tmux_sid": "$5", "tmux_created": "100"})
     tmuxset(w, alive=[seat], pane={seat: "❯ "}, life={seat: "%s\t%s" % (life, tree)})
 def c7(w):   # ⑦ 영수 생애 일치 · 카드 아카이브 · 유휴·턴 끝 → CLOSED-ORPHAN
@@ -134,20 +132,17 @@ def c7d(w):  # ⑦d 세션 목록 읽기 직전 dispatch+launch → 고아 아�
         tree = (w.work("r9627", holder=S), str(w.tmp / "wt" / "r9627"))[1]
         _put(w.runtime() / "launch" / "r9627@a1.intent", {"FT2_HOLDER": S, "state": "opened", "worktree": tree, "at": "2026-01-01T00:00:00", "tmux_sid": "$5", "tmux_created": "100"})
         tmuxset(w, alive=[S], life={S: "$5\t100\t" + tree})
-        k.alive_sessions = real
-        return real()
+        return (setattr(k, "alive_sessions", real), real())[1]
     real, k.alive_sessions = k.alive_sessions, snap
     lines, kills = run(w, k)
-    assert kills == [] and not has(lines, "CLOSED-ORPHAN"), lines
-    assert [a for a in w.tmux("display-message") if "#{session_id}" in a[-1]] == []   # 호출 증거: 고아 후보 판정(생애 조회) 0 · ⑦e 재확인이 가리는 것 아님
+    assert kills == [] and not has(lines, "CLOSED-ORPHAN") and [a for a in w.tmux("display-message") if "#{session_id}" in a[-1]] == [], lines   # 호출 증거: 고아 후보 판정(생애 조회) 0 · ⑦e 재확인이 가리는 것 아님
 def c7e(w):  # ⑦e 가드 읽는 사이 holder 바뀜(그 seat 에 새 dispatch) → 닫기 0
     orphan(w, "r9637", "byz-harness-nano-r9637#1")
     k, real = w.keeper(), None
     real, k.idle = k.idle, lambda team, work, holder: (holder.endswith("r9637#1") and w.work("r9647", holder=holder), real(team, work, holder))[1]
     lines, kills = run(w, k)
     assert kills == [] and not has(lines, "CLOSED-ORPHAN"), lines
-CASES = {"①": c1, "①b": c1b, "①c·①d": c1c, "①e": c1e, "②": c2, "③": c3, "③b": c3b, "③c·③d": c3c, "④·④c": c4, "④b": c4b, "④d": c4d, "⑤": c5, "⑤e": c5e,
-         "⑥": c6, "⑦": c7, "⑦b·⑦c": c7b, "⑦d": c7d, "⑦e": c7e}
+CASES = {"①": c1, "①b": c1b, "①c·①d": c1c, "①e": c1e, "①s·①t": c1s, "②": c2, "③": c3, "③b": c3b, "③c·③d": c3c, "④·④c": c4, "④b": c4b, "④d": c4d, "⑤": c5, "⑤e": c5e, "⑥": c6, "⑦": c7, "⑦b·⑦c": c7b, "⑦d": c7d, "⑦e": c7e}
 KE, KC, KP = "adapters/pi/keeper_endings.py", "adapters/pi/keeper_close.py", "adapters/pi/keeper.py"
 SNAP = 'H, alive = _mod("holders", os.path.join(HERE, "ft2_holders.py")), k.alive_sessions()\n    held_by = {t: {h for _, h in got.values()} for t in teams if (got := latest(k, t)) is not None}'
 MUTANTS = {"M1": (KE, 'prs = _prs(k, REPO.search(url).group(1) if REPO.search(url) else url, "nano/" + work)', 'prs = [{"number": 0, "mergeCommit": {"oid": k.git(tree, "rev-parse", "HEAD")[1].strip()}, "baseRefName": "main"}]', c1b),
@@ -158,6 +153,7 @@ MUTANTS = {"M1": (KE, 'prs = _prs(k, REPO.search(url).group(1) if REPO.search(ur
            "M6": (KC, "if not self.idle(team, work, holder):", "if not (ending or self.idle(team, work, holder)):", c6),
            "M7": (KE, SNAP, "\n    ".join(SNAP.split("\n    ")[::-1]), c7d),
            "M8": (KE, "H.auto_opened(k.call, k.tmux, seat, it) if work", '(True, "") if work', c7b),
+           "M10": (KE, 'if bad := [r for r in sorted(getattr(k, "stale", ())) if _common(k, r) == _common(k, tree)]:', "if bad := []:", c1s),
            "M9": (KP, "elif self.sock and endings.ending(self, team, work):", "elif self.sock and endings.ending(self, team, work) and (self.complete(team, work, attempt, ('0' * 40, 'm9', '')) or True):", c3)}
 @pytest.mark.parametrize("name", list(CASES))
 def test_case(name, tmp_path, monkeypatch):
