@@ -143,10 +143,10 @@ def _report(rec: dict, repeat: int) -> str:
     if rec["status"] not in ("OK", MISS):
         lines += ["", f"ERROR {rec.get('error', '')}"]
     else:
-        lines += ["", "| n | 골 | 팀 | 라벨 | 카드 | 증거 | 원장 변화 | 행 나이(h) |", "|---|---|---|---|---|---|---|---|"]
+        lines += ["", "| n | 골 | 팀 | 라벨 | 카드 | 증거 | 원장 변화 | 행 나이(h) | 번호 이동 |", "|---|---|---|---|---|---|---|---|---|"]
         for r in rec["rows"]:
             lines.append(f"| {r['n']} | {r['goal12']} | {r['team']} | {r['label']} | {r['cards_added']} | {r['evidence']} | "
-                         f"{'있음' if r['ledger_row_changed'] else '-'} | {r['row_age_h'] if r['row_age_h'] is None else int(r['row_age_h'])} |")
+                         f"{'있음' if r['ledger_row_changed'] else '-'} | {r['row_age_h'] if r['row_age_h'] is None else int(r['row_age_h'])} | {r.get('moved') or '-'} |")
         facts = rec["facts"]
         lines += ["", f"- 닫힘 후보: {facts['close_candidates'] or '없음'} · 정본 밖 골 파일: {facts['goal_files_outside_canon'] or '없음'}",
                   f"- 안 묶인 카드: {len(facts['unassigned_cards'])} · 번호 밖 골좌표 카드: {len(facts['stale_numbered_cards'])}",

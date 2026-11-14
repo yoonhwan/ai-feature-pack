@@ -66,7 +66,7 @@ def c6(w):   # ⑥ 3번째 팀에서 컷 → cap_next · 다음 바퀴 그 팀�
     _put(w.state / "ft2-keeper" / "state.json", dict(st, cap_next="t3")), _put(w.state / "ft2-keeper" / "SKIP_TEAMS", "t3\n")
     assert clocked(w, w.keeper(), 0)[0] == ["t1", "t2", "t4"]
 def c5(w):   # ⑤ ROUND 줄 stall= 칸 = stall.check 에 쓴 초 · s = fetch+b1+b2+b3+stall
-    w.card("r9801"), w.work("r9801", intent=False)
+    w.card("r9801"), w.work("r9801", intent=False), w.pack_sha()   # r1963 — 두 리포 다 바뀌어야 리포마다 fetch 1회(안 바뀐 리포 = fetch 0)
     k = w.keeper()
     def tick(dt, out=None):
         return setattr(w, "t", w.t + dt) or out
