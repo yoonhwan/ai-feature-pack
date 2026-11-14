@@ -9,8 +9,7 @@ ORPHAN, REPO, SHA = re.compile(r"byz-([a-z0-9]+)-nano-(.+)#\d+"), re.compile(r"g
 _MOD = {}
 def _mod(name, path):
     if name not in _MOD:   # keeper_land 는 늦게 읽는다(keeper_land 가 이 파일을 읽으므로 순환 0)
-        spec = importlib.util.spec_from_file_location("ft2_keeper_endings_" + name, path)
-        _MOD[name] = importlib.util.module_from_spec(spec)
+        _MOD[name] = importlib.util.module_from_spec(spec := importlib.util.spec_from_file_location("ft2_keeper_endings_" + name, path))
         spec.loader.exec_module(_MOD[name])
     return _MOD[name]
 def _proj():
@@ -20,8 +19,7 @@ def held(k, team, key, text):
     if k.state["held"].get(key) != text:
         k.state["held"][key] = text
         k.log("HELD", team, text)
-def _rows(k, team):
-    """journal 새로 읽기 · 못 읽음 = None(판독 실패 = 대체·고아 닫기 0)."""
+def _rows(k, team):   # journal 새로 읽기 · 못 읽음 = None(판독 실패 = 대체·고아 닫기 0)
     try:
         return _proj().journal.Journal(_proj().runtime_path(k.root, team), rec=_proj().record).records()
     except (OSError, ValueError):
@@ -30,8 +28,7 @@ def latest(k, team):   # {work: (attempt, holder)} 최신 dispatch · 못 읽음
     rows = _rows(k, team)
     return None if rows is None else {r["work"]: (r.get("attempt"), r.get("holder")) for r in rows if r.get("kind") == "dispatch" and r.get("work")}
 def intents(k, team, pattern="*"):
-    launch = os.path.join(_proj().runtime_path(k.root, team), "launch")
-    for path in sorted(glob.glob(os.path.join(glob.escape(launch), pattern + "@*.intent"))):
+    for path in sorted(glob.glob(os.path.join(glob.escape(os.path.join(_proj().runtime_path(k.root, team), "launch")), pattern + "@*.intent"))):
         work, _, attempt = os.path.basename(path)[:-len(".intent")].rpartition("@")
         yield work, attempt, k.read_json(path)
 def intent(k, team, work, attempt, holder):
@@ -49,6 +46,8 @@ def _prs(k, repo, branch):
         return json.loads(out) if rc == 0 else None
     except ValueError:
         return None
+def _common(k, repo):   # git common-dir(clone·linked worktree 는 remote-tracking ref 공유) · 못 읽음 = 경로 그대로
+    return os.path.realpath(k.git(repo, "rev-parse", "--path-format=absolute", "--git-common-dir")[1].strip() or repo)
 def pr_landed(k, team, work):
     """① (mergeCommit, 근거 ref, "") · 근거 못 채움 = (None, None, "착지 줄 없음") · 옛 착지 = (None, None, 사유)."""
     none = (None, None, "착지 줄 없음")
@@ -57,6 +56,8 @@ def pr_landed(k, team, work):
     tree = it.get("worktree") or ""
     if not os.path.isdir(tree) or k.git(tree, "rev-parse", "--abbrev-ref", "HEAD")[1].strip() != "nano/" + work:
         return none
+    if bad := [r for r in sorted(getattr(k, "stale", ())) if _common(k, r) == _common(k, tree)]:   # DA R2 #302302 — 낡은 리포 ref = 조상 검사 0
+        return None, None, "판정 불가 · %s fetch 실패" % bad[0]
     url = k.git(tree, "config", "--get", "remote.origin.url")[1].strip()
     prs = _prs(k, REPO.search(url).group(1) if REPO.search(url) else url, "nano/" + work)
     pr = prs[0] if isinstance(prs, list) and len(prs) == 1 and isinstance(prs[0], dict) else {}
@@ -116,8 +117,7 @@ def orphans(k, teams):
     H, alive = _mod("holders", os.path.join(HERE, "ft2_holders.py")), k.alive_sessions()
     held_by = {t: {h for _, h in got.values()} for t in teams if (got := latest(k, t)) is not None}
     for seat in sorted(alive or ()):
-        m = ORPHAN.fullmatch(seat)
-        team = m.group(1) if m else None
+        team = m.group(1) if (m := ORPHAN.fullmatch(seat)) else None
         if team not in held_by or seat in held_by[team]:
             continue
         mine = [x for x in intents(k, team) if x[2].get("FT2_HOLDER") == seat]
