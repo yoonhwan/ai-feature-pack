@@ -2,7 +2,7 @@
 r429 묶음: 두 도구에 같은 글자로 있던 load/쓰기와 retire 의 라우팅 칸 쓸기를 한 곳으로 옮겼다(동작 불변 · 줄 수 상한).
 r5(seat_facts): 명부 경로·행·agent·role·재개 기록 경로를 입구에서 1회 확정(닫기 도구의 갈래·자식 재해석 0).
 r960: pi 좌석 재개 기록(pi_seat_resume)도 여기 — ft-seat-retire.sh 는 200줄 상한이라 파일 안에 못 넣는다(시험 ⓔ 가 줄 수를 잰다)."""
-import collections, datetime, glob, json, os, shutil, subprocess, sys
+import collections, datetime, glob, json, os, re, shutil, subprocess, sys
 
 ROUTE = ("_hil_route", "_planner", "_desk_route")   # r429 라우팅 칸(+ 이름이 _route 로 끝나는 칸) · r465 부터 은퇴는 남의 명부 역할 칸도 바꾼다(scan_cells) — 이 표는 출력 roles/routes 구분용
 
@@ -34,9 +34,21 @@ def apply_routes(others, routes, new, ts):   # r429 남의 명부 = 라우팅 �
     return [os.path.basename(f) + ":" + k for f, ks in routes.items() for k in ks]
 
 
-def role_cell(dd, new):   # r465 사례 2 — 후계 이름(byz-<팀>-<역할>-<에이전트>#N)의 역할 칸(_master·_arch·_desk·_da·_tester) · 후계 행 실재일 때만 → (칸, 지금 값) · 아니면 (None, None) (r1461: _desk 추가)
-    c = "_" + (new.rpartition("#")[0].split("-") + ["", "", ""])[2]
-    return (c, dd.get(c)) if c in ("_master", "_arch", "_desk", "_da", "_tester") and isinstance(dd.get(new), dict) else (None, None)
+def name_cell(name):   # r1641 이름 → 명부 역할 칸 — <프로젝트>-<팀>-<역할>[-<석K>]-<에이전트>#N · 석 0·옛 꼴(석 칸 없음) = _<역할> · K≥1 = _<역할>-<K> · nano·토큰 부족·앞자리 0 = None(추측 0)
+    t = name.rpartition("#")[0].split("-")
+    if len(t) < 3 or not t[2] or t[2] == "nano": return None
+    k = t[3] if len(t) >= 5 and t[3] and set(t[3]) <= set("0123456789") else "0"
+    return None if k[0] == "0" and k != "0" else "_" + t[2] + ("" if k == "0" else "-" + k)
+
+
+def role_seats(dd, role):   # r1641 역할 → 석 목록 — 명부 `_<역할>`(석 0)·`_<역할>-<K>` 중 값이 빈 문자열 아닌 칸 → [(K, 이름)…] K 순 · `_<역할>x` 같은 비슷한 키 0
+    ms = ((re.fullmatch("_" + re.escape(role) + "(?:-([1-9][0-9]*))?", c), v) for c, v in dd.items())
+    return sorted((int(m.group(1) or 0), v) for m, v in ms if m and isinstance(v, str) and v)
+
+
+def role_cell(dd, new):   # r465 사례 2 — 후계 이름의 역할 칸(_master·_arch·_desk·_da·_tester · r1641 석 K≥1 = _<역할>-<K>) · 후계 행 실재일 때만 → (칸, 지금 값) · 아니면 (None, None) (r1461: _desk 추가)
+    c = name_cell(new) or ""
+    return (c, dd.get(c)) if c.split("-")[0] in ("_master", "_arch", "_desk", "_da", "_tester") and isinstance(dd.get(new), dict) else (None, None)
 
 
 ROLES = ("_master", "_arch", "_desk", "_da", "_tester", "_pm")   # r499 후계 role 도출용 역할 칸
@@ -52,7 +64,7 @@ def succ_role(o, cells, name):   # r499 후계 role — 옛 role(stop-ready 아�
     if isinstance(r, str) and r and r != "stop-ready": return r
     for k in cells:
         if k in ROLES: return k[1:]
-    t = "_" + (name.rpartition("#")[0].split("-") + ["", "", ""])[2]
+    t = (name_cell(name) or "").split("-")[0]   # r1641 석 칸이 있어도 역할 = 칸의 역할 부분
     return t[1:] if t in ROLES else "stop-ready"
 
 
