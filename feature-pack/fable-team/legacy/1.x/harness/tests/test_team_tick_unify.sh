@@ -27,7 +27,7 @@ bash -n "$KIT/ft-tick.sh" && bash -n "$KIT/ft-tick-install.sh" && ok "bash -n" |
 mkdir -p "$TMP/live" "$TMP/plists" "$TMP/root/.fable-team"
 # r962: 설치 «시작 경로» 는 공용 루트 .fable-team/bin 아래만 — scratch 도 «가짜 공용 루트(git 리포)» 의 bin 을 쓴다
 LIVEDIR="$TMP/root/.fable-team/bin"; mkdir -p "$LIVEDIR"; git init -q "$TMP/root"
-cp "$KIT/ft-tick.sh" "$KIT/ft-seat-status.sh" "$LIVEDIR/"
+cp "$KIT/ft-tick.sh" "$KIT/ft-tick-acct-lib.sh" "$KIT/ft-seat-status.sh" "$LIVEDIR/"
 python3 - "$TMP" "$TEAMS" <<'PY'
 import plistlib, sys, os
 tmp, teams = sys.argv[1], sys.argv[2].split()
@@ -141,7 +141,7 @@ sed 's|/tmp/ft-tick-state-ops|/tmp/ft-tick-state-cfo|' "$TSV" > "$TMP/mutant.tsv
 chk "ⓑ 변이(ops 가 cfo STATE_DIR 를 씀)를 잡는다" "$(dups "$TMP/mutant.tsv")" "c3=/tmp/ft-tick-state-cfo "
 
 # ── 틱 실행 시험 공통: 라이브 bin 꼴 scratch · 가짜 tmux·mbox·도구 ──
-mkdir -p "$TMP/repo/.fable-team/bin"; LIVE="$TMP/repo/.fable-team/bin/ft-tick.sh"; cp "$KIT/ft-tick.sh" "$LIVE"
+mkdir -p "$TMP/repo/.fable-team/bin"; LIVE="$TMP/repo/.fable-team/bin/ft-tick.sh"; cp "$KIT/ft-tick.sh" "$LIVE"; cp "$KIT/ft-tick-acct-lib.sh" "$TMP/repo/.fable-team/bin/"
 for n in ft-launchd-check ft-magazine-check ft-news-ledger; do printf '#!/bin/bash\necho %s >> "$MARK"\n' "$n" > "$TMP/repo/.fable-team/bin/$n.sh"; done
 printf '#!/bin/bash\nprintf "DRIFT 1 file\\nDIFF scripts/x\\n"; exit 1\n' > "$TMP/drift-stub.sh"
 printf '#!/bin/bash\necho sweep >> "$MARK"\n' > "$TMP/sweep-stub.sh"; chmod +x "$TMP/sweep-stub.sh"

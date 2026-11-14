@@ -19,7 +19,7 @@ chk() { if [ "$2" = "$3" ]; then ok "$1"; else bad "$1 (got=[$2] want=[$3])"; fi
 
 # 라이브 bin 꼴: drift_watch 는 */.fable-team/bin 에서 돌 때만 켜진다. cwd 는 git 이 아닌 scratch → ROOT=cwd.
 mkdir -p "$TMP/repo/.fable-team/bin"; LIVE="$TMP/repo/.fable-team/bin/ft-tick.sh"
-cp "${R150_TICK:-$KIT}" "$LIVE"
+cp "${R150_TICK:-$KIT}" "$LIVE"; cp "$(dirname "$KIT")/ft-tick-acct-lib.sh" "$(dirname "$LIVE")/"   # r2001: ft-tick 이 source 하는 lib
 chk "ⓕ 키트 두 사본 동일" "$(cmp -s "$KIT" "$REPO/harness/bin/ft-tick.sh" && echo same || echo differ)" same
 bash -n "$LIVE" && ok "bash -n" || bad "bash -n"
 
