@@ -1195,45 +1195,33 @@ _lp_landed_gate() {
 #   X = _lp_land_x(착지 경로가 고른 끝줄 head). 각 git 호출은 nf_bound 상한 · 실패·시간 초과 = «판정 불가» 1줄 REJECT(하드 룰 20 · 추측 통과 0).
 #   rc 0 = 통과 · 1 = 거짓(지금 판정기 경로로 내려간다) · 2 = 판정 불가(REJECT).
 _lp_sx_err=""; _lp_sx_merges=""
-_lp_sx_gate() {  # <카드 세트 S>
-  local repo s x ecap rc out mb1 mb2 p1 p2 n
+_lp_sx_gate() {  # <카드 세트 S> — r1713: 3칸 본문은 공용 ft-landed-sx.sh 한 곳(close-due 와 같이 씀) · 여기는 rc·문구만 지금처럼 만든다
+  local repo s x ecap rc out step det P
   repo="${_lp_repo:-}"; s="$1"; x="${_lp_land_x:-}"
   _lp_sx_err=""; _lp_sx_merges=""
   [ -n "$x" ] || return 1   # 끝줄 head 를 못 찾았으면 이 칸은 판정하지 않는다(지금 경로)
   [ -n "$repo" ] || { _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · 리포 없음 — 판정 불가로 닫지 않는다"; return 2; }
   ecap="$(nf_cap "$(nf_fixed equiv)" 1)"
   step landed-pr-sx
-  # ⓐ S 가 X 의 조상 (git merge-base --is-ancestor: rc 1 = «아니오» = 조건 거짓 · 그 밖 rc·시간 초과 = 판정 불가)
-  nf_bound "$ecap" git -C "$repo" merge-base --is-ancestor "$s" "$x" >/dev/null 2>&1; rc=$?
-  if [ "$rc" -eq 1 ]; then return 1; fi
-  if [ "$rc" -eq 124 ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · 세트 ${s:0:9}→끝줄 head ${x:0:9} 조상 검사 시간 초과(${ecap}초 상한 · 하드 룰 12) — 판정 불가로 닫지 않는다"; return 2; fi
-  if [ "$rc" -ne 0 ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · 세트 ${s:0:9}→끝줄 head ${x:0:9} 조상 검사 실패(rc=$rc) — 판정 불가로 닫지 않는다(하드 룰 20)"; return 2; fi
-  # ⓑ S..X 첫 부모 줄에 «main 병합 아닌 일반 커밋» 0 (0줄 = 병합뿐)
-  out="$(nf_bound "$ecap" git -C "$repo" rev-list --first-parent --no-merges "$s..$x" 2>&1)"; rc=$?
-  if [ "$rc" -eq 124 ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · 세트..끝줄 일반 커밋 검사 시간 초과(${ecap}초 상한 · 하드 룰 12) — 판정 불가로 닫지 않는다"; return 2; fi
-  if [ "$rc" -ne 0 ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · git rev-list 실패(rc=$rc: $(printf '%s' "$out" | head -1 | cut -c1-160)) — 판정 불가로 닫지 않는다"; return 2; fi
-  [ -z "$out" ] || return 1
-  # ⓒ merge-base 대비 «자기 변경» 이 같다 — patch-id 두 값 모두 비어 있지 않고 같아야 한다(빈 diff = 조건 거짓)
-  mb1="$(nf_bound "$ecap" git -C "$repo" merge-base "$s" "$LP_LAND_REFS" 2>&1)"; rc=$?
-  if [ "$rc" -eq 124 ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · merge-base(세트, origin/main) 시간 초과(${ecap}초 상한 · 하드 룰 12) — 판정 불가로 닫지 않는다"; return 2; fi
-  if [ "$rc" -ne 0 ] || [ -z "$mb1" ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · merge-base(세트 ${s:0:9}, origin/main) 없음(rc=$rc: $(printf '%s' "$mb1" | head -1 | cut -c1-120)) — 판정 불가로 닫지 않는다"; return 2; fi
-  mb2="$(nf_bound "$ecap" git -C "$repo" merge-base "$x" "$LP_LAND_REFS" 2>&1)"; rc=$?
-  if [ "$rc" -eq 124 ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · merge-base(끝줄 head, origin/main) 시간 초과(${ecap}초 상한 · 하드 룰 12) — 판정 불가로 닫지 않는다"; return 2; fi
-  if [ "$rc" -ne 0 ] || [ -z "$mb2" ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · merge-base(끝줄 head ${x:0:9}, origin/main) 없음(rc=$rc: $(printf '%s' "$mb2" | head -1 | cut -c1-120)) — 판정 불가로 닫지 않는다"; return 2; fi
-  p1="$(nf_bound "$ecap" bash -c 'set -o pipefail; git -C "$1" diff "$2" "$3" | git patch-id --stable' _ "$repo" "$mb1" "$s" 2>&1)"; rc=$?
-  if [ "$rc" -eq 124 ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · 세트 자기 변경 patch-id 시간 초과(${ecap}초 상한 · 하드 룰 12) — 판정 불가로 닫지 않는다"; return 2; fi
-  if [ "$rc" -ne 0 ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · 세트 자기 변경 patch-id 실패(rc=$rc: $(printf '%s' "$p1" | head -1 | cut -c1-160)) — 판정 불가로 닫지 않는다"; return 2; fi
-  p2="$(nf_bound "$ecap" bash -c 'set -o pipefail; git -C "$1" diff "$2" "$3" | git patch-id --stable' _ "$repo" "$mb2" "$x" 2>&1)"; rc=$?
-  if [ "$rc" -eq 124 ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · 끝줄 head 자기 변경 patch-id 시간 초과(${ecap}초 상한 · 하드 룰 12) — 판정 불가로 닫지 않는다"; return 2; fi
-  if [ "$rc" -ne 0 ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · 끝줄 head 자기 변경 patch-id 실패(rc=$rc: $(printf '%s' "$p2" | head -1 | cut -c1-160)) — 판정 불가로 닫지 않는다"; return 2; fi
-  p1="$(printf '%s\n' "$p1" | awk 'NF{print $1; exit}')"; p2="$(printf '%s\n' "$p2" | awk 'NF{print $1; exit}')"
-  [ -n "$p1" ] && [ -n "$p2" ] || return 1
-  [ "$p1" = "$p2" ] || return 1
-  # 통과 문구의 «main 병합 <m>개» — 같은 상한으로 센다(못 세면 판정 불가)
-  n="$(nf_bound "$ecap" git -C "$repo" rev-list --first-parent --merges --count "$s..$x" 2>&1)"; rc=$?
-  if [ "$rc" -eq 124 ]; then _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · main 병합 수 세기 시간 초과(${ecap}초 상한 · 하드 룰 12) — 판정 불가로 닫지 않는다"; return 2; fi
-  case "$rc:$n" in 0:[0-9]*) _lp_sx_merges="$n";; *) _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · main 병합 수를 못 셈(rc=$rc: $(printf '%s' "$n" | head -1 | cut -c1-120)) — 판정 불가로 닫지 않는다"; return 2;; esac
-  return 0
+  out="$(FT_LANDED_SX_CAP="$ecap" bash "$HERE/ft-landed-sx.sh" "$repo" "$s" "$x" "$LP_LAND_REFS" 2>&1)"; rc=$?
+  case "$rc" in 0) _lp_sx_merges="${out#SX-OK merges=}"; return 0;; 1) return 1;; esac
+  case "$out" in "판정 불가 "*" rc="*) step="${out#판정 불가 }"; step="${step%% *}"; rc="${out#*" rc="}"; det="${rc#*": "}"; [ "$det" = "$rc" ] && det=""; rc="${rc%%:*}";;
+    *) _lp_sx_err="⑥--landed-pr #$LANDED_PR state=$_lp_state · ft-landed-sx.sh 판정 불가(rc=$rc: $(printf '%s' "$out" | head -1 | cut -c1-160)) — 판정 불가로 닫지 않는다(하드 룰 20)"; return 2;; esac
+  P="⑥--landed-pr #$LANDED_PR state=$_lp_state · "
+  if [ "$rc" = 124 ]; then case "$step" in
+    ancestor) _lp_sx_err="${P}세트 ${s:0:9}→끝줄 head ${x:0:9} 조상 검사 시간 초과";; revlist) _lp_sx_err="${P}세트..끝줄 일반 커밋 검사 시간 초과";;
+    mb-set) _lp_sx_err="${P}merge-base(세트, origin/main) 시간 초과";; mb-head) _lp_sx_err="${P}merge-base(끝줄 head, origin/main) 시간 초과";;
+    pid-set) _lp_sx_err="${P}세트 자기 변경 patch-id 시간 초과";; pid-head) _lp_sx_err="${P}끝줄 head 자기 변경 patch-id 시간 초과";; *) _lp_sx_err="${P}main 병합 수 세기 시간 초과";; esac
+    _lp_sx_err="$_lp_sx_err(${ecap}초 상한 · 하드 룰 12) — 판정 불가로 닫지 않는다"; return 2; fi
+  case "$step" in
+    ancestor) _lp_sx_err="${P}세트 ${s:0:9}→끝줄 head ${x:0:9} 조상 검사 실패(rc=$rc) — 판정 불가로 닫지 않는다(하드 룰 20)";;
+    revlist) _lp_sx_err="${P}git rev-list 실패(rc=$rc: $(printf '%s' "$det" | cut -c1-160)) — 판정 불가로 닫지 않는다";;
+    mb-set) _lp_sx_err="${P}merge-base(세트 ${s:0:9}, origin/main) 없음(rc=$rc: $(printf '%s' "$det" | cut -c1-120)) — 판정 불가로 닫지 않는다";;
+    mb-head) _lp_sx_err="${P}merge-base(끝줄 head ${x:0:9}, origin/main) 없음(rc=$rc: $(printf '%s' "$det" | cut -c1-120)) — 판정 불가로 닫지 않는다";;
+    pid-set) _lp_sx_err="${P}세트 자기 변경 patch-id 실패(rc=$rc: $(printf '%s' "$det" | cut -c1-160)) — 판정 불가로 닫지 않는다";;
+    pid-head) _lp_sx_err="${P}끝줄 head 자기 변경 patch-id 실패(rc=$rc: $(printf '%s' "$det" | cut -c1-160)) — 판정 불가로 닫지 않는다";;
+    *) _lp_sx_err="${P}main 병합 수를 못 셈(rc=$rc: $(printf '%s' "$det" | cut -c1-120)) — 판정 불가로 닫지 않는다";; esac
+  return 2
 }
 _lp_fetch_pr() {
   local cap out rc
@@ -1365,7 +1353,7 @@ if [ "$_hrc" -eq 1 ] && [ -n "$_lrow" ]; then
   if [ -n "$PANE" ]; then
     tmux set-option -t "$PANE" -u @zc_v65_active || { echo "FAIL $SEAT — @zc_v65_active 해제 실패(재실행 · 세션 잔존)"; exit 1; }
     tmux kill-session -t "$PANE" || { echo "FAIL $SEAT — kill-session 실패(재실행 · 세션 잔존 · 태그는 해제됨)"; exit 1; }
-    echo "KILLED $SEAT (@zc_v65_active 해제 · 세션 kill · 브랜치 보존)"
+    echo "KILLED $SEAT (@zc_v65_active 해제 · 세션 kill · 브랜치 보존) · $(bash "$HERE/ft-event-check.sh" close "$SEAT" "${CARD:-}" "${PLAN:-}")"   # r1474: 끝 칸 = 재측정 1회(exit 불변)
   fi
   _oc_close
   # r1405: 재실행도 좌석 키로 팩 워크트리를 찾는다(원장 wt=none 으로 닫힌 팩 나노 · 착지 뒤 같은 close 재실행이 정리) — 판정은 reap·kill 앞에서 끝났다
@@ -2258,7 +2246,7 @@ nf_bound "$(nf_cap "$(nf_fixed slots)" 1)" bash "$(dirname "$0")/ft-nano-slots.s
 # 둘 중 하나라도 실패하면 조용히 넘기지 않는다(#0 RULE) — 명부는 이미 지워졌으므로 같은 close 를 다시 부르면 남은 정리만 이어진다(RERUN).
 tmux set-option -t "$PANE" -u @zc_v65_active || { echo "FAIL $SEAT — @zc_v65_active 해제 실패(세션 잔존 · 명부는 삭제됨)"; exit 1; }
 tmux kill-session -t "$PANE" || { echo "FAIL $SEAT — kill-session 실패(세션 잔존 · 태그는 해제됨)"; exit 1; }
-echo "KILLED $SEAT (@zc_v65_active 해제 · 세션 kill · 브랜치 보존)"
+echo "KILLED $SEAT (@zc_v65_active 해제 · 세션 kill · 브랜치 보존) · $(bash "$HERE/ft-event-check.sh" close "$SEAT" "${CARD:-}" "${PLAN:-}")"   # r1474: 끝 칸 = 재측정 1회(exit 불변)
 _oc_close   # r286 + R387 — 위 정의(세션 kill «뒤»)
 # 세션이 사라졌다 — 이제 계획을 실행한다(계보의 다른 세션·cwd 보유가 남아 있으면 계획이 skipped:좌석/cwd 로 대기시킨다)
 [ "$NAMED" != 1 ] && [ -n "$PLAN" ] && [ "${FT_WT_AUTOCLEAN:-1}" != 0 ] && _wt_clean_run   # --wt/--branch 는 자동 실행 0(계획만 · 사람 ! 실행)

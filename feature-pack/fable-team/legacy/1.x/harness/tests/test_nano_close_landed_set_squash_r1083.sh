@@ -31,7 +31,7 @@ printf '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n' > "$T/bin/ft-seat-rea
 cp "$SRC/ft-nano-close.sh" "$SRC/ft-nano-evidence-check.sh" "$SRC/ft-nano-cherry-gate.sh" "$SRC/ft-nano-superseded-check.sh" \
    "$SRC/ft-nano-suspended-check.sh" "$SRC/ft-wt-sweep.sh" "$SRC/ft-team-lib.sh" "$SRC/ft-card-target-lib.sh" "$SRC/ft_git_capped.py" "$SRC/ft_teamset.py" "$SRC/ft_team_lib.py" \
    "$SRC/ft-sheet-events.sh" "$SRC/ft_sheet_events.py" "$SRC/ft_sheet_confirm.py" "$SRC/ft_sheet_key.py" "$SRC/ft_board_env.py" "$SRC/ft_board_mail.py" \
-   "$SRC/ft-approval-equiv.sh" "$SRC/ft_approval_equiv.py" "$T/bin/"
+   "$SRC/ft-approval-equiv.sh" "$SRC/ft_approval_equiv.py" "$SRC/ft-landed-sx.sh" "$T/bin/"   # r1713: S⊂X 3칸 = 공용 ft-landed-sx.sh
 export FT_SHEET_ROOT="$T/sheet-root"; mkdir -p "$FT_SHEET_ROOT/.fable-team/state"
 # 계약 ① «판정기 호출 0» 을 재려면 판정기가 «세는» 존재여야 한다 — 로그만 남기고 rc1(진짜 판정기는 squash 착지 뒤 언제나 NOT-EQUIV 라 rc 로는 못 가른다).
 cat > "$T/bin/ft-approval-equiv.sh" <<'EOF'

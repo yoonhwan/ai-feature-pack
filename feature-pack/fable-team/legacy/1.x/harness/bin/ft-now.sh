@@ -310,10 +310,10 @@ fresh_of() {  # fresh_of <epoch> → 오늘|N일 전
 ev="$EVENTS/$TODAY.tsv"
 if [ -f "$ev" ]; then
   last="$(tail -n 1 "$ev" 2>/dev/null)"
-  rcv="$(printf '%s' "$last" | sed -n 's/.*rc=\([0-9][0-9]*\).*/\1/p' | head -1)"
+  rcv="$(printf '%s\n' "$last" | awk -F'\t' '$5 ~ /^rc=[0-9]+$/ {sub(/^rc=/,"",$5); print $5}')"   # r1474 보정 R3: rc = 5칸(탭)만 · 3 = 판정 불가
   if [ -z "${rcv:-}" ]; then mnote events "오늘" "판정 불가(rc 칸 없음)" 1
   elif [ "$rcv" = 0 ]; then mnote events "오늘" OK 0
-  elif [ "$rcv" = 124 ]; then mnote events "오늘" "판정 불가 rc=124" 1
+  elif [ "$rcv" = 124 ] || [ "$rcv" = 3 ]; then mnote events "오늘" "판정 불가 rc=$rcv" 1
   else mnote events "오늘" "실패 rc=$rcv" 2; fi
 else mnote events "없음" "판정 불가" 1; fi
 if [ -f "$POSTBOOT" ]; then

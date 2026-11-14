@@ -59,7 +59,10 @@ git -C "$WT" checkout -q -b nano/pk; echo x > "$WT/x"; git -C "$WT" add x; git -
 git -C "$WT" push -q origin "nano/pk:main"; git clone -q "$REM" "$ROOT"
 git init -q -b main "$PACK"; git -C "$PACK" config user.name t; git -C "$PACK" config user.email t@t
 echo p > "$PACK/p"; git -C "$PACK" add -A; git -C "$PACK" commit -qm S; S="$(git -C "$PACK" rev-parse HEAD)"
-git -C "$PACK" update-ref refs/remotes/origin/main "$S"
+# r1713 A1: close-due 가 팩 origin main 을 fetch 한다 — 팩 origin = 임시 bare · pack_main <sha> = 원격 main 과 remote-tracking 을 같이 옮긴다
+git init -q --bare -b main "$T/rem/pack.git"; git -C "$PACK" remote add origin "$T/rem/pack.git"
+pack_main() { git -C "$PACK" push -q --force origin "$1:refs/heads/main" 2>/dev/null; git -C "$PACK" update-ref refs/remotes/origin/main "$1"; }
+pack_main "$S"
 echo q > "$PACK/q"; git -C "$PACK" add -A; git -C "$PACK" commit -qm S2; S2="$(git -C "$PACK" rev-parse HEAD)"
 IND="$WT/design/teams/harness/indices"; mkdir -p "$IND/아카이브/2026-11"
 card() { printf '# 인덱스: card1\n## 상태\n- 세트: %s · 시험: bash x rc=0 · 이슈: 0\n' "$1" > "$IND/아카이브/2026-11/card1.md"; git -C "$WT" add -A; git -C "$WT" commit -qm "card $1"; git -C "$WT" push -q origin HEAD:main; }
