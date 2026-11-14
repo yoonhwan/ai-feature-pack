@@ -40,6 +40,7 @@ projection, journal, record = (_load(os.path.join("core", name + ".py"), "ft2_la
                                for name in ("projection", "journal", "record"))
 models = _load(os.path.join("tools", "models.py"), "ft2_launch_models")
 planner = _load(os.path.join("adapters", "pi", "launch_plan.py"), "ft2_launch_plan")
+goal_close = _load(os.path.join("tools", "goal_close.py"), "ft2_launch_goal_close")   # r1947: 첫 본문 가운데 구 = 모듈 판
 
 
 def parse(argv):
@@ -134,7 +135,8 @@ def open_seat(given):
     row = planner.card_row(root, team)               # r1895: 첫 본문 카드 경로 · 표 행 없음 = 거절(바깥 호출 0)
     if row is None:
         return dict(result=REFUSED, work=work, reason="카드 루트 표 행 없음 — 바깥 호출 0"), 1
-    mark, body = planner.first_body(env, row)
+    tail = goal_close.phrase(root, team, "nano", "first_body_tail", {"da": planner.da_seat(root, team)})   # r1947: 같은 프로세스 1회 · 파일 읽기뿐 · None = 내장 구
+    mark, body = planner.first_body(env, row, tail)
     plan = planner.plan_of(folder, tag, root, team, holder, item["argv"], given.get("worktree"), repo, env, body, base)
     if given.get("dry"):
         return dict(result=OK, dry_run=True, work=work, attempt=attempt, holder=holder, role=item["role"], repo=repo, base=base,

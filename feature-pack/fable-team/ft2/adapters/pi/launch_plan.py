@@ -54,12 +54,13 @@ def da_seat(root, team):
     return seat if isinstance(seat, str) and seat.strip() else None
 
 
-def first_body(env, row):
-    """(body_mark, 첫 본문 1줄) — pi `[messages...]` 첫 메시지 · 카드 = 표의 repo + ref:path 그대로(r1895 · 바깥 호출 0)."""
+def first_body(env, row, tail=None):
+    """(body_mark, 첫 본문 1줄) — pi `[messages...]` 첫 메시지 · 카드 = 표의 repo + ref:path 그대로(r1895 · 바깥 호출 0).
+    tail = goal-close 모듈 가운데 구 + `gc=<판> · `(r1947 · launch.py 가 읽어 넘김) · None = 내장 구 + «모듈 못 읽음» · 끝 = 코드 상수."""
     mark = "[발주] ft2 %s %s@%s" % (env["FT2_TEAM"], env["FT2_WORK"], env["FT2_ATTEMPT"])
     da = da_seat(env.get("FT2_ROOT"), env["FT2_TEAM"])   # r1930: 못 읽으면 옛 길(팀 master) + «DA 좌석 못 읽음»
-    tail = DIRECT % da + BAN if da else "DA 좌석 못 읽음 · 산출·막힘은 팀 master 에 mbox " + LAND
-    return mark, "%s 좌석 %s — 카드 %s %s:%s/대기/%s.md 를 통째로 읽고 그대로 수행 · root = %s · work = %s · gen = ft2_claim 이 돌려준 값 · ft2_claim → ft2_start 부터 · " % (
+    tail = tail + BAN if tail else "ft2_claim → ft2_start 부터 · 모듈 못 읽음 · " + (DIRECT % da + BAN if da else "DA 좌석 못 읽음 · 산출·막힘은 팀 master 에 mbox " + LAND)
+    return mark, "%s 좌석 %s — 카드 %s %s:%s/대기/%s.md 를 통째로 읽고 그대로 수행 · root = %s · work = %s · gen = ft2_claim 이 돌려준 값 · " % (
         mark, env["FT2_HOLDER"], *row, env["FT2_WORK"], env.get("FT2_ROOT"), env["FT2_WORK"]) + tail   # r1930 범위 더함: work = 접미 없는 이름(@aN 은 attempt 칸)
 
 
