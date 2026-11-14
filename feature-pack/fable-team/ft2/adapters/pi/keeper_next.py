@@ -107,6 +107,26 @@ def close(k, team, work, attempt, holder, gen):
     elif out.result == "접수 거부" and seen is None:   # 거부 = 쓰기 0 → 지금처럼 () 영수 1회
         return k.receipt(team, work, attempt, holder, gen)
     return out
+def fill(k, team):
+    """r1913 빈 나노 칸 1장 = gates→choose→submit→assign→deliver→reconcile · 실패 = 1줄 + 원장 waiting 사람 · 원장도 실패 = fill_hold(재시도 0)."""
+    pick, held = choose(k, team) if gates(k, team) else None, k.state.setdefault("fill_hold", {})
+    if not pick or "%s|%s" % (team, pick[0]) in held:
+        return None
+    stem, attempt, nh = pick[0], None, "byz-%s-nano-%s#0" % (team, pick[0][:40])
+    for verb, args, ok in (
+            ("submit", ["--command", "keeper-next-" + stem, "--body", "카드 " + stem], "재부여 0"),
+            ("assign", ["--holder", nh, "--evidence", ",".join(dispatch.Dispatch.REQUIRED_EVIDENCE)], "\0"),
+            ("deliver", ["--mode", "intent"], "전달 의도 없음")):
+        out, rc = cli.run([verb, "--work", stem, "--root", k.root, "--team", team] + args + (["--attempt", attempt] if verb == "deliver" and attempt else []))
+        if verb == "submit":
+            k.fa.remaining(k.root, team, out.get("result"), "카드 " + stem)   # r1886 ⓐ fill submit 도 같은 줄
+        attempt = out.get("attempt") if verb == "assign" else attempt
+        if rc != 0 and ok not in str(out.get("reason")):
+            k.log("HELD-NEXT", team, "fill %s %s rc %s %s %s" % (stem, verb, rc, out.get("result"), str(out.get("reason"))[:60]))
+            verdict = str((ft2_state(k, team) or {}).get("revision"))   # 사람 보류 = 판정 번호 필수 → ft2 revision
+            rc, text, err = k.call(["bash", k.env.get("FT2_CARD_ASSIGN_BIN") or os.path.join(os.path.dirname(k.close_bin or ""), "ft-card-assign-watch.sh"), "record", stem, "waiting", "사람", "verdict", verdict], GIT_S)
+            return None if rc == 0 else held.update({"%s|%s" % (team, stem): k.stamp()}) or k.log("HELD-NEXT", team, "fill %s record rc %s %s · 복구 필요" % (stem, rc, (text or err).strip()[:80]))
+    return reconcile(k, team, "fill:" + stem, attempt, stem, nh, pick)
 def reconcile(k, team, work, attempt, stem, nh, pick):
     """launch(세션 없음) · record(원장 ≠ seat) 를 따로 맞춘다 · 실패 = 단계 + «복구 필요» 1줄(재시도 0) · 그 뒤 handled."""
     seen, led = k.probe(nh), ledger(k, stem)
