@@ -1,6 +1,7 @@
 // ft2 pi 증류 게이트 (r1553) — claude 훅과 같은 축을 pi 좌석에 건다(REC arch273 cb5f7c01d2 (a)). WARN = 매 턴 경고 1줄(막기 0) · BLOCK = 허용 목록 밖 tool_call 막음 · RECV = mbox recv 막음. 문턱은 파일에서만 읽는다(extension 안 숫자 0) — env FT_DISTILL_{WARN,BLOCK,RECV} > <루트>/.fable-team/thresholds.env > ~/.claude/fable-team/thresholds.env. 판정 불가(모델 불명·usage 없음·문턱 못 읽음·좌석 불명) = 막고 팀장 1줄(같은 좌석·같은 이유 세션당 1통).
 // r1565: 판정 불가 중 «ctx usage 없음» 만 r1554 와 같은 3갈래 — ⓐ 세션 첫 판정 = 통과+기록(알림 0) · ⓑ 같은 세션 연속 N(FT_DISTILL_FAILOPEN_MAX 기본 3) = 허용 목록 모드(밖 도구만 막음) + 팀장 1줄(세션당 1통) · ⓗ 턴 시작(before_agent_start) usage 없음 = 주입 0 · 알림 0 · 연속 횟수 불변. ⓔ 읽은 뒤의 null 은 «첫 판정» 이 아니고(연속 횟수에 더한다) 표식을 지우지 않는다 · ⓘ 읽음 = 양수(>0)만 · ⓙ 초기 예외 = 새 대화(startup|new ∧ assistant 0 ∧ compaction 0 ∧ 표식 0)뿐 · ⓛ 그 «표식 0» = 이 좌석 전체 이름(#N)이 적힌 표식 없음(같은 베이스 직전 세대 #N-1 표식은 막지 않는다 · 이름 없는 옛 표식·읽기 실패는 지금처럼 초기 예외 0) · ⓜ 승계 첫 턴 = 주입 0·알림 0·연속 횟수 불변. 모델·문턱·좌석 불명은 지금처럼 즉시 막는다(ⓕ).
 // r1634 = ft 좌석이 아니면 아무것도 하지 않는다 — 첫 갈래 = allow(rule not-seat) · 도구 차단 0 · 팀장 알림 0 · 표식 쓰기 0 · misses 증가 0. 좌석 판정 = FT_SEAT ∨ (tmux 세션명 == <루트>/.fable-team/seats*.json 키 «#N 뺀 이름») · 좌석 안의 판정 불가·fail-closed 는 그대로.
+// r1637 = 좌석 안 판정 불가(모델·문턱·좌석 이름·usage 없음 연속 N/읽은 뒤) = 좁은 차단 1갈래 — bash mbox recv 만 막음(undecidable-recv) · 읽기 전용(readOnly)·ask_user = 통과(undecidable-readonly) · 그 밖 = 통과+stderr 1줄(undecidable-pass) · 팀장 알림은 그대로 세션당 1통. 턴 시작(before_agent_start) = 판정 불가·block 은 주입 0(stderr 1줄) · warn-line 만 세션당 1회 주입.
 // 대상 = model 이 claude 계열인 pi 좌석만(gpt·gemini·deepseek = 판정 0). 알림 = FT_MBOX 명령 + seats*.json 현역 master 행. 허용 목록은 claude 훅보다 넓다(mbox handover·ready·close-check) — 증류 마무리가 막히지 않게. 증류 미완 표식 = <루트>/.fable-team/state/pi-distill-pending/<좌석 베이스> 1개 · 덮어쓰기 0 · 닫는 사건 = 후계 좌석(같은 베이스 · 다른 #N)의 첫 판정 1개 · 같은 좌석은 압축으로 ctx 가 줄어도 유지(arch 확인 · DA R3).
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -175,6 +176,15 @@ function markPending(root: string | null, seat: string, tokens: number): string 
   try { fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, body, { flag: "wx" }); return ""; }
   catch (e) { return (e as any)?.code === "EEXIST" ? "" : `상태 파일 쓰기 실패: ${e}`; }
 }
+const RO_TOOL = new Set(["read", "grep", "find", "ls", "ask_user"]), RO_CMD = new Set(["ls", "find", "grep", "rg", "cat", "head", "tail", "wc", "echo", "printf", "pwd", "which", "stat", "file"]);
+const RO_SUB: Record<string, string[]> = { git: ["status", "log", "diff", "show", "rev-parse", "branch"], tmux: ["capture-pane", "display-message", "list-panes", "list-sessions", "has-session"] };
+const roFrag = (frag: string): boolean => { // 조각 1개 = 읽기 전용 낱말로 시작 · 리다이렉트 0 · find 의 실행·삭제 옵션 0 · mbox.sh peek
+  const t = /[<>]/.test(mask(frag)) ? null : words(frag.trim()); if (!t) return false; if (!t.length) return true;
+  const [a, b, c] = t[0] === "bash" ? t.slice(1) : t;
+  return t[0] !== "bash" && RO_CMD.has(a) ? !(a === "find" && t.some((w) => /^-(?:exec|execdir|ok|okdir|delete|fprint|fprintf|fls)$/.test(w))) : (Object.hasOwn(RO_SUB, a) && RO_SUB[a].includes(b)) || (MBOX.includes(path.basename(a ?? "")) && b === "peek" && !!c);
+};
+/** r1637 읽기 전용 판정 — 도구 read·grep·find·ls·ask_user · bash 는 splitTop 조각 전부가 roFrag(명령치환·백틱 = 거짓). */
+export const readOnly = (input: GateInput): boolean => input.tool !== "bash" ? RO_TOOL.has(input.tool) : !/\$\(|`/.test(String(input.command ?? "")) && splitTop(String(input.command ?? "")).every((p, i) => i % 2 === 1 || roFrag(p));
 const toolAllowed = (input: GateInput, root: string | null): boolean => input.tool === "read" || input.tool === "ask_user" || (input.tool === "bash" ? bashAllowed(input.command, root) : (input.tool === "write" || input.tool === "edit") && pathAllowed(input.path, root)); // 허용 목록 = 판정 불가 허용 목록 모드(ⓑ)와 ctx ≥ 차단선이 «같은» 함수를 쓴다
 /** 한 tool_call 판정 — claude 훅의 warn·block·recv 세 축 + 판정 불가 fail-closed. */
 export function judge(input: GateInput): Verdict {
@@ -184,18 +194,21 @@ export function judge(input: GateInput): Verdict {
   const k = typeof input.tokens === "number" && input.tokens > 0 ? input.tokens : 0, stored = seatIn(state);
   const key = seat || "unknown", own = fs.existsSync(state ?? "/nonexistent") && (stored === seat || !stored), fresh = (input.session?.fresh ?? newConversation(input.session?.reason, input.session?.entries)) && !own; if (k > 0) { seenUsage.set(key, true); misses.delete(key); } // ⓙ 초기 예외 = 새 대화 ∧ 표식 없음 · ⓛ «표식 있음» = 이 좌석(#N) 몫이거나 이름 없는 옛 표식(직전 세대 #N-1 표식은 승계 첫 턴을 막지 않는다) · ⓓⓘ 읽음 = 양수만 · 읽으면 연속 0
   const why = !model ? "모델 불명" : !/claude/i.test(model) ? "" : !th ? `문턱 못 읽음(${K.warn}/${K.block}/${K.recv})` : !seat ? "좌석 이름 못 읽음(TMUX_PANE·FT_SEAT)" : !k ? "ctx usage 없음" : ""; // ⓕ 좌석 불명을 usage 초기 예외(ⓐⓗ)보다 먼저 — 좌석이 없으면 팀장 알림·표식 경로가 전부 불명이다(DA R1)
-  const missBlock = (): Verdict => { const bad = notifyTeam(input, env, seat || "unknown", root, why); return { action: "block", rule: "undecidable", reason: `증류 판정 불가 = 막음 — ${why}${bad ? ` · ${bad}` : ""}` }; };
+  const narrow = (n = ""): Verdict => { // r1637 ⓐⓑⓒ 좁은 차단 1갈래 — recv 만 막음
+    const bad = notifyTeam(input, env, seat || "unknown", root, why); const tail = `${n ? ` · ${n}` : ""}${bad ? ` · ${bad}` : ""}`;
+    if (input.tool === "bash" && isRecv(input.command)) return { action: "block", rule: "undecidable-recv", reason: `증류 판정 불가 = 새 일 수락(mbox recv) 막음 — ${why}${tail} · peek·읽기·ask_user 는 통과` };
+    return readOnly(input) ? { action: "allow", rule: "undecidable-readonly", reason: `증류 판정 불가 · 읽기 전용 통과 — ${why}${tail}` } : { action: "allow", rule: "undecidable-pass", reason: `증류 판정 불가 · 통과+기록 — ${why}${tail}` };
+  };
   if (why === "ctx usage 없음") { // r1565 — 세 갈래: 첫 판정 통과(ⓐ) · 연속 N 허용 목록 모드(ⓑ) · 턴 시작 무주입(ⓗ)
     const seen = seenUsage.get(key) === true, n = (misses.get(key) ?? 0) + 1, turn = input.tool === "turn", max = Number(env.FT_DISTILL_FAILOPEN_MAX ?? envFiles(env, root).map((f) => f?.FT_DISTILL_FAILOPEN_MAX).find((v) => v !== undefined) ?? 3) || 3; // r1554 와 같은 키(env > 파일) · 기본 3
     if (turn && !seen && fresh) return { action: "allow", rule: "undecidable-turn", reason: `턴 시작 ${why} — 메시지 주입 0 · 팀장 알림 0 · 연속 횟수 불변` }; // ⓗⓚ
     misses.set(key, n);
-    if (turn || (!seen && !fresh)) return missBlock(); // ⓙ 초기 예외 0(새 대화 아님) = 지금 동작 · ⓔ 읽은 뒤의 null 은 «첫 판정» 이 아니다
+    if (turn || (!seen && !fresh)) return narrow(`연속 ${n}/${max}`); // ⓙ 초기 예외 0(새 대화 아님) = 지금 동작 · ⓔ 읽은 뒤의 null 은 «첫 판정» 이 아니다
     if (seen && input.tool === "bash" && isRecv(input.command) && fs.existsSync(state ?? "/nonexistent")) return { action: "block", rule: "recv-gate", reason: `ctx usage 없음(읽은 뒤) · 증류 미완 표식 있음 — 새 일 수락 0: peek 은 허용, 승계(ft-successor-open.sh·mbox handover/ready)부터` }; // ⓔ 표식 있으면 읽은 뒤의 null 도 «새 일» 을 받지 않는다
     if (!seen && n < max) return { action: "allow", rule: n === 1 ? "undecidable-first" : "undecidable-pass", reason: `증류 판정 불가 = 통과 — ${why} · 연속 ${n}/${max}` }; // ⓐ 첫 판정(n=1) · ⓑ N 전까지
-    const bad = notifyTeam(input, env, key, root, why), ok = toolAllowed(input, root), tail = bad ? ` · ${bad}` : ""; // ⓔ 읽은 뒤의 null · 연속 N 도달 = «통과 0» 허용 목록 모드(ⓑⓒ)
-    return ok ? { action: "allow", rule: "undecidable-allowlist", reason: `증류 판정 불가 ${n}/${max} 연속 = 허용 목록 모드 — 증류 도구라 통과${tail}` } : { action: "block", rule: "undecidable-allowlist", reason: `증류 판정 불가 ${n}/${max} 연속 = 허용 목록 모드 — 도구 «${input.tool}» 는 허용 목록 밖${tail}` };
+    return narrow(`연속 ${n}/${max}`); // ⓔ 읽은 뒤의 null · 연속 N 도달 = r1637 좁은 차단(허용 목록 모드 대체)
   }
-  if (why) return missBlock(); // ⓕ 모델·문턱·좌석 불명 = 지금처럼 즉시 막음(이번 변경 밖)
+  if (why) return narrow(); // ⓕ 모델·문턱·좌석 불명 = 즉시 r1637 좁은 차단
   if (!/claude/i.test(model)) return { action: "allow", rule: "model-out-of-scope", reason: `${model} = 증류 게이트 대상 아님(gpt·gemini·deepseek 통과)` };
   const lines = th as Lines;
   const legacy = fs.existsSync(state ?? "/nonexistent") && !stored ? "표식에 좌석 이름 없음(옛 파일) — 자동으로 닫지 않는다" : ""; // 손 0 · 사람이 확인
@@ -220,8 +233,8 @@ const usageOf = (ctx: any): number | null => { try { const u = ctx?.getContextUs
 const modelOf = (ctx: any): string => String(ctx?.model?.id ?? ctx?.model?.model ?? ctx?.model?.name ?? "");
 const entriesOf = (ctx: any): unknown[] | undefined => { try { const e = ctx?.sessionManager?.getEntries?.(); return Array.isArray(e) ? e : undefined; } catch { return undefined; } };
 export default function distillGate(pi: any): void {
-  let reason = "", fresh = false; // ⓙ session_start reason · 이번 턴이 «새 대화» 인가(tool_call 때는 assistant 메시지가 이미 있어 턴 시작에 잰다)
-  pi.on("session_start", (event: any) => { reason = String(event?.reason ?? ""); });
+  let reason = "", fresh = false, warned = false; // warned = r1637 ⓓ warn-line 주입은 세션당 1회 // ⓙ session_start reason · 이번 턴이 «새 대화» 인가(tool_call 때는 assistant 메시지가 이미 있어 턴 시작에 잰다)
+  pi.on("session_start", (event: any) => { reason = String(event?.reason ?? ""); warned = false; }); // r1637 DA HOLD 보정 · 새 세션 = warn-line 다시 1회
   pi.on("tool_call", (event: any, ctx: any) => {
     const v = judge({ tool: String(event?.toolName ?? ""), command: event?.input?.command, path: event?.input?.path, tokens: usageOf(ctx), model: modelOf(ctx), cwd: ctx?.cwd, session: { reason, fresh } });
     if (v.action !== "block") { if (/^undecidable/.test(v.rule)) console.error(`ft2 distill-gate: ${v.rule} ${v.reason}`); return undefined; } // ⓐ 판정 불가 통과도 기록 1줄(no_silent_fallback · 채널 = 차단과 같은 stderr)
@@ -230,6 +243,8 @@ export default function distillGate(pi: any): void {
   pi.on("before_agent_start", (_event: any, ctx: any) => {
     fresh = newConversation(reason, entriesOf(ctx)); // ⓗⓙ 턴 시작 = 이 순간에만 «assistant 0» 을 볼 수 있다
     const v = judge({ tool: "turn", tokens: usageOf(ctx), model: modelOf(ctx), cwd: ctx?.cwd, session: { reason, fresh } });
-    return v.action === "allow" ? undefined : { message: { customType: "ft2-distill-gate", content: v.reason, display: true } };
+    if (v.action === "warn" && !warned) { warned = true; return { message: { customType: "ft2-distill-gate", content: v.reason, display: true } }; }
+    if (v.action === "block" || /^undecidable/.test(v.rule)) console.error(`ft2 distill-gate: turn ${v.rule} ${v.reason}`); // r1637 ⓓ 판정 불가·block = 주입 0 · stderr 1줄
+    return undefined;
   });
 }
