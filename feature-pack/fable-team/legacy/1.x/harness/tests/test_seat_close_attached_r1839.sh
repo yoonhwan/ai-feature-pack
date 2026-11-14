@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test_seat_close_attached_r1839.sh — r1839: 사람 화면이 붙은 세션은 kill 0 · reap 0 · HELD rc 3 (카드 반례 ① ② ③ ⑨ · 변이 M1 M2 M3 M7).
+# test_seat_close_attached_r1839.sh — r1839: 사람 화면이 붙은 세션은 kill 0 · reap 0 · HELD rc 3 (카드 반례 ① ② ③ ⑨ · 변이 M1 M2 M3 M7). ① = r1976 의도 변경(attached N → NOTE 뒤 닫기)
 #   대역만: 가짜 tmux(PATH 앞 · 인자 기록 · `=이름:` 에만 attached 숫자 · `=이름` = rc0 빈 줄 = 실제 tmux 꼴) · reap 스텁 · 임시 명부. 실 tmux·명부 0 · sleep 0
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY TMUX_PANE
@@ -27,7 +27,7 @@ run() {  # run <attached 출력> <rc> [bin 폴더] → out rc kills reaps tgt
   out="$(cd "$TMP/wt" && bash "${3:-$BIN}/ft-seat-close.sh" "$S" --reason "r1839 시험" --seats "$TMP/cf/seats.json" 2>/dev/null)"; rc=$?
   kills="$(grep -c '^kill-session' "$TMP/tmux.log")"; reaps="$(cat "$TMP/reap.log" 2>/dev/null | wc -l | tr -d ' ')"
   tgt="$(grep '^display-message.*session_attached' "$TMP/tmux.log" | awk '{print $4}')"; }
-c1() { run 1 0 "$@"; chk "① attached=1 → rc3 · kill 0 · reap 0 · HELD 사람 화면" "$rc $kills $reaps $(grep -c "^HELD $S 사람 화면 attached=1" <<<"$out")" "3 0 0 1"; }
+c1() { run 1 0 "$@"; chk "① [의도 변경 r1976] attached=1 → NOTE 1줄 → reap → kill 1 → rc0(옛 기대 = rc3 HELD kill 0)" "$rc $kills $reaps $(grep -c "^NOTE $S 사람 화면 attached=1" <<<"$out")" "0 1 2 1"; }
 c2() { run "" 1 "$@"; chk "② display-message rc1 → rc3 · kill 0 · reap 0 · 판정 불가" "$rc $kills $reaps $(grep -c "^HELD $S 판정 불가 attached" <<<"$out")" "3 0 0 1"; }
 c3() { run 0 0 "$@"; chk "③ attached=0 → reap → kill 1 → CLOSED-SESSION rc0 · ⑨ 대상 =<세션>:" "$rc $kills $reaps $(grep -c "^CLOSED-SESSION $S" <<<"$out") $tgt" "0 1 2 1 =$S:"; }
 echo "== 반례"; c1; c2; c3

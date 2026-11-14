@@ -38,26 +38,23 @@ def _att_targets(w):     # ⑨ 판정 조회 대상 = `=<세션>:`
     return [a[a.index("-t") + 1] for a in w.tmux("display-message") if ATT in a]
 
 
-def c4(w):    # ④ 유휴·턴 끝 · attached=2 → kill 0 · 영수 0 · HELD 1 → 다음 바퀴 attached=0 → kill 1 · 영수 1
+def c4(w):    # ④ [의도 변경 r1976] 유휴·턴 끝 · attached=2 → NOTE 1 → kill 1 · 영수 1 (옛 기대 = HELD · kill 0 · 다음 바퀴 attached=0 에 닫힘)
     holder = _close_world(w, 2)
-    lines = w.round()
-    assert sum(x.startswith("HELD harness %s %s" % (W, holder)) and "사람 화면 attached=2" in x for x in lines) == 1
-    assert w.tmux("kill-session") == [] and w.kinds("close_receipt") == 0 and _att_targets(w) == ["=" + holder + ":"]
-    assert not [x for x in lines if x.startswith("RECEIPT")]
-    _set(w, att={holder: 0})
-    assert [x.split()[0] for x in w.round() if W in x] == ["CLOSED-SESSION", "RECEIPT"]
-    assert len(w.tmux("kill-session")) == 1 and w.kinds("close_receipt") == 1
+    assert [x.split()[0] for x in w.round() if W in x] == ["NOTE", "CLOSED-SESSION", "RECEIPT"]
+    assert len(w.tmux("kill-session")) == 1 and w.kinds("close_receipt") == 1 and _att_targets(w) == ["=" + holder + ":"]
 
 
 def c5(w):    # ⑤ display-message 출력 `abc` → unknown · kill 0 · ⑤′ rc 1 → unknown · kill 0
     _close_world(w, "abc")
-    assert any("판정 불가 attached" in x for x in w.round()) and w.tmux("kill-session") == [] and w.kinds("close_receipt") == 0
+    lines = w.round()   # r1976 — 영수 시도 줄 0 도 본다(M4 대상이 ④ → ⑤ 로 옮겨 옴)
+    assert any("판정 불가 attached" in x for x in lines) and w.tmux("kill-session") == [] and w.kinds("close_receipt") == 0
+    assert not [x for x in lines if x.startswith("RECEIPT")]
     _set(w, att_rc=1)
     assert any("판정 불가 attached" in x for x in w.round()) and w.tmux("kill-session") == []
 
 
-def c10(w):   # ⑩ attached=1 바퀴 뒤 state.open[holder] 가 같은 since 로 남음(지우기 0)
-    holder = _close_world(w, 1)
+def c10(w):   # ⑩ [의도 변경 r1976] 판정 불가 attached 바퀴 뒤 state.open[holder] 가 같은 since 로 남음(지우기 0) · 옛 대상 = attached=1(이제 닫힘 = ④)
+    holder = _close_world(w, "abc")
     w.round()
     def since():
         return w.keeper().read_json(str(w.state / "ft2-keeper" / "state.json")).get("open", {}).get(holder, {}).get("since")
@@ -66,11 +63,20 @@ def c10(w):   # ⑩ attached=1 바퀴 뒤 state.open[holder] 가 같은 since �
     assert since() == first == kw.T0
 
 
-def c6(w):    # ⑥ keeper_stall Working 아님 · attached=1 → kill 0 · assign·deliver·launch 0 · reassigned 0 · 크리티컬 0
+def c6(w):    # ⑥ [의도 변경 r1976] keeper_stall Working 아님 · attached=1 → NOTE 1 → kill → assign → deliver → launch (옛 기대 = HELD · 재배정 0)
     w.seat(), w.round()
     _set(w, att={st.H0: 1})
     lines = w.round(11 * M)
-    assert any(x.startswith("HELD harness %s %s" % (st.W, st.H0)) and "사람 화면 attached=1" in x for x in lines)
+    assert sum(x.startswith("NOTE harness %s 사람 화면 attached=1" % st.H0) for x in lines) == 1
+    assert any(x.startswith("REASSIGNED harness %s %s" % (st.W, st.H0)) for x in lines)
+    assert len(w.tmux("kill-session")) == 1 and len(w.tmux("new-session")) == 1 and w.kinds("dispatch") == 2
+
+
+def c6u(w):   # ⑥′ r1976 keeper_stall 판정 불가 attached → HELD · kill 0 · assign·deliver·launch 0 · reassigned 0 · 크리티컬 0 (옛 ⑥ 의 차단 기대를 unknown 으로 옮김)
+    w.seat(), w.round()
+    _set(w, att={st.H0: "abc"})
+    lines = w.round(11 * M)
+    assert any(x.startswith("HELD harness %s %s" % (st.W, st.H0)) and "판정 불가 attached" in x for x in lines)
     assert w.tmux("kill-session") == [] and w.tmux("new-session") == [] and w.kinds("dispatch") == 1
     assert w.k.state["reassigned"] == {} and w.notes() == []
 
@@ -88,15 +94,15 @@ def c9(w):    # ⑨ keeper_close attached=0 → 지금처럼 kill·영수 · 판
     assert _att_targets(w) == ["=" + holder + ":"] and len(w.tmux("kill-session")) == 1
 
 
-CLOSE, STALL = {"④": c4, "⑤": c5, "⑨": c9, "⑩": c10}, {"⑥": c6, "⑦": c7}
+CLOSE, STALL = {"④": c4, "⑤": c5, "⑨": c9, "⑩": c10}, {"⑥": c6, "⑥′": c6u, "⑦": c7}
 KC, KS = "adapters/pi/keeper_close.py", "adapters/pi/keeper_stall.py"
 MUTANTS = {"M2": (KC, 'return "unknown · %s %s" % (rc, err)', 'return "free"', c5),
            "M4": (KC, "if self.held_attached(team, work, holder):\n                return",
-                  "if self.held_attached(team, work, holder):\n                return self.receipt(team, work, attempt, holder, gen)", c4),
+                  "if self.held_attached(team, work, holder):\n                return self.receipt(team, work, attempt, holder, gen)", c5),   # 의도 변경 r1976 — 대상 사례 ④ → ⑤(attached 는 이제 HELD 아님)
            "M3": (KC, "if n >= 1:", "if n > 1:", c6),
-           "M5": (KS, "if k.held_attached(team, work, holder):", "if False:", c6),
+           "M5": (KS, "if k.held_attached(team, work, holder):", "if False:", c6u),   # 의도 변경 r1976 — ⑥ → ⑥′
            "M6": (KS, "if k.held_attached(team, work, holder):\n            return",
-                  "if k.held_attached(team, work, holder):\n            return self.stop(team, work, attempt, \"att\", \"x\")", c6),
+                  "if k.held_attached(team, work, holder):\n            return self.stop(team, work, attempt, \"att\", \"x\")", c6u),   # 의도 변경 r1976 — ⑥ → ⑥′
            "M7c": (KC, '"=" + seat + ":", ', '"=" + seat, ', c9),
            "M7s": (KC, '"=" + seat + ":", ', '"=" + seat, ', c7),
            "M8": (KC, "if self.held_attached(team, work, holder):\n                return",
