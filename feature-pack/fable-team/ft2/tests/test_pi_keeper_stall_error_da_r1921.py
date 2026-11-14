@@ -36,7 +36,8 @@ def test_r2_normal_unsure_blocks_error_wake(tmp_path, monkeypatch):   # R2 ① �
     assert len(w.tmux("send-keys")) == 3 and w.k.state.get("err_woke", {}) == {}
 
 
-def test_r2_error_unsure_blocks_normal_wake(tmp_path, monkeypatch):   # R2 ② 오류 깨움 도달 미확인 → 정상 턴 복귀 15분 → 키 추가 0
+def test_r2_error_unsure_blocks_normal_wake(tmp_path, monkeypatch):   # R2 ② 오류 깨움 도달 미확인 → 정상 턴 복귀 15분 → woke 0
+    # [r1960 의도 변경 · DA APPROVE-DESIGN #301612 ④] 옛 단언 «키 추가 0(send-keys 3)» → after_s 뒤 정상·오류 공통 재깨움 1회(send-keys 6)
     w = B.World(tmp_path, monkeypatch)
     R._seat(w, "503 Service Unavailable", 121)
     _noecho(w)
@@ -44,4 +45,6 @@ def test_r2_error_unsure_blocks_normal_wake(tmp_path, monkeypatch):   # R2 ② �
     assert len(w.tmux("send-keys")) == 3 and w.k.state.get("err_woke", {}) == {}
     w.session(w.tree(), 1 * B.M)
     w.round(17 * B.M)
-    assert len(w.tmux("send-keys")) == 3 and w.k.state["woke"] == {}
+    assert len(w.tmux("send-keys")) == 6 and w.k.state["woke"] == {}   # r1960 의도 변경
+    w.round(18 * B.M)
+    assert len(w.tmux("send-keys")) == 6   # 같은 rewoke 키 = 두 번째 재깨움 0

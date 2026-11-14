@@ -241,14 +241,15 @@ def r3b(w):  # R3-b 옛 intent 열림 아님 / worktree 미커밋 변경 / argv 
         assert len(v.notes()) == 1 and field in v.notes()[0], (sub, v.notes())
 
 
-def r1b(w):  # 보정1 R1(DA#10 #294192) — 깨움 문구 도달 확인 3회 실패 → woke 기록 0 · 11분 뒤 kill·dispatch·launch 0 · 판정 불가 보고만
+def r1b(w):  # 보정1 R1(DA#10 #294192) — 깨움 문구 도달 확인 3회 실패 → woke 기록 0 · 11분 뒤 kill·dispatch·launch 0
+    # [r1960 의도 변경 · DA APPROVE-DESIGN #301612 ④] 옛 단언 «재깨움 0(send-keys 3)» → after_s 뒤 재깨움 1회(send-keys 6) · 재배정 0 은 그대로
     w.seat()
     _put(w.tm, dict(json.loads(w.tm.read_text(encoding="utf-8")), noecho=True))
     assert any("깨움 도달 확인 3회 실패" in x for x in w.round()) and not any(x.startswith("WOKE") for x in w.k.lines)
     assert w.k.state["woke"] == {} and len(w.tmux("send-keys")) == 3
     lines = w.round(11 * M)
     assert w.tmux("kill-session") == [] and w.kinds("dispatch") == 1 and w.tmux("new-session") == []
-    assert any("판정 불가" in x and "깨움 도달 미확인" in x for x in lines) and len(w.tmux("send-keys")) == 3
+    assert any("판정 불가" in x and "깨움 도달 확인 3회 실패" in x for x in lines) and len(w.tmux("send-keys")) == 6   # r1960 의도 변경
 
 
 def c5(w):   # ⑤ 같은 work 두 번째 멈춤(attempt a2) → S3 0 · 쪽지 1 · 같은 날 다시 → 쪽지 0
