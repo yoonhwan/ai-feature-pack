@@ -22,6 +22,8 @@ from press_evidence_verify import (Reject, check_content, check_poller, check_ta
                                    run, same, specs_of, unpaid)
 
 BYZ_SLUG = "secondwindstudio/byz-agents"
+DRY = os.environ.get("FT_LAND_DRY") == "1"   # r1986: ft-merge-land --dry = 같은 판정 · 두 push 자리(빚 기록·상환)만 건너뜀
+DT = " · dry · push 0" if DRY else ""
 
 
 def byz_repo(repo, remote):
@@ -93,9 +95,10 @@ def land(a):
     if rv:
         who = owner(a.root, a.title)
         msg = "press-debt landed=%s pr=%s reverted=%s owner=%s ts=%s" % (a.landing, a.pr, rv, who, time.strftime("%Y-%m-%dT%H:%M:%S"))
-        push(a.repo, a.remote, commit_tree(a.repo, git(a.repo, "mktree", inp="").strip(), msg), "refs/press-debt/%s" % a.landing)
-        print("press 증거 면제 — 정확 역변경(되돌린 %s) · 빚 refs/press-debt/%s · 담당 %s · 복구 뒤 press 1회\npress=revert:%s"
-              % (rv[:10], a.landing[:10], who, rv[:10]))
+        if not DRY:
+            push(a.repo, a.remote, commit_tree(a.repo, git(a.repo, "mktree", inp="").strip(), msg), "refs/press-debt/%s" % a.landing)
+        print("press 증거 면제 — 정확 역변경(되돌린 %s) · 빚 refs/press-debt/%s · 담당 %s · 복구 뒤 press 1회%s\npress=revert:%s"
+              % (rv[:10], a.landing[:10], who, DT, rv[:10]))
         return 0
     good, why = pick(a.repo, a.head, specs)
     if not good:
@@ -104,9 +107,9 @@ def land(a):
     b = cover(a.repo, good, debts)
     if b is None:
         raise Reject(debt_line(a.repo, debts[0]) + " — 판정 2946")
-    for d in debts:   # 상환 = 갚은 묶음 커밋을 가리키는 원격 ref(D7 · 머신 무관)
+    for d in ([] if DRY else debts):   # 상환 = 갚은 묶음 커밋을 가리키는 원격 ref(D7 · 머신 무관) · r1986 dry = push 0
         push(a.repo, a.remote, b["commit"], "refs/press-debt-paid/%s" % d)
-    print(ok_line(b) + (" · 빚 상환 %d" % len(debts) if debts else "") + "\npress=ok:%s:%s" % (b["set"][:10], b["run"]))
+    print(ok_line(b) + (" · 빚 상환 %d" % len(debts) if debts else "") + DT + "\npress=ok:%s:%s" % (b["set"][:10], b["run"]))
     return 0
 
 
