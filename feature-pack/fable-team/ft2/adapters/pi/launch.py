@@ -151,6 +151,8 @@ def open_seat(given):
         return already(read_intent(plan["intent"]), plan)
     if plan["pi_bin"] is None:                    # r1892: 못 찾으면 git·tmux 부르기 전 실패 의도(다시 불러도 바깥 호출 0)
         return failed(plan, env, "pi 없음", "PATH·~/.local/bin 에 pi 없음", repo)
+    if not os.path.isfile(planner.seat_tools()):  # r1905: 좌석 도구 없으면 git·tmux 전 실패(조용한 생략 0)
+        return failed(plan, env, "좌석 도구 없음", "판정 불가 좌석 도구 없음 %s" % planner.seat_tools(), repo)
     for argv, label in planner.checks(repo, base, given.get("repo")):   # A2: 리포(--repo 때만)·기준 ref(늘 · r1780) 확인 — 실패면 아무것도 열지 않는다
         rc, detail = planner.checked(argv, *call(argv, repo, None, GIT_TIMEOUT))
         if rc != 0:

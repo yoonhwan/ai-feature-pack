@@ -24,6 +24,11 @@ def pi_path(env_path):
     return os.path.abspath(found) if found else None
 
 
+def seat_tools():
+    """좌석 도구 확장 = 이 파일 옆 ft2-seat.ts(설치본 루트 기준 · r1905) — pi 는 `-e` 로만 읽는다 · 전역 extensions 쓰기 0."""
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "ft2-seat.ts")
+
+
 def card_row(root, team):
     """카드 루트 행(keeper_next.cards 와 같은 표 · 팀 행 > * 행) → (repo 절대 경로, ref, 카드 폴더) · 없음 = None(r1895)."""
     try:
@@ -51,7 +56,7 @@ def plan_of(folder, tag, root, team, holder, role_argv, worktree, repo, env, bod
             # r1846: 빈 자리 → sparse(출처 = 1.x r835 ft_sparse_patterns · 남의 팀 design 제외) → checkout · 큰 리포도 25초 안
             "sparse": ["git", "-C", path, "sparse-checkout", "set", "--no-cone", "/*", "!/design/teams/*/", "/design/teams/%s/" % team],
             "checkout": ["git", "-C", path, "checkout", "-q"],
-            "tmux": ["tmux", "new-session", "-d", "-s", holder, "-c", path] + pairs + [pi or "pi"] + ["--approve"] + list(role_argv) + [body],
+            "tmux": ["tmux", "new-session", "-d", "-s", holder, "-c", path] + pairs + [pi or "pi"] + ["-e", seat_tools(), "--approve"] + list(role_argv) + [body],
             "pi_bin": pi, "alive": ["tmux", "has-session", "-t", "=" + holder]}   # r1892: new-session rc0 뒤 1회
 
 

@@ -154,7 +154,7 @@ def case_dry(tmp, launcher=LAUNCH):
     assert rc == 0 and out["dry_run"] is True, out
     assert out["argv"]["git"] == ["git", "-C", str(root), "worktree", "add", "--no-checkout", "--detach", str(_worktree(root)), BASE], out["argv"]
     assert out["argv"]["tmux"][:5] == ["tmux", "new-session", "-d", "-s", HOLDER], out["argv"]
-    assert out["argv"]["tmux"].count("-e") == 5, out["argv"]
+    assert out["argv"]["tmux"].count("-e") == 6, out["argv"]   # tmux env 5 + pi 좌석 도구 1(r1905)
     assert out["argv"]["tmux"][-5:-1] == SESSION_ARGV, out["argv"]
     assert sorted(out["env"]) == sorted(SEAT_ENV), out["env"]
     assert _log(fake) == [], _log(fake)
