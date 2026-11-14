@@ -189,3 +189,45 @@ def test_secret_in_target_file_name_rejected_even_if_alias_is_clean(tmp_path):
 def test_check_files_returns_the_checked_bytes(tmp_path):
     got = fg.check_files([put(tmp_path, "a.md", "정상\n")], "C1")
     assert [(c.name, c.data, c.content_type) for c in got] == [("a.md", "정상\n".encode(), "text/markdown")]
+
+
+# ── r1922 — 사람 채널 .html(텍스트 검사)·.png(실재·서명·1 MiB) 허용 ──
+PNG = b"\x89PNG\r\n\x1a\n"
+
+
+def test_clean_html_passes_on_human_and_secret_html_rejected(tmp_path):
+    got = fg.check_files([put(tmp_path, "a.html", "<p>평범</p>\n")], "C1", human=True)
+    assert got[0].content_type == "text/html"
+    with pytest.raises(pg.PostGuardError, match="묶음1") as e:
+        fg.check_files([put(tmp_path, "b.html", SECRET)], "C1", human=True)
+    assert "xoxb" not in str(e.value)
+
+
+def test_real_png_passes_on_human_with_same_bytes(tmp_path):
+    raw = PNG + b"\x00body"
+    got = fg.check_files([put(tmp_path, "a.png", raw, "wb")], "C1", human=True)
+    assert [(c.data, c.content_type) for c in got] == [(raw, "image/png")]
+
+
+@pytest.mark.parametrize("raw", [b"plain text\n", b"%PDF-1.4 x"])
+def test_png_name_without_signature_rejected_on_human(tmp_path, raw):
+    with pytest.raises(pg.PostGuardError, match="PNG 아님"):
+        fg.check_files([put(tmp_path, "a.png", raw, "wb")], "C1", human=True)
+
+
+def test_png_over_one_mib_rejected_exactly_at_limit_passes(tmp_path):
+    fg.check_files([put(tmp_path, "ok.png", PNG.ljust(fg.MAX_BYTES, b"a"), "wb")], "C1", human=True)
+    with pytest.raises(pg.PostGuardError, match="1 MiB"):
+        fg.check_files([put(tmp_path, "big.png", PNG.ljust(fg.MAX_BYTES + 1, b"a"), "wb")], "C1", human=True)
+
+
+@pytest.mark.parametrize("alias,target,raw", [
+    ("ok.png", "secret.md", SECRET.encode()),
+    ("ok.md", "x.png", PNG + b"body"),
+    ("ok.html", "x.pdf", b"%PDF-1.4"),
+])
+def test_alias_and_target_of_different_kind_rejected_on_human(tmp_path, alias, target, raw):
+    link = tmp_path / alias
+    link.symlink_to(put(tmp_path, target, raw, "wb"))
+    with pytest.raises(pg.PostGuardError, match="내용 검사 불가 종류"):
+        fg.check_files([str(link)], "C1", human=True)
