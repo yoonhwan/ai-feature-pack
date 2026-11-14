@@ -71,7 +71,11 @@ lc_one() {  # <라벨> <running|exited0|absent>
 cmp_one() {  # <bin 안 파일 이름> — LIVE_BIN ↔ 팩 bin
   local f="$1" lb="${FT_EVENT_LIVE_BIN:-}" pb="${FT_EVENT_PACK_BIN:-}" c r rc
   case "$f" in */*|.|..) _verdict "$f" FAIL "이름 꼴(경로 금지)"; return;; esac
-  [ -n "$lb" ] || { c="$(comm_dir)" && lb="${c%/*}/bin"; }
+  if [ -z "$lb" ] && c="$(comm_dir)"; then   # r1474 보정 R2: <루트>/LIVE_BIN 첫 줄 → 그 파일이 없을 때만 옛 bin
+    if [ -f "${c%/*}/LIVE_BIN" ]; then lb="$(sed -n '1p' "${c%/*}/LIVE_BIN" 2>/dev/null | tr -d '\r')"
+      case "$lb" in /*) [ -d "$lb" ] || { _verdict "$f" NA "LIVE_BIN 못 풂(폴더 없음)"; return; };; *) _verdict "$f" NA "LIVE_BIN 못 풂(빈 값·상대경로)"; return;; esac
+    else lb="${c%/*}/bin"; fi
+  fi
   [ -n "$pb" ] || { r="$(ft_harness_root "$HERE" 2>/dev/null)" && pb="$r/bin"; }
   [ -n "$lb" ] && [ -n "$pb" ] || { _verdict "$f" NA "LIVE_BIN·팩 bin 못 풂"; return; }
   [ -f "$pb/$f" ] || { _verdict "$f" NA "팩 파일 없음"; return; }
@@ -84,7 +88,7 @@ sess() {  # <좌석> <있어야 1|없어야 0>
   o="$(X "$TMUXC" has-session -t "=$1" 2>&1 </dev/null)"; rc=$?
   if [ "$rc" = 0 ]; then
     if [ "$2" = 1 ]; then _verdict 세션 OK; else _verdict 세션 FAIL 남음; fi
-  elif [ "$rc" = 1 ] && [[ "$o" == *"can't find session"* || "$o" == *"no server running"* || "$o" == *"error connecting"* ]]; then
+  elif [ "$rc" = 1 ] && [[ "$o" == *"can't find session"* || "$o" == *"no server running"* ]]; then   # 없음 증거 = 이 둘뿐(r1474 보정 R1 · 권한 거부 등 = 판정 불가)
     if [ "$2" = 1 ]; then _verdict 세션 FAIL 없음; else _verdict 세션 OK; fi
   else _verdict 세션 NA "" "$rc"; fi
 }
@@ -98,7 +102,7 @@ rec() {  # <사건> <대상> <결과> <rc> <요약>
   local LC_ALL=en_US.UTF-8 d="${FT_EVENT_DIR:-}" c="" day f cut x s
   [ -n "$d" ] || { c="$(comm_dir)" && d="${c%/*}/state/events"; }
   day="$(date -r "$NOW" +%F 2>/dev/null || date -d "@$NOW" +%F)"; f="$d/$day.tsv"
-  s="$(printf '%s' "$5" | tr '\t\n' '  ')"; s="${s:0:120}"
+  s="$(printf '%s' "$5" | tr '\t\n' '  ')"; s="${s//rc=/rc:}"; s="${s:0:120}"   # r1474 보정 R3: 줄 안 «rc=» = 5칸 하나만
   { [ -n "$d" ] && mkdir -p "$d" && if [ ! -f "$f" ]; then   # 그날 첫 쓰기 = 닫는 사건(14일 지난 파일 삭제)
       cut="$(date -r $((NOW - 14*86400)) +%F 2>/dev/null || date -d "@$((NOW - 14*86400))" +%F)"
       for x in "$d"/????-??-??.tsv; do [ -f "$x" ] || continue; [[ "${x##*/}" < "$cut.tsv" ]] && rm -f -- "$x"; done; true
