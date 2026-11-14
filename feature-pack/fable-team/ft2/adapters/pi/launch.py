@@ -43,6 +43,7 @@ models = _load(os.path.join("tools", "models.py"), "ft2_launch_models")
 planner = _load(os.path.join("adapters", "pi", "launch_plan.py"), "ft2_launch_plan")
 goal_close = _load(os.path.join("tools", "goal_close.py"), "ft2_launch_goal_close")   # r1947: 첫 본문 가운데 구 = 모듈 판
 cleaner = _load(os.path.join("adapters", "pi", "launch_cleanup.py"), "ft2_launch_cleanup")   # r1967 ③ 반쪽 치우기
+roster = _load(os.path.join("adapters", "pi", "launch_roster.py"), "ft2_launch_roster")   # r1983 연 좌석 = 팀 명부 행 1개
 
 
 def parse(argv):
@@ -201,10 +202,11 @@ def finish(plan, env, steps, repo, sha, keep):
     if rc != 0:
         return failed(plan, env, "tmux 즉시 종료", "세션 없음 — pi 실행 실패(PATH·인증) 의심 · %s" % (detail or "진단 없음"), repo)
     write_intent(plan["intent"], dict(env, state="opened", role=item["role"], worktree=plan["worktree"], base=base, base_sha=sha, body_mark=mark, at=time.strftime(STAMP)))
+    note = roster.enroll(env, plan["worktree"], planner.card_row(env["FT2_ROOT"], env["FT2_TEAM"]), os.path.dirname(plan["intent"]))   # r1983 opened «뒤» 1회 · 판정 불가여도 열기 결과 그대로
     hook = os.path.join(repo, ".git", "hooks", "post-checkout")   # r1967 ② cairn reconcile = 열기 «뒤» 1회 · 따로 25초 · 실패해도 열기 결과 그대로
     ran = "rc %s" % call([hook, "0" * 40, sha, "1"], plan["worktree"], None, GIT_TIMEOUT)[0] if os.access(hook, os.X_OK) else "hook 없음"
     return dict(result=OK, opened=True, work=env["FT2_WORK"], attempt=env["FT2_ATTEMPT"], holder=env["FT2_HOLDER"],
-                worktree=plan["worktree"], intent=plan["intent"], reconcile=ran), 0
+                worktree=plan["worktree"], intent=plan["intent"], reconcile=ran, roster=note), 0
 
 
 def main(argv):
