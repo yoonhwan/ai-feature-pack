@@ -47,8 +47,8 @@ mkv() {  # mkv <이름> <A> <원문> → VF (BYZ origin/main + DA 판정 가지 
   VF="$B/design/harness/da/VERDICT-$1.md"; mkdir -p "$(dirname "$VF")"
   printf '# 판정 %s\n\n- 승인 sha: %s\n- DA 원문: %s\n- DA 원문 sha256: %s\n- 격리: 세트 %s · rc=0\n' "$1" "$2" "$3" "$(sum256 "$3")" "$2" > "$VF"
   git -C "$B" checkout -q main; cm "$B" "verdict $1" && git -C "$B" push -q origin main && git -C "$B" push -q origin main:refs/heads/docs/da-278062 && git -C "$B" fetch -q origin; }
-card() { CARD="$B/card-$1.md"; printf '# 카드\n\n## 상태\n- 세트: %s · 시험: bash tests/x.sh rc=0 · 이슈: 0\n' "$1" > "$CARD"; cardpub; }
-cardpub() { grep -qx '/card*.md' "$B/.git/info/exclude" || echo '/card*.md' >> "$B/.git/info/exclude"; git -C "$B" update-ref refs/remotes/origin/ops/main-base "$(git -C "$B" commit-tree "$(printf '100644 blob %s\t%s\n' "$(git -C "$B" hash-object -w "$CARD")" "${CARD##*/}" | git -C "$B" mktree)" -m card)"; }   # r1904: 카드 = 원장(FT_ROOT) 안 · 고정 ref origin/ops/main-base 커밋 판
+card() { CARD="$(fx_card_path "$B" "card-$1.md")"; printf '# 카드\n\n## 상태\n- 세트: %s · 시험: bash tests/x.sh rc=0 · 이슈: 0\n' "$1" > "$CARD"; cardpub; }
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/card_ref_fixture.sh"; cardpub() { fx_card_pub "$B" "$CARD"; }   # r1904: 카드 = 원장(FT_ROOT) 안 · 고정 ref origin/ops/main-base 커밋 판 · r1951: 팀 카드 꼴 + 표 harness 행
 mkpr() {  # mkpr <경로> [내용…] → PRSHA(팩 리포 새 커밋)
   git -C "$P" checkout -q -B "prx$RANDOM" main; mkdir -p "$P/$(dirname "$1")"
   { echo "x $RANDOM"; printf '%s\n' "${@:2}"; } >> "$P/$1"; cm "$P" "pr $1"; PRSHA="$(sha "$P" HEAD)"; }

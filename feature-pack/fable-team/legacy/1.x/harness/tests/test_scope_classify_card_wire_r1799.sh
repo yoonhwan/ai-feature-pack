@@ -26,8 +26,8 @@ echo d > "$W/design/x.md"; echo d > "$W/docs/a.md"; printf '#!/bin/sh\n' > "$W/s
 cm "$W" base2; git -C "$W" push -q origin main; BASE="$(sha "$W" HEAD)"
 echo m1 > "$W/m1.txt"; cm "$W" m1; git -C "$W" push -q origin main; git -C "$W" fetch -q origin
 mk() { local br="$1"; shift; git -C "$W" checkout -q -B "$br" "$BASE"; ( cd "$W" && eval "$*" ); cm "$W" "$br"; SHA="$(sha "$W" HEAD)"; git -C "$W" checkout -q main; }
-CARD="$W/card.md"; printf '# 카드\n\n## 구현 범위\n\n- `design/x.md`\n- `scripts/run.sh`\n\n## 상태\n- 2026\n' > "$CARD"
-grep -qx '/card*.md' "$W/.git/info/exclude" || echo '/card*.md' >> "$W/.git/info/exclude"; git -C "$W" update-ref refs/remotes/origin/ops/main-base "$(git -C "$W" commit-tree "$(printf '100644 blob %s\t%s\n' "$(git -C "$W" hash-object -w "$CARD")" "${CARD##*/}" | git -C "$W" mktree)" -m card)"   # r1904: 카드 = 원장(FT_ROOT) 안 · 고정 ref 커밋 판 · 가지 커밋엔 안 들어감(exclude)
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/card_ref_fixture.sh"; CARD="$(fx_card_path "$W" card.md)"; printf '# 카드\n\n## 구현 범위\n\n- `design/x.md`\n- `scripts/run.sh`\n\n## 상태\n- 2026\n' > "$CARD"
+fx_card_pub "$W" "$CARD"   # r1951: 팀 카드 꼴 + 표 harness 행 · r1904: 카드 = 원장(FT_ROOT) 안 · 고정 ref 커밋 판 · 가지 커밋엔 안 들어감(exclude)
 mk din 'git rm -q design/x.md'; D_IN="$SHA"
 mk dcode 'git rm -q scripts/run.sh'; D_CODE="$SHA"
 mk dout 'git rm -q docs/a.md'; D_OUT="$SHA"
