@@ -7,6 +7,7 @@
 #   T4 버림 1 → 팀 master 에 ft-mbox-ring 1통 · 10분 안 재발 0통 · 10분 지나면 1통 더 · master 자신의 포화 = 하네스 master ·
 #      pending < ring 이 되면 표식 삭제(닫는 사건)
 #   T5 좌석 발신 [HIL] 은 도구 알림이 넘쳐도 보존(#273409 꼴)
+#   T7(DA R1 #300019) 동시 ring_after 2개 — ring_alarm_to 뒤 barrier 로 두 sender 를 맞춰도 경보 1통(표식 판독·예약 직렬화)
 #   T6 기존 r1116c 시험 불변 — base(팩 origin/main e2184720)에서 이미 FAIL 3(변이가 안 잡힘 · ⓓ R7 · ⓔ holder ·
 #      ft_teamset TeamPathError · 이 카드 밖) → «FAIL 목록이 그 3개의 부분집합» 이면 PASS(새 FAIL 0)
 # 세 경로를 모두 돈다: comm(mbox.py→mbox_ops.py · 실 send 길) · kit ft-mbox.py · skill ft-mbox.py.
@@ -99,7 +100,33 @@ t5() {
   bad "T5 hil=$(rows_from "$OPS") rows=$(rows_to "$DA")"; return 1
 }
 
-for IMPL in comm kit skill; do t1; t2; t3; t4; t5; done
+t7() {   # DA concurrent-probe 그대로 — 사본의 실 공유 블록을 읽어 실행 · send 는 관측만(큐 쓰기 0)
+  new_env
+  local f; case "$IMPL" in comm) f="$C/mbox_keep.py";; kit) f="$C/ft-mbox-kit.py";; skill) f="$C/ft-mbox-skill.py";; esac
+  local out; out="$(FT_NAME_LINT="$C/ft-name-lint.sh" python3 - "$f" "$FT" <<'PY' 2>&1
+import sys, threading
+from pathlib import Path
+from types import ModuleType
+from concurrent.futures import ThreadPoolExecutor
+path, ft = Path(sys.argv[1]), Path(sys.argv[2])
+block = path.read_text(encoding="utf-8").split("# >>> r912 mbox_keep shared begin", 1)[1].split("\n", 1)[1].split("# <<< r912 mbox_keep shared end", 1)[0]
+m = ModuleType("probe"); m.__file__ = str(path); exec(compile(block, str(path), "exec"), m.__dict__)
+gate, original, sent = threading.Barrier(2), m.ring_alarm_to, []
+def target(fd, to):
+    r = original(fd, to); gate.wait(timeout=3); return r
+m.ring_alarm_to = target
+def send(to, frm, body, force=False): sent.append(to)
+with ThreadPoolExecutor(max_workers=2) as pool:
+    for fu in [pool.submit(m.ring_after, str(ft / "comm"), "byz-planner-da-codex#2", 3, 3, 1, n, send) for n in (1, 2)]:
+        fu.result(timeout=5)
+print("alarms=%d mark=%s" % (len(sent), (ft / "state/ring-full.byz-planner-da-codex").is_file()))
+PY
+)"
+  if [ "$out" = "alarms=1 mark=True" ]; then ok "T7 동시 ring_after 2개(barrier) → 경보 1통 · 표식 1"; return 0; fi
+  bad "T7 $(tr '\n' ' ' <<<"$out" | cut -c1-200)"; return 1
+}
+
+for IMPL in comm kit skill; do t1; t2; t3; t4; t5; t7; done
 IMPL=all
 bash "$HERE/test_mbox_ring_unregistered_successor_r1116c.sh" >"$T/r1116c.out" 2>&1
 new_fail="$(grep '^FAIL ' "$T/r1116c.out" | grep -vE '^FAIL (변이가 안 잡힘|ⓓ R7|ⓔ holder) ' || true)"
