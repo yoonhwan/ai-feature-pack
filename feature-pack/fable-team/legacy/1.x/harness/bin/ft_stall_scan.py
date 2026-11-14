@@ -562,6 +562,29 @@ class Scan:
             lines.append(f"{stamp} WARN auto-close 상태 파일 쓰기 실패: {e}")
         return lines
 
+    def auto_close_da_arch(self, stamp: str) -> list[str]:
+        """r1671 ⓓ — FT_SEAT_AUTO_CLOSE_DA_ARCH=1 일 때만 ft-seat-close-due.sh 의 «갈래=유휴(da|arch)» 줄마다 --close 1회 · 같은 좌석 실패는 같은 턴 끝(end=) 동안 재시도 0 · 꺼짐(기본 0) = 호출 0."""
+        if os.environ.get("FT_SEAT_AUTO_CLOSE_DA_ARCH") != "1":
+            return []
+        due, sf, env = os.environ.get("FT_SEAT_CLOSE_DUE") or str(HERE / "ft-seat-close-due.sh"), self.state_dir / "seat-auto-close.json", {**os.environ, "FT_ROOT": str(self.root)}
+        rc, out = run(["bash", due], env, 25)  # 보정 R1 ⓒ — 목록 1회 전체 25초(도구 안 예산 24초 · 넘친 좌석 = 다음 판)
+        lines = [f"{stamp} 판정 불가 seat-auto-close {x[6:]}" for x in out.splitlines() if x.startswith("판정 불가 ")] + ([] if rc in (0, 3) else [f"{stamp} 판정 불가 seat-auto-close close-due rc={rc} — 닫기 0"])
+        try:
+            tried = json.loads(sf.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            tried = {}
+        for x in [x.split() for x in out.splitlines() if rc in (0, 3) and x.startswith("닫기 차례 ") and "갈래=유휴(" in x]:
+            seat, end = x[2], next((t for t in x if t.startswith("end=")), "")
+            if tried.get(seat) != end:
+                crc, cout = run(["bash", due, "--close", seat], env, 25)  # 보정 R1 ⓒ — --close 1회 전체 25초(닫기 자체 7초)
+                first = (cout.strip().splitlines() or [""])[0][:120]
+                ok, unj = crc == 0 and first == f"CLOSED {seat} idle=1", crc in (3, 99)   # 판정 불가·시간 초과 = tried 0(다음 판이 다시 판정)
+                _ = tried.pop(seat, None) if ok or unj else tried.update({seat: end})
+                lines.append(f"{stamp} " + (f"판정 불가 seat-auto-close {seat} rc={crc} — {first}" if unj else "seat-auto-close " + (first if ok else f"실패 {seat} rc={crc} — {first}")))
+        _ = sf.write_text(json.dumps(tried), encoding="utf-8")  # state_dir 는 회차 앞에서 이미 쓴다(stall-scan.log 와 같은 자리)
+        print("\n".join(lines)) if lines else None
+        return lines
+
     def record_notify(self, stamp: str) -> list[str]:
         """r1717 A4 ⓑ — 착지 뒤 «정리 차례» 장부의 열린 줄마다 쪽지(1회·재촉 1회 셈은 도구 몫) · FT_NANO_AUTO_CLOSE 와 무관 · rc≠0 = 로그 1줄."""
         tool = os.environ.get("FT_NANO_RECORD") or str(HERE / "ft-nano-record.sh")
@@ -614,6 +637,7 @@ class Scan:
         if ac:
             log += ac
             print("\n".join(ac))
+        log += self.auto_close_da_arch(stamp)  # r1671 ⓓ — FT_SEAT_AUTO_CLOSE_DA_ARCH=1 일 때만(기본 0 = 지금 그대로)
         self.critical(ac)  # r1718 A2ⓑ·A8 — 밀린 [크리티컬] 배출 · 되풀이 판정 불가 알림(r1718-mut:drain)
         log += [f"{stamp} {n}" for n in self.notes if n.startswith(("보류 — API 장애", "유예 — API 장애", "보류 ", "판정 불가 ALL_STOP"))]  # r1238 B·r1371 — 감시기 로그에 남는 증거 줄(실사건 확인용)
         if trig and pen is None and os.environ.get("FT_STALL_PENALTY_AUTO", "1") != "0":
