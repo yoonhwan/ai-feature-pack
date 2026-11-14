@@ -6,8 +6,8 @@ set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; BIN="$HERE/../bin"
 W="${W_SCRIPT:-$BIN/ft-child-watch.sh}"
 TMP="$(mktemp -d)"; . "$HERE/lib/r1113_fake_tree.sh"; fake_init; trap fake_cleanup EXIT
-pass=0; fail=0; T0=$(date +%s)
-ck() { local n="$1"; shift; if "$@"; then echo "PASS $n"; pass=$((pass+1)); else echo "FAIL $n"; sed 's/^/    | /' "$TMP/last" 2>/dev/null | tail -6; fail=$((fail+1)); fi; }
+nok=0; fail=0; T0=$(date +%s)
+ck() { local n="$1"; shift; if "$@"; then echo "PASS $n"; nok=$((nok+1)); else echo "FAIL $n"; sed 's/^/    | /' "$TMP/last" 2>/dev/null | tail -6; fail=$((fail+1)); fi; }
 R="$TMP/root"; I="design/harness/indices"; mkdir -p "$R/.fable-team/state" "$TMP/cw"
 export FT_ROOT="$R" FT_CHILD_STATE_DIR="$TMP/cw" FT_CHILD_WATCH_EVERY_SEC=0 FT_CHILD_MBOX_SH="$TMP/fake/mbox" FT_SEAT_QUIESCE_BIN="$BIN/ft-seat-quiesce.sh" FT_CHILD_AUTONOMY=off
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
@@ -46,4 +46,4 @@ sed 's/("진행", "완성", "아카이브", "대기")/("진행", "아카이브",
 for f in M1 M2; do cp "$TMP/wbin/$f.sh" "$TMP/wbin/ft-child-watch.sh"; WB="$TMP/wbin/ft-child-watch.sh" FT_CARD_REF=cards w
   ck "변이 $f → ⓒ① FAIL(잡힘)" eval '! c1'; done
 echo "단계별 초: child-watch-card-ref $(( $(date +%s) - T0 ))"
-echo "pass=$pass fail=$fail"; [ "$fail" -eq 0 ]
+echo "pass=$nok fail=$fail"; [ "$fail" -eq 0 ]
