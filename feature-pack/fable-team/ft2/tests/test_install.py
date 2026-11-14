@@ -1,10 +1,13 @@
 """ft2 install 시험 — ⓐ설치·숨은 파일 0·MANIFEST 1바이트 · ⓑ대조 다름 = 전환 0 · ⓒ되돌림 · ⓓverify/status · ⓔ루트 밖 무변경 · ⓕ재설치·판정 불가 · 변이 M1~M6."""
-import hashlib, json, os, shutil, subprocess, sys  # noqa: E401
+import hashlib, json, os, shutil, subprocess, sys, tempfile  # noqa: E401
 from pathlib import Path
 
 FT2 = Path(__file__).resolve().parents[1]
 TOOL, MANIFEST_TOOL = FT2 / "tools" / "install.py", FT2 / "tools" / "manifest.py"
-os.environ.setdefault("FT2_LLM_GATE", str(FT2.parent / "legacy/1.x/harness/bin/ft_launchd_llm_gate.py"))  # r1838: 변이 사본(tmp/tools)도 같은 판정기 1개를 부른다
+GATES = Path(tempfile.mkdtemp(prefix="ft2-fake-gate-"))  # r1946: 실 판정기 대신 가짜 2꼴 · 실 판정기 연동 = 1.x 시험 r1838
+for _word, _rc in (("ALLOW", 0), ("REJECT", 1)):
+    (GATES / f"{_word}.py").write_text(f"print('{_word} 가짜 판정기'); raise SystemExit({_rc})\n", encoding="utf-8")
+os.environ["FT2_LLM_GATE"] = str(GATES / "ALLOW.py")  # 변이 사본(tmp/tools)·r1826 도 같은 가짜를 부른다
 SOURCE = {"core/loader.py": "print('hi')\n", "tests/test_x.py": "x = 1\n", "README.md": "# ft2\n"}
 
 
@@ -87,6 +90,19 @@ def test_c_e_f_rollback_outside_root_and_unjudgeable(tmp_path):
     assert run("install", make_package(tmp_path, "V5"), tmp_path / "notadir", verdict=True) == (2, "", 1, False)
     assert run("install", make_package(tmp_path, "V6", drop="source"), installed(tmp_path, "b2"), verdict=True) == (2, "", 1, False)  # source 칸 빠짐 = rc2
     assert run("install", make_package(tmp_path, "V7", broken=True), installed(tmp_path, "c2"), verdict=True) == (2, "", 1, False)  # MANIFEST 손상 = 복사 전 판정 불가
+
+
+def test_g_gate_only_from_env(tmp_path):
+    """r1946 ① env 없음 = 옛 자리에 판정기가 있어도 판정 불가(rc1 · UNDECIDABLE · 전환 0) · ② 가짜 ALLOW = 전환 · REJECT = 전환 0."""
+    root, data = installed(tmp_path, "g", ("V1", "V2")), tmp_path / "data"
+    (data / ".fable-team" / "bin").mkdir(parents=True)
+    shutil.copy(GATES / "ALLOW.py", data / ".fable-team" / "bin" / "ft_launchd_llm_gate.py")  # 옛 fallback 자리
+    go = lambda gate, *a: subprocess.run([sys.executable, str(TOOL), *map(str, a)], capture_output=True, text=True, timeout=60, env={**{k: v for k, v in os.environ.items() if k != "FT2_LLM_GATE"}, "FT_ROOT": str(data), **({"FT2_LLM_GATE": gate} if gate else {})})  # noqa: E731
+    done, back = go("", "install", make_package(tmp_path, "V3"), root), go("", "rollback", root)
+    assert (done.returncode, done.stdout.startswith("UNDECIDABLE"), "판정기 없음" in done.stdout, tail(root), log_of(root)[-1]["rc"], len(list((root / "versions").glob("V3.llm-reject-*")))) == (1, True, True, "V2", 1, 1), done.stdout
+    assert (back.returncode, back.stdout.startswith("UNDECIDABLE"), "되돌림 0" in back.stdout, tail(root)) == (1, True, True, "V2"), back.stdout
+    assert (go(str(GATES / "REJECT.py"), "install", make_package(tmp_path, "V4"), root).returncode, tail(root)) == (1, "V2")
+    assert (go(str(GATES / "ALLOW.py"), "install", make_package(tmp_path, "V5"), root).returncode, tail(root)) == (0, "V5")
 
 
 def mutant(tmp_path, name, old, new):
