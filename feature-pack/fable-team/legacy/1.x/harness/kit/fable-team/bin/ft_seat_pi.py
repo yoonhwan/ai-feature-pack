@@ -75,6 +75,12 @@ def live_identity(seat, tmux=None, need_id=True):
     return pid, os.path.realpath(cwd), ids[0]
 
 
+def candidates(root, cwd, pattern, none_yet):   # r1993 cwd 폴더 1개 먼저 · 거기서 후보 0 일 때만 전수 glob(뒤 호환)
+    yield from sorted((root / ("--" + cwd.strip("/").replace("/", "-") + "--")).glob(pattern))
+    if none_yet():
+        yield from root.glob("*/*.jsonl")
+
+
 def locate(seat, tmux=None, source=False):
     """Return (path, first session record, pane pid, real cwd)[, binding source]; never choose newest."""
     tmux = tmux or os.environ.get("FT_TMUX", "tmux")
@@ -88,7 +94,7 @@ def locate(seat, tmux=None, source=False):
         return first_session(got, root) + (("ft2-intent",) if source else ())
     pid, cwd, sid = live_identity(seat, tmux)
     found = []
-    for path in root.glob("*/*.jsonl"):
+    for path in candidates(root, cwd, f"*_{glob.escape(sid)}.jsonl", lambda: not found):
         try:
             with path.open(encoding="utf-8") as stream:
                 head = json.loads(stream.readline())

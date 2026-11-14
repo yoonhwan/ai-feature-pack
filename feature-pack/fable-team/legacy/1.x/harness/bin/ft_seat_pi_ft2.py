@@ -31,6 +31,12 @@ def epoch(text):   # tz 없는 값(intent.at) = 로컬 시각
     return datetime.datetime.fromisoformat(text.replace("Z", "+00:00")).timestamp()
 
 
+def candidates(root, cwd, none_yet):   # r1993 cwd 폴더 1개 먼저 · 거기서 후보 0 일 때만 전수 glob(뒤 호환)
+    yield from sorted((root / ("--" + cwd.strip("/").replace("/", "-") + "--")).glob("*.jsonl"))
+    if none_yet():
+        yield from root.glob("*/*.jsonl")
+
+
 def first_session(got, root):
     """(path, head, pane pid, worktree) — intent 때 첫 세션 «정확히 1개» · 0·2+·세션 바뀜 = ValueError."""
     intent, pid, cwd = got
@@ -39,7 +45,7 @@ def first_session(got, root):
     wt, at, hits, late = os.path.realpath(intent["worktree"]), epoch(intent["at"]), [], 0
     if cwd != wt:
         raise ValueError("Pi pane cwd ≠ intent worktree")
-    for path in root.glob("*/*.jsonl"):
+    for path in candidates(root, wt, lambda: not hits and not late):
         try:
             with path.open(encoding="utf-8") as stream:
                 head = json.loads(stream.readline())
