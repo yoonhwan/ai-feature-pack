@@ -203,6 +203,31 @@ def test_c8_two_file_commit_retry(tmp_path, cls=None):
     assert out["result"] == OK and len(every) == len(set(every)) == 101 and len(got["archived"]) == 2
 
 
+def _fill(node, seat, start, stop):
+    for i in range(start, stop):
+        rev = node.list("seat", seat)["revision"]
+        out = node.remember(seat, "mistake", "좌석 교훈 %d" % i, "#%d" % i, expect=rev, scope="seat")
+        assert out["result"] == OK, out
+
+
+def test_c10_seat_file_cap_each(tmp_path):
+    """보정 R1(DA#10 #300807) — 좌석별 notes 파일 · 상한 100 은 파일마다 · 다른 좌석 쓰기로 밀리지 않는다."""
+    node, other = _store(tmp_path), "byz-harness-arch-pi#348"
+    _fill(node, SEAT, 0, 60)
+    _fill(node, other, 0, 60)
+    for seat in (SEAT, other):
+        got = _check(node.list("seat", seat))
+        assert (len(got["active"]), len(got["archived"])) == (60, 0), seat
+    assert (_mem(tmp_path) / "seat" / (SEAT + ".jsonl")).exists() and not (_mem(tmp_path) / "notes.jsonl").exists()
+    _fill(node, SEAT, 60, 120)
+    mine, theirs = _check(node.list("seat", SEAT)), _check(node.list("seat", other))
+    assert (len(mine["active"]), len(mine["archived"]), len(theirs["active"]), len(theirs["archived"])) \
+        == (100, 20, 60, 0)
+    assert mine["archived"][0]["text"] == "좌석 교훈 0" and _check(node.list())["active"] == []
+    bad = node.remember("../x", "mistake", "탈출", "#1", expect=node.list()["revision"], scope="seat")
+    assert bad["result"] == REFUSED and not (_mem(tmp_path).parent / "x.jsonl").exists()
+
+
 class _M4(ms.MemoryStore):
     def _commit(self, rows, moved):
         self._replace(self.notes, rows)
