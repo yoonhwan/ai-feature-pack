@@ -96,6 +96,8 @@ def apply(ctx, team, iroot, stem, plan, msg):   # A8·A9 → ("DONE"|"ALREADY", 
         rc, _out, err = run(["git", "-C", str(ctx.root), "push", "-q", purl.strip(), f"{sha}:refs/heads/{t['br']}"])
         if rc == 0:
             break
+        if "PUSH_DENIED" in err:   # r1999-mut:denied
+            raise Reject(next(x[x.find("PUSH_DENIED"):] for x in err.splitlines() if "PUSH_DENIED" in x))   # r1999: 나노 가드 거절 = REJECT · 재시도 0
         if attempt == 2 or not re.search(r"rejected|non-fast-forward|fetch first|stale info", err):
             raise Unjudged(f"push rc={'-' if rc is None else rc}")
     return "DONE", verify(ctx, team, iroot, stem, add)   # r1717-mut:verify
