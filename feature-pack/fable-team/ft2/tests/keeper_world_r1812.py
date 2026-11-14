@@ -75,7 +75,7 @@ class World:
         return _git(seed, "rev-parse", "HEAD")
     def card(s, work, sha=None, stage="진행", folder="design/harness", refs=("main", "ops/main-base")):
         for ref in refs:
-            s.commit("byz", {"%s/indices/%s/%s-x.md" % (folder, stage, work): "# 인덱스: %s\n- 상태: 대기\n" % work
+            s.commit("byz", {"%s/indices/%s/%s-x.md" % (folder, stage, work): "# 인덱스: %s\n- 상태: 대기\n- 남은 범위: 없음\n" % work
                              + ("- 착지: %s\n" % sha if sha else "")}, ref)
     def pack_sha(s):
         return s.commit("pack", {"p.txt": str(os.urandom(4))}, "main")
