@@ -105,10 +105,28 @@ _lsp_call() { # $1=ci 동사 · $2..=probe lsp call 인자
   if grep -qE "Timeout (connecting to daemon|reading message)" "$d/err"; then
     sec="$(sed -n 's/.*after \([0-9]*\)000ms.*/\1/p' "$d/err" | head -1)"; why="LSP 데몬 응답 없음(${sec:-$((SECONDS - t0))}s)"
   elif [ "$rc" -ne 0 ] && [ ! -s "$d/out" ]; then why="probe rc=$rc 출력 0"
-  else cat "$d/err" >&2; cat "$d/out"; rm -rf "$d"; exit "$rc"; fi
+  else cat "$d/err" >&2; [ "$verb" = refs ] && _refs_crosscheck "$d" "$2"; cat "$d/out"; rm -rf "$d"; exit "$rc"; fi
   rm -rf "$d"; _lsp_status
   echo "판정 불가 ci $verb — $why · $(_lsp_brief "$LS_OUT")" >&2
   exit 3
+}
+
+#  r1903 — refs 빈 결과(«No references found» · json [])면 범위(CI_LSP_SCOPE|PWD) 글자 출현을 rg -o -w 로 1번 센다(7초).
+#  입력 file#symbol 의 선언 낱말 1개만 뺀다(같은 줄 재귀 호출은 남김) · 출현>0 · rg 실패 = 판정 불가 rc3 · 0 = 그대로.
+_refs_crosscheck() { # $1=_lsp_call 임시 폴더 · $2=loc
+  local sym f scope hits rgrc dl
+  case "$(tr -d '[:space:]' < "$1/out")" in Noreferencesfound|"[]") ;; *) return 0 ;; esac
+  sym="${2##*#}"; sym="${sym##*.}"; f="${2%#*}"
+  case "$2" in *#*) [ -n "$sym" ] && [ -f "$f" ] || return 0 ;; *) return 0 ;; esac
+  f="$(cd "$(dirname "$f")" && pwd -P)/$(basename "$f")"; scope="$(cd "${CI_LSP_SCOPE:-$PWD}" 2>/dev/null && pwd -P)"
+  hits="$(_cap 7 "${RG_BIN:-$(_resolve rg || echo rg)}" -H -n -o --fixed-strings -w -- "$sym" "${scope:-/nonexistent}" 2>/dev/null)"; rgrc=$?
+  [ "$rgrc" -ge 2 ] && { rm -rf "$1"; echo "판정 불가 ci refs — LSP 0건 · 교차 확인 실패(rg rc=$rgrc)" >&2; exit 3; }
+  dl="$(grep -nwE "(def|class|function|func|fn|const|let|var|type|interface|struct|enum|trait)[[:space:]]+$sym" "$f" | head -1 | cut -d: -f1)"
+  [ -n "$dl" ] || dl="$(printf '%s\n' "$hits" | awk -v p="$f:" 'index($0,p)==1{split(substr($0,length(p)+1),a,":"); print a[1]; exit}')"
+  hits="$(printf '%s\n' "$hits" | awk -v k="$f:$dl:" 'NF && !d && index($0,k)==1{d=1; next} NF')"
+  [ -n "$hits" ] || return 0
+  rm -rf "$1"; echo "판정 불가 ci refs — LSP 0건 · 글자 출현 $(printf '%s\n' "$hits" | grep -c .)곳(LSP 미색인 의심 · ci lsp status 의 Workspaces 확인)" >&2
+  printf '%s\n' "$hits" | head -5 >&2; exit 3
 }
 
 # LSP 계층은 온디맨드. CI_LSP_AUTO_INIT=1 이면 자동 init, 아니면 안내만.
@@ -462,6 +480,8 @@ case "$cmd" in
       if [ "$LS_RC" -ne 0 ] || [ -z "$LS_OUT" ]; then printf "lsp   : 판정 불가 status rc=%s 출력 %s\n" "$LS_RC" "$(printf '%s' "$LS_OUT" | grep -c .)"
       elif [ -n "$w" ]; then printf "lsp   : WARN %s\n" "$w"
       else printf "lsp   : %s\n" "$(printf '%s' "$LS_OUT" | tr '\n' ' ' | cut -c1-90)"; fi
+      printf '%s\n' "$LS_OUT" | awk -v h="$HOME" '/^ *• /{sub(/^ *• */,""); if ($0==h) f=1} END{exit !f}' \
+        && echo "[warn] LSP workspace 에 홈 전체 — refs 느림·빈 결과 원인 · ci lsp repair"
       [ "$pre_lsp" = "0" ] && "$PROBE" lsp shutdown >/dev/null 2>&1
       printf "smoke : "
       out="$("$PROBE" search "function OR def" . --max-results 1 2>/dev/null | head -3 | tr '\n' ' ')"
