@@ -25,7 +25,7 @@ CAP="$T/accounts.env"
 printf '%s\n' FT_CAP_CLAUDE_5X=1 FT_CAP_CLAUDE_ULTRA=0 FT_CAP_WK_5X_LOW=124 FT_CAP_WK_ULTRA_LOW=497 \
   FT_CAP_WK_5X=389 FT_CAP_WK_ULTRA=1555 FT_CAP_CODEX_PLUS=2 FT_CAP_CODEX_PRO=1 \
   FT_CAP_DEEPSEEK_KEYS=1 FT_CAP_SEATS_PER_TEAM=4 FT_GOAL_TEAMS=3 FT_GOAL_TEAM_HOURS=8 \
-  FT_CAP_TARGET_UTIL=0.85 > "$CAP"
+  FT_CAP_TARGET_UTIL=0.85 FT_GOAL_PARALLEL_MAX=3 > "$CAP"
 python3 - "$HOME" "$T" <<'PY'
 import json, os, sys, time
 H, T = sys.argv[1], sys.argv[2]; now = time.time()
@@ -124,7 +124,7 @@ step "7행 가드 유지 — 키는 있고 값이 빈 파일 = 0순위 문제(�
 sed 's/=.*/=/' "$CAP" > "$T/blank.env"
 OUT="$("$PLAN" --from "$T/b.json" --inv-file "$T/blank.env" --inventory 2>&1)"; rc=$?
 eq "7: rc0" "$rc" "0"
-chk "7: 0순위 문제 13건" "$OUT" "0순위 문제 13건"
+chk "7: 0순위 문제 19건" "$OUT" "0순위 문제 19건"
 chk "7: 기본값 대체 없음(산정 불가)" "$("$PLAN" --from "$T/b.json" --inv-file "$T/blank.env" --capacity --accounts 5x:1 2>&1)" "기본값 대체 0"
 
 step "R4 (기준7) 빈 값 = 산정 불가 — 예외 0 · 0 대체 금지"
