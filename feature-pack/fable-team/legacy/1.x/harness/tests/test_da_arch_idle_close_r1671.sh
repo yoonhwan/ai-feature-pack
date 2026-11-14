@@ -16,7 +16,7 @@ if [ -z "${R1671_BIN:-}" ]; then for f in ft-seat-close-due.sh ft_stall_scan.py;
 FK="$T/fake"; mkdir -p "$FK" "$T/cwd" "$T/ss" "$T/q"
 printf '#!/usr/bin/env bash\ncase "$1" in list-sessions) [ -f "$T/tmuxfail" ] && exit 1; cat "$T/sess";; display-message) s="${4#=}"; cat "$T/cwd/${s%%:}";; *) exit 9;; esac\n' > "$FK/tmux"
 printf '#!/usr/bin/env bash\ncat "$T/ss/$2"\n' > "$FK/ss.sh"; printf '#!/usr/bin/env bash\ncat "$T/q/$1" 2>/dev/null || echo OK\n' > "$FK/q.sh"
-printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$*" >> "$T/close-calls"; [ -f "$T/closefail" ] && { echo "REJECT x"; exit 1; }; [ -f "$T/closeslow" ] && exec sleep 8; echo "CLOSED-ROLE $1 verdict=1699 kill=ok"\n' > "$FK/close.sh"
+printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$*" >> "$T/close-calls"; [ -f "$T/closefail" ] && { echo "REJECT x"; exit 1; }; [ -f "$T/closeslow" ] && exec sleep 8; [ -f "$T/closeterm" ] && { echo $$ > "$T/termpid"; python3 -c "import time;print(time.time())" > "$T/t0"; trap "" TERM; i=0; while [ $i -lt 400 ]; do i=$((i+1)); sleep 0.05; done; }; echo "CLOSED-ROLE $1 verdict=1699 kill=ok"\n' > "$FK/close.sh"
 chmod +x "$FK/tmux"; export T PATH="$FK:$PATH" FT_CLOSE_DUE_SEAT_STATUS="$FK/ss.sh" FT_CLOSE_DUE_QUIET="$FK/q.sh" FT_SEAT_CLOSE="$FK/close.sh"
 ago() { python3 -c "import datetime,sys;print((datetime.datetime.now(datetime.timezone.utc)-datetime.timedelta(minutes=int(sys.argv[1]))).isoformat(timespec='seconds'))" "$1"; }
 R="$T/root"; C="$R/.fable-team/comm"; mkdir -p "$C" "$R/design/teams/t/indices/진행" "$R/design/teams/u/indices/진행"; : > "$C/mailbox.jsonl"; : > "$C/mailbox.log.jsonl"; : > "$T/sess"
@@ -62,6 +62,9 @@ run --close "$DA"; eq "$OUT" "CLOSED $DA idle=1" "ⓒ 출력 CLOSED <좌석> idl
 has "$CA" "$DA --verdict 1699 --reason r1671 유휴 자동 닫기" "ⓒ ft-seat-close 표준 경로(--verdict) 1회"; has "$CA" "--seats $R/.fable-team/seats-t.json" "ⓒ 명부 경로 고정"; eq "$(wc -l < "$T/close-calls" | tr -d ' ')" 1 "ⓒ 1회"
 hasnt "$CA" "branch" "ⓒ 브랜치·kill-server 인자 0"; touch "$T/closefail"; run --close "$DA"; has "$OUT" "CLOSE-FAIL $DA rc=1 — REJECT x" "ⓒ 닫기 실패 = CLOSE-FAIL"; eq "$RC" 1 "ⓒ 실패 rc 1"; rm "$T/closefail"
 touch "$T/closeslow"; : > "$T/close-calls"; s12=$SECONDS; run --close "$DA"; has "$OUT" "판정 불가 $DA ft-seat-close rc=-" "⑫ 가짜 ft-seat-close 8초 → 7초 상한 판정 불가"; eq "$RC" 3 "⑫ rc 3"; hasnt "$OUT" "CLOSED" "⑫ CLOSED 0"; eq "$(wc -l < "$T/close-calls" | tr -d ' ')" 1 "⑫ 재시도 0(1회)"; echo "⑫ $((SECONDS-s12))초"; rm "$T/closeslow"
+touch "$T/closeterm"; run --close "$DA"; T1="$(python3 -c "import time;print(time.time())")"; rm "$T/closeterm"   # B2 표적 — SIGTERM 무시 자식(유한 루프 20초)
+eq "$(python3 -c "import sys;print(int(float(sys.argv[1]) - float(sys.argv[2]) <= 7.0))" "$T1" "$(cat "$T/t0")")" 1 "B2 TERM 무시 자식 → run() 7초 안 반환($(python3 -c "import sys;print(round(float(sys.argv[1]) - float(sys.argv[2]), 2))" "$T1" "$(cat "$T/t0")")초)"
+has "$OUT" "판정 불가 $DA ft-seat-close rc=-" "B2 판정 불가 rc=-"; TP="$(cat "$T/termpid")"; if kill -0 "$TP" 2>/dev/null; then bad "B2 자식 회수 0(살아 있음)"; kill -9 "$TP" 2>/dev/null; pkill -9 -g "$TP" 2>/dev/null; else ok "B2 자식 회수(SIGKILL 갈래)"; fi
 echo "== ⓕ 닫힌 좌석 앞 발주"; msg mailbox.jsonl 20 "$CL" "$MS" "[발주] 새 일"; S0="$(cksum < "$C/mailbox.jsonl")"; run; run --close "$CL"
 eq "$(cksum < "$C/mailbox.jsonl")" "$S0" "ⓕ 닫힌 좌석 앞 발주 = 우편함에 남음"; has "$OUT" "NOT-DUE $CL" "ⓕ 닫힌 좌석 --close = NOT-DUE"
 FT_SEAT_CLOSE_DUE_BUDGET=6 run; has "$OUT" "판정 불가 $AR 예산 — 다음 판" "ⓒ(R1) 남은 예산 < 7초 → 남은 좌석 판정 불가 «예산 — 다음 판»"; eq "$RC" 3 "ⓒ(R1) rc 3"
