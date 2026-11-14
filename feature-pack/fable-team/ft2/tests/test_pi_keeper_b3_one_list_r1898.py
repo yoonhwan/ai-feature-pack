@@ -73,7 +73,7 @@ def c5(w):   # ⑤ ROUND 줄 stall= 칸 = stall.check 에 쓴 초 · s = fetch+b
     git = k.git
     k.git = lambda repo, *a, **o: (tick(5) if a[0] == "fetch" else None, git(repo, *a, **o))[1]
     k.complete, k.retired, k.stall.check = (lambda *a: tick(10, False)), (lambda: tick(3)), (lambda *a: tick(7))
-    assert [x for x in w.round(k) if x.startswith("ROUND")] == ["ROUND s=30 fetch=10 b1=10 b2=0 b3=3 stall=7"]
+    assert [x for x in w.round(k) if x.startswith("ROUND")] == ["ROUND s=30 fetch=10 b1=10 b2c=0 b2f=0 b3=3 stall=7 slow=harness:b1:10"]   # r1969 b2c·b2f·slow
 def c7(w):   # ⑦ DA R1 — 같은 생존 좌석이 seats-harness.json·seats.json 둘 다 `_replaced_by` → close 1 · 허위 HELD-SEAT 0
     _put(w.root / ".fable-team" / "seats.json", {LIVE[0]: {"_replaced_by": "byz-harness-nano-x-r1#1"}})
     k, calls = b3(w, rows=5)
