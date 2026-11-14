@@ -11,6 +11,7 @@ ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${
 has() { grep -qE -- "$1" <<<"$out"; }
 
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
+. "$(dirname -- "${BASH_SOURCE[0]}")/fake_gh_base.sh"; fake_gh_base "$T/ghb"   # r1955: --pr 의 base 조회(autonomy_pr_target) = 가짜 gh(main)
 IH="$T/hooks"; mkdir -p "$IH"; cp "$ROOT/harness/kit/fable-team/templates/hooks/autonomy-"*.sh "$ROOT/harness/kit/hooks/merge_cmd.py" "$IH"/   # r546: 설치 꼴(한 폴더) 재현 — 공용 모듈 merge_cmd.py 를 훅 옆에 둔다
 SG="$IH/autonomy-state-guard.sh"
 export FT_ROOT="$T" FT_AUTONOMY_STATE_DIR="$T/state" FT_PLANNER_DIR="$T/planner" FT_AUTONOMY_HOOK_LOG="$T/hook.log"

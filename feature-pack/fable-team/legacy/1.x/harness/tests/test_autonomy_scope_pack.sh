@@ -10,6 +10,7 @@ fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:300}"; fail=$((fail+1)); fi; }
 has() { grep -qE -- "$1" <<<"$out"; }
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/fake_gh_base.sh"; fake_gh_base "$T/ghb"   # r1955: --pr 의 base 조회(autonomy_pr_target) = 가짜 gh(main)
 export FT_ROOT="$T/byz" FT_AUTONOMY_STATE_DIR="$T/state" FT_PLANNER_DIR="$T/planner"
 S="$T/state"; LOG="$S/autonomy.log"; mkdir -p "$T/byz/.fable-team" "$S" "$T/planner"
 T0=1800000000

@@ -13,6 +13,7 @@ BIN="${FT_TEST_BIN:-$HERE/../bin}"
 fail=0; rc=0; out=""; t_start=$SECONDS
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:300}"; fail=$((fail+1)); fi; }
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/fake_gh_base.sh"; fake_gh_base "$T/ghb"   # r1955: --pr 의 base 조회(autonomy_pr_target) = 가짜 gh(main)
 RG="$(command -v git)"; mkdir -p "$T/shim"
 printf '#!/bin/sh\necho x >> "%s/gitcount"\nexec "%s" "$@"\n' "$T" "$RG" > "$T/shim/git"; chmod +x "$T/shim/git"
 
