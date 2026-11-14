@@ -26,7 +26,7 @@ from ft_api_outage_util import epoch, records  # r1882 — pi jsonl 꼬리·time
 import ft_headline_seats as headline_seats
 import ft_penalty
 import ft_stall_headline as headline
-from ft_stall_detect import IDLE_MIN, all_stop, all_stop_note, agent_sessions, api_outage, card_gate, ctx_pct, lead_alert, lead_heartbeat_min, lead_names, load_teams, off_roster_live, pending_mail, policy_stop, run, spawn_capacity, waiting_cards, RefUnavailable
+from ft_stall_detect import IDLE_MIN, all_stop, all_stop_note, agent_sessions, api_outage, card_gate, ctx_pct, lead_alert, lead_heartbeat_min, lead_names, load_teams, off_roster_live, pending_mail, policy_stop, rest_head, run, spawn_capacity, waiting_cards, RefUnavailable
 from ft_stall_seats import Seats
 from ft_team_lib import rosters  # r1883 — _master 빈 팀의 카드 경로(명부 doc)
 import ft_stall_state as stm
@@ -442,7 +442,7 @@ class Scan:
     def closed_wait(self, seat: str, names: set[str], notes: list[str]) -> bool:
         """r1647 — 팀장 «닫기 대기»: 마지막 발신 머리 `[다음 없음` ∧ ft-seat-open-work rc0(받을 일 0) → f 0통.
         판단 못 하면 False = 지금 흐름(경보) 그대로 · open-work 판정 불가면 노트 1줄."""
-        if not _last_sent(self.comm, names).lstrip().startswith("[다음 없음"):
+        if not rest_head(_last_sent(self.comm, names)):  # r1949 — 쉼 머리 규칙 한 벌(r1729 와 같은 판정)
             return False
         rc, _out = run([sys.executable, self.open_work, seat, "--root", str(self.root), "--mbox-dir", str(self.comm)], timeout=7)
         if rc not in (0, 1):
