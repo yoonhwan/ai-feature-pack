@@ -10,4 +10,5 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 [ "${1:-}" = --dry-run ] || [ ! -f "$HERE/ft-child-watch.sh" ] || bash "$HERE/ft-child-watch.sh" >/dev/null 2>&1 || true   # r1113 자식·유휴 나노 감시(자체 주기 540초 · 결과 = state/child-watch.log · 실패해도 멈춤 판정은 그대로)
 [ "${1:-}" = --dry-run ] || [ ! -f "$HERE/ft-issues-daily-check.sh" ] || bash "$HERE/ft-issues-daily-check.sh" >/dev/null 2>&1 || true   # r1115 00시 이슈 표 자경보(날짜 표 없으면 harness master 1통 · 하루 1회 · 00:40 뒤만 · 자체 판정이라 실패해도 멈춤 판정은 그대로)
 [ "${1:-}" = --dry-run ] || [ ! -f "$HERE/ft_desk_reply_wake.py" ] || python3 "$HERE/ft_desk_reply_wake.py" >>/tmp/ft-desk-reply-wake.log 2>&1 || true   # r1574 desk 답글 wake — 장부 열린 줄마다 승인 질문 답글을 비모델로 확인해 현역 desk 에 1통(이 120초 주기 재사용 · 새 launchd 0 · 로그 /tmp/ft-desk-reply-wake.log)
+[ "${1:-}" = --dry-run ] || [ ! -f "$HERE/ft_goal_stall_alert.py" ] || timeout 25 python3 "$HERE/ft_goal_stall_alert.py" >>/tmp/ft-goal-stall-alert.log 2>&1 || true   # r1945 골 재조정 없음 26시간+ → planner [결정] 요청 1통(회차당 1번 · 회차 자동 실행 0 · 실패해도 멈춤 판정은 그대로)
 exec python3 "$HERE/ft_stall_scan.py" "$@"

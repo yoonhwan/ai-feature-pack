@@ -11,6 +11,7 @@ row_cell(state, n, goal_hash, canon_sha10) → «재조정» 칸 글자(≤24자
 header(state, now=None)      → 머리 글자 `재조정: ok=<run> <HH:MM> · 최근=<run>-<nn> OK|ERROR <사유 24자>` · 루트 판정 불가 `재조정 판정 불가(<사유 24자>)` · 루트는 풀렸는데 회차 0 일 때만 `재조정 기록 없음`
                                · 마지막 성공이 FT_GOAL_READJUST_MAX_H(26)시간 전 `재조정 없음 N시간 · ok=… · 최근=…` — 마지막 성공과 최근 시도를 항상 둘 다 보인다
                                · 송신 실패/모름이면 끝에 `·송신 실패`/`·송신 모름`(조용한 OK 0)
+                               · r1945 C: 최근 시도가 «판정 빠짐» 이면 끝에 ` · 판정 빠짐 N행`(조용한 OK 0)
 """
 from __future__ import annotations
 
@@ -25,6 +26,7 @@ WHY_PREFIX = "ERROR 골 표 기본 출처: "  # ft_goal_ledger.find_root 가 내
 CELL = 24
 MAX_H = 26
 SKIP = (".sent.json", ".send-failed.json")  # 영수증 파일은 회차 파일이 아니다
+MISS = "판정 빠짐"  # r1945 B: 멈춘 행·닫기 후보에 판정 원장 줄이 없는 회차 status
 
 
 class StatePathError(RuntimeError):
@@ -192,6 +194,18 @@ def header(state: dict, now: datetime | None = None) -> str:
     ok, att = state.get("last_ok"), state.get("last_attempt")
     if ok is None and att is None:
         return "재조정 기록 없음"
+    text = _header(ok, att, now)
+    miss = missing(state)
+    return f"{text} · 판정 빠짐 {len(miss)}행" if miss else text
+
+
+def missing(state: dict) -> list:
+    """r1945 — 최근 시도가 «판정 빠짐» 이면 그 행 번호 목록(판정 원장 줄이 없는 멈춘 행·닫기 후보) · 아니면 빈 목록."""
+    att = (state or {}).get("last_attempt") or {}
+    return list(att.get("verdict_missing") or []) if att.get("status") == MISS else []
+
+
+def _header(ok: dict | None, att: dict | None, now: datetime | None) -> str:
     recent = _recent(att)
     if ok is None:
         return f"재조정: ok=없음 · 최근={recent}"
