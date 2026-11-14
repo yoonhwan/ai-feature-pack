@@ -37,6 +37,9 @@ def read_inputs(env_path, seats_path):  # 자격 파일 → 이름별 값(돌려
         raise Undecided("owner-seats _master 판독 불가")
     return names, str(master), str(desk) if desk else None
 
+def reply_users_of(names):  # r1985 — SLACK_REPLY_BOT_USER_IDS(쉼표 목록 · 공백·빈 항목 제외 · user 정확 일치) = 답 완료 판정에만
+    return tuple(u for u in (v.strip() for v in (names.get("SLACK_REPLY_BOT_USER_IDS") or "").split(",")) if u)
+
 def current_desk(seats_path):  # owner-seats 의 지금 _desk · 칸 없음·판독 불가 = None(r1861 R1)
     try:
         with open(seats_path, encoding="utf-8") as handle:
@@ -81,8 +84,9 @@ def _ws_connect(url):
 
 class Listener:  # 상주 수신기 1개 = 연결 1개 · 허용 = CHANNELS on 줄(r1923 · --channel = 파일 없을 때 씨앗 1회) · 팀 1곳
     def __init__(self, root, *, channel=None, app_token, bot_token, master, desk=None, seats=None, team="planner", users=(), bot_users=(),
-                 web=web_api, connect=_ws_connect, sleep=time.sleep, mono=time.monotonic, notify=None, clock=None):
+                 reply_users=(), web=web_api, connect=_ws_connect, sleep=time.sleep, mono=time.monotonic, notify=None, clock=None):
         self.root, self.master, self.desk, self.web, self.connect, self.sleep = root, master, desk, web, connect, sleep
+        self.tank = set(bot_users)  # r1985 — 가입·탈퇴(자동 채널) 신원 = 탱크만 · reply_users = 답 완료에만
         self.seats = seats  # owner-seats 경로 · desk 교대를 재기동 없이 따라감(r1861 R1)
         self.app_token, self.bot_token, self.mono, self.ws, self.envelope = app_token, bot_token, mono, None, None
         self.deadline = mono() + 60  # r1899 — recover full 갈래 배치 예산(고정비 포함 70초 안)
@@ -93,7 +97,7 @@ class Listener:  # 상주 수신기 1개 = 연결 1개 · 허용 = CHANNELS on �
         self.channel = self.chan.role("main")  # 게시 = 주 채널만 · 묶기 = 허용 전부(주 = master · 그 밖 = desk 또는 owner 칸)
         self.notify = notify or (lambda row: self.log("[notify] " + json.dumps(row, ensure_ascii=False)))
         self.receive = receive.SlackReceive(root, ack=self._ack, allowed_users=users, allowed_channels=(),
-                                            bot_users=bot_users, notify=self.notify, replies=self._replies,
+                                            bot_users=tuple(bot_users) + tuple(reply_users), notify=self.notify, replies=self._replies,
                                             deadline=self.deadline, mono=mono, log=self.log, **same)
         self.receive.allowed_channels = self.chan.allowed  # 같은 set 객체 — 발견·등록·삭제가 재기동 없이 반영
         self.router, self.notify = wiring.wire(root, receive=self.receive, bindings=self.bindings, notify=notify,
@@ -167,7 +171,7 @@ class Listener:  # 상주 수신기 1개 = 연결 1개 · 허용 = CHANNELS on �
             self.log("자동 채널 +%s" % channel)
             self.notify({"state": "auto", "channel": channel, "reason": "자동 채널 +%s" % channel})
     def _joined(self, event):  # B — 봇 가입 = conversations.info 로 종류 확인(ID 접두사 판정 0) 뒤 auto 줄 · 봇 탈퇴 = auto 줄 지움
-        channel, bot = event.get("channel"), event.get("user") in self.receive.bot_users
+        channel, bot = event.get("channel"), event.get("user") in self.tank
         if event.get("type") == "member_joined_channel" and bot:
             try:
                 info = self.web("conversations.info", self.bot_token, {"channel": channel}).get("channel") or {}
@@ -286,7 +290,7 @@ def main(argv):
         listener = Listener(opts["root"], channel=opts.get("channel"), app_token=names["SLACK_APP_TOKEN"],
                         bot_token=names["SLACK_BOT_TOKEN"], master=master, desk=desk, seats=opts["owner-seats"], team=opts.get("team", "planner"),
                         users=tuple(u for u in opts.get("users", "").split(",") if u),
-                        bot_users=tuple(u for u in (names.get("SLACK_BOT_USER_ID"),) if u))
+                        bot_users=tuple(u for u in (names.get("SLACK_BOT_USER_ID"),) if u), reply_users=reply_users_of(names))
     except channels.Corrupt as exc:  # CHANNELS 깨짐 · 파일 없음 ∧ --channel 없음 = 수신 시작 0
         return say("판정 불가", str(exc), UNDECIDED)
     return say("경쟁 수신 있음", "hello num_connections > 1", RIVAL) if listener.run() == RIVAL else 0
