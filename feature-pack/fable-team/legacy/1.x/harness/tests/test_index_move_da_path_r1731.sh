@@ -29,7 +29,7 @@ CR="$T/byz"; IDX="$CR/design/harness/indices"; mkdir -p "$IDX"/{대기,진행,�
 g "$CR" init -q -b main
 printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness/` | h | 현역 |\n' > "$CR/design/TEAMS.md"
 card() { { echo "# 인덱스: $1"; echo "## 상태"; echo "- 정본 영향 없음: 하네스 도구만 바뀐 카드 — 제품 정본 없음"
-  echo "- 규칙: 없음 — 시험 fixture 카드(규칙 무관)"; echo "- 설치: 없음"; } > "$IDX/진행/$1.md"; }
+  echo "- 규칙: 없음 — 시험 fixture 카드(규칙 무관)"; echo "- 설치: 없음"; echo "- 남은 범위: 없음"; } > "$IDX/진행/$1.md"; }
 verdict() { printf '# 판정문\n## %s %s — 닫힘 (CLOSE)\n닫힘 — %s — main\n' "$2" "$3" "$3" > "$1"; }
 for n in 1 2 3 4 5 6 7 8 9; do card "k$n"; done
 g "$CR" add -A; g "$CR" commit -qm c0

@@ -45,7 +45,7 @@ echo base > "$REPO/code.txt"; G add -A; G commit -qm base
 
 card() {   # <이름> — 진행/ 에 카드 생성, 경로 출력
   local f="$IDX/진행/$1.md"
-  printf '# 인덱스: %s\n## 상태\n- 정본 영향 없음: 하네스 도구만 변경 — 제품 정본 없음\n- 규칙: 없음 — 시험 fixture 카드(규칙 무관)\n- 설치: 없음\n' "$1" > "$f"
+  printf '# 인덱스: %s\n## 상태\n- 정본 영향 없음: 하네스 도구만 변경 — 제품 정본 없음\n- 규칙: 없음 — 시험 fixture 카드(규칙 무관)\n- 설치: 없음\n- 남은 범위: 없음\n' "$1" > "$f"
   echo "$f"
 }
 da() { local f="$REPO/design/harness/$1.md"; shift; printf '# 판정문\n' > "$f"; printf '%s\n' "$@" >> "$f"; echo "$f"; }
@@ -121,7 +121,7 @@ has "$out" "NANO-CLOSE 0석" "3a 맞는 좌석 0 = NANO-CLOSE 0석 1줄"
 [ ! -s "$CLOSE_LOG" ] && [ ! -s "$HIL_LOG" ] && ok "3b 옛 행·다른 카드·다른 역할 = 호출 0" || bad "3b 호출됨: $(cat "$CLOSE_LOG" "$HIL_LOG")"
 
 # ══ 사례4 — 완성 아닌 이동(대기→진행) = 호출 0 ═══════════════════════════════════════════════
-printf '# 인덱스: k4\n## 상태\n- 정본 영향 없음: x\n- 규칙: 없음 — 시험 fixture 카드\n- 설치: 없음\n' > "$IDX/대기/k4.md"
+printf '# 인덱스: k4\n## 상태\n- 정본 영향 없음: x\n- 규칙: 없음 — 시험 fixture 카드\n- 설치: 없음\n- 남은 범위: 없음\n' > "$IDX/대기/k4.md"
 seats '{"byz-nano-d#0":{"role":"nano","index":"design/harness/indices/대기/k4.md"}}'
 : > "$CLOSE_LOG"; : > "$HIL_LOG"; : > "$MBOX_LOG"
 out="$(mv_ "$IDX/대기/k4.md" 진행 --seat byz-nano-d#0)"

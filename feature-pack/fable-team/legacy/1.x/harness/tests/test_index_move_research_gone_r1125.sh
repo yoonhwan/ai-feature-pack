@@ -47,7 +47,7 @@ card() {
   local f="$IDX/진행/$1.md"
   { echo "# 인덱스: $1"; echo "- 리서치: $2 base=abc 허용=design/x"; [ -z "${3:-}" ] || echo "$3"
     echo "## 상태"; echo "- 정본 영향 없음: 하네스 도구만 변경 — 제품 정본 없음"
-    echo "- 규칙: 없음 — 시험 fixture 카드(규칙 무관)"; echo "- 설치: 없음"; } > "$f"
+    echo "- 규칙: 없음 — 시험 fixture 카드(규칙 무관)"; echo "- 설치: 없음"; echo "- 남은 범위: 없음"; } > "$f"
   echo "$f"
 }
 mv_() { bash "$1/ft-index-move.sh" "$2" 완성 --da "$DA" --seat s 2>&1; }

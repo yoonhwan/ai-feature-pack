@@ -38,7 +38,7 @@ G init -q -b main . && G config user.email t@t && G config user.name t && G add 
 
 card() { # <이름> <줄...> — 진행/ 카드, 경로 출력
   local f="$IDX/진행/$1.md"; shift
-  { echo "# 인덱스: c"; echo "## 상태"; printf '%s\n' "$@"; echo "- 규칙: 없음 — 시험 fixture 카드(규칙 무관)"; echo "- 설치: 없음"; } > "$f"; echo "$f"
+  { echo "# 인덱스: c"; echo "## 상태"; printf '%s\n' "$@"; echo "- 규칙: 없음 — 시험 fixture 카드(규칙 무관)"; echo "- 설치: 없음"; echo "- 남은 범위: 없음"; } > "$f"; echo "$f"
 }
 da() { local f="$REPO/design/harness/DA-$1.md"; printf '# 판정문\n## §1 닫힘: %s\n' "$1" > "$f"; echo "$f"; }
 mv_() { bash "$BIN/ft-index-move.sh" "$@" 2>&1; }
