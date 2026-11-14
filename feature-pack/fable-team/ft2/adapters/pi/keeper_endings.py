@@ -20,25 +20,27 @@ def held(k, team, key, text):
     if k.state["held"].get(key) != text:
         k.state["held"][key] = text
         k.log("HELD", team, text)
-def latest(k, team):
-    """journal 새로 읽기 → {work: (attempt, holder)} 최신 dispatch · 못 읽음 = None(판독 실패 = 고아 닫기 0)."""
-    P = _proj()
+def _rows(k, team):
+    """journal 새로 읽기 · 못 읽음 = None(판독 실패 = 대체·고아 닫기 0)."""
     try:
-        rows = P.journal.Journal(P.runtime_path(k.root, team), rec=P.record).records()
+        return _proj().journal.Journal(_proj().runtime_path(k.root, team), rec=_proj().record).records()
     except (OSError, ValueError):
         return None
-    return {r["work"]: (r.get("attempt"), r.get("holder")) for r in rows if r.get("kind") == "dispatch" and r.get("work")}
+def latest(k, team):   # {work: (attempt, holder)} 최신 dispatch · 못 읽음 = None
+    rows = _rows(k, team)
+    return None if rows is None else {r["work"]: (r.get("attempt"), r.get("holder")) for r in rows if r.get("kind") == "dispatch" and r.get("work")}
 def intents(k, team, pattern="*"):
     launch = os.path.join(_proj().runtime_path(k.root, team), "launch")
     for path in sorted(glob.glob(os.path.join(glob.escape(launch), pattern + "@*.intent"))):
         work, _, attempt = os.path.basename(path)[:-len(".intent")].rpartition("@")
         yield work, attempt, k.read_json(path)
 def intent(k, team, work, attempt, holder):
-    """③ 그 attempt intent(opened) · 없으면 같은 work ∧ FT2_HOLDER = holder ∧ opened 최신 1개(worktree·at·base_sha 함께) · 없음 = {}."""
+    """③ 그 attempt intent · 없으면 같은 work·holder·opened ∧ journal 에서 그 holder 에 dispatch 된 attempt 의 최신 1개(close·pre_attempt 공용 · DA R1 #301944)."""
     got = k.read_json(os.path.join(_proj().runtime_path(k.root, team), "launch", "%s@%s.intent" % (work, attempt)))
     if got.get("state") == "opened" and got.get("FT2_HOLDER"):
         return got
-    rows = [r for _, _, r in intents(k, team, glob.escape(work)) if r.get("state") == "opened" and r.get("FT2_HOLDER") == holder]
+    sent = {r.get("attempt") for r in _rows(k, team) or () if r.get("kind") == "dispatch" and r.get("work") == work and r.get("holder") == holder}
+    rows = [r for _, a, r in intents(k, team, glob.escape(work)) if a in sent and r.get("state") == "opened" and r.get("FT2_HOLDER") == holder]
     return max(rows, key=lambda r: str(r.get("at") or ""), default={})
 def _prs(k, repo, branch):
     rc, out, _ = k.call([k.env.get("FT2_GH") or "gh", "pr", "list", "-R", repo, "--head", branch, "--state", "merged",
@@ -63,8 +65,7 @@ def pr_landed(k, team, work):
         return none
     if old := k.pre_attempt(team, work, tree, sha, it):
         return None, None, old
-    k.notify(team, "%s|noline|%s|%s" % (k.stamp()[:10], team, work),
-             "[줄 보완] ft2 keeper %s 카드 착지 줄 없음 · PR #%s 병합 %s — 카드에 «- 착지: %s» 보완(keeper 카드 쓰기 0)" % (work, pr.get("number"), sha[:10], sha))
+    k.notify(team, "%s|noline|%s|%s" % (k.stamp()[:10], team, work), "[줄 보완] ft2 keeper %s 카드 착지 줄 없음 · PR #%s 병합 %s — 카드에 «- 착지: %s» 보완(keeper 카드 쓰기 0)" % (work, pr.get("number"), sha[:10], sha))
     return sha, "origin/%s · 착지 줄 없음 · PR #%s 병합" % (base, pr.get("number")), ""
 def _cards(k, team, ref):
     """우선 ref 의 팀 폴더 indices 아래 .md 전부(단계 5 · 아카이브 하위 폴더 포함) · 판독 실패 = None · 바퀴 안 캐시."""
@@ -109,8 +110,7 @@ def unsure(st, team, work, holder, key, idle, fmt=None, slot=""):
         return st.wake(team, work, holder, key, idle, fmt, slot)
     if key not in retry:
         return k.log("판정 불가", team, "%s %s 깨움 도달 미확인(%s) — 재깨움 %d초 뒤 1회 · 재배정 0" % (work, holder, k.state["unsure"][key], st.after_s))
-    k.notify("harness", "%s|unsure|%s" % (k.stamp()[:10], key),
-             "[크리티컬] ft2 keeper 깨움 도달 미확인 %s %s %s — 재깨움 1회 뒤에도 미확인 · 재배정·kill 0(사람·팀장 판단)" % (team, work, holder))
+    k.notify("harness", "%s|unsure|%s" % (k.stamp()[:10], key), "[크리티컬] ft2 keeper 깨움 도달 미확인 %s %s %s — 재깨움 1회 뒤에도 미확인 · 재배정·kill 0(사람·팀장 판단)" % (team, work, holder))
 def orphans(k, teams):
     """⑤ 고아 — 이름 꼴 byz-<팀>-nano-<stem>#N ∧ 그 팀 최신 dispatch holder 밖 · 자동 개설 = ft2_holders.auto_opened(launch 영수 생애 결속) 공용."""
     H, alive = _mod("holders", os.path.join(HERE, "ft2_holders.py")), k.alive_sessions()

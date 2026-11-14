@@ -140,8 +140,8 @@ class Landing:
         """r1893 — 최신 dispatch attempt intent base_sha 대조 · rc0 = 옛 줄 · rc1 = 조상 아님(진행) · 그 밖 = 판정 불가 · intent·base_sha 없음 = ""."""
         runtime = PROJ.runtime_path(self.root, team)
         recs = PROJ.journal.Journal(runtime, rec=PROJ.record).records()
-        att = ([r.get("attempt") for r in recs if r.get("kind") == "dispatch" and r.get("work") == work] or [None])[-1]
-        intent = intent or (self.read_json(os.path.join(runtime, "launch", "%s@%s.intent" % (work, att))) if att else {})   # r1960 대체 intent
+        att, who = ([(r.get("attempt"), r.get("holder")) for r in recs if r.get("kind") == "dispatch" and r.get("work") == work] or [(None, None)])[-1]
+        intent = intent or (self.read_json(os.path.join(runtime, "launch", "%s@%s.intent" % (work, att))) or endings.intent(self, team, work, att, who) if att else {})   # r1960 R1 — close 와 같은 대체 intent
         base = intent.get("base_sha")
         have = self.git(repo, "cat-file", "-e", base)[0] if base else 0   # r1910 rc1 = 명시적 missing(다른 repo) · 그 밖 = git 실패
         if have == 1:
