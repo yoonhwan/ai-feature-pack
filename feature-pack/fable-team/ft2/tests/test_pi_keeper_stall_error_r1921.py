@@ -91,7 +91,7 @@ def c7(w):   # ⑦ r1866 실사건 줄(503 · credential · AUTH 낱말 0) · �
 
 CASES = {"①": c1, "②": c2, "③": c3, "④": c4, "⑤": c5, "⑥": c6, "⑦": c7}
 KS = "adapters/pi/keeper_stall.py"
-MUTANTS = {"M1": ('hit = self.error(team, work, holder, key, facts["session"])', "hit = None", c1),
+MUTANTS = {"M1": ('hit = self.error(team, work, holder, key, facts["session"], rows)', "hit = None", c1),
            "M2": ("if k.now() - at < self.err_s:", "if False:", c2),
            "M3": ('k.log("HELD-STALL", team, "%s %s 오류 턴 반복 — 재배정 0" % (work, holder))',
                   "return self.reassign(team, work, attempt, holder, tree, intent, rows)", c5)}

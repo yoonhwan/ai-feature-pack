@@ -73,7 +73,7 @@ class Stall:
         facts, key = self.facts(work, attempt, rows, tree), "%s|%s@%s" % (team, work, attempt)
         if isinstance(facts, str):
             return k.log("판정 불가", team, "%s %s %s — 행동 0" % (work, holder, facts))
-        hit = self.error(team, work, holder, key, facts["session"])   # r1921 — 오류 턴 갈래(ready 앞 · S1 시계와 다른 키)
+        hit = self.error(team, work, holder, key, facts["session"], rows)   # r1921 — 오류 턴 갈래(ready 앞 · S1 시계와 다른 키)
         if hit == "again" and "%s|stall-error|%s|%s" % (k.stamp()[:10], team, work) not in k.state["sent"]:
             k.log("HELD-STALL", team, "%s %s 오류 턴 반복 — 재배정 0" % (work, holder))
             k.notify(team, "%s|stall-error|%s|%s" % (k.stamp()[:10], team, work), "[크리티컬] ft2 keeper 오류 턴 반복 %s %s %s" % (team, work, holder))
@@ -88,7 +88,7 @@ class Stall:
         if woke is None:
             return self.wake(team, work, holder, key, idle)
         return self.reassign(team, work, attempt, holder, tree, intent, rows)
-    def error(self, team, work, holder, key, session):
+    def error(self, team, work, holder, key, session, rows):
         """r1921 — UNAVAILABLE 오류 ≥ err_s ∧ Working 0 → S2 깨움 1회(err_woke) · 그 뒤 또 오류 = "again" · 그 밖 오류·정상 = None(기존 경로)."""
         k = self.k
         try:
@@ -99,13 +99,12 @@ class Stall:
             return None
         if at is None:
             return k.log("판정 불가", team, "%s %s 오류 턴 timestamp 판독 불가 — 행동 0" % (work, holder)) or True
-        woke, unsure = k.state.setdefault("err_woke", {}).get(key), k.state.setdefault("err_unsure", {}).get(key)
-        if woke is not None or unsure is not None:
+        woke = k.state.setdefault("err_woke", {}).get(key)   # 보정1 R2 — 미확인 = 정상·오류 공통 unsure 하나
+        if woke is not None or key in k.state.setdefault("unsure", {}):
             return "again" if woke is not None and at > woke else True
         if k.now() - at < self.err_s:
             return True
-        rc, pane, _ = k.call([k.tmux, "capture-pane", "-p", "-t", pane_target(holder)])
-        if rc == 0 and not BUSY.search(pane[-2000:]):
+        if self.guard(team, work, holder, rows):   # 보정1 R1 — pane Working·external_wait 공통 가드
             self.wake(team, work, holder, key, int(k.now() - at), ERR_WAKE, "err_")
         return True
     def first(self, team, work, attempt, holder, tree, intent, rows):
@@ -162,8 +161,10 @@ class Stall:
             return k.log("판정 불가", team, "%s %s 세션 파일 %s — 행동 0" % (work, holder, exc))
         if state == "LOGGEDOUT":
             return k.log("LOGGEDOUT", team, "%s %s — 깨움·재배정 0(재개 = 재시작)" % (work, holder))
-        if state != "IDLE":
-            return False
+        return state == "IDLE" and self.guard(team, work, holder, rows)
+    def guard(self, team, work, holder, rows):
+        """공통 가드(정상·오류 갈래) — pane Working 0 ∧ external_wait 시한 밖 · 판독 불가 = 판정 불가 1줄 · 행동 0."""
+        k = self.k
         rc, pane, _ = k.call([k.tmux, "capture-pane", "-p", "-t", pane_target(holder)])
         if rc != 0:
             return k.log("판정 불가", team, "%s %s capture rc %s — 행동 0" % (work, holder, rc))
@@ -192,7 +193,7 @@ class Stall:
             if rc == 0 and ("[깨움] ft2 keeper" in pane or BUSY.search(pane[-2000:])):
                 k.state.setdefault(slot + "woke", {})[key] = k.now()
                 return k.log("WOKE", team, "%s %s%s" % (work, holder, " 오류 턴" if slot else ""))
-        k.state.setdefault(slot + "unsure", {})[key] = k.now()
+        k.state.setdefault("unsure", {})[key] = k.now()   # 보정1 R2 — 성공 시계만 slot 분리
         return k.log("판정 불가", team, "%s %s 깨움 도달 확인 3회 실패" % (work, holder))
     def stop(self, team, work, attempt, step, text):
         self.k.log("HELD-STALL", team, text)
