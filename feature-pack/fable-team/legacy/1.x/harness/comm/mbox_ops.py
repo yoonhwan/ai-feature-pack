@@ -161,6 +161,9 @@ def recv(me, frm=None, limit=None):
     if succ:   # ★현역만 recv(r1116)★ — 은퇴한 세션은 «나 앞 [레디]» 만(핸드셰이크 회신) · 역할 우편함은 후계 몫
         sys.stderr.write("WARN 현역 아님 %s → 현역 %s — 역할 우편함은 현역만 읽는다([레디] 만 받음)\n" % (me, succ))
         names, only = [me], lambda r: r.get("to") == me and r.get("body", "").lstrip().startswith("[레디]")
+    heads = tuple(h for h in os.environ.get("MBOX_ONLY_HEADS", "").split("|") if h)   # r1966 — mbox.sh recv --only distill · 머리만 · claim 잠금 안 거르기
+    if heads:
+        only = (lambda r, b=only: (b is None or b(r)) and r.get("body", "").lstrip().startswith(heads))
     # ★선택과 소비는 «같은 잠금 1회»★ — 표시한 것만 소비하고 상한 밖은 큐에 남긴다(전량 소비하면 나머지가 조용히 사라진다).
     left = []   # r1842 — recv 1회 = Slack thread 1개 묶음 또는 일반 묶음 · 나머지 = 큐(PENDING-AFTER 가 셈)
     got, held = claim(dirs, names, frm, limit, me=me, on_take=lambda rows: mbox_handover.record(me, rows), only=only, pick=lambda g: thread_batch(g, left))
