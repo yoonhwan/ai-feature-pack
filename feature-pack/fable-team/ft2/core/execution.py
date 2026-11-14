@@ -54,6 +54,8 @@ class Execution:
                 state, records = self._state_records()
                 if not accepted(records, work):        # r1632: 접수 영수 없는 일은 실행권 0(쓰기 0)
                     return Grant(REFUSED, work, holder=holder, reason="접수 영수 없음 · intake.submit 먼저")
+                if work in (state.get("done") or {}):  # r1901: 완료된 일 = 실행권 0(쓰기 0 · owner 잔존 0)
+                    return Grant(REFUSED, work, holder=holder, reason="완료된 일 = 실행권 0 · 새 일은 새 접수")
                 dormant = self._dormant_marker(state)  # r1714: 휴면 표식 뒤 접수 = 닫는 세대 실행권 0(쓰기 0)
                 if dormant:
                     return Grant(REFUSED, work, holder=holder, reason="휴면 표식 %s = 접수 거부" % dormant)
