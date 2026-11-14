@@ -77,6 +77,14 @@ def read_inv(path):
     return inv
 
 
+def quota(ci):
+    """(r1618) 산정 rate = Claude 쿼터 소모 합(claude + pi-claude · rate_quota). rate_claude 는 참고.
+    옛 입력(rate_quota 칸 없음) = rate_claude 로 산정하고 1줄을 낸다."""
+    if "rate_quota" in ci:
+        return ci.get("rate_quota"), None
+    return ci.get("rate_claude"), "  합산 없음(옛 입력) — rate_quota 칸이 없어 claude 단독 rate_claude 로 산정한다"
+
+
 def num(inv, k, d=None):
     v = inv.get(k)
     if v in (None, ""):
@@ -181,10 +189,11 @@ def base_block(inv, spt, ms):
 
 # ---------------------------------------------------------------- 출력
 def header(ci, p, path, rate_tok):
-    L = ["[ctx-plan] 계약 %s · 윈도우 %gh · 세션-시간당 claude %s"
+    rc = ci.get("rate_claude")
+    L = ["[ctx-plan] 계약 %s · 윈도우 %gh · 세션-시간당 Claude 쿼터 %s · claude 단독 %s(참고)"
          % (ci.get("schema"), ci.get("window_hours") or 0,
             ("%0.2fM (= %d 가중토큰/h)" % (rate_tok / TOKENS_PER_M, rate_tok)) if rate_tok
-            else "표본0(미산정)")]
+            else "표본0(미산정)", ("%0.2fM" % (rc / TOKENS_PER_M)) if rc else "표본0")]
     ax = missing(p, ["goal_parallel_max", "teams_per_goal", "team_hours_per_goal", "seats_per_team"])
     if ax:
         L.append("축 정의(참고 모형): 산정 불가 — " + " · ".join(ax))
@@ -217,11 +226,11 @@ def anchors(p):
     return "  앵커(상태 표기 필수): " + " · ".join(rows)
 
 
-def pool_rows(pools, hours):
+def pool_rows(pools, hours, rq=None):
     L = ["  분모 명시: calls/h = 요청수 ÷ 관측창(%0.0fh) [괄호 = 활성 bucket 수] · "
          "cache재사용 = read÷(read+write) · 총input대비 = read÷(read+write+input)" % hours,
          "  %-10s %6s %7s %8s %12s %16s %14s"
-         % ("pool", "req", "usage0", "ctx/req", "calls/h(창)", "cache재사용", "W/세션시간(중앙)")]
+         % ("pool", "req", "usage0", "ctx/req", "calls/h(창)", "cache재사용", "W/세션시간(중앙·참고)")]
     for name in ("claude", "pi-claude", "pi-other", "unknown"):
         p = pools.get(name)
         if not p:
@@ -235,6 +244,12 @@ def pool_rows(pools, hours):
                     "%0.1f [%d]" % (chpw, int(p.get("active_hours") or 0)),
                     "%0.0f%% (%0.0f%%)" % ((p.get("cache_reuse") or 0) * 100,
                                             (p.get("cache_reuse_of_input") or 0) * 100), med))
+    qk = [k for k in ("claude", "pi-claude") if k in pools]   # 있는 pool 만 이름을 쓴다
+    q = [pools[k] for k in qk]
+    L.append("  Claude 쿼터 소모 합(%s) req %d · W %0.1fM ÷ 세션-시간 %0.1fh = %s ← 산정 입력"
+             % ("+".join(qk) or "없음", sum(p.get("req", 0) for p in q), sum(p.get("w_total") or 0 for p in q) / TOKENS_PER_M,
+                sum(p.get("session_hours") or 0 for p in q),
+                ("%0.2fM" % (rq / TOKENS_PER_M)) if rq else "표본0(미산정)"))
     L.append("  표본 = 세션(요청 20건 이상) 개수 · usage0 = 가중 0 레코드(API 오류) → 율 분모에서 뺌 · "
              "pi-other(deepseek)·unknown 은 Claude 쿼터 밖 → 산정 제외")
     return L
@@ -243,14 +258,14 @@ def pool_rows(pools, hours):
 def capacity(ci, a, p, rate):
     pools = ci.get("pools") or {}
     L = ["[capacity] 평균 소모량·pool 분리·구독 필요 개수", anchors(p)]
-    L += pool_rows(pools, ci.get("window_hours") or a.hours)
+    L += pool_rows(pools, ci.get("window_hours") or a.hours, quota(ci)[0])
     cl = pools.get("claude") or {}
     if not rate:
         L.append("  미산정 — usage 레코드 0 (측정 불가). ctx-burn --hours 를 늘려 다시 실행하라.")
         return "\n".join(L)
     hours = ci.get("window_hours") or a.hours
     L.append("  산정 근거(a): 요청 %d · 요청당 ctx %0.0fk · calls/h %0.1f(활성 bucket 분모 %d) · "
-             "cache재사용 %0.0f%% · 관측창 %0.0fh · rate %0.2fM/세션-시간"
+             "cache재사용 %0.0f%% · 관측창 %0.0fh · rate(Claude 쿼터 합) %0.2fM/세션-시간"
              % (cl.get("req", 0), (cl.get("ctx_per_req") or 0) / 1000,
                 (cl.get("req", 0) - cl.get("usage0", 0)) / max(hours, 1e-9),
                 int(cl.get("active_hours") or 0), (cl.get("cache_reuse") or 0) * 100, hours, rate))
@@ -322,7 +337,7 @@ def goal_line(lbl, rate, n5, nu, p, wk5, wku):
 
 
 def inventory(ci, p, path, inv):
-    rate = ci.get("rate_claude")
+    rate = quota(ci)[0]
     L = ["[inventory] 0순위 상수 점검 — 비면 산정 자체가 틀어진다", "  읽은 파일: %s" % path]
     gone = [k for k in INV_KEYS if inv.get(k) in (None, "")]
     for k in INV_KEYS:
@@ -394,10 +409,10 @@ def inventory(ci, p, path, inv):
 
 
 def need(ci, a, p):
-    rate_tok = ci.get("rate_claude")
+    rate_tok = quota(ci)[0]
     L = ["[need] " + a.need]
     if not rate_tok:
-        L.append("  미산정 — rate_claude 없음(표본0). ctx-burn 창을 늘려 다시 재라.")
+        L.append("  미산정 — Claude 쿼터 rate 없음(표본0). ctx-burn 창을 늘려 다시 재라.")
         return "\n".join(L)
     rate = rate_tok / TOKENS_PER_M                      # 역산도 같은 변환 한 곳을 지난다(R1)
     try:
@@ -488,10 +503,10 @@ def main():
         return 2
 
     p = params(a, inv)
-    rate_tok = ci.get("rate_claude")                      # 계약 단위 = 가중 토큰/세션-시간
+    rate_tok, note = quota(ci)                            # 계약 단위 = 가중 토큰/세션-시간
     rate = (rate_tok / TOKENS_PER_M) if rate_tok else None  # 계산 단위 = M/세션-시간
 
-    print("\n".join(header(ci, p, path, rate_tok)))
+    print("\n".join(header(ci, p, path, rate_tok) + ([note] if note else [])))
     pools = ci.get("pools") or {}
     if pools:
         print("  pool: " + " · ".join(

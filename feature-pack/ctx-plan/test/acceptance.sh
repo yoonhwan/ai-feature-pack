@@ -148,5 +148,34 @@ nchk "R4 변이2(0 대체 복원): 산정 불가가 사라진다" "$(python3 "$T
 step "8행 경계 — ctx-burn 측정 원천은 HOME 주입으로 격리"
 eq "8: 격리 HOME 픽스처만 집계(claude 21요청)" "$(printf '%s' "$CTX" | python3 -c 'import json,sys;print(json.load(sys.stdin)["plan_input"]["pools"]["claude"]["req"])')" "21"
 nchk "8: 실 HOME 세션 경로 없음" "$(grep -c 'Users/yoonhwan/.claude/projects' "$T/b.json")" "1"
+step "r1618 Claude 쿼터 = claude + pi-claude 합산 (픽스처 capacity_input · ⓐ~ⓕ + 변이 2)"
+qin(){ python3 - "$@" <<'PY'
+import json, sys, importlib.util as U, importlib.machinery as M
+burn, case, out = sys.argv[1:4]
+L = M.SourceFileLoader("cb", burn); m = U.module_from_spec(U.spec_from_loader("cb", L)); L.exec_module(m)
+pl = lambda w, h, s=0: dict(req=100, usage0=0, ctx_per_req=1e5, active_hours=6, cache_reuse=0.9, cache_reuse_of_input=0.9,
+                            w_per_session_hour=None, samples=s, sessions=3, w_total=w, session_hours=h)
+P = {"claude": pl(36.8e6, 25.4), "pi-claude": pl(224.8e6, 116.5), "pi-other": pl(5e6, 9)}
+if case in ("a", "old"): P = {"pi-claude": pl(4e7, 20, 20), "pi-other": pl(5e6, 9)}
+if case == "e": P.update({"pi-other": pl(9e12, 1), "codex": pl(9e12, 1)})
+ci = {"schema": "ctx.v1", "window_hours": 6, "pools": P, "rate_claude": 1.4e6 if case in ("c", "e") else None}
+if case != "old": ci["rate_quota"] = m.quota_rate(P)
+json.dump({"plan_input": ci}, open(out, "w"))
+PY
+}
+qp(){ "$PLAN" --from "$1" --inv-file "$CAP" --capacity 2>&1; }
+for c in old a c e; do qin "$BURN" $c "$T/q$c.json"; done
+chk "ⓐ Red: claude 표본0 · pi-claude 표본20 · 합산 없는 판 = 미산정" "$(qp "$T/qold.json" | head -1)" "표본0(미산정)"
+O="$(qp "$T/qa.json")"; chk "ⓑ 합산 rate = (w_c+w_p)÷(h_c+h_p) = 2.00M" "$(printf '%s' "$O" | head -1)" "Claude 쿼터 2.00M"
+nchk "ⓑ «미산정» 0" "$(printf '%s' "$O" | head -1)$(printf '%s' "$O" | grep '미산정 —')" "미산정"
+O="$(qp "$T/qc.json")"; chk "ⓒ 24h 꼴 261.6M÷141.9h = 1.84M" "$O" "Claude 쿼터 1.84M"
+for r in "  claude      " "  pi-claude   " "  pi-other    " "Claude 쿼터 소모 합" "claude 단독 1.40M(참고)"; do chk "ⓓ 분리 유지: $r" "$O" "$r"; done
+chk "ⓔ pi-other·codex 9e12 를 줘도 1.84M" "$(qp "$T/qe.json")" "Claude 쿼터 1.84M"
+chk "ⓕ 옛 입력 = rate_claude 산정 + 1줄" "$(qp "$T/qold.json")" "합산 없음(옛 입력)"
+eq "ⓕ ctx-burn 계약: 옛 칸 유지 + 새 칸" "$(python3 -c 'import json,sys;d=json.load(open(sys.argv[1]))["plan_input"];print("rate_claude" in d,"rate_quota" in d,"session_hours" in d["pools"]["claude"],"w_per_session_hour" in d["pools"]["claude"])' "$T/b.json")" "True True True True"
+mutate "$BURN" "$T/qm1" 'QUOTA_POOLS = ("claude", "pi-claude")' 'QUOTA_POOLS = ("claude",)'; qin "$T/qm1" c "$T/qm1.json"
+nchk "M1 변이(pi-claude 빼기): 1.84M 이 사라진다" "$(qp "$T/qm1.json")" "Claude 쿼터 1.84M"
+mutate "$BURN" "$T/qm2" 'QUOTA_POOLS = ("claude", "pi-claude")' 'QUOTA_POOLS = ("claude", "pi-claude", "pi-other")'; qin "$T/qm2" e "$T/qm2.json"
+nchk "M2 변이(pi-other 넣기): 1.84M 이 사라진다" "$(qp "$T/qm2.json")" "Claude 쿼터 1.84M"
 echo ""; echo "ctx-plan acceptance: $P passed, $F failed"
 [ $F -eq 0 ]
