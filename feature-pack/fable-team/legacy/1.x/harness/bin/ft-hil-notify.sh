@@ -2,6 +2,7 @@
 # ft-hil-notify.sh — r1117: 오빠 승인 h 의 결과·승인 도착을 기다리는 좌석에 쪽지 1통씩(사람 손 중계 0). 부르는 쪽 rc 는 바꾸지 않는다.
 #   done <h 표식 접두> <rc> [쪽지함 폴더] [좌석…]  h<N> 진입 파일 끝(ft-hil.sh entry_body) — `[완료 h<N>] rc=<rc> · <결과 줄> · 계획 <경로>`
 #        결과 줄 = <접두>.out 의 마지막 «=== 결과 ===» 줄 · 없으면 마지막 줄 · 200자 절단. 수신 = 좌석들 + 쪽지함 옆 seats-planner.json _master·_desk(같은 좌석 1통)
+#        r1474: 선택 칸 = env FT_HIL_RECHECK(진입 파일이 ft-event-check.sh hil 출력을 담는다) — 있으면 본문 끝에 ` · 재측정: …` 1칸 · 없으면 본문 바이트 불변
 #        r1517: 끝에 화면 블록 1개(stdout) — `남은 미실행 h N: h2(12분) h3(3분)` + `다음 실행 줄 = ! bash <h 폴더>/h2`(가장 작은 번호 · .ran 있는 중단분 제외 · 남은 0 이면 «남은 미실행 h 0» 1줄) ·
 #               쪽지 본문 끝에 ` · 남은 N · 다음 h2` 꼬리(남은 0 이면 꼬리 0). 목록 = 같은 폴더로 ft-hil.sh --pending --each 1회(규칙 변경 0 · 부르기만).
 #               목록 읽기 실패 = stderr «판정 불가» 1줄 + 블록·꼬리 0(«0개» 로 쓰지 않는다) · done rc 는 쪽지 결과 그대로(진입 파일 rc = 계획 rc)
@@ -51,7 +52,7 @@ done_mail() {
   n="${m##*/}"; r="$(grep '=== 결과 ===' "$m.out" 2>/dev/null | tail -1)"; [ -n "$r" ] || r="$(tail -1 "$m.out" 2>/dev/null)"
   b="[완료 $n] rc=$rc · ${r:0:200} · 계획 $(sed -n 's/^# ft-hil-entry plan=//p' "$m" 2>/dev/null | head -1)"
   pending_block "${m%/*}"   # r1517: 실패 = stderr 1줄 · 쪽지는 꼬리 없이 그대로 나간다
-  send "$c" "ft-hil-$n" "$b$PB_TAIL" "$@" "$(seat_of "$c" _master)" "$(seat_of "$c" _desk)" || s=1
+  send "$c" "ft-hil-$n" "$b$PB_TAIL${FT_HIL_RECHECK:+ · $FT_HIL_RECHECK}" "$@" "$(seat_of "$c" _master)" "$(seat_of "$c" _desk)" || s=1
   [ -z "$PB_BLOCK" ] || printf '%s\n' "$PB_BLOCK"
   return "$s"
 }
