@@ -36,7 +36,7 @@ fi
 if [ -n "$SQUASHED_PR" ] && [ -z "${REASON//[[:space:]]/}" ]; then
   echo "REJECT cherry 게이트 — --reason 사유가 비어 있음(사유 없는 --squashed-pr 거부)"; exit 1
 fi
-# r1470 자체 시간 상한(하드 룰 12·20) — FT_CHERRY_GATE_SEC(기본 25 · 0 = 무상한) · git 부르는 자리(cherry·«+» 커밋·merge-tree·경로) 앞 검사 · 넘으면 git 더 안 부르고 판정 불가 1줄 exit 1 · --override 면 원장 1행(kind=time-cap) + exit 0
+# r1470 자체 시간 상한(하드 룰 12·20) — FT_CHERRY_GATE_SEC(기본 25 · 0 = 무상한) · git 부르는 자리(cherry·«+» 커밋·merge-tree·경로) 앞 + 결과 소비 앞 + 통과 출구 앞 검사(보정 R1 · DA #304443) · 넘으면 git 더 안 부르고 판정 불가 1줄 exit 1 · --override 면 원장 1행(kind=time-cap) + exit 0
 CAP="${FT_CHERRY_GATE_SEC:-25}"; _T0=$SECONDS; [[ "$CAP" =~ ^[0-9]+$ ]] || { echo "usage: FT_CHERRY_GATE_SEC = 0 이상 정수(받은 값: $CAP)" >&2; exit 2; }
 over_cap() { # over_cap <단계> <위치> — 상한 안이면 return 0
   [ "$CAP" -gt 0 ] && [ $((SECONDS - _T0)) -gt "$CAP" ] || return 0
@@ -64,7 +64,7 @@ if [ "$MODE" = land ] && ! git -C "$REPO" merge-base --is-ancestor "$FEAT" "$NAN
   exit 1
 fi
 over_cap cherry "커밋 0/?"; out="$(git -C "$REPO" cherry "$FEAT" "$NANO" 2>&1)"; rc=$?
-[ "$rc" -eq 0 ] || { echo "REJECT cherry 게이트 — git cherry 실패(rc=$rc): ${out:0:120}"; exit 1; }
+[ "$rc" -eq 0 ] || { echo "REJECT cherry 게이트 — git cherry 실패(rc=$rc): ${out:0:120}"; exit 1; }; over_cap cherry "결과"
 plus="$(printf '%s\n' "$out" | grep '^+' || true)"
 # «+» 커밋을 둘로 가른다 — design/ 밖 경로(코드·시험·스크립트)를 건드린 것 = 차단 · design/ 만 건드린 것 = WARN 통과(브랜치가 남아 복구 가능 · arch#137)
 #   ★경로 목록은 변수로 «완독» 한 뒤 분류한다(DA 575 H2: `diff-tree | grep -qv` 는 grep 조기 종료 → SIGPIPE → 큰 혼합 커밋이 «design/ 만» 으로 판정) · diff-tree·log 각 rc 를 따로 본다(H1: 실패가 WARN 통과)★
@@ -99,7 +99,7 @@ if [ "$nb" -gt 0 ]; then
   if [ "$mrc" -eq 1 ]; then conflict=1
   elif [ "$mrc" -ne 0 ]; then
     echo "REJECT cherry 게이트 — git merge-tree 실패(rc=$mrc): ${mt:0:120}"; exit 1
-  fi
+  fi; over_cap merge-tree "결과"
   differ=""; ndesign=0
   if [ "$conflict" -eq 0 ]; then
     tree="${mt%%$'\n'*}"
@@ -109,7 +109,7 @@ if [ "$nb" -gt 0 ]; then
       case "$p" in design/*) ndesign=$((ndesign + 1)) ;; *) differ="${differ}  ${p}"$'\n' ;; esac
     done < "$delta_file"
     if [ -z "$differ" ]; then
-      echo "INFO cherry 게이트 — $NANO 의 «+» 커밋 $((nb + nw))개는 git cherry 로는 미랜딩이나 merge-tree 실제 delta 가 design/ 밖 0개(design/ ${ndesign}개) — 통과 (사유 content_landed_via_merge_tree)"
+      over_cap merge-tree "끝"; echo "INFO cherry 게이트 — $NANO 의 «+» 커밋 $((nb + nw))개는 git cherry 로는 미랜딩이나 merge-tree 실제 delta 가 design/ 밖 0개(design/ ${ndesign}개) — 통과 (사유 content_landed_via_merge_tree)"
       exit 0
     fi
   fi
@@ -138,7 +138,7 @@ if [ "$nb" -gt 0 ]; then
     [ "$f2rc" -eq 0 ] || { echo "REJECT cherry 게이트 — git ls-tree($FEAT) 실패(rc=$f2rc) 경로 $p"; exit 1; }
     if [ "${fe2%%$'\t'*}" = "$meta" ] && [ -n "$fe2" ]; then nid=$((nid + 1)); continue; fi
     raw="$(git --literal-pathspecs -C "$REPO" -c core.quotepath=false log "$mbase..$FEAT" --no-renames --format='commit %h' --raw --no-abbrev -- "$p")"; lrc2=$?
-    [ "$lrc2" -eq 0 ] || { echo "REJECT cherry 게이트 — git log($FEAT) 실패(rc=$lrc2) 경로 $p"; exit 1; }
+    [ "$lrc2" -eq 0 ] || { echo "REJECT cherry 게이트 — git log($FEAT) 실패(rc=$lrc2) 경로 $p"; exit 1; }; over_cap paths "경로 $kp/$np"
     hit=""; cur=""
     while IFS= read -r ln; do
       case "$ln" in commit\ *) cur="${ln#commit }" ;; esac
@@ -149,12 +149,12 @@ if [ "$nb" -gt 0 ]; then
   docwarn="WARN cherry 게이트 — design/ 문서 종류 경로 ${ndoc}개가 $FEAT 역사에 없음(코드 0 · 브랜치 보존으로 복구 가능)"   # 첫 줄은 INFO·REJECT 로 둔다(WARN 은 뒤에)
   if [ -z "$missing" ] && [ $((nsup + nid)) -gt 0 ]; then
     reason="content_landed_then_superseded"; [ "$nsup" -gt 0 ] || reason="content_identical_to_feat_head"; [ "$nsup" -eq 0 ] || [ "$nid" -eq 0 ] || reason="${reason}+content_identical_to_feat_head"
-    echo "INFO cherry 게이트 — $NANO 의 «+» 커밋 $((nb + nw))개: 경로 ${nsup}개 tip 내용이 분기 뒤 $FEAT 구간에 새 blob 으로 있음(예 ${sup_commit:-없음}) · feat HEAD 와 동일 ${nid}개 — 통과 (사유 $reason)"
+    over_cap paths "끝"; echo "INFO cherry 게이트 — $NANO 의 «+» 커밋 $((nb + nw))개: 경로 ${nsup}개 tip 내용이 분기 뒤 $FEAT 구간에 새 blob 으로 있음(예 ${sup_commit:-없음}) · feat HEAD 와 동일 ${nid}개 — 통과 (사유 $reason)"
     [ "$ndoc" -eq 0 ] || echo "$docwarn"
     exit 0
   fi
   if [ -n "$SQUASHED_PR" ]; then
-    cherry_squashed_pr_gate "$REPO" "$FEAT" "$NANO" "$SQUASHED_PR" "$REASON" "$plus_file"; prc=$?
+    over_cap paths "끝"; cherry_squashed_pr_gate "$REPO" "$FEAT" "$NANO" "$SQUASHED_PR" "$REASON" "$plus_file"; prc=$?
     [ "$prc" -ne 0 ] || [ "$ndoc" -eq 0 ] || echo "$docwarn"
     exit "$prc"
   fi
@@ -190,10 +190,10 @@ if [ "$nb" -gt 0 ]; then
   exit 1
 fi
 if [ "$nw" -gt 0 ]; then
-  echo "WARN cherry 게이트 — $NANO 의 design/ 문서 커밋 ${nw}개가 $FEAT 에 없음(코드 0 · 브랜치 보존으로 복구 가능) — 통과:"
+  over_cap cherry "끝"; echo "WARN cherry 게이트 — $NANO 의 design/ 문서 커밋 ${nw}개가 $FEAT 에 없음(코드 0 · 브랜치 보존으로 복구 가능) — 통과:"
   printf '%s' "$warn" | head -20
   [ "$nw" -le 20 ] || echo "  … 외 $((nw - 20))개"
   exit 0
 fi
-echo "OK cherry 게이트 — $NANO 의 모든 커밋이 $FEAT 에 patch 단위로 존재(+ 0)"
+over_cap cherry "끝"; echo "OK cherry 게이트 — $NANO 의 모든 커밋이 $FEAT 에 patch 단위로 존재(+ 0)"
 exit 0
