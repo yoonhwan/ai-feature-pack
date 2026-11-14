@@ -84,6 +84,7 @@ class SlackReceive:
         os.makedirs(data, exist_ok=True)
         self.path = os.path.join(data, "receive.jsonl")
         self.settle_path = os.path.join(data, "settle.jsonl")  # r1906 desk 처리 기록 요청 — listen 은 읽기만
+        self.settle_sig = _stat_sig(self.settle_path)  # r1938 기동 때 서명 · 뒤 변화만 idle 이 읽는다
         self.client = client or intake.Intake(str(root), team, capacity=capacity, clock=self.clock)
         if not self.bot_users:  # r1927 R2 — 탱크 신원 없음 = 봇 답 완료 길 0
             self.log("탱크 신원 없음 · 봇 답 완료 0")
@@ -165,7 +166,16 @@ class SlackReceive:
 
     def pass_idle(self):
         self._step("idle")  # 줄 16 — 모델 호출·좌석 깨움·기록 증가 0
-        return {"state": IDLE, "reason": "무변화", "command": None}
+        sig = _stat_sig(self.settle_path)  # r1938 — settle.jsonl stat 서명이 그대로면 내용 읽기·쓰기 0
+        if sig == self.settle_sig:
+            return {"state": IDLE, "reason": "무변화", "command": None}
+        self.settle_sig = sig  # 판독 전 서명 기억 = 도중 변경은 다음 idle 에 보임
+        asked = read_settle(self.settle_path, strict=True)
+        if asked is None:
+            self.log("idle settle.jsonl 판정 불가 · settled 0 · 다음 변화")
+            return {"state": IDLE, "reason": "판정 불가 settle.jsonl", "command": None}
+        done = [c for c, e in sorted(self.latest().items() if asked else ()) if self._settle(c, e, asked)]
+        return {"state": IDLE, "reason": "settled %d" % len(done), "command": None}
 
     def recover(self):
         """재기동 1회 — 미완 기록마다 lookup 먼저(새 attempt 0). 반환 = 판정 목록. r1885: received·hold 먼저 → full 은
@@ -328,6 +338,15 @@ def read_settle(path, strict=False):
     return asked
 
 
+def _stat_sig(path):
+    """r1938 — (ino, mtime_ns, 크기) · 없음·못 봄 = None · 내용 읽기 0."""
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    return st.st_ino, st.st_mtime_ns, st.st_size
+
+
 def _slack_dir(root, team):
     return os.path.join(os.path.abspath(str(root)), ".fable-team", "teams", team, "slack")
 
@@ -365,7 +384,7 @@ def settle(root, team, command, by, why):
             os.close(fd)
     except OSError as exc:
         return 3, "판정 불가 slack settle %s %s" % (command, type(exc).__name__)
-    return 0, "SETTLE-REQUESTED %s" % command
+    return 0, "SETTLE-REQUESTED %s 적용=다음 idle" % command
 
 
 def list_full(root, team):

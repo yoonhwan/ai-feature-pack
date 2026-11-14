@@ -48,10 +48,10 @@ def _requeue(root, team, desk):
         return []
     out = []
     for entry in full:
-        if room <= 0:
-            break
-        if entry["command"] in asked:  # desk 처리 요청 = settled · 칸 소비 0
+        if entry["command"] in asked:  # desk 처리 요청 = settled · 칸 소비 0 · r1938 칸 0 이어도
             inbox._settle(entry["command"], entry, asked)
+        elif room <= 0:
+            continue  # r1938 — 칸 0 = 미요청만 건너뜀 · 뒤의 요청 full 은 계속 대조
         elif inbox._recover(entry["command"], entry=entry).get("state") == receive.DISPATCHED:
             out, room = out + [entry["command"]], room - 1
     return out
