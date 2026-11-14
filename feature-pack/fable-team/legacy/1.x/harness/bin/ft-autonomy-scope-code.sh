@@ -11,14 +11,28 @@ scope_code_tool() {  # <도구> <인자…> → OUT·RC·FIRST (7초 상한 — 
   FIRST="${OUT%%$'\n'*}"
 }
 
+scope_gcd() { local d; d="$(git -C "$1" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" && [ -n "$d" ] && (cd "$d" && pwd -P); }  # <폴더> → 실경로 git-common-dir (git 밖 = rc≠0)
+
+scope_card_snapshot() {  # <카드> → CODE_CARD = 원장 고정 ref 커밋 판 임시 사본 (r1904 · 원장 = ROOT 의 git-common-dir 고정 · env override 0 · fetch 0)
+  local card="$1" led dir ref
+  led="$(scope_gcd "$ROOT")" || scope_err "카드 출처 판정 불가 — ROOT 원장 git 조회 실패: $ROOT"
+  dir="$(dirname -- "$card")"
+  [ "$(scope_gcd "$dir")" = "$led" ] || scope_err "카드 출처 아님(원장 밖 경로): $card"
+  ref="origin/ops/main-base:$(git -C "$dir" rev-parse --show-prefix)$(basename -- "$card")"
+  git --git-dir="$led" cat-file -e "$ref" 2>/dev/null || scope_err "카드 출처 아님(커밋 판 없음 · $ref): $card"
+  git --git-dir="$led" show "$ref" | cmp -s - "$card" || scope_err "카드 손 수정(커밋 판과 다름 · $ref): $card"
+  CODE_CARD="$(mktemp "${TMPDIR:-/tmp}/ft-scope-card.XXXXXX")" && git --git-dir="$led" show "$ref" > "$CODE_CARD" || scope_err "카드 커밋 판 사본 실패: $ref"
+}
+
 scope_code_check() {
   local sha="$1" card="$2" line re='세트:[[:space:]]*([0-9a-f]{40})[[:space:]]*·[[:space:]]*시험:.+[[:space:]]rc=0[[:space:]]*·[[:space:]]*이슈:[[:space:]]*0[[:space:]]*$'
   [ -n "$card" ] || scope_err "종류 code 는 --card <카드.md> 필요(시험 통과 세트 증거 줄)"
   [ -f "$card" ] || scope_err "카드 없음: $card"
-  line="$(grep -E '세트:' "$card" | tail -1)"
-  [[ "$line" =~ $re ]] || scope_err "카드 증거 줄이 «세트: <40hex> · 시험: … rc=0 · 이슈: 0» 꼴 아님: ${line:0:160}"
+  scope_card_snapshot "$card"   # r1904: 세트 줄·증거 검사 = 커밋 판 사본만(작업 파일·원장 밖 사본 0)
+  line="$(grep -E '세트:' "$CODE_CARD" | tail -1)"
+  [[ "$line" =~ $re ]] || { rm -f "$CODE_CARD"; scope_err "카드 증거 줄이 «세트: <40hex> · 시험: … rc=0 · 이슈: 0» 꼴 아님: ${line:0:160}"; }
   CODE_A="${BASH_REMATCH[1]}"; CODE_EQUIV=""
-  scope_code_tool ft-nano-evidence-check.sh "$card" --repo "${SCOPE_REPO:-$ROOT}" --ancestor-of "$sha"
+  scope_code_tool ft-nano-evidence-check.sh "$CODE_CARD" --repo "${SCOPE_REPO:-$ROOT}" --ancestor-of "$sha"; rm -f "$CODE_CARD"
   [ "$RC" = 0 ] || scope_err "증거 검사 rc=$RC: ${FIRST:-출력 없음(시간 초과 7초 포함)}"
   [ "$CODE_A" = "$sha" ] && return 0
   scope_code_tool ft-approval-equiv.sh "$CODE_A" "$sha" --repo "${SCOPE_REPO:-$ROOT}"   # r466: --repo pack 이면 팩 리포

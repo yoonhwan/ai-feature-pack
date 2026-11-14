@@ -44,7 +44,8 @@ nlog() { grep -c . "$LOG" 2>/dev/null || true; }
 fresh() { rm -rf "$S"; mkdir -p "$S"; }
 as_seat() { printf '%s' "$1" > "$SEATFILE"; export FT_SEAT="$1"; }
 grant() { as_seat "$PL"; L0="$(nlog)"; run a approve-standing D2 --repos byz,pack --classes "${1:-code,docs}" --oppa-decision "${2:-$OD}"; }
-card() { CARD="$T/card.md"; printf '# 카드\n\n## 상태\n- 세트: %s · 시험: bash tests/x.sh rc=0 · 이슈: %s\n' "$1" "${2:-0}" > "$CARD"; }
+card() { CARD="$B/card.md"; printf '# 카드\n\n## 상태\n- 세트: %s · 시험: bash tests/x.sh rc=0 · 이슈: %s\n' "$1" "${2:-0}" > "$CARD"; cardpub; }
+cardpub() { grep -qx '/card*.md' "$B/.git/info/exclude" || echo '/card*.md' >> "$B/.git/info/exclude"; git -C "$B" update-ref refs/remotes/origin/ops/main-base "$(git -C "$B" commit-tree "$(printf '100644 blob %s\t%s\n' "$(git -C "$B" hash-object -w "$CARD")" "${CARD##*/}" | git -C "$B" mktree)" -m card)"; }   # r1904: 카드 = 원장(FT_ROOT) 안 · 고정 ref origin/ops/main-base 커밋 판
 sa() { as_seat "${SA_SEAT:-$HM}"; L0="$(nlog)"; run a standing-approve D2 "$1" --pr "$2" --repo "${4:-pack}" --verdict "$3" --card "$CARD"; }
 rej0() { [ "$rc" = 2 ] && has "$2" && [ ! -e "$S/autonomy-standing" ] && [ "$(nlog)" = "${L0:-$(nlog)}" ]; ck "$1" $?; }
 rej() { local sh="$2"; [ "$sh" = - ] && sh=""; [ "$rc" = 2 ] && has "$3" && has '다시: 오빠 h\(approve-merge --oppa-slack\)' && { [ -z "$sh" ] || [ ! -e "$S/autonomy-merge-approved/$sh" ]; } && [ "$(nlog)" = "${L0:-$(nlog)}" ]; ck "$1" $?; }
