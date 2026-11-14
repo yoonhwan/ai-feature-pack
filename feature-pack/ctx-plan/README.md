@@ -27,9 +27,9 @@ ctx-plan --from /tmp/burn.json --inv-file /tmp/accounts.env --need concurrent:40
 | mode | 무엇을 내나 |
 |---|---|
 | (없음) | 머리 3줄 — 계약·축 정의·상수 파일 경로 + pool 한 줄 |
-| `--inventory` | 0순위 상수 13키 점검 · «0순위 문제 N건» · 크리티컬 2행(낮은·높은 용량 가정) |
+| `--inventory` | 0순위 상수 19키 점검 · «0순위 문제 N건» · 골 모형 2행(동시골·골/주·유휴/부족 팀) · 요구 계정 역산 · 기준선 A |
 | `--capacity` | pool 표(pool 있는 것만) · 시뮬 4행 · 골 모형 2행 |
-| `--need K:N` | `concurrent:N` · `sessions:N` · `teams:N` · `goals:N` → 필요 Ultra/5x 장수 |
+| `--need K:N` | `concurrent:N` · `sessions:N` · `teams:N` · `goals:N`(동시 골 N개) → 필요 Ultra/5x 장수 · goals 는 요구 계정 블록도 낸다 · N > `FT_GOAL_PARALLEL_MAX` 면 깎지 않고 알림 1줄(rc0) |
 | `--scales 1.0,0.9,…` | 낭비 감소 배율 목록(기본 4값 = 실측·-10%·-20%·-30%) |
 
 ## Options
@@ -50,10 +50,13 @@ ctx-plan --from /tmp/burn.json --inv-file /tmp/accounts.env --need concurrent:40
 ## 축 정의 (출력 머리에 매번 찍는다)
 
 ```
-메인 골 = 전역 직렬(동시 1) · 한 골 = 팀 3 동시 × 8시간(24 팀-시간) · 남는 팀은 후순위 골
+골 = 최대 3개 동시(오빠 11-10) · 한 골 = 팀 3 동시 × 8시간 = 24 팀-시간 = 96 세션-시간 · 골/주 = min(가용 세션-시간 ÷ 96, 3 × 168 ÷ 8)
 ```
 
-`동시골` 값은 **용량상 가능 수**다. 운영 규칙 «메인 3골 직렬» 의 실제 값과 구별해서 읽어라.
+참고 모형 1개다(r1567 · 오빠 #278942). 숫자는 상수(`FT_GOAL_PARALLEL_MAX` · `FT_GOAL_TEAMS` · `FT_GOAL_TEAM_HOURS` · `FT_CAP_SEATS_PER_TEAM`)에서 채운다.
+`동시골` = min(동시팀 ÷ 팀/골, G) **주 평균** · `골/주` = min(팀시간 ÷ 골 팀-시간, G × 168 ÷ H) 모형 산출량이라 `동시골 × 168÷H` 와 다를 수 있다.
+실제 골 병렬·팀 배정은 팀이 정한다. 값을 넘어도 거부·축소 0, 알림만 낸다.
+기준선 A(`FT_BASE_*` 5키)는 상시 팀 = 팀당 1석 × 168h, 이슈·골 팀 = 낮 시간 × 7일 × 세션/팀으로 센다.
 `팀-시간/주` 는 중간 단위이므로 성과 판정에 쓰지 않는다.
 
 ## 상수 파일 (0순위) — 이 패키지는 자리를 정하지 않는다
@@ -70,7 +73,7 @@ ctx-plan --from /tmp/burn.json --inv-file /tmp/accounts.env --need concurrent:40
 ctx-plan: 상수 파일 없음 — --inv-file 또는 CTX_PLAN_CAP_FILE (install.sh 참고)
 ```
 
-출력 머리에 **읽은 경로 1줄**을 찍는다. 키 13개 — 구독 5 · 주간 리밋 4(상한·하한) · 모형 4.
+출력 머리에 **읽은 경로 1줄**을 찍는다. 키 19개 — 구독 5 · 주간 리밋 4(상한·하한) · 모형 5(동시 골 참고값 포함) · 기준선 5.
 값이 비면 «0순위 문제» 이고 **기본값으로 대체하지 않는다**(수용 기준 #7 — 계산이 필요한 표는 «산정 불가»).
 계약 키가 아닌 두 손잡이(`FT_CAP_C5H_5X` · `FT_CAP_HOURS_PER_WEEK`)만 기본값을 쓰고, 화면에 «기본값(계약 키 아님)» 이라고 적는다.
 
