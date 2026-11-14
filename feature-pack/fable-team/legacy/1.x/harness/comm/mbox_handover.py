@@ -13,6 +13,7 @@ ID = re.compile(r"#\d+!?|h\d+|bg:[\w.-]+")
 HEAD_N = re.compile(r"^\[인계\] \S+ -> \S+ · 항목 (\d+) ")   # handover 가 쓰는 머리 — 항목 수가 «- <id>» 줄 수와 같아야 기계 [인계]
 ASK_HEADS = ("[HIL]", "[결정]", "[질문]", "[긴급]")
 LIST_LINE = re.compile(r"^목록: (.+?)(?: · |$)", re.M)   # r1690 — 남은 쪽지 id 는 <state>/handover/ 목록 파일에 · 본문엔 경로 1줄
+BODY_MAX = 2000   # r1690 R1 — [인계] 최종 본문 상한(글자 수 len)
 INLINE_MAX = 5   # r1690 — 본문에 두는 오빠 질문 id 상한 · 쪽지 id 가 이보다 많으면 전부 목록 파일(적으면 지금처럼 본문)
 IGNORE_BG = re.compile(r"(^|/)(claude|codex|node|pi|opencode|caffeinate|tmux|login|-?zsh|-?bash)( |$)|lsp|language-server|mcp|serena|pyright")
 
@@ -182,12 +183,13 @@ def _list_ids(body):   # r1690 ③ — «목록:» 줄이 가리키는 파일의
         sys.exit(3)
 
 
-def _write_list(old, new, qx, lst):   # r1690 ① — 목록 파일 1개(«질문» 절 먼저 · 임시→mv · 일반 파일 · 권한 기본)
+def _write_list(old, new, qx, lst, hl=(), p=""):   # r1690 ① — 목록 파일 1개(질문 → 손 항목 → 쪽지 · 임시→mv · 일반 파일 · 권한 기본) · p = 같은 파일 다시 쓰기
     d, k, t = _hdir(), (lambda s: re.sub(r"[^A-Za-z0-9._#-]", "_", s)), time.time()
     os.makedirs(d, exist_ok=True)
-    p = os.path.join(d, "%s--%s--%s%06dZ.txt" % (k(old), k(new), time.strftime("%Y%m%dT%H%M%S", time.gmtime(t)), int(t % 1 * 1e6)))
+    p = p or os.path.join(d, "%s--%s--%s%06dZ.txt" % (k(old), k(new), time.strftime("%Y%m%dT%H%M%S", time.gmtime(t)), int(t % 1 * 1e6)))
     with open(p + ".tmp", "w", encoding="utf-8") as f:
-        f.write("".join(ln + "\n" for ln in (["질문 %d" % len(qx)] + qx if qx else []) + (["쪽지 %d" % len(lst)] + lst if lst else [])))
+        f.write("".join(ln + "\n" for ln in (["질문 %d" % len(qx)] + qx if qx else []) + (["손 항목 %d" % len(hl)] + list(hl) if hl else [])
+                         + (["쪽지 %d" % len(lst)] + lst if lst else [])))
     os.replace(p + ".tmp", p)
     return p
 
@@ -219,11 +221,21 @@ def handover_body(old, new, extra=()):
     hs, bg, hand = [x.split()[1] for x in hs], [x.split()[1] for x in _bg_items(old)], ["- bg:x%d %s" % (i + 1, e) for i, e in enumerate(extra)]
     held = sum(i.endswith("!") for i in ids)
     qs, qx, ins, lst = asks[:INLINE_MAX], asks[INLINE_MAX:], (ids if len(ids) <= INLINE_MAX else []), (ids if len(ids) > INLINE_MAX else [])   # r1690 ②
-    lf = ["목록: %s · 남은 회신·쪽지 %d%s" % (_write_list(old, new, qx, lst), len(lst), " · 질문 %d 줄 포함" % len(qx) if qx else "")] if qx or lst else []
+    lp = _write_list(old, new, qx, lst) if qx or lst else ""
+    def lf(hl):   # 목록 1줄(목록 파일 있을 때만)
+        return ["목록: %s · 남은 회신·쪽지 %d%s%s" % (lp, len(lst), " · 질문 %d 줄 포함" % len(qx) if qx else "", " · 손 항목 %d 줄 포함" % len(hl) if hl else "")] if lp else []
     parts = ["[인계] %s -> %s · 항목 %d · [레디] 는 항목마다 «<id> 받음»(bash mbox.sh ready %s %s)" % (old, new, len(asks + ids + hs + bg + hand), new, old),
              "수: 답 안 한 오빠 질문 %d · 남은 회신·쪽지 %d · 억제 doorbell %d · 실행 중 h %d · 백그라운드 %d" % (len(asks), len(ids) - held, held, len(hs), len(bg + hand)),
-             "전문: mailbox.log.jsonl seq 로 · 오빠 질문 먼저 = %s" % (" ".join(qs) or "0"), "항목:" + "".join(" " + i for i in qs + ins + hs + bg)] + lf
-    return "\n".join(parts + hand + ([note] if note else []))
+             "전문: mailbox.log.jsonl seq 로 · 오빠 질문 먼저 = %s" % (" ".join(qs) or "0"), "항목:" + "".join(" " + i for i in qs + ins + hs + bg)]
+    b = "\n".join(parts + lf(()) + hand + ([note] if note else []))
+    if len(b) > BODY_MAX and extra:   # r1690 R1ⓐ — 손 항목 설명은 앞 60자만 본문 · 전문은 목록 «손 항목» 절(id bg:xN · 항목 수 그대로)
+        hl = ["bg:x%d %s" % (i + 1, e) for i, e in enumerate(extra)]
+        lp = _write_list(old, new, qx, lst, hl, lp)
+        b = "\n".join(parts + lf(hl) + ["- bg:x%d %s" % (i + 1, e[:60] + ("…" if len(e) > 60 else "")) for i, e in enumerate(extra)] + ([note] if note else []))
+    if len(b) > BODY_MAX:   # r1690 R1ⓑ — 줄여도 넘으면 전송 전 거절(send 0 · 표시 0 · 목록 파일은 남는다)
+        sys.stderr.write("REJECT [인계] 본문 %d자 > %d — 판정 불가\n" % (len(b), BODY_MAX))
+        sys.exit(3)
+    return b
 
 
 def last_handover(old, new):
