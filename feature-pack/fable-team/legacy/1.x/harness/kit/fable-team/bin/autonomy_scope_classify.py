@@ -3,7 +3,7 @@
 
   classify <40hex> --repo <dir> [--remote origin] [--target main] --scope S<n> [--table <분류표.tsv>] [--ddl-records <기록표.tsv>] [--learned <키,…>] [--card <카드.md>]
       `CLASS docs|ff|revert|code[ kind=<키,…> learned]` rc0 | `FORBID kind=<키> <사유>` rc3 | `ERROR <사유>` rc1 (못 판단 = 닫힌 쪽 · 호출자 REJECT)
-      --critical (r1577 D2 «크리티컬 종류» · --scope 불요) → `CRITICAL-OK` rc0 | `CRITICAL kind=<launchd|config|secret|destroy> <사유>` rc3 · scope 표와 «분리»
+      --critical (r1577 D2 «크리티컬 종류» · --scope 불요) → `CRITICAL-OK` rc0 | `CRITICAL kind=<launchd|config|secret|destroy> <사유>` rc3 · scope 표와 «분리» · r1934 --critical-profile d2 → `CRITICAL-OK scoped=<경로:줄>,…` · --d2-allow <billing,deps,global-rule> → `CLASS code kind=<키,…> d2`
   autonomy_scope_classify.py check-revert --repo <dir> [--remote origin] [--target main] --scope S<n>
       `OK` rc0 | `REVERTED <착지 sha> by <sha>` rc4 | `ERROR <사유>` rc1
 diff = merge-base(<remote>/<target>, sha)..sha · 로컬 git 만(호출마다 7초 상한) · 원장 = <state>/autonomy-scope/S<n>.ledger.tsv (6번째 칸 = 착지 sha).
@@ -93,7 +93,7 @@ def show_at(repo, sha):   # sha 트리의 파일 본문(없으면 "")
     return lambda path: run(repo, ["show", "%s:%s" % (sha, path)]).stdout
 
 
-def classify(repo, remote, target, scope, sha, table=None, records=None, learned=(), card=None):
+def classify(repo, remote, target, scope, sha, table=None, records=None, learned=(), card=None, d2_allow=()):
     ref = "refs/remotes/%s/%s" % (remote, target)
     git(repo, "rev-parse", "--verify", "-q", ref + "^{commit}")
     git(repo, "rev-parse", "--verify", "-q", sha + "^{commit}")
@@ -113,26 +113,26 @@ def classify(repo, remote, target, scope, sha, table=None, records=None, learned
     secret = secret_lines.reason(blocks, lambda p: rules.path_class(table, p), repo, sha)   # code 전문 · 문서는 실행 줄만(r559)
     if secret:
         judged.append(("forbid", "secret", secret))
-    used = rules.apply_learned(judged, learned)
+    d2, used = rules.d2_apply(table, rows, judged, d2_allow), rules.apply_learned(judged, learned)   # r1934 ①①' 를 학습보다 먼저
     hit = next(((k, w) for c, k, w in judged if c == "forbid"), None)
     if hit:
         return 3, "FORBID kind=%s %s" % hit
     if any(k == "ddl-recorded" for _, k, _ in judged) and any(c != "docs" for c, _, _ in judged):
         return 3, "FORBID kind=ddl DDL 기록 PR 에 문서 밖 변경"
-    tail = " kind=%s learned" % ",".join(used) if used else ""
+    tail = (" kind=%s learned" % ",".join(used) if used else "") + (" kind=%s d2" % ",".join(d2) if d2 else "")
     if any(c != "docs" for c, _, _ in judged):
         return 0, "CLASS code" + tail
     is_ff = run(repo, ["merge-base", "--is-ancestor", ref, sha]).returncode == 0
     return 0, ("CLASS ff" if is_ff else "CLASS docs") + tail
 
 
-def critical_check(repo, remote, target, sha):   # r1577 D2 — 되돌릴 수 없는 일이면 승인 0(Slack 길로)
+def critical_check(repo, remote, target, sha, profile="full"):   # r1577 D2 — 되돌릴 수 없는 일이면 승인 0(Slack 길로) · r1934 profile
     ref = "refs/remotes/%s/%s" % (remote, target); git(repo, "rev-parse", "--verify", "-q", ref + "^{commit}"); git(repo, "rev-parse", "--verify", "-q", sha + "^{commit}")
     base = git(repo, "merge-base", ref, sha).strip(); blocks = secret_lines.parse_added(git, repo, base, sha)
     if not blocks: return 0, "CRITICAL-OK"   # r1778: 삭제만 있는 diff = 새 줄 0 → 비밀·파괴 명령·새 설정 줄이 없다(② 가 이미 경로를 판정 · 되돌림 가능)
     doc = lambda p: ("docs", "docs") if p.endswith(".md") else ("code", "code")   # .md = 산문 · 그 밖 = 전문(닫힌 쪽)
-    hit = rules.critical_kinds(blocks, lambda: secret_lines.reason(blocks, doc, repo, sha), show_at(repo, sha))   # r1597: 본문(show)까지 넘긴다
-    return (3, "CRITICAL kind=%s %s" % hit) if hit else (0, "CRITICAL-OK")
+    hit = rules.critical_kinds(blocks, lambda: secret_lines.reason(blocks, doc, repo, sha), show_at(repo, sha), profile, (scoped := []))   # r1597: 본문(show)까지 넘긴다
+    return (3, "CRITICAL kind=%s %s" % hit) if hit else (0, "CRITICAL-OK" + (" scoped=" + ",".join(scoped) if scoped else ""))
 
 
 def find_reverter(repo, ref, landed):   # 착지 뒤 ref 에 «This reverts commit <L>» 이 든 커밋 → 그 sha
@@ -161,7 +161,7 @@ def parse_args(argv):
     cmd = argv[0]; critical = "--critical" in argv[1:]   # r1577 D2 크리티컬 판정 = --scope 불요 · 표(t)도 안 본다
     rest = [k for k in argv[1:] if k != "--critical"]
     sha = rest.pop(0) if cmd == "classify" and rest and not rest[0].startswith("--") else None
-    opts = {"--repo": None, "--remote": "origin", "--target": "main", "--scope": None, "--table": None, "--ddl-records": None, "--learned": "", "--card": None, "--critical": critical}
+    opts = {"--repo": None, "--remote": "origin", "--target": "main", "--scope": None, "--table": None, "--ddl-records": None, "--learned": "", "--card": None, "--critical": critical, "--d2-allow": "", "--critical-profile": "full"}
     while rest:
         key = rest.pop(0)
         if key not in opts or not rest:
@@ -174,6 +174,7 @@ def parse_args(argv):
     learned = tuple(k for k in (opts["--learned"] or "").split(",") if k)
     if not all(rules.KIND_RE.match(k) for k in learned):
         raise Err("--learned 키 꼴 틀림")
+    opts["--d2-allow"] = rules.d2_keys(opts["--d2-allow"], opts["--critical-profile"])   # r1934 허용 키·profile 밖 = ERROR
     return cmd, sha, opts, learned
 
 
@@ -182,9 +183,9 @@ def main(argv):
         cmd, sha, o, learned = parse_args(argv)
         repo, remote, target, scope = o["--repo"], o["--remote"], o["--target"], o["--scope"]
         if cmd == "classify" and o["--critical"]:
-            rc, line = critical_check(repo, remote, target, sha)   # r1577 D2 — 크리티컬이면 승인 0(Slack 길)
+            rc, line = critical_check(repo, remote, target, sha, profile=o["--critical-profile"])   # r1577 D2 — 크리티컬이면 승인 0(Slack 길)
         elif cmd == "classify":
-            rc, line = classify(repo, remote, target, scope, sha, rules.load_table(o["--table"]), rules.load_ddl_records(o["--ddl-records"]), learned, o["--card"])
+            rc, line = classify(repo, remote, target, scope, sha, rules.load_table(o["--table"]), rules.load_ddl_records(o["--ddl-records"]), learned, o["--card"], o["--d2-allow"])
         else:
             rc, line = check_revert(repo, remote, target, scope)
     except (Err, rules.TableErr, secret_lines.ImportErr, OSError) as e:

@@ -9,6 +9,9 @@ import re
 KIND_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 NEVER_LEARN = {"secret"}
 NEVER_LEARN = NEVER_LEARN | {"repo-outside", "scope-table", "mode"}   # 경계 종류 = 한 번 학습되면 범위 전체가 열린다(r1208 · h569)
+# r1934 D2 «되돌릴 수 있는 종류» — classify --d2-allow 가 받는 키(그 밖 = ERROR) · 보호 종류 = 경로가 그 줄에도 맞으면 변환 0(첫 일치가 가려도 · repo-outside 는 넣지 않는다)
+D2_ALLOW = {"billing", "deps", "global-rule"}
+D2_PROTECTED = {"key", "ddl", "deploy", "secret", "scope-table", "mode"}
 LABEL = {"ddl": "DDL", "deploy": "배포·인프라", "key": "키", "billing": "과금", "deps": "의존", "global-rule": "전역 규칙"}
 BYZ_TABLE = [(c, k, re.compile(rx, re.I)) for c, k, rx in [
     ("forbid", "ddl", r"(^|/)migrations/|\.sql$|^alembic/"),
@@ -63,6 +66,10 @@ def path_class(table, path):   # → (종류, 키) · 어떤 줄에도 안 맞�
         if rx.search(path):
             return cls, kind
     return "forbid", "repo-outside"
+
+
+def protected_hit(table, paths):   # r1934 ①' → (보호 종류, 경로) | None — 표의 «모든» forbid 줄에 대 본다(첫 일치 말고)
+    return next(((k, p) for p in paths for c, k, rx in table if c == "forbid" and k in D2_PROTECTED and rx.search(p)), None)
 
 
 def forbid_text(kind, path):
@@ -254,6 +261,27 @@ def apply_learned(judged, learned):   # 학습된 종류의 forbid 줄 → docs 
     return used
 
 
+def d2_keys(raw, profile):   # r1934 --d2-allow 값 → 키 tuple · 허용 키(billing·deps·global-rule) 밖·profile(full|d2) 밖 = 오류(닫힌 쪽)
+    keys = tuple(k for k in (raw or "").split(",") if k)
+    if not set(keys) <= D2_ALLOW or profile not in ("full", "d2"):
+        raise TableErr("--d2-allow 는 %s 만 · --critical-profile 은 full|d2" % ",".join(sorted(D2_ALLOW)))
+    return keys
+
+
+def d2_apply(table, rows, judged, allow):   # r1934 ① 허용 키 forbid → code(docs 아님 · ④ 카드 시험 세트 유지) · ①' 보호 종류 겹침이면 그 종류로 FORBID · 쓰인 키 목록
+    used = []
+    for i, ((cls, kind, _w), (_om, _nm, _st, paths)) in enumerate(zip(judged, pair_card_moves(table, rows) if allow else [])):
+        if cls != "forbid" or kind not in allow:
+            continue
+        pk = protected_hit(table, paths)
+        if pk:
+            judged[i] = ("forbid", pk[0], "%s (d2 allow 겹침)" % pk[1])
+            continue
+        judged[i] = ("code", kind, None)
+        used += [] if kind in used else [kind]
+    return used
+
+
 def load_ddl_records(path):   # 줄 꼴 `기록 파일(리포 기준 경로)<TAB>줄 정규식` — 정규식에 {sql} 이 있으면 그 sql 파일 이름으로 바꾼다
     if not path:
         return []
@@ -286,6 +314,13 @@ CRIT_DESTROY = re.compile(
     r"\bgit\s+push\b[^\n]*?(?:--force(?:-with-lease)?|\s-[A-Za-z]*f[A-Za-z]*\b|--delete\b|\s-d\b|\s\+[^\s]+|\s:)\S*|"
     r"\bgit\s+branch\b[^\n]*?(?:\s-D\b|\s--delete\b)|"
     r"\bDROP\s+(?:TABLE|DATABASE)\b|\bFLUSH(?:ALL|DB)\b", re.I)
+# r1934 profile d2 — ⓑ 대상 확인 갈래(kill·pkill·rm -rf 만) · ⓐ 늘 오빠 = CRIT_DESTROY 일치 중 ⓑ 꼴이 아닌 것(CRIT_DESTROY 불변)
+CRIT_DESTROY_SCOPED = re.compile(r"\b(?:kill|pkill)\b|\brm\s+-[A-Za-z]*[rR][A-Za-z]*[fF]\b|\brm\s+-[A-Za-z]*[fF][A-Za-z]*[rR]\b", re.I)
+CRIT_ENV = re.compile(r"(^|/)\.env(\.[^/]*)?$", re.I)   # d2 에서도 남는 외부 설정 = .env(키 줄과 이중 잠금)
+
+
+def destroy_hard(txt):   # ⓐ — CRIT_DESTROY 의 일치 하나라도 ⓑ 꼴(kill·pkill·rm -rf) 밖이면 참
+    return any(not CRIT_DESTROY_SCOPED.fullmatch(m.group(0)) for m in CRIT_DESTROY.finditer(txt))
 
 
 # ── r1597 «시험이 자기가 만든 임시 폴더를 끝에 지우는 줄» 예외 (카드 r1597 · 오빠 Slack 승인 ts=1794320041.110549) ──
@@ -325,23 +360,28 @@ def mktemp_trap_exempt(path, txt, show=None):   # → True = «그 시험이 방
     return bool(re.search(MKTEMP_LINE % v + MKTEMP_VALUE + MKTEMP_TAIL, body))   # 값 «전체» 가 mktemp -d (DA② R1-a: 뒤에 붙은 /../.. = destroy)
 
 
-def critical_kinds(blocks, secret=None, show=None):   # → (종류, 사유) | None · blocks = autonomy_scope_secret.parse_added 결과
+def critical_kinds(blocks, secret=None, show=None, profile="full", scoped=None):   # → (종류, 사유) | None · blocks = autonomy_scope_secret.parse_added 결과 · profile d2(r1934) = launchd·config(.env 밖)·apiKey 판정 0 · kill·pkill·rm -rf 줄은 scoped 에 위치를 모은다
+    d2 = profile == "d2"
     for path, _items, is_new in blocks:   # ① 새 LaunchAgents/LaunchDaemons plist
-        if is_new and CRIT_LAUNCHD.search(path or ""):
+        if not d2 and is_new and CRIT_LAUNCHD.search(path or ""):
             return "launchd", "새 launchd plist: %s" % path
     for path, items, is_new in blocks:   # ② 외부 설정(cliproxy·headroom · codex config.toml · .env) — 새 파일이든 값 변경이든
-        if CRIT_CONFIG.search(path or ""):
+        if (CRIT_ENV if d2 else CRIT_CONFIG).search(path or ""):
             return "config", "%s · %s" % (path, "새 설정 파일" if is_new else "기존 설정 값 변경")
     for path, items, _is_new in blocks:   # ② models.json = apiKey 칸(R1: 여기만 좁게 — 다른 일반 값 변경은 크리티컬 아님)
-        if CRIT_APIKEY_PATH.search(path or "") and any(CRIT_APIKEY.search(t) for _n, t in items):
+        if not d2 and CRIT_APIKEY_PATH.search(path or "") and any(CRIT_APIKEY.search(t) for _n, t in items):
             return "config", "%s · apiKey 칸" % path
     why = secret() if secret else ""   # ③ 비밀 줄(autonomy_scope_secret.reason 재사용)
     if why:
         return "secret", why
     for path, items, _is_new in blocks:   # ④ 파괴 명령 새 줄 — r1597 tests/ 임시 폴더 trap 줄만 예외
         for no, txt in items:
-            if CRIT_DESTROY.search(txt) and not mktemp_trap_exempt(path, txt, show):
-                return "destroy", "%s:%d %s" % (path or "?", no, txt.strip()[:80])
+            if not CRIT_DESTROY.search(txt) or mktemp_trap_exempt(path, txt, show):
+                continue
+            if d2 and scoped is not None and not destroy_hard(txt):   # ⓐ 먼저 — ⓑ 꼴만 있는 줄만 위치로(DA 대상 확인 줄 필요)
+                scoped.append("%s:%d" % (path or "?", no))
+                continue
+            return "destroy", "%s:%d %s" % (path or "?", no, txt.strip()[:80])
     return None
 
 

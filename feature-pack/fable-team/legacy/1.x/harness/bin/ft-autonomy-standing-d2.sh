@@ -12,9 +12,10 @@ D2_VREF='refs/remotes/origin/docs/da-278062'   # r1590 ③ 판정문 읽는 ref 
 D2="$STATE/autonomy-standing"; . "$HERE/ft-autonomy-standing.sh"   # D1 헬퍼(std_t7·std_field·std_verdict·std_da_out·std_equiv·std_seat_probe·std_plain) 재사용 — 사본 0
 D2_GRANT_RE='^approve-standing D2 [0-9]+ repos=(byz|pack|byz,pack) classes=(code|docs)(,(code|docs))? oppa_decision=[0-9]+\.[0-9]{6}$'
 d2_foot() {  # r1775 ⑧ 자율 길이면 «고친 뒤 다시» — 되돌릴 수 없는 종류(NEVER_LEARN·secret·repo-outside·scope-table·mode)만 오빠 답글 길
+  case "$1" in "⑤ 파괴 줄 대상 확인 없음"*) echo "다시: DA 대상 확인 줄을 받은 뒤 다시 standing-approve · 아니면 오빠 h(approve-merge --oppa-slack)"; return ;; esac   # r1934
   case "$1" in *NEVER_LEARN*|*secret*|*repo-outside*|*scope-table*|*"승인 범위(repos="*|*mode*) ;; *) echo "다시: 사유를 고친 뒤 다시 standing-approve"; return ;; esac
   echo "다시: 오빠 h(approve-merge --oppa-slack) — 크리티컬·판정문·시험 중 하나라도 못 지나면 건마다 오빠 답글"; }
-std_err() { echo "STANDING-REJECT $1" >&2; if [ -n "${D2_VIA_S:-}" ]; then d2_foot "$1" >&2; else echo "다시: 오빠 h(approve-merge --oppa-slack) — 크리티컬·판정문·시험 중 하나라도 못 지나면 건마다 오빠 답글" >&2; fi; exit 2; }
+std_err() { echo "STANDING-REJECT $1" >&2; if [ -n "${D2_VIA_S:-}" ] || [[ "$1" == "③ billing "* || "$1" == "⑤ 파괴 줄 "* ]]; then d2_foot "$1" >&2; else echo "다시: 오빠 h(approve-merge --oppa-slack) — 크리티컬·판정문·시험 중 하나라도 못 지나면 건마다 오빠 답글" >&2; fi; exit 2; }
 scope_err() { std_err "④ $1"; }   # scope 시험 도구의 거절도 D2 끝줄 하나로(사본 0)
 d2_on() {  # rc0 = 마지막 approve-standing D2 줄(꼴 맞음)이 마지막 standing-stop D2 줄보다 뒤 → D2_LINE D2_REPOS D2_CLASSES
   local g s; g="$(grep -n '^approve-standing D2 ' "$LOG" 2>/dev/null | tail -1)"; s="$(grep -n '^standing-stop D2 ' "$LOG" 2>/dev/null | tail -1)"
@@ -62,7 +63,7 @@ cmd_approve_standing() {
   d2_oppa_decision "$od"   # ① 확인 못 하면 아래 쓰기 0(게시 «전»)
   now="$(now_epoch)"; line="approve-standing D2 $now repos=$rp classes=$cl oppa_decision=$od"
   body="$(printf '%s\n%s\n%s' "상시 승인 D2 켜짐: 되돌릴 수 있는 병합은 팀장이 바로 해요" "혼자 해도 되는 것: DA 승인 + 카드 시험 통과 PR($(std_plain "$cl")) · 병합 뒤 1줄로 알려요" \
-    "언제까지: 멈춤(standing-stop) 전까지 · 크리티컬(kill·삭제·force push·launchd·외부 설정)은 그대로 답글 필요")"
+    "언제까지: 멈춤(standing-stop) 전까지 · 오빠 답글: 비밀·키·DB 스키마·배포·분류표·force push·branch 삭제·DROP·FLUSH·kill-server")"
   ts="$(scope_slack_post "$body")" || exit $?   # ② 게시 «먼저» — 실패면 쓰기 0
   mkdir -p "$D2" || std_wfail "$D2"
   printf '%s\tslack_ts=%s\n' "$line" "$ts" >> "$D2/grants.audit" || std_wfail "$D2/grants.audit"
@@ -121,16 +122,23 @@ d2_classify() {  # ② <head> → D2_CLS — byz = 내장 BYZ 표 · pack = 팩 
   if [ "$D2_RK" = pack ]; then t="${FT_SCOPE_PACK_TABLE:-$(tpl_file scope-classes-pack.tsv)}" || std_err "② 팩 분류표 없음(templates/scope-classes-pack.tsv)"; a+=(--table "$t")
   elif t="${FT_SCOPE_DDL_RECORDS:-$(tpl_file scope-ddl-record.tsv)}"; then a+=(--ddl-records "$t"); fi
   [ -z "${D2_CARD:-}" ] || a+=(--card "$D2_CARD")   # 카드 범위 삭제 판정 — 카드 못 읽으면 분류기가 닫힌 쪽(삭제는 그대로 거절)
-  std_t7 python3 "$cls" classify "$1" --repo "$D2_REPO" --remote origin --target main --scope S0 "${a[@]}"
+  std_t7 python3 "$cls" classify "$1" --repo "$D2_REPO" --remote origin --target main --scope S0 --d2-allow billing,deps,global-rule "${a[@]}"   # r1934 ①②
   [ "$RC" = 0 ] || std_err "② 분류기 거절 rc=$RC: ${FIRST:-출력 없음(시간 초과 7초 포함)}"
-  [[ "$FIRST" =~ ^CLASS\ (docs|ff|code)$ ]] || std_err "② 종류가 code·docs 아님: $FIRST"
+  [[ "$FIRST" =~ ^CLASS\ (docs|ff|code)(\ kind=([a-z0-9,-]+)\ d2)?$ ]] || std_err "② 종류가 code·docs 아님: $FIRST"
+  D2_BILLING=""; case ",${BASH_REMATCH[3]}," in *,billing,*) D2_BILLING=1 ;; esac   # ③ 뒤 d2_billing_line
   k="${BASH_REMATCH[1]}"; [ "$k" != ff ] || k=docs   # ff = 문서만 바뀌고 main 이 head 의 조상(D1 과 같은 꼴)
   case ",$D2_CLASSES," in *",$k,"*) ;; *) std_err "② 종류 $k 는 상시 승인 범위(classes=$D2_CLASSES) 밖" ;; esac
   D2_CLS="$k"
 }
-d2_critical() {  # ⑤ <head> — 크리티컬 종류 0(ⓒ) · 판정 못 함 = 거절(닫힌 쪽)
-  std_t7 python3 "${FT_SCOPE_CLASSIFY:-$HERE/autonomy_scope_classify.py}" classify "$1" --repo "$D2_REPO" --remote origin --target main --critical
-  [ "$RC" = 0 ] && [ "$FIRST" = CRITICAL-OK ] && return 0
+D2_BILL_LINE='과금: 금액 계산 불변 · 잔액/원장 쓰기 0 — PASS'   # r1934 ③ DA 원문 마지막 codex 블록에만(판정문 본문 = DA 밖 손)
+d2_da_last() { awk '/^codex[[:space:]]*$/ {c=1; b=""; next} c {b=b $0 "\n"} END {printf "%s", b}' "$1" | sed -E 's/^[-[:space:]]*//'; }   # 마지막 codex 블록 · 앞 - ·공백 떼기
+d2_billing_line() { d2_da_last "$V_OUT" | grep -qxF -- "$D2_BILL_LINE" || std_err "③ billing 판정문에 «금액 불변 · 쓰기 0» PASS 줄 없음"; }
+d2_scoped_destroy() {  # r1934 ⑤ kill·pkill·rm -rf 위치마다 DA 원문 마지막 블록의 대상 확인 줄(두 꼴만)
+  local p last; last="$(d2_da_last "$V_OUT")"; IFS=, read -ra D2_PS <<<"$D2_SCOPED"
+  for p in "${D2_PS[@]}"; do grep -qxF -e "파괴 대상: $p — 자기 임시 폴더(mktemp)" -e "파괴 대상: $p — 자기 자식 프로세스" <<<"$last" || std_err "⑤ 파괴 줄 대상 확인 없음: $p"; done; }
+d2_critical() {  # ⑤ <head> — 크리티컬 종류 0(ⓒ) · 판정 못 함 = 거절(닫힌 쪽) · r1934 profile d2 · scoped= 위치 = DA 대상 확인 줄 필요
+  std_t7 python3 "${FT_SCOPE_CLASSIFY:-$HERE/autonomy_scope_classify.py}" classify "$1" --repo "$D2_REPO" --remote origin --target main --critical --critical-profile d2
+  [ "$RC" = 0 ] && [[ "$FIRST" =~ ^CRITICAL-OK(\ scoped=(.+))?$ ]] && { D2_SCOPED="${BASH_REMATCH[2]}"; [ -z "$D2_SCOPED" ] || d2_scoped_destroy; return 0; }
   [[ "$FIRST" =~ ^CRITICAL\ kind=([a-z]+)\ (.*)$ ]] && std_err "⑤ 크리티컬: ${BASH_REMATCH[1]} — ${BASH_REMATCH[2]}"
   std_err "⑤ 크리티컬 판정 실패 rc=$RC: ${FIRST:-출력 없음(시간 초과 7초 포함)}"
 }
@@ -158,7 +166,7 @@ cmd_standing_approve() {
   d2_on || d2_scope_via || std_err "① 상시 승인 D2 꺼짐(approve-standing D2 줄 없음 또는 standing-stop 뒤)"   # r1775: ① 진입 조건 = D2 켜짐 ∨ 자율 풀자동 범위 승인
   d2_repo "$rk"
   if grep -q "^standing-use D2 $head " "$LOG" 2>/dev/null; then echo "STANDING-NOOP $head (이미 상시 승인함)"; return 0; fi
-  d2_classify "$head"; std_verdict "$vf" "$D2_VREF"; std_da_out "$V_OUT" "$V_A"; std_equiv "$V_A" "$head"
+  d2_classify "$head"; std_verdict "$vf" "$D2_VREF"; std_da_out "$V_OUT" "$V_A"; [ -z "${D2_BILLING:-}" ] || d2_billing_line; std_equiv "$V_A" "$head"
   [ "$D2_CLS" != code ] || scope_code_check "$head" "$card"   # ④ 카드 시험 세트(rc≠0 = scope_err = STANDING-REJECT)
   d2_critical "$head"
   [ -z "${D2_VIA_S:-}" ] || d2_gate "$head"   # r1775 ⑤ 자율 길에만 게이트 ALLOW 재확인
