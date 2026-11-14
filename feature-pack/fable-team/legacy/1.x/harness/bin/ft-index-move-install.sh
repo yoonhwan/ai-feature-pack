@@ -51,7 +51,8 @@ case "$crc" in
   3) printf '%s\n' "$COUT"; rej "설치 대조 불가(rc=3) — $(printf '%s\n' "$COUT" | grep -m1 -E '^ERROR' || echo '대조기 ERROR 줄 없음')";;
   *) printf '%s\n' "$COUT"; rej "라이브 설치 어긋남(rc=$crc) — master 설치 뒤 다시 이동";;
 esac; if [ "${FT_INSTALL_RESTART_GATE:-1}" = 0 ]; then echo "INFO 재기동 게이트 끔"; else ROUT="$(LC_ALL=C FT_BIN="${FT_BIN:-$HERE}" bash "$HERE/ft-live-install-check.sh" --restart-scan --project "$CROOT" 2>&1)"; rrc=$?; if [ "$rrc" -ne 0 ]; then printf '%s\n' "$ROUT"; rej "재기동 판정 불가(rc=$rrc)"; fi; RESTARTS=""; while IFS= read -r line; do case "$line" in "RESTART "*' — launchctl kickstart'*) RESTARTS+="$line"$'\n';; esac; done <<< "$ROUT"; if [ -n "$RESTARTS" ]; then printf '%s' "$RESTARTS"; rej "오래된 데몬 재기동 필요"; fi; if [ "$ROUT" != "RESTART 0" ]; then printf '%s\n' "$ROUT"; rej "재기동 판정 불가"; fi; fi
-EV="$(grep -m1 -E '^[[:space:]]*-[[:space:]]*실사건:' "$CARD")"
+# r1422: 들여쓰지 않은 최상위 «- 실사건:» 줄만 · 여럿이면 마지막 줄 — 근거 절의 들여쓴 «  - 실사건:» 줄은 닫기 증거가 아니다
+EV="$(grep -E '^-[[:space:]]*실사건:' "$CARD" | tail -n 1)"
 [ -n "$EV" ] || rej "카드에 「- 실사건: <무엇> · <증거>」 줄 없음 — 설치 뒤 실사건 1회 실측 증거(mbox #N | 경로:줄 | ledger 키)"
 printf '%s' "$EV" | grep -qE '#[0-9]+|[A-Za-z0-9_./-]+\.[A-Za-z0-9]+:[0-9]+|ledger[:=][^[:space:]]+' || rej "「- 실사건:」 줄에 증거 토큰 없음(mbox #N · 경로:줄 · ledger 키)"
 ROOT="${CROOT:-$WT}"   # r959: 같은 공용 루트 — 위에서 7초 상한으로 이미 풀었다(중복 git 호출 0)
