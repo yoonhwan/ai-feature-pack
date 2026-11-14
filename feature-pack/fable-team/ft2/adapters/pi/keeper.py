@@ -37,6 +37,7 @@ reporting = _load(os.path.join(HERE, "keeper_report.py"), "ft2_keeper_report")
 full_alert = _load(os.path.join(HERE, "full_alert.py"), "ft2_keeper_full_alert")   # r1886
 endings = _load(os.path.join(HERE, "keeper_endings.py"), "ft2_keeper_endings")   # r1960 끝 판정 · 고아
 hold = _load(os.path.join(HERE, "keeper_hold.py"), "ft2_keeper_hold")   # r1931 카드 HOLD 줄 → holder 깨움
+kf = _load(os.path.join(HERE, "keeper_fetch.py"), "ft2_keeper_fetch")   # r1975 FETCH_TARGETS · 나노 가지 · 판정 뒤 백그라운드
 
 
 class Keeper(land.Landing, closing.Closing, reporting.Reporting):
@@ -54,6 +55,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
         self.state = {key: {} for key in ("held", "open", "sent", "handled", "woke", "reassigned")}
         self.stall = _load(os.path.join(HERE, "keeper_stall.py"), "ft2_keeper_stall").Stall(self)   # r1813 S1~S5
         self.spent, self.sock, self.skip, self.stale = dict.fromkeys(("fetch", "b1", "b2", "b3", "stall"), 0.0), True, set(), set()
+        self.table, self.nano, self.refs, self.picked, self.bg, self.per = {}, {}, {}, [], {}, {}   # r1975
 
     def call(self, argv, timeout=CALL_S, retry=0):
         """바깥 호출 1곳 → (rc, stdout, stderr 1줄) · 넘침·실행 실패 = rc None · retry = rc≠0 때 다시 부르는 횟수."""
@@ -72,7 +74,16 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
 
     def fetch_refs(self, repo):
         """r1937 — keeper 가 읽는 ref 만: 팩 = main · BYZ = main·ops/main-base + directive-roots.tsv 의 `.` 행 origin/<가지>
-        (고정 목록 밖이면 ls-remote 1회로 원격 실재만 · 로컬 ref 없어도 첫 수신 · 원격에 없는 가지 = 빠짐) · 표·ls-remote 실패 = 고정 목록만."""
+        (고정 목록 밖이면 ls-remote 1회로 원격 실재만 · 로컬 ref 없어도 첫 수신 · 원격에 없는 가지 = 빠짐) · 표·ls-remote 실패 = 고정 목록만.
+        r1975 — 바퀴마다 1회 계산 · FETCH_TARGETS 있음 = 그 목록만 · 없음 = 위 + 판정 대상 나노 가지(고정 목록 밖 취급) · 리포당 상한 5."""
+        if repo not in self.refs:
+            names = list(dict.fromkeys(self.table.get(repo, []))) if self.table else self.default_refs(repo)
+            if len(names) > kf.CAP:
+                self.log("FETCH-CAP", text="%s 지정 ref 초과 %d — 앞 %d 만" % (repo, len(names) - kf.CAP, kf.CAP))
+            self.refs[repo] = ["+refs/heads/%s:refs/remotes/origin/%s" % (n, n) for n in names[:kf.CAP]]
+        return self.refs[repo]
+
+    def default_refs(self, repo):
         names = ["main"] if repo == self.pack else ["main", "ops/main-base"]
         try:
             with open(os.path.join(self.root, ".fable-team", "state", "directive-roots.tsv"), encoding="utf-8") as fh:
@@ -80,17 +91,32 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
         except (OSError, UnicodeError):
             rows = []
         extra = list(dict.fromkeys(r[2][7:] for r in rows if repo == self.root and r[1] == "." and r[2].startswith("origin/") and r[2][7:] not in names))
+        extra += [n for n in (self.nano.get(endings._common(self, repo), []) if self.nano else []) if n not in names + extra]
         if extra:
             rc, out, _ = self.git(repo, "ls-remote", "--heads", "origin", *("refs/heads/" + n for n in extra), retry=1, timeout=FETCH_S)
             have = {x.partition("\trefs/heads/")[2] for x in out.splitlines()} if rc == 0 else set()
             names += [n for n in extra if n in have]
-        return ["+refs/heads/%s:refs/remotes/origin/%s" % (n, n) for n in names]
+        return names
 
     def fresh(self, repo):
+        """r1975 ⑤ 리포별 초(self.per) — ROUND fetch_root=·fetch_pack= 칸."""
+        at = self.now()
+        try:
+            return self._fresh(repo)
+        finally:
+            self.per[repo] = self.now() - at
+
+    def _fresh(self, repo):
         """r1963 — 그 리포가 «신선» 인가. ls-remote(네트워크만) 의 원격 sha 가 읽는 ref 전부에서 로컬 remote-tracking sha 와 같으면 fetch 0
         (fetch 끝의 연결 검사가 그 리포 모든 ref 를 읽는다 = 느린 곳) · 다르면 fetch(7초 + 재시도 1) · ls-remote 실패면 fetch 1회(시도 합 2 그대로)."""
-        def fetch(repo, retry=1):
-            return self.git(repo, "fetch", "-q", "--no-tags", "origin", *self.fetch_refs(repo), retry=retry, timeout=FETCH_S)[0]
+        def fetch(repo, retry=1):   # r1975 시도마다 1줄(소요 초·rc · 재시도 포함 · ROUND 합과 따로)
+            for n in range(1, retry + 2):
+                at = self.now()
+                rc = self.git(repo, "fetch", "-q", "--no-tags", "origin", *self.fetch_refs(repo), timeout=FETCH_S)[0]
+                self.log("FETCH-TRY", text="%s %d/%d rc=%s s=%g" % (repo, n, retry + 1, rc, round(self.now() - at, 1)))
+                if rc == 0:
+                    break
+            return rc
         pairs = [spec.lstrip("+").split(":", 1) for spec in self.fetch_refs(repo)]   # (원격 ref, 로컬 ref) — 따로 대조
         names = [src for src, _ in pairs]
         rc, out, _ = self.git(repo, "ls-remote", "origin", *names, timeout=FETCH_S)
@@ -178,13 +204,22 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
         start, self.skip = time.monotonic(), self.skipped()
         if self.skip is None:
             return self.log("판정 불가", text="SKIP_TEAMS 판독 실패 — 이 바퀴 B1·B2·B3·B4 0")
-        def both(repos=(self.root, self.pack)):   # r1963 두 리포 동시 → fetch 단계 = 느린 쪽 하나 · 낡은 리포 집합은 바퀴마다 새로
+        self.table, self.refs, self.per = kf.targets(self), {}, dict.fromkeys((self.root, self.pack), 0.0)
+        if self.table is None:   # r1975 ④ 기본값으로 돌아가지 않는다
+            return self.log("판정 불가", text="FETCH_TARGETS 판독 실패 — 이 바퀴 B1·B2 0")
+        kf.collect(self)
+        self.picked = [r for r in (self.root, self.pack) if not self.table or r in self.table]
+        def both(repos=self.picked):   # r1963 두 리포 동시 → fetch 단계 = 느린 쪽 하나 · 낡은 리포 집합은 바퀴마다 새로
+            self.nano = {} if self.table else kf.nanos(self, self.teams())   # r1975 ⑥
             with concurrent.futures.ThreadPoolExecutor(2) as pool:
                 return [repo for repo, ok in zip(repos, pool.map(self.fresh, repos)) if not ok]
         self.stale = {repo for repo in self.timed("fetch", both)}
         self.sock = self.socket_ok()
         if self.stale:   # BYZ 낡음 = 카드·TEAMS·짝 표도 낡음 → 판정 0 · 팩만 낡음 = 팩 ref 를 읽는 판정(landing 조상·다음 카드 target)만 0
             self.log("판정 불가", text="git fetch 실패 %s — %s" % (" ".join(r for r in (self.root, self.pack) if r in self.stale), "이 바퀴 B1·B2 0" if self.root in self.stale else "팩 기대 판정만 0"))
+        if out := [r for r in (self.root, self.pack) if r not in self.picked]:   # r1975 ② 목록 밖 리포 = fetch 0 · 그 리포를 읽는 판정만 0
+            self.stale |= set(out)
+            self.log("판정 불가", text="FETCH_TARGETS 밖 %s — fetch 0 · %s" % (" ".join(out), "이 바퀴 B1·B2 0" if self.root in out else "팩 기대 판정만 0"))
         order = [] if self.root in self.stale else self.teams()
         if self.state.get("cap_next") in order:   # r1898 — 앞 바퀴 컷에 걸린 팀부터(뒤쪽 팀 굶음 0)
             at = order.index(self.state["cap_next"])
@@ -205,6 +240,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
         self.report()
         s = sum(self.spent.values())
         cells = " ".join("%s=%g" % (key, round(val, 1)) for key, val in self.spent.items())
+        cells += " fetch_root=%g fetch_pack=%g" % (round(self.per[self.root], 1), round(self.per[self.pack], 1))   # r1975 ⑤ 합계 fetch= 그대로
         self.log("ROUND", text="s=%g %s%s%s" % (round(s, 1), cells, " OVER" if s > ROUND_S else "", self.skip and " skip=" + ",".join(sorted(self.skip)) or ""))
 
     def teams(self):
@@ -250,6 +286,8 @@ def main(argv):
     env = dict(os.environ, **({"FT2_PACK_REPO": opts["--pack"]} if "--pack" in opts else {}))
     keeper = Keeper(opts["--root"], env)
     line = keeper.run_once() if flags[0] == "--once" else keeper.report_once()
+    for repo in keeper.picked if flags[0] == "--once" else ():   # r1975 ⑦ 판정 뒤 전체 fetch = 던지고 기다리지 않음
+        kf.background(keeper, repo)
     tail = "" if flags[0] == "--once" else line + "\n"
     sys.stdout.write("".join(text + "\n" for text in keeper.lines) + tail)
     return 0
