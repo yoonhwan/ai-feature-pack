@@ -76,8 +76,19 @@ def _lint_file() -> str:
     for d in (base, *list(base.parents)[:3]):
         for c in (d / NAME_LINT, d / "bin" / NAME_LINT, d / "harness" / "bin" / NAME_LINT):
             if c.is_file():
-                return str(c)
+                return _unshim(c)
     return ""
+
+
+def _unshim(c: _Path) -> str:
+    """r1914 루트 bin shim(r1694 · ROLES 줄 없음)이면 그 bin 의 ../LIVE_BIN 첫 줄(절대경로)의 lint · 못 풀면 ""(좌석 아님 · 하드 룰 20)."""
+    try:
+        if "ft-root-bin-shim:" not in "".join(c.read_text(encoding="utf-8").splitlines(True)[:3]):   # r1914 shim 판정
+            return str(c)
+        live = ((c.parent.parent / "LIVE_BIN").read_text(encoding="utf-8").splitlines() or [""])[0].strip()
+    except (OSError, ValueError):
+        return ""
+    return str(_Path(live) / NAME_LINT) if live.startswith("/") and (_Path(live) / NAME_LINT).is_file() else ""
 
 
 LINT = _lint_file()
