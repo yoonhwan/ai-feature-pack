@@ -37,7 +37,7 @@ def pr(w, work, mode="merge", n=1, rc=0, repo="pack"):
     _put(w.runtime() / "launch" / ("%s@a1.intent" % work), {"FT2_HOLDER": "byz-harness-nano-%s-t#0" % work, "state": "opened", "worktree": str(path), "at": "2026-01-01T00:00:00", "base_sha": base})
     return oid
 def card(w, work, text, stage="진행", name=None):
-    [w.commit("byz", {"design/harness/indices/%s/%s" % (stage, name or work + "-x.md"): "# 인덱스: %s\n- 상태: 대기\n\n## 상태\n%s\n" % (work, text)}, ref) for ref in ("main", "ops/main-base")]
+    [w.commit("byz", {"design/harness/indices/%s/%s" % (stage, name or work + "-x.md"): "# 인덱스: %s\n- 상태: 대기\n- 남은 범위: 없음\n\n## 상태\n%s\n" % (work, text)}, ref) for ref in ("main", "ops/main-base")]
 def run(w, k=None):
     return w.round(k), w.tmux("kill-session")
 def has(lines, head, word=""):
@@ -155,7 +155,7 @@ MUTANTS = {"M1": (KE, 'prs = _prs(k, REPO.search(url).group(1) if REPO.search(ur
            "M7": (KE, SNAP, "\n    ".join(SNAP.split("\n    ")[::-1]), c7d),
            "M8": (KE, "H.auto_opened(k.call, k.tmux, seat, it) if work", '(True, "") if work', c7b),
            "M10": (KE, 'if bad := [r for r in sorted(getattr(k, "stale", ())) if _common(k, r) == _common(k, tree)]:', "if bad := []:", c1s),
-           "M9": (KP, "elif self.sock and endings.ending(self, team, work):", "elif self.sock and endings.ending(self, team, work) and (self.complete(team, work, attempt, ('0' * 40, 'm9', '')) or True):", c3)}
+           "M9": (KP, "elif self.sock and endings.ending(self, team, work):", "elif self.sock and endings.ending(self, team, work) and (land.cli.run(['complete', '--root', self.root, '--team', team, '--work', work, '--attempt', attempt]) or True):", c3)}   # r2000 — complete() 는 남은 범위 관문이 먼저 막으므로 cli complete 를 바로 부른다
 @pytest.mark.parametrize("name", list(CASES))
 def test_case(name, tmp_path, monkeypatch):
     CASES[name](world(CASES[name], tmp_path / "w", monkeypatch))

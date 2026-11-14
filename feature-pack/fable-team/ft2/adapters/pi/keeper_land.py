@@ -15,6 +15,8 @@ _SPEC.loader.exec_module(cli)
 PROJ = cli._load("projection")   # r1893 최신 dispatch attempt · launch intent 경로
 endings = importlib.util.module_from_spec(importlib.util.spec_from_file_location("ft2_keeper_land_endings", os.path.join(os.path.dirname(os.path.abspath(__file__)), "keeper_endings.py")))
 endings.__spec__.loader.exec_module(endings)   # r1960 착지 줄 없음 → work 결속 PR 근거
+followup = importlib.util.module_from_spec(importlib.util.spec_from_file_location("ft2_keeper_land_followup", os.path.join(os.path.dirname(os.path.abspath(__file__)), "followup.py")))
+followup.__spec__.loader.exec_module(followup)   # r2000 complete 직전 «남은 범위» 관문
 OK = "접수 성공"
 
 REFS = ("origin/ops/main-base", "origin/main")       # BYZ 카드·착지 ref (B1r 순서)
@@ -101,7 +103,7 @@ class Landing:
 
     def landing(self, team, work):
         """(sha, ref, 사유) — 후보 0·충돌 = 판정 불가 · 착지 줄 없음 · 어느 ref 에도 조상 아님 = 미도달."""
-        cards, hits = self.cardmap(team), {}
+        cards, hits, bodies = self.cardmap(team), {}, {}
         mapped = cards.get(work) if isinstance(cards, dict) else None
         name = os.path.basename(mapped[0]) if mapped else work + ".md"
         own = name == work + ".md" or name.startswith(work + "-")   # F3 자기 카드 · 그 밖 = 부모(행 수 무관 «착지(<work>)» 줄)
@@ -121,12 +123,14 @@ class Landing:
             rc, body, _ = self.git(self.root, "show", "%s:%s" % (ref, path))
             if rc != 0:
                 return None, None, "판정 불가 · git show %s rc %s" % (path, rc)
-            hits[(ref, path)] = (land.findall(body) or [None])[-1]
+            hits[(ref, path)], bodies[(ref, path)] = (land.findall(body) or [None])[-1], body
         shas = sorted({sha for sha in hits.values() if sha})
         if not hits:
             return None, None, "판정 불가 · 카드 후보 0"
         if len(shas) > 1:
             return None, None, "판정 불가 · 착지 줄 충돌 " + " ".join(shas)
+        pick = next(key for key, sha in hits.items() if sha == (shas or [None])[0])   # r2000 ⓑ 착지 sha 를 준 첫 카드(ref 순서 그대로) = 남은 범위 본문
+        self.cache.setdefault("@round", {})[("card", team, work)] = pick + (bodies[pick],)
         if not shas:
             return endings.pr_landed(self, team, work) if own else (None, None, "판정 불가 · 조각 착지 줄 없음")
         sha = shas[0]
@@ -173,10 +177,13 @@ class Landing:
             self.notify(team, "unreached|%s|%s|%s" % (team, work, sha), body)
         if why:
             return self.log("HELD", team, "%s %s" % (work, why))
+        card = followup.gate(self, team, work, attempt)   # r2000 — cli complete 직전만 · 거절·판정 불가 = complete 0
+        if card is None:
+            return None
         argv = ["complete", "--root", self.root, "--team", team, "--work", work, "--attempt", attempt]
         out, _rc = cli.run(argv)
         self.fa.journal(self.root, team, out, work)   # r1886 ⓓ 쓰기 거절·성공 둘 다
         if not self.done(team, work):
             return self.log("판정 불가", team, "%s complete 뒤 done 확인 못 함(%s) — B2 0" % (work, out.get("result")))
-        self.log("COMPLETED", team, "%s 착지 %s ref %s" % (work, sha, ref))
+        self.log("COMPLETED", team, "%s 착지 %s ref %s 카드 %s" % (work, sha, ref, card))
         return True

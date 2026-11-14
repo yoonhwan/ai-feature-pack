@@ -29,7 +29,7 @@ def world(tmp, mp, ft2=FT2):
     _put(w.root / ".fable-team" / "seats-feature.json", {"_master": "M-feature"})
     return w.enable(FT) or w
 def card(w, path, *lands):   # 카드 1장 = 두 ref 에 같은 본문 · lands = 착지 줄 꼬리(«: sha» 또는 «(work): sha»)
-    body = "# 인덱스\n- 상태: 진행\n" + "".join("- 착지%s\n" % x for x in lands)
+    body = "# 인덱스\n- 상태: 진행\n- 남은 범위: 없음\n" + "".join("- 착지%s\n" % x for x in lands)
     for ref in ("main", "ops/main-base"):
         w.commit("byz", {path: body}, ref)
 def cmap(w, *rows):   # 짝 표 = <work>\t<경로> 줄 (팀장이 쓰는 일반 파일)
