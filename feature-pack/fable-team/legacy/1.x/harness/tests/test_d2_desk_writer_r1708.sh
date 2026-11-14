@@ -47,7 +47,8 @@ fresh() {  # fresh <level> [mode] — 손 작성 autonomy.json + log(ON full 기
   printf '%s\n' "approve-standing D2 $T0 repos=byz,pack classes=code,docs oppa_decision=$OD" >> "$LOG"
 }
 as_seat() { printf '%s' "$1" > "$SEATFILE"; export FT_SEAT="$1"; }
-card() { CARD="$T/card.md"; printf '# 카드\n\n## 상태\n- 세트: %s · 시험: bash tests/x.sh rc=0 · 이슈: 0\n' "$1" > "$CARD"; }
+card() { CARD="$B/card.md"; printf '# 카드\n\n## 상태\n- 세트: %s · 시험: bash tests/x.sh rc=0 · 이슈: 0\n' "$1" > "$CARD"; cardpub; }
+cardpub() { grep -qx '/card*.md' "$B/.git/info/exclude" || echo '/card*.md' >> "$B/.git/info/exclude"; git -C "$B" update-ref refs/remotes/origin/ops/main-base "$(git -C "$B" commit-tree "$(printf '100644 blob %s\t%s\n' "$(git -C "$B" hash-object -w "$CARD")" "${CARD##*/}" | git -C "$B" mktree)" -m card)"; }   # r1904: 카드 = 원장(FT_ROOT) 안 · 고정 ref origin/ops/main-base 커밋 판
 sa() { as_seat "${SA_SEAT:-$DESK}"; L0="$(nlog)"; run a standing-approve D2 "$1" --pr "$2" --repo "${4:-pack}" --verdict "$3" --card "$CARD"; }
 mkpr() {  # mkpr <N> <파일> [내용…] — 팩 origin/main 에서 head 1커밋
   git -C "$P" fetch -q origin; git -C "$P" checkout -q -B "pr$1" origin/main; mkdir -p "$P/$(dirname "$2")"
