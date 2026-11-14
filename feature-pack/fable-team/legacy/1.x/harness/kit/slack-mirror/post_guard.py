@@ -33,6 +33,7 @@ INTERNAL = {
     "cost": r"\$[0-9]",
     "verdict-number": r"판정 [0-9]+",
 }
+FENCE, TABLE_RULE = re.compile(r"```.*?(?:```|\Z)", re.S), re.compile(r"^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$")  # r1927
 HUMAN_CHANNELS_ENV = "BYZ_HUMAN_CHANNELS"
 ROOT_ENV = "FT_ROOT"
 DEFAULT_ROOT = "/Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents"  # ~/.hermes/scripts 에서 불려도 명부에 닿는 고정 기본값
@@ -87,6 +88,12 @@ def _hits(text: str, group: dict[str, str]) -> list[str]:
     return [name for name, pat in group.items() if re.search(pat, text)]
 
 
+def has_table(text: str) -> bool:
+    """r1927 마크다운 표 = 파이프 2개 이상 줄 다음 구분선 줄 · 코드 블록(```) 안 = 제외."""
+    lines = FENCE.sub("", text).splitlines()
+    return any(a.count("|") >= 2 and TABLE_RULE.match(b) for a, b in zip(lines, lines[1:]))
+
+
 PATH_ALLOW = frozenset({"abs-path", "worktree-path"})  # 면제할 수 있는 2묶음 칸은 이 둘뿐 — 비밀(묶음1)·나머지 2묶음 면제 길 0 (r1275 단계 5)
 PATH_ASK = re.compile(r"풀\s*패스|절대\s*경로|폴더\s*주소|파일\s*경로|경로\s*(알려|줘|좀|보내)|full\s*path", re.I)
 
@@ -103,6 +110,7 @@ def check(text: str, channel: str, *, human: bool = False, allow: frozenset[str]
     found = [f"묶음1:{n}" for n in _hits(text, SECRETS)]
     if human or channel in human_channels():
         found += [f"묶음2:{n}" for n in _hits(text, {k: v for k, v in INTERNAL.items() if k not in allow})]
+        found += ["묶음2:마크다운 표"] if has_table(text) else []
     if found:
         raise PostGuardError(f"게시 거부(post_guard) — {', '.join(found)} · 게시 0")
 

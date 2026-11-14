@@ -42,8 +42,19 @@ def _requeue(root, team, desk):
     route.SlackRoute(root, receive=inbox, team=team)  # R1a — RoutingClient 가 route 장부의 thread·목적지를 영수에 남긴다
     full = sorted((e for e in inbox.latest().values() if e.get("state") == receive.FULL and e.get("key")),
                   key=lambda e: _ts(e["key"][2]))
-    again = [inbox._recover(e["command"], entry=e) for e in full[:max(room, 0)]]
-    return [v["command"] for v in again if v.get("state") == receive.DISPATCHED]
+    asked = receive.read_settle(inbox.settle_path, strict=True) if full else {}  # r1927 R1 — 처리 기록 먼저 대조
+    if asked is None:
+        print("판정 불가: r1927 재접수 settle.jsonl · full %d건 그대로" % len(full), file=sys.stderr)
+        return []
+    out = []
+    for entry in full:
+        if room <= 0:
+            break
+        if entry["command"] in asked:  # desk 처리 요청 = settled · 칸 소비 0
+            inbox._settle(entry["command"], entry, asked)
+        elif inbox._recover(entry["command"], entry=entry).get("state") == receive.DISPATCHED:
+            out, room = out + [entry["command"]], room - 1
+    return out
 
 def settle(root, team, row):
     """게시 확정 1줄 → 판정 1개(state · completed · requeued). 예외는 이 함수 밖으로 나가지 않는다."""

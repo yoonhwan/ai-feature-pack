@@ -42,6 +42,14 @@ COVERS = {
 }
 
 Key = collections.namedtuple("Key", "workspace channel ts")
+_DONE = []
+
+def _reply_done():  # r1927 늦게 1회 읽음 — reply_done 이 이 파일을 읽는다(순환 0)
+    if not _DONE:
+        spec = importlib.util.spec_from_file_location("ft2_receive_reply_done", os.path.join(_HERE, "reply_done.py"))
+        spec.loader.exec_module(module := importlib.util.module_from_spec(spec))
+        _DONE.append(module)
+    return _DONE[0]
 
 def message_key(event):
     """메시지 키 3종 — event 안 team 이 없으면 envelope 최상위 team 을 쓴다."""
@@ -77,6 +85,8 @@ class SlackReceive:
         self.path = os.path.join(data, "receive.jsonl")
         self.settle_path = os.path.join(data, "settle.jsonl")  # r1906 desk 처리 기록 요청 — listen 은 읽기만
         self.client = client or intake.Intake(str(root), team, capacity=capacity, clock=self.clock)
+        if not self.bot_users:  # r1927 R2 — 탱크 신원 없음 = 봇 답 완료 길 0
+            self.log("탱크 신원 없음 · 봇 답 완료 0")
 
     def entries(self):
         if not os.path.exists(self.path):
@@ -120,8 +130,11 @@ class SlackReceive:
         if reason:
             self.ack(event)
             self._step("ack")
-            return self._append({"state": IGNORED, "command": command, "key": list(key),
-                                 "reason": reason, "attempts": 0, "acked": True})
+            row = {"state": IGNORED, "command": command, "key": list(key), "reason": reason, "attempts": 0, "acked": True}
+            if reason == "bot" and event.get("user") in self.bot_users and event.get("thread_ts") \
+                    and event.get("channel") in self.allowed_channels:  # r1927 탱크 thread 답 = 앞 글 완료
+                row["settle"] = self._reply_settle(command, key, event)
+            return self._append(row)
         prior = self.latest().get(command)
         if prior and prior.get("state") in (DISPATCHED, DUPLICATE, IGNORED, SETTLED):
             self.ack(event)  # 같은 키 재전달 = 새 접수 0, 버린 사건은 계속 버린다(줄 15·16)
@@ -141,6 +154,14 @@ class SlackReceive:
         if prior:
             return self._recover(command, entry=prior, event=event)
         return self._dispatch(command, key, event, self._next_attempt(command))
+
+    def _reply_settle(self, command, key, event):
+        """r1927 — reply_done.settle 1회 · 판정 불가 = listen.log 1줄 · 수신 계속 · 반환 = 판정 1칸."""
+        got = _reply_done().settle(self.root, getattr(self.client, "team", self.team),
+                                   {"command": command, "key": [key.workspace, key.channel, str(event.get("thread_ts"))]})
+        if got["state"] == "판정 불가":
+            self.log(got.get("reason") or "판정 불가: r1927 봇 답 완료 %s" % command)
+        return {"state": got["state"], "completed": len(got["completed"]), "requeued": len(got["requeued"])}
 
     def pass_idle(self):
         self._step("idle")  # 줄 16 — 모델 호출·좌석 깨움·기록 증가 0
@@ -284,8 +305,9 @@ class SlackReceive:
         return (DISPATCHED, "제출 영수") if receipt.written else (HOLD, "영수 미확정")
 
 
-def read_settle(path):
-    """r1906 settle.jsonl → {command: 첫 요청} · 파일 없음 = {} · 못 읽음 = None(판정 불가) · 깨진 줄 = 건너뜀."""
+def read_settle(path, strict=False):
+    """r1906 settle.jsonl → {command: 첫 요청} · 파일 없음 = {} · 못 읽음 = None(판정 불가) · 깨진 줄 = 건너뜀.
+    r1927 strict=True = 빈 줄 밖 JSON 아님·dict 아님·command 없음 줄 1개라도 = None(판정 불가)."""
     if not os.path.exists(path):
         return {}
     try:
@@ -298,9 +320,11 @@ def read_settle(path):
         try:
             row = json.loads(line)
         except ValueError:
-            continue
+            row = None
         if isinstance(row, dict) and row.get("command"):
             asked.setdefault(row["command"], row)
+        elif strict:
+            return None
     return asked
 
 
