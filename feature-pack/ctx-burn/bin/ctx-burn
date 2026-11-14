@@ -604,9 +604,20 @@ def capacity_pools(data):
             cache_reuse=(p["read"] / den) if den else 0.0,
             cache_reuse_of_input=(p["read"] / tot_in) if tot_in else 0.0,
             w_total=round(p["w"], 3),
+            session_hours=sum(len(s["hours"]) for s in p["sess"].values()),
             samples=len(per),
             w_per_session_hour=(statistics.median(per) if per else None))
     return out
+
+
+QUOTA_POOLS = ("claude", "pi-claude")   # Claude Max 쿼터를 쓰는 pool(arch#276 §0) · pi-other·codex 는 밖
+
+
+def quota_rate(pools):
+    """(r1618) Claude 쿼터 소모 = 두 pool 가중 토큰 합 ÷ 세션-시간 합. 세션-시간 0 = None."""
+    q = [pools[k] for k in QUOTA_POOLS if k in pools]
+    h = sum(p.get("session_hours") or 0 for p in q)
+    return round(sum(p.get("w_total") or 0 for p in q) / h, 4) if h else None
 
 
 def capacity_input(data, hours):
@@ -615,6 +626,7 @@ def capacity_input(data, hours):
     cl = P.get("claude") or {}
     return {"schema": CAP_SCHEMA, "window_hours": hours,
             "units": {"rate_claude": "weighted_tokens_per_session_hour",
+                      "rate_quota": "weighted_tokens_per_session_hour", "session_hours": "hours",
                       "w_per_session_hour": "weighted_tokens_per_session_hour",
                       "w_total": "weighted_tokens", "ctx_per_req": "tokens"},
             "pools": {k: {"req": v["req"], "usage0": v["usage0"],
@@ -625,8 +637,9 @@ def capacity_input(data, hours):
                           "w_per_session_hour": (round(v["w_per_session_hour"], 4)
                                                  if v["w_per_session_hour"] is not None else None),
                           "samples": v["samples"], "sessions": v["sessions"],
-                          "w_total": v["w_total"]}
+                          "w_total": v["w_total"], "session_hours": v["session_hours"]}
                       for k, v in P.items()},
+            "rate_quota": quota_rate(P),
             "rate_claude": (round(cl["w_per_session_hour"], 4)
                             if cl.get("w_per_session_hour") else None)}
 
