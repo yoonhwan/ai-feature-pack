@@ -370,12 +370,14 @@ for fn in ("mailbox.jsonl", "mailbox.log.jsonl"):   # r1649-mut:mboxlog — 큐�
             if isinstance(r.get("from"), str) and isinstance(r.get("seq"), int): last[r["from"]] = max(last.get(r["from"], 0), r["seq"])
     except OSError: pass
 ok = lambda v: isinstance(v, dict) and v.get("role") == "nano" and not v.get("_replaced_by") and os.path.basename(v.get("index") or "") == sys.argv[2] + ".md"
-for k in sorted(k for k, v in doc.items() if not k.startswith("_") and ok(v)): print(k + "\t" + str(last.get(k, "")))
+ft2 = lambda v: v.get("source") == "ft2-launch" or "/.fable-team/teams/" in str(v.get("worktree") or "")   # r2011-mut:ft2 — 2.0 나노 닫기 = keeper 몫(1.x 닫기는 늘 REJECT)
+for k in sorted(k for k, v in doc.items() if not k.startswith("_") and ok(v)): print(k + "\t" + ("ft2" if ft2(doc[k]) else "1x") + "\t" + str(last.get(k, "")))   # 가운데 칸은 늘 비지 않는다(IFS 탭 연속 = 한 칸)
 PY
 )" || rows=""
   [ -n "$rows" ] || { echo "NANO-CLOSE 0석"; return 0; }
-  while IFS=$'\t' read -r seat seq; do
+  while IFS=$'\t' read -r seat kind seq; do
     [ -n "$seat" ] || continue; rc=0; out=""
+    [ "$kind" != ft2 ] || { echo "NANO-CLOSE $seat skip ft2 → keeper"; continue; }   # r2011: ft2 나노 = 호출 0 · h 0
     [ -z "$seq" ] || out="$(bash "${FT_NANO_CLOSE_BIN:-$HERE/ft-nano-close.sh}" "$seat" --result "$new" --recv "$seq" 2>&1)" || rc=$?
     [ -n "$seq" ] || rc=""
     [ "$rc" = 0 ] && { echo "NANO-CLOSE $seat rc=0"; continue; }
