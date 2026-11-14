@@ -1,7 +1,7 @@
 """file_guard — 슬랙 첨부 파일 게시 «전» 검사 (R231a · 설계 DESIGN-r231-desk-slack-files §0·§1).
 
 글 게시 «전» 붙일 파일 전부를 post_guard 로 본다(파일 이름 + 내용). 하나라도 걸리면 PostGuardError → 글·파일 모두 게시 0.
-종류·내용 판정은 «실제 대상»(심링크 해석 뒤) 기준이다. 사람 채널(`human` 또는 명부·env 채널)은 별칭·대상 둘 다 텍스트 계열만 허용한다.
+종류·내용 판정은 «실제 대상»(심링크 해석 뒤) 기준이다. 사람 채널(`human` 또는 명부·env 채널)은 별칭·대상 둘 다 텍스트 계열이거나 둘 다 .png 일 때만 허용한다(.png = 서명·1 MiB 만 · r1922).
 비사람 채널은 대상이 텍스트 계열이면 내용을 검사하고, 그 밖(보드 PDF 등)은 실재만 본다.
 검사한 바이트를 `Checked.data` 로 돌려준다 — 업로드는 원래 경로를 다시 열지 않고 그 바이트만 쓴다(검사~전송 사이 교체 차단). 오류 문구에 내용 인용 0.
 """
@@ -11,13 +11,16 @@ from pathlib import Path
 
 from post_guard import PostGuardError, check, human_channels
 
-TEXT_SUFFIXES = {".md", ".txt", ".csv", ".json", ".yaml", ".yml", ".log"}
+TEXT_SUFFIXES = {".md", ".txt", ".csv", ".json", ".yaml", ".yml", ".log", ".html"}
+IMAGE_SUFFIXES = {".png"}
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 # 확장자로 정하는 내용 형식(magazine_attach 와 같은 꼴) — `mimetypes.guess_type` 표가 파이썬 판마다 달라
 # (3.11 은 `.md` 를 모름 → application/octet-stream) 같은 파일이 다른 형식으로 올라가는 것을 막는다.
 CONTENT_TYPES = {
     ".md": "text/markdown",
     ".html": "text/html",
     ".pdf": "application/pdf",
+    ".png": "image/png",
     ".txt": "text/plain",
     ".json": "application/json",
 }
@@ -52,6 +55,11 @@ def _decode(data: bytes, name: str) -> str:
     return ""
 
 
+def _kind(suffix: str) -> str | None:
+    s = suffix.lower()
+    return "text" if s in TEXT_SUFFIXES else "image" if s in IMAGE_SUFFIXES else None
+
+
 def check_files(paths: list[str], channel: str, *, human: bool = False) -> list[Checked]:
     """파일마다 실재·종류·크기·인코딩·post_guard. 첫 거부에서 PostGuardError. 통과 시 검사한 바이트 목록."""
     strict = human or channel in human_channels()
@@ -68,11 +76,16 @@ def check_files(paths: list[str], channel: str, *, human: bool = False) -> list[
             _reject(f"{i}번째 파일 이름", str(e))
         if not real.is_file():
             _reject(p.name, "일반 파일이 아님")
-        real_text = real.suffix.lower() in TEXT_SUFFIXES
-        if strict and not (real_text and p.suffix.lower() in TEXT_SUFFIXES):
-            _reject(p.name, "내용 검사 불가 종류(사람 채널은 별칭·대상 모두 .md .txt .csv .json .yaml .yml .log 만)")
+        real_kind = _kind(real.suffix)
+        if strict and (real_kind is None or real_kind != _kind(p.suffix)):
+            _reject(p.name, "내용 검사 불가 종류(사람 채널은 별칭·대상 모두 .md .txt .csv .json .yaml .yml .log .html 또는 모두 .png 만)")
         data = real.read_bytes()
-        if real_text:
+        if strict and real_kind == "image":
+            if len(data) > MAX_BYTES:
+                _reject(p.name, "1 MiB 초과")
+            if not data.startswith(PNG_SIGNATURE):
+                _reject(p.name, "PNG 아님")
+        if real_kind == "text":
             body = _decode(data, p.name)
             try:
                 check(f"{p.name}\n{real.name}\n{body}", channel, human=human)

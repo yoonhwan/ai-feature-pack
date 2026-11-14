@@ -50,7 +50,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
         self.project, self.lines, self.cache = projection.project, [], {}
         self.state = {key: {} for key in ("held", "open", "sent", "handled", "woke", "reassigned")}
         self.stall = _load(os.path.join(HERE, "keeper_stall.py"), "ft2_keeper_stall").Stall(self)   # r1813 S1~S5
-        self.spent, self.sock, self.skip = dict.fromkeys(("fetch", "b1", "b2", "b3"), 0.0), True, set()
+        self.spent, self.sock, self.skip = dict.fromkeys(("fetch", "b1", "b2", "b3", "stall"), 0.0), True, set()
 
     def call(self, argv, timeout=CALL_S, retry=0):
         """바깥 호출 1곳 → (rc, stdout, stderr 1줄) · 넘침·실행 실패 = rc None · retry = rc≠0 때 다시 부르는 횟수."""
@@ -151,13 +151,19 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
         self.sock = self.socket_ok()
         if bad:
             self.log("판정 불가", text="git fetch 실패 %s — 이 바퀴 B1·B2 0" % " ".join(bad))
-        for team in [] if bad else self.teams():
+        order = [] if bad else self.teams()
+        if self.state.get("cap_next") in order:   # r1898 — 앞 바퀴 컷에 걸린 팀부터(뒤쪽 팀 굶음 0)
+            at = order.index(self.state["cap_next"])
+            order = order[at:] + order[:at]
+        for team in order:
             if time.monotonic() - start > ROUND_S:
                 self.log("ROUND-CAP", text="60초 넘음 — 남은 팀은 다음 바퀴")
+                self.state["cap_next"] = team
                 self.fa.observe(self.root, "keeper 바퀴", "keeper", max(int(time.monotonic() - start), ROUND_S), ROUND_S, "남은 팀 " + team)
                 break
             self.team_round(team)
         else:   # r1886 ⓒ 60초 안 끝 = 정상 관측
+            self.state.pop("cap_next", None)
             self.fa.observe(self.root, "keeper 바퀴", "keeper", int(time.monotonic() - start), ROUND_S)
         if self.sock:
             self.timed("b3", self.retired)
@@ -190,7 +196,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
                 if self.sock:
                     self.timed("b2", self.close, team, work, attempt, row, dispatched)
             elif self.sock:   # r1817 fix1 R1 — 소켓 실패 바퀴 = 깨움·재배정도 0
-                self.stall.check(team, work, attempt, rows)   # r1813 — 진척 0 좌석 깨움 1회 → 재배정
+                self.timed("stall", self.stall.check, team, work, attempt, rows)   # r1813 · r1898 ROUND stall 칸 — 진척 0 좌석 깨움 1회 → 재배정
         if self.sock:   # r1913 — 닫힘이 없어도 빈 나노 칸 1장(팀마다 1회 · gates 재계산)
             self.timed("b2", closing.keeper_next.fill, self, team)
 

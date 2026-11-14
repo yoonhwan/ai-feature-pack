@@ -38,7 +38,7 @@ printf 'approve-merge %s A1 %s\n' "$(sha 73)" "$((T0+7))" > "$AP/$(sha 73)"; pri
 run a scope-status --audit; [ $rc = 0 ] && has '^AUDIT-OK grants=1 used=2$'; ck "오빠 수동 approve-merge 가 더 있어도(파일 3 ≥ 2) AUDIT-OK" $?
 
 # ===== R411: 종류 code — 시험 통과 세트만 · code-max 안 (판정 2326) · 실 git(임시 origin+clone) + 실 evidence-check·approval-equiv · 분류기만 스텁 =====
-R="$T/r"; OR="$T/origin.git"; CARD="$T/card.md"; export STUB_OUT="CLASS code"
+R="$T/r"; OR="$T/origin.git"; CARD="$R/card.md"; export STUB_OUT="CLASS code"   # r1904: 카드 = 원장(ROOT) 안 · 고정 ref origin/ops/main-base 커밋 판(pub)
 G() { git -C "$R" "$@"; }; cm() { G add -A && G commit -q -m "$1"; }; hd() { G rev-parse HEAD; }
 git init -q --bare -b main "$OR"; git clone -q "$OR" "$R" 2>/dev/null; G config user.name t; G config user.email t@t
 echo base > "$R/README.md"; cm base; G push -q origin HEAD:main; G fetch -q origin
@@ -47,7 +47,8 @@ G checkout -q -B main origin/main; echo m > "$R/b.txt"; cm main1; G push -q orig
 G checkout -q nano; G merge -q --no-edit origin/main >/dev/null 2>&1; SM="$(hd)"                                               # SM = A 위 main 병합만
 G checkout -q -B nano2 "$A"; echo 'y = 2' > "$R/src/y.py"; cm own2; SX="$(hd)"                                                 # SX = A 위 자기 변경 더(동일 승인 아님)
 G checkout -q -B other origin/main; mkdir -p "$R/src"; echo z > "$R/src/z.py"; cm other; X="$(hd)"; G checkout -q nano                          # X = A 의 조상 아님
-card() { printf '# 카드\n## 상태\n- 세트: %s · 시험: %s · 이슈: 0\n' "$1" "${2:-bash t.sh rc=0}" > "$CARD"; }
+pub() { local t; t="$(printf '100644 blob %s\tcard.md\n' "$(G hash-object -w "$CARD")" | G mktree)"; G update-ref refs/remotes/origin/ops/main-base "$(G commit-tree "$t" -m card)"; }
+card() { printf '# 카드\n## 상태\n- 세트: %s · 시험: %s · 이슈: 0\n' "$1" "${2:-bash t.sh rc=0}" > "$CARD"; pub; }
 ar() { FT_ROOT="$R" a "$@"; }
 # ⓐ grant
 fresh; grant --for 2h --max 5 --classes docs,ff,revert,code --code-max 2
@@ -58,7 +59,7 @@ grep -qxF "혼자 해도 되는 것: 문서 병합 · 빨리 감기 병합 · �
 # ⓓ 거절 — 쓰기 0
 n0="$(lines)"; card "$A"
 run ar scope-approve "$A"; [ $rc = 2 ] && has '--card <카드.md> 필요'; ck "ⓓ --card 없음 → REJECT" $?
-printf '# 카드\n## 상태\n- 없음\n' > "$CARD"; run ar scope-approve "$A" --card "$CARD"; [ $rc = 2 ] && has '꼴 아님'; ck "ⓓ 증거 줄 없음 → REJECT" $?
+printf '# 카드\n## 상태\n- 없음\n' > "$CARD"; pub; run ar scope-approve "$A" --card "$CARD"; [ $rc = 2 ] && has '꼴 아님'; ck "ⓓ 증거 줄 없음 → REJECT" $?
 card "$A" "bash t.sh rc=1"; run ar scope-approve "$A" --card "$CARD"; [ $rc = 2 ] && has '꼴 아님'; ck "ⓓ 시험 rc≠0 → REJECT" $?
 card "$X"; run ar scope-approve "$A" --card "$CARD"; [ $rc = 2 ] && has '증거 검사 rc=1: REJECT .*조상이 아니다'; ck "ⓓ 세트 sha 가 head 의 조상 아님 → REJECT" $?
 card "$A"; run ar scope-approve "$SX" --card "$CARD"; [ $rc = 2 ] && has '동일 승인 아님 rc=1: NOT-EQUIV'; ck "ⓓ A 위 자기 변경 더(NOT-EQUIV) → REJECT" $?

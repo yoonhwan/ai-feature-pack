@@ -20,6 +20,7 @@ d, name = json.load(open(st)), sys.argv[-1].lstrip("=").rstrip(":")  # r1822 pan
 open(st + ".log", "a").write(json.dumps(a) + "\n")
 if a[0] == "kill-session": d["alive"].remove(name); json.dump(d, open(st, "w"))
 if a[0] == "capture-pane": sys.stdout.write(d["pane"].get(name, ""))
+if a[0] == "list-sessions": sys.stdout.write("".join(x + "\n" for x in d["alive"])); sys.exit(0)  # r1898 B3 바퀴당 1회
 if a[0] == "has-session" and name not in d["alive"]: sys.stderr.write("can't find session: %s\n" % name)
 if a[0] == "display-message":   # r1839 #{session_attached} · 실제 tmux 처럼 `=이름`(콜론 없음)·없는 세션 = rc0 빈 줄
     t = a[a.index("-t") + 1]; sys.stdout.write("%s\n" % (d.get("att", {}).get(t[1:-1], 0) if t.endswith(":") and t[1:-1] in d["alive"] else "")); sys.exit(d.get("att_rc", 0))
