@@ -5,7 +5,8 @@ state «hold» = {"<team>|<work>": 깨운 n} · attempt·세트 sha·holder 는 
 """
 import importlib.util, os, re  # noqa: E401
 
-HOLD = re.compile(r"^- 판정: HOLD(?=\s|$)", re.M)
+HOLD = re.compile(r"^- 판정: HOLD \S+ [0-9a-f]{40}[ \t]*$", re.M)   # 보정1 — 온전한 꼴만 · «## 상태» 구역 안만(앞 예문 0)
+STATE = re.compile(r"^## 상태[ \t]*$(.*?)(?=^## |\Z)", re.M | re.S)
 WAKE = "[판정] HOLD — 카드 상태 줄을 읽고 보정 · 일 %s 누적 %d"
 _S = importlib.util.spec_from_file_location("ft2_hold_projection", os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "core", "projection.py"))
 projection = importlib.util.module_from_spec(_S)
@@ -29,7 +30,7 @@ def holds(k, team, work):
             rc, body, _ = k.git(k.root, "show", "%s:%s" % (ref, path))
             if rc != 0:
                 return "git show %s rc %s" % (path, rc)
-            counts.append(len(HOLD.findall(body)))
+            counts.append(sum(len(HOLD.findall(part)) for part in STATE.findall(body)))
     return max(counts) if counts else "카드 후보 0"
 
 

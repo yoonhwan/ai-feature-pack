@@ -1,4 +1,4 @@
-"""r1931 ft2 keeper 판정 갈래 — 카드 «- 판정: HOLD» 줄이 늘면 holder 깨움 1회 · 누적 3 = 깨움 0 + 인터뷰 길 로그 (카드 반례 ①~⑨ · 변이 M1~M4).
+"""r1931 ft2 keeper 판정 갈래 — 카드 «- 판정: HOLD» 줄이 늘면 holder 깨움 1회 · 누적 3 = 깨움 0 + 인터뷰 길 로그 (카드 반례 ①~⑨ · DA 보정 ⑩⑪ · 변이 M1~M6).
 입력 = r1813 시험 대역(World: 실제 core · 가짜 tmux·ps·세션 파일 · 주입 시계) + 데이터 root 를 git 으로(카드 ref = origin/main·origin/ops/main-base).
 sleep 0 · 실 tmux·pi 0. 변이는 사본에서만 · 변이마다 원본으로 1회 더.
 """
@@ -16,7 +16,7 @@ TEAMS = "| 팀 | 폴더 |\n|---|---|\n| harness | `$FT_HARNESS_ROOT/design/harne
 SHA = "ab" * 20
 
 
-def _card(w, holds=0, approves=0, folder="design/harness"):
+def _card(w, holds=0, approves=0, folder="design/harness", head="", tail=()):
     """카드 1장(상태 줄 HOLD n · APPROVE m)을 root 에 커밋 → origin/main·origin/ops/main-base 둘 다 그 커밋."""
     root = w.root
     if not (root / ".git").exists():
@@ -26,7 +26,7 @@ def _card(w, holds=0, approves=0, folder="design/harness"):
     rows = ["- 판정: HOLD design/da/DA-%d.md %s" % (i, SHA) for i in range(holds)]
     rows += ["- 판정: APPROVE design/da/DA-ok%d.md %s" % (i, SHA) for i in range(approves)]
     B._put(root / "design" / "TEAMS.md", TEAMS)
-    B._put(root / folder / "indices" / "대기" / ("%s.md" % W), "# 인덱스: %s\n\n## 상태\n" % W + "".join(x + "\n" for x in rows))
+    B._put(root / folder / "indices" / "대기" / ("%s.md" % W), "# 인덱스: %s\n%s\n## 상태\n" % (W, head) + "".join(x + "\n" for x in rows + list(tail)) + "\n## 메모\n- 판정: HOLD design/da/DA-x.md %s\n" % SHA)
     B._git(root, "add", "design"), B._git(root, "commit", "-q", "--allow-empty", "-m", "card")
     for ref in ("main", "ops/main-base"):
         B._git(root, "update-ref", "refs/remotes/origin/" + ref, "HEAD")
@@ -106,12 +106,28 @@ def c9(w):   # ⑨ harness/W 첫 HOLD → 깨움 1 · 그 뒤 planner/W 첫 HOLD
     assert _holds(w) == 2 and sorted(k.state["hold"]) == ["harness|%s" % W, "planner|%s" % W]
 
 
-CASES = {"①": c1, "②": c2, "③": c3, "④": c4, "⑤": c5, "⑥": c6, "⑦": c7, "⑧": c8, "⑨": c9}
+def c10(w):   # ⑩ 상태 구역 앞 예문 줄(온전한 꼴 포함) → HOLD 0 · 깨움 0
+    head = "- 고치는 곳: 판정 줄 꼴\n- 판정: HOLD design/da/DA-ex.md %s\n- 판정: HOLD <판정문 경로> <세트 sha40>\n" % SHA
+    _quiet(w), _card(w, 0), w.round(), _card(w, 0, head=head), w.round(M)
+    assert _holds(w) == 0 and w.tmux("send-keys") == []
+
+
+def c11(w):   # ⑪ 상태 구역 안 형식 불명 줄(sha 없음·짧은 sha·꼬리 글)만 늚 → 깨움 0 · 온전한 줄 1 → 깨움 1
+    bad = ("- 판정: HOLD", "- 판정: HOLD design/da/DA-a.md", "- 판정: HOLD design/da/DA-b.md abab1234", "- 판정: HOLD 사전 DA %s 보정" % SHA)
+    _quiet(w), _card(w, 0), w.round(), _card(w, 0, tail=bad), w.round(M)
+    assert _holds(w) == 0
+    _card(w, 1, tail=bad), w.round(2 * M)
+    assert _holds(w) == 1
+
+
+CASES = {"①": c1, "②": c2, "③": c3, "④": c4, "⑤": c5, "⑥": c6, "⑦": c7, "⑧": c8, "⑨": c9, "⑩": c10, "⑪": c11}
 KH = "adapters/pi/keeper_hold.py"
 MUTANTS = {"M1": ("    if n >= 3:\n", "    if False:\n", c4),
            "M2": ("    if n <= seen:\n        return None\n", "", c2),
            "M3": ("    if k.stall.guard(team, work, holder, rows):", "    if k.stall.guard(team, work, holder, rows) and not k.state.get(\"woke\"):", c7),
-           "M4": ('n, key = holds(k, team, work), "%s|%s" % (team, work)', "n, key = holds(k, team, work), work", c9)}
+           "M4": ('n, key = holds(k, team, work), "%s|%s" % (team, work)', "n, key = holds(k, team, work), work", c9),
+           "M5": ("sum(len(HOLD.findall(part)) for part in STATE.findall(body))", "len(HOLD.findall(body))", c10),
+           "M6": (r"HOLD \S+ [0-9a-f]{40}[ \t]*$", r"HOLD(?=\s|$)", c11)}
 
 
 @pytest.mark.parametrize("name", list(CASES))
