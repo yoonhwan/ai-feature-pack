@@ -23,6 +23,7 @@ GIT_TIMEOUT, TMUX_TIMEOUT, USAGE = 25, 7, 64
 OK, REFUSED, CORRUPT = "접수 성공", "접수 거부", "복구 필요"
 FIELDS, REQUIRED = ("root", "team", "work", "worktree", "repo", "role", "base"), ("root", "team", "work")
 STAMP = "%Y-%m-%dT%H:%M:%S"
+NOHOOK = dict(os.environ, GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="core.hooksPath", GIT_CONFIG_VALUE_0=os.devnull)   # r1967 ② checkout hook 끔(= -c core.hooksPath · argv 그대로)
 
 
 class Usage(Exception):
@@ -41,6 +42,7 @@ projection, journal, record = (_load(os.path.join("core", name + ".py"), "ft2_la
 models = _load(os.path.join("tools", "models.py"), "ft2_launch_models")
 planner = _load(os.path.join("adapters", "pi", "launch_plan.py"), "ft2_launch_plan")
 goal_close = _load(os.path.join("tools", "goal_close.py"), "ft2_launch_goal_close")   # r1947: 첫 본문 가운데 구 = 모듈 판
+cleaner = _load(os.path.join("adapters", "pi", "launch_cleanup.py"), "ft2_launch_cleanup")   # r1967 ③ 반쪽 치우기
 
 
 def parse(argv):
@@ -100,12 +102,12 @@ def read_intent(path):
         return {}
 
 
-def failed(plan, env, step, detail, repo):
-    """실패 = 의도 줄에 단계 1개 — 그 줄이 있으면 다시 불러도 바깥 호출 0 · 사유에 복구 2줄(A3)."""
-    write_intent(plan["intent"], dict(env, state="failed", step=step, reason=detail, repo=repo, at=time.strftime(STAMP)))
+def failed(plan, env, step, detail, repo, extra=None, note=""):
+    """실패 = 의도 줄에 단계 1개 — 그 줄이 있으면 다시 불러도 바깥 호출 0 · 사유에 복구 2줄(A3) · r1967 치움 = 복구 줄 대신 치움 1구."""
+    write_intent(plan["intent"], dict(env, state="failed", step=step, reason=detail, repo=repo, at=time.strftime(STAMP), **(extra or {})))
     reason = "%s 실패: %s — 자동 재시도 0" % (step, detail or "진단 없음")
     if step.startswith("git"):
-        reason += " · " + planner.recovery(repo, plan["worktree"])
+        reason += " · " + (note if (extra or {}).get("slot_returned") else note + " · " * bool(note) + planner.recovery(repo, plan["worktree"]))
     return dict(result=CORRUPT, opened=False, intent=plan["intent"], step=step, reason=reason), 2
 
 
@@ -183,10 +185,15 @@ def resume(plan, env, repo, own, keep):
 def finish(plan, env, steps, repo, sha, keep):
     """git 단계 → tmux 1회 → 살아 있음 1회 → opened (처음 열기·이어 열기 공통 · 상한 그대로)."""
     item, base, mark = keep
+    made = {}
     for step, argv in steps:
-        rc, detail = call(argv, repo, None, GIT_TIMEOUT)   # r1846: 호출마다 25초 · 실패 = 그 단계 이름 · 뒤 호출 0
+        new = step == "git add" and not os.path.lexists(plan["worktree"])   # r1967 ⓐ 생성 영수 = add 직전 경로 부재 ∧ add rc0
+        rc, detail = call(argv, repo, NOHOOK if step == "git checkout" else None, GIT_TIMEOUT)   # r1846: 호출마다 25초 · 실패 = 그 단계 이름 · 뒤 호출 0
         if rc != 0:
-            return failed(plan, env, step, detail, repo)
+            return failed(plan, env, step, detail, repo, *cleaner.sweep(plan, repo, sha, made, GIT_TIMEOUT, TMUX_TIMEOUT))   # r1967 ③ 이번 호출이 만든 반쪽만
+        if new:
+            made = dict(add_ok=True, path_new=True)
+            write_intent(plan["intent"], dict(read_intent(plan["intent"]), **made))
     rc, detail = call(plan["tmux"], None, dict(os.environ, **env), TMUX_TIMEOUT)
     if rc != 0:
         return failed(plan, env, "tmux", detail, repo)
@@ -194,8 +201,10 @@ def finish(plan, env, steps, repo, sha, keep):
     if rc != 0:
         return failed(plan, env, "tmux 즉시 종료", "세션 없음 — pi 실행 실패(PATH·인증) 의심 · %s" % (detail or "진단 없음"), repo)
     write_intent(plan["intent"], dict(env, state="opened", role=item["role"], worktree=plan["worktree"], base=base, base_sha=sha, body_mark=mark, at=time.strftime(STAMP)))
+    hook = os.path.join(repo, ".git", "hooks", "post-checkout")   # r1967 ② cairn reconcile = 열기 «뒤» 1회 · 따로 25초 · 실패해도 열기 결과 그대로
+    ran = "rc %s" % call([hook, "0" * 40, sha, "1"], plan["worktree"], None, GIT_TIMEOUT)[0] if os.access(hook, os.X_OK) else "hook 없음"
     return dict(result=OK, opened=True, work=env["FT2_WORK"], attempt=env["FT2_ATTEMPT"], holder=env["FT2_HOLDER"],
-                worktree=plan["worktree"], intent=plan["intent"]), 0
+                worktree=plan["worktree"], intent=plan["intent"], reconcile=ran), 0
 
 
 def main(argv):
