@@ -14,8 +14,8 @@ export LC_ALL=C FT_ALLOW_TRACKED_BIN=1
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$HERE/../bin"; S="$BIN/ft-team-stop.sh"
 . "$HERE/lib/tmux_isolate.sh"; tmux_isolate_begin
-fail=0; npass=0; out=""; rc=0; SECONDS=0; TT=()
-ok()  { npass=$((npass+1)); }
+fail=0; nok=0; out=""; rc=0; SECONDS=0; TT=()
+ok()  { nok=$((nok+1)); }
 bad() { echo "FAIL $1 :: rc=$rc out=${out:0:600}"; fail=$((fail+1)); }
 has() { case "$out" in *"$1"*) ok;; *) bad "$2 — 없음: «$1»";; esac; }
 hasnt() { case "$out" in *"$1"*) bad "$2 — 있으면 안 됨: «$1»";; *) ok;; esac; }
@@ -209,5 +209,5 @@ for f in "$S" "$H"; do
 lap G
 
 echo "${TT[*]} total=${SECONDS}s"
-echo "PASS $npass · FAIL $fail"
+echo "PASS $nok · FAIL $fail"
 [ "$fail" -eq 0 ] && echo "ALL PASS" || { echo "FAILED $fail"; exit 1; }
