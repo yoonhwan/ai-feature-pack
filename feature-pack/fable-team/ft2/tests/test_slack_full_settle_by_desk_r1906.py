@@ -42,7 +42,7 @@ def test_c1_settle_request_then_recover_settled_no_submit_and_list(tmp_path, cap
     before = lines(again)
     out = subprocess.run([sys.executable, os.path.join(SLACK, "receive.py"), "settle", "--root", str(tmp_path), "--team",
                           "planner", "--command", cmd(1), "--by", DESK, "--why", "ⓑ 집행"], capture_output=True, text=True)
-    assert (out.returncode, out.stdout.strip()) == (0, "SETTLE-REQUESTED " + cmd(1)) and lines(again) == before
+    assert (out.returncode, out.stdout.strip()) == (0, "SETTLE-REQUESTED %s 적용=다음 idle" % cmd(1)) and lines(again) == before
     assert receive.main(["--list-full", "--root", str(tmp_path), "--team", "planner"]) == 0
     assert capsys.readouterr().out.strip() == "%s %s 글 1 요청됨" % (cmd(1), TS[1])
     assert again.recover() == [] and submits == []
