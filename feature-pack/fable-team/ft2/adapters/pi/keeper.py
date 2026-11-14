@@ -18,7 +18,7 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FT2 = os.path.dirname(os.path.dirname(HERE))
-GIT_S, CALL_S, ROUND_S, STALE_S = 25, 7, 60, 600
+GIT_S, CALL_S, ROUND_S, STALE_S, FETCH_S = 25, 7, 60, 600, 7   # r1937 FETCH_S = fetch 1회 7초(+ 재시도 1)
 OK = "접수 성공"
 
 
@@ -64,8 +64,24 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
                 break
         return out
 
-    def git(self, repo, *args, retry=0):
-        return self.call(["git", "-C", repo] + list(args), GIT_S, retry)
+    def git(self, repo, *args, retry=0, timeout=GIT_S):
+        return self.call(["git", "-C", repo] + list(args), timeout, retry)
+
+    def fetch_refs(self, repo):
+        """r1937 — keeper 가 읽는 ref 만: 팩 = main · BYZ = main·ops/main-base + directive-roots.tsv 의 `.` 행 origin/<가지>
+        (고정 목록 밖이면 ls-remote 1회로 원격 실재만 · 로컬 ref 없어도 첫 수신 · 원격에 없는 가지 = 빠짐) · 표·ls-remote 실패 = 고정 목록만."""
+        names = ["main"] if repo == self.pack else ["main", "ops/main-base"]
+        try:
+            with open(os.path.join(self.root, ".fable-team", "state", "directive-roots.tsv"), encoding="utf-8") as fh:
+                rows = [x.rstrip("\n").split("\t") for x in fh if not x.startswith("#") and len(x.split("\t")) >= 4]
+        except (OSError, UnicodeError):
+            rows = []
+        extra = list(dict.fromkeys(r[2][7:] for r in rows if repo == self.root and r[1] == "." and r[2].startswith("origin/") and r[2][7:] not in names))
+        if extra:
+            rc, out, _ = self.git(repo, "ls-remote", "--heads", "origin", *("refs/heads/" + n for n in extra), retry=1, timeout=FETCH_S)
+            have = {x.partition("\trefs/heads/")[2] for x in out.splitlines()} if rc == 0 else set()
+            names += [n for n in extra if n in have]
+        return ["+refs/heads/%s:refs/remotes/origin/%s" % (n, n) for n in names]
 
     def stamp(self):
         return datetime.datetime.fromtimestamp(self.now()).strftime("%Y-%m-%dT%H:%M:%S")
@@ -146,7 +162,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
         if self.skip is None:
             return self.log("판정 불가", text="SKIP_TEAMS 판독 실패 — 이 바퀴 B1·B2·B3·B4 0")
         def fetch(repo):
-            return self.git(repo, "fetch", "-q", "origin", retry=1)[0]
+            return self.git(repo, "fetch", "-q", "--no-tags", "origin", *self.fetch_refs(repo), retry=1, timeout=FETCH_S)[0]
         bad = [repo for repo in (self.root, self.pack) if self.timed("fetch", fetch, repo) != 0]
         self.sock = self.socket_ok()
         if bad:
