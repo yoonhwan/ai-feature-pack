@@ -13,6 +13,7 @@ import collections
 import importlib.util
 import json
 import os
+import sys
 import time
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -74,6 +75,7 @@ class SlackReceive:
         data = os.path.join(os.path.abspath(str(root)), ".fable-team", "teams", team, "slack")
         os.makedirs(data, exist_ok=True)
         self.path = os.path.join(data, "receive.jsonl")
+        self.settle_path = os.path.join(data, "settle.jsonl")  # r1906 desk 처리 기록 요청 — listen 은 읽기만
         self.client = client or intake.Intake(str(root), team, capacity=capacity, clock=self.clock)
 
     def entries(self):
@@ -127,6 +129,15 @@ class SlackReceive:
             again = IGNORED if prior["state"] == IGNORED else DUPLICATE
             return self._append({"state": again, "command": command, "key": list(key),
                                  "reason": prior["state"], "attempts": prior.get("attempts", 0), "acked": True})
+        if prior and prior.get("state") == FULL:  # r1906 — 다시 넣기 전에 desk 처리 기록 · 못 읽음 = 넣기 0
+            asked = read_settle(self.settle_path)
+            if asked is None or command in asked:
+                self.ack(event)
+                self._step("ack")
+                if asked is None:
+                    self.log("handle settle.jsonl 판정 불가 · %s full 그대로" % command)
+                    return dict(prior, reason="판정 불가 settle.jsonl")
+                return self._settle(command, prior, asked)
         if prior:
             return self._recover(command, entry=prior, event=event)
         return self._dispatch(command, key, event, self._next_attempt(command))
@@ -138,11 +149,17 @@ class SlackReceive:
     def recover(self):
         """재기동 1회 — 미완 기록마다 lookup 먼저(새 attempt 0). 반환 = 판정 목록. r1885: received·hold 먼저 → full 은
         예산 = max(0, capacity − 그때 남은 일)만큼 새 글(ts 큰 순) 먼저 · 나머지 full 손 0 · 남은 full 수 = observe «보류» 1곳."""
+        asked = read_settle(self.settle_path)  # r1906 — 다시 넣기 전 1번 · None = 판정 불가
+        for command, entry in sorted(self.latest().items()):
+            self._settle(command, entry, asked or {})
         rows, ts = sorted(self.latest().items()), lambda row: float((row[1].get("key") or [0, 0, 0])[2] or 0)
         out = [self._recover(command, entry=entry) for command, entry in rows if entry.get("state") in (RECEIVED, HOLD)]
         team = getattr(self.client, "team", self.team)
         room = max(0, getattr(self.client, "capacity", self.capacity) - full_alert.projection.project(self.root, team)["remaining"])
         full = sorted((row for row in rows if row[1].get("state") == FULL), key=lambda row: (row[1].get("unknown", 0), -ts(row)))
+        if asked is None:
+            self.log("recover settle.jsonl 판정 불가 · full %d건 넣기 0 · 다음 기동" % len(full))
+            full = []
         out += self._recover_full(full, room)
         held = sorted((row for row in self.latest().items() if row[1].get("state") == FULL), key=ts) or [("-", {})]
         oldest = time.strftime("%m-%d %H:%M", time.localtime(ts(held[0]))) if held[0][1] else "-"
@@ -172,6 +189,14 @@ class SlackReceive:
         if unknown:
             self.log("recover 판정 불가 %d건 · full 그대로 · 다음 기동" % unknown)
         return out
+
+    def _settle(self, command, entry, asked):
+        """r1906 — 처리 기록 요청이 있고 최신 상태가 full 일 때만 settled 1줄(끝 상태 위 덮기 0)."""
+        if command not in asked or entry.get("state") != FULL:
+            return None
+        row = asked[command]
+        return self._append({"state": SETTLED, "command": command, "key": entry.get("key"),
+                             "attempts": entry.get("attempts", 1), "reason": "처리 기록 %s · %s" % (row.get("by"), row.get("why"))})
 
     def _answered(self, command, entry, seen):
         """thread = route 의 그 command 최신 key[2](없으면 글 ts) · thread 당 1번 읽음 → (settled|unknown|"", 이유)."""
@@ -257,3 +282,105 @@ class SlackReceive:
         if via == "lookup":
             return (DISPATCHED, "조회 영수") if receipt.attempt else (HOLD, "영수에 attempt 없음")
         return (DISPATCHED, "제출 영수") if receipt.written else (HOLD, "영수 미확정")
+
+
+def read_settle(path):
+    """r1906 settle.jsonl → {command: 첫 요청} · 파일 없음 = {} · 못 읽음 = None(판정 불가) · 깨진 줄 = 건너뜀."""
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, encoding="utf-8") as handle:
+            text = handle.read()
+    except (OSError, UnicodeDecodeError):
+        return None
+    asked = {}
+    for line in filter(str.strip, text.splitlines()):
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(row, dict) and row.get("command"):
+            asked.setdefault(row["command"], row)
+    return asked
+
+
+def _slack_dir(root, team):
+    return os.path.join(os.path.abspath(str(root)), ".fable-team", "teams", team, "slack")
+
+
+def _rows(path):
+    with open(path, encoding="utf-8") if os.path.exists(path) else open(os.devnull) as handle:
+        return [json.loads(line) for line in handle if line.strip()]
+
+
+def settle(root, team, command, by, why):
+    """desk 처리 기록 요청 1줄(O_APPEND 1회 + fsync) — receive.jsonl 은 읽기만. 반환 = (rc, 출력 1줄)."""
+    parts = str(command).split(":")
+    if len(parts) != 4 or parts[0] != "slack" or not all(parts[1:]):
+        return 2, "REJECT %s command 꼴 틀림(slack:<ws>:<ch>:<ts>)" % command
+    folder = _slack_dir(root, team)
+    try:
+        state = {r.get("command"): r for r in _rows(os.path.join(folder, "receive.jsonl"))}.get(command, {}).get("state")
+    except (OSError, ValueError) as exc:
+        return 3, "판정 불가 slack settle %s receive.jsonl %s" % (command, type(exc).__name__)
+    if state is None:
+        return 2, "REJECT %s receive 에 없음" % command
+    if state in (DISPATCHED, DUPLICATE, IGNORED, SETTLED):
+        return 0, "NOOP %s %s" % (command, state)
+    line = (json.dumps({"command": command, "by": by, "why": " ".join(str(why).split()),
+                        "at": time.strftime("%Y-%m-%dT%H:%M:%S")}, ensure_ascii=False) + "\n").encode("utf-8")
+    if len(line) >= 4096:
+        return 2, "REJECT %s 한 줄 4KB 넘음" % command
+    try:
+        fd = os.open(os.path.join(folder, "settle.jsonl"), os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o644)
+        try:
+            if os.write(fd, line) != len(line):
+                raise OSError("짧은 쓰기")
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+    except OSError as exc:
+        return 3, "판정 불가 slack settle %s %s" % (command, type(exc).__name__)
+    return 0, "SETTLE-REQUESTED %s" % command
+
+
+def list_full(root, team):
+    """최신 full 글 1줄씩(ts 순) — `<command> <ts> <원문 낱말>[ 요청됨]` · desk 대조용 · 쓰기 0."""
+    folder = _slack_dir(root, team)
+    asked = read_settle(os.path.join(folder, "settle.jsonl"))
+    if asked is None:
+        return 3, ["판정 불가 slack list-full settle.jsonl"]
+    latest, text = {}, {}
+    for row in _rows(os.path.join(folder, "receive.jsonl")):
+        latest[row.get("command")] = row
+        text.update({row.get("command"): row.get("text")} if row.get("state") == RECEIVED else {})
+    full = sorted((c.rsplit(":", 1)[1], c) for c, r in latest.items() if c and r.get("state") == FULL)
+    return 0, ["%s %s %s%s" % (c, ts, " ".join(str(text.get(c) or "").split()), " 요청됨" if c in asked else "")
+               for ts, c in full]
+
+
+def main(argv=None):
+    import argparse
+    parser = argparse.ArgumentParser(prog="receive.py", description="r1906 desk 처리 기록 · full 목록")
+    parser.add_argument("verb", nargs="?", choices=("settle",))
+    parser.add_argument("--root", required=True)
+    parser.add_argument("--team", required=True)
+    parser.add_argument("--command")
+    parser.add_argument("--by")
+    parser.add_argument("--why")
+    parser.add_argument("--list-full", action="store_true")
+    args = parser.parse_args(argv)
+    if args.list_full:
+        rc, lines = list_full(args.root, args.team)
+    elif args.verb == "settle" and args.command and args.by and args.why:
+        rc, out = settle(args.root, args.team, args.command, args.by, args.why)
+        lines = [out]
+    else:
+        parser.error("settle --command --by --why 또는 --list-full")
+    for line in lines:
+        print(line)
+    return rc
+
+
+if __name__ == "__main__":
+    sys.exit(main())
