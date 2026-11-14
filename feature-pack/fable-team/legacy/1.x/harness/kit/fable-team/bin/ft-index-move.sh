@@ -94,6 +94,28 @@ if [ "$DST" = 진행 ]; then
   if [ -n "$_gl_file" ]; then FT_GOAL_LINES_FILE="$_gl_file" bash "$HERE/ft-index-lint.sh" "$SRC"; else bash "$HERE/ft-index-lint.sh" "$SRC"; fi || { echo "REJECT lint 실패 — 위 사유"; exit 1; }
   [ -n "$SEAT" ] || { echo "REJECT 대기→진행 은 --seat <좌석명> 필수"; exit 1; }
 fi
+# r1997 — 완성 관문 «남은 범위»: 마지막 «- 남은 범위:» 줄 = «없음» 또는 «<카드 이름>[ · <카드 이름> …] — <설명>»(이름 = 인덱스 파일 stem 또는 r<번호> 머리)
+#   이름마다 같은 팀 indices/{대기,진행,완성,완성후}/ 에 파일 실재 · 자기 이름 = REJECT · 아카이브·되돌리기·대기→진행 = 검사 0(r1666 처럼 반만 된 채 완성되는 일 0).
+followup_gate() {  # <카드> <indices 폴더> → rc 0 통과 · 1 REJECT 1줄
+  local card="$1" idx="$2" me line val names n d hit rc
+  me="$(basename "$card" .md)"
+  line="$(grep '^- 남은 범위:' "$card" 2>&1)"; rc=$?
+  [ "$rc" -le 1 ] || { echo "REJECT 남은 범위 판정 불가 — 카드를 못 읽음(grep rc=$rc): ${line%%$'\n'*} (이동 0)"; return 1; }
+  [ -n "$line" ] || { echo "REJECT 남은 범위 줄 없음 — ‹없음› 또는 후속 카드 이름(«- 남은 범위: 없음» · «- 남은 범위: <카드 이름>[ · …] — <설명>») (이동 0)"; return 1; }
+  line="${line##*$'\n'}"   # 여러 줄이면 마지막 줄이 이긴다(상태 절에 덧붙여 갱신하는 관행)
+  val="$(printf '%s' "${line#- 남은 범위:}" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"; names="${val%% — *}"
+  [ "$names" != 없음 ] || return 0
+  while IFS= read -r n; do
+    [[ "$n" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || { echo "REJECT 남은 범위가 있는데 후속 카드 이름 없음 — «${val}» (후속 카드를 만들고 «<카드 이름> — <설명>» 으로 · 이동 0)"; return 1; }
+    if [ "$n" = "$me" ] || { [[ "$n" =~ ^r[0-9]+$ ]] && [[ "$me" == "$n"-* ]]; }; then echo "REJECT 남은 범위 후속 카드가 자기 자신($n) (이동 0)"; return 1; fi
+    hit=0; for d in 대기 진행 완성 완성후; do
+      [ -f "$idx/$d/$n.md" ] && hit=1
+      [[ "$n" =~ ^r[0-9]+$ ]] && compgen -G "$idx/$d/$n-*.md" >/dev/null && hit=1
+    done
+    [ "$hit" = 1 ] || { echo "REJECT 후속 카드 $n 없음 — 같은 팀 indices/{대기,진행,완성,완성후}/ 에 파일 0 (이동 0)"; return 1; }
+  done < <(printf '%s\n' "${names// · /$'\n'}")
+  return 0
+}
 if [ "$DST" = 완성 ]; then
   [ -n "$DA" ] || { echo "REJECT 진행→완성 은 --da <판정문#§N> 필수 — DA 판정 없이 닫지 않는다"; exit 1; }
   DAF="${DA%#*}"; SEC="${DA##*#}"   # r1284: «마지막 #» 에서 자른다 — 경로 폴더 이름에 #(좌석 «…-claude#198») 이 있어도 파일·절이 갈린다 · 절 이름에 # 는 없다
@@ -178,6 +200,7 @@ PY
   fi
   # R245 병합 ≠ 끝 — 하네스 카드 설치 게이트(ft-index-move-install.sh · 설치: 있음 = 라이브 cmp0 + 실사건 증거). 다른 팀 indices 는 게이트 안에서 통과.
   bash "$HERE/ft-index-move-install.sh" "$SRC" ${LANDED:+--landed "$LANDED"} || exit 1
+  followup_gate "$SRC" "$IDX_ROOT" || exit 1   # r1997 — 기존 완성 검사 순서·문구 뒤에 덧붙인다
 fi
 if [ "$DST" = 아카이브 ]; then
   # r1000 — «버림»·«쓸모 없음» 카드의 닫는 길. 착지 sha 가 없는 카드는 완성 갈래를 못 지나므로 여기로 닫는다(설치 대조 우회 금지 · R1).
