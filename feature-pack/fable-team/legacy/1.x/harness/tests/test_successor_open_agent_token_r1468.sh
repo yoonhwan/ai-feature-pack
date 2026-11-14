@@ -2,7 +2,7 @@
 # test_successor_open_agent_token_r1468.sh — r1468: 승계 이름 꼬리 토큰 = --agent · R213 면제의 agent 교체 · 하위 인박스 계보 잇기.
 #   T1 꼬리≠agent → REJECT rc2 · tmuxc 0 | T2 OLD 베이스의 agent 토큰만 바꾼 #N+1 → R213 면제(문지기 --succession)
 #   T3 번호 +3 · 팀 다름 → 면제 0 | T4 ft-inbox.py link → 새 큐 첫 줄 prev_lineage · 옛 파일 바이트 불변 · 두 번 불러도 1행
-#   T5 옛 큐 1 + 새 큐 1 → 새 좌석 show 에 옛→새 순 · 계보 같으면 prev_lineage 0 | T6 기존 시험 5개 = 따로 실행(시험 1개 70초 · 하드 룰 22) — 여기선 존재·bash -n
+#   T5 옛 큐 1 + 새 큐 1 → 새 좌석 show 에 옛→새 순 · --seqs·--count 도 같은 계보 읽기 · 계보 같으면 prev_lineage 0 | T7 agent 왕복 교대(pi→claude)도 이전 큐 읽기 | T6 기존 시험 5개 = 따로 실행(시험 1개 70초 · 하드 룰 22) — 여기선 존재·bash -n
 #   임시 리포·가짜 tmux·tmuxc·문지기 스텁(임시 bin 사본)만 — 실 명부·실 tmux·실 큐 0 · sleep 0.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
 set -uo pipefail
@@ -82,8 +82,28 @@ ib mark 1 처리 '옛 줄 처리' --seat 'byz-t-master-pi#5' > /dev/null 2>&1; M
 # T5-3 계보 같으면 prev_lineage 0
 lk 'byz-t-master-pi#5' 'byz-t-master-pi#6' > "$TMP/l3" 2>&1; L3=$?
 { [ "$L3" = 0 ] && [ "$(grep -c prev_lineage "$NEWQ")" = 1 ]; } && ok "T5-3 같은 계보 → prev_lineage 추가 0" || bad "T5-3 L3=$L3 $(cat "$TMP/l3")"
-# T5-4 show --seqs(기계용 창 읽기)도 머리 줄에 넘어지지 않는다
-ib show 'byz-t-master-pi#5' --seqs > "$TMP/seqs" 2>&1 && ok "T5-4 show --seqs rc0" || bad "T5-4 $(cat "$TMP/seqs")"
+# T5-4 show --seqs(기계용 창 읽기)·--count 도 이전 계보를 읽는다 — 사람용 show 와 같은 미닫힘(DA#10 HOLD ①)
+mail 3 'byz-t-master-pi#5' '새 계보 쪽지 셋'
+ib ingest 3 > /dev/null 2>&1
+ib show 'byz-t-master-pi#5' --seqs > "$TMP/seqs" 2>&1; QR=$?
+ib show 'byz-t-master-pi#5' --count > "$TMP/cnt" 2>&1
+{ [ "$QR" = 0 ] && [ "$(grep -o 'seq=[0-9]* 미닫힘=[0-9]*' "$TMP/seqs" | tr '\n' ' ')" = "seq=1 미닫힘=1 seq=2 미닫힘=2 seq=3 미닫힘=3 " ] \
+  && [ "$(tr '\n' ' ' < "$TMP/cnt")" = "OPEN 3 OLDEST seq=1 " ]; } \
+  && ok "T5-4 show --seqs·--count = 사람용 show 와 같은 미닫힘(옛 seq1 + 새 seq2·3)" || bad "T5-4 rc=$QR seqs=$(tr '\n' ' ' < "$TMP/seqs") cnt=$(tr '\n' ' ' < "$TMP/cnt")"
+# T7 agent 왕복 교대 pi#5 → claude#6 — 이전 미처리 큐를 읽고 파일 삭제·이동·복제 0(DA#10 HOLD ②)
+L0="$(cat "$OLDQ" "$NEWQ" | grep -c '"seq"')"
+lk 'byz-t-master-pi#5' 'byz-t-master-claude#6' > "$TMP/l4" 2>&1; L4=$?
+lk 'byz-t-master-pi#5' 'byz-t-master-claude#6' > /dev/null 2>&1
+ib show 'byz-t-master-claude#6' > "$TMP/rt" 2>&1; RT=$?
+ib show 'byz-t-master-claude#6' --seqs > "$TMP/rts" 2>&1
+{ [ "$L4" = 0 ] && [ "$RT" = 0 ] && grep -q 'seq=3 미닫힘=3' "$TMP/rt" && grep -q 'seq=1 미닫힘=1' "$TMP/rt" && grep -q 'seq=3 미닫힘=3' "$TMP/rts" \
+  && [ "$(head -1 "$OLDQ")" = '{"prev_lineage": "byz-t-master-pi"}' ] && [ "$(grep -c prev_lineage "$OLDQ")" = 1 ] \
+  && [ "$(cat "$OLDQ" "$NEWQ" | grep -c '"seq"')" = "$L0" ] && [ "$(ls "$IN"/*.jsonl | wc -l | tr -d ' ')" = 2 ]; } \
+  && ok "T7 왕복 교대 → claude#6 show 에 pi 미처리 seq3 · 행 수 불변 · 파일 2개" || bad "T7 L4=$L4 l4=$(cat "$TMP/l4") rt=$(tr '\n' ' ' < "$TMP/rt") old=$(head -1 "$OLDQ")"
+# T7-2 왕복 뒤 새 좌석 mark 가 pi 큐 줄을 그 파일에서 닫는다(옮김·복제 0)
+ib mark 3 처리 '왕복 뒤 처리' --seat 'byz-t-master-claude#6' > /dev/null 2>&1; M7=$?
+{ [ "$M7" = 0 ] && grep '"seq": 3' "$NEWQ" | grep -q '"kind": "처리"' && [ "$(grep -c '"seq": 3' "$OLDQ")" = 0 ]; } \
+  && ok "T7-2 왕복 뒤 mark = pi 파일에서 · claude 파일 복제 0" || bad "T7-2 rc=$M7"
 
 # T6 기존 successor-open 시험 5개 — 존재·bash -n(실행은 따로 · 시험 1개 70초)
 t6=0
