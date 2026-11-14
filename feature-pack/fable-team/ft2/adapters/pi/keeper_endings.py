@@ -85,23 +85,48 @@ def _head(body):
     rows = [x.strip() for x in re.split(r"^## ", part[1], maxsplit=1, flags=re.M)[0].splitlines() if x.strip()] if len(part) == 2 else []
     last = re.sub(r"^\d{4}-\d{2}-\d{2}[^—]*—\s*", "", re.sub(r"^-\s*", "", rows[-1])) if rows else ""
     return next(((kind, "상태 " + last[:60]) for head, kind in HEADS if last.startswith(head)), None)
-def ending(k, team, work):
-    """② landed 아닌 끝 → (suspended|superseded, 근거) | None · 우선 ref 에 후보 2개↑·판독 실패 = None(추측 0)."""
+def ending(k, team, work, seat=None):
+    """② landed 아닌 끝 → (suspended|superseded|empty, 근거) | None · 우선 ref 에 후보 2개↑·판독 실패 = None(추측 0) · r1972 empty = seat(B2 holder) 줄 때만."""
+    got = _card_end(k, team, work)
+    return None if got is False else got or (seat and _empty(k, team, work, seat)) or None
+def _empty(k, team, work, seat):
+    """r1972 ⓐ 원장 done ⓑ dispatch holder == seat ⓒ base_sha..HEAD 0 ⓓ status 0줄(untracked 포함) ⓔ nano/<work> PR 0개·전부 CLOSED ∧ merge 0 → (empty, 근거) · 그 밖·판독 실패 = None."""
+    attempt, holder = (latest(k, team) or {}).get(work, (None, None))
+    if not ((k.project(k.root, team).get("works") or {}).get(work) or {}).get("done") or holder != seat:
+        return None
+    it = intent(k, team, work, attempt, holder)
+    tree, base = it.get("worktree") or "", str(it.get("base_sha") or "")
+    if not os.path.isdir(tree) or not SHA.fullmatch(base) or k.git(tree, "rev-list", "--count", base + "..HEAD")[:2] != (0, "0\n"):
+        return None
+    if k.git(tree, "status", "--porcelain", "--untracked-files=all")[:2] != (0, ""):
+        return None
+    url = k.git(tree, "config", "--get", "remote.origin.url")[1].strip()
+    rc, out, _ = k.call([k.env.get("FT2_GH") or "gh", "pr", "list", "-R", REPO.search(url).group(1) if REPO.search(url) else url, "--head", "nano/" + work,
+                         "--state", "all", "--json", "number,state,mergedAt"], GH_S, retry=1)
+    try:
+        prs = json.loads(out) if rc == 0 else None
+    except ValueError:
+        return None
+    if not isinstance(prs, list) or not all(isinstance(p, dict) and p.get("state") == "CLOSED" and not p.get("mergedAt") for p in prs):
+        return None
+    return "empty", "done · 커밋 0 · 변경 0 · PR %s" % ("닫힘 " + ",".join("#%s" % p.get("number") for p in prs) if prs else "없음")
+def _card_end(k, team, work):
+    """카드 끝 → (결과, 근거) | None(끝 아님) | False(판독 실패·후보 충돌)."""
     land = _mod("land", os.path.join(HERE, "keeper_land.py"))
     for ref in land.REFS:
         if (names := _cards(k, team, ref)) is None:
-            return None
+            return False
         hits = [(f, p) for f, p in names if p.endswith(".md") and p[len(f) + 9:].split("/")[0] in land.STAGES + DONE
                 and (os.path.basename(p) == work + ".md" or os.path.basename(p).startswith(work + "-"))]
         hits = [h for h in hits if os.path.basename(h[1]) == work + ".md"] or hits
         if len(hits) > 1:
-            return None
+            return False
         if hits:
             stage = hits[0][1][len(hits[0][0]) + 9:].split("/")[0]
             if stage in DONE:
                 return "superseded", "카드 %s/" % stage
             rc, body, _ = k.git(k.root, "show", "%s:%s" % (ref, hits[0][1]))
-            return _head(body) if rc == 0 else None
+            return _head(body) if rc == 0 else False
     return None
 def unsure(st, team, work, holder, key, idle, fmt=None, slot=""):
     """④ 미확인 깨움 — after_s 뒤 재깨움 1회(정상·오류 턴 길 같은 rewoke 키) · 또 미확인 = harness master [크리티컬] 1통/일 · 재배정·kill 0."""
