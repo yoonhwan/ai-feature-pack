@@ -77,10 +77,11 @@ esac
 if [ "$BIND_OK" != 1 ]; then o "결정 필요: $((DEC+1))"; printf '%s\n' "${OUT[@]}"; [ "$BOUT" = 1 ] && exit 124; exit 1; fi
 
 # ② 카드 수
-WAIT="?"; DOING="?"; REF=""
-for r in $REFS; do REF="$r"; X git -C "$ROOT" cat-file -e "$r:$CARDS" 2>/dev/null && break; done   # 둘 다 없으면 끝 ref 로 아래 그대로
-lt="$(X git -C "$ROOT" ls-tree -r --name-only "$REF" -- "$CARDS/대기/" "$CARDS/진행/" 2>&1)"; rc=$?
-if [ "$rc" -ne 0 ]; then fail_line "카드($REF:$CARDS)" "$rc"; else
+WAIT="?"; DOING="?"; REF=""; FOUND=0; rc=1
+for r in $REFS; do X git -C "$ROOT" cat-file -e "$r:$CARDS" 2>/dev/null; rc=$?; [ "$rc" -eq 0 ] && { REF="$r"; FOUND=1; break; }; done
+#   후보 ref 어디에도 카드 트리 없음 = ls-tree 0 · 판정 불가(DA R1 · 없는 path 의 ls-tree 는 rc0 빈 출력이라 카드 0 으로 숨는다)
+if [ "$FOUND" != 1 ]; then fail_line "카드($(echo $REFS):$CARDS) 트리 없음" "$rc"
+elif lt="$(X git -C "$ROOT" ls-tree -r --name-only "$REF" -- "$CARDS/대기/" "$CARDS/진행/" 2>&1)"; rc=$?; [ "$rc" -ne 0 ]; then fail_line "카드($REF:$CARDS)" "$rc"; else
   WAIT="$(printf '%s\n' "$lt" | grep -c "^$CARDS/대기/[^/]*\.md$")"; DOING="$(printf '%s\n' "$lt" | grep -c "^$CARDS/진행/[^/]*\.md$")"
   o "카드 대기 $WAIT · 진행 $DOING ($REF)"
 fi
