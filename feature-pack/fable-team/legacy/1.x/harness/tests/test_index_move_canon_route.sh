@@ -38,7 +38,7 @@ G checkout -q main; G merge -q --squash c1 >/dev/null; G commit -qm "squash c1";
 
 card() { local f="$REPO/design/teams/$1/indices/진행/$2.md"   # card <팀> <이름>
   { echo "# 인덱스: $2"; echo "## 상태"; echo "- 정본 갱신: $X §절A"
-    echo "- 규칙: 없음 — 시험 fixture 카드(규칙 무관)"; echo "- 설치: 없음"; } > "$f"; echo "$f"; }
+    echo "- 규칙: 없음 — 시험 fixture 카드(규칙 무관)"; echo "- 설치: 없음"; echo "- 남은 범위: 없음"; } > "$f"; echo "$f"; }
 D="$REPO/design/da.md"; printf '# 판정문\n## §1 닫힘: ka kb kc kd\n정본 diff 확인: %s §절A @%s — v2\n' "$X" "$C" > "$D"
 mv_() { "$BB" "$BIN/ft-index-move.sh" "$@" 2>&1; }
 moved() { [ -f "$REPO/design/teams/$1/indices/완성/$2.md" ]; }

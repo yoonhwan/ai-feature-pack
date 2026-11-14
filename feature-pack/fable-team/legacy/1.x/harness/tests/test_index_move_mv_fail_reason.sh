@@ -37,7 +37,7 @@ printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| harness | `design/harness
 printf '## 절A 제목\nv1\n' > "$CR/docs/architect/X.md"
 card() { local f="$IDX/진행/$1.md"
   { echo "# 인덱스: $1"; echo "## 상태"; echo "- 정본 영향 없음: 하네스 도구만 바뀐 카드 — 제품 정본 없음"
-    echo "- 규칙: 없음 — 시험 fixture 카드(규칙 무관)"; echo "- 설치: 없음"; } > "$f"; echo "$f"; }
+    echo "- 규칙: 없음 — 시험 fixture 카드(규칙 무관)"; echo "- 설치: 없음"; echo "- 남은 범위: 없음"; } > "$f"; echo "$f"; }
 kpackmain="$(card kpackmain)"          # 카드 이름에 «main» 이 든다(실사건 r462·r756 꼴)
 kmv="$(card kmv)"; kmv2="$(card kmv2)"
 printf '# 인덱스: kdone\n## 상태\n' > "$IDX/진행/kdone.md"; rm -f "$IDX/진행/kdone.md"; kdone="$(card kdone)"; rm -f "$kdone"
@@ -107,7 +107,7 @@ out="$(bash "$BIN/ft-index-move.sh" "$kpackmain" 완성 --da "$CR/design/harness
   && ck "ⓑ 진행→완성: 팩 착지 카드가 정본 게이트를 통과해 실제로 이동" 0 || ck "ⓑ 진행→완성 이동 :: $out" 1
 
 # ⓒ2 두 게이트가 «같은 판정» — 설치: 있음 + 표식 main + 팩 착지(팩 origin/main 조상) → 정본 WARN 뒤 이동 통과
-printf '# 인덱스: kpackmain2\n## 상태\n- 정본 영향 없음: 하네스 도구만 바뀐 카드 — 제품 정본 없음\n- 규칙: 없음 — 시험 fixture 카드(규칙 무관)\n- 설치: 있음\n- 실사건: 라이브 대조 1회 · 증거 mbox #170281\n' > "$IDX/진행/kpackmain2.md"
+printf '# 인덱스: kpackmain2\n## 상태\n- 정본 영향 없음: 하네스 도구만 바뀐 카드 — 제품 정본 없음\n- 규칙: 없음 — 시험 fixture 카드(규칙 무관)\n- 설치: 있음\n- 남은 범위: 없음\n- 실사건: 라이브 대조 1회 · 증거 mbox #170281\n' > "$IDX/진행/kpackmain2.md"
 printf '#!/bin/bash\necho "OK n=0 skip=0"\n' > "$T/fake-chk.sh"; chmod 755 "$T/fake-chk.sh"
 sec7="$(printf '## §7 kpackmain2 — 닫힘 (CLOSE)\n닫힘 — kpackmain2 — main `%s`\n- 정본 영향 없음: 하네스 도구만 바뀐 카드\n' "$P2")"
 printf '## §7 kpackmain2 — 닫힘 (CLOSE)\n닫힘 — kpackmain2 — main `%s`\n' "$P2" >> "$CR/design/harness/DA-r959.md"
@@ -116,7 +116,7 @@ out="$(FT_INSTALL_CHECK="$T/fake-chk.sh" FT_HARNESS_ROOT="$KD" bash "$BIN/ft-ind
   && ck "ⓒ2 설치: 있음 + 표식 main + 팩 착지 → 정본·설치 두 게이트 같은 판정(WARN 뒤 이동 통과)" 0 || ck "ⓒ2 두 게이트 같은 판정 :: $out" 1
 
 # ⓒ3 보류 이력이 있는 카드도 같다 — DA⑥ r2 반례 그대로(ⓒ2 카드 + `- DA⑥ r1 HOLD 4`·`- DA⑥ r2 HOLD 1`) → 보류 가드가 먼저 거절하지 않는다
-printf '# 인덱스: kpackmain3\n## 상태\n- 정본 영향 없음: 하네스 도구만 바뀐 카드 — 제품 정본 없음\n- 규칙: 없음 — 시험 fixture 카드(규칙 무관)\n- 설치: 있음\n- 실사건: 라이브 대조 1회 · 증거 mbox #170281\n- DA⑥ r1 HOLD 4\n- DA⑥ r2 HOLD 1\n' > "$IDX/진행/kpackmain3.md"
+printf '# 인덱스: kpackmain3\n## 상태\n- 정본 영향 없음: 하네스 도구만 바뀐 카드 — 제품 정본 없음\n- 규칙: 없음 — 시험 fixture 카드(규칙 무관)\n- 설치: 있음\n- 남은 범위: 없음\n- 실사건: 라이브 대조 1회 · 증거 mbox #170281\n- DA⑥ r1 HOLD 4\n- DA⑥ r2 HOLD 1\n' > "$IDX/진행/kpackmain3.md"
 printf '## §8 kpackmain3 — 닫힘 (CLOSE)\n닫힘 — kpackmain3 — main `%s`\n' "$P2" >> "$CR/design/harness/DA-r959.md"
 out="$(FT_INSTALL_CHECK="$T/fake-chk.sh" FT_HARNESS_ROOT="$KD" bash "$BIN/ft-index-move.sh" "$IDX/진행/kpackmain3.md" 완성 --da "$CR/design/harness/DA-r959.md#§8" --landed "$P2" 2>&1)"; rc=$?
 nwarn=$(printf '%s\n' "$out" | grep -c '표식 오기(팩 착지)')
@@ -124,7 +124,7 @@ nwarn=$(printf '%s\n' "$out" | grep -c '표식 오기(팩 착지)')
   && ck "ⓒ3 보류 이력 2줄 카드 + 표식 main + 팩 착지 → 이동 통과(WARN 1회 이상 · 이동 명령 전체 출력에서)" 0 || ck "ⓒ3 보류 이력 카드 :: $out" 1
 
 # ⓒ4 네 번째 호출 — ft-index-close-landed.sh 도 같은 판정(표식 main · 팩에만 · 팩 조상 → 조상 ok)
-printf '# 인덱스: kclose\n## 상태\n- 설치: 없음\n' > "$IDX/진행/kclose.md"
+printf '# 인덱스: kclose\n## 상태\n- 설치: 없음\n- 남은 범위: 없음\n' > "$IDX/진행/kclose.md"
 printf '# 판정문\n## §1 kclose — 닫힘 (CLOSE)\n닫힘 — kclose — main `%s`\n' "$P2" > "$CR/design/harness/DA-close959.md"
 out="$(FT_HARNESS_ROOT="$KD" bash "$BIN/ft-index-close-landed.sh" "$CR/design/harness/DA-close959.md" --dry-run 2>&1)"; rc=$?
 [ "$rc" = 0 ] && [[ "$out" == *"| §1 | kclose | 진행 | ok |"* ]] && [[ "$out" != *"not-found"* ]] \

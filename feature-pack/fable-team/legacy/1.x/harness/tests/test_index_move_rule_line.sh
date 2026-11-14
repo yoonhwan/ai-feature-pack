@@ -32,7 +32,7 @@ DA="$REPO/design/harness/DA-x.md#§1"
 card() {
   local f="$IDX/$1/$2.md"
   { echo "# 인덱스: $2"; echo "## 상태"; echo "- 정본 영향 없음: 하네스 도구만 변경 — 제품 정본 없음"
-    [ $# -ge 3 ] && echo "- 규칙: $3"; echo "- 설치: 없음"; } > "$f"
+    [ $# -ge 3 ] && echo "- 규칙: $3"; echo "- 설치: 없음"; echo "- 남은 범위: 없음"; } > "$f"
   echo "$f"
 }
 mv_() { bash "$BIN/ft-index-move.sh" "$@" 2>&1; }
