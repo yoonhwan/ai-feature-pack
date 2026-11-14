@@ -76,7 +76,7 @@ class Wiring:
             self.record_issue(command)
         owner = channels.owner_of(self.root, self.team, row["key"][1])  # r1923 ⑪ 다른 팀 채널 = 수신기 --root/--team 답글 줄
         tail = [] if owner in ("-", None) else ["답글: ft2 slack reply --root %s --team %s --thread %s --command %s --seat %s "
-                                                 "--body-file <파일>" % (self.root, self.team, thread, command, to)]
+                                                 "--body-file <파일>" % tuple(map(shlex.quote, map(str, (self.root, self.team, thread, command, to))))]
         body = "\n".join(["[Slack] %s · thread %s · command %s" % (kind, thread, command)] + list(lines) + tail)
         if self.wake(to, body, command) != 0:
             self.alert(dict(row, reason="깨움 실패"), quiet=True)

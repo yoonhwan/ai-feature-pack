@@ -120,8 +120,9 @@ class Listener:  # 상주 수신기 1개 = 연결 1개 · 허용 = CHANNELS on �
                 self.sleep(min(2 ** max(fails - 1, 0), 60))  # 정상 끝 뒤 1 · 연속 실패 1·2·4·…·60초(R2)
         return 0
     def _session(self, reconnect):  # 연결 1번 — 반환 = True(disconnect·끊김 = 재연결 사건) 또는 RIVAL
-        with self.connect(self.web("apps.connections.open", self.app_token)["url"]) as self.ws:
-            self.envelope, out = None, self._hello(json.loads(self.ws.recv(timeout=10)), reconnect)
+        deadline = self.mono() + 50  # R1 — 연결 1번의 Web 호출 전체 예산 1개(apps.connections.open 부터 · 고정비 포함 70초 안)
+        with self.connect(self.web("apps.connections.open", self.app_token, deadline=deadline, mono=self.mono)["url"]) as self.ws:
+            self.envelope, out = None, self._hello(json.loads(self.ws.recv(timeout=10)), reconnect, deadline)
             while out is None:
                 try:
                     out = self._frame(json.loads(self.ws.recv(timeout=1)))
@@ -132,13 +133,12 @@ class Listener:  # 상주 수신기 1개 = 연결 1개 · 허용 = CHANNELS on �
             return out
     def on_idle(self):  # envelope 0 인 1초 — Slack 읽기·기록 증가·모델 호출 0(타이머로 Slack 을 읽는 코드 0)
         self.receive.pass_idle()
-    def _hello(self, env, reconnect):
+    def _hello(self, env, reconnect, deadline):
         if env.get("type") != "hello":
             raise RuntimeError("hello 없음")
         if int(env.get("num_connections") or 1) > 1:  # 경쟁 소비자 — 연결 닫고 알림 1 · xclaw Tank 수신을 켜지 않는다
             self.notify({"state": "rival", "num_connections": env.get("num_connections")})
             return RIVAL
-        deadline = self.mono() + 50  # R1 — hello 1회 Web 호출 전체 예산(고정비 포함 70초 안)
         try:  # A — 가입 채널 발견 · 완전 성공만 auto 줄 교체(R2) · 실패 = 판정 불가 1줄 · 지금 허용으로 수신 계속
             done, seen = self._discover(deadline)
             self._added(self.chan.snapshot(seen)) if done else self.log("판정 불가 자동 채널 — 3쪽 뒤 cursor")
