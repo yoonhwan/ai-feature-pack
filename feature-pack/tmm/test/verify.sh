@@ -724,10 +724,12 @@ for pair in 'FB_CCU#0:ccu' 'CCU_ARCH#3:ccu' 'FB_CFO#33:cfo' 'CFO_F_NANO#17:cfo' 
 done
 [ "$(TMM_CAT_STRIP='X_' _cat 'X_ABC#1')" = abc ] || { echo 'FAIL: (z) TMM_CAT_STRIP 로 접두 변경 안 됨'; exit 1; }
 [ "$(_cat 'ft-')" = 'ft' ] || { echo "FAIL: (z) 접두만 있는 이름(ft-)이 빈 라벨: '$(_cat 'ft-')'"; exit 1; }
+# r1716 qa 좌석 = 역할 예약어 qa → 팀 라벨(leaf)
+got="$(TMM_CAT_SESSIONS="" _cat 'byz-harness-qa-ft20-pi#10')"; [ "$got" = harness ] || { echo "FAIL: (z) cat_of qa 좌석 leaf → '$got' (기대 harness)"; exit 1; }
 
 # (hd) 프로젝트(1depth) → 팀(2depth) 트리(0.9.0) — 사용자 2026-10-20 «2depth 명으로 팀그룹핑해서 노출하는데 1depth 분리 필요»
 #   cat_of key 모드 = «프로젝트/팀» · 구 접두(ft- FB_)·규칙 라벨·폴백은 «/ 없는 leaf» · 같은 팀 글자를 다른 프로젝트가 써도 프로젝트로 갈려 충돌 접두(b-)가 필요 없다
-for pair in 'byz-harness-master-claude#8:byz/harness' 'byz-ops-arch-claude#1:byz/ops' 'aifp-worker-master-claude#0:aifp/worker' 'acme-harness-master-claude#1:acme/harness' \
+for pair in 'byz-harness-master-claude#8:byz/harness' 'byz-ops-arch-claude#1:byz/ops' 'aifp-worker-master-claude#0:aifp/worker' 'acme-harness-master-claude#1:acme/harness' 'byz-harness-qa-ft20-pi#10:byz/harness' \
             'ft-v65-master-claude#86:v65' 'FB_CCU#0:ccu' 'KakaoBot#5:kakao' 'plain-shell:plain'; do
   got="$(TMM_CAT_SESSIONS="" cat_of "${pair%%:*}" key)"; [ "$got" = "${pair#*:}" ] || { echo "FAIL: (hd) cat_of key ${pair%%:*} → '$got' (기대 ${pair#*:})"; exit 1; }
 done
