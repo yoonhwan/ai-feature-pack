@@ -50,7 +50,7 @@ case "$1" in
   bootout) echo bootout >> "$LC_LOG"
            l="${2##*/}"; sed "/$l/d" "$LC_STATE" > "$LC_STATE.tmp" 2>/dev/null; mv "$LC_STATE.tmp" "$LC_STATE" 2>/dev/null; exit 0;;
   list) while IFS= read -r l; do [ -n "$l" ] && echo "0 0 $l"; done < "$LC_STATE"; exit 0;;
-  print) exit 0;;
+  print) grep -q "${2##*/}" "$LC_STATE" 2>/dev/null && exit 0; exit 113;;   # r1464: 적재 중이면 rc0 · 없으면 rc113
 esac
 exit 1
 SH

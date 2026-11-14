@@ -124,7 +124,7 @@ chk "ⓖ 변이(기본 선택 = 옛 동작)를 잡는다 rc" "$(INSTALLER="$TMP/
 rm -f "$TMP/plists/com.byz.ft-tick.plist"
 
 # 설치(가짜 launchctl): 백업 → 쓰기 → 재실행 멱등
-printf '#!/bin/bash\necho "$*" >> "$LCTL_LOG"\n' > "$TMP/launchctl"; chmod +x "$TMP/launchctl"; export LCTL_LOG="$TMP/lctl.log"
+printf '#!/bin/bash\n[ "$1" = print ] && exit 113   # r1464: bootout 뒤 «내려감» 확인 = 없음(rc113) · 기록 0\necho "$*" >> "$LCTL_LOG"\n' > "$TMP/launchctl"; chmod +x "$TMP/launchctl"; export LCTL_LOG="$TMP/lctl.log"
 chk "설치 rc" "$(FT_TICK_LAUNCHCTL="$TMP/launchctl" inst --team ops >/dev/null 2>&1; echo $?)" 0
 chk "설치: 백업 = 원본 · plist 갱신" "$(cmp -s "$TMP/ops-from.plist" "$TMP/plists/com.byz.ft-tick-ops.plist.bak-r199" && echo bak-ok) $(envof "$TMP/plists/com.byz.ft-tick-ops.plist" FT_TICK_FIRE_V2)" "bak-ok 1"
 chk "설치: bootout·bootstrap 2줄" "$(wc -l < "$LCTL_LOG" | tr -d ' ')" 2
