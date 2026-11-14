@@ -66,6 +66,9 @@ export function runCli(list: string[], signal?: AbortSignal): Promise<CliRun> {
     });
   });
 }
+// r1989 — effect 뒤 result 를 빠뜨리면 완료 유보(master 손) · 나노에게 보이는 말 2곳(설명 끝 · effect 성공 응답 두 번째 content).
+const EFFECT_NEXT = " 효과가 끝나면 다음 ft2 호출·다음 일 전에 ft2_result 1회 필수 — 빠지면 완료 유보(master 손).";
+const nextLine = (verb: string, p: any) => verb === "effect" ? [{ type: "text" as const, text: `다음: ft2_result ${p.work} ${p.holder} ${p.gen}` }] : [];
 const detailsOf = (verb: string, run: CliRun, command: string[]) => ({ verb, rc: run.rc, timedOut: run.timedOut, command, error: run.error });
 const fail = (text: string, verb = "") => ({ content: [{ type: "text" as const, text }],
   details: { verb, rc: 0, timedOut: false, command: [] as string[], error: "" }, isError: true });
@@ -82,13 +85,13 @@ function tool(name: string, spec: VerbSpec, description: string) {
       const run = await runCli(command, signal);
       const text = run.stdout.trim() || run.stderr.trim() || run.error || "(출력 없음)";
       if (run.rc !== 0) return { content: [{ type: "text" as const, text }], details: detailsOf(spec.verb, run, command), isError: true };
-      return { content: [{ type: "text" as const, text }], details: detailsOf(spec.verb, run, command) };
+      return { content: [{ type: "text" as const, text }, ...nextLine(spec.verb, params)], details: detailsOf(spec.verb, run, command) };
     },
   };
 }
 export default function ft2Seat(pi: any): void {
   pi.registerTool(tool("ft2_claim", VERBS.ft2_claim, "ft2 작업의 실행권(세대)을 받는다 — 코어 claim 1회 · 결과는 cli JSON 그대로."));
   pi.registerTool(tool("ft2_start", VERBS.ft2_start, "ft2 작업 착수를 기록한다 — 코어 start 1회 · 결과는 cli JSON 그대로."));
-  pi.registerTool(tool("ft2_effect", VERBS.ft2_effect, "ft2 효과 의도를 먼저 내구화한다 — 코어 effect 1회 · 결과는 cli JSON 그대로."));
+  pi.registerTool(tool("ft2_effect", VERBS.ft2_effect, "ft2 효과 의도를 먼저 내구화한다 — 코어 effect 1회 · 결과는 cli JSON 그대로." + EFFECT_NEXT));
   pi.registerTool(tool("ft2_result", VERBS.ft2_result, "ft2 작업 결과를 확정한다 — 코어 result 1회 · 결과는 cli JSON 그대로."));
 }
