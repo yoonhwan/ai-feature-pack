@@ -13,6 +13,8 @@ _SPEC = importlib.util.spec_from_file_location("ft2_keeper_land_cli", os.path.jo
 cli = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(cli)
 PROJ = cli._load("projection")   # r1893 최신 dispatch attempt · launch intent 경로
+endings = importlib.util.module_from_spec(importlib.util.spec_from_file_location("ft2_keeper_land_endings", os.path.join(os.path.dirname(os.path.abspath(__file__)), "keeper_endings.py")))
+endings.__spec__.loader.exec_module(endings)   # r1960 착지 줄 없음 → work 결속 PR 근거
 OK = "접수 성공"
 
 REFS = ("origin/ops/main-base", "origin/main")       # BYZ 카드·착지 ref (B1r 순서)
@@ -126,7 +128,7 @@ class Landing:
         if len(shas) > 1:
             return None, None, "판정 불가 · 착지 줄 충돌 " + " ".join(shas)
         if not shas:
-            return None, None, "착지 줄 없음" if own else "판정 불가 · 조각 착지 줄 없음"
+            return endings.pr_landed(self, team, work) if own else (None, None, "판정 불가 · 조각 착지 줄 없음")
         sha = shas[0]
         for repo, ref in ((self.pack, "origin/main"), (self.root, REFS[0]), (self.root, REFS[1])):
             if self.git(repo, "merge-base", "--is-ancestor", sha, ref)[0] == 0:
@@ -134,12 +136,12 @@ class Landing:
                 return (None, None, old) if old else (sha, ("pack:" if repo == self.pack else "byz:") + ref, "")
         return sha, None, "미도달"
 
-    def pre_attempt(self, team, work, repo, sha):
+    def pre_attempt(self, team, work, repo, sha, intent=None):
         """r1893 — 최신 dispatch attempt intent base_sha 대조 · rc0 = 옛 줄 · rc1 = 조상 아님(진행) · 그 밖 = 판정 불가 · intent·base_sha 없음 = ""."""
         runtime = PROJ.runtime_path(self.root, team)
         recs = PROJ.journal.Journal(runtime, rec=PROJ.record).records()
         att = ([r.get("attempt") for r in recs if r.get("kind") == "dispatch" and r.get("work") == work] or [None])[-1]
-        intent = self.read_json(os.path.join(runtime, "launch", "%s@%s.intent" % (work, att))) if att else {}
+        intent = intent or (self.read_json(os.path.join(runtime, "launch", "%s@%s.intent" % (work, att))) if att else {})   # r1960 대체 intent
         base = intent.get("base_sha")
         have = self.git(repo, "cat-file", "-e", base)[0] if base else 0   # r1910 rc1 = 명시적 missing(다른 repo) · 그 밖 = git 실패
         if have == 1:
