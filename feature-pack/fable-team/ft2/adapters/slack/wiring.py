@@ -118,10 +118,11 @@ class Wiring:
     def alert(self, row, quiet=False):  # A4 — desk 1곳 깨움 · 같은 command·사유 재알림 0
         command = row.get("command")
         why = row.get("reason") if quiet else (row.get("kind") or row.get("k") or row.get("reason") or row.get("state"))
-        if command and any(r.get("command") == command and r.get("why") == why for r in self.entries("alert")):
-            return
         episode = why == receive.RESULT_FULL and full_alert._read(os.path.join(  # r1927 꽉 참 회차 = 열린 시각
             self.root, ".fable-team", "state", "ft2-full-alert.json"), "남은 일|%s@at" % self.team)
+        if command and any(r.get("command") == command and r.get("why") == why and r.get("episode") == (episode or None)
+                           for r in self.entries("alert")):  # R3 용량 부족 = 같은 회차만 dedup · 다른 사유 옛 dedup
+            return
         again = episode and any(r.get("episode") == episode for r in self.entries("alert"))
         self._append(dict({"t": "alert", "command": command, "why": why}, **({"episode": episode} if episode else {})))
         if again:  # 같은 꽉 참 회차 = desk 깨움 1회만
