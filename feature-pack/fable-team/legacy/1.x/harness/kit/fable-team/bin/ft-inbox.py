@@ -14,9 +14,9 @@ import time
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from ft_inbox_core import COMM, INBOX, PREV, PRIO, answered_seqs, chain, die, find_mail, find_seq, group_closed, hits, lineage, locked, mail_files, norm_key, obligation_closed, qpath, read_q, raw_q, rule_class, take_seat, write_q  # noqa: E402
+from ft_inbox_core import COMM, INBOX, PREV, PRIO, answered_seqs, die, find_mail, find_seq, group_closed, hits, lineage, locked, mail_files, norm_key, obligation_closed, qpath, read_q, raw_q, rule_class, take_seat, write_q  # noqa: E402
 from ft_inbox_rotate import cmd_count, cmd_rotate, rotated_head, tidy_hits  # noqa: E402
-from ft_inbox_window import tail_rows, view, view_seqs  # noqa: E402
+from ft_inbox_window import tail_chain, view, view_seqs  # noqa: E402
 
 
 def cmd_ingest(seq, mail=None):
@@ -45,7 +45,7 @@ def cmd_show(seat, flag):
     if flag not in ([], ["--seqs"]):  # r1560 퇴역: --compact 삭제 — 지운 옵션은 오류로 말한다(조용한 무시 0)
         die(f"show: 모르는 옵션 {flag[0]} — --compact 는 퇴역(r1560). 쓰는 것: --seqs · --count", 2)
     ans = answered_seqs(seat)  # B2 — show·--seqs·--count·rotate 가 같은 술어(회신 seq 포함)
-    lines = view_seqs(*tail_rows(qpath(seat)), ans) if flag == ["--seqs"] else view(read_q(qpath(seat)), ans)
+    lines = view_seqs(*tail_chain(qpath(seat)), ans) if flag == ["--seqs"] else view(read_q(qpath(seat)), ans)
     head = rotated_head(seat) if flag == [] else None  # B4 — 회전으로 치운 묶음이 있으면 사람용 show 첫 줄에 보인다(조용한 소실 0)
     print("\n".join(([head] if head else []) + (lines or ["EMPTY"])))
 
@@ -140,19 +140,19 @@ def cmd_archive(seat):
 
 
 def cmd_link(old, new):
-    """r1468: 교대 뒤 계보가 다르면 새 큐 첫 줄에 prev_lineage 1행(없을 때만 · rename 0 · 옛 파일 무변경) · 같은 계보 = 출력 0."""
+    """r1468: 교대 뒤 계보가 다르면 새 큐 머리 줄에 옛 계보를 더한다(1개 = 문자열 · 더 있으면 목록 · 왕복 A↔B 허용).
+    쪽지 행은 그대로(rename·이동·복제 0) · 이미 있으면 다시 쓰지 않는다 · 같은 계보 = 출력 0."""
     lo, np = lineage(old), qpath(new)
     if lo == lineage(new):
         return 0
-    if np in chain(qpath(old)):
-        die(f"인박스 계보 고리 — {lineage(new)} 가 이미 {lo} 의 이전 계보")
     with locked(np):
         head, rows = raw_q(np)
-        if head and head[PREV] != lo:
-            die(f"인박스 {lineage(new)} 에 다른 이전 계보 {head[PREV]} — {lo} 를 잇지 않는다")
-        if not head:
-            write_q(np, [{PREV: lo}] + rows)
-    print(f"INBOX-LINK {lineage(new)} ← {lo}" + (" (이미)" if head else ""))
+        have = [v] if isinstance(v := (head or {}).get(PREV) or [], str) else v
+        if lo not in have:
+            with open(np + ".tmp", "w", encoding="utf-8") as f:
+                f.writelines(json.dumps(x, ensure_ascii=False) + "\n" for x in [{PREV: have + [lo] if have else lo}] + rows)
+            os.replace(np + ".tmp", np)
+    print(f"INBOX-LINK {lineage(new)} ← {lo}" + (" (이미)" if lo in have else ""))
 
 
 def main(a):

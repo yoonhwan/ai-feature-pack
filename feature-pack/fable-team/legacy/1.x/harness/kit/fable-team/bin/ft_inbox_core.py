@@ -7,7 +7,7 @@ import os
 import re
 import subprocess
 import sys
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from typing import NoReturn
 
 PRIO = {"①": 1.0, "미상": 1.5, "②": 2.0, "③": 3.0, "④": 4.0, "⑤": 5.0, "⑥": 6.0}
@@ -88,19 +88,19 @@ def hits(qp, targets):
 
 
 @contextmanager
-def locked(path):
+def locked(path):  # r1468: 큐와 그 계보 큐들(chain)을 이름 순으로 함께 잠근다 — 왕복 교대(A↔B)도 순서가 같아 교착 0
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path + ".lock", "w") as lk:
-        fcntl.flock(lk, fcntl.LOCK_EX)
+    with ExitStack() as st:
+        for p in sorted({path, *chain(path)}):
+            fcntl.flock(st.enter_context(open(p + ".lock", "w")), fcntl.LOCK_EX)
         yield
 
 
-PREV = "prev_lineage"  # r1468: 계보가 바뀐 교대 뒤 새 큐 첫 줄 = {"prev_lineage": <옛 계보>} (ft-inbox.py link · 사슬 상한 5 · 고리 0)
+PREV = "prev_lineage"  # r1468: 계보가 바뀐 교대 뒤 새 큐 첫 줄 = {"prev_lineage": <옛 계보 또는 그 목록>} (ft-inbox.py link · 상한 5 · 왕복 허용)
 
 
 def head_q(path):  # 머리 줄 = 첫 줄이 seq 없이 prev_lineage 를 가진 행 · 첫 줄만 읽는다(큰 큐 전체 해석 0)
-    with open(path, encoding="utf-8") if os.path.exists(path) else open(os.devnull) as f:
-        x = json.loads(f.readline().strip() or "{}")
+    x = json.loads(open(path, encoding="utf-8").readline().strip() or "{}") if os.path.exists(path) else {}
     return x if PREV in x and "seq" not in x else None
 
 
@@ -109,24 +109,25 @@ def raw_q(path):  # (머리 줄 또는 None, 쪽지 행들)
     return (h := head_q(path)), rows[1:] if h else rows
 
 
-def chain(path):
-    """옛 계보 큐 경로들(가장 옛 것 먼저) — 머리 줄을 따라 5단계까지."""
-    out, p = [], path
-    while len(out) < 5 and (h := head_q(p)) and (p := f"{INBOX}/{h[PREV]}.jsonl") not in out + [path]:
-        out.insert(0, p)
+def chain(path):  # 이전 계보 큐 경로들 — 머리 줄(값 = 계보 1개 또는 목록)을 너비 우선으로 5개까지 · 왕복(A↔B)은 한 번씩
+    out, todo = [], [path]
+    while todo and len(out) < 5:
+        v = (head_q(todo.pop(0)) or {}).get(PREV) or []
+        for p in (f"{INBOX}/{x}.jsonl" for x in ([v] if isinstance(v, str) else v)):
+            if p != path and p not in out and len(out) < 5:
+                out.append(p)
+                todo.append(p)
     return out
 
 
-def read_q(path):
-    """옛 계보 큐 행 → 제 행 순서 · 옛 행에는 _q=<그 파일>(write_q 가 그 파일로 되돌려 쓴다 · 옮김 0)."""
+def read_q(path):  # 이전 계보 큐 행 → 제 행 · 이전 행에는 _q=<그 파일>(write_q 가 그 파일로 되돌려 쓴다 · 옮김·복제 0)
     return [dict(x, _q=p) for p in chain(path) for x in raw_q(p)[1]] + raw_q(path)[1]
 
 
 def write_q(path, rows, _top=True):
-    for p in chain(path) if _top else []:  # 옛 계보 행은 그 파일로 · 바뀐 것이 있을 때만(옛 파일 무변경)
-        with locked(p):
-            if (mine := [{k: v for k, v in x.items() if k != "_q"} for x in rows if x.get("_q") == p]) != raw_q(p)[1]:
-                write_q(p, mine, False)
+    for p in chain(path) if _top else []:  # 이전 계보 행은 그 파일로 · 바뀐 것이 있을 때만 · 잠금은 locked(path) 가 이미 잡음
+        if (mine := [{k: v for k, v in x.items() if k != "_q"} for x in rows if x.get("_q") == p]) != raw_q(p)[1]:
+            write_q(p, mine, False)
     head, tmp = head_q(path), path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         f.writelines(json.dumps(x, ensure_ascii=False) + "\n" for x in ([head] if head else []) + [x for x in rows if "_q" not in x])

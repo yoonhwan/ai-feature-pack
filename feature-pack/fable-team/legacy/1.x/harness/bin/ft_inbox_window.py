@@ -8,7 +8,7 @@ import json
 import os
 import sys
 
-from ft_inbox_core import obligation_closed
+from ft_inbox_core import chain, obligation_closed
 
 SEQ_B = 1 << 20  # 창 = 큐 파일 «끝 1MB» — 판정 범위를 mirror_board 의 같은 창과 일치시킨다(줄 수 상한 없음)
 
@@ -30,6 +30,18 @@ def tail_rows(path):
     return rows, off > 0
 
 
+def tail_chain(path):
+    """r1468: 이전 계보 큐(chain) 창 + 제 창 — (rows, 위가 잘린 창의 첫 묶음 집합) · 창 상한은 파일마다 SEQ_B 그대로."""
+    if not (prev := chain(path)):
+        return tail_rows(path)  # 계보 없음 = 옛 길 그대로(잘림 = bool)
+    rows, heads = [], set()
+    for p in prev + [path]:
+        r, cut = tail_rows(p)
+        rows += r
+        heads |= {r[0]["group"]} if r and cut else set()
+    return rows, heads
+
+
 def view(rows, ans=frozenset()):
     """사람용 줄(본문 첫 줄 미리보기 포함) — 술어는 obligation_closed(x, ans) 하나(r1052 단계 2 B2 · ans = 큐 주인 계보의 회신 seq 집합)."""
     mem = {}
@@ -46,13 +58,14 @@ def view(rows, ans=frozenset()):
 def view_seqs(rows, cut, ans=frozenset()):
     """view 와 같은 묶음·같은 미닫힘 판정, 본문 파일 open 0. 창 위가 잘린 첫 묶음 = «보류(범위 밖)»."""
     head = rows[0]["group"] if rows and cut else None
+    heads = cut if isinstance(cut, set) else {head} - {None}  # r1468: tail_chain(계보 있음) = 파일별 잘린 첫 묶음 집합
     mem = {}
     for x in sorted(rows, key=lambda x: (x["prio"], x["seq"])):
         mem.setdefault(x["group"], []).append(x)
     out = []
     for g, ms in mem.items():
-        un = [x["seq"] for x in ms if not obligation_closed(x, ans)] or ([ms[0]["seq"]] if g == head else [])
+        un = [x["seq"] for x in ms if not obligation_closed(x, ans)] or ([ms[0]["seq"]] if g in heads else [])
         if un:
             out.append(f"[{ms[0]['cls']}] {g} seq={','.join(str(x['seq']) for x in ms)} 미닫힘={','.join(map(str, un))} from={ms[0]['from']} 원문= | "
-                       + ("보류(범위 밖)" if g == head else ""))
+                       + ("보류(범위 밖)" if g in heads else ""))
     return out
