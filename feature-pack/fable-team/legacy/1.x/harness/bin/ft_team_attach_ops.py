@@ -173,7 +173,7 @@ def own_tick_apply(root: Path, team: str, p: dict[str, Path], dry: bool, pre: tu
     rendered.parent.mkdir(parents=True, exist_ok=True)
     rendered.write_bytes(plistlib.dumps(doc, fmt=plistlib.FMT_XML))
     envp = {**os.environ, "FT_TICK_TEAM_TSV": str(table), "FT_TICK_PLIST_DIR": str(plist.parent)}
-    rc, out, err = command("bash", str(installer), "--team", team, "--script", str(script), "--from", str(rendered), timeout=7, env=envp)
+    rc, out, err = command("bash", str(installer), "--team", team, "--script", str(script), "--from", str(rendered), timeout=25, env=envp)   # r1464 R2: 설치기 예산(내려감 마감 10초 + print 1회 + 2초 + bootstrap) ≤ 25초(로컬 하네스)
     rendered.unlink(missing_ok=True)
     if rc:
         if before is None:

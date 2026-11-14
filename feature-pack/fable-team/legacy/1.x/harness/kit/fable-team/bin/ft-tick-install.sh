@@ -179,13 +179,18 @@ PY
 }
 
 # ── r1464: bootout → bootstrap 사이 «내려감» 대기 — 팀·메인 두 갈래 같은 함수 (h7877: bootout 직후 bootstrap → 4팀 미적재 · troubleshoot 10-27 rc5)
-#   ft_tick_relaunch <라벨> <plist> <되돌림 안내> → bootout → print 이 실패할 때까지 0.5초×20(10초) → 2초 → bootstrap
-#   10초 안에 안 내려가면 REJECT 1줄 + rc1(bootstrap 호출 0) · bootstrap 실패도 REJECT 1줄 + rc1 · launchctl = $LCTL(FT_TICK_LAUNCHCTL)
+#   ft_tick_relaunch <라벨> <plist> <되돌림 안내> → bootout → print rc113(= 없음)까지 0.5초 간격 · 경과 10초 마감 → 2초 → bootstrap
+#   print rc0 = 아직 떠 있음(대기) · rc113 = 내려감 · 그 밖 rc = 판정 불가 REJECT 1줄 + rc1(bootstrap 0 · R1 하드 룰 20)
+#   마감(경과 초 · print 소요 포함) 지나도 rc0 이면 REJECT 1줄 + rc1(bootstrap 0) · bootstrap 실패도 REJECT 1줄 + rc1 · launchctl = $LCTL(FT_TICK_LAUNCHCTL)
+#   전체 예산(R2) = 마감 10초 + print 1회 + 2초 + bootstrap ≤ 25초 = 호출자 ft_team_attach_ops.py 의 timeout(로컬 하네스 25초)
 ft_tick_relaunch() {
-  local label="$1" pl="$2" undo="$3" i=0
+  local label="$1" pl="$2" undo="$3" end=$((SECONDS + 10)) prc
   "$LCTL" bootout "$DOMAIN/$label" >/dev/null 2>&1 || true
-  while "$LCTL" print "$DOMAIN/$label" >/dev/null 2>&1; do
-    i=$((i+1)); [ "$i" -lt 20 ] || { echo "REJECT bootout 미완(10초) — 되돌림: $undo"; return 1; }
+  while :; do
+    "$LCTL" print "$DOMAIN/$label" >/dev/null 2>&1; prc=$?
+    [ "$prc" = 113 ] && break
+    [ "$prc" = 0 ] || { echo "REJECT 판정 불가 — launchctl print rc=$prc(113 = 없음 아님) · bootstrap 0 — 되돌림: $undo"; return 1; }
+    [ "$SECONDS" -lt "$end" ] || { echo "REJECT bootout 미완(10초) — 되돌림: $undo"; return 1; }
     sleep 0.5
   done
   sleep 2
