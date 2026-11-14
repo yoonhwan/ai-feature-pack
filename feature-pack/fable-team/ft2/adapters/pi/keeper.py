@@ -69,16 +69,18 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
 
     def fetch_refs(self, repo):
         """r1937 — keeper 가 읽는 ref 만: 팩 = main · BYZ = main·ops/main-base + directive-roots.tsv 의 `.` 행 origin/<가지>
-        (로컬에 그 ref 가 있을 때만 · 원격에 없는 가지로 fetch 전체가 깨지지 않게) · 표 판독 실패 = 고정 목록만."""
+        (고정 목록 밖이면 ls-remote 1회로 원격 실재만 · 로컬 ref 없어도 첫 수신 · 원격에 없는 가지 = 빠짐) · 표·ls-remote 실패 = 고정 목록만."""
         names = ["main"] if repo == self.pack else ["main", "ops/main-base"]
         try:
             with open(os.path.join(self.root, ".fable-team", "state", "directive-roots.tsv"), encoding="utf-8") as fh:
                 rows = [x.rstrip("\n").split("\t") for x in fh if not x.startswith("#") and len(x.split("\t")) >= 4]
         except (OSError, UnicodeError):
             rows = []
-        for ref in (r[2] for r in rows if repo == self.root and r[1] == "." and r[2].startswith("origin/")):
-            if ref[7:] not in names and self.git(repo, "rev-parse", "-q", "--verify", "refs/remotes/" + ref)[0] == 0:
-                names.append(ref[7:])
+        extra = list(dict.fromkeys(r[2][7:] for r in rows if repo == self.root and r[1] == "." and r[2].startswith("origin/") and r[2][7:] not in names))
+        if extra:
+            rc, out, _ = self.git(repo, "ls-remote", "--heads", "origin", *("refs/heads/" + n for n in extra), retry=1, timeout=FETCH_S)
+            have = {x.partition("\trefs/heads/")[2] for x in out.splitlines()} if rc == 0 else set()
+            names += [n for n in extra if n in have]
         return ["+refs/heads/%s:refs/remotes/origin/%s" % (n, n) for n in names]
 
     def stamp(self):
