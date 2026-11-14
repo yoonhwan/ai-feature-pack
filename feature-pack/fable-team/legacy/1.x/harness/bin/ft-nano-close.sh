@@ -1671,11 +1671,11 @@ if [ -n "$IDX" ]; then   # r842-mut:libskip
   if [ "$_istage" = 1 ]; then
   declare -F ft_card_stage_ref >/dev/null || { echo "ERROR 카드 단계 함수 없음(ft-team-lib.sh 의 ft_card_stage_ref 미로드) — 단계 판정 불가"; echo "REJECT $SEAT"; echo "  - ⑥단계 판정 함수 없음 — 옛 규칙으로 후퇴 0: index=$IDX"; exit 1; }   # r842-mut:nofn
   _cref="$(ft_card_ref "$ROOT" "$_ct" 2>/dev/null)" || { echo "ERROR 카드 ref 판정 불가(팀=$_ct) — 카드 루트 표 행 ref 를 리포에서 못 읽음 · origin/main 후퇴 0"; echo "REJECT $SEAT"; echo "  - ⑥카드 ref 판정 불가(표 행): index=$IDX"; exit 1; }   # r1626-mut:cardref
-  # ★r1719 A1·A3·A5★ 팀 넘는 나노(좌석 팀 ≠ 카드 팀 · 두 팀 ref 다름): 카드 = 카드 팀 ref 판 · 원장 WT 신선도 = 좌석 팀 ref(_fref) — 같은 팀이면 _fref = _cref(지금 경로 그대로)
+  # ★r1719 A1·A3·A5★ 팀 넘는 나노(좌석 팀 ≠ 카드 팀 · 팀 이름으로만 가른다 — 두 팀 ref 가 같아도 팀 넘음 · DA R1): 카드 = 카드 팀 ref 판 · 원장 WT 신선도 = 좌석 팀 ref(_fref) — 같은 팀이면 _fref = _cref(지금 경로 그대로)
   _lref=""; _xteam=""; _fref="$_cref"
   if [ -n "$_team" ] && [ "$_team" != "$_ct" ]; then   # r1719-mut:xteam
     _lref="$(ft_card_ref "$ROOT" "$_team" 2>/dev/null)" || { echo "ERROR 원장 ref 판정 불가(좌석 팀=$_team) — 카드 루트 표 행 ref 를 리포에서 못 읽음"; echo "REJECT $SEAT"; echo "  - 팀 넘는 나노 원장 ref 판정 불가: index=$IDX — 닫지 않음"; exit 1; }
-    [ "$_lref" = "$_cref" ] || { _xteam=1; _fref="$_lref"; }   # r1719-mut:lref
+    _xteam=1; _fref="$_lref"   # r1719-mut:lref
   fi
   [ -z "$_xteam" ] || echo "INFO 팀 넘는 나노 — 카드 ref=$_cref · 원장 ref=$_lref"   # r1719-mut:info
   _cstg="진행 완성 대기"; _cbases=("$WT" "$LEDGER_WT" "$ROOT"); _rts=("${IDX%%/indices/*}")
