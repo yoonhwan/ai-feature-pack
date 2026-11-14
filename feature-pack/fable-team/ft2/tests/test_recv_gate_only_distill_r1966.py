@@ -91,6 +91,7 @@ def test_2_3_4_5_gate(tmp_path):
     assert [ln.split(" ")[1] for ln in crit] == ["byz-x-master#1", "byz-p-desk#1"] and f"ctx={K}" in crit[0], crit  # ④ 첫 걸림 1통씩 · 두 번째 0
     assert [v["action"] for v in judge(GATE, gate_root(tmp_path / "r", reached=True), bare)] == ["allow"], "③ 도달 파일 = 맨 recv 통과"
     assert [v["rule"] for v in judge(GATE, gate_root(tmp_path / "l"), bare, k=LOW)] == ["below-warn"], "⑤ 문턱 아래 = 지금처럼"
+    assert [v["rule"] for v in judge(GATE, gate_root(tmp_path / "c"), f"{bare} # --only distill", f"{bare} #--only distill", f"{bare} '--only distill'")] == ["recv-gate"] * 3, "R1 주석·따옴표 속 --only = 실제 옵션 아님"
     m2 = mutant(tmp_path, GATE, 'if (only) return { action: "allow"', 'if (true) return { action: "allow"')
     assert judge(m2, gate_root(tmp_path / "m2"), bare)[0]["action"] == "allow", "M2"
     m3, (mbox3, log3) = mutant(tmp_path / "3", GATE, "if (!to || notified.has(`${seat}|${key}|${to}`)) return \"\";", 'if (!to) return "";'), capture_mbox(tmp_path, "_3")
@@ -122,4 +123,4 @@ def test_claude_hook_same_rule(tmp_path):
     m = f"bash {tmp_path}/repo/.fable-team/comm/mbox.sh recv {SEAT}"
     rc, err = hook(tmp_path, m)
     assert rc == 2 and "--only distill" in err, err
-    assert [hook(tmp_path, c)[0] for c in (f"{m} --only distill", f"{m} --only distill; {m}", f"{m} --only work")] == [0, 2, 2]
+    assert [hook(tmp_path, c)[0] for c in (f"{m} --only distill", f"{m} --only distill; {m}", f"{m} --only work", f"{m} # --only distill", f"{m} #--only distill")] == [0, 2, 2, 2, 2]  # R1 주석 속 --only = 막음
