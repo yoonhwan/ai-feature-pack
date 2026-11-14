@@ -10,9 +10,14 @@ if A and (len(A) != 2 or A[0] != "--close"): print("usage: ft-seat-close-due.sh 
 class U(Exception): pass   # 조회 실패 = 판정 불가(닫기 0)
 DL = time.monotonic() + float(E.get("FT_SEAT_CLOSE_DUE_BUDGET") or 24) - (7 if A else 0)   # 보정 R1 ⓒ — stall_scan 바깥 25초 안 · --close 는 닫기 7초를 뺀 만큼만 판정
 def run(cmd, cap=7, cwd=None):   # 외부 호출 1개 = 7초 · 재시도 0 · 시간 초과 = 묶음 정리 + rc None(판정 불가)
-    try: p = sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.DEVNULL, text=True, cwd=cwd, start_new_session=True); o = p.communicate(timeout=cap)[0]; return p.returncode, o
+    try: p = sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.DEVNULL, text=True, cwd=cwd, start_new_session=True); o = p.communicate(timeout=max(0.1, cap - 2))[0]; return p.returncode, o
     except OSError: return None, ""
-    except sp.TimeoutExpired: os.killpg(p.pid, 15); p.wait(); return None, ""
+    except sp.TimeoutExpired: return reap(p)
+def reap(p):   # DA HOLD 2회째 B2 — TERM → 1초 → 살아 있으면 KILL → 1초 · run() 전체 7초 안 · 회수 실패해도 (None, "")
+    for sig in (15, 9):
+        try: os.killpg(p.pid, sig); p.wait(timeout=1); break
+        except (OSError, sp.TimeoutExpired): pass
+    return None, ""
 def need(cmd, what):
     if (r := run(cmd))[0] != 0: raise U(f"{what} rc={'-' if r[0] is None else r[0]}")
     return r[1]
