@@ -291,11 +291,21 @@ case "$cmd" in
     echo "$py_out doorbell=$db gate=$gate${fu:+ $fu}"
     ;;
   recv)  me="${1:?me}"; shift
+         # r1966 — `--only distill` = 증류·승계 쪽지만 소비(recv 문턱에 걸린 좌석용) · 머리(본문 맨 앞)만 본다 · 나머지는 큐에 그대로(후계가 받음)
+         #   거르기는 mbox_lineage.claim «잠금 안» 에서 한다(출력 뒤 거르기 0) · 통과 종류 목록은 여기 한 곳 · 다른 --only 값 = rc 2
+         _ra=(); _only=""
+         while [ $# -gt 0 ]; do
+           if [ "$1" = --only ]; then
+             [ "${2:-}" = distill ] || { echo "usage: mbox.sh recv <me> [<from>] [--all] [--only distill]" >&2; exit 2; }
+             _only='[승계 발주]|[인계]|[레디]|[증류]|[개설]|[HIL]'; shift 2
+           else _ra+=("$1"); shift; fi
+         done
+         set -- ${_ra[@]+"${_ra[@]}"}
          # ★recv 스탬프 touch — doorbell outstanding 판정의 «소비» 신호★. exec 전에 해야 실행된다.
          : > "${TMPDIR:-/tmp}/mbox-recv-$(printf '%s' "$me" | tr -c 'A-Za-z0-9._#-' '_')" 2>/dev/null || true
          # ★r1476 소비 ACK★ — 읽기 «끝» 에 미읽음 수를 한 번 더 세어 `PENDING-AFTER N` 1줄(실행 중 도착분).
          #   N≥1 = 같은 턴에 다시 recv(좌석 지침 = r1479) · N=0 이면 억제 파일도 지운다(닫는 사건 ⓐ — 남겨 두면 close-check 가 막는다).
-         _rrc=0; python3 "$MBOXPY" recv "$me" "$@" || _rrc=$?
+         _rrc=0; MBOX_ONLY_HEADS="$_only" python3 "$MBOXPY" recv "$me" "$@" || _rrc=$?
          _pn=""
          if _p="$(python3 "$MBOXPY" peek "$me" 2>/dev/null)"; then _pn="$(printf '%s\n' "$_p" | sed -n 's/^pending=\([0-9][0-9]*\).*/\1/p' | head -1)"; fi
          echo "PENDING-AFTER ${_pn:-?}"
@@ -355,5 +365,5 @@ case "$cmd" in
             refund)  wake_budget_refund "$@" ;;
             *) echo "usage: mbox.sh budget reserve|refund <좌석> [<출처>]" >&2; exit 2 ;;
           esac ;;
-  *) echo "usage: mbox.sh {send <to> <from> <body> [--urgent] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all]|peek <me>|ring <sess> [seq] [--reserved] [--auto]|sweep|budget reserve|refund <좌석> [<출처>]|handover <구> <후계>|ready <후계> <구>|mark <me> <seq,…> 처리함·인계|unmarked <me>|close-check <좌석> [--no-ready]}" >&2; exit 2;;
+  *) echo "usage: mbox.sh {send <to> <from> <body> [--urgent] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all] [--only distill]|peek <me>|ring <sess> [seq] [--reserved] [--auto]|sweep|budget reserve|refund <좌석> [<출처>]|handover <구> <후계>|ready <후계> <구>|mark <me> <seq,…> 처리함·인계|unmarked <me>|close-check <좌석> [--no-ready]}" >&2; exit 2;;
 esac
