@@ -41,8 +41,8 @@ rows_from() { grep -c "\"from\": \"$1\"" "$Q"; }
 mut_nohuman() { sed -i '' 's/^SYS_PLAIN, SYS_HEAD, NORMAL, HUMAN = 0, 1, 2, 3.*/SYS_PLAIN, SYS_HEAD, NORMAL, HUMAN = 0, 0, 0, 0/' "$C/mbox_keep.py"; grep -q '= 0, 0, 0, 0' "$C/mbox_keep.py"; }
 mut_noerror() { sed -i '' 's/^    if overflow:/    if False:/' "$C/mbox_ops.py"; grep -q '    if False:' "$C/mbox_ops.py"; }
 mut_headfirst() { sed -i '' 's/^        return SYS_HEAD if head else SYS_PLAIN.*/        return HUMAN if head else SYS_PLAIN/' "$C/mbox_keep.py"; grep -q 'return HUMAN if head' "$C/mbox_keep.py"; }
-mut_kitold() { sed -i '' 's/^            k, d, _oldest, ov = trim(rs, MAX_PER_TO)$/            k, d, _oldest, ov = rs[-MAX_PER_TO:], max(0, len(rs) - MAX_PER_TO), None, 0/' "$C/kit.py"; grep -q 'rs\[-MAX_PER_TO:\], max' "$C/kit.py"; }
-mut_skillold() { sed -i '' 's/^            k, d, _oldest, ov = trim(rs, MAX_PER_TO)$/            k, d, _oldest, ov = rs[-MAX_PER_TO:], max(0, len(rs) - MAX_PER_TO), None, 0/' "$C/skill.py"; grep -q 'rs\[-MAX_PER_TO:\], max' "$C/skill.py"; }
+mut_kitold() { sed -i '' 's/^            k, d, o, ov = trim(rs, ring_cap(fd, t, MAX_PER_TO)) .*$/            k, d, o, ov = rs[-MAX_PER_TO:], max(0, len(rs) - MAX_PER_TO), None, 0/' "$C/kit.py"; grep -q 'rs\[-MAX_PER_TO:\], max' "$C/kit.py"; }
+mut_skillold() { sed -i '' 's/^            k, d, o, ov = trim(rs, ring_cap(fd, t, MAX_PER_TO)) .*$/            k, d, o, ov = rs[-MAX_PER_TO:], max(0, len(rs) - MAX_PER_TO), None, 0/' "$C/skill.py"; grep -q 'rs\[-MAX_PER_TO:\], max' "$C/skill.py"; }
 mut_wide() { sed -i '' 's/^    if (head or done) and seat(frm):$/    if head and _re.match(r"^byz-[a-z0-9][a-z0-9-]*#[0-9]+$", frm):/' "$C/mbox_keep.py"; grep -q 'byz-\[a-z0-9\]\[a-z0-9-\]\*#' "$C/mbox_keep.py"; }
 
 # ── ⓐ 사람 1통 + 시스템 12통 → 시스템 3통만 버린다(사람 글 잔존)

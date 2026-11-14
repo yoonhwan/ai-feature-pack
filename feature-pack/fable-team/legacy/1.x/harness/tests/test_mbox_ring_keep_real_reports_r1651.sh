@@ -10,6 +10,7 @@
 #   M4 표식 갱신 잠금 삭제 · M5 현역 소유권 가드 삭제
 # 정본 .py 를 임시 폴더에 복사해 돈다 — 실 큐·실 doorbell 쓰기 0(측정 조작 금지 · 오빠 절대지침).
 set -uo pipefail
+export FT_MBOX_RING_LEAD=1   # r1466 역할 좌석(_master·_arch·_desk) 상한 = 옛 ring 과 같게 — 이 시험의 관심은 등급·역할 합이다
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; REPO="$HERE/../.."
 SRC="$REPO/harness/comm"
 T="$(mktemp -d)"; trap 'kill $(jobs -p) 2>/dev/null; rm -rf "$T"' EXIT   # ⓔ⑤ 가 & 로 띄운 자식 정리(r1234)

@@ -21,14 +21,19 @@ skill/ft-mbox.py. 세 사본은 «바이트 동일» 블록이고 시험(tests/t
 셋을 대조한다 — 한 곳만 고치면 그 경로로 사람 글이 다시 버려진다(DA⑥ 반례 1).
 """
 # >>> r912 mbox_keep shared begin — 이 블록은 세 곳(harness/comm/mbox_keep.py · harness/kit/fable-team/bin/ft-mbox.py · skill/scripts/ft-mbox.py)에 바이트 동일로 박힌다(tests/test_mbox_keep_human_mail.sh ⓘ 대조). 고칠 때는 셋을 같이 고친다.
+import fcntl as _fcntl
+import json as _json
 import os as _os
 import re as _re
+import sys as _sys
+import time as _time
+from contextlib import redirect_stdout as _redirect
 from functools import lru_cache as _lru_cache
 from pathlib import Path as _Path
 
 HUMAN_SENDERS = frozenset({"slack-oppa"})     # 사람(오빠 슬랙) 보낸 이 — 절대 안 버린다
 HUMAN_HEADS = ("[HIL]", "[긴급]")              # 사람 판정 머리(보낸 이가 좌석일 때만 사람으로 본다)
-REAL_HEADS = ("[완료",)                        # r1651 좌석의 납품 보고 — 시스템 보낸 이의 [완료] 는 그대로 시스템
+REAL_HEADS = ("[완료", "[결과", "[레디", "[인계", "[결정", "[회신")   # r1651 좌석의 납품 보고 · r1466 결과·판정 머리 — 시스템 보낸 이의 같은 머리는 그대로 시스템
 REAL_SENDERS = _re.compile(r"^ft-hil-h[0-9]+$")   # r1651 h 결과·발급 도구 — 좌석도 자동 명단도 아니다
 # 자동 보낸 이 = 틱·경보·교대 도구(mailbox.log.jsonl 실측 상위 2026-10-25 · 좌석 이름 제외).
 SYSTEM_SENDERS = frozenset({
@@ -119,6 +124,8 @@ def kind(r):
         return HUMAN                      # 보낸 이가 사람 — 머리와 무관
     if REAL_SENDERS.match(frm):
         return HUMAN                      # h 완료 보고(ft-hil-h<N>) = 실보고 · 버리지 않는다(r1651)
+    if frm == RING_FROM:
+        return SYS_HEAD                   # r1466 포화 경보 = 머리 있는 도구 알림(버려도 된다)
     if frm in SYSTEM_SENDERS:
         return SYS_HEAD if head else SYS_PLAIN   # 자동 도구는 머리가 있어도 «자동»(사람 칸 0)
     return NORMAL
@@ -139,4 +146,76 @@ def trim(rows, keep_n):
     drop = {r["seq"] for r in order[:over] if kind(r) != HUMAN}
     keep = [r for r in rows if r["seq"] not in drop]
     return keep, len(drop), (min(drop) if drop else None), len(keep) - keep_n
+
+
+# r1466 역할 좌석 상한 · 포화 경보 — 명부 = FT_SEATS_JSON 의 폴더, 없으면 comm 의 부모(<루트>/.fable-team)
+RING_LEAD = int(_os.environ.get("FT_MBOX_RING_LEAD") or 30)
+LEAD_KEYS = ("_master", "_arch", "_desk")
+RING_FROM = "ft-mbox-ring"                    # 경보 보낸 이 · 표식 = <루트>/.fable-team/state/ring-full.<역할>
+RING_GAP = 600                                # 같은 좌석 경보 간격(초)
+
+
+def _rk(name) -> str:
+    return _re.sub(r"#\d+$", "", str(name or ""))
+
+
+def ring_dir(canon: str) -> str:
+    return _os.path.dirname(_os.path.abspath(_os.environ.get("FT_SEATS_JSON") or canon))
+
+
+@_lru_cache(maxsize=32)
+def _team(ft_dir: str, team: str) -> tuple[frozenset, str]:
+    """seats-<팀>.json → (역할 좌석 이름들, _master) · 못 읽음 = (빈, "") = 일반 상한(보수)."""
+    try:
+        d = _json.loads(_Path(ft_dir, "seats-%s.json" % team).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return frozenset(), ""
+    v = {k: d.get(k) for k in LEAD_KEYS} if isinstance(d, dict) else {}
+    v = {k: x for k, x in v.items() if isinstance(x, str) and x}
+    return frozenset(_rk(x) for x in v.values()), v.get("_master", "")
+
+
+def ring_cap(ft_dir: str, name: str, base: int) -> int:
+    """수신 좌석이 그 팀 명부의 _master·_arch·_desk 면 RING_LEAD(기본 30 · base 보다 작지 않음), 아니면 base. 팀 = 둘째 토큰."""
+    toks = _rk(name).split("-")
+    return max(base, RING_LEAD) if len(toks) > 2 and _rk(name) in _team(ft_dir, toks[1])[0] else base
+
+
+def ring_alarm_to(ft_dir: str, to: str) -> str:
+    """포화 경보 받는 이 = 그 좌석 팀 _master · 없거나 수신자가 그 master 면 seats-harness.json _master."""
+    toks = _rk(to).split("-")
+    m = _team(ft_dir, toks[1])[1] if len(toks) > 2 else ""
+    return m if m and _rk(m) != _rk(to) else _team(ft_dir, "harness")[1]
+
+
+def ring_after(canon, to, pend, cap, dropped, oldest, send):
+    """send 끝(잠금 밖) — 버림이 있으면 팀 master 에 경보 1통(10분 1회) · 버림 0 이고 pending < cap 이면 표식 삭제(닫는 사건)."""
+    mark = _Path(_os.path.dirname(_os.path.abspath(canon)), "state", "ring-full." + _rk(to))
+    try:
+        if not dropped:
+            if pend < cap:
+                mark.unlink(missing_ok=True)
+            return
+        tgt = ring_alarm_to(ring_dir(canon), to)
+        if not tgt:
+            _sys.stderr.write("WARN 큐 포화 경보 받는 이 없음 — to=%s (명부 _master 0)\n" % to)
+            return
+        mark.parent.mkdir(parents=True, exist_ok=True)
+        with open(mark, "a+", encoding="utf-8") as f:   # DA R1 — 판독·예약 = 같은 표식 flock 안(동시 send 도 경보 1통)
+            _fcntl.flock(f, _fcntl.LOCK_EX)
+            st = _os.fstat(f.fileno())
+            if st.st_size and _time.time() - st.st_mtime < RING_GAP:
+                return
+            f.truncate(0)
+            f.write("%d\n" % _time.time())   # 보내기 «전» — 경보가 또 넘쳐도 재귀 0 · 잠금은 발신 전에 풀린다
+    except OSError as e:
+        _sys.stderr.write("WARN 큐 포화 표식 실패 — to=%s %s · 경보 0\n" % (to, e))
+        return
+    body = "[큐 포화] to=%s pending=%d ring=%d 버림 %d oldest=#%s · drops.log 참조" % (to, pend, cap, dropped, oldest)
+    try:
+        with _redirect(_sys.stderr):
+            send(tgt, RING_FROM, body, force=True)
+    except SystemExit as e:
+        if e.code:
+            _sys.stderr.write("WARN 큐 포화 경보 발신 rc=%s — to=%s\n" % (e.code, tgt))
 # <<< r912 mbox_keep shared end

@@ -3,6 +3,7 @@
 # 세션 번호(#N)는 표시만 — 옛 번호·새 번호·번호 없는 역할 이름이 한 우편함 · 승계 때 인계 장치 없이 후계 첫 recv 에 보인다.
 # 정본 mbox*.py·mbox*.sh 를 임시 폴더에 복사해 격리 큐(FT_MBOX_DIR)로만 돈다 — 실 큐·실 tmux(스텁)·실 명부 쓰기 0 · 자기 재호출 0 · 고정 sleep 0.
 set -uo pipefail
+export FT_MBOX_RING_LEAD=1   # r1466 역할 좌석(_master·_arch·_desk) 상한 = 옛 ring 과 같게 — 이 시험의 관심은 등급·역할 합이다
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; REPO="$HERE/../.."
 SRC="$REPO/harness/comm"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT

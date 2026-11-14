@@ -48,14 +48,14 @@ def send(to, frm, body, force=False, desk_attach=""):
         rows.append(row)
         byto = {}
         for r in rows: byto.setdefault(role_key(r["to"]), []).append(r)   # ★상한 = 역할 합(r1116 R5)★
-        keep, dropped, oldest, overflow, seqs = [], 0, None, 0, []
+        keep, dropped, oldest, overflow, seqs, fd = [], 0, None, 0, [], mbox_keep.ring_dir(CANON)
         for t, rs in byto.items():
             rs.sort(key=lambda r: r["seq"])
             # ★밀려난 건수를 «센다»★ — ring 은 조용히 버린다. 안 세면 «보낸 사람은 QUEUED 를
             # 봤는데 받는 사람은 영영 못 보는» 유실이 무증상으로 쌓인다. 포화는 대개 «받는 쪽이
             # 안 읽고 있다» 는 신호라, 이 줄이 그 사실을 처음 알린다.
             # ★버리는 순서 = 시스템 알림 → 일반 · 사람 글은 안 버린다★ (r912 · mbox_keep).
-            k, d, o, ov = mbox_keep.trim(rs, MAX_PER_TO)
+            k, d, o, ov = mbox_keep.trim(rs, mbox_keep.ring_cap(fd, t, MAX_PER_TO))   # r1466 역할 좌석 = RING_LEAD
             keep.extend(k)
             if t == role_key(to):
                 dropped, oldest, overflow = d, o, overflow + ov
@@ -70,7 +70,7 @@ def send(to, frm, body, force=False, desk_attach=""):
             _guard_record(to, frm, body, exempt)
         except Exception:
             pass
-        return seq, sum(1 for r in keep if role_key(r["to"]) == role_key(to)), dropped, oldest, overflow, seqs
+        return seq, sum(1 for r in keep if role_key(r["to"]) == role_key(to)), dropped, oldest, overflow, seqs, mbox_keep.ring_cap(fd, to, MAX_PER_TO)
     res = _locked(CANON, op)
     if res[0] == "__BLOCKED__":
         reason, hint = res[1]
@@ -83,7 +83,7 @@ def send(to, frm, body, force=False, desk_attach=""):
         tail = " · desk 경로는 --force 로 안 풀린다" if reason.startswith("DESK_ROUTE") else " · 정말 필요하면 --force"
         sys.stderr.write("BLOCKED %s\n%s\n→ BLOCKED %s%s\n" % (reason, hint, reason, tail))
         sys.exit(3)
-    seq, pend, dropped, oldest, overflow, seqs = res
+    seq, pend, dropped, oldest, overflow, seqs, cap = res
     # ★r1820 B2★ 이 호출의 쪽지 자신이 버려졌으면 QUEUED 0 · DROPPED-SELF + rc 5(보낸 쪽이 다시 보낼 주체) · 옛 seq 만 버림 = QUEUED rc0
     self_drop = seq in seqs
     # ★«어느 파일에 몇 바이트» 를 찍는다★ — QUEUED 를 «도착»으로도 «온전»으로도 읽지 않게.
@@ -93,15 +93,15 @@ def send(to, frm, body, force=False, desk_attach=""):
         sys.stderr.write(
             "DROPPED %d to=%s (ring=%d 포화 · 시스템 알림 먼저 · 사람 글 보존) — 이 좌석이 %d건을 안 읽고 쌓아뒀다.\n"
             "버려진 %d건은 «영구 유실»이다. 좌석 상태를 보고, 급하면 pane 으로 직접 보낸다.\n"
-            % (dropped, to, MAX_PER_TO, pend, dropped))
+            % (dropped, to, cap, pend, dropped))
         mbox_drops.log_drop(CANON, to, dropped, oldest, seqs)   # r1651 — 버린 seq 전부를 원장에
     if overflow:
         # ★사람 글은 안 버린다★ — 상한을 넘긴 채로 두고 «그 사실»을 알린다(조용한 초과 0 · r912).
         sys.stderr.write(
             "ERROR 사람 글로 큐 넘침 — to=%s pending=%d (ring=%d) · 버리기 0 · 받는 좌석 확인\n"
-            % (to, pend, MAX_PER_TO))
-    # ★청소는 «QUEUED 를 찍은 뒤», «잠금 밖»에서★ — 이 호출이 실패하거나 느려도 메시지는 이미 큐에 들어갔고
-    #   발신자는 이미 결과를 받았다. relay 는 send 를 타므로 여기 한 곳이면 두 경로가 모두 덮인다.
+            % (to, pend, cap))
+    mbox_keep.ring_after(CANON, to, pend, cap, dropped, oldest, send)   # r1466 포화 경보(팀 master · 10분 1회) · 표식 닫기
+    # ★청소는 «QUEUED 를 찍은 뒤», «잠금 밖»에서★ — 호출이 실패·지연돼도 메시지는 큐에 있고 발신자는 결과를 받았다(relay 도 여기).
     _prune_bodies(CANON)
     if self_drop:
         raise SystemExit(5)   # r1820 B2 — 지금 송신 버림 = rc 5

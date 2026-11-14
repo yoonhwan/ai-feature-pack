@@ -4,6 +4,7 @@
 # 임시 폴더에 정본 mbox*.py·mbox*.sh 를 복사해 격리 큐(FT_MBOX_DIR)로만 돈다 — 실 큐·실 doorbell(tmux 스텁)·루트 .fable-team/ 쓰기 0.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
+export FT_MBOX_RING_LEAD=1   # r1466 역할 좌석(_master·_arch·_desk) 상한 = 옛 ring 과 같게 — 이 시험의 관심은 등급·역할 합이다
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; REPO="$HERE/../.."
 SRC="$REPO/harness/comm"; FX="$REPO/tests/fixtures/mbox_guard"
 RETIRE="$REPO/harness/bin/ft-seat-retire.sh"
