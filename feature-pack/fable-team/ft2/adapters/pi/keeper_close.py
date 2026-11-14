@@ -36,6 +36,8 @@ verdicts = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(verdicts)   # r1865 판정 닫기 목록 · 원장·우편 로그 읽기 전용 대조
 keeper_next = importlib.util.module_from_spec(importlib.util.spec_from_file_location("ft2_keeper_next", os.path.join(os.path.dirname(os.path.abspath(__file__)), "keeper_next.py")))
 keeper_next.__spec__.loader.exec_module(keeper_next)   # r1871 다음 카드(영수 1회는 그 안에서)
+endings = importlib.util.module_from_spec(importlib.util.spec_from_file_location("ft2_keeper_close_endings", os.path.join(os.path.dirname(os.path.abspath(__file__)), "keeper_endings.py")))
+endings.__spec__.loader.exec_module(endings)   # r1960 끝 판정 · intent 대체
 
 
 def pane_target(holder):
@@ -75,11 +77,10 @@ class Closing:
 
     def close(self, team, work, attempt, row, dispatched=None):
         """B2 — intent holder 나노(B5) · 착지 조상 · 유휴(pane ∧ Pi 턴 끝) → kill 1 → 부재 확인 → 닫기 영수."""
-        launch = os.path.join(projection.runtime_path(self.root, team), "launch")
-        intent = self.read_json(os.path.join(launch, "%s@%s.intent" % (work, attempt)))
+        intent = endings.intent(self, team, work, attempt, dispatched)   # r1960 ③ 그 attempt 없으면 같은 holder 최신 opened
         holder, gen = intent.get("FT2_HOLDER"), row.get("gen") or 1
-        if intent.get("state") != "opened" or not holder:
-            return
+        if not holder:
+            return endings.held(self, team, "intent|%s|%s@%s" % (team, work, attempt), "%s %s intent 없음(attempt %s)" % (work, dispatched, attempt))
         if not self.protected_ok(team, work, attempt, holder, dispatched):
             return
         seen = self.landing(team, work)[2]
@@ -92,7 +93,8 @@ class Closing:
             verdict = verdicts.gate(self, projection.runtime_path(self.root, team), team, work, attempt, holder)
             if verdict is False:
                 return
-            seen = "" if verdict else seen
+        ending = None if verdict or seen not in (NOLINE, NOCARD) else endings.ending(self, team, work)   # r1960 ② complete 0
+        seen = "" if verdict or ending else seen
         seen = seen or self.probe(holder)
         if seen == "alive":
             self.state["open"].setdefault(holder, {"team": team, "since": self.now()})
@@ -106,11 +108,11 @@ class Closing:
             seen = self.probe(holder)
             if seen != "absent":
                 return self.log("HELD", team, "%s %s 부재 확인 없음(%s)" % (work, holder, seen))
-            self.log("CLOSED-VERDICT" if verdict else "CLOSED-SESSION", team, " ".join(filter(None, (work, holder, verdict))))
+            self.log("CLOSED-ENDING" if ending else "CLOSED-VERDICT" if verdict else "CLOSED-SESSION", team, " ".join(filter(None, (work, holder, verdict) + (ending or ()))))
         elif seen != "absent":
             return self.log("HELD", team, "%s %s %s" % (work, holder, seen))
         self.state["open"].pop(holder, None)
-        keeper_next.close(self, team, work, attempt, holder, gen)
+        self.receipt(team, work, attempt, holder, gen) if ending else keeper_next.close(self, team, work, attempt, holder, gen)   # r1960 끝 = 증거 () · 다음 배정 0
 
     def noland_rows(self, team):
         """N1·N2 목록 → {(work, attempt): [근거, 승인]} · 파일 없음 = {} · 못 읽음·꼴 틀림·중복 = 판정 불가 문자열(sha 포함)."""

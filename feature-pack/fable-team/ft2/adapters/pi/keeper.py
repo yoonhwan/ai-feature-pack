@@ -35,6 +35,7 @@ land = _load(os.path.join(HERE, "keeper_land.py"), "ft2_keeper_land")
 closing = _load(os.path.join(HERE, "keeper_close.py"), "ft2_keeper_close")
 reporting = _load(os.path.join(HERE, "keeper_report.py"), "ft2_keeper_report")
 full_alert = _load(os.path.join(HERE, "full_alert.py"), "ft2_keeper_full_alert")   # r1886
+endings = _load(os.path.join(HERE, "keeper_endings.py"), "ft2_keeper_endings")   # r1960 끝 판정 · 고아
 hold = _load(os.path.join(HERE, "keeper_hold.py"), "ft2_keeper_hold")   # r1931 카드 HOLD 줄 → holder 깨움
 
 
@@ -205,6 +206,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
             self.fa.observe(self.root, "keeper 바퀴", "keeper", int(time.monotonic() - start), ROUND_S)
         self.at, _ = None, self.cache.pop("@round", None)   # r1969 팀 밖 · 바퀴 캐시 닫음(B3 = 자기 list-sessions 1회 그대로)
         if self.sock:
+            self.timed("b3", endings.orphans, self, order)   # r1960 ⑤ 스냅샷 뒤 journal 새로 읽기
             self.timed("b3", self.retired)
         self.report()
         s = sum(self.spent.values())
@@ -235,6 +237,8 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
             if row.get("done") or self.timed("b1", lambda: self.complete(team, work, attempt, self.landing(team, work))):
                 if self.sock:
                     self.timed("b2c", self.close, team, work, attempt, row, dispatched)
+            elif self.sock and endings.ending(self, team, work):   # r1960 끝(완성후·아카이브·상태 머리) = complete 0 · close 가드 그대로
+                self.timed("b2c", self.close, team, work, attempt, row, dispatched)
             elif self.sock:   # r1817 fix1 R1 — 소켓 실패 바퀴 = 깨움·재배정도 0
                 self.timed("stall", self.stall.check, team, work, attempt, rows)   # r1813 · r1898 ROUND stall 칸 — 진척 0 좌석 깨움 1회 → 재배정
                 self.timed("stall", hold.check, self, team, work, attempt, rows)   # r1931 HOLD 줄 늘면 깨움 1회 · 누적 3 = 인터뷰 길
