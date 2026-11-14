@@ -129,6 +129,15 @@ function seatOf(env: Record<string, string | undefined>): string {
 const notified = new Set<string>(), seenUsage = new Map<string, boolean>(), misses = new Map<string, number>(); // ⓘ 양수 usage 를 한 번이라도 읽었나 · ⓑ 세션 안 연속 판정 불가 횟수(extension 하나 = 한 세션)
 /** mbox recv 인가 — 따옴표를 벗긴 토큰으로 본다(`bash "…/mbox.sh" recv` 포함 · DA R4). */
 const isRecv = (cmd: string | undefined): boolean => { const t = words(String(cmd ?? "")); return !!t && t.some((w, i) => MBOX.includes(path.basename(w)) && t[i + 1] === "recv"); };
+const onlyDistill = (cmd: string | undefined): boolean => { const p = splitTop(String(cmd ?? "")).filter(isRecv); return p.length > 0 && p.every((f) => { const t = words(f) ?? [], i = t.indexOf("--only"); return !/(^|\s)#/.test(mask(f)) && i > 0 && t[i + 1] === "distill"; }); }; // r1966 — 주석(# 로 시작하는 낱말) 있는 조각 = 거짓(DA R1 · 실행 인자만 증명) · recv 조각이 전부 `--only distill`(증류·승계 쪽지만 소비 · 거르기 = mbox.sh → claim 잠금 안) · 맨 recv 하나라도 = 거짓
+const rosters = (root: string | null): Array<[string, any]> => { let fs_: string[] = []; const dir = path.join(root ?? "/nonexistent", ".fable-team"); try { fs_ = fs.readdirSync(dir).filter((n) => /^seats.*\.json$/.test(n)).sort((a, b) => Number(b === "seats-planner.json") - Number(a === "seats-planner.json") || a.localeCompare(b)); } catch { /* 명부 없음 */ } return fs_.map((f) => { try { return [f, JSON.parse(fs.readFileSync(path.join(dir, f), "utf8"))]; } catch { return [f, {}]; } }); }; // planner 명부 먼저 · 깨진 파일 = 빈 명부(그 파일 _desk 판정 불가 → 다음 후보)
+function recvAlarm(input: GateInput, env: Record<string, string | undefined>, root: string | null, seat: string, k: number, state: string | null): string { // r1966 나·다 — 걸림 [크리티컬] 1통(harness master + desk) · 걸린 뒤 FT_DISTILL_OPEN_WAIT_SEC(기본 300) 동안 후계 도달 없으면 여는 곳 «한 곳»(desk · 없을 때만 같은 팀 _arch)에 [개설] 1통 · 걸린 좌석 자신은 열지 않는다
+  const rs = rosters(root), base = seat.replace(/#\d+$/, ""), desk = rs.map(([, j]) => String(j._desk ?? "")).find(Boolean) ?? "", arch = String((rs.find(([, j]) => Object.keys(j).some((r) => !r.startsWith("_") && r.replace(/#\d+$/, "") === base)) ?? ["", {}])[1]._arch ?? ""), opener = [desk, arch].find((x) => x && x !== seat) ?? "";
+  const since = (() => { try { return fs.statSync(state ?? "").mtimeMs; } catch { return Date.now(); } })(), wait = Number(env.FT_DISTILL_OPEN_WAIT_SEC ?? envFiles(env, root).map((f) => f?.FT_DISTILL_OPEN_WAIT_SEC).find((v) => v !== undefined) ?? 300) || 300, mbox = mboxScript(env, root);
+  const send = (key: string, to: string, body: string): string => { if (!to || notified.has(`${seat}|${key}|${to}`)) return ""; notified.add(`${seat}|${key}|${to}`); if (input.notify) { input.notify(to, body); return ""; } try { if (!mbox) return `우편함 없음(${key})`; execFileSync("bash", [mbox, "send", to, seat, body], { timeout: 7000 }); return ""; } catch (e) { return `${key} 알림 실패(${to}): ${e}`; } };
+  const crit = [String((rs.find(([f]) => f === "seats-harness.json") ?? ["", {}])[1]._master ?? ""), desk].map((to) => send("crit", to, `[크리티컬] recv 문턱 걸림 ${seat} ctx=${k} 걸린 시각 ${new Date(since).toISOString()} — 후계 도달 전 · 증류·승계 쪽지는 recv --only distill 로 받음`));
+  return [...crit, Date.now() - since < wait * 1000 ? "" : opener ? send("open", opener, `[개설] 후계 도달 없음 ${seat} ctx=${k} — 걸린 지 ${wait}초 이상 · ft-successor-open.sh 로 후계를 열어 주세요(걸린 좌석은 열지 않음)`) : "여는 곳 불명(_desk·_arch 없음)"].filter(Boolean).join(" · ");
+}
 const mboxScript = (env: Record<string, string | undefined>, root: string | null): string => { // 팀장 알림 명령 = FT_MBOX > <루트>/.fable-team/comm/mbox.sh(파일이 있을 때) · 둘 다 없으면 ""
   const builtin = root ? path.join(root, ".fable-team", "comm", "mbox.sh") : "";
   return env.FT_MBOX || (builtin && fs.existsSync(builtin) ? builtin : "");
@@ -192,8 +201,11 @@ export function judge(input: GateInput): Verdict {
   const legacy = fs.existsSync(state ?? "/nonexistent") && !stored ? "표식에 좌석 이름 없음(옛 파일) — 자동으로 닫지 않는다" : ""; // 손 0 · 사람이 확인
   if (k < lines.warn && stored && stored !== seat && stored.replace(/#\d+$/, "") === seat.replace(/#\d+$/, "")) { try { fs.rmSync(state ?? "/nonexistent", { force: true }); } catch { /* 다음 턴이 다시 시도 */ } } // 닫는 사건(ⓙ) = 후계 좌석의 첫 판정
   if (input.tool === "bash" && isRecv(input.command) && (k >= lines.recv || fs.existsSync(state ?? "/nonexistent"))) {
-    const bad = markPending(root, seat, k);
-    return { action: "block", rule: "recv-gate", reason: `ctx ${k} ≥ recv ${lines.recv} — 새 일 수락 0: peek 은 허용, 승계(ft-successor-open.sh·mbox handover/ready)부터${bad ? ` · ${bad}` : ""}${legacy ? ` · ${legacy}` : ""}` };
+    const bad = markPending(root, seat, k), only = onlyDistill(input.command);
+    if (root && fs.existsSync(path.join(root, ".fable-team", "state", "successor", `${seat}.json`))) return { action: "allow", rule: "recv-reached", reason: `ctx ${k} ≥ recv ${lines.recv} 이지만 후계 도달 파일 있음 — recv 통과(claude 훅 R107 과 같은 규칙)` }; // 가0
+    const alarm = recvAlarm(input, env, root, seat, k, state), tail = `${bad ? ` · ${bad}` : ""}${alarm ? ` · ${alarm}` : ""}${legacy ? ` · ${legacy}` : ""}`;
+    if (only) return { action: "allow", rule: "recv-only-distill", reason: `ctx ${k} ≥ recv ${lines.recv} — 증류·승계 쪽지만 받는 recv 통과(나머지는 큐에 남음)${tail}` };
+    return { action: "block", rule: "recv-gate", reason: `ctx ${k} ≥ recv ${lines.recv} — 새 일 수락 0: peek 은 허용, 승계(ft-successor-open.sh·mbox handover/ready)부터 · 증류·승계 쪽지는 받을 수 있다: bash ${mboxScript(env, root) || ".fable-team/comm/mbox.sh"} recv ${seat} --only distill${tail}` };
   }
   const tool = input.tool, allowed = toolAllowed(input, root);
   const bad = k >= lines.block ? markPending(root, seat, k) : ""; // ⓖ: 허용 통과여도 차단선 이상이면 표식을 먼저 남긴다(DA R6)

@@ -193,9 +193,9 @@ class Stall:
                 return k.log("판정 불가", team, "%s %s 깨움 %s rc %s — 다음 단계 0" % (work, holder, argv[-1][:8], rc))
         for _ in range(3):
             rc, pane, _ = k.call([k.tmux, "capture-pane", "-p"] + t)
-            if rc == 0 and ("[깨움] ft2 keeper" in pane or BUSY.search(pane[-2000:])):
+            if rc == 0 and (text[:12] in pane or BUSY.search(pane[-2000:])):   # r1931 문구 머리 12자(깨움·판정 공통)
                 k.state.setdefault(slot + "woke", {})[key] = k.now()
-                return k.log("WOKE", team, "%s %s%s" % (work, holder, " 오류 턴" if slot else ""))
+                return k.log("WOKE", team, "%s %s%s" % (work, holder, {"err_": " 오류 턴", "hold_": " 판정 HOLD"}.get(slot, "")))
         k.state.setdefault("unsure", {})[key] = k.now()   # 보정1 R2 — 성공 시계만 slot 분리
         return k.log("판정 불가", team, "%s %s 깨움 도달 확인 3회 실패" % (work, holder))
     def stop(self, team, work, attempt, step, text):
