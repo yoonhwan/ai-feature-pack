@@ -103,7 +103,7 @@ rec4 사유A "" 조건A 누가A; reset; OUT="$(ldcs "$T/mut-ldc.sh")"
 
 # ⓕ 틱 격리 — ft-tick 을 실제로 도는 쪽은 끄기 스위치(FT_TICK_LAUNCHD=0 · FT_TICK_MAGAZINE=0)로 새 감시가 안 불린다 · 기본은 불린다
 mkdir -p "$T/tk/bin" "$T/tk/repo"
-cp "$BIN/ft-tick.sh" "$T/tk/bin/ft-tick.sh"
+cp "$BIN/ft-tick.sh" "$T/tk/bin/ft-tick.sh"; cp "$BIN/ft-tick-acct-lib.sh" "$T/tk/bin/"   # r2001: ft-tick 이 source 하는 lib
 printf '#!/bin/bash\necho M >> "%s/tk/called"\n' "$T" > "$T/tk/bin/ft-magazine-check.sh"
 printf '#!/bin/bash\necho L >> "%s/tk/called"\n' "$T" > "$T/tk/bin/ft-launchd-check.sh"
 printf '{"_master":"m#1","_hil_route":"p#1"}\n' > "$T/tk/seats.json"

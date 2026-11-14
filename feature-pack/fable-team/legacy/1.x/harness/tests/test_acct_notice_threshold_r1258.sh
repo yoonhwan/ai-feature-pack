@@ -83,7 +83,7 @@ fresh() { local d; d="$(D "$1")"; mkdir -p "$d"; rm -rf "$d"/*; }
 # 비교 함수 단위 시험 — ft-tick.sh 에서 함수 3개만 떼어 와 부른다(실 파일 그대로 · 외부 호출 0)
 hcmp() {   # hcmp <지난 값> <이번 값> [env…] → CHANGED | SAME
   local o="$1" n="$2"; shift 2
-  sed -n '/^acct_mins() {/,/^acct_held_note() {/p' "$TICK" | sed '$d' > "$T/fn.sh"
+  sed -n '/^acct_mins() {/,/^acct_held_note() {/p' "$(dirname "$TICK")/ft-tick-acct-lib.sh" | sed '$d' > "$T/fn.sh"
   ( [ "$#" -eq 0 ] || export "$@"; . "$T/fn.sh"; acct_head_changed "$o" "$n" && echo CHANGED || echo SAME )
 }
 
@@ -209,13 +209,13 @@ all_checks() { chk_shake; PH R1; chk_unit; PH unit; chk_held; PH R3R5; chk_other
 bash -n "$TICK" && ok "bash -n ft-tick.sh" || bad "bash -n ft-tick.sh"
 if [ "$MUT" = 0 ]; then
   all_checks
-  for f in ft-tick.sh; do cmp -s "$BIN/$f" "$KIT/$f" && ok "ⓗ $f bin·kit 같음" || bad "ⓗ $f bin·kit 다름"; done
+  for f in ft-tick.sh ft-tick-acct-lib.sh; do cmp -s "$BIN/$f" "$KIT/$f" && ok "ⓗ $f bin·kit 같음" || bad "ⓗ $f bin·kit 다름"; done
 else
   # 변이: 사본 한 줄을 어긋나게 → 대응 칸이 «FAIL 을 내야» 변이가 잡힌 것(잡히면 PASS)
   mkdir -p "$T/mutbin"; cp -R "$BIN"/. "$T/mutbin/"
   mutant() {   # $1 번호 · $@ 검사 함수들
     local m="$1"; shift
-    python3 - "$BIN/ft-tick.sh" "$T/mutbin/ft-tick.sh" "$m" <<'PY' || { bad "변이 $m — 치환 자리를 못 찾음"; return; }
+    python3 - "$BIN/ft-tick-acct-lib.sh" "$T/mutbin/ft-tick-acct-lib.sh" "$m" <<'PY' || { bad "변이 $m — 치환 자리를 못 찾음"; return; }
 import sys
 pairs = {
   "1": ('''[ "${3:-0}" -gt 0 ] 2>/dev/null || return 0''', "return 0"),

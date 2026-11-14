@@ -223,7 +223,7 @@ printf '# 인덱스: r163y\n- Issue: #1\n## 상태\n' > "$R/design/v65/indices/�
 # ── 변이 3 (정본 실행에서만): 원장 선점 삭제 → ⓔ실패 · log 대조 삭제 → ②실패 · 문지기 검사 삭제 → ④실패 ──
 if [ -z "${R163_BIN:-}" ]; then
   MB="$T/mut"; mkdir -p "$MB/a" "$MB/b" "$MB/c" "$MB/d"
-  for d in a b c d; do cp -p "$BIN/ft-tick.sh" "$BIN/ft-resume-attempt.sh" "$BIN/ft-nano-spawn.sh" "$MB/$d/"; done
+  for d in a b c d; do cp -p "$BIN/ft-tick.sh" "$BIN/ft-tick-acct-lib.sh" "$BIN/ft-resume-attempt.sh" "$BIN/ft-nano-spawn.sh" "$MB/$d/"; done
   python3 - "$MB" <<'PY'
 import sys
 mb = sys.argv[1]

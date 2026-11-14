@@ -23,7 +23,7 @@ bash -n "$KIT/ft-tick.sh" && ok "bash -n kit" || bad "bash -n kit"
 # ── 가짜 세계 ──
 R="$TMP/repo"; FT="$R/.fable-team"
 mkdir -p "$FT/bin" "$FT/comm" "$FT/state" "$R/design" "$TMP/mins"
-LIVE="$FT/bin/ft-tick.sh"; cp "$KIT/ft-tick.sh" "$LIVE"; cp "$KIT"/*.py "$FT/bin/" 2>/dev/null
+LIVE="$FT/bin/ft-tick.sh"; cp "$KIT/ft-tick.sh" "$LIVE"; cp "$KIT/ft-tick-acct-lib.sh" "$FT/bin/"; cp "$KIT"/*.py "$FT/bin/" 2>/dev/null
 tmux() { case "$1" in list-panes) printf '%s\n' "$FAKE_PANES";; esac; return 0; }
 export -f tmux
 cat > "$TMP/seatstatus-stub.sh" <<'STUB'

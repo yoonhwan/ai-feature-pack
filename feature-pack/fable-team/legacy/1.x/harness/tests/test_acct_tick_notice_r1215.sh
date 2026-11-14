@@ -278,12 +278,12 @@ bash -n "$BIN/ft-acct-pause.sh" && ok "bash -n ft-acct-pause.sh" || bad "bash -n
 if [ "$MUT" = 0 ]; then
   all_checks
   # ⓗ bin·kit cmp0
-  for f in ft-tick.sh ft-acct-pause.sh; do cmp -s "$BIN/$f" "$KIT/$f" && ok "ⓗ $f bin·kit 같음" || bad "ⓗ $f bin·kit 다름"; done
+  for f in ft-tick.sh ft-tick-acct-lib.sh ft-acct-pause.sh; do cmp -s "$BIN/$f" "$KIT/$f" && ok "ⓗ $f bin·kit 같음" || bad "ⓗ $f bin·kit 다름"; done
 else
   # 변이: 사본 한 줄을 어긋나게 → 대응 칸이 «FAIL 을 내야» 변이가 잡힌 것(잡히면 PASS)
   mkdir -p "$T/mutbin"; cp -R "$BIN"/. "$T/mutbin/"
   mutant() {   # $1 번호 · $2 검사 함수 — 치환쌍은 mkmut 안
-    python3 - "$BIN/ft-tick.sh" "$T/mutbin/ft-tick.sh" "$1" <<'PY' || { bad "변이 $1 — 치환 자리를 못 찾음"; return; }
+    python3 - "$BIN/ft-tick-acct-lib.sh" "$T/mutbin/ft-tick-acct-lib.sh" "$1" <<'PY' || { bad "변이 $1 — 치환 자리를 못 찾음"; return; }
 import sys
 pairs = {
   "1": (r'''acct_head_changed "$(cat "$sd/last-${t%%$'\t'*}.txt" 2>/dev/null)" "${t#*$'\t'}" && changed=1''', "changed=1"),   # r1258: 비교가 acct_head_changed 함수로 바뀜 → 치환 대상 줄 갱신(변이 뜻은 그대로: 비교 제거 → 매 바퀴 1통)

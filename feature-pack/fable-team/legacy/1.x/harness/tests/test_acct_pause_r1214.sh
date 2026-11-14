@@ -131,7 +131,7 @@ bash -n "$BIN/ft-nano-spawn.sh" && ok "bash -n ft-nano-spawn.sh" || bad "bash -n
 bash -n "$BIN/ft-role-spawn.sh" && ok "bash -n ft-role-spawn.sh" || bad "bash -n role-spawn"
 python3 -c "import ast,sys;ast.parse(open(sys.argv[1]).read())" "$BIN/ft_model_swap.py" && ok "ft_model_swap.py 구문" || bad "model_swap 구문"
 if [ -z "${FT_TEST_ACCT_BIN:-}" ]; then
-  for f in ft-acct-pause.sh provider-of-model.tsv ft-tick.sh ft-nano-spawn.sh ft-role-spawn.sh ft_model_swap.py; do
+  for f in ft-acct-pause.sh provider-of-model.tsv ft-tick.sh ft-tick-acct-lib.sh ft-nano-spawn.sh ft-role-spawn.sh ft_model_swap.py; do
     cmp -s "$BIN/$f" "$KIT/$f" && ok "bin·kit cmp0 $f" || bad "bin·kit 어긋남 $f"
   done
   # 신설 .sh 3종 = 100644(승인 경로 · FORBID mode 는 실행 비트 .sh 를 막는다 · 판정 2941/2918) — 기존 .sh 는 기준판 그대로
@@ -485,7 +485,7 @@ rm -f "$MBOX_DIR/slow."*; BATCH=60 BSEATS=60 H status >/dev/null; H clear >/dev/
 PH "R2-R11"
 NOWS=$NOW0
 # ── R2·R11 틱 통합(DRY=0 전체 바퀴 · 가드 3곳 · 회차 1줄 · DRY/끄기) ──────────
-LIVE="$T/repo/.fable-team/bin/ft-tick.sh"; mkdir -p "$T/repo/.fable-team/bin"; cp "$BIN/ft-tick.sh" "$LIVE"
+LIVE="$T/repo/.fable-team/bin/ft-tick.sh"; mkdir -p "$T/repo/.fable-team/bin"; cp "$BIN/ft-tick.sh" "$LIVE"; cp "$BIN/ft-tick-acct-lib.sh" "$(dirname "$LIVE")/"   # r2001: ft-tick 이 source 하는 lib
 cat > "$R/.fable-team/seats-tick.json" <<'EOF'
 {"_master":"M#1","_hil_route":"M#1",
  "M#1":{"role":"master","agent":"claude","model":"claude-sonnet-5-5[1m]","tick":"ft-master-tick"},
@@ -572,7 +572,7 @@ if [ "$MUT" = 1 ]; then
   # 변이 = 사본에 «일부러 한 줄» 어긋나게 하고, 그 칸이 «무너지는지» 를 같은 프로세스에서 본다(자기 재호출 0).
   mk_mut() {   # $1 = 이름 $2 = perl 식 $3 = 대상 파일 → 사본 폴더(실패면 빈 줄)
     local MD="$T/mut-$1"; mkdir -p "$MD"
-    cp "$BIN"/ft-acct-pause.sh "$BIN"/provider-of-model.tsv "$BIN"/ft-harness-root.sh "$BIN"/ft-tick.sh "$MD"/ 2>/dev/null
+    cp "$BIN"/ft-acct-pause.sh "$BIN"/provider-of-model.tsv "$BIN"/ft-harness-root.sh "$BIN"/ft-tick.sh "$BIN"/ft-tick-acct-lib.sh "$MD"/ 2>/dev/null
     [ -f "$MD/ft-harness-root.sh" ] || { echo ""; return 1; }
     perl -0pi -e "$2" "$MD/$3"
     cmp -s "$BIN/$3" "$MD/$3" && { echo ""; return 1; }

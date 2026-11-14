@@ -70,7 +70,7 @@ N#1 %15'
 # 한 바퀴(--once)를 지정한 틱 파일로 돌린다 → $T/<이름>/{out,tmux.log,ss.log}
 runtick() {   # $1 = 이름 · $2 = 틱 파일
   local n="$1" tick="$2"; mkdir -p "$T/$n/state"; : > "$T/$n/tmux.log"; : > "$T/$n/ss.log"
-  cp "$tick" "$T/repo/.fable-team/bin/ft-tick.$n.sh"
+  cp "$tick" "$T/repo/.fable-team/bin/ft-tick.$n.sh"; cp "$BIN/ft-tick-acct-lib.sh" "$T/repo/.fable-team/bin/"   # r2001: ft-tick 이 source 하는 lib
   ( cd "$T/repo" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY \
       FT_TICK_SEATS="$T/seats.json" FT_TICK_MBOX="$FB/mbox.sh" FT_TICK_SEAT_STATUS="$T/seatstatus-stub.sh" \
       FT_TICK_IDLE_ENABLED=0 FT_TICK_LIVE_SNAPSHOT=0 FT_TICK_RESUME=0 FT_TICK_API_OUTAGE=0 FT_TICK_HIL=0 FT_TICK_LAUNCHD=0 \

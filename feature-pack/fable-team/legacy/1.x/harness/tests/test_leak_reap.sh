@@ -112,7 +112,7 @@ eq "$(pgrep -f "$MARK" 2>/dev/null | wc -l | tr -d ' ')" 0 "합성 프로세스 
 echo "--- 정보: 머신 전체 pgrep -f 'while :; do :; done' = $(pgrep -f 'while :; do :; d[o]ne' 2>/dev/null | wc -l | tr -d ' ')건(다른 좌석 것 포함 · 이 시험 몫 0)"
 
 # ── ④ 틱 경보: ft-leak-watch · ft-tick · ft-tick-team ──
-B="$T/bin"; mkdir -p "$B"; for f in ft-leak-reap.sh ft-leak-watch.sh ft-tick.sh ft-tick-team.sh; do cp -p "$BIN/$f" "$B/" 2>/dev/null; done
+B="$T/bin"; mkdir -p "$B"; for f in ft-leak-reap.sh ft-leak-watch.sh ft-tick.sh ft-tick-acct-lib.sh ft-tick-team.sh; do cp -p "$BIN/$f" "$B/" 2>/dev/null; done
 TK="$T/tk"; mkdir -p "$TK"; printf '{"_master":"m#1","_hil_route":"p#1","m#1":{"role":"master","agent":"claude","tick":null}}\n' > "$TK/seats.json"
 printf '#!/bin/bash\necho "$*" >> "%s/mbox.log"\n' "$T" > "$T/fakembox.sh"; printf '#!/bin/bash\nexit 1\n' > "$T/failmbox.sh"; chmod +x "$T/fakembox.sh" "$T/failmbox.sh"
 printf '#!/bin/bash\necho "$*" >> "%s/reap-args.log"\nexit 0\n' "$T" > "$T/stub-reap.sh"

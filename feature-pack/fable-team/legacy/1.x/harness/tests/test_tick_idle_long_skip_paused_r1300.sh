@@ -23,7 +23,7 @@ chk "정본 ft_card_assign_pause.py 두 사본 동일" "$(cmp -s "$KIT/ft_card_a
 
 # ── 가짜 세계 ──
 mkdir -p "$TMP/repo/.fable-team/bin" "$TMP/mins" "$TMP/wrap"
-LIVE="$TMP/repo/.fable-team/bin/ft-tick.sh"; cp "$KIT/ft-tick.sh" "$TMP/repo/.fable-team/bin/ft-tick.sh"
+LIVE="$TMP/repo/.fable-team/bin/ft-tick.sh"; cp "$KIT/ft-tick.sh" "$TMP/repo/.fable-team/bin/ft-tick.sh"; cp "$KIT/ft-tick-acct-lib.sh" "$TMP/repo/.fable-team/bin/"
 cp "$KIT"/*.py "$TMP/repo/.fable-team/bin/" 2>/dev/null   # 형제 모듈 전부 = 설치된 bin 꼴(team_paused 체인 ft_directive_watch·ft_penalty …) · 실행≠사본
 tmux() { case "$1" in list-panes) printf '%s\n' "$FAKE_PANES";; esac; return 0; }   # pane_of 와 같은 형식만 받는다
 export -f tmux
