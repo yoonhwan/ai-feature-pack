@@ -13,7 +13,7 @@ mkdir -p "$REPO/.fable-team/state" "$REPO/design" "$FAKE"; git -C "$REPO" init -
 printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| t | `design/t/` | h | 현역 |\n' > "$REPO/design/TEAMS.md"
 printf '2026-10-21T00:00:00\toff\tinstall\tinit\n' > "$REPO/.fable-team/state/all-stop.log"
 printf '{"_master":"byz-t-master-claude#1","_arch":"byz-t-arch-claude#1"}\n' > "$REPO/.fable-team/seats-t.json"
-STATE="$REPO/.fable-team/state/successor"; SENT="$STATE"; OLD="byz-t-old-codex#1"; NEW="byz-t-old-codex#2"
+STATE="$REPO/.fable-team/state/successor"; SENT="$STATE"; OLD="byz-t-old-x#1"; NEW="byz-t-old-x#2"   # r1468: 꼬리 = 에이전트 낱말 아님(agent 3종을 한 이름으로 돈다 · 꼬리 검사 밖)
 mkstub() { printf '#!/usr/bin/env bash\n%s\n' "$2" > "$FAKE/$1"; chmod +x "$FAKE/$1"; }
 clk() { cat "$CLK" 2>/dev/null || /bin/date +%s; }
 mkstub tmux 'case "$1" in
