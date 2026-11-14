@@ -22,6 +22,7 @@ ROOT="${FT_ROOT:-$(git -C "$WT" rev-parse --path-format=absolute --git-common-di
 MBOX="${FT_LEAD_TICK_MBOX:-$ROOT/.fable-team/comm/mbox.sh}"
 HIL="${FT_LEAD_TICK_HIL:-$HERE/ft-hil.sh}"
 STATUS="${FT_LEAD_TICK_SEAT_STATUS:-$HERE/ft-seat-status.sh}"
+TMUX="${FT_LEAD_TICK_TMUX:-tmux}"
 REF="${FT_LEAD_TICK_CARDS_REF:-origin/main}"
 HILDIR="${FT_HIL_DIR:-/tmp}"
 NOW="${FT_LEAD_TICK_NOW:-$(date +%s)}"
@@ -83,9 +84,11 @@ if [ "$rc" -ne 0 ]; then fail_line "카드($REF:$CARDS)" "$rc"; else
 fi
 
 # ③ 나노·DA 좌석 상태 — 명부 행 × ft-seat-status(tmux 생존 · jsonl 나이)
+#   ft-seat-status 의 seats() 는 tmux 실패를 2>/dev/null 로 삼켜 rc0 [] 를 낸다(DA #304580 B2) → 같은 tmux 를 먼저 확인한다(하드 룰 20)
 IDLE="미상"; IDLE_HEAD=""
-st="$(cd "$ROOT" && FT_SEATS_JSON="$ROSTER" X bash "$STATUS" list "^$PREFIX" --json 2>/dev/null)"; rc=$?
-if [ "$rc" -ne 0 ]; then fail_line "좌석 상태" "$rc"; else
+SNAME="좌석 상태(tmux)"; X $TMUX list-sessions -F '#{session_name}' >/dev/null 2>&1; rc=$?
+if [ "$rc" -eq 0 ]; then SNAME="좌석 상태"; st="$(cd "$ROOT" && FT_SEATS_JSON="$ROSTER" X bash "$STATUS" list "^$PREFIX" --json 2>/dev/null)"; rc=$?; fi
+if [ "$rc" -ne 0 ]; then fail_line "$SNAME" "$rc"; else
   sl="$(printf '%s' "$st" | python3 -c '
 import json, sys
 roster, idle_sec = json.load(open(sys.argv[1], encoding="utf-8")), int(sys.argv[2])
@@ -127,14 +130,14 @@ fi
 MAIL_N=0; MAIL_HEAD=""; SAVE_OK=1
 ro="$(X bash "$MBOX" recv "$SEAT" 2>&1)"; rc=$?
 if [ "$rc" -ne 0 ]; then fail_line 쪽지 "$rc"; else
-  MAIL_N="$(printf '%s\n' "$ro" | grep -c '^READ \[')"; MD=0
-  o "쪽지 ${MAIL_N}건"
-  while IFS= read -r l; do
-    [ -n "$l" ] || continue
-    h="$(printf '%s' "$l" | sed -E 's/^READ \[([^]]*)->[^]]*\] #([0-9]+)[^—]*— (.*)$/#\2 \1 \3/' | cut -c1-100)"
-    o "  $h"
-    if printf '%s' "$l" | grep -qE '— \[(HIL|결정|긴급)\]'; then MD=$((MD+1)); [ -n "$MAIL_HEAD" ] || MAIL_HEAD="$(printf '%s' "$h" | cut -c1-60)"; fi
-  done <<< "$(printf '%s\n' "$ro" | grep '^READ \[' | head -3)"
+  MAIL_N="$(printf '%s\n' "$ro" | grep -c '^READ \[')"
+  # 결정 머리는 «전부» 센다 — 표시 3줄 상한이 집계를 자르지 않는다(DA #304580 B1). 표시 = 결정 머리 먼저 · 합 3줄
+  dec_l="$(printf '%s\n' "$ro" | grep -E '^READ \[[^]]*\] #[0-9]+[^—]*— \[(HIL|결정|긴급)\]')"
+  MD="$(printf '%s' "$dec_l" | grep -c '^READ \[')"
+  o "쪽지 ${MAIL_N}건 · 결정 머리 ${MD}건"
+  hd() { printf '%s' "$1" | sed -E 's/^READ \[([^]]*)->[^]]*\] #([0-9]+)[^—]*— (.*)$/#\2 \1 \3/' | cut -c1-100; }
+  [ "$MD" -gt 0 ] && MAIL_HEAD="$(hd "$(printf '%s\n' "$dec_l" | head -1)" | cut -c1-60)"
+  while IFS= read -r l; do [ -n "$l" ] && o "  $(hd "$l")"; done <<< "$( { printf '%s\n' "$dec_l"; printf '%s\n' "$ro" | grep '^READ \[' | grep -vxF -f <(printf '%s\n' "$dec_l" | grep .) ; } | grep . | head -3)"
   if [ "$MAIL_N" -gt 0 ]; then
     if mkdir -p "$STATE" 2>/dev/null && printf '%s\n' "$ro" > "$STATE/$SEAT-recv-$NOW.txt" 2>/dev/null; then o "쪽지 전문 $STATE/$SEAT-recv-$NOW.txt"
     else fail_line "쪽지 저장" 1; SAVE_OK=0; fi
