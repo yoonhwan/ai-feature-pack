@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_acct_watch_r2001.sh — r2001: 2.0 루트 계정 한도 정지·풀림 재개 잡(ft-acct-watch.sh) + 공통 진입점 acct_cycle(루트 잠금 · 시도 소유 확인 · 손 정지 clear 0).
-#   반례 ⓪~⑪(카드 동결 + 보정 R1 ⓔ) · 변이 M1~M4 = --mutate.
+#   반례 ⓪~⑪(카드 동결 + 보정 R1 ⓔ) + ⑫~⑮(구현 DA HOLD-IMPL #304538 B1 · 보정 R2 잠금 회수) · 변이 M1~M7 = --mutate.
 #   bash tests/test_acct_watch_r2001.sh            # 전 칸
 #   bash tests/test_acct_watch_r2001.sh --mutate   # 변이 4종(사본 한 줄을 어긋나게 → 대응 칸이 무너지는지)
 # 실 좌석·실 우편함·실 정지 파일·실 네트워크 0: 임시 루트 · 가짜 예측·tmux·mbox · 실 ft-acct-pause.sh(임시 루트) · 가상 시각(FT_TICK_ACCT_NOW·FT_ACCT_NOW) · 고정 sleep 0.
@@ -253,7 +253,100 @@ chk_swap() {
   eq "$(F sb set_by)" "manual-owner" "⑪b 소유 기록 round 가 맞아도 set_by 자동 아님 → clear 0"
   has "$(cat "$d/out.log")" "자동 아님 — clear 0" "⑪b 로그"
 }
-all_checks() { chk_dry; chk_struct; PH "⓪⑦"; chk_cycle; chk_expire; PH "①②③"; chk_hand; chk_fcfail; PH "④⑤"; chk_wall; PH "⑥"; chk_lock; PH "⑧"; chk_unknown_hand; chk_unknown_mine; chk_swap; PH "⑨⑩⑪"; }
+# ── ⑫~⑮ 잠금 회수(구현 DA HOLD-IMPL #304538 B1 · 보정 R2): 회수 권리 = 죽은 owner 세대 표식 mkdir 1회 · 표식 뒤 owner 다시 읽기 · 죽은 회수자 2단 ──────
+#   실 lib 를 subshell 에 source · 훅은 실행 순서만 정하고 실제 명령을 그대로 부른다 · sleep 0 · 프로세스 종료 0(배경 주체는 FIFO 해제 뒤 정상 종료).
+#   훅 자리 = B 의 «회수 동작» 첫 호출(표식 mkdir $l/reclaim.* 또는 옛 mv) — 옛 «폴더 옮기기» 판에서는 DA lock-race.sh 와 같은 순서(1번째 = A · 2번째 = C).
+RACE_PRE='
+set -u; DRY=0; HERE="$(dirname "$LIB")"; ROOT="$R/root"; WT="$ROOT"; STATE_DIR="$R/st"
+. "$LIB"
+L="$ROOT/.fable-team/state/acct-notice/cycle.lock"; mkdir -p "$L" "$R/f"
+DEADO=99999999; DEADR=99999998
+for p in $DEADO $DEADR; do kill -0 $p 2>/dev/null && { echo "판정불가 dead pid $p 살아 있음"; exit 2; }; done
+printf "%s\told-start\tcrashed\n" $DEADO > "$L/owner"
+actor() {   # $1 역할 → 실제 acct_lock_take(훅 없음) · 잡으면 $R/f/$1-release 해제까지 쥔다
+  local role="$1" rel; unset -f mv mkdir; ACCT_LOCK_HELD=""; mkfifo "$R/f/$role-release" 2>/dev/null
+  acct_lock_take "$L" >>"$R/$role.log" 2>&1 || { echo failed > "$R/f/$role-ready"; return 2; }
+  acct_me; echo "$ACCT_ME" > "$R/$role-acquired"; echo acquired > "$R/f/$role-ready"
+  IFS= read -r rel < "$R/f/$role-release"; acct_lock_drop
+}
+start() { mkfifo "$R/f/$1-ready" 2>/dev/null; actor "$1" & eval "${1}P=\$!"; local r; IFS= read -r r < "$R/f/$1-ready"; }
+release() { local p; eval "p=\${${1}P:-}"; [ -n "$p" ] || return 0; [ -f "$R/$1-acquired" ] && echo go > "$R/f/$1-release"; wait "$p"; }
+alive_n() { local n=0 x; for x in "$@"; do [ -f "$R/$x-acquired" ] && kill -0 "$(cat "$R/$x-acquired")" 2>/dev/null && n=$((n+1)); done; echo $n; }
+acq() { [ -f "$R/$1-acquired" ] && echo acq || echo no; }
+'
+race() {   # race <본문> → subshell 출력
+  local R="$T/race-$RANDOM$RANDOM"; mkdir -p "$R"
+  ( LIB="${WB:-$B}/ft-tick-acct-lib.sh"; R="$R"; eval "$RACE_PRE"; eval "$1" ) 2>&1
+}
+chk_race12() {   # ⑫ DA 스케줄: B 가 죽은 owner 를 본 뒤 회수 동작 직전 A 가 회수·획득 → B 의 다음 회수 동작 직전 C
+  local out; out="$(race '
+    HOOK=0
+    hook() { HOOK=$((HOOK+1)); if [ "$HOOK" = 1 ]; then start A; else [ -n "${CP:-}" ] || start C; fi; }
+    mv() { hook; command mv "$@"; }
+    mkdir() { case "$*" in *"/reclaim."*) hook;; esac; command mkdir "$@"; }
+    acct_lock_take "$L" >> "$R/B.log" 2>&1; BRC=$?
+    unset -f mv mkdir; [ -n "${CP:-}" ] || start C
+    echo "B=$BRC A=$(acq A) C=$(acq C) alive=$(alive_n A C)"
+    echo "owner_is_A=$([ "$(acq A)" = acq ] && [ "$(cut -f1 "$L/owner" 2>/dev/null)" = "$(cat "$R/A-acquired")" ] && echo 1 || echo 0)"
+    echo "extra=$(ls -A "$L" 2>/dev/null | grep -vcx owner)"
+    release A; release C
+    echo "after=$([ -e "$L" ] && echo left || echo gone)"')"
+  has "$out" "alive=1" "⑫ DA 스케줄 — 잠금을 쥔 산 주체 정확히 1(상호배제)"
+  has "$out" "B=1 A=acq C=no" "⑫ B·C rc1 · A 획득"
+  has "$out" "owner_is_A=1" "⑫ A 의 잠금 폴더·owner 그대로(강제 제거 0)"
+  has "$out" "extra=0" "⑫ A 폴더 안 남의 표식·되돌림 0"
+  has "$out" "after=gone" "⑫ A 해제 뒤 잠금 닫힘"
+}
+chk_race13() {   # ⑬ 표식만 남기고 죽은 회수자 → 다음 회수자가 2단 표식으로 회수 · 홀더 1
+  local out; out="$(race '
+    mkdir -p "$L/reclaim.$DEADO"; printf "%s\told-start\n" $DEADR > "$L/reclaim.$DEADO/owner"
+    start A
+    echo "A=$(acq A) alive=$(alive_n A)"
+    grep -h "reclaim.$DEADO.$DEADR" "$R/A.log" >/dev/null && echo "tier2=1" || echo "tier2=0"
+    echo "owner_is_A=$([ "$(acq A)" = acq ] && [ "$(cut -f1 "$L/owner" 2>/dev/null)" = "$(cat "$R/A-acquired")" ] && echo 1 || echo 0)"
+    start C; echo "C=$(acq C)"
+    release A; release C')"
+  has "$out" "A=acq alive=1" "⑬ 죽은 회수자 표식 → 다음 회수자 획득(영구 막힘 0)"
+  has "$out" "tier2=1" "⑬ 2단 표식 reclaim.<죽은 owner>.<죽은 회수자>"
+  has "$out" "owner_is_A=1" "⑬ owner = 새 회수자"
+  has "$out" "C=no" "⑬ 홀더 1(다른 주체 rc1)"
+}
+chk_race14() {   # ⑭ 같은 죽은 owner 를 두 회수자가 동시에 → 표식 mkdir 성공 1 · 홀더 1
+  local out; out="$(race '
+    mkfifo "$R/f/B2-marked" "$R/f/B2-go" "$R/f/B2-done" "$R/f/B2-rel"
+    b2() {   # 표식을 만든 «직후» 멈추는 회수자(훅 = 순서만 · 실제 mkdir)
+      local x hooked=0; unset -f mv; ACCT_LOCK_HELD=""
+      mkdir() { command mkdir "$@"; local rc=$?; case "$*" in *"/reclaim."*) if [ "$rc" = 0 ] && [ "$hooked" = 0 ]; then hooked=1; echo marked > "$R/f/B2-marked"; IFS= read -r x < "$R/f/B2-go"; fi;; esac; return $rc; }
+      acct_lock_take "$L" >>"$R/B2.log" 2>&1; local rc=$?; unset -f mkdir
+      [ "$hooked" = 1 ] || echo nomark > "$R/f/B2-marked"
+      if [ "$rc" = 0 ]; then acct_me; echo "$ACCT_ME" > "$R/B2-acquired"; echo done > "$R/f/B2-done"; IFS= read -r x < "$R/f/B2-rel"; acct_lock_drop
+      else echo failed > "$R/f/B2-done"; fi
+    }
+    b2 & P2=$!; IFS= read -r m < "$R/f/B2-marked"; echo "B2_mark=$m"
+    acct_lock_take "$L" >> "$R/B.log" 2>&1; echo "B=$?"
+    [ "$m" != marked ] || echo go > "$R/f/B2-go"
+    IFS= read -r d < "$R/f/B2-done"
+    echo "B2=$(acq B2) alive=$(alive_n B2)"
+    [ "$d" != done ] || echo go > "$R/f/B2-rel"; wait "$P2"')"
+  has "$out" "B2_mark=marked" "⑭ 회수자 B2 가 표식을 먼저 만듦"
+  has "$out" "B=1" "⑭ 같은 세대 표식 경쟁에 진 B = rc1"
+  has "$out" "B2=acq alive=1" "⑭ 표식을 가진 B2 만 획득(홀더 1)"
+}
+chk_race15() {   # ⑮ 표식 뒤 owner 다시 읽기에서 산 owner → 내 표식만 지움 · 그 폴더 owner 바이트 같음
+  local out; out="$(race '
+    HOOK=0
+    mkdir() { case "$*" in *"/reclaim."*) [ "$HOOK" = 0 ] && { HOOK=1; start A; cp "$L/owner" "$R/owner.A"; };; esac; command mkdir "$@"; }
+    mv() { [ "$HOOK" = 0 ] && { HOOK=1; start A; cp "$L/owner" "$R/owner.A"; }; command mv "$@"; }
+    acct_lock_take "$L" >> "$R/B.log" 2>&1; BRC=$?; unset -f mkdir mv
+    echo "B=$BRC A=$(acq A) alive=$(alive_n A)"
+    cmp -s "$L/owner" "$R/owner.A" && echo "owner_same=1" || echo "owner_same=0"
+    echo "marks=$(ls -A "$L" 2>/dev/null | grep -c "^reclaim")"
+    release A')"
+  has "$out" "B=1 A=acq alive=1" "⑮ 다시 읽기에서 산 owner → B rc1 · A 그대로"
+  has "$out" "owner_same=1" "⑮ A 폴더 owner 바이트 같음"
+  has "$out" "marks=0" "⑮ B 표식만 지움(남은 표식 0)"
+}
+all_checks() { chk_dry; chk_struct; PH "⓪⑦"; chk_cycle; chk_expire; PH "①②③"; chk_hand; chk_fcfail; PH "④⑤"; chk_wall; PH "⑥"; chk_lock; PH "⑧"; chk_unknown_hand; chk_unknown_mine; chk_swap; PH "⑨⑩⑪"; chk_race12; chk_race13; chk_race14; chk_race15; PH "⑫⑬⑭⑮"; }
 
 for f in ft-acct-watch.sh ft-tick-acct-lib.sh ft-tick.sh; do bash -n "$BIN/$f" && ok "bash -n $f" || bad "bash -n $f"; done
 if [ "$MUT" = 0 ]; then
@@ -269,6 +362,9 @@ pairs = {
   "2": ("    *) acct_pause_watch; acct_notice;;", "    *) acct_notice;;"),
   "3": ('if [ "$(acct_entry_field "$P" set_by)" = "$tok" ]; then', 'if true; then'),
   "4": ('acct_lock_take "$root/.fable-team/state/acct-notice/cycle.lock" || return 0', ':'),
+  "5": ('acct_reclaim_mark "$l" "$mark" "$me" "$st" || return 1', 'mv "$l" "$l.stale.$me" 2>/dev/null || return 1; ACCT_MARK="$l.stale.$me"'),
+  "6": ('if [ "$(acct_owner_line "$l")" != "$line" ]; then', 'if false; then'),
+  "7": ('    m="$m.$mpid"   # ⓓ 죽은 회수자 → 한 단 더', '    return 1'),
 }
 old, new = pairs[m]
 s = open(f, encoding="utf-8").read()
@@ -282,6 +378,9 @@ PY
   mutant 2 chk_expire         # M2 acct_pause_watch 호출 삭제 → ③b FAIL
   mutant 3 chk_unknown_hand   # M3 set_by 확인 삭제 → ⑨ FAIL
   mutant 4 chk_lock           # M4 잠금 삭제 → ⑧ FAIL
+  mutant 5 chk_race12         # M5 mv 회수 복귀 → ⑫ FAIL
+  mutant 6 chk_race15         # M6 표식 뒤 owner 다시 읽기 삭제 → ⑮ FAIL
+  mutant 7 chk_race13         # M7 죽은 회수자 2단 삭제 → ⑬ FAIL(영구 막힘)
 fi
 PH end
 [ "$fail" = 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAIL ${fail}건"; exit 1; }
