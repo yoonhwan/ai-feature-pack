@@ -7,6 +7,7 @@ import importlib.util
 import json
 import os
 import plistlib
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -75,7 +76,7 @@ def timed(w, b3):   # 주입 시계: fetch 리포 2개 × 5초 · B1 10초 · B2
     git = k.git
     k.git = lambda repo, *a, **o: (tick(5) if a[0] == "fetch" else None, git(repo, *a, **o))[1]
     k.complete, k.close, k.retired = (lambda *a: tick(10, True)), (lambda *a: tick(10)), (lambda: tick(b3))
-    rows = [x for x in w.round(k) if x.startswith("ROUND")]
+    rows = [re.sub(r" fetch_root=\S+ fetch_pack=\S+", "", x) for x in w.round(k) if x.startswith("ROUND")]   # r1975 리포별 칸 = 동시라 값 흔들림 · r1975 시험이 본다
     jl = [json.loads(x) for p in (w.state / "ft2-keeper").glob("*.jsonl") for x in _lines(p)]
     assert [x["kind"] for x in jl if x["line"].startswith("ROUND")] == ["ROUND"]
     return rows

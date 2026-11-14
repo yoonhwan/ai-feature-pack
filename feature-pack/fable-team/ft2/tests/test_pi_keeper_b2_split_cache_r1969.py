@@ -3,6 +3,7 @@ r1812 대역(keeper_world_r1812.World · 임시 git·가짜 tmux) · 바깥 호�
 """
 import importlib.util
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -79,7 +80,7 @@ def c5(w):   # ⑤ ROUND 줄 = b2c(close)·b2f(fill) 둘 · slow=<팀>:<칸>:<�
     real, kn.fill = kn.fill, (lambda k, t: tick(2))
     try:
         k.complete, k.close, k.retired = (lambda *a: tick(1, True)), (lambda *a: tick(4)), (lambda: None)
-        rows = [x for x in w.round(k) if x.startswith("ROUND")]
+        rows = [re.sub(r" fetch_root=\S+ fetch_pack=\S+", "", x) for x in w.round(k) if x.startswith("ROUND")]   # r1975 리포별 칸 = r1975 시험이 본다
     finally:
         kn.fill = real
     assert rows == ["ROUND s=7 fetch=0 b1=1 b2c=4 b2f=2 b3=0 stall=0 slow=harness:b2c:4"], rows
