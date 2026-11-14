@@ -88,15 +88,15 @@ git -C "$W" fetch -q origin; git -C "$W" checkout -q -B doc4 origin/main; mkdir 
 B4="$(snap)"; run "$LAND" 4 --approve-sha "$S4" --dry
 [ "$rc" = 1 ] && [[ "$(dline)" == "DRY DENY 오빠 승인 파일 없음"* ]] && [ ! -s "$STUB_LOG" ] && [ "$(snap)" = "$B4" ]; ck "승인 없음 → DRY DENY rc1 · 기다림 표식·알림 0" $?
 
-# ===== press 검사의 원격 push 길 = dry 에서 차단(스텁 press 가 push 시도) =====
+# ===== hook 안전망: dry 신호를 모르는 쓰기(스텁 press 가 push · 결과를 rc 로 반영) = dry 에서 막혀 DENY · 실제 착지는 push =====
 PD="$T/press"; mkdir -p "$PD"; for f in "$BIN"/*; do ln -s "$f" "$PD/$(basename "$f")"; done; rm -f "$PD/ft-press-evidence.sh"
 cat > "$PD/ft-press-evidence.sh" <<'EOF'
 #!/bin/bash
 while [ $# -gt 0 ]; do case "$1" in --repo) r="$2";; --head) h="$2";; esac; shift; done
-git -C "$r" push -q origin "$h:refs/press-debt/t" >/dev/null 2>&1 && echo "press=pushed" || echo "press=blocked"
+git -C "$r" push -q origin "$h:refs/press-debt/t" >/dev/null 2>&1 && { echo "press=pushed"; exit 0; } || { echo "press=blocked"; exit 1; }
 EOF
 apv --approve-sha "$S4"; run "$PD/ft-merge-land.sh" 4 --approve-sha "$S4" --dry
-[ "$rc" = 0 ] && [[ "$out" == *"press=blocked"* ]] && [ -z "$(git -C "$ORIGIN" for-each-ref refs/press-debt)" ]; ck "press 빚 ref push → dry 에서 pre-push hook 이 막음(원격 ref 0)" $?
+[ "$rc" = 1 ] && [[ "$(dline)" == "DRY DENY press=blocked"* ]] && [ -z "$(git -C "$ORIGIN" for-each-ref refs/press-debt)" ]; ck "안전망: dry 신호 모르는 push → pre-push hook 이 막음 · DRY DENY · 원격 ref 0" $?
 run "$PD/ft-merge-land.sh" 4 --approve-sha "$S4"; [ "$rc" = 0 ] && [[ "$out" == *"press=pushed"* ]]; ck "대조: 실제 착지에서는 같은 스텁 push 가 된다(차단 = dry 만)" $?
 
 [ "$(git -C "$ORIGIN" rev-parse --is-bare-repository)" = true ] && [[ "$ORIGIN" == "$T/"* ]]; ck "격리: 원격 = 임시 bare 1개(실 원격·실 gh 0)" $?
