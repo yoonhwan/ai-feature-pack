@@ -77,17 +77,21 @@ def c3c(w):  # ③c 문중 «대체:» · 다른 절 «거절:» → None · ③
     card(w, "r9633", "- 진행"), card(w, "r9633", "- 끝", stage="아카이브/2026-11"), w.work("r9633", alive=True)
     lines, kills = run(w)
     assert not has(lines, "CLOSED") and kills == [] and has(lines, "HELD harness r9623", "착지 줄 없음"), lines
+def again(w, work, done=True):   # 같은 holder 로 a2 재배정(r1951 꼴 · keeper_next fill 과 같은 동사) · a2 intent 없음
+    for argv in (["submit", "--command", "keeper-next-" + work, "--body", "카드"], ["assign", "--holder", "byz-harness-nano-%s-t#0" % work, "--evidence", "v1,v2"], ["deliver", "--mode", "intent"]) + ((["complete", "--attempt", "a2"],) if done else ()):
+        assert w.CLI.run(argv + ["--work", work, "--root", str(w.root), "--team", TEAM])[0]["result"] == "접수 성공"
 def c4(w):   # ④ r1951 — dispatch a1·a2 같은 holder · intent @a1 만 opened · done → @a1 로 닫음 · ④c 다른 holder 의 opened intent → 안 씀
     w.enable()
     for work, seat in (("r9604", None), ("r9624", "byz-harness-nano-other-t#0")):
-        w.card(work, w.pack_sha()), w.work(work, alive=True, seat=seat)
-        holder, g = "byz-harness-nano-%s-t#0" % work, ["--work", work, "--root", str(w.root), "--team", TEAM]
-        for argv in (["submit", "--command", "keeper-next-" + work, "--body", "카드"], ["assign", "--holder", holder, "--evidence", "v1,v2"],
-                     ["deliver", "--mode", "intent"], ["complete", "--attempt", "a2"]):
-            assert w.CLI.run(argv + g)[0]["result"] == "접수 성공"
+        w.card(work, w.pack_sha()), w.work(work, alive=True, seat=seat), again(w, work)
     lines, kills = run(w)
     assert has(lines, "CLOSED-SESSION harness r9604") and kills == [["kill-session", "-t", "=byz-harness-nano-r9604-t#0"]], lines
     assert has(lines, "HELD harness r9624", "intent 없음(attempt a2)")
+def c4d(w):  # ④d (DA R1 #301944) a2 재배정 · a2 intent 없음 · 대체 a1 intent base_sha = 카드 옛 착지 sha → 옛 착지 HELD · complete·kill 0
+    w.enable(), w.card("r9634", sha := w.pack_sha()), w.work("r9634", alive=True)
+    _put(f := w.runtime() / "launch" / "r9634@a1.intent", dict(json.loads(f.read_text(encoding="utf-8")), base_sha=sha)), w.round(), again(w, "r9634", done=False)
+    lines, kills = run(w)
+    assert has(lines, "HELD harness r9634", "옛 착지 줄") and kills == [] and w.kinds("complete") == 0, lines
 def c4b(w):  # ④b intent 0 → HELD «intent 없음» 1줄(침묵 0) · 두 번째 바퀴 0
     w.card("r9614", w.pack_sha()), w.work("r9614", done=True, intent=False, alive=True)
     assert sum("intent 없음(attempt a1)" in x for x in run(w)[0]) == 1
@@ -142,7 +146,7 @@ def c7e(w):  # ⑦e 가드 읽는 사이 holder 바뀜(그 seat 에 새 dispatch
     real, k.idle = k.idle, lambda team, work, holder: (holder.endswith("r9637#1") and w.work("r9647", holder=holder), real(team, work, holder))[1]
     lines, kills = run(w, k)
     assert kills == [] and not has(lines, "CLOSED-ORPHAN"), lines
-CASES = {"①": c1, "①b": c1b, "①c·①d": c1c, "①e": c1e, "②": c2, "③": c3, "③b": c3b, "③c·③d": c3c, "④·④c": c4, "④b": c4b, "⑤": c5, "⑤e": c5e,
+CASES = {"①": c1, "①b": c1b, "①c·①d": c1c, "①e": c1e, "②": c2, "③": c3, "③b": c3b, "③c·③d": c3c, "④·④c": c4, "④b": c4b, "④d": c4d, "⑤": c5, "⑤e": c5e,
          "⑥": c6, "⑦": c7, "⑦b·⑦c": c7b, "⑦d": c7d, "⑦e": c7e}
 KE, KC, KP = "adapters/pi/keeper_endings.py", "adapters/pi/keeper_close.py", "adapters/pi/keeper.py"
 SNAP = 'H, alive = _mod("holders", os.path.join(HERE, "ft2_holders.py")), k.alive_sessions()\n    held_by = {t: {h for _, h in got.values()} for t in teams if (got := latest(k, t)) is not None}'
