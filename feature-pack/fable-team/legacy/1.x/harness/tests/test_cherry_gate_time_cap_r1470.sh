@@ -57,6 +57,13 @@ has "$OUT" "REJECT cherry 게이트 — 판정 불가(상한 1초 · 단계 path
 eq "$(nraw)" 1 "T1 log --raw 호출 1번뿐(상한 뒤 git log 0)"
 echo "  T1 $((SECONDS-s))초"
 
+# T1b 같은 상한 + --override "<사유>" → 문구가 말하는 우회가 실제로 통한다 = OVERRIDE 1줄 · rc0 · 원장 1행(kind=time-cap · stage=paths · reason)
+: > "$T/git.log"; LG="$T/ov.log"
+OUT="$(PATH="$T/fk:$PATH" FAKE_GIT_LOG="$T/git.log" FAKE_SLOW=log FT_CHERRY_GATE_SEC=1 FT_CHERRY_OVERRIDE_LEDGER="$LG" bash "$G" main nano/x --repo "$R" --override "옛 가지 폐기 확인" 2>&1)"; RC=$?
+eq "$RC" 0 "T1b rc0(사람 우회)"
+has "$OUT" "OVERRIDE cherry 게이트 — 판정 불가(상한 1초 · 단계 paths · 경로 1/3) · 옛 가지 nano/x · 사람 사유로 통과: 옛 가지 폐기 확인" "T1b OVERRIDE 줄"
+eq "$(grep -c 'kind=time-cap	cap=1	stage=paths	reason=옛 가지 폐기 확인' "$LG" 2>/dev/null)" 1 "T1b 원장 1행"
+
 # T2 상한 0 = 무상한(지금 그대로) → 끝까지 돌아 기존 REJECT · «판정 불가» 0
 s=$SECONDS; gate 0 log
 eq "$RC" 1 "T2 rc1(기존 REJECT)"

@@ -36,6 +36,15 @@ fi
 if [ -n "$SQUASHED_PR" ] && [ -z "${REASON//[[:space:]]/}" ]; then
   echo "REJECT cherry 게이트 — --reason 사유가 비어 있음(사유 없는 --squashed-pr 거부)"; exit 1
 fi
+# r1470 자체 시간 상한(하드 룰 12·20) — FT_CHERRY_GATE_SEC(기본 25 · 0 = 무상한) · git 부르는 자리(cherry·«+» 커밋·merge-tree·경로) 앞 검사 · 넘으면 git 더 안 부르고 판정 불가 1줄 exit 1 · --override 면 원장 1행(kind=time-cap) + exit 0
+CAP="${FT_CHERRY_GATE_SEC:-25}"; _T0=$SECONDS; [[ "$CAP" =~ ^[0-9]+$ ]] || { echo "usage: FT_CHERRY_GATE_SEC = 0 이상 정수(받은 값: $CAP)" >&2; exit 2; }
+over_cap() { # over_cap <단계> <위치> — 상한 안이면 return 0
+  [ "$CAP" -gt 0 ] && [ $((SECONDS - _T0)) -gt "$CAP" ] || return 0
+  local m="판정 불가(상한 ${CAP}초 · 단계 $1 · $2) · 옛 가지 $NANO" root lg
+  [ "$HAVE_OVERRIDE" -eq 1 ] || { echo "REJECT cherry 게이트 — $m · 우회 = --cherry-override \"<사유>\"(원장 기록) 또는 새 슬러그"; exit 1; }
+  root="$(git -C "$REPO" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" && root="${root%/.git}" && [ -d "$root" ] && lg="${FT_CHERRY_OVERRIDE_LEDGER:-$root/.fable-team/state/cherry-gate-override.log}" && mkdir -p "$(dirname "$lg")" \
+    && printf '%s\tseat=%s\tnano=%s\tfeat=%s\tkind=time-cap\tcap=%s\tstage=%s\treason=%s\n' "$(date '+%F %T')" "${FT_SEAT:-$NANO}" "$NANO" "$FEAT" "$CAP" "$1" "$(printf '%s' "$OVERRIDE" | tr '\n\t' '  ')" >> "$lg" || { echo "REJECT cherry 게이트 — $m · --override 원장 기록 실패(${lg:-경로 조회 실패}) — 우회 불가"; exit 1; }
+  echo "OVERRIDE cherry 게이트 — $m · 사람 사유로 통과: $OVERRIDE · 원장 1행 기록: $lg"; exit 0; }
 # 플래그를 쓸 때만 분류 도우미를 읽는다 — 플래그 없는 기존 닫기는 이 파일 하나만 있어도 그대로 돈다(런타임 bin 에 pr.sh 가 아직 없어도 닫기 0 영향).
 if [ -n "$SQUASHED_PR" ]; then
   . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/ft-nano-cherry-pr.sh" || { echo "REJECT cherry 게이트 — --squashed-pr: ft-nano-cherry-pr.sh 를 못 읽음(같은 디렉터리에 있어야 함)"; exit 1; }
@@ -54,15 +63,17 @@ if [ "$MODE" = land ] && ! git -C "$REPO" merge-base --is-ancestor "$FEAT" "$NAN
   echo "REJECT cherry 게이트 — land: $NANO 가 feat HEAD($(git -C "$REPO" rev-parse --short "$FEAT"))를 포함하지 않음(merge-base ${_mb:0:7}) — 최신 루트를 병합한 뒤 다시 랜딩 요청 (docs/rules/single_set_testing.md §3 ②)"
   exit 1
 fi
-out="$(git -C "$REPO" cherry "$FEAT" "$NANO" 2>&1)"; rc=$?
+over_cap cherry "커밋 0/?"; out="$(git -C "$REPO" cherry "$FEAT" "$NANO" 2>&1)"; rc=$?
 [ "$rc" -eq 0 ] || { echo "REJECT cherry 게이트 — git cherry 실패(rc=$rc): ${out:0:120}"; exit 1; }
 plus="$(printf '%s\n' "$out" | grep '^+' || true)"
 # «+» 커밋을 둘로 가른다 — design/ 밖 경로(코드·시험·스크립트)를 건드린 것 = 차단 · design/ 만 건드린 것 = WARN 통과(브랜치가 남아 복구 가능 · arch#137)
 #   ★경로 목록은 변수로 «완독» 한 뒤 분류한다(DA 575 H2: `diff-tree | grep -qv` 는 grep 조기 종료 → SIGPIPE → 큰 혼합 커밋이 «design/ 만» 으로 판정) · diff-tree·log 각 rc 를 따로 본다(H1: 실패가 WARN 통과)★
 block=""; warn=""
 delta_file="$(mktemp)"; plus_file="$(mktemp)"; trap 'rm -f "$delta_file" "$plus_file"' EXIT
+nplus="$(printf '%s' "$plus" | grep -c . || true)"; kc=0
 while read -r _ sha; do
   [ -n "$sha" ] || continue
+  over_cap cherry "커밋 $kc/$nplus"; kc=$((kc + 1))
   line="$(git -C "$REPO" log -1 --format='  + %h %s' "$sha")"; lrc=$?
   [ "$lrc" -eq 0 ] && [ -n "$line" ] || { echo "REJECT cherry 게이트 — git log 실패(rc=$lrc) 커밋 ${sha:0:9}"; exit 1; }
   line="${line:0:120}"
@@ -83,6 +94,7 @@ if [ "$nb" -gt 0 ]; then
   # ★«+» 경로와의 교집합이 아니라 «실제 merge delta»(merge-tree 결과 트리 vs feat HEAD 트리)를 본다 — rename·경로 인코딩 불일치가 교집합을 비우는 누출(DA 597 H1)★
   # design/ 밖 delta 가 하나라도 있으면 REJECT · 없으면 PASS. 종료코드는 1행 OID 와 따로 본다(5c). 경로는 -z 로 완독(quotepath 무관).
   conflict=0
+  over_cap merge-tree "커밋 $nplus/$nplus"
   mt="$(git -C "$REPO" merge-tree --write-tree "$FEAT" "$NANO")"; mrc=$?
   if [ "$mrc" -eq 1 ]; then conflict=1
   elif [ "$mrc" -ne 0 ]; then
@@ -106,10 +118,11 @@ if [ "$nb" -gt 0 ]; then
   # ★superseded 증거 = merge-base(NANO,FEAT)..FEAT 구간의 «새 blob» 뿐(DA 599 H1)★ — 분기 전 역사의 옛 blob 으로 rollback 한 브랜치를 PASS 시키지 않는다.
   mbase="$(git -C "$REPO" merge-base "$NANO" "$FEAT")"; mbrc=$?
   [[ "$mbrc" -eq 0 && "$mbase" =~ ^[0-9a-f]{40,64}$ ]] || { echo "REJECT cherry 게이트 — git merge-base 실패(rc=$mbrc) — superseded 증거 구간을 못 정함"; exit 1; }
-  sort -z -u -o "$plus_file" "$plus_file"
+  sort -z -u -o "$plus_file" "$plus_file"; np="$(tr -cd '\0' < "$plus_file" | wc -c | tr -d ' ')"; kp=0
   nsup=0; nid=0; nmiss=0; ndoc=0; missing=""; sup_commit=""   # nid = tip 내용이 feat HEAD 와 같은 경로(R70) · ndoc = design/ 문서 종류 경로 중 feat 역사에 없는 것(WARN 만 · 코드 종류는 nmiss)
   while IFS= read -r -d '' p; do
     [ -n "$p" ] || continue
+    over_cap paths "경로 $kp/$np"; kp=$((kp + 1))
     [ "$nmiss" -lt 20 ] || break   # REJECT 확정 + 목록 상한 20 — 나머지는 안 돈다(경로 수천 개 혼합 커밋에서 git log 수천 번 방지)
     entry="$(git --literal-pathspecs -C "$REPO" ls-tree "$NANO" -- "$p")"; erc=$?
     [ "$erc" -eq 0 ] || { echo "REJECT cherry 게이트 — git ls-tree 실패(rc=$erc) 경로 $p"; exit 1; }
