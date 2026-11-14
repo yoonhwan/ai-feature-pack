@@ -185,7 +185,7 @@ def _pkg(w, version, body):
 
 def test_6b_ft2_current_switch_checked_before_write(w):
     root = w / "ft2root"
-    env = {**os.environ, "FT2_LLM_GATE_BASELINE": str(w / "base.tsv"), "FT2_LAUNCH_AGENTS": str(w / "none")}
+    env = {**os.environ, "FT2_LLM_GATE_BASELINE": str(w / "base.tsv"), "FT2_LAUNCH_AGENTS": str(w / "none"), "FT2_LLM_GATE": GATE}  # r1946: ft2 는 env 하나로만 찾는다
     run = lambda *a: subprocess.run([sys.executable, str(FT2 / "tools/install.py"), *map(str, a)], capture_output=True, text=True, env=env, timeout=70)  # noqa: E731
     first = run("install", _pkg(w, "9.0.1", "echo ok\n"), root)
     assert first.returncode == 0 and (root / "CURRENT").read_text() == "9.0.1\n", first.stdout + first.stderr
