@@ -21,7 +21,7 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 LABEL="com.byz.ft-tick"
 PLIST_DST="$HOME/Library/LaunchAgents/$LABEL.plist"
 TEMPLATE="$HERE/ft-tick.plist"
-DOMAIN="gui/$(id -u)"
+DOMAIN="gui/$(id -u)"; LCTL="${FT_TICK_LAUNCHCTL:-launchctl}"
 WT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"; SCRIPT=""; DRY=0; UNINSTALL=0; TEAM=""; FROM=""
 while [ $# -gt 0 ]; do case "$1" in
   --worktree) WT="$2"; shift 2;; --script) SCRIPT="$2"; shift 2;; --dry-run) DRY=1; shift;; --uninstall) UNINSTALL=1; shift;;
@@ -98,6 +98,14 @@ elif mode == "team":
     _, seats, state, pidf, stamp, off, on = row
     for k in ("FT_TICK_MASTER_MSG", "FT_TICK_PM_MSG"):
         if k not in env: die("REJECT 원본 plist 에 %s 가 없다 — 메인 문구로 돌게 된다: %s" % (k, src))
+    # r1464: 문구 속 상대 경로(design/… · .worktrees/…) = <공용 루트> 기준 실재해야 한다 — 없으면 REJECT 1줄 · 글자 자동 고침 0
+    #   토큰 = 공백·«»·괄호·백틱·「」 앞까지 · `{진행,대기,완성}` 부터 뒤는 벗긴다 · 끝 구두점(. , · : ;)·백틱 벗김 · 절대 경로 안 글자는 보지 않는다
+    root = os.environ["FT_R_ROOT"]; miss = []
+    for k in ("FT_TICK_MASTER_MSG", "FT_TICK_PM_MSG"):
+        for t in re.findall(r"(?<![\w./-])(?:design|\.worktrees)/[^\s«»()`「」]*", str(env[k])):
+            t = t.split("{", 1)[0].rstrip(".,·:;`")
+            if not os.path.exists(os.path.join(root, t)): miss.append("%s %s" % (k, t))
+    if miss: die("REJECT 문구 경로 없음: %s (루트 %s · plist 쓰기 0)" % (" · ".join(miss), root))
     want = {"FT_TICK_PIDFILE": pidf, "FT_TICK_STAMP_PREFIX": stamp, "FT_TICK_STATE_DIR": state}
     if srcmode == "own":
         for k, v in want.items():
@@ -170,6 +178,20 @@ except OSError as e:
 PY
 }
 
+# ── r1464: bootout → bootstrap 사이 «내려감» 대기 — 팀·메인 두 갈래 같은 함수 (h7877: bootout 직후 bootstrap → 4팀 미적재 · troubleshoot 10-27 rc5)
+#   ft_tick_relaunch <라벨> <plist> <되돌림 안내> → bootout → print 이 실패할 때까지 0.5초×20(10초) → 2초 → bootstrap
+#   10초 안에 안 내려가면 REJECT 1줄 + rc1(bootstrap 호출 0) · bootstrap 실패도 REJECT 1줄 + rc1 · launchctl = $LCTL(FT_TICK_LAUNCHCTL)
+ft_tick_relaunch() {
+  local label="$1" pl="$2" undo="$3" i=0
+  "$LCTL" bootout "$DOMAIN/$label" >/dev/null 2>&1 || true
+  while "$LCTL" print "$DOMAIN/$label" >/dev/null 2>&1; do
+    i=$((i+1)); [ "$i" -lt 20 ] || { echo "REJECT bootout 미완(10초) — 되돌림: $undo"; return 1; }
+    sleep 0.5
+  done
+  sleep 2
+  "$LCTL" bootstrap "$DOMAIN" "$pl" || { echo "REJECT bootstrap 실패 — 되돌림: $undo"; return 1; }
+}
+
 ft_tick_root_bin_script() {
   local p="$1" dir real root
   [ -n "$p" ] || { echo "ERROR 시작 경로가 비었다 — <공용 루트>/.fable-team/bin/ft-tick.sh 를 준다"; return 1; }
@@ -191,7 +213,7 @@ ft_tick_root_bin_script() {
 # ── ★팀 틱 (R199)★ ────────────────────────────────────────────────────────────────────────────
 if [ -n "$TEAM" ]; then
   [ "$UNINSTALL" = 0 ] || { echo "usage: --team 과 --uninstall 은 같이 못 쓴다" >&2; exit 2; }
-  TSV="${FT_TICK_TEAM_TSV:-$HERE/team-tick-env.tsv}"; PDIR="${FT_TICK_PLIST_DIR:-$HOME/Library/LaunchAgents}"; LCTL="${FT_TICK_LAUNCHCTL:-launchctl}"
+  TSV="${FT_TICK_TEAM_TSV:-$HERE/team-tick-env.tsv}"; PDIR="${FT_TICK_PLIST_DIR:-$HOME/Library/LaunchAgents}"
   PL="$PDIR/com.byz.ft-tick-$TEAM.plist"; [ -f "$TSV" ] || { echo "REJECT 팀 표 없음: $TSV"; exit 1; }
   if [ -z "$SCRIPT" ]; then   # 기본 = 메인 틱 plist 가 가리키는 스크립트(닫히는 워크트리가 아니라 라이브 bin)
     MAINPL="$PDIR/com.byz.ft-tick.plist"
@@ -207,7 +229,7 @@ PY
   [ -f "$SCRIPT" ] || { echo "REJECT ft-tick.sh 없음: $SCRIPT"; exit 1; }
   NEW="$(mktemp /tmp/ft-tick-team-plist.XXXXXX)"; trap 'rm -f "$NEW"' EXIT
   # r962 r3: 팀 갈래도 «같은 렌더 함수» 하나 — 인라인 python 은 함수로 올렸다(값으로 넣기 · 글자 치환 0)
-  if ! ROUT="$(FT_R_SCRIPT="$SCRIPT" FT_R_TEAM="$TEAM" FT_R_TSV="$TSV" FT_R_SRCMODE="$([ -n "$FROM" ] && echo from || echo own)" \
+  if ! ROUT="$(FT_R_SCRIPT="$SCRIPT" FT_R_ROOT="${SCRIPT%/.fable-team/bin/*}" FT_R_TEAM="$TEAM" FT_R_TSV="$TSV" FT_R_SRCMODE="$([ -n "$FROM" ] && echo from || echo own)" \
         ft_tick_render_plist team "${FROM:-$PL}" "$NEW")"; then
     printf '%s\n' "$ROUT"; rm -f "$NEW"; exit 1
   fi
@@ -220,8 +242,7 @@ PY
     cp -p "$PL" "$PL.bak-r199" || { echo "REJECT 백업 실패"; exit 1; }
   fi
   cp "$NEW" "$PL" || { echo "REJECT plist 쓰기 실패: $PL"; exit 1; }
-  "$LCTL" bootout "$DOMAIN/com.byz.ft-tick-$TEAM" >/dev/null 2>&1 || true
-  "$LCTL" bootstrap "$DOMAIN" "$PL" || { echo "REJECT bootstrap 실패 — 되돌림: cp -p $PL.bak-r199 $PL 후 다시 bootstrap"; exit 1; }
+  ft_tick_relaunch "com.byz.ft-tick-$TEAM" "$PL" "cp -p $PL.bak-r199 $PL 후 launchctl bootstrap $DOMAIN $PL" || exit 1
   echo "installed com.byz.ft-tick-$TEAM → $PL (script=$SCRIPT · 되돌림 백업 $PL.bak-r199)"; exit 0
 fi
 
@@ -266,8 +287,7 @@ if ! ROUT="$(FT_R_SCRIPT="$SCRIPT" FT_R_COMMON="$COMMON" FT_R_COMM="$COMM" rende
 fi
 plutil -lint "$TMP" >/dev/null || { echo "REJECT 렌더된 plist lint 실패: $TMP"; rm -f "$TMP"; exit 1; }
 mv "$TMP" "$PLIST_DST" || { echo "REJECT plist 쓰기 실패: $PLIST_DST"; rm -f "$TMP"; exit 1; }   # r962 r3: 검사 끝난 뒤에만 쓴다(tmp→mv)
-launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null || true          # 재설치 허용(이미 떠 있으면 내렸다 올린다)
-launchctl bootstrap "$DOMAIN" "$PLIST_DST" || { echo "REJECT bootstrap 실패 — launchctl print $DOMAIN/$LABEL 로 확인"; exit 1; }
+ft_tick_relaunch "$LABEL" "$PLIST_DST" "launchctl print $DOMAIN/$LABEL 로 확인 후 launchctl bootstrap $DOMAIN $PLIST_DST" || exit 1   # 재설치 허용(이미 떠 있으면 내렸다 올린다)
 sleep 1
-launchctl print "$DOMAIN/$LABEL" 2>/dev/null | grep -E '^\s*(state|pid) ' || echo "WARN launchctl print 에 state/pid 없음"
+"$LCTL" print "$DOMAIN/$LABEL" 2>/dev/null | grep -E '^\s*(state|pid) ' || echo "WARN launchctl print 에 state/pid 없음"
 echo "installed $LABEL → $PLIST_DST (log /tmp/ft-tick.log). ★구 데몬(ft-pm-tick/ft-master-tick)은 그대로다 — README §4-2 전환 절차★"
