@@ -18,7 +18,7 @@ printf '#!/bin/sh\necho "$*" >> "%s/retire.log"\necho "RESUME kept %s/resume/$1.
 cat > "$TMP/mbox.py" <<'PY'
 import os, sys
 c, seat = sys.argv[1], sys.argv[2]
-if c == "peek": print("pending=%s scanned=1 lineage=0" % os.environ.get("R1520_PEND", "0")); sys.exit(0)
+if c == "peek": print("pending=%s scanned=1 lineage=0" % os.environ.get("R1520_PEND", "0")); sys.exit(int(os.environ.get("R1520_PEEK_RC", "0")))
 if os.environ.get("R1520_CC") == "ok": print("CLOSE-OK %s stub" % seat); sys.exit(0)
 print("REJECT %s [인계] 없음 — bash mbox.sh handover %s <후계>" % (seat, seat)); sys.exit(3)
 PY
@@ -86,5 +86,10 @@ echo "== ⑧ 첫 갈래 회귀(close-check CLOSE-OK · 생존 구좌석 · 계�
 mkseats lineage; mksess "$S0"; mksess "$S1"; : > "$TMP/resume/$S0.json"; R1520_CC=ok run "$S0"
 chk "⑧ rc0 · CLOSED-SESSION kill=ok · dead-seat 0" "$rc $(grep -c '^CLOSED-SESSION.*kill=ok' <<<"$L1") $(grep -c 'dead-seat' <<<"$out")" "0 1 0"
 chk "⑧ 옛 세션 gone · 후계 up" "$(up "$S0") $(up "$S1")" "gone up"
+
+echo "== ⑨ peek 실패(rc 42 · stdout pending=0) → 판정 불가 멈춤 · retire 0 · 명부 쓰기 0 (DA#10 R1)"
+mkseats normal; R1520_PEEK_RC=42 run "$O"
+chk "⑨ rc1 · 판정 불가 미처리 보존 · CLOSED 0" "$rc $(grep -c 'dead-seat 판정 불가 미처리 보존' <<<"$L1") $(grep -c '^CLOSED' <<<"$out")" "1 1 0"
+chk "⑨ 명부 쓰기 0 · kill 0 · retire 0" "$(noop "$O") $(cat "$TMP/retire.log" 2>/dev/null | wc -l | tr -d ' ')" "0 0 0 0"
 
 echo; if [ "$fail" -eq 0 ]; then echo "ALL PASS"; exit 0; fi; echo "FAILED $fail"; exit 1
