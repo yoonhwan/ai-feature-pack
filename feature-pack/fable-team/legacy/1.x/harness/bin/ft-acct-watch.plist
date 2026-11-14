@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- r2001 ft-acct-watch launchd 템플릿 — 설치는 master [HIL](새 launchd 잡). 표식 __SCRIPT__(LIVE_BIN 의 ft-acct-watch.sh) · __ROOT__(공용 루트) · __COMM__(공용 루트 comm) 를
+     값으로 넣어 ~/Library/LaunchAgents/com.byz.ft-acct-watch.plist 로 쓴 뒤 plutil -lint → bootstrap. 직접 bootstrap 하지 않는다(치환 전).
+     안내 대상이 명부(_hil_route/_master)에 없으면 EnvironmentVariables 에 FT_TICK_ACCT_NOTIFY(공백 목록)를 더한다. 되돌림 = bootout + plist 삭제. -->
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.byz.ft-acct-watch</string>
+  <key>ProgramArguments</key><array>
+    <string>/opt/homebrew/bin/bash</string>
+    <string>__SCRIPT__</string>
+    <string>--root</string>
+    <string>__ROOT__</string>
+  </array>
+  <key>WorkingDirectory</key><string>__ROOT__</string>
+  <key>EnvironmentVariables</key><dict>
+    <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>LANG</key><string>ko_KR.UTF-8</string>
+    <key>FT_TICK_MBOX</key><string>__COMM__/mbox.sh</string>
+    <key>FT_MBOX_DIR</key><string>__COMM__</string>
+  </dict>
+  <key>StartInterval</key><integer>300</integer>
+  <key>RunAtLoad</key><true/>
+  <key>ProcessType</key><string>Background</string>
+  <key>StandardOutPath</key><string>/tmp/ft-acct-watch.log</string>
+  <key>StandardErrorPath</key><string>/tmp/ft-acct-watch.log</string>
+</dict></plist>

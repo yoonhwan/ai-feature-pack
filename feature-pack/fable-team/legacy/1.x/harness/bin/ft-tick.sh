@@ -1553,7 +1553,7 @@ prep_seats() {
 pass_core() {
   local rows seat tick role report_to master mok prc
   step outage_watch outage_watch          # r1214 재발: 한도 안전 단계는 바퀴 맨 앞 — 부하로 바퀴가 끊겨도 가장 먼저 돈다(끊김 56/71 이 이 두 단계 앞에서 났다)
-  step acct_pause_watch acct_pause_watch
+  step acct_pause_watch acct_cycle "${ROOT:-$WT}" resume   # r2001: 공통 진입점(루트 잠금 · ft-acct-watch 와 같은 잠금)
   step watch_sample_tick watch_sample_tick
   step autonomy_expire autonomy_expire
   step leak_watch leak_watch
@@ -1626,7 +1626,7 @@ pass() {
   [ "$STEPS_ON" != 1 ] || { PASS_T0="${FT_TICK_PASS_T0:-$(now)}"; PASS_S0=$SECONDS; STEP_LAST=$SECONDS; }   # 부모가 넘긴 바퀴 시작 epoch(없으면 지금) = 첫 단계 시작
   pass_core; prc=$?
   step teammain_render teammain_render   # r1320: 바퀴 끝 — 좌석 명부(rows)와 무관하게 돈다(현역 좌석 0 이어도 팀 메인은 최신)
-  step acct_notice acct_notice
+  step acct_notice acct_cycle "${ROOT:-$WT}" notice   # r2001: 공통 진입점
   if [ "$DRY" = 1 ]; then trigger_watch; else step trigger_watch trigger_watch; fi   # DRY 는 «DRY kind=trigger-watch» 1줄만 · 단계 수(DRY n=)엔 안 센다
   steps_done
   return "$prc"

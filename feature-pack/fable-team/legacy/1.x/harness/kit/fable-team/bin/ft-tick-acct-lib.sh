@@ -126,11 +126,12 @@ acct_notice() {
   # 명부가 <루트>/.fable-team/seats.json 꼴이 아니면(임시 명부 시험) 실 계정 조회를 부르지 않는다 — 도구를 FT_TICK_ACCT_BIN 으로 직접 지정한 시험만 예외(model_swap 과 같은 틀)
   [ -n "${FT_TICK_ACCT_BIN:-}" ] || { [ "$(basename "$SEATS")" = seats.json ] && [ "$(basename "$(dirname "$SEATS")")" = .fable-team ]; } || return 0
   local sd="$STATE_DIR/acct-notice" notify nowe real left lim jf rc rows astate apio ACCT_POST_DL
-  local P av tot early reset repiso K ua uah ub ubh key human cause chk crc pf rid rrid rcause sout src rel why t fail changed body defer=0 c2 held holdwait=0
+  local P av tot early reset repiso K ua uah ub ubh key human cause chk crc pf rid rrid rcause sout src rel why t fail changed body defer=0 c2 held holdwait=0 tok
   local -a pk=() hs=() ss=() acts=() targets=()
   notify="${FT_TICK_ACCT_NOTIFY:-$(python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));print(" ".join(dict.fromkeys(x for x in (d.get("_hil_route"),d.get("_master")) if isinstance(x,str) and x)))' "$SEATS" 2>/dev/null)}"
   if [ "$DRY" = 1 ]; then echo "DRY kind=acct-notice bin=$ACCT_BIN pause=$ACCT_PAUSE notify=${notify:--}"; return 0; fi
   nowe="${FT_TICK_ACCT_NOW:-$(now)}"
+  acct_me; tok="acct-auto:$(basename "${ROOT:-$WT}"):$nowe-$ACCT_ME"   # r2001 ⓑ: 이번 시도 id — set 마다 --set-by 로 남기고, set 결과가 불명이면 이 값으로만 소유를 확인한다
   # ⓪ 주기 — 지난 실행 뒤 INTERVAL 미만이면 건너뜀(틱이 몇 종류든 10분에 1회)
   left=$(( nowe - $(read_stamp "$sd/last-run") ))
   if [ -f "$sd/last-run" ] && [ "$left" -lt "${FT_TICK_ACCT_INTERVAL:-600}" ]; then log "acct_notice: skip ${left}s"; return 0; fi
@@ -160,13 +161,17 @@ acct_notice() {
     case "$crc" in
       0) [ ! -f "$pf" ] || { rm -f "$pf"; log "acct_notice: $P 정지 이미 끝남 — 기록 삭제"; }
          if [ -n "$cause" ]; then
-           if [ "$cause" = a ]; then rel=""; [ "$repiso" = "—" ] || rel="$repiso"; why="a"; sout="$(acct_pause_run set --provider "$P" --until "$ua" ${rel:+--release-at "$rel"} --reason "acct_notice 자동(a): $human" 2>&1)"; src=$?
-           else why="b"; sout="$(acct_pause_run set --provider "$P" --until "$ub" --reason "acct_notice 자동(b): $human" 2>&1)"; src=$?; fi
+           if [ "$cause" = a ]; then rel=""; [ "$repiso" = "—" ] || rel="$repiso"; why="a"; sout="$(acct_pause_run set --provider "$P" --until "$ua" ${rel:+--release-at "$rel"} --reason "acct_notice 자동(a): $human" --set-by "$tok" 2>&1)"; src=$?
+           else why="b"; sout="$(acct_pause_run set --provider "$P" --until "$ub" --reason "acct_notice 자동(b): $human" --set-by "$tok" 2>&1)"; src=$?; fi
            rid="$(printf '%s\n' "$sout" | sed -n 's/.*round=\([^ ]*\).*/\1/p' | head -1)"
            held=""; [ "$src" != 1 ] || held="$(printf '%s\n' "$sout" | sed -n 's/.*항목이 이미 있다(round=\([^)]*\)).*/\1/p' | head -1)"   # r1258: 옛 회차가 남아 있다(RELEASING·만료 대기)는 도구의 거절 = 정상 상태
-           if [ -z "$held" ] && { [ "$src" != 0 ] || [ -z "$rid" ]; }; then   # 끊김·실패 → 도구가 정지를 걸었는지 확인(별도 2초 · 방금 «없음» 이었으니 지금 있으면 내 회차)
+           if [ -z "$held" ] && { [ "$src" != 0 ] || [ -z "$rid" ]; }; then   # 끊김·실패 → 도구가 정지를 걸었는지 확인(별도 2초)
              chk="$(timeout 2 bash "$ACCT_PAUSE" status --check "$P" 2>&1)"; c2=$?
-             if [ "$c2" = 3 ]; then rid="$(printf '%s\n' "$chk" | sed -n 's/.*round=\([^ ]*\).*/\1/p' | head -1)"; src=0; fi
+             # r2001 ⓑ: «지금 보인다 = 내 회차» 채택 0 — ACCT_PAUSE 항목의 set_by 가 이번 시도 id 일 때만 그 round 를 소유로 쓴다(다르거나 못 읽음 = 소유 기록 0 · 다음 판)
+             if [ "$c2" = 3 ]; then
+               if [ "$(acct_entry_field "$P" set_by)" = "$tok" ]; then rid="$(acct_entry_field "$P" round_id)"; [ -z "$rid" ] || src=0
+               else rid=""; log "acct_notice: $P set 결과 불명 · 지금 항목은 이번 시도가 아님(손·다른 주체·판독 불가) — 소유 기록 0 · 다음 판"; fi
+             fi
            fi
            if [ -n "$held" ]; then
              acct_held_note "$sd" "$P" "$held"; holdwait=1; acts+=("재정지 대기"); ss+=("$P 재정지 대기($held)")
@@ -182,7 +187,10 @@ acct_notice() {
          rrid="$(printf '%s\n' "$chk" | sed -n 's/.*round=\([^ ]*\).*/\1/p' | head -1)"
          rcause="$([ -f "$pf" ] && sed -n 's/.*"cause": *"\([ab]\)".*/\1/p' "$pf" | head -1)"
          rid="$([ -f "$pf" ] && sed -n 's/.*"round_id": *"\([^"]*\)".*/\1/p' "$pf" | head -1)"
-         if [ -n "$rid" ] && [ "$rid" = "$rrid" ]; then
+         if [ -n "$rid" ] && [ "$rid" = "$rrid" ] && ! acct_auto_entry "$P"; then   # r2001 ⓒ: 지금 항목이 자동(set_by acct-auto:)이 아니면 소유 기록이 맞아도 clear 0
+           log "acct_notice: $P 지금 항목 set_by 가 자동 아님 — clear 0(손 정지 보존)"
+           acts+=("유지"); ss+=("$P 있음 until $(printf '%s\n' "$chk" | sed -n 's/.*until_hhmm=\([0-9:]*\).*/\1/p' | head -1)(손)")
+         elif [ -n "$rid" ] && [ "$rid" = "$rrid" ]; then
            if { [ "$rcause" = a ] && { [ "$av" -ge 1 ] || { [ "$tot" -gt 0 ] && [ $(( tot - K )) -lt 1 ]; }; }; } || { [ "$rcause" = b ] && [ "$apio" = OK ]; }; then
              sout="$(acct_pause_run clear --provider "$P" --round "$rid" 2>&1)"; src=$?
              case "$src" in
@@ -217,5 +225,62 @@ acct_notice() {
     if [ "$fail" = 0 ]; then for t in "${pk[@]}"; do printf '%s\n' "${t#*$'\t'}" > "$sd/last-${t%%$'\t'*}.txt"; done; else changed=0; fi
   fi
   log "acct_notice: $(acct_join ' / ' "${hs[@]}") · 안내 $changed · 정지 $(acct_join , "${acts[@]}")"
+  return 0
+}
+
+# ── r2001 공통 진입점 acct_cycle (ft-tick 바퀴 · ft-acct-watch 5분 잡 공용 · 판정 DA#10 #304257) ─────────────────────
+#   acct_cycle <루트> [all|resume|notice] — 루트별 잠금 <루트>/.fable-team/state/acct-notice/cycle.lock(mkdir · 대기 0) 안에서만
+#   재개(acct_pause_watch) → 예측·정지·풀림(acct_notice) 을 돈다. 못 잡으면 쓰기 0 + 로그 1줄 + 다음 판. 다른 루트 = 다른 잠금.
+#   잠금 = 잡은 주체가 정상·실패 모두 닫는다(acct_lock_drop) · 끊긴 주체(KILL)의 잠금은 owner(pid·시작 시각)가 죽었을 때만 회수 —
+#   살아 있는 남의 잠금 삭제 0 · owner 를 쓰기 전 잠금(빈 폴더)은 FT_ACCT_LOCK_ORPHAN_SEC(120)초가 지나야 회수.
+#   소유 기록·주기 표식(STATE_DIR/acct-notice/)은 그대로 쓴다(이관 0) · DRY 는 잠금 없이 DRY 줄만.
+acct_me() { ACCT_ME="${BASHPID:-}"; [ -n "$ACCT_ME" ] || ACCT_ME="$(exec sh -c 'echo $PPID')"; }   # 지금 셸(배경 바퀴 subshell 포함)의 pid → ACCT_ME · 명령 치환 안에서 부르지 않는다
+acct_entry_field() {   # $1 provider $2 칸 → ACCT_PAUSE 항목의 그 칸(문자열) · 판독 실패·없음 = 빈 줄 rc1
+  python3 -c 'import json,sys
+e=(json.load(open(sys.argv[1])) or {}).get(sys.argv[2])
+v=e.get(sys.argv[3]) if isinstance(e,dict) else None
+print(v if isinstance(v,str) else ""); sys.exit(0 if isinstance(v,str) and v else 1)' "$ACCT_FILE" "$1" "$2" 2>/dev/null
+}
+acct_auto_entry() { case "$(acct_entry_field "$1" set_by)" in acct-auto:*) return 0;; *) return 1;; esac; }   # $1 provider → rc0 = 자동 주체가 건 항목
+acct_proc_start() { ps -o lstart= -p "$1" 2>/dev/null | sed 's/^ *//'; }
+acct_lock_take() {   # $1 잠금 폴더 → rc0 잡음(ACCT_LOCK_HELD) · rc1 못 잡음(로그 1줄 · 쓰기 0)
+  local l="$1" me st opid ost m age stale
+  acct_me; me="$ACCT_ME"; st="$(acct_proc_start "$me")"
+  mkdir -p "$(dirname "$l")" 2>/dev/null
+  if ! mkdir "$l" 2>/dev/null; then
+    opid=""; ost=""; IFS=$'\t' read -r opid ost _ 2>/dev/null < "$l/owner"
+    if [ -n "$opid" ]; then
+      if kill -0 "$opid" 2>/dev/null && [ "$(acct_proc_start "$opid")" = "$ost" ]; then log "acct_cycle: 잠금 사용 중(pid=$opid) — 쓰기 0 · 다음 판"; return 1; fi
+    else
+      m="$(stat -f %m "$l" 2>/dev/null || stat -c %Y "$l" 2>/dev/null)"; age=$(( $(date +%s) - ${m:-0} ))
+      [ -n "$m" ] || { log "acct_cycle: 잠금 판정 불가($l) — 쓰기 0 · 다음 판"; return 1; }
+      [ "$age" -ge "${FT_ACCT_LOCK_ORPHAN_SEC:-120}" ] || { log "acct_cycle: 잠금 owner 쓰는 중(${age}s) — 쓰기 0 · 다음 판"; return 1; }
+    fi
+    stale="$l.stale.$me.$RANDOM"   # 회수 = 옮기고(원자) → 옮긴 것이 «방금 본 죽은 owner» 인지 다시 보고 → 아니면 되돌린다
+    mv "$l" "$stale" 2>/dev/null || { log "acct_cycle: 잠금 회수 경쟁 — 쓰기 0 · 다음 판"; return 1; }
+    m=""; IFS=$'\t' read -r m _ 2>/dev/null < "$stale/owner"
+    if [ "$m" != "$opid" ]; then mv "$stale" "$l" 2>/dev/null; log "acct_cycle: 잠금 주인이 바뀜 — 회수 0 · 다음 판"; return 1; fi
+    rm -rf "$stale"; log "acct_cycle: 끊긴 주체 잠금 회수(pid=${opid:-없음})"
+    mkdir "$l" 2>/dev/null || { log "acct_cycle: 회수 뒤 잠금 경쟁 — 쓰기 0 · 다음 판"; return 1; }
+  fi
+  printf '%s\t%s\t%s\n' "$me" "$st" "${ACCT_LOCK_WHO:-acct}" > "$l/owner" 2>/dev/null
+  ACCT_LOCK_HELD="$l"; return 0
+}
+acct_lock_drop() {   # 내가 잡은 잠금만 닫는다(owner pid = 나) · 여러 번 불러도 안전
+  local l="${ACCT_LOCK_HELD:-}" own=""
+  [ -n "$l" ] || return 0
+  IFS=$'\t' read -r own _ 2>/dev/null < "$l/owner"
+  acct_me; [ "$own" = "$ACCT_ME" ] && rm -rf "$l" 2>/dev/null
+  ACCT_LOCK_HELD=""; return 0
+}
+acct_cycle() {   # $1 루트 · $2 = all(재개 → 안내) | resume | notice
+  local root="${1:-${ROOT:-$WT}}" ph="${2:-all}"
+  if [ "$DRY" != 1 ]; then acct_lock_take "$root/.fable-team/state/acct-notice/cycle.lock" || return 0; fi
+  case "$ph" in
+    resume) acct_pause_watch;;
+    notice) acct_notice;;
+    *) acct_pause_watch; acct_notice;;
+  esac
+  [ "$DRY" = 1 ] || acct_lock_drop
   return 0
 }
