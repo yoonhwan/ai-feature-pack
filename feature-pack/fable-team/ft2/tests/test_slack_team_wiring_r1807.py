@@ -48,7 +48,7 @@ def _wakes(root, to=None):
 
 
 def _listener(root, posts):
-    def web(method, token, params=None, retry=True):
+    def web(method, token, params=None, retry=True, **budget):  # r1923 연결 deadline 인자
         posts.append(dict(params or {}))
         return {"ok": True, "ts": "1800000099.%06d" % len(posts)}
     return _load("socket").Listener(str(root), channel=C, app_token="xapp-FAKE", bot_token="xoxb-FAKE",

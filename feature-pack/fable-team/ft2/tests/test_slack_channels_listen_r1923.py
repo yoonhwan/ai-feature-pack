@@ -1,6 +1,6 @@
 """r1923 Slack 듣기 목록 CHANNELS — 가입 채널 자동 발견(A hello · B 봇 가입)·공식 채널 등록/삭제·채널 owner 라우팅 시험.
 반례 ①~⑰(DA 보정 R1 예산·R2 snapshot·B 종류·MPDM 포함) · 임시 root · 가짜 ws·web·깨움 · 실 Slack·launchd·우편함 0 · sleep 0."""
-import importlib.util, json, os, sys, uuid  # noqa: E401
+import importlib.util, json, os, shlex, sys, uuid  # noqa: E401
 import pytest
 
 SLACK = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "adapters", "slack")
@@ -19,11 +19,16 @@ def _load(name):
 sock = _load("socket")
 
 
-@pytest.fixture
-def env(tmp_path, monkeypatch):  # 고유 하위 root — 통과 시험 tmp 폴더 이름 재사용 시 listen.log logger(경로 이름 캐시) 엇갈림 방지
-    (fable := (tmp_path := tmp_path / uuid.uuid4().hex[:8]) / ".fable-team").mkdir(parents=True)
+def _seed(root):  # 명부 2개 — 수신기 root 1곳
+    (fable := root / ".fable-team").mkdir(parents=True)
     (fable / "seats-planner.json").write_text(json.dumps({"_master": MASTER, "_desk": DESK}), encoding="utf-8")
     (fable / "seats-issues.json").write_text(json.dumps({"_master": "byz-issues-master-sol#1"}), encoding="utf-8")
+    return root
+
+
+@pytest.fixture
+def env(tmp_path, monkeypatch):  # 고유 하위 root — 통과 시험 tmp 폴더 이름 재사용 시 listen.log logger(경로 이름 캐시) 엇갈림 방지
+    _seed(tmp_path := tmp_path / uuid.uuid4().hex[:8])
     (tmp_path / "aifp.json").write_text(json.dumps({"_master": AIFP}), encoding="utf-8")
     (tmp_path / "roots.tsv").write_text("# 명부\n", encoding="utf-8")
     (script := tmp_path / "wake.py").write_text(WAKE, encoding="utf-8")
@@ -73,11 +78,15 @@ class WS:
 
 
 class Web:  # rounds = hello 마다 쪽 목록 1벌([(ID, 이름)] 쪽들) · fail = 발견 예외 · info = 채널별 conversations.info 덧칸
-    def __init__(self, *rounds, fail=None, info=None, clock=None):
+    def __init__(self, *rounds, fail=None, info=None, clock=None, cost=None):  # cost = 메서드별 가짜 소요 초(clock 전진)
         self.rounds, self.fail, self.info, self.clock, self.calls, self.posts = list(rounds), fail, info or {}, clock, [], []
+        self.cost, self.deadlines = cost or {}, []
     def __call__(self, method, token, params=None, retry=True, **budget):
         params = params or {}
         self.calls.append((method, params.get("channel")))
+        self.deadlines.append((method, budget.get("deadline")))
+        if self.clock:
+            self.clock[0] += self.cost.get(method, 0)
         if method == "apps.connections.open":
             return {"ok": True, "url": "ws://fake"}
         if method == "chat.postMessage":
@@ -87,8 +96,6 @@ class Web:  # rounds = hello 마다 쪽 목록 1벌([(ID, 이름)] 쪽들) · fa
             return {"ok": True, "channel": dict({"is_member": True, "is_channel": True, "name": "n"}, **self.info.get(params["channel"], {}))}
         if self.fail:
             raise self.fail
-        if self.clock:
-            self.clock[0] = 51  # 느린 발견 = hello 예산 끝
         pages, at = (self.rounds[0] if self.rounds else [[]]), int(params.get("cursor") or 0)
         if at + 1 >= len(pages) and self.rounds and len(self.rounds) > 1:
             self.rounds.pop(0)
@@ -123,7 +130,7 @@ def test_1_hello_discovers_joined_and_binds_new_channel(env):  # ① + M1
 
 def test_1b_hello_budget_end_no_more_web_keeps_listening(env):  # ① R1 + M8 — 예산 끝 뒤 info 0 · 명시 행 수신 계속
     clock = [0]
-    web = Web([[("C2", "a")]], clock=clock)
+    web = Web([[("C2", "a")]], clock=clock, cost={"users.conversations": 51})
     li = _li(env, web, [HELLO, _msg("1800000001.000200", M)], mono=lambda: clock[0])
     assert li.run(sessions=1) == 0 and [c for c in web.calls if c[0] == "conversations.info"] == []
     assert "판정 불가 hello 예산 끝" in _log(env)
@@ -168,6 +175,15 @@ def test_6_snapshot_replaces_auto_and_left(env):  # ⑥ R2 + M7 — 끊긴 동�
              [HELLO, _ev("channel_left", "C4", user=None), _ev("channel_left", ADM, user=None)])
     assert li.run(sessions=2) == 0 and li.chan.allowed == {M, ADM, "C3"}
     assert "수신 불가 채널 %s" % ADM in _log(env) and [r[0] for r in _rows(env, "CHANNELS")] == [M, ADM, "C3"]
+
+
+def test_1c_budget_starts_before_connections_open(env):  # DA impl R1 — 연결 전 시계 1개(합 50초) · hello 재설정 0
+    clock = [0]
+    web = Web([[("C2", "a")]], clock=clock, cost={"apps.connections.open": 30, "users.conversations": 25})
+    li = _li(env, web, [HELLO, _msg("1800000001.000300", M)], mono=lambda: clock[0])
+    assert li.run(sessions=1) == 0 and [c for c in web.calls if c[0] == "conversations.info"] == []
+    assert [d for m, d in web.deadlines if m in ("apps.connections.open", "users.conversations")] == [50, 50]
+    assert "판정 불가 hello 예산 끝" in _log(env) and [r["state"] for r in _rows(env, "receive.jsonl")] == ["received", "dispatched"]
 
 
 def _cmd(ts, text, user=U, **extra):
@@ -217,14 +233,16 @@ def test_14_seed_once_file_wins_corrupt_undecided(env, capsys):  # ⑭
     assert sock.main(argv) == 3 and "CHANNELS 없음" in capsys.readouterr().out
 
 
-def test_15_22_owner_roster_routes_to_other_team(env):  # ⑮ ㉒ + M10·M13 — binding·wake = 명부 좌석 · 답글 줄 = 수신기 root
-    _write(env, *BASE, ["C0X", "aifp", "on", "req", str(env / "aifp.json") + "#_master"])
-    li = _li(env, Web([[]]), [HELLO, _msg("1800000015.000100", "C0X"), _msg("1800000015.000200", M)])
-    assert li.run(sessions=1) == 0 and [b["seat"] for b in _rows(env, "bindings.jsonl")] == [AIFP, MASTER]
-    assert len(_wakes(env, AIFP)) == 1 and _wakes(env, DESK) == []
-    tail = _wakes(env, AIFP)[0][-1].splitlines()[-1]
-    assert tail.startswith("답글: ft2 slack reply --root %s --team planner --thread 1800000015.000100 --command slack:" % env)
-    assert tail.endswith("--seat %s --body-file <파일>" % AIFP) and "답글:" not in _wakes(env, MASTER)[0][-1]
+def test_15_22_owner_roster_routes_to_other_team(env):  # ⑮ ㉒ + M10·M13 · DA impl R2 — 공백 root 도 실제 argv 1칸
+    root = _seed(env / "receiver with space")
+    _write(root, *BASE, ["C0X", "aifp", "on", "req", str(env / "aifp.json") + "#_master"])
+    li = _li(root, Web([[]]), [HELLO, _msg("1800000015.000100", "C0X"), _msg("1800000015.000200", M)])
+    assert li.run(sessions=1) == 0 and [b["seat"] for b in _rows(root, "bindings.jsonl")] == [AIFP, MASTER]
+    assert len(_wakes(env, AIFP)) == 1 and _wakes(env, DESK) == [] and "답글:" not in _wakes(env, MASTER)[0][-1]
+    argv = shlex.split(_wakes(env, AIFP)[0][-1].splitlines()[-1])
+    assert argv[:6] == ["답글:", "ft2", "slack", "reply", "--root", str(root)] and argv[6:10] == [
+        "--team", "planner", "--thread", "1800000015.000100"] and argv[11].startswith("slack:")
+    assert argv[10] == "--command" and argv[12:] == ["--seat", AIFP, "--body-file", "<파일>"]
 
 
 def test_16_owner_roster_unreadable_no_bind_desk_alert(env):  # ⑯ — 묶기 0 · 판정 불가 1 · desk 알림 1 · planner 대체 0
