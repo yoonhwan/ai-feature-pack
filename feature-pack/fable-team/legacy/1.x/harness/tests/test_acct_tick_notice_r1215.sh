@@ -52,6 +52,8 @@ cat > "$T/mbox.sh" <<'EOF'
 printf '%s\t%s\n' "$2" "$4" >> "$FAKE_DIR/mbox.log"; echo "QUEUED seq=1"
 EOF
 chmod +x "$T/fc.sh" "$T/pause.sh" "$T/mbox.sh"
+# r2001 ⓒ: 가짜 정지 도구의 «지금 항목» = 자동 주체가 건 항목(set_by acct-auto:) — clear 는 자동 항목에만 간다(손 정지 보존은 test_acct_watch_r2001 이 실도구로 본다)
+echo '{"claude": {"set_by": "acct-auto:t:1-1", "round_id": "R1"}, "antigravity": {"set_by": "acct-auto:t:1-1", "round_id": "R1"}}' > "$T/auto-pause.json"
 echo '{"_master": null}' > "$T/seats.json"
 
 # JSON 만들기: mk <파일> <풀> <가용> <계정수> <earliest ISO|null> <pool_reset ISO|null> [불명 K]
@@ -75,7 +77,7 @@ lap() {
     FT_TICK_AUTONOMY=0 FT_TICK_LEAK_REAP=0 FT_TICK_HIL=0 FT_TICK_LIVE_SNAPSHOT=0 FT_TICK_RESUME=0 FT_TICK_IDLE_ENABLED=0 FT_TICK_IDLE_LONG=0 \
     FT_TICK_API_OUTAGE=0 FT_MODEL_SWAP=0 FT_TICK_DRIFT=0 FT_TICK_RAISED=0 FT_TICK_RENAMED=0 FT_TICK_QUEUE_FULL=0 FT_TICK_QUEUE=0 \
     FT_TICK_LAUNCHD=0 FT_TICK_MAGAZINE=0 FT_TICK_NEWS_LEDGER=0 FT_TICK_NEWS_WATCH=0 FT_TICK_WT_SWEEP=0 FT_TICK_UNPUSHED=0 \
-    FT_TICK_WATCH_SAMPLE=0 FT_TICK_ACCT_PAUSE=0 "$@" \
+    FT_TICK_WATCH_SAMPLE=0 FT_TICK_ACCT_PAUSE=0 FT_TICK_ACCT_PAUSE_FILE="$T/auto-pause.json" "$@" \
     bash "$TICK" --once > "$d/out.log" 2> "$d/err.log"
   echo $? > "$d/rc"
 }
