@@ -6,8 +6,8 @@
 #   Working: IDLE = seat-resume 기록 jsonl 의 마지막 assistant «뒤» 턴 종료(claude system/turn_duration·stop_hook_summary · pi stopReason=stop · turn_end) ∧ pane 자손 0 ·
 #     WORKING = 턴 종료 없음 ∧ 자손≠0(초 무관) · 그 밖 = 판정 불가 멈춤 · tmux 세션 없음 = Working 만 건너뜀
 #   S1 세션 cron: 기계 근거 못 찾음(§9 ① · jsonl 에 cron 생성 tool_use 실측 0건) → «좌석 닫기 = cron 종료» 1줄 · launchd bootout·ft-pm-watchd --stop-if-owned = h 안
-#   --confirm <plan>(h 끝 줄 · S5): has-session ≤3회 · 명부 stop-ready/_closed · launchd 0 → CLOSEOUT «닫힘» 1줄 커밋·push + planner [종료] 1통 · 남으면 «S5 잔존» rc 1 · 멱등
-#   rc 0 = h 등록 · 1 = 전체 멈춤 · 2 = usage · 3 = 판정 불가 섞임 · 외부 호출 1회 7초 + 재시도 1 · env(시험): FT_REPO_ROOT FT_STOP_{REF,STATE,ME,GAP,REPORT_TO}
+#   --confirm <plan>(h 끝 줄 · S5): plan 의 closed·clone·멈춤 세션 ≤3회 · 팀 명부 전 행 stop-ready/_closed · launchd 0 → 닫힘 1줄 커밋·push + [종료] 1통 · 남으면 «S5 잔존» rc1 · 이미 닫힘 = 송신 0
+#   rc 0 = h 등록 · 1 = 전체 멈춤(upstream main = 거절) · 2 = usage · 3 = 판정 불가(카드 판독·tmux 7s · 섞임) · 외부 호출 1회 7초 + 재시도 1 · env(시험): FT_REPO_ROOT FT_STOP_{REF,STATE,ME,GAP,REPORT_TO}
 #     FT_SEATS_JSON FT_TMUX FT_MBOX_SH FT_HIL FT_PM_WATCHD FT_LAUNCHAGENTS FT_LAUNCHCTL ZC_RESUME_DIR HIL_DIR · 재진입 가드 FT_TEAM_STOP_IN
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -30,44 +30,45 @@ SAT=0; PACK="${FT_PACK_ROOT:-$HOME/Project/ai-feature-pack}"; DROOT="$ROOT"; WRO
 STATE="${FT_STOP_STATE:-$ROOT/.fable-team/state/team-stop}"; HD="${HIL_DIR:-/tmp}"
 TM="${FT_TMUX:-tmux}"; MB="${FT_MBOX_SH:-$ROOT/.fable-team/comm/mbox.sh}"; ME="${FT_STOP_ME:-${FT_SEND_FROM:-ft-team-stop}}"
 RC=0; T0=$SECONDS; TS=(); step() { TS+=("$1=$((SECONDS - $2))s"); }
-STOP() { echo "멈춤 ${LIBCTX:+명부 판정 불가 ${SEATS:-?} — }$*"; exit 1; }
+STOP() { echo "멈춤 ${LIBCTX:+명부 판정 불가 ${SEATS:-?} — }$*"; exit 1; }; UNK() { echo "판정 불가 $*"; exit 3; }   # 하드 룰 20
 LIBCTX=1; [ -f "$HERE/ft-team-seats-lib.sh" ] || STOP "lib 없음 $HERE/ft-team-seats-lib.sh"
 . "$HERE/ft-team-seats-lib.sh"; LIBCTX=""   # SEATS · OLD(= 팀장) · tick_launchd_loaded (r1535 · 복사 0)
 q() { local v="${1//\'/\'\\\'\'}"; printf "'%s'" "$v"; }   # 사람이 읽는 h — 작은따옴표 인용(한글 그대로)
-tls() {  # 세션|pane_pid 줄 — 서버 없음 = 빈 값 · 그 밖 실패 = rc 1(판정 불가 · 하드 룰 20)
-  local o r; o="$("$TM" list-panes -a -F '#{session_name}|#{pane_pid}' 2>&1 </dev/null)"; r=$?
-  [ "$r" -eq 0 ] && { printf '%s\n' "$o"; return 0; }
-  case "$o" in *"no server running"*|*"No such file or directory"*) return 0;; esac; return 1; }
+tls() {  # 세션|pane_pid 줄 — 1회 7초 + 재시도 1(push7 꼴 · R4) · 서버 없음 = 빈 값 · 둘 다 실패 = rc 1(판정 불가)
+  local o r t; for t in 1 2; do o="$(perl -e 'alarm 7; exec @ARGV' "$TM" list-panes -a -F '#{session_name}|#{pane_pid}' 2>&1 </dev/null)"; r=$?
+    [ "$r" -eq 0 ] && { printf '%s\n' "$o"; return 0; }; case "$o" in *"no server running"*|*"No such file or directory"*) return 0;; esac; done; return 1; }
+upchk() {  # R5 — upstream 이 main(또는 원격 기본 가지)이면 거절 · 허용 = 그 밖 upstream 만
+  local d; u="$(git -C "$ROOT" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null)" || { PRC="upstream 없음"; return 1; }; d="$(git -C "$ROOT" symbolic-ref -q --short "refs/remotes/${u%%/*}/HEAD" 2>/dev/null)"
+  case "${u#*/}" in main|"${d#*/}") PRC="거절 main 직접 push — 정본 가지(ops/main-base·팀 가지)에서 실행(upstream $u)"; return 1;; esac; }
 push7() {  # 현재 가지의 upstream 으로 push 1회 7초 + 재시도 1(하드 룰 12) · 착지 호출 0
-  local u t=0; u="$(git -C "$ROOT" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null)" || { PRC="upstream 없음"; return 1; }
+  local u t=0; upchk || return 1
   while :; do t=$((t+1)); perl -e 'alarm 7; exec @ARGV' git -C "$ROOT" push -q "${u%%/*}" "HEAD:${u#*/}" >/dev/null 2>&1 </dev/null; PRC=$?
     [ "$PRC" -eq 0 ] || [ "$t" -ge 2 ] || continue; break; done; [ "$PRC" -eq 0 ]; }
-commit_push() {  # <파일> <메시지> — 그 파일만 커밋(다른 staged 는 그대로) · 바뀐 것 없으면 커밋 0 · push 는 언제나 1회
-  git -C "$ROOT" add -- "$1" || { PRC="add rc=$?"; return 1; }
+commit_push() {  # <파일> <메시지> — upstream 확인 먼저(R5 · 커밋 0) · 그 파일만 커밋 · 바뀐 것 없으면 커밋 0 · push 1회
+  local u; upchk || return 1; git -C "$ROOT" add -- "$1" || { PRC="add rc=$?"; return 1; }
   git -C "$ROOT" diff --cached --quiet -- "$1" || git -C "$ROOT" commit -q -m "$2" -- "$1" >/dev/null || { PRC="commit rc=$?"; return 1; }
   push7; }
 # ---------- S5 확인 (--confirm · h 끝 줄) ----------
 if [ -n "$CONFIRM" ]; then
-  LEFT=(); NM="$(sed -nE 's/^# (closed|clone) //p' "$CONFIRM")"
+  CO="$(sed -n 's/^# ft-team-stop plan .*closeout=\([^ ]*\).*/\1/p' "$CONFIRM" | head -1)"; [ -n "$CO" ] && [ -f "$ROOT/$CO" ] || STOP "S5 CLOSEOUT 못 찾음(${CO:-plan 머리 없음})"
+  ! grep -qF "plan ${CONFIRM##*/}" "$ROOT/$CO" || { echo "이미 닫힘 ${CONFIRM##*/} — [종료] 송신 0(보고 1통 유지 · R3)"; exit 0; }
+  LEFT=(); NM="$(sed -nE 's/^# (closed|clone) //p; s/^# 멈춤 ([^ ]+) .*/\1/p' "$CONFIRM")"   # R1: closed·clone + held(멈춤) 좌석
   while IFS= read -r n; do [ -n "$n" ] || continue; gone=0
-    for t in 1 2 3; do P2="$(tls)" || STOP "S5 tmux 판정 불가(list-panes 실패)"
+    for t in 1 2 3; do P2="$(tls)" || UNK "tmux 7s(S5 list-panes 1회 7초 + 재시도 1)"
       printf '%s\n' "$P2" | cut -d'|' -f1 | grep -qxF -- "$n" || { gone=1; break; }
       [ "$t" -lt 3 ] && sleep "${FT_STOP_GAP:-1}"; done
     [ "$gone" = 1 ] || LEFT+=("세션 $n"); done <<< "$NM"
   CL="$(sed -nE 's/^# closed //p' "$CONFIRM")"
   ST="$(python3 -c 'import json,sys
 d=json.load(open(sys.argv[1],encoding="utf-8"))
-for s in sys.argv[2:]:
-    v=d.get(s)
-    if isinstance(v,dict) and not (v.get("role")=="stop-ready" or v.get("_closed")): print(s)' "$SEATS" $CL)" || STOP "S5 명부 판정 불가 $SEATS"
+for k,v in d.items():
+    if not k.startswith("_") and isinstance(v,dict) and not (v.get("role")=="stop-ready" or v.get("_closed")): print(k)' "$SEATS")" || STOP "S5 명부 판정 불가 $SEATS"   # R1: 팀 명부 전 행
   while IFS= read -r s; do [ -z "$s" ] || LEFT+=("명부 $s"); done <<< "$ST"
   tick_launchd_loaded "$TEAM"; case "$LD_CELL" in 등재*|판정불가*) LEFT+=("launchd com.byz.ft-tick-$TEAM $LD_CELL");; esac
-  [ ${#LEFT[@]} -eq 0 ] || { printf 'S5 잔존 %s\n' "${LEFT[@]}"; echo "멈춤 S5 잔존 ${#LEFT[@]}건 — 재실행 = 같은 plan 으로 남은 것만"; exit 1; }
-  CO="$(sed -n 's/^# ft-team-stop plan .*closeout=\([^ ]*\).*/\1/p' "$CONFIRM" | head -1)"; [ -n "$CO" ] && [ -f "$ROOT/$CO" ] || STOP "S5 CLOSEOUT 못 찾음(${CO:-plan 머리 없음})"
-  if ! grep -qF "plan ${CONFIRM##*/}" "$ROOT/$CO"; then
-    grep -q '^## 닫힘' "$ROOT/$CO" || printf '\n## 닫힘\n\n' >> "$ROOT/$CO"
-    echo "- $(date '+%F %T') S5 확인 — 세션 0 · 명부 닫힘 · launchd 0 · 닫힘 $(printf '%s\n' "$CL" | grep -c .)석 · plan ${CONFIRM##*/}" >> "$ROOT/$CO"
-  fi
+  [ ${#LEFT[@]} -eq 0 ] || { printf 'S5 잔존 %s\n' "${LEFT[@]}"; echo "멈춤 S5 잔존 ${#LEFT[@]}건 — 닫힘 커밋·[종료] 0 · 재실행 = 같은 plan 으로 남은 것만"; exit 1; }
+  upchk || STOP "S5 $PRC"
+  grep -q '^## 닫힘' "$ROOT/$CO" || printf '\n## 닫힘\n\n' >> "$ROOT/$CO"
+  echo "- $(date '+%F %T') S5 확인 — 세션 0 · 명부 닫힘 · launchd 0 · 닫힘 $(printf '%s\n' "$CL" | grep -c .)석 · plan ${CONFIRM##*/}" >> "$ROOT/$CO"
   commit_push "$ROOT/$CO" "[docs] $TEAM CLOSEOUT 닫힘 (ft-team-stop r1518 S5)" || STOP "S5 정본 미착지 $PRC"
   TO="${FT_STOP_REPORT_TO:-$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("_master",""))' "$ROOT/.fable-team/seats-planner.json" 2>/dev/null)}"
   [ -n "$TO" ] || STOP "S5 보고 미도달 — planner 명부 _master 판정 불가"
@@ -89,7 +90,7 @@ PMW="${FT_PM_WATCHD:-$HERE/ft-pm-watchd.sh}"
 if [ -f "$PMW" ]; then echo "S1 ft-pm-watchd --stop-if-owned 은 h 안"; else echo "S1 ft-pm-watchd 없음($PMW) — 정리 줄 0"; PMW=""; fi
 step S1 "$S1"
 # ---------- S2 클론 0 ----------
-S2=$SECONDS; PANES="$(tls)" || STOP "tmux 판정 불가(list-panes 실패)"
+S2=$SECONDS; PANES="$(tls)" || UNK "tmux 7s(list-panes 1회 7초 + 재시도 1 실패) — h 0 · 정본 push 0"
 SESS="$(printf '%s\n' "$PANES" | cut -d'|' -f1 | grep -E "^byz-$TEAM-" | sort -u || true)"
 ACTIVE="$(printf '%s\n' "$ROWS" | awk -F'\t' '$1=="A"{print $2}')"
 bigger() { local b="${1%#*}" n="${1##*#}" s; [[ "$n" =~ ^[0-9]+$ ]] || return 1
@@ -161,7 +162,7 @@ S0=$SECONDS; GOAL3=""; for c in "$CDIR/GOAL-$TEAM.md" "design/$TEAM/GOAL-$TEAM.m
   GOAL3="$(git -C "$ROOT" show "$REF:$c" 2>/dev/null | awk '$0 ~ /^#+ / { inh = ($0 ~ /골/); next } inh && NF { n++; print; if (n >= 3) exit }')"; [ -z "$GOAL3" ] || break; done
 [ -n "$GOAL3" ] || STOP "S0 정본 미착지 골 원문 없음($REF:$CDIR/GOAL-$TEAM.md · design/$TEAM/GOAL-$TEAM.md)"
 CR="$(printf '%s\n' "$ROWS" | sed -n 's/^C	//p')"
-CARDS="$( [ -z "$CR" ] || git -C "$ROOT" ls-tree --name-only "$REF" -- "$CR/진행/" 2>/dev/null | grep '\.md$')"
+CARDS=""; [ -z "$CR" ] || { CARDS="$(perl -e 'alarm 7; exec @ARGV' git -C "$ROOT" ls-tree --name-only "$REF" -- "$CR/진행/" 2>/dev/null)" || UNK "S0 카드 판독 rc=$? — CLOSEOUT 커밋·push 0 · h 0(R2)"; CARDS="$(printf '%s\n' "$CARDS" | grep '\.md$' || true)"; }
 CO="$CDIR/CLOSEOUT-$TEAM-$(date +%Y%m%d).md"; mkdir -p "$ROOT/$CDIR" || STOP "S0 정본 미착지 폴더 $CDIR"
 { echo "# CLOSEOUT $TEAM $(date +%F) — ft-team-stop 자동(r1518) · 사람은 «재개» 칸만 고친다"; echo
   echo "## 골 원문"; echo; printf '%s\n' "$GOAL3"; echo
