@@ -27,7 +27,7 @@ printf '#!/bin/sh\necho "QUIESCED $1 stub left=0"\n' > "$T/bin/ft-seat-quiesce.s
 printf '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n' > "$T/bin/ft-seat-reap.sh"
 for f in ft-nano-close.sh ft-nano-evidence-check.sh ft-nano-cherry-gate.sh ft-nano-superseded-check.sh ft-nano-suspended-check.sh ft-wt-sweep.sh \
          ft-team-lib.sh ft-card-target-lib.sh ft_git_capped.py ft_teamset.py ft_team_lib.py ft-sheet-events.sh ft_sheet_events.py ft_sheet_confirm.py ft_sheet_key.py ft_board_env.py ft_board_mail.py \
-         ft-approval-equiv.sh ft_approval_equiv.py; do cp "$SRC/$f" "$T/bin/"; done
+         ft-approval-equiv.sh ft_approval_equiv.py ft-event-check.sh; do cp "$SRC/$f" "$T/bin/"; done
 export FT_SHEET_ROOT="$T/sheet-root"; mkdir -p "$FT_SHEET_ROOT/.fable-team/state"
 cat > "$T/fake/tmux" <<'EOF'
 #!/usr/bin/env bash
@@ -82,7 +82,7 @@ setup() {  # 세션 0 · 워크트리 0 · 명부 행 · 카드(세트 = SHA0 ·
   gh_json MERGED "{\"oid\":\"$SHAX\"}" "$SHA0"
 }
 close() { run FT_NANO_PREFIX=byz-planner-nano- FT_SEATS_JSON="$REPO/.fable-team/seats-planner.json" FT_NANO_LEDGER="$LEDGER" FT_NANO_FEAT=main \
-  FT_INBOX_ROOT="$T/comm" FT_NANO_IDLE_MIN=0 FT_WT_CLEAN_DIR="$T/wtclean" FT_WT_AUTOCLEAN=0 bash "${CLOSE_BIN:-$T/bin/ft-nano-close.sh}" "$SEAT" --result "$T/result.md" --recv 1 "$@"; }
+  FT_EVENT_DIR="$T/events" FT_INBOX_ROOT="$T/comm" FT_NANO_IDLE_MIN=0 FT_WT_CLEAN_DIR="$T/wtclean" FT_WT_AUTOCLEAN=0 bash "${CLOSE_BIN:-$T/bin/ft-nano-close.sh}" "$SEAT" --result "$T/result.md" --recv 1 "$@"; }
 untouched() {
   [ ! -s "$T/tlog" ] && ok "  └ kill·태그 해제 0" || bad "$1: tmux 변경 $(cat "$T/tlog")"
   jq -e --arg s "$SEAT" 'has($s)' "$REPO/.fable-team/seats-planner.json" >/dev/null && ok "  └ 명부 그대로" || bad "$1: 명부 삭제"
@@ -98,7 +98,7 @@ closed_bf() {  # closed_bf <이름> — 명부 닫힘 · 원장 backfill=1 · ki
 }
 same_as_base() {  # same_as_base <이름> <인자…> — 새 판·기준판 출력(STEP 줄 제외)이 같다
   local name="$1" a b; shift
-  setup; [ -z "${PREP:-}" ] || eval "$PREP"; a="$(close "$@" | grep -v '^STEP ')"
+  setup; [ -z "${PREP:-}" ] || eval "$PREP"; a="$(close "$@" | grep -v '^STEP ' | sed 's/ · 재측정: .*$//')"   # r1474: KILLED 줄 끝 재측정 칸은 기준판에 없다
   setup; [ -z "${PREP:-}" ] || eval "$PREP"; b="$(CLOSE_BIN="$T/basebin/ft-nano-close.sh" close "$@" | grep -v '^STEP ')"; b="${b//$T\/basebin/$T/bin}"   # bin 폴더 이름만 다르다
   [ "$a" = "$b" ] && ok "$name 출력 = 기준판" || bad "$name 출력 다름(< 새 · > 기준): $(diff <(printf '%s\n' "$a") <(printf '%s\n' "$b") | head -12)"
   out="$a"
