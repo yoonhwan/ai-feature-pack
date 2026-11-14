@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "ft2/contracts/memory/memory-io.schema.json",
+  "title": "ft2 기억 저장 본체 응답 계약 (r1798b)",
+  "description": "memory/store.py 의 remember·forget·list·import 응답 1개. 결과 낱말 = contracts/core 8낱말 안. 레코드 꼴 = definitions.record. 검사기 = contracts/doctor/schema_check.py(표준 라이브러리 · type 은 1값만).",
+  "type": "object",
+  "required": ["protocol_version", "result", "team", "revision", "written", "reason"],
+  "properties": {
+    "protocol_version": {"description": "응답 꼴 판", "type": "integer", "enum": [1]},
+    "result": {"description": "contracts/core 8낱말", "type": "string",
+               "enum": ["접수 성공", "접수 거부", "복구 필요", "낡은 실행권", "BUSY", "용량 부족", "완료 유보", "회수 결과"]},
+    "team": {"type": "string", "minLength": 1},
+    "revision": {"description": "notes.jsonl 바이트 sha256 앞 16 hex(파일 없음 = 빈 바이트) · 다음 쓰기의 expect · 판독 불가면 null",
+                 "pattern": "^[0-9a-f]{16}$"},
+    "written": {"description": "notes 확정(rename) 여부", "type": "boolean"},
+    "reason": {"description": "접수 성공이 아니면 사유 1줄", "type": "string"},
+    "id": {"description": "remember·forget 대상 레코드 id", "pattern": "^[0-9a-f]{16}$"},
+    "active": {"description": "list — notes 줄 전부(파일 순서 = 옛 줄 먼저)", "type": "array"},
+    "archived": {"description": "list — archive 줄 중 id 가 notes 에 없는 것(같은 id 는 1번)", "type": "array"}
+  },
+  "definitions": {
+    "record": {
+      "description": "notes.jsonl · archive/<YYYY-MM>.jsonl 1줄. 새 줄 src 필수 · legacy 줄만 src null 허용.",
+      "type": "object",
+      "required": ["id", "ts", "kind", "text", "src", "quote", "verified_at", "pin", "by", "legacy"],
+      "properties": {
+        "id": {"description": "remember = [ts,by,kind,text,src] JSON 의 sha256 앞 16 hex · 들여오기 = 줄 번호·줄 바이트 · 이동해도 그대로",
+               "type": "string", "pattern": "^[0-9a-f]{16}$"},
+        "ts": {"type": "string"},
+        "kind": {"type": "string", "enum": ["directive", "mistake", "achievement", "experiment"]},
+        "text": {"type": "string", "minLength": 1},
+        "src": {"description": "커밋 sha(7~40 hex) | #쪽지 seq | 카드 .md 경로 | <경로>.jsonl:<줄> · legacy 면 null",
+                "pattern": "^(?:[0-9a-f]{7,40}|#\\d+|[^\\s:]+/[^\\s:]+\\.md|[^\\s:]+\\.jsonl:\\d+)$"},
+        "quote": {"description": "≤200자 · 없으면 null"},
+        "verified_at": {"description": "인용 대조 시각(r1798d 몫) · 없으면 null"},
+        "pin": {"type": "boolean"},
+        "by": {"type": "string", "minLength": 1},
+        "legacy": {"description": "1.x 노트에서 들여온 줄", "type": "boolean"}
+      },
+      "if": {"properties": {"legacy": {"enum": [false]}}},
+      "then": {"properties": {"src": {"type": "string"}}}
+    }
+  }
+}

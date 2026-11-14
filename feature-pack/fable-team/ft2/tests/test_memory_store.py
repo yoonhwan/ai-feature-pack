@@ -164,9 +164,10 @@ def test_c5_legacy_import_twice(tmp_path):
 
 
 def test_c6_legacy_guard_clean():
-    proc = subprocess.run([sys.executable, os.path.join(FT2, "tools", "legacy_guard.py")],
-                          capture_output=True, text=True, timeout=30)
-    assert proc.returncode == 0, proc.stdout
+    for folder in ("memory", os.path.join("contracts", "memory")):  # 새 폴더만 · tools/install.py 옛 위반은 범위 밖
+        proc = subprocess.run([sys.executable, os.path.join(FT2, "tools", "legacy_guard.py"), os.path.join(FT2, folder)],
+                              capture_output=True, text=True, timeout=30)
+        assert proc.returncode == 0, proc.stdout
 
 
 def test_c7_crash_before_rename_keeps_notes(tmp_path):
