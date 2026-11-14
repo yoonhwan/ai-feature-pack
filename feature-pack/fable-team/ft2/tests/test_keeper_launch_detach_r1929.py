@@ -1,4 +1,5 @@
-"""r1929 keeper 가 launch 를 기다리지 않는다 · 끊긴 열기 이어 열기 1회 (반례 ①~⑨ ⑬~⑰ · 변이 M1~M7).
+"""r1929 keeper 가 launch 를 기다리지 않는다 · 끊긴 열기 이어 열기 1회 (반례 ①~⑨ ⑬~⑲ ⑰p · 변이 M1~M9).
+⑰~⑲·M8·M9 = 구현 DA R1 보정(intent 전 종료 · .owner 소유 기록 · 카드 ⓕ~ⓗ) · ⑰p = 사전 DA ⑰(처음 열기 예약 파일 pid).
 keeper 쪽 = r1871 세계(임시 root·git·가짜 tmux·가짜 launch·가짜 record) · 바퀴는 settle 없이 1회씩(kw.World.round).
 launch 쪽 = r1765 시험 대역(가짜 git·tmux·pi · worktree 만 진짜 git) + 임시 git 리포 · 실 tmux·명부·ft2 원장·설치 0 · sleep 0.
 ① 가짜 launch 는 FIFO 로 막힌다(40초 걸리는 열기 대역 · 자체 alarm 30초) — keeper 바퀴가 그 끝을 기다리지 않음을 본다.
@@ -78,6 +79,27 @@ def c16(w, mp):  # ⑯ .resume 있음 ∧ 그 pid 죽음 ∧ opened 아님 → �
     pre(w, {"state": "opening", "pid": DEAD, "started": 1.0}, {"pid": DEAD, "started": 1.0, "kind": "resume"})
     k = raw(w)
     assert has(k, "HELD-NEXT harness", "복구 1회 소진", "복구 필요") and handled(k) and B not in nx.launched(w)
+def owner(w, row):
+    kw._put(w.runtime() / "launch" / ("%s@a1.owner" % B), row)
+def c17(w, mp):  # ⑰ 실제 Popen 자식이 출력·intent 없이 rc1 → 새 keeper 다음 바퀴 «intent 전 종료» · handled · 정원 점유 0 → 그다음 바퀴 B Popen 0
+    kw._put(w.tmp / "bin" / "launch.py", "import json, os, sys\nopen(os.path.abspath(__file__) + '.log', 'a').write(json.dumps(sys.argv[1:]) + '\\n')\nsys.exit(1)\n")
+    k = raw(w)
+    assert has(k, "LAUNCHING harness") and [p.wait(25) for p in k.cache["spawned"]] == [1], k.lines
+    spot = w.runtime() / "launch" / ("%s@a1.owner" % B)
+    assert spot.exists() and json.loads(spot.read_text())["child_pid"] == k.cache["spawned"][0].pid, "owner 없음"
+    k2 = raw(w)
+    assert has(k2, "HELD-NEXT harness %s -> %s" % (W1, B), "intent 전 종료", "복구 필요") and handled(k2), k2.lines
+    assert not any("LAUNCH-WAIT" in x or "NEXT-HOLD" in x for x in k2.lines), k2.lines
+    raw(w)
+    assert nx.launched(w).count(B) == 1, nx.launched(w)   # 그다음 바퀴 B 재띄움 0
+def c18(w, mp):  # ⑱ .owner 있음 ∧ child 살아 있음(지금 프로세스 pid) → 열기 중 · 손 0
+    owner(w, {"child_pid": os.getpid(), "started": time.time(), "keeper_pid": os.getpid()})
+    k = raw(w)
+    assert has(k, "LAUNCH-WAIT harness", "의도 전") and not handled(k) and B not in nx.launched(w), k.lines
+def c19(w, mp):  # ⑲ ps 판독 실패 주입 → 열기 중 · 손 0
+    kw._put(w.tmp / "bin" / "ps", "#!/bin/sh\nexit 1\n"), (w.tmp / "bin" / "ps").chmod(0o755)
+    w.env["FT2_KEEPER_PS"] = str(w.tmp / "bin" / "ps")
+    c18(w, mp)
 def git(root, *a):
     return subprocess.run(["git", "-C", str(root)] + list(a), capture_output=True, text=True, timeout=25, check=True).stdout.strip()
 def lw(tmp, add=False, row=True):
@@ -130,7 +152,7 @@ def c15(tmp, launcher):  # ⑮ 예약 뒤 checkout 실패 → intent failed · .
     root, fake = lw(tmp, add=True)
     out, rc = resume(root, fake, launcher, rc={"git": 1})
     assert (rc, state(root)["step"], Path(str(pl._intent(root)) + ".resume").exists()) == (2, "git checkout", True), out
-def c17(tmp, launcher):  # ⑰ 처음 열기 예약 파일은 판독하면 늘 pid 있음 — 첫 바깥 호출 순간·opening 순간 둘 다
+def c17p(tmp, launcher):  # ⑰p 처음 열기 예약 파일은 판독하면 늘 pid 있음 — 첫 바깥 호출 순간·opening 순간 둘 다
     root, fake = pl._paths(tmp)
     pl._runtime(root)
     mod, seen = _mod("r1929_launch_%d" % id(tmp), launcher), []
@@ -143,8 +165,8 @@ def c17(tmp, launcher):  # ⑰ 처음 열기 예약 파일은 판독하면 늘 p
     finally:
         os.environ["PATH"] = path
     assert out[1] == 0 and [x.get("state") for x in seen[:2]] == ["claiming", "opening"] and all(x.get("pid") == os.getpid() for x in seen[:2]), (out, seen)
-KEEPER = {"①": c1, "④": c4, "⑤k": c5k, "⑧": c8, "⑨": c9, "⑯": c16}
-LAUNCHER = {"⑤": c5, "⑥": c6, "⑦": c7, "⑬": c13, "⑮": c15, "⑰": c17}
+KEEPER = {"①": c1, "④": c4, "⑤k": c5k, "⑧": c8, "⑨": c9, "⑯": c16, "⑰": c17, "⑱": c18, "⑲": c19}
+LAUNCHER = {"⑤": c5, "⑥": c6, "⑦": c7, "⑬": c13, "⑮": c15, "⑰p": c17p}
 def run(name, tmp, mp, ft2=FT2):
     if name in KEEPER:
         return KEEPER[name](nx.world(tmp, mp, nx.TWO, ft2=ft2), mp)
@@ -152,13 +174,15 @@ def run(name, tmp, mp, ft2=FT2):
     LAUNCHER[name](tmp, ft2 / "adapters" / "pi" / "launch.py")
 KL, LP, LA = "adapters/pi/keeper_launch.py", "adapters/pi/launch_plan.py", "adapters/pi/launch.py"
 ALIVE = '    if got.get("state") not in ("claiming", "opening") or alive(k, got) != "dead":'
-MUTANTS = {"M1": (KL, "child = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=fh, stderr=fh, env=k.env, cwd=k.root, start_new_session=True)", "child = k.call(argv, LAUNCH_S)", "①"),
+MUTANTS = {"M1": (KL, "child = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=fh, stderr=fh, env=k.env, cwd=k.root, start_new_session=True)", "k.call(argv, LAUNCH_S); child = subprocess.Popen([\"true\"])", "①"),
            "M2": (KL, ALIVE, '    if got.get("state") not in ("claiming", "opening"):', "①"),
            "M3": (KL, ALIVE, '    if got.get("state") not in ("claiming", "opening") or True:', "⑤k"),
            "M4": (LA, '    if not planner.reserve(plan["intent"] + ".resume", own):', '    if not planner.reserve(plan["intent"] + ".resume", own) and False:', "⑦"),
            "M5": (LP, "    if exists and head == sha:", "    if exists:", "⑥"),
            "M6": (LP, "        os.link(tmp, path)", "        (_ for _ in ()).throw(FileExistsError()) if os.path.exists(path) else shutil.copyfile(tmp, path)", "⑬"),
-           "M7": (KL, '    if os.path.exists(base + ".intent.resume"):', "    if False:", "⑯")}
+           "M7": (KL, '    if os.path.exists(base + ".intent.resume"):', "    if False:", "⑯"),
+           "M8": (KL, '    own(k, child, base) if what == "열기" else None\n', "", "⑰"),
+           "M9": (KL, '        if seen == "dead":', '        if seen in ("dead", "unknown"):', "⑲")}
 @pytest.mark.parametrize("name", list(KEEPER) + list(LAUNCHER))
 def test_case(name, tmp_path, monkeypatch):
     run(name, tmp_path, monkeypatch)
