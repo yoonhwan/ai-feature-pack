@@ -11,6 +11,7 @@
 set -uo pipefail
 [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
 IDX="${1:-}"; shift || { echo "usage: $0 <indices/대기/X.md> [--agent claude|codex|cmd|opencode|pi] [--model M] [--effort E] [--raise \"<사유>\"] [--from SEAT] [--base REF] [--cherry-override \"<사유>\"] [--dry-run]" >&2; exit 2; }
+case "$IDX" in -*) echo "usage: $0 <indices/대기/X.md> [--agent claude|codex|cmd|opencode|pi] [--model M] [--effort E] [--raise \"<사유>\"] [--from SEAT] [--base REF] [--cherry-override \"<사유>\"] [--dry-run]" >&2; exit 2;; esac   # r1423: 첫 인자가 옵션 꼴(--help·-h 포함)이면 카드 경로로 받지 않는다 — 원장·대기열·명부·tmux 흐름 0
 # r1385: 나노 기본 = pi (오빠 10-22 «pi = 모든 팀 기본» · 10-26 «pi deepseek 먼저») — 되돌림 손잡이 = FT_NANO_DEFAULT_AGENT
 AGENT="${FT_NANO_DEFAULT_AGENT:-pi}"; AGENT_SET=0; MODEL=""; EFFORT="high"; EFFORT_SET=0; FROM="${FT_SEND_FROM:-}"; FROM_SET=0; RESEARCH=0; REOPEN=0; DRY=0; FAST=""; TIER=""; RECHECK=""; BASE_REF=""; BASE_REASON=""; _BR_LINE=""; HAVE_CO=0; CO=""; RAISE=""
 while [ $# -gt 0 ]; do case "$1" in
