@@ -6,14 +6,7 @@
 필수 기준은 이 도구 옆 `contracts/goal-close/INVARIANTS.tsv` 만 읽는다(후보 패키지 안 목록·env 덮어쓰기 0). 바깥 호출 0 · 파일 1개 64KB 상한.
 종료 코드: 0 = 됨 · 1 = 판정 불가(쓰기 0) · 2 = 사용법.
 """
-import glob
-import hashlib
-import json
-import os
-import re
-import shutil
-import sys
-import time
+import glob, hashlib, json, os, re, shutil, sys, time  # noqa: E401
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 INVARIANTS = os.path.join(os.path.dirname(HERE), "contracts", "goal-close", "INVARIANTS.tsv")
@@ -117,8 +110,9 @@ def phrase(root, team, role, key, slots):
         return None
 
 
-def _core(gc, ver, role):
-    text = _read(os.path.join(gc, "versions", ver, "roles", "%s.md" % os.path.basename(role)))
+def _core(folder, role):
+    """역할 파일의 «핵심» 구역만 — render 가 내는 글과 필수 기준(`core:<역할>`)이 보는 글이 같다(DA R1)."""
+    text = _read(os.path.join(folder, "roles", "%s.md" % os.path.basename(role)))
     if "## 핵심" not in text:
         raise Unknown("«핵심» 없음 roles/%s.md" % role)
     return text.split("## 핵심", 1)[1].split("\n## ", 1)[0].strip()
@@ -140,7 +134,7 @@ def check(pkg):
     rows = [line.split("\t") for line in _read(os.path.join(pkg, "phrases.tsv")).splitlines()]
     for line in (x for x in _read(INVARIANTS).splitlines() if x.strip() and not x.startswith("#")):
         (kind, _, name), need = line.split("\t")[0].partition(":"), line.split("\t")[-1]
-        have = {"exists": lambda: name in files, "file": lambda: name in files and need in _read(os.path.join(pkg, name)),
+        have = {"exists": lambda: name in files, "file": lambda: name in files and need in _read(os.path.join(pkg, name)), "core": lambda: need in _core(pkg, name),
                 "phrase": lambda: any(len(row) == 2 and row[0] == name and need in row[1] for row in rows)}
         if kind not in have or not have[kind]():
             raise Unknown("필수 구 없음 %s:%s «%s»" % (kind, name, need))
@@ -165,18 +159,22 @@ def install(args):
 
 
 def _set_cell(root, team, value):
-    """명부 그 1칸만 줄 단위로 바꾼다(다른 줄 바이트 그대로 · JSON 다시 직렬화 0) → 앞 값. value None = 칸 지움. 줄 꼴이 아니면 판정 불가(쓰기 0)."""
+    """명부 그 1칸만 줄 단위로 바꾼다(다른 칸 값 그대로 · JSON 다시 직렬화 0) → 앞 값. value None = 칸 지움. 줄 꼴이 아니면 판정 불가(쓰기 0).
+    기존 칸은 그 줄의 들여쓰기·쉼표·줄 끝을 그대로 잇는다 — 마지막 칸이어도 된다(DA R2). 마지막 칸을 지울 때만 앞 줄 쉼표 1개를 떼다."""
     path, prev = _roster(root, team), _pin(root, team)
-    lines = _read(path).splitlines(True)
-    new = [] if value is None else ['  "%s": %s,\n' % (CELL, json.dumps(value))]
+    lines, before = _read(path).splitlines(True), json.loads(_read(path))
     at = next((i for i, line in enumerate(lines) if line.lstrip().startswith('"%s"' % CELL)), None)
     if at is None:
         at = next((i + 1 for i, line in enumerate(lines) if line.strip() == "{"), 0)
-        lines[at:at] = new
+        lines[at:at] = [] if value is None else ['  "%s": %s%s\n' % (CELL, json.dumps(value), "" if "".join(lines[at:]).strip() == "}" else ",")]
     else:
-        lines[at:at + 1] = new
+        old, comma = lines[at], lines[at].rstrip().endswith(",")
+        lines[at:at + 1] = [] if value is None else [old[:len(old) - len(old.lstrip())] + '"%s": %s%s' % (CELL, json.dumps(value), "," if comma else "") + old[len(old.rstrip("\r\n")):]]
+        if value is None and not comma and at and lines[at - 1].rstrip().endswith(","):
+            lines[at - 1] = lines[at - 1].rstrip()[:-1] + lines[at - 1][len(lines[at - 1].rstrip("\r\n")):]
     try:
-        same = json.loads("".join(lines)).get(CELL) == value
+        after = json.loads("".join(lines))
+        same = after.get(CELL) == value and {k: v for k, v in after.items() if k != CELL} == {k: v for k, v in before.items() if k != CELL}
     except (ValueError, AttributeError):
         same = False
     if not same:
@@ -230,7 +228,7 @@ def rollback(args):
 def render(args):
     gc, root, team = gc_root(), os.path.abspath(args["root"]), args["team"]
     ver = _pick(gc, root, team, args.get("version"))
-    text = _phrase(root, team, args["phrase"], args, ver)[1] if args.get("phrase") else _core(gc, ver, args["role"])
+    text = _phrase(root, team, args["phrase"], args, ver)[1] if args.get("phrase") else _core(os.path.join(gc, "versions", ver), args["role"])
     return "gc=%s sha=%s\n%s" % (ver, hashlib.sha256(_bytes(os.path.join(gc, "versions", ver, "MODULE.json"))).hexdigest()[:8], text)
 
 

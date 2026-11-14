@@ -1,9 +1,9 @@
-# goal-close 필수 기준 — 어느 판에도 있어야 하는 구(r1940). 대상<탭>구 · 대상 = phrase:<키> | file:<경로> | exists:<경로>(구 칸 = -)
+# goal-close 필수 기준 — 어느 판에도 있어야 하는 구(r1940). 대상<탭>구 · 대상 = phrase:<키> | core:<역할>(roles/<역할>.md 의 «핵심» 구역 = render 가 내는 글) | file:<경로> | exists:<경로>(구 칸 = -)
 # 이 목록은 모듈 패키지 밖(ft2 코드 판)에 둔다. 바꾸는 길 = ft2 코드 카드뿐(모듈 판 올림으로는 못 바꾼다).
-file:roles/nano.md	병합
-file:roles/nano.md	착지
-file:roles/nano.md	설치
-file:roles/nano.md	가지 삭제
+core:nano	병합
+core:nano	착지
+core:nano	설치
+core:nano	가지 삭제
 phrase:first_body_tail	ft2_claim → ft2_start
 phrase:first_body_tail	HOLD 줄이 3 이면 DA 요청 0
 phrase:first_body_tail	대상 동결·판정 기준·상한·종료 조건·다음 수
