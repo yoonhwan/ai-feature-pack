@@ -30,7 +30,8 @@ def l1(tmp, ft2=FT2):   # ① dry-run argv = pi · --approve · 역할 argv · �
     pl._runtime(root)
     out, rc = pl._launch(root, fake, ft2 / "adapters" / "pi" / "launch.py", extra=["--dry-run"])
     tm = out["argv"]["tmux"]
-    assert rc == 0 and tm[17:23] == [str(fake / "pi"), "--approve"] + pl.SESSION_ARGV and tm[23:] == [body(root, "harness", pl.WORK, pl.HOLDER)], tm
+    seat = str(ft2 / "adapters" / "pi" / "ft2-seat.ts")   # r1905: 좌석 도구 -e 1쌍
+    assert rc == 0 and tm[17:25] == [str(fake / "pi"), "-e", seat, "--approve"] + pl.SESSION_ARGV and tm[25:] == [body(root, "harness", pl.WORK, pl.HOLDER)], tm
     assert pl._launch(root, fake, ft2 / "adapters" / "pi" / "launch.py")[1] == 0
     assert json.loads(pl._intent(root).read_text(encoding="utf-8"))["body_mark"] == "[발주] ft2 harness %s@a1" % pl.WORK
 
@@ -117,7 +118,7 @@ CASES = {"③": dict(user=MARK + " 좌석 x"), "④": {}, "④″": dict(at=-30)
          "⑤⁗″": dict(mark=False, at=-16 * M, user=""), "⑤⁵": {}, "⑥": dict(mark=False, user="", step=-16 * M)}
 RUN = {"③": c3, "④": c4, "④″": c4b, "⑤": c4, "⑤″": c5b, "⑤w": c5w, "⑤‴": keep, "⑤⁗": c5q, "⑤⁗i": c5q, "⑤⁗′": keep, "⑤⁗″": keep,
        "⑤⁵": c6, "⑥": c6n}
-MUTANTS = {"M1": ("adapters/pi/launch_plan.py", '[pi or "pi"] + ["--approve"]', '[pi or "pi"]', "①"),
+MUTANTS = {"M1": ("adapters/pi/launch_plan.py", '["-e", seat_tools(), "--approve"]', '["-e", seat_tools()]', "①"),
            "M2": ("adapters/pi/keeper_stall.py", "        if self.first(", "        if False and self.first(", "④"),
            "M3": ("adapters/pi/keeper_stall.py", "if rc == 0 and TRUST in pane:", "if False:", "⑤w"),
            "M4": ("adapters/pi/keeper_stall.py", "return self.reassign(team, work, attempt, holder, tree, intent, rows) or True", "return True", "④"),
