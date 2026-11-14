@@ -50,7 +50,7 @@ mkstub sleep 'n=$(cat "$CLK" 2>/dev/null || /bin/date +%s); echo $(( n + ${1%%.*
 SENSORS="$TMP/sensors/fake-sensors"; RES="$FT_RES_ROOT"
 # 문지기 대역이 export 한 FT_RES_ROOT = 도구가 보는 하네스 데이터 루트 → arch 게이트(ft_teamset arch-live)도 이 루트의 명단을 본다
 mkdir -p "$RES/design" && cp "$REPO/design/TEAMS.md" "$RES/design/TEAMS.md" && cp "$REPO/.fable-team/seats-t.json" "$RES/.fable-team/seats-t.json"
-printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n본문\n' > "$BODY"
+printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n본문\n열린 칸 감시: 없음\n' > "$BODY"
 cd_proj() { printf '%s' "$REPO" | LC_ALL=C sed 's|[^A-Za-z0-9]|-|g'; }
 cd_pi() { printf '%s' "$REPO" | sed -e 's|^[/\\]||' -e 's|[/\\:]|-|g'; }
 world() {   # world [claude|pi] — 후계 시작 기록 상태 · 로그·카운터·시계 초기화

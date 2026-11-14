@@ -8,6 +8,7 @@ keeper_report.py(B4·쪽지). 끝나지 않은 일 = r1813 멈춤 갈래(keeper_
 core 손 0 — 공개 동사(cli.run)·공개 API(project·CloseNext)만 부른다. 상한: git 25초 · tmux·쪽지 7초 · 바퀴 60초.
     python3 core/cli.py keeper --root R (--once | --report) [--pack 팩리포]
 """
+import concurrent.futures
 import datetime
 import importlib.util
 import json
@@ -51,7 +52,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
         self.project, self.lines, self.cache = projection.project, [], {}
         self.state = {key: {} for key in ("held", "open", "sent", "handled", "woke", "reassigned")}
         self.stall = _load(os.path.join(HERE, "keeper_stall.py"), "ft2_keeper_stall").Stall(self)   # r1813 S1~S5
-        self.spent, self.sock, self.skip = dict.fromkeys(("fetch", "b1", "b2", "b3", "stall"), 0.0), True, set()
+        self.spent, self.sock, self.skip, self.stale = dict.fromkeys(("fetch", "b1", "b2", "b3", "stall"), 0.0), True, set(), set()
 
     def call(self, argv, timeout=CALL_S, retry=0):
         """바깥 호출 1곳 → (rc, stdout, stderr 1줄) · 넘침·실행 실패 = rc None · retry = rc≠0 때 다시 부르는 횟수."""
@@ -83,6 +84,20 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
             have = {x.partition("\trefs/heads/")[2] for x in out.splitlines()} if rc == 0 else set()
             names += [n for n in extra if n in have]
         return ["+refs/heads/%s:refs/remotes/origin/%s" % (n, n) for n in names]
+
+    def fresh(self, repo):
+        """r1963 — 그 리포가 «신선» 인가. ls-remote(네트워크만) 의 원격 sha 가 읽는 ref 전부에서 로컬 remote-tracking sha 와 같으면 fetch 0
+        (fetch 끝의 연결 검사가 그 리포 모든 ref 를 읽는다 = 느린 곳) · 다르면 fetch(7초 + 재시도 1) · ls-remote 실패면 fetch 1회(시도 합 2 그대로)."""
+        def fetch(repo, retry=1):
+            return self.git(repo, "fetch", "-q", "--no-tags", "origin", *self.fetch_refs(repo), retry=retry, timeout=FETCH_S)[0]
+        pairs = [spec.lstrip("+").split(":", 1) for spec in self.fetch_refs(repo)]   # (원격 ref, 로컬 ref) — 따로 대조
+        names = [src for src, _ in pairs]
+        rc, out, _ = self.git(repo, "ls-remote", "origin", *names, timeout=FETCH_S)
+        if rc != 0:
+            return fetch(repo, 0) == 0
+        far = dict(reversed(x.split("\t", 1)) for x in out.splitlines() if "\t" in x)
+        near = self.git(repo, "rev-parse", *(dst for _, dst in pairs))[1]
+        return near.split() == [far.get(n) for n in names] or fetch(repo) == 0
 
     def stamp(self):
         return datetime.datetime.fromtimestamp(self.now()).strftime("%Y-%m-%dT%H:%M:%S")
@@ -162,13 +177,14 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
         start, self.skip = time.monotonic(), self.skipped()
         if self.skip is None:
             return self.log("판정 불가", text="SKIP_TEAMS 판독 실패 — 이 바퀴 B1·B2·B3·B4 0")
-        def fetch(repo):
-            return self.git(repo, "fetch", "-q", "--no-tags", "origin", *self.fetch_refs(repo), retry=1, timeout=FETCH_S)[0]
-        bad = [repo for repo in (self.root, self.pack) if self.timed("fetch", fetch, repo) != 0]
+        def both(repos=(self.root, self.pack)):   # r1963 두 리포 동시 → fetch 단계 = 느린 쪽 하나 · 낡은 리포 집합은 바퀴마다 새로
+            with concurrent.futures.ThreadPoolExecutor(2) as pool:
+                return [repo for repo, ok in zip(repos, pool.map(self.fresh, repos)) if not ok]
+        self.stale = {repo for repo in self.timed("fetch", both)}
         self.sock = self.socket_ok()
-        if bad:
-            self.log("판정 불가", text="git fetch 실패 %s — 이 바퀴 B1·B2 0" % " ".join(bad))
-        order = [] if bad else self.teams()
+        if self.stale:   # BYZ 낡음 = 카드·TEAMS·짝 표도 낡음 → 판정 0 · 팩만 낡음 = 팩 ref 를 읽는 판정(landing 조상·다음 카드 target)만 0
+            self.log("판정 불가", text="git fetch 실패 %s — %s" % (" ".join(r for r in (self.root, self.pack) if r in self.stale), "이 바퀴 B1·B2 0" if self.root in self.stale else "팩 기대 판정만 0"))
+        order = [] if self.root in self.stale else self.teams()
         if self.state.get("cap_next") in order:   # r1898 — 앞 바퀴 컷에 걸린 팀부터(뒤쪽 팀 굶음 0)
             at = order.index(self.state["cap_next"])
             order = order[at:] + order[:at]

@@ -87,9 +87,12 @@ def choose(k, team, skip=frozenset()):
         place = None if block else target(k, r, lines)
         if not block and place is None:
             block = k.log("판정 불가", team, "%s 대상 팩·BYZ 둘 다 — 건너뜀" % stem) or "대상"
+        block = block or ("팩낡음" if place[0] in k.stale else "")   # r1963 낡은 팩 base 로 나노 열기 0(이 바퀴 보류 · BYZ 대상 카드는 그대로)
         ready.append(((not urgent, not high, led.get("since") or 0), stem) + place) if not block else why.update({block: why.get(block, 0) + 1})
-    if ready:
-        return min(ready)[1:]
+    if why.get("팩낡음"):
+        k.log("판정 불가", team, "다음 카드 보류 %d장 · 팩 fetch 실패" % why["팩낡음"])
+    if ready or why.get("팩낡음"):   # 보류뿐이면 [다음 없음] 쪽지 0
+        return min(ready)[1:] if ready else None
     k.notify(team, "%s|next-none|%s" % (k.stamp()[:10], team), "%s %s · 배정 없는 카드 0 · 막힌 사유별 %s" % (NONE, team, " ".join("%s %d" % kv for kv in sorted(why.items())) or "0"))
 def close(k, team, work, attempt, holder, gen):
     """닫기 영수 1회(지금 자리) + 다음 카드. 반환 = 영수 결과."""
@@ -111,6 +114,19 @@ def close(k, team, work, attempt, holder, gen):
     elif out.result == "접수 거부" and seen is None:   # 거부 = 쓰기 0 → 지금처럼 () 영수 1회
         return k.receipt(team, work, attempt, holder, gen)
     return out
+def intake_open(k, team):
+    """r1939 거짓 = 접수 남은 일 ≥ 상한(fill 0 · FILL-WAIT 는 값이 바뀔 때만 1줄) · project 판독 실패 = 참(submit 이 판정)."""
+    out, _ = cli.run(["project", "--root", k.root, "--team", team])
+    n, seen = out.get("remaining") if out.get("result") == OK else None, k.state.setdefault("fill_wait", {})
+    if type(n) is not int:
+        return True
+    if n < k.fa.INTAKE_CAP:   # 정상값 = 기억 해제(8→7→8 = 다시 1줄)
+        seen.pop(team, None)
+        return True
+    if seen.get(team) != n:
+        seen[team] = n
+        k.log("FILL-WAIT", team, "남은 일 %d/%d — fill 0 · 다음 바퀴" % (n, k.fa.INTAKE_CAP))
+    return False
 def fill(k, team):
     """r1913 빈 나노 칸 1장 = gates→choose→submit→assign→deliver→reconcile · 실패 = 1줄 + fill_hold(원장 쓰기 0 · 그 stem 재시도 0) · 풀림 = 원장 updated > 보류 시각."""
     held, opened = k.state.setdefault("fill_hold", {}), k.state.setdefault("fill_open", {})
@@ -121,8 +137,8 @@ def fill(k, team):
         opened.pop(x) if "%s|fill:%s@%s" % (team, stem, opened[x]) in k.state["handled"] else None
     if mine:
         return None
-    [held.pop(x) for x in list(held) if x.split("|")[0] == team and (ledger(k, x.split("|", 1)[1]).get("updated") or 0) > held[x]]   # 풀림
-    pick = choose(k, team, {x.split("|", 1)[1] for x in held if x.split("|")[0] == team}) if gates(k, team) else None
+    [held.pop(x) for x in list(held) if x.split("|")[0] == team and (ledger(k, x.split("|", 1)[1]).get("updated") or 0) > float(str(held[x]).split("|")[0])]   # 풀림 · r1939 값 = 시각 또는 «시각|사유»
+    pick = intake_open(k, team) and choose(k, team, {x.split("|", 1)[1] for x in held if x.split("|")[0] == team}) if gates(k, team) else None
     if not pick:
         return None
     stem, attempt, nh = pick[0], None, "byz-%s-nano-%s#0" % (team, pick[0][:40])
@@ -132,10 +148,13 @@ def fill(k, team):
         out, rc = cli.run([verb, "--work", stem, "--root", k.root, "--team", team] + args + (["--attempt", attempt] if verb == "deliver" and attempt else []))
         if verb == "submit":
             k.fa.remaining(k.root, team, out.get("result"), "카드 " + stem)   # r1886 ⓐ fill submit 도 같은 줄
+            if out.get("result") == "용량 부족":   # r1939 project·submit 경합 = 보류·쪽지 0 · 다음 바퀴 다시
+                return k.log("FILL-WAIT", team, "%s submit 용량 부족 — 보류 0 · 다음 바퀴" % stem)
         attempt = out.get("attempt") if verb == "assign" else attempt
         if rc != 0 and ok not in str(out.get("reason")):
             k.log("HELD-NEXT", team, "fill %s %s rc %s %s %s" % (stem, verb, rc, out.get("result"), str(out.get("reason"))[:60]))
             held["%s|%s" % (team, stem)] = k.now()   # 보류 시각 = 풀림 기준(keeper state · 바퀴마다 저장)
+            held.update({x: "%s|%s" % (held[x], out.get("result")) for x in held if x == "%s|%s" % (team, stem)})   # r1939 새 꼴 «시각|사유»
             return k.notify(team, "%s|fill-hold|%s|%s" % (k.stamp()[:10], team, stem), "[다음 막힘] ft2 keeper fill %s %s %s — 같은 카드 자동 재시도 0 · 원장을 손보면 다시 시도" % (stem, verb, out.get("result"))) and None
     reconcile(k, team, "fill:" + stem, attempt, stem, nh, pick)
     opened.update({} if "%s|fill:%s@%s" % (team, stem, attempt) in k.state["handled"] else {"%s|%s" % (team, stem): attempt})
@@ -151,6 +170,8 @@ def reconcile(k, team, work, attempt, stem, nh, pick):
         if pick is None and not gates(k, team):   # R2 — 복구 launch 직전 현재 가드 · 막힘 = handled 0(허용 뒤 같은 사건 재개)
             return None
         place = pick[1:] if pick else (lambda g: None if isinstance(g, str) or stem not in g[0] else target(k, g[1], g[0][stem][2]))(cards(k, team))
+        if place and place[0] in k.stale:   # r1963 복구 launch 도 낡은 팩 base 로는 안 연다(handled 0 · 다음 바퀴)
+            return k.log("판정 불가", team, "%s -> %s 다음 카드 보류 · 팩 fetch 실패" % (work, stem))
         argv = [sys.executable, k.env.get("FT2_KEEPER_LAUNCH") or os.path.join(HERE, "launch.py"), "--root", k.root, "--team", team, "--work", stem, "--repo", place[0], "--base", place[1], "--role", "session"] if place else None
         why = kl.launching(k, team, stem, (((ft2_state(k, team) or {}).get("deliveries") or {}).get(stem) or [None])[-1], nh, argv)
         if why:   # r1929 True = 이번 바퀴 끝(handled 0) · 문자열 = «복구 필요»

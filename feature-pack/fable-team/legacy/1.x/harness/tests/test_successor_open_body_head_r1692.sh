@@ -43,11 +43,11 @@ so_run() {  # so_run [개설도구] — 개설 1회(로그·도달 파일 초기
 cnt() { grep -c "^$1" "$lg"; }
 # ── ⓐ 본문 머리 검사(개설 도구)
 for hh in '[인계] byz-t-old-claude#1 -> byz-t-new-claude#2 (ctx 1m)' '[레디] byz-t-new-claude#2 <- byz-t-old-claude#1' '   [인계] 앞 공백'; do
-  printf '%s\n골 원문 2줄\n골 원문 3줄\n본문 나머지\n' "$hh" > "$T/b.txt"; so_run "$SO"
+  printf '%s\n골 원문 2줄\n골 원문 3줄\n본문 나머지\n열린 칸 감시: 없음\n' "$hh" > "$T/b.txt"; so_run "$SO"
   { [ "$RC" = 1 ] && grep -q '본문 첫 줄 머리' "$T/out" && [ "$(cnt tmuxc)" = 0 ] && [ "$(cnt send)" = 0 ]; } \
     && ok "ⓐ «${hh:0:14}» → REJECT rc1 · 열기·송신 0" || bad "ⓐ «${hh}»" "rc=$RC log=$(tr '\n' ' ' < "$lg") out=$(cat "$T/out")"
 done
-printf '[승계 발주] byz-t-old-claude#1 -> byz-t-new-claude#2\n골 원문 2줄\n골 원문 3줄\n본문 나머지\n' > "$T/b.txt"; so_run "$SO"
+printf '[승계 발주] byz-t-old-claude#1 -> byz-t-new-claude#2\n골 원문 2줄\n골 원문 3줄\n본문 나머지\n열린 칸 감시: 없음\n' > "$T/b.txt"; so_run "$SO"
 { [ "$RC" = 0 ] && [ "$(cnt send)" = 1 ] && grep -q '\[승계 발주\]' "$T/sent.txt"; } \
   && ok "ⓑ «[승계 발주]» 머리 → 통과 · 스텁 송신 1" || bad "ⓑ" "rc=$RC log=$(tr '\n' ' ' < "$lg") out=$(cat "$T/out")"
 
@@ -98,7 +98,7 @@ p=pathlib.Path(sys.argv[1]); s=p.read_text(); i=s.find('# ⓐ-2 (r1692)')
 if i<0: sys.exit(1)
 j=s.find('esac',i); j=s.find('\n',j); p.write_text(s[:i]+s[j+1:]); open(sys.argv[2],'w').write('ok')
 PY
-printf '[인계] byz-t-old-claude#1 -> byz-t-new-claude#2\n골 원문 2줄\n골 원문 3줄\n본문 나머지\n' > "$T/b.txt"; so_run "$MX/$(basename -- "$SO")"
+printf '[인계] byz-t-old-claude#1 -> byz-t-new-claude#2\n골 원문 2줄\n골 원문 3줄\n본문 나머지\n열린 칸 감시: 없음\n' > "$T/b.txt"; so_run "$MX/$(basename -- "$SO")"
 { grep -q '본문 첫 줄 머리' "$T/out"; } && bad "M1 머리 검사 삭제가 ⓐ 에 안 잡힘" "rc=$RC :: $(cat "$T/out")" || ok "M1 머리 검사 삭제 → ⓐ 의 거절 줄이 사라짐(변이 잡힘 · rc=$RC)"
 python3 - "$C/mbox_handover.py" "$T/m2-ok" <<'PY'
 import pathlib,sys,re
