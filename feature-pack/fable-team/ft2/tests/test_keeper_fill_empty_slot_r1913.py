@@ -20,6 +20,7 @@ if holder is None: print(why); sys.exit(1)
 rc = int(open(me + ".rc").read()) if os.path.exists(me + ".rc") else 0
 if rc == 0:
     st = os.environ["FAKE_TMUX"]; d = json.load(open(st)); d["alive"].append(holder); json.dump(d, open(st, "w"))
+print(json.dumps({"result": "접수 성공" if rc == 0 else "복구 필요"}))   # r1929 결과 1줄(띄우기 로그)
 sys.exit(rc)
 '''
 RECORD = ('#!/bin/sh\nprintf "%s\\n" "$*" >> "$0.log"\n[ -f "$0.rc" ] && exit "$(cat "$0.rc")"\nmkdir -p .fable-team/state/card-assign\n'
@@ -39,7 +40,7 @@ def world(tmp, mp, cap="4", live=2, closing=False, enable=True, ft2=kw.FT2):
     kw._put(w.state / "ft20-switch" / "harness.json", "{}"), w.runtime().mkdir(parents=True, exist_ok=True)
     w.enable() if enable else None
     nx.close(w, nx.W1) if closing else None
-    return w
+    return nx.settle(w)
 def keeper(w, mp, fail=None):
     """fail = (동사, stem) → 그 cli 호출을 «접수 거부» 로 돌려준다 · calls = fill 이 부른 (동사, work)."""
     k = w.keeper()
