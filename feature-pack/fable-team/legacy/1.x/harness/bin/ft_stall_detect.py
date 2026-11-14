@@ -636,14 +636,21 @@ def _is_heartbeat_body(body: object) -> bool:
     if not isinstance(body, str):
         return False
     head = body.lstrip()
-    return head.startswith(HEARTBEAT_TOKEN) or (head.startswith("[HIL]") and bool(PROMOTED.search(head.split("\n", 1)[0].strip())))
+    return head.startswith(HEARTBEAT_TOKEN) or (head.startswith("[HIL]") and bool(PROMOTED.search(head.split("\n", 1)[0].strip()))) or rest_head(body)
+
+
+def rest_head(body: object) -> bool:
+    """r1949 — 쉼 머리 규칙 한 벌(r1729 쉼 면제 · r1647 닫기 대기): 첫 줄 REST_MARK ∧ (머리 [정리]·[다음 없음]·«막힘 = 사람 답(» ∨ 승격 꼴 [HIL]+PROMOTED)."""
+    if not isinstance(body, str):
+        return False
+    first = body.lstrip().split("\n", 1)[0]
+    heads = first.startswith((HEARTBEAT_TOKEN, "[다음 없음]", "막힘 = 사람 답(")) or (first.startswith("[HIL]") and bool(PROMOTED.search(first.strip())))
+    return heads and bool(REST_MARK.search(first))
 
 
 def _rest_mark(body: object) -> bool:
-    """r1729 — 쉼 표식은 «첫 줄» 에서만 센다(A1 · 반례 ④): 둘째 줄 이후에 붙은 표식은 세지 않는다."""
-    if not isinstance(body, str):
-        return False
-    return bool(REST_MARK.search(body.lstrip().split("\n", 1)[0]))
+    """r1729 — 쉼 표식은 «첫 줄» 에서만 센다(A1 · 반례 ④) · 판정 = rest_head 한 벌(r1949)."""
+    return rest_head(body)
 
 
 def _hb_line(line: str, masters: set[str], recipients: set[str], now: float) -> tuple[float | None, bool, bool]:
