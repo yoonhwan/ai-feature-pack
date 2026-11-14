@@ -238,3 +238,15 @@ def test_mutants_caught(root, tmp_path, mid, rel, old, new, scenario, broken):
     shutil.rmtree(root / ".fable-team" / "state", ignore_errors=True)
     (root / ".fable-team" / "comm" / "mbox.sh.log").unlink(missing_ok=True)
     assert not broken(scenario(M, root)), mid  # 같은 시나리오가 원판에서는 통과
+
+
+def test_r3_same_full_command_redelivered_in_new_episode_wakes_desk_again(root):  # DA 구현 HOLD R3
+    """같은 full command · 회차1 알림 → 8 → 7 → 8(회차2) 뒤 재전달 → desk 깨움 합계 2 · 같은 회차 재전달 = 0 더."""
+    hub, row = M.wiring.Wiring(str(root), team=TEAM), {"command": cmd(F), "reason": "용량 부족", "key": [W, C, F]}
+    M.fa.observe(str(root), "남은 일", TEAM, 8, 8)
+    hub.alert(row), hub.alert(row)                                   # 회차1 + 같은 회차 재전달
+    M.fa.observe(str(root), "남은 일", TEAM, 7, 8), M.fa.observe(str(root), "남은 일", TEAM, 8, 8)
+    hub.alert(row)                                                   # 회차2 재전달
+    assert len(sent(root, "알림 용량 부족")) == 2
+    hub.alert({"command": cmd(F), "reason": "깨움 실패"}, quiet=True), hub.alert({"command": cmd(F), "reason": "깨움 실패"}, quiet=True)
+    assert len(sent(root, "알림 깨움 실패")) == 1                     # 다른 사유 = 옛 dedup 그대로
