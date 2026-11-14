@@ -93,7 +93,7 @@ class Closing:
             verdict = verdicts.gate(self, projection.runtime_path(self.root, team), team, work, attempt, holder)
             if verdict is False:
                 return
-        ending = None if verdict or seen not in (NOLINE, NOCARD) else endings.ending(self, team, work)   # r1960 ② complete 0
+        ending = None if verdict or seen not in (NOLINE, NOCARD) else endings.ending(self, team, work, holder)   # r1960 ② complete 0 · r1972 empty = holder 줄 때만
         seen = "" if verdict or ending else seen
         seen = seen or self.probe(holder)
         if seen == "alive":
