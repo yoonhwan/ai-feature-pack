@@ -70,7 +70,7 @@ reset() {  # reset <좌석> <원장 WT 꼴: tip|behind3|diverged|hw> — 명부�
   case "$2" in tip) GC "$R" worktree add -q -b "lw$NL" "$LWT" origin/main;;
     behind3) GC "$R" worktree add -q -b "lw$NL" "$LWT" origin/main~3;;
     diverged) GC "$R" worktree add -q -b "lw$NL" "$LWT" origin/main~1; GC "$LWT" commit -q --allow-empty -m "원장 WT 만의 커밋";;
-    hw) L="$HW";; esac; }
+    hw) L="$HW";; root) L="$R";; esac; }
 close() { local sut="$1"; shift; ( cd "$R" && env -i HOME="$T/home" FT_SHEET_ROOT="$T/sheet" HIL_DIR="$T/hil" PATH="$T/fake:$PATH" FT_PACK_ROOT="$T/nopack" \
   FAKE_CWD="$T/cwd" FAKE_LOG="$T/tlog" FAKE_GH_JSON="$T/gh.json" FT_ALLOW_TRACKED_BIN=1 FT_NANO_PREFIX="$PFX" FT_SEATS_JSON="$SEATS" \
   FT_NANO_LEDGER="$LEDGER" FT_NANO_LEDGER_WT="$L" FT_NANO_FEAT=main FT_INBOX_ROOT="$T/comm" FT_NANO_IDLE_MIN=0 FT_WT_CLEAN_DIR="$T/wtclean" FT_WT_AUTOCLEAN=0 \
@@ -127,6 +127,30 @@ echo "== ⑨ 카드 팀 ref 판 카드에 «- 착지:» 줄 없음 → 지금 �
 card 0; reset "$XS" tip; o9="$(close "$NEW" --landed-pr 363)"; r9=$?
 [ "$r9" = 1 ] && has "$o9" "카드에 «- 착지:» 줄이 없다" "⑨ 착지 줄 없음 REJECT" || bad "⑨ rc=$r9 ← ${o9:0:800}"
 untouched "⑨"; card 1; step ⑨
+echo "== ⑩ (DA R1) 팀 넘는 나노 · 두 팀 ref = origin/main(* 행 하나) · 카드 = ref 에만 · 원장 WT = ROOT(디스크 사본 0) → LANDED-PR-OK · INFO 1줄"
+DR="$R/.fable-team/state/directive-roots.tsv"; cp "$DR" "$T/dr.bak"; printf '*\t.\torigin/main\tdesign/teams/*/indices\n' > "$DR"
+M0="$(git -C "$R" rev-parse origin/main)"; mtip() { git -C "$R" push -q -f origin "$1:refs/heads/main"; git -C "$R" fetch -q origin; }
+t="$(cd "$R" && GIT_INDEX_FILE="$T/idx" git read-tree "$M0" && GIT_INDEX_FILE="$T/idx" git update-index --add --cacheinfo 100644,"$(git -C "$HW" rev-parse "HEAD:$IDX")","$IDX" && GIT_INDEX_FILE="$T/idx" git write-tree)"
+CM="$(GC "$R" commit-tree "$t" -p "$M0" -m "card k on main(정상 커밋)")"; mtip "$CM"   # ROOT checkout 은 그대로(디스크 사본 0)
+[ ! -e "$R/$IDX" ] && git -C "$R" cat-file -e "origin/main:$IDX" && ok "⑩ 전제 CARD_ON_REF=yes CARD_ON_DISK=no" || bad "⑩ 전제 깨짐"
+reset "$XS" root; o10="$(close "$NEW" --landed-pr 363)"; r10=$?
+[ "$r10" = 0 ] && ok "⑩ rc=0" || bad "⑩ rc=$r10 ← ${o10:0:1200}"
+has "$o10" "LANDED-PR-OK #363" "⑩ LANDED-PR-OK"; hasnt "$o10" "디스크 사본 없음" "⑩ «디스크 사본 없음» 0"
+[ "$(printf '%s\n' "$o10" | grep -c 'INFO 팀 넘는 나노 — 카드 ref=origin/main · 원장 ref=origin/main')" = 1 ] && ok "⑩ INFO 1줄" || bad "⑩ INFO 줄 수 ≠ 1"
+step ⑩
+echo "== ⑩c 같은 입력 · 같은 팀 → INFO 0 · 기준판과 바이트 같음"
+reset "$HS" root; ob="$(close "$BASE" --landed-pr 363 | norm)"; rb=${PIPESTATUS[0]}; reset "$HS" root; o1="$(close "$NEW" --landed-pr 363 | norm)"; r1=${PIPESTATUS[0]}
+[ "$ob" = "$o1" ] && [ "$rb" = "$r1" ] && ok "⑩c 바이트 같음 rc=$r1" || bad "⑩c 다름 rc ${rb}→${r1} ← $(diff <(echo "$ob") <(echo "$o1") | head -6)"
+hasnt "$o1" "팀 넘는 나노" "⑩c INFO 0줄"; step ⑩c
+echo "== 변이 M5 분리 되돌림(ref 같음 조건 복귀) → ⑩ FAIL (원본 대조)"
+mutant '_xteam=1; _fref="$_lref"   # r1719-mut:lref' '[ "$_lref" = "$_cref" ] || { _xteam=1; _fref="$_lref"; }'
+reset "$XS" root; o="$(close "$T/mutbin/ft-nano-close.sh" --landed-pr 363)"; has "$o" "디스크 사본 없음" "M5 → ⑩ FAIL(디스크 사본 없음 REJECT)"
+reset "$XS" root; o="$(close "$NEW" --landed-pr 363)"; has "$o" "LANDED-PR-OK #363" "  └ 원본 = ⑩ 통과"; cmp0
+echo "== ⑩b 같은 입력 + 카드가 ref 에도 없음 → 지금 REJECT 그대로(팀 넘음 INFO 줄 밖 바이트 = 기준판)"
+mtip "$M0"; reset "$XS" root; ob="$(close "$BASE" --landed-pr 363 | norm)"; rb=${PIPESTATUS[0]}
+reset "$XS" root; o1="$(close "$NEW" --landed-pr 363 | norm)"; r1=${PIPESTATUS[0]}
+[ "$rb" = 1 ] && [ "$r1" = 1 ] && [ "$ob" = "$(printf '%s\n' "$o1" | grep -v '^INFO 팀 넘는 나노 — ')" ] && ok "⑩b REJECT 그대로 rc=1" || bad "⑩b rc ${rb}→${r1} ← $(diff <(echo "$ob") <(echo "$o1") | head -6)"
+untouched "⑩b"; cp "$T/dr.bak" "$DR"; step ⑩b
 
 echo "== 변이 (각 뒤 원본 BIN 같은 사례 = 반대 결과)"
 mutant 'if [ -n "$_team" ] && [ "$_team" != "$_ct" ]; then   # r1719-mut:xteam' 'if false; then'
@@ -135,7 +159,7 @@ reset "$XS" tip; o="$(close "$NEW" --landed-pr 363)"; has "$o" "LANDED-PR-OK #36
 mutant '[ -z "${_xteam:-}" ] || { echo "판정 불가 — 팀 넘는 나노 카드 ref fetch' 'true || { echo "판정 불가 — 팀 넘는 나노 카드 ref fetch'
 reset "$XS" tip; set_origin "$T/nope.git"; o="$(close "$T/mutbin/ft-nano-close.sh" --landed-pr 363)"; hasnt "$o" "판정 불가 — 팀 넘는 나노" "M2 fetch 실패 처리 삭제 → ③ FAIL(판정 불가 줄 0)"
 reset "$XS" tip; set_origin "$T/nope.git"; o="$(close "$NEW" --landed-pr 363)"; has "$o" "판정 불가 — 팀 넘는 나노" "  └ 원본 = ③ 판정 불가"; cmp0
-mutant '_fref="$_lref"; }   # r1719-mut:lref' '_fref="$_cref"; }'
+mutant '_fref="$_lref"   # r1719-mut:lref' '_fref="$_cref"   # r1719-mut:lref'
 reset "$XS" behind3; o="$(close "$T/mutbin/ft-nano-close.sh" --landed-pr 363)"; has "$o" "ff 불가(갈라짐)" "M3 원장 ref = 카드 ref → ④ FAIL(갈라짐 REJECT)"
 reset "$XS" behind3; o="$(close "$NEW" --landed-pr 363)"; has "$o" "INFO 원장 WT ff" "  └ 원본 = ④ 따라감"; cmp0
 mutant '[ -z "$_xteam" ] || echo "INFO 팀 넘는 나노' 'echo "INFO 팀 넘는 나노'
