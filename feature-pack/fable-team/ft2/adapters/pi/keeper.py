@@ -20,6 +20,7 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 FT2 = os.path.dirname(os.path.dirname(HERE))
 GIT_S, CALL_S, ROUND_S, STALE_S, FETCH_S = 25, 7, 60, 600, 7   # r1937 FETCH_S = fetch 1회 7초(+ 재시도 1)
+SLOW_S = 5   # r1992 바깥 호출 1시도 ≥ 5초 = SLOW-CALL 1줄(동작 변경 0)
 OK = "접수 성공"
 
 
@@ -57,16 +58,23 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
         self.spent, self.sock, self.skip, self.stale = dict.fromkeys(("fetch", "b1", "b2c", "b2f", "b3", "stall"), 0.0), True, set(), set()
         self.per, self.at = {}, None   # r1969 (팀, 칸) 초 → ROUND slow 칸 · at = 지금 도는 팀(None = 팀 밖)
         self.table, self.nano, self.refs, self.picked, self.bg, self.fetch_s = {}, {}, {}, [], {}, {}   # r1975
+        self.stage, self.tally = "-", {}   # r1992 지금 칸(timed) · (팀, 칸) → [호출 시도 수, SLOW-CALL 초 합]
 
     def call(self, argv, timeout=CALL_S, retry=0):
         """바깥 호출 1곳 → (rc, stdout, stderr 1줄) · 넘침·실행 실패 = rc None · retry = rc≠0 때 다시 부르는 횟수."""
         self.cache.get("@round", {}).pop("ls", None) if "kill-session" in argv or argv[:1] == [sys.executable] else None   # r1969 세션이 바뀜 = 바퀴 list-sessions 캐시 버림
-        for _ in range(retry + 1):
+        for n in range(1, retry + 2):
+            at = self.now()
             try:
                 done = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, env=self.env, cwd=self.root)
                 out = (done.returncode, done.stdout, done.stderr.strip()[:200])
             except (OSError, subprocess.TimeoutExpired) as exc:
                 out = (None, "", str(exc)[:200])
+            dt, cell = self.now() - at, self.tally.setdefault((self.at, self.stage), [0, 0.0])
+            cell[:] = [cell[0] + 1, cell[1] + (dt if dt >= SLOW_S else 0.0)]
+            if dt >= SLOW_S:   # r1992 시도마다 1줄 · argv 앞 3낱말(git -C <repo> = repo 이름 · 경로 = 끝 이름 · 뒤 토큰 0)
+                head = [argv[0]] + argv[2:] if argv[1:2] == ["-C"] else argv
+                self.log("SLOW-CALL", self.at or "-", "%s %s s=%g rc=%s try=%d/%d" % (self.stage, " ".join(os.path.basename(w.rstrip("/")) or w for w in head[:3]), round(dt, 1), out[0], n, retry + 1))
             if out[0] == 0:
                 break
         return out
@@ -195,11 +203,11 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
 
     def timed(self, stage, fn, *args):
         """r1817 D3 — 단계별 초(주입 시계 self.now) 누적 · 반환 = fn 결과."""
-        at = self.now()
+        at, prev, self.stage = self.now(), self.stage, stage
         try:
             return fn(*args)
         finally:
-            dt = self.now() - at
+            self.stage, dt = prev, self.now() - at
             self.spent[stage] += dt
             self.per[(self.at, stage)] = self.per.get((self.at, stage), 0.0) + dt
 
@@ -261,6 +269,9 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
         cells += " fetch_root=%g fetch_pack=%g" % (round(self.fetch_s[self.root], 1), round(self.fetch_s[self.pack], 1))   # r1975 ⑤ 합계 fetch= 그대로
         cells += " nano=%g" % round(self.nano_s, 1) if round(self.nano_s, 1) else ""
         top = max((kv for kv in self.per.items() if kv[0][0]), key=lambda kv: kv[1], default=None)   # r1969 가장 느린 (팀, 칸) 1개
+        if top:   # r1992 ⑦ slow 칸의 호출 시도 수·SLOW-CALL 합(5초 미만 여러 번 = slow_call 0 으로 드러남) · ROUND 줄 그대로
+            got = self.tally.get(top[0], [0, 0.0])
+            self.log("SLOW-CELL", top[0][0], "%s s=%g n=%d slow_call=%g" % (top[0][1], round(top[1], 1), got[0], round(got[1], 1)))
         self.log("ROUND", text="s=%g %s slow=%s%s%s" % (round(s, 1), cells, "%s:%s:%g" % (top[0] + (round(top[1], 1),)) if top else "-", " OVER" if s > ROUND_S else "", self.skip and " skip=" + ",".join(sorted(self.skip)) or ""))
 
     def teams(self):
