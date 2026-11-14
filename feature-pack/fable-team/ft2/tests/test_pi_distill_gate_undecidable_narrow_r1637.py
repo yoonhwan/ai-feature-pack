@@ -20,7 +20,7 @@ else {
   const pi = { h: {}, on(e, f) { (this.h[e] ??= []).push(f); } }; mod.default(pi); await pi.h.session_start[0]({ reason: "resume" }, {});
   const out = [];
   for (const c of req.cases) { const ctx = { cwd: req.cwd, model: { id: c.model ?? "claude-sonnet-5-5" }, getContextUsage: () => (c.tokens ? { tokens: c.tokens } : null), sessionManager: { getEntries: () => [] } };
-    out.push((c.tool === "turn" ? await pi.h.before_agent_start[0]({}, ctx) : await pi.h.tool_call[0]({ toolName: c.tool, input: c.input ?? {} }, ctx)) ?? null); }
+    out.push((c.tool === "session" ? await pi.h.session_start[0]({ reason: c.reason }, {}) : c.tool === "turn" ? await pi.h.before_agent_start[0]({}, ctx) : await pi.h.tool_call[0]({ toolName: c.tool, input: c.input ?? {} }, ctx)) ?? null); }
   console.error = orig; process.stdout.write(JSON.stringify({ results: out, stderr: err }));
 }"""
 
@@ -94,6 +94,9 @@ def test_d_no_turn_injection_warn_once(tmp_path):
     assert r[:4] == [None] * 4 and r[4]["block"] is True and "recv" in r[4]["reason"], r  # 턴 주입 0 · ls·ask_user 통과 · recv 1회 막힘
     assert r[5]["message"]["content"].startswith("⚠️") and r[6] is None, r  # warn-line 은 세션당 1회
     assert sum(ln.startswith("ft2 distill-gate: turn undecidable") for ln in got["stderr"]) == 2, got["stderr"]  # 판정 불가 턴 = stderr 1줄씩
+    root, env, w = *build(tmp_path / "s"), {"tool": "turn", "tokens": 305000}  # DA HOLD #305492 반례1 — 새 세션 첫 경고는 다시 1회
+    r = run(GATE, root, [w, w, {"tool": "session", "reason": "new"}, w, w], env, op="ext")["results"]
+    assert [bool(x and x.get("message")) for x in r] == [True, False, False, True, False], r
 
 def test_e_ctx_read_paths_unchanged(tmp_path):
     root, env = build(tmp_path)

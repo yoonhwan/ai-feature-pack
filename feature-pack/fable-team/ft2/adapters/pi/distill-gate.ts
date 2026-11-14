@@ -234,7 +234,7 @@ const modelOf = (ctx: any): string => String(ctx?.model?.id ?? ctx?.model?.model
 const entriesOf = (ctx: any): unknown[] | undefined => { try { const e = ctx?.sessionManager?.getEntries?.(); return Array.isArray(e) ? e : undefined; } catch { return undefined; } };
 export default function distillGate(pi: any): void {
   let reason = "", fresh = false, warned = false; // warned = r1637 ⓓ warn-line 주입은 세션당 1회 // ⓙ session_start reason · 이번 턴이 «새 대화» 인가(tool_call 때는 assistant 메시지가 이미 있어 턴 시작에 잰다)
-  pi.on("session_start", (event: any) => { reason = String(event?.reason ?? ""); });
+  pi.on("session_start", (event: any) => { reason = String(event?.reason ?? ""); warned = false; }); // r1637 DA HOLD 보정 · 새 세션 = warn-line 다시 1회
   pi.on("tool_call", (event: any, ctx: any) => {
     const v = judge({ tool: String(event?.toolName ?? ""), command: event?.input?.command, path: event?.input?.path, tokens: usageOf(ctx), model: modelOf(ctx), cwd: ctx?.cwd, session: { reason, fresh } });
     if (v.action !== "block") { if (/^undecidable/.test(v.rule)) console.error(`ft2 distill-gate: ${v.rule} ${v.reason}`); return undefined; } // ⓐ 판정 불가 통과도 기록 1줄(no_silent_fallback · 채널 = 차단과 같은 stderr)
