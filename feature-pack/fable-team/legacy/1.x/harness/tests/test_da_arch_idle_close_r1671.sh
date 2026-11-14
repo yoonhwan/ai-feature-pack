@@ -16,7 +16,7 @@ if [ -z "${R1671_BIN:-}" ]; then for f in ft-seat-close-due.sh ft_stall_scan.py;
 FK="$T/fake"; mkdir -p "$FK" "$T/cwd" "$T/ss" "$T/q"
 printf '#!/usr/bin/env bash\ncase "$1" in list-sessions) [ -f "$T/tmuxfail" ] && exit 1; cat "$T/sess";; display-message) s="${4#=}"; cat "$T/cwd/${s%%:}";; *) exit 9;; esac\n' > "$FK/tmux"
 printf '#!/usr/bin/env bash\ncat "$T/ss/$2"\n' > "$FK/ss.sh"; printf '#!/usr/bin/env bash\ncat "$T/q/$1" 2>/dev/null || echo OK\n' > "$FK/q.sh"
-printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$*" >> "$T/close-calls"; [ -f "$T/closefail" ] && { echo "REJECT x"; exit 1; }; echo "CLOSED-ROLE $1 verdict=1699 kill=ok"\n' > "$FK/close.sh"
+printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$*" >> "$T/close-calls"; [ -f "$T/closefail" ] && { echo "REJECT x"; exit 1; }; [ -f "$T/closeslow" ] && exec sleep 8; echo "CLOSED-ROLE $1 verdict=1699 kill=ok"\n' > "$FK/close.sh"
 chmod +x "$FK/tmux"; export T PATH="$FK:$PATH" FT_CLOSE_DUE_SEAT_STATUS="$FK/ss.sh" FT_CLOSE_DUE_QUIET="$FK/q.sh" FT_SEAT_CLOSE="$FK/close.sh"
 ago() { python3 -c "import datetime,sys;print((datetime.datetime.now(datetime.timezone.utc)-datetime.timedelta(minutes=int(sys.argv[1]))).isoformat(timespec='seconds'))" "$1"; }
 R="$T/root"; C="$R/.fable-team/comm"; mkdir -p "$C" "$R/design/teams/t/indices/진행" "$R/design/teams/u/indices/진행"; : > "$C/mailbox.jsonl"; : > "$C/mailbox.log.jsonl"; : > "$T/sess"
@@ -40,7 +40,14 @@ msg() { printf '{"seq": %s, "to": "%s", "from": "%s", "body": "%s"}\n' "$2" "$3"
 echo "== ⓐ DA"; run; has "$OUT" "닫기 차례 $DA 갈래=유휴(da) end=" "ⓐ 발주 0·커밋 끝·유휴 40분(codex pane = 창 활동) → 닫기 차례(da)"; eq "$RC" 0 "ⓐ rc 0"
 msg mailbox.log.jsonl 10 "$DA" "byz-t-arch-pi#2" "[판정 요청] r1 PR #5"; run; has "$OUT" "제외 $DA 미답 발주 #10" "ⓐ M1 회신 없는 발주 #10 → 닫기 0"
 msg mailbox.log.jsonl 11 "$MS" "$DA" "[판정] APPROVE #10"; run; has "$OUT" "닫기 차례 $DA 갈래=유휴(da)" "ⓐ 발주 뒤 회신(본문 #10) → 다시 닫기 차례"
-msg mailbox.jsonl 12 "$DA" "$MS" "[판정 요청] r2"; run; has "$OUT" "제외 $DA 받을 일" "ⓐ 우편함 pending 1 → 닫기 0"; : > "$C/mailbox.jsonl"
+cp "$C/mailbox.log.jsonl" "$T/log0"; case0() { cp "$T/log0" "$C/mailbox.log.jsonl"; }   # 보정 R1 ⑧~⑪ — 사례마다 같은 원장에서 시작
+case0; msg mailbox.log.jsonl 12 "$DA" "$AR" "[판정 요청] r2 PR #6"; msg mailbox.log.jsonl 13 "$AR" "$DA" "[판정] APPROVE #10"
+run; has "$OUT" "제외 $DA 미답 발주 #12" "⑧ 발주 10·12 + «APPROVE #10» → 12 미답"; run --close "$DA"; has "$OUT" "NOT-DUE $DA 미답 발주 #12" "⑧ NOT-DUE"; [ ! -f "$T/close-calls" ] && ok "⑧ 닫기 호출 0" || bad "⑧ 가짜 닫기"
+case0; msg mailbox.log.jsonl 20 "$DA" "$AR" "[판정 요청] r3"; msg mailbox.log.jsonl 21 "$AR" "$DA" "[진행] 검토 시작 #20"; run; has "$OUT" "제외 $DA 미답 발주 #20" "⑨ «[진행] 검토 시작 #20» = 회신 아님"
+case0; msg mailbox.log.jsonl 12 "$DA" "$AR" "[판정 요청] r4"; msg mailbox.log.jsonl 13 "$MS" "$DA" "[판정] r4 APPROVE-IMPL 요청12"; run; has "$OUT" "닫기 차례 $DA 갈래=유휴(da)" "⑩ «APPROVE-IMPL 요청12» → 소거(받는 이 무관)"
+: > "$C/mailbox.log.jsonl"; msg mailbox.log.jsonl 10 "$DA" "$AR" "[판정 요청] r5"; msg mailbox.log.jsonl 11 "$AR" "$DA" "[판정] APPROVE #104"; run; has "$OUT" "제외 $DA 미답 발주 #10" "⑪ 발주 10 + «APPROVE #104» → 미답(숫자 경계)"
+case0
+msg mailbox.jsonl 17 "$DA" "$MS" "[판정 요청] r3"; run; has "$OUT" "제외 $DA 받을 일" "ⓐ 우편함 pending 1 → 닫기 0"; : > "$C/mailbox.jsonl"
 FT_SEAT_IDLE_CLOSE_MIN=60 run; has "$OUT" "제외 $DA 유휴 40분 < 문턱" "ⓐ 문턱 미달 → 닫기 0"
 echo "== ⓑ arch"; run; has "$OUT" "닫기 차례 $AR 갈래=유휴(arch) end=" "ⓑ 받을 일 0·커밋 끝·유휴 → 닫기 차례(arch)"
 echo x > "$R/design/teams/t/indices/진행/c.md"; run; has "$OUT" "제외 $AR 받을 일 OPEN-WORK 있음" "ⓑ 팀 진행 카드 = 받을 일 → 닫기 0"; rm "$R/design/teams/t/indices/진행/c.md"
@@ -54,8 +61,11 @@ echo "== ⓒ 닫기 집행"; run --close "$W1"; eq "$RC" 1 "ⓒ 닫기 차례 �
 run --close "$DA"; eq "$OUT" "CLOSED $DA idle=1" "ⓒ 출력 CLOSED <좌석> idle=1"; eq "$RC" 0 "ⓒ rc 0"; CA="$(cat "$T/close-calls")"
 has "$CA" "$DA --verdict 1699 --reason r1671 유휴 자동 닫기" "ⓒ ft-seat-close 표준 경로(--verdict) 1회"; has "$CA" "--seats $R/.fable-team/seats-t.json" "ⓒ 명부 경로 고정"; eq "$(wc -l < "$T/close-calls" | tr -d ' ')" 1 "ⓒ 1회"
 hasnt "$CA" "branch" "ⓒ 브랜치·kill-server 인자 0"; touch "$T/closefail"; run --close "$DA"; has "$OUT" "CLOSE-FAIL $DA rc=1 — REJECT x" "ⓒ 닫기 실패 = CLOSE-FAIL"; eq "$RC" 1 "ⓒ 실패 rc 1"; rm "$T/closefail"
+touch "$T/closeslow"; : > "$T/close-calls"; s12=$SECONDS; run --close "$DA"; has "$OUT" "판정 불가 $DA ft-seat-close rc=-" "⑫ 가짜 ft-seat-close 8초 → 7초 상한 판정 불가"; eq "$RC" 3 "⑫ rc 3"; hasnt "$OUT" "CLOSED" "⑫ CLOSED 0"; eq "$(wc -l < "$T/close-calls" | tr -d ' ')" 1 "⑫ 재시도 0(1회)"; echo "⑫ $((SECONDS-s12))초"; rm "$T/closeslow"
 echo "== ⓕ 닫힌 좌석 앞 발주"; msg mailbox.jsonl 20 "$CL" "$MS" "[발주] 새 일"; S0="$(cksum < "$C/mailbox.jsonl")"; run; run --close "$CL"
 eq "$(cksum < "$C/mailbox.jsonl")" "$S0" "ⓕ 닫힌 좌석 앞 발주 = 우편함에 남음"; has "$OUT" "NOT-DUE $CL" "ⓕ 닫힌 좌석 --close = NOT-DUE"
+FT_SEAT_CLOSE_DUE_BUDGET=6 run; has "$OUT" "판정 불가 $AR 예산 — 다음 판" "ⓒ(R1) 남은 예산 < 7초 → 남은 좌석 판정 불가 «예산 — 다음 판»"; eq "$RC" 3 "ⓒ(R1) rc 3"
+eq "$( { grep -E 'run\(' "$TOOL"; sed -n '/def auto_close_da_arch/,/def record_notify/p' "$BIN/ft_stall_scan.py" | grep -E 'run\('; } | grep -cE ', ?70[,)]')" 0 "ⓒ(R1) 바깥 호출 70초 상한 0"
 echo "== ⓓ 주기 실행(stall_scan)"
 PYO="$(FT_ROOT="$R" R1671_BIN="$BIN" python3 - "$T" 2>&1 <<'PY'
 import json, os, sys, time
@@ -75,7 +85,13 @@ chk(any("판정 불가 seat-auto-close C#3" in x for x in r) and sum("실패" in
 r, c = go({"FT_SEAT_AUTO_CLOSE_DA_ARCH": "1"}); chk(c == [""], f"ⓓ 같은 end 동안 실패 좌석 재시도 0 {c}")
 json.dump({"A#1": "end=OLD"}, open(o.state_dir / "seat-auto-close.json", "w")); r, c = go({"FT_SEAT_AUTO_CLOSE_DA_ARCH": "1"})
 chk("--close A#1" in c and "S seat-auto-close CLOSED A#1 idle=1" in r, f"ⓓ 상태 바뀜(end) → 다시 1회 · 성공 줄 {r}")
+os.remove(o.state_dir / "seat-auto-close.json"); r, c = go({"FT_SEAT_AUTO_CLOSE_DA_ARCH": "1"}, "판정 불가 A#1 ft-seat-close rc=-", 3)
+chk(not json.load(open(o.state_dir / "seat-auto-close.json")).get("A#1") and any("판정 불가 seat-auto-close A#1" in x for x in r), f"⑫ --close 판정 불가 = tried 0(다음 판이 다시 판정) {r}")
+real, seen = m.run, []
+m.run = lambda cmd, env=None, timeout=15, cwd=None: (seen.append((cmd[2:], timeout)), (99, ""))[1]
+r, c = go({"FT_SEAT_AUTO_CLOSE_DA_ARCH": "1"}); m.run = real
+chk(r == ["S 판정 불가 seat-auto-close close-due rc=99 — 닫기 0"] and seen == [([], 25)], f"⑬ due 25초 예산 초과 → 판정 불가 1줄 · 닫기 0 {r} {seen}")
 PY
-)"; echo "$PYO"; [ "$(grep -c '^PASS ' <<<"$PYO")" = 5 ] && ! grep -q '^FAIL ' <<<"$PYO" || bad "ⓓ PASS 5줄 아님"
+)"; echo "$PYO"; [ "$(grep -c '^PASS ' <<<"$PYO")" = 7 ] && ! grep -q '^FAIL ' <<<"$PYO" || bad "ⓓ PASS 7줄 아님"
 echo "RUN r1671 단계 합 $((SECONDS-t0))초"
 exit $(( fail > 0 ))
