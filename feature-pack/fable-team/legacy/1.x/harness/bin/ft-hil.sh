@@ -56,7 +56,7 @@ rc=""; R="$(git -C "$(dirname "$P")" rev-parse --path-format=absolute --git-comm
 if [ -z "$R" ]; then echo "INFO 리포 밖 계획 — cd 0 ($P)" >&2; elif [ ! -f "$R/.fable-team/LIVE_ROOT" ]; then echo "판정 불가 — 계획 $P 의 리포($R)에 .fable-team/LIVE_ROOT 없음" | tee "$M.out" >&2; rc=3
 elif cd "$R"; then unset FT_ROOT; else echo "판정 불가 — 계획 리포 루트로 cd 실패: $R" | tee "$M.out" >&2; rc=3; fi
 [ -n "$rc" ] || { bash "$P" "$@" 2>&1 | tee "$M.out"; rc=${PIPESTATUS[0]}; }
-echo "rc=$rc $(date +%s)" >> "$M.ran"
+echo "rc=$rc $(date +%s)" >> "$M.ran"; export FT_HIL_RECHECK="$(FT_EVENT_COMM="$C" bash "${N%/*}/ft-event-check.sh" hil "$M" "$rc" "$M.out")"; FT_HIL_RECHECK="${FT_HIL_RECHECK:-재측정: 판정 불가(ft-event-check 출력 없음)}"   # r1474: 사건 직후 1회 재측정 → done 쪽지 끝 칸(rc 불변)
 bash "$N" done "$M" "$rc" "$C" $S || echo "WARN 결과 쪽지 실패 — h rc 는 그대로($rc)" >&2
 exit "$rc"
 EOS
