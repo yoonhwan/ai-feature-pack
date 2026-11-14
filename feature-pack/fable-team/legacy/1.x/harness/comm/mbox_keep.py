@@ -21,6 +21,7 @@ skill/ft-mbox.py. 세 사본은 «바이트 동일» 블록이고 시험(tests/t
 셋을 대조한다 — 한 곳만 고치면 그 경로로 사람 글이 다시 버려진다(DA⑥ 반례 1).
 """
 # >>> r912 mbox_keep shared begin — 이 블록은 세 곳(harness/comm/mbox_keep.py · harness/kit/fable-team/bin/ft-mbox.py · skill/scripts/ft-mbox.py)에 바이트 동일로 박힌다(tests/test_mbox_keep_human_mail.sh ⓘ 대조). 고칠 때는 셋을 같이 고친다.
+import fcntl as _fcntl
 import json as _json
 import os as _os
 import re as _re
@@ -195,14 +196,18 @@ def ring_after(canon, to, pend, cap, dropped, oldest, send):
             if pend < cap:
                 mark.unlink(missing_ok=True)
             return
-        if mark.is_file() and _time.time() - mark.stat().st_mtime < RING_GAP:
-            return
         tgt = ring_alarm_to(ring_dir(canon), to)
         if not tgt:
             _sys.stderr.write("WARN 큐 포화 경보 받는 이 없음 — to=%s (명부 _master 0)\n" % to)
             return
         mark.parent.mkdir(parents=True, exist_ok=True)
-        mark.write_text("%d\n" % _time.time(), encoding="utf-8")   # 보내기 «전» — 경보가 또 넘쳐도 재귀 0
+        with open(mark, "a+", encoding="utf-8") as f:   # DA R1 — 판독·예약 = 같은 표식 flock 안(동시 send 도 경보 1통)
+            _fcntl.flock(f, _fcntl.LOCK_EX)
+            st = _os.fstat(f.fileno())
+            if st.st_size and _time.time() - st.st_mtime < RING_GAP:
+                return
+            f.truncate(0)
+            f.write("%d\n" % _time.time())   # 보내기 «전» — 경보가 또 넘쳐도 재귀 0 · 잠금은 발신 전에 풀린다
     except OSError as e:
         _sys.stderr.write("WARN 큐 포화 표식 실패 — to=%s %s · 경보 0\n" % (to, e))
         return
