@@ -22,7 +22,8 @@ MARK = "[발주] ft2 harness %s@a1" % W
 def body(root, team, work, holder):
     return ("[발주] ft2 %s %s@a1 좌석 %s — 카드 %s origin/main:design/%s/indices/대기/%s.md 를 통째로 읽고 그대로 수행 · "
             "root = %s · work = %s · gen = ft2_claim 이 돌려준 값 · "   # r1930 범위 더함(이 임시 root 에는 명부가 없다 = 옛 길 + «DA 좌석 못 읽음»)
-            "ft2_claim → ft2_start 부터 · DA 좌석 못 읽음 · 산출·막힘은 팀 master 에 mbox · 산출 = 가지 nano/<work> push + master 보고까지 · "
+            "ft2_claim → ft2_start 부터 · 모듈 못 읽음 · DA 좌석 못 읽음 ·"   # r1947: 명부 없음 = {da} 못 채움 → 내장 구(설치 여부 무관)
+            " 산출·막힘은 팀 master 에 mbox · 산출 = 가지 nano/<work> push + master 보고까지 · "
             "main·ops/main-base push·병합·착지·설치·심링크·가지 삭제 0(= master·h 몫) · AGENTS.md «Landing the Plane» 은 이 좌석에 적용 0"
             % (team, work, holder, os.path.abspath(str(root)), team, work, os.path.abspath(str(root)), work))   # r1900 끝 1구
 
