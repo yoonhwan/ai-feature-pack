@@ -37,6 +37,9 @@ def read_inputs(env_path, seats_path):  # 자격 파일 → 이름별 값(돌려
         raise Undecided("owner-seats _master 판독 불가")
     return names, str(master), str(desk) if desk else None
 
+def bot_users_of(names):  # r1985 — 탱크 SLACK_BOT_USER_ID + SLACK_REPLY_BOT_USER_IDS(쉼표 목록 · 공백·빈 항목 제외 · user 정확 일치)
+    return tuple(u for u in (v.strip() for v in [names.get("SLACK_BOT_USER_ID") or ""] + (names.get("SLACK_REPLY_BOT_USER_IDS") or "").split(",")) if u)
+
 def current_desk(seats_path):  # owner-seats 의 지금 _desk · 칸 없음·판독 불가 = None(r1861 R1)
     try:
         with open(seats_path, encoding="utf-8") as handle:
@@ -286,7 +289,7 @@ def main(argv):
         listener = Listener(opts["root"], channel=opts.get("channel"), app_token=names["SLACK_APP_TOKEN"],
                         bot_token=names["SLACK_BOT_TOKEN"], master=master, desk=desk, seats=opts["owner-seats"], team=opts.get("team", "planner"),
                         users=tuple(u for u in opts.get("users", "").split(",") if u),
-                        bot_users=tuple(u for u in (names.get("SLACK_BOT_USER_ID"),) if u))
+                        bot_users=bot_users_of(names))
     except channels.Corrupt as exc:  # CHANNELS 깨짐 · 파일 없음 ∧ --channel 없음 = 수신 시작 0
         return say("판정 불가", str(exc), UNDECIDED)
     return say("경쟁 수신 있음", "hello num_connections > 1", RIVAL) if listener.run() == RIVAL else 0
