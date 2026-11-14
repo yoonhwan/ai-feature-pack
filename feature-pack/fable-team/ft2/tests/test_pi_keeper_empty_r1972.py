@@ -1,5 +1,6 @@
-"""r1972 keeper — 원장 done · 커밋 0 · 변경 0 · PR 닫힘(merge 0)/없음 나노는 B2 가 닫는다(CLOSED-ENDING empty · complete 0) · 반례 ①~⑩ · 변이 M1~M5.
-대역 = r1812 World(임시 BYZ·팩 리포·가짜 tmux·쪽지·실제 core) + 가짜 gh(FT2_GH · --state merged/all 따로) + 임시 git worktree · 실 세션 0 · sleep 0."""
+"""r1972 keeper — 원장 done · 커밋 0 · 변경 0 · PR 닫힘(merge 0)/없음 나노는 B2 가 닫는다(CLOSED-ENDING empty · complete 0) · 반례 ①~⑩ · 변이 M1~M6.
+대역 = r1812 World(임시 BYZ·팩 리포·가짜 tmux·쪽지·실제 core) + 가짜 gh(FT2_GH · 실제 gh 처럼 --state 필터 → --limit 기본 30) + 임시 git worktree · 실 세션 0 · sleep 0.
+DA HOLD-IMPL R1 #303842 — CLOSED 30 + OPEN/MERGED 1(⑤b·⑥b) = 잘린 목록을 전체로 쓰면 닫힘."""
 import importlib.util, json, shutil  # noqa: E401
 from pathlib import Path
 import pytest
@@ -9,12 +10,21 @@ kw = importlib.util.module_from_spec(_S)
 _S.loader.exec_module(kw)
 TEAM, _git, _put = kw.TEAM, kw._git, kw._put
 ID = ["-c", "user.email=t@t", "-c", "user.name=t", "-c", "commit.gpgsign=false"]
-GH = '#!/bin/sh\nprintf "%s\\n" "$*" >> "$FAKE_GH.log"\ncase "$*" in *"--state merged"*) s=merged;; *) s=all;; esac\ncat "$FAKE_GH.$s" 2>/dev/null || echo "[]"\nexit "$(cat "$FAKE_GH.rc" 2>/dev/null || echo 0)"\n'
-CLOSED = json.dumps([{"number": 8476, "state": "CLOSED", "mergedAt": None}])
+GH = '''#!__PY__
+import json, os, sys
+a, f = sys.argv[1:], os.environ["FAKE_GH"]
+open(f + ".log", "a").write(" ".join(a) + "\\n")
+want = {"open": "OPEN", "merged": "MERGED", "closed": "CLOSED MERGED", "all": "OPEN CLOSED MERGED"}[a[a.index("--state") + 1]].split()
+prs = [p for p in json.load(open(f + ".prs")) if p["state"] in want][:int(a[a.index("--limit") + 1]) if "--limit" in a else 30]
+sys.stdout.write(json.dumps(prs)), sys.exit(int(open(f + ".rc").read()))
+'''
+def P(state, n=1, at=1):
+    return [{"number": at + i, "state": state, "mergedAt": "2026-11-14T00:00:00Z" if state == "MERGED" else None} for i in range(n)]
+CLOSED = P("CLOSED", at=8476)
 def world(tmp, mp, ft2=FT2):
     tmp.mkdir(parents=True, exist_ok=True)
     w = kw.World(tmp, mp, ft2)
-    _put(tmp / "bin" / "gh", GH), (tmp / "bin" / "gh").chmod(0o755)
+    _put(tmp / "bin" / "gh", GH.replace("__PY__", __import__("sys").executable)), (tmp / "bin" / "gh").chmod(0o755)
     w.env.update(FT2_GH=str(tmp / "bin" / "gh"), FAKE_GH=str(tmp / "gh"))
     return w
 def nano(w, work, done=True, prs=CLOSED, rc=0, commit=False, dirty=False, **kv):
@@ -24,7 +34,7 @@ def nano(w, work, done=True, prs=CLOSED, rc=0, commit=False, dirty=False, **kv):
     _git(w.tmp / "pack", "fetch", "-q", "origin"), _git(w.tmp / "pack", "worktree", "add", "-q", "-b", "nano/" + work, str(path), base)
     commit and _git(path, *ID, "commit", "-q", "--allow-empty", "-m", "n-" + work)
     dirty and _put(path / "new.txt", "x")
-    _put(str(w.tmp / "gh") + ".all", prs), _put(str(w.tmp / "gh") + ".rc", str(rc))
+    _put(str(w.tmp / "gh") + ".prs", json.dumps(prs)), _put(str(w.tmp / "gh") + ".rc", str(rc))
     _put(w.runtime() / "launch" / ("%s@a1.intent" % work), {"FT2_HOLDER": "byz-harness-nano-%s-t#0" % work, "state": "opened", "worktree": str(path), "at": "2026-01-01T00:00:00", "base_sha": base})
 def run(w, k=None):
     return w.round(k), w.tmux("kill-session")
@@ -38,9 +48,9 @@ def c1(w):   # ① cfo-2659 꼴 → CLOSED-ENDING empty · kill 1 · complete �
     nano(w, "r9701")
     lines, kills = run(w)
     assert has(lines, "CLOSED-ENDING harness r9701 byz-harness-nano-r9701-t#0", "empty") and has(lines, "CLOSED-ENDING", "PR 닫힘 #8476") and len(kills) == 1 and w.kinds("complete") == 1, lines
-    assert any("--head nano/r9701 --state all" in x for x in kw._lines(str(w.tmp / "gh") + ".log"))
+    assert any("--head nano/r9701 --state open --limit 1" in x for x in kw._lines(str(w.tmp / "gh") + ".log"))
 def c2(w):   # ② PR 0개 → 닫음
-    nano(w, "r9702", prs="[]")
+    nano(w, "r9702", prs=[])
     lines, kills = run(w)
     assert has(lines, "CLOSED-ENDING harness r9702", "PR 없음") and len(kills) == 1, lines
 def c3(w):   # ③ 자기 커밋 1 → 닫기 0
@@ -48,11 +58,15 @@ def c3(w):   # ③ 자기 커밋 1 → 닫기 0
 def c4(w):   # ④ untracked 1 → 닫기 0
     nano(w, "r9704", dirty=True), shut(w, "r9704")
 def c5(w):   # ⑤ PR OPEN → 닫기 0
-    nano(w, "r9705", prs=json.dumps([{"number": 1, "state": "CLOSED", "mergedAt": None}, {"number": 2, "state": "OPEN", "mergedAt": None}])), shut(w, "r9705")
+    nano(w, "r9705", prs=P("CLOSED") + P("OPEN", at=2)), shut(w, "r9705")
+def c5b(w):  # ⑤b (DA R1) CLOSED 30 뒤 OPEN 1 → 닫기 0 · kill 0
+    nano(w, "r9715", prs=P("CLOSED", 30) + P("OPEN", at=31)), shut(w, "r9715")
 def c6(w):   # ⑥ PR merged(merged 목록 근거 못 채움) → empty 아님
-    nano(w, "r9706", prs=json.dumps([{"number": 3, "state": "MERGED", "mergedAt": "2026-11-14T00:00:00Z"}])), shut(w, "r9706")
+    nano(w, "r9706", prs=P("MERGED", at=3)), shut(w, "r9706")
+def c6b(w):  # ⑥b (DA R1) CLOSED 30 뒤 MERGED 1 → 닫기 0 · kill 0
+    nano(w, "r9716", prs=P("CLOSED", 30) + P("MERGED", at=31)), shut(w, "r9716")
 def c7(w):   # ⑦ gh 실패 → None(HELD 그대로)
-    nano(w, "r9707", prs="[]", rc=1)
+    nano(w, "r9707", prs=[], rc=1)
     assert has(shut(w, "r9707"), "HELD harness r9707", "착지 줄 없음")
 def c8(w):   # ⑧ Working → HELD · kill 0
     nano(w, "r9708", pane="⠋ Working...\n")
@@ -65,13 +79,14 @@ def c9(w):   # ⑨ 원장 holder ≠ 세션 이름 → None · 같은 이름 = e
     assert K.endings.ending(k, TEAM, "r9709") is None and K.endings.ending(k, TEAM, "r9709", "byz-harness-nano-r9709-t#0")[0] == "empty"
 def c10(w):  # ⑩ done 아님 → 닫기 0
     nano(w, "r9710", done=False), shut(w, "r9710")
-CASES = {"①": c1, "②": c2, "③": c3, "④": c4, "⑤": c5, "⑥": c6, "⑦": c7, "⑧": c8, "⑨": c9, "⑩": c10}
+CASES = {"①": c1, "②": c2, "③": c3, "④": c4, "⑤": c5, "⑤b": c5b, "⑥": c6, "⑥b": c6b, "⑦": c7, "⑧": c8, "⑨": c9, "⑩": c10}
 KE = "adapters/pi/keeper_endings.py"
 MUTANTS = {"M1": (' or k.git(tree, "rev-list", "--count", base + "..HEAD")[:2] != (0, "0\\n"):', ":", c3),
            "M2": ('if k.git(tree, "status", "--porcelain", "--untracked-files=all")[:2] != (0, ""):', "if False:", c4),
-           "M3": ('p.get("state") == "CLOSED"', 'p.get("state") in ("CLOSED", "OPEN")', c5),
+           "M3": ('(state != "closed" and seen[state])', '(state == "merged" and seen[state])', c5b),
+           "M6": ('(state != "closed" and seen[state])', '(state == "open" and seen[state])', c6b),
            "M4": (" or holder != seat:", ":", c9),
-           "M5": ("prs = json.loads(out) if rc == 0 else None", "prs = json.loads(out) if rc == 0 else []", c7)}
+           "M5": ("seen[state] = json.loads(out) if rc == 0 else None", "seen[state] = json.loads(out) if rc == 0 else []", c7)}
 @pytest.mark.parametrize("name", list(CASES))
 def test_case(name, tmp_path, monkeypatch):
     CASES[name](world(tmp_path / "w", monkeypatch))
