@@ -13,7 +13,7 @@ def auto_opened(call, tmux, seat, intent):
     sid, created, tree = (str(intent.get(n) or "") for n in ("tmux_sid", "tmux_created", "worktree"))
     if not (sid and created):
         return False, "개설 영수 없음 · 손 0"
-    rc, out, err = call([tmux, "display-message", "-p", "-t", "=" + seat + ":", FMT])
+    rc, out, err = call([tmux, "display-message", "-p", "-t", "=%s:" % seat, FMT])   # 대상 한 낱말(tmux-target lint 판독 꼴)
     got = out.strip("\n").split("\t") if rc == 0 else []
     if len(got) != 3:
         return False, "판정 불가 · tmux display rc %s %s" % (rc, err)
