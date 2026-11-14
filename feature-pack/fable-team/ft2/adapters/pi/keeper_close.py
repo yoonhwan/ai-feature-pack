@@ -259,3 +259,4 @@ class Closing:
         if rc == 0:
             self.state["held"].pop(seat)
             self.state["open"].pop(seat, None)
+            alive.discard(seat)   # r1898 DA R1 — 다른 명부의 같은 좌석 행 = 닫힌 것으로 본다(두 번째 close·허위 HELD 0)
