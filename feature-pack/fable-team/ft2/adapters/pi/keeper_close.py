@@ -67,12 +67,13 @@ class Closing:
         return "unknown · %s %s" % (rc, err)
 
     def held_attached(self, team, work, holder):
-        """kill 직전 가드(keeper_close·keeper_stall 공용) — free 가 아니면 HELD 1줄 · 참 = 닫기 0(영수·재배정 0 · 다음 바퀴에 다시 봄)."""
+        """kill 직전 가드(keeper_close·keeper_endings·keeper_stall 공용) — r1976 attached N = NOTE 1줄 뒤 닫기 계속(오빠 지시) · unknown = HELD 1줄 · 참 = 닫기 0."""
         why = self.attached(holder)
-        if why == "free":
+        if why.startswith("attached "):
+            self.log("NOTE", team, "%s 사람 화면 attached=%s — 오빠 지시로 닫음 · %s" % (holder, why[9:], work))
+        if why == "free" or why.startswith("attached "):
             return False
-        text = "사람 화면 attached=%s" % why[9:] if why.startswith("attached ") else "판정 불가 attached(%s)" % why[10:]
-        self.log("HELD", team, "%s %s %s · kill 0" % (work, holder, text))
+        self.log("HELD", team, "%s %s 판정 불가 attached(%s) · kill 0" % (work, holder, why[10:]))
         return True
 
     def close(self, team, work, attempt, row, dispatched=None):
