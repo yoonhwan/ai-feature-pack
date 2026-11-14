@@ -56,7 +56,7 @@ for g in sorted({f, *glob.glob(os.path.dirname(f) + "/seats*.json")}):
 print(int(re.sub(r"#\d+$", "", n) == re.sub(r"#\d+$", "", seat)))   # 1 = 후계가 같은 역할 우편함(mbox_conf.role_key)
 PY3
 )"; r=$?; case "$r" in 0) ;; 4) finish 1 "REJECT $SEAT dead-seat 조건 미충족 $o — $s";; *) finish 1 "REJECT $SEAT dead-seat ${o:-판정 불가 명부 참조(rc=$r)} — $s";; esac
-  n="$(python3 "$G" peek "$SEAT" 2>/dev/null | sed -n 's/^pending=\([0-9][0-9]*\).*/\1/p' | head -1)"; [ -n "$n" ] || finish 1 "REJECT $SEAT dead-seat 판정 불가 미처리 보존(peek) — $s"
+  n="$(python3 "$G" peek "$SEAT" 2>/dev/null)"; r=$?; n="$(printf '%s\n' "$n" | sed -n 's/^pending=\([0-9][0-9]*\).*/\1/p' | head -1)"; [ "$r" = 0 ] && [ -n "$n" ] || finish 1 "REJECT $SEAT dead-seat 판정 불가 미처리 보존(peek rc=$r) — $s"   # DA#10 R1 — 조회 실패의 부분 출력은 근거 아님
   [ "$n" = 0 ] || [ "$o" = 1 ] || finish 1 "REJECT $SEAT dead-seat 조건 미충족 미처리 보존(pending $n · 후계 역할 우편함 아님) — $s"
   o="$(bash "${FT_SEAT_RETIRE_BIN:-$HERE/ft-seat-retire.sh}" "$SEAT" --record-only --keep-existing --seats "$SEATS_FILE" 2>&1)"; r=$?; NOLINE="$(printf '%s\n' "$o" | grep -m1 '^NORECORD ')"
   case "$r $(printf '%s\n' "$o" | grep -m1 -E '^(RESUME (ok|kept) |NORECORD )')" in "0 RESUME ok "*) RK=new;; "0 RESUME kept "*) RK=kept;; "0 NORECORD "*) RK=NORECORD; REC=NORECORD;; *) finish 3 "HELD $SEAT dead-seat 재개 기록 실패 — $s · rc=$r ${o%%$'\n'*}";; esac
