@@ -5,6 +5,7 @@
 // ④ 상주 프로세스·주기 폴링·이벤트 훅 0 — 이 파일은 registerTool 만 한다(타이머·이벤트 훅·상주 자식 없음).
 // ⑤ 외부 호출 1회 상한 7초(하드 룰 12) — 넘으면 SIGKILL 로 끝낸다(SIGTERM 무시 자식도 7초에 반환).
 import { execFile } from "node:child_process";
+import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -34,10 +35,18 @@ const LABELS: Record<string, string> = {
   ft2_effect: "ft2 effect — 효과 의도 내구화", ft2_result: "ft2 result — 결과 확정",
 };
 
-/** cli 경로 — FT2_CLI(설치본·시험) > 어댑터 옆 ../../core/cli.py > <루트>/feature-pack/fable-team/ft2/core/cli.py. */
+/** r1996 — 어댑터 옆이 <home>/versions/<판>/core/cli.py 꼴이면 «호출마다» <home>/CURRENT 판 cli(있을 때만) · 그 밖 = 그대로(캐시 0). */
+export function followCurrent(beside: string): string {
+  const m = /^(.*)[\\/]versions[\\/][^\\/]+[\\/]core[\\/]cli\.py$/.exec(beside);
+  try { const ver = m ? fs.readFileSync(path.join(m[1], "CURRENT"), "utf8").split("\n")[0].trim() : "";
+    const next = m && /^[\w.-]+$/.test(ver) && ver !== ".." ? path.join(m[1], "versions", ver, "core", "cli.py") : "";
+    if (next && fs.existsSync(next)) return next; } catch { /* CURRENT 못 읽음 = 어댑터 옆 */ }
+  return beside;
+}
+/** cli 경로 — FT2_CLI(설치본·시험) > 어댑터 옆 ../../core/cli.py(CURRENT 판 따라감 · r1996) > <루트>/feature-pack/fable-team/ft2/core/cli.py. */
 export function cliPath(root: string): string {
   if (process.env.FT2_CLI) return process.env.FT2_CLI;
-  try { return fileURLToPath(new URL("../../core/cli.py", import.meta.url)); } catch { /* jiti = 아래 폴백 */ }
+  try { return followCurrent(fileURLToPath(new URL("../../core/cli.py", import.meta.url))); } catch { /* jiti = 아래 폴백 */ }
   return path.join(root, "feature-pack", "fable-team", "ft2", "core", "cli.py");
 }
 const python = (): string => process.env.FT2_PYTHON || "python3";
