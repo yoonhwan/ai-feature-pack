@@ -126,6 +126,7 @@ rows() {
 }
 OUT="$(rows)"
 printf '%s\n' "$OUT"
+H_N="$(printf '%s\n' "$OUT" | awk -F'\t' '$NF=="정리 가능"{c++}END{print c+0}')"; H_MSG=""; H_RC=0; if [ -n "$H_OUT" ] && [ -z "$ONLY" ]; then if [ -z "$OUT" ]; then H_MSG="판정 불가 — 표 0행 · h 0"; H_RC=1; H_OUT=""; elif [ "$H_N" = 0 ]; then H_MSG="대상 0 · h 0"; H_OUT=""; fi; fi   # r1712: 빈 표·대상 0 = h 0
 if [ -n "$H_OUT" ]; then
   {
     echo '#!/usr/bin/env bash'
@@ -139,11 +140,11 @@ if [ -n "$H_OUT" ]; then
       printf '%s\n' 'if [ ! -d "$target" ]; then sk_none=$((sk_none+1)); elif [ "$(bash "$CENSUS" --only "$target" --repo "$ROOT" 2>/dev/null | awk -F"\t" "{print \$NF}")" != "정리 가능" ]; then sk_change=$((sk_change+1)); elif "$GIT" -C "$ROOT" worktree remove "$target" 2>/dev/null; then ok=$((ok+1)); else sk_fail=$((sk_fail+1)); fi'
     done
     echo 'echo "요약 지움 ${ok} · 건너뜀 $((sk_none+sk_change+sk_fail))(없음 ${sk_none} · 재판정 바뀜 ${sk_change} · remove 실패 ${sk_fail})"'
-  } > "$H_OUT"
+  } > "$H_OUT"; [ -z "$ONLY" ] && H_MSG="h target $(grep -c '^target=' "$H_OUT") = 정리 가능 $H_N"
 fi
 [ -n "$ONLY" ] && exit 0
 # 요약 1줄 — 사유별 KEEP 수(사유 순서 고정 · index() 로 다바이트 안전)
 printf '%s\n' "$OUT" | awk -F'\t' 'BEGIN{m[1]="①";m[2]="②";m[3]="④";m[4]="⑤";m[5]="⑥"}
   $NF=="정리 가능"{c++;next} $NF ~ /^KEEP:/{k++; for(i=1;i<=5;i++) if(index($NF,m[i])) w[i]++; next} {u++}
   END{for(i=1;i<=5;i++) if(w[i]) s=s (s==""?"":" ") m[i] ":" w[i]
-      printf "요약 정리 가능 %d · KEEP %d%s · 판정 불가 %d (총 %d줄)\n", c+0, k+0, (k?"(" s ")":""), u+0, c+k+u}'
+      printf "요약 정리 가능 %d · KEEP %d%s · 판정 불가 %d (총 %d줄)\n", c+0, k+0, (k?"(" s ")":""), u+0, c+k+u}'; [ -z "$H_MSG" ] || echo "$H_MSG"; exit "$H_RC"
