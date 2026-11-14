@@ -168,7 +168,7 @@ def main(argv):
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         return module.main(argv[2:])
-    if argv[:1] == ["slack"] and argv[1:2] in (["reply"], ["notify"]):   # r1807 팀 좌석 → 같은 thread 답·알림(비모델)
+    if argv[:1] == ["slack"] and argv[1:2] in (["reply"], ["notify"], ["post"]):   # r1807 · r1923 post 팀 좌석 → 같은 thread 답·알림(비모델)
         path = os.path.join(os.path.dirname(_HERE), "adapters", "slack", "wiring.py")
         spec = importlib.util.spec_from_file_location("ft2_slack_wiring", path)
         module = importlib.util.module_from_spec(spec)
