@@ -126,7 +126,8 @@ def replace_ok(repo, spec, s):
     """r1741 A1~A3: DA 판정문 §<절> 의 ```gate-replace 블록 → ({(경로, 원문): 개수}, «경로@sha10#§절») — 리포 = FT_ROOT(카드) → 후보.
     못 읽음(카드 리포 FT_ROOT 하나 · 7초 상한)·절 없음·APPROVE 아님·블록 꼴 아님·head 불일치는 Fail(통과 0 · 게이트가 DENY … 판정 불가 로 낸다)."""
     m = re.fullmatch(r"([^@\s]+)@([0-9a-f]{7,40})#§(\S+)", spec)
-    if not m: raise Fail("판정 불가 replace-ok 꼴 아님(<경로>@<sha>#§<절>): %s" % spec[:80])
+    if not m:
+        raise Fail("판정 불가 replace-ok 꼴 아님(<경로>@<sha>#§<절>): %s" % spec[:80])
     path, sha, sec = m.groups()
     root, why = os.environ.get("FT_ROOT") or "", "판정 불가 replace-ok 판정문 못 읽음 %s@%s" % (path, sha[:10])
     text = None   # 판정문 리포 = 카드 리포(FT_ROOT) 하나뿐 — 후보 리포 폴백 0 · FT_ROOT 가 빈 값이면 git -C ""(=cwd 리포)를 부르지도 않는다
@@ -136,14 +137,17 @@ def replace_ok(repo, spec, s):
             text = p.stdout.decode("utf-8", "replace") if p.returncode == 0 else None
         except subprocess.TimeoutExpired:
             raise Fail(why + " — 7초 초과")
-    if text is None: raise Fail(why)
+    if text is None:
+        raise Fail(why)
     hit = re.search(r"(?m)^#{1,6}\s[^\n]*§\s*%s(?![0-9])[^\n]*\n(.*?)(?=^#{1,6}\s|\Z)" % re.escape(sec), text, re.S)
-    if not hit: raise Fail("판정 불가 replace-ok §%s 절 없음(%s@%s)" % (sec, path, sha[:10]))
+    if not hit:
+        raise Fail("판정 불가 replace-ok §%s 절 없음(%s@%s)" % (sec, path, sha[:10]))
     v = re.search(r"(?m)^\s*판정:\s*(.+)$", hit.group(1))
     if not (v and v.group(1).strip().lstrip("*").startswith("APPROVE")):
         raise Fail("판정 불가 replace-ok §%s APPROVE 아님(%.40s)" % (sec, v.group(1).strip() if v else "판정: 줄 없음"))
     f = re.search(r"```gate-replace[ \t]*\nhead ([0-9a-f]{40})\n(.*?)```", hit.group(1), re.S)
-    if not f: raise Fail("판정 불가 replace-ok 블록 없음 또는 첫 줄 «head <40hex>» 아님(§%s)" % sec)
+    if not f:
+        raise Fail("판정 불가 replace-ok 블록 없음 또는 첫 줄 «head <40hex>» 아님(§%s)" % sec)
     rows = [x.split("\t") for x in f.group(2).split("\n") if x.strip()]
     if not all(len(c) == 3 and c[2].strip().isdigit() and int(c[2]) >= 1 for c in rows):
         raise Fail("판정 불가 replace-ok 블록 줄 꼴 아님(경로<TAB>원문<TAB>개수)")
