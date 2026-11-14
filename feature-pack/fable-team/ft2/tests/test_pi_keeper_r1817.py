@@ -80,9 +80,9 @@ def timed(w, b3):   # 주입 시계: fetch 리포 2개 × 5초 · B1 10초 · B2
     assert [x["kind"] for x in jl if x["line"].startswith("ROUND")] == ["ROUND"]
     return rows
 def c3(w):   # ③ 단계마다 10초 → ROUND s=40 · 단계 넷 · OVER 0
-    assert timed(w, 10) == ["ROUND s=40 fetch=10 b1=10 b2=10 b3=10 stall=0"]   # r1898 stall 칸
+    assert timed(w, 10) == ["ROUND s=40 fetch=10 b1=10 b2c=10 b2f=0 b3=10 stall=0 slow=harness:b1:10"]   # r1898 stall 칸 · r1969 b2c·b2f·slow
 def c3b(w):  # ③′ 합 61 → OVER
-    assert timed(w, 31) == ["ROUND s=61 fetch=10 b1=10 b2=10 b3=31 stall=0 OVER"]
+    assert timed(w, 31) == ["ROUND s=61 fetch=10 b1=10 b2c=10 b2f=0 b3=31 stall=0 slow=harness:b1:10 OVER"]
 def sock(w, got, rc=0):   # 가짜 tmux 앞에 display 만 가로채는 층 · 기준 = FT2_TMUX_SOCKET(설치 렌더 고정)
     _put(w.tmp / "bin" / "tmux2", "#!/bin/sh\n[ \"$1\" = display ] && { echo '%s'; exit %d; }\nexec '%s' \"$@\"\n"
          % (got, rc, w.env["FT_TMUX"])), (w.tmp / "bin" / "tmux2").chmod(0o755)
