@@ -7,6 +7,9 @@
 #   T5 spawn · 세션 0 = 실패 · 배정 줄 불일치 = 실패 · 전부 맞음 = OK · SPAWNED·KILLED 줄(훅 그대로 실행) 끝 칸 + exit 0 불변
 #   T6 events tsv · 탭 6칸 1줄 · 날이 바뀐 첫 쓰기에 14일 지난 파일 삭제 · 기록 실패 = stderr «판정 불가(기록)» 1줄 + 칸은 그대로
 #   T7 항목 스텁 sleep 9 = 그 대상 «판정 불가(시간 초과)» · 전체 25초 안 · 재시도 0 · 새 쪽지 0(done 1통뿐)
+#   T8·T8b 보정 R1: «error connecting (Permission denied)» = 판정 불가 rc3 · «no server running» = 세션 없음 OK
+#   T9·T9b 보정 R2: cmp0 LIVE_BIN = <루트>/LIVE_BIN 첫 줄(bin = shim) · 빈 LIVE_BIN = 판정 불가
+#   T10·T10b 보정 R3: tsv «rc=» = 5칸 하나(요약 rc:) · ft-now events 블록 원문 = 실패 rc=1 MW2 · 판정 불가 rc=3 MW1
 # 전부 합성(임시 HIL_DIR·쪽지함·가짜 launchctl/tmux/mbox·합성 카드·임시 git) · 실 h·실 좌석·실 launchctl·실 쪽지 0 · sleep 은 T7 스텁만.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -134,6 +137,41 @@ s="$(cat "$C/sent.log" 2>/dev/null)"
 has "$s" "재측정: 판정 불가 · 대상 2 중 실패 0 · 불가 1" "대상 2 중 불가 1"
 has "$s" "com.t.s 판정 불가(시간 초과)" "  └ 그 대상 «판정 불가(시간 초과)»"
 [ "$(grep -c . "$C/sent.log")" = 1 ] && ok "쪽지 = done 1통뿐" || bad "쪽지: $s"
+
+echo "== T8 DA 반례 R1 — has-session rc1 + «error connecting … (Permission denied)» = 판정 불가 rc3"
+mkdir -p "$T/fb8"
+printf '#!/bin/bash\necho "error connecting to /private/tmp/tmux-501/default (Permission denied)" >&2\nexit 1\n' > "$T/fb8/tmux"
+printf '#!/bin/bash\necho "no server running on /private/tmp/tmux-501/default" >&2\nexit 1\n' > "$T/fb8/tmux-ns"; chmod +x "$T/fb8/tmux" "$T/fb8/tmux-ns"
+o="$(env "${EV[@]}" FT_EVENT_TMUX="$T/fb8/tmux" bash "$S" close "$SEAT" "$T/card.md")"; rc=$?
+has "$o" "재측정: 판정 불가 · 대상 2 중 실패 0 · 불가 1" "권한 거부 = 세션 판정 불가(OK 둔갑 0)"; [ "$rc" = 3 ] && ok "  └ rc3" || bad "rc=$rc"
+echo "== T8b «no server running» rc1 = 세션 없음 OK(지금처럼)"
+o="$(env "${EV[@]}" FT_EVENT_TMUX="$T/fb8/tmux-ns" bash "$S" close "$SEAT" "$T/card.md")"; rc=$?
+has "$o" "재측정: OK" "no server running → OK"; [ "$rc" = 0 ] && ok "  └ rc0" || bad "rc=$rc"
+
+echo "== T9 DA 반례 R2 — <루트>/LIVE_BIN 첫 줄 = 실제 설치본(bin = shim) · env 미지정 → cmp0 OK"
+R9="$T/r9"; mkdir -p "$R9/ft/comm" "$R9/ft/bin" "$R9/live"
+cp "$BIN/ft-hil.sh" "$R9/live/ft-hil.sh"; printf '#!/bin/bash\nexec bash "%s/live/ft-hil.sh" "$@"\n' "$R9" > "$R9/ft/bin/ft-hil.sh"
+printf '%s/live\n' "$R9" > "$R9/ft/LIVE_BIN"; entry e9 "ft-hil.sh cmp0"
+o="$(env -u FT_EVENT_LIVE_BIN "${EV[@]}" FT_EVENT_COMM="$R9/ft/comm" bash "$S" hil "$T/e9" 0 "$T/e9.out")"; rc=$?
+has "$o" "재측정: OK · 대상 1 중 실패 0 · 불가 0" "LIVE_BIN 파일이 가리키는 설치본과 cmp0 → OK"; [ "$rc" = 0 ] && ok "  └ rc0" || bad "rc=$rc"
+echo "== T9b LIVE_BIN 파일 비었음 → 판정 불가(shim 폴더로 내려가지 않음)"
+: > "$R9/ft/LIVE_BIN"
+o="$(env -u FT_EVENT_LIVE_BIN "${EV[@]}" FT_EVENT_COMM="$R9/ft/comm" bash "$S" hil "$T/e9" 0 "$T/e9.out")"; rc=$?
+has "$o" "재측정: 판정 불가 · 대상 1 중 실패 0 · 불가 1" "빈 LIVE_BIN → 판정 불가"; [ "$rc" = 3 ] && ok "  └ rc3" || bad "rc=$rc"
+
+echo "== T10 DA 반례 R3 — 원 rc0 + 재측정 실패 → tsv rc=1 하나 · ft-now events 블록 = 실패 rc=1 MW2"
+NOWB="$T/now-events.sh"   # ft-now.sh events 블록 원문 그대로(ev= 줄 ~ «없음» 줄) + mnote
+{ echo 'MT=""; MW=0'; grep '^mnote()' "$BIN/ft-now.sh"; sed -n '/^ev="\$EVENTS\/\$TODAY.tsv"/,/^else mnote events "없음"/p' "$BIN/ft-now.sh"; echo 'printf "%s\nMW=%s\n" "$MT" "$MW"'; } > "$NOWB"
+nowev() { EVENTS="$T/ev" TODAY="$TODAY" bash "$NOWB"; }
+lc "com.t.a loadednr"; entry e10 "com.t.a running"; ec hil "$T/e10" 0 "$T/e10.out" >/dev/null
+last="$(tail -n 1 "$T/ev/$TODAY.tsv")"
+[ "$(printf '%s' "$last" | awk -F'\t' '{print $5}')" = rc=1 ] && ok "tsv 5칸 = rc=1" || bad "tsv: $last"
+[ "$(printf '%s' "$last" | grep -o 'rc=' | grep -c .)" = 1 ] && ok "  └ 줄 안 «rc=» 1개(요약 = rc:)" || bad "rc= 수: $last"
+has "$last" "원 rc:0" "  └ 원 rc 정보 보존(원 rc:0)"
+o="$(nowev)"; has "$o" "events 신선도=오늘 원결과=실패 rc=1" "ft-now events = 실패 rc=1"; has "$o" "MW=2" "  └ MW2"
+echo "== T10b 판정 불가 줄(rc=3) → ft-now «판정 불가 rc=3» MW1"
+lc "com.t.e error:3"; ec hil "$T/e3b" 0 "$T/e3b.out" >/dev/null
+o="$(nowev)"; has "$o" "events 신선도=오늘 원결과=판정 불가 rc=3" "ft-now events = 판정 불가 rc=3"; has "$o" "MW=1" "  └ MW1"
 
 [ "$fail" = 0 ] && { echo "ALL PASS"; exit 0; }
 echo "FAILED $fail"; exit 1
