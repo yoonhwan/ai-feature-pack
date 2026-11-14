@@ -60,11 +60,11 @@ FAKE_CALL = dict(x.split("=", 1) for x in (os.environ.get("FT_CLOSE_DUE_FAKE_CAL
 mono = lambda: time.monotonic() + _skew[0]
 
 
-def run(cmd, cap=7.0):   # → (rc, stdout, 이유) · 시간 초과·실행 불가 = rc None
+def run(cmd, cap=7.0, xenv=None):   # → (rc, stdout, 이유) · 시간 초과·실행 불가 = rc None
     b = os.path.basename(cmd[0]); rest = cmd[3:] if cmd[1:2] == ["-C"] else cmd[1:]; t0 = mono()
     name = f"{b}-{rest[0]}" if b in ("git", "tmux") and rest else re.sub(r"^ft-|\.sh$", "", b)   # git-status · tmux-display-message · seat-status
     try:
-        p = subprocess.run(cmd, capture_output=True, text=True, timeout=max(0.5, cap), env=env)
+        p = subprocess.run(cmd, capture_output=True, text=True, timeout=max(0.5, cap), env={**env, **(xenv or {})})
         return p.returncode, p.stdout, p.stderr
     except subprocess.TimeoutExpired: return None, "", "시간 초과"
     except OSError as e: return None, "", str(e)
@@ -320,6 +320,25 @@ def pack_remote(sha, cap):   # r1701 ③ r6 — 세트가 팩 «origin/*» 원�
     return bool(out.strip())
 
 
+SX_TAIL = re.compile(r"PR #(\d+) \(head ([0-9a-f]{40})\)")   # r1713 A5 — 끝줄 정확 꼴(fullmatch · 꼬리·가운데 줄 = 후보 0)
+CARD_PR = re.compile(r"착지:.*?PR #(\d+)")
+
+
+def sx_land(jrepo, jsha, sec, cap, chk):   # → ("squash", 착지 커밋 짧은 sha, N) | None · 판정 불가 = Unjudged
+    want = [m.group(1) for l in sec for m in [CARD_PR.search(l)] if m]   # 카드 «착지: … PR #N» 이 있으면 그 N 만(«PR #44» ≠ N=4)
+    chk(); _, o = need(["git", "-C", jrepo, "log", "-n", "20", "--format=%h%x1f%B%x1e", "refs/remotes/origin/main"], cap(), "git log")
+    for rec in o.split("\x1e"):
+        h, _, body = rec.strip("\n").partition("\x1f")
+        ls = [x for x in body.split("\n") if x.strip()]
+        if ls and ls[-1].startswith("main 자동 병합"): ls = ls[:-1]   # EQUIV·docam 꼬리 1줄(위 squash 대조와 같다)
+        m = SX_TAIL.fullmatch(ls[-1].strip()) if ls else None   # r1713-mut:tailfull
+        if not m or m.group(2) == jsha or (want and int(m.group(1)) != int(want[-1])): continue   # X = 세트 는 위 A3 정확 대조 몫
+        chk(); rc, _o, err = run(["bash", HERE + "/ft-landed-sx.sh", jrepo, jsha, m.group(2), "refs/remotes/origin/main"], cap(), {"FT_LANDED_SX_CAP": f"{max(0.5, cap()):.1f}"})   # r1713-mut:sxcall
+        if rc == 0: return "squash", h, m.group(1)
+        if rc != 1: raise Unjudged(f"ft-landed-sx rc={'-' if rc is None else rc} {(err.strip().split(chr(10)) or [''])[0][:160]}".rstrip())
+    return None
+
+
 def judge(t, k, row, card_dirs):   # → 줄 | None(제외 · exc 에 사유) · 조회 실패 = Unjudged
     seat_t0 = mono(); steps.clear()
     cap = lambda: 7.0 - (mono() - seat_t0)
@@ -350,6 +369,10 @@ def judge(t, k, row, card_dirs):   # → 줄 | None(제외 · exc 에 사유) ·
     key, top = repo_key(cwd)
     if key is None: raise Unjudged("git 리포 찾기 rc=1")
     fetch_once(key, top)
+    if in_pack:   # r1713 A1·A2 — 판정 리포가 팩이면 팩 origin/main 도 받는다(실행당 1회 · 같은 키 규칙 · 실패 = 판정 불가 · 옛 팩 ref 로 판정 0)
+        pkey, ptop = repo_key(PACK_REPO)
+        if pkey is None: raise Unjudged("팩 git 리포 찾기 rc=1")
+        fetch_once(pkey, ptop)   # r1713-mut:packfetch
     chk()
     rc, _ = need(["git", "-C", jrepo, "merge-base", "--is-ancestor", jsha, "refs/remotes/origin/main"], cap(), "git merge-base", ok=(0, 1))
     landed, main_sha, pr = ("ff", None, "-") if rc == 0 else (None, None, "-")
@@ -364,6 +387,8 @@ def judge(t, k, row, card_dirs):   # → 줄 | None(제외 · exc 에 사유) ·
             if ls and ls[-1].startswith("main 자동 병합"): ls = ls[:-1]   # r1169 docam 꼬리 1줄
             m = re.fullmatch(r"PR #(\d+) \(head " + jsha + r"\)", ls[-1].strip()) if ls else None
             if m: landed, main_sha, pr = "squash", h, m.group(1); break
+        if landed is None:   # r1713 A4·A5·A6 — 끝줄 head X ≠ 세트여도 «세트 ⊂ X · main 병합뿐 · 자기 변경 같음»(공용 ft-landed-sx.sh = nano-close r1084 과 같은 판정)이면 squash
+            landed, main_sha, pr = sx_land(jrepo, jsha, sec, cap, chk) or (None, None, "-")
         if landed is None and (AUTO or GATE):   # r1670 승인 갈래 — 착지 없이 DA APPROVE·인수·원격 보존이 다 서면 닫기 차례
             chk(); _, _so = need([SEAT_STATUS, "turn", k], cap(), "ft-seat-status turn"); _st = (_so.split() or [""])[0]
             if _st != "IDLE": exc.append(f"제외 {k} 상태 {_st or '-'} (IDLE 아님)"); return None   # ⓑ·ⓕ: 승인 갈래도 «지금 IDLE» 일 때만
