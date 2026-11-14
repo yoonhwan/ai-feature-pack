@@ -80,13 +80,13 @@ def test_b_tmux_session_without_roster_row_is_not_a_seat(tmp_path):
 def test_c_inside_seat_judging_unchanged(tmp_path):
     root, _ = build(tmp_path)
     got = run(GATE, root, [{"tool": "bash", "tokens": k, "model": CLAUDE, "seat": SEAT, "command": "ls"} for k in (None, 305000)], env={"FT_SEAT": SEAT})
-    assert [v["rule"] for v in got] == ["undecidable", "warn-line"], got
+    assert [v["rule"] for v in got] == ["undecidable-readonly", "warn-line"], got  # r1637 ⓑ
 
 
 def test_d_inside_seat_fail_closed_kept(tmp_path):
     root, _ = build(tmp_path)
     got = run(GATE, root, [{"tool": "bash", "tokens": 330000, "model": "", "seat": SEAT, "command": "ls"}], env={"FT_SEAT": SEAT})
-    assert got[0]["action"] == "block" and "모델 불명" in got[0]["reason"], got
+    assert got[0]["action"] == "allow" and "모델 불명" in got[0]["reason"], got  # r1637 ⓑ 판정 불가 ls = 읽기 전용 통과
 
 
 def test_e_roster_only_seat_by_tmux_name(tmp_path):
@@ -114,7 +114,7 @@ def test_m_mutants_break_their_cases(tmp_path):
     root, plain = build(tmp_path)
     m1 = mutant(tmp_path, "M1", "if (seatVerdict(env, root, seat, input.seat !== undefined) === false)", "if (false)")  # 좌석 판정 빼기
     got = run(m1, plain, tools("bash"), op="ext")
-    assert got["results"] != [None] and got["stderr"], "M1 좌석 판정 빼기 → ⓐ FAIL 검출"
+    assert got["stderr"], "r1637 ⓑ 판정 불가 ls = 통과+기록 · M1 좌석 판정 빼기 → ⓐ FAIL 검출"
     m2 = mutant(tmp_path, "M2", "if (!seat) return env.TMUX_PANE || declared ? null : false;", "if (env.TMUX_PANE) return true; if (!seat) return declared ? null : false;")  # TMUX_PANE 있으면 좌석
     got = run(m2, root, tools("bash"), env={"TMUX_PANE": "%1", "PATH": stub_path(tmp_path, "random-tmux-1")})
-    assert got[0]["action"] != "allow", "M2 «TMUX_PANE 있으면 좌석» → ⓑ FAIL 검출"
+    assert got[0]["rule"] != "not-seat", "r1637 ⓑ · M2 «TMUX_PANE 있으면 좌석» → ⓑ FAIL 검출"
