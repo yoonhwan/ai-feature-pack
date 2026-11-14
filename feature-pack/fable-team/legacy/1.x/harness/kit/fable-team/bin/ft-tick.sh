@@ -1789,6 +1789,31 @@ pass_core() {
   esac
   step fire fire_seats
 }
+# r1467 promote/discard line
+# 팀 틱(FT_TICK_TEAM)만: evolve 후보(학습 N·폐기 M)가 있고 오늘 resolved 에 그 팀 줄이 없으면 master 발사 줄 끝에 «판단 요청 1줄»(같은 줄 · 공백 1칸).
+#   후보 0·오늘 이미 판단·메인 틱 = 출력 0(바이트 불변). 못 읽음 = stderr «판정 불가» 1줄(같은 원인 연속은 서명 파일로 1통) + 출력 0.
+promote_line() {
+  [ -n "${FT_TICK_TEAM:-}" ] || return 0
+  local d="$ROOT/.fable-team/state/evolution" sig="$STATE_DIR/promote.err.sig" f n m why=""
+  f="$(awk 'NR==1 {print $2}' "$d/LATEST" 2>/dev/null)"
+  case "$f" in candidates-*.md) [ -f "$d/$f" ] || why="후보 파일 없음 $d/$f";; *) why="LATEST 없음·깨짐 $d/LATEST";; esac
+  if [ -z "$why" ]; then
+    n="$(sed -n 's/^## 학습 후보 (\([0-9][0-9]*\))$/\1/p' "$d/$f" | head -1)"
+    m="$(sed -n 's/^## 폐기 후보 (\([0-9][0-9]*\))$/\1/p' "$d/$f" | head -1)"
+    [ -n "$n" ] && [ -n "$m" ] || why="후보 수 못 읽음 $d/$f"
+  fi
+  if [ -n "$why" ]; then
+    [ "$(cat "$sig" 2>/dev/null)" = "$why" ] && return 0
+    echo "$(date '+%F %T') 판정 불가 승격/폐기 판단 줄 — $why · 줄 0" >&2
+    mkdir -p "$STATE_DIR" 2>/dev/null; printf '%s' "$why" > "$sig" 2>/dev/null; return 0
+  fi
+  rm -f "$sig" 2>/dev/null
+  [ $(( n + m )) -gt 0 ] || return 0
+  grep -qF "\"team\": \"$FT_TICK_TEAM\"" "$d/resolved-$(date +%Y%m%d).jsonl" 2>/dev/null && return 0
+  printf ' [승격/폐기 판단] 후보 학습 %s · 폐기 %s → %s 읽고 ft-lessons.sh resolve team %s "검색어" --result keep|drop --reason "사유" 를 승격(keep) 1·폐기(drop) 1 까지만(그 이상 0)' \
+    "$n" "$m" "$d/$f" "$FT_TICK_TEAM"
+}
+# end r1467 promote/discard line
 # 좌석 while 묶음(fire·goal) — 한 단계 «fire» 로만 잰다(좌석별 세분은 2단계). 변수는 pass_core 의 것(동적 범위).
 fire_seats() {
   while IFS=$'\t' read -r seat tick role; do
@@ -1802,7 +1827,7 @@ fire_seats() {
         # ★2026-09-28 master#69 실측: idle-detected 가 1~2분마다 와서 17:01 뒤 뉴스 0회(굶음) — 연기는 최대 FT_TICK_NEWS_MAX_DEFER 까지만★
         ngap=$(stamp_gap "$(stamp_of "$seat" master)")
         if [ "$igap" -lt "${FT_TICK_IDLE_QUIET_SEC:-$MASTER_MIN_GAP}" ] && [ "$ngap" -lt "${FT_TICK_NEWS_MAX_DEFER:-900}" ] && [ "$DRY" != 1 ]; then log "skip $seat/master — idle-detected ${igap}s ago (news deferred · last news ${ngap}s)"
-        else fire "$seat" master "$MASTER_INTERVAL" "$MASTER_MIN_GAP" "$MASTER_MSG"; fi
+        else fire "$seat" master "$MASTER_INTERVAL" "$MASTER_MIN_GAP" "$MASTER_MSG$(promote_line)"; fi
         goal "$seat";;
       ft-pm-tick)     fire "$seat" pm "$PM_INTERVAL" "$PM_MIN_GAP" "$(pm_msg "$report_to")";;
       ft-goal-tick)   goal "$seat";;

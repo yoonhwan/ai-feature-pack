@@ -43,7 +43,7 @@ def ft_root() -> Path:
 SEED_QUEUE = """# 매일 평가 큐 (한 줄 = 한 항목 · 하루 1건 · 오빠와 함께)
 # 형식: - [ ] 제목 :: 확인 방법
 - [ ] 좌석 기억이 실제로 실리는가 :: 새 좌석 부팅 프롬프트에 SNAPSHOT 줄이 보이는지
-- [ ] 팀장 틱이 승격/폐기를 하는가 :: 15분 틱 응답에 승격 1·폐기 1 판단이 있는지
+- [ ] 팀장 틱이 승격/폐기를 하는가 :: state/evolution/resolved-<오늘>.jsonl 에 promote ≥1 · discard ≥1(팀 무관)
 - [ ] 하루 1회 진화 게이트가 도는가 :: evolution/last-run 이 오늘 날짜인지
 - [ ] 팀 자동 발견이 새 팀을 잡는가 :: SYNC-TEAMS 발견 수 = team/*.jsonl 수인지
 - [ ] 상시 로드가 다시 비대해지지 않았나 :: CLAUDE.md ≤12KB · rules ≤8KB · BOOT ≤2KB
@@ -91,6 +91,7 @@ def measure(root: Path) -> list[str]:
             out.append("후보 = 판정 불가(LATEST 대상 없음)")
     else:
         out.append("후보 = 판정 불가(LATEST 없음)")
+    out.append("승격/폐기 판단 = %s" % resolved_verdict(ev / ("resolved-%s.jsonl" % today)))
     tdir = root / "state" / "lessons" / "team"
     files = sorted(f for f in tdir.glob("*.jsonl") if ".archive" not in f.name) if tdir.is_dir() else []
     filled = [f.stem for f in files if f.stat().st_size > 0]
@@ -113,6 +114,21 @@ def measure(root: Path) -> list[str]:
     out.append("상시 로드 = CLAUDE.md %sB(≤12,288) · rules %sB(≤8,192)"
                % (cl.stat().st_size if cl.is_file() else "?", sum(r.stat().st_size for r in rules) or "?"))
     return out
+
+
+def resolved_verdict(f: Path) -> str:
+    """r1467: 팀장 resolve 기록(ft-lessons resolve)으로 기계 판정 — promote ≥1 · discard ≥1(팀 무관)이면 통과."""
+    n = {"promote": 0, "discard": 0}
+    try:
+        rows = f.read_text(encoding="utf-8").splitlines() if f.is_file() else []
+        for line in filter(str.strip, rows):
+            v = json.loads(line).get("verdict")
+            if v in n:
+                n[v] += 1
+    except (OSError, ValueError, AttributeError) as e:
+        return "판정 불가(%s · %s)" % (type(e).__name__, f.name)
+    ok = n["promote"] >= 1 and n["discard"] >= 1
+    return "오늘 resolved promote %d · discard %d → %s" % (n["promote"], n["discard"], "통과" if ok else "고칠 것 후보")
 
 
 def resolve_desk(root: Path) -> str:

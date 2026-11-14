@@ -498,10 +498,18 @@ def cmd_suggest(argv: list[str]) -> int:
 
 
 def cmd_resolve(argv: list[str]) -> int:
-    """실험 기억의 결말 — `resolve <seat|team> <이름> "검색어" --result keep|drop`.
-    keep = kind 를 directive 로 바꾸고 pin(영구) · drop = 아카이브로 내린다(삭제 0)."""
+    """실험 기억의 결말 — `resolve <seat|team> <이름> "검색어" --result keep|drop [--reason "사유"]`.
+    keep = kind 를 directive 로 바꾸고 pin(영구) · drop = 아카이브로 내린다(삭제 0).
+    r1467: 성공한 판단은 state/evolution/resolved-<날짜>.jsonl 에 1줄(일일 평가가 기계로 센다)."""
+    reason = ""
+    if "--reason" in argv:
+        j = argv.index("--reason")
+        if j + 1 >= len(argv):
+            die("REJECT --reason 값 없음")
+        reason = argv[j + 1]
+        argv = argv[:j] + argv[j + 2:]
     if len(argv) < 3 or "--result" not in argv:
-        die('usage: resolve <seat|team> <이름> "검색어" --result keep|drop')
+        die('usage: resolve <seat|team> <이름> "검색어" --result keep|drop [--reason "사유"]')
     i = argv.index("--result")
     try:
         res = argv[i + 1]
@@ -533,7 +541,26 @@ def cmd_resolve(argv: list[str]) -> int:
             arc = archive(p, hit, "resolve-drop")
             atomic_write(p, rows)
             print("RESOLVE drop %d건 → 아카이브 %s (삭제 0)" % (len(hit), arc.name))
-    return 0
+    return 0 if record_resolved(layer, name, needle, res, reason) else 3
+
+
+def record_resolved(layer: str, name: str, needle: str, res: str, reason: str) -> bool:
+    """r1467: 판단 1건 = resolved-<YYYYMMDD>.jsonl 1줄 append. 못 쓰면 «판정 불가» 1줄 + rc3(기존 resolve 결과는 이미 남았다)."""
+    root = ft_root()
+    seat = os.environ.get("FT_SEAT_NAME") or os.environ.get("FT_SEAT") or (name if layer == "seat" else "")
+    team = name if layer == "team" else (os.environ.get("FT_TEAM") or guess_team(root, seat))
+    row = {"ts": now(), "team": team, "seat": seat, "id": needle,
+           "verdict": "promote" if res == "keep" else "discard", "reason": reason}
+    out = root / "state" / "evolution" / ("resolved-%s.jsonl" % dt.date.today().strftime("%Y%m%d"))
+    try:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        with open(out, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+        print("RESOLVED %s %s → %s" % (row["verdict"], team, out.name))
+        return True
+    except OSError as e:
+        print("판정 불가 resolved 기록 실패(%s): %s" % (type(e).__name__, out), file=sys.stderr)
+        return False
 
 
 def cmd_list(argv: list[str]) -> int:
