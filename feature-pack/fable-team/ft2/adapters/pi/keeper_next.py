@@ -23,6 +23,10 @@ def ft2_state(k, team):
         return dispatch.Dispatch(k.root, team).ex._state_records()[0]
     except ValueError:
         return None
+def once(k, key, read):
+    """r1969 바퀴 캐시 — 같은 바깥 읽기 = 바퀴당 1회(팀 사이 공유) · keeper._round 가 열고 닫음(바퀴 밖 = 캐시 0) · kill·launch 뒤 ls 버림(keeper.call)."""
+    got, fn = k.cache.get("@round"), read if callable(read) else lambda: k.call(read)
+    return fn() if got is None else got[key] if key in got else got.setdefault(key, fn())
 def ledger(k, stem):
     return k.read_json(os.path.join(k.root, ".fable-team", "state", "card-assign", stem + ".json"))
 def gates(k, team):
@@ -31,7 +35,7 @@ def gates(k, team):
     if not os.path.exists(os.path.join(k.root, ".fable-team", "teams", team, "CLOSE-NEXT.enabled")) or os.path.lexists(os.path.join(st, "%s-tick" % team, "PAUSED")):
         return False
     for name, tool, args, on in (("SPAWN_HOLD", "spawn-hold", [str(k.read_json(os.path.join(st, "SPAWN_HOLD")).get("verdict"))], 0), ("ACCT_PAUSE", "acct-pause", ["--agent", "pi"], 3)):
-        rc = k.call(["bash", os.path.join(os.path.dirname(k.close_bin or ""), "ft-%s.sh" % tool), "status", "--check"] + args)[0] if os.path.lexists(os.path.join(st, name)) else 3 - on
+        rc = once(k, tool, ["bash", os.path.join(os.path.dirname(k.close_bin or ""), "ft-%s.sh" % tool), "status", "--check"] + args)[0] if os.path.lexists(os.path.join(st, name)) else 3 - on
         if rc != 3 - on:   # 끔 = hold rc3 · acct rc0 — 유효·판정 불가 = 0
             return k.log("NEXT-HOLD", team, "%s %s rc %s — 다음 카드 0" % (name, "유효" if rc == on else "판정 불가", rc))
     home = os.path.join(k.env.get("HOME") or os.path.expanduser("~"), ".claude", "fable-team", "thresholds.env")   # r1860 순서 = env > 루트 > ~/.claude > 샘플
@@ -39,7 +43,7 @@ def gates(k, team):
     cap = (k.env.get("FT2_TEAM_NANO_MAX") or next((x.split("=", 1)[1].strip() for p in files for x in open(p, encoding="utf-8") if x.startswith("FT2_TEAM_NANO_MAX=")), "")).strip()
     if not (cap.isascii() and cap.isdigit()):   # R3 — 못 정함 = 새 실행 0(임의 기본값 0)
         return k.log("판정 불가", team, "나노 상한 FT2_TEAM_NANO_MAX 못 정함(%r · env·thresholds.env) — 다음 카드 0" % cap[:20])
-    rc, out, _ = k.call([k.tmux, "list-sessions", "-F", "#{session_name}"])
+    rc, out, _ = once(k, "ls", [k.tmux, "list-sessions", "-F", "#{session_name}"])   # r1969 바퀴당 1회 · 여는 중 합집합은 부를 때마다
     live = sum(x.startswith("byz-%s-nano-" % team) for x in set(out.split()) | k.cache.get("launching", set())) if rc == 0 else None   # r1929 여는 중 = 1칸
     k.fa.observe(k.root, "나노 정원", team, live, int(cap), "다음 카드")   # r1886 ⓑ 열림·NEXT-HOLD 둘 다
     return True if live is not None and live < int(cap) else k.log("NEXT-HOLD", team, "나노 %s / 상한 %s — 다음 카드 0" % (live, cap))
@@ -53,14 +57,15 @@ def cards(k, team):
     r = next((x for x in rows if x[0] == team), None) or next((x for x in rows if x[0] == "*"), None)
     if not r:
         return "카드 루트 표 행 없음"
-    r = [r[0], os.path.join(k.root, r[1]), r[2], r[3].replace("*", team)]
-    rc, names, err = k.git(r[1], "ls-tree", "--name-only", r[2], "--", r[3] + "/대기/")
-    rc2, heads, _ = k.git(r[1], "grep", "-I", "-E", r"^- (긴급|우선|대상)", r[2], "--", r[3] + "/대기/")
+    raw, r = r[3], [r[0], os.path.join(k.root, r[1]), r[2], r[3].replace("*", team)]   # r1969 raw git = (리포·ref·표 행 루트) 바퀴당 1회 · 팀 걸러내기는 따로
+    rc, names, err, rc2, heads = once(k, ("cards", r[1], r[2], raw), lambda: k.git(r[1], "ls-tree", "-r", "--name-only", r[2], "--", raw.split("*")[0] if "*" in raw else raw + "/대기/")
+                                      + k.git(r[1], "grep", "-I", "-E", r"^- (긴급|우선|대상)", r[2], "--", ":(glob)%s/대기/*" % raw)[:2])
     if rc != 0 or rc2 not in (0, 1):
         return "카드 루트 git rc %s/%s %s" % (rc, rc2, err[:60])
-    found = {os.path.basename(p)[:-3]: [False, False, []] for p in names.splitlines() if p.endswith(".md")}
+    mine = r[3] + "/대기"
+    found = {os.path.basename(p)[:-3]: [False, False, []] for p in names.splitlines() if p.endswith(".md") and os.path.dirname(p) == mine}
     for path, _, line in (x[len(r[2]) + 1:].partition(":") for x in heads.splitlines()):
-        row = found.get(os.path.basename(path)[:-3])
+        row = found.get(os.path.basename(path)[:-3]) if os.path.dirname(path) == mine else None
         if row is not None:
             row[0], row[1] = row[0] or bool(URGENT.match(line)), row[1] or bool(HIGH.match(line))
             row[2] += [line] if line.startswith("- 대상") else []

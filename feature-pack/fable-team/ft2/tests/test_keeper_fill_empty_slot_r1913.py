@@ -94,7 +94,7 @@ def run(name, tmp, mp, ft2=kw.FT2):
     opts.get("pre", lambda _: None)(w)
     case(w, mp)
 KN, KP = "adapters/pi/keeper_next.py", "adapters/pi/keeper.py"
-MUTANTS = {"M1": (KP, "            self.timed(\"b2\", closing.keeper_next.fill, self, team)\n", "            pass\n", "①"),
+MUTANTS = {"M1": (KP, "            self.timed(\"b2f\", closing.keeper_next.fill, self, team)\n", "            pass\n", "①"),
            "M2": (KN, "== team}) if gates(k, team) else None", "== team})", "②"),
            "M3": (KN, '            ("assign", ["--holder", nh, "--evidence", ",".join(dispatch.Dispatch.REQUIRED_EVIDENCE)], "\\0"),\n', "", "①"),
            "M4": (KN, '("deliver", ["--mode", "intent"], "전달 의도 없음")):', "):", "①"),
