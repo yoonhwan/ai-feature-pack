@@ -5,8 +5,9 @@
 #   T3 좌석 상태 조회 실패(rc3) → «판정 불가 rc=3» 1줄 · 나머지 항목 출력 · send 함(유휴 미상) · rc1
 #   T4 FT_LEAD_TICK_BUDGET=1 · 가짜 mbox sleep 2 → rc124 · send 0
 #   T5 송신 규칙: N=0 ∧ .last 같음 → send 0 + «조용함» / 카드 변화 → send 1 / _report_to = 자기 → send 0 + «자기 송신 차단» rc1 / _report_to 없음 → planner _master
-#   T7(DA B1) 일반 쪽지 3 뒤 4번째 [HIL] → 결정 필요 1 · 그 머리 표시 · 조용함 해제(send)
-#   T8(DA B2) 실제 ft-seat-status.sh + PATH 의 tmux rc3 → «좌석 상태 판정 불가 rc=3» · 유휴 미상 · send 1 · rc1
+#   T1b(DA B1) 일반 쪽지 3 뒤 4번째 [HIL] → 결정 필요 1 · 그 머리 표시 · 조용함 해제(send)
+#   T3b(DA B2) 실제 ft-seat-status.sh + PATH 의 tmux rc3 → «좌석 상태(tmux) 판정 불가 rc=3» · 유휴 미상 · send 1 · rc1
+#   T3c tmux «no server running» rc1 → 살아 있는 좌석 0 정상 · rc0   T3d status [] + tmux 목록에 명부 nano → 모순 판정 불가 · rc1
 #   T6 test_desk_tick_r1462 rc0 · 설치기·desk 파일 origin/main 대비 diff 0
 # 전부 합성(임시 루트·임시 git·가짜 mbox·가짜 ft-hil·가짜 ft-seat-status) · 실 우편함·실 좌석 쓰기 0 · sleep 0(가짜 mbox 의 T4 지연만).
 set -uo pipefail
@@ -145,23 +146,39 @@ roster "$LEAD" -; rm -rf "$T/state"; mkdir -p "$T/state"
 out="$(run)"; rc=$?
 [ "$rc" -eq 0 ] && tail -1 "$T/sent.jsonl" | grep -q "\"to\": \"$PLANNER\"" && ok "T5e _report_to 없음 → planner _master" || bad "T5e rc=$rc $(tail -1 "$T/sent.jsonl")"
 
-# ── T7(DA B1) 결정 머리 집계는 표시 3줄 상한과 무관 — 4번째 [HIL] 도 센다
+# ── T1b(DA B1) 결정 머리 집계는 표시 3줄 상한과 무관 — 4번째 [HIL] 도 센다
 rm -rf "$T/state" "$T/sent.jsonl"; mkdir -p "$T/state"; roster "$LEAD" "$REPORT"; : > "$T/hil/pending.txt"
 export FAKE_STATUS="$ST_CALM"; unset FAKE_RECV
 run >/dev/null
 printf 'SCANNED 1\nREAD [a#0->%s] #21 — [회신] 1\nREAD [b#0->%s] #22 — [회신] 2\nREAD [c#0->%s] #23 — [회신] 3\nREAD [p#1->%s] #24 — [HIL] 넷째 결정\n' "$LEAD" "$LEAD" "$LEAD" "$LEAD" > "$T/recv4.txt"
 out="$(FAKE_RECV="$T/recv4.txt" run)"; rc=$?
-printf '%s\n' "$out" | tail -1 | grep -qx '결정 필요: 1' && ok "T7 4번째 [HIL] → 결정 필요 1" || bad "T7 마지막 줄: $(printf '%s\n' "$out" | tail -1)"
-printf '%s\n' "$out" | grep -q '#24 p#1 \[HIL\]' && ok "T7 그 머리 표시" || bad "T7 머리 없음: $(printf '%s' "$out" | tr '\n' '/')"
-[ "$rc" -eq 0 ] && [ "$(sent_n)" = 2 ] && tail -1 "$T/sent.jsonl" | grep -q '다음 수 #24' && ok "T7 조용함 해제 · send · 다음 수 #24" || bad "T7 rc=$rc send=$(sent_n)"
+printf '%s\n' "$out" | tail -1 | grep -qx '결정 필요: 1' && ok "T1b 4번째 [HIL] → 결정 필요 1" || bad "T1b 마지막 줄: $(printf '%s\n' "$out" | tail -1)"
+printf '%s\n' "$out" | grep -q '#24 p#1 \[HIL\]' && ok "T1b 그 머리 표시" || bad "T1b 머리 없음: $(printf '%s' "$out" | tr '\n' '/')"
+[ "$rc" -eq 0 ] && [ "$(sent_n)" = 2 ] && tail -1 "$T/sent.jsonl" | grep -q '다음 수 #24' && ok "T1b 조용함 해제 · send · 다음 수 #24" || bad "T1b rc=$rc send=$(sent_n)"
 
-# ── T8(DA B2) 실제 의존 도구(ft-seat-status.sh)가 tmux 실패를 rc0 [] 로 숨겨도 리드는 판정 불가로 낸다
+# ── T3b(DA B2) 실제 의존 도구(ft-seat-status.sh)가 tmux 실패를 rc0 [] 로 숨겨도 리드는 판정 불가로 낸다
 rm -f "$T/sent.jsonl" "$T/tmux.calls"
 out="$(PATH="$T/badbin:$PATH" TMUX_MARK="$T/tmux.calls" FT_ROOTS_TSV="$T/no-roots.tsv" LT_TMUX= LT_STATUS="$HERE/../bin/ft-seat-status.sh" run)"; rc=$?
-[ -s "$T/tmux.calls" ] && ok "T8 주입 확인(tmux rc3 호출 표식)" || bad "T8 tmux 주입 안 됨"
-[ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '좌석 상태.*판정 불가 rc=3' && ok "T8 «좌석 상태 판정 불가 rc=3» · rc1" || bad "T8 rc=$rc out=$(printf '%s' "$out" | tr '\n' '/')"
-printf '%s\n' "$out" | grep -q '^좌석 nano' && bad "T8 실패인데 정상 좌석 줄" || ok "T8 정상 좌석 줄 0"
-[ "$(sent_n)" = 1 ] && grep -q '유휴 미상' "$T/sent.jsonl" && ok "T8 send 1 · 유휴 미상" || bad "T8 send=$(sent_n)"
+[ -s "$T/tmux.calls" ] && ok "T3b 주입 확인(tmux rc3 호출 표식)" || bad "T3b tmux 주입 안 됨"
+[ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '좌석 상태.*판정 불가 rc=3' && ok "T3b «좌석 상태 판정 불가 rc=3» · rc1" || bad "T3b rc=$rc out=$(printf '%s' "$out" | tr '\n' '/')"
+printf '%s\n' "$out" | grep -q '^좌석 nano' && bad "T3b 실패인데 정상 좌석 줄" || ok "T3b 정상 좌석 줄 0"
+[ "$(sent_n)" = 1 ] && grep -q '유휴 미상' "$T/sent.jsonl" && ok "T3b send 1 · 유휴 미상" || bad "T3b send=$(sent_n)"
+
+# ── T3c tmux «no server running» = 살아 있는 좌석 0 정상(실제 ft-seat-status.sh 경유)
+printf '#!/bin/bash\necho "no server running on /tmp/tmux-501/default" >&2; exit 1\n' > "$T/nosrv-tmux"; chmod +x "$T/nosrv-tmux"
+mkdir -p "$T/nosrvbin"; cp "$T/nosrv-tmux" "$T/nosrvbin/tmux"
+rm -f "$T/sent.jsonl"
+out="$(PATH="$T/nosrvbin:$PATH" FT_ROOTS_TSV="$T/no-roots.tsv" LT_TMUX= LT_STATUS="$HERE/../bin/ft-seat-status.sh" run)"; rc=$?
+[ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -q '^좌석 nano 0 · da 0 · 유휴(20분+) 0$' && ! printf '%s\n' "$out" | grep -q '판정 불가' \
+  && ok "T3c no server running → 좌석 0 정상 · rc0" || bad "T3c rc=$rc out=$(printf '%s' "$out" | tr '\n' '/')"
+
+# ── T3d status [] 인데 tmux 에 명부 nano 좌석이 산다 = 모순 → 판정 불가
+printf '#!/bin/bash\necho "byz-knowledge-nano-a#0"; echo "other-session"\n' > "$T/live-tmux"; chmod +x "$T/live-tmux"
+rm -f "$T/sent.jsonl"
+out="$(FAKE_STATUS='[]' LT_TMUX="$T/live-tmux" run)"; rc=$?
+[ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '좌석 상태.*판정 불가 rc=' && ! printf '%s\n' "$out" | grep -q '^좌석 nano' \
+  && ok "T3d status [] + tmux 명부 좌석 → 모순 판정 불가 · rc1" || bad "T3d rc=$rc out=$(printf '%s' "$out" | tr '\n' '/')"
+[ "$(sent_n)" = 1 ] && grep -q '유휴 미상' "$T/sent.jsonl" && ok "T3d send 1 · 유휴 미상" || bad "T3d send=$(sent_n)"
 
 # ── T6
 bash "$HERE/test_desk_tick_r1462.sh" >/dev/null 2>&1 && ok "T6 test_desk_tick_r1462 rc0" || bad "T6 desk 시험 실패"
