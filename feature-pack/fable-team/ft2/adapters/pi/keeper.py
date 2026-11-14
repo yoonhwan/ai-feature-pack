@@ -34,6 +34,7 @@ land = _load(os.path.join(HERE, "keeper_land.py"), "ft2_keeper_land")
 closing = _load(os.path.join(HERE, "keeper_close.py"), "ft2_keeper_close")
 reporting = _load(os.path.join(HERE, "keeper_report.py"), "ft2_keeper_report")
 full_alert = _load(os.path.join(HERE, "full_alert.py"), "ft2_keeper_full_alert")   # r1886
+hold = _load(os.path.join(HERE, "keeper_hold.py"), "ft2_keeper_hold")   # r1931 카드 HOLD 줄 → holder 깨움
 
 
 class Keeper(land.Landing, closing.Closing, reporting.Reporting):
@@ -213,6 +214,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
                     self.timed("b2", self.close, team, work, attempt, row, dispatched)
             elif self.sock:   # r1817 fix1 R1 — 소켓 실패 바퀴 = 깨움·재배정도 0
                 self.timed("stall", self.stall.check, team, work, attempt, rows)   # r1813 · r1898 ROUND stall 칸 — 진척 0 좌석 깨움 1회 → 재배정
+                self.timed("stall", hold.check, self, team, work, attempt, rows)   # r1931 HOLD 줄 늘면 깨움 1회 · 누적 3 = 인터뷰 길
         if self.sock:   # r1913 — 닫힘이 없어도 빈 나노 칸 1장(팀마다 1회 · gates 재계산)
             self.timed("b2", closing.keeper_next.fill, self, team)
 
