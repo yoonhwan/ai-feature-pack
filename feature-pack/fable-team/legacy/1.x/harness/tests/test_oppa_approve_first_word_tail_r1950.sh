@@ -22,6 +22,7 @@ no_ "$CHECK" "${S4[@]}"; ck "④ «네 말고 다른 걸로»·«예 하지만 �
 no_ "$CHECK" "${S5[@]}"; ck "⑤ «넓혀요 네»·«확정 넓혀요» → 승인 0" $?
 no_ "$CHECK" "${S7[@]}"; ck "⑦ 활용형 거절 넷 → 승인 0" $?
 no_ "$CHECK" "${S8[@]}"; ck "⑧ 덧말 4토막·«?» → 승인 0" $?
+no_ "$CHECK" '네 불가합니다'; ck "⑨ «네 불가합니다» → 승인 0(어간 «불가»)" $?
 cmp -s "$CHECK" "$ROOT/harness/kit/fable-team/bin/ft_oppa_slack_check.py"; ck "bin·kit cmp0" $?
 
 mut() {  # mut <이름> <바꿀 글> <바꾼 글> → $MUT · 안 먹으면 FAIL
