@@ -36,7 +36,33 @@ IFS=$'\x1f' read -r SEATS_FILE AGENT ROLE RECF MST <<<"$FACTS"; if [ -n "$VERDIC
   while IFS= read -r C; do [ -n "$C" ] || continue; git -C "${ROOT:-.}" grep -q -E "$RE" "$VR" -- "${C#"${ROOT:-.}"/}/VERDICTS-planner-*.md" 2>/dev/null; VRC=$?; case "$VRC" in 0) VH=1; break;; 1) ;; *) finish 1 "REJECT $SEAT 판정 원장 확인 불가(git grep rc=$VRC) — 쓰기 0 · kill 0";; esac; done <<< "$VC"   # rc 1 = 그 후보에 없음(다음 후보) · rc>1 = 판정 불가(하드 룰 20)
   [ "$VH" = 1 ] || finish 1 "REJECT $SEAT 판정 $VERDICT 이 $VR 원장(VERDICTS-planner-*.md)에 없음 — 쓰기 0 · kill 0"   # 두 꼴 다 · 번호 경계 엄격(`| 41380 |` · `- **4138a**` 는 4138 이 아님 = fv_row_re)
 fi
-G="${FT_MBOX_PY:-${ROOT:-.}/.fable-team/comm/mbox.py}"; [ "$REOPEN" = 1 ] || [ ! -f "$G" ] || GO="$(python3 "$G" close-check "$SEAT" ${VERDICT:+--verdict} 2>&1)" || finish 1 "REJECT $SEAT 승계 마무리 전 닫기 거절(r1116 ②③ · 명부 쓰기 0 · kill 0) — ${GO:-close-check 실패}"   # r5 ③ 확정 값은 갈래·자식에 «값으로»(재해석 0) · r1116 ②③ 후계 있는 옛 세션 = 미표시 0 + [인계] 뒤 후계 [레디] 항목 전부 «받음»
+dead_seat() {   # r1520 dead-seat 갈래(DESIGN-r1498 §5 ⓑ) — 입구 = close-check REJECT «[인계] 없음» · 조건 3 전부 참 = retire --record-only → 명부 _closed → CLOSED-DEAD(kill 0) · 하나라도 거짓·판정 불가 = 멈춤 1줄(명부 쓰기 0 · 하드 룰 20·23)
+  [ -z "$VERDICT" ] && [[ "$1" == *"[인계] 없음"* ]] || return 1
+  local o r n s="명부 쓰기 0 · kill 0"; o="$(tmux has-session -t "=$SEAT" 2>&1)"; r=$?
+  [ "$r" != 0 ] || finish 1 "REJECT $SEAT [인계] 없음 · 세션 살아 있음 — handover 먼저 또는 --verdict($s)"
+  case "$o" in *"can't find session"*|*"no server running"*|*"No such file or directory"*) ;; *) finish 1 "REJECT $SEAT dead-seat 판정 불가 생존 확인(tmux rc=$r ${o%%$'\n'*}) — $s";; esac   # tmux 실패를 «세션 없음» 으로 읽지 않는다
+  o="$(bash "${FT_SEAT_REAP_BIN:-$HERE/ft-seat-reap.sh}" "$SEAT" --dry-run 2>/dev/null)"; r=$?; n="$(printf '%s\n' "$o" | sed -n 's/^reap .* found=\([0-9][0-9]*\) dry-run.*/\1/p' | tail -1)"
+  [ "$r" = 0 ] && [ -n "$n" ] || finish 1 "REJECT $SEAT dead-seat 판정 불가 생존 확인(reap --dry-run rc=$r) — $s"; [ "$n" = 0 ] || finish 1 "REJECT $SEAT dead-seat 조건 미충족 생존 확인(그 이름 pane 자손 $n) — $s"
+  o="$(python3 - "$HERE" "$SEATS_FILE" "$SEAT" <<'PY3'
+import glob, os, re, sys
+sys.path.insert(0, sys.argv[1]); from ft_roster_lib import load
+f, seat = sys.argv[2:4]; d = load(f) if f else None; o = d.get(seat) if isinstance(d, dict) else None; n = o.get("_replaced_by") if isinstance(o, dict) else None
+if not (isinstance(n, str) and n): print("명부 참조(_replaced_by 없음)"); sys.exit(4)
+for g in sorted({f, *glob.glob(os.path.dirname(f) + "/seats*.json")}):
+    dd = load(g)
+    if not isinstance(dd, dict): print("판정 불가 명부 참조(%s 못 읽음)" % g); sys.exit(1)
+    ks = [k for k, v in dd.items() if k.startswith("_") and v == seat]
+    if ks: print("명부 참조(%s:%s 칸 값)" % (os.path.basename(g), ",".join(ks))); sys.exit(4)
+print(int(re.sub(r"#\d+$", "", n) == re.sub(r"#\d+$", "", seat)))   # 1 = 후계가 같은 역할 우편함(mbox_conf.role_key)
+PY3
+)"; r=$?; case "$r" in 0) ;; 4) finish 1 "REJECT $SEAT dead-seat 조건 미충족 $o — $s";; *) finish 1 "REJECT $SEAT dead-seat ${o:-판정 불가 명부 참조(rc=$r)} — $s";; esac
+  n="$(python3 "$G" peek "$SEAT" 2>/dev/null)"; r=$?; n="$(printf '%s\n' "$n" | sed -n 's/^pending=\([0-9][0-9]*\).*/\1/p' | head -1)"; [ "$r" = 0 ] && [ -n "$n" ] || finish 1 "REJECT $SEAT dead-seat 판정 불가 미처리 보존(peek rc=$r) — $s"   # DA#10 R1 — 조회 실패의 부분 출력은 근거 아님
+  [ "$n" = 0 ] || [ "$o" = 1 ] || finish 1 "REJECT $SEAT dead-seat 조건 미충족 미처리 보존(pending $n · 후계 역할 우편함 아님) — $s"
+  o="$(bash "${FT_SEAT_RETIRE_BIN:-$HERE/ft-seat-retire.sh}" "$SEAT" --record-only --keep-existing --seats "$SEATS_FILE" 2>&1)"; r=$?; NOLINE="$(printf '%s\n' "$o" | grep -m1 '^NORECORD ')"
+  case "$r $(printf '%s\n' "$o" | grep -m1 -E '^(RESUME (ok|kept) |NORECORD )')" in "0 RESUME ok "*) RK=new;; "0 RESUME kept "*) RK=kept;; "0 NORECORD "*) RK=NORECORD; REC=NORECORD;; *) finish 3 "HELD $SEAT dead-seat 재개 기록 실패 — $s · rc=$r ${o%%$'\n'*}";; esac
+  [ "$RK" = NORECORD ] || { REC="$(printf '%s\n' "$o" | grep -m1 '^RESUME ')"; REC="${REC#RESUME * }"; REC="${REC%%[[:space:]]*}"; }; DS=1
+}
+G="${FT_MBOX_PY:-${ROOT:-.}/.fable-team/comm/mbox.py}"; [ "$REOPEN" = 1 ] || [ ! -f "$G" ] || GO="$(python3 "$G" close-check "$SEAT" ${VERDICT:+--verdict} 2>&1)" || dead_seat "$GO" || finish 1 "REJECT $SEAT 승계 마무리 전 닫기 거절(r1116 ②③ · 명부 쓰기 0 · kill 0) — ${GO:-close-check 실패}"   # r5 ③ 확정 값은 갈래·자식에 «값으로»(재해석 0) · r1116 ②③ 후계 있는 옛 세션 = 미표시 0 + [인계] 뒤 후계 [레디] 항목 전부 «받음»
 if [ -n "$VERDICT" ]; then   # R400 ⓪① — 원장 루트를 먼저 풀고(못 풀면 쓰기 0) 재개 기록 → 실패면 명부·kill 0
   [ "$BY" != "$SEAT" ] || { echo "REJECT $SEAT 은 지금 이 명령을 실행하는 세션 자신 — 다른 좌석에서 닫는다"; exit 1; }
   . "$HERE/ft-harness-root.sh" && DATA="$(ft_data_root "$HERE")" || { echo "REJECT 원장 루트를 못 풂 — FT_ROOT=<설치본 루트> 를 주고 --seats <그 루트>/.fable-team/seats.json 로 (쓰기 0 · kill 0)"; exit 1; }
@@ -105,6 +131,7 @@ PY
 )"; rc=$?
 [ "$REOPEN" = 0 ] || { printf '%s\n' "$OUT"; exit "$rc"; }; [ "$rc" = 0 ] || { printf '%s\n' "$OUT"; [ "$rc" = 3 ] && [ -n "$VERDICT" ] && exit 3; exit 1; }
 FILE="$(printf '%s' "$OUT" | cut -f2)"; WAS="$(printf '%s' "$OUT" | cut -f3)"; CELLS="$(printf '%s' "$OUT" | cut -f4)"
+[ "${DS:-0}" = 0 ] || finish 0 "CLOSED-DEAD $SEAT record=$RK file=$FILE role_was=$WAS kill=0 dead-seat(세션 없음 · 자손 0 · _replaced_by · 미처리 보존)"   # r1520 — 죽일 것 0 · reap·kill 호출 0
 vlog() { [ -z "$VERDICT" ] || { mkdir -p "$DATA/.fable-team/state" && printf '%s\tverdict=%s\t%s\trecord=%s\tcells=%s\tkill=%s\n' "$(date '+%Y-%m-%dT%H:%M:%S')" "$VERDICT" "$SEAT" "$REC" "$CELLS" "$1" >> "$DATA/.fable-team/state/seat-close-verdict.log"; }; }
 # ③ kill 범위 = 전역 표준승인(2026-07-11): 계보 최신은 보존 · 직전 세대는 «재개 기록 있음 ∨ 더 큰 번호 2개+ 생존(keep-last-2)» 일 때만. 밖은 kill=held rc 3(나노는 ft-nano-close · 그 밖은 [HIL]).
 lineage_ok() {
