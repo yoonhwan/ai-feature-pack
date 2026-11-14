@@ -1,4 +1,4 @@
-"""r1913 ft2 keeper 빈 나노 칸 채우기 — 닫힘 없는 바퀴에도 gates() 통과면 팀마다 1장 연다 (반례 ①~⑥·③b · 변이 M1~M5).
+"""r1913 ft2 keeper 빈 나노 칸 채우기 — 닫힘 없는 바퀴에도 gates() 통과면 팀마다 1장 연다 (반례 ①~⑥·③b · 변이 M1~M7).
 대역 = r1871 세계(임시 root·git·가짜 tmux·가짜 record) · 가짜 launch 는 «실제» launch.seat() 배정·전달 판정을 거친다(무배정·미전달 = rc1) · 실 tmux·명부·ft2 원장·mbox·설치 0 · sleep 0. 기준판(fill 없음) = ①·③·③b·④ Red. 변이는 사본에서만 · 원본으로 1회 더.
 """
 import importlib.util, json, shutil, sys  # noqa: E401
@@ -50,47 +50,42 @@ def keeper(w, mp, fail=None):
         return ({"result": "접수 거부", "reason": "시험 거부"}, 1) if fail == (argv[0], work) else real(argv)
     mp.setattr(cli, "run", run)
     return k, calls
-count = nx.count
 def c1(w, mp):     # ① live 2 / 4 → 바퀴 1 A · 바퀴 2 B · 바퀴 3 NEXT-HOLD 열기 0
     k, _ = keeper(w, mp)
     assert "NEXT harness fill:%s -> %s %s" % (A, A, nh(A)) in w.round(k), k.lines
-    assert [count(w, x, A) for x in ("accept", "dispatch", "deliver")] == [1, 1, 1] and nx.ledger(w, A) == {"state": "seat", "seat": nh(A)}
-    assert nh(A) in json.loads(w.tm.read_text())["alive"]
-    w.round(k)
-    assert nx.launched(w) == [A, B] and nx.ledger(w, B)["seat"] == nh(B)
+    assert [nx.count(w, x, A) for x in ("accept", "dispatch", "deliver")] == [1, 1, 1] and nx.ledger(w, A) == {"state": "seat", "seat": nh(A)} and nh(A) in json.loads(w.tm.read_text())["alive"]
+    assert w.round(k) and nx.launched(w) == [A, B] and nx.ledger(w, B)["seat"] == nh(B)
     assert any(x.startswith("NEXT-HOLD harness 나노 4 / 상한 4") for x in w.round(k)) and nx.launched(w) == [A, B]
 def c2(w, mp):     # ② live == 상한 → submit·assign·deliver·launch 0
     k, calls = keeper(w, mp)
     assert any(x.startswith("NEXT-HOLD harness 나노 2 / 상한 2") for x in w.round(k))
-    assert calls == [] and nx.launched(w) == [] and count(w, "accept", A) == 0
-def c3(w, mp):     # ③ 바퀴 1 assign 거부 → HELD-NEXT + 원장 waiting 사람 → 바퀴 2 A 재호출 0 · B 진행
+    assert calls == [] and nx.launched(w) == [] and nx.count(w, "accept", A) == 0
+def c3(w, mp):     # ③ 바퀴 1 assign 거부 → 원장 쓰기 0 · fill_hold 1 · 알림 1 → 바퀴 2 A 재호출 0 · B 진행 · 알림 0 → 바퀴 3 원장 updated 갱신 = A 다시 1
     k, calls = keeper(w, mp, ("assign", A))
     assert any(x.startswith("HELD-NEXT harness fill %s assign rc 1" % A) for x in w.round(k)), k.lines
-    assert nx.ledger(w, A).get("reason") == "사람" and nx.log(w, "record")[0].startswith("record %s waiting 사람 verdict " % A)
-    w.round(k)
-    assert [c for c in calls if c[1] == A] == [("submit", A), ("assign", A)] and nx.launched(w) == [B]
-def c3r(w, mp):    # ③ 원장 record 도 실패 → «복구 필요» · 바퀴 2 A 재호출 0 · 그 바퀴 fill 0
-    kw._put(w.tmp / "bin" / "record.rc", "1")
-    k, calls = keeper(w, mp, ("assign", A))
-    assert any(x.startswith("HELD-NEXT harness fill %s record rc 1" % A) and "복구 필요" in x for x in w.round(k)), k.lines
-    w.round(k)
-    assert [c for c in calls if c[1] == A] == [("submit", A), ("assign", A)] and nx.launched(w) == [] and len(nx.log(w, "record")) == 1
+    assert nx.log(w, "record") == [] and len(held(w)) == 1
+    lines = w.round(k)
+    assert [c for c in calls if c[1] == A] == [("submit", A), ("assign", A)] and list(k.state["fill_hold"]) == ["harness|" + A]
+    assert "NEXT harness fill:%s -> %s %s" % (B, B, nh(B)) in lines and nx.launched(w) == [B] and len(held(w)) == 1
+    kw._put(w.state / "card-assign" / (A + ".json"), {"state": "none", "updated": w.t + 1}) or w.round(k)
+    assert [c for c in calls if c[1] == A] == [("submit", A), ("assign", A)] * 2
+def held(w):
+    return [x for x in kw._lines(str(w.mbox) + ".log") if "[다음 막힘]" in x and A in x]
 def c3b(w, mp):    # ③b assign·deliver OK 뒤 launch 실패 → 바퀴 2 A 재선택 0(owner) · 두 세션 0
     kw._put(w.tmp / "bin" / "launch.py.rc", "2")
     k, _ = keeper(w, mp)
     assert any(x.startswith("HELD-NEXT harness fill:%s -> %s" % (A, A)) and "복구 필요" in x for x in w.round(k)), k.lines
-    (w.tmp / "bin" / "launch.py.rc").unlink()
-    w.round(k)
-    assert nx.launched(w) == [A, B] and count(w, "dispatch", A) == 1 and nh(A) not in json.loads(w.tm.read_text())["alive"]
+    (w.tmp / "bin" / "launch.py.rc").unlink() or w.round(k)
+    assert nx.launched(w) == [A, B] and nx.count(w, "dispatch", A) == 1 and nh(A) not in json.loads(w.tm.read_text())["alive"]
 def c4(w, mp):     # ④ 같은 바퀴 닫힘 1 + 빈 칸 → close A · fill B · 같은 stem 두 번 0
     lines = w.round()
     assert "NEXT harness %s -> %s %s" % (nx.W1, A, nh(A)) in lines and "NEXT harness fill:%s -> %s %s" % (B, B, nh(B)) in lines, lines
-    assert nx.launched(w) == [A, B] and count(w, "accept", A) == count(w, "accept", B) == 1
+    assert nx.launched(w) == [A, B] and nx.count(w, "accept", A) == nx.count(w, "accept", B) == 1
 def c5(w, mp):     # ⑤ gates 거짓(표식 없음·PAUSED) → fill 0
     k, calls = keeper(w, mp)
     assert w.round(k) and calls == [] and nx.launched(w) == []
 PAUSED = "판정 1 · 2026-11-14T09:00:00 · 시험용 팀 정지 표식\n"
-CASES = {"①": (c1, {}), "②": (c2, {"cap": "2"}), "③": (c3, {}), "③r": (c3r, {}), "③b": (c3b, {}),
+CASES = {"①": (c1, {}), "②": (c2, {"cap": "2"}), "③": (c3, {}), "③b": (c3b, {}),
          "④": (c4, {"cap": "9", "live": 0, "closing": True}), "⑤": (c5, {"enable": False}), "⑤p": (c5, {"pre": lambda w: kw._put(w.state / "harness-tick" / "PAUSED", PAUSED)})}
 def run(name, tmp, mp, ft2=kw.FT2):
     case, opts = CASES[name]
@@ -99,21 +94,26 @@ def run(name, tmp, mp, ft2=kw.FT2):
     case(w, mp)
 KN, KP = "adapters/pi/keeper_next.py", "adapters/pi/keeper.py"
 MUTANTS = {"M1": (KP, "            self.timed(\"b2\", closing.keeper_next.fill, self, team)\n", "            pass\n", "①"),
-           "M2": (KN, "pick, held = choose(k, team) if gates(k, team) else None,", "pick, held = choose(k, team),", "②"),
+           "M2": (KN, "== team}) if gates(k, team) else None", "== team})", "②"),
            "M3": (KN, '            ("assign", ["--holder", nh, "--evidence", ",".join(dispatch.Dispatch.REQUIRED_EVIDENCE)], "\\0"),\n', "", "①"),
            "M4": (KN, '("deliver", ["--mode", "intent"], "전달 의도 없음")):', "):", "①"),
-           "M5": (KN, '"record", stem, "waiting", "사람"', '"record", stem, "seat", "사람"', "③")}
+           "M5": (KN, '            held["%s|%s" % (team, stem)] = k.now()', "            pass  #", "③"),
+           "M6": (KN, [("choose(k, team, {x.split(\"|\", 1)[1] for x in held if x.split(\"|\")[0] == team})", "choose(k, team)"),
+                       ("    if not pick:\n", '    if not pick or "%s|%s" % (team, pick[0]) in held:\n')], None, "③"),
+           "M7": (KN, "k.now()   # 보류 시각", 'k.now(); k.call(["bash", k.env["FT2_CARD_ASSIGN_BIN"], "record", stem, "waiting", "사람"])   # 보류 시각', "③")}
 @pytest.mark.parametrize("name", list(CASES))
 def test_case(name, tmp_path, monkeypatch):
     run(name, tmp_path, monkeypatch)
 @pytest.mark.parametrize("name", list(MUTANTS))
 def test_mutant(name, tmp_path, monkeypatch):
     rel, old, new, case = MUTANTS[name]
-    tree = tmp_path / "m" / "ft2"
-    shutil.copytree(kw.FT2, tree, ignore=shutil.ignore_patterns("tests", "__pycache__"))
+    pairs = old if isinstance(old, list) else [(old, new)]
+    shutil.copytree(kw.FT2, tree := tmp_path / "m" / "ft2", ignore=shutil.ignore_patterns("tests", "__pycache__"))
     text = (tree / rel).read_text(encoding="utf-8")
-    assert text.count(old) == 1, (name, old)
-    (tree / rel).write_text(text.replace(old, new), encoding="utf-8")
+    for old, new in pairs:
+        assert text.count(old) == 1, (name, old)
+        text = text.replace(old, new)
+    (tree / rel).write_text(text, encoding="utf-8")
     [(tmp_path / sub).mkdir() for sub in ("w1", "w2")]
     with pytest.raises(AssertionError):
         run(case, tmp_path / "w1", monkeypatch, tree)
