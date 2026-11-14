@@ -7,10 +7,10 @@ import importlib.util, re, subprocess, sys  # noqa: E401
 from pathlib import Path
 import pytest
 
-HERE = Path(__file__).resolve().parent
-FT2 = HERE.parent
-GATE = FT2.parent / "legacy" / "1.x" / "harness" / "bin" / "ft_launchd_llm_gate.py"
-_spec = importlib.util.spec_from_file_location("pi_path_r1894", str(HERE / "test_pi_launch_pi_path_r1892.py"))
+H = Path(__file__).resolve().parents[1]   # r1946: 1.x 판정기를 시험하는 시험 = 1.x 쪽 · 1.x → ft2 참조만
+FT2 = H.parents[2] / "ft2"
+GATE = H / "bin" / "ft_launchd_llm_gate.py"
+_spec = importlib.util.spec_from_file_location("pi_path_r1894", str(FT2 / "tests" / "test_pi_launch_pi_path_r1892.py"))
 pp = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(pp)
 LITERAL = "글자 그대로 LLM 호출"
