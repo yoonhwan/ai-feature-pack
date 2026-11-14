@@ -1659,6 +1659,13 @@ if [ -n "$IDX" ]; then   # r842-mut:libskip
   if [ "$_istage" = 1 ]; then
   declare -F ft_card_stage_ref >/dev/null || { echo "ERROR 카드 단계 함수 없음(ft-team-lib.sh 의 ft_card_stage_ref 미로드) — 단계 판정 불가"; echo "REJECT $SEAT"; echo "  - ⑥단계 판정 함수 없음 — 옛 규칙으로 후퇴 0: index=$IDX"; exit 1; }   # r842-mut:nofn
   _cref="$(ft_card_ref "$ROOT" "$_ct" 2>/dev/null)" || { echo "ERROR 카드 ref 판정 불가(팀=$_ct) — 카드 루트 표 행 ref 를 리포에서 못 읽음 · origin/main 후퇴 0"; echo "REJECT $SEAT"; echo "  - ⑥카드 ref 판정 불가(표 행): index=$IDX"; exit 1; }   # r1626-mut:cardref
+  # ★r1719 A1·A3·A5★ 팀 넘는 나노(좌석 팀 ≠ 카드 팀 · 팀 이름으로만 가른다 — 두 팀 ref 가 같아도 팀 넘음 · DA R1): 카드 = 카드 팀 ref 판 · 원장 WT 신선도 = 좌석 팀 ref(_fref) — 같은 팀이면 _fref = _cref(지금 경로 그대로)
+  _lref=""; _xteam=""; _fref="$_cref"
+  if [ -n "$_team" ] && [ "$_team" != "$_ct" ]; then   # r1719-mut:xteam
+    _lref="$(ft_card_ref "$ROOT" "$_team" 2>/dev/null)" || { echo "ERROR 원장 ref 판정 불가(좌석 팀=$_team) — 카드 루트 표 행 ref 를 리포에서 못 읽음"; echo "REJECT $SEAT"; echo "  - 팀 넘는 나노 원장 ref 판정 불가: index=$IDX — 닫지 않음"; exit 1; }
+    _xteam=1; _fref="$_lref"   # r1719-mut:lref
+  fi
+  [ -z "$_xteam" ] || echo "INFO 팀 넘는 나노 — 카드 ref=$_cref · 원장 ref=$_lref"   # r1719-mut:info
   _cstg="진행 완성 대기"; _cbases=("$WT" "$LEDGER_WT" "$ROOT"); _rts=("${IDX%%/indices/*}")
   if declare -F ft_index_twin >/dev/null; then _twr="$(ft_index_twin "$IDX" 2>/dev/null)"; [ -z "$_twr" ] || _rts+=("${_twr%%/indices/*}"); fi
   # 응답 세 갈래만 받는다 — «STAGE <단계>» · «ABSENT» · 그 밖(빈 출력·rc≠0·모르는 글자) = REJECT. 실패는 ABSENT 글자를 못 만들므로 조용한 후퇴가 구조로 막힌다
@@ -1689,15 +1696,16 @@ if [ -n "$IDX" ]; then   # r842-mut:libskip
     fi
     if [ -z "${_cs_refok:-}" ] && [ -n "${LEDGER_WT:-}" ] && [ "${LEDGER_WT%/}" != "${WT%/}" ] && [ "${LEDGER_WT%/}" != "${ROOT%/}" ]; then
       # ★r1668★ 여기까지 왔다는 = $_cs 단계 사본을 디스크에서 못 찾았다. 원장 WT 가 카드 ref($_cref) 보다 뒤면 «디스크 사본 없음» 으로 막지 않고 한 번 따라가 본다.
-      _lwt_out="$(ledger_wt_fresh "$LEDGER_WT" "$_cref")"; _lwt_rc=$?
+      _lwt_out="$(ledger_wt_fresh "$LEDGER_WT" "$_fref")"; _lwt_rc=$?
       case "$_lwt_rc" in
         0) if [ -n "$_lwt_out" ]; then echo "$_lwt_out"   # r1668-mut:follow
              for _rt in "${_rts[@]}"; do [ -f "$LEDGER_WT/$_rt/indices/$_cs/$_cf" ] && { CARD="$LEDGER_WT/$_rt/indices/$_cs/$_cf"; break; }; done
              [ -z "$CARD" ] || echo "INFO 카드 위치(팀 폴더) ← $CARD"; fi;;
-        3) echo "REJECT $SEAT"; echo "  - $_lwt_out · 원장 WT=$LEDGER_WT (ref=$_cref) — 닫기 0(브랜치·워크트리 손 0)"; exit 1;;
-        *) echo "ERROR $_lwt_out"; echo "REJECT $SEAT"; echo "  - 원장 WT 신선도 판정 불가(ref=$_cref · 원장 WT=$LEDGER_WT) — 닫지 않음"; exit 1;;
+        3) echo "REJECT $SEAT"; echo "  - $_lwt_out · 원장 WT=$LEDGER_WT (ref=$_fref) — 닫기 0(브랜치·워크트리 손 0)"; exit 1;;
+        *) echo "ERROR $_lwt_out"; echo "REJECT $SEAT"; echo "  - 원장 WT 신선도 판정 불가(ref=$_fref · 원장 WT=$LEDGER_WT) — 닫지 않음"; exit 1;;
       esac
     fi
+    [ -z "$_xteam" ] || _cs_refok=1   # ★r1719 A2★ 팀 넘는 나노 = 카드 팀 ref 판으로 읽는다(아래 _card_ref_read) — 좌석 팀 원장 WT 에 디스크 사본 요구 0
     if [ -z "$CARD" ] && [ -z "${_cs_refok:-}" ]; then
       for _d in 진행 완성 대기; do [ "$_d" = "$_cs" ] && continue
         for _b in "${_cbases[@]}"; do for _rt in "${_rts[@]}"; do [ -f "$_b/$_rt/indices/$_d/$_cf" ] && _cold+="${_cold:+ · }$_d($_b/$_rt)"; done; done; done
@@ -1726,6 +1734,8 @@ if [ -z "$CARD" ] && [[ "$IDX" =~ ^(.*/indices)/[^/]+/[^/]+$ ]]; then
     [ -z "$_hit" ] || { _sibn=$((_sibn+1)); _sib1="$_hit"; }; done
   [ "$_sibn" = 1 ] && { CARD="$_sib1"; echo "INFO 카드 위치 ← $CARD"; }
 fi
+# ★r1719 A4★ 팀 넘는 나노: 좌석 팀 원장 WT 의 사본은 카드 쓰기 자리가 아니다(다른 팀 작업 트리에 쓰지 않는다)
+[ -z "${_xteam:-}" ] || [ "${LEDGER_WT%/}" = "${ROOT%/}" ] || case "$CARD" in "${LEDGER_WT%/}"/*) CARD="";; esac
 # r960 ⓐ 나노 가지 카드 — 카드가 아직 origin/main 에 없고 «좌석 가지»에만 있으면 그 가지에서 찾는다(닫기 길 막힘 해소).
 #   먼저 좌석 워크트리(그 가지 체크아웃)의 같은 indices/{진행,완성,대기}/<파일> — 있으면 쓰기(card 줄)도 그 판에 한다.
 #   워크트리에 없으면 가지 tip 의 ref 판을 임시 파일로 꺼내 CARD_READ 로만 쓴다. 가지에도 없으면 아래 ⑥ 이 지금처럼 REJECT.
@@ -1761,7 +1771,8 @@ _card_ref_read() {
   ref="$(ft_card_ref "$ROOT" "${_ct:-}")" || { echo "WARN 카드 ref 판정 불가 — 표 행 ref 를 못 읽음 · 작업 트리 후보로"; return 0; }   # r1626: 같은 해석 함수(env → 표 → origin/main)
   [ -n "$IDX" ] || return 0
   if [[ "$ref" == */* ]] && git -C "$ROOT" remote get-url "${ref%%/*}" >/dev/null 2>&1; then
-    nf_fetch "$ROOT" "${ref%%/*}" "${ref#*/}" >/dev/null 2>&1 || { echo "WARN 카드 ref fetch 실패/시간 초과($ref · 7초+재시도 1) — 옛 ref 판은 읽지 않는다 · 작업 트리 후보로"; return 0; }
+    nf_fetch "$ROOT" "${ref%%/*}" "${ref#*/}" >/dev/null 2>&1 || { [ -z "${_xteam:-}" ] || { echo "판정 불가 — 팀 넘는 나노 카드 ref fetch 실패($ref · 7초+재시도 1) · 옛 ref 판으로 통과 0 · 닫기 0"; exit 1; }   # r1719-mut:fetch
+      echo "WARN 카드 ref fetch 실패/시간 초과($ref · 7초+재시도 1) — 옛 ref 판은 읽지 않는다 · 작업 트리 후보로"; return 0; }
   fi
   for rel in "$IDX" ${_tw:+"$_tw"}; do [ -n "$rel" ] && rels+=("$rel"); done
   _norig="${#rels[@]}"
@@ -1782,6 +1793,7 @@ _card_ref_read() {
 }
 trap 'rm -f "${_CR_TMP:-}" "${_CB_TMP:-}"' EXIT   # r960: 가지 판 임시 파일도 같이
 _card_ref_read   # r888-mut:cardref
+[ -z "${_xteam:-}" ] || [ -n "$CARD" ] || [ "$SUSP" = 0 ] || { echo "판정 불가 — 팀 넘는 나노 --suspended 카드 쓰기 자리(카드 팀 작업 트리)를 못 찾음(index=$IDX · 카드 ref=$_cref) · 다른 팀 작업 트리에 쓰지 않는다 · 닫기 0"; exit 1; }   # ★r1719 A4★
 [ -z "$CARD_READ" ] && [ -n "${_CB_TMP:-}" ] && { CARD_READ="$_CB_TMP"; echo "INFO 카드 읽기 ← 가지 판(읽기 전용)"; }   # r960 ⓐ: ref·작업 트리에 없으면 가지 tip 판
 # r888: 증거 줄 검사 = 읽기 판 먼저 · 거절이고 작업 트리 판이 따로 있으면 그 판도 — 증거 줄은 «세트 = 지금 HEAD» 로 스스로 검증돼 옛 판이 거짓 통과하지 못한다(작업 트리에 막 쓴 미착지 줄 · RED 판정의 git 이력 보존)
 _ev_run() {  # r938 ⓒ(r2 N2·N3): 증거 검사도 상한 안에서 — 상한 = min(고정비 + 7초 × «그 검사가 보는 커밋 수», 70) · 넘으면 rc 124 → 닫지 않음
