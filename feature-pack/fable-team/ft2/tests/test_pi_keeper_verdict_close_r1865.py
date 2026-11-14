@@ -71,12 +71,13 @@ def c3(w):    # ③ Working → HELD · kill 0
     assert "Working" in _held(w, HOLDER)
 
 
-def c4(w):    # ④ attached 1 → HELD 사람 화면 · kill 0
+def c4(w):    # ④ [의도 변경 r1976] attached 1 → NOTE 1 → kill 1 · CLOSED-VERDICT · 영수 (옛 기대 = HELD 사람 화면 · kill 0)
     _world(w)
     d = json.loads(w.tm.read_text(encoding="utf-8"))
     d["att"] = {HOLDER: 1}
     w.tm.write_text(json.dumps(d), encoding="utf-8")
-    assert "사람 화면 attached=1" in _held(w, HOLDER)
+    assert [x.split()[0] for x in _mine(w.round())] == ["NOTE", "CLOSED-VERDICT", "RECEIPT"]
+    assert w.tmux("kill-session") == [["kill-session", "-t", "=" + HOLDER]] and w.kinds("close_receipt") == 1
 
 
 def _bad(w, line):   # ⑤ 꼴 틀림 → HELD 판정 불가 1회 · kill 0

@@ -106,12 +106,13 @@ def c5(w):   # ⑤ unsure · after_s 지남 → 재깨움 1회 · 또 미확인 
 def c5e(w):  # ⑤ 오류 턴 길에서도 같은 1회 · 또 미확인 → [크리티컬] 1통
     R._seat(w, "503 Service Unavailable", 121), _put(w.tm, dict(json.loads(w.tm.read_text(encoding="utf-8")), noecho=True)), w.round(), w.round(11 * R.M), w.round(12 * R.M), w.round(13 * R.M)
     assert len(w.tmux("send-keys")) == 6 and len(w.notes()) == 1 and "[크리티컬]" in w.notes()[0] and w.tmux("kill-session") == []
-def c6(w):   # ⑥ 회귀 가드 — 끝 결과 있음 + Working → HELD · attached 1 → HELD · 역할 master → 0
+def c6(w):   # ⑥ 회귀 가드 — 끝 결과 있음 + Working → HELD · 역할 master → 0 · [의도 변경 r1976] attached 1 → NOTE 뒤 닫힘(옛 기대 = HELD)
     for work, kw_ in (("r9606", {"pane": "⠋ Working...\n"}), ("r9616", {}), ("r9626", {"holder": "byz-harness-master-pi#999"})):
         w.card(work, stage="아카이브/2026-11"), w.work(work, alive=True, **kw_)
     w.enable(), tmuxset(w, att={"byz-harness-nano-r9616-t#0": 1})
     lines, kills = run(w)
-    assert all(has(lines, "HELD harness " + work, word) for work, word in (("r9606", "Working"), ("r9616", "사람 화면"), ("r9626", "보호 역할"))) and kills == [] and not has(lines, "CLOSED"), lines
+    assert all(has(lines, "HELD harness " + work, word) for work, word in (("r9606", "Working"), ("r9626", "보호 역할"))) and not [x for x in lines if x.startswith("CLOSED") and ("r9606" in x or "r9626" in x)], lines
+    assert has(lines, "NOTE harness byz-harness-nano-r9616-t#0 사람 화면 attached=1") and kills == [["kill-session", "-t", "=byz-harness-nano-r9616-t#0"]], lines
 def orphan(w, work, seat, life="$5\t100"):
     """고아 1석 — work(dispatch holder #0 · 세션 0) · 카드 아카이브 · seat 의 launch intent(영수 $5/100) · seat 생존(생애 = life)."""
     w.card(work, stage="아카이브/2026-11"), w.work(work), (tree := str(w.tmp / "wt" / work))
