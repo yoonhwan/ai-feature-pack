@@ -80,7 +80,8 @@ export default function (pi: ExtensionAPI) {
     } catch (e) { res({ rc: 127, out: String(e) }); }
   });
   // 남이 이 좌석에 보낸 마지막 쪽지 seq — 우편함 미읽음 행 + 받은 영수(receipts) · 자기 발신·표시(mark) 행 제외 · 읽기 실패 = null
-  const others = (r: { from?: unknown }) => String(r.from ?? "") !== seat;
+  // r1711 — 기계 발신(from «ft-*» · ft-stall-scan [멈춤] 등)은 «새 일» 이 아니다 — 세면 20분 깨움마다 지문이 리셋돼 [긴급] 이 다시 나간다
+  const others = (r: { from?: unknown }) => String(r.from ?? "") !== seat && !String(r.from ?? "").startsWith("ft-");
   function lastSeq(): number | null {
     let max = 0;
     const scan = (text: string, needTo: boolean) => { for (const line of text.split("\n")) { if (!line.trim()) continue; let r;
