@@ -3,6 +3,7 @@ r1812 대역(keeper_world_r1812.World) 재사용 · tmux·ft-seat-close = 같은
 """
 import importlib.util
 import json
+import re
 import shutil
 import types
 from pathlib import Path
@@ -73,7 +74,7 @@ def c5(w):   # ⑤ ROUND 줄 stall= 칸 = stall.check 에 쓴 초 · s = fetch+b
     git = k.git
     k.git = lambda repo, *a, **o: (tick(5) if a[0] == "fetch" else None, git(repo, *a, **o))[1]
     k.complete, k.retired, k.stall.check = (lambda *a: tick(10, False)), (lambda: tick(3)), (lambda *a: tick(7))
-    assert [x for x in w.round(k) if x.startswith("ROUND")] == ["ROUND s=30 fetch=10 b1=10 b2=0 b3=3 stall=7"]
+    assert [re.sub(r" fetch_root=\S+ fetch_pack=\S+", "", x) for x in w.round(k) if x.startswith("ROUND")] == ["ROUND s=30 fetch=10 b1=10 b2=0 b3=3 stall=7"]
 def c7(w):   # ⑦ DA R1 — 같은 생존 좌석이 seats-harness.json·seats.json 둘 다 `_replaced_by` → close 1 · 허위 HELD-SEAT 0
     _put(w.root / ".fable-team" / "seats.json", {LIVE[0]: {"_replaced_by": "byz-harness-nano-x-r1#1"}})
     k, calls = b3(w, rows=5)
