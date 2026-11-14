@@ -6,6 +6,8 @@
 #   B 가드 팀 → 좌석마다 «멈춤 <좌석> <가드> <값>» 1줄 · 깨끗한 나노만 h · S4 멈춤(§6-10·11·13 · Working 3값 · 미착지·미커밋·미읽음·열린 h)
 #   C --verdict 없음 → 표준승인 밖 역할 = kill권한 멈춤 · 계보 더 큰 번호 생존 = h(--verdict 0) · 클론 표준승인 안/밖(§6-4·6)
 #   D 명부 깨짐 = 전체 멈춤 · E S0 push 실패 = 전체 멈춤 h 0 · F --confirm 잔존 → 닫힘 + [종료] 1통 + 멱등(§6-7) · G 정적(삭제·크론·착지 0 · §6-2·3·11)
+#   보정 R1(DA#10 #304999 · 반례 R1~R5 1:1): ⑫ held 남음 --confirm rc1·닫힘 0·[종료] 0 · ⑫b 전 행 닫힘 = rc0 · ⑬ ls-tree rc42 = 판정 불가 rc3 · h 0
+#     ⑭ --confirm 2회 = [종료] 1통 · ⑮ tmux 8.1초 = 판정 불가 tmux 7s rc3 · ⑮b 1차만 느림 = 통과 · ⑯ upstream main = push 0 rc1 · ⑯b ops-test = push 1
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
 set -u
 export LC_ALL=C FT_ALLOW_TRACKED_BIN=1
@@ -53,6 +55,7 @@ mkrepo() {  # <루트> — bare origin + clone(main ↔ origin/main) · 골·진
   printf '# GOAL t1\n\n## 골 원문\n\n골 첫 줄\n골 둘째 줄\n골 셋째 줄\n' > "$r/design/teams/t1/GOAL-t1.md"
   echo a > "$r/design/teams/t1/indices/진행/a.md"; echo 'name: x' > "$r/.serena/project.yml"
   printf '.worktrees/\n.fable-team/\n' > "$r/.gitignore"; g "$r" base; git -C "$r" push -q -u origin main 2>/dev/null
+  git -C "$r" checkout -q -b ops/main-base; git -C "$r" push -q -u origin ops/main-base 2>/dev/null   # 덧①: upstream = main 아님(ops)
   echo z > "$r/design/teams/t1/indices/진행/z-worktree-only.md"   # §6-9: 작업 트리에만 있는 카드는 CLOSEOUT 에 0
 }
 wt() { git -C "$1" worktree add -q -b "nano/$2" "$1/.worktrees/$2" origin/main 2>/dev/null; }
@@ -91,8 +94,8 @@ a2="$(lnum "$H" '# S2')"; a3="$(lnum "$H" '# S3')"; a4="$(lnum "$H" '# S4')"; a5
 eq "$(grep -c '# S3 나노' "$H")" 2 "A 나노 2"; grep -F "ft-seat-close.sh' 'byz-t1-arch-claude#7'" "$H" | grep -q -- '--verdict 4138' && ok || bad "A 역할 --verdict"
 grep -q -- '--recv 12 --suspended' "$H" && ok || bad "A 나노 --recv·--suspended"
 CO="design/teams/t1/CLOSEOUT-t1-$(date +%Y%m%d).md"
-git -C "$R" fetch -q origin; git -C "$R" cat-file -e "origin/main:$CO" 2>/dev/null && ok || bad "A §6-1 CLOSEOUT origin 에 push"
-c="$(git -C "$R" show "origin/main:$CO" 2>/dev/null)"
+git -C "$R" fetch -q origin; git -C "$R" cat-file -e "origin/ops/main-base:$CO" 2>/dev/null && ok || bad "A §6-1 CLOSEOUT origin 에 push"
+c="$(git -C "$R" show "origin/ops/main-base:$CO" 2>/dev/null)"
 case "$c" in *"골 첫 줄"*"indices/진행/a.md"*"ft-team-boot.sh t1"*) ok;; *) bad "A CLOSEOUT 골·카드·다시 여는 법";; esac
 case "$c" in *z-worktree-only*) bad "A §6-9 작업 트리 사본 카드가 CLOSEOUT 에";; *) ok;; esac
 lap A
@@ -109,8 +112,9 @@ json.dump(d,open(sys.argv[1],"w"))
 P
 run "$R" --confirm "$H"; eq "$rc" 0 "F 확인 rc"; has "S5 확인 t1 닫힘" "F 닫힘"
 grep -qF '[종료] t1' "$REC/mbox.log" && ok || bad "F [종료] 1통"
-git -C "$R" fetch -q origin; eq "$(git -C "$R" show "origin/main:$CO" | grep -c 'S5 확인')" 1 "F 닫힘 1줄 push"
-run "$R" --confirm "$H"; eq "$rc" 0 "F 재실행 rc"; eq "$(grep -c 'S5 확인' "$R/$CO")" 1 "F 멱등(줄 1)"
+git -C "$R" fetch -q origin; eq "$(git -C "$R" show "origin/ops/main-base:$CO" | grep -c 'S5 확인')" 1 "⑫b 전 행 닫힘·세션 0 → 닫힘 1줄 push"
+run "$R" --confirm "$H"; eq "$rc" 0 "⑭ 재실행 rc 0"; eq "$(grep -cF '[종료] t1' "$REC/mbox.log")" 1 "⑭ R3 [종료] 1통"
+eq "$(grep -c 'S5 확인' "$R/$CO")" 1 "⑭ 닫힘 줄 1"; has "이미 닫힘" "⑭ 이미 닫힘 1줄"
 lap F
 
 # ---------- B 가드 팀 ----------
@@ -139,7 +143,15 @@ H="$(hplan)"; eq "$(grep -c '# S3 나노' "$H")" 1 "B h 나노 1"; grep -q '# S4
 grep -qF "'byz-t1-nano-ok#0' --result" "$H" && ok || bad "B 깨끗한 나노 h 안"
 grep -q '^# ft-hil-expect: closed=1 held=7 clones=0$' "$H" && ok || bad "B expect held=7"
 eq "$(grep -c '^멈춤 byz-' <<< "$out")" 7 "B 좌석 멈춤 줄 = 좌석당 1"
-sed -n '/^set -u/,$p' "$H" > "$T/b.h"; tmux_isolate_clean_sessions; lap B
+# ⑫ R1: 허용된 nano-ok 만 닫힌 꼴(명부 stop-ready) · held 좌석·팀장 세션·명부 활성 그대로 → --confirm = 잔존 rc1 · [종료] 0
+python3 - "$R/.fable-team/seats-t1.json" <<'P'
+import json,sys
+d=json.load(open(sys.argv[1])); d["byz-t1-nano-ok#0"]["role"]="stop-ready"; json.dump(d,open(sys.argv[1],"w"))
+P
+: > "$REC/mbox.log"; run "$R" --confirm "$H"; eq "$rc" 1 "⑫ rc 1"
+has "S5 잔존 세션 byz-t1-nano-work#0" "⑫ held 세션 잔존"; has "S5 잔존 명부 byz-t1-master-claude#4" "⑫ 명부 활성 잔존"
+eq "$(grep -c . "$REC/mbox.log")" 0 "⑫ [종료] 0"; eq "$(grep -c 'S5 확인' "$R/design/teams/t1/CLOSEOUT-t1-$(date +%Y%m%d).md")" 0 "⑫ 닫힘 줄 0"
+tmux_isolate_clean_sessions; lap B
 
 # ---------- C --verdict 없음 · 표준승인 · 클론 ----------
 R="$T/rc"; mkrepo "$R"; wt "$R" wtm
@@ -165,6 +177,30 @@ git -C "$R" remote set-url origin "$T/없음.git"
 run "$R" --verdict 4138; eq "$rc" 1 "E rc"; has "멈춤 S0 정본 미착지" "E §6-1 S0 실패 = 전체 멈춤"; eq "$(grep -c . "$REC/hil.log")" 0 "E h 0"
 FT_TEAM_STOP_IN=1 run "$R"; has "멈춤 재진입" "E 재진입 가드"
 lap DE
+
+# ---------- ⑬ R2 카드 판독 실패 · ⑮ R4 tmux 7초 상한 · ⑯ R5 upstream main 거절 ----------
+R="$T/rg"; mkrepo "$R"; wt "$R" wtm; seats "$R" "$(row 'byz-t1-master-claude#4' master wtm)"
+RG="$(command -v git)"; mkdir -p "$T/fg" "$T/fp"
+printf '#!/usr/bin/env bash\nfor a; do [ "$a" = ls-tree ] && { echo x >> "%s"; exit 42; }; done\nexec %s "$@"\n' "$REC/lstree.mark" "$RG" > "$T/fg/git"
+printf '#!/usr/bin/env bash\nfor a; do [ "$a" = push ] && echo x >> "%s"; done\nexec %s "$@"\n' "$REC/push.mark" "$RG" > "$T/fp/git"; chmod +x "$T/fg/git" "$T/fp/git"
+CO="design/teams/t1/CLOSEOUT-t1-$(date +%Y%m%d).md"; H0="$(git -C "$R" rev-parse HEAD)"
+: > "$REC/hil.log"; PATH="$T/fg:$PATH" run "$R" --verdict 4138
+eq "$rc" 3 "⑬ rc 3"; has "판정 불가 S0 카드 판독 rc=42" "⑬ 판정 불가 1줄"; eq "$(grep -c . "$REC/hil.log")" 0 "⑬ h 0"
+eq "$(grep -c . "$REC/lstree.mark" 2>/dev/null)" 1 "⑬ 주입 도달"; eq "$(git -C "$R" rev-parse HEAD)" "$H0" "⑬ CLOSEOUT 커밋 0"
+mkfifo "$T/never"   # 8.1초 = read -t 8.1(fifo 를 읽기·쓰기로 열어 막힘 없이 시간 초과만 · sleep 0)
+printf '#!/usr/bin/env bash\nif [ "$1" = list-panes ]; then echo x >> "%s"; [ "${SLOW_ONCE:-0}" = 1 ] && [ "$(grep -c . "%s")" -gt 1 ] || read -r -t 8.1 x <> "%s"; fi\nexec tmux "$@"\n' "$REC/slow.mark" "$REC/slow.mark" "$T/never" > "$T/slowtmux"; chmod +x "$T/slowtmux"
+: > "$REC/hil.log"; : > "$REC/push.mark"; : > "$REC/slow.mark"; PATH="$T/fp:$PATH" FT_TMUX="$T/slowtmux" run "$R" --verdict 4138
+eq "$rc" 3 "⑮ rc 3"; has "판정 불가 tmux 7s" "⑮ 판정 불가 1줄"; eq "$(grep -c . "$REC/slow.mark")" 2 "⑮ 1회 상한 + 재시도 1"
+eq "$(grep -c . "$REC/hil.log")" 0 "⑮ h 0"; eq "$(grep -c . "$REC/push.mark")" 0 "⑮ push 0"
+: > "$REC/hil.log"; : > "$REC/slow.mark"; SLOW_ONCE=1 FT_TMUX="$T/slowtmux" run "$R" --verdict 4138
+eq "$rc" 0 "⑮b 1차만 느림 → 통과"; eq "$(grep -c . "$REC/hil.log")" 1 "⑮b h 1"
+R="$T/rm"; mkrepo "$R"; wt "$R" wtm; seats "$R" "$(row 'byz-t1-master-claude#4' master wtm)"; git -C "$R" checkout -q main
+: > "$REC/hil.log"; : > "$REC/push.mark"; PATH="$T/fp:$PATH" run "$R" --verdict 4138
+eq "$rc" 1 "⑯ rc 1"; has "거절 main 직접 push" "⑯ 거절 1줄"; eq "$(grep -c . "$REC/push.mark")" 0 "⑯ push 호출 0"; eq "$(grep -c . "$REC/hil.log")" 0 "⑯ h 0"
+git -C "$R" checkout -q -b ops-test; git -C "$R" push -q -u origin ops-test 2>/dev/null
+: > "$REC/hil.log"; : > "$REC/push.mark"; PATH="$T/fp:$PATH" run "$R" --verdict 4138
+eq "$rc" 0 "⑯b ops-test rc 0"; eq "$(grep -c . "$REC/push.mark")" 1 "⑯b push 1"; eq "$(grep -c . "$REC/hil.log")" 1 "⑯b h 1"
+lap R2R5
 
 # ---------- G 정적 (스크립트 + 만든 h) ----------
 for f in "$S" "$H"; do
