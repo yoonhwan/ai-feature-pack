@@ -3,14 +3,17 @@
 여기 있는 것은 «바깥 호출 전에 정해지는 값» 뿐이다: 열기 argv · 좌석 env 5개 · 확인 argv·판정(r1780) · 실패 사유의 복구 2줄.
 바깥 호출·의도 쓰기는 launch.py 몫이다.
 """
+import json
 import os
 import shlex
 import shutil
 
 DEFAULT_BASE = "origin/main"          # r1780 A1: 기본 가지 자동 판정 0(origin/HEAD 는 리포마다 다르다) · 이름 고정
 HEX = frozenset("0123456789abcdef")
-LAND = ("· 산출 = 가지 nano/<work> push + master 보고까지 · main·ops/main-base push·병합·착지·설치·심링크·가지 삭제 0(= master·h 몫) · "
-        "AGENTS.md «Landing the Plane» 은 이 좌석에 적용 0")   # r1900 첫 본문 끝 고정 1구(나노 직접 착지 실사건)
+BAN = "main·ops/main-base push·병합·착지·설치·심링크·가지 삭제 0(= master·h 몫) · AGENTS.md «Landing the Plane» 은 이 좌석에 적용 0"   # r1900 금지 목록(두 길 공통)
+LAND = "· 산출 = 가지 nano/<work> push + master 보고까지 · " + BAN   # r1900 첫 본문 끝 고정 1구 · r1930: 팀 DA 좌석을 못 읽을 때만 쓰는 옛 길
+DIRECT = ("산출 = 가지 nano/<work> push → PR 열기(금지 목록 밖) → 팀 DA %s 에 판정 요청(5칸 = 대상 동결·판정 기준·상한·종료 조건·다음 수 · 근거 줄 = 세트 sha·PR 번호·"
+          "카드 경로·시험 줄 · PR 번호 없으면 요청 아님) · 카드 상태의 HOLD 줄이 3 이면 DA 요청 0 · 팀 master 에 1줄 · 막힘 = 팀 master 에 mbox · ")   # r1930 산출은 팀장을 거치지 않는다
 
 
 def seat_env(root, team, work, holder, attempt):
@@ -39,10 +42,23 @@ def card_row(root, team):
     return (os.path.abspath(os.path.join(root, r[1])), r[2], r[3].replace("*", team)) if r else None
 
 
+def da_seat(root, team):
+    """팀 명부(`<root>/.fable-team/seats-<팀>.json`)의 `_da` 좌석 이름 — 없음·빈 값·글자 아님·명부 못 읽음 = None(r1930 · 로컬 읽기뿐 · 임의 DA 0)."""
+    try:
+        with open(os.path.join(root, ".fable-team", "seats-%s.json" % team), encoding="utf-8") as handle:
+            seat = json.load(handle).get("_da")
+    except (OSError, ValueError, AttributeError, TypeError):
+        return None
+    return seat if isinstance(seat, str) and seat.strip() else None
+
+
 def first_body(env, row):
     """(body_mark, 첫 본문 1줄) — pi `[messages...]` 첫 메시지 · 카드 = 표의 repo + ref:path 그대로(r1895 · 바깥 호출 0)."""
     mark = "[발주] ft2 %s %s@%s" % (env["FT2_TEAM"], env["FT2_WORK"], env["FT2_ATTEMPT"])
-    return mark, "%s 좌석 %s — 카드 %s %s:%s/대기/%s.md 를 통째로 읽고 그대로 수행 · ft2_claim → ft2_start 부터 · 산출·막힘은 팀 master 에 mbox " % (mark, env["FT2_HOLDER"], *row, env["FT2_WORK"]) + LAND
+    da = da_seat(env.get("FT2_ROOT"), env["FT2_TEAM"])   # r1930: 못 읽으면 옛 길(팀 master) + «DA 좌석 못 읽음»
+    tail = DIRECT % da + BAN if da else "DA 좌석 못 읽음 · 산출·막힘은 팀 master 에 mbox " + LAND
+    return mark, "%s 좌석 %s — 카드 %s %s:%s/대기/%s.md 를 통째로 읽고 그대로 수행 · root = %s · work = %s · gen = ft2_claim 이 돌려준 값 · ft2_claim → ft2_start 부터 · " % (
+        mark, env["FT2_HOLDER"], *row, env["FT2_WORK"], env.get("FT2_ROOT"), env["FT2_WORK"]) + tail   # r1930 범위 더함: work = 접미 없는 이름(@aN 은 attempt 칸)
 
 
 def plan_of(folder, tag, root, team, holder, role_argv, worktree, repo, env, body, base=DEFAULT_BASE):
