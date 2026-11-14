@@ -29,13 +29,14 @@ def teams(w, names=TEAMS, cap="9"):
         _put(w.tmp / "bin" / ("ft-%s.sh" % tool), "exit %d\n" % rc)
     w.env.update(FT2_TEAM_NANO_MAX=cap, GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="core.quotepath", GIT_CONFIG_VALUE_0="false")
 def rounded(w, body):
-    """한 바퀴(실 _round · 실 fetch) · team_round = body(k, kn, 팀) · B3·보고 0 → (keeper, 호출 목록, 팀별 반환)."""
+    """한 바퀴(실 _round · 실 fetch) · team_round = body(k, kn, 팀) · B3·보고 0 → (keeper, 팀 단계까지 호출 목록, 팀별 반환).
+    r1960 이후 B3 에 고아 점검(자기 list-sessions 1회)이 붙음 → 마지막 팀이 끝난 곳에서 자른다(셈 = 팀 단계만)."""
     k = w.keeper()
-    kn, calls, got = kn_of(k), counted(k), {}
+    kn, calls, got, cut = kn_of(k), counted(k), {}, [0]
     k.retired, k.report = (lambda: None), (lambda: None)
-    k.team_round = lambda t: got.__setitem__(t, body(k, kn, t))
+    k.team_round = lambda t: (got.__setitem__(t, body(k, kn, t)), cut.__setitem__(0, len(calls)))
     assert k.run_once() == 0
-    return k, calls, got
+    return k, calls[:cut[0]], got
 def n(calls, word):
     return sum(word in a for a in calls)
 def c1(w):   # ① 팀 3개 fill(gates→cards) → cards git 2회 · status 2회 · list-sessions 1회 (팀 수와 무관)
@@ -85,8 +86,9 @@ def c5(w):   # ⑤ ROUND 줄 = b2c(close)·b2f(fill) 둘 · slow=<팀>:<칸>:<�
 CASES = {"①": c1, "②": c2, "③": c3, "④": c4, "⑤": c5}
 KP, KN = "adapters/pi/keeper.py", "adapters/pi/keeper_next.py"
 CLOSE = 'self.timed("b2c", self.close, team, work, attempt, row, dispatched)'
+PAD = " " * 20   # r1960 끝 갈래도 같은 close 줄(들여쓰기 16) → done 갈래(20) 1곳만 변이
 MUTANTS = {"M1": (KN, "return fn() if got is None else", "return fn() if True else", c1),
-           "M2": (KP, CLOSE, 'None if self.state.setdefault("m2", {}).setdefault(work, False) else self.state["m2"].update({work: True}) or ' + CLOSE, c2),
+           "M2": (KP, PAD + CLOSE, PAD + 'None if self.state.setdefault("m2", {}).setdefault(work, False) else self.state["m2"].update({work: True}) or ' + CLOSE, c2),
            "M3": (KN, ' | k.cache.get("launching", set())) if rc == 0', ") if rc == 0", c3),
            "M4": (KN, ' and os.path.dirname(p) == mine}', "}", c4)}
 @pytest.mark.parametrize("name", list(CASES))
