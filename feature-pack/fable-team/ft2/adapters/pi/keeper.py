@@ -266,10 +266,11 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
         rows = node.records()
         latest = {rec["work"]: (rec.get("attempt"), rec.get("holder")) for rec in rows
                   if rec.get("kind") == "dispatch" and rec.get("work")}
+        back = {(rec["work"], rec.get("attempt")) for rec in rows if rec.get("kind") == "returned"}   # r1990 반환 줄
         for work, (attempt, dispatched) in sorted(latest.items()):
             row = proj["works"].get(work) or {}
-            if "%s|%s@%s" % (team, work, attempt) in self.state["handled"]:
-                continue
+            if "%s|%s@%s" % (team, work, attempt) in self.state["handled"] or (work, attempt) in back:
+                continue   # r1990 반환된 최신 attempt = B1 complete·HELD·깨움 0(새 dispatch 면 attempt 가 달라 다시 본다)
             if row.get("done") or self.timed("b1", lambda: self.complete(team, work, attempt, self.landing(team, work))):
                 if self.sock:
                     self.timed("b2c", self.close, team, work, attempt, row, dispatched)

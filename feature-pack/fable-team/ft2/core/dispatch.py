@@ -58,6 +58,30 @@ class Dispatch:
         return self._locked(self._recover, None, mode, k=self._recover_k(),
                             empty={"delivered": [], "reassessed": [], "reason": "writer.lock 점유/복구 필요"})
 
+    def give_back(self, work, attempt, evidence):
+        """r1990 — 전달됐지만 착지 0 인 최신 attempt 를 큐에 되돌린다(returned 1줄 · 남은 일 셈 밖).
+        손 = 현역 master(confirm 과 같은 판정) · 같은 work 의 새 dispatch 가 효력을 끝낸다 · card-assign 쓰기 0."""
+        seat, ev = os.environ.get("FT_SEAT", ""), evidence if isinstance(evidence, str) else ""
+        if not ev.strip() or "\n" in ev or seat != self.ex._master():
+            return Grant(REFUSED, work, "return", attempt, reason="근거 1줄·현역 master 손 중 하나 밖 = 쓰기 0")
+        return self._locked(self._give_back, work, attempt, ev, seat)
+
+    def _give_back(self, context, work, attempt, ev, seat):
+        state, records = context
+        latest = ([r.get("attempt") for r in records if r["kind"] == "dispatch" and r.get("work") == work] or [None])[-1]
+        if ((state.get("returned") or {}).get(work) or {}).get("attempt") == attempt == latest:
+            return Grant(HOLD, work, "return", attempt, revision=state["revision"], reason="이미 반환 = 멱등(쓰기 0)")
+        why = next((name for name, bad in (("낡은 attempt", attempt != latest),
+                                           ("완료 기록", work in (state.get("done") or {})),
+                                           ("결과 미확정", work in (state.get("uncertain") or {})),
+                                           ("owner 있음", work in (state.get("owners") or {}))) if bad), "")
+        if why:
+            return Grant(REFUSED, work, "return", attempt, revision=state["revision"], reason=why + " = 반환 거부(쓰기 0)")
+        rec = record.build(self.team, (records[-1]["seq"] if records else 0) + 1, work, attempt, self.clock(), ev, work,
+                           kind="returned", extra={"evidence": ev, "returned_by": seat})
+        rev = self._write(state, records, rec, {"returned": {work: {"attempt": attempt, "at": rec["at"], "by": seat}}})
+        return Grant(OK, work, "returned", attempt, revision=rev, written=True)
+
     def _recover(self, context, _work, mode):
         """전달 의도와 표식 있는 complete 만 — 예약·완료·재평가는 잠금 안 판독(recover_state)이 겹쳐 읽는다."""
         state, records = context
@@ -112,7 +136,8 @@ class Dispatch:
                                                                                             "state": "pending"}})
         rev = self._write(state, records, rec, {
             "generations": {work: gen}, "owners": {work: owner},
-            "reservations": {res: {"work": work, "attempt": attempt} for res in resources}})
+            "reservations": {res: {"work": work, "attempt": attempt} for res in resources}},
+            replace={"returned": {k: v for k, v in (state.get("returned") or {}).items() if k != work}})   # r1990 새 attempt = 반환 끝
         self.on_step("after_dispatch")
         return Grant(OK, work, "dispatched", attempt, gen, holder, rev, True)
 

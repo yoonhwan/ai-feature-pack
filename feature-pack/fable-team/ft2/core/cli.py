@@ -34,6 +34,7 @@ VERBS = {
     "confirm": ("Execution", "confirm", ("work", "holder", "gen", "word", "evidence"), ()),   # r1980 근거 = 글 1줄
     "complete": ("Dispatch", "complete", ("work",), ("attempt",)),
     "reassess": ("Dispatch", "reassess", ("work",), ("mode",)),
+    "return": ("Dispatch", "give_back", ("work", "attempt", "evidence"), ()),   # r1990 손 = 현역 master · 근거 = 글 1줄
     "recover": ("Dispatch", "recover", (), ("mode",)),
     "reclaim": ("Journal", "reclaim", (), ()),
     "project": ("Projection", "project", (), ()),      # 읽기 동사 — 잠금·쓰기 0 (r1617)
@@ -89,7 +90,7 @@ def parse(argv):
         token = rest[index]
         if not token.startswith("--") or token[2:] not in known or index + 1 >= len(rest):
             raise Usage("인자 꼴: --이름 값 (받은 것 %r)" % (token,))
-        raw = verb == "confirm" and token == "--evidence"     # r1980: confirm 근거만 목록으로 쪼개지 않는다
+        raw = verb in ("confirm", "return") and token == "--evidence"     # r1980·r1990: 근거 = 글 1줄(목록 0)
         given[token[2:]] = rest[index + 1] if raw else _value(token[2:], rest[index + 1])
         index += 2
     missing = [name for name in required + GLOBAL if name not in given]
