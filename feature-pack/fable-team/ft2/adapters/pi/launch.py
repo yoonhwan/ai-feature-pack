@@ -3,11 +3,12 @@
 
 코어는 일을 기록할 뿐 좌석을 열지 않는다(`close_next`·`reopen` 의 «spawn·tmux = 호출자»). 그 호출자가 이 명령이다.
 ① journal·state 읽기만(잠금·쓰기 0)으로 «최신 dispatch»(holder · attempt)를 찾고 그 attempt 가 전달되지 않았으면 열지 않는다
-② 열기 의도를 O_EXCL 로 «한 번만» 만들어 두 번째 호출을 0 으로 만든다 ③ 의도가 잡히면 git 3호출(worktree add --no-checkout --detach → sparse-checkout set → checkout · r1846) →
+② 열기 의도를 내용 든 원자 예약(link · pid 든 claiming · r1929)으로 «한 번만» 만들어 두 번째 호출을 0 으로 만든다 ③ 의도가 잡히면 git 3호출(worktree add --no-checkout --detach → sparse-checkout set → checkout · r1846) →
 `tmux new-session` 1회(-e K=V 5개 · 이미 뜬 서버의 새 pane 에도 env 가 간다). 실행권(claim·start)은 좌석 몫 ·
 상한은 두 값이다(r1769): git·로컬 하네스 25초 · tmux(바깥 호출) 7초 · `--repo` 를 주면 그 리포에서 worktree 를 만든다 ·
 실패는 의도 줄에 단계 + rc2 «복구 필요»(자동 재시도 0) + 복구 2줄 · 결과 낱말은 계약 8낱말 밖 0 · 부르는 법:
-    python3 adapters/pi/launch.py --root R --team T --work W [--worktree 경로] [--repo 경로] [--role 역할] [--base ref] [--dry-run]
+    python3 adapters/pi/launch.py --root R --team T --work W [--worktree 경로] [--repo 경로] [--role 역할] [--base ref] [--dry-run | --resume]
+--resume(r1929) = 끊긴 열기(opening ∧ 열기 pid 죽음)를 같은 자리에서 attempt 당 1회 잇는다(.resume 예약 성공한 실행자만).
 """
 import importlib.util
 import json
@@ -43,7 +44,8 @@ planner = _load(os.path.join("adapters", "pi", "launch_plan.py"), "ft2_launch_pl
 
 def parse(argv):
     """`--이름 값` + `--dry-run` → 인자 dict. 모르는 이름·값 빠짐 = Usage(쓰기 «전»)."""
-    given, rest = {"dry": "--dry-run" in argv}, [token for token in argv if token != "--dry-run"]
+    given = {"dry": "--dry-run" in argv, "resume": "--resume" in argv}
+    rest = [token for token in argv if token not in ("--dry-run", "--resume")]
     while rest:
         name, rest = rest[0][2:], rest[1:]
         if not name or name not in FIELDS or not rest:
@@ -83,9 +85,10 @@ def call(cmd, cwd, env, timeout):
 
 
 def write_intent(path, payload):
-    """의도 줄 1개 = JSON 1줄. 같은 자리를 다시 쓰면 «마지막 상태» 만 남는다."""
-    with open(path, "w", encoding="utf-8") as handle:
+    """의도 줄 1개 = JSON 1줄. 같은 자리를 다시 쓰면 «마지막 상태» 만 남는다 · tmp → replace(빈 의도 판독 0 · r1929)."""
+    with open(path + ".w", "w", encoding="utf-8") as handle:
         handle.write(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n")
+    os.replace(path + ".w", path)
 
 
 def read_intent(path):
@@ -94,15 +97,6 @@ def read_intent(path):
         return json.loads(open(path, encoding="utf-8").read())
     except (OSError, ValueError):
         return {}
-
-
-def claimed(intent):
-    """의도 1번 — O_EXCL 이 유일한 판정이다(«있나 보고 쓰기» 는 두 번 열린다 · M3)."""
-    try:
-        os.close(os.open(intent, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644))
-        return True
-    except FileExistsError:
-        return False
 
 
 def failed(plan, env, step, detail, repo):
@@ -147,7 +141,10 @@ def open_seat(given):
                     model=item["model"], effort=item["effort"], timeouts={"git": GIT_TIMEOUT, "tmux": TMUX_TIMEOUT},
                     paths=plan, argv={key: plan[key] for key in ("git", "sparse", "checkout", "tmux")}, env=env), 0
     os.makedirs(os.path.dirname(plan["intent"]), exist_ok=True)
-    if not claimed(plan["intent"]):
+    own = dict(pid=os.getpid(), started=time.time())   # r1929: 열기 pid · 시각(keeper 가 죽음을 판정)
+    if given.get("resume"):
+        return resume(plan, env, repo, dict(own, kind="resume"), (item, base, mark))
+    if not planner.reserve(plan["intent"], dict(env, state="claiming", kind="open", **own)):   # link 예약이 유일한 판정(M3)
         return already(read_intent(plan["intent"]), plan)
     if plan["pi_bin"] is None:                    # r1892: 못 찾으면 git·tmux 부르기 전 실패 의도(다시 불러도 바깥 호출 0)
         return failed(plan, env, "pi 없음", "PATH·~/.local/bin 에 pi 없음", repo)
@@ -160,9 +157,31 @@ def open_seat(given):
             return dict(result=REFUSED, work=work, repo=repo, base=base,
                         reason="%s: %s — 바깥 호출 0" % (label, detail or "진단 없음")), 1
     sha = detail                                # 마지막 확인 = 기준 ref → 40자 sha(실제 argv 끝 · 의도 base_sha)
-    write_intent(plan["intent"], dict(env, state="opening", role=item["role"], repo=repo, base=base, base_sha=sha, body_mark=mark, at=time.strftime(STAMP)))
+    write_intent(plan["intent"], dict(env, state="opening", role=item["role"], repo=repo, base=base, base_sha=sha, body_mark=mark, at=time.strftime(STAMP), **own))
     os.makedirs(os.path.dirname(plan["worktree"]), exist_ok=True)
-    for step, argv in (("git add", planner.at_sha(plan["git"], sha)), ("git sparse", plan["sparse"]), ("git checkout", plan["checkout"])):
+    steps = (("git add", planner.at_sha(plan["git"], sha)), ("git sparse", plan["sparse"]), ("git checkout", plan["checkout"]))
+    return finish(plan, env, steps, repo, sha, (item, base, mark))
+
+
+def resume(plan, env, repo, own, keep):
+    """r1929 ③ 이어 열기 — 첫 동작 = .resume 예약(attempt 당 1개 = 횟수 그 자체) · EEXIST = 부작용 0 rc1 · 예약 뒤 실패 = failed(.resume 남김)."""
+    if not planner.reserve(plan["intent"] + ".resume", own):
+        return dict(result=REFUSED, intent=plan["intent"], reason="이미 복구 예약 — 이어 열기는 attempt 당 1회 · 부작용 0"), 1
+    got = read_intent(plan["intent"])
+    if got.get("state") != "opening":
+        return already(got, plan)
+    if planner.pid_state(got.get("pid"), got.get("started")) != "dead":
+        return dict(result=REFUSED, intent=plan["intent"], reason="열기 pid 살아 있음·판정 불가 — 이어 열기 0"), 1
+    steps = planner.resume_plan(plan, repo, got.get("base_sha"), GIT_TIMEOUT)
+    if steps is None:
+        return failed(plan, env, "끊긴 열기 · 자리 불일치", "worktree 목록·HEAD ≠ base_sha %s" % got.get("base_sha"), repo)
+    return finish(plan, env, steps, repo, got["base_sha"], keep)
+
+
+def finish(plan, env, steps, repo, sha, keep):
+    """git 단계 → tmux 1회 → 살아 있음 1회 → opened (처음 열기·이어 열기 공통 · 상한 그대로)."""
+    item, base, mark = keep
+    for step, argv in steps:
         rc, detail = call(argv, repo, None, GIT_TIMEOUT)   # r1846: 호출마다 25초 · 실패 = 그 단계 이름 · 뒤 호출 0
         if rc != 0:
             return failed(plan, env, step, detail, repo)
@@ -173,7 +192,7 @@ def open_seat(given):
     if rc != 0:
         return failed(plan, env, "tmux 즉시 종료", "세션 없음 — pi 실행 실패(PATH·인증) 의심 · %s" % (detail or "진단 없음"), repo)
     write_intent(plan["intent"], dict(env, state="opened", role=item["role"], worktree=plan["worktree"], base=base, base_sha=sha, body_mark=mark, at=time.strftime(STAMP)))
-    return dict(result=OK, opened=True, work=work, attempt=attempt, holder=holder,
+    return dict(result=OK, opened=True, work=env["FT2_WORK"], attempt=env["FT2_ATTEMPT"], holder=env["FT2_HOLDER"],
                 worktree=plan["worktree"], intent=plan["intent"]), 0
 
 

@@ -515,7 +515,7 @@ MUTANTS = {
     "M2": ("launch.py", '    if given.get("dry"):',
            '    if given.get("dry"):\n        os.makedirs(os.path.dirname(plan["intent"]), exist_ok=True)\n'
            '        write_intent(plan["intent"], dict(env, state="opening"))'),
-    "M3": ("launch.py", "os.O_CREAT | os.O_EXCL | os.O_WRONLY", "os.O_CREAT | os.O_WRONLY"),
+    "M3": ("launch_plan.py", "os.link(tmp, path)", "shutil.copyfile(tmp, path)"),   # r1929 O_EXCL → link 예약 · 덮어쓰기 = 두 번 열림
     "M4": ("launch.py", '    rc, detail = call(plan["tmux"], None, dict(os.environ, **env), TMUX_TIMEOUT)\n    if rc != 0:',
            '    rc, detail = call(plan["tmux"], None, dict(os.environ, **env), TMUX_TIMEOUT)\n    rc = 0\n    if rc != 0:'),
     "M5": ("launch_plan.py", '+ pairs + [pi or "pi"]', '+ [] + [pi or "pi"]'),

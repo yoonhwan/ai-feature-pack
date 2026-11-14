@@ -1,12 +1,14 @@
 """ft 2.0 좌석 열기의 계획 만들기 — launch.py 가 부르기만 한다(r1769 · 파일 200줄 규칙 분리).
 
 여기 있는 것은 «바깥 호출 전에 정해지는 값» 뿐이다: 열기 argv · 좌석 env 5개 · 확인 argv·판정(r1780) · 실패 사유의 복구 2줄.
-바깥 호출·의도 쓰기는 launch.py 몫이다.
+바깥 호출·의도 쓰기는 launch.py 몫이다. r1929: 내용 든 원자 예약(reserve) · 열기 pid 판정(pid_state) · 이어 열기 단계(resume_steps)도 여기 둔다.
 """
 import json
 import os
 import shlex
 import shutil
+import subprocess
+import time
 
 DEFAULT_BASE = "origin/main"          # r1780 A1: 기본 가지 자동 판정 0(origin/HEAD 는 리포마다 다르다) · 이름 고정
 HEX = frozenset("0123456789abcdef")
@@ -103,6 +105,87 @@ def checked(argv, rc, detail):
 def at_sha(git, sha):
     """실제 실행 git argv — 끝의 ref 이름을 확인한 sha 로 바꾼다(보정1 R1 · 확인 뒤 ref 가 움직여도 자리 = 기록한 sha)."""
     return git[:-1] + [sha]
+
+
+def reserve(path, payload):
+    """내용 든 원자 예약(r1929 DA 보정) — tmp 에 쓰고 fsync → os.link(tmp, 예약 경로) → tmp 지움.
+    이미 있으면 EEXIST = False(원자 · 배타 · «있나 보고 쓰기» 0) · 성공한 예약 파일은 늘 pid 가 들어 있다(빈 파일 순간 0)."""
+    tmp = "%s.%d.tmp" % (path, os.getpid())
+    with open(tmp, "w", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+    try:
+        os.link(tmp, path)
+        return True
+    except FileExistsError:
+        return False
+    finally:
+        os.unlink(tmp)
+
+
+def ps_call(argv, timeout=7):
+    """ps 1회(LC_ALL=C · 바깥 호출 7초) → (rc, stdout) · 실패 = (None, "")."""
+    try:
+        done = subprocess.run(["ps"] + argv, capture_output=True, text=True, timeout=timeout, env=dict(os.environ, LC_ALL="C"))
+    except (OSError, subprocess.TimeoutExpired):
+        return None, ""
+    return done.returncode, done.stdout
+
+
+def pid_state(pid, started, ps=ps_call):
+    """열기 프로세스 → "alive"·"dead"·"unknown"(r1929) · pid 없음(옛 의도) = dead · ps(argv) → (rc, 출력).
+    os.kill(pid, 0) 뒤 ps 시작 시각이 started 보다 늦으면 같은 pid 를 받은 다른 프로세스(dead) · 좀비 = dead · 판정 못 함 = unknown(닫힌 쪽)."""
+    if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 0:
+        return "dead"
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return "dead"
+    except PermissionError:
+        pass
+    except (OSError, OverflowError):
+        return "unknown"
+    rc, out = ps(["-o", "stat=,lstart=", "-p", str(pid)])
+    words = (out or "").split() if rc == 0 else []
+    try:
+        at = time.mktime(time.strptime(" ".join(words[1:6]), "%a %b %d %H:%M:%S %Y"))
+    except (ValueError, OverflowError):
+        return "unknown"
+    late = isinstance(started, (int, float)) and at > started + 1
+    return "dead" if late or words[0].startswith("Z") else "alive"
+
+
+def worktree_head(porcelain, path):
+    """`git worktree list --porcelain` 출력 → 그 경로의 HEAD sha · 목록에 없음 = None(경로는 realpath 로 맞춘다)."""
+    want, here = os.path.realpath(path), None
+    for line in porcelain.splitlines():
+        if line.startswith("worktree "):
+            here = os.path.realpath(line[len("worktree "):])
+        elif line.startswith("HEAD ") and here == want:
+            return line[len("HEAD "):].strip()
+    return None
+
+
+def resume_steps(plan, sha, head, exists):
+    """이어 열기 git 단계(r1929 ③) — 경로 없음·목록 없음 = git add 부터 · 경로 있음 ∧ 목록 HEAD == base_sha = sparse·checkout 만 ·
+    그 밖(경로만 있음·HEAD 다름) = None(«끊긴 열기 · 자리 불일치» · 지우기 0)."""
+    if not exists and head is None:
+        return [("git add", at_sha(plan["git"], sha)), ("git sparse", plan["sparse"]), ("git checkout", plan["checkout"])]
+    if exists and head == sha:
+        return [("git sparse", plan["sparse"]), ("git checkout", plan["checkout"])]
+    return None
+
+
+def resume_plan(plan, repo, sha, timeout):
+    """이어 열기 단계 — `git worktree list --porcelain` 1회(상한 = git 25초) → resume_steps · 목록 실패·base_sha 없음 = None."""
+    try:
+        done = subprocess.run(["git", "-C", repo, "worktree", "list", "--porcelain"], capture_output=True, text=True, timeout=timeout)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if done.returncode != 0 or not sha:
+        return None
+    return resume_steps(plan, sha, worktree_head(done.stdout, plan["worktree"]), os.path.exists(plan["worktree"]))
 
 
 def recovery(repo, path):

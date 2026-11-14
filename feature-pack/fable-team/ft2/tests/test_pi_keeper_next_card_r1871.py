@@ -19,11 +19,25 @@ open(me + ".log", "a").write(json.dumps(a) + "\\n")
 rc = int(open(me + ".rc").read()) if os.path.exists(me + ".rc") else 0
 if rc == 0:
     st = os.environ["FAKE_TMUX"]; d = json.load(open(st)); d["alive"].append("byz-harness-nano-%s#0" % a[a.index("--work") + 1][:40]); json.dump(d, open(st, "w"))
+print(json.dumps({"result": "접수 성공" if rc == 0 else "복구 필요"}))   # r1929 실제 launch 처럼 결과 1줄(띄우기 로그)
 sys.exit(rc)
 '''
 RECORD = '#!/bin/sh\nprintf "%s\\n" "$*" >> "$0.log"\nmkdir -p .fable-team/state/card-assign\nprintf \'{"state": "%s", "seat": "%s"}\' "$3" "$4" > ".fable-team/state/card-assign/$2.json"\n'
 def nh(stem):
     return "byz-harness-nano-%s#0" % stem[:40]
+def settle(w):
+    """r1929 keeper 는 launch 를 기다리지 않는다 → 옛 시험의 «한 바퀴» = 띄운 가짜 launch 가 끝날 때까지 기다렸다가 같은 keeper 로 한 바퀴 더(판독·record)."""
+    base = w.round
+    def round(k=None):
+        k, more = k or w.keeper(), True
+        while more:
+            k.cache.pop("launching", None)   # 여는 중 칸 = 바퀴(프로세스)마다 새로
+            base(k)
+            more = k.cache.pop("spawned", [])
+            [p.wait(25) for p in more]
+        return k.lines
+    w.round = round
+    return w
 def world(tmp, mp, cards=None, enable=True, ft2=kw.FT2):
     """대기 카드 {stem: 머리 줄} · 카드 루트 표 harness 행 · 닫힐 일 W1(착지 카드 완성/ · 세션 없음)."""
     w = kw.World(tmp, mp, ft2)
@@ -39,7 +53,7 @@ def world(tmp, mp, cards=None, enable=True, ft2=kw.FT2):
     if enable:
         w.enable()
     close(w, W1)
-    return w
+    return settle(w)
 def close(w, work):
     w.card(work, sha=w.pack_sha(), stage="완성")
     w.work(work, done=True)
@@ -118,8 +132,11 @@ def c12(w, mp):       # ⑫ launch 성공 직후 record 전 중단 → 다음 �
     k = w.keeper()
     real = k.call
     mp.setattr(k, "call", lambda argv, *a, **kv: (_ for _ in ()).throw(RuntimeError("stop")) if "record" in argv else real(argv, *a, **kv))
-    with pytest.raises(RuntimeError):
-        k.run_once()
+    try:
+        w.round(k)   # r1929 바퀴 1 띄움 → 끝난 뒤 바퀴 2 record 자리에서 중단
+        raise AssertionError("record 자리 중단 0")
+    except RuntimeError:
+        pass
     assert launched(w) == [B] and log(w, "record") == []
     w.commit("byz", {"design/harness/indices/대기/%s.md" % C: "# 인덱스: %s\n%s" % (C, URG)}, "main")
     assert "NEXT harness %s -> %s %s" % (W1, B, nh(B)) in w.round()
