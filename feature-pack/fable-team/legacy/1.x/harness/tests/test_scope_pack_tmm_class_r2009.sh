@@ -26,7 +26,7 @@ has "$out" "feature-pack/tmmx/a.sh forbid repo-outside"; ok "T2 이름만 닮은
 has "$out" "$H/kit/fable-team/templates/scope-classes-pack.tsv forbid scope-table"; ok "T3 표 자신 → forbid scope-table 그대로" $? "$out"
 rows="$(grep -v '^#' "$TABLE" | grep -v '^$')"
 [ "$(tail -1 <<<"$rows")" = "$(printf 'forbid\trepo-outside\t.')" ]; ok "T3 마지막 줄 = forbid repo-outside ." $?
-[ "$(tail -3 <<<"$rows" | head -2)" = "$(printf 'code\tcode-intel\t^feature-pack/code-intel/\ncode\tpack-tmm\t^feature-pack/tmm/')" ]; ok "자리 = code-intel 바로 아래 · 마지막 forbid 바로 위" $?
+[ "$(tail -4 <<<"$rows" | head -2)" = "$(printf 'code\tcode-intel\t^feature-pack/code-intel/\ncode\tpack-tmm\t^feature-pack/tmm/')" ]; ok "자리 = code-intel 바로 아래 · 마지막 forbid 위(r2018 pack-ctx 1줄 사이)" $?
 
 # 분류기 CLI(try-auto 분류 단계와 같은 분류기·표) — 임시 저장소: 기준에 tmm 파일(실행 비트) → 가지에서 내용만 수정
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
