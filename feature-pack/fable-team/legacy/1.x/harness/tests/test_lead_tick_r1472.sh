@@ -10,6 +10,7 @@
 #   T3c tmux «no server running» rc1 → 살아 있는 좌석 0 정상 · rc0   T3d status [] + tmux 목록에 명부 nano → 모순 판정 불가 · rc1
 #   T6(r1472b) TMUX 를 export 한 채 실행 → 자식 tmux·ft-seat-status 가 원래 TMUX 값을 받는다 · rc0 · «판정 불가» 0줄
 #   T7(r1472b) 카드 ref = origin/ops/main-base → origin/main 중 카드 폴더가 있는 첫 ref · env FT_LEAD_TICK_CARDS_REF = 그 ref 하나
+#   T7c·T7d(DA R1) 두 ref 모두 카드 트리 없음 → «카드(<후보 ref 들>:<_cards>) 트리 없음 판정 불가 rc≠0» 1줄 · 결정 필요 1 · rc1 · [정리] 판정 불가 1 (T7c 기본값 · T7d env 한 ref)
 #   T8(r1472b) [정리] 2줄째 «골좌표: <N> — <골 앞 12자>» (정본 골 표 · 팀 칸 첫 낱말) · check --coord-only rc0 · 팀 행 0 = 골좌표 판정 불가
 #   Tdesk(옛 T6) test_desk_tick_r1462 rc0 · 설치기·desk 파일 origin/main 대비 diff 0
 # 전부 합성(임시 루트·임시 git·가짜 mbox·가짜 ft-hil·가짜 ft-seat-status) · 실 우편함·실 좌석 쓰기 0 · sleep 0(가짜 mbox 의 T4 지연만).
@@ -218,7 +219,21 @@ out="$(run)"
 printf '%s\n' "$out" | grep -qx '카드 대기 1 · 진행 1 (origin/main)' && ok "T7b ops/main-base 에 카드 폴더 없음 → origin/main" || bad "T7b $(printf '%s\n' "$out" | grep '^카드' || echo 카드 줄 없음)"
 mkref origin/ops/main-base 3
 out="$(FT_LEAD_TICK_CARDS_REF=origin/main run)"
-printf '%s\n' "$out" | grep -qx '카드 대기 1 · 진행 1 (origin/main)' && ok "T7c env 지정 → 그 ref 하나" || bad "T7c $(printf '%s\n' "$out" | grep '^카드' || echo 카드 줄 없음)"
+printf '%s\n' "$out" | grep -qx '카드 대기 1 · 진행 1 (origin/main)' && ok "T7b' env 지정 → 그 ref 하나" || bad "T7b' $(printf '%s\n' "$out" | grep '^카드' || echo 카드 줄 없음)"
+
+# ── T7c·T7d(DA R1) 두 ref 모두 유효 commit · 카드 트리만 없음 = 판정 불가(카드 0 으로 숨기지 않는다) · T7c 기본값 · T7d env 한 ref
+mkref origin/ops/main-base 0; mkref origin/main 0
+for envref in '' origin/main; do
+  tn=T7c; want='origin/ops/main-base origin/main'; [ -n "$envref" ] && { tn=T7d; want="$envref"; }
+  rm -rf "$T/state" "$T/sent.jsonl"; mkdir -p "$T/state"
+  out="$(FT_LEAD_TICK_CARDS_REF="$envref" run)"; rc=$?
+  [ "$rc" -eq 1 ] && [ "$(printf '%s\n' "$out" | grep -c "^카드($want:design/teams/knowledge/indices) 트리 없음 판정 불가 rc=[1-9]")" = 1 ] \
+    && ! printf '%s\n' "$out" | grep -q '^카드 대기' && printf '%s\n' "$out" | tail -1 | grep -qx '결정 필요: 1' \
+    && ok "$tn env='$envref' 카드 트리 없음 → «카드($want:…) 트리 없음 판정 불가» 1줄 · 결정 필요 1 · rc1" || bad "$tn env='$envref' rc=$rc out=$(printf '%s' "$out" | tr '\n' '/')"
+  grep -q '판정 불가 1"' "$T/sent.jsonl" 2>/dev/null && grep -q '카드 대기 ? · 진행 ?' "$T/sent.jsonl" \
+    && ok "$tn env='$envref' [정리] 카드 대기 ? · 판정 불가 1" || bad "$tn env='$envref' [정리]: $(cat "$T/sent.jsonl" 2>/dev/null)"
+done
+mkref origin/ops/main-base 3; mkref origin/main 1
 
 # ── T8(r1472b) [정리] 2줄째 골좌표 — 정본 골 표에서 팀 칸 첫 낱말 = 리드 팀인 첫 행
 HLEAD='byz-harness-master-pi#271'
