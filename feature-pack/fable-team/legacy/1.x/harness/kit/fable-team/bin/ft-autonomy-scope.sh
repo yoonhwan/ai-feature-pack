@@ -15,6 +15,23 @@
 # 외부 호출 0 — 분류기는 로컬 git 뿐 · 상한 = 500파일 이하 7초 · 그 위 min(3.5 + 7 × ceil(파일 수/500), 70)초(r559 · 넘으면 REJECT · 판정 666).
 SDIR="$STATE/autonomy-scope"
 . "$HERE/ft-autonomy-scope-code.sh"
+SCOPE_TARGET=main   # r1955: 분류 base — env 로 안 받는다(source 때 덮음) · --pr 가 있으면 autonomy_pr_target 값
+
+autonomy_pr_target() {  # r1955 <리포 폴더> <PR> <byz|pack> → stdout = PR base(gh baseRefName 1회 · 7초 + 재시도 1) · 허용 byz{main,ops/main-base} · pack{main} · 밖·gh 실패·빈 값 = rc 1 + «판정 불가 PR base» 1줄(main 으로 바꾸지 않음 · 하드 룰 20)
+  local j b="" u r=()
+  u="$(git -C "$1" remote get-url origin 2>/dev/null)"; [[ "$u" =~ github\.com[:/]([^/]+/[^/]+)$ ]] && r=(-R "${BASH_REMATCH[1]%.git}")
+  for _ in 1 2; do
+    j="$(cd "$1" 2>/dev/null && perl -e 'alarm 7; exec @ARGV' -- "${FT_GH:-gh}" pr view "$2" ${r[@]+"${r[@]}"} --json baseRefName 2>/dev/null)" || continue
+    b="$(python3 -c 'import json,sys; v=json.loads(sys.argv[1]).get("baseRefName"); print(v if isinstance(v,str) else "")' "$j" 2>/dev/null)" && break
+  done
+  case "$3:$b" in byz:main|byz:ops/main-base|pack:main) printf '%s' "$b" ;;
+    *) echo "판정 불가 PR base(PR #$2 · $3 · 받은 값: ${b:-없음}) — 허용 byz{main,ops/main-base} · pack{main}"; return 1 ;; esac
+}
+amt_write() { local d="$STATE/autonomy-merge-target"; mkdir -p "$d" && printf '%s\n' "$2" > "$d/$1.tmp" && mv "$d/$1.tmp" "$d/$1"; }   # r1955 마 <sha> <target> — 승인 파일보다 «먼저» · 승인 폴더(autonomy-merge-approved/)와 다른 폴더
+amt_same() {  # r1955 마② <sha> <지금 target> — NOOP 반환 앞 대조 · 결속 파일 없음 = main(이 카드 전 승인) · 다르면 rc 1 + 사유 1줄
+  local f="$STATE/autonomy-merge-target/$1" t=main; [ ! -e "$f" ] || t="$(head -n1 "$f" 2>/dev/null)"
+  [ "$t" = "$2" ] || { echo "판정 불가 — 승인 base ${t:-읽기 실패} ≠ 지금 PR base $2 (retarget 뒤 재사용 0)"; return 1; }
+}
 
 scope_err() { echo "SCOPE-REJECT $1" >&2; exit 2; }
 scope_wfail() { echo "REJECT $1 쓰기 실패" >&2; exit 1; }
@@ -161,7 +178,7 @@ cmd_approve_scope() {
 
 scope_alarm_secs() {  # <sha> → 크기 비례 상한(초) = min(3.5 + 7 × ceil(파일 수/500), 70) · 파일 수 = git diff --name-only 줄 수(하드 룰 12 «크기 아는 배치» · r559)
   local base n
-  base="$(git -C "${SCOPE_REPO:-$ROOT}" merge-base refs/remotes/origin/main "$1" 2>/dev/null)" || { echo 7; return; }
+  base="$(git -C "${SCOPE_REPO:-$ROOT}" merge-base "refs/remotes/origin/$SCOPE_TARGET" "$1" 2>/dev/null)" || { echo 7; return; }
   n="$(git -C "${SCOPE_REPO:-$ROOT}" diff --name-only "$base" "$1" 2>/dev/null | wc -l | tr -d ' ')"
   [[ "$n" =~ ^[0-9]+$ ]] && [ "$n" -gt 500 ] || { echo 7; return; }
   perl -e 'my $s = 3.5 + 7 * int(($ARGV[0] + 499) / 500); $s = 70 if $s > 70; print int($s + 0.999)' "$n"
@@ -171,7 +188,7 @@ scope_run_cls() {  # <하위명령> <sha|""> [분류 인자…] → OUT·RC·FIR
   local cls="${FT_SCOPE_CLASSIFY:-$HERE/autonomy_scope_classify.py}" runner a=("$1") lim=7; [ -n "$2" ] && a+=("$2") && lim="$(scope_alarm_secs "$2")"; shift 2
   [ -f "$cls" ] || scope_err "분류기 없음: $cls"
   if [[ "$cls" == *.py ]]; then runner=(python3 "$cls"); else runner=("$BASH" "$cls"); fi
-  OUT="$(perl -e 'alarm shift; exec @ARGV' -- "$lim" "${runner[@]}" "${a[@]}" --repo "${SCOPE_REPO:-$ROOT}" --remote origin --target main --scope "$G_S" "$@" 2>&1)"; RC=$?
+  OUT="$(perl -e 'alarm shift; exec @ARGV' -- "$lim" "${runner[@]}" "${a[@]}" --repo "${SCOPE_REPO:-$ROOT}" --remote origin --target "$SCOPE_TARGET" --scope "$G_S" "$@" 2>&1)"; RC=$?
   FIRST="${OUT%%$'\n'*}"
 }
 
@@ -214,7 +231,7 @@ scope_classify() {  # <sha> → CLS(종류) CLS_LEARNED(학습 키 · 없으면 
 }
 
 cmd_scope_approve() {
-  local sha="${1:-}" pr="" card="" rk=byz cls used today now line ev="" cu="" tail="" eq="" CODE_EQUIV="" dir="$STATE/autonomy-merge-approved"
+  local sha="${1:-}" pr="" card="" rk=byz cls used today now line ev="" cu="" tail="" eq="" CODE_EQUIV="" dir="$STATE/autonomy-merge-approved" SCOPE_TARGET=main
   [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || scope_err "sha 형식 틀림(40hex 소문자): $sha (usage: scope-approve <40hex> [--pr <N>] [--card <카드.md>] [--repo byz|pack])"
   shift
   while [ $# -gt 0 ]; do case "$1" in
@@ -226,9 +243,10 @@ cmd_scope_approve() {
   scope_block; [ "$RENEW" = 1 ] && scope_renew
   if [ -n "$BLOCK" ]; then [ "$AUTOSTOP" = 1 ] && scope_write_stop "$G_S" "$BLOCK"; scope_err "$G_S 정지: $BLOCK"; fi
   scope_repo_set "$rk"
-  scope_check_revert
+  scope_check_revert   # 되돌림 감지 = 범위 원장 착지(main) 기준 그대로 — 아래에서 PR base 를 정한다
+  [ -z "$pr" ] || SCOPE_TARGET="$(autonomy_pr_target "$SCOPE_REPO" "$pr" "$rk")" || scope_err "$SCOPE_TARGET"   # r1955 나
   used="$(scope_used "$G_S")"; today="$(scope_today "$G_S")"
-  if grep -q "^scope-use S[0-9]* $sha " "$LOG" 2>/dev/null; then echo "SCOPE-NOOP $sha used=$used/$G_MAX today=$today/$G_DAILY"; return 0; fi
+  if grep -q "^scope-use S[0-9]* $sha " "$LOG" 2>/dev/null; then line="$(amt_same "$sha" "$SCOPE_TARGET")" || scope_err "$line"; echo "SCOPE-NOOP $sha used=$used/$G_MAX today=$today/$G_DAILY"; return 0; fi
   scope_classify "$sha"; cls="$CLS"
   case ",$G_CLASSES," in *",$cls,"*) ;; *) scope_err "종류 $cls 는 승인 범위($G_CLASSES) 밖" ;; esac
   [ "$rk" = byz ] || tail=" repo=$rk"; [ -z "$CLS_LEARNED" ] || tail="$tail learned=$CLS_LEARNED"
@@ -246,6 +264,7 @@ cmd_scope_approve() {
   fi
   now="$(now_epoch)"; line="approve-merge $sha $G_A $now"
   mkdir -p "$dir" "$SDIR" || scope_wfail "$dir"
+  amt_write "$sha" "$SCOPE_TARGET" || scope_wfail "$STATE/autonomy-merge-target/$sha"   # r1955 마 — 승인 쓰기 «앞»
   printf 'scope-use %s %s %s %s%s\n' "$G_S" "$sha" "$cls" "$now" "$tail" >> "$LOG" || scope_wfail log
   printf '%s\n' "$line" >> "$LOG" || scope_wfail log
   { printf '%s\n' "$line" > "$dir/$sha.tmp" && mv "$dir/$sha.tmp" "$dir/$sha"; } || scope_wfail "$dir/$sha"

@@ -23,6 +23,7 @@ printf '#!/usr/bin/env bash\nexit 0\n' > "$T/stub-noop"; chmod +x "$T/stub-noop"
 mkrepo "$T/pack"; P="$W"; mkdir -p "$P/kit/fable-team" "$P/fixtures"; echo x > "$P/kit/fable-team/.keep"; cm "$P" kit; git -C "$P" push -q origin main
 S="$T/state"; LOG="$S/autonomy.log"
 export FT_ROOT="$B" FT_AUTONOMY_STATE_DIR="$S" FT_PLANNER_DIR="$T/pdir" FT_SEAT="$HM" TMUX_PANE=%9 FT_HARNESS_ROOT="$P" PATH="$T/fakebin:$PATH"
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/fake_gh_base.sh"; fake_gh_base "$T/ghb"   # r1955: --pr 의 base 조회(autonomy_pr_target) = 가짜 gh(main)
 # ── 분류기 = 큐 1줄씩(시험마다 명시) · 실 분류기 0 · classify 와 check-revert 두 갈래
 cat > "$T/cls.py" <<'EOF'
 import os, sys

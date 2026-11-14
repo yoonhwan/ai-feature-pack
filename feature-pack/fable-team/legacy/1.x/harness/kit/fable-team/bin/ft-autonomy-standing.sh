@@ -78,14 +78,13 @@ std_seat_probe() {  # r5: 실제 좌석(TMUX_PANE) · 명부 루트 출처 · �
 }
 std_seat() { std_seat_probe || std_err "ⓓ planner master 좌석만 $STD_SEAT_ERR"; }
 
+std_prepo() { local h; h="$(. "$HERE/ft-harness-root.sh" && ft_harness_root "$HERE")" && PREPO="$(git -C "$h" rev-parse --show-toplevel 2>/dev/null)" && [ -n "$PREPO" ] || std_err "팩 리포를 못 풂(FT_HARNESS_ROOT · <bin>/../HARNESS_ROOT)"; }   # 팩 리포 최상위 → PREPO (r1955: NOOP 앞 PR base 확인도 같은 값)
 std_classify() {  # ② <head> — 팩 분류표(scope 와 같은 분류기·표) · FORBID·실패 = 거절 · 종류 ∈ 승인 줄 classes
-  local cls="${FT_SCOPE_CLASSIFY:-$HERE/autonomy_scope_classify.py}" t k runner h
-  h="$(. "$HERE/ft-harness-root.sh" && ft_harness_root "$HERE")" && PREPO="$(git -C "$h" rev-parse --show-toplevel 2>/dev/null)" && [ -n "$PREPO" ] \
-    || std_err "팩 리포를 못 풂(FT_HARNESS_ROOT · <bin>/../HARNESS_ROOT)"
+  local cls="${FT_SCOPE_CLASSIFY:-$HERE/autonomy_scope_classify.py}" t k runner   # r1955: PREPO·STD_TARGET = cmd_standing_approve 가 먼저(std_prepo · autonomy_pr_target)
   t="${FT_SCOPE_PACK_TABLE:-$(tpl_file scope-classes-pack.tsv)}" || std_err "팩 분류표 없음(templates/scope-classes-pack.tsv)"
   [ -f "$cls" ] || std_err "분류기 없음: $cls"
   if [[ "$cls" == *.py ]]; then runner=(python3 "$cls"); else runner=("$BASH" "$cls"); fi
-  std_t7 "${runner[@]}" classify "$1" --repo "$PREPO" --remote origin --target main --scope S0 --table "$t"
+  std_t7 "${runner[@]}" classify "$1" --repo "$PREPO" --remote origin --target "$STD_TARGET" --scope S0 --table "$t"
   [ "$RC" = 0 ] || std_err "② 분류기 거절 rc=$RC: ${FIRST:-출력 없음(시간 초과 7초 포함)}"
   [[ "$FIRST" =~ ^CLASS\ (docs|ff|code)$ ]] || std_err "② 종류가 code·docs 아님: $FIRST"
   k="${BASH_REMATCH[1]}"; [ "$k" != ff ] || k=docs   # ff = 문서만 바뀌고 main 이 head 의 조상(분류기 docs 의 한 꼴)
@@ -144,6 +143,7 @@ std_equiv() {  # ⑥ <A> <head> — 같으면 통과 · 다르면 A 위 main 병
 std_write() {  # <head> <pr> <A> <원문> — log(standing-use → approve-merge) 먼저 · 승인 파일 · 원장 나중
   local now line dir="$STATE/autonomy-merge-approved"; now="$(now_epoch)"; line="approve-merge $1 D1 $now"
   mkdir -p "$dir" "$STD" || std_wfail "$dir"
+  amt_write "$1" "$STD_TARGET" || std_wfail "$STATE/autonomy-merge-target/$1"   # r1955 마 — 승인 쓰기 «앞»
   printf 'standing-use D1 %s %s pr=%s repo=pack da=%s\n' "$1" "$now" "$2" "$3" >> "$LOG" || std_wfail log
   printf '%s\n' "$line" >> "$LOG" || std_wfail log
   { printf '%s\n' "$line" > "$dir/$1.tmp" && mv "$dir/$1.tmp" "$dir/$1"; } || std_wfail "$dir/$1"
@@ -152,7 +152,7 @@ std_write() {  # <head> <pr> <A> <원문> — log(standing-use → approve-merge
 }
 
 cmd_standing_approve() {
-  local head="${1:-}" pr="" rk="" vf=""
+  local head="${1:-}" pr="" rk="" vf="" STD_TARGET=main m
   [[ "$head" =~ ^[0-9a-f]{40}$ ]] || std_usage "sha 형식 틀림(40hex 소문자): $head (usage: standing-approve <head40> --pr <N> --repo pack --verdict <판정문.md>)"
   STD_SHA="$head"; shift
   while [ $# -gt 0 ]; do [ $# -ge 2 ] || std_err "$1 값 없음"; case "$1" in
@@ -163,7 +163,8 @@ cmd_standing_approve() {
   std_seat
   lock; [ "$(mode)" = tamper ] && std_err "자율 상태 위변조(tamper) — 승인 기록 없음"
   std_on || std_err "① 상시 승인 D1 꺼짐(approve-standing 줄 없음 또는 standing-stop 뒤)"
-  if grep -q "^standing-use D1 $head " "$LOG" 2>/dev/null; then echo "STANDING-NOOP $head (이미 상시 승인함)"; return 0; fi
+  std_prepo; STD_TARGET="$(autonomy_pr_target "$PREPO" "$pr" pack)" || std_err "$STD_TARGET"   # r1955 — 팩 허용 = main 뿐
+  if grep -q "^standing-use D1 $head " "$LOG" 2>/dev/null; then m="$(amt_same "$head" "$STD_TARGET")" || std_err "$m"; echo "STANDING-NOOP $head (이미 상시 승인함)"; return 0; fi
   std_classify "$head"; std_verdict "$vf"; std_da_out "$V_OUT" "$V_A"; std_equiv "$V_A" "$head"
   std_write "$head" "$pr" "$V_A" "$V_OUT"
 }

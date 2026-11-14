@@ -21,6 +21,7 @@ printf '#!/usr/bin/env bash\ncat "$REPLIES"\n' > "$T/stub/replies"; printf '#!/b
 printf '{"ok":true,"messages":[{"ts":"1794302162.300000","user":"UBOT","text":"질문"},{"ts":"%s","user":"U0AC2JF0M7D","thread_ts":"1794302162.300000","text":"승인"}]}' "$OD" > "$T/replies.json"
 S="$T/state"; LOG="$S/autonomy.log"; PT="$BIN/../kit/fable-team/templates/scope-classes-pack.tsv"
 export FT_ROOT="$B" FT_AUTONOMY_STATE_DIR="$S" FT_PLANNER_DIR="$T/pdir" TMUX_PANE=%9 PATH="$T/fakebin:$PATH"
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/fake_gh_base.sh"; fake_gh_base "$T/ghb"   # r1955: --pr 의 base 조회(autonomy_pr_target) = 가짜 gh(main)
 export FT_SCOPE_SLACK_POST="$T/stub/post.sh" FT_SLACK_REPLIES_CMD="$T/stub/replies" REPLIES="$T/replies.json" FT_INSTALL_CHECK="$T/stub/noop"
 as_seat() { printf '%s' "$1" > "$SEATFILE"; export FT_SEAT="$1"; }
 sum256() { shasum -a 256 "$1" | awk '{print $1}'; }
