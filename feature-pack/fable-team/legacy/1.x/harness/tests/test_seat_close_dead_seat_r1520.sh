@@ -92,4 +92,24 @@ mkseats normal; R1520_PEEK_RC=42 run "$O"
 chk "⑨ rc1 · 판정 불가 미처리 보존 · CLOSED 0" "$rc $(grep -c 'dead-seat 판정 불가 미처리 보존' <<<"$L1") $(grep -c '^CLOSED' <<<"$out")" "1 1 0"
 chk "⑨ 명부 쓰기 0 · kill 0 · retire 0" "$(noop "$O") $(cat "$TMP/retire.log" 2>/dev/null | wc -l | tr -d ' ')" "0 0 0 0"
 
+echo "== ⑨b peek 성공(rc 0 · pending=0) → 지금처럼 CLOSED-DEAD (회귀)"
+mkseats normal; R1520_PEEK_RC=0 R1520_PEND=0 run "$O"
+chk "⑨b rc0 · CLOSED-DEAD · kill 0 · retire 1" "$rc $(grep -c '^CLOSED-DEAD' <<<"$L1") $(kills) $(cat "$TMP/retire.log" 2>/dev/null | wc -l | tr -d ' ')" "0 1 0 1"
+
+echo "== ⑨c peek 시간 초과(rc 124 흉내 · sleep 0 · stdout pending=0) → ⑨ 와 같음"
+mkseats normal; R1520_PEEK_RC=124 run "$O"
+chk "⑨c rc1 · 판정 불가 peek rc=124 · CLOSED 0" "$rc $(grep -c 'dead-seat 판정 불가 미처리 보존(peek rc=124)' <<<"$L1") $(grep -c '^CLOSED' <<<"$out")" "1 1 0"
+chk "⑨c 명부 쓰기 0 · kill 0 · retire 0" "$(noop "$O") $(cat "$TMP/retire.log" 2>/dev/null | wc -l | tr -d ' ')" "0 0 0 0"
+
+echo "== 변이 M3(사본에서만) — peek rc 검사를 지우면 ⑨ 가 닫혀 버린다(시험 검출)"
+mkdir -p "$TMP/m3"; cp "$HERE/../bin/ft-seat-close.sh" "$HERE/../bin/ft_roster_lib.py" "$TMP/m3/"
+if python3 - "$TMP/m3/ft-seat-close.sh" <<'PY'
+import sys
+p = sys.argv[1]; s = open(p, encoding="utf-8").read(); old = '[ "$r" = 0 ] && [ -n "$n" ] || finish 1 "REJECT $SEAT dead-seat 판정 불가 미처리 보존'
+if old not in s: sys.exit(1)
+open(p, "w", encoding="utf-8").write(s.replace(old, old.replace('[ "$r" = 0 ] && ', ''), 1))
+PY
+then mkseats normal; CLOSE="$TMP/m3/ft-seat-close.sh" R1520_PEEK_RC=42 run "$O"; chk "M3 변이 → ⑨ CLOSED-DEAD(검출)" "$rc $(grep -c '^CLOSED-DEAD' <<<"$L1")" "0 1"
+else chk "M3 치환 자리 있음" no yes; fi
+
 echo; if [ "$fail" -eq 0 ]; then echo "ALL PASS"; exit 0; fi; echo "FAILED $fail"; exit 1
