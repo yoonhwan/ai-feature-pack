@@ -229,10 +229,10 @@ def test_c10_seat_file_cap_each(tmp_path):
 
 
 class _M4(ms.MemoryStore):
-    def _commit(self, rows, moved):
-        self._replace(self.notes, rows)
+    def _commit(self, unit, rows, moved):
+        self._replace(unit[0], rows)
         self.on_step("between_files")
-        self._archive_all(moved)
+        self._archive_all(unit[1], moved)
 
 
 def test_c9_notes_first_loses_oldest(tmp_path):
@@ -245,7 +245,7 @@ def test_c9_notes_first_loses_oldest(tmp_path):
 
 
 _M1 = type("_M1", (ms.MemoryStore,), {"_src_ok": lambda self, src: True})
-_M2 = type("_M2", (ms.MemoryStore,), {"_archive_all": lambda self, moved: None})
+_M2 = type("_M2", (ms.MemoryStore,), {"_archive_all": lambda self, arch, moved: None})
 _M3 = type("_M3", (ms.MemoryStore,), {"_stale": lambda self, expect, revision: False})
 _M5 = type("_M5", (ms.MemoryStore,), {"_fresh": lambda self, have, items: list(items)})
 

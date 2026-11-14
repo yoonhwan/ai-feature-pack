@@ -10,7 +10,7 @@
     "result": {"description": "contracts/core 8낱말", "type": "string",
                "enum": ["접수 성공", "접수 거부", "복구 필요", "낡은 실행권", "BUSY", "용량 부족", "완료 유보", "회수 결과"]},
     "team": {"type": "string", "minLength": 1},
-    "revision": {"description": "notes.jsonl 바이트 sha256 앞 16 hex(파일 없음 = 빈 바이트) · 다음 쓰기의 expect · 판독 불가면 null",
+    "revision": {"description": "대상 파일(팀 notes.jsonl | seat/<좌석>.jsonl · 상한 100 은 파일마다) 바이트 sha256 앞 16 hex(파일 없음 = 빈 바이트) · 다음 쓰기의 expect · 판독 불가면 null",
                  "pattern": "^[0-9a-f]{16}$"},
     "written": {"description": "notes 확정(rename) 여부", "type": "boolean"},
     "reason": {"description": "접수 성공이 아니면 사유 1줄", "type": "string"},
@@ -20,7 +20,7 @@
   },
   "definitions": {
     "record": {
-      "description": "notes.jsonl · archive/<YYYY-MM>.jsonl 1줄. 새 줄 src 필수 · legacy 줄만 src null 허용.",
+      "description": "notes.jsonl · seat/<좌석>.jsonl · 같은 파일 단위 archive(팀 archive/ · 좌석 archive/seat/<좌석>/)의 <YYYY-MM>.jsonl 1줄. 새 줄 src 필수 · legacy 줄만 src null 허용.",
       "type": "object",
       "required": ["id", "ts", "kind", "text", "src", "quote", "verified_at", "pin", "by", "legacy"],
       "properties": {
