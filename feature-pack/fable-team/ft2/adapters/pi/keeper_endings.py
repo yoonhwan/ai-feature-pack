@@ -90,7 +90,7 @@ def ending(k, team, work, seat=None):
     got = _card_end(k, team, work)
     return None if got is False else got or (seat and _empty(k, team, work, seat)) or None
 def _empty(k, team, work, seat):
-    """r1972 ⓐ 원장 done ⓑ dispatch holder == seat ⓒ base_sha..HEAD 0 ⓓ status 0줄(untracked 포함) ⓔ nano/<work> PR 0개·전부 CLOSED ∧ merge 0 → (empty, 근거) · 그 밖·판독 실패 = None."""
+    """r1972 ⓐ 원장 done ⓑ dispatch holder == seat ⓒ base_sha..HEAD 0 ⓓ status 0줄(untracked 포함) ⓔ nano/<work> OPEN 0 ∧ MERGED 0(상태별 limit 1 조회 · 잘린 목록을 전체로 쓰지 않음) → (empty, 근거) · 그 밖·판독 실패 = None."""
     attempt, holder = (latest(k, team) or {}).get(work, (None, None))
     if not ((k.project(k.root, team).get("works") or {}).get(work) or {}).get("done") or holder != seat:
         return None
@@ -101,15 +101,17 @@ def _empty(k, team, work, seat):
     if k.git(tree, "status", "--porcelain", "--untracked-files=all")[:2] != (0, ""):
         return None
     url = k.git(tree, "config", "--get", "remote.origin.url")[1].strip()
-    rc, out, _ = k.call([k.env.get("FT2_GH") or "gh", "pr", "list", "-R", REPO.search(url).group(1) if REPO.search(url) else url, "--head", "nano/" + work,
-                         "--state", "all", "--json", "number,state,mergedAt"], GH_S, retry=1)
-    try:
-        prs = json.loads(out) if rc == 0 else None
-    except ValueError:
-        return None
-    if not isinstance(prs, list) or not all(isinstance(p, dict) and p.get("state") == "CLOSED" and not p.get("mergedAt") for p in prs):
-        return None
-    return "empty", "done · 커밋 0 · 변경 0 · PR %s" % ("닫힘 " + ",".join("#%s" % p.get("number") for p in prs) if prs else "없음")
+    seen = {}
+    for state, n in (("open", "1"), ("merged", "1"), ("closed", "30")):   # DA HOLD R1 — 안전 = open·merged 존재(상태 필터 · limit 1) · closed = 근거 출력만
+        rc, out, _ = k.call([k.env.get("FT2_GH") or "gh", "pr", "list", "-R", REPO.search(url).group(1) if REPO.search(url) else url, "--head", "nano/" + work,
+                             "--state", state, "--limit", n, "--json", "number"], GH_S, retry=1)
+        try:
+            seen[state] = json.loads(out) if rc == 0 else None
+        except ValueError:
+            return None
+        if not isinstance(seen[state], list) or (state != "closed" and seen[state]):
+            return None
+    return "empty", "done · 커밋 0 · 변경 0 · PR %s" % ("닫힘 " + ",".join("#%s" % p.get("number") for p in seen["closed"] if isinstance(p, dict)) if seen["closed"] else "없음")
 def _card_end(k, team, work):
     """카드 끝 → (결과, 근거) | None(끝 아님) | False(판독 실패·후보 충돌)."""
     land = _mod("land", os.path.join(HERE, "keeper_land.py"))
