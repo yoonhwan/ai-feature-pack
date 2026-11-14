@@ -63,7 +63,8 @@ def cmd_done(ctx, a):
     four = f"한 일: {a.did} · 산출: {br}@{head[:10]} · 병합 상태: {merge} · 남은 일: {left}"
 
     def plan(sec):
-        add = [] if any(SET_RX.search(ln) for ln in sec) else [f"- 세트: {head} · 시험: {a.test} · 이슈: 0"]
+        sets = [m.group(1) for ln in sec for m in [SET_RX.search(ln)] if m]
+        add = [] if sets[-1:] == [head] else [f"- 세트: {head} · 시험: {a.test} · 이슈: 0"]
         same = any(m and m.group(1) == a.seat and f"@{head[:10]} ·" in ln for ln in sec for m in [DONE_RX.match(ln)])
         return add + ([] if same else [f"- 완료: {a.seat} · {four}"])
 
