@@ -219,17 +219,29 @@ class Closing:
         return out
 
     def retired(self):
-        """B3② — 명부 `_replaced_by` 행 + 세션 생존 → ft-seat-close 1회."""
+        """B3② — 명부 `_replaced_by` 행 + 세션 생존(r1898 바퀴당 list-sessions 1회) → ft-seat-close 1회."""
+        alive = self.alive_sessions()
+        if alive is None:
+            return
         for path in sorted(glob.glob(os.path.join(self.root, ".fable-team", "seats*.json"))):
             team = os.path.basename(path)[6:-5]   # r1835 K2 — 명부 팀(seats-<팀>) 또는 좌석 이름 byz-<팀> 이 제외 팀 = 손 0
             for seat, row in sorted(self.read_json(path).items()):
                 new = row.get("_replaced_by") if isinstance(row, dict) else None
-                if isinstance(new, str) and new and not {team, (seat.split("-") + [""])[1]} & self.skip and self.retire_one(path, seat, new) == "stop":
+                if isinstance(new, str) and new and not {team, (seat.split("-") + [""])[1]} & self.skip and self.retire_one(path, seat, new, alive) == "stop":
                     return
 
-    def retire_one(self, path, seat, new):
+    def alive_sessions(self):
+        """r1898 — 살아 있는 세션 이름 집합 · 서버 없음 = 빈 집합 · 그 밖(넘침·다른 rc) = 판정 불가 1줄 + None."""
+        rc, out, err = self.call([self.tmux, "list-sessions", "-F", "#{session_name}"])
+        if rc == 0:
+            return set(out.splitlines())
+        if rc == 1 and "no server running" in err:
+            return set()
+        return self.log("판정 불가", text="tmux list-sessions rc %s %s — 이 바퀴 B3 0" % (rc, err))
+
+    def retire_one(self, path, seat, new, alive):
         name = os.path.basename(path)[:-5]
-        if self.probe(seat) != "alive":
+        if seat not in alive:
             self.state["open"].pop(seat, None)
             return
         team = name[6:] if name.startswith("seats-") else "v65"
@@ -247,3 +259,4 @@ class Closing:
         if rc == 0:
             self.state["held"].pop(seat)
             self.state["open"].pop(seat, None)
+            alive.discard(seat)   # r1898 DA R1 — 다른 명부의 같은 좌석 행 = 닫힌 것으로 본다(두 번째 close·허위 HELD 0)
