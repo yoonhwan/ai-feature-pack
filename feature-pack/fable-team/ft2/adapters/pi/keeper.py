@@ -78,14 +78,25 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
         """r1937 — keeper 가 읽는 ref 만: 팩 = main · BYZ = main·ops/main-base + directive-roots.tsv 의 `.` 행 origin/<가지>
         (고정 목록 밖이면 ls-remote 1회로 원격 실재만 · 로컬 ref 없어도 첫 수신 · 원격에 없는 가지 = 빠짐) · 표·ls-remote 실패 = 고정 목록만.
         r1975 — 바퀴마다 1회 계산 · FETCH_TARGETS 있음 = 그 목록만 · 없음 = 위 + 판정 대상 나노 가지(고정 목록 밖 취급) · 리포당 상한 5."""
-        if repo not in self.refs:
-            names = list(dict.fromkeys(self.table.get(repo, []))) if self.table else self.default_refs(repo)
-            if len(names) > kf.CAP:
-                self.log("FETCH-CAP", text="%s 지정 ref 초과 %d — 앞 %d 만" % (repo, len(names) - kf.CAP, kf.CAP))
-            self.refs[repo] = ["+refs/heads/%s:refs/remotes/origin/%s" % (n, n) for n in names[:kf.CAP]]
+        if repo not in self.refs:   # 바퀴 밖(따로 부름) 길 — 바퀴 안은 _fresh 가 ls-remote 1회로 먼저 채운다(r1963b)
+            self.cap(repo, list(dict.fromkeys(self.table.get(repo, []))) if self.table else self.default_refs(repo))
         return self.refs[repo]
 
+    def cap(self, repo, names):
+        if len(names) > kf.CAP:
+            self.log("FETCH-CAP", text="%s 지정 ref 초과 %d — 앞 %d 만" % (repo, len(names) - kf.CAP, kf.CAP))
+        self.refs[repo] = ["+refs/heads/%s:refs/remotes/origin/%s" % (n, n) for n in names[:kf.CAP]]
+
     def default_refs(self, repo):
+        names, extra = self.cand(repo)
+        if extra:
+            rc, out, _ = self.git(repo, "ls-remote", "--heads", "origin", *("refs/heads/" + n for n in extra), retry=1, timeout=FETCH_S)
+            have = {x.partition("\trefs/heads/")[2] for x in out.splitlines()} if rc == 0 else set()
+            names += [n for n in extra if n in have]
+        return names
+
+    def cand(self, repo):
+        """r1963b — (고정 목록, 원격 실재를 물어야 하는 extra = 표 ref + 나노 가지) · 바깥 호출 0."""
         names = ["main"] if repo == self.pack else ["main", "ops/main-base"]
         try:
             with open(os.path.join(self.root, ".fable-team", "state", "directive-roots.tsv"), encoding="utf-8") as fh:
@@ -93,12 +104,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
         except (OSError, UnicodeError):
             rows = []
         extra = list(dict.fromkeys(r[2][7:] for r in rows if repo == self.root and r[1] == "." and r[2].startswith("origin/") and r[2][7:] not in names))
-        extra += [n for n in (self.nano.get(endings._common(self, repo), []) if self.nano else []) if n not in names + extra]
-        if extra:
-            rc, out, _ = self.git(repo, "ls-remote", "--heads", "origin", *("refs/heads/" + n for n in extra), retry=1, timeout=FETCH_S)
-            have = {x.partition("\trefs/heads/")[2] for x in out.splitlines()} if rc == 0 else set()
-            names += [n for n in extra if n in have]
-        return names
+        return names, extra + [n for n in (self.nano.get(endings._common(self, repo), []) if self.nano else []) if n not in names + extra]
 
     def fresh(self, repo):
         """r1975 ⑤ 리포별 초(self.fetch_s) — ROUND fetch_root=·fetch_pack= 칸."""
@@ -119,9 +125,12 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
                 if rc == 0:
                     break
             return rc
+        fixed, extra = (list(dict.fromkeys(self.table.get(repo, []))), []) if self.table else self.cand(repo)
+        rc, out, _ = self.git(repo, "ls-remote", "origin", *("refs/heads/" + n for n in fixed + extra), timeout=FETCH_S)   # r1963b 리포당 1회 = 신선 대조 + extra 실재
+        seen = {x.partition("\trefs/heads/")[2] for x in out.splitlines()} if rc == 0 else set(extra)   # 실패 = extra 를 빼지 않는다(없는 가지면 fetch 실패 = 낡음 · 낡은 판정 ref 로 신선 선언 0)
+        self.cap(repo, fixed + [n for n in extra if n in seen])   # 거른 뒤 상한(없는 가지가 칸을 먹지 않는다)
         pairs = [spec.lstrip("+").split(":", 1) for spec in self.fetch_refs(repo)]   # (원격 ref, 로컬 ref) — 따로 대조
         names = [src for src, _ in pairs]
-        rc, out, _ = self.git(repo, "ls-remote", "origin", *names, timeout=FETCH_S)
         if rc != 0:
             return fetch(repo, 0) == 0
         far = dict(reversed(x.split("\t", 1)) for x in out.splitlines() if "\t" in x)
@@ -214,8 +223,10 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
             return self.log("판정 불가", text="FETCH_TARGETS 판독 실패 — 이 바퀴 B1·B2 0")
         kf.collect(self)
         self.picked = [r for r in (self.root, self.pack) if not self.table or r in self.table]
+        at = self.now()
+        self.nano = {} if self.table else kf.nanos(self, self.teams())   # r1975 ⑥ · r1963b fetch 시계 밖(ROUND nano= 칸)
+        self.nano_s = self.now() - at
         def both(repos=self.picked):   # r1963 두 리포 동시 → fetch 단계 = 느린 쪽 하나 · 낡은 리포 집합은 바퀴마다 새로
-            self.nano = {} if self.table else kf.nanos(self, self.teams())   # r1975 ⑥
             with concurrent.futures.ThreadPoolExecutor(2) as pool:
                 return [repo for repo, ok in zip(repos, pool.map(self.fresh, repos)) if not ok]
         self.stale = {repo for repo in self.timed("fetch", both)}
@@ -245,8 +256,10 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
             self.timed("b3", self.retired)
         self.report()
         s = sum(self.spent.values())
+        s += self.nano_s   # r1963b 나노 가지 모으기 초도 합계에(0.05초 미만이면 칸 0 = 옛 줄 그대로)
         cells = " ".join("%s=%g" % (key, round(val, 1)) for key, val in self.spent.items())
         cells += " fetch_root=%g fetch_pack=%g" % (round(self.fetch_s[self.root], 1), round(self.fetch_s[self.pack], 1))   # r1975 ⑤ 합계 fetch= 그대로
+        cells += " nano=%g" % round(self.nano_s, 1) if round(self.nano_s, 1) else ""
         top = max((kv for kv in self.per.items() if kv[0][0]), key=lambda kv: kv[1], default=None)   # r1969 가장 느린 (팀, 칸) 1개
         self.log("ROUND", text="s=%g %s slow=%s%s%s" % (round(s, 1), cells, "%s:%s:%g" % (top[0] + (round(top[1], 1),)) if top else "-", " OVER" if s > ROUND_S else "", self.skip and " skip=" + ",".join(sorted(self.skip)) or ""))
 
