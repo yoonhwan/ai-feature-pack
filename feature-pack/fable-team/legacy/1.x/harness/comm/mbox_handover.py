@@ -12,6 +12,8 @@ IDS = re.compile(r"^항목:(.*)$", re.M)   # r1863 새 꼴 = «항목: #a #b! h1
 ID = re.compile(r"#\d+!?|h\d+|bg:[\w.-]+")
 HEAD_N = re.compile(r"^\[인계\] \S+ -> \S+ · 항목 (\d+) ")   # handover 가 쓰는 머리 — 항목 수가 «- <id>» 줄 수와 같아야 기계 [인계]
 ASK_HEADS = ("[HIL]", "[결정]", "[질문]", "[긴급]")
+LIST_LINE = re.compile(r"^목록: (.+?)(?: · |$)", re.M)   # r1690 — 남은 쪽지 id 는 <state>/handover/ 목록 파일에 · 본문엔 경로 1줄
+INLINE_MAX = 5   # r1690 — 본문에 두는 오빠 질문 id 상한 · 쪽지 id 가 이보다 많으면 전부 목록 파일(적으면 지금처럼 본문)
 IGNORE_BG = re.compile(r"(^|/)(claude|codex|node|pi|opencode|caffeinate|tmux|login|-?zsh|-?bash)( |$)|lsp|language-server|mcp|serena|pyright")
 
 
@@ -159,7 +161,39 @@ def group_items(gs):   # 묶음 항목 id 합집합(처음 나온 순서 · 중�
 
 def _raw_ids(h):   # r1863 — 항목 id 원형(억제 «!» 보존) · 새 꼴 «항목:» 줄 + 옛 꼴·손 항목 «- <id>» 줄(옛 억제 줄 = #N!)
     b = h.get("body", "")
-    return [t for ln in IDS.findall(b) for t in ln.split()] + [m.group(1) + ("!" if m.group(2) else "") for m in ITEM.finditer(b)]
+    return [t for ln in IDS.findall(b) for t in ln.split()] + [m.group(1) + ("!" if m.group(2) else "") for m in ITEM.finditer(b)] + _list_ids(b)
+
+
+def _hdir():   # r1690 ① — 목록 파일 자리 <state>/handover(state = FT_MBOX_STATE_DIR › CANON/../state)
+    return os.path.join(os.environ.get("FT_MBOX_STATE_DIR") or os.path.join(CANON, "..", "state"), "handover")
+
+
+def _list_ids(body):   # r1690 ③ — «목록:» 줄이 가리키는 파일의 id 줄 · 줄 없음 = [] · 못 읽음·자리 밖 = REJECT rc 3 1줄(하드 룰 20 · 항목 0 으로 치지 않는다)
+    m = LIST_LINE.search(body or "")
+    if not m:
+        return []
+    try:
+        if os.path.dirname(os.path.realpath(m.group(1))) != os.path.realpath(_hdir()):
+            raise OSError("자리 밖")
+        with open(m.group(1), encoding="utf-8") as f:
+            return [ln.strip() for ln in f if ID.fullmatch(ln.strip())]
+    except (OSError, UnicodeDecodeError):
+        sys.stderr.write("REJECT 목록 파일 판정 불가 %s\n" % m.group(1))
+        sys.exit(3)
+
+
+def _write_list(old, new, qx, lst):   # r1690 ① — 목록 파일 1개(«질문» 절 먼저 · 임시→mv · 일반 파일 · 권한 기본)
+    d, k, t = _hdir(), (lambda s: re.sub(r"[^A-Za-z0-9._#-]", "_", s)), time.time()
+    os.makedirs(d, exist_ok=True)
+    p = os.path.join(d, "%s--%s--%s%06dZ.txt" % (k(old), k(new), time.strftime("%Y%m%dT%H%M%S", time.gmtime(t)), int(t % 1 * 1e6)))
+    with open(p + ".tmp", "w", encoding="utf-8") as f:
+        f.write("".join(ln + "\n" for ln in (["질문 %d" % len(qx)] + qx if qx else []) + (["쪽지 %d" % len(lst)] + lst if lst else [])))
+    os.replace(p + ".tmp", p)
+    return p
+
+
+def mark_ids(body):   # r1690 ④ — mbox.sh handover 표시 목록 = 본문 + 목록 파일의 #N(억제 «#N!» 은 뺀다 · r1665 그대로)
+    return ",".join(i[1:] for i in _raw_ids({"body": body}) if re.fullmatch(r"#\d+", i))
 
 
 def _resent(old, new):   # r1653 ⓒ·r1863 — 앞 [인계] 로 넘겼지만 뒤 [레디] 에 «받음» 이 아직 없는 쪽지 id(id 로 재구성 · «!» 유지)
@@ -184,9 +218,11 @@ def handover_body(old, new, extra=()):
     hs, note = _h_items()
     hs, bg, hand = [x.split()[1] for x in hs], [x.split()[1] for x in _bg_items(old)], ["- bg:x%d %s" % (i + 1, e) for i, e in enumerate(extra)]
     held = sum(i.endswith("!") for i in ids)
+    qs, qx, ins, lst = asks[:INLINE_MAX], asks[INLINE_MAX:], (ids if len(ids) <= INLINE_MAX else []), (ids if len(ids) > INLINE_MAX else [])   # r1690 ②
+    lf = ["목록: %s · 남은 회신·쪽지 %d%s" % (_write_list(old, new, qx, lst), len(lst), " · 질문 %d 줄 포함" % len(qx) if qx else "")] if qx or lst else []
     parts = ["[인계] %s -> %s · 항목 %d · [레디] 는 항목마다 «<id> 받음»(bash mbox.sh ready %s %s)" % (old, new, len(asks + ids + hs + bg + hand), new, old),
              "수: 답 안 한 오빠 질문 %d · 남은 회신·쪽지 %d · 억제 doorbell %d · 실행 중 h %d · 백그라운드 %d" % (len(asks), len(ids) - held, held, len(hs), len(bg + hand)),
-             "전문: mailbox.log.jsonl seq 로 · 오빠 질문 먼저 = %s" % (" ".join(asks) or "0"), "항목:" + "".join(" " + i for i in asks + ids + hs + bg)]
+             "전문: mailbox.log.jsonl seq 로 · 오빠 질문 먼저 = %s" % (" ".join(qs) or "0"), "항목:" + "".join(" " + i for i in qs + ins + hs + bg)] + lf
     return "\n".join(parts + hand + ([note] if note else []))
 
 
@@ -301,3 +337,7 @@ def close_check(seat, need_ready=True, verdict=False):
     if miss:
         print("REJECT %s [레디] #%s 에 «받음» 없는 항목 %s" % (seat, hit[-1]["seq"], ",".join(miss))); return 3
     print("CLOSE-OK %s [인계] #%s → [레디] #%s 항목 %d 전부 받음" % (seat, seqs, hit[-1]["seq"], len(ids))); return 0
+
+
+if __name__ == "__main__" and sys.argv[1:] == ["mark-ids"]:   # r1690 ④ — mbox.sh handover 갈래(본문 = stdin)
+    print(mark_ids(sys.stdin.read()))
