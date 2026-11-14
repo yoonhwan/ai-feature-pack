@@ -567,7 +567,7 @@ class Scan:
         if os.environ.get("FT_SEAT_AUTO_CLOSE_DA_ARCH") != "1":
             return []
         due, sf, env = os.environ.get("FT_SEAT_CLOSE_DUE") or str(HERE / "ft-seat-close-due.sh"), self.state_dir / "seat-auto-close.json", {**os.environ, "FT_ROOT": str(self.root)}
-        rc, out = run(["bash", due], env, 70)
+        rc, out = run(["bash", due], env, 25)  # 보정 R1 ⓒ — 목록 1회 전체 25초(도구 안 예산 24초 · 넘친 좌석 = 다음 판)
         lines = [f"{stamp} 판정 불가 seat-auto-close {x[6:]}" for x in out.splitlines() if x.startswith("판정 불가 ")] + ([] if rc in (0, 3) else [f"{stamp} 판정 불가 seat-auto-close close-due rc={rc} — 닫기 0"])
         try:
             tried = json.loads(sf.read_text(encoding="utf-8"))
@@ -576,11 +576,11 @@ class Scan:
         for x in [x.split() for x in out.splitlines() if rc in (0, 3) and x.startswith("닫기 차례 ") and "갈래=유휴(" in x]:
             seat, end = x[2], next((t for t in x if t.startswith("end=")), "")
             if tried.get(seat) != end:
-                crc, cout = run(["bash", due, "--close", seat], env, 70)
+                crc, cout = run(["bash", due, "--close", seat], env, 25)  # 보정 R1 ⓒ — --close 1회 전체 25초(닫기 자체 7초)
                 first = (cout.strip().splitlines() or [""])[0][:120]
-                ok = crc == 0 and first == f"CLOSED {seat} idle=1"
-                _ = tried.pop(seat, None) if ok else tried.update({seat: end})
-                lines.append(f"{stamp} seat-auto-close " + (first if ok else f"실패 {seat} rc={crc} — {first}"))
+                ok, unj = crc == 0 and first == f"CLOSED {seat} idle=1", crc in (3, 99)   # 판정 불가·시간 초과 = tried 0(다음 판이 다시 판정)
+                _ = tried.pop(seat, None) if ok or unj else tried.update({seat: end})
+                lines.append(f"{stamp} " + (f"판정 불가 seat-auto-close {seat} rc={crc} — {first}" if unj else "seat-auto-close " + (first if ok else f"실패 {seat} rc={crc} — {first}")))
         _ = sf.write_text(json.dumps(tried), encoding="utf-8")  # state_dir 는 회차 앞에서 이미 쓴다(stall-scan.log 와 같은 자리)
         print("\n".join(lines)) if lines else None
         return lines
