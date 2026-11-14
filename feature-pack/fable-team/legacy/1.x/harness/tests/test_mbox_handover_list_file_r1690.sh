@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_mbox_handover_list_file_r1690.sh — r1690 [fix]: 승계 [인계] 본문 ≤ 2,000자 · 남은 쪽지 id 는 <state>/handover/ 목록 파일 · 본문엔 «목록: <경로>» 1줄.
 #  ⓐ 크기(쪽지 84·질문 3·억제 1) · ⓑ 레디 항목 88 · ⓒ 84통 «인계» 표시 · ⓓ 미받음 재적재(목록 줄 포함) · ⓔ 목록 파일 없음 = REJECT rc 3 1줄·[레디] 0
-#  ⓕ 질문 30 = 앞 5 본문·25 목록 «질문» 절 · 변이 N1~N4(사본) · 격리: 정본 사본 + 가짜 명부 + 임시 우편함 · sleep 0
+#  ⓕ 질문 30 = 앞 5 본문·25 목록 «질문» 절 · ⓗ 손 항목 설명 = 목록 «손 항목» 절 · ⓘ 줄여도 넘으면 REJECT rc 3 · 변이 N1~N6(사본) · 격리: 정본 사본 + 가짜 명부 + 임시 우편함 · sleep 0
 #  R1690_SRC=<comm 폴더> 로 다른 판(예: 고치기 전)을 돌릴 수 있다 — 본문 바이트 줄(SIZE)은 그때 비교용.
 set -uo pipefail
 for v in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY; do unset "$v"; done
@@ -121,6 +121,44 @@ chk_f() {
   retire; sh_ recv "$N"; sh_ ready "$N" "$O"; [ "$RC" = 0 ] && case "$(lastbody '[레디]')" in *"· 항목 30"*) true;; *) false;; esac
 }
 chk_f && ok "ⓕ 질문 30 → 앞 5 본문 · 25 목록 «질문» 절 · [레디] 항목 30" || bad "ⓕ rc=$RC :: $OUT :: $B"
+
+# ⓗ DA R1 반례(da_probe_r1690.sh 꼴) — 빈 우편함 · 손 항목 1개 «background-command »+x2100 → 본문 ≤ 2,000 · bg:x1 본문 · 원문은 목록 «손 항목» 절 · ready 항목 1
+LONG="background-command $(printf 'x%.0s' $(seq 2100))"
+mut_n5() { sub "$C/mbox_handover.py" 'if len(b) > BODY_MAX:   # r1690 R1ⓑ' 'if False:'; }
+mut_n6() { sub "$C/mbox_handover.py" 'if len(b) > BODY_MAX and extra:' 'if False:'; }
+chk_h() {
+  new_env "${1:-}" || return 2; sh_ handover "$O" "$N" "$LONG"; [ "$RC" = 0 ] || return 1
+  B="$(lastbody)"; echo "SIZE ⓗ 본문 $(blen "$B")자" >&2; [ "$(blen "$B")" -le 2000 ] && printf '%s\n' "$B" | grep -q '^- bg:x1 background-command ' || return 1
+  F="$(listf "$B")"; [ -f "$F" ] && grep -qx '손 항목 1' "$F" && grep -qxF "bg:x1 $LONG" "$F" || return 1
+  retire; sh_ recv "$N"; sh_ ready "$N" "$O"; [ "$RC" = 0 ] && case "$(lastbody '[레디]')" in *"· 항목 1"$'\n'"bg:x1 받음") true;; *) false;; esac
+}
+chk_h mut_n6 2>/dev/null && bad "N6 변이(손 항목 옮기기 삭제)가 ⓗ 에 안 잡힘" || ok "N6 변이 → ⓗ FAIL 확인"
+chk_h && ok "ⓗ 손 항목 2,100자 → 본문 ≤ 2,000 · 원문 목록 «손 항목» 절 · [레디] 항목 1" || bad "ⓗ rc=$RC :: $OUT :: $B"
+
+# ⓗ' formatter 직접 대조(외부 명령 0 · h·bg·recv 대역을 빈 값으로)
+chk_hf() {
+  new_env || return 2; mkdir -p "$C/receipts"
+  ( cd "$C" && FT_MBOX_STATE_DIR="$SD" python3 - "$C" "$O" "$N" "$LONG" <<'PY'
+import sys; sys.path.insert(0, sys.argv[1])
+import mbox_handover as H
+H.CANON = sys.argv[1]; H._h_items = lambda: ([], ""); H._bg_items = lambda o: []; H.mbox_lineage.retired_to = lambda o: "x"
+b = H.handover_body(sys.argv[2], sys.argv[3], [sys.argv[4]])
+print("FORMATTER %d자 items=%s" % (len(b), H.items({"body": b})), file=sys.stderr)
+sys.exit(0 if len(b) <= 2000 and H.items({"body": b}) == ["bg:x1"] else 1)
+PY
+  )
+}
+chk_hf && ok "ⓗ' formatter 직접 — 본문 ≤ 2,000 · items=[bg:x1]" || bad "ⓗ' formatter 직접 대조"
+
+# ⓘ 줄여도 넘는 꼴 — 손 항목 40개 × 80자 → REJECT rc 3 · QUEUED 0 · 인계 표시 0
+chk_i() {
+  new_env "${1:-}" || return 2; fill 0 3; local a=(); for k in $(seq 40); do a+=("$(printf 'cmd%02d-' "$k")$(printf 'y%.0s' $(seq 74))"); done
+  sh_ handover "$O" "$N" "${a[@]}"; [ "$RC" = 3 ] && case "$OUT" in *"REJECT [인계] 본문 "*"자 > 2000 — 판정 불가"*) true;; *) false;; esac || return 1
+  case "$OUT" in *QUEUED*|*MARKED*) return 1;; esac; [ -z "$(lastbody)" ] || return 1
+  py_ unmarked "$O"; case "$OUT" in "UNMARKED 3"*) true;; *) false;; esac
+}
+chk_i mut_n5 && bad "N5 변이(최종 검사 삭제)가 ⓘ 에 안 잡힘" || ok "N5 변이 → ⓘ FAIL 확인"
+chk_i && ok "ⓘ 손 항목 40×80자 → REJECT rc 3 · QUEUED 0 · 표시 0" || bad "ⓘ rc=$RC :: $OUT"
 
 for f in "$SRC/mbox_handover.py" "$SRC/mbox.sh"; do case "$f" in *.sh) bash -n "$f" 2>/dev/null && ok "bash -n $(basename "$f")" || bad "bash -n $(basename "$f")";; *) python3 -c 'import sys,py_compile;py_compile.compile(sys.argv[1],doraise=True)' "$f" >/dev/null 2>&1 && ok "py_compile $(basename "$f")" || bad "py_compile $(basename "$f")";; esac; done
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }
