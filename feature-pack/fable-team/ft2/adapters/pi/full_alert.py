@@ -1,5 +1,5 @@
-"""ft2 꽉 참 = 크리티컬 알림 (r1886) — 상한 4곳의 꽉 참·정상 결과마다 observe(값, 한계) · 서명 = (상한 · 팀) · 값 ≥ 한계 처음 = «★크리티컬★» 1통 · 값 < 한계 + 열린 서명 = «풀림» 1통 · 받는 곳 = planner desk(오빠 thread 게시) + harness master · 쪽지 = FT2_FULL_ALERT_WAKE(기본 <root>/.fable-team/comm/mbox.sh) send."""
-import importlib.util, json, os, re, shlex, subprocess  # noqa: E401
+"""ft2 꽉 참 = 크리티컬 알림 (r1886) — 상한 4곳의 꽉 참·정상 결과마다 observe(값, 한계) · 서명 = (상한 · 팀) · 값 ≥ 한계 처음 = «★크리티컬★» 1통 · 값 < 한계 + 열린 서명 = «풀림» 1통 · 받는 곳 = 팀 master + harness master(r1927 · desk 0 = DESK_ROUTE · 같은 좌석 1통) · 남은 일 꽉 참 첫 낱말 = «[긴급]» · 열린 시각 = <서명>@at · 쪽지 = FT2_FULL_ALERT_WAKE(기본 <root>/.fable-team/comm/mbox.sh) send."""
+import importlib.util, json, os, re, shlex, subprocess, time  # noqa: E401
 _spec = importlib.util.spec_from_file_location("ft2_full_alert_projection", os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "core", "projection.py"))
 _spec.loader.exec_module(projection := importlib.util.module_from_spec(_spec))
 FIX = {"남은 일": "팀장이 끝난 일 complete 로 남은 일 줄이기", "나노 정원": "끝난 나노 닫기 · FT2_TEAM_NANO_MAX 확인", "keeper 바퀴": "keeper 로그 단계별 초에서 느린 단계 쪼개기", "journal": "journal 회수(checkpoint) · 총량 한계 확인"}
@@ -23,14 +23,14 @@ def observe(root, cap, team, value, limit, blocked=""):   # 값 None = 판정 �
     opened, full = _read(state + ".json"), value is not None and value >= limit
     if value is None or full == (sig in opened):
         return None
-    body = ("★크리티컬★ 꽉 참 %s %s %s/%s · 막힌 것 %s · 풀기 = %s" % (cap, team, value, limit, blocked or "-", FIX.get(cap, "-")) if full
-            else "풀림 %s %s %s/%s · 꽉 참 때 값 %s" % (cap, team, value, limit, opened.pop(sig)))
+    body = ("[긴급] " * (cap == "남은 일") + "★크리티컬★ 꽉 참 %s %s %s/%s · 막힌 것 %s · 풀기 = %s" % (cap, team, value, limit, blocked or "-", FIX.get(cap, "-")) if full
+            else "풀림 %s %s %s/%s · 꽉 참 때 값 %s" % (cap, team, value, limit, opened.pop(sig, opened.pop(sig + "@at", None))))
     os.makedirs(os.path.dirname(state), exist_ok=True)
     with open(state + ".tmp", "w", encoding="utf-8") as fh:   # 서명 기억 먼저(보내기 실패여도 재알림 폭주 0)
-        json.dump(dict(opened, **({sig: str(value)} if full else {})), fh, ensure_ascii=False)
+        json.dump(dict(opened, **({sig: str(value), sig + "@at": "%.6f" % time.time()} if full else {})), fh, ensure_ascii=False)
     os.replace(state + ".tmp", state + ".json")
     argv = shlex.split(os.environ.get("FT2_FULL_ALERT_WAKE") or "bash " + shlex.quote(os.path.join(root, ".fable-team", "comm", "mbox.sh")))
-    return [_send(argv, to, body, state + ".jsonl") if to else "받는 곳 없음" for to in (_read(os.path.join(root, ".fable-team", "seats-%s.json" % t), cell) for t, cell in (("planner", "_desk"), ("harness", "_master")))]
+    return [_send(argv, to, body, state + ".jsonl") if to else "받는 곳 없음" for to in dict.fromkeys(_read(os.path.join(root, ".fable-team", "seats-%s.json" % t), "_master") for t in (team, "harness"))]
 def remaining(root, team, result, blocked=""):   # ⓐ 접수 성공·용량 부족 → 남은 일(용량 판정과 같은 장부 · 상한 = Intake 기본 8)
     proj = projection.project(root, team) if result in ("접수 성공", "용량 부족") else {}
     return observe(root, "남은 일", team, proj["remaining"], 8, blocked) if proj.get("result") == "접수 성공" else None

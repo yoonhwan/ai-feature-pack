@@ -14,6 +14,12 @@ route, publish, receive, sender_tag = map(_adapter, ("route", "publish", "receiv
 binding, SENDER, USAGE, UNDECIDED = route.binding, "ft2-slack-listen", 2, 3
 _fa = importlib.util.spec_from_file_location("ft2_wire_full_alert", os.path.join(os.path.dirname(_HERE), "pi", "full_alert.py"))
 _fa.loader.exec_module(full_alert := importlib.util.module_from_spec(_fa))  # r1886 ⓐ
+FENCE, TABLE_RULE = re.compile(r"```.*?(?:```|\Z)", re.S), re.compile(r"^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$")
+
+
+def has_table(text):  # r1927 마크다운 표 = 파이프 2개 이상 줄 다음 구분선 줄 · 코드 블록(```) 안 = 제외
+    lines = FENCE.sub("", str(text)).splitlines()
+    return any(a.count("|") >= 2 and TABLE_RULE.match(b) for a, b in zip(lines, lines[1:]))
 
 
 class Wiring:
@@ -112,9 +118,15 @@ class Wiring:
     def alert(self, row, quiet=False):  # A4 — desk 1곳 깨움 · 같은 command·사유 재알림 0
         command = row.get("command")
         why = row.get("reason") if quiet else (row.get("kind") or row.get("k") or row.get("reason") or row.get("state"))
-        if command and any(r.get("command") == command and r.get("why") == why for r in self.entries("alert")):
+        episode = why == receive.RESULT_FULL and full_alert._read(os.path.join(  # r1927 꽉 참 회차 = 열린 시각
+            self.root, ".fable-team", "state", "ft2-full-alert.json"), "남은 일|%s@at" % self.team)
+        if command and any(r.get("command") == command and r.get("why") == why and r.get("episode") == (episode or None)
+                           for r in self.entries("alert")):  # R3 용량 부족 = 같은 회차만 dedup · 다른 사유 옛 dedup
             return
-        self._append({"t": "alert", "command": command, "why": why})
+        again = episode and any(r.get("episode") == episode for r in self.entries("alert"))
+        self._append(dict({"t": "alert", "command": command, "why": why}, **({"episode": episode} if episode else {})))
+        if again:  # 같은 꽉 참 회차 = desk 깨움 1회만
+            return
         desk, key = self.seat("_desk"), row.get("key") or [None] * 3
         if not desk:
             return self.log("[notify] desk 없음 " + json.dumps(row, ensure_ascii=False))
@@ -245,6 +257,8 @@ def main(argv, post=None, sleep=None):
         body = open(opts["body-file"], encoding="utf-8").read()
     except OSError:
         return say("usage", rc=USAGE, reason="body-file 판독 불가")
+    if has_table(body):  # r1927 사람 채널 마크다운 표 = 게시 0 · 의도·binding·장부 쓰기 전
+        return say("refused", rc=USAGE, reason="마크다운 표")
     if sender_tag.sender_tag(opts["seat"]):  # r1850 — 장부 기록 앞 = 재송·되살림도 같은 바이트
         seq, why = _seq(opts)  # r1856 — 못 찾음 = 숫자 0 · 게시는 그대로 · stderr 1줄
         body = "%s\n\n%s" % (body, sender_tag.sender_tag(opts["seat"], seq))
