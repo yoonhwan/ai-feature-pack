@@ -129,10 +129,10 @@ class Landing:
             return None, None, "착지 줄 없음" if own else "판정 불가 · 조각 착지 줄 없음"
         sha = shas[0]
         for repo, ref in ((self.pack, "origin/main"), (self.root, REFS[0]), (self.root, REFS[1])):
-            if self.git(repo, "merge-base", "--is-ancestor", sha, ref)[0] == 0:
+            if repo not in self.stale and self.git(repo, "merge-base", "--is-ancestor", sha, ref)[0] == 0:   # r1963 낡은 리포 ref = 조상으로도 «조상 아님» 으로도 안 셈
                 old = self.pre_attempt(team, work, repo, sha)
                 return (None, None, old) if old else (sha, ("pack:" if repo == self.pack else "byz:") + ref, "")
-        return sha, None, "미도달"
+        return (None, None, "판정 불가 · 팩 fetch 실패") if self.stale else (sha, None, "미도달")   # 낡음이 있으면 미도달 알림 0
 
     def pre_attempt(self, team, work, repo, sha):
         """r1893 — 최신 dispatch attempt intent base_sha 대조 · rc0 = 옛 줄 · rc1 = 조상 아님(진행) · 그 밖 = 판정 불가 · intent·base_sha 없음 = ""."""
