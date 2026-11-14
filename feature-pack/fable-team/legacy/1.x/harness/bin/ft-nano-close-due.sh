@@ -345,6 +345,7 @@ def judge(t, k, row, card_dirs):   # → 줄 | None(제외 · exc 에 사유) ·
     def chk():   # r1718 A11 — 상한에 걸리면 그 줄 끝에 «단계: <이름>=<초>s …»(부른 순서 · 판정·상한·rc 불변)
         if cap() <= 0: raise Unjudged("좌석 7초 상한 rc=-" + "".join([" 단계:"] + [f" {n}={s:.1f}s" for n, s in steps]))
     if "-research#" in k: exc.append(f"제외 {k} 리서치 좌석(자기 근거 칸 = --research 닫기)"); return None
+    if row.get("source") == "ft2-launch" or "/.fable-team/teams/" in str(row.get("worktree") or ""): exc.append(f"제외 {k} ft2 나노 → keeper"); return None   # r2021-mut:ft2 — 2.0 나노 닫기 = keeper 몫(r2011 ft-index-move 와 같은 두 조건 · git·tmux 호출 전)
     sha_card, why_, sec = basis(card_dirs, row.get("index") or "", t)
     if sha_card is None: exc.append(f"제외 {k} {why_}"); return None
     _, out = need(["tmux", "display-message", "-p", "-t", "=" + k + ":", "#{pane_current_path}"], cap(), "tmux display-message")
@@ -431,6 +432,7 @@ def gate_mode(seat):   # --approve-gate — 승인 갈래를 «지금 사실» �
                 print(f"APPROVE-REJECT {seat} --approved 경로가 카드 «DA 판정:» 경로와 다름(«{want}» ≠ «{vp}»)"); return 1
             sh = re.search(r"set=([0-9a-f]{40})", ln)
             print(f"APPROVE-OK {seat} set={sh.group(1) if sh else '-'} verdict={vp}"); return 0
+        if exc and exc[-1] == f"제외 {seat} ft2 나노 → keeper": print(exc[-1]); return 1   # r2021 ③ — ft2 좌석은 APPROVE-REJECT 대신 같은 제외 사유 · 1.x 닫기 진행 0
         pre = f"제외 {seat} "
         why_ = (exc[-1][len(pre):] if exc[-1].startswith(pre) else exc[-1]) if exc else (ln or "승인 갈래 아님")
         print(f"APPROVE-REJECT {seat} {why_}"); return 1
