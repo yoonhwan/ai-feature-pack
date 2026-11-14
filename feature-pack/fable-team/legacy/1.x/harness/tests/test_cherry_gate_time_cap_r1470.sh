@@ -30,6 +30,7 @@ printf '%s\n' "\$*" >> "\${FAKE_GIT_LOG:-/dev/null}"
 case " \$* " in
   *" log "*"--raw"*) [ "\${FAKE_SLOW:-}" = log ] && sleep 2 ;;
   *" cherry "*) [ "\${FAKE_SLOW:-}" = cherry ] && sleep 2 ;;
+  *" diff-tree "*"--root -z"*) [ "\${FAKE_SLOW:-}" = difftree ] && sleep 2 ;;
 esac
 exec "$REAL_GIT" "\$@"
 EOF
@@ -80,6 +81,33 @@ has "$OUT" "판정 불가(상한 1초 · 단계 cherry" "T3 단계 cherry"
 has "$OUT" "옛 가지 nano/x · 우회 = --cherry-override" "T3 옛 가지·우회"
 eq "$(printf '%s\n' "$LOG" | grep -c 'merge-tree' || true)" 0 "T3 merge-tree 호출 0"
 echo "  T3 $((SECONDS-s))초"
+
+# ── 보정 R1(DA #304443 · 카드 보정 R1): 결과 소비 앞 + 통과 출구 앞에서도 상한 ──
+git -C "$R" branch nano/same main                                                   # 같은 tip = git cherry «+0»
+git -C "$R" checkout -q -b nano/doc main; w design/n.md n1; cm "[docs] nano doc"; git -C "$R" checkout -q main   # design 만 «+» 1 = WARN 통과 길
+run() { # run <게이트> <가지> <cap> <FAKE_SLOW> [인자…] — OUT·RC
+  local g="$1" b="$2" c="$3" sl="$4"; shift 4; : > "$T/git.log"
+  OUT="$(PATH="$T/fk:$PATH" FAKE_GIT_LOG="$T/git.log" FAKE_SLOW="$sl" FT_CHERRY_GATE_SEC="$c" FT_CHERRY_OVERRIDE_LEDGER="$T/ov3.log" bash "$g" main "$b" --repo "$R" "$@" 2>&1)"; RC=$?
+}
+s=$SECONDS
+# T3b DA 반례: cap1 · 같은 tip · cherry 만 느림 «+0» → cherry 결과 뒤 판정 불가 1줄 rc1 · OK 0
+run "$G" nano/same 1 cherry
+eq "$RC" 1 "T3b rc1(«+0» 이어도 상한 초과 통과 0)"; eq "$(printf '%s\n' "$OUT" | grep -c .)" 1 "T3b 출력 정확히 1줄"
+has "$OUT" "판정 불가(상한 1초 · 단계 cherry · 결과) · 옛 가지 nano/same" "T3b 단계 cherry · 결과"; hasnt "$OUT" "OK cherry 게이트" "T3b OK 줄 0"
+# T3c 같은 입력 + --override "사유" → 원장 1행 kind=time-cap · rc0
+rm -f "$T/ov3.log"; run "$G" nano/same 1 cherry --override "같은 tip 확인"
+eq "$RC" 0 "T3c rc0(사람 우회)"; has "$OUT" "OVERRIDE cherry 게이트 — 판정 불가(상한 1초 · 단계 cherry · 결과)" "T3c OVERRIDE 줄"
+eq "$(grep -c 'kind=time-cap	cap=1	stage=cherry	reason=같은 tip 확인' "$T/ov3.log" 2>/dev/null)" 1 "T3c 원장 1행"
+# T3d 같은 입력 · cap0(무상한) → 지금처럼 OK rc0
+run "$G" nano/same 0 cherry; eq "$RC" 0 "T3d rc0(무상한 = 기존 OK)"; has "$OUT" "OK cherry 게이트" "T3d OK 줄"
+# T3e 성공 출구 반례: design 만 «+» 1 · «+» 커밋 diff-tree -z 만 느림(cherry 결과 검사 뒤) → WARN 통과 출구 앞에서 판정 불가 rc1
+run "$G" nano/doc 1 difftree
+eq "$RC" 1 "T3e rc1(WARN 통과 출구 앞 상한)"; has "$OUT" "판정 불가(상한 1초 · 단계 cherry · 끝) · 옛 가지 nano/doc" "T3e 단계 cherry · 끝"; hasnt "$OUT" "WARN cherry 게이트" "T3e WARN 통과 줄 0"
+# 변이 M1 = ⓐ cherry 결과 뒤 검사 삭제 → T3b 가 잡는다 · M2 = ⓑ 통과 출구 검사 삭제(ⓐ 남김) → T3e 가 잡는다
+mkdir -p "$T/m1" "$T/m2"; sed 's/; over_cap cherry "결과"//' "$G" > "$T/m1/g.sh"; sed 's/over_cap [a-z-]* "끝"; //' "$G" > "$T/m2/g.sh"
+cmp -s "$G" "$T/m1/g.sh" && bad "M1 변이 적용 0" || { run "$T/m1/g.sh" nano/same 1 cherry; case "$OUT" in *"단계 cherry · 결과"*) bad "M1 ⓐ 삭제가 안 잡힘";; *) ok "M1 ⓐ 삭제 → T3b 꼴 FAIL(잡힘)";; esac; }
+cmp -s "$G" "$T/m2/g.sh" && bad "M2 변이 적용 0" || { run "$T/m2/g.sh" nano/doc 1 difftree; [ "$RC" -eq 0 ] && ok "M2 ⓑ 삭제 → T3e 꼴 FAIL(WARN rc0 · 잡힘)" || bad "M2 ⓑ 삭제가 안 잡힘 rc=$RC ${OUT:0:200}"; }
+echo "  T3b~T3e·M1·M2 $((SECONDS-s))초"
 
 # T4 spawn ②-0: 가짜 게이트 sleep 20 → timeout(상한+5 = 6초)이 끊어 rc124 → «REJECT 옛 브랜치 판정 불가(상한)» · rc1 · 카드 바이트 불변 · 워크트리 0
 . "$HERE/lib/fake_tmm.sh"; fake_tmm "$T/fake" byz-v65-master-claude#1
