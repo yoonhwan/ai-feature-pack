@@ -3,15 +3,15 @@
 
 모듈 = 글·표뿐(팩 `feature-pack/fable-team/goal-close/`). 설치 루트 = `~/.claude/fable-team/goal-close/`(env FT2_GC_ROOT):
 `versions/<판>/` · `CURRENT` 1줄 · `install-log.jsonl`. 팀이 쓰는 판 = 명부 `_goal_close` → 없으면 `CURRENT`(고른 판이 미설치면 판정 불가 · 다른 판으로 안 넘어감).
-필수 기준은 이 도구 옆 `contracts/goal-close/INVARIANTS.tsv` 만 읽는다(후보 패키지 안 목록·env 덮어쓰기 0). 바깥 호출 0 · 파일 1개 64KB 상한.
+필수 기준은 이 도구 옆 `contracts/goal-close/INVARIANTS.tsv` 만 읽는다(후보 패키지 안 목록·env 덮어쓰기 0). 바깥 호출 0 · 판 폴더 파일 1개 64KB 상한 · 팀 명부만 4MB(r1953).
 종료 코드: 0 = 됨 · 1 = 판정 불가(쓰기 0) · 2 = 사용법.
 """
 import glob, hashlib, json, os, re, shutil, sys, time  # noqa: E401
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 INVARIANTS = os.path.join(os.path.dirname(HERE), "contracts", "goal-close", "INVARIANTS.tsv")
-LIMIT, KEEP, CELL, NAME = 64 * 1024, 3, "_goal_close", re.compile(r"^gc-(\d+)\.(\d+)$")
-FLAGS = ("root", "team", "role", "phrase", "version", "pkg")
+LIMIT, ROSTER_LIMIT, KEEP, CELL, NAME = 64 * 1024, 4 * 1024 * 1024, 3, "_goal_close", re.compile(r"^gc-(\d+)\.(\d+)$")
+FLAGS = ("root", "team", "role", "phrase", "version", "pkg", "da")
 
 
 class Unknown(Exception):
@@ -22,20 +22,20 @@ def gc_root():
     return os.environ.get("FT2_GC_ROOT") or os.path.expanduser("~/.claude/fable-team/goal-close")
 
 
-def _bytes(path):
+def _bytes(path, limit=LIMIT):
     try:
         with open(path, "rb") as handle:
-            data = handle.read(LIMIT + 1)
+            data = handle.read(limit + 1)
     except OSError as exc:
         raise Unknown("못 읽음 %s (%s)" % (path, exc.__class__.__name__))
-    if len(data) > LIMIT:
-        raise Unknown("64KB 초과 %s" % path)
+    if len(data) > limit:
+        raise Unknown("%s 초과 %s" % ("64KB" if limit == LIMIT else "명부 4MB", path))
     return data
 
 
-def _read(path):
+def _read(path, limit=LIMIT):
     try:
-        return _bytes(path).decode("utf-8")
+        return _bytes(path, limit).decode("utf-8")
     except UnicodeError:
         raise Unknown("UTF-8 아님 %s" % path)
 
@@ -44,15 +44,20 @@ def _roster(root, team):
     return os.path.join(root, ".fable-team", "seats-%s.json" % team)
 
 
-def _pin(root, team):
-    """명부의 팀 고정값 — 칸 없음 = None · 명부 없음·깨짐 = 판정 불가."""
+def _doc(root, team):
+    """팀 명부 dict — 명부 전용 상한 4MB(판 폴더 파일이 아니다 · 실 harness 명부 367KB · r1953) · 명부 없음·깨짐 = 판정 불가."""
     try:
-        doc = json.loads(_read(_roster(root, team)))
+        doc = json.loads(_read(_roster(root, team), ROSTER_LIMIT))
     except ValueError:
         doc = None
     if not isinstance(doc, dict):
         raise Unknown("명부 깨짐 %s" % _roster(root, team))
-    return doc.get(CELL)
+    return doc
+
+
+def _pin(root, team):
+    """명부의 팀 고정값 — 칸 없음 = None."""
+    return _doc(root, team).get(CELL)
 
 
 def _current(gc):
@@ -162,7 +167,7 @@ def _set_cell(root, team, value):
     """명부 그 1칸만 줄 단위로 바꾼다(다른 칸 값 그대로 · JSON 다시 직렬화 0) → 앞 값. value None = 칸 지움. 줄 꼴이 아니면 판정 불가(쓰기 0).
     기존 칸은 그 줄의 들여쓰기·쉼표·줄 끝을 그대로 잇는다 — 마지막 칸이어도 된다(DA R2). 마지막 칸을 지울 때만 앞 줄 쉼표 1개를 떼다."""
     path, prev = _roster(root, team), _pin(root, team)
-    lines, before = _read(path).splitlines(True), json.loads(_read(path))
+    lines, before = _read(path, ROSTER_LIMIT).splitlines(True), _doc(root, team)
     at = next((i for i, line in enumerate(lines) if line.lstrip().startswith('"%s"' % CELL)), None)
     if at is None:
         at = next((i + 1 for i, line in enumerate(lines) if line.strip() == "{"), 0)
@@ -228,7 +233,8 @@ def rollback(args):
 def render(args):
     gc, root, team = gc_root(), os.path.abspath(args["root"]), args["team"]
     ver = _pick(gc, root, team, args.get("version"))
-    text = _phrase(root, team, args["phrase"], args, ver)[1] if args.get("phrase") else _core(os.path.join(gc, "versions", ver), args["role"])
+    slots = dict(args, da=args.get("da") or _doc(root, team).get("_da")) if args.get("phrase") else None   # {da} = 인자 → 없으면 그 팀 명부 _da
+    text = _phrase(root, team, args["phrase"], slots, ver)[1] if args.get("phrase") else _core(os.path.join(gc, "versions", ver), args["role"])
     return "gc=%s sha=%s\n%s" % (ver, hashlib.sha256(_bytes(os.path.join(gc, "versions", ver, "MODULE.json"))).hexdigest()[:8], text)
 
 
