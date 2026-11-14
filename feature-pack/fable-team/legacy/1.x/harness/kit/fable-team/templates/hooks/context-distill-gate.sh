@@ -733,8 +733,8 @@ def recv_blocked():
         return False
     return not os.path.isfile(os.path.join(REPO_ROOT, ".fable-team", "state", "successor", seat + ".json"))
 
-# r1966: «recv <me> --only distill» = 증류·승계 쪽지만 소비(mbox.sh 가 claim 잠금 안에서 거름) → 통과 · 같은 조각에 --only distill 없는 recv 가 하나라도 있으면 지금처럼 막는다
-if mode == "hard" and ctx >= recv_at and tool == "Bash" and re.search(r"mbox\.sh\s+recv\b(?![^;&|\n]*\s--only\s+distill(?:\s|$))", str(ti.get("command") or "")) and recv_blocked():
+# r1966: «recv <me> --only distill» = 증류·승계 쪽지만 소비(mbox.sh 가 claim 잠금 안에서 거름) → 통과 · 같은 조각에 --only distill 없는 recv 가 하나라도 있으면 지금처럼 막는다 · 주석(공백 뒤 #) 뒤 --only 는 옵션 아님(DA R1)
+if mode == "hard" and ctx >= recv_at and tool == "Bash" and re.search(r"mbox\.sh\s+recv\b(?!(?:(?!\s#)[^;&|\n])*\s--only\s+distill(?:\s|$))", str(ti.get("command") or "")) and recv_blocked():
     print("RECV|%d|%s|%d|%d|%s" % (k, tool, warn_at // 1000, block_at // 1000, agent_id)); sys.exit(0)
 
 newwork_at = int(os.environ.get("FT_DISTILL_NEWWORK") or warn_at)   # r1429: 경고선 도달 = «새 일 수락 금지»(스폰 도구만)
