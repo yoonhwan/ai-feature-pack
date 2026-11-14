@@ -5,7 +5,9 @@
 #   T3 `{진행,대기,완성}`·끝 구두점(. ·)·백틱·«» 을 벗긴 토큰으로 검사 · 없는 토큰은 벗긴 꼴로 보고
 #   T4 --dry-run 도 같은 REJECT · 기존 r962 시험 rc0
 #   T5 가짜 launchctl: bootout 뒤 print 3회 rc0 → 4번째 rc113 → bootout→print×4→bootstrap 1회 · rc0 (팀·메인 두 경로)
-#   T6 가짜 launchctl: print 계속 rc0 → REJECT 1줄(되돌림 안내) · bootstrap 0 · rc1 · 15초 안 (팀·메인 두 경로)
+#   T6 가짜 launchctl: print 계속 rc0 → REJECT 1줄(되돌림 안내) · bootstrap 0 · rc1 · 15초 안 (팀·메인 두 경로 · 팀은 print 1초 = 경과 초 마감)
+#   T7 (DA R1) print rc1(113 아님) → 판정 불가 REJECT 1줄 · bootstrap 0 · rc1 (팀·메인)
+#   T8 (DA R2) ft_team_attach_ops.py → 설치기 timeout 25 = 설치기 예산(마감 10초 + print 1회 + 2초 + bootstrap) 이상
 # 실 launchd·실 ~/Library/LaunchAgents 0 — HOME·FT_TICK_PLIST_DIR·FT_TICK_LAUNCHCTL 를 임시로 돌린다.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
 set -uo pipefail
@@ -36,6 +38,8 @@ cat > "$LC" <<'SH'
 echo "$1" >> "$LC_LOG"
 if [ "$1" = print ]; then
   n=$(( $(cat "$LC_CNT" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$LC_CNT"
+  [ "${LC_SLOW:-0}" = 0 ] || sleep "$LC_SLOW"          # R2: print 자체가 느린 입력(마감 = 경과 초)
+  [ -z "${LC_PRC:-}" ] || exit "$LC_PRC"                # R1: print 판독 실패(113 아님)
   [ "$LC_UP" = always ] && exit 0
   [ "$n" -le "$LC_UP" ] && exit 0
   exit 113
@@ -46,7 +50,7 @@ chmod +x "$LC"
 # 안전망: PATH 의 launchctl 도 가짜(설치기가 FT_TICK_LAUNCHCTL 을 안 쓰면 여기로 온다 — 실 launchd 접촉 0)
 mkdir -p "$TMP/shim"; printf '#!/bin/bash\necho "$*" >> "%s"\nexit 0\n' "$TMP/shim.log" > "$TMP/shim/launchctl"; chmod +x "$TMP/shim/launchctl"
 export PATH="$TMP/shim:$PATH"; : > "$TMP/shim.log"
-lcreset() { : > "$LC_LOG"; rm -f "$LC_CNT"; LC_UP="$1"; }
+lcreset() { : > "$LC_LOG"; rm -f "$LC_CNT"; LC_UP="$1"; export LC_SLOW=0 LC_PRC=; }
 
 mkfrom() {  # $1 = 출력 plist · $2 = MASTER 문구 · $3 = PM 문구
   python3 - "$@" "$R" <<'PY'
@@ -120,7 +124,8 @@ chk "T5 메인: 호출 순서(bootstrap 까지)" "$(head -6 "$LC_LOG" | tr '\n' 
 chk "T5 메인: bootstrap 1회" "$(grep -c '^bootstrap$' "$LC_LOG")" 1
 
 # ── T6 print 계속 rc0(안 내려감) → REJECT 1줄 · bootstrap 0 · rc1 · 15초 안 (팀·메인) ──
-lcreset always; s=$SECONDS; o="$(team "$TMP/p6" "$TMP/good.plist")"; el=$((SECONDS - s))
+#   팀 = print 1회 1초(R2) — 횟수 마감(0.5초×20)이면 약 30초 · 경과 초 마감이면 10~12초
+lcreset always; export LC_SLOW=1; s=$SECONDS; o="$(team "$TMP/p6" "$TMP/good.plist")"; el=$((SECONDS - s))
 chk "T6 팀: rc" "$(rc "$o")" 1
 chk "T6 팀: REJECT 1줄(되돌림 안내)" "$(printf '%s\n' "$o" | grep -c '^REJECT bootout 미완(10초) — 되돌림: cp -p ')" 1
 chk "T6 팀: bootstrap 0" "$(grep -c '^bootstrap$' "$LC_LOG")" 0
@@ -130,6 +135,22 @@ chk "T6 메인: rc" "$(rc "$o")" 1
 chk "T6 메인: REJECT 1줄" "$(printf '%s\n' "$o" | grep -c '^REJECT bootout 미완(10초) — 되돌림: ')" 1
 chk "T6 메인: bootstrap 0" "$(grep -c '^bootstrap$' "$LC_LOG")" 0
 chk "T6 메인: 15초 안" "$([ "$el" -le 15 ] && echo yes || echo "no(${el}s)")" yes
+
+# ── T7 (DA R1) print 판독 실패(rc1 · 113 아님) → 판정 불가 REJECT 1줄 · bootstrap 0 · rc1 (팀·메인) ──
+lcreset 0; export LC_PRC=1; o="$(team "$TMP/p7" "$TMP/good.plist")"
+chk "T7 팀: rc" "$(rc "$o")" 1
+chk "T7 팀: 판정 불가 REJECT 1줄" "$(printf '%s\n' "$o" | grep -c '^REJECT 판정 불가 — launchctl print rc=1')" 1
+chk "T7 팀: 호출 순서(bootstrap 0)" "$(seq_)" "bootout print"
+lcreset 0; export LC_PRC=1; o="$(main)"
+chk "T7 메인: rc" "$(rc "$o")" 1
+chk "T7 메인: 판정 불가 REJECT 1줄" "$(printf '%s\n' "$o" | grep -c '^REJECT 판정 불가 — launchctl print rc=1')" 1
+chk "T7 메인: bootstrap 0" "$(grep -c '^bootstrap$' "$LC_LOG")" 0
+
+# ── T8 (DA R2) 호출자 예산 = 설치기 전체 예산(마감 10초 + print 1회 + 2초 + bootstrap) ≤ 25초 ──
+ATT="$KBIN/ft_team_attach_ops.py"
+chk "T8 attach kit·bin cmp0" "$(cmp -s "$ATT" "$REPO/harness/bin/ft_team_attach_ops.py" && echo same || echo differ)" same
+chk "T8 attach → 설치기 timeout = 25" "$(grep 'str(installer), "--team"' "$ATT" | sed -n 's/.*timeout=\([0-9]*\).*/\1/p')" 25
+chk "T8 설치기 마감 = 경과 10초 1곳" "$(grep -c 'end=\$((SECONDS + 10))' "$INST")" 1
 
 chk "PATH launchctl(= FT_TICK_LAUNCHCTL 우회) 호출 0" "$(wc -l < "$TMP/shim.log" | tr -d ' ')" 0
 
