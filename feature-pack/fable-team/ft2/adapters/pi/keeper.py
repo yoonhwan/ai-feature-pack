@@ -52,10 +52,12 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
         self.project, self.lines, self.cache = projection.project, [], {}
         self.state = {key: {} for key in ("held", "open", "sent", "handled", "woke", "reassigned")}
         self.stall = _load(os.path.join(HERE, "keeper_stall.py"), "ft2_keeper_stall").Stall(self)   # r1813 S1~S5
-        self.spent, self.sock, self.skip, self.stale = dict.fromkeys(("fetch", "b1", "b2", "b3", "stall"), 0.0), True, set(), set()
+        self.spent, self.sock, self.skip, self.stale = dict.fromkeys(("fetch", "b1", "b2c", "b2f", "b3", "stall"), 0.0), True, set(), set()
+        self.per, self.at = {}, None   # r1969 (팀, 칸) 초 → ROUND slow 칸 · at = 지금 도는 팀(None = 팀 밖)
 
     def call(self, argv, timeout=CALL_S, retry=0):
         """바깥 호출 1곳 → (rc, stdout, stderr 1줄) · 넘침·실행 실패 = rc None · retry = rc≠0 때 다시 부르는 횟수."""
+        self.cache.get("@round", {}).pop("ls", None) if "kill-session" in argv or argv[:1] == [sys.executable] else None   # r1969 세션이 바뀜 = 바퀴 list-sessions 캐시 버림
         for _ in range(retry + 1):
             try:
                 done = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, env=self.env, cwd=self.root)
@@ -161,7 +163,9 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
         try:
             return fn(*args)
         finally:
-            self.spent[stage] += self.now() - at
+            dt = self.now() - at
+            self.spent[stage] += dt
+            self.per[(self.at, stage)] = self.per.get((self.at, stage), 0.0) + dt
 
     def socket_ok(self):
         """r1817 D4 — 기준 소켓(FT2_TMUX_SOCKET · 설치 렌더 고정)과 tmux 가 보는 서버가 같을 때만 닫는다 · 기준 없음 = 셀 손 실행."""
@@ -175,6 +179,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
 
     def _round(self):
         start, self.skip = time.monotonic(), self.skipped()
+        self.cache["@round"] = {}   # r1969 바퀴 캐시(keeper_next.once · 팀 사이 공유 · 다음 바퀴 새로 읽음)
         if self.skip is None:
             return self.log("판정 불가", text="SKIP_TEAMS 판독 실패 — 이 바퀴 B1·B2·B3·B4 0")
         def both(repos=(self.root, self.pack)):   # r1963 두 리포 동시 → fetch 단계 = 느린 쪽 하나 · 낡은 리포 집합은 바퀴마다 새로
@@ -198,12 +203,14 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
         else:   # r1886 ⓒ 60초 안 끝 = 정상 관측
             self.state.pop("cap_next", None)
             self.fa.observe(self.root, "keeper 바퀴", "keeper", int(time.monotonic() - start), ROUND_S)
+        self.at, _ = None, self.cache.pop("@round", None)   # r1969 팀 밖 · 바퀴 캐시 닫음(B3 = 자기 list-sessions 1회 그대로)
         if self.sock:
             self.timed("b3", self.retired)
         self.report()
         s = sum(self.spent.values())
         cells = " ".join("%s=%g" % (key, round(val, 1)) for key, val in self.spent.items())
-        self.log("ROUND", text="s=%g %s%s%s" % (round(s, 1), cells, " OVER" if s > ROUND_S else "", self.skip and " skip=" + ",".join(sorted(self.skip)) or ""))
+        top = max((kv for kv in self.per.items() if kv[0][0]), key=lambda kv: kv[1], default=None)   # r1969 가장 느린 (팀, 칸) 1개
+        self.log("ROUND", text="s=%g %s slow=%s%s%s" % (round(s, 1), cells, "%s:%s:%g" % (top[0] + (round(top[1], 1),)) if top else "-", " OVER" if s > ROUND_S else "", self.skip and " skip=" + ",".join(sorted(self.skip)) or ""))
 
     def teams(self):
         """대상 팀 = ft20-switch/<팀>.json ∪ <팀>.held 가 있고 runtime 이 있는 팀."""
@@ -214,7 +221,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
 
     def team_round(self, team):
         """최신 묶음 = work 마다 최신 dispatch 1줄의 (attempt · holder) (launch.seat 와 같은 규칙 · 옛 intent 로 대신 0)."""
-        proj = self.project(self.root, team)
+        self.at, proj = team, self.project(self.root, team)
         if proj.get("result") != OK:
             return self.log("판정 불가", team, "투영 %s" % proj.get("reason", ""))
         node = projection.journal.Journal(projection.runtime_path(self.root, team), rec=projection.record)
@@ -227,12 +234,12 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
                 continue
             if row.get("done") or self.timed("b1", lambda: self.complete(team, work, attempt, self.landing(team, work))):
                 if self.sock:
-                    self.timed("b2", self.close, team, work, attempt, row, dispatched)
+                    self.timed("b2c", self.close, team, work, attempt, row, dispatched)
             elif self.sock:   # r1817 fix1 R1 — 소켓 실패 바퀴 = 깨움·재배정도 0
                 self.timed("stall", self.stall.check, team, work, attempt, rows)   # r1813 · r1898 ROUND stall 칸 — 진척 0 좌석 깨움 1회 → 재배정
                 self.timed("stall", hold.check, self, team, work, attempt, rows)   # r1931 HOLD 줄 늘면 깨움 1회 · 누적 3 = 인터뷰 길
         if self.sock:   # r1913 — 닫힘이 없어도 빈 나노 칸 1장(팀마다 1회 · gates 재계산)
-            self.timed("b2", closing.keeper_next.fill, self, team)
+            self.timed("b2f", closing.keeper_next.fill, self, team)
 
 
 def main(argv):
