@@ -52,7 +52,7 @@ mkstub mbox   'echo "mbox $1" >> "$LOG"; echo "RING seq=$3 doorbell=sent"; exit 
 : > "$FAKE/mbox_doorbell.sh"
 mkstub reach  'echo reach >> "$LOG"; exit "${REACH_RC:-0}"'
 . "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$TMP/sensors" ok; SENSORS="$TMP/sensors/fake-sensors"; RES="$FT_RES_ROOT"
-printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n본문 나머지\n' > "$BODY"
+printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n본문 나머지\n열린 칸 감시: 없음\n' > "$BODY"
 mkdir -p "$REPO/.fable-team" "$TMP/live-root"; printf '%s\n' "$TMP/live-root" > "$REPO/.fable-team/LIVE_ROOT"
 OLD='byz-t-harness-nano-claude#1'; NEW='byz-t-harness-nano-claude#2'
 # run <에이전트> [추가 인자…] — --ctx 는 호출자가 준 그대로 넘긴다(생략·빈 값 포함)

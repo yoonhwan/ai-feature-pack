@@ -129,8 +129,8 @@ def fallback_table(path: Path) -> dict[str, str]:
     return {base_model(r[0]): r[1].strip() for r in rows if len(r) >= 2}
 
 
-def goal_source(ft: Path, base: str) -> tuple[list[str], str] | None:
-    """r497 계보 최신 도달 파일(state/successor/<베이스>#*.json · reached_at) 의 seq → 발주 본문 첫 3줄(골 원문) + 인계서 줄 · 없으면 None."""
+def goal_source(ft: Path, base: str) -> tuple[list[str], str, str | None] | None:
+    """r497 계보 최신 도달 파일(state/successor/<베이스>#*.json · reached_at) 의 seq → 발주 본문 첫 3줄(골 원문) + 인계서 줄 + r1957 감시 줄(정확히 1줄 원문 · 0·2↑ = None) · 없으면 None."""
     reach: list[tuple[str, float, str]] = []
     for p in (ft / "state" / "successor").glob(glob.escape(base) + "#*.json"):
         try:
@@ -144,7 +144,8 @@ def goal_source(ft: Path, base: str) -> tuple[list[str], str] | None:
     lines = body.read_text(encoding="utf-8").splitlines() if body.is_file() else []
     if len([ln for ln in lines[:3] if ln.strip()]) < 3:
         return None
-    return lines[:3], next((ln.strip() for ln in lines[3:] if "인계서" in ln), "")
+    watch = [ln for ln in lines if ln.startswith("열린 칸 감시: ")]  # r1957 원문 보존(요약·고쳐쓰기 0)
+    return lines[:3], next((ln.strip() for ln in lines[3:] if "인계서" in ln), ""), watch[0] if len(watch) == 1 else None
 
 
 def read_table(path: Path) -> dict[str, object] | None:

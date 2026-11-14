@@ -47,7 +47,7 @@ mkstub reach  'echo reach >> "$LOG"; exit "${REACH_RC:-0}"'
 mkstub ps     'case "$1 $2 $3" in "-o lstart= -p") echo "Thu Jan  1 09:00:00 2026"; exit 0;; esac; exec /bin/ps "$@"'   # r1116c R8: 이어가기 기준 시각 E(pane 첫 자식 lstart) 대역 · 그 밖은 진짜 ps
 # 자원 문지기 격리(R218) — 실 머신 압력·실 pressure.tsv 를 재지 않는다: 공통 가짜 센서 헬퍼(압력 1·에이전트 35 · 임시 FT_RES_ROOT).
 . "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$TMP/sensors" ok; SENSORS="$TMP/sensors/fake-sensors"; RES="$FT_RES_ROOT"
-printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n본문 나머지\n' > "$BODY"
+printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n본문 나머지\n열린 칸 감시: 없음\n' > "$BODY"
 # r1391 — 팀셋·명부·지침 블록 대역: arch 게이트(R342)가 읽는 resroot 명부와 --md 표(«arch 상시» 팀 0)를 임시로 세운다.
 mkdir -p "$RES/design"; printf '# TEAMS\n\n| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| t | `design/t/` | byz-t-master-claude | 현역 |\n' > "$RES/design/TEAMS.md"
 printf '{"byz-t-master-claude":{"role":"master","model":"m"},"byz-t-old-claude#1":{"role":"master","model":"m"},"byz-t-new-claude#2":{"role":"master","model":"m"}}\n' > "$RES/.fable-team/seats-t.json"
@@ -284,9 +284,9 @@ GUIDE_LINE='- **desk 좌석(판정 1779 · R205)**: desk 는 인터뷰·응대·
 printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| planner | `design/teams/planner/` | p | 현역 |\n' > "$REPO/design/TEAMS.md"   # r688: 안내서 폴더 = 명단(origin/main) planner 칸
 git -C "$REPO" add -A && git -C "$REPO" -c user.name=t -c user.email=t@t commit -q -m 'guide-planner 27줄'
 git -C "$REPO" update-ref refs/remotes/origin/main HEAD
-printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n%s\n' "$GUIDE_LINE" > "$TMP/desk_ok.txt"
-printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n인계: 오빠 응대 이어받아라\n' > "$TMP/desk_noguide.txt"
-printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n%s\n팀에는 이렇게 보낸다: send byz-harness-master-claude#92 "[발주] 이거 해라"\n' "$GUIDE_LINE" > "$TMP/desk_direct.txt"
+printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n%s\n열린 칸 감시: 없음\n' "$GUIDE_LINE" > "$TMP/desk_ok.txt"
+printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n인계: 오빠 응대 이어받아라\n열린 칸 감시: 없음\n' > "$TMP/desk_noguide.txt"
+printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n%s\n팀에는 이렇게 보낸다: send byz-harness-master-claude#92 "[발주] 이거 해라"\n열린 칸 감시: 없음\n' "$GUIDE_LINE" > "$TMP/desk_direct.txt"
 DESK_OLD='byz-planner-desk-claude#38'; DESK_NEW='byz-planner-desk-claude#39'
 OLD="$DESK_OLD"; NEW="$DESK_NEW"; BODY_USE="$TMP/desk_noguide.txt"; run SEND_RC=0
 { [ "$RC" -ne 0 ] && grep -q 'REJECT desk 승계 본문' "$TMP/out" && grep -q '27줄 원문 구절이 없다' "$TMP/out" \
@@ -296,7 +296,7 @@ BODY_USE="$TMP/desk_direct.txt"; run SEND_RC=0
 { [ "$RC" -ne 0 ] && grep -q '팀 직발 예시가 있다' "$TMP/out" && grep -q 'byz-harness-master-claude#92' "$TMP/out" \
   && [ "$(count tmuxc)" = 0 ] && [ "$(count send)" = 0 ]; } \
   && ok "ⓣ r660 desk 본문에 팀 직발 예시 → 열기 전 REJECT · open·송신 0" || bad "ⓣ 직발 rc=$RC out=$(cat "$TMP/out")"
-printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n%s\n팀에는 이렇게 보낸다: relay '\''byz-harness-master-claude#92'\'' /tmp/x "[발주] 이거 해라"\n' "$GUIDE_LINE" > "$TMP/desk_direct_q.txt"
+printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n%s\n팀에는 이렇게 보낸다: relay '\''byz-harness-master-claude#92'\'' /tmp/x "[발주] 이거 해라"\n열린 칸 감시: 없음\n' "$GUIDE_LINE" > "$TMP/desk_direct_q.txt"
 BODY_USE="$TMP/desk_direct_q.txt"; run SEND_RC=0
 { [ "$RC" -ne 0 ] && grep -q '팀 직발 예시가 있다' "$TMP/out" && grep -q 'byz-harness-master-claude#92' "$TMP/out" \
   && [ "$(count tmuxc)" = 0 ] && [ "$(count send)" = 0 ]; } \

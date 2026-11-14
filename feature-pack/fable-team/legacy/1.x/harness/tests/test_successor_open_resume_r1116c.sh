@@ -28,7 +28,7 @@ mkstub reach 'echo "reach $2 argc=$#" >> "$LOG"; exit "${REACH_RC:-4}"'
 mkstub ps 'case "$1 $2 $3" in "-o lstart= -p") [ -n "${LSTART:-}" ] && echo "$LSTART"; exit 0;; esac; exec /bin/ps "$@"'
 mkstub retire 'echo "retire $1 $2 $(pwd -P)" >> "$LOG"; [ "${RETIRE_RC:-0}" = 0 ] && echo "RETIRED $1 -> $2" || echo "REJECT 승계 전 쪽지 마무리(r1116 ③ · 쓰기 0 · rc 4) — 미표시 3건"; exit "${RETIRE_RC:-0}"'
 . "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$TMP/sensors" ok; SENSORS="$TMP/sensors/fake-sensors"; RES="$FT_RES_ROOT"
-printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n본문\n' > "$BODY"
+printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n본문\n열린 칸 감시: 없음\n' > "$BODY"
 JDIR="$TMP/home/.claude/projects/$(printf '%s' "$REPO" | LC_ALL=C sed 's|[^A-Za-z0-9]|-|g')"
 world() {   # world jsonl|mail|none|badjdir [old] — 후계 기록·발신 쪽지 상태 · old = 앞 생명(E 전) 시각(R8)
   local jt=2026-10-29T09:05:00.000Z mt=2026-10-29T18:05:00; [ "${2:-}" = old ] && { jt=2026-10-29T08:55:00.000Z; mt=2026-10-29T17:55:00; }

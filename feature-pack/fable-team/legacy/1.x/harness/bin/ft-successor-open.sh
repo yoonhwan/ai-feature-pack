@@ -205,6 +205,15 @@ SO_FIRST="$(grep -m1 '[^[:space:]]' "$BODY" 2>/dev/null | sed -E 's/^[[:space:]]
 case "$SO_FIRST" in
   "[인계]"*|"[레디]"*) echo "REJECT 본문 첫 줄 머리 [인계]·[레디] 금지 — 개설 발주는 [승계 발주] 머리로: $BODY"; exit 1;;
 esac
+# ⓐ-3 (r1957) «열린 칸 감시: » 줄 — 정확히 1줄 · 빈 값 0 · ≤160자(앞 좌석이 지켜보던 칸이 승계에서 사라지지 않게 · 부작용 전) · 조립은 ⓓ(기억 로드 줄 바로 다음)
+WATCH="$(python3 - "$BODY" <<'PYWATCH'
+import sys
+w = [l for l in open(sys.argv[1], encoding="utf-8").read().splitlines() if l.startswith("열린 칸 감시: ")]
+if len(w) != 1 or not w[0][len("열린 칸 감시: "):].strip() or len(w[0]) > 160:
+    print(f'REJECT 열린 칸 감시 줄 필요(없으면 "열린 칸 감시: 없음") — 지금 {len(w)}줄 · 정확히 1줄 · 빈 값 0 · ≤160자 · 인계서를 --body-file 로 그대로 줄 때도 본문에 «열린 칸 감시:» 1줄'); sys.exit(1)
+print(w[0])
+PYWATCH
+)" || { printf '%s\n' "$WATCH"; exit 1; }
 # ⓐ-1 (r1391) 승계 본문 첫머리 지침 블록 — 정본 governance 에서 표식 블록을 «개설 전» 에 읽는다(desk 는 §11-6 블록).
 #   표식이 없거나 여러 개거나 300자 초과면 그 자리에서 REJECT rc1 = 세션 개설 0(이 도구의 fail-closed 꼴 그대로 · 본문 받은 뒤 거절되는 후계 0).
 #   본문 조립은 ⓓ — 골 3줄 다음에 이 블록을 넣는다(블록 본문은 한 곳 = governance · 이 파일은 복사만).
@@ -444,7 +453,7 @@ so_send_ready || so_budget_stop "검증 송신(송신·도달 예산 ${SEND_RESE
 # ★r1037 이월 1★: 알림줄 꼬리(r1036 · FT_DOORBELL_TAIL)를 «송신과 링 재시도 둘 다»에 켠다 — 낱말은 본문에 싣지 않는다(본문은 도구 결과라 효과가 불확실하고 둘째 경로로 샌다).
 # r1443: 승계 좌석도 부팅 1회 기억 로드를 받는다(BLOCK 300자 상한은 건드리지 않고 별도 1줄로 붙인다)
 LESSONS_LINE="좌석 기억(1회 로드)= FT_SEAT_NAME=$NAME FT_TEAM=${FT_TEAM:-} bash .fable-team/bin/ft-lessons.sh snapshot — 팀·좌석 LESSONS ≤2KB(세션 중 add 는 파일에만 · 다음 부팅 반영)."
-SEND_TEXT="$( { sed -n '1,3p' "$BODY"; printf '%s\n' "$BLOCK"; printf '%s\n' "$LESSONS_LINE"; sed -n -E '4,${/^(목적 0 =|크론 0|배정표 |좌석 기억\(1회 로드\)=|승계 이월 )/d;p;}' "$BODY"; } )"  # r1391/r1443 — 골 3줄 + 지침 블록 + 기억 로드 1줄 + 본문 4행~ · r1863 4행~ 의 지침 머리 5개 줄은 뺀다(도구 줄이 정본)
+SEND_TEXT="$( { sed -n '1,3p' "$BODY"; printf '%s\n' "$BLOCK"; printf '%s\n' "$LESSONS_LINE"; printf '%s\n' "$WATCH"; sed -n -E '4,${/^(목적 0 =|크론 0|배정표 |좌석 기억\(1회 로드\)=|승계 이월 |열린 칸 감시: )/d;p;}' "$BODY"; } )"  # r1391/r1443 — 골 3줄 + 지침 블록 + 기억 로드 1줄 + 본문 4행~ · r1863 4행~ 의 지침 머리 5개 줄은 뺀다(도구 줄이 정본) · r1957 감시 줄 = 기억 로드 바로 다음(4행~ 에서는 뺀다)
 if [ "${NAME#*-master-}" != "$NAME" ]; then
   if [ "$CARRY" = 1 ]; then
     SEND_TEXT="$SEND_TEXT"$'\n'"승계 이월 1: 앞 세션의 확대 사고를 이어 받는다. 문제가 풀리면 다음 승계에서 이월 0."
