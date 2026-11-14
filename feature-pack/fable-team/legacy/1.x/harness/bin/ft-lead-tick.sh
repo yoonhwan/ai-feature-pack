@@ -86,10 +86,14 @@ fi
 # ③ 나노·DA 좌석 상태 — 명부 행 × ft-seat-status(tmux 생존 · jsonl 나이)
 #   ft-seat-status 의 seats() 는 tmux 실패를 2>/dev/null 로 삼켜 rc0 [] 를 낸다(DA #304580 B2) → 같은 tmux 를 먼저 확인한다(하드 룰 20)
 IDLE="미상"; IDLE_HEAD=""
-SNAME="좌석 상태(tmux)"; X $TMUX list-sessions -F '#{session_name}' >/dev/null 2>&1; rc=$?
+#   리드가 tmux list-sessions 1회(7초 · 재시도 0): «no server running» = 살아 있는 좌석 0 정상 · 그 밖 rc≠0 = 판정 불가
+#   status 에 명부 좌석 0 인데 tmux 목록에 명부 nano·da 가 있으면 모순 = 판정 불가(은폐 2중 막기 · 보정 R1)
+SNAME="좌석 상태(tmux)"; TL="$(X $TMUX list-sessions -F '#{session_name}' 2>&1)"; rc=$?
+if [ "$rc" -ne 0 ] && printf '%s' "$TL" | grep -q 'no server running'; then TL=""; rc=0; fi
 if [ "$rc" -eq 0 ]; then SNAME="좌석 상태"; st="$(cd "$ROOT" && FT_SEATS_JSON="$ROSTER" X bash "$STATUS" list "^$PREFIX" --json 2>/dev/null)"; rc=$?; fi
 if [ "$rc" -ne 0 ]; then fail_line "$SNAME" "$rc"; else
-  sl="$(printf '%s' "$st" | python3 -c '
+  sl="$(printf '%s' "$st" | TL="$TL" python3 -c '
+import os
 import json, sys
 roster, idle_sec = json.load(open(sys.argv[1], encoding="utf-8")), int(sys.argv[2])
 want = {k: v.get("role") for k, v in roster.items() if not k.startswith("_") and isinstance(v, dict)
@@ -103,11 +107,14 @@ for r in rows if isinstance(rows, list) else []:
     live[want[s]] += 1
     a = r.get("jsonl_age")
     if r.get("pane") == "IDLE" and isinstance(a, int) and a >= idle_sec: idle.append((a, s))
+tl = [s for s in os.environ.get("TL", "").splitlines() if s in want]
+if live["nano"] + live["da"] == 0 and tl:
+    print("좌석 상태(모순: tmux 명부 좌석 %d · status 0)" % len(tl)); sys.exit(5)
 idle.sort(reverse=True)
 print("좌석 nano %d · da %d · 유휴(20분+) %d" % (live["nano"], live["da"], len(idle)))
 for a, s in idle[:3]: print("  유휴 %s %d분" % (s, a // 60))
 ' "$ROSTER" "$IDLE_SEC")"; rc=$?
-  if [ "$rc" -ne 0 ]; then fail_line "좌석 상태" "$rc"; else
+  if [ "$rc" -ne 0 ]; then fail_line "$(printf '%s\n' "$sl" | grep -m1 '^좌석 상태(모순' || echo 좌석 상태)" "$rc"; else
     while IFS= read -r l; do [ -n "$l" ] && o "$l"; done <<< "$sl"
     IDLE="$(printf '%s\n' "$sl" | sed -n '1s/.*유휴(20분+) \([0-9]*\)$/\1/p')"; DEC=$((DEC+IDLE))
     IDLE_HEAD="$(printf '%s\n' "$sl" | sed -n '2s/^  //p')"
