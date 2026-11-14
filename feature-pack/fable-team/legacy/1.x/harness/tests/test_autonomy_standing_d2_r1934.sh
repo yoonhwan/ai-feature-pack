@@ -83,8 +83,8 @@ BS="$SC_PR"; crt --critical-profile x; [ "$rc" = 1 ] && has '^ERROR '; ck "⑤ -
 # ══ 끝까지 — standing-approve D2(byz) · ③ billing PASS 줄 · ④ 카드 시험 세트 · ⑤ 파괴 대상 확인 줄
 BL='과금: 금액 계산 불변 · 잔액/원장 쓰기 0 — PASS'
 nlog() { grep -c . "$LOG" 2>/dev/null || true; }
-card() { CARD="$B/card.md"; printf '# 카드\n\n## 상태\n- 세트: %s · 시험: bash tests/x.sh rc=0 · 이슈: %s\n' "$1" "${2:-0}" > "$CARD"
-  git -C "$B" update-ref refs/remotes/origin/ops/main-base "$(git -C "$B" commit-tree "$(printf '100644 blob %s\t%s\n' "$(git -C "$B" hash-object -w "$CARD")" card.md | git -C "$B" mktree)" -m card)"; }
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/card_ref_fixture.sh"; card() { CARD="$(fx_card_path "$B" card.md)"; printf '# 카드\n\n## 상태\n- 세트: %s · 시험: bash tests/x.sh rc=0 · 이슈: %s\n' "$1" "${2:-0}" > "$CARD"
+  fx_card_pub "$B" "$CARD"; }   # r1951: 팀 카드 꼴 + 표 harness 행
 mkda() {  # mkda <이름> <A> [마지막 블록 줄…] — DAPRE 가 있으면 그 줄을 앞 codex 블록에
   DAO="$T/da/$1.out"; { [ -z "${DAPRE:-}" ] || printf 'codex\n판정: APPROVE\n%s\n\n' "$DAPRE"; printf 'codex\n판정: APPROVE\n\n근거\n'; printf '%s\n' "${@:3}"; printf '\n판정: APPROVE\n'; } > "$DAO"
   printf 'head=%s model=gpt-6.1-sol effort=high rc=0 start=1 end=2\n' "$2" > "$DAO.meta"; }

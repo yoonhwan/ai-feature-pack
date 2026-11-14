@@ -13,12 +13,17 @@ scope_code_tool() {  # <도구> <인자…> → OUT·RC·FIRST (7초 상한 — 
 
 scope_gcd() { local d; d="$(git -C "$1" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" && [ -n "$d" ] && (cd "$d" && pwd -P); }  # <폴더> → 실경로 git-common-dir (git 밖 = rc≠0)
 
-scope_card_snapshot() {  # <카드> → CODE_CARD = 원장 고정 ref 커밋 판 임시 사본 (r1904 · 원장 = ROOT 의 git-common-dir 고정 · env override 0 · fetch 0)
-  local card="$1" led dir ref
+scope_card_snapshot() {  # <카드> → CODE_CARD = 팀 카드 ref 커밋 판 임시 사본 (r1904 · 원장 = ROOT 의 git-common-dir 고정 · env override 0 · fetch 0)
+  local card="$1" led dir ref p tm tsv rf   # r1951: ref = 원장 부모의 카드 루트 표 그 팀 행 → «*» 행 3칸(ft_card_ref 와 같은 행 규칙 · FT_CARD_REF 안 읽음)
   led="$(scope_gcd "$ROOT")" || scope_err "카드 출처 판정 불가 — ROOT 원장 git 조회 실패: $ROOT"
   dir="$(dirname -- "$card")"
   [ "$(scope_gcd "$dir")" = "$led" ] || scope_err "카드 출처 아님(원장 밖 경로): $card"
-  ref="origin/ops/main-base:$(git -C "$dir" rev-parse --show-prefix)$(basename -- "$card")"
+  p="$(git -C "$dir" rev-parse --show-prefix)$(basename -- "$card")"
+  [[ "$p" =~ ^design/(teams/)?([^/]+)/indices/ ]] || scope_err "카드 출처 판정 불가(팀 꼴 아님 · design/[teams/]<팀>/indices/…): $card"
+  tm="${BASH_REMATCH[2]}"; tsv="$(dirname -- "$led")/.fable-team/state/directive-roots.tsv"   # 쌍둥이 design/teams/<팀> ↔ design/<팀> = 같은 팀 행
+  rf="$(awk -F'\t' -v t="$tm" '$1==t{print $3;f=1;exit} $1=="*"&&!w{w=$3} END{if(!f)print w}' "$tsv" 2>/dev/null)"
+  git --git-dir="$led" rev-parse -q --verify "$rf^{commit}" >/dev/null 2>&1 || scope_err "카드 출처 판정 불가 — 표/ref($tm → ${rf:-행·표 없음}): $tsv"
+  ref="$rf:$p"
   git --git-dir="$led" cat-file -e "$ref" 2>/dev/null || scope_err "카드 출처 아님(커밋 판 없음 · $ref): $card"
   git --git-dir="$led" show "$ref" | cmp -s - "$card" || scope_err "카드 손 수정(커밋 판과 다름 · $ref): $card"
   CODE_CARD="$(mktemp "${TMPDIR:-/tmp}/ft-scope-card.XXXXXX")" && git --git-dir="$led" show "$ref" > "$CODE_CARD" || scope_err "카드 커밋 판 사본 실패: $ref"
