@@ -45,15 +45,16 @@ def _keep(frm, body):
 
 
 def fold(d, rows, to, frm, body):
-    """ⓒ 중복 접기 — 같은 받는 이(역할 키)·같은 보낸 이·같은 본문 지문이 «아직 안 읽힌 채» 큐에 있으면 새 행 대신 그 행 dup+1.
+    """ⓒ 중복 접기 — 같은 받는 이(이름 그대로)·같은 보낸 이·같은 본문 지문이 «아직 안 읽힌 채» 큐에 있으면 새 행 대신 그 행 dup+1.
 
     호출자가 mailbox.lock 을 쥐고 있다(send op 안 · 가드 판정 뒤). 접으면 큐를 저장하고 출력 1줄을 돌려준다 · 아니면 None.
-    ★보낸 이도 같아야 접는다★ — 다른 좌석이 같은 글을 보냈다는 사실은 버리지 않는다."""
+    ★보낸 이도 같아야 접는다★ — 다른 좌석이 같은 글을 보냈다는 사실은 버리지 않는다.
+    ★역할 키로 접지 않는다★(DA#10 HOLD R1) — 같은 역할 현역 둘(arch#1·#2)은 r1225 로 따로 받는다. 다른 이름 행에 접으면 둘째가 못 받는다."""
     if _keep(frm, body):
         return None
-    fp, key = fingerprint(body), role_key(to)
+    fp = fingerprint(body)
     for r in rows:
-        if role_key(r.get("to")) == key and r.get("from") == frm and fingerprint(r.get("body")) == fp:
+        if r.get("to") == to and r.get("from") == frm and fingerprint(r.get("body")) == fp:
             r["dup"] = int(r.get("dup") or 0) + 1
             _save(d, rows)
             return "QUEUED-DUP seq=%d dup=%d to=%s" % (r["seq"], r["dup"], to)

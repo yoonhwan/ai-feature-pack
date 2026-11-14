@@ -2,11 +2,11 @@
 # test_mbox_compact_dedupe_r1661.sh — r1661 단계 1: 받는 이 검사(ⓐ) · 큐 정리 = 보관 이동(ⓑ) · 중복 접기(ⓒ) · 수치(ⓓ).
 #   ⓐ `--urgent` 받는 이 = REJECT rc2 1줄 · 큐 0 / 명부가 있으면 접두 없는 이름·안 풀리는 이름 거절 · 역할 이름은 통과
 #   ⓑ 세션 없음 ∧ 계보 끝 세션 없음 ∧ 14일 = 보관 파일로 이동 · 계보 끝 생존·최근·생존 좌석 행은 그대로 · tmux 실패 = 이동 0
-#   ⓒ 같은 받는 이·보낸 이·본문 지문(골 표 뺀) = QUEUED-DUP seq=<원래> dup=N · [HIL]·오빠 머리는 안 접음
+#   ⓒ 같은 받는 이·보낸 이·본문 지문(골 표 뺀) = QUEUED-DUP seq=<원래> dup=N · [HIL]·오빠·[인계]·[레디] 머리는 안 접음
 #   ⓓ 실측 꼴 tmp 큐(행 400 · 받는 이 200) 정리 뒤 큐 행 수 ≤ 살아 있는 계보 행 수 · recv(빈 함) ≤ 0.3초
-# 변이(사본에만): M1 계보 끝 생존 검사 삭제 → ⓑ 빨강 · M2 [HIL] 예외 삭제 → ⓒ 빨강
-# 정본 .py 를 임시 폴더에 복사해 돈다 — 실 큐·실 tmux 0(tmux = PATH 스텁).
-set -uo pipefail
+#   R1(DA#10 HOLD) 같은 역할 현역 둘(arch#1·#2 · _replaces [])에 같은 본문 = 둘 다 새 행 · #2 recv 가 읽는다(r1225)
+# 변이(사본에만): M1 계보 끝 생존 검사 삭제 → ⓑ 빨강 · M2 [HIL] 예외 삭제 → ⓒ 빨강 · M3 역할 키로 접기 → R1 빨강
+set -uo pipefail   # 정본 .py 를 임시 폴더에 복사해 돈다 — 실 큐·실 tmux 0(tmux = PATH 스텁)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; REPO="$HERE/../.."
 SRC="$REPO/harness/comm"; T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0; ok() { echo "PASS $1"; }; bad() { echo "FAIL $1"; fail=$((fail+1)); }
@@ -29,6 +29,7 @@ seed() {   # seed <seq> <to> [ts] — 큐에 행 1개를 바로 쓴다(시험 �
 }
 
 mut_m1() { sed -i '' 's/^        if memo\[to\] in live:$/        if False:/' "$C/mbox_compact.py"; grep -q '^        if False:$' "$C/mbox_compact.py"; }
+mut_m3() { sed -i '' 's/^        if r.get("to") == to and/        if role_key(r.get("to")) == role_key(to) and/' "$C/mbox_compact.py"; grep -q '^        if role_key(r.get' "$C/mbox_compact.py"; }
 mut_m2() { sed -i '' 's/^    if _keep(frm, body):$/    if False:/' "$C/mbox_compact.py"; grep -q '^    if False:$' "$C/mbox_compact.py"; }
 
 a() {
@@ -43,21 +44,17 @@ a() {
 }
 
 b() {
-  new_env
-  echo "byz-x-arch-pi#5" >> "$ENVROOT/sessions"
+  new_env; echo "byz-x-arch-pi#5" >> "$ENVROOT/sessions"
   seed 1601 byz-x-dead-pi#3                        # 이동
   seed 1602 byz-x-old                              # 계보 끝(arch#5) 생존 → 남음
   seed 1603 byz-x-dead-pi#3 "$(date +%Y-%m-%dT%H:%M:%S)"   # 최근 → 남음
   seed 1604 "$M"                                   # 생존 좌석 → 남음
-  echo 1700 > "$C/.mbox-seq"
-  send "$M" byz-x-nano-a#0 "정리 계기"
+  echo 1700 > "$C/.mbox-seq"; send "$M" byz-x-nano-a#0 "정리 계기"
   local ar; ar="$(cat "$C"/mailbox.archive-*.jsonl 2>/dev/null)"; if [ "$RC" = 0 ] && grep -q '"seq": 1601' <<<"$ar" && [ "$(grep -c . <<<"$ar")" = 1 ] && ! grep -q '"seq": 1601' "$Q" \
      && [ "$(rows)" = 4 ] && grep -q '^ARCHIVED 1 rows' "$ENVROOT/err"; then :; else bad "ⓑ rc=$RC ar=[$ar] rows=$(rows) err=$(tr '\n' ' ' < "$ENVROOT/err")"; return 1; fi
-  new_env; seed 1601 byz-x-dead-pi#3; echo 1700 > "$C/.mbox-seq"; : > "$ENVROOT/tmux-fail"
-  send "$M" byz-x-nano-a#0 "정리 계기"
+  new_env; seed 1601 byz-x-dead-pi#3; echo 1700 > "$C/.mbox-seq"; : > "$ENVROOT/tmux-fail"; send "$M" byz-x-nano-a#0 "정리 계기"
   if [ "$RC" = 0 ] && grep -q '"seq": 1601' "$Q" && ! ls "$C"/mailbox.archive-* >/dev/null 2>&1 && grep -q '^NOTE 큐 정리 판정 불가' "$ENVROOT/err"; then
-    ok "ⓑ 죽은 행 1개만 보관 이동 · 계보 끝 생존·최근·생존 좌석 남음 · tmux 실패 = 이동 0 + NOTE 1줄"; return 0
-  fi
+    ok "ⓑ 죽은 행 1개만 보관 이동 · 계보 끝 생존·최근·생존 좌석 남음 · tmux 실패 = 이동 0 + NOTE 1줄"; return 0; fi
   bad "ⓑ tmux-fail rc=$RC rows=$(rows) err=$(tr '\n' ' ' < "$ENVROOT/err")"; return 1
 }
 
@@ -65,17 +62,22 @@ c() {
   new_env; : > "$C/.queue-swept"
   local G1 G2; G1=$'★골 표 A6 (판본 1)★\n| a | b |\n★/골 표★'; G2=$'★골 표 A6 (판본 2)★\n| c | d |\n★/골 표★'
   send "$M" byz-x-nano-a#0 $'[완료] 같은 보고\n'"$G1"; local s1; s1="$(grep -oE 'seq=[0-9]+' "$ENVROOT/out" | cut -d= -f2)"
-  send "$M" byz-x-nano-a#0 $'[완료] 같은 보고\n'"$G2"; local o2; o2="$(cat "$ENVROOT/out")"
-  send "$M" byz-x-nano-a#0 $'[완료] 같은 보고\n'"$G1"; local o3; o3="$(cat "$ENVROOT/out")"
+  send "$M" byz-x-nano-a#0 $'[완료] 같은 보고\n'"$G2"; local o2 o3; o2="$(cat "$ENVROOT/out")"; send "$M" byz-x-nano-a#0 $'[완료] 같은 보고\n'"$G1"; o3="$(cat "$ENVROOT/out")"
   send "$M" byz-x-nano-b#0 $'[완료] 같은 보고\n'"$G1"   # 다른 보낸 이 = 새 행
-  for b in "[HIL] 승인 필요" "[HIL] 승인 필요" "[요청·오빠 지시] 같은 글" "[요청·오빠 지시] 같은 글"; do send "$M" byz-x-nano-a#0 "$b"; done
-  if [ "$o2" = "QUEUED-DUP seq=$s1 dup=1 to=$M" ] && [ "$o3" = "QUEUED-DUP seq=$s1 dup=2 to=$M" ] && [ "$(rows)" = 6 ] \
-     && grep -q "\"seq\": $s1,.*\"dup\": 2" "$Q" && [ "$(grep -c '\[HIL\] 승인 필요' "$Q")" = 2 ]; then
-    ok "ⓒ 골 표만 다른 같은 본문 = QUEUED-DUP seq=$s1 dup=1·2 · 다른 보낸 이·[HIL]·오빠 지시는 새 행(큐 6)"; return 0
-  fi
+  for b in "[HIL] 승인 필요" "[HIL] 승인 필요" "[요청·오빠 지시] 같은 글" "[요청·오빠 지시] 같은 글" "[인계] 같은 글" "[인계] 같은 글" "[레디] 같은 글" "[레디] 같은 글"; do send "$M" byz-x-nano-a#0 "$b"; done
+  if [ "$o2" = "QUEUED-DUP seq=$s1 dup=1 to=$M" ] && [ "$o3" = "QUEUED-DUP seq=$s1 dup=2 to=$M" ] && [ "$(rows)" = 10 ] \
+     && grep -q "\"seq\": $s1,.*\"dup\": 2" "$Q" && [ "$(grep -c '\[HIL\] 승인 필요' "$Q")" = 2 ] && [ "$(grep -c '\[레디\] 같은 글' "$Q")" = 2 ]; then
+    ok "ⓒ 골 표만 다른 같은 본문 = QUEUED-DUP seq=$s1 dup=1·2 · 다른 보낸 이·[HIL]·오빠 지시·[인계]·[레디]는 새 행(큐 10)"; return 0; fi
   bad "ⓒ o2=[$o2] o3=[$o3] rows=$(rows)"; return 1
 }
-
+r1() {   # DA#10 HOLD R1 반례 — 다른 현역 수신자는 섞지 않는다
+  new_env; : > "$C/.queue-swept"; local A=byz-x-arch-pi#1 B=byz-x-arch-pi#2
+  printf '{"%s": {"role": "arch", "_replaces": []}, "%s": {"role": "arch", "_replaces": []}}\n' "$A" "$B" > "$S/seats-x.json"
+  send "$A" byz-x-nano-r#0 "[완료] 같은 보고"; send "$B" byz-x-nano-r#0 "[완료] 같은 보고"; local o2; o2="$(cat "$ENVROOT/out")"
+  py recv "$B" > "$ENVROOT/recv" 2>/dev/null
+  if [ "${o2#QUEUED seq=}" != "$o2" ] && grep -q "^READ \[byz-x-nano-r#0->$B\] .*같은 보고" "$ENVROOT/recv"; then ok "R1 같은 역할 현역 둘 = 둘 다 새 행 · #2 recv 가 읽음"; return 0; fi
+  bad "R1 o2=[$o2] recv=$(tr '\n' ' ' < "$ENVROOT/recv")"; return 1
+}
 d() {
   new_env
   python3 - "$Q" "$ENVROOT/sessions" "$S/seats-x.json" <<'SEED'
@@ -107,9 +109,9 @@ TIME
   bad "ⓓ after=$after recv=${t}s"; return 1
 }
 
-e=$(date +%s); a; b; c; d; echo "RUN 사례 $(( $(date +%s) - e ))초"
+e=$(date +%s); a; b; c; r1; d; echo "RUN 사례 $(( $(date +%s) - e ))초"
 echo "--- 변이 대조(빨강이어야 정상)"
-for m in mut_m1:b mut_m2:c; do   # 변이:사례
+for m in mut_m1:b mut_m2:c mut_m3:r1; do   # 변이:사례
   rc=0; ( MUT=${m%:*}; ${m#*:} ) >/dev/null 2>&1 || rc=$?; m=${m%:*}
   if [ "$rc" != 0 ]; then echo "RED-OK $m"; else echo "RED-MISS $m"; fail=$((fail+1)); fi
 done
