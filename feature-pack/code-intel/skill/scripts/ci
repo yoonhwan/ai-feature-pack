@@ -287,7 +287,6 @@ case "$cmd" in
       [ -n "$loc" ] || loc="stderr 없음"
       dl="$(wc -l < "$out1" 2>/dev/null | tr -d ' ')"; [ -n "$dl" ] || dl=0
       if [ -n "${orq}" ] && [ -f "${out2:-}" ]; then dl=$((dl + $(wc -l < "$out2" | tr -d ' '))); fi
-      echo "[warn] probe panic rc=$panic_rc ($loc) → rg 폴백 · 부분 출력 ${dl}줄 버림" >&2
       # T6: rg 는 probe 의 시험 판정을 흉내 내지 않는다 — --no-tests 였음을 경고 1줄로 밝힌다.
       [ "${_SE_ALLOW_TESTS:-1}" = "1" ] || echo "[warn] rg 폴백은 시험 파일을 가르지 않는다" >&2
 
@@ -314,6 +313,7 @@ case "$cmd" in
         echo "판정 불가 ci search: probe panic rc=$panic_rc · rg 폴백 실패($failwhy)" >&2
         exit 3
       fi
+      echo "[warn] probe 출력 panic rc=$panic_rc ($loc) → rg 폴백 · 글자 일치 결과 전부 · probe 순위 출력 ${dl}줄은 버림(잘린 줄 섞기 0) · ci 결함 아님" >&2   # r1991 — rg 성공 뒤에만(③ 판정 불가 갈래에 «결함 아님» 0)
       echo "== rg 폴백 (probe panic rc=$panic_rc) =="
       if [ "$rgrc" -eq 1 ]; then
         echo "(0건)"; rc=1

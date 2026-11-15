@@ -302,8 +302,19 @@ def _open_work(seat):   # r1539 — 받을 일 0 이면 False · 있으면 True 
     sys.stderr.write((p.stderr.strip().splitlines() or ["받을 일 판정 불가 — 지금처럼 [인계] 요구"])[0] + "\n"); return None
 
 
+def _ready_wait(h):
+    """r2080 B1 — [인계] ts 나이(초)가 FT_HANDOVER_READY_WAIT_S(기본 600) 안(나이 < 창)이면 (나이, 창) · 창 밖·창 0 = None · ts 없음·꼴 틀림·미래 = None(지금처럼 REJECT). 시계 = FT_NOW(시험)."""
+    v = os.environ.get("FT_HANDOVER_READY_WAIT_S") or ""
+    s = int(v) if v.isdigit() else 600
+    try:
+        age = float(os.environ.get("FT_NOW") or time.time()) - time.mktime(time.strptime(str(h.get("ts"))[:19], "%Y-%m-%dT%H:%M:%S"))
+    except (ValueError, TypeError, OverflowError):
+        return None   # ts 없음·꼴 틀림 = 판정 불가 → REJECT 그대로
+    return (int(age), s) if 0 <= age < s else None   # 창 0 = 끔(지금처럼 바로 REJECT)
+
+
 def close_check(seat, need_ready=True, verdict=False):
-    """rc 0 = 닫아도 됨 · 3 = 거절(사유 줄) — ③ 미표시 영수 · ② 후계가 있으면 [인계] 뒤 후계 [레디] 가 항목 전부 «받음».
+    """rc 0 = 닫아도 됨 · 3 = 거절(사유 줄) · 4 = 승계 창 안 [레디] 기다림(r2080 · WAIT 줄) — ③ 미표시 영수 · ② 후계가 있으면 [인계] 뒤 후계 [레디] 가 항목 전부 «받음».
     need_ready=False(retire 관문) = ③ 만 · True(닫기 관문) = 후계 있는 옛 세션만 ③+② — 후계 없는 닫기(나노·판정 닫기)는 승계 검사 대상 아님.
     verdict=True(--verdict · 사람 판정 1건) = 후계가 있으면 ②③ 면제 — 판정 번호의 원장 실재는 ft-seat-close.sh 가 본다(r1481)."""
     # ★r1476 — 억제된 doorbell 이 남은 채 닫으면 그 쪽지는 영영 안 깨운다★ (닫는 사건 = 후속 doorbell 뒤 파일 삭제).
@@ -345,6 +356,10 @@ def close_check(seat, need_ready=True, verdict=False):
     hit = [r for r in _sent() if r.get("seq", 0) > after and _head(r.get("body")) == "[레디]" and r.get("from") != seat
            and r.get("from") == succ and r.get("to") == seat]   # r1493 후계 = 명부 사슬 끝 «정확 일치»(개명 승계도 닫힌다 · 같은 역할 키 비후계 [레디] 는 안 센다)
     if not hit:
+        last = max(gs, key=lambda h: h.get("seq", 0))
+        w = _ready_wait(last)
+        if w:   # r2080 B1 — 승계 창 안 = 거절이 아니라 기다림(rc 4 · 닫는 조건은 그대로 · 경보 시점만 창 뒤로)
+            print("WAIT %s [인계] #%s 뒤 후계 [레디] 기다림(%d초 · 창 %d초) — 후계가 bash mbox.sh ready %s %s" % (seat, last["seq"], w[0], w[1], succ, seat)); return 4
         print("REJECT %s [인계] #%s 뒤 후계 [레디] 없음(회신 0 = 안 닫음) — 후계가 bash mbox.sh ready %s %s (pane 입력은 세지 않음)" % (seat, seqs, succ, seat)); return 3
     got = "\n".join(r.get("body", "") for r in hit)
     miss = [i for i in ids if "%s 받음" % i not in got]
