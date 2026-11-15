@@ -129,6 +129,13 @@ def replace_ok(repo, spec, s):
     if not m: raise Fail("판정 불가 replace-ok 꼴 아님(<경로>@<sha>#§<절>): %s" % spec[:80])
     path, sha, sec = m.groups()
     root, why = os.environ.get("FT_ROOT") or "", "판정 불가 replace-ok 판정문 못 읽음 %s@%s" % (path, sha[:10])
+    alt = "" if root else os.environ.get("FT_REPLACE_ROOT") or ""   # r1746 A5: FT_ROOT 빈 값 = 승인 루트(게이트가 fm_live_root 로 채움) — 그게 후보 리포 자신이면 쓰지 않는다(X1 후보 리포 폴백 0)
+    if alt:
+        try:
+            cd = [subprocess.run(["git", "-C", d, "rev-parse", "--path-format=absolute", "--git-common-dir"], capture_output=True, timeout=7).stdout.strip() for d in (alt, repo)]
+        except subprocess.TimeoutExpired:
+            raise Fail(why + " — 7초 초과")
+        root = alt if cd[0] and cd[0] != cd[1] else ""
     text = None   # 판정문 리포 = 카드 리포(FT_ROOT) 하나뿐 — 후보 리포 폴백 0 · FT_ROOT 가 빈 값이면 git -C ""(=cwd 리포)를 부르지도 않는다
     if root:
         try:
