@@ -6,8 +6,8 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; BIN0="$(cd -- "${CW_BIN:-$HERE/../bin}" && pwd)"
 TMP="$(mktemp -d)"; . "$HERE/lib/r1113_fake_tree.sh"; fake_init; trap fake_cleanup EXIT
-pass=0; fail=0; T0=$(date +%s)
-ck() { local n="$1"; shift; if "$@"; then echo "PASS $n"; pass=$((pass+1)); else echo "FAIL $n"; sed 's/^/    | /' "$TMP/last" 2>/dev/null | tail -4; fail=$((fail+1)); fi; }
+ok_n=0; bad_n=0; T0=$(date +%s)
+ck() { local n="$1"; shift; if "$@"; then echo "PASS $n"; ok_n=$((ok_n+1)); else echo "FAIL $n"; sed 's/^/    | /' "$TMP/last" 2>/dev/null | tail -4; bad_n=$((bad_n+1)); fi; }
 cat > "$TMP/fake/tmux-lc" <<'EOF'
 u=0; [ "${1:-}" = -u ] && { u=1; shift; }
 case "$1" in list-panes)
@@ -49,4 +49,4 @@ ck "M2 칸 실패를 좌석 0 으로 → ② FAIL · 원본 ② PASS" mutv M2 ft
 ck "M3 LIVE_ROOT 무시 → ③ FAIL · 원본 ③ PASS" mutv M3 ft-child-watch.sh 's/env\["FT_ROOT"\] = live/pass/' c3
 ck "M4 LIVE_ROOT 가 시험 길보다 먼저 → ④ FAIL · 원본 ④ PASS" mutv M4 ft-child-watch.sh 's/    if v in ("on", "off"): return v == "on"/    if v in ("on", "off") and not os.path.isfile(os.path.join(E.get("FT_ROOT") or "", ".fable-team\/LIVE_ROOT")): return v == "on"/' c4
 echo "단계별 초: 사례 $((T1 - T0)) · 변이 $(( $(date +%s) - T1 ))"
-echo "pass=$pass fail=$fail"; [ "$fail" -eq 0 ]
+echo "ok_n=$ok_n bad_n=$bad_n"; [ "$bad_n" -eq 0 ]
