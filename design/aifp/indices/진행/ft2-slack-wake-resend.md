@@ -103,3 +103,5 @@ Slack 수신기는 글을 접수하면 thread 에 묶인 좌석을 쪽지로 깨
 - 세트: c2f7b2a706c63427567a64bcfb6860772b2bf990 · 시험: python3.11 -m pytest tests/test_slack_wake_resend.py -q (23 passed · 0.32초) rc=0 · 이슈: 0
 - 2026-11-16 03:58 · aifp-ft-arch-pi#19 회귀 기록(팀장 aifp 5586 · planner 5582 · BYZ desk #311199): ft2 2.0.66 설치 03:47:51 · 수신기 재기동 03:48:01 뒤 `_restore` 가 wire.jsonl 전체에서 G 착지 앞 실패 줄(11-13 12:24 ~ 11-16 01:06 · `seq0`·`landed` 칸 없음) 18 command 를 후보로 넣음 → 03:48:05 ~ 03:54:26 wire 36줄 = wake rc 0 18 · rc 3 적재 없음 3(out = BLOCKED RATE_LIMIT 5 sends/60s) · issue «접수 성공» 15 · 원인 = G10 에 복원 경계 없음(설계 빈칸) + 재전송 deliver 가 record_issue 를 부름
 - 2026-11-16 03:58 · 회귀 고칠 안 = 설계 .fable-team/state/team-main/aifp-ft/orders/DESIGN-pG2-slack-wake-restore-boundary-20261116.md(r1 sha256 a1d738af…38f7 · 안 1개 = G12 `seq0` 칸 + 600초 창 · G13 재전송 record_issue 0 · 버린 길 6 · 반례 표 12행 · 시험 ㉞머·㉞버·㉞서·㉞어·㉞저 · 변이 M68·M69·M70 · DA 전) · 계약 G12·G13 · 완료 조건 8~10 · 대응표 2행 · 알려진 한계 4~6 더함 · 코드 0
+- 2026-11-16T04:17 재개(--reopen) · 좌석 aifp-ft-nano-ft2-slack-wake-resend#0 · wt=재사용
+- [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
