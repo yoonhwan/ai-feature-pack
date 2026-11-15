@@ -105,7 +105,7 @@ CR=0; CB="$(mktemp)"; lr_trap 'rm -f "$CB"'   # R261: ft-gh-as-tank.sh 는 하�
 printf '%s\n' "착지 sha $Q (ft-merge-land · 검사 트리 == 착지 트리 · 판정 1875)${EQ:+ · 동일승인 대조 EQUIV (${AP:0:10}→${S:0:10} · 판정 1917${EQM:+ · $EQM})}${S0:+ · main 자동 병합($AMK) C=${S:0:10}}${PEV:+ · ${PEV%%$'\n'*}}" > "$CB"
 fm_pr_close "$SLUG" "$PR" "$CB" "$GH_W" \
   || { echo "WARN 착지는 성공 — PR #$PR 코멘트/닫기 실패: 손으로 처리(착지 sha $Q)"; fm_close_pending_add "$CPL" "$CPK" "$PR" "$Q"; CR=3; }   # r1131: 실패 PR 은 «닫기 대기» 장부 1줄 → 다음 착지 시작 때 다시 닫는다(조용히 OPEN 으로 쌓이지 않게) · r1592: 실패 rc 는 변수에 담고 맨 끝에서 exit 3(뒤 단계는 그대로)
-fm_flag_off_new "$REPO" "$M" "$Q"   # R239: 이 착지가 새로 만든 «꺼진 플래그 = 결정 1건» 을 출력만(착지 rc 불변)
+fm_land_card_line "$ROOT" "$PR" "$Q" "$(pf title)" "$(pf headRefName)" "$(basename "${SLUG:-$RROOT}")" "$TARGET"; fm_flag_off_new "$REPO" "$M" "$Q"   # r2034: 카드 «## 상태» 끝에 «- 착지: <Q>» 1줄(PR 닫기 뒤 · 설치 대조 앞 · 실패 = 판정 불가 1줄 · 착지 rc 불변) · R239: 이 착지가 새로 만든 «꺼진 플래그 = 결정 1건» 을 출력만(착지 rc 불변)
 # R243: 착지 성공 «뒤»에만 기준 헤드를 Q 로 원자 교체(옛 값이 Q 의 조상일 때만 전진) + 뒤처진 팀 알림(실패해도 착지 rc 불변)
 OLD="$(head -n1 "$BH" 2>/dev/null | tr -d '[:space:]')"
 if [ -z "$OLD" ] || G merge-base --is-ancestor "$OLD" "$Q" 2>/dev/null; then

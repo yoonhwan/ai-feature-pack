@@ -396,6 +396,65 @@ fm_land_notify_land() {
   FM_NOTIFY_REPO="$root" fm_land_notify 착지 "[착지] pr=$pr sha=$sh 카드 ${tok:-없음} · 설치 $nst" $(fm_cards_by_tokens "$root" $tok)
   fm_land_turn "$root" "$pr" "$t0" $tok
 }
+#   fm_land_card_line <카드리포루트> <PR> <착지 sha 40> <PR 제목> <head 가지> <리포 이름> <target> : r2034 A1~A4 — 착지 뒤 카드(토큰 = fm_land_notify_land 와 같은 규칙 · fm_cards_by_tokens)마다
+#     «## 상태» 절 끝에 «- 착지: <Q> (<리포> origin/<target> · PR #<N> · ft-merge-land)» 1줄 · 카드 ref 1커밋 push(ft_nano_record_write.apply·lock 재사용 = ft-nano-record landed 와 같은 «없을 때만»·잠금)
+#     같은 Q 줄 = «ALREADY» · 다른 sha 착지 줄 = «WARN 다른 착지 줄 <sha>»(쓰기 0) · 카드 0장 = «SKIP 카드 없음» · 실패 = «판정 불가 — 카드 착지 줄 <stem> <사유>» · 상한 = fm_tail_s 7초(FT_LAND_CARD_LINE_S) · 반환 0 고정(착지 rc 불변 · 하드 룰 20)
+fm_land_card_line() {
+  local root="$1" pr="$2" q="$3" txt="$4" head="$5" rn="$6" tgt="$7" tok of err cap rc p; local -a cd=()
+  tok="$(printf '%s\n' "$head" | grep -oE '^nano/r[0-9]{2,5}-' | grep -oE 'r[0-9]+')"
+  [ -n "$tok" ] || tok="$(printf '%s\n' "$txt" | grep -oE 'r[0-9]{2,5}' | sort -u | tr '\n' ' ')"; tok="${tok% }"
+  [ -n "$tok" ] || { echo "SKIP 카드 없음 — 카드 토큰 0(카드 착지 줄 쓰기 0)"; return 0; }
+  of="$(mktemp "${TMPDIR:-/tmp}/fm-cardline.XXXXXX" 2>/dev/null)" || { echo "판정 불가 — 카드 착지 줄 $tok mktemp 실패(${TMPDIR:-/tmp})"; return 0; }
+  # shellcheck disable=SC2086
+  fm_cards_by_tokens "$root" $tok >"$of" 2>/dev/null; err="$FM_CARDS_ERR"; while IFS= read -r p; do [ -z "$p" ] || cd[${#cd[@]}]="$p"; done <"$of"; rm -f "$of"
+  case "$err" in "카드 ref 를 하나도 못 읽음"*) echo "판정 불가 — 카드 착지 줄 $tok $err"; return 0;; esac
+  [ "${#cd[@]}" -gt 0 ] || { echo "SKIP 카드 없음 — ${err:-토큰 $tok 카드 0장}(카드 착지 줄 쓰기 0)"; return 0; }
+  cap="$(fm_tail_s "${FT_LAND_CARD_LINE_S:-7}")"; [ "$cap" -ge 1 ] 2>/dev/null || { echo "판정 불가 — 카드 착지 줄 $tok 시간 초과(남은 0초)"; return 0; }
+  FT_LAND_RECORD_LOCK_S="$cap" fm_try "$cap" python3 - "$FM_HERE" "$root" "$pr" "$q" "$rn" "$tgt" "${cd[@]}" 2>/dev/null <<'PY'
+import sys
+sys.path.insert(0, sys.argv[1])
+from ft_nano_record import LAND_RX, Ctx, Reject, Unjudged
+from ft_nano_record_due import card_key
+import ft_nano_record_write as nrw
+from ft_nano_record_write import apply, lock
+nrw.update = lambda _ctx, _fn: None   # ft-nano-record 보낸 기록(land-record-notified.json) 쓰기 0 — 이 단계는 카드 줄만(r1717 ⑧ «보낸 기록 0» 불변)
+_orig_section = nrw.section
+def _sec_eof(text):   # A1 EOF fallback(DA HOLD R1): «## 상태» 절 없으면 문서 전체 = 절(줄은 문서 끝) · 이 프로세스만(공유 read_sec·ft-nano-record 동작 불변)
+    lines, st, en = _orig_section(text)
+    return (lines, st, en) if st is not None else (lines, -1, len(lines))   # r2034-mut:eof
+nrw.section = _sec_eof
+root, pr, q, rn, tgt = sys.argv[2:7]
+for c in sys.argv[7:]:
+    k, seen = card_key(c), {}
+    stem = k[2] if k else c.rsplit("/", 1)[-1]
+    def plan(sec):   # 같은 Q = 0줄(ALREADY) · 다른 sha 착지 줄 = 0줄(WARN) · 없으면 1줄
+        got = [m.group(1) for ln in sec for m in [LAND_RX.match(ln)] if m]
+        if any(q.startswith(s) for s in got):   # r2034-mut:sameq
+            return []
+        if got:
+            seen["other"] = got[-1]
+            return []
+        return [f"- 착지: {q} ({rn} origin/{tgt} · PR #{pr} · ft-merge-land)"]   # r2034-mut:write
+    try:
+        if not k:
+            raise Unjudged("카드 경로 꼴 아님")
+        ctx = Ctx(root)
+        with lock(ctx):
+            st, _sec = apply(ctx, k[0], k[1], stem, plan, f"[docs] {stem} 착지 줄 (ft-merge-land PR #{pr})")
+    except (Reject, Unjudged) as e:
+        print(f"판정 불가 — 카드 착지 줄 {stem} {e}", flush=True)
+        continue
+    except Exception as e:   # 하드 룰 20: 뜻밖의 실패도 판정 불가 1줄(착지 rc 불변)
+        print(f"판정 불가 — 카드 착지 줄 {stem} {type(e).__name__}", flush=True)
+        continue
+    if "other" in seen:
+        print(f"WARN 다른 착지 줄 {seen['other']} — 카드 {stem} 쓰기 0", flush=True)
+    else:
+        print(f"{st} 카드 착지 줄 {stem} {q[:10] if st == 'DONE' else ''}".rstrip(), flush=True)
+PY
+  rc=$?; case "$rc" in 0) ;; 124|143) echo "판정 불가 — 카드 착지 줄 $tok 시간 초과(${cap}초)";; *) echo "판정 불가 — 카드 착지 줄 $tok python rc=$rc";; esac   # r2034-mut:rc
+  return 0
+}
 #   fm_land_turn <카드리포루트> <PR> <시작 SECONDS> [<r토큰>…] : r1717 A1·A4ⓐ — ①차례 장부 1줄 append(<공용 루트>/.fable-team/state/land-record-turn.jsonl · 카드 0장도 cards:[] · 쓰기 실패 = WARN 1줄 · 네트워크 0) ②ft-nano-record.sh notify --pr <N> --no-fetch 1회
 #     ② 상한 = 착지 쪽지와 같은 7초 몫의 «남은 시간»(착지 마감이 더 짧으면 그 값 · < 1초 = 호출 0 → 장부가 남아 ft_stall_scan 이 보낸다) · 착지 값(Q·HEADSHA·REPO·TARGET)은 부른 ft-merge-land 의 변수 · 반환 0 고정(착지 rc 불변)
 fm_land_turn() {
