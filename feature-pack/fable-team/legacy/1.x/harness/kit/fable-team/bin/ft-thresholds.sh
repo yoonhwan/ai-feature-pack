@@ -38,7 +38,7 @@ NEWWORK="$(get FT_DISTILL_NEWWORK "$DEF_NEWWORK")"   # 0 = 경고선(티어 고�
 tiers() { # 티어 이름 = MATCH 키가 나온 순서(파일 해석 순서 → env) · 중복 0
   { for c in "${FT_THRESHOLDS:-}" "$ROOT/.fable-team/thresholds.env" "$USERFILE" "$SAMPLE"; do
       [ -n "$c" ] && [ -f "$c" ] && sed -n 's/^[[:space:]]*FT_DISTILL_TIER_\([A-Z0-9]*\)_MATCH[[:space:]]*=.*/\1/p' "$c"; done
-    env | sed -n 's/^FT_DISTILL_TIER_\([A-Z0-9]*\)_MATCH=.*/\1/p'; } | awk 'NF && !s[$0]++'; }
+    compgen -v | sed -n 's/^FT_DISTILL_TIER_\([A-Z0-9]*\)_MATCH$/\1/p'; } | awk 'NF && !s[$0]++'; }
 tier_ok() { # tier_ok WARN BLOCK RECV — 셋 다 정수 · BLOCK > WARN · RECV ≤ BLOCK
   local v; for v in "$@"; do case "$v" in ''|*[!0-9]*) return 1;; esac; done; [ "$2" -gt "$1" ] && [ "$3" -le "$2" ]; }
 tget() { # tget KEY T — env > 티어 T 의 MATCH 가 있는 첫 파일(세트 한 곳)
