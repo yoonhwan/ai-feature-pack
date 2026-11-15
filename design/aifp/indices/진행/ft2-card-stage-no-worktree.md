@@ -62,7 +62,7 @@ card_stage 는 끝난 카드를 완성/ 폴더로 옮기는 커밋을 만들어 
 2. [ ] 나노: 새 시험 전체 rc0 · 걸린 초
 3. [ ] 나노: 변이 M47 → ㊱나 FAIL · M48 → ㊱라 FAIL · M49 → ㊱마 FAIL · M50 → ㊱가 FAIL · M59 → ㊱차·㊱파 FAIL · M60 → ㊱카 FAIL · M61 → ㊱타 FAIL
 4. [ ] 나노: 회귀 rc0 · 바꾼 r1891 사례 이름
-5. [ ] arch: 인수 칸 원문 확인 = ㊱카 가 commit-tree 호출 수와 원격 상태 줄을 따로 세는가 · G8 대조가 한글 경로를 실제 경로로 비교하는가(㊱타 + 한글 폴더 이름 사례)
+5. [x] arch: 인수 칸 원문 확인(aifp-ft-arch-pi#18 · 세트 5d76f70e 읽기 + 새 시험 재실행 14 passed 35.20초 rc=0) — ㊱카 = test_11_same_card_race_is_noop 이 셋을 따로 센다: 원격 `head(w) == done[0]` 와 rev-list 수 같음(원격 추가 A 커밋 0) · `len([a for a in seen if a[0] == "commit-tree"]) == 1`(첫 시도 1개뿐 = NOOP 재시도 commit-tree 0) · `body.count("ft2 card_stage") == 1`(상태 끝 줄 1개) / G8 = card_stage.check 가 `diff-tree -r --no-renames --name-status -z P <커밋>` 을 NUL 로 잘라 `sorted(rows) != sorted([("D", old), ("A", new)])` 로 실제 경로를 대조한다(줄 수만 세지 않음) · 시험 경로가 한글 폴더(`design/harness/indices/진행|완성/r9-x.md`)라 ㊱가 통과가 한글 경로 대조를 지난다 · ㊱타 = test_12 `판정 불가 card_stage 커밋 범위 밖 3줄` · push 0 · 본 것 1줄: «2줄인데 경로가 다른» 음성 사례는 시험에 없다(코드는 정확 대조라 막는다 · 구현 DA 판단에 넘김)
 6. [ ] 팀장: PR 착지 sha · 설치 판
 7. [ ] 팀장: 설치 뒤 chatbot 팀장이 멈췄던 카드(C-k8) 완성 이동 재집행 출력 1줄 = `STAGED …` 또는 `판정 불가 git <명령> 시간초과 7초` · STAGED 면 BYZ git worktree list 줄 수가 앞뒤로 같다는 1줄
 
@@ -83,3 +83,6 @@ card_stage 는 끝난 카드를 완성/ 폴더로 옮기는 커밋을 만들어 
 - 2026-11-16 · aifp-ft-arch-pi#18 씀(aifp 5421 · 승계 5424) · 대기 · 설계 r2 = DA 대행 APPROVE-DESIGN(BYZ 310291) · 선행 없음 · Issue #8647(aifp 5423)
 - 2026-11-16 02:22 — 대기→진행 · 좌석 aifp-ft-nano-ft2-card-stage-no-worktree#0
 - [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
+- 세트: 5d76f70e7b7bd42bb2ef2df081d4110e42b02081 · 시험: python3.11 -m pytest test_card_stage_no_worktree.py test_card_stage_r1859.py test_card_stage_main_ref_r1884.py test_card_stage_from_waiting_r1889.py test_card_stage_sparse_r1891.py (35 passed in 33.70s · 새 시험 단독 14 passed) rc=0 · 이슈: 0
+- 완료: aifp-ft-nano-ft2-card-stage-no-worktree#0 · 한 일: ft2 card_stage 임시 index 판 구현(임시 worktree 0 · 부모 SHA 고정 · 시간 초과에 하위 명령 이름 · push 거절 = fetch 뒤 재생성 · push 전 자기 검사 · G1~G9) + 새 시험 13칸(㊱가~㊱파) + 변이 7개 Red 확인 + 설계 옮김 · 산출: nano/ft2-card-stage-no-worktree@5d76f70e7b · 병합 상태: 착지 전(push 전) · 남은 일: 없음(나노 몫 0 — 완료 조건 ⑤ = arch · ⑥⑦·설치 h = 팀장)
+- PR #1279 열림 · DA 구현 판정 대기(BYZ 310626)
