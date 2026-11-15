@@ -21,6 +21,7 @@ MAX_CHANGES, MAX_SEATS, MAX_BYTES, MAX_LINE = 5, 12, 3500, 150
 DEFAULT_MD = "gitref:origin/main:design/teams/planner/PLAN-oppa-ledger.md"
 NO_TABLE = "골 진행 표 없음 — planner 원장 «## 골 진행»"
 FOLDERS = ("대기", "진행", "완성")
+CLOSED = ("닫힘", "은퇴", "정지(세션 없음)")  # SeatCells text — 명부상 닫힌 좌석 = 열린 세션 아님(A6 · DA R2)
 
 
 def read_md(spec: str, root: str) -> tuple[str | None, str]:
@@ -93,16 +94,24 @@ def seat_card(name: str, block: dict, all_states: dict) -> tuple[str, str]:
     return "—", "—"
 
 
-def snapshot(d: dict, rows: list | None) -> dict:
+def snapshot(d: dict, rows: list | None, prev: dict | None = None) -> dict:
+    """수집 실패 팀(error 블록) = 직전 발행 상태를 이어 씀(열쇠·변화 0 · DA R1) — 직전에도 없으면 빈칸 · err 에 이름."""
     teams = [t for t in d["teams"] if "error" not in t]
+    err = sorted(t["label"] for t in d["teams"] if "error" in t)
     all_states = {c: s for t in teams for c, s in (t.get("states") or {}).items()}
     sessions = {}
     for t in teams:
-        for name in sorted(t.get("seats") or {}):
-            sessions[name] = [t["label"], *seat_card(name, t, all_states)]
-    return {"goals": rows, "cards": {t["label"]: t.get("states") or {} for t in teams},
+        for name, cell in sorted((t.get("seats") or {}).items()):
+            if not str((cell or {}).get("text", "")).startswith(CLOSED):
+                sessions[name] = [t["label"], *seat_card(name, t, all_states)]
+    snap = {"goals": rows, "cards": {t["label"]: t.get("states") or {} for t in teams},
             "counts": {t["label"]: [(t.get("counts") or {}).get(f, 0) for f in FOLDERS] for t in teams},
-            "sessions": sessions, "h": len({n for t in teams for n in t.get("oppa_todo") or []})}
+            "sessions": sessions, "h": len({n for t in teams for n in t.get("oppa_todo") or []}), "err": err}
+    for label in err if prev else []:
+        if label in prev["cards"]:
+            snap["cards"][label], snap["counts"][label] = prev["cards"][label], prev["counts"][label]
+        snap["sessions"].update({n: v for n, v in prev["sessions"].items() if v[0] == label})
+    return snap
 
 
 def key(s: dict) -> dict:
@@ -118,11 +127,15 @@ def changes(prev: dict | None, cur: dict) -> list[str]:
         p = before.get(r[0])
         if p is None or (p[2], p[3]) != (r[2], r[3]):
             out.append(f"{r[1]} {p[2] if p else '—'}→{r[2]} ({r[3]} 중)")
-    for team in sorted(set(prev["cards"]) | set(cur["cards"])):
+    blind = set(cur.get("err", [])) | {t for t in prev.get("err", []) if t not in prev["cards"]}  # 모르는 팀 = 비교 0
+    out += [f"{t} 수집 복구" for t in sorted(set(prev.get("err", [])) - set(cur.get("err", [])))]
+    for team in sorted((set(prev["cards"]) | set(cur["cards"])) - blind):
         a, b = prev["cards"].get(team, {}), cur["cards"].get(team, {})
         out += [f"{team} {card_disp(c)} {a.get(c, '없음')}→{b.get(c, '없음')}" for c in sorted(set(a) | set(b)) if a.get(c) != b.get(c)]
     ps, cs = prev["sessions"], cur["sessions"]
     for n in sorted(set(ps) | set(cs)):
+        if (cs.get(n) or ps[n])[0] in blind:
+            continue
         if n not in ps or n not in cs:
             out.append(f"{seat_short(n)} {'열림' if n in cs else '닫힘'}")
         elif ps[n][1] != cs[n][1]:
@@ -133,10 +146,13 @@ def changes(prev: dict | None, cur: dict) -> list[str]:
 
 def body(cur: dict, prev: dict | None, now: datetime, sha: str) -> str:
     goals = [goal_line(r) for r in cur["goals"]] if cur["goals"] else [NO_TABLE]
-    seats = [f"{v[0]} · {seat_short(n)} · {card_disp(v[1])} · {v[2]}" for n, v in sorted(cur["sessions"].items(), key=lambda x: (x[1][0], x[0]))]
+    err = cur.get("err", [])
+    seats = [f"{v[0]} · {seat_short(n)} · {card_disp(v[1])} · {v[2]}" for n, v in sorted(cur["sessions"].items(), key=lambda x: (x[1][0], x[0]))
+             if v[0] not in err]
     seats = (seats[:MAX_SEATS] + [f"외 {len(seats) - MAX_SEATS}석"] if len(seats) > MAX_SEATS else seats) or ["열린 팀 세션 없음"]
     todo = f"오빠 승인 대기 {cur['h']}건" if cur["h"] else "없음"
-    lines = ["① 골 진행", *goals, "② 지금", *changes(prev, cur), "③ 다음", *seats, "④ 막힌 것·오빠 할 일", todo]
+    lines = ["① 골 진행", *goals, "② 지금", *changes(prev, cur), "③ 다음", *seats, "④ 막힌 것·오빠 할 일", todo,
+             *[f"{t} 확인 불가 — 수집 실패 · 직전 상태 유지" for t in err]]
     lines = [ln if len(ln) <= MAX_LINE else ln[:MAX_LINE - 1] + "…" for ln in lines]
     return "\n".join(lines + [f"근거: 발행 {now:%Y-%m-%d %H:%M} · 골 진행 원장 {sha}"]) + "\n"
 
@@ -151,8 +167,8 @@ def main() -> int:
     rows = goal_rows(text)
     if rows is None:
         print(f"WARN ft_board_news: {NO_TABLE} — 골 줄 없이 발행", file=sys.stderr)
-    cur = snapshot(json.loads(Path(a.collect).read_text(encoding="utf-8")), rows)
     last = json.loads(Path(a.last).read_text(encoding="utf-8")) if Path(a.last).is_file() else None
+    cur = snapshot(json.loads(Path(a.collect).read_text(encoding="utf-8")), rows, last and last.get("snap"))
     if last and last.get("key") == key(cur):
         print("변화 없음 — 발행 0")
         return 0
