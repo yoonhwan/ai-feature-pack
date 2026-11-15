@@ -30,6 +30,7 @@ case "$1" in
   *) exit 0 ;;
 esac
 grep -qxF -- "$t" "$TM_DIR/fail" 2>/dev/null && exit 2
+case "$t" in %*) cat "$TM_DIR/me"; exit 0 ;; esac   # TMUX_PANE → 자기 세션 이름
 if [ "$1" = has-session ]; then grep -qxF -- "$t" "$TM_DIR/alive" 2>/dev/null; exit $?; fi
 grep -qxF -- "$t" "$TM_DIR/att" 2>/dev/null && echo 1 || echo 0
 """
@@ -186,6 +187,24 @@ def test_c8_off_logs_candidate_only(w, monkeypatch):
     out = w.scan(_import_scan(BIN)).succ_close("T")
     assert w.n_calls() == 0, "꺼짐 = 호출 0"
     assert out == ["T succ-close 후보 byz-x-master#1 → byz-x-master#2 (꺼짐)"], out
+
+
+def test_c9_self_lookup_failure_is_fail_closed(w, monkeypatch):
+    w.pair("byz-x-master#1", "byz-x-master#2")
+    monkeypatch.setenv("TMUX_PANE", "%9")
+    w.fail.append("%9")
+    out = w.scan(_import_scan(BIN)).succ_close("T")
+    assert w.n_calls() == 0, "자기 세션 조회 실패 = 닫기 0"
+    assert len(out) == 1 and out[0].startswith("T 판정 불가 succ-close - 자기 세션 조회 실패(rc=2)"), out
+
+
+def test_c9b_self_session_is_excluded(w, monkeypatch):
+    w.pair("byz-x-master#1", "byz-x-master#2")
+    w.pair("byz-y-master#1", "byz-y-master#2", file="seats-b.json")
+    monkeypatch.setenv("TMUX_PANE", "%9")
+    (w.tm / "me").write_text("byz-x-master#1\n", encoding="utf-8")
+    out = w.scan(_import_scan(BIN)).succ_close("T")
+    assert w.calls.read_text().splitlines() == ["byz-y-master#1 --reason 승계 끝 자동 닫기 → byz-y-master#2"], out
 
 
 def test_wired_into_round():
