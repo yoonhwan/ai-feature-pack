@@ -385,5 +385,5 @@ case "$cmd" in
             refund)  wake_budget_refund "$@" ;;
             *) echo "usage: mbox.sh budget reserve|refund <좌석> [<출처>]" >&2; exit 2 ;;
           esac ;;
-  *) echo "usage: mbox.sh {send <to> <from> <body> [--urgent] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all] [--only distill]|peek <me> [--rows]|show <번호>[,<번호>…]|ring <sess> [seq] [--reserved] [--auto]|sweep|budget reserve|refund <좌석> [<출처>]|handover <구> <후계>|handover-drop <구> <후계> <seq> --verdict <판정 번호>|ready <후계> <구>|mark <me> <seq,…> 처리함·인계|unmarked <me>|close-check <좌석> [--no-ready]}" >&2; exit 2;;
+  *) echo "usage: mbox.sh {send <to> <from> <body> [--urgent] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all] [--only distill]|peek <me> [--rows]|ring <sess> [seq] [--reserved] [--auto]|sweep|budget reserve|refund <좌석> [<출처>]|handover <구> <후계>|handover-drop <구> <후계> <seq> --verdict <판정 번호>|ready <후계> <구>|mark <me> <seq,…> 처리함·인계|unmarked <me>|close-check <좌석> [--no-ready]}" >&2; exit 2;;
 esac
