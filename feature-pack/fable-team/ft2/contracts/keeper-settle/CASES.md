@@ -167,6 +167,7 @@
 | ㉛나 | opening 5분 | 손 0(문턱 안쪽) | L6 |
 | ㉛다 | opening 20분인데 `fill_open`(잇는 중) | 손 0 | L6 |
 | ㉛라 | opening 20분 · tmux 조회 실패(rc2) | park 0 · `판정 불가` 1줄(부재로 읽지 않는다) | L6 |
+| ㉘거 | v65 · `seats-v65.json` 없음 ∧ `seats.json` 있음 / 둘 다 없음(`test_pi_launch_roster_r1983.py`) | `seats.json` 에 행 추가 · 둘 다 없음 = «판정 불가 명부 없음» 1구(생성 0) | L10 |
 
 | 변이 | 바꾸는 곳 | 잡는 사례 |
 |---|---|---|
@@ -175,6 +176,6 @@
 | M13 | `keeper_next.choose` 의 착지 카드 제외(`skip_landed`)를 뺌 | ㉘바 |
 | M16 | `keeper_settle` 의 opening 멈춤 분기(`stalled`)를 거짓으로 | ㉛가 |
 | M30 | `keeper_next.choose` 가 카드 배정 줄(`pre`)을 안 봄 | ㉘아 · ㉘자 · ㉘차 |
-| M31 | `keeper_next.prereq` 가 카드 배정 줄 사유 표(`MARK`)를 안 봄(선행만) | ㉘차(그 밖에 ㉘아·㉘자·㉘하도 함께 죽는다) |
+| M31 | `keeper_next.prereq` 가 카드 배정 줄 사유 표(`MARK`)를 안 봄(선행만) | ㉘차(그 밖에 ㉘아·㉘자·㉘하도 함께 죽는다) · M67 은 `test_pi_launch_roster_r1983.py`(enroll 명부 경로 하드코딩 되돌림 → ㉘거) |
 
 - 기준판(팩 origin/main c7860542)에서 FAIL 이던 사례 = ㉘가 ㉘나 ㉘다 ㉘라 ㉘바 ㉘아 ㉘자 ㉘차 ㉘하 ㉛가 ㉛나 ㉛다 ㉛라(13) · 지키던 사례 = ㉘마 ㉘사 ㉘카 ㉘타 ㉘파(5).
