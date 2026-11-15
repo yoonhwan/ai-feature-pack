@@ -22,6 +22,7 @@ _fa = importlib.util.spec_from_file_location("ft2_wire_full_alert", os.path.join
 _fa.loader.exec_module(full_alert := importlib.util.module_from_spec(_fa))  # r1886 ⓐ
 FENCE, TABLE_RULE = re.compile(r"```.*?(?:```|\Z)", re.S), re.compile(r"^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$")
 RESEND_GAP, RESEND_CAP, ALERT_HEAD = 60, 3, "[Slack] 알림"   # r2065 G2 60초 · G3 3회(처음 시도 포함) · G1 알림 재귀 0
+RESTORE_WINDOW = 600   # pG2 G12 (나) 재기동 복원 창 — 살아 있는 후보 1개가 끝나는 195초(send 25초×3 + 간격 60초×2)의 3배
 LATE_WHY = "늦은 적재 확인"   # G5 — 보내기 전 장부에 이미 붙은 글
 
 def _text(value):  # send 출력 = bytes·str 둘 다(잘린 send 는 bytes)
@@ -130,7 +131,7 @@ class Wiring:
         cand.update({"to": to, "head": head, "seq0": mark, "at": self.now(), "attempts": attempts})
         return cand
 
-    def _restore(self):  # G10 — 재기동 1회 장부 읽기 · 마지막 비알림 깨움 줄이 rc≠0 이고 적재 «있음» 이 아니면 후보
+    def _restore(self):  # G10 — 재기동 1회 장부 읽기 · G12 = 이 판이 쓴 줄(seq0 칸) ∧ 기동 600초 안일 때만 후보
         try:
             rows = self.entries("wake")
         except (OSError, ValueError):
@@ -142,10 +143,23 @@ class Wiring:
             if not command or str(row.get("head") or "").startswith(ALERT_HEAD) or row.get("why") == LATE_WHY:
                 continue
             last[command], count[command] = row, count.get(command, 0) + 1
-        return {command: {"to": row.get("to"), "head": row.get("head"), "seq0": row.get("seq0"),
-                          "at": _epoch(row.get("at")), "attempts": count[command]}
-                for command, row in last.items()
-                if row.get("rc") not in (0, None) and not _landed_row(row) and count[command] < RESEND_CAP}
+        started, candidates, no_edge, outside = self.now(), {}, 0, 0
+        for command, row in last.items():
+            if row.get("rc") in (0, None) or _landed_row(row) or count[command] >= RESEND_CAP:
+                continue   # G1·G3 — 지금 그대로
+            at = _epoch(row.get("at"))
+            age = started - at
+            if "seq0" not in row:   # G12 (가) — 경계 칸이 없으면 G5 늦은 적재 확인을 못 한다(다시 보내지 않는다)
+                no_edge += 1
+                continue
+            if not 0 <= age <= RESTORE_WINDOW:   # G12 (나) — 창 밖 · at 못 읽음(0)·기동 시각보다 뒤도 창 밖
+                outside += 1
+                continue
+            candidates[command] = {"to": row.get("to"), "head": row.get("head"), "seq0": row.get("seq0"),
+                                   "at": at, "attempts": count[command]}
+        if no_edge or outside:   # 뺀 것이 1건 이상이면 listen.log 1줄(건별 줄 0 · wire 쓰기 0 · 깨움 0)
+            self.log("[재전송] 복원 제외 %d건 · 경계 칸 없음 %d · 창 밖 %d" % (no_edge + outside, no_edge, outside))
+        return candidates
 
     def resend_wakes(self):  # G2 — 유휴 회차 1통 · 후보 표가 비면 읽기·쓰기·깨움 0(부르는 쪽이 먼저 빈 표를 본다)
         for command in sorted(self.candidates):
@@ -170,7 +184,7 @@ class Wiring:
             return {"command": command, "why": LATE_WHY}
         n = int(cand.get("attempts") or 1) + 1   # 끝줄 회차 = 처음 시도를 1로 센다(첫 재전송 = 2/3)
         rc = self.deliver(to, row["kind"], self.router.context(binding.thread_key(*row["key"])), row,
-                          quiet=True, extra="재전송 %d/%d" % (n, RESEND_CAP))
+                          quiet=True, extra="재전송 %d/%d" % (n, RESEND_CAP), resend=True)
         last = dict(self.last_wake or {})
         if rc == 0 or last.get("landed") == "있음":   # G1 — 적재 «있음» 도 성공(잘린 send 가 늦게 붙은 경우)
             self.candidates.pop(command, None)
@@ -210,11 +224,12 @@ class Wiring:
             return self.log("[재전송] [긴급] 실패 %s · %s" % (type(exc).__name__, command))
         return rc if rc == 0 else self.log("[재전송] [긴급] rc %s · %s" % (rc, command))
 
-    def deliver(self, to, kind, lines, row=None, quiet=False, extra=""):  # route 가 dispatched 뒤에만 부른다(A7)
-        """quiet = 다시 보낸 통(재전송 실패 때 «알림 깨움 실패» 0 · G11) · extra = 본문 끝 1줄(재전송 n/3)."""
+    def deliver(self, to, kind, lines, row=None, quiet=False, extra="", resend=False):  # route 가 dispatched 뒤에만(A7)
+        """quiet = 다시 보낸 통(재전송 실패 때 «알림 깨움 실패» 0 · G11) · extra = 본문 끝 1줄(재전송 n/3).
+        resend = G13 재전송 통 — issues 입구는 처음 deliver 가 wake 앞에서 이미 불렀다(두 번 쓰지 않는다)."""
         row = row or self.router.entries(route.ROUTE)[-1]
         command, thread = row.get("command"), row["key"][2]
-        if kind == route.NEW:
+        if kind == route.NEW and not resend:
             self.record_issue(command)
         owner = channels.owner_of(self.root, self.team, row["key"][1])  # r1923 ⑪ 다른 팀 채널 = 수신기 --root/--team 답글 줄
         tail = [] if owner in ("-", None) else ["답글: ft2 slack reply --root %s --team %s --thread %s --command %s --seat %s "
