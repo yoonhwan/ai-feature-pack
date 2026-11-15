@@ -16,7 +16,7 @@
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/pi/keeper_next.py(prereq_tell 1곳) · 새 시험 feature-pack/fable-team/ft2/tests/test_prereq_alarm_hold.py · 문서 ft2/contracts/keeper-settle/CONTRACT.md · CASES.md
 - 정본 영향 없음: aifp 정본(docs/architect · docs/rules · design 팀 GUIDE·README) 변경 0 — 바뀌는 것은 팩 ft2 계약 문서(CONTRACT.md «선행불명 로그·쪽지» 절에 줄 더함 · CASES.md 행)뿐이고 같은 PR(나노)에 넣는다
 - 크기: 코드 1파일 · 새 시험 1파일 · 문서 2파일 · PR 1개
-- 배정: 대기(DA · 2026-11-16T05:39)
+- 배정: 좌석 aifp-ft-nano-ft2-prereq-alarm-hold#0
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -116,6 +116,8 @@
 | P7 그대로 · P8 | ㊵더 · ㊵자 |
 
 ## 상태
-- base_sha: 18428688fd1cf98c875d8d955b42ec97da871f03
+- base_sha: c4b781966ae64f428c323cd40936a9640b4e12c4 (recheck-auto 2026-11-16 · 겹침 0)
 - 2026-11-16 05:39 · 대기 — aifp-ft-arch-pi#21 초안(팀장 aifp 5746 · 넘김 harness#292 aifp 5744 · 실측 = BYZ launchd.log 1319줄 · jsonl 2일 · state.json · 구현 0) · 다음 = 팀장 PR → DA 설계 → Issue → 나노 1석
 - 2026-11-16 05:50 · aifp-ft-arch-pi#21 r2(팀장 aifp 5771 · DA HOLD-DESIGN 1/3 BYZ 311909 · 사본 .fable-team/state/team-main/aifp-ft/DA-prereq-alarm-design-hold-311909/verdict.md) — 반례 = 보류 중 실제 fill·close 는 choose·prereq_tell 을 부르지 않아 prereq_tell 만 고쳐서는 보류 중 now·목록 갱신과 빈 목록 삭제가 안 된다 · 팀장 판단 = 계약을 «불린 바퀴에만 갱신» 으로 좁힌다 · 바뀐 줄: 머리 끝 줄(«풀린 첫 바퀴» → «풀린 뒤 고르는 첫 바퀴») · P0 새 줄 · P1 · P2 · P4(첫 줄 관측 시각 · 보류 중 쓰기 빼) · 반례 ㊵가·나·라·마·바·사·하·거·너 고침 + ㊵러 새 칸(17 → 18) · 변이 M85·M86·M90 대응 고침 + M91 새로 · 구현 범위 1·2 · 대응표 · 오빠 결정 0
+- 2026-11-16 05:56 — 대기→진행 · 좌석 aifp-ft-nano-ft2-prereq-alarm-hold#0
+- [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
