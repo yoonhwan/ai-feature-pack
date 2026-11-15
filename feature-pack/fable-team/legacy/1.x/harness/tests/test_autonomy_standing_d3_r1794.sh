@@ -13,6 +13,7 @@ has() { grep -qE -- "$1" <<<"$out"; }
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT; mkdir -p "$T/stub" "$T/fakebin" "$T/da" "$T/pdir"
 T0=1800000000; OD=1794302162.301939; PL='byz-planner-master-claude#105'; HM='byz-harness-master-claude#115'; NANO='byz-harness-nano-r1794-x#0'; DESK='byz-planner-desk-pi#134'
 mkrepo "$T/byz"; B="$W"; mkdir -p "$B/.fable-team"; printf '.fable-team/\n' >> "$B/.git/info/exclude"
+mkdir -p "$B/design"; printf '| 팀 | 폴더 | 상태 | 명부 |\n|---|---|---|---|\n| planner | `design/planner/` | 현역 | |\n| harness | `design/harness/` | 현역 | |\n' > "$B/design/TEAMS.md"   # r1907: 명부 이름 = TEAMS.md «명부» 칸(빈 칸 = seats-<팀>.json)
 python3 -c 'import json,sys;json.dump({"_master":sys.argv[1],"_desk":sys.argv[2]},open(sys.argv[3]+"/seats-planner.json","w"));json.dump({"_master":sys.argv[4]},open(sys.argv[3]+"/seats-harness.json","w"))' "$PL" "$DESK" "$B/.fable-team" "$HM"
 SEATFILE="$T/seatname"; export SEATFILE; printf '%s' "$PL" > "$SEATFILE"
 printf '#!/bin/bash\n[ "$1" = display-message ] && { cat "$SEATFILE"; exit 0; }\nexit 1\n' > "$T/fakebin/tmux"; chmod +x "$T/fakebin/tmux"
