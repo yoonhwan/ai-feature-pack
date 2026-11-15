@@ -14,6 +14,7 @@ import time
 from pathlib import Path
 
 from ft_nano_record import CARD_RX, DONE_RX, Ctx, Reject, Unjudged, left_free, left_of, marks, rec_of, section, seq_dropped
+from ft_nano_record_batch import prepare
 
 DOCW = "문서 PR · 구현 착지 아님"   # r1782 A2: 장부 doc_only(착지 파일 전부 design/·docs/) 줄의 «끝» 사유
 
@@ -110,12 +111,12 @@ def rows(ctx, pr=None):   # 장부 줄마다 카드별 줄
     return out
 
 
-def due_rows(ctx, pr=None, fetch=True):   # A2 — fetch 는 «열린 줄» 이 있을 때만 실행당 1회(remote-tracking 판으로 먼저 본다)
-    ctx.fetch = False
-    out = rows(ctx, pr)
+def due_rows(ctx, pr=None, fetch=True):   # A2 — fetch 는 «열린 줄» 이 있을 때만 실행당 1회(remote-tracking 판으로 먼저 본다) · r2071 = 판마다 묶음 읽기·묶음 fetch(전 항목 그대로)
+    ks, ctx.fetch = [k for e in ctx.ledger() if pr is None or e.get("pr") == pr for k in map(card_key, e["cards"]) if k], False
+    out = rows(prepare(ctx, ks), pr)
     if fetch and any(r["k"] not in ("끝", "카드없음") for r in out):
         ctx.fetch, ctx._tips = True, {}
-        out = rows(ctx, pr)
+        out = rows(prepare(ctx, ks), pr)
     return out
 
 
