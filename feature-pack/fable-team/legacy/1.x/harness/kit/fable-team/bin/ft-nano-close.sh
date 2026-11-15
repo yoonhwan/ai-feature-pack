@@ -2127,7 +2127,14 @@ nf_superseded_next_hint() {
     *) echo "다음: 같은 번호 카드 ${_cnt}개 — 명부 index 를 확인해라(추측 0)";;
   esac
 }
-if [ "${#bad[@]}" -gt 0 ]; then echo "REJECT $SEAT"; printf '  - %s\n' "${bad[@]}"; nf_superseded_next_hint; exit 1; fi
+# ★r1749 A3★ ①«결과 경로 없음» + 상대경로 = 기준 폴더를 말해 준다(자동 수용 0 · 판정·rc 불변 · REJECT 출력 끝 1줄만).
+rel_result_hint() {
+  local _b _h=0; for _b in "${bad[@]}"; do case "$_b" in "①결과 경로 없음:"*) _h=1;; esac; done
+  [ "$_h" -eq 1 ] && [ -n "$RESULT" ] && [ "${RESULT#/}" = "$RESULT" ] || return 0
+  if [ -n "${SEAT_WT:-}" ] && [ -e "$SEAT_WT/$RESULT" ]; then echo "다음: --result $SEAT_WT/$RESULT(나노 워크트리 기준 절대경로)"   # r1749-mut:seatwt
+  else echo "다음: --result 는 cwd 기준 — 나노 워크트리 기준 절대경로로"; fi
+}
+if [ "${#bad[@]}" -gt 0 ]; then echo "REJECT $SEAT"; printf '  - %s\n' "${bad[@]}"; rel_result_hint; nf_superseded_next_hint; exit 1; fi
 # r1405: 팩 워크트리 판정 = 첫 쓰기(중단 [wip]·카드 줄·pid 기록·sheet·명부·원장) «전» — git·판정기 실패 = 여기서 REJECT rc1 · 착지 전 보존·후계 공유·never-started·공유 워크트리는 보지 않는다
 _PK_GO=0; if [ "$SHARED" != 1 ] && [ -z "$APPROVED" ] && [ -z "$NS_SUCC" ] && [ -z "$NS_LAND" ]; then _pk_decide ""; fi
 # r450 중단: 조건이 전부 통과한 뒤에만 카드 «## 상태» 끝에 중단 줄(멱등) — 못 쓰면 명부·원장·세션 변경 전에 REJECT
