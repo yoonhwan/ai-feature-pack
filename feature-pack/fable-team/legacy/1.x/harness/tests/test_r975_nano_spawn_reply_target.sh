@@ -113,7 +113,7 @@ for f in ft-nano-spawn.sh; do
   cmp -s "$BIN/$f" "$KIT/$f" && ok "두 사본 cmp 0 $f" || bad "두 사본 불일치 $f"
 done
 [ "$(grep -c 'dispatch' "$BIN/ft-nano-spawn.sh")" = 0 ] && ok "«dispatch» 글자 0(추적본)" || bad "«dispatch» 글자가 남아 있다"
-grep -q 'FT_SEND_FROM="\$FROM" bash "\$HERE/ft-send-verified.sh"' "$KIT/ft-nano-spawn.sh" && ok "발주문 송신 from = 선택된 \$FROM" || bad "발주문 송신이 \$FROM 을 안 쓴다"
+grep -qE 'FT_SEND_FROM="\$FROM" (FT_REACH_AGENT="\$AGENT" )?bash "\$HERE/ft-send-verified.sh"' "$KIT/ft-nano-spawn.sh" && ok "발주문 송신 from = 선택된 \$FROM" || bad "발주문 송신이 \$FROM 을 안 쓴다"
 # 계약 ① 방향: spawn 이 명부 파일을 «읽어» 보고 대상을 고르지 않는다(읽기 코드 0)
 nroster="$(grep -nE '"_master"|_replaced_by' "$KIT/ft-nano-spawn.sh" | grep -vE '^[0-9]+:[[:space:]]*#' | wc -l | tr -d ' ')"
 [ "$nroster" = 0 ] && ok "명부 파일 해석 코드 0(보고 대상은 tmm 목록)" || bad "명부 파일을 아직 읽는다(${nroster}줄)"

@@ -86,10 +86,10 @@ echo "== ⓙ UNVERIFIED 줄의 rc"
 mkdir -p "$T/fk"; printf '#!/bin/bash\nexit 2\n' > "$T/fk/ft-send-verified.sh"
 TAIL="$(awk '/^FT_SEND_FROM=/{p=1} p{print}' "$SP")"
 [ -n "$TAIL" ] || TAIL="$(awk '/ft-send-verified.sh" "\$NAME"/{p=1} p{print}' "$SP")"
-out="$( HERE="$T/fk"; NAME=s#0; BODY=b; FROM=f; NEW_IDX=i; WTDIR=w; eval "$TAIL" 2>&1 )"; rc=$?
+out="$( HERE="$T/fk"; NAME=s#0; BODY=b; FROM=f; AGENT=pi; NEW_IDX=i; WTDIR=w; eval "$TAIL" 2>&1 )"; rc=$?
 has "$out" "SPAWNED-UNVERIFIED s#0 rc=2" "ⓙ 가짜 send rc=2 → rc=2 표기" ; [ "$rc" -eq 5 ] && ok "ⓙ exit 5 유지" || bad "ⓙ exit=$rc"
 printf '#!/bin/bash\nexit 0\n' > "$T/fk/ft-send-verified.sh"
-out="$( HERE="$T/fk"; NAME=s#0; BODY=b; FROM=f; NEW_IDX=i; WTDIR=w; eval "$TAIL" 2>&1 )"; rc=$?
+out="$( HERE="$T/fk"; NAME=s#0; BODY=b; FROM=f; AGENT=pi; NEW_IDX=i; WTDIR=w; eval "$TAIL" 2>&1 )"; rc=$?
 [ "$rc" -eq 0 ] && has "$out" "SPAWNED s#0" "ⓙ 성공 → SPAWNED exit0" || bad "ⓙ 성공 경로 rc=$rc ← $out"
 
 echo "== ⓚ doorbell"

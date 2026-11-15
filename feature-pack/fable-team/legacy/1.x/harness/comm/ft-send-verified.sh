@@ -126,6 +126,48 @@ running() {
         | grep -qE '\([0-9]+(m [0-9]+)?s '
 }
 
+# ★r1750 우편함 소비 = 두 번째 도달 원본★ (카드 r1750 · A1~A3)
+#   jsonl 길이 없는 좌석(codex)·대기 창 밖에서 받은 좌석(pi 첫 턴)도 recv 로 읽으면 큐 행이 사라진다(consume-on-read).
+#   peek = «pending=N latest_seq=M» 한 줄 → N=0 이거나 M<SEQ 면 SEQ 는 큐에 없다 · M≥SEQ 면 뒤 쪽지가 가려 모른다 = «남음» 으로 본다.
+#   큐에 없어도 버림 원장(mailbox.drops.log seqs 칸)에 있으면 «읽음» 이 아니라 «버려짐» 이다 — 그래서 원장을 먼저 본다.
+#   더 기다릴 초 = 그 단계 jsonl 대기에서 쓰지 않고 남은 초만(하드 룰 12 · FT_SV_DEADLINE 도 넘지 않는다) — rc4 = 이미 다 기다렸다 = 1회.
+DROPS="${FT_MBOX_DIR:-$(dirname -- "$MBOX")}/mailbox.drops.log"
+MBOX_UNV=0   # 판정 불가를 한 번 냈으면 이 실행에서 다시 재지 않는다(1줄)
+sv_left() {   # $1 = 이 단계 대기 초 · $2 = 단계 시작 epoch → 남은 초(≤0 = 1회만 잰다)
+    local l=$(( $1 - ($(date +%s) - $2) ))
+    [ -z "${FT_SV_DEADLINE:-}" ] || [ $(( FT_SV_DEADLINE - $(date +%s) )) -ge "$l" ] || l=$(( FT_SV_DEADLINE - $(date +%s) ))
+    echo "$l"
+}
+drop_hit() {   # SEQ 가 버림 원장 seqs 칸에 있나 → 0 있음 · 1 없음(원장 없음 포함) · 2 판정 불가(1줄)
+    [ -e "$DROPS" ] || return 1
+    grep -qE "(^| )seqs=([0-9]+,)*$SEQ(,|\$)" "$DROPS"; local rc=$?
+    [ "$rc" -le 1 ] && return "$rc"
+    echo "판정 불가 우편함 소비 — drops.log 못 읽음: $DROPS" >&2; return 2
+}
+mbox_consumed() {   # $1 = 더 기다릴 초 → rc 0 소비 · 1 남음 · 2 버려짐 · 3 판정 불가
+    local until=$(( $(date +%s) + ${1:-0} )) out prc pend last
+    [ "$MBOX_UNV" = 0 ] || return 3
+    while :; do
+        out="$(bash "$MBOX" peek "$SESSION" 2>&1)"; prc=$?
+        [ "$prc" -eq 0 ] || { MBOX_UNV=1; echo "판정 불가 우편함 소비 — peek rc=$prc: ${out%%$'\n'*}" >&2; return 3; }   # r1750-M2
+        pend="$(printf '%s\n' "$out" | sed -n 's/^pending=\([0-9][0-9]*\).*/\1/p' | head -1)"
+        last="$(printf '%s\n' "$out" | sed -n 's/.* latest_seq=\([0-9][0-9]*\).*/\1/p' | head -1)"
+        [ -n "$pend" ] || { MBOX_UNV=1; echo "판정 불가 우편함 소비 — peek 꼴 모름: ${out%%$'\n'*}" >&2; return 3; }
+        drop_hit; case $? in 0) return 2;; 2) MBOX_UNV=1; return 3;; esac   # r1750-M1
+        { [ "$pend" -eq 0 ] || { [ -n "$last" ] && [ "$last" -lt "$SEQ" ]; }; } && return 0
+        [ "$(date +%s)" -lt "$until" ] || return 1
+        sleep 1
+    done
+}
+consumed_or_back() {   # $1 = 더 기다릴 초 · 소비 = REACHED(recv) exit 0 · 버려짐 = exit 5 · 그 밖 = 돌아가 기존 갈래
+    mbox_consumed "$1"
+    case $? in
+        0) echo "REACHED(recv) session=$SESSION seq=$SEQ"; exit 0;;
+        2) echo "UNVERIFIED session=$SESSION seq=$SEQ 버려짐(ring 포화) — 본문은 mailbox.log.jsonl 에만 남았다 · 사람이 확인해야 한다" >&2; exit 5;;
+    esac
+}
+# ★r1750 끝★
+
 if [ ! -f "$MBOX" ]; then
     # ★조용히 send-keys 로 폴백하지 않는다★ — 그 폴백이 바로 이 개정이 없앤 경로다.
     echo "SEND_FAILED session=$SESSION — mbox 래퍼가 없다: $MBOX (FT_MBOX_SH 로 지정하라)" >&2
@@ -142,6 +184,7 @@ if ! FT_REACH_COUNT_ONLY=1 bash "$REACH" "$SESSION" "__ft_send_verified_probe__"
         echo "SEND_FAILED session=$SESSION (mbox send 실패 — 세션명 거부·가드 차단·큐 오류)" >&2
         exit 1
     }
+    case "$DOORBELL" in absent|noagent) ;; *) consumed_or_back 0;; esac   # r1750: 대기 예산이 없는 갈래 = 1회만
     echo "UNVERIFIED session=$SESSION — 발주는 했으나 jsonl 층을 못 읽었다. 사람이 확인해야 한다" >&2
     exit 5
 fi
@@ -197,12 +240,15 @@ T1="$(sv_timeout "$TIMEOUT")" || unconf
 
 # 기준값 0 을 ★명시★해 넘긴다 — 빈 값으로 넘기면 ft-reach-check 가 자기 나름대로
 # 세는데, 그건 이 마커에 대해 늘 0 이라도 «왜 0 인지»가 코드에서 안 보인다.
+_R0=$(date +%s)   # r1750: jsonl 판정이 쓴 초 — 남은 만큼만 우편함을 더 본다
 if bash "$REACH" "$SESSION" "$MARKER" "$T1" 0; then
     [ "$QUEUED" -eq 1 ] && echo "  (좌석이 작업 중이었다 — 대기열을 거쳐 제출됐다)"
     exit 0
 fi
 RC=$?
 
+consumed_or_back "$(sv_left "$T1" "$_R0")"   # r1750 A1 — 1차 jsonl 미도달·판정 불가 뒤 우편함 소비
+# r1750 R1(DA HOLD1): 소비 확인이 예산을 쓴다 — 그래서 T2 는 «그 뒤에» 잰다(소진이면 ring 0 · reach 0 · rc6).
 # ★r1660-c★ 재발주도 시간을 쓴다 — ring «전에» 남은 예산을 본다(모자라면 ring 0 · 6 으로 넘긴다).
 T2="$(sv_timeout "$TIMEOUT")" || unconf
 
@@ -230,9 +276,11 @@ case "$DOORBELL" in
         exit 5
         ;;
 esac
+_R0=$(date +%s)
 if bash "$REACH" "$SESSION" "$MARKER" "$T2" 0; then
     exit 0
 fi
+consumed_or_back "$(sv_left "$T2" "$_R0")"   # r1750 A1 — ring 뒤
 
 echo "NOT_SUBMITTED session=$SESSION — 사람이 확인해야 한다" >&2
 exit 2

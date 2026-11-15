@@ -1142,6 +1142,6 @@ _retired="$(retired_line "$_probe")"
 [ -z "$_retired" ] || fail_rb "REJECT 발주문에 은퇴 도구 지시(serena) — $_retired"
 # (에이전트 본체는 ③ 직후 ft-agent-ready.sh 가 확인했다 — 옛 sleep 8 대체 · R251)
 [ "$REOPEN" != 1 ] || echo "REOPEN $IDX_REL seat=$NAME wt=$REOPEN_WT branch=$BRANCH head=$(git -C "$WTDIR" rev-parse HEAD 2>/dev/null)"   # r1335: 실사건 원문 1줄
-FT_SEND_FROM="$FROM" bash "$HERE/ft-send-verified.sh" "$NAME" "$BODY"; _src=$?
+FT_SEND_FROM="$FROM" FT_REACH_AGENT="$AGENT" bash "$HERE/ft-send-verified.sh" "$NAME" "$BODY"; _src=$?   # r1750 A4: reach 판정에 에이전트를 넘긴다(ft-successor-open 과 같은 꼴)
 [ "$_src" -eq 0 ] && { echo "SPAWNED $NAME index=$NEW_IDX wt=$WTDIR · $(bash "$HERE/ft-event-check.sh" spawn "$NAME" "$IDX_WT/$NEW_IDX" "$WTDIR")"; exit 0; }   # r1474: 끝 칸 = 재측정 1회(exit 0 불변)
 echo "SPAWNED-UNVERIFIED $NAME rc=$_src — 좌석은 떴다. 도달을 사람이 확인"; exit 5
