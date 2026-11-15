@@ -5,7 +5,7 @@
 - 근거: 실측 2026-11-16(aifp-ft-arch-pi#16·#17 · BYZ .fable-team/state/ft2-keeper/20261116.jsonl 원문 · 읽기만) — 00:00~01:1x «판정 불가 <팀> 쪽지 _master 없음» 1384줄(v65 360 · chatbot 270 · room 220 · knowledge 172 · kk 90 · cfo 88 · ops 86 · issues 53 · feature 45) · send rc 3 53줄 · 01:07 바퀴 chatbot stall 43.7초 중 mbox send 41.3초(6회 · rc None 4회) → ROUND 112.8초 · 같은 글 2통 = BYZ 장부 309818(ts 01:10:16)·309820(ts 01:10:23) 둘 다 from ft2-keeper · to byz-feature-master-pi#75 · 본문 [다음 없음] feature … · v65 명부는 seats.json 인데 seats-v65.json 만 찾아 «_master 없음» 360줄 · BYZ 장부 6374줄 중 seq 가 거꾸로 간 곳 0
 - 원인 1줄: keeper_report.notify 가 그 팀 seats-<팀>.json 의 _master 한 곳만 본다 · 실패하면 지문을 쓰지 않아 바퀴마다 다시 시도하고 같은 줄을 찍는다 · 7초를 넘긴 send 를 실패로 보고 재시도 1 이 같은 글을 한 번 더 적재한다 · 바퀴 안 통 수에 상한이 없다
 - 앞 카드: r2055(팩 d88ef381 · settle 한 길 · alert 지문) · r1812(keeper 보고) · r1886(꽉 참 알림) · r1833(Slack 깨움 적재 판독 landed)
-- 상태: 대기
+- 상태: 완성 · 2026-11-16 04:24 · -
 - 착지: ae0c199eafa2b061034a2169d673bb3bb8cceff6(팩 main · PR #1282 squash · DA#11 APPROVE-IMPL aifp 5510 · 세트 8ba57455 · 뺄 커밋 0)
 - 설치: 있음 — ft2 판 올림 1회(팩 착지 뒤 팀장·harness 설치 묶음) · 되돌림 = 앞 판으로 판 전환
 - 선행: 없음 — ft2-slack-accept-capacity 착지 끝(팩 main 09c02c0a · PR #1270 · 팀장 aifp-ft-master-pi#18 이 풂)
@@ -101,3 +101,4 @@ keeper 는 판정을 팀장에게 쪽지로 알린다. 받는 곳을 그 팀 명
 - DA 판정: HOLD-IMPL 310738 → APPROVE-IMPL 310812(aifp 5510) · 구현 2/3 · c7 별건
 - 세트: 8ba5745547a313233c59c8ff1a58d033c543fce9 · 시험: python3.11 -m pytest ft2/tests/test_keeper_notify_recipient.py (25 passed · 24.21초) rc=0 · 이슈: 0
 - 남은 범위: 없음
+- 2026-11-16 04:24 — 진행→완성 · DA /Users/yoonhwan/Project/ai-feature-pack/.fable-team/state/team-main/aifp-ft/DA-pE-close-311330/verdict.md#§1

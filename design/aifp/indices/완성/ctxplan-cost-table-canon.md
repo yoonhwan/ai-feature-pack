@@ -6,7 +6,7 @@
 - 나노: r1675 나노 좌석에 이어 준다(r1675 닫힌 뒤 · master #3931)
 - 중복 확인: 팩 origin/main feature-pack/ctx-plan/ 에 docs/ 폴더 0 · 비용 비교 문서 0 · manifest public_docs = README.md 1개뿐 → 같은 문서 0
 - 제안서: 없음 — 오빠 직접 지시이고 고칠 안이 1개(문서 1파일 + README 1줄)다
-- 상태: 대기 · 2026-11-11 · aifp-ft-arch-pi#0 초안(#3931)
+- 상태: 완성 · 2026-11-16 04:24 · -
 - 착지: d0cb55ff4c43fcdbeab6bc7773177d94b224ba86(팩 main · PR #1301 squash · DA#11 APPROVE-IMPL aifp 5597 · 세트 e26e4889 · 뺄 커밋 0)
 - 설치: 없음 — 문서만 · 코드 0
 - 선행: r1675 닫힘(같은 나노 좌석)
@@ -87,3 +87,4 @@
 - 2026-11-16 04:03 · aifp-ft-arch-pi#19 착지 줄 씀(팀장 aifp 5598) · 나노 aifp-ft-nano-ctxplan-cost-table-canon#0 산출(aifp 5591) = 원고(sha256 앞 12자 4fe0900bd354 · 36줄)를 feature-pack/ctx-plan/docs/plan-cost-table.md 로 옮김 + README 링크 1줄 · 산출: nano/ctxplan-cost-table-canon@e26e4889 · 병합 상태: 착지(PR #1301 d0cb55ff) · 남은 일: 없음
 - DA 판정: APPROVE-IMPL 311253(aifp 5597 · 사본 .fable-team/state/team-main/aifp-ft/DA-ctxplan-impl-approve-311253/verdict.md) · 숫자 140 = 140 · 반례 0 · 뺄 파일 0
 - 세트: e26e4889c9dd3770e3a8059fa96ece0a6d6a0c27 · 시험: bash feature-pack/ctx-plan/test/contract.sh (53 passed) · bash feature-pack/ctx-plan/test/acceptance.sh (61 passed) rc=0 · 이슈: 0
+- 2026-11-16 04:24 — 진행→완성 · DA /Users/yoonhwan/Project/ai-feature-pack/.fable-team/state/team-main/aifp-ft/DA-ctxplan-close-311359/verdict.md#§1
