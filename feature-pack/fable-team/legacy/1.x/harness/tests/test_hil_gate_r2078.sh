@@ -22,7 +22,7 @@ printf '#!/bin/bash\nprintf "%%s\\t%%s\\t%%s\\n" "$2" "$3" "$4" >> "$(dirname "$
 git -C "$(git -C "$HERE" rev-parse --show-toplevel)" archive "$BASE" -- "$(git -C "$HERE/../bin" rev-parse --show-prefix)" 2>/dev/null | tar -x -C "$T/base" 2>/dev/null
 BB="$(find "$T/base" -type d -path '*harness/bin' | head -1)"; [ -f "$BB/ft-hil.sh" ] || BB=""
 hil()  { local b="$1" e=(); shift; while [ "${1:-}" = env ]; do e+=("$2"); shift 2; done
-  env -i HOME="$T/home" PATH="/usr/bin:/bin" HIL_DIR="$HD" HIL_CLIP=0 FT_SECRET_JUDGE="$T/none.py" FT_MBOX_DIR="$C" ${e[@]+"${e[@]}"} bash "$b/ft-hil.sh" "$@"; }
+  ( for v in $(compgen -e); do unset "$v" 2>/dev/null; done; export HOME="$T/home" PATH="/usr/bin:/bin" HIL_DIR="$HD" HIL_CLIP=0 FT_SECRET_JUDGE="$T/none.py" FT_MBOX_DIR="$C" ${e[@]+"${e[@]}"}; bash "$b/ft-hil.sh" "$@" ); }
 runh() { local p="/usr/bin:/bin"; [ "${1:-}" != --stub ] || { p="$T/gitstub:$p"; shift; }; ( cd /tmp && env -i HOME="$T/home" PATH="$p" bash "$@" ); }
 plan() { local f="$T/$1.sh.hil"; shift; { echo '#!/usr/bin/env bash'; printf '%s\n' "$@"; } > "$f"; echo "$f"; }
 fresh() { HD="$T/hd-$1"; rm -rf "$HD"; mkdir -p "$HD"; }
@@ -186,7 +186,7 @@ c82() { local o rc; o="$(python3 "$1/ft_hil_gate_judge.py" --plan "$F/conditiona
   o="$( (cd "$T" && env -i PATH=/usr/bin:/bin bash "$F/conditional-exit-safe.sh" 2>/dev/null) )"; rc=$?
   [ "$rc" = 0 ] && [ "$o" = "WOULD_DELETE n=0" ] && ok "⑧-2 대조: 그대로 실행 = WOULD_DELETE n=0 · rc0(실패가 정상 값이 되는 길)" || bad "⑧-2 대조 rc=$rc ← $o"; }
 c83() { local o rc w; fresh 83; cp "$F/trailing-newline.sh" "$T/p83.sh"; h3="$(hil "$1" --add "$T/p83.sh" 2>/dev/null)"; h3="${h3#! bash }"
-  ( cd /tmp && env -i HOME="$T/home" PATH="${BASH%/*}:/usr/bin:/bin" "$BASH" "$h3" ) >/dev/null 2>&1; rc=$?; cp "$h3.out" "$T/o83" 2>/dev/null; ( cd /tmp && "$BASH" "$T/p83.sh" ) > "$T/w83" 2>/dev/null   # 시험을 돌리는 bash(macOS /bin/bash 3.2 는 끝 backslash 를 버려 차이가 안 보임)   # 진입 파일 stdout 사본 = .out(뒤 «남은 미실행» 줄은 결과 쪽지 몫)
+  ( cd /tmp && for v in $(compgen -e); do unset "$v" 2>/dev/null; done; export HOME="$T/home" PATH="${BASH%/*}:/usr/bin:/bin"; "$BASH" "$h3" ) >/dev/null 2>&1; rc=$?; cp "$h3.out" "$T/o83" 2>/dev/null; ( cd /tmp && "$BASH" "$T/p83.sh" ) > "$T/w83" 2>/dev/null   # 시험을 돌리는 bash(macOS /bin/bash 3.2 는 끝 backslash 를 버려 차이가 안 보임)   # 진입 파일 stdout 사본 = .out(뒤 «남은 미실행» 줄은 결과 쪽지 몫)
   [ "$rc" = 0 ] && cmp -s "$T/o83" "$T/w83" && printf 'foo\n' > "$T/x83" && cmp -s "$T/o83" "$T/x83" && ok "⑧-3 끝 개행 계획 = bash h 와 bash 계획 stdout 같음(foo+개행) · rc0" || bad "⑧-3 rc=$rc h=«$(od -An -c "$T/o83")» 계획=«$(od -An -c "$T/w83")»"; }
 c84() { local s; s="$(fsha "$T/p83.sh")"; ( cd /tmp && PATH="${BASH%/*}:$PATH" "$BASH" "$F/locked-safe.sh" "$s" "$T/p83.sh" ) > "$T/l84" 2>/dev/null
   [ -s "$T/o83" ] && ! cmp -s "$T/l84" "$T/o83" && printf 'foo\\\n' > "$T/x84" && cmp -s "$T/l84" "$T/x84" && ok "⑧-4 끝 개행을 지우는 대조판(foo+\\+개행) ≠ 진입 파일 stdout" || bad "⑧-4 대조판=«$(od -An -c "$T/l84")» h=«$(od -An -c "$T/o83" 2>/dev/null)»"; }
