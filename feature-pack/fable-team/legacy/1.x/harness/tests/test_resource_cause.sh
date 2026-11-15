@@ -3,6 +3,7 @@
 # 가짜 tmux·ps·임시 루트만 쓴다 — 실 tmux·실 du·실 좌석 0. (60분 증가분 상위 폴더 3개 + 만든 좌석 매핑)
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
+export FT_TMP_SWEEP_SH=/usr/bin/true   # r2073: 임시 사본 정리도 가짜(실 /private/tmp 를 보지도 지우지도 않게)
 export FT_ALLOW_TRACKED_BIN=1
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
