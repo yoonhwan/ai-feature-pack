@@ -103,6 +103,8 @@ def seat(name: str) -> bool:
     except (OSError, ValueError):
         return False                              # 정본을 못 읽으면 «좌석 아님»(안전한 쪽)
     role, tail = toks[2], "-".join(toks[3:])
+    rng, _, last = tail.rpartition("-")           # r1658 qa 꼬리 = 에이전트 또는 «범위 1토큰 + 에이전트»(lint r1650 갈래)
+    tail = last if role == "qa" and rng and "-" not in rng and rng not in agents else tail
     return role in roles and (bool(tail) if role == "nano" else tail in agents)
 
 
