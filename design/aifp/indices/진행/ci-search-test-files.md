@@ -129,5 +129,5 @@ fixture(/tmp · 6파일 · 같은 낱말)에서 probe 가 기본으로 빼는 �
 - 알려진 한계: 시험 test_ci_search_nonascii_panic.sh 전체 rc 는 1 이다 — «기준판 대조» 블록이 origin/main 을 기준판으로 잡아, 고침이 착지한 뒤에는 «기준판 … 통과 — FAIL 이어야» 가 난다(앞 카드 몫 10줄 + 이 카드 몫 6줄) · 기능 검사 실패 0 · 고침 = 결함이 있던 커밋 sha 고정(별도 fixture 보수 카드 · DA 311592) · 그 밖 한계(DA) = --no-tests 에서 panic rg 폴백은 시험 파일을 가르지 않고 경고만 낸다 · 실 probe 0건 rc 0 이라 OR 재시도가 돌지 않는 것은 범위 밖 그대로
 - DA 판정: APPROVE-IMPL 311592(사본 .fable-team/state/team-main/aifp-ft/DA-ci-tests-impl-approve-311592/verdict.md) · 승인 sha 12840fa9 · 수용 반례 0 · C1~C12 통과 · T-X1~T-X5 검출 · 회귀 5파일 rc0 · 전체 suite rc1(같은 10줄) 을 rc0 으로 주장하지 않음
 - 2026-11-16 05:13 · aifp-ft-arch-pi#20 조건 7 [x](팀장 aifp 5720) · 조건 1 = 팀장 판단(하드 룰 21) «알려진 한계» 로 받아 DA 닫힘 판정으로 닫는다 · 보수 = 별도 카드 대기/ci-test-base-sha-pin
-- 남은 범위: ci-test-base-sha-pin(시험 기준판 고정 · 완료 조건 1 의 «시험 전체 rc0» 은 그 카드가 닫는다 · 이 카드는 «알려진 한계» 로 닫음 = 팀장 aifp 5720 · DA 닫힘 311681)
+- 남은 범위: ci-test-base-sha-pin — (시험 기준판 고정 · 완료 조건 1 의 «시험 전체 rc0» 은 그 카드가 닫는다 · 이 카드는 «알려진 한계» 로 닫음 = 팀장 aifp 5720 · DA 닫힘 311681)
 - 세트: 12840fa95f419d372f2329ef788d01a2fba3ef80 · 시험: bash feature-pack/code-intel/tests/test_ci_search_nonascii_panic.sh rc=1(284/294 · 남은 10 = 기준판 대조 블록) · 이슈: 0
