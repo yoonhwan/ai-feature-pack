@@ -355,7 +355,7 @@ CASES = {"①": c1, "②": c2, "②′": c2b, "③": c3, "④": c4, "④′": c4
          "⑫": c12, "⑱": c18, "⑲": c19, "⑳": c20, "㉕가": c25a, "㉕나": c25b, "㉕다": c25c}
 CASES.update({"⑰" + c: (lambda c: lambda w: c17(w, c))(c) for c in "가나다라마바"})
 KS = "adapters/pi/keeper_settle.py"
-MUTANTS = {"M3": ('and age >= WAIT_S and cpu == "idle":', "and age >= WAIT_S and False:", c9),
+MUTANTS = {"M3": ('and age >= WAIT_S and cpu == "idle" and idle_s == PARK_IDLE:', "and age >= WAIT_S and False:", c9),
            "M4": ("    for _ in range(depth):", "    for _ in range(2):", c20),
            "M5": ('idle = age is not None and age >= idle_s and (shell or cpu == "idle")', 'idle = (shell or cpu == "idle")', c6),
            "M6": ('and isinstance(rec.get("work"), str) and rec["work"] not in sent', 'and rec.get("work") and rec["work"] not in sent', c25a)}   # ㉕ str 가드

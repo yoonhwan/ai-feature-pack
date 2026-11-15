@@ -234,7 +234,8 @@ class Settling:
             cpu = "unknown" if shell else self.cpu(holder, info)
         if cpu == "busy":
             return self.verdict(team, work, holder, "WORKING", "cpu-busy")
-        if not shell and stop not in (None, "stop") and age is not None and age >= WAIT_S and cpu == "idle":
+        if not shell and stop not in (None, "stop") and age is not None and age >= WAIT_S and cpu == "idle" and idle_s == PARK_IDLE:
+            # 질문 창(WAIT_S)은 지금 길(park)만 본다 — 착지 좌석의 짧은 문턱은 열린 턴을 계속 WORKING landed-wait 로 둔다(DA 반례 311515 R1)
             return self.unknown_seat(team, work, attempt, holder, "waiting-input", "마지막 줄 %s · 무활동 %d분" % (stop, age // 60))
         idle = age is not None and age >= idle_s and (shell or cpu == "idle")   # CPU 단독 = 근거 0
         if not idle:

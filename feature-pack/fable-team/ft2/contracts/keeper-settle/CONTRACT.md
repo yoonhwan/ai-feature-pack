@@ -40,7 +40,7 @@ keeper 는 좌석마다 매 바퀴 판정 1개를 낸다. 이 문서는 그 판�
 
 지켜야 하는 약속:
 
-- **착지한 좌석만 짧은 문턱을 쓴다**(A1·A2). `landing()` 이 참인 좌석(카드 착지 줄 · 넓힌 근거)의 닫기 길은 `DONE_IDLE` 300초다. 조건은 마지막 pi 턴 `stopReason=stop` ∧ CPU idle 2회 ∧ 막는 미읽음 0 이다. 착지 0 좌석·셸만 남은 pane 의 park 길은 지금과 같다(`PARK_IDLE` 3600초 · 셸은 CPU 무관). 문턱이 짧아도 턴이 안 닫혔으면 `WORKING landed-wait` 다(닫기 0).
+- **착지한 좌석만 짧은 문턱을 쓴다**(A1·A2). `landing()` 이 참인 좌석(카드 착지 줄 · 넓힌 근거)의 닫기 길은 `DONE_IDLE` 300초다. 조건은 마지막 pi 턴 `stopReason=stop` ∧ CPU idle 2회 ∧ 막는 미읽음 0 이다. 착지 0 좌석·셸만 남은 pane 의 park 길은 지금과 같다(`PARK_IDLE` 3600초 · 셸은 CPU 무관). 문턱이 짧아도 턴이 안 닫혔으면 `WORKING landed-wait` 다(닫기 0) — 질문 창(`WAIT_S` 900초) 판정은 park 길만 본다. 착지 좌석이 15분을 넘겨도 마지막 줄이 `stop` 이 아니면 계속 `WORKING landed-wait` 이고 [긴급] 도 0 이다(DA 반례 311515 R1).
 - **쉼 판정에서 빼는 미읽음 = «닫힌 꼴 마감 쪽지» 뿐이다**(A5~A8). 읽는 대상은 keeper 가 부르는 `mbox.sh peek <좌석>` 의 그 집합이고, `peek --rows` 로 미읽음마다 JSON 1줄(seq·ts·to·from·body)을 받는다. 한 통이 아래 셋을 모두 채워야 빼고, 하나라도 못 채우면 그 좌석은 `UNKNOWN mail-pending` 이다. ① 본문이 닫힌 꼴이다 — `골좌표:` 로 시작하는 줄과 빈 줄을 뺀 나머지가 정확히 1줄이고 그 줄 전체가 `[마감 #<숫자>] 할 일 0` 또는 `[마감] 할 일 0` 이며 꼬리는 ` · 착지 <7~40자 hex>` 하나만 된다(자유 글은 안 읽는다) ② 보낸 이가 그 팀 명부의 역할 칸(`_master`·`_arch`·`_desk`)에 지금 적힌 좌석이다(명부를 못 읽으면 막는다) ③ 쪽지 `ts` 가 그 좌석에 쓰는 유휴 문턱보다 오래됐다. 빼는 쪽지는 큐에 그대로 둔다(keeper 는 mark·recv 하지 않는다). 근거 줄 꼬리 = `· 미읽음 마감 <n>통 제외(seq <앞 3개> · 가장 오래된 <분>분)`.
 - `peek --rows` 판독 실패는 이렇게 가른다 — rc ≠ 0 · 머리줄에 `pending=` 없음 · JSON 깨짐 · `0 < 줄 수 ≠ pending` = `mail-unknown` · 머리줄은 읽혔는데 줄이 0 이고 `pending > 0` = 옛 mbox(`--rows` 모름) → `mail-pending`. 착지 좌석은 `peek --rows` 한 번, 그 밖 좌석은 `peek` 으로 pending 을 먼저 보고 0 이 아니면 `--rows` 로 내용을 읽는다(옛 mbox 호환).
 - **CPU idle 단독은 유휴·닫기 근거가 아니다.** 유휴 = jsonl 무활동 ≥ `PARK_IDLE` ∧ CPU idle 2회 둘 다. pi 는 API 응답을 기다리는 동안 %cpu 가 0.0 이다. 셸만 남은 pane 은 CPU 와 무관하게 에이전트 종료 근거다.

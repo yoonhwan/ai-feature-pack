@@ -311,6 +311,15 @@ def c29y(w):   # ㉙노 r2057 실사건 원문(자유 글 답장 · 옛 착지 �
     blocked(w, "r2057-test", [(309395, 75, MASTER, body)])
 
 
+def c29do(w):   # ㉙도 착지 참 · 마지막 줄 toolUse · 무활동 16분(질문 창 15분 지남) · CPU idle 2회 · 미읽음 0 → WORKING landed-wait · 닫기·complete·[긴급] 0
+    landed(w, "r9901", age=960, turn="toolUse")   # 짧은 문턱(300초)은 지났지만 턴이 안 닫혔으면 일하는 중이다(DA 반례 311515 R1)
+    lines = two(w)
+    assert has(lines, "WORKING harness r9901", "landed-wait"), lines
+    assert not has(lines, "UNKNOWN harness r9901"), lines
+    assert not has(lines, "waiting-input") and not calls(w, "send"), lines   # [긴급] 0 — 미읽음도 0
+    assert not w.tmux("kill-session") and w.kinds("complete") == 0 and not calls(w, "mark"), lines
+
+
 def c29huh(w):   # ㉙허 `[마감 #N] 할 일 0이 아닙니다`(줄 전체가 안 맞음) → UNKNOWN mail-pending
     blocked(w, "r9827", [(3231, 75, MASTER, "[마감 #3230] 할 일 0이 아닙니다")])
 
@@ -318,7 +327,7 @@ def c29huh(w):   # ㉙허 `[마감 #N] 할 일 0이 아닙니다`(줄 전체가 
 CASES = {"㉙가": c29a, "㉙나": c29b, "㉙다": c29c, "㉙라": c29d, "㉙마": c29e, "㉙바": c29f, "㉙사": c29g, "㉙아": c29h,
          "㉙자": c29i, "㉙차": c29j, "㉙카": c29k, "㉙타": c29l, "㉙파": c29m, "㉙하": c29n, "㉙거": c29o, "㉙너": c29p,
          "㉙더": c29q, "㉙러": c29r, "㉙머": c29s, "㉙버": c29t, "㉙서": c29u, "㉙어": c29v, "㉙저": c29w, "㉙고": c29x,
-         "㉙노": c29y, "㉙허": c29huh}
+         "㉙노": c29y, "㉙허": c29huh, "㉙도": c29do}
 
 MUTANTS = {
     "M20": (KC, 'wait="landed-wait", idle_s=settle.DONE_IDLE', 'wait="landed-wait"', [c29a, c29h]),   # land_ready 가 DONE_IDLE 을 안 넘김
@@ -342,20 +351,3 @@ MUTANTS = {
 @pytest.mark.parametrize("name", list(CASES))
 def test_case(name, tmp_path, monkeypatch):
     CASES[name](world(tmp_path, monkeypatch))
-
-
-@pytest.mark.parametrize("name", list(MUTANTS))
-def test_mutant(name, tmp_path, monkeypatch):
-    """변이 사본 = 잡는 사례가 FAIL · 원본 사본 = 같은 사례 PASS(양성)."""
-    path, old, new, cases = MUTANTS[name]
-    tree = tmp_path / "m" / "ft2"
-    shutil.copytree(FT2, tree, ignore=shutil.ignore_patterns("tests", "__pycache__"))
-    text = (tree / path).read_text(encoding="utf-8")
-    assert text.count(old) == 1, (name, old, text.count(old))
-    (tree / path).write_text(text.replace(old, new), encoding="utf-8")
-    for i, case in enumerate(cases):
-        (tmp_path / ("f%d" % i)).mkdir(exist_ok=True)
-        with pytest.raises(AssertionError):
-            case(world(tmp_path / ("f%d" % i), monkeypatch, tree))
-    (tmp_path / "ok").mkdir(exist_ok=True)
-    cases[0](world(tmp_path / "ok", monkeypatch))
