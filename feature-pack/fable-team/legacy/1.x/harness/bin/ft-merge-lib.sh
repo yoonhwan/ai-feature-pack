@@ -278,7 +278,7 @@ fm_ddl_dev_gate() {
 fm_land_ledger() {
   local st="$1" ast="$2" ap="$3" q="$4" afv="${5:-}" sn dl="" lf arc
   sn="$(awk -v ap="$ap" '$1=="scope-use" && $3==ap && $2 ~ /^S[0-9]+$/ {s=$2} END{print s}' "$st/autonomy.log" 2>/dev/null)"
-  [ "$afv" != D1 ] || dl="$ast/autonomy-standing/D1.ledger.tsv"; [ "$afv" != D2 ] || dl="$ast/autonomy-standing/D2.ledger.tsv"   # r1577: D2 상시 승인도 같은 7칸 원장
+  [ "$afv" != D1 ] || dl="$ast/autonomy-standing/D1.ledger.tsv"; [ "$afv" != D2 ] || dl="$ast/autonomy-standing/D2.ledger.tsv"; [ "$afv" != D3 ] || dl="$ast/autonomy-standing/D3.ledger.tsv"   # r1577·r1794: D2·D3 상시 승인도 같은 7칸 원장
   for lf in "$st/autonomy-scope/${sn:-none}.ledger.tsv" ${dl:+"$dl"}; do
     [ -f "$lf" ] || continue
     awk -F'\t' -v OFS='\t' -v ap="$ap" -v q="$q" '$2==ap && $6=="" {$6=q; $7="git revert --no-edit " q; n++} {print} END{exit n?0:3}' "$lf" 2>/dev/null > "$lf.$$"; arc=$?
@@ -483,12 +483,12 @@ fm_land_turn() {
   cap=$((7 - (SECONDS - t0))); if el="$(fm_fetch_deadline_rem)"; then [ "$el" -ge "$cap" ] || cap="$el"; fi
   [ "$cap" -lt 1 ] || [ ! -f "$FM_HERE/ft-nano-record.sh" ] || FT_ROOT="$c" fm_try "$cap" bash "$FM_HERE/ft-nano-record.sh" notify --pr "$pr" --no-fetch 2>&1 || true
 }
-#   fm_land_notify_d2 <PR> <착지 sha> <head 가지> <PR 제목> : r1577 · r1804 A2(카드 = fm_card_tokens · 본문 0) — D2 승인 줄로 착지했을 때 슬랙 1줄(«병합함: PR #N · 카드 · DA APPROVE · 되돌림 명령»)
+#   fm_land_notify_d2 <PR> <착지 sha> <head 가지> <PR 제목> [승인 줄 이벤트(r1794 D3 = 표기 «상시 승인 D3»)] : r1577 · r1804 A2(카드 = fm_card_tokens · 본문 0) — D2 승인 줄로 착지했을 때 슬랙 1줄(«병합함: PR #N · 카드 · DA APPROVE · 되돌림 명령»)
 #     게시 = ft-autonomy-scope.sh 의 scope_slack_post 재사용(사본 0 · 서브셸이라 scope_err 의 exit 이 착지 rc 를 못 건드린다) · 실패 = stderr 1줄 · 착지 rc 불변
 fm_land_notify_d2() {
-  local pr="$1" q="$2" tok body out rc
+  local pr="$1" q="$2" lab="DA APPROVE" tok body out rc; [ "${5:-}" != D3 ] || lab="상시 승인 D3(위험 낮은 병합)"   # r1794: 5번째 = 승인 줄 이벤트(D3 면 표기 바꿈) · r1804 3·4번째 = 가지·제목
   tok="$(fm_card_tokens "${3:-}" "${4:-}")"
-  body="$(printf '병합함: PR #%s · 카드 %s · DA APPROVE · 되돌림: git revert --no-edit %s' "$pr" "${tok:-없음}" "$q")"
+  body="$(printf '병합함: PR #%s · 카드 %s · %s · 되돌림: git revert --no-edit %s' "$pr" "${tok:-없음}" "$lab" "$q")"
   out="$( ( . "$FM_HERE/ft-autonomy-scope.sh" >/dev/null 2>&1; scope_slack_post "$body" ) 2>&1 )"; rc=$?
   [ "$rc" = 0 ] || echo "WARN 병합 뒤 슬랙 알림 실패(rc=$rc) — 착지는 성공(sha $q) · ${out%%$'\n'*}" >&2
   return 0
