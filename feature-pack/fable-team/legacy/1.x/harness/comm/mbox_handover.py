@@ -130,9 +130,11 @@ def _successor_open_seq(old):
 
 
 def _handovers(old, new):   # 옛→후계 기계 [인계] 전부(보낸 순) — r1692: 개설 쪽지(도달 파일이 가리키는 seq) 1통은 묶음 밖
-    skip = _successor_open_seq(old)
+    import mbox_handover_hand   # r2060 A7 — handover-drop 표식의 seq(to = 후계) 중 손 통(items = None)만 묶음 밖 · 기계 통은 표식에 있어도 남는다
+    skip, drop = _successor_open_seq(old), mbox_handover_hand.dropped(old, new)
     return [r for r in _sent() if r.get("from") == old and r.get("to") == new
-            and _head(r.get("body")) == "[인계]" and r.get("seq") != skip]
+            and _head(r.get("body")) == "[인계]" and r.get("seq") != skip
+            and not (r.get("seq") in drop and items(r) is None)]
 
 
 def _readies(new, old, after=0):   # 후계→옛 [레디] 중 seq > after(보낸 순)
