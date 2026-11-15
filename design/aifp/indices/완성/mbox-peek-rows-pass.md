@@ -7,7 +7,7 @@
 - 앞 카드: 진행/ft2-done-seat-short-idle(A4 = peek --rows · 착지 14c2f051 · 조건 6·7 [~]) · r1153(peek = recv 와 같은 대상 규칙)
 - 앞 카드와의 관계: 진행/ft2-done-seat-short-idle 은 mbox.py·mbox_ops.py 에 --rows 를 넣었지만 keeper 가 부르는 입구는 mbox.sh 다(ft2/adapters/pi/keeper_settle.py 395줄 `bash <mbox.sh> peek <좌석> --rows`) · 이 카드가 착지·설치되면 그 카드의 조건 6(설치 판 ft2 + mbox)·조건 7(`미읽음 마감 n통 제외` 실사건)을 다시 잴 수 있다
 - 착지: d05a032c2ed884d2606f41dfc94b133c6f33540b(팩 main · PR #1369 squash · head 2241c7a0 · DA 대행 byz-harness-da-codex#11 APPROVE-IMPL BYZ 312110 · 세트 2241c7a0 = PR head · 뺄 커밋 0)
-- 상태: 대기
+- 상태: 완성 · 2026-11-16 06:45 · -
 - 설치: 있음 — 1.x comm 도구(mbox.sh) 설치 1회(harness) · ft2 판 올림 없음 · 되돌림 = 앞 mbox.sh 로(keeper 는 지금처럼 미읽음 1통이라도 막는 동작으로 돌아간다)
 - 선행: 없음
 - 시험 입력: 가짜 쪽지함 폴더(FT_MBOX_DIR) · 가짜 명부(FT_SEATS_JSON) · 시험 안에서 보낸 쪽지 · sleep 0 · 네트워크 0 · 실 우편함 읽기·쓰기 0 · tmux 호출 0 · 사례 1개 70초 안
@@ -105,3 +105,4 @@
 - 남은 범위: 없음
 - 세트: 2241c7a04dd8e8b2dc91f43c821aeb7f81a8689c · 시험: python3.11 -m pytest tests/scripts/test_mbox_sh_peek_rows_pass.py — 12 passed rc=0 · 이슈: 0
 - 완료: aifp-ft-nano-mbox-peek-rows-pass#0 · 한 일: mbox.sh peek 이 --rows 를 mbox.py 로 넘긴다 · 새 시험 12사례 + 변이 M92·M93 · 산출: nano/mbox-peek-rows-pass@2241c7a04d · 병합 상태: 착지 전(push 전) · 남은 일: 없음
+- 2026-11-16 06:45 — 진행→완성 · DA /Users/yoonhwan/Project/ai-feature-pack/.fable-team/state/team-main/aifp-ft/DA-peek-close-312232/verdict.md#§1
