@@ -126,7 +126,10 @@ if done_step b2; then echo "B2 skip plan 에 done ($b2name)"
 else
   { printf '%s\n' "$GOAL3" | head -3; echo; echo "정본: $CREPO@$REF:$best (sha $sha · 출처 $GSOURCE)";
     [ -n "$REOPEN1" ] && echo "다시 여는 법: $REOPEN1"
-    echo "재개 카드: ${NREOPEN}장 · 크론 0 · 호출될 때만"; } > "$BODY" || STOP "부팅 본문 못 씀 $BODY"
+    echo "재개 카드: ${NREOPEN}장 · 크론 0 · 호출될 때만"
+    # r1957 «열린 칸 감시: » 1줄 = CLOSEOUT «## 열린 칸 감시» 절 항목 전부(부분 선택 0 · 160자 초과 = successor-open REJECT → B2 STOP) · 절 없으면 «없음» + 근거 sha
+    W1957="$(printf '%s\n' "$text" | sec_lines x '열린 칸 감시' 9999 | sed -E 's/^[[:space:]]*-[[:space:]]+//' | awk 'NR > 1 { printf " · " } { printf "%s", $0 }')"
+    echo "열린 칸 감시: ${W1957:-없음(새 생명 · CLOSEOUT ${sha:0:10} 기준 · 재개 카드 ${NREOPEN}장 = B3)}"; } > "$BODY" || STOP "부팅 본문 못 씀 $BODY"
   SO="${FT_SUCCESSOR_OPEN:-$HERE/ft-successor-open.sh}"
   so_args=("$OLD" "$WT" --name "$NEXT" --agent "$AGENT" --model "$MODEL" --body-file "$BODY")
   if [ -n "$RESUME_UUID" ]; then

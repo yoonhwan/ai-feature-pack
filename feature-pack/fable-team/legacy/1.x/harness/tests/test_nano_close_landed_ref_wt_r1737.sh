@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_nano_close_landed_ref_wt_r1737.sh — r1737: ft-nano-close.sh --landed-pr 의 ①착지 판정 ref = FT_LAND_REF ②--landed-pr + --wt 좌석 워크트리 인정
 #   ①ops/main-base 착지 나노가 «main 에 산출 없음» 으로 막히던 자리 · ②고침 중 새 가지를 판 좌석(가지 이름 ≠ 키)이 «후보 0» 으로 막히던 자리.
-# 반례 ①ff(ops) ②squash(ops) ③ref 꼴 밖=usage2 ④env 없음=기준판 ⑤--wt 인정(닫힘) ⑥HEAD≠세트 ⑦남의 가지 ⑦b중간 -r숫자- 키=남의 가지 ⑧.wtrees 밖 ⑧b미등록 clone ⑨fetch 실패=판정 불가
+# 반례 ①ff(ops) ②squash(ops) ③ref 꼴 밖=usage2 ④env 없음=공용 후보(r1754 A4 · 옛 기대 = 기준판 REJECT) ⑤--wt 인정(닫힘) ⑥HEAD≠세트 ⑦남의 가지 ⑦b중간 -r숫자- 키=남의 가지 ⑧.wtrees 밖 ⑧b미등록 clone ⑨fetch 실패=판정 불가
 # 변이 M1→② M2→⑥ M3→⑦ M4→③ M5→⑦b(기준판 d31ac751 과 같은 줄 복원) FAIL · 기준판(445533f6) ①⑤ Red · 설비는 _landed_ref_wt_r1737_fixture.sh(공용 픽스처).
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
 . "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/_landed_ref_wt_r1737_fixture.sh"
@@ -30,10 +30,10 @@ echo "== ③ FT_LAND_REF=main(origin/ 없음) → usage rc 2 · 닫기 0"; setup
 [ "$rc" -eq 2 ] && has "$out" "FT_LAND_REF 는 «origin/<가지>» 꼴이어야 한다" "③ ref 꼴 밖 = usage 2" || bad "③ rc=$rc ← ${out:0:600}"
 untouched "③"
 
-echo "== ④ FT_LAND_REF 없음 · PR head 가 ops/main-base 에만 → 기준판과 같은 REJECT(동작 불변)"; setup; push_ref "$SET" ops/main-base; git -C "$ROOT" fetch -q origin
+echo "== ④ FT_LAND_REF 없음 · PR head 가 ops/main-base 에만 → r1754 A4: 공용 후보(ft_land_refs)로 착지 확인 ref=origin/ops/main-base(옛 기대 = REJECT)"; setup; push_ref "$SET" ops/main-base; git -C "$ROOT" fetch -q origin
 out="$(close --landed-pr 363)"; rc=$?
-[ "$rc" -eq 1 ] && has "$out" "main 에 산출 없음" "④ env 없음 = origin/main 그대로" || bad "④ rc=$rc ← ${out:0:600}"
-untouched "④"
+[ "$rc" -eq 0 ] && has "$out" "착지 ref=origin/ops/main-base" "④ env 없음 = origin/main 다음 원격의 ops/main-base" || bad "④ rc=$rc ← ${out:0:600}"
+closed_ok "④"
 
 echo "== ⑤ 가지 nano/refwt-cfg(≠키) · HEAD = 세트 · --wt → 좌석 워크트리 인정 · 닫힘"; setup; land_main; alive; out="$(close --landed-pr 363 --wt "$NW")"; rc=$?
 [ "$rc" -eq 0 ] && ok "⑤ rc=0" || bad "⑤ rc=$rc ← ${out:0:3000}"

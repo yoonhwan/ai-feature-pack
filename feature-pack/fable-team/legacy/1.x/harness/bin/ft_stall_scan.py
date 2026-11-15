@@ -26,7 +26,7 @@ from ft_api_outage_util import epoch, records  # r1882 — pi jsonl 꼬리·time
 import ft_headline_seats as headline_seats
 import ft_penalty
 import ft_stall_headline as headline
-from ft_stall_detect import IDLE_MIN, all_stop, all_stop_note, agent_sessions, api_outage, card_gate, ctx_pct, lead_alert, lead_heartbeat_min, lead_names, load_teams, off_roster_live, pending_mail, policy_stop, run, spawn_capacity, waiting_cards, RefUnavailable
+from ft_stall_detect import IDLE_MIN, all_stop, all_stop_note, agent_sessions, api_outage, card_gate, ctx_pct, lead_alert, lead_heartbeat_min, lead_names, load_teams, off_roster_live, pending_mail, policy_stop, rest_head, run, spawn_capacity, waiting_cards, RefUnavailable
 from ft_stall_seats import Seats
 from ft_team_lib import rosters  # r1883 — _master 빈 팀의 카드 경로(명부 doc)
 import ft_stall_state as stm
@@ -442,7 +442,7 @@ class Scan:
     def closed_wait(self, seat: str, names: set[str], notes: list[str]) -> bool:
         """r1647 — 팀장 «닫기 대기»: 마지막 발신 머리 `[다음 없음` ∧ ft-seat-open-work rc0(받을 일 0) → f 0통.
         판단 못 하면 False = 지금 흐름(경보) 그대로 · open-work 판정 불가면 노트 1줄."""
-        if not _last_sent(self.comm, names).lstrip().startswith("[다음 없음"):
+        if not rest_head(_last_sent(self.comm, names)):  # r1949 — 쉼 머리 규칙 한 벌(r1729 와 같은 판정)
             return False
         rc, _out = run([sys.executable, self.open_work, seat, "--root", str(self.root), "--mbox-dir", str(self.comm)], timeout=7)
         if rc not in (0, 1):
@@ -562,6 +562,29 @@ class Scan:
             lines.append(f"{stamp} WARN auto-close 상태 파일 쓰기 실패: {e}")
         return lines
 
+    def auto_close_da_arch(self, stamp: str) -> list[str]:
+        """r1671 ⓓ — FT_SEAT_AUTO_CLOSE_DA_ARCH=1 일 때만 ft-seat-close-due.sh 의 «갈래=유휴(da|arch)» 줄마다 --close 1회 · 같은 좌석 실패는 같은 턴 끝(end=) 동안 재시도 0 · 꺼짐(기본 0) = 호출 0."""
+        if os.environ.get("FT_SEAT_AUTO_CLOSE_DA_ARCH") != "1":
+            return []
+        due, sf, env = os.environ.get("FT_SEAT_CLOSE_DUE") or str(HERE / "ft-seat-close-due.sh"), self.state_dir / "seat-auto-close.json", {**os.environ, "FT_ROOT": str(self.root)}
+        rc, out = run(["bash", due], env, 25)  # 보정 R1 ⓒ — 목록 1회 전체 25초(도구 안 예산 24초 · 넘친 좌석 = 다음 판)
+        lines = [f"{stamp} 판정 불가 seat-auto-close {x[6:]}" for x in out.splitlines() if x.startswith("판정 불가 ")] + ([] if rc in (0, 3) else [f"{stamp} 판정 불가 seat-auto-close close-due rc={rc} — 닫기 0"])
+        try:
+            tried = json.loads(sf.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            tried = {}
+        for x in [x.split() for x in out.splitlines() if rc in (0, 3) and x.startswith("닫기 차례 ") and "갈래=유휴(" in x]:
+            seat, end = x[2], next((t for t in x if t.startswith("end=")), "")
+            if tried.get(seat) != end:
+                crc, cout = run(["bash", due, "--close", seat], env, 25)  # 보정 R1 ⓒ — --close 1회 전체 25초(닫기 자체 7초)
+                first = (cout.strip().splitlines() or [""])[0][:120]
+                ok, unj = crc == 0 and first == f"CLOSED {seat} idle=1", crc in (3, 99)   # 판정 불가·시간 초과 = tried 0(다음 판이 다시 판정)
+                _ = tried.pop(seat, None) if ok or unj else tried.update({seat: end})
+                lines.append(f"{stamp} " + (f"판정 불가 seat-auto-close {seat} rc={crc} — {first}" if unj else "seat-auto-close " + (first if ok else f"실패 {seat} rc={crc} — {first}")))
+        _ = sf.write_text(json.dumps(tried), encoding="utf-8")  # state_dir 는 회차 앞에서 이미 쓴다(stall-scan.log 와 같은 자리)
+        print("\n".join(lines)) if lines else None
+        return lines
+
     def record_notify(self, stamp: str) -> list[str]:
         """r1717 A4 ⓑ — 착지 뒤 «정리 차례» 장부의 열린 줄마다 쪽지(1회·재촉 1회 셈은 도구 몫) · FT_NANO_AUTO_CLOSE 와 무관 · rc≠0 = 로그 1줄."""
         tool = os.environ.get("FT_NANO_RECORD") or str(HERE / "ft-nano-record.sh")
@@ -614,6 +637,7 @@ class Scan:
         if ac:
             log += ac
             print("\n".join(ac))
+        log += self.auto_close_da_arch(stamp)  # r1671 ⓓ — FT_SEAT_AUTO_CLOSE_DA_ARCH=1 일 때만(기본 0 = 지금 그대로)
         self.critical(ac)  # r1718 A2ⓑ·A8 — 밀린 [크리티컬] 배출 · 되풀이 판정 불가 알림(r1718-mut:drain)
         log += [f"{stamp} {n}" for n in self.notes if n.startswith(("보류 — API 장애", "유예 — API 장애", "보류 ", "판정 불가 ALL_STOP"))]  # r1238 B·r1371 — 감시기 로그에 남는 증거 줄(실사건 확인용)
         if trig and pen is None and os.environ.get("FT_STALL_PENALTY_AUTO", "1") != "0":
@@ -626,7 +650,7 @@ class Scan:
               continue
             st_m, end_m = self.turn(t["master"]) if t["master"] in self.live else ("UNKNOWN", None)
             per_team[t["team"]] = {k: sum(1 for f in found if f["team"] == t["team"] and f["kind"] == k) for k in "abdf"}
-            per_team[t["team"]]["master_end"] = end_m if st_m == "IDLE" else None
+            per_team[t["team"]]["master_end"] = end_m if st_m in ("IDLE", "WORKING") else None  # r1752 — «마지막으로 끝낸 턴» 은 WORKING 이어도 남김(UNKNOWN·PENDING = None)
         stm.save(self.state_dir, handled, sorted(keys), self.st["seats"], self.nudged, self.now, lint=self.lint_store())
         _ = (self.state_dir / "stall-scan.last.json").write_text(json.dumps({"ts": self.now, "c": counts["c"], "teams": per_team}), encoding="utf-8")
         with open(self.state_dir / "stall-scan.log", "a", encoding="utf-8") as fh:

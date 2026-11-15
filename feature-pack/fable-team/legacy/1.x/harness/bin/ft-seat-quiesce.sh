@@ -76,9 +76,10 @@ def ps_table():   # pid → dict(ppid uid rss(MB) cpu lstart epoch cmd name)
         pid = int(f[0]); t[pid] = dict(ppid=int(f[1]), pgid=int(f[2]), uid=int(f[3]), rss=rss.get(pid, int(f[4]) / 1024), cpu=f[5], lstart=ls, epoch=ep, cmd=f[11], name=name_of(f[11]))
     if not t: raise Unknown("ps 표가 비어 있음")
     return t
-def panes():   # [(세션, pane_pid, window_activity)] — tmux 서버 없음 = 빈 목록
-    out = run(tool("FT_TMUX", "tmux") + ["list-panes", "-a", "-F", "#{session_name}\t#{pane_pid}\t#{window_activity}"], ok_err=("no server running", "error connecting", "No such file"))
-    return [(f[0], int(f[1]), int(f[2]) if f[2].isdigit() else 0) for f in (l.split("\t") for l in out.splitlines()) if len(f) == 3 and f[1].isdigit()]
+def panes():   # [(세션, pane_pid, window_activity)] — tmux 서버 없음 = 빈 목록 · r1795: -u = TMUX·UTF-8 로케일 없는 launchd 틱에서도 탭 보존 · 3칸 아닌 줄 = 판정 불가(좌석 0 으로 조용히 넘김 0)
+    out = run(tool("FT_TMUX", "tmux") + ["-u", "list-panes", "-a", "-F", "#{session_name}\t#{pane_pid}\t#{window_activity}"], ok_err=("no server running", "error connecting", "No such file")); rows = [l.split("\t") for l in out.splitlines() if l]
+    if any(len(f) != 3 for f in rows): raise Unknown("tmux 출력 칸 나눔 실패 — 탭으로 3칸 안 나뉜 줄 있음")
+    return [(f[0], int(f[1]), int(f[2]) if f[2].isdigit() else 0) for f in rows if len(f) == 3 and f[1].isdigit()]
 _ld = []
 def launchd():
     if not _ld: _ld.append({int(f[0]) for f in (l.split() for l in run(tool("FT_LAUNCHCTL", "launchctl") + ["list"]).splitlines()[1:]) if f and f[0].isdigit()})

@@ -33,7 +33,7 @@ mkstub send  'echo "send mbox=$FT_MBOX_SH" >> "$LOG"; echo "QUEUED seq=777 to=$1
 mkstub reach 'exit 0'
 printf 'import os, sys\nopen(os.environ["LOG"], "a").write("openwork " + " ".join(sys.argv[1:]) + "\\n")\nsys.exit(1)\n' > "$FK/openwork"   # python3 로 불린다 · rc1 = 받을 일 있음(기존 승계 · 주제 밖)
 mkstub retire 'exit 0'
-printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n본문 나머지\n' > "$T/body.txt"
+printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n본문 나머지\n열린 칸 감시: 없음\n' > "$T/body.txt"
 printf '<!-- S17-BOOT-BEGIN -->\n목적 0 = 진행 카드를 완성하고 닫는다.\n<!-- S17-BOOT-END -->\n<!-- S11-DESK-BEGIN -->\n6. d\n<!-- S11-DESK-END -->\n' > "$T/gov.md"
 teamset() { # teamset <파일> <kakao arch 칸> — ft_teamset.load 꼴(표 1 역할 · 나노 상한 · 표 2 팀)
   printf '## 표 1 — 역할\n| 역할 | 수 | 모델 | effort | 명부 키 |\n|---|---|---|---|---|\n| master | 1 | `m` | high | `_master` |\n| arch | 1 | `m` | high | `_arch` |\n- 나노 상한 기본: 3\n## 표 2 — 팀\n| 팀 | 나노 상한 | tester | arch 상시 |\n|---|---|---|---|\n| kakao | 3 | 0 | %s |\n' "$2" > "$1"

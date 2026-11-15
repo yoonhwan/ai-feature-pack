@@ -367,12 +367,15 @@ ft_landed_repo() { local sha="$1" cr="${2:-}" pr="${3:-}" mk="${4:-}" cs="" ps="
           printf '%s\t%s\n' "$cr" "$cs"; return 0;;
   esac
   if [ -n "$ps" ]; then printf '%s\t%s\n' "$pr" "$ps"; else printf '%s\t%s\n' "$cr" "$cs"; fi; }
-ft_team_has() { local t="$1" p="$2" sub="${3:-}" rel c md
+ft_team_has() { local t="$1" p="$2" sub="${3:-}" rel c md d r
   md="$(ft_team_teams_md)" || return 2
   ft_team_names "$md" | grep -qxF -- "$t" || return 1
   rel="$(ft_team_rel "$t")" || return 2
   case "$rel" in
-    '$FT_HARNESS_ROOT/'*|'${FT_HARNESS_ROOT}/'*) c="$(ft_team_root "$t")" || return 2; case "$p" in "$c/$sub"*) return 0;; esac; return 1;;
+    '$FT_HARNESS_ROOT/'*|'${FT_HARNESS_ROOT}/'*) c="$(ft_team_root "$t")" || return 2; case "$p" in "$c/$sub"*) return 0;; esac
+      d="$p"; while [ ! -d "$d" ] && [ "${d%/*}" != "$d" ]; do d="${d%/*}"; done   # r1977: 카드 리포 ref 트리 꼴 = <그 경로의 git 최상위>/<rel 의 $FT_HARNESS_ROOT/ 뒤><sub>
+      r="$(cd -- "${d:-/}" 2>/dev/null && pwd -P)" && c="$(git -C "$r" rev-parse --show-toplevel 2>/dev/null)" && [ -n "$c" ] || return 2   # 못 읽음 = 판정 불가
+      case "$r${p#"$d"}" in "$c/${rel#*/}$sub"*) return 0;; esac; return 1;;
   esac
   case "$p" in *"$rel$sub"*) return 0;; esac
   c="$(ft_index_twin "$rel")" && case "$p" in *"$c$sub"*) return 0;; esac
@@ -449,3 +452,8 @@ ft_pack_card() { local c="${1:-}"
   [ -n "$c" ] && [ -f "$c" ] && [ -r "$c" ] || return 1
   head -5 "$c" | grep -qE '<!-- ledger: [^ ]*/GOAL-harness\.md -->' && return 0
   awk '/^## /{exit} /^- 정본 영향:/ && index($0, "팩 원본"){f=1; exit} END{exit !f}' "$c"; }
+# r2043 ft_bak_cap <원본 파일> <종류> [상한] : <원본>.bak-<종류>-<ts> 백업을 ts 최근 상한개(env FT_BAK_CAP · 50~100 · 밖이면 50)만 남김
+#   규칙 한 벌 = 같은 폴더 ft_roster_lib.bak_cap 호출(A5) · 실패 = stderr WARN 1줄 · rc 언제나 0(본 작업 rc 불변 · A4)
+ft_bak_cap() { [ -n "${1:-}" ] && [ -n "${2:-}" ] || { echo "WARN ft_bak_cap 인자 부족(<원본 파일> <종류> [상한]) · 정리 0" >&2; return 0; }
+  python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); from ft_roster_lib import bak_cap; bak_cap(sys.argv[2], sys.argv[3], sys.argv[4] if len(sys.argv) > 4 else None)' \
+    "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)" "$@" || echo "WARN ft_bak_cap 실행 실패 rc=$? · 정리 0" >&2; return 0; }

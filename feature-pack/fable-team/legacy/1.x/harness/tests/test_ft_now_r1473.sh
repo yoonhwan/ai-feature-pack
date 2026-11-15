@@ -94,7 +94,7 @@ printf '{"claude":{"until":%s,"release_at":%s}}\n' "$((NOW+3600))" "$((NOW+3600)
 
 # 기본 lc.conf = 전부 정상(금지 absent · 상주 running · 종료 exited0)
 { for l in $FB; do echo "$l|absent"; done; for l in $RS; do echo "$l|running"; done; for l in $OS; do echo "$l|exited0"; done; } > "$T/lc.conf"
-printf 'ts=1 rc=0 ok\n' > "$T/state/events/$TODAY.tsv"
+printf '1\thil\th1\tOK\trc=0\tok\n' > "$T/state/events/$TODAY.tsv"
 printf 'ts=1 a=0 b=0\n' > "$T/state/postboot-measure.tsv"
 printf 'WASTE ok rewrite=10%%\n' > "$T/state/waste-check.log"
 
@@ -222,7 +222,7 @@ item_of "$out" "카드" | grep -q 'OK' && ok "T4 다른 항목(카드)은 정상
 { cat "$T/lc.conf" | grep -v '^com.t.f1|'; echo 'com.t.f1|absent'; } > "$T/lc.conf.x"; mv "$T/lc.conf.x" "$T/lc.conf"
 
 # ── T3 측정 파일 — 오늘 rc124 = 신선도 오늘 + 원 결과 «판정 불가 rc=124»(집계 포함) · 3일 전 OK · 없음 = 판정 불가
-printf 'ts=1 rc=124 timeout\n' > "$T/state/events/$TODAY.tsv"
+printf '1\thil\th1\t판정 불가\trc=124\ttimeout\n' > "$T/state/events/$TODAY.tsv"
 old="$(date -r "$((NOW-3*86400))" +%Y%m%d%H%M 2>/dev/null || date -d "@$((NOW-3*86400))" +%Y%m%d%H%M)"
 printf 'ts=old rc=0 ok\n' > "$T/state/postboot-measure.tsv"; touch -t "$old" "$T/state/postboot-measure.tsv"
 out="$(run)"; rc=$?
@@ -232,7 +232,7 @@ printf '%s' "$b" | grep -q '신선도=오늘' && ok "T3 신선도 칸이 따로 
 printf '%s' "$b" | grep -q '3일 전' && ok "T3 3일 전 파일 = 신선도 3일 전" || bad "T3 3일 전 미표시: $b"
 [ "$rc" -eq 1 ] && ok "T3 실패·불가가 있으면 rc1" || bad "T3 rc=$rc"
 printf '%s\n' "$out" | tail -1 | grep -qE '판정 불가 [1-9]' && ok "T3 불가 수에 포함(오늘 날짜에 가려지지 않는다)" || bad "T3 집계: $(printf '%s\n' "$out" | tail -1)"
-printf 'ts=1 rc=0 ok\n' > "$T/state/events/$TODAY.tsv"; rm -f "$T/state/postboot-measure.tsv" "$T/state/waste-check.log"
+printf '1\thil\th1\tOK\trc=0\tok\n' > "$T/state/events/$TODAY.tsv"; rm -f "$T/state/postboot-measure.tsv" "$T/state/waste-check.log"
 out="$(run)"; rc=$?
 b="$(item_of "$out" "마지막 측정")"
 printf '%s' "$b" | grep -q 'postboot 신선도=없음' && ok "T3 파일 없음 = 신선도 없음" || bad "T3 없음 미표시: $b"

@@ -6,7 +6,8 @@
 - 나노: r1675 나노 좌석에 이어 준다(r1675 닫힌 뒤 · master #3931)
 - 중복 확인: 팩 origin/main feature-pack/ctx-plan/ 에 docs/ 폴더 0 · 비용 비교 문서 0 · manifest public_docs = README.md 1개뿐 → 같은 문서 0
 - 제안서: 없음 — 오빠 직접 지시이고 고칠 안이 1개(문서 1파일 + README 1줄)다
-- 상태: 대기 · 2026-11-11 · aifp-ft-arch-pi#0 초안(#3931)
+- 상태: 완성 · 2026-11-16 04:24 · -
+- 착지: d0cb55ff4c43fcdbeab6bc7773177d94b224ba86(팩 main · PR #1301 squash · DA#11 APPROVE-IMPL aifp 5597 · 세트 e26e4889 · 뺄 커밋 0)
 - 설치: 없음 — 문서만 · 코드 0
 - 선행: r1675 닫힘(같은 나노 좌석)
 - 시험 입력: 원고 파일(읽기만) · 팩 가지 사본 · 실 HOME 쓰기 0
@@ -22,8 +23,8 @@
 - 팩 파일 owner: aifp 정본화 팀(feature-pack/ctx-plan)
 - 대상(쓰기 = 나노 · 팩 1곳): feature-pack/ctx-plan/docs/plan-cost-table.md(새) · feature-pack/ctx-plan/README.md(1줄)
 - 크기: 문서 1파일(원고 36줄 안팎) · README 1줄 · 코드 0
-- 정본 영향 있음: ctx-plan 문서 정본 1파일 새로 만듦
-- 배정: 대기(선행 · 2026-11-11T18:56)
+- 정본 영향 없음: aifp 정본(docs/architect · docs/rules · design 팀 GUIDE·README) 변경 0 — 새로 만든 것은 팩 문서 feature-pack/ctx-plan/docs/plan-cost-table.md 1파일이고 착지 PR #1301(d0cb55ff)에 들어갔다 · 원래 줄 «정본 영향 있음: ctx-plan 문서 정본 1파일 새로 만듦»
+- 배정: 좌석 aifp-ft-nano-ctxplan-cost-table-canon#0
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -50,6 +51,13 @@
 
 ## 완료 조건
 - ⓐ~ⓕ
+- [x] ⓐ 문서 1파일 — feature-pack/ctx-plan/docs/plan-cost-table.md 새 37줄(나노 aifp 5591) · 제목 = 원고 제목에서 «· 정본 후보 원고» 만 뺌 · 머리 출처 줄 + «숫자는 원고 그대로 · 다시 계산하지 않음» 1줄(arch 가 d0cb55ff 에서 1~4줄 읽음) · DA aifp 5597 «제목 지정 삭제만 PASS»
+- [x] ⓑ 숫자 대조 — 나노 136 = 136 · 새 숫자 0 · 빠진 숫자 0(aifp 5591) · DA 독립 정규식 140 = 140 순서 같음 · 새 0 · 빠짐 0 · 0.046초(aifp 5597 · 136 과 140 은 토큰 경계 차이)
+- [x] ⓒ 근거 없는 칸 — 월 구독료 3칸(Pro · Max 5x · Max 20x)에 «[확인 필요: 요금 출처·기준일]» · 값 그대로(arch 가 d0cb55ff 표 첫 행 읽음 · DA «확인 필요 3칸»)
+- [x] ⓓ 경로 표기 — «BYZ-Agents» 리포 이름 1곳 붙음(나노 aifp 5591 · DA «BYZ 리포 표기 PASS»)
+- [x] ⓔ README 링크 — README.md 9줄 «Claude Opus 5.5 — 구독 요금제 vs API 비용 (하루 기준) 표 = docs/plan-cost-table.md» + 빈 줄 1(«## Quick start» 앞 · diff +2줄) · 링크 경로 실재(DA «README 문구·경로 PASS»)
+- [x] ⓕ 회귀 — contract.sh 53 passed rc 0 · acceptance.sh 61 passed rc 0 · 앞 판과 같음(나노 aifp 5591 · DA 는 제출 증거 읽기만 · 직접 재실행 0)
+- 남은 범위: 없음
 
 ## 계약↔시험 대응표
 | 계약 | 시험 |
@@ -73,3 +81,10 @@
 - base_sha: 696eea7f89a2ea7ffaaed3970fe088712550c5fd
 - 2026-11-11 · aifp-ft-arch-pi#0 카드 초안(#3931) · 대기
 - 2026-11-11 19:07 · 원고 바뀜 반영(#3944 · planner 3943): API 열 제거 · 토큰 M 표기 · «구독이 API보다 N배 저렴» 줄 · 주간 최대 3행 · 상한 계산 순서 → ⓐ 행·열 고정 풀고 원고 판(sha) 고정 · ⓔ README 문구 = 원고 제목
+- 2026-11-16 03:56 — 대기→진행 · 좌석 aifp-ft-nano-ctxplan-cost-table-canon#0
+- [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
+- 2026-11-16 03:53 · aifp-ft-arch-pi#19 재대조 통과(aifp 5585 · 판정문 .fable-team/state/team-main/aifp-ft/orders/RECHECK-ctxplan-cost-table-canon-20261116.md · README 를 바꾼 커밋 83fb21e1 과 겹침 0)
+- 2026-11-16 04:03 · aifp-ft-arch-pi#19 착지 줄 씀(팀장 aifp 5598) · 나노 aifp-ft-nano-ctxplan-cost-table-canon#0 산출(aifp 5591) = 원고(sha256 앞 12자 4fe0900bd354 · 36줄)를 feature-pack/ctx-plan/docs/plan-cost-table.md 로 옮김 + README 링크 1줄 · 산출: nano/ctxplan-cost-table-canon@e26e4889 · 병합 상태: 착지(PR #1301 d0cb55ff) · 남은 일: 없음
+- DA 판정: APPROVE-IMPL 311253(aifp 5597 · 사본 .fable-team/state/team-main/aifp-ft/DA-ctxplan-impl-approve-311253/verdict.md) · 숫자 140 = 140 · 반례 0 · 뺄 파일 0
+- 세트: e26e4889c9dd3770e3a8059fa96ece0a6d6a0c27 · 시험: bash feature-pack/ctx-plan/test/contract.sh (53 passed) · bash feature-pack/ctx-plan/test/acceptance.sh (61 passed) rc=0 · 이슈: 0
+- 2026-11-16 04:24 — 진행→완성 · DA /Users/yoonhwan/Project/ai-feature-pack/.fable-team/state/team-main/aifp-ft/DA-ctxplan-close-311359/verdict.md#§1

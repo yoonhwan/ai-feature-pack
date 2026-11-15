@@ -1,6 +1,6 @@
 {
   "name": "ctx-burn",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "title": "ctx-burn — local context waste audit for AI coding agents",
   "description": "Read-only audit of context waste across claude, codex, pi, opencode, hermes, openclaw and commandcode. Detects installed/running runtimes, shows auto-loaded memory size, cache full-rewrite share, context per request and the distillation break-even turn count as graphs. Reports the start-budget breakdown (fresh distill vs resume: working room left and rewrite cost). English by default (--lang ko for Korean). No writes, no network.",
   "category": "observability",
@@ -24,7 +24,7 @@
         "--request FILE",
         "--json"
       ],
-      "note": "--json 은 plan_input 블록(계약 ctx.v1)을 더한다. 용량·구독 산정 모드(--capacity·--inventory·--need·--scales)는 ctx-plan 몫이다."
+      "note": "--json 은 plan_input 블록(계약 ctx.v1)을 더한다. pool 별 session_hours 와 rate_quota(Claude 쿼터 = claude + pi-claude 가중 토큰 합 ÷ 세션-시간 합)를 낸다(r1618 · 기존 칸 유지). 용량·구독 산정 모드(--capacity·--inventory·--need·--scales)는 ctx-plan 몫이다."
     },
     {
       "name": "ctx-waste",

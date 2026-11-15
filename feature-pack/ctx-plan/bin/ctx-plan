@@ -18,6 +18,7 @@ ctx-burn = «쓴 양» 측정 · ctx-plan = «감당량» 시뮬. 두 축은 ctx
 """
 import argparse
 import json
+import math
 import os
 import sys
 
@@ -29,7 +30,11 @@ GUARD = "ctx-plan: 상수 파일 없음 — --inv-file 또는 CTX_PLAN_CAP_FILE 
 INV_KEYS = ["FT_CAP_CLAUDE_5X", "FT_CAP_CLAUDE_ULTRA", "FT_CAP_CODEX_PLUS", "FT_CAP_CODEX_PRO",
             "FT_CAP_DEEPSEEK_KEYS", "FT_CAP_WK_5X", "FT_CAP_WK_ULTRA", "FT_CAP_WK_5X_LOW",
             "FT_CAP_WK_ULTRA_LOW", "FT_CAP_SEATS_PER_TEAM", "FT_GOAL_TEAMS",
-            "FT_GOAL_TEAM_HOURS", "FT_CAP_TARGET_UTIL"]
+            "FT_GOAL_TEAM_HOURS", "FT_CAP_TARGET_UTIL", "FT_GOAL_PARALLEL_MAX"]
+# 기준선(오빠 11-10 결정 A · r1567 ⓜ) — 참고 입력. 비면 0순위 문제이고 기본값으로 채우지 않는다.
+BASE_KEYS = ["FT_BASE_ALWAYS_TEAMS", "FT_BASE_ISSUE_TEAMS", "FT_BASE_ISSUE_HOURS",
+             "FT_BASE_GOAL_TEAMS", "FT_BASE_GOAL_HOURS"]
+INV_KEYS += BASE_KEYS
 
 # 계약 키가 아닌 두 손잡이 — 파일에 없으면 이 값을 쓰되 «기본값» 이라고 화면에 적는다(조용한 기본값 0).
 KNOBS = {"c5h_5x": ("FT_CAP_C5H_5X", 60.0), "hours_per_week": ("FT_CAP_HOURS_PER_WEEK", 40.0)}
@@ -39,14 +44,15 @@ ANCHOR_STATUS = {"wk_5x": "미검증·추정", "wk_ultra": "추정(5x×4)·실�
                  "c5h_5x": "실측 주장·출처 미확인", "target": "운영정책"}
 
 SIM_NEED = ["wk_5x", "wk_ultra", "target", "seats_per_team"]
-GOAL_NEED = SIM_NEED + ["teams_per_goal", "team_hours_per_goal"]
+GOAL_NEED = SIM_NEED + ["teams_per_goal", "team_hours_per_goal", "goal_parallel_max"]
 
 MODEL_KEYS = [("seats_per_team", "FT_CAP_SEATS_PER_TEAM", "세션/팀"),
               ("teams_per_goal", "FT_GOAL_TEAMS", "팀/골"),
               ("team_hours_per_goal", "FT_GOAL_TEAM_HOURS", "팀-시간/골"),
               ("target", "FT_CAP_TARGET_UTIL", "목표 사용률"),
               ("wk_5x", "FT_CAP_WK_5X", "주간 5x M"),
-              ("wk_ultra", "FT_CAP_WK_ULTRA", "주간 Ultra M")]
+              ("wk_ultra", "FT_CAP_WK_ULTRA", "주간 Ultra M"),
+              ("goal_parallel_max", "FT_GOAL_PARALLEL_MAX", "동시 골 참고값")]
 
 
 # ---------------------------------------------------------------- 입력
@@ -69,6 +75,14 @@ def read_inv(path):
                     k, v = ln.split("=", 1)
                     inv.setdefault(k.strip(), v.strip())
     return inv
+
+
+def quota(ci):
+    """(r1618) 산정 rate = Claude 쿼터 소모 합(claude + pi-claude · rate_quota). rate_claude 는 참고.
+    옛 입력(rate_quota 칸 없음) = rate_claude 로 산정하고 1줄을 낸다."""
+    if "rate_quota" in ci:
+        return ci.get("rate_quota"), None
+    return ci.get("rate_claude"), "  합산 없음(옛 입력) — rate_quota 칸이 없어 claude 단독 rate_claude 로 산정한다"
 
 
 def num(inv, k, d=None):
@@ -112,31 +126,84 @@ def missing(p, attrs):
 
 
 # ---------------------------------------------------------------- 모형
-def model(rate, n5, nu, wk5, wku, target, spt, tg, tgh):
-    """rate = M/세션-시간 · wk* = 주간 M. 단위는 전부 M 이다."""
+def model(rate, n5, nu, wk5, wku, target, spt, tg, tgh, gmax):
+    """rate = M/세션-시간 · wk* = 주간 M. 단위는 전부 M 이다.
+    참고 모형 1개(r1567): 동시골 = min(동시팀 ÷ 팀/골, G) 주 평균 · 골/주 = min(팀시간 ÷ 골 팀-시간, G×168÷H)."""
     wk = (wk5 * n5 + wku * nu) * target
     sh = wk / rate if rate else 0.0
     team_h = sh / spt
     ct = team_h / 168.0
     goal_h = tg * tgh
     return dict(주간M=wk, 세션시간=sh, 동시세션=sh / 168.0, 동시팀=ct,
-                동시골=ct / max(tg, 1e-9), 골주=team_h / max(goal_h, 1e-9), 팀시간=team_h)
+                동시골=min(ct / max(tg, 1e-9), gmax),
+                골주=min(team_h / max(goal_h, 1e-9), gmax * 168.0 / max(tgh, 1e-9)),
+                팀시간=team_h, 여유팀=ct - gmax * tg, 상한=ct / max(tg, 1e-9) >= gmax)
+
+
+def slack(d):
+    """(ⓚ) 유휴 팀·부족 팀 중 하나만 — 둘 다 0 이면 «딱 맞음»."""
+    d = round(d, 1)
+    return ("유휴 팀 %0.1f" % d) if d > 0 else (("부족 팀 %0.1f" % -d) if d < 0 else "딱 맞음")
+
+
+def need_block(seats, rate, p, inv, lead):
+    """(ⓕ) 요구 계정 역산 — 환산값과 실제 장수(올림)를 둘 다 낸다."""
+    raw = seats * rate
+    m85 = raw / p["target"]
+    L = ["  요구 계정(역산 · 참고 — 운영 규칙 아님): %s = %0.0f 세션-시간/주 → 사용률 적용 전 %0.0fM"
+         " → %g%% 적용 %0.0fM" % (lead, seats, raw, p["target"] * 100, m85)]
+    for lbl, w5, wu in (("높은 용량 가정", p["wk_5x"], p["wk_ultra"]),
+                        ("낮은 용량 가정", num(inv, "FT_CAP_WK_5X_LOW"), num(inv, "FT_CAP_WK_ULTRA_LOW"))):
+        if not (w5 and wu):
+            L.append("    %s: 산정 불가 — 주간 리밋 앵커 없음 (기본값 대체 0)" % lbl)
+            continue
+        L.append("    %s: Ultra 환산 %0.2f → 실제 %d장 · 5x 환산 %0.2f → 실제 %d장"
+                 % (lbl, m85 / wu, math.ceil(m85 / wu), m85 / w5, math.ceil(m85 / w5)))
+    return L
+
+
+def base_block(inv, spt, ms):
+    """(ⓛ ⓜ) 기준선 A 와 골 작업 몫 — 참고 입력 · 넘어도 알림만(거부 0).
+    상시 팀 = 팀당 1석 × 168h · 이슈·골 팀 = 낮 시간 × 7일 × 세션/팀(카드 기준값 2,856h 산식)."""
+    v = [num(inv, k) for k in BASE_KEYS]
+    head = "  기준선(참고 — 운영 규칙 아님 · 오빠 11-10 결정 A)"
+    gone = [k for k, x in zip(BASE_KEYS + ["FT_CAP_SEATS_PER_TEAM"], v + [spt]) if x is None]
+    if gone:
+        return [head + ": 산정 불가 — " + "·".join(gone) + " 비어있음 (기본값 대체 0)"]
+    at, it, ih, gt, gh = v
+    always, issue, goal = at * 168.0, it * ih * 7 * spt, gt * gh * 7 * spt
+    total = always + issue + goal
+    L = [head + ": 상시 %g팀×168h(팀당 1석) + 이슈 %g팀×%gh/일 + 골 %g팀×%gh/일 (×%g석×7일)"
+         " = 기준선 세션-시간 {:,.0f}h/주".format(total) % (at, it, ih, gt, gh, spt)]
+    hi = ms.get("높은 용량 가정")
+    if hi:
+        L.append("    높은 용량 가정 예산 대비 %0.1f%%%s" % (total / hi["세션시간"] * 100,
+                 " · 예산을 넘는다 — 알림만" if total > hi["세션시간"] else ""))
+    for lbl, m in ms.items():
+        share = m["세션시간"] - always - issue
+        L.append("    골 작업 몫(%s) = 주간 예산 − 상시 − 이슈 = {:,.0f}h · 낮 %gh 기준 총팀 상한 %0.1f팀"
+                 .format(share) % (lbl, gh, share / (gh * 7 * spt)))
+    L.append("    골당 팀 n 은 유동(오빠 #278896) · 동시세션은 24시간 평균이다(순간 값 아님)")
+    return L
 
 
 # ---------------------------------------------------------------- 출력
 def header(ci, p, path, rate_tok):
-    L = ["[ctx-plan] 계약 %s · 윈도우 %gh · 세션-시간당 claude %s"
+    rc = ci.get("rate_claude")
+    L = ["[ctx-plan] 계약 %s · 윈도우 %gh · 세션-시간당 Claude 쿼터 %s · claude 단독 %s(참고)"
          % (ci.get("schema"), ci.get("window_hours") or 0,
             ("%0.2fM (= %d 가중토큰/h)" % (rate_tok / TOKENS_PER_M, rate_tok)) if rate_tok
-            else "표본0(미산정)")]
-    if p["teams_per_goal"] is None or p["team_hours_per_goal"] is None:
-        L.append("축 정의(참고 모형): 산정 불가 — " + " · ".join(
-            missing(p, ["teams_per_goal", "team_hours_per_goal"])))
+            else "표본0(미산정)", ("%0.2fM" % (rc / TOKENS_PER_M)) if rc else "표본0")]
+    ax = missing(p, ["goal_parallel_max", "teams_per_goal", "team_hours_per_goal", "seats_per_team"])
+    if ax:
+        L.append("축 정의(참고 모형): 산정 불가 — " + " · ".join(ax))
     else:
-        L.append("축 정의(참고 모형): 메인 골 = 전역 직렬(동시 1) · 한 골 = 팀 %g 동시 × %gh"
-                 "(%g 팀-시간) · 남는 팀은 후순위 골"
-                 % (p["teams_per_goal"], p["team_hours_per_goal"],
-                    p["teams_per_goal"] * p["team_hours_per_goal"]))
+        g, t, h, s = (p["goal_parallel_max"], p["teams_per_goal"], p["team_hours_per_goal"],
+                      p["seats_per_team"])
+        L.append("축 정의(참고 모형): 골 = 최대 %g개 동시(오빠 11-10) · 한 골 = 팀 %g 동시 × %g시간"
+                 " = %g 팀-시간 = %g 세션-시간 · 골/주 = min(가용 세션-시간 ÷ %g, %g × 168 ÷ %g)"
+                 " · 팀 %g = n 예시값(골당 팀 n 유동)"
+                 % (g, t, h, t * h, t * h * s, t * h * s, g, h, t))
     fmt = {"seats_per_team": "세션/팀 %g석", "teams_per_goal": "팀/골 %g",
            "team_hours_per_goal": "팀-시간/골 %gh", "target": "목표 사용률 %g"}
     cells = []
@@ -159,11 +226,11 @@ def anchors(p):
     return "  앵커(상태 표기 필수): " + " · ".join(rows)
 
 
-def pool_rows(pools, hours):
+def pool_rows(pools, hours, rq=None):
     L = ["  분모 명시: calls/h = 요청수 ÷ 관측창(%0.0fh) [괄호 = 활성 bucket 수] · "
          "cache재사용 = read÷(read+write) · 총input대비 = read÷(read+write+input)" % hours,
          "  %-10s %6s %7s %8s %12s %16s %14s"
-         % ("pool", "req", "usage0", "ctx/req", "calls/h(창)", "cache재사용", "W/세션시간(중앙)")]
+         % ("pool", "req", "usage0", "ctx/req", "calls/h(창)", "cache재사용", "W/세션시간(중앙·참고)")]
     for name in ("claude", "pi-claude", "pi-other", "unknown"):
         p = pools.get(name)
         if not p:
@@ -177,6 +244,12 @@ def pool_rows(pools, hours):
                     "%0.1f [%d]" % (chpw, int(p.get("active_hours") or 0)),
                     "%0.0f%% (%0.0f%%)" % ((p.get("cache_reuse") or 0) * 100,
                                             (p.get("cache_reuse_of_input") or 0) * 100), med))
+    qk = [k for k in ("claude", "pi-claude") if k in pools]   # 있는 pool 만 이름을 쓴다
+    q = [pools[k] for k in qk]
+    L.append("  Claude 쿼터 소모 합(%s) req %d · W %0.1fM ÷ 세션-시간 %0.1fh = %s ← 산정 입력"
+             % ("+".join(qk) or "없음", sum(p.get("req", 0) for p in q), sum(p.get("w_total") or 0 for p in q) / TOKENS_PER_M,
+                sum(p.get("session_hours") or 0 for p in q),
+                ("%0.2fM" % (rq / TOKENS_PER_M)) if rq else "표본0(미산정)"))
     L.append("  표본 = 세션(요청 20건 이상) 개수 · usage0 = 가중 0 레코드(API 오류) → 율 분모에서 뺌 · "
              "pi-other(deepseek)·unknown 은 Claude 쿼터 밖 → 산정 제외")
     return L
@@ -185,14 +258,14 @@ def pool_rows(pools, hours):
 def capacity(ci, a, p, rate):
     pools = ci.get("pools") or {}
     L = ["[capacity] 평균 소모량·pool 분리·구독 필요 개수", anchors(p)]
-    L += pool_rows(pools, ci.get("window_hours") or a.hours)
+    L += pool_rows(pools, ci.get("window_hours") or a.hours, quota(ci)[0])
     cl = pools.get("claude") or {}
     if not rate:
         L.append("  미산정 — usage 레코드 0 (측정 불가). ctx-burn --hours 를 늘려 다시 실행하라.")
         return "\n".join(L)
     hours = ci.get("window_hours") or a.hours
     L.append("  산정 근거(a): 요청 %d · 요청당 ctx %0.0fk · calls/h %0.1f(활성 bucket 분모 %d) · "
-             "cache재사용 %0.0f%% · 관측창 %0.0fh · rate %0.2fM/세션-시간"
+             "cache재사용 %0.0f%% · 관측창 %0.0fh · rate(Claude 쿼터 합) %0.2fM/세션-시간"
              % (cl.get("req", 0), (cl.get("ctx_per_req") or 0) / 1000,
                 (cl.get("req", 0) - cl.get("usage0", 0)) / max(hours, 1e-9),
                 int(cl.get("active_hours") or 0), (cl.get("cache_reuse") or 0) * 100, hours, rate))
@@ -237,10 +310,10 @@ def capacity(ci, a, p, rate):
         L.append("  골 모형(참고 — 운영 규칙 아님): 골1 = 팀 %g 동시 × %gh = %g 팀-시간 · 팀1 = 세션 %g석"
                  % (p["teams_per_goal"], p["team_hours_per_goal"],
                     p["teams_per_goal"] * p["team_hours_per_goal"], p["seats_per_team"]))
-        L.append("  %-30s %10s %7s %9s %7s"
-                 % ("앵커", "팀-시간/주", "동시팀", "동시골(용량상 가능 수)", "골/주"))
+        L.append("  %-30s %10s %7s %9s %7s  %s"
+                 % ("앵커", "팀-시간/주", "동시팀", "동시골(주 평균)", "골/주", "유휴·부족 팀"))
         L += goal_block(p, rate, n5, nu)
-    L.append("  동시골 = 용량상 가능 수 (운영 규칙 «메인 3골 직렬» 과 구별) · "
+    L.append("  동시골 = 주 평균 · 골/주 = 모형 산출량(버스트 허용 · 동시골 × 168÷H 와 다를 수 있다) · "
              "팀-시간/주 는 중간 단위 — 성과 판정에 쓰지 않는다")
     return "\n".join(L)
 
@@ -258,12 +331,13 @@ def goal_block(p, rate, n5, nu):
 
 def goal_line(lbl, rate, n5, nu, p, wk5, wku):
     m = model(rate, n5, nu, wk5, wku, p["target"], p["seats_per_team"],
-              p["teams_per_goal"], p["team_hours_per_goal"])
-    return "  %-30s %10.0f %7.1f %9.1f %7.1f" % (lbl, m["팀시간"], m["동시팀"], m["동시골"], m["골주"])
+              p["teams_per_goal"], p["team_hours_per_goal"], p["goal_parallel_max"])
+    return "  %-30s %10.0f %7.1f %9.1f %7.1f  %s" % (lbl, m["팀시간"], m["동시팀"], m["동시골"], m["골주"],
+                                                 slack(m["여유팀"]))
 
 
 def inventory(ci, p, path, inv):
-    rate = ci.get("rate_claude")
+    rate = quota(ci)[0]
     L = ["[inventory] 0순위 상수 점검 — 비면 산정 자체가 틀어진다", "  읽은 파일: %s" % path]
     gone = [k for k in INV_KEYS if inv.get(k) in (None, "")]
     for k in INV_KEYS:
@@ -291,9 +365,13 @@ def inventory(ci, p, path, inv):
         L.append("  크리티컬: 세션-시간당 W 를 못 재서 산정 불가 — ctx-burn --hours 168 --json 이 필요하다")
         return "\n".join(L)
     rate_m = rate / TOKENS_PER_M                       # 계약 단위(토큰) → M : 유일한 변환 지점
-    L.append("  %-18s %10s %11s %8s %8s %9s %8s"
-             % ("앵커", "주간85M", "세션시간/주", "동시세션", "동시팀", "동시골", "골/주"))
-    need_common = missing(p, ["target", "seats_per_team", "teams_per_goal", "team_hours_per_goal"])
+    L.append("  골 모형(참고 — 운영 규칙 아님 · 실제 골 병렬·팀 배정은 팀이 정한다)")
+    L.append("  %-18s %10s %11s %8s %8s %13s %8s  %s"
+             % ("앵커", "주간85M", "세션시간/주", "동시세션(평균)", "동시팀", "동시골(평균)",
+                "골/주", "유휴·부족 팀"))
+    need_common = missing(p, ["target", "seats_per_team", "teams_per_goal", "team_hours_per_goal",
+                              "goal_parallel_max"])
+    ms = {}
     if gone_sub:
         need_common = need_common + ["구독 상수(%s)" % "·".join(gone_sub)]
     for lbl, w5, wu, keys in (("낮은 용량 가정", num(inv, "FT_CAP_WK_5X_LOW"),
@@ -306,23 +384,35 @@ def inventory(ci, p, path, inv):
         if need_common:
             L.append("  %-18s 산정 불가 — %s (기본값 대체 0)" % (lbl, " · ".join(need_common)))
             continue
-        m = model(rate_m, n5, nu, w5, wu, p["target"], p["seats_per_team"],
-                  p["teams_per_goal"], p["team_hours_per_goal"])
-        L.append("  %-18s %10.0f %11.0f %8.1f %8.1f %9.1f %8.1f"
-                 % (lbl, m["주간M"], m["세션시간"], m["동시세션"], m["동시팀"], m["동시골"], m["골주"]))
+        m = ms[lbl] = model(rate_m, n5, nu, w5, wu, p["target"], p["seats_per_team"],
+                            p["teams_per_goal"], p["team_hours_per_goal"], p["goal_parallel_max"])
+        L.append("  %-18s %10.0f %11.1f %8.1f %8.1f %13s %8.1f  %s"
+                 % (lbl, m["주간M"], m["세션시간"], m["동시세션"], m["동시팀"],
+                    "%0.1f%s" % (m["동시골"], "(참고 상한)" if m["상한"] else ""), m["골주"],
+                    slack(m["여유팀"])))
+    if ms:
+        g, t = p["goal_parallel_max"], p["teams_per_goal"]
+        L.append("  동시골 = min(동시팀 ÷ %g, %g) 주 평균 · 골/주 = min(팀시간 ÷ %g, %g) 모형 산출량 — "
+                 "동시골 × %g 와 다를 수 있다(버스트 허용)"
+                 % (t, g, t * p["team_hours_per_goal"], g * 168.0 / p["team_hours_per_goal"],
+                    168.0 / p["team_hours_per_goal"]))
+        L += need_block(g * t * p["seats_per_team"] * 168.0, rate_m, p, inv,
+                        "상시 %g팀 · %g세션" % (g * t, g * t * p["seats_per_team"]))
+    L += base_block(inv, p["seats_per_team"], ms)
     L.append("  라벨: 낮은 용량 가정 = FT_CAP_WK_*_LOW · 높은 용량 가정 = FT_CAP_WK_* "
              "(«낙관·보수» 라고 쓰지 않는다 — DA #278796)")
     L.append("  상한 초과 = 알림 전용 · 거부·축소 0 (판정 4142 ⑥) — 나노·워커는 「동시세션/동시팀」 "
              "상한 안에서 자유 구성하고, 넘으면 알리기만 한다")
     L.append("  상한 적용: claude 좌석만 센다(pi deepseek 는 Claude 쿼터 밖 · 쿼터 미산정)")
+    L.append("  용량 경고: 동시팀 계산값 초과 발주는 경고만(값 상태 미검증 · 거부 여부 = r1566)")
     return "\n".join(L)
 
 
 def need(ci, a, p):
-    rate_tok = ci.get("rate_claude")
+    rate_tok = quota(ci)[0]
     L = ["[need] " + a.need]
     if not rate_tok:
-        L.append("  미산정 — rate_claude 없음(표본0). ctx-burn 창을 늘려 다시 재라.")
+        L.append("  미산정 — Claude 쿼터 rate 없음(표본0). ctx-burn 창을 늘려 다시 재라.")
         return "\n".join(L)
     rate = rate_tok / TOKENS_PER_M                      # 역산도 같은 변환 한 곳을 지난다(R1)
     try:
@@ -331,7 +421,7 @@ def need(ci, a, p):
     except ValueError:
         return "[need] 형식 오류: concurrent:40 | sessions:150 | teams:40 | goals:10"
     gone = missing(p, ["seats_per_team", "teams_per_goal", "team_hours_per_goal", "target",
-                       "wk_5x", "wk_ultra"])
+                       "wk_5x", "wk_ultra"] + (["goal_parallel_max"] if k == "goals" else []))
     if gone:
         L.append("  산정 불가 — " + " · ".join(gone) + " (기본값 대체 0 · 수용 기준 #7)")
         return "\n".join(L)
@@ -340,8 +430,8 @@ def need(ci, a, p):
         seats = v * 168.0
     elif k == "teams":
         seats = v * spt * 168.0
-    elif k == "goals":
-        seats = v * tg * tgh * spt
+    elif k == "goals":                                   # 동시 골 N개(r1567 ⓘ) — 깎지 않고 그대로 계산
+        seats = v * tg * spt * 168.0
     else:
         seats = v
     L.append("  정원 %0.1f 세션-시간/주 (= 상시 동시 %0.1f석 · 팀 %0.1f) · rate %0.2fM/세션-시간"
@@ -354,6 +444,11 @@ def need(ci, a, p):
         L.append("  %-10s %12.0f %8s %7s"
                  % ("실측" if sc == 1.0 else ("-%d%%" % round((1 - sc) * 100)), need_m,
                     qty(need_m, p["wk_ultra"]), qty(need_m, p["wk_5x"])))
+    if k == "goals":
+        L += need_block(seats, rate, p, p["inv"], "상시 %g팀 · %g세션" % (v * tg, v * tg * spt))
+        if v > p["goal_parallel_max"]:
+            L.append("  알림: 참고 모형 동시 골 %g 초과 · 거부 아님 (goals:%g 그대로 계산)"
+                     % (p["goal_parallel_max"], v))
     return "\n".join(L)
 
 
@@ -408,10 +503,10 @@ def main():
         return 2
 
     p = params(a, inv)
-    rate_tok = ci.get("rate_claude")                      # 계약 단위 = 가중 토큰/세션-시간
+    rate_tok, note = quota(ci)                            # 계약 단위 = 가중 토큰/세션-시간
     rate = (rate_tok / TOKENS_PER_M) if rate_tok else None  # 계산 단위 = M/세션-시간
 
-    print("\n".join(header(ci, p, path, rate_tok)))
+    print("\n".join(header(ci, p, path, rate_tok) + ([note] if note else [])))
     pools = ci.get("pools") or {}
     if pools:
         print("  pool: " + " · ".join(

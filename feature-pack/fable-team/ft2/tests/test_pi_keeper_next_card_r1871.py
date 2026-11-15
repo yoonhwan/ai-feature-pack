@@ -19,11 +19,25 @@ open(me + ".log", "a").write(json.dumps(a) + "\\n")
 rc = int(open(me + ".rc").read()) if os.path.exists(me + ".rc") else 0
 if rc == 0:
     st = os.environ["FAKE_TMUX"]; d = json.load(open(st)); d["alive"].append("byz-harness-nano-%s#0" % a[a.index("--work") + 1][:40]); json.dump(d, open(st, "w"))
+print(json.dumps({"result": "접수 성공" if rc == 0 else "복구 필요"}))   # r1929 실제 launch 처럼 결과 1줄(띄우기 로그)
 sys.exit(rc)
 '''
 RECORD = '#!/bin/sh\nprintf "%s\\n" "$*" >> "$0.log"\nmkdir -p .fable-team/state/card-assign\nprintf \'{"state": "%s", "seat": "%s"}\' "$3" "$4" > ".fable-team/state/card-assign/$2.json"\n'
 def nh(stem):
     return "byz-harness-nano-%s#0" % stem[:40]
+def settle(w):
+    """r1929 keeper 는 launch 를 기다리지 않는다 → 옛 시험의 «한 바퀴» = 띄운 가짜 launch 가 끝날 때까지 기다렸다가 같은 keeper 로 한 바퀴 더(판독·record)."""
+    base = w.round
+    def round(k=None):
+        k, more = k or w.keeper(), True
+        while more:
+            k.cache.pop("launching", None)   # 여는 중 칸 = 바퀴(프로세스)마다 새로
+            base(k)
+            more = k.cache.pop("spawned", [])
+            [p.wait(25) for p in more]
+        return k.lines
+    w.round = round
+    return w
 def world(tmp, mp, cards=None, enable=True, ft2=kw.FT2):
     """대기 카드 {stem: 머리 줄} · 카드 루트 표 harness 행 · 닫힐 일 W1(착지 카드 완성/ · 세션 없음)."""
     w = kw.World(tmp, mp, ft2)
@@ -31,7 +45,7 @@ def world(tmp, mp, cards=None, enable=True, ft2=kw.FT2):
     i = tm.index('if a[0] == "kill-session"')
     kw._put(b / "tmux", tm[:i] + LS + tm[i:])
     kw._put(b / "launch.py", LAUNCH), kw._put(b / "record", RECORD)
-    w.env.update(FT2_KEEPER_LAUNCH=str(b / "launch.py"), FT2_CARD_ASSIGN_BIN=str(b / "record"), HOME=str(tmp / "home"), FT2_TEAM_NANO_MAX="9",
+    w.env.update(FT2_KEEPER_LAUNCH=str(b / "launch.py"), FT2_CARD_ASSIGN_BIN=str(b / "record"), HOME=str(tmp / "home"), FT2_TEAM_NANO_MAX="1",   # r1913 닫기 1장으로 꽉 참 = fill 0(닫기 길만 본다)
                  GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="core.quotepath", GIT_CONFIG_VALUE_0="false")   # 가짜 HOME = 실 ~/.claude 문턱 읽기 0
     kw._put(w.state / "directive-roots.tsv", "harness\t.\torigin/main\tdesign/harness/indices\n")
     if cards:
@@ -39,7 +53,7 @@ def world(tmp, mp, cards=None, enable=True, ft2=kw.FT2):
     if enable:
         w.enable()
     close(w, W1)
-    return w
+    return settle(w)
 def close(w, work):
     w.card(work, sha=w.pack_sha(), stage="완성")
     w.work(work, done=True)
@@ -93,8 +107,8 @@ def c5(w, mp=None):   # ⑤ 팀 PAUSED → 0(쪽지도 0)
 def c7(w, mp=None):   # ⑦ launch rc2 → «복구 필요» 1줄 · record 0 · 다음 바퀴 재시도 0
     kw._put(w.tmp / "bin" / "launch.py.rc", "2")
     assert any(x.startswith("HELD-NEXT harness %s -> %s" % (W1, B)) and "복구 필요" in x for x in w.round())
-    w.round()
-    assert launched(w) == [B] and log(w, "record") == []
+    w.round()   # r1913 — 빈 칸은 fill 이 다른 장(A)으로 채운다 · B 재시도·B record 만 0
+    assert launched(w).count(B) == 1 and not any(B in x for x in log(w, "record"))
 def c8(w, mp=None):   # ⑧ 대상에 팩·BYZ 둘 다(긴급) → 건너뛰고 다음 카드
     assert "판정 불가 harness %s 대상 팩·BYZ 둘 다 — 건너뜀" % B in w.round() and launched(w) == [A]
 def cD(w, mp=None):   # Ⓓ 배정 원장 seat(ft2 owner 없음) → 같은 카드 두 번 배정 0
@@ -118,8 +132,11 @@ def c12(w, mp):       # ⑫ launch 성공 직후 record 전 중단 → 다음 �
     k = w.keeper()
     real = k.call
     mp.setattr(k, "call", lambda argv, *a, **kv: (_ for _ in ()).throw(RuntimeError("stop")) if "record" in argv else real(argv, *a, **kv))
-    with pytest.raises(RuntimeError):
-        k.run_once()
+    try:
+        w.round(k)   # r1929 바퀴 1 띄움 → 끝난 뒤 바퀴 2 record 자리에서 중단
+        raise AssertionError("record 자리 중단 0")
+    except RuntimeError:
+        pass
     assert launched(w) == [B] and log(w, "record") == []
     w.commit("byz", {"design/harness/indices/대기/%s.md" % C: "# 인덱스: %s\n%s" % (C, URG)}, "main")
     assert "NEXT harness %s -> %s %s" % (W1, B, nh(B)) in w.round()
@@ -148,7 +165,7 @@ def badkey(w):
     w.env["FT2_TEAM_NANO_MAX"] = "없음"
 def rootkey(w):
     w.env.pop("FT2_TEAM_NANO_MAX")
-    kw._put(w.root / ".fable-team" / "thresholds.env", "FT_DISTILL_WARN=1\nFT2_TEAM_NANO_MAX=5\n")
+    kw._put(w.root / ".fable-team" / "thresholds.env", "FT_DISTILL_WARN=1\nFT2_TEAM_NANO_MAX=1\n")
 def pre6(w):          # ⑥ 팀 나노 수 = 상한 → 0
     w.env["FT2_TEAM_NANO_MAX"] = "1"
     d = json.loads(w.tm.read_text(encoding="utf-8"))
@@ -175,8 +192,8 @@ MUTANTS = {"M1": ("ready.append(((not urgent,", "ready.append(((False,", "①"),
            "M2": ('"%s|next-none|%s" % (k.stamp()[:10], team)', '"%s|next-none|%s" % (k.stamp(), team)', "②"),
            "M3": ('if not os.path.exists(os.path.join(k.root, ".fable-team", "teams", team, "CLOSE-NEXT.enabled")) or ', "if ", "③"),
            "M4": ('block = "배정됨" if led.get("state") == "seat" or stem in owners else', 'block = "배정됨" if stem in owners else', "Ⓓ"),
-           "M5": ("        pick = choose(k, team) if gates(k, team) else None",
-                  "        k.receipt(team, work, attempt, holder, gen, mark=False)\n        pick = choose(k, team) if gates(k, team) else None", "⑨"),
+           "M5": ("        pick = choose(k, team) if gates(k, team) and penalty_open(k, team) else None",
+                  "        k.receipt(team, work, attempt, holder, gen, mark=False)\n        pick = choose(k, team) if gates(k, team) and penalty_open(k, team) else None", "⑨"),
            "M6": ('stem, nh = seen.get("next"),', "stem, nh = (choose(k, team) or [None])[0],", "⑩"),
            "M7": ("    if need[1]:", "    if need[0] and need[1]:", "⑫"),
            "M8": ('FT2_TEAM_NANO_MAX=")), "")', 'FT2_TEAM_NANO_MAX=")), "99")', "R3"),

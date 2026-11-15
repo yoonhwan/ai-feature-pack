@@ -21,7 +21,8 @@ CAP="$T/accounts.env"                     # 상수 파일 — 자리는 부르�
 printf '%s\n' FT_CAP_CLAUDE_5X=5 FT_CAP_CLAUDE_ULTRA=5 FT_CAP_CODEX_PLUS=2 FT_CAP_CODEX_PRO=1 \
   FT_CAP_DEEPSEEK_KEYS=1 FT_CAP_WK_5X_LOW=124 FT_CAP_WK_ULTRA_LOW=497 FT_CAP_WK_5X=389 \
   FT_CAP_WK_ULTRA=1555 FT_CAP_SEATS_PER_TEAM=4 FT_GOAL_TEAMS=3 FT_GOAL_TEAM_HOURS=8 \
-  FT_CAP_TARGET_UTIL=0.85 > "$CAP"
+  FT_CAP_TARGET_UTIL=0.85 FT_GOAL_PARALLEL_MAX=3 FT_BASE_ALWAYS_TEAMS=3 FT_BASE_ISSUE_TEAMS=4 \
+  FT_BASE_ISSUE_HOURS=12 FT_BASE_GOAL_TEAMS=3 FT_BASE_GOAL_HOURS=12 > "$CAP"
 python3 - "$HOME" <<'PY'
 import json, os, sys, time
 H = sys.argv[1]; now = time.time()
@@ -40,7 +41,7 @@ with open(os.path.join(H, ".pi/agent/sessions/s/2026-11-10T00-00-00-000Z_sess1.j
     f.write(json.dumps({"timestamp": ts(now - 600), "message": {"model": "deepseek-v4", "usage": pi}}) + "\n")
     f.write(json.dumps({"timestamp": ts(now - 600), "message": {"usage": pi}}) + "\n")   # 모델 미상
 PY
-ok "픽스처 생성 (claude 22건 · pi 2건 · 상수 13키)"
+ok "픽스처 생성 (claude 22건 · pi 2건 · 상수 19키)"
 
 step "ⓐ 표본 0"
 "$BURN" --hours 0.01 --project "$T/empty" --json > "$T/a.json" 2>"$T/a.err"; rc=$?
@@ -73,8 +74,8 @@ python3 -c 'import re,sys;t=sys.argv[1];assert len(re.findall(r"^  (실측|낭�
 nchk "ⓑ 없는 pool 은 행 없음" "$C" "pi-claude"
 chk "ⓔ 앵커 상태 표기" "$C" "미검증"; chk "ⓔ target = 운영정책" "$C" "운영정책"; chk "ⓕ --need 스케일 표" "$("$PLAN" --from "$T/b.json" --inv-file "$CAP" --need concurrent:40 2>&1)" "필요 주간M"
 chk "ⓙ 골 모형 2행" "$C" "낮은 용량 가정"
-chk "ⓝ 축 정의 1줄" "$C" "메인 골 = 전역 직렬(동시 1)"
-chk "ⓝ 동시골 라벨" "$C" "동시골(용량상 가능 수)"; chk "ⓝ 참고 라벨(오빠 #278942)" "$C" "참고 — 운영 규칙 아님"
+chk "ⓝ 축 정의 1줄(r1567)" "$C" "골 = 최대 3개 동시(오빠 11-10)"
+chk "ⓝ 동시골 라벨(r1567 주 평균)" "$C" "동시골(주 평균)"; chk "ⓝ 참고 라벨(오빠 #278942)" "$C" "참고 — 운영 규칙 아님"
 chk "ⓔ --wk-5x 가 출력을 바꾼다" "$("$PLAN" --from "$T/b.json" --inv-file "$CAP" --capacity --accounts 5x:1 --wk-5x 400 2>&1)" "wk_5x=400"
 
 step "ⓖ 기존 모드 불변"
@@ -90,7 +91,7 @@ chk "상한 초과 = 알림 전용(판정 4142 ⑥)" "$R" "상한 초과 = 알�
 chk "ⓛ env 경로도 받는다" "$(CTX_PLAN_CAP_FILE="$CAP" "$PLAN" --from "$T/b.json" --inventory 2>&1)" "상수 파일: $CAP"
 sed 's/=.*/=/' "$CAP" > "$T/blank.env"                          # 키는 있고 값이 빈 파일
 B="$("$PLAN" --from "$T/b.json" --inv-file "$T/blank.env" --inventory 2>&1)"; rc=$?
-[ $rc -eq 0 ] && ok "ⓗ 빈 값 파일 rc0" || no "ⓗ rc" "rc=$rc"; chk "ⓗ 0순위 문제 N건" "$B" "0순위 문제 13건"; chk "ⓗ 숫자 신뢰 금지" "$B" "신뢰하지 않는다"
+[ $rc -eq 0 ] && ok "ⓗ 빈 값 파일 rc0" || no "ⓗ rc" "rc=$rc"; chk "ⓗ 0순위 문제 N건" "$B" "0순위 문제 19건"; chk "ⓗ 숫자 신뢰 금지" "$B" "신뢰하지 않는다"
 grep -v "_LOW" "$CAP" > "$T/nolow.env"
 K="$("$PLAN" --from "$T/b.json" --inv-file "$T/nolow.env" --inventory 2>&1)"
 chk "ⓚ 하한 키도 INV_KEYS" "$K" "0순위 문제 2건"; chk "ⓚ 하한 없으면 산정 불가" "$K" "산정 불가 — FT_CAP_WK_5X_LOW·FT_CAP_WK_ULTRA_LOW 가 상수 파일에 없다"

@@ -168,23 +168,33 @@ class Swap(Account):
             nxt = self.table.get(base_model(nxt), "")
         return "" if base_model(nxt) in seen else nxt
 
-    def swap(self, seat: str, d: dict[str, object], cut: Cut, base: str, new: str, wt: str, src: tuple[list[str], str]) -> bool:
+    def swap(self, seat: str, d: dict[str, object], cut: Cut, base: str, new: str, wt: str, src: tuple[list[str], str, str | None]) -> bool:
         name = next_name({k for t in self.tables for k in t} | self.alive, base)
         print(f"PLAN swap {seat} -> {name} model {cut.model} -> {new}")
         if self.a.dry_run:
             return True
+        # r1957 감시 줄 = 원 본문 1줄 원문 → 없으면 인계서 «## 열린 칸 감시» 절 항목 전부 → 그도 없으면 «미상»(«없음» 으로 바꾸지 않음) · 확인은 save() «전»
+        hp = re.search(r"인계서\s*[:=]\s*(\S+)", src[1])
+        hf = Path(wt, hp.group(1)) if hp else None
+        sec = re.search(r"^#+ 열린 칸 감시[^\n]*\n(.*?)(?=^#|\Z)", hf.read_text(encoding="utf-8"), re.M | re.S) if hf and hf.is_file() else None
+        items = [ln.strip().removeprefix("- ").strip() for ln in sec.group(1).splitlines() if ln.strip()] if sec else []
+        unk = not src[2] and not items
+        watch = src[2] or (f"열린 칸 감시: {' · '.join(items)}" if items else "열린 칸 감시: 미상(앞 본문·인계서에 절 없음 · 후계 = 인계서·recv 로 확인)")
+        if len(watch) > 160 or not watch.removeprefix("열린 칸 감시: ").strip():
+            self.hil(seat, d, cut, f"열린 칸 감시 줄 생성 실패 {len(watch)}자 > 160 또는 빈 값")
+            return False  # 기록·열기·쪽지 0 — 같은 uuid 다음 회차에 다시 시도
         self.st["swapped"] = [*self.st["swapped"], cut.uuid][-500:]  # pyright: ignore[reportGeneralTypeIssues]
         self.st["last"][base] = self.now  # pyright: ignore[reportIndexIssue]
         self.save()  # 기록 먼저 — 열기·쪽지가 실패해도 같은 uuid 재교대 0(중복 후계 0)
         bf = self.sd / f"{name}.body"
         _ = bf.write_text("\n".join([*src[0], f"[승계 자동 · 모델 한도] {seat} -> {name} · {cut.model} 한도({cut.reset or '미상'}) · 대체 {new}",
-                                     f"첫 일 = 부팅 보고(retire 줄) → recv(옛 계보 미처리 쪽지 이어받음) · 인계서 = {src[1] or '미상'}"]) + "\n", encoding="utf-8")
+                                     f"첫 일 = 부팅 보고(retire 줄) → recv(옛 계보 미처리 쪽지 이어받음) · 인계서 = {src[1] or '미상'}", watch]) + "\n", encoding="utf-8")
         so = os.environ.get("FT_SUCCESSOR_OPEN", str(HERE / "ft-successor-open.sh"))
         with (self.sd / f"{name}.log").open("ab") as log:
             _ = subprocess.Popen(["bash", so, seat, wt, "--name", name, "--agent", "claude", "--model", new, "--ctx", "1m", "--effort", "high",
                                   "--body-file", str(bf)], stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
         for to in dict.fromkeys(v for v in (d.get("_master"), d.get("_hil_route")) if isinstance(v, str) and v and v != seat):
-            self.send(to, f"[자동 교대] {seat} -> {name} · {cut.model} -> {new} · 사유 한도")
+            self.send(to, f"[자동 교대] {seat} -> {name} · {cut.model} -> {new} · 사유 한도" + (" · 감시 미상" if unk else ""))
         return True
 
     def hil(self, seat: str, d: dict[str, object], cut: Cut, why: str) -> None:

@@ -27,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))   # python3 -I 는 스�
 from ft_team_move import Ctx, MoveError, check_stores, make_ctx, occupancy, occupancy_snapshot, received, run, sha256, store_base, tracked  # noqa: E402
 from ft_team_move_apply import Snap, dump_like, git, new_step, walk, write_text  # noqa: E402
 from ft_team_move_apply import revert as move_revert  # noqa: E402
+from ft_roster_lib import bak_cap  # noqa: E402  r2043 명부 백업 종류별 상한
 
 NAME = re.compile(r"[a-z0-9][a-z0-9_-]*")
 B = r"(?<![A-Za-z0-9_])"
@@ -242,6 +243,7 @@ def stores(ctx: Ctx, o: str, n: str, snap: Snap, step: dict, resync: bool) -> No
             data.update(_renamed_from=o, _renamed_at=datetime.date.today().isoformat())
             bak = src.with_name(f"{src.name}.bak-rename-{ts}")
             shutil.copy2(src, bak)
+            bak_cap(str(src), "rename")   # r2043 종류별 상한
             snap.data["created"].append(str(bak))
             create(snap, step, src, ctx.roster(n), dump_like(raw, data), "roster")
         elif dump_like(raw, data) != raw:

@@ -474,7 +474,7 @@ def test_g_public_faces_and_legacy_guard(tmp_path):
                                        "confirm_by", "reason")
     assert dispatch.Grant._fields == ("result", "work", "stage", "attempt", "gen", "holder", "revision",
                                       "written", "released", "reason")
-    assert (record.SCHEMA_VERSION, len(record.RESULT_WORDS), len(record.KINDS)) == (1, 8, 18)   # r1594: progress · close · r1724: refuse · resolve · r1725: close_receipt · r1727: reopen · r1774: import
+    assert (record.SCHEMA_VERSION, len(record.RESULT_WORDS), len(record.KINDS)) == (1, 8, 20)   # r2055: parked · r1594: progress · close · r1724: refuse · resolve · r1725: close_receipt · r1727: reopen · r1774: import · r1990: returned
     assert subprocess.run([sys.executable, "-I", GUARD], capture_output=True, timeout=25).returncode == 0
     suite = [os.path.join(HERE, name) for name in ("test_core_intake.py", "test_core_execution.py",
                                                    "test_core_dispatch.py")]
@@ -738,7 +738,7 @@ def test_h2_r1616_reclaimed_accepts_leave_room_for_new_ones(tmp_path):
         _accept(node, "C%d" % n)
         _finish(node, "C%d" % n)
     assert node.rs.journal.reclaim()["reclaimed"]
-    assert node.rs.submit("over-1", "x" * 8, "N1").result == OK            # 회수된 8건 = 용량 밖
+    assert node.rs.submit("over-1", "x" * 8, "X1").result == OK            # 회수된 8건 = 용량 밖 · r2055 용량 = work 단위라 새 접수 work(N0~N6)와 겹치지 않는 이름
     assert [node.rs.submit("new-%d" % n, "x" * 8, "N%d" % n).result for n in range(7)] == [OK] * 7
     assert node.rs.submit("new-7", "x" * 8, "N7").result == FULL           # 진행 중 8 = 상한
 

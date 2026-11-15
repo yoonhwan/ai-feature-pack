@@ -362,6 +362,18 @@ def _label(row: dict, base_row: dict | None, base: bool, stale: set[int]) -> str
     return f"변화 0({int(row['row_age_h'])}시간)" if row["row_age_h"] is not None else "변화 0(시간 모름)"
 
 
+def _compare(row: dict, base_rows: list[dict], first: bool, stale: set[int]) -> None:
+    """앞 회차 «같은 골» 행과 비교(r1974) — goal_hash 로 찾는다(번호는 밀린다) · 같은 hash 둘 이상 = 번호 같은 쪽 · 없으면 «확인 불가»."""
+    same = [b for b in base_rows if b.get("goal_hash") == row["goal_hash"]]
+    if len(same) > 1:
+        same = [b for b in same if b.get("n") == row["n"]]
+    prev = same[0] if same else None
+    row["ledger_row_changed"] = bool(prev) and prev.get("ledger_row_hash") != row["ledger_row_hash"]
+    row["evidence_changed"] = bool(prev) and prev.get("evidence") != row["evidence"]
+    row["moved"] = f"{prev.get('n')}→{row['n']}" if prev and prev.get("n") != row["n"] else ""
+    row["label"] = _label(row, prev, first, stale)
+
+
 def measure(d: Path, now: datetime, run: str) -> dict:
     """한 회차 측정 — status=OK 회차 dict(실패는 예외로 올려 ERROR 파일을 쓴다)."""
     _budget()
@@ -408,7 +420,7 @@ def measure(d: Path, now: datetime, run: str) -> dict:
                 unassigned.append(path.rsplit("/", 1)[-1])
             else:
                 cards[n] = cards.get(n, 0) + 1
-    base_rows = {r.get("n"): r for r in (base or {}).get("rows") or [] if isinstance(r, dict)}
+    base_rows = [r for r in (base or {}).get("rows") or [] if isinstance(r, dict)]
     stale, stale_why = _stale_rows(d)
     landed_why = _option(d, "goal-landed.json", "착지 모름(r664 미착지)", "착지 모름(r664 표식 손상)")
     live_why = _option(d, "goal-live.json", "라이브 판 모름(r708 미착지)", "라이브 판 모름(r708 표식 손상)")
@@ -437,12 +449,10 @@ def measure(d: Path, now: datetime, run: str) -> dict:
             "ledger_closed": _flat(state_cell).startswith("✅"),
             "cards_added": cards.get(i, 0),
             "evidence": _evidence(d, i),
-            "ledger_row_changed": bool(base_rows.get(i)) and base_rows[i].get("ledger_row_hash") != _hash(" | ".join(cells)),
             "row_age_h": _age(repo, commit, ledger_rel, lineno, now),
             "unknown": unknown,
         }
-        row["evidence_changed"] = bool(base_rows.get(i)) and base_rows[i].get("evidence") != row["evidence"]
-        row["label"] = _label(row, base_rows.get(i), first, stale)
+        _compare(row, base_rows, first, stale)
         rows.append(row)
     _budget()
     facts = {

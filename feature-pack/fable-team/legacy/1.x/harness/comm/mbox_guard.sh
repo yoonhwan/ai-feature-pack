@@ -46,8 +46,9 @@ guard_mode() {
 
 # 출력 줄 = `<동사>␟<새 수신자>␟<문장>`(구분자 U+001F — 탭은 read 가 연속 구분자를 합친다) : OK · WARN · REJECT · FORWARD(후계로 전달) · EXPLICIT(명시 이름 그대로 + 로그)
 _guard_py_recipient() {
-  python3 - "$(_seats_json)" "$1" "$2" "$DIR" "$3" "$4" <<'PY'
-import json, glob, os, re, sys; sys.path.insert(0, sys.argv[4]); import mbox_teamfile   # 명부 파일 고르기 = mbox_lineage.py 와 «같은 함수»(r745)
+  python3 - "$(_seats_json)" "$1" "$2" "$DIR" "$3" "$4" "$(_ft_live_bin ft-name-lint.sh 2>/dev/null)" <<'PY'
+import json, glob, os, re, subprocess, sys; sys.path.insert(0, sys.argv[4]); import mbox_teamfile   # 명부 파일 고르기 = mbox_lineage.py 와 «같은 함수»(r745)
+lint = sys.argv[7] if len(sys.argv) > 7 and os.path.isfile(sys.argv[7]) else ""   # r2076 — 이름 검사 도구(_ft_live_bin · 못 찾음 = 빈 글)
 sj, to, safe, frm, head = sys.argv[1], sys.argv[2], sys.argv[3] == "1", sys.argv[5], sys.argv[6]
 d = os.path.dirname(sj) or "."
 def out(verb, new="", msg=""): print(f"{verb}\x1f{new}\x1f{msg}")
@@ -97,6 +98,10 @@ if cur != to and closed: stop("은퇴한 좌석 " + to + " → 후계 " + cur + 
 if cur != to and rk(cur) != rk(to):   # 개명·팀 바뀜 = 다른 우편함 — 예외 = 명부 사슬 끝 현역이 보낸 [레디](r1493 · 개명 승계 옛 좌석의 닫기 증거)
     if head.startswith("[레디]") and frm == cur and crow.get("role") not in ("closed", "stopped") and isinstance(docs.get(cfile, {}).get(cur), dict):   # 사슬 끝 행이 명부에 실재 ∧ 그 행 role 이 현역(닫힘·중단 아님)
         out("WARN", "", "개명 승계 [레디] " + frm + " → 은퇴 좌석 " + to + " 우편함에 기록(닫기 증거)"); sys.exit(0)
+    if not safe:   # r2076 E7 — 사슬 끝 이름이 이름 검사 rc 1 = 다시 보낼 이름이 없다 → 끝 이름 우편함에 받는다
+        try: lrc = subprocess.run(["bash", lint, cur], capture_output=True, timeout=25).returncode if lint else None   # 도구 없음 = 기준판 REJECT
+        except Exception: lrc = None   # 25초 넘김(TimeoutExpired)·실행 실패 = 기준판 REJECT(받는 쪽으로 기울지 않음)
+        if lrc == 1: out("FORWARD", cur, "은퇴한 좌석 " + to + " → 사슬 끝 " + cur + " 이름 검사 FAIL — 끝 이름 우편함에 받음"); sys.exit(0)
     stop("은퇴한 좌석 " + to + " → 현역 " + cur + " — 후계 이름으로 다시 보내라", forward=cur)
 if cur != to: out("WARN", "", "옛 번호 " + to + " → 역할 우편함(현역 " + cur + ") — 그대로 전송")
 if closed: stop("닫힌 좌석(" + team + " " + why(auth, row) + ")")
@@ -237,6 +242,8 @@ guard_check() {
     esac
   done <<< "$out"
   [ -z "$rej" ] || { echo "REJECT $rej" >&2; return 3; }
+  new="$(python3 "$DIR/mbox_seat.py" "$(dirname "$(_seats_json)")" "$GUARD_TO" "$2" 2>/dev/null)" || new=""   # r1657 master 석 길 — 첫 카드 참조의 담당 석 · 판정 불가 = 그대로
+  [ -z "$new" ] || [ "$new" = "$GUARD_TO" ] || { echo "NOTE 담당 석 $GUARD_TO → $new" >&2; guard_log mbox-guard.log "seat $GUARD_TO -> $new"; GUARD_TO="$new"; }
   out="$(_guard_py_head "$GUARD_TO" "$(guard_mode)" "$2" 2>/dev/null)" || out=""
   while IFS=$'\037' read -r verb new msg; do
     case "$verb" in

@@ -27,8 +27,8 @@ MBOX = E.get("FT_CHILD_MBOX_SH") or os.path.join(root, ".fable-team/comm/mbox.sh
 IDLE, RSS, NIDLE = float(E.get("FT_CHILD_IDLE_MIN") or 20), float(E.get("FT_CHILD_RSS_MB") or 300), float(E.get("FT_NANO_IDLE_MIN") or 30)
 FROM, TODAY = "ft-child-watch", time.strftime("%Y-%m-%d")
 DONE_RE = re.compile(r"완료·휴식|\[완료\]|정지 레디|^-?\s*세트: [0-9a-f]{40}")
-def sh(cmd, t=60):
-    try: r = subprocess.run(cmd, capture_output=True, text=True, timeout=t); return r.returncode, r.stdout
+def sh(cmd, t=60, env=None):
+    try: r = subprocess.run(cmd, capture_output=True, text=True, timeout=t, env=env); return r.returncode, r.stdout
     except (OSError, subprocess.SubprocessError) as e: return 99, str(e)
 def unknown(why): print(f"CHILD-WATCH-UNKNOWN 판정 불가 — {why} (조치 0)"); sys.exit(20)
 def survey():   # ({좌석: S행}, [P행 고아])
@@ -49,24 +49,45 @@ def roster():   # {좌석: (행, 그 명부 _master)} · 하네스 master
         m = d.get("_master") if isinstance(d.get("_master"), str) else None
         if os.path.basename(p) == "seats-harness.json": hm = m
         for k, v in d.items():
-            if not k.startswith("_") and isinstance(v, dict): rows[k] = (v, m)
+            if not k.startswith("_") and isinstance(v, dict): rows[k] = (v, m, re.sub(r"^seats-?|\.json$", "", os.path.basename(p)))
     return rows, E.get("FT_CHILD_ALERT_TO") or hm
-def card_state(row):   # (끝남?, 마지막 상태 줄 앞 40자)
+def card_ref(team):   # r1655 카드 ref = FT_CARD_REF → directive-roots.tsv 그 팀 행 → «*» 행 → origin/main
+    try: tr = dict(l.rstrip("\n").split("\t")[0:3:2] for l in open(os.path.join(root, ".fable-team/state/directive-roots.tsv"), encoding="utf-8") if l.count("\t") >= 2)
+    except OSError: tr = {}
+    return E.get("FT_CARD_REF") or tr.get(team) or tr.get("*") or "origin/main"
+FETCHED = {}
+def ref_text(ref, path):   # ref 판 본문 · 없음·fetch 실패 = None(옛 판 안 씀 → 작업 트리 길)
+    rem, _, br = ref.partition("/")
+    if ref not in FETCHED:   # fetch = ref 마다 1회 7초 + 재시도 1 · 원격 아닌 ref(로컬 가지) = fetch 0
+        FETCHED[ref] = not br or sh(["git", "-C", root, "remote", "get-url", rem], 7)[0] != 0 or any(sh(["git", "-C", root, "fetch", "-q", rem, br], 7)[0] == 0 for _ in range(2))
+        if not FETCHED[ref]: print(f"ft-child-watch: WARN fetch 실패 {ref} — 작업 트리 길", file=sys.stderr)
+    rc, out = sh(["git", "-C", root, "show", f"{ref}:{path}"], 7) if FETCHED[ref] else (1, "")
+    return out if rc == 0 else None
+def card_state(row, team=""):   # (끝남?, 마지막 상태 줄 앞 40자) · r1655 카드 ref 판 먼저 → 없으면 루트 작업 트리
     ix = row.get("index") if isinstance(row.get("index"), str) else ""
     if not ix: return False, "카드 없음"
+    m, t = re.match(r"(design/.*/indices)/[^/]+/([^/]+)$", ix), None
+    for d in ("진행", "완성", "아카이브", "대기") if m else ():
+        t = ref_text(card_ref(team), f"{m[1]}/{d}/{m[2]}")
+        if t is not None: break
+    if t is not None and d in ("완성", "아카이브"): return True, "완성 폴더"
     p = ix if os.path.isabs(ix) else os.path.join(root, ix)
-    if not os.path.exists(p):
+    if t is None and not os.path.exists(p):
         alt = [p.replace("/진행/", f"/{d}/") for d in ("완성", "아카이브")]
         return (True, "완성 폴더") if any(os.path.exists(a) for a in alt) else (False, "카드 못 찾음")
     sec, last = False, ""
-    for ln in open(p, encoding="utf-8", errors="replace"):
+    for ln in (t.splitlines() if t is not None else open(p, encoding="utf-8", errors="replace")):
         if ln.startswith("## "): sec = ln.strip() == "## 상태"
         elif sec and ln.strip(): last = ln.strip()
     return bool(DONE_RE.search(last)), last[:40] or "상태 줄 없음"
 def autonomy():
     v = E.get("FT_CHILD_AUTONOMY")
     if v in ("on", "off"): return v == "on"
-    rc, out = sh(["bash", os.path.join(here, "ft-autonomy.sh"), "scope-status"], 7)
+    env, ft = dict(E), E.get("FT_ROOT") or ""   # r1795 A2: FT_ROOT/.fable-team/LIVE_ROOT(절대경로 폴더)가 있으면 범위 승인은 그 라이브 루트에서 읽는다 · comm 은 원래 FT_ROOT 보존(r1792 A5 꼴)
+    try: live = open(os.path.join(ft, ".fable-team/LIVE_ROOT"), encoding="utf-8").readline().strip() if ft else ""
+    except OSError: live = ""
+    if live.startswith("/") and os.path.isdir(live): env.setdefault("FT_MBOX_DIR", os.path.join(ft, ".fable-team/comm")); env["FT_ROOT"] = live
+    rc, out = sh(["bash", os.path.join(here, "ft-autonomy.sh"), "scope-status"], 7, env)
     return rc == 0 and bool(re.match(r"\[범위 승인 \S+ · ", out.strip()))
 def sent_keys():
     p = os.path.join(SD, "child-watch.sent")
@@ -105,14 +126,14 @@ def main():
     on, sk, acts, n = autonomy(), sent_keys(), {}, dict(child=0, nano=0, orphans=0, quiesced=0)
     for s, v in sorted(seats.items()):
         if s not in rows or v["idle"] is None: continue
-        row, tm = rows[s]
+        row, tm, team = rows[s]
         if v["idle"] >= IDLE and v["mb"] >= RSS and f"{TODAY}\tchild\t{s}" not in sk:
             act = "경보만(자율 OFF)" if not on else f"경보만(작업 중 신호 · 도구 셸 {v['busy']}개)" if v["busy"] else ""   # DA① 추가 — 유휴(출력 없음)만으로 자동 종료하지 않는다
             if on and not v["busy"] and not dry: rc, ln = quiesce(s, "--mode", "done"); act = ln; n["quiesced"] += rc == 0
             acts[s] = act; n["child"] += 1
             if not dry and send(hmaster, f"[자식] {s} 유휴 {v['idle']}분 · 자식 {v['mb']}MB · {v['top']} · 조치: {act}"): mark(f"{TODAY}\tchild\t{s}")
         if "nano" in str(row.get("role", "")) and v["idle"] >= NIDLE and f"{TODAY}\tnano\t{s}" not in sk:
-            fin, st = card_state(row)
+            fin, st = card_state(row, team)
             if fin:
                 n["nano"] += 1; acts[s] = (acts.get(s, "") + " · " if s in acts else "") + "닫기 경보"
                 if not dry and send(tm, f"[유휴 나노] {s} 유휴 {v['idle']}분 · 카드 {st} · 닫기는 master(ft-nano-close) — 이 경보는 kill 0"): mark(f"{TODAY}\tnano\t{s}")

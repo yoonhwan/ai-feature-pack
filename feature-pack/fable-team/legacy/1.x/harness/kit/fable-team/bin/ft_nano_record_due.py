@@ -14,6 +14,8 @@ import time
 from pathlib import Path
 
 from ft_nano_record import CARD_RX, DONE_RX, Ctx, Reject, Unjudged, left_free, left_of, marks, rec_of, section, seq_dropped
+from ft_nano_record_batch import prepare
+from ft_nano_record_repo import at, repo_hits, seats_at
 
 DOCW = "문서 PR · 구현 착지 아님"   # r1782 A2: 장부 doc_only(착지 파일 전부 design/·docs/) 줄의 «끝» 사유
 
@@ -63,10 +65,9 @@ def judge(ctx, base, seat, sort, sec, alive=True):   # 좌석 1개의 줄(단계
 
 
 def card_rows(ctx, e, path):
-    key = card_key(path)
-    if not key:
+    if not (key := card_key(path)):
         return [{"k": "판정불가", "stem": Path(path).stem, "why": "카드 경로 꼴 rc=1"}]
-    team, iroot, stem = key
+    (team, iroot, stem), ctx = key, at(ctx, path)   # r1849 ⓑ: 카드가 속한 리포의 카드 ref·명부
     base = {"pr": e.get("pr"), "q": e["landed"], "stem": stem, "team": team, "iroot": iroot, "e": e, "master": ""}
     try:
         doc = ctx.seats(team)
@@ -110,12 +111,12 @@ def rows(ctx, pr=None):   # 장부 줄마다 카드별 줄
     return out
 
 
-def due_rows(ctx, pr=None, fetch=True):   # A2 — fetch 는 «열린 줄» 이 있을 때만 실행당 1회(remote-tracking 판으로 먼저 본다)
-    ctx.fetch = False
-    out = rows(ctx, pr)
+def due_rows(ctx, pr=None, fetch=True):   # A2 — fetch 는 «열린 줄» 이 있을 때만 실행당 1회(remote-tracking 판으로 먼저 본다) · r2071 = 판마다 묶음 읽기·묶음 fetch(전 항목 그대로)
+    ks, ctx.fetch = [k for e in ctx.ledger() if pr is None or e.get("pr") == pr for k in map(card_key, e["cards"]) if k], False
+    out = rows(prepare(ctx, ks), pr)
     if fetch and any(r["k"] not in ("끝", "카드없음") for r in out):
         ctx.fetch, ctx._tips = True, {}
-        out = rows(ctx, pr)
+        out = rows(prepare(ctx, ks), pr)
     return out
 
 
@@ -138,11 +139,11 @@ def fmt(r):
 
 
 def cmd_settle(ctx, a):
-    doc = ctx.seats((a.seat.split("-") + ["", ""])[1])
+    doc = seats_at(ctx, (ents := [e for e in ctx.ledger() if e.get("pr") == a.pr]), (a.seat.split("-") + ["", ""])[1])   # r1849 ⓑ
     row = doc.get(a.seat)
     if isinstance(row, dict) and row.get("role") == "nano" or not isinstance(row, dict) and a.seat not in (doc.get("_master"), doc.get("_arch")):
         raise Reject(f"settle 은 팀장·arch 만 — {a.seat} (role=nano 또는 명부 밖)")
-    if not [e for e in ctx.ledger() if e.get("pr") == a.pr]:
+    if not ents:
         raise Reject(f"장부에 PR #{a.pr} 줄 없음")
     if bool(a.card) == bool((a.no_card or "").strip()):
         raise Reject("--card <stem>… 또는 --no-card \"<사유>\" 중 하나")
@@ -151,8 +152,15 @@ def cmd_settle(ctx, a):
         key = card_key(f"{doc.get('_cards') or ''}/진행/{stem}.md")
         if not key:
             raise Reject(f"명부 _cards 칸으로 카드 자리를 못 정함({stem})")
-        ctx.card(key[0], key[1], stem)   # 카드 ref 에 실재해야 한다(없음 = 판정 불가)
-        cards.append(str(ctx.root / key[1] / "진행" / f"{stem}.md"))
+        try:
+            path = ctx.card(key[0], key[1], stem)[0]   # r2036 A1: 좌석 팀 뿌리 먼저(지금 그대로)
+        except Unjudged as u:   # 없음일 때만 카드 루트 표 전 행 · A2 정확히 1개 = 실제 경로 · 2개 이상 = 모호 REJECT · 0개 = 판정 불가 그대로
+            hits = ctx.root_hits(stem) if str(u).startswith("카드 ref 에 카드 없음") else None
+            hits = repo_hits(ctx, ents[-1], stem, hits)   # r1849 ⓑ: 루트 표 0개 + 장부 repo 가 다른 리포 = 그 리포 카드 ref 트리(절대경로)
+            if not hits or len(hits) > 1:
+                raise Reject(f"카드 모호 — {' '.join(sorted(hits.values()))}") if hits else u
+            path = next(iter(hits.values()))
+        cards.append(str(ctx.root / path))
     line = {"pr": a.pr, "settle": "card" if cards else "no-card", "cards": cards, "why": (a.no_card or "").strip(), "by": a.seat, "ts": time.strftime("%Y-%m-%dT%H:%M:%S")}
     with open(ctx.state / "land-record-turn.jsonl", "a", encoding="utf-8") as fh:
         fh.write(json.dumps(line, ensure_ascii=False) + "\n")

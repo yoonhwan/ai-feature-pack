@@ -35,6 +35,7 @@ export GIT_SSH_COMMAND="$T/stub/ssh" FT_HARNESS_ROOT="$HB" FT_SCOPE_PACK_TABLE="
 export FT_GH="$T/stub/gh" FT_GH_WRITE="$T/stub/gh" STUB_JSON="$T/pr.json" STUB_LOG="$T/gh.log" FT_INSTALL_CHECK="$T/stub/noop"
 S="$T/state"; LOG="$S/autonomy.log"; JSON="$S/autonomy.json"
 export FT_ROOT="$B" FT_AUTONOMY_STATE_DIR="$S" FT_PLANNER_DIR="$T/pdir" TMUX_PANE=%9 PATH="$T/fakebin:$PATH"
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/fake_gh_base.sh"; fake_gh_base "$T/ghb"   # r1955: --pr 의 base 조회(autonomy_pr_target) = 가짜 gh(main)
 git -C "$P" fetch -q origin || { echo "FAIL 팩 픽스처 fetch"; exit 1; }
 a() { FT_NOW="$T0" "$BASH" "${ABIN:-$BIN}/ft-autonomy.sh" "$@"; }
 run() { out="$("$@" 2>&1)"; rc=$?; }
@@ -131,8 +132,8 @@ card "$A11"; fresh; printf '{"mode":"on","since":%s,"event":"A17","until":%s,"le
 card "$A11"; rm -f "$T/off.done"; PATH="$T/mkstub:$PATH" sa "$A11" 11 "$V11"
 [ "$rc" = 2 ] && has '자율 풀자동에서만' && [ ! -e "$S/autonomy-merge-approved/$A11" ]; ck "R1 잠금 안 OFF 재확인 → REJECT · 승인 파일 0" $?
 rm -rf "$T/mkstub"; card "$A11"; fresh; sa "$A11" 11 "$V11"; [ "$rc" = 0 ]; ck "R1 원본 대조: 정상 ON full → 승인" $?
-# R2(DA) — 최신 원격 기준 확인 줄이 있다(가짜 원격 재현은 DA evidence/da-stale.sh 몫)
-[ "$(grep -c 'fetch -q origin +refs/heads/main:refs/remotes/origin/main' "$BIN/ft-autonomy-standing-d2.sh")" = 1 ] \
+# R2(DA) — 최신 원격 기준 확인 줄이 있다(가짜 원격 재현은 DA evidence/da-stale.sh 몫) · r1955 라: 대상 = PR base(D2_TARGET)
+[ "$(grep -cF 'fetch -q origin "+refs/heads/$D2_TARGET:refs/remotes/origin/$D2_TARGET"' "$BIN/ft-autonomy-standing-d2.sh")" = 1 ] \
   && ck "R2 merge-tree 전 원격 main 최신성 확인 줄 1개" 0 || ck "R2 merge-tree 전 원격 main 최신성 확인 줄 1개" 1
 # R3(DA) — 명부 desk 는 번호 회전(계보) 도 desk(기존 gate 규칙)
 python3 - "$B" "$PL" <<'PY'

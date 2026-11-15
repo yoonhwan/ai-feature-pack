@@ -165,18 +165,22 @@ def resolve(R: Path, arg: str) -> tuple[Path, str | None]:
     return path, git(hits[0][0], "show", f"{hits[0][1]}:{hits[0][2]}")
 
 
-def record(card: str | Path, kind: str, arg: str, now: float, pause: dict | None = None, verdict: str | None = None) -> int:
+def record(card: str | Path, kind: str, arg: str, now: float, pause: dict | None = None, verdict: str | None = None, seat: str | None = None) -> int:
     """spawn 종료 분기·성공이 부르는 공용 1함수 — init(원장 없을 때만 none) · waiting <사유> [hold <판정 N>|acct <P[/M]>](같은 사유·같은 정지 = 변경 0 · since = 이른 쪽 · 정지 표식은 사유가 바뀌어도 유지)
     · seat <이름>(since 삭제). 거울 줄(없음 · 대기(사유 · since) · 좌석 이름)은 셋 다 같은 잠금 안에서 쓴다. 카드 = 경로 또는 이름(stem — status 와 같은 곳에서 풀고, 못 찾거나 이름이 겹치면 REJECT rc1 · tip 에만 있으면 원장만 + NOTE · r1306)."""
     stem = n[:-3] if (n := str(card).rsplit("/", 1)[-1]).endswith(".md") else n
     if kind == "waiting" and arg in LEGACY:
         print(f"REJECT 판정 3914 — {arg}는 대기 사유가 아니다(press·tester 만 ft-press-gate · 그 밖은 부하 때문에 spawn 을 붙잡지 않는다)")
         return 2
-    if kind == "waiting" and arg not in REASONS or kind == "seat" and (not arg or re.search(r"\s", arg)) or kind not in ("init", "waiting", "seat"):
-        print(f"REJECT 배정 원장 값 꼴 — init | waiting <{'|'.join(REASONS)}> | seat <이름> (받은 값: {kind} {arg})")
+    if kind == "waiting" and arg not in REASONS or kind == "seat" and (not arg or re.search(r"\s", arg)) or kind not in ("init", "waiting", "seat", "clear") \
+            or kind == "clear" and not (arg in REASONS or arg == "seat" and seat and not re.search(r"\s", seat)):  # r1988 clear = 원장 그 사유·그 좌석일 때만 none
+        print(f"REJECT 배정 원장 값 꼴 — init | waiting <{'|'.join(REASONS)}> | seat <이름> | clear <사유> | clear seat --seat <옛 이름> (받은 값: {kind} {arg})")
         return 2
     if kind == "waiting" and arg == "사람" and not (verdict or "").isdigit():
         print("REJECT 사람 보류는 판정 번호 필수 — record <카드> waiting 사람 verdict <N>")
+        return 2
+    if kind == "clear" and arg == "사람" and not (verdict or "").isdigit():
+        print("REJECT 사람 보류는 판정 번호 필수 — record <카드> clear 사람 verdict <N>")
         return 2
     card, body = resolve(root(), str(card))
     urgent = urgent_head(head(body if body is not None else card.read_text(encoding="utf-8")))
@@ -184,7 +188,13 @@ def record(card: str | Path, kind: str, arg: str, now: float, pause: dict | None
         old = load(d, stem)
         if kind == "init" and old or kind == "waiting" and old.get("state") == "waiting" and old.get("reason") == arg and (not pause or old.get("pause", {}).get("key") == pause["key"]) and old.get("verdict") == verdict:
             return 0
-        if kind == "seat":
+        if kind == "clear":  # r1988 — 사유·좌석 이름이 맞을 때만 · since 유지(연속 미배정 시각) · 다르면 REJECT rc1 쓰기 0
+            want = "seat" if arg == "seat" else "waiting"
+            hit = old.get("seat") == seat if arg == "seat" else old.get("reason") == arg
+            if old.get("state") != want or not hit:
+                raise Rejected(f"REJECT 배정 원장 clear — {stem} 원장 {old.get('state') or '없음'} {old.get('reason') or old.get('seat') or ''} ≠ {arg} {seat or ''} · 쓰기 0")
+            new = {"state": "none", "since": float(old.get("since") or now), "updated": now, "urgent": urgent or bool(old.get("urgent")), "released_at": now}
+        elif kind == "seat":
             new = {"state": "seat", "seat": arg, "updated": now, "urgent": urgent}
         else:
             since = min(float(old["since"]), now) if old.get("state") in ("none", "waiting") and old.get("since") else now  # 연속 미배정 시작 = 이른 쪽
@@ -200,7 +210,7 @@ def record(card: str | Path, kind: str, arg: str, now: float, pause: dict | None
                 new["verdict"] = verdict
         save(d, stem, new)
         if body is None:  # tip 에만 있는 카드 = 디스크 쓰기 0(거울 줄을 만들지 않는다)
-            mirror(card, f"좌석 {arg}" if kind == "seat" else "없음" if kind == "init" else f"대기({arg} · {time.strftime('%Y-%m-%dT%H:%M:%S', time.localtime(new['since']))})")
+            mirror(card, f"좌석 {arg}" if kind == "seat" else "없음" if kind in ("init", "clear") else f"대기({arg} · {time.strftime('%Y-%m-%dT%H:%M:%S', time.localtime(new['since']))})")
     if kind != "init":  # init(진입 식별)은 조용히 — spawn 출력 첫 줄을 바꾸지 않는다
         print(f"배정 원장 {stem} → {new['state']} {arg}".rstrip())
     return 0
@@ -802,7 +812,8 @@ def main(argv: list[str]) -> int:
         try:
             pz = {"kind": argv[4], "key": argv[5] if len(argv) > 5 else ""} if len(argv) > 4 and argv[4] in ("hold", "acct") else None
             vd = argv[5] if len(argv) > 5 and argv[4] == "verdict" else None
-            return record(argv[1], argv[2], argv[3] if len(argv) > 3 else "", now or real, pz, vd)
+            st = argv[5] if len(argv) > 5 and argv[4] == "--seat" else None
+            return record(argv[1], argv[2], argv[3] if len(argv) > 3 else "", now or real, pz, vd, st)
         except Rejected as e:
             print(e)
             return 1
@@ -813,7 +824,7 @@ def main(argv: list[str]) -> int:
         val = lambda k: argv[argv.index(k) + 1] if k in argv[2:-1] else ""  # noqa: E731
         return team_pause(root(), argv[1], val("--verdict"), val("--reason"), now or real) if cmd == "team-pause" else team_resume(root(), argv[1])
     if cmd not in ("prepare", "status", "tick"):
-        print("사용: ft-card-assign-watch.sh prepare|status|tick [--now <YYYY-MM-DDTHH:MM:SS|epoch>] [--json] [--write-latest] | record <카드> init|seat <이름>|waiting <사유> [hold <판정 N>|acct <P[/M]>|verdict <N>(사람 보류)] | team-pause <팀> --verdict <N> --reason <10자+> | team-resume <팀> | lint <카드>")
+        print("사용: ft-card-assign-watch.sh prepare|status|tick [--now <YYYY-MM-DDTHH:MM:SS|epoch>] [--json] [--write-latest] | record <카드> init|seat <이름>|waiting <사유> [hold <판정 N>|acct <P[/M]>|verdict <N>(사람 보류)]|clear <사유> [verdict <N>]|clear seat --seat <옛 이름> | team-pause <팀> --verdict <N> --reason <10자+> | team-resume <팀> | lint <카드>")
         return 2
     if now is None:
         print(f"배정 감시 판정 불가 · --now 꼴 아님({v})")

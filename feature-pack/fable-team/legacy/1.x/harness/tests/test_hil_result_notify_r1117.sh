@@ -29,7 +29,7 @@ clr; o="$(runh "$T/hil/h1")"; rc=$?
 [ "$rc" = 0 ] && ok "h1 rc0" || bad "h1 rc=$rc"
 has "$o" "=== 결과 === p1" "계획 출력은 화면에 그대로(tee)"
 [ "$(nsent)" = 2 ] && ok "쪽지 정확히 2통" || bad "쪽지 $(nsent)통: $(cat "$C/sent.log" 2>&1)"
-grep -qxF "$RS	ft-hil-h1	[완료 h1] rc=0 · === 결과 === p1 · 계획 $T/p1.sh.hil" "$C/sent.log" && ok "  └ 요청 좌석 1통(결과 줄·계획 경로)" || bad "요청 좌석 줄 없음: $(cat "$C/sent.log" 2>&1)"
+grep -qxF "$RS	ft-hil-h1	[완료 h1] rc=0 · === 결과 === p1 · 계획 $T/p1.sh.hil · 재측정: 실패(expect 없음) · 대상 0 중 실패 0 · 불가 0" "$C/sent.log" && ok "  └ 요청 좌석 1통(결과 줄·계획 경로)" || bad "요청 좌석 줄 없음: $(cat "$C/sent.log" 2>&1)"
 grep -q "^$PM	ft-hil-h1	\[완료 h1\] rc=0 " "$C/sent.log" && ok "  └ planner master 1통" || bad "planner 줄 없음"
 
 echo "== ⓑ R2 머리 표식 없음 → 등록 WARN 1줄 · 실행 뒤 planner master 1통만"

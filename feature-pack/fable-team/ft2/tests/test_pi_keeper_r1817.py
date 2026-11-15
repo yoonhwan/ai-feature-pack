@@ -7,6 +7,7 @@ import importlib.util
 import json
 import os
 import plistlib
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -56,15 +57,15 @@ def c2b(w):  # ②′ 꼬리 없음 → 지금과 같음(complete 1)
     landed(w, "r9202", w.pack_sha())
     assert w.kinds("complete") == 1
 def c2c(w):  # ②″ 10자 sha → 착지 줄 없음 (짧은 sha 를 늘리지 않음)
-    assert any("r9203 착지 줄 없음" in x for x in landed(w, "r9203", w.pack_sha()[:10])) and w.kinds("complete") == 0
+    assert any("r9203" in x and "착지 줄 없음" in x for x in landed(w, "r9203", w.pack_sha()[:10])) and w.kinds("complete") == 0
 def c2d(w):  # ②‴ 앞 글자 있는 줄 → 착지 줄 없음
-    assert any("r9204 착지 줄 없음" in x for x in landed(w, "r9204", "팩 origin/main " + w.pack_sha())) and w.kinds("complete") == 0
+    assert any("r9204" in x and "착지 줄 없음" in x for x in landed(w, "r9204", "팩 origin/main " + w.pack_sha())) and w.kinds("complete") == 0
 def c2e(w):  # ②⁗ 착지 줄 두 개(엄격 1 + 꼬리 1) → 마지막 줄 sha
     sha = w.pack_sha()
     lines = landed(w, "r9205", "%s\n- 착지: %s (PR #1 · 재착지)" % (AB, sha))
     assert any(x.startswith("COMPLETED harness r9205 착지 " + sha) for x in lines) and w.kinds("complete") == 1, lines
 def c2f(w):  # ②⑤ 41자 hex → 착지 줄 없음
-    assert any("r9206 착지 줄 없음" in x for x in landed(w, "r9206", w.pack_sha() + "0")) and w.kinds("complete") == 0
+    assert any("r9206" in x and "착지 줄 없음" in x for x in landed(w, "r9206", w.pack_sha() + "0")) and w.kinds("complete") == 0
 def timed(w, b3):   # 주입 시계: fetch 리포 2개 × 5초 · B1 10초 · B2 10초 · B3 b3초
     w.card("r9301", w.pack_sha()), w.work("r9301", intent=False)
     k = w.keeper()
@@ -75,22 +76,22 @@ def timed(w, b3):   # 주입 시계: fetch 리포 2개 × 5초 · B1 10초 · B2
     git = k.git
     k.git = lambda repo, *a, **o: (tick(5) if a[0] == "fetch" else None, git(repo, *a, **o))[1]
     k.complete, k.close, k.retired = (lambda *a: tick(10, True)), (lambda *a: tick(10)), (lambda: tick(b3))
-    rows = [x for x in w.round(k) if x.startswith("ROUND")]
+    rows = [re.sub(r" fetch_root=\S+ fetch_pack=\S+", "", x) for x in w.round(k) if x.startswith("ROUND")]   # r1975 리포별 칸 = 동시라 값 흔들림 · r1975 시험이 본다
     jl = [json.loads(x) for p in (w.state / "ft2-keeper").glob("*.jsonl") for x in _lines(p)]
     assert [x["kind"] for x in jl if x["line"].startswith("ROUND")] == ["ROUND"]
     return rows
 def c3(w):   # ③ 단계마다 10초 → ROUND s=40 · 단계 넷 · OVER 0
-    assert timed(w, 10) == ["ROUND s=40 fetch=10 b1=10 b2=10 b3=10"]
+    assert timed(w, 10) == ["ROUND s=40 fetch=10 b1=10 b2c=10 b2f=0 b3=10 stall=0 slow=harness:b1:10"]   # r1898 stall 칸 · r1969 b2c·b2f·slow
 def c3b(w):  # ③′ 합 61 → OVER
-    assert timed(w, 31) == ["ROUND s=61 fetch=10 b1=10 b2=10 b3=31 OVER"]
+    assert timed(w, 31) == ["ROUND s=61 fetch=10 b1=10 b2c=10 b2f=0 b3=31 stall=0 slow=harness:b1:10 OVER"]
 def sock(w, got, rc=0):   # 가짜 tmux 앞에 display 만 가로채는 층 · 기준 = FT2_TMUX_SOCKET(설치 렌더 고정)
     _put(w.tmp / "bin" / "tmux2", "#!/bin/sh\n[ \"$1\" = display ] && { echo '%s'; exit %d; }\nexec '%s' \"$@\"\n"
          % (got, rc, w.env["FT_TMUX"])), (w.tmp / "bin" / "tmux2").chmod(0o755)
     w.env.update(FT_TMUX=str(w.tmp / "bin" / "tmux2"), FT2_TMUX_SOCKET="/private/tmp/tmux-desk/default")
     w.enable(), w.card("r9401", w.pack_sha()), w.work("r9401", done=True, alive=True)
-    _put(w.root / ".fable-team" / "seats-harness.json", {"_master": "M", "O#1": {"role": "stop-ready", "_replaced_by": "O#2"}})
+    _put(w.root / ".fable-team" / "seats-harness.json", {"_master": "M", "O#1": {"role": "stop-ready", "_replaced_by": "O#2"}, "O#2": {}})
     d = json.loads(w.tm.read_text(encoding="utf-8"))
-    _put(w.tm, dict(d, alive=d["alive"] + ["O#1"]))
+    _put(w.tm, dict(d, alive=d["alive"] + ["O#1", "O#2"])), w.succession("O#1", "O#2")   # r2055 S2 — 후계 생존 · [레디] · 재개 기록
     return w.round()
 def c4(w):   # ④ tmux 소켓 경로 다름 → 판정 불가 1줄 · kill 0 · ft-seat-close 0
     lines = sock(w, "/private/tmp/tmux-other/default")

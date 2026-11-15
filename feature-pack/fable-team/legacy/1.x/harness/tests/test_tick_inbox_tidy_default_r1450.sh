@@ -15,7 +15,7 @@ from pathlib import Path
 
 bin_dir = Path(sys.argv[1]).resolve()
 started = time.monotonic()
-source = (bin_dir / "ft-tick.sh").read_text(encoding="utf-8")
+source = (bin_dir / "ft-tick.sh").read_text(encoding="utf-8") + "\n" + (bin_dir / "ft-tick-acct-lib.sh").read_text(encoding="utf-8")   # r2001: stamp helper 는 lib
 function = re.search(r"^inbox_tidy\(\) \{.*?^\}", source, re.M | re.S)[0]
 stamp = re.search(r"^write_stamp\(\) \{.*?^\}", source, re.M | re.S)[0]
 save = re.search(r"^inbox_tidy_save\(\) \{.*?^\}", source, re.M | re.S)

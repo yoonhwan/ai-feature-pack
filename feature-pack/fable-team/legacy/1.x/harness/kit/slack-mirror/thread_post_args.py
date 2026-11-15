@@ -58,6 +58,7 @@ def parse(argv: list[str]) -> argparse.Namespace:
     rpl.add_argument("--asked", type=int, help="오빠 글이 물어본 개수 — 셈은 글에 안 쓰고 인자로(r661)")
     rpl.add_argument("--answered", type=int, help="내가 답한 개수 — --asked 보다 적으면 --left 가 필요")
     rpl.add_argument("--left", help="덜 답했을 때 못 한 것 1줄 — 게시 본문 끝에 «아직 못 한 것: …» 로 붙는다")
+    rpl.add_argument("--no-status-head", action="store_true", help="--ts 전용 — 카운팅 머리줄을 붙이지 않는다(보드 뉴스 답글 · r2063)")
     rpl.add_argument("--force-thread", action="store_true", help="--thread 로 보내되 «답 안 된 오빠 글» 검사를 건너뛴다(명시 · stderr WARN · r558)")
     po = sub.add_parser("post", parents=[common, chan_reply], help="방에 새 글 1개(스레드 아님) — 승인·뉴스·알림(r561)")
     po.add_argument("--to", help="등록부(slack-threads.json) 이름 예 desk — 그 채널 «방» 에 올린다")
@@ -71,6 +72,8 @@ def parse(argv: list[str]) -> argparse.Namespace:
     if a.cmd == "reply":
         if (a.text is None) == (a.text_file is None):
             p.error("reply 는 --text 또는 --text-file 중 하나가 필요하다")
+        if a.no_status_head and a.ts is None:
+            p.error("--no-status-head 는 reply --ts 에만 쓴다")
         if a.ts is not None and a.channel is None:
             a.channel = CHANNEL  # 기존 --ts 호출 불변 — --to-slack 의 채널은 수신 원장이 정한다
     if a.cmd == "post":

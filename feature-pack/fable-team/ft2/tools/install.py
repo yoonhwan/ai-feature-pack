@@ -129,9 +129,9 @@ def consistent(folder):
 
 def llm_gate(folder):
     """r1838 — CURRENT 전환·되돌림 «전» 새 판 폴더를 launchd LLM 0 판정기(1.x 팩 하나 · 사본 0)로 1회 → (rc, 줄) · 판정기 없음·실패 = 판정 불가(rc 3)."""
-    data, here = os.environ.get("FT_ROOT", ""), os.path.dirname(os.path.abspath(__file__))
+    data, named = os.environ.get("FT_ROOT", ""), os.environ.get("FT2_LLM_GATE", "")
     state = lambda name: os.environ.get(f"FT2_LLM_GATE_{name.split('-')[1].upper()}") or (os.path.join(data, ".fable-team/state", name) if data else "")  # noqa: E731
-    gate = next((p for p in (os.environ.get("FT2_LLM_GATE", ""), f"{here}/../../legacy/1.x/harness/bin/ft_launchd_llm_gate.py", f"{data}/.fable-team/bin/ft_launchd_llm_gate.py") if p and os.path.isfile(p)), "")
+    gate = named if named and os.path.isfile(named) else ""  # r1946: 명시 env 하나만 · 자동 fallback 0
     got = gate and _call(sys.executable, [gate, "check", "--root-dir", folder, "--baseline", state("launchd-dyncall-baseline.tsv"), "--allow", state("launchd-llm-allow.tsv")], 30)
     return (got[0], got[1].strip()) if got else (3, f"UNDECIDABLE launchd-llm ft2-current 판정기 {'실행 실패' if gate else '없음'} {folder}")
 

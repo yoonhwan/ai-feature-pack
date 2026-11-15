@@ -7,13 +7,13 @@
 #         ft-secret-scan.sh --report            스캔 0·쪽지 0 — 「비밀 기록 스캔: 새 N건 · 마지막 실행 시각」 1줄(주간 점검용)
 #   rc: 0 정상 · 3 판정 불가(judge_unknown>0 · 0 과 구분) · 2 usage · 4 상태 파일 손상(전수 재스캔 대신 ERROR) · 5 쪽지 실패(상태·원장 미갱신 → 다음 실행이 다시 보낸다)
 #   r1341 단계 2: 계획 1건 판정기의 시간 초과·rc=2·출력 꼴 어긋남 = «판정 불가» 1줄 + 그 파일만 세고(sig 저장 0) 반복 계속 · 같은 파일 3회차 연속이면 [긴급] 1통
-#   env(시험용): HOME · FT_SECRET_SCAN_ROOT · FT_MBOX_SH · FT_SEATS_JSON
+#   env(시험용): HOME · FT_SECRET_SCAN_ROOT · FT_MBOX_SH · FT_SEATS_JSON · FT_SECRET_SCAN_TMP(기본 계획 목록 /tmp/h* 의 폴더 · 기본 /tmp)
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="${FT_SECRET_SCAN_ROOT:-}"   # r385: 리포 공용 루트 = env → ft_repo_root(옛 설치 꼴 · cwd) → ERROR (새 설치본이 git 밖이라 자기 위치로 풀지 않는다)
 [ -n "$ROOT" ] || { . "$HERE/ft-harness-root.sh" && ROOT="$(ft_repo_root "$HERE")"; } || exit 3
 SCAN_MBOX="${FT_MBOX_SH:-}"; [ -n "$SCAN_MBOX" ] || { . "$HERE/ft-harness-root.sh"; _CM="$(ft_comm_dir "$HERE")" || exit 3; SCAN_MBOX="$_CM/mbox.sh"; }   # r385 r3: 설치본엔 형제 comm 폴더가 없다 — 데이터 루트의 comm
-export SCAN_HERE="$HERE" SCAN_ROOT="$ROOT" SCAN_MBOX SCAN_SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats-planner.json}"
+export SCAN_HERE="$HERE" SCAN_ROOT="$ROOT" SCAN_MBOX SCAN_SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats-planner.json}" SCAN_TMP="${FT_SECRET_SCAN_TMP:-/tmp}"
 export SCAN_STATE="$HOME/.fable-team/state/secret-scan.state" SCAN_LOG="$HOME/.fable-team/state/secret-scan.log"
 MODE=scan; PLANS=()
 case "${1:-}" in
@@ -26,7 +26,7 @@ SCAN_PLANS="$(printf '%s\n' "${PLANS[@]:-}")"; export SCAN_MODE="$MODE" SCAN_PLA
 PY=(python3 -I -)
 [ "$MODE" = scan ] && [ ! -f "$SCAN_STATE" ] && PY=(nice -n 10 python3 -I -)  # 첫 실행 = 전수 — 다른 일을 밀어내지 않게
 "${PY[@]}" <<'PYEOF'
-import glob, json, os, subprocess, sys, time
+import codecs, glob, json, os, subprocess, sys, time
 sys.path.insert(0, os.environ["SCAN_HERE"])
 from ft_secret_shapes import mask
 
@@ -94,11 +94,21 @@ if MODE == "report":
     last = st["last"]
     print(f"비밀 기록 스캔: 새 {last.get('new', 0)}건 · 마지막 실행 {last.get('ts', '없음')}")
     sys.exit(0)
+print(f"RUN {time.strftime('%Y-%m-%dT%H:%M:%S%z')} root={root} seats={E['SCAN_SEATS']}", flush=True)   # r1956: 회차 머리(시각·경로만 · 값 0)
 
 seen = set()
 if os.path.exists(LOG):
     seen = {ln.split("\t", 1)[1].rstrip("\n") for ln in open(LOG) if "\t" in ln}
-plans = [p for p in E["SCAN_PLANS"].split("\n") if p] or glob.glob(root + "/design/**/*.sh.hil", recursive=True) + [p for p in glob.glob("/tmp/h*") if os.path.isfile(p)]  # r1825: 기본 목록 = 일반 파일만(폴더 판정 0)
+def is_text(p: str) -> bool:   # r1956: 앞 4KB 에 NUL 0 · UTF-8 로 읽힘 = 계획 파일 · 못 열면 지금처럼 판정기로
+    try:
+        b = open(p, "rb").read(4096)
+        codecs.getincrementaldecoder("utf-8")().decode(b)   # 4KB 끝에서 잘린 글자는 오류 0
+        return b"\0" not in b
+    except (OSError, UnicodeDecodeError) as e:
+        return isinstance(e, OSError)
+tmp_h = [] if E["SCAN_PLANS"].strip() else [p for p in glob.glob(E["SCAN_TMP"] + "/h*") if os.path.isfile(p)]  # r1825: 기본 목록 = 일반 파일만(폴더 판정 0)
+texts = [p for p in tmp_h if is_text(p)]   # r1956: 이진(jpg 등)은 계획 파일 아님
+plans = [p for p in E["SCAN_PLANS"].split("\n") if p] or glob.glob(root + "/design/**/*.sh.hil", recursive=True) + texts
 logs = glob.glob(home + "/.claude/projects/**/*.jsonl", recursive=True) + glob.glob(home + "/.codex/sessions/**/rollout-*.jsonl", recursive=True)
 files, new, read, skipped = dict(st["files"]), [], 0, 0
 unknown = dict(st.get("unknown") or {})   # rd1341: 파일별 «연속 판정 불가» 횟수 · 사유
@@ -148,6 +158,6 @@ tmp = STATE + ".tmp"
 json.dump({"files": files, "last": {"ts": now, "new": len(new), "read": read, "skipped": skipped},
            "unknown": unknown}, open(tmp, "w"))
 os.replace(tmp, STATE)
-print(f"SCAN read={read} skipped={skipped} new={len(new)} judge_unknown={judge_unknown}")
+print(f"SCAN read={read} skipped={skipped} new={len(new)} judge_unknown={judge_unknown}" + (f" skipped_binary={len(tmp_h) - len(texts)}" if len(tmp_h) > len(texts) else ""))
 sys.exit(3 if judge_unknown else 0)
 PYEOF

@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 
 source = Path(sys.argv[1]).resolve()
-text = source.read_text(encoding="utf-8")
+text = source.read_text(encoding="utf-8") + "\n" + (source.parent / "ft-tick-acct-lib.sh").read_text(encoding="utf-8")   # r2001: stamp helper 는 lib
 parts = []
 for name in ("write_stamp", "read_stamp", "actionable"):
     parts.append(re.search(r"^" + name + r"\(\) \{.*?^\}", text, re.M | re.S)[0])

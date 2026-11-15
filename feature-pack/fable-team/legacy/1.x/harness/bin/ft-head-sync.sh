@@ -126,5 +126,5 @@ while IFS=$'\t' read -r wt s0; do
   chk=$((chk+1))
   [ "$(snap "$wt")" = "$s0" ] || { echo "VIOLATION 비파괴 위반(전후 해시 다름): $wt"; viol=1; }
 done < "$TMP/before"
-[ "$viol" -eq 0 ] && echo "비파괴 증거: 병합 안 한 워크트리 $chk 개 전후 HEAD·staged·상태·미커밋 내용 해시 동일 · 건너뜀 $(n 건너뜀)(다른 실행이 쓰는 중 — 대조 밖)"
+[ "$viol" -eq 0 ] && echo "비파괴 증거: 병합 안 한 워크트리 $chk 개 전후 HEAD·staged·상태·미커밋 내용 해시 동일 · 건너뜀 $(n 건너뜀)(다른 실행이 쓰는 중 — 대조 밖)"; [ "$viol" -eq 0 ] && [ "$APPLY" -eq 1 ] && [ "$(n 최신화함)" -gt 0 ] && echo "ft2 나노면 다음: ft2_result (다음 일 전에 1회)"
 exit "$viol"

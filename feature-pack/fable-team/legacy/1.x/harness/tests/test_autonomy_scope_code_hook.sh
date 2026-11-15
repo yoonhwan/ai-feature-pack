@@ -38,7 +38,7 @@ printf 'approve-merge %s A1 %s\n' "$(sha 73)" "$((T0+7))" > "$AP/$(sha 73)"; pri
 run a scope-status --audit; [ $rc = 0 ] && has '^AUDIT-OK grants=1 used=2$'; ck "오빠 수동 approve-merge 가 더 있어도(파일 3 ≥ 2) AUDIT-OK" $?
 
 # ===== R411: 종류 code — 시험 통과 세트만 · code-max 안 (판정 2326) · 실 git(임시 origin+clone) + 실 evidence-check·approval-equiv · 분류기만 스텁 =====
-R="$T/r"; OR="$T/origin.git"; CARD="$R/card.md"; export STUB_OUT="CLASS code"   # r1904: 카드 = 원장(ROOT) 안 · 고정 ref origin/ops/main-base 커밋 판(pub)
+R="$T/r"; OR="$T/origin.git"; export STUB_OUT="CLASS code"   # r1904: 카드 = 원장(ROOT) 안 · 고정 ref origin/ops/main-base 커밋 판(pub) · r1951: 팀 카드 꼴 + 표 harness 행
 G() { git -C "$R" "$@"; }; cm() { G add -A && G commit -q -m "$1"; }; hd() { G rev-parse HEAD; }
 git init -q --bare -b main "$OR"; git clone -q "$OR" "$R" 2>/dev/null; G config user.name t; G config user.email t@t
 echo base > "$R/README.md"; cm base; G push -q origin HEAD:main; G fetch -q origin
@@ -47,7 +47,8 @@ G checkout -q -B main origin/main; echo m > "$R/b.txt"; cm main1; G push -q orig
 G checkout -q nano; G merge -q --no-edit origin/main >/dev/null 2>&1; SM="$(hd)"                                               # SM = A 위 main 병합만
 G checkout -q -B nano2 "$A"; echo 'y = 2' > "$R/src/y.py"; cm own2; SX="$(hd)"                                                 # SX = A 위 자기 변경 더(동일 승인 아님)
 G checkout -q -B other origin/main; mkdir -p "$R/src"; echo z > "$R/src/z.py"; cm other; X="$(hd)"; G checkout -q nano                          # X = A 의 조상 아님
-pub() { local t; t="$(printf '100644 blob %s\tcard.md\n' "$(G hash-object -w "$CARD")" | G mktree)"; G update-ref refs/remotes/origin/ops/main-base "$(G commit-tree "$t" -m card)"; }
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/card_ref_fixture.sh"; CARD="$(fx_card_path "$R" card.md)"
+pub() { fx_card_pub "$R" "$CARD"; }
 card() { printf '# 카드\n## 상태\n- 세트: %s · 시험: %s · 이슈: 0\n' "$1" "${2:-bash t.sh rc=0}" > "$CARD"; pub; }
 ar() { FT_ROOT="$R" a "$@"; }
 # ⓐ grant

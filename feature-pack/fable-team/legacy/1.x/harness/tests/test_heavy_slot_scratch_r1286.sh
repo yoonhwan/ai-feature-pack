@@ -7,6 +7,7 @@
 #   변이 4(sweep 항목마다 안 풂) → R13b FAIL · 변이 6(scratch rc5→0) → R13a FAIL · 변이 11(disk-alarm 이 rc 무시) → R13c FAIL
 #   실 tmux·실 원격 0 · 자기 재호출 0 · 고정 sleep 0(표식 폴링) · 시험 1개 상한 70초
 set -uo pipefail
+export FT_TMP_SWEEP_SH=/usr/bin/true   # r2073: 임시 사본 정리도 가짜(실 /private/tmp 를 보지도 지우지도 않게)
 [ -z "${FT_R1286S_REENTRY:-}" ] || { echo "FAIL 재진입"; exit 1; }
 export FT_R1286S_REENTRY=1
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1

@@ -44,8 +44,8 @@ nlog() { grep -c . "$LOG" 2>/dev/null || true; }
 fresh() { rm -rf "$S"; mkdir -p "$S"; }
 as_seat() { printf '%s' "$1" > "$SEATFILE"; export FT_SEAT="$1"; }
 grant() { as_seat "$PL"; L0="$(nlog)"; run a approve-standing D2 --repos byz,pack --classes "${1:-code,docs}" --oppa-decision "${2:-$OD}"; }
-card() { CARD="$B/card.md"; printf '# 카드\n\n## 상태\n- 세트: %s · 시험: bash tests/x.sh rc=0 · 이슈: %s\n' "$1" "${2:-0}" > "$CARD"; cardpub; }
-cardpub() { grep -qx '/card*.md' "$B/.git/info/exclude" || echo '/card*.md' >> "$B/.git/info/exclude"; git -C "$B" update-ref refs/remotes/origin/ops/main-base "$(git -C "$B" commit-tree "$(printf '100644 blob %s\t%s\n' "$(git -C "$B" hash-object -w "$CARD")" "${CARD##*/}" | git -C "$B" mktree)" -m card)"; }   # r1904: 카드 = 원장(FT_ROOT) 안 · 고정 ref origin/ops/main-base 커밋 판
+card() { CARD="$(fx_card_path "$B" card.md)"; printf '# 카드\n\n## 상태\n- 세트: %s · 시험: bash tests/x.sh rc=0 · 이슈: %s\n' "$1" "${2:-0}" > "$CARD"; cardpub; }
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/card_ref_fixture.sh"; cardpub() { fx_card_pub "$B" "$CARD"; }   # r1904: 카드 = 원장(FT_ROOT) 안 · 고정 ref origin/ops/main-base 커밋 판 · r1951: 팀 카드 꼴 + 표 harness 행
 sa() { as_seat "${SA_SEAT:-$HM}"; L0="$(nlog)"; run a standing-approve D2 "$1" --pr "$2" --repo "${4:-pack}" --verdict "$3" --card "$CARD"; }
 rej0() { [ "$rc" = 2 ] && has "$2" && [ ! -e "$S/autonomy-standing" ] && [ "$(nlog)" = "${L0:-$(nlog)}" ]; ck "$1" $?; }
 rej() { local sh="$2"; [ "$sh" = - ] && sh=""; [ "$rc" = 2 ] && has "$3" && has '다시: 오빠 h\(approve-merge --oppa-slack\)' && { [ -z "$sh" ] || [ ! -e "$S/autonomy-merge-approved/$sh" ]; } && [ "$(nlog)" = "${L0:-$(nlog)}" ]; ck "$1" $?; }
@@ -104,9 +104,12 @@ crit() {  # crit <라벨> <크리티컬 종류> <경로> [내용…] — PR 1개
   rej "ⓒ $lb → 거절(크리티컬: $kd)" "$sh" "⑤ 크리티컬: $kd"; }
 crit "파괴 명령 새 줄" destroy "$PRF" "git branch -D old" "git push origin --delete old" "git push -f origin main"
 crit "R2 짧은 +ref force push(git push origin +main:main)" destroy "$PRF" "git push origin +main:main"
-crit "새 launchd plist" launchd "feature-pack/fable-team/legacy/1.x/harness/bin/Library/LaunchAgents/com.x.plist" "x"
-crit "새 외부 설정 파일(cliproxy)" config "feature-pack/fable-team/legacy/1.x/harness/bin/cliproxy.yaml" "a: 1"
-crit "새 models.json apiKey 칸" config "feature-pack/fable-team/legacy/1.x/harness/bin/models.json" '"apiKey": "x"' 
+okd2() {  # r1934 ⑪ — D2 = profile d2: launchd·cliproxy·models.json apiKey 는 크리티컬 아님(full=try-auto 는 그대로 · r1934 시험)
+  local lb="$1" pth="$2"; shift 2; mkpr "6$RANDOM" "$pth" "$@"; local sh="$PRSHA"
+  mkda "o$RANDOM" APPROVE "$sh"; mkv "o$RANDOM" "$sh" "$DAO"; card "$sh"; sa "$sh" 20 "$VF"; [ "$rc" = 0 ] && has "^STANDING-OK $sh "; ck "ⓒ $lb → r1934 D2 승인(크리티컬 아님)" $?; }
+okd2 "새 launchd plist" "feature-pack/fable-team/legacy/1.x/harness/bin/Library/LaunchAgents/com.x.plist" "x"
+okd2 "새 외부 설정 파일(cliproxy)" "feature-pack/fable-team/legacy/1.x/harness/bin/cliproxy.yaml" "a: 1"
+okd2 "새 models.json apiKey 칸" "feature-pack/fable-team/legacy/1.x/harness/bin/models.json" '"apiKey": "x"'
 crit "R1 기존 .env 일반 값 변경" config "feature-pack/fable-team/legacy/1.x/harness/bin/.env" "LOG_LEVEL=info"
 git -C "$B" checkout -q -b byzsec; mkdir -p "$B/design/harness/research"; printf '%s\n' 'export X="$OPENAI_API_KEY"' 'echo "$ANTHROPIC_API_KEY"' > "$B/design/harness/research/k.txt"; cm "$B" "sec"; SEC="$(sha "$B" HEAD)"; git -C "$B" checkout -q main
 out="$(python3 "$BIN/autonomy_scope_classify.py" classify "$SEC" --repo "$B" --critical 2>&1)"; rc=$?

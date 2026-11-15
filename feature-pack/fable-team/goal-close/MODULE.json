@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "version": "gc-1.0",
+  "interface": 1,
+  "source": "BYZ docs/aifp-arch7-ft20-close-flow-20261114@9108b6d6387f83d1d4d67d83af92f2b08a559e31 design/teams/planner/research/ft-2.0/PLAN-goal-close-flow-20261114.md · first_body_tail = 팩 PR 1147 a7a7ccb2 DIRECT",
+  "files": {
+    "00-flow.md": "f442ccb4f6fcf10e493325be7cfe7b779c2a854399e0d368c811d00115df896b",
+    "10-cell.md": "1a899876e9e502fcfe221522dfb0c2b0d07c302eae2f5f98fb9a2d9ae2d451d9",
+    "20-situations.md": "85b1443ccb0829448c01aaae908f029229bcaf88258caa579f9eac24d63c771c",
+    "30-direct.md": "b766dba841d27f6d7d7f66565c2e437c265e827195af0b081d6fb42f1512ce4d",
+    "40-conduct.md": "eeee280778104bd64ff89306b28b13ecec35ccdc8b56372e6ba2f5f7fbaba4da",
+    "phrases.tsv": "8f11966412a48dff976eb35a319371faeaeaacc43fda3be7a1de996079e3cb17",
+    "roles/arch.md": "545ff7cc602244399abeeef4c2d60893f12a09f169352363e68796f3e1a17174",
+    "roles/da.md": "0fb4fa963b4a09cb3004dca5c9191ee779ac34b9d94146174a9e3c47778c6018",
+    "roles/master.md": "f35bdbdb03308fad373b1d39a6f45f20e93e2d09395f0d84438718d4ef38b259",
+    "roles/nano.md": "d511388511cf030dcdda8721323b37d1d5a4731e620706e2cfa20744449a1e17"
+  }
+}

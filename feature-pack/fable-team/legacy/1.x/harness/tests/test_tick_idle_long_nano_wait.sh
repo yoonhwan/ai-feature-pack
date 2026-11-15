@@ -24,7 +24,7 @@ PANES_NANO=$'M#1 %1\nN1#1 %2\nPLAN#1 %3'
 PANES_CLOSED=$'M#1 %1\nPLAN#1 %3'
 export FAKE_PANES="$PANES_NANO"
 mkdir -p "$TMP/repo/.fable-team/bin" "$TMP/mins"
-LIVE="$TMP/repo/.fable-team/bin/ft-tick.sh"; cp "$KIT/ft-tick.sh" "$LIVE"
+LIVE="$TMP/repo/.fable-team/bin/ft-tick.sh"; cp "$KIT/ft-tick.sh" "$LIVE"; cp "$KIT/ft-tick-acct-lib.sh" "$(dirname "$LIVE")/"
 # 가짜 tmux — list-panes 는 pane_of 와 같은 형식('#{session_name} #{pane_id}')만 받는다.
 tmux() { case "$1" in list-panes) printf '%s\n' "$FAKE_PANES";; esac; return 0; }
 export -f tmux

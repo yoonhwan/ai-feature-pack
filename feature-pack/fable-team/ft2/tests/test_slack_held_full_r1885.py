@@ -6,6 +6,7 @@ import pytest
 
 FT2 = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DESK, MASTER, T, C, U = "byz-planner-desk-pi#9", "byz-harness-master-pi#9", "TFAKE", "CFAKE", "U"
+PMASTER = "byz-planner-master-pi#9"  # r1927 ③ 받는 곳 = 팀 master + harness master(desk 0)
 MBOX = '#!/bin/sh\nprintf "%s\\t%s\\n" "$2" "$(printf "%s" "$4" | head -1)" >> "$0.log"\n'
 spec = importlib.util.spec_from_file_location("r1885_receive", os.path.join(FT2, "adapters", "slack", "receive.py"))
 spec.loader.exec_module(receive := importlib.util.module_from_spec(spec))
@@ -15,7 +16,7 @@ spec.loader.exec_module(receive := importlib.util.module_from_spec(spec))
 def root(tmp_path, monkeypatch):
     fable = tmp_path / ".fable-team"
     (fable / "comm").mkdir(parents=True)
-    (fable / "seats-planner.json").write_text(json.dumps({"_desk": DESK}), encoding="utf-8")
+    (fable / "seats-planner.json").write_text(json.dumps({"_desk": DESK, "_master": PMASTER}), encoding="utf-8")
     (fable / "seats-harness.json").write_text(json.dumps({"_master": MASTER}), encoding="utf-8")
     (fable / "comm" / "mbox.sh").write_text(MBOX, encoding="utf-8")
     monkeypatch.delenv("FT2_FULL_ALERT_WAKE", raising=False)
@@ -56,7 +57,7 @@ def test_c1_one_room_newest_only_and_held_shown(root):
     again.recover()
     assert grown(again, before) == ["1794561002.000001"]                          # 예산 1 = 가장 새 글
     assert again.latest()["slack:%s:%s:1794561002.000001" % (T, C)]["state"] == receive.DISPATCHED
-    assert sorted(ln.split("\t")[0] for ln in held(root)) == sorted([DESK, MASTER])   # [보류] 1통
+    assert sorted(ln.split("\t")[0] for ln in held(root)) == sorted([PMASTER, MASTER])   # [보류] 1통
     assert "full 2건" in held(root)[0]
 
 

@@ -28,7 +28,6 @@
   <key>StartInterval</key><integer>60</integer>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><false/>
-  <key>ProcessType</key><string>Background</string>
   <key>StandardOutPath</key><string>@ROOT@/.fable-team/state/ft2-keeper/launchd.log</string>
   <key>StandardErrorPath</key><string>@ROOT@/.fable-team/state/ft2-keeper/launchd.log</string>
 </dict></plist>

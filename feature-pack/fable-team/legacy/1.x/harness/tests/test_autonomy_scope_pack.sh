@@ -10,6 +10,7 @@ fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:300}"; fail=$((fail+1)); fi; }
 has() { grep -qE -- "$1" <<<"$out"; }
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/fake_gh_base.sh"; fake_gh_base "$T/ghb"   # r1955: --pr 의 base 조회(autonomy_pr_target) = 가짜 gh(main)
 export FT_ROOT="$T/byz" FT_AUTONOMY_STATE_DIR="$T/state" FT_PLANNER_DIR="$T/planner"
 S="$T/state"; LOG="$S/autonomy.log"; mkdir -p "$T/byz/.fable-team" "$S" "$T/planner"
 T0=1800000000
@@ -35,9 +36,9 @@ grep -q "^classify $(sha 1) --repo $PT --remote origin --target main --scope S1 
 grep -qx "scope-use S1 $(sha 1) docs $T0 repo=pack" "$LOG" && [ "$(a mode)" = on ]; ck "ⓙ log scope-use … repo=pack · 위변조 아님" $?
 [ "$(awk -F'\t' '{print $5}' "$S/autonomy-scope/S1.ledger.tsv")" = "repo=pack" ]; ck "ⓙ 원장 5번째 칸 repo=pack" $?
 # code — 시험 통과 세트 검사도 팩 리포에서(evidence-check · approval-equiv)
-CARD="$T/byz/card.md"; printf '# 카드\n## 상태\n- 세트: %s · 시험: bash t.sh rc=0 · 이슈: 0\n' "$A" > "$CARD"
 B() { git -C "$T/byz" -c user.name=t -c user.email=t@t "$@"; }; B init -q   # r1904: 카드 원장 = ROOT(byz) git · 고정 ref 커밋 판(팩 리포와 따로)
-B update-ref refs/remotes/origin/ops/main-base "$(B commit-tree "$(printf '100644 blob %s\tcard.md\n' "$(B hash-object -w "$CARD")" | B mktree)" -m card)"
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/card_ref_fixture.sh"; CARD="$(fx_card_path "$T/byz" card.md)"; printf '# 카드\n## 상태\n- 세트: %s · 시험: bash t.sh rc=0 · 이슈: 0\n' "$A" > "$CARD"
+fx_card_pub "$T/byz" "$CARD"   # r1951: 팀 카드 꼴 + 표 harness 행
 STUB_OUT="CLASS code" run a scope-approve "$A" --repo pack --card "$CARD"
 [ $rc = 0 ] && has "^SCOPE-OK $A class=code code=1/10 .* repo=pack$"; ck "ⓙ --repo pack · code + 카드 세트 → SCOPE-OK(증거 검사 = 팩 리포)" $?
 [ "$(awk -F'\t' 'NR==2{print $5}' "$S/autonomy-scope/S1.ledger.tsv")" = "evidence=$CARD@$A repo=pack" ]; ck "ⓙ 원장 evidence=…@A repo=pack" $?

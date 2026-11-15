@@ -5,8 +5,11 @@
 #     ⓐ 완료 근거 = 그 좌석 카드 «## 상태» 절의 마지막 `세트: <40hex>` 가 지금 HEAD (A12·A14 판정 4096 — 리서치(이름 `-research#N`)·미착수(세트 줄 0)·
 #        재개(마지막 `재개(--reopen)` 줄 뒤에 세트 줄 0)는 HEAD 조상 여부가 아니라 «이 근거 칸» 으로 가른다 · 카드 자리 = 명부 `_cards_wt` 체크아웃 아래 행의 `index`)
 #     ⓑ HEAD 가 origin/main 의 조상(ff) ∨ origin/main 커밋 «끝줄» 이 정확히 «PR #<N> (head <HEAD 40hex>)»(squash · nano-close _lp_landed_gate 와 같은 꼴)
+#        r1754: 착지 ref = 공용 ft_land_refs(ft-card-target-lib.sh · FT_LAND_REF › origin/main › 원격에 있으면 origin/ops/main-base) 차례로 · 처음 맞은 ref
+#        · 끝줄 꼬리 «main 자동 병합(…) C=<HEAD>» + 앞 줄 «PR #N (head X)» + X = HEAD 의 첫 부모 도 squash(착지 도구가 나노 가지에 main 을 병합한 꼴)
 #     ⓒ `git status --porcelain` 0줄 ⓓ `ft-seat-status.sh turn <좌석>` STATE = IDLE · 워크트리 = 그 세션 pane 의 «지금» cwd(명부 cwd 칸에 기대지 않음)
-#   출력: «닫기 차례 <좌석> 팀=<팀> 가지=<가지|detached> landed=<ff|squash> main=<짧은 sha> — bash ft-nano-close.sh <좌석> --landed-pr <N|-> --result <산출> --recv <seq>»
+#   출력: «닫기 차례 <좌석> 팀=<팀> 가지=<가지|detached> landed=<ff|squash> ref=<착지 ref> main=<짧은 sha> — [FT_LAND_REF=<ref> ]bash ft-nano-close.sh <좌석> --landed-pr <N|-> --result <산출> --recv <seq>»
+#         (r1754 · ref 가 origin/main 이 아니면 명령 앞에 FT_LAND_REF=<ref>)
 #         r1717 A11: 그 좌석의 착지 뒤 기록(완료 줄 잔여 없음 · 착지 줄 · 전달된 닫기 요청 · 세션 기록 파일)이 다 서면 자리표시 대신 실제 값 + «갈래=착지기록 rec=<지문> set=<세트>» · 하나라도 없으면 자리표시 그대로 + 끝에 «빠짐=<항목> 채울 이=<좌석|팀장>»
 #         조회 실패(tmux·git·fetch·seat-status·카드 읽기 rc≠0 · 시간 상한) = «판정 불가 <좌석> <명령> rc=<n>» 1줄(목록에 안 넣음 · 하드 룰 20) · --why = «제외 <좌석> <사유>» 줄도 낸다
 #         --summary = «닫기 차례 <팀>=<n> …» 1줄 · 판정 불가가 있는 팀은 «<팀>=<n>+판정불가<m>» 로 써서 정상 0석으로 안 보이게 한다(A23)
@@ -60,11 +63,11 @@ FAKE_CALL = dict(x.split("=", 1) for x in (os.environ.get("FT_CLOSE_DUE_FAKE_CAL
 mono = lambda: time.monotonic() + _skew[0]
 
 
-def run(cmd, cap=7.0):   # → (rc, stdout, 이유) · 시간 초과·실행 불가 = rc None
+def run(cmd, cap=7.0, xenv=None):   # → (rc, stdout, 이유) · 시간 초과·실행 불가 = rc None
     b = os.path.basename(cmd[0]); rest = cmd[3:] if cmd[1:2] == ["-C"] else cmd[1:]; t0 = mono()
     name = f"{b}-{rest[0]}" if b in ("git", "tmux") and rest else re.sub(r"^ft-|\.sh$", "", b)   # git-status · tmux-display-message · seat-status
     try:
-        p = subprocess.run(cmd, capture_output=True, text=True, timeout=max(0.5, cap), env=env)
+        p = subprocess.run(cmd, capture_output=True, text=True, timeout=max(0.5, cap), env={**env, **(xenv or {})})
         return p.returncode, p.stdout, p.stderr
     except subprocess.TimeoutExpired: return None, "", "시간 초과"
     except OSError as e: return None, "", str(e)
@@ -137,15 +140,29 @@ def repo_key(cwd):   # 프로세스 0 — cwd 에서 위로 올라가며 .git(�
     return None, None
 
 
-def fetch_once(key, top):
-    if key not in fetched:
+def fetch_once(key, top, ref="origin/main"):   # r1754 A2 — 리포·ref 당 1회(기본 = 지금 그대로 main)
+    br = ref.split("/", 1)[1]
+    if (key, ref) not in fetched:
         why_ = None
         for _ in range(2):   # 7초 + 재시도 1
-            rc, _o, _e = run(["git", "-C", top, "fetch", "-q", "--no-write-fetch-head", "origin", "+refs/heads/main:refs/remotes/origin/main"])
-            why_ = None if rc == 0 else f"git fetch origin main rc={'-' if rc is None else rc}"
+            rc, _o, _e = run(["git", "-C", top, "fetch", "-q", "--no-write-fetch-head", "origin", f"+refs/heads/{br}:refs/remotes/{ref}"])
+            why_ = None if rc == 0 else f"git fetch origin {br} rc={'-' if rc is None else rc}"
             if why_ is None: break
-        fetched[key] = why_
-    if fetched[key]: raise Unjudged(fetched[key])
+        fetched[(key, ref)] = why_
+    if fetched[(key, ref)]: raise Unjudged(fetched[(key, ref)])
+
+
+LAND_REFS = {}   # 리포 키 → 착지 ref 후보(목록) | 판정 불가 사유(글자)
+
+
+def land_refs(jrepo, cap):   # r1754 A1 — 후보 규칙은 공용 ft_land_refs(ft-card-target-lib.sh) 한 곳 · 리포당 1회 · 실패 = 판정 불가
+    k = repo_key(jrepo)[0] or jrepo
+    if k not in LAND_REFS:
+        rc, out, err = run(["bash", "-c", '. "$1/ft-card-target-lib.sh" && ft_land_refs "$2"', "ft-land-refs", HERE, jrepo], max(0.5, cap))
+        first = ((out.strip() or err.strip()).split("\n") or [""])[0]
+        LAND_REFS[k] = out.split() if rc == 0 else re.sub(r"^판정 불가 ", "", first)[:160] or f"착지 ref rc={'-' if rc is None else rc}"
+    if isinstance(LAND_REFS[k], str): raise Unjudged(LAND_REFS[k])
+    return LAND_REFS[k]
 
 
 CARD_REFS = {}
@@ -320,12 +337,34 @@ def pack_remote(sha, cap):   # r1701 ③ r6 — 세트가 팩 «origin/*» 원�
     return bool(out.strip())
 
 
+SX_TAIL = re.compile(r"PR #(\d+) \(head ([0-9a-f]{40})\)")   # r1713 A5 — 끝줄 정확 꼴(fullmatch · 꼬리·가운데 줄 = 후보 0)
+PR_LINE = re.compile(r"PR #(\d+) \(head ([0-9a-f]{40})\)")   # r1754 A3 — C 꼴 꼬리 앞 줄(같은 꼴 · 이름만 따로)
+C_TAIL = re.compile(r"main 자동 병합\(.*\) C=([0-9a-f]{40})")   # r1754 A3 — 착지 도구가 나노 가지에 main 을 병합한 C
+CARD_PR = re.compile(r"착지:.*?PR #(\d+)")
+
+
+def sx_land(jrepo, jsha, sec, cap, chk, rr="refs/remotes/origin/main"):   # → ("squash", 착지 커밋 짧은 sha, N) | None · 판정 불가 = Unjudged
+    want = [m.group(1) for l in sec for m in [CARD_PR.search(l)] if m]   # 카드 «착지: … PR #N» 이 있으면 그 N 만(«PR #44» ≠ N=4)
+    chk(); _, o = need(["git", "-C", jrepo, "log", "-n", "20", "--format=%h%x1f%B%x1e", rr], cap(), "git log")
+    for rec in o.split("\x1e"):
+        h, _, body = rec.strip("\n").partition("\x1f")
+        ls = [x for x in body.split("\n") if x.strip()]
+        if ls and ls[-1].startswith("main 자동 병합"): ls = ls[:-1]   # EQUIV·docam 꼬리 1줄(위 squash 대조와 같다)
+        m = SX_TAIL.fullmatch(ls[-1].strip()) if ls else None   # r1713-mut:tailfull
+        if not m or m.group(2) == jsha or (want and int(m.group(1)) != int(want[-1])): continue   # X = 세트 는 위 A3 정확 대조 몫
+        chk(); rc, _o, err = run(["bash", HERE + "/ft-landed-sx.sh", jrepo, jsha, m.group(2), rr], cap(), {"FT_LANDED_SX_CAP": f"{max(0.5, cap()):.1f}"})   # r1713-mut:sxcall
+        if rc == 0: return "squash", h, m.group(1)
+        if rc != 1: raise Unjudged(f"ft-landed-sx rc={'-' if rc is None else rc} {(err.strip().split(chr(10)) or [''])[0][:160]}".rstrip())
+    return None
+
+
 def judge(t, k, row, card_dirs):   # → 줄 | None(제외 · exc 에 사유) · 조회 실패 = Unjudged
     seat_t0 = mono(); steps.clear()
     cap = lambda: 7.0 - (mono() - seat_t0)
     def chk():   # r1718 A11 — 상한에 걸리면 그 줄 끝에 «단계: <이름>=<초>s …»(부른 순서 · 판정·상한·rc 불변)
         if cap() <= 0: raise Unjudged("좌석 7초 상한 rc=-" + "".join([" 단계:"] + [f" {n}={s:.1f}s" for n, s in steps]))
     if "-research#" in k: exc.append(f"제외 {k} 리서치 좌석(자기 근거 칸 = --research 닫기)"); return None
+    if row.get("source") == "ft2-launch" or "/.fable-team/teams/" in str(row.get("worktree") or ""): exc.append(f"제외 {k} ft2 나노 → keeper"); return None   # r2021-mut:ft2 — 2.0 나노 닫기 = keeper 몫(r2011 ft-index-move 와 같은 두 조건 · git·tmux 호출 전)
     sha_card, why_, sec = basis(card_dirs, row.get("index") or "", t)
     if sha_card is None: exc.append(f"제외 {k} {why_}"); return None
     _, out = need(["tmux", "display-message", "-p", "-t", "=" + k + ":", "#{pane_current_path}"], cap(), "tmux display-message")
@@ -349,21 +388,48 @@ def judge(t, k, row, card_dirs):   # → 줄 | None(제외 · exc 에 사유) ·
         chk()
     key, top = repo_key(cwd)
     if key is None: raise Unjudged("git 리포 찾기 rc=1")
-    fetch_once(key, top)
-    chk()
-    rc, _ = need(["git", "-C", jrepo, "merge-base", "--is-ancestor", jsha, "refs/remotes/origin/main"], cap(), "git merge-base", ok=(0, 1))
-    landed, main_sha, pr = ("ff", None, "-") if rc == 0 else (None, None, "-")
-    if rc == 0:
-        _, o2 = need(["git", "-C", jrepo, "rev-parse", "--short=9", "refs/remotes/origin/main"], cap(), "git rev-parse"); main_sha = o2.strip()
-    else:
+
+    def at(ref):   # r1754 A2 — 그 ref 에서 ff 조상 → squash 끝줄(정확 · C 꼴) → r1713 sx · 맞으면 (landed, 짧은 sha, pr) · 아니면 None
+        rr = "refs/remotes/" + ref
+        if ref == "origin/main":   # 기준판 그대로: pane 리포 + (팩이면) 팩 main
+            fetch_once(key, top)
+            if in_pack:   # r1713 A1·A2 — 판정 리포가 팩이면 팩 origin/main 도 받는다(실행당 1회 · 같은 키 규칙 · 실패 = 판정 불가 · 옛 팩 ref 로 판정 0)
+                pkey, ptop = repo_key(PACK_REPO)
+                if pkey is None: raise Unjudged("팩 git 리포 찾기 rc=1")
+                fetch_once(pkey, ptop)   # r1713-mut:packfetch
+        else:
+            jkey, jtop = repo_key(jrepo)
+            if jkey is None: raise Unjudged("git 리포 찾기 rc=1")
+            fetch_once(jkey, jtop, ref)
         chk()
-        _, o2 = need(["git", "-C", jrepo, "log", "-n", "20", "--fixed-strings", f"--grep=(head {jsha})", "--format=%h%x1f%B%x1e", "refs/remotes/origin/main"], cap(), "git log")
+        rc, _ = need(["git", "-C", jrepo, "merge-base", "--is-ancestor", jsha, rr], cap(), "git merge-base", ok=(0, 1))
+        if rc == 0:
+            _, o2 = need(["git", "-C", jrepo, "rev-parse", "--short=9", rr], cap(), "git rev-parse"); return "ff", o2.strip(), "-"
+        chk()
+        _, o2 = need(["git", "-C", jrepo, "log", "-n", "20", "--fixed-strings", f"--grep=(head {jsha})", f"--grep=C={jsha}", "--format=%h%x1f%B%x1e", rr], cap(), "git log")
         for rec in o2.split("\x1e"):
             h, _, body = rec.strip("\n").partition("\x1f")
             ls = [x for x in body.split("\n") if x.strip()]
-            if ls and ls[-1].startswith("main 자동 병합"): ls = ls[:-1]   # r1169 docam 꼬리 1줄
+            c = None
+            if ls and ls[-1].startswith("main 자동 병합"):   # r1169 docam 꼬리 1줄 · r1754 A3 꼬리의 C
+                mc = C_TAIL.fullmatch(ls[-1].strip()); c = mc.group(1) if mc else None; ls = ls[:-1]
             m = re.fullmatch(r"PR #(\d+) \(head " + jsha + r"\)", ls[-1].strip()) if ls else None
-            if m: landed, main_sha, pr = "squash", h, m.group(1); break
+            if m: return "squash", h, m.group(1)
+            mx = PR_LINE.fullmatch(ls[-1].strip()) if ls and c == jsha else None   # r1754 A3 — HEAD = 꼬리 C · 앞 줄 head X = C 의 첫 부모
+            if mx:
+                chk(); _, fp = need(["git", "-C", jrepo, "rev-parse", "--verify", "-q", jsha + "^1"], cap(), "git rev-parse", ok=(0, 1))
+                if fp.strip() == mx.group(2): return "squash", h, mx.group(1)   # r1754-mut:cparent
+        # r1713 A4·A5·A6 — 끝줄 head X ≠ 세트여도 «세트 ⊂ X · main 병합뿐 · 자기 변경 같음»(공용 ft-landed-sx.sh = nano-close r1084 과 같은 판정)이면 squash
+        return sx_land(jrepo, jsha, sec, cap, chk, rr)
+
+    env_ref = (os.environ.get("FT_LAND_REF") or "").strip()   # r1754 A1 — env 가 있으면 그 하나(공용 규칙과 같다)
+    if env_ref and not re.fullmatch(r"origin/[^\s/][^\s]*", env_ref): raise Unjudged(f"FT_LAND_REF 꼴 밖({env_ref}) rc=2")
+    refs, landed, main_sha, pr, ref, n = [env_ref or "origin/main"], None, None, "-", "", 0
+    while landed is None and n < len(refs):   # r1754 A2 — 후보 차례로 · 처음 맞은 ref · main 이 맞으면 ls-remote 0(기준판 호출 그대로)
+        ref = refs[n]; n += 1
+        landed, main_sha, pr = at(ref) or (None, None, "-")
+        if landed is None and n == 1 and not env_ref: chk(); refs += [r for r in land_refs(jrepo, cap()) if r != "origin/main"]
+    if landed is None:
         if landed is None and (AUTO or GATE):   # r1670 승인 갈래 — 착지 없이 DA APPROVE·인수·원격 보존이 다 서면 닫기 차례
             chk(); _, _so = need([SEAT_STATUS, "turn", k], cap(), "ft-seat-status turn"); _st = (_so.split() or [""])[0]
             if _st != "IDLE": exc.append(f"제외 {k} 상태 {_st or '-'} (IDLE 아님)"); return None   # ⓑ·ⓕ: 승인 갈래도 «지금 IDLE» 일 때만
@@ -383,12 +449,13 @@ def judge(t, k, row, card_dirs):   # → 줄 | None(제외 · exc 에 사유) ·
     _, out = need([SEAT_STATUS, "turn", k], cap(), "ft-seat-status turn")
     st = (out.split() or [""])[0]
     if st != "IDLE": exc.append(f"제외 {k} 상태 {st or '-'} (IDLE 아님)"); return None
-    head_ln = f"닫기 차례 {k} 팀={t} 가지={'detached' if br in (None, '(detached)') else br} landed={landed} main={main_sha}"
+    head_ln = f"닫기 차례 {k} 팀={t} 가지={'detached' if br in (None, '(detached)') else br} landed={landed} ref={ref} main={main_sha}"
+    lr = "" if ref == "origin/main" else f"FT_LAND_REF={ref} "   # r1754 A2 — main 밖 착지면 닫기 명령 앞에 그 ref
     master = next((str(r["doc"].get("_master") or "") for r in rows if r["team"] == t and isinstance(r["doc"], dict)), "")
     fill, miss = land_fill(root / ".fable-team" / "state", k, sec, master) if land_fill else (None, "")   # r1717 A11 — 다 서야 채운다(하나라도 없으면 자리표시 그대로 + «빠짐=»)
     if fill:   # 갈래 토큰은 « — » 앞(auto_close 가 « — » 뒤를 명령으로 읽는다)
-        return f"{head_ln} 갈래=착지기록 rec={fill['rec']} set={fill['set']} — bash ft-nano-close.sh {k} --landed-pr {fill['pr'] if pr == '-' else pr} {fill['args']}"
-    return f"{head_ln} — bash ft-nano-close.sh {k} --landed-pr {pr} --result <산출> --recv <seq>" + (f" {miss}" if miss else "")
+        return f"{head_ln} 갈래=착지기록 rec={fill['rec']} set={fill['set']} — {lr}bash ft-nano-close.sh {k} --landed-pr {fill['pr'] if pr == '-' else pr} {fill['args']}"
+    return f"{head_ln} — {lr}bash ft-nano-close.sh {k} --landed-pr {pr} --result <산출> --recv <seq>" + (f" {miss}" if miss else "")
 
 
 def gate_mode(seat):   # --approve-gate — 승인 갈래를 «지금 사실» 로 다시 계산(목록 판정과 같은 judge 한 곳 · 추측 0)
@@ -406,6 +473,7 @@ def gate_mode(seat):   # --approve-gate — 승인 갈래를 «지금 사실» �
                 print(f"APPROVE-REJECT {seat} --approved 경로가 카드 «DA 판정:» 경로와 다름(«{want}» ≠ «{vp}»)"); return 1
             sh = re.search(r"set=([0-9a-f]{40})", ln)
             print(f"APPROVE-OK {seat} set={sh.group(1) if sh else '-'} verdict={vp}"); return 0
+        if exc and exc[-1] == f"제외 {seat} ft2 나노 → keeper": print(exc[-1]); return 1   # r2021 ③ — ft2 좌석은 APPROVE-REJECT 대신 같은 제외 사유 · 1.x 닫기 진행 0
         pre = f"제외 {seat} "
         why_ = (exc[-1][len(pre):] if exc[-1].startswith(pre) else exc[-1]) if exc else (ln or "승인 갈래 아님")
         print(f"APPROVE-REJECT {seat} {why_}"); return 1

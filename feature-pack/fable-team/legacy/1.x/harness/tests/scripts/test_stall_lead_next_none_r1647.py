@@ -37,8 +37,9 @@ def lead_stall(w: World) -> None:
 
 
 def next_none(w: World, frm: str = "t1-master#1", seq: int = 950) -> None:
-    """팀장 마지막 발신 = [다음 없음] (심박 seq 900 보다 뒤 = 마지막)."""
-    w.mail("planner#1", seq, 21, frm=frm, body=f"[다음 없음] {frm} · 받을 일 0 · 닫기 대기")
+    """팀장 마지막 발신 = [다음 없음] (심박 seq 900 보다 뒤 = 마지막).
+    r1949 — planner 앞 [다음 없음] 머리는 쉼 심박이라 r1729 가 먼저 면제한다(r1949 ①) → 닫기 대기 길만 보려고 nano 앞(심박 아님)."""
+    w.mail("t1-nano#0", seq, 21, frm=frm, body=f"[다음 없음] {frm} · 받을 일 0 · 닫기 대기")
 
 
 def two_leads(w: World) -> None:

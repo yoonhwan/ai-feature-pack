@@ -80,21 +80,21 @@ def test_e_undecidable_blocks_and_notifies_once(tmp_path):
     root = build(tmp_path)
     mbox, log = capture_mbox(tmp_path)
     same = cases(("bash", None, {"command": "ls"}), ("read", 0, {}), ("bash", None, {"command": "ls"}))
-    assert [v["action"] for v in run_gate(GATE, root, same, env={"FT_MBOX": str(mbox)})] == ["block"] * 3
+    assert [v["rule"] for v in run_gate(GATE, root, same, env={"FT_MBOX": str(mbox)})] == ["undecidable-readonly"] * 3  # r1637 ⓑ
     assert log.read_text(encoding="utf-8").strip().splitlines() == [f"send byz-x-master#1 {SEAT} [긴급] 증류 판정 불가 {SEAT} ctx usage 없음"], "같은 좌석·같은 이유 1통"
     other = run_gate(GATE, root, [{"tool": "read", "tokens": 300000, "model": CLAUDE, "seat": ""}], env={"FT_MBOX": str(mbox)})
-    assert other[0]["action"] == "block" and "좌석 이름 못 읽음" in other[0]["reason"], other  # 좌석 불명 = 팀장 불명 = send 0
+    assert other[0]["action"] == "allow" and "좌석 이름 못 읽음" in other[0]["reason"], other  # r1637 ⓑ · 좌석 불명 = 팀장 불명 = send 0
     (root / ".fable-team" / "thresholds.env").write_text("", encoding="utf-8")
     assert run_gate(GATE, root, [], op="thresholds", home=tmp_path / "nohome") == {"warn": 250000, "block": 300000, "recv": 250000}, "r1860: 파일 없음 = ft2 샘플 값"
     bare = tmp_path / "bare" / "distill-gate.ts"  # 옆 샘플·설치본 없음 = 판정 불가
     bare.parent.mkdir()
     shutil.copy(GATE, bare)
-    assert (nofile := run_gate(bare, root, cases(("read", 330000, {})), env={"FT_MBOX": str(mbox)}, home=tmp_path / "nohome"))[0]["action"] == "block" and "문턱 못 읽음" in nofile[0]["reason"], nofile
+    assert (nofile := run_gate(bare, root, cases(("read", 330000, {})), env={"FT_MBOX": str(mbox)}, home=tmp_path / "nohome"))[0]["action"] == "allow" and "문턱 못 읽음" in nofile[0]["reason"], nofile  # r1637 ⓑ
     assert len(log.read_text(encoding="utf-8").strip().splitlines()) == 2, "이유가 다르면 다른 1통(좌석 불명은 팀장 불명 = send 0)"
 
 def test_e2_master_is_the_roster_that_holds_the_seat(tmp_path):
     root, mbox, log = build(tmp_path), *capture_mbox(tmp_path, "_m")
-    assert run_gate(GATE, root, cases(("read", 0, {})), env={"FT_MBOX": str(mbox)})[0]["action"] == "block"
+    assert run_gate(GATE, root, cases(("read", 0, {})), env={"FT_MBOX": str(mbox)})[0]["action"] == "allow"  # r1637 ⓑ
     assert log.read_text(encoding="utf-8").split(" ")[1] == "byz-x-master#1", "정렬상 앞선 seats-aa 의 byz-aa-master#1 이 아니다"
     other = tmp_path / "other" / ".fable-team" / "comm"
     other.mkdir(parents=True)
@@ -103,7 +103,7 @@ def test_e2_master_is_the_roster_that_holds_the_seat(tmp_path):
     moved.write_text(f'#!/bin/bash\nprintf "%s\\n" "$*" >> "{tmp_path}/mbox-other.log"\n', encoding="utf-8")
     run_gate(GATE, root, cases(("read", 0, {})), env={"FT_MBOX": str(moved)})
     assert (tmp_path / "mbox-other.log").read_text(encoding="utf-8").split(" ")[1] == "byz-other-master#9", "찾는 곳 = FT_MBOX 의 .fable-team"
-    assert (absent := run_gate(GATE, root, [{"tool": "read", "tokens": 0, "model": CLAUDE, "seat": "byz-zz-nano#0"}], env={"FT_MBOX": str(moved)}))[0]["action"] == "block" and "팀장 불명" in absent[0]["reason"], absent
+    assert (absent := run_gate(GATE, root, [{"tool": "read", "tokens": 0, "model": CLAUDE, "seat": "byz-zz-nano#0"}], env={"FT_MBOX": str(moved)}))[0]["action"] == "allow" and "팀장 불명" in absent[0]["reason"], absent  # r1637 ⓑ
     assert (tmp_path / "mbox-other.log").read_text(encoding="utf-8").count("byz-other-master#9") == 1, "팀장 불명이면 send 0"
 
 def test_f_known_non_claude_pass_unknown_model_blocks(tmp_path):
@@ -111,7 +111,7 @@ def test_f_known_non_claude_pass_unknown_model_blocks(tmp_path):
     got = run_gate(GATE, root, [{"tool": "bash", "tokens": 999999, "model": m, "seat": SEAT, "command": "rm -rf x"} for m in ("gpt-6-sol", "gemini-3-pro", "deepseek-v4-pro")])
     assert [v["action"] for v in got] == ["allow"] * 3 and {v["rule"] for v in got} == {"model-out-of-scope"}, got
     unknown = run_gate(GATE, root, [{"tool": "bash", "tokens": 330000, "model": "", "seat": SEAT, "command": "echo work"}], env={"FT_MBOX": str(mbox)})
-    assert unknown[0]["action"] == "block" and "모델 불명" in unknown[0]["reason"] and log.read_text(encoding="utf-8").count("모델 불명") == 1, "모델 불명 = 판정 불가 + 팀장 1줄(DA R1)"
+    assert unknown[0]["action"] == "allow" and "모델 불명" in unknown[0]["reason"] and log.read_text(encoding="utf-8").count("모델 불명") == 1, "모델 불명 = 판정 불가 + 팀장 1줄(DA R1)"  # r1637 ⓑ
 
 def test_g_pending_file_written_once(tmp_path):
     root = build(tmp_path)
@@ -174,7 +174,7 @@ def test_j_closing_event_is_successor_seat(tmp_path):
     old = run_gate(GATE, root, bash(recv, k=120000))
     assert state.exists() and "옛 파일" in old[0]["reason"], "본문 없는 옛 파일 = 유지 + reason 1줄"
 
-MUTANTS = {"M1_판정불가를_통과로": ('action: "block", rule: "undecidable"', 'action: "allow", rule: "undecidable"'),
+MUTANTS = {"M1_판정불가를_통과로": ('action: "block", rule: "undecidable-recv"', 'action: "allow", rule: "undecidable-recv"'),  # r1637 ⓐ
            "M2_팀장알림_빼기": ('const bad = notifyTeam(input, env, seat || "unknown", root, why);', 'const bad = "";'),
            "M3_허용목록에서_handover_빼기": ('"ring", "handover", ', '"ring", '), "M4_gpt도_판정": ("if (!/claude/i.test(model)) return", "if (!model) return"),
            "M5_상태파일_덮어쓰기": ('{ flag: "wx" }', '{ flag: "w" }'), "M7_좌석이름_대조_빼기": ('k < lines.warn && stored && stored !== seat && stored.replace(/#\\d+$/, "") === seat.replace(/#\\d+$/, "")', 'k < lines.warn'),  # 좌석 이름 대조를 빼면 같은 좌석의 표식도 닫힌다
@@ -195,7 +195,7 @@ def test_m_mutants_break_their_cases(tmp_path):
         m, kind = mutant(tmp_path, name), name[1]
         if kind in "12":  # M1 판정 불가를 통과로 · M2 팀장 1줄 빼기
             mbox, log = capture_mbox(tmp_path, name[:2])
-            got = run_gate(m, root, cases(("read", 0, {})), env={"FT_MBOX": str(mbox)})
+            got = run_gate(m, root, bash(f"bash {root}/.fable-team/comm/mbox.sh recv me", k=0) if kind == "1" else cases(("read", 0, {})), env={"FT_MBOX": str(mbox)})  # r1637 ⓐ 판정 불가 차단 = recv 만
             assert (got[0]["action"] != "block") if kind == "1" else (not log.exists()), name
         elif kind == "3":  # M3 handover 를 빼면 ⓘ 의 «의도된 차이» 행이 깨진다(정상 allow · 훅 deny)
             cmd = f"bash {root}/.fable-team/comm/mbox.sh handover a b"
@@ -216,7 +216,7 @@ def test_m_mutants_break_their_cases(tmp_path):
 def test_k_team_lead_mbox_defaults_to_repo_root(tmp_path):
     root = build(tmp_path)
     (root / ".fable-team" / "comm" / "mbox.sh").write_text(f'#!/bin/bash\nprintf "%s\\n" "$*" >> "{tmp_path}/mbox-def.log"\n', encoding="utf-8")
-    assert run_gate(GATE, root, cases(("read", 0, {})))[0]["action"] == "block" and (tmp_path / "mbox-def.log").read_text(encoding="utf-8").startswith("send byz-x-master#1 "), "FT_MBOX 없이도 <루트>/.fable-team/comm/mbox.sh 로 1회"
+    assert run_gate(GATE, root, cases(("read", 0, {})))[0]["action"] == "allow" and (tmp_path / "mbox-def.log").read_text(encoding="utf-8").startswith("send byz-x-master#1 "), "FT_MBOX 없이도 <루트>/.fable-team/comm/mbox.sh 로 1회"  # r1637 ⓑ
     run_gate(mutant(tmp_path, "M8_기본값_줄_빼기"), root, cases(("read", 0, {})))
     assert (tmp_path / "mbox-def.log").read_text(encoding="utf-8").count("send ") == 1, "변이: 기본값 줄을 빼면 알림 0"
 
@@ -233,33 +233,33 @@ def one(root, tool, k, session=None, **rest): return gate(root, [(tool, k, rest)
 def test_n_first_verdict_streak_and_allowlist(tmp_path):
     root, mbox, log = build(tmp_path), *capture_mbox(tmp_path, "_n")
     got = gate(root, [("bash", None, {"command": "ls"}), ("bash", None, {"command": "ls"}), ("bash", None, {"command": "rm -rf x"}), ("read", None, {"path": "/etc/passwd"}), ("bash", 1000, {"command": "ls"}), ("bash", None, {"command": "ls"})], env={"FT_MBOX": str(mbox)})
-    assert [v["action"] for v in got] == ["allow", "allow", "block", "allow", "allow", "block"], got  # ⓐ 첫 판정 · ⓑ 연속 3 = 허용 목록(밖 막음·안 통과) · ⓓ 읽으면 연속 0 · ⓔ 읽은 뒤의 null = 통과 0
-    assert [v["rule"] for v in got] == ["undecidable-first", "undecidable-pass", "undecidable-allowlist", "undecidable-allowlist", "below-warn", "undecidable-allowlist"], got
+    assert [v["action"] for v in got] == ["allow"] * 6, got  # r1637 ⓑⓒ · ⓐ 첫 판정 · ⓑ 연속 3 = 허용 목록(밖 막음·안 통과) · ⓓ 읽으면 연속 0 · ⓔ 읽은 뒤의 null = 통과 0
+    assert [v["rule"] for v in got] == ["undecidable-first", "undecidable-pass", "undecidable-pass", "undecidable-readonly", "below-warn", "undecidable-readonly"], got  # r1637 ⓑⓒ
     assert log.read_text(encoding="utf-8").strip().splitlines() == [f"send byz-x-master#1 {SEAT} [긴급] 증류 판정 불가 {SEAT} ctx usage 없음"], "ⓒ 같은 좌석·같은 이유 세션당 1통(첫 판정 알림 0)"
     assert [v["rule"] for v in gate(root, [("bash", 0, {"command": "ls"}), ("bash", None, {"command": "ls"})])] == ["undecidable-first", "undecidable-pass"], "ⓘ tokens=0 은 «읽음» 이 아니다"
-    assert [v["rule"] for v in gate(root, [("bash", None, {"command": "ls"}), ("bash", None, {"command": "ls"})], env={"FT_DISTILL_FAILOPEN_MAX": "2"})] == ["undecidable-first", "undecidable-allowlist"], "ⓑ r1554 와 같은 키(env) 로 상한을 바꿀 수 있다"
+    assert [v["rule"] for v in gate(root, [("bash", None, {"command": "ls"}), ("bash", None, {"command": "ls"})], env={"FT_DISTILL_FAILOPEN_MAX": "2"})] == ["undecidable-first", "undecidable-readonly"], "r1637 ⓑ · ⓑ r1554 와 같은 키(env) 로 상한을 바꿀 수 있다"
     assert one(root, "bash", 330000, command="ls")["rule"] == "block-gate" and (root / ".fable-team/state/pi-distill-pending/byz-x-nano").exists(), "회귀① 판정 가능 호출은 그대로(차단선 + 표식)"
     assert [v["rule"] for v in gate(root, [("bash", 1000, {"command": "ls"}), ("bash", None, {"command": f"bash {root}/.fable-team/comm/mbox.sh recv me"})])] == ["below-warn", "recv-gate"], "회귀② 압축 뒤 null + 표식 = recv 차단"
-    assert [v["action"] for v in gate(root, [("bash", 1000, {"command": "ls"}), ("bash", None, {"command": "rm -rf build"})])] == ["allow", "block"], "회귀③ 읽은 뒤 null 은 통과 0(허용 목록 밖 막음)"
+    assert [v["action"] for v in gate(root, [("bash", 1000, {"command": "ls"}), ("bash", None, {"command": "rm -rf build"})])] == ["allow", "allow"], "r1637 ⓒ 읽은 뒤 null 도 recv 밖은 통과+기록"
 
 def test_o_initial_exception_only_for_new_conversation(tmp_path):
     root = build(tmp_path)
     for reason, entries in (("startup", []), ("new", [])):
         assert one(root, "read", None, {"reason": reason, "entries": entries})["rule"] == "undecidable-first", reason
     for reason, entries in (("resume", []), ("reload", []), ("fork", []), ("startup", None), (None, []), ("startup", [{"type": "message", "message": {"role": "assistant"}}]), ("new", [{"type": "compaction"}])):
-        assert one(root, "read", None, {"reason": reason, "entries": entries})["action"] == "block", reason  # ⓙ 초기 예외 0 = 지금 동작
+        assert one(root, "read", None, {"reason": reason, "entries": entries})["rule"] == "undecidable-readonly", reason  # r1637 ⓑ · ⓙ 초기 예외 0
     state = root / ".fable-team/state/pi-distill-pending/byz-x-nano"
     state.write_text("2026-01-01T00:00:00Z seat=byz-x-nano#0 ctx=9 증류 미완\n", encoding="utf-8")
-    assert one(root, "read", None, {"reason": "startup", "entries": []})["action"] == "block" and state.exists(), "ⓙ 표식 있으면 초기 예외 0 · ⓔ usage 없음 판정은 표식을 지우지 않는다"
-    assert one(root, "read", 999999, session={"reason": "startup", "entries": []}, model="")["action"] == "block", "ⓕ 모델 불명은 새 대화여도 그대로 막는다"
+    assert one(root, "read", None, {"reason": "startup", "entries": []})["rule"] == "undecidable-readonly" and state.exists(), "r1637 ⓑ · ⓙ 표식 있으면 초기 예외 0 · ⓔ usage 없음 판정은 표식을 지우지 않는다"
+    assert one(root, "read", 999999, session={"reason": "startup", "entries": []}, model="")["rule"] == "undecidable-readonly", "r1637 ⓑ · ⓕ 모델 불명은 새 대화여도 그대로 막는다"
     r1 = build(tmp_path / "r1")  # 표식 폴더도 없다 = DA R1 의 «fresh»
     shutil.rmtree(r1 / ".fable-team" / "state" / "pi-distill-pending")
-    assert [v["action"] for v in run_gate(GATE, r1, [{"tool": t, "tokens": k, "model": CLAUDE, "seat": "", "session": S} for t, k in (("read", None), ("read", 0), ("turn", None))])] == ["block"] * 3, "DA R1 ⓕ 좌석 불명이 usage 초기 예외(ⓐⓗ)보다 먼저 — 좌석 없는 새 세션은 통과 0"
+    assert [v["action"] for v in run_gate(GATE, r1, [{"tool": t, "tokens": k, "model": CLAUDE, "seat": "", "session": S} for t, k in (("read", None), ("read", 0), ("turn", None))])] == ["allow"] * 3, "r1637 ⓑⓓ · DA R1 ⓕ 좌석 불명이 usage 초기 예외(ⓐⓗ)보다 먼저 — 좌석 없는 새 세션은 통과 0"
 
 def test_p_turn_start_silent_only_before_any_usage(tmp_path):
     root, mbox, log = build(tmp_path), *capture_mbox(tmp_path, "_p")
     got = gate(root, [("turn", None, {}), ("read", None, {}), ("turn", 1000, {}), ("turn", None, {})], env={"FT_MBOX": str(mbox)})
-    assert [v["action"] for v in got] == ["allow", "allow", "allow", "block"], got
+    assert [v["action"] for v in got] == ["allow"] * 4 and got[3]["rule"] == "undecidable-pass", got  # r1637 ⓓ 턴은 막지 않는다(주입 0)
     assert [v["rule"] for v in got[:2]] == ["undecidable-turn", "undecidable-first"], "ⓗ 주입 0 · ⓚ 턴 시작이 첫 판정 예외를 소모하지 않는다"
     assert log.read_text(encoding="utf-8").strip().splitlines() == [f"send byz-x-master#1 {SEAT} [긴급] 증류 판정 불가 {SEAT} ctx usage 없음"], "ⓗ 턴 시작 usage 없음 = 알림 0 · 읽은 뒤의 null 만 지금 동작(막음+1줄)"
 
@@ -273,13 +273,13 @@ def test_r_successor_first_turn_ignores_previous_generation_marker(tmp_path):
     assert state.exists() and one(root, "read", 1000)["rule"] == "below-warn" and not state.exists(), "ⓜ 이 좌석 첫 양수 판정 = 표식 닫힘(지금 동작)"
     self_root, self_mbox, self_log = build(tmp_path / "s"), *capture_mbox(tmp_path, "_r2")  # 자기 좌석(#0) 표식 = 지금 동작 유지
     (self_root / ".fable-team/state/pi-distill-pending/byz-x-nano").write_text("seat=byz-x-nano#0 ctx=9 증류 미완\n", encoding="utf-8")
-    assert gate(self_root, [("turn", None, {})], env={"FT_MBOX": str(self_mbox)})[0]["action"] == "block" and self_log.read_text(encoding="utf-8").count("send ") == 1, "ⓛⓜ 자기 좌석 표식 = 주입 + 1통 유지"
+    assert gate(self_root, [("turn", None, {})], env={"FT_MBOX": str(self_mbox)})[0]["rule"] == "undecidable-pass" and self_log.read_text(encoding="utf-8").count("send ") == 1, "ⓛⓜ 자기 좌석 표식 = 턴 판정 불가 + 1통 유지"  # r1637 ⓓ
     old = build(tmp_path / "o")  # 좌석 이름 없는 옛 표식 = 지금처럼 초기 예외 0
     (old / ".fable-team/state/pi-distill-pending/byz-x-nano").write_text("2026-01-01T00:00:00Z ctx=9 증류 미완\n", encoding="utf-8")
-    assert one(old, "read", None)["action"] == "block", "ⓛ 이름 없는 옛 표식·읽기 실패 = 초기 예외 0"
+    assert one(old, "read", None)["rule"] == "undecidable-readonly", "r1637 ⓑ · ⓛ 이름 없는 옛 표식·읽기 실패 = 초기 예외 0"
 
 MUT1565 = {"M1": ("if (!seen && n < max) return { action: \"allow\",", "if (!seen && n < max) return { action: \"block\","),
-           "M2": ("!seen && n < max", "!seen"), "M3": ("ok = toolAllowed(input, root)", "ok = false"),
+           "M2": ("!seen && n < max", "!seen"), "M3": ('? { action: "allow", rule: "undecidable-readonly"', '? { action: "block", rule: "undecidable-readonly"'),  # r1637 ⓑ 허용 목록 모드 → 읽기 전용 통과
            "M4": ("!seen && n < max", "n === 1"),  # M4 = 읽은 뒤의 null 을 «첫 판정» 처럼 통과시킨다
            "M5": ("if (turn && !seen && fresh) return", "if (false) return"),
            "M6": ("if (turn && !seen && fresh) return", "if (turn) return"),
@@ -316,7 +316,7 @@ def test_q_mutants_r1565(tmp_path):
         elif kind == "5":  # ⓗ 턴 시작 무주입을 빼면 첫 턴에 메시지가 주입된다
             assert run_gate(m, root, [{"tool": "turn", "tokens": None, "model": CLAUDE, "seat": SEAT, "session": S}])[0]["rule"] != "undecidable-turn", name
         elif kind == "6":  # ⓗ 를 읽은 뒤의 null 에도 적용하면 지금 동작(막음)이 사라진다
-            assert [v["action"] for v in run_gate(m, root, [{"tool": "bash", "tokens": 1000, "model": CLAUDE, "seat": SEAT, "session": S, "command": "ls"}, {"tool": "turn", "tokens": None, "model": CLAUDE, "seat": SEAT, "session": S}])][-1] == "allow", name
+            assert [v["rule"] for v in run_gate(m, root, [{"tool": "bash", "tokens": 1000, "model": CLAUDE, "seat": SEAT, "session": S, "command": "ls"}, {"tool": "turn", "tokens": None, "model": CLAUDE, "seat": SEAT, "session": S}])][-1] == "undecidable-turn", name  # r1637 ⓓ
         elif kind == "7":  # ⓘ tokens=0 을 «읽음» 으로 세면 첫 판정 통과가 사라진다
             assert run_gate(m, root, [{"tool": "bash", "tokens": 0, "model": CLAUDE, "seat": SEAT, "session": S, "command": "ls"}])[0]["rule"] != "undecidable-first", name
         elif kind == "8":  # ⓙ resume 세션에도 초기 예외를 주면 막히지 않는다
@@ -328,10 +328,10 @@ def test_q_mutants_r1565(tmp_path):
         elif kind == "12":  # M12 베이스 존재로 되돌리면 승계 첫 턴이 거짓 경보(직전 세대 표식)
             base12 = build(tmp_path / "n12")
             (base12 / ".fable-team/state/pi-distill-pending/byz-x-nano").write_text("seat=byz-x-nano#9 ctx=9\n", encoding="utf-8")
-            assert run_gate(m, base12, [{"tool": "turn", "tokens": None, "model": CLAUDE, "seat": SEAT, "session": S}])[0]["action"] == "block", name
+            assert run_gate(m, base12, [{"tool": "turn", "tokens": None, "model": CLAUDE, "seat": SEAT, "session": S}])[0]["rule"] == "undecidable-pass", name  # r1637 ⓓ
         elif kind == "13":  # M13 자기 좌석 표식도 무시하면 증류 중 좌석이 초기 예외를 받는다
             base13 = build(tmp_path / "n13")
             (base13 / ".fable-team/state/pi-distill-pending/byz-x-nano").write_text("seat=byz-x-nano#0 ctx=9\n", encoding="utf-8")
-            assert run_gate(m, base13, [{"tool": "turn", "tokens": None, "model": CLAUDE, "seat": SEAT, "session": S}])[0]["action"] == "allow", name
+            assert run_gate(m, base13, [{"tool": "turn", "tokens": None, "model": CLAUDE, "seat": SEAT, "session": S}])[0]["rule"] == "undecidable-turn", name  # r1637 ⓓ
         else:  # M9 ⓚ 턴 시작이 «읽음» 을 소모하면 첫 tool_call 이 «첫 판정» 이 아니다
-            assert [v["rule"] for v in run_gate(m, root, [{"tool": "turn", "tokens": None, "model": CLAUDE, "seat": SEAT, "session": S}, {"tool": "read", "tokens": None, "model": CLAUDE, "seat": SEAT, "session": S}])] == ["undecidable-turn", "undecidable-allowlist"], name
+            assert [v["rule"] for v in run_gate(m, root, [{"tool": "turn", "tokens": None, "model": CLAUDE, "seat": SEAT, "session": S}, {"tool": "read", "tokens": None, "model": CLAUDE, "seat": SEAT, "session": S}])] == ["undecidable-turn", "undecidable-readonly"], name  # r1637 ⓑ

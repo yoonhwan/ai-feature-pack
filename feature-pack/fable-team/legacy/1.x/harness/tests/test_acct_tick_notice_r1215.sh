@@ -52,6 +52,8 @@ cat > "$T/mbox.sh" <<'EOF'
 printf '%s\t%s\n' "$2" "$4" >> "$FAKE_DIR/mbox.log"; echo "QUEUED seq=1"
 EOF
 chmod +x "$T/fc.sh" "$T/pause.sh" "$T/mbox.sh"
+# r2001 ⓒ: 가짜 정지 도구의 «지금 항목» = 자동 주체가 건 항목(set_by acct-auto:) — clear 는 자동 항목에만 간다(손 정지 보존은 test_acct_watch_r2001 이 실도구로 본다)
+echo '{"claude": {"set_by": "acct-auto:t:1-1", "round_id": "R1"}, "antigravity": {"set_by": "acct-auto:t:1-1", "round_id": "R1"}}' > "$T/auto-pause.json"
 echo '{"_master": null}' > "$T/seats.json"
 
 # JSON 만들기: mk <파일> <풀> <가용> <계정수> <earliest ISO|null> <pool_reset ISO|null> [불명 K]
@@ -75,7 +77,7 @@ lap() {
     FT_TICK_AUTONOMY=0 FT_TICK_LEAK_REAP=0 FT_TICK_HIL=0 FT_TICK_LIVE_SNAPSHOT=0 FT_TICK_RESUME=0 FT_TICK_IDLE_ENABLED=0 FT_TICK_IDLE_LONG=0 \
     FT_TICK_API_OUTAGE=0 FT_MODEL_SWAP=0 FT_TICK_DRIFT=0 FT_TICK_RAISED=0 FT_TICK_RENAMED=0 FT_TICK_QUEUE_FULL=0 FT_TICK_QUEUE=0 \
     FT_TICK_LAUNCHD=0 FT_TICK_MAGAZINE=0 FT_TICK_NEWS_LEDGER=0 FT_TICK_NEWS_WATCH=0 FT_TICK_WT_SWEEP=0 FT_TICK_UNPUSHED=0 \
-    FT_TICK_WATCH_SAMPLE=0 FT_TICK_ACCT_PAUSE=0 "$@" \
+    FT_TICK_WATCH_SAMPLE=0 FT_TICK_ACCT_PAUSE=0 FT_TICK_ACCT_PAUSE_FILE="$T/auto-pause.json" "$@" \
     bash "$TICK" --once > "$d/out.log" 2> "$d/err.log"
   echo $? > "$d/rc"
 }
@@ -278,12 +280,12 @@ bash -n "$BIN/ft-acct-pause.sh" && ok "bash -n ft-acct-pause.sh" || bad "bash -n
 if [ "$MUT" = 0 ]; then
   all_checks
   # ⓗ bin·kit cmp0
-  for f in ft-tick.sh ft-acct-pause.sh; do cmp -s "$BIN/$f" "$KIT/$f" && ok "ⓗ $f bin·kit 같음" || bad "ⓗ $f bin·kit 다름"; done
+  for f in ft-tick.sh ft-tick-acct-lib.sh ft-acct-pause.sh; do cmp -s "$BIN/$f" "$KIT/$f" && ok "ⓗ $f bin·kit 같음" || bad "ⓗ $f bin·kit 다름"; done
 else
   # 변이: 사본 한 줄을 어긋나게 → 대응 칸이 «FAIL 을 내야» 변이가 잡힌 것(잡히면 PASS)
   mkdir -p "$T/mutbin"; cp -R "$BIN"/. "$T/mutbin/"
   mutant() {   # $1 번호 · $2 검사 함수 — 치환쌍은 mkmut 안
-    python3 - "$BIN/ft-tick.sh" "$T/mutbin/ft-tick.sh" "$1" <<'PY' || { bad "변이 $1 — 치환 자리를 못 찾음"; return; }
+    python3 - "$BIN/ft-tick-acct-lib.sh" "$T/mutbin/ft-tick-acct-lib.sh" "$1" <<'PY' || { bad "변이 $1 — 치환 자리를 못 찾음"; return; }
 import sys
 pairs = {
   "1": (r'''acct_head_changed "$(cat "$sd/last-${t%%$'\t'*}.txt" 2>/dev/null)" "${t#*$'\t'}" && changed=1''', "changed=1"),   # r1258: 비교가 acct_head_changed 함수로 바뀜 → 치환 대상 줄 갱신(변이 뜻은 그대로: 비교 제거 → 매 바퀴 1통)

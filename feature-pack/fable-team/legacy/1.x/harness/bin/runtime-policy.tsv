@@ -1,0 +1,6 @@
+# runtime-policy.tsv — 후계 좌석 역할 → 런타임(agent·model) 정책표 (r1569 · ft-successor-open.sh 가 --agent 생략 때 읽는다)
+#   칸 = 역할(이름의 «-역할-» 토큰) · agent · model · 탭 구분 · 위 행부터 첫 일치 · 주석·빈 줄은 무시 · 머신 공통 상수.
+#   값 변경은 오빠 확인 뒤에만 한다(표가 틀리면 모든 후계가 같이 틀린다 · 카드 r1569 알려진 한계).
+arch	pi	claude-opus-5-5
+master	pi	claude-opus-5-5
+nano	pi	opengateway/deepseek/deepseek-v4.1-flash-ultrafast

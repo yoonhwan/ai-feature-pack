@@ -77,7 +77,11 @@ SH
   : > "$FX/mbox.log"
   envfx
 }
-write_all() { canon > "$R/design/planner/AUTONOMY-GOAL-A6-20261018.md"; ledger > "$R/design/planner/PLAN-oppa-ledger.md"; goalfiles; }
+verdicts() {  # r1945 B 판정 원장 — 행마다 판정 줄(연말 시각)을 두어 이 시험의 멈춘 행·닫기 후보가 «판정 빠짐» 없이 OK(판정 강제 자체 = test_goal_stall_verdict_r1945.py)
+  printf '| 번호 | 시각 | 내용 | 판정자 | 근거 |\n|---|---|---|---|---|\n'
+  local i; for i in 1 2 3 4 5 6 7; do printf '| %s | 12-31 23:59 | 골 %s행 유지(시험 픽스처) | planner | t |\n' "$((9000 + i))" "$i"; done
+}
+write_all() { canon > "$R/design/planner/AUTONOMY-GOAL-A6-20261018.md"; ledger > "$R/design/planner/PLAN-oppa-ledger.md"; verdicts > "$R/design/planner/VERDICTS-planner-225-20261104.md"; goalfiles; }
 commit() {  # <메시지> [커밋시각]
   git -C "$R" add -A
   GIT_COMMITTER_DATE="${2:-2026-10-22 07:00}" GIT_AUTHOR_DATE="${2:-2026-10-22 07:00}" \

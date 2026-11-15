@@ -85,9 +85,9 @@ GB="$XB2/ft-merge-gate.sh" gate "$P35" --target ops/main-base   # M1: 접미 삭
 XB3="$(inst "$T/m3")"; python3 - "$XB3/ft-merge-gate.sh" <<'PY'
 import sys, pathlib
 p = pathlib.Path(sys.argv[1]); s = p.read_text()
-old = 'BHF="$(fm_base_head_file "${FT_ROOT:-$(dirname "$COMMON")}/.fable-team/state/base-head" "$TARGET")"'
+old = 'IFS=\'|\' read -r _ _ _ BHF _ <<<"$BHF"'   # r1746: 기본 BHF = fm_land_ctx 4번째 칸 — 옛 경로 = 가지 접미를 뗀 값
 assert s.count(old) == 1
-p.write_text(s.replace(old, 'BHF="${FT_ROOT:-$(dirname "$COMMON")}/.fable-team/state/base-head"'))
+p.write_text(s.replace(old, old + '; BHF="${BHF%@*}"'))
 PY
 GB="$XB3/ft-merge-gate.sh" gate "$P35" --target ops/main-base   # M3: 기본 BHF 가 옛 경로
 [ "$rc" != 0 ] && grep -q '조상이 아님' <<<"$out"; ck "M3 게이트 기본 경로가 옛것 → ALLOW 가 DENY 로(변이 잡힘)" $?

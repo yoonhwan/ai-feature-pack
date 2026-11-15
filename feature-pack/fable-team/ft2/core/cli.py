@@ -31,8 +31,11 @@ VERBS = {
     "start": ("Execution", "start", ("work", "holder", "gen"), ()),
     "effect": ("Execution", "effect", ("work", "holder", "gen", "effect"), ()),
     "result": ("Execution", "result", ("work", "holder", "gen"), ("word",)),
+    "confirm": ("Execution", "confirm", ("work", "holder", "gen", "word", "evidence"), ()),   # r1980 근거 = 글 1줄
     "complete": ("Dispatch", "complete", ("work",), ("attempt",)),
     "reassess": ("Dispatch", "reassess", ("work",), ("mode",)),
+    "return": ("Dispatch", "give_back", ("work", "attempt", "evidence"), ()),   # r1990 손 = 현역 master · 근거 = 글 1줄
+    "park": ("Dispatch", "park", ("work", "attempt", "reason"), ()),   # r2055 쉼 = owner·예약 해제 · 의무 그대로
     "recover": ("Dispatch", "recover", (), ("mode",)),
     "reclaim": ("Journal", "reclaim", (), ()),
     "project": ("Projection", "project", (), ()),      # 읽기 동사 — 잠금·쓰기 0 (r1617)
@@ -88,7 +91,8 @@ def parse(argv):
         token = rest[index]
         if not token.startswith("--") or token[2:] not in known or index + 1 >= len(rest):
             raise Usage("인자 꼴: --이름 값 (받은 것 %r)" % (token,))
-        given[token[2:]] = _value(token[2:], rest[index + 1])
+        raw = verb in ("confirm", "return") and token == "--evidence"     # r1980·r1990: 근거 = 글 1줄(목록 0)
+        given[token[2:]] = rest[index + 1] if raw else _value(token[2:], rest[index + 1])
         index += 2
     missing = [name for name in required + GLOBAL if name not in given]
     if missing:
@@ -168,7 +172,7 @@ def main(argv):
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         return module.main(argv[2:])
-    if argv[:1] == ["slack"] and argv[1:2] in (["reply"], ["notify"]):   # r1807 팀 좌석 → 같은 thread 답·알림(비모델)
+    if argv[:1] == ["slack"] and argv[1:2] in (["reply"], ["notify"], ["post"]):   # r1807 · r1923 post 팀 좌석 → 같은 thread 답·알림(비모델)
         path = os.path.join(os.path.dirname(_HERE), "adapters", "slack", "wiring.py")
         spec = importlib.util.spec_from_file_location("ft2_slack_wiring", path)
         module = importlib.util.module_from_spec(spec)

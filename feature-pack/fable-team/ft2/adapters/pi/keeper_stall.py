@@ -13,11 +13,12 @@ import glob, importlib.util, json, os, re, sys, time  # noqa: E401
 HERE = os.path.dirname(os.path.abspath(__file__))
 FT2 = os.path.dirname(os.path.dirname(HERE))
 LAUNCH, LAUNCH_S = os.path.join(HERE, "launch.py"), 25     # launch = 로컬 하네스 25초(하드 룰 12)
-STEPS, STAMP, TAIL = ("start", "effect", "result", "complete"), "%Y-%m-%dT%H:%M:%S", 262144
+STEPS, STAMP = ("start", "effect", "result", "complete"), "%Y-%m-%dT%H:%M:%S"
 WAKE = "[깨움] ft2 keeper — 일 %s 진척 0 %d분 · 이어서 진행하거나 result 로 막힘을 기록하라"
 BUSY = re.compile("Working|[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]")
 NEXT, SHA = re.compile(r"^(.*#)(\d+)$"), re.compile(r"^[0-9a-f]{40}$")
-AUTH, TRUST = ("authentication_failed", "invalid_api_key", "not logged in"), "Trust project folder"
+TRUST = "Trust project folder"
+ERR_WAKE = "[깨움] ft2 keeper — 일 %s 오류 턴 뒤 %d초 · 이어서 진행하거나 result 로 막힘을 기록하라"
 
 
 def _load(rel, alias):
@@ -30,30 +31,19 @@ def _load(rel, alias):
 cli, dispatch, lifecycle, projection = (_load(os.path.join("core", n + ".py"), n) for n in ("cli", "dispatch", "lifecycle", "projection"))
 models = _load(os.path.join("tools", "models.py"), "models")
 pane_target = _load(os.path.join("adapters", "pi", "keeper_close.py"), "close").pane_target   # r1822 G1 1곳
+E = _load(os.path.join("adapters", "pi", "keeper_stall_error.py"), "error")   # r1921 세션 끝 줄 판독·오류 종류
+error_turn = E.error_turn
+endings = _load(os.path.join("adapters", "pi", "keeper_endings.py"), "endings")   # r1960 미확인 깨움 → 재깨움 1회
 
 
 def turn(path):
     """pi 세션 jsonl 끝 256KB → IDLE | LOGGEDOUT | ERROR | WORKING | UNKNOWN. 끝난 턴(stop·end_turn·max_tokens)만 IDLE(1.x pi 턴 판정과 같은 증거)."""
-    with open(path, "rb") as fh:
-        size = fh.seek(0, 2)
-        fh.seek(max(0, size - TAIL))
-        raw = fh.read().decode("utf-8", "replace").splitlines()
-    rows = []
-    for i, line in enumerate(raw):
-        try:
-            rec = json.loads(line)
-        except ValueError:
-            if i == 0 and size > TAIL:
-                continue
-            return "UNKNOWN"
-        if isinstance(rec, dict) and rec.get("type") == "message" and isinstance(rec.get("message"), dict):
-            rows.append(rec["message"])
+    rows = [r["message"] for r in E.records(path) or ()]
     last = next((m for m in reversed(rows) if m.get("role") == "assistant"), None)
     if last is None:
         return "UNKNOWN"
-    if last.get("stopReason") in ("error", "aborted") or "errorMessage" in last or "error" in last:
-        why = json.dumps({k: last[k] for k in ("errorMessage", "error") if k in last}).lower()
-        return "LOGGEDOUT" if any(a in why for a in AUTH) else "ERROR"
+    if E.is_error(last):
+        return "LOGGEDOUT" if any(a in E.why(last) for a in E.AUTH) else "ERROR"
     return "IDLE" if rows[-1] is last and last.get("stopReason") in ("stop", "end_turn", "max_tokens") else "WORKING"
 
 
@@ -62,7 +52,7 @@ class Stall:
         self.k, env = keeper, keeper.env
         self.stall_s, self.after_s = int(env.get("FT2_KEEPER_STALL_S") or 900), int(env.get("FT2_KEEPER_WAKE_S") or 600)
         self.sessions = env.get("FT2_PI_SESSIONS") or os.path.expanduser("~/.pi/agent/sessions")
-        self.ps = env.get("FT2_KEEPER_PS") or "ps"
+        self.ps, self.err_s = env.get("FT2_KEEPER_PS") or "ps", int(env.get("FT2_KEEPER_ERROR_WAKE_S") or 120)
     def check(self, team, work, attempt, rows):
         """S1 → S2 또는 S3. 대상 = 최신 dispatch(attempt) 전달됨 ∧ 그 attempt intent 의 FT2_HOLDER 세션 생존."""
         k = self.k
@@ -84,15 +74,42 @@ class Stall:
         facts, key = self.facts(work, attempt, rows, tree), "%s|%s@%s" % (team, work, attempt)
         if isinstance(facts, str):
             return k.log("판정 불가", team, "%s %s %s — 행동 0" % (work, holder, facts))
+        hit = self.error(team, work, holder, key, facts["session"], rows)   # r1921 — 오류 턴 갈래(ready 앞 · S1 시계와 다른 키)
+        if hit == "again" and "%s|stall-error|%s|%s" % (k.stamp()[:10], team, work) not in k.state["sent"]:
+            k.log("HELD-STALL", team, "%s %s 오류 턴 반복 — 재배정 0" % (work, holder))
+            k.notify(team, "%s|stall-error|%s|%s" % (k.stamp()[:10], team, work), "[크리티컬] ft2 keeper 오류 턴 반복 %s %s %s" % (team, work, holder))
+        if hit:
+            return
         woke = k.state.setdefault("woke", {}).get(key)
         idle = k.now() - max([facts["journal"], facts["head"]] + ([facts["mtime"]] if woke is None else [woke]))
         if idle < (self.stall_s if woke is None else self.after_s) or not self.ready(team, work, holder, facts["session"], rows):
             return
-        if woke is None and key in k.state.setdefault("unsure", {}):   # 보정1 R1 — 미확인 깨움 = S3 진입 0
-            return k.log("판정 불가", team, "%s %s 깨움 도달 미확인(%s) — 재깨움·재배정 0" % (work, holder, k.state["unsure"][key]))
+        if woke is None and key in k.state.setdefault("unsure", {}):   # 보정1 R1 — 미확인 깨움 = S3 진입 0 · r1960 after_s 뒤 재깨움 1회
+            return endings.unsure(self, team, work, holder, key, idle)
         if woke is None:
             return self.wake(team, work, holder, key, idle)
         return self.reassign(team, work, attempt, holder, tree, intent, rows)
+    def error(self, team, work, holder, key, session, rows):
+        """r1921 — UNAVAILABLE 오류 ≥ err_s ∧ Working 0 → S2 깨움 1회(err_woke) · 그 뒤 또 오류 = "again" · 그 밖 오류·정상 = None(기존 경로)."""
+        k = self.k
+        try:
+            kind, at = error_turn(session) or (None, None)
+        except OSError:
+            return None                               # ready() 가 판정 불가 1줄
+        if kind != "UNAVAILABLE":
+            return None
+        if at is None:
+            return k.log("판정 불가", team, "%s %s 오류 턴 timestamp 판독 불가 — 행동 0" % (work, holder)) or True
+        woke = k.state.setdefault("err_woke", {}).get(key)   # 보정1 R2 — 미확인 = 정상·오류 공통 unsure 하나
+        if woke is None and key in k.state.setdefault("unsure", {}):   # r1960 오류 턴 길도 같은 재깨움 1회(rewoke 키)
+            return (self.guard(team, work, holder, rows) and endings.unsure(self, team, work, holder, key, int(k.now() - at), ERR_WAKE, "err_")) or True
+        if woke is not None:
+            return "again" if at > woke else True
+        if k.now() - at < self.err_s:
+            return True
+        if self.guard(team, work, holder, rows):   # 보정1 R1 — pane Working·external_wait 공통 가드
+            self.wake(team, work, holder, key, int(k.now() - at), ERR_WAKE, "err_")
+        return True
     def first(self, team, work, attempt, holder, tree, intent, rows):
         """r1895 도달 확인 1회(body 키) — 새 intent(body_mark) at+60초 표식 user 줄 0 · 옛 intent 세션 0 ∧ stall_s ∧ Working 0 → S3 · 판독 불가 = 0."""
         k, key, body = self.k, "%s|%s@%s" % (team, work, attempt), self.k.state.setdefault("body", {})
@@ -110,7 +127,7 @@ class Stall:
             return False
         if body.setdefault(key, k.stamp()) and any(isinstance(r, dict) and (r.get("message") or {}).get("role") == "user" and mark + " " in json.dumps(r["message"], ensure_ascii=False) for r in seen):
             return False
-        k.log("HELD", team, "%s %s 본문 도달 0(%s) — 깨움 0 · 재배정 1회" % (work, holder, "표식 줄 0" if session else "세션 파일 0"))
+        k.unknown_line(team, work, "body-unreached", "%s %s 본문 도달 0(%s) — 깨움 0 · 재배정 1회" % (work, holder, "표식 줄 0" if session else "세션 파일 0"))   # r2055 UNKNOWN = [긴급]
         return self.reassign(team, work, attempt, holder, tree, intent, rows) or True
     def facts(self, work, attempt, rows, tree):
         """마지막 진척 재료 4개(wall 시각 · 논리 tick 과 섞지 않는다) — 못 읽음 = 사유 문자열."""
@@ -147,8 +164,10 @@ class Stall:
             return k.log("판정 불가", team, "%s %s 세션 파일 %s — 행동 0" % (work, holder, exc))
         if state == "LOGGEDOUT":
             return k.log("LOGGEDOUT", team, "%s %s — 깨움·재배정 0(재개 = 재시작)" % (work, holder))
-        if state != "IDLE":
-            return False
+        return state == "IDLE" and self.guard(team, work, holder, rows)
+    def guard(self, team, work, holder, rows):
+        """공통 가드(정상·오류 갈래) — pane Working 0 ∧ external_wait 시한 밖 · 판독 불가 = 판정 불가 1줄 · 행동 0."""
+        k = self.k
         rc, pane, _ = k.call([k.tmux, "capture-pane", "-p", "-t", pane_target(holder)])
         if rc != 0:
             return k.log("판정 불가", team, "%s %s capture rc %s — 행동 0" % (work, holder, rc))
@@ -161,10 +180,10 @@ class Stall:
         if scan.lanes is None:
             return k.log("판정 불가", team, "%s lifecycle scan %s — 행동 0" % (work, scan.result))
         return not any((scan.lanes.get(lane) or {}).get("reason") == "EXTERNAL_WAIT_WITHIN_DEADLINE" for lane in lanes)
-    def wake(self, team, work, holder, key, idle):
+    def wake(self, team, work, holder, key, idle, fmt=None, slot=""):
         """S2 — Escape 1 → 문구 -l → Enter(따로) → 도달 확인 3회 · 보낸 뒤에는 같은 attempt 깨움 0.
         woke(재배정 시계의 기준) = 도달 확인 뒤에만 · 확인 3회 실패 = unsure(보정1 R1 · 재배정 0 · 판정 불가 보고만)."""
-        k, t, text = self.k, ["-t", pane_target(holder)], WAKE % (work, idle // 60)
+        k, t, text = self.k, ["-t", pane_target(holder)], fmt % (work, idle) if fmt else WAKE % (work, idle // 60)   # r1921 오류 턴 = slot err_
         rc, pane, _ = k.call([k.tmux, "capture-pane", "-p"] + t)   # r1895 — trust 창의 Escape = 거절 → 키 0
         if rc == 0 and TRUST in pane:
             return self.stop(team, work, key.rsplit("@", 1)[1], "trust", "%s %s trust 창 — 키 0" % (work, holder))
@@ -174,10 +193,10 @@ class Stall:
                 return k.log("판정 불가", team, "%s %s 깨움 %s rc %s — 다음 단계 0" % (work, holder, argv[-1][:8], rc))
         for _ in range(3):
             rc, pane, _ = k.call([k.tmux, "capture-pane", "-p"] + t)
-            if rc == 0 and ("[깨움] ft2 keeper" in pane or BUSY.search(pane[-2000:])):
-                k.state.setdefault("woke", {})[key] = k.now()
-                return k.log("WOKE", team, "%s %s" % (work, holder))
-        k.state.setdefault("unsure", {})[key] = k.now()
+            if rc == 0 and (text[:12] in pane or BUSY.search(pane[-2000:])):   # r1931 문구 머리 12자(깨움·판정 공통)
+                k.state.setdefault(slot + "woke", {})[key] = k.now()
+                return k.log("WOKE", team, "%s %s%s" % (work, holder, {"err_": " 오류 턴", "hold_": " 판정 HOLD"}.get(slot, "")))
+        k.state.setdefault("unsure", {})[key] = k.now()   # 보정1 R2 — 성공 시계만 slot 분리
         return k.log("판정 불가", team, "%s %s 깨움 도달 확인 3회 실패" % (work, holder))
     def stop(self, team, work, attempt, step, text):
         self.k.log("HELD-STALL", team, text)
@@ -195,7 +214,7 @@ class Stall:
             return self.stop(team, work, attempt, "pre", "%s %s 재배정 0 — %s" % (work, holder, p))
         rc, pane, _ = k.call([k.tmux, "capture-pane", "-p", "-t", pane_target(holder)])
         if rc != 0 or BUSY.search(pane[-2000:]):
-            return k.log("HELD", team, "%s %s 재배정 직전 Working·capture rc %s — 다음 바퀴" % (work, holder, rc))
+            return k.log("WORKING", team, "%s %s 재배정 직전 Working·capture rc %s — 다음 바퀴" % (work, holder, rc))
         if k.held_attached(team, work, holder):
             return
         k.call([k.tmux, "kill-session", "-t", "=" + holder])

@@ -51,10 +51,10 @@ mkstub mbox   'echo "mbox $1 tail=${FT_DOORBELL_TAIL:-none}" >> "$LOG"; echo "RI
 : > "$FAKE/mbox_doorbell.sh"
 mkstub reach  'echo reach >> "$LOG"; exit "${REACH_RC:-0}"'
 . "$HERE/lib/fake_resource_env.sh"; fake_resource_env "$TMP/sensors" ok; SENSORS="$TMP/sensors/fake-sensors"; RES="$FT_RES_ROOT"
-printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n본문 나머지\n' > "$BODY"; cp "$BODY" "$TMP/body.before"
+printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n본문 나머지\n열린 칸 감시: 없음\n' > "$BODY"; cp "$BODY" "$TMP/body.before"
 mkdir -p "$REPO/.fable-team" "$TMP/live-root"; printf '%s\n' "$TMP/live-root" > "$REPO/.fable-team/LIVE_ROOT"
-M_OLD='byz-t-harness-master-claude#1'; M_NEW='byz-t-harness-master-claude#2'
-A_OLD='byz-t-harness-arch-claude#1';   A_NEW='byz-t-harness-arch-claude#2'
+M_OLD='byz-t-master-claude#1'; M_NEW='byz-t-master-claude#2'
+A_OLD='byz-t-arch-claude#1';   A_NEW='byz-t-arch-claude#2'
 # run <구 좌석> <후계> [환경…] — MODEL_ARG: 없음 = --model 생략 · CARRY_ARG: 없음 = --carry 생략(빈 값 "" = --carry "")
 run() {
   local old="$1" new="$2"; shift 2

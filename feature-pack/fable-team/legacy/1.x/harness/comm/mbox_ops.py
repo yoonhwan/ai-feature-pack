@@ -3,7 +3,7 @@ from mbox_conf import *
 from mbox_store import _check_name, _clip, _legacy_dirs, _load, _locked, _mbox, _next_seq, _prune_bodies, _save, _stash_body
 from mbox_guard import _guard_log, _guard_record, _guard_verdict, _log_sent, _reply_exempt
 import mbox_keep   # r912 — 넘칠 때 버리는 순서(시스템 → 일반 · 사람 글 보존)
-import mbox_drops  # r1651 — 버린 seq 를 받는 좌석의 다음 recv 에 1줄(유실 표시)
+import mbox_drops, mbox_compact  # r1651 — 버린 seq 를 받는 좌석의 다음 recv 에 1줄(유실 표시) · r1661 받는 이 검사·중복 접기·큐 정리(보관 이동)
 import mbox_roots  # r1309 — 다른 루트 받는이 = 우편 다리(roots.tsv)
 from mbox_lineage import claim, eligible, retired_to, thread_batch, wait_line
 import mbox_handover   # r1116 ③ 영수(받은 쪽지마다 1줄) — 승계 마무리 검사(close-check)의 재료
@@ -12,7 +12,7 @@ CANON = None   # mbox.py 가 묶는다
 
 
 def send(to, frm, body, force=False, desk_attach=""):
-    _check_name(to); _check_name(frm)
+    _check_name(to); _check_name(frm); mbox_compact.check_to(to)   # r1661 ⓐ 옵션 낱말·명부에서 안 풀리는 이름 = REJECT rc2 · 큐 쓰기 0
     # ★r1309 다리(기획 3184 §3-4)★ — 받는이가 «내 루트 명부» 에 없고 roots.tsv 의 다른 현역 루트 명부에 있으면 그 루트 큐로 1줄.
     #   roots.tsv 없음 = None(지금 경로 그대로) · 어느 명부에도 없음 = «받는이 판정 불가» rc≠0(조용한 자기 큐 쓰기 0).
     bridged = mbox_roots.bridge(to, frm, body)
@@ -34,8 +34,8 @@ def send(to, frm, body, force=False, desk_attach=""):
             verdict = None if force else _guard_verdict(to, frm, body, exempt)
         except Exception:
             exempt, verdict = [], None
-        if verdict:
-            return ("__BLOCKED__", verdict)   # 잠금 안에서 exit 금지 — 락 파일을 쥔 채 죽는다.
+        if verdict or (dup := mbox_compact.fold(CANON, rows, to, frm, body)):   # r1661 ⓒ 가드 통과 뒤 같은 본문 = 그 행 dup+1
+            return ("__BLOCKED__", verdict) if verdict else ("__DUP__", dup)   # 잠금 안에서 exit 금지 — 락 파일을 쥔 채 죽는다.
         seq = _next_seq(rows)
         row = {"seq": seq, "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
                "to": to, "from": frm, "body": body}
@@ -71,7 +71,7 @@ def send(to, frm, body, force=False, desk_attach=""):
         except Exception:
             pass
         return seq, sum(1 for r in keep if role_key(r["to"]) == role_key(to)), dropped, oldest, overflow, seqs
-    res = _locked(CANON, op)
+    if (res := _locked(CANON, op))[0] == "__DUP__": return print(res[1])   # r1661 ⓒ QUEUED-DUP · 새 행·로그·청소 0
     if res[0] == "__BLOCKED__":
         reason, hint = res[1]
         # ★마지막 줄에 이유를 «다시» 싣는다★ (2026-09-04 실측)
@@ -91,9 +91,9 @@ def send(to, frm, body, force=False, desk_attach=""):
           f"file={_mbox(CANON)} bytes={len(body.encode('utf-8'))}")
     if dropped:
         sys.stderr.write(
-            "DROPPED %d to=%s (ring=%d 포화 · 시스템 알림 먼저 · 사람 글 보존) — 이 좌석이 %d건을 안 읽고 쌓아뒀다.\n"
+            "DROPPED %d to=%s (ring=%d 포화 · 시스템 알림 먼저 · 사람 글 보존) — 이 좌석이 %d건을 안 읽고 쌓아뒀다.%s\n"
             "버려진 %d건은 «영구 유실»이다. 좌석 상태를 보고, 급하면 pane 으로 직접 보낸다.\n"
-            % (dropped, to, MAX_PER_TO, pend, dropped))
+            % (dropped, to, MAX_PER_TO, pend, mbox_drops.drop_seq_tail(seqs), dropped))
         mbox_drops.log_drop(CANON, to, dropped, oldest, seqs)   # r1651 — 버린 seq 전부를 원장에
     if overflow:
         # ★사람 글은 안 버린다★ — 상한을 넘긴 채로 두고 «그 사실»을 알린다(조용한 초과 0 · r912).
@@ -102,7 +102,7 @@ def send(to, frm, body, force=False, desk_attach=""):
             % (to, pend, MAX_PER_TO))
     # ★청소는 «QUEUED 를 찍은 뒤», «잠금 밖»에서★ — 이 호출이 실패하거나 느려도 메시지는 이미 큐에 들어갔고
     #   발신자는 이미 결과를 받았다. relay 는 send 를 타므로 여기 한 곳이면 두 경로가 모두 덮인다.
-    _prune_bodies(CANON)
+    _prune_bodies(CANON); mbox_compact.sweep(CANON)   # r1661 ⓑ 같은 1시간 억제 · 잠금 밖
     if self_drop:
         raise SystemExit(5)   # r1820 B2 — 지금 송신 버림 = rc 5
     mbox_roots.home_receipt(to, frm, body, seq)   # r1416 B6 — FT_MBOX_BRIDGED=1 직접 송신 = 보낸 이 루트 기록에 영수(다리 부모가 쓴 건 0)
@@ -161,6 +161,9 @@ def recv(me, frm=None, limit=None):
     if succ:   # ★현역만 recv(r1116)★ — 은퇴한 세션은 «나 앞 [레디]» 만(핸드셰이크 회신) · 역할 우편함은 후계 몫
         sys.stderr.write("WARN 현역 아님 %s → 현역 %s — 역할 우편함은 현역만 읽는다([레디] 만 받음)\n" % (me, succ))
         names, only = [me], lambda r: r.get("to") == me and r.get("body", "").lstrip().startswith("[레디]")
+    heads = tuple(h for h in os.environ.get("MBOX_ONLY_HEADS", "").split("|") if h)   # r1966 — mbox.sh recv --only distill · 머리만 · claim 잠금 안 거르기
+    if heads:
+        only = (lambda r, b=only: (b is None or b(r)) and r.get("body", "").lstrip().startswith(heads))
     # ★선택과 소비는 «같은 잠금 1회»★ — 표시한 것만 소비하고 상한 밖은 큐에 남긴다(전량 소비하면 나머지가 조용히 사라진다).
     left = []   # r1842 — recv 1회 = Slack thread 1개 묶음 또는 일반 묶음 · 나머지 = 큐(PENDING-AFTER 가 셈)
     got, held = claim(dirs, names, frm, limit, me=me, on_take=lambda rows: mbox_handover.record(me, rows), only=only, pick=lambda g: thread_batch(g, left))
@@ -184,7 +187,12 @@ def recv(me, frm=None, limit=None):
         print(wait_line(left))
 
 
-def peek(me):
+def peek(me, rows=False):
+    """pending=N …1줄 · rows=True(=`peek --rows`)면 미읽음마다 JSON 1줄(seq·ts·to·from·body)을 더 찍는다.
+
+    줄의 집합 = 아래 pending 을 세는 그 목록 그대로다(계보 옛 이름·옛 우편함 포함 · 옛 이름 선택 규칙을 새로 만들지 않는다).
+    읽기만 한다 — mark·recv·큐 쓰기 0. keeper 의 쉼 판정(카드 ft2-done-seat-short-idle A4)이 이 줄을 읽는다.
+    """
     _check_name(me)
     dirs = [CANON] + _legacy_dirs()
     names, joined = _lineage(me)
@@ -197,4 +205,8 @@ def peek(me):
     if mine:
         head += f" latest_seq={mine[0]['seq']} from={mine[0]['from']}"
     print(f"{head} scanned={len(dirs)} lineage={joined}")
+    if rows:
+        for r in sorted(mine, key=lambda r: r["seq"]):
+            print(json.dumps({"seq": r["seq"], "ts": r.get("ts"), "to": r.get("to"), "from": r.get("from"),
+                              "body": r.get("body", "")}, ensure_ascii=False))
 

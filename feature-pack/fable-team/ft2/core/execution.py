@@ -8,6 +8,7 @@ writer.lock 을 «비차단» 으로 잡는다 — 점유 중이면 BUSY(팀별 
 """
 import collections
 import importlib.util
+import json
 import os
 import time
 
@@ -22,6 +23,7 @@ def _load(name, alias):
 
 
 record, intake = _load("record", "ft2_core_record"), _load("intake", "ft2_core_intake")
+roster = _load("roster", "ft2_core_roster")   # L11 명부 찾기 한 함수 — 코어 현역 master 판독도 같은 규칙 · 코어는 명부 경로를 여기서 조립하지 않는다
 OK, HOLD, STALE, BUSY = "접수 성공", "완료 유보", "낡은 실행권", "BUSY"
 CORRUPT, REFUSED, RECOVERED = "복구 필요", "접수 거부", "회수 결과"
 Grant = collections.namedtuple(
@@ -39,7 +41,7 @@ class Execution:
     CLIENT = intake.Intake
 
     def __init__(self, root, team, clock=None, on_step=None):
-        self.team = team
+        self.team, self.root = team, root
         self.clock = clock or (lambda: time.strftime("%Y-%m-%dT%H:%M:%S"))
         self.on_step = on_step or (lambda step: None)
         self.rs = self.CLIENT(root, team, on_step=self.on_step)
@@ -98,6 +100,45 @@ class Execution:
         if not record.is_contract_result(word):
             return Grant(REFUSED, work, gen, holder, reason="계약 밖 결과 낱말: %r" % (word,))
         return self._step(work, holder, gen, "result", "", drop=True)
+
+    def confirm(self, work, holder, gen, word, evidence):
+        """r1980 — 미확정 표식을 증거로 푼다. 손 = 현역 master(FT_SEAT = 명부 _master) · 표식의 gen·holder 일치만."""
+        seat, ev = os.environ.get("FT_SEAT", ""), evidence if isinstance(evidence, str) else ""
+        if not record.is_contract_result(word) or not ev.strip() or "\n" in ev or seat != self._master():
+            return Grant(REFUSED, work, gen, holder, reason="낱말·근거 1줄·현역 master 손 중 하나 밖 = 쓰기 0")
+        try:
+            lock = self.rs._try_lock()
+            if lock is None:
+                return Grant(BUSY, work, gen, holder, reason="writer.lock 점유 = 기다리지 않는다")
+            try:
+                state, records = self._state_records()
+                mark = self._field(state, "uncertain").get(work) or {}
+                if not mark or (mark.get("gen"), mark.get("holder")) != (gen, holder):
+                    return Grant(REFUSED, work, gen, holder, state["revision"], False, "result",
+                                 reason="표식 없음 또는 표식의 gen·holder 와 다름 = 쓰기 0")
+                rec = record.build(self.team, self._seq(records), work, "%s#g%d" % (holder, gen), self.clock(),
+                                   ev, work, kind="result", holder=holder, gen=gen,
+                                   extra={"word": word, "evidence": ev, "confirmed_by": seat})
+                rev = self._write(state, records, rec, {
+                    "owners": {k: v for k, v in self._field(state, "owners").items() if k != work},
+                    "uncertain": {k: v for k, v in self._field(state, "uncertain").items() if k != work}})
+                return Grant(OK, work, gen, holder, rev, True, "result")
+            finally:
+                self.rs._unlock(lock)
+        except intake.CorruptStateError as exc:
+            return Grant(getattr(exc, "word", CORRUPT), work, gen, holder, written=getattr(exc, "written", False), reason=str(exc))
+
+    def _master(self):
+        """현역 master = 명부 찾기 한 함수(core/roster.py `roster_path`)가 준 파일의 `_master` · 못 읽음·명부 없음 = None(거절)."""
+        path = roster.roster_path(self.root, self.team)
+        if not path:
+            return None
+        try:
+            with open(path, encoding="utf-8") as fh:
+                master = json.load(fh).get("_master")
+        except (OSError, ValueError, AttributeError):
+            return None
+        return master if isinstance(master, str) and master else None
 
     def mark_uncertain(self, work, holder, gen, reason, confirm_by=None):
         """무응답·crash 를 «완료 유보» 로 보존한다(확인 시한 기록 · 재실행 0)."""

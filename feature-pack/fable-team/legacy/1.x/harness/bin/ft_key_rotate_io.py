@@ -8,6 +8,12 @@ import time
 
 from ft_key_rotate_lines import swap_line
 
+try:  # r2043 백업 종류별 상한 = 같은 폴더 lib · 키 교체 묶음만 따로 복사된 자리(lib 없음)는 정리 0(키 교체 동작 불변)
+    from ft_roster_lib import bak_cap
+except ImportError:
+    def bak_cap(path, kind, cap=None):
+        return []
+
 ZSH, ENV = "zshrc", "env"
 STAMP = "%Y%m%d-%H%M%S"
 
@@ -119,6 +125,8 @@ def apply_edits(key, edits, make_backup):
                 else "모든 파일을 원문(바이트·권한)으로 되돌림",
             )
         )
+    for p in bks:
+        bak_cap(p, "keyrotate-" + key)   # r2043 성공 뒤에만 오래된 백업 정리(최근 상한개 · 이번 백업 포함)
     return list(bks.values())
 
 

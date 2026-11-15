@@ -97,13 +97,15 @@ heir_of() {
 #   rc 3 = heir 행이 이미 은퇴(_replaced_by) — 명부 쓰기 0(R27). _master 는 «_master == dead» 일 때만 같은 dump 안에서 heir 로.
 retarget_seat() {
   # r1675 — 그 명부가 2.0 전환 팀이면 한 줄 교체 전에 멈춘다(arch #3917 누락 ②) · rc3 = 쓰기 0
-  if [ -f "$HERE/ft20-switch-lib.sh" ]; then . "$HERE/ft20-switch-lib.sh"; ft20_guard_roster "$(ft20_root_of "${ROOT:-${WT:-.}}" 2>/dev/null)" "$SEATS" || return $?; else _ft20_r="${FT_FT20_ROOT:-${ROOT:-${WT:-.}}}"; compgen -G "$_ft20_r/.fable-team/state/ft20-switch/*.json" >/dev/null 2>&1 && { echo "REJECT 2.0 전환 표식이 있는데 ft20-switch-lib.sh 없음(설치 누락) — 1.x 쓰기 0(판정 불가)" >&2; return 3; }; fi
-  python3 - "$SEATS" "$1" "${1%#*}#$2" <<'PY'
+  if [ -f "$HERE/ft20-switch-lib.sh" ]; then . "$HERE/ft20-switch-lib.sh"; _ft20_root="$(ft20_root_of "${ROOT:-${WT:-.}}")" || return $?; ft20_guard_roster "$_ft20_root" "$SEATS" || return $?; else _ft20_r="${FT_FT20_ROOT:-${ROOT:-${WT:-.}}}"; compgen -G "$_ft20_r/.fable-team/state/ft20-switch/*.json" >/dev/null 2>&1 && { echo "REJECT 2.0 전환 표식이 있는데 ft20-switch-lib.sh 없음(설치 누락) — 1.x 쓰기 0(판정 불가)" >&2; return 3; }; fi
+  python3 - "$SEATS" "$1" "${1%#*}#$2" "${HERE:-}" <<'PY'
 import json, sys, datetime, shutil
 p, dead, heir = sys.argv[1:4]
 d = json.load(open(p, encoding="utf-8"))
 if d.get(heir, {}).get("_replaced_by"): sys.exit(3)
 shutil.copy(p, p + ".bak-retarget-" + datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
+try: sys.path.insert(0, sys.argv[4]); __import__("ft_roster_lib").bak_cap(p, "retarget")   # r2043 종류별 상한 · lib 못 찾음 = 경고 1줄(본 작업 rc 불변 · A4)
+except ImportError as e: print(f"WARN 백업 상한 정리 못 함({e}) · 본 작업 영향 0", file=sys.stderr)
 src = d[dead]; tick = src.get("tick"); role = src.get("role")
 src["tick"] = None; src["_replaced_by"] = heir; src["role"] = "stop-ready"
 dst = d.setdefault(heir, {"agent": src.get("agent", "claude"), "model": src.get("model")})

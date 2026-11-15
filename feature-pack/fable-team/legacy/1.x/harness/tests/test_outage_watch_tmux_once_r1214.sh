@@ -75,7 +75,7 @@ PY
 runtick() {
   local n="$1" seats="$2" on="$3" live="$4" tfail="${5:-0}"
   mkdir -p "$T/$n/state"; : > "$T/$n/tmux.log"; : > "$T/$n/ss.log"; : > "$T/$n/outage.log"
-  cp "$TICK" "$T/repo/.fable-team/bin/ft-tick.$n.sh"
+  cp "$TICK" "$T/repo/.fable-team/bin/ft-tick.$n.sh"; cp "$BIN/ft-tick-acct-lib.sh" "$T/repo/.fable-team/bin/"   # r2001: ft-tick 이 source 하는 lib
   ( cd "$T/repo" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_OBJECT_DIRECTORY \
       FT_TICK_SEATS="$seats" FT_TICK_MBOX="$FB/mbox.sh" FT_TICK_SEAT_STATUS="$T/seatstatus-stub.sh" \
       FT_TICK_API_OUTAGE="$on" FT_TICK_API_OUTAGE_BIN="$T/outage-stub.py" FT_TICK_API_OUTAGE_STATE="$T/$n/outage-state.json" \

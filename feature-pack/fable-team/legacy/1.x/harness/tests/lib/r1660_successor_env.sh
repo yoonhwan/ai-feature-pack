@@ -13,7 +13,7 @@ mkdir -p "$REPO/.fable-team/state" "$REPO/design" "$FAKE"; git -C "$REPO" init -
 printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| t | `design/t/` | h | 현역 |\n' > "$REPO/design/TEAMS.md"
 printf '2026-10-21T00:00:00\toff\tinstall\tinit\n' > "$REPO/.fable-team/state/all-stop.log"
 printf '{"_master":"byz-t-master-claude#1","_arch":"byz-t-arch-claude#1"}\n' > "$REPO/.fable-team/seats-t.json"
-STATE="$REPO/.fable-team/state/successor"; SENT="$STATE"; OLD="byz-t-old-codex#1"; NEW="byz-t-old-codex#2"
+STATE="$REPO/.fable-team/state/successor"; SENT="$STATE"; OLD="byz-t-nano-old-x#1"; NEW="byz-t-nano-old-x#2"   # r1468: 꼬리 = 에이전트 낱말 아님(agent 3종을 한 이름으로 돈다 · 꼬리 검사 밖)
 mkstub() { printf '#!/usr/bin/env bash\n%s\n' "$2" > "$FAKE/$1"; chmod +x "$FAKE/$1"; }
 clk() { cat "$CLK" 2>/dev/null || /bin/date +%s; }
 mkstub tmux 'case "$1" in
@@ -50,7 +50,7 @@ mkstub sleep 'n=$(cat "$CLK" 2>/dev/null || /bin/date +%s); echo $(( n + ${1%%.*
 SENSORS="$TMP/sensors/fake-sensors"; RES="$FT_RES_ROOT"
 # 문지기 대역이 export 한 FT_RES_ROOT = 도구가 보는 하네스 데이터 루트 → arch 게이트(ft_teamset arch-live)도 이 루트의 명단을 본다
 mkdir -p "$RES/design" && cp "$REPO/design/TEAMS.md" "$RES/design/TEAMS.md" && cp "$REPO/.fable-team/seats-t.json" "$RES/.fable-team/seats-t.json"
-printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n본문\n' > "$BODY"
+printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n본문\n열린 칸 감시: 없음\n' > "$BODY"
 cd_proj() { printf '%s' "$REPO" | LC_ALL=C sed 's|[^A-Za-z0-9]|-|g'; }
 cd_pi() { printf '%s' "$REPO" | sed -e 's|^[/\\]||' -e 's|[/\\:]|-|g'; }
 world() {   # world [claude|pi] — 후계 시작 기록 상태 · 로그·카운터·시계 초기화

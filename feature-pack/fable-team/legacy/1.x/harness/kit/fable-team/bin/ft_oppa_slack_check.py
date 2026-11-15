@@ -24,6 +24,9 @@ CHAN_TS = re.compile(r"(?:(C[A-Z0-9]{8,12}):)?([0-9]+\.[0-9]{6})")
 # r1606 · 답글 «내용» 판정 — 답글을 토막으로 나눈 뒤 토막 전부가 승인 낱말일 때만 승인(«승인 안 함»·«네? 왜요» 는 승인 0). 오빠 확인 대상 — 바꾸려면 PR.
 APPROVE_WORDS = frozenset(("네", "예", "승인", "확정", "네 확정", "네, 확정", "진행", "ok", "ㅇㅋ", "go"))
 REJECT_WORDS = frozenset(("아니오", "아니요", "아니", "거절", "반려", "보류", "중지", "멈춰", "no", "stop"))
+# r1950 · 또는 첫 조각 첫 토막 ∈ {네,예,승인} ∧ 덧말 ≤3토막 ∧ 덧말이 거절·부정 어간으로 시작 0 ∧ «?» 0 → 승인(«네 넓혀요») · 판단 못 하면 승인 0. 오빠 확인 대상 — 바꾸려면 PR.
+FIRST_OK = frozenset(("네", "예", "승인"))
+TAIL_NO = ("아니", "안", "않", "말", "마", "못", "하지", "보류", "취소", "중지", "멈", "그만", "거절", "반려", "철회", "금지", "잠깐", "나중", "불가", "no", "stop", "cancel", "hold")
 
 
 HEX40 = re.compile(r"(?<![0-9a-fA-F])[0-9a-fA-F]{40}(?![0-9a-fA-F])")
@@ -37,6 +40,11 @@ def first_chunk_words(m: dict) -> list:
         if ws:
             return ws
     return []
+
+
+def first_word_tail_ok(fc: list) -> bool:
+    tail = fc[1:]
+    return bool(fc) and fc[0] in FIRST_OK and len(tail) <= 3 and not any("?" in w or "？" in w for w in fc) and not any(s.startswith(TAIL_NO) for w in tail for s in re.split(r"\W+", w))
 
 
 def reply_words(m: dict) -> list:
@@ -139,7 +147,7 @@ def judge(ts: str, shas: list, after: str | None = None, stop: list | None = Non
         no = [t for t, ws, _ in said if REJECT_WORDS.intersection(ws)]  # r1606 · 거절은 «본문 전체» 토막 검사 그대로(«예\n근데 보류» = 거절)
         if no:
             raise ValueError("오빠 거절 답글 reply=%s" % no[0])
-        yes = [t for t, _, fc in said if fc and all(w in APPROVE_WORDS for w in fc)]  # r1696 ⓑ · «첫 조각» 의 토막이 전부 승인 낱말이면 승인
+        yes = [t for t, _, fc in said if fc and all(w in APPROVE_WORDS for w in fc)] or [t for t, _, fc in said if first_word_tail_ok(fc)]  # r1696 ⓑ · r1950 · «첫 조각» 의 토막이 전부 승인 낱말이면 승인
         if not yes:  # r1606 · 오타·모르는 토막 = 승인 0 (BYZ #8243 «tmddls»)
             raise Unjudgeable("답글 내용 승인 낱말 아님")
         out.append("SLACK-OK %s parent=%s reply=%s" % (sha, ts, yes[0]))

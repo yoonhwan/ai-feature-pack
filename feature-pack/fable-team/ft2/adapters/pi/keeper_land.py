@@ -13,6 +13,10 @@ _SPEC = importlib.util.spec_from_file_location("ft2_keeper_land_cli", os.path.jo
 cli = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(cli)
 PROJ = cli._load("projection")   # r1893 최신 dispatch attempt · launch intent 경로
+endings = importlib.util.module_from_spec(importlib.util.spec_from_file_location("ft2_keeper_land_endings", os.path.join(os.path.dirname(os.path.abspath(__file__)), "keeper_endings.py")))
+endings.__spec__.loader.exec_module(endings)   # r1960 착지 줄 없음 → work 결속 PR 근거
+followup = importlib.util.module_from_spec(importlib.util.spec_from_file_location("ft2_keeper_land_followup", os.path.join(os.path.dirname(os.path.abspath(__file__)), "followup.py")))
+followup.__spec__.loader.exec_module(followup)   # r2000 complete 직전 «남은 범위» 관문
 OK = "접수 성공"
 
 REFS = ("origin/ops/main-base", "origin/main")       # BYZ 카드·착지 ref (B1r 순서)
@@ -20,6 +24,7 @@ STAGES = ("진행", "대기", "완성")
 LAND = re.compile(r"^- 착지: ([0-9a-f]{40})(?=\s|$)", re.M)   # r1817 D2 — 40hex 뒤 공백(괄호 꼬리)·줄 끝만 · 짧은·41자·앞 글자 = 없음
 CARDMAP = os.path.join(".fable-team", "teams", "%s", "runtime", "cards.tsv")   # r1819 F2 짝 표 · 팀장 append · keeper 읽기만
 MAPPED = re.compile(r"^(design/.+)/indices/(?:진행|대기|완성)/([^/]+\.md)$")
+BODYPATH = re.compile(r"design/[^\s()`'\"<>·,]+\.md")   # r2055 발주 본문 속 카드 경로 토큰(MAPPED 로 다시 거름)
 
 
 def team_row(md, team):
@@ -56,18 +61,21 @@ class Landing:
         return self.cache[team]
 
     def _cards(self, team):
-        out = []
+        out, seen = [], 0
         for ref in REFS:
             rc, md, _ = self.git(self.root, "show", ref + ":design/TEAMS.md")
-            row = team_row(md, team) if rc == 0 else None
-            if row is None:
+            if rc != 0:
                 return "판정 불가 · %s:design/TEAMS.md rc %s 팀 행 없음" % (ref, rc)
+            row = team_row(md, team)
+            if row is None:   # r2029 팀 행 없는 ref = 건너뜀 · 두 ref 모두 없음 = 아래 판정 불가
+                continue
+            seen += 1
             for folder in folders(row[1]):
                 rc, names, _ = self.git(self.root, "ls-tree", "-r", "--name-only", ref, "--", folder + "/indices")
                 if rc != 0:
                     return "판정 불가 · ls-tree %s rc %s" % (ref, rc)
                 out += [(ref, path) for path in staged(folder, names)]
-        return out
+        return out if seen else "판정 불가 · %s:design/TEAMS.md rc 0 팀 행 없음" % " · ".join(REFS)
 
     def cardmap(self, team):
         """r1819 F2·F4 짝 표 {work: [경로…]} · 없음 = {} · 판독 실패 = 판정 불가 문자열 · 탭 없는 줄 = 무시 + 경고 1줄 · 팀마다 1회."""
@@ -87,7 +95,35 @@ class Landing:
             self.cache[("map", team)] = rows
         return self.cache[("map", team)]
 
-    def mapped_cards(self, team, path):
+    def body_cards(self, team, work):
+        """r2055 resolve_card 3단계 — 짝 표·팀 폴더 후보 0 일 때만 · 최신 accept 본문의 …/indices/<단계>/<work>.md 경로 1개 → 같은 규칙(mapped_cards) · 읽기만."""
+        runtime, nocard = PROJ.runtime_path(self.root, team), "판정 불가 · 카드 후보 0 · "
+        recs = PROJ.journal.Journal(runtime, rec=PROJ.record).records()
+        rel = ([r.get("body") for r in recs if r.get("kind") == "accept" and r.get("work") == work] or [None])[-1]
+        try:
+            with open(os.path.join(runtime, rel), encoding="utf-8") as fh:
+                text = fh.read()
+        except (TypeError, OSError, ValueError):
+            text = ""
+        paths = sorted({p for p in BODYPATH.findall(text) if MAPPED.match(p) and os.path.basename(p) == work + ".md" and ".." not in p.split("/")})
+        if len(paths) != 1:
+            return nocard + ("본문 경로 충돌 " + " ".join(paths) if paths else "본문 경로 없음")
+        return self.mapped_cards(team, paths[0], nocard + "본문 카드 없음 ")
+
+    def resolve_card(self, team, work):
+        """r2055 카드 찾기 한 함수 = 짝 표(r1819) → 팀 폴더+쌍둥이 → 발주 본문 카드 경로 · (카드 목록, 짝 표 경로 or None) · 판정 불가 = (문자열, None)."""
+        cards = self.cardmap(team)
+        mapped = cards.get(work) if isinstance(cards, dict) else None
+        if mapped:   # F2 짝 표 먼저
+            return ("판정 불가 · 짝 표 같은 work %d줄" % len(mapped) if len(mapped) > 1 else self.mapped_cards(team, mapped[0])), mapped
+        cards = self.cards(team) if isinstance(cards, dict) else cards
+        if isinstance(cards, str):
+            return cards, None
+        names = {os.path.basename(path) for _, path in cards}
+        fallback = work + ".md" not in names and not any(n.startswith(work + "-") and n.endswith(".md") for n in names)
+        return (self.body_cards(team, work) if fallback else cards), None   # 후보 있으면 본문 읽기 0
+
+    def mapped_cards(self, team, path, miss="판정 불가 · 짝 표 카드 없음 "):
         """짝 표 경로 → 두 ref × 단계(진행·대기·완성)의 같은 이름 카드 · 팀 폴더 밖 허용."""
         m, out = MAPPED.match(path), []
         for ref in REFS if m else ():
@@ -95,18 +131,13 @@ class Landing:
             if rc != 0:
                 return "판정 불가 · ls-tree %s rc %s" % (ref, rc)
             out += [(ref, p) for p in staged(m.group(1), names) if os.path.basename(p) == m.group(2)]
-        return out or "판정 불가 · 짝 표 카드 없음 " + path
+        return out or miss + path
 
     def landing(self, team, work):
         """(sha, ref, 사유) — 후보 0·충돌 = 판정 불가 · 착지 줄 없음 · 어느 ref 에도 조상 아님 = 미도달."""
-        cards, hits = self.cardmap(team), {}
-        mapped = cards.get(work) if isinstance(cards, dict) else None
+        (cards, mapped), hits, bodies = self.resolve_card(team, work), {}, {}   # r2055 짝 표 → 팀 폴더 → 발주 본문
         name = os.path.basename(mapped[0]) if mapped else work + ".md"
         own = name == work + ".md" or name.startswith(work + "-")   # F3 자기 카드 · 그 밖 = 부모(행 수 무관 «착지(<work>)» 줄)
-        if mapped:   # F2 짝 표 먼저
-            cards = "판정 불가 · 짝 표 같은 work %d줄" % len(mapped) if len(mapped) > 1 else self.mapped_cards(team, mapped[0])
-        elif isinstance(cards, dict):
-            cards = self.cards(team)
         if isinstance(cards, str):
             return None, None, cards
         names = {os.path.basename(path) for _, path in cards}
@@ -119,27 +150,29 @@ class Landing:
             rc, body, _ = self.git(self.root, "show", "%s:%s" % (ref, path))
             if rc != 0:
                 return None, None, "판정 불가 · git show %s rc %s" % (path, rc)
-            hits[(ref, path)] = (land.findall(body) or [None])[-1]
+            hits[(ref, path)], bodies[(ref, path)] = (land.findall(body) or [None])[-1], body
         shas = sorted({sha for sha in hits.values() if sha})
         if not hits:
             return None, None, "판정 불가 · 카드 후보 0"
         if len(shas) > 1:
             return None, None, "판정 불가 · 착지 줄 충돌 " + " ".join(shas)
+        pick = next(key for key, sha in hits.items() if sha == (shas or [None])[0])   # r2000 ⓑ 착지 sha 를 준 첫 카드(ref 순서 그대로) = 남은 범위 본문
+        self.cache.setdefault("@round", {})[("card", team, work)] = pick + (bodies[pick],)
         if not shas:
-            return None, None, "착지 줄 없음" if own else "판정 불가 · 조각 착지 줄 없음"
+            return endings.pr_landed(self, team, work) if own else (None, None, "판정 불가 · 조각 착지 줄 없음")
         sha = shas[0]
         for repo, ref in ((self.pack, "origin/main"), (self.root, REFS[0]), (self.root, REFS[1])):
-            if self.git(repo, "merge-base", "--is-ancestor", sha, ref)[0] == 0:
+            if repo not in self.stale and self.git(repo, "merge-base", "--is-ancestor", sha, ref)[0] == 0:   # r1963 낡은 리포 ref = 조상으로도 «조상 아님» 으로도 안 셈
                 old = self.pre_attempt(team, work, repo, sha)
                 return (None, None, old) if old else (sha, ("pack:" if repo == self.pack else "byz:") + ref, "")
-        return sha, None, "미도달"
+        return (None, None, "판정 불가 · 팩 fetch 실패") if self.stale else (sha, None, "미도달")   # 낡음이 있으면 미도달 알림 0
 
-    def pre_attempt(self, team, work, repo, sha):
+    def pre_attempt(self, team, work, repo, sha, intent=None):
         """r1893 — 최신 dispatch attempt intent base_sha 대조 · rc0 = 옛 줄 · rc1 = 조상 아님(진행) · 그 밖 = 판정 불가 · intent·base_sha 없음 = ""."""
         runtime = PROJ.runtime_path(self.root, team)
         recs = PROJ.journal.Journal(runtime, rec=PROJ.record).records()
-        att = ([r.get("attempt") for r in recs if r.get("kind") == "dispatch" and r.get("work") == work] or [None])[-1]
-        intent = self.read_json(os.path.join(runtime, "launch", "%s@%s.intent" % (work, att))) if att else {}
+        att, who = ([(r.get("attempt"), r.get("holder")) for r in recs if r.get("kind") == "dispatch" and r.get("work") == work] or [(None, None)])[-1]
+        intent = intent or (self.read_json(os.path.join(runtime, "launch", "%s@%s.intent" % (work, att))) or endings.intent(self, team, work, att, who) if att else {})   # r1960 R1 — close 와 같은 대체 intent
         base = intent.get("base_sha")
         have = self.git(repo, "cat-file", "-e", base)[0] if base else 0   # r1910 rc1 = 명시적 missing(다른 repo) · 그 밖 = git 실패
         if have == 1:
@@ -169,12 +202,15 @@ class Landing:
         if why == "미도달":
             body = "[크리티컬] 착지 줄 sha 미도달 %s %s %s" % (team, work, sha)
             self.notify(team, "unreached|%s|%s|%s" % (team, work, sha), body)
-        if why:
-            return self.log("HELD", team, "%s %s" % (work, why))
+        if why:   # r2055 HELD 폐지 — 착지 밖 판정(PARKED·WORKING·UNKNOWN)은 settle 이 낸다
+            return None
+        card = followup.gate(self, team, work, attempt)   # r2000 — cli complete 직전만 · 거절·판정 불가 = complete 0
+        if card is None:
+            return None
         argv = ["complete", "--root", self.root, "--team", team, "--work", work, "--attempt", attempt]
         out, _rc = cli.run(argv)
         self.fa.journal(self.root, team, out, work)   # r1886 ⓓ 쓰기 거절·성공 둘 다
         if not self.done(team, work):
             return self.log("판정 불가", team, "%s complete 뒤 done 확인 못 함(%s) — B2 0" % (work, out.get("result")))
-        self.log("COMPLETED", team, "%s 착지 %s ref %s" % (work, sha, ref))
+        self.log("COMPLETED", team, "%s 착지 %s ref %s 카드 %s" % (work, sha, ref, card))
         return True

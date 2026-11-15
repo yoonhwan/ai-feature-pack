@@ -184,6 +184,13 @@ inbox_ingest() {
 inbox_must_ring() { case "$INBOX_CLS" in ①|②|③|④|미상) return 0;; *) return 1;; esac; }
 
 # ★doorbell 대상 = 그 역할의 현역 세션(r1116 R7)★ — 우편함 키가 역할이라 옛 번호·역할 이름으로 보내도 현역 pane 을 깨운다. 해석 실패 = 받은 이름 그대로.
+# ★r2060 손 [인계] 판정★ — 첫 비어 있지 않은 줄 머리 [인계] ∧ 기계 꼴 아님 ∧ 받는 이 = 후계 → rc 3(큐 0 · doorbell 0 · handover 안내 1줄) · 판정 자리 = guard_check 앞 · --force·--urgent 우회 0
+#   판정기 = 같은 폴더 mbox_handover_hand.py 하나 · 그 밖 rc(우편함 못 찾음 등) = 지금처럼 다음 단계로(send 의 rc 를 여기서 바꾸지 않는다)
+hand_gate() {  # <to> <from> <body>
+  case "$3" in *"[인계]"*) ;; *) return 0;; esac
+  local e rc=0; e="$(printf '%s' "$3" | python3 "$DIR/mbox_handover_hand.py" check "$2" "$1" 2>&1 >/dev/null)" || rc=$?
+  [ "$rc" = 3 ] || return 0; printf '%s\n' "$e" >&2; return 3
+}
 holder_of() { local h; h="$(python3 "$MBOXPY" holder "$1" 2>/dev/null)" && [ -n "$h" ] && _check_name "$h" 2>/dev/null && echo "$h" || echo "$1"; }
 
 cmd="${1:-}"; shift || true
@@ -200,6 +207,7 @@ case "$cmd" in
         *)           args+=("$a") ;;
       esac
     done
+    hand_gate "$to" "$from" "${args[*]}" || exit $?   # r2060 A1 손 [인계] → 후계 = REJECT(가드 앞)
     guard_check "$to" "${args[*]}" "$from" || exit $?   # rc 3 = REJECT(큐 적재 0) · 후계 전달·[합치기] 치환은 GUARD_TO·GUARD_BODY
     to="$GUARD_TO"; args=("$GUARD_BODY"); dbto="$(holder_of "$to")"
     case "${args[*]}" in "[레디]"*) dbto="$to";; esac   # [레디] = 은퇴한 옛 세션 앞 핸드셰이크 회신 — 현역(후계 자신) 말고 그 pane 을 깨운다(r1116 ②)
@@ -263,6 +271,7 @@ case "$cmd" in
         *)           args+=("$a") ;;
       esac
     done
+    hand_gate "$to" "$from" "${args[*]}" || exit $?   # r2060 A1 relay 요약 머리 같은 판정
     guard_check "$to" "${args[*]}" "$from" "$file" || { _rc=$?; guard_tmp_clean; exit $_rc; }
     to="$GUARD_TO"; args=("$GUARD_BODY"); dbto="$(holder_of "$to")"
     [ -z "$GUARD_TMP" ] || trap guard_tmp_clean EXIT   # 검사 사본 폴더는 끝에 지운다
@@ -291,11 +300,21 @@ case "$cmd" in
     echo "$py_out doorbell=$db gate=$gate${fu:+ $fu}"
     ;;
   recv)  me="${1:?me}"; shift
+         # r1966 — `--only distill` = 증류·승계 쪽지만 소비(recv 문턱에 걸린 좌석용) · 머리(본문 맨 앞)만 본다 · 나머지는 큐에 그대로(후계가 받음)
+         #   거르기는 mbox_lineage.claim «잠금 안» 에서 한다(출력 뒤 거르기 0) · 통과 종류 목록은 여기 한 곳 · 다른 --only 값 = rc 2
+         _ra=(); _only=""
+         while [ $# -gt 0 ]; do
+           if [ "$1" = --only ]; then
+             [ "${2:-}" = distill ] || { echo "usage: mbox.sh recv <me> [<from>] [--all] [--only distill]" >&2; exit 2; }
+             _only='[승계 발주]|[인계]|[레디]|[증류]|[개설]|[HIL]'; shift 2
+           else _ra+=("$1"); shift; fi
+         done
+         set -- ${_ra[@]+"${_ra[@]}"}
          # ★recv 스탬프 touch — doorbell outstanding 판정의 «소비» 신호★. exec 전에 해야 실행된다.
          : > "${TMPDIR:-/tmp}/mbox-recv-$(printf '%s' "$me" | tr -c 'A-Za-z0-9._#-' '_')" 2>/dev/null || true
          # ★r1476 소비 ACK★ — 읽기 «끝» 에 미읽음 수를 한 번 더 세어 `PENDING-AFTER N` 1줄(실행 중 도착분).
          #   N≥1 = 같은 턴에 다시 recv(좌석 지침 = r1479) · N=0 이면 억제 파일도 지운다(닫는 사건 ⓐ — 남겨 두면 close-check 가 막는다).
-         _rrc=0; python3 "$MBOXPY" recv "$me" "$@" || _rrc=$?
+         _rrc=0; MBOX_ONLY_HEADS="$_only" python3 "$MBOXPY" recv "$me" "$@" || _rrc=$?
          _pn=""
          if _p="$(python3 "$MBOXPY" peek "$me" 2>/dev/null)"; then _pn="$(printf '%s\n' "$_p" | sed -n 's/^pending=\([0-9][0-9]*\).*/\1/p' | head -1)"; fi
          echo "PENDING-AFTER ${_pn:-?}"
@@ -310,7 +329,7 @@ case "$cmd" in
          # ★r1665ⓒ — 넘긴 «뒤에만» 보관 폴더로 옮긴다(송신 실패 = 그대로 두고 close-check 이 계속 막는다)★
          _hf="$(_wg_state)/doorbell-held/$(_wg_key "$old")"
          if [ -f "$_hf" ]; then mkdir -p "$(_wg_state)/doorbell-held/done" 2>/dev/null && mv -f "$_hf" "$(_wg_state)/doorbell-held/done/$(_wg_key "$old")-$(date +%Y%m%dT%H%M%S)" || echo "WARN 억제기록 이동 실패 — $_hf" >&2; fi
-         echo "$out"; s="$(printf '%s\n' "$b" | sed -n 's/^항목://p' | tr ' ' '\n' | sed -n 's/^#\([0-9][0-9]*\)$/\1/p' | paste -sd, -)"   # r1665·r1863 — «항목:» 줄의 #N 만 표시 · 억제분 «#N!» 은 뺀다(본문 문구와 무관)
+         echo "$out"; s="$(printf '%s\n' "$b" | FT_MBOX_STATE_DIR="$(_wg_state)" python3 "$DIR/mbox_handover.py" mark-ids)" || exit $?   # r1665·r1863·r1690 — «항목:» 줄 + 목록 파일의 #N 만 표시 · 억제분 «#N!» 은 뺀다(본문 문구와 무관)
          [ -z "$s" ] || python3 "$MBOXPY" mark "$old" "$s" 인계 ;;
   # ★r1653 단계 2 — [레디] QUEUED 되면 «같은 실행» 에서 옛 좌석을 ft-seat-close 표준 경로로 1회 닫는다(표준승인 · kill-server 아님 · ready rc = send rc)★
   #   ★기본값 = 끔(0)★ — env 는 좌석 셸마다 따로라 설치로 «끈 채» 를 보장할 수 없다(planner #283594 · master #283652).
@@ -324,6 +343,10 @@ case "$cmd" in
            echo "AUTO-CLOSE $old rc=$_crc"; case "$_crc" in 3) echo "다음: master 판단(h)" ;; 0) ;; *) printf '%s\n' "$_co" | head -1 ;; esac
          fi
          exit "$_rc" ;;
+  # ★r2060 — 이미 큐에 들어간 손 [인계] 1통을 묶음에서 뺀다(판정 번호 원장 실재 + 표식 <state>/handover-drop/<구>.json 1줄 · 기계 [인계] 빼기 0)★
+  handover-drop) [ $# = 5 ] && [ "$4" = --verdict ] && [[ "$3" =~ ^[0-9]+$ ]] && [[ "$5" =~ ^[0-9]+$ ]] || { echo "usage: mbox.sh handover-drop <구> <후계> <seq> --verdict <판정 번호>" >&2; exit 2; }
+         _check_name "$1" && _check_name "$2" || exit 1
+         exec python3 "$DIR/mbox_handover_hand.py" drop "$1" "$2" "$3" "$5" ;;
   mark|unmarked|close-check) exec python3 "$MBOXPY" "$cmd" "$@" ;;
   # ring — ★큐를 건드리지 않고 doorbell 만 울린다★ (2026-09-06, 나)
   #   재발주가 이 경로로 온다. 이전엔 재발주가 `send` 재호출이라 ★같은 본문이 큐에 두 번★
@@ -355,5 +378,5 @@ case "$cmd" in
             refund)  wake_budget_refund "$@" ;;
             *) echo "usage: mbox.sh budget reserve|refund <좌석> [<출처>]" >&2; exit 2 ;;
           esac ;;
-  *) echo "usage: mbox.sh {send <to> <from> <body> [--urgent] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all]|peek <me>|ring <sess> [seq] [--reserved] [--auto]|sweep|budget reserve|refund <좌석> [<출처>]|handover <구> <후계>|ready <후계> <구>|mark <me> <seq,…> 처리함·인계|unmarked <me>|close-check <좌석> [--no-ready]}" >&2; exit 2;;
+  *) echo "usage: mbox.sh {send <to> <from> <body> [--urgent] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all] [--only distill]|peek <me>|ring <sess> [seq] [--reserved] [--auto]|sweep|budget reserve|refund <좌석> [<출처>]|handover <구> <후계>|handover-drop <구> <후계> <seq> --verdict <판정 번호>|ready <후계> <구>|mark <me> <seq,…> 처리함·인계|unmarked <me>|close-check <좌석> [--no-ready]}" >&2; exit 2;;
 esac

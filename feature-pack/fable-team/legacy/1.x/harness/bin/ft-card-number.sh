@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ft-card-number.sh next <팀> <slug> | check <r번호> <팀> | lint <카드 파일>   [--repo <dir>] [--no-fetch] [--base <main sha> <ops sha|->]   (r1695 · Issue #8363)
+# ft-card-number.sh next <팀> <slug> | check <r번호> <팀> | lint <카드 파일> | seat <카드 폴더> <명부 json>   [--repo <dir>] [--no-fetch] [--base <main sha> <ops sha|->]   (r1695 · Issue #8363)
 #   카드 번호 발급 단일화 — 이미 쓴 번호 원본 세 곳:
 #     ① BASE 두 sha 트리의 design/**/indices/**/r<번호>-*.md   ② refs/remotes/origin/* 가지 이름의 r<번호>
 #     ③ 발급 원장 <루트>/.fable-team/state/card-number/ledger.tsv(번호 · 팀 · slug · 좌석 · 시각 · 추가 전용 · 잠금)  — FT_CARD_NUMBER_LEDGER 로 바꿀 수 있다
@@ -10,13 +10,15 @@
 #   next 의 ② 는 «트리 최댓값 + BRANCH_GAP(100) 초과» 번호를 뺀다(다른 번호 체계 가지 · 예 docs/knowledge-r3889 · planner#265 결정 #285974) · 경계(= 최댓값+100)는 포함 · 원장·트리 원본은 그대로.
 #   lint <카드 파일> = ft-index-lint.sh 가 부르는 check(--no-fetch 고정 · 팀 = design/teams/<팀>/ 또는 design/<팀>/) — 다른 팀 사용이면
 #           그 카드가 이미 BASE 에 있으면 «WARN 기존 겹침 1» · 없으면 «BAD …» · 카드 자리가 아닌 파일 = 출력 0 · rc 0(판정 불가 = rc 3).
+#   seat <카드 폴더(indices)> <명부 json> = 새 카드의 담당 석(r1657) — 명부 `_master`·`_master-<K>`(빈 값 아님) 석마다 대기·진행 카드(머리 `- 담당 석: <K>` · 없음 = 0) 수 → 적은 석(같으면 작은 K)
+#           «SEAT <K> counts=<K>:<n>,…» rc 0 · 카드에 `- 담당 석: <K>` 1줄로 적고 바꾸지 않는다 · 쓰기 0 · git 0 · 명부·폴더 못 읽음 = 판정 불가 rc 3.
 #   2 = usage · 3 = 판정 불가 <칸> <사유>(git 실패 · 원장 꼴 오류 · 잠금 7초 초과).
 #   쓰기 = 원장 1파일(next 만) · 실 리포·워크트리·가지 쓰기 0.
 set -uo pipefail
 exec python3 - "$@" <<'PY'
-import datetime, fcntl, os, re, signal, subprocess, sys
+import datetime, fcntl, glob, json, os, re, signal, subprocess, sys
 
-USAGE = "usage: ft-card-number.sh next <팀> <slug> | check <r번호> <팀> | lint <카드 파일>  [--repo <dir>] [--no-fetch] [--base <main sha> <ops sha|->]"
+USAGE = "usage: ft-card-number.sh next <팀> <slug> | check <r번호> <팀> | lint <카드 파일> | seat <카드 폴더> <명부 json>  [--repo <dir>] [--no-fetch] [--base <main sha> <ops sha|->]"
 CARD_RX = re.compile(r'^design/(?:.*/)?indices/(?:.*/)?r(\d+)-[^/]*\.md$')
 BR_RX = re.compile(r'(?:^|[/_-])r(\d+)(?=[-_/.]|$)')
 BRANCH_GAP = 100   # next 전용: 트리 최댓값 + 이 값 초과인 가지 번호는 최댓값 계산에서 뺀다
@@ -36,8 +38,22 @@ def die(cell, why):
 def usage():
     print(USAGE, file=sys.stderr); sys.exit(2)
 
+def seat(cdir, sj):   # r1657 담당 석 정하기 — 쪽지 길(comm/mbox_seat.py)과 같은 칸 꼴
+    try: dd = json.load(open(sj, encoding='utf-8')); os.listdir(cdir)   # 폴더 못 읽음 = 판정 불가(빈 목록으로 0 을 만들지 않는다)
+    except (OSError, ValueError) as e: die('seat', type(e).__name__)
+    ks = sorted({int(m.group(1) or 0) for c, v in (dd.items() if isinstance(dd, dict) else []) for m in [re.fullmatch(r'_master(?:-([1-9][0-9]*))?', c)] if m and isinstance(v, str) and v} | {0})
+    n = dict.fromkeys(ks, 0)
+    for st in ('대기', '진행'):
+        for f in glob.glob(os.path.join(cdir, st, '*.md')):
+            try: m = re.search(r'^- 담당 석:[ \t]*(0|[1-9][0-9]*)[ \t]*$', open(f, encoding='utf-8').read().split('\n## ', 1)[0], re.M)
+            except (OSError, ValueError) as e: die('seat', '%s %s' % (type(e).__name__, f))
+            k = int(m.group(1)) if m else 0
+            if k in n: n[k] += 1
+    print('SEAT %d counts=%s' % (min(ks, key=lambda k: (n[k], k)), ','.join('%d:%d' % (k, n[k]) for k in ks))); sys.exit(0)
+
 def args():
     a = sys.argv[1:]; o = {'repo': os.getcwd(), 'fetch': True, 'base': None}; pos = []
+    if len(a) == 3 and a[0] == 'seat': seat(a[1], a[2])
     while a:
         x = a.pop(0)
         if x == '--no-fetch': o['fetch'] = False

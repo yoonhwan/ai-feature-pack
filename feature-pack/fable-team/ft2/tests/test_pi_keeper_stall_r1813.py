@@ -70,7 +70,7 @@ class World:
         _put(s.root / ".fable-team" / "seats-harness.json", {"_master": "M-harness"})
         _put(s.root / ".fable-team" / "state" / "directive-roots.tsv", "harness\t.\torigin/main\tdesign/*/indices\n")   # r1895 첫 본문 카드 루트
         s.env = dict(os.environ, FT_TMUX=str(b / "tmux"), FAKE_TMUX=str(s.tm), FAKE_PS=str(s.ps), FT2_KEEPER_PS=str(b / "ps"),
-                     PATH=str(b) + os.pathsep + os.environ["PATH"], FT2_PI_SESSIONS=str(s.sess), FT2_KEEPER_MBOX=str(s.mbox),
+                     PATH=str(b) + os.pathsep + os.environ["PATH"], FT2_PI_SESSIONS=str(s.sess), FT2_TMUXC=str(b / "tmuxc-none"), FT2_KEEPER_MBOX=str(s.mbox),
                      FAKE_RUNTIME=str(s.runtime()), FT2_PACK_REPO=str(tmp / "없음"))
         mp.setenv("FAKE_RUNTIME", str(s.runtime()))
         s.repo.mkdir(parents=True)
@@ -98,7 +98,7 @@ class World:
         _git(s.repo, "worktree", "add", "-q", "--detach", str(tree), s.c1)
         s.c2 = (_git(tree, "commit", "-q", "--allow-empty", "-m", "c2", at=T0 + commit), _git(tree, "rev-parse", "HEAD"))[1]
         if intent:
-            _put(s.runtime() / "launch" / ("%s@a1.intent" % W), {"FT2_HOLDER": holder, "state": state, "worktree": str(tree)})
+            _put(s.runtime() / "launch" / ("%s@a1.intent" % W), {"FT2_HOLDER": holder, "state": state, "worktree": str(tree), "at": "2026-01-01T00:00:00"})   # r2055 A13 jsonl 나이 = intent 시각 뒤 세션 파일
         s.session(tree, mtime, turn)
         d = json.loads(s.tm.read_text(encoding="utf-8"))
         d["alive"].append(holder)
@@ -238,17 +238,19 @@ def r3b(w):  # R3-b 옛 intent 열림 아님 / worktree 미커밋 변경 / argv 
         if sub == "r":   # r1840 K3 — 역할만 못 정함 = 판정 불가 1줄 · 크리티컬 0
             assert v.notes() == [] and sum("역할 못 정함" in x for x in v.k.lines) == 1, v.k.lines
             continue
-        assert len(v.notes()) == 1 and field in v.notes()[0], (sub, v.notes())
+        crit = [x for x in v.notes() if "[긴급] UNKNOWN" not in x]   # r2055 settle UNKNOWN [긴급] 은 셈 밖
+        assert len(crit) == 1 and field in crit[0], (sub, v.notes())
 
 
-def r1b(w):  # 보정1 R1(DA#10 #294192) — 깨움 문구 도달 확인 3회 실패 → woke 기록 0 · 11분 뒤 kill·dispatch·launch 0 · 판정 불가 보고만
+def r1b(w):  # 보정1 R1(DA#10 #294192) — 깨움 문구 도달 확인 3회 실패 → woke 기록 0 · 11분 뒤 kill·dispatch·launch 0
+    # [r1960 의도 변경 · DA APPROVE-DESIGN #301612 ④] 옛 단언 «재깨움 0(send-keys 3)» → after_s 뒤 재깨움 1회(send-keys 6) · 재배정 0 은 그대로
     w.seat()
     _put(w.tm, dict(json.loads(w.tm.read_text(encoding="utf-8")), noecho=True))
     assert any("깨움 도달 확인 3회 실패" in x for x in w.round()) and not any(x.startswith("WOKE") for x in w.k.lines)
     assert w.k.state["woke"] == {} and len(w.tmux("send-keys")) == 3
     lines = w.round(11 * M)
     assert w.tmux("kill-session") == [] and w.kinds("dispatch") == 1 and w.tmux("new-session") == []
-    assert any("판정 불가" in x and "깨움 도달 미확인" in x for x in lines) and len(w.tmux("send-keys")) == 3
+    assert any("판정 불가" in x and "깨움 도달 확인 3회 실패" in x for x in lines) and len(w.tmux("send-keys")) == 6   # r1960 의도 변경
 
 
 def c5(w):   # ⑤ 같은 work 두 번째 멈춤(attempt a2) → S3 0 · 쪽지 1 · 같은 날 다시 → 쪽지 0
@@ -257,13 +259,14 @@ def c5(w):   # ⑤ 같은 work 두 번째 멈춤(attempt a2) → S3 0 · 쪽지 
     assert ("WOKE harness %s %s" % (W, H1)) in w.round(27 * M)
     w.round(38 * M), w.round(39 * M)
     assert len(w.tmux("kill-session")) == 1 and w.kinds("dispatch") == 2
-    assert len(w.notes()) == 1 and "같은 일 두 번 멈춤" in w.notes()[0]
+    crit = [x for x in w.notes() if "[긴급] UNKNOWN" not in x]   # r2055 UNKNOWN [긴급](새 좌석 세션 파일 0 = session-none)은 셈 밖
+    assert len(crit) == 1 and "같은 일 두 번 멈춤" in crit[0], w.notes()
 
 
 def c6(w):   # ⑥ intent 없는 master 좌석 IDLE 60분 → 행동 0 · 멈춤 갈래 줄 0
     w.seat(holder="byz-harness-master-x#0", intent=False, step=-60 * M, commit=-60 * M, mtime=-60 * M)
     lines = w.round()
-    assert w.tmux("send-keys") == [] and w.tmux("kill-session") == [] and not [x for x in lines if "master-x" in x]
+    assert w.tmux("send-keys") == [] and w.tmux("kill-session") == [] and not [x for x in lines if "master-x" in x and not x.startswith(("UNKNOWN ", "NOTIFIED "))]   # r2055 settle 판정(kill 0) 만 예외
 
 
 def c6b(w):  # ⑥′ LOGGEDOUT → 행동 0 · 로그 1줄
@@ -274,7 +277,9 @@ def c6b(w):  # ⑥′ LOGGEDOUT → 행동 0 · 로그 1줄
 def c7(w):   # ⑦ pi 세션 파일 못 찾음 → 판정 불가 1줄 · 행동 0
     w.seat(step=-16 * M)
     shutil.rmtree(w.sess)
-    assert sum("판정 불가" in x and "pi 세션 파일 없음" in x for x in w.round()) == 1 and w.tmux("send-keys") == []
+    lines = w.round()   # r2055 A13 = 같은 좌석 UNKNOWN session-none 1줄 더(정체 판정 불가 줄과 따로 셈)
+    assert sum("판정 불가" in x and "pi 세션 파일 없음" in x for x in lines if not x.startswith("UNKNOWN")) == 1 and w.tmux("send-keys") == []
+    assert [x for x in lines if x.startswith("UNKNOWN") and "session-none" in x], lines
 
 
 CASES = {"①": c1, "②": c2, "②′": c2b, "②″": c2c, "③": c3, "③′": c3b, "④": c4, "R1-a": r1a,

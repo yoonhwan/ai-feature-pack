@@ -107,8 +107,10 @@ shim_body() {  # $1 = 도구 이름
   case "$name" in *.py) shim_body_py "$name"; return;; esac
   # r657: 부른 쪽 셸에 p(특권 모드)가 있으면 «같은 해석기로 -p» 를 붙여 넘긴다.
   #       -p 없이 불렀으면 지금과 같은 맨 bash — 도구 쪽 «-p 아니면 거절» 검사는 그대로(약화 0).
-  local lb='$(sed -n "1p" "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/../LIVE_BIN" 2>/dev/null | tr -d "\r" | sed "s/^[[:space:]]*//; s/[[:space:]]*$//")'   # r1694 r3: shim 본문에 박히는 «명령 치환» 표현(부른 셸 이름 0)
-  local lbp='$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/../LIVE_BIN'
+  # r1570: shim 폴더 = BASH_SOURCE 의 심링크를 끝까지 푼 실제 위치(readlink -f 의존 0 · 하위 셸이라 부른 셸 이름 0 · bash 3.2 는 $( ) 안 case 를 못 읽어 [ ] 로 판별)
+  local dir='$(_s="${BASH_SOURCE[0]:-$0}"; while [ -L "$_s" ]; do _t="$(readlink -- "$_s")"; [ "${_t#/}" = "$_t" ] && _t="$(dirname -- "$_s")/$_t"; _s="$_t"; done; cd -- "$(dirname -- "$_s")" && pwd)'
+  local lb='$(sed -n "1p" "'"$dir"'/../LIVE_BIN" 2>/dev/null | tr -d "\r" | sed "s/^[[:space:]]*//; s/[[:space:]]*$//")'   # r1694 r3: shim 본문에 박히는 «명령 치환» 표현(부른 셸 이름 0)
+  local lbp="$dir/../LIVE_BIN"
   runline="exec $runner \"\$_l/$name\" \"\$@\""
   if [ "$runner" = bash ]; then
     runline="case \"\$-\" in *p*) exec \"\${BASH:-bash}\" -p \"\$_l/$name\" \"\$@\";; esac"$'\n'"$runline"
@@ -122,7 +124,7 @@ if [ "\${BASH_SOURCE[0]:-\$0}" != "\${0:-}" ]; then   # r1694: source 로 불렸
   [ -f "$lb/$name" ] || { echo "ERROR 라이브 도구 없음: $lb/$name"; return 3; }
   . "$lb/$name" "\$@"; return \$?   # lib 는 «부른 셸 최상위» 에서 source(함수 안 0 — lib 최상위 대입·인자 그대로) · 오류는 return 3 이라 셸 생존
 fi
-_h="\$(cd -- "\$(dirname -- "\${BASH_SOURCE[0]:-\$0}")" && pwd)"
+_h="$dir"
 _f="\$_h/../LIVE_BIN"
 _l=""; [ -f "\$_f" ] && _l="\$(sed -n '1p' "\$_f" | tr -d '\\r' | sed 's/^[[:space:]]*//; s/[[:space:]]*\$//')"
 [ -n "\$_l" ] || { echo "ERROR LIVE_BIN 이 없거나 비었다: \$_f"; exit 3; }

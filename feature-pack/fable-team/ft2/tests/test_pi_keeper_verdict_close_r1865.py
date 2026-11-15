@@ -50,8 +50,8 @@ def _closed(w, holder):
 
 
 def _held(w, start, once=False):
-    lines = _mine(w.round())
-    assert len(lines) == 1 and lines[0].startswith("HELD harness %s %s" % (W, start)), lines
+    lines = [x for x in _mine(w.round()) if not x.startswith("NOTIFIED")]   # r2055 UNKNOWN [긴급] 전송 줄(NOTIFIED)은 셈 밖
+    assert len(lines) == 1 and lines[0].startswith(("UNKNOWN harness %s %s" % (W, start), "WORKING harness %s %s" % (W, start))), lines   # r2055 HELD 폐지 → UNKNOWN·WORKING
     assert w.tmux("kill-session") == [] and w.kinds("close_receipt") == 0
     if once:   # 같은 사유 두 바퀴째 새 줄 0
         assert _mine(w.round()) == [] and w.tmux("kill-session") == []
@@ -68,15 +68,16 @@ def c2(w):    # ② 카드 후보 0(r1808c 꼴) + 목록 → 같음
 
 def c3(w):    # ③ Working → HELD · kill 0
     _world(w, pane="⠋ Working...\n")
-    assert "Working" in _held(w, HOLDER)
+    assert _held(w, HOLDER).startswith("WORKING")   # r2055 A13 1차(tmuxc agent · CPU) = pane 글자 안 읽음
 
 
-def c4(w):    # ④ attached 1 → HELD 사람 화면 · kill 0
+def c4(w):    # ④ [의도 변경 r1976] attached 1 → NOTE 1 → kill 1 · CLOSED-VERDICT · 영수 (옛 기대 = HELD 사람 화면 · kill 0)
     _world(w)
     d = json.loads(w.tm.read_text(encoding="utf-8"))
     d["att"] = {HOLDER: 1}
     w.tm.write_text(json.dumps(d), encoding="utf-8")
-    assert "사람 화면 attached=1" in _held(w, HOLDER)
+    assert [x.split()[0] for x in _mine(w.round())] == ["NOTE", "CLOSED-VERDICT", "RECEIPT"]
+    assert w.tmux("kill-session") == [["kill-session", "-t", "=" + HOLDER]] and w.kinds("close_receipt") == 1
 
 
 def _bad(w, line):   # ⑤ 꼴 틀림 → HELD 판정 불가 1회 · kill 0
