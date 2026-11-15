@@ -77,10 +77,17 @@ def c6(tmp, ft2):   # ⑥ .git 파일 깨짐(index_lock 판독 실패) → 지�
     out, rc, it, _ = run(tmp, root, fake, FAKE_HANG=hang, MAIN_LOCK=str(root / ".git" / "index.lock"))
     assert (rc, it["step"], "resumable" in it) == (2, "git checkout", False) and it["cleanup"].startswith("보존"), (out, it)
     assert lock(root).exists() and (root / ".git" / "index.lock").exists(), it
-CASES = {"①": c1, "②": c2, "③": c3, "④": c4, "⑤": c5, "⑥": c6}
+OSERR = '#!/bin/sh\necho "$*" >> "$GLOG"\ncase " $* " in\n  *" sparse-checkout set "*) "$REAL_GIT" "$@"; rc=$?; /bin/rm -f "$0"; exit "$rc";;\nesac\nexec "$REAL_GIT" "$@"\n'
+def c4b(tmp, ft2):  # ④b DA R1(#307346) checkout 실행 실패(OSError · 시간 초과 아님) → resumable 0
+    root, fake = setup(tmp, ft2)
+    (fake / "git").write_text(OSERR, encoding="utf-8")   # sparse 성공 뒤 가짜 git 자신을 치움 = 다음 checkout FileNotFoundError
+    out, rc, it, _ = run(tmp, root, fake, PATH=str(fake))
+    assert (rc, it["step"], "No such file" in it["reason"]) == (2, "git checkout", True), (out, it)
+    assert "resumable" not in it and "이어 열기 가능" not in out["reason"], (out, it)
+CASES = {"①": c1, "②": c2, "③": c3, "④": c4, "④b": c4b, "⑤": c5, "⑥": c6}
 LC, LA = "adapters/pi/launch_cleanup.py", "adapters/pi/launch.py"
 MUTANTS = {"M1": (LC, "        os.unlink(lock)\n    except FileNotFoundError", "        pass\n    except FileNotFoundError", "①"),
-           "M2": (LA, 'rc is None and step == "git checkout"', 'True', "④")}
+           "M2": (LA, 'isinstance(detail, Overtime) and step == "git checkout"', 'True', "④")}
 @pytest.mark.parametrize("name", list(CASES))
 def test_case(name, tmp_path):
     CASES[name](tmp_path, FT2)
