@@ -6,6 +6,7 @@
 - 원인 1줄: git() 이 모든 호출에 7초를 쓰는데 한 번 실행에 14회쯤 부르고 그중 6회가 임시 worktree(등록 455개를 읽고 씀 · checkout) 때문에 있다 · 시간 초과 글에 명령 이름이 없다
 - 앞 카드: r1859(카드 폴더 단계 이동) · r1884(main 기준 팀 카드 이동) · r1889(대기/ 원본도 완성/ 으로) · r1891(팩 6d428738 · 임시 worktree sparse + add 끊김 정리)
 - 상태: 대기
+- 착지: dac731b20bdb11ae18a7cdb19e62a8160404e1bd(팩 main · PR #1279 squash · DA#11 APPROVE-IMPL aifp 5476 · 세트 5d76f70e · 뺄 커밋 0)
 - 설치: 있음 — ft2 판 올림 1회 · 되돌림 = 앞 판으로 판 전환(상태 파일·설정 변화 0)
 - 선행: 없음
 - 시험 입력: 임시 bare 원격 + 임시 clone(tmp_path) · 가짜 git 래퍼(인자 기록 · 사례가 정한 자리에서 멈춤·상한 넘김·tree 섞기) · sleep 0 · 네트워크 0 · 실 리포 쓰기·읽기 0 · 사례 1개 70초 안
@@ -58,12 +59,12 @@ card_stage 는 끝난 카드를 완성/ 폴더로 옮기는 커밋을 만들어 
 - 알려진 한계(DA BYZ 310291): 실제 worktree add 지연 원인과 설치 뒤 성능은 아직 실측하지 않았다 · push 가 실패하면 blob·tree·commit object 가 가지에 안 달린 채 남는다(다음 gc 가 치움 · 지금 방식도 같음)
 
 ## 완료 조건
-1. [ ] 나노: 커밋 1 기준판 FAIL 원문
-2. [ ] 나노: 새 시험 전체 rc0 · 걸린 초
-3. [ ] 나노: 변이 M47 → ㊱나 FAIL · M48 → ㊱라 FAIL · M49 → ㊱마 FAIL · M50 → ㊱가 FAIL · M59 → ㊱차·㊱파 FAIL · M60 → ㊱카 FAIL · M61 → ㊱타 FAIL
-4. [ ] 나노: 회귀 rc0 · 바꾼 r1891 사례 이름
+1. [x] 나노: 커밋 1 기준판 FAIL 원문(㊱나·㊱라·㊱차·㊱타·㊱파 · 나노 aifp 5467 · PR #1279 본문)
+2. [x] 나노: 새 시험 전체 rc0 · 걸린 초(새 시험 단독 14 passed 15.56초 · 회귀 포함 35 passed 33.70초 · aifp 5467)
+3. [x] 나노: 변이 M47 → ㊱나 FAIL · M48 → ㊱라 FAIL · M49 → ㊱마 FAIL · M50 → ㊱가 FAIL · M59 → ㊱차·㊱파 FAIL · M60 → ㊱카 FAIL · M61 → ㊱타 FAIL(7개 모두 기대한 사례만 Red · 복원 뒤 diff 0 · aifp 5467 · DA aifp 5476 재확인)
+4. [x] 나노: 회귀 rc0 · 바꾼 r1891 사례 이름(test_1_big_repo_no_checkout_no_worktree · test_2_read_tree_timeout_keeps_remote_and_worktrees · r1859 test_8_timeout_leaves_no_worktree · test_10_commit_tree_timeout_leaves_remote · aifp 5467)
 5. [x] arch: 인수 칸 원문 확인(aifp-ft-arch-pi#18 · 세트 5d76f70e 읽기 + 새 시험 재실행 14 passed 35.20초 rc=0) — ㊱카 = test_11_same_card_race_is_noop 이 셋을 따로 센다: 원격 `head(w) == done[0]` 와 rev-list 수 같음(원격 추가 A 커밋 0) · `len([a for a in seen if a[0] == "commit-tree"]) == 1`(첫 시도 1개뿐 = NOOP 재시도 commit-tree 0) · `body.count("ft2 card_stage") == 1`(상태 끝 줄 1개) / G8 = card_stage.check 가 `diff-tree -r --no-renames --name-status -z P <커밋>` 을 NUL 로 잘라 `sorted(rows) != sorted([("D", old), ("A", new)])` 로 실제 경로를 대조한다(줄 수만 세지 않음) · 시험 경로가 한글 폴더(`design/harness/indices/진행|완성/r9-x.md`)라 ㊱가 통과가 한글 경로 대조를 지난다 · ㊱타 = test_12 `판정 불가 card_stage 커밋 범위 밖 3줄` · push 0 · 본 것 1줄: «2줄인데 경로가 다른» 음성 사례는 시험에 없다(코드는 정확 대조라 막는다 · 구현 DA 판단에 넘김)
-6. [ ] 팀장: PR 착지 sha · 설치 판
+6. [~] 팀장: PR #1279 squash dac731b2 · 설치 판 = harness#289 대기(BYZ 설치 요청 쪽지)
 7. [ ] 팀장: 설치 뒤 chatbot 팀장이 멈췄던 카드(C-k8) 완성 이동 재집행 출력 1줄 = `STAGED …` 또는 `판정 불가 git <명령> 시간초과 7초` · STAGED 면 BYZ git worktree list 줄 수가 앞뒤로 같다는 1줄
 
 ## 계약↔시험 대응표
@@ -86,3 +87,4 @@ card_stage 는 끝난 카드를 완성/ 폴더로 옮기는 커밋을 만들어 
 - 세트: 5d76f70e7b7bd42bb2ef2df081d4110e42b02081 · 시험: python3.11 -m pytest test_card_stage_no_worktree.py test_card_stage_r1859.py test_card_stage_main_ref_r1884.py test_card_stage_from_waiting_r1889.py test_card_stage_sparse_r1891.py (35 passed in 33.70s · 새 시험 단독 14 passed) rc=0 · 이슈: 0
 - 완료: aifp-ft-nano-ft2-card-stage-no-worktree#0 · 한 일: ft2 card_stage 임시 index 판 구현(임시 worktree 0 · 부모 SHA 고정 · 시간 초과에 하위 명령 이름 · push 거절 = fetch 뒤 재생성 · push 전 자기 검사 · G1~G9) + 새 시험 13칸(㊱가~㊱파) + 변이 7개 Red 확인 + 설계 옮김 · 산출: nano/ft2-card-stage-no-worktree@5d76f70e7b · 병합 상태: 착지 전(push 전) · 남은 일: 없음(나노 몫 0 — 완료 조건 ⑤ = arch · ⑥⑦·설치 h = 팀장)
 - PR #1279 열림 · DA 구현 판정 대기(BYZ 310626)
+- DA 판정: APPROVE-IMPL · byz-harness-da-codex#11 · aifp 5476 · 35 PASS · 변이 M47~M50·M59~M61 Red · 뺄 커밋 0
