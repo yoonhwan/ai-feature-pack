@@ -501,6 +501,24 @@ def live_bin_drift(root):
     return out, idle
 
 
+def local_bin_drift(root):
+    """r2017: ~/.local/bin 의 ft-* 심링크 대상이 «루트 LIVE_BIN 아래» 도 «루트 shim(<root>/.fable-team/bin 의 SHIMMARK 파일)» 도 아니면 DRIFT-LINK 줄.
+    깨진 링크 = «(대상 없음)» · ft-* 아닌 이름·일반 파일 = 검사 밖 · LIVE_BIN·~/.local/bin 없음 = 검사 밖 · 읽기만(링크 수정 0)."""
+    lf, lb = os.path.join(root, ".fable-team", "LIVE_BIN"), os.path.join(os.environ["HOME"], ".local", "bin")
+    if not os.path.isfile(lf) or not os.path.isdir(lb):
+        return []
+    with open(lf, encoding="utf-8") as fh:
+        live = os.path.realpath(fh.readline().strip())
+    sdir, out = os.path.realpath(os.path.join(root, ".fable-team", "bin")), []
+    for name in sorted(n for n in os.listdir(lb) if n.startswith("ft-") and os.path.islink(os.path.join(lb, n))):
+        tgt, real = os.readlink(os.path.join(lb, name)), os.path.realpath(os.path.join(lb, name))
+        if not os.path.exists(real):
+            out.append("DRIFT-LINK %s -> %s (대상 없음)" % (name, tgt))
+        elif not (real.startswith(live + os.sep) or (os.path.dirname(real) == sdir and is_shim(real))):
+            out.append("DRIFT-LINK %s -> %s" % (name, tgt))
+    return out
+
+
 def plist_env(repo, blob, root):
     """r426: 설치기 관리 라벨(ft_plist_env.MANAGED)은 설치본이 템플릿 렌더본(FT_ROOT=프로젝트 루트 · inbox=LIVE_BIN)과 바이트 같아야 한다.
     설치 안 됨 = 검사 밖(NOTLOADED 가 센다) · LIVE_BIN·루트·설치값 없음 = ERROR(조용한 통과 0)."""
@@ -711,6 +729,9 @@ def main():
     pins, idle = live_bin_drift(plist_root(repo, o["project"]))  # r1407: 루트·active 워크트리 LIVE_BIN 포인터 판 ≠ 설치 판
     bad += pins
     hints.update({"live-bin": "그 LIVE_BIN 1줄을 want 판 경로로 고친다(.bak 먼저 · 사람/master · 자동 수정 0)"} if pins else {})
+    links = local_bin_drift(plist_root(repo, o["project"]))  # r2017: ~/.local/bin ft-* 링크가 LIVE_BIN 아래·루트 shim 아님
+    bad += links
+    hints.update({"local-bin": "그 링크를 루트 shim(<루트>/.fable-team/bin/<이름>.sh)으로 다시 건다(설치 h · master · 자동 수정 0)"} if links else {})
     warns = skill_symlink_drift()  # r1240: 라이브 스킬 심링크가 «뒤처진 체크아웃» 을 가리키면 WARN — PENDING 아님(rc 불변)
     warns += ["INFO live-bin inactive=%d (pane cwd 없는 worktree 포인터 판 ≠ 설치 판 · 게이트 밖)" % idle] if idle else []
     hl = []
