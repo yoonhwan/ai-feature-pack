@@ -1,5 +1,6 @@
 """ft2 keeper 선행 줄 쪽지 — 멈춘 팀·팀장 없는 팀에는 가지 않고, 풀리면 전체 목록이 한 번에
-(카드 ft2-prereq-alarm-hold · ㊵가~더 18칸 + 변이 M85~M91).
+(카드 ft2-prereq-alarm-hold · ㊵가~버 18칸 · 변이 M85~M91 은 test_prereq_alarm_hold_mutants.py · ㊵더(앞 카드 호환)는 test_prereq_alarm_hold_compat.py).
+파일을 셋으로 쪼갠 이유 = 시험 파일 하나가 70초를 넘지 않게(DA 312085 요청 · ㊵더 하나가 56초라 따로 둔다).
 
 계약 = `contracts/keeper-settle/CONTRACT.md` §선행불명 로그·쪽지(P1~P8) · 설계 = 카드 «계약»·«반례 표».
 「실제 fill 길」·「실제 닫기 뒤 고르기 길」 칸 = keeper_next.fill · keeper_next.close 를 부르고 prereq_tell 호출 수를 센다
@@ -367,14 +368,28 @@ def c_neo(tmp, mp, mk):  # ㊵너 함수 단위 방어 — 팀장 없음 + NEW_C
     assert mails(w) == [] and lines(w, WAIT) == [] and told(w, PLAN) is None, (mails(w), lines(w, WAIT))
 
 
-def c_deo(tmp, mp, mk):  # ㊵더 세 표식 0 · 팀장 있음 → 앞 카드 시험 파일 전부 rc0(㉟가~거)
-    for i, name in enumerate(list(pu.CASES)):
-        pu.run(name, tmp / ("p%d" % i), mp)
+def c_beo(tmp, mp, mk):  # ㊵버 판 올림 승계(DA 312085 반례) — 옛 판 state(지문은 있고 목록 파일 없음) → 그 바퀴에 1회 생성 · 다음 바퀴 쓰기 0
+    w = mk(tmp, {})
+    team_on(w)
+    for stem, head in zip((P, Q, R, S, T), (PLAIN, OTHER, PLAIN2, PLAIN3, PLAIN4)):
+        put_team(w, PLAN, stem, head)
+    w.t += 60
+    run_round(w)
+    assert len(lines(w, WAIT)) == 1 and len(rows(w, PLAN)) == 6, (lines(w, WAIT), rows(w, PLAN))
+    lpath(w, PLAN).unlink()                     # 옛 판이 남긴 상태 = 지문은 state.json 에 있고 목록 파일은 없다
+    w.t += 60
+    run_round(w)
+    made = rows(w, PLAN)
+    assert len(made) == 6 and made[0].startswith("# 관측 "), made   # 불린 바퀴에 파일이 없으면 1회 만든다
+    assert len(lines(w, WAIT)) == 1 and mails(w) == [], (lines(w, WAIT), mails(w))   # 지문 그대로 = PREREQ-WAIT·쪽지 0줄 더
+    w.t += 60
+    run_round(w)
+    assert rows(w, PLAN) == made, rows(w, PLAN)   # 파일 있고 지문 그대로 = 첫 줄 «관측 시각» 부터 손 0
 
 
 CASES = {"㊵가": c_ga, "㊵나": c_na, "㊵다": c_da, "㊵라": c_la, "㊵마": c_ma, "㊵바": c_ba, "㊵사": c_sa,
          "㊵러": c_reo, "㊵아": c_aa, "㊵자": c_ja, "㊵차": c_cha, "㊵카": c_ka, "㊵타": c_ta, "㊵파": c_pa,
-         "㊵하": c_ha, "㊵거": c_geo, "㊵너": c_neo, "㊵더": c_deo}
+         "㊵하": c_ha, "㊵거": c_geo, "㊵너": c_neo, "㊵버": c_beo}
 MUTANTS = {   # (바꾸는 곳, 고칠 글자, 새 글자, 반드시 FAIL 이어야 하는 사례)
     "M85": (KN, "    return bool(k.halt) or os.path.lexists(",
             "    return os.path.lexists(", ("㊵라", "㊵다")),
@@ -385,7 +400,7 @@ MUTANTS = {   # (바꾸는 곳, 고칠 글자, 새 글자, 반드시 FAIL 이어
     "M88": (KN, "    if not to or stand:   # P5 팀장 없음 = 쪽지 대신 PREREQ-WAIT 1줄(묶음에 쌓지 않는다)",
             "    if not to:", ("㊵차", "㊵파")),
     "M89": (KN, "        if wait.get(team) != fp:", "        if True:", ("㊵차",)),
-    "M90": (KN, "    if not unread:\n        if os.path.lexists(path):\n            os.unlink(path)\n        return",
+    "M90": (KN, "    if not unread:   # 빈 묶음 = 지운다\n        if os.path.lexists(path):\n            os.unlink(path)\n        return",
             "    if not unread:\n        return", ("㊵사",)),
     "M91": (KN, 'prereq_list(k, team, unread, prev.get("fp", "") != fp)',
             'prereq_list(k, team, unread, False)', ("㊵바",)),
@@ -402,14 +417,13 @@ def test_case(name, tmp_path, monkeypatch):
     run(name, tmp_path, monkeypatch)
 
 
-@pytest.mark.parametrize("name", list(MUTANTS))
-def test_mutant(name, tmp_path, monkeypatch):
+def run_mutant(name, tmp, mp):   # 변이 = ft2 사본에서 그 사례가 무너진다(test_prereq_alarm_hold_mutants.py 가 부른다)
     path, old, new, cases = MUTANTS[name]
-    tree = tmp_path / "m" / "ft2"
+    tree = tmp / "m" / "ft2"
     shutil.copytree(kw.FT2, tree, ignore=shutil.ignore_patterns("tests", "__pycache__"))
     text = (tree / path).read_text(encoding="utf-8")
     assert text.count(old) == 1, (name, old)
     (tree / path).write_text(text.replace(old, new), encoding="utf-8")
     for i, case in enumerate(cases):
         with pytest.raises(AssertionError):   # 변이 = 그 사례가 무너진다
-            run(case, tmp_path / ("w%d" % i), monkeypatch, tree)
+            run(case, tmp / ("w%d" % i), mp, tree)
