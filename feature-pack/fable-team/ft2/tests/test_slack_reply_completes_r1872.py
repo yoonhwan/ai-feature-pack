@@ -120,30 +120,35 @@ def test_6_resent_same_reply_already_done_writes_nothing(tmp_path):
     assert publisher._settle(dict(row, state="resent")) == dict(row, state="resent")  # 게시 결과 그대로
     assert (publisher.settled["state"], ledger(M, tmp_path)[2]) == ("완료 0", lines)
 
-def eight(root):  # 남은 일 8 = 상한 8 — thread T 글 1 + 다른 thread 글 7
+def eight(root):  # r2089 — dict 글 1(thread T · 칸 0) + str-work 8(상한 8) = FULL 은 str-work 로만 만든다
     accept(M, root, A)
-    for n in range(7):
-        accept(M, root, "1800000001.00010%d" % n, thread="1800000001.00010%d" % n)
+    for n in range(8):
+        assert M.dispatch.intake.Intake(str(root), TEAM).submit("card-%d" % n, "카드", "W%d" % n).result == "접수 성공"
     return pub(M, root, Band())
 
-def test_7_reply_frees_capacity_for_next_post(tmp_path):
+def test_7_reply_completes_post_but_keeps_str_work_capacity(tmp_path):
+    """r2089 — 답글이 글 영수(A)를 완료해도 용량은 str-work 몫 그대로 · str-work 를 complete 해야 다음 글이 들어간다."""
     publisher, key = eight(tmp_path)
     assert accept(M, tmp_path, "1800000003.000100").result == "용량 부족"
     publisher.reply(key, cmd(A), "답", SEAT, 1)
+    assert ledger(M, tmp_path)[0] == {cmd(A)}
+    assert accept(M, tmp_path, "1800000003.000100").result == "용량 부족"
+    assert M.dispatch.Dispatch(str(tmp_path), TEAM).complete("W0").result == "접수 성공"
     assert accept(M, tmp_path, "1800000003.000100").result == "접수 성공"
 
-def test_8_full_posts_requeued_oldest_first_by_open_room(tmp_path):
-    """⑧ full 3 + 칸 1 → 가장 오래된 1개만 다시 접수 · 나머지 2 그대로 full."""
+def test_8_full_posts_requeued_oldest_first_when_room_opens(tmp_path):
+    """⑧ full 3 + 칸 1(str-work complete) → ts 오래된 순 재접수 · dict 재접수는 칸을 쓰지 않아 3건 모두 들어간다."""
     publisher, key = eight(tmp_path)
     inbox = M.receive.SlackReceive(str(tmp_path), ack=lambda e: 0, team=TEAM, allowed_users={"U1"}, allowed_channels={C})
     fulls = ["1800000002.000300", "1800000002.000100", "1800000002.000200"]
     for ts in fulls:
         assert inbox.handle({"type": "message", "team": W, "channel": C, "ts": ts, "user": "U1",
                              "text": "글"})["state"] == "full"
+    assert M.dispatch.Dispatch(str(tmp_path), TEAM).complete("W0").result == "접수 성공"   # 여유 1칸
     publisher.reply(key, cmd(A), "답", SEAT, 1)
     latest = {c: e["state"] for c, e in inbox.latest().items()}
-    assert [latest[cmd(ts)] for ts in sorted(fulls)] == ["dispatched", "full", "full"]
-    assert publisher.settled["requeued"] == [cmd("1800000002.000100")]
+    assert [latest[cmd(ts)] for ts in sorted(fulls)] == ["dispatched"] * 3
+    assert publisher.settled["requeued"] == [cmd(ts) for ts in sorted(fulls)]
 
 def test_9_resolve_found_completes_once(tmp_path):
     assert s_found(M, tmp_path) == ("uncertain", set(), ("posted", "lookup"), {cmd(B)}, 1)
@@ -179,6 +184,7 @@ def thread_full(root):  # R1 — thread T 의 답글 글 1개가 실제 SlackRou
     router = route.SlackRoute(str(root), receive=inbox, team=TEAM)
     assert router.route({"type": "message", "team": W, "channel": C, "thread_ts": T, "ts": "1800000002.000100",
                          "user": "U1", "text": "thread 답글"})["state"] == "full"
+    assert M.dispatch.Dispatch(str(root), TEAM).complete("W0").result == "접수 성공"  # r2089 여유 1칸 = str-work 1 complete
     return publisher, key, inbox, cmd("1800000002.000100")
 
 def test_r1a_requeued_post_keeps_route_and_completes_in_its_thread(tmp_path):

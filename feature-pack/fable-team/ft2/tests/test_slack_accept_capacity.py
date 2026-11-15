@@ -166,8 +166,8 @@ def c_ba(t):   # ㉖바 알림 값 = capacity 칸 — dict-work 8 = 0/8 알림 0
     assert t.alert() is not None and len(t.sent()) == 1
     assert "8/8" in t.sent()[0][2] and "★크리티컬★" in t.sent()[0][2], t.sent()
     assert t.complete("w0").result == OK
-    assert t.alert() is not None and len(t.sent("풀림")) == 1 and len(t.sent()) == 1
-    assert t.alert() is None and len(t.sent()) == 1                    # 같은 값 다시 = 0통
+    assert t.alert() is not None and len(t.sent("풀림")) == 1 and len(t.sent()) == 2
+    assert t.alert() is None and len(t.sent()) == 2                    # 같은 값 다시 = 0통
 
 
 CASES = {"㉖가": c_ga, "㉖나": c_na, "㉖다": c_da, "㉖라": c_ra, "㉖마": c_ma, "㉖바": c_ba}
@@ -188,8 +188,8 @@ def _mutant(tmp, edits):
 
 REQUEUE_SEAM = ("        state, records = desk.ex._state_records()\n"
                 "        room = desk.rs.capacity - len(dispatch.record.capacity(state, records))\n"
-                "        if full_done or room <= 0:\n"
-                "            continue\n"
+                "        if blocked or room <= 0:\n"
+                "            continue  # 여유 0 = 재접수 0(r1938) · 영수 «용량 부족» = 그 뒤 미요청 글 건너뜀(r2089)\n"
                 "        verdict = inbox._recover(entry[\"command\"], entry=entry)\n"
                 "        if verdict.get(\"state\") == receive.DISPATCHED:\n"
                 "            out = out + [entry[\"command\"]]")
@@ -200,9 +200,9 @@ MUTANTS = {
                                  "units = {works[cmd] if isinstance(works[cmd], str) else \"cmd:\" + cmd\n"
                                  "             for cmd in works}")])], [c_ga, c_na, c_ma]),
     "M8": ([("adapters/slack/reply_done.py", [
-        ("out, full_done = [], False",
-         "out, full_done = [], False\n    room = desk.rs.capacity - len(dispatch.record.capacity(*desk.ex._state_records()))"),
-        (REQUEUE_SEAM, "        if full_done or room <= 0:\n"
+        ("out, blocked = [], False",
+         "out, blocked = [], False\n    room = desk.rs.capacity - len(dispatch.record.capacity(*desk.ex._state_records()))"),
+        (REQUEUE_SEAM, "        if blocked or room <= 0:\n"
                        "            continue\n"
                        "        room -= 1\n"
                        "        verdict = inbox._recover(entry[\"command\"], entry=entry)\n"
@@ -224,5 +224,5 @@ def test_mutant(name, tmp_path):
     mutated = _mutant(tmp_path, edits)
     for index, case in enumerate(cases):
         with pytest.raises(AssertionError):
-            case(World(tmp_path / "m%d" % index, mutated))
-        case(World(tmp_path / "b%d" % index, M))   # 같은 사례가 원판에서는 통과
+            case(World(tmp_path / ("m%d" % index), mutated))
+        case(World(tmp_path / ("b%d" % index), M))   # 같은 사례가 원판에서는 통과
