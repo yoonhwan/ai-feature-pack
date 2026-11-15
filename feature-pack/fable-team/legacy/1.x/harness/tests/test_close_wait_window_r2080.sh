@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_close_wait_window_r2080.sh — r2080 B1~B4: 승계 창 안 «후계 [레디] 없음» = WAIT rc 4(close-check) → ft-seat-close WAIT rc 4 · [크리티컬] 0.
-#   반례 ⑥~⑨ (카드 r2080-succession-tick-field-close-alarm-window) + 변이 M5~M7(사본 · 같은 사례 원본 1회 대조) + bin↔kit cmp.
+#   반례 ⑥~⑩ (카드 r2080-succession-tick-field-close-alarm-window) + 변이 M5~M10(사본 · 같은 사례 원본 1회 대조) + bin↔kit cmp.
 #   격리: 정본 comm 사본 + 임시 명부·우편함 + tmux·reap 스텁 + 가짜 [크리티컬] mbox(FT_MBOX) · 실 명부·실 큐·실 tmux 0 · sleep 0.
 #   시계 = FT_NOW(= [인계] ts + 초) · R2080_COMM·R2080_BIN = 시험할 comm·bin(기준판 = 팩 origin/main 사본 → ⑥ ⑦ Red) · 인자 = 사례 이름.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
@@ -118,6 +118,143 @@ c8() {   # ⑧ 누락 0 — WAIT 뒤 창 지남 = [크리티컬] 1통 / WAIT 뒤
     FT_SEAT_CLOSE_BIN="$b/ft-seat-close.sh" OLD="$O" NEW="$N" ARG="$E/.fable-team/seats-zz.json" xenv bash -c "$line" 2>/dev/null)"; RC=$?
   [ "$RC" = 0 ] && [[ "$OUT" == *"WAIT $O [인계] #$HS"* ]] && [ "$(ncrit)" = 0 ] || { echo "  ⓒ retire 끝 rc=$RC $OUT"; return 1; }
 }
+cat > "$T/c10.py" <<'PY'
+import json, os, shutil, subprocess, sys, time
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+from _stall_world import World, counts
+BIN, SRC, TMP, LINT, CSTUB = Path(sys.argv[2]), Path(sys.argv[3]), Path(sys.argv[4]), sys.argv[5], Path(sys.argv[6])
+O, N = "byz-t1-arch-pi#1", "byz-t1-arch-pi#2"   # 팀 글자 t1 = seats-t1.json(mbox_teamfile)
+
+
+def world(name):
+    w = World(TMP / name)
+    c = w.root / ".fable-team/comm"
+    for f in [*SRC.glob("mbox*.py"), *SRC.glob("mbox*.sh"), SRC / "bang_command_check.py"]:
+        shutil.copy(f, c / f.name)
+    (c / "mailbox.jsonl").touch()
+    row(w, {"role": "arch", "agent": "pi"})
+    pp = w.root / ".fable-team/seats-planner.json"
+    dp = json.loads(pp.read_text()); dp["_desk"] = "desk#9"; pp.write_text(json.dumps(dp))
+    (w.root / ".fable-team/seats.json").write_text("{}")
+    w.live += [O, N]; w._tmux()
+    for s in ("planner#1", "t1-master#1", "t1-nano#0", O, N):
+        w.state(s, "WORKING", 0.1)
+    w.env.update(FT_SEATS_JSON=str(w.root / ".fable-team/seats.json"), FT_MBOX_STATE_DIR=str(w.root / ".fable-team/state"), FT_MBOX_RATE_N="999",
+                 FT_MBOX_FANOUT_WINDOW="0", FT_NAME_LINT=LINT, FT_MBOX_PY=str(c / "mbox.py"), FT_STALL_PENALTY_AUTO="0")
+    return w
+
+
+def row(w, o):
+    p = w.root / ".fable-team/seats-t1.json"
+    d = json.loads(p.read_text()); d[O] = o; d[N] = {"role": "arch", "agent": "pi", "_replaces": [O]}
+    p.write_text(json.dumps(d))
+
+
+def mbox(w, *a):
+    r = subprocess.run(["bash", str(w.root / ".fable-team/comm/mbox.sh"), *a], env=w.env, cwd=w.root, capture_output=True, text=True, timeout=20)
+    return r.stdout + r.stderr
+
+
+def setup(name, o=None):
+    w = world(name)
+    with open(w.root / ".fable-team/comm/mailbox.jsonl", "a") as f:
+        f.write(json.dumps({"seq": 1, "ts": "2026-11-11T00:00:00", "to": O, "from": "slack-oppa", "body": "[HIL] q1"}) + "\n")
+    mbox(w, "recv", O)
+    out = mbox(w, "handover", O, N)
+    hs = int(next(l for l in out.splitlines() if l.startswith("QUEUED seq=")).split()[1][4:])
+    row(w, o or {"role": "stop-ready", "agent": "pi", "_replaced_by": N})
+    mbox(w, "recv", N)
+    r = next(json.loads(l) for l in open(w.root / ".fable-team/comm/mailbox.log.jsonl") if json.loads(l).get("seq") == hs)
+    return w, hs, time.mktime(time.strptime(r["ts"][:19], "%Y-%m-%dT%H:%M:%S"))
+
+
+def scan(w, at):
+    w.set_now(at)
+    r = subprocess.run(["bash", str(BIN / "ft-stall-scan.sh")], env=w.env, capture_output=True, text=True, timeout=60)
+    assert r.returncode == 0, r.stderr[-400:]
+    return r
+
+
+def crit(w):
+    return [l for l in w.mbox_log() if "[크리티컬]" in l]
+
+
+def close(w, at):
+    ts = w.root / "ts"; ts.mkdir(exist_ok=True); (ts / "alive").write_text(f"{O}\n{N}\nbyz-t1-arch-pi#3\n"); (ts / "crit.log").touch()
+    env = {**w.env, "FT_NOW": str(at), "PATH": f"{CSTUB}{os.pathsep}{w.env['PATH']}", "TS": str(ts), "FT_MBOX": str(CSTUB / "mbox.sh"),
+           "FT_SEAT_REAP_BIN": str(CSTUB / "reap.sh"), "ZC_RESUME_DIR": str(w.root / "resume")}
+    r = subprocess.run(["bash", str(BIN / "ft-seat-close.sh"), O, "--reason", f"retire -> {N}", "--seats", str(w.root / ".fable-team/seats-t1.json")],
+                       env=env, cwd=w.root, capture_output=True, text=True, timeout=30)
+    return r.returncode, r.stdout
+
+
+def c10a():  # 60 → 0 · w=0 / 601 → [크리티컬] 1 · w 줄 · w=1 / 1200 → 합 1
+    w, hs, t0 = setup("a")
+    c = close(w, t0 + 60)
+    assert c[0] == 4, c
+    r = scan(w, t0 + 60)
+    assert counts(r.stdout)["w"] == "0" and not crit(w), (r.stdout, w.mbox_log())
+    u0 = int(counts(r.stdout)["u"])
+    r = scan(w, t0 + 601)
+    sent = (w.root / ".fable-team/state/critical-sent.jsonl").read_text().splitlines()
+    assert counts(r.stdout)["w"] == "1" and f"w {O} {N} #{hs}" in r.stdout.splitlines() and len(crit(w)) == 1 and len(sent) == 1, (r.stdout, w.mbox_log())
+    assert O in crit(w)[0] and f"#{hs}" in crit(w)[0], crit(w)
+    scan(w, t0 + 1200)
+    assert len(crit(w)) == 1, w.mbox_log()
+    return u0
+
+
+def c10b():  # [레디] 뒤 → 0 · w=0 · 그 뒤 닫기 CLOSED-SESSION rc 0
+    w, hs, t0 = setup("b")
+    assert close(w, t0 + 60)[0] == 4
+    mbox(w, "ready", N, O)
+    r = scan(w, t0 + 700)
+    assert counts(r.stdout)["w"] == "0" and not crit(w), (r.stdout, w.mbox_log())
+    rc, out = close(w, t0 + 700)
+    assert rc == 0 and f"CLOSED-SESSION {O} " in out, (rc, out)
+
+
+def c10c():  # 세션 없음 / nano / _closed → 0
+    for name, o, live in (("nolive", None, False), ("nano", {"role": "nano", "agent": "pi", "_replaced_by": N}, True),
+                          ("closed", {"role": "stop-ready", "agent": "pi", "_replaced_by": N, "_closed": {"at": "x"}}, True)):
+        w, hs, t0 = setup(name, o)
+        if not live:
+            w.live.remove(O); w._tmux()
+        r = scan(w, t0 + 601)
+        assert counts(r.stdout)["w"] == "0" and not crit(w), (name, r.stdout, w.mbox_log())
+
+
+def c10d(u0):  # close-check 스텁 rc 2 · 빈 출력 → 0 · u +1 · 노트 / 미표시 쪽지 REJECT → 0
+    for name, body in (("rc2", "exit 2"), ("empty", "exit 0")):
+        w, hs, t0 = setup(name)
+        stub = w.root / "cc.py"; stub.write_text(f"import sys\nsys.{body.replace(' ', '(')})\n")
+        w.env["FT_MBOX_PY"] = str(stub)
+        r = scan(w, t0 + 601)
+        assert not crit(w) and int(counts(r.stdout)["u"]) == u0 + 1 and "승계 감시 판정 불가" in r.stdout, (name, u0, r.stdout)
+
+
+def c10u():  # 창 뒤 REJECT 사유 = 미표시 쪽지 → 0
+    w, hs, t0 = setup("unmarked")
+    with open(w.root / f".fable-team/comm/receipts/{O}.jsonl", "a") as f:
+        f.write(json.dumps({"seq": 77, "from": "slack-oppa", "ts": "2026-11-11T00:00:01", "body": "[HIL] q2", "body_full": ""}) + "\n")
+    r = scan(w, t0 + 601)
+    assert counts(r.stdout)["w"] == "0" and not crit(w), (r.stdout, w.mbox_log())
+
+
+want = sys.argv[7:] or ["a", "b", "c", "d", "u"]
+u0 = c10a() if "a" in want or "d" in want else 0
+for k in ("b", "c", "u"):
+    if k in want:
+        globals()["c10" + k]()
+if "d" in want:
+    c10d(u0)
+PY
+c10() {   # c10 [bin] [갈래 a|b|c|d|u …] — ⑩ 승계 감시(B5) · 닫기는 60초 1회(WAIT) · 그 뒤 stall-scan 만 · [인계] ts 기준 시계
+  local b="${1:-$BIN}"; shift || true
+  python3 "$T/c10.py" "$HERE/scripts" "$b" "$SRC" "$(mktemp -d "$T/w10.XXXXXX")" "$REPO/harness/bin/ft-name-lint.sh" "$T/cstub" "$@" 2>&1 | tail -4 | sed 's/^/  /'
+  return "${PIPESTATUS[0]}"
+}
 nine() {   # nine <comm 원본> <갈래> → "rc|첫 줄" (60초 · 창 안)
   setup "$1" >/dev/null || { echo "setup 실패"; return; }
   case "$2" in
@@ -145,7 +282,7 @@ c9() {   # ⑨ 창 안(60초) 미표시 / 형식 불명 / «받음» 없는 항�
 s0=$SECONDS
 run() { local c="$1"; shift; if "$c" "$@"; then ok "사례 $c"; else bad "사례 $c"; fi; }
 if [ $# -gt 0 ]; then for c in "$@"; do run "$c"; done; echo "FAIL=$fail"; [ "$fail" = 0 ]; exit $?; fi
-for c in c6 c7 c8 c9; do run "$c"; done
+for c in c6 c7 c8 c9 c10; do run "$c"; done
 echo "단계 사례 $((SECONDS-s0))초"; s0=$SECONDS
 [ -z "${R2080_COMM:-}${R2080_BIN:-}" ] || { echo "FAIL=$fail"; [ "$fail" = 0 ]; exit $?; }
 
@@ -158,14 +295,17 @@ s = open(p, encoding="utf-8").read()
 assert s.count(a) == 1, s.count(a)
 open(p, "w", encoding="utf-8").write(s.replace(a, b))
 PY
-  if [ "$2" = "$MC" ]; then ( SRC="$MC"; "$6" ) >/dev/null 2>&1; else "$6" "$MB" >/dev/null 2>&1; fi; [ $? -ne 0 ] && ok "변이 $1 → $6 FAIL" || bad "변이 $1 → $6 살아남음"
-  "$6" >/dev/null 2>&1 && ok "변이 $1 대조 원본 $6 PASS" || bad "변이 $1 대조 원본 $6 FAIL"
+  if [ "$2" = "$MC" ]; then ( SRC="$MC"; "$6" ) >/dev/null 2>&1; else "$6" "$MB" ${7:-} >/dev/null 2>&1; fi; [ $? -ne 0 ] && ok "변이 $1 → $6 ${7:-} FAIL" || bad "변이 $1 → $6 살아남음"
+  "$6" "$BIN" ${7:-} >/dev/null 2>&1 && ok "변이 $1 대조 원본 $6 ${7:-} PASS" || bad "변이 $1 대조 원본 $6 FAIL"
   cp -p "$SRC/$3" "$MC/$3" 2>/dev/null; cp -p "$TRK/$3" "$MB/$3" 2>/dev/null
 }
 mutate "M5 창 비교 지움(항상 WAIT)" "$MC" mbox_handover.py '    return (int(age), s) if 0 <= age < s else None' '    return (int(age), s)' c6
 mutate "M6 닫기 rc 4 → 1" "$MB" ft-seat-close.sh '[ $? != 4 ] || finish 4 ' '[ $? != 4 ] || finish 1 ' c7
+mutate "M8 승계 중 구 좌석 고르기 지움" "$MB" ft_stall_scan.py 'v["_replaced_by"] and not v.get("_closed")' 'v["_replaced_by"] and False and not v.get("_closed")' c10 a
+mutate "M9 WAIT 도 알림" "$MB" ft_stall_scan.py 'hit = first.startswith("REJECT ") and " 뒤 후계 [레디] 없음" in first' 'hit = first.startswith(("REJECT ", "WAIT ")) and " 뒤 후계 [레디] " in first' c10 a
+mutate "M10 다른 REJECT 도 알림" "$MB" ft_stall_scan.py 'hit = first.startswith("REJECT ") and " 뒤 후계 [레디] 없음" in first' 'hit = first.startswith("REJECT ")' c10 u
 mutate "M7 ts 없음 = WAIT" "$MC" mbox_handover.py '        return None   # ts 없음·꼴 틀림' '        return 0, s   # ts 없음·꼴 틀림' c6
 echo "단계 변이 $((SECONDS-s0))초"
 
-cmp -s "$TRK/ft-seat-close.sh" "$KIT/ft-seat-close.sh" && ok "짝 사본 ft-seat-close.sh" || bad "짝 사본 ft-seat-close.sh"
+for f in ft-seat-close.sh ft_stall_scan.py; do cmp -s "$TRK/$f" "$KIT/$f" && ok "짝 사본 $f" || bad "짝 사본 $f"; done
 echo "FAIL=$fail"; [ "$fail" = 0 ]

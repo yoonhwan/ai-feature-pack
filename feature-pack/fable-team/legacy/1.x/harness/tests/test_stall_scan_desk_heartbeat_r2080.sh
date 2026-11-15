@@ -76,7 +76,7 @@ def c1(tmp):  # ① 25분 전 심박(로그에만) → t 줄 · desk [멈춤] 1 
     w = world(tmp); tick(w, 25)
     r = scan(w)
     first = r.stdout.splitlines()[0]
-    assert first.endswith(" t=1"), first
+    assert counts(r.stdout)["t"] == "1" and " t=1" in first, first
     assert any(l.startswith(f"t {D} 25 desk 틱 끊김") for l in r.stdout.splitlines()), r.stdout
     assert sends(w, D) == [f"[멈춤] {D} desk 틱 끊김 25분 — 지금 ft-desk-tick.sh 1회 돌리고 틱을 다시 걸어라 (ft-stall-scan)"], w.mbox_log()
     assert sends(w, P) == [f"[긴급] desk 틱 끊김 {D} 25분"], w.mbox_log()
@@ -94,7 +94,7 @@ def c2(tmp):  # ② 심박 읽기
     assert t_val(scan(w)) == "1" and len(sends(w, P)) == 1, w.mbox_log()
     w = world(f"{tmp}/nodesk", desk=False)
     r = scan(w)
-    assert r.stdout.splitlines()[0].endswith(" t=0") and not any(l.startswith("t ") for l in r.stdout.splitlines()) and not w.mbox_log(), r.stdout
+    assert t_val(r) == "0" and not any(l.startswith("t ") for l in r.stdout.splitlines()) and not w.mbox_log(), r.stdout
 
 
 def c3(tmp):  # ③ 구간당 1통
