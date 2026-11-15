@@ -8,7 +8,7 @@
 - 앞 카드: r2055(팩 d88ef381 · settle 한 길 · park launch-failed) · r1913·r1939(fill) · r1968·r1973(반쪽) · 계약 feature-pack/fable-team/ft2/contracts/keeper-settle/CONTRACT.md §3
 - 상태: 대기
 - 설치: 있음 — ft2 판 올림 1회(팩 착지 뒤 팀장·harness 설치 묶음) · 되돌림 = 앞 판으로 판 전환
-- 선행: ft2-slack-accept-capacity 착지(같은 팩 base 위 · 파일 겹침 0) · 행 E 카드 착지(명부 찾기 한 함수 = v65 seats.json · 다시 뜬 나노의 명부 행) · 계약 L1~L10 모두 DA APPROVE 끝(5339 · BYZ 309947 · BYZ 310141)
+- 선행: 없음 — B ft2-slack-accept-capacity 착지 09c02c0a(PR #1270) + E ft2-keeper-notify-recipient 착지 ae0c199e(PR #1282) 착지 끝 · 팀장 aifp-ft-master-pi#19 이 풂
 - 시험 입력: 임시 루트(tmp_path) · 시험 안에서 만든 journal·launch intent·카드 파일 · 가짜 tmux(세션 부재 rc1 «can't find session») · 가짜 clock · 가짜 mbox · sleep 0 · 네트워크 0 · 실 runtime 쓰기·읽기 0 · 사례 1개 70초 안
 - 기준값: 기준판 = launch-failed 쉼 뒤 그 work 판정 줄 0 · opening 20분 = UNKNOWN owner-orphan 반복 · 착지 카드 fill submit 1 → 목표 = 매 바퀴 재판독(착지면 complete · 아니면 UNKNOWN launch-failed 1줄) · opening 15분 넘음 = park + UNKNOWN launch-failed · 착지 카드 submit 0
 - 규칙: 없음 — 상시 로드 변경 0
@@ -16,7 +16,7 @@
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/pi/keeper.py(team_round 건너뜀 조건) · feature-pack/fable-team/ft2/adapters/pi/keeper_settle.py(settle_nano 판정 · opening 분기) · feature-pack/fable-team/ft2/adapters/pi/keeper_next.py(choose 착지 카드 제외) · 새 시험 feature-pack/fable-team/ft2/tests/test_launch_failed_end.py · 문서 ft2/contracts/keeper-settle/CONTRACT.md·CASES.md
 - 정본 영향 있음: CONTRACT.md §3 «PARKED launch-failed» 행 → «UNKNOWN launch-failed»(park 실행 · 판정 UNKNOWN · 매 바퀴 재판독) · CASES.md ③·⑫ 기대값 · ㉘·㉛ 행 = 같은 PR(나노)
 - 크기: 코드 3파일 · 새 시험 1파일 · 회귀 기대 고침 1파일 · 문서 2파일 · PR 1개
-- 배정: 대기(석 · 2026-11-16T01:12)
+- 배정: 없음
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.

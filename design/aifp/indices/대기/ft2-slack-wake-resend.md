@@ -7,7 +7,7 @@
 - 앞 카드: r1833(깨움 상한 25초 · landed) · r1938(유휴 회차 무변화 = 읽기·쓰기 0) · r1923·r1927(Slack 채널·봇 답) · r1807(팀 wiring)
 - 상태: 대기
 - 설치: 있음 — ft2 판 올림 1회 + Slack 수신기 재기동 1회(집행 = planner) · 되돌림 = 앞 판으로 판 전환 + 재기동
-- 선행: ft2-keeper-notify-recipient 착지 — 이 줄은 카드 이름 글이라 keeper 가 읽지 못한다(선행불명) · keeper 가 읽는 막힘은 아래 배정 줄 «대기(선행» 이다 · 앞 카드가 착지하면 팀장이 이 줄을 «- 선행: 없음» 으로, 배정 줄을 «- 배정: 없음» 으로 고친다
+- 선행: 없음 — E ft2-keeper-notify-recipient 착지 ae0c199e(PR #1282) 착지 끝 · 팀장 aifp-ft-master-pi#19 이 풂
 - 시험 입력: 임시 루트(tmp_path) · 시험 안에서 만든 wire.jsonl·route 장부·우편함 장부·명부 · 가짜 mbox(rc·출력·걸린 시간·장부에 붙일 줄을 사례가 정함) · 가짜 clock · sleep 0 · 네트워크 0 · Slack 호출 0 · 실 runtime 쓰기·읽기 0 · 사례 1개 70초 안
 - 기준값: 기준판 = 깨움 실패 뒤 재전송 0 · 재기동해도 깨움 0 · rc 3 사유 기록 0 → 목표 = 적재 안 된 비알림 깨움은 60초 뒤 유휴 회차에 1통씩 · 누적 3회 · 그 뒤 [긴급] 1통 · 실패 줄에 send 출력
 - 규칙: 없음 — 상시 로드 변경 0
@@ -15,7 +15,7 @@
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/slack/wiring.py(wake·landed·recovered·재전송 후보) · feature-pack/fable-team/ft2/adapters/slack/receive.py(pass_idle 에서 재전송 1통 부름) · 새 시험 feature-pack/fable-team/ft2/tests/test_slack_wake_resend.py · 문서 = Slack 수신 계약 문서의 유휴 회차 줄(자리는 나노가 ci 로 찾아 PR 본문에 적는다)
 - 정본 영향 있음: 유휴 회차 약속 «모델 호출·좌석 깨움·기록 증가 0» → «재전송 후보가 있을 때만 깨움 1통·wire 줄 1개» = 같은 PR(나노)
 - 크기: 코드 2파일 · 새 시험 1파일 · 문서 1파일 · PR 1개
-- 배정: 대기(선행 · 2026-11-16T01:48)
+- 배정: 없음
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
