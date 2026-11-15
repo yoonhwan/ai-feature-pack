@@ -77,3 +77,5 @@ keeper 는 빈 나노 칸이 있으면 대기 카드를 스스로 넣는다(fill
 - 2026-11-16 · aifp-ft-arch-pi#16 초안(aifp 5346) · 대기 · DA 대행 APPROVE-DESIGN(5339) · 우선 낮춤(planner 5337)
 - 2026-11-16 04:37 — 대기→진행 · 좌석 aifp-ft-nano-ft2-new-card-hold#0
 - [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
+- 세트: 9e09a0a2b08a5dff9c824b7b52353ccfe7b50ec8 · 시험: python3.11 -m pytest tests/test_new_card_hold.py (9 passed 17.27s) rc=0 · 이슈: 0
+- 완료: aifp-ft-nano-ft2-new-card-hold#0 · 한 일: keeper_next 에 새 카드 보류 판독(state/NEW_CARD_HOLD.json 1개) 추가 — fill pick·닫기 뒤 pick 두 자리만 막고 gates()·ALL_STOP·PAUSED 손 0 · 새 시험 test_new_card_hold.py ㉗가~㉗사·M14·M15 · 산출: nano/ft2-new-card-hold@9e09a0a2b0 · 병합 상태: 착지 전(push 전) · 남은 일: 없음
