@@ -5,7 +5,7 @@
 - 근거: 사건 = chatbot 팀장 #58 보고 1통(BYZ 309786 «card_stage 2.0.62 rc3 git 시간초과 2회 · worktree add 단계 7초 상한 · BYZ 등록 worktree 445개 · 잔존 0») · 실측 2026-11-16(aifp-ft-arch-pi#17 · BYZ 리포 읽기만) — .git 14G · loose object 236,711개 · pack 28개 · 등록 worktree 455줄(prunable 17) · 읽기 명령(worktree list · status · 임시 index read-tree)은 모두 0.5초 안 · 쓰기 쪽(worktree add · checkout · fetch · push)은 재지 않음 · 넘은 명령이 무엇인지는 도구 출력으로 가를 수 없음 [확인 필요: 실제로 넘은 명령 — G1 이 들어간 뒤 다음 사건에서 보임]
 - 원인 1줄: git() 이 모든 호출에 7초를 쓰는데 한 번 실행에 14회쯤 부르고 그중 6회가 임시 worktree(등록 455개를 읽고 씀 · checkout) 때문에 있다 · 시간 초과 글에 명령 이름이 없다
 - 앞 카드: r1859(카드 폴더 단계 이동) · r1884(main 기준 팀 카드 이동) · r1889(대기/ 원본도 완성/ 으로) · r1891(팩 6d428738 · 임시 worktree sparse + add 끊김 정리)
-- 상태: 대기
+- 상태: 완성 · 2026-11-16 02:58 · -
 - 착지: dac731b20bdb11ae18a7cdb19e62a8160404e1bd(팩 main · PR #1279 squash · DA#11 APPROVE-IMPL aifp 5476 · 세트 5d76f70e · 뺄 커밋 0)
 - 설치: 있음 — ft2 판 올림 1회 · 되돌림 = 앞 판으로 판 전환(상태 파일·설정 변화 0)
 - 선행: 없음
@@ -88,3 +88,5 @@ card_stage 는 끝난 카드를 완성/ 폴더로 옮기는 커밋을 만들어 
 - 완료: aifp-ft-nano-ft2-card-stage-no-worktree#0 · 한 일: ft2 card_stage 임시 index 판 구현(임시 worktree 0 · 부모 SHA 고정 · 시간 초과에 하위 명령 이름 · push 거절 = fetch 뒤 재생성 · push 전 자기 검사 · G1~G9) + 새 시험 13칸(㊱가~㊱파) + 변이 7개 Red 확인 + 설계 옮김 · 산출: nano/ft2-card-stage-no-worktree@5d76f70e7b · 병합 상태: 착지 전(push 전) · 남은 일: 없음(나노 몫 0 — 완료 조건 ⑤ = arch · ⑥⑦·설치 h = 팀장)
 - PR #1279 열림 · DA 구현 판정 대기(BYZ 310626)
 - DA 판정: APPROVE-IMPL · byz-harness-da-codex#11 · aifp 5476 · 35 PASS · 변이 M47~M50·M59~M61 Red · 뺄 커밋 0
+- 남은 범위: 없음
+- 2026-11-16 02:58 — 진행→완성 · DA /Users/yoonhwan/Project/ai-feature-pack/.fable-team/state/team-main/aifp-ft/DA-pH-close-310802.md#§1
