@@ -187,7 +187,12 @@ def recv(me, frm=None, limit=None):
         print(wait_line(left))
 
 
-def peek(me):
+def peek(me, rows=False):
+    """pending=N …1줄 · rows=True(=`peek --rows`)면 미읽음마다 JSON 1줄(seq·ts·to·from·body)을 더 찍는다.
+
+    줄의 집합 = 아래 pending 을 세는 그 목록 그대로다(계보 옛 이름·옛 우편함 포함 · 옛 이름 선택 규칙을 새로 만들지 않는다).
+    읽기만 한다 — mark·recv·큐 쓰기 0. keeper 의 쉼 판정(카드 ft2-done-seat-short-idle A4)이 이 줄을 읽는다.
+    """
     _check_name(me)
     dirs = [CANON] + _legacy_dirs()
     names, joined = _lineage(me)
@@ -200,4 +205,8 @@ def peek(me):
     if mine:
         head += f" latest_seq={mine[0]['seq']} from={mine[0]['from']}"
     print(f"{head} scanned={len(dirs)} lineage={joined}")
+    if rows:
+        for r in sorted(mine, key=lambda r: r["seq"]):
+            print(json.dumps({"seq": r["seq"], "ts": r.get("ts"), "to": r.get("to"), "from": r.get("from"),
+                              "body": r.get("body", "")}, ensure_ascii=False))
 
