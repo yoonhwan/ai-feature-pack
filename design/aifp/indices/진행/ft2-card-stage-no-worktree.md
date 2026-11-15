@@ -64,7 +64,7 @@ card_stage 는 끝난 카드를 완성/ 폴더로 옮기는 커밋을 만들어 
 3. [x] 나노: 변이 M47 → ㊱나 FAIL · M48 → ㊱라 FAIL · M49 → ㊱마 FAIL · M50 → ㊱가 FAIL · M59 → ㊱차·㊱파 FAIL · M60 → ㊱카 FAIL · M61 → ㊱타 FAIL(7개 모두 기대한 사례만 Red · 복원 뒤 diff 0 · aifp 5467 · DA aifp 5476 재확인)
 4. [x] 나노: 회귀 rc0 · 바꾼 r1891 사례 이름(test_1_big_repo_no_checkout_no_worktree · test_2_read_tree_timeout_keeps_remote_and_worktrees · r1859 test_8_timeout_leaves_no_worktree · test_10_commit_tree_timeout_leaves_remote · aifp 5467)
 5. [x] arch: 인수 칸 원문 확인(aifp-ft-arch-pi#18 · 세트 5d76f70e 읽기 + 새 시험 재실행 14 passed 35.20초 rc=0) — ㊱카 = test_11_same_card_race_is_noop 이 셋을 따로 센다: 원격 `head(w) == done[0]` 와 rev-list 수 같음(원격 추가 A 커밋 0) · `len([a for a in seen if a[0] == "commit-tree"]) == 1`(첫 시도 1개뿐 = NOOP 재시도 commit-tree 0) · `body.count("ft2 card_stage") == 1`(상태 끝 줄 1개) / G8 = card_stage.check 가 `diff-tree -r --no-renames --name-status -z P <커밋>` 을 NUL 로 잘라 `sorted(rows) != sorted([("D", old), ("A", new)])` 로 실제 경로를 대조한다(줄 수만 세지 않음) · 시험 경로가 한글 폴더(`design/harness/indices/진행|완성/r9-x.md`)라 ㊱가 통과가 한글 경로 대조를 지난다 · ㊱타 = test_12 `판정 불가 card_stage 커밋 범위 밖 3줄` · push 0 · 본 것 1줄: «2줄인데 경로가 다른» 음성 사례는 시험에 없다(코드는 정확 대조라 막는다 · 구현 DA 판단에 넘김)
-6. [x] 팀장: PR #1279 squash dac731b2 · 설치 ft2 2.0.64 rc0(harness#290 aifp 5491 · 소스 f599c7a6)
+6. [x] 팀장: PR #1279 squash dac731b2 · 설치 ft2 2.0.64 rc0(harness#290 aifp 5491 · 소스 f599c7a6) · POSTCHECK OK Traceback 0(harness#290 aifp 5495)
 7. [x] 팀장: 설치 뒤 chatbot 팀장이 멈췄던 카드(C-k8) 완성 이동 재집행 출력 1줄 = `STAGED …` 또는 `판정 불가 git <명령> 시간초과 7초` · STAGED 면 BYZ git worktree list 줄 수가 앞뒤로 같다는 1줄 — 결과: 2026-11-16 · ft2 2.0.64 card_stage --team chatbot --work C-k8-rt-left-toggle-ui-tts-readout → STAGED … 진행→완성 3bdc5165 rc0 8.9초 · BYZ git worktree list 463 → 463(집행 aifp-ft-master-pi#19)
 
 ## 계약↔시험 대응표
