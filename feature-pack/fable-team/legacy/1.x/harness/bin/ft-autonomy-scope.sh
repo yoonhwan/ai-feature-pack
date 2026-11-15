@@ -15,6 +15,7 @@
 # 외부 호출 0 — 분류기는 로컬 git 뿐 · 상한 = 500파일 이하 7초 · 그 위 min(3.5 + 7 × ceil(파일 수/500), 70)초(r559 · 넘으면 REJECT · 판정 666).
 SDIR="$STATE/autonomy-scope"
 . "$HERE/ft-autonomy-scope-code.sh"
+. "$HERE/ft-autonomy-scope-alert.sh"   # r1792: scope_zero_tail(status 꼬리 «새 승인 없이 0건») · cmd_scope_alert(사용률 75% → desk [긴급] 1통)
 SCOPE_TARGET=main   # r1955: 분류 base — env 로 안 받는다(source 때 덮음) · --pr 가 있으면 autonomy_pr_target 값
 
 autonomy_pr_target() {  # r1955 <리포 폴더> <PR> <byz|pack> → stdout = PR base(gh baseRefName 1회 · 7초 + 재시도 1) · 허용 byz{main,ops/main-base} · pack{main} · 밖·gh 실패·빈 값 = rc 1 + «판정 불가 PR base» 1줄(main 으로 바꾸지 않음 · 하드 룰 20)
@@ -316,5 +317,5 @@ cmd_scope_status() {
   scope_block
   if [ -n "$BLOCK" ]; then echo "[범위 승인 $G_S 정지: $BLOCK]"; return 0; fi
   local c=""; [ "$G_CODEMAX" -gt 0 ] && c=" · code $(scope_code_used "$G_S")/$G_CODEMAX"
-  echo "[범위 승인 $G_S · $G_A · ~$(fmt "$G_UNTIL" '%m-%d %H:%M' || echo '--:--')까지 · $(scope_used "$G_S")/$G_MAX · 오늘 $(scope_today "$G_S")/$G_DAILY · $G_CLASSES$c]"
+  echo "[범위 승인 $G_S · $G_A · ~$(fmt "$G_UNTIL" '%m-%d %H:%M' || echo '--:--')까지 · $(scope_used "$G_S")/$G_MAX · 오늘 $(scope_today "$G_S")/$G_DAILY · $G_CLASSES$c$(scope_zero_tail)]"
 }
