@@ -243,14 +243,15 @@ def prereq_path(k, team):
     return os.path.join(k.dir, "prereq-%s.txt" % team)
 
 def prereq_list(k, team, unread, changed):
-    """P4 — prereq_tell 이 불린 바퀴에 묶음 지문이 바뀌었으면 원자 쓰기(tmp → replace) · 빈 묶음이면 지운다 · 안 바뀐 바퀴 = 손 0.
-    첫 줄 = `# 관측 <시각> · <n>장`(마지막으로 고른 바퀴의 값) · 그 아래 줄마다 `<카드>\\t<선행 값>\\t<까닭>` 이름순 · 3장 이하도 쓴다."""
+    """P4 — prereq_tell 이 불린 바퀴에 (지문이 바뀌었거나 목록 파일이 없으면) 원자 쓰기(tmp → replace) · 빈 묶음이면 지운다 · 파일 있고 지문 그대로 = 손 0.
+    첫 줄 = `# 관측 <시각> · <n>장`(마지막으로 고른 바퀴의 값) · 그 아래 줄마다 `<카드>\\t<선행 값>\\t<까닭>` 이름순 · 3장 이하도 쓴다.
+    파일 없이 지문만 있는 상태 = 옛 판이 만든 상태(판 올림 승계 · DA 312085 반례) — 그 바퀴에 한 번 만든다(지문이 같아도)."""
     path = prereq_path(k, team)
-    if not changed:   # 불리지 않았거나 묶음이 그대로 = 쓰지도 지우지도 않는다(P0 · ㊵바·㊵사)
-        return
-    if not unread:
+    if not unread:   # 빈 묶음 = 지운다
         if os.path.lexists(path):
             os.unlink(path)
+        return
+    if not changed and os.path.lexists(path):   # 지문 그대로 · 파일 있음 = 쓰지도 지우지도 않는다(P0 · ㊵바·㊵사)
         return
     os.makedirs(k.dir, exist_ok=True)
     body = "# 관측 %s · %d장\n" % (k.stamp(), len(unread)) + "".join("%s\t%s\t%s\n" % (s, v["val"], v["why"]) for s, v in sorted(unread.items()))
