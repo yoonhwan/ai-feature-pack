@@ -5,7 +5,7 @@
 - 근거: 실측 2026-11-16 05:08~05:12(aifp-ft-arch-pi#20 · 루트 checkout main · 읽기만) — 아래 «실측» 절
 - 원인 1줄: 블록이 기준판을 `git rev-parse origin/main` 으로 잡는다(시험 파일 659줄) · 고침이 main 에 착지하면 기준판이 고친 판이 되어 «기준판 … 통과 — FAIL 이어야» 가 난다
 - 앞 카드: design/aifp/indices/진행/ci-search-test-files.md(착지 cf0d4052 · PR #1332 · 완료 조건 1 = 이 결함 때문에 «알려진 한계» 로 닫음) · 완성/ci-search-yaml-panic.md · ci-search-ascii-md-panic · ci-search-nonascii-panic
-- 상태: 대기
+- 상태: 완성 · 2026-11-16 05:52 · -
 - 착지: 8023df8674ffa84297f426603b364d1730039196(팩 main · PR #1346 squash · DA#11 APPROVE-IMPL BYZ 311748 · 세트 d7e02824 = PR head · 뺄 커밋 0)
 - 설치: 없음 — 시험 파일과 시험 fixture 만 바뀐다(라이브 사본·심링크 대상 ci 변경 0)
 - 선행: 없음(팩 origin/main 017fe2cf · ci-search-test-files 착지 cf0d4052 포함)
@@ -116,3 +116,4 @@
 - 완료: aifp-ft-nano-ci-test-base-sha-pin#0 · 한 일: 기준판 대조를 고정 fixture(tests/fixtures/ci-base-97528b12)로 바꿈 + 새 시험 test_ci_base_pin.sh(D2·D4·D5·D6·변이 Y1~Y3) · 산출: nano/ci-test-base-sha-pin@d7e028244f · 병합 상태: 착지 전(push 전) · 남은 일: 없음
 - 증거(나노 실행 원문): D1 = bash feature-pack/code-intel/tests/test_ci_search_nonascii_panic.sh → rc 0 · 294 검사 · 실패 0 · 13.2초 · PASS · `기준판 = fixtures/ci-base-97528b12` · D2·D4·D5·D6 = test_ci_base_pin.sh 28 검사 · 실패 0 · 24.5초 · 변이 Y1~Y3 3/3 잡힘 · 회귀 5파일 rc 0 · fixture 100644 · blob cff07f3a · sha256 f2eb9e1fba04a8773340b9b263e38ec9fb3194387bebe13b90c5e96931a17dbf · 세트 d7e028244fd3a3195000cbf749a02a5184d87cdc
 - 남은 범위: 없음
+- 2026-11-16 05:52 — 진행→완성 · DA /Users/yoonhwan/Project/ai-feature-pack/.fable-team/state/team-main/aifp-ft/DA-ci-pin-close-311919/verdict.md#§1
