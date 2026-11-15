@@ -74,6 +74,8 @@ def succ_close(root: Path, state_dir: Path, now: float, tmux: list[str], run, st
     if os.environ.get("TMUX_PANE"):
         rc, out = run([*tmux, "display-message", "-p", "-t", os.environ["TMUX_PANE"], "#{session_name}"], None, 7)
         me = out.strip() if rc == 0 else ""
+        if not me:  # A4 — 자기 세션을 모르면 어느 좌석도 닫지 않는다(fail-closed · 하드 룰 20)
+            return [f"{stamp} 판정 불가 succ-close - 자기 세션 조회 실패(rc={rc}) — 이번 회차 닫기 0"]
     cands, lines = candidates(root, tmux, run, stamp, me)
     if os.environ.get("FT_SUCC_AUTO_CLOSE") != "1":
         return lines + [f"{stamp} succ-close 후보 {o} → {n} (꺼짐)" for o, n in cands]
