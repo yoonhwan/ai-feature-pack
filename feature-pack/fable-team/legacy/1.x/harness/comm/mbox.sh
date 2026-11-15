@@ -184,6 +184,13 @@ inbox_ingest() {
 inbox_must_ring() { case "$INBOX_CLS" in ①|②|③|④|미상) return 0;; *) return 1;; esac; }
 
 # ★doorbell 대상 = 그 역할의 현역 세션(r1116 R7)★ — 우편함 키가 역할이라 옛 번호·역할 이름으로 보내도 현역 pane 을 깨운다. 해석 실패 = 받은 이름 그대로.
+# ★r2060 손 [인계] 판정★ — 첫 비어 있지 않은 줄 머리 [인계] ∧ 기계 꼴 아님 ∧ 받는 이 = 후계 → rc 3(큐 0 · doorbell 0 · handover 안내 1줄) · 판정 자리 = guard_check 앞 · --force·--urgent 우회 0
+#   판정기 = 같은 폴더 mbox_handover_hand.py 하나 · 그 밖 rc(우편함 못 찾음 등) = 지금처럼 다음 단계로(send 의 rc 를 여기서 바꾸지 않는다)
+hand_gate() {  # <to> <from> <body>
+  case "$3" in *"[인계]"*) ;; *) return 0;; esac
+  local e rc=0; e="$(printf '%s' "$3" | python3 "$DIR/mbox_handover_hand.py" check "$2" "$1" 2>&1 >/dev/null)" || rc=$?
+  [ "$rc" = 3 ] || return 0; printf '%s\n' "$e" >&2; return 3
+}
 holder_of() { local h; h="$(python3 "$MBOXPY" holder "$1" 2>/dev/null)" && [ -n "$h" ] && _check_name "$h" 2>/dev/null && echo "$h" || echo "$1"; }
 
 cmd="${1:-}"; shift || true
@@ -200,6 +207,7 @@ case "$cmd" in
         *)           args+=("$a") ;;
       esac
     done
+    hand_gate "$to" "$from" "${args[*]}" || exit $?   # r2060 A1 손 [인계] → 후계 = REJECT(가드 앞)
     guard_check "$to" "${args[*]}" "$from" || exit $?   # rc 3 = REJECT(큐 적재 0) · 후계 전달·[합치기] 치환은 GUARD_TO·GUARD_BODY
     to="$GUARD_TO"; args=("$GUARD_BODY"); dbto="$(holder_of "$to")"
     case "${args[*]}" in "[레디]"*) dbto="$to";; esac   # [레디] = 은퇴한 옛 세션 앞 핸드셰이크 회신 — 현역(후계 자신) 말고 그 pane 을 깨운다(r1116 ②)
@@ -263,6 +271,7 @@ case "$cmd" in
         *)           args+=("$a") ;;
       esac
     done
+    hand_gate "$to" "$from" "${args[*]}" || exit $?   # r2060 A1 relay 요약 머리 같은 판정
     guard_check "$to" "${args[*]}" "$from" "$file" || { _rc=$?; guard_tmp_clean; exit $_rc; }
     to="$GUARD_TO"; args=("$GUARD_BODY"); dbto="$(holder_of "$to")"
     [ -z "$GUARD_TMP" ] || trap guard_tmp_clean EXIT   # 검사 사본 폴더는 끝에 지운다
@@ -334,6 +343,10 @@ case "$cmd" in
            echo "AUTO-CLOSE $old rc=$_crc"; case "$_crc" in 3) echo "다음: master 판단(h)" ;; 0) ;; *) printf '%s\n' "$_co" | head -1 ;; esac
          fi
          exit "$_rc" ;;
+  # ★r2060 — 이미 큐에 들어간 손 [인계] 1통을 묶음에서 뺀다(판정 번호 원장 실재 + 표식 <state>/handover-drop/<구>.json 1줄 · 기계 [인계] 빼기 0)★
+  handover-drop) [ $# = 5 ] && [ "$4" = --verdict ] && [[ "$3" =~ ^[0-9]+$ ]] && [[ "$5" =~ ^[0-9]+$ ]] || { echo "usage: mbox.sh handover-drop <구> <후계> <seq> --verdict <판정 번호>" >&2; exit 2; }
+         _check_name "$1" && _check_name "$2" || exit 1
+         exec python3 "$DIR/mbox_handover_hand.py" drop "$1" "$2" "$3" "$5" ;;
   mark|unmarked|close-check) exec python3 "$MBOXPY" "$cmd" "$@" ;;
   # ring — ★큐를 건드리지 않고 doorbell 만 울린다★ (2026-09-06, 나)
   #   재발주가 이 경로로 온다. 이전엔 재발주가 `send` 재호출이라 ★같은 본문이 큐에 두 번★
@@ -365,5 +378,5 @@ case "$cmd" in
             refund)  wake_budget_refund "$@" ;;
             *) echo "usage: mbox.sh budget reserve|refund <좌석> [<출처>]" >&2; exit 2 ;;
           esac ;;
-  *) echo "usage: mbox.sh {send <to> <from> <body> [--urgent] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all] [--only distill]|peek <me>|ring <sess> [seq] [--reserved] [--auto]|sweep|budget reserve|refund <좌석> [<출처>]|handover <구> <후계>|ready <후계> <구>|mark <me> <seq,…> 처리함·인계|unmarked <me>|close-check <좌석> [--no-ready]}" >&2; exit 2;;
+  *) echo "usage: mbox.sh {send <to> <from> <body> [--urgent] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all] [--only distill]|peek <me>|ring <sess> [seq] [--reserved] [--auto]|sweep|budget reserve|refund <좌석> [<출처>]|handover <구> <후계>|handover-drop <구> <후계> <seq> --verdict <판정 번호>|ready <후계> <구>|mark <me> <seq,…> 처리함·인계|unmarked <me>|close-check <좌석> [--no-ready]}" >&2; exit 2;;
 esac
