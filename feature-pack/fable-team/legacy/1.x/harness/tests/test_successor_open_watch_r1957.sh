@@ -11,7 +11,7 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; REPO="$HERE/../.
 fail=0; ok() { echo "PASS $1"; }; bad() { echo "FAIL $1 :: ${2:0:400}"; fail=$((fail+1)); }
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 SO="$REPO/harness/kit/fable-team/bin/ft-successor-open.sh"
-F="$T/fakebin"; lg="$T/calls.log"; R="$T/repo"; OLD="byz-t-old-claude#1"; NEW="byz-t-new-claude#2"
+F="$T/fakebin"; lg="$T/calls.log"; R="$T/repo"; OLD="byz-t-tool-claude#1"; NEW="byz-t-repro-claude#2"
 mkdir -p "$F" "$R"; git -C "$R" init -q; mkstub() { printf '#!/usr/bin/env bash\n%s\n' "$2" > "$F/$1"; chmod +x "$F/$1"; }
 mkstub tmux 'case "$1" in has-session) [ -f "$OPENED" ] && exit 0; exit 1;; list-panes) echo 4242;; display-message) echo "$PANE_CWD";; esac; exit 0'
 mkstub tmuxc 'echo "tmuxc $*" >> "$LOG"; : > "$OPENED"; exit 0'
