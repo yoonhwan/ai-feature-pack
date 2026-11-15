@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test_land_verify_r1814.sh — r1814: A1 팀장 갈래 DONE 만(①②) · A2 나노 갈래 회귀(③③′) · B1 ft-land-verify.sh(④⑤⑤′⑥⑥′⑦⑦′) · B2 h 꼴 landed() 1줄(④)
+# test_land_verify_r1814.sh — r1814: A1 팀장 갈래 DONE 만(①②) · A2 나노 갈래 회귀(③③′) · B1 ft-land-verify.sh(④⑤⑤′⑥⑥′⑦⑦′) · B2 h 꼴 landed() 1줄(④) · r1958 head-sync 착지 h1~h6 · 변이 r1958 M1~M4
 #   변이 M1~M5(변이마다 원본 대조) · 기준판 ①④ Red(팩 70d621a474) · ⑧ = test_nano_record_r1717.sh · test_nano_record_land_r1717.sh · test_nano_record_ownerless_r1805.sh
 #   세계 = _nano_record_r1717_fixture.sh(임시 bare remote · 가짜 명부·mbox·tmux) + B 사례마다 임시 bare 원격 1개(ft-merge-land 꼴 commit-tree squash)
 #   gh 0 · 실 장부·실 우편함·실 착지·실 라이브 bin 0 · sleep 0 · 사례 = 하위 셸 1개
@@ -100,10 +100,49 @@ c7b() {  # ⑦′ repo 경로 없음 → 판정 불가 git rc3 · (덧) --since 
   vf "$V" 7 "$S" --since "$z"; t "⑦′ --since 없음 객체 = 판정 불가 git log rc3" [ "$RC" = 3 ]; t "⑦′ git log 줄" inc "$OUT" "판정 불가 git log rc="
   return $E
 }
+# r1958 head-sync 착지 — S = 승인 세트 · X = PR 에 main 을 합친 새 head(S 의 자손) · 본문 «PR #7 (head X)»
+hsx() { prb p7; g "$V" checkout -q -B oth origin/main; echo o > "$V/o"; g "$V" add -A; g "$V" commit -qm oth; g "$V" push -q origin oth:main; g "$V" fetch -q origin
+  g "$V" checkout -q p7; g "$V" merge -q --no-edit origin/main >/dev/null 2>&1; X="$(g "$V" rev-parse HEAD)"; }   # hsx → S · X
+h1() {  # ① head-sync 착지 · --head S → LANDED-SQUASH-SYNC rc0
+  vrepo "h1$1"; hsx; sq "$X" "PR #7 (head $X)"
+  vf "$V" 7 "$S" --since "$OLD" --head "$S"; t "r1958① LANDED-SQUASH-SYNC rc0" [ "$OUT $RC" = "LANDED-SQUASH-SYNC $Q head=$X 0" ]
+  vf "$V" 7 "$S"; t "r1958① --since·--head 생략" [ "$OUT $RC" = "LANDED-SQUASH-SYNC $Q head=$X 0" ]
+  return $E
+}
+h2() {  # ② 본문 head Y 가 S 의 자손 아님 → MISS rc1
+  local y; vrepo "h2$1"; prb p7y; y="$S"; prb p7; sq "$y" "PR #7 (head $y)"
+  vf "$V" 7 "$S" --since "$OLD"; t "r1958② MISS rc1" [ "$OUT $RC" = "MISS PR #7 세트 ${S:0:10} 1" ]
+  return $E
+}
+h3() {  # ③ 본문 head X 객체 없음 → 판정 불가 rc3(fetch 0)
+  local z=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb; vrepo "h3$1"; prb p7; sq "$S" "PR #7 (head $z)"
+  vf "$V" 7 "$S" --since "$OLD"; t "r1958③ 판정 불가 객체 없음 rc3" [ "$OUT $RC" = "판정 불가 head ${z:0:10} 객체 없음 3" ]
+  return $E
+}
+h4() {  # ④ 정확 일치 + sync 줄이 함께 → 정확 일치 우선 LANDED-SQUASH(회귀)
+  local q1; vrepo "h4$1"; hsx; sq "$S" "PR #7 (head $S)"; q1="$Q"; sq "$X" "PR #7 (head $X)"
+  vf "$V" 7 "$S" --since "$OLD"; t "r1958④ 정확 일치 우선" [ "$OUT $RC" = "LANDED-SQUASH $q1 0" ]
+  return $E
+}
+h5() {  # ⑤ «PR #70 (head X)» 만(X = S 의 자손) → MISS(번호 부분 일치 0)
+  vrepo "h5$1"; hsx; sq "$X" "PR #70 (head $X)"
+  vf "$V" 7 "$S" --since "$OLD"; t "r1958⑤ MISS rc1" [ "$OUT $RC" = "MISS PR #7 세트 ${S:0:10} 1" ]
+  return $E
+}
+h6() {  # ⑥ pipefail 셸(SHELLOPTS 상속) · main 에 커밋 300개 뒤 head-sync 착지 → rc0 그대로(141 0)
+  local c i tr; vrepo "h6$1"; hsx; c="$(g "$V" rev-parse origin/main)"; tr="$(g "$V" rev-parse "$c^{tree}")"
+  for i in $(seq 300); do c="$(g "$V" commit-tree "$tr" -p "$c" -m "n$i" -m "PR #9 (head $X)")"; done; g "$V" push -q origin "$c:refs/heads/main"; g "$V" fetch -q origin
+  sq "$X" "PR #7 (head $X)"; set -o pipefail; export SHELLOPTS
+  vf "$V" 7 "$S" --since "$OLD"; t "r1958⑥ pipefail --since rc0" [ "$OUT $RC" = "LANDED-SQUASH-SYNC $Q head=$X 0" ]
+  vf "$V" 7 "$S"; t "r1958⑥ pipefail 최근 200 rc0" [ "$OUT $RC" = "LANDED-SQUASH-SYNC $Q head=$X 0" ]
+  return $E
+}
 step "사례 ①②③③′ (A)"
 run "① 팀장 landed = DONE 만" c1; run "② due 끝 · notify 0" c2; run "③ 나노 닫기 회귀" c3; run "③′ 기록만 회귀" c3b
 step "사례 ④⑤⑤′⑥⑥′⑦⑦′ (B)"
 run "④ squash · h landed()" c4; run "⑤ --ff 조상" c5; run "⑤′ 자동 병합 C" c5b; run "⑥ 다른 PR MISS" c6; run "⑥′ 다른 head MISS" c6b; run "⑦ 2개 판정 불가" c7; run "⑦′ git 실패 판정 불가" c7b
+step "사례 r1958 ①~⑥ (head-sync 착지)"
+run "r1958① head-sync SYNC" h1; run "r1958② 자손 아님 MISS" h2; run "r1958③ 객체 없음 판정 불가" h3; run "r1958④ 정확 일치 우선" h4; run "r1958⑤ #70 MISS" h5; run "r1958⑥ pipefail 300" h6
 
 step "변이 M1~M5 (+원본 대조)"
 mutbin m1 ft_nano_record_write.py '{s: ("팀장", stem) for s in [doc.get("_master")]' '{s: ("닫기", stem) for s in [doc.get("_master")]'; mutcase M1 c1 1
@@ -123,6 +162,10 @@ lvcase() {  # lvcase <M번호> <사례> <꼬리표> — 변이 사본으로 FAIL
 lvmut 'if (L[i] == w)' 'if (index(L[i], substr(w, 1, index(w, "(head") + 5)) == 1)'; lvcase M3 c6b 3
 lvmut 'N="$(printf' 'N=1; read -r HITS <<< "$HITS"; : "$(printf'; lvcase M4 c7 4
 lvmut 'if [ -n "$SINCE" ]; then R=' 'echo "MISS PR #$PR 세트 ${SET:0:10}"; exit 1; if [ -n "$SINCE" ]; then R='; lvcase M5 c4 5
+lvmut 'G merge-base --is-ancestor "$SET" "$X" 2>/dev/null; rc=$?' 'rc=0'; lvcase "r1958 M1(자손 검사 삭제)" h2 6
+lvmut '|| unj "head ${X:0:10} 객체 없음"' '|| continue'; lvcase "r1958 M2(객체 없음 → MISS)" h3 7
+lvmut 'index(L[i], w) == 1 && length(L[i]) == length(w) + 41' 'index(L[i], p) == 1 && L[i] ~ /[(]head [0-9a-f]+[)]$/'; lvcase "r1958 M3(번호 부분 일치)" h5 8
+lvmut 'if [ "$N" = 0 ]; then' 'if false; then'; lvcase "r1958 M4(sync 갈래 삭제)" h1 9
 
 step "기준판 ①④ Red · ③③′ 통과(회귀) (팩 $BASE_SHA)"
 BASE="$T/base"; mkdir -p "$BASE"
