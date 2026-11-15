@@ -13,7 +13,10 @@
 | `test_keeper_notify_recipient.py` | ㉚가~거 | M17 · M18 · M19 · M23 · M24 · M25 · M32 · M33 |
 | `test_launch_failed_end.py` | ㉘가~카 · ㉛가~라 | M11 · M12 · M13 · M16 · M30 · M31 |
 | `test_prereq_unreadable_once.py` | ㉟가~하 · ㉟거 | M39 · M40 · M41 · M56 · M57 · M58 |
-| `test_prereq_alarm_hold.py` | ㊵가~더(18) | M85 · M86 · M87 · M88 · M89 · M90 · M91 |
+| `test_prereq_alarm_hold.py` | ㊵가~버(18) | — |
+| `test_prereq_alarm_hold_mutants.py` | — | M85 · M86 · M87 · M88 · M89 · M90 · M91 |
+| `test_prereq_alarm_hold_compat.py` | ㊵더(앞 카드 13칸) | — |
+| `test_prereq_alarm_hold_compat_b.py` | ㊵더(앞 카드 무거운 2칸) | — |
 | `test_done_seat_short_idle.py` | ㉙가~도(27) | — (변이는 아래 두 파일) |
 | `test_done_seat_short_idle_mutants.py` | — | M20 · M21 · M22 · M44 · M45 |
 | `test_done_seat_short_idle_mutants_b.py` | — | M51~M55 |
@@ -45,7 +48,8 @@
 | ㊵하 | 함수 단위 방어: `NEW_CARD_HOLD` 깨짐(빈 파일) · 선행불명 2장 · `prereq_tell` 직접 | 쪽지 0통 | P1 |
 | ㊵거 | 실제 fill 길 · ㊵바의 보류 중 keeper 를 다시 만듦(상태 파일 그대로) → 표식 지움 → fill | Y 1통(재기동이 0통이나 2통을 만들지 않는다) | P2 · I9 |
 | ㊵너 | 함수 단위 방어: 팀장 없음 + `NEW_CARD_HOLD` · `prereq_tell` 직접 | 쪽지 0통 · `PREREQ-WAIT` 0줄 | P6 |
-| ㊵더 | 세 표식 0 · 팀장 있음 | 앞 카드 사례 ㉟가~거 전부 통과 | P7 |
+| ㊵버 | 판 올림 승계(DA 312085 반례): 열린 바퀴에 묶음 X 관측 → 목록 파일만 지움(지문은 state.json 에 그대로) → 두 바퀴 | 첫 바퀴 파일 6줄 · 다음 바퀴에 파일 **1회 다시 만듦**(없는 경로를 가리키지 않는다) · `PREREQ-WAIT`·쪽지 0줄 더 · 그 뒤 파일 있고 지문 그대로 = 첫 줄 «관측 시각» 부터 손 0 | P4 · P4-a |
+| ㊵더 | 세 표식 0 · 팀장 있음 | 앞 카드 사례 ㉟가~거 전부 통과(`test_prereq_alarm_hold_compat.py` + `_compat_b.py`) | P7 |
 
 | 변이 | 바꾸는 곳 | 잡는 사례 |
 |---|---|---|
@@ -57,7 +61,9 @@
 | M90 | 불린 바퀴에 묶음이 비어도 목록 파일을 지우지 않음 | ㊵사 |
 | M91 | 풀린 뒤 첫 호출 바퀴에 목록 파일을 고치지 않음(X 그대로) | ㊵바 |
 
-- 기준판(팩 origin/main c4b78196)에서 FAIL 이던 사례 = ㊵다 ㊵라 ㊵마 ㊵바 ㊵사 ㊵아 ㊵자 ㊵차 ㊵카 ㊵타 ㊵파 ㊵하 ㊵거(13) · 지키던 사례 = ㊵가 ㊵나 ㊵러 ㊵너 ㊵더(5).
+- 기준판(팩 origin/main c4b78196)에서 FAIL 이던 사례 = ㊵다 ㊵라 ㊵마 ㊵바 ㊵사 ㊵아 ㊵자 ㊵차 ㊵카 ㊵타 ㊵파 ㊵하 ㊵거 ㊵버(14) · 지키던 사례 = ㊵가 ㊵나 ㊵러 ㊵너(4).
+- ㊵버는 앞 커밋(cbf0a5a7 = DA HOLD-IMPL 1회차 판)에서 FAIL 하고 이 고침 커밋에서 rc0 이 된다.
+- 파일을 넷으로 나눈 이유 = 한 파일 70초 상한(DA 312085). ㊵더 하나가 50초대라 앞 카드 사례를 두 파일로 나눴다.
 
 ## 1. settle 판정 사례 (`test_settle_one_path_r2055.py`)
 
