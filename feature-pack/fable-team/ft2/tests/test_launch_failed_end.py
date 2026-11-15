@@ -8,6 +8,7 @@
 import datetime
 import importlib.util
 import json
+import shutil
 import sys
 from pathlib import Path
 
@@ -108,10 +109,10 @@ def settle(w):
     return w
 
 
-def rnd(w, dt=0):
+def rnd(w, dt=0, k=None):
     """한 바퀴 — 시계 dt 초 앞으로 · 반환 = 로그 줄."""
     w.t += dt
-    return w.round()
+    return w.round(k)
 
 
 def has(lines, *words):
@@ -199,13 +200,14 @@ def c28f(w):   # ㉘바 L5 — fill 후보 = 착지 카드 1 + 안 한 카드 1 
     a, b = "r9601-a", "r9602-b"
     cards(w, a, "# 인덱스: %s\n- 착지: %s\n- 상태: 대기\n" % (a, w.pack_sha()))
     cards(w, b, "# 인덱스: %s\n- 상태: 대기\n" % b)
-    lines = rnd(w)
+    k = w.keeper()   # 같은 keeper(같은 state) — 닫기 길(close → keeper_next.close)이 부르는 것과 같은 함수
+    lines = rnd(w, k=k)
     assert has(lines, "NEXT-SKIP harness %s 이미 착지" % a), lines
     assert launched(w) == [b] and count(w, "accept", a) == 0, (launched(w), count(w, "accept", a))
-    k = w.keeper()   # 닫기 길(close → keeper_next.close)이 부르는 것과 같은 함수
-    k.cache["@round"] = {}
+    k.cache["@round"], n = {}, len(k.lines)
     got = nextmod(k).choose(k, TEAM)
-    assert got and got[0] == b and not has(k.lines, "NEXT-SKIP"), (got, k.lines)
+    assert got is None and not has(k.lines[n:], "NEXT-SKIP"), (got, k.lines[n:])   # 닫기 뒤 pick 도 착지 카드를 고르지 않는다(줄 반복 0)
+    assert has(k.lines[n:], "[다음 없음]", "착지 1"), k.lines[n:]
 
 
 def c28g(w):   # ㉘사 L7 — 팀장 좌석(dispatch·intent 0) → 판정 줄 0 · park 0 · [긴급] 0
@@ -318,6 +320,35 @@ NEEDS = {name: dict(nano_max="1") for name in ("㉘바", "㉘아", "㉘자", "�
 NEEDS["㉘사"] = dict(roster={"_master": "M-harness", "byz-harness-team-pi#7": {"role": "stop-ready"}})
 
 
+KP, KS, KN = "adapters/pi/keeper.py", "adapters/pi/keeper_settle.py", "adapters/pi/keeper_next.py"
+MUTANTS = {   # (고칠 파일, 고칠 글자, 새 글자, 반드시 FAIL 이어야 하는 사례)
+    "M11": (KP, 'if rec.get("kind") == "parked" and rec.get("reason") != settling.LAUNCH_FAILED', 'if rec.get("kind") == "parked"',
+            ("㉘나", "㉘다", "㉘라")),
+    "M12": (KS, '        self.unknown_seat(team, work, attempt, holder, LAUNCH_FAILED, self.failed_tail(intent))\n        return "PARKED"',
+            '        return self.verdict(team, work, holder, "PARKED", LAUNCH_FAILED, self.failed_tail(intent))', ("㉘가",)),
+    "M13": (KN, '        block = block or ("착지" if skip_landed(k, team, stem) else "")', "        block = block", ("㉘바",)),
+    "M16": (KS, "        stalled = opening and self.opening_stale(raw) and not self.launching_now(team, work)", "        stalled = False", ("㉛가",)),
+    "M30": (KN, 'else led.get("reason") if led.get("reason") in BLOCK else pre', 'else ""', ("㉘아", "㉘자", "㉘차")),
+    "M31": (KN, "    if mark in MARK:", '    if mark == "선행":', ("㉘차",)),
+}
+
+
 @pytest.mark.parametrize("name", list(CASES))
 def test_case(name, tmp_path, monkeypatch):
     CASES[name](world(tmp_path, monkeypatch, **NEEDS.get(name, {})))
+
+
+@pytest.mark.parametrize("name", list(MUTANTS))
+def test_mutant(name, tmp_path, monkeypatch):
+    path, old, new, cases = MUTANTS[name]
+    tree = tmp_path / "m" / "ft2"
+    shutil.copytree(FT2, tree, ignore=shutil.ignore_patterns("tests", "__pycache__"))
+    text = (tree / path).read_text(encoding="utf-8")
+    assert text.count(old) == 1, (name, old)
+    (tree / path).write_text(text.replace(old, new), encoding="utf-8")
+    for i, case in enumerate(cases):
+        (tmp_path / ("w%d" % i)).mkdir()
+        with pytest.raises(AssertionError):
+            CASES[case](world(tmp_path / ("w%d" % i), monkeypatch, ft2=tree, **NEEDS.get(case, {})))
+    (tmp_path / "ok").mkdir()   # 원본으로 같은 사례 1회 더 = PASS
+    CASES[cases[0]](world(tmp_path / "ok", monkeypatch, **NEEDS.get(cases[0], {})))
