@@ -75,3 +75,5 @@
 - 2026-11-16 · aifp-ft-arch-pi#16 r2(aifp 5331 · DA 대행 1/3 HOLD-DESIGN R1·R2·Q1~Q3 반영 · 드러냄 1줄 분리) · 대기 · DA 재판정 전
 - 2026-11-16 02:02 — 대기→진행 · 좌석 aifp-ft-nano-ft2-slack-accept-capacity#0
 - [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
+- 세트: dc85096f87cce258b7fedc3db3deb56e30021c8b · 시험: python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_slack_accept_capacity.py rc=0 · 이슈: 0
+- 완료: aifp-ft-nano-ft2-slack-accept-capacity#0 · 한 일: dict-work(글 영수) 용량 0칸 · 재접수는 그때의 실제 용량 · 꽉 참 알림 값 = capacity + 새 시험·계약·사례표 · 산출: nano/ft2-slack-accept-capacity-r2@dc85096f87 · 병합 상태: 착지 전(push 전) · 남은 일: 없음
