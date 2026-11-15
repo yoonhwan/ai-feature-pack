@@ -1,4 +1,4 @@
-# ft2 keeper settle 계약 — 끝난 좌석은 한 길로 정리한다 (r2055 · 보정 3 · r2065)
+# ft2 keeper settle 계약 — 끝난 좌석은 한 길로 정리한다 (r2055 · 보정 3 · r2065 · 카드 ft2-done-seat-short-idle)
 
 keeper 는 좌석마다 매 바퀴 판정 1개를 낸다. 이 문서는 그 판정과 core `park`·`capacity` 의 약속을 **파일로 고정**한 계약이다.
 새 설계 판단은 없다. 설계 정본과 착지한 코드·시험에 있는 것만 옮겼다.
@@ -8,9 +8,10 @@ keeper 는 좌석마다 매 바퀴 판정 1개를 낸다. 이 문서는 그 판�
 | 설계 정본 | `feature-pack/fable-team/design/DESIGN-r2055-seat-settle-one-path.md`(원본 BYZ ops/main-base @457df3cdd1 · r9) |
 | 착지 코드 | 팩 d88ef381(PR 1246 · settle 한 길 · core park·capacity · resolve_card) · 77511fcc(PR 1249 · 보정 3 accept_only) |
 | 설치 판정기 고침 | 팩 4b0567c3(PR 1250 · r2065 · 1.x `ft_launchd_llm_gate.py`) — settle 계약 밖이고, 2.0.61 되돌림이 막힌 원인이라 사고 기록에 함께 적는다 |
-| 구현 자리 | `adapters/pi/keeper_settle.py` · `adapters/pi/keeper_close.py` · `adapters/pi/keeper_land.py` · `adapters/pi/keeper_endings.py` · `core/dispatch.py`(`park`) · `core/record.py`(`capacity`) |
+| 구현 자리 | `adapters/pi/keeper_settle.py` · `adapters/pi/keeper_close.py` · `adapters/pi/keeper_land.py` · `adapters/pi/keeper_endings.py` · `core/dispatch.py`(`park`) · `core/record.py`(`capacity`) · 1.x `comm/mbox_ops.py`(`peek --rows`) |
 | 사례·시험 대응 | 같은 폴더 `CASES.md` |
 | 사고 기록 | `feature-pack/fable-team/troubleshoot/2026-11-15-ended-seat-not-closed-r2055.md` |
+| 카드 ft2-done-seat-short-idle | 착지한 좌석은 무활동 300초에 닫고(`DONE_IDLE`), 쉼 판정에서 «닫힌 꼴 마감 쪽지» 만 뺀다(A1~A9) · 설계 = `design/DESIGN-pA-done-idle-threshold-20261116.md`(원본 sha256 700e2174…353f · DA 대행 APPROVE-DAY BYZ 310212) · 시험 = `tests/test_done_seat_short_idle.py` |
 | 설계 뒤 고침(r2058) | 열기 실패(`launch-failed`)와 열기 멈춤(`opening`)의 끝 = 쉼 + `UNKNOWN` · 설계 = `feature-pack/fable-team/design/DESIGN-p2-launch-failed-no-park-rest-20261116.md` · `design/SWEEP-FIX-table-20261116.md` §F |
 
 ## 1. 판정 4개 (좌석마다 바퀴당 정확히 1개)
@@ -39,11 +40,14 @@ keeper 는 좌석마다 매 바퀴 판정 1개를 낸다. 이 문서는 그 판�
 
 지켜야 하는 약속:
 
+- **착지한 좌석만 짧은 문턱을 쓴다**(A1·A2). `landing()` 이 참인 좌석(카드 착지 줄 · 넓힌 근거)의 닫기 길은 `DONE_IDLE` 300초다. 조건은 마지막 pi 턴 `stopReason=stop` ∧ CPU idle 2회 ∧ 막는 미읽음 0 이다. 착지 0 좌석·셸만 남은 pane 의 park 길은 지금과 같다(`PARK_IDLE` 3600초 · 셸은 CPU 무관). 문턱이 짧아도 턴이 안 닫혔으면 `WORKING landed-wait` 다(닫기 0).
+- **쉼 판정에서 빼는 미읽음 = «닫힌 꼴 마감 쪽지» 뿐이다**(A5~A8). 읽는 대상은 keeper 가 부르는 `mbox.sh peek <좌석>` 의 그 집합이고, `peek --rows` 로 미읽음마다 JSON 1줄(seq·ts·to·from·body)을 받는다. 한 통이 아래 셋을 모두 채워야 빼고, 하나라도 못 채우면 그 좌석은 `UNKNOWN mail-pending` 이다. ① 본문이 닫힌 꼴이다 — `골좌표:` 로 시작하는 줄과 빈 줄을 뺀 나머지가 정확히 1줄이고 그 줄 전체가 `[마감 #<숫자>] 할 일 0` 또는 `[마감] 할 일 0` 이며 꼬리는 ` · 착지 <7~40자 hex>` 하나만 된다(자유 글은 안 읽는다) ② 보낸 이가 그 팀 명부의 역할 칸(`_master`·`_arch`·`_desk`)에 지금 적힌 좌석이다(명부를 못 읽으면 막는다) ③ 쪽지 `ts` 가 그 좌석에 쓰는 유휴 문턱보다 오래됐다. 빼는 쪽지는 큐에 그대로 둔다(keeper 는 mark·recv 하지 않는다). 근거 줄 꼬리 = `· 미읽음 마감 <n>통 제외(seq <앞 3개> · 가장 오래된 <분>분)`.
+- `peek --rows` 판독 실패는 이렇게 가른다 — rc ≠ 0 · 머리줄에 `pending=` 없음 · JSON 깨짐 · `0 < 줄 수 ≠ pending` = `mail-unknown` · 머리줄은 읽혔는데 줄이 0 이고 `pending > 0` = 옛 mbox(`--rows` 모름) → `mail-pending`. 착지 좌석은 `peek --rows` 한 번, 그 밖 좌석은 `peek` 으로 pending 을 먼저 보고 0 이 아니면 `--rows` 로 내용을 읽는다(옛 mbox 호환).
 - **CPU idle 단독은 유휴·닫기 근거가 아니다.** 유휴 = jsonl 무활동 ≥ `PARK_IDLE` ∧ CPU idle 2회 둘 다. pi 는 API 응답을 기다리는 동안 %cpu 가 0.0 이다. 셸만 남은 pane 은 CPU 와 무관하게 에이전트 종료 근거다.
 - **판독 실패를 `WORKING` 으로 두지 않는다.** 근거를 못 읽으면 `UNKNOWN` 이다.
 - **끝남 판독 순서**(설계 §13): 1차 = `tmuxc clean` 바퀴당 1회(실행 파일 호출 · import 0)와 CPU 규칙. 1차를 못 세운 좌석만 2차 = pane 끝 줄 읽기. 입력줄 `❯`·`›` 뒤 글자는 근거가 아니다. 둘 다 못 세우면 `UNKNOWN probe-fail`.
 - **세션 부재 확정** = raw `tmux has-session` rc 1 + «can't find session» 뿐이다.
-- 상수(`adapters/pi/keeper_settle.py`): `PARK_IDLE` 3600초 · 질문 창 `WAIT_S` 900초 · `CPU_IDLE` 0.3 · `CPU_GAP` 30초 · `CPU_DEPTH` 8 · 셸 목록 `zsh`·`bash`·`fish`. CPU 문턱·간격·후손 깊이·셸 목록은 tmuxc 규칙과 같은 값이다.
+- 상수(`adapters/pi/keeper_settle.py`): `PARK_IDLE` 3600초 · 착지 좌석 닫기 `DONE_IDLE` 300초 · 질문 창 `WAIT_S` 900초 · `CPU_IDLE` 0.3 · `CPU_GAP` 30초 · `CPU_DEPTH` 8 · 셸 목록 `zsh`·`bash`·`fish`. CPU 문턱·간격·후손 깊이·셸 목록은 tmuxc 규칙과 같은 값이다.
 
 ## 3. 사유 코드
 
@@ -57,7 +61,7 @@ keeper 는 좌석마다 매 바퀴 판정 1개를 낸다. 이 문서는 그 판�
 | `WORKING` | `keep-recent` · `keep-last-2` · `ready-wait` | 장기 좌석 보존(닫기 0 · [긴급] 0 · 정상 보존) · 후계 [레디] 영수 0 |
 | `UNKNOWN` | `waiting-input` | 마지막 줄 toolUse ∧ jsonl 무활동 ≥ 15분 ∧ CPU idle 2회 = 사람 답 대기 |
 | `UNKNOWN` | `dirty` · `unpushed` · `git-error` | 남길 것이 안전하지 않음 |
-| `UNKNOWN` | `mail-pending` · `mail-unknown` | 그 좌석 앞 미수신 쪽지 있음 · 못 읽음 |
+| `UNKNOWN` | `mail-pending` · `mail-unknown` | 그 좌석 앞 «막는 미읽음» 이 있음(빼는 마감 쪽지 밖) · 판독 실패(§2 약속 · A5~A8) |
 | `UNKNOWN` | `shell-only-unsafe` | 셸만 남았는데 남길 것이 안전하지 않음 |
 | `UNKNOWN` | `owner-orphan` · `session-absent` | 세션 없음 · owner 판독이 반쪽 꼴과 다름 |
 | `UNKNOWN` | `intent-bad` | intent 에 worktree 칸 없음 등 새 꼴 |
