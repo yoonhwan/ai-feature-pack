@@ -147,7 +147,7 @@ pland 33 STUB_OBJECTS=5000 FT_LAND_TOTAL_S=30; a="$(pb)"
 MI="$(omain)"; pland 36 STUB_OBJECTS=5000 FT_LAND_TOTAL_S=30 PUSH_MODES="rc124 ok"; a="$(pb)"
 [ "$rc" = 1 ] && [ "$(np)" = 1 ] && [ "$a" -ge 11 ] && [ "$a" -lt 70 ] && [ "$(omain)" = "$MI" ] && [[ "$out" == *"총 마감 안에 끝내지 못함"* ]]; ck "ⓘ2 절단된 1차(AB $a) timeout → 재시도 조건 REM ≥ PB 거짓 → 시도 1 · rej «다음 틱» · main 불변" $?
 pland 27 STUB_OBJECTS=1 PUSH_MODES="reject ok"; [ "$rc" = 1 ] && [ "$(wc -l < "$PLOG" | tr -d ' ')" = 1 ] && [[ "$out" == *"non-FF"* ]]; ck "ⓕ1 서버 거절(fetch first) → 재시도 0" $?
-pland 28 STUB_OBJECTS=1 PUSH_MODES="nff ok"; [ "$rc" = 1 ] && [ "$(wc -l < "$PLOG" | tr -d ' ')" = 1 ]; ck "ⓕ2 pre-receive 거절 → 재시도 0" $?
+pland 28 STUB_OBJECTS=1 PUSH_MODES="nff ok"; [ "$rc" = 6 ] && [ "$(wc -l < "$PLOG" | tr -d ' ')" = 1 ]; ck "ⓕ2 pre-receive 거절 → 재시도 0 · rc 6 원격 거절(r2007)" $?
 pland 29 STUB_OBJECTS=1 PUSH_MODES="other ok"; [ "$rc" = 1 ] && [ "$(wc -l < "$PLOG" | tr -d ' ')" = 1 ] && [[ "$out" == *"push 실패"* ]]; ck "ⓕ3 분류 못 한 실패 → 재시도 0 + push 실패 REJECT" $?
 pland 30 STUB_OBJECTS=1 FT_PUSH_FIXED_S=9; [ "$rc" = 0 ] && [ "$(pb)" = 14 ] && [[ "$out" == *"WARN"*"FT_PUSH_FIXED_S"* ]]; ck "ⓖ1 FT_PUSH_FIXED_S=9 → 7 로 클램프(bound 14) + WARN" $?
 pland 31 STUB_OBJECTS=250 FT_PUSH_UNIT_OBJECTS=0; [ "$rc" = 0 ] && [ "$(pb)" = 28 ] && [[ "$out" == *"WARN"*"FT_PUSH_UNIT_OBJECTS"* ]]; ck "ⓖ2 FT_PUSH_UNIT_OBJECTS=0 → 기본 100(250객체=3단위 → 28) + WARN" $?
