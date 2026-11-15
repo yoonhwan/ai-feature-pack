@@ -13,10 +13,12 @@ r849(재설계 r4 · r3) l = 로그아웃 좌석 — 쪽지는 «로그아웃 �
 r1001 f = 팀장 심박 끊김 — 현역 role=master 좌석들의 b·d 를 «팀 단위» 로 묶고 판정은 ft_stall_detect.lead_alert 하나만 쓴다(신선 = 그 팀 0통 · 끊김·없음 = `[멈춤]` 1통 · 판정 불가 = u + 처리 0) · env FT_ROOT · FT_NOW · FT_SEAT_STATUS · FT_TMUX · FT_MBOX_SH · FT_INDEX_LINT · FT_MBOX_DIR · FT_STALL_STATE_DIR · FT_PS · FT_CTX_CMD · FT_LEAD_HEARTBEAT_MIN · FT_STALL_HEARTBEAT_BUDGET · FT_STALL_PAUSED_SKIP(0 = 정지 표식 팀 판정 끔).
 r1647 f 문구 = 크론 요구 0(#274576 주기 크론 0 정책) · 마지막 발신 머리 `[다음 없음` + ft-seat-open-work rc0(받을 일 0) 인 «닫기 대기 팀장» 은 f 0통 + 노트 1줄(새 일이 들어오면 다시 센다).
 r1371 — 전팀 정지 표식(ft_stall_detect.all_stop · 스캔 처음 1회) on 이면 a·f 경보 0 + «보류 <a|f> <팀> — 전팀 정지(since HH:MM)» 노트 · h 는 ft_stall_headline.headline_alerts 가 같은 표식으로 보류 · c·e·l 은 그대로(정지 중에도 보여야 하는 것).
+r2080 w = 승계 감시(B5) — 명부의 «승계 중 구 좌석»(_replaced_by · _closed 없음 · 역할 ≠ nano · tmux 생존)마다 close-check 읽기 1회(7초) · 첫 줄 «REJECT … 후계 [레디] 없음» = ft-critical-notify 1통(지문 ready-missing #<[인계] seq> · 중복 창 = 그 도구) · 닫기 호출 0 · 요약 줄 끝 w= 칸.
 r2080 t = desk 틱 끊김 — 현역 role=desk(tmux 생존 · 시작 뒤 FT_DESK_HEARTBEAT_MIN 지남)의 `[완료] desk 틱` 심박(판정 = ft_stall_detect.desk_alert) 이 없거나 늙으면 desk [멈춤](좌석 10분 1번) + planner 팀장 [긴급](끊김 구간당 1통 · act_t) · 조용한 경우 = 팀장 f 와 같은 규칙 · 요약 줄 끝 t= 칸(stall= 에 안 셈).
 """
 import json
 import os
+import re
 import shlex
 import sys
 import time
@@ -89,6 +91,7 @@ class Scan:
         self.e_min = float(os.environ.get("FT_STALL_E_IDLE_MIN") or 30)
         self.notes: list[str] = []
         self.loggedout: list[tuple[str, str | None, float | None]] = []  # r849 (좌석, 팀 _master, 첫 실패 epoch)
+        self.wlist: list[tuple[str, str, str, str]] = []  # r2080 B5 — 승계 감시 «[레디] 없음» 구 좌석
         self.desk_fresh: set[str] = set()  # r2080 — 이번 scan 에 desk 심박이 신선했던 desk(구간 기록 지움)
         self.recovered: set[str] = set()  # r849 — 이번 scan 에 정상 턴(IDLE·WORKING)으로 읽힌 좌석(로그아웃 칸 지움)
         self.st = stm.load(self.state_dir)
@@ -322,6 +325,37 @@ class Scan:
                 keep(dict(kind="t", seat=s, team=team, age=DESK_READ_MIN if age is None else age, hb=ts,
                           why="desk 틱 끊김" + ("" if age is not None else f"(최근 {DESK_READ_MIN:g}분 심박 0)")))
         return unknown
+
+    def find_w(self) -> int:
+        """r2080 B5 — 승계 감시 판정(읽기만 · 명부·우편함 쓰기 0 · kill 0) → self.wlist [(구, 후계, seq, 첫 줄)] · 판정 불가 수를 돌려준다."""
+        g = os.environ.get("FT_MBOX_PY") or str(self.comm / "mbox.py")
+        env, unknown = {**os.environ, "FT_MBOX_DIR": str(self.comm)}, 0
+        for roster in rosters(self.root):
+            d = roster["doc"]
+            olds = [(k, v["_replaced_by"]) for k, v in (d.items() if isinstance(d, dict) else []) if not k.startswith("_") and isinstance(v, dict)
+                    and isinstance(v.get("_replaced_by"), str) and v["_replaced_by"] and not v.get("_closed") and v.get("role") != "nano" and k in self.live]
+            for old, new in olds:
+                rc, out = run([sys.executable, g, "close-check", old], env, 7)
+                first = (out.strip().splitlines() or [""])[0]
+                if rc not in (0, 3, 4) or not first.startswith(("REJECT ", "WAIT ", "CLOSE-OK ")):
+                    unknown += 1
+                    self.notes.append(f"w? {old} 승계 감시 판정 불가(close-check rc={rc} «{first[:60]}») — 발신 0")
+                    continue
+                hit = first.startswith("REJECT ") and " 뒤 후계 [레디] 없음" in first  # B5 — 창을 넘긴 «[레디] 없음» 만 · WAIT·CLOSE-OK·다른 REJECT = 0
+                if hit:
+                    m = re.search(r"\[인계\] #([\d,]+)", first)
+                    self.wlist.append((old, new, m.group(1).split(",")[-1] if m else "?", first))
+        return unknown
+
+    def act_w(self, stamp: str) -> list[str]:
+        """r2080 B5 — 승계 감시 발신: 구 좌석마다 ft-critical-notify 1회(같은 [인계] seq = 그 도구 중복 창 · 새 기록 파일 0)."""
+        tool, log = str(HERE / "ft-critical-notify.sh"), []
+        env = {**os.environ, "FT_MBOX": self.mbox, "FT_MBOX_DIR": str(self.comm)}
+        for old, new, seq, first in self.wlist:
+            rc, _out = run(["bash", tool, "ft-seat-close", old, "--event", f"ready-missing #{seq}", "--what", first[:300],
+                            "--next", f"후계가 bash mbox.sh ready {new} {old}"], env, 10)
+            log.append(f"{stamp} act=w seat={old} succ={new} seq={seq} rc={rc}")
+        return log
 
     def act_t(self, found: list[dict], stamp: str) -> list[str]:
         """r2080 A3ⓑ — planner 팀장 [긴급] «끊김 구간당 1통» · 구간 = 알린 때의 마지막 심박 ts(더 새 심박 뒤 다시 끊김 = 새 구간) · 정지·전팀 정지 = 0 · 상태 state/stall-scan.t.json."""
@@ -653,12 +687,14 @@ class Scan:
         found, unknown = self.find(pen)
         stm.judge_done()  # r1282 — 판정 끝 기한 검사(넘으면 처리 0 · 저장 0) · 이후는 처리 단계(호출별 timeout 만)
         found, unknown = self.gate_a(found, unknown)  # r1238 A — 처리 단계 첫 일(keys·counts·trig 전)
+        unknown += self.find_w()  # r2080 B5 — 승계 감시(판정 기한 밖 · 호출당 7초)
         handled, prev = self.st.get("handled", {}), set(self.st.get("prev", []))
         keys = {f"{f['kind']}:{f['seat']}": f for f in found if f["kind"] != "h"}
         counts = {k: sum(1 for f in found if f["kind"] == k) for k in "abcdefghmt"}
         trig = sorted(k for k, f in keys.items() if k[0] in "abd" and k in prev and f["seat"] in handled and not f["attached"] and not f["held"])
-        lines = [f"stall={len(found) - counts['h'] - counts['t']} a={counts['a']} b={counts['b']} c={counts['c']} d={counts['d']} e={counts['e']} seats={len(self.live)} u={unknown} ts={int(self.now)} l={len(self.loggedout)} f={counts['f']} h={counts['h']} g={counts['g']} m={counts['m']} t={counts['t']}"]
+        lines = [f"stall={len(found) - counts['h'] - counts['t']} a={counts['a']} b={counts['b']} c={counts['c']} d={counts['d']} e={counts['e']} seats={len(self.live)} u={unknown} ts={int(self.now)} l={len(self.loggedout)} f={counts['f']} h={counts['h']} g={counts['g']} m={counts['m']} t={counts['t']} w={len(self.wlist)}"]
         lines += [f"{f['kind']} {f['seat']} {f['age']:.0f} {f['why']}" + ("" if f["kind"] in ("e", "h", "g") else " (attached·처리 0)" if f["attached"] else " (전팀 정지 처리 0)" if f.get("all_stop") else " (정지 중 처리 0)" if f["held"] else "") for f in found]
+        lines += [f"w {o} {n} #{q}" for o, n, q, _ in self.wlist]
         lines += [f"l {s} 첫 실패 {e if e is None else int(e)} 로그아웃(재개 = 재시작)" for s, _, e in self.loggedout]
         lines += self.notes
         print("\n".join(lines))
@@ -674,6 +710,7 @@ class Scan:
             log += self.act_e(found, stamp)  # e 는 알림만 — attached·페널티·10분 창과 무관, 서명으로만 1회
             log += self.act_l(stamp)  # r849 — 로그아웃 좌석 팀장 1통 · 칸(좌석 계보)으로만 1회
             log += self.act_m(found, stamp)  # r1883 — 팀장 없는 팀 · 서명으로만(10분 창 무관)
+            log += self.act_w(stamp)  # r2080 B5 — 승계 감시 [크리티컬]
             log += self.act_t(found, stamp)  # r2080 — desk 틱 끊김 planner 1통 · 구간으로만
             log += self.act_g(found, stamp)  # r1882 — pi 오류 멈춤 · 서명으로만(10분 창·attached 무관)
             headline_notes = headline.headline_alerts(self.root, self.comm, found, self.live, self.now, self.send_headline, self.astop)  # r1371 — 같은 표식(조회 1회)
