@@ -100,7 +100,11 @@ class Wiring:
                 row["why"] = "상한 초과 · 적재 " + row["landed"]
         self._append(row)
         self.last_wake = row
-        if rc != 0 and row["landed"] != "있음":   # G1 — 적재 «있음» 은 실패가 아니다(좌석이 받았다)
+        if head.startswith(ALERT_HEAD):   # 알림 깨움 = 이 command 의 좌석 깨움 상태를 바꾸지 않는다(성공해도 후보 유지)
+            return rc
+        if rc == 0 or row["landed"] == "있음":   # G1 — rc 0 이나 적재 «있음» = 좌석이 받았다 → 후보에서 뺀다
+            self.candidates.pop(command, None)
+        else:
             self._queue(command, to, head, mark)
         return rc
 
@@ -167,10 +171,10 @@ class Wiring:
         n = int(cand.get("attempts") or 1) + 1   # 끝줄 회차 = 처음 시도를 1로 센다(첫 재전송 = 2/3)
         rc = self.deliver(to, row["kind"], self.router.context(binding.thread_key(*row["key"])), row,
                           quiet=True, extra="재전송 %d/%d" % (n, RESEND_CAP))
-        if rc == 0:
+        last = dict(self.last_wake or {})
+        if rc == 0 or last.get("landed") == "있음":   # G1 — 적재 «있음» 도 성공(잘린 send 가 늦게 붙은 경우)
             self.candidates.pop(command, None)
             return {"command": command, "why": "재전송 %d/%d" % (n, RESEND_CAP)}
-        last = dict(self.last_wake or {})
         cand.update({"attempts": n, "at": self.now(), "seq0": last.get("seq0"), "to": to,
                      "head": last.get("head") or head})
         if n >= RESEND_CAP:  # G8 — 3회째도 실패 = 멈추고 harness _master [긴급] 1통
@@ -229,6 +233,11 @@ class Wiring:
     def recovered(self, verdict):  # 보정1 R2 — 재기동 복구 dispatched 도 정상 길처럼 입구 기록·좌석 깨움 1회
         command, router = verdict.get("command"), self.router
         if verdict.get("state") != route.DISPATCHED or self.woke(command):  # G9 — 실패한 깨움은 넘긴 글로 세지 않는다
+            self.candidates.pop(command, None)   # 넘긴 글 = 다시 보낼 후보 아님
+            return None
+        if command and self._attempts(command) >= RESEND_CAP:   # G3·G9 — 재기동해도 3회 셈을 잇는다(4회째 0)
+            self.candidates.pop(command, None)
+            self.log("[재전송] 3회 상한 · 재기동 깨움 0 %s" % command)
             return None
         rows = [r for r in router.entries(route.ROUTE) if r.get("command") == command and r.get("state") == route.DISPATCHED]
         if not rows:  # route 앞에서 죽은 글 — S-1 이 묶은 root 만 이어 받는다(답글은 thread 불명 = desk)
