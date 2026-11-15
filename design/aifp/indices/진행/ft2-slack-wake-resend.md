@@ -6,6 +6,7 @@
 - 원인 1줄: wiring.wake 는 send 를 1회 부르고 실패하면 rc 줄 1개만 쓴다 · 다시 보내는 곳이 없다 · 재기동 복구 recovered 는 실패한 wake 줄도 «넘긴 글» 로 센다 · rc ≠ 0 의 send 출력을 버려 거부 사유가 남지 않는다 · landed 는 본문 첫 줄만 맞춰 앞 시도와 새 시도를 못 가른다
 - 앞 카드: r1833(깨움 상한 25초 · landed) · r1938(유휴 회차 무변화 = 읽기·쓰기 0) · r1923·r1927(Slack 채널·봇 답) · r1807(팀 wiring)
 - 상태: 대기
+- 착지: e03072ec7dd16bb296a85ede524157f560b5e0a5(팩 main · PR #1292 squash · DA#11 APPROVE-IMPL aifp 5546 · 세트 c2f7b2a7 · 뺄 커밋 0)
 - 설치: 있음 — ft2 판 올림 1회 + Slack 수신기 재기동 1회(집행 = planner) · 되돌림 = 앞 판으로 판 전환 + 재기동
 - 선행: 없음 — E ft2-keeper-notify-recipient 착지 ae0c199e(PR #1282) 착지 끝 · 팀장 aifp-ft-master-pi#19 이 풂
 - 시험 입력: 임시 루트(tmp_path) · 시험 안에서 만든 wire.jsonl·route 장부·우편함 장부·명부 · 가짜 mbox(rc·출력·걸린 시간·장부에 붙일 줄을 사례가 정함) · 가짜 clock · sleep 0 · 네트워크 0 · Slack 호출 0 · 실 runtime 쓰기·읽기 0 · 사례 1개 70초 안
@@ -58,12 +59,12 @@ Slack 수신기는 글을 접수하면 thread 에 묶인 좌석을 쪽지로 깨
 - 알려진 한계 3: 재전송 1통은 Slack 소켓 읽기를 25초까지 막는다(처음 깨움과 같은 값)
 
 ## 완료 조건
-1. [ ] 나노: 커밋 1 기준판 FAIL 원문
-2. [ ] 나노: 새 시험 전체 rc0 · 걸린 초
-3. [ ] 나노: 변이 M34 → ㉞가·㉞마 FAIL · M35 → ㉞다 FAIL · M36 → ㉞바 FAIL · M37 → ㉞사 FAIL · M38 → ㉞차 FAIL
-4. [ ] 나노: 회귀 rc0
-5. [ ] arch: DA 인수 칸 4개 원문 확인 = 재기동 직후 60초 미만 send 0(㉞하) · 누적 3회 뒤 send 0(㉞거) · 알림 재귀 0(㉞자) · 빈 후보 유휴 회차 읽기·쓰기 0(㉞타)
-6. [ ] 팀장: PR 착지 sha · 설치 판 · 수신기 재기동 시각(planner 집행 회신)
+1. [x] 나노: 커밋 1 기준판 FAIL 원문 — 기준판(c7860542 사본) `python3.11 -m pytest tests/test_slack_wake_resend.py -q` 12 failed · 8 passed 0.46초 · ㉞가 `assert '무변화' == '재전송 2/3'` · ㉞다 `assert 1 == 3` · ㉞아 `KeyError: 'out'` · ㉞차 `KeyError: '<command>'`(설계 지목 4칸 모두 FAIL · 나노 aifp 5534)
+2. [x] 나노: 새 시험 전체 rc0 · 걸린 초 — 20 passed 0.31초(1a4db49e · aifp 5534) · HOLD 고침 뒤(c2f7b2a7) 23 passed 0.32초(㉞너·㉞더·㉞러 3칸 추가 · M34~M38 포함 · aifp 5538)
+3. [x] 나노: 변이 M34 → ㉞가·㉞마 FAIL · M35 → ㉞다 FAIL · M36 → ㉞바 FAIL · M37 → ㉞사 FAIL · M38 → ㉞차 FAIL — 나노 원문(aifp 5534): M34 → ㉞가·㉞마 외 6칸 · M35 → ㉞다 외 6칸 · M36 → ㉞바 1칸 · M37 → ㉞사·㉞바 2칸 · M38 → ㉞차 1칸 FAIL · 원본 20 passed · DA aifp 5546 «M34~M38 포함» 재확인
+4. [x] 나노: 회귀 rc0 — 고침 뒤 파일별(aifp 5538): test_slack_team_wiring_r1807 13 passed · test_core_e2e_wiring 4 passed · test_slack_listen_multi_channel_r1833 11 passed · test_keeper_notify_recipient 25 passed · 기준판과 같은 기존 FAIL 3건은 그대로(test_slack_settle_live_idle_r1938 1 failed·9 passed = 변이 M3 · test_slack_receive 2 failed·7 passed = t4 full·r1r2 · 기준판 c7860542 도 같은 사례 · 이 카드가 만든 것 아님 · DA aifp 5546 «기존 3FAIL 은 앞 기준판 대조 결과 유지»)
+5. [x] arch: DA 인수 칸 4개 원문 확인 = 재기동 직후 60초 미만 send 0(㉞하) · 누적 3회 뒤 send 0(㉞거) · 알림 재귀 0(㉞자) · 빈 후보 유휴 회차 읽기·쓰기 0(㉞타) — aifp-ft-arch-pi#18(aifp 5535 = 1a4db49e 사본 20 passed · 착지 세트 c2f7b2a7 사본에서 다시 23 passed 0.56초 rc=0 · 네 사례 PASSED): ㉞하 test_ha_restart_waits_60s_from_last_attempt = 30초 시점 reason 무변화 + `bodies(run) == []` → 60초 시점 `재전송 2/3` + 1통 / ㉞거 test_geo_restart_after_three_failures_sends_nothing = `len(seat_wakes) == 3` → 재기동 뒤 `hub.candidates == {}` → 300초 뒤 `bodies(run) == []` / ㉞자 test_ja_alert_wake_failure_never_resent = `hub.candidates == {}` + `len(wakes(run)) == 1` / ㉞타 test_ta_empty_candidates_idle_reads_nothing = `reads == []` + jsonl 크기 앞뒤 같음 · 본 것: ㉞하·㉞거 의 send 0 은 planner master 앞 호출만 센다(내가 사본에 `wakes(run) == []` 를 더해 돌려 둘 다 통과 = 전체 호출 0) · ㉞타 쓰기 0 은 teams 밑 jsonl 크기만 본다 · DA 2회 = HOLD-IMPL BYZ 311009 → APPROVE-IMPL BYZ 311041
+6. [~] 팀장: PR #1292 e03072ec · 설치 = harness#290 대기 · 수신기 재기동 = planner 대기
 7. [ ] arch: 설치 뒤 planner wire.jsonl 읽기 실측 1줄(«rc ≠ 0 · 적재 없음» 뒤 같은 command rc 0 줄 · `out` 칸에 찍힌 rc 3 사유 원문)
 
 ## 계약↔시험 대응표
@@ -85,3 +86,6 @@ Slack 수신기는 글을 접수하면 thread 에 묶인 좌석을 쪽지로 깨
 - [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
 - 세트: 1a4db49e8c587b62d243dba6cab196b5c5743b44 · 시험: python3.11 -m pytest tests/test_slack_wake_resend.py -q (20 passed) rc=0 · 이슈: 0
 - 완료: aifp-ft-nano-ft2-slack-wake-resend#0 · 한 일: ft2 Slack 깨움 재전송 구현 — 유휴 회차 1통·60초 간격·3회 상한·늦은 적재 확인·seq 경계 적재 판독·3회 실패 [긴급] 1통·재기동 시도 수 잇기 + 새 시험 20칸/변이 5 · 산출: nano/ft2-slack-wake-resend@1a4db49e8c · 병합 상태: 착지 전(push 전) · 남은 일: 없음
+- 고침: DA HOLD-IMPL(BYZ 311009) 반례 3건 = 재기동 뒤 상한 넘김 · 성공 뒤 중복 발신 · 셋째 적재 있음인데 거짓 [긴급] → 커밋 9df40241(시험 3칸 ㉞너·㉞더·㉞러) · c2f7b2a7(adapters/slack/wiring.py · aifp 5538)
+- DA 판정: HOLD-IMPL 311009(반례 3) → APPROVE-IMPL 311041(aifp 5546) · 알려진 한계 = 변이 번호 M34 가 keeper-settle CASES M34 와 겹침(문서 범위 다름)
+- 세트: c2f7b2a706c63427567a64bcfb6860772b2bf990 · 시험: python3.11 -m pytest tests/test_slack_wake_resend.py -q (23 passed · 0.32초) rc=0 · 이슈: 0
