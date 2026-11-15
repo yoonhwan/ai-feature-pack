@@ -4,7 +4,9 @@
 #   ③ rc4×2 · SEQ 남음 → rc2 · ring 1  ④ rc5 · drops seqs 칸에 SEQ → rc5 «버려짐(ring 포화)»  ⑤ peek rc1 → «판정 불가 우편함 소비» 1줄 · 기준판 rc(2)
 #   ⑥ doorbell=absent → rc5 · peek 0  ⑦ ft-nano-spawn 송신 줄 → FT_REACH_AGENT=<에이전트>  ⑧ REACH rc0 → 출력·rc 그대로 · peek 0
 #   변이(사본만): M1 drops 대조 지움 → ④ FAIL · M2 peek rc 검사 지움 → ⑤ FAIL · M3 env 지움 → ⑦ FAIL
-# 실 tmux·실 좌석·실 우편함 0 · 시험 안 sleep 0 · 대기 = FT_SV_DEADLINE(지금+2초)로 clip.
+#   R1(DA HOLD1): rc5 즉답 · SEQ 남음 · 예산 2초 → 소비 확인이 예산을 다 쓰면 ring 0 · 두 번째 reach 0 · rc6(r1660 clip)
+# 실 tmux·실 좌석·실 우편함 0 · 실제 sleep 0 — 가상 시계(date +%s · sleep 대역) · reach rc4 = 그 timeout 만큼 시계를 민다(다 기다린 꼴).
+#   기본 FT_SV_DEADLINE = 가상 지금+100초(대기 20초 그대로) · DL_OFF=<초> 로 줄인다.
 # env SV_UNDER_TEST / NS_UNDER_TEST = 다른 판(기준판 Red 확인용)을 갈아끼운다 · 기본 = comm·kit 두 벌 모두.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
 set -uo pipefail
@@ -18,6 +20,15 @@ mkdir -p "$TMP/fake" "$TMP/canon"
 cat > "$TMP/fake/tmux" <<'EOF'
 #!/usr/bin/env bash
 exit 1
+EOF
+# 가상 시계 — date +%s = $CLK · sleep N = 시계 +N(실제 대기 0)
+cat > "$TMP/fake/date" <<'EOF'
+#!/usr/bin/env bash
+[ "${1:-}" = "+%s" ] && { cat "$CLK"; exit 0; }; exec /bin/date "$@"
+EOF
+cat > "$TMP/fake/sleep" <<'EOF'
+#!/usr/bin/env bash
+echo "sleep $1 at=$(cat "$CLK")" >> "$LOG"; echo $(( $(cat "$CLK") + ${1%.*} )) > "$CLK"
 EOF
 # mbox 대역 — send = QUEUED seq · peek = 진짜 꼴 «pending=N latest_seq=M» (PEEKS = 호출마다 «N:M» · 끝 값 반복 · PEEKS_RING = ring 뒤 값) · ring = doorbell
 cat > "$TMP/fake/mbox" <<'EOF'
@@ -34,7 +45,8 @@ EOF
 cat > "$TMP/fake/reach" <<'EOF'
 #!/usr/bin/env bash
 [ -n "${FT_REACH_COUNT_ONLY:-}" ] && exit "${PROBE_RC:-0}"
-echo "reach $*" >> "$LOG"; n=$(grep -c '^reach ' "$LOG"); set -- $REACH_RCS; [ "$n" -le $# ] || n=$#; eval "exit \${$n}"
+echo "reach $* at=$(cat "$CLK")" >> "$LOG"; to="$3"; n=$(grep -c '^reach ' "$LOG"); set -- $REACH_RCS; [ "$n" -le $# ] || n=$#; eval "rc=\${$n}"
+[ "$rc" != 4 ] || echo $(( $(cat "$CLK") + to )) > "$CLK"; exit "$rc"
 EOF
 chmod +x "$TMP/fake/"*
 # run <ft-send-verified 원본> VAR=… → RC · $TMP/out(stdout) · $TMP/err(stderr) · $LOG(호출) · DROPSLINE=1 = 버림 원장에 SEQ 1줄
@@ -42,10 +54,10 @@ DL="$TMP/canon/mailbox.drops.log"
 run() {
   local src="$1"; shift; local d="$TMP/sv"; rm -rf "$d"; mkdir -p "$d"
   cp "$src" "$d/ft-send-verified.sh"; cp "$TMP/fake/reach" "$d/ft-reach-check.sh"
-  LOG="$TMP/log"; : > "$LOG"; : > "$DL"
+  LOG="$TMP/log"; : > "$LOG"; : > "$DL"; CLK="$TMP/clk"; local c0; c0="$(/bin/date +%s)"; echo "$c0" > "$CLK"
   case " $* " in *" DROPSLINE=1 "*) echo "2026-11-12T07:50:00 to=$S dropped=2 oldest_seq=4240 seqs=4240,$SEQ" > "$DL";; esac
-  env PATH="$TMP/fake:$PATH" LOG="$LOG" FAKE_SEQ="$SEQ" S="$S" FT_MBOX_SH="$TMP/fake/mbox" FT_MBOX_DIR="$TMP/canon" \
-      FT_SV_DEADLINE="$(( $(date +%s) + 2 ))" PEEKS="1:$SEQ" REACH_RCS=4 "$@" \
+  env PATH="$TMP/fake:$PATH" LOG="$LOG" CLK="$CLK" FAKE_SEQ="$SEQ" S="$S" FT_MBOX_SH="$TMP/fake/mbox" FT_MBOX_DIR="$TMP/canon" \
+      FT_SV_DEADLINE="$(( c0 + ${DL_OFF:-100} ))" PEEKS="1:$SEQ" REACH_RCS=4 "$@" \
       bash "$d/ft-send-verified.sh" "$S" "본문" > "$TMP/out" 2> "$TMP/err"; RC=$?
 }
 n() { grep -c "^$1" "$LOG"; }
@@ -54,6 +66,7 @@ recv_line() { [ "$(grep -c "^REACHED(recv) session=$S seq=$SEQ\$" "$TMP/out")" =
 case1() { run "$1" REACH_RCS=5 PEEKS="0:0"; [ "$RC" = 0 ] && recv_line; }
 case4() { run "$1" REACH_RCS=5 PEEKS="0:0" DROPSLINE=1; [ "$RC" = 5 ] && [ "$(grep -c "seq=$SEQ 버려짐(ring 포화)" "$TMP/err")" = 1 ] && ! grep -q 'REACHED' "$TMP/out"; }
 case5() { run "$1" REACH_RCS=5 PEEKS="0:0" PEEK_RC=1; [ "$RC" = 2 ] && [ "$(grep -c '판정 불가 우편함 소비' "$TMP/err")" = 1 ] && ! grep -q 'REACHED' "$TMP/out"; }
+caseR1() { DL_OFF=2 run "$1" REACH_RCS=5 PEEKS="1:$SEQ"; [ "$RC" = 6 ] && [ "$(n 'mbox ring')" = 0 ] && [ "$(n 'reach ')" = 1 ] && grep -q '^SENT_UNCONFIRMED' "$TMP/out"; }
 for SV in $SVS; do
   tag="$(basename "$(dirname "$SV")")"
   case1 "$SV" && ok "① [$tag] rc5(codex 꼴) · SEQ 소비 → rc0 REACHED(recv) 1줄" || bad "① [$tag] $(got)"
@@ -71,6 +84,7 @@ for SV in $SVS; do
   { [ "$RC" = 5 ] && [ "$(n 'mbox peek')" = 0 ] && grep -q 'doorbell=absent' "$TMP/err"; } && ok "⑥ [$tag] doorbell=absent → rc5 · peek 0" || bad "⑥ [$tag] $(got)"
   run "$SV" FAKE_DB=absent PROBE_RC=5 PEEKS="0:0"
   { [ "$RC" = 5 ] && [ "$(n 'mbox peek')" = 0 ]; } && ok "⑥b [$tag] 프로브 rc5 + doorbell=absent → rc5 · peek 0" || bad "⑥b [$tag] $(got)"
+  caseR1 "$SV" && ok "R1 [$tag] 소비 확인이 예산 소진 → ring 0 · reach 2차 0 · rc6" || bad "R1 [$tag] $(got) reach=$(n 'reach ')"
   run "$SV" REACH_RCS=0 PEEKS="0:0"
   { [ "$RC" = 0 ] && [ "$(n 'mbox peek')" = 0 ] && [ "$(cat "$TMP/out")" = "QUEUED seq=$SEQ to=$S doorbell=sent" ]; } \
     && ok "⑧ [$tag] REACH rc0 → 출력 그대로 · peek 0" || bad "⑧ [$tag] $(got)"
