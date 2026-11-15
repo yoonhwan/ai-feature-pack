@@ -226,3 +226,50 @@ def test_r22_ba_shared_folder_retired_seat(tmp_path, monkeypatch):   # ㉒(바) 
     assert t.has(lines, "WORKING harness - %s10 keep-last-2" % b), lines
     assert len(urgent(w, b + "9")) == 1 and not urgent(w, b + "10 ") and not w.tmux("kill-session"), t.sent(w)
     assert not kw._lines(str(w.close) + ".log"), "닫기 0"
+
+
+# ── DA#11 두 번째 HOLD 잔여 2건(#308570 · a370 test_remaining.py 단정 그대로) ──
+
+def _known_nano(w, stop):
+    seat = 'byz-harness-nano-unassigned#0'
+    kw._put(w.state / 'ALL_STOP.json', {}) if stop else None
+    kw._put(w.root / '.fable-team/seats-harness.json', {'_master': 'M-harness', seat: {'role': 'nano'}})
+    d = json.loads(w.tm.read_text(encoding='utf-8'))
+    d['alive'] = [seat]
+    kw._put(w.tm, d)
+    code = kw.TMUX.replace('__PY__', sys.executable)
+    pos = code.index('if a[0] == "kill-session"')
+    kw._put(w.tmp / 'bin/tmux', code[:pos] + t.LS + code[pos:])
+    lines = t.rnd(w)
+    return [ln for ln in lines if seat in ln and ln.startswith(('UNKNOWN ', 'WORKING ', 'LANDED ', 'PARKED ', '예정 '))], lines
+
+
+def test_r23_known_nano_without_dispatch_under_stop(tmp_path, monkeypatch):   # ㉓ R3 명부 나노 · dispatch 0 · 정지 중 → 판정 줄 있음 · kill 0
+    w = t.world(tmp_path, monkeypatch)
+    verdicts, lines = _known_nano(w, stop=True)
+    assert verdicts, lines
+    assert not w.tmux('kill-session')
+
+
+def test_r23_known_nano_without_dispatch_one_verdict(tmp_path, monkeypatch):   # ㉓ 보탬 정지 아님 바퀴 = 그 좌석 판정 정확히 1줄 · kill 0
+    w = t.world(tmp_path, monkeypatch)
+    verdicts, lines = _known_nano(w, stop=False)
+    assert len(verdicts) == 1, lines
+    assert not w.tmux('kill-session')
+
+
+def test_r24_mapped_card_end_must_share_resolver(tmp_path, monkeypatch):   # ㉔ R4 짝 표 매핑 카드가 팀 폴더 동명 카드보다 먼저
+    w = t.world(tmp_path, monkeypatch)
+    work = 'r9666'
+    w.card(work, stage='진행')
+    path = 'design/teams/v65/indices/진행/' + work + '.md'
+    for ref in ('main', 'ops/main-base'):
+        w.commit('byz', {path: '# 인덱스\n## 상태\n- 중단: 사람 결정\n'}, ref)
+    t.nano(w, work, body='카드 ' + path)
+    kw._put(w.root / '.fable-team/teams/harness/runtime/cards.tsv', work + '\t' + path + '\n')
+    k = w.keeper()
+    k.fresh(str(w.root))
+    resolved = k.resolve_card('harness', work)
+    ending = k.close.__func__.__globals__['endings']._card_end(k, 'harness', work)
+    assert resolved[1] == [path], resolved
+    assert ending and ending[0] == 'suspended', {'resolved': resolved, 'ending': ending}
