@@ -42,11 +42,14 @@ new_env() {   # new_env [변이함수] — 격리 우편함 + 임시 git 원장(
   git -C "$E" init -q -b main; git -C "$E" add design; git -C "$E" -c user.name=t -c user.email=t@t commit -qm base
   [ -z "${1:-}" ] || "$1"
 }
-xenv() { env -u FT_PLANNER_HEAD_MODE -u FT_MBOX_STATE_DIR -u FT_BIN PATH="$T/stub:$PATH" FT_SEATS_JSON="$E/seats/seats.json" FT_MBOX_DIR="$C" \
+xsh() { env -u FT_PLANNER_HEAD_MODE -u FT_MBOX_STATE_DIR -u FT_BIN PATH="$T/stub:$PATH" FT_SEATS_JSON="$E/seats/seats.json" FT_MBOX_DIR="$C" \
   FT_HIL_BIN="$T/stub/ft-hil.sh" FT_MBOX_RATE_N=999 FT_MBOX_FANOUT_WINDOW=0 FT_MBOX_RESEND_COOLDOWN=0 FT_NAME_LINT="$BIN/ft-name-lint.sh" \
-  FT_MBOX_PY="$C/mbox.py" FT_BIN="$BIN" FT_TEAMS_REF="${TREF:-main}" "$@"; }
-sh_() { OUT="$(cd "$E" && xenv bash "$C/mbox.sh" "$@" 2>&1)"; RC=$?; }
-py() { OUT="$(cd "$E" && xenv python3 "$C/mbox.py" "$@" 2>&1)"; RC=$?; }
+  FT_MBOX_PY="$C/mbox.py" FT_BIN="$BIN" FT_TEAMS_REF="${TREF:-main}" bash "$C/mbox.sh" "$@"; }
+xpy() { env -u FT_PLANNER_HEAD_MODE -u FT_MBOX_STATE_DIR -u FT_BIN PATH="$T/stub:$PATH" FT_SEATS_JSON="$E/seats/seats.json" FT_MBOX_DIR="$C" \
+  FT_HIL_BIN="$T/stub/ft-hil.sh" FT_MBOX_RATE_N=999 FT_MBOX_FANOUT_WINDOW=0 FT_MBOX_RESEND_COOLDOWN=0 FT_NAME_LINT="$BIN/ft-name-lint.sh" \
+  FT_MBOX_PY="$C/mbox.py" FT_BIN="$BIN" FT_TEAMS_REF="${TREF:-main}" python3 "$C/mbox.py" "$@"; }
+sh_() { OUT="$(cd "$E" && xsh "$@" 2>&1)"; RC=$?; }
+py() { OUT="$(cd "$E" && xpy "$@" 2>&1)"; RC=$?; }
 row() { printf '{"seq": %s, "ts": "2026-11-15T00:00:00", "to": "%s", "from": "slack-oppa", "body": "%s"}\n' "$1" "$2" "$3" >> "$Q"; }
 sq() { printf '%s\n' "$OUT" | grep -oE 'QUEUED seq=[0-9]+' | head -1 | cut -d= -f2; }
 lines() { if [ -f "$1" ]; then grep -c . "$1"; else echo 0; fi; }
