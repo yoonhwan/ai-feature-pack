@@ -14,7 +14,7 @@
 - 규칙: 없음 — 상시 로드 변경 0
 - 규칙 상세: 하드 룰 12(7초 · 이 카드에서 재시도 1 → 0) · 하드 룰 20 · 하드 룰 22 · no_silent_fallback(받는 곳 없음·도착 판독 불가도 1줄)
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/pi/keeper_report.py(notify 받는 곳 차례·지문·도착 확인·바퀴 상한) · feature-pack/fable-team/ft2/adapters/pi/keeper_settle.py(alert 지문) · feature-pack/fable-team/ft2/adapters/pi/launch_roster.py(명부 찾기 한 함수) · 새 시험 feature-pack/fable-team/ft2/tests/test_keeper_notify_recipient.py · 문서 ft2/contracts/keeper-settle/CONTRACT.md·CASES.md
-- 정본 영향 있음: CONTRACT.md «전송 실패 = 지문 미소비» 문장 → «실패도 그날 지문» · 쪽지 받는 곳 차례·도착 확인·바퀴 3통 절 1개 · CASES.md ㉚·변이 행 = 같은 PR(나노)
+- 정본 영향 없음: aifp 정본(docs/architect · docs/rules · design 팀 GUIDE·README) 변경 0 — 바뀐 것은 팩 ft2 계약 문서(contracts/keeper-settle/CONTRACT.md · CASES.md)뿐이고 착지 PR #1282(ae0c199e)에 같이 들어갔다 · 원래 줄 «정본 영향 있음: CONTRACT.md «전송 실패 = 지문 미소비» 문장 → «실패도 그날 지문» · 쪽지 받는 곳 차례·도착 확인·바퀴 3통 절 1개 · CASES.md ㉚·변이 행 = 같은 PR(나노)»
 - 크기: 코드 3파일 · 새 시험 1파일 · 회귀 기대 고침 1파일 · 문서 2파일 · PR 1개
 - 배정: 좌석 aifp-ft-nano-ft2-keeper-notify-recipient#0
 

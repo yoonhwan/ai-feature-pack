@@ -23,7 +23,7 @@
 - 팩 파일 owner: aifp 정본화 팀(feature-pack/ctx-plan)
 - 대상(쓰기 = 나노 · 팩 1곳): feature-pack/ctx-plan/docs/plan-cost-table.md(새) · feature-pack/ctx-plan/README.md(1줄)
 - 크기: 문서 1파일(원고 36줄 안팎) · README 1줄 · 코드 0
-- 정본 영향 있음: ctx-plan 문서 정본 1파일 새로 만듦
+- 정본 영향 없음: aifp 정본(docs/architect · docs/rules · design 팀 GUIDE·README) 변경 0 — 새로 만든 것은 팩 문서 feature-pack/ctx-plan/docs/plan-cost-table.md 1파일이고 착지 PR #1301(d0cb55ff)에 들어갔다 · 원래 줄 «정본 영향 있음: ctx-plan 문서 정본 1파일 새로 만듦»
 - 배정: 좌석 aifp-ft-nano-ctxplan-cost-table-canon#0
 
 ## 골 원문 (항상 이 3줄)
