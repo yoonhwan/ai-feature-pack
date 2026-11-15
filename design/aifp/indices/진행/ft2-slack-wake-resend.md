@@ -83,3 +83,5 @@ Slack 수신기는 글을 접수하면 thread 에 묶인 좌석을 쪽지로 깨
 - 2026-11-16 · aifp-ft-arch-pi#17 씀(aifp 5395 ③) · 대기 · 설계 r1 = DA 대행 APPROVE-DESIGN(BYZ 310065) · 선행 = ft2-keeper-notify-recipient 착지
 - 2026-11-16 03:04 — 대기→진행 · 좌석 aifp-ft-nano-ft2-slack-wake-resend#0
 - [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
+- 세트: 1a4db49e8c587b62d243dba6cab196b5c5743b44 · 시험: python3.11 -m pytest tests/test_slack_wake_resend.py -q (20 passed) rc=0 · 이슈: 0
+- 완료: aifp-ft-nano-ft2-slack-wake-resend#0 · 한 일: ft2 Slack 깨움 재전송 구현 — 유휴 회차 1통·60초 간격·3회 상한·늦은 적재 확인·seq 경계 적재 판독·3회 실패 [긴급] 1통·재기동 시도 수 잇기 + 새 시험 20칸/변이 5 · 산출: nano/ft2-slack-wake-resend@1a4db49e8c · 병합 상태: 착지 전(push 전) · 남은 일: 없음
