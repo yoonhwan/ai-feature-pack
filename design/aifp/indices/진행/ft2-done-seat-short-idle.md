@@ -6,6 +6,7 @@
 - 원인 1줄: 유휴 문턱이 PARK_IDLE 3600 하나라 착지한 좌석도 60분을 기다린다 · keeper_settle.unsafe 는 미읽음이 1통이라도 있으면 뜻을 보지 않고 막는다 · 끝난 나노는 그 쪽지를 읽으려고 다시 깨지 않는다
 - 앞 카드: r2055(팩 d88ef381 · settle 한 길) · r1841(착지 없는 닫기) · r1865(판정 닫기) · r1153(peek = recv 와 같은 대상 규칙) · r1116(계보)
 - 상태: 대기
+- 착지: 14c2f051657118fe1e3fd67ccb4e6b256c43e090(팩 main · PR #1348 squash · #1324·#1337 을 main 위로 rebase 한 판 · DA#11 APPROVE-IMPL BYZ 311659 + rebase 재확인 311755 · 세트 ed05d4d4 = PR head · 코드 head 66135a90 · 뺄 커밋 0)
 - 설치: 있음 — ft2 판 올림 1회 + 1.x comm 도구(mbox peek --rows) 설치 1회(팩 착지 뒤 팀장·harness 설치 묶음) · 되돌림 = 앞 판으로 판 전환(옛 mbox 면 keeper 는 지금처럼 1통이라도 막는다)
 - 선행: 없음 — E ft2-keeper-notify-recipient 착지 ae0c199e(PR #1282) + D+F ft2-launch-failed-end 착지 8ed707c4(PR #1294) 착지 끝 · 팀장 aifp-ft-master-pi#19 이 풂
 - 시험 입력: 임시 루트(tmp_path) · 가짜 tmux · 가짜 ps · 임시 pi 세션 jsonl · 가짜 clock · 가짜 mbox peek(머리줄 + --rows 줄을 사례가 정함) · 시험 안에서 만든 명부 · sleep 0 · 네트워크 0 · 실 runtime·실 우편함 쓰기·읽기 0 · 사례 1개 70초 안
@@ -58,9 +59,9 @@ keeper 는 좌석이 유휴인지 볼 때 문턱 하나(60분)를 쓴다. 카드
 2. [x] 나노: 새 시험 전체 rc0 — 36 passed(사례 26 = 55초 · 변이 10 = 57초)
 3. [x] 나노: 변이 M20 → ㉙가·㉙아 FAIL · M21 → ㉙나 FAIL · M22 → ㉙바 FAIL · M44 → ㉙버 FAIL · M45 → ㉙서 FAIL · M51 → ㉙머·㉙허 FAIL · M52 → ㉙러·㉙카 FAIL · M53 → ㉙고 FAIL · M54 → ㉙타·㉙더 FAIL · M55 → ㉙마·㉙너 FAIL (test_mutant 10개 = 잡힘 + 원본 PASS)
 4. [x] 나노: 회귀 rc0 — rebase 뒤 test_pi_keeper_r1812(31) + test_settle_one_path_r2055(29) + 1.x test_mbox_peek_self_sent_r1153(4) = 64 passed
-5. [ ] arch: DA 인수 칸 원문 확인 = ㉙허·㉙고·㉙노 · 새 일과 섞인 미읽음(㉙파·㉙카) · 옛 계보(㉙버) · M51~M55
-6. [ ] 팀장: PR 착지 sha · 설치 판(ft2 + mbox)
-7. [ ] arch: 설치 뒤 실사건 로그 2줄(착지 → 닫힘 10분 안 · `미읽음 마감 n통 제외`) + 하루 로그에서 일하는 좌석을 닫은 사건 0
+5. [x] arch: DA 인수 칸 원문 확인 = ㉙허·㉙고·㉙노 · 새 일과 섞인 미읽음(㉙파·㉙카) · 옛 계보(㉙버) · M51~M55 — 착지 판 시험 파일의 사례 이름 27개에 ㉙허·㉙고·㉙노·㉙파·㉙카·㉙버·㉙도 가 각각 1칸 있고 변이 두 파일에 M20·M21·M22·M44·M45·M51~M55 10개가 있다(읽기 대조) · DA 311659 원문 «27 사례와 10 변이 모두 rc0, 파일별 70초 이내» · 311755 원문 «비문서 파일은 앞 승인 d33f4a4a 와 바이트 동일» · 한계 = DA 원문은 칸 이름을 따로 적지 않고 전체 수로 적었다 · 이 좌석은 시험을 다시 돌리지 않았다(aifp-ft-arch-pi#21 · 2026-11-16 05:43)
+6. [~] 팀장: PR 착지 sha · 설치 판(ft2 + mbox) — 착지 14c2f051(PR #1348 · gh 판독 head ed05d4d4 MERGED) · ft2 2.0.70 설치 rc 0(install-log 2026-11-15T20:31:49Z = 05:31:49 KST · 설치본 keeper_settle.py·keeper_close.py 가 착지 판과 cmp 0) · ★mbox 쪽은 아직★ = BYZ .fable-team/comm 의 mbox.sh·mbox.py·mbox_ops.py 에 `--rows` 글자 0줄(mbox_ops.py 고친 날 11-15 12:04) · `mbox.sh peek <좌석> --rows` 가 머리줄 1줄만 낸다(pending=2 인데 행 0) → A5 대로 미읽음 1통이라도 막는다(A6 마감 쪽지 빼기는 아직 안 쓰인다)
+7. [~] arch: 설치 뒤 실사건 로그 2줄(착지 → 닫힘 10분 안 · `미읽음 마감 n통 제외`) + 하루 로그에서 일하는 좌석을 닫은 사건 0 — 중간값(설치 뒤 11분 · 바퀴 9 · BYZ 20261116.jsonl 05:31~05:42): `05:35:11 WORKING harness r1909-ft20-root-of-ft-root-caller-rc byz-harness-nano-r1909-ft20-root-of-ft-root-caller-rc#0 landed-wait` 1줄 · `05:37:51 UNKNOWN harness r1909-…#0 mail-pending · 미읽음 판독 --rows` · `05:37:54 UNKNOWN harness r1924-seat-close-ft20-nano-route-hint …#0 mail-pending · 미읽음 판독 --rows` · 착지 → 닫힘 0줄 · `미읽음 마감 n통 제외` 0줄(mbox --rows 가 설치돼야 나온다) · CLOSED-SESSION 0줄 = 실사건 대기
 
 ## 계약↔시험 대응표
 | 계약 | 시험 |
@@ -93,3 +94,8 @@ keeper 는 좌석이 유휴인지 볼 때 문턱 하나(60분)를 쓴다. 카드
 - 곁들여 고친 대역: keeper_world_r1812 의 mbox 가 peek --rows 에만 pending=0 을 답한다 · test_settle_one_path_r2055 변이 앵커 2개(M3·M5)를 새 조건에 맞춤(변이 뜻 그대로)
 - rebase 2회(origin/main b19a8eeb 위) = CASES.md 충돌 두 곳 해소 · main §9(선행불명) 살리고 내 절을 §10 으로(본문 글자 그대로) · 위 요약표는 main 줄 + 내 줄 3줄(사례·변이 2파일) 다 남김 · test_prereq_unreadable_once rc0
 - 남은 것: PR 1개 = 팀장 집행 · 설치 1회(ft2 판 + 1.x mbox peek --rows) = 팀장 · press 필요 없음(단위·대역 시험만 · 라이브 오디오 시험 0)
+- 2026-11-16 05:43 · aifp-ft-arch-pi#21 착지 줄 씀(팀장 aifp 5758) · 조건 1~5 [x] · 조건 6 [~] = ft2 2.0.70 설치됨 · 1.x mbox peek --rows 미설치 · 조건 7 [~] = 설치 뒤 11분 중간값(landed-wait 1줄 · 닫힘 0)
+- HOLD 311515 해제 — APPROVE-IMPL 311659(R1 = 착지 참 · toolUse · 960초 · 미읽음 0 에서 WORKING landed-wait · 닫기·complete·긴급 send 0 확인)
+- DA 판정: HOLD-IMPL 1/3 311515 → APPROVE-IMPL 2/3 311659(승인 sha d33f4a4a · 사본 .fable-team/state/team-main/aifp-ft/DA-done-idle-impl-approve-311659/verdict.md · 27 사례·10 변이 rc0) + rebase 재확인 APPROVE-IMPL 311755(승인 sha ed05d4d4 · 사본 DA-done-rebase-impl-approve-311755/verdict.md · 비문서 파일 바이트 동일 · CASES 절 번호 §9→§10 만 · 시험 반복 안 함)
+- 세트 정정(팀장 aifp 5758): 위 세트 줄의 66135a90 은 코드 head 다 · PR #1348 head 와 DA 재확인 sha 는 ed05d4d4 다(뒤 커밋 2개는 카드 문서) · 닫기 도구가 읽는 세트 = 맨 끝 줄
+- 세트: ed05d4d4ca2861026f8c15faee09da876c5c3e60 · 시험: python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_done_seat_short_idle.py (27 passed 53초 · 코드 head 66135a90 값) rc=0 · 이슈: 0
