@@ -4,7 +4,7 @@ from mbox_store import _check_name, _clip, _legacy_dirs, _load, _locked, _mbox, 
 from mbox_guard import _guard_log, _guard_record, _guard_verdict, _log_sent, _reply_exempt
 import mbox_keep   # r912 — 넘칠 때 버리는 순서(시스템 → 일반 · 사람 글 보존)
 import mbox_drops, mbox_compact  # r1651 — 버린 seq 를 받는 좌석의 다음 recv 에 1줄(유실 표시) · r1661 받는 이 검사·중복 접기·큐 정리(보관 이동)
-import mbox_roots  # r1309 — 다른 루트 받는이 = 우편 다리(roots.tsv)
+import mbox_roots, mbox_relay  # r1309 — 다른 루트 받는이 = 우편 다리(roots.tsv) · r1981 relay 스냅샷
 from mbox_lineage import claim, eligible, retired_to, thread_batch, wait_line
 import mbox_handover   # r1116 ③ 영수(받은 쪽지마다 1줄) — 승계 마무리 검사(close-check)의 재료
 from mbox_desk_gate import verdict as _desk_verdict   # r660 · DA⑥ r1 ⓒ: 판정 자리 = python send 층 하나(셸·python 직접·relay 전부)
@@ -117,27 +117,7 @@ def relay(to, frm, path, summary):
     자동 요약을 끼우면 받는 쪽은 결국 원문 전체를 열게 되고, 아낀 게 없어진다.
     """
     _check_name(to); _check_name(frm)
-    if not os.path.isfile(path):
-        sys.stderr.write("NO_SUCH_FILE %s\n" % path); sys.exit(1)
-    if not summary.strip():
-        sys.stderr.write("EMPTY_SUMMARY 요약 3~5줄은 보내는 사람이 쓴다.\n"); sys.exit(1)
-    os.makedirs(RELAY_DIR, exist_ok=True)
-    safe = re.sub(r'[^A-Za-z0-9._#-]', '_', os.path.basename(path))
-    base = os.path.join(RELAY_DIR, "%s-%s-to-%s-" % (time.strftime("%Y%m%dT%H%M%S"), frm, to))
-    # ★같은 이름이면 «덮어쓰지 않고» 새 자리를 만든다★ — 초 단위 타임스탬프라 같은 초에 같은
-    # from→to 로 같은 파일명을 보내면 앞 스냅샷이 파괴돼, 먼저 보낸 포인터가 «나중 내용»을
-    # 가리킨다. 스냅샷이 안 남으면 relay 는 경로만 보내는 것과 다를 게 없다.
-    dest, n = base + safe, 1
-    while os.path.exists(dest):
-        n += 1
-        dest = "%s%d-%s" % (base, n, safe)
-    shutil.copyfile(path, dest)
-    # 판정 재료에 «전문» 을 넣는다(r660 · DA⑥ r1 ⓑ③) — 요약 1줄에 여러 줄 전문을 붙여 h 결과 예외를 통과하는 길 0.
-    try:
-        with open(dest, encoding="utf-8", errors="replace") as f:
-            full = f.read()
-    except OSError:
-        full = ""
+    dest, full = mbox_relay.snapshot(to, frm, path, summary)   # r1981 — 복사·전문 읽기 = mbox_relay(200줄 규칙 분리)
     send(to, frm, "%s\n상세(전문): %s (%d B)"
          % (summary.strip(), dest, os.path.getsize(dest)), desk_attach=full)
 
