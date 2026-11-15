@@ -76,3 +76,5 @@ keeper 는 대기 카드의 «- 선행:» 줄에서 r<번호> 만 읽는다. 번
 - 2026-11-16 · aifp-ft-arch-pi#17 씀(aifp 5410 ③ · 5412) · 대기 · 설계 r2 = DA 대행 APPROVE-DESIGN(BYZ 310229) · 선행 = ft2-keeper-notify-recipient · ft2-launch-failed-end 착지
 - 2026-11-16 04:35 — 대기→진행 · 좌석 aifp-ft-nano-ft2-prereq-unreadable-once#0
 - [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
+- 세트: 42c688cddf290ea0712c546a307a7a29ae3f1b6e · 시험: python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_prereq_unreadable_once.py -q (21 passed 63초) rc=0 · 이슈: 0
+- 완료: aifp-ft-nano-ft2-prereq-unreadable-once#0 · 한 일: ft2 keeper 선행불명 I1~I9 구현 + 새 시험 15칸·변이 6 + 계약 §11·사례 §9·설계 정본(커밋 9a45f2dc fc9f93ae 42c688cd) · 산출: nano/ft2-prereq-unreadable-once@42c688cddf · 병합 상태: 착지 전(push 전) · 남은 일: 없음
