@@ -173,9 +173,10 @@ def resume(plan, env, repo, own, keep):
     if not planner.reserve(plan["intent"] + ".resume", own):
         return dict(result=REFUSED, intent=plan["intent"], reason="이미 복구 예약 — 이어 열기는 attempt 당 1회 · 부작용 0"), 1
     got = read_intent(plan["intent"])
-    if got.get("state") != "opening":
+    again = got.get("state") == "failed" and got.get("resumable") == "checkout"   # r2044 A2 시간 초과 실패 = 끝난 열기 · pid 판정 0
+    if got.get("state") != "opening" and not again:
         return already(got, plan)
-    if planner.pid_state(got.get("pid"), got.get("started")) != "dead":
+    if not again and planner.pid_state(got.get("pid"), got.get("started")) != "dead":
         return dict(result=REFUSED, intent=plan["intent"], reason="열기 pid 살아 있음·판정 불가 — 이어 열기 0"), 1
     steps = planner.resume_plan(plan, repo, got.get("base_sha"), GIT_TIMEOUT)
     if steps is None:
@@ -191,7 +192,8 @@ def finish(plan, env, steps, repo, sha, keep):
         new = step == "git add" and not os.path.lexists(plan["worktree"])   # r1967 ⓐ 생성 영수 = add 직전 경로 부재 ∧ add rc0
         rc, detail = call(argv, repo, NOHOOK if step == "git checkout" else None, GIT_TIMEOUT)   # r1846: 호출마다 25초 · 실패 = 그 단계 이름 · 뒤 호출 0
         if rc != 0:
-            return failed(plan, env, step, detail, repo, *cleaner.sweep(plan, repo, sha, made, GIT_TIMEOUT, TMUX_TIMEOUT))   # r1967 ③ 이번 호출이 만든 반쪽만
+            return failed(plan, env, step, detail, repo, *cleaner.sweep(plan, repo, sha, made, GIT_TIMEOUT, TMUX_TIMEOUT,   # r1967 ③ 이번 호출이 만든 반쪽만
+                                                                    rc is None and step == "git checkout"))   # r2044 A1 시간 초과만 = lock 정리 + 이어 열기 표시
         if new:
             made = dict(add_ok=True, path_new=True)
             write_intent(plan["intent"], dict(read_intent(plan["intent"]), **made))
