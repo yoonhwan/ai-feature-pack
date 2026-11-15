@@ -21,7 +21,7 @@ def dump(f, dd):   # 쓰기 중 죽어도 원본 무손상 — tmp 에 다 쓴 �
     shutil.copymode(f, tmp); os.replace(tmp, f)
 
 
-BAK_TS = re.compile(r"[0-9](?:[0-9_-]*[0-9])?\Z")   # r2043 이름 속 ts 꼴(14자리 · YYYYmmdd-HHMMSS · 마이크로초 꼬리)
+BAK_TS = re.compile(r"(?:[0-9]{14}|[0-9]{8}-[0-9]{6}(?:[0-9]{6})?)\Z")   # r2043 생성기가 실제 쓰는 ts 꼴만(14자리 · YYYYmmdd-HHMMSS · +마이크로초 6 = keyrotate) · DA HOLD 1: 그 밖 꼬리 = 손 0
 
 
 def bak_cap_n(v):   # r2043 A2 상한 = 정수 50~100 · 없거나 밖이면 50
