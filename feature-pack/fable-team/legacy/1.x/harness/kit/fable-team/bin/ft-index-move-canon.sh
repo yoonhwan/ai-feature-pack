@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ft-index-move-canon.sh <카드> <워크트리> <landed:""|S|T..S>   (stdin = 판정문 §N 절 본문)
 #   ft-index-move.sh 진행→완성의 정본 게이트 + 랜딩 commit 사실 검사 (판정 440 설계 r2 §6-1 · 판정 444).
-#   출력 한 줄: `OK<TAB>정본 <경로> §<절>[ · 정본 …]` 또는 `OK<TAB>정본 영향 없음: <이유>` 또는 `REJECT<TAB><사유>` · 항상 exit 0.
+#   출력 한 줄: `OK<TAB>정본 <경로> §<절>[ · 정본 …]` 또는 `OK<TAB>정본 영향 없음: <이유>` 또는 `REJECT<TAB><사유>`(r1844: 사유마다 1줄 · 모아서 전부) · 항상 exit 0.
 #   랜딩 브랜치 ref = ft_close_marker 의 유효 ref(표식 없으면 env FT_LAND_REF › origin/main · r1784) · 검사 전 fetch 하지 않는다 · 검사를 끄는 값 없음.
 #   r937: 착지 리포 판정 = ft_landed_repo(ft-team-lib.sh) — sha 가 실제로 있는 리포(카드 리포·팩 리포)와 그 리포의 ref 를 쓴다.
 #     표식 = 판정문 §절의 이 카드 닫힘 표식 — 꼴·선택자 = ft-team-lib.sh 의 ft_close_marker 한 곳(r1784).
@@ -11,8 +11,9 @@ set -uo pipefail
 CARD="${1:-}"; WT="${2:-}"; LANDED="${3:-}"
 BODY="$(cat)"
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
-rej() { printf 'REJECT\t%s\n' "$1"; exit 0; }
-. "$HERE/ft-team-lib.sh" 2>/dev/null || rej "ft-team-lib.sh 를 못 읽었다: $HERE (착지 리포를 못 정한다)"
+R=(); rej() { R+=("$1"); }   # r1844: 사유를 모아 «REJECT<TAB>사유» 줄 전부(fin) · stop = 뒤 검사가 기대는 값이 없다
+fin() { [ "${#R[@]}" = 0 ] || { printf 'REJECT\t%s\n' "${R[@]}"; exit 0; }; }; stop() { rej "$1"; fin; }
+. "$HERE/ft-team-lib.sh" 2>/dev/null || stop "ft-team-lib.sh 를 못 읽었다: $HERE (착지 리포를 못 정한다)"
 STEM="$(basename "$CARD" .md)"; CM="$(printf '%s\n' "$BODY" | ft_close_marker "$STEM")"   # r1784: 표식 읽기 한 곳 — 선택자·유효 ref 를 받아 그대로 쓴다
 REF="$(printf '%s' "$CM" | cut -s -f3)"; REF="${REF:-${FT_LAND_REF:-origin/main}}"
 
@@ -28,8 +29,16 @@ pre = r'^[\s>*\-]*'
 upd = [m for m in (re.match(pre + r'정본 갱신(?: 줄)?\s*:\s*(\S+?)\s*§\s*(.+?)\s*$', l) for l in card) if m]
 non = [m for m in (re.match(pre + r'정본 영향 없음\s*:\s*(.*?)\s*$', l) for l in card) if m]
 can = [m for m in (re.match(pre + r'정본화\s*:\s*(.+?)\s*$', l) for l in card) if m]
-def reject(why):
+class Rej(Exception): pass
+def reject(why):   # r1844: 줄 하나의 거절 = 그 줄만 멈춘다 · 사유는 errs 에 모아 끝에 전부
+    raise Rej(why)
+def fail(why):
     print("REJECT\t" + why); sys.exit(0)
+errs = []
+def each(fn, ms):
+    for m in ms:
+        try: fn(m)
+        except Rej as e: errs.append(str(e))
 notes = []
 # 정본화 줄(R318a) — 허용 뿌리: docs/architect/ · docs/rules/ · design/<TEAMS.md 팀>/GUIDE-*.md · design/<팀>/README.md · 실재 .md 파일만(.. · 심볼릭 탈출 REJECT)
 teams = set()   # 팀 폴더 접두(design/<팀> · design/teams/<팀> — TEAMS.md 폴더 칸 꼴1·꼴2 · R382)
@@ -46,7 +55,7 @@ def canon_root(p):
     if len(parts) >= 3 and "/".join(parts[:-1]) in teams and (parts[-1] == "README.md" or re.fullmatch(r'GUIDE-.+\.md', parts[-1])):
         return os.path.join(wt, *parts[:-1])
     return None
-for m in can:
+def one_can(m):
     for p in [x.strip() for x in m.group(1).split(",")]:
         if p.startswith("/") or ".." in p.split("/"):
             reject("정본화 줄의 경로가 허용 뿌리 밖이다(절대경로 또는 ..): " + p)
@@ -90,7 +99,7 @@ def land_blob(path):
     if rc != 0:
         reject("판정 불가 — 착지 ref %s 의 %s blob 조회 실패(rc=%d · 시간 초과 포함) — 파일 없음으로 읽지 않는다" % (LAND_REF, path, rc))
     return _o.decode("utf-8", "ignore")
-for m in upd:
+def one_upd(m):
     path, sec = m.group(1), m.group(2)
     if path.startswith("/") or ".." in path.split("/"):
         reject("정본 갱신 줄의 경로가 허용 범위 밖이다(절대경로 또는 ..): " + path)
@@ -105,7 +114,7 @@ for m in upd:
             reject("정본 문서에 그 절 제목이 없다: " + path + " §" + sec)
         print("UPD\t" + path + "\t" + sec)
         notes.append("정본 " + path + " §" + sec)
-        continue
+        return
     if not path.startswith("docs/architect/") or not path.endswith(".md"):
         reject("정본 갱신 줄의 경로는 docs/architect/….md 여야 한다: " + path + " (팀 정본 목록에도 없다: " + CANON_LIST + ")")
     full = os.path.join(wt, path)
@@ -121,72 +130,76 @@ for m in upd:
         reject("정본 문서에 그 절 제목이 없다: " + path + " §" + sec)
     print("UPD\t" + path + "\t" + sec)
     notes.append("정본 " + path + " §" + sec)
+each(one_can, can); each(one_upd, upd)
+if errs:
+    for e in errs: print("REJECT\t" + e)
+    sys.exit(0)
 if upd or can:
     print("OK\t" + " · ".join(notes)); sys.exit(0)
 for m in non:
     why = re.sub(r'^이유\s*=\s*', '', m.group(1)).strip()
     if len(why) >= 10:
         print("OK\t정본 영향 없음: " + why); sys.exit(0)
-    reject("「정본 영향 없음」 이유가 10자 미만이다")
-reject("카드에 「정본 갱신: docs/architect/….md §<절>」 · 「정본화: <경로>[, <경로>…]」 · 「정본 영향 없음: <이유 ≥10자>」 중 한 줄이 없다")
+    fail("「정본 영향 없음」 이유가 10자 미만이다")
+fail("카드에 「정본 갱신: docs/architect/….md §<절>」 · 「정본화: <경로>[, <경로>…]」 · 「정본 영향 없음: <이유 ≥10자>」 중 한 줄이 없다")
 PY
 )" || { printf 'REJECT\t정본 게이트 검사 실행 실패(python3)\n'; exit 0; }
 LAST="$(printf '%s\n' "$RES" | tail -1)"
-case "${LAST%%$'\t'*}" in OK|REJECT) ;; *) rej "정본 게이트 검사 실행 실패(python3)";; esac
-[ "${LAST%%$'\t'*}" = REJECT ] && { printf '%s\n' "$LAST"; exit 0; }
+case "${LAST%%$'\t'*}" in OK|REJECT) ;; *) stop "정본 게이트 검사 실행 실패(python3)";; esac
+[ "${LAST%%$'\t'*}" = REJECT ] && { printf '%s\n' "$RES" | grep '^REJECT'; exit 0; }
 UPDS="$(printf '%s\n' "$RES" | grep '^UPD' | cut -f2)"
 
 # ② 랜딩 commit 사실 검사 — 갱신 카드는 --landed 필수 · 영향 없음 카드는 있을 때 (가)만
 if [ -z "$LANDED" ]; then
-  [ -z "$UPDS" ] || rej "정본 갱신 카드는 --landed <랜딩 commit> 필수"
+  [ -z "$UPDS" ] || stop "정본 갱신 카드는 --landed <랜딩 commit> 필수"
   printf '%s\n' "$LAST"; exit 0
 fi
 case "$LANDED" in *..*) T="${LANDED%%..*}"; S="${LANDED##*..}";; *) T=""; S="$LANDED";; esac
 # r937: 착지 리포 = sha 가 실제로 있는 리포(ft_landed_repo) — 선택자 = 위 ft_close_marker 결과(r1784 · 절 헤더 오인 0 = r959 그대로)
-case "$CM" in REJECT*|LANDED-INVALID*) rej "${CM#REJECT }";; esac
+case "$CM" in REJECT*|LANDED-INVALID*) stop "${CM#REJECT }";; esac
 PACK=""; [ -f "$HERE/ft-harness-root.sh" ] && PACK="$(. "$HERE/ft-harness-root.sh" && ft_harness_root "$HERE" 2>/dev/null)"
 # r937 r3: 루트 조회도 ft_git_capped — 한 후보의 루트 조회가 실패(rc≠0 · 시간 초과 포함)면 그 후보를 빈 값으로 넘기지 않고 REJECT
-if [ -n "$PACK" ]; then PACK_H="$PACK"; PACK="$(ft_git_capped 7 "$PACK_H" rev-parse --show-toplevel)" || rej "팩 리포($PACK_H) 루트 조회 실패(rc=$?) — 통과 0"; fi
+if [ -n "$PACK" ]; then PACK_H="$PACK"; PACK="$(ft_git_capped 7 "$PACK_H" rev-parse --show-toplevel)" || stop "팩 리포($PACK_H) 루트 조회 실패(rc=$?) — 통과 0"; fi
 # r959: «표식 오기(팩 착지)» 보정은 ft_landed_repo 의 기본 동작 — 부르는 쪽마다 붙이지 않는다(네 호출이 같은 판정)
-LR="$(ft_landed_repo "$S" "$WT" "$PACK" "$(printf '%s' "$CM" | cut -s -f1)")" || rej "${LR#REJECT }"
+LR="$(ft_landed_repo "$S" "$WT" "$PACK" "$(printf '%s' "$CM" | cut -s -f1)")" || stop "${LR#REJECT }"
 REPO_LANDED="${LR%%$'\t'*}"; SFULL="${LR##*$'\t'}"
 # r937 r2 (T1·T2): 모든 git 조회 = ft_git_capped(7초 · 재시도 1) · 허용 rc 를 넘은 값(124 시간 초과 · 128 실행 실패)은 «조회 실패» = REJECT(«없음» 으로 읽지 않는다)
 #   gq <허용 rc> <사유> <git 인자…> → GQ_OUT = 출력 · rc 그대로. 허용 rc 초과 = «조회 실패» = REJECT (rej 는 이 셸에서 돌아야 하므로 $( ) 안에서 부르지 않는다)
 gq() { local max="$1" why="$2"; shift 2
   GQ_OUT="$(ft_git_capped 7 "$REPO_LANDED" "$@")"; GQ_RC=$?
-  [ "$GQ_RC" -le "$max" ] || rej "$why — $REPO_LANDED 조회 실패(rc=$GQ_RC · 시간 초과 포함) 통과 0"
+  [ "$GQ_RC" -le "$max" ] || stop "$why — $REPO_LANDED 조회 실패(rc=$GQ_RC · 시간 초과 포함) 통과 0"
   return "$GQ_RC"; }
 gq 1 "랜딩 브랜치 ref($REF)" rev-parse --verify -q "${REF}^{commit}" \
-  || rej "랜딩 브랜치 ref 없음: $REF ($REPO_LANDED)"
+  || stop "랜딩 브랜치 ref 없음: $REF ($REPO_LANDED)"
 gq 1 "조상 검사($REF)" merge-base --is-ancestor "$SFULL" "$REF" || {
   # r978 고침 2 — 카드가 «설치: 없음» 이고 문서 가지(FT_DOC_LAND_REF · 기본 origin/ops/main-base) 조상이며 바꾼 경로가 전부 design/**.md 면 문서 가지 착지 인정(판정 = ft_doc_card_landed 한 곳)
   _dc=""; _dc="$(ft_doc_card_landed "$REPO_LANDED" "$SFULL" "$CARD")"; _drc=$?   # r978-mut:imc
-  [ "$_drc" -eq 0 ] || rej "랜딩 안 됨 — $S 가 $REF 의 조상이 아니다 ($REPO_LANDED) · 문서 카드 인정 0(${_dc:-사유 없음})"
+  [ "$_drc" -eq 0 ] || stop "랜딩 안 됨 — $S 가 $REF 의 조상이 아니다 ($REPO_LANDED) · 문서 카드 인정 0(${_dc:-사유 없음})"
   printf '착지 인정 = %s(문서 카드)\n' "$_dc" >&2   # r1018: stdout 은 «OK<TAB>…»/«REJECT<TAB>…» 한 줄 계약 — 안내 줄은 stderr
 }
 if [ -z "$UPDS" ]; then printf '%s\n' "$LAST"; exit 0; fi
 if [ -n "$T" ]; then
-  gq 1 "T($T)" rev-parse --verify -q "${T}^{commit}" || rej "T 없음 — git fetch 후 다시: $T"
+  gq 1 "T($T)" rev-parse --verify -q "${T}^{commit}" || stop "T 없음 — git fetch 후 다시: $T"
   TFULL="$GQ_OUT"
   RANGE="$TFULL..$SFULL"
 else
-  gq 1 "S 첫 부모($S)" rev-parse --verify -q "${SFULL}^1" || rej "S 에 첫 부모가 없다: $S"
+  gq 1 "S 첫 부모($S)" rev-parse --verify -q "${SFULL}^1" || stop "S 에 첫 부모가 없다: $S"
   RANGE="${SFULL}^1..$SFULL"
 fi
-gq 0 "랜딩 구간 변경 목록($RANGE)" diff --name-only "$RANGE" || rej "랜딩 구간 변경 목록을 못 읽었다($RANGE)"
+gq 0 "랜딩 구간 변경 목록($RANGE)" diff --name-only "$RANGE" || stop "랜딩 구간 변경 목록을 못 읽었다($RANGE)"
 CHANGED="$GQ_OUT"
 while IFS= read -r X; do
   [ -n "$X" ] || continue
   grep -Fxq -- "$X" <<<"$CHANGED" || rej "랜딩 commit 에 정본 $X 없음 — 로컬에만 고친 것($RANGE)"
   xre="$(printf '%s' "$X" | sed 's/[][\.*^$/]/\\&/g')"
   CS="$(printf '%s\n' "$BODY" | grep -oE "정본 diff 확인:[[:space:]]*${xre}[[:space:]]+§[^@]*@[0-9a-fA-F]{7,40}" | sed 's/.*@//')"
-  [ -n "$CS" ] || rej "판정문 절에 「정본 diff 확인: $X §Y @<sha>」 줄 없음 — arch 검토 기록 필요"
-  gq 1 "$X @$S" rev-parse -q --verify "$SFULL:$X" || rej "S 에 $X 없음"
+  [ -n "$CS" ] || { rej "판정문 절에 「정본 diff 확인: $X §Y @<sha>」 줄 없음 — arch 검토 기록 필요"; continue; }
+  gq 1 "$X @$S" rev-parse -q --verify "$SFULL:$X" || { rej "S 에 $X 없음"; continue; }
   SB="$GQ_OUT"
   while IFS= read -r C; do
-    gq 1 "$X @$C" rev-parse -q --verify "$C:$X" || rej "정본 diff 확인 줄의 @$C 에서 $X 를 읽을 수 없음 — 재검토"
+    gq 1 "$X @$C" rev-parse -q --verify "$C:$X" || { rej "정본 diff 확인 줄의 @$C 에서 $X 를 읽을 수 없음 — 재검토"; continue; }
     CB="$GQ_OUT"
     [ "$CB" = "$SB" ] || rej "검토 뒤 정본이 바뀜 — 재검토($X @$C ≠ S)"
   done <<<"$CS"
 done <<<"$UPDS"
-printf '%s\n' "$LAST"
+fin; printf '%s\n' "$LAST"
