@@ -6,6 +6,7 @@
 - 원인 1줄: feature-pack/fable-team/legacy/1.x/harness/comm/mbox.sh 323줄 `peek)  exec python3 "$MBOXPY" peek "${1:?me}"` 가 첫 인자만 넘긴다 · 뒤 인자(--rows)는 말없이 버려진다 · mbox.py 166줄은 `--rows` 를 이미 읽는다
 - 앞 카드: 진행/ft2-done-seat-short-idle(A4 = peek --rows · 착지 14c2f051 · 조건 6·7 [~]) · r1153(peek = recv 와 같은 대상 규칙)
 - 앞 카드와의 관계: 진행/ft2-done-seat-short-idle 은 mbox.py·mbox_ops.py 에 --rows 를 넣었지만 keeper 가 부르는 입구는 mbox.sh 다(ft2/adapters/pi/keeper_settle.py 395줄 `bash <mbox.sh> peek <좌석> --rows`) · 이 카드가 착지·설치되면 그 카드의 조건 6(설치 판 ft2 + mbox)·조건 7(`미읽음 마감 n통 제외` 실사건)을 다시 잴 수 있다
+- 착지: d05a032c2ed884d2606f41dfc94b133c6f33540b(팩 main · PR #1369 squash · head 2241c7a0 · DA 대행 byz-harness-da-codex#11 APPROVE-IMPL BYZ 312110 · 세트 2241c7a0 = PR head · 뺄 커밋 0)
 - 상태: 대기
 - 설치: 있음 — 1.x comm 도구(mbox.sh) 설치 1회(harness) · ft2 판 올림 없음 · 되돌림 = 앞 mbox.sh 로(keeper 는 지금처럼 미읽음 1통이라도 막는 동작으로 돌아간다)
 - 선행: 없음
@@ -75,12 +76,12 @@
 - 미읽음 판독의 뜻(A5~A8)과 마감 쪽지 꼴 — 앞 카드 그대로
 
 ## 완료 조건
-1. [ ] 나노: 커밋 1 기준판 FAIL 원문(㊶가 · ㊶라 · ㊶마)
-2. [ ] 나노: 새 시험 전체 rc0 · 걸린 초
-3. [ ] 나노: 변이 M92 → ㊶가 FAIL · M93 → ㊶라·㊶마 FAIL
-4. [ ] 나노: 회귀 rc0(파일별 초)
-5. [ ] 팀장: PR 착지 sha · harness comm 설치 확인 1줄
-6. [ ] arch: 설치 뒤 읽기 실측 = BYZ `bash .fable-team/comm/mbox.sh peek <미읽음 있는 좌석> --rows` 원문(머리줄 + JSON 줄 수 = pending) · 그 뒤 keeper 로그에 `미읽음 판독 --rows` 줄이 새로 0 · 진행/ft2-done-seat-short-idle 조건 6·7 을 다시 잰 줄을 그 카드에 적는다
+1. [x] 나노: 커밋 1 기준판 FAIL 원문(㊶가 · ㊶라 · ㊶마) — 커밋 595e59f6 글 원문 «기준판 FAIL: ㊶가(--rows 버려져 머리줄 1줄) · ㊶라 3건(rc 0) · ㊶마(rc 0 · pending=0) · usage 줄» · ★다른 점 = 이 줄은 커밋 글에 있고 PR #1369 본문에는 없다(pytest 출력 통째는 어디에도 안 붙음)★ · 받침 = DA 설계 판정 aifp 5787 이 동결 판에서 같은 값을 실제로 재현(shell --rows = 머리 1줄 · shell --row = rc 0 으로 버림) + 시험 안 변이 M92·M93 이 옛 줄을 tmp 사본에 되살려 같은 FAIL 을 낸다(조건 3)
+2. [x] 나노: 새 시험 전체 rc0 · 걸린 초 — tests/scripts/test_mbox_sh_peek_rows_pass.py 12 passed · 나노 세트 줄 rc=0 · 팀장 확인 4.41초 rc0(PR #1369 본문) · DA 재실행 12 passed 3.89초(묶음 4.389초 rc 0 · .fable-team/state/team-main/aifp-ft/DA-peek-rows-impl-approve-312110/test_mbox_sh_peek_rows_pass.py.json·.log) · 승인 sha 2241c7a0 · ★파일 이름이 카드 «대상» 줄의 test_mbox_sh_peek_rows.py 가 아니라 test_mbox_sh_peek_rows_pass.py 다(DA «알려진 차이» · 동작 반례 아님)★
+3. [x] 나노: 변이 M92 → ㊶가 FAIL · M93 → ㊶라·㊶마 FAIL — 시험 파일 안 2칸 test_m92_rows_not_passed_is_caught(옛 줄로 바꾼 tmp 사본 = 머리줄 1줄) · test_m93_args_passed_unchecked_is_caught(검사 없이 넘김 = rc 0 + 머리줄) = 12 passed 에 들어 있음 · 변이 자리는 원본에 1곳인지 단언(text.count == 1) · DA 판정문 «Q1~Q6 반례7칸 및 M92/M93 검출 통과»
+4. [x] 나노: 회귀 rc0(파일별 초) — DA 재실행: test_mbox_peek_self_sent_r1153 4 passed 2.209초 rc 0 · ft2 test_done_seat_short_idle 27칸 = 첫 실행 19칸 통과 뒤 70.014초 상한에 끊김(rc 124 · 실패 0) → 남은 8칸만 따로 57.956초 rc 0(keeper-split-note.txt · DA 는 «한 번에 rc0» 이라 하지 않는다) · 잘못된 인자 4종(--row · x · --rows x · --rows 좌석) 모두 rc 2 · python 호출 0 · 0.125초(invalid-no-python.json) · plain peek 기준판과 새 판 stdout·stderr·rc 바이트 같음 · peek 밖 갈래 바이트 그대로(comparison.log) · ★test_done_seat_short_idle 파일이 통째로는 70초를 넘는다 = 이 카드 범위 밖 · 후속 감★
+5. [~] 팀장: PR 착지 sha · harness comm 설치 확인 1줄 — 착지 = PR #1369 squash d05a032c2ed884d2606f41dfc94b133c6f33540b(head 2241c7a04dd8e8b2dc91f43c821aeb7f81a8689c · gh pr view 로 대조 · MERGED 2026-11-15T21:21:46Z = 06:21:46 KST · 바뀐 파일 2 = mbox.sh +9 -3 · 새 시험 +179) · 설치 = 아직(harness 1.x comm 설치 회신을 기다린다 · 회신 뒤 이 칸에 판·시각 1줄)
+6. [ ] arch: 설치 뒤 읽기 실측 = BYZ `bash .fable-team/comm/mbox.sh peek <미읽음 있는 좌석> --rows` 원문(머리줄 + JSON 줄 수 = pending) · 그 뒤 keeper 로그에 `미읽음 판독 --rows` 줄이 새로 0 · 진행/ft2-done-seat-short-idle 조건 6·7 을 다시 잰 줄을 그 카드에 적는다 — 대기(설치 뒤 잰다 · aifp-ft-arch-pi#22 2026-11-16 06:27): 그때 진행/ft2-done-seat-short-idle 조건 6(설치 판 ft2 + mbox) · 조건 7(«미읽음 마감 n통 제외» 실사건)도 같이 다시 재서 그 카드에 적는다
 
 ## 계약↔시험 대응표
 | 계약 | 시험 |
@@ -97,5 +98,7 @@
 - 2026-11-16 05:58 · 대기 — aifp-ft-arch-pi#21 초안(팀장 aifp 5783 · 넘김 harness#293 aifp 5782 · 실측 = BYZ comm 명령 3개 원문 · 구현 0) · 다음 = 팀장 PR → DA 설계 → Issue → 나노 1석 → harness comm 설치
 - 2026-11-16 06:08 — 대기→진행 · 좌석 aifp-ft-nano-mbox-peek-rows-pass#0
 - [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
+- 2026-11-16 06:27 · aifp-ft-arch-pi#22 착지 줄 씀(팀장 aifp 5818) · 조건 1~4 [x] · 조건 5 [~] = 착지 sha 있음 · 설치 회신 대기 · 조건 6 = 설치 뒤 · 코드 변경 0
+- DA 판정: APPROVE-IMPL 312110(승인 sha 2241c7a04dd8e8b2dc91f43c821aeb7f81a8689c · 사본 .fable-team/state/team-main/aifp-ft/DA-peek-rows-impl-approve-312110/verdict.md · 새 동작 반례 0 · 신규 12칸 4.389초 · peek 회귀 4칸 2.209초 · keeper 회귀 19칸 뒤 70초 끊김 + 남은 8칸 57.956초 rc 0 · 잘못된 인자 4종 rc 2 · 알려진 차이 = 새 시험 파일 이름) · 설계 = APPROVE-DESIGN aifp 5787
 - 세트: 2241c7a04dd8e8b2dc91f43c821aeb7f81a8689c · 시험: python3.11 -m pytest tests/scripts/test_mbox_sh_peek_rows_pass.py — 12 passed rc=0 · 이슈: 0
 - 완료: aifp-ft-nano-mbox-peek-rows-pass#0 · 한 일: mbox.sh peek 이 --rows 를 mbox.py 로 넘긴다 · 새 시험 12사례 + 변이 M92·M93 · 산출: nano/mbox-peek-rows-pass@2241c7a04d · 병합 상태: 착지 전(push 전) · 남은 일: 없음
