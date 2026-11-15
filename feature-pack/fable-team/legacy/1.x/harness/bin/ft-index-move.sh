@@ -355,7 +355,20 @@ fi
 if [ -s "$NEW" ] && [ -n "$(tail -c 1 "$NEW")" ]; then printf '\n' >> "$NEW"; fi
 if [ "$DST" = 아카이브 ]; then
   printf -- '- %s — %s→아카이브 · 좌석 %s · 판정 %s\n' "$(date '+%Y-%m-%d %H:%M')" "$FROM" "$SEAT" "$DA" >> "$NEW"
-  [ -z "$TO" ] || printf '대체됨: %s · 사유: %s\n' "$TO" "$DA" >> "$NEW"   # r1747-mut:supline — ft-nano-superseded-check ⓐ 가 읽는 «## 상태» 맨 끝 줄
+  # r1747-mut:supline — ft-nano-superseded-check ⓐ 가 읽는 «## 상태» 절 맨 끝 줄(다음 «## » 절 앞 · 상태 절 없으면 문서 끝 · DA R1)
+  [ -z "$TO" ] || python3 - "$NEW" "대체됨: $TO · 사유: $DA" <<'PY' || { echo "REJECT 대체됨 줄 쓰기 실패: $NEW — 카드는 이미 이동했다(되돌림: git mv)"; exit 1; }
+import re, sys
+p, line = sys.argv[1], sys.argv[2]
+ls = open(p, encoding="utf-8").read().split("\n")
+if ls and ls[-1] == "": ls.pop()
+st = [i for i, l in enumerate(ls) if re.match(r"^## 상태\s*$", l)]
+at = len(ls)
+if st:
+    at = next((i for i in range(st[-1] + 1, len(ls)) if ls[i].startswith("## ")), len(ls))
+    while at > st[-1] + 1 and not ls[at - 1].strip(): at -= 1   # 절 끝 빈 줄 앞에
+ls.insert(at, line)
+open(p, "w", encoding="utf-8").write("\n".join(ls) + "\n")
+PY
 else
   DAREC=""; [ -z "$DA" ] || DAREC="$(da_record "$DAF" "$SEC")"
   printf -- '- %s — %s→%s%s%s\n' "$(date '+%Y-%m-%d %H:%M')" "$FROM" "$DST" "${SEAT:+ · 좌석 $SEAT}" "${DAREC:+ · DA $DAREC}" >> "$NEW"

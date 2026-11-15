@@ -90,7 +90,7 @@ out="$(FT_SEATS_JSON="$T/none.json" bash "$B/ft-index-move.sh" "$IDX/진행/k8.m
 [ "$rc" != 0 ] && [ -f "$IDX/진행/k8.md" ] && [ "$(printf '%s\n' "$out" | grep -c '판정 불가')" = 1 ] && has "$out" "판정 불가 — 명부 $T/none.json" "⑧ 판정 불가 · 이동 0" || bad "⑧ rc=$rc ← ${out:0:500}"
 
 echo "== 변이 M1 «대체됨 줄 쓰기» 지움 → ① FAIL(원본 대조 = 통과)"
-mutant "$B" ft-index-move.sh "  [ -z \"\$TO\" ] || printf '대체됨:" "  true || printf '대체됨:"
+mutant "$B" ft-index-move.sh '  [ -z "$TO" ] || python3 - "$NEW" "대체됨:' '  true || python3 - "$NEW" "대체됨:'
 for v in mut orig; do card k1; g "$CR" add -A >/dev/null; roster k1 0 0; rm -rf "$IDX/아카이브"
   MVBIN="$([ $v = mut ] && echo "$T/mut" || echo "$B")" mv1 "$IDX/진행/k1.md" 아카이브 --da "$DA#§k1" --seat s1 --to "$TO" >/dev/null
   r="$(lastline "$A1" 2>/dev/null)"
