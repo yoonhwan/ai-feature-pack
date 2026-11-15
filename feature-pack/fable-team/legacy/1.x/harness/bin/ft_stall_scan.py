@@ -34,6 +34,7 @@ from ft_stall_seats import Seats
 from ft_team_lib import rosters  # r1883 — _master 빈 팀의 카드 경로(명부 doc)
 import ft_stall_state as stm
 from ft_nano_record_auto import land_close
+import ft_seat_succ_close
 
 HERE = Path(__file__).resolve().parent
 REPEAT_S = stm.REPEAT_S
@@ -676,6 +677,12 @@ class Scan:
         print("\n".join(lines)) if lines else None
         return lines
 
+    def succ_close(self, stamp: str) -> list[str]:
+        """r1757 — 승계 끝 옛 좌석 ft-seat-close 표준 경로(FT_SUCC_AUTO_CLOSE=1 · 꺼짐 = 후보 줄만) · 본체 = ft_seat_succ_close."""
+        lines = ft_seat_succ_close.succ_close(self.root, self.state_dir, self.now, self.tmux, run, stamp, HERE)
+        print("\n".join(lines)) if lines else None
+        return lines
+
     def record_notify(self, stamp: str) -> list[str]:
         """r1717 A4 ⓑ — 착지 뒤 «정리 차례» 장부의 열린 줄마다 쪽지(1회·재촉 1회 셈은 도구 몫) · FT_NANO_AUTO_CLOSE 와 무관 · rc≠0 = 로그 1줄."""
         tool = os.environ.get("FT_NANO_RECORD") or str(HERE / "ft-nano-record.sh")
@@ -733,6 +740,7 @@ class Scan:
             log += ac
             print("\n".join(ac))
         log += self.auto_close_da_arch(stamp)  # r1671 ⓓ — FT_SEAT_AUTO_CLOSE_DA_ARCH=1 일 때만(기본 0 = 지금 그대로)
+        log += self.succ_close(stamp)  # r1757 — 승계 끝 옛 좌석(꺼짐 = 후보 줄만 · 호출 0)
         self.critical(ac)  # r1718 A2ⓑ·A8 — 밀린 [크리티컬] 배출 · 되풀이 판정 불가 알림(r1718-mut:drain)
         log += [f"{stamp} {n}" for n in self.notes if n.startswith(("보류 — API 장애", "유예 — API 장애", "보류 ", "판정 불가 ALL_STOP"))]  # r1238 B·r1371 — 감시기 로그에 남는 증거 줄(실사건 확인용)
         if trig and pen is None and os.environ.get("FT_STALL_PENALTY_AUTO", "1") != "0":
