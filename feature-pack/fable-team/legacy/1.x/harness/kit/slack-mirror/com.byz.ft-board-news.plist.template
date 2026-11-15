@@ -18,6 +18,7 @@
     <key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
     <key>FT_ROOT</key><string>__BYZ_ROOT__</string>
     <key>FT_BOARD_THREAD_TS</key><string>1794729663.977629</string>
+    <key>FT_BOARD_POST_ARGS</key><string>--channel C0C9GRFHJE5</string>
   </dict>
   <key>StandardOutPath</key><string>/tmp/byz-ft-board-news.log</string>
   <key>StandardErrorPath</key><string>/tmp/byz-ft-board-news.log</string>

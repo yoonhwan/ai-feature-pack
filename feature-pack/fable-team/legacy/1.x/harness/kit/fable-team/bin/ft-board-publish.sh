@@ -30,7 +30,7 @@ if [ "${1:-}" = "--news" ]; then
   V="$(FT_ROOT="$ROOT" python3 "$HERE/ft_board_news.py" --collect "$TMP/collect.json" --last "$SD/news-last.json" --body "$TMP/body.txt" --state "$TMP/state.json")"; rc=$?
   [ "$rc" -eq 0 ] || exit "$rc"
   [ "$V" = POST ] || { echo "ft-board-publish: $V"; exit 0; }
-  python3 "$TP" reply ${POST_ARGS[@]+"${POST_ARGS[@]}"} --ts "$TS" --text-file "$TMP/body.txt"; rc=$?
+  python3 "$TP" reply ${POST_ARGS[@]+"${POST_ARGS[@]}"} --no-status-head --ts "$TS" --text-file "$TMP/body.txt"; rc=$?
   [ "$rc" -eq 0 ] || { echo "ft-board-publish: reply 실패 rc=$rc — news-last 그대로" >&2; exit "$rc"; }
   mkdir -p "$SD" && cp "$TMP/state.json" "$SD/news-last.json.tmp" && mv "$SD/news-last.json.tmp" "$SD/news-last.json" \
     || { echo "ft-board-publish: news-last 기록 실패" >&2; exit 1; }

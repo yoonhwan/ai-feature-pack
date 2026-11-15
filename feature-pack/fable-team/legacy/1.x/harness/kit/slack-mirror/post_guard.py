@@ -192,10 +192,11 @@ def desk_copy(base: str, token: str, channel: str, ts: str, text: str, head: str
 
 
 def guarded_post(base: str, token: str, channel: str, text: str, thread_ts: str | None = None, *,
-                 human: bool = False, head: str | None = None, allow: frozenset[str] = frozenset()) -> str:
-    """사람 채널이면 카운팅 머리줄을 붙인 «뒤» 검사한다(머리줄도 내부어 검사를 지난다 · R7). allow = 경로 두 칸 면제(기본 빈 집합 = 지금과 같음)."""
+                 human: bool = False, head: str | None = None, allow: frozenset[str] = frozenset(), status_head: bool = True) -> str:
+    """사람 채널이면 카운팅 머리줄을 붙인 «뒤» 검사한다(머리줄도 내부어 검사를 지난다 · R7). allow = 경로 두 칸 면제(기본 빈 집합 = 지금과 같음).
+    status_head=False = 머리줄 0(r2063 · 보드 뉴스 답글 한 길 · 검사는 그대로)."""
     is_human = human or channel in human_channels()  # 명부는 한 번만 읽는다
-    if is_human:
+    if is_human and status_head:
         text = with_status_head(text)
     check(text, channel, human=is_human, allow=allow)
     approval_gate(text, is_human)

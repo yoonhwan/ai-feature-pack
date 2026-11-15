@@ -100,7 +100,7 @@ def cmd_reply(a: argparse.Namespace, target: Callable[[argparse.Namespace], Targ
         ch = a.channel or str((_load_threads(threads_path()).get(a.thread) or {}).get("channel") or "")
         trs.refuse_unanswered(a.thread, ch, a.force_thread)  # 뿌리 글·등록부를 건드리기 «전» 에 거절
     ch, root = (a.channel, a.ts) if a.ts is not None else named_root(t, a.thread, a.channel)
-    ts = post(t.base, t.token, ch, text, root, human=True)
+    ts = post(t.base, t.token, ch, text, root, human=True, status_head=not getattr(a, "no_status_head", False))  # r2063
     print(f"reply ts={ts}")
     return 0
 
