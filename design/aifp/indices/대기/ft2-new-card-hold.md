@@ -8,7 +8,7 @@
 - 앞 카드: r1913(fill) · r1939(fill 꽉 참) · r2055(ALL_STOP 판독 꼴) · r1871(닫기 뒤 다음 카드)
 - 상태: 대기
 - 설치: 있음 — ft2 판 올림 1회 · 설정 파일 두기·치우기 = planner master 집행(이 카드 밖) · 되돌림 = 앞 판으로 판 전환(파일이 있어도 옛 판은 읽지 않음)
-- 선행: ft2-launch-failed-end 착지(keeper_next.py 를 같이 만짐 · 그 위에서 시작) · 우선 낮춤(planner 5337)
+- 선행: 없음 — D+F ft2-launch-failed-end 착지 8ed707c4(PR #1294) + J ft2-penalty-team-no-new-pick 착지 0d72507e(PR #1304 · 같은 두 pick 자리 · 이 카드가 J 조건에 and 로 잇는다) 착지 끝 · 우선 낮춤(planner 5337) 그대로 · 팀장 aifp-ft-master-pi#20 이 풂
 - 시험 입력: 임시 루트(tmp_path) · 시험 안에서 만든 journal·카드·설정 파일 · 가짜 tmux·가짜 mbox · 가짜 clock · sleep 0 · 네트워크 0 · 실 runtime 쓰기·읽기 0 · 사례 1개 70초 안
 - 기준값: 기준판 = 설정 파일이 있어도 fill submit 1 → 목표 = submit 0 · journal 줄 수 그대로 · NEW-CARD-HOLD 1줄
 - 규칙: 없음 — 상시 로드 변경 0(설정 파일 사용법 1줄은 CONTRACT 에)
@@ -16,7 +16,7 @@
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/pi/keeper_next.py(fill pick · 닫기 뒤 pick · 판독 함수) · 새 시험 feature-pack/fable-team/ft2/tests/test_new_card_hold.py · 문서 ft2/contracts/keeper-settle/CONTRACT.md
 - 정본 영향 있음: CONTRACT.md 에 «새 카드 보류 설정» 절 1개(자리·꼴·막는 것·안 막는 것·풀기) = 같은 PR(나노)
 - 크기: 코드 1파일 · 새 시험 1파일 · 문서 1파일 · PR 1개
-- 배정: 대기(선행 · 2026-11-16T01:12)
+- 배정: 없음
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
