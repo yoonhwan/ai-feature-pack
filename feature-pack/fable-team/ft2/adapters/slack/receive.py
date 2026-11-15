@@ -5,7 +5,8 @@
 result «접수 성공» ∧ written True · 조회 경로 = result «접수 성공» ∧ attempt 있음(DA R1 §2: 조회 성공
 영수는 written False · body_ref None 이 정상).
 «완료 유보»·«복구 필요»·«용량 부족»·«BUSY»(r1579 실행권) = 미완 보존 — 영수 0 · 기록 보존 · 가득은 알림 1건.
-미인가·bot·다른 채널(줄 15) = 확인만 하고 버린다. 유휴·중복·무변화(줄 16) = 도구 안에서 끝난다. 재송
+미인가·bot·다른 채널(줄 15) = 확인만 하고 버린다. 유휴·중복·무변화(줄 16) = 도구 안에서 끝난다
+(r2065 행 G 예외 = 접수된 글의 깨움이 실패해 다시 보낼 후보가 있을 때만 그 회차에 깨움 1통). 재송
 (줄 5) = 머리에 메시지 키 표식 · 회차는 기록 누적 · 원문은 received 행에서 꺼낸다(같은 command 재부여 0).
 """
 
@@ -71,11 +72,12 @@ class SlackReceive:
     _key = staticmethod(message_key)
     def __init__(self, root, *, ack, client=None, team="harness", capacity=8, allowed_users=(),
                  allowed_channels=(), bot_users=(), notify=None, clock=None, on_step=None,
-                 replies=None, deadline=None, mono=None, log=None):
+                 replies=None, deadline=None, mono=None, log=None, resend=None):
         self.ack, self.root, self.team, self.capacity = ack, os.path.abspath(str(root)), team, capacity
         # r1899 — replies(channel, thread) → 메시지 목록 · deadline = 기동 monotonic + 60 · 없음 = 2.0.31 동작
         self.replies, self.deadline, self.mono = replies, deadline, mono or time.monotonic
         self.log = log or (lambda line: None)
+        self.resend = resend   # G2 — 유휴 회차가 부를 «다시 보낼 글 1통» 훅(wiring 이 꽂는다) · 없음 = 지금과 같다
         self.notify = notify or (lambda verdict: None)
         self.allowed_users, self.allowed_channels = set(allowed_users), set(allowed_channels)
         self.bot_users, self.clock = set(bot_users), clock or (lambda: time.strftime("%Y-%m-%dT%H:%M:%S"))
@@ -165,10 +167,11 @@ class SlackReceive:
         return {"state": got["state"], "completed": len(got["completed"]), "requeued": len(got["requeued"])}
 
     def pass_idle(self):
-        self._step("idle")  # 줄 16 — 모델 호출·좌석 깨움·기록 증가 0
+        self._step("idle")  # 줄 16 — 모델 호출·좌석 깨움·기록 증가 0 · G2 예외 = 다시 보낼 후보가 있을 때만 1통
+        sent = self.resend() if self.resend else None
         sig = _stat_sig(self.settle_path)  # r1938 — settle.jsonl stat 서명이 그대로면 내용 읽기·쓰기 0
         if sig == self.settle_sig:
-            return {"state": IDLE, "reason": "무변화", "command": None}
+            return {"state": IDLE, "reason": (sent or {}).get("why") or "무변화", "command": (sent or {}).get("command")}
         self.settle_sig = sig  # 판독 전 서명 기억 = 도중 변경은 다음 idle 에 보임
         asked = read_settle(self.settle_path, strict=True)
         if asked is None:

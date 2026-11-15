@@ -1,7 +1,7 @@
 """status_head — 사람 채널 슬랙 글 맨 앞에 붙는 «카운팅 머리줄» (r1089 · 오빠 지시 2026-10-28).
 
 planner 틱이 30 분마다 갱신하는 TEAM-STATUS.md 첫 줄(`스크립트 N · 인터뷰 N · 막힌 팀 대기 N`)을 그대로 옮긴다.
-그 줄이 낡았으면 끝에 ` (낡음 N분)` 을 붙이고, 파일이 없거나 못 읽거나 형식이 다르면 `카운팅 확인 불가(사유)` 를 낸다
+그 줄이 낡았으면 끝에 ` (낡음 N분)` 을 붙이고(하루를 넘기면 옛 수 대신 `카운팅 확인 불가(낡음)` · r2064), 파일이 없거나 못 읽거나 형식이 다르면 `카운팅 확인 불가(사유)` 를 낸다
 — 조용히 빼지 않는다(#0 RULE). 숫자 뒤 «(메모)» 는 받아들인다(r1190). 형식이 깨지면 그 판(mtime)마다 한 번 1행을 쓰는
 planner 에게 mbox [경보] 1통을 보낸다(r1190 · 표식 = <루트>/.fable-team/state/status-head-alarm.txt). 슬랙·명부 쓰기 0.
 """
@@ -20,6 +20,7 @@ from post_guard import DEFAULT_ROOT, ROOT_ENV  # 루트 규칙은 한 곳(post_g
 FILE_ENV = "FT_TEAM_STATUS_FILE"
 STALE_ENV = "FT_TEAM_STATUS_STALE_MIN"
 DEFAULT_STALE_MIN = 30.0
+DAY_CAP_MIN = 1440  # r2064 — 이보다 낡으면 옛 수를 내지 않는다(env 문턱과 무관한 고정 상한)
 REL_PATH = Path(".fable-team") / "state" / "planner-tick" / "TEAM-STATUS.md"
 SHAPE = re.compile(r"^스크립트 \d+(?:\([^)\n]*\))? · 인터뷰 \d+(?:\([^)\n]*\))? · 막힌 팀 대기 \d+(?:\([^)\n]*\))?(?![\d(])")
 CANNOT = "카운팅 확인 불가"
@@ -81,4 +82,6 @@ def head(now: float | None = None) -> str:
         return cannot("읽기 실패")
     if not SHAPE.match(first):
         return cannot("형식", alarm(f, first))
+    if age > DAY_CAP_MIN:
+        return cannot("낡음", f"{int(age)}분")
     return f"{first} (낡음 {int(age)}분)" if age > stale_minutes() else first

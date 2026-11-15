@@ -32,7 +32,7 @@ def done(w, work, n=1, k=None):
 
 def held(w, work, text, k=None):
     lines = w.round(k)
-    assert w.kinds("complete") == 0 and any(x.startswith("HELD") and work in x and text in x for x in lines), lines
+    assert w.kinds("complete") == 0 and any(x.startswith("UNKNOWN") and work in x and text in x for x in lines), lines   # r2055 착지 밖 = settle 판정(옛 HELD) · 사유 = 꼬리
 
 
 def c1(w):   # ① r1899 꼴 · 착지 시각 > at → complete 1회 · 다음 바퀴 재 complete 0
@@ -45,13 +45,13 @@ def c2(w):   # ② 같은 repo · 착지 sha 가 base 조상 아님 → 진행(�
     done(w, opened(w, "r9912", w.pack_sha(), base))
 
 
-def c3(w):   # ③ 같은 repo · 착지 sha 가 base 조상 → 옛 착지 줄 HELD(지금과 같음)
+def c3(w):   # ③ 같은 repo · 착지 sha 가 base 조상 → 옛 착지 줄 UNKNOWN(r2055 옛 HELD)
     old = w.pack_sha()
     opened(w, "r9913", old, w.pack_sha())
     held(w, "r9913", "옛 착지 줄(attempt 전) " + old[:8])
 
 
-def c4(w):   # ④ 다른 repo · 착지 시각 < at → «옛 착지 줄(다른 repo 시각)» HELD
+def c4(w):   # ④ 다른 repo · 착지 시각 < at → «옛 착지 줄(다른 repo 시각)» UNKNOWN(r2055 옛 HELD)
     land = cross(w, "r9914", "2099-01-01T00:00:00")
     held(w, "r9914", "옛 착지 줄(attempt 전 · 다른 repo 시각) " + land[:8])
 

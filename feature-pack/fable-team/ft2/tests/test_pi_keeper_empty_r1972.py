@@ -65,12 +65,13 @@ def c6(w):   # ⑥ PR merged(merged 목록 근거 못 채움) → empty 아님
     nano(w, "r9706", prs=P("MERGED", at=3)), shut(w, "r9706")
 def c6b(w):  # ⑥b (DA R1) CLOSED 30 뒤 MERGED 1 → 닫기 0 · kill 0
     nano(w, "r9716", prs=P("CLOSED", 30) + P("MERGED", at=31)), shut(w, "r9716")
-def c7(w):   # ⑦ gh 실패 → None(HELD 그대로)
+def c7(w):   # ⑦ gh 실패 → None(WORKING 그대로 · r2055 옛 HELD)
     nano(w, "r9707", prs=[], rc=1)
-    assert has(shut(w, "r9707"), "HELD harness r9707", "착지 줄 없음")
-def c8(w):   # ⑧ Working → HELD · kill 0
+    lines = shut(w, "r9707")   # r2055 착지 밖 = settle 한 길(WORKING 또는 UNKNOWN shell-only-unsafe · kill 0)
+    assert has(lines, "WORKING harness r9707", "착지 줄 없음") or has(lines, "UNKNOWN harness r9707", "착지 줄 없음"), lines
+def c8(w):   # ⑧ Working → WORKING(r2055 옛 HELD) · kill 0
     nano(w, "r9708", pane="⠋ Working...\n")
-    assert has(shut(w, "r9708"), "HELD harness r9708", "Working")
+    assert has(shut(w, "r9708"), "WORKING harness r9708")   # r2055 A13 1차(CPU 표본 1개) = pane 글자 안 읽음
 def c9(w):   # ⑨ 원장 holder ≠ 세션 이름 → None · 같은 이름 = empty (ending 직접 · orphans 길은 seat 0)
     nano(w, "r9709"), _git(w.root, "fetch", "-q", "origin")
     K = w.K

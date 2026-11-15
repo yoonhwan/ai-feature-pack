@@ -13,14 +13,18 @@
 #               아니면 «(닫힘|CLOSE) — <카드> — 버림» 또는 «… — 쓸모 없음» 로 시작하는 줄 +
 #               카드에 `- 정본 영향 없음:` 줄 + DA 보류 가드(ft_da_hold_gate.py --closing) 통과 → indices/아카이브/<YYYY-MM>/ 로 이동.
 #               착지 sha·설치 대조·실사건 검사는 이 갈래에서 하지 않는다(착지 카드는 완성 갈래로 닫는다).
+#               r1747: --to <받는 카드>(선택 · design/…/indices/{대기,진행,완성}/*.md 실재) = 옮긴 카드 «## 상태» 끝에 «대체됨: <받는 카드> · 사유: <판정문#§>» 1줄.
+#               팀 명부에서 이 카드를 index 로 든 열린 좌석(_closed 없음)마다 «다음: bash ft-nano-close.sh <좌석> --superseded-by <받는 카드> …» 1줄 ·
+#               열린 좌석 ≥1 인데 --to 없음 = REJECT(이동 0) · 명부 못 읽음 = «판정 불가» rc1(이동 0).
 #   기타 방향 : 되돌리기(진행→대기 등)는 --seat 로 사유만 남기고 허용.
 #   표준승인(r1649): 완성 이동 뒤 그 카드 나노의 ft-nano-close 표준 경로(세션 kill · 명부·원장 · 워크트리 정리 계획 생성만 · 브랜치 삭제 0)는 표준승인 · --cherry-override·--suspended·--superseded-by·--never-started 와 실패 재시도는 h.
 #   슬랙(판정 405) : 카드에 `- 슬랙:` 줄이 있으면 이동 «전»에 대기→진행=착수 답글 · 진행→완성=결과 답글 확인/발송.
 #               도구 = env FT_THREAD_POST(기본 ~/.hermes/scripts/byz_thread_post.py) · 실패·장부 불명·도구 없음 = REJECT(이동 0 · 폴백 0).
 set -uo pipefail
-SRC="${1:-}"; DST="${2:-}"; shift 2 2>/dev/null || { echo "usage: $0 <index.md> <대기|진행|완성|아카이브> [--da <file#§N>] [--seat <name>] [--landed <sha>]" >&2; exit 2; }
-DA=""; SEAT=""; LANDED=""
-while [ $# -gt 0 ]; do case "$1" in --da) DA="$2"; shift 2;; --seat) SEAT="$2"; shift 2;; --landed) LANDED="$2"; shift 2;; *) echo "unknown $1" >&2; exit 2;; esac; done
+SRC="${1:-}"; DST="${2:-}"; shift 2 2>/dev/null || { echo "usage: $0 <index.md> <대기|진행|완성|아카이브> [--da <file#§N>] [--seat <name>] [--landed <sha>] [--to <받는 카드>]" >&2; exit 2; }
+DA=""; SEAT=""; LANDED=""; TO=""
+while [ $# -gt 0 ]; do case "$1" in --da) DA="$2"; shift 2;; --seat) SEAT="$2"; shift 2;; --landed) LANDED="$2"; shift 2;; --to) [ $# -ge 2 ] || { echo "usage: --to <받는 카드 경로>" >&2; exit 2; }; TO="$2"; shift 2;; *) echo "unknown $1" >&2; exit 2;; esac; done
+[ -z "$TO" ] || [ "$DST" = 아카이브 ] || { echo "REJECT --to 는 아카이브 갈래에서만 — 받는 카드는 버림 카드의 «대체됨:» 줄이다" >&2; exit 2; }   # r1747
 case "$DST" in 대기|진행|완성|아카이브) ;; *) echo "REJECT dst 는 대기|진행|완성|아카이브" >&2; exit 2;; esac
 [ -f "$SRC" ] || { echo "REJECT 없음: $SRC"; exit 1; }
 SRC="$(cd -- "$(dirname -- "$SRC")" && pwd)/$(basename -- "$SRC")"   # 절대경로 — 상대경로면 아래 git -C ls-files 추적 판정이 untracked 로 떨어져 mv 가 된다(DA r1 R5)
@@ -70,6 +74,35 @@ print("SEAT-INDEX %s → %s" % (seat, rel))
 PY
   local prc=$?; rmdir "$lk" 2>/dev/null; trap - EXIT; return "$prc"
 }
+# r1747 — 아카이브 갈래: 받는 카드(--to) 확인 + 이 카드를 든 열린 좌석(OPEN_SEATS) 세기. 이동 «전» 에 끝낸다(REJECT·판정 불가 = 이동 0).
+archive_to_gate() {
+  local top root seats form='^design/(teams/)?[^/]+/indices/(대기|진행|완성)/[^/]+\.md$'
+  top="$(git -C "$IDX_ROOT" rev-parse --show-toplevel 2>/dev/null)"; [ -n "$top" ] || top="${IDX_ROOT%/design/*}"
+  if [ -n "$TO" ]; then
+    case "$TO" in *..*) echo "REJECT --to 경로에 «..» 불가: $TO (이동 0)"; return 1;; esac
+    [[ "$TO" =~ $form ]] || { echo "REJECT --to 는 리포 상대 design/<팀>/indices/{대기,진행,완성}/*.md 여야 한다: $TO (이동 0)"; return 1; }
+    [ -f "$top/$TO" ] || { echo "REJECT --to 받는 카드 없음: $top/$TO (이동 0)"; return 1; }
+    [ ! "$top/$TO" -ef "$SRC" ] || { echo "REJECT --to 받는 카드가 이 카드 자신이다: $TO (이동 0)"; return 1; }
+  fi
+  root="$(git -C "$IDX_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"; [ -n "$root" ] || root="$IDX_ROOT"
+  seats="$(seat_roster "$root")"
+  if [ -z "${FT_SEATS_JSON:-}" ] && { [ -z "$seats" ] || [ ! -e "$seats" ]; }; then echo "INFO 열린 좌석 검사 0 — 팀 명부 못 풂(${seats:-없음})" >&2; return 0; fi
+  OPEN_SEATS="$(python3 - "$seats" "$(basename "$SRC")" <<'PY'
+import json, os, sys
+try: doc = json.load(open(sys.argv[1], encoding="utf-8"))
+except (OSError, ValueError) as e: print("%s: %s" % (type(e).__name__, e)); sys.exit(2)
+if not isinstance(doc, dict): print("최상위가 dict 아님"); sys.exit(2)
+for k in sorted(doc):
+    v = doc[k]
+    if k.startswith("_") or not isinstance(v, dict) or "_closed" in v: continue   # r1747-mut:closed
+    if os.path.basename(str(v.get("index") or "")) == sys.argv[2]: print(k)
+PY
+)" || { echo "REJECT 판정 불가 — 명부 $seats · ${OPEN_SEATS%%$'\n'*} (이동 0)"; return 1; }
+  local n; n="$(printf '%s' "$OPEN_SEATS" | grep -c .)"
+  [ "$n" = 0 ] || [ -n "$TO" ] || { echo "REJECT 열린 좌석 ${n}석이 이 카드를 든다 — --to <받는 카드> 또는 먼저 닫기 ($(printf '%s' "$OPEN_SEATS" | paste -sd, -) · 이동 0)"; return 1; }
+  return 0
+}
+OPEN_SEATS=""
 close_marker() { ( . "$HERE/ft-team-lib.sh" >/dev/null 2>&1 && ft_close_marker "$@" ); }   # r1784: 표식 읽기 한 곳(ft-team-lib.sh · 하위 셸)
 [ ! -f "$HERE/ft-team-lib.sh" ] || ( . "$HERE/ft-team-lib.sh" && ft_card_location_ok "$SRC" ) || exit 1   # r447: 명단 새 꼴 팀 카드가 옛 꼴 폴더면 REJECT(이동 0)
 IDX_ROOT="$(cd "$(dirname "$SRC")/.." && pwd)"
@@ -230,6 +263,7 @@ if [ "$DST" = 아카이브 ]; then
   [ -f "$HERE/ft_da_hold_gate.py" ] || { echo "REJECT ft_da_hold_gate.py 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
   # R3 — 착지 증거(--landed·--da 착지 행)는 넘기지 않는다: 이 갈래는 «보류 해제» 만 본다.
   _hg="$(python3 "$HERE/ft_da_hold_gate.py" "$SRC" --closing 2>&1)" || { _h1="${_hg%%$'\n'*}"; echo "REJECT DA 보류 가드: $_h1 — 해제 = 상위 master·planner 의 «[재설계 해제 <카드>.md]» 쪽지 + 카드 «- 재설계 해제: #seq» 줄 (이동 0)"; exit 1; }
+  archive_to_gate || exit 1   # r1747
 fi
 # 슬랙 단위 스레드(판정 405 §4) — «게시 대상» = 카드의 `- 슬랙:` 줄 유무(장부 아님). 이동 «전»에 끝낸다: 실패면 이동 0.
 if { [ "$FROM" = 대기 ] && [ "$DST" = 진행 ]; } || { [ "$FROM" = 진행 ] && [ "$DST" = 완성 ]; }; then
@@ -321,6 +355,20 @@ fi
 if [ -s "$NEW" ] && [ -n "$(tail -c 1 "$NEW")" ]; then printf '\n' >> "$NEW"; fi
 if [ "$DST" = 아카이브 ]; then
   printf -- '- %s — %s→아카이브 · 좌석 %s · 판정 %s\n' "$(date '+%Y-%m-%d %H:%M')" "$FROM" "$SEAT" "$DA" >> "$NEW"
+  # r1747-mut:supline — ft-nano-superseded-check ⓐ 가 읽는 «## 상태» 절 맨 끝 줄(다음 «## » 절 앞 · 상태 절 없으면 문서 끝 · DA R1)
+  [ -z "$TO" ] || python3 - "$NEW" "대체됨: $TO · 사유: $DA" <<'PY' || { echo "REJECT 대체됨 줄 쓰기 실패: $NEW — 카드는 이미 이동했다(되돌림: git mv)"; exit 1; }
+import re, sys
+p, line = sys.argv[1], sys.argv[2]
+ls = open(p, encoding="utf-8").read().split("\n")
+if ls and ls[-1] == "": ls.pop()
+st = [i for i, l in enumerate(ls) if re.match(r"^## 상태\s*$", l)]
+at = len(ls)
+if st:
+    at = next((i for i in range(st[-1] + 1, len(ls)) if ls[i].startswith("## ")), len(ls))
+    while at > st[-1] + 1 and not ls[at - 1].strip(): at -= 1   # 절 끝 빈 줄 앞에
+ls.insert(at, line)
+open(p, "w", encoding="utf-8").write("\n".join(ls) + "\n")
+PY
 else
   DAREC=""; [ -z "$DA" ] || DAREC="$(da_record "$DAF" "$SEC")"
   printf -- '- %s — %s→%s%s%s\n' "$(date '+%Y-%m-%d %H:%M')" "$FROM" "$DST" "${SEAT:+ · 좌석 $SEAT}" "${DAREC:+ · DA $DAREC}" >> "$NEW"
@@ -352,6 +400,9 @@ if [ "$DST" = 완성 ] && [ -n "$LANDED" ]; then
   else echo "WARN ft-branch-archive.sh 없음($HERE) — 끝난 가지 보관 이동 0"; fi
 fi
 printf 'MOVED %s→%s %s\n' "$FROM" "$DST" "$NEW"
+while IFS= read -r _os; do [ -n "$_os" ] || continue   # r1747 — 이 카드를 든 열린 좌석마다 표준 닫기 1줄
+  echo "다음: bash ft-nano-close.sh $_os --superseded-by $TO --result <산출> --recv <seq> (먼저 ft-nano-superseded-check)"
+done <<< "$OPEN_SEATS"
 # r1649 — 완성 이동 = 그 카드 나노 좌석 닫기까지 «같은 실행». 닫기 실패·seq 없음만 h 1장으로 넘긴다(이동 rc 불변 · 브랜치 삭제 0).
 nano_close_card() {
   local card="$1" new="$2" name seats="${FT_SEATS_JSON:-}" root="${ROOT:-$IDX_ROOT}" t hits=() rows rc seq seat hn note plan out first

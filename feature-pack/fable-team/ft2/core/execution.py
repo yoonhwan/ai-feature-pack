@@ -23,6 +23,7 @@ def _load(name, alias):
 
 
 record, intake = _load("record", "ft2_core_record"), _load("intake", "ft2_core_intake")
+roster = _load("roster", "ft2_core_roster")   # L11 명부 찾기 한 함수 — 코어 현역 master 판독도 같은 규칙 · 코어는 명부 경로를 여기서 조립하지 않는다
 OK, HOLD, STALE, BUSY = "접수 성공", "완료 유보", "낡은 실행권", "BUSY"
 CORRUPT, REFUSED, RECOVERED = "복구 필요", "접수 거부", "회수 결과"
 Grant = collections.namedtuple(
@@ -128,9 +129,12 @@ class Execution:
             return Grant(getattr(exc, "word", CORRUPT), work, gen, holder, written=getattr(exc, "written", False), reason=str(exc))
 
     def _master(self):
-        """현역 master = `<root>/.fable-team/seats-<팀>.json` 의 `_master` · 못 읽음 = None(거절)."""
+        """현역 master = 명부 찾기 한 함수(core/roster.py `roster_path`)가 준 파일의 `_master` · 못 읽음·명부 없음 = None(거절)."""
+        path = roster.roster_path(self.root, self.team)
+        if not path:
+            return None
         try:
-            with open(os.path.join(self.root, ".fable-team", "seats-%s.json" % self.team), encoding="utf-8") as fh:
+            with open(path, encoding="utf-8") as fh:
                 master = json.load(fh).get("_master")
         except (OSError, ValueError, AttributeError):
             return None

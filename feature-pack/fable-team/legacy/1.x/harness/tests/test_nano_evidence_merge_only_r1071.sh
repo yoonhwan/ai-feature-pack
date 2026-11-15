@@ -94,12 +94,12 @@ PY
 }
 # 변이 파일은 변이 대상 스크립트와 «같은 디렉토리» 에 판정기가 있어야 한다(스크립트는 자기 dirname 에서 판정기를 찾는다)
 cp "$SRC/ft-approval-equiv.sh" "$SRC/ft_approval_equiv.py" "$T/"
-# 변이 ①: 판정기 호출 끔(= 옛 «글자 그대로 같아야 통과» 동작)
-py "$EV" "$T/m1.sh" 'EQUIV="$(bash "$EQ" "$set_head" "$head_now" --repo "$REPO" 2>&1)" ||' 'false ||' && ok "변이① 생성" || bad "변이① 생성 실패"
+# 변이 ①: 판정기 호출 끔(= 옛 «글자 그대로 같아야 통과» 동작) · r1754: 판정기 호출이 eqt 함수로 옮겨 앵커만 바꿈
+py "$EV" "$T/m1.sh" 'eqt "$TGT" ||' 'false ||' && ok "변이① 생성" || bad "변이① 생성 실패"
 setline code "세트: $A · 시험: bash t.sh rc=0 · 이슈: 0"; out="$(BIN="$T/m1.sh" bash "$T/m1.sh" "$(card code)" --repo "$NW" --feat main 2>&1)"; rc=$?
 [ "$rc" -eq 1 ] && has "$out" "시험 뒤 커밋이 생김" "변이①(판정기 끔) → ⓐ 가 REJECT 로 뒤집힘 = 시험이 잡는다" || bad "변이① rc=$rc ← ${out:0:200}"
 # 변이 ②: 판정기 rc 를 무시(rc1 도 통과)
-py "$EV" "$T/m2.sh" '2>&1)" || { echo' '2>&1)" || true || { echo' && ok "변이② 생성" || bad "변이② 생성 실패"
+py "$EV" "$T/m2.sh" '; } || { echo "REJECT' '; } || true || { echo "REJECT' && ok "변이② 생성" || bad "변이② 생성 실패"
 setline conf "세트: $A2 · 시험: bash t.sh rc=0 · 이슈: 0"; out="$(BIN="$T/m2.sh" bash "$T/m2.sh" "$(card conf)" --repo "$NW2" --feat main 2>&1)"; rc=$?
 [ "$rc" -eq 0 ] && ok "변이②(판정기 rc 무시) → ⓒ 가 통과로 뒤집힘 = 시험이 잡는다" || bad "변이② rc=$rc ← ${out:0:200}"
 

@@ -1,8 +1,10 @@
 """ft2 Slack 답글 = 그 thread 앞 글 완료 (r1872). publish `_settle`(게시 확정 3곳)만 부른다 · 멱등.
 
 같은 workspace·channel·thread 에서 답글이 가리키는 글 ts 이하로 접수된 Slack 글 중 완료 아님 ∧ 배정 계보 0 인 것만
-`Dispatch.complete` 1회씩. 덮는 글이 있으면(기확정 재확인 포함 · R1b) «용량 부족» 글을 ts 오래된 순으로 연 칸 수만큼
-SlackRoute 복구 client 로 다시 접수한다(route 보존 · R1a · 같은 command 재부여 0 = intake `_prior_receipt`). 상한 값·코어 손 0 · 실패 = «판정 불가» 1줄 + 게시 결과 그대로(하드 룰 20).
+`Dispatch.complete` 1회씩. 덮는 글이 있으면(기확정 재확인 포함 · R1b) «용량 부족» 글을 ts 오래된 순으로 그때그때의
+남은 용량(상한 − `record.capacity`)과 재접수 입구의 영수로 다시 접수한다(route 보존 · R1a · 같은 command 재부여 0 =
+intake `_prior_receipt`). dict-work 재접수는 용량을 쓰지 않아 1칸이 남으면 그 뒤 글도 함께 들어간다(r2089).
+상한 값·코어 손 0 · 실패 = «판정 불가» 1줄 + 게시 결과 그대로(하드 룰 20).
 """
 import importlib.util, os, re, sys  # noqa: E401
 
@@ -36,8 +38,6 @@ def _targets(state, records, key, ts):
     return hit, [command for command in hit if command not in done]
 
 def _requeue(root, team, desk):
-    state, records = desk.ex._state_records()
-    room = desk.rs.capacity - len(dispatch.record.remaining(state, records))
     inbox = receive.SlackReceive(root, ack=lambda event: None, team=team)
     route.SlackRoute(root, receive=inbox, team=team)  # R1a — RoutingClient 가 route 장부의 thread·목적지를 영수에 남긴다
     full = sorted((e for e in inbox.latest().values() if e.get("state") == receive.FULL and e.get("key")),
@@ -46,14 +46,20 @@ def _requeue(root, team, desk):
     if asked is None:
         print("판정 불가: r1927 재접수 settle.jsonl · full %d건 그대로" % len(full), file=sys.stderr)
         return []
-    out = []
+    out, blocked = [], False
     for entry in full:
         if entry["command"] in asked:  # desk 처리 요청 = settled · 칸 소비 0 · r1938 칸 0 이어도
             inbox._settle(entry["command"], entry, asked)
-        elif room <= 0:
-            continue  # r1938 — 칸 0 = 미요청만 건너뜀 · 뒤의 요청 full 은 계속 대조
-        elif inbox._recover(entry["command"], entry=entry).get("state") == receive.DISPATCHED:
-            out, room = out + [entry["command"]], room - 1
+            continue
+        state, records = desk.ex._state_records()
+        room = desk.rs.capacity - len(dispatch.record.capacity(state, records))
+        if blocked or room <= 0:
+            continue  # 여유 0 = 재접수 0(r1938) · 영수 «용량 부족» = 그 뒤 미요청 글 건너뜀(r2089)
+        verdict = inbox._recover(entry["command"], entry=entry)
+        if verdict.get("state") == receive.DISPATCHED:
+            out = out + [entry["command"]]
+        elif (verdict.get("receipt") or {}).get("result") == receive.intake.RESULT_FULL:
+            blocked = True
     return out
 
 def settle(root, team, row):

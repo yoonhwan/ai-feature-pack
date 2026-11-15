@@ -110,7 +110,7 @@ OUT="$(python3 - "${ARG:-${FT_SEATS_JSON:-}}" "${ROOT:-.}" "$SEAT" "$REASON" "$B
 import json, glob, shutil, shlex, datetime, collections, os, sys
 arg, root, seat, reason, by, verdict, rec, tool, dead, reopen, done = sys.argv[1:12]
 sys.path.insert(0, os.path.dirname(tool))   # 명부 읽기·원자 쓰기(쓰기 중 죽어도 원본 무손상) = 같은 폴더 lib(retire 와 공용)
-from ft_roster_lib import load, dump as save
+from ft_roster_lib import load, dump as save, bak_cap
 files = [arg] if arg else sorted(glob.glob(root + "/.fable-team/seats*.json"))
 for f in (files if not (verdict or done or reopen == "1") else []):   # ⓐ 현역 역할 좌석(_master·_arch·_hil_route·_desk …)은 세션만 닫지 않는다(--verdict = 판정 승인 경로만 예외)
     d = load(f)
@@ -125,16 +125,16 @@ if not isinstance(o, dict): print(f"REJECT {p} 의 {seat} 행이 객체가 아�
 now = datetime.datetime.now(); ts = now.strftime("%Y%m%d%H%M%S")
 if reopen == "1":   # r427 ⓖ — 닫힘 표기 되돌림 · 비웠던 칸은 지금도 "" 일 때만 다시 채운다(그새 교대된 칸은 덮지 않음)
     if not o.get("_closed"): print(f"NOOP {seat} 닫힌 행 아님(_closed 없음) file={p}"); sys.exit(0)
-    shutil.copy(p, p + ".bak-reopen-" + ts); back, held = [], []
+    shutil.copy(p, p + ".bak-reopen-" + ts); bak_cap(p, "reopen"); back, held = [], []
     o["role"] = o.pop("_closed_role", None) or "active"; o["tick"] = o.pop("_closed_tick", o.get("tick"))
     for c in o.pop("_closed_from", []):
         f, _, k = c.rpartition(":"); dd = d if f == p else load(f); cur = dd.get(k) if isinstance(dd, dict) else None
         if cur not in ("", seat): held.append(f"{c}={cur}"); continue
         dd[k] = seat; back.append(k)
-        if f != p: shutil.copy(f, f + ".bak-reopen-" + ts); save(f, dd)
+        if f != p: shutil.copy(f, f + ".bak-reopen-" + ts); bak_cap(f, "reopen"); save(f, dd)
     o.pop("_closed", None); save(p, d)
     print(f"REOPENED {seat} roles={','.join(back) or '-'} role={o['role']} file={p}" + (f" · 교대된 칸(복원 0): {';'.join(held)}" if held else "")); sys.exit(0)
-shutil.copy(p, p + ".bak-close-" + ts)
+shutil.copy(p, p + ".bak-close-" + ts); bak_cap(p, "close")
 if done:   # r1656 ⓒ — role·tick·_master 칸 그대로 · _closed.done 만(틱 = 받을 일 0 이면 쉬는 중)
     at = now.isoformat(timespec="seconds"); o["_closed"] = collections.OrderedDict(by=by, at=at, reason=reason, done=collections.OrderedDict(ts=at, seq=int(done)))
     save(p, d); print(f"MARKED\t{p}\t{o.get('role')}"); sys.exit(0)
@@ -153,7 +153,7 @@ if verdict:   # R400 ② — 그 좌석 값인 최상위 `_*` 문자열 칸만 "
         ks = [k for k, v in dd.items() if k.startswith("_") and isinstance(v, str) and v == seat] if isinstance(dd, dict) else []
         if not ks: continue
         for k in ks: dd[k] = ""
-        if f != p: shutil.copy(f, f + ".bak-close-" + ts); save(f, dd)
+        if f != p: shutil.copy(f, f + ".bak-close-" + ts); bak_cap(f, "close"); save(f, dd)
         cells.append(f + ":" + ",".join(ks)); froms += [f + ":" + k for k in ks]
     if froms: o["_closed_from"] = sorted(set(o.get("_closed_from", []) + froms))
 save(p, d)

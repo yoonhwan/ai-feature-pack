@@ -171,8 +171,8 @@ class Intake:
             if self._orphan_body(command):
                 return Receipt(RESULT_HOLD, command, None, state["revision"], reason="본문만 남음 = 영수 미확정")
             pending = self._pending(records, state)
-            remaining = self._remaining(records, state)                    # 판정·문구가 같은 값(r1791)
-            if self._full(remaining):                                       # 용량 = 남은 일(r1616 보정 2)
+            remaining = record.capacity(state, records, self._remaining(records, state))                    # 판정·문구가 같은 값(r1791) · r2055 용량 셈(work 단위 · 쉼 제외)
+            if self._full(remaining):                                       # 용량 = 남은 일(r1616 보정 2 · 의무 장부는 remaining 그대로)
                 return Receipt(RESULT_FULL, command, None, state["revision"], reason="남은 일 %d >= 상한 %d (접수 장부 %d)" % (len(remaining), self.capacity, len(pending)))
             attempt = "%s#a%d" % (command, state["attempts"].get(command, 0) + 1)
             new_state = self._next_state(state, command, pending)

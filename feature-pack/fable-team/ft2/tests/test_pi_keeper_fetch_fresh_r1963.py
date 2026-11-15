@@ -37,11 +37,11 @@ def c1(w):   # ① 팩 낡음 · BYZ 신선 · BYZ ops/main-base 착지 → 그 
     lines = w.round()
     assert any(x.startswith("COMPLETED harness r9101") for x in lines) and w.kinds("complete") == 1, lines
     assert len(fails(lines)) == 1 and str(w.tmp / "pack") in fails(lines)[0] and PACK_ONLY in fails(lines)[0] and str(w.root) not in fails(lines)[0], lines
-def c2(w):   # ② 팩 낡음 · 착지 sha 가 (낡은) 팩 ref 에만 → HELD «판정 불가 · 팩 fetch 실패» · 미도달 알림 0 · complete 0
+def c2(w):   # ② 팩 낡음 · 착지 sha 가 (낡은) 팩 ref 에만 → UNKNOWN(r2055 · 옛 HELD) «판정 불가 · 팩 fetch 실패» · 미도달 알림 0 · complete 0
     w.card("r9102", w.pack_sha()), w.work("r9102", intent=False), sync(w), lose(w, "pack")
     lines = w.round()
-    assert any(x.startswith("HELD harness r9102 판정 불가 · 팩 fetch 실패") for x in lines) and w.kinds("complete") == 0, lines
-    assert _lines(str(w.mbox) + ".log") == [] and not any("미도달" in x for x in lines), lines
+    assert any(x.startswith("UNKNOWN harness r9102 ") and x.endswith(" · 판정 불가 · 팩 fetch 실패") for x in lines) and w.kinds("complete") == 0, lines
+    assert [x for x in _lines(str(w.mbox) + ".log") if "[긴급] UNKNOWN" not in x] == [] and not any("미도달" in x for x in lines), lines   # r2055 UNKNOWN [긴급] 은 셈 밖
 def c3(w):   # ③ 둘 다 낡음 → 지금과 같이 B1·B2 0 · 1줄(두 리포 경로 · 루트 먼저)
     w.card("r9103", w.pack_sha()), w.work("r9103", intent=False), sync(w), lose(w, "root"), lose(w, "pack")
     lines = w.round()
@@ -89,7 +89,7 @@ def c9(w):   # ⑨ 두 원격이 각각 3초 걸림 → fetch 단계는 느린 �
 def c11(w):  # ⑪ 앞 바퀴 팩 낡음(② HELD) → 이번 바퀴 둘 다 신선 → 낡음 집합 비어 있음 · 그 work COMPLETED
     w.card("r9111", w.pack_sha()), w.work("r9111", intent=False), sync(w)
     back, k = lose(w, "pack"), w.keeper()
-    assert any(x.startswith("HELD harness r9111 판정 불가 · 팩 fetch 실패") for x in w.round(k)) and k.stale == {str(w.tmp / "pack")}
+    assert any(x.startswith("UNKNOWN harness r9111 ") and x.endswith(" · 판정 불가 · 팩 fetch 실패") for x in w.round(k)) and k.stale == {str(w.tmp / "pack")}
     back()
     done = len(k.lines)
     lines = w.round(k)[done:]

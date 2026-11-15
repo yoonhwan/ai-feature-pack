@@ -35,6 +35,7 @@ VERBS = {
     "complete": ("Dispatch", "complete", ("work",), ("attempt",)),
     "reassess": ("Dispatch", "reassess", ("work",), ("mode",)),
     "return": ("Dispatch", "give_back", ("work", "attempt", "evidence"), ()),   # r1990 손 = 현역 master · 근거 = 글 1줄
+    "park": ("Dispatch", "park", ("work", "attempt", "reason"), ()),   # r2055 쉼 = owner·예약 해제 · 의무 그대로
     "recover": ("Dispatch", "recover", (), ("mode",)),
     "reclaim": ("Journal", "reclaim", (), ()),
     "project": ("Projection", "project", (), ()),      # 읽기 동사 — 잠금·쓰기 0 (r1617)

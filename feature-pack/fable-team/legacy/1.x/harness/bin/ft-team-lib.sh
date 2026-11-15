@@ -452,3 +452,8 @@ ft_pack_card() { local c="${1:-}"
   [ -n "$c" ] && [ -f "$c" ] && [ -r "$c" ] || return 1
   head -5 "$c" | grep -qE '<!-- ledger: [^ ]*/GOAL-harness\.md -->' && return 0
   awk '/^## /{exit} /^- 정본 영향:/ && index($0, "팩 원본"){f=1; exit} END{exit !f}' "$c"; }
+# r2043 ft_bak_cap <원본 파일> <종류> [상한] : <원본>.bak-<종류>-<ts> 백업을 ts 최근 상한개(env FT_BAK_CAP · 50~100 · 밖이면 50)만 남김
+#   규칙 한 벌 = 같은 폴더 ft_roster_lib.bak_cap 호출(A5) · 실패 = stderr WARN 1줄 · rc 언제나 0(본 작업 rc 불변 · A4)
+ft_bak_cap() { [ -n "${1:-}" ] && [ -n "${2:-}" ] || { echo "WARN ft_bak_cap 인자 부족(<원본 파일> <종류> [상한]) · 정리 0" >&2; return 0; }
+  python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); from ft_roster_lib import bak_cap; bak_cap(sys.argv[2], sys.argv[3], sys.argv[4] if len(sys.argv) > 4 else None)' \
+    "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)" "$@" || echo "WARN ft_bak_cap 실행 실패 rc=$? · 정리 0" >&2; return 0; }

@@ -1,11 +1,10 @@
-"""r1891 card_stage 임시 worktree sparse 시험 (카드 반례 ①② · 변이 M1 · DA 설계 APPROVE).
+"""r1891 card_stage 큰 리포·시간초과 시험 (옛 임시 worktree sparse 판 · rH 에서 worktree 자체가 없어졌다).
 r1859 꼴 그대로 — keeper_world_r1812 대역 · 임시 bare 원격(byz.git) + 임시 루트만 쓴다(실 원격·실 장부 0).
-① 큰 리포 모형 = 카드 밖 파일 3000개 · mv 직전 임시 worktree 의 풀린 파일 = indices 아래만.
-② worktree add 시간 초과(등록 전·등록 뒤) = remove --force 1회 + 판정 불가(Traceback 0 · OSError 0). sleep 0.
-기준판 = 전체 checkout · add 가 try 밖 → ①② Red.
+① 큰 리포 모형 = 카드 밖 파일 3000개 → 실행이 worktree 등록·checkout·sparse-checkout 을 부르지 않는다(옛 «add 끊김 정리» 자리 · 카드 완료 조건 4 · ㊱나).
+② read-tree 시간 초과 = 7초 상한 그대로 · 등록·원격 변화 0 · Traceback 0(옛 «정리 실패 등록 잔존» 자리).
+sleep 0 · 네트워크 0 · 사례 1개 70초 안.
 """
 import importlib.util
-import os
 import subprocess
 from pathlib import Path
 
@@ -32,69 +31,60 @@ def bare(w, *a):
     return kw._git(w.tmp, "--git-dir", str(w.tmp / "byz.git"), *a)
 
 
-def spy(w, monkeypatch, on_add=None):
-    """git 대역 · 호출 기록 · mv 직전 풀린 파일 목록 · on_add = worktree add 를 갈아끼운다."""
-    mod = kw._mod(w.ft2 / "adapters" / "pi" / "card_stage.py", "cs91_%d" % id(w))
-    real, seen, files = mod.git, [], []
-
-    def fake(cwd, *a):
-        seen.append(a[:2])
-        if a[:1] == ("mv",):
-            files.extend(os.path.relpath(os.path.join(d, f), cwd) for d, dirs, fs in os.walk(cwd)
-                         if ".git" not in Path(d).relative_to(cwd).parts for f in fs if f != ".git")
-        if a[:2] == ("worktree", "add") and on_add:
-            return on_add(real, cwd, *a)
-        return real(cwd, *a)
-    monkeypatch.setattr(mod, "git", fake)
-    return mod, seen, files
+def tool(w):
+    return kw._mod(w.ft2 / "adapters" / "pi" / "card_stage.py", "cs91_%d" % id(w))
 
 
 def call(w, capsys, mod):
-    rc = mod.main(["--root", str(w.root), "--team", TEAM, "--work", "r9"])
-    return rc, capsys.readouterr().out.strip()
+    return mod.main(["--root", str(w.root), "--team", TEAM, "--work", "r9"]), capsys.readouterr().out.strip()
+
+
+def spy(w, monkeypatch):
+    """git 대역 — 부른 인자 기록(새 판 = spawn · 기준판에는 spawn 이 없어 git)."""
+    mod, seen = tool(w), []
+    name = "spawn" if hasattr(mod, "spawn") else "git"
+    real = getattr(mod, name)
+    if name == "spawn":
+        monkeypatch.setattr(mod, name, lambda cwd, args, env=None: seen.append(tuple(args)) or real(cwd, args, env))
+    else:
+        monkeypatch.setattr(mod, name, lambda cwd, *a: seen.append(tuple(a)) or real(cwd, *a))
+    return mod, seen
+
+
+def timeout_on(mod, monkeypatch, verb):
+    real = subprocess.run
+
+    def run(argv, **opts):
+        if list(argv[3:4]) == [verb]:
+            raise subprocess.TimeoutExpired(argv, 7)
+        return real(argv, **opts)
+    import types
+    monkeypatch.setattr(mod, "subprocess", types.SimpleNamespace(run=run, TimeoutExpired=subprocess.TimeoutExpired))
 
 
 def wt_count(w):
     return len(kw._git(w.root, "worktree", "list").splitlines())
 
 
-def test_1_big_repo_checks_out_indices_only(tmp_path, monkeypatch, capsys):
+def test_1_big_repo_no_checkout_no_worktree(tmp_path, monkeypatch, capsys):
     w = world(tmp_path, monkeypatch, BULK)
     assert len(bare(w, "ls-tree", "-r", "--name-only", OPS).splitlines()) > BULK
-    mod, seen, files = spy(w, monkeypatch)
+    mod, seen = spy(w, monkeypatch)
     rc, out = call(w, capsys, mod)
     assert rc == 0 and out.startswith("STAGED r9-x 진행→완성 "), out
-    assert files and all(f.startswith("design/harness/indices/") for f in files), files[:5]
-    assert CARD % "진행" in files and len(files) < 10, len(files)
-    assert CARD % "완성" in bare(w, "ls-tree", "-r", "--name-only", OPS).splitlines()
-    assert "big/d00/f0000.txt" in bare(w, "ls-tree", "-r", "--name-only", OPS).splitlines()
-    assert seen.count(("worktree", "remove")) == 1 and wt_count(w) == 1
+    tree = bare(w, "ls-tree", "-r", "--name-only", OPS).splitlines()
+    assert CARD % "완성" in tree and CARD % "진행" not in tree and "big/d00/f0000.txt" in tree
+    flat = [a for args in seen for a in args]
+    assert "worktree" not in flat and "checkout" not in flat and "sparse-checkout" not in flat, seen
+    assert wt_count(w) == 1
 
 
-def slow(real, cwd, *a):
-    raise subprocess.TimeoutExpired(["git", "worktree", "add"], 7)
-
-
-def late(real, cwd, *a):   # 등록·빈 자리까지 된 뒤에 끊긴다
-    real(cwd, *a)
-    raise subprocess.TimeoutExpired(["git", "worktree", "add"], 7)
-
-
-def test_2_add_timeout_before_register_cleans_once(tmp_path, monkeypatch, capsys):
+def test_2_read_tree_timeout_keeps_remote_and_worktrees(tmp_path, monkeypatch, capsys):
     w = world(tmp_path, monkeypatch)
     sha = bare(w, "rev-parse", OPS)
-    mod, seen, _ = spy(w, monkeypatch, slow)
+    mod = tool(w)
+    timeout_on(mod, monkeypatch, "read-tree")
     rc, out = call(w, capsys, mod)   # Traceback·OSError 이면 여기서 시험이 깨진다
-    assert rc == 3 and out.startswith("판정 불가 "), out
-    assert seen.count(("worktree", "remove")) == 1 and wt_count(w) == 1
-    assert bare(w, "rev-parse", OPS) == sha
-
-
-def test_3_add_timeout_after_register_cleans_once(tmp_path, monkeypatch, capsys):
-    w = world(tmp_path, monkeypatch)
-    sha = bare(w, "rev-parse", OPS)
-    mod, seen, _ = spy(w, monkeypatch, late)
-    rc, out = call(w, capsys, mod)
-    assert rc == 3 and out.startswith("판정 불가 "), out
-    assert seen.count(("worktree", "remove")) == 1 and wt_count(w) == 1
-    assert bare(w, "rev-parse", OPS) == sha
+    assert (rc, out) == (3, "판정 불가 git read-tree 시간초과 7초"), out
+    assert bare(w, "rev-parse", OPS) == sha and wt_count(w) == 1
+    assert CARD % "진행" in bare(w, "ls-tree", "-r", "--name-only", OPS).splitlines()

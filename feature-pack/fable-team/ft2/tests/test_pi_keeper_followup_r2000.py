@@ -30,9 +30,9 @@ def run(w, work, *left, **kw_):
 def ok(w, lines, work, n=1):
     assert w.kinds("complete") == n and any(x.startswith("COMPLETED harness " + work) for x in lines), lines
 def held(w, lines, work, why, n=0):
-    assert w.kinds("complete") == n and any(x.startswith("HELD harness %s 남은 범위" % work) and why in x for x in lines), lines
+    assert w.kinds("complete") == n and any(x.startswith("UNKNOWN harness %s 남은 범위" % work) and why in x for x in lines), lines
 def mails(w, work):
-    return sum(work in x for x in _lines(str(w.mbox) + ".log"))
+    return sum(work in x and ("[긴급] UNKNOWN" not in x or "착지했지만" in x) for x in _lines(str(w.mbox) + ".log"))   # r2055 settle [긴급] 은 셈 밖 · 관문 쪽지 = «[긴급] UNKNOWN … 착지했지만»
 def c1(w):   # ① 착지 있음 · 줄 없음 → complete 0 · HELD · 팀장 1통
     held(w, run(w, "r9801"), "r9801", "줄 없음")
     assert mails(w, "r9801") == 1
@@ -58,11 +58,11 @@ def c8(w):   # ⑧ 같은 HELD 다음 바퀴 → 팀장 0통 · 카드 고치면
     held(w, w.round(), "r9808", "줄 없음")
     assert mails(w, "r9808") == 1
     card(w, "r9808", "없음"), ok(w, w.round(), "r9808")
-def c8b(w):  # ⑧′ 쪽지 실패 → state.sent 0 → 다음 바퀴 다시 보냄
+def c8b(w):  # ⑧′ 쪽지 실패 → r2065 E3·E5 = 실패도 그날 지문 · 재시도 0 · 같은 날 다시 보내지 않는다(날짜가 바뀌면 1회)
     _put(str(w.mbox) + ".rc", "1"), held(w, run(w, "r9818"), "r9818", "줄 없음")
-    assert mails(w, "r9818") == 2   # 7초 + 재시도 1 둘 다 실패
+    assert mails(w, "r9818") == 1   # 시도 1(재시도 0)
     _put(str(w.mbox) + ".rc", "0"), w.round(), w.round()
-    assert mails(w, "r9818") == 3 and w.kinds("complete") == 0
+    assert mails(w, "r9818") == 1 and w.kinds("complete") == 0
 def d1(w):   # 완성후/ 후속 실재 → complete · 아카이브/ 만 → HELD
     follow(w, "완성후/f7-next.md"), follow(w, "아카이브/2026-11/f8-old.md")
     ok(w, run(w, "r9821", "f7-next — 완성후"), "r9821")

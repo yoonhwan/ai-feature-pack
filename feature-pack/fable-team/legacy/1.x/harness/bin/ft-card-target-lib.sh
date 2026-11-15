@@ -22,3 +22,17 @@ ft_card_target_lint() {  # <카드> → REJECT 사유 줄(0~2) · ① 팩·밖 �
   [ -n "$elive" ] && echo "대상에 라이브 설치 경로 — 팩 경로(feature-pack/…)로 쓰고 라이브는 «- 설치:» 줄로($elive)"
   return 0
 }
+ft_land_refs() {  # <리포> → 착지 ref 후보(한 줄에 하나 · 이 순서로 본다) — r1754 · close-due · nano-close · evidence-check 가 같이 쓴다
+  #   FT_LAND_REF 가 있으면 그 하나 · 없으면 origin/main 다음 origin/ops/main-base(그 리포 원격에 그 가지가 있을 때만)
+  #   ls-remote 실패(7초 + 재시도 1) = stdout «판정 불가 착지 ref — <사유>» 1줄 · rc 1(하드 룰 20 · 후보 추측 0)
+  local out rc=1 i
+  [ -z "${FT_LAND_REF:-}" ] || { printf '%s\n' "$FT_LAND_REF"; return 0; }
+  for i in 1 2; do
+    out="$(perl -e 'alarm 7; exec @ARGV' git -C "${1:-.}" ls-remote --heads origin refs/heads/ops/main-base 2>&1 </dev/null)"; rc=$?
+    [ "$rc" -eq 0 ] && break   # r1754-mut:lsrc
+  done
+  [ "$rc" -eq 0 ] || { echo "판정 불가 착지 ref — git ls-remote origin rc=$rc: $(printf '%s' "$out" | head -1 | cut -c1-120)"; return 1; }
+  echo origin/main
+  printf '%s\n' "$out" | grep -qE '[[:space:]]refs/heads/ops/main-base$' && echo origin/ops/main-base   # r1754-mut:ops
+  return 0
+}

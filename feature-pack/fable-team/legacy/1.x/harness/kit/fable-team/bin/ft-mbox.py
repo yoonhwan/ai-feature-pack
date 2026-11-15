@@ -618,6 +618,14 @@ def _desk_verdict(to, frm, body, attach=""):
     return ("DESK_ROUTE_GATE_ERROR rc=%d %s" % (r.returncode, (r.stderr or "").strip()[:120]), hint)
 
 
+def _drop_seq_tail(seqs):
+    """r1748 보낸 쪽 DROPPED 첫 줄 끝 — « · 버린 seq #a,#b» · 10개 넘으면 최근 10개 + «앞 N개 생략» · 세 사본 같은 꼴."""
+    if not seqs:
+        return ""
+    show, omitted = list(seqs)[-10:], max(0, len(seqs) - 10)
+    return " · 버린 seq #" + ",#".join(str(s) for s in show) + (" (앞 %d개 생략)" % omitted if omitted else "")
+
+
 def send(to, frm, body, force=False, dispatch=False, desk_attach=""):
     _check_name(to)
     _check_name(frm)
@@ -659,7 +667,7 @@ def send(to, frm, body, force=False, dispatch=False, desk_attach=""):
         byto = {}
         for r in rows:
             byto.setdefault(_role_key(r["to"]), []).append(r)
-        keep, dropped, overflow = [], 0, 0
+        keep, dropped, overflow, seqs = [], 0, 0, []
         for t, rs in byto.items():
             rs.sort(key=lambda r: r["seq"])
             # ★밀려난 건수를 «센다»★ — ring 은 조용히 버린다. 안 세면 «보낸 사람은 QUEUED 를
@@ -669,6 +677,7 @@ def send(to, frm, body, force=False, dispatch=False, desk_attach=""):
             keep.extend(k)
             if t == _role_key(to):
                 dropped, overflow = d, ov
+                seqs = [r["seq"] for r in rs if r["seq"] not in {x["seq"] for x in k}]   # r1748 버린 seq(comm 과 같은 계산)
         _save(CANON, keep)
         _log_sent(CANON, row)  # r488 — 같은 잠금 안 · relay 는 send 를 타므로 여기 한 곳
         # ★가드 기록을 «이미 잡고 있는» 우편함 잠금 안에서 한다★ — 밖에서 하면 동시 send 가
@@ -679,7 +688,7 @@ def send(to, frm, body, force=False, dispatch=False, desk_attach=""):
             _guard_record(to, frm, body)
         except Exception:
             pass
-        return seq, sum(1 for r in keep if _role_key(r["to"]) == _role_key(to)), dropped, overflow
+        return seq, sum(1 for r in keep if _role_key(r["to"]) == _role_key(to)), dropped, overflow, seqs
 
     res = _locked(CANON, op)
     if res[0] == "__BLOCKED__":
@@ -697,7 +706,7 @@ def send(to, frm, body, force=False, dispatch=False, desk_attach=""):
                " · desk 경로는 --force 로 안 풀린다" if reason.startswith("DESK_ROUTE") else " · 정말 필요하면 --force")
         )
         sys.exit(3)
-    seq, pend, dropped, overflow = res
+    seq, pend, dropped, overflow, seqs = res
     # ★«어느 파일에 몇 바이트» 를 찍는다★ — QUEUED 를 «도착»으로도 «온전»으로도 읽지 않게.
     print(
         f"QUEUED seq={seq} to={to} pending={pend} "
@@ -705,9 +714,9 @@ def send(to, frm, body, force=False, dispatch=False, desk_attach=""):
     )
     if dropped:
         sys.stderr.write(
-            "DROPPED %d to=%s (ring=%d 포화 · 시스템 알림 먼저 · 사람 글 보존) — 이 좌석이 %d건을 안 읽고 쌓아뒀다.\n"
+            "DROPPED %d to=%s (ring=%d 포화 · 시스템 알림 먼저 · 사람 글 보존) — 이 좌석이 %d건을 안 읽고 쌓아뒀다.%s\n"
             "버려진 %d건은 «영구 유실»이다. 좌석 상태를 보고, 급하면 pane 으로 직접 보낸다.\n"
-            % (dropped, to, MAX_PER_TO, pend, dropped)
+            % (dropped, to, MAX_PER_TO, pend, _drop_seq_tail(seqs), dropped)
         )
     if overflow:
         # ★사람 글은 안 버린다★ — 상한을 넘긴 채로 두고 «그 사실»을 알린다(조용한 초과 0 · r912).

@@ -153,7 +153,7 @@ has "$OC" "DA 판정문의 승인 sha ≠ HEAD ${HB:0:9}" "ⓒ 사유 = 판정�
 AUTO=1 run --summary; has "$OUT" "닫기 차례 harness=0" "ⓒ 요약 0"
 
 echo "== 변이 M1 — «APPROVE·인수를 HEAD 에 묶는» 대조 2개 삭제 → ⓒ 가 못 잡는다(변이 FAIL 기대)"
-MUT="$T/mut"; mkdir -p "$MUT"; cp "$BIN/ft_team_lib.py" "$MUT/"
+MUT="$T/mut"; mkdir -p "$MUT"; cp "$BIN/ft_team_lib.py" "$BIN/ft-card-target-lib.sh" "$MUT/"   # r1754: close-due 가 공용 착지 ref 후보(ft_land_refs)를 같은 폴더에서 읽는다
 python3 - "$BIN/ft-nano-close-due.sh" "$MUT/ft-nano-close-due.sh" <<'PY'
 import sys
 src, dst = sys.argv[1], sys.argv[2]
@@ -189,7 +189,7 @@ FAKE_QUIET="__RC9__" AUTO=1 run --all; eq "$RC" "3" "ⓕ 조용함 조회 실패
 has "$OUT" "판정 불가 $SEAT 조용함 조회 rc=9" "ⓕ 판정 불가 1줄(하드 룰 20)"
 
 echo "== 변이 M4 — «승인 sha == HEAD» 정확 대조 삭제 → ① 사례가 안 잡힌다(변이 FAIL 기대)"
-MUT4="$T/mut4"; mkdir -p "$MUT4"; cp "$BIN/ft_team_lib.py" "$MUT4/"
+MUT4="$T/mut4"; mkdir -p "$MUT4"; cp "$BIN/ft_team_lib.py" "$BIN/ft-card-target-lib.sh" "$MUT4/"   # r1754: close-due 가 공용 착지 ref 후보(ft_land_refs)를 같은 폴더에서 읽는다
 python3 - "$BIN/ft-nano-close-due.sh" "$MUT4/ft-nano-close-due.sh" <<'PY4'
 import sys
 src, dst = sys.argv[1], sys.argv[2]
@@ -204,7 +204,7 @@ case "$OM4" in *"닫기 차례 $SEAT"*) ok "M4 변이 → 다른 sha 승인문�
 
 verdict APPROVE "$H"; card "- 세트: $H" "$(printf -- '- DA 판정: %s/design/harness/DA-ok.md#§1\n' "$ROOT")" "- 인수: $H · 남은 일: 검증=arch · 쓴 이: m"   # 변이 앞 상태 복구(앞 사례가 남긴 승인문 지움)
 echo "== 변이 M3 — ⓕ 의 IDLE 확인 삭제 → WORKING 좌석이 닫기 차례로 열린다(변이 FAIL 기대)"
-MUT3="$T/mut3"; mkdir -p "$MUT3"; cp "$BIN/ft_team_lib.py" "$MUT3/"
+MUT3="$T/mut3"; mkdir -p "$MUT3"; cp "$BIN/ft_team_lib.py" "$BIN/ft-card-target-lib.sh" "$MUT3/"   # r1754: close-due 가 공용 착지 ref 후보(ft_land_refs)를 같은 폴더에서 읽는다
 python3 - "$BIN/ft-nano-close-due.sh" "$MUT3/ft-nano-close-due.sh" <<'PY2'
 import sys
 src, dst = sys.argv[1], sys.argv[2]
@@ -220,7 +220,7 @@ printf 'IDLE - - - jsonl\n' > "$T/ss/$SEAT"
 
 verdict APPROVE "$H"; card "- 세트: $H" "$(printf -- '- DA 판정: %s/design/harness/DA-ok.md#§1\n' "$ROOT")" "- 인수: $H · 남은 일: 검증=arch · 쓴 이: m"   # 변이 앞 상태 복구
 echo "== 변이 M5 — ⓕ 를 «AUTO 만» 으로 되돌림 → ② 직접 재계산이 도구 셸을 못 본다(변이 FAIL 기대)"
-MUT5="$T/mut5"; mkdir -p "$MUT5"; cp "$BIN/ft_team_lib.py" "$MUT5/"
+MUT5="$T/mut5"; mkdir -p "$MUT5"; cp "$BIN/ft_team_lib.py" "$BIN/ft-card-target-lib.sh" "$MUT5/"   # r1754: close-due 가 공용 착지 ref 후보(ft_land_refs)를 같은 폴더에서 읽는다
 python3 - "$BIN/ft-nano-close-due.sh" "$MUT5/ft-nano-close-due.sh" <<'PY5'
 import sys
 src, dst = sys.argv[1], sys.argv[2]

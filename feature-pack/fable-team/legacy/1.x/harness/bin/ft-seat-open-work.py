@@ -3,7 +3,7 @@
 rc 0 = 받을 일 0(후계 0 · 좌석 닫기 대기) · 1 = 있음(기존 승계) · 3 = 판정 불가(기존 승계 + stderr 1줄 · ①쪽지·카드 못 읽음 ②indices/ 자체가 없음 — 진행/ 만 없으면 0 이다 r1541) · stdout = `OPEN-WORK 0|있음|불가 이유=…` (+ rc0 이면 `LEADER <팀장|->`)
 입력 = ①우편함(아직 recv 안 한 큐 + 받고도 «처리함|인계» 표시 없는 영수) ②진행 카드 «- 배정: 좌석 <좌석>» ③state/card-assign «seat» ④팀장 좌석이면 팀 진행 카드 · 좌석 계보 = «#» 앞 이름 · «일 아님» 꼴 목록(정본 = 이 파일 한 곳) = 머리 «[처리»·«[다음 없음»·«[알림»·«[정리» · 본문 첫 줄에 «다음 일 없음» · recv 인용 «READ » — 그 밖은 일로 센다. «내가 나에게» 보낸 쪽지만 빼고 같은 계보 후계에게 보낸 [인계] 는 센다(r1575).
 """
-import glob, json, os, re, sys
+import glob, json, os, re, subprocess, sys
 NOT_WORK = ("[처리", "[다음 없음", "[알림", "[정리")
 ASSIGN = re.compile(r"^-\s*배정:\s*좌석\s+([A-Za-z0-9._#-]+)", re.M)
 NAME = re.compile(r"^[A-Za-z0-9._#-]+$")
@@ -49,6 +49,33 @@ def roster(root):   # 명부(seats*.json) 좌석 이름 값 — 못 읽는 파�
             continue
     return names
 
+def intake(root, tm, seat):   # r2076 E5·E6 — 팀장 빈 2.0 팀의 사슬 끝 팀장 행 = ft2 접수 남은 일 · None = 해당 없음·남은 일 0
+    mk = os.path.join(root, ".fable-team", "state", "ft20-switch", tm + ".json")
+    if not os.path.isfile(mk):
+        return None
+    try:
+        d, ros = load(mk), load(os.path.join(root, ".fable-team", "seats-%s.json" % tm))
+        if not (isinstance(d, dict) and str(d.get("h") or "") and isinstance(ros, dict)):   # 표식 h 빈 글 · 명부가 객체 아님 = 판독 실패(DA 인수 칸)
+            raise ValueError("표식·명부 꼴")
+    except (OSError, ValueError):
+        return 3, "2.0 표식·명부 판독", ""
+    row = ros.get(seat)
+    if ros.get("_master") != "" or not isinstance(row, dict) or row.get("_replaced_by"):
+        return None
+    try:   # ft2 CURRENT 판 core/cli.py project 1회(읽기 동사 · 25초 · 재시도 0 · ft_nano_record_ft2.py 와 같은 길)
+        home = os.environ.get("FT2_HOME") or os.path.expanduser("~/.claude/fable-team/ft2")
+        cli = os.environ.get("FT2_CLI") or os.path.join(home, "versions", open(os.path.join(home, "CURRENT"), encoding="utf-8").read().strip(), "core", "cli.py")
+        if not os.path.isfile(cli):
+            raise OSError(cli)
+        r = subprocess.run([sys.executable, cli, "project", "--root", root, "--team", tm], capture_output=True, text=True, timeout=25)
+        out = json.loads(r.stdout) if r.returncode == 0 else {}
+        n = out.get("remaining") if out.get("result") == "접수 성공" else None
+    except Exception:   # 시간 초과·JSON 아님·꼴 틀림 = 판독 실패(rc 0 으로 새지 않음)
+        n = None
+    if type(n) is not int or n < 0:
+        return 3, "접수 판독", ""
+    return (1, "접수 남은 일 %d" % n, "") if n else None
+
 def verdict(seat, root, mdir):
     key = rk(seat)
     team = key.split("-")
@@ -86,6 +113,9 @@ def verdict(seat, root, mdir):
         return 1, "배정 %d (%s)" % (len(cards), cards[0]), ""
     if states:
         return 1, "카드 배정 %d (%s)" % (len(states), states[0]), ""
+    got = intake(root, tm, seat) if len(team) > 2 and team[2] == "master" else None   # r2076 — 기존 판정이 전부 0 일 때만
+    if got:
+        return got
     lead = ""
     for head in ("master", "arch"):
         lead = next((v for v in roster(root) if rk(v).startswith("%s-%s-" % ("-".join(team[:2]), head)) and rk(v) != key), "")

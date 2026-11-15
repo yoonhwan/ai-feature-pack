@@ -44,6 +44,7 @@
 #     판정기(fetch 포함)도 같은 리포에서 돈다 · 원장 행·출력 꼬리에 `repo=<owner/repo>`. (r1019 설치 뒤 실사건 3/3: BYZ cwd 에서 닫으면 gh 가 cwd 리포의 같은 번호 PR 을 읽어 head 가 틀렸다.)
 #     다른 모드(--never-started·--superseded-by·--suspended·--research·--cherry-override·--shared-wt·--branch·--plan-only·--replan)와 동시 = usage 2 · --wt 만 함께 오면 «리포 힌트» 하나(좌석 워크트리 해석·정리는 기존 그대로) · 인자 없으면 동작 불변.
 #   ★r1737★ 착지 ref = FT_LAND_REF(기본 origin/main · 꼴 «origin/<가지>» 만 · 그 밖 = usage 2) — fetch refspec·ff 조상·squash 끝줄이 «같은 ref» 를 본다(A1 · env 없으면 동작 불변).
+#   ★r1754★ env 가 없고 origin/main 에 착지가 없으면 공용 ft_land_refs 후보(원격에 있으면 origin/ops/main-base)를 차례로 본다 · 맞은 ref = INFO «ref=<ref>».
 #   ★r1737★ `--landed-pr N --wt <경로>` = 그 워크트리가 «좌석 워크트리» 인지 확인해 받는다(A3) — $ROOT/.worktrees/ 등록 ∧ 가지 nano/* ∧ 그 가지 키의 «다른» 살아 있는 세션 0 ∧ HEAD == 카드 «세트:». 거짓 = REJECT 1줄(A4 · 추측 0).
 #   ★r1123 backfill★ --landed-pr 인데 좌석이 «세션 없음 ∧ 워크트리 없음»(③세션 없음 꼴)이면 ③ REJECT 를 미루고 위 착지 판정을 그대로 돈다 — 통과하면 명부 행만 닫는다
 #     (원장 꼬리 backfill=1 · 출력 `CLOSED-BACKFILL <좌석> landed-pr=<N> …` · tmux kill·태그·워크트리 정리 계획·브랜치 손 0). 이 길에서만 ⑥ «세트 ≠ PR head»(equiv·cherry 까지 실패)와
@@ -136,6 +137,7 @@ fi
 # ★r1737 A1★ FT_LAND_REF = 착지 판정 ref(기본 origin/main · 꼴 «origin/<가지>» 만 · 그 밖 = usage 2) — fetch·조상·끝줄이 «같은 변수» 를 본다.
 LP_LAND_REF="${FT_LAND_REF:-origin/main}"
 case "${LP_LAND_REF#origin/}" in ''|"$LP_LAND_REF") echo "usage: FT_LAND_REF 는 «origin/<가지>» 꼴이어야 한다(받은 값: ${LP_LAND_REF:-<빈 값>})" >&2; exit 2;; esac
+_lp_set_land_ref() { LP_LAND_REF="$1"; LP_LAND_REFS="refs/remotes/$1"; LP_LAND_FETCH="+refs/heads/${1#origin/}:refs/remotes/$1"; }   # r1754 A4 — 후보를 바꿔 볼 때도 세 변수를 같이
 LP_LAND_REFS="refs/remotes/$LP_LAND_REF"; LP_LAND_FETCH="+refs/heads/${LP_LAND_REF#origin/}:$LP_LAND_REFS"
 # --approved(r1670): 승인 갈래 — ⑤ cherry·⑥ 착지 증거 대신 «그 자리에서 ⓑ 를 다시 계산»(ft-nano-close-due.sh --approve-gate)한다. 빈 값·다른 모드와 동시 = usage(2).
 if [ -n "$APPROVED" ]; then
@@ -1112,7 +1114,7 @@ _lp_state_note() {
 #   우리 착지 도구(ft-merge-land)는 병합 버튼을 쓰지 않는다 — squash 커밋을 main 에 직접 올리고 PR 은 CLOSED 또는 OPEN 으로 남긴다(실측 3/3).
 #   ⓐ PR head 가 origin/main 의 조상 = 빨리감기 착지(R392 --ff)  ⓑ origin/main 커밋의 «끝줄» 이 정확히 «PR #<N> (head <PR head 40hex>)» = squash 착지(ft-merge-land 끝줄 꼴)
 #   둘 다 없으면 REJECT(«main 에 산출 없음») · fetch 실패 = «판정 불가» 1줄 REJECT(하드 룰 20 · 옛 ref 로 통과 0).
-_lp_landed_gate() {
+_lp_landed_at() {   # r1754: 한 ref(LP_LAND_*) 착지 판정 = 옛 _lp_landed_gate 본문 그대로 · 후보 고르기는 아래 _lp_landed_gate
   local repo cap out rc cand want grepw last x ecap eout erc efirst emerges mb rc3 mout merges
   repo="${_lp_repo:-}"
   _lp_landed=""; _lp_landed_short=""; _lp_equiv_x=""; _lp_equiv_sha=""; _lp_squash_sha=""; _lp_land_x=""   # r1084: _lp_land_x 도 비운다(두 번 불러도 앞 PR 의 X 가 안 남게)
@@ -1238,6 +1240,24 @@ _lp_fetch_pr() {
   if [ "$_lp_state" = MERGED ]; then return 0; fi   # R7: MERGED 는 지금처럼 통과(동작 불변) · r1058: 그 밖은 아래 «origin/main 에 산출 있음» 판정으로 간다
   _lp_landed_gate || return 1
   return 0
+}
+# ★r1754 A4★ FT_LAND_REF 가 없으면 공용 ft_land_refs(ft-card-target-lib.sh) 후보를 차례로 착지 확인 — origin/main 먼저(맞으면 ls-remote 0 · 기준판 그대로)
+#   맞은 ref 는 뒤 검사(판정기·cherry·sx)도 같이 본다(LP_LAND_* 세 변수) · 판정 불가(fetch·시간 초과·ls-remote 실패) = 그 자리 REJECT · 다 못 맞으면 main 사유 그대로
+_lp_landed_gate() {
+  local refs r first
+  [ -z "${FT_LAND_REF:-}" ] || { _lp_landed_at; return $?; }
+  _lp_landed_at && return 0
+  case "$_lp_pr_err" in *"판정 불가"*) return 1;; esac
+  first="$_lp_pr_err"
+  _lp_lib || { _lp_pr_err="$first · $_lp_repo_err"; return 1; }
+  refs="$(ft_land_refs "$_lp_repo")" || { _lp_pr_err="$first · $refs"; return 1; }
+  for r in $refs; do
+    [ "$r" != origin/main ] || continue
+    _lp_set_land_ref "$r"
+    if _lp_landed_at; then echo "INFO ⑥--landed-pr 착지 ref=$r (FT_LAND_REF 없음 · 공용 후보 ft_land_refs)"; return 0; fi
+    case "$_lp_pr_err" in *"판정 불가"*) return 1;; esac
+  done
+  _lp_set_land_ref origin/main; _lp_pr_err="$first"; return 1
 }
 # ★r1019★ ⑥ «세트 대조» 를 «세트 + main 병합뿐» 까지 넓힌다 — ft-merge-land 는 main 이 앞서 있으면 승인판 위에 합침 커밋 1개를 올려 합치므로 PR head 는 «언제나» 카드 세트가 아니다(r1011 경로가 오늘 착지 6건을 0/6 으로 막았다).
 #   판정기는 승인 h 쪽이 이미 쓰는 ft-approval-equiv.sh(R247 · 판정 1917) 그대로 — 규칙 변경 0 · 호출 1곳만. rc0 만 통과 · rc1/rc3/rc2 는 사유 첫 줄 그대로 REJECT(조용한 통과 0 · #0 RULE).
@@ -1651,6 +1671,14 @@ _tw=""; [ -z "$IDX" ] || { declare -F ft_index_twin >/dev/null && _tw="$(ft_inde
 # r842: 카드 «단계» = ref 트리(ft_card_stage_ref · 기본 origin/main) — 뒤처진 루트 체크아웃의 옛 진행/ 사본이 ref 에서 이미 완성/ 으로 옮긴 카드를 가리던 자리(ops 나노 2석 닫기 REJECT).
 #   단계가 정해지면 그 단계 하나만 · 디스크 사본 WT→LEDGER_WT→ROOT(낡을 수 있는 루트 마지막) · 그 단계 사본이 없으면 REJECT(옛 단계 사본·아래 기존 후보로 후퇴 0) ·
 #   지금 규칙으로 가는 길 하나 = «ABSENT» 글자(그때만 카드 없음) · STAGE 밖의 모든 응답·실패 = ERROR + REJECT(DA⑥ r2: 빈 출력 rc0 이 후퇴길이던 자리) · 쓰기(리서치 닫힘·중단 줄)도 이 CARD 를 쓴다
+# r1747: 버림으로 아카이브로 간 카드 = indices/아카이브/<YYYY-MM>/<파일> — --superseded-by 길에서만 찾기 폴더 목록 끝에 더한다(다른 길 = 기준판 그대로).
+#   같은 이름이 «한 달 폴더» 에만 있을 때 그 경로 1줄 · 0·2+ 달 = 빈 출력(추측 0 → 아래 «⑥카드 못 찾음» 그대로).
+_arch_one() {  # <파일 이름> <indices 절대 폴더>…
+  local n="$1" d f m ms="" one="" c=0; shift
+  [ "$SUPER" = 1 ] || return 0   # r1747-mut:arch
+  for d in "$@"; do for f in "$d"/아카이브/*/"$n"; do [ -f "$f" ] || continue; m="${f%/*}"; m="${m##*/}"
+    case " $ms " in *" $m "*) ;; *) ms="$ms $m"; c=$((c+1)); one="$f";; esac; done; done
+  [ "$c" != 1 ] || printf '%s' "$one"; return 0; }
 _cs=""; _cref=""   # r1626: 카드 ref = 팀 카드 루트 표(ft_card_ref · env FT_CARD_REF 가 이긴다) — 팀 이름은 아래 카드 꼴 판정에서 나온다
 if [ -n "$IDX" ]; then   # r842-mut:libskip
   # 문지기 두 칸(DA⑥ r3): (가) 팀 카드 꼴인가 — 아니면 단계 개념 0 = 지금 규칙(오류 아님) (나) 꼴이면 lib·단계 함수가 있는가 — 없으면 ERROR + REJECT(R382 옛 설치 역호환은 버린다)
@@ -1719,6 +1747,9 @@ if [ -n "$IDX" ]; then   # r842-mut:libskip
       for _b in "$WT" "$ROOT" "$LEDGER_WT"; do [ -z "$CARD" ] || break
         while IFS= read -r _c; do [ -n "$_c" ] && [ -z "$CARD" ] && [ -f "$_c/indices/$_d/$_cf" ] && CARD="$_c/indices/$_d/$_cf"
         done < <(ft_team_cands_ref "$_b" "$_ct" "${FT_TEAMS_REF:-origin/main}" 2>/dev/null); done; done
+    if [ -z "$CARD" ] && [ "$SUPER" = 1 ]; then _acs=()   # r1747: 팀 폴더 후보의 아카이브/<달>/ — 목록 끝
+      for _b in "$WT" "$ROOT" "$LEDGER_WT"; do while IFS= read -r _c; do [ -n "$_c" ] && _acs+=("$_c/indices"); done < <(ft_team_cands_ref "$_b" "$_ct" "${FT_TEAMS_REF:-origin/main}" 2>/dev/null); done
+      [ "${#_acs[@]}" = 0 ] || CARD="$(_arch_one "$_cf" "${_acs[@]}")"; fi
     [ -z "$CARD" ] || echo "INFO 카드 위치(팀 폴더) ← $CARD"
   fi
   fi
@@ -1732,6 +1763,9 @@ if [ -z "$CARD" ] && [[ "$IDX" =~ ^(.*/indices)/[^/]+/[^/]+$ ]]; then
     for _rel in "$IDX" ${_tw:+"$_tw"}; do [[ "$_rel" =~ ^(.*/indices)/[^/]+/([^/]+)$ ]] || continue
       for _b in "$WT" "$ROOT" "$LEDGER_WT"; do [ -z "$_hit" ] && [ -f "$_b/${BASH_REMATCH[1]}/$_d/${BASH_REMATCH[2]}" ] && _hit="$_b/${BASH_REMATCH[1]}/$_d/${BASH_REMATCH[2]}"; done; done
     [ -z "$_hit" ] || { _sibn=$((_sibn+1)); _sib1="$_hit"; }; done
+  _adirs=(); for _rel in "$IDX" ${_tw:+"$_tw"}; do [[ "$_rel" =~ ^(.*/indices)/[^/]+/([^/]+)$ ]] || continue   # r1747: 형제 목록 끝 = 아카이브/<달>/
+    for _b in "$WT" "$ROOT" "$LEDGER_WT"; do _adirs+=("$_b/${BASH_REMATCH[1]}"); done; done
+  _hit="$(_arch_one "${IDX##*/}" "${_adirs[@]}")"; [ -z "$_hit" ] || { _sibn=$((_sibn+1)); _sib1="$_hit"; }
   [ "$_sibn" = 1 ] && { CARD="$_sib1"; echo "INFO 카드 위치 ← $CARD"; }
 fi
 # ★r1719 A4★ 팀 넘는 나노: 좌석 팀 원장 WT 의 사본은 카드 쓰기 자리가 아니다(다른 팀 작업 트리에 쓰지 않는다)
@@ -1743,12 +1777,16 @@ _CB_TMP=""
 if [ -z "$CARD" ] && [ -n "$IDX" ] && [ -n "$SEAT_WT" ] && [[ "$IDX" =~ ^(.*/indices)/[^/]+/([^/]+)$ ]]; then
   _cb_root="${BASH_REMATCH[1]}"; _cb_name="${BASH_REMATCH[2]}"; _cb_rel=""
   for _rel in "$IDX" ${_tw:+"$_tw"}; do [[ "$_rel" =~ ^(.*/indices)/[^/]+/([^/]+)$ ]] || continue
-    for _d in 진행 완성 대기; do [ -z "$_cb_rel" ] && [ -f "$SEAT_WT/${BASH_REMATCH[1]}/$_d/${BASH_REMATCH[2]}" ] && _cb_rel="${BASH_REMATCH[1]}/$_d/${BASH_REMATCH[2]}"; done; done
+    for _d in 진행 완성 대기; do [ -z "$_cb_rel" ] && [ -f "$SEAT_WT/${BASH_REMATCH[1]}/$_d/${BASH_REMATCH[2]}" ] && _cb_rel="${BASH_REMATCH[1]}/$_d/${BASH_REMATCH[2]}"; done
+    [ -n "$_cb_rel" ] || { _cb_rel="$(_arch_one "${BASH_REMATCH[2]}" "$SEAT_WT/${BASH_REMATCH[1]}")"; _cb_rel="${_cb_rel#"$SEAT_WT"/}"; }; done   # r1747: 가지 체크아웃 아카이브/<달>/
   if [ -n "$_cb_rel" ]; then
     CARD="$SEAT_WT/$_cb_rel"; echo "INFO 카드 위치 ← ${SEAT_BR:-<좌석 가지>}:$_cb_rel (가지 체크아웃 · 읽기·쓰기)"   # r960-mut:branchcard
   else
     _cb_ref="${SEAT_BR:-nano/$_KEY}"; _cb_hit=""
     for _d in 진행 완성 대기; do [ -z "$_cb_hit" ] && git -C "$SEAT_REPO" cat-file -e "$_cb_ref:$_cb_root/$_d/$_cb_name" 2>/dev/null && _cb_hit="$_cb_root/$_d/$_cb_name"; done
+    if [ -z "$_cb_hit" ] && [ "$SUPER" = 1 ]; then   # r1747: 가지 tip 아카이브/<달>/ — 정확히 1개일 때만
+      _cb_a="$(git -C "$SEAT_REPO" ls-tree -r --name-only "$_cb_ref" -- "$_cb_root/아카이브/" 2>/dev/null | awk -v p="$_cb_root/아카이브/" -v n="$_cb_name" 'index($0,p)==1 { r=substr($0,length(p)+1); i=index(r,"/"); if (i>1 && substr(r,i+1)==n) print }')"
+      [ "$(printf '%s' "$_cb_a" | grep -c .)" != 1 ] || _cb_hit="$_cb_a"; fi
     if [ -n "$_cb_hit" ]; then
       _CB_TMP="$(mktemp)" || { _CB_TMP=""; echo "WARN 카드 임시 파일 생성 실패 — 가지 판 읽기 0"; }   # r960-mut:branchref
       if [ -n "$_CB_TMP" ] && git -C "$SEAT_REPO" show "$_cb_ref:$_cb_hit" > "$_CB_TMP" 2>/dev/null; then
@@ -2099,6 +2137,7 @@ nf_superseded_next_hint() {
   for _d in 진행 완성 아카이브; do for _bs in "$WT" "$ROOT" "$LEDGER_WT"; do
     for _f in "$_bs/$_rt/indices/$_d/r$_num"-*.md; do
       [ -f "$_f" ] || continue; _rel="$_rt/indices/$_d/${_f##*/}"; [ "$_rel" = "$_own" ] && continue
+      [ "$_d" = 아카이브 ] && [ "${_f##*/}" = "$_nm" ] && continue   # r1747-mut:self — 아카이브로 간 «자기 카드» 는 대체 후보가 아니다(superseded-check ⓒ 가 거절)
       case "|$_hit|" in *"|$_rel|"*) continue;; esac   # 같은 파일이 여러 사본(WT·ROOT·원장 WT)이면 1개로 센다
       _hit="$_hit|$_rel"; _cnt=$((_cnt+1)); _one="$_rel"
     done; done; done

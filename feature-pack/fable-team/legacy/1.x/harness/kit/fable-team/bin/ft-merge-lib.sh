@@ -352,25 +352,29 @@ print(v if isinstance(v,str) else "")' "$seats" 2>/dev/null)"
 #   fm_cards_by_tokens <리포루트> <r<숫자> 토큰…> : stdout = 이름에 그 토큰이 든 카드 파일 절대경로(design/**/indices/*/*.md) · 토큰 0 = 출력 0
 #   ★r1743 A1: 출처 = «카드 ref 트리»(directive-roots.tsv 3칸의 서로 다른 ref · 표 없음 = FT_CARD_REF|origin/main) ls-tree 1/ref(7초) · 루트 index·디스크 안 봄 · A2 중복 1줄 · A3 ref 전부 못 읽으면 stdout 0 + FM_CARDS_ERR + stderr WARN★
 #   ★r1821: 표 = <root> 의 표 → 없으면 git common root 의 표 · 토큰 있는데 0장 = FM_CARDS_ERR · 부른 쪽 셸에 FM_CARDS_TAB·FM_CARDS_REFS(결과 줄용)★
-#     카드 이름 꿴 «r1478-…» · 다른 글자로 이어진 «ar1478» 은 안 잡는다(-<토큰>- 로 본다)
+#     r1804 A5: 카드 파일 이름이 «<토큰>-» 로 «시작» 할 때만(slug 가운데 «-r336-» 은 0) · «ar1478»·«r14780» 은 안 잡는다
+#     ★r1849 ⓐ r<숫자> 아닌 토큰(nano/<stem>) = 파일 이름이 정확히 <토큰>.md ⓑ 착지 리포(REPO) 공용 루트 ≠ <root> 공용 루트면 그 리포 카드 ref(ft_card_ref 팀 «» 규칙 = FT_CARD_REF|origin/main) 트리도 · 경로 = 찾은 리포 공용 루트 기준★
 fm_cards_by_tokens() {
   local root="$1"; shift; FM_CARDS_ERR=""; FM_CARDS_TAB=""; FM_CARDS_REFS=""
   [ -n "$root" ] && [ $# -gt 0 ] || return 0
-  local ref refs out rc ok=0 bad="" rd="" p b t c tab="$root/.fable-team/state/directive-roots.tsv"; local -a hit=()
+  local i ref refs out rc ok=0 bad="" rd="" p b t c rr tab="$root/.fable-team/state/directive-roots.tsv"; local -a hit=() dirs=() rfs=()
   if [ ! -f "$tab" ]; then   # r1821 C1: root 자신의 표 먼저 → 없으면 git common root(라이브 worktree 로 불려도 공용 표) · 카드는 그대로 root 의 ref 트리
     c="$(git -C "$root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; tab=""; [ -z "$c" ] || tab="${c%/*}/.fable-team/state/directive-roots.tsv"
   fi
   [ -f "$tab" ] || tab=""; FM_CARDS_TAB="${tab:-없음}"
   refs="$(awk -F'\t' 'NF>=3 && $3!="" && !s[$3]++{print $3}' "${tab:-/dev/null}" 2>/dev/null)"
   [ -n "$refs" ] || refs="${FT_CARD_REF:-origin/main}"; FM_CARDS_REFS="$(printf '%s\n' $refs | paste -sd, -)"
-  for ref in $refs; do
-    out="$(fm_try 7 git -c core.quotepath=false -C "$root" ls-tree -r --name-only "$ref" -- design 2>/dev/null)"; rc=$?
+  for ref in $refs; do dirs[${#dirs[@]}]="$root"; rfs[${#rfs[@]}]="$ref"; done
+  c="$(git -C "${REPO:-$root}" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; rr="$(git -C "$root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"
+  if [ -n "$c" ] && [ "$c" != "$rr" ]; then dirs[${#dirs[@]}]="${c%/.git}"; rfs[${#rfs[@]}]="${FT_CARD_REF:-origin/main}"; FM_CARDS_REFS="$FM_CARDS_REFS,${c%/.git}:${FT_CARD_REF:-origin/main}"; fi   # r1849-mut:repo
+  for i in "${!rfs[@]}"; do ref="${rfs[$i]}"
+    out="$(fm_try 7 git -c core.quotepath=false -C "${dirs[$i]}" ls-tree -r --name-only "$ref" -- design 2>/dev/null)"; rc=$?
     if [ "$rc" -ne 0 ]; then bad="${bad:+$bad, }$ref(rc=$rc)"; continue; fi
     ok=$((ok + 1)); rd="${rd:+$rd,}$ref"
     while IFS= read -r p; do   # r1717: 한글 폴더(진행·완성)를 따옴표 꼴로 내지 않게 — 차례 장부가 이 경로를 그대로 쓴다
       case "$p" in design/*/indices/*/*.md|design/teams/*/indices/*/*.md) ;; *) continue;; esac
-      b="-${p##*/}"; b="${b%.md}-"
-      for t in "$@"; do case "$b" in *"-$t-"*) hit[${#hit[@]}]="$p"; break;; esac; done
+      b="${p##*/}"; b="${b%.md}-"
+      for t in "$@"; do case "$t" in r[0-9]*) case "$b" in "$t"-*) ;; *) continue;; esac;; *) [ "$b" = "$t-" ] || continue;; esac; hit[${#hit[@]}]="${dirs[$i]}/$p"; break; done
     done <<< "$out"
   done
   if [ "$ok" -eq 0 ]; then   # 하드 룰 20: 조용한 0장 금지 — 판정 불가를 글자로 남긴다
@@ -380,21 +384,96 @@ fm_cards_by_tokens() {
   if [ "${#hit[@]}" -eq 0 ]; then   # r1821 C2: 토큰이 있는데 0장 = 판정 불가(«카드 없음» 아님)
     FM_CARDS_ERR="토큰 $* 카드 0장 · 읽은 ref $rd · 표 $FM_CARDS_TAB"; echo "WARN cards_err: $FM_CARDS_ERR" >&2; return 0
   fi
-  printf '%s\n' "${hit[@]}" | awk '!s[$0]++' | while IFS= read -r p; do printf '%s/%s\n' "$root" "$p"; done
+  printf '%s\n' "${hit[@]}" | awk '!s[$0]++'
+}
+#   fm_card_tokens <head 가지> <PR 제목> : r1804 A1·A4 — 착지 카드 토큰(공백 이음) · ①가지 마지막 «/» 뒤 조각이 r<N>[a-z]?- 로 시작 = 그 1개 ②아니면 제목의 r<N>[a-z]? 전부(나온 순서 · 중복 0) ③없으면 빈 출력 · 본문은 안 받는다
+#     r1849 ⓐ: 가지가 nano/<stem>(한 조각 · r<숫자> 로 시작 안 함)이면 토큰 = <stem> 하나(fm_cards_by_tokens 가 정확한 파일 이름으로 찾는다)
+fm_card_tokens() {
+  local t; t="$(printf '%s\n' "${1##*/}" | LC_ALL=C grep -oE '^r[0-9]{2,5}[a-z]?-')" && { printf '%s' "${t%-}"; return 0; }
+  case "${1:-}" in nano/*/*|nano/r[0-9]*|nano/) ;; nano/*) printf '%s' "${1#nano/}"; return 0;; esac
+  printf '%s\n' "${2:-}" | LC_ALL=C grep -oE 'r[0-9]{2,5}[a-z]?' | awk '!s[$0]++' | paste -sd' ' -
 }
 #   fm_land_notify_land <카드리포루트> <PR> <착지 sha 앞자리> <PR 제목> <설치 검사 rc> <설치 검사 출력> [<head 가지>] : r1478 — ft-merge-land 끝 1줄
-#     카드 = r1848: head 가 nano/r<N>- 이면 r<N> 하나 · 아니면 제목의 r<숫자> 토큰(본문 0 — 옛 카드 재알림 막음) · 설치 칸 = OK(대조 n>=1) | PENDING(검사 rc!=0 · 시간 초과 포함) | SKIP(범위에 하네스 파일 0)
+#     카드 = fm_card_tokens(r1848 · r1804: head 가지 토큰 하나 · 아니면 제목 토큰 · 본문 0 — 옛 카드 재알림 막음) · 설치 칸 = OK(대조 n>=1) | PENDING(검사 rc!=0 · 시간 초과 포함) | SKIP(범위에 하네스 파일 0)
 #     받은 root 는 FM_NOTIFY_REPO 로 넘긴다(env 가 다른 리포를 가리켜도 카드 리포가 이김 · DA HOLD #274782 F2)
 fm_land_notify_land() {
   local root="$1" pr="$2" sh="$3" txt="$4" irc="$5" iout="$6" nst=SKIP tok t0=$SECONDS
   printf '%s\n' "$iout" | head -n1 | grep -qE '^OK n=[1-9]' && nst=OK
   [ "${irc:-0}" = 0 ] || nst=PENDING
-  tok="$(printf '%s\n' "${7:-}" | grep -oE '^nano/r[0-9]{2,5}-' | grep -oE 'r[0-9]+')"
-  [ -n "$tok" ] || tok="$(printf '%s\n' "$txt" | grep -oE 'r[0-9]{2,5}' | sort -u | tr '\n' ' ')"
-  tok="${tok% }"
+  tok="$(fm_card_tokens "${7:-}" "$txt")"
   # shellcheck disable=SC2086
   FM_NOTIFY_REPO="$root" fm_land_notify 착지 "[착지] pr=$pr sha=$sh 카드 ${tok:-없음} · 설치 $nst" $(fm_cards_by_tokens "$root" $tok)
   fm_land_turn "$root" "$pr" "$t0" $tok
+}
+#   fm_land_card_line <카드리포루트> <PR> <착지 sha 40> <PR 제목> <head 가지> <리포 이름> <target> : r2034 A1~A4 — 착지 뒤 카드(토큰 = fm_land_notify_land 와 같은 규칙 · fm_cards_by_tokens)마다
+#     «## 상태» 절 끝에 «- 착지: <Q> (<리포> origin/<target> · PR #<N> · ft-merge-land)» 1줄 · 카드 ref 1커밋 push(ft_nano_record_write.apply·lock 재사용 = ft-nano-record landed 와 같은 «없을 때만»·잠금)
+#     같은 Q 줄 = «ALREADY» · 다른 sha 착지 줄 = «WARN 다른 착지 줄 <sha>»(쓰기 0) · 카드 0장 = «SKIP 카드 없음» · 실패 = «판정 불가 — 카드 착지 줄 <stem> <사유>» · 반환 0 고정(착지 rc 불변 · 하드 룰 20)
+#     r2042: 상한 = 착지 본체 기준 — fetch 상한(fm_fetch_sec) + push 1단위(fm_push_calc ? = F+7) · 남은 총 마감으로 자름 · FT_LAND_CARD_LINE_S 는 줄이기만 · 남은 < push 1단위 = 시도 0 «마감 부족(남은 N초)» · 프로세스 안 git 호출 기본 상한 = 그 값 · 카드 ref fetch 1회 = min(fetch 상한, 그 값)(DA HOLD R1)
+fm_land_card_line() {
+  local root="$1" pr="$2" q="$3" txt="$4" head="$5" rn="$6" tgt="$7" tok of err cap rc p pv rem fs; local -a cd=()
+  tok="$(fm_card_tokens "$head" "$txt")"
+  [ -n "$tok" ] || { echo "SKIP 카드 없음 — 카드 토큰 0(카드 착지 줄 쓰기 0)"; return 0; }
+  of="$(mktemp "${TMPDIR:-/tmp}/fm-cardline.XXXXXX" 2>/dev/null)" || { echo "판정 불가 — 카드 착지 줄 $tok mktemp 실패(${TMPDIR:-/tmp})"; return 0; }
+  # shellcheck disable=SC2086
+  fm_cards_by_tokens "$root" $tok >"$of" 2>/dev/null; err="$FM_CARDS_ERR"; while IFS= read -r p; do [ -z "$p" ] || cd[${#cd[@]}]="$p"; done <"$of"; rm -f "$of"
+  case "$err" in "카드 ref 를 하나도 못 읽음"*) echo "판정 불가 — 카드 착지 줄 $tok $err"; return 0;; esac
+  [ "${#cd[@]}" -gt 0 ] || { echo "SKIP 카드 없음 — ${err:-토큰 $tok 카드 0장}(카드 착지 줄 쓰기 0)"; return 0; }
+  pv="$(fm_push_calc '?' 2>/dev/null)"; fs="$(fm_fetch_sec 2>/dev/null)"; cap=$(( fs + pv ))   # r2042 A1: fetch 상한 + push 1단위(r2042-mut:cap)
+  p="${FT_LAND_CARD_LINE_S:-}"; case "$p" in ''|*[!0-9]*) ;; *) [ "$p" -lt 1 ] || [ "$p" -ge "$cap" ] || cap="$p";; esac
+  if rem="$(fm_fetch_deadline_rem)"; then   # r2042 A2: 남은 총 마감 < push 1단위 = 시도 0(r2042-mut:short)
+    [ "$rem" -ge "$pv" ] || { [ "$rem" -gt 0 ] || rem=0; echo "판정 불가 — 카드 착지 줄 $tok 마감 부족(남은 ${rem}초)"; return 0; }
+    [ "$rem" -ge "$cap" ] || cap="$rem"
+  fi
+  FT_LAND_RECORD_LOCK_S="$cap" fm_try "$cap" python3 - "$FM_HERE" "$root" "$pr" "$q" "$rn" "$tgt" "$cap" "$(( fs < cap ? fs : cap ))" "${cd[@]}" 2>/dev/null <<'PY'
+import sys
+sys.path.insert(0, sys.argv[1])
+import ft_nano_record as nr
+_run, _cap, _fcap = nr.run, float(sys.argv[7]), float(sys.argv[8])
+def _run_cap(cmd, cap=None, env=None, inp=None, raw=False):   # r2042: 이 프로세스의 git 호출 기본 상한 7초 → 바깥 상한 · fetch 1회 = min(FTS, 바깥 상한)(DA HOLD R1 · r2042-mut:fcap)
+    return _run(cmd, cap if cap is not None else (_fcap if "fetch" in cmd else _cap), env, inp, raw)
+nr.run = _run_cap
+from ft_nano_record import LAND_RX, Ctx, Reject, Unjudged
+from ft_nano_record_due import card_key
+import ft_nano_record_write as nrw
+nrw.run = _run_cap
+from ft_nano_record_write import apply, lock
+nrw.update = lambda _ctx, _fn: None   # ft-nano-record 보낸 기록(land-record-notified.json) 쓰기 0 — 이 단계는 카드 줄만(r1717 ⑧ «보낸 기록 0» 불변)
+_orig_section = nrw.section
+def _sec_eof(text):   # A1 EOF fallback(DA HOLD R1): «## 상태» 절 없으면 문서 전체 = 절(줄은 문서 끝) · 이 프로세스만(공유 read_sec·ft-nano-record 동작 불변)
+    lines, st, en = _orig_section(text)
+    return (lines, st, en) if st is not None else (lines, -1, len(lines))   # r2034-mut:eof
+nrw.section = _sec_eof
+root, pr, q, rn, tgt = sys.argv[2:7]
+for c in sys.argv[9:]:
+    k, seen = card_key(c), {}
+    stem = k[2] if k else c.rsplit("/", 1)[-1]
+    def plan(sec):   # 같은 Q = 0줄(ALREADY) · 다른 sha 착지 줄 = 0줄(WARN) · 없으면 1줄
+        got = [m.group(1) for ln in sec for m in [LAND_RX.match(ln)] if m]
+        if any(q.startswith(s) for s in got):   # r2034-mut:sameq
+            return []
+        if got:
+            seen["other"] = got[-1]
+            return []
+        return [f"- 착지: {q} ({rn} origin/{tgt} · PR #{pr} · ft-merge-land)"]   # r2034-mut:write
+    try:
+        if not k:
+            raise Unjudged("카드 경로 꼴 아님")
+        ctx = Ctx(root)
+        with lock(ctx):
+            st, _sec = apply(ctx, k[0], k[1], stem, plan, f"[docs] {stem} 착지 줄 (ft-merge-land PR #{pr})")
+    except (Reject, Unjudged) as e:
+        print(f"판정 불가 — 카드 착지 줄 {stem} {e}", flush=True)
+        continue
+    except Exception as e:   # 하드 룰 20: 뜻밖의 실패도 판정 불가 1줄(착지 rc 불변)
+        print(f"판정 불가 — 카드 착지 줄 {stem} {type(e).__name__}", flush=True)
+        continue
+    if "other" in seen:
+        print(f"WARN 다른 착지 줄 {seen['other']} — 카드 {stem} 쓰기 0", flush=True)
+    else:
+        print(f"{st} 카드 착지 줄 {stem} {q[:10] if st == 'DONE' else ''}".rstrip(), flush=True)
+PY
+  rc=$?; case "$rc" in 0) ;; 124|143) echo "판정 불가 — 카드 착지 줄 $tok 시간 초과(${cap}초)";; *) echo "판정 불가 — 카드 착지 줄 $tok python rc=$rc";; esac   # r2034-mut:rc
+  return 0
 }
 #   fm_land_turn <카드리포루트> <PR> <시작 SECONDS> [<r토큰>…] : r1717 A1·A4ⓐ — ①차례 장부 1줄 append(<공용 루트>/.fable-team/state/land-record-turn.jsonl · 카드 0장도 cards:[] · 쓰기 실패 = WARN 1줄 · 네트워크 0) ②ft-nano-record.sh notify --pr <N> --no-fetch 1회
 #     ② 상한 = 착지 쪽지와 같은 7초 몫의 «남은 시간»(착지 마감이 더 짧으면 그 값 · < 1초 = 호출 0 → 장부가 남아 ft_stall_scan 이 보낸다) · 착지 값(Q·HEADSHA·REPO·TARGET)은 부른 ft-merge-land 의 변수 · 반환 0 고정(착지 rc 불변)
@@ -410,11 +489,11 @@ fm_land_turn() {
   cap=$((7 - (SECONDS - t0))); if el="$(fm_fetch_deadline_rem)"; then [ "$el" -ge "$cap" ] || cap="$el"; fi
   [ "$cap" -lt 1 ] || [ ! -f "$FM_HERE/ft-nano-record.sh" ] || FT_ROOT="$c" fm_try "$cap" bash "$FM_HERE/ft-nano-record.sh" notify --pr "$pr" --no-fetch 2>&1 || true
 }
-#   fm_land_notify_d2 <PR> <착지 sha> <PR 제목·본문> : r1577 — D2 승인 줄로 착지했을 때 슬랙 1줄(«병합함: PR #N · 카드 · DA APPROVE · 되돌림 명령»)
+#   fm_land_notify_d2 <PR> <착지 sha> <head 가지> <PR 제목> : r1577 · r1804 A2(카드 = fm_card_tokens · 본문 0) — D2 승인 줄로 착지했을 때 슬랙 1줄(«병합함: PR #N · 카드 · DA APPROVE · 되돌림 명령»)
 #     게시 = ft-autonomy-scope.sh 의 scope_slack_post 재사용(사본 0 · 서브셸이라 scope_err 의 exit 이 착지 rc 를 못 건드린다) · 실패 = stderr 1줄 · 착지 rc 불변
 fm_land_notify_d2() {
-  local pr="$1" q="$2" txt="$3" tok body out rc
-  tok="$(printf '%s' "$txt" | grep -oE 'r[0-9]{2,5}' | sort -u | tr '\n' ' ')"; tok="${tok% }"
+  local pr="$1" q="$2" tok body out rc
+  tok="$(fm_card_tokens "${3:-}" "${4:-}")"
   body="$(printf '병합함: PR #%s · 카드 %s · DA APPROVE · 되돌림: git revert --no-edit %s' "$pr" "${tok:-없음}" "$q")"
   out="$( ( . "$FM_HERE/ft-autonomy-scope.sh" >/dev/null 2>&1; scope_slack_post "$body" ) 2>&1 )"; rc=$?
   [ "$rc" = 0 ] || echo "WARN 병합 뒤 슬랙 알림 실패(rc=$rc) — 착지는 성공(sha $q) · ${out%%$'\n'*}" >&2

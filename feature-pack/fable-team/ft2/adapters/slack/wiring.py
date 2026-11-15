@@ -10,11 +10,39 @@ def _adapter(name):  # 경로로 읽기만(수정 0)
     spec = importlib.util.spec_from_file_location("ft2_wire_" + name, os.path.join(_HERE, name + ".py"))
     spec.loader.exec_module(module := importlib.util.module_from_spec(spec))
     return module
+_PI = os.path.join(os.path.dirname(_HERE), "pi")
+def _pi_adapter(name):  # r2065 행 E 가 넣은 공용 함수(장부 판독·명부 찾기)를 부른다 — 같은 판독을 여기 다시 만들지 않는다
+    spec = importlib.util.spec_from_file_location("ft2_wire_pi_" + name, os.path.join(_PI, name + ".py"))
+    spec.loader.exec_module(module := importlib.util.module_from_spec(spec))
+    return module
+keeper, roster = _pi_adapter("keeper_report"), _pi_adapter("launch_roster")
 route, publish, receive, sender_tag, channels = map(_adapter, ("route", "publish", "receive", "sender_tag", "channels"))
 binding, SENDER, USAGE, UNDECIDED = route.binding, "ft2-slack-listen", 2, 3
 _fa = importlib.util.spec_from_file_location("ft2_wire_full_alert", os.path.join(os.path.dirname(_HERE), "pi", "full_alert.py"))
 _fa.loader.exec_module(full_alert := importlib.util.module_from_spec(_fa))  # r1886 ⓐ
 FENCE, TABLE_RULE = re.compile(r"```.*?(?:```|\Z)", re.S), re.compile(r"^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$")
+RESEND_GAP, RESEND_CAP, ALERT_HEAD = 60, 3, "[Slack] 알림"   # r2065 G2 60초 · G3 3회(처음 시도 포함) · G1 알림 재귀 0
+RESTORE_WINDOW = 600   # pG2 G12 (나) 재기동 복원 창 — 살아 있는 후보 1개가 끝나는 195초(send 25초×3 + 간격 60초×2)의 3배
+LATE_WHY = "늦은 적재 확인"   # G5 — 보내기 전 장부에 이미 붙은 글
+
+def _text(value):  # send 출력 = bytes·str 둘 다(잘린 send 는 bytes)
+    return value.decode("utf-8", "replace") if isinstance(value, bytes) else str(value or "")
+
+def _tail(text):  # G7 — 출력 마지막 줄 앞 160자
+    lines = [line for line in _text(text).splitlines() if line.strip()]
+    return lines[-1].strip()[:160] if lines else ""
+
+def _epoch(text):  # 장부 at 문자열 → 초 · 못 읽음 = 0(간격 이미 지난 것으로 본다)
+    try:
+        return time.mktime(time.strptime(str(text), "%Y-%m-%dT%H:%M:%S"))
+    except (TypeError, ValueError, OverflowError):
+        return 0.0
+
+def _landed_row(row):  # 앞 판 장부 호환 = why 칸 «적재 있음» 도 적재로 센다
+    return row.get("landed") == "있음" or "적재 있음" in str(row.get("why") or "")
+
+class _Ledger(keeper.Reporting):
+    """r2065 E7 공용 장부 판독 — Reporting 은 root 만 있으면 tail_rows·boundary·arrived 를 쓴다(그대로 부른다)."""
 
 
 def has_table(text):  # r1927 마크다운 표 = 파이프 2개 이상 줄 다음 구분선 줄 · 코드 블록(```) 안 = 제외
@@ -23,12 +51,16 @@ def has_table(text):  # r1927 마크다운 표 = 파이프 2개 이상 줄 다�
 
 
 class Wiring:
-    def __init__(self, root, *, team="planner", log=None, clock=None, wake=None):
+    def __init__(self, root, *, team="planner", log=None, clock=None, wake=None, now=None):
         self.root, self.team = os.path.abspath(str(root)), team
         self.log, self.clock = log or (lambda line: None), clock or (lambda: time.strftime("%Y-%m-%dT%H:%M:%S"))
+        self.now = now or time.time   # G2 간격 판정용 초 · 가짜 clock 주입점
         default = "bash %s" % shlex.quote(os.path.join(self.root, ".fable-team", "comm", "mbox.sh"))
         self.wake_argv = shlex.split(wake or os.environ.get("FT2_SLACK_WAKE") or default)
         self.path = os.path.join(self.root, ".fable-team", "teams", team, "slack", "wire.jsonl")
+        self.ledger, self.last_wake = _Ledger(), {}   # 갓 만든 장부 판독 몸 — root 만 꽂는다
+        self.ledger.root = self.root
+        self.candidates = self._restore()   # G10 — 기동 때 장부 1회 읽어 다시 보낼 후보를 채운다(유휴 회차마다 읽기 0)
 
     def entries(self, kind=None):
         with open(self.path, encoding="utf-8") if os.path.exists(self.path) else open(os.devnull) as handle:
@@ -49,48 +81,178 @@ class Wiring:
         except (OSError, ValueError, AttributeError):
             return None
 
-    def wake(self, to, body, command):  # 깨움 1회 · 상한 25초(하드 룰 12 로컬 하네스 · r1833 C3) · 실패 = rc≠0 기록 1줄 · 재시도 0
-        row, head = {}, body.splitlines()[0]
+    def wake(self, to, body, command):  # 깨움 1회 · 상한 25초(하드 룰 12 로컬 하네스 · r1833 C3) · 실패 = rc≠0 기록 1줄
+        """재시도 0(그 순간에 25초를 또 쓰지 않는다) · 대신 rc≠0 이면 G1 후보 표에 넣어 유휴 회차가 다시 보낸다.
+        G6 경계(seq0)는 send 바로 전에 잡고 · G7 실패 출력은 out 칸 · 적재 판정은 seq 경계 뒤 «받는 곳·첫 줄»."""
+        head, mark, out, slow = body.splitlines()[0], self.ledger.boundary(), "", False
         try:
-            rc = subprocess.run(self.wake_argv + ["send", str(to), SENDER, body], capture_output=True,
-                                timeout=float(os.environ.get("FT2_SLACK_WAKE_TIMEOUT") or 25)).returncode
+            done = subprocess.run(self.wake_argv + ["send", str(to), SENDER, body], capture_output=True,
+                                  timeout=float(os.environ.get("FT2_SLACK_WAKE_TIMEOUT") or 25))
+            rc, out = done.returncode, _text(done.stdout) + _text(done.stderr)
         except (OSError, subprocess.SubprocessError) as exc:
-            rc = self.log("깨움 실패 %s" % type(exc).__name__) or -1
-            if isinstance(exc, subprocess.TimeoutExpired):  # 잘린 send = 적재 3값 판정 1줄(조용한 유실 0)
-                row = {"why": "상한 초과 · 적재 " + self.landed(head)}
-        self._append(dict({"t": "wake", "to": to, "command": command, "rc": rc, "head": head}, **row))
+            rc, slow = -1, isinstance(exc, subprocess.TimeoutExpired)
+            self.log("깨움 실패 %s" % type(exc).__name__)
+            out = _text(getattr(exc, "output", "") or getattr(exc, "stdout", "") or "")
+        row = {"t": "wake", "to": to, "command": command, "rc": rc, "head": head, "seq0": mark}
+        if rc != 0:  # 가드 거부·시간 초과 = 적재 3값 판정 1줄(조용한 유실 0) · 사유는 out 칸(G7)
+            row["landed"] = self.landed_after(mark, to, body)
+            row["out"] = _tail(out)
+            if slow:
+                row["why"] = "상한 초과 · 적재 " + row["landed"]
+        self._append(row)
+        self.last_wake = row
+        if head.startswith(ALERT_HEAD):   # 알림 깨움 = 이 command 의 좌석 깨움 상태를 바꾸지 않는다(성공해도 후보 유지)
+            return rc
+        if rc == 0 or row["landed"] == "있음":   # G1 — rc 0 이나 적재 «있음» = 좌석이 받았다 → 후보에서 뺀다
+            self.candidates.pop(command, None)
+        else:
+            self._queue(command, to, head, mark)
         return rc
 
-    def landed(self, head):  # 우편함 log 끝 200줄에 그 본문 첫 줄이 있나(읽기만) · 못 읽음 = 판정 불가
-        try:
-            with open(os.path.join(self.root, ".fable-team", "comm", "mailbox.log.jsonl"), encoding="utf-8") as handle:
-                tail = collections.deque(handle, 200)
-        except (OSError, ValueError):
+    def landed_after(self, mark, to, head):  # G6 — 적재 판정 = 앞 카드 E7 공용 함수(tail_rows·arrived) 그대로 부른다
+        seen = self.ledger.tail_rows()
+        if seen is None or mark is None:
             return "판정 불가"
-        for line in tail:
-            try:
-                if (json.loads(line).get("body") or "").splitlines()[:1] == [head]:
-                    return "있음"
-            except (ValueError, AttributeError):
-                continue
-        return "없음"
+        got = self.ledger.arrived(seen, mark, to, head, sender=SENDER)
+        return "있음" if got == "있음" else ("없음" if got == "없음" else "판정 불가")
 
-    def deliver(self, to, kind, lines, row=None):  # route 가 dispatched 뒤에만 부른다(A7) — 방금 쓴 route 행이 그 사건이다
+    def _attempts(self, command):  # G9 — 시도 수 = 장부의 그 command «보낸 깨움» 줄 수(늦은 적재 확인 줄은 세지 않는다)
+        return len([r for r in self.entries("wake") if r.get("command") == command
+                    and not str(r.get("head") or "").startswith(ALERT_HEAD) and r.get("why") != LATE_WHY])
+
+    def _queue(self, command, to, head, mark):  # G1 — 알림이 아닌 깨움 실패만 후보 · G3 3회 찬 command 는 넣지 않는다
+        if not command or head.startswith(ALERT_HEAD):
+            return None
+        attempts = self._attempts(command)
+        if attempts >= RESEND_CAP:
+            self.candidates.pop(command, None)
+            return None
+        cand = self.candidates.setdefault(command, {})   # 같은 dict 를 그 자리에서 고친다(_resend 가 들고 있다)
+        cand.update({"to": to, "head": head, "seq0": mark, "at": self.now(), "attempts": attempts})
+        return cand
+
+    def _restore(self):  # G10 — 재기동 1회 장부 읽기 · G12 = 이 판이 쓴 줄(seq0 칸) ∧ 기동 600초 안일 때만 후보
+        try:
+            rows = self.entries("wake")
+        except (OSError, ValueError):
+            self.log("재전송 후보 판정 불가 · wire.jsonl") and None
+            return {}
+        last, count = {}, {}
+        for row in rows:
+            command = row.get("command")
+            if not command or str(row.get("head") or "").startswith(ALERT_HEAD) or row.get("why") == LATE_WHY:
+                continue
+            last[command], count[command] = row, count.get(command, 0) + 1
+        started, candidates, no_edge, outside = self.now(), {}, 0, 0
+        for command, row in last.items():
+            if row.get("rc") in (0, None) or _landed_row(row) or count[command] >= RESEND_CAP:
+                continue   # G1·G3 — 지금 그대로
+            at = _epoch(row.get("at"))
+            age = started - at
+            if "seq0" not in row:   # G12 (가) — 경계 칸이 없으면 G5 늦은 적재 확인을 못 한다(다시 보내지 않는다)
+                no_edge += 1
+                continue
+            if not 0 <= age <= RESTORE_WINDOW:   # G12 (나) — 창 밖 · at 못 읽음(0)·기동 시각보다 뒤도 창 밖
+                outside += 1
+                continue
+            candidates[command] = {"to": row.get("to"), "head": row.get("head"), "seq0": row.get("seq0"),
+                                   "at": at, "attempts": count[command]}
+        if no_edge or outside:   # 뺀 것이 1건 이상이면 listen.log 1줄(건별 줄 0 · wire 쓰기 0 · 깨움 0)
+            self.log("[재전송] 복원 제외 %d건 · 경계 칸 없음 %d · 창 밖 %d" % (no_edge + outside, no_edge, outside))
+        return candidates
+
+    def resend_wakes(self):  # G2 — 유휴 회차 1통 · 후보 표가 비면 읽기·쓰기·깨움 0(부르는 쪽이 먼저 빈 표를 본다)
+        for command in sorted(self.candidates):
+            cand = self.candidates[command]
+            if self.now() - float(cand.get("at") or 0) < RESEND_GAP:
+                return None   # G2 — 같은 command 는 앞 시도에서 60초 뒤에만
+            return self._resend(command, cand)
+        return None
+
+    def _resend(self, command, cand):  # G4 본문 = recovered 와 같은 길 · G5 늦은 적재 확인 · G3·G8 3회 뒤 멈춤
+        rows = [r for r in self.router.entries(route.ROUTE)
+                if r.get("command") == command and r.get("state") == route.DISPATCHED]
+        if not rows:  # 다시 만들 본문이 없다 = 멈추고 1줄(조용한 반복 0)
+            self.candidates.pop(command, None)
+            self.log("[재전송] route dispatched 없음 · 멈춤 %s" % command)
+            return {"command": command, "why": "재전송 불가 route 없음"}
+        row, to, head = rows[-1], rows[-1]["to"], cand.get("head") or ""
+        if self.landed_after(cand.get("seq0"), to, head) == "있음":  # G5 — 보내기 전 늦은 적재 확인
+            self._append({"t": "wake", "to": to, "command": command, "rc": 0, "head": head,
+                          "seq0": cand.get("seq0"), "landed": "있음", "why": LATE_WHY})
+            self.candidates.pop(command, None)
+            return {"command": command, "why": LATE_WHY}
+        n = int(cand.get("attempts") or 1) + 1   # 끝줄 회차 = 처음 시도를 1로 센다(첫 재전송 = 2/3)
+        rc = self.deliver(to, row["kind"], self.router.context(binding.thread_key(*row["key"])), row,
+                          quiet=True, extra="재전송 %d/%d" % (n, RESEND_CAP), resend=True)
+        last = dict(self.last_wake or {})
+        if rc == 0 or last.get("landed") == "있음":   # G1 — 적재 «있음» 도 성공(잘린 send 가 늦게 붙은 경우)
+            self.candidates.pop(command, None)
+            return {"command": command, "why": "재전송 %d/%d" % (n, RESEND_CAP)}
+        cand.update({"attempts": n, "at": self.now(), "seq0": last.get("seq0"), "to": to,
+                     "head": last.get("head") or head})
+        if n >= RESEND_CAP:  # G8 — 3회째도 실패 = 멈추고 harness _master [긴급] 1통
+            self.candidates.pop(command, None)
+            self.critical(command, to, last)
+            return {"command": command, "why": "깨움 3회 실패"}
+        return {"command": command, "why": "재전송 %d/%d 실패" % (n, RESEND_CAP)}
+
+    def _harness_master(self):  # G8 — 명부 찾기 = 앞 카드 E8 함수(launch_roster.roster_path) 하나
+        path = roster.roster_path(self.root, "harness")
+        try:
+            with open(path, encoding="utf-8") as handle:
+                return json.load(handle).get("_master") or None
+        except (OSError, ValueError, AttributeError, TypeError):
+            return None
+
+    def critical(self, command, to, last):  # G8 — command 마다 1회 · 이 1통이 실패하면 listen.log 1줄(재시도 0)
+        """알림 줄(why 깨움 3회 실패)로 dedup · 이 통은 wake() 가 아니라 직접 부른다(wire 에 wake 줄을 더하지 않는다)."""
+        if any(r.get("why") == "깨움 3회 실패" and r.get("command") == command for r in self.entries("alert")):
+            return None
+        seat = self._harness_master()
+        if not seat:
+            return self.log("[재전송] harness _master 없음 · 깨움 3회 실패 %s" % command)
+        thread = str(command).split(":")[3] if len(str(command).split(":")) > 3 else "-"
+        text = "[긴급] Slack 글 깨움 3회 실패 · thread %s · command %s · 받는 곳 %s · 마지막 rc %s %s" % (
+            thread, command, to, last.get("rc"), last.get("out") or "")
+        self._append({"t": "alert", "command": command, "why": "깨움 3회 실패", "to": seat,
+                      "rc": last.get("rc"), "out": last.get("out") or ""})
+        try:
+            rc = subprocess.run(self.wake_argv + ["send", str(seat), SENDER, text], capture_output=True,
+                                timeout=float(os.environ.get("FT2_SLACK_WAKE_TIMEOUT") or 25)).returncode
+        except (OSError, subprocess.SubprocessError) as exc:
+            return self.log("[재전송] [긴급] 실패 %s · %s" % (type(exc).__name__, command))
+        return rc if rc == 0 else self.log("[재전송] [긴급] rc %s · %s" % (rc, command))
+
+    def deliver(self, to, kind, lines, row=None, quiet=False, extra="", resend=False):  # route 가 dispatched 뒤에만(A7)
+        """quiet = 다시 보낸 통(재전송 실패 때 «알림 깨움 실패» 0 · G11) · extra = 본문 끝 1줄(재전송 n/3).
+        resend = G13 재전송 통 — issues 입구는 처음 deliver 가 wake 앞에서 이미 불렀다(두 번 쓰지 않는다)."""
         row = row or self.router.entries(route.ROUTE)[-1]
         command, thread = row.get("command"), row["key"][2]
-        if kind == route.NEW:
+        if kind == route.NEW and not resend:
             self.record_issue(command)
         owner = channels.owner_of(self.root, self.team, row["key"][1])  # r1923 ⑪ 다른 팀 채널 = 수신기 --root/--team 답글 줄
         tail = [] if owner in ("-", None) else ["답글: ft2 slack reply --root %s --team %s --thread %s --command %s --seat %s "
                                                  "--body-file <파일>" % tuple(map(shlex.quote, map(str, (self.root, self.team, thread, command, to))))]
-        body = "\n".join(["[Slack] %s · thread %s · command %s" % (kind, thread, command)] + list(lines) + tail)
-        if self.wake(to, body, command) != 0:
+        body = "\n".join(["[Slack] %s · thread %s · command %s" % (kind, thread, command)] + list(lines) + tail
+                          + ([extra] if extra else []))
+        rc = self.wake(to, body, command)
+        if rc != 0 and not quiet:
             self.alert(dict(row, reason="깨움 실패"), quiet=True)
+        return rc
+
+    def woke(self, command):  # G9 — «넘긴 글» = 알림이 아닌 wake 줄 중 rc 0 이거나 적재 있음(실패 줄은 세지 않는다)
+        return any(r.get("command") == command and not str(r.get("head") or "").startswith(ALERT_HEAD)
+                   and (r.get("rc") == 0 or _landed_row(r)) for r in self.entries("wake"))
 
     def recovered(self, verdict):  # 보정1 R2 — 재기동 복구 dispatched 도 정상 길처럼 입구 기록·좌석 깨움 1회
         command, router = verdict.get("command"), self.router
-        if verdict.get("state") != route.DISPATCHED or any(  # 이미 좌석에 넘긴 글 = 깨움 0
-                r.get("command") == command and not r["head"].startswith("[Slack] 알림") for r in self.entries("wake")):
+        if verdict.get("state") != route.DISPATCHED or self.woke(command):  # G9 — 실패한 깨움은 넘긴 글로 세지 않는다
+            self.candidates.pop(command, None)   # 넘긴 글 = 다시 보낼 후보 아님
+            return None
+        if command and self._attempts(command) >= RESEND_CAP:   # G3·G9 — 재기동해도 3회 셈을 잇는다(4회째 0)
+            self.candidates.pop(command, None)
+            self.log("[재전송] 3회 상한 · 재기동 깨움 0 %s" % command)
             return None
         rows = [r for r in router.entries(route.ROUTE) if r.get("command") == command and r.get("state") == route.DISPATCHED]
         if not rows:  # route 앞에서 죽은 글 — S-1 이 묶은 root 만 이어 받는다(답글은 thread 불명 = desk)
@@ -136,10 +298,11 @@ class Wiring:
         self.wake(desk, "[Slack] 알림 %s · thread %s · command %s" % (why, key[2], command), command)
 
 
-def wire(root, *, receive, bindings, notify=None, log=None, team="planner", clock=None, wake=None):
+def wire(root, *, receive, bindings, notify=None, log=None, team="planner", clock=None, wake=None, now=None):
     """S-1 route 생성 1곳 대체 — (route, notify). notify 를 주입받았으면 그대로 쓴다(시험·대역)."""
-    hub = Wiring(root, team=team, log=log, clock=clock, wake=wake)
+    hub = Wiring(root, team=team, log=log, clock=clock, wake=wake, now=now)
     alert = notify or hub.alert
+    receive.resend = hub.resend_wakes   # G2 — 유휴 회차(pass_idle)가 부르는 1줄 훅
     hub.receive, receive.notify, submit = receive, alert, receive.client.submit
     receive.client.submit = lambda command, *a, **kw: (lambda got: (full_alert.remaining(  # r1886 ⓐ 접수 결과마다
         root, receive.client.team, got.result, command), got)[1])(submit(command, *a, **kw))
