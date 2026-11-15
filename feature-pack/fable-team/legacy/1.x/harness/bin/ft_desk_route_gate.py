@@ -101,12 +101,34 @@ def planner_gave(comm, hn, seat, planner_base):
     return False
 
 
+def common_seats_dir(seats_dir):
+    """r2004 — roots.tsv(FT_ROOTS_TSV) 에서 경로 칸 = 이 루트인 행의 사람우편함 칸(절대경로)의 부모 · 없음·«.»·읽기 실패 = None."""
+    here = os.path.realpath(os.path.dirname(os.path.abspath(seats_dir)))
+    try:
+        with open(os.environ.get("FT_ROOTS_TSV") or os.path.expanduser("~/.claude/fable-team/roots.tsv"), encoding="utf-8") as f:
+            rows = [ln.rstrip("\n").split("\t") for ln in f if not ln.startswith("#")]
+    except (OSError, ValueError):
+        return None
+    for r in rows:
+        if len(r) >= 5 and r[1].strip() and os.path.realpath(r[1].strip()) == here and os.path.isabs(r[4].strip()):
+            return os.path.dirname(r[4].strip().rstrip("/"))
+    return None
+
+
 def verdict(to, frm, body, attach, seats_dir, comm):
     """통과면 None, 막으면 사람 말 한 줄."""
     ds = docs(seats_dir)
-    pj = ds.get("seats-planner.json")
+    pj, why = ds.get("seats-planner.json"), ""
+    if not os.path.isfile(os.path.join(seats_dir, "seats-planner.json")):  # r2004 명부 없는 루트 = 공용 루트 명부(+ 지금 폴더 명부)
+        cd = common_seats_dir(seats_dir)
+        cds = docs(cd) if cd else {}
+        pj = cds.get("seats-planner.json")
+        if pj is None:
+            why = " · roots.tsv 사람우편함 없음"
+        else:
+            ds = {**{"common:" + k: v for k, v in cds.items()}, **ds}
     if pj is None:
-        warn("desk 경로 판정 0 — seats-planner.json 없음/깨짐(%s) · 이 문은 통과시킨다" % seats_dir)
+        warn("desk 경로 판정 0 — seats-planner.json 없음/깨짐(%s) · 이 문은 통과시킨다%s" % (seats_dir, why))
         return None
     planner, desk = (pj.get("_master") or "").strip(), (pj.get("_desk") or "").strip()
     if not desk or not planner:
