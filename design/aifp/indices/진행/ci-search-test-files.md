@@ -13,7 +13,7 @@
 - 규칙: 없음 — 하드 룰 16 문구와 훅은 그대로 둔다(래퍼가 룰에 맞게 돌아오는 것)
 - 대상: 팩 feature-pack/code-intel/skill/scripts/ci(search 갈래 인자 파싱 · probe 호출 2곳 인자 · panic 폴백 rg 경고 1줄 · usage 1줄) · 시험 feature-pack/code-intel/tests/test_ci_search_nonascii_panic.sh(덧붙임)
 - 정본 영향 없음: code-intel 래퍼 search 갈래 내부 동작과 usage 1줄 · 스킬 문서(SKILL.md)·정본 문서 변경 0
-- 배정: 없음
+- 배정: 좌석 aifp-ft-nano-ci-search-test-files#0
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -119,6 +119,8 @@ fixture(/tmp · 6파일 · 같은 낱말)에서 probe 가 기본으로 빼는 �
 - 후속 카드 감 1(카드 0 · 팀장 판단): 실 probe 0.6.0 은 0건일 때 rc 0 을 낸다(실측 `probe search zzzqqqxxnone ft2/tests` rc 0). 래퍼의 OR 재시도와 «rc 1 → 0 보정» 은 rc 1 일 때만 돈다. 그래서 실 probe 에서는 OR 재시도가 돌지 않고 0건도 rc 0 이다. 앞 카드 시험은 가짜 probe 의 rc 1 로만 이 길을 쟀다.
 
 ## 상태
-- base_sha: f01ce9f2e5854132d1dccfc48a29fc47b99b8872
+- base_sha: 823d371f2736196c8391dcb9845a7c244a202b81 (recheck-auto 2026-11-16 · 겹침 0)
 - 2026-11-16 04:44 · 대기 — aifp-ft-arch-pi#20 작성(aifp 5656 · 실측 ①~⑧) · 다음 = 팀장 PR → DA 사전검증 → 나노 1석
 - 2026-11-16 04:48 · DA#11 APPROVE-DESIGN(BYZ 311517 · aifp 5668 · 사본 .fable-team/state/team-main/aifp-ft/DA-ci-tests-design-approve-311517/verdict.md) → 배정 줄 풂 · 팀장 aifp-ft-master-pi#20
+- 2026-11-16 04:49 — 대기→진행 · 좌석 aifp-ft-nano-ci-search-test-files#0
+- [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
