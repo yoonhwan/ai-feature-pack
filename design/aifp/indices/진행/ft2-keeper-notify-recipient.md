@@ -15,7 +15,7 @@
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/pi/keeper_report.py(notify 받는 곳 차례·지문·도착 확인·바퀴 상한) · feature-pack/fable-team/ft2/adapters/pi/keeper_settle.py(alert 지문) · feature-pack/fable-team/ft2/adapters/pi/launch_roster.py(명부 찾기 한 함수) · 새 시험 feature-pack/fable-team/ft2/tests/test_keeper_notify_recipient.py · 문서 ft2/contracts/keeper-settle/CONTRACT.md·CASES.md
 - 정본 영향 있음: CONTRACT.md «전송 실패 = 지문 미소비» 문장 → «실패도 그날 지문» · 쪽지 받는 곳 차례·도착 확인·바퀴 3통 절 1개 · CASES.md ㉚·변이 행 = 같은 PR(나노)
 - 크기: 코드 3파일 · 새 시험 1파일 · 회귀 기대 고침 1파일 · 문서 2파일 · PR 1개
-- 배정: 없음
+- 배정: 좌석 aifp-ft-nano-ft2-keeper-notify-recipient#0
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -83,4 +83,7 @@ keeper 는 판정을 팀장에게 쪽지로 알린다. 받는 곳을 그 팀 명
 | E8 명부 찾기 | ㉚타 팀 v65 · seats-v65.json 없음 · seats.json 에 _master → 그 팀장에게 1통 / 팀 cfo · seats-cfo.json 없음 → 명부 없음 → 다음 칸 / M24 |
 
 ## 상태
+- base_sha: 0de903a252e7f632c3020b44d6c63dc67adb357f (spawn 2026-11-16)
 - 2026-11-16 · aifp-ft-arch-pi#17 씀(aifp 5395 ①) · 대기 · 설계 r3 = DA 대행 APPROVE-DESIGN(BYZ 310019) · 선행 = ft2-slack-accept-capacity 착지
+- 2026-11-16 02:18 — 대기→진행 · 좌석 aifp-ft-nano-ft2-keeper-notify-recipient#0
+- [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
