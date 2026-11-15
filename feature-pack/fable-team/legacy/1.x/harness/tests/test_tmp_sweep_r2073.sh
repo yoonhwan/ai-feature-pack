@@ -18,8 +18,9 @@ MLOG="$T/mbox.log"; printf '#!/bin/sh\necho "$2|$4" >> "%s"\n' "$MLOG" > "$T/mbo
 CWDP="$T/cwdpath"; printf '#!/bin/sh\necho p1\nprintf "n%%s\\n" "$(cat %s)"\n' "$CWDP" > "$T/lsof"; chmod 755 "$T/lsof"
 printf '#!/bin/sh\nexit 1\n' > "$T/lsof-fail"; chmod 755 "$T/lsof-fail"
 mkfifo "$T/fifo"
-printf '#!/bin/bash\nfor a in "$@"; do case "$a" in *%s*) read -r _ < "%s";; esac; done\nexec "%s" "$@"\n' "\${HANG_PAT:-/nohang/}" "$T/fifo" "$REALGIT" > "$T/git"
+printf '#!/bin/bash\nfor a in "$@"; do case "$a" in *%s*|*%s*) read -r _ < "%s";; esac; done\nexec "%s" "$@"\n' "\${HANG_PAT:-/nohang/}" "\${HANG_PAT2:-/nohang/}" "$T/fifo" "$REALGIT" > "$T/git"
 chmod 755 "$T/git"
+printf '#!/bin/bash\nread -r _ < "%s"\n' "$T/fifo" > "$T/mbox-hang.sh"   # r2073 R1: 멈춘 우편함(fifo 읽기)
 
 B=""; R=""
 fresh() { # fresh [armed] — 새 BASE·데이터 루트
@@ -31,7 +32,7 @@ wt() { git -C "$M" worktree add -q --detach "$1" origin/main 2>/dev/null; }
 cl() { git clone -q "$O" "$1" 2>/dev/null; }
 commit() { echo "$2" > "$1/$2"; git -C "$1" add "$2"; git -C "$1" commit -qm "$2"; }
 run() { # run [env…] — 출력 OUT · rc RC
-  OUT="$(env FT_RES_ROOT="$R" FT_TMP_SWEEP_BASE="$B" FT_LSOF_BIN="${LSOF:-$T/lsof}" FT_MBOX_SH="$T/mbox.sh" FT_TMP_SWEEP_TO=planner#1 "$@" bash "$SUT" 2>&1)"; RC=$?
+  OUT="$(perl -e 'alarm 20; exec @ARGV' env FT_RES_ROOT="$R" FT_TMP_SWEEP_BASE="$B" FT_LSOF_BIN="${LSOF:-$T/lsof}" FT_MBOX_SH="${MBOXS:-$T/mbox.sh}" FT_TMP_SWEEP_TO=planner#1 "$@" bash "$SUT" 2>&1)"; RC=$?
 }
 endl() { grep '^tmp-sweep ' <<<"$OUT" | tail -1; }
 
@@ -80,12 +81,25 @@ c6b() { fresh armed; wt "$B/y"; run; [ "$(grep -c . "$MLOG")" = 0 ] || return 1
 c7() { fresh armed; mkdir "$B/v"; wt "$B/v/w"; head -c 2048 /dev/urandom > "$B/v/verdict.md"; head -c 2097152 /dev/urandom > "$B/v/big.bin"
   cp "$B/v/verdict.md" "$T/verdict.orig"; old "$B/v"; run; local K="$R/.fable-team/state/tmp-sweep-keep/v"
   [ ! -e "$B/v" ] && cmp -s "$K/verdict.md" "$T/verdict.orig" && [ ! -e "$K/big.bin" ] && [ "$(ls -A "$K" | wc -l | tr -d ' ')" = 1 ]; }
+SLOG() { cat "$R/.fable-team/state/tmp-sweep.log" 2>/dev/null; }
+c8a() { # R1 쪽지: 우편함이 멈춰도 총 예산 안에서 끝 · 미전달 로그 1줄
+  fresh armed; wt "$B/a"; old "$B/a"; local s=$SECONDS; MBOXS="$T/mbox-hang.sh" run FT_TMP_SWEEP_BUDGET=3; local e=$((SECONDS-s))
+  echo "  R1 쪽지 걸린 초 $e"; [ "$e" -le 5 ] && [ "$RC" = 0 ] && [ ! -e "$B/a" ] && SLOG | grep -q '쪽지 미전달'; }
+c8b() { # R1 prune: 예산을 다 쓴 뒤 prune 호출 0 · 로그 1줄
+  fresh armed; wt "$B/a"; wt "$B/z"; old "$B"/*; local s=$SECONDS
+  run FT_GIT_BIN="$T/git" HANG_PAT="$B/z" HANG_PAT2=prune FT_TMP_SWEEP_BUDGET=3; local e=$((SECONDS-s))
+  echo "  R1 prune 걸린 초 $e"; [ "$e" -le 5 ] && [ ! -e "$B/a" ] && [ -d "$B/z" ] && SLOG | grep -q 'prune 생략'; }
+c8c() { # R1 삭제: 판정 끝에 예산 0 이면 rm 0 · deferred
+  fresh armed; wt "$B/a"; old "$B/a"; local s=$SECONDS
+  run FT_GIT_BIN="$T/git" HANG_PAT=--git-common-dir FT_TMP_SWEEP_BUDGET=3; local e=$((SECONDS-s))
+  echo "  R1 삭제 걸린 초 $e"; [ "$e" -le 5 ] && [ -d "$B/a" ] && endl | grep -q 'removed=0 .*deferred=1'; }
 
 SUT="$ORIG"; [ -f "$SUT" ] || bad "ft-tmp-sweep.sh 없음 (기준판)"
 for c in "c1 ① 고르기 = worktree 2 폴더 · clone 폴더만 목록" "c2a ② 깨끗한 worktree 2 폴더 지움 · worktree list 빠짐 · removed=1" \
   "c2b ② 깨끗한 clone 폴더 지움" "c2c ② clone + worktree 같이 든 폴더 지움(R1)" "c3 ③ 열 폴더 남김 · young 1 cwd 1 dirty 2 unpushed 6" \
   "c4a ④ lsof rc1 = 전체 삭제 0 · rc 3" "c4b ④ git fifo 멈춤 = 그 폴더만 판정 불가 · 다른 폴더 지움" "c5 ⑤ 첫 1회 목록만 · 표식 · 다시 = 삭제" \
-  "c6a ⑥ 총 상한 3초 · deferred · 끝 줄 1" "c6b ⑥ 쪽지 0통 / removed 1 = 1통" "c7 ⑦ 판정문 보관 verdict.md 만"; do
+  "c6a ⑥ 총 상한 3초 · deferred · 끝 줄 1" "c6b ⑥ 쪽지 0통 / removed 1 = 1통" "c7 ⑦ 판정문 보관 verdict.md 만" \
+  "c8a R1 우편함 멈춤 = 총 예산 안 · 미전달 로그" "c8b R1 예산 소진 뒤 prune 0" "c8c R1 예산 소진 뒤 삭제 0 · deferred"; do
   f="${c%% *}"; if "$f"; then ok "${c#* }"; else bad "${c#* }"; fi
 done
 
