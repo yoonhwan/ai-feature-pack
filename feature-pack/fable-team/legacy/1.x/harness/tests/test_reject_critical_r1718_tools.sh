@@ -111,7 +111,7 @@ tc "⑧ 세트 줄 없음(+ 진행 사유) → 1통 · 다음 손 ⓐ · refused
 tc "⑨ 원장 WT 낡음 → 1통 · 다음 손 ⓑ" c9; tc "⑩ seat-close tmux 세션 없음 → 1통 · 다음 손 ⓒ · usage 0통" c10; tc "⑯ FT_CRITICAL_OFF=1 → ⑤·⑧ 입력 0통" c16; step ⑨⑩⑯
 
 mut ft-merge-land.sh 'exec bash "$HERE/ft-critical-notify.sh" --wrap ft-merge-land' 'false "$HERE/ft-critical-notify.sh" --wrap ft-merge-land' && killed "M3 merge-land 호출 삭제" c5
-mut ft-critical-notify.sh 'case "$RC" in 0|1) core after' 'case "$RC" in 0|1|2) core after' 'read("out") if rc == "1" else None' 'read("out") if rc != "0" else None' && killed "M4 rc 2 제외 삭제" c6
+mut ft-critical-notify.sh 'case "$RC" in 0|1|6) core after' 'case "$RC" in 0|1|2|6) core after' 'read("out") if rc in ("1", "6") else None' 'read("out") if rc != "0" else None' && killed "M4 rc 2 제외 삭제" c6
 mut ft-nano-close.sh '/ft-critical-notify.sh" --wrap ft-nano-close' '/ft-critical-notify.sh.없음" --wrap ft-nano-close' ' ] || exec bash "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-critical-notify.sh.없음"' ' ] || false "x"' && killed "M5 nano-close 호출 삭제" c8
 mut ft-critical-notify.sh $'f"{ctx or \'-\'}:{sha12(text)}"' $'f"{ctx or \'-\'}:{nexts(LAND_NEXT, [text], \'c\')}"' && killed "M14 착지 지문을 사유 분류로" cF2
 mut ft-seat-close.sh '/ft-critical-notify.sh" --wrap ft-seat-close' '/ft-critical-notify.sh.없음" --wrap ft-seat-close' ' ] || exec bash "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-critical-notify.sh.없음"' ' ] || false "x"' && killed "추가 변이: seat-close 호출 삭제" c10
