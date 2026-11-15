@@ -28,12 +28,12 @@ echo "== ① --add → ! bash <HIL_DIR>/h1 · 링크 1 · 클립보드"
 out="$(hilx --add "$T/a.sh.hil")"; rc=$?
 [ "$rc" -eq 0 ] && [ "$out" = "! bash $D/h1" ] && ok "--add 출력 = ! bash <HIL_DIR>/h1" || bad "--add rc=$rc out=$out"
 [ -f "$D/h1" ] && [ ! -L "$D/h1" ] && [ "$(sed -n 's/^# ft-hil-entry plan=//p' "$D/h1")" = "$T/a.sh.hil" ] && ok "  └ h1 진입 파일 → 계획 절대경로(R186: 링크 아님)" || bad "h1 진입 파일 없음/불일치"
-[ "$(ls "$D" | grep -c '^h[0-9]')" = 1 ] && ok "  └ h 파일 1개" || bad "h 파일 개수"
+[ "$(ls "$D" | grep -v '\.sha$' | grep -c '^h[0-9]')" = 1 ] && ok "  └ h 파일 1개" || bad "h 파일 개수"
 [ "$(cat "$T/clip.txt" 2>/dev/null)" = "bash $D/h1" ] && ok "  └ 클립보드 스텁 입력 = bash <HIL_DIR>/h1" || bad "클립보드: $(cat "$T/clip.txt" 2>/dev/null)"
 
 echo "== ② 같은 계획 재등록 = h1 재사용"
 out="$(hilx --add "$T/a.sh.hil")"
-[ "$out" = "! bash $D/h1" ] && [ "$(ls "$D" | grep -c '^h[0-9]')" = 1 ] && ok "재등록 = h1 · 링크 늘지 않음" || bad "재등록 out=$out"
+[ "$out" = "! bash $D/h1" ] && [ "$(ls "$D" | grep -v '\.sha$' | grep -c '^h[0-9]')" = 1 ] && ok "재등록 = h1 · 링크 늘지 않음" || bad "재등록 out=$out"
 
 echo "== ③ 미리 있는 h2 파일(손 선례) + 새 등록 = h3 (덮기 0)"
 echo hand > "$D/h2"
