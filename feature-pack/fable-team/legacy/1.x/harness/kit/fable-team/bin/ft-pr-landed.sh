@@ -45,10 +45,15 @@ elif [[ "$url" =~ ^https?://[A-Za-z0-9._-]+(:[0-9]+)?/([A-Za-z0-9._-]+)/([A-Za-z
 else und "origin 꼴 밖(${url:0:40}) — ssh·https 만 푼다"; fi
 OUT="$(t2 "${FT_GH:-gh}" pr view "$PR" -R "$SLUG" --json state,mergeCommit,headRefOid 2>&1)" || und "gh pr view $PR -R $SLUG 실패 rc=$? ($(printf '%s' "$OUT" | head -1 | cut -c1-120))"
 read -r ST HD MC <<<"$(printf '%s' "$OUT" | python3 -c 'import json,sys
-try: d=json.load(sys.stdin)
-except Exception: print("? ? ?"); sys.exit()
-m=d.get("mergeCommit"); m=(m or {}).get("oid") if isinstance(m,dict) else m
-print(d.get("state") or "?", d.get("headRefOid") or "?", m or "-")')"
+v=lambda x,e: x if isinstance(x,str) and x and not x.split()[1:] else e   # 문자열 1낱말만 · 그 밖 = 꼴 밖
+try:
+  d=json.load(sys.stdin); m=d.get("mergeCommit"); m=m.get("oid") if isinstance(m,dict) else m
+  print(v(d.get("state"),"?"), v(d.get("headRefOid"),"?"), v(m,"-"))
+except Exception: print("? ? ?")   # [] · 숫자 · 깨진 JSON = 아래에서 rc3')"
 [ "$ST" != "?" ] && [ "$HD" != "?" ] || und "gh 응답을 못 읽음(state·headRefOid 없음): $(printf '%s' "$OUT" | head -1 | cut -c1-120)"
-if [ "$ST" = MERGED ] && [ "$HD" = "$SET" ] && [ "$MC" != "-" ] && G merge-base --is-ancestor "$MC" "$M" 2>/dev/null; then echo "LANDED merged pr=$PR landing=$MC$LOC"; exit 0; fi
+if [ "$ST" = MERGED ] && [ "$HD" = "$SET" ] && [ "$MC" != "-" ]; then
+  G merge-base --is-ancestor "$MC" "$M" 2>/dev/null; rc=$?
+  [ "$rc" -eq 0 ] && { echo "LANDED merged pr=$PR landing=$MC$LOC"; exit 0; }
+  [ "$rc" -eq 1 ] || und "merge-base(mergeCommit ${MC:0:10}, main) 실패 rc=$rc — 객체 없음 또는 git 실패(NOT-LANDED 아님)"
+fi
 echo "NOT-LANDED pr=$PR$LOC"; exit 1
