@@ -54,13 +54,21 @@ json.dump(d, open(p, "w"), ensure_ascii=False)
 PY
 }
 mv1() { FT_SEATS_JSON="$T/seats.json" bash "${MVBIN:-$B}/ft-index-move.sh" "$@" 2>&1; }
-lastline() { awk 'NF{l=$0} END{print l}' "$1"; }
+lastline() { awk '/^## 상태[[:space:]]*$/{inb=1; l=""; next} /^## /{inb=0} inb && NF{l=$0} END{print l}' "$1"; }   # «## 상태» 절 끝 줄(ft-nano-superseded-check ⓐ 와 같은 꼴 · DA R1)
 
 echo "== ① 진행 카드 + 버림 판정 + --to <완성 카드> → 아카이브 사본 끝 줄 = «대체됨: … · 사유: <판정문#§>»"
 roster k1 0 0; out="$(mv1 "$IDX/진행/k1.md" 아카이브 --da "$DA#§k1" --seat s1 --to "$TO")"; rc=$?
 A1="$IDX/아카이브/$MON/k1.md"
 [ "$rc" = 0 ] && [ -f "$A1" ] && [ "$(lastline "$A1")" = "대체됨: $TO · 사유: $DA#§k1" ] && ok "① 대체됨 줄 = 상태 끝 줄" || bad "① rc=$rc last=$( [ -f "$A1" ] && lastline "$A1") ← ${out:0:500}"
 [ -f "$A1" ] && sc="$(bash "$B/ft-nano-superseded-check.sh" "$A1" --superseded-by "$TO" --base "$CR" 2>&1)" && has "$sc" "OK 대체됨" "  └ ft-nano-superseded-check 통과(같은 줄을 읽는다)" || bad "  └ superseded-check ← ${sc:-사본 없음}"
+
+echo "== ①b 상태 절 뒤 «## 근거» 절 → 대체됨 줄 = 상태 절 끝(EOF 아님) · superseded-check 통과 (DA R1)"
+card k1b; printf '## 근거\n정상 카드의 후속 절\n' >> "$IDX/진행/k1b.md"; printf '## §k1b k1b — 닫힘 (CLOSE)\n닫힘 — k1b — 버림\n' >> "$DA"; g "$CR" add -A >/dev/null
+roster k1b 0 0; out="$(mv1 "$IDX/진행/k1b.md" 아카이브 --da "$DA#§k1b" --seat s1 --to "$TO")"; rc=$?
+A1b="$IDX/아카이브/$MON/k1b.md"
+[ "$rc" = 0 ] && [ -f "$A1b" ] && [ "$(lastline "$A1b")" = "대체됨: $TO · 사유: $DA#§k1b" ] && [ "$(awk 'NF{l=$0} END{print l}' "$A1b")" != "대체됨: $TO · 사유: $DA#§k1b" ] \
+  && ok "①b 대체됨 줄 = 상태 절 끝 · «## 근거» 절 그대로 뒤" || bad "①b rc=$rc last=$( [ -f "$A1b" ] && lastline "$A1b") ← ${out:0:300}"
+[ -f "$A1b" ] && sc="$(bash "$B/ft-nano-superseded-check.sh" "$A1b" --superseded-by "$TO" --base "$CR" 2>&1)" && has "$sc" "OK 대체됨" "  └ superseded-check 통과(상태 절 뒤 절 있어도)" || bad "  └ superseded-check ← ${sc:-사본 없음}"
 
 echo "== ② 열린 나노 2석 + 닫힌 1석 + --to → «다음: … --superseded-by» 정확히 2줄"
 roster k2 2 1; out="$(mv1 "$IDX/진행/k2.md" 아카이브 --da "$DA#§k2" --seat s2 --to "$TO")"; rc=$?
