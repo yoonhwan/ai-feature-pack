@@ -5,6 +5,8 @@
 #      FT_BOARD_LEDGER(장부 · 기본은 도구 기본값) · FT_BOARD_POST_ARGS(도구에 덧붙일 인자 · 예 `--slack-base http://127.0.0.1:PORT --token-file F`)
 #      FT_BOARD_NOW(날짜 주입 · 시험) · FT_BOARD_ONLY_CHANGED=1(주기 틱용 — 뿌리 글이 안 바뀌었으면 스냅샷·발행 0 · 기본 0 = 항상 발행)
 #      FT_SHEET_VERIFY=1 = --sheet 발행 성공 뒤 ft-sheet-verify.sh 1회(S3 · 기본 0)
+#      --news = 오빠 thread 상태 답글(r2058 · 판정 4175): collect 1회 → ft_board_news.py 본문·열쇠 → 직전 발행(state/board/news-last.json)과 열쇠가 다르고
+#               300초가 지났을 때만 byz_thread_post.py reply --ts $FT_BOARD_THREAD_TS 1회 · rc 0 일 때만 news-last 갱신 · FT_BOARD_THREAD_TS 없음 = rc 2
 #      --sheet = 현황판 시트 발행(ft-sheet-publish.sh · 트리 뿌리 글 + 발행 rev 변화 때만 PDF 첨부 · PLAN-status-sheet §4) — 기본 경로는 그대로
 # 발행 본문은 날짜 폴더 published.txt 에 남겨 다음 날 동결 때 쓴다. 실제 슬랙 호출은 도구가 한다 — 이 스크립트는 직접 부르지 않는다.
 set -uo pipefail
@@ -19,6 +21,21 @@ SD="$ROOT/.fable-team/state/board"
 
 # shellcheck disable=SC2206
 POST_ARGS=(${FT_BOARD_POST_ARGS:-}); [ -n "${FT_BOARD_LEDGER:-}" ] && POST_ARGS+=(--ledger "$FT_BOARD_LEDGER")
+if [ "${1:-}" = "--news" ]; then
+  TS="${FT_BOARD_THREAD_TS:-}"
+  [ -n "$TS" ] || { echo "ft-board-publish: ERROR FT_BOARD_THREAD_TS 없음 — 발행 0" >&2; exit 2; }
+  TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+  "$BOARD" collect --out "$TMP/collect.json"; rc=$?
+  [ "$rc" -eq 0 ] || { echo "ft-board-publish: collect 실패 rc=$rc — 발행 0" >&2; exit "$rc"; }
+  V="$(FT_ROOT="$ROOT" python3 "$HERE/ft_board_news.py" --collect "$TMP/collect.json" --last "$SD/news-last.json" --body "$TMP/body.txt" --state "$TMP/state.json")"; rc=$?
+  [ "$rc" -eq 0 ] || exit "$rc"
+  [ "$V" = POST ] || { echo "ft-board-publish: $V"; exit 0; }
+  python3 "$TP" reply ${POST_ARGS[@]+"${POST_ARGS[@]}"} --ts "$TS" --text-file "$TMP/body.txt"; rc=$?
+  [ "$rc" -eq 0 ] || { echo "ft-board-publish: reply 실패 rc=$rc — news-last 그대로" >&2; exit "$rc"; }
+  mkdir -p "$SD" && cp "$TMP/state.json" "$SD/news-last.json.tmp" && mv "$SD/news-last.json.tmp" "$SD/news-last.json" \
+    || { echo "ft-board-publish: news-last 기록 실패" >&2; exit 1; }
+  echo "ft-board-publish: 답글 1통 발행"; exit 0
+fi
 if [ "${1:-}" = "--sheet" ]; then
   bash "$HERE/ft-sheet-publish.sh"; rc=$?
   # S3: 발행 성공 뒤 검증 1회(FT_SHEET_VERIFY=1 인 plist 에서만) — 검증 실패는 발행 rc 를 바꾸지 않는다
