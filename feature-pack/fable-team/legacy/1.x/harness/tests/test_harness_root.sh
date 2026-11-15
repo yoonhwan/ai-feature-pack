@@ -106,6 +106,24 @@ eq "$(res "$NOGIT" ft_comm_dir "$OB")" "$R/.fable-team/comm" "ⓐ 옛 설치 꼴
 out="$(res "$NOGIT" ft_comm_dir "$LB")"; rc=$?; [ "$rc" != 0 ] && has "$out" "ERROR comm 폴더를 못 풂" "ⓐ 설치본 · cwd git 밖 · env 0 → ERROR" || bad "ⓐ git 밖 rc=$rc «$out»"
 rm -f "$R/.fable-team/LIVE_ROOT"
 
+# ── ⓐ' r1942: FT_ROOT = LIVE_ROOT(comm 없음 · 착지 h 꼴) → cwd 공용 루트 comm · LIVE_ROOT 아닌 FT_ROOT 는 ERROR 그대로 ──
+R3="$T/r1942"; W3="$T/r1942-live"; mkdir -p "$R3/.fable-team/comm"; git -C "$R3" init -q -b main
+git -C "$R3" -c user.email=t@t -c user.name=t commit -q --allow-empty -m i; git -C "$R3" worktree add -q "$W3" -b live 2>/dev/null
+mkdir -p "$W3/.fable-team/state"; printf '%s\n' "$W3" > "$R3/.fable-team/LIVE_ROOT"; ln -s "$W3" "$T/r1942-link"; mkdir -p "$T/r1942-test/.fable-team/state"
+cd3() { (cd "$1" && env -u FT_MBOX_DIR FT_ROOT="$2" bash -c '. "$1/ft-harness-root.sh"; ft_comm_dir "$1"' _ "$LB" 2>&1); }
+eq "$(cd3 "$R3" "$W3")" "$R3/.fable-team/comm" "r1942 ① cwd=공용 루트 · FT_ROOT=LIVE_ROOT(comm 없음) → 공용 루트 comm"
+eq "$(cd3 "$W3" "$W3")" "$R3/.fable-team/comm" "r1942 ① cwd=LIVE_ROOT 워크트리 → 공용 루트 comm"
+eq "$(cd3 "$R3" "$W3/")" "$R3/.fable-team/comm" "r1942 ② FT_ROOT 끝 / → 같은 결과"
+eq "$(cd3 "$R3" "$T/r1942-link")" "$R3/.fable-team/comm" "r1942 ② FT_ROOT 심링크 경로 → 같은 결과"
+out="$(cd3 "$R3" "$T/r1942-test")"; rc=$?
+[ "$rc" = 1 ] && has "$out" "ERROR comm 폴더 없음: $T/r1942-test/.fable-team/comm" "r1942 ③ FT_ROOT=시험 루트(LIVE_ROOT 아님) → ERROR rc1" || bad "r1942 ③ rc=$rc «${out}»"
+case "$out" in *"$R3/.fable-team/comm"*) bad "r1942 ③ 공용 루트 comm 으로 샘";; *) ok "r1942 ③ 공용 루트 comm 으로 안 감";; esac
+out="$(cd3 "$NOGIT" "$W3")"; rc=$?; [ "$rc" = 1 ] && ok "r1942 ③ cwd git 밖 · FT_ROOT=LIVE_ROOT → ERROR rc1" || bad "r1942 ③ git 밖 rc=$rc «${out}»"
+mkdir -p "$W3/.fable-team/comm"
+eq "$(cd3 "$R3" "$W3")" "$W3/.fable-team/comm" "r1942 ④ FT_ROOT 에 comm 있음 → 그 comm"
+rmdir "$W3/.fable-team/comm"
+eq "$(cd "$R3" && FT_MBOX_DIR="$T/mbx" FT_ROOT="$W3" bash -c '. "$1/ft-harness-root.sh"; ft_comm_dir "$1"' _ "$LB")" "$T/mbx" "r1942 ⑤ FT_MBOX_DIR 최우선"
+
 # ── ⓑ 옛 통째 사본이 shim 폴더에서 돌면 exit 3 (상세 = test_tick_shim_guard.sh) ──
 SB="$T/shimbin"; mkdir -p "$SB"; cp -p "$KBIN/ft-tick.sh" "$SB/"; printf '#!/usr/bin/env bash\n# ft-root-bin-shim: ft_raised.py → LIVE_BIN\n' > "$SB/ft_raised.py"
 out="$(cd "$T/wt" && bash "$SB/ft-tick.sh" --once --dry-run 2>&1)"; rc=$?

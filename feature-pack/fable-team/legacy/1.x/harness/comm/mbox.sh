@@ -2,7 +2,7 @@
 # 파일 기반 세션 메시지 큐 (mbox) — 파일 큐 + push 알림 하이브리드.
 # send = 파일 append + 수신자 tmux에 recv 트리거 주입(push). 본문은 파일(유실0), tmux엔 트리거만.
 # LIFO·per-to 10 ring·fcntl.flock·consume-on-read·to==me grep.
-# Usage: mbox.sh {send <to> <from> <body...> [--urgent] | recv <me> | peek <me> | ring <sess> [seq]}
+# Usage: mbox.sh {send <to> <from> <body...> [--urgent] | recv <me> | peek <me> [--rows] | ring <sess> [seq]}
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MBOXPY="$DIR/mbox.py"
@@ -320,7 +320,13 @@ case "$cmd" in
          echo "PENDING-AFTER ${_pn:-?}"
          if [ "${_pn:-1}" = 0 ]; then doorbell_clear_held "$me"; fi
          exit "$_rrc" ;;
-  peek)  exec python3 "$MBOXPY" peek "${1:?me}" ;;
+  # r2183 — keeper(ft2/adapters/pi/keeper_settle.py)가 부르는 입구가 이 갈래다 · 뒤 인자를 버리면 `--rows` 가 사라져
+  #   미읽음 판독이 머리줄만 받는다(2.0.70 설치 뒤 harness 두 좌석 실측). 좌석은 첫 인자 · 모르는 인자는 조용히 버리지 않고 rc 2.
+  peek)  _pme="${1:?me}"; shift || true; _pr=0
+         case "$_pme" in -*) echo "usage: mbox.sh peek <me> [--rows]" >&2; exit 2 ;; esac
+         case "$#:${1:-}" in 0:) ;; 1:--rows) _pr=1 ;; *) echo "usage: mbox.sh peek <me> [--rows]" >&2; exit 2 ;; esac
+         if [ "$_pr" = 1 ]; then exec python3 "$MBOXPY" peek "$_pme" --rows; fi
+         exec python3 "$MBOXPY" peek "$_pme" ;;
   show)  exec python3 "$MBOXPY" show "$@" ;;   # r2081 A — 쪽지 번호 조회(큐·보낸 기록·회전본·전문 파일) · 쓰기 0
   # ★승계 마무리(r1116)★ — handover <구> <후계> [«손 항목»…] = 남은 쪽지 끝까지 recv + 미표시·h·bg 를 [인계] 로 보내고 그 쪽지들을 «인계» 표시 ·
   #   ready <후계> <구> = [인계] 항목마다 «받음» [레디] 회신 · mark·unmarked·close-check = 표시·검사(retire·닫기 관문이 부른다)
@@ -379,5 +385,5 @@ case "$cmd" in
             refund)  wake_budget_refund "$@" ;;
             *) echo "usage: mbox.sh budget reserve|refund <좌석> [<출처>]" >&2; exit 2 ;;
           esac ;;
-  *) echo "usage: mbox.sh {send <to> <from> <body> [--urgent] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all] [--only distill]|peek <me>|show <번호>[,<번호>…]|ring <sess> [seq] [--reserved] [--auto]|sweep|budget reserve|refund <좌석> [<출처>]|handover <구> <후계>|handover-drop <구> <후계> <seq> --verdict <판정 번호>|ready <후계> <구>|mark <me> <seq,…> 처리함·인계|unmarked <me>|close-check <좌석> [--no-ready]}" >&2; exit 2;;
+  *) echo "usage: mbox.sh {send <to> <from> <body> [--urgent] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all] [--only distill]|peek <me> [--rows]|show <번호>[,<번호>…]|ring <sess> [seq] [--reserved] [--auto]|sweep|budget reserve|refund <좌석> [<출처>]|handover <구> <후계>|handover-drop <구> <후계> <seq> --verdict <판정 번호>|ready <후계> <구>|mark <me> <seq,…> 처리함·인계|unmarked <me>|close-check <좌석> [--no-ready]}" >&2; exit 2;;
 esac
