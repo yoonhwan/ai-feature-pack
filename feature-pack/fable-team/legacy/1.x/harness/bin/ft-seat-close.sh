@@ -12,13 +12,15 @@
 set -uo pipefail
 # r1718 A5·A7: 자기 감싸기 1곳 — 본 작업은 자식 1회 · 출력·rc 그대로 · rc 1 REJECT 에 «진행» 아닌 사유가 있으면 desk [크리티컬] 1통 · rc 0 = 해결
 [ "${FT_CRITICAL_IN:-}" = "$PPID" ] || [ "${FT_CRITICAL_OFF:-0}" = 1 ] || [ ! -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-critical-notify.sh" ] || exec bash "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-critical-notify.sh" --wrap ft-seat-close "${BASH_SOURCE[0]:-$0}" "$@"   # r1718-mut:seatcall
-USAGE="usage: $0 <좌석> --reason \"<1줄>\" [--seats <파일>] [--verdict <번호>] | $0 --reopen <좌석> [--seats <파일>]"
+#   r1656 `--done`(2.0 세션 수명 · 팀장 role=master 만): 관문 넷 ①우편함 큐+로그의 마지막 발신 머리 `[다음 없음` ②ft-seat-open-work rc0(7초) ③close-check --no-ready rc0 ④retire --record-only --verdict <①seq> + 기록 실재 — 하나라도 아니면 REJECT rc1(쓰기 0 · kill 0). 통과 = 행 _closed.done{ts,seq} · role·_master 칸 그대로 · reap→태그→kill→final · CLOSED-DONE. 틱은 그 행을 받을 일 0 이면 «쉬는 중» 으로 본다.
+USAGE="usage: $0 <좌석> --reason \"<1줄>\" [--seats <파일>] [--verdict <번호> | --done] | $0 --reopen <좌석> [--seats <파일>]"
 REOPEN=0; [ "${1:-}" != --reopen ] || { REOPEN=1; shift; }
 SEAT="${1:-}"; case "$SEAT" in ""|--*) echo "$USAGE" >&2; exit 2;; esac
-shift; REASON=""; ARG=""; VERDICT=""; REC=""; NOLINE=""; DEAD=0; RN=""   # RN = renamed_ok 가 확정한 후계(r1691)
-while [ $# -gt 0 ]; do case "$1" in --reason) REASON="${2:-}"; shift 2;; --seats) ARG="${2:-}"; shift 2;; --reopen) REOPEN=1; shift;; --verdict) VERDICT="${2:-}"; [[ "$VERDICT" =~ ^[0-9]+$ ]] || { echo "$USAGE — --verdict <번호>" >&2; exit 2; }; shift 2;; *) echo "unknown $1" >&2; echo "$USAGE" >&2; exit 2;; esac; done
+shift; REASON=""; ARG=""; VERDICT=""; REC=""; NOLINE=""; DEAD=0; RN=""; DONE=0; DSEQ=""   # RN = renamed_ok 가 확정한 후계(r1691)
+while [ $# -gt 0 ]; do case "$1" in --reason) REASON="${2:-}"; shift 2;; --seats) ARG="${2:-}"; shift 2;; --reopen) REOPEN=1; shift;; --done) DONE=1; shift;; --verdict) VERDICT="${2:-}"; [[ "$VERDICT" =~ ^[0-9]+$ ]] || { echo "$USAGE — --verdict <번호>" >&2; exit 2; }; shift 2;; *) echo "unknown $1" >&2; echo "$USAGE" >&2; exit 2;; esac; done
 [ "$REOPEN" = 1 ] || [ -n "${REASON//[[:space:]]/}" ] || { echo "$USAGE — --reason 필요" >&2; exit 2; }
 [ "$REOPEN" = 0 ] || [ -z "$VERDICT" ] || { echo "$USAGE — --reopen 과 --verdict 는 같이 쓰지 않는다" >&2; exit 2; }
+[ "$DONE" = 0 ] || { [ -z "$VERDICT" ] && [ "$REOPEN" = 0 ]; } || { echo "$USAGE — --done 은 --verdict·--reopen 과 같이 쓰지 않는다" >&2; exit 2; }
 [ "$REOPEN" = 0 ] || tmux has-session -t "=$SEAT" 2>/dev/null || { echo "REJECT $SEAT tmux 세션 없음 — zombie-clean.sh resume '$SEAT' 먼저(명부 쓰기 0)"; exit 1; }
 ROOT="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"
 BY="unknown"; [ -z "${TMUX_PANE:-}" ] || BY="$(tmux display-message -p -t "$TMUX_PANE" '#{session_name}' 2>/dev/null || echo unknown)"
@@ -62,7 +64,33 @@ PY3
   case "$r $(printf '%s\n' "$o" | grep -m1 -E '^(RESUME (ok|kept) |NORECORD )')" in "0 RESUME ok "*) RK=new;; "0 RESUME kept "*) RK=kept;; "0 NORECORD "*) RK=NORECORD; REC=NORECORD;; *) finish 3 "HELD $SEAT dead-seat 재개 기록 실패 — $s · rc=$r ${o%%$'\n'*}";; esac
   [ "$RK" = NORECORD ] || { REC="$(printf '%s\n' "$o" | grep -m1 '^RESUME ')"; REC="${REC#RESUME * }"; REC="${REC%%[[:space:]]*}"; }; DS=1
 }
-G="${FT_MBOX_PY:-${ROOT:-.}/.fable-team/comm/mbox.py}"; [ "$REOPEN" = 1 ] || [ ! -f "$G" ] || GO="$(python3 "$G" close-check "$SEAT" ${VERDICT:+--verdict} 2>&1)" || dead_seat "$GO" || finish 1 "REJECT $SEAT 승계 마무리 전 닫기 거절(r1116 ②③ · 명부 쓰기 0 · kill 0) — ${GO:-close-check 실패}"   # r5 ③ 확정 값은 갈래·자식에 «값으로»(재해석 0) · r1116 ②③ 후계 있는 옛 세션 = 미표시 0 + [인계] 뒤 후계 [레디] 항목 전부 «받음»
+G="${FT_MBOX_PY:-${ROOT:-.}/.fable-team/comm/mbox.py}"; [ "$REOPEN" = 1 ] || [ "$DONE" = 1 ] || [ ! -f "$G" ] || GO="$(python3 "$G" close-check "$SEAT" ${VERDICT:+--verdict} 2>&1)" || dead_seat "$GO" || finish 1 "REJECT $SEAT 승계 마무리 전 닫기 거절(r1116 ②③ · 명부 쓰기 0 · kill 0) — ${GO:-close-check 실패}"   # r5 ③ 확정 값은 갈래·자식에 «값으로»(재해석 0) · r1116 ②③ 후계 있는 옛 세션 = 미표시 0 + [인계] 뒤 후계 [레디] 항목 전부 «받음»
+if [ "$DONE" = 1 ]; then   # r1656 ⓐⓑ — 팀장만 · 관문 넷(첫 실패 사유 1줄 · 쓰기 0 · kill 0)
+  s="쓰기 0 · kill 0"; [ "$ROLE" = master ] || finish 1 "REJECT $SEAT --done 은 팀장만(role=${ROLE:--}) — $s"
+  [ "$BY" != "$SEAT" ] || finish 1 "REJECT $SEAT 은 지금 이 명령을 실행하는 세션 자신 — 다른 좌석에서 닫는다($s)"
+  . "$HERE/ft-harness-root.sh" && DATA="$(ft_data_root "$HERE")" || finish 1 "REJECT $SEAT 원장 루트를 못 풂 — $s"
+  DSEQ="$(python3 - "${FT_MBOX_DIR:-$(dirname "$G")}" "$SEAT" "${FT_SEAT_OPEN_WORK:-$HERE/ft-seat-open-work.py}" "${ROOT:-.}" <<'PY4'
+import json, os, subprocess, sys
+mdir, seat, ow, root = sys.argv[1:5]; best, body = -1, ""
+for n in ("mailbox.jsonl", "mailbox.log.jsonl"):   # ① 큐+로그에서 그 좌석이 보낸 가장 큰 seq(r1647 _last_sent 와 같은 규칙)
+    try: ls = open(os.path.join(mdir, n), encoding="utf-8", errors="replace").read().splitlines()
+    except FileNotFoundError: continue
+    except OSError as e: print("① 판정 불가 우편함 %s %s" % (n, type(e).__name__)); sys.exit(1)
+    for l in ls:
+        try: r = json.loads(l); q = int(r.get("seq") or 0)
+        except (ValueError, TypeError, AttributeError): continue
+        if r.get("from") == seat and q > best: best, body = q, str(r.get("body") or "")
+if not body.lstrip().startswith("[다음 없음"): print("① 마지막 발신 머리가 [다음 없음 아님(seq=%s «%s»)" % (best, body.lstrip()[:30])); sys.exit(1)
+try: rc = subprocess.run([sys.executable, ow, seat, "--root", root, "--mbox-dir", mdir], capture_output=True, timeout=7).returncode   # ② 하드 룰 12
+except subprocess.TimeoutExpired: rc = "시간 초과 7초"
+if rc != 0: print("② 받을 일 %s(open-work rc=%s)" % ("있음" if rc == 1 else "판정 불가", rc)); sys.exit(1)
+print(best)
+PY4
+)" || finish 1 "REJECT $SEAT --done ${DSEQ:-①② 판정 불가} — $s"
+  GO="$(python3 "$G" close-check "$SEAT" --no-ready 2>&1)" || finish 1 "REJECT $SEAT --done ③ ${GO%%$'\n'*} — $s"
+  RO="$(bash "${FT_SEAT_RETIRE_BIN:-$HERE/ft-seat-retire.sh}" "$SEAT" --record-only --verdict "$DSEQ" --seats "$SEATS_FILE" 2>&1)"; rrc=$?; R4="$(printf '%s\n' "$RO" | sed -nE 's/^RESUME (ok|kept) ([^[:space:]]+).*/\2/p' | head -1)"
+  [ "$rrc" = 0 ] && [ -n "$R4" ] && [ -f "$R4" ] || finish 1 "REJECT $SEAT --done ④ 재개 기록 실패(rc=$rrc ${RO%%$'\n'*}) — $s"; REC="$R4"
+fi
 if [ -n "$VERDICT" ]; then   # R400 ⓪① — 원장 루트를 먼저 풀고(못 풀면 쓰기 0) 재개 기록 → 실패면 명부·kill 0
   [ "$BY" != "$SEAT" ] || { echo "REJECT $SEAT 은 지금 이 명령을 실행하는 세션 자신 — 다른 좌석에서 닫는다"; exit 1; }
   . "$HERE/ft-harness-root.sh" && DATA="$(ft_data_root "$HERE")" || { echo "REJECT 원장 루트를 못 풂 — FT_ROOT=<설치본 루트> 를 주고 --seats <그 루트>/.fable-team/seats.json 로 (쓰기 0 · kill 0)"; exit 1; }
@@ -78,13 +106,13 @@ if [ -n "$VERDICT" ]; then   # R400 ⓪① — 원장 루트를 먼저 풀고(�
   case "$DEAD:$rrc $ROUT" in ?":0 RESUME ok "*) RK=new;; ?":0 RESUME kept "*) RK=kept;; "1:0 NORECORD "*) RK=NORECORD;; "0:0 NORECORD "*) [ "$AGENT" = pi ] && RK=NORECORD || held;; *) held;; esac   # r960 ⓓ: 살아 있는 좌석의 NORECORD 수용 = 명부 agent 칸이 pi 일 때만(산출 커밋은 브랜치 보존) · claude·못 읽음은 그대로 HELD rc 3
   REC="${ROUT#RESUME * }"; REC="${REC%%[[:space:]]*}"; [ "$RK" != NORECORD ] || REC=NORECORD
 fi
-OUT="$(python3 - "${ARG:-${FT_SEATS_JSON:-}}" "${ROOT:-.}" "$SEAT" "$REASON" "$BY" "$VERDICT" "$REC" "$HERE/ft-seat-close.sh" "$DEAD" "$REOPEN" <<'PY'
+OUT="$(python3 - "${ARG:-${FT_SEATS_JSON:-}}" "${ROOT:-.}" "$SEAT" "$REASON" "$BY" "$VERDICT" "$REC" "$HERE/ft-seat-close.sh" "$DEAD" "$REOPEN" "$DSEQ" <<'PY'
 import json, glob, shutil, shlex, datetime, collections, os, sys
-arg, root, seat, reason, by, verdict, rec, tool, dead, reopen = sys.argv[1:11]
+arg, root, seat, reason, by, verdict, rec, tool, dead, reopen, done = sys.argv[1:12]
 sys.path.insert(0, os.path.dirname(tool))   # 명부 읽기·원자 쓰기(쓰기 중 죽어도 원본 무손상) = 같은 폴더 lib(retire 와 공용)
 from ft_roster_lib import load, dump as save
 files = [arg] if arg else sorted(glob.glob(root + "/.fable-team/seats*.json"))
-for f in (files if not (verdict or reopen == "1") else []):   # ⓐ 현역 역할 좌석(_master·_arch·_hil_route·_desk …)은 세션만 닫지 않는다(--verdict = 판정 승인 경로만 예외)
+for f in (files if not (verdict or done or reopen == "1") else []):   # ⓐ 현역 역할 좌석(_master·_arch·_hil_route·_desk …)은 세션만 닫지 않는다(--verdict = 판정 승인 경로만 예외)
     d = load(f)
     if isinstance(d, dict) and any(k.startswith("_") and v == seat for k, v in d.items()):
         print(f"REJECT {seat} 은 {f} 의 _ 칸 값(현역 역할 좌석) — 승계 경로(ft-successor-open · ft-seat-retire) 로 · 후계 없이 닫으려면 --verdict <판정번호>(R400 · 사람 승인 1건)"); sys.exit(1)
@@ -107,6 +135,9 @@ if reopen == "1":   # r427 ⓖ — 닫힘 표기 되돌림 · 비웠던 칸은 �
     o.pop("_closed", None); save(p, d)
     print(f"REOPENED {seat} roles={','.join(back) or '-'} role={o['role']} file={p}" + (f" · 교대된 칸(복원 0): {';'.join(held)}" if held else "")); sys.exit(0)
 shutil.copy(p, p + ".bak-close-" + ts)
+if done:   # r1656 ⓒ — role·tick·_master 칸 그대로 · _closed.done 만(틱 = 받을 일 0 이면 쉬는 중)
+    at = now.isoformat(timespec="seconds"); o["_closed"] = collections.OrderedDict(by=by, at=at, reason=reason, done=collections.OrderedDict(ts=at, seq=int(done)))
+    save(p, d); print(f"MARKED\t{p}\t{o.get('role')}"); sys.exit(0)
 role = o.get("role")
 if role != "stop-ready":   # 이미 stop-ready 면 첫 닫기의 원래 role 을 덮지 않는다
     o["_closed_role"] = role
@@ -132,7 +163,7 @@ PY
 [ "$REOPEN" = 0 ] || { printf '%s\n' "$OUT"; exit "$rc"; }; [ "$rc" = 0 ] || { printf '%s\n' "$OUT"; [ "$rc" = 3 ] && [ -n "$VERDICT" ] && exit 3; exit 1; }
 FILE="$(printf '%s' "$OUT" | cut -f2)"; WAS="$(printf '%s' "$OUT" | cut -f3)"; CELLS="$(printf '%s' "$OUT" | cut -f4)"
 [ "${DS:-0}" = 0 ] || finish 0 "CLOSED-DEAD $SEAT record=$RK file=$FILE role_was=$WAS kill=0 dead-seat(세션 없음 · 자손 0 · _replaced_by · 미처리 보존)"   # r1520 — 죽일 것 0 · reap·kill 호출 0
-vlog() { [ -z "$VERDICT" ] || { mkdir -p "$DATA/.fable-team/state" && printf '%s\tverdict=%s\t%s\trecord=%s\tcells=%s\tkill=%s\n' "$(date '+%Y-%m-%dT%H:%M:%S')" "$VERDICT" "$SEAT" "$REC" "$CELLS" "$1" >> "$DATA/.fable-team/state/seat-close-verdict.log"; }; }
+vlog() { [ -z "$VERDICT$DSEQ" ] || { mkdir -p "$DATA/.fable-team/state" && printf '%s\tverdict=%s\t%s\trecord=%s\tcells=%s\tkill=%s\n' "$(date '+%Y-%m-%dT%H:%M:%S')" "${VERDICT:-done-$DSEQ}" "$SEAT" "$REC" "$CELLS" "$1" >> "$DATA/.fable-team/state/seat-close-verdict.log"; }; }
 # ③ kill 범위 = 전역 표준승인(2026-07-11): 계보 최신은 보존 · 직전 세대는 «재개 기록 있음 ∨ 더 큰 번호 2개+ 생존(keep-last-2)» 일 때만. 밖은 kill=held rc 3(나노는 ft-nano-close · 그 밖은 [HIL]).
 lineage_ok() {
   local base="${SEAT%#*}" n="${SEAT##*#}" up=0 s rec="$RECF"
@@ -190,7 +221,7 @@ seat_attached() {   # r1839 A1·A3 — 사람 화면 수 1회: free | attached <
   if [ "$r" = 0 ] && [[ "$o" =~ ^[0-9]+$ ]]; then if [ "$o" -ge 1 ]; then echo "attached $o"; else echo free; fi; else echo "unknown rc=$r ${o%%$'\n'*}"; fi
 }
 if tmux has-session -t "=$SEAT" 2>/dev/null; then
-  [ -n "$VERDICT" ] || lineage_ok || renamed_ok || finish 3 "CLOSED-SESSION $SEAT file=$FILE role_was=$WAS kill=held(표준승인 밖 — 나노는 ft-nano-close · 그 밖은 [HIL])"   # --verdict = 판정 승인 1건 + 재개 기록 확인됨 · r1691 = 이름 접두가 바뀐 승계도 같은 근거면 통과
+  [ -n "$VERDICT$DSEQ" ] || lineage_ok || renamed_ok || finish 3 "CLOSED-SESSION $SEAT file=$FILE role_was=$WAS kill=held(표준승인 밖 — 나노는 ft-nano-close · 그 밖은 [HIL])"   # --verdict = 판정 승인 1건 + 재개 기록 확인됨 · r1691 = 이름 접두가 바뀐 승계도 같은 근거면 통과
   ATT="$(seat_attached)"; case "$ATT" in free) ;; attached*) echo "NOTE $SEAT 사람 화면 attached=${ATT#attached } — 오빠 지시로 닫음";; *) finish 3 "HELD $SEAT 판정 불가 attached(${ATT#unknown }) — kill 0 · reap 0 · 명부 표기는 남음 file=$FILE";; esac   # r1839 A4 — 계보 근거 뒤 · reap 앞 · r1976 attached N = NOTE 1줄 뒤 닫기 계속(오빠 지시) · 판정 불가 = HELD 그대로
   reap
   if [ -n "$(tmux show-options -qv -t "=$SEAT" @zc_v65_active 2>/dev/null)" ]; then
@@ -203,5 +234,6 @@ final
 if [ "$DEAD" = 1 ]; then   # r427 — 죽은 좌석: kill 할 것 0 · 명부만 닫는다 · r1568 ④(DA② R1) — 세션 부재만으로 성공하지 않는다(위 reap·final 이 자식 정리와 left=0 을 이미 쟀다)
   vlog dead; [ "$CELLS" = - ] && finish 0 "CLOSED-DEAD $SEAT record=$RK handoff=$CELLS" || finish 0 "CLOSED-DEAD $SEAT record=$RK handoff=$CELLS" "  - 교대 0 · planner 1줄: 비운 칸 $CELLS — 후임 지정은 planner(자동 선정 0)"
 fi
+[ -z "$DSEQ" ] || { vlog "$KILL"; finish 0 "CLOSED-DONE $SEAT seq=$DSEQ record=$REC kill=$KILL"; }   # r1656 ⓒ
 [ -z "$VERDICT" ] || { vlog "$KILL"; finish 0 "CLOSED-ROLE $SEAT verdict=$VERDICT record=$REC cells=$CELLS kill=$KILL reap left=0 rc=0"; }   # r960 ⓣⓤ — 결과 줄 형식 그대로 · NORECORD 줄은 finish 가 붙인다
 finish 0 "CLOSED-SESSION $SEAT file=$FILE role_was=$WAS kill=$KILL reap left=0 rc=0${RN:+ lineage=renamed:$RN}"
