@@ -337,6 +337,56 @@ def test_geo_restart_after_three_failures_sends_nothing(tmp_path, monkeypatch):
     assert receive.pass_idle()["reason"] == "무변화" and bodies(run) == []
 
 
+# ── ㉞너·㉞더·㉞러 : DA 311009 반례 3칸(recovered 상한 · 성공 때 후보 제거 · 마지막 적재 있음) ──
+def test_neo_recovered_respects_three_cap(tmp_path, monkeypatch):
+    clock = Clock()
+    _run, receive, router, _hub = world(tmp_path, monkeypatch, clock, [{"rc": 3}])
+    ts = "1794624014.000100"
+    say(router, ts)
+    for _ in range(2):
+        clock.tick(60)
+        receive.pass_idle()
+    assert len(seat_wakes(tmp_path)) == 3                          # 처음 시도 + 2 재전송 = 상한
+    clock.tick(30)
+    run, receive, router, hub = _restart(tmp_path, monkeypatch, clock, [{"rc": 3}])
+    router.recovered({"state": "dispatched", "command": cmd(ts), "key": [W, C, ts]})
+    assert len(seat_wakes(tmp_path)) == 3 and bodies(run) == []     # 재기동해도 4회째 0(G3·G9)
+    assert hub.candidates == {}
+    clock.tick(300)
+    assert receive.pass_idle()["reason"] == "무변화" and len(seat_wakes(tmp_path)) == 3
+
+
+def test_deo_recovered_success_clears_candidate(tmp_path, monkeypatch):
+    clock = Clock()
+    _run, _receive, router, _hub = world(tmp_path, monkeypatch, clock, [{"rc": 3}])
+    ts = "1794624015.000100"
+    say(router, ts)
+    clock.tick(30)
+    run, receive, router, hub = _restart(tmp_path, monkeypatch, clock, [{"rc": 0}])
+    assert cmd(ts) in hub.candidates                                # 실패한 깨움 = 다시 보낼 후보
+    router.recovered({"state": "dispatched", "command": cmd(ts), "key": [W, C, ts]})
+    assert [r["rc"] for r in seat_wakes(tmp_path)] == [3, 0]         # recovered 가 2회째로 성공
+    assert hub.candidates == {}                                     # 성공하면 후보에서 뺀다(G1·G10)
+    clock.tick(120)
+    assert receive.pass_idle()["reason"] == "무변화"
+    assert [r["rc"] for r in seat_wakes(tmp_path)] == [3, 0]         # 60초 뒤 중복 발신 0
+
+
+def test_reo_landed_on_last_attempt_is_success(tmp_path, monkeypatch):
+    clock = Clock()
+    run, receive, router, hub = world(tmp_path, monkeypatch, clock,
+                                      [{"rc": 3}, {"rc": 3}, {"timeout": True, "land": True, "seq": 101}])
+    ts = "1794624016.000100"
+    say(router, ts)
+    for _ in range(2):
+        clock.tick(60)
+        receive.pass_idle()
+    assert [(r["rc"], r["landed"]) for r in seat_wakes(tmp_path)] == [(3, "없음"), (3, "없음"), (-1, "있음")]
+    assert bodies(run, HMASTER) == []                               # 적재 «있음» = 성공 · 거짓 3회 실패 [긴급] 0
+    assert hub.candidates == {}
+    assert [r["why"] for r in wrows(tmp_path, "alert")] == ["깨움 실패"]   # 첫 실패 알림 1통만
+
+
 # ── ㉞타 : G10 빈 후보 표 = 읽기·쓰기·깨움 0 ────────────────────────────────────────────
 def test_ta_empty_candidates_idle_reads_nothing(tmp_path, monkeypatch):
     clock = Clock()
