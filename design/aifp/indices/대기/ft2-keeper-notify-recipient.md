@@ -7,7 +7,7 @@
 - 앞 카드: r2055(팩 d88ef381 · settle 한 길 · alert 지문) · r1812(keeper 보고) · r1886(꽉 참 알림) · r1833(Slack 깨움 적재 판독 landed)
 - 상태: 대기
 - 설치: 있음 — ft2 판 올림 1회(팩 착지 뒤 팀장·harness 설치 묶음) · 되돌림 = 앞 판으로 판 전환
-- 선행: ft2-slack-accept-capacity 착지 — 이 줄은 카드 이름 글이라 keeper 가 읽지 못한다(선행불명) · keeper 가 읽는 막힘은 아래 배정 줄 «대기(선행» 이다 · 앞 카드가 착지하면 팀장이 이 줄을 «- 선행: 없음» 으로, 배정 줄을 «- 배정: 없음» 으로 고친다
+- 선행: 없음 — ft2-slack-accept-capacity 착지 끝(팩 main 09c02c0a · PR #1270 · 팀장 aifp-ft-master-pi#18 이 풂)
 - 시험 입력: 임시 루트(tmp_path) · 시험 안에서 만든 명부·우편함 장부(mailbox.log.jsonl)·keeper 상태 · 가짜 mbox(rc·걸린 시간·장부에 붙일 줄을 사례가 정함) · 가짜 clock · sleep 0 · 네트워크 0 · 실 runtime 쓰기·읽기 0 · 사례 1개 70초 안
 - 기준값: 기준판 = _master 빈칸이면 바퀴마다 판정 불가 1줄 · 7초 초과 뒤 재시도로 같은 글 2통 · 6통이 한 바퀴에 → 목표 = 대신 받는 곳에 팀당 하루 1통 묶음 · 실패 줄 그날 1줄 · 같은 글 1통 · 바퀴 3통
 - 규칙: 없음 — 상시 로드 변경 0
@@ -15,7 +15,7 @@
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/pi/keeper_report.py(notify 받는 곳 차례·지문·도착 확인·바퀴 상한) · feature-pack/fable-team/ft2/adapters/pi/keeper_settle.py(alert 지문) · feature-pack/fable-team/ft2/adapters/pi/launch_roster.py(명부 찾기 한 함수) · 새 시험 feature-pack/fable-team/ft2/tests/test_keeper_notify_recipient.py · 문서 ft2/contracts/keeper-settle/CONTRACT.md·CASES.md
 - 정본 영향 있음: CONTRACT.md «전송 실패 = 지문 미소비» 문장 → «실패도 그날 지문» · 쪽지 받는 곳 차례·도착 확인·바퀴 3통 절 1개 · CASES.md ㉚·변이 행 = 같은 PR(나노)
 - 크기: 코드 3파일 · 새 시험 1파일 · 회귀 기대 고침 1파일 · 문서 2파일 · PR 1개
-- 배정: 대기(선행 · 2026-11-16T01:44)
+- 배정: 없음
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
