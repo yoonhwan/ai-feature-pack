@@ -1,0 +1,117 @@
+# ft2 keeper settle 계약 — 끝난 좌석은 한 길로 정리한다 (r2055 · 보정 3 · r2065)
+
+keeper 는 좌석마다 매 바퀴 판정 1개를 낸다. 이 문서는 그 판정과 core `park`·`capacity` 의 약속을 **파일로 고정**한 계약이다.
+새 설계 판단은 없다. 설계 정본과 착지한 코드·시험에 있는 것만 옮겼다.
+
+| 항목 | 값 |
+|---|---|
+| 설계 정본 | `feature-pack/fable-team/design/DESIGN-r2055-seat-settle-one-path.md`(원본 BYZ ops/main-base @457df3cdd1 · r9) |
+| 착지 코드 | 팩 d88ef381(PR 1246 · settle 한 길 · core park·capacity · resolve_card) · 77511fcc(PR 1249 · 보정 3 accept_only) |
+| 설치 판정기 고침 | 팩 4b0567c3(PR 1250 · r2065 · 1.x `ft_launchd_llm_gate.py`) — settle 계약 밖이고, 2.0.61 되돌림이 막힌 원인이라 사고 기록에 함께 적는다 |
+| 구현 자리 | `adapters/pi/keeper_settle.py` · `adapters/pi/keeper_close.py` · `adapters/pi/keeper_land.py` · `adapters/pi/keeper_endings.py` · `core/dispatch.py`(`park`) · `core/record.py`(`capacity`) |
+| 사례·시험 대응 | 같은 폴더 `CASES.md` |
+| 사고 기록 | `feature-pack/fable-team/troubleshoot/2026-11-15-ended-seat-not-closed-r2055.md` |
+
+## 1. 판정 4개 (좌석마다 바퀴당 정확히 1개)
+
+| 판정 | 뜻 | keeper 행동 |
+|---|---|---|
+| `LANDED` | 착지 끝 | 유휴 확인 → 세션 닫기 1 → complete |
+| `PARKED` | 끝났고 남길 것이 안전 | 세션 닫기 1 → core `park` · 워크트리·가지·pi 세션 파일 보존 |
+| `WORKING` | 일하는 중(양성 근거가 있음) | 손 0 |
+| `UNKNOWN` | 위 셋을 못 채움 | 닫기 0 · [긴급] 1줄(좌석 · 사유 코드 · 다음 수) |
+
+- `HELD` 판정 낱말은 없다. 조용히 남는 보류는 없다. 못 채우면 `UNKNOWN` 으로 드러난다.
+- 행동 줄 `HELD-NEXT`·`HELD-SEAT`·`HELD-STALL`·`HELD-ORPHAN` 은 낱말을 그대로 뒀다(d88ef381 «남은 범위» · 판정 낱말이 아니라 행동 기록이다).
+- 판정 줄 꼴 = `<판정> <팀> <work> <좌석> <사유 코드> · <꼬리>`. 같은 좌석의 같은 (판정, 사유)는 다시 찍지 않는다(바뀔 때만 1줄).
+- 세션 닫기 조건에서 «착지» 를 뺐다. 착지는 일(work)의 상태로만 따로 센다.
+
+## 2. 근거 순서 (먼저 채워진 판정을 낸다)
+
+| 순서 | 판정 | 근거(읽기만) |
+|---|---|---|
+| 1 | `LANDED` | 카드 «- 착지:» 줄 sha 가 base 조상 · `nano/<work>` merged PR · 카드 머리 끝 표식(완성후·아카이브·중단·대체) · 넓힌 근거 = 원장 done ∧ 카드 완성 폴더 · 가지 커밋이 base 에 이미 있음(`git cherry` 전부 `-`) |
+| 2 | `WORKING` | 양성 근거만: pane `Working`·스피너 · jsonl 이 `PARK_IDLE` 안에 늘어남 · CPU busy(pane 후손 에이전트 %cpu ≥ 0.3) |
+| 3 | `PARKED` | 유휴 ≥ `PARK_IDLE` ∧ 워크트리 clean ∧ 가지 HEAD = origin 같은 가지(또는 base 위 커밋 0) ∧ 그 좌석 앞 미수신 쪽지 0 ∧ 그 work 에 uncertain·effect 표식 없음 |
+| 4 | `UNKNOWN` | 위 셋 다 못 채움 |
+
+지켜야 하는 약속:
+
+- **CPU idle 단독은 유휴·닫기 근거가 아니다.** 유휴 = jsonl 무활동 ≥ `PARK_IDLE` ∧ CPU idle 2회 둘 다. pi 는 API 응답을 기다리는 동안 %cpu 가 0.0 이다. 셸만 남은 pane 은 CPU 와 무관하게 에이전트 종료 근거다.
+- **판독 실패를 `WORKING` 으로 두지 않는다.** 근거를 못 읽으면 `UNKNOWN` 이다.
+- **끝남 판독 순서**(설계 §13): 1차 = `tmuxc clean` 바퀴당 1회(실행 파일 호출 · import 0)와 CPU 규칙. 1차를 못 세운 좌석만 2차 = pane 끝 줄 읽기. 입력줄 `❯`·`›` 뒤 글자는 근거가 아니다. 둘 다 못 세우면 `UNKNOWN probe-fail`.
+- **세션 부재 확정** = raw `tmux has-session` rc 1 + «can't find session» 뿐이다.
+- 상수(`adapters/pi/keeper_settle.py`): `PARK_IDLE` 3600초 · 질문 창 `WAIT_S` 900초 · `CPU_IDLE` 0.3 · `CPU_GAP` 30초 · `CPU_DEPTH` 8 · 셸 목록 `zsh`·`bash`·`fish`. CPU 문턱·간격·후손 깊이·셸 목록은 tmuxc 규칙과 같은 값이다.
+
+## 3. 사유 코드
+
+| 판정 | 사유 코드 | 뜻 |
+|---|---|---|
+| `PARKED` | `idle-done` | 끝났고 유휴 · 남길 것 안전(park 사유) |
+| `PARKED` | `launch-failed` | intent failed·closed ∧ 세션 부재 ∧ owner 남음(park 사유) |
+| `PARKED` | `session-absent` | 끝남 ∧ 세션 없음 ∧ 카드 0 |
+| `WORKING` | `pane-working` · `pane-pending` · `cpu-busy` · `jsonl-active` · `cpu-<값>` · `turn-open` | 양성 근거 또는 유휴 문턱 전 |
+| `WORKING` | `keep-recent` · `keep-last-2` · `ready-wait` | 장기 좌석 보존(닫기 0 · [긴급] 0 · 정상 보존) · 후계 [레디] 영수 0 |
+| `UNKNOWN` | `waiting-input` | 마지막 줄 toolUse ∧ jsonl 무활동 ≥ 15분 ∧ CPU idle 2회 = 사람 답 대기 |
+| `UNKNOWN` | `dirty` · `unpushed` · `git-error` | 남길 것이 안전하지 않음 |
+| `UNKNOWN` | `mail-pending` · `mail-unknown` | 그 좌석 앞 미수신 쪽지 있음 · 못 읽음 |
+| `UNKNOWN` | `shell-only-unsafe` | 셸만 남았는데 남길 것이 안전하지 않음 |
+| `UNKNOWN` | `owner-orphan` · `session-absent` | 세션 없음 · owner 판독이 반쪽 꼴과 다름 |
+| `UNKNOWN` | `intent-bad` | intent 에 worktree 칸 없음 등 새 꼴 |
+| `UNKNOWN` | `accept-only` | 접수만 있고 dispatch 0 이 `PARK_IDLE` 을 넘음 |
+| `UNKNOWN` | `roster-outside` · `name-bad` | 어느 명부에도 없는 `byz-*` 세션 · 이름 lint 실패 |
+| `UNKNOWN` | `tmuxc-mismatch` | 1차가 쉼인데 닫기 직전 가드가 Working 을 봄 |
+| `UNKNOWN` | `probe-fail` · `session-none` · `tmux-error` · `turn-open` | 판독 실패 · pi 세션 파일 없음 · tmux 실패 · 턴 끝 근거 없음 |
+| `UNKNOWN` | `kill-failed` · `park-refused` | 닫기 실패 · core `park` 거절 |
+
+- `park` 가 받는 사유는 `idle-done`·`launch-failed` 둘뿐이다. 그 밖의 값은 거절이다.
+- `WORKING` 과 `UNKNOWN` 의 사유 코드 목록은 닫힌 집합이 아니다. 새 꼴은 새 코드로 `UNKNOWN` 에 드러난다. 위 표는 77511fcc 시점 코드에서 읽은 값이다.
+
+## 4. [긴급] 드러냄
+
+- 본문 꼴 = `[긴급] UNKNOWN <팀> <work> <좌석> <사유 코드> · <꼬리 80자> · 다음 수 <행동>`.
+- 지문 = (team, work, attempt, reason). 같은 지문은 하루 1회다. 새 사유·새 attempt 는 첫 1회 즉시 보낸다.
+- 전송 실패는 지문을 소비하지 않는다(다음 바퀴에 다시 보낸다).
+- 바퀴마다 `ROUND` 줄에 `unknown=N` 을 적는다.
+
+## 5. core `park` — owner·예약 해제를 한 줄로
+
+- 호출 = `cli park --work <work> --attempt <attempt> --reason <idle-done|launch-failed> --root <루트> --team <팀>`.
+- 쓰는 줄 = journal `parked` 1줄 `{reason, released:[자원], owner_released:{holder, gen}}`.
+- 효과 = owners 에서 그 work 제거 · reservations 에서 그 work 행 제거 · `state.parked[work] = {attempt, at, reason, released}`.
+- 거절(쓰기 0) = 낡은 attempt · 완료 기록 · 결과 미확정(uncertain · 효과 의도 뒤 결과 0).
+- 같은 attempt 가 이미 쉼이면 `HOLD` 멱등(쓰기 0).
+- journal 줄 뒤 state 쓰기 전에 죽으면 복구가 같은 fold 로 앞선다. 다시 부르면 멱등 `HOLD` 다.
+- 같은 work 의 새 dispatch 가 쉼을 지운다. 예약이 풀려 있어 같은 자원으로 배정된다.
+- done 을 꾸며 예약을 푸는 길은 없다. 자동 길에서 `result` → `return` 을 쓰지 않는다(예약이 남는다).
+
+## 6. 셈 두 벌 — 의무 장부와 용량
+
+| 셈 | 함수 | 보는 곳 | 쉼(parked) work |
+|---|---|---|---|
+| 의무 장부 | `record.remaining` | 마감 gate · 재개 queue · 투영 | 센다(끝나지 않은 일이 숨지 않는다) |
+| 용량 | `record.capacity` | 접수 상한 · keeper fill · 투영 `capacity` 칸 | 안 센다 |
+
+- 용량은 work 단위다. 같은 work 의 command 2개 = 의무 2줄 · 용량 1칸. work 없는 command 는 command 하나가 1칸이다.
+- `accept_only` 는 work 가 문자열인 접수만 본다. work 가 dict·None 인 접수(Slack 접수 등)는 대상 밖이다(보정 3 · 77511fcc).
+
+## 7. 정지 신호 한 벌
+
+- keeper 는 매 바퀴 `.fable-team/state/ALL_STOP.json` 을 읽는다. 있고 해제 표식이 없으면 정지다.
+- 정지 중 = 판정·[긴급]·«예정» 줄만 낸다. 세션 닫기·`park`·깨움·fill 은 0 이다.
+- 못 읽으면(JSON 깨짐) 정지로 보고 판정 불가 1줄을 낸다.
+
+## 8. 카드 찾기와 장기 좌석
+
+- `resolve_card(team, work)` = 짝 표 → 팀 폴더 → 발주 본문 카드 경로 3단계다. 0 이면 «판정 불가 · 카드 후보 0» 꼬리가 붙고(설계 낱말 `card-none`), 카드를 못 찾아도 `PARKED` 길은 막히지 않는다. 카드 끝 표식 판독(`keeper_endings`)도 같은 `resolve_card` 를 쓴다.
+- 1.x `resolve_owner`(차례 나노가 어느 명부에 있나)와는 역할이 다르다. 한 함수로 합치지 않는다.
+- 장기 좌석(master·arch·DA·desk·tester)은 `PARKED` 대상이 아니다. 끝남 근거(명부 `_replaced_by` ∧ 후계 ready 영수 · 또는 close 영수)와 닫기 자격(`~/.claude/guides/hil.md` «tmux 세션 정리 표준승인» 보존 조건)을 둘 다 채울 때만 닫는다.
+- 자동 닫기가 남긴 세션을 손으로 닫는 일은 이 계약 밖이다 → `~/.claude/guides/hil.md` «수동 닫기 지원 표준승인»(판정 4180).
+
+## 9. 알려진 한계 (d88ef381 PR 본문 «남은 범위·한계» 중 지금 코드에 남은 것)
+
+- 행동 줄 `HELD-NEXT`·`HELD-SEAT`·`HELD-STALL`·`HELD-ORPHAN` 은 낱말을 그대로 뒀다.
+- intent 없는 master 좌석이 holder 이면 `UNKNOWN intent-bad` 와 [긴급]이 나간다(닫기 0).
+- noland 목록 내용이 바뀌면 판정 줄을 다시 1줄 낸다(verdict 장부 키를 지운다 · r1841 ⑥).
+- PR 본문의 두 한계는 77511fcc 시점 코드에서 풀려 있다(코드 읽기): keeper 가 `tmuxc clean` 을 부른다(`keeper_settle.py` `tmuxc_status`) · `keeper_endings` 가 `resolve_card` 를 쓴다.
+- 이 계약은 시험 3개가 묶는 값만 적었다. 실사건 관측 값은 담지 않는다.
