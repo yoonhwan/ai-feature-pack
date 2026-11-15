@@ -37,6 +37,12 @@ n="$(printf '%s\n' "$out" | grep -cE '^  - (정본 게이트|카드에 「- 규�
 inst() { out="$(FT_INSTALL_CHECK="$T/chk1" timeout 70 bash "$1" "$IDX/진행/r1844a.md" --landed "$P0" 2>&1)"; rc=$?
   [ "$rc" = 1 ] && [ "$(printf '%s\n' "$out" | grep -cE '^  - (라이브 설치 어긋남|카드에 「- 실사건:)')" = 2 ]; }
 s0=$SECONDS; inst "$BIN/ft-index-move-install.sh"; ck "①b 설치 게이트 사유 2줄 ($((SECONDS-s0))s)" $?
+# ── ①c DA HOLD R1: 정본화 한 줄의 두 경로 모두 없음 → 두 줄 · ①d --landed 없음 + 실사건 줄 없음 → 사유 2줄
+printf -- '# 인덱스: r1844c\n- 정본화: docs/architect/missing-a.md, docs/architect/missing-b.md\n## 상태\n- x\n' > "$T/r1844c.md"
+out="$(printf '' | timeout 70 bash "$BIN/ft-index-move-canon.sh" "$T/r1844c.md" "$R" "" 2>&1)"; rc=$?
+[ "$(printf '%s\n' "$out" | grep -cE '^REJECT	정본화 줄의 파일이 없다: docs/architect/missing-[ab]\.md$')" = 2 ]; ck "①c 정본화 두 경로 없음 → 두 줄" $?
+out="$(FT_INSTALL_CHECK="$T/chk0" timeout 70 bash "$BIN/ft-index-move-install.sh" "$IDX/진행/r1844a.md" 2>&1)"; rc=$?
+[ "$rc" = 1 ] && [ "$(printf '%s\n' "$out" | grep -cE '^  - (설치: 있음 카드는 --landed|카드에 「- 실사건:)')" = 2 ]; ck "①d --landed 없음 + 실사건 없음 → 사유 2줄" $?
 # ── ②③ lint 작은 카드
 L="$IDX/대기"
 small() { local f="$L/$1.md" k; { echo "# 인덱스: $1 — 끝: 시험"; echo '<!-- ledger: design/LEDGER.md -->'
