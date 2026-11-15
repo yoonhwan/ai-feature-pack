@@ -1,6 +1,6 @@
 # 인덱스: ci-test-base-sha-pin — 끝: ci search 시험(test_ci_search_nonascii_panic.sh)의 «기준판 대조» 블록이 고정한 기준판 1개와 견준다 · main 에서 시험 전체 rc 0 · 기능 검사 글자 0 바뀜
 <!-- ledger: feature-pack/fable-team/legacy/1.x/harness/design/harness/GOAL-harness.md -->
-- Issue: 없음(초안) — 팀장 aifp-ft-master-pi#21 판단·발주 aifp 5720 · 발견 나노 aifp 5681 (a) · DA 311592 «기준판 고정은 별도 회귀 fixture 보수» · arch 실측 aifp 5716
+- Issue: #8655 (byz-agents · 팀장 aifp-ft-master-pi#21 등록 BYZ 311724) — 팀장 판단·발주 aifp 5720 · 발견 나노 aifp 5681 (a) · DA 311592 «기준판 고정은 별도 회귀 fixture 보수» · arch 실측 aifp 5716
 - 제안서: 없음 — 시험 fixture 보수(제품 코드 0) · 설계는 이 카드 «계약»·«반례 표» 가 전부
 - 근거: 실측 2026-11-16 05:08~05:12(aifp-ft-arch-pi#20 · 루트 checkout main · 읽기만) — 아래 «실측» 절
 - 원인 1줄: 블록이 기준판을 `git rev-parse origin/main` 으로 잡는다(시험 파일 659줄) · 고침이 main 에 착지하면 기준판이 고친 판이 되어 «기준판 … 통과 — FAIL 이어야» 가 난다
