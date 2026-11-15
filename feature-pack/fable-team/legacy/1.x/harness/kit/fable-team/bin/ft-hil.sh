@@ -49,14 +49,14 @@ entry_body() {  # $1=계획 $2=표식 접두(=진입 파일) $3=쪽지함 $4=요
   printf '#!/usr/bin/env bash\n# ft-hil-entry plan=%s\nP=%q; M=%q; N=%q; C=%q; S=%q\n' "$1" "$1" "$2" "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/ft-hil-notify.sh" "$3" "$4"
   cat <<'EOS'
 [ ! -f "$M.superseded" ] || { echo "REJECT 대체됨 → $(cat "$M.superseded")" >&2; exit 1; }
-[ -f "$P" ] || { echo "REJECT 계획 파일이 없다: $P" >&2; exit 1; }; G="${N%/*}/ft-hil-gate.sh"; [ ! -f "$M.sha" ] || { [ -f "$G" ] || { echo "판정 불가 — 보조 도구 없음: $G (sha 대조 못 함 · 계획 실행 0)" >&2; exit 3; }; bash "$G" check "$P" "$M" || exit $?; }   # r2078 G3: 등록 sha ≠ 지금 = REJECT rc1 · .ran·.out 0
+[ -f "$P" ] || { echo "REJECT 계획 파일이 없다: $P" >&2; exit 1; }; G="${N%/*}/ft-hil-gate.sh"; [ -f "$G" ] || { echo "판정 불가 — 보조 도구 없음: $G (계획 실행 0)" >&2; exit 3; }; B="$(bash "$G" read "$P" "$M")" || exit $?; B="${B%.}"   # r2078 G3: 한 번 읽어 sha 견준 바이트(끝 표식 1자 뗌) · 다름 = REJECT rc1 · .sha 없음 = rc3
 date +%s >> "$M.ran"
 ( umask 077; : > "$M.out" )
 rc=""; R="$(git -C "$(dirname "$P")" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; R="${R%/.git}"
 if [ -z "$R" ]; then echo "INFO 리포 밖 계획 — cd 0 ($P)" >&2; elif [ ! -f "$R/.fable-team/LIVE_ROOT" ]; then echo "판정 불가 — 계획 $P 의 리포($R)에 .fable-team/LIVE_ROOT 없음" | tee "$M.out" >&2; rc=3
 elif cd "$R"; then unset FT_ROOT; else echo "판정 불가 — 계획 리포 루트로 cd 실패: $R" | tee "$M.out" >&2; rc=3; fi
-[ -n "$rc" ] || { bash "$P" "$@" 2>&1 | tee "$M.out"; rc=${PIPESTATUS[0]}; }
-echo "rc=$rc $(date +%s)" >> "$M.ran"; [ ! -f "$G" ] || bash "$G" budget "$P" "$M"; export FT_HIL_RECHECK="$(FT_EVENT_COMM="$C" bash "${N%/*}/ft-event-check.sh" hil "$M" "$rc" "$M.out")"; FT_HIL_RECHECK="${FT_HIL_RECHECK:-재측정: 판정 불가(ft-event-check 출력 없음)}"   # r1474: 사건 직후 1회 재측정 → done 쪽지 끝 칸(rc 불변)
+[ -n "$rc" ] || { bash -c "$B" "$P" "$@" 2>&1 | tee "$M.out"; rc=${PIPESTATUS[0]}; }   # r2078: 검사한 바이트를 실행(파일 다시 읽기 0 · $0 = 계획 경로)
+echo "rc=$rc $(date +%s)" >> "$M.ran"; printf '%s' "$B" | bash "$G" budget - "$M"; export FT_HIL_RECHECK="$(FT_EVENT_COMM="$C" bash "${N%/*}/ft-event-check.sh" hil "$M" "$rc" "$M.out")"; FT_HIL_RECHECK="${FT_HIL_RECHECK:-재측정: 판정 불가(ft-event-check 출력 없음)}"   # r1474: 사건 직후 1회 재측정 → done 쪽지 끝 칸(rc 불변)
 bash "$N" done "$M" "$rc" "$C" $S || echo "WARN 결과 쪽지 실패 — h rc 는 그대로($rc)" >&2
 exit "$rc"
 EOS
@@ -96,7 +96,7 @@ comm_default() {  # 부른 곳의 공용 루트 쪽지함(ft_comm_dir · 못 풀
 }
 
 add() {
-  local f="${1:-}" sup="${2:-}" ns="${3:-}" nc="${4:-}" t l n="" i=0 m="" rq=() rc_c="" new="" g="$(dirname "${BASH_SOURCE[0]}")/ft-hil-gate.sh"
+  local f="${1:-}" sup="${2:-}" ns="${3:-}" nc="${4:-}" t l n="" i=0 m="" rq=() rc_c="" new="" up="" s0="" g="$(dirname "${BASH_SOURCE[0]}")/ft-hil-gate.sh"
   [ -f "$f" ] || die "계획 파일이 없다: $f"
   read -ra rq <<< "$(sed -n 's/^# ft-hil-request seat=//p' "$f" | head -1)"   # r1117: 결과 쪽지 받을 요청 좌석(최대 3) — 린트 실패 = REJECT rc2(등록 0)
   [ "${#rq[@]}" -le 3 ] || { echo "REJECT 요청 좌석은 3개까지: ${rq[*]}" >&2; exit 2; }
@@ -108,8 +108,8 @@ add() {
     seat_lint "$ns" || exit 2
     [ -n "$nc" ] || nc="$(comm_default)" || { echo "REJECT 쪽지함 폴더를 못 풂 — --notify-comm <폴더> 를 줘라" >&2; exit 2; }
     [ -d "$nc" ] || { echo "REJECT 쪽지함 폴더가 없다: $nc" >&2; exit 2; }
-  fi
-  l="$(dirname "${BASH_SOURCE[0]}")"; lint "$f" "${FT_SECRET_JUDGE:-$l/ft_secret_judge.py}" "비밀 출력 경로" "계획 파일 비밀 출력 경로 — " && lint "$f" "${FT_TRAFFIC_JUDGE:-$l/ft_traffic_plan_judge.py}" "트래픽 전환" "" && lint "$f" "${FT_SCOPE_JUDGE:-$l/ft_scope_plan_judge.py}" "범위 승인 경로" "" && lint "$f" "${FT_MIX_JUDGE:-$l/ft_hil_mix_judge.py}" "h 섞임" "" && lint "$f" "${FT_PACK_PATH_JUDGE:-$l/ft_pack_path_plan_judge.py}" "팩 1.x 경로 접두" "" && lint "$f" "$l/ft_hil_gate_judge.py" "h 공통 규칙" "" || exit 1
+  fi; [ -f "$g" ] || { echo "판정 불가 — 보조 도구 없음: $g (등록 0)" >&2; exit 3; }; s0="$(bash "$g" pre "$f")" || exit $?   # r2078 G3: 판정기 사슬 앞 sha · 100000바이트 초과 = REJECT
+  l="$(dirname "${BASH_SOURCE[0]}")"; lint "$f" "${FT_SECRET_JUDGE:-$l/ft_secret_judge.py}" "비밀 출력 경로" "계획 파일 비밀 출력 경로 — " && lint "$f" "${FT_TRAFFIC_JUDGE:-$l/ft_traffic_plan_judge.py}" "트래픽 전환" "" && lint "$f" "${FT_SCOPE_JUDGE:-$l/ft_scope_plan_judge.py}" "범위 승인 경로" "" && lint "$f" "${FT_MIX_JUDGE:-$l/ft_hil_mix_judge.py}" "h 섞임" "" && lint "$f" "${FT_PACK_PATH_JUDGE:-$l/ft_pack_path_plan_judge.py}" "팩 1.x 경로 접두" "" && lint "$f" "$l/ft_hil_gate_judge.py" "h 공통 규칙" "" || exit 1; bash "$g" post "$f" "$s0" || exit $?
   t="$(rp "$(cd "$(dirname "$f")" && pwd -P)/$(basename "$f")")"
   case "$t" in *[[:cntrl:]]*) die "계획 경로에 개행·제어문자가 있다(진입 파일 주입 방지): ${t//[[:cntrl:]]/?}";; esac
   mkdir -p "$D" || die "진입점 폴더를 못 만들었다: $D"
@@ -120,7 +120,7 @@ add() {
   for l in "$D"/h[0-9]*; do  # 같은 계획의 기존 h<N> 재사용 — 이미 대체된 것은 되살리지 않는다
     [ -e "$l" ] || [ -L "$l" ] || continue
     [[ "${l##*/h}" =~ ^[0-9]+$ ]] && [ ! -e "$l.superseded" ] && [ "$(plan_of "$l")" = "$t" ] && { n="${l##*/h}"; break; }
-  done; [ -z "$n" ] || [ ! -f "$g" ] || n="$(bash "$g" reuse "$t" "$D/h$n" "$m")" || exit $?   # r2078 G4: 내용 바뀜 = REJECT rc1 · --supersedes 같은 h = 새 번호
+  done; [ -z "$n" ] || [ -L "$D/h$n" ] || { n="$(bash "$g" reuse "$s0" "$D/h$n" "$m")" || exit $?; [ "${n%+}" = "$n" ] || { n="${n%+}"; up=1; }; }   # r2078 G4: 바뀜 = REJECT · --supersedes 그 h = 새 번호 · 옛 꼴 = 다시 쓰기
   if [ -n "$m" ]; then
     [ -e "$D/h$m" ] || [ -L "$D/h$m" ] || die "대체할 h$m 이 없다: $D/h$m"
     [ ! -L "$D/h$m" ] && [ -n "$(plan_of "$D/h$m")" ] || die "h$m 은 옛 링크·손 파일이라 대체 표시를 못 한다(거절 장치 없음)"
@@ -129,8 +129,8 @@ add() {
   fi
   if [ -z "$n" ]; then
     n="$(($(max_n) + 1))"
-    [ ! -e "$D/h$n" ] && [ ! -L "$D/h$n" ] && ( set -C; entry_body "$t" "$D/h$n" "$rc_c" "${rq[*]-}" > "$D/h$n" ) 2>/dev/null || die "등록 실패(이미 있는 이름은 덮지 않는다): $D/h$n"; new=1; [ -f "$g" ] || echo "WARN sha 잠금을 건너뛴다(보조 도구 없음: $g)" >&2; [ ! -f "$g" ] || bash "$g" write "$t" "$D/h$n" || die "sha 표식을 못 적었다: $D/h$n.sha"
-  fi
+    [ ! -e "$D/h$n" ] && [ ! -L "$D/h$n" ] && ( set -C; entry_body "$t" "$D/h$n" "$rc_c" "${rq[*]-}" > "$D/h$n" ) 2>/dev/null || die "등록 실패(이미 있는 이름은 덮지 않는다): $D/h$n"; new=1; bash "$g" write "$s0" "$D/h$n" || exit 3
+  fi; [ -z "$up" ] || { entry_body "$t" "$D/h$n" "$rc_c" "${rq[*]-}" > "$D/h$n" && bash "$g" write "$s0" "$D/h$n"; } || die "옛 꼴 진입 파일을 새 꼴로 못 바꿨다: $D/h$n"   # r2078 G4
   [ -z "$m" ] || echo "h$n" > "$D/h$m.superseded" || die "대체 표시를 못 썼다: $D/h$m.superseded"
   [ -z "$ns" ] || printf 'seat=%s\ncomm=%s\n' "$ns" "$nc" > "$D/h$n.notify" || die "수신자 표식을 못 썼다: $D/h$n.notify"
   rmdir "$D/.hil.lock"; trap - EXIT
