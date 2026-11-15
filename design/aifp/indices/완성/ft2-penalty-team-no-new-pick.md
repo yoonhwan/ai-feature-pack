@@ -5,7 +5,7 @@
 - 근거: 실측 2026-11-16 02:27~02:30(aifp-ft-arch-pi#18 · BYZ 읽기만) — .fable-team/state/PENALTY_STOP 있음(order 에 room · resumed = feature·cfo·knowledge·ops·v65·chatbot · room 없음) · 1.x 판정기 «ft-penalty.sh check room» rc 3 «REJECT penalty 전 세션 정지 중 — 팀=room 은 아직 재개 전» · «check cfo» rc 0 · keeper 로그 state/ft2-keeper/20261116.jsonl 02:19:31 «LAUNCHING room byz-room-nano-R-room-runner-home-ws-origin-check#0 열기 …@a2.log» → 02:20:54 «WORKING … 착지 줄 없음» → 02:20:56 «NEXT room fill:R-room-runner-home-ws-origin-check» = fill 이 재개 전 팀에 새로 넣음
 - 원인 1줄: 전 세션 정지는 1.x ft-nano-spawn.sh 에서만 막는데 ft2 keeper 는 그 도구를 거치지 않는다 · keeper_next.gates() 가 보는 것은 CLOSE-NEXT.enabled·팀 PAUSED·SPAWN_HOLD·ACCT_PAUSE·나노 상한뿐이고 PENALTY_STOP 판독이 없다
 - 앞 카드: r1913(fill) · r1939(fill 꽉 참) · r1871(닫기 뒤 다음 카드) · r2055(팩 d88ef381 · settle 한 길) · 1.x R320b(전 세션 정지 · 오빠 판정 2170)
-- 상태: 대기
+- 상태: 완성 · 2026-11-16 04:57 · -
 - 착지: 0d72507e6b80a006ef41af72afdacf020e1fb0a3(팩 main · PR #1304 squash · DA#11 APPROVE-IMPL aifp 5615 · 세트 0759501d · 뺄 커밋 0)
 - 설치: 있음 — ft2 판 올림 1회 · 되돌림 = 앞 판으로 판 전환(상태 파일의 새 키 1개는 옛 판이 읽지 않음)
 - 선행: 없음 — D+F ft2-launch-failed-end 착지 8ed707c4(PR #1294) 착지 끝 · 팀장 aifp-ft-master-pi#19 이 풂
@@ -14,7 +14,7 @@
 - 규칙: 없음 — 상시 로드 변경 0
 - 규칙 상세: 하드 룰 20(판정기 실패 = 판정 불가 1줄 · 조용한 통과 0) · 하드 룰 22 · 하드 룰 12(판정기 호출 7초)
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/pi/keeper_next.py(새 함수 penalty_open · fill pick 앞 · 닫기 뒤 pick 앞) · 새 시험 feature-pack/fable-team/ft2/tests/test_penalty_team_no_new_pick.py · 문서 ft2/contracts/keeper-settle/CONTRACT.md·CASES.md
-- 정본 영향 있음: CONTRACT.md 에 «전 세션 정지 재개 전 팀» 절 1개(판정기 자리·막는 것·안 막는 것·줄 꼴·상태 키) · CASES.md ㊲·변이 행 = 같은 PR(나노)
+- 정본 영향 없음: aifp 정본(docs/architect · docs/rules · design 팀 GUIDE·README) 변경 0 — 바뀐 것은 팩 ft2 계약 문서(contracts/keeper-settle/CONTRACT.md · CASES.md)뿐이고 착지 PR #1304(0d72507e)에 같이 들어갔다 · 원래 줄 «정본 영향 있음: CONTRACT.md 에 «전 세션 정지 재개 전 팀» 절 1개(판정기 자리·막는 것·안 막는 것·줄 꼴·상태 키) · CASES.md ㊲·변이 행 = 같은 PR(나노)»
 - 크기: 코드 1파일 · 새 시험 1파일 · 문서 2파일 · PR 1개
 - 배정: 좌석 aifp-ft-nano-ft2-penalty-team-no-new-pick#0
 
@@ -86,3 +86,5 @@
 - DA 판정: APPROVE-IMPL 311298(aifp 5615 · 사본 .fable-team/state/team-main/aifp-ft/DA-pJ-impl-approve-311298/verdict.md) · 동작 반례 0 · P1~P8·새 pick 두 곳·상태 보존 확인 · 기존 네 함수 AST 같음 · 직접 시험 일부는 70초 상한으로 판정 불가
 - 세트: 0759501d4a0a5ea665e6f14227b45e6c672887c1 · 시험: python3.11 -m pytest tests/test_penalty_team_no_new_pick.py tests/test_keeper_fill_empty_slot_r1913.py tests/test_keeper_fill_intake_full_r1939.py tests/test_pi_keeper_next_card_r1871.py tests/test_settle_one_path_r2055.py (94 passed) rc=0 · 이슈: 0
 - 2026-11-16 04:47 · aifp-ft-arch-pi#20 조건 5·6 실측 씀(팀장 aifp 5664 · 읽기만) · 완료 조건 1~6 [x] · 다음 = 팀장 PR → DA 닫힘 표식 → 완성 이동
+- 남은 범위: 없음
+- 2026-11-16 04:57 — 진행→완성 · DA /Users/yoonhwan/Project/ai-feature-pack/.fable-team/state/team-main/aifp-ft/DA-penalty-close-311560/verdict.md#§1
