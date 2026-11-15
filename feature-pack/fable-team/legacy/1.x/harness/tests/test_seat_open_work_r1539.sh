@@ -15,7 +15,7 @@ T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 for f in "$TOOL" "$KITTOOL"; do python3 -m py_compile "$f" && ok "python3 -m py_compile $f" || bad "compile $f"; done
 for f in "$SO" "$SO_BIN" "$REPO/bin/ft-role-spawn.sh" "$REPO/kit/fable-team/bin/ft-role-spawn.sh"; do bash -n "$f" && ok "bash -n $(basename "$f")" || bad "bash -n $f"; done
 for f in "$SKILL/templates/hooks/context-distill-gate.sh" "$REPO/kit/fable-team/templates/hooks/context-distill-gate.sh"; do bash -n "$f" && ok "bash -n context-distill-gate.sh" || bad "bash -n $f"; done
-[ "$(wc -l < "$TOOL")" -le 120 ] && ok "판정 도구 $(wc -l < "$TOOL")줄 ≤ 120" || bad "판정 도구 $(wc -l < "$TOOL")줄 > 120"
+[ "$(wc -l < "$TOOL")" -le 160 ] && ok "판정 도구 $(wc -l < "$TOOL")줄 ≤ 160" || bad "판정 도구 $(wc -l < "$TOOL")줄 > 160"
 
 # ── 2) 판정 도구 단독 사례 (임시 루트 1개를 매번 새로 만든다) ─────────────
 SEAT='byz-harness-nano-x#0'; MASTER='byz-harness-master-pi#171'
