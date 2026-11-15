@@ -19,7 +19,7 @@ bash -n "$LAND"; ck "bash -n land" $?
 python3 -I -c "import ast;ast.parse(open('$BIN/ft_merge_lines.py').read())"; ck "py 구문 ft_merge_lines" $?
 
 # 팩 꼴: main 이 a·b·c 에 «== (1, 16)» 단언을 더한다 · PR 가지는 M0 에서 자기 파일을 더한 뒤 main 을 병합하고 «17» 로 정당 교체
-mkrepo "$T"
+mkrepo "$T"; ghremote "$W" "$ORIGIN" fake/w   # r1746: FT_ROOT(카드 리포) ≠ 대상 = 다른 리포 — 대상 원격은 github owner/name 꼴(전송은 로컬 bare)
 git -C "$W" checkout -q main
 printf 'l1\nl2\nl3\nKIND == (1, 16)\n' > "$W/a.txt"; printf 'b1\nCAP == (1, 16)\n' > "$W/b.txt"; printf 'c1\nEXTRA == (1, 16)\n' > "$W/c.txt"; printf 'DUP == (1, 16)\nDUP == (1, 16)\n' > "$W/e.txt"
 cm "$W" "main adds 16 assertions"; git -C "$W" push -q origin main; git -C "$W" fetch -q origin
