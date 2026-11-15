@@ -611,7 +611,7 @@ inject_message() {
     [[ -n "$message" ]] || { printf 'state=empty session=%s — 빈 글(끝 공백·개행을 떼면 0바이트), 주입 0\n' "$session" >&2; return 2; }
     tmux send-keys -t "$session" -l "$message"
     sleep 0.3
-    plain_submit_loop "$session"
+    plain_submit_loop "$session" "$message"
     return
   fi
   local sid="${4:-}" pane
@@ -2061,8 +2061,11 @@ plain_input_line() {
 
 # r2059 plain 주입 제출 확인 — Enter 뒤 입력 상자가 비었나 읽는다 · 남았으면 Enter 1회 더 · 최대 3회(submit_enter_loop 와 같은 횟수·간격).
 #   다시 치기·Escape·C-u 0 · 상자를 못 읽으면 거기서 끝내고 unverified rc0(codex 등 상자 꼴이 다른 화면) · 상태 줄 = stderr(성공 stdout 불변).
+#   r2059 A6: «남음» = 상자 글이 넣은 글의 끝 조각(공백·탭·개행 뺀 끝 12자)을 품을 때만 · 남의 글만 있으면 Enter 추가 0 · unverified rc0.
 plain_submit_loop() {
-  local session="$1" try left="" st
+  local session="$1" try left="" st box tail ws=$' \t\n'
+  tail="${2//[$ws]/}"; tail="${tail: -12}"
+  [[ ${#tail} -lt 12 ]] && tail="${2//[$ws]/}"
   for try in 1 2 3; do
     tmux send-keys -t "$session" Enter
     sleep 3
@@ -2073,6 +2076,11 @@ plain_submit_loop() {
     fi
     if [[ -z "$left" ]]; then
       printf 'state=submitted kind=plain session=%s try=%s\n' "$session" "$try" >&2
+      return 0
+    fi
+    box="${left//[$ws]/}"
+    if ! [[ "$box" == *"$tail"* ]]; then
+      printf 'state=unverified kind=plain session=%s try=%s — 상자에 남의 글만(넣은 글 끝 조각 없음) · Enter 추가 0\n' "$session" "$try" >&2
       return 0
     fi
   done
