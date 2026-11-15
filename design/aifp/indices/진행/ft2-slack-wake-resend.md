@@ -15,7 +15,7 @@
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/slack/wiring.py(wake·landed·recovered·재전송 후보) · feature-pack/fable-team/ft2/adapters/slack/receive.py(pass_idle 에서 재전송 1통 부름) · 새 시험 feature-pack/fable-team/ft2/tests/test_slack_wake_resend.py · 문서 = Slack 수신 계약 문서의 유휴 회차 줄(자리는 나노가 ci 로 찾아 PR 본문에 적는다)
 - 정본 영향 있음: 유휴 회차 약속 «모델 호출·좌석 깨움·기록 증가 0» → «재전송 후보가 있을 때만 깨움 1통·wire 줄 1개» = 같은 PR(나노)
 - 크기: 코드 2파일 · 새 시험 1파일 · 문서 1파일 · PR 1개
-- 배정: 없음
+- 배정: 좌석 aifp-ft-nano-ft2-slack-wake-resend#0
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -79,4 +79,7 @@ Slack 수신기는 글을 접수하면 thread 에 묶인 좌석을 쪽지로 깨
 | G10 빈 후보 유휴 | ㉞타 후보 표 빔 · settle 서명 그대로 → wire·settle 읽기 0 · 쓰기 0 · send 0 |
 
 ## 상태
+- base_sha: c786054260e7b8d0579665b03091048245817f3f (spawn 2026-11-16)
 - 2026-11-16 · aifp-ft-arch-pi#17 씀(aifp 5395 ③) · 대기 · 설계 r1 = DA 대행 APPROVE-DESIGN(BYZ 310065) · 선행 = ft2-keeper-notify-recipient 착지
+- 2026-11-16 03:04 — 대기→진행 · 좌석 aifp-ft-nano-ft2-slack-wake-resend#0
+- [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
