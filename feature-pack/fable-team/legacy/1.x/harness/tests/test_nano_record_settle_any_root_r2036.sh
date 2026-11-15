@@ -73,6 +73,8 @@ c7() {  # ⑦ 표 없음·깨짐 → «판정 불가 — 카드 루트 표» 1�
   t "⑦ 표 없음 rc3" [ "$RC" = 3 ]; t "⑦ 표 없음 판정 불가 줄" inc "$OUT" "판정 불가 — 카드 루트 표"; t "⑦ 1줄" [ "$(printf '%s\n' "$OUT" | wc -l | tr -d ' ')" = 1 ]
   printf 'garbage\n' > "$TAB"; rec settle --seat "$PL" --pr 87 --card "$s"
   t "⑦ 표 깨짐 rc3" [ "$RC" = 3 ]; t "⑦ 표 깨짐 판정 불가 줄" inc "$OUT" "판정 불가 — 카드 루트 표"
+  printf '*\t.\torigin/main\tdesign/teams/*/indices\nharness\t.\t\t%s\n' "$IDX" > "$TAB"; rec settle --seat "$PL" --pr 87 --card "$s"   # DA #306598 R1: 빈 ref 행 = 깨짐(origin/main 대체 0)
+  t "⑦ 빈 ref 행 rc3" [ "$RC" = 3 ]; t "⑦ 빈 ref 행 판정 불가 줄" inc "$OUT" "판정 불가 — 카드 루트 표"
   tabset; t "⑦ 장부 그대로" [ "$(nled)" = "$l0" ]
   return $E
 }
