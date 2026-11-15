@@ -1,6 +1,6 @@
 # 인덱스: ci-search-test-files — 끝: ci search 가 시험 파일을 기본으로 찾는다 · 끄는 인자는 `--no-tests` 하나 · 모르는 `--` 인자는 path 로 삼키지 않고 rc 2 로 멈춘다(scope 밖 결과 0)
 <!-- ledger: feature-pack/fable-team/legacy/1.x/harness/design/harness/GOAL-harness.md -->
-- Issue: 없음(초안) — 발견 나노 aifp 5650 · 팀장 재현·발주 aifp-ft-master-pi#20 aifp 5656 · 하드 룰 16(코드 찾기 = ci 우선 · ci 불가 = 결함)
+- Issue: #8653 (byz-agents · 팀장 aifp-ft-master-pi#20 등록 BYZ 311538) — 발견 나노 aifp 5650 · 팀장 재현·발주 aifp-ft-master-pi#20 aifp 5656 · 하드 룰 16(코드 찾기 = ci 우선 · ci 불가 = 결함)
 - 제안서: 없음 — 결함 복구 · 설계는 이 카드 «계약»·«반례 표» 가 전부(발주 상한 = 카드 1파일)
 - 근거: 실측 2026-11-16 04:42(aifp-ft-arch-pi#20 · 팩 origin/main f01ce9f2 · probe-code 0.6.0 · cwd feature-pack/fable-team) — 아래 «실측» 절 8줄
 - 원인 1줄: 래퍼 feature-pack/code-intel/skill/scripts/ci search 갈래가 probe 에 `--allow-tests` 를 주지 않아 probe 기본값(시험 파일·시험 블록 제외)이 그대로 걸린다 · 인자 파싱 `*) path="$1"` 이 모르는 `--` 인자를 path 로 삼켜 probe 는 그것을 옵션으로 읽고 path 는 cwd 로 떨어진다
