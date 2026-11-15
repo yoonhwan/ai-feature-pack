@@ -10,6 +10,7 @@
 #        r1708: 팀 master = 어느 명부(seats*.json)든 `_master` 칸의 «계보 번호»(같은 베이스 이름 #N 전부) · 나노·arch·tester·이름만 맞는 좌석은 그대로 REJECT
 #   ⓑ planner 밖 → desk          = REJECT («desk 에는 planner 가 보내요») — 예외 2개만, «방향 한정»:
 #        ① 머리 [HIL] ② «[h<N> 결과]» ∧ 판정 재료 «전체»(요약 + relay 전문)가 1줄 ∧ `_master` 계보가 그 팀 좌석에 보낸 쪽지(회전 로그 전부 · 오늘)에 정확히 h<N>
+#        ③ r1935: 어느 명부든 `_da` 계보 ∧ 첫 줄 «[판정] APPROVE» ∧ 본문에 «세트: <40hex>» 1개 ∧ 판정문 .md 경로 1개(all-of · HOLD·다른 머리는 REJECT)
 #   ⓒ desk↔desk(계보 인계) · planner↔desk · 도구 발신(ft-* · # 없음 · r1851 Slack 수신기 정확 이름 ft2-slack-listen) · slack-*(오빠) = 통과
 #   ⓓ 명부 없음·깨짐·`_desk`/`_master` 칸 없음 = 판정 0(통과 + stderr WARN 1줄 — 조용히 막지 않는다 · 카드 ⓕ)
 # relay 두 길이 «기계가 붙이는» 꼬리줄(상세(전문): <경로> (<n> B))은 보낸 사람이 쓴 줄이 아니므로 «1줄» 판정에서만 뺀다 — 전문 내용은 --attach 로 «판정 재료»에 들어온다.
@@ -26,6 +27,9 @@ TEAM = re.compile(r"^(?:byz|ft)-([a-z0-9]+)-")
 TRAILER = re.compile(r"^상세\(전문\): .* \([0-9]+ B\)$")
 HIL_HEADS = ("[HIL]", "[HIL·")
 H_RESULT = re.compile(r"^\[h([0-9]+)\s*결과\]")
+DA_APPROVE = re.compile(r"^\[판정\]\s*APPROVE(?![A-Za-z0-9_-])")  # r1935 — APPROVE-DESIGN 같은 다른 머리는 아님
+SET_LINE = re.compile(r"세트:\s*[0-9a-f]{40}(?![0-9A-Za-z])")
+MD_PATH = re.compile(r"[^\s()<>«»\[\]'\"`]+\.md(?![A-Za-z0-9_])")
 SENT_LOGS = ("mailbox.log.jsonl", "mailbox.log.jsonl.1", "mailbox.log.jsonl.2", "mailbox.log.jsonl.3")  # SENT_LOG_KEEP=3
 
 
@@ -110,6 +114,7 @@ def verdict(to, frm, body, attach, seats_dir, comm):
         return None
     pbase = base(planner)
     masters = {base(v["_master"].strip()) for v in ds.values() if isinstance(v.get("_master"), str) and v["_master"].strip()}  # r1708 팀 master 계보
+    das = {base(v["_da"].strip()) for v in ds.values() if isinstance(v.get("_da"), str) and v["_da"].strip()}  # r1935 DA 계보
 
     def is_planner(n):
         return base(n) == pbase
@@ -136,6 +141,8 @@ def verdict(to, frm, body, attach, seats_dir, comm):
     m = H_RESULT.match(head)
     if m and len(kept_lines(text)) == 1 and planner_gave(comm, m.group(1), frm, pbase):
         return None
+    if base(frm) in das and DA_APPROVE.match(head) and len(SET_LINE.findall(body)) == 1 and len(MD_PATH.findall(body)) == 1:
+        return None                                          # ③ r1935 DA APPROVE → desk 직송
     return "desk 에는 planner 가 보내요 — planner 에게 보내 주세요 (보내는 사람: %s · 예외 = [HIL] 또는 planner 가 시킨 h 결과 1줄)" % frm
 
 
