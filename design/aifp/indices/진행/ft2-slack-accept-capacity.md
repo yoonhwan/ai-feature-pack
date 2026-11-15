@@ -56,8 +56,8 @@
 2. [x] 나노: 새 시험 전체 rc0 · 걸린 초
 3. [x] 나노: 변이 M7 → ㉖가·㉖나·㉖마 FAIL · M8 → ㉖마 FAIL · M9 → ㉖바 FAIL
 4. [x] 나노: 회귀 6파일 rc0 · 고친 fixture·기대값 사례 이름 목록
-5. [~] 팀장: PR 착지 sha = 09c02c0a(PR #1270) · 설치 판 = harness#289 판 올림 묶음 대기(BYZ 310461)
-6. [ ] arch: 설치 뒤 읽기 실측 1줄(planner capacity 0 · issues capacity = str-work 수)
+5. [x] 팀장: PR 착지 sha = 09c02c0a(PR #1270) · 설치 판 = ft2 2.0.63(설치 rc0 · harness#289 aifp 5445 · install-log 2026-11-15T17:20:24Z prev 2.0.62)
+6. [x] arch: 설치 뒤 읽기 실측(aifp-ft-arch-pi#18 · 2026-11-16 02:27~02:28 · 설치본 2.0.63 core/projection.project 1회 · BYZ 루트 · 쓰기·잠금 0 · rc 0 · aifp 5458·5460) — planner result=접수 성공 revision=793 remaining=5 capacity=0(remaining 5건 = dict-work 5 · str-work 0) · issues result=접수 성공 revision=112 remaining=7 capacity=0(remaining 7건 = dict-work 6 · str-work 1) · issues str-work 1 은 쉼(parked)이라 제외 → capacity 0 = 계약 S1 대로(capacity = 쉼 아닌 str-work 수)
 7. [ ] 팀장: 오빠 다음 Slack 글에서 issues·planner «용량 부족» 0 원문 줄
 
 ## 계약↔시험 대응표
