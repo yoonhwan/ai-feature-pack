@@ -60,18 +60,21 @@ class Landing:
         return self.cache[team]
 
     def _cards(self, team):
-        out = []
+        out, seen = [], 0
         for ref in REFS:
             rc, md, _ = self.git(self.root, "show", ref + ":design/TEAMS.md")
-            row = team_row(md, team) if rc == 0 else None
-            if row is None:
+            if rc != 0:
                 return "판정 불가 · %s:design/TEAMS.md rc %s 팀 행 없음" % (ref, rc)
+            row = team_row(md, team)
+            if row is None:   # r2029 팀 행 없는 ref = 건너뜀 · 두 ref 모두 없음 = 아래 판정 불가
+                continue
+            seen += 1
             for folder in folders(row[1]):
                 rc, names, _ = self.git(self.root, "ls-tree", "-r", "--name-only", ref, "--", folder + "/indices")
                 if rc != 0:
                     return "판정 불가 · ls-tree %s rc %s" % (ref, rc)
                 out += [(ref, path) for path in staged(folder, names)]
-        return out
+        return out if seen else "판정 불가 · %s:design/TEAMS.md rc 0 팀 행 없음" % " · ".join(REFS)
 
     def cardmap(self, team):
         """r1819 F2·F4 짝 표 {work: [경로…]} · 없음 = {} · 판독 실패 = 판정 불가 문자열 · 탭 없는 줄 = 무시 + 경고 1줄 · 팀마다 1회."""
