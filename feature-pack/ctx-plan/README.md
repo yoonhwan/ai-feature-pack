@@ -6,6 +6,8 @@
 짝 도구는 `ctx-burn` 이다. `ctx-burn` = «쓴 양» 측정 · `ctx-plan` = «감당량» 시뮬.
 둘은 **JSON 계약 하나(`ctx.v1`)로만** 붙는다. `ctx-plan` 은 세션 로그도, 실 HOME 도 읽지 않는다.
 
+Claude Opus 5.5 — 구독 요금제 vs API 비용 (하루 기준) 표 = docs/plan-cost-table.md
+
 ## Quick start
 
 ```bash
