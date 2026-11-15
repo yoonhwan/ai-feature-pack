@@ -60,6 +60,6 @@ n0="$(lines)"; run a scope-approve "$(sha 1)"; [ $rc = 0 ] && has '^SCOPE-NOOP .
 run a scope-approve "$(sha 2)"; run a scope-approve "$(sha 3)"; [ $rc = 0 ]; ck "daily 3 안의 3건째 OK" $?
 run a scope-approve "$(sha 4)"; [ $rc = 2 ] && has '하루 건수 도달'; ck "daily 도달 → REJECT" $?
 [ ! -e "$AP/$(sha 4)" ] && ! grep -q "$(sha 4)" "$LOG"; ck "daily REJECT 쓰기 0" $?
-run a scope-status; ! has '정지' && has '^\[범위 승인 S1 · A1 .* 3/5 · 오늘 3/3 · docs,ff,revert\]$'; ck "daily 도달은 정지 아님(내일 풀림)" $?
+run a scope-status; ! has '정지' && has '^\[범위 승인 S1 · A1 .* 3/5 · 오늘 3/3 · docs,ff,revert · 새 승인 없이 0건\(끝 [0-9-]+ [0-9:]+ < 빈자리 [0-9-]+ [0-9:]+\)\]$'; ck "daily 도달은 정지 아님 · 10h 범위는 빈자리보다 먼저 끝남 → 0건 꼬리(r1792)" $?
 
 echo "fail=$fail"; [ "$fail" = 0 ]
