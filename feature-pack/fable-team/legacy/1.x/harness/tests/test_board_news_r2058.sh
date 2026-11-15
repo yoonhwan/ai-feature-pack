@@ -41,11 +41,13 @@ import json, sys
 s = json.loads(sys.argv[1]); cards = s.get("cards", {}); seats = dict(s.get("seats", {}))
 for i in range(s.get("nseats", 0)):
     seats[f"byz-harness-worker-x{i:02d}#1"] = "작업중"
-prog = {c: {"title": c, "seats": [{"name": n, "state": seats[n]} for n, cc in s.get("on", {}).items() if cc == c]}
+tt = s.get("titles", {})  # r2058 R5: 카드 제목 = axes entries(k=card) · progress title
+prog = {c: {"title": tt.get(c, c), "seats": [{"name": n, "state": seats[n]} for n, cc in s.get("on", {}).items() if cc == c]}
         for c, st in cards.items() if st == "진행"}
 counts = {k: sum(1 for v in cards.values() if v == k) for k in ("완성", "진행", "대기", "중복")}
 team = {"key": "harness", "label": "하네스", "states": cards, "counts": counts, "progress": prog,
-        "seats": {n: {"text": t} for n, t in seats.items()}, "oppa_todo": s.get("h", [])}
+        "seats": {n: {"text": t} for n, t in seats.items()}, "oppa_todo": s.get("h", []),
+        "axes": [{"title": "축", "entries": [{"k": "card", "idx": c, "text": t} for c, t in tt.items()]}]}
 if s.get("err"):  # r2058 R1: 팀 수집 부분 실패 = {key,label,error} 블록 · 전체 rc 0
     team = {"key": "harness", "label": "하네스", "error": "inbox 조회 시간 초과"}
 print(json.dumps({"date": "2026-11-15", "verdicts": [], "issues": [], "teams": [team, {"key": "x", "label": "엑스", "error": "깨짐"}]}, ensure_ascii=False))
@@ -163,5 +165,24 @@ reset; goal "$G1"; mk "${BASE/\"byz-harness-master-pi/\"byz-harness-arch-pi#9\":
 chk "⑪ 닫힌 좌석 = 다음 줄 0" '[ "$(replies)" = 1 ] && ! next_section | grep -q "arch-pi"'
 mk "${BASE//작업중/⚠정지 9분(턴 끝 17:55)}"; run 2026-11-15T18:10:00
 chk "⑪ 닫힌 좌석 빠짐 + BUSY/IDLE 만 = reply 0" '[ "$RC" = 0 ] && [ "$(replies)" = 1 ]'
+# ⑭ 본문의 카드 = «하는 일 이름» (R5) · 제목만 바뀜 = 발행 0
+TB='"r2059-beta":"r2059-beta — 끝: 보드 뉴스 이름 시험(판정 4175 · #308536)","r2060-long":"r2060-long — 아주아주 긴 하는 일 이름이 스물다섯 글자를 넘는 경우"'
+S14='"seats":{"byz-harness-nano-r2059-beta#0":"작업중"}'
+reset; goal "$G1"; mk "{\"cards\":{\"r2058-oppa-a\":\"대기\",\"r2059-beta\":\"진행\",\"r2060-long\":\"대기\"},$S14,\"titles\":{$TB}}"; run 2026-11-15T19:00:00
+chk "⑭ 다음 줄 = 하는 일 이름" 'next_section | grep -qxF "하네스 · nano-beta · 보드 뉴스 이름 시험 · 진행"'
+mk "{\"cards\":{\"r2058-oppa-a\":\"진행\",\"r2059-beta\":\"완성\",\"r2060-long\":\"진행\"},$S14,\"titles\":{$TB}}"; run 2026-11-15T19:10:00
+chk "⑭ 지금 = 이름 · beta slug 0" 'now_section | grep -qxF "하네스 보드 뉴스 이름 시험 진행→완성" && ! now_section | grep -q beta'
+chk "⑭ 25자 넘는 제목 = 24자 + …" 'now_section | grep -qxF "하네스 아주아주 긴 하는 일 이름이 스물다섯 글자를… 대기→진행"'
+chk "⑭ 제목 없는 카드 = slug" 'now_section | grep -qxF "하네스 oppa-a 대기→진행"'
+chk "⑭ 근거 줄 = ② 카드 번호 순서" 'lastbody | tail -1 | grep -q " · 카드 r2058 r2059 r2060$"'
+n14="$(replies)"; mk "{\"cards\":{\"r2058-oppa-a\":\"진행\",\"r2059-beta\":\"완성\",\"r2060-long\":\"진행\"},$S14,\"titles\":{\"r2059-beta\":\"다른 제목\"}}"; run 2026-11-15T19:20:00
+chk "⑭ 제목만 바뀜 = reply 0" '[ "$RC" = 0 ] && [ "$(replies)" = "$n14" ]'
+# ⑮ L 번호 카드 → ② 줄에 번호 0 · 근거 줄에 «카드 L102» (R6)
+TL='"titles":{"L102-sealed-gap":"L102-sealed-gap — 켬 강의 번역 빈칸"}'
+reset; goal "$G1"; mk "{\"cards\":{\"L102-sealed-gap\":\"진행\"},$TL}"; run 2026-11-15T20:00:00
+mk "{\"cards\":{\"L102-sealed-gap\":\"완성\"},$TL}"; run 2026-11-15T20:10:00
+chk "⑮ ② 줄 = 이름 · L102 0" 'now_section | grep -qxF "하네스 켬 강의 번역 빈칸 진행→완성" && ! now_section | grep -q L102'
+chk "⑮ 근거 줄 «카드 L102»" 'lastbody | tail -1 | grep -q " · 카드 L102$"'
+chk "⑮ 끝 줄 밖 번호 0" '! lastbody | sed "\$d" | grep -qE "r[0-9]{3,4}|L[0-9]{2,}|[0-9a-f]{10,}|[0-9]{10}\.[0-9]{6}|#[0-9]+"'
 
 echo "fail=$fail"; [ "$fail" = 0 ]
