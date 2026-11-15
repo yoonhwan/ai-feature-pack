@@ -418,9 +418,9 @@ from ft_nano_record_due import card_key
 import ft_nano_record_write as nrw
 from ft_nano_record_write import apply, lock
 nrw.update = lambda _ctx, _fn: None   # ft-nano-record 보낸 기록(land-record-notified.json) 쓰기 0 — 이 단계는 카드 줄만(r1717 ⑧ «보낸 기록 0» 불변)
-_sec = nrw.section
+_orig_section = nrw.section
 def _sec_eof(text):   # A1 EOF fallback(DA HOLD R1): «## 상태» 절 없으면 문서 전체 = 절(줄은 문서 끝) · 이 프로세스만(공유 read_sec·ft-nano-record 동작 불변)
-    lines, st, en = _sec(text)
+    lines, st, en = _orig_section(text)
     return (lines, st, en) if st is not None else (lines, -1, len(lines))   # r2034-mut:eof
 nrw.section = _sec_eof
 root, pr, q, rn, tgt = sys.argv[2:7]
