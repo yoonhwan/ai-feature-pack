@@ -36,7 +36,9 @@ def _marks(old):   # 표식 줄 목록 · 파일 없음 = [] · 깨짐·꼴 틀�
     except (OSError, ValueError):
         return None
     drops = d.get("drops") if isinstance(d, dict) else None
-    ok = isinstance(drops, list) and all(isinstance(x, dict) and isinstance(x.get("seq"), int) for x in drops)
+    def n(v): return isinstance(v, int) and not isinstance(v, bool)
+    ok = isinstance(drops, list) and all(isinstance(x, dict) and n(x.get("seq")) and isinstance(x.get("to"), str) and x["to"]
+                                         and n(x.get("verdict")) and n(x.get("at")) for x in drops)   # r2060 DA R1 — 항목 하나라도 꼴 틀림 = 파일 전체 None
     return drops if ok else None
 
 
