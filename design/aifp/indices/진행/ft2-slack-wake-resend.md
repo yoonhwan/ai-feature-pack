@@ -7,6 +7,7 @@
 - 앞 카드: r1833(깨움 상한 25초 · landed) · r1938(유휴 회차 무변화 = 읽기·쓰기 0) · r1923·r1927(Slack 채널·봇 답) · r1807(팀 wiring)
 - 상태: 대기
 - 착지: e03072ec7dd16bb296a85ede524157f560b5e0a5(팩 main · PR #1292 squash · DA#11 APPROVE-IMPL aifp 5546 · 세트 c2f7b2a7 · 뺄 커밋 0)
+- 착지: dcf9ca27da5ebe84ef15c221d721269e54a6a1b0(팩 main · PR #1314 squash · 회귀 고침 pG2 = G12·G13 · DA#11 APPROVE-IMPL aifp 5636 · 세트 b7cce072 · head 686fadce · 뺄 커밋 0)
 - 설치: 있음 — ft2 판 올림 1회 + Slack 수신기 재기동 1회(집행 = planner) · 되돌림 = 앞 판으로 판 전환 + 재기동
 - 선행: 없음 — E ft2-keeper-notify-recipient 착지 ae0c199e(PR #1282) 착지 끝 · 팀장 aifp-ft-master-pi#19 이 풂
 - 시험 입력: 임시 루트(tmp_path) · 시험 안에서 만든 wire.jsonl·route 장부·우편함 장부·명부 · 가짜 mbox(rc·출력·걸린 시간·장부에 붙일 줄을 사례가 정함) · 가짜 clock · sleep 0 · 네트워크 0 · Slack 호출 0 · 실 runtime 쓰기·읽기 0 · 사례 1개 70초 안
@@ -59,7 +60,7 @@ Slack 수신기는 글을 접수하면 thread 에 묶인 좌석을 쪽지로 깨
 - 알려진 한계 1(DA BYZ 310065 수용): 장부 200줄 창 밖 · 적재 판정 불가일 때 다시 보내므로 같은 글이 2통 될 수 있다 · 끝줄 `재전송 <n>/3` 과 command 로 desk 가 가른다
 - 알려진 한계 2: 늦은 적재 확인 직후에 앞 시도의 자식 프로세스가 적재하는 경합은 막지 못한다(exactly-once 보증 아님)
 - 알려진 한계 3: 재전송 1통은 Slack 소켓 읽기를 25초까지 막는다(처음 깨움과 같은 값)
-- 알려진 한계 4(pG2): RESTORE_WINDOW 600초는 계산 값(send 상한 25초 × 3 + 간격 60초 × 2 = 195초의 3배)이다 · 재기동이 걸리는 시간의 분포를 재지 않았다
+- 알려진 한계 4(pG2): RESTORE_WINDOW 600초는 계산 값(send 상한 25초 × 3 + 간격 60초 × 2 = 195초의 약 3배 · 600 ÷ 195 = 3.08)이다 · 재기동이 걸리는 시간의 분포를 재지 않았다
 - 알려진 한계 5(pG2): 수신기가 10분 넘게 죽어 있으면 그 앞 실패는 다시 보내지 않는다 · 처음 실패 때의 desk 알림 1통(G11)과 listen.log «복원 제외» 줄만 남는다
 - 알려진 한계 6(pG2): 창 안에서 이미 응대한 command 는 가려내지 못한다 · 장부에 «응대 끝» 표식이 없다(실측 = 다시 나간 18 command 의 receive 최신 상태 settled 0)
 - 2.0.66 재기동 때 생긴 것의 뒷정리(issues 입구 새 접수 15건 · 옛 좌석 이름으로 간 깨움 21통) = journal 쓰기는 HIL · 집행 = 팀장·planner
@@ -108,3 +109,6 @@ Slack 수신기는 글을 접수하면 thread 에 묶인 좌석을 쪽지로 깨
 - 2026-11-16 · aifp-ft-nano-ft2-slack-wake-resend#0 pG2 구현(조건 8·9): 커밋 3개 = 6921e5bd [test] ㉞머·㉞버·㉞서·㉞어·㉞저 + 변이 M68·M69·M70 · b7cce072 [fix] wiring.py `RESTORE_WINDOW=600` + `_restore` 경계 2개((가) `seq0` 칸 · (나) 0 ≤ 기동 시각 − at ≤ 600) + «복원 제외» 로그 1줄 + `deliver(..., resend=True)` 로 issues 입구 0 · b725aaaa [docs] 설계 r2065 §8(G12·G13 절) · 다른 함수 손 0 · receive.py 손 0 · push 0(팀장 집행)
 - 세트: b7cce072ce0230d35bf3377e15e8bd25f709b3de · 시험: python3.11 -m pytest tests/test_slack_wake_resend.py -q (31 passed · 0.92초) rc=0 · 이슈: 0
 - 재개 기록: 가지 base = c7860542(옛 좌석) · origin/main(57d6ab35 뒤 4커밋)으로 rebase 1회 시도 = 앞 5커밋이 PR #1292 squash(e03072ec)로 이미 착지해 추가/추가 충돌 → `git rebase --abort` 뒤 `git reset --hard origin/main`(세 파일 diff 0 확인 · 내용 손실 0 · 백업 가지 backup/nano-ft2-wake-c2f7b2a7) 위에 새 커밋 3개
+- 2026-11-16 04:33 · aifp-ft-arch-pi#19 pG2 착지 줄 씀(팀장 aifp 5637) · arch 확인 = head 686fadce 의 git archive 사본에서 `python3.11 -m pytest tests/test_slack_wake_resend.py -q` 31 passed 0.43초 rc=0 · wiring.py 에 `RESTORE_WINDOW = 600` · «[재전송] 복원 제외 %d건 · 경계 칸 없음 %d · 창 밖 %d» 로그 · `deliver(..., resend=False)` · `_resend` 의 `resend=True` 읽음 · 남은 것 = 조건 7([~]) · 조건 10(설치·재기동 뒤 실측)
+- DA 판정: APPROVE-IMPL 311430(aifp 5636 · 사본 .fable-team/state/team-main/aifp-ft/DA-pG2-impl-approve-311430/verdict.md) · 직접 31 PASS rc 0(20.39초 · 새 5사례 · M68~M70 · 기존 회귀 포함) · 비차단 1 = wiring.py 25줄 주석 «195초의 3배» 는 «약 3배» 가 맞다(600 ÷ 195 = 3.08 · 동작 영향 0 · 다음에 그 파일을 고칠 때 같이 고친다 · 같은 글이 설계 pG2 3절에도 있다 = 내가 쓴 글 · 카드 알려진 한계 4 는 이 커밋에서 «약 3배» 로 고침)
+- 세트: b7cce072ce0230d35bf3377e15e8bd25f709b3de · 시험: python3.11 -m pytest tests/test_slack_wake_resend.py -q (31 passed) rc=0 · 이슈: 0
