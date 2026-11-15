@@ -27,8 +27,8 @@ MBOX = E.get("FT_CHILD_MBOX_SH") or os.path.join(root, ".fable-team/comm/mbox.sh
 IDLE, RSS, NIDLE = float(E.get("FT_CHILD_IDLE_MIN") or 20), float(E.get("FT_CHILD_RSS_MB") or 300), float(E.get("FT_NANO_IDLE_MIN") or 30)
 FROM, TODAY = "ft-child-watch", time.strftime("%Y-%m-%d")
 DONE_RE = re.compile(r"완료·휴식|\[완료\]|정지 레디|^-?\s*세트: [0-9a-f]{40}")
-def sh(cmd, t=60):
-    try: r = subprocess.run(cmd, capture_output=True, text=True, timeout=t); return r.returncode, r.stdout
+def sh(cmd, t=60, env=None):
+    try: r = subprocess.run(cmd, capture_output=True, text=True, timeout=t, env=env); return r.returncode, r.stdout
     except (OSError, subprocess.SubprocessError) as e: return 99, str(e)
 def unknown(why): print(f"CHILD-WATCH-UNKNOWN 판정 불가 — {why} (조치 0)"); sys.exit(20)
 def survey():   # ({좌석: S행}, [P행 고아])
@@ -83,7 +83,11 @@ def card_state(row, team=""):   # (끝남?, 마지막 상태 줄 앞 40자) · r
 def autonomy():
     v = E.get("FT_CHILD_AUTONOMY")
     if v in ("on", "off"): return v == "on"
-    rc, out = sh(["bash", os.path.join(here, "ft-autonomy.sh"), "scope-status"], 7)
+    env, ft = dict(E), E.get("FT_ROOT") or ""   # r1795 A2: FT_ROOT/.fable-team/LIVE_ROOT(절대경로 폴더)가 있으면 범위 승인은 그 라이브 루트에서 읽는다 · comm 은 원래 FT_ROOT 보존(r1792 A5 꼴)
+    try: live = open(os.path.join(ft, ".fable-team/LIVE_ROOT"), encoding="utf-8").readline().strip() if ft else ""
+    except OSError: live = ""
+    if live.startswith("/") and os.path.isdir(live): env.setdefault("FT_MBOX_DIR", os.path.join(ft, ".fable-team/comm")); env["FT_ROOT"] = live
+    rc, out = sh(["bash", os.path.join(here, "ft-autonomy.sh"), "scope-status"], 7, env)
     return rc == 0 and bool(re.match(r"\[범위 승인 \S+ · ", out.strip()))
 def sent_keys():
     p = os.path.join(SD, "child-watch.sent")
