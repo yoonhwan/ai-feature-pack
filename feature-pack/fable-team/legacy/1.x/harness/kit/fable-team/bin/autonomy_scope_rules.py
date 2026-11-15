@@ -360,6 +360,38 @@ def mktemp_trap_exempt(path, txt, show=None):   # → True = «그 시험이 방
     return bool(re.search(MKTEMP_LINE % v + MKTEMP_VALUE + MKTEMP_TAIL, body))   # 값 «전체» 가 mktemp -d (DA② R1-a: 뒤에 붙은 /../.. = destroy)
 
 
+# ── r1928 .md 는 코드 줄만 destroy 판정(planner DA#3 APPROVE-DESIGN) — 펜스 밖 본문 낱말(«손 kill»)로는 거절 0 · 판독 실패·줄 어긋남·백틱 짝 남음·들여쓰기 4칸 = 지금처럼 destroy(닫힌 쪽)
+MD_FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
+MD_SPAN = re.compile(r"(?<!`)(`+)(?!`)(.*?)(?<!`)\1(?!`)")   # 같은 길이 백틱 묶음이 열고 닫는 인라인 코드 조각
+
+
+def md_spans(line):   # → 그 줄의 인라인 코드 조각 · 짝 없는 백틱이 남으면 None
+    return None if "`" in MD_SPAN.sub("", line) else [m.group(2) for m in MD_SPAN.finditer(line)]
+
+
+def prose_line_exempt(path, no, txt, show=None):   # → True = .md 펜스 밖 본문 줄 ∧ 문단 백틱 짝 ∧ 인라인 조각에 파괴 명령 0
+    body = (show(path) if show and (path or "").lower().endswith(".md") else "") or ""
+    lines, fence, at = body.split("\n"), None, False
+    if not body or not 0 < no <= len(lines) or lines[no - 1] != txt:   # 판독 실패·줄 번호 어긋남 = 판정 불가
+        return False
+    for ln in lines[:no]:   # 펜스 열림·닫힘(닫는 줄 = 같은 글자 · 같거나 긴 묶음 · 뒤 글 0)
+        m = MD_FENCE.match(ln)
+        at = bool(m) and (fence is None or (m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence) and not m.group(2).strip()))
+        fence = (m.group(1) if fence is None else None) if at else fence
+    if fence or at:   # 펜스 안 · 펜스 줄 자체
+        return False
+    if re.match(r"( {4}|\t)", txt) and (no == 1 or lines[no - 2][:1] in ("", " ", "\t")):   # 들여쓰기 4칸 코드 블록(범위 밖 · 닫힌 쪽)
+        return False
+    a = b = no - 1   # 그 줄이 든 문단 = 빈 줄·펜스 줄로 나뉜 연속 줄
+    while a > 0 and lines[a - 1].strip() and not MD_FENCE.match(lines[a - 1]):
+        a -= 1
+    while b + 1 < len(lines) and lines[b + 1].strip() and not MD_FENCE.match(lines[b + 1]):
+        b += 1
+    if any(md_spans(ln) is None for ln in lines[a:b + 1]):   # 여러 줄 inline code = 한 줄로 본문 확정 불가
+        return False
+    return not any(CRIT_DESTROY.search(s) for s in md_spans(txt) or [])
+
+
 def critical_kinds(blocks, secret=None, show=None, profile="full", scoped=None):   # → (종류, 사유) | None · blocks = autonomy_scope_secret.parse_added 결과 · profile d2(r1934) = launchd·config(.env 밖)·apiKey 판정 0 · kill·pkill·rm -rf 줄은 scoped 에 위치를 모은다
     d2 = profile == "d2"
     for path, _items, is_new in blocks:   # ① 새 LaunchAgents/LaunchDaemons plist
@@ -374,9 +406,9 @@ def critical_kinds(blocks, secret=None, show=None, profile="full", scoped=None):
     why = secret() if secret else ""   # ③ 비밀 줄(autonomy_scope_secret.reason 재사용)
     if why:
         return "secret", why
-    for path, items, _is_new in blocks:   # ④ 파괴 명령 새 줄 — r1597 tests/ 임시 폴더 trap 줄만 예외
+    for path, items, _is_new in blocks:   # ④ 파괴 명령 새 줄 — r1597 tests/ 임시 폴더 trap 줄 · r1928 .md 본문 줄만 예외
         for no, txt in items:
-            if not CRIT_DESTROY.search(txt) or mktemp_trap_exempt(path, txt, show):
+            if not CRIT_DESTROY.search(txt) or mktemp_trap_exempt(path, txt, show) or prose_line_exempt(path, no, txt, show):
                 continue
             if d2 and scoped is not None and not destroy_hard(txt):   # ⓐ 먼저 — ⓑ 꼴만 있는 줄만 위치로(DA 대상 확인 줄 필요)
                 scoped.append("%s:%d" % (path or "?", no))
