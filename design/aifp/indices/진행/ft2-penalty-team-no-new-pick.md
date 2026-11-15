@@ -6,6 +6,7 @@
 - 원인 1줄: 전 세션 정지는 1.x ft-nano-spawn.sh 에서만 막는데 ft2 keeper 는 그 도구를 거치지 않는다 · keeper_next.gates() 가 보는 것은 CLOSE-NEXT.enabled·팀 PAUSED·SPAWN_HOLD·ACCT_PAUSE·나노 상한뿐이고 PENALTY_STOP 판독이 없다
 - 앞 카드: r1913(fill) · r1939(fill 꽉 참) · r1871(닫기 뒤 다음 카드) · r2055(팩 d88ef381 · settle 한 길) · 1.x R320b(전 세션 정지 · 오빠 판정 2170)
 - 상태: 대기
+- 착지: 0d72507e6b80a006ef41af72afdacf020e1fb0a3(팩 main · PR #1304 squash · DA#11 APPROVE-IMPL aifp 5615 · 세트 0759501d · 뺄 커밋 0)
 - 설치: 있음 — ft2 판 올림 1회 · 되돌림 = 앞 판으로 판 전환(상태 파일의 새 키 1개는 옛 판이 읽지 않음)
 - 선행: 없음 — D+F ft2-launch-failed-end 착지 8ed707c4(PR #1294) 착지 끝 · 팀장 aifp-ft-master-pi#19 이 풂
 - 시험 입력: 임시 루트(tmp_path) · 시험 안에서 만든 journal·카드·PENALTY_STOP 파일 · 가짜 판정기 스크립트(rc 를 사례가 정함 · 호출 수 기록) · 가짜 tmux·가짜 mbox · sleep 0 · 네트워크 0 · 실 runtime 쓰기·읽기 0 · 사례 1개 70초 안
@@ -55,11 +56,11 @@
 - 판정 불가가 오래 이어질 때 팀장에게 쪽지를 보내는 일(지금은 로그 1줄 · 설계 Q3)
 
 ## 완료 조건
-1. [ ] 나노: 커밋 1 기준판 FAIL 원문
-2. [ ] 나노: 새 시험 전체 rc0 · 걸린 초
-3. [ ] 나노: 변이 M62 → ㊲가 FAIL · M63 → ㊲라 FAIL · M64 → ㊲사 FAIL · M65 → ㊲바 FAIL · M66 → ㊲가 둘째 바퀴·㊲자 FAIL
-4. [ ] 나노: 회귀 rc0
-5. [ ] 팀장: PR 착지 sha · 설치 판
+1. [x] 나노: 커밋 1 기준판 FAIL 원문 — 팩 cd0bd9ee 기준판 keeper_next.py 로 같은 시험 3사례 rc 1(나노 aifp 5604 · PR #1304 본문): ㊲가 기준판은 그냥 넣음 `NEXT harness fill:r9101-a -> r9101-a …`(기대 `NEXT-HOLD harness PENALTY_STOP 재개 전 — 다음 카드 0`) · ㊲라 닫기 영수 next 에 r9102-b 를 붙임(기대 next 없음 · submit 0) · ㊲사 판정기를 안 불러 fill 1장(기대 fill 0 + `판정 불가 harness PENALTY_STOP 판독 rc 1 — 다음 카드 0`)
+2. [x] 나노: 새 시험 전체 rc0 · 걸린 초 — 나노 = 5파일 94 passed rc=0(aifp 5602 · 새 시험만의 초는 원문에 없음) · arch 재실행(aifp-ft-arch-pi#19 · 세트 0759501d 의 git archive 사본 · `python3.11 -m pytest tests/test_penalty_team_no_new_pick.py -q`): 16 passed 53.69초 rc=0(사례 ㊲가~카 11 + 변이 5 · load 17)
+3. [x] 나노: 변이 M62 → ㊲가 FAIL · M63 → ㊲라 FAIL · M64 → ㊲사 FAIL · M65 → ㊲바 FAIL · M66 → ㊲가 둘째 바퀴·㊲자 FAIL — 시험 파일 MUTANTS 표의 기대 칸 = M62 (㊲가) · M63 (㊲라) · M64 (㊲사) · M65 (㊲바) · M66 (㊲가 · ㊲자) · arch 재실행에서 test_mutant[M62~M66] 5칸 PASSED(조건 2 의 16 passed 안 · 가장 긴 칸 M66 8.57초) · 나노 원문에는 변이별 줄이 없다(aifp 5602 는 합계만)
+4. [x] 나노: 회귀 rc0 — 나노 = test_keeper_fill_empty_slot_r1913 · test_keeper_fill_intake_full_r1939 · test_pi_keeper_next_card_r1871 · test_settle_one_path_r2055 포함 5파일 94 passed rc=0 · 회귀 변이 M2·M5 문자열 2줄 고침(aifp 5602) · DA 직접 시험 = 성공 81항목 관측 · 나머지는 70초 상한으로 판정 불가(aifp 5615 «제출 94 PASS 를 직접 통과로 주장 0») · arch 재실행(같은 사본 · 파일 4개 동시 · 각 70초 상한 · load 22): r1939 9 passed 35.8초 rc=0 · r1913 14 passed 61.3초 rc=0 · r1871 = 70초 상한(18칸 통과 뒤 끊김 · 실패 0) 판정 불가 · r2055 = 70초 상한(27칸 통과 뒤 끊김 · 실패 0) 판정 불가 = 이 [x] 의 근거는 나노 제출 값이다
+5. [~] 팀장: PR #1304 0d72507e · 설치 = harness#291 대기
 6. [ ] arch: 설치 뒤 읽기 실측 = BYZ keeper 로그의 재개 전 팀 NEXT-HOLD PENALTY_STOP 줄 원문 + 그 시각 뒤 그 팀 journal 새 accept keeper-next 줄 0(그 사이 정지가 풀렸으면 «잴 대상 없음» 1줄)
 
 ## 계약↔시험 대응표
@@ -82,3 +83,5 @@
 - [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
 - 세트: 0759501d4a0a5ea665e6f14227b45e6c672887c1 · 시험: python3.11 -m pytest tests/test_penalty_team_no_new_pick.py tests/test_keeper_fill_empty_slot_r1913.py tests/test_keeper_fill_intake_full_r1939.py tests/test_pi_keeper_next_card_r1871.py tests/test_settle_one_path_r2055.py (94 passed) rc=0 · 이슈: 0
 - 완료: aifp-ft-nano-ft2-penalty-team-no-new-pick#0 · 한 일: keeper_next 에 penalty_open 추가 · fill 과 close 의 새 pick 두 곳에 전 세션 정지 판정(계약 §10 · CASES ㊲ · 설계 pJ design/) · 산출: nano/ft2-penalty-team-no-new-pick@0759501d4a · 병합 상태: 착지 전(push 전) · 남은 일: 없음
+- DA 판정: APPROVE-IMPL 311298(aifp 5615 · 사본 .fable-team/state/team-main/aifp-ft/DA-pJ-impl-approve-311298/verdict.md) · 동작 반례 0 · P1~P8·새 pick 두 곳·상태 보존 확인 · 기존 네 함수 AST 같음 · 직접 시험 일부는 70초 상한으로 판정 불가
+- 세트: 0759501d4a0a5ea665e6f14227b45e6c672887c1 · 시험: python3.11 -m pytest tests/test_penalty_team_no_new_pick.py tests/test_keeper_fill_empty_slot_r1913.py tests/test_keeper_fill_intake_full_r1939.py tests/test_pi_keeper_next_card_r1871.py tests/test_settle_one_path_r2055.py (94 passed) rc=0 · 이슈: 0
