@@ -70,9 +70,9 @@ want "⑤ print rc113 = 잡 없음" "$BIN/$F" c5 2 '^판정 불가 잡 없음'
 want "⑥ --wait 99 → 25 로 잘림" "$BIN/$F" c6 3 'waited=25$'
 want "A1 kickstart -k gui/<uid>/<라벨> 1회" "$BIN/$F" c1 0 '^KICKED'; [ "$(cat "$KW_STATE/kicks" 2>/dev/null)" = "kickstart -k gui/$(id -u)/com.test.scan" ] && ok "A1 kickstart 인자" || bad "A1 kickstart 인자 [$(cat "$KW_STATE/kicks" 2>/dev/null)]"
 lap 반례
-echo "== 기준(h 루프 꼴) ① Red"; reset; OUT=$(env $(case_env c1) PATH="$S:$PATH" /bin/bash -c 'h_loop com.test.scan "$KW_RESULT"' 2>&1); RC=$?
-[ "$RC" = 3 ] && ok "기준 ① Red = STALE ($OUT)" || bad "기준 ① Red 아님 (rc=$RC out=[$OUT])"
-lap 기준
+base_red() { reset; OUT=$(env $(case_env c1) PATH="$S:$PATH" /bin/bash -c 'h_loop com.test.scan "$KW_RESULT"' 2>&1); RC=$?
+  [ "$RC" = 3 ] && ok "기준 ① Red = STALE ($OUT)" || bad "기준 ① Red 아님 (rc=$RC out=[$OUT])"; }
+echo "== 기준(h 루프 꼴) ① Red = STALE rc3"; base_red; lap 기준
 echo "== 변이 — 사본에서 한 곳만 · 각 뒤 원본으로 같은 사례 1회(반대 결과)"
 mutant() {  # mutant <이름> <옛 글자> <새 글자> → 사본 경로
   local d="$T/v-$1"; mkdir -p "$d"; cp "$BIN/$F" "$d/$F"
