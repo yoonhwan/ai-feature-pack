@@ -19,7 +19,8 @@ def _send(argv, to, body, log):   # 7초 + 재시도 1 · 실패 = rc 기록 1�
     with open(log, "a", encoding="utf-8") as fh:
         fh.write(json.dumps({"to": to, "rc": rc, "head": body[:120]}, ensure_ascii=False) + "\n")
     return rc
-def observe(root, cap, team, value, limit, blocked=""):   # 값 None = 판정 불가 = 관측 0 · 반환 = 받는 곳별 rc(보낼 것 없음 = None)
+def observe(root, cap, team, value, limit, blocked="", send=_send):   # 값 None = 판정 불가 = 관측 0 · 반환 = 받는 곳별 rc(보낼 것 없음 = None)
+    # r2098 — «보내는 손» 인자 1칸(기본 = 지금 _send) · keeper 는 자기 손(alert_out 에 넣기만)을 꽂는다.
     state, sig = os.path.join(root := os.path.abspath(str(root)), ".fable-team", "state", "ft2-full-alert"), "%s|%s" % (cap, team)
     opened, full = _read(state + ".json"), value is not None and value >= limit
     if value is None or full == (sig in opened):
@@ -31,13 +32,13 @@ def observe(root, cap, team, value, limit, blocked=""):   # 값 None = 판정 �
         json.dump(dict(opened, **({sig: str(value), sig + "@at": "%.6f" % time.time()} if full else {})), fh, ensure_ascii=False)
     os.replace(state + ".tmp", state + ".json")
     argv = shlex.split(os.environ.get("FT2_FULL_ALERT_WAKE") or "bash " + shlex.quote(os.path.join(root, ".fable-team", "comm", "mbox.sh")))
-    return [_send(argv, to, body, state + ".jsonl") if to else "받는 곳 없음" for to in dict.fromkeys(_read(os.path.join(root, ".fable-team", "seats-%s.json" % t), "_master") for t in (team, "harness"))]
-def remaining(root, team, result, blocked=""):   # ⓐ 접수 성공·용량 부족 → 남은 일(용량 판정과 같은 장부 · 상한 = Intake 기본 8)
+    return [send(argv, to, body, state + ".jsonl") if to else "받는 곳 없음" for to in dict.fromkeys(_read(os.path.join(root, ".fable-team", "seats-%s.json" % t), "_master") for t in (team, "harness"))]
+def remaining(root, team, result, blocked="", send=_send):   # ⓐ 접수 성공·용량 부족 → 남은 일(용량 판정과 같은 장부 · 상한 = Intake 기본 8)
     # r2089 — 알림 값 = 투영 capacity 칸(없으면 remaining) · keeper_next.intake_open 과 같은 읽기(dict-work 글 영수는 칸이 아니다)
     proj = projection.project(root, team) if result in ("접수 성공", "용량 부족") else {}
     value = proj.get("capacity", proj.get("remaining")) if proj.get("result") == "접수 성공" else None
-    return observe(root, "남은 일", team, value, INTAKE_CAP, blocked) if proj.get("result") == "접수 성공" else None
-def journal(root, team, out, blocked=""):   # ⓓ 쓰기 결과 → 필요 총량(거절 = 쓴 양 + 필요 · 성공 = 쓴 양)
+    return observe(root, "남은 일", team, value, INTAKE_CAP, blocked, send) if proj.get("result") == "접수 성공" else None
+def journal(root, team, out, blocked="", send=_send):   # ⓓ 쓰기 결과 → 필요 총량(거절 = 쓴 양 + 필요 · 성공 = 쓴 양)
     j, got = projection.journal.Journal(projection.runtime_path(root, team)), out.get("result") == "용량 부족" and re.search(r"필요 (\d+) > 한계 (\d+)", str(out.get("reason")))
     value, limit = (j.usage() + int(got[1]), int(got[2])) if got else (j.usage(), j._limit(True))
-    return observe(root, "journal", team, value, limit, blocked) if got or out.get("result") == "접수 성공" else None
+    return observe(root, "journal", team, value, limit, blocked, send) if got or out.get("result") == "접수 성공" else None
