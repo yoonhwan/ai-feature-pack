@@ -1,7 +1,7 @@
 # 인덱스: ft2-keeper-round-60s — 끝: ft2 keeper 한 바퀴가 벽시계 60초 안에 끝난다 · 예산이 다하면 그 자리(팀·work·칸)에서 끊고 다음 바퀴가 거기서 잇는다 · ROUND 줄이 벽시계 초·재지 못한 초·끊긴 자리를 보인다
 <!-- ledger: feature-pack/fable-team/legacy/1.x/harness/design/harness/GOAL-harness.md -->
 - Issue: 없음(초안) — 요청 planner#327 aifp 5702 · 팀장 aifp-ft-master-pi#21 발주 aifp 5704 · 문제 원문 «keeper 한 바퀴 78초 / 상한 60초 ★크리티컬★ → 느린 단계 쪼개기»(BYZ design/planner/PROBLEMS-desk175-20261116.md 40줄 · 근거 BYZ #309391 · #309397 = 발주 인용 · 이 좌석은 그 파일을 로컬에서 못 찾아 원문 대조 안 함)
-- 제안서: 없음 — 기존 상한(바퀴 60초)을 지키게 하는 결함 복구 · 설계 = 이 카드 «계약»·«바깥 호출 전수»·«설계 확정»·«반례 표»(DA HOLD-DESIGN 1/3 BYZ 311663 반영 r2 · 2/3 BYZ 311745 반영 r3)
+- 제안서: 없음 — 기존 상한(바퀴 60초)을 지키게 하는 결함 복구 · 설계 = 이 카드 «계약»·«바깥 호출 전수»·«설계 확정»·«반례 표»(DA HOLD-DESIGN 1/3 BYZ 311663 반영 r2 · 2/3 BYZ 311745 반영 r3 · 3/3 BYZ 311870 뒤 오빠 결정 ① 수신자 순환 반영 r4 · 반례 동결 .fable-team/state/team-main/aifp-ft/keeper-round-60s-decision/FROZEN.md · 4번째 설계 DA 0 = 하드 룰 14)
 - 근거: 실측 2026-11-16 05:05(aifp-ft-arch-pi#20 · BYZ .fable-team/state/ft2-keeper/20261116.jsonl 읽기만 · 설치 ft2 2.0.65~2.0.68 구간) — 아래 «기준값» 절
 - 원인 1줄: 바퀴 상한 검사는 팀 고리 머리 1곳뿐이다(adapters/pi/keeper.py `_round` 의 `if time.monotonic() - start > ROUND_S`) · 한 팀의 한 칸이 혼자 60초를 넘어도 끊지 못하고 · 팀 고리 앞(fetch · 나노 가지 모으기)과 뒤(b3 · report)는 상한 밖이다
 - 앞 카드: r1817(단계별 초) · r1898(cap_next = 컷에 걸린 팀부터) · r1969(slow 칸) · r1992(SLOW-CALL · SLOW-CELL) · r1963·r1975(fetch) · 완성/ft2-keeper-notify-recipient(쪽지 받는 곳·바퀴 3통)
@@ -56,6 +56,8 @@ keeper 는 launchd 가 60초마다 띄운다(plist StartInterval 60). 한 바퀴
 
 그 밖: ROUND-CAP 15줄(60초 넘은 바퀴 12 + 칸 합계로는 60초 안인 바퀴 3) · 60초 넘은 14바퀴 중 7바퀴에 NEXT 또는 LAUNCHING 줄이 있다(00:03 · 01:10 · 01:14 · 02:38 · 03:45 · 04:07 · 04:12) · ROUND 의 `s` 는 칸 합계라 report 와 칸 사이 초는 들어 있지 않다(벽시계 초는 지금 로그로 알 수 없음).
 
+새 실측 1줄(r4 · 2026-11-16 07:15 · ft2 2.0.72 · BYZ 읽기만): 꽉 참 알림 BYZ 312444 `★크리티컬★ 꽉 참 keeper 바퀴 keeper 89/60 · 막힌 것 남은 팀 issues · 풀기 = keeper 로그 단계별 초에서 느린 단계 쪼개기`(07:15:13 · ft2-full-alert → harness master) · 같은 바퀴 `07:15:15 ROUND s=85 fetch=5 b1=26 b2c=17.1 b2f=20.4 b3=0.2 stall=1.2 fetch_root=4.7 fetch_pack=1.9 nano=15.1 slow=harness:b2c:17.1 OVER unknown=15` = 벽시계 89초 / 상한 60초 · 칸 합계 85초(차 4초가 칸 밖) · 가장 느린 칸 harness b2c 17.1초
+
 ## 바깥 호출 전수 (r3 · 실측 2026-11-16 05:36 · aifp-ft-arch-pi#21 · 팩 origin/main 14c2f051 · 읽기만)
 잰 법: ft2 의 시험 밖 .py 전부를 AST 로 훑어 subprocess.run·Popen·call·check_output · os.system·popen · urlopen 호출 줄을 셈(19줄) + grep 으로 time.sleep · flock · wait · communicate · 별칭(subprocess 낱말이 든 줄 전부) 대조. r2 는 keeper*.py 의 속성 이름만 보아 full_alert.py 를 놓쳤다.
 
@@ -78,7 +80,7 @@ keeper 는 launchd 가 60초마다 띄운다(plist StartInterval 60). 한 바퀴
 
 전2 의 기준값(BYZ .fable-team/state/ft2-full-alert.jsonl · 실패 줄만 남는 장부 · 91줄): rc 3 = 82줄 · TimeoutExpired = 9줄(받는 곳 1곳마다 7초 2회 = 126초가 SLOW-CALL 에도 ROUND 칸에도 보이지 않았다) · 오늘 우편함에 간 꽉 참 알림 48통(mailbox.log.jsonl from=ft2-full-alert). 긴 쓰기 3줄의 오늘 값: REASSIGNED 0줄 · CLOSED-SEAT 0줄 · SLOW-CALL 74줄 중 launch·닫기 도구·record 0줄.
 
-## 계약 (r3 · DA 311663 · 311745 반례 반영)
+## 계약 (r4 · DA 311663 · 311745 반례 반영 · R12 보내기 = 오빠 결정 ① 수신자 순환)
 - R1 예산 시계 1개 = 바퀴 시작부터의 벽시계 초 · 구획 3개: 업무 0~45초(fetch · 나노 가지 모으기 · 팀 항목 · b3) · report 45~55초 · 마무리 55~60초(state.json 원자 쓰기 · ROUND 줄 · 관측 기록 = 바깥 호출 0)
 - R2 호출 문 1곳(`Keeper.call`) — 바깥 호출을 시작하기 전마다 남은 몫(= 지금 구획 끝 − 벽시계)을 본다
   - 판독 호출 = 문 안의 판독 목록 1개에 든 것만(git 의 rev-parse · merge-base · grep · ls-tree · ls-remote · fetch · log · show · cat-file · cherry · rev-list · status · config --get = 지금 문을 지나는 git 동사 13개 전부 · tmux 의 has-session · display · display-message · capture-pane · list-sessions · gh pr list · ps · mbox peek · 벌점 판정기 check): 상한 = min(자기 상한, 남은 몫) · 남은 몫 1초 미만 = 시작 0 · 끊김 · 남은 몫으로 줄인 상한에 걸려 끝난 것도 끊김(느린 것이 아니라 예산이 다한 것 = `판정 불가` 로 적지 않는다)
@@ -94,11 +96,18 @@ keeper 는 launchd 가 60초마다 띄운다(plist StartInterval 60). 한 바퀴
 - R9 끊김 수렴 = 어느 호출 앞에서 끊겨도 뒤 바퀴들이 «끊기지 않은 실행» 과 같은 끝에 닿는다(journal 의 work 별 끝 줄 종류 같음 · 쪽지 중복 0 · 닫힌 세션 같음) · 수렴하지 않는 순서가 시험에서 나오면 그 순서만 «원자 구간» 으로 선언한다(쓰기 호출 n개 · 몫 n×7 ≤ 21초 · 첫 쓰기 전에 몫을 예약 · 구간 표를 CONTRACT 에 적는다) · 21초를 넘으면 이 카드에서 고치지 않고 쪼갠다
 - R10 드러냄 = ROUND 줄 끝에 `wall=<초> other=<wall − 칸 합계> items=<돈 자리>/<전체 자리> cut=<팀:work:칸 또는 ->` · `OVER` 는 wall 로 판정 · 끊김 1줄 = `ROUND-CAP <팀> <work> <칸> — 다음 바퀴 여기부터` · 옛 칸·순서 그대로
 - R11 그대로: 판정 규칙(착지·끝·settle) · 쪽지 글·받는 곳 · fetch 규칙(r1963·r1975) · gates() · ALL_STOP · PENALTY_STOP · NEW_CARD_HOLD · 잠금 · SLOW-CALL·SLOW-CELL 줄 꼴 · 열기(아래 «설계 확정» 2) · 꽉 참 알림의 글·받는 곳(팀 master + harness master)·서명 규칙
-- R12 꽉 참 알림(r3 · 전2) = keeper 바퀴 안에서는 보내지 않는다
+- R12 꽉 참 알림(r3 · 전2 · 보내기 줄은 r4) = keeper 바퀴 안에서는 보내지 않는다
   - full_alert.py 의 observe · remaining · journal 에 «보내는 손» 인자 1칸을 더한다 · 기본값 = 지금의 `_send`(Slack 수신기 쪽 부르는 곳 2줄 = receive.py:201 · wiring.py:307 은 동작 그대로)
-  - keeper 는 자기 손을 꽂는다(keeper.py 의 `fa` 1곳 · keeper_next.py · keeper_land.py 의 부르는 줄 손 0) · 그 손은 바깥 호출 0 = state.json 의 `alert_out` 목록에 `{to, body, sig, tries}` 1줄을 더할 뿐이다
+  - keeper 는 자기 손을 꽂는다(keeper.py 의 `fa` 1곳 · keeper_next.py · keeper_land.py 의 부르는 줄 손 0) · 그 손은 바깥 호출 0 = state.json 의 `alert_out` 목록에 `{to, body, sig, tries, mark}` 1줄을 더할 뿐이다(r4 · `mark` = 확인 못 한 시도의 우편함 장부 seq 경계 · 처음엔 빈 값)
   - 서명 저장은 지금 순서 그대로(먼저 저장 = 재알림 폭주 0) · 알림 글은 `alert_out` 에 남아 있어 끊겨도 잃지 않는다(영수 경계 = 보낸 것이 확인된 줄만 목록에서 지운다)
-  - 보내기 = report 구획 머리에서 `alert_out` 을 앞에서부터 · 통마다 문을 지나는 쓰기 1개(7초 · 재시도 0 · E7 도착 확인 그대로) · 간 줄 = 목록에서 지움 + `FULL-ALERT <받는 곳> <글 머리>` 1줄 · 시간 초과·끊김 = 목록 그대로(tries 미소비) · rc≠0 실패 = tries +1 · 3회면 목록에서 지우고 `판정 불가 꽉 참 알림 3회 실패` 1줄 + 지금과 같은 꼴로 ft2-full-alert.jsonl 1줄(조용한 유실 0)
+  - 보내기(r4 · 오빠 결정 ① 수신자 순환 · 앞 판 «시간 초과 = 목록 그대로 · tries 미소비» 는 버린다) = report 구획 머리에서 `alert_out` 을 앞에서부터 · 한 바퀴에서 한 줄은 한 번만 시도한다 · 통마다 문을 지나는 쓰기 1개(7초 · 재시도 0)
+    - 성공 = rc 0 또는 E7 도착 확인(시도 바로 뒤 우편함 장부 판독 · 지금 notify 와 같은 함수) → 목록에서 지움 + `FULL-ALERT <받는 곳> <글 머리>` 1줄(도착 확인이면 `(도착 확인 · rc <값>)` 붙임)
+    - 실제 시도했는데 미완료(시간 초과 rc None · rc≠0 · 도착 확인 안 됨) = tries +1 · 그 시도의 seq 경계를 `mark` 에 적음 · 그 받는 곳의 줄 전부를(서로 순서 그대로) 목록 맨 뒤로 옮긴다 = 다음 시도는 다른 받는 곳부터다(끊긴 사람은 다음 사람 뒤)
+    - `mark` 가 있는 줄을 다시 시도하기 앞 = 그 경계로 E7 도착 확인을 먼저 한 번(장부 읽기 · 바깥 호출 0) · 도착이면 성공 처리 · 다시 보내기 0(늦게 닿은 알림을 두 번 보내지 않는다)
+    - 시작하지 않은 예산 미룸(문에서 남은 몫 < 7초로 시작 0 · R8 미룸) = tries 그대로 · 순서 그대로 · 그 바퀴 보내기는 거기서 끝 · 다음 바퀴가 그 줄부터 잇는다
+    - tries 3 = 목록에서 지우고 `판정 불가 꽉 참 알림 3회 실패 <받는 곳>` 1줄 + 지금과 같은 꼴로 ft2-full-alert.jsonl 1줄(조용한 유실 0) · 이때 FULL-ALERT 줄은 쓰지 않는다(확인 못 한 것을 지웠다고 전달 성공으로 적지 않는다)
+    - 순서·tries·`mark` 는 `alert_out` 줄 그대로 state.json 에 남는다 = 목록 순서가 곧 순환 자리다(따로 cursor 칸 0) · keeper 가 다시 떠도 그대로 잇는다
+    - 끝이 있다 = 줄마다 실제 시도 3회가 상한이고, 모든 받는 곳이 시간 초과여도 한 바퀴에 시작되는 7초 시도는 report 구획 10초 안 1개뿐이라 wall ≤ 60 이다
   - R8 의 «시간 초과 2회 = 남은 쪽지 미룸» 은 이 목록에도 같이 센다 · 바퀴 3통 상한(E5)은 세지 않는다(꽉 참 알림이 일반 쪽지 뒤로 밀리지 않게 먼저 보낸다)
   - «keeper 바퀴» 관측 = 마무리 구획에서 1회 · 값 = wall(R10) · 한계 60 · 끊김(ROUND-CAP)만으로는 꽉 참이 아니다(지금은 ROUND-CAP 마다 꽉 참 = 실패 장부에만 «keeper 바퀴» 글 33줄) · 그 알림은 다음 바퀴 report 구획에서 나간다
 - R13 문 밖 바깥 호출 0 = adapters/pi 의 keeper 바퀴에서 닿는 파일에서 기다리는 바깥 호출(subprocess.run·call·check_output · urlopen · os.system)은 keeper.py 의 문 1줄뿐 · 예외 = «대기 없는 띄우기» 2줄(전3 · 전4 = Popen 뒤 wait·communicate 0) · 시험이 AST 로 센다(새 우회가 생기면 FAIL)
@@ -110,13 +119,14 @@ DA 311745 반례(업무 34초 · fill 의 남은 일 꽉 참 알림 4호출 = 62
 
 DA 반례(fill 1항목 안 7초 호출 10개 = 70초)에 댄 답: 그 10개는 호출마다 문을 지난다. 판독이면 45초에 끊기고, 쓰기면 38초 뒤로는 시작하지 않는다. fill 은 끊긴 자리(cursor)에서 다음 바퀴가 잇는다.
 
-## 설계 확정 (DA 311663 권고 4개에 댄 답 · 오빠 결정이 필요한 선택 0)
+## 설계 확정 (DA 311663 권고 4개에 댄 답 · 오빠 결정 1개 = 5번)
 1. 몫의 숫자 = 업무 45 · report 10 · 마무리 5초 · 원자 단위 = 쓰기 호출 1개 7초(DA 권고 «원자 항목 최대 7초») · 앞 판의 «최소 몫» 은 버린다(시작 전에 보는 것은 호출 1개의 최대 몫이다) · 이 숫자는 실측값이 아니라 상한에서 거꾸로 센 값이다. 업무 45초로 줄면 끊기는 바퀴가 는다(오늘 칸 합계 p90 = 52.5초). 그 값은 완료 조건 6 의 `items=`·`cut=` 로 본다.
 2. 열기는 지금도 기다리지 않는다(정정) = keeper_launch.py 의 spawn 은 Popen(start_new_session) 으로 던지고, 다음 바퀴가 LAUNCH-WAIT·fill_open 이어 열기로 잇는다 · 이 카드는 열기에 손대지 않는다 · 기준값 «나»·«다» 의 긴 칸은 열기 앞뒤의 동기 일(카드 고르기 · project · submit · assign · deliver)과 닫기 판독이다 · 그 일은 R2 의 호출 문과 `other=` 로 갈라 본다
 3. 정확성은 호출 문과 cursor 가 맡는다 · 바퀴 캐시를 더 늘리지 않는다(명부·판정 결과의 낡은 캐시 0) · 짧은 호출 148회는 줄이지 않고 끊는다
 4. git 7초 실패 = 판정 불가 + 다음 자리(R5·R7) · 느린 팀이 앞자리를 계속 차지하지 않는다 · 상한을 늘리거나 성공으로 치지 않는다 · 오늘 7초 넘은 로컬 git = 11줄(210바퀴) = 판정 불가가 그만큼 는다
+5. 오빠 결정(r4 · 2026-11-16 · Slack thread ts 1794775311.637929 · 답 ts 1794781929.270889 «1» · desk#180 BYZ 312567 · planner#329 aifp 5851) = DA HOLD-DESIGN 3/3(BYZ 311870 · 사본 .fable-team/state/team-main/aifp-ft/DA-round-design-hold3-311870/verdict.md)의 «선택지 1» 수신자 순환 · 끊긴 사람은 다음 사람 뒤로 · 시간 초과도 3회 상한에 센다 · E7 도착 = 성공 · 예산 미룸만 0회 · 반례 F1~F7 동결(FROZEN.md) · 이 뒤 설계 DA 0 · 구현 DA 는 동결 반례의 동작만 본다(하드 룰 14·21) · 고르지 않은 안 = 2 별도 실행기(outbox) · 3 FIFO 3회 상한
 
-## 반례 표 (r3 · DA 보완 반영 · 가짜 시계)
+## 반례 표 (r4 · DA 보완 반영 · 동결 반례 F1~F7 · 가짜 시계)
 시간 입력의 뜻(r3): 가짜 호출은 «요청받은 상한» 과 «자기 소요» 중 작은 값만큼 가짜 시계를 올린다. 7초를 넘는 값은 호출 1개가 아니라 호출 여러 개의 합이다(㊳가 = 판독 8개 × 7초 · ㊳나 = work 마다 판독 2개 × 7초 · ㊳다 = ls-remote 7 + fetch 7 · 나노 판독 6개 × 5초 · ㊳라 = 판독 4개 × 7초에서 앞 3개 뒤 끊김). 호출 1개가 자기 상한보다 길면 상한에서 끊긴 것(rc None)으로 돌려준다(㊳바).
 
 | # | 입력 | 기대 | 지금 |
@@ -137,7 +147,7 @@ DA 반례(fill 1항목 안 7초 호출 10개 = 70초)에 댄 답: 그 10개는 �
 | ㊳하 | 같은 자리가 2바퀴 연속 끊김 | `판정 불가 … 예산 2회 넘음 — 건너뜀` 1줄 · cursor 다음 자리 · 셋째 바퀴는 다음 자리부터 | — |
 | ㊳거 | 끊김이 올라가는 길에 `except Exception` 이 있는 함수 | 먹히지 않고 바퀴까지 올라간다 · 그 함수의 실패 줄(판정 불가 등) 0 | — |
 | ㊳너 | report 구획: 손 닫기 후보 probe 10개 · 각 2초 | 55초에 끊김 · `rep_cursor` = 여섯째 좌석 · 다음 바퀴 report 는 여섯째부터 · 남은 쪽지는 다음 바퀴 · 마무리(state 저장·ROUND 줄)는 한다 | 끝까지 |
-| ㊴가 | DA 311745: 업무 34초 · fill submit 이 남은 일 꽉 참 전이 · 받는 곳 2(팀 master ≠ harness master) · send 는 모두 시간 초과 | 바퀴 안 full_alert 바깥 호출 0 · `alert_out` 2줄 · report 구획에서 문을 지나 1통 시도(7초) · 둘째는 시작 0 · wall ≤ 60 · 서명 1개 · 다음 바퀴에 2통 다시 시도 | 62초 · 문 0회 |
+| ㊴가 | DA 311745: 업무 34초 · fill submit 이 남은 일 꽉 참 전이 · 받는 곳 2(팀 master ≠ harness master) · send 는 모두 시간 초과 | 바퀴 안 full_alert 바깥 호출 0 · `alert_out` 2줄 · report 구획에서 문을 지나 1통 시도(7초) · 둘째는 시작 0 · wall ≤ 60 · 서명 1개 · 첫째 줄 tries 1 로 목록 뒤 · 다음 바퀴는 둘째 받는 곳부터 1통 시도(r4 · 앞 판 «다음 바퀴에 2통 다시 시도» 를 고침) | 62초 · 문 0회 |
 | ㊴나 | `alert_out` 3줄 · 첫 통 rc 0 · 둘째 rc 1 · 셋째 rc 0 | 첫·셋째 줄 지움 + FULL-ALERT 2줄 · 둘째 tries 1 로 남음 · 다음 두 바퀴도 rc 1 이면 지움 + `판정 불가 꽉 참 알림 3회 실패` 1줄 + ft2-full-alert.jsonl 1줄 | 그 자리에서 2회 뒤 jsonl 1줄 |
 | ㊴다 | 꽉 참 알림을 넣은 바퀴가 업무 구획에서 끊김 | 끊김이 올라가도 `alert_out` 은 마무리의 state 저장에 들어 있다 · 다음 바퀴 report 에서 나감 · 같은 서명 알림 중복 0 | — |
 | ㊴라 | 긴 쓰기(재배정 launch.py · 자기 상한 25초) 직전 남은 몫 24초 | 시작 0 · 끊김 · launch 호출 0 / 남은 몫 26초면 시작한다 · 가짜 소요 25초여도 wall ≤ 45 | 시작해서 59초 |
@@ -145,17 +155,24 @@ DA 반례(fill 1항목 안 7초 호출 10개 = 70초)에 댄 답: 그 10개는 �
 | ㊴바 | adapters/pi 의 keeper 바퀴에서 닿는 파일을 AST 로 훑음 | 기다리는 바깥 호출 = keeper.py 문 1줄 · Popen = 2줄(keeper_launch.py · keeper_fetch.py) · 그 밖 0 | full_alert.py 1줄 더 |
 | ㊴사 | 끊김 3바퀴(wall 50초 안) 뒤 정상 1바퀴 | «keeper 바퀴» 꽉 참 알림 0통 · wall 61초인 바퀴 1개를 넣으면 꽉 참 1통 · 다음 정상 바퀴에 풀림 1통 | ROUND-CAP 마다 꽉 참 |
 | ㊴아 | Slack 수신기 쪽에서 full_alert.remaining 을 «보내는 손» 없이 부름 | 지금과 같음(`_send` 7초 2회 · 실패 = jsonl 1줄) | — |
+| ㊷가 = F1 | 동결 F1(DA 311870): `alert_out` = [A, B] · A 는 매번 7초 시간 초과 · B 는 바로 rc 0 | 1바퀴 = A 시도 1(tries 1 · 목록 [B, A]) · B 시작 0 / 2바퀴 = B 발신 1 + FULL-ALERT 1줄 · 이어 A 시도(tries 2) / 3바퀴 = A tries 3 → 지움 + `판정 불가 꽉 참 알림 3회 실패` 1줄 + jsonl 1줄 · B 발신이 0 인 채 도는 일 0 · 바퀴마다 wall ≤ 60 | r3 계약 = 네 바퀴 모두 A 만 시도 · B 영구 발신 0 |
+| ㊷나 = F2 | 동결 F2: A 가 7초 시간 초과(rc None) · 그 글은 우편함 장부에 경계보다 큰 seq 로 닿아 있음 / 갈래 2 = 시도 바로 뒤에는 없고 다음 바퀴 앞에 닿아 있음 | 갈래 1 = 그 자리에서 성공 처리(지움 + `FULL-ALERT … (도착 확인 · rc None)`) · tries 0 / 갈래 2 = 1바퀴 tries 1 + `mark` · 2바퀴 다시 시도하기 앞 도착 확인 → 성공 처리 · mbox send 호출 수 = 1(다시 보내기 0) | — |
+| ㊷다 = F3 | 동결 F3: report 구획 머리에서 남은 몫 5초(문이 쓰기 7초를 시작 0) · `alert_out` 2줄 | mbox send 호출 0 · 두 줄 tries 0 그대로 · 순서 그대로 · `mark` 빈 값 · 다음 바퀴(남은 몫 10초)에 첫 줄부터 시도 | — |
+| ㊷라 = F4 | 동결 F4: ㊷가의 1바퀴 뒤(목록 [B, A] · A tries 1 · `mark` 있음) state.json 을 저장하고 keeper 객체를 새로 만듦 | 새 keeper 의 첫 바퀴 = B 부터 시도 · A tries 1 · `mark` 그대로(0 으로 돌아가지 않는다 · 순서가 [A, B] 로 돌아가지 않는다) | — |
+| ㊷마 = F5 | 동결 F5: `alert_out` = [A, B, C] · 받는 곳 셋 모두 매번 7초 시간 초과 · 도착 확인 0 | 바퀴마다 시도 1개 · wall ≤ 60 · 9바퀴 안에 세 줄 모두 tries 3 → `판정 불가 꽉 참 알림 3회 실패` 3줄 + jsonl 3줄 · FULL-ALERT 0줄 · 그 뒤 `alert_out` 빈 목록 · mbox send 호출 합 = 9 | — |
+
+동결 반례와 칸의 대응(r4 · FROZEN.md): F1~F5 = ㊷가~마(새 5칸) · F6(DA HOLD 1/3 BYZ 311663 반례) = ㊳가~너 가운데 r2 가 고친 칸 그대로 유지 · F7(DA HOLD 2/3 BYZ 311745 반례) = ㊴가(wall 62초 · 문 0회) 유지 — 기대의 끝 구절 1곳만 ①안에 맞춰 고쳤다(wall ≤ 60 · 바퀴 안 full_alert 바깥 호출 0 은 그대로).
 
 범위 밖 입력(하드 룰 18·19·20): 줄바꿈·탭 든 파일 이름 · 권한 바꾼 상태 파일 · 주입한 git·tmux 실패의 꼴 맞추기 · 쓰기 호출이 자기 상한 7초를 넘겨 죽지 않는 경우(subprocess 상한 밖).
 
-## 구현 범위 (나노 1 · 팩 base origin/main 최신 · DA 설계 승인 뒤)
-1. 커밋 1 [test] — 새 시험 feature-pack/fable-team/ft2/tests/test_keeper_round_60s.py(㊳가~너 · ㊴가~아 · 변이 M72~M84) · 기준판 FAIL 원문을 PR 본문에 붙인다 · 사례 1개 70초 안 · ㊳파는 순서마다 사례를 나눈다
-2. 커밋 2 [fix] — R1~R13 = feature-pack/fable-team/ft2/adapters/pi/keeper.py(`call` 호출 문 · 판독 목록 · 예산 시계 · 끊김 예외 · cursor · `_round`·`team_round` 순환 · `git` 상한 · ROUND 줄 · `fa` 에 자기 손 · «keeper 바퀴» 관측 자리) + feature-pack/fable-team/ft2/adapters/pi/keeper_report.py(R8 · report 구획 · `rep_cursor` · `alert_out` 보내기) + feature-pack/fable-team/ft2/adapters/pi/full_alert.py(«보내는 손» 인자 1칸 · 기본값 = 지금 동작) · 판정 규칙 손 0 · 다른 keeper_*.py 손 0 · adapters/slack 손 0
+## 구현 범위 (나노 1 · 팩 base origin/main 최신 · r4 = 오빠 결정 뒤 · 설계 DA 0 · 구현 DA 는 동결 반례로만)
+1. 커밋 1 [test] — 새 시험 feature-pack/fable-team/ft2/tests/test_keeper_round_60s.py(㊳가~너 · ㊴가~아 · ㊷가~마 · 변이 M72~M84 · M94~M97) · 기준판 FAIL 원문을 PR 본문에 붙인다 · 사례 1개 70초 안 · ㊳파는 순서마다 사례를 나눈다
+2. 커밋 2 [fix] — R1~R13 = feature-pack/fable-team/ft2/adapters/pi/keeper.py(`call` 호출 문 · 판독 목록 · 예산 시계 · 끊김 예외 · cursor · `_round`·`team_round` 순환 · `git` 상한 · ROUND 줄 · `fa` 에 자기 손 · «keeper 바퀴» 관측 자리) + feature-pack/fable-team/ft2/adapters/pi/keeper_report.py(R8 · report 구획 · `rep_cursor` · `alert_out` 보내기 = 수신자 순환·tries·`mark`) + feature-pack/fable-team/ft2/adapters/pi/full_alert.py(«보내는 손» 인자 1칸 · 기본값 = 지금 동작) · 판정 규칙 손 0 · 다른 keeper_*.py 손 0 · adapters/slack 손 0
 3. 커밋 3 [docs] — CONTRACT.md «바퀴 예산» 절(구획 숫자 · 호출 문 · cursor · 원자 구간 표) · CASES.md ㊳ 행
 4. 회귀 rc0(파일별 · 각 70초 상한): test_full_critical_alert_r1886 · test_pi_keeper_slow_call_r1992 · test_pi_keeper_b3_one_list_r1898 · test_pi_keeper_b2_split_cache_r1969 · test_pi_keeper_r1817 · test_keeper_notify_recipient · test_pi_keeper_next_card_r1871 · test_settle_one_path_r2055 · test_penalty_team_no_new_pick · test_new_card_hold · test_pi_keeper_fetch_fresh_r1963
 5. 실행 = `python3.11 -m pytest` · 착지 = PR 1개(팀장 집행)
 
-변이: M72 판독 호출 상한을 남은 몫으로 줄이지 않음 → ㊳가·㊳타 / M73 쓰기 문(남은 몫 7초) 빼기 → ㊳아 / M74 cursor 를 팀만 기억 → ㊳나·㊳사 / M75 2회 끊김 건너뜀 빼기 → ㊳하 / M76 git 상한 25 그대로 → ㊳바 / M77 send 미룸 빼기 → ㊳마 / M78 끊김을 Exception 으로 → ㊳거 / M79 report 를 구획 밖에서 → ㊳너 / M80 keeper 의 `fa` 를 옛 `_send` 로 되돌림 → ㊴가·㊴바 / M81 `alert_out` 을 결과와 무관하게 지움 → ㊴나·㊴다 / M82 쓰기 몫을 7초 고정으로 → ㊴라 / M83 판독 목록 밖을 판독으로 → ㊴마 / M84 «keeper 바퀴» 관측을 ROUND-CAP 자리에 그대로 → ㊴사
+변이: M72 판독 호출 상한을 남은 몫으로 줄이지 않음 → ㊳가·㊳타 / M73 쓰기 문(남은 몫 7초) 빼기 → ㊳아 / M74 cursor 를 팀만 기억 → ㊳나·㊳사 / M75 2회 끊김 건너뜀 빼기 → ㊳하 / M76 git 상한 25 그대로 → ㊳바 / M77 send 미룸 빼기 → ㊳마 / M78 끊김을 Exception 으로 → ㊳거 / M79 report 를 구획 밖에서 → ㊳너 / M80 keeper 의 `fa` 를 옛 `_send` 로 되돌림 → ㊴가·㊴바 / M81 `alert_out` 을 결과와 무관하게 지움 → ㊴나·㊴다 / M82 쓰기 몫을 7초 고정으로 → ㊴라 / M83 판독 목록 밖을 판독으로 → ㊴마 / M84 «keeper 바퀴» 관측을 ROUND-CAP 자리에 그대로 → ㊴사 / M94(r4) 미완료 줄을 목록 뒤로 옮기지 않음 → ㊷가·㊷라 / M95 시간 초과를 tries 에 세지 않음 → ㊷가·㊷마 / M96 시작 0 인 예산 미룸에 tries +1 → ㊷다 / M97 `mark` 도착 확인 없이 다시 보냄 → ㊷나
 
 ## 범위 밖
 - mbox.sh send 가 7초에 끊기는 까닭(우편함 잠금·가드) — 다른 도구 · 새 카드 감
@@ -172,7 +189,7 @@ DA 반례(fill 1항목 안 7초 호출 10개 = 70초)에 댄 답: 그 10개는 �
 3. [ ] 나노: 변이별 지정 반례 FAIL(설계가 정한 M72~ 전부)
 4. [ ] 나노: 회귀 rc0(파일별 초)
 5. [ ] 팀장: PR 착지 sha · 설치 판
-6. [ ] arch: 설치 뒤 읽기 실측 = BYZ keeper 로그 ROUND 줄 200줄 이상에서 wall 60초 넘음 0 · `other=` 의 p50·가장 긴 값(5초 넘으면 [ ] = 가정 A1 깨짐) · FULL-ALERT 줄 수와 `alert_out` 에 2바퀴 넘게 남은 줄 0 · 단계별 초 표(p50 · p90 · 가장 긴 값)를 기준값 표와 나란히 · ROUND-CAP·판정 불가(git 7초)·NOTIFY-DEFER 줄 수 · 60초를 넘은 줄이 1개라도 있으면 원문과 함께 [ ] 로 둔다(빼고 통과 0)
+6. [ ] arch: 설치 뒤 읽기 실측 = BYZ keeper 로그 ROUND 줄 200줄 이상에서 wall 60초 넘음 0 · `other=` 의 p50·가장 긴 값(5초 넘으면 [ ] = 가정 A1 깨짐) · FULL-ALERT 줄 수와 `alert_out` 에 2바퀴 넘게 남은 줄 0 · 단계별 초 표(p50 · p90 · 가장 긴 값)를 기준값 표와 나란히 · ROUND-CAP·판정 불가(git 7초)·NOTIFY-DEFER 줄 수 · 60초를 넘은 줄이 1개라도 있으면 원문과 함께 [ ] 로 둔다(빼고 통과 0) · ★r4 성립 여부: «`alert_out` 에 2바퀴 넘게 남은 줄 0» 은 받는 곳이 2곳인 꼴(F1)과 실패 없는 날에는 ①안으로 그대로 성립한다(끊긴 줄이 뒤로 가서 다른 받는 곳이 다음 바퀴에 나간다) · 끊기는 받는 곳이 있으면 그 줄은 실제 시도 3회까지 남고, 받는 곳이 n곳이면 tries 0 줄의 첫 시도가 n바퀴까지 밀릴 수 있다 → 실측은 «넣은 뒤 첫 시도까지 그때 목록의 받는 곳 수 바퀴 안» + «tries ≥ 1 줄은 `판정 불가 꽉 참 알림 3회 실패` 줄로 끝남(줄 수·원문)» 으로 읽는다(2바퀴 숫자를 늘린 것이 아니라 끊긴 줄을 따로 센다)★
 7. [ ] arch: 굶음 0 = 같은 구간의 ROUND `cut=` 칸에서 같은 자리가 3바퀴 연속 나온 적 0 · `예산 2회 넘음` 줄 수와 그 자리 원문 · `items=` 의 p50(㊳사·㊳하의 실 runtime 판)
 8. [ ] 나노: ㊳파 끊김 수렴 표 = 순서 5개 × 끊은 자리 수 · 수렴 못 한 순서 이름(없으면 «없음») · 원자 구간으로 선언한 것의 쓰기 호출 수
 9. [ ] 나노: ㊴바 AST 셈 원문(기다리는 바깥 호출 1줄 · Popen 2줄) + 문 안 판독 목록 원문
@@ -194,6 +211,7 @@ DA 반례(fill 1항목 안 7초 호출 10개 = 70초)에 댄 답: 그 10개는 �
 | R2 쓰기 몫 = 자기 상한 · 판독 목록 | ㊴라 · ㊴마 · M82 · M83 |
 | R4 `rep_cursor` | ㊳너 |
 | R12 꽉 참 알림 | ㊴가 · ㊴나 · ㊴다 · ㊴사 · M80 · M81 · M84 |
+| R12 보내기 = 수신자 순환(r4 · F1~F5) | ㊷가 · ㊷나 · ㊷다 · ㊷라 · ㊷마 · M94 · M95 · M96 · M97 |
 | R13 문 밖 바깥 호출 0 | ㊴바 · M80 |
 
 ## 상태
@@ -201,3 +219,4 @@ DA 반례(fill 1항목 안 7초 호출 10개 = 70초)에 댄 답: 그 10개는 �
 - 2026-11-16 05:06 · 대기 — aifp-ft-arch-pi#20 초안(팀장 aifp 5704 · 실측 = BYZ keeper 로그 ROUND 210줄 · 구현 0) · 다음 = 팀장 PR → DA 설계 → Issue → 나노 1석
 - 2026-11-16 05:22 · aifp-ft-arch-pi#20 r2(팀장 aifp 5726 · DA HOLD-DESIGN 1/3 BYZ 311663 · 사본 .fable-team/state/team-main/aifp-ft/DA-round-design-hold-311663/verdict.md) — 고친 것: 호출마다 남은 몫을 보는 호출 문(R2) · 구획 숫자 45·10·5(R1) · 팀·work·칸 cursor(R4) · 2회 끊김 건너뜀(R5) · 끊김 수렴과 원자 구간(R9) · «열기를 기다린다» 전제 정정(설계 확정 2) · «모든 팀 3바퀴» 를 2N 바퀴 순환으로(㊳사) · 반례 11 → 16 · 오빠 결정 0
 - 2026-11-16 05:38 · aifp-ft-arch-pi#21 r3(팀장 aifp 5743 · DA HOLD-DESIGN 2/3 BYZ 311745 · 사본 .fable-team/state/team-main/aifp-ft/DA-round-design-hold2-311745/verdict.md) — 고친 것: 바깥 호출 전수 19줄(우회 3줄 · 기다리는 것 1줄 = full_alert) · 꽉 참 알림을 넣어 두었다가 report 구획에서 문으로(R12) · 문 밖 바깥 호출 0 을 AST 시험으로(R13) · 쓰기 = 판독 목록 밖 전부 · 몫 = 자기 상한(긴 쓰기 25초 3줄) · report 의 `rep_cursor` · 프로세스 안 초는 가정 A1 로 내림 · 시간 입력을 복합 호출로 정의 · 반례 16 → 24 · 변이 8 → 13 · 코드 2 → 3파일 · 오빠 결정 0
+- 2026-11-16 07:36 · aifp-ft-arch-pi#22 r4(팀장 aifp 5852 · DA HOLD-DESIGN 3/3 BYZ 311870 뒤 오빠 결정 «1» = 수신자 순환 · 동결 .fable-team/state/team-main/aifp-ft/keeper-round-60s-decision/FROZEN.md) — 고친 것: R12 보내기 줄(미완료 줄은 그 받는 곳째 목록 뒤 · 시간 초과도 tries · E7 도착 = 성공 · `mark` 로 다시 보내기 앞 도착 확인 · 예산 미룸만 0회 · 3회 뒤 판정 불가) · 반례 표에 F1~F5 = ㊷가~마 · ㊴가 기대 끝 구절 1곳 · 변이 M94~M97 · 완료 조건 6 성립 여부 1줄 · 기준값에 89/60초(BYZ 312444) 1줄 · 설계 확정 5 · 반례 24 → 29 · 변이 13 → 17 · 그 밖 계약(R1~R11 · R13) 손 0 · 새 설계 범위 0
