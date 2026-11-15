@@ -151,8 +151,14 @@ def cmd_settle(ctx, a):
         key = card_key(f"{doc.get('_cards') or ''}/진행/{stem}.md")
         if not key:
             raise Reject(f"명부 _cards 칸으로 카드 자리를 못 정함({stem})")
-        ctx.card(key[0], key[1], stem)   # 카드 ref 에 실재해야 한다(없음 = 판정 불가)
-        cards.append(str(ctx.root / key[1] / "진행" / f"{stem}.md"))
+        try:
+            path = ctx.card(key[0], key[1], stem)[0]   # r2036 A1: 좌석 팀 뿌리 먼저(지금 그대로)
+        except Unjudged as u:   # 없음일 때만 카드 루트 표 전 행 · A2 정확히 1개 = 실제 경로 · 2개 이상 = 모호 REJECT · 0개 = 판정 불가 그대로
+            hits = ctx.root_hits(stem) if str(u).startswith("카드 ref 에 카드 없음") else None
+            if not hits or len(hits) > 1:
+                raise Reject(f"카드 모호 — {' '.join(sorted(hits.values()))}") if hits else u
+            path = next(iter(hits.values()))
+        cards.append(str(ctx.root / path))
     line = {"pr": a.pr, "settle": "card" if cards else "no-card", "cards": cards, "why": (a.no_card or "").strip(), "by": a.seat, "ts": time.strftime("%Y-%m-%dT%H:%M:%S")}
     with open(ctx.state / "land-record-turn.jsonl", "a", encoding="utf-8") as fh:
         fh.write(json.dumps(line, ensure_ascii=False) + "\n")
