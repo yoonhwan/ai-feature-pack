@@ -86,9 +86,17 @@ mkpr 204 nano/r9104-d 'r9104'; land 204 FT_FETCH_TIMEOUT_SEC=2 FT_PUSH_FIXED_S=1
 inv 204; ck "⑤-④ 착지 rc0 · LANDED · PR 닫기 · 원격 main = Q" $?
 rm -f "$CB/hooks/pre-receive"; S5=$SECONDS
 
+echo "### R1(DA HOLD 1) 카드 ref fetch 3초 · fetch 상한 2초 → 판정 불가 1줄 · 쓰기 0"
+card_put r9105-e $'# 카드 R1\n\n## 상태\n- 진행\n'
+mkdir -p "$T/slowgit"; printf '#!/usr/bin/env bash\ncase " $* " in *" --no-write-fetch-head "*) sleep 3;; esac\nexec %q "$@"\n' "$(command -v git)" > "$T/slowgit/git"; chmod +x "$T/slowgit/git"
+mkpr 205 nano/r9105-e 'r9105'; land 205 FT_FETCH_TIMEOUT_SEC=2 PATH="$T/slowgit:$PATH"
+[ "$(grep -cE '^판정 불가 — 카드 착지 줄 r9105-e 카드 ref fetch .* rc=-$' <<<"$out")" = 1 ] && ! grep -q '^DONE 카드 착지 줄' <<<"$out" && ! grep -q '^- 착지:' <<<"$(card_get r9105-e)"; ck "R1 fetch 2초 상한 초과 = 판정 불가 1줄 · DONE 0 · 카드 쓰기 0" $?
+inv 205; ck "⑤-R1 착지 rc0 · LANDED · PR 닫기 · 원격 main = Q" $?
+S6=$SECONDS
+
 echo "### ⑥ 회귀 · 짝 사본"
 cmp -s "$BIN/ft-merge-lib.sh" "$KIT/ft-merge-lib.sh" && cmp -s "$BIN/ft-merge-land.sh" "$KIT/ft-merge-land.sh"; ck "bin·kit cmp0" $?
 bash -n "$BIN/ft-merge-lib.sh"; ck "ft-merge-lib.sh bash -n" $?
 
-echo "단계별 초: ① $((S2 - S1)) · ② $((S3 - S2)) · ③ $((S4 - S3)) · ④ $((S5 - S4)) · 합계 $((SECONDS - T0))"
+echo "단계별 초: ① $((S2 - S1)) · ② $((S3 - S2)) · ③ $((S4 - S3)) · ④ $((S5 - S4)) · R1 $((S6 - S5)) · 합계 $((SECONDS - T0))"
 [ "$fail" = 0 ] && echo "ALL PASS" || { echo "FAILED $fail"; exit 1; }
