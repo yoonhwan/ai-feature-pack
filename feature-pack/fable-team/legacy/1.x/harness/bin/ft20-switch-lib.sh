@@ -4,13 +4,28 @@
 #   표식 없음 = 지금 동작 그대로(rc0) · 못 읽는 표식(깨진 JSON·권한) = «판정 불가» rc3(쓰기 0 · 하드 룰 20).
 #   입구는 «호출 1줄»만 쓴다 — 팀 판정은 ft20_guard_* 함수가 맡는다(arch #3922 ③).
 FT20_SWITCH_REL=".fable-team/state/ft20-switch"
-ft20_root_of() {   # <경로> → .fable-team 이 있는 리포 루트 · FT_FT20_ROOT 가 이긴다(시험용 임시 루트)
+# r1909 — 순서 = FT_FT20_ROOT(시험 · 그 값만) > FT_ROOT > 경로의 git-common-dir 상위 · 후보 2개(실경로 다름)면 두 루트 표식으로 고른다
+#   성공 = stdout 루트 1줄 rc0 · 판정 불가 = stdout 0 · stderr «REJECT 데이터 루트 판정 불가 — <사유>» 1줄 rc3(하드 룰 20)
+_ft20_root_reject() { echo "REJECT 데이터 루트 판정 불가 — $1 · 1.x 쓰기 0" >&2; return 3; }
+_ft20_marker_names() { local f; for f in "$(ft20_switch_dir "$1")"/*.json; do [ -f "$f" ] && basename -- "$f"; done | LC_ALL=C sort; }
+ft20_root_of() {   # <경로> → 데이터 루트
   if [ -n "${FT_FT20_ROOT:-}" ]; then printf '%s' "$FT_FT20_ROOT"; return 0; fi
-  local p="${1:-.}" r
+  local p="${1:-.}" r="" f="${FT_ROOT:-}" nf ng x
   [ -f "$p" ] && p="$(dirname -- "$p")"   # r1767 A1 — 카드 «파일» 경로면 그 폴더
   while [ ! -e "$p" ]; do p="$(dirname -- "$p")"; done   # r1767 A1 — 아직 없는 경로(쌍둥이 경로)는 존재하는 가장 가까운 상위
-  r="$(git -C "$p" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || return 1
-  printf '%s' "${r%/.git}"
+  r="$(git -C "$p" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" && r="${r%/.git}" || r=""
+  [ -z "$f" ] || [ -d "$f" ] || { _ft20_root_reject "FT_ROOT 폴더 아님: $f"; return 3; }
+  [ -n "$f" ] || [ -n "$r" ] || { _ft20_root_reject "git 루트 못 풂 ∧ FT_ROOT 없음: $p"; return 3; }
+  if [ -z "$f" ] || { [ -n "$r" ] && [ "$(cd -- "$f" && pwd -P)" = "$(cd -- "$r" && pwd -P)" ]; }; then printf '%s' "$r"; return 0; fi   # 후보 1개(같은 실경로 = 옛 출력 그대로)
+  [ -n "$r" ] || { printf '%s' "$f"; return 0; }
+  nf="$(_ft20_marker_names "$f")"; ng="$(_ft20_marker_names "$r")"
+  [ -n "$ng" ] || { printf '%s' "$f"; return 0; }   # 둘 다 0개 · FT_ROOT 쪽만 있음 = FT_ROOT
+  [ -n "$nf" ] || { printf '%s' "$r"; return 0; }   # git 루트 쪽만 있음 = 그쪽
+  [ "$nf" = "$ng" ] || { _ft20_root_reject "두 루트 표식 다름(FT_ROOT=$f · git=$r)"; return 3; }
+  while IFS= read -r x; do
+    cmp -s "$(ft20_switch_dir "$f")/$x" "$(ft20_switch_dir "$r")/$x" || { _ft20_root_reject "두 루트 표식 내용 다름($x · FT_ROOT=$f · git=$r)"; return 3; }
+  done <<<"$nf"
+  printf '%s' "$f"
 }
 ft20_switch_dir() { printf '%s/%s' "${1%/}" "$FT20_SWITCH_REL"; }
 ft20_switch_marker() { printf '%s/%s.json' "$(ft20_switch_dir "$1")" "$2"; }

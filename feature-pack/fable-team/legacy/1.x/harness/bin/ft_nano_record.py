@@ -112,7 +112,7 @@ class Ctx:
             d = json.loads((self.state / "land-record-notified.json").read_text(encoding="utf-8"))
         except (OSError, ValueError):
             d = {}
-        return {k: d.get(k) if isinstance(d.get(k), dict) else {} for k in ("sent", "close", "left", "refused", "rejrec", "done", "tips")}
+        return {k: d.get(k) if isinstance(d.get(k), dict) else {} for k in ("sent", "close", "left", "refused", "rejrec", "done", "tips", "install")}
 
     def ledger(self):   # 장부 → 착지 항목들(같은 pr 은 뒤 줄이 이긴다 · settle 덧줄 반영)
         ents = {}

@@ -17,6 +17,7 @@ BAN = "main·ops/main-base push·병합·착지·설치·심링크·가지 삭�
 LAND = "· 산출 = 가지 nano/<work> push + master 보고까지 · " + BAN   # r1900 첫 본문 끝 고정 1구 · r1930: 팀 DA 좌석을 못 읽을 때만 쓰는 옛 길
 DIRECT = ("산출 = 가지 nano/<work> push → PR 열기(금지 목록 밖) → 팀 DA %s 에 판정 요청(5칸 = 대상 동결·판정 기준·상한·종료 조건·다음 수 · 근거 줄 = 세트 sha·PR 번호·"
           "카드 경로·시험 줄 · PR 번호 없으면 요청 아님) · 카드 상태의 HOLD 줄이 3 이면 DA 요청 0 · 팀 master 에 1줄 · 막힘 = 팀 master 에 mbox · ")   # r1930 산출은 팀장을 거치지 않는다
+RECV = "쪽지 = bash %s/.fable-team/comm/mbox.sh recv %s · "   # r1933 2.0 나노 받는 길(첫 본문 1구)
 CARDMAP = os.path.join(".fable-team", "teams", "%s", "runtime", "cards.tsv")   # r2030 짝 표(keeper_land.CARDMAP 과 같은 자리 · 팀장 append · 여기는 읽기만)
 WAIT = re.compile(r"^(design/.+/indices)/대기/[^/]+\.md$")   # r2030 짝 표 경로 중 대기 단계(keeper_land.MAPPED 의 대기 갈래)
 
@@ -90,6 +91,7 @@ def first_body(env, row, tail=None):
     mark = "[발주] ft2 %s %s@%s" % (env["FT2_TEAM"], env["FT2_WORK"], env["FT2_ATTEMPT"])
     da = da_seat(env.get("FT2_ROOT"), env["FT2_TEAM"])   # r1930: 못 읽으면 옛 길(팀 master) + «DA 좌석 못 읽음»
     tail = tail + BAN if tail else "ft2_claim → ft2_start 부터 · 모듈 못 읽음 · " + (DIRECT % da + BAN if da else "DA 좌석 못 읽음 · 산출·막힘은 팀 master 에 mbox " + LAND)
+    tail = RECV % (env.get("FT2_ROOT"), env["FT2_HOLDER"]) + tail   # r1933 나노가 큐를 읽는 법 = recv 1줄(doorbell = 트리거만)
     hit = mapped_card(env.get("FT2_ROOT"), env["FT2_TEAM"], env["FT2_WORK"])   # r2030 짝 표 대기 카드 = 그 실제 자리 · 없음 = 지금 경로
     card = "%s %s:%s" % hit if hit else "%s %s:%s/대기/%s.md" % (*row, env["FT2_WORK"])
     return mark, "%s 좌석 %s — 카드 %s 를 통째로 읽고 그대로 수행 · root = %s · work = %s · gen = ft2_claim 이 돌려준 값 · " % (

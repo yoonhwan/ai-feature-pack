@@ -1,4 +1,4 @@
-# ft2 keeper settle 계약 사례표 (r2055 · 보정 3)
+# ft2 keeper settle 계약 사례표 (r2055 · 보정 3 · 카드 ft2-done-seat-short-idle)
 
 `CONTRACT.md` 의 약속마다 **입력 → 기대 결과**와 그것을 묶은 시험을 적는다.
 사례 문장은 설계 정본 §7·§12·§13 과 시험 파일의 사례 주석에서 옮겼다. 새 사례는 없다.
@@ -13,8 +13,57 @@
 | `test_keeper_notify_recipient.py` | ㉚가~거 | M17 · M18 · M19 · M23 · M24 · M25 · M32 · M33 |
 | `test_launch_failed_end.py` | ㉘가~카 · ㉛가~라 | M11 · M12 · M13 · M16 · M30 · M31 |
 | `test_prereq_unreadable_once.py` | ㉟가~하 · ㉟거 | M39 · M40 · M41 · M56 · M57 · M58 |
+| `test_prereq_alarm_hold.py` | ㊵가~버(18) | — |
+| `test_prereq_alarm_hold_mutants.py` | — | M85 · M86 · M87 · M88 · M89 · M90 · M91 |
+| `test_prereq_alarm_hold_compat.py` | ㊵더(앞 카드 13칸) | — |
+| `test_prereq_alarm_hold_compat_b.py` | ㊵더(앞 카드 무거운 2칸) | — |
+| `test_done_seat_short_idle.py` | ㉙가~도(27) | — (변이는 아래 두 파일) |
+| `test_done_seat_short_idle_mutants.py` | — | M20 · M21 · M22 · M44 · M45 |
+| `test_done_seat_short_idle_mutants_b.py` | — | M51~M55 |
 
-돌리는 법: `python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_core_park_capacity_r2055.py -q`(나머지 2개도 같은 꼴 · 시험 1개 70초 상한).
+돌리는 법: `python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_core_park_capacity_r2055.py -q`(나머지도 같은 꼴 · 시험 1개 70초 상한).
+
+## 9.1 선행 줄 쪽지 묵음·전체 목록 (`test_prereq_alarm_hold.py` · 카드 ft2-prereq-alarm-hold)
+
+계약 P0~P8(`CONTRACT.md` §12.1) · 설계 = 카드 «계약»·«반례 표»(DA HOLD-DESIGN 1/3 반영 r2).
+대역 = 9절과 같은 r1871 세계 + 주입 시계 · sleep 0 · 실 우편함·runtime 쓰기 0.
+「실제 fill 길」·「실제 닫기 뒤 고르기 길」 칸은 `keeper_next.fill` · `keeper_next.close` 를 돌리고 `prereq_tell` 호출 수를 센다. `prereq_tell` 을 직접 부르는 칸은 ㊵라 · ㊵하 · ㊵너 셋뿐이다.
+
+| 사례 | 입력 | 기대 | 계약 |
+|---|---|---|---|
+| ㊵가 | 실제 fill 길 · `NEW_CARD_HOLD.json` 있음 · 선행불명 2장 · 두 바퀴 | 쪽지 0통 · `prereq_tell` 호출 0 · `prereq_now`·`prereq_told`·목록 파일 없음 · `NEW-CARD-HOLD` 줄 1줄(그대로) | P0 · H3 |
+| ㊵나 | 실제 fill 길 · 팀 `PAUSED` 있음 · 선행불명 2장 | 쪽지 0통 · 기억·파일 손 0 | P0 |
+| ㊵다 | `ALL_STOP` 중 · 닫기 뒤 고르기 길로 `choose` 가 불림(세션 없음) · 선행불명 2장 | 쪽지 0통 · `prereq_told` 없음 | P1 |
+| ㊵라 | 함수 단위 방어: 세 표식을 하나씩 켬(3칸) · `prereq_tell` 직접 | 칸마다 쪽지 0통 · `prereq_told` 그대로 · `prereq_now` 와 목록 파일은 고쳐짐 | P1 |
+| ㊵마 | 실제 fill 길 · ㊵가 뒤 표식 파일을 지움 | 다음 fill 바퀴 1통 · 그 다음 바퀴 0통 | P2 |
+| ㊵바 | 실제 fill 길: 열린 바퀴에 묶음 X 전함 → `NEW_CARD_HOLD` 켬 → 카드를 Y 로 바꿈 → 보류 2바퀴 → 표식 지움 → fill 1회 | 보류 바퀴 = 쪽지 0통 · 호출 0 · `prereq_now`·파일 = X 그대로 / 풀린 뒤 fill = 쪽지 1통 · `prereq_told` = Y 지문 · 파일 = Y | P0 · P2 · P4 |
+| ㊵사 | ㊵바와 같되 보류 중 카드를 모두 고침 | 보류 바퀴 = X 파일 남음 / 풀린 뒤 fill = 쪽지 0통 · `prereq_told` 비움 · 목록 파일 지움 | P2 · P4 |
+| ㊵러 | 실제 닫기 뒤 고르기 길 · `NEW_CARD_HOLD` 있음 · 선행불명 2장 | 쪽지 0통 · 호출 0 · 닫기 영수는 그대로 | P0 |
+| ㊵아 | 열림 · 선행불명 5장 | 1통 · 수 5 · 이름 3개 · «전체 목록 <경로>» 1개 · 파일 5줄(이름순 · 값 · 까닭 · 첫 줄 `# 관측 … · 5장`) | P3 · P4 |
+| ㊵자 | 열림 · 선행불명 3장 | 본문은 지금 글 그대로(경로 칸 0) · 파일 3줄 | P3 · P4 · P8 |
+| ㊵차 | `_master` 빈칸 · harness master 있음 · 선행불명 4장 · 두 바퀴 | 쪽지 0통 · `undelivered` 에 그 글 0 · `PREREQ-WAIT` 1줄(둘째 바퀴 0줄) · `prereq_told` 없음 | P5 |
+| ㊵카 | ㊵차 뒤 `_master` 칸을 채움 | 그 바퀴 팀장에게 1통 · `prereq_wait` 지움 · 다음 바퀴 0통 | P2 · P5 |
+| ㊵타 | ㊵차 뒤 카드 1장 더(묶음 바뀜) | `PREREQ-WAIT` 1줄 다시(5장) · 쪽지 0통 | P5 |
+| ㊵파 | `_master` 빈칸 · `_desk` 있음 | ㊵차와 같음(대신 받는 곳 = 보류) | P5 |
+| ㊵하 | 함수 단위 방어: `NEW_CARD_HOLD` 깨짐(빈 파일) · 선행불명 2장 · `prereq_tell` 직접 | 쪽지 0통 | P1 |
+| ㊵거 | 실제 fill 길 · ㊵바의 보류 중 keeper 를 다시 만듦(상태 파일 그대로) → 표식 지움 → fill | Y 1통(재기동이 0통이나 2통을 만들지 않는다) | P2 · I9 |
+| ㊵너 | 함수 단위 방어: 팀장 없음 + `NEW_CARD_HOLD` · `prereq_tell` 직접 | 쪽지 0통 · `PREREQ-WAIT` 0줄 | P6 |
+| ㊵버 | 판 올림 승계(DA 312085 반례): 열린 바퀴에 묶음 X 관측 → 목록 파일만 지움(지문은 state.json 에 그대로) → 두 바퀴 | 첫 바퀴 파일 6줄 · 다음 바퀴에 파일 **1회 다시 만듦**(없는 경로를 가리키지 않는다) · `PREREQ-WAIT`·쪽지 0줄 더 · 그 뒤 파일 있고 지문 그대로 = 첫 줄 «관측 시각» 부터 손 0 | P4 · P4-a |
+| ㊵더 | 세 표식 0 · 팀장 있음 | 앞 카드 사례 ㉟가~거 전부 통과(`test_prereq_alarm_hold_compat.py` + `_compat_b.py`) | P7 |
+
+| 변이 | 바꾸는 곳 | 잡는 사례 |
+|---|---|---|
+| M85 | `prereq_mute` 에서 전팀 정지(`k.halt`) 조건을 뺌 | ㊵라 · ㊵다 |
+| M86 | 묵음 바퀴에 `prereq_told` 를 씀 | ㊵라 |
+| M87 | 본문 `전체 목록 <경로>` 칸을 뺌 | ㊵아 |
+| M88 | 팀장 없음에도 `k.notify` 를 부름(대신 받는 곳 = 묶음) | ㊵차 · ㊵파 |
+| M89 | `PREREQ-WAIT` 를 묶음이 바뀌지 않아도 바퀴마다 찍음 | ㊵차 |
+| M90 | 불린 바퀴에 묶음이 비어도 목록 파일을 지우지 않음 | ㊵사 |
+| M91 | 풀린 뒤 첫 호출 바퀴에 목록 파일을 고치지 않음(X 그대로) | ㊵바 |
+
+- 기준판(팩 origin/main c4b78196)에서 FAIL 이던 사례 = ㊵다 ㊵라 ㊵마 ㊵바 ㊵사 ㊵아 ㊵자 ㊵차 ㊵카 ㊵타 ㊵파 ㊵하 ㊵거 ㊵버(14) · 지키던 사례 = ㊵가 ㊵나 ㊵러 ㊵너(4).
+- ㊵버는 앞 커밋(cbf0a5a7 = DA HOLD-IMPL 1회차 판)에서 FAIL 하고 이 고침 커밋에서 rc0 이 된다.
+- 파일을 넷으로 나눈 이유 = 한 파일 70초 상한(DA 312085). ㊵더 하나가 50초대라 앞 카드 사례를 두 파일로 나눴다.
 
 ## 1. settle 판정 사례 (`test_settle_one_path_r2055.py`)
 
@@ -243,3 +292,54 @@
 | M58 | 로그 기억에서 까닭을 뺌(선행 값만 비교) | ㉟타 |
 
 - 기준판(팩 origin/main 2b5037d1)에서 FAIL 이던 사례 = ㉟가 ㉟나 ㉟다 ㉟라 ㉟마 ㉟바 ㉟사 ㉟아 ㉟차 ㉟카 ㉟타 ㉟파 ㉟하 ㉟거(14) · 지키던 사례 = ㉟자(1 · 판정 그대로).
+
+## 10. 착지한 좌석의 짧은 문턱 · 빼는 미읽음 사례 (`test_done_seat_short_idle.py` · 카드 ft2-done-seat-short-idle)
+
+계약 A1~A9(`CONTRACT.md` §2) · 설계 `design/DESIGN-pA-done-idle-threshold-20261116.md` r4(DA 대행 APPROVE · BYZ 310212) · DA HOLD-IMPL 반례 1(311515) 반영.
+파일 셋 = 사례 `test_done_seat_short_idle.py`(27) · 변이 `test_done_seat_short_idle_mutants.py`(M20~M45) · `test_done_seat_short_idle_mutants_b.py`(M51~M55) — 파일마다 70초 안.
+가짜 mbox = 머리줄 + `--rows` JSON 줄(사례가 정함) · 실 tmux·실 우편함·sleep 0 · 사례 1개 70초 안.
+
+| 사례 | 입력 | 기대 | 계약 |
+|---|---|---|---|
+| ㉙가 | 착지 참 · 마지막 줄 stop · 무활동 6분 · CPU idle 2회 · 쪽지 0 | `COMPLETED` 1 · 닫기 1(complete 1) | A1·A2 |
+| ㉙나 | 착지 참 · 마지막 줄 toolUse · 6분 | `WORKING landed-wait` · 닫기 0(턴이 안 닫혔으면 일하는 중) | A1 |
+| ㉙도 | 착지 참 · toolUse · 무활동 16분(질문 창 15분 지남) · CPU idle 2회 · 미읽음 0 | `WORKING landed-wait` · 닫기·complete·[긴급] 0 (질문 창 판정은 park 길만 — DA 반례 311515 R1) | A1 |
+| ㉙다 | 착지 참 · stop · 4분(문턱 안) | `WORKING landed-wait` · 닫기 0 | A1 |
+| ㉙라 | 착지 참 · stop · 6분 · CPU busy | `WORKING cpu-busy` · 닫기 0 | A1 |
+| ㉙마 | 착지 0 · stop · 61분 · 미읽음 `[마감 #N] 할 일 0`(75분 · 보낸 이 `_master`) | `PARKED idle-done` · 꼬리 `미읽음 마감 1통 제외(seq …)` · 닫기 1 · 큐 그대로(mark·recv 0) | A6·A8 |
+| ㉙바 | 착지 0 · stop · 6분 | `WORKING` · 닫기 0 · park 0(짧은 문턱은 착지 좌석만) | A3 |
+| ㉙사 | 착지 0 · stop · 61분 | `PARKED idle-done`(지금 그대로) | A3 |
+| ㉙아 | 착지 참 · 셸만 남은 pane · 6분 | `COMPLETED` 1 · 닫기 1(셸은 CPU 무관 · 문턱만 300초) | A1 |
+| ㉙자 | 미읽음 `[긴급] …`(75분) | `UNKNOWN mail-pending` · 닫기 0 | A6 |
+| ㉙차 | 미읽음 `[발주 #N] …`(75분) | `UNKNOWN mail-pending` | A6 |
+| ㉙카 | 미읽음 1통 2줄(첫 줄 닫힌 꼴 + 둘째 줄 `[발주]`) | `UNKNOWN mail-pending`(줄 전체가 맞아야 한다) | A6① |
+| ㉙타 | 닫힌 꼴 10분 전(문턱 60분 안쪽) | `UNKNOWN mail-pending` | A6③ |
+| ㉙파 | 미읽음 2통 = 닫힌 꼴 + `[발주]` | `UNKNOWN mail-pending`(한 통이라도 막으면 막는다) | A7 |
+| ㉙하 | 머리 없는 글(75분) | `UNKNOWN mail-pending` | A6① |
+| ㉙거 | peek rc ≠ 0 | `UNKNOWN mail-unknown`(지금과 같음) | A5 |
+| ㉙너 | 착지 참 · 6분 · `[마감] 할 일 0 · 착지 4ccf2a6` + `골좌표:` 줄(7분) | `CLOSED-SESSION` 1 · 꼬리 `미읽음 마감 1통 제외` · 닫기 1 · 큐 그대로 | A6·A8 |
+| ㉙더 | 착지 참 · 6분 · 닫힌 꼴 2분 전 | 닫기 0(문턱 안 쪽지) | A6③ |
+| ㉙러 | 미읽음 1통 4줄(첫 줄 닫힌 꼴 · 4번째 줄 `[긴급][발주]`) | `UNKNOWN mail-pending` · 닫기 0 · 쉼 0 | A6① |
+| ㉙머 | DA 입력 2개(자유 글 답장 · «할 일 0» 이 들어 있어도 줄 전체가 안 맞음) | 둘 다 `UNKNOWN mail-pending` | A6① |
+| ㉙버 | 현역 seat#1 · 큐에 to = seat#0(옛 이름) `[발주]` 1통 + 자기 몫 닫힌 꼴 1통 | peek pending 2 = 판독 2통 · `UNKNOWN mail-pending`(옛 이름 쪽지도 읽는다) | A4 |
+| ㉙서 | 줄 수 ≠ pending(2 vs 1) / 옛 mbox(줄 0 · pending 1) | `mail-unknown` / `mail-pending`(지금과 같음) | A5 |
+| ㉙어 · ㉙저 | 자유 글 답장(`[답 #N] 확인했습니다.` / `[답 #N] 할 일 0 은 아니고 …`) | 둘 다 `UNKNOWN mail-pending` | A6① |
+| ㉙고 | 닫힌 꼴의 보낸 이가 다른 나노 / 명부 못 읽음 | 둘 다 `UNKNOWN mail-pending` | A6② |
+| ㉙허 | `[마감 #N] 할 일 0이 아닙니다`(줄 전체가 안 맞음) | `UNKNOWN mail-pending` | A6① |
+| ㉙노 | r2057 실사건 원문(자유 글 답장 · 옛 착지 줄) | `UNKNOWN mail-pending`(치르는 값으로 고정 — 빠지지 않는다) | A6① |
+
+| 변이 | 바꾸는 곳 | 잡는 사례 |
+|---|---|---|
+| M20 | `keeper_close.land_ready` 가 `DONE_IDLE` 을 안 넘김 | ㉙가 · ㉙아 |
+| M21 | 짧은 문턱에서 stop 검사를 뺌 | ㉙나 |
+| M22 | park 길에도 `DONE_IDLE` 을 씀 | ㉙바 |
+| M44 | 미읽음 행을 `to` 글자 일치로 거름 | ㉙버 |
+| M45 | 줄 수 ↔ pending 대조를 뺌 | ㉙서 |
+| M51 | 조건 ① 을 «줄 전체 일치» 대신 «`할 일 0` 이 들어 있음» 으로 | ㉙머 · ㉙허 |
+| M52 | 조건 ① 을 «첫 줄만 봄» 으로 | ㉙러 · ㉙카 |
+| M53 | 조건 ②(보낸 이 = 역할 칸 좌석)를 뺌 | ㉙고 |
+| M54 | 조건 ③(나이)을 뺌 | ㉙타 · ㉙더 |
+| M55 | 미읽음 판독을 지금(1통이라도 막음)으로 되돌림 | ㉙마 · ㉙너 |
+
+- 기준판(팩 origin/main cd0bd9ee)에서 FAIL 이던 사례 = ㉙가 ㉙마 ㉙아 ㉙너 ㉙서(5 · ㉙서는 첫 갈래만) · 지키던 사례 = 나머지 21. ㉙도 = 1차 구현(head e3e91f00)에서 FAIL 이던 사례(UNKNOWN waiting-input + [긴급] · 기대 WORKING landed-wait) · 보정 뒤 rc0.
+- `peek --rows` 사례 = 1.x `tests/scripts/test_mbox_peek_self_sent_r1153.py` r4(줄 수 = pending · 계보 옛 이름 앞 쪽지 포함 · from == me 셈 밖 · `--rows` 없으면 출력 바이트 같음).
