@@ -79,7 +79,7 @@ keeper 는 대기 카드의 «- 선행:» 줄에서 r<번호> 만 읽는다. 번
 - [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
 - 2026-11-16 05:24 · aifp-ft-arch-pi#20 착지 줄 씀(팀장 aifp 5727) · 조건 1~6 [x] · 조건 7 [~] = 설치 뒤 9분 중간값(1시간 뒤 다시) · rebase: 나노 aifp 5709 = 충돌 1파일 CONTRACT.md(앞 착지 §11 보존 · 이 카드 절 §11 → §12) · 동작 변경 0
 - 2026-11-16 06:21 · aifp-ft-arch-pi#22 조건 7 [x](팀장 aifp 5805) · 설치 뒤 1시간 창 38줄 = 카드 38장 · 둘째 바퀴부터 0 · 창 안 2.0.71 설치 같이 적음 · 코드 변경 0
-- 2026-11-16 06:40 · aifp-ft-arch-pi#22 조건 7 문구 정정(팀장 aifp 5825 · DA 닫힘 aifp 5824 = BYZ 312138 기록 정정 1건) · 까닭 = 번호 참조 없음 36줄 + 루트에 없는 번호 2줄(r1 · r2) · 38줄 모두 고칠 꼴 있음 · 그 밖 증거 글 손 0
+- 2026-11-16 06:37 · aifp-ft-arch-pi#22 조건 7 문구 정정(팀장 aifp 5825 · DA 닫힘 aifp 5824 = BYZ 312138 기록 정정 1건) · 까닭 = 번호 참조 없음 36줄 + 루트에 없는 번호 2줄(r1 · r2) · 38줄 모두 고칠 꼴 있음 · 그 밖 증거 글 손 0
 - 남은 범위: 없음
 - DA 판정: APPROVE-IMPL 311566(승인 sha 42c688cd · 사본 .fable-team/state/team-main/aifp-ft/DA-prereq-once-impl-approve-311566/verdict.md · 수용 반례 0 · 판정값 2016조합 같음 · 신규 20칸 통과 뒤 70초 rc124 · M58 판정 불가) + rebase 재확인 APPROVE-IMPL 311650(승인 sha 093824d7 · 사본 DA-prereq-rebase-impl-approve-311650/verdict.md · 선행불명 함수 AST 같음 · 신규 행위 변경 0 · 시험 반복 안 함) · 알려진 한계 = notify 실패 지문 때문에 같은 실패의 재시도가 다음 날로 밀릴 수 있다
 - 세트 정정(나노 aifp 5709 · 팀장 aifp 5727): 아래 세트 줄의 42c688cd 는 rebase 앞 head 다 · PR #1336 head 와 DA 재확인 sha 는 093824d7 이다 · 닫기 도구가 읽는 세트 = 맨 끝 줄
