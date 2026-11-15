@@ -6,6 +6,7 @@
 정지(.fable-team/state/ALL_STOP.json) 중 = 판정·[긴급]·«예정» 줄만 · kill·park·깨움·fill 0.
 """
 import datetime
+import glob
 import importlib.util
 import json
 import os
@@ -14,6 +15,7 @@ import re
 PARK_IDLE, WAIT_S, DAY = 3600, 900, 86400   # 유휴 문턱 60분 · 질문 창 15분
 CPU_IDLE, CPU_GAP, CPU_DEPTH = 0.3, 30, 8   # tmuxc UC12 %cpu < 0.3 · 표본 간격 ≥ 30초 · pane_descendant_pids 깊이 8
 SHELLS = ("zsh", "bash", "fish")            # tmuxc cmd_clean
+KINDS = ("nano", "master", "arch", "da", "desk", "tester", "pm", "qa", "orch", "temp")   # S1 명부 role 칸 = 좌석 종류 낱말
 BUSY = re.compile("Working|[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]")
 NAME = re.compile(r"byz-[a-z0-9]+(?:-[A-Za-z0-9._]+)+#\d+")
 NEXT = {"waiting-input": "팀장이 질문 창에 답", "dirty": "나노에게 커밋·push 요청", "unpushed": "나노에게 push 요청",
@@ -51,7 +53,21 @@ def descendants(rows, root, depth=CPU_DEPTH):
     return out
 
 
+def working(pane):
+    """A13 pane 일함 근거 — 끝 12줄 · 입력줄(❯ · ›) 뒤 글자 = 근거 0(고스트) · Working · esc to interrupt · 스피너."""
+    rows = [x for x in pane.rstrip("\n").splitlines()[-12:] if not x.lstrip().startswith(("❯", "›"))]
+    return any(BUSY.search(x) or "esc to interrupt" in x for x in rows)
+
+
 class Settling:
+    def fresh_samples(self):
+        """표본 장부(cpu · pane2)는 직전 바퀴에 잰 것만 남김(바퀴 시작 1회) — 끊긴 표본으로 쉼 확정 0 · 영구 pending 0(arch #308380)."""
+        prev, self.state["round_at"] = self.state.get("round_at"), self.now()
+        for name in ("cpu", "pane2"):
+            book = self.state.setdefault(name, {})
+            for seat in [x for x, v in book.items() if prev is None or not isinstance(v, dict) or v.get("at", 0) < prev]:
+                book.pop(seat)
+
     def stopped(self):
         """ALL_STOP 판독 1회/바퀴 — 없음 = 진행 · 있음(released 표식 없음) = 정지 · 깨짐 = 정지 + 판정 불가 1줄."""
         path = os.path.join(self.root, ".fable-team", "state", "ALL_STOP.json")
@@ -122,6 +138,8 @@ class Settling:
         """판정 1줄 — 같은 좌석·같은 (판정, 사유) 반복 로그 0 · UNKNOWN 은 바퀴마다 셈(ROUND unknown=N)."""
         self.unknown += word == "UNKNOWN"
         tail = self.with_why(tail, work)   # 착지 판정 사유 = 꼬리 끝
+        two = self.cache.get("@round", {}).get("two", {}).get(seat)   # A13 2차로 내려간 좌석
+        tail = " · ".join(x for x in (tail, two) if x) if two and two not in tail else tail
         key, book = "%s|%s|%s" % (team, work, seat), self.state.setdefault("verdict", {})
         if book.get(key) != [word, code]:
             book[key] = [word, code]
@@ -144,6 +162,12 @@ class Settling:
         self.alert(team, work, attempt, seat, code, tail)
         return "UNKNOWN"
 
+    def unknown_line(self, team, work, code, text):
+        """좌석 칸 없는 UNKNOWN 줄(옛 HELD 자리 · 호출자가 같은 사유 반복을 거름) + [긴급] 1통(지문 하루 1회) · ROUND unknown 셈."""
+        self.unknown += 1
+        self.log("UNKNOWN", team, text)
+        self.alert(team, work, "-", "-", code, text)
+
     def settle_nano(self, team, work, attempt, holder, row, why):
         """착지 판정 밖 나노 1석 → 판정 1개(LANDED 는 호출자 몫) · why = 착지 판정 사유(모든 판정 줄 꼬리 끝에 남김)."""
         self.why = why or ""
@@ -163,27 +187,97 @@ class Settling:
             return self.unknown_seat(team, work, attempt, holder, "intent-bad", "worktree %r" % intent.get("worktree"))
         return self.settle_alive(team, work, attempt, holder, intent, done, why)
 
-    def settle_alive(self, team, work, attempt, holder, intent, done, why):
-        rc, pane, _ = self.call([self.tmux, "capture-pane", "-p", "-t", "=" + holder + ":"])
-        if rc != 0:
-            return self.unknown_seat(team, work, attempt, holder, "capture-error", "capture rc %s" % rc)
-        if BUSY.search(pane[-2000:]):
-            return self.verdict(team, work, holder, "WORKING", "spinner")
-        info = self.pane_info(holder)
-        shell = bool(info) and os.path.basename(info[1]) in SHELLS   # tmuxc cmd_clean = 에이전트 끝난 shell-only
-        if shell and self.tmuxc_status(holder) == "agent":   # S3 두 도구가 다른 «끝남» = 드러냄
-            return self.unknown_seat(team, work, attempt, holder, "tmuxc-mismatch", "tmuxc agent · settle shell-only")
-        cpu = "unknown" if shell else self.cpu(holder, info)
+    def look(self, team, work, attempt, holder, age, stop, wait="jsonl-active"):
+        """A13 한 판독(설계 §13) → "REST"(쉼 · 닫기 판독 통과) 또는 판정 낱말(줄은 여기서 냄) — 모든 닫기 길 공용.
+        1차 = tmuxc clean(shell-only) + CPU(후손 pid) + jsonl 나이 · pane 글자 0 · 2차(pane 끝 12줄) = 그 좌석 1차를 못 세운 때만.
+        판독 실패 = WORKING 아님(probe-fail · session-none = UNKNOWN [긴급]) · age·stop = jsonl 무활동 초·마지막 줄(파일 없음 = None)."""
+        status, info = self.tmuxc_status(holder), self.pane_info(holder)
+        shell = status == "shell"   # 1차 성립 = clean rc0 ∧ raw pane_pid ∧ ps ∧ 세션 파일(clean 은 list-panes 실패를 rc0 빈 출력으로 삼킴 · arch #308361)
+        miss = "tmuxc 없음·실패" if status is None else "pane_pid 판독 실패" if info is None else "ps 판독 실패" if self.ps_rows() is None else ""
+        miss = miss or ("세션 파일 없음" if age is None else "")
+        self.cache.setdefault("@round", {}).setdefault("first", {})[holder] = not miss   # kill 직전 가드가 tmuxc-mismatch 를 가름
+        if miss:
+            pane = self.pane2(holder)
+            two = " · 판독 2차(%s)" % miss
+            if pane is None:
+                return self.unknown_seat(team, work, attempt, holder, "probe-fail", "1차 %s · capture 실패" % miss)
+            if pane == "busy":
+                return self.verdict(team, work, holder, "WORKING", "pane-working", "Working" + two)
+            if age is None:   # 닫기에 필요한 jsonl 무활동을 못 잼
+                return self.unknown_seat(team, work, attempt, holder, "session-none", "pi 세션 파일 없음" + two)
+            if pane == "pending":
+                return self.verdict(team, work, holder, "WORKING", "pane-pending", "쉼 표본 1개" + two)
+            cpu = "idle"   # 2차 쉼 ×2 = CPU idle ×2 자리
+            self.cache["@round"].setdefault("two", {})[holder] = two[3:]   # 닫기 판정 줄 꼬리 «판독 2차(<사유>)»(verdict 가 붙임)
+        else:
+            cpu = "unknown" if shell else self.cpu(holder, info)
         if cpu == "busy":
             return self.verdict(team, work, holder, "WORKING", "cpu-busy")
-        age, stop = self.pi_turn(intent)
         if not shell and stop not in (None, "stop") and age is not None and age >= WAIT_S and cpu == "idle":
             return self.unknown_seat(team, work, attempt, holder, "waiting-input", "마지막 줄 %s · 무활동 %d분" % (stop, age // 60))
         idle = age is not None and age >= PARK_IDLE and (shell or cpu == "idle")   # CPU 단독 = 근거 0
         if not idle:
-            return self.verdict(team, work, holder, "WORKING", "jsonl-active" if age is None or age < PARK_IDLE else "cpu-" + cpu)
+            return self.verdict(team, work, holder, "WORKING", wait if age is None or age < PARK_IDLE else "cpu-" + cpu)
         if not shell and stop != "stop":
             return self.unknown_seat(team, work, attempt, holder, "turn-open", "마지막 줄 %s" % stop)
+        self.cache["@round"].setdefault("shell", {})[holder] = shell
+        return "REST"
+
+    def seat_path(self, seat):
+        """tmux #{session_path} · 바퀴당 좌석 1회 · 못 읽음 = ""."""
+        book = self.cache.setdefault("@round", {}).setdefault("spath", {})
+        if seat not in book:
+            rc, out, _ = self.call([self.tmux, "display-message", "-p", "-t", "=" + seat + ":", "#{session_path}"])
+            book[seat] = out.strip() if rc == 0 and out.strip().startswith("/") else ""
+        return book[seat]
+
+    def seat_born(self, seat):
+        """tmux #{session_created}(좌석 시작 epoch 초) · 못 읽음 = None."""
+        rc, out, _ = self.call([self.tmux, "display-message", "-p", "-t", "=" + seat + ":", "#{session_created}"])
+        return float(out.strip()) if rc == 0 and out.strip().isdigit() else None
+
+    def seat_turn(self, seat):
+        """장기 좌석(intent 없음) jsonl 나이(arch #308361 Q1) · 마지막 줄 판독 0(stop 으로 봄) · 못 정함 = (None, None) → 한 판독 2차·session-none.
+        ① 재개 기록 seat-resume/<세션명>.json 의 jsonl 칸(파일 실재할 때만 · mtime = 나이)
+        ② 없으면 session_path 의 pi(`--<cwd>--`)·claude(projects/<cwd `/`·`.` → `-`>) 폴더 최신 *.jsonl = 상한 — 무활동 ≥ PARK_IDLE = 그 나이 ·
+        더 최근 ∧ 같은 session_path 에 살아 있는 byz 세션 2개 이상 = 누구 것인지 못 가름(None) · 혼자 쓰는 폴더 = 그 나이 · jsonl 0 = None."""
+        home = self.env.get("HOME") or os.path.expanduser("~")
+        doc = self.read_json(os.path.join(self.env.get("FT2_SEAT_RESUME_DIR") or os.path.join(home, ".claude", "state", "seat-resume"), seat + ".json"))
+        log = str(doc.get("jsonl") or "") if isinstance(doc, dict) else ""
+        if log and os.path.isfile(log) and self.resume_ok(seat):   # R2 검증을 통과한 기록만(칸이 있다는 것만으로 0)
+            return self.now() - os.path.getmtime(log), "stop"
+        cwd, born = self.seat_path(seat), self.seat_born(seat)
+        if not cwd or born is None:
+            return None, None
+        pi = self.env.get("FT2_PI_SESSIONS") or os.path.join(home, ".pi", "agent", "sessions")
+        claude = self.env.get("FT2_CLAUDE_PROJECTS") or os.path.join(home, ".claude", "projects")
+        files = glob.glob(os.path.join(pi, "--%s--" % cwd.strip("/").replace("/", "-"), "*.jsonl")) + glob.glob(os.path.join(claude, re.sub(r"[/.]", "-", cwd), "*.jsonl"))
+        times = [t for t in map(os.path.getmtime, files) if t >= born]   # 좌석 시작(session_created) 뒤에 쓰인 jsonl 만
+        if not times:
+            return None, None
+        age = self.now() - max(times)
+        if age < PARK_IDLE and sum(1 for x in self.alive_sessions() if x.startswith("byz-") and self.seat_path(x) == cwd) >= 2:
+            return None, None
+        return age, "stop"
+
+    def pane2(self, holder):
+        """2차 판독 — capture-pane 끝 12줄(입력줄 ❯·› 뒤 글자 = 근거 0) Working·esc to interrupt·스피너 = busy · 없음 표본 2개(간격 ≥ 30초) = rest · 1개 = pending · capture 실패 = None."""
+        rc, pane, _ = self.call([self.tmux, "capture-pane", "-p", "-t", "=" + holder + ":"])
+        if rc != 0:
+            return None
+        book, now = self.state.setdefault("pane2", {}), self.now()
+        if working(pane):
+            book.pop(holder, None)
+            return "busy"
+        first = book.setdefault(holder, {"first": now})["first"]
+        book[holder]["at"] = now
+        return "rest" if now - first >= CPU_GAP else "pending"
+
+    def settle_alive(self, team, work, attempt, holder, intent, done, why):
+        got = self.look(team, work, attempt, holder, *self.pi_turn(intent))
+        if got != "REST":
+            return got
+        shell = self.cache["@round"]["shell"][holder]
         bad = self.unsafe(team, work, holder, intent, done)
         if bad:
             return self.unknown_seat(team, work, attempt, holder, "shell-only-unsafe" if shell else bad, why)
@@ -215,6 +309,8 @@ class Settling:
         if self.halt:
             return self.verdict(team, work, holder, "예정 PARKED", reason, "정지 중 kill·park 0")
         if alive:
+            if not self.idle(team, work, holder, attempt):   # kill 직전 가드(마지막 확인 1회)
+                return "WORKING"
             if self.held_attached(team, work, holder):
                 return "UNKNOWN"
             self.call([self.tmux, "kill-session", "-t", "=" + holder])
@@ -257,8 +353,14 @@ class Settling:
                 self.unknown_seat(team, work, rec["attempt"], "-", "accept-only", "접수 %d줄 · %d분" % (n, age // 60))
 
     def tmuxc_status(self, seat):
-        """tmuxc 상태 칸(agent | shell | None) — keeper 는 tmuxc 를 부르지 않는다(§3c) · 주입이 없으면 None(대조 0)."""
-        return None
+        """tmuxc 상태 칸(agent | shell | None) — tmuxc UC6 `clean`(읽기만 · 바퀴당 1회 · 7초) 출력 = shell-only 세션 · 그 밖 = agent ·
+        tmuxc 없음·실패 = None(대조 0) · 경로 = FT2_TMUXC 또는 ~/.local/bin/tmuxc."""
+        got = self.cache.setdefault("@round", {})
+        if "tmuxc" not in got:
+            tool = self.env.get("FT2_TMUXC") or os.path.join(self.env.get("HOME") or os.path.expanduser("~"), ".local", "bin", "tmuxc")
+            rc, out, _ = self.call([tool, "clean"]) if os.access(tool, os.X_OK) else (None, "", "")
+            got["tmuxc"] = set(out.splitlines()) - {""} if rc == 0 else None
+        return None if got["tmuxc"] is None else "shell" if seat in got["tmuxc"] else "agent"
 
     def ready_seen(self, new, old):
         """후계 [레디] 영수 = 우편함(mailbox.jsonl · mailbox.log.jsonl)에 from new · to old · «[레디] new <- old» 줄 · 바퀴당 1회 읽기."""
@@ -277,17 +379,46 @@ class Settling:
         return (new, old) in got["ready"]
 
     def resume_ok(self, seat):
-        """hil.md 검증된 재개 기록 = seat-resume/<세션명>.json · name 같음 · 대화 uuid 있음 · codex 아님 · 작업 폴더가 이 루트 안."""
+        """hil.md 검증된 재개 기록 = seat-resume/<세션명>.json(ft-seat-retire) · name 같음 · codex 아님 · 작업 폴더가 keeper roots 안 ·
+        대화 결속 = jsonl 칸이 실제 파일 ∧ 파일 이름이 uuid 로 끝남 ∧ 담긴 폴더 = 그 cwd 의 세션 폴더(pi `--<cwd>--` · claude `/`·`.` → `-`)."""
         home = self.env.get("HOME") or os.path.expanduser("~")
         doc = self.read_json(os.path.join(self.env.get("FT2_SEAT_RESUME_DIR") or os.path.join(home, ".claude", "state", "seat-resume"), seat + ".json"))
-        cwd = str(doc.get("cwd") or "")
-        return doc.get("name") == seat and bool(doc.get("uuid")) and doc.get("engine") != "codex" and (cwd + "/").startswith(self.root + "/")
+        cwd, uuid, log = str(doc.get("cwd") or ""), str(doc.get("uuid") or ""), str(doc.get("jsonl") or "")
+        if doc.get("name") != seat or not uuid or doc.get("engine") == "codex" or not any((cwd + "/").startswith(r + "/") for r in self.roots()):
+            return False
+        folders = ("--%s--" % cwd.strip("/").replace("/", "-"), re.sub(r"[/.]", "-", cwd))
+        return os.path.isfile(log) and os.path.basename(log).endswith(uuid + ".jsonl") and os.path.basename(os.path.dirname(log)) in folders
+
+    def roots(self):
+        """S1 keeper roots(FETCH_TARGETS 와 같은 표 · BYZ root · 팩) — 있는 폴더만 · 중복 0."""
+        both = (self.root, self.pack)
+        return [r for i, r in enumerate(both) if r and os.path.isdir(r) and r not in both[:i]]
+
+    def rosters(self):
+        """S1 모든 roots 의 명부 [(경로, 행 dict)] · 바퀴당 1회."""
+        got = self.cache.setdefault("@round", {})
+        if "rosters" not in got:
+            paths = [p for r in self.roots() for p in sorted(glob.glob(os.path.join(r, ".fable-team", "seats*.json")))]
+            got["rosters"] = [(p, rows) for p in paths for rows in [self.read_json(p)] if isinstance(rows, dict)]
+        return got["rosters"]
+
+    def seat_kind(self, seat, row):
+        """S1 좌석 종류 = 명부 role 칸(종류 낱말일 때) · 상태 낱말(stop-ready 등)·칸 없음 = 이름 셋째 토큰."""
+        role = row.get("role") if isinstance(row, dict) else None
+        return role if role in KINDS else (seat.split("-") + ["", ""])[2]
+
+    def bound(self, seat, new):
+        """S2 이름 바뀐 승계 결속 = 명부 seat._replaced_by == new ∧ new._replaces == seat(어느 roots 명부든)."""
+        rows = {}
+        for _, got in self.rosters():
+            rows.update({key: val for key, val in got.items() if isinstance(val, dict)})
+        return (rows.get(seat) or {}).get("_replaced_by") == new and (rows.get(new) or {}).get("_replaces") == seat
 
     def keep_gate(self, seat, new, alive):
-        """S2 닫기 자격 — 계보(base#N · 이름 바뀐 승계는 살아 있는 후계를 새 세대로 셈) 순번 1 = keep-recent · 순번 2 = 재개 기록 있을 때만 · 그 밖 keep-last-2 · 3 이상 = 자격 있음("")."""
+        """S2 닫기 자격 — 계보(base#N · 이름 바뀐 승계는 양방향 결속 ∧ 후계 생존일 때만 새 세대로 셈) 순번 1 = keep-recent · 순번 2 = 검증된 재개 기록 있을 때만 · 그 밖 keep-last-2 · 3 이상 = 자격 있음("")."""
         base, _, n = seat.rpartition("#")
         newer = {x for x in alive if x.rpartition("#")[0] == base and x.rpartition("#")[2].isdigit() and n.isdigit() and int(x.rpartition("#")[2]) > int(n)}
-        newer |= {new} if new and new in alive and new.rpartition("#")[0] != base else set()
+        newer |= {new} if new and new in alive and new.rpartition("#")[0] != base and self.bound(seat, new) else set()
         if not newer:
             return "keep-recent"
         if len(newer) == 1 and not self.resume_ok(seat):
@@ -310,7 +441,8 @@ class Settling:
 
     def outsiders(self, alive, known):
         """S1·S3 — 살아 있는 byz-* 중 어느 명부·최신 dispatch·나노 이름에도 없는 세션 = UNKNOWN roster-outside · 이름 lint 실패 = name-bad · kill 0."""
-        for seat in sorted(x for x in alive if x.startswith("byz-") and x not in known and not endings.ORPHAN.fullmatch(x)):
+        scope = getattr(self, "orphan_scope", set())   # 이 바퀴 고아 길(endings.orphans)이 판정한 팀 · 정지 중 = 빈 집합(고아 꼴도 여기서 판정)
+        for seat in sorted(x for x in alive if x.startswith("byz-") and x not in known and not ((m := endings.ORPHAN.fullmatch(x)) and m.group(1) in scope)):
             team = (seat.split("-") + [""])[1]
             if team in self.skip:   # r1835 K2 — 제외 팀 좌석 = 손 0
                 continue

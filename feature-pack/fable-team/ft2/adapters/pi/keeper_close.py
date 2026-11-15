@@ -38,6 +38,8 @@ keeper_next = importlib.util.module_from_spec(importlib.util.spec_from_file_loca
 keeper_next.__spec__.loader.exec_module(keeper_next)   # r1871 다음 카드(영수 1회는 그 안에서)
 endings = importlib.util.module_from_spec(importlib.util.spec_from_file_location("ft2_keeper_close_endings", os.path.join(os.path.dirname(os.path.abspath(__file__)), "keeper_endings.py")))
 endings.__spec__.loader.exec_module(endings)   # r1960 끝 판정 · intent 대체
+settle = importlib.util.module_from_spec(importlib.util.spec_from_file_location("ft2_keeper_close_settle", os.path.join(os.path.dirname(os.path.abspath(__file__)), "keeper_settle.py")))
+settle.__spec__.loader.exec_module(settle)   # r2055 A13 pane 일함 근거(kill 직전 가드·2차 판독 같은 꼴)
 
 
 def pane_target(holder):
@@ -73,8 +75,16 @@ class Closing:
             self.log("NOTE", team, "%s 사람 화면 attached=%s — 오빠 지시로 닫음 · %s" % (holder, why[9:], work))
         if why == "free" or why.startswith("attached "):
             return False
-        self.verdict(team, work, holder, "UNKNOWN", "attached-unknown", "판정 불가 attached(%s) · kill 0" % why[10:])   # r2055 HELD 폐지
+        self.unknown_seat(team, work, "-", holder, "attached-unknown", "판정 불가 attached(%s) · kill 0" % why[10:])   # r2055 HELD 폐지 · UNKNOWN = [긴급]
         return True
+
+    def land_ready(self, team, work, attempt, dispatched):
+        """카드 ② — 착지한 일의 complete 전 좌석 한 판독(A13) · 세션 없음·holder 없음·worktree 없음 = 참(기존 길 · close 가 판정)."""
+        intent = endings.intent(self, team, work, attempt, dispatched)
+        holder = intent.get("FT2_HOLDER")
+        if not holder or not os.path.isdir(intent.get("worktree") or "") or self.probe(holder) != "alive":
+            return True
+        return self.look(team, work, attempt, holder, *self.pi_turn(intent), wait="landed-wait") == "REST"
 
     def close(self, team, work, attempt, row, dispatched=None):
         """B2 — intent holder 나노(B5) · 착지 조상 · 유휴(pane ∧ Pi 턴 끝) → kill 1 → 부재 확인 → 닫기 영수."""
@@ -110,9 +120,11 @@ class Closing:
             return self.verdict(team, work, holder, "예정 LANDED", "close", "정지 중 kill 0") and None
         if seen == "alive":
             self.state["open"].setdefault(holder, {"team": team, "since": self.now()})
-            if not self.idle(team, work, holder):
+            if self.look(team, work, attempt, holder, *self.pi_turn(intent), wait="landed-wait") != "REST":   # A6·A13 닫기 = 끝남 ∧ 한 판독 쉼
                 return
             if not self.turn_ended(team, work, holder, intent):
+                return
+            if not self.idle(team, work, holder, attempt):   # kill 직전 가드
                 return
             if self.held_attached(team, work, holder):
                 return
@@ -170,12 +182,15 @@ class Closing:
             self.log("CLOSED-NOLAND", team, "%s %s 근거 %s" % (work, holder, self.noland_rows(team).get((work, attempt), ("", ""))[1]))
         return seen
 
-    def idle(self, team, work, holder):
-        """pane 에 Working·스피너 없음 = 참 · capture 실패 = 판정 불가(거짓)."""
+    def idle(self, team, work, holder, attempt="-"):
+        """kill 직전 가드(판정 아님 · 마지막 확인 1회 · A13) — pane 끝 12줄 Working 없음 = 참 · 1차 판독이 쉼인데 Working = UNKNOWN tmuxc-mismatch ·
+        2차 판독 뒤 Working = WORKING spinner · capture 실패 = UNKNOWN capture-error(거짓)."""
         rc, pane, _ = self.call([self.tmux, "capture-pane", "-p", "-t", pane_target(holder)])
         if rc != 0:
-            return self.verdict(team, work, holder, "UNKNOWN", "capture-error", "판정 불가 · capture rc %s" % rc) and None
-        if BUSY.search(pane[-2000:]):
+            return self.unknown_seat(team, work, attempt, holder, "capture-error", "판정 불가 · capture rc %s" % rc) and None
+        if settle.working(pane):
+            if (self.cache.get("@round") or {}).get("first", {}).get(holder):
+                return self.unknown_seat(team, work, attempt, holder, "tmuxc-mismatch", "1차 쉼 · kill 직전 pane Working · kill 0") and None
             return self.verdict(team, work, holder, "WORKING", "spinner", "Working") and None
         return True
 
@@ -186,7 +201,9 @@ class Closing:
         why = why or ("" if role == "nano" else "보호 역할(%s) — 나노만 닫는다" % (role or "이름 꼴 밖"))
         if why:
             self.state["handled"]["%s|%s@%s" % (team, work, attempt)] = self.stamp()
-            return self.verdict(team, work, holder, "WORKING" if holder == dispatched else "UNKNOWN", "protected" if holder == dispatched else "holder-mismatch", "%s · 닫기 0" % why) and None
+            if holder != dispatched:   # r2055 UNKNOWN = [긴급]
+                return self.unknown_seat(team, work, attempt, holder, "holder-mismatch", "%s · 닫기 0" % why) and None
+            return self.verdict(team, work, holder, "WORKING", "protected", "%s · 닫기 0" % why) and None
         return True
 
     def turn_ended(self, team, work, holder, intent):
@@ -239,9 +256,8 @@ class Closing:
         if alive is None:
             return
         known = {h for t in self.teams() for _, h in (endings.latest(self, t) or {}).values()}   # r2055 S1 최신 dispatch holder = 명부 안
-        for path in sorted(glob.glob(os.path.join(self.root, ".fable-team", "seats*.json"))):
+        for path, rows in self.rosters():   # r2055 S1 keeper roots(BYZ root · 팩) 전부의 명부
             team = os.path.basename(path)[6:-5]   # r1835 K2 — 명부 팀(seats-<팀>) 또는 좌석 이름 byz-<팀> 이 제외 팀 = 손 0
-            rows = self.read_json(path)
             known |= set(rows) | {v for v in rows.values() if isinstance(v, str)}
             for seat, row in sorted(rows.items()):
                 new = row.get("_replaced_by") if isinstance(row, dict) else None
@@ -249,9 +265,9 @@ class Closing:
                 if not ok:
                     continue
                 if not (isinstance(new, str) and new) and seat not in self.closed_seats():   # S2 (바) 승계 안 된 장기 좌석 = WORKING · kill 0
-                    self.verdict(team, "-", seat, "WORKING", "long-seat") if seat in alive and (seat.split("-") + ["", ""])[2] != "nano" else None
+                    self.verdict(team, "-", seat, "WORKING", "long-seat") if seat in alive and self.seat_kind(seat, row) != "nano" else None
                     continue
-                if self.retire_one(path, seat, new, alive) == "stop":
+                if self.retire_one(path, seat, new, alive, self.seat_kind(seat, row) == "nano") == "stop":
                     return
         self.outsiders(alive, known)   # r2055 S1·S3 명부 밖·이름 lint 실패 = UNKNOWN [긴급] · kill 0
 
@@ -264,18 +280,20 @@ class Closing:
             return set()
         return self.log("판정 불가", text="tmux list-sessions rc %s %s — 이 바퀴 B3 0" % (rc, err))
 
-    def retire_one(self, path, seat, new, alive):
+    def retire_one(self, path, seat, new, alive, nano=None):
         name = os.path.basename(path)[:-5]
         if seat not in alive:
             self.state["open"].pop(seat, None)
             return
         team = name[6:] if name.startswith("seats-") else "v65"
-        nano = (seat.split("-") + ["", ""])[2] == "nano"   # hil.md 나노 표준승인 = 보존 조건(keep-last-2) 면제 · S2 = 장기 좌석만
+        nano = (seat.split("-") + ["", ""])[2] == "nano" if nano is None else nano   # hil.md 나노 표준승인 = 보존 조건(keep-last-2) 면제 · S2 = 장기 좌석만 · 종류 = 명부 role(S1)
         if new and not nano and not self.ready_seen(new, seat):   # S2 (마) 끝남 근거 = _replaced_by ∧ 후계 [레디] 영수 · ready 0 = 닫기 0
             return self.verdict(team, "-", seat, "WORKING", "ready-wait", "후계 %s [레디] 0" % new) and None
         keep = "" if nano else self.keep_gate(seat, new, alive)   # S2 닫기 자격(hil.md 보존) · 걸림 = 정상 보존(kill 0 · [긴급] 0)
         if keep:
             return self.verdict(team, "-", seat, "WORKING", keep) and None
+        if self.look(team, "-", "-", seat, *self.seat_turn(seat)) != "REST" or not self.idle(team, "-", seat):   # A13 한 판독 쉼 · kill 직전 가드
+            return
         if self.halt:   # r2055 정지 중 = «예정» 줄만
             return self.verdict(team, "-", seat, "예정 LANDED", "succession", "정지 중 닫기 0") and None
         self.state["open"].setdefault(seat, {"team": team, "since": self.now()})

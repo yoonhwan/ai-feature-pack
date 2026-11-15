@@ -228,7 +228,8 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
 
     def _round(self):
         start, self.skip = time.monotonic(), self.skipped()
-        self.halt, self.unknown = self.stopped(), 0   # r2055 정지 = 판정·[긴급]·«예정» 만 · kill·park·깨움·fill·B3 0
+        self.halt, self.unknown, self.orphan_scope = self.stopped(), 0, set()   # r2055 orphan_scope = 고아 길이 판정한 팀(S1) 정지 = 판정·[긴급]·«예정» 만 · kill·park·깨움·fill·B3 0
+        self.fresh_samples()   # r2055 A13 표본 = 직전 바퀴 것만
         self.cache["@round"] = {}   # r1969 바퀴 캐시(keeper_next.once · 팀 사이 공유 · 다음 바퀴 새로 읽음)
         if self.skip is None:
             return self.log("판정 불가", text="SKIP_TEAMS 판독 실패 — 이 바퀴 B1·B2·B3·B4 0")
@@ -305,6 +306,8 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
                 continue   # r1990 반환·r2055 쉼인 최신 attempt = B1 complete·판정·깨움 0(새 dispatch 면 attempt 가 달라 다시 본다)
             if not row.get("done"):
                 landed = self.timed("b1", self.landing, team, work)
+                if landed[0] and not landed[2] and self.sock and not self.land_ready(team, work, attempt, dispatched):
+                    continue   # r2055 A6·S4-1 카드 ② — 착지했어도 좌석이 쉬기 전 = WORKING landed-wait · complete·kill 0
             if row.get("done") or self.timed("b1", self.complete, team, work, attempt, landed):
                 if self.sock:
                     self.timed("b2c", self.close, team, work, attempt, row, dispatched)
