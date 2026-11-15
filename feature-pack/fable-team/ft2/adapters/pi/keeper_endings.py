@@ -15,10 +15,10 @@ def _mod(name, path):
 def _proj():
     return _mod("projection", os.path.join(os.path.dirname(os.path.dirname(HERE)), "core", "projection.py"))
 def held(k, team, key, text):
-    """같은 사유 1회 HELD 1줄(held 키) · 반환 None."""
+    """같은 사유 1회 UNKNOWN 1줄(held 키) · 반환 None · r2055 HELD 폐지."""
     if k.state["held"].get(key) != text:
         k.state["held"][key] = text
-        k.log("HELD", team, text)
+        k.unknown_line(team, "-", "held", text)   # r2055 UNKNOWN = [긴급]
 def _rows(k, team):   # journal 새로 읽기 · 못 읽음 = None(판독 실패 = 대체·고아 닫기 0)
     try:
         return _proj().journal.Journal(_proj().runtime_path(k.root, team), rec=_proj().record).records()
@@ -114,6 +114,8 @@ def _empty(k, team, work, seat):
     return "empty", "done · 커밋 0 · 변경 0 · PR %s" % ("닫힘 " + ",".join("#%s" % p.get("number") for p in seen["closed"] if isinstance(p, dict)) if seen["closed"] else "없음")
 def _card_end(k, team, work):
     """카드 끝 → (결과, 근거) | None(끝 아님) | False(판독 실패·후보 충돌)."""
+    if k.resolve_card(team, work)[1]:   # r2055 R4 짝 표 먼저(landing 과 같은 순서) · 판정 불가 = _resolved_end 값 그대로
+        return _resolved_end(k, team, work)
     land = _mod("land", os.path.join(HERE, "keeper_land.py"))
     for ref in land.REFS:
         if (names := _cards(k, team, ref)) is None:
@@ -129,6 +131,20 @@ def _card_end(k, team, work):
                 return "superseded", "카드 %s/" % stage
             rc, body, _ = k.git(k.root, "show", "%s:%s" % (ref, hits[0][1]))
             return _head(body) if rc == 0 else False
+    return _resolved_end(k, team, work)
+def _resolved_end(k, team, work):
+    """r2055 A1·A7 §3b — 팀 폴더 후보 0 = landing 과 같은 resolve_card(짝 표 → 팀 폴더 → 발주 본문) 카드의 «## 상태» 머리 · 우선 ref 에 2장↑ = False · 0 = None."""
+    cards = k.resolve_card(team, work)[0]
+    if isinstance(cards, str):
+        return None
+    land = _mod("land", os.path.join(HERE, "keeper_land.py"))
+    for ref in land.REFS:
+        paths = sorted({p for r, p in cards if r == ref})
+        if len(paths) > 1:
+            return False
+        if paths:
+            rc, body, _ = k.git(k.root, "show", "%s:%s" % (ref, paths[0]))
+            return _head(body) if rc == 0 else False
     return None
 def unsure(st, team, work, holder, key, idle, fmt=None, slot=""):
     """④ 미확인 깨움 — after_s 뒤 재깨움 1회(정상·오류 턴 길 같은 rewoke 키) · 또 미확인 = harness master [크리티컬] 1통/일 · 재배정·kill 0."""
@@ -143,6 +159,7 @@ def orphans(k, teams):
     """⑤ 고아 — 이름 꼴 byz-<팀>-nano-<stem>#N ∧ 그 팀 최신 dispatch holder 밖 · 자동 개설 = ft2_holders.auto_opened(launch 영수 생애 결속) 공용."""
     H, alive = _mod("holders", os.path.join(HERE, "ft2_holders.py")), k.alive_sessions()
     held_by = {t: {h for _, h in got.values()} for t in teams if (got := latest(k, t)) is not None}
+    k.orphan_scope = set(held_by)   # r2055 S1 — 이 팀들의 고아 꼴 좌석 판정 = 이 길(명부 밖 판정이 겹쳐 보지 않음)
     for seat in sorted(alive or ()):
         team = m.group(1) if (m := ORPHAN.fullmatch(seat)) else None
         if team not in held_by or seat in held_by[team]:
@@ -154,14 +171,22 @@ def orphans(k, teams):
             if k.state["held"].get("orphan|" + seat) != k.stamp()[:10]:
                 k.state["held"]["orphan|" + seat] = k.stamp()[:10]
                 k.log("HELD-ORPHAN", team, "%s %s · 닫기 0" % (seat, why))
-                k.notify(team, "%s|orphan|%s" % (k.stamp()[:10], seat), "[고아] ft2 keeper %s %s — 닫기 0(사람 확인)" % (seat, why))
+            k.unknown_seat(team, work or "-", "-", seat, "roster-outside", why)   # r2055 S3 명부·dispatch 밖 = UNKNOWN [긴급](옛 [고아] 쪽지 자리) · kill 0
             continue
         sha, _, why = k.landing(team, work)
         end = ("landed", sha) if sha and not why else ending(k, team, work)
-        if not end or not k.idle(team, work, seat) or not k.turn_ended(team, work, seat, it) or k.held_attached(team, work, seat):
+        if not end:   # r2055 S1 판정 없는 좌석 0
+            k.verdict(team, work, seat, "WORKING", "orphan-open", why or "끝 근거 없음")
+            continue
+        if k.look(team, work, "-", seat, *k.pi_turn(it)) != "REST" or not k.turn_ended(team, work, seat, it):
+            continue   # r2055 R1·A13 닫기 = 끝남 ∧ 한 판독 쉼(jsonl 무활동 ≥ PARK_IDLE)
+        if not k.idle(team, work, seat) or k.held_attached(team, work, seat):   # kill 직전 가드
             continue
         if seat in {h for _, h in (latest(k, team) or {0: (0, seat)}).values()}:   # ⑦e 읽는 사이 holder 바뀜·판독 실패 = 닫기 0
             continue
         k.call([k.tmux, "kill-session", "-t", "=" + seat])
         gone = k.probe(seat)
-        k.log("CLOSED-ORPHAN" if gone == "absent" else "HELD", team, "%s %s %s %s%s" % (work, seat, end[0], end[1], "" if gone == "absent" else " 부재 확인 없음(%s)" % gone))
+        if gone != "absent":   # r2055 UNKNOWN = [긴급]
+            k.unknown_seat(team, work, "-", seat, "kill-failed", "%s %s 부재 확인 없음(%s)" % (end[0], end[1], gone))
+            continue
+        k.log("CLOSED-ORPHAN", team, "%s %s %s %s" % (work, seat, end[0], end[1]))

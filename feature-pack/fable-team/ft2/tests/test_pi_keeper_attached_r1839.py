@@ -49,8 +49,8 @@ def c5(w):    # ⑤ display-message 출력 `abc` → unknown · kill 0 · ⑤′
     lines = w.round()   # r1976 — 영수 시도 줄 0 도 본다(M4 대상이 ④ → ⑤ 로 옮겨 옴)
     assert any("판정 불가 attached" in x for x in lines) and w.tmux("kill-session") == [] and w.kinds("close_receipt") == 0
     assert not [x for x in lines if x.startswith("RECEIPT")]
-    _set(w, att_rc=1)
-    assert any("판정 불가 attached" in x for x in w.round()) and w.tmux("kill-session") == []
+    _set(w, att_rc=1)   # r2055 같은 (판정, 사유) 반복 줄 0 → 둘째 바퀴는 ROUND unknown=1 로 본다
+    assert any(x.startswith("ROUND") and "unknown=1" in x for x in w.round()) and w.tmux("kill-session") == []
 
 
 def c10(w):   # ⑩ [의도 변경 r1976] 판정 불가 attached 바퀴 뒤 state.open[holder] 가 같은 since 로 남음(지우기 0) · 옛 대상 = attached=1(이제 닫힘 = ④)
@@ -72,13 +72,14 @@ def c6(w):    # ⑥ [의도 변경 r1976] keeper_stall Working 아님 · attache
     assert len(w.tmux("kill-session")) == 1 and len(w.tmux("new-session")) == 1 and w.kinds("dispatch") == 2
 
 
-def c6u(w):   # ⑥′ r1976 keeper_stall 판정 불가 attached → HELD · kill 0 · assign·deliver·launch 0 · reassigned 0 · 크리티컬 0 (옛 ⑥ 의 차단 기대를 unknown 으로 옮김)
+def c6u(w):   # ⑥′ r1976 keeper_stall 판정 불가 attached → UNKNOWN(r2055 옛 HELD) · kill 0 · assign·deliver·launch 0 · reassigned 0 · 크리티컬 0 (옛 ⑥ 의 차단 기대를 unknown 으로 옮김)
     w.seat(), w.round()
     _set(w, att={st.H0: "abc"})
     lines = w.round(11 * M)
-    assert any(x.startswith("HELD harness %s %s" % (st.W, st.H0)) and "판정 불가 attached" in x for x in lines)
+    assert any(x.startswith("UNKNOWN harness %s %s attached-unknown" % (st.W, st.H0)) and "판정 불가 attached" in x for x in lines)
     assert w.tmux("kill-session") == [] and w.tmux("new-session") == [] and w.kinds("dispatch") == 1
-    assert w.k.state["reassigned"] == {} and w.notes() == []
+    assert w.k.state["reassigned"] == {} and [x for x in w.notes() if "[긴급] UNKNOWN" not in x] == []   # 크리티컬 0
+    assert len([x for x in w.notes() if "[긴급] UNKNOWN" in x and "attached-unknown" in x]) == 1, w.notes()   # r2055 R3 UNKNOWN = [긴급] 1통
 
 
 def c7(w):    # ⑦ keeper_stall attached=0 → kill → assign → deliver → launch(지금 그대로) · ⑨ 대상 `=<세션>:`

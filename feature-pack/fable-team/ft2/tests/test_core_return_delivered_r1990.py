@@ -51,7 +51,7 @@ def c1(tmp, mp, ft2):   # ① 반환 → 남은 일 −1 · keeper HELD 0 · 같
     assert (out["result"], out["stage"], rc) == ("접수 성공", "returned", 0), out
     assert w.journal()[-1]["kind"] == "returned" and left(w.CLI, w.root) == before - 1
     k = w.keeper()   # 반환 뒤 첫 바퀴 = a1 HELD 0 · fill 이 a2 를 띄움(뒤 바퀴의 a2 진행 중 HELD 는 보통 일)
-    assert k.run_once() == 0 and not [x for x in k.lines if x.startswith("HELD harness %s" % R)], k.lines
+    assert k.run_once() == 0 and not [x for x in k.lines if x.startswith(tuple("%s harness %s " % (v, R) for v in ("HELD", "UNKNOWN", "WORKING", "PARKED")))], k.lines   # r2055 HELD → 판정 4낱말
     [p.wait(25) for p in k.cache.pop("spawned", [])]
     w.round()
     assert base.count(w, "dispatch", R) == 2 and base.count(w, "accept", R) == 1 and R in base.launched(w)

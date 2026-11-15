@@ -30,7 +30,8 @@ REQUIRED_FIELDS = ("schema", "team", "seq", "kind", "command", "attempt", "at", 
 KINDS = ("accept", "claim", "start", "effect", "result", "uncertain",
          "dispatch", "deliver", "execute", "complete", "reassess", "progress", "close", "refuse", "resolve",
          "reopen", "import",
-         "close_receipt", "returned")   # r1990 반환(전달·착지 0 의 최신 attempt) — dispatch.py 만
+         "close_receipt", "returned",   # r1990 반환(전달·착지 0 의 최신 attempt) — dispatch.py 만
+         "parked")   # r2055 쉼(끝났고 남길 것 안전 · owner·예약 해제 · 의무 그대로) — dispatch.py 만
 STATE_FIELDS = ("revision", "pending", "attempts")
 # 확장 state 칸 — 없으면 기본값 {} 로 채운다(다른 writer 가 병합해 보존한다 · ⓘ).
 EXTENDED_STATE_FIELDS = ("generations", "owners", "uncertain", "deliveries", "reservations",
@@ -38,7 +39,8 @@ EXTENDED_STATE_FIELDS = ("generations", "owners", "uncertain", "deliveries", "re
                          "reopens", "lifted",   # r1727 재개
                          "imported",            # r1774 가져온 기록
                          "journal_base", "refusals", "close_receipts",
-                         "returned")            # r1990 반환 {work: {attempt, at, by}} · 같은 work 새 dispatch 가 지운다   # r1584: base checkpoint · r1724: 거절 이력 · r1725: 닫기 영수
+                         "returned",            # r1990
+                         "parked")              # r2055 쉼 {work: {attempt, at, reason, released}} · 같은 work 새 dispatch 가 지운다 · r1990 반환 {work: {attempt, at, by}} · 같은 work 새 dispatch 가 지운다   # r1584: base checkpoint · r1724: 거절 이력 · r1725: 닫기 영수
 
 
 class RecordError(ValueError):
@@ -156,6 +158,17 @@ def remaining(state, records):
             if cmd not in folded and (work if isinstance(work, str) else cmd) not in gone]
 
 
+def capacity(state, records, left=None):
+    """r2055 «용량» 셈 — 의무 장부(remaining · command 목록)를 work 로 묶고(work 없는 command = 1칸)
+    최신 attempt 가 쉼(parked)인 work 만 뺀다. 접수 상한·keeper fill·투영 capacity 칸만 본다(마감·재개는 remaining 그대로).
+    left = 이미 센 의무 목록(intake `_remaining` 이음매) · 없으면 remaining 을 센다."""
+    by_command = {rec["command"]: rec.get("work") for rec in records if rec["kind"] == "accept"}
+    parked = state.get("parked") or {}
+    units = {(by_command.get(cmd) if isinstance(by_command.get(cmd), str) else "cmd:" + cmd)
+             for cmd in (remaining(state, records) if left is None else left)}
+    return sorted(unit for unit in units if unit not in parked)
+
+
 def recover_state(state, records):
     """journal 을 정본으로 삼아 state checkpoint 를 앞선다(DA R2 · R1) — checkpoint 전 crash 복구.
     잠금 안 판독(모든 writer)이 이 함수를 지나므로 recover 호출 여부와 무관하게 전달·완료·재평가가 보인다:
@@ -180,12 +193,14 @@ def recover_state(state, records):
     reopens, lifted = dict(proj.get("reopens") or {}), dict(proj.get("lifted") or {})   # r1727: 같은 꼴
     imported = dict(proj.get("imported") or {})       # r1774: 같은 꼴(시작값 = checkpoint · key 멱등)
     returned = dict(proj.get("returned") or {})       # r1990: 같은 꼴 · 같은 work 의 뒤 dispatch 가 지운다
+    parked = dict(proj.get("parked") or {})           # r2055: 같은 꼴(returned 와 같은 수명)
     for rec in rows:
         work, kind, gen = rec.get("work"), rec["kind"], rec.get("gen") or 0
         if kind in ("claim", "dispatch") and work and gen > gens.get(work, 0):
             gens[work], owners[work] = gen, {"holder": rec.get("holder"), "gen": gen, "at": rec["at"]}
         if kind == "dispatch" and work:
             returned.pop(work, None)
+            parked.pop(work, None)
             for res in rec.get("resources") or []:
                 kept.setdefault(res, {"work": work, "attempt": rec.get("attempt")})
         elif kind == "deliver" and work:
@@ -201,6 +216,11 @@ def recover_state(state, records):
             done[work] = {"attempt": rec.get("after"), "at": rec["at"], "marker": rec.get("marker") or ""}
         elif kind == "returned" and work:
             returned[work] = {"attempt": rec.get("attempt"), "at": rec["at"], "by": rec.get("returned_by")}
+        elif kind == "parked" and work:
+            owners.pop(work, None)
+            kept = {res: row for res, row in kept.items() if row.get("work") != work}
+            parked[work] = {"attempt": rec.get("attempt"), "at": rec["at"], "reason": rec.get("reason"),
+                            "released": rec.get("released") or []}
         elif kind == "reassess" and work:
             reassessed[work] = {"after": rec.get("after"), "mode": rec.get("mode")}
             released[work] = {"res": rec.get("released") or [], "count": len(rec.get("released") or [])}
@@ -227,7 +247,7 @@ def recover_state(state, records):
                 reservations=kept, deliveries=sent, done=done, reassess_done=reassessed,
                 released=released, owners_recovered=recovered, uncertain=uncertain, lanes=lanes, refusals=refusals,
                 reopens=reopens, lifted=lifted, imported=imported,
-                close_receipts=closes, returned=returned)
+                close_receipts=closes, returned=returned, parked=parked)
 
 
 def build(team, seq, command, attempt, at, body, work=None, goal=None, kind="accept",

@@ -33,7 +33,7 @@ def k(tmp_path):
         assert _tm("new-session", "-d", "-s", s, "-x", "200", "-y", "50", "sh -c 'cat >/dev/null'").returncode == 0
     sock = _tm("display-message", "-p", "#{socket_path}").stdout.strip()
     env = {x: v for x, v in os.environ.items() if x != "FT2_TMUX_SOCKET"}
-    env.update(FT_TMUX=str(b / "tmux"), FT2_KEEPER_PS=str(b / "ps"), FT2_PI_SESSIONS=str(tmp_path / "sess"))
+    env.update(FT_TMUX=str(b / "tmux"), FT2_KEEPER_PS=str(b / "ps"), FT2_PI_SESSIONS=str(tmp_path / "sess"), FT2_TMUXC=str(b / "tmuxc-none"))   # r2055 실 tmuxc 0
     spec = importlib.util.spec_from_file_location("k1822_%d" % id(b), str(FT2 / "adapters" / "pi" / "keeper.py"))
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
@@ -73,7 +73,8 @@ def test_c2_wake_reaches_pane(k):      # ② send-keys 세 번 rc0 · 화면에 
 
 def test_c3_absent_session_unsure(k):  # ③ 세션 없음 → 화면 읽기 rc1 · 판정 불가 1줄 · kill 0
     assert not k.idle(TEAM, W, GONE)
-    assert [x for x in k.lines if "판정 불가" in x] == k.lines and len(k.lines) == 1 and _target(k, "kill-session") == []
+    assert [x for x in k.lines if "판정 불가" in x] == k.lines and len(k.lines) == 2 and _target(k, "kill-session") == []   # r2055 R3 UNKNOWN 1줄 + [긴급] 1통(쪽지 줄)
+    assert "UNKNOWN" in k.lines[0] and "[긴급] UNKNOWN" in k.lines[1], k.lines
 
 
 def test_c4_session_slots_and_prefix_sibling(k):   # ④ 세션 자리 `=이름` 그대로 · ④′ 정확한 세션만 · ④″ 접두 형제 안 고름
@@ -82,13 +83,14 @@ def test_c4_session_slots_and_prefix_sibling(k):   # ④ 세션 자리 `=이름`
     (launch / ("%s@a1.intent" % W)).write_text('{"FT2_HOLDER": "%s", "state": "opened"}' % S0, encoding="utf-8")
     k.landing, k.protected_ok = (lambda t, w: (None, None, None)), (lambda *a: True)
     k.turn_ended, k.receipt = (lambda *a: True), (lambda *a, **kw: None)
+    k.look = lambda *a, **kw: "REST"   # r2055 A13 한 판독은 r2055 시험 몫 · 여기는 세션 자리만
     k.close(TEAM, W, "a1", {"gen": 1}, S0)
     assert any(x.startswith("CLOSED-SESSION") for x in k.lines), k.lines
     assert set(_target(k, "has-session")) == {"=" + S0} and _target(k, "kill-session") == ["=" + S0]
     assert _tm("has-session", "-t", "=" + S0).returncode == 1 and _tm("has-session", "-t", "=" + S00).returncode == 0
     del k.lines[:]
     assert not k.idle(TEAM, W, S0) and k.stall.role(S0) is None
-    assert len(k.lines) == 1 and "판정 불가" in k.lines[0] and _log(k.pslog) == []
+    assert len(k.lines) == 2 and "판정 불가" in k.lines[0] and "[긴급] UNKNOWN" in k.lines[1] and _log(k.pslog) == []   # r2055 R3 + [긴급]
 
 
 def test_c5_role_reads_pane_pid(k):    # ⑤ display-message = 그 세션 pane 의 숫자 PID → ps 1회 → role=session

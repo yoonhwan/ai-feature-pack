@@ -39,9 +39,10 @@ full_alert = _load(os.path.join(HERE, "full_alert.py"), "ft2_keeper_full_alert")
 endings = _load(os.path.join(HERE, "keeper_endings.py"), "ft2_keeper_endings")   # r1960 끝 판정 · 고아
 hold = _load(os.path.join(HERE, "keeper_hold.py"), "ft2_keeper_hold")   # r1931 카드 HOLD 줄 → holder 깨움
 kf = _load(os.path.join(HERE, "keeper_fetch.py"), "ft2_keeper_fetch")   # r1975 FETCH_TARGETS · 나노 가지 · 판정 뒤 백그라운드
+settling = _load(os.path.join(HERE, "keeper_settle.py"), "ft2_keeper_settle")   # r2055 settle 한 길 · ALL_STOP
 
 
-class Keeper(land.Landing, closing.Closing, reporting.Reporting):
+class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settling):
     fa = full_alert   # r1886 keeper_land·keeper_next 도 이것으로 부른다
     def __init__(self, root, env=None, now=None):
         self.root = os.path.abspath(root)
@@ -59,9 +60,13 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
         self.per, self.at = {}, None   # r1969 (팀, 칸) 초 → ROUND slow 칸 · at = 지금 도는 팀(None = 팀 밖)
         self.table, self.nano, self.refs, self.picked, self.bg, self.fetch_s = {}, {}, {}, [], {}, {}   # r1975
         self.stage, self.tally = "-", {}   # r1992 지금 칸(timed) · (팀, 칸) → [호출 시도 수, SLOW-CALL 초 합]
+        self.halt, self.unknown = False, 0   # r2055 ALL_STOP(바퀴마다 판독) · 바퀴 UNKNOWN 수(ROUND unknown=N)
 
     def call(self, argv, timeout=CALL_S, retry=0):
         """바깥 호출 1곳 → (rc, stdout, stderr 1줄) · 넘침·실행 실패 = rc None · retry = rc≠0 때 다시 부르는 횟수."""
+        if self.halt and (argv[1:2] in (["kill-session"], ["send-keys"]) or argv[:1] == [sys.executable] or self.close_bin in argv[1:2]):   # r2055 정지 중 실행 0(그물)
+            self.log("판정 불가", self.at or "-", "ALL_STOP 정지 중 실행 막음 %s" % " ".join(os.path.basename(w) for w in argv[:2]))
+            return None, "", "ALL_STOP"
         self.cache.get("@round", {}).pop("ls", None) if "kill-session" in argv or argv[:1] == [sys.executable] else None   # r1969 세션이 바뀜 = 바퀴 list-sessions 캐시 버림
         for n in range(1, retry + 2):
             at = self.now()
@@ -223,6 +228,8 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
 
     def _round(self):
         start, self.skip = time.monotonic(), self.skipped()
+        self.halt, self.unknown, self.orphan_scope = self.stopped(), 0, set()   # r2055 orphan_scope = 고아 길이 판정한 팀(S1) 정지 = 판정·[긴급]·«예정» 만 · kill·park·깨움·fill·B3 0
+        self.fresh_samples()   # r2055 A13 표본 = 직전 바퀴 것만
         self.cache["@round"] = {}   # r1969 바퀴 캐시(keeper_next.once · 팀 사이 공유 · 다음 바퀴 새로 읽음)
         if self.skip is None:
             return self.log("판정 불가", text="SKIP_TEAMS 판독 실패 — 이 바퀴 B1·B2·B3·B4 0")
@@ -259,9 +266,10 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
             self.state.pop("cap_next", None)
             self.fa.observe(self.root, "keeper 바퀴", "keeper", int(time.monotonic() - start), ROUND_S)
         self.at, _ = None, self.cache.pop("@round", None)   # r1969 팀 밖 · 바퀴 캐시 닫음(B3 = 자기 list-sessions 1회 그대로)
-        if self.sock:
+        if self.sock and not self.halt:
             self.timed("b3", endings.orphans, self, order)   # r1960 ⑤ 스냅샷 뒤 journal 새로 읽기
-            self.timed("b3", self.retired)
+        if self.sock:
+            self.timed("b3", self.retired)   # r2055 정지 중 = 판정·«예정» 줄만(retire_one 안에서)
         self.report()
         s = sum(self.spent.values())
         s += self.nano_s   # r1963b 나노 가지 모으기 초도 합계에(0.05초 미만이면 칸 0 = 옛 줄 그대로)
@@ -272,7 +280,8 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
         if top:   # r1992 ⑦ slow 칸의 호출 시도 수·SLOW-CALL 합(5초 미만 여러 번 = slow_call 0 으로 드러남) · ROUND 줄 그대로
             got = self.tally.get(top[0], [0, 0.0])
             self.log("SLOW-CELL", top[0][0], "%s s=%g n=%d slow_call=%g" % (top[0][1], round(top[1], 1), got[0], round(got[1], 1)))
-        self.log("ROUND", text="s=%g %s slow=%s%s%s" % (round(s, 1), cells, "%s:%s:%g" % (top[0] + (round(top[1], 1),)) if top else "-", " OVER" if s > ROUND_S else "", self.skip and " skip=" + ",".join(sorted(self.skip)) or ""))
+        self.log("ROUND", text="s=%g %s slow=%s%s%s%s" % (round(s, 1), cells, "%s:%s:%g" % (top[0] + (round(top[1], 1),)) if top else "-", " OVER" if s > ROUND_S else "", " unknown=%d" % self.unknown if self.unknown else "",
+                                                       self.skip and " skip=" + ",".join(sorted(self.skip)) or ""))   # r2055 unknown=N(skip= 은 끝 칸 그대로)
 
     def teams(self):
         """대상 팀 = ft20-switch/<팀>.json ∪ <팀>.held 가 있고 runtime 이 있는 팀."""
@@ -290,20 +299,28 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting):
         rows = node.records()
         latest = {rec["work"]: (rec.get("attempt"), rec.get("holder")) for rec in rows
                   if rec.get("kind") == "dispatch" and rec.get("work")}
-        back = {(rec["work"], rec.get("attempt")) for rec in rows if rec.get("kind") == "returned"}   # r1990 반환 줄
+        back = {(rec["work"], rec.get("attempt")) for rec in rows if rec.get("kind") in ("returned", "parked")}   # r1990 반환 줄 · r2055 쉼 줄
         for work, (attempt, dispatched) in sorted(latest.items()):
-            row = proj["works"].get(work) or {}
+            row, landed, self.why = proj["works"].get(work) or {}, None, ""   # r2055 판정 줄 꼬리 = 이 work 의 착지 판정 사유
             if "%s|%s@%s" % (team, work, attempt) in self.state["handled"] or (work, attempt) in back:
-                continue   # r1990 반환된 최신 attempt = B1 complete·HELD·깨움 0(새 dispatch 면 attempt 가 달라 다시 본다)
-            if row.get("done") or self.timed("b1", lambda: self.complete(team, work, attempt, self.landing(team, work))):
+                continue   # r1990 반환·r2055 쉼인 최신 attempt = B1 complete·판정·깨움 0(새 dispatch 면 attempt 가 달라 다시 본다)
+            if not row.get("done"):
+                landed = self.timed("b1", self.landing, team, work)
+                if landed[0] and not landed[2] and self.sock and not self.land_ready(team, work, attempt, dispatched):
+                    continue   # r2055 A6·S4-1 카드 ② — 착지했어도 좌석이 쉬기 전 = WORKING landed-wait · complete·kill 0
+            if row.get("done") or self.timed("b1", self.complete, team, work, attempt, landed):
                 if self.sock:
                     self.timed("b2c", self.close, team, work, attempt, row, dispatched)
             elif self.sock and endings.ending(self, team, work):   # r1960 끝(완성후·아카이브·상태 머리) = complete 0 · close 가드 그대로
                 self.timed("b2c", self.close, team, work, attempt, row, dispatched)
-            elif self.sock:   # r1817 fix1 R1 — 소켓 실패 바퀴 = 깨움·재배정도 0
-                self.timed("stall", self.stall.check, team, work, attempt, rows)   # r1813 · r1898 ROUND stall 칸 — 진척 0 좌석 깨움 1회 → 재배정
-                self.timed("stall", hold.check, self, team, work, attempt, rows)   # r1931 HOLD 줄 늘면 깨움 1회 · 누적 3 = 인터뷰 길
-        if self.sock:   # r1913 — 닫힘이 없어도 빈 나노 칸 1장(팀마다 1회 · gates 재계산)
+            elif self.sock:   # r1817 fix1 R1 — 소켓 실패 바퀴 = 판정·깨움·재배정도 0
+                seen = self.timed("stall", self.settle_nano, team, work, attempt, dispatched, row, landed[2])   # r2055 착지 밖 = settle 한 길
+                if seen != "PARKED" and not self.halt:   # WORKING·UNKNOWN = 기존 회복 길 그대로 · 정지 중 = 깨움·재배정 0
+                    self.timed("stall", self.stall.check, team, work, attempt, rows)   # r1813 · r1898 ROUND stall 칸 — 진척 0 좌석 깨움 1회 → 재배정
+                    self.timed("stall", hold.check, self, team, work, attempt, rows)   # r1931 HOLD 줄 늘면 깨움 1회 · 누적 3 = 인터뷰 길
+        if self.sock:
+            self.timed("stall", self.accept_only, team, rows)   # r2055 ⑪ accept 만 · PARK_IDLE 넘음 = UNKNOWN
+        if self.sock and not self.halt:   # r1913 — 닫힘이 없어도 빈 나노 칸 1장(팀마다 1회 · gates 재계산) · r2055 정지 중 fill 0
             self.timed("b2f", closing.keeper_next.fill, self, team)
 
 

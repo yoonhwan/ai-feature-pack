@@ -173,7 +173,7 @@ def close(k, team, work, attempt, holder, gen):
 def intake_open(k, team):
     """r1939 거짓 = 접수 남은 일 ≥ 상한(fill 0 · FILL-WAIT 는 값이 바뀔 때만 1줄) · project 판독 실패 = 참(submit 이 판정)."""
     out, _ = cli.run(["project", "--root", k.root, "--team", team])
-    n, seen = out.get("remaining") if out.get("result") == OK else None, k.state.setdefault("fill_wait", {})
+    n, seen = out.get("capacity", out.get("remaining")) if out.get("result") == OK else None, k.state.setdefault("fill_wait", {})   # r2055 용량 셈(쉼 제외 · work 단위)
     if type(n) is not int:
         return True
     if n < k.fa.INTAKE_CAP:   # 정상값 = 기억 해제(8→7→8 = 다시 1줄)
