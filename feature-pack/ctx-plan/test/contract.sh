@@ -142,7 +142,9 @@ mutate "$PLAN" "$T/m3" 'ANCHOR_STATUS[key]' '"ok"' &&
 nchk "M3 상태 표기를 빼면 앵커 행에서 «미검증» 이 사라진다" "$(python3 "$T/m3" --from "$T/b.json" --inv-file "$CAP" --capacity --accounts 5x:5 2>&1 | grep '앵커(상태 표기 필수)')" "미검증"
 mutate "$PLAN" "$T/m4" 'if w5 is None or wu is None:' 'if False:' &&
 nchk "M4 상한÷3 대체가 돌아오면 «산정 불가» 가 사라진다" "$(python3 "$T/m4" --from "$T/b.json" --inv-file "$T/nolow.env" --inventory 2>&1)" "산정 불가 — _LOW 키가 상수 파일에 없다"
-mutate "$PLAN" "$T/m6" '("낮은 용량 가정", low5, lowu)' '("낮은 용량 가정", p["wk_5x"] / 3.0, p["wk_ultra"] / 3.0)' &&
+mutate "$PLAN" "$T/m6" "num(inv, \"FT_CAP_WK_5X_LOW\"),
+$(printf '%31s')num(inv, \"FT_CAP_WK_ULTRA_LOW\")," "p[\"wk_5x\"] / 3.0,
+$(printf '%31s')p[\"wk_ultra\"] / 3.0," &&   # r2012: --inventory 낮은 가정 입력 2줄 = 지점 1개
 nchk "M6 하한을 상한÷3 으로 되돌리면 2639 가 아니다" "$(python3 "$T/m6" --from "$T/b.json" --inv-file "$CAP" --inventory 2>&1)" "      2639"
 mutate "$PLAN" "$T/m7" 'bad = ci.get("schema") != SCHEMA' 'bad = False' &&
 { python3 "$T/m7" --from "$T/bad.json" --inv-file "$CAP" --inventory >/dev/null 2>&1 && ok "M7 계약 가드를 빼면 rc=0 이 된다(변이 검출)" || no "M7 계약 가드" "가드를 빼도 rc≠0"; }
