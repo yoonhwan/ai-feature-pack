@@ -148,7 +148,7 @@ class Settling:
 
     def alert(self, team, work, attempt, seat, code, tail=""):
         tail = self.with_why(tail, work)
-        """UNKNOWN [긴급] 1통 — 지문 (team, work, attempt, reason) 하루 1회 · 새 사유·새 attempt = 즉시 · 전송 실패 = 지문 미소비."""
+        """UNKNOWN [긴급] 1통 — 지문 (team, work, attempt, reason) 하루 1회 · 새 사유·새 attempt = 즉시 · 전송 실패도 그날 지문(r2065 E3·E4 · 재시도 0 · 상한 밖이면 다음 바퀴)."""
         sig, day = "%s|%s|%s|%s" % (team, work, attempt, code), self.stamp()[:10]
         book = self.state.setdefault("alerts", {})
         if book.get(sig) == day:
