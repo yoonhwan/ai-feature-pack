@@ -188,7 +188,7 @@ class Ctx:
         best = {}
         try:
             rows = [ln.split("\t") for ln in (self.state / "directive-roots.tsv").read_text(encoding="utf-8").splitlines() if ln.strip()]
-            if not rows or any(len(r) < 4 or not r[3].endswith("/indices") for r in rows):
+            if not rows or any(len(r) < 4 or not r[2].strip() or not r[3].endswith("/indices") for r in rows):   # 빈 ref 칸 = 깨짐(ft_card_ref 의 origin/main 대체 0)
                 raise Unjudged("꼴 rc=1")
             for r in rows:
                 for p in need(["git", "-C", str(self.root), "ls-tree", "-r", "--name-only", "-z", self.tip(r[0])["sha"], "--", r[3].split("*")[0]], f"{r[0]} 행 git ls-tree")[1].split("\0"):
