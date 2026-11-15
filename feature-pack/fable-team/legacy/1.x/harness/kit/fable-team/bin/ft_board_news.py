@@ -106,11 +106,16 @@ def snapshot(d: dict, rows: list | None, prev: dict | None = None) -> dict:
                 sessions[name] = [t["label"], *seat_card(name, t, all_states)]
     snap = {"goals": rows, "cards": {t["label"]: t.get("states") or {} for t in teams},
             "counts": {t["label"]: [(t.get("counts") or {}).get(f, 0) for f in FOLDERS] for t in teams},
-            "sessions": sessions, "h": len({n for t in teams for n in t.get("oppa_todo") or []}), "err": err}
-    for label in err if prev else []:
+            "sessions": sessions, "h_by": {t["label"]: sorted(set(t.get("oppa_todo") or [])) for t in teams}, "err": err, "carried": []}
+    for label in err if prev else []:  # carried = 직전 상태를 실제로 이어 쓴 팀만(«확인 불가» 줄 · R3)
         if label in prev["cards"]:
             snap["cards"][label], snap["counts"][label] = prev["cards"][label], prev["counts"][label]
-        snap["sessions"].update({n: v for n, v in prev["sessions"].items() if v[0] == label})
+            snap["carried"].append(label)
+        old = {n: v for n, v in prev["sessions"].items() if v[0] == label}
+        snap["sessions"].update(old)
+        snap["carried"] += [label] if old and label not in snap["carried"] else []
+        snap["h_by"][label] = (prev.get("h_by") or {}).get(label, [])  # 승인 대기도 직전 값(R4 · 열쇠 밖)
+    snap["h"] = len({n for v in snap["h_by"].values() for n in v})
     return snap
 
 
@@ -152,7 +157,7 @@ def body(cur: dict, prev: dict | None, now: datetime, sha: str) -> str:
     seats = (seats[:MAX_SEATS] + [f"외 {len(seats) - MAX_SEATS}석"] if len(seats) > MAX_SEATS else seats) or ["열린 팀 세션 없음"]
     todo = f"오빠 승인 대기 {cur['h']}건" if cur["h"] else "없음"
     lines = ["① 골 진행", *goals, "② 지금", *changes(prev, cur), "③ 다음", *seats, "④ 막힌 것·오빠 할 일", todo,
-             *[f"{t} 확인 불가 — 수집 실패 · 직전 상태 유지" for t in err]]
+             *[f"{t} 확인 불가 — 수집 실패 · 직전 상태 유지" for t in cur.get("carried", [])]]
     lines = [ln if len(ln) <= MAX_LINE else ln[:MAX_LINE - 1] + "…" for ln in lines]
     return "\n".join(lines + [f"근거: 발행 {now:%Y-%m-%d %H:%M} · 골 진행 원장 {sha}"]) + "\n"
 
