@@ -74,6 +74,7 @@ chk "① 20/23 막대 9칸" 'lastbody | grep -qF "ft 2.0 완성 \`▓▓▓▓�
 chk "① news-last 생김" '[ -f "$LAST" ]'
 chk "① 다음 줄 = 세션별" 'next_section | grep -qF "하네스 · nano-beta · beta · 진행"'
 chk "① 오빠 할 일 1건" 'lastbody | grep -q "1건"'
+chk "⑫ 첫 발행 = «엑스 확인 불가» 0줄(직전에 없던 error 팀)" '! lastbody | grep -q "엑스 확인 불가"'
 # ② 같은 입력 +600초
 run 2026-11-15T10:10:00
 chk "② rc 0 · reply 0 · 변화 없음" '[ "$RC" = 0 ] && [ "$(replies)" = 1 ] && grep -q "변화 없음" "$T/out"'
@@ -150,6 +151,8 @@ chk "⑩ 부분 실패만 = reply 0 · news-last 그대로" '[ "$RC" = 0 ] && [ 
 goal "1 | ft 2.0 완성 | 21 | 23 | 진행 중" "$G2"; run 2026-11-15T16:20:00
 chk "⑩ 부분 실패 + 골 변화 = reply 1 · 지금 = 골 1줄" '[ "$(replies)" = 2 ] && [ "$(now_section | wc -l | tr -d " ")" = 1 ] && now_section | grep -qF "20→21"'
 chk "⑩ 본문 «하네스 확인 불가» 1줄" '[ "$(lastbody | grep -c "^하네스 확인 불가")" = 1 ] && ! lastbody | grep -qE "닫힘|→없음"'
+chk "⑫ 부분 실패 본문에도 «엑스 확인 불가» 0줄" '! lastbody | grep -q "엑스 확인 불가"'
+chk "⑬ 팀 수집 실패 중 «오빠 승인 대기 1건» 유지" 'lastbody | grep -qx "오빠 승인 대기 1건" && ! lastbody | grep -qx "없음"'
 mk "$BASE"; run 2026-11-15T16:30:00
 chk "⑩ 복구 = 가짜 열림 0 · reply 0" '[ "$RC" = 0 ] && [ "$(replies)" = 2 ]'
 reset; goal "$G1"; mk '{"err":true}'; run 2026-11-15T17:00:00
