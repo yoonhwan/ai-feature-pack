@@ -364,6 +364,15 @@ case "$cmd" in
 
   refs)
     need_probe
+    # r1654 ⓒ — 상태 확인 + 호출 전체에 바깥 상한(GNU timeout = 그룹째 종료) · 넘으면 판정 불가 1줄 rc3
+    if [ -z "${CI_REFS_INNER:-}" ] && command -v timeout >/dev/null 2>&1; then
+      to="${CI_REFS_TIMEOUT:-25}"; t0=$SECONDS
+      CI_REFS_INNER=1 timeout -k 1 "$to" "$BASH" "$0" refs "$@"; rc=$?
+      if [ "$rc" -eq 124 ] || [ "$rc" -eq 137 ]; then
+        echo "판정 불가 refs $((SECONDS - t0))초 — rg+Read 폴백(하드 룰 16)" >&2; exit 3
+      fi
+      exit "$rc"
+    fi
     loc="${1:?location 'file#symbol' or 'file:line:col' required}"; shift || true
     fmt="terminal"; [ "${1:-}" = "--json" ] && fmt="json"
     _lsp_ensure
