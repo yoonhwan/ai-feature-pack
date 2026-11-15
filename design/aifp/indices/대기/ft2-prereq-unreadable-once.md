@@ -7,7 +7,7 @@
 - 앞 카드: r2027(팩 54375271 · 선행 줄로 막힘 · 못 읽는 선행 건너뜀) · r1969(바퀴 캐시) · r1871(다음 카드) · r1913·r1939(fill)
 - 상태: 대기
 - 설치: 있음 — ft2 판 올림 1회 · 되돌림 = 앞 판으로 판 전환(상태 파일의 새 키 3개는 옛 판이 읽지 않음)
-- 선행: ft2-keeper-notify-recipient 착지(notify 의 성공·실패·넘김 구분) · ft2-launch-failed-end 착지(keeper_next.py prereq·choose 를 같이 만짐) — 이 줄은 카드 이름 글이라 keeper 가 읽지 못한다(선행불명) · keeper 가 읽는 막힘은 아래 배정 줄 «대기(선행» 이다 · 앞 카드가 착지하면 팀장이 이 줄을 «- 선행: 없음» 으로, 배정 줄을 «- 배정: 없음» 으로 고친다
+- 선행: 없음 — E ft2-keeper-notify-recipient 착지 ae0c199e(PR #1282) + D+F ft2-launch-failed-end 착지 8ed707c4(PR #1294) + J ft2-penalty-team-no-new-pick 착지 0d72507e(PR #1304 · keeper_next.py 겹침 풀림) 착지 끝 · 팀장 aifp-ft-master-pi#20 이 풂
 - 시험 입력: 임시 루트(tmp_path) · 시험 안에서 만든 카드 루트·카드·keeper 상태 파일 · 가짜 mbox(rc 를 사례가 정함) · 가짜 clock(날짜 넘김 포함) · sleep 0 · 네트워크 0 · 실 runtime 쓰기·읽기 0 · 사례 1개 70초 안
 - 기준값: 기준판 = 선행불명 카드 1장이 바퀴마다 1줄 · 팀장 쪽지에 카드 이름 0 → 목표 = 값·까닭이 바뀔 때만 1줄 · [다음 막힘] 은 묶음이 마지막으로 전한 것과 다를 때 1통
 - 규칙: 없음 — 상시 로드 변경 0
@@ -15,7 +15,7 @@
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/pi/keeper_next.py(prereq 까닭 반환 · choose 로그 기억 · 쪽지 1곳) · 새 시험 feature-pack/fable-team/ft2/tests/test_prereq_unreadable_once.py · 문서 ft2/contracts/keeper-settle/CONTRACT.md·CASES.md
 - 정본 영향 있음: CONTRACT.md 에 «선행불명 로그·쪽지» 절 1개(상태 키 3개 · 줄 꼴 · 보낼 조건) · CASES.md ㉟·변이 행 = 같은 PR(나노)
 - 크기: 코드 1파일 · 새 시험 1파일 · 문서 2파일 · PR 1개
-- 배정: 대기(선행 · 2026-11-16T01:57)
+- 배정: 없음
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
