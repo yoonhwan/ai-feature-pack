@@ -53,6 +53,10 @@ def once(k, key, read):
     """r1969 바퀴 캐시 — 같은 바깥 읽기 = 바퀴당 1회(팀 사이 공유) · keeper._round 가 열고 닫음(바퀴 밖 = 캐시 0) · kill·launch 뒤 ls 버림(keeper.call)."""
     got, fn = k.cache.get("@round"), read if callable(read) else lambda: k.call(read)
     return fn() if got is None else got[key] if key in got else got.setdefault(key, fn())
+def nano_name(k, team, stem):
+    """r2016 나노 좌석 이름 = stem 앞 40자 · 끝 «-» 지움(1.x ft-nano-spawn.sh _slug 와 같은 규칙) · 빈 값 = None + 경고 1줄(지어내기 0)."""
+    cut = stem[:40].rstrip("-")
+    return "byz-%s-nano-%s#0" % (team, cut) if cut else k.log("경고", team, "%s 나노 이름 빈 값 — 그 카드 0" % stem)
 def ledger(k, stem):
     return k.read_json(os.path.join(k.root, ".fable-team", "state", "card-assign", stem + ".json"))
 def skip_landed(k, team, stem):
@@ -305,11 +309,12 @@ def close(k, team, work, attempt, holder, gen):
     pick = None
     if seen is None and not new_card_hold(k, team):
         pick = choose(k, team) if gates(k, team) and penalty_open(k, team) else None
+        pick = pick if pick and nano_name(k, team, pick[0]) else None   # r2016 빈 이름 = submit 전 그 카드 0
         if pick:
             out, rc = cli.run(["submit", "--command", "keeper-next-" + pick[0], "--body", "카드 " + pick[0], "--work", pick[0], "--root", k.root, "--team", team])
             k.fa.remaining(k.root, team, out.get("result"), "카드 " + pick[0])   # r1886 ⓐ keeper submit
             pick = pick if rc == 0 or "재부여 0" in str(out.get("reason")) else k.log("판정 불가", team, "%s submit %s" % (pick[0], out.get("result")))
-        stem, nh = (pick[0], "byz-%s-nano-%s#0" % (team, pick[0][:40])) if pick else (None, None)
+        stem, nh = (pick[0], nano_name(k, team, pick[0])) if pick else (None, None)
     elif seen is not None:
         stem, nh = seen.get("next"), seen.get("holder")
     else:   # 새 카드 보류(H3) = 다음 카드 없음 · 영수는 그대로 쓴다
@@ -341,7 +346,7 @@ def fill(k, team):
     mine = [x for x in opened if x.split("|")[0] == team]
     for x in mine:   # r1929 띄운 열기 잇기 · 그 바퀴 새 fill 0
         stem = x.split("|", 1)[1]
-        reconcile(k, team, "fill:" + stem, opened[x], stem, "byz-%s-nano-%s#0" % (team, stem[:40]), None)
+        reconcile(k, team, "fill:" + stem, opened[x], stem, nano_name(k, team, stem), None)
         opened.pop(x) if "%s|fill:%s@%s" % (team, stem, opened[x]) in k.state["handled"] else None
     if mine:
         return None
@@ -351,7 +356,9 @@ def fill(k, team):
     pick = intake_open(k, team) and choose(k, team, {x.split("|", 1)[1] for x in held if x.split("|")[0] == team}) if gates(k, team) and penalty_open(k, team) else None
     if not pick:
         return None
-    stem, attempt, nh = pick[0], None, "byz-%s-nano-%s#0" % (team, pick[0][:40])
+    stem, attempt, nh = pick[0], None, nano_name(k, team, pick[0])
+    if not nh:   # r2016 빈 이름 = 채우기 0(경고 1줄은 nano_name)
+        return None
     for verb, args, ok in (("submit", ["--command", "keeper-next-" + stem, "--body", "카드 " + stem], "재부여 0"),
             ("assign", ["--holder", nh, "--evidence", ",".join(dispatch.Dispatch.REQUIRED_EVIDENCE)], "\0"),
             ("deliver", ["--mode", "intent"], "전달 의도 없음")):
