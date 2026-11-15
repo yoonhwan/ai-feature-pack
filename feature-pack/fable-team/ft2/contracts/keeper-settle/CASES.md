@@ -12,7 +12,9 @@
 | `test_slack_accept_capacity.py` | ㉖가~바 | M7 · M8 · M9 |
 | `test_keeper_notify_recipient.py` | ㉚가~거 | M17 · M18 · M19 · M23 · M24 · M25 · M32 · M33 |
 | `test_launch_failed_end.py` | ㉘가~카 · ㉛가~라 | M11 · M12 · M13 · M16 · M30 · M31 |
-| `test_done_seat_short_idle.py` | ㉙가~저(26) | M20 · M21 · M22 · M44 · M45 · M51~M55 |
+| `test_done_seat_short_idle.py` | ㉙가~도(27) | — (변이는 아래 두 파일) |
+| `test_done_seat_short_idle_mutants.py` | — | M20 · M21 · M22 · M44 · M45 |
+| `test_done_seat_short_idle_mutants_b.py` | — | M51~M55 |
 
 돌리는 법: `python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_core_park_capacity_r2055.py -q`(나머지도 같은 꼴 · 시험 1개 70초 상한).
 
@@ -211,13 +213,15 @@
 
 ## 9. 착지한 좌석의 짧은 문턱 · 빼는 미읽음 사례 (`test_done_seat_short_idle.py` · 카드 ft2-done-seat-short-idle)
 
-계약 A1~A9(`CONTRACT.md` §2) · 설계 `design/DESIGN-pA-done-idle-threshold-20261116.md` r4(DA 대행 APPROVE · BYZ 310212).
+계약 A1~A9(`CONTRACT.md` §2) · 설계 `design/DESIGN-pA-done-idle-threshold-20261116.md` r4(DA 대행 APPROVE · BYZ 310212) · DA HOLD-IMPL 반례 1(311515) 반영.
+파일 셋 = 사례 `test_done_seat_short_idle.py`(27) · 변이 `test_done_seat_short_idle_mutants.py`(M20~M45) · `test_done_seat_short_idle_mutants_b.py`(M51~M55) — 파일마다 70초 안.
 가짜 mbox = 머리줄 + `--rows` JSON 줄(사례가 정함) · 실 tmux·실 우편함·sleep 0 · 사례 1개 70초 안.
 
 | 사례 | 입력 | 기대 | 계약 |
 |---|---|---|---|
 | ㉙가 | 착지 참 · 마지막 줄 stop · 무활동 6분 · CPU idle 2회 · 쪽지 0 | `COMPLETED` 1 · 닫기 1(complete 1) | A1·A2 |
 | ㉙나 | 착지 참 · 마지막 줄 toolUse · 6분 | `WORKING landed-wait` · 닫기 0(턴이 안 닫혔으면 일하는 중) | A1 |
+| ㉙도 | 착지 참 · toolUse · 무활동 16분(질문 창 15분 지남) · CPU idle 2회 · 미읽음 0 | `WORKING landed-wait` · 닫기·complete·[긴급] 0 (질문 창 판정은 park 길만 — DA 반례 311515 R1) | A1 |
 | ㉙다 | 착지 참 · stop · 4분(문턱 안) | `WORKING landed-wait` · 닫기 0 | A1 |
 | ㉙라 | 착지 참 · stop · 6분 · CPU busy | `WORKING cpu-busy` · 닫기 0 | A1 |
 | ㉙마 | 착지 0 · stop · 61분 · 미읽음 `[마감 #N] 할 일 0`(75분 · 보낸 이 `_master`) | `PARKED idle-done` · 꼬리 `미읽음 마감 1통 제외(seq …)` · 닫기 1 · 큐 그대로(mark·recv 0) | A6·A8 |
@@ -255,5 +259,5 @@
 | M54 | 조건 ③(나이)을 뺌 | ㉙타 · ㉙더 |
 | M55 | 미읽음 판독을 지금(1통이라도 막음)으로 되돌림 | ㉙마 · ㉙너 |
 
-- 기준판(팩 origin/main cd0bd9ee)에서 FAIL 이던 사례 = ㉙가 ㉙마 ㉙아 ㉙너 ㉙서(5 · ㉙서는 첫 갈래만) · 지키던 사례 = 나머지 21.
+- 기준판(팩 origin/main cd0bd9ee)에서 FAIL 이던 사례 = ㉙가 ㉙마 ㉙아 ㉙너 ㉙서(5 · ㉙서는 첫 갈래만) · 지키던 사례 = 나머지 21. ㉙도 = 1차 구현(head e3e91f00)에서 FAIL 이던 사례(UNKNOWN waiting-input + [긴급] · 기대 WORKING landed-wait) · 보정 뒤 rc0.
 - `peek --rows` 사례 = 1.x `tests/scripts/test_mbox_peek_self_sent_r1153.py` r4(줄 수 = pending · 계보 옛 이름 앞 쪽지 포함 · from == me 셈 밖 · `--rows` 없으면 출력 바이트 같음).
