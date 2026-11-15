@@ -45,6 +45,13 @@ class _Ledger(keeper.Reporting):
     """r2065 E7 공용 장부 판독 — Reporting 은 root 만 있으면 tail_rows·boundary·arrived 를 쓴다(그대로 부른다)."""
 
 
+def marked(lines):  # r2081 B1 — 처음·복구·재전송이 같이 지나는 조립 · 글 2줄 이상 = 앞 글 / 새 글 갈래 · 1줄 = 기준판 그대로
+    lines = list(lines)
+    if len(lines) < 2:
+        return lines
+    return ["앞 글 %d줄(이미 넘긴 글 · 새 일 아님)" % (len(lines) - 1)] + lines[:-1] + ["새 글", lines[-1]]
+
+
 def has_table(text):  # r1927 마크다운 표 = 파이프 2개 이상 줄 다음 구분선 줄 · 코드 블록(```) 안 = 제외
     lines = FENCE.sub("", str(text)).splitlines()
     return any(a.count("|") >= 2 and TABLE_RULE.match(b) for a, b in zip(lines, lines[1:]))
@@ -234,10 +241,10 @@ class Wiring:
         owner = channels.owner_of(self.root, self.team, row["key"][1])  # r1923 ⑪ 다른 팀 채널 = 수신기 --root/--team 답글 줄
         tail = [] if owner in ("-", None) else ["답글: ft2 slack reply --root %s --team %s --thread %s --command %s --seat %s "
                                                  "--body-file <파일>" % tuple(map(shlex.quote, map(str, (self.root, self.team, thread, command, to))))]
-        body = "\n".join(["[Slack] %s · thread %s · command %s" % (kind, thread, command)] + list(lines) + tail
+        body = "\n".join(["[Slack] %s · thread %s · command %s" % (kind, thread, command)] + marked(lines) + tail
                           + ([extra] if extra else []))
         rc = self.wake(to, body, command)
-        if rc != 0 and not quiet:
+        if rc != 0 and not quiet and (self.last_wake or {}).get("landed") != "있음":   # r2081 B3 — 적재된 쪽지 = 알림 0
             self.alert(dict(row, reason="깨움 실패"), quiet=True)
         return rc
 
