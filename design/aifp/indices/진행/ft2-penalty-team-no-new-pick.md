@@ -15,7 +15,7 @@
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/pi/keeper_next.py(새 함수 penalty_open · fill pick 앞 · 닫기 뒤 pick 앞) · 새 시험 feature-pack/fable-team/ft2/tests/test_penalty_team_no_new_pick.py · 문서 ft2/contracts/keeper-settle/CONTRACT.md·CASES.md
 - 정본 영향 있음: CONTRACT.md 에 «전 세션 정지 재개 전 팀» 절 1개(판정기 자리·막는 것·안 막는 것·줄 꼴·상태 키) · CASES.md ㊲·변이 행 = 같은 PR(나노)
 - 크기: 코드 1파일 · 새 시험 1파일 · 문서 2파일 · PR 1개
-- 배정: 없음
+- 배정: 좌석 aifp-ft-nano-ft2-penalty-team-no-new-pick#0
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -75,5 +75,8 @@
 | P3 gates 가 먼저 | ㊲카 팀 PAUSED · 파일 있음 → 판정기 호출 0 · PENALTY 줄 0 |
 
 ## 상태
+- base_sha: cd0bd9ee1361cf25c215dbbb31fed2890e66df8f (spawn 2026-11-16)
 - 2026-11-16 · aifp-ft-arch-pi#18 씀(aifp 5461 (나) · 5464) · 대기 · 설계 r1 = DA 판정 전 · 선행 = ft2-launch-failed-end 착지 · Issue #8650
 - DA 판정: APPROVE-DESIGN · byz-harness-da-codex#11 · aifp 5469 · Q1 새 pick 두 곳만 · Q2 ft-penalty.sh check 재사용(FT_ROOT=k.root · 팀별 1회) · Q3 판독 불가 = 새 pick 막힘(복구·닫기 유지) · 한계 = 바퀴 캐시 안 상태 변경은 다음 관측 반영
+- 2026-11-16 03:44 — 대기→진행 · 좌석 aifp-ft-nano-ft2-penalty-team-no-new-pick#0
+- [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
