@@ -1,6 +1,6 @@
 # 인덱스: ft2-prereq-alarm-hold — 끝: 전팀 정지 · 팀 PAUSED · NEW_CARD_HOLD 중에는 [다음 막힘] 선행 줄 쪽지가 0통이다 · 풀린 뒤 카드를 고르는 첫 바퀴에 팀마다 1통이 가고 그 글에 전체 목록(3장을 넘으면 목록 파일 경로 1줄)이 있다 · 팀장이 없는 팀은 harness [긴급] 으로 넘기지 않고 팀장이 설 때까지 보류한다
 <!-- ledger: feature-pack/fable-team/legacy/1.x/harness/design/harness/GOAL-harness.md -->
-- Issue: 없음(초안) — 넘김 byz-harness-master-pi#292 aifp 5744(planner 결정 BYZ 311721 · arch#385 판단 BYZ 311752) · 팀장 aifp-ft-master-pi#21 발주 aifp 5746 · 후보 본문 BYZ .fable-team/state/team-main/harness/a385/card-candidate-prereq-alarm-hold.md
+- Issue: #8657 (byz-agents · 팀장 aifp-ft-master-pi#21 등록 BYZ 311983 · DA APPROVE-DESIGN 311966) — 넘김 byz-harness-master-pi#292 aifp 5744(planner 결정 BYZ 311721 · arch#385 판단 BYZ 311752) · 팀장 aifp-ft-master-pi#21 발주 aifp 5746 · 후보 본문 BYZ .fable-team/state/team-main/harness/a385/card-candidate-prereq-alarm-hold.md
 - 제안서: 없음 — 앞 카드가 만든 쪽지 1곳에 보낼 조건을 더하는 결함 복구 · 설계 = 이 카드 «계약»·«반례 표»(DA HOLD-DESIGN 1/3 BYZ 311909 반영 r2)
 - 근거: 실측 2026-11-16 05:39(aifp-ft-arch-pi#21 · BYZ .fable-team/state/ft2-keeper/launchd.log · 20261115.jsonl · 20261116.jsonl · state.json · 읽기만) — 아래 «기준값» 절
 - 원인 1줄: keeper_next.prereq_tell 은 보낼지를 묶음 지문(I8)만으로 정한다 · 정지·보류는 choose 를 부르는 쪽(fill · 닫기 뒤 고르기)의 앞 조건에만 걸려 있어 쪽지 자리에서는 보이지 않는다 · 본문에는 앞 3장만 실린다 · 팀장이 없으면 notify 가 대신 받는 곳 묶음(harness [긴급])에 넣는다
