@@ -15,7 +15,7 @@ from pathlib import Path
 
 from ft_nano_record import CARD_RX, DONE_RX, Ctx, Reject, Unjudged, left_free, left_of, marks, rec_of, section, seq_dropped
 from ft_nano_record_batch import prepare
-from ft_nano_record_repo import at, repo_hits
+from ft_nano_record_repo import at, repo_hits, seats_at
 
 DOCW = "문서 PR · 구현 착지 아님"   # r1782 A2: 장부 doc_only(착지 파일 전부 design/·docs/) 줄의 «끝» 사유
 
@@ -139,11 +139,11 @@ def fmt(r):
 
 
 def cmd_settle(ctx, a):
-    doc = ctx.seats((a.seat.split("-") + ["", ""])[1])
+    doc = seats_at(ctx, (ents := [e for e in ctx.ledger() if e.get("pr") == a.pr]), (a.seat.split("-") + ["", ""])[1])   # r1849 ⓑ
     row = doc.get(a.seat)
     if isinstance(row, dict) and row.get("role") == "nano" or not isinstance(row, dict) and a.seat not in (doc.get("_master"), doc.get("_arch")):
         raise Reject(f"settle 은 팀장·arch 만 — {a.seat} (role=nano 또는 명부 밖)")
-    if not (ents := [e for e in ctx.ledger() if e.get("pr") == a.pr]):
+    if not ents:
         raise Reject(f"장부에 PR #{a.pr} 줄 없음")
     if bool(a.card) == bool((a.no_card or "").strip()):
         raise Reject("--card <stem>… 또는 --no-card \"<사유>\" 중 하나")

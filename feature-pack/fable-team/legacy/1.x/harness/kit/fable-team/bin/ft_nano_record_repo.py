@@ -4,7 +4,7 @@
 상태·보낸 기록·우편함 = 장부 루트 그대로(sub.state·sub.comm = 부른 ctx 것). 같은 루트 = 부른 ctx 그대로(git 호출 0 · r2071 묶음 판 불변)."""
 from __future__ import annotations
 
-from ft_nano_record import CARD_RX, Ctx, need
+from ft_nano_record import CARD_RX, Ctx, Unjudged, need
 
 
 def at(ctx, where):   # 카드 절대경로·장부 repo → 그 리포 Ctx(상태 = 장부 루트) · 루트 같음·상대경로 = ctx
@@ -23,6 +23,16 @@ def at(ctx, where):   # 카드 절대경로·장부 repo → 그 리포 Ctx(상�
         subs[key] = sub = Ctx(roots[r])
         sub.state, sub.comm, sub.fetch = ctx.state, ctx.comm, ctx.fetch
     return subs[key]
+
+
+def seats_at(ctx, ents, team):   # settle 좌석 명부 — 장부 루트 먼저 · 못 읽고 장부 repo 가 다른 리포면 그 리포 명부(팩 팀장) · 그래도 실패 = Unjudged 그대로
+    try:
+        return ctx.seats(team)
+    except Unjudged:
+        sub = at(ctx, ents[-1].get("repo")) if ents else ctx   # r1849-mut:seats
+        if sub is ctx:
+            raise
+        return sub.seats(team)
 
 
 def repo_hits(ctx, ent, stem, hits):   # settle — 루트 카드 루트 표 0개({}) + 장부 repo 가 다른 리포 = 그 리포 카드 ref(ft_card_ref 팀 «») 트리의 <stem>.md 들 → {n: 절대경로} · 아니면 hits 그대로
