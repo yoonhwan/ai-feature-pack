@@ -134,7 +134,7 @@ usage() {
   cat <<'EOF'
 ci — code-intel (probe + tilth)
 
-  ci search "<query>" [path] [--max N]      의미/키워드 검색 (BM25 + AST 블록)
+  ci search "<query>" [path] [--max N] [--no-tests]      의미/키워드 검색 (BM25 + AST 블록 · 시험 파일 포함이 기본)
   ci sym <name> [--scope P] [--callers|--deps]
                                             심볼 정의/호출자/의존성 (정의 우선 정렬)
   ci outline <file> [--section S]           파일 아웃라인 (+토큰 수)
@@ -164,6 +164,8 @@ _cap() {
 #  판정만 전역 SE_RC · SE_PANIC · SE_TIMEOUT 에 남긴다. 함수 rc 는 늘 0(판정은 세 전역으로만 본다).
 _probe_search() { # $1=<q> $2=<path> $3=<max> $4=<단계 이름> [probe 추가 인자…]
   local q="$1" p="$2" mx="$3" st="$4"; shift 4
+  # T1·T2: 시험 파일 포함이 기본(호출 2곳 공통 — 1단계·OR 재시도). 끄기 = search 갈래가 _SE_ALLOW_TESTS=0.
+  if [ "${_SE_ALLOW_TESTS:-1}" = "1" ]; then set -- --allow-tests "$@"; fi
   SE_OUT="$_SE_DIR/out.$st"; SE_ERR="$_SE_DIR/err.$st"
   SE_TIMEOUT=0
   # K6(E6): probe 단계 상한 = min(CI_TIMEOUT, 25) · 정수 아니면 25 · probe --timeout 도 같은 값.
@@ -199,10 +201,21 @@ case "$cmd" in
   search)
     need_probe
     q="${1:?query required}"; shift || true
-    path="."; max="5"
+    # T1~T5 (카드 ci-search-test-files): probe 기본값은 시험 파일·시험 블록을 뺀다 — search 갈래는 기본으로
+    #   --allow-tests 를 준다. 끄는 인자 = --no-tests 하나(같은 이름이 두 번 오면 뒤 것이 이긴다).
+    #   모르는 «-» 인자는 path 로 삼키지 않고 rc 2 로 멈춘다(삼키면 probe 가 옵션으로 읽어 path 가 cwd 로 떨어진다).
+    path="."; max="5"; _SE_ALLOW_TESTS=1
     while [ $# -gt 0 ]; do
       case "$1" in
-        --max) max="$2"; shift 2 ;;
+        --max)
+          if [ $# -lt 2 ]; then
+            echo "ci search: --max 값이 없다 — ci search \"<query>\" [path] [--max N] [--no-tests]" >&2
+            exit 2
+          fi
+          max="$2"; shift 2 ;;
+        --no-tests) _SE_ALLOW_TESTS=0; shift ;;
+        --allow-tests) _SE_ALLOW_TESTS=1; shift ;;
+        -*) echo "ci search: 모르는 인자 $1 — ci search \"<query>\" [path] [--max N] [--no-tests]" >&2; exit 2 ;;
         *) path="$1"; shift ;;
       esac
     done
@@ -275,6 +288,8 @@ case "$cmd" in
       dl="$(wc -l < "$out1" 2>/dev/null | tr -d ' ')"; [ -n "$dl" ] || dl=0
       if [ -n "${orq}" ] && [ -f "${out2:-}" ]; then dl=$((dl + $(wc -l < "$out2" | tr -d ' '))); fi
       echo "[warn] probe panic rc=$panic_rc ($loc) → rg 폴백 · 부분 출력 ${dl}줄 버림" >&2
+      # T6: rg 는 probe 의 시험 판정을 흉내 내지 않는다 — --no-tests 였음을 경고 1줄로 밝힌다.
+      [ "${_SE_ALLOW_TESTS:-1}" = "1" ] || echo "[warn] rg 폴백은 시험 파일을 가르지 않는다" >&2
 
       # 낱말 OR(-F 글자 그대로) · 파일당 1줄(-m 1) · 파일명 강제(-H · 단일 파일 갈래도 파일:줄)
       # 낱말 분리 = read -a (glob 확장 0 · DA 4202 R3) · rg 원래 rc 를 이 자리에서 바로 받는다(R2 · 파이프 0)
