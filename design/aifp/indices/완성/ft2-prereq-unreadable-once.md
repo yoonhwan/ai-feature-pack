@@ -5,7 +5,7 @@
 - 근거: 실측 2026-11-16(aifp-ft-arch-pi#17 · BYZ .fable-team/state/ft2-keeper/2026111{5,6}.jsonl·카드 원문 · 읽기만) — «판정 불가 <팀> <카드> 선행 줄 판독 불가 — 건너뜀» 이틀 1132줄 · 카드 7장(cfo 4 · harness 3) · 11-15 cfo 3장이 장마다 288줄 · 그동안 선행 값 변화 0 · 까닭 2갈래 = 번호 참조 없음(cfo sim-source-links «생성기 턴키 기준 main 착지 = 1a80d4c0fc(충족)» · harness r1375 «재자율(…)») / 글 속 r5 가 카드 번호로 읽혀 루트에 없음(cfo atom-it-planner-rate «결정 원문 r5 PR 8503 착지»)
 - 원인 1줄: keeper_next.choose 는 선행불명 줄을 바퀴 캐시(once)로만 막아 다음 바퀴에 또 찍는다 · 줄에 까닭과 고칠 꼴이 없다 · 팀장에게는 고를 카드 0 일 때의 [다음 없음] 사유별 수만 가고 카드 이름이 없다
 - 앞 카드: r2027(팩 54375271 · 선행 줄로 막힘 · 못 읽는 선행 건너뜀) · r1969(바퀴 캐시) · r1871(다음 카드) · r1913·r1939(fill)
-- 상태: 대기
+- 상태: 완성 · 2026-11-16 06:38 · -
 - 착지: b70abbf6821b535077494f2083c1a69626387963(팩 main · PR #1336 squash · #1331 을 main 위로 rebase 한 판 · DA#11 APPROVE-IMPL BYZ 311566 + rebase 재확인 311650 · 세트 093824d7 = PR head · 뺄 커밋 0)
 - 설치: 있음 — ft2 판 올림 1회 · 되돌림 = 앞 판으로 판 전환(상태 파일의 새 키 3개는 옛 판이 읽지 않음)
 - 선행: 없음 — E ft2-keeper-notify-recipient 착지 ae0c199e(PR #1282) + D+F ft2-launch-failed-end 착지 8ed707c4(PR #1294) + J ft2-penalty-team-no-new-pick 착지 0d72507e(PR #1304 · keeper_next.py 겹침 풀림) 착지 끝 · 팀장 aifp-ft-master-pi#20 이 풂
@@ -86,3 +86,4 @@ keeper 는 대기 카드의 «- 선행:» 줄에서 r<번호> 만 읽는다. 번
 - 세트: 42c688cddf290ea0712c546a307a7a29ae3f1b6e · 시험: python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_prereq_unreadable_once.py -q (21 passed 63초) rc=0 · 이슈: 0
 - 완료: aifp-ft-nano-ft2-prereq-unreadable-once#0 · 한 일: ft2 keeper 선행불명 I1~I9 구현 + 새 시험 15칸·변이 6 + 계약 §11·사례 §9·설계 정본(커밋 9a45f2dc fc9f93ae 42c688cd) · 산출: nano/ft2-prereq-unreadable-once@42c688cddf · 병합 상태: 착지 전(push 전) · 남은 일: 없음
 - 세트: 093824d79e68fcafc52666300bc105c91705d79c · 시험: python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_prereq_unreadable_once.py -q (21 passed 66.95초) rc=0 · 이슈: 0
+- 2026-11-16 06:38 — 진행→완성 · DA /Users/yoonhwan/Project/ai-feature-pack/.fable-team/state/team-main/aifp-ft/DA-prereq-once-close-312138/verdict.md#§1
