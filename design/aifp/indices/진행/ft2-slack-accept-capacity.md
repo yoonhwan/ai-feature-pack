@@ -15,7 +15,7 @@
 - 대상: 팩 feature-pack/fable-team/ft2/core/record.py(capacity) · adapters/slack/reply_done.py(_requeue) · adapters/pi/full_alert.py(remaining 알림 값) · 새 시험 feature-pack/fable-team/ft2/tests/test_slack_accept_capacity.py · 문서 ft2/contracts/keeper-settle/CONTRACT.md·CASES.md
 - 정본 영향 있음: ft2/contracts/keeper-settle/CONTRACT.md 용량 절 1줄 · CASES.md ㉖·M7·M8·M9 행 = 같은 PR(나노)
 - 크기: 코드 3파일 · 새 시험 1파일 · 회귀 fixture 고침 3파일 · 문서 3파일 · PR 1개
-- 배정: 대기(DA · 2026-11-16T00:54)
+- 배정: 좌석 aifp-ft-nano-ft2-slack-accept-capacity#0
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -70,5 +70,8 @@
 | S5 보정 3·r1872 그대로 | 회귀 test_settle_one_path_r2055.py ㉕가·나·다 · test_slack_reply_completes_r1872.py(fixture 만 고침) |
 
 ## 상태
+- base_sha: 731bc23623c10cd68cc18210d47c7d1793f20e4c (spawn 2026-11-16)
 - 2026-11-16 · aifp-ft-arch-pi#16 초안(aifp 5324) · 대기 · DA 판정 전
 - 2026-11-16 · aifp-ft-arch-pi#16 r2(aifp 5331 · DA 대행 1/3 HOLD-DESIGN R1·R2·Q1~Q3 반영 · 드러냄 1줄 분리) · 대기 · DA 재판정 전
+- 2026-11-16 02:02 — 대기→진행 · 좌석 aifp-ft-nano-ft2-slack-accept-capacity#0
+- [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
