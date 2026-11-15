@@ -41,6 +41,10 @@ while [ $# -gt 0 ]; do case "$1" in
   --name) NAME="${2:-}"; shift 2;; --agent) AGENT="${2:-}"; shift 2;; --model) MODEL="${2:-}"; shift 2;;
   --ctx) CTX="${2:-}"; shift 2;; --effort) EFFORT="${2:-}"; shift 2;; --body-file) BODY="${2:-}"; shift 2;;
   --carry) CARRY="${2:-}"; CARRY_SET=1; shift 2;; *) usage;; esac; done
+# ★r1659 이름 lint 관문★ (오빠 «이름 꼬리 = 에이전트만 · 모델은 이름에 안 넣음»): 열기·명부·쪽지·재실행 이어가기 전에 ft-name-lint 를 통과해야 한다.
+#   모델 꼬리(sol 등)는 같은 계보 승계라도 예외 0 → REJECT rc1 · 꼬리 에이전트 ≠ --agent 는 아래 r1468 관문(rc2) 몫 · nano 는 lint 만.
+_nl="${FT_NAME_LINT:-$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-name-lint.sh}"
+[ -z "$NAME" ] || _nlo="$(bash "$_nl" "$NAME" 2>&1)" || { echo "REJECT 이름 lint — ${_nlo%%$'\n'*} (세션 열기 0 · 명부 쓰기 0)" >&2; exit 1; }
 # ★r1569 후계 런타임 = 역할 정책표★ (오빠 #278888): --agent 를 생략하면 옛 좌석 습관 대신 정책표(역할 → agent·model)에서 고르고, 이름 꼬리도 고른 agent 로 바꾼다.
 #   역할 = 이름의 «-<역할>-» 토큰(표 위 행부터 첫 일치) · 표 없음·역할 없음 = rc2 + 이유 1줄(옛 agent 로 조용히 대체 0 · #0 RULE) · --agent 명시가 정책과 다르면 WARN 1줄(막지 않음 · 사람 지정 존중).
 POLICY="${FT_RUNTIME_POLICY:-$(dirname -- "${BASH_SOURCE[0]:-$0}")/runtime-policy.tsv}"
