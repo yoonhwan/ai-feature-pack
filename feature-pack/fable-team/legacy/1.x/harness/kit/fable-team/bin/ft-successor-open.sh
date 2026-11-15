@@ -92,8 +92,8 @@ fi
 CARRY="${CARRY:-0}"
 # ★r1468 이름 꼬리 = --agent★ (BOOT 13 «byz-<팀>-<역할>-<에이전트>#N»): 꼬리 토큰(# 앞 마지막 -)이 에이전트 낱말인데 --agent 와 다르면 REJECT(옛 이름으로 조용히 열기 0).
 #   꼬리가 에이전트 낱말이 아닌 이름(나노 등 다른 꼴)은 이 검사 밖 — 지금처럼 연다.
-_nb="${NAME%%#*}"
-case "${_nb##*-}" in claude|codex|cmd|opencode|pi)
+_nb="${NAME%%#*}"; _nr="${_nb#*-*-}"; _nr="${_nr%%-*}"   # r1659 R1: nano 꼬리 = 카드 slug(끝 낱말이 pi 여도 에이전트 아님) → 꼬리 대조 0 · lint 만
+[ "$_nr" = nano ] || case "${_nb##*-}" in claude|codex|cmd|opencode|pi)
   [ "${_nb##*-}" = "$AGENT" ] || { echo "REJECT 이름 꼬리 ${_nb##*-} ≠ --agent $AGENT — 이름 = ${_nb%-*}-$AGENT#N" >&2; exit 2; };;
 esac
 printf '%s\n%s\n' "$OLD" "$NAME" | grep -qvE '^[A-Za-z0-9._#-]+$' && { echo "REJECT 좌석명은 [A-Za-z0-9._#-] 만" >&2; exit 2; }

@@ -44,8 +44,8 @@ run 'byz-t-master-codex#0' 'byz-t-master-sol#1' codex
   && ok "ⓐ sol 꼬리 → REJECT 이름 lint rc1 · 열기·명부 0" || bad "ⓐ $(show)"
 # ⓑ 꼬리 pi ≠ --agent codex → REJECT(r1468 관문) · 열기 0
 run 'byz-t-master-codex#0' 'byz-t-master-pi#1' codex
-{ [ "$RC" != 0 ] && grep -q '^REJECT 이름 꼬리 pi ≠ --agent codex' "$TMP/out" && opened0; } \
-  && ok "ⓑ 꼬리 pi ≠ codex → REJECT · 열기 0" || bad "ⓑ $(show)"
+{ [ "$RC" = 2 ] && grep -q '^REJECT 이름 꼬리 pi ≠ --agent codex' "$TMP/out" && opened0; } \
+  && ok "ⓑ control 비 nano 꼬리 pi ≠ codex → REJECT rc2 · 열기 0" || bad "ⓑ $(show)"
 # ⓒ 맞는 이름 → 관문 통과(문지기 스텁까지)
 run 'byz-t-master-codex#0' 'byz-t-master-codex#1' codex
 passed && ok "ⓒ codex 꼬리 → 관문 통과" || bad "ⓒ $(show)"
@@ -58,6 +58,8 @@ passed && ok "ⓓ2-2 sol#60 → codex#61 통과" || bad "ⓓ2-2 $(show)"
 # ⓓ nano 이름 = lint 만(꼬리 대조 0) · nano lint 위반은 REJECT
 run 'byz-t-master-codex#0' 'byz-t-nano-r1-x#0' codex
 passed && ok "ⓓ nano → lint 만 · 통과" || bad "ⓓ $(show)"
+run 'byz-t-master-codex#0' 'byz-t-nano-r1-pi#0' codex   # DA R1: slug 끝 낱말 pi ≠ --agent codex 라도 꼬리 대조 0
+passed && ok "ⓓ-R1 nano slug 끝 pi → 꼬리 대조 0 · 통과" || bad "ⓓ-R1 $(show)"
 run 'byz-t-master-codex#0' 'byz-t-nano#0' codex
 { [ "$RC" = 1 ] && grep -q '^REJECT 이름 lint.*slug' "$TMP/out" && opened0; } && ok "ⓓ-2 slug 없는 nano → REJECT" || bad "ⓓ-2 $(show)"
 # ⓔ 재실행(같은 이름 세션 있음)도 관문 먼저 — 이어감 0
