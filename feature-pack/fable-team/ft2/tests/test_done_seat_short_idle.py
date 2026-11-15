@@ -316,7 +316,9 @@ def c29do(w):   # ㉙도 착지 참 · 마지막 줄 toolUse · 무활동 16분(
     lines = two(w)
     assert has(lines, "WORKING harness r9901", "landed-wait"), lines
     assert not has(lines, "UNKNOWN harness r9901"), lines
-    assert not has(lines, "waiting-input") and not calls(w, "send"), lines   # [긴급] 0 — 미읽음도 0
+    # r2098 R12 — keeper 꽉 참 알림(ft2-full-alert)은 이제 자기 mbox 로 실제 나간다(예전 = 경로 없는 mbox 로 조용히 사라짐) ·
+    # 이 사례가 보는 것은 [긴급] 쪽지 0 이다.
+    assert not has(lines, "waiting-input") and not [x for x in calls(w, "send") if "ft2-keeper" in x], lines
     assert not w.tmux("kill-session") and w.kinds("complete") == 0 and not calls(w, "mark"), lines
 
 

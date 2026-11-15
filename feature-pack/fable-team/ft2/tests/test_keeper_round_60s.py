@@ -11,6 +11,7 @@ import ast
 import importlib.util
 import json
 import os
+import re
 import shutil
 import subprocess
 import types
@@ -623,6 +624,26 @@ MUTANTS = {
 @pytest.mark.parametrize("name", list(CASES))
 def test_case(name, tmp_path):
     CASES[name](Rig(tmp_path))
+
+
+def test_env_isolated(tmp_path, monkeypatch):
+    """팀장 셸 회귀(r2098 반송) — TMUX·TMUX_PANE·FT_*·PI_* 가 있는 셸에서도 같은 ROUND 가 나온다.
+
+    Rig 은 keeper env 를 스스로 정하고(바깥 env 상속 0) tmux 소켓 기준(FT2_TMUX_SOCKET)도 세우지 않는다.
+    """
+    base = Rig(tmp_path / "clean")
+    base.round()
+    for key, val in (("TMUX", "/private/tmp/tmux-501/default,1,0"), ("TMUX_PANE", "%7"), ("FT_SEAT", "x#0"),
+                     ("FT_HARNESS_ROOT", str(tmp_path)), ("FT2_TMUX_SOCKET", "/private/tmp/tmux-501/default"),
+                     ("FT2_TEAM_NANO_MAX", "3"), ("PI_SESSION_ID", "y"), ("PI_MODEL", "z")):
+        monkeypatch.setenv(key, val)
+    dirty = Rig(tmp_path / "dirty")
+    dirty.round()
+    def keep(xs):   # 경로·초는 세계마다 다르다 — 줄 종류와 칸 이름만 본다
+        return [re.sub(r" [a-z_]+=[^\s]+", "", re.sub(r"\S*/root\b", "<root>", x)) for x in xs if x.startswith(("ROUND", "FETCH-TRY", "ROUND-CAP"))]
+    assert keep(dirty.k.lines) == keep(base.k.lines), (dirty.k.lines, base.k.lines)
+    assert set(dirty.k.env) == {"FT2_KEEPER_MBOX", "FT2_PACK_REPO"}, dirty.k.env   # 바깥 env 상속 0
+    assert dirty.k.sock is True   # tmux 소켓 기준 없음 = 셀 손 실행 그대로
 
 
 @pytest.mark.parametrize("name", list(MUTANTS))

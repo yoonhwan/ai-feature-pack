@@ -389,7 +389,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         self.sect, self.items, self.total, self.cut, self.cut_pos, self.prev_cursor, self.curs = WORK_S, 0, 0, "-", None, None, None
         self.jrows, self.ws, self.order, self.report_seat, self.nano_dl, self.unused = {}, {}, [], None, None, set()
         self.prev_cursor = dict(self.state.get("cursor") or {}) or None   # R5 «같은 자리 2바퀴 연속» 을 세려고 남긴다
-        self.notify_used, self.deferred, self.send_fails, self.send_stop = 0, {}, 0, False   # R8 쪽지 몫은 바퀴마다 새로
+        self.deferred = {}   # R8 쪽지 몫(notify_used · send_fails · send_stop)은 바퀴 끝에서 되돌린다(한 바퀴 3통 · 시간 초과 2회)
         self.halt, self.unknown, self.orphan_scope = self.stopped(), 0, set()   # r2055 orphan_scope = 고아 길이 판정한 팀(S1) 정지 = 판정·[긴급]·«예정» 만 · kill·park·깨움·fill·B3 0
         self.fresh_samples()   # r2055 A13 표본 = 직전 바퀴 것만
         self.cache["@round"] = {}   # r1969 바퀴 캐시(keeper_next.once · 팀 사이 공유 · 다음 바퀴 새로 읽음)
@@ -463,6 +463,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         cells = " ".join("%s=%g" % (key, round(val, 1)) for key, val in self.spent.items())
         cells += " fetch_root=%g fetch_pack=%g" % (round(self.fetch_s[self.root], 1), round(self.fetch_s[self.pack], 1))   # r1975 ⑤ 합계 fetch= 그대로
         cells += " nano=%g" % round(self.nano_s, 1) if round(self.nano_s, 1) else ""
+        self.notify_used, self.send_fails, self.send_stop = 0, 0, False   # R8 쪽지 몫 = 바퀴마다 새로(바퀴 끝에 되돌린다)
         self.total = len(self.positions()) - len(self.unused)   # R10 items = 돈 자리 / (돈 수 있는 자리)
         cells += " wall=%g other=%g items=%d/%d cut=%s" % (round(wall, 1), round(max(wall - s, 0.0), 1), self.items, self.total, self.cut)   # R10
         top = max((kv for kv in self.per.items() if kv[0][0]), key=lambda kv: kv[1], default=None)   # r1969 가장 느린 (팀, 칸) 1개
@@ -509,7 +510,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
                 close = self.one_work(team, work, attempt, row, dispatched, rows)
             except Ungraded:
                 continue   # R7 git 7초 = 그 자리 남은 판정 0 · 다음 자리
-            if close and self.sock and (team, work, attempt) not in self.parked_failed and self.at_pos("b2c"):
+            if close == "close" and self.sock and (team, work, attempt) not in self.parked_failed and self.at_pos("b2c"):
                 self.timed("b2c", self.close, team, work, attempt, row, dispatched)   # r2058 L2 착지면 complete 만 · 세션 없으면 닫기 0
         self.at_work = "-"
         self.cursor_stage = "stall"
@@ -519,26 +520,42 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
             self.timed("b2f", closing.keeper_next.fill, self, team)
 
     def one_work(self, team, work, attempt, row, dispatched, rows):
-        """B1 한 자리(landing + complete) → 닫을까 · 착지 밖이면 stall 칸까지(끊기면 Cut 이 위로)."""
-        if row.get("done") or self.before(team, work, "b1"):   # 착지면 complete 만 · R4 앞 바퀴가 b1 을 했다 = close 부터
-            self.unused.add((team, work, "stall"))   # 닫기로 가는 work 의 stall 자리는 돈 자리가 아니다(R10 items)
-            return True
+        """B1 한 자리(landing + complete) → «close» | «none» · 착지 밖이면 stall 칸(끊기면 Cut 이 위로).
+
+        R4 — 앞 바퀴가 b1 을 했으면 그때의 결정을 이어받는다: cursor 칸이 b2c 면 닫기로, 그 밖이면 stall 자리로.
+        cursor 가 이 work 뒤면(다른 work·팀 칸) 이 work 는 이번 바퀴 0.
+        """
+        cur = self.state.get("cursor") or {}
+        if self.before(team, work, "b1"):
+            if cur.get("team") != team or cur.get("work") != work:
+                return "none"   # R4 cursor 뒤 자리 = 재판독·재닫기 0
+            if cur.get("stage") == "b2c":
+                self.unused.add((team, work, "stall"))
+                return "close"
+            return self.stall_pos(team, work, attempt, dispatched, row, rows, "")
+        if row.get("done"):   # 착지면 complete 만 = close 자리
+            self.unused.add((team, work, "stall"))
+            return "close"
         self.at_pos("b1")
         landed = self.landing(team, work)
         if landed[0] and not landed[2] and self.sock and not self.land_ready(team, work, attempt, dispatched):
-            return False   # r2055 A6·S4-1 landed-wait · complete·kill 0
+            return "none"   # r2055 A6·S4-1 landed-wait · complete·kill 0
         if self.timed("b1", self.complete, team, work, attempt, landed):
             self.unused.add((team, work, "stall"))
-            return True
+            return "close"
         if self.sock and endings.ending(self, team, work):   # r1960 끝(완성후·아카이브·상태 머리) = complete 0 · close 가드 그대로
             self.unused.add((team, work, "stall"))
-            return True
+            return "close"
+        return self.stall_pos(team, work, attempt, dispatched, row, rows, landed[2])
+
+    def stall_pos(self, team, work, attempt, dispatched, row, rows, why):
+        """stall 자리 — settle 한 길 → 깨움 → HOLD(정지 중이면 깨움·재배정 0). 반환 = «none»."""
         if self.sock and self.at_pos("stall"):
-            seen = self.timed("stall", self.settle_nano, team, work, attempt, dispatched, row, landed[2])   # r2055 착지 밖 = settle 한 길
+            seen = self.timed("stall", self.settle_nano, team, work, attempt, dispatched, row, why)   # r2055 착지 밖 = settle 한 길
             if seen != "PARKED" and not self.halt:   # WORKING·UNKNOWN = 기존 회복 길 그대로 · 정지 중 = 깨움·재배정 0
                 self.timed("stall", self.stall.check, team, work, attempt, rows)   # r1813 · r1898 ROUND stall 칸
                 self.timed("stall", hold.check, self, team, work, attempt, rows)   # r1931 HOLD 줄 늘면 깨움 1회 · 누적 3 = 인터뷰 길
-        return False
+        return "none"
 
     def alert_hand(self, sig):
         """R12 — 알림 1통을 state.alert_out 에 넣는 손(바퀴 안 바깥 호출 0 · report 구획에서 문을 지나 나간다)."""
