@@ -218,6 +218,61 @@ def c11(w):   # ⑪ accept 만 · PARK_IDLE 넘음 · 같은 work command 2개 �
     assert len([x for x in lines if x.startswith("UNKNOWN harness r9562 - accept-only")]) == 1 and (p["capacity"], p["remaining"]) == (1, 2), (lines, p)
 
 
+DICT_WORK = ({"slack": {"team": "planner"}},   # ㉕ 실제 journal accept 의 work 꼴 2개(Slack 접수 · work 없는 접수)
+             {"route": {"channel": "C0C9GRFHJE5", "id": "post:x", "thread": "1794578093.789539", "to": "byz-planner-desk-pi#154"},
+              "slack": {"attempts": 2, "channel": "C0C9GRFHJE5", "ts": "1794580640.715179"}})
+
+
+def c25_journal(w, dict_work=True, str_work=True, dispatch=True):
+    """㉕ journal — dict-work accept 2줄(work 칸만 실제 꼴로 바꿈) · str-work accept-only 1건 · 다른 work dispatch 1줄 · 시계 = PARK_IDLE 넘김."""
+    steps = [["submit", "--command", "c-d%d" % i, "--body", "b", "--work", "d%d" % i] for i in (1, 2) if dict_work]
+    steps += [["submit", "--command", "c-s", "--body", "b", "--work", "r9570"]] if str_work else []
+    steps += [["submit", "--command", "c-x", "--body", "b", "--work", "r9572"], ["assign", "--work", "r9572", "--holder", "byz-harness-nano-r9572#0",
+              "--evidence", "v1,v2"], ["deliver", "--work", "r9572"]] if dispatch else []
+    for argv in steps:
+        assert w.CLI.run(argv + ["--root", str(w.root), "--team", TEAM])[1] == 0
+    path = w.runtime() / "journal.jsonl"
+    rows = [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines()]
+    for rec in rows:
+        if rec["kind"] == "accept" and rec["work"] in ("d1", "d2"):
+            rec["work"] = DICT_WORK[int(rec["work"][1]) - 1]
+    path.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), encoding="utf-8")
+    kw._put(w.state / "ft20-switch" / (TEAM + ".json"), "{}")
+    w.t = datetime.datetime.strptime(kw.NOW, "%Y-%m-%dT%H:%M:%S").timestamp() + 7200
+
+
+def c25_only(w):
+    k = w.keeper()
+    k.unknown = 0
+    try:
+        k.accept_only(TEAM, w.journal())
+    except TypeError as exc:   # 기준판 = dict 를 set 원소로 씀
+        raise AssertionError("accept_only 예외 %r" % exc)
+    return [x for x in k.lines if x.startswith("UNKNOWN")]
+
+
+def c25a(w):   # ㉕가 dict-work accept 2 + str-work accept-only 1 + 다른 work dispatch 1 → 예외 0 · UNKNOWN accept-only = str work 1건만
+    c25_journal(w)
+    got = c25_only(w)
+    assert len(got) == 1 and got[0].startswith("UNKNOWN harness r9570 - accept-only"), got
+
+
+def c25b(w):   # ㉕나 dispatch 0 · dict-work accept 만 → 예외 0 · UNKNOWN 0 · [긴급] 0
+    c25_journal(w, str_work=False, dispatch=False)
+    assert c25_only(w) == [] and not [x for x in sent(w) if "[긴급]" in x], sent(w)
+
+
+def c25c(w):   # ㉕다 같은 journal 로 keeper 한 바퀴(team_round 경유) → 끝까지 감 · 다른 판정 줄 = dict-work 줄 없을 때와 같음
+    c25_journal(w)
+    lines = rnd(w)
+    with pytest.MonkeyPatch.context() as mp:   # 대조 세계(dict-work 줄 0 · 나머지 같음)
+        base = world(w.tmp / "base", mp)
+        c25_journal(base, dict_work=False)
+        want = rnd(base)
+    pick = lambda xs: [x for x in xs if x.split()[0] in ("UNKNOWN", "WORKING", "PARKED", "LANDED", "COMPLETED", "ROUND") or x.startswith("CLOSED")]   # noqa: E731
+    assert pick(lines) == pick(want) and has(lines, "UNKNOWN harness r9570 - accept-only"), (lines, want)
+
+
 def c12(w):   # ⑫ intent failed · 세션 부재 · owner 있음 → park(launch-failed) · 새 attempt
     c3(w, "failed")
 
@@ -296,12 +351,13 @@ def c20(w):   # ⑳ tmuxc 대조 — 사슬 끝(pane → npm → node → pi) %c
 
 
 CASES = {"①": c1, "②": c2, "②′": c2b, "③": c3, "④": c4, "④′": c4b, "⑤": c5, "⑥": c6, "⑦": c7, "⑨": c9, "⑩": c10, "⑪": c11,
-         "⑫": c12, "⑱": c18, "⑲": c19, "⑳": c20}
+         "⑫": c12, "⑱": c18, "⑲": c19, "⑳": c20, "㉕가": c25a, "㉕나": c25b, "㉕다": c25c}
 CASES.update({"⑰" + c: (lambda c: lambda w: c17(w, c))(c) for c in "가나다라마바"})
 KS = "adapters/pi/keeper_settle.py"
 MUTANTS = {"M3": ('and age >= WAIT_S and cpu == "idle":', "and age >= WAIT_S and False:", c9),
            "M4": ("    for _ in range(depth):", "    for _ in range(2):", c20),
-           "M5": ('idle = age is not None and age >= PARK_IDLE and (shell or cpu == "idle")', 'idle = (shell or cpu == "idle")', c6)}
+           "M5": ('idle = age is not None and age >= PARK_IDLE and (shell or cpu == "idle")', 'idle = (shell or cpu == "idle")', c6),
+           "M6": ('and isinstance(rec.get("work"), str) and rec["work"] not in sent', 'and rec.get("work") and rec["work"] not in sent', c25a)}   # ㉕ str 가드
 
 
 @pytest.mark.parametrize("name", list(CASES))

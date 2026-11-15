@@ -339,9 +339,9 @@ class Settling:
     def accept_only(self, team, rows):
         """⑪ accept 만(dispatch 0) · PARK_IDLE 넘음 · 의무 장부에 남음 → UNKNOWN accept-only 1개(work 단위)."""
         state = PROJ.record.recover_state(PROJ.journal.Journal(PROJ.runtime_path(self.root, team), rec=PROJ.record).state(), rows)
-        left, sent, first = set(PROJ.record.remaining(state, rows)), {r.get("work") for r in rows if r["kind"] == "dispatch"}, {}
+        left, sent, first = set(PROJ.record.remaining(state, rows)), {r.get("work") for r in rows if r["kind"] == "dispatch" and isinstance(r.get("work"), str)}, {}
         for rec in rows:
-            if rec["kind"] == "accept" and rec["command"] in left and rec.get("work") and rec["work"] not in sent:
+            if rec["kind"] == "accept" and rec["command"] in left and isinstance(rec.get("work"), str) and rec["work"] not in sent:   # ㉕ work 가 str 아님 = work 없는 접수(core record.remaining·capacity 규칙)
                 first.setdefault(rec["work"], rec)
         for work, rec in sorted(first.items()):
             try:
