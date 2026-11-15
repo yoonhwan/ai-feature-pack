@@ -6,11 +6,13 @@
 #   sleep = 함수 대역(실 sleep 0) · 실 tmux·실 pi 0 · 시험 대상 = env FT_TMUXC_PATH(기준판으로 돌리면 Red 칸이 빨강).
 #   칸: ① 끝 공백·개행 뗌 / 빈 글 rc2 · ② Enter 1회 비워짐 · ③ 일하는 중 테두리 + 꼬리 «.beads/» 1회 남음 → try=2
 #       ④ 3회 남음 → stuck rc≠0 · ⑤ 판독 불가 → unverified rc0 / 쉼 테두리 빈 상자 → try=1 · ⑥ open --agent pi --prompt
+#       ⑧ 상자 안 남의 글(관문 stderr 줄) → unverified rc0 · Enter 1 / 남의 글 + 넣은 글 끝 조각 → ④ 길
 #   변이(FT_MUTATE): M1 = 정규화 지움(→ ① FAIL) · M2 = 확인 고리를 Enter 1회로 되돌림(→ ③ FAIL)
+#                    M3 = 끝 조각 견주기를 빼고 «상자에 글 있음 = 남음» 으로 되돌림(→ ⑧ FAIL)
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 R2059_MUTATE="${FT_MUTATE:-0}"
-case "$R2059_MUTATE" in M1|M2) FT_MUTATE=0 ;; esac   # 틀의 변이(J·P·…)와 섞지 않는다
+case "$R2059_MUTATE" in M1|M2|M3) FT_MUTATE=0 ;; esac   # 틀의 변이(J·P·…)와 섞지 않는다
 . "$HERE/_harness_tmuxc_inject.sh"
 MUTATE="$R2059_MUTATE"
 
@@ -37,6 +39,14 @@ i = s.index('plain_submit_loop()'); j = s.index(old, i)
 open(p, "w", encoding="utf-8").write(s[:j] + 'for try in 1; do  # MUTATE M2' + s[j + len(old):])
 PY
   ;;
+  M3) python3 - "$SHIM" <<'PY'
+import sys
+p = sys.argv[1]; s = open(p, encoding="utf-8").read()
+old = '[[ "$box" == *"$tail"* ]]'
+assert old in s, "M3 대체 실패"
+open(p, "w", encoding="utf-8").write(s.replace(old, 'true', 1))
+PY
+  ;;
 esac
 
 # ---------- 가짜 tmux(pi 입력 상자 꼴) ----------
@@ -57,6 +67,7 @@ case "$cmd" in
     [ -f "$D/transcript" ] && cat "$D/transcript"
     if [ -f "$D/frame" ] && [ "$(cat "$D/frame")" = working ]; then printf '── ⠇ Working ──────────────────────\n'
     else printf '──────────────────────────────────\n'; fi
+    [ -f "$D/foreign" ] && printf '  %s\n' "$(cat "$D/foreign")"
     buf="$(cat "$D/buffer" 2>/dev/null || true)"
     if [ -n "$buf" ]; then printf '%s\n' "$buf" | sed 's/^/  /; s/$/      /'; else printf '      \n'; fi
     printf '──────────────────────────────────\n'
@@ -133,6 +144,16 @@ fresh; : > "$D/no_border"; call_limited inject_message sess "codex 본문"
 fresh; printf idle > "$D/frame"; call_limited inject_message sess "쉼 상자 본문"
 { [ "$RC" = 0 ] && grep -q 'state=submitted.*try=1' "$T/out" && [ "$(n_enter)" = 1 ]; } \
   && ok "⑤ 쉼 테두리 2개 + 빈 상자 → state=submitted try=1" || bad "⑤ idle rc=$RC enters=$(n_enter) out=$(outl)"
+
+# ⑧ 상자 안 남의 글(실 pi 좌석: 관문이 턴 시작에 찍는 stderr 줄) · 편집 칸은 빔 → unverified try=1 · Enter 1 · rc0
+FOREIGN='ft2 distill-gate: turn undecidable-turn 턴 시작 ctx usage 없음 — 메시지 주입'
+fresh; printf '%s' "$FOREIGN" > "$D/foreign"; call_limited inject_message sess "발주 본문 #310239 끝맺음 문장입니다"
+{ [ "$RC" = 0 ] && grep -q 'state=unverified.*try=1' "$T/out" && [ "$(n_enter)" = 1 ] && ! grep -q 'state=stuck' "$T/out"; } \
+  && ok "⑧ 상자 안 남의 글만 → state=unverified try=1 · Enter 1 · rc=0" || bad "⑧ foreign rc=$RC enters=$(n_enter) out=$(outl)"
+# ⑧' 같은 남의 글 아래에 넣은 글 끝 조각이 남음 → ④ 길(Enter 3 · stuck · rc≠0)
+fresh; printf '%s' "$FOREIGN" > "$D/foreign"; printf 9 > "$D/stick"; call_limited inject_message sess "발주 본문 #310239 끝맺음 문장입니다"
+{ [ "$RC" != 0 ] && [ "$RC" != 124 ] && grep -q 'state=stuck' "$T/out" && [ "$(n_enter)" = 3 ] && no_esc; } \
+  && ok "⑧' 남의 글 + 끝 조각 남음 → stuck · Enter 3 · rc=$RC" || bad "⑧' rc=$RC enters=$(n_enter) out=$(outl)"
 
 # ⑥ open --agent pi --prompt — 부팅 문장 ②꼴 · 본문 ④꼴 → «부팅 문장 제출 실패 rc=» · rc≠0 / 둘 다 ②꼴 → stdout = 기준판과 바이트 같음
 BASE_SHA=92c2dac2ae1606124bbf8f7746194c70b5ef95b6
