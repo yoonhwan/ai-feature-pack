@@ -16,6 +16,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from ft_board_news_name import card_disp, card_tag, titles, work_name  # noqa: F401 — card_disp = 옛 이름(시험 호환)
+
 DEBOUNCE_S = 300
 MAX_CHANGES, MAX_SEATS, MAX_BYTES, MAX_LINE = 5, 12, 3500, 150
 DEFAULT_MD = "gitref:origin/main:design/teams/planner/PLAN-oppa-ledger.md"
@@ -69,10 +71,6 @@ def goal_line(row: list[str]) -> str:
     return f"{name} `{'▓' * k}{'░' * (10 - k)}` {n}/{m}" + (" 완성" if n == m else "")
 
 
-def card_disp(cid: str) -> str:
-    return re.sub(r"^r\d+[a-z]?-", "", cid)
-
-
 def seat_short(name: str) -> str:
     s = re.sub(r"^byz-[^-]+-", "", re.sub(r"#\d+$", "", name))
     return re.sub(r"(^|-)r\d+[a-z]?(?=-)", r"\1", s).replace("--", "-")
@@ -124,42 +122,50 @@ def key(s: dict) -> dict:
             "counts": s["counts"], "sessions": {n: v[1:] for n, v in s["sessions"].items()}}
 
 
-def changes(prev: dict | None, cur: dict) -> list[str]:
+def changes(prev: dict | None, cur: dict, nm=lambda team, cid: card_disp(cid)) -> list[str]:
+    return [t for t, _ in _changes(prev, cur, nm)]
+
+
+def _changes(prev: dict | None, cur: dict, nm) -> list[tuple[str, list[str]]]:  # [(② 줄, 카드 id들)] · nm(팀, id) = 하는 일 이름(R5)
     if prev is None:
-        return ["첫 발행 — 직전 발행 없음"]
+        return [("첫 발행 — 직전 발행 없음", [])]
     out, before = [], {r[0]: r for r in prev.get("goals") or []}
     for r in cur["goals"] or []:
         p = before.get(r[0])
         if p is None or (p[2], p[3]) != (r[2], r[3]):
-            out.append(f"{r[1]} {p[2] if p else '—'}→{r[2]} ({r[3]} 중)")
+            out.append((f"{r[1]} {p[2] if p else '—'}→{r[2]} ({r[3]} 중)", []))
     blind = set(cur.get("err", [])) | {t for t in prev.get("err", []) if t not in prev["cards"]}  # 모르는 팀 = 비교 0
-    out += [f"{t} 수집 복구" for t in sorted(set(prev.get("err", [])) - set(cur.get("err", [])))]
+    out += [(f"{t} 수집 복구", []) for t in sorted(set(prev.get("err", [])) - set(cur.get("err", [])))]
     for team in sorted((set(prev["cards"]) | set(cur["cards"])) - blind):
         a, b = prev["cards"].get(team, {}), cur["cards"].get(team, {})
-        out += [f"{team} {card_disp(c)} {a.get(c, '없음')}→{b.get(c, '없음')}" for c in sorted(set(a) | set(b)) if a.get(c) != b.get(c)]
+        out += [(f"{team} {nm(team, c)} {a.get(c, '없음')}→{b.get(c, '없음')}", [c]) for c in sorted(set(a) | set(b)) if a.get(c) != b.get(c)]
     ps, cs = prev["sessions"], cur["sessions"]
     for n in sorted(set(ps) | set(cs)):
         if (cs.get(n) or ps[n])[0] in blind:
             continue
         if n not in ps or n not in cs:
-            out.append(f"{seat_short(n)} {'열림' if n in cs else '닫힘'}")
+            out.append((f"{seat_short(n)} {'열림' if n in cs else '닫힘'}", []))
         elif ps[n][1] != cs[n][1]:
-            out.append(f"{seat_short(n)} 카드 {card_disp(ps[n][1])}→{card_disp(cs[n][1])}")
-    out = out or ["세부 줄 없음 — 카드 수만 바뀜"]
-    return out[:MAX_CHANGES] + ([f"외 {len(out) - MAX_CHANGES}건"] if len(out) > MAX_CHANGES else [])
+            out.append((f"{seat_short(n)} 카드 {nm(cs[n][0], ps[n][1])}→{nm(cs[n][0], cs[n][1])}", [ps[n][1], cs[n][1]]))
+    out = out or [("세부 줄 없음 — 카드 수만 바뀜", [])]
+    return out[:MAX_CHANGES] + ([(f"외 {len(out) - MAX_CHANGES}건", [])] if len(out) > MAX_CHANGES else [])
 
 
-def body(cur: dict, prev: dict | None, now: datetime, sha: str) -> str:
+def body(cur: dict, prev: dict | None, now: datetime, sha: str, tt: dict | None = None) -> str:
+    nm = lambda team, cid: work_name(cid, (tt or {}).get(team, {}).get(cid))  # noqa: E731
+    news = _changes(prev, cur, nm)
+    tags = list(dict.fromkeys(g for _, ids in news for c in ids if (g := card_tag(c))))  # 근거 줄 번호(R6)
     goals = [goal_line(r) for r in cur["goals"]] if cur["goals"] else [NO_TABLE]
     err = cur.get("err", [])
-    seats = [f"{v[0]} · {seat_short(n)} · {card_disp(v[1])} · {v[2]}" for n, v in sorted(cur["sessions"].items(), key=lambda x: (x[1][0], x[0]))
+    seats = [f"{v[0]} · {seat_short(n)} · {nm(v[0], v[1])} · {v[2]}" for n, v in sorted(cur["sessions"].items(), key=lambda x: (x[1][0], x[0]))
              if v[0] not in err]
     seats = (seats[:MAX_SEATS] + [f"외 {len(seats) - MAX_SEATS}석"] if len(seats) > MAX_SEATS else seats) or ["열린 팀 세션 없음"]
     todo = f"오빠 승인 대기 {cur['h']}건" if cur["h"] else "없음"
-    lines = ["① 골 진행", *goals, "② 지금", *changes(prev, cur), "③ 다음", *seats, "④ 막힌 것·오빠 할 일", todo,
+    lines = ["① 골 진행", *goals, "② 지금", *[t for t, _ in news], "③ 다음", *seats, "④ 막힌 것·오빠 할 일", todo,
              *[f"{t} 확인 불가 — 수집 실패 · 직전 상태 유지" for t in cur.get("carried", [])]]
     lines = [ln if len(ln) <= MAX_LINE else ln[:MAX_LINE - 1] + "…" for ln in lines]
-    return "\n".join(lines + [f"근거: 발행 {now:%Y-%m-%d %H:%M} · 골 진행 원장 {sha}"]) + "\n"
+    tail = f"근거: 발행 {now:%Y-%m-%d %H:%M} · 골 진행 원장 {sha}" + (f" · 카드 {' '.join(tags)}" if tags else "")
+    return "\n".join(lines + [tail]) + "\n"
 
 
 def main() -> int:
@@ -173,14 +179,14 @@ def main() -> int:
     if rows is None:
         print(f"WARN ft_board_news: {NO_TABLE} — 골 줄 없이 발행", file=sys.stderr)
     last = json.loads(Path(a.last).read_text(encoding="utf-8")) if Path(a.last).is_file() else None
-    cur = snapshot(json.loads(Path(a.collect).read_text(encoding="utf-8")), rows, last and last.get("snap"))
+    cur = snapshot(d := json.loads(Path(a.collect).read_text(encoding="utf-8")), rows, last and last.get("snap"))
     if last and last.get("key") == key(cur):
         print("변화 없음 — 발행 0")
         return 0
     if last and (gap := (now - datetime.fromisoformat(last["at"])).total_seconds()) < DEBOUNCE_S:
         print(f"디바운스 — 직전 발행 {int(gap)}초 전 · 발행 0")
         return 0
-    out = body(cur, last and last.get("snap"), now, sha)
+    out = body(cur, last and last.get("snap"), now, sha, titles(d))
     if len(out.encode()) > MAX_BYTES:
         print(f"ERROR ft_board_news: 본문 {len(out.encode())}B > {MAX_BYTES}B — 발행 0", file=sys.stderr)
         return 1
