@@ -44,7 +44,7 @@ def send(ctx, to, frm, body):   # → 실제 seq(못 읽으면 0) | None(발신 
     if rc != 0:
         print(f"WARN 쪽지 발신 실패 → {to}(rc={'-' if rc is None else rc})")
         return None
-    m = re.search(r"\bseq=(\d+)", out)
+    m, ctx.send_out = re.search(r"\bseq=(\d+)", out), out   # r2015 — doorbell= 칸을 깨움 확인(ft_nano_record_wake)이 읽는다
     return int(m.group(1)) if m else 0
 
 
@@ -171,6 +171,7 @@ def notify_row(ctx, r, now, gap):
         return
     update(ctx, lambda st: st["sent"].__setitem__(key, {"n": (ent or {}).get("n", 0) + 1, "ts": now, "seq": seq}))
     print(f"NOTIFIED {r['k']} → {to} #{seq}")
+    __import__("ft_nano_record_wake").wake(ctx, r, seq, send, update, FROM)   # r2015 — 차례 줄만 · doorbell ≠ sent → ring 1회 · 실패 = 팀장 1통(200줄 상한 → 줄 안 import)
     if ent and r["k"] == "차례" and r["master"]:
         send(ctx, r["master"], FROM, f"[정리 차례 무응답] {r['seat']} {r['stem']} 빠짐 {r['miss']} — 착지 {r['q'][:10]}(PR #{r['pr']}) · 차례 쪽지 2통에 기록 없음")
 
