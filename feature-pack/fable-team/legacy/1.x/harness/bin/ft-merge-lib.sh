@@ -278,7 +278,7 @@ fm_ddl_dev_gate() {
 fm_land_ledger() {
   local st="$1" ast="$2" ap="$3" q="$4" afv="${5:-}" sn dl="" lf arc
   sn="$(awk -v ap="$ap" '$1=="scope-use" && $3==ap && $2 ~ /^S[0-9]+$/ {s=$2} END{print s}' "$st/autonomy.log" 2>/dev/null)"
-  [ "$afv" != D1 ] || dl="$ast/autonomy-standing/D1.ledger.tsv"; [ "$afv" != D2 ] || dl="$ast/autonomy-standing/D2.ledger.tsv"   # r1577: D2 상시 승인도 같은 7칸 원장
+  [ "$afv" != D1 ] || dl="$ast/autonomy-standing/D1.ledger.tsv"; [ "$afv" != D2 ] || dl="$ast/autonomy-standing/D2.ledger.tsv"; [ "$afv" != D3 ] || dl="$ast/autonomy-standing/D3.ledger.tsv"   # r1577·r1794: D2·D3 상시 승인도 같은 7칸 원장
   for lf in "$st/autonomy-scope/${sn:-none}.ledger.tsv" ${dl:+"$dl"}; do
     [ -f "$lf" ] || continue
     awk -F'\t' -v OFS='\t' -v ap="$ap" -v q="$q" '$2==ap && $6=="" {$6=q; $7="git revert --no-edit " q; n++} {print} END{exit n?0:3}' "$lf" 2>/dev/null > "$lf.$$"; arc=$?
@@ -484,9 +484,9 @@ fm_land_turn() {
 #   fm_land_notify_d2 <PR> <착지 sha> <PR 제목·본문> : r1577 — D2 승인 줄로 착지했을 때 슬랙 1줄(«병합함: PR #N · 카드 · DA APPROVE · 되돌림 명령»)
 #     게시 = ft-autonomy-scope.sh 의 scope_slack_post 재사용(사본 0 · 서브셸이라 scope_err 의 exit 이 착지 rc 를 못 건드린다) · 실패 = stderr 1줄 · 착지 rc 불변
 fm_land_notify_d2() {
-  local pr="$1" q="$2" txt="$3" tok body out rc
+  local pr="$1" q="$2" txt="$3" lab="${4:-DA APPROVE}" tok body out rc   # r1794: 4번째 = 표기(D3 = 상시 승인 D3)
   tok="$(printf '%s' "$txt" | grep -oE 'r[0-9]{2,5}' | sort -u | tr '\n' ' ')"; tok="${tok% }"
-  body="$(printf '병합함: PR #%s · 카드 %s · DA APPROVE · 되돌림: git revert --no-edit %s' "$pr" "${tok:-없음}" "$q")"
+  body="$(printf '병합함: PR #%s · 카드 %s · %s · 되돌림: git revert --no-edit %s' "$pr" "${tok:-없음}" "$lab" "$q")"
   out="$( ( . "$FM_HERE/ft-autonomy-scope.sh" >/dev/null 2>&1; scope_slack_post "$body" ) 2>&1 )"; rc=$?
   [ "$rc" = 0 ] || echo "WARN 병합 뒤 슬랙 알림 실패(rc=$rc) — 착지는 성공(sha $q) · ${out%%$'\n'*}" >&2
   return 0
