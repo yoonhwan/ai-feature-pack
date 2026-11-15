@@ -187,7 +187,7 @@ case "$1" in
       *) echo "REJECT 머리 「- 제안서:」 값은 #<제안 Issue 번호> 또는 「없음 — 사유」 (경로 값은 R77 r1 부터 승인 증거로 인정하지 않는다): ${val:0:50}"; exit 1;;
     esac
     [ -z "$cite" ] || { echo "REJECT 카드가 $cite 를 인용하는데 머리 「- 제안서:」 가 #M 이 아니다 — 제안 Issue 를 열고 승인받은 뒤 #M 으로(우회 차단)"; exit 1; }
-    iss="$(hdr Issue "$card" | grep -oE '#[0-9]+' | head -1 | tr -d '#')"
+    iss=""; [[ "$(hdr Issue "$card")" =~ ^#([0-9]+)([[:space:]]|$) ]] && iss="${BASH_REMATCH[1]}"   # r1751: 값 머리 #N 만(제안서 머리와 같은 꼴) · 설명 속 쪽지 번호 0
     if [ -n "$iss" ]; then
       lb="$(py_issue labels "$iss")" || { echo "$lb"; exit 1; }
       case " $lb " in *" proposal "*) echo "REJECT 머리 - Issue: #${iss} 가 proposal 라벨 Issue 인데 「- 제안서: #${iss}」 가 아니다 — 승인 증거 없이 구현 카드로 못 연다(우회 차단)"; exit 1;; esac
