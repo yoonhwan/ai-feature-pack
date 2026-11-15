@@ -13,11 +13,51 @@
 | `test_keeper_notify_recipient.py` | ㉚가~거 | M17 · M18 · M19 · M23 · M24 · M25 · M32 · M33 |
 | `test_launch_failed_end.py` | ㉘가~카 · ㉛가~라 | M11 · M12 · M13 · M16 · M30 · M31 |
 | `test_prereq_unreadable_once.py` | ㉟가~하 · ㉟거 | M39 · M40 · M41 · M56 · M57 · M58 |
+| `test_prereq_alarm_hold.py` | ㊵가~더(18) | M85 · M86 · M87 · M88 · M89 · M90 · M91 |
 | `test_done_seat_short_idle.py` | ㉙가~도(27) | — (변이는 아래 두 파일) |
 | `test_done_seat_short_idle_mutants.py` | — | M20 · M21 · M22 · M44 · M45 |
 | `test_done_seat_short_idle_mutants_b.py` | — | M51~M55 |
 
 돌리는 법: `python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_core_park_capacity_r2055.py -q`(나머지도 같은 꼴 · 시험 1개 70초 상한).
+
+## 9.1 선행 줄 쪽지 묵음·전체 목록 (`test_prereq_alarm_hold.py` · 카드 ft2-prereq-alarm-hold)
+
+계약 P0~P8(`CONTRACT.md` §12.1) · 설계 = 카드 «계약»·«반례 표»(DA HOLD-DESIGN 1/3 반영 r2).
+대역 = 9절과 같은 r1871 세계 + 주입 시계 · sleep 0 · 실 우편함·runtime 쓰기 0.
+「실제 fill 길」·「실제 닫기 뒤 고르기 길」 칸은 `keeper_next.fill` · `keeper_next.close` 를 돌리고 `prereq_tell` 호출 수를 센다. `prereq_tell` 을 직접 부르는 칸은 ㊵라 · ㊵하 · ㊵너 셋뿐이다.
+
+| 사례 | 입력 | 기대 | 계약 |
+|---|---|---|---|
+| ㊵가 | 실제 fill 길 · `NEW_CARD_HOLD.json` 있음 · 선행불명 2장 · 두 바퀴 | 쪽지 0통 · `prereq_tell` 호출 0 · `prereq_now`·`prereq_told`·목록 파일 없음 · `NEW-CARD-HOLD` 줄 1줄(그대로) | P0 · H3 |
+| ㊵나 | 실제 fill 길 · 팀 `PAUSED` 있음 · 선행불명 2장 | 쪽지 0통 · 기억·파일 손 0 | P0 |
+| ㊵다 | `ALL_STOP` 중 · 닫기 뒤 고르기 길로 `choose` 가 불림(세션 없음) · 선행불명 2장 | 쪽지 0통 · `prereq_told` 없음 | P1 |
+| ㊵라 | 함수 단위 방어: 세 표식을 하나씩 켬(3칸) · `prereq_tell` 직접 | 칸마다 쪽지 0통 · `prereq_told` 그대로 · `prereq_now` 와 목록 파일은 고쳐짐 | P1 |
+| ㊵마 | 실제 fill 길 · ㊵가 뒤 표식 파일을 지움 | 다음 fill 바퀴 1통 · 그 다음 바퀴 0통 | P2 |
+| ㊵바 | 실제 fill 길: 열린 바퀴에 묶음 X 전함 → `NEW_CARD_HOLD` 켬 → 카드를 Y 로 바꿈 → 보류 2바퀴 → 표식 지움 → fill 1회 | 보류 바퀴 = 쪽지 0통 · 호출 0 · `prereq_now`·파일 = X 그대로 / 풀린 뒤 fill = 쪽지 1통 · `prereq_told` = Y 지문 · 파일 = Y | P0 · P2 · P4 |
+| ㊵사 | ㊵바와 같되 보류 중 카드를 모두 고침 | 보류 바퀴 = X 파일 남음 / 풀린 뒤 fill = 쪽지 0통 · `prereq_told` 비움 · 목록 파일 지움 | P2 · P4 |
+| ㊵러 | 실제 닫기 뒤 고르기 길 · `NEW_CARD_HOLD` 있음 · 선행불명 2장 | 쪽지 0통 · 호출 0 · 닫기 영수는 그대로 | P0 |
+| ㊵아 | 열림 · 선행불명 5장 | 1통 · 수 5 · 이름 3개 · «전체 목록 <경로>» 1개 · 파일 5줄(이름순 · 값 · 까닭 · 첫 줄 `# 관측 … · 5장`) | P3 · P4 |
+| ㊵자 | 열림 · 선행불명 3장 | 본문은 지금 글 그대로(경로 칸 0) · 파일 3줄 | P3 · P4 · P8 |
+| ㊵차 | `_master` 빈칸 · harness master 있음 · 선행불명 4장 · 두 바퀴 | 쪽지 0통 · `undelivered` 에 그 글 0 · `PREREQ-WAIT` 1줄(둘째 바퀴 0줄) · `prereq_told` 없음 | P5 |
+| ㊵카 | ㊵차 뒤 `_master` 칸을 채움 | 그 바퀴 팀장에게 1통 · `prereq_wait` 지움 · 다음 바퀴 0통 | P2 · P5 |
+| ㊵타 | ㊵차 뒤 카드 1장 더(묶음 바뀜) | `PREREQ-WAIT` 1줄 다시(5장) · 쪽지 0통 | P5 |
+| ㊵파 | `_master` 빈칸 · `_desk` 있음 | ㊵차와 같음(대신 받는 곳 = 보류) | P5 |
+| ㊵하 | 함수 단위 방어: `NEW_CARD_HOLD` 깨짐(빈 파일) · 선행불명 2장 · `prereq_tell` 직접 | 쪽지 0통 | P1 |
+| ㊵거 | 실제 fill 길 · ㊵바의 보류 중 keeper 를 다시 만듦(상태 파일 그대로) → 표식 지움 → fill | Y 1통(재기동이 0통이나 2통을 만들지 않는다) | P2 · I9 |
+| ㊵너 | 함수 단위 방어: 팀장 없음 + `NEW_CARD_HOLD` · `prereq_tell` 직접 | 쪽지 0통 · `PREREQ-WAIT` 0줄 | P6 |
+| ㊵더 | 세 표식 0 · 팀장 있음 | 앞 카드 사례 ㉟가~거 전부 통과 | P7 |
+
+| 변이 | 바꾸는 곳 | 잡는 사례 |
+|---|---|---|
+| M85 | `prereq_mute` 에서 전팀 정지(`k.halt`) 조건을 뺌 | ㊵라 · ㊵다 |
+| M86 | 묵음 바퀴에 `prereq_told` 를 씀 | ㊵라 |
+| M87 | 본문 `전체 목록 <경로>` 칸을 뺌 | ㊵아 |
+| M88 | 팀장 없음에도 `k.notify` 를 부름(대신 받는 곳 = 묶음) | ㊵차 · ㊵파 |
+| M89 | `PREREQ-WAIT` 를 묶음이 바뀌지 않아도 바퀴마다 찍음 | ㊵차 |
+| M90 | 불린 바퀴에 묶음이 비어도 목록 파일을 지우지 않음 | ㊵사 |
+| M91 | 풀린 뒤 첫 호출 바퀴에 목록 파일을 고치지 않음(X 그대로) | ㊵바 |
+
+- 기준판(팩 origin/main c4b78196)에서 FAIL 이던 사례 = ㊵다 ㊵라 ㊵마 ㊵바 ㊵사 ㊵아 ㊵자 ㊵차 ㊵카 ㊵타 ㊵파 ㊵하 ㊵거(13) · 지키던 사례 = ㊵가 ㊵나 ㊵러 ㊵너 ㊵더(5).
 
 ## 1. settle 판정 사례 (`test_settle_one_path_r2055.py`)
 
