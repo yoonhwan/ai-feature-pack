@@ -35,6 +35,7 @@ WAIT = "PREREQ-WAIT"
 def world(tmp, mp, cards=None, cap="4", ft2=kw.FT2, prep=None):
     """r1871 세계(임시 root·git·가짜 tmux·launch·record) + 첫 바퀴 = 닫을 일 1장(닫기 영수 자리 = choose 가 불리는 길).
     prep = 표식 놓는 자리(첫 바퀴 «전» · 실제 설치 상태와 같다) · cards = 대기 카드 {stem: 머리 줄}."""
+    Path(tmp).mkdir(parents=True, exist_ok=True)
     w = kw.World(tmp, mp, ft2)
     b, tm = tmp / "bin", kw.TMUX.replace("__PY__", sys.executable)
     i = tm.index('if a[0] == "kill-session"')
@@ -132,7 +133,7 @@ def team_on(w, team=PLAN, master="", desk=""):
     w.enable(team)
     kw._put(w.root / ".fable-team" / ("seats-%s.json" % team), {"_master": master, "_desk": desk})
     with open(w.state / "directive-roots.tsv", "a", encoding="utf-8") as fh:
-        fh.write("%s\t.\torigin/main\tdesign/%s\n" % (team, team))
+        fh.write("%s\t.\torigin/main\tdesign/%s/indices\n" % (team, team))
 
 
 def put_team(w, team, stem, head, stage="대기"):
