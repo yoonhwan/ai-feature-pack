@@ -3,7 +3,7 @@
 잇기 = submit → 최초이자 유일한 영수 1회(next·새 holder·evidence) → launch → record · 복구 = 저장 next·holder 로만 launch·record 를
 «각각» 맞춘다(새 고르기 0 · handled 는 그 뒤) · 고를 카드 0 일 때만 팀장 [다음 없음] 1통(하루·팀 1키).
 r1929 launch = 기다리지 않는다(keeper_launch · 띄우고 다음 바퀴에 의도를 읽어 잇기)."""
-import importlib.util, os, re, sys  # noqa: E401
+import hashlib, importlib.util, os, re, sys  # noqa: E401
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FT2, GIT_S, PENALTY_S = os.path.dirname(os.path.dirname(HERE)), 25, 7   # r2073 판정기 호출 7초(하드 룰 12)
@@ -14,19 +14,24 @@ MONTH = re.compile(r"/아카이브/\d{4}-\d{2}")   # DA R1 월별 아카이브(�
 MARK = ("사람", "정지", "DA", "lint", "면제대기", "선행")   # r2058 L9 — 카드 «- 배정: 대기(<사유> · …)» 의 막는 사유(새 표식 · «석» 은 여기 없다)
 def prereq(lines, where):
     """r2027 카드 본문 선행 막힘 = "" · "선행" · "선행불명"(판정 불가) · where = {번호: 카드가 있는 폴더 집합}.
+    반환 = (판정, 까닭) — 까닭은 선행불명일 때만 찬다(`번호 참조 없음` · `루트에 없는 번호 r<a> r<b> …` · 없는 번호 전부·번호 순 · I2·I3).
     r2058 L9 — «- 배정: 대기(<사유> · 시각)» 의 사유가 사람·정지·DA·lint·면제대기·선행 이면 그 사유 그대로 막는다(«대기(석» 은 새 표식이 아니다)."""
     mark = next((x[len("- 배정: 대기("):].split(" · ")[0].strip().rstrip(")").strip() for x in lines if x.startswith("- 배정: 대기(")), "")
     if mark in MARK:
-        return mark   # ① 카드 배정 줄(원장·owner 를 본 뒤의 자리)
+        return mark, ""   # ① 카드 배정 줄(원장·owner 를 본 뒤의 자리)
     val = next((x.split(":", 1)[1].strip() for x in lines if x.startswith("- 선행:")), "")
     if not val or val.startswith(("없음", "-")):
-        return ""   # ②
-    seen = [where.get(n, set()) for n in REF.findall(val)]
+        return "", ""   # ②
+    nums = REF.findall(val)
+    seen = [where.get(n, set()) for n in nums]
     if not seen:
-        return "선행불명"   # ④ r 참조 없는 글
+        return "선행불명", "번호 참조 없음"   # ④ r 참조 없는 글
     if any(s & {"대기", "진행"} for s in seen):
-        return "선행"   # ③ 안 끝난 참조
-    return "" if all(s & {"완성", "완성후", "아카이브"} for s in seen) else "선행불명"   # 루트에 없는 참조 = 판정 불가
+        return "선행", ""   # ③ 안 끝난 참조
+    if all(s & {"완성", "완성후", "아카이브"} for s in seen):
+        return "", ""   # 끝난 참조
+    miss = sorted({n for n in nums if not where.get(n)}, key=int)   # I2 없는 번호는 전부(첫 번호만 적지 않는다 · 번호 순)
+    return "선행불명", "루트에 없는 번호 " + " ".join("r" + n for n in miss or sorted(set(nums), key=int))   # 루트에 없는 참조 = 판정 불가
 def _load(name):
     spec = importlib.util.spec_from_file_location("ft2_keeper_next_" + name, os.path.join(FT2, "core", name + ".py"))
     module = importlib.util.module_from_spec(spec)
@@ -135,7 +140,9 @@ def cards(k, team):
             row[3] += [line] if line.startswith(("- 선행", "- 배정")) else []
     mapped(k, team, found, where)   # r2030 짝 표 대기 카드(팀 폴더 밖 포함)
     for row in found.values():
-        row[3] = prereq(row[3], where)
+        val = next((x.split(":", 1)[1].strip() for x in row[3] if x.startswith("- 선행:")), "")   # I1 기억에 넣을 선행 값 그대로
+        verdict, why = prereq(row[3], where)
+        row[3], row[4:] = verdict, [{"val": val, "why": why}]   # row[4] = I1·I6 기억 값
     return found, r
 def mapped(k, team, found, where):
     """r2030 짝 표 대기 카드 → found 후보(같은 stem 1개) · 그 카드 indices 의 완성·완성후·아카이브(월별 포함) 참조 → where(DA R2).
@@ -175,11 +182,14 @@ def choose(k, team, skip=frozenset()):
             pair.setdefault(os.path.basename(p)[:-3], set()).add(work)
     (found, r), done, why, ready = got, state.get("done") or {}, {}, []
     owners = {s for s in found if ({s} | pair.get(s, set())) & set(state.get("owners") or {})}   # stem·짝 work 중 owner 있음
-    for stem, (urgent, high, lines, pre) in sorted(found.items()):
+    for stem, (urgent, high, lines, pre, seen) in sorted(found.items()):
         led = ledger(k, stem)
         block = "배정됨" if led.get("state") == "seat" or stem in owners else led.get("reason") if led.get("reason") in BLOCK else pre   # r2027 ⑤ 원장·카드 둘 중 하나
-        if block == "선행불명":
-            once(k, ("prereq-log", team, stem), lambda: k.log("판정 불가", team, "%s 선행 줄 판독 불가 — 건너뜀" % stem))   # 바퀴당 1줄(닫기·fill 두 번 골라도)
+        if pre == "선행불명":   # I1·I2 — 값·까닭이 바뀔 때만 1줄(기억 = keeper 상태 파일 · 재기동해도 다시 찍지 않는다 · DA 310229)
+            book, key = k.state.setdefault("prereq_seen", {}), "%s|%s" % (team, stem)
+            if book.get(key) != seen:
+                book[key] = seen
+                k.log("판정 불가", team, "%s 선행 줄 판독 불가(%s) — 건너뜀 · 고칠 꼴 «- 선행: 없음» 또는 «- 선행: r<번호>»" % (stem, seen["why"]))
         block = block or ("보류" if stem in skip else "끝남" if stem in done or pair.get(stem, set()) & set(done) else "")   # r1887 stem·짝 work done
         block = block or ("착지" if skip_landed(k, team, stem) else "")   # r2058 L5 착지 카드 = 다시 넣지도 닫기 뒤 다음으로도 고르지 않는다
         place = None if block else target(k, r, lines)
@@ -189,9 +199,30 @@ def choose(k, team, skip=frozenset()):
         ready.append(((not urgent, not high, led.get("since") or 0), stem) + place) if not block else why.update({block: why.get(block, 0) + 1})
     if why.get("팩낡음"):
         k.log("판정 불가", team, "다음 카드 보류 %d장 · 팩 fetch 실패" % why["팩낡음"])
+    prereq_tell(k, team, {s: row[4] for s, row in found.items() if row[3] == "선행불명"})   # I4~I8 · 고를 카드가 있든 없든 간다
     if ready or why.get("팩낡음"):   # 보류뿐이면 [다음 없음] 쪽지 0
         return min(ready)[1:] if ready else None
     k.notify(team, "%s|next-none|%s" % (k.stamp()[:10], team), "%s %s · 배정 없는 카드 0 · 막힌 사유별 %s" % (NONE, team, " ".join("%s %d" % kv for kv in sorted(why.items())) or "0"))
+def prereq_tell(k, team, unread):
+    """I4~I8 — 선행불명 기억 치우기 + 묶음 지문·전이 번호 + 팀장 [다음 막힘] 1통(마지막으로 전한 묶음과 다를 때만).
+    unread = {카드: {"val": 선행 값, "why": 까닭}} · 기억 셋은 모두 keeper 상태 파일 키다(재기동해도 이어진다 · I9)."""
+    book = k.state.setdefault("prereq_seen", {})
+    for key in [x for x in book if x.split("|")[0] == team and x.split("|")[1] not in unread]:   # I4 선행불명이 아니게 되거나 대기에서 사라짐
+        book.pop(key)
+    fp = hashlib.sha1("\n".join("%s\t%s\t%s" % (s, v["val"], v["why"]) for s, v in sorted(unread.items())).encode("utf-8")).hexdigest()[:12] if unread else ""   # I6 묶음 지문
+    now, told, prev = k.state.setdefault("prereq_now", {}), k.state.setdefault("prereq_told", {}), k.state.setdefault("prereq_now", {}).get(team) or {}
+    n = prev.get("n") if prev.get("fp", "") == fp else (prev.get("n") or 0) + 1   # I7 전이 번호 = 묶음이 바뀔 때마다 +1
+    now[team] = {"fp": fp, "n": n}
+    if not fp:   # I7 지금 묶음이 비면 told 를 비운다
+        told.pop(team, None)
+        return
+    if told.get(team) == fp:   # I8 마지막으로 전한 묶음 그대로 = 보내지 않는다
+        return
+    ok = k.notify(team, "prereq|%s|%s|%s" % (team, fp, n), "[다음 막힘] %s 선행 줄을 못 읽는 카드 %d장: %s · 고칠 꼴 «- 선행: 없음» 또는 «- 선행: r<번호>»" % (team, len(unread), " · ".join(sorted(unread)[:3])))
+    if ok:   # I8 성공(rc 0·도착 확인)일 때만 told 를 바꾼다 · 실패·넘김(defer)은 그대로
+        told[team] = fp
+
+
 def close(k, team, work, attempt, holder, gen):
     """닫기 영수 1회(지금 자리) + 다음 카드. 반환 = 영수 결과."""
     seen = ((ft2_state(k, team) or {}).get("close_receipts") or {}).get("keeper:%s@%s" % (work, attempt))
