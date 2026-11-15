@@ -4,6 +4,8 @@
 #   ⓐ 세트가 origin/main 의 조상 → `LANDED-ANCESTOR <세트>` rc0
 #   ⓑ 아니면 --since..origin/main(없으면 최근 first-parent 200개) first-parent 커밋 중 본문에 `PR #<N> (head <--head>)` 줄이 든 커밋이 정확히 1개
 #      → `LANDED-SQUASH <그 커밋 40hex>` rc0 (ft-merge-land 의 squash·자동 병합 C 메시지 꼴)
+#   ⓑ′ r1958 ⓑ 가 0개면 같은 범위에서 `PR #<N> (head <X>)` 줄 · X ≠ --head · 세트가 X 의 조상(head-sync) 인 커밋이 정확히 1개
+#      → `LANDED-SQUASH-SYNC <그 커밋> head=<X>` rc0 · X 객체 없음 → `판정 불가 head <X10> 객체 없음` rc3
 #   ⓒ 0개 → `MISS PR #<N> 세트 <세트10>` rc1 · ⓓ 2개 이상 → `판정 불가 같은 PR·세트 커밋 <n>개` rc3 · ⓔ git 실패 → `판정 불가 git <단계> rc=<n>` rc3
 #   --head 기본 = 세트(ft-merge-land 본문의 head = 착지 때 PR head · 착지 h 는 HEADSHA 를 넘긴다)
 #   하드 룰 20: 실패는 unj 한 곳이 1줄로 끝낸다 · `git log | grep -q`(pipefail 아래 SIGPIPE rc141) 꼴 0 — 출력을 받아 센다
@@ -33,9 +35,19 @@ if [ -n "$SINCE" ]; then R=("$SINCE..$MAIN"); else R=(-n 200 "$MAIN"); fi
 LOG="$(G log --first-parent --format='%x1e%H%n%B' "${R[@]}" -- 2>/dev/null)"; rc=$?
 [ "$rc" = 0 ] || unj "git log rc=$rc"
 HITS="$(printf '%s' "$LOG" | awk -v w="PR #$PR (head $HEAD)" 'BEGIN { RS = "\036" } NF { n = split($0, L, "\n"); for (i = 2; i <= n; i++) if (L[i] == w) { print L[1]; break } }')"
-N=0; [ -z "$HITS" ] || N="$(printf '%s\n' "$HITS" | wc -l | tr -d ' ')"
+N=0; [ -z "$HITS" ] || N="$(printf '%s\n' "$HITS" | wc -l | tr -d ' ')"; TAG=LANDED-SQUASH
+if [ "$N" = 0 ]; then   # ⓑ′ head-sync 착지(본문 head = 세트의 자손)
+  SY="$(printf '%s' "$LOG" | awk -v p="PR #$PR" 'BEGIN { RS = "\036"; w = p " (head " } NF { n = split($0, L, "\n"); for (i = 2; i <= n; i++) { x = substr(L[i], length(L[i]) - 40); if (index(L[i], w) == 1 && length(L[i]) == length(w) + 41 && x ~ /^[0-9a-f]+[)]$/) { print L[1], substr(x, 1, 40); break } } }')"
+  while read -r C X; do
+    [ -n "$X" ] && [ "$X" != "$HEAD" ] || continue
+    G cat-file -e "$X^{commit}" 2>/dev/null || unj "head ${X:0:10} 객체 없음"
+    G merge-base --is-ancestor "$SET" "$X" 2>/dev/null; rc=$?
+    [ "$rc" = 1 ] && continue; [ "$rc" = 0 ] || unj "git merge-base rc=$rc"
+    HITS="${HITS:+$HITS$'\n'}$C head=$X"; N=$((N + 1)); TAG=LANDED-SQUASH-SYNC
+  done <<< "$SY"
+fi
 case "$N" in
   0) echo "MISS PR #$PR 세트 ${SET:0:10}"; exit 1;;
-  1) echo "LANDED-SQUASH $HITS"; exit 0;;
+  1) echo "$TAG $HITS"; exit 0;;
   *) unj "같은 PR·세트 커밋 ${N}개";;
 esac

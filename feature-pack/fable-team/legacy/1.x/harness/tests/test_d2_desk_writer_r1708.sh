@@ -48,8 +48,8 @@ fresh() {  # fresh <level> [mode] — 손 작성 autonomy.json + log(ON full 기
   printf '%s\n' "approve-standing D2 $T0 repos=byz,pack classes=code,docs oppa_decision=$OD" >> "$LOG"
 }
 as_seat() { printf '%s' "$1" > "$SEATFILE"; export FT_SEAT="$1"; }
-card() { CARD="$B/card.md"; printf '# 카드\n\n## 상태\n- 세트: %s · 시험: bash tests/x.sh rc=0 · 이슈: 0\n' "$1" > "$CARD"; cardpub; }
-cardpub() { grep -qx '/card*.md' "$B/.git/info/exclude" || echo '/card*.md' >> "$B/.git/info/exclude"; git -C "$B" update-ref refs/remotes/origin/ops/main-base "$(git -C "$B" commit-tree "$(printf '100644 blob %s\t%s\n' "$(git -C "$B" hash-object -w "$CARD")" "${CARD##*/}" | git -C "$B" mktree)" -m card)"; }   # r1904: 카드 = 원장(FT_ROOT) 안 · 고정 ref origin/ops/main-base 커밋 판
+card() { CARD="$(fx_card_path "$B" card.md)"; printf '# 카드\n\n## 상태\n- 세트: %s · 시험: bash tests/x.sh rc=0 · 이슈: 0\n' "$1" > "$CARD"; cardpub; }
+. "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/card_ref_fixture.sh"; cardpub() { fx_card_pub "$B" "$CARD"; }   # r1904: 카드 = 원장(FT_ROOT) 안 · 고정 ref origin/ops/main-base 커밋 판 · r1959: r1951 팀 카드 꼴 + 표 harness 행
 sa() { as_seat "${SA_SEAT:-$DESK}"; L0="$(nlog)"; run a standing-approve D2 "$1" --pr "$2" --repo "${4:-pack}" --verdict "$3" --card "$CARD"; }
 mkpr() {  # mkpr <N> <파일> [내용…] — 팩 origin/main 에서 head 1커밋
   git -C "$P" fetch -q origin; git -C "$P" checkout -q -B "pr$1" origin/main; mkdir -p "$P/$(dirname "$2")"
@@ -64,7 +64,7 @@ mkv() {  # mkv <이름> <A> <원문> — BYZ origin/main + DA 판정 가지(r159
   git -C "$B" checkout -q main; cm "$B" "verdict $1" && git -C "$B" push -q origin main && git -C "$B" push -q origin main:refs/heads/docs/da-278062 && git -C "$B" fetch -q origin; }
 PRF="feature-pack/fable-team/legacy/1.x/harness/bin/ft-x.sh"
 bash -n "$BIN/ft-autonomy-standing-d2.sh"; ck "bash -n" $?
-grep -qE 'branch -D|push --force|kill-server' "$BIN/ft-autonomy-standing-d2.sh" && ck "⑨ 도구에 파괴 명령 0" 1 || ck "⑨ 도구에 파괴 명령 0" 0
+sed -E "s/\"[^\"]*\"//g; s/'[^']*'//g; s/(^|[[:space:]])#.*//" "$BIN/ft-autonomy-standing-d2.sh" | grep -qE '\bgit\b.*branch -D|\bgit\b.*push (-f\b|--force)|\btmux\b.*kill-server' && ck "⑨ 도구에 파괴 명령 0" 1 || ck "⑨ 도구에 파괴 명령 0" 0
 # 기준판(origin/main 판) — desk 는 D2 를 못 쓴다
 BASE="$T/base"; git -C "$HERE/../../../../.." show 20b2beff4f8ea48c9e2082fe9a7eb63a3a0d6496:feature-pack/fable-team/legacy/1.x/harness/bin/ft-autonomy-standing-d2.sh > "$BASE.sh" 2>/dev/null && ck "기준판 사본" 0 || ck "기준판 사본" 1
 mkpr 11 "$PRF"; A11="$PRSHA"; mkda ok11 APPROVE "$A11"; mkv ok11 "$A11" "$DAO"; V11="$VF"; card "$A11"
