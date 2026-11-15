@@ -183,3 +183,18 @@ class Ctx:
             raise Unjudged(f"카드 ref 에 카드 없음({t['ref']}) rc=1")
         _, raw = need(["git", "-C", str(self.root), "cat-file", "blob", f"{t['sha']}:{hits[0]}"], "git cat-file 카드", raw=True)
         return hits[0], raw
+
+    def root_hits(self, stem):   # r2036 A1·A3 — 카드 루트 표 전 행(«*» = 팀 전개 · 행마다 그 ref)의 그 stem → {indices 뿌리: 단계 앞선 ref 안 경로} · 표·ref·ls-tree 실패 = Unjudged(조용한 0개 0)
+        best = {}
+        try:
+            rows = [ln.split("\t") for ln in (self.state / "directive-roots.tsv").read_text(encoding="utf-8").splitlines() if ln.strip()]
+            if not rows or any(len(r) < 4 or not r[3].endswith("/indices") for r in rows):
+                raise Unjudged("꼴 rc=1")
+            for r in rows:
+                for p in need(["git", "-C", str(self.root), "ls-tree", "-r", "--name-only", "-z", self.tip(r[0])["sha"], "--", r[3].split("*")[0]], f"{r[0]} 행 git ls-tree")[1].split("\0"):
+                    m = CARD_RX.search(p)
+                    if m and m.group(4) == stem and re.fullmatch(re.escape(r[3]).replace(r"\*", "[^/]+"), m.group(1)):
+                        best[m.group(1)] = min(best.get(m.group(1), p), p, key=lambda q: (STAGES.index(q.split("/")[-2]) if q.split("/")[-2] in STAGES else 9, q))
+        except (OSError, UnicodeDecodeError, Unjudged) as e:
+            raise Unjudged(f"— 카드 루트 표 {e if isinstance(e, Unjudged) else '읽기 rc=1 (' + type(e).__name__ + ')'}") from None
+        return best
