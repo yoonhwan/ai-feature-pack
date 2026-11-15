@@ -1,7 +1,7 @@
 """ft2 keeper 선행불명 — 로그는 «선행 값 + 까닭» 이 바뀔 때만 1줄, 팀장에게 [다음 막힘] 1통
 (카드 ft2-prereq-unreadable-once · ㉟가~하 14칸 + 인수 칸 ㉟거 · 변이 M39·M40·M41·M56·M57·M58).
 
-계약 = `contracts/keeper-settle/CONTRACT.md` §11(I1~I9) · 설계 = `design/DESIGN-pI-prereq-unreadable-log-once-20261116.md`.
+계약 = `contracts/keeper-settle/CONTRACT.md` §12(I1~I9) · 설계 = `design/DESIGN-pI-prereq-unreadable-log-once-20261116.md`.
 대역 = r1871 세계(임시 root·git·가짜 tmux·launch·record·mbox) + 주입 시계(사례가 w.t 를 민다) · 실 tmux·명부·우편함·설치 0 · sleep 0 · 사례 하나 70초 안.
 바퀴마다 keeper 를 새로 만든다 = 실제처럼 프로세스가 바뀐다(상태는 상태 파일로만 이어진다 · I9 · 쪽지 상한 3통은 바퀴당).
 기준판(팩 origin/main 2b5037d1) = ㉟가 · ㉟바 · ㉟차 · ㉟타 Red(바퀴 캐시만 있어 둘째 바퀴에 같은 줄이 또 찍히고, [다음 막힘] 쪽지가 없다).
