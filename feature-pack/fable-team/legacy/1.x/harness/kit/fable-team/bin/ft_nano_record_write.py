@@ -136,9 +136,8 @@ def finish(ctx, r, a):   # A13 세션 기록 → A10 닫기 요청 · NEXT (종�
     seq = close_request(ctx, {**r, "rec": rec_of(r["m"])}, path) if path else None
     want = path or ctx.state / "seat-record" / f"{seat}.md"
     miss = [n for n, ok in (("세션 기록", path is not None and want.is_file()), ("닫기 요청 seq", seq_known(ctx, seq))) if not ok]   # r1717-mut:inputs
-    if miss:
-        print(f"닫기 명령 보류 빠짐={'·'.join(miss)} 채울 이={seat}(landed 를 다시)")
-        return 3
+    if miss:   # r1721 A2 — held=drift(설치 먼저) = 미룸 줄은 held 가 냈다 · 기록은 남음 · NEXT 0 · rc 0(다음 notify 가 닫기 요청)
+        return 0 if getattr(ctx, "held", None) == "drift" else print(f"닫기 명령 보류 빠짐={'·'.join(miss)} 채울 이={seat}(landed 를 다시)") or 3
     print(f"NEXT bash ft-nano-close.sh {seat} --landed-pr {r['pr']} --result {want} --recv {seq}")
     return 0
 

@@ -5,12 +5,13 @@
 - 근거: 실측 2026-11-16 05:08~05:12(aifp-ft-arch-pi#20 · 루트 checkout main · 읽기만) — 아래 «실측» 절
 - 원인 1줄: 블록이 기준판을 `git rev-parse origin/main` 으로 잡는다(시험 파일 659줄) · 고침이 main 에 착지하면 기준판이 고친 판이 되어 «기준판 … 통과 — FAIL 이어야» 가 난다
 - 앞 카드: design/aifp/indices/진행/ci-search-test-files.md(착지 cf0d4052 · PR #1332 · 완료 조건 1 = 이 결함 때문에 «알려진 한계» 로 닫음) · 완성/ci-search-yaml-panic.md · ci-search-ascii-md-panic · ci-search-nonascii-panic
-- 상태: 대기
+- 상태: 완성 · 2026-11-16 05:52 · -
+- 착지: 8023df8674ffa84297f426603b364d1730039196(팩 main · PR #1346 squash · DA#11 APPROVE-IMPL BYZ 311748 · 세트 d7e02824 = PR head · 뺄 커밋 0)
 - 설치: 없음 — 시험 파일과 시험 fixture 만 바뀐다(라이브 사본·심링크 대상 ci 변경 0)
 - 선행: 없음(팩 origin/main 017fe2cf · ci-search-test-files 착지 cf0d4052 포함)
 - 시험 입력: 시험이 이미 쓰는 것 그대로(가짜 probe · RG_BIN 대역 · 임시 폴더 · HOME·TMPDIR 격리) + 새 fixture 파일 1개(기준판 ci 사본) · sleep 0 · 네트워크 0 · 실 probe 0 · git 호출 0(기준판 블록)
 - 기준값: 지금 main 에서 `bash feature-pack/code-intel/tests/test_ci_search_nonascii_panic.sh` = rc 1 · 294 검사 · 실패 16 · 11초 → 목표 = rc 0 · 실패 0 · 마지막 줄 `PASS`
-- 규칙: 없음
+- 규칙: 없음 — 상시 로드 변경 0(시험 파일과 시험 fixture 만 바뀐다)
 - 규칙 상세: 하드 룰 22(시험 1개 70초) · 하드 룰 19(우리 도구가 만드는 파일은 일반 파일)
 - 대상: 팩 feature-pack/code-intel/tests/test_ci_search_nonascii_panic.sh(«기준판 대조» 블록 머리 5줄 안팎) · 새 fixture feature-pack/code-intel/tests/fixtures/ci-base-97528b12 · 새 시험 feature-pack/code-intel/tests/test_ci_base_pin.sh
 - 정본 영향 없음: 시험 파일·시험 fixture 만 · 제품 코드(skill/scripts/ci)·스킬 문서·정본 문서 변경 0
@@ -85,13 +86,13 @@
 - ci-search-test-files 카드 다시 열기(그 카드는 «알려진 한계» 로 닫는다 · 이 카드 착지 뒤 rc 0 원문은 이 카드에 적는다)
 
 ## 완료 조건
-1. [ ] 나노: D1 원문 = 시험 전체 rc 0 · 검사 수 · 실패 0 · 걸린 초
-2. [ ] 나노: 새 시험 test_ci_base_pin.sh rc0 · 걸린 초 · D2·D4·D5·D6 줄
-3. [ ] 나노: 변이 Y1~Y3 각각 지정 반례 FAIL(3/3)
-4. [ ] 나노: 회귀 5파일 rc0 · 새 파일 2개 100644 · fixture sha256 1줄
-5. [ ] arch: 착지 커밋에서 D8 = 시험 파일 diff 가 블록 머리·주석뿐 · fixture blob = cff07f3add33f4fee436223d87daef95459a74ff
-6. [ ] 팀장: PR 착지 sha
-7. [ ] arch: 착지 뒤 루트 checkout main 에서 시험 1회 = rc 0 · `PASS` 원문 · 걸린 초 · D7 1회
+1. [x] 나노: D1 원문 = 시험 전체 rc 0 · 검사 수 · 실패 0 · 걸린 초 — `== 요약: 294 검사 · 실패 0 ==` · `PASS` · 13.2초 · `기준판 = fixtures/ci-base-97528b12`(세트 d7e02824)
+2. [x] 나노: 새 시험 test_ci_base_pin.sh rc0 · 걸린 초 · D2·D4·D5·D6 줄 — rc 0 · 28 검사 · 실패 0 · 24.5초 · D2 rc0/기준판 bl 47줄 · D4 rc1 `FAIL 기준판 fixture 없음` 1줄 · D5 rc1 `FAIL 기준판 fixture sha256 다름` 1줄 · D6 rc1 «통과 — FAIL 이어야» 16줄
+3. [x] 나노: 변이 Y1~Y3 각각 지정 반례 FAIL(3/3) — Y1→D2 · Y2→D5 · Y3→D4
+4. [x] 나노: 회귀 5파일 rc0 · 새 파일 2개 100644 · fixture sha256 1줄 — 5/5 rc 0 · test_ci_base_pin.sh·ci-base-97528b12 둘 다 100644 · f2eb9e1fba04a8773340b9b263e38ec9fb3194387bebe13b90c5e96931a17dbf(blob cff07f3a · 454줄)
+5. [x] arch: 착지 커밋에서 D8 = 시험 파일 diff 가 블록 머리·주석뿐 · fixture blob = cff07f3add33f4fee436223d87daef95459a74ff — 착지 8023df86 의 시험 파일 diff = 덩어리 3개(머리 주석 1줄 · «기준판 대조» 블록 머리 653~672줄 · 블록 끝 else 2줄 뺌) · 기능 검사·기대 목록·변이 절 diff 0 · `git ls-tree 8023df86` = `100644 blob cff07f3add33f4fee436223d87daef95459a74ff …/fixtures/ci-base-97528b12` · test_ci_base_pin.sh 도 100644 · 바뀐 파일 3개뿐(aifp-ft-arch-pi#21 · 2026-11-16 05:40)
+6. [x] 팀장: PR 착지 sha — 8023df8674ffa84297f426603b364d1730039196(PR #1346 · gh 판독 = head d7e02824 · MERGED)
+7. [x] arch: 착지 뒤 루트 checkout main 에서 시험 1회 = rc 0 · `PASS` 원문 · 걸린 초 · D7 1회 — 루트 checkout main(HEAD 18428688 · 8023df86 포함)에서 `bash feature-pack/code-intel/tests/test_ci_search_nonascii_panic.sh` = rc 0 · `== 요약: 294 검사 · 실패 0 ==` · `PASS` · 11초 · `기준판 = fixtures/ci-base-97528b12` / D7 = `CI_UNDER_TEST=<fixtures/ci-base-97528b12>` 1회 = rc 1 · 블록 앞 기능 검사 FAIL 이름 = P7·P8·A1·A2·A3·A9·B1·B2·B3·B6·C1·C2·C4·C6·C7·C8·C10a·C11·C12(실측 ②와 같음) · 블록 안 FAIL 0 · ok 47줄 · 10초(aifp-ft-arch-pi#21 · 2026-11-16 05:41 · 팀장 실측 294 검사 실패 0 과 같음)
 - 나노 끝선(5줄 이내): 바꾼 줄 범위 · 시험 결과 줄·초 · 변이 FAIL 목록 · 설계와 다르게 한 점(없으면 «없음»)
 
 ## 계약↔시험 대응표
@@ -109,5 +110,10 @@
 - 2026-11-16 05:12 · 대기 — aifp-ft-arch-pi#20 초안(팀장 aifp 5720 · 실측 ①~③) · 다음 = 팀장 PR → DA 설계 → 나노 1석
 - 2026-11-16 05:19 — 대기→진행 · 좌석 aifp-ft-nano-ci-test-base-sha-pin#0
 - [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
+- 2026-11-16 05:41 · aifp-ft-arch-pi#21 착지 줄 씀(팀장 aifp 5753 · 덧 5756 = 나노가 루트에 써 둔 조건 1~4 줄을 원문 그대로 옮김) · 완료 조건 5~7 [x](읽기 대조 + 시험 2회) · 남은 [ ] 0
+- DA 판정: APPROVE-IMPL 311748(사본 .fable-team/state/team-main/aifp-ft/DA-ci-pin-impl-approve-311748/verdict.md) · 승인 sha d7e02824 · .git 없는 고정 archive 에서 test_ci_base_pin.sh 28 검사 실패 0 · test_ci_search_nonascii_panic.sh 294 검사 실패 0 · 둘 다 rc0 · fixture 바이트 대조 = 97528b12 판 ci 와 같음 · 범위 차이 = 실패 글 뒤에 경로·기대/실제 값이 붙음(동작 반례 아님)
 - 세트: d7e028244fd3a3195000cbf749a02a5184d87cdc · 시험: bash feature-pack/code-intel/tests/test_ci_base_pin.sh (28 검사 · 25초) rc=0 · 이슈: 0
 - 완료: aifp-ft-nano-ci-test-base-sha-pin#0 · 한 일: 기준판 대조를 고정 fixture(tests/fixtures/ci-base-97528b12)로 바꿈 + 새 시험 test_ci_base_pin.sh(D2·D4·D5·D6·변이 Y1~Y3) · 산출: nano/ci-test-base-sha-pin@d7e028244f · 병합 상태: 착지 전(push 전) · 남은 일: 없음
+- 증거(나노 실행 원문): D1 = bash feature-pack/code-intel/tests/test_ci_search_nonascii_panic.sh → rc 0 · 294 검사 · 실패 0 · 13.2초 · PASS · `기준판 = fixtures/ci-base-97528b12` · D2·D4·D5·D6 = test_ci_base_pin.sh 28 검사 · 실패 0 · 24.5초 · 변이 Y1~Y3 3/3 잡힘 · 회귀 5파일 rc 0 · fixture 100644 · blob cff07f3a · sha256 f2eb9e1fba04a8773340b9b263e38ec9fb3194387bebe13b90c5e96931a17dbf · 세트 d7e028244fd3a3195000cbf749a02a5184d87cdc
+- 남은 범위: 없음
+- 2026-11-16 05:52 — 진행→완성 · DA /Users/yoonhwan/Project/ai-feature-pack/.fable-team/state/team-main/aifp-ft/DA-ci-pin-close-311919/verdict.md#§1

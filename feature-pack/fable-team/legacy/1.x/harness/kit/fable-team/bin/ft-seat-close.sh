@@ -119,6 +119,14 @@ for f in (files if not (verdict or done or reopen == "1") else []):   # ⓐ 현�
 cand = [f for f in files if isinstance(load(f), dict) and seat in load(f)]
 if verdict and not cand:   # R400 r3 §D — 명부 루트(cwd)와 원장 루트(FT_ROOT)를 같이 주는 한 줄(자동 탐색 0)
     print(f"NOROW {seat} 명부 행 없음({arg or root + '/.fable-team/seats*.json'}) — 기록 {rec} · kill 0 · 다른 리포 좌석이면: FT_ROOT=<그 설치본 루트> {tool} {shlex.quote(seat)} --verdict {verdict} --reason {shlex.quote(reason)} --seats <그 루트>/.fable-team/seats.json"); sys.exit(3)
+def ft2_intent(seat, root):   # r1924 — 명부 밖 2.0 나노 = <루트>/.fable-team/teams/<팀>/runtime/launch/*.intent 의 FT2_HOLDER == seat 인 최신 1개(읽기만 · 못 읽음 = None)
+    t = seat.split("-"); rt = f"{root}/.fable-team/teams/{t[1] if len(t) > 2 else '-'}/runtime"; hit = []
+    for f in (glob.glob(rt + "/launch/*.intent") if len(t) > 2 and t[2] == "nano" else []):
+        try: hit += [(os.path.getmtime(f), f)] if json.load(open(f, encoding="utf-8")).get("FT2_HOLDER") == seat else []
+        except (OSError, ValueError, AttributeError): pass
+    return (rt, os.path.basename(max(hit)[1])[:-7].rsplit("@", 1)) if hit else None
+i = None if cand else ft2_intent(seat, root)
+if i and len(i[1]) == 2: print(f"REJECT 명부 후보 0 (키 {seat}) — 2.0 나노(ft2 intent {i[1][0]}@{i[1][1]}) · 닫기 = {i[0]}/keeper-verdict-close.tsv 에 «{i[1][0]}\\t{i[1][1]}\\t판정 <N>\\t<승인 좌석> #<seq>» 1줄(사람·master) → keeper 다음 바퀴 · 이 도구 쓰기 0 · kill 0"); sys.exit(1)
 if len(cand) != 1: print(f"REJECT 명부 후보 {len(cand)}개 (키 {seat}) — --seats 로 지정"); sys.exit(1)
 p = cand[0]; d = load(p); o = d.get(seat)
 if not isinstance(o, dict): print(f"REJECT {p} 의 {seat} 행이 객체가 아님"); sys.exit(1)

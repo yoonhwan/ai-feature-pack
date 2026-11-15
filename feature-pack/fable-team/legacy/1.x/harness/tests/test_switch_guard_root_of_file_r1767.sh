@@ -32,7 +32,7 @@ cases() {  # $1 = lib 경로 · 사례 ①~⑤ 결과를 "<사례> <0|1>" 줄로
   ( . "$L"; r="$(ft20_root_of "$GHOST")"; [ "$r" = "$R" ] ) >/dev/null 2>&1; echo "②root $?"
   ( . "$L"; ft20_guard_spawn "$(ft20_root_of "$GHOST" 2>/dev/null)" "$GHOST" "" ) >"$o" 2>&1; rc=$?
   echo "②spawn $([ "$rc" = 3 ] && grep -q '2.0 전환됨' "$o" && echo 0 || echo 1)"
-  ( . "$L"; r="$(ft20_root_of "$OCARD")"; rc=$?; [ "$rc" = 1 ] && [ -z "$r" ] ) >/dev/null 2>&1; echo "③root $?"
+  ( . "$L"; r="$(ft20_root_of "$OCARD")"; rc=$?; [ "$rc" = 3 ] && [ -z "$r" ] ) >/dev/null 2>&1; echo "③root $?"
   ( . "$L"; ft20_guard_spawn "$(ft20_root_of "$OCARD" 2>/dev/null)" "$OCARD" "" ) >"$o" 2>&1; rc=$?
   echo "③spawn $([ "$rc" = 3 ] && [ "$(grep -c . "$o")" = 1 ] && grep -q 'REJECT 데이터 루트 판정 불가' "$o" && echo 0 || echo 1)"
   ( . "$L"; FT_TEAM=harness ft20_guard_spawn "" "$OUT/note.md" "" ) >"$o" 2>&1; rc=$?
@@ -54,7 +54,7 @@ cases() {  # $1 = lib 경로 · 사례 ①~⑤ 결과를 "<사례> <0|1>" 줄로
 name() { case "$1" in
   ①root) echo "① root_of(카드 파일) = 리포 루트";; ①spawn) echo "① guard_spawn(카드 파일) rc3 «2.0 전환됨»";;
   ②root) echo "② root_of(없는 카드·폴더) = 가까운 상위의 리포 루트";; ②spawn) echo "② guard_spawn(없는 카드) rc3";;
-  ③root) echo "③ root_of(git 밖 파일) rc1 · 빈 값";; ③spawn) echo "③ guard_spawn(git 밖 카드) rc3 «데이터 루트 판정 불가» 1줄";;
+  ③root) echo "③ root_of(git 밖 파일) rc3 · 빈 값";; ③spawn) echo "③ guard_spawn(git 밖 카드) rc3 «데이터 루트 판정 불가» 1줄";;
   ③guard) echo "③ guard_spawn(루트 빈 값 · FT_TEAM 팀) rc3 1줄";; ④retire) echo "④ guard_retire(명부·이름 팀 없음) INFO rc0";;
   ④guard) echo "④ switch_guard(팀 빈 값 · 루트 있음) INFO rc0";; ④move) echo "④ guard_move(경로 팀 없음) INFO rc0";;
   ⑤none) echo "⑤ 표식 없는 팀 rc0 · 보류 쓰기 0";; ⑤broken) echo "⑤ 깨진 표식 rc3 판정 불가";; *) echo "$1";; esac; }

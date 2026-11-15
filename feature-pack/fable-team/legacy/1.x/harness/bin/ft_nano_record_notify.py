@@ -4,7 +4,8 @@
 notify = due 의 열린 줄마다 1통: «차례» → 그 나노 «[정리 차례]»(landed 명령 1줄) · «주인 없음»·«카드 없음» → 팀장 · «닫기 요청 밀림» → 팀장 «[완료·닫기 요청]» 을 다시.
   같은 (받는 이 · 카드|PR · Q · 줄 종류) 재발신 0 · FT_LAND_RECORD_REMIND_S(기본 1800초) 넘게 같은 줄이면 1회만 다시(+ «차례» 면 팀장 «[정리 차례 무응답]») · 열쇠당 총 2통.
   발신 실패 = WARN 1줄 · 보낸 기록 0(다음 호출이 다시). 보낸 기록 = <루트>/.fable-team/state/land-record-notified.json(임시→mv · 일반 파일).
-env: FT_MBOX(우편함 도구) · FT_LAND_RECORD_NOW(시험용 시계 · epoch 초)."""
+r1721: 닫기 요청 앞 drift 검사 1회(실행당 · 7초) — drift 있음 = 요청 0 · 팀장 «[설치 먼저]»((카드·Q) 1회) · 다음 notify 의 «밀림» 줄이 drift 0 일 때 낸다 · 실패 = «판정 불가 drift».
+env: FT_MBOX(우편함 도구) · FT_LAND_RECORD_NOW(시험용 시계 · epoch 초) · FT_DRIFT_CHECK(drift 검사 도구 · 시험 주입)."""
 from __future__ import annotations
 
 import argparse
@@ -86,8 +87,32 @@ def try_record(ctx, seat, fields, handoff=""):   # → 경로 | None(«판정 �
         return None
 
 
+def drift(ctx):   # r1721 A2 — 닫기 도구 입구와 같은 검사(라이브 설치 꼴 2개에서만 · 주입 = 늘) → (rc|None, 항목 이름들)
+    if getattr(ctx, "_drift", None) is None:
+        chk = os.environ.get("FT_DRIFT_CHECK") or (str(HERE / "ft-live-bin-drift-check.sh") if re.search(r"/\.fable-team/bin$|/fable-team/live/[^/]+/bin$", str(HERE)) else "")
+        rc, out, _e = run(["bash", chk, "--bin", str(HERE)], env=dict(os.environ)) if chk else (0, "", "")
+        ctx._drift = (rc, re.findall(r"^(?:DIFF|MISSING|EXTRA|MODE|PENDING) (\S+)", out, re.M))
+    return ctx._drift
+
+
+def held(ctx, r):   # r1721 A2·A4 → None(보내도 됨) | "drift"(팀장 «[설치 먼저]» (카드·Q) 1회) | "unjudged"(«판정 불가» 1줄)
+    rc, names = drift(ctx)   # r1721-mut:drift
+    if rc == 0:
+        return None
+    if rc != 1:   # r1721-mut:unjudged
+        print(f"판정 불가 drift rc={'-' if rc is None else rc} — 닫기 요청 0(다음 회차에 다시)")
+        return "unjudged"
+    key, what = f"{r['stem']}|{r['q']}", f"라이브 DRIFT {len(names)}파일({' '.join(names[:3]) or '-'})"
+    if not ctx.store()["install"].get(key) and r["master"]:   # r1721-mut:once
+        seq = send(ctx, r["master"], FROM, f"[설치 먼저] {r['stem']} 착지 {r['q'][:10]} — {what} · 설치 h 뒤 닫기 요청이 나갑니다")
+        if seq is not None:
+            update(ctx, lambda st: st["install"].__setitem__(key, {"seq": seq}))
+    print(f"닫기 요청 미룸 {r['seat']} {r['stem']} — {what} · 설치 뒤 notify 가 낸다")
+    return "drift"
+
+
 def close_request(ctx, r, path):   # A10 — 팀장에 «[완료·닫기 요청]» 1통(보내는 이 = 그 좌석) → 실제 seq + rec 를 전달 기록에 · 같은 rec 재발신 0
-    key = f"{r['seat']}|{r['stem']}|{r['q']}"
+    key, ctx.held = f"{r['seat']}|{r['stem']}|{r['q']}", None
     had = ctx.store()["close"].get(key) or {}
     if had.get("rec") == r["rec"]:
         try:   # r1820 B3 — 기록한 seq 가 우편함에서 버려졌으면 같은 rec 를 1회 다시 · 판독 실패 = «판정 불가» 1줄 · 재발신 0
@@ -99,6 +124,9 @@ def close_request(ctx, r, path):   # A10 — 팀장에 «[완료·닫기 요청]
         print(f"INFO 닫기 요청 #{had.get('seq')} 우편함에서 버려짐 → 다시 보냄")
     if not r["master"]:
         print(f"WARN 닫기 요청 생략 — 명부에 _master 없음({r['stem']})")
+        return None
+    ctx.held = held(ctx, r)
+    if ctx.held:
         return None
     seq = send(ctx, r["master"], r["seat"], f"[완료·닫기 요청] {r['stem']} 착지 {r['q'][:10]} · 좌석 {r['seat']} · 세션 기록 {path}")
     if not seq:

@@ -163,7 +163,7 @@ if __name__ == "__main__":
     if c == "send": send(a[1], a[2], " ".join(a[3:]), force)
     elif c == "relay": relay(a[1], a[2], a[3], " ".join(a[4:]))
     elif c == "recv": recv(a[1], a[2] if len(a) > 2 else None, None if show_all else RECV_LIMIT)
-    elif c == "peek": peek(a[1])
+    elif c == "peek": peek(a[1], "--rows" in a)   # A4 — `--rows` = 미읽음마다 JSON 1줄(keeper 쉼 판정용 · 읽기만)
     elif c == "show": sys.exit(mbox_show.main(a[1:]))   # r2081 A — 번호 조회(큐·기록·회전본·전문) · 쓰기 0
     elif c == "holder":   # doorbell·ring 대상 = 그 역할 현역 세션(r1116 R7) — 이름 규칙 밖이면 받은 이름 그대로
         h = mbox_lineage.holder(a[1]); print(h if NAME_RE.match(h) else a[1])
