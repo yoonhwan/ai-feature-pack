@@ -1,0 +1,91 @@
+# ft2 keeper settle 계약 사례표 (r2055 · 보정 3)
+
+`CONTRACT.md` 의 약속마다 **입력 → 기대 결과**와 그것을 묶은 시험을 적는다.
+사례 문장은 설계 정본 §7·§12·§13 과 시험 파일의 사례 주석에서 옮겼다. 새 사례는 없다.
+이 폴더에는 replay 검사기가 없다. 사례는 아래 시험 3개가 직접 돈다(임시 루트 · 실 tmux·실 runtime 0).
+
+| 시험 파일(`feature-pack/fable-team/ft2/tests/`) | 사례 | 변이 |
+|---|---|---|
+| `test_core_park_capacity_r2055.py` | ③ ⑧ ⑪ ⑪′ ⑬ ⑭ ⑮ | M1 · M2 |
+| `test_settle_one_path_r2055.py` | ① ② ②′ ③ ④ ④′ ⑤ ⑥ ⑦ ⑨ ⑩ ⑪ ⑫ ⑰가~바 ⑱ ⑲ ⑳ ㉕가·나·다 | M3 · M4 · M5 · M6 |
+| `test_settle_da_r2055.py` | DA 반례 R1~R4 · ㉑가~라 · ㉒가~바 · ㉓ · ㉔ | — |
+
+돌리는 법: `python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_core_park_capacity_r2055.py -q`(나머지 2개도 같은 꼴 · 시험 1개 70초 상한).
+
+## 1. settle 판정 사례 (`test_settle_one_path_r2055.py`)
+
+| 사례 | 입력 | 기대 | 계약 절 |
+|---|---|---|---|
+| ① | 끝난 나노 · 착지 0 · clean · push 됨 · 유휴 ≥ 60분 | `PARKED` · 닫기 1 · journal parked 1줄 · 용량 −1 · 의무 그대로 | §1 · §2 · §6 |
+| ② | 팀 걸친 카드(짝 표 없음 · 본문 경로) · 착지 줄 조상 | `LANDED`(complete + 닫기) | §2 · §8 |
+| ②′ | 본문 경로 실패 | 사유 꼬리 · 짝 표가 먼저(본문 읽기 0) · `..` 경로 무시 | §8 |
+| ③ · ⑫ | 세션 0 · owner 남음 · intent closed 또는 failed | `park(launch-failed)` · owner·예약 해제 · 용량 −1 · 새 attempt 로 다시 | §3 · §5 |
+| ④ | ALL_STOP 있음 + ① 입력 | 닫기 0 · park 0 · fill 0 · «예정 PARKED» 1줄 | §7 |
+| ④′ | ALL_STOP 깨짐 | 정지 + 판정 불가 1줄 | §7 |
+| ⑤ | 새 꼴(intent 에 worktree 칸 없음) | `UNKNOWN` · [긴급] 1통 · 닫기 0 · 같은 지문 = 전송 0 · 전송 실패 뒤 = 다시 전송 | §3 · §4 |
+| ⑥ | 스피너 / 일하는 pi(API 대기 · %cpu 0.0 ×2 · jsonl 5분 전 · 스피너 없음) | 둘 다 `WORKING` · 닫힘 0 · park 0 | §2 |
+| ⑦ | 유휴 ≥ 60분 · dirty 또는 push 안 됨 | `UNKNOWN` [긴급] · 닫기 0 | §2 · §3 |
+| ⑨ | 질문 창(toolUse · jsonl 무활동 16분) · %cpu 0.1 ×2(30초) | `UNKNOWN waiting-input` · [긴급] 팀장 · 닫기 0 | §3 |
+| ⑩ | 원장 done ∧ 카드 완성 폴더 · PR 0 · 가지 이름 다름 | `LANDED`(넓힌 근거) · 세션 닫힘 | §2 |
+| ⑪ | accept 만 · `PARK_IDLE` 넘음 · 같은 work command 2개 | 용량 1 · 의무 2 · `UNKNOWN accept-only` 1줄 | §3 · §6 |
+| ⑰가~바 | 장기 좌석 여섯 사례(2세대 NORECORD · 재개 기록 있음 · 3세대 NORECORD · close 영수만 있는 현역 · ready 0 · 승계 안 된 유휴) | 끝남 근거와 닫기 자격을 둘 다 채울 때만 닫기 · 보존 = `keep-recent`·`keep-last-2` · ready 0 = `ready-wait` | §8 |
+| ⑱ | 명부 밖 `byz-*` · 이름 lint 실패 · 1차 쉼 ∧ 닫기 직전 pane Working | `UNKNOWN roster-outside` · `name-bad` · `tmuxc-mismatch` · 닫기 0 | §3 |
+| ⑲ | pane 명령 zsh(shell-only) · clean · push / 같은 꼴 dirty | 앞 = `PARKED` · 뒤 = `UNKNOWN shell-only-unsafe` · 둘 다 `WORKING` 아님 | §2 · §3 |
+| ⑳ | tmuxc 대조: 사슬 끝(pane → npm → node → pi) %cpu 0.5 / 0.1 ×2(30초) | 0.5 = busy · 0.1 ×2 = idle · 셸 목록·깊이 = tmuxc 규칙 | §2 |
+| ㉕가 | dict-work accept 2 + str-work accept-only 1 + 다른 work dispatch 1 | 예외 0 · `UNKNOWN accept-only` = str work 1건만 | §6 |
+| ㉕나 | dispatch 0 · dict-work accept 만 | 예외 0 · `UNKNOWN` 0 · [긴급] 0 | §6 |
+| ㉕다 | 같은 journal 로 keeper 한 바퀴 | 끝까지 감 · 다른 판정 줄 = dict-work 줄이 없을 때와 같음 | §6 |
+
+변이(원본 같은 사례는 PASS · 변이 사본은 FAIL 이어야 한다):
+
+| 변이 | 바꾸는 곳 | 잡는 사례 |
+|---|---|---|
+| M3 | 질문 창 판정에서 CPU idle 조건을 거짓으로 | ⑨ |
+| M4 | 후손 pid 깊이를 2로 | ⑳ |
+| M5 | 유휴 판정에서 jsonl 무활동 조건을 뺌(CPU 단독) | ⑥ |
+| M6 | `accept_only` 의 work 문자열 가드를 뺌 | ㉕가 |
+
+## 2. core park·capacity 사례 (`test_core_park_capacity_r2055.py`)
+
+| 사례 | 입력 | 기대 | 계약 절 |
+|---|---|---|---|
+| ③ | 세션 0 · owner 남음 | `park(launch-failed)` · owner·예약 해제 · 용량 −1 · 의무 그대로 | §5 · §6 |
+| ⑧ | 쉼 work 에 새 dispatch(같은 자원 R) | 배정 성공 · parked 지워짐 | §5 |
+| ⑪ | 같은 work command 2개(accept 만) | 의무 2줄 · 용량 1칸 | §6 |
+| ⑪′ | 상한 8 · 쉼 1 | 9번째 접수 성공(용량 상한 = work 단위 · 쉼 제외) | §6 |
+| ⑬ | 쉼 W(done 0 · owner 0) | 마감 gate `PENDING_NOT_ZERO:1` 그대로 · 재개 queue 에 W 남음 | §6 |
+| ⑭ | park journal 줄 뒤 state 전 crash → 복구 → park 다시 | 복구가 parked 를 앞섬 · 두 번째 park = `HOLD` 멱등 · 예약 0 | §5 |
+| ⑮ | 효과 의도 뒤 결과 0 · uncertain 표식 · 낡은 attempt · 완료 | 거절 · 쓰기 0 | §5 |
+
+| 변이 | 바꾸는 곳 | 잡는 사례 |
+|---|---|---|
+| M1 | `core/record.py` fold 에서 예약 해제를 뺌 | ⑧ |
+| M2 | `core/intake.py` 접수 상한을 `capacity` 대신 `remaining` 으로 | ⑪′ |
+
+## 3. DA 반례·끝남 판독 순서 사례 (`test_settle_da_r2055.py`)
+
+| 사례 | 입력 | 기대 | 계약 절 |
+|---|---|---|---|
+| R1 | 끝난 좌석 · jsonl 1분 전 | `WORKING` · 닫기 0 | §2 |
+| R2 | 재개 기록에 없는 대화 uuid 만 | 검증된 재개 기록이 아님(닫기 0) | §8 |
+| R2 | 이름 바뀐 후계 | 양방향 결속일 때만 같은 계보 | §8 |
+| R3 | 정지 중 명부 밖 나노 꼴 | `UNKNOWN roster-outside` 판정 줄 있음 | §3 · §7 |
+| R3 | attached 조회 실패 | `UNKNOWN` = [긴급] 전송 | §4 |
+| R4 | 팀 밖 카드의 끝 표식 | `resolve_card` 로 읽음 | §8 |
+| ㉑가 | `tmuxc clean` rc0 · 그 세션 없음 · pane_pid·ps 정상 | capture 0 으로 판정 | §2 |
+| ㉑나 | tmuxc 실행 파일 없음 / tmuxc rc 1 | 2차로 내려감 · pane Working = `WORKING` · 쉼 ×2 ∧ 무활동 ≥ `PARK_IDLE` ∧ 안전 = `PARKED`(꼬리 «판독 2차») | §2 |
+| ㉑다 | 입력줄 `❯ Working on it` 만 | 쉼(입력줄 글자는 근거 0) | §2 |
+| ㉑라 | `tmuxc clean` 이 그 세션을 냄 · clean · push · 무활동 ≥ `PARK_IDLE` | `PARKED` · capture = 가드 1회 | §2 |
+| ㉒가·나 | ps rc≠0 / pane_pid 판독 실패 · 끝난 나노 · 무활동 2시간 | 2차 쉼 ×2 → `PARKED` · `WORKING cpu-unknown` 0 | §2 |
+| ㉒다·라 | pi 프로세스 또는 shell-only · 세션 파일 없음 | `UNKNOWN session-none` [긴급] · 닫기 0 | §3 |
+| ㉒마 | ps 실패 ∧ capture 실패 | `UNKNOWN probe-fail` [긴급] · 닫기 0 | §3 |
+| ㉒바 | 같은 폴더를 쓰는 은퇴 좌석 2세대 | 보존 조건 밖 = `session-none` [긴급] 1 · 보존 세대 = `keep-last-2` [긴급] 0 · 닫기 0 | §3 · §8 |
+| ㉓ | 명부 나노 · dispatch 0 (정지 중 / 정지 아님) | 판정 줄 있음 · 그 좌석 판정 정확히 1줄 · 닫기 0 | §1 · §7 |
+| ㉔ | 짝 표 매핑 카드와 팀 폴더 동명 카드 | 짝 표 매핑 카드가 먼저 | §8 |
+
+## 4. 실사건 기대 (설치 뒤 · 설계 §7 끝 · §12)
+
+- keeper 1바퀴 뒤 «끝난 나노» 0석: 모든 나노 세션이 `WORKING` 이거나 [긴급] 목록에 있다.
+- 새로 끝난 나노 1석이 사람 손 없이 `PARKED` 또는 `LANDED` 로 닫힌다.
+- 판정 없는 `byz-*` 세션 0 · `UNKNOWN` 은 전부 [긴급] 1줄.
+- 이 문서는 실사건 관측 값을 담지 않는다. 관측은 설치 뒤 master 몫이다.
