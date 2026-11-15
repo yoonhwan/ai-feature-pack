@@ -10,6 +10,8 @@
 | `test_settle_one_path_r2055.py` | ① ② ②′ ③ ④ ④′ ⑤ ⑥ ⑦ ⑨ ⑩ ⑪ ⑫ ⑰가~바 ⑱ ⑲ ⑳ ㉕가·나·다 | M3 · M4 · M5 · M6 |
 | `test_settle_da_r2055.py` | DA 반례 R1~R4 · ㉑가~라 · ㉒가~바 · ㉓ · ㉔ | — |
 | `test_slack_accept_capacity.py` | ㉖가~바 | M7 · M8 · M9 |
+| `test_keeper_notify_recipient.py` | ㉚가~거 | M17 · M18 · M19 · M23 · M24 · M25 · M32 · M33 |
+| `test_launch_failed_end.py` | ㉘가~카 · ㉛가~라 | M11 · M12 · M13 · M16 · M30 · M31 |
 
 돌리는 법: `python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_core_park_capacity_r2055.py -q`(나머지 2개도 같은 꼴 · 시험 1개 70초 상한).
 
@@ -20,10 +22,10 @@
 | ① | 끝난 나노 · 착지 0 · clean · push 됨 · 유휴 ≥ 60분 | `PARKED` · 닫기 1 · journal parked 1줄 · 용량 −1 · 의무 그대로 | §1 · §2 · §6 |
 | ② | 팀 걸친 카드(짝 표 없음 · 본문 경로) · 착지 줄 조상 | `LANDED`(complete + 닫기) | §2 · §8 |
 | ②′ | 본문 경로 실패 | 사유 꼬리 · 짝 표가 먼저(본문 읽기 0) · `..` 경로 무시 | §8 |
-| ③ · ⑫ | 세션 0 · owner 남음 · intent closed 또는 failed | `park(launch-failed)` · owner·예약 해제 · 용량 −1 · 새 attempt 로 다시 | §3 · §5 |
+| ③ · ⑫ | 세션 0 · owner 남음 · intent closed 또는 failed | `UNKNOWN launch-failed`(쉼 1회는 그대로 · `PARKED` 줄 0 · r2058 L3) · owner·예약 해제 · 용량 −1 · 새 attempt 로 다시 | §3 · §5 |
 | ④ | ALL_STOP 있음 + ① 입력 | 닫기 0 · park 0 · fill 0 · «예정 PARKED» 1줄 | §7 |
 | ④′ | ALL_STOP 깨짐 | 정지 + 판정 불가 1줄 | §7 |
-| ⑤ | 새 꼴(intent 에 worktree 칸 없음) | `UNKNOWN` · [긴급] 1통 · 닫기 0 · 같은 지문 = 전송 0 · 전송 실패 뒤 = 다시 전송 | §3 · §4 |
+| ⑤ | 새 꼴(intent 에 worktree 칸 없음) | `UNKNOWN` · [긴급] 1통 · 닫기 0 · 같은 지문 = 전송 0 · **전송 실패도 그날 지문**(재시도 0 · 다음 날 1회) | §3 · §4 |
 | ⑥ | 스피너 / 일하는 pi(API 대기 · %cpu 0.0 ×2 · jsonl 5분 전 · 스피너 없음) | 둘 다 `WORKING` · 닫힘 0 · park 0 | §2 |
 | ⑦ | 유휴 ≥ 60분 · dirty 또는 push 안 됨 | `UNKNOWN` [긴급] · 닫기 0 | §2 · §3 |
 | ⑨ | 질문 창(toolUse · jsonl 무활동 16분) · %cpu 0.1 ×2(30초) | `UNKNOWN waiting-input` · [긴급] 팀장 · 닫기 0 | §3 |
@@ -101,9 +103,79 @@
 | M8 | `adapters/slack/reply_done.py` `_requeue` 를 «처음 센 칸 − 성공 수» 로 | ㉖마 |
 | M9 | `adapters/pi/full_alert.py` 알림 값을 `remaining` 으로 | ㉖바 |
 
-## 5. 실사건 기대 (설치 뒤 · 설계 §7 끝 · §12)
+## 5. 쪽지 받는 곳·도착 확인 사례 (`test_keeper_notify_recipient.py` · r2065 행 E)
+
+가짜 mbox 가 rc·잠든 초·장부에 붙일 줄을 사례가 정한다. 7초 상한은 send 만 0.1초로 자르고 가짜 mbox 가 적재를 먼저 하고 0.3초 자는 대역이다(rc None = 7초 넘김 꼴 · sleep 0).
+
+| 사례 | 입력 | 기대 | 계약 절 |
+|---|---|---|---|
+| ㉚가 | `_master`·`_desk` 빈칸 · harness `_master` 있음 · [긴급] 3건 | harness 팀장에게 묶음 1통(3건 · 앞 3건) · 둘째 바퀴 0통 · `판정 불가` 0줄 | §4 |
+| ㉚나 | `seats-<팀>.json` 없음(v65 아닌 팀) | ㉚가와 같음 | §4 |
+| ㉚다 | `_master` 빈칸 · `_desk` 있음 | desk 에게 묶음 1통 · harness 0통 | §4 |
+| ㉚라 | `_master` 있음 · send rc 3 | `판정 불가` 1줄 · 실패 지문 · 둘째 바퀴 send 0 · 줄 0 · 날짜 바뀐 바퀴 send 1 | §4 |
+| ㉚마 | send 7초 초과(rc None) · 장부에 그 글 없음 | send 1회(재시도 0) · 그 뒤 ㉚라와 같음 | §4 |
+| ㉚바 | 받는 곳 세 칸 모두 빈칸 | `판정 불가 … 받는 곳 없음` 1줄 · 둘째 바퀴 0줄 | §4 |
+| ㉚사 | `_master` 있음 · [긴급] 6건이 한 바퀴에 | send 3 · `NOTIFY-DEFER` 1줄 · 다음 바퀴 send 3 · 지문 6 | §4 |
+| ㉚아 | send rc 0 | `NOTIFIED` 1줄 · 지문 · 둘째 바퀴 0통 · 장부 다시 읽기 0 | §4 |
+| ㉚자 | 7초 초과 · 경계보다 큰 seq 로 그 글 있음 | send 1회 · `NOTIFIED … (도착 확인 · rc None)` · 성공 지문 · 같은 글 1통 | §4 |
+| ㉚차 | rc 3 · 경계보다 큰 seq 로 그 글 있음 | ㉚자와 같음(rc 3) | §4 |
+| ㉚카 | 7초 초과 · 장부 없음(못 읽음) | 실패 지문 · `판정 불가 … 도착 판독 불가` 1줄 · 재시도 0 | §4 |
+| ㉚타 | 팀 v65 · `seats-v65.json` 없음 · `seats.json` 에 `_master` / 팀 cfo · `seats-cfo.json` 없음 | v65 = 그 팀장에게 1통(대신 받는 곳 0) · cfo = 명부 없음 → 차례 다음 칸(harness 묶음) | §4 |
+| ㉚파 | 같은 초 이전 글(seq 100 · 같은 ts · 같은 본문 첫 줄) · 경계 100 · 새 줄 0 | 도착 아님 · 실패 지문 · `NOTIFIED` 0줄(시각 비교였다면 도착으로 셈) | §4 |
+| ㉚하 | ㉚파 장부 그대로 · 경계 100 · 그 사이 seq 101 · 같은 초 · 같은 글 | `NOTIFIED … (도착 확인 · rc None)` · 성공 지문 · 둘째 바퀴 0통 | §4 |
+| ㉚거 | 경계 100 · 다른 글 250줄(seq 101~350) · 같은 글 0 | `판정 불가 … 도착 판독 불가` 1줄(«없음» 아님) · 실패 지문 · 재시도 0 | §4 |
+| ㉚더 | 같은 날 A 알림 뒤 A 유지 + 새 후보 B(같은 팀 `state.open`) | 그날 2통(A · 다음에 A+B) · B 알림 있음 · 열쇠 = 처음 «안 보낸» 좌석(DA 310738 반례) | §4 |
+
+| 변이 | 바꾸는 곳 | 잡는 사례 |
+|---|---|---|
+| M17 | `keeper_report.Reporting.cells` 의 `_desk`·harness `_master` 칸을 뺌 | ㉚가 · ㉚나 · ㉚다 |
+| M18 | `keeper_report.Reporting.finish` 의 실패 지문 쓰기를 뺌 | ㉚라 · ㉚마 · ㉚바 |
+| M19 | `keeper_report.Reporting.budget` 의 한 바퀴 3통 상한을 뺌 | ㉚사 |
+| M23 | `keeper_report.Reporting.send` 의 도착 확인을 뺌(7초 초과 = 실패) | ㉚자 · ㉚차 |
+| M24 | `launch_roster.roster_path` 의 v65 → `seats.json` 을 뺌 | ㉚타 |
+| M25 | `keeper_report.Reporting.send` 를 재시도 1 로 되돌림 | ㉚자 · ㉚마 |
+| M32 | seq 경계 대신 시각 비교(`ts` ≥ 지금 초)로 되돌림 | ㉚파 |
+| M33 | seq 경계 대신 시각 비교(`ts` > 지금 초)로 되돌림 | ㉚하 |
+| M34 | report 의 열쇠를 `fresh[0]` 대신 `seats[0]` 로 | ㉚더 |
+
+## 6. 실사건 기대 (설치 뒤 · 설계 §7 끝 · §12)
 
 - keeper 1바퀴 뒤 «끝난 나노» 0석: 모든 나노 세션이 `WORKING` 이거나 [긴급] 목록에 있다.
 - 새로 끝난 나노 1석이 사람 손 없이 `PARKED` 또는 `LANDED` 로 닫힌다.
 - 판정 없는 `byz-*` 세션 0 · `UNKNOWN` 은 전부 [긴급] 1줄.
 - 이 문서는 실사건 관측 값을 담지 않는다. 관측은 설치 뒤 master 몫이다.
+
+## 7. 열기 실패·열기 멈춤 사례 (`test_launch_failed_end.py` · r2058 · 카드 ft2-launch-failed-end)
+
+계약 L1~L10(`CONTRACT.md` §3 · 설계 `design/DESIGN-p2-launch-failed-no-park-rest-20261116.md`).
+
+| 사례 | 입력 | 기대 | 계약 |
+|---|---|---|---|
+| ㉘가 | intent failed · 세션 0 · owner 남음 · 착지 0 | park 1 · `UNKNOWN launch-failed` 1줄(intent step·reason 꼬리) · [긴급] 1통 · `PARKED` 줄 0 | L3 |
+| ㉘나 | ㉘가 다음 바퀴 | 건너뛰지 않는다(ROUND `unknown=1`) · park 다시 0 · 판정 줄 반복 0 · stall 깨움 0 | L1 · L4 |
+| ㉘다 | ㉘가 뒤 카드에 착지 줄 + «남은 범위: 없음» | 다음 바퀴 `COMPLETED` 1 · 닫기 호출 0 · 그 뒤 줄 0 | L2 |
+| ㉘라 | r2058 꼴(착지 봄 · «남은 범위» 줄 없음) | 매 바퀴 `UNKNOWN … 남은 범위 줄 없음` · 카드를 고치면 `COMPLETED` | L2 |
+| ㉘마 | idle-done 쉼 | 지금처럼 건너뜀 · 줄 0 | L1 |
+| ㉘바 | fill 후보 = 착지 카드 1 + 안 한 카드 1 | 안 한 카드만 submit · `NEXT-SKIP` 1줄(값이 바뀔 때만) · 닫기 뒤 pick 도 같음 | L5 |
+| ㉘사 | 팀장 좌석(dispatch·intent 0) | 판정 줄 0 · park 0 · [긴급] 0 | L7 |
+| ㉘아 | 대기 2장 중 한 장 `- 배정: 대기(사람 · …)` | 그 카드 submit 0 · 다른 카드 submit 1 | L9 |
+| ㉘자 | 표식 카드뿐 | `[다음 없음]` 1통 · 막힌 사유별 사람 1 | L9 |
+| ㉘차 | 표식 카드 · a1 launch-failed 쉼 · 원장 없음 | a2 dispatch 0 | L9 · L1 |
+| ㉘카 | 원장 정지 = 막힘 · 카드 `- 배정: 좌석 …`·`없음` = 안 막음 | 원장 카드 submit 0 · 카드 줄 카드 submit 1 | L9 |
+| ㉘타 · ㉘파 · ㉘하 | 원장 없음 · 배정 줄 없음 / `대기(석` / `사람` 표식을 `없음` 으로 고침 | 고름(양성 3칸) | L9 |
+| ㉛가 | intent opening 20분 · 세션 0(rc1) · owner 남음 · 잇는 중 아님 | park 1 · `UNKNOWN launch-failed … opening 20분` 1 | L6 |
+| ㉛나 | opening 5분 | 손 0(문턱 안쪽) | L6 |
+| ㉛다 | opening 20분인데 `fill_open`(잇는 중) | 손 0 | L6 |
+| ㉛라 | opening 20분 · tmux 조회 실패(rc2) | park 0 · `판정 불가` 1줄(부재로 읽지 않는다) | L6 |
+| ㉘거 | v65 · `seats-v65.json` 없음 ∧ `seats.json` 있음 / 둘 다 없음(`test_pi_launch_roster_r1983.py`) | `seats.json` 에 행 추가 · 둘 다 없음 = «판정 불가 명부 없음» 1구(생성 0) | L10 |
+
+| 변이 | 바꾸는 곳 | 잡는 사례 |
+|---|---|---|
+| M11 | `keeper.Keeper.team_round` 의 쉼 건너뛰기에서 launch-failed 예외를 뺌 | ㉘나 · ㉘다 · ㉘라 |
+| M12 | `keeper_settle.failed_end` 가 UNKNOWN 대신 `PARKED` 낱말을 찍게 | ㉘가 |
+| M13 | `keeper_next.choose` 의 착지 카드 제외(`skip_landed`)를 뺌 | ㉘바 |
+| M16 | `keeper_settle` 의 opening 멈춤 분기(`stalled`)를 거짓으로 | ㉛가 |
+| M30 | `keeper_next.choose` 가 카드 배정 줄(`pre`)을 안 봄 | ㉘아 · ㉘자 · ㉘차 |
+| M31 | `keeper_next.prereq` 가 카드 배정 줄 사유 표(`MARK`)를 안 봄(선행만) | ㉘차(그 밖에 ㉘아·㉘자·㉘하도 함께 죽는다) · M67 은 `test_pi_launch_roster_r1983.py`(enroll 명부 경로 하드코딩 되돌림 → ㉘거) |
+
+- 기준판(팩 origin/main c7860542)에서 FAIL 이던 사례 = ㉘가 ㉘나 ㉘다 ㉘라 ㉘바 ㉘아 ㉘자 ㉘차 ㉘하 ㉛가 ㉛나 ㉛다 ㉛라(13) · 지키던 사례 = ㉘마 ㉘사 ㉘카 ㉘타 ㉘파(5).

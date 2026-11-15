@@ -11,6 +11,7 @@ keeper 는 좌석마다 매 바퀴 판정 1개를 낸다. 이 문서는 그 판�
 | 구현 자리 | `adapters/pi/keeper_settle.py` · `adapters/pi/keeper_close.py` · `adapters/pi/keeper_land.py` · `adapters/pi/keeper_endings.py` · `core/dispatch.py`(`park`) · `core/record.py`(`capacity`) |
 | 사례·시험 대응 | 같은 폴더 `CASES.md` |
 | 사고 기록 | `feature-pack/fable-team/troubleshoot/2026-11-15-ended-seat-not-closed-r2055.md` |
+| 설계 뒤 고침(r2058) | 열기 실패(`launch-failed`)와 열기 멈춤(`opening`)의 끝 = 쉼 + `UNKNOWN` · 설계 = `feature-pack/fable-team/design/DESIGN-p2-launch-failed-no-park-rest-20261116.md` · `design/SWEEP-FIX-table-20261116.md` §F |
 
 ## 1. 판정 4개 (좌석마다 바퀴당 정확히 1개)
 
@@ -25,6 +26,7 @@ keeper 는 좌석마다 매 바퀴 판정 1개를 낸다. 이 문서는 그 판�
 - 행동 줄 `HELD-NEXT`·`HELD-SEAT`·`HELD-STALL`·`HELD-ORPHAN` 은 낱말을 그대로 뒀다(d88ef381 «남은 범위» · 판정 낱말이 아니라 행동 기록이다).
 - 판정 줄 꼴 = `<판정> <팀> <work> <좌석> <사유 코드> · <꼬리>`. 같은 좌석의 같은 (판정, 사유)는 다시 찍지 않는다(바뀔 때만 1줄).
 - 세션 닫기 조건에서 «착지» 를 뺐다. 착지는 일(work)의 상태로만 따로 센다.
+- r2058 — 쉼을 실행하는 두 자리(`launch-failed`) 가운데 열기 실패·열기 멈춤은 **판정 낱말이 `UNKNOWN`** 이다. 종전 `PARKED … launch-failed` 줄은 없다(쉼은 그대로 실행한다).
 
 ## 2. 근거 순서 (먼저 채워진 판정을 낸다)
 
@@ -48,7 +50,8 @@ keeper 는 좌석마다 매 바퀴 판정 1개를 낸다. 이 문서는 그 판�
 | 판정 | 사유 코드 | 뜻 |
 |---|---|---|
 | `PARKED` | `idle-done` | 끝났고 유휴 · 남길 것 안전(park 사유) |
-| `PARKED` | `launch-failed` | intent failed·closed ∧ 세션 부재 ∧ owner 남음(park 사유) |
+| `UNKNOWN` | `launch-failed` | intent failed·closed ∧ 세션 부재 ∧ owner 남음 = core `park`(사유 `launch-failed`) 1회(멱등) + 판정은 `UNKNOWN`·[긴급] 1통(r2058 L3) · `PARKED … launch-failed` 줄 0 · 흐름은 PARKED(깨움·재배정·hold 검사 0 · L4) · 매 바퀴 다시 본다(L1·L2) |
+| `UNKNOWN` | `launch-failed` | 열기 멈춤 — intent `opening` ∧ `OPEN_STALE`(900초) 넘음 ∧ `fill_open`(잇는 중) 아님 ∧ owner 남음 ∧ 세션 부재(`tmux` rc1 «can't find session») 넷 다 참 = L3 과 같은 길(r2058 L6) · tmux 조회 실패는 부재가 아니라 «판정 불가» 1줄(park 0) · 문턱 안쪽·잇는 중 = `WORKING launch-pending`/`launch-joining`(손 0) |
 | `PARKED` | `session-absent` | 끝남 ∧ 세션 없음 ∧ 카드 0 |
 | `WORKING` | `pane-working` · `pane-pending` · `cpu-busy` · `jsonl-active` · `cpu-<값>` · `turn-open` | 양성 근거 또는 유휴 문턱 전 |
 | `WORKING` | `keep-recent` · `keep-last-2` · `ready-wait` | 장기 좌석 보존(닫기 0 · [긴급] 0 · 정상 보존) · 후계 [레디] 영수 0 |
@@ -67,11 +70,21 @@ keeper 는 좌석마다 매 바퀴 판정 1개를 낸다. 이 문서는 그 판�
 - `park` 가 받는 사유는 `idle-done`·`launch-failed` 둘뿐이다. 그 밖의 값은 거절이다.
 - `WORKING` 과 `UNKNOWN` 의 사유 코드 목록은 닫힌 집합이 아니다. 새 꼴은 새 코드로 `UNKNOWN` 에 드러난다. 위 표는 77511fcc 시점 코드에서 읽은 값이다.
 
-## 4. [긴급] 드러냄
+## 4. [긴급] 드러냄과 쪽지
 
 - 본문 꼴 = `[긴급] UNKNOWN <팀> <work> <좌석> <사유 코드> · <꼬리 80자> · 다음 수 <행동>`.
 - 지문 = (team, work, attempt, reason). 같은 지문은 하루 1회다. 새 사유·새 attempt 는 첫 1회 즉시 보낸다.
-- 전송 실패는 지문을 소비하지 않는다(다음 바퀴에 다시 보낸다).
+- **실패도 그날 지문이다**(r2065 · 값 `fail|<날짜>|<rc>`). 같은 열쇠로 그날 다시 보내지 않고 `판정 불가` 줄도 그날 1회다. 날짜가 바뀌면 1회 다시 시도한다.
+- 받는 곳 차례 = 그 팀 `_master` → 그 팀 `_desk` → harness `_master`. 처음으로 값이 있는 한 곳에만 보낸다(두 곳 동시 0).
+- 대신 받는 곳(`_desk`·harness `_master`)에는 글마다 보내지 않는다. 팀당 하루 1통 묶음 `[긴급] <팀> 팀장 없음 · 못 전한 keeper 판정 <n>건 · 앞 3건: …` 이고, 그날 뒤에 생긴 판정은 `state.undelivered[<팀>]` 에만 쌓여 다음 날 묶음에 들어간다.
+- 세 칸이 다 빈칸 = `판정 불가 <팀> 쪽지 받는 곳 없음` 그날 1줄 + 같은 실패 지문.
+- 통마다 7초 · 재시도 0 · 한 바퀴 3통. 넘는 것은 지문을 쓰지 않고 다음 바퀴로 넘긴다(`NOTIFY-DEFER <팀> <n>통 · 다음 바퀴` 1줄 · 값이 바뀔 때만).
+- 7초를 넘겨 rc None 이거나 rc≠0 이면 우편함 장부(`<루트>/.fable-team/comm/mailbox.log.jsonl` 끝 200줄 · 읽기만)에서 도착을 확인한다. 경계 = send 직전 장부 끝 200줄의 정수 seq 최댓값이고, 경계보다 큰 seq 줄 중 «보낸 이 ft2-keeper · 받는 곳 · 본문 첫 줄» 이 같은 줄이 있으면 도착이다(성공 지문 + `NOTIFIED <받는 곳> (도착 확인 · rc <값>)`). 시각(`ts`)은 비교에 쓰지 않는다.
+- 경계를 못 잡으면(장부 없음·못 읽음·seq 줄 0) send 결과만 본다. 경계와 창 사이를 못 봤으면(창 밖) «없음» 이 아니라 `도착 판독 불가` 로 적는다.
+- rc 0 인 send 는 장부를 다시 읽지 않는다(경계 읽기 1회만 든다).
+- 명부 찾기 = `launch_roster.roster_path(root, team)` 한 함수. `seats-<팀>.json` 이 있으면 그 파일 · 없고 팀이 v65 면 `seats.json` · 그 밖은 명부 없음(차례의 다음 칸).
+- 운영 1줄: 팀장을 다시 세운 날 바로 받게 하려면 `state.json` 의 `sent` 에서 그 팀 `fail|` 값을 사람이 지운다.
+- `full_alert` 의 받는 곳(팀 master + harness master 두 곳)은 이 절과 별개다(r1927 그대로).
 - 바퀴마다 `ROUND` 줄에 `unknown=N` 을 적는다.
 
 ## 5. core `park` — owner·예약 해제를 한 줄로
@@ -115,4 +128,5 @@ keeper 는 좌석마다 매 바퀴 판정 1개를 낸다. 이 문서는 그 판�
 - intent 없는 master 좌석이 holder 이면 `UNKNOWN intent-bad` 와 [긴급]이 나간다(닫기 0).
 - noland 목록 내용이 바뀌면 판정 줄을 다시 1줄 낸다(verdict 장부 키를 지운다 · r1841 ⑥).
 - PR 본문의 두 한계는 77511fcc 시점 코드에서 풀려 있다(코드 읽기): keeper 가 `tmuxc clean` 을 부른다(`keeper_settle.py` `tmuxc_status`) · `keeper_endings` 가 `resolve_card` 를 쓴다.
-- 이 계약은 시험 3개가 묶는 값만 적었다. 실사건 관측 값은 담지 않는다.
+- r2065 행 E 의 두 한계(DA BYZ 310019 승인 범위): ① 7초 안에 장부가 200줄 넘게 늘면 창이 경계를 지나 도착했어도 `도착 판독 불가` 로 남는다 ② 그 글은 실패 지문이라 다음 날 1회 다시 가서 같은 글이 2통이 될 수 있다. 장부 seq 가 늘 커진다는 것은 전제이고 실행 보증이 아니다.
+- 이 계약은 시험 4개가 묶는 값만 적었다. 실사건 관측 값은 담지 않는다.

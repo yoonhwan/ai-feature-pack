@@ -134,13 +134,14 @@ def c2b(w):   # ②′ 본문 경로 실패 사유 꼬리 · 짝 표 먼저(본�
     assert w.keeper().landing(TEAM, stem) == got and "본문" not in str(got) and got[0], got
 
 
-def c3(w, failed="closed"):   # ③·⑫ 세션 0 · owner 남음 · intent closed/failed → park(launch-failed) · owner·예약 해제 · 용량 −1
+def c3(w, failed="closed"):   # ③·⑫ 세션 0 · owner 남음 · intent closed/failed → park(launch-failed) 1회 · 판정 낱말 = UNKNOWN launch-failed(r2058 L3) · owner·예약 해제 · 용량 −1
     nano(w, "r9553", alive=False, state=failed)
     before = proj(w)
     lines = rnd(w)
     st = json.loads((w.runtime() / "state.json").read_text(encoding="utf-8"))
     after = proj(w)
-    assert has(lines, "PARKED harness r9553", "launch-failed") and w.kinds("parked") == 1, lines
+    assert has(lines, "UNKNOWN harness r9553", "launch-failed") and not has(lines, "PARKED harness r9553"), lines   # r2058 — 쉼은 하되 줄은 UNKNOWN
+    assert w.kinds("parked") == 1, lines
     assert "r9553" not in st["owners"] and "R-r9553" not in st["reservations"] and after["capacity"] == before["capacity"] - 1
     assert after["remaining"] == before["remaining"]
     out, rc = w.CLI.run(["assign", "--work", "r9553", "--holder", "byz-harness-nano-r9553#0", "--evidence", "v1,v2", "--resources", "R-r9553",
@@ -164,15 +165,15 @@ def c4b(w):   # ④′ ALL_STOP 깨짐 = 정지 + 판정 불가 1줄
     assert has(lines, "판정 불가", "ALL_STOP") and not w.tmux("kill-session") and w.kinds("parked") == 0, lines
 
 
-def c5(w):   # ⑤ 새 꼴(intent worktree 칸 없음) → UNKNOWN · [긴급] 1통 · kill 0 · 같은 지문 = 전송 0 · 전송 실패 뒤 = 다시 전송
+def c5(w):   # ⑤ 새 꼴(intent worktree 칸 없음) → UNKNOWN · [긴급] 1통 · kill 0 · r2065 E3·E5 실패도 그날 지문(재시도 0) → 같은 날 다시 0통
     nano(w, "r9555", tree=False)
     kw._put(str(w.mbox) + ".rc", "1")
     lines = rnd(w)
     assert has(lines, "UNKNOWN harness r9555", "intent-bad") and has(lines, "ROUND", "unknown=2") and not w.tmux("kill-session"), lines   # r2055 R3 정체 본문 도달 0 도 UNKNOWN 줄([긴급]) = 2
-    assert len([x for x in sent(w) if "intent-bad" in x]) == 2   # 7초 + 재시도 1 = 실패 → 지문 미소비
+    assert len([x for x in sent(w) if "intent-bad" in x]) == 1   # 시도 1(재시도 0) — old 기대 2 = 7초 + 재시도 1
     kw._put(str(w.mbox) + ".rc", "0")
     rnd(w, dt=60), rnd(w, dt=60)
-    assert len([x for x in sent(w) if "intent-bad" in x]) == 3 and not [x for x in kw._lines(str(w.close) + ".log")]
+    assert len([x for x in sent(w) if "intent-bad" in x]) == 1 and not [x for x in kw._lines(str(w.close) + ".log")]   # 실패 지문 = 같은 날 다시 보내지 않는다
     assert not has(rnd(w, dt=60), "HELD")
 
 

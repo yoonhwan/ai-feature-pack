@@ -5,12 +5,13 @@ r1812 대역(keeper_world_r1812) 재사용 · 임시 bare 원격(byz.git) + 임�
 import importlib.util
 import json
 import subprocess
+import types
 from pathlib import Path
 
 _SPEC = importlib.util.spec_from_file_location("keeper_world_r1859", str(Path(__file__).with_name("keeper_world_r1812.py")))
 kw = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(kw)
-TEAM, NOW = kw.TEAM, kw.NOW
+TEAM, NOW, OPS = kw.TEAM, kw.NOW, "ops/main-base"
 CARD = "design/harness/indices/%s/r9-x.md"
 
 
@@ -123,27 +124,38 @@ def fake(w, monkeypatch, verb, answer):
     return mod
 
 
-def test_8_cleanup_failure_is_unsure(tmp_path, monkeypatch, capsys):
+def test_8_timeout_leaves_no_worktree(tmp_path, monkeypatch, capsys):
+    """옛 «정리 실패 · 등록 잔존»(worktree remove) 자리 — rH 는 worktree 를 만들지 않는다(㊱나)."""
     w = done_world(tmp_path, monkeypatch)
-    rc, out = call(w, capsys, fake(w, monkeypatch, "worktree remove", lambda real, cwd, *a: (1, "")))
-    assert rc == 3 and out.startswith("판정 불가 worktree 정리 실패") and "등록 잔존" in out, out
-    assert len(kw._git(w.root, "worktree", "list").splitlines()) == 2
-    assert call(w, capsys)[1].startswith("NOOP")
+    sha, mod = bare(w, "rev-parse", OPS), tool(w)
+    inner, real = subprocess.run, subprocess.TimeoutExpired
+
+    def kill(argv, **opts):   # read-tree 에서 상한 넘김(7초)
+        if list(argv[3:4]) == ["read-tree"]:
+            raise real(argv, 7)
+        return inner(argv, **opts)
+    monkeypatch.setattr(mod, "subprocess", types.SimpleNamespace(run=kill, TimeoutExpired=real))
+    rc, out = call(w, capsys, mod)
+    assert (rc, out) == (3, "판정 불가 git read-tree 시간초과 7초"), out
+    assert len(kw._git(w.root, "worktree", "list").splitlines()) == 1
+    assert bare(w, "rev-parse", OPS) == sha and CARD % "진행" in remote(w)
 
 
-def test_9_push_answer_lost_is_unknown(tmp_path, monkeypatch, capsys):
+def test_9_push_answer_lost_converges_to_noop(tmp_path, monkeypatch, capsys):
+    """push rc 를 못 믿는 경우(원격은 이미 들어감) — rH 는 fetch 뒤 card() 다시 → NOOP 수렴(G4 · 옛 «판정 불가» 자리)."""
     w = done_world(tmp_path, monkeypatch)
     rc, out = call(w, capsys, fake(w, monkeypatch, "push", lambda real, cwd, *a: (real(cwd, *a)[0] or 128, "")))
-    assert rc == 3 and out.startswith("판정 불가 push 결과 불명") and "원격 쓰기 0" not in out and "거절" not in out, out
-    assert CARD % "완성" in remote(w)
-    assert call(w, capsys)[1].startswith("NOOP")
+    assert (rc, out) == (0, "NOOP r9 이미 완성"), out
+    assert CARD % "완성" in remote(w) and CARD % "진행" not in remote(w)
+    assert bare(w, "show", OPS + ":" + CARD % "완성").count("ft2 card_stage") == 1
 
 
-def test_10_commit_timeout_still_cleans(tmp_path, monkeypatch, capsys):
+def test_10_commit_tree_timeout_leaves_remote(tmp_path, monkeypatch, capsys):
+    """커밋 만드는 도중 7초 초과 — rc 3 · 원격·worktree 등록 변화 0(옛 «commit 시간 초과 정리» 자리)."""
     w, seen = done_world(tmp_path, monkeypatch), []
-    mod = fake(w, monkeypatch, "commit", slow)
+    mod = fake(w, monkeypatch, "commit-tree", slow)
     inner = mod.git
-    monkeypatch.setattr(mod, "git", lambda cwd, *a: seen.append(a[:2]) or inner(cwd, *a))
+    monkeypatch.setattr(mod, "git", lambda cwd, *a: seen.append(a[:1]) or inner(cwd, *a))
     rc, out = call(w, capsys, mod)
-    assert rc == 3 and out.startswith("판정 불가") and seen.count(("worktree", "remove")) == 1, out
+    assert rc == 3 and out.startswith("판정 불가") and ("worktree",) not in seen, out
     assert len(kw._git(w.root, "worktree", "list").splitlines()) == 1 and CARD % "진행" in remote(w)

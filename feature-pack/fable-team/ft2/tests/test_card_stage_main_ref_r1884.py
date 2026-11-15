@@ -79,23 +79,23 @@ def test_4_main_complete_only_is_noop(tmp_path, monkeypatch, capsys):
     assert heads(w) == before
 
 
-def test_5_main_push_rejected_rebases_on_main(tmp_path, monkeypatch, capsys):
+def test_5_main_push_rejected_rebuilds_on_main(tmp_path, monkeypatch, capsys):
+    """R rH — 거절되면 rebase 0 · fetch 1 뒤 새 끝에서 다시 만든다(G4)."""
     w = world(tmp_path, monkeypatch, (MAIN,), ops_row=False)
-    before, seen, rebases = heads(w), [], []
+    before, seen = heads(w), []
     mod = kw._mod(w.ft2 / "adapters" / "pi" / "card_stage.py", "cs84r_%d" % id(w))
-    real = mod.git
+    real = mod.spawn if hasattr(mod, "spawn") else mod.git
+    ahead = []
 
-    def spy(cwd, *a):
-        if a[0] == "push" and not seen:   # 첫 push 직전에 원격 main 이 앞선다(다른 커밋 1)
-            seen.append(w.commit("byz", {"other.txt": "앞선 커밋"}, MAIN))
-        if a[0] in ("rebase", "fetch"):
-            rebases.append(a)
-        return real(cwd, *a)
-    monkeypatch.setattr(mod, "git", spy)
+    def spy(cwd, args, env=None):
+        seen.append(tuple(args))
+        if args[:1] == ("push",) and not ahead:   # 첫 push 직전에 원격 main 이 앞선다(다른 커밋 1)
+            ahead.append(w.commit("byz", {"other.txt": "앞선 커밋"}, MAIN))
+        return real(cwd, args, env) if hasattr(mod, "spawn") else real(cwd, *args)
+    monkeypatch.setattr(mod, "spawn" if hasattr(mod, "spawn") else "git", spy)
     rc, out = run(w, capsys, mod)
     assert rc == 0 and out.startswith("STAGED "), out
     assert "other.txt" in names(w, MAIN) and CARD % "완성" in names(w, MAIN)
-    assert bare(w, "merge-base", "--is-ancestor", seen[0], MAIN) == ""
-    assert [a for a in rebases if a[0] == "rebase"] == [("rebase", "-q", "origin/main")], rebases
-    assert not any("origin/ops/main-base" in a or a[-1:] == (OPS,) for a in rebases if a[0] == "rebase"), rebases
+    assert bare(w, "rev-parse", MAIN + "~1") == ahead[0]   # 새 끝의 부모 = 먼저 들어간 커밋
+    assert [a for a in seen if a[0] == "rebase"] == [] and len([a for a in seen if a[0] == "fetch"]) == 2, seen
     assert heads(w)[OPS] == before[OPS]

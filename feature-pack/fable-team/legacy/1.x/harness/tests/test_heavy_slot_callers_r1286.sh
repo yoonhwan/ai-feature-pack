@@ -13,6 +13,7 @@
 #   변이 8(spawn trap 덮어쓰기) → R14ⓑ FAIL · 변이 11(disk-alarm 이 rc 무시) → R13ⓒ FAIL · 변이 12(merge-land 첫 push 뒤 풂) → R12ⓑ FAIL
 #   실 tmux·실 원격·실 gh 0 · 자기 재호출 0 · 고정 sleep 0(표식 폴링) · 시험 1개 상한 70초
 set -uo pipefail
+export FT_TMP_SWEEP_SH=/usr/bin/true   # r2073: 임시 사본 정리도 가짜(실 /private/tmp 를 보지도 지우지도 않게)
 export FT_AUTONOMY_LEVEL=each FT_MERGE_LAND_CODE_AUTOMERGE=0
 [ -z "${FT_R1286C_REENTRY:-}" ] || { echo "FAIL 재진입"; exit 1; }
 export FT_R1286C_REENTRY=1

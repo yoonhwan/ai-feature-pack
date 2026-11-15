@@ -190,9 +190,9 @@ case "${1:-}" in on|status|mode|event|*-status) llm_load ;; esac   # r1815: 잠�
 case "${1:-}" in
   on) shift; cmd_on "$@" ;; approve-merge) shift; cmd_approve_merge "$@" ;;
   forget-kind|interview-note|on-check) c="cmd_${1//-/_}"; shift; "$c" "$@" ;;   # r466 학습표에서 종류 빼기(오빠 `!` 전용) · desk 에 [자율 인터뷰] 1통(틱 expire 뒤 · off 는 스스로) · on 인자 검사만(쓰기 0)
-  approve-scope|scope-approve|scope-stop|scope-status) c="${1//-/_}"; shift; . "$HERE/ft-autonomy-scope.sh"; "cmd_$c" "$@" ;;  # 범위 사전 승인(R298) — approve-scope = 오빠 `!` 전용
+  approve-scope|scope-approve|scope-stop|scope-status|scope-alert) c="${1//-/_}"; shift; . "$HERE/ft-autonomy-scope.sh"; "cmd_$c" "$@" ;;  # 범위 사전 승인(R298) — approve-scope = 오빠 `!` 전용 · r1792 scope-alert = 사용률 75% → desk [긴급] 1통(stall-scan 틱)
   off) cmd_off ;; expire) cmd_expire ;; status) status ;; mode) mode ;; event) event ;; state-dir) printf '%s\n' "$STATE" ;;
   approve-standing|standing-approve|standing-stop|standing-status) c="${1//-/_}"; shift; if [ "${1:-}" = D3 ]; then . "$HERE/ft-autonomy-standing-d3.sh"; elif [ "$c" = standing_status ] || [ "${1:-}" = D2 ]; then . "$HERE/ft-autonomy-standing-d2.sh"; else . "$HERE/ft-autonomy-standing.sh"; fi; "cmd_$c" "$@" ;;  # r1745: standing-status 도 D2 파일을 source(D1·D2 두 줄 · d2_on 사본 0)  # r947 D1(오빠 `!`·planner 좌석) · r1577 D2(켜기=planner · 쓰기=팀 master · 크리티컬 0) — 같은 명령 이름, D2 인자면 d2 파일
   try-auto|brief) . "$HERE/ft-autonomy-try.sh"; "cmd_${1//-/_}" "${@:2}" ;;   # r1745: 묻기 전에 먼저 시도(D2→S) · 자율 상태 1줄
-  *) echo "usage: ft-autonomy.sh on|off|expire|status|mode|event|state-dir|approve-merge <40hex>…|approve-scope|scope-approve|scope-stop|scope-status|approve-standing|standing-approve|standing-stop|standing-status|try-auto <head40> --pr <N> --repo byz|pack --card <카드> [--verdict <판정문>]|brief|forget-kind <키>|interview-note <A<N>> <expire|off>" >&2; exit 2 ;;
+  *) echo "usage: ft-autonomy.sh on|off|expire|status|mode|event|state-dir|approve-merge <40hex>…|approve-scope|scope-approve|scope-stop|scope-status|scope-alert|approve-standing|standing-approve|standing-stop|standing-status|try-auto <head40> --pr <N> --repo byz|pack --card <카드> [--verdict <판정문>]|brief|forget-kind <키>|interview-note <A<N>> <expire|off>" >&2; exit 2 ;;
 esac

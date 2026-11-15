@@ -3,6 +3,7 @@
 # 가짜 ps/lsof(FT_SP_PS_OUT·FT_SP_LSOF_OUT)·임시 루트·작은 실 git 저장소만 쓴다 — 실 scratchpad·실 쪽지·실 상태 파일 0.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
 set -uo pipefail
+export FT_TMP_SWEEP_SH=/usr/bin/true   # r2073: 임시 사본 정리도 가짜(실 /private/tmp 를 보지도 지우지도 않게)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 HARNESS="$(cd -- "$HERE/.." && pwd)"
 REPO="$(cd -- "$HARNESS/.." && pwd)"

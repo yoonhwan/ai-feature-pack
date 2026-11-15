@@ -6,6 +6,7 @@
 - 원인 1줄: keeper_report.notify 가 그 팀 seats-<팀>.json 의 _master 한 곳만 본다 · 실패하면 지문을 쓰지 않아 바퀴마다 다시 시도하고 같은 줄을 찍는다 · 7초를 넘긴 send 를 실패로 보고 재시도 1 이 같은 글을 한 번 더 적재한다 · 바퀴 안 통 수에 상한이 없다
 - 앞 카드: r2055(팩 d88ef381 · settle 한 길 · alert 지문) · r1812(keeper 보고) · r1886(꽉 참 알림) · r1833(Slack 깨움 적재 판독 landed)
 - 상태: 대기
+- 착지: ae0c199eafa2b061034a2169d673bb3bb8cceff6(팩 main · PR #1282 squash · DA#11 APPROVE-IMPL aifp 5510 · 세트 8ba57455 · 뺄 커밋 0)
 - 설치: 있음 — ft2 판 올림 1회(팩 착지 뒤 팀장·harness 설치 묶음) · 되돌림 = 앞 판으로 판 전환
 - 선행: 없음 — ft2-slack-accept-capacity 착지 끝(팩 main 09c02c0a · PR #1270 · 팀장 aifp-ft-master-pi#18 이 풂)
 - 시험 입력: 임시 루트(tmp_path) · 시험 안에서 만든 명부·우편함 장부(mailbox.log.jsonl)·keeper 상태 · 가짜 mbox(rc·걸린 시간·장부에 붙일 줄을 사례가 정함) · 가짜 clock · sleep 0 · 네트워크 0 · 실 runtime 쓰기·읽기 0 · 사례 1개 70초 안
@@ -60,12 +61,12 @@ keeper 는 판정을 팀장에게 쪽지로 알린다. 받는 곳을 그 팀 명
 - 알려진 한계 2(DA BYZ 310019 승인 범위): 한계 1 의 글은 실패 지문이라 다음 날 1회 다시 간다 = 같은 글이 2통 될 수 있다 · 장부 seq 가 늘 커진다는 것은 전제이고 실행 보증이 아니다 · 이 카드는 live 중복 해소를 증거로 주장하지 않는다
 
 ## 완료 조건
-1. [ ] 나노: 커밋 1 기준판 FAIL 원문
-2. [ ] 나노: 새 시험 전체 rc0 · 걸린 초
-3. [ ] 나노: 변이 M17 → ㉚가·㉚나·㉚다 FAIL · M18 → ㉚라·㉚마·㉚바 FAIL · M19 → ㉚사 FAIL · M23 → ㉚자·㉚차 FAIL · M24 → ㉚타 FAIL · M25 → ㉚자·㉚마 FAIL · M32 → ㉚파 FAIL · M33 → ㉚하 FAIL
-4. [ ] 나노: 회귀 rc0 · 고친 기대값 사례 이름
-5. [ ] arch: ㉚파·㉚하·㉚거 와 M32·M33 을 따로 다시 돌려 확인(DA BYZ 310019 인수 칸)
-6. [ ] 팀장: PR 착지 sha · 설치 판
+1. [x] 나노: 커밋 1 기준판 FAIL 원문 — 79ff6fb6(시험만) 에 기준판 코드로 돌린 원문: ㉚가 `[]`(쪽지 0) · ㉚라 `['판정 불가 harness 쪽지 3 — …']`(시도 2) · ㉚사 6통이 다 나감(상한 0) · ㉚자 `['판정 불가 harness 쪽지 None — …']`(7초 초과를 실패로 봄 · NOTIFIED 0) · ㉚타 `[]`(v65 명부 못 찾음) · ㉚하 같음 · 22 failed 1 passed(㉚아 = 지금과 같은 rc 0 길 = 양성 대조)
+2. [x] 나노: 새 시험 전체 rc0 · 걸린 초 — `python3.11 -m pytest ft2/tests/test_keeper_notify_recipient.py` 23 passed · 17.1초 · 고침 뒤(8ba57455) 25 passed 24.21초 rc=0(사례 16 + 변이 9 · ㉚더·M34 포함 · aifp 5505)
+3. [x] 나노: 변이 8개 — `test_mutant[...]` 8칸 rc0(변이 사본에서 그 사례가 FAIL · 원본에서 PASS): M17 → ㉚가·㉚나·㉚다 · M18 → ㉚라·㉚마·㉚바 · M19 → ㉚사 · M23 → ㉚자·㉚차 · M24 → ㉚타 · M25 → ㉚자·㉚마 · M32 → ㉚파 · M33 → ㉚하 · 고침 뒤 M34(열쇠를 seats[0] 로) → ㉚더 = 9개(aifp 5505 · DA aifp 5510 «M34 old-key 변이 검출»)
+4. [x] 나노: 회귀 rc0 · 고친 기대값 사례 이름 — `test_settle_one_path_r2055.py` 29 passed 43.0초(⑤ «전송 실패 뒤 = 다시 전송» → «실패도 그날 지문») · `test_pi_keeper_r1812.py` 31 passed 78.3초 · `test_pi_keeper_followup_r2000.py` 26 passed 41.5초(숫자 정정 aifp 5484) ⑧′ «쪽지 실패 → 다음 바퀴 다시» 를 «실패도 그날 지문» 으로(카드 밖 두 번째 기대 고침 파일 · r2000 소유) · `test_full_critical_alert_r1886.py` 4 passed 1 failed = c7 journal 꽉 참인데 기준판(0de903a2)에서도 같은 FAIL(무관 · master 재판정)
+5. [x] arch: ㉚파·㉚하·㉚거 와 M32·M33 을 따로 다시 돌려 확인(DA BYZ 310019 인수 칸) — aifp-ft-arch-pi#18 재실행(세트 8ba57455 의 git archive 사본 · `python3.11 -m pytest ft2/tests/test_keeper_notify_recipient.py -v`): 25 passed 24.76초 rc=0 · test_case[㉚파]·[㉚하]·[㉚거] PASSED · test_mutant[M32]·[M33] PASSED(M32 = seq 경계를 ts >= 로 → ㉚파 · M33 = ts > 로 → ㉚하) · DA 두 번 확인 원문 = BYZ 310738 «요청한 ㉚파·㉚하·㉚거와 M32/M33 포함» · BYZ 310812 «기존㉚파/하/거 및 M32/M33도 함께통과»
+6. [x] 팀장: PR #1282 ae0c199e · 설치 2.0.65 rc0 POSTCHECK OK Traceback 0(harness#290 aifp 5521 · install-log 2026-11-15T18:07:51Z = KST 11-16 03:07:51)
 7. [ ] arch: 설치 뒤 1시간 keeper 로그 실측 1줄(«판정 불가 … 쪽지» 줄 수 · 쪽지 stall 21초 넘는 바퀴 수)
 
 ## 계약↔시험 대응표
@@ -87,3 +88,11 @@ keeper 는 판정을 팀장에게 쪽지로 알린다. 받는 곳을 그 팀 명
 - 2026-11-16 · aifp-ft-arch-pi#17 씀(aifp 5395 ①) · 대기 · 설계 r3 = DA 대행 APPROVE-DESIGN(BYZ 310019) · 선행 = ft2-slack-accept-capacity 착지
 - 2026-11-16 02:18 — 대기→진행 · 좌석 aifp-ft-nano-ft2-keeper-notify-recipient#0
 - [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
+- 2026-11-16 — 나노 aifp-ft-nano-ft2-keeper-notify-recipient#0 · E1~E8 구현(커밋 3개 · push 0 · 가지 nano/ft2-keeper-notify-recipient) · `ft-nano-record.sh done` = 판정 불가「명부 읽기(ft) rc=1」(좌석 이름 `aifp-ft-*` → `seats-ft.json` 을 찾는다 · aifp 명부는 `seats-aifp.json`) → 증거 줄은 카드에 직접 썼다
+- 세트: 8b2e647e30f4c7160ecac17d4a37083631d4451b · 시험: python3.11 -m pytest ft2/tests/test_keeper_notify_recipient.py — (23 passed · 17.1초) rc=0 · 이슈: 0
+- 회귀: python3.11 -m pytest ft2/tests/test_settle_one_path_r2055.py ft2/tests/test_pi_keeper_r1812.py ft2/tests/test_pi_keeper_followup_r2000.py — (29 · 31 · 26 passed · 정정 aifp 5484: 앞서 106·16 으로 잘못 적음) rc=0 · ruff check rc=0 · ft-test-reentry-lint.sh rc=0
+- 산출: adapters/pi/keeper_report.py(notify·recipients·cells·budget·send·arrived·boundary·finish·stand_in·flush) · adapters/pi/launch_roster.py(roster_path(root, team) → 경로|None · 인자 (루트, 팀) · E8 한 함수) · adapters/pi/keeper_settle.py(alert 독스트링만) · 새 시험 test_keeper_notify_recipient.py · 기대 고침 2파일 · CONTRACT.md §4·§9 · CASES.md §5 · design/DESIGN-r2065-keeper-notify-recipient.md(사본)
+- 남은 일: 착지 PR·설치 판(팀장) · ㉚파·하·거+M32·M33 따로 재확인(arch) · 설치 뒤 1시간 실측(arch) · press 필요: keeper 로그에서 «판정 불가 … 쪽지» 줄 수와 ROUND 쪽지 stall 이 21초를 넘는 바퀴 수(라이브 1시간 · 나노는 press 0)
+- 고침: DA HOLD-IMPL(BYZ 310738) 반례 1건 = A 알림 뒤 새 후보 B 가 그날 안 나감 → 커밋 8ba57455(keeper_report.report 쪽지 열쇠 seats[0] → fresh[0] · 사례 ㉚더 · 변이 M34 · .worktree-info.json 되돌림 · aifp 5505)
+- DA 판정: HOLD-IMPL 310738 → APPROVE-IMPL 310812(aifp 5510) · 구현 2/3 · c7 별건
+- 세트: 8ba5745547a313233c59c8ff1a58d033c543fce9 · 시험: python3.11 -m pytest ft2/tests/test_keeper_notify_recipient.py (25 passed · 24.21초) rc=0 · 이슈: 0

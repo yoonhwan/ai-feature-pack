@@ -7,7 +7,7 @@
 - 앞 카드: r2055(팩 d88ef381 · settle 한 길) · r1841(착지 없는 닫기) · r1865(판정 닫기) · r1153(peek = recv 와 같은 대상 규칙) · r1116(계보)
 - 상태: 대기
 - 설치: 있음 — ft2 판 올림 1회 + 1.x comm 도구(mbox peek --rows) 설치 1회(팩 착지 뒤 팀장·harness 설치 묶음) · 되돌림 = 앞 판으로 판 전환(옛 mbox 면 keeper 는 지금처럼 1통이라도 막는다)
-- 선행: ft2-keeper-notify-recipient 착지(명부 찾기 한 함수) · ft2-launch-failed-end 착지(keeper_settle.py 를 같이 만짐) — 이 줄은 카드 이름 글이라 keeper 가 읽지 못한다(선행불명) · keeper 가 읽는 막힘은 아래 배정 줄 «대기(선행» 이다 · 앞 카드가 착지하면 팀장이 이 줄을 «- 선행: 없음» 으로, 배정 줄을 «- 배정: 없음» 으로 고친다
+- 선행: 없음 — E ft2-keeper-notify-recipient 착지 ae0c199e(PR #1282) + D+F ft2-launch-failed-end 착지 8ed707c4(PR #1294) 착지 끝 · 팀장 aifp-ft-master-pi#19 이 풂
 - 시험 입력: 임시 루트(tmp_path) · 가짜 tmux · 가짜 ps · 임시 pi 세션 jsonl · 가짜 clock · 가짜 mbox peek(머리줄 + --rows 줄을 사례가 정함) · 시험 안에서 만든 명부 · sleep 0 · 네트워크 0 · 실 runtime·실 우편함 쓰기·읽기 0 · 사례 1개 70초 안
 - 기준값: 기준판 = 착지 좌석 닫기까지 무활동 60분 · 미읽음 1통이면 영영 mail-pending → 목표 = 착지 좌석은 무활동 300초 + stop + CPU idle 이면 닫힘 · 미읽음이 닫힌 꼴 마감 쪽지뿐이면 쉼·닫기
 - 규칙: 없음 — 상시 로드 변경 0(팀장이 [마감] 꼴로 답하는 통신 지침 1줄은 이 카드 밖 · harness 몫)
@@ -15,7 +15,7 @@
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/pi/keeper_settle.py(look 문턱 인자 · unsafe 미읽음 판독) · feature-pack/fable-team/ft2/adapters/pi/keeper_close.py(land_ready·닫기 길에 DONE_IDLE) · feature-pack/fable-team/legacy/1.x/harness/comm/mbox_ops.py(peek --rows 출력) · 새 시험 feature-pack/fable-team/ft2/tests/test_done_seat_short_idle.py · 문서 ft2/contracts/keeper-settle/CONTRACT.md·CASES.md
 - 정본 영향 있음: CONTRACT.md §2 상수 줄 DONE_IDLE 300초 · 약속 «착지한 좌석만 짧은 문턱» · «빼는 미읽음 = 닫힌 꼴 마감 쪽지» 절 · CASES.md ㉙·변이 행 = 같은 PR(나노)
 - 크기: 코드 3파일 · 새 시험 1파일 · 문서 2파일 · PR 1개
-- 배정: 대기(선행 · 2026-11-16T01:57)
+- 배정: 좌석 aifp-ft-nano-ft2-done-seat-short-idle#0
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -75,4 +75,7 @@ keeper 는 좌석이 유휴인지 볼 때 문턱 하나(60분)를 쓴다. 카드
 | A4·A5 peek 대상 집합 | ㉙버 현역 seat#1 · 큐 to = seat#0 `[발주]` 1통 → pending 1 = 판독 1통 · mail-pending / ㉙서 줄 수 ≠ pending → mail-unknown · 옛 mbox → mail-pending / ㉙거 큐 못 읽음 → mail-unknown / M44 · M45 |
 
 ## 상태
+- base_sha: cd0bd9ee1361cf25c215dbbb31fed2890e66df8f (spawn 2026-11-16)
 - 2026-11-16 · aifp-ft-arch-pi#17 씀(aifp 5410 ② · 5412) · 대기 · 설계 r4 = DA 대행 APPROVE-DESIGN(BYZ 310212 · 카드당 3번째 판정) · 선행 = ft2-keeper-notify-recipient · ft2-launch-failed-end 착지
+- 2026-11-16 03:44 — 대기→진행 · 좌석 aifp-ft-nano-ft2-done-seat-short-idle#0
+- [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)

@@ -352,7 +352,7 @@ print(v if isinstance(v,str) else "")' "$seats" 2>/dev/null)"
 #   fm_cards_by_tokens <리포루트> <r<숫자> 토큰…> : stdout = 이름에 그 토큰이 든 카드 파일 절대경로(design/**/indices/*/*.md) · 토큰 0 = 출력 0
 #   ★r1743 A1: 출처 = «카드 ref 트리»(directive-roots.tsv 3칸의 서로 다른 ref · 표 없음 = FT_CARD_REF|origin/main) ls-tree 1/ref(7초) · 루트 index·디스크 안 봄 · A2 중복 1줄 · A3 ref 전부 못 읽으면 stdout 0 + FM_CARDS_ERR + stderr WARN★
 #   ★r1821: 표 = <root> 의 표 → 없으면 git common root 의 표 · 토큰 있는데 0장 = FM_CARDS_ERR · 부른 쪽 셸에 FM_CARDS_TAB·FM_CARDS_REFS(결과 줄용)★
-#     카드 이름 꿴 «r1478-…» · 다른 글자로 이어진 «ar1478» 은 안 잡는다(-<토큰>- 로 본다)
+#     r1804 A5: 카드 파일 이름이 «<토큰>-» 로 «시작» 할 때만(slug 가운데 «-r336-» 은 0) · «ar1478»·«r14780» 은 안 잡는다
 fm_cards_by_tokens() {
   local root="$1"; shift; FM_CARDS_ERR=""; FM_CARDS_TAB=""; FM_CARDS_REFS=""
   [ -n "$root" ] && [ $# -gt 0 ] || return 0
@@ -369,8 +369,8 @@ fm_cards_by_tokens() {
     ok=$((ok + 1)); rd="${rd:+$rd,}$ref"
     while IFS= read -r p; do   # r1717: 한글 폴더(진행·완성)를 따옴표 꼴로 내지 않게 — 차례 장부가 이 경로를 그대로 쓴다
       case "$p" in design/*/indices/*/*.md|design/teams/*/indices/*/*.md) ;; *) continue;; esac
-      b="-${p##*/}"; b="${b%.md}-"
-      for t in "$@"; do case "$b" in *"-$t-"*) hit[${#hit[@]}]="$p"; break;; esac; done
+      b="${p##*/}"; b="${b%.md}-"
+      for t in "$@"; do case "$b" in "$t"-*) hit[${#hit[@]}]="$p"; break;; esac; done
     done <<< "$out"
   done
   if [ "$ok" -eq 0 ]; then   # 하드 룰 20: 조용한 0장 금지 — 판정 불가를 글자로 남긴다
@@ -382,16 +382,19 @@ fm_cards_by_tokens() {
   fi
   printf '%s\n' "${hit[@]}" | awk '!s[$0]++' | while IFS= read -r p; do printf '%s/%s\n' "$root" "$p"; done
 }
+#   fm_card_tokens <head 가지> <PR 제목> : r1804 A1·A4 — 착지 카드 토큰(공백 이음) · ①가지 마지막 «/» 뒤 조각이 r<N>[a-z]?- 로 시작 = 그 1개 ②아니면 제목의 r<N>[a-z]? 전부(나온 순서 · 중복 0) ③없으면 빈 출력 · 본문은 안 받는다
+fm_card_tokens() {
+  local t; t="$(printf '%s\n' "${1##*/}" | LC_ALL=C grep -oE '^r[0-9]{2,5}[a-z]?-')" && { printf '%s' "${t%-}"; return 0; }
+  printf '%s\n' "${2:-}" | LC_ALL=C grep -oE 'r[0-9]{2,5}[a-z]?' | awk '!s[$0]++' | paste -sd' ' -
+}
 #   fm_land_notify_land <카드리포루트> <PR> <착지 sha 앞자리> <PR 제목> <설치 검사 rc> <설치 검사 출력> [<head 가지>] : r1478 — ft-merge-land 끝 1줄
-#     카드 = r1848: head 가 nano/r<N>- 이면 r<N> 하나 · 아니면 제목의 r<숫자> 토큰(본문 0 — 옛 카드 재알림 막음) · 설치 칸 = OK(대조 n>=1) | PENDING(검사 rc!=0 · 시간 초과 포함) | SKIP(범위에 하네스 파일 0)
+#     카드 = fm_card_tokens(r1848 · r1804: head 가지 토큰 하나 · 아니면 제목 토큰 · 본문 0 — 옛 카드 재알림 막음) · 설치 칸 = OK(대조 n>=1) | PENDING(검사 rc!=0 · 시간 초과 포함) | SKIP(범위에 하네스 파일 0)
 #     받은 root 는 FM_NOTIFY_REPO 로 넘긴다(env 가 다른 리포를 가리켜도 카드 리포가 이김 · DA HOLD #274782 F2)
 fm_land_notify_land() {
   local root="$1" pr="$2" sh="$3" txt="$4" irc="$5" iout="$6" nst=SKIP tok t0=$SECONDS
   printf '%s\n' "$iout" | head -n1 | grep -qE '^OK n=[1-9]' && nst=OK
   [ "${irc:-0}" = 0 ] || nst=PENDING
-  tok="$(printf '%s\n' "${7:-}" | grep -oE '^nano/r[0-9]{2,5}-' | grep -oE 'r[0-9]+')"
-  [ -n "$tok" ] || tok="$(printf '%s\n' "$txt" | grep -oE 'r[0-9]{2,5}' | sort -u | tr '\n' ' ')"
-  tok="${tok% }"
+  tok="$(fm_card_tokens "${7:-}" "$txt")"
   # shellcheck disable=SC2086
   FM_NOTIFY_REPO="$root" fm_land_notify 착지 "[착지] pr=$pr sha=$sh 카드 ${tok:-없음} · 설치 $nst" $(fm_cards_by_tokens "$root" $tok)
   fm_land_turn "$root" "$pr" "$t0" $tok
@@ -402,8 +405,7 @@ fm_land_notify_land() {
 #     r2042: 상한 = 착지 본체 기준 — fetch 상한(fm_fetch_sec) + push 1단위(fm_push_calc ? = F+7) · 남은 총 마감으로 자름 · FT_LAND_CARD_LINE_S 는 줄이기만 · 남은 < push 1단위 = 시도 0 «마감 부족(남은 N초)» · 프로세스 안 git 호출 기본 상한 = 그 값 · 카드 ref fetch 1회 = min(fetch 상한, 그 값)(DA HOLD R1)
 fm_land_card_line() {
   local root="$1" pr="$2" q="$3" txt="$4" head="$5" rn="$6" tgt="$7" tok of err cap rc p pv rem fs; local -a cd=()
-  tok="$(printf '%s\n' "$head" | grep -oE '^nano/r[0-9]{2,5}-' | grep -oE 'r[0-9]+')"
-  [ -n "$tok" ] || tok="$(printf '%s\n' "$txt" | grep -oE 'r[0-9]{2,5}' | sort -u | tr '\n' ' ')"; tok="${tok% }"
+  tok="$(fm_card_tokens "$head" "$txt")"
   [ -n "$tok" ] || { echo "SKIP 카드 없음 — 카드 토큰 0(카드 착지 줄 쓰기 0)"; return 0; }
   of="$(mktemp "${TMPDIR:-/tmp}/fm-cardline.XXXXXX" 2>/dev/null)" || { echo "판정 불가 — 카드 착지 줄 $tok mktemp 실패(${TMPDIR:-/tmp})"; return 0; }
   # shellcheck disable=SC2086
@@ -481,11 +483,11 @@ fm_land_turn() {
   cap=$((7 - (SECONDS - t0))); if el="$(fm_fetch_deadline_rem)"; then [ "$el" -ge "$cap" ] || cap="$el"; fi
   [ "$cap" -lt 1 ] || [ ! -f "$FM_HERE/ft-nano-record.sh" ] || FT_ROOT="$c" fm_try "$cap" bash "$FM_HERE/ft-nano-record.sh" notify --pr "$pr" --no-fetch 2>&1 || true
 }
-#   fm_land_notify_d2 <PR> <착지 sha> <PR 제목·본문> : r1577 — D2 승인 줄로 착지했을 때 슬랙 1줄(«병합함: PR #N · 카드 · DA APPROVE · 되돌림 명령»)
+#   fm_land_notify_d2 <PR> <착지 sha> <head 가지> <PR 제목> [승인 줄 이벤트(r1794 D3 = 표기 «상시 승인 D3»)] : r1577 · r1804 A2(카드 = fm_card_tokens · 본문 0) — D2 승인 줄로 착지했을 때 슬랙 1줄(«병합함: PR #N · 카드 · DA APPROVE · 되돌림 명령»)
 #     게시 = ft-autonomy-scope.sh 의 scope_slack_post 재사용(사본 0 · 서브셸이라 scope_err 의 exit 이 착지 rc 를 못 건드린다) · 실패 = stderr 1줄 · 착지 rc 불변
 fm_land_notify_d2() {
-  local pr="$1" q="$2" txt="$3" lab="${4:-DA APPROVE}" tok body out rc   # r1794: 4번째 = 표기(D3 = 상시 승인 D3)
-  tok="$(printf '%s' "$txt" | grep -oE 'r[0-9]{2,5}' | sort -u | tr '\n' ' ')"; tok="${tok% }"
+  local pr="$1" q="$2" lab="DA APPROVE" tok body out rc; [ "${5:-}" != D3 ] || lab="상시 승인 D3(위험 낮은 병합)"   # r1794: 5번째 = 승인 줄 이벤트(D3 면 표기 바꿈) · r1804 3·4번째 = 가지·제목
+  tok="$(fm_card_tokens "${3:-}" "${4:-}")"
   body="$(printf '병합함: PR #%s · 카드 %s · %s · 되돌림: git revert --no-edit %s' "$pr" "${tok:-없음}" "$lab" "$q")"
   out="$( ( . "$FM_HERE/ft-autonomy-scope.sh" >/dev/null 2>&1; scope_slack_post "$body" ) 2>&1 )"; rc=$?
   [ "$rc" = 0 ] || echo "WARN 병합 뒤 슬랙 알림 실패(rc=$rc) — 착지는 성공(sha $q) · ${out%%$'\n'*}" >&2
