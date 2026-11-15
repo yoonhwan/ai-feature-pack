@@ -11,6 +11,7 @@
 | `test_settle_da_r2055.py` | DA 반례 R1~R4 · ㉑가~라 · ㉒가~바 · ㉓ · ㉔ | — |
 | `test_slack_accept_capacity.py` | ㉖가~바 | M7 · M8 · M9 |
 | `test_keeper_notify_recipient.py` | ㉚가~거 | M17 · M18 · M19 · M23 · M24 · M25 · M32 · M33 |
+| `test_launch_failed_end.py` | ㉘가~카 · ㉛가~라 | M11 · M12 · M13 · M16 · M30 · M31 |
 
 돌리는 법: `python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_core_park_capacity_r2055.py -q`(나머지 2개도 같은 꼴 · 시험 1개 70초 상한).
 
@@ -21,7 +22,7 @@
 | ① | 끝난 나노 · 착지 0 · clean · push 됨 · 유휴 ≥ 60분 | `PARKED` · 닫기 1 · journal parked 1줄 · 용량 −1 · 의무 그대로 | §1 · §2 · §6 |
 | ② | 팀 걸친 카드(짝 표 없음 · 본문 경로) · 착지 줄 조상 | `LANDED`(complete + 닫기) | §2 · §8 |
 | ②′ | 본문 경로 실패 | 사유 꼬리 · 짝 표가 먼저(본문 읽기 0) · `..` 경로 무시 | §8 |
-| ③ · ⑫ | 세션 0 · owner 남음 · intent closed 또는 failed | `park(launch-failed)` · owner·예약 해제 · 용량 −1 · 새 attempt 로 다시 | §3 · §5 |
+| ③ · ⑫ | 세션 0 · owner 남음 · intent closed 또는 failed | `UNKNOWN launch-failed`(쉼 1회는 그대로 · `PARKED` 줄 0 · r2058 L3) · owner·예약 해제 · 용량 −1 · 새 attempt 로 다시 | §3 · §5 |
 | ④ | ALL_STOP 있음 + ① 입력 | 닫기 0 · park 0 · fill 0 · «예정 PARKED» 1줄 | §7 |
 | ④′ | ALL_STOP 깨짐 | 정지 + 판정 불가 1줄 | §7 |
 | ⑤ | 새 꼴(intent 에 worktree 칸 없음) | `UNKNOWN` · [긴급] 1통 · 닫기 0 · 같은 지문 = 전송 0 · **전송 실패도 그날 지문**(재시도 0 · 다음 날 1회) | §3 · §4 |
@@ -143,3 +144,37 @@
 - 새로 끝난 나노 1석이 사람 손 없이 `PARKED` 또는 `LANDED` 로 닫힌다.
 - 판정 없는 `byz-*` 세션 0 · `UNKNOWN` 은 전부 [긴급] 1줄.
 - 이 문서는 실사건 관측 값을 담지 않는다. 관측은 설치 뒤 master 몫이다.
+
+## 7. 열기 실패·열기 멈춤 사례 (`test_launch_failed_end.py` · r2058 · 카드 ft2-launch-failed-end)
+
+계약 L1~L10(`CONTRACT.md` §3 · 설계 `design/DESIGN-p2-launch-failed-no-park-rest-20261116.md`).
+
+| 사례 | 입력 | 기대 | 계약 |
+|---|---|---|---|
+| ㉘가 | intent failed · 세션 0 · owner 남음 · 착지 0 | park 1 · `UNKNOWN launch-failed` 1줄(intent step·reason 꼬리) · [긴급] 1통 · `PARKED` 줄 0 | L3 |
+| ㉘나 | ㉘가 다음 바퀴 | 건너뛰지 않는다(ROUND `unknown=1`) · park 다시 0 · 판정 줄 반복 0 · stall 깨움 0 | L1 · L4 |
+| ㉘다 | ㉘가 뒤 카드에 착지 줄 + «남은 범위: 없음» | 다음 바퀴 `COMPLETED` 1 · 닫기 호출 0 · 그 뒤 줄 0 | L2 |
+| ㉘라 | r2058 꼴(착지 봄 · «남은 범위» 줄 없음) | 매 바퀴 `UNKNOWN … 남은 범위 줄 없음` · 카드를 고치면 `COMPLETED` | L2 |
+| ㉘마 | idle-done 쉼 | 지금처럼 건너뜀 · 줄 0 | L1 |
+| ㉘바 | fill 후보 = 착지 카드 1 + 안 한 카드 1 | 안 한 카드만 submit · `NEXT-SKIP` 1줄(값이 바뀔 때만) · 닫기 뒤 pick 도 같음 | L5 |
+| ㉘사 | 팀장 좌석(dispatch·intent 0) | 판정 줄 0 · park 0 · [긴급] 0 | L7 |
+| ㉘아 | 대기 2장 중 한 장 `- 배정: 대기(사람 · …)` | 그 카드 submit 0 · 다른 카드 submit 1 | L9 |
+| ㉘자 | 표식 카드뿐 | `[다음 없음]` 1통 · 막힌 사유별 사람 1 | L9 |
+| ㉘차 | 표식 카드 · a1 launch-failed 쉼 · 원장 없음 | a2 dispatch 0 | L9 · L1 |
+| ㉘카 | 원장 정지 = 막힘 · 카드 `- 배정: 좌석 …`·`없음` = 안 막음 | 원장 카드 submit 0 · 카드 줄 카드 submit 1 | L9 |
+| ㉘타 · ㉘파 · ㉘하 | 원장 없음 · 배정 줄 없음 / `대기(석` / `사람` 표식을 `없음` 으로 고침 | 고름(양성 3칸) | L9 |
+| ㉛가 | intent opening 20분 · 세션 0(rc1) · owner 남음 · 잇는 중 아님 | park 1 · `UNKNOWN launch-failed … opening 20분` 1 | L6 |
+| ㉛나 | opening 5분 | 손 0(문턱 안쪽) | L6 |
+| ㉛다 | opening 20분인데 `fill_open`(잇는 중) | 손 0 | L6 |
+| ㉛라 | opening 20분 · tmux 조회 실패(rc2) | park 0 · `판정 불가` 1줄(부재로 읽지 않는다) | L6 |
+
+| 변이 | 바꾸는 곳 | 잡는 사례 |
+|---|---|---|
+| M11 | `keeper.Keeper.team_round` 의 쉼 건너뛰기에서 launch-failed 예외를 뺌 | ㉘나 · ㉘다 · ㉘라 |
+| M12 | `keeper_settle.failed_end` 가 UNKNOWN 대신 `PARKED` 낱말을 찍게 | ㉘가 |
+| M13 | `keeper_next.choose` 의 착지 카드 제외(`skip_landed`)를 뺌 | ㉘바 |
+| M16 | `keeper_settle` 의 opening 멈춤 분기(`stalled`)를 거짓으로 | ㉛가 |
+| M30 | `keeper_next.choose` 가 카드 배정 줄(`pre`)을 안 봄 | ㉘아 · ㉘자 · ㉘차 |
+| M31 | `keeper_next.prereq` 가 카드 배정 줄 사유 표(`MARK`)를 안 봄(선행만) | ㉘차(그 밖에 ㉘아·㉘자·㉘하도 함께 죽는다) |
+
+- 기준판(팩 origin/main c7860542)에서 FAIL 이던 사례 = ㉘가 ㉘나 ㉘다 ㉘라 ㉘바 ㉘아 ㉘자 ㉘차 ㉘하 ㉛가 ㉛나 ㉛다 ㉛라(13) · 지키던 사례 = ㉘마 ㉘사 ㉘카 ㉘타 ㉘파(5).
