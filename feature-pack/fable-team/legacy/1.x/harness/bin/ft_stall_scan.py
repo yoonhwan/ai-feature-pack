@@ -650,7 +650,7 @@ class Scan:
               continue
             st_m, end_m = self.turn(t["master"]) if t["master"] in self.live else ("UNKNOWN", None)
             per_team[t["team"]] = {k: sum(1 for f in found if f["team"] == t["team"] and f["kind"] == k) for k in "abdf"}
-            per_team[t["team"]]["master_end"] = end_m if st_m == "IDLE" else None
+            per_team[t["team"]]["master_end"] = end_m if st_m in ("IDLE", "WORKING") else None  # r1752 — «마지막으로 끝낸 턴» 은 WORKING 이어도 남김(UNKNOWN·PENDING = None)
         stm.save(self.state_dir, handled, sorted(keys), self.st["seats"], self.nudged, self.now, lint=self.lint_store())
         _ = (self.state_dir / "stall-scan.last.json").write_text(json.dumps({"ts": self.now, "c": counts["c"], "teams": per_team}), encoding="utf-8")
         with open(self.state_dir / "stall-scan.log", "a", encoding="utf-8") as fh:
