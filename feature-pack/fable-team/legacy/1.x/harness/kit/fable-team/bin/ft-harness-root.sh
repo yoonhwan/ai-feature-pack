@@ -40,11 +40,16 @@ ft_repo_root() {
 }
 # ft_comm_dir <도구 폴더> → <공용 루트>/.fable-team/comm (r459 · 자리 규칙: 코드 = LIVE_BIN · 데이터 = 공용 루트 · 정본 = ref origin/main)
 #   ①env FT_MBOX_DIR(comm 폴더 그 자체) ②env FT_ROOT ③<폴더> = */.fable-team/bin 이면 git -C <폴더> 공용 루트(없으면 <폴더>/../..) ④cwd git 공용 루트
-#   LIVE_ROOT 는 읽지 않는다(옛 라이브 워크트리 comm = 판정기 없음 → 틱 발사 0 · r459) · comm 폴더 없음 = ERROR(stderr) rc1 · 도구별 env 는 부르는 쪽
+#   LIVE_ROOT comm 은 쓰지 않는다(옛 라이브 워크트리 comm = 판정기 없음 → 틱 발사 0 · r459) · comm 폴더 없음 = ERROR(stderr) rc1 · 도구별 env 는 부르는 쪽
+#   ②' r1942: FT_ROOT 에 comm 없고 FT_ROOT = cwd 공용 루트의 LIVE_ROOT(pwd -P 같음 · 착지 h 꼴)면 그 공용 루트 comm · 그 밖 FT_ROOT = ERROR 그대로
+_ft_live_comm() {
+  local r v a b; r="$(_ft_common_root)" && [ -f "$r/.fable-team/LIVE_ROOT" ] || return 1
+  v="$(sed -n '1p' "$r/.fable-team/LIVE_ROOT" | tr -d '\r')"; [ -n "$v" ] && a="$(cd -- "$v" 2>/dev/null && pwd -P)" && b="$(cd -- "$1" 2>/dev/null && pwd -P)" || return 1
+  [ -n "$a" ] && [ "$a" = "$b" ] && printf '%s\n' "$r/.fable-team/comm"; }
 ft_comm_dir() {
   local h="$1" c=""
   if [ -n "${FT_MBOX_DIR:-}" ]; then c="$FT_MBOX_DIR"
-  elif [ -n "${FT_ROOT:-}" ]; then c="$FT_ROOT/.fable-team/comm"
+  elif [ -n "${FT_ROOT:-}" ]; then c="$FT_ROOT/.fable-team/comm"; [ -d "$c" ] || c="$(_ft_live_comm "$FT_ROOT")" || c="$FT_ROOT/.fable-team/comm"
   else
     case "$h" in */.fable-team/bin) c="$(_ft_common_root "$h" || (cd -- "$h/../.." && pwd))/.fable-team/comm";;
       *) c="$(_ft_common_root)" || { echo "ERROR comm 폴더를 못 풂 — FT_MBOX_DIR·FT_ROOT 없음 · cwd($(pwd)) 가 git 리포 아님 · 옛 설치 꼴 아님($h)" >&2; return 1; }
