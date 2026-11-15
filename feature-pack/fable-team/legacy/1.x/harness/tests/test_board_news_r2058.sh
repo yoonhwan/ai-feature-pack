@@ -46,6 +46,8 @@ prog = {c: {"title": c, "seats": [{"name": n, "state": seats[n]} for n, cc in s.
 counts = {k: sum(1 for v in cards.values() if v == k) for k in ("완성", "진행", "대기", "중복")}
 team = {"key": "harness", "label": "하네스", "states": cards, "counts": counts, "progress": prog,
         "seats": {n: {"text": t} for n, t in seats.items()}, "oppa_todo": s.get("h", [])}
+if s.get("err"):  # r2058 R1: 팀 수집 부분 실패 = {key,label,error} 블록 · 전체 rc 0
+    team = {"key": "harness", "label": "하네스", "error": "inbox 조회 시간 초과"}
 print(json.dumps({"date": "2026-11-15", "verdicts": [], "issues": [], "teams": [team, {"key": "x", "label": "엑스", "error": "깨짐"}]}, ensure_ascii=False))
 EOF
 mk() { python3 "$T/stub/mk.py" "$1" > "$T/stub/collect.json"; }
@@ -140,5 +142,23 @@ assert d["StartInterval"] == 300 and d["RunAtLoad"] is False and d["ProcessType"
 assert e["FT_BOARD_THREAD_TS"] == "1794729663.977629" and e["FT_ROOT"] == "__BYZ_ROOT__" and e["PATH"] == o["EnvironmentVariables"]["PATH"]
 assert o["ProgramArguments"][-1] == "--sheet"
 PY'
+
+# ⑩ 정상 → 팀 수집 부분 실패 → 복구 (DA R1): 거짓 «닫힘»·«→없음»·«열림» 0
+reset; goal "$G1" "$G2"; mk "$BASE"; run 2026-11-15T16:00:00
+cp "$LAST" "$T/last10"; mk '{"err":true}'; run 2026-11-15T16:10:00
+chk "⑩ 부분 실패만 = reply 0 · news-last 그대로" '[ "$RC" = 0 ] && [ "$(replies)" = 1 ] && cmp -s "$LAST" "$T/last10"'
+goal "1 | ft 2.0 완성 | 21 | 23 | 진행 중" "$G2"; run 2026-11-15T16:20:00
+chk "⑩ 부분 실패 + 골 변화 = reply 1 · 지금 = 골 1줄" '[ "$(replies)" = 2 ] && [ "$(now_section | wc -l | tr -d " ")" = 1 ] && now_section | grep -qF "20→21"'
+chk "⑩ 본문 «하네스 확인 불가» 1줄" '[ "$(lastbody | grep -c "^하네스 확인 불가")" = 1 ] && ! lastbody | grep -qE "닫힘|→없음"'
+mk "$BASE"; run 2026-11-15T16:30:00
+chk "⑩ 복구 = 가짜 열림 0 · reply 0" '[ "$RC" = 0 ] && [ "$(replies)" = 2 ]'
+reset; goal "$G1"; mk '{"err":true}'; run 2026-11-15T17:00:00
+mk "$BASE"; run 2026-11-15T17:10:00
+chk "⑩ 첫 발행부터 실패 → 복구 = 열림·없음→ 0" '[ "$(replies)" = 2 ] && ! now_section | grep -qE "열림|없음→"'
+# ⑪ 명부 닫힌 좌석 제외 + BUSY/IDLE 무발행 (DA R2)
+reset; goal "$G1"; mk "${BASE/\"byz-harness-master-pi/\"byz-harness-arch-pi#9\":\"닫힘\",\"byz-harness-master-pi}"; run 2026-11-15T18:00:00
+chk "⑪ 닫힌 좌석 = 다음 줄 0" '[ "$(replies)" = 1 ] && ! next_section | grep -q "arch-pi"'
+mk "${BASE//작업중/⚠정지 9분(턴 끝 17:55)}"; run 2026-11-15T18:10:00
+chk "⑪ 닫힌 좌석 빠짐 + BUSY/IDLE 만 = reply 0" '[ "$RC" = 0 ] && [ "$(replies)" = 1 ]'
 
 echo "fail=$fail"; [ "$fail" = 0 ]
