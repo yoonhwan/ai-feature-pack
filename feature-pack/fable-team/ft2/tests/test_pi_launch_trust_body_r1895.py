@@ -62,7 +62,10 @@ def world(tmp, mp, ft2=FT2, mark=True, at=-2 * M, user=None, pane=None, step=-M,
     return w
 
 def held(lines):
-    return sum("본문 도달 0" in x for x in lines)
+    return sum("본문 도달 0" in x and not x.startswith("NOTIFIED") for x in lines)   # r2055 UNKNOWN [긴급] 전송 줄(NOTIFIED)은 셈 밖
+
+def crit(w):   # r2055 UNKNOWN [긴급] 쪽지(A4·R3)는 셈 밖 · 여기는 [크리티컬]만
+    return [x for x in w.notes() if "[긴급] UNKNOWN" not in x]
 
 def c3(w):   # ③ 세션에 «[발주] ft2 harness rX@a1 » user 줄 → 통과(행동 0) · body 키 1회
     lines = w.round()
@@ -82,12 +85,12 @@ def c5b(w):  # ⑤″ 같은 work 두 번째 도달 0 → reassign 0 · HELD + [
     p = w.runtime() / "launch" / ("%s@a2.intent" % W)
     st._put(p, dict(json.loads(p.read_text(encoding="utf-8")), at=st._stamp(st.T0 - 2 * M)))
     assert held(w.round(M)) == 1 and len(w.tmux("kill-session")) == 1 and w.kinds("dispatch") == 2
-    assert len(w.notes()) == 1 and "[크리티컬]" in w.notes()[0] and "같은 일 두 번 멈춤" in w.notes()[0], w.notes()
+    assert len(crit(w)) == 1 and "[크리티컬]" in crit(w)[0] and "같은 일 두 번 멈춤" in crit(w)[0], w.notes()
 
 def c5w(w):  # ⑤ 깨움 갈래 trust 창(옛 intent · 세션 IDLE 16분) → send-keys 0 · HELD-STALL · [크리티컬] 1
     lines = w.round()
     assert w.tmux("send-keys") == [] and any(x.startswith("HELD-STALL") and "trust 창" in x for x in lines), lines
-    assert len(w.notes()) == 1 and "[크리티컬]" in w.notes()[0]
+    assert len(crit(w)) == 1 and "[크리티컬]" in crit(w)[0]
 
 def keep(w):  # ⑤‴·⑤⁗′·⑤⁗″·⑤⁵ → kill 0 · dispatch 그대로 · new-session 0
     lines = w.round()

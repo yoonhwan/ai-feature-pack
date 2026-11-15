@@ -8,7 +8,8 @@
 #   r1080: 하루 1회 scratchpad 사본 표(ft-scratchpad-census.sh · 삭제는 스위치 파일이 있을 때만) — 요약 1줄을 planner 로, rc≠0 은 실패 1통(조용한 0 없음).
 #   r843 r2: 하루 1회 «표식 없는 풀 팀 워크트리»(reset·read-tree 처럼 post-checkout 을 안 거친 길) 탐지 → planner 1통 · 지우기 0
 #   r1293: 하루 1회 누적 정리(ft-accum-sweep.sh · 옮기기·목록만 · 지우기 0) — 끝 줄 1줄을 로그에. 사람 볼 일은 그 도구가 [HIL] 로 직접 낸다.
-#   env(시험용): FT_WT_MODE_STAMP_SH · FT_RESOURCE_CAUSE_SH · FT_RES_ROOT · FT_DISK_FREE_GIB(숫자|fail) · FT_DISK_NOW · FT_MBOX_SH · FT_SEATS_JSON · FT_HARNESS_SEATS_JSON · FT_RES_WATCH_SH · FT_SCRATCH_REPO_SH · FT_ACCUM_SWEEP
+#   r2073: 하루 1회 임시 사본 정리(ft-tmp-sweep.sh · /private/tmp 바로 아래 손 사본 · 첫 1회 목록만) — 끝 줄 1줄을 로그에. 쪽지는 그 도구가 직접 낸다.
+#   env(시험용): FT_TMP_SWEEP_SH · FT_WT_MODE_STAMP_SH · FT_RESOURCE_CAUSE_SH · FT_RES_ROOT · FT_DISK_FREE_GIB(숫자|fail) · FT_DISK_NOW · FT_MBOX_SH · FT_SEATS_JSON · FT_HARNESS_SEATS_JSON · FT_RES_WATCH_SH · FT_SCRATCH_REPO_SH · FT_ACCUM_SWEEP
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 ROOT="${FT_RES_ROOT:-}"   # r385: 리포 공용 루트 = env → ft_repo_root(옛 설치 꼴 · cwd) → ERROR (새 설치본이 git 밖이라 자기 위치로 풀지 않는다)
@@ -22,6 +23,7 @@ CAUSE="${FT_RESOURCE_CAUSE_SH:-$HERE/ft-resource-cause.sh}"   # R320: 만든 좌
 STAMP="${FT_WT_MODE_STAMP_SH:-$HERE/ft-wt-mode-stamp.sh}"   # r843 r2: --unmarked 탐지만
 SPC="${FT_SCRATCHPAD_CENSUS_SH:-$HERE/ft-scratchpad-census.sh}"   # r1080: scratchpad 사본 표(기본 삭제 0)
 ACC="${FT_ACCUM_SWEEP:-$HERE/ft-accum-sweep.sh}"   # r1293: 하루 1회 누적 정리(옮기기·목록만)
+TSW="${FT_TMP_SWEEP_SH:-$HERE/ft-tmp-sweep.sh}"   # r2073: 하루 1회 임시 사본 정리
 WARN="${FT_DISK_WARN_GIB:-50}"; URG="${FT_DISK_URGENT_GIB:-30}"; ADD="${FT_DISK_RECOVER_ADD:-5}"; PERIOD="${FT_DISK_PERIOD_SEC:-900}"
 NOW="${FT_DISK_NOW:-$(date +%s)}"
 mkdir -p "$STATE" 2>/dev/null || { echo "ERROR 상태 폴더 생성 실패: $STATE" >&2; exit 4; }
@@ -29,9 +31,9 @@ logline() { printf '%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" >> "$LOG"; }
 stget() { sed -n "s/^$1=//p" "$ST" 2>/dev/null | tail -1; }
 num() { case "$1" in ''|*[!0-9]*) echo 0;; *) echo "$1";; esac; }
 
-last=$(num "$(stget last)"); stage="$(stget stage)"; [ -n "$stage" ] || stage=ok; sent=$(num "$(stget sent)"); rf=$(num "$(stget routefail)"); swept=$(num "$(stget swept)"); reaped=$(num "$(stget reaped)"); wts=$(num "$(stget wtscan)"); spc=$(num "$(stget spcensus)"); acc=$(num "$(stget acc)")
+last=$(num "$(stget last)"); stage="$(stget stage)"; [ -n "$stage" ] || stage=ok; sent=$(num "$(stget sent)"); rf=$(num "$(stget routefail)"); swept=$(num "$(stget swept)"); reaped=$(num "$(stget reaped)"); wts=$(num "$(stget wtscan)"); spc=$(num "$(stget spcensus)"); acc=$(num "$(stget acc)"); tsw=$(num "$(stget tsw)")
 [ $((NOW-last)) -ge "$PERIOD" ] || [ "$last" = 0 ] || exit 0
-save() { printf 'last=%s\nstage=%s\nsent=%s\nswept=%s\nreaped=%s\nroutefail=%s\nwtscan=%s\nspcensus=%s\nacc=%s\n' "${2:-$NOW}" "$1" "$sent" "$swept" "$reaped" "$rf" "$wts" "$spc" "$acc" > "$ST"; }
+save() { printf 'last=%s\nstage=%s\nsent=%s\nswept=%s\nreaped=%s\nroutefail=%s\nwtscan=%s\nspcensus=%s\nacc=%s\ntsw=%s\n' "${2:-$NOW}" "$1" "$sent" "$swept" "$reaped" "$rf" "$wts" "$spc" "$acc" "$tsw" > "$ST"; }
 jget() { python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get(sys.argv[2],""))' "$1" "$2" 2>/dev/null; }
 
 free="${FT_DISK_FREE_GIB:-$(df -Pk /System/Volumes/Data 2>/dev/null | awk 'NR==2 && $4+0>0{print int($4/1048576)}')}"
@@ -115,6 +117,10 @@ accum() { # 하루 1회 누적 정리(r1293 · 옮기기·목록만 · 지우기
   [ $((NOW-acc)) -ge 86400 ] || return 0; local s rc; s="$(FT_ACCUM_ROOT="$ROOT" bash "$ACC" 2>&1)"; rc=$?; acc=$NOW
   logline "accum-sweep rc=$rc $(tail -n 1 <<<"$s")"
 }
+tmpsweep() { # 하루 1회 임시 사본 정리(r2073) — 끝 줄 1줄은 로그. 쪽지(removed·판정 불가)는 그 도구가 planner 로 직접 낸다
+  [ $((NOW-tsw)) -ge 86400 ] || return 0; local s rc; s="$(FT_RES_ROOT="$ROOT" FT_MBOX_SH="$MBOX" FT_TMP_SWEEP_TO="$ROUTE" bash "$TSW" 2>&1)"; rc=$?; tsw=$NOW
+  logline "tmp-sweep rc=$rc $(tail -n 1 <<<"$s")"
+}
 
 gap=$((NOW-sent)); body=""
 case "$new" in
@@ -130,5 +136,6 @@ spcensus
 reap
 wtscan
 accum
+tmpsweep
 save "$new"
 exit 0

@@ -10,7 +10,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 export type Action = "allow" | "warn" | "block";
-export interface Lines { warn: number; block: number; recv: number }
+export interface Lines { warn: number; block: number; recv: number; tier?: string; note?: string } // r2051 tier = 고른 티어 · note = «티어 <T> 불완전 — 기본 세트»
 export interface Verdict { action: Action; rule: string; reason: string }
 export interface GateInput { // 한 tool_call 입력 · session = pi 세션 신원(닫는 사건·새 대화 판정용)
   tool: string; command?: string; path?: string; tokens?: number | null; model?: string; cwd?: string; seat?: string; env?: Record<string, string | undefined>; notify?: (to: string, body: string) => boolean;
@@ -31,11 +31,26 @@ const sample = (env: Record<string, string | undefined>): string | null => {
   return [env.FT_DISTILL_SAMPLE, side, cur && path.join(v, "versions", cur, "adapters", "pi", "thresholds.env.sample")].find((f) => f && fs.existsSync(f)) || null;
 };
 /** 문턱 = 파일에서만 읽는다(extension 안 숫자 0) · 키 하나라도 없으면 null = 판정 불가. */
-export function thresholds(env: Record<string, string | undefined>, root: string | null): Lines | null {
+export function thresholds(env: Record<string, string | undefined>, root: string | null, model?: string): Lines | null {
   const files = envFiles(env, root);
   const pick = (key: string): number | null => { const s = String(env[key] ?? files.map((f) => f?.[key]).find((v) => v !== undefined) ?? "").trim(); return /^\d+$/.test(s) ? Number(s) : null; };
   const warn = pick(K.warn), block = pick(K.block), recv = pick(K.recv);
-  return warn && block && recv ? { warn, block, recv } : null;
+  return warn && block && recv ? tierLines(env, files, { warn, block, recv }, String(model ?? "").toLowerCase()) : null;
+}
+/** r2051 모델 창 티어 — ft-thresholds.sh --model 과 같은 규칙: 모델 이름(소문자)에 FT_DISTILL_TIER_<T>_MATCH 부분문자열이 든 첫 티어(파일 해석 순서 → env) · 세트 = env > MATCH 가 있는 첫 파일 한 곳 · 빠짐·순서 위반 = 기본 + note · env 로 명시한 지금 키는 티어보다 우선 · 모델 빈 값 = 기본. */
+function tierLines(env: Record<string, string | undefined>, files: Array<Record<string, string> | null>, base: Lines, m: string): Lines {
+  if (!m) return base;
+  const num = (s: unknown): number | null => { const t = String(s ?? "").trim(); return /^\d+$/.test(t) ? Number(t) : null; };
+  const names = [...new Set([...files, env].flatMap((f) => Object.keys(f ?? {}).map((k) => /^FT_DISTILL_TIER_([A-Z0-9]+)_MATCH$/.exec(k)?.[1] ?? "").filter(Boolean)))];
+  for (const t of names) {
+    const mk = `FT_DISTILL_TIER_${t}_MATCH`, src = files.find((f) => f?.[mk] !== undefined) ?? {};
+    if (!String(env[mk] ?? src[mk] ?? "").toLowerCase().split(/[,\s]+/).some((s) => s && m.includes(s))) continue;
+    const tv = (k: string): number | null => num(env[`${k}_${t}`] ?? src[`${k}_${t}`]), w = tv(K.warn), b = tv(K.block), r = tv(K.recv);
+    if (w === null || b === null || r === null || !(b > w) || !(r <= b)) return { ...base, note: `티어 ${t} 불완전 — 기본 세트` };
+    const ex = (k: string): boolean => String(env[k] ?? "").trim() !== "";
+    return { warn: ex(K.warn) ? base.warn : w, block: ex(K.block) ? base.block : b, recv: ex(K.recv) ? base.recv : r, tier: t };
+  }
+  return base;
 }
 export const newConversation = (reason: string | undefined, entries: unknown[] | undefined): boolean => !!(reason && NEW.has(reason) && Array.isArray(entries) && !entries.some((e: any) => (e?.type === "message" && e?.message?.role === "assistant") || e?.type === "compaction")); // ⓙ «새 대화» = reason ∈ {startup,new} ∧ assistant 메시지 0 ∧ compaction 0 — 못 읽으면 false(초기 예외 0)
 /** 리포 루트 = .git 이 «폴더» 인 조상(워크트리의 .git 파일은 건너뛴다 — claude 훅과 같은 규칙). */
@@ -189,7 +204,8 @@ const toolAllowed = (input: GateInput, root: string | null): boolean => input.to
 /** 한 tool_call 판정 — claude 훅의 warn·block·recv 세 축 + 판정 불가 fail-closed. */
 export function judge(input: GateInput): Verdict {
   const env = input.env ?? process.env, root = repoRoot(input.cwd ?? process.env.FT_CWD ?? process.cwd());
-  const seat = input.seat ?? seatOf(env), th = thresholds(env, root), state = pendingFile(root, seat), model = String(input.model ?? "");
+  const seat = input.seat ?? seatOf(env), model = String(input.model ?? ""), th = thresholds(env, root, model), state = pendingFile(root, seat);
+  if (th?.note && !notified.has(`${seat}|note|${th.note}`)) { notified.add(`${seat}|note|${th.note}`); console.error(`ft2 distill-gate: ${th.note}`); } // r2051 A3 — 막지 않음 · 세션당 1줄
   if (seatVerdict(env, root, seat, input.seat !== undefined) === false) return { action: "allow", rule: "not-seat", reason: `ft 좌석 아님 — 증류 게이트 무동작(${seat ? `세션 ${seat} 명부 행 없음` : "FT_SEAT·TMUX_PANE 없음"} · 도구 차단 0 · 팀장 알림 0 · 표식 0)`};
   const k = typeof input.tokens === "number" && input.tokens > 0 ? input.tokens : 0, stored = seatIn(state);
   const key = seat || "unknown", own = fs.existsSync(state ?? "/nonexistent") && (stored === seat || !stored), fresh = (input.session?.fresh ?? newConversation(input.session?.reason, input.session?.entries)) && !own; if (k > 0) { seenUsage.set(key, true); misses.delete(key); } // ⓙ 초기 예외 = 새 대화 ∧ 표식 없음 · ⓛ «표식 있음» = 이 좌석(#N) 몫이거나 이름 없는 옛 표식(직전 세대 #N-1 표식은 승계 첫 턴을 막지 않는다) · ⓓⓘ 읽음 = 양수만 · 읽으면 연속 0

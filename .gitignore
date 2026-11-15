@@ -45,3 +45,6 @@ feature-pack/daily-trend-viewer/app/ig_session.json
 # 잡는 경우를 대비해 폴더를 통째로 막는다.
 .tmuxc/
 snapshots/
+
+# 워크트리마다 spawn·baton 이 쓰는 메타(추적 0 · 2026-11-16 harness#290 판단 aifp 5524)
+.worktree-info.json

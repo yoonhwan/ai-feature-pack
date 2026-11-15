@@ -810,6 +810,10 @@ echo "BODY+${_RTX}"
 pack_wt_line() {
   ft_pack_card "$1" || return 0   # r1785: 판별 = ft-team-lib.sh ft_pack_card 한 출처(nano-close ⓐ 와 같음)
   local pk="${FT_PACK_ROOT:-$HOME/Project/ai-feature-pack}"
+  # r2077: 좌석 리포 = 팩 리포(aifp) → 좌석 워크트리가 곧 팩 작업 폴더 · 닫기 = 표준 길
+  if [ -n "${ROOT:-}" ] && [ "$(cd "$ROOT" 2>/dev/null && pwd -P)" = "$(cd "$pk" 2>/dev/null && pwd -P)" ]; then
+    printf ' ★팩 작업 폴더 = 이 좌석 워크트리(좌석 리포 = 팩 리포 · 가지 %s · 팩 루트 %s 에서 checkout/switch 금지 · 세션 스크래치 0)★' "$3" "$pk"; return 0
+  fi
   printf ' ★팩 작업 폴더 = %s/.worktrees/%s (이미 만들어 둠 · 가지 %s · 팩 루트 %s 에서 checkout/switch 금지 · 세션 스크래치 0 — 닫기 = nano-close --wt %s/.worktrees/%s --branch %s)★' \
     "$pk" "$2" "$3" "$pk" "$pk" "$2" "$3"
 }
@@ -827,6 +831,10 @@ pack_wt_prepare() {  # $1 카드 $2 slug $3 가지 $4 dry(1|0) → rc0 + PACK-WT
     1) ;;
     *) echo "REJECT 팩 루트 HEAD 판정 불가(rc=$rc · $pk) — 좌석·명부·워크트리 0"; return 1;;
   esac
+  # r2077: 좌석 리포 = 팩 리포(물리 경로 같음) → 팩 작업 폴더·가지 만들기 0(좌석 worktree add -b 와 같은 가지 충돌 · aifp master#17 실사건)
+  if [ -n "${ROOT:-}" ] && [ "$(cd "$ROOT" 2>/dev/null && pwd -P)" = "$pk" ]; then
+    echo "PACK-WT 건너뜀 — 좌석 리포 = 팩 리포($pk) · 좌석 워크트리에서 일한다"; return 0
+  fi
   wt="$pk/.worktrees/$2"
   if [ -e "$wt" ]; then
     wtp="$(cd "$wt" 2>/dev/null && pwd -P)" || wtp="$wt"
@@ -1142,6 +1150,6 @@ _retired="$(retired_line "$_probe")"
 [ -z "$_retired" ] || fail_rb "REJECT 발주문에 은퇴 도구 지시(serena) — $_retired"
 # (에이전트 본체는 ③ 직후 ft-agent-ready.sh 가 확인했다 — 옛 sleep 8 대체 · R251)
 [ "$REOPEN" != 1 ] || echo "REOPEN $IDX_REL seat=$NAME wt=$REOPEN_WT branch=$BRANCH head=$(git -C "$WTDIR" rev-parse HEAD 2>/dev/null)"   # r1335: 실사건 원문 1줄
-FT_SEND_FROM="$FROM" bash "$HERE/ft-send-verified.sh" "$NAME" "$BODY"; _src=$?
+FT_SEND_FROM="$FROM" FT_REACH_AGENT="$AGENT" bash "$HERE/ft-send-verified.sh" "$NAME" "$BODY"; _src=$?   # r1750 A4: reach 판정에 에이전트를 넘긴다(ft-successor-open 과 같은 꼴)
 [ "$_src" -eq 0 ] && { echo "SPAWNED $NAME index=$NEW_IDX wt=$WTDIR · $(bash "$HERE/ft-event-check.sh" spawn "$NAME" "$IDX_WT/$NEW_IDX" "$WTDIR")"; exit 0; }   # r1474: 끝 칸 = 재측정 1회(exit 0 불변)
 echo "SPAWNED-UNVERIFIED $NAME rc=$_src — 좌석은 떴다. 도달을 사람이 확인"; exit 5

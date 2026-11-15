@@ -41,7 +41,7 @@ def run(w, *works):
 def done(w, lines, n):
     assert w.kinds("complete", FT) == n and len(w.tmux("kill-session")) == n, lines
 def held(lines, work, why):
-    assert any(x.startswith("HELD feature %s" % work) and why in x for x in lines), lines
+    assert any(x.startswith(("UNKNOWN feature %s " % work, "WORKING feature %s " % work)) and why in x for x in lines), lines   # r2055 착지 밖 = settle 판정(옛 HELD) · 사유 = 꼬리
 def c1(w):   # ① 정확한 stem 카드 + 조상 착지 줄 → complete 1
     card(w, "design/teams/feature/indices/대기/%s.md" % F6, ": " + w.pack_sha())
     done(w, run(w, F6), 1)
@@ -109,7 +109,7 @@ MUTANTS = {"M1": ('exact = work + ".md" in names', "exact = False", c1),
            "M3": ("mapped = cards.get(work)", "mapped = None", c2),
            "M4": ('m.group(1) + "/indices"', '"design/teams/%s/indices" % team', c2),
            "M5": ("land = LAND if own else", "land = LAND if True else", c3),
-           "M6": ("own = name ==", "own = sum(v == mapped for v in cards.values()) < 2 or name ==", c3c)}
+           "M6": ("own = name ==", "own = len(mapped or ()) < 2 or name ==", c3c)}   # r2055 resolve_card 뒤 cards = 카드 목록 → 짝 표 행 수는 mapped 로 셈
 
 
 def call(case, w, mp):

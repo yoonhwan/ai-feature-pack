@@ -113,16 +113,22 @@ ft20_guard_retire() {
 # r1874 — ft20_guard_handover <루트> <구> <후계> [<명부파일>] — 2.0 표식 아래 «같은 계보 역할 좌석» 승계만 표식 유지 통과(rc0 + INFO 1줄)
 #   ⓐ 두 이름 lint ⓑ 계보(#N 앞) 같음 ⓒ 후계 번호 > 구 번호 ⓓ 역할 ≠ nano(DA r1874 R1) ⓔ 쓰기 팀 = 이름 팀 1개(남의 명부 `_*` 0) ⓕ 표식 판독 OK
 #   하나라도 거짓 = ft20_guard_retire 그대로(완화 0 · 표식 없음·깨짐·교대 창 판정은 그쪽이 한다)
+#   r2076 — ⒶⒷ = 후계만 lint · 구 이름은 꼴만 · 계보 = 에이전트 꼬리를 뺨 역할 줄기 · Ⓕ 표식 h 가 빈 글이면 통과 0
+_ft20_role_stem() {   # r2076 E1 — <이름> → 마지막 `-` 토큰(에이전트 자리)을 뺨 줄기 · 3토큰(석 칸 없음) = 끝에 -0(r1641)
+  local b="${1%#*}" s; s="${b%-*}"; [ "$s" != "$b" ] || return 1
+  case "$s" in *-*-*-*) ;; *-*-*) s="$s-0";; *) return 1;; esac
+  printf '%s' "$s"
+}
 ft20_guard_handover() {
-  local root="${1:-}" old="${2:-}" new="${3:-}" f="${4:-}" lint="$FT20_HERE/ft-name-lint.sh" team teams m h on nn
+  local root="${1:-}" old="${2:-}" new="${3:-}" f="${4:-}" lint="$FT20_HERE/ft-name-lint.sh" team teams m h on nn so sn
   if [ -n "$root" ] && [ -n "$new" ] && [ -f "$lint" ] \
-     && bash "$lint" "$old" >/dev/null 2>&1 && bash "$lint" "$new" >/dev/null 2>&1 \
-     && [ "${old%#*}" = "${new%#*}" ] \
+     && bash "$lint" "$new" >/dev/null 2>&1 && [[ "$old" =~ ^[a-z0-9-]+-[a-z0-9]+#[0-9]+$ ]] \
+     && so="$(_ft20_role_stem "$old")" && sn="$(_ft20_role_stem "$new")" && [ "$so" = "$sn" ] \
      && on="${old##*#}" && nn="${new##*#}" && [ "$((10#$nn))" -gt "$((10#$on))" ] \
      && [ "$(printf '%s' "${old%#*}" | cut -d- -f3)" != nano ] \
      && team="$(ft20_team_of_name "$old")" \
      && teams="$(ft20_teams_writing_seat "$root" "$old" "$f")" && [ "$teams" = "$team" ] \
-     && m="$(ft20_switch_marker "$root" "$team")" && [ -f "$m" ] && h="$(ft20_marker_h "$m")"; then
+     && m="$(ft20_switch_marker "$root" "$team")" && [ -f "$m" ] && h="$(ft20_marker_h "$m")" && [ -n "$h" ]; then
     echo "INFO 2.0 표식 아래 같은 계보 승계 허용 팀 $team h$h" >&2; return 0
   fi
   ft20_guard_retire "$root" "$old" "$f" "$new"

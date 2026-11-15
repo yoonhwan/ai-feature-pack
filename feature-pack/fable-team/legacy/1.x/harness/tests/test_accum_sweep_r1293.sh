@@ -9,6 +9,7 @@
 #   실 상태·실 쪽지·실 git 설정·실 /tmp 작업 0 — 임시 루트·임시 리포·가짜 mbox·가짜 git 만. ulimit -u + timeout 70. 자기 재호출 0.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
+export FT_TMP_SWEEP_SH=/usr/bin/true   # r2073: 임시 사본 정리도 가짜(실 /private/tmp 를 보지도 지우지도 않게)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$(cd -- "$HERE/../.." && pwd)"
 BIN="$REPO/harness/bin"; COMM="$REPO/harness/comm"

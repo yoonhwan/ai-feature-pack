@@ -5,6 +5,7 @@
 """
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -16,6 +17,8 @@ BAN = "main·ops/main-base push·병합·착지·설치·심링크·가지 삭�
 LAND = "· 산출 = 가지 nano/<work> push + master 보고까지 · " + BAN   # r1900 첫 본문 끝 고정 1구 · r1930: 팀 DA 좌석을 못 읽을 때만 쓰는 옛 길
 DIRECT = ("산출 = 가지 nano/<work> push → PR 열기(금지 목록 밖) → 팀 DA %s 에 판정 요청(5칸 = 대상 동결·판정 기준·상한·종료 조건·다음 수 · 근거 줄 = 세트 sha·PR 번호·"
           "카드 경로·시험 줄 · PR 번호 없으면 요청 아님) · 카드 상태의 HOLD 줄이 3 이면 DA 요청 0 · 팀 master 에 1줄 · 막힘 = 팀 master 에 mbox · ")   # r1930 산출은 팀장을 거치지 않는다
+CARDMAP = os.path.join(".fable-team", "teams", "%s", "runtime", "cards.tsv")   # r2030 짝 표(keeper_land.CARDMAP 과 같은 자리 · 팀장 append · 여기는 읽기만)
+WAIT = re.compile(r"^(design/.+/indices)/대기/[^/]+\.md$")   # r2030 짝 표 경로 중 대기 단계(keeper_land.MAPPED 의 대기 갈래)
 
 
 def seat_env(root, team, work, holder, attempt):
@@ -44,6 +47,33 @@ def card_row(root, team):
     return (os.path.abspath(os.path.join(root, r[1])), r[2], r[3].replace("*", team)) if r else None
 
 
+def mapped_cards(root, team):
+    """r2030 짝 표 대기 카드 {work: (repo 절대, ref, 경로)} — work 당 경로 정확히 1개 ∧ 꼴 …/indices/대기/X.md ∧ 그 indices 를 품은 카드 루트 표 행(팀 행 먼저).
+    짝 표 없음 = {} · 짝 표·루트 표 판독 실패 = «짝 표 못 읽음»(부르는 쪽 = 지금 길 · keeper 는 로그 1줄)."""
+    path, seen, out = os.path.join(root, CARDMAP % team), {}, {}
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, encoding="utf-8") as fh, open(os.path.join(root, ".fable-team", "state", "directive-roots.tsv"), encoding="utf-8") as rt:
+            pairs, rows = [x.split("\t") for x in fh.read().splitlines() if x.strip()], [x.rstrip("\n").split("\t") for x in rt if not x.startswith("#") and len(x.split("\t")) >= 4]
+    except (OSError, UnicodeError):
+        return "짝 표 못 읽음"
+    for x in pairs:
+        seen.setdefault(x[0].strip(), []).append(x[1].strip() if len(x) == 2 else "")
+    for work, paths in seen.items():
+        m = WAIT.match(paths[0]) if len(paths) == 1 else None
+        r = next((y for y in sorted(rows, key=lambda y: "*" in y[3]) if m and re.fullmatch(re.escape(y[3]).replace(r"\*", "[^/]+"), m.group(1))), None)
+        out.update({work: (os.path.abspath(os.path.join(root, r[1])), r[2], paths[0])} if r else {})
+    return out
+
+
+def mapped_card(root, team, work):
+    """r2030 이 work 의 짝 표 대기 카드 (repo, ref, 경로) — 짝 work 이름 또는 카드 stem(keeper 는 stem 으로 연다) · 없음·여럿·판독 실패 = None(지금 길)."""
+    got = mapped_cards(root, team) if root else {}
+    hits = {got[work]} if isinstance(got, dict) and work in got else {v for v in (got.values() if isinstance(got, dict) else ()) if os.path.basename(v[2]) == work + ".md"}
+    return hits.pop() if len(hits) == 1 else None
+
+
 def da_seat(root, team):
     """팀 명부(`<root>/.fable-team/seats-<팀>.json`)의 `_da` 좌석 이름 — 없음·빈 값·글자 아님·명부 못 읽음 = None(r1930 · 로컬 읽기뿐 · 임의 DA 0)."""
     try:
@@ -60,8 +90,10 @@ def first_body(env, row, tail=None):
     mark = "[발주] ft2 %s %s@%s" % (env["FT2_TEAM"], env["FT2_WORK"], env["FT2_ATTEMPT"])
     da = da_seat(env.get("FT2_ROOT"), env["FT2_TEAM"])   # r1930: 못 읽으면 옛 길(팀 master) + «DA 좌석 못 읽음»
     tail = tail + BAN if tail else "ft2_claim → ft2_start 부터 · 모듈 못 읽음 · " + (DIRECT % da + BAN if da else "DA 좌석 못 읽음 · 산출·막힘은 팀 master 에 mbox " + LAND)
-    return mark, "%s 좌석 %s — 카드 %s %s:%s/대기/%s.md 를 통째로 읽고 그대로 수행 · root = %s · work = %s · gen = ft2_claim 이 돌려준 값 · " % (
-        mark, env["FT2_HOLDER"], *row, env["FT2_WORK"], env.get("FT2_ROOT"), env["FT2_WORK"]) + tail   # r1930 범위 더함: work = 접미 없는 이름(@aN 은 attempt 칸)
+    hit = mapped_card(env.get("FT2_ROOT"), env["FT2_TEAM"], env["FT2_WORK"])   # r2030 짝 표 대기 카드 = 그 실제 자리 · 없음 = 지금 경로
+    card = "%s %s:%s" % hit if hit else "%s %s:%s/대기/%s.md" % (*row, env["FT2_WORK"])
+    return mark, "%s 좌석 %s — 카드 %s 를 통째로 읽고 그대로 수행 · root = %s · work = %s · gen = ft2_claim 이 돌려준 값 · " % (
+        mark, env["FT2_HOLDER"], card, env.get("FT2_ROOT"), env["FT2_WORK"]) + tail   # r1930 범위 더함: work = 접미 없는 이름(@aN 은 attempt 칸)
 
 
 def plan_of(folder, tag, root, team, holder, role_argv, worktree, repo, env, body, base=DEFAULT_BASE):
@@ -69,11 +101,11 @@ def plan_of(folder, tag, root, team, holder, role_argv, worktree, repo, env, bod
     git argv 끝 = 기준 ref 이름(r1780) — dry-run 은 이 이름 그대로 보이고, 실제 실행은 `at_sha` 로 확인한 sha 로 바꾼다."""
     path = os.path.abspath(worktree or os.path.join(root, ".fable-team", "teams", team, "worktrees", tag))
     pairs = [word for key, value in env.items() for word in ("-e", key + "=" + value)]
-    pi = pi_path(os.environ.get("PATH"))
+    pi, hit = pi_path(os.environ.get("PATH")), mapped_card(root, team, env.get("FT2_WORK", ""))   # r2030 짝 표 카드 폴더만 sparse 에 더함
     return {"intent": os.path.join(folder, tag + ".intent"), "worktree": path,
             "git": ["git", "-C", repo, "worktree", "add", "--no-checkout", "--detach", path, base],
             # r1846: 빈 자리 → sparse(출처 = 1.x r835 ft_sparse_patterns · 남의 팀 design 제외) → checkout · 큰 리포도 25초 안
-            "sparse": ["git", "-C", path, "sparse-checkout", "set", "--no-cone", "/*", "!/design/teams/*/", "/design/teams/%s/" % team],
+            "sparse": ["git", "-C", path, "sparse-checkout", "set", "--no-cone", "/*", "!/design/teams/*/", "/design/teams/%s/" % team] + (["/%s/" % WAIT.match(hit[2]).group(1)] if hit else []),
             "checkout": ["git", "-C", path, "checkout", "-q"],
             "tmux": ["tmux", "new-session", "-d", "-s", holder, "-c", path] + pairs + [pi or "pi"] + ["-e", seat_tools(), "--approve"] + list(role_argv) + [body],
             "pi_bin": pi, "alive": ["tmux", "has-session", "-t", "=" + holder]}   # r1892: new-session rc0 뒤 1회

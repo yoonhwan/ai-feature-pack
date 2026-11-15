@@ -27,7 +27,7 @@ python3 - "${ARG:-${FT_SEATS_JSON:-}}" "${ROOT:-.}" "$OLD" "$NEW" "$RECONLY" "$(
 import json, os, re, sys, glob, shutil, shlex, datetime, subprocess, collections
 arg, root, old, new, reconly, here, verdict, keep = sys.argv[1:9]
 sys.path.insert(0, here)   # 소유 결속 판정기 하나(R364) — 같은 폴더(자기 번들) 고정 경로 · 없으면 명시 rc 2(닫기 근거 0 · 옛 판정 후퇴 0)
-try: import ft_seat_bind; from ft_roster_lib import load, dump, scan_cells, apply_cells, role_cell, held_roles, succ_role, fix_role, pi_seat_resume   # 명부 읽기·원자 쓰기·남의 명부 칸 쓸기(r429→r465)·후계 role 도출(r499)·pi 재개 기록(r960) = 같은 폴더 lib
+try: import ft_seat_bind; from ft_roster_lib import load, dump, scan_cells, apply_cells, role_cell, held_roles, succ_role, fix_role, pi_seat_resume, bak_cap   # 명부 읽기·원자 쓰기·남의 명부 칸 쓸기(r429→r465)·후계 role 도출(r499)·pi 재개 기록(r960) = 같은 폴더 lib
 except ImportError as e: print(f"ERROR 결속 판정기·명부 lib 없음 {here}/ft_seat_bind.py · ft_roster_lib.py ({e}) — 은퇴·기록 0"); sys.exit(2)
 def sh(*a):
     try: return subprocess.run(a, capture_output=True, text=True, timeout=7).stdout.split()
@@ -202,7 +202,7 @@ if fc and isinstance(fv, str) and fv not in ("", new) and alive(fv):   # r1646 �
 fc = fc if fv in (None, "") else None; rc_ = held_roles(d, keys + [fc], new); pr = n.get("role") if isinstance(n, dict) else o.get("role"); rfx = fix_role(o, n, rc_, new) if noop else ""   # r499 ⓙ 재실행 — 현역 역할 칸 값인 후계가 stop-ready 꼴이면 도출 role(메모리 · 아래 dump)
 if noop and not (keys or cells or fc or rfx): print(f"NOOP {old} 은 이미 {new} 로 은퇴 file={p}"); sys.exit(0)
 own, ts, rec, why = not noop or bool(keys or fc or rfx),datetime.datetime.now().strftime("%Y%m%d%H%M%S"), None, ""   # own = 자기 명부를 쓰나
-if own: shutil.copy(p, p + ".bak-retire-" + ts)
+if own: shutil.copy(p, p + ".bak-retire-" + ts); bak_cap(p, "retire")
 if not noop:
     if mkrow: d[old] = o   # .bak 뒤에 — 아래 은퇴 흐름이 이 행을 닫는다
     rec, why = (None, PI_DEAD) if pi_dead else find_resume(o.get("model"), new, o.get("agent"))   # 읽기만 — 실패해도 은퇴는 그대로(기록 결과는 rc 에 섞지 않는다 · H3)

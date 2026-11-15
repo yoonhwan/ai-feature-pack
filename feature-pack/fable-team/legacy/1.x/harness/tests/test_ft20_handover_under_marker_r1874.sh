@@ -35,8 +35,8 @@ ck "① $A5 → #336 retire rc=$RC · RETIRED · 표식 sha 그대로 · 보관�
 # ② successor-open 가드 → 통과(뒤 usage rc2 · 표식 REJECT 0)
 world "$A5"; sopen "$A5" "$A6"
 ck "② successor-open 가드 통과 rc=$RC(usage 2 · 표식 REJECT 0)" "$([ "$RC" = 2 ] && ! grep -q '2.0 전환됨' "$T/o" && echo 0 || echo 1)"
-# ③ 계보 다름(에이전트 바뀜) → rc3
-world "$AC"; retire "$AC" "$A6"; ck "③ 계보 다름 $AC → $A6 rc=$RC(3)" "$([ "$RC" = 3 ] && grep -q '2.0 전환됨' "$T/o" && echo 0 || echo 1)"
+# ③ 에이전트만 바뀜 → rc0(r2076 E1 · 역할 줄기 같음)
+world "$AC"; retire "$AC" "$A6"; ck "③ 에이전트만 바뀜 $AC → $A6 rc=$RC(0)" "$([ "$RC" = 0 ] && ! grep -q '2.0 전환됨' "$T/o" && echo 0 || echo 1)"
 # ④ 번호 역행 → rc3
 world "$A6"; retire "$A6" "$A5"; ck "④ 번호 역행 #336 → #335 rc=$RC(3)" "$([ "$RC" = 3 ] && echo 0 || echo 1)"
 # ⑤ 팀 다름 → rc3
@@ -68,8 +68,8 @@ assert s.count(a) == 1, s.count(a)
 open(p, "w", encoding="utf-8").write(s.replace(a, b))
 PY
 }
-mut M1 '[ "${old%#*}" = "${new%#*}" ]' 'true'
-world "$AC"; retire "$AC" "$A6"; ck "M1 계보 비교 빼기 → ③ 새어 rc=$RC(0)" "$([ "$RC" = 0 ] && echo 0 || echo 1)"
+mut M1 '[ "$so" = "$sn" ]' 'true'
+world "$A5"; retire "$A5" 'byz-harness-master-pi#336'; ck "M1 줄기 비교 빼기 → 역할 다름 새어 rc=$RC(0)" "$([ "$RC" = 0 ] && echo 0 || echo 1)"
 mut M2 '[ "$((10#$nn))" -gt "$((10#$on))" ]' 'true'
 world "$A6"; retire "$A6" "$A5"; ck "M2 번호 비교 빼기 → ④ 새어 rc=$RC(0)" "$([ "$RC" = 0 ] && echo 0 || echo 1)"
 mut M3 '[ "$teams" = "$team" ]' 'true'

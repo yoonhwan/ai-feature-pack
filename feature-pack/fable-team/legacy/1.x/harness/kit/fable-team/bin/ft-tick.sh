@@ -1227,6 +1227,10 @@ lineage_busy() {
   return 0
 }
 
+done_rest() {   # r1656 ⓔ — 행에 _closed.done(ft-seat-close --done) ∧ ft-seat-open-work rc0(받을 일 0 · 7초) = 쉬는 중 · rc1(받을 일 생김)·rc3·시간 초과·표식 없음 = 지금 재개 길 그대로(표식은 지우지 않는다)
+  python3 -c 'import json,sys;v=json.load(open(sys.argv[1])).get(sys.argv[2]);c=v.get("_closed") if isinstance(v,dict) else None;sys.exit(0 if isinstance(c,dict) and c.get("done") else 1)' "$SEATS" "$1" 2>/dev/null || return 1
+  perl -e 'alarm 7; exec @ARGV' python3 "${FT_SEAT_OPEN_WORK:-$HERE/ft-seat-open-work.py}" "$1" --root "${ROOT:-$WT}" --mbox-dir "$(dirname "$MBOX")" >/dev/null 2>&1
+}
 # ② 죽음 = 명부 현역 ∧ tmux 세션 없음 ∧ «완료·휴식» 아님. ON 일 때만 한 루프 1석(master→planner→arch→그 밖) 자원 문지기 통과 시 같은 대화로 재개.
 #    시도 = 원장 선점(mkdir lock) → pending → zombie-clean resume --from-live. pending·failed 는 영구 제외 — 풀 수 있는 것은 오빠 allow 토큰 1개뿐. OFF = 재개 0 · 죽음 목록 1통(바뀐 때만).
 dead_seat_watch() {
@@ -1243,6 +1247,7 @@ dead_seat_watch() {
       [ "$DRY" = 1 ] && echo "DRY kind=dead-seat-nano seat=$seat"
       nano_skip_note "$seat"; continue
     fi
+    done_rest "$seat" && { log "dead_seat_watch: $seat — 쉬는 중(--done 닫힘 · 받을 일 0) — 재개 0"; continue; }   # r1656 ⓔ
     jl="$(bash "$RESUME_ATTEMPT" record "$seat" jsonl 2>/dev/null)" && bash "$RESUME_ATTEMPT" rested "$jl" && continue   # 완료·휴식 = 죽은 게 아니라 쉬는 중
     case "$role" in master) key=0;; *) case "$seat" in *-planner-*) key=1;; *-arch-*) key=2;; *) key=3;; esac;; esac
     dead+="$key"$'\t'"$seat"$'\t'"$agent"$'\n'

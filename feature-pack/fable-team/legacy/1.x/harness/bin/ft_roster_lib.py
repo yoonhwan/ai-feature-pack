@@ -21,6 +21,40 @@ def dump(f, dd):   # 쓰기 중 죽어도 원본 무손상 — tmp 에 다 쓴 �
     shutil.copymode(f, tmp); os.replace(tmp, f)
 
 
+BAK_TS = re.compile(r"(?:[0-9]{14}|[0-9]{8}-[0-9]{6}(?:[0-9]{6})?)\Z")   # r2043 생성기가 실제 쓰는 ts 꼴만(14자리 · YYYYmmdd-HHMMSS · +마이크로초 6 = keyrotate) · DA HOLD 1: 그 밖 꼬리 = 손 0
+
+
+def bak_cap_n(v):   # r2043 A2 상한 = 정수 50~100 · 없거나 밖이면 50
+    try:
+        n = int(str(v).strip())
+    except (TypeError, ValueError):
+        return 50
+    return n if 50 <= n <= 100 else 50
+
+
+def _bak_key(ts):   # r2043 이름 속 ts 숫자만 → (자릿수, 숫자) 순서
+    t = re.sub(r"\D", "", ts)
+    return len(t), t
+
+
+def bak_cap(path, kind, cap=None):   # r2043 A1·A3·A4 <path>.bak-<kind>-<ts> 일반 파일만 · ts 오래된 것부터 지워 상한개 남김 · 실패 = stderr WARN 1줄(예외 0) → 지운 이름 목록
+    n, pre, gone, err = bak_cap_n(os.environ.get("FT_BAK_CAP") if cap is None else cap), os.path.basename(path) + ".bak-" + kind + "-", [], []
+    d = os.path.dirname(os.path.abspath(path))
+    try:
+        ok = [x for x in os.listdir(d) if x.startswith(pre) and BAK_TS.match(x[len(pre):]) and not os.path.islink(os.path.join(d, x)) and os.path.isfile(os.path.join(d, x))]
+        for x in sorted(ok, key=lambda x: (_bak_key(x[len(pre):]), x))[:-n]:
+            try:
+                os.remove(os.path.join(d, x))
+                gone.append(x)
+            except OSError as e:
+                err.append(f"{x}({e.strerror})")
+    except Exception as e:
+        err.append(f"{d}({e})")
+    if err:
+        print(f"WARN 백업 상한 정리 실패 {len(err)}개 — {err[0]}{' 외' if len(err) > 1 else ''} · 본 작업 영향 0", file=sys.stderr)
+    return gone
+
+
 def scan_routes(p, old):   # r429 같은 폴더(루트 .fable-team) 다른 명부 전부 → (others{파일: 명부}, routes{파일: [칸…]} 바꿀 것 있는 파일만, bad[손상 파일 이름])
     others = {f: load(f) for f in sorted(glob.glob(os.path.dirname(os.path.abspath(p)) + "/seats*.json")) if os.path.abspath(f) != os.path.abspath(p)}
     bad = [os.path.basename(f) for f, v in others.items() if not isinstance(v, dict)]
@@ -31,6 +65,7 @@ def scan_routes(p, old):   # r429 같은 폴더(루트 .fable-team) 다른 명�
 def apply_routes(others, routes, new, ts):   # r429 남의 명부 = 라우팅 칸만 · 파일마다 .bak-retire-<ts> → 출력용 [파일:칸…]
     for f, ks in routes.items():
         shutil.copy(f, f + ".bak-retire-" + ts); others[f].update((k, new) for k in ks); dump(f, others[f])
+        bak_cap(f, "retire")   # r2043 종류별 상한
     return [os.path.basename(f) + ":" + k for f, ks in routes.items() for k in ks]
 
 

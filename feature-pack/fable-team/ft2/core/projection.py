@@ -77,12 +77,13 @@ def project(root, team):
     except record.CorruptStateError as exc:              # 손상 checkpoint(suffix 불연속)도 여기로 온다
         return _empty(team, CORRUPT, str(exc))
     return {"result": OK, "team": team, "revision": state["revision"], "pending": len(state["pending"]),
-            "remaining": len(record.remaining(state, records)),    # r1826 · 용량 판정과 같은 장부
+            "remaining": len(record.remaining(state, records)),    # r1826 · 의무 장부(마감·재개와 같은 값)
+            "capacity": len(record.capacity(state, records)),      # r2055 용량 셈(접수 상한·keeper fill 과 같은 값)
             "works": {work: row(work, state) for work in works_of(state)},
             "holders": holders_of(state, records), "reason": ""}
 
 
 def _empty(team, word, reason):
     """투영 0 꼴 — 판독 불가·runtime 없음에서도 사유 1줄은 남긴다(숨김 0)."""
-    return {"result": word, "team": team, "revision": 0, "pending": 0, "remaining": 0, "works": {}, "holders": {},
+    return {"result": word, "team": team, "revision": 0, "pending": 0, "remaining": 0, "capacity": 0, "works": {}, "holders": {},
             "reason": reason}

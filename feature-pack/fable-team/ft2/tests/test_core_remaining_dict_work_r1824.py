@@ -3,6 +3,7 @@
 계약: K1 work 가 문자열이 아니면 command 로 done 대조 · K2 문자열 work 는 work 로만 · K3 folded 빼기 그대로.
 ⑤ 경로(DA 메모): dict accept 는 command 로 assign 하면 «영수 없음» 이라, 실제 공개 Dispatch.complete
 직접 호출(work = command)로 done[command] 를 세운다. 배정 관문 확장·가짜 성공 0. 임시 root 만 쓴다.
+r2089: 용량 단위 = str-work(카드 ft2-slack-accept-capacity) — dict-work 는 의무 장부에만 쌓인다.
 """
 
 import importlib.util
@@ -62,11 +63,25 @@ def test_case4_folded_receipt_leaves():
 
 
 def test_case5_real_core_capacity_returns_after_complete(tmp_path):
+    """r2089 — 용량 단위 = str-work · dict-work(글 영수)는 0칸 · remaining 은 그대로 센다."""
     root = str(tmp_path / "team")
     gate = intake.Intake(root, TEAM, capacity=2)
-    assert gate.submit("c1", "본문1", dict(SLACK)).result == OK
-    assert gate.submit("c2", "본문2", dict(SLACK)).result == OK
-    assert gate.submit("c3", "본문3", dict(SLACK)).result == FULL
-    grant = dispatch.Dispatch(root, TEAM).complete("c1")       # 실제 공개 complete 직접 호출(work = command)
+    assert gate.submit("c1", "본문1", "W1").result == OK
+    assert gate.submit("c2", "본문2", "W2").result == OK
+    assert gate.submit("c3", "본문3", "W3").result == FULL
+    rs = intake.Intake(root, TEAM)
+    assert (len(record.capacity(rs._state(), rs.records())), len(record.remaining(rs._state(), rs.records()))) == (2, 2)
+    grant = dispatch.Dispatch(root, TEAM).complete("W1")
     assert (grant.result, grant.written) == (OK, True)
-    assert gate.submit("c3", "본문3", dict(SLACK)).result == OK
+    assert gate.submit("c3", "본문3", "W3").result == OK
+
+
+def test_case5b_dict_work_is_not_a_capacity_unit(tmp_path):
+    """⑤ dict accept 는 의무 장부에만 쌓인다 — 용량은 0칸이라 상한 2 에서도 세 번째 글 영수가 들어간다."""
+    root = str(tmp_path / "dict")
+    gate = intake.Intake(root, TEAM, capacity=2)
+    assert gate.submit("d1", "본문1", dict(SLACK)).result == OK
+    assert gate.submit("d2", "본문2", dict(SLACK)).result == OK
+    rs = intake.Intake(root, TEAM)
+    assert (len(record.capacity(rs._state(), rs.records())), len(record.remaining(rs._state(), rs.records()))) == (0, 2)
+    assert gate.submit("d3", "본문3", dict(SLACK)).result == OK

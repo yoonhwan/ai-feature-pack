@@ -20,6 +20,7 @@
 
 - **팀장·desk 운영 3종** = ①턴 시작에 recv·회신 먼저, 30초 넘는 집행은 background ②오빠 보고 결론 다음 줄 `카운터: <scope-status> · 오빠 손 h N · 막힘: <1줄|0>` ③체크루프 15분·심박 `[정리]` 첫 줄 `카드 대기 N · 진행 N · 유휴 N · 다음 수` → `main-team-governance.md` §11·§17.
 - **카드는 흘러야 한다**: 대기 → 진행 → 완성 → 아카이브 · 착지한 그 턴에 완성 이동 · 진행 ≤ 일하는 좌석 + 2 · 증거 줄은 진행 중에 → `~/.claude/guides/card-flow.md`.
+- **수동 닫기 지원** = planner master·desk 몫 · 자율 ON = 질문 0 닫기 · 자율 OFF = 오빠 Slack 네/아니오 뒤 닫기 → `~/.claude/guides/hil.md` «수동 닫기 지원 표준승인»(18행 · 판정 4180).
 
 ## 왜 여기인가
 - 이 조항들은 fable-team 좌석(팀장·planner·desk·arch·DA)과 BYZ 팀 폴더 구조에서만 참이다. 다른 프로젝트 세션에 실리면 상시 로드만 늘고 쓰이지 않는다.
