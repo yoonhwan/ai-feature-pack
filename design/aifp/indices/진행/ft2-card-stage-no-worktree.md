@@ -15,7 +15,7 @@
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/pi/card_stage.py(136줄 · 마지막 고침 6d428738 · git() · card() · stage()) · 새 시험 feature-pack/fable-team/ft2/tests/test_card_stage_no_worktree.py · 정본 자리 = 팩의 이 파일 1곳이다 · chatbot 팀이 돌린 것은 그 설치판 ~/.claude/fable-team/ft2/versions/2.0.62/adapters/pi/card_stage.py(팩 origin/main 과 바이트 같음 · 2026-11-16 대조) · BYZ 리포에 tracked card_stage.py 는 0개(git ls-files 대조)
 - 정본 영향 없음: CONTRACT 변경 0 · rc 뜻·출력 꼴·커밋 글 그대로(G7)
 - 크기: 코드 1파일 · 새 시험 1파일 · 문서 1파일(설계 옮김) · PR 1개
-- 배정: 없음
+- 배정: 좌석 aifp-ft-nano-ft2-card-stage-no-worktree#0
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -79,4 +79,7 @@ card_stage 는 끝난 카드를 완성/ 폴더로 옮기는 커밋을 만들어 
 | G8 자기 검사 | ㊱타 가짜 git 이 write-tree 뒤 tree 에 다른 파일 변화 1개를 섞음 → rc 3 `판정 불가 card_stage 커밋 범위 밖 3줄` · push 0 · 원격 변화 0 / M61 |
 
 ## 상태
+- base_sha: c0099afc08aacef1cfc733dbc34f60a71c9ed668 (spawn 2026-11-16)
 - 2026-11-16 · aifp-ft-arch-pi#18 씀(aifp 5421 · 승계 5424) · 대기 · 설계 r2 = DA 대행 APPROVE-DESIGN(BYZ 310291) · 선행 없음 · Issue #8647(aifp 5423)
+- 2026-11-16 02:22 — 대기→진행 · 좌석 aifp-ft-nano-ft2-card-stage-no-worktree#0
+- [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
