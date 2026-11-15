@@ -26,7 +26,7 @@ TMUX_STUB = """#!/usr/bin/env bash
 # has-session -t =<s> · display-message -p -t =<s> '#{session_attached}' — 칸 파일(alive·att·fail)로 답한다
 case "$1" in
   has-session) t="${3#=}" ;;
-  display-message) t="${4#=}" ;;
+  display-message) t="${4#=}"; t="${t%:}" ;;
   *) exit 0 ;;
 esac
 grep -qxF -- "$t" "$TM_DIR/fail" 2>/dev/null && exit 2

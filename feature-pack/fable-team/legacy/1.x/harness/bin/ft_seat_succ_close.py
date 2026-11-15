@@ -29,7 +29,7 @@ def _alive(tmux: list[str], run, seat: str) -> bool | None:
 
 
 def _attached(tmux: list[str], run, seat: str) -> int | None:
-    rc, out = run([*tmux, "display-message", "-p", "-t", f"={seat}", "#{session_attached}"], None, 7)
+    rc, out = run([*tmux, "display-message", "-p", "-t", f"={seat}:", "#{session_attached}"], None, 7)
     return int(out.strip()) if rc == 0 and out.strip().isdigit() else None
 
 
