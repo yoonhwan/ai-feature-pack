@@ -1,7 +1,7 @@
 # 인덱스: ft2-penalty-team-no-new-pick — 끝: 전 세션 정지(PENALTY_STOP) 중에 재개 전인 팀에는 keeper 가 새 카드를 넣지 않는다 · 이미 연 열기·settle·닫기·사람 손 발주는 그대로다 · 판정은 1.x 나노 열기 도구와 같은 판정기 한 곳이 한다
 <!-- ledger: feature-pack/fable-team/legacy/1.x/harness/design/harness/GOAL-harness.md -->
 - Issue: #8650 — 등록 planner(팀장 aifp-ft-master-pi#19 aifp 5464 · 발주 5461 (나) · 범위 판단 5455 → 5459 · 결함 전달 planner 5446 = room#48 BYZ 310510)
-- 제안서: 없음 — 결함 복구(새 흐름 0) · 설계 = .fable-team/state/team-main/aifp-ft/orders/DESIGN-pJ-penalty-team-no-new-pick-20261116.md(r1 sha256 c50fb568…d8b3 · DA 판정 전) · 착지 PR 에서 feature-pack/fable-team/design/ 로 옮긴다
+- 제안서: 없음 — 결함 복구(새 흐름 0) · 설계 = .fable-team/state/team-main/aifp-ft/orders/DESIGN-pJ-penalty-team-no-new-pick-20261116.md(r1 sha256 c50fb568…d8b3 · DA 대행 byz-harness-da-codex#11 APPROVE-DESIGN aifp 5469 · P1~P8 동작 반례 0) · 착지 PR 에서 feature-pack/fable-team/design/ 로 옮긴다
 - 근거: 실측 2026-11-16 02:27~02:30(aifp-ft-arch-pi#18 · BYZ 읽기만) — .fable-team/state/PENALTY_STOP 있음(order 에 room · resumed = feature·cfo·knowledge·ops·v65·chatbot · room 없음) · 1.x 판정기 «ft-penalty.sh check room» rc 3 «REJECT penalty 전 세션 정지 중 — 팀=room 은 아직 재개 전» · «check cfo» rc 0 · keeper 로그 state/ft2-keeper/20261116.jsonl 02:19:31 «LAUNCHING room byz-room-nano-R-room-runner-home-ws-origin-check#0 열기 …@a2.log» → 02:20:54 «WORKING … 착지 줄 없음» → 02:20:56 «NEXT room fill:R-room-runner-home-ws-origin-check» = fill 이 재개 전 팀에 새로 넣음
 - 원인 1줄: 전 세션 정지는 1.x ft-nano-spawn.sh 에서만 막는데 ft2 keeper 는 그 도구를 거치지 않는다 · keeper_next.gates() 가 보는 것은 CLOSE-NEXT.enabled·팀 PAUSED·SPAWN_HOLD·ACCT_PAUSE·나노 상한뿐이고 PENALTY_STOP 판독이 없다
 - 앞 카드: r1913(fill) · r1939(fill 꽉 참) · r1871(닫기 뒤 다음 카드) · r2055(팩 d88ef381 · settle 한 길) · 1.x R320b(전 세션 정지 · 오빠 판정 2170)
@@ -48,7 +48,8 @@
 
 ## 범위 밖
 - room 팀을 재개할지(ft-penalty.sh resume room) · 지금 도는 room 나노 a2 를 어떻게 할지(room 팀장·planner 판단)
-- 복구 launch(이미 dispatch 한 열기)까지 막는 일 — 설계 Q1 로 DA 에 묻는다 · 판정이 «막는다» 면 이 카드의 계약 P5 를 고친다
+- 복구 launch(이미 dispatch 한 열기)까지 막는 일 — DA 판정 = 새 pick 두 곳만 막고 복구는 유지(aifp 5469 Q1)
+- 알려진 한계(DA aifp 5469): 바퀴 캐시 안에서 바뀐 정지·재개 상태는 다음 관측(다음 바퀴)에 반영된다
 - 사람 손 ft2 submit/assign/deliver 를 재개 전 팀에서 막는 일(알려진 한계 · keeper 의 자동 pick 만 막는다)
 - 1.x ft_penalty.py 의 재개 규칙·면제 팀 목록 고침
 - 판정 불가가 오래 이어질 때 팀장에게 쪽지를 보내는 일(지금은 로그 1줄 · 설계 Q3)
@@ -75,3 +76,4 @@
 
 ## 상태
 - 2026-11-16 · aifp-ft-arch-pi#18 씀(aifp 5461 (나) · 5464) · 대기 · 설계 r1 = DA 판정 전 · 선행 = ft2-launch-failed-end 착지 · Issue #8650
+- DA 판정: APPROVE-DESIGN · byz-harness-da-codex#11 · aifp 5469 · Q1 새 pick 두 곳만 · Q2 ft-penalty.sh check 재사용(FT_ROOT=k.root · 팀별 1회) · Q3 판독 불가 = 새 pick 막힘(복구·닫기 유지) · 한계 = 바퀴 캐시 안 상태 변경은 다음 관측 반영
