@@ -250,9 +250,10 @@ if bash "$REACH" "$SESSION" "$MARKER" "$T1" 0; then
 fi
 RC=$?
 
+consumed_or_back "$(sv_left "$T1" "$_R0")"   # r1750 A1 — 1차 jsonl 미도달·판정 불가 뒤 우편함 소비
+# r1750 R1(DA HOLD1): 소비 확인이 예산을 쓴다 — 그래서 T2 는 «그 뒤에» 잰다(소진이면 ring 0 · reach 0 · rc6).
 # ★r1660-c★ 재발주도 시간을 쓴다 — ring «전에» 남은 예산을 본다(모자라면 ring 0 · 6 으로 넘긴다).
 T2="$(sv_timeout "$TIMEOUT")" || unconf
-consumed_or_back "$(sv_left "$T1" "$_R0")"   # r1750 A1 — 1차 jsonl 미도달·판정 불가 뒤 우편함 소비
 
 if [ "$RC" -eq 5 ]; then
     echo "UNVERIFIED session=$SESSION — 발주 후 jsonl 층을 못 읽었다. 사람이 확인해야 한다" >&2
