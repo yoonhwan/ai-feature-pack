@@ -164,15 +164,15 @@ def c4b(w):   # ④′ ALL_STOP 깨짐 = 정지 + 판정 불가 1줄
     assert has(lines, "판정 불가", "ALL_STOP") and not w.tmux("kill-session") and w.kinds("parked") == 0, lines
 
 
-def c5(w):   # ⑤ 새 꼴(intent worktree 칸 없음) → UNKNOWN · [긴급] 1통 · kill 0 · 같은 지문 = 전송 0 · 전송 실패 뒤 = 다시 전송
+def c5(w):   # ⑤ 새 꼴(intent worktree 칸 없음) → UNKNOWN · [긴급] 1통 · kill 0 · r2065 E3·E5 실패도 그날 지문(재시도 0) → 같은 날 다시 0통
     nano(w, "r9555", tree=False)
     kw._put(str(w.mbox) + ".rc", "1")
     lines = rnd(w)
     assert has(lines, "UNKNOWN harness r9555", "intent-bad") and has(lines, "ROUND", "unknown=2") and not w.tmux("kill-session"), lines   # r2055 R3 정체 본문 도달 0 도 UNKNOWN 줄([긴급]) = 2
-    assert len([x for x in sent(w) if "intent-bad" in x]) == 2   # 7초 + 재시도 1 = 실패 → 지문 미소비
+    assert len([x for x in sent(w) if "intent-bad" in x]) == 1   # 시도 1(재시도 0) — old 기대 2 = 7초 + 재시도 1
     kw._put(str(w.mbox) + ".rc", "0")
     rnd(w, dt=60), rnd(w, dt=60)
-    assert len([x for x in sent(w) if "intent-bad" in x]) == 3 and not [x for x in kw._lines(str(w.close) + ".log")]
+    assert len([x for x in sent(w) if "intent-bad" in x]) == 1 and not [x for x in kw._lines(str(w.close) + ".log")]   # 실패 지문 = 같은 날 다시 보내지 않는다
     assert not has(rnd(w, dt=60), "HELD")
 
 

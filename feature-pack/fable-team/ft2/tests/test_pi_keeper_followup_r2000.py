@@ -58,11 +58,11 @@ def c8(w):   # ⑧ 같은 HELD 다음 바퀴 → 팀장 0통 · 카드 고치면
     held(w, w.round(), "r9808", "줄 없음")
     assert mails(w, "r9808") == 1
     card(w, "r9808", "없음"), ok(w, w.round(), "r9808")
-def c8b(w):  # ⑧′ 쪽지 실패 → state.sent 0 → 다음 바퀴 다시 보냄
+def c8b(w):  # ⑧′ 쪽지 실패 → r2065 E3·E5 = 실패도 그날 지문 · 재시도 0 · 같은 날 다시 보내지 않는다(날짜가 바뀌면 1회)
     _put(str(w.mbox) + ".rc", "1"), held(w, run(w, "r9818"), "r9818", "줄 없음")
-    assert mails(w, "r9818") == 2   # 7초 + 재시도 1 둘 다 실패
+    assert mails(w, "r9818") == 1   # 시도 1(재시도 0)
     _put(str(w.mbox) + ".rc", "0"), w.round(), w.round()
-    assert mails(w, "r9818") == 3 and w.kinds("complete") == 0
+    assert mails(w, "r9818") == 1 and w.kinds("complete") == 0
 def d1(w):   # 완성후/ 후속 실재 → complete · 아카이브/ 만 → HELD
     follow(w, "완성후/f7-next.md"), follow(w, "아카이브/2026-11/f8-old.md")
     ok(w, run(w, "r9821", "f7-next — 완성후"), "r9821")
