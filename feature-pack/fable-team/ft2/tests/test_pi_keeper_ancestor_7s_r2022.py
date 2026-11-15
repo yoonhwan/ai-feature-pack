@@ -98,8 +98,8 @@ def t6(land, tmp):   # T6 pre_attempt 조상 대조도 7초(③ · 갈래는 지
 
 
 CASES = {"T1": t1, "T2": t2, "T2b": t2b, "T3": t3, "T4": t4, "T5": t5, "T6": t6}
-BRANCH = '            if rc != 1 and (rc != 128 or self.git(repo, "cat-file", "-e", sha, timeout=endings.ANC_S)[0] != 1):\n'
-MUTANTS = {"M1": (BRANCH + '                return None, None, "판정 불가 · 착지 조상 git rc %s" % rc\n', "", (t1, t2)),
+BRANCH = 'if rc != 1 and (rc != 128 or self.git(repo, "cat-file", "-e", sha, timeout=endings.ANC_S)[0] != 1):'
+MUTANTS = {"M1": (BRANCH, "if False:", (t1, t2)),   # ② 갈래 삭제 = rc≠0 이면 다음 ref
            "M2": ('sha, ref, timeout=endings.ANC_S)[0]', 'sha, ref)[0]', (t1,))}
 
 
