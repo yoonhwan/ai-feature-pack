@@ -6,6 +6,7 @@
 - 원인 1줄: keeper_next.prereq_tell 은 보낼지를 묶음 지문(I8)만으로 정한다 · 정지·보류는 choose 를 부르는 쪽(fill · 닫기 뒤 고르기)의 앞 조건에만 걸려 있어 쪽지 자리에서는 보이지 않는다 · 본문에는 앞 3장만 실린다 · 팀장이 없으면 notify 가 대신 받는 곳 묶음(harness [긴급])에 넣는다
 - 앞 카드: 진행/ft2-prereq-unreadable-once(I1~I9 · 착지 b70abbf6 · 설치 ft2 2.0.69 · 조건 7 [~]) · 진행/ft2-new-card-hold(H1~H8 · 착지 eb4c9ea0) · 완성/ft2-keeper-notify-recipient(E1~E8 받는 곳·묶음) · 완성/ft2-penalty-team-no-new-pick
 - 앞 카드와의 관계: ft2-prereq-unreadable-once 가 만든 쪽지 1곳(prereq_tell)에 «보내지 않는 조건 2개» 와 «본문 칸 1개» 를 더한다 · 앞 카드의 조건 7(설치 뒤 줄 수 실측)은 이 카드와 따로 닫는다 · 같은 파일을 고치므로 나노 base 는 앞 카드 착지(b70abbf6) 뒤 main 이다
+- 착지: 93d7c9d2f59fe0a151cc769d9488af73f780250a(팩 main · PR #1368 squash · head 4b2f41a8 · DA 대행 byz-harness-da-codex#11 APPROVE-IMPL BYZ 312231 · 앞 HOLD-IMPL 312085 반례 고침 뒤 · 세트 4b2f41a8 = PR head · 뺄 커밋 0)
 - 상태: 대기
 - 설치: 있음 — ft2 판 올림 1회 · 되돌림 = 앞 판으로 판 전환(상태 파일 새 키 1개는 옛 판이 읽지 않음 · 목록 파일은 남아도 읽는 곳 0)
 - 선행: 없음
@@ -95,12 +96,12 @@
 - [다음 없음] 쪽지와 다른 keeper 쪽지의 팀장 없음 묶음(E2 그대로)
 
 ## 완료 조건
-1. [ ] 나노: 커밋 1 기준판 FAIL 원문(㊵라 · ㊵아 · ㊵차 · ㊵하 + ㊵다 결과)
-2. [ ] 나노: 새 시험 전체 rc0 · 걸린 초
-3. [ ] 나노: 변이별 지정 반례 FAIL(M85~M90 전부)
-4. [ ] 나노: 회귀 rc0(파일별 초)
-5. [ ] 팀장: PR 착지 sha · 설치 판
-6. [ ] arch: 설치 뒤 읽기 실측 = BYZ keeper 로그에서 팀장 없는 팀의 PREREQ-WAIT 줄 원문(값이 그대로면 1줄뿐) · 설치 뒤 harness master 가 받은 [긴급] 묶음에 «선행 줄을 못 읽는» 글 0 · state/ft2-keeper/prereq-<팀>.txt 줄 수 = state.json prereq_seen 의 그 팀 칸 수
+1. [x] 나노: 커밋 1 기준판 FAIL 원문(㊵라 · ㊵아 · ㊵차 · ㊵하 + ㊵다 결과) — PR #1368 본문 «기준판(c4b78196) FAIL 원문» 절 = `FFFFF` 5칸 · `FAILED tests/test_prereq_alarm_hold.py::test_case[㊵라]` · `[㊵아]` · `[㊵차]` · `[㊵하]` · `[㊵다]` · 단언 원문 첫 줄 `AssertionError: ('halt', '8ac45848dbbc', [])` · ㊵다 결과 = 기준판 Red(FAILED 줄 5개 가운데 하나) · 판 올림 승계 칸 ㊵버는 앞 판 cbf0a5a7 에서 Red(나노 aifp 5828)
+2. [x] 나노: 새 시험 전체 rc0 · 걸린 초 — 새 시험 4파일 rc 0(head 4b2f41a8 · DA 재실행 .fable-team/state/team-main/aifp-ft/DA-prereq-alarm-impl-approve-312231/test_prereq_alarm_hold*.json·.log): test_prereq_alarm_hold.py 18 passed 31.694초 · _mutants.py 7 passed 17.333초 · _compat.py 1 passed 33.937초(안에서 앞 카드 13칸) · _compat_b.py 1 passed 15.310초(무거운 2칸) = 파일마다 70초 안 · 나노 값 34 · 18 · 41 · 13초(aifp 5828) · ruff rc 0 · ★앞 판 cbf0a5a7 은 한 파일 25 passed 86.5초로 70초를 넘어 DA HOLD 뒤 4파일로 나눴다★
+3. [x] 나노: 변이별 지정 반례 FAIL(M85~M90 전부) — test_prereq_alarm_hold_mutants.py 7 passed = M85~M91 7개 모두 검출(카드 줄은 M85~M90 · r2 에서 더한 M91 포함) · DA 판정문 «변이 M85~M91 검출»
+4. [x] 나노: 회귀 rc0(파일별 초) — 나노 실행(aifp 5828 · head 4b2f41a8) 6파일 모두 rc 0: test_prereq_unreadable_once 79초 · test_new_card_hold 41초 · test_penalty_team_no_new_pick 35초 · test_keeper_next_prereq_line_r2027 21초 · test_keeper_notify_recipient 24초 · test_pi_keeper_next_card_r1871 94초 · reentry-lint rc 0 · ★알려진 한계: 79초 · 94초 2파일은 파일 70초 상한 밖이다 = DA 는 이 6파일을 다시 돌리지 않았고 그 두 값을 승인 근거에 넣지 않았다(판정문 원문) · 두 파일은 이 카드가 만든 파일이 아니다(앞 카드 시험) = 범위 밖 후속 감★ · 옛 호환 15칸은 DA 가 _compat 2파일로 따로 통과시킴 · 참고: 목록 밖 test_pi_keeper_r1812 2칸 실패는 기준판에서도 같은 실패(PR 본문)
+5. [~] 팀장: PR 착지 sha · 설치 판 — 착지 = PR #1368 squash 93d7c9d2f59fe0a151cc769d9488af73f780250a(head 4b2f41a8d875077001a0f5ef7dbd238d96e89001 · gh pr view 로 대조 · MERGED 2026-11-15T21:43:21Z = 06:43:21 KST · 커밋 6 = 앞 3 + DA HOLD 312085 고침 3 · 바뀐 파일 7 = keeper_next.py · CONTRACT.md · CASES.md · 새 시험 4) · 설치 = 아직(지금 ft2 CURRENT 2.0.71 = install-log 06:11:54 KST 로 착지보다 앞 판 · harness 설치 회신 뒤 이 칸에 판·시각 1줄)
+6. [ ] arch: 설치 뒤 읽기 실측 = BYZ keeper 로그에서 팀장 없는 팀의 PREREQ-WAIT 줄 원문(값이 그대로면 1줄뿐) · 설치 뒤 harness master 가 받은 [긴급] 묶음에 «선행 줄을 못 읽는» 글 0 · state/ft2-keeper/prereq-<팀>.txt 줄 수 = state.json prereq_seen 의 그 팀 칸 수 — 대기(설치 뒤 잰다 · aifp-ft-arch-pi#22 2026-11-16 06:44)
 7. [ ] arch: 실사건 = NEW_CARD_HOLD.json 또는 PAUSED 가 놓인 동안 그 팀 [다음 막힘] 선행 줄 쪽지 0통 · 풀린 뒤 1통(본문 원문) · 사건이 없으면 [~] 로 둔다
 
 ## 계약↔시험 대응표
@@ -123,3 +124,7 @@
 - [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
 - 세트: cbf0a5a7d063c883ba420e4796a08a71eb4ce802 · 시험: python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_prereq_alarm_hold.py -q (25 passed) rc=0 · 이슈: 0
 - 완료: aifp-ft-nano-ft2-prereq-alarm-hold#0 · 한 일: prereq_tell 1곳에 P1~P6(묵음·전체 목록 파일·팀장 없음 PREREQ-WAIT) + 새 시험 18칸·변이 M85~M91 + 계약 §12.1/CASES 9.1 · 산출: nano/ft2-prereq-alarm-hold@cbf0a5a7d0 · 병합 상태: 착지 전(push 전) · 남은 일: 착지PR=팀장
+- 2026-11-16 06:44 · aifp-ft-arch-pi#22 착지 줄 씀(팀장 aifp 5837 ①) · 조건 1~4 [x] · 조건 5 [~] = 착지 sha 있음 · 설치 회신 대기 · 조건 6·7 = 설치 뒤 · 코드 변경 0
+- DA 판정: APPROVE-IMPL 312231(승인 sha 4b2f41a8d875077001a0f5ef7dbd238d96e89001 · 사본 .fable-team/state/team-main/aifp-ft/DA-prereq-alarm-impl-approve-312231/verdict.md · 수용 동작 반례 0 · 앞 HOLD-IMPL 312085 의 판 올림 반례 풀림 = 실제 옛 함수(b877a2ee prereq_tell)가 만든 5장 지문 상태를 저장·재로드한 뒤 새 함수: 지문 그대로 · 목록 파일 생성 · 데이터 5행 · 둘째 관측 파일 바이트·mtime 같음 · 알림 0(migration-fixed.json) · 앞 head cbf0a5a7 대비 함수 AST 변화 = prereq_list 하나 · 본 18칸 31.694초 · 변이 7 17.333초 · 호환 33.937초 + 15.310초 · 다른 회귀 6파일은 다시 돌리지 않음) · 설계 = APPROVE-DESIGN BYZ 311966(앞 HOLD-DESIGN 311909)
+- 세트 정정(나노 aifp 5828 · 팀장 aifp 5837): 위 세트 줄의 cbf0a5a7 은 DA HOLD 앞 head 다 · PR #1368 head 와 DA 승인 sha 는 4b2f41a8 이다(뒤 커밋 3개 = ab11a38f 시험 · 76fce199 고침 · 4b2f41a8 문서) · 닫기 도구가 읽는 세트 = 맨 끝 줄
+- 세트: 4b2f41a8d875077001a0f5ef7dbd238d96e89001 · 시험: python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_prereq_alarm_hold.py (18 passed 31.694초) + _mutants.py (7 passed 17.333초) + _compat.py (1 passed 33.937초) + _compat_b.py (1 passed 15.310초) rc=0 · 이슈: 0
