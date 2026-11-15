@@ -16,7 +16,7 @@ cp "$KIT/bin/ft-thresholds.sh" "$I/bin/"; cp "$KIT/templates/hooks/context-disti
 cp "$KIT/templates/thresholds.env.sample" "$I/templates/"
 printf '#!/usr/bin/env bash\ncase "$1" in display) echo "byz-t-x-claude#1";; esac; exit 0\n' > "$FAKE/tmux"; chmod +x "$FAKE/tmux"
 unset FT_DISTILL_WARN FT_DISTILL_BLOCK FT_DISTILL_RECV FT_RESUME_MAX FT_DISTILL_NEWWORK FT_THRESHOLDS OMC_FT_BIN FT_DISTILL_THRESHOLDS FT_DISTILL_SAMPLE
-run(){ env HOME="$H" PATH="$FAKE:$PATH" TMUX_PANE=%1 "$@"; }
+run(){ HOME="$H" PATH="$FAKE:$PATH" TMUX_PANE=%1 "$@"; }   # $1 = bash · /bin/bash(실행 명령은 부르는 쪽 글자)
 FTS(){ run bash "$I/bin/ft-thresholds.sh" "$@"; }
 BASE='FT_DISTILL_WARN=330000\nFT_DISTILL_BLOCK=350000\nFT_DISTILL_RECV=280000\nFT_RESUME_MAX=200000\n'
 T200='FT_DISTILL_TIER_200K_MATCH=haiku\nFT_DISTILL_RECV_200K=120000\nFT_DISTILL_WARN_200K=140000\nFT_DISTILL_BLOCK_200K=150000\n'
