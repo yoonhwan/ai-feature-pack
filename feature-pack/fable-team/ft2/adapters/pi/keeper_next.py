@@ -10,6 +10,7 @@ FT2, GIT_S = os.path.dirname(os.path.dirname(HERE)), 25
 OK, BLOCK, NONE = "접수 성공", ("정지", "석", "선행", "DA", "사람"), "[다음 없음]"
 URGENT, HIGH = re.compile(r"- 긴급:\s*예\s*$"), re.compile(r"- 우선(?:순위)?:\s*높음")
 REF = re.compile(r"(?<![A-Za-z0-9_])r(\d+)(?![0-9])")   # r2027 카드 참조 r<번호>
+MONTH = re.compile(r"/아카이브/\d{4}-\d{2}")   # DA R1 월별 아카이브(루트 뒤 꼬리)
 def prereq(lines, where):
     """r2027 카드 본문 선행 막힘 = "" · "선행" · "선행불명"(판정 불가) · where = {번호: 카드가 있는 폴더 집합}."""
     if any(x.startswith("- 배정: 대기(선행") for x in lines):
@@ -79,9 +80,9 @@ def cards(k, team):
     mine = r[3] + "/대기"
     found = {os.path.basename(p)[:-3]: [False, False, [], []] for p in names.splitlines() if p.endswith(".md") and os.path.dirname(p) == mine}
     where = {}
-    for p in (x for x in names.splitlines() if x.endswith(".md") and os.path.dirname(os.path.dirname(x)) == r[3]):
-        m = re.match(r"r(\d+)(?![0-9])", os.path.basename(p))
-        where.setdefault(m.group(1), set()).add(os.path.basename(os.path.dirname(p))) if m else None
+    for p in (x for x in names.splitlines() if x.endswith(".md") and (os.path.dirname(os.path.dirname(x)) == r[3] or x.startswith(r[3] + "/") and MONTH.fullmatch(os.path.dirname(x)[len(r[3]):]))):
+        m = re.match(r"r(\d+)(?![0-9])", os.path.basename(p))   # DA R1 · 아카이브/<YYYY-MM>/ = 아카이브
+        where.setdefault(m.group(1), set()).add("아카이브" if os.path.dirname(os.path.dirname(p)) != r[3] else os.path.basename(os.path.dirname(p))) if m else None
     for path, _, line in (x[len(r[2]) + 1:].partition(":") for x in heads.splitlines()):
         row = found.get(os.path.basename(path)[:-3]) if os.path.dirname(path) == mine else None
         if row is not None:
