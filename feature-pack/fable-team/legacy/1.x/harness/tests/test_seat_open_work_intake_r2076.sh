@@ -52,7 +52,7 @@ json.dump(d, open(p, "w"))
 PY
 }
 ow() {   # ow [env…] — 판정 도구 단독(좌석 = $SEAT 또는 sol#60)
-  ( env HOME="$T/home" CLI_COUNT="$CNT" FT2_CLI="${CLI-$T/ft2cli.py}" "$@" python3 "${TD:-$TOOL}" "${SEAT:-$I60}" --root "$RES" ) > "$T/ow.out" 2> "$T/ow.err"
+  ( for kv in "$@"; do export "$kv"; done; env HOME="$T/home" CLI_COUNT="$CNT" FT2_CLI="${CLI-$T/ft2cli.py}" python3 "${TD:-$TOOL}" "${SEAT:-$I60}" --root "$RES" ) > "$T/ow.out" 2> "$T/ow.err"
   RC=$?; OUT="$(cat "$T/ow.out")"; ERR="$(cat "$T/ow.err")"; CALLS="$(grep -c . "$CNT")"
 }
 so() {   # so <구> <후계> <agent> — ft-successor-open(가짜 tmuxc 열기까지)

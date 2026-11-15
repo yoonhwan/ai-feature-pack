@@ -18,7 +18,7 @@ mb() {   # mb <to> <본문> [env…] — 매번 새 임시 comm 사본(SRC = 원
   local to="$1" body="$2"; shift 2
   rm -rf "$M"; mkdir -p "$M/.fable-team/bin" "$M/.fable-team/state"; cp -Rp "${SRC:-$REPO/comm}" "$C"; rm -f "$C/LIVE_BIN"
   cp -p "$REPO/bin/ft-name-lint.sh" "$M/.fable-team/bin/"; printf '%s\n' "${ROS:-$ROSTER}" > "$M/.fable-team/seats-issues.json"; : > "$C/mailbox.jsonl"
-  ( cd "$M" && env -u FT_PLANNER_HEAD_MODE -u FT_BIN "$@" FT_ROOT="$M" FT_SEATS_JSON="$M/.fable-team/seats-issues.json" FT_MBOX_DIR="$C" FT_MBOX_RATE_N=999 FT_MBOX_FANOUT_WINDOW=0 HOME="$T/home" \
+  ( cd "$M" && unset FT_PLANNER_HEAD_MODE FT_BIN; for kv in "$@"; do export "$kv"; done; env FT_ROOT="$M" FT_SEATS_JSON="$M/.fable-team/seats-issues.json" FT_MBOX_DIR="$C" FT_MBOX_RATE_N=999 FT_MBOX_FANOUT_WINDOW=0 HOME="$T/home" \
       bash "$C/mbox.sh" send "$to" "$FROM" "$body" ) > "$T/mb.out" 2>&1
   RC=$?; Q="$(python3 -c 'import json,sys; print(",".join(json.loads(l)["to"] for l in open(sys.argv[1]) if l.strip()) or "-")' "$C/mailbox.jsonl")"
   FWD="$(grep -c ' forward ' "$GL" 2>/dev/null)"; FWD="${FWD:-0}"
