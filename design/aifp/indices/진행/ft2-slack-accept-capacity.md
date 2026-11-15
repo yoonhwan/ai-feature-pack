@@ -81,5 +81,6 @@
 - 커밋: 1c8589ba [test] · 2ebfc52b [fix] · efd79174 [docs] = 코드 세트 · + dc85096f [chore] .worktree-info.json(spawn 갱신 메타데이터 1파일) = 지금 HEAD dc85096f (브랜치 nano/ft2-slack-accept-capacity-r2 · push 0)
 - 고친 fixture 이름: r1872 test_7_reply_completes_post_but_keeps_str_work_capacity · test_8_full_posts_requeued_oldest_first_when_room_opens · eight()/thread_full() 픽스처(str-work 포화 + str-work 1 complete) · r1824 test_case5_real_core_capacity_returns_after_complete(str-work) + test_case5b_dict_work_is_not_a_capacity_unit(새 사례) · r1886 test_c1_c2_c3_slack_full_once_then_release_and_new(str-work 재포화 1줄)
 - press 필요: 없음 — 전부 단위 시험(임시 루트 · 가짜 mbox · 실 Slack·실 runtime 쓰기 0) · 설치 뒤 실측(완료 조건 6)은 master/arch 몫
-- 세트: dc85096f87cce258b7fedc3db3deb56e30021c8b · 시험: python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_slack_accept_capacity.py rc=0 · 이슈: 0
+- 세트: efd79174acfe1a5b2dc82a13210f59ad68b4b754 (원래 값 dc85096f87cce258b7fedc3db3deb56e30021c8b = 착지에서 뺀 .worktree-info.json 메타 커밋 · 착지본으로 고침) · 시험: python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_slack_accept_capacity.py rc=0 · 이슈: 0
 - 완료: aifp-ft-nano-ft2-slack-accept-capacity#0 · 한 일: dict-work(글 영수) 용량 0칸 · 재접수는 그때의 실제 용량 · 꽉 참 알림 값 = capacity + 새 시험·계약·사례표 · 산출: nano/ft2-slack-accept-capacity-r2@dc85096f87 · 병합 상태: 착지 전(push 전) · 남은 일: 없음
+- DA 판정: BYZ 310409 APPROVE-IMPL(dc85096f .worktree-info.json 메타 커밋 착지 제외 승인 · 판정 사본 .fable-team/state/team-main/aifp-ft/DA-pB-impl-approve-310409.md)
