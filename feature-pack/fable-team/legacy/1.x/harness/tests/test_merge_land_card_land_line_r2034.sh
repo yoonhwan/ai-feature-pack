@@ -94,6 +94,12 @@ mkpr 106 nano/r9006-v 'r9006 push 실패'; land "$FIXB/ft-merge-land.sh" 106; rm
 BHF="$(ls "$C/.fable-team/state/" | grep '^base-head' | head -n1)"
 [ "$rc" = 0 ] && [[ "$out" == "LANDED pr=106 sha=$QL "* ]] && [ "$(tip)" = "$T6" ] && [ "$(grep -c '^판정 불가 — 카드 착지 줄 r9006-v ' <<<"$out")" = 1 ] \
   && grep -q '^pr-close 106 ' "$STUB_LOG" && [ "$(head -n1 "$C/.fable-team/state/$BHF")" = "$QL" ] && [ "$(sha "$ORIGIN" refs/heads/main)" = "$QL" ]; ck "⑥ rc0 · LANDED · 판정 불가 1줄 · 카드 ref 그대로 · PR 닫기 · 기준 헤드 = Q · 원격 main = Q" $?
+
+echo "### ⑧ DA HOLD R1(A1): «## 상태» 절 없는 카드 → 문서 끝에 착지 줄 · 원문 그대로"
+card_put 진행 r9011-no-state $'# 정상 텍스트 카드\n- 기존 본문\n'
+mkpr 111 nano/r9011-no-state 'r9011 상태 절 없음'; land "$FIXB/ft-merge-land.sh" 111; B8="$(card_get 진행 r9011-no-state)"
+[ "$rc" = 0 ] && [ "$B8" = $'# 정상 텍스트 카드\n- 기존 본문\n'"- 착지: $QL (w origin/main · PR #111 · ft-merge-land)" ] && [ "$(lands <<<"$B8")" = "$QL" ] \
+  && grep -qx "DONE 카드 착지 줄 r9011-no-state ${QL:0:10}" <<<"$out"; ck "⑧ 문서 끝 착지 줄 1개 · 앞 본문 그대로 · DONE 1줄" $?
 S2=$SECONDS
 
 echo "### ⑦ 회귀: REJECT(승인 sha 어긋남)·DRY 는 카드 쓰기 0 · 출력 꼴 그대로"
