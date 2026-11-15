@@ -44,6 +44,7 @@
 #     판정기(fetch 포함)도 같은 리포에서 돈다 · 원장 행·출력 꼬리에 `repo=<owner/repo>`. (r1019 설치 뒤 실사건 3/3: BYZ cwd 에서 닫으면 gh 가 cwd 리포의 같은 번호 PR 을 읽어 head 가 틀렸다.)
 #     다른 모드(--never-started·--superseded-by·--suspended·--research·--cherry-override·--shared-wt·--branch·--plan-only·--replan)와 동시 = usage 2 · --wt 만 함께 오면 «리포 힌트» 하나(좌석 워크트리 해석·정리는 기존 그대로) · 인자 없으면 동작 불변.
 #   ★r1737★ 착지 ref = FT_LAND_REF(기본 origin/main · 꼴 «origin/<가지>» 만 · 그 밖 = usage 2) — fetch refspec·ff 조상·squash 끝줄이 «같은 ref» 를 본다(A1 · env 없으면 동작 불변).
+#   ★r1754★ env 가 없고 origin/main 에 착지가 없으면 공용 ft_land_refs 후보(원격에 있으면 origin/ops/main-base)를 차례로 본다 · 맞은 ref = INFO «ref=<ref>».
 #   ★r1737★ `--landed-pr N --wt <경로>` = 그 워크트리가 «좌석 워크트리» 인지 확인해 받는다(A3) — $ROOT/.worktrees/ 등록 ∧ 가지 nano/* ∧ 그 가지 키의 «다른» 살아 있는 세션 0 ∧ HEAD == 카드 «세트:». 거짓 = REJECT 1줄(A4 · 추측 0).
 #   ★r1123 backfill★ --landed-pr 인데 좌석이 «세션 없음 ∧ 워크트리 없음»(③세션 없음 꼴)이면 ③ REJECT 를 미루고 위 착지 판정을 그대로 돈다 — 통과하면 명부 행만 닫는다
 #     (원장 꼬리 backfill=1 · 출력 `CLOSED-BACKFILL <좌석> landed-pr=<N> …` · tmux kill·태그·워크트리 정리 계획·브랜치 손 0). 이 길에서만 ⑥ «세트 ≠ PR head»(equiv·cherry 까지 실패)와
@@ -136,6 +137,7 @@ fi
 # ★r1737 A1★ FT_LAND_REF = 착지 판정 ref(기본 origin/main · 꼴 «origin/<가지>» 만 · 그 밖 = usage 2) — fetch·조상·끝줄이 «같은 변수» 를 본다.
 LP_LAND_REF="${FT_LAND_REF:-origin/main}"
 case "${LP_LAND_REF#origin/}" in ''|"$LP_LAND_REF") echo "usage: FT_LAND_REF 는 «origin/<가지>» 꼴이어야 한다(받은 값: ${LP_LAND_REF:-<빈 값>})" >&2; exit 2;; esac
+_lp_set_land_ref() { LP_LAND_REF="$1"; LP_LAND_REFS="refs/remotes/$1"; LP_LAND_FETCH="+refs/heads/${1#origin/}:refs/remotes/$1"; }   # r1754 A4 — 후보를 바꿔 볼 때도 세 변수를 같이
 LP_LAND_REFS="refs/remotes/$LP_LAND_REF"; LP_LAND_FETCH="+refs/heads/${LP_LAND_REF#origin/}:$LP_LAND_REFS"
 # --approved(r1670): 승인 갈래 — ⑤ cherry·⑥ 착지 증거 대신 «그 자리에서 ⓑ 를 다시 계산»(ft-nano-close-due.sh --approve-gate)한다. 빈 값·다른 모드와 동시 = usage(2).
 if [ -n "$APPROVED" ]; then
@@ -1112,7 +1114,7 @@ _lp_state_note() {
 #   우리 착지 도구(ft-merge-land)는 병합 버튼을 쓰지 않는다 — squash 커밋을 main 에 직접 올리고 PR 은 CLOSED 또는 OPEN 으로 남긴다(실측 3/3).
 #   ⓐ PR head 가 origin/main 의 조상 = 빨리감기 착지(R392 --ff)  ⓑ origin/main 커밋의 «끝줄» 이 정확히 «PR #<N> (head <PR head 40hex>)» = squash 착지(ft-merge-land 끝줄 꼴)
 #   둘 다 없으면 REJECT(«main 에 산출 없음») · fetch 실패 = «판정 불가» 1줄 REJECT(하드 룰 20 · 옛 ref 로 통과 0).
-_lp_landed_gate() {
+_lp_landed_at() {   # r1754: 한 ref(LP_LAND_*) 착지 판정 = 옛 _lp_landed_gate 본문 그대로 · 후보 고르기는 아래 _lp_landed_gate
   local repo cap out rc cand want grepw last x ecap eout erc efirst emerges mb rc3 mout merges
   repo="${_lp_repo:-}"
   _lp_landed=""; _lp_landed_short=""; _lp_equiv_x=""; _lp_equiv_sha=""; _lp_squash_sha=""; _lp_land_x=""   # r1084: _lp_land_x 도 비운다(두 번 불러도 앞 PR 의 X 가 안 남게)
@@ -1238,6 +1240,24 @@ _lp_fetch_pr() {
   if [ "$_lp_state" = MERGED ]; then return 0; fi   # R7: MERGED 는 지금처럼 통과(동작 불변) · r1058: 그 밖은 아래 «origin/main 에 산출 있음» 판정으로 간다
   _lp_landed_gate || return 1
   return 0
+}
+# ★r1754 A4★ FT_LAND_REF 가 없으면 공용 ft_land_refs(ft-card-target-lib.sh) 후보를 차례로 착지 확인 — origin/main 먼저(맞으면 ls-remote 0 · 기준판 그대로)
+#   맞은 ref 는 뒤 검사(판정기·cherry·sx)도 같이 본다(LP_LAND_* 세 변수) · 판정 불가(fetch·시간 초과·ls-remote 실패) = 그 자리 REJECT · 다 못 맞으면 main 사유 그대로
+_lp_landed_gate() {
+  local refs r first
+  [ -z "${FT_LAND_REF:-}" ] || { _lp_landed_at; return $?; }
+  _lp_landed_at && return 0
+  case "$_lp_pr_err" in *"판정 불가"*) return 1;; esac
+  first="$_lp_pr_err"
+  _lp_lib || { _lp_pr_err="$first · $_lp_repo_err"; return 1; }
+  refs="$(ft_land_refs "$_lp_repo")" || { _lp_pr_err="$first · $refs"; return 1; }
+  for r in $refs; do
+    [ "$r" != origin/main ] || continue
+    _lp_set_land_ref "$r"
+    if _lp_landed_at; then echo "INFO ⑥--landed-pr 착지 ref=$r (FT_LAND_REF 없음 · 공용 후보 ft_land_refs)"; return 0; fi
+    case "$_lp_pr_err" in *"판정 불가"*) return 1;; esac
+  done
+  _lp_set_land_ref origin/main; _lp_pr_err="$first"; return 1
 }
 # ★r1019★ ⑥ «세트 대조» 를 «세트 + main 병합뿐» 까지 넓힌다 — ft-merge-land 는 main 이 앞서 있으면 승인판 위에 합침 커밋 1개를 올려 합치므로 PR head 는 «언제나» 카드 세트가 아니다(r1011 경로가 오늘 착지 6건을 0/6 으로 막았다).
 #   판정기는 승인 h 쪽이 이미 쓰는 ft-approval-equiv.sh(R247 · 판정 1917) 그대로 — 규칙 변경 0 · 호출 1곳만. rc0 만 통과 · rc1/rc3/rc2 는 사유 첫 줄 그대로 REJECT(조용한 통과 0 · #0 RULE).
