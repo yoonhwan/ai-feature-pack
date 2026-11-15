@@ -14,7 +14,7 @@
 - 규칙: 없음 — 상시 로드 변경 0
 - 규칙 상세: 하드 룰 20 · 하드 룰 22 · r2027 «못 읽는 선행 = 건너뜀»(추측 0) 그대로
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/pi/keeper_next.py(prereq 까닭 반환 · choose 로그 기억 · 쪽지 1곳) · 새 시험 feature-pack/fable-team/ft2/tests/test_prereq_unreadable_once.py · 문서 ft2/contracts/keeper-settle/CONTRACT.md·CASES.md
-- 정본 영향 있음: CONTRACT.md 에 «선행불명 로그·쪽지» 절 1개(상태 키 3개 · 줄 꼴 · 보낼 조건) · CASES.md ㉟·변이 행 = 같은 PR(나노)
+- 정본 영향 없음: aifp 정본(docs/architect · docs/rules · design 팀 GUIDE·README) 변경 0 — 바뀐 것은 팩 ft2 계약 문서(contracts/keeper-settle/CONTRACT.md · CASES.md)뿐이고 착지 PR #1336(b70abbf6)에 같이 들어갔다 · 원래 줄 «정본 영향 있음: CONTRACT.md 에 «선행불명 로그·쪽지» 절 1개(상태 키 3개 · 줄 꼴 · 보낼 조건) · CASES.md ㉟·변이 행 = 같은 PR(나노)»
 - 크기: 코드 1파일 · 새 시험 1파일 · 문서 2파일 · PR 1개
 - 배정: 좌석 aifp-ft-nano-ft2-prereq-unreadable-once#0
 
