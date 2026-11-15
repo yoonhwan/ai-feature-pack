@@ -27,6 +27,9 @@ gate "$GATE" "$D" "$DA" "[판정] APPROVE r1935\n판정문: x/DA-r1935.md";  wan
 gate "$GATE" "$D" "$DA" "$OKB\n세트: ${S//a/b}";                        want "④ 세트 2개" reject
 gate "$GATE" "$D" "$DA" "[판정] APPROVE r1935\n세트: $S";              want "④ 판정문 경로 없음" reject
 gate "$GATE" "$D" "$DA" "$OKB\n참고: y/other.md";                       want "④ 판정문 경로 2개" reject
+gate "$GATE" "$D" "$DA" "[판정] APPROVE r1935\n세트: $S\n판정문: /tmp/DA.md.txt"; want "④ .md.txt 경로(.md 아님)" reject
+gate "$GATE" "$D" "$DA" "[판정] APPROVE r1935\n세트: $S\n판정문: /tmp/DA.md.bak"; want "④ .md.bak 경로(.md 아님)" reject
+gate "$GATE" "$D" "$DA" "[판정] APPROVE r1935\n세트: $S\n판정문(/tmp/DA.md)"; want "① 괄호 안 .md 경로" pass
 gate "$GATE" "$D" 'byz-harness-da-codex#12' "$OKB";                    want "⑤ 회전 DA(#N+1)" pass
 gate "$GATE" "$D" 'byz-harness-arch-pi#346' '[HIL] r1935 오빠 판정';  want "⑥ [HIL] 예외 그대로" pass
 gate "$GATE" "$D" 'byz-harness-arch-pi#346' '[진행] r1935';           want "⑥ 일반 쪽지 그대로 REJECT" reject

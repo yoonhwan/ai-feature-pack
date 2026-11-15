@@ -29,7 +29,7 @@ HIL_HEADS = ("[HIL]", "[HIL·")
 H_RESULT = re.compile(r"^\[h([0-9]+)\s*결과\]")
 DA_APPROVE = re.compile(r"^\[판정\]\s*APPROVE(?![A-Za-z0-9_-])")  # r1935 — APPROVE-DESIGN 같은 다른 머리는 아님
 SET_LINE = re.compile(r"세트:\s*[0-9a-f]{40}(?![0-9A-Za-z])")
-MD_PATH = re.compile(r"[^\s()<>«»\[\]'\"`]+\.md(?![A-Za-z0-9_])")
+MD_PATH = re.compile(r"[^\s()<>«»\[\]'\"`]+\.md(?![^\s()<>«»\[\]'\"`])")  # 토큰 끝 = .md(.md.txt·.md.bak 아님)
 SENT_LOGS = ("mailbox.log.jsonl", "mailbox.log.jsonl.1", "mailbox.log.jsonl.2", "mailbox.log.jsonl.3")  # SENT_LOG_KEEP=3
 
 
