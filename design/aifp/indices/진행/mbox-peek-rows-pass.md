@@ -16,7 +16,7 @@
 - 대상: 팩 feature-pack/fable-team/legacy/1.x/harness/comm/mbox.sh(peek 갈래 1줄 · 사용법 2줄) · 새 시험 feature-pack/fable-team/legacy/1.x/harness/tests/scripts/test_mbox_sh_peek_rows.py
 - 정본 영향 없음: aifp 정본(docs/architect · docs/rules · design 팀 GUIDE·README) 변경 0 — 바뀌는 것은 팩 1.x comm 도구 mbox.sh 와 그 시험뿐이다
 - 크기: 코드 1파일(3줄 안팎) · 새 시험 1파일 · PR 1개
-- 배정: 대기(DA · 2026-11-16T05:58)
+- 배정: 좌석 aifp-ft-nano-mbox-peek-rows-pass#0
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -93,5 +93,7 @@
 | Q6 그대로 | ㊶바 |
 
 ## 상태
-- base_sha: a964e15c581c955851729936f6d4dabfcf53778a
+- base_sha: b877a2ee1eb188e963e3a9164c097f22a55188bf (recheck-auto 2026-11-16 · 겹침 0)
 - 2026-11-16 05:58 · 대기 — aifp-ft-arch-pi#21 초안(팀장 aifp 5783 · 넘김 harness#293 aifp 5782 · 실측 = BYZ comm 명령 3개 원문 · 구현 0) · 다음 = 팀장 PR → DA 설계 → Issue → 나노 1석 → harness comm 설치
+- 2026-11-16 06:08 — 대기→진행 · 좌석 aifp-ft-nano-mbox-peek-rows-pass#0
+- [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
