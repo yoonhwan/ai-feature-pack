@@ -2,7 +2,7 @@
 # test_index_move_archive_seat_r1747.sh — r1747: 아카이브 카드를 든 나노의 표준 닫기 길.
 #   ft-index-move 아카이브 갈래 = --to <받는 카드> 면 «대체됨:» 줄 · 열린 좌석마다 «다음: … --superseded-by» 1줄 · --to 없이 열린 좌석 ≥1 = REJECT · 명부 못 읽음 = 판정 불가.
 #   ft-nano-close --superseded-by = 카드 찾기 폴더 목록 끝에 아카이브/<YYYY-MM>/(정확히 1개) · r1733 안내는 아카이브 «자기 카드» 를 권하지 않는다.
-#   반례 ①~⑧(카드 동결) + 변이 M1~M3(각각 원본 대조). 임시 git 리포 + 임시 명부 + tmux·gh 스텁만 — 실 리포·좌석·명부·sleep 0.
+#   반례 ①~⑧(카드 동결) + ⑨(DA R1 입력 · 상태 절 뒤 «## 근거» 절) + 변이 M1~M3(각각 원본 대조). 임시 git 리포 + 임시 명부 + tmux·gh 스텁만 — 실 리포·좌석·명부·sleep 0.
 #   SRC=<bin 폴더> 로 기준판(전 판)을 같은 시험으로 돌린다(①②③⑤ Red).
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
 set -uo pipefail
@@ -62,12 +62,12 @@ A1="$IDX/아카이브/$MON/k1.md"
 [ "$rc" = 0 ] && [ -f "$A1" ] && [ "$(lastline "$A1")" = "대체됨: $TO · 사유: $DA#§k1" ] && ok "① 대체됨 줄 = 상태 끝 줄" || bad "① rc=$rc last=$( [ -f "$A1" ] && lastline "$A1") ← ${out:0:500}"
 [ -f "$A1" ] && sc="$(bash "$B/ft-nano-superseded-check.sh" "$A1" --superseded-by "$TO" --base "$CR" 2>&1)" && has "$sc" "OK 대체됨" "  └ ft-nano-superseded-check 통과(같은 줄을 읽는다)" || bad "  └ superseded-check ← ${sc:-사본 없음}"
 
-echo "== ①b 상태 절 뒤 «## 근거» 절 → 대체됨 줄 = 상태 절 끝(EOF 아님) · superseded-check 통과 (DA R1)"
+echo "== ⑨ 상태 절 뒤 «## 근거» 절 → 대체됨 줄 = 상태 절 끝(EOF 아님) · superseded-check 통과 (DA R1)"
 card k1b; printf '## 근거\n정상 카드의 후속 절\n' >> "$IDX/진행/k1b.md"; printf '## §k1b k1b — 닫힘 (CLOSE)\n닫힘 — k1b — 버림\n' >> "$DA"; g "$CR" add -A >/dev/null
 roster k1b 0 0; out="$(mv1 "$IDX/진행/k1b.md" 아카이브 --da "$DA#§k1b" --seat s1 --to "$TO")"; rc=$?
 A1b="$IDX/아카이브/$MON/k1b.md"
 [ "$rc" = 0 ] && [ -f "$A1b" ] && [ "$(lastline "$A1b")" = "대체됨: $TO · 사유: $DA#§k1b" ] && [ "$(awk 'NF{l=$0} END{print l}' "$A1b")" != "대체됨: $TO · 사유: $DA#§k1b" ] \
-  && ok "①b 대체됨 줄 = 상태 절 끝 · «## 근거» 절 그대로 뒤" || bad "①b rc=$rc last=$( [ -f "$A1b" ] && lastline "$A1b") ← ${out:0:300}"
+  && ok "⑨ 대체됨 줄 = 상태 절 끝 · «## 근거» 절 그대로 뒤" || bad "⑨ rc=$rc last=$( [ -f "$A1b" ] && lastline "$A1b") ← ${out:0:300}"
 [ -f "$A1b" ] && sc="$(bash "$B/ft-nano-superseded-check.sh" "$A1b" --superseded-by "$TO" --base "$CR" 2>&1)" && has "$sc" "OK 대체됨" "  └ superseded-check 통과(상태 절 뒤 절 있어도)" || bad "  └ superseded-check ← ${sc:-사본 없음}"
 
 echo "== ② 열린 나노 2석 + 닫힌 1석 + --to → «다음: … --superseded-by» 정확히 2줄"
