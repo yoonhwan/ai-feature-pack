@@ -124,6 +124,10 @@ TREF=no-such-ref sh_ handover-drop "$O" "$N" "$HS" --verdict "$V"; chk "⑥ FT_T
 # ⑦ 표식 깨짐 · 표식에 기계 seq
 new_env; hand_q "$O" "$N"; roster 1; sh_ recv "$N"; mkdir -p "$(dirname "$MK")"; printf '{ broken' > "$MK"; sh_ ready "$N" "$O"
 chk "⑦ 깨진 표식 → ready REJECT 형식 불명 그대로 · «판정 불가 handover-drop 표식» 1줄" "$RC $(has '형식 불명') $(printf '%s\n' "$OUT" | grep -c '판정 불가 handover-drop 표식')" "3 y 1"
+new_env; row 1 "$O" "[HIL] q"; sh_ recv "$O"; hand_q "$O" "$N"; sh_ handover "$O" "$N"; mkdir -p "$(dirname "$MK")"   # DA R1 — verdict·at 없는 표식 = 꼴 틀림
+printf '{"drops": [{"seq": %s, "to": "%s"}]}\n' "$HS" "$N" > "$MK"; roster 1; sh_ recv "$N"; sh_ ready "$N" "$O"
+chk "⑦ verdict·at 없는 표식 → ready REJECT 형식 불명 · «판정 불가 handover-drop 표식» 1줄" "$RC $(has '형식 불명') $(printf '%s\n' "$OUT" | grep -c '판정 불가 handover-drop 표식')" "3 y 1"
+py close-check "$O"; chk "⑦ verdict·at 없는 표식 → close-check CLOSE-OK 아님" "$RC $(has CLOSE-OK)" "3 n"
 new_env; row 1 "$O" "[HIL] q"; sh_ recv "$O"; sh_ handover "$O" "$N"; H2="$(sq)"; mkdir -p "$(dirname "$MK")"
 printf '{"drops": [{"seq": %s, "to": "%s", "verdict": %s, "at": 1}]}\n' "$H2" "$N" "$V" > "$MK"; roster 1; sh_ recv "$N"; sh_ ready "$N" "$O"
 chk "⑦ 표식에 기계 [인계] seq → 묶음에 그대로(ready 가 그 통 «받음»)" "$RC $(has QUEUED)" "0 y"
