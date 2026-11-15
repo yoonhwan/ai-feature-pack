@@ -26,5 +26,5 @@
 
 - 함수: `ft_roster_lib.bak_cap(<원본>, <종류>, [상한])` · 셸 `ft_bak_cap` (ft-team-lib.sh · 같은 Python 함수 호출)
 - 단위 = (원본 파일 · 종류) · 상한 = env `FT_BAK_CAP` 정수 50~100 · 없거나 밖이면 50
-- 대상 = 정확히 `<원본>.bak-<종류>-<숫자 ts>` 일반 파일 · 심링크·폴더·꼴 밖 꼬리·`.bak-r<N>` = 손 0
+- 대상 = 정확히 `<원본>.bak-<종류>-<ts>` 일반 파일 · ts = 14자리 | YYYYmmdd-HHMMSS | YYYYmmdd-HHMMSS+마이크로초 6 (DA HOLD 1 뒤 좁힘) · 심링크·폴더·꼴 밖 꼬리·`.bak-r<N>` = 손 0
 - 순서 = 이름 속 ts 숫자(자릿수 → 값) · 오래된 것부터 지움 · 실패 = stderr `WARN 백업 상한 정리 실패 …` 1줄 · 본 작업 rc 불변
