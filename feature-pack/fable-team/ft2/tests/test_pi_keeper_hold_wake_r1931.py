@@ -62,7 +62,7 @@ def c3(w):   # ③ 1 → 2 = 깨움 1(누계 2)
 def c4(w):   # ④ 2 → 3 = 깨움 0 + 인터뷰 길 로그 1 · 다음 바퀴 로그 0
     c3(w), _card(w, 3)
     lines = w.round(3 * M)
-    assert _holds(w) == 2 and lines.count("HELD harness %s HOLD 누적 3 — 인터뷰 길(하드 룰 14)" % W) == 1, lines
+    assert _holds(w) == 2 and lines.count("UNKNOWN harness %s HOLD 누적 3 — 인터뷰 길(하드 룰 14)" % W) == 1, lines
     assert not [x for x in w.round(4 * M) if "인터뷰 길" in x] and _holds(w) == 2
 
 

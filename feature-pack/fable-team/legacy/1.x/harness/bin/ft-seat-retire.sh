@@ -22,12 +22,12 @@ ROOT="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 
 # r1675 — 옛 좌석의 팀이 2.0 전환됨이면 명부 쓰기 전에 멈춘다(표식 = <데이터루트>/.fable-team/state/ft20-switch/<팀>.json).
 #   팀 = --seats/FT_SEATS_JSON 명부 파일 이름, 없으면 <구> 행을 가진 명부 파일 이름. ★--record-only 는 막지 않는다★ — 재개 기록은 닫기 경로(전환 뒤에도 옛 좌석 정리용 · 카드 범위 밖).
 # r1777(R336) — 교대 창 허용 쪽: 표식이 «없고» 보관본(<팀>.json.unmarked-<ts>)이 있는 창에서 보관본 h 가 A<N> 꼴이거나 «사건 쏙파일»(<보관본>.window · A<N> 로 연 교대)이 있으면 그 자율 조건(ON ∧ full ∧ A<N> = 지금 이벤트)을 통과해야 은퇴가 진행된다(ft20_guard_retire → ft20_window_guard · 숫자 h 창은 옛 그대로 · DA #292018: 숫자 원표식 팀을 A17 로 연 교대도 A17 문맥 유지).
-if [ "${RECONLY:-0}" = 0 ]; then _ft20h="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; if [ -f "$_ft20h/ft20-switch-lib.sh" ]; then . "$_ft20h/ft20-switch-lib.sh"; ft20_guard_handover "$(ft20_root_of "${ROOT:-.}" 2>/dev/null)" "$OLD" "$NEW" "${ARG:-${FT_SEATS_JSON:-}}" || exit $?; else _ft20_r="${FT_FT20_ROOT:-${ROOT:-.}}"; compgen -G "$_ft20_r/.fable-team/state/ft20-switch/*.json" >/dev/null 2>&1 && { echo "REJECT 2.0 전환 표식이 있는데 ft20-switch-lib.sh 없음(설치 누락) — 1.x 쓰기 0(판정 불가)" >&2; exit 3; }; fi; fi
+if [ "${RECONLY:-0}" = 0 ]; then _ft20h="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; if [ -f "$_ft20h/ft20-switch-lib.sh" ]; then . "$_ft20h/ft20-switch-lib.sh"; _ft20_root="$(ft20_root_of "${ROOT:-.}")" || exit $?; ft20_guard_handover "$_ft20_root" "$OLD" "$NEW" "${ARG:-${FT_SEATS_JSON:-}}" || exit $?; else _ft20_r="${FT_FT20_ROOT:-${ROOT:-.}}"; compgen -G "$_ft20_r/.fable-team/state/ft20-switch/*.json" >/dev/null 2>&1 && { echo "REJECT 2.0 전환 표식이 있는데 ft20-switch-lib.sh 없음(설치 누락) — 1.x 쓰기 0(판정 불가)" >&2; exit 3; }; fi; fi
 python3 - "${ARG:-${FT_SEATS_JSON:-}}" "${ROOT:-.}" "$OLD" "$NEW" "$RECONLY" "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)" "$VERDICT" "$KEEP" <<'PY'
 import json, os, re, sys, glob, shutil, shlex, datetime, subprocess, collections
 arg, root, old, new, reconly, here, verdict, keep = sys.argv[1:9]
 sys.path.insert(0, here)   # 소유 결속 판정기 하나(R364) — 같은 폴더(자기 번들) 고정 경로 · 없으면 명시 rc 2(닫기 근거 0 · 옛 판정 후퇴 0)
-try: import ft_seat_bind; from ft_roster_lib import load, dump, scan_cells, apply_cells, role_cell, held_roles, succ_role, fix_role, pi_seat_resume   # 명부 읽기·원자 쓰기·남의 명부 칸 쓸기(r429→r465)·후계 role 도출(r499)·pi 재개 기록(r960) = 같은 폴더 lib
+try: import ft_seat_bind; from ft_roster_lib import load, dump, scan_cells, apply_cells, role_cell, held_roles, succ_role, fix_role, pi_seat_resume, bak_cap   # 명부 읽기·원자 쓰기·남의 명부 칸 쓸기(r429→r465)·후계 role 도출(r499)·pi 재개 기록(r960) = 같은 폴더 lib
 except ImportError as e: print(f"ERROR 결속 판정기·명부 lib 없음 {here}/ft_seat_bind.py · ft_roster_lib.py ({e}) — 은퇴·기록 0"); sys.exit(2)
 def sh(*a):
     try: return subprocess.run(a, capture_output=True, text=True, timeout=7).stdout.split()
@@ -202,7 +202,7 @@ if fc and isinstance(fv, str) and fv not in ("", new) and alive(fv):   # r1646 �
 fc = fc if fv in (None, "") else None; rc_ = held_roles(d, keys + [fc], new); pr = n.get("role") if isinstance(n, dict) else o.get("role"); rfx = fix_role(o, n, rc_, new) if noop else ""   # r499 ⓙ 재실행 — 현역 역할 칸 값인 후계가 stop-ready 꼴이면 도출 role(메모리 · 아래 dump)
 if noop and not (keys or cells or fc or rfx): print(f"NOOP {old} 은 이미 {new} 로 은퇴 file={p}"); sys.exit(0)
 own, ts, rec, why = not noop or bool(keys or fc or rfx),datetime.datetime.now().strftime("%Y%m%d%H%M%S"), None, ""   # own = 자기 명부를 쓰나
-if own: shutil.copy(p, p + ".bak-retire-" + ts)
+if own: shutil.copy(p, p + ".bak-retire-" + ts); bak_cap(p, "retire")
 if not noop:
     if mkrow: d[old] = o   # .bak 뒤에 — 아래 은퇴 흐름이 이 행을 닫는다
     rec, why = (None, PI_DEAD) if pi_dead else find_resume(o.get("model"), new, o.get("agent"))   # 읽기만 — 실패해도 은퇴는 그대로(기록 결과는 rc 에 섞지 않는다 · H3)

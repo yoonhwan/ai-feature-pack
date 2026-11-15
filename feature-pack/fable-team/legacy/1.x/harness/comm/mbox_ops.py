@@ -91,9 +91,9 @@ def send(to, frm, body, force=False, desk_attach=""):
           f"file={_mbox(CANON)} bytes={len(body.encode('utf-8'))}")
     if dropped:
         sys.stderr.write(
-            "DROPPED %d to=%s (ring=%d 포화 · 시스템 알림 먼저 · 사람 글 보존) — 이 좌석이 %d건을 안 읽고 쌓아뒀다.\n"
+            "DROPPED %d to=%s (ring=%d 포화 · 시스템 알림 먼저 · 사람 글 보존) — 이 좌석이 %d건을 안 읽고 쌓아뒀다.%s\n"
             "버려진 %d건은 «영구 유실»이다. 좌석 상태를 보고, 급하면 pane 으로 직접 보낸다.\n"
-            % (dropped, to, MAX_PER_TO, pend, dropped))
+            % (dropped, to, MAX_PER_TO, pend, mbox_drops.drop_seq_tail(seqs), dropped))
         mbox_drops.log_drop(CANON, to, dropped, oldest, seqs)   # r1651 — 버린 seq 전부를 원장에
     if overflow:
         # ★사람 글은 안 버린다★ — 상한을 넘긴 채로 두고 «그 사실»을 알린다(조용한 초과 0 · r912).
@@ -187,7 +187,12 @@ def recv(me, frm=None, limit=None):
         print(wait_line(left))
 
 
-def peek(me):
+def peek(me, rows=False):
+    """pending=N …1줄 · rows=True(=`peek --rows`)면 미읽음마다 JSON 1줄(seq·ts·to·from·body)을 더 찍는다.
+
+    줄의 집합 = 아래 pending 을 세는 그 목록 그대로다(계보 옛 이름·옛 우편함 포함 · 옛 이름 선택 규칙을 새로 만들지 않는다).
+    읽기만 한다 — mark·recv·큐 쓰기 0. keeper 의 쉼 판정(카드 ft2-done-seat-short-idle A4)이 이 줄을 읽는다.
+    """
     _check_name(me)
     dirs = [CANON] + _legacy_dirs()
     names, joined = _lineage(me)
@@ -200,4 +205,8 @@ def peek(me):
     if mine:
         head += f" latest_seq={mine[0]['seq']} from={mine[0]['from']}"
     print(f"{head} scanned={len(dirs)} lineage={joined}")
+    if rows:
+        for r in sorted(mine, key=lambda r: r["seq"]):
+            print(json.dumps({"seq": r["seq"], "ts": r.get("ts"), "to": r.get("to"), "from": r.get("from"),
+                              "body": r.get("body", "")}, ensure_ascii=False))
 

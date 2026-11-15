@@ -4,13 +4,28 @@
 #   표식 없음 = 지금 동작 그대로(rc0) · 못 읽는 표식(깨진 JSON·권한) = «판정 불가» rc3(쓰기 0 · 하드 룰 20).
 #   입구는 «호출 1줄»만 쓴다 — 팀 판정은 ft20_guard_* 함수가 맡는다(arch #3922 ③).
 FT20_SWITCH_REL=".fable-team/state/ft20-switch"
-ft20_root_of() {   # <경로> → .fable-team 이 있는 리포 루트 · FT_FT20_ROOT 가 이긴다(시험용 임시 루트)
+# r1909 — 순서 = FT_FT20_ROOT(시험 · 그 값만) > FT_ROOT > 경로의 git-common-dir 상위 · 후보 2개(실경로 다름)면 두 루트 표식으로 고른다
+#   성공 = stdout 루트 1줄 rc0 · 판정 불가 = stdout 0 · stderr «REJECT 데이터 루트 판정 불가 — <사유>» 1줄 rc3(하드 룰 20)
+_ft20_root_reject() { echo "REJECT 데이터 루트 판정 불가 — $1 · 1.x 쓰기 0" >&2; return 3; }
+_ft20_marker_names() { local f; for f in "$(ft20_switch_dir "$1")"/*.json; do [ -f "$f" ] && basename -- "$f"; done | LC_ALL=C sort; }
+ft20_root_of() {   # <경로> → 데이터 루트
   if [ -n "${FT_FT20_ROOT:-}" ]; then printf '%s' "$FT_FT20_ROOT"; return 0; fi
-  local p="${1:-.}" r
+  local p="${1:-.}" r="" f="${FT_ROOT:-}" nf ng x
   [ -f "$p" ] && p="$(dirname -- "$p")"   # r1767 A1 — 카드 «파일» 경로면 그 폴더
   while [ ! -e "$p" ]; do p="$(dirname -- "$p")"; done   # r1767 A1 — 아직 없는 경로(쌍둥이 경로)는 존재하는 가장 가까운 상위
-  r="$(git -C "$p" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || return 1
-  printf '%s' "${r%/.git}"
+  r="$(git -C "$p" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" && r="${r%/.git}" || r=""
+  [ -z "$f" ] || [ -d "$f" ] || { _ft20_root_reject "FT_ROOT 폴더 아님: $f"; return 3; }
+  [ -n "$f" ] || [ -n "$r" ] || { _ft20_root_reject "git 루트 못 풂 ∧ FT_ROOT 없음: $p"; return 3; }
+  if [ -z "$f" ] || { [ -n "$r" ] && [ "$(cd -- "$f" && pwd -P)" = "$(cd -- "$r" && pwd -P)" ]; }; then printf '%s' "$r"; return 0; fi   # 후보 1개(같은 실경로 = 옛 출력 그대로)
+  [ -n "$r" ] || { printf '%s' "$f"; return 0; }
+  nf="$(_ft20_marker_names "$f")"; ng="$(_ft20_marker_names "$r")"
+  [ -n "$ng" ] || { printf '%s' "$f"; return 0; }   # 둘 다 0개 · FT_ROOT 쪽만 있음 = FT_ROOT
+  [ -n "$nf" ] || { printf '%s' "$r"; return 0; }   # git 루트 쪽만 있음 = 그쪽
+  [ "$nf" = "$ng" ] || { _ft20_root_reject "두 루트 표식 다름(FT_ROOT=$f · git=$r)"; return 3; }
+  while IFS= read -r x; do
+    cmp -s "$(ft20_switch_dir "$f")/$x" "$(ft20_switch_dir "$r")/$x" || { _ft20_root_reject "두 루트 표식 내용 다름($x · FT_ROOT=$f · git=$r)"; return 3; }
+  done <<<"$nf"
+  printf '%s' "$f"
 }
 ft20_switch_dir() { printf '%s/%s' "${1%/}" "$FT20_SWITCH_REL"; }
 ft20_switch_marker() { printf '%s/%s.json' "$(ft20_switch_dir "$1")" "$2"; }
@@ -113,16 +128,22 @@ ft20_guard_retire() {
 # r1874 — ft20_guard_handover <루트> <구> <후계> [<명부파일>] — 2.0 표식 아래 «같은 계보 역할 좌석» 승계만 표식 유지 통과(rc0 + INFO 1줄)
 #   ⓐ 두 이름 lint ⓑ 계보(#N 앞) 같음 ⓒ 후계 번호 > 구 번호 ⓓ 역할 ≠ nano(DA r1874 R1) ⓔ 쓰기 팀 = 이름 팀 1개(남의 명부 `_*` 0) ⓕ 표식 판독 OK
 #   하나라도 거짓 = ft20_guard_retire 그대로(완화 0 · 표식 없음·깨짐·교대 창 판정은 그쪽이 한다)
+#   r2076 — ⒶⒷ = 후계만 lint · 구 이름은 꼴만 · 계보 = 에이전트 꼬리를 뺨 역할 줄기 · Ⓕ 표식 h 가 빈 글이면 통과 0
+_ft20_role_stem() {   # r2076 E1 — <이름> → 마지막 `-` 토큰(에이전트 자리)을 뺨 줄기 · 3토큰(석 칸 없음) = 끝에 -0(r1641)
+  local b="${1%#*}" s; s="${b%-*}"; [ "$s" != "$b" ] || return 1
+  case "$s" in *-*-*-*) ;; *-*-*) s="$s-0";; *) return 1;; esac
+  printf '%s' "$s"
+}
 ft20_guard_handover() {
-  local root="${1:-}" old="${2:-}" new="${3:-}" f="${4:-}" lint="$FT20_HERE/ft-name-lint.sh" team teams m h on nn
+  local root="${1:-}" old="${2:-}" new="${3:-}" f="${4:-}" lint="$FT20_HERE/ft-name-lint.sh" team teams m h on nn so sn
   if [ -n "$root" ] && [ -n "$new" ] && [ -f "$lint" ] \
-     && bash "$lint" "$old" >/dev/null 2>&1 && bash "$lint" "$new" >/dev/null 2>&1 \
-     && [ "${old%#*}" = "${new%#*}" ] \
+     && bash "$lint" "$new" >/dev/null 2>&1 && [[ "$old" =~ ^[a-z0-9-]+-[a-z0-9]+#[0-9]+$ ]] \
+     && so="$(_ft20_role_stem "$old")" && sn="$(_ft20_role_stem "$new")" && [ "$so" = "$sn" ] \
      && on="${old##*#}" && nn="${new##*#}" && [ "$((10#$nn))" -gt "$((10#$on))" ] \
      && [ "$(printf '%s' "${old%#*}" | cut -d- -f3)" != nano ] \
      && team="$(ft20_team_of_name "$old")" \
      && teams="$(ft20_teams_writing_seat "$root" "$old" "$f")" && [ "$teams" = "$team" ] \
-     && m="$(ft20_switch_marker "$root" "$team")" && [ -f "$m" ] && h="$(ft20_marker_h "$m")"; then
+     && m="$(ft20_switch_marker "$root" "$team")" && [ -f "$m" ] && h="$(ft20_marker_h "$m")" && [ -n "$h" ]; then
     echo "INFO 2.0 표식 아래 같은 계보 승계 허용 팀 $team h$h" >&2; return 0
   fi
   ft20_guard_retire "$root" "$old" "$f" "$new"

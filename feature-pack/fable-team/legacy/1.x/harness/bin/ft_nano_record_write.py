@@ -21,7 +21,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from ft_nano_record import ENV, SET_RX, Ctx, Reject, Unjudged, check_test, left_free, left_of, marks, need, rec_of, run, section
-from ft_nano_record_due import card_key, owners
+from ft_nano_record_due import at, card_key, owners
 from ft_nano_record_notify import close_request, send, seq_known, try_record, update
 
 
@@ -147,7 +147,7 @@ def cmd_landed(ctx, a):
     if not hit:
         raise Reject(f"장부에 (PR #{a.pr} · {a.card}) 줄 없음")
     e, cpath = hit[-1]
-    team, iroot, stem = card_key(cpath)
+    (team, iroot, stem), ctx = card_key(cpath), at(ctx, cpath)   # r1849 ⓑ: 카드 리포의 카드 ref·명부(잠금·보낸 기록·우편함 = 장부 루트)
     if a.test is not None:
         check_test(a.test)
     q, repo, target = e["landed"], str(e.get("repo") or ""), str(e.get("target") or "main")

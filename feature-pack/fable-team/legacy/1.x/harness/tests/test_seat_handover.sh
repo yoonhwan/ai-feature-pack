@@ -30,8 +30,8 @@ case "$sub" in
     tty="$2"; new="${4#=}"; echo "-c $tty -t =$new" >> "$S/switch.log"
     [ -f "$S/switch-fail" ] && exit 1
     [ -f "$S/switch-noop" ] || awk -v t="$tty" -v n="$new" '$1==t{$4=n}{print}' "$S/clients.txt" > "$S/c.new" && mv "$S/c.new" "$S/clients.txt";;
-  show-option) s="${2#=}"; n="${4#@}"; [ -f "$S/opts/$s.$n" ] && cat "$S/opts/$s.$n"; exit 0;;
-  set-option) mkdir -p "$S/opts"; printf '%s' "$4" > "$S/opts/${2#=}.${3#@}";;
+  show-option) s="${2#=}"; s="${s%:}"; n="${4#@}"; [ -f "$S/opts/$s.$n" ] && cat "$S/opts/$s.$n"; exit 0;;   # r1742 — 옵션 대상 `=<세션>:` 의 끝 콜론도 뗀다
+  set-option) s="${2#=}"; s="${s%:}"; mkdir -p "$S/opts"; printf '%s' "$4" > "$S/opts/$s.${3#@}";;
   display-message)
     pane=""; while [ $# -gt 0 ]; do case "$1" in -t) pane="$2"; shift 2;; *) shift;; esac; done
     if [ -n "$pane" ]; then awk -v p="$pane" '$1==p{print $2}' "$S/panes.txt"; else echo ambient-other; fi;;

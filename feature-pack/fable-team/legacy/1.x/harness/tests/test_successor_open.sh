@@ -26,7 +26,7 @@ if [ "${FT_SO_MUTATE:-0}" != 0 ]; then
 fi
 REPO="$TMP/repo"; FAKE="$TMP/fakebin"; LOG="$TMP/calls.log"; CNT="$TMP/pgrep.cnt"; BODY="$TMP/body.txt"
 mkdir -p "$REPO" "$FAKE"; git -C "$REPO" init -q
-STATE="$REPO/.fable-team/state/successor"; OLD="byz-t-old-claude#1"; NEW="byz-t-new-claude#2"
+STATE="$REPO/.fable-team/state/successor"; OLD="byz-t-tool-claude#1"; NEW="byz-t-repro-claude#2"
 OPENED="$TMP/opened"   # r609: tmuxc open 이 세션을 열었음을 tmux 스텁에게 알리는 표식(열기 전 has-session = 1)
 
 mkstub() { printf '#!/usr/bin/env bash\n%s\n' "$2" > "$FAKE/$1"; chmod +x "$FAKE/$1"; }
@@ -50,7 +50,7 @@ mkstub ps     'case "$1 $2 $3" in "-o lstart= -p") echo "Thu Jan  1 09:00:00 202
 printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n본문 나머지\n열린 칸 감시: 없음\n' > "$BODY"
 # r1391 — 팀셋·명부·지침 블록 대역: arch 게이트(R342)가 읽는 resroot 명부와 --md 표(«arch 상시» 팀 0)를 임시로 세운다.
 mkdir -p "$RES/design"; printf '# TEAMS\n\n| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| t | `design/t/` | byz-t-master-claude | 현역 |\n' > "$RES/design/TEAMS.md"
-printf '{"byz-t-master-claude":{"role":"master","model":"m"},"byz-t-old-claude#1":{"role":"master","model":"m"},"byz-t-new-claude#2":{"role":"master","model":"m"}}\n' > "$RES/.fable-team/seats-t.json"
+printf '{"byz-t-master-claude":{"role":"master","model":"m"},"byz-t-tool-claude#1":{"role":"master","model":"m"},"byz-t-repro-claude#2":{"role":"master","model":"m"}}\n' > "$RES/.fable-team/seats-t.json"
 printf '| 팀 | 오케 | arch 상시 |\n|---|---|---|\n| t | byz-t-master-claude | — |\n' > "$TMP/teamset.md"
 printf '<!-- S17-BOOT-BEGIN -->\n목적 0 = 진행 카드를 완성하고 닫는다.\n<!-- S17-BOOT-END -->\n<!-- S11-DESK-BEGIN -->\n6. desk 틱마다 직접 잰다.\n<!-- S11-DESK-END -->\n' > "$TMP/gov-ok.md"
 printf '블록 없음\n' > "$TMP/gov-empty.md"

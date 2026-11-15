@@ -31,8 +31,8 @@ pushwhy() { local f; f="$(pushsave)" || f=""; printf '사유 %s · 마지막 줄
 LIM="${FT_LAND_TOTAL_S:-100}"; { [ "$LIM" -le 100 ] && [ "$LIM" -ge 1 ]; } 2>/dev/null || LIM=100; fm_fetch_sec >/dev/null; FTS="$FM_FETCH_SEC"; fm_fetch_banner; [ -n "${FT_LAND_DEADLINE:-}" ] || { FT_LAND_DEADLINE=$(( $(date +%s) + LIM )); export FT_LAND_DEADLINE; }   # 총 마감 — 시험 주입은 줄이기만 가능(100 s 초과 불가 · 판정 4114 = 25초 × 단계 4) · r1069: FTS = fetch 상한(지정이면 첫 줄 «오빠 예외 판정») · r1363: 착지 1회 마감(FT_LAND_DEADLINE epoch 초 · 시험 주입값은 덮지 않는다)을 export 해 자식 ft-merge-gate·fm_fetch 가 같은 마감을 넘지 않게 한다 · «INFO fetch 상한 <초>(F=<f>)» 1줄은 lr_exit(맨 끝)에서 쓴다(LANDED 접두 계약 보존)
 deadline() { [ $((SECONDS - T0)) -lt "$LIM" ] || rej "총 마감 $LIM s 초과"; }
 AUT="$HERE/ft-autonomy.sh"   # R336: 모든 모드(on·off·tamper·불명)에서 오빠 승인 파일 + log 한 줄 필요 — OFF 에서 master 가 sha 만 적어 착지하던 틈을 닫는다
-AST="$(bash "$AUT" state-dir 2>/dev/null)"   # r648: 승인 폴더 = 이 정식 리졸버 하나뿐(공용 루트를 직접 쓰는 길 0)
-[ -n "$AST" ] || AST="$(cd "${FT_ROOT:-$ROOT}" 2>/dev/null && bash "$AUT" state-dir 2>/dev/null)"   # 팩 cwd 등에서 해석 실패할 때만 부른 리포 안에서 재시도(LIVE_ROOT 그대로 작동)
+APR="$(fm_live_root "${FT_ROOT:-}")"; APRC=$?; AST=""; [ "$APRC" != 0 ] || AST="$(FT_ROOT="$APR" bash "$AUT" state-dir 2>/dev/null)"; [ "$APRC" != 1 ] || AST="$(bash "$AUT" state-dir 2>/dev/null)"   # r1746 A6: 승인 폴더 = 승인 루트(fm_live_root — 게이트 replace-ok 판정문 리포와 같은 함수) · FT_ROOT=BYZ 메인 루트여도 LIVE_ROOT 의 state · LIVE_ROOT 못 읽음(rc2) = 해석 실패 · 승인 루트 못 정함(rc1)만 옛 길   # r648: 승인 폴더 = 이 정식 리졸버 하나뿐(공용 루트를 직접 쓰는 길 0)
+[ "$APRC" != 1 ] || [ -n "$AST" ] || AST="$(cd "${FT_ROOT:-$ROOT}" 2>/dev/null && bash "$AUT" state-dir 2>/dev/null)"   # 팩 cwd 등에서 해석 실패할 때만 부른 리포 안에서 재시도(LIVE_ROOT 그대로 작동)
 [ -n "$AST" ] || { echo "REJECT 자율 상태 폴더 해석 실패 — 실행 0"; exit 2; }
 [ -z "$AP" ] || { AF="$AST/autonomy-merge-approved/$AP"   # R725: 승인 값을 준 경우만 승인 파일을 본다(빈 값 = doc-exempt 판정이 가른다)
 [ "$(wc -l < "$AF" 2>/dev/null | tr -d ' ')" = 1 ] && grep -q "^approve-merge $AP " "$AF" && grep -qxF "$(head -n1 "$AF")" "$AST/autonomy.log" 2>/dev/null \
@@ -100,12 +100,12 @@ done; hs_release   # r1286: 자리 풀기 = push 재시도·ls-remote 확인 루
 mkdir -p "$STATE" && { [ -z "${TTL:-}" ] || printf '%s %s\n' "$(date +%Y-%m-%dT%H:%M:%S)" "$TTL" >>"$STATE/merge-gate.log"; printf '%s repo=%s main=%s head=%s method=ft-merge-land%s tree=%s landed=%s pr=%s approve=%s%s approve-file=%s%s%s%s%s\n' "$(date +%Y-%m-%dT%H:%M:%S)" "$(basename "${SLUG:-$ROOT}")" "$M" "$S" "${FF:+-ff}" "$(G rev-parse "$S^{tree}")" "$Q" "$PR" "$AP" "${EQM:+ $EQM}" "${AFE:-}" "${LANDVIA:+ push-confirmed=ls-remote}" "${DOCX:+ $DOCX}${S0:+ doc-auto-merge=$S0}" "$([ "${AFV:-}" != D1 ] || printf ' standing=D1')$([ "${AFV:-}" != D2 ] || printf ' standing=D2')" "${PEV:+ ${PEV##*$'\n'}}" >>"$STATE/merge-gate.log"; }   # r947: 상시 승인 착지만 끝에 standing=D1
 echo "LANDED pr=$PR sha=$Q main_before=$M head=$S tree=$(G rev-parse "$Q^{tree}")${FF:+ mode=ff}"; [ -z "${TTL:-}" ] || echo "$TTL"   # r1740 R2: 정상 착지도 «OK tmux-target 0» 1줄을 stdout 에 남긴다
 echo "push ok objects=$PN bound=$PB attempt=$AB took=${PEL}s${LANDVIA:+ confirmed=ls-remote(응답 후 timeout)}"   # R354: 착지마다 1줄 — bound=계산 최대 · attempt=실제 상한 · took=마지막 시도 소요 · 3건 모이면 기준량 U0 갱신 근거
-fm_land_ledger "$STATE" "$AST" "$AP" "$Q" "${AFV:-}"; [ "${AFV:-}" != D2 ] || fm_land_notify_d2 "$PR" "$Q" "$(pf title) $(pf body)"   # R298(DA⑥ H3) · r947 · r1336: 대리 승인 원장 기록 = ft-merge-lib.sh 로 이사(동작 불변 · 실패해도 착지 rc 불변)
+fm_land_ledger "$STATE" "$AST" "$AP" "$Q" "${AFV:-}"; [ "${AFV:-}" != D2 ] && [ "${AFV:-}" != D3 ] || fm_land_notify_d2 "$PR" "$Q" "$(pf headRefName)" "$(pf title)" "${AFV:-}"   # R298(DA⑥ H3) · r1804: D2 알림 카드 = 가지+제목(본문 0) · r1794 D3 알림(5번째 = 표기) · r947 · r1336: 대리 승인 원장 기록 = ft-merge-lib.sh 로 이사(동작 불변 · 실패해도 착지 rc 불변)
 CR=0; CB="$(mktemp)"; lr_trap 'rm -f "$CB"'   # R261: ft-gh-as-tank.sh 는 하이픈 동사 + 본문 «파일» + --apply(없으면 dry-run) · pr-close --comment 한 번이 코멘트+닫기 · r1592: 닫기를 착지 원장 바로 뒤에 먼저 — 뒤 단계가 바깥 timeout 70 s 에 걸려도 PR 은 닫힌다
 printf '%s\n' "착지 sha $Q (ft-merge-land · 검사 트리 == 착지 트리 · 판정 1875)${EQ:+ · 동일승인 대조 EQUIV (${AP:0:10}→${S:0:10} · 판정 1917${EQM:+ · $EQM})}${S0:+ · main 자동 병합($AMK) C=${S:0:10}}${PEV:+ · ${PEV%%$'\n'*}}" > "$CB"
 fm_pr_close "$SLUG" "$PR" "$CB" "$GH_W" \
   || { echo "WARN 착지는 성공 — PR #$PR 코멘트/닫기 실패: 손으로 처리(착지 sha $Q)"; fm_close_pending_add "$CPL" "$CPK" "$PR" "$Q"; CR=3; }   # r1131: 실패 PR 은 «닫기 대기» 장부 1줄 → 다음 착지 시작 때 다시 닫는다(조용히 OPEN 으로 쌓이지 않게) · r1592: 실패 rc 는 변수에 담고 맨 끝에서 exit 3(뒤 단계는 그대로)
-fm_flag_off_new "$REPO" "$M" "$Q"   # R239: 이 착지가 새로 만든 «꺼진 플래그 = 결정 1건» 을 출력만(착지 rc 불변)
+fm_land_card_line "$ROOT" "$PR" "$Q" "$(pf title)" "$(pf headRefName)" "$(basename "${SLUG:-$RROOT}")" "$TARGET"; fm_flag_off_new "$REPO" "$M" "$Q"   # r2034: 카드 «## 상태» 끝에 «- 착지: <Q>» 1줄(PR 닫기 뒤 · 설치 대조 앞 · 실패 = 판정 불가 1줄 · 착지 rc 불변) · R239: 이 착지가 새로 만든 «꺼진 플래그 = 결정 1건» 을 출력만(착지 rc 불변)
 # R243: 착지 성공 «뒤»에만 기준 헤드를 Q 로 원자 교체(옛 값이 Q 의 조상일 때만 전진) + 뒤처진 팀 알림(실패해도 착지 rc 불변)
 OLD="$(head -n1 "$BH" 2>/dev/null | tr -d '[:space:]')"
 if [ -z "$OLD" ] || G merge-base --is-ancestor "$OLD" "$Q" 2>/dev/null; then

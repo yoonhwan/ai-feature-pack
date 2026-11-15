@@ -66,7 +66,10 @@ _d="$(cd -- "$(dirname -- "$0")" && pwd)"
 for _t in "${OMC_FT_BIN:-}/ft-thresholds.sh" "$_d/ft-thresholds.sh" "$_d/../../bin/ft-thresholds.sh" \
           "$_d/../../../bin/ft-thresholds.sh" "$HOME/.claude/fable-team/thresholds.env"; do
   [ -f "$_t" ] || continue
-  case "$_t" in *.env) set -a; . "$_t"; set +a;; *) eval "$(bash "$_t" --export 2>/dev/null)" || true;; esac
+  case "$_t" in *.env) set -a; . "$_t"; set +a;;
+    *) _expl=""; for _k in FT_DISTILL_WARN FT_DISTILL_BLOCK FT_DISTILL_RECV FT_DISTILL_NEWWORK; do eval "[ -n \"\${$_k:-}\" ]" && _expl="$_expl $_k"; done
+       export FT_THR_SH="$_t" FT_THR_EXPL="$_expl"   # r2051: 모델을 안 뒤 티어를 다시 고를 때 쓴다(명시 env 키만 남김)
+       eval "$(bash "$_t" --export 2>/dev/null)" || true;; esac
   break
 done
 # r1554: 판정 불가 연속 상한 — thresholds.env 키 1개(명시 env > ~/.claude/fable-team/thresholds.env > 3). ft-thresholds.sh 는 이 키를 모른다.
@@ -312,6 +315,29 @@ else:
 if fp:
     fp_emit(fp)
 model = norm_model(model)
+
+def tier_lines(m):  # r2051: 모델 창 티어 — ft-thresholds.sh --export --model 로 다시 고른다(규칙 1벌) · 모델 빈 값·도구 없음 = {} = 지금 값
+    sh = os.environ.get("FT_THR_SH") or ""
+    if not m or not os.path.isfile(sh):
+        return {}
+    keep = set((os.environ.get("FT_THR_EXPL") or "").split())
+    env = {k: v for k, v in os.environ.items() if k in keep or k not in ("FT_DISTILL_WARN", "FT_DISTILL_BLOCK", "FT_DISTILL_RECV", "FT_DISTILL_NEWWORK")}
+    try:
+        p = subprocess.run(["bash", sh, "--export", "--model", m], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=7)
+    except Exception as e:
+        sys.stderr.write("tier lookup failed: %s\n" % e)
+        return {}
+    if p.stderr:
+        sys.stderr.write(p.stderr.decode("utf-8", "replace"))   # «티어 <T> 불완전 — 기본 세트» = 로그 1줄(막지 않음)
+    return dict(re.findall(r"(FT_DISTILL_[A-Z]+)=(\d+)", p.stdout.decode("utf-8", "replace"))) if p.returncode == 0 else {}
+
+tl = tier_lines(model)
+if tl:  # 훅 인자로 준 문턱은 그대로
+    warn_at = warn_at if sys.argv[2].strip() else int(tl.get("FT_DISTILL_WARN", warn_at))
+    block_at = block_at if sys.argv[3].strip() else int(tl.get("FT_DISTILL_BLOCK", block_at))
+    recv_at = recv_at if len(sys.argv) > 6 and sys.argv[6].strip() else int(tl.get("FT_DISTILL_RECV", recv_at))
+    if "FT_DISTILL_NEWWORK" in tl:
+        os.environ["FT_DISTILL_NEWWORK"] = tl["FT_DISTILL_NEWWORK"]
 if exempt_re and model and re.search(exempt_re, model):
     print("ALLOW|%d|exempt-model|%d|%d" % (ctx // 1000, warn_at // 1000, block_at // 1000)); sys.exit(0)
 if ctx <= 0:

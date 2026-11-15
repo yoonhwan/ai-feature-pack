@@ -3,6 +3,7 @@
 # 가짜 df(FT_DISK_FREE_GIB)·가짜 시계(FT_DISK_NOW)·가짜 mbox·임시 루트만 쓴다 — 실 쪽지·실 상태 파일 0.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
+export FT_TMP_SWEEP_SH=/usr/bin/true   # r2073: 임시 사본 정리도 가짜(실 /private/tmp 를 보지도 지우지도 않게)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO="$(cd -- "$HERE/../.." && pwd)"
 SUT="$REPO/harness/bin/ft-disk-alarm.sh"

@@ -45,14 +45,15 @@ def c1(w):   # ① 팀 3개 fill(gates→cards) → cards git 2회 · status 2�
     _, calls, got = rounded(w, lambda k, kn, t: (kn.gates(k, t), kn.cards(k, t)))
     assert [n(calls, x) for x in ("ls-tree", "grep", "status", "list-sessions")] == [1, 1, 2, 1], calls
     assert all(g[0] is True and set(g[1][0]) == {"r97-" + t} for t, g in got.items()) and len(got) == 3, got
-def c2(w):   # ② (DA R1) HELD Working 뒤 pane 만 idle · 착지 ref·intent·세션 그대로 → 다음 바퀴 close 1회 · CLOSED-SESSION + RECEIPT
+def c2(w):   # ② (DA R1) WORKING(r2055 · 옛 HELD) Working 뒤 pane 만 idle · 착지 ref·intent·세션 그대로 → 다음 바퀴 close 1회 · CLOSED-SESSION + RECEIPT
     w.enable(), w.card("r9701", w.pack_sha()), w.work("r9701", done=True, alive=True, pane="⠋ Working...\n")
     k = w.keeper()
     first = list(w.round(k))
-    assert any(x.startswith("HELD harness r9701") and "Working" in x for x in first), first
+    assert any(x.startswith("WORKING harness r9701") for x in first), first   # r2055 A13 1차(tmuxc·CPU 표본 1개 = cpu-pending) · pane 글자 안 읽음
     d = json.loads(w.tm.read_text(encoding="utf-8"))
     d["pane"] = {key: IDLE for key in d["pane"]}
     _put(w.tm, d)
+    w.t += 30   # r2055 CPU idle = 표본 2개 · 간격 30초
     assert [x.split()[0] for x in w.round(k)[len(first):] if "r9701" in x] == ["CLOSED-SESSION", "RECEIPT"]
 def c3(w):   # ③ 같은 바퀴 launch 직후 → gates = tmux 목록 ∪ launching (캐시가 합집합을 안 깸) · kill 뒤 = list-sessions 다시
     teams(w, ("aa",), cap="2")

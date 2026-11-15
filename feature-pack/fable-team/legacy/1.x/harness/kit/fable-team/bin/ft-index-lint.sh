@@ -116,13 +116,22 @@ check_proposal_line() {  # $1=file → bad+=
   if [ "$new" = 1 ]; then bad+=("「- 제안서:」 값은 #<제안 Issue 번호> 또는 「없음 — 사유」 (경로 값은 R77 r1 부터 새 카드에서 금지): ${val:0:40}")
   else echo "WARN $1 — 「- 제안서:」 경로·기타 값(옛 카드 · 새 카드는 #M 또는 없음 — 사유): ${val:0:40}"; fi
 }
+check_seat_line() { local v; v="$(awk '/^##[[:space:]]/{exit} {print}' "$1" | sed -nE 's/^- 담당 석:(.*)$/\1/p' | head -1)"; [ -n "$v" ] || return 0; printf '%s' "$v" | grep -qE '^[[:space:]]*(0|[1-9][0-9]*)[[:space:]]*$' || bad+=("「- 담당 석:」 값은 석 번호 1개(0 · 1 … · ft-card-number.sh seat 로 정함): ${v:0:20}"); }   # ⑰ r1657 담당 석 칸 — 줄 없음 = 석 0(옛 카드 · 통과) · 있으면 꼴만 본다(쪽지 길 comm/mbox_seat.py 와 같은 꼴)
 check_da_hold() { local g="$(dirname "${BASH_SOURCE[0]:-$0}")/ft_da_hold_gate.py" l; [ -f "$g" ] || return 0; while IFS= read -r l; do case "$l" in INFO*) echo "INFO $1 — ${l#INFO }";; BAD*) bad+=("${l#BAD }");; esac; done < <(python3 "$g" "$1" --lint 2>/dev/null); }   # ⑭ 배정 줄(r1224 · 대기·진행 카드 머리 «- 배정:» 꼴 · 줄 없음은 새 카드만 REJECT · 판정기 ft_card_assign_watch.py lint — 사유 1줄 rc1) · ⑪ DA 보류 2회(R387 · 판정 2282 · 설계 §3·§8-3) — 판정기 ft_da_hold_gate.py --lint: INFO(사건 ≥ 2 인데 재설계/리서치 줄 없음 · REJECT 아님) · BAD(위반 뒤 새 워커 없이 채택 = REJECT). 판정기 부재는 INFO 만 건너뜀.
+small_card() {  # r1844 — 작은 카드(≤20줄 ∧ «## 골 원문» 절 없음) = 머리 10키 + 끝 «## 상태» 절 1개만 본다 → bad+=
+  local h k; h="$(awk '/^## /{exit} {print}' "$1")"
+  head -1 "$1" | grep -q '^# ' || bad+=("작은 카드: 머리 키 없음: 제목")
+  printf '%s\n' "$h" | grep -q '<!-- *ledger:' || bad+=("작은 카드: 머리 키 없음: ledger")
+  for k in '지시 #' 골좌표 '원인 1줄' 대상 반례 변이 회귀 상태; do printf '%s\n' "$h" | grep -qE "^- $k[:(]" || bad+=("작은 카드: 머리 키 없음: $k"); done
+  { [ "$(grep -cE '^## 상태[[:space:]]*$' "$1")" = 1 ] && [ "$(grep -E '^## ' "$1" | tail -1)" = '## 상태' ]; } || bad+=("작은 카드: 끝 «## 상태» 절 1개 필요(ft-nano-record 세트·착지·완료 줄 자리)")
+}
 for f in "$@"; do
   bad=(); if [ -z "${FT_CARD_ADDED_MAP_FILE-}" ]; then MAPF="$(mktemp "${TMPDIR:-/tmp}/ft_card_map_dates.XXXXXX" 2>/dev/null)" && trap 'rm -f "$MAPF"' EXIT && export FT_CARD_ADDED_MAP_FILE="$MAPF" && python3 "$(dirname "${BASH_SOURCE[0]:-$0}")/ft_card_map_lint.py" --map-only "$@" >/dev/null 2>&1; fi   # r984 순서: ①사전 생성(판정기 안 git log 1회 · 7초 넘으면 전역 BAD rc3) → ②제안서 줄 → ③⑫
   [ -f "$f" ] || { echo "REJECT $f — 파일 없음"; rc=1; continue; }; [ ! -f "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-team-lib.sh" ] || ( . "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-team-lib.sh" && ft_card_location_ok "$f" ) || { rc=1; continue; }   # r447: 명단 새 꼴 팀 카드가 옛 꼴 폴더에 있으면 REJECT
   LEDGER="$(ledger_for "$f")"
   [ -f "$LEDGER" ] || { echo "REJECT $f — 선언된 정본 없음: $LEDGER"; rc=1; continue; }
   LEDGER_N="$(norm < "$LEDGER")"
+  if [ "$(awk 'END{print NR}' "$f")" -le 20 ] && ! grep -qE '^## 골 원문' "$f"; then small=1; small_card "$f"; else small=""   # r1844: 21줄 이상·8절 꼴 = 지금 그대로 · 작은 카드는 구조 검사·⑨·⑫ 만 건너뛴다
   { read -r GOAL1; read -r GOAL2; read -r GOAL3; } < <(goal_lines_for "$f")
   grep -qxF -- "$GOAL1" "$f" || bad+=("골 1줄 불일치")
   grep -qxF -- "$GOAL2" "$f" || bad+=("골 2줄 불일치")
@@ -152,7 +161,8 @@ for f in "$@"; do
     ok=0; while IFS= read -r p; do scope_path_exists "$p" && { ok=1; break; }; done <<< "$paths"
     [ "$ok" = 1 ] || bad+=("구현 범위: 인용한 파일 경로가 하나도 실재하지 않는다 ($(printf '%s' "$paths" | head -3 | tr '\n' ' '))")
   fi
-  check_proposal_line "$f"; al="$(python3 "$(dirname "${BASH_SOURCE[0]:-$0}")/ft_card_assign_watch.py" lint "$f" 2>&1)"; arc=$?; case "$arc" in 0) [ -z "$al" ] || echo "$al";; 3) echo "WARN $f — ${al:-배정 줄 검사 판정 불가}";; *) bad+=("${al:-배정 줄 검사 불가 — ft_card_assign_watch.py}");; esac; check_da_hold "$f"; MAPL="${MAPL-$(python3 "$(dirname "${BASH_SOURCE[0]:-$0}")/ft_card_map_lint.py" "$@" 2>/dev/null)}"; while IFS=$'\t' read -r st cp msg; do { [ "$cp" = "*" ] && MAPERR=1; [ "$cp" = "*" ] || [ -z "$cp" ] || [ "$cp" = "$f" ]; } || continue; case "$st" in INFO*) echo "INFO $f — $msg";; WARN*) echo "WARN $f — $msg";; BAD*) bad+=("$msg");; esac; done < <(printf '%s\n' "$MAPL")   # ⑫ 계약↔시험 대응표(r984 · ft_card_map_lint.py — BAD=REJECT · WARN/INFO 통과 · «*» 줄=판정 불가)
+  fi
+  check_seat_line "$f"; [ -n "$small" ] || check_proposal_line "$f"; al="$(python3 "$(dirname "${BASH_SOURCE[0]:-$0}")/ft_card_assign_watch.py" lint "$f" 2>&1)"; arc=$?; case "$arc" in 0) [ -z "$al" ] || echo "$al";; 3) echo "WARN $f — ${al:-배정 줄 검사 판정 불가}";; *) bad+=("${al:-배정 줄 검사 불가 — ft_card_assign_watch.py}");; esac; check_da_hold "$f"; MAPL="${MAPL-$(python3 "$(dirname "${BASH_SOURCE[0]:-$0}")/ft_card_map_lint.py" "$@" 2>/dev/null)}"; [ -n "$small" ] || while IFS=$'\t' read -r st cp msg; do { [ "$cp" = "*" ] && MAPERR=1; [ "$cp" = "*" ] || [ -z "$cp" ] || [ "$cp" = "$f" ]; } || continue; case "$st" in INFO*) echo "INFO $f — $msg";; WARN*) echo "WARN $f — $msg";; BAD*) bad+=("$msg");; esac; done < <(printf '%s\n' "$MAPL")   # ⑫ 계약↔시험 대응표(r984 · ft_card_map_lint.py — BAD=REJECT · WARN/INFO 통과 · «*» 줄=판정 불가)
   inst="$(bash "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-index-lint-install.sh" "$f")" || bad+=("$inst"); tl="$( . "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-card-target-lib.sh" && ft_card_target_lint "$f")" || bad+=("대상 줄 검사 불가 — 공용 파일 ft-card-target-lib.sh 를 못 읽었다"); while IFS= read -r l; do [ -z "$l" ] || bad+=("$l"); done <<< "$tl"   # ⑩ 하네스 카드 「- 설치:」 줄 (R245) · ⑬ 대상 줄 한 카드 = 한 리포 · 라이브 경로 0 (r1138 · 닫기 ⑥--landed-pr 와 같은 함수)
   if [ "${FT_CARD_REQUIRE_PREVERIFY:-}" = 1 ]; then check_preverify "$f"; check_evidence "$f"; fi; [ ! -f "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-card-number.sh" ] || while IFS= read -r l; do case "$l" in WARN*) echo "WARN $f — ${l#WARN }";; BAD*) bad+=("${l#BAD }");; 판정\ 불가*) echo "WARN $f — 카드 번호 검사 ${l}";; esac; done < <(bash "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-card-number.sh" lint "$f" --repo "$ROOT" 2>&1)   # ⑮ 카드 번호(r1695 · ft-card-number.sh lint) — 다른 팀 카드·발급 원장과 겹침 = REJECT · 이미 BASE 에 있는 카드 = «기존 겹침» WARN · 판정 불가 = WARN
   if [ "${#bad[@]}" -eq 0 ]; then echo "OK $f (ledger=${LEDGER#$ROOT/})${allow_empty:+ (empty-body allowed)}"; else printf 'REJECT %s (ledger=%s)\n' "$f" "${LEDGER#$ROOT/}"; printf '  - %s\n' "${bad[@]}"; rc=1; fi

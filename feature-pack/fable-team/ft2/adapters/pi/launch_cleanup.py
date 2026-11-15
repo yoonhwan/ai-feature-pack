@@ -47,10 +47,27 @@ def index_lock(path):
     return os.path.join(gitdir, "index.lock") if os.sep + "worktrees" + os.sep in gitdir else None
 
 
-def sweep(plan, repo, sha, receipt, git_s=25, tmux_s=7):
-    """(의도에 더할 칸 = 생성 영수 + 치우기 결과, 사유 1구) — 실패 의도에도 영수가 남는다."""
+def sweep(plan, repo, sha, receipt, git_s=25, tmux_s=7, timed_out=False):
+    """(의도에 더할 칸 = 생성 영수 + 치우기 결과, 사유 1구) — 실패 의도에도 영수가 남는다 · timed_out = checkout 시간 초과(r2044)."""
     extra, note = clear(plan, repo, sha, receipt, git_s, tmux_s)
-    return dict(receipt, **extra), note
+    return unlock(plan, sha, dict(receipt, **extra), note) if timed_out else (dict(receipt, **extra), note)
+
+
+def unlock(plan, sha, extra, note):
+    """r2044 A1 — checkout 시간 초과 뒤 1회 · 영수 ∧ 보존일 때만 이 워크트리 gitdir 의 index.lock 을 지우고 resumable 1칸.
+    판독·지우기 실패 = 그대로(A4 · 지우기 0 · 본 리포 lock 손 0)."""
+    if not (extra.get("add_ok") and extra.get("path_new") and str(extra.get("cleanup", "")).startswith("보존")):
+        return extra, note
+    lock = index_lock(plan["worktree"])
+    if lock is None:
+        return extra, note
+    try:
+        os.unlink(lock)
+    except FileNotFoundError:
+        pass
+    except OSError:
+        return extra, note
+    return dict(extra, resumable="checkout", base_sha=sha), note + " · 이어 열기 가능(checkout) = --resume 1회"
 
 
 def clear(plan, repo, sha, receipt, git_s, tmux_s):

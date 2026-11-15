@@ -101,5 +101,5 @@ def gate(k, runtime, team, work, attempt, holder):
     key = "verdict|%s|%s@%s" % (team, work, attempt)
     if k.state["held"].get(key) != why:   # 같은 사유는 1회만 · 사유가 바뀌면 다시 1줄
         k.state["held"][key] = why
-        k.log("HELD", team, text)
+        k.unknown_line(team, work, "verdict-list", text)   # r2055 HELD 폐지 · UNKNOWN = [긴급]
     return False

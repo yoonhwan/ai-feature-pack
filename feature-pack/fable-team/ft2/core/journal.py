@@ -22,6 +22,7 @@ PROJ_FIELDS = ("generations", "owners", "reservations", "deliveries", "done",
                "reopens", "lifted",   # r1727: reopens·lifted
                "imported",   # r1774: 가져온 기록(F6)
                "returned",   # r1990: 반환(열린 work 라 회수 대상은 아니지만 base 칸도 같은 해석)
+               "parked",     # r2055: 쉼(returned 와 같은 해석)
                "reassess_done", "released", "owners_recovered", "uncertain", "close_receipts", "refusals")
 
 
