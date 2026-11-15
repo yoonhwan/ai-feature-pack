@@ -66,7 +66,7 @@ keeper 는 판정을 팀장에게 쪽지로 알린다. 받는 곳을 그 팀 명
 3. [x] 나노: 변이 8개 — `test_mutant[...]` 8칸 rc0(변이 사본에서 그 사례가 FAIL · 원본에서 PASS): M17 → ㉚가·㉚나·㉚다 · M18 → ㉚라·㉚마·㉚바 · M19 → ㉚사 · M23 → ㉚자·㉚차 · M24 → ㉚타 · M25 → ㉚자·㉚마 · M32 → ㉚파 · M33 → ㉚하 · 고침 뒤 M34(열쇠를 seats[0] 로) → ㉚더 = 9개(aifp 5505 · DA aifp 5510 «M34 old-key 변이 검출»)
 4. [x] 나노: 회귀 rc0 · 고친 기대값 사례 이름 — `test_settle_one_path_r2055.py` 29 passed 43.0초(⑤ «전송 실패 뒤 = 다시 전송» → «실패도 그날 지문») · `test_pi_keeper_r1812.py` 31 passed 78.3초 · `test_pi_keeper_followup_r2000.py` 26 passed 41.5초(숫자 정정 aifp 5484) ⑧′ «쪽지 실패 → 다음 바퀴 다시» 를 «실패도 그날 지문» 으로(카드 밖 두 번째 기대 고침 파일 · r2000 소유) · `test_full_critical_alert_r1886.py` 4 passed 1 failed = c7 journal 꽉 참인데 기준판(0de903a2)에서도 같은 FAIL(무관 · master 재판정)
 5. [x] arch: ㉚파·㉚하·㉚거 와 M32·M33 을 따로 다시 돌려 확인(DA BYZ 310019 인수 칸) — aifp-ft-arch-pi#18 재실행(세트 8ba57455 의 git archive 사본 · `python3.11 -m pytest ft2/tests/test_keeper_notify_recipient.py -v`): 25 passed 24.76초 rc=0 · test_case[㉚파]·[㉚하]·[㉚거] PASSED · test_mutant[M32]·[M33] PASSED(M32 = seq 경계를 ts >= 로 → ㉚파 · M33 = ts > 로 → ㉚하) · DA 두 번 확인 원문 = BYZ 310738 «요청한 ㉚파·㉚하·㉚거와 M32/M33 포함» · BYZ 310812 «기존㉚파/하/거 및 M32/M33도 함께통과»
-6. [~] 팀장: PR #1282 ae0c199e · 설치 판 = harness#290 대기
+6. [x] 팀장: PR #1282 ae0c199e · 설치 2.0.65 rc0 POSTCHECK OK Traceback 0(harness#290 aifp 5521 · install-log 2026-11-15T18:07:51Z = KST 11-16 03:07:51)
 7. [ ] arch: 설치 뒤 1시간 keeper 로그 실측 1줄(«판정 불가 … 쪽지» 줄 수 · 쪽지 stall 21초 넘는 바퀴 수)
 
 ## 계약↔시험 대응표
