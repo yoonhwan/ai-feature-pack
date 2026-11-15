@@ -23,7 +23,7 @@
 - 대상(쓰기 = 나노 · 팩 1곳): feature-pack/ctx-plan/docs/plan-cost-table.md(새) · feature-pack/ctx-plan/README.md(1줄)
 - 크기: 문서 1파일(원고 36줄 안팎) · README 1줄 · 코드 0
 - 정본 영향 있음: ctx-plan 문서 정본 1파일 새로 만듦
-- 배정: 대기(선행 · 2026-11-11T18:56)
+- 배정: 좌석 aifp-ft-nano-ctxplan-cost-table-canon#0
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -73,3 +73,5 @@
 - base_sha: 696eea7f89a2ea7ffaaed3970fe088712550c5fd
 - 2026-11-11 · aifp-ft-arch-pi#0 카드 초안(#3931) · 대기
 - 2026-11-11 19:07 · 원고 바뀜 반영(#3944 · planner 3943): API 열 제거 · 토큰 M 표기 · «구독이 API보다 N배 저렴» 줄 · 주간 최대 3행 · 상한 계산 순서 → ⓐ 행·열 고정 풀고 원고 판(sha) 고정 · ⓔ README 문구 = 원고 제목
+- 2026-11-16 03:56 — 대기→진행 · 좌석 aifp-ft-nano-ctxplan-cost-table-canon#0
+- [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
