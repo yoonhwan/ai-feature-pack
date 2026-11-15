@@ -84,7 +84,7 @@ class Closing:
         holder = intent.get("FT2_HOLDER")
         if not holder or not os.path.isdir(intent.get("worktree") or "") or self.probe(holder) != "alive":
             return True
-        return self.look(team, work, attempt, holder, *self.pi_turn(intent), wait="landed-wait") == "REST"
+        return self.look(team, work, attempt, holder, *self.pi_turn(intent), wait="landed-wait", idle_s=settle.DONE_IDLE) == "REST"
 
     def close(self, team, work, attempt, row, dispatched=None):
         """B2 — intent holder 나노(B5) · 착지 조상 · 유휴(pane ∧ Pi 턴 끝) → kill 1 → 부재 확인 → 닫기 영수."""
@@ -107,6 +107,7 @@ class Closing:
                 return
         ending = None if verdict or seen not in (NOLINE, NOCARD) else endings.ending(self, team, work, holder)   # r1960 ② complete 0 · r1972 empty = holder 줄 때만
         noland = seen == "absent"   # r1841 CLOSED-NOLAND 뒤 = 기존 영수 길(settle 0)
+        landed_close = not (verdict or ending or noland) and not seen   # A1·A2 — 착지 줄이 참인 닫기 길만 DONE_IDLE(그 밖 = PARK_IDLE)
         seen = "" if verdict or ending or noland else seen
         wide = self.wide_landed(team, work, intent, bool(row.get("done"))) if seen else ""   # r2055 A7 착지 근거 넓힘
         ending, seen = (("landed", wide), "") if wide else (ending, seen)
@@ -116,11 +117,12 @@ class Closing:
                 self.receipt(team, work, attempt, holder, gen)   # 증거 () = 다음 배정 0
             return
         seen = "absent" if noland else self.probe(holder)
+        done_idle = settle.DONE_IDLE   # A2 — 착지 닫기 길만 짧은 문턱(카드 ft2-done-seat-short-idle)
         if seen == "alive" and self.halt:   # r2055 정지 중 = «예정» 줄만
             return self.verdict(team, work, holder, "예정 LANDED", "close", "정지 중 kill 0") and None
         if seen == "alive":
             self.state["open"].setdefault(holder, {"team": team, "since": self.now()})
-            if self.look(team, work, attempt, holder, *self.pi_turn(intent), wait="landed-wait") != "REST":   # A6·A13 닫기 = 끝남 ∧ 한 판독 쉼
+            if self.look(team, work, attempt, holder, *self.pi_turn(intent), wait="landed-wait", idle_s=done_idle if landed_close else settle.PARK_IDLE) != "REST":   # A6·A13 닫기 = 끝남 ∧ 한 판독 쉼
                 return
             if not self.turn_ended(team, work, holder, intent):
                 return
@@ -132,7 +134,7 @@ class Closing:
             seen = self.probe(holder)
             if seen != "absent":
                 return self.unknown_seat(team, work, attempt, holder, "kill-failed", "부재 확인 없음(%s)" % seen) and None
-            self.log("CLOSED-ENDING" if ending else "CLOSED-VERDICT" if verdict else "CLOSED-SESSION", team, " ".join(filter(None, (work, holder, verdict) + (ending or ()))))
+            self.log("CLOSED-ENDING" if ending else "CLOSED-VERDICT" if verdict else "CLOSED-SESSION", team, " ".join(filter(None, (work, holder, verdict) + tuple(ending or ()) + ((self.parked_tail(holder) or None,)))))   # A8 미읽음 마감 꼬리
         elif seen != "absent":
             return self.unknown_seat(team, work, attempt, holder, "tmux-error", seen) and None
         self.state["open"].pop(holder, None)

@@ -2,7 +2,9 @@
 
 좌석마다 판정 1개 = LANDED(착지 끝) · PARKED(끝남 ∧ 남길 것 안전 → kill + core park) · WORKING(손 0) · UNKNOWN(kill 0 + [긴급]).
 «일하나» 는 tmuxc 규칙을 같은 값으로 쓴다(UC12 CPU 문턱·간격 · pane_descendant_pids 깊이 8 · cmd_clean 셸 목록).
-★CPU idle 단독은 유휴·닫기 근거 0★ — 유휴 = jsonl 무활동 ≥ PARK_IDLE ∧ CPU idle 2회(셸만 남은 pane 은 CPU 무관).
+★CPU idle 단독은 유휴·닫기 근거 0★ — 유휴 = jsonl 무활동 ≥ 문턱 ∧ CPU idle 2회(셸만 남은 pane 은 CPU 무관).
+문턱 = PARK_IDLE 3600초 · 카드 착지 끝 좌석의 닫기 길만 DONE_IDLE 300초(설계 DESIGN-pA r4 · 계약 A1·A2).
+좌석 앞 미읽음은 «닫힌 꼴 마감 쪽지» 만 빼고 나머지는 막는다(A5~A8).
 정지(.fable-team/state/ALL_STOP.json) 중 = 판정·[긴급]·«예정» 줄만 · kill·park·깨움·fill 0.
 """
 import datetime
@@ -13,6 +15,9 @@ import os
 import re
 
 PARK_IDLE, WAIT_S, DAY = 3600, 900, 86400   # 유휴 문턱 60분 · 질문 창 15분
+DONE_IDLE = 300                             # 카드 착지 끝 좌석의 짧은 유휴 문턱(설계 DESIGN-pA r4 §3 · 계약 A1)
+ROLE_CELLS = ("_master", "_arch", "_desk")   # A6② 마감을 밝힐 수 있는 명부 역할 칸
+CLOSED_MAIL = re.compile(r"^\[마감(?: #\d+)?\] 할 일 0(?: · 착지 [0-9a-f]{7,40})?$")   # A6① 닫힌 꼴 한 줄
 LAUNCH_FAILED, OPEN_STALE = "launch-failed", 900   # r2058 L3·L6 — 끝 사유 낱말 · opening 멈춤 문턱(초)
 CPU_IDLE, CPU_GAP, CPU_DEPTH = 0.3, 30, 8   # tmuxc UC12 %cpu < 0.3 · 표본 간격 ≥ 30초 · pane_descendant_pids 깊이 8
 SHELLS = ("zsh", "bash", "fish")            # tmuxc cmd_clean
@@ -40,6 +45,7 @@ def _load(path, alias):
 cli = _load(os.path.join(FT2, "core", "cli.py"), "ft2_keeper_settle_cli")
 PROJ = cli._load("projection")
 endings = _load(os.path.join(HERE, "keeper_endings.py"), "ft2_keeper_settle_endings")
+roster = _load(os.path.join(HERE, "launch_roster.py"), "ft2_keeper_settle_roster")   # A6② 명부 경로 = 행 E 한 함수
 
 
 def descendants(rows, root, depth=CPU_DEPTH):
@@ -201,10 +207,11 @@ class Settling:
             return self.unknown_seat(team, work, attempt, holder, "intent-bad", "worktree %r" % intent.get("worktree"))
         return self.settle_alive(team, work, attempt, holder, intent, done, why)
 
-    def look(self, team, work, attempt, holder, age, stop, wait="jsonl-active"):
+    def look(self, team, work, attempt, holder, age, stop, wait="jsonl-active", idle_s=PARK_IDLE):
         """A13 한 판독(설계 §13) → "REST"(쉼 · 닫기 판독 통과) 또는 판정 낱말(줄은 여기서 냄) — 모든 닫기 길 공용.
         1차 = tmuxc clean(shell-only) + CPU(후손 pid) + jsonl 나이 · pane 글자 0 · 2차(pane 끝 12줄) = 그 좌석 1차를 못 세운 때만.
-        판독 실패 = WORKING 아님(probe-fail · session-none = UNKNOWN [긴급]) · age·stop = jsonl 무활동 초·마지막 줄(파일 없음 = None)."""
+        판독 실패 = WORKING 아님(probe-fail · session-none = UNKNOWN [긴급]) · age·stop = jsonl 무활동 초·마지막 줄(파일 없음 = None).
+        idle_s = 유휴 문턱(카드 착지 끝 좌석만 DONE_IDLE 300초 · 그 밖 = PARK_IDLE 3600초 · A2). 짧은 문턱은 «막는 미읽음 0» 도 함께 본다(A1)."""
         status, info = self.tmuxc_status(holder), self.pane_info(holder)
         shell = status == "shell"   # 1차 성립 = clean rc0 ∧ raw pane_pid ∧ ps ∧ 세션 파일(clean 은 list-panes 실패를 rc0 빈 출력으로 삼킴 · arch #308361)
         miss = "tmuxc 없음·실패" if status is None else "pane_pid 판독 실패" if info is None else "ps 판독 실패" if self.ps_rows() is None else ""
@@ -229,11 +236,15 @@ class Settling:
             return self.verdict(team, work, holder, "WORKING", "cpu-busy")
         if not shell and stop not in (None, "stop") and age is not None and age >= WAIT_S and cpu == "idle":
             return self.unknown_seat(team, work, attempt, holder, "waiting-input", "마지막 줄 %s · 무활동 %d분" % (stop, age // 60))
-        idle = age is not None and age >= PARK_IDLE and (shell or cpu == "idle")   # CPU 단독 = 근거 0
+        idle = age is not None and age >= idle_s and (shell or cpu == "idle")   # CPU 단독 = 근거 0
         if not idle:
-            return self.verdict(team, work, holder, "WORKING", wait if age is None or age < PARK_IDLE else "cpu-" + cpu)
+            return self.verdict(team, work, holder, "WORKING", wait if age is None or age < idle_s else "cpu-" + cpu)
         if not shell and stop != "stop":
+            if idle_s != PARK_IDLE:   # A1 — 착지 좌석의 안 닫힌 턴 = 아직 일하는 중(문턱이 짧을 뿐 · ㉙나)
+                return self.verdict(team, work, holder, "WORKING", wait, "마지막 줄 %s" % stop)
             return self.unknown_seat(team, work, attempt, holder, "turn-open", "마지막 줄 %s" % stop)
+        if idle_s != PARK_IDLE and self.mail_gate(team, work, holder, idle_s):   # A1·A5~A8 — 착지 좌석은 «막는 미읽음 0» 도 본다
+            return self.unknown_seat(team, work, attempt, holder, self.mail_gate(team, work, holder, idle_s), "미읽음 판독 --rows")
         self.cache["@round"].setdefault("shell", {})[holder] = shell
         return "REST"
 
@@ -345,14 +356,102 @@ class Settling:
             base = str(intent.get("base_sha") or "")
             if not base or self.git(tree, "rev-list", "--count", base + "..HEAD")[:2] != (0, "0\n"):
                 return "unpushed"
-        rc, out, _ = self.call(["bash", self.mbox, "peek", seat])
-        got = re.search(r"pending=(\d+)", out or "")
-        if rc != 0 or not got or int(got.group(1)):
-            return "mail-pending" if got and rc == 0 else "mail-unknown"
+        code = self.mail_gate(team, work, seat, PARK_IDLE)   # A5~A8 — 미읽음 판독(빼는 마감 쪽지 밖은 막는다)
+        if code:
+            return code
         ex = cli._load("dispatch").Dispatch(self.root, team).ex
         state, records = ex._state_records()
         hold = ex._hold(state, records, work, (state.get("generations") or {}).get(work, 0), rotation=True)
         return "uncertain" if hold is not None and not done else ""
+
+    def close_senders(self, team):
+        """A6② 마감을 밝힐 수 있는 좌석 = 그 팀 명부의 역할 칸(_master · _arch · _desk) 지금 값 · 바퀴당 1회 · 명부 못 읽음 = 빈 집합(막음)."""
+        book = self.cache.setdefault("@round", {}).setdefault("senders", {})
+        if team not in book:
+            path = roster.roster_path(self.root, team)
+            rows = self.read_json(path) if path else None
+            book[team] = {rows[c] for c in ROLE_CELLS if isinstance(rows.get(c), str) and rows.get(c)} if isinstance(rows, dict) else set()
+        return book[team]
+
+    def closed_form(self, body):
+        """A6① 닫힌 꼴 — `골좌표:` 줄과 빈 줄을 뺀 나머지가 정확히 1줄 · 그 줄 전체가 `[마감 #N] 할 일 0`(+ ` · 착지 <hex>` 하나).
+        자유 글은 안 본다(DA r2·r3 반례 — 부분 문자열로는 «일이 없다» 를 확정할 수 없다)."""
+        lines = [x.strip() for x in str(body or "").splitlines() if x.strip() and not x.strip().startswith("골좌표:")]
+        return len(lines) == 1 and bool(CLOSED_MAIL.match(lines[0]))
+
+    def mail_rows(self, seat, rows_first=False):
+        """A4·A5 peek 읽기(읽기만 · mark 0 · recv 0) — (pending, [쪽지 dict], 사유 "") · 사유 = mail-unknown.
+        rows_first = `peek --rows` 한 번(착지 좌석 길 · 새 mbox 전제) · 아니면 먼저 `peek` 으로 pending 만 보고 0 이 아니면 `--rows` 로 내용을 읽는다(옛 mbox 호환).
+        줄 0 ∧ pending > 0 = 옛 mbox(--rows 모름) → pending 만 돌려주고 부르는 쪽이 막는다 · 0 < 줄 수 ≠ pending = mail-unknown."""
+        head, out = None, ""
+        if not rows_first:
+            rc, out, _ = self.call(["bash", self.mbox, "peek", seat])
+            got = re.search(r"pending=(\d+)", out or "")
+            if rc != 0 or not got:
+                return None, [], "mail-unknown"
+            if not int(got.group(1)):
+                return 0, [], ""
+        rc, out, _ = self.call(["bash", self.mbox, "peek", seat, "--rows"])
+        if rc != 0:
+            return None, [], "mail-unknown"
+        lines = []
+        for line in (out or "").splitlines():
+            if head is not None and line.lstrip().startswith("{"):
+                lines.append(line)
+            elif head is None and line.strip():
+                head = line
+        got = re.search(r"pending=(\d+)", head or "")
+        if not got:
+            return None, [], "mail-unknown"
+        n, docs = int(got.group(1)), []
+        for line in lines:
+            try:
+                doc = json.loads(line)
+            except ValueError:
+                return n, [], "mail-unknown"
+            if not isinstance(doc, dict) or not isinstance(doc.get("body"), str):
+                return n, [], "mail-unknown"
+            docs.append(doc)
+        if not docs:
+            return n, [], "mail-pending" if n else ""   # 옛 mbox = 지금처럼 1통이라도 막는다
+        if len(docs) != n:
+            return n, [], "mail-unknown"
+        return n, docs, ""
+
+    def mail_verdict(self, team, seat, idle_s):
+        """A6·A7 — 미읽음 전부가 «빼는 마감 쪽지» 일 때만 통과("" + 꼬리) · 한 통이라도 막으면 mail-pending · 판독 실패 = mail-unknown."""
+        n, docs, bad = self.mail_rows(seat, rows_first=idle_s != PARK_IDLE)
+        if bad:
+            return bad, ""
+        senders, now, skip = self.close_senders(team), self.now(), []
+        for doc in docs:
+            try:
+                age = now - datetime.datetime.strptime(str(doc.get("ts")), "%Y-%m-%dT%H:%M:%S").timestamp()
+            except ValueError:
+                return "mail-pending", ""
+            if not self.closed_form(doc.get("body")) or not senders or doc.get("from") not in senders or age < idle_s:
+                return "mail-pending", ""
+            skip.append((doc, age))
+        if not skip:
+            return "", ""
+        seqs = [str(doc.get("seq")) for doc, _ in sorted(skip, key=lambda x: str(x[0].get("seq")))[:3]]
+        return "", "미읽음 마감 %d통 제외(seq %s · 가장 오래된 %d분)" % (len(skip), " ".join(seqs), max(age for _, age in skip) // 60)
+
+    def mail_gate(self, team, work, seat, idle_s):
+        """A5~A8 — 미읽음 사유 1개(통과 = "") · 빼는 n통 꼬리는 판정 줄 꼬리로(round 장부 two · close 가 따로 읽는다) · 좌석·문턱당 1회.
+        쪽지는 큐에 그대로 둔다(keeper 가 mark·recv 하지 않는다 · A8)."""
+        book = self.cache.setdefault("@round", {}).setdefault("mail", {})
+        if (seat, idle_s) not in book:
+            book[(seat, idle_s)] = self.mail_verdict(team, seat, idle_s)
+        code, tail = book[(seat, idle_s)]
+        if tail:
+            self.cache["@round"].setdefault("two", {})[seat] = tail
+        return code
+
+    def parked_tail(self, seat):
+        """A8 근거 줄 꼬리(빼는 미읽음 n통) — 판정 줄 밖(CLOSED-SESSION 같은 행동 줄)이 이 값을 읽는다 · 없음 = ""."""
+        return (self.cache.get("@round", {}).get("mail") or {}).get((seat, DONE_IDLE), ("", ""))[1] or \
+               (self.cache.get("@round", {}).get("mail") or {}).get((seat, PARK_IDLE), ("", ""))[1]
 
     def park_seat(self, team, work, attempt, holder, reason, tail, alive, done):
         """PARKED 실행 — 정지 중 = «예정 PARKED» 1줄 · 아니면 kill(살아 있으면) → park 1줄(done 0 일 때만) · 실패 = UNKNOWN."""
