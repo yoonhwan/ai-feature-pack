@@ -99,7 +99,7 @@ cmd_apply() {
   append "$(jq -cn --arg o "$old" --arg n "$new" --arg ts "$(now)" --arg m "$mode" --arg s "$seq" \
     --argjson mv "$mj" --argjson sk "$sj" --argjson am "$amb_json" \
     '{state:"done",old:$o,new:$n,mode:$m,confirmed_by:(if $s=="" then null else ($s|tonumber) end),moved:$mv,skipped:$sk,ambiguous:$am,ts:$ts}')"
-  tmux set-option -t "=$old" @handed_over_to "$new" 2>/dev/null || echo "ft-seat-handover: WARN @handed_over_to 캐시 설정 실패($old)" >&2
+  tmux set-option -t "=$old:" @handed_over_to "$new" 2>/dev/null || echo "ft-seat-handover: WARN @handed_over_to 캐시 설정 실패($old)" >&2
   amb_n="$(jq length <<<"$amb_json")"; amb_list="$(jq -r 'map(.tty)|join(",")' <<<"$amb_json")"
   [ "$(jq length <<<"$mj")" -eq 0 ] && [ "$(jq length <<<"$sj")" -eq 0 ] && [ "$amb_n" -eq 0 ] && tag="no-client"
   [ "$amb_n" -gt 0 ] && tag="ambiguous tty=$amb_list 전환 보류"
@@ -118,7 +118,7 @@ cmd_status() {
     me="$(tmux display-message -p -t "$TMUX_PANE" '#{session_name}')" || die 1 "display-message 실패"
   fi
   x="$(jq -r --arg o "$me" 'select(.state=="done" and .old==$o)|.new' "$LEDGER" 2>/dev/null | tail -1)"
-  opt="$(tmux show-option -t "=$me" -qv @handed_over_to 2>/dev/null)"
+  opt="$(tmux show-option -t "=$me:" -qv @handed_over_to 2>/dev/null)"
   r="$(roster_of "$me" "${x:-$me}")"
   if [ -z "$r" ]; then
     [ -z "$x" ] && { echo ACTIVE; return; }   # 명부 좌석이 아님(나노 등)
@@ -127,7 +127,7 @@ cmd_status() {
   rv="$(cut -f3 <<<"$r")"
   if [ -n "$x" ]; then
     if [ "$rv" = "$x" ] && tmux has-session -t "=$x" 2>/dev/null; then
-      [ "$opt" = "$x" ] || tmux set-option -t "=$me" @handed_over_to "$x" 2>/dev/null
+      [ "$opt" = "$x" ] || tmux set-option -t "=$me:" @handed_over_to "$x" 2>/dev/null
       echo "RETIRED $x"
     else
       echo "MISMATCH ledger=$x roster=$rv option=${opt:-none}"

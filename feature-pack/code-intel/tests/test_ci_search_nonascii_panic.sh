@@ -4,7 +4,7 @@
 #   (카드 ci-search-nonascii-panic · ci-search-ascii-md-panic · 설계 design/aifp/arch-ci-search-ascii-md-panic-20261113.md §3)
 # r19xx — probe 에서 뺄 확장자를 목록 1개(md·yml·yaml)로 묶음 · rg 절도 그 목록을 쓴다 · 폴백 rg 는 목록을 뺀다
 #   (카드 ci-search-yaml-panic · 설계 design/aifp/arch-ci-search-yaml-panic-20261113.md §3·§4 · B1~B9 · 변이 X1~X4)
-#   P1~P21 + A1~A9 + B1~B8 반례 · 기준판(origin/main 판 ci) 대조 · 변이 V1~V13·W1~W4·X1~X4(원본 대조) · 실 probe 0 · sleep 0 · 네트워크 0.
+#   P1~P21 + A1~A9 + B1~B8 반례 · 기준판(고정 fixture 판 ci) 대조 · 변이 V1~V13·W1~W4·X1~X4(원본 대조) · 실 probe 0 · sleep 0 · 네트워크 0.
 #   실행: bash feature-pack/code-intel/tests/test_ci_search_nonascii_panic.sh   (CI_UNDER_TEST=<ci 경로> 로 다른 판 대조)
 [ -n "${CI_SEARCH_PANIC_TEST_GUARD:-}" ] && exit 0        # 재진입 표지(자기 호출 가드)
 if [ -z "${CI_SEARCH_PANIC_TEST_TIMED:-}" ]; then
@@ -653,13 +653,19 @@ C12
 
 # C13 = 이 파일의 앞 검사(P1~P21 · A1~A9 · B1~B8)가 그대로 통과하는지 — 아래 요약이 그 판정이다.
 
-# ── 기준판(origin/main 판 ci) 대조 ────────────────────────────────────────
-echo "== 기준판 대조 — origin/main(= 앞카드 md 까지) 판: P1~P21 · A4~A8 · B4·B5·B7·B8 통과 · P7·P8·A1·A2·A3·A9·B1·B2·B3·B6 FAIL =="
-ROOT="$(cd "$HERE/../../.." && pwd)"
-BASE_SHA="$(git -C "$ROOT" rev-parse origin/main 2>/dev/null || true)"
-BASE="$SB/ci-base"
-if [ -n "$BASE_SHA" ] && git -C "$ROOT" show "$BASE_SHA:feature-pack/code-intel/skill/scripts/ci" > "$BASE" 2>/dev/null; then
-  echo "  기준판 = $BASE_SHA"
+# ── 기준판(fixtures/ci-base-97528b12 판 ci) 대조 ──────────────────────────
+# 새 검사를 더할 때 기준판 기대(pass·fail)는 이 고정 판에 적는다. 고정 판을 바꾸려면 목록 전부를 다시 잰다. (카드 ci-test-base-sha-pin B6)
+echo "== 기준판 대조 — fixtures/ci-base-97528b12(= 착지 전 97528b12 판) 판: P1~P21 · A4~A8 · B4·B5·B7·B8 통과 · P7·P8·A1·A2·A3·A9·B1·B2·B3·B6 FAIL =="
+BASE="$HERE/fixtures/ci-base-97528b12"
+BASE_SHA256="f2eb9e1fba04a8773340b9b263e38ec9fb3194387bebe13b90c5e96931a17dbf"
+sha_of() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi; }
+BASE_GOT=""; [ -f "$BASE" ] && BASE_GOT="$(sha_of "$BASE" 2>/dev/null || true)"
+if [ ! -f "$BASE" ]; then
+  bad "기준판 fixture 없음 — $BASE"
+elif [ "$BASE_GOT" != "$BASE_SHA256" ]; then
+  bad "기준판 fixture sha256 다름 — 기대[$BASE_SHA256] 얻음[$BASE_GOT]"
+else
+  echo "  기준판 = fixtures/ci-base-97528b12"
   bl() { # bl <검사함수> <기대: fail|pass>
     local f="$1" want="$2" bn=$n bf=$fail changed
     CI="$BASE"; "$f" > "$SB/base.$f" 2>&1
@@ -678,8 +684,6 @@ if [ -n "$BASE_SHA" ] && git -C "$ROOT" show "$BASE_SHA:feature-pack/code-intel/
   for f in B4 B5 B7 B8; do bl "$f" pass; done    # 목록과 무관한 기대(양쪽 판 같은 꼴)
   # 카드 ci-search-test-files — 기준판은 --allow-tests 를 안 주고(--no-tests·--allow-tests 를 path 로 상킨다)
   for f in C1 C2 C4 C6 C7 C8; do bl "$f" fail; done
-else
-  bad "기준판 추출 실패(origin/main ci 를 git show 로 못 꺼냈다)"
 fi
 
 # ── 변이 V1~V10 ───────────────────────────────────────────────────────────
