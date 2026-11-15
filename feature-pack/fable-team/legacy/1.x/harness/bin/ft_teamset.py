@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 from typing import Any, NoReturn
 
-from ft_team_lib import TeamPathError, rosters as team_rosters, team_names
+from ft_team_lib import TeamPathError, roster_name, rosters as team_rosters, team_names
 
 
 def die(msg: str) -> NoReturn:
@@ -185,8 +185,10 @@ def cmd_cap(a):
 
 
 def roster_path(root, team):
-    name = "seats.json" if team == "v65" else f"seats-{team}.json"
-    return Path(root) / ".fable-team" / name
+    try:  # r1907: TEAMS.md «명부» 칸 우선(r1309 규칙 = ft_team_lib.roster_name 한 곳) · 못 읽음 = 판정 불가 rc≠0(추정 0)
+        return Path(root) / ".fable-team" / roster_name(team, Path(root))
+    except TeamPathError as e:
+        die(f"판정 불가 명부 이름 {team}: {e}")
 
 
 def teams_of(root):
