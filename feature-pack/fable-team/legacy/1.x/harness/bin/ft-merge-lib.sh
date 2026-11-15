@@ -389,6 +389,7 @@ fm_land_notify_land() {
   local root="$1" pr="$2" sh="$3" txt="$4" irc="$5" iout="$6" nst=SKIP tok t0=$SECONDS
   printf '%s\n' "$iout" | head -n1 | grep -qE '^OK n=[1-9]' && nst=OK
   [ "${irc:-0}" = 0 ] || nst=PENDING
+  [ "$nst" = PENDING ] && nst="PENDING · 다음 손: 설치 h 먼저(그 전 나노 닫기는 DRIFT 로 거절됨)"   # r1721 A1 — 본문 끝(설치 칸이 마지막 칸)
   tok="$(printf '%s\n' "${7:-}" | grep -oE '^nano/r[0-9]{2,5}-' | grep -oE 'r[0-9]+')"
   [ -n "$tok" ] || tok="$(printf '%s\n' "$txt" | grep -oE 'r[0-9]{2,5}' | sort -u | tr '\n' ' ')"
   tok="${tok% }"
