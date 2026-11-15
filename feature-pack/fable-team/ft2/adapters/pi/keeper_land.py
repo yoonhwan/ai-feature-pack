@@ -162,9 +162,14 @@ class Landing:
             return endings.pr_landed(self, team, work) if own else (None, None, "판정 불가 · 조각 착지 줄 없음")
         sha = shas[0]
         for repo, ref in ((self.pack, "origin/main"), (self.root, REFS[0]), (self.root, REFS[1])):
-            if repo not in self.stale and self.git(repo, "merge-base", "--is-ancestor", sha, ref)[0] == 0:   # r1963 낡은 리포 ref = 조상으로도 «조상 아님» 으로도 안 셈
+            if repo in self.stale:   # r1963 낡은 리포 ref = 조상으로도 «조상 아님» 으로도 안 셈
+                continue
+            rc = self.git(repo, "merge-base", "--is-ancestor", sha, ref, timeout=endings.ANC_S)[0]   # r2022 1회 7초
+            if rc == 0:
                 old = self.pre_attempt(team, work, repo, sha)
                 return (None, None, old) if old else (sha, ("pack:" if repo == self.pack else "byz:") + ref, "")
+            if rc != 1 and (rc != 128 or self.git(repo, "cat-file", "-e", sha, timeout=endings.ANC_S)[0] != 1):
+                return None, None, "판정 불가 · 착지 조상 git rc %s" % rc   # r2022 rc128 ∧ 객체 없음(다른 repo) = 다음 ref · 그 밖 = 다음 바퀴
         return (None, None, "판정 불가 · 팩 fetch 실패") if self.stale else (sha, None, "미도달")   # 낡음이 있으면 미도달 알림 0
 
     def pre_attempt(self, team, work, repo, sha, intent=None):
@@ -179,7 +184,7 @@ class Landing:
             return self.pre_attempt_time(repo, sha, intent.get("at"))
         if have != 0:
             return "판정 불가 · 옛 착지 대조 cat-file rc %s" % have
-        rc = self.git(repo, "merge-base", "--is-ancestor", sha, base)[0] if base else 1
+        rc = self.git(repo, "merge-base", "--is-ancestor", sha, base, timeout=endings.ANC_S)[0] if base else 1
         return "옛 착지 줄(attempt 전) " + sha[:8] if rc == 0 else "" if rc == 1 else "판정 불가 · 옛 착지 대조 git rc %s" % rc
 
     def pre_attempt_time(self, repo, sha, at):
