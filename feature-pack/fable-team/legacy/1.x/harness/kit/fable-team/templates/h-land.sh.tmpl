@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# ft-hil-request seat=@SEATS@
+# ft-hil-expect: @EXPECT@
+# 착지 1건 — @WORK@ · PR @PR@ 승인 세트 @SET@ · 착지 때 PR head @HEADSHA@ · main 앞 @OLD@
+# 틀 = kit templates/h-land.sh.tmpl (r2014) · 착지 h 는 이 틀에서 만든다 · 앞 h 복사 0(옛 landed() 본문 grep 꼴이 이어짐 · r1716 «착지됨» 거짓)
+#   자리표: @ROOT@ 루트 · @REPO@ 착지 리포 · @PR@ · @SET@ 승인 sha · @HEADSHA@ PR head(보통 = 세트) · @OLD@ h 쓸 때 origin/main 40hex · @BRANCH@ · @WORK@ · @SEATS@ · @EXPECT@
+# 착지 호출 = FT_LAND_TOTAL_S=65 + FT_LAND_DEADLINE(T0+65) 전달 · 바깥 timeout 70 과 5초 여유
+# 사용: bash 이 파일 --scope-approved · --precheck = 쓰기 0 · 출력 전문 그대로(거르기 0)
+# 되돌림: main 은 revert PR · 로컬 main 은 ff 출력의 OLD 로 reset --keep
+set -uo pipefail
+R=@ROOT@
+P=@REPO@
+LIST="@PR@|@SET@|@BRANCH@"
+HEADSHA=@HEADSHA@
+OLD=@OLD@
+LR=$(sed -n 1p "$R/.fable-team/LIVE_ROOT" | tr -d '\r')
+LB=$(sed -n 1p "$R/.fable-team/LIVE_BIN" | tr -d '\r')
+[ -f "$LB/ft-land-verify.sh" ] || { echo "판정 불가: $LB/ft-land-verify.sh 없음 · 쓰기 0"; exit 3; }
+SD="$(cd "$R" && timeout 7 bash .fable-team/bin/ft-autonomy.sh state-dir 2>/dev/null | tail -1)/autonomy-merge-approved"
+timeout 25 git -C "$P" fetch -q origin main || { echo "판정 불가: fetch 실패 · 쓰기 0"; exit 3; }
+landed() { bash "$LB/ft-land-verify.sh" "$P" "$1" "$2" --since "$OLD" --head "$HEADSHA" >/dev/null; }
+# landed 꼴 = r1814 B2 · 세트가 main 조상 또는 first-parent 커밋에 «PR #N (head HEADSHA)» 줄 정확히 1개일 때만 착지 · 본문 속 «PR #N » 언급은 셈 0
+st=""
+while IFS='|' read -r pr sha br; do
+  a=$(cd "$P" && timeout 7 gh pr view "$pr" --json state,headRefOid --jq '.state + "|" + .headRefOid' 2>&1) || { echo "판정 불가: gh rc≠0 PR${pr} ${a}"; exit 3; }
+  if landed "$pr" "$sha"; then st="${st} ${pr}=착지됨"; continue; fi
+  case "$a" in "OPEN|${sha}") ;; "OPEN|"*) echo "INFO PR${pr} head ${a#OPEN|} ≠ 승인 ${sha} → 착지 도구 EQUIV(승인 head + main merge 뿐)만 통과 · 아래 --dry 가 판정";; *) echo "REJECT PR${pr} 상태 변경: ${a} · 쓰기 0"; exit 2;; esac
+  [ -f "$SD/$sha" ] || { echo "REJECT PR${pr} 승인 파일 없음(${SD}/${sha}) · 쓰기 0"; exit 2; }
+  git -C "$P" merge-base --is-ancestor origin/main "$sha" || echo "INFO PR${pr} 후보가 origin/main 미포함 → 착지 도구가 자동 병합(겹침 0 일 때) · 착지 중 main 이 또 움직이면 반송"
+  hd=${a#*|}; git -C "$P" cat-file -e "${hd}^{commit}" 2>/dev/null || timeout 25 git -C "$P" fetch -q origin "$hd" || { echo "판정 불가: PR head ${hd} fetch 실패"; exit 3; }
+  mb=$(git -C "$P" merge-base "$hd" origin/main) || { echo "판정 불가: merge-base 실패 PR${pr}"; exit 3; }
+  ov=$(comm -12 <(git -C "$P" diff --name-only "$mb" "$hd" | sort) <(git -C "$P" diff --name-only "$mb" origin/main | sort) | tr '\n' ' ')
+  [ -z "$ov" ] || { echo "REJECT PR${pr} head-sync 필요: main 이 같은 파일을 바꿈 «${ov}» · 쓰기 0"; exit 2; }
+  for lint in ft-tmux-target-lint.sh ft-bg-loop-lint.sh; do [ -f "$LB/$lint" ] || continue; lo=$(bash "$LB/$lint" --range "$mb..$hd" --repo "$P" 2>&1) || { echo "REJECT PR${pr} 착지 lint ${lint} «$(printf '%s' "$lo" | head -3 | tr '\n' ' ')» · 쓰기 0"; exit 2; }; done
+  go=$(cd "$R" && FT_ROOT="$LR" timeout 30 bash .fable-team/bin/ft-merge-land.sh "$pr" --approve-sha "$sha" --repo "$P" --dry 2>&1) || { echo "REJECT PR${pr} 착지 dry «$(printf '%s' "$go" | grep -m1 '^DRY ' || printf '%s' "$go" | tail -1)» · 쓰기 0"; exit 2; }; echo "$(printf '%s' "$go" | grep -m1 '^DRY ')"
+  st="${st} ${pr}=OPEN·승인있음"
+done <<< "$LIST"
+if [ "${1:-}" = "--precheck" ]; then echo "PRECHECK OK @WORK@ 1건 ·${st}"; exit 0; fi
+[ "${1:-}" = --scope-approved ] || { echo "REJECT --scope-approved 필요 — 실행 0"; exit 2; }
+cd "$R" || exit 2
+while IFS='|' read -r pr sha br; do
+  timeout 25 git -C "$P" fetch -q origin main
+  if landed "$pr" "$sha"; then echo "SKIP PR${pr} 이미 착지"; continue; fi
+  echo "--- 착지 PR${pr}"
+  T0=$(date +%s); FT_LAND_TOTAL_S=65 FT_LAND_DEADLINE=$((T0+65)) FT_ROOT="$LR" timeout 70 bash .fable-team/bin/ft-merge-land.sh "$pr" --approve-sha "$sha" --repo "$P" > "/tmp/land${pr}-h.txt" 2>&1; lr=$?
+  cat "/tmp/land${pr}-h.txt"
+  [ "$lr" = 0 ] || [ "$lr" = 3 ] || { echo "FAIL 착지 PR${pr} rc=${lr}"; exit 5; }
+  timeout 25 git -C "$P" fetch -q origin main; landed "$pr" "$sha" || { echo "FAIL PR${pr} 착지 확인 실패"; exit 5; }
+done <<< "$LIST"
+echo "LANDED 1/1 (${LIST%%|*}) · 설치 0 = 설치 h 따로"
+FF="$R/.fable-team/state/team-main/harness/h-pack-main-ff-only-20261114.sh"   # 팩 착지일 때만 로컬 main ff · 그 밖 리포는 줄 0
+case "$P" in */ai-feature-pack) echo "--- 팩 로컬 main ff-only"; timeout 60 bash "$FF" --scope-approved || echo "WARN 팩 로컬 main ff-only rc=$? · 착지는 끝남(따로 ff h)";; esac
