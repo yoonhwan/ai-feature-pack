@@ -18,7 +18,8 @@ MLOG="$T/mbox.log"; printf '#!/bin/sh\necho "$2|$4" >> "%s"\n' "$MLOG" > "$T/mbo
 CWDP="$T/cwdpath"; printf '#!/bin/sh\necho p1\nprintf "n%%s\\n" "$(cat %s)"\n' "$CWDP" > "$T/lsof"; chmod 755 "$T/lsof"
 printf '#!/bin/sh\nexit 1\n' > "$T/lsof-fail"; chmod 755 "$T/lsof-fail"
 mkfifo "$T/fifo"
-printf '#!/bin/bash\nfor a in "$@"; do case "$a" in *%s*|*%s*) read -r _ < "%s";; esac; done\nexec "%s" "$@"\n' "\${HANG_PAT:-/nohang/}" "\${HANG_PAT2:-/nohang/}" "$T/fifo" "$REALGIT" > "$T/git"
+printf '#!/bin/bash\necho "$*" >> "%s"\nfor a in "$@"; do case "$a" in *%s*) exit 1;; *%s*|*%s*) read -r _ < "%s";; esac; done\nexec "%s" "$@"\n' "$T/git.calls" "\${FAIL_PAT:-/nofail/}" "\${HANG_PAT:-/nohang/}" "\${HANG_PAT2:-/nohang/}" "$T/fifo" "$REALGIT" > "$T/git"
+mkdir "$T/fbin"; printf '#!/bin/sh\necho "$*" >> "%s"\nexec /usr/bin/find "$@"\n' "$T/find.calls" > "$T/fbin/find"; chmod 755 "$T/fbin/find"   # A6 ⑨a: find 호출 기록
 chmod 755 "$T/git"
 printf '#!/bin/bash\nread -r _ < "%s"\n' "$T/fifo" > "$T/mbox-hang.sh"   # r2073 R1: 멈춘 우편함(fifo 읽기)
 
@@ -93,13 +94,40 @@ c8c() { # R1 삭제: 판정 끝에 예산 0 이면 rm 0 · deferred
   fresh armed; wt "$B/a"; old "$B/a"; local s=$SECONDS
   run FT_GIT_BIN="$T/git" HANG_PAT=--git-common-dir FT_TMP_SWEEP_BUDGET=3; local e=$((SECONDS-s))
   echo "  R1 삭제 걸린 초 $e"; [ "$e" -le 5 ] && [ -d "$B/a" ] && endl | grep -q 'removed=0 .*deferred=1'; }
+# ⑨ A6 끊김 · 이어 보기 · 쪽지 몫 — 바로 아래 7개 = 지움 꼴 a1~a5 + 리포 없는 z1 · z2
+CUR() { echo "$R/.fable-team/state/tmp-sweep.cursor"; }
+mk9() { fresh "${1:-armed}"; local i; for i in 1 2 3 4 5; do wt "$B/a$i"; done; mkdir "$B/z1" "$B/z2"; old "$B"/*; }
+gone5() { local i; for i in 1 2 3 4 5; do [ ! -e "$B/a$i" ] || return 1; done; }
+dels() { SLOG | awk -F'\t' '$2 ~ /^삭제 \// {sub(/.*\//, "", $2); printf "%s ", $2}'; }
+c9a() { mk9; : > "$T/git.calls"; : > "$T/find.calls"; run FT_GIT_BIN="$T/git" PATH="$T/fbin:$PATH" FT_TMP_SWEEP_BUDGET=0
+  local i; for i in 1 2 3 4 5; do [ -d "$B/a$i" ] || return 1; done
+  [ ! -s "$T/git.calls" ] && [ ! -s "$T/find.calls" ] && endl | grep -q 'removed=0 .*deferred=7$' && [ "$(cat "$(CUR)" 2>/dev/null)" = a1 ] \
+    && [ "$(SLOG | grep -c '예산 끝 — a1 부터 다음 실행')" = 1 ]; }
+c9b() { mk9; echo a3 > "$(CUR)"; run; [ "$(dels)" = "a3 a4 a5 " ] && [ -d "$B/a1" ] && [ -d "$B/a2" ] && [ ! -e "$(CUR)" ] || { echo "  삭제=[$(dels)]"; return 1; }
+  run; gone5; }
+c9c() { fresh armed; local i; for i in 1 2 3 4 5; do wt "$B/s$i"; done; old "$B"/*
+  run FT_GIT_BIN="$T/git" HANG_PAT="$B" FT_TMP_SWEEP_BUDGET=3; local c; c="$(cat "$(CUR)" 2>/dev/null)"
+  case "$c" in s1|s2|s3|s4|s5) ;; *) echo "  cursor=[$c]"; return 1;; esac
+  run; for i in 1 2 3 4 5; do [ ! -e "$B/s$i" ] || return 1; done; [ ! -e "$(CUR)" ]; }
+c9d() { fresh armed; local i; for i in 1 2 3 4 5; do wt "$B/s$i"; done; old "$B"/*
+  run FT_GIT_BIN="$T/git" FAIL_PAT="$B/s1" HANG_PAT="$B/s" FT_TMP_SWEEP_BUDGET=6
+  [ "$(grep -c . "$MLOG")" = 1 ] && ! SLOG | grep -q '쪽지 미전달' && [ -s "$(CUR)" ]; }
+c9e() { local c; for c in '' 'a/b' 'zz'; do mk9; printf '%s\n' "$c" > "$(CUR)"; run; gone5 && [ ! -e "$(CUR)" ] || { echo "  cursor [$c] 안 지움"; return 1; }
+    if [ "$c" != zz ]; then [ "$(SLOG | grep -c 'cursor 읽기 실패 — 처음부터')" = 1 ] || { echo "  cursor [$c] 로그 없음"; return 1; }; fi; done; }
+c9f() { mk9 plain; run FT_TMP_SWEEP_BUDGET=0; local A="$R/.fable-team/state/tmp-sweep.armed"
+  [ -d "$B/a1" ] && [ ! -e "$A" ] && [ "$(cat "$(CUR)" 2>/dev/null)" = a1 ] || return 1
+  run; [ -d "$B/a1" ] && [ "$(grep -c '^목록 지움 대상' <<<"$OUT")" = 5 ] && [ -f "$A" ] && [ ! -e "$(CUR)" ] || return 1
+  run; gone5; }
 
 SUT="$ORIG"; [ -f "$SUT" ] || bad "ft-tmp-sweep.sh 없음 (기준판)"
 for c in "c1 ① 고르기 = worktree 2 폴더 · clone 폴더만 목록" "c2a ② 깨끗한 worktree 2 폴더 지움 · worktree list 빠짐 · removed=1" \
   "c2b ② 깨끗한 clone 폴더 지움" "c2c ② clone + worktree 같이 든 폴더 지움(R1)" "c3 ③ 열 폴더 남김 · young 1 cwd 1 dirty 2 unpushed 6" \
   "c4a ④ lsof rc1 = 전체 삭제 0 · rc 3" "c4b ④ git fifo 멈춤 = 그 폴더만 판정 불가 · 다른 폴더 지움" "c5 ⑤ 첫 1회 목록만 · 표식 · 다시 = 삭제" \
   "c6a ⑥ 총 상한 3초 · deferred · 끝 줄 1" "c6b ⑥ 쪽지 0통 / removed 1 = 1통" "c7 ⑦ 판정문 보관 verdict.md 만" \
-  "c8a R1 우편함 멈춤 = 총 예산 안 · 미전달 로그" "c8b R1 예산 소진 뒤 prune 0" "c8c R1 예산 소진 뒤 삭제 0 · deferred"; do
+  "c8a R1 우편함 멈춤 = 총 예산 안 · 미전달 로그" "c8b R1 예산 소진 뒤 prune 0" "c8c R1 예산 소진 뒤 삭제 0 · deferred" \
+  "c9a ⑨a 총 상한 0 = 삭제 0 · git·find 0 · deferred=7 · cursor a1" "c9b ⑨b cursor a3 = a3·a4·a5 만 · 다음 = a1·a2" \
+  "c9c ⑨c 실제 끊김 → cursor · 이어서 5개 지움" "c9d ⑨d 끊겨도 쪽지 1통(쪽지 몫)" "c9e ⑨e cursor 깨짐 세 꼴 = 처음부터" \
+  "c9f ⑨f 끊긴 목록만 = 표식 0 · 끝까지 간 목록만 = 표식"; do
   f="${c%% *}"; if "$f"; then ok "${c#* }"; else bad "${c#* }"; fi
 done
 
@@ -109,11 +137,21 @@ mut() { # mut <이름> <지울 줄 고정 문자열> <사례> <설명>
   if cmp -s "$MS" "$ORIG"; then bad "$1 변이 적용 안 됨"; return; fi
   SUT="$MS"; if "$3" >/dev/null 2>&1; then bad "$1 $4 — 변이인데 PASS"; else ok "$1 $4 → FAIL(원본 PASS)"; fi; SUT="$ORIG"
 }
+muts() { # muts <이름> <찾을 고정 문자열> <바꿀 문자열> <사례> <설명> — 줄 안 치환 변이
+  local MS="$T/mut-$1.sh"; python3 -c 'import sys;s=open(sys.argv[1]).read();open(sys.argv[2],"w").write(s.replace(sys.argv[3],sys.argv[4]))' "$ORIG" "$MS" "$2" "$3"
+  if cmp -s "$MS" "$ORIG"; then bad "$1 변이 적용 안 됨"; return; fi
+  SUT="$MS"; if "$4" >/dev/null 2>&1; then bad "$1 $5 — 변이인데 PASS"; else ok "$1 $5 → FAIL(원본 PASS)"; fi; SUT="$ORIG"
+}
 if [ -f "$ORIG" ]; then
   mut M1 '[ -n "$(repos_of "$d")" ] || continue' c1 "git 리포 품은 폴더만 고르기 지움 → ①"
   mut M2 'WHY="dirty $r"; return 1;' c3 "dirty 검사 지움 → ③"
   mut M3 'WHY="unpushed $r"; return 1;' c3 "unpushed 검사(worktree·clone) 지움 → ③"
   mut M4 'if [ "$ARM" = 0 ]; then listed=' c5 "첫 1회 목록만 지움 → ⑤"
+  mut M5 'break   # A6 끊긴 자리' c9a "끊긴 자리에서 반복 끝내기 지움 → ⑨a"
+  mut M6 '> "$CURSOR"   # A6 cursor 쓰기' c9a "cursor 쓰기 지움 → ⑨a"
+  mut M7 'START=$k   # A6 cursor 부터' c9b "cursor 항목부터 시작 지움 → ⑨b"
+  muts M8 'SCAN=$((BUDGET - NOTE))' 'SCAN=$BUDGET' c9d "쪽지 몫 지움(훑기 예산 = 총 상한) → ⑨d"
+  muts M9 '[ -n "$CUT" ] || : > "$ARMED"' ': > "$ARMED"' c9f "끊긴 목록만에도 표식 → ⑨f"
 fi
 cmp -s "$ORIG" "$KIT" && ok "bin·kit cmp 0" || bad "bin·kit 다름"
 TMP1=$(ls -A /private/tmp | wc -l | tr -d ' ')
