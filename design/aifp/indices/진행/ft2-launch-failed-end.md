@@ -7,6 +7,7 @@
 - 원인 1줄: keeper.team_round 는 최신 attempt 에 parked 줄이 있으면 그 work 를 건너뛴다(302·305줄) · fill 은 열기 실패 카드를 fill_hold 에 넣어 자동 재시도 0 · 반쪽 판정은 intent failed·closed 만 봐서 opening 에 멈춘 열기는 영영 owner-orphan · choose 는 착지 여부를 안 본다
 - 앞 카드: r2055(팩 d88ef381 · settle 한 길 · park launch-failed) · r1913·r1939(fill) · r1968·r1973(반쪽) · 계약 feature-pack/fable-team/ft2/contracts/keeper-settle/CONTRACT.md §3
 - 상태: 대기
+- 착지: 8ed707c454130bc5868c48895fb245a90c2c9403(팩 main · PR #1294 squash · DA#11 APPROVE-IMPL aifp 5563 · 세트 b025fdda · 뺄 커밋 0)
 - 설치: 있음 — ft2 판 올림 1회(팩 착지 뒤 팀장·harness 설치 묶음) · 되돌림 = 앞 판으로 판 전환
 - 선행: 없음 — B ft2-slack-accept-capacity 착지 09c02c0a(PR #1270) + E ft2-keeper-notify-recipient 착지 ae0c199e(PR #1282) 착지 끝 · 팀장 aifp-ft-master-pi#19 이 풂
 - 시험 입력: 임시 루트(tmp_path) · 시험 안에서 만든 journal·launch intent·카드 파일 · 가짜 tmux(세션 부재 rc1 «can't find session») · 가짜 clock · 가짜 mbox · sleep 0 · 네트워크 0 · 실 runtime 쓰기·읽기 0 · 사례 1개 70초 안
@@ -59,15 +60,15 @@ r2055 는 열기에 실패한 일을 쉼(park · 사유 launch-failed)으로 돌
 - 알려진 한계(DA BYZ 309947): 카드 배정 줄과 배정 원장이 둘 다 없던 v65 K4 의 원래 입력은 이 카드 뒤에도 자동으로 막히지 않는다 · 추적 카드에 정지 표식(`- 배정: 대기(정지 · <시각>)`)을 적는 집행은 v65 팀장 몫 · 표식 없는 카드를 모두 막는 고침은 하지 않는다(정상 카드까지 막힌다) · 실제 K4 자동 재개설 중단·실상태 정리는 이 카드의 증거로 주장하지 않는다
 
 ## 완료 조건
-1. [ ] 나노: 커밋 1 기준판 FAIL 원문
-2. [ ] 나노: 새 시험 전체 rc0 · 걸린 초
-3. [ ] 나노: 변이 M11 → ㉘나·㉘다·㉘라 FAIL · M12 → ㉘가 FAIL · M13 → ㉘바 FAIL · M16 → ㉛가 FAIL · M30 → ㉘아·㉘자·㉘차 FAIL · M31 → ㉘차 FAIL
-4. [ ] 나노: 회귀 rc0 · 고친 기대값 사례 이름
-5. [ ] 팀장: PR 착지 sha · 설치 판
+1. [x] 나노: 커밋 1 기준판 FAIL 원문 — 4c00de60 을 기준판 c7860542 에서 돌림 = 13 failed · 5 passed(나노 aifp 5555): ㉘가 PARKED … launch-failed(기대 UNKNOWN) · ㉘나 launch-failed 쉼이면 건너뜀(ROUND unknown=0) · ㉘다 착지 뒤 complete 0 · ㉘라 UNKNOWN 남은 범위 0 · ㉘바 착지 카드를 fill 이 submit · ㉘아·㉘차 표식 카드 submit(a2 dispatch 1) · ㉘자 [다음 없음] 0통 · ㉘하 표식 카드 첫 바퀴 submit · ㉛가 UNKNOWN owner-orphan(park 0) · ㉛나·㉛다 owner-orphan [긴급] 1통 · ㉛라 UNKNOWN tmux-error · 지킴 5 = ㉘마 ㉘사 ㉘카 ㉘타 ㉘파 · DA aifp 5563 «기준 13FAIL·5PASS» 재확인
+2. [x] 나노: 새 시험 전체 rc0 · 걸린 초 — python3.11 -m pytest tests/test_launch_failed_end.py = 24 passed 39.4초 rc=0(사례 18 + 변이 6 · 나노 aifp 5555) · DA 재실행 47.25초(aifp 5563)
+3. [x] 나노: 변이 M11 → ㉘나·㉘다·㉘라 FAIL · M12 → ㉘가 FAIL · M13 → ㉘바 FAIL · M16 → ㉛가 FAIL · M30 → ㉘아·㉘자·㉘차 FAIL · M31 → ㉘차 FAIL — 나노 실측(aifp 5555 · 원본은 같은 사례 PASS): 여섯 변이 모두 기대 칸 FAIL · M31 은 ㉘아·㉘자·㉘하도 함께 죽고 ㉘타·㉘파·㉘카는 PASS · DA aifp 5563 «M30 은 ㉘아·자·차 모두 검출 · M31 차 검출 · 추가 칸 실패는 모순 0»
+4. [x] 나노: 회귀 rc0 · 고친 기대값 사례 이름 — 파일별 모두 rc=0(나노 aifp 5555): test_settle_one_path_r2055 29 passed 39.2초 · test_core_park_capacity_r2055 9 passed 2.5초 · test_keeper_fill_empty_slot_r1913 14 passed 29.0초 · test_keeper_fill_intake_full_r1939 9 passed 14.8초 · test_pi_keeper_next_card_r1871 26 passed 58.9초 · test_pi_launch_roster_r1983 11 passed 12.9초 · 고친 기대값 = r2055 시험 ③·⑫ 두 사례 한 줄(UNKNOWN … launch-failed 인정 + PARKED 줄 0 · park 1회·용량 −1 그대로) · DA aifp 5563 «신규 24 + 회귀 98 = 122 PASS»
+5. [~] 팀장: PR #1294 8ed707c4 · 설치 = harness#291 대기
 6. [ ] arch: 설치 뒤 읽기 실측 1줄(v65 capacity · parked 줄 수)
-7. [ ] 팀장: harness 사실 줄 받아 적음(r2058 complete a1 rc0 rev 2864 · BYZ #309621)
-8. [ ] arch: notify 와 v65 enroll 호출부가 공용 명부 함수를 실제로 부르는지 확인 1줄(ci refs 원문 · 하드코딩 seats-<팀>.json 경로가 호출부에 남아 있으면 반송)
-9. [ ] 나노: DA 인수 칸 ㉘아~카 + 양성 3칸 ㉘타·㉘파·㉘하 rc0 원문
+7. [x] 팀장: harness 사실 줄 받아 적음(r2058 complete a1 rc0 rev 2864 · BYZ #309621) — 팀장 aifp-ft-master-pi#19 발주 aifp 5570 으로 받아 그대로 적음
+8. [x] arch: notify 와 v65 enroll 호출부가 공용 명부 함수를 실제로 부르는지 확인 1줄(ci refs 원문 · 하드코딩 seats-<팀>.json 경로가 호출부에 남아 있으면 반송) — aifp-ft-arch-pi#19(aifp 5562 · 세트 b025fdda archive 사본 · `ci sym roster_path --scope adapters --callers` = 호출부 3줄 · archive 사본에서 ci refs 는 probe rc=1 이라 sym --callers 로 봄): pi/keeper_report.py:33 Reporting.cells `roster.roster_path(self.root, team)` · `roster.roster_path(self.root, HARNESS)` / pi/launch_roster.py:69 enroll `path = roster_path(root, team) or os.path.join(root, ".fable-team", "seats-%s.json" % team)` · or 뒤 경로는 함수가 None(명부 둘 다 없음)일 때만 쓰이고 write_row 가 «판정 불가 명부 없음 — 생성 0» 을 낸다 = 반송 사유 아님 · 사례 ㉘거(v65 = seats.json 에 행 추가)·변이 M67 있음 · 사본 test_pi_launch_roster_r1983 11 passed rc=0 · 앞 판정 = 69f1bd01 반송(aifp 5544 · enroll 하드코딩) → f640de21·b025fdda 로 풀림
+9. [x] 나노: DA 인수 칸 ㉘아~카 + 양성 3칸 ㉘타·㉘파·㉘하 rc0 원문 — ㉘아 PASS · ㉘자 PASS · ㉘차 PASS · ㉘카 PASS + 양성 ㉘타 PASS · ㉘파 PASS · ㉘하 PASS(조건 2 의 24 passed 안 · 나노 aifp 5555)
 
 ## 계약↔시험 대응표
 | 계약 | 시험 |
@@ -93,3 +94,6 @@ r2055 는 열기에 실패한 일을 쉼(park · 사유 launch-failed)으로 돌
 - [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
 - 세트: 69f1bd017cbf129748b527b4589c5e7f02ec0cb8 · 시험: python3.11 -m pytest tests/test_launch_failed_end.py tests/test_settle_one_path_r2055.py tests/test_core_park_capacity_r2055.py tests/test_keeper_fill_empty_slot_r1913.py tests/test_keeper_fill_intake_full_r1939.py tests/test_pi_keeper_next_card_r1871.py (111 passed) rc=0 · 이슈: 0
 - 완료: aifp-ft-nano-ft2-launch-failed-end#0 · 한 일: ft2 keeper 열기 실패(launch-failed)·열기 멈춤(opening) 끝 판독 + 착지 카드 제외 + 나노 불가 표식 (L1~L9 · 코드 3파일 · 새 시험 1파일) · 산출: nano/ft2-launch-failed-end@69f1bd017c · 병합 상태: 착지 전(push 전) · 남은 일: 없음
+- 고침: arch 조건 8 반송(aifp 5544 · enroll 이 seats-<팀>.json 하드코딩) → 커밋 f640de21(시험 ㉘거 · 기준판 Red) · b025fdda(adapters/pi/launch_roster.py enroll 경로 = roster_path 한 함수 · 변이 M67 · 나노 aifp 5555)
+- DA 판정: APPROVE-IMPL 311104(aifp 5563) · M30·M31 기대표 모순 0 · L10 or 뒤 = None 때 판정 불가 길 · 새 동작 반례 0 · 뺄 커밋 0
+- 세트: b025fddaf62a9556e58fffd10b44ecad5cf3d584 · 시험: python3.11 -m pytest tests/test_launch_failed_end.py tests/test_settle_one_path_r2055.py tests/test_core_park_capacity_r2055.py tests/test_keeper_fill_empty_slot_r1913.py tests/test_keeper_fill_intake_full_r1939.py tests/test_pi_keeper_next_card_r1871.py tests/test_pi_launch_roster_r1983.py (122 passed) rc=0 · 이슈: 0
