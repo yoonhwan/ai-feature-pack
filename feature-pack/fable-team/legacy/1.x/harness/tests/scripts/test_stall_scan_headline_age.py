@@ -35,6 +35,7 @@ def desk(w: World) -> None:
     w.live.append("planner-desk#0")
     w.state("planner-desk#0", "WORKING", 0.1)
     w._tmux()
+    w.env["FT_DESK_HEARTBEAT_MIN"] = "1e9"  # r2080 — desk 틱(t) 갈래 밖: 시작 유예가 덮는다(이 시험은 h 만 본다)
 
 
 def roster(w: World, label: str, rows: dict, master: str = "", file: str | None = None) -> None:
@@ -446,8 +447,8 @@ def test_r12_summary_appends_h_after_existing_fields(tmp_path: Path) -> None:
     room(w)
     headline(w, "room", 16)
     first = scan(w).stdout.splitlines()[0]
-    keys = [kv.split("=", 1)[0] for kv in first.split()]  # r1882·r1883 — 기존 칸(a~f·h) 순서 그대로 + 끝에 g·m 1칸씩
-    assert " h=1" in first and keys == ["stall", "a", "b", "c", "d", "e", "seats", "u", "ts", "l", "f", "h", "g", "m"] and counts(first)["stall"] == "0"
+    keys = [kv.split("=", 1)[0] for kv in first.split()]  # r1882·r1883 — 기존 칸(a~f·h) 순서 그대로 + 끝에 g·m 1칸씩 · r2080 t
+    assert " h=1" in first and keys == ["stall", "a", "b", "c", "d", "e", "seats", "u", "ts", "l", "f", "h", "g", "m", "t", "w"] and counts(first)["stall"] == "0"
 
 
 def test_r13_old_mtime_and_matching_clock_uses_full_age(tmp_path: Path) -> None:
