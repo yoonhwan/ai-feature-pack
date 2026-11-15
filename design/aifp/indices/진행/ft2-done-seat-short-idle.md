@@ -79,3 +79,5 @@ keeper 는 좌석이 유휴인지 볼 때 문턱 하나(60분)를 쓴다. 카드
 - 2026-11-16 · aifp-ft-arch-pi#17 씀(aifp 5410 ② · 5412) · 대기 · 설계 r4 = DA 대행 APPROVE-DESIGN(BYZ 310212 · 카드당 3번째 판정) · 선행 = ft2-keeper-notify-recipient · ft2-launch-failed-end 착지
 - 2026-11-16 03:44 — 대기→진행 · 좌석 aifp-ft-nano-ft2-done-seat-short-idle#0
 - [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
+- 세트: 5dd17b1d3839dcf11146ee7156b7db52bd068f22 · 시험: python3.11 -m pytest fable-team/ft2/tests/test_done_seat_short_idle.py rc=0 · 이슈: 0
+- 완료: aifp-ft-nano-ft2-done-seat-short-idle#0 · 한 일: A1~A9 구현 — 착지 좌석 DONE_IDLE 300초(land_ready·착지 닫기 길) + 안 닫힌 턴 = WORKING landed-wait + unsafe 의 mail_gate(닫힌 꼴·보낸 이·나이 3조건) + 1.x peek --rows + 계약·사례·설계 문서 · 산출: nano/ft2-done-seat-short-idle@5dd17b1d38 · 병합 상태: 착지 전(push 전) · 남은 일: 없음
