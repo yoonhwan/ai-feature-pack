@@ -91,3 +91,5 @@ r2055 는 열기에 실패한 일을 쉼(park · 사유 launch-failed)으로 돌
 - 2026-11-16 · aifp-ft-arch-pi#17 L6 확정(aifp 5410 ①) · §F opening = DA#11 APPROVE-DESIGN(BYZ 310141) → 조건부 문구 지움 · tmux 조회 실패 = 판정 불가 칸 ㉛라 더함 · 한계 1줄 · Issue #8633
 - 2026-11-16 03:04 — 대기→진행 · 좌석 aifp-ft-nano-ft2-launch-failed-end#0
 - [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
+- 세트: 69f1bd017cbf129748b527b4589c5e7f02ec0cb8 · 시험: python3.11 -m pytest tests/test_launch_failed_end.py tests/test_settle_one_path_r2055.py tests/test_core_park_capacity_r2055.py tests/test_keeper_fill_empty_slot_r1913.py tests/test_keeper_fill_intake_full_r1939.py tests/test_pi_keeper_next_card_r1871.py (111 passed) rc=0 · 이슈: 0
+- 완료: aifp-ft-nano-ft2-launch-failed-end#0 · 한 일: ft2 keeper 열기 실패(launch-failed)·열기 멈춤(opening) 끝 판독 + 착지 카드 제외 + 나노 불가 표식 (L1~L9 · 코드 3파일 · 새 시험 1파일) · 산출: nano/ft2-launch-failed-end@69f1bd017c · 병합 상태: 착지 전(push 전) · 남은 일: 없음
