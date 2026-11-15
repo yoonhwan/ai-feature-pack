@@ -20,6 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ft_penalty import root  # noqa: E402
+from ft_status_root import status_root  # noqa: E402
 
 SLACK_TS = re.compile(r"(?<!\d)1\d{9}(?:\.\d{1,6})?(?!\d)")
 MD_ROW = re.compile(r"^(?:- \*\*(\d+)\*\*|\|\s*(\d+)\s*\|)")
@@ -286,6 +287,8 @@ def main(argv: list[str]) -> int:
         print(f"지시 감시 판정 불가 · --now 꼴 아님({v})")
         return 3
     virtual, R = now < real, root()  # 유예 0 — 지금보다 앞이면 운영 파일 읽기·쓰기 0
+    D, tail = status_root(R) if argv[0] == "status" else (R, "")  # r1982: 위성 status = 본 루트 표 읽기만(가상과 같이 쓰기 0)
+    virtual, R = virtual or D != R, D
     if argv[0] == "tick" and virtual:
         print("지시 감시 판정 불가 · tick 은 가상 시각을 받지 않는다")
         return 3
@@ -298,6 +301,7 @@ def main(argv: list[str]) -> int:
             print("\n".join(tick(R, now, None, why, [])))
         return 3
     lines = render(rows, stamp, last_ts)
+    lines[0] += tail
     print("\n".join(lines))
     if not virtual:
         wd = R / ".fable-team/state/directive-watch"

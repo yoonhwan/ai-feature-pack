@@ -34,6 +34,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ft_directive_watch import Git, Undecided, hhmm, team_master, tsv, until  # noqa: E402
 from ft_penalty import root  # noqa: E402
 from ft_latest_write import write_latest  # noqa: E402
+from ft_status_root import status_root  # noqa: E402
 from ft_card_assign_pause import DAY_S, held_add, held_once, held_prune, jload, jsave, notice, team_pause, team_paused, team_resume  # noqa: E402
 from ft_team_lib import TeamPathError, basis_ref, root_row, team_names  # noqa: E402
 
@@ -832,6 +833,8 @@ def main(argv: list[str]) -> int:
             print("latest 안 씀(rc 3)", file=sys.stderr)
         return 3
     virtual, R = now < real - 1, root()
+    D, tail = status_root(R) if cmd == "status" else (R, "")  # r1982: 위성 status = 본 루트 표 읽기만(가상과 같이 쓰기 0 · latest = 위성)
+    virtual, R, own = virtual or D != R, D, R
     if cmd != "status" and virtual:
         print(f"배정 감시 판정 불가 · {cmd} 은 가상 시각을 받지 않는다")
         if write:
@@ -855,6 +858,7 @@ def main(argv: list[str]) -> int:
             print("latest 안 씀(rc 3)", file=sys.stderr)
         return 3
     lines = render(rows, stamp, st.team_counts) + st.notes  # notes = 행 뒤 꼬리(tick 은 zip 으로 행만 짝짓는다)
+    lines[0] += tail
     output = json.dumps(rows, ensure_ascii=False) if "--json" in argv else "\n".join(lines)
     print(output)
     hot = [x for x in rows if x["kind"] not in QUIET and not closed_pointer(x)]  # 정지 중·보류 중·Q·«닫힌 카드» 는 rc 에 안 셈(머리에만)
@@ -870,7 +874,7 @@ def main(argv: list[str]) -> int:
             return 3
     rc = 1 if hot else 0
     if write:
-        write_latest(R, "card-assign", "ft-card-assign-watch.sh", output.splitlines()[0] if output else "", rows, int(now), stamp)
+        write_latest(own, "card-assign", "ft-card-assign-watch.sh", output.splitlines()[0] if output else "", rows, int(now), stamp)
     return rc
 
 
