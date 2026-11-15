@@ -130,3 +130,15 @@ keeper 는 좌석마다 매 바퀴 판정 1개를 낸다. 이 문서는 그 판�
 - PR 본문의 두 한계는 77511fcc 시점 코드에서 풀려 있다(코드 읽기): keeper 가 `tmuxc clean` 을 부른다(`keeper_settle.py` `tmuxc_status`) · `keeper_endings` 가 `resolve_card` 를 쓴다.
 - r2065 행 E 의 두 한계(DA BYZ 310019 승인 범위): ① 7초 안에 장부가 200줄 넘게 늘면 창이 경계를 지나 도착했어도 `도착 판독 불가` 로 남는다 ② 그 글은 실패 지문이라 다음 날 1회 다시 가서 같은 글이 2통이 될 수 있다. 장부 seq 가 늘 커진다는 것은 전제이고 실행 보증이 아니다.
 - 이 계약은 시험 4개가 묶는 값만 적었다. 실사건 관측 값은 담지 않는다.
+
+## 10. 전 세션 정지 재개 전 팀 (`PENALTY_STOP` · r2073 · 카드 ft2-penalty-team-no-new-pick)
+
+- 무엇을 막나 = 새 카드를 넣는 두 자리뿐이다. `keeper_next.fill()` 의 새 pick 과 `keeper_next.close()` 의 닫기 뒤 pick. 꼴은 `gates(k, team) and penalty_open(k, team)` 이고 `gates()` 가 거짓이면 판정기를 부르지 않는다.
+- 안 막는 것 = 이미 연 열기 잇기(`fill_open` · `reconcile`) · 복구 launch 직전 가드(`reconcile` 의 `pick is None and not gates(k, team)` 그대로) · settle · 착지 complete · 닫기 영수 · 깨움 · 사람 손 `ft2 submit/assign/deliver` · 팀장 개설·승계.
+- 판정기 자리 = env `FT2_PENALTY_BIN` → 없으면 `dirname(close_bin)/ft-penalty.sh`(SPAWN_HOLD·ACCT_PAUSE 와 같은 폴더 규칙). 부르는 꼴 = `bash <판정기> check <팀>` · env `FT_ROOT = k.root` · 상한 7초(하드 룰 12). 팀당 바퀴 1회만 부른다(`once` 캐시).
+- keeper 는 `state/PENALTY_STOP` JSON 을 직접 풀지 않는다. 재개 규칙·면제 팀은 1.x `ft_penalty.py` 한 곳이 한다.
+- 판정 = 표식 파일 `state/PENALTY_STOP` 자체가 없으면 참(판정기 호출 0) · 있으면 판정기 rc 로: `0` = 참(재개됨) · `3` = 거짓(재개 전) · 그 밖(`1`·`2`·도구 없음·시간 초과) = 거짓 + 판정 불가. 판정 불가도 새 카드 0 이다.
+- 줄 꼴(값이 바뀔 때만 1줄): `NEXT-HOLD <팀> PENALTY_STOP 재개 전 — 다음 카드 0` · `판정 불가 <팀> PENALTY_STOP 판독 rc <값> — 다음 카드 0` · 풀리면 `NEXT-OPEN <팀> PENALTY_STOP 풀림`.
+- 상태 키 = keeper 상태 파일 `state/ft2-keeper/state.json` 의 `penalty_seen[<팀>]`. 값은 마지막으로 찍은 표식(`hold` 또는 `rc <값>`)이고 열림이면 키가 없다. 메모리에만 두지 않는다 — 재기동해도 같은 줄을 다시 찍지 않는다.
+- 알려진 한계 = 바퀴 캐시 안에서 바뀐 정지·재개는 다음 관측(다음 바퀴)에 반영된다. 사람 손 발주는 이 계약이 막지 않는다.
+

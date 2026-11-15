@@ -179,3 +179,31 @@
 | M31 | `keeper_next.prereq` 가 카드 배정 줄 사유 표(`MARK`)를 안 봄(선행만) | ㉘차(그 밖에 ㉘아·㉘자·㉘하도 함께 죽는다) · M67 은 `test_pi_launch_roster_r1983.py`(enroll 명부 경로 하드코딩 되돌림 → ㉘거) |
 
 - 기준판(팩 origin/main c7860542)에서 FAIL 이던 사례 = ㉘가 ㉘나 ㉘다 ㉘라 ㉘바 ㉘아 ㉘자 ㉘차 ㉘하 ㉛가 ㉛나 ㉛다 ㉛라(13) · 지키던 사례 = ㉘마 ㉘사 ㉘카 ㉘타 ㉘파(5).
+
+## 8. 전 세션 정지 재개 전 팀 (`test_penalty_team_no_new_pick.py` · r2073 · 카드 ft2-penalty-team-no-new-pick)
+
+계약 P1~P8(`CONTRACT.md` §10) · 설계 `feature-pack/fable-team/design/DESIGN-pJ-penalty-team-no-new-pick-20261116.md`. 대역 = `keeper_world_r1812` 세계 + 가짜 판정기 `ft-penalty.sh`(rc 를 사례가 정하고 인자·`FT_ROOT` 를 기록) + 가짜 launch·record. 실 판정기·실 `PENALTY_STOP`·runtime 쓰기 0.
+
+| 사례 | 입력 | 기대 | 계약 |
+|---|---|---|---|
+| ㊲가 | 표식 파일 있음 · 판정기 rc 3 · 빈 나노 칸 · 대기 카드 1 · 두 바퀴 | fill submit 0 · journal 줄 수 그대로 · `NEXT-HOLD <팀> PENALTY_STOP 재개 전 — 다음 카드 0` 1줄 · 둘째 바퀴 0줄 | P1 · P3 · P6 |
+| ㊲나 | 표식 있음 · rc 0(재개됨) | fill 1장(submit·assign·deliver·launch·record) · PENALTY 줄 0 | P1 |
+| ㊲다 | 표식 파일 없음 | fill 1장 · 판정기 호출 0 | P1 |
+| ㊲라 | 표식 있음 · rc 3 · 나노 닫기 1 | 닫기 영수 1(next 없음) · 다음 카드 submit 0 · launch 0 | P3 · P4 |
+| ㊲마 | 표식 있음 · rc 3 · `fill_open` 에 잇는 열기 1 | reconcile 그대로(launch 1 · record seat · `NEXT … fill:` 1줄) | P5 |
+| ㊲바 | 표식 있음 · rc 3 · gates 거짓(CLOSE-NEXT 표식 없음) · `fill_open` 1 | 복구 launch 0 · 표식 파일 없을 때와 같은 결과 · 판정기 호출 0 | P5 |
+| ㊲사 | 판정기 rc 1 / 도구 파일 없음 / 시간 초과 | 셋 다 fill 0 · `판정 불가 <팀> PENALTY_STOP 판독 rc <값> — 다음 카드 0` 1줄 | P1 |
+| ㊲아 | rc 3 → 0 → 3 | `NEXT-OPEN` 1줄 + fill 1장 → `NEXT-HOLD` 1줄 다시 | P6 |
+| ㊲자 | 1줄 찍은 뒤 keeper 다시 만듦(상태 파일 그대로) | PENALTY 줄 0 · 판정기는 매 바퀴 부른다 | P7 |
+| ㊲차 | 두 팀 한 바퀴(rc 0 · rc 3) | rc 0 팀만 fill 1장 · 판정기 호출 팀당 바퀴 1회 | P2 |
+| ㊲카 | 팀 PAUSED · 표식 있음 | 판정기 호출 0 · PENALTY 줄 0 | P3 |
+
+| 변이 | 바꾸는 곳 | 잡는 사례 |
+|---|---|---|
+| M62 | `keeper_next.fill()` 의 pick 줄에서 `and penalty_open(k, team)` 를 뺌 | ㊲가 |
+| M63 | `keeper_next.close()` 의 pick 줄에서 `and penalty_open(k, team)` 를 뺌 | ㊲라 |
+| M64 | `penalty_open` 이 rc 0 이 아닌 값을 전부 «열림» 으로 봄 | ㊲사 |
+| M65 | `reconcile` 의 복구 launch 가드에 `and penalty_open(k, team)` 를 더함 | ㊲바 |
+| M66 | `penalty_seen` 이 상태 파일 대신 메모리 사전만 씀 | ㊲가(둘째 바퀴) · ㊲자 |
+
+- 기준판(팩 origin/main cd0bd9ee)에서 FAIL 이던 사례 = ㊲가 ㊲라 ㊲사 ㊲아 ㊲자 ㊲차(6) · 지키던 사례 = ㊲나 ㊲다 ㊲마 ㊲바 ㊲카(5).
