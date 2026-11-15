@@ -40,6 +40,7 @@ r2055 는 열기에 실패한 일을 쉼(park · 사유 launch-failed)으로 돌
 - L7 경계: 보는 것은 keeper 가 dispatch 한 work 의 launch intent 뿐 · 팀장·arch·desk 개설(ft-successor-open · 팀장 열기 길)은 dispatch·intent 를 만들지 않으므로 판정·park·[긴급] 대상이 아니다
 - L10(p3 · DA APPROVE BYZ 309947) 명부 = 이 카드가 내는 [긴급] 의 받는 곳과 다시 뜬 나노의 명부 행은 행 E 의 명부 찾기 한 함수(seats-<팀>.json → 없고 v65 면 seats.json)를 부른다 · 명부 경로를 새로 만들지 않는다 · 함수가 있는 것만으로는 안 된다 = notify 와 enroll 호출부가 그 함수를 실제로 부르는지 인수 때 본다(완료 조건 8)
 - L9(p3 · DA APPROVE BYZ 309947) 나노 불가 표식 = 카드 머리 `- 배정: 대기(<사유> · <시각>)` 의 사유가 사람·정지·DA·lint·면제대기·선행 → fill·닫기 뒤 pick 둘 다 고르지 않는다(지금은 선행만 읽음 · 카드 줄 `대기(석` 은 새 표식에서 뺀다 = 막지 않음 · 배정 원장 reason `석` 은 지금 BLOCK 규칙대로 막는다 · 둘을 섞지 않는다) · 판정 근거 순서 = 배정 원장 seat·owner → 배정 원장 reason ∈ BLOCK → 카드 배정 줄 → 카드 선행 줄 · 원장·카드 중 하나만 막아도 막힘 · owner 가 풀려도 다시 띄우지 않는다(재발주 0)
+- L11(덧 고침 · 2.0.66 뒤 실사건) 코어의 현역 master 판독 = `core/execution.py` `Execution._master`(confirm · `core/dispatch.py` give_back 이 «현역 master 손» 판정에 씀)도 명부 찾기 한 함수(seats-<팀>.json → 없고 v65 면 seats.json · 그 밖 None)를 부른다 · 명부 경로를 그 자리에서 조립하지 않는다 · 함수가 None(명부 없음)·명부 못 읽음·`_master` 빈 값 = 지금처럼 None = 거절(쓰기 0) · v65 가 아닌 팀은 seats.json 으로 넘어가지 않는다
 - L8 그대로: core park·capacity·remaining · idle-done 쉼 · fill_hold(자동 재시도 0) · 닫기 직전 가드 · 보정 3
 
 ## 구현 범위 (나노 1 · 팩 base origin/main 최신 · ft2-slack-accept-capacity 착지 뒤)
@@ -50,6 +51,7 @@ r2055 는 열기에 실패한 일을 쉼(park · 사유 launch-failed)으로 돌
 5. 회귀 rc0: test_core_park_capacity_r2055.py · r1913·r1939 fill 시험 · test_pi_keeper_next_card_r1871.py
 6. L6·L9·L10 을 모두 넣는다(DA APPROVE BYZ 309947 · BYZ 310141) · ㉛가~라·M16 포함 · L9 자리 = feature-pack/fable-team/ft2/adapters/pi/keeper_next.py(prereq·choose)
 7. 실행 = `python3.11 -m pytest` · 착지 = PR 1개(팀장 집행)
+8. 덧 고침 L11(나노 1 · PR 1개 · 고칠 안 1개): 명부 찾기 함수의 몸을 코어로 옮긴다 = 새 파일 feature-pack/fable-team/ft2/core/roster.py 에 `roster_path(root, team)`(지금 adapters/pi/launch_roster.py 20~31줄 그대로 · 동작 변경 0) · adapters/pi/launch_roster.py 는 그 함수를 경로로 읽어 같은 이름 `roster_path` 로 묶는다(정의 1곳 · keeper_report.cells · enroll · wiring 호출부 손 0 · 변이 M67 대상 줄 그대로) · core/execution.py `_master` 는 `roster_path(self.root, self.team)` 가 준 경로만 연다(None 이면 바로 None) · 이유 = 코어는 어댑터를 읽지 않는다(ft2 README «core = 실행 환경 차이를 모른다» · 어댑터가 코어를 읽는 방향은 이미 있음) · 버린 길 = execution.py 가 adapters/pi/launch_roster.py 를 경로로 읽기(코어 → 어댑터 방향 · 고침 1함수지만 층이 뒤집힘) · _master 안에 seats.json 갈래를 다시 쓰기(함수 2개 = L10 과 같은 빗나감) · 커밋 1 [test] = tests/test_core_return_delivered_r1990.py 에 ㉘너·㉘더·㉘러 + M71(기준판 c02bcd7e 에서 ㉘너 Red) · 커밋 2 [fix] = 위 3파일 · 회귀 rc0 = test_core_return_delivered_r1990 · test_pi_launch_roster_r1983 · test_keeper_notify_recipient · test_launch_failed_end · 기존 confirm 시험(나노가 ci 로 찾아 PR 본문에 적는다)
 
 ## 범위 밖
 - v65 6장·다른 팀 남은 일의 손 정리(journal 쓰기 = HIL) · 설치 집행
@@ -69,6 +71,9 @@ r2055 는 열기에 실패한 일을 쉼(park · 사유 launch-failed)으로 돌
 7. [x] 팀장: harness 사실 줄 받아 적음(r2058 complete a1 rc0 rev 2864 · BYZ #309621) — 팀장 aifp-ft-master-pi#19 발주 aifp 5570 으로 받아 그대로 적음
 8. [x] arch: notify 와 v65 enroll 호출부가 공용 명부 함수를 실제로 부르는지 확인 1줄(ci refs 원문 · 하드코딩 seats-<팀>.json 경로가 호출부에 남아 있으면 반송) — aifp-ft-arch-pi#19(aifp 5562 · 세트 b025fdda archive 사본 · `ci sym roster_path --scope adapters --callers` = 호출부 3줄 · archive 사본에서 ci refs 는 probe rc=1 이라 sym --callers 로 봄): pi/keeper_report.py:33 Reporting.cells `roster.roster_path(self.root, team)` · `roster.roster_path(self.root, HARNESS)` / pi/launch_roster.py:69 enroll `path = roster_path(root, team) or os.path.join(root, ".fable-team", "seats-%s.json" % team)` · or 뒤 경로는 함수가 None(명부 둘 다 없음)일 때만 쓰이고 write_row 가 «판정 불가 명부 없음 — 생성 0» 을 낸다 = 반송 사유 아님 · 사례 ㉘거(v65 = seats.json 에 행 추가)·변이 M67 있음 · 사본 test_pi_launch_roster_r1983 11 passed rc=0 · 앞 판정 = 69f1bd01 반송(aifp 5544 · enroll 하드코딩) → f640de21·b025fdda 로 풀림
 9. [x] 나노: DA 인수 칸 ㉘아~카 + 양성 3칸 ㉘타·㉘파·㉘하 rc0 원문 — ㉘아 PASS · ㉘자 PASS · ㉘차 PASS · ㉘카 PASS + 양성 ㉘타 PASS · ㉘파 PASS · ㉘하 PASS(조건 2 의 24 passed 안 · 나노 aifp 5555)
+10. [ ] 나노(덧 고침 L11): 코어 현역 master 판독의 명부 = 명부 찾기 한 함수(seats-<팀>.json 없고 v65 면 seats.json) — 기준판 Red 원문 + 반례 2 rc0 = ㉘너 v65 · seats.json 의 `_master` = FT_SEAT → give_back 이 접수 거부가 아님(returned 1줄) / ㉘더 명부 둘 다 없음 → 접수 거부 «현역 master 손 밖» · 쓰기 0 · revision 그대로 + ㉘러 + 변이 M71 → ㉘너 FAIL · 회귀 rc0
+11. [ ] arch(덧 고침 L11): `ci sym roster_path --callers` 원문 = 정의 1곳 · 호출부에 execution `_master` 포함 · core/execution.py 에 «seats-» 글자 0 확인 1줄
+12. [ ] 팀장(덧 고침 L11): PR 착지 sha · 설치 판 · v65 팀장이 launch-failed 2장(M5-goal6-upper-last-sentence-release-confirm-lag · M7-mic-connect-error-repeat-1945)을 return 으로 돌려놓은 사실 줄
 
 ## 계약↔시험 대응표
 | 계약 | 시험 |
@@ -81,6 +86,7 @@ r2055 는 열기에 실패한 일을 쉼(park · 사유 launch-failed)으로 돌
 | L7 팀장 개설은 대상 아님 | ㉘사 팀장 좌석 세션 0 · launch intent 없음 → 판정 줄 0 · park 0 · [긴급] 0 |
 | L9 나노 불가 표식 | ㉘아 대기 카드 2장 중 한 장 `- 배정: 대기(사람 · …)` → 그 카드 submit 0 / ㉘자 그 카드뿐 → [다음 없음] 막힌 사유별 사람 1 / ㉘차 표식 카드 · a1 launch-failed 쉼 · 원장 없음 → a2 dispatch 0 / ㉘카 원장 정지 = 막힘 · 카드 `- 배정: 좌석 …`·`없음` = 안 막음 / ㉘타 원장 없음 · 카드 배정 줄 없음 · 선행 없음 → 고름(submit 1) / ㉘파 원장 없음 · 카드 `- 배정: 대기(석 · …)` → 고름(새 표식이 아님) / ㉘하 `- 배정: 대기(사람 · …)` 로 막힌 카드에서 그 줄을 `- 배정: 없음` 으로 바꾼 다음 바퀴 → 다시 고름 / M30 · M31 |
 | L10 명부 함수를 부른다 | 인수 확인(완료 조건 8) · 시험은 행 E 카드 ㉚타(v65 = seats.json)가 맡는다 |
+| L11 코어 master 판독도 같은 함수 | ㉘너 v65 팀 · seats-v65.json 없음 · seats.json `_master` = FT_SEAT → give_back 접수(거부 아님) · confirm 도 같은 판정 / ㉘더 명부 둘 다 없음 → 접수 거부 · 쓰기 0 / ㉘러 v65 아닌 팀 · seats-<팀>.json 없음 · seats.json 만 있음 → 접수 거부(넘어가지 않음) · seats-<팀>.json 있는 팀 = 지금 그대로 / M71(`_master` 경로를 seats-<팀>.json 조립으로 되돌림) → ㉘너 FAIL |
 | L6 opening 멈춤 | ㉛가 intent opening 20분 · 세션 0(rc1 can't find session) · owner 있음 → park 1 · UNKNOWN launch-failed 1 / ㉛나 opening 5분 → 손 0 / ㉛다 opening 20분인데 fill_open 에 있음 → 손 0 / ㉛라 opening 20분 · tmux 조회 실패(rc ≠ 1 또는 다른 글) → park 0 · 판정 불가 1줄 / M16(opening 분기 뺌) → ㉛가 FAIL |
 
 ## 상태
@@ -97,3 +103,5 @@ r2055 는 열기에 실패한 일을 쉼(park · 사유 launch-failed)으로 돌
 - 고침: arch 조건 8 반송(aifp 5544 · enroll 이 seats-<팀>.json 하드코딩) → 커밋 f640de21(시험 ㉘거 · 기준판 Red) · b025fdda(adapters/pi/launch_roster.py enroll 경로 = roster_path 한 함수 · 변이 M67 · 나노 aifp 5555)
 - DA 판정: APPROVE-IMPL 311104(aifp 5563) · M30·M31 기대표 모순 0 · L10 or 뒤 = None 때 판정 불가 길 · 새 동작 반례 0 · 뺄 커밋 0
 - 세트: b025fddaf62a9556e58fffd10b44ecad5cf3d584 · 시험: python3.11 -m pytest tests/test_launch_failed_end.py tests/test_settle_one_path_r2055.py tests/test_core_park_capacity_r2055.py tests/test_keeper_fill_empty_slot_r1913.py tests/test_keeper_fill_intake_full_r1939.py tests/test_pi_keeper_next_card_r1871.py tests/test_pi_launch_roster_r1983.py (122 passed) rc=0 · 이슈: 0
+- 2026-11-16 04:00 · aifp-ft-arch-pi#19 덧 고침 L11 씀(팀장 aifp 5593 · planner 5587 · v65#295 BYZ 311218): ft2 2.0.66 뒤 v65 팀장의 return 이 «현역 master 손 밖» 으로 거부됨 · 원인 = core/execution.py 130~137줄 `_master` 가 seats-<팀>.json 만 연다(v65 명부 = seats.json · BYZ 실측 seats-v65.json 없음 · seats.json `_master` = byz-v65-master-pi#295) · 착지 8ed707c4 는 adapters/pi/launch_roster.py enroll 만 고쳤다 · 내 조건 8 확인(aifp 5562)은 `--scope adapters` 로만 봐서 core 를 놓쳤다 · 계약 L11 · 구현 범위 8 · 완료 조건 10~12 · 대응표 1행 · 코드 0 · DA 전
+- 후속 후보(L11 에 넣지 않음 · c02bcd7e 실측): 같은 seats-<팀>.json 직접 조립이 adapters/pi/full_alert.py:34 · adapters/pi/launch_plan.py:80 · adapters/slack/wiring.py:370 · adapters/slack/channels.py:52,58 · tools/goal_close.py:44 에 남아 있다 · v65 에서 꽉 참 알림 받는 곳 · `_da` · `_desk` 판독이 같은 꼴로 빗나갈 수 있다
