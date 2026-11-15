@@ -161,11 +161,14 @@ def remaining(state, records):
 def capacity(state, records, left=None):
     """r2055 «용량» 셈 — 의무 장부(remaining · command 목록)를 work 로 묶고(work 없는 command = 1칸)
     최신 attempt 가 쉼(parked)인 work 만 뺀다. 접수 상한·keeper fill·투영 capacity 칸만 본다(마감·재개는 remaining 그대로).
-    left = 이미 센 의무 목록(intake `_remaining` 이음매) · 없으면 remaining 을 센다."""
+    left = 이미 센 의무 목록(intake `_remaining` 이음매) · 없으면 remaining 을 센다.
+    r2089 — accept 줄의 work 가 dict(Slack 글 영수)인 command 는 용량 단위를 만들지 않는다(그 글에서 나온 일은
+    str-work 접수로 따로 칸을 쥔다) · work 가 str·None 인 줄과 parked 는 그대로. remaining 은 손대지 않는다."""
     by_command = {rec["command"]: rec.get("work") for rec in records if rec["kind"] == "accept"}
+    works = {cmd: by_command.get(cmd) for cmd in (remaining(state, records) if left is None else left)}
     parked = state.get("parked") or {}
-    units = {(by_command.get(cmd) if isinstance(by_command.get(cmd), str) else "cmd:" + cmd)
-             for cmd in (remaining(state, records) if left is None else left)}
+    units = {works[cmd] if isinstance(works[cmd], str) else "cmd:" + cmd
+             for cmd in works if not isinstance(works[cmd], dict)}
     return sorted(unit for unit in units if unit not in parked)
 
 

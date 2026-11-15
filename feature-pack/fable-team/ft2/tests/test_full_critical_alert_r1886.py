@@ -71,8 +71,9 @@ def test_c1_c2_c3_slack_full_once_then_release_and_new(root):
     post(), post()                                           # ② 같은 상태 글 2 → 추가 0
     assert len(sent(root)) == 2
     finish(dp, "W0"), finish(dp, "W1")
-    post()                                                   # ③ 접수 성공 관측 7 = 풀림 1
+    post()                                                   # ③ 접수 성공 관측 6 = 풀림 1
     assert len(sent(root, "풀림")) == 2 and len(sent(root)) == 2
+    fill(root, "planner", 2, "x")                          # r2089 str-work 재포화(글 영수는 칸 0) = 8/8
     post()                                                   # 다시 8 = 새 크리티컬 1
     assert len(sent(root)) == 4 and len(sent(root, "풀림")) == 2
 

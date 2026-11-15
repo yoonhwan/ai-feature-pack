@@ -93,6 +93,7 @@ keeper 는 좌석마다 매 바퀴 판정 1개를 낸다. 이 문서는 그 판�
 | 용량 | `record.capacity` | 접수 상한 · keeper fill · 투영 `capacity` 칸 | 안 센다 |
 
 - 용량은 work 단위다. 같은 work 의 command 2개 = 의무 2줄 · 용량 1칸. work 없는 command 는 command 하나가 1칸이다.
+- accept 줄의 work 가 dict(Slack 글 영수)인 command 는 용량 단위가 아니다(r2089 · 카드 ft2-slack-accept-capacity). 그 글에서 나온 일은 str-work 접수로 따로 칸을 쥔다 · 의무 장부에서는 그대로 센다(dict-work 도 remaining 1줄).
 - `accept_only` 는 work 가 문자열인 접수만 본다. work 가 dict·None 인 접수(Slack 접수 등)는 대상 밖이다(보정 3 · 77511fcc).
 
 ## 7. 정지 신호 한 벌

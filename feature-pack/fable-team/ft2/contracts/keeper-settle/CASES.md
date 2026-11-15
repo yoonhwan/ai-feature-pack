@@ -2,13 +2,14 @@
 
 `CONTRACT.md` 의 약속마다 **입력 → 기대 결과**와 그것을 묶은 시험을 적는다.
 사례 문장은 설계 정본 §7·§12·§13 과 시험 파일의 사례 주석에서 옮겼다. 새 사례는 없다.
-이 폴더에는 replay 검사기가 없다. 사례는 아래 시험 3개가 직접 돈다(임시 루트 · 실 tmux·실 runtime 0).
+이 폴더에는 replay 검사기가 없다. 사례는 아래 시험 4개가 직접 돈다(임시 루트 · 실 tmux·실 runtime 0).
 
 | 시험 파일(`feature-pack/fable-team/ft2/tests/`) | 사례 | 변이 |
 |---|---|---|
 | `test_core_park_capacity_r2055.py` | ③ ⑧ ⑪ ⑪′ ⑬ ⑭ ⑮ | M1 · M2 |
 | `test_settle_one_path_r2055.py` | ① ② ②′ ③ ④ ④′ ⑤ ⑥ ⑦ ⑨ ⑩ ⑪ ⑫ ⑰가~바 ⑱ ⑲ ⑳ ㉕가·나·다 | M3 · M4 · M5 · M6 |
 | `test_settle_da_r2055.py` | DA 반례 R1~R4 · ㉑가~라 · ㉒가~바 · ㉓ · ㉔ | — |
+| `test_slack_accept_capacity.py` | ㉖가~바 | M7 · M8 · M9 |
 
 돌리는 법: `python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_core_park_capacity_r2055.py -q`(나머지 2개도 같은 꼴 · 시험 1개 70초 상한).
 
@@ -83,7 +84,24 @@
 | ㉓ | 명부 나노 · dispatch 0 (정지 중 / 정지 아님) | 판정 줄 있음 · 그 좌석 판정 정확히 1줄 · 닫기 0 | §1 · §7 |
 | ㉔ | 짝 표 매핑 카드와 팀 폴더 동명 카드 | 짝 표 매핑 카드가 먼저 | §8 |
 
-## 4. 실사건 기대 (설치 뒤 · 설계 §7 끝 · §12)
+## 4. Slack 글 영수(dict-work) 용량 사례 (`test_slack_accept_capacity.py` · r2089)
+
+| 사례 | 입력 | 기대 | 계약 절 |
+|---|---|---|---|
+| ㉖가 | planner 꼴 dict-work accept 8(`route`·`slack`) → 9번째 Slack 접수 | 접수 전 capacity 0 · remaining 8 → `접수 성공` → capacity 0 · remaining 9 | §6 |
+| ㉖나 | issues 꼴 dict-work accept 8(`slack.team` 만) → str-work 접수 1 | capacity 0 · remaining 8 → `접수 성공` → capacity 1 · remaining 9 · complete 손 0 | §6 |
+| ㉖다 | dict-work 8 + str-work accept 8 → 다음 str-work 접수 | `용량 부족` · 문구의 남은 일 8(dict 는 안 셈) | §6 |
+| ㉖라 | work None 접수 8 → 다음 접수 | `용량 부족`(r2055 §4.1 그대로) | §6 |
+| ㉖마 | str-work 8 포화 · thread 에 dict-work 1 · Slack 글 9건 full → str-work 1 complete(여유 1칸) → 답글 settle | 9건 전부 재접수(ts 오래된 순 · dict 재접수는 칸 0) · full 0 · capacity 7 · 같은 settle 다시 = 재접수 0 | §6 |
+| ㉖바 | dict-work accept 8 → 알림 1회 → str-work 8 → str-work 1 complete | 첫 호출 알림 0(0/8) · 둘째 꽉 참 1통(8/8) · 셋째 풀림 1통 · 같은 값 다시 = 0통(알림 값 = 투영 `capacity`) | §6 |
+
+| 변이 | 바꾸는 곳 | 잡는 사례 |
+|---|---|---|
+| M7 | `core/record.py` `capacity` 의 dict 제외를 뺌 | ㉖가 · ㉖나 · ㉖마 |
+| M8 | `adapters/slack/reply_done.py` `_requeue` 를 «처음 센 칸 − 성공 수» 로 | ㉖마 |
+| M9 | `adapters/pi/full_alert.py` 알림 값을 `remaining` 으로 | ㉖바 |
+
+## 5. 실사건 기대 (설치 뒤 · 설계 §7 끝 · §12)
 
 - keeper 1바퀴 뒤 «끝난 나노» 0석: 모든 나노 세션이 `WORKING` 이거나 [긴급] 목록에 있다.
 - 새로 끝난 나노 1석이 사람 손 없이 `PARKED` 또는 `LANDED` 로 닫힌다.
