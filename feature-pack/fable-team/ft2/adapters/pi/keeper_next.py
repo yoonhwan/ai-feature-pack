@@ -106,6 +106,35 @@ def penalty_rc(k, judge, team):
         return k.call(["bash", judge, "check", team], PENALTY_S)[0]
     finally:
         k.env = outer
+def new_card_hold(k, team):
+    """r2101 H1~H5 — 새 카드 보류 설정 1개(state/NEW_CARD_HOLD.json) · 참 = 카드 고르기 두 곳(fill pick·닫기 뒤 pick)만 막힌다.
+    판독 = 바퀴당 1회(once · 팀 사이 공유) · 없음 = 거짓(열림) · 있음 = 참 + 팀마다 `NEW-CARD-HOLD <reason> · until <until>` 1줄(값이 바뀔 때만) ·
+    깨짐(빈 파일·JSON 아님·reason 없음) = 참 + `판정 불가` 1줄. gates()·ALL_STOP·팀 PAUSED·팀장 개설은 안 본다(H7·H8)."""
+    got = once(k, "new-card-hold", lambda: hold_read(k, os.path.join(k.root, ".fable-team", "state", "NEW_CARD_HOLD.json")))
+    book = k.state.setdefault("new_card_hold_seen", {})
+    val = "" if got is None else "깨짐" if isinstance(got, str) else "|".join(got)
+    if book.get(team, "") == val:   # 같은 값 = 줄 0(재기동해도 상태 파일에 남아 있다)
+        return bool(val)
+    if not val:   # 기억에 있던 팀이 풀렸다 = 이때만 1줄
+        book.pop(team, None)
+        k.log("NEW-CARD-OPEN", team)
+        return False
+    book[team] = val
+    if isinstance(got, str):
+        k.log("판정 불가", team, "NEW_CARD_HOLD 판독 불가(빈 파일·JSON 아님·reason 없음) — 새 카드 0")
+    else:
+        k.log("NEW-CARD-HOLD", team, "%s · until %s" % got)
+    return True
+def hold_read(k, path):
+    """H1·H2 판독 1회 — 없음 = None · 있음 = (reason, until) · 깨짐 = "깨짐"(추측 채움 0)."""
+    if not os.path.lexists(path):
+        return None
+    data, reason = k.read_json(path), ""
+    if isinstance(data.get("reason"), str):
+        reason = data["reason"].strip()
+    if not reason:   # 빈 파일·JSON 아님(read_json = {})·reason 없음
+        return "깨짐"
+    return reason, str(data.get("until") or "").strip() or "-"
 def cards(k, team):
     """({stem: [긴급, 높음, 대상 줄들, 선행 막힘]}, 루트 행) · 판독 실패 = 사유 문자열 (git 2회 · 작업 트리 0)."""
     try:
@@ -193,17 +222,20 @@ def choose(k, team, skip=frozenset()):
         return min(ready)[1:] if ready else None
     k.notify(team, "%s|next-none|%s" % (k.stamp()[:10], team), "%s %s · 배정 없는 카드 0 · 막힌 사유별 %s" % (NONE, team, " ".join("%s %d" % kv for kv in sorted(why.items())) or "0"))
 def close(k, team, work, attempt, holder, gen):
-    """닫기 영수 1회(지금 자리) + 다음 카드. 반환 = 영수 결과."""
+    """닫기 영수 1회(지금 자리) + 다음 카드. 반환 = 영수 결과. r2101 H3 = 새 카드 보류면 이 고르기만 멈춘다(영수·이어 잇기 그대로)."""
     seen = ((ft2_state(k, team) or {}).get("close_receipts") or {}).get("keeper:%s@%s" % (work, attempt))
-    if seen is None:
+    pick = None
+    if seen is None and not new_card_hold(k, team):
         pick = choose(k, team) if gates(k, team) and penalty_open(k, team) else None
         if pick:
             out, rc = cli.run(["submit", "--command", "keeper-next-" + pick[0], "--body", "카드 " + pick[0], "--work", pick[0], "--root", k.root, "--team", team])
             k.fa.remaining(k.root, team, out.get("result"), "카드 " + pick[0])   # r1886 ⓐ keeper submit
             pick = pick if rc == 0 or "재부여 0" in str(out.get("reason")) else k.log("판정 불가", team, "%s submit %s" % (pick[0], out.get("result")))
         stem, nh = (pick[0], "byz-%s-nano-%s#0" % (team, pick[0][:40])) if pick else (None, None)
-    else:
+    elif seen is not None:
         stem, nh = seen.get("next"), seen.get("holder")
+    else:   # 새 카드 보류(H3) = 다음 카드 없음 · 영수는 그대로 쓴다
+        stem, nh = None, None
     if not stem:
         return k.receipt(team, work, attempt, holder, gen)
     out = k.receipt(team, work, attempt, holder, gen, next_work=stem, next_holder=nh, evidence=dispatch.Dispatch.REQUIRED_EVIDENCE, mark=False)
@@ -236,6 +268,8 @@ def fill(k, team):
     if mine:
         return None
     [held.pop(x) for x in list(held) if x.split("|")[0] == team and (ledger(k, x.split("|", 1)[1]).get("updated") or 0) > float(str(held[x]).split("|")[0])]   # 풀림 · r1939 값 = 시각 또는 «시각|사유»
+    if new_card_hold(k, team):   # r2101 H3 — 보류 = 새 카드 고르기만 멈춘다(위 이어 열기·settle·닫기는 그대로)
+        return None
     pick = intake_open(k, team) and choose(k, team, {x.split("|", 1)[1] for x in held if x.split("|")[0] == team}) if gates(k, team) and penalty_open(k, team) else None
     if not pick:
         return None

@@ -1,34 +1,35 @@
 """r1983 ft2 launch 가 연 좌석 → 팀 명부(r2058 L10 = `roster_path(root, team)` 한 함수 · seats-<팀>.json → 없고 v65 면 seats.json) 에 행 1개(tmux 살아 있음 «뒤» 1회 · launch.py finish 만 부른다).
 
+정의는 `core/roster.py` 한 곳 — 이 파일은 그것을 경로로 묶어 같은 이름 `roster_path` 로 낸다(코어는 어댑터를 읽지 않는다 · L11).
+
 꼴 = 1.x ft_roster_lib load/dump 와 같다(순서 보존 읽기 · indent 2 · tmp → fsync → 권한 복사 → replace).
 ft2 launch 끼리는 팀 런타임 `launch/roster.lock` 하나로 읽기~replace 를 묶는다 · 1.x writer(ft-seat-retire 등)와 동시 갱신은 보증 밖.
 이미 행 있음 = 바이트 손 0 · 명부 없음·손상·꼴 아님·쓰기 실패 = 생성·쓰기 0 + «판정 불가 명부» 1구(stderr 1줄 · launch 결과는 그대로).
 """
 import collections
+import importlib.util
 import fcntl
 import json
 import os
 import shutil
 import sys
 
+_HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def _load(path, alias):
+    spec = importlib.util.spec_from_file_location(alias, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+roster_path = _load(os.path.join(os.path.dirname(os.path.dirname(_HERE)), "core", "roster.py"), "ft2_launch_roster_core").roster_path   # L11 정의 1곳 = core/roster.py · 어댑터가 경로로 묶어 같은 이름으로 낸다(코어 → 어댑터 방향 0)
+
 
 def index_of(root, row, work):
     """card_row(repo, ref, 카드 폴더) → 진행 카드 경로(root 기준 상대) · 표 행 없음 = None."""
     return os.path.relpath(os.path.join(row[0], row[2], "진행", work + ".md"), root) if row else None
-
-
-def roster_path(root, team):
-    """r2065 E8 명부 찾기 한 함수 — `<root>/.fable-team/seats-<팀>.json` 이 있으면 그 파일 · 없고 팀이 v65 면 `seats.json` · 그 밖 = None(명부 없음).
-
-    인자 = (루트 경로, 팀 이름) · 반환 = 절대 경로 또는 None · 못 읽는 명부는 부르는 쪽이 다음 칸으로 간다(여기서 읽지 않는다).
-    부르는 곳 = keeper_report.notify(팀 명부·harness 명부) · r2065 뒤 카드(ft2-launch-failed-end L10 · Slack 깨움 재전송)도 이 함수를 쓴다.
-    """
-    names = ["seats-%s.json" % team] + (["seats.json"] if team == "v65" else [])   # v65 팀 명부 = seats.json(seats-v65.json 은 없다 · 실측 2026-11-16)
-    for name in names:
-        path = os.path.join(root, ".fable-team", name)
-        if os.path.exists(path):
-            return path
-    return None
 
 
 def dump(path, data):
