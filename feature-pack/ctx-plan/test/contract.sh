@@ -14,7 +14,8 @@ ok(){ echo "  [✓] $1 ($((SECONDS-STEP))s)"; P=$((P+1)); }
 no(){ echo "  [✗] $1 — $2 ($((SECONDS-STEP))s)"; F=$((F+1)); }
 chk(){ case "$2" in *"$3"*) ok "$1";; *) no "$1" "기대 문자열 없음: $3";; esac; }
 nchk(){ case "$2" in *"$3"*) no "$1" "있으면 안 되는 문자열: $3";; *) ok "$1";; esac; }
-mutate(){ python3 -c 'import sys;s,d,o,n=sys.argv[1:5];t=open(s).read();assert o in t,"변이 지점 없음: "+o;open(d,"w").write(t.replace(o,n,1))' "$1" "$2" "$3" "$4"; }
+mutate(){ python3 -c 'import sys;s,d,o,n=sys.argv[1:5];t=open(s).read();o in t or sys.exit(1);open(d,"w").write(t.replace(o,n,1))' "$1" "$2" "$3" "$4" \
+  || { no "$(basename "$2" | tr m M) 변이 지점 없음" "$3"; return 1; }; }  # r2012: 지점 없음 = FAIL 1 · 검사 건너뜀
 
 step "픽스처"
 CAP="$T/accounts.env"                     # 상수 파일 — 자리는 부르는 쪽이 정한다(수용 기준 #2)
@@ -133,19 +134,21 @@ O="$("$PLAN" --from "$T/bad.json" --inv-file "$CAP" --inventory 2>&1)"; rc=$?
 [ $rc -eq 2 ] && ok "ⓞ 잘못된 계약 rc2" || no "ⓞ rc" "rc=$rc (기대 2)"
 chk "ⓞ 사유 1줄" "$O" "계약 불일치"
 step "변이 M1~M8"
-mutate "$BURN" "$T/m1" '(write or 0) * W_W5M' '(write or 0) * W_W1H'
+mutate "$BURN" "$T/m1" '(write or 0) * W_W5M' '(write or 0) * W_W1H' &&
 chk "M1 가중 1.25→2.0 이면 W 가 틀어진다" "$(python3 "$T/m1" --hours 168 --project "$T/empty" --json 2>/dev/null | python3 -c 'import json,sys;print(json.load(sys.stdin)["plan_input"]["pools"]["claude"]["w_total"])')" "884100.0"
-mutate "$BURN" "$T/m2" 'ctx_per_req=(tot_in / nz) if nz else 0.0,' 'ctx_per_req=(tot_in / p["req"]) if p["req"] else 0.0,'
+mutate "$BURN" "$T/m2" 'ctx_per_req=(tot_in / nz) if nz else 0.0,' 'ctx_per_req=(tot_in / p["req"]) if p["req"] else 0.0,' &&
 chk "M2 usage0 을 분모에 넣으면 ctx/req 가 틀어진다" "$(python3 "$T/m2" --hours 168 --project "$T/empty" --json 2>/dev/null | python3 -c 'import json,sys;print(json.load(sys.stdin)["plan_input"]["pools"]["claude"]["ctx_per_req"])')" "20522.7"
-mutate "$PLAN" "$T/m3" 'ANCHOR_STATUS[key]' '"ok"'
+mutate "$PLAN" "$T/m3" 'ANCHOR_STATUS[key]' '"ok"' &&
 nchk "M3 상태 표기를 빼면 앵커 행에서 «미검증» 이 사라진다" "$(python3 "$T/m3" --from "$T/b.json" --inv-file "$CAP" --capacity --accounts 5x:5 2>&1 | grep '앵커(상태 표기 필수)')" "미검증"
-mutate "$PLAN" "$T/m4" 'if w5 is None or wu is None:' 'if False:'
+mutate "$PLAN" "$T/m4" 'if w5 is None or wu is None:' 'if False:' &&
 nchk "M4 상한÷3 대체가 돌아오면 «산정 불가» 가 사라진다" "$(python3 "$T/m4" --from "$T/b.json" --inv-file "$T/nolow.env" --inventory 2>&1)" "산정 불가 — _LOW 키가 상수 파일에 없다"
-mutate "$PLAN" "$T/m6" '("낮은 용량 가정", low5, lowu)' '("낮은 용량 가정", p["wk_5x"] / 3.0, p["wk_ultra"] / 3.0)'
+mutate "$PLAN" "$T/m6" "num(inv, \"FT_CAP_WK_5X_LOW\"),
+$(printf '%31s')num(inv, \"FT_CAP_WK_ULTRA_LOW\")," "p[\"wk_5x\"] / 3.0,
+$(printf '%31s')p[\"wk_ultra\"] / 3.0," &&   # r2012: --inventory 낮은 가정 입력 2줄 = 지점 1개
 nchk "M6 하한을 상한÷3 으로 되돌리면 2639 가 아니다" "$(python3 "$T/m6" --from "$T/b.json" --inv-file "$CAP" --inventory 2>&1)" "      2639"
-mutate "$PLAN" "$T/m7" 'bad = ci.get("schema") != SCHEMA' 'bad = False'
-python3 "$T/m7" --from "$T/bad.json" --inv-file "$CAP" --inventory >/dev/null 2>&1 && ok "M7 계약 가드를 빼면 rc=0 이 된다(변이 검출)" || no "M7 계약 가드" "가드를 빼도 rc≠0"
-mutate "$PLAN" "$T/m8" '상한 초과 = 알림 전용 · 거부·축소 0' '상한을 넘는 발주는 거부한다'
+mutate "$PLAN" "$T/m7" 'bad = ci.get("schema") != SCHEMA' 'bad = False' &&
+{ python3 "$T/m7" --from "$T/bad.json" --inv-file "$CAP" --inventory >/dev/null 2>&1 && ok "M7 계약 가드를 빼면 rc=0 이 된다(변이 검출)" || no "M7 계약 가드" "가드를 빼도 rc≠0"; }
+mutate "$PLAN" "$T/m8" '상한 초과 = 알림 전용 · 거부·축소 0' '상한을 넘는 발주는 거부한다' &&
 nchk "M8 «거부» 문구가 돌아오면 알림 전용이 사라진다" "$(python3 "$T/m8" --from "$T/b.json" --inv-file "$CAP" --inventory 2>&1 | grep "상한 초과")" "알림 전용 · 거부·축소 0"
 echo ""; echo "ctx-plan contract: $P passed, $F failed"
 [ $F -eq 0 ]
