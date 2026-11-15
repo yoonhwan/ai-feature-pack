@@ -33,6 +33,9 @@ cli, dispatch = _load("cli"), _load("dispatch")
 _kl = importlib.util.spec_from_file_location("ft2_keeper_next_launch", os.path.join(HERE, "keeper_launch.py"))
 kl = importlib.util.module_from_spec(_kl)
 _kl.loader.exec_module(kl)
+_lp = importlib.util.spec_from_file_location("ft2_keeper_next_plan", os.path.join(HERE, "launch_plan.py"))
+lp = importlib.util.module_from_spec(_lp)   # r2030 짝 표 대기 카드(mapped_cards) = 발주문·sparse 와 같은 함수
+_lp.loader.exec_module(lp)
 def ft2_state(k, team):
     try:
         return dispatch.Dispatch(k.root, team).ex._state_records()[0]
@@ -89,6 +92,16 @@ def cards(k, team):
             row[0], row[1] = row[0] or bool(URGENT.match(line)), row[1] or bool(HIGH.match(line))
             row[2] += [line] if line.startswith("- 대상") else []
             row[3] += [line] if line.startswith(("- 선행", "- 배정")) else []
+    mc = lp.mapped_cards(k.root, team)   # r2030 짝 표 대기 카드(팀 폴더 밖 포함) · 같은 stem 1개 · 판독 실패 = 지금 길 + 1줄
+    if isinstance(mc, str):
+        once(k, ("map-log", team), lambda: k.log("경고", team, "%s — 팀 폴더 대기 카드만" % mc))
+    for repo, ref, path in (v for v in (mc.values() if isinstance(mc, dict) else ()) if os.path.basename(v[2])[:-3] not in found):
+        rc3, text, _ = once(k, ("mapped", repo, ref, path), lambda: k.git(repo, "show", "%s:%s" % (ref, path)))
+        heads3 = [x for x in text.splitlines() if re.match(r"- (긴급|우선|대상|선행|배정)", x)] if rc3 == 0 else None
+        if heads3 is not None:
+            found[os.path.basename(path)[:-3]] = [any(URGENT.match(x) for x in heads3), any(HIGH.match(x) for x in heads3), [x for x in heads3 if x.startswith("- 대상")], [x for x in heads3 if x.startswith(("- 선행", "- 배정"))]]
+        else:
+            once(k, ("map-show", team, path), lambda: k.log("판정 불가", team, "짝 표 카드 %s:%s git show rc %s — 건너뜀" % (ref, path, rc3)))
     for row in found.values():
         row[3] = prereq(row[3], where)
     return found, r
