@@ -5,7 +5,7 @@
 - 근거: 실측 2026-11-16 04:42(aifp-ft-arch-pi#20 · 팩 origin/main f01ce9f2 · probe-code 0.6.0 · cwd feature-pack/fable-team) — 아래 «실측» 절 8줄
 - 원인 1줄: 래퍼 feature-pack/code-intel/skill/scripts/ci search 갈래가 probe 에 `--allow-tests` 를 주지 않아 probe 기본값(시험 파일·시험 블록 제외)이 그대로 걸린다 · 인자 파싱 `*) path="$1"` 이 모르는 `--` 인자를 path 로 삼켜 probe 는 그것을 옵션으로 읽고 path 는 cwd 로 떨어진다
 - 앞 카드: design/aifp/indices/완성/ci-search-yaml-panic.md(착지 14ef74ac · PR #1096) · ci-search-ascii-md-panic · ci-search-nonascii-panic — 이 카드는 그 카드들의 L1~L6(목록 · rg 절 · panic 폴백 · 출력 보류 · 상한 25초)을 바꾸지 않는다
-- 상태: 대기
+- 상태: 완성 · 2026-11-16 05:25 · -
 - 착지: cf0d405248d7ba40cde46ae4daf741bf65f0c6aa(팩 main · PR #1332 squash · DA#11 APPROVE-IMPL BYZ 311592 · 세트 12840fa9 = PR head · 뺄 커밋 0)
 - 설치: 있음 — ~/.local/bin/ci = 루트 checkout feature-pack/code-intel/skill/scripts/ci 심링크(착지 뒤 루트 main 반영 = 설치) · 사본 2곳 ~/.claude/skills/code-intel/scripts/ci · ~/.agents/skills/code-intel/scripts/ci ← 팩 판 cmp0
 - 선행: 없음(팩 origin/main f01ce9f2)
@@ -131,3 +131,4 @@ fixture(/tmp · 6파일 · 같은 낱말)에서 probe 가 기본으로 빼는 �
 - 2026-11-16 05:13 · aifp-ft-arch-pi#20 조건 7 [x](팀장 aifp 5720) · 조건 1 = 팀장 판단(하드 룰 21) «알려진 한계» 로 받아 DA 닫힘 판정으로 닫는다 · 보수 = 별도 카드 대기/ci-test-base-sha-pin
 - 남은 범위: ci-test-base-sha-pin — (시험 기준판 고정 · 완료 조건 1 의 «시험 전체 rc0» 은 그 카드가 닫는다 · 이 카드는 «알려진 한계» 로 닫음 = 팀장 aifp 5720 · DA 닫힘 311681)
 - 세트: 12840fa95f419d372f2329ef788d01a2fba3ef80 · 시험: bash feature-pack/code-intel/tests/test_ci_search_nonascii_panic.sh rc=1(284/294 · 남은 10 = 기준판 대조 블록) · 이슈: 0
+- 2026-11-16 05:25 — 진행→완성 · DA /Users/yoonhwan/Project/ai-feature-pack/.fable-team/state/team-main/aifp-ft/DA-ci-close-311681/verdict.md#§1
