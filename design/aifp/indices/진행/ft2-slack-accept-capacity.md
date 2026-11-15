@@ -6,6 +6,7 @@
 - 원인 1줄: core/record.py capacity() 는 work 가 str 아닌 command 를 «cmd:<command>» 1칸으로 세는데, 비우는 길(keeper_settle.accept_only · core park · close_next)은 str-work 만 본다 · dict-work 접수의 끝은 같은 thread 봇 답글(reply_done.settle · r1872·r1927)뿐이라 답을 채널 최상위로 올리거나(planner) 기록만 하는 팀(issues)은 칸이 영영 안 빈다
 - 앞 카드: 보정 3(팩 77511fcc · PR 1249 · accept_only work=dict TypeError)과 같은 줄기 — 보정 3 은 keeper 죽음만 막고 dict-work 를 «대상 밖» 으로 뒀다 · r1881(ccad300d close_next dict 제외) · r1824(421637c1 remaining dict 대조) · r2055(d88ef381 capacity 새 함수)
 - 상태: 대기
+- 착지: 09c02c0af5cc9925374a1cc4424836a6d81f8dc3(팩 main · PR #1270 squash · DA#11 APPROVE-IMPL BYZ 310409 · 세트 efd79174 · dc85096f .worktree-info.json 제외 · 원 PR #1268 닫음)
 - 설치: 있음 — ft2 판 올림 1회(팩 착지 뒤 팀장·harness 설치 묶음 · 라이브 = ~/.claude/fable-team/live/<판>/) · 되돌림 = 앞 판으로 판 전환
 - 선행: DA APPROVE-DESIGN(harness DA codex#11 대행 · planner 5321 · BYZ 309656 · 1/3 HOLD-DESIGN aifp 5328 → 설계 r2 재판정 2/3) — 판정 전 나노 개설 0
 - 시험 입력: 임시 루트(tmp_path) · 시험 안에서 만든 journal(실 runtime 쓰기·읽기 0) · planner 꼴 work `{"route": {"channel": "C1", "id": null, "kind": "새 업무", "thread": "<ts>"}, "slack": {"workspace": "T1", "channel": "C1", "ts": "<ts>"}}` · issues 꼴 work `{"slack": {"team": "planner"}}` · 가짜 clock · sleep 0 · 네트워크 0 · 사례 1개 70초 안
@@ -51,11 +52,11 @@
 - 실 runtime journal 손 쓰기(HIL) · 설치 집행(팀장·harness)
 
 ## 완료 조건
-1. [ ] 나노: 커밋 1 기준판 FAIL 원문(㉖가·㉖나·㉖마·㉖바)
-2. [ ] 나노: 새 시험 전체 rc0 · 걸린 초
-3. [ ] 나노: 변이 M7 → ㉖가·㉖나·㉖마 FAIL · M8 → ㉖마 FAIL · M9 → ㉖바 FAIL
-4. [ ] 나노: 회귀 6파일 rc0 · 고친 fixture·기대값 사례 이름 목록
-5. [ ] 팀장: PR 착지 sha · 설치 판
+1. [x] 나노: 커밋 1 기준판 FAIL 원문(㉖가·㉖나·㉖마·㉖바)
+2. [x] 나노: 새 시험 전체 rc0 · 걸린 초
+3. [x] 나노: 변이 M7 → ㉖가·㉖나·㉖마 FAIL · M8 → ㉖마 FAIL · M9 → ㉖바 FAIL
+4. [x] 나노: 회귀 6파일 rc0 · 고친 fixture·기대값 사례 이름 목록
+5. [~] 팀장: PR 착지 sha = 09c02c0a(PR #1270) · 설치 판 = harness#289 판 올림 묶음 대기(BYZ 310461)
 6. [ ] arch: 설치 뒤 읽기 실측 1줄(planner capacity 0 · issues capacity = str-work 수)
 7. [ ] 팀장: 오빠 다음 Slack 글에서 issues·planner «용량 부족» 0 원문 줄
 
@@ -75,5 +76,10 @@
 - 2026-11-16 · aifp-ft-arch-pi#16 r2(aifp 5331 · DA 대행 1/3 HOLD-DESIGN R1·R2·Q1~Q3 반영 · 드러냄 1줄 분리) · 대기 · DA 재판정 전
 - 2026-11-16 02:02 — 대기→진행 · 좌석 aifp-ft-nano-ft2-slack-accept-capacity#0
 - [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
+- 2026-11-16 · aifp-ft-nano-ft2-slack-accept-capacity#0 — 세트: efd79174acfe1a5b2dc82a13210f59ad68b4b754 · 시험: python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_slack_accept_capacity.py (9 passed · 0.5초 · 변이 M7·M8·M9 포함) rc=0 · 이슈: 0
+- 같은 세트 · 회귀 6파일: test_slack_reply_completes_r1872.py(17) · test_core_remaining_dict_work_r1824.py(10) · test_core_park_capacity_r2055.py · test_settle_one_path_r2055.py · test_core_close_next_dict_work_r1881.py · test_full_critical_alert_r1886.py — 82 passed · 45초 · 유일한 Red = test_full_critical_alert_r1886.py::test_c7_journal_refused_then_release 는 기준판 731bc236(내 3파일 stash)에서도 같은 이유(followup.gate «카드 본문 못 정함» → complete 0 → journal 알림 0)로 Red = 카드 밖 선행 결함 · rc=1(그 1건만)
+- 커밋: 1c8589ba [test] · 2ebfc52b [fix] · efd79174 [docs] = 코드 세트 · + dc85096f [chore] .worktree-info.json(spawn 갱신 메타데이터 1파일) = 지금 HEAD dc85096f (브랜치 nano/ft2-slack-accept-capacity-r2 · push 0)
+- 고친 fixture 이름: r1872 test_7_reply_completes_post_but_keeps_str_work_capacity · test_8_full_posts_requeued_oldest_first_when_room_opens · eight()/thread_full() 픽스처(str-work 포화 + str-work 1 complete) · r1824 test_case5_real_core_capacity_returns_after_complete(str-work) + test_case5b_dict_work_is_not_a_capacity_unit(새 사례) · r1886 test_c1_c2_c3_slack_full_once_then_release_and_new(str-work 재포화 1줄)
+- press 필요: 없음 — 전부 단위 시험(임시 루트 · 가짜 mbox · 실 Slack·실 runtime 쓰기 0) · 설치 뒤 실측(완료 조건 6)은 master/arch 몫
 - 세트: dc85096f87cce258b7fedc3db3deb56e30021c8b · 시험: python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_slack_accept_capacity.py rc=0 · 이슈: 0
 - 완료: aifp-ft-nano-ft2-slack-accept-capacity#0 · 한 일: dict-work(글 영수) 용량 0칸 · 재접수는 그때의 실제 용량 · 꽉 참 알림 값 = capacity + 새 시험·계약·사례표 · 산출: nano/ft2-slack-accept-capacity-r2@dc85096f87 · 병합 상태: 착지 전(push 전) · 남은 일: 없음
