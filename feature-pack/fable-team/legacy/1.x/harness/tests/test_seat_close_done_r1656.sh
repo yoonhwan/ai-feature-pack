@@ -18,7 +18,7 @@ mkdir -p "$FT_ROOT/.fable-team/state" "$ZC_RESUME_DIR" "$T/bin"; VLOG="$FT_ROOT/
 for f in ft-seat-close.sh ft-tick.sh; do cmp -s "$BIN/$f" "$KIT/$f" && ok "키트 사본 같은 바이트 $f" || bad "키트 사본 어긋남 $f"; done
 
 printf '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n' > "$T/bin/reap-stub.sh"
-printf '#!/usr/bin/env bash\necho "$*" >> "$RETIRE_LOG"\n: > "$ZC_RESUME_DIR/$1.json"\necho "RESUME ok $ZC_RESUME_DIR/$1.json"\n' > "$T/bin/retire-stub.sh"
+printf '#!/usr/bin/env bash\necho "$*" >> "$RETIRE_LOG"\n: > "$ZC_RESUME_DIR/$1.json"\necho "RESUME ok $ZC_RESUME_DIR/$1.json${RSUF:-}"\n' > "$T/bin/retire-stub.sh"
 printf 'import os, sys\nprint("OPEN-WORK stub")\nsys.exit(int(os.environ.get("OW_RC", "0")))\n' > "$T/bin/ow-stub.py"
 cat > "$T/bin/tmux" <<'EOF'
 #!/usr/bin/env bash
@@ -81,6 +81,15 @@ new_env "$DN"; close_ "$N" --reason r --seats "$S" --done
 chk "⑤rc1 · --done 은 팀장만" "$RC $(grep -c "^REJECT $N --done 은 팀장만(role=nano)" <<< "$OUT") $(untouched)" "1 1 same 0 0"
 close_ "$L" --reason r --seats "$S" --done --verdict 4138
 chk "⑤b --done --verdict → rc2 usage · 쓰기 0" "$RC $(grep -c -- '--done 은 --verdict' <<< "$OUT") $(untouched)" "2 1 same 0 0"
+
+echo "== ⑥ DA#10 R1 — 재개 기록 경로에 공백(+ retire 꼬리 « · 이전 기록 …») → CLOSED-DONE · record=전체 경로"
+new_env "$DN"; SP="$T/resume records"; mkdir -p "$SP"
+ZC_RESUME_DIR="$SP" close_ "$L" --reason r --seats "$S" --done   # DA 재현 그대로(꼬리 없음 · «RESUME ok » 뒤 줄 끝까지 = 경로)
+chk "⑥a DA 재현 — 공백 경로 · 꼬리 없음 → CLOSED-DONE" "$RC $(grep -c "^CLOSED-DONE $L seq=5 record=$SP/$L.json kill=ok" <<< "$OUT")" "0 1"
+new_env "$DN"
+ZC_RESUME_DIR="$SP" RSUF=" · 이전 기록 $SP/old.json.prev-1" close_ "$L" --reason r --seats "$S" --done
+chk "⑥b 공백 경로 + retire 꼬리(112줄 « · 이전 기록 …») → CLOSED-DONE" "$RC $(grep -c "^CLOSED-DONE $L seq=5 record=$SP/$L.json kill=ok" <<< "$OUT")" "0 1"
+chk "⑥kill 1 · 원장 record 칸 = 공백 경로" "$(kills) $(cut -f4 "$VLOG")" "1 record=$SP/$L.json"
 
 echo "== 변이 M1·M2 (bin 사본)"
 mutc() {   # mutc <이름> <옛글자> <새글자> → $T/m/<이름>/ft-seat-close.sh

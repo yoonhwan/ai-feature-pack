@@ -88,7 +88,7 @@ print(best)
 PY4
 )" || finish 1 "REJECT $SEAT --done ${DSEQ:-①② 판정 불가} — $s"
   GO="$(python3 "$G" close-check "$SEAT" --no-ready 2>&1)" || finish 1 "REJECT $SEAT --done ③ ${GO%%$'\n'*} — $s"
-  RO="$(bash "${FT_SEAT_RETIRE_BIN:-$HERE/ft-seat-retire.sh}" "$SEAT" --record-only --verdict "$DSEQ" --seats "$SEATS_FILE" 2>&1)"; rrc=$?; R4="$(printf '%s\n' "$RO" | sed -nE 's/^RESUME (ok|kept) ([^[:space:]]+).*/\2/p' | head -1)"
+  RO="$(bash "${FT_SEAT_RETIRE_BIN:-$HERE/ft-seat-retire.sh}" "$SEAT" --record-only --verdict "$DSEQ" --seats "$SEATS_FILE" 2>&1)"; rrc=$?; R4="$(printf '%s\n' "$RO" | grep -m1 -E '^RESUME (ok|kept) ')"; R4="${R4#RESUME * }"; R4="${R4%% (명부 model 다름: *}"; R4="${R4%% · 이전 기록 *}"   # DA#10 R1 — 공백 있는 경로도 통째로(retire 112·134줄 꼬리만 뗀다)
   [ "$rrc" = 0 ] && [ -n "$R4" ] && [ -f "$R4" ] || finish 1 "REJECT $SEAT --done ④ 재개 기록 실패(rc=$rrc ${RO%%$'\n'*}) — $s"; REC="$R4"
 fi
 if [ -n "$VERDICT" ]; then   # R400 ⓪① — 원장 루트를 먼저 풀고(못 풀면 쓰기 0) 재개 기록 → 실패면 명부·kill 0
