@@ -27,7 +27,7 @@ import sys; sys.path.insert(0, '$BIN'); import autonomy_scope_rules as r
 b = [('docs/c6.md', [(1, '손 kill')], True)]
 print(r.critical_kinds(b, show=lambda p: '')[0], r.critical_kinds(b)[0], r.prose_line_exempt('docs/c6.md', 1, '손 kill', lambda p: '손 kill\n'))" 2>&1)"; rc=$?
 [ "$out" = "destroy destroy True" ]; ck "⑥ show 가 \"\"·없음 → destroy(닫힌 쪽) · 같은 줄 판독되면 예외" $?
-pr docs/c7.md '-----BEGIN RSA PRIVATE KEY-----' '손 kill'; crit "$PRSHA"; [ "$rc" = 3 ] && [[ $out =~ ^CRITICAL\ kind=secret\  ]]; ck "⑦ .md 비밀 꼴 줄 → kind=secret 그대로" $?
+pr docs/c7.md "-----BEGIN RSA PRIV""ATE KEY-----" '손 kill'; crit "$PRSHA"; [ "$rc" = 3 ] && [[ $out =~ ^CRITICAL\ kind=secret\  ]]; ck "⑦ .md 비밀 꼴 줄 → kind=secret 그대로" $?
 pr docs/main-team-governance.md '| 지침 | 좌석이 하는 일(셀 수 있게) | 하지 않는 일 | 걸리는 곳 |' '|---|---|---|---|' "$G1"; C8="$PRSHA"; crit "$C8"; okc; ck "⑧ 팩 PR #1138 의 214행 원문 → CRITICAL-OK" $?
 pr docs/c10.md '손 kill 본문' '' '실행: `rm -rf /tmp/x' '`'; C10="$PRSHA"; crit "$C10"; dst && [[ $out == *"docs/c10.md:3 "* ]]; ck "⑩ 여러 줄 inline code(백틱 짝 남음) → destroy · ⑪ 다른 문단 «손 kill» 은 거절 사유 아님" $?
 pr docs/c11.md '손 kill 본문' '' '`열린 백틱'; C11="$PRSHA"; crit "$C11"; okc; ck "⑪ 다른 문단의 백틱 짝 남음이 «손 kill» 본문 줄로 번지지 않음 → CRITICAL-OK" $?
