@@ -134,13 +134,14 @@ def c2b(w):   # ②′ 본문 경로 실패 사유 꼬리 · 짝 표 먼저(본�
     assert w.keeper().landing(TEAM, stem) == got and "본문" not in str(got) and got[0], got
 
 
-def c3(w, failed="closed"):   # ③·⑫ 세션 0 · owner 남음 · intent closed/failed → park(launch-failed) · owner·예약 해제 · 용량 −1
+def c3(w, failed="closed"):   # ③·⑫ 세션 0 · owner 남음 · intent closed/failed → park(launch-failed) 1회 · 판정 낱말 = UNKNOWN launch-failed(r2058 L3) · owner·예약 해제 · 용량 −1
     nano(w, "r9553", alive=False, state=failed)
     before = proj(w)
     lines = rnd(w)
     st = json.loads((w.runtime() / "state.json").read_text(encoding="utf-8"))
     after = proj(w)
-    assert has(lines, "PARKED harness r9553", "launch-failed") and w.kinds("parked") == 1, lines
+    assert has(lines, "UNKNOWN harness r9553", "launch-failed") and not has(lines, "PARKED harness r9553"), lines   # r2058 — 쉼은 하되 줄은 UNKNOWN
+    assert w.kinds("parked") == 1, lines
     assert "r9553" not in st["owners"] and "R-r9553" not in st["reservations"] and after["capacity"] == before["capacity"] - 1
     assert after["remaining"] == before["remaining"]
     out, rc = w.CLI.run(["assign", "--work", "r9553", "--holder", "byz-harness-nano-r9553#0", "--evidence", "v1,v2", "--resources", "R-r9553",

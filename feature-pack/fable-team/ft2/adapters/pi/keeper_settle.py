@@ -13,6 +13,7 @@ import os
 import re
 
 PARK_IDLE, WAIT_S, DAY = 3600, 900, 86400   # 유휴 문턱 60분 · 질문 창 15분
+LAUNCH_FAILED, OPEN_STALE = "launch-failed", 900   # r2058 L3·L6 — 끝 사유 낱말 · opening 멈춤 문턱(초)
 CPU_IDLE, CPU_GAP, CPU_DEPTH = 0.3, 30, 8   # tmuxc UC12 %cpu < 0.3 · 표본 간격 ≥ 30초 · pane_descendant_pids 깊이 8
 SHELLS = ("zsh", "bash", "fish")            # tmuxc cmd_clean
 KINDS = ("nano", "master", "arch", "da", "desk", "tester", "pm", "qa", "orch", "temp")   # S1 명부 role 칸 = 좌석 종류 낱말
@@ -20,6 +21,7 @@ BUSY = re.compile("Working|[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]")
 NAME = re.compile(r"byz-[a-z0-9]+(?:-[A-Za-z0-9._]+)+#\d+")
 NEXT = {"waiting-input": "팀장이 질문 창에 답", "dirty": "나노에게 커밋·push 요청", "unpushed": "나노에게 push 요청",
         "shell-only-unsafe": "워크트리 확인 뒤 손 정리", "owner-orphan": "owner·intent 대조 뒤 손 park",
+        LAUNCH_FAILED: "원인 고친 뒤 원장 갱신 → fill 재시도 · 필요 없으면 return 또는 카드 끝 표식",
         "accept-only": "거두기(r1925 길) 또는 배정", "roster-outside": "명부 등록 또는 손 정리", "name-bad": "세션 이름 확인",
         "tmuxc-mismatch": "tmuxc·settle 판정 대조"}
 
@@ -60,6 +62,7 @@ def working(pane):
 
 
 class Settling:
+    parked_failed = frozenset()   # r2058 L1 — 이 팀·work·attempt 가 launch-failed 쉼인가(keeper.team_round 가 채운다)
     def fresh_samples(self):
         """표본 장부(cpu · pane2)는 직전 바퀴에 잰 것만 남김(바퀴 시작 1회) — 끊긴 표본으로 쉼 확정 0 · 영구 pending 0(arch #308380)."""
         prev, self.state["round_at"] = self.state.get("round_at"), self.now()
@@ -169,18 +172,29 @@ class Settling:
         self.alert(team, work, "-", "-", code, text)
 
     def settle_nano(self, team, work, attempt, holder, row, why):
-        """착지 판정 밖 나노 1석 → 판정 1개(LANDED 는 호출자 몫) · why = 착지 판정 사유(모든 판정 줄 꼬리 끝에 남김)."""
+        """착지 판정 밖 나노 1석 → 판정 1개(LANDED 는 호출자 몫) · why = 착지 판정 사유(모든 판정 줄 꼬리 끝에 남김).
+        r2058 — launch-failed 끝 = 쉼 + 판정 UNKNOWN(흐름만 PARKED) · opening 멈춤(OPEN_STALE 넘음 ∧ 잇는 중 아님 ∧ owner 남음) = 같은 길."""
         self.why = why or ""
         done, owner = bool(row.get("done")), row.get("owner")
         raw = self.read_json(os.path.join(PROJ.runtime_path(self.root, team), "launch", "%s@%s.intent" % (work, attempt)))
         seen = self.probe(holder)
+        opening = bool(owner) and raw.get("state") == "opening"   # L6 — 여는 중인 열기(잇는 중·문턱 안쪽 = 손 0)
+        stalled = opening and self.opening_stale(raw) and not self.launching_now(team, work)
         if seen == "absent":
             if done:
                 return self.verdict(team, work, holder, "PARKED", "session-absent", why)
+            if (team, work, attempt) in self.parked_failed:   # L1·L3 이미 launch-failed 쉼 = 같은 판정 유지 · park 다시 0
+                return self.failed_end(team, work, attempt, holder, raw, why, park=False)
             if owner and raw.get("state") in ("failed", "closed"):   # 반쪽(r1968·r1973 꼴) = 세션 0 · owner 남음
-                return self.park_seat(team, work, attempt, holder, "launch-failed", why, alive=False, done=False)
+                return self.failed_end(team, work, attempt, holder, raw, why, park=True)
+            if stalled:   # L6 — 여는 중에 멈춘 열기(세션 부재 = rc1 «can't find session» 로 확인) = L3 과 같은 길
+                return self.failed_end(team, work, attempt, holder, raw, why, park=True)
+            if opening:   # L6 — 문턱 안쪽·잇는 중 열기 = 손 0 · [긴급] 0(아직 판정할 수 없다)
+                return self.verdict(team, work, holder, "WORKING", "launch-joining" if self.launching_now(team, work) else "launch-pending", "opening %d분" % self.opening_age(raw))
             return self.unknown_seat(team, work, attempt, holder, "owner-orphan" if owner else "session-absent", why)
         if seen != "alive":
+            if stalled:   # L6 — tmux 조회 실패 = «부재» 가 아니다(판정 불가 1줄 · park 0)
+                return self.log("판정 불가", team, "%s %s opening %d분 좌석 판독 불가 %s — park 0" % (work, holder, self.opening_age(raw), seen))
             return self.unknown_seat(team, work, attempt, holder, "tmux-error", seen)
         intent = endings.intent(self, team, work, attempt, holder)
         if not intent.get("worktree") or not os.path.isdir(intent["worktree"]):   # 새 꼴(worktree 칸 없음·폴더 없음)
@@ -272,6 +286,42 @@ class Settling:
         first = book.setdefault(holder, {"first": now})["first"]
         book[holder]["at"] = now
         return "rest" if now - first >= CPU_GAP else "pending"
+
+    def opening_age(self, intent):
+        """L6 — intent at 부터 지난 분(못 읽음 = 0)."""
+        try:
+            return max(int((self.now() - datetime.datetime.strptime(str(intent.get("at")), "%Y-%m-%dT%H:%M:%S").timestamp()) // 60), 0)
+        except ValueError:
+            return 0
+
+    def opening_stale(self, intent):
+        """L6 — intent at(로컬 naive) 부터 OPEN_STALE 초 넘음 · 시각 못 읽음 = 거짓(손 0)."""
+        try:
+            return self.now() - datetime.datetime.strptime(str(intent.get("at")), "%Y-%m-%dT%H:%M:%S").timestamp() >= OPEN_STALE
+        except ValueError:
+            return False
+
+    def launching_now(self, team, work):
+        """L6 — fill_open(잇는 중)에 있는 열기인가(그 열기는 손 0)."""
+        return ("%s|%s" % (team, work)) in (self.state.get("fill_open") or {})
+
+    def failed_tail(self, intent):
+        """L3·L6 판정 줄 꼬리 — intent step · reason 앞 80자 / opening <분>분."""
+        if intent.get("state") == "opening":
+            return "opening %d분" % self.opening_age(intent)
+        return "%s · %s" % (intent.get("step") or "-", str(intent.get("reason") or "-")[:80])
+
+    def failed_end(self, team, work, attempt, holder, intent, why, park):
+        """r2058 L3·L4·L6 — launch-failed 끝 = 쉼 1회(멱등) + 판정 UNKNOWN 1개 · «PARKED … launch-failed» 줄 0.
+        흐름 표시는 «PARKED» = L4(그 work 에 stall 깨움·재배정·hold 검사 0) · [긴급] 지문 = (team·work·attempt·launch-failed) 하루 1회."""
+        if self.halt:   # 정지 중 = kill·park 0 · «예정» 줄만
+            return self.verdict(team, work, holder, "예정 PARKED", LAUNCH_FAILED, "정지 중 kill·park 0")
+        if park:
+            out, rc = cli.run(["park", "--work", work, "--attempt", attempt, "--reason", LAUNCH_FAILED, "--root", self.root, "--team", team])
+            if rc != 0:
+                return self.unknown_seat(team, work, attempt, holder, "park-refused", "%s %s" % (out.get("result"), str(out.get("reason", ""))[:60]))
+        self.unknown_seat(team, work, attempt, holder, LAUNCH_FAILED, self.failed_tail(intent))
+        return "PARKED"
 
     def settle_alive(self, team, work, attempt, holder, intent, done, why):
         got = self.look(team, work, attempt, holder, *self.pi_turn(intent))

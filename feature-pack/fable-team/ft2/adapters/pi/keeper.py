@@ -299,7 +299,9 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         rows = node.records()
         latest = {rec["work"]: (rec.get("attempt"), rec.get("holder")) for rec in rows
                   if rec.get("kind") == "dispatch" and rec.get("work")}
-        back = {(rec["work"], rec.get("attempt")) for rec in rows if rec.get("kind") in ("returned", "parked")}   # r1990 반환 줄 · r2055 쉼 줄
+        back = {(rec["work"], rec.get("attempt")) for rec in rows if rec.get("kind") == "returned"}   # r1990 반환 줄
+        back |= {(rec["work"], rec.get("attempt")) for rec in rows if rec.get("kind") == "parked" and rec.get("reason") != settling.LAUNCH_FAILED}   # r2055 쉼 줄
+        self.parked_failed = {(team, rec["work"], rec.get("attempt")) for rec in rows if rec.get("kind") == "parked" and rec.get("reason") == settling.LAUNCH_FAILED}   # r2058 L1 — 열기 실패 쉼은 건너뛰지 않는다
         for work, (attempt, dispatched) in sorted(latest.items()):
             row, landed, self.why = proj["works"].get(work) or {}, None, ""   # r2055 판정 줄 꼬리 = 이 work 의 착지 판정 사유
             if "%s|%s@%s" % (team, work, attempt) in self.state["handled"] or (work, attempt) in back:
@@ -309,7 +311,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
                 if landed[0] and not landed[2] and self.sock and not self.land_ready(team, work, attempt, dispatched):
                     continue   # r2055 A6·S4-1 카드 ② — 착지했어도 좌석이 쉬기 전 = WORKING landed-wait · complete·kill 0
             if row.get("done") or self.timed("b1", self.complete, team, work, attempt, landed):
-                if self.sock:
+                if self.sock and (team, work, attempt) not in self.parked_failed:   # r2058 L2 착지면 complete 만 · 세션이 없으니 닫기 호출 0
                     self.timed("b2c", self.close, team, work, attempt, row, dispatched)
             elif self.sock and endings.ending(self, team, work):   # r1960 끝(완성후·아카이브·상태 머리) = complete 0 · close 가드 그대로
                 self.timed("b2c", self.close, team, work, attempt, row, dispatched)

@@ -1,4 +1,4 @@
-"""r1983 ft2 launch 가 연 좌석 → 팀 명부 `<root>/.fable-team/seats-<팀>.json` 에 행 1개(tmux 살아 있음 «뒤» 1회 · launch.py finish 만 부른다).
+"""r1983 ft2 launch 가 연 좌석 → 팀 명부(r2058 L10 = `roster_path(root, team)` 한 함수 · seats-<팀>.json → 없고 v65 면 seats.json) 에 행 1개(tmux 살아 있음 «뒤» 1회 · launch.py finish 만 부른다).
 
 꼴 = 1.x ft_roster_lib load/dump 와 같다(순서 보존 읽기 · indent 2 · tmp → fsync → 권한 복사 → replace).
 ft2 launch 끼리는 팀 런타임 `launch/roster.lock` 하나로 읽기~replace 를 묶는다 · 1.x writer(ft-seat-retire 등)와 동시 갱신은 보증 밖.
@@ -66,7 +66,7 @@ def enroll(env, worktree, card, lock_dir):
     root, team, holder = env["FT2_ROOT"], env["FT2_TEAM"], env["FT2_HOLDER"]
     row = collections.OrderedDict((("role", "nano"), ("agent", "pi"), ("work", env["FT2_WORK"]), ("attempt", env["FT2_ATTEMPT"]),
                                    ("index", index_of(root, card, env["FT2_WORK"])), ("worktree", worktree), ("source", "ft2-launch")))
-    path = os.path.join(root, ".fable-team", "seats-%s.json" % team)
+    path = roster_path(root, team) or os.path.join(root, ".fable-team", "seats-%s.json" % team)   # L10 명부 찾기 한 함수(v65 = seats.json) · 둘 다 없으면 지금 꼴 경로 = write_row 가 «명부 없음» 1구(생성 0)
     try:
         with open(os.path.join(lock_dir, "roster.lock"), "a") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
