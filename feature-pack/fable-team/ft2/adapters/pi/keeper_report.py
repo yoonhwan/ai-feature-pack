@@ -68,14 +68,15 @@ class Reporting:
         found = [] if rows is None else [rec["seq"] for rec in rows if isinstance(rec.get("seq"), int)]
         return max(found) if found else None
 
-    def arrived(self, seen, mark, to, body):
-        """E7-3 도착 판정 = 경계보다 큰 seq 줄 중 «보낸 이 ft2-keeper · 받는 곳 · 본문 첫 줄» 이 같은 줄이 있나.
-        반환 = «있음» | «없음» | «창 밖»(경계~창 사이를 못 봤다) | «판독 불가»(경계·장부 없음)."""
+    def arrived(self, seen, mark, to, body, sender=SENDER):
+        """E7-3 도착 판정 = 경계보다 큰 seq 줄 중 «보낸 이 · 받는 곳 · 본문 첫 줄» 이 같은 줄이 있나.
+        반환 = «있음» | «없음» | «창 밖»(경계~창 사이를 못 봤다) | «판독 불가»(경계·장부 없음).
+        sender 인자 = 이 규칙을 같이 쓰는 다른 어댑터(r2065 행 G Slack 깨움)의 보낸 이."""
         if seen is None or mark is None:
             return "판독 불가"
         head = (body or "").splitlines()[:1]
         for rec in seen:
-            if isinstance(rec.get("seq"), int) and rec["seq"] > mark and rec.get("from") == SENDER and rec.get("to") == to \
+            if isinstance(rec.get("seq"), int) and rec["seq"] > mark and rec.get("from") == sender and rec.get("to") == to \
                     and (rec.get("body") or "").splitlines()[:1] == head:
                 return "있음"
         seqs = [rec["seq"] for rec in seen if isinstance(rec.get("seq"), int)]
