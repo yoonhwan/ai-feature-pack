@@ -11,7 +11,7 @@ fail=0; ok() { echo "PASS $1"; }; bad() { echo "FAIL $1"; fail=$((fail+1)); }
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 REPO="$TMP/repo"; FAKE="$TMP/fakebin"; LOG="$TMP/calls.log"; BODY="$TMP/body.txt"
 mkdir -p "$REPO/.fable-team" "$FAKE"; git -C "$REPO" init -q
-STATE="$REPO/.fable-team/state/successor"; OLD="byz-t-old-claude#253"; NEW="byz-t-old-claude#254"
+STATE="$REPO/.fable-team/state/successor"; OLD="byz-t-tool-claude#253"; NEW="byz-t-tool-claude#254"
 mkstub() { printf '#!/usr/bin/env bash\n%s\n' "$2" > "$FAKE/$1"; chmod +x "$FAKE/$1"; }
 mkstub tmux 'case "$1" in
   has-session) exit 0;; list-panes) echo 4242;;
