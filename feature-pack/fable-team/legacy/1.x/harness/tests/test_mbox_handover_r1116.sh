@@ -103,7 +103,7 @@ chk_8 && ok "⑧ 옛 세션 [레디] recv 뒤에도 close-check(retire·닫기) 
 # ⑨ r1116b ④ 손으로 문장처럼 쓴 [인계](«- #N» 줄 0) = 형식 불명 거절 — 항목 0 으로 «전부 받음» 되던 자리(문장 속 #숫자는 PR·Issue 와 구분 불가라 안 센다)
 chk_9() {
   new_env "${1:-}"; row 1 "$O" "[HIL] q"; sh_ recv "$O"; py mark "$O" 1 인계
-  sh_ send "$N" "$O" "[인계] 손으로 씀 — #1 TTS 질문 넘김 · PR #4700 확인 바람"; roster 1; sh_ recv "$N"
+  py send "$N" "$O" "[인계] 손으로 씀 — #1 TTS 질문 넘김 · PR #4700 확인 바람"; roster 1; sh_ recv "$N"
   sh_ ready "$N" "$O"; [ "$RC" = 3 ] && case "$OUT" in *'형식 불명'*) true;; *) false;; esac || return 1
   py close-check "$O"; [ "$RC" = 3 ] && case "$OUT" in *'형식 불명'*) true;; *) false;; esac
 }
