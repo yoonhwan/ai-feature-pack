@@ -1651,6 +1651,14 @@ _tw=""; [ -z "$IDX" ] || { declare -F ft_index_twin >/dev/null && _tw="$(ft_inde
 # r842: 카드 «단계» = ref 트리(ft_card_stage_ref · 기본 origin/main) — 뒤처진 루트 체크아웃의 옛 진행/ 사본이 ref 에서 이미 완성/ 으로 옮긴 카드를 가리던 자리(ops 나노 2석 닫기 REJECT).
 #   단계가 정해지면 그 단계 하나만 · 디스크 사본 WT→LEDGER_WT→ROOT(낡을 수 있는 루트 마지막) · 그 단계 사본이 없으면 REJECT(옛 단계 사본·아래 기존 후보로 후퇴 0) ·
 #   지금 규칙으로 가는 길 하나 = «ABSENT» 글자(그때만 카드 없음) · STAGE 밖의 모든 응답·실패 = ERROR + REJECT(DA⑥ r2: 빈 출력 rc0 이 후퇴길이던 자리) · 쓰기(리서치 닫힘·중단 줄)도 이 CARD 를 쓴다
+# r1747: 버림으로 아카이브로 간 카드 = indices/아카이브/<YYYY-MM>/<파일> — --superseded-by 길에서만 찾기 폴더 목록 끝에 더한다(다른 길 = 기준판 그대로).
+#   같은 이름이 «한 달 폴더» 에만 있을 때 그 경로 1줄 · 0·2+ 달 = 빈 출력(추측 0 → 아래 «⑥카드 못 찾음» 그대로).
+_arch_one() {  # <파일 이름> <indices 절대 폴더>…
+  local n="$1" d f m ms="" one="" c=0; shift
+  [ "$SUPER" = 1 ] || return 0   # r1747-mut:arch
+  for d in "$@"; do for f in "$d"/아카이브/*/"$n"; do [ -f "$f" ] || continue; m="${f%/*}"; m="${m##*/}"
+    case " $ms " in *" $m "*) ;; *) ms="$ms $m"; c=$((c+1)); one="$f";; esac; done; done
+  [ "$c" != 1 ] || printf '%s' "$one"; return 0; }
 _cs=""; _cref=""   # r1626: 카드 ref = 팀 카드 루트 표(ft_card_ref · env FT_CARD_REF 가 이긴다) — 팀 이름은 아래 카드 꼴 판정에서 나온다
 if [ -n "$IDX" ]; then   # r842-mut:libskip
   # 문지기 두 칸(DA⑥ r3): (가) 팀 카드 꼴인가 — 아니면 단계 개념 0 = 지금 규칙(오류 아님) (나) 꼴이면 lib·단계 함수가 있는가 — 없으면 ERROR + REJECT(R382 옛 설치 역호환은 버린다)
@@ -1719,6 +1727,9 @@ if [ -n "$IDX" ]; then   # r842-mut:libskip
       for _b in "$WT" "$ROOT" "$LEDGER_WT"; do [ -z "$CARD" ] || break
         while IFS= read -r _c; do [ -n "$_c" ] && [ -z "$CARD" ] && [ -f "$_c/indices/$_d/$_cf" ] && CARD="$_c/indices/$_d/$_cf"
         done < <(ft_team_cands_ref "$_b" "$_ct" "${FT_TEAMS_REF:-origin/main}" 2>/dev/null); done; done
+    if [ -z "$CARD" ] && [ "$SUPER" = 1 ]; then _acs=()   # r1747: 팀 폴더 후보의 아카이브/<달>/ — 목록 끝
+      for _b in "$WT" "$ROOT" "$LEDGER_WT"; do while IFS= read -r _c; do [ -n "$_c" ] && _acs+=("$_c/indices"); done < <(ft_team_cands_ref "$_b" "$_ct" "${FT_TEAMS_REF:-origin/main}" 2>/dev/null); done
+      [ "${#_acs[@]}" = 0 ] || CARD="$(_arch_one "$_cf" "${_acs[@]}")"; fi
     [ -z "$CARD" ] || echo "INFO 카드 위치(팀 폴더) ← $CARD"
   fi
   fi
@@ -1732,6 +1743,9 @@ if [ -z "$CARD" ] && [[ "$IDX" =~ ^(.*/indices)/[^/]+/[^/]+$ ]]; then
     for _rel in "$IDX" ${_tw:+"$_tw"}; do [[ "$_rel" =~ ^(.*/indices)/[^/]+/([^/]+)$ ]] || continue
       for _b in "$WT" "$ROOT" "$LEDGER_WT"; do [ -z "$_hit" ] && [ -f "$_b/${BASH_REMATCH[1]}/$_d/${BASH_REMATCH[2]}" ] && _hit="$_b/${BASH_REMATCH[1]}/$_d/${BASH_REMATCH[2]}"; done; done
     [ -z "$_hit" ] || { _sibn=$((_sibn+1)); _sib1="$_hit"; }; done
+  _adirs=(); for _rel in "$IDX" ${_tw:+"$_tw"}; do [[ "$_rel" =~ ^(.*/indices)/[^/]+/([^/]+)$ ]] || continue   # r1747: 형제 목록 끝 = 아카이브/<달>/
+    for _b in "$WT" "$ROOT" "$LEDGER_WT"; do _adirs+=("$_b/${BASH_REMATCH[1]}"); done; done
+  _hit="$(_arch_one "${IDX##*/}" "${_adirs[@]}")"; [ -z "$_hit" ] || { _sibn=$((_sibn+1)); _sib1="$_hit"; }
   [ "$_sibn" = 1 ] && { CARD="$_sib1"; echo "INFO 카드 위치 ← $CARD"; }
 fi
 # ★r1719 A4★ 팀 넘는 나노: 좌석 팀 원장 WT 의 사본은 카드 쓰기 자리가 아니다(다른 팀 작업 트리에 쓰지 않는다)
@@ -1743,12 +1757,16 @@ _CB_TMP=""
 if [ -z "$CARD" ] && [ -n "$IDX" ] && [ -n "$SEAT_WT" ] && [[ "$IDX" =~ ^(.*/indices)/[^/]+/([^/]+)$ ]]; then
   _cb_root="${BASH_REMATCH[1]}"; _cb_name="${BASH_REMATCH[2]}"; _cb_rel=""
   for _rel in "$IDX" ${_tw:+"$_tw"}; do [[ "$_rel" =~ ^(.*/indices)/[^/]+/([^/]+)$ ]] || continue
-    for _d in 진행 완성 대기; do [ -z "$_cb_rel" ] && [ -f "$SEAT_WT/${BASH_REMATCH[1]}/$_d/${BASH_REMATCH[2]}" ] && _cb_rel="${BASH_REMATCH[1]}/$_d/${BASH_REMATCH[2]}"; done; done
+    for _d in 진행 완성 대기; do [ -z "$_cb_rel" ] && [ -f "$SEAT_WT/${BASH_REMATCH[1]}/$_d/${BASH_REMATCH[2]}" ] && _cb_rel="${BASH_REMATCH[1]}/$_d/${BASH_REMATCH[2]}"; done
+    [ -n "$_cb_rel" ] || { _cb_rel="$(_arch_one "${BASH_REMATCH[2]}" "$SEAT_WT/${BASH_REMATCH[1]}")"; _cb_rel="${_cb_rel#"$SEAT_WT"/}"; }; done   # r1747: 가지 체크아웃 아카이브/<달>/
   if [ -n "$_cb_rel" ]; then
     CARD="$SEAT_WT/$_cb_rel"; echo "INFO 카드 위치 ← ${SEAT_BR:-<좌석 가지>}:$_cb_rel (가지 체크아웃 · 읽기·쓰기)"   # r960-mut:branchcard
   else
     _cb_ref="${SEAT_BR:-nano/$_KEY}"; _cb_hit=""
     for _d in 진행 완성 대기; do [ -z "$_cb_hit" ] && git -C "$SEAT_REPO" cat-file -e "$_cb_ref:$_cb_root/$_d/$_cb_name" 2>/dev/null && _cb_hit="$_cb_root/$_d/$_cb_name"; done
+    if [ -z "$_cb_hit" ] && [ "$SUPER" = 1 ]; then   # r1747: 가지 tip 아카이브/<달>/ — 정확히 1개일 때만
+      _cb_a="$(git -C "$SEAT_REPO" ls-tree -r --name-only "$_cb_ref" -- "$_cb_root/아카이브/" 2>/dev/null | awk -v p="$_cb_root/아카이브/" -v n="$_cb_name" 'index($0,p)==1 { r=substr($0,length(p)+1); i=index(r,"/"); if (i>1 && substr(r,i+1)==n) print }')"
+      [ "$(printf '%s' "$_cb_a" | grep -c .)" != 1 ] || _cb_hit="$_cb_a"; fi
     if [ -n "$_cb_hit" ]; then
       _CB_TMP="$(mktemp)" || { _CB_TMP=""; echo "WARN 카드 임시 파일 생성 실패 — 가지 판 읽기 0"; }   # r960-mut:branchref
       if [ -n "$_CB_TMP" ] && git -C "$SEAT_REPO" show "$_cb_ref:$_cb_hit" > "$_CB_TMP" 2>/dev/null; then
@@ -2099,6 +2117,7 @@ nf_superseded_next_hint() {
   for _d in 진행 완성 아카이브; do for _bs in "$WT" "$ROOT" "$LEDGER_WT"; do
     for _f in "$_bs/$_rt/indices/$_d/r$_num"-*.md; do
       [ -f "$_f" ] || continue; _rel="$_rt/indices/$_d/${_f##*/}"; [ "$_rel" = "$_own" ] && continue
+      [ "$_d" = 아카이브 ] && [ "${_f##*/}" = "$_nm" ] && continue   # r1747-mut:self — 아카이브로 간 «자기 카드» 는 대체 후보가 아니다(superseded-check ⓒ 가 거절)
       case "|$_hit|" in *"|$_rel|"*) continue;; esac   # 같은 파일이 여러 사본(WT·ROOT·원장 WT)이면 1개로 센다
       _hit="$_hit|$_rel"; _cnt=$((_cnt+1)); _one="$_rel"
     done; done; done
