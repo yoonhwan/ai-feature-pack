@@ -55,21 +55,20 @@ def canon_root(p):
     if len(parts) >= 3 and "/".join(parts[:-1]) in teams and (parts[-1] == "README.md" or re.fullmatch(r'GUIDE-.+\.md', parts[-1])):
         return os.path.join(wt, *parts[:-1])
     return None
-def one_can(m):
-    for p in [x.strip() for x in m.group(1).split(",")]:
-        if p.startswith("/") or ".." in p.split("/"):
-            reject("정본화 줄의 경로가 허용 뿌리 밖이다(절대경로 또는 ..): " + p)
-        root = canon_root(p)
-        if root is None or not p.endswith(".md"):
-            reject("정본화 줄의 경로가 허용 뿌리 밖이다 — docs/architect/ · docs/rules/ · design/<팀>/GUIDE-*.md · design/<팀>/README.md(팀 = design/TEAMS.md): " + p)
-        real = os.path.realpath(os.path.join(wt, p)); rroot = os.path.realpath(root); rwt = os.path.realpath(wt)
-        if os.path.commonpath([rwt, rroot]) != rwt:
-            reject("정본화 줄의 허용 뿌리 자체가 워크트리 밖 심볼릭 링크다: " + p)
-        if os.path.commonpath([rroot, real]) != rroot:
-            reject("정본화 줄의 경로가 허용 뿌리 밖으로 나간다(심볼릭 링크): " + p)
-        if not os.path.isfile(os.path.join(wt, p)):
-            reject("정본화 줄의 파일이 없다: " + p)
-        notes.append("정본화 " + p)
+def one_can(p):   # r1844 R1: 경로 하나 = 거절 하나(한 줄의 여러 경로를 경로마다 모은다)
+    if p.startswith("/") or ".." in p.split("/"):
+        reject("정본화 줄의 경로가 허용 뿌리 밖이다(절대경로 또는 ..): " + p)
+    root = canon_root(p)
+    if root is None or not p.endswith(".md"):
+        reject("정본화 줄의 경로가 허용 뿌리 밖이다 — docs/architect/ · docs/rules/ · design/<팀>/GUIDE-*.md · design/<팀>/README.md(팀 = design/TEAMS.md): " + p)
+    real = os.path.realpath(os.path.join(wt, p)); rroot = os.path.realpath(root); rwt = os.path.realpath(wt)
+    if os.path.commonpath([rwt, rroot]) != rwt:
+        reject("정본화 줄의 허용 뿌리 자체가 워크트리 밖 심볼릭 링크다: " + p)
+    if os.path.commonpath([rroot, real]) != rroot:
+        reject("정본화 줄의 경로가 허용 뿌리 밖으로 나간다(심볼릭 링크): " + p)
+    if not os.path.isfile(os.path.join(wt, p)):
+        reject("정본화 줄의 파일이 없다: " + p)
+    notes.append("정본화 " + p)
 # r1628: 팀 정본 목록 — 목록 경로는 착지 ref 의 blob 으로 실재·절을 본다(작업 트리에 없어도 된다)
 try:
     CANON = [l.strip() for l in open(os.path.join(wt, CANON_LIST), encoding="utf-8") if l.strip()]
@@ -130,7 +129,7 @@ def one_upd(m):
         reject("정본 문서에 그 절 제목이 없다: " + path + " §" + sec)
     print("UPD\t" + path + "\t" + sec)
     notes.append("정본 " + path + " §" + sec)
-each(one_can, can); each(one_upd, upd)
+each(one_can, [x.strip() for m in can for x in m.group(1).split(",")]); each(one_upd, upd)
 if errs:
     for e in errs: print("REJECT\t" + e)
     sys.exit(0)
