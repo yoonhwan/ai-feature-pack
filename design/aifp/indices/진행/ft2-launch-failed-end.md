@@ -16,7 +16,7 @@
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/pi/keeper.py(team_round 건너뜀 조건) · feature-pack/fable-team/ft2/adapters/pi/keeper_settle.py(settle_nano 판정 · opening 분기) · feature-pack/fable-team/ft2/adapters/pi/keeper_next.py(choose 착지 카드 제외) · 새 시험 feature-pack/fable-team/ft2/tests/test_launch_failed_end.py · 문서 ft2/contracts/keeper-settle/CONTRACT.md·CASES.md
 - 정본 영향 있음: CONTRACT.md §3 «PARKED launch-failed» 행 → «UNKNOWN launch-failed»(park 실행 · 판정 UNKNOWN · 매 바퀴 재판독) · CASES.md ③·⑫ 기대값 · ㉘·㉛ 행 = 같은 PR(나노)
 - 크기: 코드 3파일 · 새 시험 1파일 · 회귀 기대 고침 1파일 · 문서 2파일 · PR 1개
-- 배정: 없음
+- 배정: 좌석 aifp-ft-nano-ft2-launch-failed-end#0
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -83,8 +83,11 @@ r2055 는 열기에 실패한 일을 쉼(park · 사유 launch-failed)으로 돌
 | L6 opening 멈춤 | ㉛가 intent opening 20분 · 세션 0(rc1 can't find session) · owner 있음 → park 1 · UNKNOWN launch-failed 1 / ㉛나 opening 5분 → 손 0 / ㉛다 opening 20분인데 fill_open 에 있음 → 손 0 / ㉛라 opening 20분 · tmux 조회 실패(rc ≠ 1 또는 다른 글) → park 0 · 판정 불가 1줄 / M16(opening 분기 뺌) → ㉛가 FAIL |
 
 ## 상태
+- base_sha: c786054260e7b8d0579665b03091048245817f3f (spawn 2026-11-16)
 - 2026-11-16 · aifp-ft-arch-pi#16 초안(aifp 5346) · 대기 · L1~L5·L7 = DA 대행 APPROVE-DESIGN(5339) · L6 = DA 전
 - 2026-11-16 · aifp-ft-arch-pi#17 마감(aifp 5388) · p3 덧 = DA#11 APPROVE-DESIGN(BYZ 309947) → L9·L10 확정 · 인수 칸(양성 3칸 · enroll 호출 확인) · 알려진 한계 1줄 · L6(§F opening)은 DA 판정 근거를 못 찾아 조건부 그대로
 - 2026-11-16 · aifp-ft-arch-pi#17 근거 덧(aifp 5378 · harness 목록 A 의 «착지 끝 카드 다시 엶» 을 이 카드가 맡음 · 계약·시험 변경 0)
 - 2026-11-16 · aifp-ft-arch-pi#16 p3 덧(aifp 5364 · planner 5363 v65 K4 a2 다시 띄움) · L9 나노 불가 표식 · DA 전
 - 2026-11-16 · aifp-ft-arch-pi#17 L6 확정(aifp 5410 ①) · §F opening = DA#11 APPROVE-DESIGN(BYZ 310141) → 조건부 문구 지움 · tmux 조회 실패 = 판정 불가 칸 ㉛라 더함 · 한계 1줄 · Issue #8633
+- 2026-11-16 03:04 — 대기→진행 · 좌석 aifp-ft-nano-ft2-launch-failed-end#0
+- [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
