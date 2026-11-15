@@ -321,6 +321,7 @@ case "$cmd" in
          if [ "${_pn:-1}" = 0 ]; then doorbell_clear_held "$me"; fi
          exit "$_rrc" ;;
   peek)  exec python3 "$MBOXPY" peek "${1:?me}" ;;
+  show)  exec python3 "$MBOXPY" show "$@" ;;   # r2081 A — 쪽지 번호 조회(큐·보낸 기록·회전본·전문 파일) · 쓰기 0
   # ★승계 마무리(r1116)★ — handover <구> <후계> [«손 항목»…] = 남은 쪽지 끝까지 recv + 미표시·h·bg 를 [인계] 로 보내고 그 쪽지들을 «인계» 표시 ·
   #   ready <후계> <구> = [인계] 항목마다 «받음» [레디] 회신 · mark·unmarked·close-check = 표시·검사(retire·닫기 관문이 부른다)
   handover) old="${1:?old}"; new="${2:?new}"; shift 2; _check_name "$old" && _check_name "$new" || exit 1
@@ -378,5 +379,5 @@ case "$cmd" in
             refund)  wake_budget_refund "$@" ;;
             *) echo "usage: mbox.sh budget reserve|refund <좌석> [<출처>]" >&2; exit 2 ;;
           esac ;;
-  *) echo "usage: mbox.sh {send <to> <from> <body> [--urgent] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all] [--only distill]|peek <me>|ring <sess> [seq] [--reserved] [--auto]|sweep|budget reserve|refund <좌석> [<출처>]|handover <구> <후계>|handover-drop <구> <후계> <seq> --verdict <판정 번호>|ready <후계> <구>|mark <me> <seq,…> 처리함·인계|unmarked <me>|close-check <좌석> [--no-ready]}" >&2; exit 2;;
+  *) echo "usage: mbox.sh {send <to> <from> <body> [--urgent] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all] [--only distill]|peek <me>|show <번호>[,<번호>…]|ring <sess> [seq] [--reserved] [--auto]|sweep|budget reserve|refund <좌석> [<출처>]|handover <구> <후계>|handover-drop <구> <후계> <seq> --verdict <판정 번호>|ready <후계> <구>|mark <me> <seq,…> 처리함·인계|unmarked <me>|close-check <좌석> [--no-ready]}" >&2; exit 2;;
 esac

@@ -139,8 +139,8 @@ os.makedirs(CANON, exist_ok=True)
 
 # 분리 모듈(같은 폴더 — 이 파일이 링크면 «실제» 폴더에서 import 된다).
 # ★정본 자리는 이 파일 위치(__file__)로만 정해 묶어 준다★ — 모듈 위치로 정하면 링크 설치(.claude/fable-team/bin)에서 .fable-team 조상이 없어 NO_MAILBOX_ROOT.
-import mbox_store, mbox_guard, mbox_lineage, mbox_ops, mbox_handover, mbox_retire_check
-for _m in (mbox_store, mbox_guard, mbox_lineage, mbox_ops, mbox_handover, mbox_roots, mbox_retire_check):
+import mbox_store, mbox_guard, mbox_lineage, mbox_ops, mbox_handover, mbox_retire_check, mbox_show
+for _m in (mbox_store, mbox_guard, mbox_lineage, mbox_ops, mbox_handover, mbox_roots, mbox_retire_check, mbox_show):
     _m.CANON = CANON
 mbox_roots.OWN_ROOT = _ROOT   # r1309: 다리 판정의 «물러설 자리» — 다만 mbox_roots 는 CANON(<루트>/.fable-team/comm)에서 먼저 푼다(워크트리 밖 리포 루트로 잘린 _ROOT 는 하위 폴더 루트와 안 맞는다)
 mbox_store._ROOT, mbox_store._SEQCTR, mbox_store.SEQ_FLOOR = _ROOT, _SEQCTR, SEQ_FLOOR
@@ -164,6 +164,7 @@ if __name__ == "__main__":
     elif c == "relay": relay(a[1], a[2], a[3], " ".join(a[4:]))
     elif c == "recv": recv(a[1], a[2] if len(a) > 2 else None, None if show_all else RECV_LIMIT)
     elif c == "peek": peek(a[1])
+    elif c == "show": sys.exit(mbox_show.main(a[1:]))   # r2081 A — 번호 조회(큐·기록·회전본·전문) · 쓰기 0
     elif c == "holder":   # doorbell·ring 대상 = 그 역할 현역 세션(r1116 R7) — 이름 규칙 밖이면 받은 이름 그대로
         h = mbox_lineage.holder(a[1]); print(h if NAME_RE.match(h) else a[1])
     # ★승계 마무리(r1116 ②③④)★ — 보내기는 mbox.sh 가 같은 send 문(가드·doorbell)으로 한다. 여기는 본문·표시·검사만.
