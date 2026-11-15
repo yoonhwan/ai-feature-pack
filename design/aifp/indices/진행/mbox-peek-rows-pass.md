@@ -97,3 +97,5 @@
 - 2026-11-16 05:58 · 대기 — aifp-ft-arch-pi#21 초안(팀장 aifp 5783 · 넘김 harness#293 aifp 5782 · 실측 = BYZ comm 명령 3개 원문 · 구현 0) · 다음 = 팀장 PR → DA 설계 → Issue → 나노 1석 → harness comm 설치
 - 2026-11-16 06:08 — 대기→진행 · 좌석 aifp-ft-nano-mbox-peek-rows-pass#0
 - [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
+- 세트: 2241c7a04dd8e8b2dc91f43c821aeb7f81a8689c · 시험: python3.11 -m pytest tests/scripts/test_mbox_sh_peek_rows_pass.py — 12 passed rc=0 · 이슈: 0
+- 완료: aifp-ft-nano-mbox-peek-rows-pass#0 · 한 일: mbox.sh peek 이 --rows 를 mbox.py 로 넘긴다 · 새 시험 12사례 + 변이 M92·M93 · 산출: nano/mbox-peek-rows-pass@2241c7a04d · 병합 상태: 착지 전(push 전) · 남은 일: 없음
