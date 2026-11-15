@@ -3,7 +3,7 @@
 #   ① 네 자리(큐만 · 기록만 · 기록.1 만 · 큐+기록) = FOUND 자리 칸 · rc 0 · 실행 앞뒤 폴더 바이트 같음
 #   ② 900자 본문 = 앞 300자 + `전문:` 글자 수 = 파일 글자 수 · 번호 6개 = rc 2 · 출력 1줄
 #   ③ 빈 번호 = NONE 범위 칸 · rc 1 · 옛 번호 = «보관 범위보다 옛 번호» · FOUND 1 + NONE 1 = rc 1
-#   ④ 기록.1 깨진 줄 + 못 찾음 = 판정 불가 rc 3 · 다른 곳에서 찾음 = FOUND «깨진 줄 1» rc 0 · 기록이 폴더 = rc 3 · 큐 없음 = 정상 판정
+#   ④ 기록.1 깨진 줄 + 못 찾음 = 판정 불가 rc 3 · 다른 곳에서 찾음 = FOUND «깨진 줄 1» rc 0 · 깨진 줄뿐인 기록(JSON 아닌 줄 3개) = rc 3 · 큐 없음 = 정상 판정
 # 변이(사본에만): M1 회전본 읽기 지움 → ① 빨강 · M2 깨진 줄을 조용히 건너뜀 → ④ 빨강
 # 기준판 = MBOX_SRC=<팩 origin/main 의 harness/comm 사본> 로 돌린다(동사 없음 = ① Red).
 set -uo pipefail   # 실 우편함·실 명부·실 tmux 0 · sleep 0 · 코드 사본($T/code)과 우편함($T/*/comm)을 갈라 __pycache__ 가 폴더 비교에 안 섞인다
@@ -74,11 +74,11 @@ four() {   # ④ 판정 불가
   new_env; row "$L" 300; row "$L.1" 290; printf '{"seq": 29' >> "$L.1"; printf '\n' >> "$L.1"
   show 301; local r1=$RC o1; o1="$(cat "$T/out")"
   show 300; local r2=$RC o2; o2="$(head -1 "$T/out")"
-  new_env; mkdir "$L"; row "$C/mailbox.jsonl" 5
+  new_env; printf '깨진 줄 1\n{not json\n]]\n' > "$L"   # 보낸 기록 = 일반 파일 · JSON 아닌 줄 3개뿐(하드 룰 19 · 폴더 입력은 범위 밖)
   show 999; local r3=$RC o3; o3="$(cat "$T/out")"
   if [ "$r1" = 3 ] && [[ "$o1" == "판정 불가 #301 — 깨진 줄 1" ]] && [ "$r2" = 0 ] && [[ "$o2" == "FOUND #300 "*" 자리=기록 · 깨진 줄 1" ]] \
-     && [ "$r3" = 3 ] && [[ "$o3" == "판정 불가 #999 — 못 읽음 기록("*")" ]]; then
-    ok "④ 깨진 줄 + 못 찾음 = 판정 불가 rc 3 · 찾음 = FOUND «깨진 줄 1» rc 0 · 기록이 폴더 = rc 3 · 큐 없음 = ③ 정상 판정"; return 0; fi
+     && [ "$r3" = 3 ] && [ "$o3" = "판정 불가 #999 — 깨진 줄 3" ]; then
+    ok "④ 깨진 줄 + 못 찾음 = 판정 불가 rc 3 · 찾음 = FOUND «깨진 줄 1» rc 0 · 깨진 줄뿐인 기록(JSON 아닌 줄 3개) = rc 3 · 큐 없음 = ③ 정상 판정"; return 0; fi
   bad "④ r1=$r1 o1=[$o1] r2=$r2 o2=[$o2] r3=$r3 o3=[$o3]"; return 1
 }
 

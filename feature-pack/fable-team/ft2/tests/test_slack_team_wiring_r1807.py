@@ -100,7 +100,8 @@ def test_2_wake_body_is_recent_context_only(env):
     for ts in replies:
         listener.route(_msg(ts, thread_ts=root_a))
     body = [w for w in _wakes(env, MASTER) if "thread " + root_a in w[3].splitlines()[0]][-1][3].splitlines()
-    body = [line for line in body if not line.startswith("앞 글 ") and line != "새 글"]  # r2081 B1 갈래 표시 2줄은 빼고 본다
+    assert body[1] == "같은 thread 다른 글 3줄(맥락 · 이 command 의 글 아님)" and body[-2] == "이번 글"  # r2081 B1 갈래 표시 2줄
+    body = [body[0]] + body[2:-2] + body[-1:]
     assert len(body) == 5 and [line.split()[0] for line in body[1:]] == replies[1:]
     assert root_a not in "\n".join(body[1:]) and replies[0] not in "\n".join(body) and root_b not in "\n".join(body)
     assert len(_rows(env, "bindings.jsonl")) == 2  # 답글은 bind 새 행 0
