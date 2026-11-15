@@ -1,6 +1,6 @@
 # 인덱스: ft2-slack-wake-resend — 끝: Slack 글이 접수됐는데 좌석 깨움이 실패하면 수신기가 유휴 회차에 다시 보낸다 · 처음 넣어 3회까지 · 그래도 안 되면 harness 팀장에게 [긴급] 1통 · 이미 우편함에 들어간 글은 다시 보내지 않는다
 <!-- ledger: feature-pack/fable-team/legacy/1.x/harness/design/harness/GOAL-harness.md -->
-- Issue: 없음 — 등록 전(planner 등록 번호 오면 팀장이 채움 · 팀장 aifp-ft-master-pi#18 발주 aifp 5395 ③ · 5382 행 G · 오빠 «네.» 접수 때 알림 깨움 실패 = desk BYZ 309706)
+- Issue: #8643 — 등록 planner#324 aifp 5406(팀장 aifp-ft-master-pi#18 발주 aifp 5395 ③ · 5382 행 G · 오빠 «네.» 접수 때 알림 깨움 실패 = desk BYZ 309706)
 - 제안서: 없음 — 결함 복구(새 흐름 0) · 설계 = .fable-team/state/team-main/aifp-ft/orders/DESIGN-pG-slack-wake-fail-resend-20261116.md(r1 sha256 da9e4849…9194 · DA 대행 byz-harness-da-codex#11 APPROVE-DESIGN BYZ 310065 · 확정 동작 반례 0 · 전문 .fable-team/state/team-main/aifp-ft/DA-pG-r1-approve-310065.md) · 착지 PR 에서 feature-pack/fable-team/design/ 로 옮긴다
 - 근거: 실측 2026-11-16(aifp-ft-arch-pi#17 · BYZ .fable-team/teams/planner/slack/wire.jsonl·listen.log 원문 · 읽기만) — wake 551줄 = rc 0 495 · rc 3 37 · rc -1 «상한 초과 · 적재 없음» 10 · «적재 있음» 5 · 사유 칸 없음 4 · listen.log «깨움 실패 TimeoutExpired» 19줄 · 마지막 깨움이 rc ≠ 0 으로 끝난 command 334개 중 22개 · 11-16 00:57:55·01:06:41 «[Slack] 새 업무» rc -1 적재 없음(받는 곳 byz-planner-desk-pi#176) · 00:34:42~00:42:43 rc 3 9줄(mbox 가드 거부 · 사유 미기록)
 - 원인 1줄: wiring.wake 는 send 를 1회 부르고 실패하면 rc 줄 1개만 쓴다 · 다시 보내는 곳이 없다 · 재기동 복구 recovered 는 실패한 wake 줄도 «넘긴 글» 로 센다 · rc ≠ 0 의 send 출력을 버려 거부 사유가 남지 않는다 · landed 는 본문 첫 줄만 맞춰 앞 시도와 새 시도를 못 가른다
