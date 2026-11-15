@@ -109,3 +109,5 @@
 - 2026-11-16 05:12 · 대기 — aifp-ft-arch-pi#20 초안(팀장 aifp 5720 · 실측 ①~③) · 다음 = 팀장 PR → DA 설계 → 나노 1석
 - 2026-11-16 05:19 — 대기→진행 · 좌석 aifp-ft-nano-ci-test-base-sha-pin#0
 - [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
+- 세트: d7e028244fd3a3195000cbf749a02a5184d87cdc · 시험: bash feature-pack/code-intel/tests/test_ci_base_pin.sh (28 검사 · 25초) rc=0 · 이슈: 0
+- 완료: aifp-ft-nano-ci-test-base-sha-pin#0 · 한 일: 기준판 대조를 고정 fixture(tests/fixtures/ci-base-97528b12)로 바꿈 + 새 시험 test_ci_base_pin.sh(D2·D4·D5·D6·변이 Y1~Y3) · 산출: nano/ci-test-base-sha-pin@d7e028244f · 병합 상태: 착지 전(push 전) · 남은 일: 없음
