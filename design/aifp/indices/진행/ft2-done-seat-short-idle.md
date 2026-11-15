@@ -54,10 +54,10 @@ keeper 는 좌석이 유휴인지 볼 때 문턱 하나(60분)를 쓴다. 카드
 - 착지 없이 끝난 좌석을 빨리 닫는 길 · 결과 뒤 세션 0·owner 0 인 일의 칸 풀기 · harness 의 끝난 나노를 지금 손으로 닫는 일
 
 ## 완료 조건
-1. [ ] 나노: 커밋 1 기준판 FAIL 원문
-2. [ ] 나노: 새 시험 전체 rc0 · 걸린 초
-3. [ ] 나노: 변이 M20 → ㉙가·㉙아 FAIL · M21 → ㉙나 FAIL · M22 → ㉙바 FAIL · M44 → ㉙버 FAIL · M45 → ㉙서 FAIL · M51 → ㉙머·㉙허 FAIL · M52 → ㉙러·㉙카 FAIL · M53 → ㉙고 FAIL · M54 → ㉙타·㉙더 FAIL · M55 → ㉙마·㉙너 FAIL
-4. [ ] 나노: 회귀 rc0
+1. [x] 나노: 커밋 1 기준판 FAIL 원문 — 커밋 624e37b7 본문(㉙가·㉙아 COMPLETED 줄 0 · ㉙마 UNKNOWN mail-pending · ㉙너 CLOSED-SESSION 0 · ㉙서 mail-pending)
+2. [x] 나노: 새 시험 전체 rc0 — 36 passed(사례 26 = 55초 · 변이 10 = 57초)
+3. [x] 나노: 변이 M20 → ㉙가·㉙아 FAIL · M21 → ㉙나 FAIL · M22 → ㉙바 FAIL · M44 → ㉙버 FAIL · M45 → ㉙서 FAIL · M51 → ㉙머·㉙허 FAIL · M52 → ㉙러·㉙카 FAIL · M53 → ㉙고 FAIL · M54 → ㉙타·㉙더 FAIL · M55 → ㉙마·㉙너 FAIL (test_mutant 10개 = 잡힘 + 원본 PASS)
+4. [x] 나노: 회귀 rc0 — rebase 뒤 test_pi_keeper_r1812(31) + test_settle_one_path_r2055(29) + 1.x test_mbox_peek_self_sent_r1153(4) = 64 passed
 5. [ ] arch: DA 인수 칸 원문 확인 = ㉙허·㉙고·㉙노 · 새 일과 섞인 미읽음(㉙파·㉙카) · 옛 계보(㉙버) · M51~M55
 6. [ ] 팀장: PR 착지 sha · 설치 판(ft2 + mbox)
 7. [ ] arch: 설치 뒤 실사건 로그 2줄(착지 → 닫힘 10분 안 · `미읽음 마감 n통 제외`) + 하루 로그에서 일하는 좌석을 닫은 사건 0
@@ -79,5 +79,11 @@ keeper 는 좌석이 유휴인지 볼 때 문턱 하나(60분)를 쓴다. 카드
 - 2026-11-16 · aifp-ft-arch-pi#17 씀(aifp 5410 ② · 5412) · 대기 · 설계 r4 = DA 대행 APPROVE-DESIGN(BYZ 310212 · 카드당 3번째 판정) · 선행 = ft2-keeper-notify-recipient · ft2-launch-failed-end 착지
 - 2026-11-16 03:44 — 대기→진행 · 좌석 aifp-ft-nano-ft2-done-seat-short-idle#0
 - [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
+- 2026-11-16 · 나노 aifp-ft-nano-ft2-done-seat-short-idle#0 — 커밋1 624e37b7 [test] · 커밋2 e059048b [fix] keeper settle·close · 커밋3 18a11218 [fix] 1.x mbox peek --rows · 커밋4 e3e91f00 [docs] 계약·사례·설계 · origin/main(6300ef28) 위로 rebase 1회(CASES.md 충돌 = 두 쪽 사례 남기고 내 절을 §9 로)
+- 세트: e3e91f00b3c09036fe5d3a3f352e914581302fb5 · 시험: python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_done_seat_short_idle.py -q (36 passed · 사례 55초 + 변이 57초) rc=0 · 이슈: 0
+- 회귀(rebase 뒤): test_pi_keeper_r1812(31 passed 58초) + test_settle_one_path_r2055(29 passed 43초) + 1.x test_mbox_peek_self_sent_r1153(4 passed) = 64 passed rc=0 · 시험파일 lint ft-test-reentry-lint rc=0
+- 변이: M20 ㉙가·㉙아 · M21 ㉙나 · M22 ㉙바 · M44 ㉙버 · M45 ㉙서 · M51 ㉙머·㉙허 · M52 ㉙러·㉙카 · M53 ㉙고 · M54 ㉙타·㉙더 · M55 ㉙마·㉙너 — 전부 잡힘
+- 곁들여 고친 대역: keeper_world_r1812 의 mbox 가 peek --rows(새 문)에만 pending=0 을 답한다(옛 문·다른 시험 기대 불변) · test_settle_one_path_r2055 M5 변이 앵커를 idle_s 로(변이 뜻 그대로)
+- 남은 것: PR 1개 = 팀장 집행 · 설치 1회(ft2 판 + 1.x mbox peek --rows) = 팀장 · press 필요 없음(단위·대역 시험만 · 라이브 오디오 시험 0)
 - 세트: 5dd17b1d3839dcf11146ee7156b7db52bd068f22 · 시험: python3.11 -m pytest fable-team/ft2/tests/test_done_seat_short_idle.py rc=0 · 이슈: 0
 - 완료: aifp-ft-nano-ft2-done-seat-short-idle#0 · 한 일: A1~A9 구현 — 착지 좌석 DONE_IDLE 300초(land_ready·착지 닫기 길) + 안 닫힌 턴 = WORKING landed-wait + unsafe 의 mail_gate(닫힌 꼴·보낸 이·나이 3조건) + 1.x peek --rows + 계약·사례·설계 문서 · 산출: nano/ft2-done-seat-short-idle@5dd17b1d38 · 병합 상태: 착지 전(push 전) · 남은 일: 없음
