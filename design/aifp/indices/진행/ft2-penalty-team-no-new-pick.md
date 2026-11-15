@@ -80,3 +80,5 @@
 - DA 판정: APPROVE-DESIGN · byz-harness-da-codex#11 · aifp 5469 · Q1 새 pick 두 곳만 · Q2 ft-penalty.sh check 재사용(FT_ROOT=k.root · 팀별 1회) · Q3 판독 불가 = 새 pick 막힘(복구·닫기 유지) · 한계 = 바퀴 캐시 안 상태 변경은 다음 관측 반영
 - 2026-11-16 03:44 — 대기→진행 · 좌석 aifp-ft-nano-ft2-penalty-team-no-new-pick#0
 - [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
+- 세트: 0759501d4a0a5ea665e6f14227b45e6c672887c1 · 시험: python3.11 -m pytest tests/test_penalty_team_no_new_pick.py tests/test_keeper_fill_empty_slot_r1913.py tests/test_keeper_fill_intake_full_r1939.py tests/test_pi_keeper_next_card_r1871.py tests/test_settle_one_path_r2055.py (94 passed) rc=0 · 이슈: 0
+- 완료: aifp-ft-nano-ft2-penalty-team-no-new-pick#0 · 한 일: keeper_next 에 penalty_open 추가 · fill 과 close 의 새 pick 두 곳에 전 세션 정지 판정(계약 §10 · CASES ㊲ · 설계 pJ design/) · 산출: nano/ft2-penalty-team-no-new-pick@0759501d4a · 병합 상태: 착지 전(push 전) · 남은 일: 없음
