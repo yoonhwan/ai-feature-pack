@@ -1,6 +1,6 @@
 # 인덱스: mbox-peek-rows-pass — 끝: mbox.sh peek <좌석> --rows 가 mbox.py peek <좌석> --rows 와 같은 줄을 낸다 · 인자 없는 peek 출력은 글자 그대로다 · 모르는 인자는 조용히 버리지 않고 rc 2 로 멈춘다
 <!-- ledger: feature-pack/fable-team/legacy/1.x/harness/design/harness/GOAL-harness.md -->
-- Issue: 없음(초안) — 넘김 byz-harness-master-pi#293 aifp 5782 · 팀장 aifp-ft-master-pi#21 발주 aifp 5783 · 발견 = 이 좌석 실측 aifp 5768(설치 뒤 keeper 가 미읽음 판독 --rows 로 막음)
+- Issue: #8658 (byz-agents · 팀장 aifp-ft-master-pi#22 등록 BYZ 312054 · DA APPROVE-DESIGN aifp 5787) — 넘김 byz-harness-master-pi#293 aifp 5782 · 팀장 aifp-ft-master-pi#21 발주 aifp 5783 · 발견 = 이 좌석 실측 aifp 5768(설치 뒤 keeper 가 미읽음 판독 --rows 로 막음)
 - 제안서: 없음 — 결함 복구(인자 1개 넘기기) · 설계 = 이 카드 «계약»·«반례 표»
 - 근거: 실측 2026-11-16 05:58(aifp-ft-arch-pi#21 · BYZ .fable-team/comm · 읽기만) — 아래 «기준값» 절
 - 원인 1줄: feature-pack/fable-team/legacy/1.x/harness/comm/mbox.sh 323줄 `peek)  exec python3 "$MBOXPY" peek "${1:?me}"` 가 첫 인자만 넘긴다 · 뒤 인자(--rows)는 말없이 버려진다 · mbox.py 166줄은 `--rows` 를 이미 읽는다
