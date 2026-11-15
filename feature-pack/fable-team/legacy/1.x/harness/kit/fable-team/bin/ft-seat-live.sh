@@ -87,7 +87,10 @@ def p6(name):  # P6 문법 통과 여부 + 토큰
     toks = base_of(name).split("-", 3)
     project, team, role = toks[0], toks[1], toks[2]
     tail = toks[3] if len(toks) > 3 else None
-    return {"project": project, "team": team, "role": role, "agent": None if role == "nano" else tail}
+    k, _, rest = (tail or "").partition("-")  # r2020 석 칸 <K>-<에이전트> — lint 통과 뒤라 숫자 첫 칸 = 석 K · 옛 꼴 = 석 0 · nano = None
+    seated = role != "nano" and bool(rest) and k.isdigit()
+    slot, tail = (int(k), rest) if seated else (None if role == "nano" else 0, tail)
+    return {"project": project, "team": team, "role": role, "agent": None if role == "nano" else tail, "slot": slot}
 
 def read_snap():
     ses, pids = {}, {}
@@ -138,6 +141,7 @@ for name in sorted(sessions):
         "team": parsed["team"] if parsed else None,
         "role": cfg.get("role") or (parsed["role"] if parsed else None),
         "agent": cfg.get("agent") or (parsed["agent"] if parsed else None),
+        "slot": parsed["slot"] if parsed else None,
         "model": cfg.get("model"),
         "state": "replaced" if cfg.get("_replaced_by") else None,
         "config_file": cfg_file,

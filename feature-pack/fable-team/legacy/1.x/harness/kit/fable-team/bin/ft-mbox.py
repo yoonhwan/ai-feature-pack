@@ -115,6 +115,8 @@ def seat(name: str) -> bool:
     role, tail = toks[2], "-".join(toks[3:])
     rng, _, last = tail.rpartition("-")           # r1658 qa 꼬리 = 에이전트 또는 «범위 1토큰 + 에이전트»(lint r1650 갈래)
     tail = last if role == "qa" and rng and "-" not in rng and rng not in agents else tail
+    k, _, rest = tail.partition("-")              # r2020 석 칸 <K>-<에이전트>(K = 0 또는 앞자리 0 없는 정수 · lint r1641 갈래)
+    tail = rest if role != "nano" and rest and set(k) <= _DIGITS and (k == "0" or k[0] != "0") else tail
     return role in roles and (bool(tail) if role == "nano" else tail in agents)
 
 
