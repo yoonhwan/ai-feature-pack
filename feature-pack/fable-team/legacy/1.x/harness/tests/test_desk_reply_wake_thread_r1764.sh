@@ -148,7 +148,8 @@ echo "== ⑪ thread 줄이 있는 ts 에도 질문·h 등록은 그 갈래대로
 reset; run --register-thread "$QTS" "$KEY" >/dev/null 2>&1
 run --register-question "$QTS" r1764-q >/dev/null 2>&1; chk "⑪ --register-question 같은 ts = rc0(thread 줄에 안 막힘)" 0 "$?"
 reset; run --register-thread "$QTS" "$KEY" >/dev/null 2>&1
-run --register "$QTS" h77 0123456789abcdef0123456789abcdef01234567 >/dev/null 2>&1; chk "⑪ --register(h) 같은 ts = rc0(thread 줄에 안 막힘)" 0 "$?"
+printf '#!/usr/bin/env bash\necho '"'"'{"ok":true,"messages":[{"ts":"%s","user":"U0C9GRFHJ","text":"head 0123456789abcdef0123456789abcdef01234567"}]}'"'"'\n' "$QTS" > "$T/replies-h.sh"   # r2013 · h 등록은 질문 글 head 를 조회한다
+RUN_REPLIES="bash $T/replies-h.sh" run --register "$QTS" h77 0123456789abcdef0123456789abcdef01234567 >/dev/null 2>&1; chk "⑪ --register(h) 같은 ts = rc0(thread 줄에 안 막힘)" 0 "$?"
 
 echo "== ⑫ 등록 전 옛 글은 알림 0통(기준점 = 등록 시각) =="
 reset; mk_replies "[$(oppa "$O1" "등록 전 옛 글 1"),$(oppa "$O2" "등록 전 옛 글 2")]"
