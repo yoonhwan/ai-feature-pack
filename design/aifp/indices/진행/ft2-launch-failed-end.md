@@ -16,7 +16,7 @@
 - 규칙: 없음 — 상시 로드 변경 0
 - 규칙 상세: 하드 룰 2(닫기·kill 은 keeper 기존 가드 그대로) · 하드 룰 20 · 하드 룰 22 · r2055 계약 §1(조용히 남는 보류는 없다)
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/pi/keeper.py(team_round 건너뜀 조건) · feature-pack/fable-team/ft2/adapters/pi/keeper_settle.py(settle_nano 판정 · opening 분기) · feature-pack/fable-team/ft2/adapters/pi/keeper_next.py(choose 착지 카드 제외) · 새 시험 feature-pack/fable-team/ft2/tests/test_launch_failed_end.py · 문서 ft2/contracts/keeper-settle/CONTRACT.md·CASES.md
-- 정본 영향 있음: CONTRACT.md §3 «PARKED launch-failed» 행 → «UNKNOWN launch-failed»(park 실행 · 판정 UNKNOWN · 매 바퀴 재판독) · CASES.md ③·⑫ 기대값 · ㉘·㉛ 행 = 같은 PR(나노)
+- 정본 영향 없음: aifp 정본(docs/architect · docs/rules · design 팀 GUIDE·README) 변경 0 — 바뀐 것은 팩 ft2 계약 문서(contracts/keeper-settle/CONTRACT.md · CASES.md)뿐이고 착지 PR #1294(8ed707c4)에 같이 들어갔다 · 원래 줄 «정본 영향 있음: CONTRACT.md §3 «PARKED launch-failed» 행 → «UNKNOWN launch-failed»(park 실행 · 판정 UNKNOWN · 매 바퀴 재판독) · CASES.md ③·⑫ 기대값 · ㉘·㉛ 행 = 같은 PR(나노)»
 - 크기: 코드 3파일 · 새 시험 1파일 · 회귀 기대 고침 1파일 · 문서 2파일 · PR 1개
 - 배정: 좌석 aifp-ft-nano-ft2-launch-failed-end#0
 
