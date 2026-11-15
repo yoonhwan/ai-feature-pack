@@ -30,6 +30,12 @@ TAIL_NO = ("아니", "안", "않", "말", "마", "못", "하지", "보류", "취
 
 
 HEX40 = re.compile(r"(?<![0-9a-fA-F])[0-9a-fA-F]{40}(?![0-9a-fA-F])")
+# r2013 ② · 질문 뒤 같은 작성자 글 중 40hex 0 이고 첫 줄이 이 머리로 시작 = 상태 덧글 → 승인 창을 끊지 않는다(그 밖 40hex 0 글 = 다음 질문 = 끊음 · fail-closed). 바꾸려면 PR.
+STATUS_HEADS = ("[멈춤]", "[정리]", "[알림]")
+
+
+def status_note(txt: str) -> bool:
+    return not HEX40.search(txt) and txt.lstrip().startswith(STATUS_HEADS)
 
 
 def first_chunk_words(m: dict) -> list:
@@ -127,12 +133,14 @@ def judge(ts: str, shas: list, after: str | None = None, stop: list | None = Non
         if not sha:
             return bool(HEX40.search(txt))   # --reply-only(r1591) = sha 칸 없음 → 40hex 담은 글(재게시)은 창을 끊지 않는다(카드 ⓗ)
         return bool(re.search(r"(?<![0-9a-fA-F])%s(?![0-9a-fA-F])" % sha, txt, re.I))
+    notes = {x for x, txt in mine if status_note(txt)}  # r2013 ⓒ
     out = []
     for sha in shas:
         if not re.search(r"(?<![0-9a-fA-F])%s(?![0-9a-fA-F])" % sha, text, re.I) and sha:  # r1591 · 빈 sha = 답글 확인 모드(sha 낱말 검사 없음)
             raise ValueError("질문 글에 %s 없음" % sha)
         # r1709: 승인 판정이 없는 질문 감시(sha 빈 값 = --reply-only)는 창을 끊지 않는다 — 같은 스레드 desk 정정·보충 글이 창을 끊어 그 뒤 오빠 답을 영영 못 보던 것(승인 0줄이라 새는 승인도 0)
         brk = [] if not sha else [x for x, txt in mine if x > parent and not has_sha(txt, sha)]   # 이 sha 의 창을 끊는 글 = sha 를 안 담은 같은 작성자 글
+        brk = [x for x in brk if x not in notes]  # r2013 ⓒ 40hex 0 상태 덧글([멈춤] 등) = 잇는다
         if not sha and stops:  # r1776 · 다음 질문(장부에 있는 ts · 이 스레드 안) 앞에서만 끊는다 · 작성자로 끊지 않음(r1709 정정 글 허용 그대로)
             brk = sorted(x for x in stops if x > parent and x in seen)
         nxt = brk[0] if brk else None

@@ -65,8 +65,8 @@ assert s.count(old) == 1, old
 p.write_text(s.replace(old, new, 1))
 PY
   [ $? = 0 ] || { bad "$1 변이 적용 실패" ""; return 1; }; }
-mut M1 ft_oppa_slack_check.py " and not status_note(txt)" "" && t1 "$R" && [ "$RC" = 2 ] && ok "M1 허용 목록 검사 삭제 → T1 REJECT(변이 잡힘)" || bad "M1 안 잡힘" "rc=$RC out=$OUT"
-mut M2 ft_oppa_slack_check.py " and not status_note(txt)" " and bool(HEX40.search(txt))" && t3 "$R" && [ "$RC" = 0 ] && ok "M2 ⓓ 를 잇는다로 → T3 SLACK-OK(변이 잡힘)" || bad "M2 안 잡힘" "rc=$RC out=$OUT"
+mut M1 ft_oppa_slack_check.py "if status_note(txt)}" "if False}" && t1 "$R" && [ "$RC" = 2 ] && ok "M1 허용 목록 검사 삭제 → T1 REJECT(변이 잡힘)" || bad "M1 안 잡힘" "rc=$RC out=$OUT"
+mut M2 ft_oppa_slack_check.py "if status_note(txt)}" "if not HEX40.search(txt)}" && t3 "$R" && [ "$RC" = 0 ] && ok "M2 ⓓ 를 잇는다로 → T3 SLACK-OK(변이 잡힘)" || bad "M2 안 잡힘" "rc=$RC out=$OUT"
 mut M3 ft_desk_reply_wake.py "if (rc := head_seen(" "if False and (rc := head_seen(" && t4 "$R" && [ "$RC" = 0 ] && ok "M3 등록 검사 삭제 → T4 rc0(변이 잡힘)" || bad "M3 안 잡힘" "rc=$RC out=$OUT"
 for f in ft_oppa_slack_check.py ft_desk_reply_wake.py; do
   cmp -s "$BIN/$f" "$BIN/../kit/fable-team/bin/$f" && ok "bin·kit 사본 같음 $f" || bad "kit 사본 다름 $f" ""; done
