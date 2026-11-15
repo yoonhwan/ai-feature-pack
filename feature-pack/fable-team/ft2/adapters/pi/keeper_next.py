@@ -232,9 +232,44 @@ def choose(k, team, skip=frozenset()):
     if ready or why.get("팩낡음"):   # 보류뿐이면 [다음 없음] 쪽지 0
         return min(ready)[1:] if ready else None
     k.notify(team, "%s|next-none|%s" % (k.stamp()[:10], team), "%s %s · 배정 없는 카드 0 · 막힌 사유별 %s" % (NONE, team, " ".join("%s %d" % kv for kv in sorted(why.items())) or "0"))
+def prereq_mute(k, team):
+    """P1 묵음 — 전팀 정지(k.halt) · 팀 PAUSED(state/<팀>-tick/PAUSED) · 새 카드 보류(NEW_CARD_HOLD.json · 깨짐 포함) 중 하나라도 참.
+    판정 자리 = prereq_tell 안 1곳(부르는 쪽 앞 조건이 나중에 바뀌어도 새지 않게 하는 방어 · 설계 P1)."""
+    st = os.path.join(k.root, ".fable-team", "state")
+    return bool(k.halt) or os.path.lexists(os.path.join(st, "%s-tick" % team, "PAUSED")) or new_card_hold(k, team)
+
+def prereq_path(k, team):
+    """P4 목록 파일 자리 = <root>/.fable-team/state/ft2-keeper/prereq-<팀>.txt(팀마다 1개 · 일반 파일)."""
+    return os.path.join(k.dir, "prereq-%s.txt" % team)
+
+def prereq_list(k, team, unread, changed):
+    """P4 — prereq_tell 이 불린 바퀴에 (지문이 바뀌었거나 목록 파일이 없으면) 원자 쓰기(tmp → replace) · 빈 묶음이면 지운다 · 파일 있고 지문 그대로 = 손 0.
+    첫 줄 = `# 관측 <시각> · <n>장`(마지막으로 고른 바퀴의 값) · 그 아래 줄마다 `<카드>\\t<선행 값>\\t<까닭>` 이름순 · 3장 이하도 쓴다.
+    파일 없이 지문만 있는 상태 = 옛 판이 만든 상태(판 올림 승계 · DA 312085 반례) — 그 바퀴에 한 번 만든다(지문이 같아도)."""
+    path = prereq_path(k, team)
+    if not unread:   # 빈 묶음 = 지운다
+        if os.path.lexists(path):
+            os.unlink(path)
+        return
+    if not changed and os.path.lexists(path):   # 지문 그대로 · 파일 있음 = 쓰지도 지우지도 않는다(P0 · ㊵바·㊵사)
+        return
+    os.makedirs(k.dir, exist_ok=True)
+    body = "# 관측 %s · %d장\n" % (k.stamp(), len(unread)) + "".join("%s\t%s\t%s\n" % (s, v["val"], v["why"]) for s, v in sorted(unread.items()))
+    with open(path + ".tmp", "w", encoding="utf-8") as fh:
+        fh.write(body)
+    os.replace(path + ".tmp", path)
+
+def prereq_body(k, team, unread):
+    """P3 본문 = 3장까지는 지금 글 그대로 · 3장을 넘으면 «전체 목록 <경로>» 칸 하나를 붙인다(I5 가 바뀌는 곳 · P8)."""
+    head = "[다음 막힘] %s 선행 줄을 못 읽는 카드 %d장: %s" % (team, len(unread), " · ".join(sorted(unread)[:3]))
+    tail = " · 전체 목록 %s" % prereq_path(k, team) if len(unread) > 3 else ""
+    return head + tail + " · 고칠 꼴 «- 선행: 없음» 또는 «- 선행: r<번호>»"
+
 def prereq_tell(k, team, unread):
-    """I4~I8 — 선행불명 기억 치우기 + 묶음 지문·전이 번호 + 팀장 [다음 막힘] 1통(마지막으로 전한 묶음과 다를 때만).
-    unread = {카드: {"val": 선행 값, "why": 까닭}} · 기억 셋은 모두 keeper 상태 파일 키다(재기동해도 이어진다 · I9)."""
+    """I4~I8 + P1~P6 — 선행불명 기억 치우기 + 묶음 지문·전이 번호 + 팀장 [다음 막힘] 1통(마지막으로 전한 묶음과 다를 때만).
+    unread = {카드: {"val": 선행 값, "why": 까닭}} · 기억 셋은 모두 keeper 상태 파일 키다(재기동해도 이어진다 · I9) ·
+    P0 = 이 함수가 불린 바퀴에만 손 · P1 묵음 = 전팀 정지·팀 PAUSED·새 카드 보류 중이면 쪽지 0(now·목록 파일은 고친다) ·
+    P4 목록 파일 = 지문이 바뀐 바퀴에만 · P5 팀장 없음 = 쪽지 대신 PREREQ-WAIT 1줄 · P6 순서 = 빔 → P1 → P5 → I8."""
     book = k.state.setdefault("prereq_seen", {})
     for key in [x for x in book if x.split("|")[0] == team and x.split("|")[1] not in unread]:   # I4 선행불명이 아니게 되거나 대기에서 사라짐
         book.pop(key)
@@ -242,12 +277,24 @@ def prereq_tell(k, team, unread):
     now, told, prev = k.state.setdefault("prereq_now", {}), k.state.setdefault("prereq_told", {}), k.state.setdefault("prereq_now", {}).get(team) or {}
     n = prev.get("n") if prev.get("fp", "") == fp else (prev.get("n") or 0) + 1   # I7 전이 번호 = 묶음이 바뀔 때마다 +1
     now[team] = {"fp": fp, "n": n}
-    if not fp:   # I7 지금 묶음이 비면 told 를 비운다
+    wait = k.state.setdefault("prereq_wait", {})   # P5 기억 = 마지막으로 보류한 묶음 지문(새 키 1개 · 옛 판은 읽지 않는다)
+    prereq_list(k, team, unread, prev.get("fp", "") != fp)   # P4 — 바뀐 바퀴에만 쓰기·지우기(보류 바퀴 = 마지막 관측값 그대로)
+    if not fp:   # I7 지금 묶음이 비면 told·보류 기억을 비우고 목록 파일을 지운다
         told.pop(team, None)
+        wait.pop(team, None)
         return
+    if prereq_mute(k, team):   # P1 — 묵음 = 쪽지 0(told 그대로 · now·목록 파일은 위에서 고친다)
+        return
+    to, stand = k.recipients(team)   # P5 팀장 판독 = keeper 쪽지 받는 곳 차례 그대로(그 팀 _master → _desk → harness _master)
+    if not to or stand:   # P5 팀장 없음 = 쪽지 대신 PREREQ-WAIT 1줄(묶음에 쌓지 않는다)
+        if wait.get(team) != fp:   # 묶음 지문이 바뀔 때만 1줄(보류 중 되풀이 0)
+            wait[team] = fp
+            k.log("PREREQ-WAIT", team, "팀장 없음 — 선행 줄 쪽지 보류 %d장 · 목록 %s" % (len(unread), prereq_path(k, team)))
+        return
+    wait.pop(team, None)   # 팀장이 선 바퀴 = 보류 기억 지움(그 묶음은 I8 로 나간다)
     if told.get(team) == fp:   # I8 마지막으로 전한 묶음 그대로 = 보내지 않는다
         return
-    ok = k.notify(team, "prereq|%s|%s|%s" % (team, fp, n), "[다음 막힘] %s 선행 줄을 못 읽는 카드 %d장: %s · 고칠 꼴 «- 선행: 없음» 또는 «- 선행: r<번호>»" % (team, len(unread), " · ".join(sorted(unread)[:3])))
+    ok = k.notify(team, "prereq|%s|%s|%s" % (team, fp, n), prereq_body(k, team, unread))
     if ok:   # I8 성공(rc 0·도착 확인)일 때만 told 를 바꾼다 · 실패·넘김(defer)은 그대로
         told[team] = fp
 
