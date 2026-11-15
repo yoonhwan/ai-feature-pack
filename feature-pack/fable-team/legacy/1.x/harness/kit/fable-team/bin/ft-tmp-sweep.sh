@@ -26,16 +26,17 @@ left() { echo $((BUDGET - SECONDS)); }
 cap() { # cap <초> 명령… — 초를 넘기면 SIGALRM 으로 끊는다(rc 142)
   local t="$1"; shift; perl -e 'my $t = shift; alarm $t; exec @ARGV or exit 127' "$t" "$@"
 }
-gcap() { # 남은 예산 안에서 git 1회(최대 7초) — 예산 0 이면 rc 124
-  local l; l=$(left); [ "$l" -ge 1 ] || return 124; [ "$l" -le 7 ] || l=7
-  cap "$l" "$GIT" "$@"
+bcap() { # bcap <최대 초> 명령… — 남은 총 예산과 최대 초 중 작은 쪽으로 끊는다 · 예산 0 이면 호출 0 rc 124 (R1)
+  local l m="$1"; shift; l=$(left); [ "$l" -ge 1 ] || return 124; [ "$l" -le "$m" ] || l="$m"
+  cap "$l" "$@"
 }
+gcap() { bcap 7 "$GIT" "$@"; }   # 남은 예산 안에서 git 1회(최대 7초)
 notify() {
   local to="${FT_TMP_SWEEP_TO:-}" mbox="${FT_MBOX_SH:-}"
   [ -n "$to" ] || to="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("_hil_route",""))' "${FT_SEATS_JSON:-$ROOT/.fable-team/seats-planner.json}" 2>/dev/null)"
   [ -n "$mbox" ] || { . "$HERE/ft-harness-root.sh" 2>/dev/null && mbox="$(ft_comm_dir "$HERE")/mbox.sh"; }
   if [ -z "$to" ] || [ -z "$mbox" ]; then logline "ERROR 쪽지 수신자·우편함 불명 — 1통 못 보냄"; return 0; fi
-  bash "$mbox" send "$to" ft-tmp-sweep "$1" >/dev/null 2>>"$LOG" || logline "ERROR 쪽지 발신 실패 to=$to"
+  bcap 7 bash "$mbox" send "$to" ft-tmp-sweep "$1" >/dev/null 2>>"$LOG" || logline "ERROR 쪽지 미전달 rc=$? to=$to(총 예산·7초 상한)"
 }
 registered() { # 등록부 첫 칸과 정확히 같은 경로(글자 그대로 또는 실제 경로)
   [ -f "$REG" ] || return 1
@@ -105,14 +106,16 @@ for d in "$BASE"/* "$BASE"/.[!.]*; do
     1) case "$WHY" in dirty*) dirty=$((dirty+1));; *) unp=$((unp+1));; esac; logline "남김 $WHY ($d)"; continue;;
   esac
   if [ "$ARM" = 0 ]; then listed=$((listed+1)); echo "목록 지움 대상 $d"; logline "목록 지움 대상 $d"; continue; fi
+  if [ "$(left)" -lt 1 ]; then deferred=$((deferred+1)); logline "삭제 미룸 예산 끝 $d(다음 실행)"; continue; fi
   keep_files "$d" || { unk=$((unk+1)); logline "남김 판정 불가 판정문 보관 실패 ($d)"; continue; }
-  cap 60 rm -rf "$d"
+  bcap 60 rm -rf "$d"
   if [ -e "$d" ]; then deferred=$((deferred+1)); logline "삭제 미완 $d(다음 실행)"; continue; fi
   removed=$((removed+1)); PRUNE="$PRUNE$COMMONS"; logline "삭제 $d"
 done
 while IFS= read -r c; do
   [ -n "$c" ] || continue
-  cap 7 "$GIT" --git-dir="$c" worktree prune 2>/dev/null || logline "WARN worktree prune 실패 $c"
+  if [ "$(left)" -lt 1 ]; then logline "WARN worktree prune 생략 예산 끝 $c(지운 폴더 항목만 남음 · 다음 prune 이 지움)"; continue; fi
+  gcap --git-dir="$c" worktree prune 2>/dev/null || logline "WARN worktree prune 실패 $c"
 done <<<"$(sort -u <<<"$PRUNE")"
 f1=$(freek); freed=$(awk -v a="${f0:-0}" -v b="${f1:-0}" 'BEGIN{x=(b-a)/1048576; if (x<0) x=0; printf "%.1f", x}')
 kept=$((young+cwd+dirty+unp+unk))
