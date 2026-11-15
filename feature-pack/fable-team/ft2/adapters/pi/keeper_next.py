@@ -9,6 +9,20 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 FT2, GIT_S = os.path.dirname(os.path.dirname(HERE)), 25
 OK, BLOCK, NONE = "접수 성공", ("정지", "석", "선행", "DA", "사람"), "[다음 없음]"
 URGENT, HIGH = re.compile(r"- 긴급:\s*예\s*$"), re.compile(r"- 우선(?:순위)?:\s*높음")
+REF = re.compile(r"(?<![A-Za-z0-9_])r(\d+)(?![0-9])")   # r2027 카드 참조 r<번호>
+def prereq(lines, where):
+    """r2027 카드 본문 선행 막힘 = "" · "선행" · "선행불명"(판정 불가) · where = {번호: 카드가 있는 폴더 집합}."""
+    if any(x.startswith("- 배정: 대기(선행") for x in lines):
+        return "선행"   # ①
+    val = next((x.split(":", 1)[1].strip() for x in lines if x.startswith("- 선행:")), "")
+    if not val or val.startswith(("없음", "-")):
+        return ""   # ②
+    seen = [where.get(n, set()) for n in REF.findall(val)]
+    if not seen:
+        return "선행불명"   # ④ r 참조 없는 글
+    if any(s & {"대기", "진행"} for s in seen):
+        return "선행"   # ③ 안 끝난 참조
+    return "" if all(s & {"완성", "완성후", "아카이브"} for s in seen) else "선행불명"   # 루트에 없는 참조 = 판정 불가
 def _load(name):
     spec = importlib.util.spec_from_file_location("ft2_keeper_next_" + name, os.path.join(FT2, "core", name + ".py"))
     module = importlib.util.module_from_spec(spec)
@@ -48,7 +62,7 @@ def gates(k, team):
     k.fa.observe(k.root, "나노 정원", team, live, int(cap), "다음 카드")   # r1886 ⓑ 열림·NEXT-HOLD 둘 다
     return True if live is not None and live < int(cap) else k.log("NEXT-HOLD", team, "나노 %s / 상한 %s — 다음 카드 0" % (live, cap))
 def cards(k, team):
-    """({stem: [긴급, 높음, 대상 줄들]}, 루트 행) · 판독 실패 = 사유 문자열 (git 2회 · 작업 트리 0)."""
+    """({stem: [긴급, 높음, 대상 줄들, 선행 막힘]}, 루트 행) · 판독 실패 = 사유 문자열 (git 2회 · 작업 트리 0)."""
     try:
         with open(os.path.join(k.root, ".fable-team", "state", "directive-roots.tsv"), encoding="utf-8") as fh:
             rows = [x.rstrip("\n").split("\t") for x in fh if not x.startswith("#") and len(x.split("\t")) >= 4]
@@ -58,17 +72,24 @@ def cards(k, team):
     if not r:
         return "카드 루트 표 행 없음"
     raw, r = r[3], [r[0], os.path.join(k.root, r[1]), r[2], r[3].replace("*", team)]   # r1969 raw git = (리포·ref·표 행 루트) 바퀴당 1회 · 팀 걸러내기는 따로
-    rc, names, err, rc2, heads = once(k, ("cards", r[1], r[2], raw), lambda: k.git(r[1], "ls-tree", "-r", "--name-only", r[2], "--", raw.split("*")[0] if "*" in raw else raw + "/대기/")
-                                      + k.git(r[1], "grep", "-I", "-E", r"^- (긴급|우선|대상)", r[2], "--", ":(glob)%s/대기/*" % raw)[:2])
+    rc, names, err, rc2, heads = once(k, ("cards", r[1], r[2], raw), lambda: k.git(r[1], "ls-tree", "-r", "--name-only", r[2], "--", raw.split("*")[0] if "*" in raw else raw + "/")   # r2027 루트 전체 = 선행 참조 폴더
+                                      + k.git(r[1], "grep", "-I", "-E", r"^- (긴급|우선|대상|선행|배정)", r[2], "--", ":(glob)%s/대기/*" % raw)[:2])
     if rc != 0 or rc2 not in (0, 1):
         return "카드 루트 git rc %s/%s %s" % (rc, rc2, err[:60])
     mine = r[3] + "/대기"
-    found = {os.path.basename(p)[:-3]: [False, False, []] for p in names.splitlines() if p.endswith(".md") and os.path.dirname(p) == mine}
+    found = {os.path.basename(p)[:-3]: [False, False, [], []] for p in names.splitlines() if p.endswith(".md") and os.path.dirname(p) == mine}
+    where = {}
+    for p in (x for x in names.splitlines() if x.endswith(".md") and os.path.dirname(os.path.dirname(x)) == r[3]):
+        m = re.match(r"r(\d+)(?![0-9])", os.path.basename(p))
+        where.setdefault(m.group(1), set()).add(os.path.basename(os.path.dirname(p))) if m else None
     for path, _, line in (x[len(r[2]) + 1:].partition(":") for x in heads.splitlines()):
         row = found.get(os.path.basename(path)[:-3]) if os.path.dirname(path) == mine else None
         if row is not None:
             row[0], row[1] = row[0] or bool(URGENT.match(line)), row[1] or bool(HIGH.match(line))
             row[2] += [line] if line.startswith("- 대상") else []
+            row[3] += [line] if line.startswith(("- 선행", "- 배정")) else []
+    for row in found.values():
+        row[3] = prereq(row[3], where)
     return found, r
 def target(k, r, lines):
     """(리포, base) — 팩·feature-pack/ = 팩 origin/main · 없음 = 루트 리포·표 ref · 팩·BYZ 둘 다 = None."""
@@ -85,9 +106,11 @@ def choose(k, team, skip=frozenset()):
             pair.setdefault(os.path.basename(p)[:-3], set()).add(work)
     (found, r), done, why, ready = got, state.get("done") or {}, {}, []
     owners = {s for s in found if ({s} | pair.get(s, set())) & set(state.get("owners") or {})}   # stem·짝 work 중 owner 있음
-    for stem, (urgent, high, lines) in sorted(found.items()):
+    for stem, (urgent, high, lines, pre) in sorted(found.items()):
         led = ledger(k, stem)
-        block = "배정됨" if led.get("state") == "seat" or stem in owners else led.get("reason") if led.get("reason") in BLOCK else ""
+        block = "배정됨" if led.get("state") == "seat" or stem in owners else led.get("reason") if led.get("reason") in BLOCK else pre   # r2027 ⑤ 원장·카드 둘 중 하나
+        if block == "선행불명":
+            once(k, ("prereq-log", team, stem), lambda: k.log("판정 불가", team, "%s 선행 줄 판독 불가 — 건너뜀" % stem))   # 바퀴당 1줄(닫기·fill 두 번 골라도)
         block = block or ("보류" if stem in skip else "끝남" if stem in done or pair.get(stem, set()) & set(done) else "")   # r1887 stem·짝 work done
         place = None if block else target(k, r, lines)
         if not block and place is None:
