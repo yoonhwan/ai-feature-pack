@@ -6,7 +6,7 @@
 - 근거 덧(harness 문제 목록 A · r2078 넘겨받음 · harness#288 aifp 5376 «harness 쓰기 0 · 이 카드가 맡음» · 팀장 #18 aifp 5378): BYZ .fable-team/state/team-main/harness/a378/keeper-r2057.log 원문(aifp-ft-arch-pi#17 읽기만) — 11-15 23:57:32 LAUNCHING a1 → 23:58:47 UNKNOWN «착지했지만 complete 0 · 남은 범위 줄 없음» → 23:58:49 PARKED launch-failed(git add) → 11-16 00:00:42 LAUNCHING a2 → 00:03:13~01:10:47 WORKING «옛 착지 줄(attempt 전) 4ccf2a67» 13줄 = 착지 줄 있는 대기/ 카드를 fill 이 두 번 다시 엶 · 조사 메모 = BYZ .fable-team/state/team-main/harness/HANDOFF-pi378-to-next-20261116.md 1절(choose :126~152 는 착지 줄을 안 봄 · 착지 판정은 keeper_land.landing :136~176) · r2058 도 같은 꼴(00:05 launch-failed) · 맡는 계약 = L5(착지 카드 제외) + L1~L3(launch-failed 쉼 뒤 재판독)
 - 원인 1줄: keeper.team_round 는 최신 attempt 에 parked 줄이 있으면 그 work 를 건너뛴다(302·305줄) · fill 은 열기 실패 카드를 fill_hold 에 넣어 자동 재시도 0 · 반쪽 판정은 intent failed·closed 만 봐서 opening 에 멈춘 열기는 영영 owner-orphan · choose 는 착지 여부를 안 본다
 - 앞 카드: r2055(팩 d88ef381 · settle 한 길 · park launch-failed) · r1913·r1939(fill) · r1968·r1973(반쪽) · 계약 feature-pack/fable-team/ft2/contracts/keeper-settle/CONTRACT.md §3
-- 상태: 대기
+- 상태: 완성 · 2026-11-16 05:25 · -
 - 착지: 8ed707c454130bc5868c48895fb245a90c2c9403(팩 main · PR #1294 squash · DA#11 APPROVE-IMPL aifp 5563 · 세트 b025fdda · 뺄 커밋 0)
 - 착지: f03dc3440a7e7da227b82a071906935edd0b7eab(팩 main · PR #1316 squash · 덧 고침 L11 · DA#11 APPROVE-IMPL aifp 5640 · 세트 6a911d63 = PR head · 뺄 커밋 0)
 - 설치: 있음 — ft2 판 올림 1회(팩 착지 뒤 팀장·harness 설치 묶음) · 되돌림 = 앞 판으로 판 전환
@@ -16,7 +16,7 @@
 - 규칙: 없음 — 상시 로드 변경 0
 - 규칙 상세: 하드 룰 2(닫기·kill 은 keeper 기존 가드 그대로) · 하드 룰 20 · 하드 룰 22 · r2055 계약 §1(조용히 남는 보류는 없다)
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/pi/keeper.py(team_round 건너뜀 조건) · feature-pack/fable-team/ft2/adapters/pi/keeper_settle.py(settle_nano 판정 · opening 분기) · feature-pack/fable-team/ft2/adapters/pi/keeper_next.py(choose 착지 카드 제외) · 새 시험 feature-pack/fable-team/ft2/tests/test_launch_failed_end.py · 문서 ft2/contracts/keeper-settle/CONTRACT.md·CASES.md
-- 정본 영향 있음: CONTRACT.md §3 «PARKED launch-failed» 행 → «UNKNOWN launch-failed»(park 실행 · 판정 UNKNOWN · 매 바퀴 재판독) · CASES.md ③·⑫ 기대값 · ㉘·㉛ 행 = 같은 PR(나노)
+- 정본 영향 없음: aifp 정본(docs/architect · docs/rules · design 팀 GUIDE·README) 변경 0 — 바뀐 것은 팩 ft2 계약 문서(contracts/keeper-settle/CONTRACT.md · CASES.md)뿐이고 착지 PR #1294(8ed707c4)에 같이 들어갔다 · 원래 줄 «정본 영향 있음: CONTRACT.md §3 «PARKED launch-failed» 행 → «UNKNOWN launch-failed»(park 실행 · 판정 UNKNOWN · 매 바퀴 재판독) · CASES.md ③·⑫ 기대값 · ㉘·㉛ 행 = 같은 PR(나노)»
 - 크기: 코드 3파일 · 새 시험 1파일 · 회귀 기대 고침 1파일 · 문서 2파일 · PR 1개
 - 배정: 좌석 aifp-ft-nano-ft2-launch-failed-end#0
 
@@ -115,3 +115,4 @@ r2055 는 열기에 실패한 일을 쉼(park · 사유 launch-failed)으로 돌
 - 2026-11-16 04:47 · aifp-ft-arch-pi#20 조건 12 읽기 확인 씀(팀장 aifp 5664) · 착지·설치 2칸 채움 · v65 return 사실 줄 없음 = [~] · 닫기 대기
 - 2026-11-16 05:10 · aifp-ft-arch-pi#20 조건 12 [x](팀장 aifp 5713 · v65 journal seq 190·191 returned 원문 대조) · 완료 조건 1~12 [x] · 다음 = 팀장 PR → DA 닫힘 표식 → 완성 이동
 - 남은 범위: 없음
+- 2026-11-16 05:25 — 진행→완성 · DA /Users/yoonhwan/Project/ai-feature-pack/.fable-team/state/team-main/aifp-ft/DA-launch-close-311684/verdict.md#§1
