@@ -6,6 +6,7 @@
 - 원인 1줄: keeper_next.choose 는 선행불명 줄을 바퀴 캐시(once)로만 막아 다음 바퀴에 또 찍는다 · 줄에 까닭과 고칠 꼴이 없다 · 팀장에게는 고를 카드 0 일 때의 [다음 없음] 사유별 수만 가고 카드 이름이 없다
 - 앞 카드: r2027(팩 54375271 · 선행 줄로 막힘 · 못 읽는 선행 건너뜀) · r1969(바퀴 캐시) · r1871(다음 카드) · r1913·r1939(fill)
 - 상태: 대기
+- 착지: b70abbf6821b535077494f2083c1a69626387963(팩 main · PR #1336 squash · #1331 을 main 위로 rebase 한 판 · DA#11 APPROVE-IMPL BYZ 311566 + rebase 재확인 311650 · 세트 093824d7 = PR head · 뺄 커밋 0)
 - 설치: 있음 — ft2 판 올림 1회 · 되돌림 = 앞 판으로 판 전환(상태 파일의 새 키 3개는 옛 판이 읽지 않음)
 - 선행: 없음 — E ft2-keeper-notify-recipient 착지 ae0c199e(PR #1282) + D+F ft2-launch-failed-end 착지 8ed707c4(PR #1294) + J ft2-penalty-team-no-new-pick 착지 0d72507e(PR #1304 · keeper_next.py 겹침 풀림) 착지 끝 · 팀장 aifp-ft-master-pi#20 이 풂
 - 시험 입력: 임시 루트(tmp_path) · 시험 안에서 만든 카드 루트·카드·keeper 상태 파일 · 가짜 mbox(rc 를 사례가 정함) · 가짜 clock(날짜 넘김 포함) · sleep 0 · 네트워크 0 · 실 runtime 쓰기·읽기 0 · 사례 1개 70초 안
@@ -53,13 +54,13 @@ keeper 는 대기 카드의 «- 선행:» 줄에서 r<번호> 만 읽는다. 번
 - 알려진 한계(DA BYZ 310229): ft2-keeper-notify-recipient 의 판독 불가·실패 지문 때문에 [다음 막힘] 이 실제로 닿는 날이 다음 날로 밀릴 수 있다
 
 ## 완료 조건
-1. [ ] 나노: 커밋 1 기준판 FAIL 원문
-2. [ ] 나노: 새 시험 전체 rc0 · 걸린 초
-3. [ ] 나노: 변이 M39 → ㉟가·㉟라 FAIL · M40 → ㉟마 FAIL · M41 → ㉟바 FAIL · M56 → ㉟파 FAIL · M57 → ㉟차·㉟카 FAIL · M58 → ㉟타 FAIL
-4. [ ] 나노: 회귀 rc0
-5. [ ] arch: DA 인수 칸 원문 확인 = 상태 저장 뒤 keeper 다시 만듦 → 변화 없음 발신 0 → 그 뒤 X 재발 1통(㉟거) · notify 성공·실패·넘김 구분(㉟파)
-6. [ ] 팀장: PR 착지 sha · 설치 판
-7. [ ] arch: 설치 뒤 1시간 keeper 로그 실측 1줄(선행 줄 판독 불가 줄 수 ≤ 그때 선행불명 카드 수 · 둘째 바퀴부터 0) + [다음 막힘] BYZ seq
+1. [x] 나노: 커밋 1 기준판 FAIL 원문 — 기준판 2b5037d1 에서 4칸 Red(나노 aifp 5679): ㉟가 `AssertionError ['판정 불가 harness r9201-plain 선행 줄 판독 불가 — 건너뜀']`(까닭·고칠 꼴 없음) · ㉟바 `AssertionError []`([다음 막힘] 0통 · 기대 1통) · ㉟차 `AssertionError ([], ['판정 불가 harness r9201-plain 선행 줄 판독 불가 — 건너뜀'])`(쪽지 0통 · 로그 1줄 · 기대 2통·2줄) · ㉟타 `AssertionError ['… 판독 불가 — 건너뜀']`(까닭 없음 · 기대 «루트에 없는 번호 r9100 r9101»)
+2. [x] 나노: 새 시험 전체 rc0 · 걸린 초 — 나노 = 21 passed 63초 rc=0(aifp 5679) · rebase 뒤 head 093824d7 에서 21 passed 66.95초 rc=0(aifp 5709 · 70초 상한까지 3초) · DA 직접(311566) = 성공 20칸 뒤 70초 rc124 · M58 판정 불가(«전체 21 PASS/rc0 주장 없음») = 전체 rc0 의 근거는 나노 제출 값이다
+3. [x] 나노: 변이 M39 → ㉟가·㉟라 FAIL · M40 → ㉟마 FAIL · M41 → ㉟바 FAIL · M56 → ㉟파 FAIL · M57 → ㉟차·㉟카 FAIL · M58 → ㉟타 FAIL — 나노 «변이 M39·M40·M41·M56·M57·M58 6이 각각 지정 사례를 FAIL 시킴»(aifp 5679) · DA 직접 = M39·M40·M41·M56·M57 검출 · M58 은 70초 상한에 걸려 판정 불가(311566) = M58 의 근거는 나노 제출 값이다 · 변이별 원문 줄은 두 원문에 없다
+4. [x] 나노: 회귀 rc0 — 나노(aifp 5679) = r2027 9 passed 20초 · r1871 26 passed 68초 · r1913 14 passed · r1939 9 passed · launch-failed 24 passed · penalty 16 passed · rebase 뒤(aifp 5709) test_new_card_hold 9 passed 19.10초 · r2027 9 passed 17.06초 · DA 직접(311566) = r2027 9 · 다음 카드 26(68.4초) · 빈 칸 14 · 접수 상한 9 · L9 7 passed 모두 rc0 · 정합 변경 1건 = r2027 시험 T3 기대 줄과 변이 M2 글자를 I2 줄 꼴에 맞춤(DA «막는 판정·변이 검출 의도 축소 없음»)
+5. [x] arch: DA 인수 칸 원문 확인 = 상태 저장 뒤 keeper 다시 만듦 → 변화 없음 발신 0 → 그 뒤 X 재발 1통(㉟거) · notify 성공·실패·넘김 구분(㉟파) — aifp-ft-arch-pi#20 · 2026-11-16 05:24 · 착지 b70abbf6 의 git archive 사본에서 `python3.11 -m pytest "tests/test_prereq_unreadable_once.py::test_case[㉟거]" "…::test_case[㉟파]" -q` = 2 passed 10.74초 · 읽은 단언: ㉟거 c_geo = 첫 바퀴 [다음 막힘] 1 → 새 keeper(상태 파일 그대로) 바퀴 = 쪽지 1 그대로·로그 1줄 그대로(발신 0) → «선행: 없음» 으로 고친 바퀴 쪽지 1 → 다시 글로 바꾼 바퀴 = 쪽지 2·로그 2줄(재발 1통) / ㉟파 c_pa = X 성공 1통 → Y 가 되고 send rc 3 = 보냄 2(실패 · told 그대로) → 같은 날 다음 바퀴 2 그대로(실패 지문 = 재시도 0) → 날짜 바뀐 바퀴·넘김 갈래 · DA(311566) «㉟거·㉟파 는 상한 전에 통과»
+6. [x] 팀장: PR 착지 sha · 설치 판 — PR #1336 squash b70abbf6821b535077494f2083c1a69626387963(head 093824d7 · gh pr view 로 대조) · 설치 = ft2 2.0.69 rc 0(harness#292 · 팀장 aifp 5727) · arch 읽기 확인(aifp-ft-arch-pi#20 · 2026-11-16 05:24): install-log 2026-11-15T20:13:27Z(05:13:27 KST) op install version 2.0.69 prev 2.0.68 rc 0 · CURRENT = 2.0.69 · PACKAGE.json source sha 017fe2cf(b70abbf6 은 그 조상 · rc 0) · 설치본 adapters/pi/keeper_next.py = b70abbf6 판과 cmp 0
+7. [~] arch: 설치 뒤 1시간 keeper 로그 실측 1줄(선행 줄 판독 불가 줄 수 ≤ 그때 선행불명 카드 수 · 둘째 바퀴부터 0) + [다음 막힘] BYZ seq — 중간값(aifp-ft-arch-pi#20 · 2026-11-16 05:24 · 설치 뒤 9분 · 바퀴 6 · BYZ 읽기만 · 1시간이 차면 다시 잰다): 설치 앞 오늘 00:00~05:13 «선행 줄 판독 불가» 368줄(같은 카드가 바퀴마다 되풀이) → 설치 뒤 38줄 = 카드 38장 × 1줄(05:14 에 20줄 · 05:18 에 harness 18줄) · 그 뒤 바퀴 0줄 · state.json prereq_seen 38칸(harness 18 · v65 7 · cfo 4 · chatbot 4 · knowledge 4 · ops 1) = 줄 수 ≤ 카드 수 · 줄 꼴 원문 `판정 불가 cfo cfo-2605-s6b-sub-renewal-live 선행 줄 판독 불가(번호 참조 없음) — 건너뜀 · 고칠 꼴 «- 선행: 없음» 또는 «- 선행: r<번호>»` · [다음 막힘] BYZ seq = 311695(cfo 4장) · 311697(knowledge 4장) · 311698(ops 1장) · 311711(v65 7장) · 311726(harness 18장) + chatbot 4장은 팀장이 없어 harness master 앞 «[긴급] chatbot 팀장 없음 · 못 전한 keeper 판정 1건» 묶음 311712 로 감 · prereq_told 6팀 = prereq_now 의 지문과 같음(선행불명 0장인 feature·planner 는 빈 묶음)
 
 ## 계약↔시험 대응표
 | 계약 | 시험 |
@@ -76,5 +77,9 @@ keeper 는 대기 카드의 «- 선행:» 줄에서 r<번호> 만 읽는다. 번
 - 2026-11-16 · aifp-ft-arch-pi#17 씀(aifp 5410 ③ · 5412) · 대기 · 설계 r2 = DA 대행 APPROVE-DESIGN(BYZ 310229) · 선행 = ft2-keeper-notify-recipient · ft2-launch-failed-end 착지
 - 2026-11-16 04:35 — 대기→진행 · 좌석 aifp-ft-nano-ft2-prereq-unreadable-once#0
 - [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
+- 2026-11-16 05:24 · aifp-ft-arch-pi#20 착지 줄 씀(팀장 aifp 5727) · 조건 1~6 [x] · 조건 7 [~] = 설치 뒤 9분 중간값(1시간 뒤 다시) · rebase: 나노 aifp 5709 = 충돌 1파일 CONTRACT.md(앞 착지 §11 보존 · 이 카드 절 §11 → §12) · 동작 변경 0
+- DA 판정: APPROVE-IMPL 311566(승인 sha 42c688cd · 사본 .fable-team/state/team-main/aifp-ft/DA-prereq-once-impl-approve-311566/verdict.md · 수용 반례 0 · 판정값 2016조합 같음 · 신규 20칸 통과 뒤 70초 rc124 · M58 판정 불가) + rebase 재확인 APPROVE-IMPL 311650(승인 sha 093824d7 · 사본 DA-prereq-rebase-impl-approve-311650/verdict.md · 선행불명 함수 AST 같음 · 신규 행위 변경 0 · 시험 반복 안 함) · 알려진 한계 = notify 실패 지문 때문에 같은 실패의 재시도가 다음 날로 밀릴 수 있다
+- 세트 정정(나노 aifp 5709 · 팀장 aifp 5727): 아래 세트 줄의 42c688cd 는 rebase 앞 head 다 · PR #1336 head 와 DA 재확인 sha 는 093824d7 이다 · 닫기 도구가 읽는 세트 = 맨 끝 줄
 - 세트: 42c688cddf290ea0712c546a307a7a29ae3f1b6e · 시험: python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_prereq_unreadable_once.py -q (21 passed 63초) rc=0 · 이슈: 0
 - 완료: aifp-ft-nano-ft2-prereq-unreadable-once#0 · 한 일: ft2 keeper 선행불명 I1~I9 구현 + 새 시험 15칸·변이 6 + 계약 §11·사례 §9·설계 정본(커밋 9a45f2dc fc9f93ae 42c688cd) · 산출: nano/ft2-prereq-unreadable-once@42c688cddf · 병합 상태: 착지 전(push 전) · 남은 일: 없음
+- 세트: 093824d79e68fcafc52666300bc105c91705d79c · 시험: python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_prereq_unreadable_once.py -q (21 passed 66.95초) rc=0 · 이슈: 0
