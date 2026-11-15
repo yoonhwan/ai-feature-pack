@@ -73,6 +73,11 @@ want "③ 새 head 는 착지" 0 "LANDED squash pr=15 landing=$Q6" -- --repo "$C
 ghj MERGED "$S7" "{\"oid\":\"$Q7\"}"
 want "③ merged(gh MERGED ∧ head == SET ∧ mergeCommit ⊂ main)" 0 "LANDED merged pr=17 landing=$Q7" -- --repo "$C" --pr 17 --set "$S7"
 want "③ merged 인데 head ≠ SET" 1 "NOT-LANDED pr=17" -- --repo "$C" --pr 17 --set "$S4"
+ghj MERGED "$S7" '{"oid":"1234567890123456789012345678901234567890"}'
+want "③ merged · mergeCommit 객체 없음(merge-base rc128) → rc3 (DA #311114 ①)" 3 "판정 불가: merge-base(mergeCommit 1234567890" -- --repo "$C" --pr 17 --set "$S7"
+echo '[]' > "$GH_JSON"
+want "③ gh rc0 · JSON [] → rc3 (DA #311114 ②)" 3 "판정 불가: gh 응답을 못 읽음" -- --repo "$C" --pr 17 --set "$S7"
+ghj MERGED "$S7" "{\"oid\":\"$Q7\"}"
 GH_RC=1 want "③ gh rc1 → rc3" 3 "판정 불가: gh pr view 17" -- --repo "$C" --pr 17 --set "$S7"
 want "① usage(SET 꼴 밖) → rc3 1줄" 3 "판정 불가: usage" -- --repo "$C" --pr 17 --set abc
 git -C "$T/stale" config remote.origin.url "file:///x/y"; git -C "$T/stale" config --unset "url.$BARE.insteadOf"
