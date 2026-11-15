@@ -166,8 +166,8 @@ class Reporting:
                 late.setdefault(seen_at["team"], []).append(seat)
         line = "손 닫기 후보 %d(끝난 뒤 30분 넘게 열린 좌석)" % sum(map(len, late.values()))
         for team, seats in sorted(late.items()):
-            first = "%s|open|%s" % (day, seats[0])
             fresh = [seat for seat in seats if "%s|open|%s" % (day, seat) not in self.state["sent"]]
+            first = "%s|open|%s" % (day, fresh[0]) if fresh else ""   # 열쇠 = 처음 «안 보낸» 좌석(DA 310738 반례 — 이미 보낸 seats[0] 열쇠를 쓰면 새 후보 B 가 그날 안 나간다)
             body = "[크리티컬] %s · %s %s" % (line, team, " ".join(fresh))
             if fresh and self.notify(team, first, body):
                 got = self.state["sent"].get(first) or self.stamp()   # E3 실패 지문이면 그 값 그대로(날짜가 바뀌면 1회 다시)

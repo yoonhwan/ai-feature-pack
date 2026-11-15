@@ -252,8 +252,30 @@ def c_geo(w):  # ㉚거 경계 100 · 다른 글 250줄(seq 101~350) · 같은 �
     assert len(sends(w)) == 1, calls(w)
 
 
+def c_deo(w):   # ㉚더(DA HOLD 310738 반례) 같은 날 A 알림 뒤 A 유지 + 새 후보 B → 그날 2통(A · 다음에 A+B) · B 알림 있음 · 열쇠는 처음 «안 보낸» 좌석
+    a, b = "byz-harness-nano-A#0", "byz-harness-nano-B#0"
+    spec(w)
+    k = w.keeper()
+    k.skip, k.halt, k.probe = set(), False, lambda seat: "alive"
+
+    def one():
+        k.state["open"][a] = {"team": TEAM, "since": w.t - 1900}   # 끝난 뒤 30분 넘게 열린 좌석
+        k.report()
+    k.locked(one)
+    assert len(sends(w)) == 1 and a in sends(w)[0][3], calls(w)
+    k2 = w.keeper()
+    k2.skip, k2.halt, k2.probe = set(), False, lambda seat: "alive"
+
+    def two():
+        k2.state["open"][b] = {"team": TEAM, "since": w.t - 1900}   # A 는 그대로 · 새 후보 B
+        k2.report()
+    k2.locked(two)
+    mail = sends(w)
+    assert len(mail) == 2 and b in mail[1][3] and a not in mail[1][3], mail   # 기준판 = 2통 · B 있음(새 head 반례 = 1통 · B 없음)
+
+
 CASES = {"㉚가": c_ga, "㉚나": c_na, "㉚다": c_da, "㉚라": c_ra, "㉚마": c_ma, "㉚바": c_ba, "㉚사": c_sa, "㉚아": c_aa,
-         "㉚자": c_ja, "㉚차": c_ca, "㉚카": c_ka, "㉚타": c_ta, "㉚파": c_pa, "㉚하": c_ha, "㉚거": c_geo}
+         "㉚자": c_ja, "㉚차": c_ca, "㉚카": c_ka, "㉚타": c_ta, "㉚파": c_pa, "㉚하": c_ha, "㉚거": c_geo, "㉚더": c_deo}
 KS, RS = "adapters/pi/keeper_report.py", "adapters/pi/launch_roster.py"
 MUTANTS = {
     "M17": (KS, 'return ((own, "_master", False), (own, "_desk", True), (harness, "_master", True))', 'return ((own, "_master", False),)',
@@ -268,6 +290,7 @@ MUTANTS = {
             'self.call(["bash", self.mbox, "send", to, SENDER, body], CALL_S, retry=1)[0]', ("㉚자", "㉚마")),
     "M32": (KS, 'rec["seq"] > mark and', 'str(rec.get("ts") or "") >= self.stamp() and', ("㉚파",)),
     "M33": (KS, 'rec["seq"] > mark and', 'str(rec.get("ts") or "") > self.stamp() and', ("㉚하",)),
+    "M34": (KS, '"%s|open|%s" % (day, fresh[0]) if fresh else ""', '"%s|open|%s" % (day, seats[0]) if fresh else ""', ("㉚더",)),
 }
 
 
