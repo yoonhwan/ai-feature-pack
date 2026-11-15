@@ -100,6 +100,14 @@ card_put 진행 r9011-no-state $'# 정상 텍스트 카드\n- 기존 본문\n'
 mkpr 111 nano/r9011-no-state 'r9011 상태 절 없음'; land "$FIXB/ft-merge-land.sh" 111; B8="$(card_get 진행 r9011-no-state)"
 [ "$rc" = 0 ] && [ "$B8" = $'# 정상 텍스트 카드\n- 기존 본문\n'"- 착지: $QL (w origin/main · PR #111 · ft-merge-land)" ] && [ "$(lands <<<"$B8")" = "$QL" ] \
   && grep -qx "DONE 카드 착지 줄 r9011-no-state ${QL:0:10}" <<<"$out"; ck "⑧ 문서 끝 착지 줄 1개 · 앞 본문 그대로 · DONE 1줄" $?
+
+echo "### ⑨ DA HOLD 2 R2: 상태 절 있는 정상 카드 2장 · 같은 토큰 → 둘 다 착지 줄"
+card_put 진행 r9012-a $'# 카드 ⑨a\n\n## 상태\n- 진행\n'; card_put 진행 r9012-b $'# 카드 ⑨b\n\n## 상태\n- 진행\n'
+mkpr 112 ops/r9012-pair 'r9012 두 장'; land "$FIXB/ft-merge-land.sh" 112
+for s in r9012-a r9012-b; do B9="$(card_get 진행 $s)"
+  [ "$rc" = 0 ] && [ "$(lands <<<"$B9")" = "$QL" ] && [ "$(sec_last <<<"$B9")" = "- 착지: $QL (w origin/main · PR #112 · ft-merge-land)" ] \
+    && [ "$(grep -c "^DONE 카드 착지 줄 $s ${QL:0:10}\$" <<<"$out")" = 1 ]; ck "⑨ $s 착지 줄 1개(keeper 정규식 = Q) · DONE 1줄" $?; done
+! grep -q '^판정 불가 — 카드 착지 줄' <<<"$out"; ck "⑨ 판정 불가 0줄" $?
 S2=$SECONDS
 
 echo "### ⑦ 회귀: REJECT(승인 sha 어긋남)·DRY 는 카드 쓰기 0 · 출력 꼴 그대로"
