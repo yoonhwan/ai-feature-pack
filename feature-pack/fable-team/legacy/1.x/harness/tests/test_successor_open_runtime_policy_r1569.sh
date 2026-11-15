@@ -32,9 +32,9 @@ mkstub reach 'exit 0'
 printf '골 1\n골 2\n골 3\n본문\n열린 칸 감시: 없음\n' > "$BODY"
 POL="$TMP/policy.tsv"   # 카드 시험 입력 그대로
 printf '# 시험 정책표\narch\tpi\tclaude-opus-5-5\nmaster\tpi\tclaude-opus-5-5\nnano\tpi\tdeepseek\n' > "$POL"
-A_OLD='byz-t-harness-arch-claude#1'; A_NEW='byz-t-harness-arch-claude#2'
-N_OLD='byz-t-harness-nano-w#1';      N_NEW='byz-t-harness-nano-w#2'
-D_OLD='byz-t-harness-tester-claude#1'; D_NEW='byz-t-harness-tester-claude#2'
+A_OLD='byz-t-arch-claude#1'; A_NEW='byz-t-arch-claude#2'
+N_OLD='byz-t-nano-w#1';      N_NEW='byz-t-nano-w#2'
+D_OLD='byz-t-tester-claude#1'; D_NEW='byz-t-tester-claude#2'
 run() {   # run <so> <구> <후계> [추가 인자…] — 정책표 = $RP(기본 $POL)
   local so="$1" old="$2" new="$3"; shift 3
   rm -f "$LOG" "$OPENED"; : > "$LOG"; rm -rf "$REPO/.fable-team/state"
@@ -45,14 +45,14 @@ run() {   # run <so> <구> <후계> [추가 인자…] — 정책표 = $RP(기�
   RC=$?
 }
 opened() { grep -c '^tmuxc open' "$LOG" 2>/dev/null; }
-case_a() { run "$1" "$A_OLD" "$A_NEW"; grep -q -- "--name byz-t-harness-arch-pi#2 --agent pi --model claude-opus-5-5" "$LOG"; }
-case_d() { run "$1" "$D_OLD" "$D_NEW"; [ "$RC" != 0 ] && [ "$(opened)" = 0 ] && [ "$(grep -c '^REJECT 정책표에 역할 없음: byz-t-harness-tester-claude' "$TMP/out")" = 1 ]; }
+case_a() { run "$1" "$A_OLD" "$A_NEW"; grep -q -- "--name byz-t-arch-pi#2 --agent pi --model claude-opus-5-5" "$LOG"; }
+case_d() { run "$1" "$D_OLD" "$D_NEW"; [ "$RC" != 0 ] && [ "$(opened)" = 0 ] && [ "$(grep -c '^REJECT 정책표에 역할 없음: byz-t-tester-claude' "$TMP/out")" = 1 ]; }
 
 # ⓐ arch 후계 --agent·--model 생략 → pi · claude-opus-5-5 · 이름 꼬리 -pi#
-case_a "$SO" && ok "ⓐ arch 생략 → pi · claude-opus-5-5 · byz-t-harness-arch-pi#2" || bad "ⓐ rc=$RC log=$(tr '\n' ' ' < "$LOG") out=$(tr '\n' ' ' < "$TMP/out")"
+case_a "$SO" && ok "ⓐ arch 생략 → pi · claude-opus-5-5 · byz-t-arch-pi#2" || bad "ⓐ rc=$RC log=$(tr '\n' ' ' < "$LOG") out=$(tr '\n' ' ' < "$TMP/out")"
 # ⓑ 나노 → pi deepseek(꼬리가 agent 낱말이 아니면 이름 그대로)
 run "$SO" "$N_OLD" "$N_NEW"
-grep -q -- "--name byz-t-harness-nano-w#2 --agent pi --model deepseek" "$LOG" \
+grep -q -- "--name byz-t-nano-w#2 --agent pi --model deepseek" "$LOG" \
   && ok "ⓑ nano → pi deepseek" || bad "ⓑ rc=$RC log=$(tr '\n' ' ' < "$LOG") out=$(tr '\n' ' ' < "$TMP/out")"
 # ⓒ --agent claude 명시 → claude 로 열고 «정책과 다름» 경고 1줄
 run "$SO" "$A_OLD" "$A_NEW" --agent claude
