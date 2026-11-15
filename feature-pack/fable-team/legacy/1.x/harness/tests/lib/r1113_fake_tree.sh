@@ -9,6 +9,7 @@ fake_init() {
   mkdir -p "$TMP/fake" "$TMP/state" "$TMP/permits"
   : > "$TMP/pids"; : > "$TMP/panes"; : > "$TMP/launchd"; : > "$TMP/rss"
   cat > "$TMP/fake/tmux" <<'EOF'
+[ "${1:-}" = -u ] && shift   # r1795: ft-seat-quiesce panes() 가 -u(UTF-8 강제)를 붙인다
 case "$1" in list-panes) cat "$FAKE_PANES"; exit 0;; esac
 echo "fake tmux: $*" >&2; exit 1
 EOF
