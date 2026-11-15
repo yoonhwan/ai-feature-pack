@@ -142,12 +142,15 @@ os.makedirs(CANON, exist_ok=True)
 import mbox_store, mbox_guard, mbox_lineage, mbox_ops, mbox_handover, mbox_retire_check, mbox_show
 for _m in (mbox_store, mbox_guard, mbox_lineage, mbox_ops, mbox_handover, mbox_roots, mbox_retire_check, mbox_show):
     _m.CANON = CANON
+import mbox_peek   # r1981 — peek 분리(200줄 규칙) · mbox_ops 뒤에 import(계보 칸 _lineage)
+mbox_peek.CANON = CANON
 mbox_roots.OWN_ROOT = _ROOT   # r1309: 다리 판정의 «물러설 자리» — 다만 mbox_roots 는 CANON(<루트>/.fable-team/comm)에서 먼저 푼다(워크트리 밖 리포 루트로 잘린 _ROOT 는 하위 폴더 루트와 안 맞는다)
 mbox_store._ROOT, mbox_store._SEQCTR, mbox_store.SEQ_FLOOR = _ROOT, _SEQCTR, SEQ_FLOOR
 mbox_guard._GUARD = os.path.join(CANON, ".mbox-guard.json")
 from mbox_store import _load, _save, _check_name, _next_seq          # mbox.<이름> 호환(시험)
 from mbox_guard import _guard_log, _reply_exempt, _guard_verdict, _guard_record
-from mbox_ops import send, relay, recv, peek
+from mbox_ops import send, relay, recv
+from mbox_peek import peek   # r1981 — 200줄 규칙 분리
 
 
 if __name__ == "__main__":
