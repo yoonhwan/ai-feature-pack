@@ -67,7 +67,7 @@ def goal_line(row: list[str]) -> str:
         return f"{name} — {status}"
     if not (n.isdigit() and m.isdigit()) or int(m) == 0 or int(n) > int(m):
         return f"{name} 수 판독 불가"
-    k = int(10 * int(n) / int(m) + 0.5)
+    k = 10 * int(n) // int(m)  # 내림(r2063) — 10칸은 n = m 일 때만
     return f"{name} `{'▓' * k}{'░' * (10 - k)}` {n}/{m}" + (" 완성" if n == m else "")
 
 
@@ -157,9 +157,9 @@ def body(cur: dict, prev: dict | None, now: datetime, sha: str, tt: dict | None 
     tags = list(dict.fromkeys(g for _, ids in news for c in ids if (g := card_tag(c))))  # 근거 줄 번호(R6)
     goals = [goal_line(r) for r in cur["goals"]] if cur["goals"] else [NO_TABLE]
     err = cur.get("err", [])
-    seats = [f"{v[0]} · {seat_short(n)} · {nm(v[0], v[1])} · {v[2]}" for n, v in sorted(cur["sessions"].items(), key=lambda x: (x[1][0], x[0]))
-             if v[0] not in err]
-    seats = (seats[:MAX_SEATS] + [f"외 {len(seats) - MAX_SEATS}석"] if len(seats) > MAX_SEATS else seats) or ["열린 팀 세션 없음"]
+    live = sorted(((n, v) for n, v in cur["sessions"].items() if v[0] not in err), key=lambda x: (x[1][0], x[0]))  # 카드 없는 좌석 = 접는 줄(r2063)
+    seats, bare = [f"{v[0]} · {seat_short(n)} · {nm(v[0], v[1])} · {v[2]}" for n, v in live if v[1] != "—"], sum(v[1] == "—" for _, v in live)
+    seats = (seats[:MAX_SEATS] + [f"외 {len(seats) - MAX_SEATS}석"] if len(seats) > MAX_SEATS else seats) + ([f"카드 없이 열린 좌석 {bare}석"] if bare else []) or ["열린 팀 세션 없음"]
     todo = f"오빠 승인 대기 {cur['h']}건" if cur["h"] else "없음"
     lines = ["① 골 진행", *goals, "② 지금", *[t for t, _ in news], "③ 다음", *seats, "④ 막힌 것·오빠 할 일", todo,
              *[f"{t} 확인 불가 — 수집 실패 · 직전 상태 유지" for t in cur.get("carried", [])]]

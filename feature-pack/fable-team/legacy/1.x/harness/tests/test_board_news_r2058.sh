@@ -41,6 +41,8 @@ import json, sys
 s = json.loads(sys.argv[1]); cards = s.get("cards", {}); seats = dict(s.get("seats", {}))
 for i in range(s.get("nseats", 0)):
     seats[f"byz-harness-worker-x{i:02d}#1"] = "작업중"
+for i in range(s.get("ncards", 0)):  # r2063: 카드 든 나노 좌석(진행 카드 c<i>)
+    cards[f"c{i:02d}"] = "진행"; seats[f"byz-harness-nano-c{i:02d}#0"] = "작업중"
 tt = s.get("titles", {})  # r2058 R5: 카드 제목 = axes entries(k=card) · progress title
 prog = {c: {"title": tt.get(c, c), "seats": [{"name": n, "state": seats[n]} for n, cc in s.get("on", {}).items() if cc == c]}
         for c, st in cards.items() if st == "진행"}
@@ -72,7 +74,7 @@ chk "① rc 0" '[ "$RC" = 0 ]'
 chk "① reply 1회" '[ "$(replies)" = 1 ]'
 chk "① --ts $TSV" 'grep -q -- "reply.*--ts $TSV" "$T/stub/tp.log"'
 chk "① 막대 2줄" '[ "$(lastbody | grep -c "[▓░]")" = 2 ]'
-chk "① 20/23 막대 9칸" 'lastbody | grep -qF "ft 2.0 완성 \`▓▓▓▓▓▓▓▓▓░\` 20/23"'
+chk "① 20/23 막대 8칸" 'lastbody | grep -qF "ft 2.0 완성 \`▓▓▓▓▓▓▓▓░░\` 20/23"'
 chk "① news-last 생김" '[ -f "$LAST" ]'
 chk "① 다음 줄 = 세션별" 'next_section | grep -qF "하네스 · nano-beta · beta · 진행"'
 chk "① 오빠 할 일 1건" 'lastbody | grep -q "1건"'
@@ -127,7 +129,7 @@ chk "⑧ thread ts 없음 = rc 2 · reply 0" '[ "$RC" = 2 ] && [ "$(replies)" = 
 reset; echo 1 > "$T/stub/collect_rc"; run 2026-11-15T14:00:00
 chk "⑧ collect rc 1 = rc 1 · reply 0" '[ "$RC" = 1 ] && [ "$(replies)" = 0 ]'
 # ⑨ 꼴: 30석 → 12줄 + 외 18석 · 표·코드블록 0 · 3500B · 끝 줄 밖 번호·sha·ts 0
-reset; goal "$G1" "$G2"; mk '{"cards":{"r2058-oppa-a":"대기"},"seats":{},"nseats":30}'; run 2026-11-15T15:00:00
+reset; goal "$G1" "$G2"; mk '{"cards":{"r2058-oppa-a":"대기"},"seats":{},"ncards":30}'; run 2026-11-15T15:00:00
 chk "⑨ 다음 = 12줄 + 외 18석" '[ "$(next_section | wc -l | tr -d " ")" = 13 ] && next_section | tail -1 | grep -qx "외 18석"'
 mk "$BASE"; run 2026-11-15T15:10:00
 for f in "$T/stub"/body.*.txt; do
