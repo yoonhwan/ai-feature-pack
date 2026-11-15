@@ -128,7 +128,9 @@ def t10b(tmp, mp, ft2=kw.FT2):   # T10′ 같은 indices 대기/ 선행 = 참조
 PLAN, KEEP = {"T1": t1, "T2": t2, "T3": t3, "T4": t4, "T7": t7}, {"T5": t5, "T6": t6, "T8": t8, "T9": t9, "T10": t10, "T10′": t10b}
 MUTANTS = {"M1": (LP, 'card = "%s %s:%s" % hit if hit else ', "card = ", "T1"),                       # ② 첫 본문 짝 경로 삭제
            "M2": (LP, "m = WAIT.match(paths[0]) if len(paths) == 1 else None", "m = WAIT.match(paths[0])", "T3"),   # «정확히 1개» 삭제
-           "M3": (KN, "if heads3 is not None:", "if False:", "T5"),                                       # ① keeper 후보 더하기 삭제
+           "M3": (KN, "if stem in found:", "if True:", "T5"),                                           # ① keeper 후보 더하기 삭제
+           "M5": (KN, "if work != stem:", "if False:", "T9"),                                           # DA R1 별칭 제외 삭제
+           "M6": (KN, 'stage in ("완성", "완성후", "아카이브")', "stage in ()", "T10"),                    # DA R2 짝 indices 선행 위치 삭제
            "M4": (LP, ' + (["/%s/" % WAIT.match(hit[2]).group(1)] if hit else [])', "", "T7")}            # ③ sparse 더하기 삭제
 
 
