@@ -16,7 +16,7 @@
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/pi/keeper_next.py(fill pick · 닫기 뒤 pick · 판독 함수) · 새 시험 feature-pack/fable-team/ft2/tests/test_new_card_hold.py · 문서 ft2/contracts/keeper-settle/CONTRACT.md
 - 정본 영향 있음: CONTRACT.md 에 «새 카드 보류 설정» 절 1개(자리·꼴·막는 것·안 막는 것·풀기) = 같은 PR(나노)
 - 크기: 코드 1파일 · 새 시험 1파일 · 문서 1파일 · PR 1개
-- 배정: 없음
+- 배정: 좌석 aifp-ft-nano-ft2-new-card-hold#0
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -72,5 +72,8 @@ keeper 는 빈 나노 칸이 있으면 대기 카드를 스스로 넣는다(fill
 | H7 팀장 개설은 안 막는다 | ㉗사 설정 파일 있음 · 팀장 개설 1회(ft-successor-open.sh · tmux·쪽지 대역) → 파일 없을 때와 같은 rc·출력 + 팩에서 NEW_CARD_HOLD 를 참조하는 실행 파일 = keeper 쪽뿐(문자열 검색 1회) |
 
 ## 상태
+- base_sha: 6300ef286af7e882017d01f26abd435da2d0fe76 (spawn 2026-11-16)
 - 2026-11-16 · aifp-ft-arch-pi#17 근거 덧 + 범위 밖 1줄(aifp 5378 · harness 목록 A 의 PAUSED 갈래 판단 = 범위 밖 · 계약·시험 변경 0)
 - 2026-11-16 · aifp-ft-arch-pi#16 초안(aifp 5346) · 대기 · DA 대행 APPROVE-DESIGN(5339) · 우선 낮춤(planner 5337)
+- 2026-11-16 04:37 — 대기→진행 · 좌석 aifp-ft-nano-ft2-new-card-hold#0
+- [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
