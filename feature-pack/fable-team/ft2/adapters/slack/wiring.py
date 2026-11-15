@@ -45,11 +45,18 @@ class _Ledger(keeper.Reporting):
     """r2065 E7 공용 장부 판독 — Reporting 은 root 만 있으면 tail_rows·boundary·arrived 를 쓴다(그대로 부른다)."""
 
 
-def marked(lines):  # r2081 B1 — 처음·복구·재전송이 같이 지나는 조립 · 글 2줄 이상 = 앞 글 / 새 글 갈래 · 1줄 = 기준판 그대로
-    lines = list(lines)
-    if len(lines) < 2:
-        return lines
-    return ["앞 글 %d줄(이미 넘긴 글 · 새 일 아님)" % (len(lines) - 1)] + lines[:-1] + ["새 글", lines[-1]]
+def marked(notes, command, limit, recent):  # r2081 B1·B2 — 처음·복구·재전송이 같이 지나는 조립 1곳
+    """이번 글 = 그 thread NOTE 줄 중 첫 칸(글 ts)이 command 4번째 칸과 같은 줄(마지막 줄 아님) · 나머지 최근 (limit-1)줄 = 맥락.
+    다른 글이 넘겨졌는지·답했는지는 단정하지 않는다 · 이번 글 1줄뿐 = 기준판 바이트 · 못 고름 = 판독 불가 1줄 + 기준판 줄(recent)."""
+    ts, notes = _human_ts(command), list(notes)
+    hit = [i for i, line in enumerate(notes) if ts and line.split(" ", 1)[0] == ts]
+    if not hit:
+        return ["이번 글 판독 불가(command 의 글 ts 가 thread 기록에 없음)"] + list(recent)
+    rest = notes[:hit[-1]] + notes[hit[-1] + 1:]
+    others = rest[-(int(limit) - 1):] if int(limit) > 1 and rest else []
+    if not others:
+        return [notes[hit[-1]]]
+    return ["같은 thread 다른 글 %d줄(맥락 · 이 command 의 글 아님)" % len(others)] + others + ["이번 글", notes[hit[-1]]]
 
 
 def has_table(text):  # r1927 마크다운 표 = 파이프 2개 이상 줄 다음 구분선 줄 · 코드 블록(```) 안 = 제외
@@ -241,12 +248,19 @@ class Wiring:
         owner = channels.owner_of(self.root, self.team, row["key"][1])  # r1923 ⑪ 다른 팀 채널 = 수신기 --root/--team 답글 줄
         tail = [] if owner in ("-", None) else ["답글: ft2 slack reply --root %s --team %s --thread %s --command %s --seat %s "
                                                  "--body-file <파일>" % tuple(map(shlex.quote, map(str, (self.root, self.team, thread, command, to))))]
-        body = "\n".join(["[Slack] %s · thread %s · command %s" % (kind, thread, command)] + marked(lines) + tail
+        body = "\n".join(["[Slack] %s · thread %s · command %s" % (kind, thread, command)] + self.compose(row, command, lines) + tail
                           + ([extra] if extra else []))
         rc = self.wake(to, body, command)
         if rc != 0 and not quiet and (self.last_wake or {}).get("landed") != "있음":   # r2081 B3 — 적재된 쪽지 = 알림 0
             self.alert(dict(row, reason="깨움 실패"), quiet=True)
         return rc
+
+    def compose(self, row, command, lines):  # r2081 B2 — 세 길 모두 그 route 행의 command 를 넘긴다 · 읽는 곳 = 그 thread NOTE 줄 전부(context 와 같은 읽기)
+        router = getattr(self, "router", None)
+        if router is None:
+            return marked(lines, command, len(list(lines)) or 1, lines)
+        notes = [r["line"] for r in router.entries(route.NOTE) if tuple(r["key"]) == tuple(row["key"])]
+        return marked(notes, command, router.context_limit, lines)
 
     def woke(self, command):  # G9 — «넘긴 글» = 알림이 아닌 wake 줄 중 rc 0 이거나 적재 있음(실패 줄은 세지 않는다)
         return any(r.get("command") == command and not str(r.get("head") or "").startswith(ALERT_HEAD)
