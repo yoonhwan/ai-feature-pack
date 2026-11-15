@@ -53,7 +53,8 @@ mkplan() {  # <이름> <approve-merge 인자들> — 계획 파일을 쓰고 경
   printf '#!/usr/bin/env bash\nbash bin/ft-autonomy.sh approve-merge %s\n' "$*" > "$PLAN"
 }
 HILENV=(HIL_DIR="$T/hil" HIL_CLIP=0 FT_ROOT="$ROOT" FT_SECRET_JUDGE=/nope FT_TRAFFIC_JUDGE=/nope
-        FT_SCOPE_JUDGE=/nope FT_MIX_JUDGE=/nope FT_PACK_PATH_JUDGE=/nope FT_DESK_REPLY_LEDGER="$LEDGER")
+        FT_SCOPE_JUDGE=/nope FT_MIX_JUDGE=/nope FT_PACK_PATH_JUDGE=/nope FT_DESK_REPLY_LEDGER="$LEDGER"
+        FT_SLACK_REPLIES_CMD="bash $T/replies.sh")   # r2013 · 등록도 질문 글을 1회 조회한다(가짜 replies · 실 Slack 0)
 run_hil() { ( cd "$ROOT" && env "${HILENV[@]}" timeout $TO_LIMIT bash "$HIL" --add "$1" ); }   # stdout 1줄 · stderr = WARN/실패
 scan() { ( cd "$ROOT" && env "${HILENV[@]}" FT_MBOX_SH="$T/mbox.sh" FT_SLACK_REPLIES_CMD="bash $T/replies.sh" \
            FT_SEATS_PLANNER="$ROOT/.fable-team/seats-planner.json" timeout $TO_LIMIT python3 "$TOOL" ); }

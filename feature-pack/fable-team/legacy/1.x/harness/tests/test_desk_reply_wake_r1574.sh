@@ -62,6 +62,7 @@ json.dump({"ok": True, "messages": msgs}, open(out, "w", encoding="utf-8"), ensu
 PY
 }
 mk_replies
+export FT_SLACK_REPLIES_CMD="bash $T/bin/replies.sh"   # r2013 · 등록도 질문 글을 1회 조회한다(가짜 replies · 실 Slack 0)
 
 run_tool() {  # [env k=v …] — 임시 루트·가짜 시계·가짜 도구
   ( cd "$ROOT" || exit 1
@@ -193,11 +194,15 @@ echo "== 반례 R1(DA#279518 §2) 점검 중 독립 등록 = 마지막 저장에
 reset
 rm -f "$T/race-fired" "$T/race.out"
 QTS2=1794295710.111111
+cat > "$T/bin/replies-q2.sh" <<SH   # r2013 · 겹친 등록의 질문 글 조회(가짜)
+#!/usr/bin/env bash
+echo '{"ok":true,"messages":[{"ts":"$QTS2","user":"U0C9GRFHJ","text":"sha $SHA"}]}'
+SH
 cat > "$T/bin/replies-race.sh" <<SH
 #!/usr/bin/env bash
 if [ ! -f "$T/race-fired" ]; then
   : > "$T/race-fired"
-  ( cd "$ROOT" && FT_ROOT="$ROOT" FT_NOW="$NOW" FT_DESK_REPLY_LEDGER="$LEDGER" python3 "$TOOL" --register "$QTS2" h62 "$SHA" >"$T/race.out" 2>&1 )
+  ( cd "$ROOT" && FT_SLACK_REPLIES_CMD="bash $T/bin/replies-q2.sh" FT_ROOT="$ROOT" FT_NOW="$NOW" FT_DESK_REPLY_LEDGER="$LEDGER" python3 "$TOOL" --register "$QTS2" h62 "$SHA" >"$T/race.out" 2>&1 )
 fi
 cat "$REPLIES_JSON"
 SH
@@ -237,7 +242,7 @@ d = json.load(open(os.environ["MULTI_JSON"], encoding="utf-8"))
 print(json.dumps(d["map"].get(os.environ.get("FT_SLACK_TS", ""), {"ok": True, "messages": []})))
 PY
 SH
-while read -r t; do ( cd "$ROOT" && FT_ROOT="$ROOT" FT_NOW="$NOW" FT_DESK_REPLY_LEDGER="$LEDGER" python3 "$TOOL" --register "$t" h70 "$SHA" ) >/dev/null; done <<< "$(python3 -c 'import json,sys;print("\n".join(json.load(open(sys.argv[1]))["qts"]))' "$T/multi.json")"
+while read -r t; do ( cd "$ROOT" && FT_SLACK_REPLIES_CMD="bash $T/bin/replies-multi.sh" FT_ROOT="$ROOT" FT_NOW="$NOW" FT_DESK_REPLY_LEDGER="$LEDGER" python3 "$TOOL" --register "$t" h70 "$SHA" ) >/dev/null; done <<< "$(python3 -c 'import json,sys;print("\n".join(json.load(open(sys.argv[1]))["qts"]))' "$T/multi.json")"
 chk "R2 질문 5줄 등록" 5 "$(wc -l < "$LEDGER" | tr -d ' ')"
 run_tool "FT_SLACK_REPLIES_CMD=bash $T/bin/replies-multi.sh" >/dev/null 2>&1
 run_tool "FT_SLACK_REPLIES_CMD=bash $T/bin/replies-multi.sh" >/dev/null 2>&1
