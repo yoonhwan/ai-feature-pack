@@ -15,7 +15,7 @@
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/pi/keeper_settle.py(look 문턱 인자 · unsafe 미읽음 판독) · feature-pack/fable-team/ft2/adapters/pi/keeper_close.py(land_ready·닫기 길에 DONE_IDLE) · feature-pack/fable-team/legacy/1.x/harness/comm/mbox_ops.py(peek --rows 출력) · 새 시험 feature-pack/fable-team/ft2/tests/test_done_seat_short_idle.py · 문서 ft2/contracts/keeper-settle/CONTRACT.md·CASES.md
 - 정본 영향 있음: CONTRACT.md §2 상수 줄 DONE_IDLE 300초 · 약속 «착지한 좌석만 짧은 문턱» · «빼는 미읽음 = 닫힌 꼴 마감 쪽지» 절 · CASES.md ㉙·변이 행 = 같은 PR(나노)
 - 크기: 코드 3파일 · 새 시험 1파일 · 문서 2파일 · PR 1개
-- 배정: 없음
+- 배정: 좌석 aifp-ft-nano-ft2-done-seat-short-idle#0
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -75,4 +75,7 @@ keeper 는 좌석이 유휴인지 볼 때 문턱 하나(60분)를 쓴다. 카드
 | A4·A5 peek 대상 집합 | ㉙버 현역 seat#1 · 큐 to = seat#0 `[발주]` 1통 → pending 1 = 판독 1통 · mail-pending / ㉙서 줄 수 ≠ pending → mail-unknown · 옛 mbox → mail-pending / ㉙거 큐 못 읽음 → mail-unknown / M44 · M45 |
 
 ## 상태
+- base_sha: cd0bd9ee1361cf25c215dbbb31fed2890e66df8f (spawn 2026-11-16)
 - 2026-11-16 · aifp-ft-arch-pi#17 씀(aifp 5410 ② · 5412) · 대기 · 설계 r4 = DA 대행 APPROVE-DESIGN(BYZ 310212 · 카드당 3번째 판정) · 선행 = ft2-keeper-notify-recipient · ft2-launch-failed-end 착지
+- 2026-11-16 03:44 — 대기→진행 · 좌석 aifp-ft-nano-ft2-done-seat-short-idle#0
+- [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
