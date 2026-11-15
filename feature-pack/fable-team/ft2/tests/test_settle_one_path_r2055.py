@@ -357,7 +357,7 @@ CASES.update({"⑰" + c: (lambda c: lambda w: c17(w, c))(c) for c in "가나다�
 KS = "adapters/pi/keeper_settle.py"
 MUTANTS = {"M3": ('and age >= WAIT_S and cpu == "idle":', "and age >= WAIT_S and False:", c9),
            "M4": ("    for _ in range(depth):", "    for _ in range(2):", c20),
-           "M5": ('idle = age is not None and age >= PARK_IDLE and (shell or cpu == "idle")', 'idle = (shell or cpu == "idle")', c6),
+           "M5": ('idle = age is not None and age >= idle_s and (shell or cpu == "idle")', 'idle = (shell or cpu == "idle")', c6),
            "M6": ('and isinstance(rec.get("work"), str) and rec["work"] not in sent', 'and rec.get("work") and rec["work"] not in sent', c25a)}   # ㉕ str 가드
 
 
