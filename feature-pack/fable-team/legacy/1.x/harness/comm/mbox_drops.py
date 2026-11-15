@@ -131,6 +131,14 @@ def _mark(canon, me, names, lines):
     return _line(seqs)
 
 
+def drop_seq_tail(seqs):
+    """r1748 보낸 쪽 DROPPED 첫 줄 끝 — « · 버린 seq #a,#b» · 10개 넘으면 최근 10개 + «앞 N개 생략» · 세 사본 같은 꼴."""
+    if not seqs:
+        return ""
+    show, omitted = list(seqs)[-10:], max(0, len(seqs) - 10)
+    return " · 버린 seq #" + ",#".join(str(s) for s in show) + (" (앞 %d개 생략)" % omitted if omitted else "")
+
+
 def log_drop(canon, to, dropped, oldest, seqs=()):
     """★버림 원장 (r630 · seq 전부 r1651)★ — stderr DROPPED 는 보낸 쪽 화면에만 남았다. 본문 0 · 1줄.
     r1651: 버린 seq 를 «전부» 적는다(`seqs=a,b`) — 받는 좌석의 다음 recv 가 DROPPED-SEEN 1줄로 보여준다.
