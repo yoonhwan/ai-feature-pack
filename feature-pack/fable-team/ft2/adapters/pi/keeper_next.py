@@ -33,6 +33,9 @@ cli, dispatch = _load("cli"), _load("dispatch")
 _kl = importlib.util.spec_from_file_location("ft2_keeper_next_launch", os.path.join(HERE, "keeper_launch.py"))
 kl = importlib.util.module_from_spec(_kl)
 _kl.loader.exec_module(kl)
+_lp = importlib.util.spec_from_file_location("ft2_keeper_next_plan", os.path.join(HERE, "launch_plan.py"))
+lp = importlib.util.module_from_spec(_lp)   # r2030 짝 표 대기 카드(mapped_cards) = 발주문·sparse 와 같은 함수
+_lp.loader.exec_module(lp)
 def ft2_state(k, team):
     try:
         return dispatch.Dispatch(k.root, team).ex._state_records()[0]
@@ -89,9 +92,33 @@ def cards(k, team):
             row[0], row[1] = row[0] or bool(URGENT.match(line)), row[1] or bool(HIGH.match(line))
             row[2] += [line] if line.startswith("- 대상") else []
             row[3] += [line] if line.startswith(("- 선행", "- 배정")) else []
+    mapped(k, team, found, where)   # r2030 짝 표 대기 카드(팀 폴더 밖 포함)
     for row in found.values():
         row[3] = prereq(row[3], where)
     return found, r
+def mapped(k, team, found, where):
+    """r2030 짝 표 대기 카드 → found 후보(같은 stem 1개) · 그 카드 indices 의 완성·완성후·아카이브(월별 포함) 참조 → where(DA R2).
+    짝 work ≠ 카드 stem(별칭) = 후보 0 + 1줄(DA R1 · 별칭 기동 지원 0) · 판독 실패 = 지금 길 + 1줄."""
+    mc = lp.mapped_cards(k.root, team)
+    if isinstance(mc, str):
+        return once(k, ("map-log", team), lambda: k.log("경고", team, "%s — 팀 폴더 대기 카드만" % mc))
+    for work, (repo, ref, path) in sorted(mc.items()):
+        stem, idx = os.path.basename(path)[:-3], lp.WAIT.match(path).group(1)
+        if work != stem:
+            once(k, ("map-alias", team, work), lambda: k.log("경고", team, "짝 표 별칭 — keeper 후보 0 %s" % work))
+            continue
+        if stem in found:
+            continue
+        rc3, text, _ = once(k, ("mapped", repo, ref, path), lambda: k.git(repo, "show", "%s:%s" % (ref, path)))
+        rc4, names, _ = once(k, ("mapped-tree", repo, ref, idx), lambda: k.git(repo, "ls-tree", "-r", "--name-only", ref, "--", idx + "/"))
+        if rc3 != 0 or rc4 != 0:
+            once(k, ("map-show", team, path), lambda: k.log("판정 불가", team, "짝 표 카드 %s:%s git rc %s/%s — 건너뜀" % (ref, path, rc3, rc4)))
+            continue
+        heads = [x for x in text.splitlines() if re.match(r"- (긴급|우선|대상|선행|배정)", x)]
+        found[stem] = [any(URGENT.match(x) for x in heads), any(HIGH.match(x) for x in heads), [x for x in heads if x.startswith("- 대상")], [x for x in heads if x.startswith(("- 선행", "- 배정"))]]
+        for p in (x for x in names.splitlines() if x.endswith(".md")):
+            m, stage = re.match(r"r(\d+)(?![0-9])", os.path.basename(p)), "아카이브" if MONTH.fullmatch(os.path.dirname(p)[len(idx):]) else os.path.basename(os.path.dirname(p)) if os.path.dirname(os.path.dirname(p)) == idx else ""
+            where.setdefault(m.group(1), set()).add(stage) if m and stage in ("완성", "완성후", "아카이브") else None
 def target(k, r, lines):
     """(리포, base) — 팩·feature-pack/ = 팩 origin/main · 없음 = 루트 리포·표 ref · 팩·BYZ 둘 다 = None."""
     pack, byz = any("팩" in x or "feature-pack/" in x for x in lines), any("BYZ" in x for x in lines)
