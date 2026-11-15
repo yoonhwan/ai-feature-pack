@@ -653,7 +653,7 @@ def _rest_mark(body: object) -> bool:
     return rest_head(body)
 
 
-def _hb_line(line: str, masters: set[str], recipients: set[str], now: float) -> tuple[float | None, bool, bool]:
+def _hb_line(line: str, masters: set[str], recipients: set[str], now: float, is_hb: Any = None) -> tuple[float | None, bool, bool]:
     """쪽지 1줄 → (ts, 심박인가, 깨진 줄인가). ts 는 «모든» 줄에서 뽑는다 — 로그를 끝에서 읽으며 창 밖에서 멈추는 기준(r1020)."""
     try:
         r = json.loads(line)
@@ -671,7 +671,7 @@ def _hb_line(line: str, masters: set[str], recipients: set[str], now: float) -> 
     if r.get("from") != "ft-stall-scan" and (role_key(str(r.get("to"))) in keys or role_key(str(r.get("from"))) in keys):
         _HB_EXTRA.setdefault("ev", []).append(ts)  # 스캐너의 [멈춤] 은 사건이 아니다(반례 ⑧)
     body = r.get("body")
-    if not _is_heartbeat_body(body):
+    if not (is_hb or _is_heartbeat_body)(body):  # r2080 — desk 심박은 머리 판정만 바꿔 같은 읽기를 쓴다
         return ts, False, False  # 심박 아닌 쪽지(발주·보고)는 판정 대상이 아니다
     if r.get("from") not in masters or role_key(str(r.get("to"))) not in {role_key(x) for x in recipients}:
         return ts, False, False  # 발신자가 현역 팀장이 아니거나, 받는이가 master/planner «역할» 이 아니면 심박이 아니다(반례 2·4·5)
@@ -697,7 +697,7 @@ def _lines_from_end(fh, chunk: int = 1 << 16):
         yield buf
 
 
-def _read_mailbox(path: Path, masters: set[str], recipients: set[str], now: float, budget: float, t0: float) -> tuple[str, float | None, int, int]:
+def _read_mailbox(path: Path, masters: set[str], recipients: set[str], now: float, budget: float, t0: float, is_hb: Any = None) -> tuple[str, float | None, int, int]:
     """안 읽은 쪽지 큐 전체 읽기(작다). → (에러 이유, 최신 심박 ts, 깨진 줄 수, 줄 수)."""
     best, broken, n = None, 0, 0
     try:
@@ -713,14 +713,14 @@ def _read_mailbox(path: Path, masters: set[str], recipients: set[str], now: floa
                 stm.check()  # r1282
             if n % 256 == 0 and time.monotonic() - t0 > budget:
                 return f"심박 읽기 {budget:g}초 초과(줄 {n})", None, 0, n
-            ts, hb, bad = _hb_line(line, masters, recipients, now)
+            ts, hb, bad = _hb_line(line, masters, recipients, now, is_hb)
             broken += bad
             if hb and (best is None or ts > best):
                 best = ts
     return "", best, broken, n
 
 
-def _read_mailbox_log(path: Path, masters: set[str], recipients: set[str], now: float, window: float, budget: float, t0: float) -> tuple[str, float | None, int, int]:
+def _read_mailbox_log(path: Path, masters: set[str], recipients: set[str], now: float, window: float, budget: float, t0: float, is_hb: Any = None) -> tuple[str, float | None, int, int]:
     """읽은 쪽지 로그(mailbox.log.jsonl)를 «끝에서» 읽어 심박 창(window 분) 안만 본다 — r1020: recv 가 레코드를 큐→로그로 옮기므로 큐만 보면 심박이 사라진다.
     창 밖 줄에 닿으면 멈춘다(큰 로그 4.4MB 전체 읽기 0 · 예산은 큐와 공유). 로그 파일 없음 = 큐만(ERROR 아님).
     → (에러 이유, 최신 심박 ts, 깨진 줄 수, 줄 수)."""
@@ -741,7 +741,7 @@ def _read_mailbox_log(path: Path, masters: set[str], recipients: set[str], now: 
                 stm.check()  # r1282
             if n % 256 == 0 and time.monotonic() - t0 > budget:
                 return f"심박 읽기 {budget:g}초 초과(줄 {n})", None, 0, n
-            ts, hb, bad = _hb_line(line, masters, recipients, now)
+            ts, hb, bad = _hb_line(line, masters, recipients, now, is_hb)
             if ts is not None and (now - ts) / 60 > window:
                 break  # r1020 창 밖 — 더 옛 줄은 안 본다
             broken += bad
@@ -750,7 +750,7 @@ def _read_mailbox_log(path: Path, masters: set[str], recipients: set[str], now: 
     return "", best, broken, n
 
 
-def lead_heartbeat(comm: Path, masters: set[str], recipients: set[str], now: float) -> tuple[str, float | None, str]:
+def lead_heartbeat(comm: Path, masters: set[str], recipients: set[str], now: float, window: float | None = None, is_hb: Any = None) -> tuple[str, float | None, str]:
     """팀장 심박 = «현역 팀장» 이 «master 또는 planner» 에게 보낸 쪽지 중 본문 머리 `[정리]` 인 마지막 줄의 ts(epoch · 읽기 전용).
     입력 = 안 읽은 큐(mailbox.jsonl) + 읽은 로그(mailbox.log.jsonl) 둘 다 — 받는 쪽이 recv 하면 레코드가 로그로 옮겨가므로 큐만 보면 제때 보낸 팀장도 «한 번도 안 보냄» 으로 읽힌다(r1020).
     → ("ok", ts|None, "") · ("ERROR", None, 이유) = 판정 불가(큐 없음·읽기 실패·예산 초과·깨진 줄 있음).
@@ -759,10 +759,10 @@ def lead_heartbeat(comm: Path, masters: set[str], recipients: set[str], now: flo
     예산 = FT_STALL_HEARTBEAT_BUDGET(기본 7초). 넘으면 부분 결과를 쓰지 않고 판정 불가(7초 룰)."""
     budget = float(os.environ.get("FT_STALL_HEARTBEAT_BUDGET") or 7)
     t0 = time.monotonic()
-    err, best, broken, n = _read_mailbox(comm / "mailbox.jsonl", masters, recipients, now, budget, t0)
+    err, best, broken, n = _read_mailbox(comm / "mailbox.jsonl", masters, recipients, now, budget, t0, is_hb)
     if err:
         return "ERROR", None, err
-    err, ts, bad, n2 = _read_mailbox_log(comm / "mailbox.log.jsonl", masters, recipients, now, lead_heartbeat_min(), budget, t0)
+    err, ts, bad, n2 = _read_mailbox_log(comm / "mailbox.log.jsonl", masters, recipients, now, lead_heartbeat_min() if window is None else window, budget, t0, is_hb)
     if err:
         return "ERROR", None, err
     broken += bad
@@ -852,3 +852,42 @@ def lead_alert(root: Path, comm: Path, master: str, now: float) -> tuple[bool, f
         return True, None, False  # 심박 창(20분) 안 [정리] 0 = 멈춤 — 로그는 창 안만 읽으므로 «한 번도 안 보냄» 이 아니다(r1143)
     age = (now - ts) / 60
     return age > lead_heartbeat_min(), age, False
+
+
+DESK_TICK_HEAD = "[완료] desk 틱"  # r2080 — ft-desk-tick.sh ⑥ 이 planner 팀장에 보내는 쪽지 머리(desk 심박)
+DESK_HEARTBEAT_MIN = 20.0  # r2080 A3 — desk 틱 끊김 임계(분)
+DESK_READ_MIN = 240.0  # r2080 — desk 심박 로그 창(분) · 이 안에 0 이면 «심박 없음»
+
+
+def desk_heartbeat_min() -> float:
+    """r2080 — 임계 = FT_DESK_HEARTBEAT_MIN(기본 20분). 값이 이상하면 기본을 쓴다."""
+    try:
+        v = float(os.environ.get("FT_DESK_HEARTBEAT_MIN") or DESK_HEARTBEAT_MIN)
+    except ValueError:
+        return DESK_HEARTBEAT_MIN
+    return v if v > 0 else DESK_HEARTBEAT_MIN
+
+
+def desk_tick_body(body: object) -> bool:
+    return isinstance(body, str) and body.lstrip().startswith(DESK_TICK_HEAD)
+
+
+def desk_seats(root: Path) -> list[tuple[str, str]]:
+    """r2080 A1 — 명부 전체의 현역 role=desk 좌석 → [(좌석, 팀)] (tmux 생존은 부르는 쪽이 본다)."""
+    out: list[tuple[str, str]] = []
+    for roster in team_rosters(root):
+        d = roster["doc"]
+        if isinstance(d, dict):
+            out += [(k, roster["team"]) for k, v in d.items() if not k.startswith("_") and isinstance(v, dict) and v.get("role") == "desk"
+                    and not v.get("_replaced_by") and not v.get("_closed")]
+    return out
+
+
+def desk_alert(root: Path, comm: Path, desk: str, planner: str | None, now: float) -> tuple[bool, float | None, float | None, bool]:
+    """r2080 A2 — desk 심박 판정 «한 함수»: desk 가 현역 planner role=master 에 보낸 `[완료] desk 틱` 마지막 줄(큐+로그 · 읽기 규칙 = 팀장 심박).
+    → (경보, 심박 나이 분|None, 심박 ts|None, 판정 불가)."""
+    state, ts, _why = lead_heartbeat(comm, {desk}, lead_names(root, planner), now, DESK_READ_MIN, desk_tick_body)
+    if state == "ERROR":
+        return False, None, None, True
+    age = None if ts is None else (now - ts) / 60
+    return age is None or age > desk_heartbeat_min(), age, ts, False

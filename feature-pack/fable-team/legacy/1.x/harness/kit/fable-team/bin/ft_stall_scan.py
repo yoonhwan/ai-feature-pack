@@ -13,6 +13,7 @@ r849(재설계 r4 · r3) l = 로그아웃 좌석 — 쪽지는 «로그아웃 �
 r1001 f = 팀장 심박 끊김 — 현역 role=master 좌석들의 b·d 를 «팀 단위» 로 묶고 판정은 ft_stall_detect.lead_alert 하나만 쓴다(신선 = 그 팀 0통 · 끊김·없음 = `[멈춤]` 1통 · 판정 불가 = u + 처리 0) · env FT_ROOT · FT_NOW · FT_SEAT_STATUS · FT_TMUX · FT_MBOX_SH · FT_INDEX_LINT · FT_MBOX_DIR · FT_STALL_STATE_DIR · FT_PS · FT_CTX_CMD · FT_LEAD_HEARTBEAT_MIN · FT_STALL_HEARTBEAT_BUDGET · FT_STALL_PAUSED_SKIP(0 = 정지 표식 팀 판정 끔).
 r1647 f 문구 = 크론 요구 0(#274576 주기 크론 0 정책) · 마지막 발신 머리 `[다음 없음` + ft-seat-open-work rc0(받을 일 0) 인 «닫기 대기 팀장» 은 f 0통 + 노트 1줄(새 일이 들어오면 다시 센다).
 r1371 — 전팀 정지 표식(ft_stall_detect.all_stop · 스캔 처음 1회) on 이면 a·f 경보 0 + «보류 <a|f> <팀> — 전팀 정지(since HH:MM)» 노트 · h 는 ft_stall_headline.headline_alerts 가 같은 표식으로 보류 · c·e·l 은 그대로(정지 중에도 보여야 하는 것).
+r2080 t = desk 틱 끊김 — 현역 role=desk(tmux 생존 · 시작 뒤 FT_DESK_HEARTBEAT_MIN 지남)의 `[완료] desk 틱` 심박(판정 = ft_stall_detect.desk_alert) 이 없거나 늙으면 desk [멈춤](좌석 10분 1번) + planner 팀장 [긴급](끊김 구간당 1통 · act_t) · 조용한 경우 = 팀장 f 와 같은 규칙 · 요약 줄 끝 t= 칸(stall= 에 안 셈).
 """
 import json
 import os
@@ -26,7 +27,7 @@ from ft_api_outage_util import epoch, records  # r1882 — pi jsonl 꼬리·time
 import ft_headline_seats as headline_seats
 import ft_penalty
 import ft_stall_headline as headline
-from ft_stall_detect import IDLE_MIN, all_stop, all_stop_note, agent_sessions, api_outage, card_gate, ctx_pct, lead_alert, lead_heartbeat_min, lead_names, load_teams, off_roster_live, pending_mail, policy_stop, rest_head, run, spawn_capacity, waiting_cards, RefUnavailable
+from ft_stall_detect import DESK_READ_MIN, IDLE_MIN, all_stop, all_stop_note, agent_sessions, api_outage, card_gate, ctx_pct, desk_alert, desk_heartbeat_min, desk_seats, lead_alert, lead_heartbeat_min, lead_names, load_teams, off_roster_live, pending_mail, policy_stop, rest_head, run, spawn_capacity, waiting_cards, RefUnavailable
 from ft_stall_seats import Seats
 from ft_team_lib import rosters  # r1883 — _master 빈 팀의 카드 경로(명부 doc)
 import ft_stall_state as stm
@@ -88,6 +89,7 @@ class Scan:
         self.e_min = float(os.environ.get("FT_STALL_E_IDLE_MIN") or 30)
         self.notes: list[str] = []
         self.loggedout: list[tuple[str, str | None, float | None]] = []  # r849 (좌석, 팀 _master, 첫 실패 epoch)
+        self.desk_fresh: set[str] = set()  # r2080 — 이번 scan 에 desk 심박이 신선했던 desk(구간 기록 지움)
         self.recovered: set[str] = set()  # r849 — 이번 scan 에 정상 턴(IDLE·WORKING)으로 읽힌 좌석(로그아웃 칸 지움)
         self.st = stm.load(self.state_dir)
         self.nudged = stm.nudged_load(self.st)  # r1238 A-r4b-1 — 카드 stem → 마지막 a 재촉 epoch(저장본에서 복원)
@@ -270,6 +272,7 @@ class Scan:
                     supp["d"].add(s)
                 elif s in mail:
                     out.append(dict(kind="d", seat=s, team=t["team"], age=age, why=f"미읽음 쪽지 seq={mail[s][0]} {mail[s][1]:.0f}분", seq=mail[s][0]))
+        unknown += self.find_t(teams, keep, hold, lag, supp, notes)  # r2080 t — desk 틱 끊김
         if stop:
             out.append(dict(kind="c", seat="harness", team="-", age=0.0, why=stop))  # 정지 1건 = 하네스 전체
         out += self.find_e(teams)
@@ -287,6 +290,56 @@ class Scan:
             notes.append(f"유예 — API 장애 끝 {time.strftime('%H:%M', time.localtime(rel))} 뒤 {lag:.0f}분(심박 임계 {lead_heartbeat_min():g}분 안) · {cnt}")
         self.notes = notes
         return out, unknown
+
+    def created(self) -> dict[str, int]:
+        """r2080 A4 — 세션 이름 → 시작 epoch(tmux session_created) · 못 읽은 세션 = 칸 없음(유예 0 · 경보 그대로)."""
+        out: dict[str, int] = {}
+        for line in run([*self.tmux, "list-sessions", "-F", "#{session_name} #{session_created}"])[1].splitlines():
+            name, _, at = line.rpartition(" ")
+            if name and at.isdigit():
+                out[name] = int(at)
+        return out
+
+    def find_t(self, teams: list[dict], keep, hold: bool, lag: float | None, supp: dict, notes: list[str]) -> int:
+        """r2080 t — 판정만(A1~A5) · 판정 불가 수를 돌려준다. 심박 신선 = self.desk_fresh(act_t 가 구간 기록을 지운다)."""
+        desks = [(s, team) for s, team in desk_seats(self.root) if s in self.live]
+        if not desks:
+            return 0
+        planner = next((t["master"] for t in teams if t["diag"] == "OK" and t["team"] == "planner"), None)
+        born, thr, unknown = self.created(), desk_heartbeat_min(), 0
+        for s, team in desks:
+            if self.now - born.get(s, 0) < thr * 60:  # A4 — 승계 직후 후계가 틱을 걸 시간
+                continue
+            alert, age, ts, undec = desk_alert(self.root, self.comm, s, planner, self.now)
+            if undec:  # A5 — 조용한 0통 아님(u · 처리 0)
+                unknown += 1
+                notes.append(f"t? {s} desk 심박 판정 불가 — 발신 0")
+            elif not alert:
+                self.desk_fresh.add(s)
+            elif hold or lag is not None and min(thr + 1 if age is None else age, lag) <= thr:  # A4 — API 장애·끝 뒤 유예(팀장 f 와 같은 규칙)
+                supp.setdefault("t", set()).add(s)
+            else:
+                keep(dict(kind="t", seat=s, team=team, age=DESK_READ_MIN if age is None else age, hb=ts,
+                          why="desk 틱 끊김" + ("" if age is not None else f"(최근 {DESK_READ_MIN:g}분 심박 0)")))
+        return unknown
+
+    def act_t(self, found: list[dict], stamp: str) -> list[str]:
+        """r2080 A3ⓑ — planner 팀장 [긴급] «끊김 구간당 1통» · 구간 = 알린 때의 마지막 심박 ts(더 새 심박 뒤 다시 끊김 = 새 구간) · 정지·전팀 정지 = 0 · 상태 state/stall-scan.t.json."""
+        path, log = self.state_dir / "stall-scan.t.json", []
+        try:
+            sent = dict(json.loads(path.read_text(encoding="utf-8")))
+        except (OSError, ValueError, TypeError):
+            sent = {}
+        planner = next((t["master"] for t in load_teams(self.root, warn=False) if t["diag"] == "OK" and t["team"] == "planner"), None)
+        for f in (x for x in found if x["kind"] == "t" and not x["held"] and not x.get("all_stop")):
+            s, hb = f["seat"], f["hb"]
+            if s in sent and (hb is None or sent[s] is not None and hb <= sent[s]):
+                continue
+            if planner and self.send(planner, f"[긴급] desk 틱 끊김 {s} {f['age']:.0f}분") == 0:
+                sent[s] = hb
+                log.append(f"{stamp} act=t notify={planner} seat={s} {f['why']}")
+        _ = path.write_text(json.dumps({s: v for s, v in sent.items() if s in self.live and s not in self.desk_fresh}), encoding="utf-8")
+        return log
 
     def find_e(self, teams: list[dict]) -> list[dict]:
         """r525 e — 판정만. ctx 는 IDLE 문턱을 넘은 후보만 잰다(못 재면 «ctx ?» · 판정은 [완료·휴식] 유무로만)."""
@@ -461,6 +514,10 @@ class Scan:
         elif k == "d":
             if not self.wake(seat, f["seq"]):
                 return None
+        elif k == "t":  # r2080 A3ⓐ — desk 깨우고 [멈춤] 1통(planner [긴급] 은 act_t)
+            if not self.wake(seat, None):
+                return None
+            self.send(seat, f"[멈춤] {seat} desk 틱 끊김 {f['age']:.0f}분 — 지금 ft-desk-tick.sh 1회 돌리고 틱을 다시 걸어라 (ft-stall-scan)", urgent=False)
         elif k in ("b", "f"):  # f = r1001 팀장 심박 끊김 — 깨우고 정리 쪽지 1통(r1647: 크론 요구 뺀 · 주기 크론 0 정책 #274576)
             if not self.wake(seat, f.get("seq")):
                 return None
@@ -598,9 +655,9 @@ class Scan:
         found, unknown = self.gate_a(found, unknown)  # r1238 A — 처리 단계 첫 일(keys·counts·trig 전)
         handled, prev = self.st.get("handled", {}), set(self.st.get("prev", []))
         keys = {f"{f['kind']}:{f['seat']}": f for f in found if f["kind"] != "h"}
-        counts = {k: sum(1 for f in found if f["kind"] == k) for k in "abcdefghm"}
+        counts = {k: sum(1 for f in found if f["kind"] == k) for k in "abcdefghmt"}
         trig = sorted(k for k, f in keys.items() if k[0] in "abd" and k in prev and f["seat"] in handled and not f["attached"] and not f["held"])
-        lines = [f"stall={len(found) - counts['h']} a={counts['a']} b={counts['b']} c={counts['c']} d={counts['d']} e={counts['e']} seats={len(self.live)} u={unknown} ts={int(self.now)} l={len(self.loggedout)} f={counts['f']} h={counts['h']} g={counts['g']} m={counts['m']}"]
+        lines = [f"stall={len(found) - counts['h'] - counts['t']} a={counts['a']} b={counts['b']} c={counts['c']} d={counts['d']} e={counts['e']} seats={len(self.live)} u={unknown} ts={int(self.now)} l={len(self.loggedout)} f={counts['f']} h={counts['h']} g={counts['g']} m={counts['m']} t={counts['t']}"]
         lines += [f"{f['kind']} {f['seat']} {f['age']:.0f} {f['why']}" + ("" if f["kind"] in ("e", "h", "g") else " (attached·처리 0)" if f["attached"] else " (전팀 정지 처리 0)" if f.get("all_stop") else " (정지 중 처리 0)" if f["held"] else "") for f in found]
         lines += [f"l {s} 첫 실패 {e if e is None else int(e)} 로그아웃(재개 = 재시작)" for s, _, e in self.loggedout]
         lines += self.notes
@@ -617,6 +674,7 @@ class Scan:
             log += self.act_e(found, stamp)  # e 는 알림만 — attached·페널티·10분 창과 무관, 서명으로만 1회
             log += self.act_l(stamp)  # r849 — 로그아웃 좌석 팀장 1통 · 칸(좌석 계보)으로만 1회
             log += self.act_m(found, stamp)  # r1883 — 팀장 없는 팀 · 서명으로만(10분 창 무관)
+            log += self.act_t(found, stamp)  # r2080 — desk 틱 끊김 planner 1통 · 구간으로만
             log += self.act_g(found, stamp)  # r1882 — pi 오류 멈춤 · 서명으로만(10분 창·attached 무관)
             headline_notes = headline.headline_alerts(self.root, self.comm, found, self.live, self.now, self.send_headline, self.astop)  # r1371 — 같은 표식(조회 1회)
             for note in headline_notes:
