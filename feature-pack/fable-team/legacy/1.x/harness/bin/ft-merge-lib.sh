@@ -398,9 +398,10 @@ fm_land_notify_land() {
 }
 #   fm_land_card_line <카드리포루트> <PR> <착지 sha 40> <PR 제목> <head 가지> <리포 이름> <target> : r2034 A1~A4 — 착지 뒤 카드(토큰 = fm_land_notify_land 와 같은 규칙 · fm_cards_by_tokens)마다
 #     «## 상태» 절 끝에 «- 착지: <Q> (<리포> origin/<target> · PR #<N> · ft-merge-land)» 1줄 · 카드 ref 1커밋 push(ft_nano_record_write.apply·lock 재사용 = ft-nano-record landed 와 같은 «없을 때만»·잠금)
-#     같은 Q 줄 = «ALREADY» · 다른 sha 착지 줄 = «WARN 다른 착지 줄 <sha>»(쓰기 0) · 카드 0장 = «SKIP 카드 없음» · 실패 = «판정 불가 — 카드 착지 줄 <stem> <사유>» · 상한 = fm_tail_s 7초(FT_LAND_CARD_LINE_S) · 반환 0 고정(착지 rc 불변 · 하드 룰 20)
+#     같은 Q 줄 = «ALREADY» · 다른 sha 착지 줄 = «WARN 다른 착지 줄 <sha>»(쓰기 0) · 카드 0장 = «SKIP 카드 없음» · 실패 = «판정 불가 — 카드 착지 줄 <stem> <사유>» · 반환 0 고정(착지 rc 불변 · 하드 룰 20)
+#     r2042: 상한 = 착지 본체 기준 — fetch 상한(fm_fetch_sec) + push 1단위(fm_push_calc ? = F+7) · 남은 총 마감으로 자름 · FT_LAND_CARD_LINE_S 는 줄이기만 · 남은 < push 1단위 = 시도 0 «마감 부족(남은 N초)» · 프로세스 안 git 호출 상한도 같은 값
 fm_land_card_line() {
-  local root="$1" pr="$2" q="$3" txt="$4" head="$5" rn="$6" tgt="$7" tok of err cap rc p; local -a cd=()
+  local root="$1" pr="$2" q="$3" txt="$4" head="$5" rn="$6" tgt="$7" tok of err cap rc p pv rem; local -a cd=()
   tok="$(printf '%s\n' "$head" | grep -oE '^nano/r[0-9]{2,5}-' | grep -oE 'r[0-9]+')"
   [ -n "$tok" ] || tok="$(printf '%s\n' "$txt" | grep -oE 'r[0-9]{2,5}' | sort -u | tr '\n' ' ')"; tok="${tok% }"
   [ -n "$tok" ] || { echo "SKIP 카드 없음 — 카드 토큰 0(카드 착지 줄 쓰기 0)"; return 0; }
@@ -409,10 +410,17 @@ fm_land_card_line() {
   fm_cards_by_tokens "$root" $tok >"$of" 2>/dev/null; err="$FM_CARDS_ERR"; while IFS= read -r p; do [ -z "$p" ] || cd[${#cd[@]}]="$p"; done <"$of"; rm -f "$of"
   case "$err" in "카드 ref 를 하나도 못 읽음"*) echo "판정 불가 — 카드 착지 줄 $tok $err"; return 0;; esac
   [ "${#cd[@]}" -gt 0 ] || { echo "SKIP 카드 없음 — ${err:-토큰 $tok 카드 0장}(카드 착지 줄 쓰기 0)"; return 0; }
-  cap="$(fm_tail_s "${FT_LAND_CARD_LINE_S:-7}")"; [ "$cap" -ge 1 ] 2>/dev/null || { echo "판정 불가 — 카드 착지 줄 $tok 시간 초과(남은 0초)"; return 0; }
-  FT_LAND_RECORD_LOCK_S="$cap" fm_try "$cap" python3 - "$FM_HERE" "$root" "$pr" "$q" "$rn" "$tgt" "${cd[@]}" 2>/dev/null <<'PY'
+  pv="$(fm_push_calc '?' 2>/dev/null)"; cap=$(( $(fm_fetch_sec 2>/dev/null) + pv ))   # r2042 A1: fetch 상한 + push 1단위(r2042-mut:cap)
+  p="${FT_LAND_CARD_LINE_S:-}"; case "$p" in ''|*[!0-9]*) ;; *) [ "$p" -lt 1 ] || [ "$p" -ge "$cap" ] || cap="$p";; esac
+  if rem="$(fm_fetch_deadline_rem)"; then   # r2042 A2: 남은 총 마감 < push 1단위 = 시도 0(r2042-mut:short)
+    [ "$rem" -ge "$pv" ] || { [ "$rem" -gt 0 ] || rem=0; echo "판정 불가 — 카드 착지 줄 $tok 마감 부족(남은 ${rem}초)"; return 0; }
+    [ "$rem" -ge "$cap" ] || cap="$rem"
+  fi
+  FT_LAND_RECORD_LOCK_S="$cap" fm_try "$cap" python3 - "$FM_HERE" "$root" "$pr" "$q" "$rn" "$tgt" "$cap" "${cd[@]}" 2>/dev/null <<'PY'
 import sys
 sys.path.insert(0, sys.argv[1])
+import ft_nano_record as nr
+nr.run.__defaults__ = (float(sys.argv[7]),) + nr.run.__defaults__[1:]   # r2042: 이 프로세스의 git 호출(카드 ref fetch·push·확인) 기본 상한 7초 → 바깥 상한과 같은 값
 from ft_nano_record import LAND_RX, Ctx, Reject, Unjudged
 from ft_nano_record_due import card_key
 import ft_nano_record_write as nrw
@@ -424,7 +432,7 @@ def _sec_eof(text):   # A1 EOF fallback(DA HOLD R1): «## 상태» 절 없으면
     return (lines, st, en) if st is not None else (lines, -1, len(lines))   # r2034-mut:eof
 nrw.section = _sec_eof
 root, pr, q, rn, tgt = sys.argv[2:7]
-for c in sys.argv[7:]:
+for c in sys.argv[8:]:
     k, seen = card_key(c), {}
     stem = k[2] if k else c.rsplit("/", 1)[-1]
     def plan(sec):   # 같은 Q = 0줄(ALREADY) · 다른 sha 착지 줄 = 0줄(WARN) · 없으면 1줄
