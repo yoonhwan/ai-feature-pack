@@ -285,7 +285,7 @@ MUTANTS = {
     "M19": (KS, '        if getattr(self, "notify_used", 0) >= SEND_CAP:', "        if False:", ("㉚사",)),
     "M23": (KS, '        return rc, "" if rc == 0 else self.arrived(self.tail_rows(), mark, to, body)',
             '        return rc, ""', ("㉚자", "㉚차")),
-    "M24": (RS, 'if team == "v65" else []', "if False else []", ("㉚타",)),
+    "M24": ("core/roster.py", 'if team == "v65" else []', "if False else []", ("㉚타",)),
     "M25": (KS, 'self.call(["bash", self.mbox, "send", to, SENDER, body], CALL_S, retry=0)[0]',
             'self.call(["bash", self.mbox, "send", to, SENDER, body], CALL_S, retry=1)[0]', ("㉚자", "㉚마")),
     "M32": (KS, 'rec["seq"] > mark and', 'str(rec.get("ts") or "") >= self.stamp() and', ("㉚파",)),
