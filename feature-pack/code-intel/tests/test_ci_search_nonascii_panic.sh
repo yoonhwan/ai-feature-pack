@@ -513,6 +513,146 @@ B8() { RUNENV=("${E[@]}" FAKE_PROBE_1=hit); run_ci "$CI" "판정 불가" "$SB/up
 }
 B8
 
+# ── C1~C13 (카드 ci-search-test-files · 설계 §계약 T1~T7) ────────────────
+#   시험 파일 포함이 기본(--allow-tests 둘 다 호출) · 끄기 = --no-tests 하나 · 모르는 «-» 인자 = rc 2.
+echo "== C 픽스처 — 시험 파일이 섬인 트리(probe·rg 는 대역 · 실 판정은 실 probe 몫) =="
+mkdir -p "$SB/tf/src" "$SB/tf/tests"
+printf 'def prereqzz_one():\n    return 1\n'                              > "$SB/tf/src/mod.py"
+printf 'def test_prereqzz_two():\n    assert 1\n'                        > "$SB/tf/src/test_mod.py"
+printf 'def helper():\n    return 2\n'                                  > "$SB/tf/tests/helper.py"
+printf 'export const prereqzz = 1;\n'                                  > "$SB/tf/src/a.spec.ts"
+printf 'fn prereqzz() {}\n#[cfg(test)]\nmod t { #[test] fn a() {} }\n' > "$SB/tf/src/lib.rs"
+FX="$SB/tf"
+cat > "$SB/rg-nohit" <<'FAKE'
+#!/usr/bin/env bash
+# 가짜 rg — 받은 인자만 기록하고 «0건»(기본 rc 1 · FAKE_RG_RC 로 뒤집기)으로 골난다(출력 0)
+printf '%s\n' "$*" >> "$FAKE_RG_LOG"
+exit "${FAKE_RG_RC:-1}"
+FAKE
+chmod +x "$SB/rg-nohit"
+CTE=(env HOME="$SB/home" TMPDIR="$SB/tmp" PROBE_BIN="$SB/probe" CI_TIMEOUT=10
+   FAKE_LOG="$SB/probe.log" FAKE_RG_LOG="$SB/rg.log" RG_BIN="$SB/rg-nohit" FAKE_PROBE_1=hit)
+plog() { cat "$SB/probe.log" 2>/dev/null; }
+rlog() { cat "$SB/rg.log" 2>/dev/null; }
+ln_n() { printf '%s\n' "$1" | grep -c '' ; }
+
+UNK='ci search: 모르는 인자 --bogus — ci search "<query>" [path] [--max N] [--no-tests]'
+
+echo "== C1 기본 호출 → probe 인자에 --allow-tests 1개 · path = fx ="
+C1() { RUNENV=("${CTE[@]}"); run_ci "$CI" "w" "$FX"
+  chk "C1 rc" "$RC" "0"
+  chk "C1 probe 호출 1회" "$(cnt L "$(plog)" 'search ')" "1"
+  chk "C1 --allow-tests 1개" "$(cnt L "$(plog)" '--allow-tests')" "1"
+  has "C1 path = fx" "$(plog)" " $FX --max-results"
+}
+C1
+
+echo "== C2 --no-tests → --allow-tests 0 · path 유지 · rc 0 ="
+C2() { RUNENV=("${CTE[@]}"); run_ci "$CI" "w" "$FX" --no-tests
+  chk "C2 rc" "$RC" "0"
+  chk "C2 --allow-tests 0개" "$(cnt L "$(plog)" '--allow-tests')" "0"
+  has "C2 path = fx(--no-tests 가 path 아님)" "$(plog)" " $FX --max-results"
+  hasnt "C2 probe 에 --no-tests 0" "$(plog)" "--no-tests"
+}
+C2
+
+echo "== C3 --no-tests 를 path 앞에 → C2 와 같음 ="
+C3() { RUNENV=("${CTE[@]}"); run_ci "$CI" "w" --no-tests "$FX"
+  chk "C3 rc" "$RC" "0"
+  chk "C3 --allow-tests 0개" "$(cnt L "$(plog)" '--allow-tests')" "0"
+  has "C3 path = fx" "$(plog)" " $FX --max-results"
+}
+C3
+
+echo "== C4 --allow-tests 명시 → 기본과 같고 path·rg 절 path 유지 · rg 실패 경고 0 ="
+C4() { RUNENV=("${CTE[@]}"); run_ci "$CI" "w" "$FX" --allow-tests
+  chk "C4 rc" "$RC" "0"
+  chk "C4 --allow-tests 1개" "$(cnt L "$(plog)" '--allow-tests')" "1"
+  has "C4 path = fx" "$(plog)" " $FX --max-results"
+  has "C4 rg 절 path = fx" "$(rlog)" "-- $FX"
+  hasnt "C4 rg 실패 경고 0" "$ERR" "markdown·yaml rg 실패"
+}
+C4
+
+echo "== C5 --no-tests·--allow-tests 둘 다 → 뒤에 온 것이 이긴다 ="
+C5() { RUNENV=("${CTE[@]}"); run_ci "$CI" "w" "$FX" --no-tests --allow-tests
+  chk "C5a --allow-tests 1개(뒤=allow)" "$(cnt L "$(plog)" '--allow-tests')" "1"
+  RUNENV=("${CTE[@]}"); run_ci "$CI" "w" "$FX" --allow-tests --no-tests
+  chk "C5b --allow-tests 0개(뒤=no)" "$(cnt L "$(plog)" '--allow-tests')" "0"
+}
+C5
+
+echo "== C6 모르는 인자 --bogus → rc 2 · stderr 1줄 · probe·rg 0 · stdout 0줄 ="
+C6() { RUNENV=("${CTE[@]}"); run_ci "$CI" "w" "$FX" --bogus
+  chk "C6 rc" "$RC" "2"
+  chk "C6 stderr 1줄" "$(ln_n "$ERR")" "1"
+  chk "C6 stderr 글자(T4)" "$ERR" "$UNK"
+  chk "C6 stdout 0줄" "$OUT" ""
+  chk "C6 probe 호출 0" "$(ln_n "$(plog)")" "1"
+  chk "C6 rg 호출 0" "$(ln_n "$(rlog)")" "1"
+}
+C6
+
+echo "== C7 모르는 짧은 인자 -x → C6 과 같음 ="
+C7() { RUNENV=("${CTE[@]}"); run_ci "$CI" "w" -x "$FX"
+  chk "C7 rc" "$RC" "2"
+  has "C7 stderr 글자" "$ERR" "ci search: 모르는 인자 -x —"
+  chk "C7 stdout 0줄" "$OUT" ""
+  chk "C7 probe 호출 0" "$(ln_n "$(plog)")" "1"
+}
+C7
+
+echo "== C8 두 낱말(OR 재시도) — 두 호출 다 --allow-tests 1개 · --no-tests 면 0개 ="
+C8() { RUNENV=("${CTE[@]}" FAKE_PROBE_1=nohits FAKE_PROBE_2=hit); run_ci "$CI" "w x" "$FX"
+  chk "C8 probe 호출 2회(1단계+OR)" "$(cnt L "$(plog)" 'search ')" "2"
+  chk "C8 두 호출 --allow-tests 2개" "$(cnt L "$(plog)" '--allow-tests')" "2"
+  RUNENV=("${CTE[@]}" FAKE_PROBE_1=nohits FAKE_PROBE_2=hit); run_ci "$CI" "w x" "$FX" --no-tests
+  chk "C8b 두 호출 --allow-tests 0개" "$(cnt L "$(plog)" '--allow-tests')" "0"
+}
+C8
+
+echo "== C9 --max 자리 — 값은 그대로 · 시험 인자는 T1·T2 대로 ="
+C9() { RUNENV=("${CTE[@]}"); run_ci "$CI" "w" "$FX" --max 3
+  has "C9a --max-results 3" "$(plog)" "--max-results 3"
+  has "C9a path = fx" "$(plog)" " $FX --max-results 3"
+  RUNENV=("${CTE[@]}"); run_ci "$CI" "w" --max 3 "$FX"
+  has "C9b path = fx" "$(plog)" " $FX --max-results 3"
+  RUNENV=("${CTE[@]}"); run_ci "$CI" "w" --no-tests --max 3 "$FX"
+  has "C9c path = fx" "$(plog)" " $FX --max-results 3"
+  chk "C9c --allow-tests 0개" "$(cnt L "$(plog)" '--allow-tests')" "0"
+}
+C9
+
+echo "== C10 panic 폴백 — --no-tests 면 경고 1줄 더 · 없으면 경고 0 ="
+C10() { RUNENV=("${CTE[@]}" FAKE_PROBE_1=panic FAKE_RG_RC=0); run_ci "$CI" "w" "$FX" --no-tests
+  chk "C10a rc" "$RC" "0"
+  chk "C10a 폴백 표지" "$(first "$OUT")" "$POL"
+  chk "C10a T6 경고 1줄" "$(printf '%s\n' "$ERR" | grep -c 'rg 폴백은 시험 파일을 가르지 않는다')" "1"
+  RUNENV=("${CTE[@]}" FAKE_PROBE_1=panic FAKE_RG_RC=0); run_ci "$CI" "w" "$FX"
+  chk "C10b T6 경고 0" "$(printf '%s\n' "$ERR" | grep -c 'rg 폴백은 시험 파일을 가르지 않는다')" "0"
+  chk "C10b 폴백 표지" "$(first "$OUT")" "$POL"
+}
+C10
+
+echo "== C11 path 없음 → path = . · --allow-tests 1개 ="
+C11() { RUNENV=("${CTE[@]}"); RUNCWD="$SB/core"; run_ci "$CI" "w"
+  chk "C11 rc" "$RC" "0"
+  has "C11 path = ." "$(plog)" " . --max-results 5"
+  chk "C11 --allow-tests 1개" "$(cnt L "$(plog)" '--allow-tests')" "1"
+}
+C11
+
+echo "== C12 --max 값 없음 → rc 2 · stderr 1줄 · probe 0 호출 ="
+C12() { RUNENV=("${CTE[@]}"); run_ci "$CI" "w" "$FX" --max
+  chk "C12 rc" "$RC" "2"
+  chk "C12 stderr 1줄" "$(ln_n "$ERR")" "1"
+  chk "C12 stdout 0줄" "$OUT" ""
+  chk "C12 probe 호출 0" "$(ln_n "$(plog)")" "1"
+}
+C12
+
+# C13 = 이 파일의 앞 검사(P1~P21 · A1~A9 · B1~B8)가 그대로 통과하는지 — 아래 요약이 그 판정이다.
+
 # ── 기준판(origin/main 판 ci) 대조 ────────────────────────────────────────
 echo "== 기준판 대조 — origin/main(= 앞카드 md 까지) 판: P1~P21 · A4~A8 · B4·B5·B7·B8 통과 · P7·P8·A1·A2·A3·A9·B1·B2·B3·B6 FAIL =="
 ROOT="$(cd "$HERE/../../.." && pwd)"
@@ -536,6 +676,8 @@ if [ -n "$BASE_SHA" ] && git -C "$ROOT" show "$BASE_SHA:feature-pack/code-intel/
   for f in A4 A5 A6 A7 A8; do bl "$f" pass; done
   for f in B1 B2 B3 B6; do bl "$f" fail; done    # 설계 §4 «기준판 FAIL 기대» = 목록(yml·yaml)이 없는 판
   for f in B4 B5 B7 B8; do bl "$f" pass; done    # 목록과 무관한 기대(양쪽 판 같은 꼴)
+  # 카드 ci-search-test-files — 기준판은 --allow-tests 를 안 주고(--no-tests·--allow-tests 를 path 로 상킨다)
+  for f in C1 C2 C4 C6 C7 C8; do bl "$f" fail; done
 else
   bad "기준판 추출 실패(origin/main ci 를 git show 로 못 꺼냈다)"
 fi
@@ -597,6 +739,13 @@ vcheck X1b B3 '_PROBE_SKIP=(md yml yaml)@@_PROBE_SKIP=(md yaml)'
 vcheck X2 B6 'if [ "$skip_excl" = 1 ]; then for x in "${_PROBE_SKIP[@]}"; do gopts+=(-g "!*.$x"); done; fi@@if [ "$skip_excl" = 1 ]; then gopts+=(-g "!*.md"); fi'
 vcheck X3 B1 '_skip_glob=(); for x in "${_PROBE_SKIP[@]}"; do _skip_glob+=(-g "*.$x"); done@@_skip_glob=(-g "*.md")'
 vcheck X4 B1 '_skip_probe=(); for x in "${_PROBE_SKIP[@]}"; do _skip_probe+=(-i "*.$x"); done@@_skip_probe=(-i "*.md")'
+
+# ── 변이 T-X1~T-X5 (카드 ci-search-test-files · 설계 §변이 — 각각 지정 반례가 FAIL 해야) ──
+vcheck T-X1 C1 'if [ "${_SE_ALLOW_TESTS:-1}" = "1" ]; then set -- --allow-tests "$@"; fi@@if [ "${_SE_ALLOW_TESTS:-1}" = "1" ] && [ "$st" != "1" ]; then set -- --allow-tests "$@"; fi'
+vcheck T-X2 C8 'if [ "${_SE_ALLOW_TESTS:-1}" = "1" ]; then set -- --allow-tests "$@"; fi@@if [ "${_SE_ALLOW_TESTS:-1}" = "1" ] && [ "$st" != "2" ]; then set -- --allow-tests "$@"; fi'
+vcheck T-X3 C2 '--no-tests) _SE_ALLOW_TESTS=0; shift ;;@@--no-tests) shift ;;'
+vcheck T-X4 C6 '-*) echo "ci search: 모르는 인자 $1 — ci search \"<query>\" [path] [--max N] [--no-tests]" >&2; exit 2 ;;@@-*) path="$1"; shift ;;'
+vcheck T-X5 C4 '--allow-tests) _SE_ALLOW_TESTS=1; shift ;;@@--allow-tests) path="$1"; shift ;;'
 
 echo "== 요약: $n 검사 · 실패 $fail =="
 [ "$fail" -eq 0 ] || exit 1
