@@ -31,8 +31,8 @@ pushwhy() { local f; f="$(pushsave)" || f=""; printf '사유 %s · 마지막 줄
 LIM="${FT_LAND_TOTAL_S:-100}"; { [ "$LIM" -le 100 ] && [ "$LIM" -ge 1 ]; } 2>/dev/null || LIM=100; fm_fetch_sec >/dev/null; FTS="$FM_FETCH_SEC"; fm_fetch_banner; [ -n "${FT_LAND_DEADLINE:-}" ] || { FT_LAND_DEADLINE=$(( $(date +%s) + LIM )); export FT_LAND_DEADLINE; }   # 총 마감 — 시험 주입은 줄이기만 가능(100 s 초과 불가 · 판정 4114 = 25초 × 단계 4) · r1069: FTS = fetch 상한(지정이면 첫 줄 «오빠 예외 판정») · r1363: 착지 1회 마감(FT_LAND_DEADLINE epoch 초 · 시험 주입값은 덮지 않는다)을 export 해 자식 ft-merge-gate·fm_fetch 가 같은 마감을 넘지 않게 한다 · «INFO fetch 상한 <초>(F=<f>)» 1줄은 lr_exit(맨 끝)에서 쓴다(LANDED 접두 계약 보존)
 deadline() { [ $((SECONDS - T0)) -lt "$LIM" ] || rej "총 마감 $LIM s 초과"; }
 AUT="$HERE/ft-autonomy.sh"   # R336: 모든 모드(on·off·tamper·불명)에서 오빠 승인 파일 + log 한 줄 필요 — OFF 에서 master 가 sha 만 적어 착지하던 틈을 닫는다
-AST="$(bash "$AUT" state-dir 2>/dev/null)"   # r648: 승인 폴더 = 이 정식 리졸버 하나뿐(공용 루트를 직접 쓰는 길 0)
-[ -n "$AST" ] || AST="$(cd "${FT_ROOT:-$ROOT}" 2>/dev/null && bash "$AUT" state-dir 2>/dev/null)"   # 팩 cwd 등에서 해석 실패할 때만 부른 리포 안에서 재시도(LIVE_ROOT 그대로 작동)
+APR="$(fm_live_root "${FT_ROOT:-}")"; APRC=$?; AST=""; [ "$APRC" != 0 ] || AST="$(FT_ROOT="$APR" bash "$AUT" state-dir 2>/dev/null)"; [ "$APRC" != 1 ] || AST="$(bash "$AUT" state-dir 2>/dev/null)"   # r1746 A6: 승인 폴더 = 승인 루트(fm_live_root — 게이트 replace-ok 판정문 리포와 같은 함수) · FT_ROOT=BYZ 메인 루트여도 LIVE_ROOT 의 state · LIVE_ROOT 못 읽음(rc2) = 해석 실패 · 승인 루트 못 정함(rc1)만 옛 길   # r648: 승인 폴더 = 이 정식 리졸버 하나뿐(공용 루트를 직접 쓰는 길 0)
+[ "$APRC" != 1 ] || [ -n "$AST" ] || AST="$(cd "${FT_ROOT:-$ROOT}" 2>/dev/null && bash "$AUT" state-dir 2>/dev/null)"   # 팩 cwd 등에서 해석 실패할 때만 부른 리포 안에서 재시도(LIVE_ROOT 그대로 작동)
 [ -n "$AST" ] || { echo "REJECT 자율 상태 폴더 해석 실패 — 실행 0"; exit 2; }
 [ -z "$AP" ] || { AF="$AST/autonomy-merge-approved/$AP"   # R725: 승인 값을 준 경우만 승인 파일을 본다(빈 값 = doc-exempt 판정이 가른다)
 [ "$(wc -l < "$AF" 2>/dev/null | tr -d ' ')" = 1 ] && grep -q "^approve-merge $AP " "$AF" && grep -qxF "$(head -n1 "$AF")" "$AST/autonomy.log" 2>/dev/null \

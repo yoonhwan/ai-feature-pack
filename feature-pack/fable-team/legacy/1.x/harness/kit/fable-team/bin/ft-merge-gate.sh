@@ -22,8 +22,8 @@ while [ $# -gt 0 ]; do case "$1" in
 G() { git -C "$REPO" "$@"; }
 deny() { echo "DENY $*"; exit 1; }
 
-if [ -z "$BHF" ]; then   # r1687: 기본 경로도 «대상 가지» 몫 — main 이면 지금 그대로 · 그 밖은 base-head@<가지>
-  COMMON="$(G rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" && BHF="$(fm_base_head_file "${FT_ROOT:-$(dirname "$COMMON")}/.fable-team/state/base-head" "$TARGET")"
+if [ -z "$BHF" ]; then   # r1687: 기본 경로도 «대상 가지» 몫 · r1746 A2: 기본 = fm_land_ctx 4번째 칸(착지 도구와 같은 함수 · 다른 리포면 -<owner>-<name> 꼬리) · 못 풀면 DENY(«생략» 후퇴 0)
+  BHF="$(fm_land_ctx "$REPO" "$REMOTE" "${FT_ROOT:-}" "$TARGET")" || deny "기준 헤드 판정 불가 — 대상 리포 owner/name 못 풂"; IFS='|' read -r _ _ _ BHF _ <<<"$BHF"
 fi
 fm_fetch_sec >/dev/null; trap 'fm_fetch_info' EXIT   # r1363: 상한 1줄을 «맨 끝» 에 쓴다 — 게이트 stdout 은 «DENY …»/«ALLOW …» 접두 계약(부르는 곳·기존 시험) 이라 앞에 다른 줄을 넣으면 깨진다
 fm_fetch "$REPO" "$REMOTE" "$TARGET" || deny "fetch $REMOTE $TARGET 실패(시도당 $FM_FETCH_SEC s + 재시도 1) — main 을 못 봐서 판정 불가"
@@ -49,7 +49,7 @@ fi
 
 anc "$M" "$S"; case $? in 0) ;; 1) deny "후보 ${S:0:10} 가 현재 main ${M:0:10} 을 포함하지 않음 — ft-head-sync.sh 로 최신화 먼저";; *) deny "main 포함 판정 불가(명령 실패 또는 shallow)";; esac
 
-PA=("$REPO" "$M" "$S"); [ -z "$ROK" ] || PA+=(--replace-ok "$ROK")
-OUT="$(FT_REPLACE_REMOTE="$REMOTE" FT_REPLACE_TARGET="$TARGET" python3 -I "$HERE/ft_merge_lines.py" "${PA[@]}")"; rc=$?
+PA=("$REPO" "$M" "$S"); ROKR=""; [ -z "$ROK" ] || { PA+=(--replace-ok "$ROK"); ROKR="$(fm_live_root "${FT_ROOT:-}")"; }   # r1746 A5: FT_ROOT 빈 값이면 판정문 리포 = 승인 루트(착지 승인 폴더와 같은 함수) · 못 풀면 빈 값 = «못 읽음» 그대로
+OUT="$(FT_REPLACE_ROOT="$ROKR" FT_REPLACE_REMOTE="$REMOTE" FT_REPLACE_TARGET="$TARGET" python3 -I "$HERE/ft_merge_lines.py" "${PA[@]}")"; rc=$?
 [ "$rc" -eq 0 ] || deny "${OUT#DENY }$([ "$rc" -eq 2 ] && echo ' (판정 불가 — 명령 실패)')"
 echo "ALLOW sha=$S main=$M tree=$(G rev-parse "$S^{tree}") · $OUT"

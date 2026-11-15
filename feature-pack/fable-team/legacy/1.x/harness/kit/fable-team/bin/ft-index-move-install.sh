@@ -18,24 +18,30 @@ CARD="${1:-}"; LANDED=""; shift 2>/dev/null || { echo "usage: $0 <카드> [--lan
 WT="$(ft_git_capped 7 "$(dirname "$CARD")" rev-parse --show-toplevel)" || { _rc=$?; echo "REJECT 카드 리포($(dirname "$CARD")) 루트 조회 실패(rc=$_rc) — 통과 0 (이동 0)"; exit 1; }
 FT_REPO_ROOT="$WT" ft_team_has harness "$(cd "$(dirname "$CARD")" && pwd)/$(basename "$CARD")" indices/; _hrc=$?
 case "$_hrc" in 0) ;; 1) exit 0;; *) echo "REJECT 하네스 팀 폴더를 못 풀었다(design/TEAMS.md) — 카드 종류를 못 정한다 (이동 0)"; exit 1;; esac
-rej() { echo "REJECT $* (이동 0)"; exit 1; }
+R=(); rej() { R+=("$*"); }   # r1844: 사유를 모은다 · fin = 머리 줄(첫 사유 · 옛 문구) + «  - <사유>» 줄 전부 · rc 1
+fin() { [ "${#R[@]}" = 0 ] && return 0; echo "REJECT ${R[0]} (이동 0 · 사유 ${#R[@]}건)"; printf '  - %s\n' "${R[@]}"; exit 1; }
+ev_gate() {   # r1844 R1: 카드 글자만 보는 검사 — --landed 없이도 같이 낸다
+EV="$(grep -E '^-[[:space:]]*실사건:' "$CARD" | tail -n 1)"
+if [ -z "$EV" ]; then rej "카드에 「- 실사건: <무엇> · <증거>」 줄 없음 — 설치 뒤 실사건 1회 실측 증거(mbox #N | 경로:줄 | ledger 키)"
+else printf '%s' "$EV" | grep -qE '#[0-9]+|[A-Za-z0-9_./-]+\.[A-Za-z0-9]+:[0-9]+|ledger[:=][^[:space:]]+' || rej "「- 실사건:」 줄에 증거 토큰 없음(mbox #N · 경로:줄 · ledger 키)"; fi
+}
 USE="쓰는 법: 카드에 「- 설치: 있음|없음」 줄 (하네스 키트·도구·훅·데몬을 바꾸면 있음)"
 LINE="$(grep -m1 -E '^[[:space:]]*-[[:space:]]*설치:' "$CARD")"
-[ -n "$LINE" ] || rej "카드에 「- 설치:」 줄 없음 — $USE"
-case "$LINE" in *"설치: 없음"*) echo "INFO 설치: 없음 — 라이브 대조 0"; exit 0;; *"설치: 있음"*) ;; *) rej "「- 설치:」 값은 있음|없음 — $USE";; esac
-[ -n "$LANDED" ] || rej "설치: 있음 카드는 --landed <A..B|sha> 필수 — 병합 범위를 라이브와 대조한다"
+[ -n "$LINE" ] || { rej "카드에 「- 설치:」 줄 없음 — $USE"; fin; }
+case "$LINE" in *"설치: 없음"*) echo "INFO 설치: 없음 — 라이브 대조 0"; exit 0;; *"설치: 있음"*) ;; *) rej "「- 설치:」 값은 있음|없음 — $USE"; fin;; esac
+[ -n "$LANDED" ] || { rej "설치: 있음 카드는 --landed <A..B|sha> 필수 — 병합 범위를 라이브와 대조한다"; ev_gate; fin; }
 case "$LANDED" in *..*) RANGE="$LANDED";; *) RANGE="${LANDED}^..$LANDED";; esac
 CHK="${FT_INSTALL_CHECK:-$HERE/ft-live-install-check.sh}"
 # r581: 하네스 파일 대조는 하네스 루트 리포 — 카드 워크트리 아님(도구 기본값 · 카드 리포에 팩 객체가 있으면 outside_repo 가 막는다)
 # r937: 착지 리포가 카드 리포면 대조 대상을 범위로 못 정한다(그 sha 가 팩에 없다) → 라이브 전수(--all)로 «설치 파일 = 라이브»만 본다
 PACKH=""; [ -f "$HERE/ft-harness-root.sh" ] && PACKH="$(. "$HERE/ft-harness-root.sh" && ft_harness_root "$HERE" 2>/dev/null)"
-PACK=""; [ -n "$PACKH" ] && { PACK="$(ft_git_capped 7 "$PACKH" rev-parse --show-toplevel)" || rej "팩 리포($PACKH) 루트 조회 실패(rc=$?) — 통과 0"; }
-[ -n "$PACK" ] || rej "하네스 루트를 못 풂 — 설치 대조 리포를 못 정한다(FT_HARNESS_ROOT · ../HARNESS_ROOT)"
-LR="$(ft_landed_repo "${LANDED##*..}" "$WT" "$PACK" "${FT_LANDED_MARKER:-}")" || { printf '%s\n' "$LR"; exit 1; }   # r959: 표식 오기(팩 착지) 보정은 ft_landed_repo 기본 — 정본·보류 가드·close-landed 와 같은 판정
+PACK=""; [ -n "$PACKH" ] && { PACK="$(ft_git_capped 7 "$PACKH" rev-parse --show-toplevel)" || { rej "팩 리포($PACKH) 루트 조회 실패(rc=$?) — 통과 0"; fin; }; }
+[ -n "$PACK" ] || { rej "하네스 루트를 못 풂 — 설치 대조 리포를 못 정한다(FT_HARNESS_ROOT · ../HARNESS_ROOT)"; fin; }
+LR="$(ft_landed_repo "${LANDED##*..}" "$WT" "$PACK" "${FT_LANDED_MARKER:-}")" || { rej "${LR#REJECT }"; fin; }   # r959: 표식 오기(팩 착지) 보정은 ft_landed_repo 기본 — 정본·보류 가드·close-landed 와 같은 판정
 LRREPO="${LR%%$'\t'*}"
 # r948 + r959: --all 은 «어느 프로젝트의 라이브» 인지 같이 넘긴다 = 카드 리포의 공용 루트(워크트리 안 카드도 루트) — 안 넘기면 검사기가 팩 리포를 프로젝트로 본다(LIVE_BIN 없음 ERROR).
 # r959 ④(r426 rc3): 같은 값을 --range 갈래(팩 착지 sha)에도 넘긴다 — plist-env 렌더도 프로젝트 루트가 필요한데,--all 만 넘기면 팩 착지 카드는 rc3 로 막했다.
-CROOT="$(ft_git_capped 7 "$WT" rev-parse --path-format=absolute --git-common-dir)" || rej "카드 리포($WT) 공용 루트 조회 실패(rc=$?) — 통과 0"
+CROOT="$(ft_git_capped 7 "$WT" rev-parse --path-format=absolute --git-common-dir)" || { rej "카드 리포($WT) 공용 루트 조회 실패(rc=$?) — 통과 0"; fin; }
 CROOT="$(dirname "$CROOT")"
 if [ "$LRREPO" = "$PACK" ]; then CARG=(--range "$RANGE" --project "$CROOT")
 else
@@ -50,11 +56,9 @@ case "$crc" in
   # r964: rc=3 = 대조기가 대조 자체를 못 한 것(지도·ref·FT_BIN 못 풂) — «설치 어긋남» 과 다른 사유로 거절한다
   3) printf '%s\n' "$COUT"; rej "설치 대조 불가(rc=3) — $(printf '%s\n' "$COUT" | grep -m1 -E '^ERROR' || echo '대조기 ERROR 줄 없음')";;
   *) printf '%s\n' "$COUT"; rej "라이브 설치 어긋남(rc=$crc) — master 설치 뒤 다시 이동";;
-esac; if [ "${FT_INSTALL_RESTART_GATE:-1}" = 0 ]; then echo "INFO 재기동 게이트 끔"; else ROUT="$(LC_ALL=C FT_BIN="${FT_BIN:-$HERE}" bash "$HERE/ft-live-install-check.sh" --restart-scan --project "$CROOT" 2>&1)"; rrc=$?; if [ "$rrc" -ne 0 ]; then printf '%s\n' "$ROUT"; rej "재기동 판정 불가(rc=$rrc)"; fi; RESTARTS=""; while IFS= read -r line; do case "$line" in "RESTART "*' — launchctl kickstart'*) RESTARTS+="$line"$'\n';; esac; done <<< "$ROUT"; if [ -n "$RESTARTS" ]; then printf '%s' "$RESTARTS"; rej "오래된 데몬 재기동 필요"; fi; if [ "$ROUT" != "RESTART 0" ]; then printf '%s\n' "$ROUT"; rej "재기동 판정 불가"; fi; fi
+esac; if [ "${FT_INSTALL_RESTART_GATE:-1}" = 0 ]; then echo "INFO 재기동 게이트 끔"; else ROUT="$(LC_ALL=C FT_BIN="${FT_BIN:-$HERE}" bash "$HERE/ft-live-install-check.sh" --restart-scan --project "$CROOT" 2>&1)"; rrc=$?; if [ "$rrc" -ne 0 ]; then printf '%s\n' "$ROUT"; rej "재기동 판정 불가(rc=$rrc)"; else RESTARTS=""; while IFS= read -r line; do case "$line" in "RESTART "*' — launchctl kickstart'*) RESTARTS+="$line"$'\n';; esac; done <<< "$ROUT"; if [ -n "$RESTARTS" ]; then printf '%s' "$RESTARTS"; rej "오래된 데몬 재기동 필요"; elif [ "$ROUT" != "RESTART 0" ]; then printf '%s\n' "$ROUT"; rej "재기동 판정 불가"; fi; fi; fi
 # r1422: 들여쓰지 않은 최상위 «- 실사건:» 줄만 · 여럿이면 마지막 줄 — 근거 절의 들여쓴 «  - 실사건:» 줄은 닫기 증거가 아니다
-EV="$(grep -E '^-[[:space:]]*실사건:' "$CARD" | tail -n 1)"
-[ -n "$EV" ] || rej "카드에 「- 실사건: <무엇> · <증거>」 줄 없음 — 설치 뒤 실사건 1회 실측 증거(mbox #N | 경로:줄 | ledger 키)"
-printf '%s' "$EV" | grep -qE '#[0-9]+|[A-Za-z0-9_./-]+\.[A-Za-z0-9]+:[0-9]+|ledger[:=][^[:space:]]+' || rej "「- 실사건:」 줄에 증거 토큰 없음(mbox #N · 경로:줄 · ledger 키)"
+ev_gate; fin
 ROOT="${CROOT:-$WT}"   # r959: 같은 공용 루트 — 위에서 7초 상한으로 이미 풀었다(중복 git 호출 0)
 PD="${FT_INSTALL_PENDING_DIR:-${ROOT:-$WT}/.fable-team/state/install-pending}"
 # r1738: 대기 파일 셈 = «착지 리포» 에서(카드 리포 아님 — 팩 착지 sha 는 카드 리포에 없다). 실패·0개는 «판정 불가» 1줄(통과·이동은 그대로)

@@ -224,8 +224,8 @@ if tmux has-session -t "=$SEAT" 2>/dev/null; then
   [ -n "$VERDICT$DSEQ" ] || lineage_ok || renamed_ok || finish 3 "CLOSED-SESSION $SEAT file=$FILE role_was=$WAS kill=held(표준승인 밖 — 나노는 ft-nano-close · 그 밖은 [HIL])"   # --verdict = 판정 승인 1건 + 재개 기록 확인됨 · r1691 = 이름 접두가 바뀐 승계도 같은 근거면 통과
   ATT="$(seat_attached)"; case "$ATT" in free) ;; attached*) echo "NOTE $SEAT 사람 화면 attached=${ATT#attached } — 오빠 지시로 닫음";; *) finish 3 "HELD $SEAT 판정 불가 attached(${ATT#unknown }) — kill 0 · reap 0 · 명부 표기는 남음 file=$FILE";; esac   # r1839 A4 — 계보 근거 뒤 · reap 앞 · r1976 attached N = NOTE 1줄 뒤 닫기 계속(오빠 지시) · 판정 불가 = HELD 그대로
   reap
-  if [ -n "$(tmux show-options -qv -t "=$SEAT" @zc_v65_active 2>/dev/null)" ]; then
-    tmux set-option -t "=$SEAT" -u @zc_v65_active || { vlog fail-tag; finish 1 "FAIL tag $SEAT — @zc_v65_active 해제 실패(세션 잔존 · 명부 표기는 남음 file=$FILE)"; }
+  if [ -n "$(tmux show-options -qv -t "=$SEAT:" @zc_v65_active 2>/dev/null)" ]; then
+    tmux set-option -t "=$SEAT:" -u @zc_v65_active || { vlog fail-tag; finish 1 "FAIL tag $SEAT — @zc_v65_active 해제 실패(세션 잔존 · 명부 표기는 남음 file=$FILE)"; }
   fi
   tmux kill-session -t "=$SEAT" || { vlog fail-kill; finish 1 "FAIL kill $SEAT — kill-session 실패(세션 잔존 · 명부 표기는 남음 file=$FILE)"; }
   KILL=ok

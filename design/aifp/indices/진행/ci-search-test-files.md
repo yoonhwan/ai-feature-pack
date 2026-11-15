@@ -6,6 +6,7 @@
 - 원인 1줄: 래퍼 feature-pack/code-intel/skill/scripts/ci search 갈래가 probe 에 `--allow-tests` 를 주지 않아 probe 기본값(시험 파일·시험 블록 제외)이 그대로 걸린다 · 인자 파싱 `*) path="$1"` 이 모르는 `--` 인자를 path 로 삼켜 probe 는 그것을 옵션으로 읽고 path 는 cwd 로 떨어진다
 - 앞 카드: design/aifp/indices/완성/ci-search-yaml-panic.md(착지 14ef74ac · PR #1096) · ci-search-ascii-md-panic · ci-search-nonascii-panic — 이 카드는 그 카드들의 L1~L6(목록 · rg 절 · panic 폴백 · 출력 보류 · 상한 25초)을 바꾸지 않는다
 - 상태: 대기
+- 착지: cf0d405248d7ba40cde46ae4daf741bf65f0c6aa(팩 main · PR #1332 squash · DA#11 APPROVE-IMPL BYZ 311592 · 세트 12840fa9 = PR head · 뺄 커밋 0)
 - 설치: 있음 — ~/.local/bin/ci = 루트 checkout feature-pack/code-intel/skill/scripts/ci 심링크(착지 뒤 루트 main 반영 = 설치) · 사본 2곳 ~/.claude/skills/code-intel/scripts/ci · ~/.agents/skills/code-intel/scripts/ci ← 팩 판 cmp0
 - 선행: 없음(팩 origin/main f01ce9f2)
 - 시험 입력: 기존 시험 fixture + 새 fixture(src/mod.py · src/test_mod.py · tests/helper.py · src/a.spec.ts · src/lib.rs 의 `#[cfg(test)]` 블록) · 가짜 probe(PROBE_BIN · 받은 인자 기록 · 정상 hit/nohits/panic) · RG_BIN 대역 · sleep 0 · HOME·TMPDIR 격리 · 네트워크 0 · 실 probe 0
@@ -92,13 +93,13 @@ fixture(/tmp · 6파일 · 같은 낱말)에서 probe 가 기본으로 빼는 �
 3. 회귀: feature-pack/code-intel/tests/ 의 나머지 5파일 rc0
 
 ## 완료 조건
-1. [ ] 나노: 시험 전체(앞 카드 235 + C1~C13) rc0 · 검사 수 · 걸린 초
-2. [ ] 나노: 기준판(origin/main ci) C1·C2·C4·C6·C7·C8 FAIL 원문
-3. [ ] 나노: 변이 X1~X5 각각 지정 반례 FAIL(5/5)
-4. [ ] 나노: 회귀 5파일 rc0 · 시험 파일 100644 · C12 기준판 rc 실측 1줄
-5. [ ] master: 착지 sha → 설치(루트 main 반영 · 사본 2곳 cmp0 · bash -n rc0)
-6. [ ] master: 재현 명령 원문 3줄(cwd feature-pack/fable-team) — `ci search prereq ft2/tests` 결과에 test_keeper_next_prereq_line_r2027.py 있음 · `ci search prereq ft2/tests --no-tests` 결과 파일 0 · `ci search prereq ft2/tests --allow-tests` 결과가 전부 ft2/tests 아래 + rg 실패 경고 0 · 각 rc·real(7초 안)
-7. [ ] master: 발견 나노(aifp 5650)와 하드 룰 16 을 쓰는 팀에 1통(«ci search 가 시험 파일을 본다 · 끄기 = --no-tests»)
+1. [~] 나노: 시험 전체(앞 카드 235 + C1~C13) rc0 · 검사 수 · 걸린 초 — rc0 아님: 나노 = `bash feature-pack/code-intel/tests/test_ci_search_nonascii_panic.sh` rc=1 · 294 검사 중 284 ok · 11초(aifp 5681) · DA 직접 = 새 판 294 검사 실패 10 · 기준판 235 검사 실패 10 · 실패 열 줄이 글자까지 같음(P7·P8·A1·A2·A3·A9·B1·B2·B3·B6 의 «기준판 … 통과 — FAIL 이어야») · 기능 새 실패 0 · 신규 C1~C12 통과(BYZ 311592 «두 전체 suite rc1 을 rc0 으로 주장하지 않는다») · 까닭 = 시험의 «기준판 대조» 블록이 BASE_SHA 를 origin/main 으로 잡는다(시험 파일 659줄) → 앞 카드가 착지한 뒤로는 기준판 = 고친 판 · ★착지 뒤 지금 main 에서 다시 돌린 값(aifp-ft-arch-pi#20 · 2026-11-16 05:09 · 루트 checkout 읽기 · 1회): rc=1 · 294 검사 · 실패 16 · 11초 · 기준판 = c419684f · 16줄 전부 «기준판 대조» 블록(위 10 + C1·C2·C4·C6·C7·C8) · 그 밖 FAIL 0★ = 이 카드도 착지하자 같은 꼴로 6줄이 더 늘었다 · 이 칸을 [x] 로 닫으려면 기준판 sha 를 결함이 있던 커밋으로 고정하는 fixture 보수(새 카드 · DA 311592 «별도 회귀 fixture 보수») 뒤 rc0 을 다시 잰다
+2. [x] 나노: 기준판(origin/main ci) C1·C2·C4·C6·C7·C8 FAIL 원문 — 나노 = C1·C2·C4·C6·C7·C8 FAIL 각 1·2·2·3·3·1건(aifp 5681 · 원문 줄은 쪽지에 없음) · arch 재실행(aifp-ft-arch-pi#20 · 2026-11-16 05:09 · 기준판 ci = `git show 823d371f:feature-pack/code-intel/skill/scripts/ci` 를 /tmp 에 꺼내 `CI_UNDER_TEST=` 로 같은 시험 1회 · 11초): `FAIL C1 --allow-tests 1개 — 기대[1] 얻음[0]` · `FAIL C2 path = fx(--no-tests 가 path 아님)` · `FAIL C2 probe 에 --no-tests 0 — [--no-tests] 있으면 안 됨` · `FAIL C4 path = fx` · `FAIL C4 rg 절 path = fx`(rg 인자 끝 `-- --allow-tests`) · `FAIL C6 rc — 기대[2] 얻음[0]` · `FAIL C6 stderr 글자(T4)` · `FAIL C6 stdout 0줄` · `FAIL C7 rc — 기대[2] 얻음[0]` · `FAIL C7 stderr 글자` · `FAIL C7 stdout 0줄` · `FAIL C8 두 호출 --allow-tests 2개 — 기대[2] 얻음[0]` = 건수가 나노 값과 같다(기준판에서는 C10a·C11·C12 도 FAIL)
+3. [x] 나노: 변이 X1~X5 각각 지정 반례 FAIL(5/5) — 나노 «변이 X1~X5 5/5 잡힘»(aifp 5681) · DA «T-X1~T-X5 검출»(311592) · 변이별 원문 줄은 두 원문에 없다
+4. [x] 나노: 회귀 5파일 rc0 · 시험 파일 100644 · C12 기준판 rc 실측 1줄 — 나노 = 회귀 5파일 rc=0 · 시험 파일 100644 · C12 기준판 rc=1(`$2` unbound) → 새 판 rc=2(aifp 5681) · DA = 다른 회귀 5파일 모두 rc0(ast 0.99초 · refs 4.17초 · lsp-crash 2.64초 · lsp-visible 0.85초 · outline 2.43초) · arch 확인 = cf0d4052 의 시험 파일 mode 100644 · 기준판 재실행에서 `FAIL C12 rc — 기대[2] 얻음[1]`
+5. [x] master: 착지 sha → 설치(루트 main 반영 · 사본 2곳 cmp0 · bash -n rc0) — 착지 = PR #1332 squash cf0d405248d7ba40cde46ae4daf741bf65f0c6aa(head 12840fa9 · gh pr view 로 대조) · arch 읽기 확인(aifp-ft-arch-pi#20 · 2026-11-16 05:09): 루트 checkout main = c784c409(cf0d4052 는 그 조상 · rc 0) · ~/.local/bin/ci · ~/.claude/skills/code-intel/scripts/ci · ~/.agents/skills/code-intel/scripts/ci 세 곳의 실제 대상 = 모두 루트 checkout feature-pack/code-intel/skill/scripts/ci(~/.agents/skills/code-intel → ~/.claude/skills/code-intel → 팩 skill 폴더 심링크) · 세 곳 모두 cf0d4052 판과 cmp 0 · bash -n rc 0
+6. [x] master: 재현 명령 원문 3줄(cwd feature-pack/fable-team) — `ci search prereq ft2/tests` 결과에 test_keeper_next_prereq_line_r2027.py 있음 · `ci search prereq ft2/tests --no-tests` 결과 파일 0 · `ci search prereq ft2/tests --allow-tests` 결과가 전부 ft2/tests 아래 + rg 실패 경고 0 · 각 rc·real(7초 안) — arch 실측(aifp-ft-arch-pi#20 · 2026-11-16 05:09 · 설치본 ci · cwd = 팩 루트 · path = feature-pack/fable-team/ft2/tests · 팀장 발주 aifp 5711 의 명령): `ci search prereq <path> --max 3` rc 0 · real 0.19초 · `Found 2 search results` · 결과 파일 = ft2/tests/test_keeper_next_prereq_line_r2027.py(결함 보고 aifp 5650 때는 0건) / `… --max 3 --no-tests` rc 0 · real 0.06초 · 결과 파일 0 / `… --max 3 --allow-tests` rc 0 · real 0.12초 · 결과 파일 1 = 같은 파일(ft2/tests 아래 · path 밖 0) · stderr warn 줄 0 / 덧: `… --bogus` rc 2 · stderr `ci search: 모르는 인자 --bogus — ci search "<query>" [path] [--max N] [--no-tests]` · stdout 0줄 · 네 발주와 다른 곳 = 카드는 cwd feature-pack/fable-team 을 적었고 나는 팩 루트에서 전체 경로로 돌렸다(같은 폴더)
+7. [x] master: 발견 나노(aifp 5650)와 하드 룰 16 을 쓰는 팀에 1통(«ci search 가 시험 파일을 본다 · 끄기 = --no-tests») — 팀장 aifp-ft-master-pi#21 알림 2통(팀장 aifp 5720): 발견 나노 aifp-ft-nano-ft2-prereq-unreadable-once#0 앞 aifp 5718(05:11:01 · «고침 착지 — main cf0d4052(PR #1332) · ci search 가 시험 파일을 기본으로 본다 · 끄기 = --no-tests» · arch 가 우편함 기록에서 원문 대조) · planner 앞 BYZ 311680(팀장 인용 · 원문 대조 안 함)
 - 나노 끝선(5줄 이내): 바꾼 줄 범위 · 시험 결과 줄·초 · 기준판·변이 FAIL 목록 · 기대 글자 고친 검사 줄 · 설계와 다르게 한 점(없으면 «없음»)
 
 ## 계약↔시험 대응표
@@ -124,3 +125,8 @@ fixture(/tmp · 6파일 · 같은 낱말)에서 probe 가 기본으로 빼는 �
 - 2026-11-16 04:48 · DA#11 APPROVE-DESIGN(BYZ 311517 · aifp 5668 · 사본 .fable-team/state/team-main/aifp-ft/DA-ci-tests-design-approve-311517/verdict.md) → 배정 줄 풂 · 팀장 aifp-ft-master-pi#20
 - 2026-11-16 04:49 — 대기→진행 · 좌석 aifp-ft-nano-ci-search-test-files#0
 - [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
+- 2026-11-16 05:09 · aifp-ft-arch-pi#20 착지 줄 씀(팀장 aifp 5711) · 조건 2~6 [x] · 조건 1 [~](시험 전체 rc 1 = 기준판 대조 블록만 실패 · 착지 뒤 16줄) · 조건 7 = 팀장 몫(알림 1통)
+- 알려진 한계: 시험 test_ci_search_nonascii_panic.sh 전체 rc 는 1 이다 — «기준판 대조» 블록이 origin/main 을 기준판으로 잡아, 고침이 착지한 뒤에는 «기준판 … 통과 — FAIL 이어야» 가 난다(앞 카드 몫 10줄 + 이 카드 몫 6줄) · 기능 검사 실패 0 · 고침 = 결함이 있던 커밋 sha 고정(별도 fixture 보수 카드 · DA 311592) · 그 밖 한계(DA) = --no-tests 에서 panic rg 폴백은 시험 파일을 가르지 않고 경고만 낸다 · 실 probe 0건 rc 0 이라 OR 재시도가 돌지 않는 것은 범위 밖 그대로
+- DA 판정: APPROVE-IMPL 311592(사본 .fable-team/state/team-main/aifp-ft/DA-ci-tests-impl-approve-311592/verdict.md) · 승인 sha 12840fa9 · 수용 반례 0 · C1~C12 통과 · T-X1~T-X5 검출 · 회귀 5파일 rc0 · 전체 suite rc1(같은 10줄) 을 rc0 으로 주장하지 않음
+- 2026-11-16 05:13 · aifp-ft-arch-pi#20 조건 7 [x](팀장 aifp 5720) · 조건 1 = 팀장 판단(하드 룰 21) «알려진 한계» 로 받아 DA 닫힘 판정으로 닫는다 · 보수 = 별도 카드 대기/ci-test-base-sha-pin
+- 세트: 12840fa95f419d372f2329ef788d01a2fba3ef80 · 시험: bash feature-pack/code-intel/tests/test_ci_search_nonascii_panic.sh rc=1(284/294 · 남은 10 = 기준판 대조 블록) · 이슈: 0
