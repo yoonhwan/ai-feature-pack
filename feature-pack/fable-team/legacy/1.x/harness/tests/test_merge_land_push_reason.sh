@@ -45,7 +45,7 @@ rm -f "$W/.git/hooks/pre-push"; rm -rf "$T/state/push-out"
 git -C "$W" fetch -q origin; mkpr 52 pr52 origin/main; MB="$(omain)"
 printf '#!/bin/bash\ncat >/dev/null\nfor i in 1 2 3 4 5; do echo "server says no $i" >&2; done\nexit 1\n' > "$ORIGIN/hooks/pre-receive"; chmod +x "$ORIGIN/hooks/pre-receive"
 land 52 --approve-sha "$PRSHA"
-[ "$rc" = 1 ] && [ "$(printf '%s' "$out" | grep -o 'remote: server says no' | grep -c .)" = 3 ]; ck "ⓑ1 REJECT 에 remote: 사유 줄 최대 3줄(앞에서부터)" $?
+[ "$rc" = 6 ] && [ "$(printf '%s' "$out" | grep -o 'remote: server says no' | grep -c .)" = 3 ]; ck "ⓑ1 REJECT 에 remote: 사유 줄 최대 3줄(앞에서부터) · rc 6 원격 거절(r2007)" $?
 [[ "$out" == *"remote: server says no 1"* ]] && [[ "$out" != *"remote: server says no 4"* ]]; ck "ⓑ2 앞 3줄만(1~4번째 줄 0)" $?
 FB="$(newfiles)"; [ -n "$FB" ] && [ "$(grep -c 'server says no' "$FB")" = 5 ]; ck "ⓑ3 전문 파일에 5줄 전부" $?
 [ "$(omain)" = "$MB" ]; ck "ⓑ4 main 불변" $?

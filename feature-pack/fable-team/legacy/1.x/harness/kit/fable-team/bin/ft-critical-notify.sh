@@ -172,9 +172,10 @@ def land_after(args, out, ctx):   # A4 — rc 1 거절 전부 · 지문 = <PR he
     text = "\n".join(ls[i:j + 1])
     notify("ft-merge-land", f"{slug} PR #{pr}", f"{ctx or '-'}:{sha12(text)}", ls[i], nexts(LAND_NEXT, [text], "REJECT 원문대로 고친 뒤 다시 land"), f"{slug}#{pr}")   # r1718-mut:landevent
 
-def after(tool, rc, d, args):   # --wrap 끝 — rc 1 = 알림 · rc 0 = 해결 · 그 밖(rc 2 usage·승인 없음 등) = 호출 0
+def after(tool, rc, d, args):   # --wrap 끝 — rc 1 = 알림(ft-merge-land 는 rc 6 원격 거절도 · r2007) · rc 0 = 해결 · 그 밖(rc 2 usage·승인 없음 등) = 호출 0
     read = lambda n: open(os.path.join(d, n), encoding="utf-8", errors="replace").read() if os.path.isfile(os.path.join(d, n)) else ""
-    if tool == "ft-merge-land": return land_after(args, read("out") if rc == "1" else None, read("ctx").strip())
+    if tool == "ft-merge-land": return land_after(args, read("out") if rc in ("1", "6") else None, read("ctx").strip())
+    if rc == "6": return   # rc 6 = ft-merge-land 전용(다른 도구는 지금처럼 호출 0)
     if rc == "0": return resolve(tool, next((a for a in args if not a.startswith("--")), ""))
     close_after(tool, args, read("out"))
 
@@ -196,7 +197,7 @@ if [ "$1" = --wrap ]; then   # A7 — 본 작업은 자식 1회(다시 돌리지
   [ $# -ge 3 ] || usage; TOOL="$2"; SCRIPT="$3"; shift 3
   D="$(mktemp -d "${TMPDIR:-/tmp}/ft-critical-XXXXXX" 2>/dev/null)" || { FT_CRITICAL_IN=$$ bash "$SCRIPT" "$@"; exit $?; }
   FT_CRITICAL_IN=$$ FT_CRITICAL_CTX="$D/ctx" bash "$SCRIPT" "$@" | tee "$D/out"; RC=${PIPESTATUS[0]}   # r1718-mut:stream
-  case "$RC" in 0|1) core after "$TOOL" "$RC" "$D" "$@";; esac
+  case "$RC" in 0|1|6) core after "$TOOL" "$RC" "$D" "$@";; esac
   rm -rf "$D"; exit "$RC"
 fi
 core "$@"; rc=$?; [ "$rc" = 2 ] && usage; exit 0
