@@ -15,10 +15,10 @@ def _mod(name, path):
 def _proj():
     return _mod("projection", os.path.join(os.path.dirname(os.path.dirname(HERE)), "core", "projection.py"))
 def held(k, team, key, text):
-    """같은 사유 1회 HELD 1줄(held 키) · 반환 None."""
+    """같은 사유 1회 UNKNOWN 1줄(held 키) · 반환 None · r2055 HELD 폐지."""
     if k.state["held"].get(key) != text:
         k.state["held"][key] = text
-        k.log("HELD", team, text)
+        k.log("UNKNOWN", team, text)
 def _rows(k, team):   # journal 새로 읽기 · 못 읽음 = None(판독 실패 = 대체·고아 닫기 0)
     try:
         return _proj().journal.Journal(_proj().runtime_path(k.root, team), rec=_proj().record).records()
@@ -164,4 +164,4 @@ def orphans(k, teams):
             continue
         k.call([k.tmux, "kill-session", "-t", "=" + seat])
         gone = k.probe(seat)
-        k.log("CLOSED-ORPHAN" if gone == "absent" else "HELD", team, "%s %s %s %s%s" % (work, seat, end[0], end[1], "" if gone == "absent" else " 부재 확인 없음(%s)" % gone))
+        k.log("CLOSED-ORPHAN" if gone == "absent" else "UNKNOWN", team, "%s %s %s %s%s" % (work, seat, end[0], end[1], "" if gone == "absent" else " 부재 확인 없음(%s)" % gone))

@@ -23,13 +23,13 @@ def opened(w, work, base, attempt="a1", intent=True):
     return seat
 
 
-def c1(w):   # ① 착지 sha = intent base 의 조상(좌석 열 때 이미 있던 줄) → complete 0 · HELD «옛 착지 줄(attempt 전)»
+def c1(w):   # ① 착지 sha = intent base 의 조상(좌석 열 때 이미 있던 줄) → complete 0 · UNKNOWN(r2055 · 옛 HELD) «옛 착지 줄(attempt 전)»
     old = w.pack_sha()
     base = w.pack_sha()
     w.card("r9301", old), opened(w, "r9301", base)
     lines = w.round()
     assert w.kinds("complete") == 0, lines
-    assert any(x.startswith("HELD") and "r9301 옛 착지 줄(attempt 전) " + old[:8] in x for x in lines), lines
+    assert any(x.startswith("UNKNOWN") and "r9301" in x and "옛 착지 줄(attempt 전) " + old[:8] in x for x in lines), lines
 
 
 def c2(w):   # ② base 뒤 새 커밋 착지 줄 → 조상 아님(rc1) → COMPLETED(회귀)
@@ -74,7 +74,7 @@ def c4(w):   # ④ 조상 대조 git rc128(가짜 · base_sha 대상 merge-base 
     k.git = lambda repo, *a, **kv: (128, "", "fatal: 가짜") if a[:2] == ("merge-base", "--is-ancestor") and a[-1] == base else real(repo, *a, **kv)
     lines = w.round(k)
     assert w.kinds("complete") == 0, lines
-    assert any(x.startswith("HELD") and "r9306" in x and "판정 불가" in x for x in lines), lines
+    assert any(x.startswith("UNKNOWN") and "r9306" in x and "판정 불가" in x for x in lines), lines
 
 
 @pytest.mark.parametrize("case", [c1, c2, c3, c3b, c3c, c4], ids=lambda f: f.__name__)

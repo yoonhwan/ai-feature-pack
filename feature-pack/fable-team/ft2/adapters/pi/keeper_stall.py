@@ -127,7 +127,7 @@ class Stall:
             return False
         if body.setdefault(key, k.stamp()) and any(isinstance(r, dict) and (r.get("message") or {}).get("role") == "user" and mark + " " in json.dumps(r["message"], ensure_ascii=False) for r in seen):
             return False
-        k.log("HELD", team, "%s %s 본문 도달 0(%s) — 깨움 0 · 재배정 1회" % (work, holder, "표식 줄 0" if session else "세션 파일 0"))
+        k.log("UNKNOWN", team, "%s %s 본문 도달 0(%s) — 깨움 0 · 재배정 1회" % (work, holder, "표식 줄 0" if session else "세션 파일 0"))
         return self.reassign(team, work, attempt, holder, tree, intent, rows) or True
     def facts(self, work, attempt, rows, tree):
         """마지막 진척 재료 4개(wall 시각 · 논리 tick 과 섞지 않는다) — 못 읽음 = 사유 문자열."""
@@ -214,7 +214,7 @@ class Stall:
             return self.stop(team, work, attempt, "pre", "%s %s 재배정 0 — %s" % (work, holder, p))
         rc, pane, _ = k.call([k.tmux, "capture-pane", "-p", "-t", pane_target(holder)])
         if rc != 0 or BUSY.search(pane[-2000:]):
-            return k.log("HELD", team, "%s %s 재배정 직전 Working·capture rc %s — 다음 바퀴" % (work, holder, rc))
+            return k.log("WORKING", team, "%s %s 재배정 직전 Working·capture rc %s — 다음 바퀴" % (work, holder, rc))
         if k.held_attached(team, work, holder):
             return
         k.call([k.tmux, "kill-session", "-t", "=" + holder])

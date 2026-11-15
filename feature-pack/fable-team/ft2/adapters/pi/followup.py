@@ -54,7 +54,7 @@ def gate(k, team, work, attempt):
         why += " (카드 %s:%s)" % (ref, path)
     else:
         why = "판정 불가 · 카드 본문 못 정함"
-    k.log("HELD", team, "%s 남은 범위 %s" % (work, why))
+    k.log("UNKNOWN", team, "%s 남은 범위 %s" % (work, why))   # r2055 HELD 폐지
     k.notify(team, "followup|%s|%s|%s|%s" % (team, work, attempt, why),
-             "[HELD] %s %s 착지했지만 complete 0 — 남은 범위 %s · 카드에 줄을 고치면 다음 바퀴에 다시 본다" % (team, work, why))
+             "[UNKNOWN] %s %s 착지했지만 complete 0 — 남은 범위 %s · 카드에 줄을 고치면 다음 바퀴에 다시 본다" % (team, work, why))
     return None

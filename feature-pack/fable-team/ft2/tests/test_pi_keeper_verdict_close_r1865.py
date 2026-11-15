@@ -51,7 +51,7 @@ def _closed(w, holder):
 
 def _held(w, start, once=False):
     lines = _mine(w.round())
-    assert len(lines) == 1 and lines[0].startswith("HELD harness %s %s" % (W, start)), lines
+    assert len(lines) == 1 and lines[0].startswith(("UNKNOWN harness %s %s" % (W, start), "WORKING harness %s %s" % (W, start))), lines   # r2055 HELD 폐지 → UNKNOWN·WORKING
     assert w.tmux("kill-session") == [] and w.kinds("close_receipt") == 0
     if once:   # 같은 사유 두 바퀴째 새 줄 0
         assert _mine(w.round()) == [] and w.tmux("kill-session") == []

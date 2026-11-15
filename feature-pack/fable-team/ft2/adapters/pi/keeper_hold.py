@@ -44,7 +44,7 @@ def check(k, team, work, attempt, rows):
         return None
     if n >= 3:
         k.state["hold"][key] = n
-        return None if seen >= 3 else k.log("HELD", team, "%s HOLD 누적 %d — 인터뷰 길(하드 룰 14)" % (work, n))
+        return None if seen >= 3 else k.log("UNKNOWN", team, "%s HOLD 누적 %d — 인터뷰 길(하드 룰 14)" % (work, n))
     holder = k.read_json(os.path.join(projection.runtime_path(k.root, team), "launch", "%s@%s.intent" % (work, attempt))).get("FT2_HOLDER")
     alive = k.probe(holder) if holder else "holder 없음"
     if alive != "alive":

@@ -35,9 +35,12 @@ def alive(w, *seats):
     d = json.loads(w.tm.read_text(encoding="utf-8"))
     _put(w.tm, dict(d, alive=d["alive"] + list(seats)))
 def retire(w, team, seat):  # 명부 `_replaced_by` 행 + 세션 생존 = B3 대상 · team "" = seats.json(v65)
+    base, _, n = seat.rpartition("#")   # r2055 S2 — 장기 좌석 = 후계(같은 계보 #N+1) 생존 · [레디] · 재개 기록 · 나노 = 면제(그대로)
+    nano, new = "-nano-" in seat, "%s#%d" % (base, int(n) + 1) if n.isdigit() else seat + "-new"
     path = w.root / ".fable-team" / ("seats-%s.json" % team if team else "seats.json")
     _put(path, dict(json.loads(path.read_text(encoding="utf-8")) if path.exists() else {},
-                    **{seat: {"role": "stop-ready", "_replaced_by": seat + "-new"}})), alive(w, seat)
+                    **{seat: {"role": "stop-ready", "_replaced_by": new}})), alive(w, seat, *([] if nano else [new]))
+    w.succession(seat, new) if not nano else None
 def closes(w):
     return _lines(str(w.close) + ".log")
 def mails(w):

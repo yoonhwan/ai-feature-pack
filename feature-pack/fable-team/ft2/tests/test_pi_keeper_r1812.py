@@ -29,9 +29,10 @@ def c2(w):   # ② BYZ ops/main-base 에만 있는 sha → complete 1
     assert any("ref byz:origin/ops/main-base" in x for x in w.round()) and w.kinds("complete") == 1
 def c3(w):   # ③ 착지 줄 없음 → 쓰기 0 · 쪽지 0 · ③′ 미도달 → 쓰기 0 · 쪽지 1 · 다음 바퀴 0
     w.card("r9003"), w.work("r9003", intent=False), w.card("r9013", AB), w.work("r9013", intent=False)
-    assert any("r9003 착지 줄 없음" in x for x in w.round()) and w.kinds("complete") == 0
-    assert len(_lines(str(w.mbox) + ".log")) == 1 and "미도달" in _lines(str(w.mbox) + ".log")[0]
-    assert w.round() is not None and len(_lines(str(w.mbox) + ".log")) == 1 and w.kinds("complete") == 0
+    assert any("r9003" in x and "착지 줄 없음" in x for x in w.round()) and w.kinds("complete") == 0   # r2055 판정 줄 꼬리 = 착지 사유
+    crit = lambda: [x for x in _lines(str(w.mbox) + ".log") if "[크리티컬]" in x and "미도달" in x]   # noqa: E731 · r2055 UNKNOWN [긴급] 은 따로 셈
+    assert len(crit()) == 1
+    assert w.round() is not None and len(crit()) == 1 and w.kinds("complete") == 0
 def c4(w):   # ④·⑫′ done + 조상 + 유휴 → kill 1 → 부재 확인 → close_receipt 1 (순서 = 닫기 → 영수)
     w.enable(), w.card("r9004", w.pack_sha())
     holder = w.work("r9004", done=True, alive=True)
@@ -41,7 +42,7 @@ def c4(w):   # ④·⑫′ done + 조상 + 유휴 → kill 1 → 부재 확인 �
     assert w.tmux("kill-session") == [["kill-session", "-t", "=" + holder]] and w.kinds("close_receipt") == 1
 def c4b(w):  # ④′ pane «Working» → kill 0 · HELD
     w.enable(), w.card("r9014", w.pack_sha()), w.work("r9014", done=True, alive=True, pane="⠋ Working...\n")
-    assert any(x.startswith("HELD harness r9014") and "Working" in x for x in w.round())
+    assert any(x.startswith("WORKING harness r9014") and "Working" in x for x in w.round())   # r2055 HELD → WORKING
     assert w.tmux("kill-session") == [] and w.kinds("close_receipt") == 0
 def c4c(w):  # ④″ 세션 이미 없음 → kill 0 · close_receipt 1
     w.enable(), w.card("r9024", w.pack_sha()), w.work("r9024", done=True), w.round()
@@ -83,7 +84,7 @@ def c5(w):   # ⑤ retire RETIRED rc0 → ft-seat-close 1회(<구> --reason) · 
     assert run("Q#1", "Q#2").returncode == 3 and len(_lines(str(w.close) + ".log")) == 1
 def c6(w):   # ⑥ 명부 _replaced_by + 생존 → ft-seat-close 1 · HELD 뒤 5분 0 · 11분 1
     _put(w.root / ".fable-team" / "seats-harness.json", {"_master": "M", "O#1": {"role": "stop-ready", "_replaced_by": "O#2"}, "O#2": {}})
-    _put(w.tm, {"alive": ["O#1", "O#2"], "pane": {}}), _put(str(w.close) + ".rc", "3")
+    _put(w.tm, {"alive": ["O#1", "O#2"], "pane": {}}), _put(str(w.close) + ".rc", "3"), w.succession("O#1", "O#2")   # r2055 S2 끝남 근거 + 닫기 자격
     calls = [(setattr(w, "t", T0 + dt), w.round(), len(_lines(str(w.close) + ".log")))[2] for dt in (0, 300, 660)]
     assert calls == [1, 1, 2] and _lines(str(w.close) + ".log")[0].startswith("O#1 --reason retire -> O#2 --seats ")
 def c7(w):   # ⑦ 끝난 뒤 31분 열린 좌석(HELD 지속) → --report N=1 · 쪽지 1 · 같은 날 다시 → 0
@@ -116,7 +117,7 @@ def c13(w):  # 보정1 B2 Pi 턴 끝 근거 없음(파일 0 · toolUse) + captur
     w.enable(), w.card("r9041", w.pack_sha()), w.card("r9051", w.pack_sha())
     w.work("r9041", done=True, alive=True, pane="", turn=None), w.work("r9051", done=True, alive=True, pane="", turn="toolUse")
     lines = w.round()
-    assert [x.split()[0] for x in lines if "r9041" in x or "r9051" in x] == ["HELD", "HELD"], lines
+    assert [x.split()[0] for x in lines if "r9041" in x or "r9051" in x] == ["WORKING", "WORKING"], lines   # r2055 HELD → WORKING(turn-open)
     assert all("판정 불가" in x for x in lines if "r9041" in x or "r9051" in x)
     assert w.tmux("kill-session") == [] and w.kinds("close_receipt") == 0
 def c14(w):  # 보정1 B5 보호 역할(master holder) · intent holder ≠ 최신 dispatch holder → 닫기 0 · 영수 0
@@ -124,8 +125,8 @@ def c14(w):  # 보정1 B5 보호 역할(master holder) · intent holder ≠ 최�
     w.work("r9061", done=True, alive=True, holder="byz-harness-master-pi#999")
     w.work("r9071", done=True, alive=True, seat="byz-harness-nano-other-t#0")
     lines = w.round()
-    assert any(x.startswith("HELD harness r9061") and "보호 역할" in x for x in lines), lines
-    assert any(x.startswith("HELD harness r9071") and "holder 불일치" in x for x in lines), lines
+    assert any(x.startswith("WORKING harness r9061") and "보호 역할" in x for x in lines), lines   # r2055 HELD → WORKING(protected)
+    assert any(x.startswith("UNKNOWN harness r9071") and "holder 불일치" in x for x in lines), lines   # r2055 HELD → UNKNOWN
     assert w.tmux("kill-session") == [] and w.kinds("close_receipt") == 0
 CASES = {"①": c1, "②": c2, "③": c3, "④": c4, "④′": c4b, "④″": c4c, "⑤": c5, "⑥": c6, "⑦": c7, "⑧": c8, "⑨": c9, "⑩": c10,
          "⑪": c11, "⑪′": c11b, "⑪″": c11c, "⑫": c12, "⑫′": c4, "⑫″": c12c,

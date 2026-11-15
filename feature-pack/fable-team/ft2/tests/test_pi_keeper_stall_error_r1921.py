@@ -29,7 +29,7 @@ def _seat(w, msg, age, step=-5 * M):
 
 
 def _mine(lines):
-    return [x for x in lines if H0 in x]   # 착지 판독 줄(일 이름만 · holder 0)은 셈 밖
+    return [x for x in lines if H0 in x and not x.startswith("WORKING ")]   # 착지 판독 줄(일 이름만 · holder 0)·r2055 WORKING 판정 줄은 셈 밖
 
 
 def c1(w):   # ① 503 · 121초 · Working 0 → Escape·문구·Enter · WOKE 1(본문 «오류 턴»)

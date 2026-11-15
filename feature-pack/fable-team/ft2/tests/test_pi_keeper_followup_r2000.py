@@ -30,9 +30,9 @@ def run(w, work, *left, **kw_):
 def ok(w, lines, work, n=1):
     assert w.kinds("complete") == n and any(x.startswith("COMPLETED harness " + work) for x in lines), lines
 def held(w, lines, work, why, n=0):
-    assert w.kinds("complete") == n and any(x.startswith("HELD harness %s 남은 범위" % work) and why in x for x in lines), lines
+    assert w.kinds("complete") == n and any(x.startswith("UNKNOWN harness %s 남은 범위" % work) and why in x for x in lines), lines
 def mails(w, work):
-    return sum(work in x for x in _lines(str(w.mbox) + ".log"))
+    return sum(work in x and "[긴급] UNKNOWN" not in x for x in _lines(str(w.mbox) + ".log"))   # r2055 settle [긴급] 은 셈 밖
 def c1(w):   # ① 착지 있음 · 줄 없음 → complete 0 · HELD · 팀장 1통
     held(w, run(w, "r9801"), "r9801", "줄 없음")
     assert mails(w, "r9801") == 1

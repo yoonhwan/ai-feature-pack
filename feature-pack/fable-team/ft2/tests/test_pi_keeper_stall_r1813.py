@@ -238,7 +238,8 @@ def r3b(w):  # R3-b 옛 intent 열림 아님 / worktree 미커밋 변경 / argv 
         if sub == "r":   # r1840 K3 — 역할만 못 정함 = 판정 불가 1줄 · 크리티컬 0
             assert v.notes() == [] and sum("역할 못 정함" in x for x in v.k.lines) == 1, v.k.lines
             continue
-        assert len(v.notes()) == 1 and field in v.notes()[0], (sub, v.notes())
+        crit = [x for x in v.notes() if "[긴급] UNKNOWN" not in x]   # r2055 settle UNKNOWN [긴급] 은 셈 밖
+        assert len(crit) == 1 and field in crit[0], (sub, v.notes())
 
 
 def r1b(w):  # 보정1 R1(DA#10 #294192) — 깨움 문구 도달 확인 3회 실패 → woke 기록 0 · 11분 뒤 kill·dispatch·launch 0
@@ -264,7 +265,7 @@ def c5(w):   # ⑤ 같은 work 두 번째 멈춤(attempt a2) → S3 0 · 쪽지 
 def c6(w):   # ⑥ intent 없는 master 좌석 IDLE 60분 → 행동 0 · 멈춤 갈래 줄 0
     w.seat(holder="byz-harness-master-x#0", intent=False, step=-60 * M, commit=-60 * M, mtime=-60 * M)
     lines = w.round()
-    assert w.tmux("send-keys") == [] and w.tmux("kill-session") == [] and not [x for x in lines if "master-x" in x]
+    assert w.tmux("send-keys") == [] and w.tmux("kill-session") == [] and not [x for x in lines if "master-x" in x and not x.startswith(("UNKNOWN ", "NOTIFIED "))]   # r2055 settle 판정(kill 0) 만 예외
 
 
 def c6b(w):  # ⑥′ LOGGEDOUT → 행동 0 · 로그 1줄

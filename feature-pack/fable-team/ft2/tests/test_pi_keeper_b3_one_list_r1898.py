@@ -39,7 +39,8 @@ def c1(w):   # ① 3000 행 + 생존 3(1개만 행 이름) → list-sessions 1 �
 def c2(w):   # ② 대상 = 옛 probe 규칙(행 ∧ 생존 ∧ 제외 팀 밖 ∧ held 10분 밖)과 같음
     extra = {LIVE[1]: {"_replaced_by": "d#1"}, LIVE[2]: {"_replaced_by": "r#1"}}
     k, calls = b3(w, rows=50, extra=extra, held={LIVE[1]: w.t - 60}, skip=("room",))
-    assert [a[2] for a in verb(calls, "close")] == [LIVE[0]] and set(k.state["open"]) == {LIVE[1]}
+    assert [a[2] for a in verb(calls, "close")] == [LIVE[0]] and set(k.state["open"]) == set()   # r2055 S2 — desk 좌석 후계 [레디] 0 = 보존(WORKING ready-wait · open 0)
+    assert any(x.startswith("WORKING harness - %s ready-wait" % LIVE[1]) for x in k.lines), k.lines
 def c3(w):   # ③ 서버 없음 → 닫기 0 · 판정 불가 0 · open 비움
     k, calls = b3(w, ls=(1, "no server running on /tmp/x"), rows=5, opened={LIVE[0]: {"team": "harness", "since": 0}})
     assert verb(calls, "close") == [] and not [x for x in k.lines if "판정 불가" in x] and k.state["open"] == {}
@@ -74,7 +75,7 @@ def c5(w):   # ⑤ ROUND 줄 stall= 칸 = stall.check 에 쓴 초 · s = fetch+b
     git = k.git
     k.git = lambda repo, *a, **o: (tick(5) if a[0] == "fetch" else None, git(repo, *a, **o))[1]
     k.complete, k.retired, k.stall.check = (lambda *a: tick(10, False)), (lambda: tick(3)), (lambda *a: tick(7))
-    assert [re.sub(r" fetch_root=\S+ fetch_pack=\S+", "", x) for x in w.round(k) if x.startswith("ROUND")] == ["ROUND s=30 fetch=10 b1=10 b2c=0 b2f=0 b3=3 stall=7 slow=harness:b1:10"]   # r1969 b2c·b2f·slow
+    assert [re.sub(r" fetch_root=\S+ fetch_pack=\S+| unknown=\d+", "", x) for x in w.round(k) if x.startswith("ROUND")] == ["ROUND s=30 fetch=10 b1=10 b2c=0 b2f=0 b3=3 stall=7 slow=harness:b1:10"]   # r1969 b2c·b2f·slow
 def c7(w):   # ⑦ DA R1 — 같은 생존 좌석이 seats-harness.json·seats.json 둘 다 `_replaced_by` → close 1 · 허위 HELD-SEAT 0
     _put(w.root / ".fable-team" / "seats.json", {LIVE[0]: {"_replaced_by": "byz-harness-nano-x-r1#1"}})
     k, calls = b3(w, rows=5)

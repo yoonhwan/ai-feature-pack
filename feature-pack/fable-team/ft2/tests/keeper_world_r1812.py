@@ -114,5 +114,14 @@ class World:
         return k.lines
     def tmux(s, verb):
         return [a for a in map(json.loads, _lines(str(s.tm) + ".log")) if a[0] == verb]
+    def succession(s, old, new, resume=True):
+        """r2055 S2 — 후계 [레디] 영수(우편 로그) + 구 좌석 검증된 재개 기록 = 직전 세대 닫기 자격(hil.md)."""
+        comm, rs = s.tmp / "comm", s.tmp / "resume"
+        s.env.update(FT2_MAILBOX_DIR=str(comm), FT2_SEAT_RESUME_DIR=str(rs))
+        comm.mkdir(exist_ok=True)
+        with open(comm / "mailbox.log.jsonl", "a", encoding="utf-8") as fh:
+            fh.write(json.dumps({"from": new, "to": old, "body": "[레디] %s <- %s · 항목 1" % (new, old)}, ensure_ascii=False) + "\n")
+        if resume:
+            _put(rs / (old + ".json"), {"name": old, "uuid": "u-" + old, "engine": "pi", "cwd": str(s.root)})
     def enable(s, team=TEAM):
         _put(s.root / ".fable-team" / "teams" / team / "CLOSE-NEXT.enabled", "enabled\n")

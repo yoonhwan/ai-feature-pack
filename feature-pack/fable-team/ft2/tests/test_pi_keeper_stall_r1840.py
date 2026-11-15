@@ -31,13 +31,14 @@ def _wake_lines(w):
     return [x for x in w.k.lines if x.startswith("WOKE")]
 
 
-def c1(w):   # ① 최신 attempt 마지막 단계 = result · 진척 20분 0 · IDLE → 깨움 0 · 재배정 0 · tmux 호출 0 · 로그 0
+def c1(w):   # ① 최신 attempt 마지막 단계 = result · 진척 20분 0 · IDLE → 깨움 0 · 재배정 0 · tmux 손 0(r2055 판독만) · 로그 0
     w.seat(step=-20 * M)
     assert w.cli(T0 - 20 * M, "result", "--work", W, "--holder", H0, "--gen", "1")[1] == 0
     for dt in (0, 11 * M, 30 * M):
         lines = w.round(dt)
-        assert not [x for x in lines if H0 in x], lines   # 착지 판독(B1) 줄은 holder 를 안 담는다
-    assert B._lines(str(w.tm) + ".log") == [] and w.kinds("dispatch") == 1 and w.notes() == []
+        assert not [x for x in lines if H0 in x and not x.startswith("WORKING ")], lines   # 착지 판독(B1) 줄은 holder 를 안 담는다 · r2055 WORKING 판정 줄(좌석 칸) 만 예외
+    hands = [x for x in B._lines(str(w.tm) + ".log") if json.loads(x)["a"][0] not in ("has-session", "capture-pane", "display-message")]   # r2055 settle 판독(읽기) 3종 = 손 아님
+    assert hands == [] and w.kinds("dispatch") == 1 and w.notes() == []
 
 
 def c1b(w):  # ①′ result 뒤 complete → check 대상 밖 · 깨움 0
