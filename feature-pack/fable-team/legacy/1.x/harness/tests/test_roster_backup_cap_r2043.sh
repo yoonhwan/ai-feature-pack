@@ -53,6 +53,17 @@ chk "③대상 x·retire 60 → 50" "$(ls "$D"/seats-x.json.bak-retire-2025* | w
 chk "③꼴 밖·남의 파일 이름·내용 불변" "$([ "$before" = "$after" ] && echo same || echo changed)" same
 chk "③심링크·폴더 그대로" "$([ -L "$D/seats-x.json.bak-retire-20000101000001" ] && [ -d "$D/seats-x.json.bak-retire-20000101000000" ] && echo yes)" yes
 
+# ③-R1(DA HOLD 1 #307305) 숫자 1자리·구분자 나열 꼬리 = 생성기가 안 만드는 꼴 → 존재·바이트 보존(실제 꼴 = 14자리 · YYYYmmdd-HHMMSS · +마이크로초 6)
+D="$TMP/c3r1"; mkdir -p "$D"; echo '{}' > "$D/seats-x.json"; mkbaks "$D/seats-x.json" retire 60
+for t in 1 2025__11--15 20250101-0000 20250101000000000; do echo "keep-$t" > "$D/seats-x.json.bak-retire-$t"; done
+cappy "$D/seats-x.json" retire 2>/dev/null
+chk "③R1 꼴 밖 4개 존재·바이트 보존" "$(for t in 1 2025__11--15 20250101-0000 20250101000000000; do cat "$D/seats-x.json.bak-retire-$t" 2>/dev/null || echo gone; done | xargs)" "keep-1 keep-2025__11--15 keep-20250101-0000 keep-20250101000000000"
+chk "③R1 정상 14자리 60 → 50" "$(ls "$D" | grep -cE '^seats-x\.json\.bak-retire-[0-9]{14}$')" 50
+D="$TMP/c3r2"; mkdir -p "$D"; echo '{}' > "$D/k.json"
+for ((i=0; i<55; i++)); do echo r > "$D/k.json.bak-rename-20250101-$(printf '%06d' "$i")"; echo k > "$D/k.json.bak-keyrotate-K-20250101-$(printf '%06d' "$i")123456"; done
+cappy "$D/k.json" rename 2>/dev/null; cappy "$D/k.json" keyrotate-K 2>/dev/null
+chk "③R1 rename·keyrotate 실제 꼴 55 → 50 · 50" "$(ls "$D" | grep -c 'bak-rename-') $(ls "$D" | grep -c 'bak-keyrotate-K-')" "50 50"
+
 # ④ 지우기 실패(os.remove 스텁 · 한 파일 PermissionError) → WARN 1줄 · 은퇴 rc0 · RETIRED 줄 = 실패 없는 실행과 같음
 mkdir -p "$TMP/stub"; cat > "$TMP/stub/sitecustomize.py" <<PY
 import os
