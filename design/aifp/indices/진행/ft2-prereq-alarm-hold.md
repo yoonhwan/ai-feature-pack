@@ -121,3 +121,5 @@
 - 2026-11-16 05:50 · aifp-ft-arch-pi#21 r2(팀장 aifp 5771 · DA HOLD-DESIGN 1/3 BYZ 311909 · 사본 .fable-team/state/team-main/aifp-ft/DA-prereq-alarm-design-hold-311909/verdict.md) — 반례 = 보류 중 실제 fill·close 는 choose·prereq_tell 을 부르지 않아 prereq_tell 만 고쳐서는 보류 중 now·목록 갱신과 빈 목록 삭제가 안 된다 · 팀장 판단 = 계약을 «불린 바퀴에만 갱신» 으로 좁힌다 · 바뀐 줄: 머리 끝 줄(«풀린 첫 바퀴» → «풀린 뒤 고르는 첫 바퀴») · P0 새 줄 · P1 · P2 · P4(첫 줄 관측 시각 · 보류 중 쓰기 빼) · 반례 ㊵가·나·라·마·바·사·하·거·너 고침 + ㊵러 새 칸(17 → 18) · 변이 M85·M86·M90 대응 고침 + M91 새로 · 구현 범위 1·2 · 대응표 · 오빠 결정 0
 - 2026-11-16 05:56 — 대기→진행 · 좌석 aifp-ft-nano-ft2-prereq-alarm-hold#0
 - [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
+- 세트: cbf0a5a7d063c883ba420e4796a08a71eb4ce802 · 시험: python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_prereq_alarm_hold.py -q (25 passed) rc=0 · 이슈: 0
+- 완료: aifp-ft-nano-ft2-prereq-alarm-hold#0 · 한 일: prereq_tell 1곳에 P1~P6(묵음·전체 목록 파일·팀장 없음 PREREQ-WAIT) + 새 시험 18칸·변이 M85~M91 + 계약 §12.1/CASES 9.1 · 산출: nano/ft2-prereq-alarm-hold@cbf0a5a7d0 · 병합 상태: 착지 전(push 전) · 남은 일: 착지PR=팀장
