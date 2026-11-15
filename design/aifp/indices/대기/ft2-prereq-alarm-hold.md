@@ -1,7 +1,7 @@
-# 인덱스: ft2-prereq-alarm-hold — 끝: 전팀 정지 · 팀 PAUSED · NEW_CARD_HOLD 중에는 [다음 막힘] 선행 줄 쪽지가 0통이다 · 풀린 첫 바퀴에 팀마다 1통이 가고 그 글에 전체 목록(3장을 넘으면 목록 파일 경로 1줄)이 있다 · 팀장이 없는 팀은 harness [긴급] 으로 넘기지 않고 팀장이 설 때까지 보류한다
+# 인덱스: ft2-prereq-alarm-hold — 끝: 전팀 정지 · 팀 PAUSED · NEW_CARD_HOLD 중에는 [다음 막힘] 선행 줄 쪽지가 0통이다 · 풀린 뒤 카드를 고르는 첫 바퀴에 팀마다 1통이 가고 그 글에 전체 목록(3장을 넘으면 목록 파일 경로 1줄)이 있다 · 팀장이 없는 팀은 harness [긴급] 으로 넘기지 않고 팀장이 설 때까지 보류한다
 <!-- ledger: feature-pack/fable-team/legacy/1.x/harness/design/harness/GOAL-harness.md -->
 - Issue: 없음(초안) — 넘김 byz-harness-master-pi#292 aifp 5744(planner 결정 BYZ 311721 · arch#385 판단 BYZ 311752) · 팀장 aifp-ft-master-pi#21 발주 aifp 5746 · 후보 본문 BYZ .fable-team/state/team-main/harness/a385/card-candidate-prereq-alarm-hold.md
-- 제안서: 없음 — 앞 카드가 만든 쪽지 1곳에 보낼 조건을 더하는 결함 복구 · 설계 = 이 카드 «계약»·«반례 표»
+- 제안서: 없음 — 앞 카드가 만든 쪽지 1곳에 보낼 조건을 더하는 결함 복구 · 설계 = 이 카드 «계약»·«반례 표»(DA HOLD-DESIGN 1/3 BYZ 311909 반영 r2)
 - 근거: 실측 2026-11-16 05:39(aifp-ft-arch-pi#21 · BYZ .fable-team/state/ft2-keeper/launchd.log · 20261115.jsonl · 20261116.jsonl · state.json · 읽기만) — 아래 «기준값» 절
 - 원인 1줄: keeper_next.prereq_tell 은 보낼지를 묶음 지문(I8)만으로 정한다 · 정지·보류는 choose 를 부르는 쪽(fill · 닫기 뒤 고르기)의 앞 조건에만 걸려 있어 쪽지 자리에서는 보이지 않는다 · 본문에는 앞 3장만 실린다 · 팀장이 없으면 notify 가 대신 받는 곳 묶음(harness [긴급])에 넣는다
 - 앞 카드: 진행/ft2-prereq-unreadable-once(I1~I9 · 착지 b70abbf6 · 설치 ft2 2.0.69 · 조건 7 [~]) · 진행/ft2-new-card-hold(H1~H8 · 착지 eb4c9ea0) · 완성/ft2-keeper-notify-recipient(E1~E8 받는 곳·묶음) · 완성/ft2-penalty-team-no-new-pick
@@ -44,10 +44,11 @@
 읽은 뜻: 설치 뒤 줄 수는 앞 카드 계약대로다(카드당 1줄 · 팀당 1통). 쪽지를 받은 팀은 keeper 가 볼 수 있는 표식으로는 모두 열린 팀이었다. 팀 PAUSED · NEW_CARD_HOLD · PENALTY 재개 전인 팀은 지금도 choose 를 부르지 않아 쪽지가 0통이다(keeper_next.py 260 · 302~304줄). 지금 코드에서 실제로 새는 곳은 세 곳이다: 전팀 정지 중 닫기 뒤 고르기 길(keeper_close.py 141줄 → keeper_next.close 가 halt 를 보지 않는다) · 본문 이름 3개 · 팀장 없는 팀의 [긴급] 묶음.
 
 ## 계약
-- P1 묵음 = 전팀 정지(k.halt) · 팀 PAUSED(state/<팀>-tick/PAUSED) · NEW_CARD_HOLD(깨짐 포함 = 보류로 본다) 중 하나라도 참이면 그 바퀴 그 팀의 [다음 막힘] 선행 줄 쪽지는 0통이다 · 판정 자리 = prereq_tell 안 1곳(부르는 쪽 앞 조건에 기대지 않는다) · prereq_told 는 바꾸지 않는다 · prereq_now(지문·전이 번호)는 지금처럼 바퀴마다 고친다
-- P2 풀림 = 셋 다 거짓인 첫 바퀴에 지금 묶음이 비어 있지 않고 prereq_told 와 다르면 1통(I8 그대로) · 보류 중 묶음이 X → Y 로 바뀌었으면 Y 만 1통 · 보류 중 묶음이 비었으면 0통
+- P0 갱신 시점(r2) = 이 카드의 모든 기억·파일 갱신은 prereq_tell 이 실제로 불린 바퀴에만 일어난다 · prereq_tell 을 부르는 곳은 choose 안 1줄뿐이고(keeper_next.py 231줄) choose 는 카드를 고르는 바퀴에만 불린다 · NEW_CARD_HOLD · 팀 PAUSED · PENALTY 재개 전 · 나노 정원 꽉 참인 바퀴는 fill·닫기 뒤 고르기가 choose 앞에서 돌아가므로 그 바퀴에는 쪽지·prereq_now·prereq_told·prereq_wait·목록 파일 모두 손 0 이다(지금과 같다 · 부르는 쪽은 고치지 않는다) · 보류 중에 남아 있는 기억과 목록 파일은 «마지막으로 고른 바퀴의 관측값» 이다
+- P1 묵음 = prereq_tell 이 불린 바퀴에 전팀 정지(k.halt) · 팀 PAUSED(state/<팀>-tick/PAUSED) · NEW_CARD_HOLD(깨짐 포함 = 보류로 본다) 중 하나라도 참이면 그 팀의 [다음 막힘] 선행 줄 쪽지는 0통이다 · 판정 자리 = prereq_tell 안 1곳(부르는 쪽 앞 조건이 나중에 바뀌어도 새지 않게 하는 방어) · prereq_told 는 바꾸지 않는다 · prereq_now 와 목록 파일은 불린 바퀴이므로 고친다 · 지금 실제 길에서 이 판정에 닿는 것은 전팀 정지 중 닫기 뒤 고르기 길뿐이다(다른 두 표식은 P0 때문에 호출 자체가 없다)
+- P2 풀림 = 표식이 풀린 뒤 prereq_tell 이 처음 불린 바퀴에 그때 묶음이 비어 있지 않고 prereq_told 와 다르면 1통(I8 그대로) · 보류 중 카드가 X → Y 로 바뀌었으면 그 바퀴에 Y 만 1통(X 글 0통 · 목록 파일 = Y) · 보류 중 모두 고쳤으면 그 바퀴에 0통 + prereq_told 비움 + 목록 파일 지움 · «풀린 바로 그 바퀴» 를 약속하지 않는다(정원 꽉 참이면 고르는 바퀴가 뒤로 밀린다)
 - P3 본문 = 카드 3장까지는 지금 글 그대로 · 3장을 넘으면 `[다음 막힘] <팀> 선행 줄을 못 읽는 카드 <n>장: <앞 3장 이름> · 전체 목록 <경로> · 고칠 꼴 «- 선행: 없음» 또는 «- 선행: r<번호>»`
-- P4 목록 파일 = <root>/.fable-team/state/ft2-keeper/prereq-<팀>.txt · 줄마다 `<카드>\t<선행 값>\t<까닭>`(이름순) · 묶음 지문이 바뀔 때 원자 쓰기(보류 중에도 쓴다) · 묶음이 비면 지운다 · 3장 이하도 쓴다(쪽지에는 경로를 싣지 않을 뿐) · 일반 파일
+- P4 목록 파일 = <root>/.fable-team/state/ft2-keeper/prereq-<팀>.txt · 첫 줄 `# 관측 <시각> · <n>장`(마지막으로 고른 바퀴의 값임을 읽는 사람이 안다) · 그 아래 줄마다 `<카드>\t<선행 값>\t<까닭>`(이름순) · prereq_tell 이 불린 바퀴에 묶음 지문이 바뀌었으면 원자 쓰기 · 불린 바퀴에 묶음이 비면 지운다 · 불리지 않은 바퀴에는 쓰지도 지우지도 않는다(P0 · 보류 중 파일 = 마지막 관측값) · 3장 이하도 쓴다(쪽지에는 경로를 싣지 않을 뿐) · 일반 파일
 - P5 팀장 없음 = 그 팀 명부의 _master 칸이 비어 받는 곳이 대신 받는 곳(_desk · harness master)이거나 없으면 선행 줄 쪽지는 보류한다 · notify 를 부르지 않는다(묶음 [긴급] 에 쌓이지 않는다) · prereq_told 그대로 · `PREREQ-WAIT <팀> 팀장 없음 — 선행 줄 쪽지 보류 <n>장 · 목록 <경로>` 1줄(묶음 지문이 바뀔 때만 · 기억 = state["prereq_wait"][<팀>] = 지문) · 팀장 칸이 채워진 바퀴에 P2 로 1통 + 기억 지움
 - P6 판정 순서 = 묶음 빔(I7) → P1 묵음 → P5 팀장 없음 → I8 보냄 · P1 중에는 PREREQ-WAIT 줄도 0
 - P7 그대로: I1~I4(판정 불가 로그는 값·까닭이 바뀔 때만 · 기억 치우기) · I6·I7·I9(지문 · 전이 번호 · 상태 파일 기억) · I8 의 열쇠와 성공 때만 told · I10 · H1~H8(새 카드 보류는 고르기 두 곳만 막는다 · NEW-CARD-HOLD 줄) · E1~E8(다른 쪽지의 받는 곳·묶음) · [다음 없음] 쪽지 · 고르기 순서 · 막는 판정
@@ -56,34 +57,35 @@
 ## 반례 표 (가짜 mbox · 가짜 clock)
 | # | 입력 | 기대 | 지금 |
 |---|---|---|---|
-| ㊵가 | NEW_CARD_HOLD.json 있음 · 선행불명 2장 · 두 바퀴 | 쪽지 0통 · prereq_told 없음 · NEW-CARD-HOLD 줄은 지금처럼 | 같음(choose 를 안 부름) = 회귀 고정 |
-| ㊵나 | 팀 PAUSED 있음 · 선행불명 2장 | 쪽지 0통 | 같음 = 회귀 고정 |
+| ㊵가 | 실제 fill 길 · NEW_CARD_HOLD.json 있음 · 선행불명 2장 · 두 바퀴 | 쪽지 0통 · prereq_tell 호출 0 · prereq_now·prereq_told·목록 파일 없음(손 0) · NEW-CARD-HOLD 줄은 지금처럼 | 같음(choose 를 안 부름) = 회귀 고정 |
+| ㊵나 | 실제 fill 길 · 팀 PAUSED 있음 · 선행불명 2장 | 쪽지 0통 · 기억·파일 손 0 | 같음 = 회귀 고정 |
 | ㊵다 | ALL_STOP 중 · 닫기 뒤 고르기 길로 choose 가 불림(세션 없음) · 선행불명 2장 | 쪽지 0통 · prereq_told 없음 | 나노가 기준판에서 잰다(1통이면 Red) |
-| ㊵라 | prereq_tell 을 직접 부름 · 세 표식을 하나씩 켬(3칸) | 칸마다 쪽지 0통 · prereq_now 는 고쳐짐 | 3칸 모두 1통 |
-| ㊵마 | ㊵가 뒤 파일을 지움 | 그 바퀴 1통 · 다음 바퀴 0통 | 1통 |
-| ㊵바 | 보류 중 묶음 X → Y | 보류 중 0통 · 풀리면 Y 1통(X 글 0통) | — |
-| ㊵사 | 보류 중 카드를 모두 고침(묶음 빔) | 풀려도 0통 · 목록 파일 없음 | — |
+| ㊵라 | 함수 단위 방어(실제 길 증거로 세지 않는다): prereq_tell 을 직접 부름 · 세 표식을 하나씩 켬(3칸) | 칸마다 쪽지 0통 · prereq_told 그대로 · prereq_now 와 목록 파일은 고쳐짐 | 3칸 모두 1통 |
+| ㊵마 | 실제 fill 길 · ㊵가 뒤 표식 파일을 지움 | 다음 fill 바퀴(choose 가 불린 첫 바퀴)에 1통 · 그 다음 바퀴 0통 | 1통 |
+| ㊵바 | 실제 fill 길(DA 311909): 열린 바퀴에 묶음 X 전함(told = X · 파일 = X) → NEW_CARD_HOLD 켬 → 카드를 Y 로 바꿈 → 보류 바퀴 2회 → 표식 지움 → fill 1회 | 보류 바퀴 = 쪽지 0통 · prereq_tell 호출 0 · prereq_now = X 그대로 · 파일 = X 그대로(마지막 관측값 · 첫 줄 시각이 옛 값) / 풀린 뒤 fill = Y 1통(X 글 0통) · told = Y · 파일 = Y | — |
+| ㊵사 | 실제 fill 길(DA 311909): ㊵바와 같되 보류 중 카드를 모두 고침 | 보류 바퀴 = X 파일 남아 있음(손 0) / 풀린 뒤 fill = 쪽지 0통 · prereq_told 비움 · 목록 파일 지움 | — |
+| ㊵러 | 실제 닫기 뒤 고르기 길 · NEW_CARD_HOLD 있음 · 선행불명 2장 | 쪽지 0통 · prereq_tell 호출 0 · 닫기 영수는 지금처럼 | 같음 = 회귀 고정 |
 | ㊵아 | 열림 · 선행불명 5장 | 1통 · 수 5 · 이름 3개 · 전체 목록 경로 1개 · 파일 5줄(이름순 · 값 · 까닭) | 경로 0 · 파일 0 |
 | ㊵자 | 열림 · 선행불명 3장 | 지금 글 그대로(경로 칸 0) · 파일 3줄 | 파일 0 |
 | ㊵차 | _master 빈칸 · harness master 있음 · 선행불명 4장 · 두 바퀴 | 쪽지 0통 · state undelivered 에 그 글 0 · PREREQ-WAIT 1줄(둘째 바퀴 0줄) · prereq_told 없음 | harness [긴급] 묶음에 실림 |
 | ㊵카 | ㊵차 뒤 _master 칸을 채움 | 그 바퀴 팀장에게 1통 · prereq_wait 지움 · 다음 바퀴 0통 | — |
 | ㊵타 | ㊵차 뒤 카드 1장 더(묶음 바뀜) | PREREQ-WAIT 1줄 다시(5장) · 쪽지 0통 | — |
 | ㊵파 | _master 빈칸 · _desk 있음 | ㊵차와 같음(대신 받는 곳 = 보류) | desk 묶음 |
-| ㊵하 | NEW_CARD_HOLD 깨짐(빈 파일) · 선행불명 2장 · prereq_tell 직접 | 쪽지 0통 | 1통 |
-| ㊵거 | 보류 중 keeper 를 다시 만듦(상태 파일 그대로) → 풀림 | 1통(재기동이 0통이나 2통을 만들지 않는다) | — |
-| ㊵너 | 팀장 없음 + NEW_CARD_HOLD | 쪽지 0통 · PREREQ-WAIT 0줄(P6) | — |
+| ㊵하 | 함수 단위 방어: NEW_CARD_HOLD 깨짐(빈 파일) · 선행불명 2장 · prereq_tell 직접 | 쪽지 0통 | 1통 |
+| ㊵거 | 실제 fill 길 · ㊵바의 보류 중 keeper 를 다시 만듦(상태 파일 그대로) → 표식 지움 → fill | Y 1통(재기동이 0통이나 2통을 만들지 않는다) | — |
+| ㊵너 | 함수 단위 방어: 팀장 없음 + NEW_CARD_HOLD · prereq_tell 직접 | 쪽지 0통 · PREREQ-WAIT 0줄(P6) | — |
 | ㊵더 | 세 표식 0 · 팀장 있음 | 앞 카드 시험 파일 전부 rc0(㉟가~거) | — |
 
 범위 밖 입력(하드 룰 18·19·20): 줄바꿈·탭 든 카드 이름 · 권한을 바꾼 목록 파일·표식 파일 · 주입한 mbox 실패의 꼴 맞추기.
 
 ## 구현 범위 (나노 1 · 팩 base origin/main 최신 · DA 설계 승인 뒤)
-1. 커밋 1 [test] — 새 시험 feature-pack/fable-team/ft2/tests/test_prereq_alarm_hold.py(㊵가~더 · 변이 M85~M90) · 기준판 FAIL 원문(㊵라 · ㊵아 · ㊵차 · ㊵하)을 PR 본문에 붙인다 · ㊵다는 기준판 결과(통과든 실패든)를 원문으로 적는다
-2. 커밋 2 [fix] — P1~P6 = feature-pack/fable-team/ft2/adapters/pi/keeper_next.py 의 prereq_tell 1곳(묵음 판정 · 팀장 판독 = k.recipients · 목록 파일 · 본문 칸) · choose·fill·close·new_card_hold·gates 손 0 · 다른 파일 손 0
+1. 커밋 1 [test] — 새 시험 feature-pack/fable-team/ft2/tests/test_prereq_alarm_hold.py(㊵가~러 · 변이 M85~M91) · 기준판 FAIL 원문(㊵라 · ㊵아 · ㊵차 · ㊵하)을 PR 본문에 붙인다 · ㊵다는 기준판 결과(통과든 실패든)를 원문으로 적는다 · «실제 fill 길»·«실제 닫기 뒤 고르기 길» 이라고 적힌 칸은 keeper_next.fill · keeper_next.close 를 부르고 prereq_tell 호출 수를 센다(prereq_tell 을 직접 부르는 칸은 함수 단위 방어 4칸뿐)
+2. 커밋 2 [fix] — P1~P6 = feature-pack/fable-team/ft2/adapters/pi/keeper_next.py 의 prereq_tell 1곳(묵음 판정 · 팀장 판독 = k.recipients · 목록 파일 · 본문 칸) · choose·fill·close·new_card_hold·gates 손 0(보류 중에 choose 를 부르게 바꾸지 않는다 · P0) · 다른 파일 손 0
 3. 커밋 3 [docs] — CONTRACT.md «선행불명 로그·쪽지» 절에 P1~P6 · 상태 키 prereq_wait · 목록 파일 꼴 · CASES.md ㊵·변이 행
 4. 회귀 rc0(파일별 · 각 70초 상한): test_prereq_unreadable_once · test_new_card_hold · test_penalty_team_no_new_pick · test_keeper_next_prereq_line_r2027 · test_keeper_notify_recipient · test_pi_keeper_next_card_r1871
 5. 실행 = `python3.11 -m pytest` · 착지 = PR 1개(팀장 집행)
 
-변이: M85 전팀 정지 조건 빼기 → ㊵다·㊵라 / M86 보류 중에 prereq_told 를 씀 → ㊵마·㊵바 / M87 경로 칸 빼기 → ㊵아 / M88 팀장 없음에도 notify → ㊵차·㊵파 / M89 PREREQ-WAIT 를 바퀴마다 → ㊵차 / M90 묶음이 비어도 목록 파일을 안 지움 → ㊵사
+변이(r2): M85 전팀 정지 조건 빼기 → ㊵라(전팀 정지 칸) · ㊵다가 기준판에서 Red 면 ㊵다도 / M86 묵음 바퀴에 prereq_told 를 씀 → ㊵라(told 그대로) / M87 경로 칸 빼기 → ㊵아 / M88 팀장 없음에도 notify → ㊵차·㊵파 / M89 PREREQ-WAIT 를 바퀴마다 → ㊵차 / M90 불린 바퀴에 묶음이 비어도 목록 파일을 안 지움 → ㊵사 / M91 풀린 뒤 첫 호출 바퀴에 목록 파일을 안 고침(X 그대로) → ㊵바
 
 ## 범위 밖
 - planner 가 말로 정한 «손 0» 을 keeper 가 아는 것 — keeper 는 표식 파일만 본다 · 멈추려면 NEW_CARD_HOLD.json 이나 PAUSED 를 둔다(운영 절차 · planner master)
@@ -104,8 +106,9 @@
 ## 계약↔시험 대응표
 | 계약 | 시험 |
 |---|---|
-| P1 묵음 | ㊵가 · ㊵나 · ㊵다 · ㊵라 · ㊵하 · M85 |
-| P2 풀림 | ㊵마 · ㊵바 · ㊵사 · ㊵거 · M86 |
+| P0 불린 바퀴에만 갱신 | ㊵가 · ㊵나 · ㊵러 · ㊵바 · ㊵사(보류 바퀴의 호출 0 · 기억·파일 손 0) |
+| P1 묵음 | ㊵다 · ㊵라 · ㊵하 · M85 · M86 |
+| P2 풀림 | ㊵마 · ㊵바 · ㊵사 · ㊵거 · M91 |
 | P3 본문 | ㊵아 · ㊵자 · M87 |
 | P4 목록 파일 | ㊵아 · ㊵자 · ㊵사 · M90 |
 | P5 팀장 없음 | ㊵차 · ㊵카 · ㊵타 · ㊵파 · M88 · M89 |
@@ -115,3 +118,4 @@
 ## 상태
 - base_sha: 18428688fd1cf98c875d8d955b42ec97da871f03
 - 2026-11-16 05:39 · 대기 — aifp-ft-arch-pi#21 초안(팀장 aifp 5746 · 넘김 harness#292 aifp 5744 · 실측 = BYZ launchd.log 1319줄 · jsonl 2일 · state.json · 구현 0) · 다음 = 팀장 PR → DA 설계 → Issue → 나노 1석
+- 2026-11-16 05:50 · aifp-ft-arch-pi#21 r2(팀장 aifp 5771 · DA HOLD-DESIGN 1/3 BYZ 311909 · 사본 .fable-team/state/team-main/aifp-ft/DA-prereq-alarm-design-hold-311909/verdict.md) — 반례 = 보류 중 실제 fill·close 는 choose·prereq_tell 을 부르지 않아 prereq_tell 만 고쳐서는 보류 중 now·목록 갱신과 빈 목록 삭제가 안 된다 · 팀장 판단 = 계약을 «불린 바퀴에만 갱신» 으로 좁힌다 · 바뀐 줄: 머리 끝 줄(«풀린 첫 바퀴» → «풀린 뒤 고르는 첫 바퀴») · P0 새 줄 · P1 · P2 · P4(첫 줄 관측 시각 · 보류 중 쓰기 빼) · 반례 ㊵가·나·라·마·바·사·하·거·너 고침 + ㊵러 새 칸(17 → 18) · 변이 M85·M86·M90 대응 고침 + M91 새로 · 구현 범위 1·2 · 대응표 · 오빠 결정 0
