@@ -104,7 +104,28 @@ def t8(tmp, mp, ft2=kw.FT2):   # T8 짝 표 경로 단계 = 진행/ → 후보 0
     assert base.launched(w) == [] and len(base.notes(w)) == 1 and "막힌 사유별 0" in base.notes(w)[0], base.notes(w)
 
 
-PLAN, KEEP = {"T1": t1, "T2": t2, "T3": t3, "T4": t4, "T7": t7}, {"T5": t5, "T6": t6, "T8": t8}
+def t9(tmp, mp, ft2=kw.FT2):   # T9 (DA R1) 짝 work ≠ 카드 stem(별칭) → keeper 후보 0 · 로그 1줄
+    w = world(tmp, mp, ft2=ft2)
+    kw._put(w.runtime() / "cards.tsv", "alias-work\t%s\n" % (V65 % "대기"))
+    lines = w.round()
+    assert base.launched(w) == [] and lines.count("경고 harness 짝 표 별칭 — keeper 후보 0 alias-work") == 1, lines
+
+
+def t10(tmp, mp, ft2=kw.FT2):   # T10 (DA R2) 짝 카드 선행 = 같은 indices 완성/ → 풀림 · 고름
+    w = world(tmp, mp, ft2=ft2)
+    w.commit("byz", {V65 % "대기": "# 인덱스: w1\n- 선행: r9999\n", "design/teams/v65/indices/완성/r9999.md": "# 끝난 선행\n"}, "main")
+    w.round()
+    assert base.launched(w) == ["w1"], (base.launched(w), base.notes(w))
+
+
+def t10b(tmp, mp, ft2=kw.FT2):   # T10′ 같은 indices 대기/ 선행 = 참조 위치 밖(팀 루트·짝 indices 완성 갈래만) → 고르지 않음
+    w = world(tmp, mp, ft2=ft2)
+    w.commit("byz", {V65 % "대기": "# 인덱스: w1\n- 선행: r9999\n", "design/teams/v65/indices/대기/r9999.md": "# 안 끝난 선행\n"}, "main")
+    w.round()
+    assert base.launched(w) == [], base.launched(w)
+
+
+PLAN, KEEP = {"T1": t1, "T2": t2, "T3": t3, "T4": t4, "T7": t7}, {"T5": t5, "T6": t6, "T8": t8, "T9": t9, "T10": t10, "T10′": t10b}
 MUTANTS = {"M1": (LP, 'card = "%s %s:%s" % hit if hit else ', "card = ", "T1"),                       # ② 첫 본문 짝 경로 삭제
            "M2": (LP, "m = WAIT.match(paths[0]) if len(paths) == 1 else None", "m = WAIT.match(paths[0])", "T3"),   # «정확히 1개» 삭제
            "M3": (KN, "if heads3 is not None:", "if False:", "T5"),                                       # ① keeper 후보 더하기 삭제
