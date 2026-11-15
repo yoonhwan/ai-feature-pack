@@ -14,7 +14,7 @@
 - 규칙: 없음 — 상시 로드 변경 0
 - 규칙 상세: 하드 룰 20(판정기 실패 = 판정 불가 1줄 · 조용한 통과 0) · 하드 룰 22 · 하드 룰 12(판정기 호출 7초)
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/pi/keeper_next.py(새 함수 penalty_open · fill pick 앞 · 닫기 뒤 pick 앞) · 새 시험 feature-pack/fable-team/ft2/tests/test_penalty_team_no_new_pick.py · 문서 ft2/contracts/keeper-settle/CONTRACT.md·CASES.md
-- 정본 영향 있음: CONTRACT.md 에 «전 세션 정지 재개 전 팀» 절 1개(판정기 자리·막는 것·안 막는 것·줄 꼴·상태 키) · CASES.md ㊲·변이 행 = 같은 PR(나노)
+- 정본 영향 없음: aifp 정본(docs/architect · docs/rules · design 팀 GUIDE·README) 변경 0 — 바뀐 것은 팩 ft2 계약 문서(contracts/keeper-settle/CONTRACT.md · CASES.md)뿐이고 착지 PR #1304(0d72507e)에 같이 들어갔다 · 원래 줄 «정본 영향 있음: CONTRACT.md 에 «전 세션 정지 재개 전 팀» 절 1개(판정기 자리·막는 것·안 막는 것·줄 꼴·상태 키) · CASES.md ㊲·변이 행 = 같은 PR(나노)»
 - 크기: 코드 1파일 · 새 시험 1파일 · 문서 2파일 · PR 1개
 - 배정: 좌석 aifp-ft-nano-ft2-penalty-team-no-new-pick#0
 
@@ -86,3 +86,4 @@
 - DA 판정: APPROVE-IMPL 311298(aifp 5615 · 사본 .fable-team/state/team-main/aifp-ft/DA-pJ-impl-approve-311298/verdict.md) · 동작 반례 0 · P1~P8·새 pick 두 곳·상태 보존 확인 · 기존 네 함수 AST 같음 · 직접 시험 일부는 70초 상한으로 판정 불가
 - 세트: 0759501d4a0a5ea665e6f14227b45e6c672887c1 · 시험: python3.11 -m pytest tests/test_penalty_team_no_new_pick.py tests/test_keeper_fill_empty_slot_r1913.py tests/test_keeper_fill_intake_full_r1939.py tests/test_pi_keeper_next_card_r1871.py tests/test_settle_one_path_r2055.py (94 passed) rc=0 · 이슈: 0
 - 2026-11-16 04:47 · aifp-ft-arch-pi#20 조건 5·6 실측 씀(팀장 aifp 5664 · 읽기만) · 완료 조건 1~6 [x] · 다음 = 팀장 PR → DA 닫힘 표식 → 완성 이동
+- 남은 범위: 없음
