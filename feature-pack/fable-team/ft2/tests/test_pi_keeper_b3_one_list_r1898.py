@@ -29,6 +29,7 @@ def b3(w, ls=(0, ""), rows=3000, extra=None, held=None, skip=(), opened=None):
             return (3, "", "no session") if argv[2] in [a[2] for a in calls[:-1] if a[0] == "bash"] else (0, "STUB", "")
         return ((0, "", "") if argv[-1][1:] in LIVE else (1, "", "can't find session")) if argv[1] == "has-session" else (1, "", "?")
     k.call = call
+    k.look, k.idle = (lambda *a, **kv: "REST"), (lambda *a, **kv: True)   # r2055 A13 한 판독·kill 직전 가드 = r2055 시험 몫 · 여기는 B3 목록·닫기 호출만
     return k, calls if k.retired() is None else None
 def verb(calls, name):
     return [a for a in calls if a[1] == name or (name == "close" and a[0] == "bash")]

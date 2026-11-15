@@ -78,7 +78,8 @@ def c6u(w):   # ⑥′ r1976 keeper_stall 판정 불가 attached → UNKNOWN(r20
     lines = w.round(11 * M)
     assert any(x.startswith("UNKNOWN harness %s %s attached-unknown" % (st.W, st.H0)) and "판정 불가 attached" in x for x in lines)
     assert w.tmux("kill-session") == [] and w.tmux("new-session") == [] and w.kinds("dispatch") == 1
-    assert w.k.state["reassigned"] == {} and w.notes() == []
+    assert w.k.state["reassigned"] == {} and [x for x in w.notes() if "[긴급] UNKNOWN" not in x] == []   # 크리티컬 0
+    assert len([x for x in w.notes() if "[긴급] UNKNOWN" in x and "attached-unknown" in x]) == 1, w.notes()   # r2055 R3 UNKNOWN = [긴급] 1통
 
 
 def c7(w):    # ⑦ keeper_stall attached=0 → kill → assign → deliver → launch(지금 그대로) · ⑨ 대상 `=<세션>:`

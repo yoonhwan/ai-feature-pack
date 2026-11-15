@@ -25,13 +25,14 @@ def c3(w):   # ③ attached 읽기 실패(rc 1) → HELD 판정 불가 그대로
     assert w.tmux("kill-session") == [] and w.kinds("close_receipt") == 0
 def c4(w):   # ④ attached 1 이지만 Working → WORKING(r2055 · 옛 HELD · Working 가드 그대로) · kill 0 · NOTE 0
     _world(w, 1, pane="⠋ Working...\n")
+    kw._put(str(w.tm) + ".clean", "".join(x + "\n" for x in json.loads(w.tm.read_text(encoding="utf-8"))["alive"]))   # r2055 A13 1차 shell-only·쉼 → kill 직전 가드가 Working 을 봄
     lines = w.round()
-    assert any(x.startswith("WORKING harness %s" % W) and "Working" in x for x in lines), lines
+    assert any(x.startswith("UNKNOWN harness %s" % W) and "tmuxc-mismatch" in x for x in lines), lines
     assert not [x for x in lines if x.startswith("NOTE")] and w.tmux("kill-session") == [] and w.kinds("close_receipt") == 0
 CASES = {"②": c2, "③": c3, "④": c4}
 MUTANTS = {"M1": ('if why == "free" or why.startswith("attached "):', 'if why == "free":', c2),   # attached 갈래 HELD 로 되돌림
            "M2": ('if why == "free" or why.startswith("attached "):', "if True:", c3),          # unknown 도 닫기
-           "M3": ("if not self.idle(team, work, holder):\n                return", "if False:\n                return", c4)}   # Working 가드 삭제
+           "M3": ("if not self.idle(team, work, holder, attempt):   # kill 직전 가드\n                return", "if False:\n                return", c4)}   # Working 가드 삭제
 @pytest.mark.parametrize("name", list(CASES))
 def test_case(name, tmp_path, monkeypatch):
     CASES[name](kw.World(tmp_path, monkeypatch))

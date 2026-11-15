@@ -89,9 +89,10 @@ def c6(w):   # ⑥ report probe·쪽지 = harness 1 · cfo 0 · NOTIFIED cfo 0 �
     k = w.keeper()
     lines = w.round(k)
     assert [len(probes(w, s)) for s in OPEN] == [0, 0, 1], w.tmux("has-session")
-    assert len(mails(w)) == 1 and mails(w)[0].startswith("send M-harness ft2-keeper"), mails(w)
+    crit = [x for x in mails(w) if "[긴급] UNKNOWN" not in x]   # r2055 S1 명부 밖 harness 좌석 = UNKNOWN roster-outside [긴급](harness 팀 · cfo 0)은 셈 밖
+    assert len(crit) == 1 and crit[0].startswith("send M-harness ft2-keeper") and not [x for x in mails(w) if "cfo" in x], mails(w)
     assert not [x for x in lines if "cfo" in x and not x.startswith("ROUND")] and set(opened(w)) == set(OPEN)
-    assert k.notify("cfo", "x|cfo", "[크리티컬] 시험") is False and len(mails(w)) == 1
+    assert k.notify("cfo", "x|cfo", "[크리티컬] 시험") is False and len([x for x in mails(w) if "[긴급] UNKNOWN" not in x]) == 1
 def c6b(w):  # ⑥′ 판독 실패 + ⑥ open → 바퀴 report 0 · --report 진입 출력 1줄 · open 3행 그대로
     preopen(w), w.round()
     assert w.tmux("has-session") == [] and mails(w) == [] and w.keeper().report_once() == BAD

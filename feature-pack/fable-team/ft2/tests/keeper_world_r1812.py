@@ -19,12 +19,35 @@ st, a = os.environ["FAKE_TMUX"], sys.argv[1:]
 d, name = json.load(open(st)), sys.argv[-1].lstrip("=").rstrip(":")  # r1822 pane 대상 `=이름:`
 open(st + ".log", "a").write(json.dumps(a) + "\n")
 if a[0] == "kill-session": d["alive"].remove(name); json.dump(d, open(st, "w"))
+if a[0] == "capture-pane" and d.get("cap_rc"): sys.exit(d["cap_rc"])   # r2055 ㉒(마) capture 실패
 if a[0] == "capture-pane": sys.stdout.write(d["pane"].get(name, ""))
 if a[0] == "list-sessions": sys.stdout.write("".join(x + "\n" for x in d["alive"])); sys.exit(0)  # r1898 B3 바퀴당 1회
 if a[0] == "has-session" and name not in d["alive"]: sys.stderr.write("can't find session: %s\n" % name)
+if a[0] == "display-message" and "#{session_path}" in a[-1]:   # r2055 장기 좌석 jsonl 폴더(World.round 가 /seats/<이름> 세션 파일을 둠)
+    t = a[a.index("-t") + 1].lstrip("=").rstrip(":"); sys.stdout.write(d.get("path", {}).get(t, "/seats/" + t) + "\n"); sys.exit(0 if t in d["alive"] else 1)
+if a[0] == "display-message" and "#{pane_pid}" in a[-1]:   # r2055 A13 raw pane_pid · d["pid"][이름] = "pid\tcmd"(기본 100 pi · "" = 실패) · 죽은 세션 = rc1
+    t = a[a.index("-t") + 1].lstrip("=").rstrip(":"); p = d.get("pid", {}).get(t, "100\tpi") if t in d["alive"] else None; sys.stdout.write((p or "") + "\n"); sys.exit(0 if p else 1)
+if a[0] == "display-message" and "#{session_created}" in a[-1]:   # r2055 좌석 시작(기본 0 = 폴더 jsonl 전부)
+    t = a[a.index("-t") + 1].lstrip("=").rstrip(":"); sys.stdout.write("%d\n" % d.get("born", {}).get(t, 0)); sys.exit(0 if t in d["alive"] else 1)
 if a[0] == "display-message":   # r1839 #{session_attached} · 실제 tmux 처럼 `=이름`(콜론 없음)·없는 세션 = rc0 빈 줄
     t = a[a.index("-t") + 1]; sys.stdout.write("%s\n" % (d.get("att", {}).get(t[1:-1], 0) if t.endswith(":") and t[1:-1] in d["alive"] else "")); sys.exit(d.get("att_rc", 0))
 sys.exit(0 if name in d["alive"] or a[0] == "kill-session" else 1)
+'''
+TMUXC = r'''#!__PY__
+import json, os, re, sys
+st = os.environ["FAKE_TMUX"]   # r2055 A13 tmuxc clean 대역 — .clean 파일 = 그 줄 그대로 · 없으면 살아 있는 세션 중 pane 끝 12줄(입력줄 제외)에 일함 근거 없는 세션
+if os.path.exists(st + ".tmuxc_rc"): sys.exit(int(open(st + ".tmuxc_rc").read()))
+if os.path.exists(st + ".clean"): sys.stdout.write(open(st + ".clean").read()); sys.exit(0)
+d = json.load(open(st))
+busy = lambda p: any(re.search("Working|esc to interrupt|[\u280b\u2819\u2839\u2838\u283c\u2834\u2826\u2827\u2807\u280f]", x) for x in p.rstrip("\n").splitlines()[-12:] if not x.lstrip().startswith(("\u276f", "\u203a")))
+sys.stdout.write("".join(x + "\n" for x in d["alive"] if not busy(d["pane"].get(x, ""))))
+'''
+PS = r'''#!__PY__
+import os, sys
+if sys.argv[1:] != ["-A", "-o", "pid=,ppid=,pcpu=,comm="]: os.execv("/bin/ps", ["ps"] + sys.argv[1:])   # r2055 A13 keeper settle 표만 가짜
+st = os.environ["FAKE_TMUX"]
+if os.path.exists(st + ".ps_rc"): sys.exit(int(open(st + ".ps_rc").read()))
+sys.stdout.write(open(st + ".ps").read() if os.path.exists(st + ".ps") else "100 1 0.0 zsh\n101 100 0.0 pi\n")
 '''
 STUB = '#!/bin/sh\nprintf "%s\\n" "$*" >> "$0.log"\necho "STUB $1"\nexit "$(cat "$0.rc" 2>/dev/null || echo 0)"\n'
 def _mod(path, alias):
@@ -52,14 +75,16 @@ class World:
             s.commit(name, {"design/TEAMS.md": TEAMS}, "main")
         s.commit("byz", {}, "ops/main-base", new=True)
         _git(tmp, "clone", "-q", str(tmp / "byz.git"), "root"), _git(tmp, "clone", "-q", str(tmp / "pack.git"), "pack")
-        for name, body in (("tmux", TMUX.replace("__PY__", sys.executable)), ("close", STUB), ("mbox", STUB),
+        for name, body in (("tmux", TMUX.replace("__PY__", sys.executable)), ("tmuxc", TMUXC.replace("__PY__", sys.executable)), ("close", STUB), ("mbox", STUB),
                            ("reap", '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n')):
             _put(b / name, body), (b / name).chmod(0o755)
+        _put(tmp / "psbin" / "ps", PS.replace("__PY__", sys.executable)), (tmp / "psbin" / "ps").chmod(0o755)   # r2055 A13 가짜 ps(PATH · ps 만 있는 폴더)
         s.tm, s.close, s.mbox, s.state = b / "tmux.json", b / "close", b / "mbox", s.root / ".fable-team" / "state"
         _put(s.tm, {"alive": [], "pane": {}})
         s.env = dict(os.environ, FT_TMUX=str(b / "tmux"), FAKE_TMUX=str(s.tm), FT2_PACK_REPO=str(tmp / "pack"),
                      FT_SEAT_CLOSE_BIN=str(s.close), FT2_KEEPER_MBOX=str(s.mbox), FT_NOW=NOW,
-                     FT2_PI_SESSIONS=str(tmp / "pi-sessions"))
+                     FT2_PI_SESSIONS=str(tmp / "pi-sessions"), FT2_TMUXC=str(b / "tmuxc"), FT2_CLAUDE_PROJECTS=str(tmp / "claude-projects"),
+                     PATH=str(tmp / "psbin") + os.pathsep + os.environ["PATH"])
         for team in (TEAM, "planner"):
             _put(s.root / ".fable-team" / ("seats-%s.json" % team), {"_master": "M-" + team})
     @property
@@ -95,8 +120,9 @@ class World:
             _put(s.runtime(team) / "launch" / ("%s@a1.intent" % work), body)
         if turn:
             last = {"type": "message", "message": {"role": "assistant", "stopReason": turn}}
-            _put(Path(s.env["FT2_PI_SESSIONS"]) / ("--%s--" % tree.strip("/").replace("/", "-")) / "s.jsonl",
-                 '{"type": "session"}\n' + json.dumps(last) + "\n")
+            log = Path(s.env["FT2_PI_SESSIONS"]) / ("--%s--" % tree.strip("/").replace("/", "-")) / "s.jsonl"
+            _put(log, '{"type": "session"}\n' + json.dumps(last) + "\n")
+            os.utime(log, (s.t - 7200, s.t - 7200))   # r2055 A6 닫기 = jsonl 무활동 ≥ PARK_IDLE(기본 2시간 쉼)
         d = json.loads(s.tm.read_text(encoding="utf-8"))
         d["alive"], d["pane"][seat] = d["alive"] + ([seat] if alive else []), pane
         return _put(s.tm, d) or seat
@@ -109,6 +135,10 @@ class World:
     def keeper(s):
         return s.K.Keeper(str(s.root), env=s.env, now=lambda: s.t)
     def round(s, k=None):
+        for seat in json.loads(s.tm.read_text(encoding="utf-8"))["alive"]:   # r2055 장기 좌석 세션 파일(/seats/<이름> · 없을 때만 · 2시간 쉼)
+            log = Path(s.env["FT2_PI_SESSIONS"]) / ("--seats-%s--" % seat) / "s.jsonl"
+            if not log.exists():
+                _put(log, '{"type": "session"}\n'), os.utime(log, (s.t - 7200, s.t - 7200))
         k = k or s.keeper()
         assert k.run_once() == 0
         return k.lines
@@ -122,6 +152,13 @@ class World:
         with open(comm / "mailbox.log.jsonl", "a", encoding="utf-8") as fh:
             fh.write(json.dumps({"from": new, "to": old, "body": "[레디] %s <- %s · 항목 1" % (new, old)}, ensure_ascii=False) + "\n")
         if resume:
-            _put(rs / (old + ".json"), {"name": old, "uuid": "u-" + old, "engine": "pi", "cwd": str(s.root)})
+            s.resume(old)
+    def resume(s, seat, uuid=None):
+        """r2055 S2 검증된 재개 기록 — 실제 pi 세션 파일(cwd 세션 폴더 · 이름 끝 = uuid) + seat-resume/<좌석>.json."""
+        uuid, rs = uuid or "u-" + seat.replace("#", "-"), s.tmp / "resume"
+        s.env.update(FT2_SEAT_RESUME_DIR=str(rs))
+        log = Path(s.env["FT2_PI_SESSIONS"]) / ("--%s--" % str(s.root).strip("/").replace("/", "-")) / ("2026-11-01_%s.jsonl" % uuid)
+        _put(log, '{"type": "session"}\n'), os.utime(log, (s.t - 7200, s.t - 7200))   # Q1 ① 장기 좌석 나이 = 이 파일 mtime(2시간 쉼)
+        _put(rs / (seat + ".json"), {"name": seat, "uuid": uuid, "engine": "pi", "cwd": str(s.root), "jsonl": str(log)})
     def enable(s, team=TEAM):
         _put(s.root / ".fable-team" / "teams" / team / "CLOSE-NEXT.enabled", "enabled\n")

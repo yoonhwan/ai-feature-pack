@@ -68,14 +68,15 @@ def nano(w, work, res="", alive=True, state="opened", turn="stop", age=7200, pan
     return holder
 
 
-def rnd(w, cmd="pi", cpu=0.0, dt=0, status=None):
-    """한 바퀴 — 시계 dt 초 앞으로 · pane 명령·ps 표(사슬 끝 %cpu) 주입 · 반환 = 로그 줄."""
+def rnd(w, cmd="pi", cpu=0.0, dt=0, clean=None):
+    """한 바퀴 — 시계 dt 초 앞으로 · pane 명령·ps 표(사슬 끝 %cpu) 주입 · tmuxc clean 대역 출력(A13 1차 · 기본 = 셸 명령이면 살아 있는 세션 전부) · 반환 = 로그 줄."""
     w.t += dt
+    alive = json.loads(w.tm.read_text(encoding="utf-8"))["alive"]
+    shells = alive if os.path.basename(cmd) in ("zsh", "bash", "fish") else []
+    kw._put(str(w.tm) + ".clean", "".join(x + "\n" for x in shells) if clean is None else clean)
     k = w.keeper()
     k.pane_info = lambda seat: (100, cmd)
     k.ps_rows = lambda: [(p, pp, cpu if c is None else c, n) for p, pp, c, n in CHAIN]
-    if status:
-        k.tmuxc_status = status
     return w.round(k)
 
 
@@ -110,7 +111,9 @@ def c2(w):   # ② 팀 걸친 카드(짝 표 없음 · 본문 경로) · 착지 
     for ref in ("main", "ops/main-base"):
         w.commit("byz", {"design/teams/v65/indices/완성/%s.md" % stem: "# 인덱스\n- 남은 범위: 없음\n- 착지: %s\n" % sha}, ref)
     nano(w, stem, age=10, body="[발주] %s — 카드 origin/main design/teams/v65/indices/대기/%s.md(팀 폴더 아님) §범위" % (stem, stem))
-    lines = rnd(w)
+    lines = two(w)   # A6·S4-1 jsonl 10초 전 증가 = WORKING landed-wait · kill 0 · complete 0 (DA#11 R1)
+    assert has(lines, "WORKING harness %s" % stem, "landed-wait") and not w.tmux("kill-session") and w.kinds("complete") == 0, lines
+    lines = rnd(w, dt=7200)   # 무활동 ≥ PARK_IDLE → LANDED
     assert has(lines, "COMPLETED harness %s" % stem) and len(w.tmux("kill-session")) == 1, lines
 
 
@@ -165,7 +168,7 @@ def c5(w):   # ⑤ 새 꼴(intent worktree 칸 없음) → UNKNOWN · [긴급] 1
     nano(w, "r9555", tree=False)
     kw._put(str(w.mbox) + ".rc", "1")
     lines = rnd(w)
-    assert has(lines, "UNKNOWN harness r9555", "intent-bad") and has(lines, "ROUND", "unknown=1") and not w.tmux("kill-session"), lines
+    assert has(lines, "UNKNOWN harness r9555", "intent-bad") and has(lines, "ROUND", "unknown=2") and not w.tmux("kill-session"), lines   # r2055 R3 정체 본문 도달 0 도 UNKNOWN 줄([긴급]) = 2
     assert len([x for x in sent(w) if "intent-bad" in x]) == 2   # 7초 + 재시도 1 = 실패 → 지문 미소비
     kw._put(str(w.mbox) + ".rc", "0")
     rnd(w, dt=60), rnd(w, dt=60)
@@ -174,10 +177,10 @@ def c5(w):   # ⑤ 새 꼴(intent worktree 칸 없음) → UNKNOWN · [긴급] 1
 
 
 def c6(w):   # ⑥ 스피너 = WORKING · 일하는 pi(API 대기 · %cpu 0.0 ×2 · jsonl 5분 전 · 스피너 없음) = WORKING · 닫힘 0 · park 0
-    nano(w, "r9556", pane="⠋ Working (3s)")
+    nano(w, "r9556", pane="⠋ Working (3s)", age=600)   # A13 1차가 서면 사유 = jsonl(pane 글자 안 읽음)
     nano(w, "r9557", age=300)
     lines = two(w)
-    assert has(lines, "WORKING harness r9556", "spinner") and has(lines, "WORKING harness r9557"), lines
+    assert has(lines, "WORKING harness r9556", "jsonl-active") and has(lines, "WORKING harness r9557"), lines
     assert not w.tmux("kill-session") and w.kinds("parked") == 0, lines
 
 
@@ -198,8 +201,10 @@ def c9(w):   # ⑨ 질문 창(toolUse · jsonl 무활동 16분) · %cpu 0.1 ×2(
 
 def c10(w):   # ⑩ 원장 done ∧ 카드 완성 폴더 · PR 0 · 가지 이름 다름 → LANDED(넓힌 근거) · 세션 닫힘
     w.card("r9561", stage="완성")
-    nano(w, "r9561", done=True, branch="feature/other", age=10)
-    lines = rnd(w)
+    nano(w, "r9561", done=True, branch="feature/other", age=60)
+    lines = two(w)   # jsonl 1분 전 증가 = WORKING · kill 0 (DA#11 R1 재현 입력)
+    assert has(lines, "WORKING harness r9561") and not w.tmux("kill-session"), lines
+    lines = rnd(w, dt=7200)
     assert has(lines, "CLOSED-ENDING harness r9561", "done-card-완성") and len(w.tmux("kill-session")) == 1, lines
 
 
@@ -232,8 +237,8 @@ def c17(w, case):   # ⑰ 장기 좌석 끝남 근거 ↔ 닫기 자격(hil.md �
             fh.write(json.dumps({"from": b + str(new), "to": b + str(old), "body": "[레디] %s%d <- %s%d · 항목 1" % (b, new, b, old)}, ensure_ascii=False) + "\n")
     if case == "마":
         roster[b + "10"]["_replaced_by"] = b + "11"
-    for n in resume:
-        kw._put(w.tmp / "resume" / ("%s%d.json" % (b, n)), {"name": b + str(n), "uuid": "u-1", "engine": "pi", "cwd": str(w.root)})
+    for n in resume:   # r2055 R2 검증된 재개 기록 = 실제 세션 파일 결속
+        w.resume(b + str(n))
     kw._put(w.root / ".fable-team" / "seats-harness.json", roster)
     d = json.loads(w.tm.read_text(encoding="utf-8"))
     d["alive"] = [b + str(n) for n in alive]
@@ -242,6 +247,7 @@ def c17(w, case):   # ⑰ 장기 좌석 끝남 근거 ↔ 닫기 자격(hil.md �
     kw._put(w.tmp / "bin" / "tmux", i[:i.index('if a[0] == "kill-session"')] + LS + i[i.index('if a[0] == "kill-session"'):])
     k = w.keeper()
     k.closed_seats = lambda: {b + str(n) for n in closed}
+    k.pane_info, k.ps_rows = (lambda seat: (100, "zsh")), (lambda: [(p, pp, c or 0.0, n) for p, pp, c, n in CHAIN])   # 1차 = clean ∧ pane_pid ∧ ps ∧ 세션 파일
     lines = w.round(k)
     shut = [x.split()[0] for x in kw._lines(str(w.close) + ".log")]
     want = {"가": [], "나": [b + "10"], "다": [b + "9"], "라": [], "마": [], "바": []}[case]
@@ -250,14 +256,14 @@ def c17(w, case):   # ⑰ 장기 좌석 끝남 근거 ↔ 닫기 자격(hil.md �
     assert code is None or has(lines, "WORKING harness", code), (case, lines)
 
 
-def c18(w):   # ⑱ 명부 밖 byz-* = UNKNOWN roster-outside · 이름 lint 실패 = name-bad · tmuxc agent ∧ settle shell-only = tmuxc-mismatch · kill 0
-    holder = nano(w, "r9563", age=7200)
+def c18(w):   # ⑱ 명부 밖 byz-* = UNKNOWN roster-outside · 이름 lint 실패 = name-bad · 1차 shell-only·쉼 ∧ kill 직전 pane Working = tmuxc-mismatch · kill 0
+    holder = nano(w, "r9563", age=7200, pane="✻ done\n⠋ Working (2s)\n❯ ")
     d = json.loads(w.tm.read_text(encoding="utf-8"))
     d["alive"] += ["byz-harness-ghost-pi#3", "byz-harness-Bad Name"]
     kw._put(w.tm, d)
     i = kw.TMUX.replace("__PY__", sys.executable)
     kw._put(w.tmp / "bin" / "tmux", i[:i.index('if a[0] == "kill-session"')] + LS + i[i.index('if a[0] == "kill-session"'):])
-    lines = rnd(w, cmd="zsh", status=lambda seat: "agent" if seat == holder else None)
+    lines = rnd(w, cmd="zsh", clean=holder + "\n")   # 판독원 = 기본 실행(tmuxc clean 대역 · 주입 0)
     assert has(lines, "UNKNOWN harness - byz-harness-ghost-pi#3 roster-outside"), lines
     assert has(lines, "UNKNOWN harness - byz-harness-Bad Name name-bad"), lines
     assert has(lines, "UNKNOWN harness r9563", "tmuxc-mismatch") and not w.tmux("kill-session"), lines
