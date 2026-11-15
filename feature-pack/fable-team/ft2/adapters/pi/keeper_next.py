@@ -20,8 +20,8 @@ def prereq(lines, where):
     if mark in MARK:
         return mark, ""   # ① 카드 배정 줄(원장·owner 를 본 뒤의 자리)
     val = next((x.split(":", 1)[1].strip() for x in lines if x.startswith("- 선행:")), "")
-    if not val or val.startswith(("없음", "-")):
-        return "", ""   # ②
+    if not val or val.startswith(("없음", "충족", "0", "—", "-")):
+        return "", ""   # ② r1941 없음·충족·0·— = 막지 않음(주인이 고친 줄)
     nums = REF.findall(val)
     seen = [where.get(n, set()) for n in nums]
     if not seen:
