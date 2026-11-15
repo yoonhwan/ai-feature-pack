@@ -353,24 +353,28 @@ print(v if isinstance(v,str) else "")' "$seats" 2>/dev/null)"
 #   ★r1743 A1: 출처 = «카드 ref 트리»(directive-roots.tsv 3칸의 서로 다른 ref · 표 없음 = FT_CARD_REF|origin/main) ls-tree 1/ref(7초) · 루트 index·디스크 안 봄 · A2 중복 1줄 · A3 ref 전부 못 읽으면 stdout 0 + FM_CARDS_ERR + stderr WARN★
 #   ★r1821: 표 = <root> 의 표 → 없으면 git common root 의 표 · 토큰 있는데 0장 = FM_CARDS_ERR · 부른 쪽 셸에 FM_CARDS_TAB·FM_CARDS_REFS(결과 줄용)★
 #     r1804 A5: 카드 파일 이름이 «<토큰>-» 로 «시작» 할 때만(slug 가운데 «-r336-» 은 0) · «ar1478»·«r14780» 은 안 잡는다
+#     ★r1849 ⓐ r<숫자> 아닌 토큰(nano/<stem>) = 파일 이름이 정확히 <토큰>.md ⓑ 착지 리포(REPO) 공용 루트 ≠ <root> 공용 루트면 그 리포 카드 ref(ft_card_ref 팀 «» 규칙 = FT_CARD_REF|origin/main) 트리도 · 경로 = 찾은 리포 공용 루트 기준★
 fm_cards_by_tokens() {
   local root="$1"; shift; FM_CARDS_ERR=""; FM_CARDS_TAB=""; FM_CARDS_REFS=""
   [ -n "$root" ] && [ $# -gt 0 ] || return 0
-  local ref refs out rc ok=0 bad="" rd="" p b t c tab="$root/.fable-team/state/directive-roots.tsv"; local -a hit=()
+  local i ref refs out rc ok=0 bad="" rd="" p b t c rr tab="$root/.fable-team/state/directive-roots.tsv"; local -a hit=() dirs=() rfs=()
   if [ ! -f "$tab" ]; then   # r1821 C1: root 자신의 표 먼저 → 없으면 git common root(라이브 worktree 로 불려도 공용 표) · 카드는 그대로 root 의 ref 트리
     c="$(git -C "$root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; tab=""; [ -z "$c" ] || tab="${c%/*}/.fable-team/state/directive-roots.tsv"
   fi
   [ -f "$tab" ] || tab=""; FM_CARDS_TAB="${tab:-없음}"
   refs="$(awk -F'\t' 'NF>=3 && $3!="" && !s[$3]++{print $3}' "${tab:-/dev/null}" 2>/dev/null)"
   [ -n "$refs" ] || refs="${FT_CARD_REF:-origin/main}"; FM_CARDS_REFS="$(printf '%s\n' $refs | paste -sd, -)"
-  for ref in $refs; do
-    out="$(fm_try 7 git -c core.quotepath=false -C "$root" ls-tree -r --name-only "$ref" -- design 2>/dev/null)"; rc=$?
+  for ref in $refs; do dirs[${#dirs[@]}]="$root"; rfs[${#rfs[@]}]="$ref"; done
+  c="$(git -C "${REPO:-$root}" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; rr="$(git -C "$root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"
+  if [ -n "$c" ] && [ "$c" != "$rr" ]; then dirs[${#dirs[@]}]="${c%/.git}"; rfs[${#rfs[@]}]="${FT_CARD_REF:-origin/main}"; FM_CARDS_REFS="$FM_CARDS_REFS,${c%/.git}:${FT_CARD_REF:-origin/main}"; fi   # r1849-mut:repo
+  for i in "${!rfs[@]}"; do ref="${rfs[$i]}"
+    out="$(fm_try 7 git -c core.quotepath=false -C "${dirs[$i]}" ls-tree -r --name-only "$ref" -- design 2>/dev/null)"; rc=$?
     if [ "$rc" -ne 0 ]; then bad="${bad:+$bad, }$ref(rc=$rc)"; continue; fi
     ok=$((ok + 1)); rd="${rd:+$rd,}$ref"
     while IFS= read -r p; do   # r1717: 한글 폴더(진행·완성)를 따옴표 꼴로 내지 않게 — 차례 장부가 이 경로를 그대로 쓴다
       case "$p" in design/*/indices/*/*.md|design/teams/*/indices/*/*.md) ;; *) continue;; esac
       b="${p##*/}"; b="${b%.md}-"
-      for t in "$@"; do case "$b" in "$t"-*) hit[${#hit[@]}]="$p"; break;; esac; done
+      for t in "$@"; do case "$t" in r[0-9]*) case "$b" in "$t"-*) ;; *) continue;; esac;; *) [ "$b" = "$t-" ] || continue;; esac; hit[${#hit[@]}]="${dirs[$i]}/$p"; break; done
     done <<< "$out"
   done
   if [ "$ok" -eq 0 ]; then   # 하드 룰 20: 조용한 0장 금지 — 판정 불가를 글자로 남긴다
@@ -380,11 +384,13 @@ fm_cards_by_tokens() {
   if [ "${#hit[@]}" -eq 0 ]; then   # r1821 C2: 토큰이 있는데 0장 = 판정 불가(«카드 없음» 아님)
     FM_CARDS_ERR="토큰 $* 카드 0장 · 읽은 ref $rd · 표 $FM_CARDS_TAB"; echo "WARN cards_err: $FM_CARDS_ERR" >&2; return 0
   fi
-  printf '%s\n' "${hit[@]}" | awk '!s[$0]++' | while IFS= read -r p; do printf '%s/%s\n' "$root" "$p"; done
+  printf '%s\n' "${hit[@]}" | awk '!s[$0]++'
 }
 #   fm_card_tokens <head 가지> <PR 제목> : r1804 A1·A4 — 착지 카드 토큰(공백 이음) · ①가지 마지막 «/» 뒤 조각이 r<N>[a-z]?- 로 시작 = 그 1개 ②아니면 제목의 r<N>[a-z]? 전부(나온 순서 · 중복 0) ③없으면 빈 출력 · 본문은 안 받는다
+#     r1849 ⓐ: 가지가 nano/<stem>(한 조각 · r<숫자> 로 시작 안 함)이면 토큰 = <stem> 하나(fm_cards_by_tokens 가 정확한 파일 이름으로 찾는다)
 fm_card_tokens() {
   local t; t="$(printf '%s\n' "${1##*/}" | LC_ALL=C grep -oE '^r[0-9]{2,5}[a-z]?-')" && { printf '%s' "${t%-}"; return 0; }
+  case "${1:-}" in nano/*/*|nano/r[0-9]*|nano/) ;; nano/*) printf '%s' "${1#nano/}"; return 0;; esac
   printf '%s\n' "${2:-}" | LC_ALL=C grep -oE 'r[0-9]{2,5}[a-z]?' | awk '!s[$0]++' | paste -sd' ' -
 }
 #   fm_land_notify_land <카드리포루트> <PR> <착지 sha 앞자리> <PR 제목> <설치 검사 rc> <설치 검사 출력> [<head 가지>] : r1478 — ft-merge-land 끝 1줄
