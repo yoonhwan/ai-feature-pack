@@ -6,7 +6,7 @@ r1929 launch = 기다리지 않는다(keeper_launch · 띄우고 다음 바퀴�
 import importlib.util, os, re, sys  # noqa: E401
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-FT2, GIT_S = os.path.dirname(os.path.dirname(HERE)), 25
+FT2, GIT_S, PENALTY_S = os.path.dirname(os.path.dirname(HERE)), 25, 7   # r2073 판정기 호출 7초(하드 룰 12)
 OK, BLOCK, NONE = "접수 성공", ("정지", "석", "선행", "DA", "사람"), "[다음 없음]"
 URGENT, HIGH = re.compile(r"- 긴급:\s*예\s*$"), re.compile(r"- 우선(?:순위)?:\s*높음")
 REF = re.compile(r"(?<![A-Za-z0-9_])r(\d+)(?![0-9])")   # r2027 카드 참조 r<번호>
@@ -78,6 +78,34 @@ def gates(k, team):
     live = sum(x.startswith("byz-%s-nano-" % team) for x in set(out.split()) | k.cache.get("launching", set())) if rc == 0 else None   # r1929 여는 중 = 1칸
     k.fa.observe(k.root, "나노 정원", team, live, int(cap), "다음 카드")   # r1886 ⓑ 열림·NEXT-HOLD 둘 다
     return True if live is not None and live < int(cap) else k.log("NEXT-HOLD", team, "나노 %s / 상한 %s — 다음 카드 0" % (live, cap))
+def penalty_seen(k, team, val):
+    """r2073 P6·P7 — 값이 바뀔 때만 1줄 · 기억은 keeper 상태 파일(state["penalty_seen"][팀]) · val = "" 열림 · "hold" 재개 전 · "rc <값>" 판정 불가."""
+    book = k.state.setdefault("penalty_seen", {})
+    if book.get(team, "") == val:   # 같은 값 = 줄 0(재기동해도 상태 파일에 남아 있다)
+        return not val
+    if val:
+        book[team] = val
+        k.log("NEXT-HOLD" if val == "hold" else "판정 불가", team,
+              "PENALTY_STOP 재개 전 — 다음 카드 0" if val == "hold" else "PENALTY_STOP 판독 %s — 다음 카드 0" % val)
+        return False
+    book.pop(team, None)   # 기억에 있던 팀이 풀렸다 = 이때만 1줄
+    k.log("NEXT-OPEN", team, "PENALTY_STOP 풀림")
+    return True
+def penalty_open(k, team):
+    """r2073 P1·P2 — 참 = 새 카드를 넣어도 됨. state/PENALTY_STOP 없음 = 참(판정기 호출 0) · 있음 = ft-penalty.sh check <팀>
+    rc 0 = 참 · rc 3 = 거짓 · 그 밖(rc 1·2 · 도구 없음 · 시간 초과) = 거짓 + 판정 불가. 판정기는 1.x ft_penalty.py 한 곳이 한다(JSON 직접 풀기 0)."""
+    if not os.path.exists(os.path.join(k.root, ".fable-team", "state", "PENALTY_STOP")):
+        return penalty_seen(k, team, "")
+    judge = k.env.get("FT2_PENALTY_BIN") or os.path.join(os.path.dirname(k.close_bin or ""), "ft-penalty.sh")
+    rc = once(k, ("penalty", team), lambda: penalty_rc(k, judge, team))   # 팀당 바퀴 1회
+    return penalty_seen(k, team, "" if rc == 0 else "hold" if rc == 3 else "rc %s" % rc)
+def penalty_rc(k, judge, team):
+    """판정기 1회 = rc(k.call 은 실패·시간 초과를 None 으로 준다) · 판정기는 FT_ROOT 로 루트를 받는다."""
+    outer, k.env = k.env, dict(k.env, FT_ROOT=k.root)
+    try:
+        return k.call(["bash", judge, "check", team], PENALTY_S)[0]
+    finally:
+        k.env = outer
 def cards(k, team):
     """({stem: [긴급, 높음, 대상 줄들, 선행 막힘]}, 루트 행) · 판독 실패 = 사유 문자열 (git 2회 · 작업 트리 0)."""
     try:
@@ -168,7 +196,7 @@ def close(k, team, work, attempt, holder, gen):
     """닫기 영수 1회(지금 자리) + 다음 카드. 반환 = 영수 결과."""
     seen = ((ft2_state(k, team) or {}).get("close_receipts") or {}).get("keeper:%s@%s" % (work, attempt))
     if seen is None:
-        pick = choose(k, team) if gates(k, team) else None
+        pick = choose(k, team) if gates(k, team) and penalty_open(k, team) else None
         if pick:
             out, rc = cli.run(["submit", "--command", "keeper-next-" + pick[0], "--body", "카드 " + pick[0], "--work", pick[0], "--root", k.root, "--team", team])
             k.fa.remaining(k.root, team, out.get("result"), "카드 " + pick[0])   # r1886 ⓐ keeper submit
@@ -208,7 +236,7 @@ def fill(k, team):
     if mine:
         return None
     [held.pop(x) for x in list(held) if x.split("|")[0] == team and (ledger(k, x.split("|", 1)[1]).get("updated") or 0) > float(str(held[x]).split("|")[0])]   # 풀림 · r1939 값 = 시각 또는 «시각|사유»
-    pick = intake_open(k, team) and choose(k, team, {x.split("|", 1)[1] for x in held if x.split("|")[0] == team}) if gates(k, team) else None
+    pick = intake_open(k, team) and choose(k, team, {x.split("|", 1)[1] for x in held if x.split("|")[0] == team}) if gates(k, team) and penalty_open(k, team) else None
     if not pick:
         return None
     stem, attempt, nh = pick[0], None, "byz-%s-nano-%s#0" % (team, pick[0][:40])
