@@ -7,6 +7,7 @@
 - 원인 1줄: keeper_next.gates() 가 보는 것은 팀별 CLOSE-NEXT.enabled·팀별 PAUSED·SPAWN_HOLD·ACCT_PAUSE·나노 상한뿐이다 · «지금은 새 카드를 넣지 않는 기간» 을 말하는 전 팀 설정이 없다
 - 앞 카드: r1913(fill) · r1939(fill 꽉 참) · r2055(ALL_STOP 판독 꼴) · r1871(닫기 뒤 다음 카드)
 - 상태: 대기
+- 착지: eb4c9ea0357201acb14b078ef323b903b0b354c3(팩 main · PR #1330 squash · DA#11 APPROVE-IMPL BYZ 311559 · 세트 9e09a0a2 = PR head · 뺄 커밋 0)
 - 설치: 있음 — ft2 판 올림 1회 · 설정 파일 두기·치우기 = planner master 집행(이 카드 밖) · 되돌림 = 앞 판으로 판 전환(파일이 있어도 옛 판은 읽지 않음)
 - 선행: 없음 — D+F ft2-launch-failed-end 착지 8ed707c4(PR #1294) + J ft2-penalty-team-no-new-pick 착지 0d72507e(PR #1304 · 같은 두 pick 자리 · 이 카드가 J 조건에 and 로 잇는다) 착지 끝 · 우선 낮춤(planner 5337) 그대로 · 팀장 aifp-ft-master-pi#20 이 풂
 - 시험 입력: 임시 루트(tmp_path) · 시험 안에서 만든 journal·카드·설정 파일 · 가짜 tmux·가짜 mbox · 가짜 clock · sleep 0 · 네트워크 0 · 실 runtime 쓰기·읽기 0 · 사례 1개 70초 안
@@ -53,12 +54,12 @@ keeper 는 빈 나노 칸이 있으면 대기 카드를 스스로 넣는다(fill
 - thresholds.env 키(버린 길 · 읽는 곳이 4곳이라 1곳이 아님)
 
 ## 완료 조건
-1. [ ] 나노: 커밋 1 기준판 FAIL 원문
-2. [ ] 나노: 새 시험 전체 rc0 · 걸린 초
-3. [ ] 나노: 변이 M14 → ㉗가·㉗바 FAIL · M15 → ㉗나 FAIL
-4. [ ] 나노: 회귀 rc0
-5. [ ] 팀장: PR 착지 sha · 설치 판
-6. [ ] 팀장: 설정 파일을 둔 뒤 keeper 로그 NEW-CARD-HOLD 줄 + 전 팀 journal 새 accept keeper-next 줄 0 원문
+1. [x] 나노: 커밋 1 기준판 FAIL 원문 — 기준판 = 고침 전 keeper_next.py(6300ef28) + 같은 시험 파일 · `python3.11 -m pytest tests/test_new_card_hold.py` 4건 Red(나노 aifp 5675 · PR #1330 본문): ㉗가 `assert (lines and [] == ['NEW-CARD-HOLD harness 2.0 랜딩 전 — 새 카드 0 · until 2.0 완료 판정'])`(fill 이 카드를 띄움) · ㉗나 `assert (receipts and 1 == 1 and 'r9102-b' in (None, ''))`(닫기 영수 next = r9102-b) · ㉗라 `assert 0 == 1`(판정 불가 줄 0) · ㉗바 `assert (lines and ['r9101-a', 'r9201-p'] == [])`(두 팀 모두 fill) · ㉗다·㉗마·㉗사는 기준판에서도 통과
+2. [x] 나노: 새 시험 전체 rc0 · 걸린 초 — 9 passed 17.27초 rc=0(나노 aifp 5672 · 사례 1개 70초 안) · DA 직접 = 9 passed rc0 26.93초(BYZ 311559 판정문)
+3. [x] 나노: 변이 M14 → ㉗가·㉗바 FAIL · M15 → ㉗나 FAIL — 나노 «M14(㉗가·㉗바 Red)·M15(㉗나 Red) 확인»(aifp 5672) · DA «M14/M15 검출»(311559) · 변이별 초·원문 줄은 두 원문에 없다
+4. [x] 나노: 회귀 rc0 — 나노 = 5파일 94 passed 192.65초(r1871 · r1913 · r1939 · settle_one_path_r2055 · penalty_team_no_new_pick · aifp 5672) · DA 직접(311559) = 빈 칸 r1913 14 passed rc0 43.9초 · 접수 상한 r1939 9 passed rc0 23.7초 · settle r2055 29 passed rc0 67.3초 · 다음 카드 r1871 = 성공 21칸 뒤 70초 상한 rc124 판정 불가(실패 0) = r1871 의 근거는 나노 제출 값이다 · 함수 gates·choose·intake_open·reconcile·penalty_open·penalty_rc 의 AST 는 부모와 같음(DA)
+5. [x] 팀장: PR 착지 sha · 설치 판 — PR #1330 squash eb4c9ea0357201acb14b078ef323b903b0b354c3(head 9e09a0a2 · gh pr view 로 대조) · 설치 = ft2 2.0.68 rc 0(harness#292 · 팀장 aifp 5701) · arch 읽기 확인(aifp-ft-arch-pi#20 · 2026-11-16 05:02): install-log 2026-11-15T19:59:17Z(04:59:17 KST) op install version 2.0.68 prev 2.0.67 rc 0 · ~/.claude/fable-team/ft2/CURRENT = 2.0.68 · PACKAGE.json source sha 5a450232(eb4c9ea0 는 그 조상 · git merge-base --is-ancestor rc 0) · 설치본 adapters/pi/keeper_next.py = eb4c9ea0 의 같은 파일과 cmp 0
+6. [~] 팀장: 설정 파일을 둔 뒤 keeper 로그 NEW-CARD-HOLD 줄 + 전 팀 journal 새 accept keeper-next 줄 0 원문 — 실사건 대기(aifp-ft-arch-pi#20 · 2026-11-16 05:02 · BYZ 읽기만): BYZ .fable-team/state/ 에 NEW_CARD_HOLD.json 없음(있는 것 = PENALTY_STOP · ALL_STOP.released-* 12개) · 설치 뒤 keeper 로그 .fable-team/state/ft2-keeper/20261116.jsonl 에 NEW-CARD-HOLD·NEW-CARD-OPEN 줄 0 = 설정 파일을 둔 적이 없어 잴 대상 없음 · 파일을 두는 일은 planner master 집행(이 카드 범위 밖) · 둔 뒤 첫 바퀴의 `NEW-CARD-HOLD <팀> …` 줄 원문과 전 팀 journal 새 accept keeper-next 0 을 적으면 [x]
 
 ## 계약↔시험 대응표
 | 계약 | 시험 |
@@ -79,3 +80,6 @@ keeper 는 빈 나노 칸이 있으면 대기 카드를 스스로 넣는다(fill
 - [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
 - 세트: 9e09a0a2b08a5dff9c824b7b52353ccfe7b50ec8 · 시험: python3.11 -m pytest tests/test_new_card_hold.py (9 passed 17.27s) rc=0 · 이슈: 0
 - 완료: aifp-ft-nano-ft2-new-card-hold#0 · 한 일: keeper_next 에 새 카드 보류 판독(state/NEW_CARD_HOLD.json 1개) 추가 — fill pick·닫기 뒤 pick 두 자리만 막고 gates()·ALL_STOP·PAUSED 손 0 · 새 시험 test_new_card_hold.py ㉗가~㉗사·M14·M15 · 산출: nano/ft2-new-card-hold@9e09a0a2b0 · 병합 상태: 착지 전(push 전) · 남은 일: 없음
+- 2026-11-16 05:02 · aifp-ft-arch-pi#20 착지 줄 씀(팀장 aifp 5701) · 완료 조건 1~5 [x](읽기 대조) · 조건 6 [~] = 설정 파일 없음 · 실사건 대기
+- DA 판정: APPROVE-IMPL 311559(사본 .fable-team/state/team-main/aifp-ft/DA-new-card-hold-impl-approve-311559/verdict.md) · 승인 sha 9e09a0a2 · 구현 수용 반례 0 · 신규 9 passed rc0 · 빈 칸 14 · 접수 상한 9 · settle 29 passed rc0 · 다음 카드 회귀는 70초 상한 rc124 판정 불가 · 독립 fixture 3 PASS(재기동 뒤 같은 HOLD 로그 0 · until 바뀜 HOLD 1 · 이름 바꿔 풀면 OPEN 1 + 새 카드 1장) · 알려진 한계 = 보류는 새 pick 에 닿은 팀에서만 드러남
+- 세트: 9e09a0a2b08a5dff9c824b7b52353ccfe7b50ec8 · 시험: python3.11 -m pytest tests/test_new_card_hold.py (9 passed 17.27s) rc=0 · 이슈: 0
