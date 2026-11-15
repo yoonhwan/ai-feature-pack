@@ -15,7 +15,7 @@
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/pi/keeper.py(예산 시계 · 호출 문 · cursor · 바퀴 · ROUND 줄 · git 상한 · 꽉 참 알림 넣는 곳) · feature-pack/fable-team/ft2/adapters/pi/keeper_report.py(쪽지 미룸 · report 구획 · 꽉 참 알림 보내기) · feature-pack/fable-team/ft2/adapters/pi/full_alert.py(보내는 손 주입 1칸 · r3) · 새 시험 feature-pack/fable-team/ft2/tests/test_keeper_round_60s.py · 문서 ft2/contracts/keeper-settle/CONTRACT.md · CASES.md
 - 정본 영향 없음: aifp 정본(docs/architect · docs/rules · design 팀 GUIDE·README) 변경 0 — 바뀌는 것은 팩 ft2 계약 문서(contracts/keeper-settle/CONTRACT.md «바퀴 예산» 절 1개 · CASES.md 행)뿐이고 같은 PR(나노)에 넣는다
 - 크기: 코드 3파일(r3 · full_alert.py 더함 = 3개를 넘지 않아 선행 카드로 쪼개지 않는다) · 새 시험 1파일 · 문서 2파일 · PR 1개 · 끊김 수렴 시험(㊳파)에서 원자 구간이 21초를 넘는 순서가 나오면 그 순서는 새 카드로 쪼갠다(코드 4파일을 넘기지 않는다)
-- 배정: 대기(DA · 2026-11-16T05:06)
+- 배정: 좌석 aifp-ft-nano-ft2-keeper-round-60s#0
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -220,3 +220,5 @@ DA 반례(fill 1항목 안 7초 호출 10개 = 70초)에 댄 답: 그 10개는 �
 - 2026-11-16 05:22 · aifp-ft-arch-pi#20 r2(팀장 aifp 5726 · DA HOLD-DESIGN 1/3 BYZ 311663 · 사본 .fable-team/state/team-main/aifp-ft/DA-round-design-hold-311663/verdict.md) — 고친 것: 호출마다 남은 몫을 보는 호출 문(R2) · 구획 숫자 45·10·5(R1) · 팀·work·칸 cursor(R4) · 2회 끊김 건너뜀(R5) · 끊김 수렴과 원자 구간(R9) · «열기를 기다린다» 전제 정정(설계 확정 2) · «모든 팀 3바퀴» 를 2N 바퀴 순환으로(㊳사) · 반례 11 → 16 · 오빠 결정 0
 - 2026-11-16 05:38 · aifp-ft-arch-pi#21 r3(팀장 aifp 5743 · DA HOLD-DESIGN 2/3 BYZ 311745 · 사본 .fable-team/state/team-main/aifp-ft/DA-round-design-hold2-311745/verdict.md) — 고친 것: 바깥 호출 전수 19줄(우회 3줄 · 기다리는 것 1줄 = full_alert) · 꽉 참 알림을 넣어 두었다가 report 구획에서 문으로(R12) · 문 밖 바깥 호출 0 을 AST 시험으로(R13) · 쓰기 = 판독 목록 밖 전부 · 몫 = 자기 상한(긴 쓰기 25초 3줄) · report 의 `rep_cursor` · 프로세스 안 초는 가정 A1 로 내림 · 시간 입력을 복합 호출로 정의 · 반례 16 → 24 · 변이 8 → 13 · 코드 2 → 3파일 · 오빠 결정 0
 - 2026-11-16 07:36 · aifp-ft-arch-pi#22 r4(팀장 aifp 5852 · DA HOLD-DESIGN 3/3 BYZ 311870 뒤 오빠 결정 «1» = 수신자 순환 · 동결 .fable-team/state/team-main/aifp-ft/keeper-round-60s-decision/FROZEN.md) — 고친 것: R12 보내기 줄(미완료 줄은 그 받는 곳째 목록 뒤 · 시간 초과도 tries · E7 도착 = 성공 · `mark` 로 다시 보내기 앞 도착 확인 · 예산 미룸만 0회 · 3회 뒤 판정 불가) · 반례 표에 F1~F5 = ㊷가~마 · ㊴가 기대 끝 구절 1곳 · 변이 M94~M97 · 완료 조건 6 성립 여부 1줄 · 기준값에 89/60초(BYZ 312444) 1줄 · 설계 확정 5 · 반례 24 → 29 · 변이 13 → 17 · 그 밖 계약(R1~R11 · R13) 손 0 · 새 설계 범위 0
+- 2026-11-16 07:41 — 대기→진행 · 좌석 aifp-ft-nano-ft2-keeper-round-60s#0
+- [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
