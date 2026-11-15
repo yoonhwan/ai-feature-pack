@@ -1,6 +1,6 @@
 # 인덱스: ft2-keeper-round-60s — 끝: ft2 keeper 한 바퀴가 벽시계 60초 안에 끝난다 · 예산이 다하면 그 자리(팀·work·칸)에서 끊고 다음 바퀴가 거기서 잇는다 · ROUND 줄이 벽시계 초·재지 못한 초·끊긴 자리를 보인다
 <!-- ledger: feature-pack/fable-team/legacy/1.x/harness/design/harness/GOAL-harness.md -->
-- Issue: 없음(초안) — 요청 planner#327 aifp 5702 · 팀장 aifp-ft-master-pi#21 발주 aifp 5704 · 문제 원문 «keeper 한 바퀴 78초 / 상한 60초 ★크리티컬★ → 느린 단계 쪼개기»(BYZ design/planner/PROBLEMS-desk175-20261116.md 40줄 · 근거 BYZ #309391 · #309397 = 발주 인용 · 이 좌석은 그 파일을 로컬에서 못 찾아 원문 대조 안 함)
+- Issue: #8661 (byz-agents · 팀장 aifp-ft-master-pi#22 등록 BYZ 312613 · 오빠 결정 ① · 동결 반례 F1~F7) — 요청 planner#327 aifp 5702 · 팀장 aifp-ft-master-pi#21 발주 aifp 5704 · 문제 원문 «keeper 한 바퀴 78초 / 상한 60초 ★크리티컬★ → 느린 단계 쪼개기»(BYZ design/planner/PROBLEMS-desk175-20261116.md 40줄 · 근거 BYZ #309391 · #309397 = 발주 인용 · 이 좌석은 그 파일을 로컬에서 못 찾아 원문 대조 안 함)
 - 제안서: 없음 — 기존 상한(바퀴 60초)을 지키게 하는 결함 복구 · 설계 = 이 카드 «계약»·«바깥 호출 전수»·«설계 확정»·«반례 표»(DA HOLD-DESIGN 1/3 BYZ 311663 반영 r2 · 2/3 BYZ 311745 반영 r3 · 3/3 BYZ 311870 뒤 오빠 결정 ① 수신자 순환 반영 r4 · 반례 동결 .fable-team/state/team-main/aifp-ft/keeper-round-60s-decision/FROZEN.md · 4번째 설계 DA 0 = 하드 룰 14)
 - 근거: 실측 2026-11-16 05:05(aifp-ft-arch-pi#20 · BYZ .fable-team/state/ft2-keeper/20261116.jsonl 읽기만 · 설치 ft2 2.0.65~2.0.68 구간) — 아래 «기준값» 절
 - 원인 1줄: 바퀴 상한 검사는 팀 고리 머리 1곳뿐이다(adapters/pi/keeper.py `_round` 의 `if time.monotonic() - start > ROUND_S`) · 한 팀의 한 칸이 혼자 60초를 넘어도 끊지 못하고 · 팀 고리 앞(fetch · 나노 가지 모으기)과 뒤(b3 · report)는 상한 밖이다
