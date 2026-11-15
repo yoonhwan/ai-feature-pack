@@ -57,6 +57,8 @@ MAP=(
   "mbox_guard_da.sh|.fable-team/comm/mbox_guard_da.sh"
   # ★mbox_guard_lib.sh = 두 문이 판정기 폴더를 찾는 공용 함수 _ft_live_bin(R372) — 없으면 판정기 해석 실패로 fail-closed REJECT★
   "mbox_guard_lib.sh|.fable-team/comm/mbox_guard_lib.sh"
+  # ★mbox_seat.py = mbox_guard.sh guard_check 가 부르는 master 석 길(r1657) — 없으면 받는 이 그대로(석 0) · 감시 밖이면 석 1 이 조용히 안 받는다★
+  "mbox_seat.py|.fable-team/comm/mbox_seat.py"
   # ★ft-goal-table.sh·ft_goal_table.py = 문 ③ 이 부르는 판정기(R362 · 라이브 bin) — LIVE_BIN 쪽은 ft-live-install-check 가 본다★
   # ★ft-boot-report-lint.py = mbox_guard.sh 가 부팅 보고 때 부르는 lint (P4 · 2026-10-12) — 감시 밖이면 한쪽만 깔려도 무증상★
   "ft-boot-report-lint.py|.claude/fable-team/bin/ft-boot-report-lint.py"

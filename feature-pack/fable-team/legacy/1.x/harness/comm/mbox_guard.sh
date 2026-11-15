@@ -237,6 +237,8 @@ guard_check() {
     esac
   done <<< "$out"
   [ -z "$rej" ] || { echo "REJECT $rej" >&2; return 3; }
+  new="$(python3 "$DIR/mbox_seat.py" "$(dirname "$(_seats_json)")" "$GUARD_TO" "$2" 2>/dev/null)" || new=""   # r1657 master 석 길 — 첫 카드 참조의 담당 석 · 판정 불가 = 그대로
+  [ -z "$new" ] || [ "$new" = "$GUARD_TO" ] || { echo "NOTE 담당 석 $GUARD_TO → $new" >&2; guard_log mbox-guard.log "seat $GUARD_TO -> $new"; GUARD_TO="$new"; }
   out="$(_guard_py_head "$GUARD_TO" "$(guard_mode)" "$2" 2>/dev/null)" || out=""
   while IFS=$'\037' read -r verb new msg; do
     case "$verb" in
