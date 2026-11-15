@@ -2,10 +2,11 @@
 """r1657 단계 1 — master 석 쪽지 길(받는 이 결정 1곳 = mbox_guard.sh guard_check 가 부른다).
 
 mbox_seat.py <명부 폴더> <받는 이> <본문> → stdout 1줄 = 실제 받는 이(바꿀 것 없으면 받는 이 그대로) · rc 0.
-  · 받는 이가 어느 명부 `_master`(석 0) 우편함일 때만 본다 · 석 K≥1 이름으로 직접 보낸 쪽지는 그대로.
-  · 명부 `_master-<K>` 가 다 빈 값 = 석 1 없음 = 지금과 같다(받는 이 그대로).
-  · 본문 머리 400자의 첫 카드 참조(r<번호>) → 대기·진행 카드의 `- 담당 석: <K>` → `_master-<K>` 값.
-  · 석 0 으로 가는 것: 머리 [HIL]·[부팅]·[인계]·오빠 지시 · 참조 없음 · 카드 못 찾음 · 담당 석 빈 값·꼴 밖 · `_master-<K>` 빈 값.
+  · 받는 이가 어느 명부 master 석(`_master`·`_master-<K>`) 우편함이면 본다 · 명부 `_master-<K>` 가 다 빈 값 = 지금과 같다(받는 이 그대로).
+  · 머리 [HIL]·오빠 지시 = 석 0(`_master` 값 · 석 1 직접이어도).
+  · 머리 [부팅]·[인계]·[레디] = 받는 주소 그대로(석 0 주소 = 석 0 · 석 1 직접 = 석 1 승계 사슬).
+  · 본문 머리 400자 첫 카드 참조(r<번호>) → 진행 → 대기 → 완성 → 아카이브(월 폴더 포함) 순서로 찾은 카드의 `- 담당 석: <K>` → `_master-<K>` 값.
+  · 참조 없음·카드 못 찾음 = 받는 주소 그대로(석 0 주소 = 석 0 · 석 1 직접 = 보낸 이가 고른 석 1) · 담당 석 빈 값·꼴 밖·`_master-<K>` 빈 값 = 석 0.
   · 카드 폴더 = env FT_CARDS_DIR(시험) → <루트>/.worktrees/<_cards_wt>/<_cards> → <루트>/<_cards>.
 판정 불가(명부·카드 못 읽음)는 받는 이 그대로(지금 길 · 조용한 다른 석 0)."""
 
@@ -15,7 +16,8 @@ import os
 import re
 import sys
 
-HUMAN = re.compile(r"\s*(\[HIL[\]·]|\[부팅\]|\[인계\]|\[오빠|오빠 지시)")
+PERSON = re.compile(r"\s*(\[HIL[\]·]|\[오빠|오빠 지시)")  # 사람 창구 머리 = 어느 주소로 와도 석 0
+HUMAN = re.compile(r"\s*(\[부팅\]|\[인계\]|\[레디\])")  # 승계·부팅 머리 = 받는 주소 그대로
 REF = re.compile(r"(?<![A-Za-z0-9])r(\d+[a-z]?)(?![A-Za-z0-9])")
 SEAT = re.compile(r"^- 담당 석:[ \t]*(0|[1-9][0-9]*)[ \t]*$", re.M)
 
@@ -50,18 +52,19 @@ def cards_dir(root, dd):
     return ""
 
 
-def seat_for(body, cdir):  # 쪽지 → 담당 석 K(석 0 이 기본)
-    head = body[:400]
-    if HUMAN.match(head):
-        return 0
+def card_of(
+    head, cdir
+):  # 첫 카드 참조 → 카드 경로 · 찾기 순서 = 진행 → 대기 → 완성 → 아카이브(월 폴더 포함 · DA#10 R1 · arch cbcc46453a) · 없음 = ""
     m = REF.search(head)
     if not m or not cdir:
-        return 0
-    hit = sorted(
-        glob.glob(os.path.join(cdir, "대기", "r%s-*.md" % m.group(1)))
-        + glob.glob(os.path.join(cdir, "진행", "r%s-*.md" % m.group(1)))
-    )
-    return card_seat(hit[0]) if hit else 0
+        return ""
+    for st in ("진행", "대기", "완성", "아카이브"):
+        hit = sorted(
+            glob.glob(os.path.join(cdir, st, "**", "r%s-*.md" % m.group(1)), recursive=True)
+        )
+        if hit:
+            return hit[0]
+    return ""
 
 
 def route(sdir, to, body):
@@ -73,12 +76,23 @@ def route(sdir, to, body):
         if not isinstance(dd, dict):
             continue
         s = seats_of(dd)
-        if 0 not in s or rk(s[0]) != rk(to):
+        if 0 not in s or rk(to) not in {rk(v) for v in s.values()}:
             continue
         if len(s) == 1:
             return to  # 석 1 없음 = 지금과 같다
-        k = seat_for(body, cards_dir(os.path.dirname(os.path.abspath(sdir)), dd))
-        return s.get(k) if k and s.get(k) else to
+        head = body[:400]
+        if PERSON.match(head):
+            return to if rk(to) == rk(s[0]) else s[0]  # [HIL]·오빠 지시 = 사람 창구 석 0 하나(직접 석 1 이어도 · R2 ①)
+        if HUMAN.match(head):
+            return to  # [부팅]·[인계]·[레디]: 석 0 주소 = 석 0 · 석 1 직접 = 석 1 승계 사슬 그대로(R2 ③)
+        card = card_of(head, cards_dir(os.path.dirname(os.path.abspath(sdir)), dd))
+        if not card:
+            return to  # 카드 없음: 석 0 주소 = 석 0 · 석 1 직접 = 석 1 그대로(R2 ②)
+        k = card_seat(card)
+        k = k if k in s else 0
+        return (
+            to if rk(s[k]) == rk(to) else s[k]
+        )  # 카드 참조 = 그 카드 담당 석(직접 석 1 도 같은 규칙 · R2 ④)
     return to
 
 
