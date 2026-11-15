@@ -67,7 +67,11 @@ keeper 는 판정을 팀장에게 쪽지로 알린다. 받는 곳을 그 팀 명
 4. [x] 나노: 회귀 rc0 · 고친 기대값 사례 이름 — `test_settle_one_path_r2055.py` 29 passed 43.0초(⑤ «전송 실패 뒤 = 다시 전송» → «실패도 그날 지문») · `test_pi_keeper_r1812.py` 31 passed 78.3초 · `test_pi_keeper_followup_r2000.py` 26 passed 41.5초(숫자 정정 aifp 5484) ⑧′ «쪽지 실패 → 다음 바퀴 다시» 를 «실패도 그날 지문» 으로(카드 밖 두 번째 기대 고침 파일 · r2000 소유) · `test_full_critical_alert_r1886.py` 4 passed 1 failed = c7 journal 꽉 참인데 기준판(0de903a2)에서도 같은 FAIL(무관 · master 재판정)
 5. [x] arch: ㉚파·㉚하·㉚거 와 M32·M33 을 따로 다시 돌려 확인(DA BYZ 310019 인수 칸) — aifp-ft-arch-pi#18 재실행(세트 8ba57455 의 git archive 사본 · `python3.11 -m pytest ft2/tests/test_keeper_notify_recipient.py -v`): 25 passed 24.76초 rc=0 · test_case[㉚파]·[㉚하]·[㉚거] PASSED · test_mutant[M32]·[M33] PASSED(M32 = seq 경계를 ts >= 로 → ㉚파 · M33 = ts > 로 → ㉚하) · DA 두 번 확인 원문 = BYZ 310738 «요청한 ㉚파·㉚하·㉚거와 M32/M33 포함» · BYZ 310812 «기존㉚파/하/거 및 M32/M33도 함께통과»
 6. [x] 팀장: PR #1282 ae0c199e · 설치 2.0.65 rc0 POSTCHECK OK Traceback 0(harness#290 aifp 5521 · install-log 2026-11-15T18:07:51Z = KST 11-16 03:07:51)
-7. [ ] arch: 설치 뒤 1시간 keeper 로그 실측 1줄(«판정 불가 … 쪽지» 줄 수 · 쪽지 stall 21초 넘는 바퀴 수)
+7. [x] arch: 설치 뒤 1시간 keeper 로그 실측 1줄(«판정 불가 … 쪽지» 줄 수 · 쪽지 stall 21초 넘는 바퀴 수) — aifp-ft-arch-pi#19(2026-11-16 04:09 · BYZ .fable-team/state/ft2-keeper/20261116.jsonl 읽기만 · 줄 꼴 `판정 불가 <팀> 쪽지 …` · stall = ROUND 줄의 `stall=` 칸)
+   - 기준 창 02:07:51~03:07:51 KST(735줄): «판정 불가 … 쪽지» 176줄 = kk 86 · v65 86(둘 다 «_master 없음» · 바퀴마다 [긴급] 1 + [다음 없음] 1) · harness 2 · chatbot 1 · planner 1(send 실패) · ROUND 44줄 중 stall 21초 넘음 0(최대 10.1초)
+   - 설치 뒤 창 03:07:51~04:07:51 KST(645줄 · 설치 ft2 2.0.65 install-log 2026-11-15T18:07:51Z): «판정 불가 … 쪽지» 5줄 = kk 2 · v65 2(03:08:03 · 03:08:06 «_master 없음») · harness 1(04:03:59 «쪽지 None» = send 7초 초과) · ROUND 41줄 중 stall 21초 넘음 0(최대 10.4초 · 04:04:53)
+   - 비교: 176줄 → 5줄 · kk·v65 «_master 없음» 172줄 → 4줄이고 그 4줄은 03:08:07 에 끝난 바퀴(s=16.6 = 03:07:50 시작 · 설치 기록 1초 앞)에만 있다 · 다음 바퀴(03:09:25~03:09:31)부터 `NOTIFIED v65 byz-v65-master-pi#294 …` 2통 · `NOTIFIED kk byz-harness-master-pi#290 [긴급] kk 팀장 없음 · 못 전한 keeper 판정 2건 …` 1통(대신 받는 곳 묶음)으로 바뀌고 «_master 없음» 줄 0 = 설계 수용 기준 «둘째 바퀴부터 0» 과 맞다 · stall 21초 넘는 바퀴는 두 창 모두 0 이라 이 칸은 앞뒤 차이로 보이지 않는다(기준 창에 01:07 같은 몰림이 없었다) [확인 필요: 03:08:07 바퀴가 어느 판으로 돌았는지 — 줄에 판 표식 없음 · 시작 시각으로만 봄]
+   - 창 안 사건(따로): 03:47:51 ft2 2.0.66 설치(G + D+F 한 판) = 설치 뒤 창이 2.0.65 40분(«판정 불가 … 쪽지» 4줄 · ROUND 29 · stall 최대 5.1초) + 2.0.66 20분(1줄 · ROUND 12 · stall 최대 10.4초)로 나뉜다 · 2.0.66 구간의 UNKNOWN 10줄·NOTIFIED 9통 가운데 `launch-failed` 줄은 D+F 카드 몫이다 · ROUND-CAP(60초 넘음)은 기준 창 1 → 설치 뒤 창 4(04:04:36 s=52 · 04:07:36 s=91 은 b1·b2f 칸이 길다 · stall 5.5~10.4초) = 쪽지 때문이 아니다 · 이 카드 조건 밖
 
 ## 계약↔시험 대응표
 | 계약 | 시험 |
@@ -96,3 +100,4 @@ keeper 는 판정을 팀장에게 쪽지로 알린다. 받는 곳을 그 팀 명
 - 고침: DA HOLD-IMPL(BYZ 310738) 반례 1건 = A 알림 뒤 새 후보 B 가 그날 안 나감 → 커밋 8ba57455(keeper_report.report 쪽지 열쇠 seats[0] → fresh[0] · 사례 ㉚더 · 변이 M34 · .worktree-info.json 되돌림 · aifp 5505)
 - DA 판정: HOLD-IMPL 310738 → APPROVE-IMPL 310812(aifp 5510) · 구현 2/3 · c7 별건
 - 세트: 8ba5745547a313233c59c8ff1a58d033c543fce9 · 시험: python3.11 -m pytest ft2/tests/test_keeper_notify_recipient.py (25 passed · 24.21초) rc=0 · 이슈: 0
+- 남은 범위: 없음
