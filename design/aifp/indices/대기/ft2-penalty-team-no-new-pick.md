@@ -7,7 +7,7 @@
 - 앞 카드: r1913(fill) · r1939(fill 꽉 참) · r1871(닫기 뒤 다음 카드) · r2055(팩 d88ef381 · settle 한 길) · 1.x R320b(전 세션 정지 · 오빠 판정 2170)
 - 상태: 대기
 - 설치: 있음 — ft2 판 올림 1회 · 되돌림 = 앞 판으로 판 전환(상태 파일의 새 키 1개는 옛 판이 읽지 않음)
-- 선행: ft2-launch-failed-end 착지(keeper_next.py 를 같이 만짐 · 그 위에서 시작) · ft2-new-card-hold 와 앞뒤로 이어 붙임(같은 두 pick 자리 · 뒤에 착지하는 카드가 앞 조건에 and 로 잇는다) — 이 줄은 카드 이름 글이라 keeper 가 읽지 못한다(선행불명) · keeper 가 읽는 막힘은 아래 배정 줄 «대기(선행» 이다 · 앞 카드가 착지하면 팀장이 이 줄을 «- 선행: 없음» 으로, 배정 줄을 «- 배정: 없음» 으로 고친다
+- 선행: 없음 — D+F ft2-launch-failed-end 착지 8ed707c4(PR #1294) 착지 끝 · 팀장 aifp-ft-master-pi#19 이 풂
 - 시험 입력: 임시 루트(tmp_path) · 시험 안에서 만든 journal·카드·PENALTY_STOP 파일 · 가짜 판정기 스크립트(rc 를 사례가 정함 · 호출 수 기록) · 가짜 tmux·가짜 mbox · sleep 0 · 네트워크 0 · 실 runtime 쓰기·읽기 0 · 사례 1개 70초 안
 - 기준값: 기준판 = PENALTY_STOP 재개 전 팀에도 fill submit 1 → 목표 = submit 0 · journal 줄 수 그대로 · NEXT-HOLD 1줄(값이 바뀔 때만)
 - 규칙: 없음 — 상시 로드 변경 0
@@ -15,7 +15,7 @@
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/pi/keeper_next.py(새 함수 penalty_open · fill pick 앞 · 닫기 뒤 pick 앞) · 새 시험 feature-pack/fable-team/ft2/tests/test_penalty_team_no_new_pick.py · 문서 ft2/contracts/keeper-settle/CONTRACT.md·CASES.md
 - 정본 영향 있음: CONTRACT.md 에 «전 세션 정지 재개 전 팀» 절 1개(판정기 자리·막는 것·안 막는 것·줄 꼴·상태 키) · CASES.md ㊲·변이 행 = 같은 PR(나노)
 - 크기: 코드 1파일 · 새 시험 1파일 · 문서 2파일 · PR 1개
-- 배정: 대기(선행 · 2026-11-16T02:31)
+- 배정: 없음
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
