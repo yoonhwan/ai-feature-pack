@@ -142,3 +142,15 @@ keeper 는 좌석마다 매 바퀴 판정 1개를 낸다. 이 문서는 그 판�
 - 상태 키 = keeper 상태 파일 `state/ft2-keeper/state.json` 의 `penalty_seen[<팀>]`. 값은 마지막으로 찍은 표식(`hold` 또는 `rc <값>`)이고 열림이면 키가 없다. 메모리에만 두지 않는다 — 재기동해도 같은 줄을 다시 찍지 않는다.
 - 알려진 한계 = 바퀴 캐시 안에서 바뀐 정지·재개는 다음 관측(다음 바퀴)에 반영된다. 사람 손 발주는 이 계약이 막지 않는다.
 
+## 11. 새 카드 보류 설정 (`NEW_CARD_HOLD` · r2101 · 카드 ft2-new-card-hold)
+
+- 설정 자리 = `<데이터 루트>/.fable-team/state/NEW_CARD_HOLD.json` 1개(전 팀 공통). 꼴 = `{"reason": "<10자 이상>", "by": "<좌석>", "at": "<시각>", "until": "<사람이 읽는 조건>"}`.
+- 판독 = keeper 가 바퀴당 1회(`once` 캐시 · 팀 사이 공유). 없음 = 열림 · 있음 = 보류 · 깨짐(빈 파일 · JSON 아님 · `reason` 없음) = 보류 + `판정 불가` 1줄. 깨진 파일을 «꺼짐» 으로 읽지 않는다.
+- 막는 곳 = 새 카드를 스스로 고르는 두 자리뿐이다. `keeper_next.fill()` 의 새 pick 과 `keeper_next.close()` 의 닫기 뒤 pick.
+- 안 막는 것 = 이미 연 열기 잇기(`fill_open` · `reconcile`) · 복구 launch 직전 가드 · settle · 착지 complete · 닫기 영수(`close_receipt`) · 깨움 · 사람 손 `ft2 submit/assign/deliver` · 팀장 개설·승계·사람 손 나노 개설.
+- 이 파일을 읽는 곳은 `adapters/pi/keeper_next.py` 뿐이다. `gates()` 본문 · ALL_STOP · 팀별 `PAUSED` · `ft-successor-open.sh` · `ft-nano-spawn.sh` · `tmuxc open` 은 이 파일을 읽지 않는다(시험 ㉗사 = 실행 파일 문자열 검색).
+- 줄 꼴(값이 바뀔 때만): `NEW-CARD-HOLD <팀> <reason> · until <until>` · 깨짐이면 `판정 불가 <팀> NEW_CARD_HOLD 판독 불가(빈 파일·JSON 아님·reason 없음) — 새 카드 0` · 풀리면 `NEW-CARD-OPEN <팀>`.
+- 상태 키 = keeper 상태 파일 `state/ft2-keeper/state.json` 의 `new_card_hold_seen[<팀>]`. 값은 마지막으로 찍은 표식(`<reason>|<until>` 또는 `깨짐`)이고 열림이면 키가 없다. 메모리에만 두지 않는다 — 재기동해도 같은 줄을 다시 찍지 않는다.
+- 풀기 = 파일을 `NEW_CARD_HOLD.released-<시각>` 으로 이름 바꾼다(ALL_STOP 과 같은 손). «2.0 완료» 같은 기간의 끝은 기계가 판정하지 않는다 — 사람이 둔 파일이 기준이다.
+- 알려진 한계 = 판독이 바퀴 캐시 안이라 파일을 두거나 치운 뒤 첫 반영은 다음 바퀴다. 보류 중에도 `[다음 없음]` 쪽지는 나가지 않는다(고르기를 아예 부르지 않는다).
+
