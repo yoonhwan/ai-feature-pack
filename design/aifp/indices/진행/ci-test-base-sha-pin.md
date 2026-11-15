@@ -11,7 +11,7 @@
 - 선행: 없음(팩 origin/main 017fe2cf · ci-search-test-files 착지 cf0d4052 포함)
 - 시험 입력: 시험이 이미 쓰는 것 그대로(가짜 probe · RG_BIN 대역 · 임시 폴더 · HOME·TMPDIR 격리) + 새 fixture 파일 1개(기준판 ci 사본) · sleep 0 · 네트워크 0 · 실 probe 0 · git 호출 0(기준판 블록)
 - 기준값: 지금 main 에서 `bash feature-pack/code-intel/tests/test_ci_search_nonascii_panic.sh` = rc 1 · 294 검사 · 실패 16 · 11초 → 목표 = rc 0 · 실패 0 · 마지막 줄 `PASS`
-- 규칙: 없음
+- 규칙: 없음 — 상시 로드 변경 0(시험 파일과 시험 fixture 만 바뀐다)
 - 규칙 상세: 하드 룰 22(시험 1개 70초) · 하드 룰 19(우리 도구가 만드는 파일은 일반 파일)
 - 대상: 팩 feature-pack/code-intel/tests/test_ci_search_nonascii_panic.sh(«기준판 대조» 블록 머리 5줄 안팎) · 새 fixture feature-pack/code-intel/tests/fixtures/ci-base-97528b12 · 새 시험 feature-pack/code-intel/tests/test_ci_base_pin.sh
 - 정본 영향 없음: 시험 파일·시험 fixture 만 · 제품 코드(skill/scripts/ci)·스킬 문서·정본 문서 변경 0
@@ -115,3 +115,4 @@
 - 세트: d7e028244fd3a3195000cbf749a02a5184d87cdc · 시험: bash feature-pack/code-intel/tests/test_ci_base_pin.sh (28 검사 · 25초) rc=0 · 이슈: 0
 - 완료: aifp-ft-nano-ci-test-base-sha-pin#0 · 한 일: 기준판 대조를 고정 fixture(tests/fixtures/ci-base-97528b12)로 바꿈 + 새 시험 test_ci_base_pin.sh(D2·D4·D5·D6·변이 Y1~Y3) · 산출: nano/ci-test-base-sha-pin@d7e028244f · 병합 상태: 착지 전(push 전) · 남은 일: 없음
 - 증거(나노 실행 원문): D1 = bash feature-pack/code-intel/tests/test_ci_search_nonascii_panic.sh → rc 0 · 294 검사 · 실패 0 · 13.2초 · PASS · `기준판 = fixtures/ci-base-97528b12` · D2·D4·D5·D6 = test_ci_base_pin.sh 28 검사 · 실패 0 · 24.5초 · 변이 Y1~Y3 3/3 잡힘 · 회귀 5파일 rc 0 · fixture 100644 · blob cff07f3a · sha256 f2eb9e1fba04a8773340b9b263e38ec9fb3194387bebe13b90c5e96931a17dbf · 세트 d7e028244fd3a3195000cbf749a02a5184d87cdc
+- 남은 범위: 없음
