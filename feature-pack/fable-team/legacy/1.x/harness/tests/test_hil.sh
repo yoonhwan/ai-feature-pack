@@ -88,7 +88,7 @@ hilx h1 >/dev/null 2>&1; rc=$?; [ "$rc" -eq 2 ] && ok "번호 실행 인자 = us
 
 echo "== 출력처 ft-wt-sweep: skipped 계획 → .sh.hil + 안내 ! bash <링크>"
 W="$T/wtclean"; mkdir -p "$W" "$T/sw"
-cp "$SRC/ft-wt-sweep.sh" "$SRC/ft-hil.sh" "$T/sw/"
+cp "$SRC/ft-wt-sweep.sh" "$SRC/ft-hil.sh" "$SRC/ft-hil-gate.sh" "$T/sw/"   # r2078: ft-hil.sh 는 보조 도구 없이 등록 0(판정 불가)
 printf '#!/usr/bin/env bash\necho "skipped:실작업물 있음"\n' > "$W/seatX.sh"
 sw() { ( cd "$T" && env -i HOME="$T/home" PYTHONDONTWRITEBYTECODE=1 PATH="/usr/bin:/bin" FT_WT_CLEAN_DIR="$W" HIL_CLIP=0 "$@" bash "$T/sw/ft-wt-sweep.sh" 2>&1 ); }
 out="$(sw HIL_DIR="$T/sd")"
