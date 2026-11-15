@@ -59,13 +59,14 @@ def clocked(w, k, cut):
     k.team_round = lambda team: (seen.append(team), clock.__setitem__(0, clock[0] + cut))
     assert k.run_once() == 0
     return seen, json.loads((w.state / "ft2-keeper" / "state.json").read_text(encoding="utf-8"))
-def c6(w):   # ⑥ 3번째 팀에서 컷 → cap_next · 다음 바퀴 그 팀부터 · 컷 없는 바퀴 뒤 키 없음 · 목록 밖 = 원래 순서
+def c6(w):   # ⑥ r2098 R4 — 예산 컷 → cursor(팀) · 다음 바퀴 그 팀부터 · 끊김 없는 바퀴 뒤 cursor 지움 · 옛 cap_next 는 그 팀 머리
     teams = ["t1", "t2", "t3", "t4"]
     for t in teams:
         _put(w.state / "ft20-switch" / (t + ".json"), "{}"), w.runtime(t).mkdir(parents=True)
     assert clocked(w, w.keeper(), 31)[0] == ["t1", "t2"]
     seen, st = clocked(w, w.keeper(), 0)
-    assert seen == ["t3", "t4", "t1", "t2"] and "cap_next" not in st
+    assert seen == ["t3", "t4"] and not st.get("cursor") and "cap_next" not in st   # 끊기지 않은 바퀴 = cursor 지움
+    assert clocked(w, w.keeper(), 0)[0] == ["t1", "t2", "t3", "t4"]
     _put(w.state / "ft2-keeper" / "state.json", dict(st, cap_next="t3")), _put(w.state / "ft2-keeper" / "SKIP_TEAMS", "t3\n")
     assert clocked(w, w.keeper(), 0)[0] == ["t1", "t2", "t4"]
 def c5(w):   # ⑤ ROUND 줄 stall= 칸 = stall.check 에 쓴 초 · s = fetch+b1+b2+b3+stall
@@ -76,7 +77,7 @@ def c5(w):   # ⑤ ROUND 줄 stall= 칸 = stall.check 에 쓴 초 · s = fetch+b
     git = k.git
     k.git = lambda repo, *a, **o: (tick(5) if a[0] == "fetch" else None, git(repo, *a, **o))[1]
     k.complete, k.retired, k.stall.check = (lambda *a: tick(10, False)), (lambda: tick(3)), (lambda *a: tick(7))
-    assert [re.sub(r" fetch_root=\S+ fetch_pack=\S+| unknown=\d+", "", x) for x in w.round(k) if x.startswith("ROUND")] == ["ROUND s=30 fetch=10 b1=10 b2c=0 b2f=0 b3=3 stall=7 slow=harness:b1:10"]   # r1969 b2c·b2f·slow
+    assert [re.sub(r" fetch_root=\S+ fetch_pack=\S+| unknown=\d+| wall=\S+ other=\S+ items=\S+ cut=\S+", "", x) for x in w.round(k) if x.startswith("ROUND")] == ["ROUND s=30 fetch=10 b1=10 b2c=0 b2f=0 b3=3 stall=7 slow=harness:b1:10"]   # r1969 b2c·b2f·slow
 def c7(w):   # ⑦ DA R1 — 같은 생존 좌석이 seats-harness.json·seats.json 둘 다 `_replaced_by` → close 1 · 허위 HELD-SEAT 0
     _put(w.root / ".fable-team" / "seats.json", {LIVE[0]: {"_replaced_by": "byz-harness-nano-x-r1#1"}})
     k, calls = b3(w, rows=5)
@@ -85,7 +86,7 @@ CASES = {"①": c1, "②": c2, "③": c3, "④": c4, "⑤": c5, "⑥": c6, "⑦"
 KC, KP = "adapters/pi/keeper_close.py", "adapters/pi/keeper.py"
 MUTANTS = {"M1": (KC, "if seat not in alive:", 'if self.probe(seat) != "alive":', c1),
            "M2": (KC, 'return self.log("판정 불가", text="tmux list-sessions', 'return set() if True else self.log("판정 불가", text="tmux list-sessions', c4),
-           "M3": (KP, 'self.state["cap_next"] = team', "pass", c6)}
+           "M3": (KP, "for team in self.order[skip:]:", "for team in self.order:", c6)}   # r2098 cursor 팀부터 = 끊기
 @pytest.mark.parametrize("name", list(CASES))
 def test_case(name, tmp_path, monkeypatch):
     CASES[name](World(tmp_path, monkeypatch))

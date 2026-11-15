@@ -81,14 +81,14 @@ def c5(w):   # ⑤ ROUND 줄 = b2c(close)·b2f(fill) 둘 · slow=<팀>:<칸>:<�
     real, kn.fill = kn.fill, (lambda k, t: tick(2))
     try:
         k.complete, k.close, k.retired = (lambda *a: tick(1, True)), (lambda *a: tick(4)), (lambda: None)
-        rows = [re.sub(r" fetch_root=\S+ fetch_pack=\S+", "", x) for x in w.round(k) if x.startswith("ROUND")]   # r1975 리포별 칸 = r1975 시험이 본다
+        rows = [re.sub(r" fetch_root=\S+ fetch_pack=\S+| wall=\S+ other=\S+ items=\S+ cut=\S+", "", x) for x in w.round(k) if x.startswith("ROUND")]   # r1975 리포별 칸 = r1975 시험이 본다
     finally:
         kn.fill = real
     assert rows == ["ROUND s=7 fetch=0 b1=1 b2c=4 b2f=2 b3=0 stall=0 slow=harness:b2c:4"], rows
 CASES = {"①": c1, "②": c2, "③": c3, "④": c4, "⑤": c5}
 KP, KN = "adapters/pi/keeper.py", "adapters/pi/keeper_next.py"
 CLOSE = 'self.timed("b2c", self.close, team, work, attempt, row, dispatched)'
-PAD = " " * 20   # r1960 끝 갈래도 같은 close 줄(들여쓰기 16) → done 갈래(20) 1곳만 변이
+PAD = " " * 16   # r2098 close 줄 들여쓰기 16(if close and … 안) · 같은 close 줄은 한 곳뿐
 MUTANTS = {"M1": (KN, "return fn() if got is None else", "return fn() if True else", c1),
            "M2": (KP, PAD + CLOSE, PAD + 'None if self.state.setdefault("m2", {}).setdefault(work, False) else self.state["m2"].update({work: True}) or ' + CLOSE, c2),
            "M3": (KN, ' | k.cache.get("launching", set())) if rc == 0', ") if rc == 0", c3),

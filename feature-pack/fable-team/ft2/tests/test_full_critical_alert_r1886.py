@@ -33,6 +33,10 @@ def root(tmp_path, monkeypatch):
     return tmp_path
 
 
+def queued(k, word="★크리티컬★"):   # r2098 R12 — keeper 손 = 보내지 않고 state.alert_out 에 1줄(보내기는 다음 report 구획)
+    return [[r["to"], "ft2-full-alert", (r.get("body") or "").splitlines()[0]] for r in k.state.get("alert_out") or [] if word in (r.get("body") or "")]
+
+
 def sent(root, word="★크리티컬★"):
     path = root / ".fable-team" / "comm" / "mbox.sh.log"
     return [ln.split("\t") for ln in (path.read_text(encoding="utf-8").splitlines() if path.exists() else []) if word in ln]
@@ -87,9 +91,9 @@ def test_c4_keeper_submit_same_signature_merged_other_team_one(root, monkeypatch
     monkeypatch.setattr(kn, "gates", lambda k, t: True)
     monkeypatch.setattr(kn, "choose", lambda k, t: ("r9001-x", "repo", "base"))
     kn.close(k, "planner", "W0", "a1", "h#0", 1)             # 같은 서명(남은 일 · planner) = 0
-    assert len(sent(root)) == 2 and any("submit 용량 부족" in x for x in k.lines)
-    kn.close(k, "harness", "H0", "a1", "h#0", 1)             # 다른 팀 = 1(harness master 1 · r1927 같은 좌석 1통)
-    assert len(sent(root)) == 3 and "남은 일 harness 8/8" in sent(root)[-1][2]
+    assert len(sent(root)) == 2 and any("submit 용량 부족" in x for x in k.lines) and not queued(k)
+    kn.close(k, "harness", "H0", "a1", "h#0", 1)             # 다른 팀 = 1(harness master 1 · r1927 같은 좌석 1통) = alert_out 1줄
+    assert len(queued(k)) == 1 and "남은 일 harness 8/8" in queued(k)[-1][2], queued(k)
 
 
 def test_c5_next_hold_nano_cap(root):
@@ -97,19 +101,30 @@ def test_c5_next_hold_nano_cap(root):
     (root / ".fable-team" / "teams" / "harness" / "CLOSE-NEXT.enabled").write_text("", encoding="utf-8")
     k = keeper_at(root, FT2_TEAM_NANO_MAX="4")
     k.call = lambda argv, *a, **kw: (0, "\n".join("byz-harness-nano-r%d#0" % i for i in range(4)), "")
-    assert kn.gates(k, "harness") is None and len(sent(root)) == 1 and "나노 정원 harness 4/4" in sent(root)[0][2]
+    assert kn.gates(k, "harness") is None and len(queued(k)) == 1 and "나노 정원 harness 4/4" in queued(k)[0][2]
     k.call = lambda argv, *a, **kw: (0, "byz-harness-nano-r0#0", "")
-    assert kn.gates(k, "harness") is True and len(sent(root, "풀림")) == 1
+    assert kn.gates(k, "harness") is True and len(queued(k, "풀림")) == 1
 
 
 def test_c6_round_cap_then_release(root, monkeypatch):
-    k, ticks = keeper_at(root), iter([0, 100, 200, 1000, 1001, 1002, 1003])
-    monkeypatch.setattr(keeper, "time", types.SimpleNamespace(monotonic=lambda: next(ticks), time=__import__("time").time))
-    k.teams, k.team_round, k.retired, k.report = lambda: ["harness"], lambda t: None, lambda: None, lambda: None
-    k.run_once()                                             # ROUND-CAP → 1통(harness master 1)
-    assert any(x.startswith("ROUND-CAP") for x in k.lines) and len(sent(root)) == 1
-    k.run_once()                                             # 다음 바퀴 60초 안 끝 = 풀림 1
-    assert len(sent(root, "풀림")) == 1 and len(sent(root)) == 1
+    """r2098 R12 ㊴사 — 끊김(ROUND-CAP)만으로는 꽉 참이 아니다 · wall 61초 = 1통 · 다음 정상 바퀴 = 풀림 1통."""
+    clock, spent = [0.0], {}
+    monkeypatch.setattr(keeper, "time", types.SimpleNamespace(monotonic=lambda: clock[0], time=__import__("time").time))
+    monkeypatch.setattr(keeper.endings, "orphans", lambda k, order: None)
+
+    def run(seconds):
+        k = keeper_at(root)
+        k.teams, k.retired, k.report = (lambda: ["harness", "planner"]), (lambda: None), (lambda: None)
+        k.team_round = lambda team: clock.__setitem__(0, clock[0] + seconds)
+        assert k.run_once() == 0
+        spent.update({seconds: k})
+        return k
+    cut = run(50)                                            # 끊긴 바퀴(wall 50초) = 꽉 참 0통
+    assert any(x.startswith("ROUND-CAP") for x in cut.lines) and not queued(cut), cut.lines
+    over = run(61)                                           # wall 61초 = 꽉 참 1통(다음 report 구획에서 나간다)
+    assert [x[0] for x in queued(over)] == [MASTER] and "keeper 바퀴" in queued(over)[0][2], queued(over)
+    calm = run(1)                                            # 정상 바퀴 = 풀림 1통
+    assert len(queued(calm, "풀림")) == 1 and "keeper 바퀴" in queued(calm, "풀림")[0][2], queued(calm)
 
 
 def test_c7_journal_refused_then_release(root):
@@ -120,7 +135,7 @@ def test_c7_journal_refused_then_release(root):
     big.write_bytes(b"0" * 8388608)                          # 총량 한계 넘김 = 실 Journal.reserve 가 «용량 부족»
     k = keeper_at(root)
     assert k.complete("harness", "J0", "a1", ("ab" * 20, "pack:main", "")) is None
-    assert len(sent(root)) == 1 and "journal harness" in sent(root)[0][2]
+    assert len(queued(k)) == 1 and "journal harness" in queued(k)[0][2], queued(k)
     big.unlink()                                             # 다음 쓰기 성공 = 풀림 1
     assert k.complete("harness", "J0", "a1", ("ab" * 20, "pack:main", "")) is True
-    assert len(sent(root, "풀림")) == 1 and len(sent(root)) == 1
+    assert len(queued(k, "풀림")) == 1 and len(queued(k)) == 1, queued(k)

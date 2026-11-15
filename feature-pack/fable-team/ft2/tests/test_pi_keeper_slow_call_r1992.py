@@ -36,8 +36,15 @@ def c1(w, mp):   # ① 6초 → 1줄(팀·칸·argv 앞 3낱말·초·rc·시도
     assert one(w, mp, [(6, 0)]) == ["SLOW-CALL aa b1 git status SLOWFAKE s=6 rc=0 try=1/1"]
 def c2(w, mp):   # ② 4초 → 0줄 · 5초 = 문턱 안(≥)
     assert one(w, mp, [(4, 0)]) == [] and one(w, mp, [(5, 1)]) == ["SLOW-CALL aa b1 git status SLOWFAKE s=5 rc=1 try=1/1"]
-def c3(w, mp):   # ③ 넘침(rc None) → 1줄 rc=None
-    assert one(w, mp, [(7, "T")]) == ["SLOW-CALL aa b1 git status SLOWFAKE s=7 rc=None try=1/1"]
+def c3(w, mp):   # ③ 넘침(rc None) → 1줄 rc=None · r2098 R7 로컬 git 7초 넘음 = 판정 불가 1줄 + Ungraded(그 자리 남은 판정 0)
+    assert one(w, mp, [(7, "T")], ("tmux", "has-session", M)) == ["SLOW-CALL aa b1 tmux has-session SLOWFAKE s=7 rc=None try=1/1"]
+    fake(w, mp, [(7, "T")])
+    k = w.keeper()
+    k.at = "aa"
+    with pytest.raises(BaseException) as got:   # R7 = 끊김(Cut)이 아니라 판정 불가 → 그 자리만 0
+        k.timed("b1", k.call, ["git", "status", M], 7, 0)
+    assert type(got.value).__name__ == "Ungraded", got.value
+    assert "판정 불가 aa - git 7초 넘음" in k.lines, k.lines
 def c4(w, mp):   # ④ 재시도 2회 각 6초 → 2줄 try=1/2 · 2/2 (합 12 한 줄 0)
     assert [x.split()[-3:] for x in one(w, mp, [(6, 1), (6, 1)], retry=1)] == [["s=6", "rc=1", "try=1/2"], ["s=6", "rc=1", "try=2/2"]]
 def c5(w, mp):   # ⑤ 팀 밖(fetch) → 팀 칸 «-» · jsonl team 도 «-»
@@ -60,7 +67,7 @@ def c7(w, mp):   # ⑦ slow 칸 = b2c 호출 3회(2·2·6초) → SLOW-CELL 1줄
 CASES = {"①": c1, "②": c2, "③": c3, "④": c4, "⑤": c5, "⑥": c6, "⑦": c7}
 KP = "adapters/pi/keeper.py"
 MUTANTS = {"M1": ("if dt >= SLOW_S:", "if dt < SLOW_S:", c1), "M1b": ("if dt >= SLOW_S:", "if dt < SLOW_S:", c2),
-           "M2": ("            at = self.now()\n            try:\n                done", "            at = getattr(self, 'm2', None) or self.now()\n            self.m2 = at\n            try:\n                done", c4)}
+           "M2": ("            at = self.now()\n            over = False\n            try:\n                done", "            at = getattr(self, 'm2', None) or self.now()\n            self.m2 = at\n            over = False\n            try:\n                done", c4)}
 @pytest.mark.parametrize("name", list(CASES))
 def test_case(name, tmp_path, monkeypatch):
     CASES[name](World(tmp_path, monkeypatch), monkeypatch)
