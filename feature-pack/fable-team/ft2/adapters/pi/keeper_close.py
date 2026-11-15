@@ -256,6 +256,7 @@ class Closing:
         if alive is None:
             return
         known = {h for t in self.teams() for _, h in (endings.latest(self, t) or {}).values()}   # r2055 S1 최신 dispatch holder = 명부 안
+        held, loose = set(known), set()   # r2055 R3 명부 나노 · 승계 0 · 최신 dispatch holder 아님 = outsiders 판정(좌석당 1줄)
         for path, rows in self.rosters():   # r2055 S1 keeper roots(BYZ root · 팩) 전부의 명부
             team = os.path.basename(path)[6:-5]   # r1835 K2 — 명부 팀(seats-<팀>) 또는 좌석 이름 byz-<팀> 이 제외 팀 = 손 0
             known |= set(rows) | {v for v in rows.values() if isinstance(v, str)}
@@ -266,10 +267,11 @@ class Closing:
                     continue
                 if not (isinstance(new, str) and new) and seat not in self.closed_seats():   # S2 (바) 승계 안 된 장기 좌석 = WORKING · kill 0
                     self.verdict(team, "-", seat, "WORKING", "long-seat") if seat in alive and self.seat_kind(seat, row) != "nano" else None
+                    loose |= {seat} if seat in alive and self.seat_kind(seat, row) == "nano" and seat not in held else set()
                     continue
                 if self.retire_one(path, seat, new, alive, self.seat_kind(seat, row) == "nano") == "stop":
                     return
-        self.outsiders(alive, known)   # r2055 S1·S3 명부 밖·이름 lint 실패 = UNKNOWN [긴급] · kill 0
+        self.outsiders(alive, known - loose)   # r2055 S1·S3 명부 밖·이름 lint 실패 = UNKNOWN [긴급] · kill 0
 
     def alive_sessions(self):
         """r1898 — 살아 있는 세션 이름 집합 · 서버 없음 = 빈 집합 · 그 밖(넘침·다른 rc) = 판정 불가 1줄 + None."""

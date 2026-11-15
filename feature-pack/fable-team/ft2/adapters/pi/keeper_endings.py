@@ -114,6 +114,8 @@ def _empty(k, team, work, seat):
     return "empty", "done · 커밋 0 · 변경 0 · PR %s" % ("닫힘 " + ",".join("#%s" % p.get("number") for p in seen["closed"] if isinstance(p, dict)) if seen["closed"] else "없음")
 def _card_end(k, team, work):
     """카드 끝 → (결과, 근거) | None(끝 아님) | False(판독 실패·후보 충돌)."""
+    if k.resolve_card(team, work)[1]:   # r2055 R4 짝 표 먼저(landing 과 같은 순서) · 판정 불가 = _resolved_end 값 그대로
+        return _resolved_end(k, team, work)
     land = _mod("land", os.path.join(HERE, "keeper_land.py"))
     for ref in land.REFS:
         if (names := _cards(k, team, ref)) is None:
