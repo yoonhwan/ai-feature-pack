@@ -77,30 +77,30 @@ reset; goal "1 | 골 22 | 22 | 23 | 진행" "2 | 골 23 | 23 | 23 | 끝" "3 | �
   "5 | 골 1 | 1 | 23 | 진행" "6 | 골 5of6 | 5 | 6 | 진행" "7 | 골 넘침 | 25 | 23 | 진행"
 mk "[$H}]"; run 2026-11-16T10:00:00
 chk "① rc 0 · reply 1" '[ "$RC" = 0 ] && [ "$(replies)" = 1 ]'
-chk "① 22/23 = 열린 골 줄 · 막대 0(r2095)" 'lastbody | grep -qxF "골 22: 23단계 중 22단계 끝남. 진행" && ! lastbody | grep -q "[▓░]"'
+chk "① 22/23 = 열린 골 줄 · 막대 9칸(r2103)" 'lastbody | grep -qxF "골 22 ▓▓▓▓▓▓▓▓▓░ 22/23. 진행"'
 chk "② 23/23 = 닫힌 골 첫 줄만(r2095)" 'lastbody | head -1 | grep -qxF "골 진행 알림: 열린 골 6개, 닫힌 골 1개(골 23)" && ! now_section | grep -q "^골 23:"'
-chk "② 0/23(r2095)" 'lastbody | grep -qxF "골 0: 23단계 중 0단계 끝남. 시작"'
-chk "② 20/23(r2095)" 'lastbody | grep -qxF "골 20: 23단계 중 20단계 끝남. 진행"'
-chk "② 1/23(r2095)" 'lastbody | grep -qxF "골 1: 23단계 중 1단계 끝남. 진행"'
-chk "② 5/6(r2095)" 'lastbody | grep -qxF "골 5of6: 6단계 중 5단계 끝남. 진행"'
+chk "② 0/23(r2103)" 'lastbody | grep -qxF "골 0 ░░░░░░░░░░ 0/23. 시작"'
+chk "② 20/23(r2103)" 'lastbody | grep -qxF "골 20 ▓▓▓▓▓▓▓▓░░ 20/23. 진행"'
+chk "② 1/23(r2103)" 'lastbody | grep -qxF "골 1 ░░░░░░░░░░ 1/23. 진행"'
+chk "② 5/6(r2103)" 'lastbody | grep -qxF "골 5of6 ▓▓▓▓▓▓▓▓░░ 5/6. 진행"'
 chk "② 25/23 = 수 판독 불가(r2095)" 'lastbody | grep -qxF "골 넘침: 수 판독 불가. 진행"'
-chk "② 열린 골 = 6줄(r2095)" '[ "$(now_section | wc -l | tr -d " ")" = 6 ]'
+chk "② 열린 골 6줄 + 진행 중인 일 없음 1줄(r2103)" '[ "$(now_section | wc -l | tr -d " ")" = 7 ]'
 
 # ③ 카드 없는 좌석 6석
 goal "1 | 골 | 22 | 23 | 진행"
 reset; mk "[$H,\"bare\":3},{\"key\":\"planner\",\"label\":\"플래너\",\"bare\":3}]"; run 2026-11-16T11:00:00
-chk "③ 다음 = 정해진 다음 한 수 없음 · 좌석 줄 0(r2096)" '[ "$(next_section)" = "정해진 다음 한 수 없음" ] && ! lastbody | grep -q "좌석"'
+chk "③ 다음 = 정해진 다음 한 수 없음 · 좌석 줄 0(r2096)" '[ "$(next_section)" = "정해진 다음 한 수 없음" ] && ! next_section | grep -q "좌석"'
 chk "③ 본문 «— · —» 0" '! lastbody | grep -qF "— · —"'
 
 # ④ 섞임 · 상한 · 0석 · 카드 파일 없음 · 카드 없는 좌석 0 · 수집 실패 팀
 reset; mk "[$H,\"card\":2,\"bare\":3}]"; run 2026-11-16T12:00:00
-chk "④ 카드 2 + 없음 3 = 다음 1줄 · 카드 이름 0(r2096)" '[ "$(next_section)" = "정해진 다음 한 수 없음" ] && ! lastbody | grep -q "harnessc0"'
+chk "④ 카드 2 + 없음 3 = 다음 1줄 · 카드 이름 0(r2096)" '[ "$(next_section)" = "정해진 다음 한 수 없음" ] && ! next_section | grep -q "harnessc0"'
 reset; mk "[$H,\"card\":30,\"bare\":2}]"; run 2026-11-16T12:00:00
 chk "④ 카드 30 + 없음 2 = 다음 1줄 · «외 N개» 0(r2096)" '[ "$(next_section | wc -l | tr -d " ")" = 1 ] && ! lastbody | grep -q "외 [0-9]"'
 reset; mk "[$H}]"; run 2026-11-16T12:00:00
 chk "④ 좌석 0 = «정해진 다음 한 수 없음»(r2096)" '[ "$(next_section)" = "정해진 다음 한 수 없음" ]'
 reset; mk "[$H,\"miss\":1,\"bare\":1}]"; run 2026-11-16T12:00:00
-chk "④ 카드 파일 없는 나노 = 본문에 좌석 0(r2096)" '[ "$(next_section)" = "정해진 다음 한 수 없음" ] && ! lastbody | grep -q "gone0"'
+chk "④ 카드 파일 없는 나노 = 지금 칸 줄 그대로 · 다음 칸 0(r2063 · r2103)" '[ "$(next_section)" = "정해진 다음 한 수 없음" ] && now_section | grep -qxF "하네스: gone0, 카드 없음" && ! next_section | grep -q "gone0"'
 reset; mk "[$H,\"card\":2}]"; run 2026-11-16T12:00:00
 chk "④ 카드 없는 좌석 0 = 접는 줄 0" '[ "$(next_section | wc -l | tr -d " ")" = 1 ] && ! lastbody | grep -q "카드 없이 열린 좌석"'
 reset; mk "[{\"key\":\"aa\",\"label\":\"에이\",\"bare\":2},{\"key\":\"bb\",\"label\":\"비\",\"bare\":3}]"; run 2026-11-16T12:00:00

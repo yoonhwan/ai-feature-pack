@@ -78,7 +78,7 @@ chk "② 본문에 좌석 이름 0" '! lastbody | grep -qE "nano-|byz-|worker-|�
 # ③ 골 n 3 → 4 = POST · 바뀜 줄 1 · 같은 입력 300초 뒤 = 변화 없음
 goal "$G1" "2 | 하네스 운영 | 4 | 5 | 진행 중"; run 2026-11-16T10:30:00
 chk "③ POST · «바뀜:» 1줄" '[ "$(replies)" = 3 ] && [ "$(now_section | grep -c "^바뀜: ")" = 1 ] && now_section | grep -qxF "바뀜: 하네스 운영 3단계 → 4단계(전체 5)"'
-chk "③ 골 줄 = m단계 중 n단계 끝남" 'now_section | grep -qxF "하네스 운영: 5단계 중 4단계 끝남. 진행 중"'
+chk "③ 골 줄 = 막대 + n/m(r2103)" 'now_section | grep -qxF "하네스 운영 ▓▓▓▓▓▓▓▓░░ 4/5. 진행 중"'
 run 2026-11-16T10:35:00
 chk "③ 같은 입력 300초 뒤 = 변화 없음" '[ "$RC" = 0 ] && [ "$(replies)" = 3 ] && grep -q "변화 없음" "$T/out"'
 # ④ 상태 글 200자 = 그대로 · «…» 0 · 끝 줄 «근거:»
@@ -100,16 +100,16 @@ reset; goal "1 | 닫힌 하나 | 4 | 4 | 끝" "2 | 닫힌 둘 | 2 | 2 | 끝" "3 
 mk "$BASE"; run 2026-11-16T13:00:00
 chk "⑥ 첫 줄" 'lastbody | head -1 | grep -qxF "골 진행 알림: 열린 골 7개, 닫힌 골 2개(닫힌 하나, 닫힌 둘)"'
 chk "⑥ 5덩이 순서" '[ "$(lastbody | grep -nE "^(골 진행 알림:|지금$|다음$|막힌 것, 오빠 할 일$|근거:)" | cut -d: -f2 | tr "\n" "/")" = "골 진행 알림/지금/다음/막힌 것, 오빠 할 일/근거/" ] && lastbody | tail -1 | grep -q "^근거:"'
-chk "⑥ 열린 골 7줄 · 수 있는 골 꼴" '[ "$(now_section | wc -l | tr -d " ")" = 7 ] && now_section | grep -qxF "수 있는 골: 3단계 중 1단계 끝남. 진행, 시험 중" && now_section | grep -qxF "골 넷: 사전, 준비"'
+chk "⑥ 열린 골 7줄 + 진행 중인 일 2줄 · 수 있는 골 꼴(r2103)" '[ "$(now_section | wc -l | tr -d " ")" = 9 ] && now_section | grep -qxF "수 있는 골 ▓▓▓░░░░░░░ 1/3. 진행, 시험 중" && now_section | grep -qxF "골 넷: 사전, 준비"'
 chk "⑥ 다음 = 정해진 다음 한 수 없음(r2096 · 5 column 원장)" '[ "$(next_section)" = "정해진 다음 한 수 없음" ]'
-chk "⑥ « · » · ▓░ · 줄 머리 | · 코드블록 0" '! lastbody | grep -qE " · |[▓░]|^\||\`\`\`"'
+chk "⑥ « · » · 줄 머리 | · 코드블록 0(r2103: 막대 있음)" '! lastbody | grep -qE " · |^\||\`\`\`"'
 chk "⑥ 근거 줄 밖 r번호 · sha · HH:MM 0" '! lastbody | sed "\$d" | grep -qE "r[0-9]{3,4}|[0-9a-f]{10}|[0-9]{2}:[0-9]{2}"'
 # ⑦ 닫힌 골 = 첫 줄 괄호에만
 chk "⑦ 지금 칸에 닫힌 골 줄 0" '! now_section | grep -qE "^닫힌 (하나|둘)"'
 # ⑧ 낡은 원장 글 = 그대로 싣고(가운뎃점만 «, ») · WARN 1줄
 OLD="닫는 증거 칸 재집계 없음(11-14 판) · 전팀 정지 중"
 reset; goal "$G1" "2 | 하네스 운영 | 3 | 5 | $OLD"; mk "$BASE"; run 2026-11-16T14:00:00
-chk "⑧ rc 0 · 글 그대로(«, »)" '[ "$RC" = 0 ] && now_section | grep -qxF "하네스 운영: 5단계 중 3단계 끝남. 닫는 증거 칸 재집계 없음(11-14 판), 전팀 정지 중"'
+chk "⑧ rc 0 · 글 그대로(«, »)" '[ "$RC" = 0 ] && now_section | grep -qxF "하네스 운영 ▓▓▓▓▓▓░░░░ 3/5. 닫는 증거 칸 재집계 없음(11-14 판), 전팀 정지 중"'
 chk "⑧ WARN 1줄 · 골 이름 + 낱말 2개" '[ "$(grep -c "^WARN 원장 상태 글 손볼 곳: " "$T/err")" = 1 ] && grep -qxF "WARN 원장 상태 글 손볼 곳: 하네스 운영 — 닫는 증거 칸, (11-14 판)" "$T/err"'
 # ⑨ 불변: 299초 디바운스 · 골 표 없음 · 수집 실패 팀 확인 불가
 reset; goal "$G1" "$G2"; mk "$BASE"; run 2026-11-16T15:00:00

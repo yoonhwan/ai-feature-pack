@@ -59,8 +59,8 @@ run 2026-11-16T10:20:00
 chk "① 같은 입력 다시 = «변화 없음 — 발행 0»" '[ "$(replies)" = 2 ] && grep -q "변화 없음" "$T/out"'
 goal "1 | 하네스 운영 | 4 | 5 | 진행 중"; run 2026-11-16T10:30:00
 chk "① 승인 대기 1 인 채 골 줄만 바뀜 = POST · 태그 1회" '[ "$(replies)" = 3 ] && [ "$(tags)" = 1 ]'
-WANT="$(printf '%s\n' "골 진행 알림: 열린 골 1개, 닫힌 골 0개" "지금" "바뀜: 하네스 운영 3단계 → 4단계(전체 5)" "하네스 운영: 5단계 중 4단계 끝남. 진행 중" \
-  "다음" "정해진 다음 한 수 없음" "막힌 것, 오빠 할 일" "오빠 승인 대기 1건")"
+WANT="$(printf '%s\n' "골 진행 알림: 열린 골 1개, 닫힌 골 0개" "지금" "바뀜: 하네스 운영 3단계 → 4단계(전체 5)" "하네스 운영 ▓▓▓▓▓▓▓▓░░ 4/5. 진행 중" \
+  "진행 중인 일 없음" "다음" "정해진 다음 한 수 없음" "막힌 것, 오빠 할 일" "오빠 승인 대기 1건")"
 chk "① 본문 줄 순서 = 기준판(태그 글자 빼고 · 근거 줄 앞까지)" '[ "$(lastbody | sed "\$d" | sed "s/^<@[A-Z0-9]*> //")" = "$WANT" ]'
 
 # ② 태그 있음(A2)
@@ -70,7 +70,7 @@ chk "② 본문 전체 «<@» 1회" '[ "$(tags)" = 1 ]'
 GM="1 | 하네스 운영 | 3 | 5 | 결정 담당 <@${UID0}>"
 reset; goal "$GM"; mk 2; run 2026-11-16T11:10:00
 chk "② 상태 글 «<@id>» + 승인 대기 2 → «<@» 1회(막힌 것 줄)" '[ "$(tags)" = 1 ] && [ "$(lastbody | grep -c "^<@${UID0}> 오빠 승인 대기 2건$")" = 1 ]'
-chk "② 골 줄 = «@${UID0}»(꺾쇠 없음)" 'lastbody | grep -qxF "하네스 운영: 5단계 중 3단계 끝남. 결정 담당 @${UID0}"'
+chk "② 골 줄 = «@${UID0}»(꺾쇠 없음)" 'lastbody | grep -qxF "하네스 운영 ▓▓▓▓▓▓░░░░ 3/5. 결정 담당 @${UID0}"'
 
 # ③ 태그 없음(A2) · id 바꾸기 · 기본 id 출처
 reset; goal "$G1"; mk 0; run 2026-11-16T12:00:00
@@ -78,7 +78,7 @@ chk "③ 승인 대기 0 → «없음» · «<@» 0회" 'lastbody | grep -qx "�
 reset; mk 1; FT_OPPA_SLACK_UID=UTEST run 2026-11-16T12:10:00
 chk "③ FT_OPPA_SLACK_UID=UTEST → «<@UTEST>» 1회 · 기본 id 0회" '[ "$(lastbody | grep -o "<@UTEST>" | wc -l | tr -d " ")" = 1 ] && ! lastbody | grep -q "${UID0}"'
 reset; goal "$GM"; mk 0; run 2026-11-16T12:20:00
-chk "③ 상태 글 «<@id>» + 승인 대기 0 → «<@» 0회 · 골 줄 «@id»" '[ "$(tags)" = 0 ] && lastbody | grep -qxF "하네스 운영: 5단계 중 3단계 끝남. 결정 담당 @${UID0}"'
+chk "③ 상태 글 «<@id>» + 승인 대기 0 → «<@» 0회 · 골 줄 «@id»" '[ "$(tags)" = 0 ] && lastbody | grep -qxF "하네스 운영 ▓▓▓▓▓▓░░░░ 3/5. 결정 담당 @${UID0}"'
 reset; goal "1 | 하네스 운영 | 3 | 5 | 모두 보세요 <!channel>"; mk 0; run 2026-11-16T12:30:00
 chk "③ 상태 글 «<!channel>» → 본문 «<!» 0회 · «!channel» 남음" '! lastbody | grep -q "<!" && lastbody | grep -q "보세요 !channel"'
 chk "③ 기본 id = ft_oppa_slack_check.OPPA_SLACK_UID" '[ "$(cd "$BIN" && python3 -c "import ft_oppa_slack_check as m; print(m.OPPA_SLACK_UID)")" = "${UID0}" ]'
