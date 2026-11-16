@@ -177,7 +177,20 @@ def c10(w):   # ⑩ ⑦ 과 같되 .owner 자식 dead(같은 pid 다른 시작 �
     assert not has(lines, "UNKNOWN") and not sent(w) and not w.tmux("kill-session"), (lines, sent(w))
 
 
-CASES = {"①": c1, "②": c2, "③": c3, "④": c4, "⑤": c5, "⑦": c7, "⑧": c8, "⑨": c9, "⑩": c10}
+def c11(w):   # ⑪ 구현 DA HOLD #321649 R1 — .owner·.intent.resume 에 pid·started 칸 없음·형식 틀림 = unknown → 닫기 0(4입력 + 형식 틀림)
+    ps_at(w, late=3600)   # ps 는 dead 쪽 · 칸 검사가 먼저 막아야 한다
+    rows = [(".owner", {}), (".owner", {"started": STARTED}), (".intent.resume", {}), (".intent.resume", {"started": STARTED}),
+            (".owner", {"child_pid": str(os.getpid()), "started": STARTED}), (".intent.resume", {"pid": os.getpid(), "started": "x"})]
+    for i, (name, row) in enumerate(rows):
+        work = "r972%d" % i
+        job(w, work, state=None)
+        kid(w, work, name, row)
+    lines = rnd(w)
+    for i in range(len(rows)):
+        quiet(w, "r972%d" % i, lines)
+
+
+CASES = {"①": c1, "②": c2, "③": c3, "④": c4, "⑤": c5, "⑦": c7, "⑧": c8, "⑨": c9, "⑩": c10, "⑪": c11}
 KC = "adapters/pi/keeper_close.py"
 MUTANTS = {   # (고칠 글자, 새 글자, 반드시 FAIL 이어야 하는 사례)
     "M1": ('        if self.probe(dispatched) != "absent":   # ⓒ', "        if False:   # ⓒ", ("④",)),
