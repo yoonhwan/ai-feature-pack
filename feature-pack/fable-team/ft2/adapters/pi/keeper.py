@@ -37,6 +37,10 @@ class Ungraded(BaseException):
     """R7 — 로컬 git 이 자기 상한(7초)에 걸림 = `판정 불가` 1줄 · 그 자리의 남은 판정 0 · 다음 자리."""
 
 
+class OutOfRound(Exception):
+    """r2026 R1 — 바퀴 남은 예산 < git 1회 상한(card_stage.spawn 7초) · 다음 git 0 → 다음 바퀴."""
+
+
 def _load(path, alias):
     spec = importlib.util.spec_from_file_location(alias, path)
     module = importlib.util.module_from_spec(spec)
@@ -53,10 +57,11 @@ endings = _load(os.path.join(HERE, "keeper_endings.py"), "ft2_keeper_endings")  
 hold = _load(os.path.join(HERE, "keeper_hold.py"), "ft2_keeper_hold")   # r1931 카드 HOLD 줄 → holder 깨움
 kf = _load(os.path.join(HERE, "keeper_fetch.py"), "ft2_keeper_fetch")   # r1975 FETCH_TARGETS · 나노 가지 · 판정 뒤 백그라운드
 settling = _load(os.path.join(HERE, "keeper_settle.py"), "ft2_keeper_settle")   # r2055 settle 한 길 · ALL_STOP
+cstage = _load(os.path.join(HERE, "card_stage.py"), "ft2_keeper_card_stage")   # r2026 complete 뒤 대기|진행 → 완성
 
 
 class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settling):
-    fa = full_alert   # r1886 keeper_land·keeper_next 도 이것으로 부른다
+    fa, cs = full_alert, cstage   # r1886 keeper_land·keeper_next 도 이것으로 부른다 · r2026 card_stage
     def __init__(self, root, env=None, now=None):
         self.root = os.path.abspath(root)
         self.env = dict(os.environ if env is None else env)
@@ -143,6 +148,38 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
             if out[0] == 0:
                 break
         return out
+
+    def complete(self, *args):   # r2026 — complete 접수(done 확인) 직후 card_stage 1회
+        return land.Landing.complete(self, *args) and (self.stage_card(*args[:2]) or True)
+
+    def stage_card(self, team, work):
+        """r2026 — STAGED·NOOP = 끝 · Unsure = 쓰기 0 + 다음 바퀴 재시도(같은 work · 하루 3회 상한)."""
+        book, key, day = self.state.setdefault("staging", {}), team + "|" + work, self.stamp()[:10]
+        n = book[key][1] if book.get(key, [None])[0] == day else 0   # 날이 바뀜 = 0부터
+        if n >= 3:
+            return None
+        real = self.cs.spawn
+        def spawn(*args, **kw):   # r2026 R1 — card_stage git 1회 전마다 바퀴 남은 예산 ≥ 7초(main 예산 시계 self.left)
+            left = self.left()   # r2098 R1 바퀴 예산 시계(구획 끝까지 남은 초 · 바퀴 밖 = None = 묶음 0)
+            if left is not None and left < CALL_S:
+                raise OutOfRound("바퀴 예산 남음 %g초" % round(left, 1))
+            return real(*args, **kw)
+        self.cs.spawn = spawn
+        try:
+            at = self.cs.done_at(self.root, team, work)
+            if not at:
+                raise self.cs.Unsure("done 없음")
+            out = self.cs.stage(self.root, self.root, team, work, at, self.stamp())
+        except (self.cs.Unsure, subprocess.TimeoutExpired, OSError) as exc:
+            book[key] = [day, n + 1]
+            return self.log("Unsure", team, "%s card_stage %s" % (work, exc))
+        except OutOfRound as exc:   # 예산 모자람 = 하루 3회 셈 밖 · 다음 바퀴
+            book[key] = [day, n]
+            return self.log("DEFER", team, "%s card_stage %s — 다음 바퀴" % (work, exc))
+        finally:
+            self.cs.spawn = real
+        book.pop(key, None)
+        return self.log("CARD-STAGE", team, "%s %s %s" % (work, out[1], out[2])) if out else self.log("NOOP", team, work + " 이미 완성")
 
     @staticmethod
     def git_call(argv):
@@ -496,6 +533,8 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         self.at, proj = team, self.project(self.root, team)
         if proj.get("result") != OK:
             return self.log("판정 불가", team, "투영 %s" % proj.get("reason", ""))
+        for key in [k for k in self.state.get("staging", {}) if k.startswith(team + "|")]:   # r2026 앞 바퀴 Unsure = 재시도
+            self.timed("b1", self.stage_card, team, key[len(team) + 1:])
         rows = self.rows_of(team)   # r2098 자리 순서 셈과 같은 읽기(바퀴 안 1회)
         latest = {rec["work"]: (rec.get("attempt"), rec.get("holder")) for rec in rows
                   if rec.get("kind") == "dispatch" and rec.get("work")}
