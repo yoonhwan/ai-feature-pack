@@ -165,7 +165,10 @@ def stage(byz, root, team, work, at, now, da=None, gate=None):
         why = gate(os.path.basename(old)[:-3]) if gate else None   # r2037 — 판정문 대조는 쓰기 전(거절 = 쓰기 0)
         if why and da:
             raise Reject(why)
-        landed = re.search(r"(?m)^- 착지: [0-9a-f]{40}\b", run(byz, "show", "%s:%s" % (sha[ref], old)))
+        stem = os.path.basename(old)[:-3]
+        own = stem == work or stem.startswith(work + "-")   # r2152 G1·G2 — 짝 표 남의 카드는 «착지(<work>):» 줄만(keeper_land F3 와 같은 규칙)
+        pat = r"(?m)^- 착지: [0-9a-f]{40}\b" if own else r"(?m)^- 착지\(%s\): [0-9a-f]{40}(?=\s|$)" % re.escape(work)
+        landed = re.search(pat, run(byz, "show", "%s:%s" % (sha[ref], old)))
         if not landed and not (gate and why is None):   # r2147 C1 — 착지 줄 또는 통과한 DA 만 옮김(쓰기·push 0)
             raise Unsure("착지 줄 없음 %s" % os.path.basename(old)[:-3])
         commit = commit_tree(byz, sha[ref], old, new, at, now, frm, da)
