@@ -3,7 +3,8 @@
 
 차례 ⓐ fail 줄마다 호출 pid · 세션 이름 · 도구가 같은 tool 줄 가운데 원장에서 바로 앞의 것 1개를 «kill 실패» 로 돌린다(없으면 깨진 줄)
 ⓑ hook 줄을 원장 순서대로: 세션 id · 이름이 같고 시각이 hook 앞 60초 ~ 뒤 5초 안이며 아직 짝 없는 tool 줄 중 가장 가까운 것(같으면 뒤 줄)
-ⓒ 짝 없는 tool 줄 = «hook 줄 없음(<도구>)»(id «-» 면 «· id 없음») · 끝 줄 «닫힘 N · 도구 줄 있음 a · 도구 줄 없음 b · hook 줄 없음 c · kill 실패 f · 깨진 줄 d»
+ⓑ' 짝 줄 = «<시각> <세션> 후보 ← <도구> · <좌석> · <사유>»(후보일 뿐 확정 아님)
+ⓒ 짝 없는 tool 줄 = «hook 줄 없음(<도구>)»(id «-» 면 «· id 없음») · 끝 줄 «닫힘 N · 후보 a · 도구 줄 없음 b · hook 줄 없음 c · kill 실패 f · 깨진 줄 d»
 원장 한 줄 = 탭 8칸 «시각 · 종류 · 세션 · 도구 · 좌석 · 사유 · 세션 id · 호출 pid»
 """
 import datetime as D
@@ -80,8 +81,8 @@ def render(rows, failed, pairs, used):
     for k, (n, w, c) in enumerate(rows):
         head = f"{c[0]} {c[2]} ← "
         if c[1] == "hook":
-            t = rows[pairs[k]][2] if k in pairs else None
-            out.append((w, n, head + (f"{t[3]} · {t[4]} · {t[5]}" if t else "도구 줄 없음")))
+            t = rows[pairs[k]][2] if k in pairs else None   # 짝 = 닫은 주체의 «후보»(확정 아님 · 카드 S5)
+            out.append((w, n, f"{c[0]} {c[2]} 후보 ← {t[3]} · {t[4]} · {t[5]}" if t else head + "도구 줄 없음"))
         elif c[1] == "tool" and k in failed:
             out.append((w, n, head + f"kill 실패({c[3]})"))
         elif c[1] == "tool" and k not in used:
@@ -105,7 +106,7 @@ def main(path, since, sess):
         print(s)
     hooks = sum(1 for _, _, c in rows if c[1] == "hook")
     tools = sum(1 for _, _, c in rows if c[1] == "tool")
-    print(f"닫힘 {hooks} · 도구 줄 있음 {len(pairs)} · 도구 줄 없음 {hooks - len(pairs)} · hook 줄 없음 {tools - len(used) - len(failed)}"
+    print(f"닫힘 {hooks} · 후보 {len(pairs)} · 도구 줄 없음 {hooks - len(pairs)} · hook 줄 없음 {tools - len(used) - len(failed)}"
           f" · kill 실패 {len(failed)} · 깨진 줄 {broken + nofail}")
     return 0
 

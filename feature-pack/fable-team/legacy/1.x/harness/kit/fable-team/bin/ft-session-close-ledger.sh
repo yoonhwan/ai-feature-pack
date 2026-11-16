@@ -7,7 +7,7 @@
 #   hook-on | hook-off             전역 session-closed 에 내 줄 1개를 보탠다(같은 줄 있으면 보탬 0) | 내 줄만 뺀다 — 남의 hook 줄은 그대로
 #                                  내 줄 = run-shell -b "<이 파일> hook #{q:hook_session} #{q:hook_session_name}"(q: = 값마다 sh 인자 1개 · 셸 글로 읽지 않음)
 #   hook-status                    «HOOK on» 또는 «HOOK off» 1줄 · tmux 조회 실패 = «판정 불가 …» 1줄 rc 1
-#   read [--since <ISO>] [--session <이름>]   짝 읽기 = 같은 폴더 ft_session_close_read.py(차례 ⓐ fail · ⓑ hook 짝 · ⓒ 짝 없는 tool · 끝 줄)
+#   read [--since <ISO>] [--session <이름>]   짝 읽기 = 같은 폴더 ft_session_close_read.py(차례 ⓐ fail · ⓑ hook 짝 «후보 ←»(확정 아님) · ⓒ 짝 없는 tool · 끝 줄)
 #   원장 = env FT_SESSION_CLOSE_LEDGER 또는 <데이터 루트>/.fable-team/state/session-close/ledger.tsv(일반 파일 · 추가 전용)
 #   한 줄 = 탭 8칸 «시각(ISO 초) · 종류(hook|tool|fail) · 세션 · 도구 · 좌석 · 사유 · 세션 id · 호출 pid» · 값 속 탭 · CR · LF = 글자마다 공백 1개 · 줄 하나 = 쓰기 1번
 #   알려진 한계: kill-server · 마지막 세션 닫힘 · pid 죽이기 · 만든 스크립트 안의 kill-session 은 줄이 안 남거나 «도구 줄 없음» · hook 은 tmux 서버가 다시 뜨면 꺼진다(hook-status)
