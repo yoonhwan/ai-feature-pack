@@ -10,7 +10,8 @@
 #   지우지 않는 것: 목록 밖 · 뿌리 밖 · 심링크가 가리키는 곳 · 가지 · prune · sudo. 뿌리 실경로가 / 또는 홈이면 rc 2.
 #   판정 불가: lsof · tmux · git worktree list · df 가 rc≠0 또는 시간 초과 → `판정 불가 <명령>` · rc 3 · plan 은 목록 0 · apply 는 ABORT 줄 뒤 지우기 0.
 #   env: FT_RECLAIM_TMP_ROOT(/private/tmp) · FT_RECLAIM_CACHE_ROOT(~/Library/Caches) · FT_RECLAIM_REPOS(: 구분 · BYZ · 팩)
-#        FT_RECLAIM_INFO(: 구분) · FT_RECLAIM_DF_PATH(/System/Volumes/Data) · FT_RECLAIM_TIMEOUT(25초) · FT_RECLAIM_RM_TIMEOUT(70초)
+#        FT_RECLAIM_INFO(: 구분) · FT_RECLAIM_DF_PATH(/System/Volumes/Data) · FT_RECLAIM_TIMEOUT(25초 · 지우기 호출 포함)
+#   지우기가 상한을 넘기면 그 줄 SKIP `시간 초과`(큰 폴더는 다음 apply 로 · rm 이 중간까지 지웠을 수 있음)
 set -uo pipefail
 case "${1:-}" in plan|apply) [ $# -eq 2 ] || { echo "usage: $0 plan <산출 폴더> | apply <candidates.tsv>" >&2; exit 2; } ;;
   *) echo "usage: $0 plan <산출 폴더> | apply <candidates.tsv>" >&2; exit 2 ;; esac
@@ -20,7 +21,7 @@ MODE, ARG = sys.argv[1], sys.argv[2]
 E = os.environ
 HOME = os.path.realpath(os.path.expanduser("~"))
 BYZ = HOME + "/Project/Agent/BYZ-Work/BYZ-Agents"
-T = float(E.get("FT_RECLAIM_TIMEOUT", "25")); RM_T = float(E.get("FT_RECLAIM_RM_TIMEOUT", "70"))
+T = float(E.get("FT_RECLAIM_TIMEOUT", "25"))
 REPOS = [r for r in E.get("FT_RECLAIM_REPOS", BYZ + ":" + HOME + "/Project/ai-feature-pack").split(":") if r]
 DFP = E.get("FT_RECLAIM_DF_PATH", "/System/Volumes/Data")
 
@@ -176,7 +177,8 @@ def apply(tsv, roots):
                 why, repo = recheck(kind, p, roots, op)
                 if not why:
                     cmd = ["git", "-C", repo, "worktree", "remove", p] if repo else ["rm", "-rf", "--", p]
-                    why = "지우기 실패" if run(cmd, RM_T)[0] else None
+                    rc = run(cmd)[0]
+                    why = "시간 초과" if rc == 124 else "지우기 실패" if rc else None
                 if why: L.write(f"SKIP\t{kind}\t{p}\t{why}\n"); s += 1
                 else: L.write(f"DELETED\t{kind}\t{kib}\t{p}\n"); d += 1
                 L.flush()
