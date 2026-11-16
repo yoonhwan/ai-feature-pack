@@ -104,7 +104,7 @@ def rows(ctx, pr=None):   # 장부 줄마다 카드별 줄
             base["master"] = str(ctx.seats(team).get("_master") or "") if team else ""
         except Unjudged:
             pass
-        if e.get("cards_err"):   # r1743 A3: ref 못 읽음 = «카드 없음» 아님 · 판정 불가(하드 룰 20)
+        if e.get("cards_err") and not e["nocard"]:   # r1743 A3: ref 못 읽음 = «카드 없음» 아님 · 판정 불가(하드 룰 20) · r2145 D1: settle --no-card(사람 판정)가 먼저
             out.append({**base, "k": "카드ref불가", "why": str(e["cards_err"])})
             continue
         out.append({**base, "k": "끝", "why": f"카드 없음 확정 · {e['nocard']}"} if e["nocard"] else {**base, "k": "끝", "why": DOCW} if e.get("doc_only") else {**base, "k": "카드없음"})   # r1782 A2ⓒ
