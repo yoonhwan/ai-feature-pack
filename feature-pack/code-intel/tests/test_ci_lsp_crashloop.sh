@@ -79,10 +79,12 @@ out="$(run_ci doctor)"; chk "클라이언트 panic 은 crash-loop 아님" "$?" "
 has "그래도 lsp 줄 정상" "$out" "lsp   : LSP Daemon Status"
 echo "== ⓑ Uptime 0s 2회 연속 =="; mk; UPTIME=0s
 out="$(run_ci doctor)"; chk "1회차 rc0" "$?" "0"
+echo $(( $(date +%s) - 3 )) > "$SB/tmp/ci-lsp-uptime0.$(id -u)"   # r2024 — 2초 넘게 지난 0s = 다시 뜬 데몬
 out="$(run_ci doctor)"; chk "2회차 rc3" "$?" "3"
 has "Uptime 0s 2회 판정" "$out" "Uptime 0s 2회 연속"
 echo "== ⓒ refs 도 Uptime 0s 2회 갈래를 쓴다 =="; mk; UPTIME=0s
 out="$(run_ci refs "a.py#f")"; chk "1회차는 그대로 진행" "$?" "0"
+echo $(( $(date +%s) - 3 )) > "$SB/tmp/ci-lsp-uptime0.$(id -u)"   # r2024 — 2초 넘게 지난 0s = 다시 뜬 데몬
 out="$(run_ci refs "a.py#f")"; chk "2회차 refs rc3" "$?" "3"
 has "판정 불가 1줄" "$out" "판정 불가 LSP 데몬 crash-loop"
 echo "== ⓓ repair — 지우지 않고 옮긴다 =="; mk; UPTIME=120s
