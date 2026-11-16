@@ -1,6 +1,6 @@
 # 인덱스: ft2-keeper-round-cells-b1-items — 끝: ft2 keeper ROUND 줄의 `b1=` 칸이 착지 판정(landing)에 쓴 초를 다시 담는다 · `other=` 는 칸 밖 초만 보인다 · `items=` 의 분모는 그 바퀴에 돌 수 있는 자리 수다(끊기지 않은 바퀴는 N/N · 이미 처리한 work 를 세지 않는다)
 <!-- ledger: feature-pack/fable-team/legacy/1.x/harness/design/harness/GOAL-harness.md -->
-- Issue: 없음(초안) — 팀장 aifp-ft-master-pi#23 발주 aifp 5919(진행/ft2-keeper-round-60s 조건 6·7 1차 읽기 aifp 5918 의 후속 조사)
+- Issue: #8676 (byz-agents · 등록 aifp-ft-master-pi#23 BYZ 313531 · DA APPROVE-DESIGN 313472) — 팀장 aifp-ft-master-pi#23 발주 aifp 5919(진행/ft2-keeper-round-60s 조건 6·7 1차 읽기 aifp 5918 의 후속 조사)
 - 제안서: 없음 — 결함 복구(ROUND 줄 칸 2개의 셈) · 설계 = 이 카드 «계약»·«반례 표»
 - 근거: 읽기 조사 2026-11-16 09:16(aifp-ft-arch-pi#23 · 설치본 ft2 2.0.76 · BYZ .fable-team/state/ft2-keeper/20261116.jsonl · 팩 origin/main e95184f0 · 읽기만) — 아래 «조사 결과» 절
 - 원인 1줄: keeper 60초 카드(PR #1397 · d261be1a)가 바퀴 고리를 `team_round` → `one_work` 로 옮기면서 `self.landing(team, work)` 를 `self.timed("b1", …)` 밖에서 부르게 됐다(앞 판은 `self.timed("b1", self.landing, team, work)`) → 착지 판정의 git 초가 `b1=` 에서 빠져 `other=` 로 간다 · `items=` 분모는 `positions()` 가 journal 의 모든 dispatch work 를 세는데 고리는 처리 끝난 work(`handled` · 반환 · 쉼)를 자리 진입 없이 건너뛴다
@@ -15,7 +15,7 @@
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/pi/keeper.py(`one_work` 의 landing 호출 1줄 · 분모 셈 2줄) · 새 시험 feature-pack/fable-team/ft2/tests/test_keeper_round_cells.py
 - 정본 영향 없음: aifp 정본 변경 0 · 팩 ft2 계약 문서도 변경 0 — CONTRACT.md §13 R10 은 이미 `items=<돈 자리>/<돈 수 있는 자리>` 라고 적혀 있다(구현이 그 글과 다르다) · «옛 칸·순서 그대로» 도 60초 카드 R10 글 그대로다
 - 크기: 코드 1파일(5줄 안팎) · 새 시험 1파일 · PR 1개
-- 배정: 대기
+- 배정: 대기(정지 · 2026-11-16T09:27)
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -46,7 +46,8 @@ keeper 60초 카드는 «`other=` 의 가장 긴 값이 5초를 넘으면 가정
 
 ## 계약
 - H1 `b1=` = 착지 판정 초 + complete 초 = 앞 판과 같다 · `one_work` 가 `self.timed("b1", self.landing, team, work)` 로 부른다 · landing 의 반환·예외(Cut · Ungraded)·호출 순서는 그대로다(`timed` 는 `try … finally` 로 초만 더한다)
-- H2 `items=` 분모 = 그 바퀴에 돌 수 있는 자리 · 끊기지 않은 바퀴(`cut=-`)는 분모 = 분자 = `items=N/N`(다 돌았다는 뜻 그대로) · 끊긴 바퀴는 분모 = 분자 + 끊긴 자리 뒤에 남은 자리 수 · 남은 자리 = `positions()` 에서 끊긴 자리 뒤의 것 가운데 고리가 건너뛰는 work(`handled` 에 있는 최신 attempt · 반환 · 쉼 = :506 의 조건과 같은 식)의 자리와 `unused` 를 뺀 것 · 아직 가지 않은 work 는 b1 · b2c · stall 세 자리로 센다(어느 자리로 갈지는 가 봐야 안다 = 끊긴 바퀴의 분모는 위쪽 어림이다 · 분자 < 분모 는 늘 참)
+- H2 `items=` 분모 = 그 바퀴에 돌 수 있는 자리 · 끊기지 않은 바퀴(`cut=-`)는 분모 = 분자 = `items=N/N`(다 돌았다는 뜻 그대로) · 끊긴 바퀴는 분모 = 분자 + 끊긴 자리 뒤에 남은 자리 수 · 남은 자리 = `positions()` 에서 끊긴 자리 뒤의 것 가운데 고리가 건너뛰는 work(`handled` 에 있는 최신 attempt · 반환 · 쉼 = :506 의 조건과 같은 식)의 자리와 `unused` 를 뺀 것 · 아직 가지 않은 work 는 b1 · b2c · stall 세 자리로 센다(어느 자리로 갈지는 가 봐야 안다 = 끊긴 바퀴의 분모는 위쪽 어림이다)
+- 알려진 한계(DA APPROVE-DESIGN 313472): 맨 끝 자리(b3r)에서 끊기면 뒤에 남은 자리가 0 이라 `items=5/5` 처럼 N/N 이 나온다(`cut=-:-:b3r`) = «끊긴 바퀴는 분자 < 분모» 는 맨 끝 자리에서 성립하지 않는다 · 다 돌았는지는 `cut=-` 와 함께 읽는다 · H1 뒤 landing 의 SLOW-CALL 단계 이름·SLOW-CELL 값은 b1 로 붙는다(H3 의 «그대로» 는 줄 꼴·호출 판단·예산 동작이다) · keeper 60초 카드 조건 6 의 other 5초 문구는 완화 0 = 이 카드 설치 뒤 ROUND 50줄 이상에서 다시 재서 그 기준 그대로 본다
 - H3 그대로: `positions()` 의 반환값과 순서 · `key` · `before` · `cursor_key` · `next_pos`(끊김 자리·이어받기는 모든 자리 목록으로 센다) · 예산 시계 · 호출 문 · 끊김 · `wall=` · `cut=` · SLOW-CALL · SLOW-CELL · 판정 규칙 · report · 다른 keeper_*.py
 - H4 `other=` 의 식은 그대로다(`wall − 칸 합계`) · H1 뒤에는 landing 초가 칸 합계에 들어가므로 그만큼 준다 · 이 카드는 `other=` 에 상한을 두지 않는다
 
@@ -96,3 +97,4 @@ keeper 60초 카드는 «`other=` 의 가장 긴 값이 5초를 넘으면 가정
 
 ## 상태
 - 2026-11-16 09:17 · 대기 — aifp-ft-arch-pi#23 초안(팀장 aifp 5919 · 읽기 조사 3회 · 구현 0) · 다음 = 팀장 PR merge → DA 설계 → Issue → 나노 1석
+- 2026-11-16 09:26 · 대기 — aifp-ft-arch-pi#23 머리 줄(팀장 aifp 5923) · Issue #8676 · DA 판정: APPROVE-DESIGN 313472(승인 sha f7b0614e28a8ca4e8806b56d4e145dd45f94692f · 사본 .fable-team/state/team-main/aifp-ft/DA-round-cells-design-approve-313472/verdict.md · 수용 동작 반례 0 · 알려진 한계 1줄 계약에 보탬) · 배정 줄 꼴 고침(대기 · 정지 = BYZ 전팀 정지 판정 4244 ② · 팀장 aifp 5924) · 그 밖 손 0 · 다음 = 팀장 착지 → 인터뷰 뒤 나노 spawn
