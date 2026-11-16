@@ -58,11 +58,11 @@ def test_r3_event_after_rest_head_alerts(w: World) -> None:  # ③ 그 뒤 사�
     assert len(sends(w)) == 1
 
 
-def test_r4_mark_on_second_line_only_is_not_rest(w: World) -> None:  # ④ 둘째 줄 표식 = 쉼 0
+def test_r4_mark_on_second_line_only_is_rest(w: World) -> None:  # ④ 둘째 줄 단독 표식 = 쉼(r2139 R4)
     candidate(w)
     w.heartbeat("t1-master#1", 33, body="[정리] 한 일 3줄\n[다음 없음]")
-    assert scan(w)["f"] == "1"
-    assert len(sends(w)) == 1
+    assert scan(w)["f"] == "0"
+    assert len(sends(w)) == 0
 
 
 def test_r5_rest_head_to_non_lead_role_is_not_heartbeat(w: World) -> None:  # ⑤ 받는이 = nano → 심박 아님

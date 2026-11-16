@@ -69,9 +69,14 @@ def test_rest_mark_is_exempt(w: World, body: str) -> None:
     assert not w.mbox_log()
 
 
-@pytest.mark.parametrize("body", ["[정리] 한 일 3줄 · 막힘 = 사람 답", "[정리] 한 일 3줄\n[다음 없음]"], ids=["③b ts 없는 막힘", "④ 둘째 줄 표식"])
-def test_r3b_r4_not_a_rest_mark(w: World, body: str) -> None:  # ③b · ④ 표식이 아니면 지금 판정 그대로
-    assert rest_lead(w, 60, body)["f"] == "1"
+@pytest.mark.parametrize(("body", "rest"), [("[정리] 한 일 3줄 · 막힘 = 사람 답", False), ("[정리] 한 일 3줄\n[다음 없음]", True)], ids=["③b ts 없는 막힘", "④ 둘째 줄 표식"])
+def test_r3b_r4_not_a_rest_mark(w: World, body: str, rest: bool) -> None:  # ③b 표식 아님 = 지금 판정 그대로 · ④ 둘째 줄 단독 표식 = 쉼(r2139 R4)
+    c = rest_lead(w, 60, body)
+    if rest:
+        assert c["f"] == "0" and c["b"] == "0" and c["u"] == "0", c
+        assert not w.mbox_log()
+        return
+    assert c["f"] == "1"
     assert len(sends(w, "t1-master#1")) == 1
 
 
