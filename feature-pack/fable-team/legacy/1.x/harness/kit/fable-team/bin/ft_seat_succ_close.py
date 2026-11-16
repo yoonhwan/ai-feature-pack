@@ -91,7 +91,7 @@ def succ_close(root: Path, state_dir: Path, now: float, tmux: list[str], run, st
         t = tried.get(old)
         if isinstance(t, dict) and now - float(t.get("at", 0)) < wait:
             continue
-        rc, out = run(["bash", tool, old, "--reason", f"승계 끝 자동 닫기 → {new}"], None, 25, cwd=root)
+        rc, out = run(["bash", tool, old, "--reason", f"승계 끝 자동 닫기 → {new}", "--defer-press"], None, 25, cwd=root)  # r2155 — press 진행 중이면 러너 «미룸»(r2153)
         n_call += 1
         lines.append(f"{stamp} succ-close {old} rc={rc} — {(out.strip().splitlines() or [''])[0][:120]}")
         _ = tried.update({old: {"rc": rc, "at": now}}) if rc in (1, 3) else tried.pop(old, None)

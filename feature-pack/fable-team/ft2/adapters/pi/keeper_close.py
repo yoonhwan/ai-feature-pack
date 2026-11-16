@@ -358,7 +358,7 @@ class Closing:
         if not self.close_bin:
             self.log("판정 불가", text="ft-seat-close 경로 없음(FT_SEAT_CLOSE_BIN) — B3 0")
             return "stop"
-        argv = ["bash", self.close_bin, seat, "--reason", "retire -> " + (new or "close-receipt"), "--seats", path]
+        argv = ["bash", self.close_bin, seat, "--reason", "retire -> " + (new or "close-receipt"), "--seats", path, "--defer-press"]   # r2155 — press 진행 중이면 러너 «미룸»(r2153)
         rc, out, err = self.call(argv, GIT_S)
         first = ((out or err).strip().splitlines() or [""])[0][:160]
         self.log("CLOSED-SEAT" if rc == 0 else "HELD-SEAT", name, "%s rc %s %s" % (seat, rc, first))
