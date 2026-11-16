@@ -865,7 +865,8 @@ cmd_open() {
   fi
   local pi_sid=""
   if [[ "$agent" == "pi" ]]; then
-    pi_sid="${TMUXC_PI_SESSION_ID:-$(python3 -c 'import uuid;print(uuid.uuid4())' 2>/dev/null)}"
+    # r2091: 새 좌석 id 는 언제나 새로 뽑는다 — 부른 쪽 env 값 = 앞 좌석 자신의 id(이어 열기 사고)
+    pi_sid="$(python3 -c 'import uuid;print(uuid.uuid4())')" || die "pi --session-id 발급 실패(python3 uuid)"
     export TMUXC_PI_SESSION_ID="$pi_sid"
   fi
   local run_cmd
@@ -1071,7 +1072,8 @@ cmd_fork() {
 
   local pi_sid=""
   if [[ "$agent" == "pi" ]]; then
-    pi_sid="${TMUXC_PI_SESSION_ID:-$(python3 -c 'import uuid;print(uuid.uuid4())' 2>/dev/null)}"
+    # r2091: 새 좌석 id 는 언제나 새로 뽑는다 — 부른 쪽 env 값 = 앞 좌석 자신의 id(이어 열기 사고)
+    pi_sid="$(python3 -c 'import uuid;print(uuid.uuid4())')" || die "pi --session-id 발급 실패(python3 uuid)"
     export TMUXC_PI_SESSION_ID="$pi_sid"
   fi
   local run_cmd
