@@ -203,7 +203,7 @@ eq "$(kinds "$L")|$(pairok "$L")" "tool,fail,|same" "⑧ reclaim kill 실패 →
 
 stage undo-reclaim "⑨⑩ hook(S4) — 별도 소켓 실 tmux"
 mkdir -p "$T/tb"; printf '#!/bin/sh\nexec "%s" -L "%s" "$@"\n' "$REAL_TMUX" "$SOCK" > "$T/tb/tmux"; chmod +x "$T/tb/tmux"
-TB() { env -u TMUX -u TMUX_PANE PATH="$T/tb:$PATH" "$@"; }
+TB() { ( unset TMUX TMUX_PANE; PATH="$T/tb:$PATH"; export PATH; "$@" ); }
 wait_lines() { local i; for i in $(seq 1 2000); do [ "$(nl "$1")" -ge "$2" ] && return 0; done; return 1; }
 closed() { ( unset TMUX; timeout 10 "$REAL_TMUX" -L "$SOCK" wait-for r2101-closed ); wait_lines "$1" "$2"; }
 mine() { TB tmux show-hooks -g session-closed 2>/dev/null | grep -cF "$LED hook #{q:hook_session} #{q:hook_session_name}"; }
