@@ -3,7 +3,7 @@
 잇기 = submit → 최초이자 유일한 영수 1회(next·새 holder·evidence) → launch → record · 복구 = 저장 next·holder 로만 launch·record 를
 «각각» 맞춘다(새 고르기 0 · handled 는 그 뒤) · 고를 카드 0 일 때만 팀장 [다음 없음] 1통(하루·팀 1키).
 r1929 launch = 기다리지 않는다(keeper_launch · 띄우고 다음 바퀴에 의도를 읽어 잇기)."""
-import hashlib, importlib.util, os, re, sys  # noqa: E401
+import hashlib, importlib.util, os, re, sys, time  # noqa: E401
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FT2, GIT_S, PENALTY_S = os.path.dirname(os.path.dirname(HERE)), 25, 7   # r2073 판정기 호출 7초(하드 룰 12)
@@ -202,6 +202,38 @@ def mapped(k, team, found, where):
         for p in (x for x in names.splitlines() if x.endswith(".md")):
             m, stage = re.match(r"r(\d+)(?![0-9])", os.path.basename(p)), "아카이브" if MONTH.fullmatch(os.path.dirname(p)[len(idx):]) else os.path.basename(os.path.dirname(p)) if os.path.dirname(os.path.dirname(p)) == idx else ""
             where.setdefault(m.group(1), set()).add(stage) if m and stage in ("완성", "완성후", "아카이브") else None
+def delivered(k, team, stem, works, state, led):
+    """r2111 A1 — stem·짝 work 에 전달된 attempt 가 있으면 원장 풀림(state none ∧ released_at > 최신 attempt intent 시각) 뒤에만 고른다.
+    시각 = intent started(epoch) 먼저 · 없으면 at(로컬) · 하나라도 못 읽음 = «판정 불가» · 줄은 값이 바뀔 때만 1줄."""
+    sent = [(w, a) for w in sorted(works) for a in (state.get("deliveries") or {}).get(w) or []]
+    if not sent:
+        return ""
+    times = []
+    for w, a in sent:
+        got = k.read_json(os.path.join(kl.projection.runtime_path(k.root, team), "launch", "%s@%s.intent" % (w, a)))
+        try:
+            times.append(float(got["started"]) if "started" in got else time.mktime(time.strptime(got.get("at"), "%Y-%m-%dT%H:%M:%S")))
+        except (TypeError, ValueError):
+            pass
+    last = max(times) if len(times) == len(sent) else None
+    rel = led.get("released_at") if isinstance(led.get("released_at"), (int, float)) else 0
+    why = "" if last is not None and led.get("state") == "none" and rel > last else "판정 불가" if last is None else "전달됨"
+    book, key, val = k.state.setdefault("delivered_seen", {}), "%s|%s" % (team, stem), "%s|%s" % (why, " ".join("%s@%s" % x for x in sent))
+    if why and book.get(key) != val:
+        k.log("NEXT-SKIP" if why == "전달됨" else why, team, "%s 건너뜀 — %s(%s)%s" % (stem, why, " ".join("%s@%s" % x for x in sent),
+              " · 원장 풀림 뒤 다시 고름 · 풀기 = ft-card-assign record %s waiting <사유> → clear <사유>" % stem if why == "전달됨" else " intent started·at 못 읽음"))
+    book[key] = val
+    return why
+def clash(k, team, stem):
+    """r2111 A2 — nano_name 과 대소문자만 다른 세션이 살아 있으면 «이름겹침» · list-sessions 실패 = «판정 불가» · 줄은 값이 바뀔 때만 1줄."""
+    nh, (rc, out, _) = nano_name(k, team, stem), once(k, "ls", [k.tmux, "list-sessions", "-F", "#{session_name}"])
+    other = "" if rc != 0 or not nh else next((x for x in out.split() if x != nh and x.lower() == nh.lower()), "")
+    why = "판정 불가" if rc != 0 else "이름겹침" if other else ""
+    book, key, val = k.state.setdefault("clash_seen", {}), "%s|%s" % (team, stem), "%s|%s" % (why, other)
+    if why and book.get(key) != val:
+        k.log("NEXT-SKIP" if other else why, team, "%s 건너뜀 — %s" % (stem, "이름겹침 %s 살아 있음(새 이름 %s)" % (other, nh) if other else "tmux list-sessions rc %s" % rc))
+    book[key] = val
+    return why
 def target(k, r, lines):
     """(리포, base) — 팩·feature-pack/ = 팩 origin/main · 없음 = 루트 리포·표 ref · 팩·BYZ 둘 다 = None."""
     pack, byz = any("팩" in x or "feature-pack/" in x for x in lines), any("BYZ" in x for x in lines)
@@ -233,11 +265,13 @@ def choose(k, team, skip=frozenset()):
         if not block and place is None:
             block = k.log("판정 불가", team, "%s 대상 팩·BYZ 둘 다 — 건너뜀" % stem) or "대상"
         block = block or ("팩낡음" if place[0] in k.stale else "")   # r1963 낡은 팩 base 로 나노 열기 0(이 바퀴 보류 · BYZ 대상 카드는 그대로)
+        block = block or delivered(k, team, stem, {stem} | pair.get(stem, set()), state, led)   # r2111 A1
+        block = block or clash(k, team, stem)   # r2111 A2
         ready.append(((not urgent, not high, led.get("since") or 0), stem) + place) if not block else why.update({block: why.get(block, 0) + 1})
     if why.get("팩낡음"):
         k.log("판정 불가", team, "다음 카드 보류 %d장 · 팩 fetch 실패" % why["팩낡음"])
     prereq_tell(k, team, {s: row[4] for s, row in found.items() if row[3] == "선행불명"})   # I4~I8 · 고를 카드가 있든 없든 간다
-    if ready or why.get("팩낡음"):   # 보류뿐이면 [다음 없음] 쪽지 0
+    if ready or why.get("팩낡음") or why.get("판정 불가"):   # 보류뿐이면 [다음 없음] 쪽지 0 · r2111 판정 불가 = 쪽지 0
         return min(ready)[1:] if ready else None
     k.notify(team, "%s|next-none|%s" % (k.stamp()[:10], team), "%s %s · 배정 없는 카드 0 · 막힌 사유별 %s" % (NONE, team, " ".join("%s %d" % kv for kv in sorted(why.items())) or "0"))
 def prereq_mute(k, team):
