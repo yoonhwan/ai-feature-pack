@@ -36,6 +36,10 @@ cat > "$FK/bin/du" <<'EOF'
 #!/bin/bash
 case "$*" in *slow-item*) exec sleep 5 ;; esac; exec /usr/bin/du "$@"
 EOF
+cat > "$FK/bin/rm" <<'EOF'
+#!/bin/bash
+case "$*" in *slow-rm*) exec sleep 5 ;; esac; exec /bin/rm "$@"
+EOF
 chmod +x "$FK/bin/"*; printf '1048576\n3145728\n' > "$FK/df.vals"
 export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL="$W/gitconfig"
 printf '[user]\n\tname = t\n\temail = t@t\n[protocol "file"]\n\tallow = always\n[init]\n\tdefaultBranch = main\n' > "$GIT_CONFIG_GLOBAL"
@@ -141,6 +145,11 @@ T5=$SECONDS
 T8="$W/tmp8"; mkdir -p "$T8/slow-item" "$T8/fast-item"; age "$OLD" "$T8"/*
 out="$(FT_RECLAIM_TIMEOUT=1 FT_RECLAIM_TMP_ROOT="$T8" FT_RECLAIM_REPOS="$RB" bash "$TOOL" plan "$W/out8" 2>/dev/null)"; rc=$?
 chk "⑧rc 0 · slow 줄 없음 · fast 줄 있음" "$rc|$(grep -c slow-item "$W/out8/candidates.tsv")|$(grep -c fast-item "$W/out8/candidates.tsv")" "0|0|1"
+# ⑧b 지우기도 공통 상한(DA #317143) — rm 이 상한을 넘기면 그 줄 SKIP · 보존 · 다음 줄은 계속
+mkdir -p "$T8/slow-rm" "$W/out8b"; age "$OLD" "$T8/slow-rm"; echo 0 > "$FK/df.n"
+printf 'tmp\t1\t%s\tx\ntmp\t1\t%s\tx\n' "$T8/slow-rm" "$T8/fast-item" > "$W/out8b/candidates.tsv"
+FT_RECLAIM_TIMEOUT=1 FT_RECLAIM_TMP_ROOT="$T8" FT_RECLAIM_REPOS="$RB" bash "$TOOL" apply "$W/out8b/candidates.tsv" > /dev/null 2>&1; rc=$?
+chk "⑧b 지우기 상한 초과 → SKIP 시간 초과 · 보존 · 다음 줄 DELETED · rc 0" "$rc|$(has "$W/out8b/deleted.log" $'SKIP\ttmp\t'"$T8/slow-rm"$'\t시간 초과')$(ex "$T8/slow-rm")|$(ex "$T8/fast-item")" "0|yesyes|no"
 T6=$SECONDS
 echo "TIME 준비=$((T1-T0))s ①~④=$((T2-T1))s ⑤=$((T3-T2))s ⑥=$((T4-T3))s ⑦=$((T5-T4))s ⑧=$((T6-T5))s"
 [ "$fail" -eq 0 ] && echo "ALL PASS" || echo "FAIL count=$fail"
