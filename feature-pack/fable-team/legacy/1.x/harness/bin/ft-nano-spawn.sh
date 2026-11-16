@@ -384,8 +384,21 @@ SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"   # ⑤명부 «등록» 
 [ -n "${FT_NANO_PREFIX:-}" ] || FT_NANO_PREFIX="$DEF_NANO_PREFIX"
 # ★EXIT 정리 목록 (r921 r3 · DA⑥ r2 W4)★: trap 을 «덮어쓰지» 않는다 — 정리 함수를 _ON_EXIT 에 이어 붙이고 trap 은 _on_exit 하나만 건다(잠금 해제·사건 원장 abort 가 둘 다 돈다).
 _ON_EXIT=()
-_on_exit() { local f; for f in ${_ON_EXIT[@]+"${_ON_EXIT[@]}"}; do "$f" || true; done; }
+_on_exit() { _ON_EXIT_RC=$?; local f; for f in ${_ON_EXIT[@]+"${_ON_EXIT[@]}"}; do "$f" || true; done; }
 trap _on_exit EXIT
+# ★r2067 A4★ 종료 자리 한 곳(정리 목록에 이어 붙임) — rc 5 = 새 좌석 raise · rc 7 = 카드 raise · rc 0 = 둘 다 clear · 그 밖·--dry-run = 호출 0 · rc 불변
+_FTB_CAUSE=""
+_ftb_spawn_exit() {
+  [ "$DRY" != 1 ] && . "$HERE/ft-block-lib.sh" 2>/dev/null && declare -F ft_block >/dev/null || return 0
+  local stem; stem="$(basename -- "$IDX" .md)"
+  case "${_ON_EXIT_RC:-}" in
+    0) [ -n "${NAME:-}" ] && ft_block clear ft-nano-spawn "$NAME"; ft_block clear ft-nano-spawn "$stem";;
+    5) [ -n "${NAME:-}" ] && ft_block raise ft-nano-spawn seat "$NAME" --cause "${_FTB_CAUSE:-ft-nano-spawn rc 5}" --fix "판정 필요 $NAME pane 도달 확인" --period 900;;
+    7) ft_block raise ft-nano-spawn card "$stem" --cause "${_FTB_CAUSE:-ft-nano-spawn rc 7}" --fix "판정 필요 정원·프록시 — 순번 큐가 다음 틱에 다시 시도" --period 900;;
+  esac
+  return 0
+}
+_ON_EXIT+=(_ftb_spawn_exit)
 # ★좌석 상한 (R252 · 판정 1949 · ★r921 r3 = DA⑥ r2 W1★)★: 팀 env 에 FT_TEAM_SEAT_CAP·FT_GROUP_SEAT_CAP 가 있는 팀(위성)만 — 부작용 0 지점(워크트리·세션·명부 «전»)에서 센다. env 가 없는 팀은 검사 0.
 #   팀셋 상한과 같은 W4 규칙: 판정기 REJECT(live >= cap) = 회수 1회(ft_reclaim_capped · 7초 상한) → 다시 셈 → live < cap+1 이면 WARN 1줄 + 개설 · 그래도 live >= cap+1 이면 순번 큐(exit 7).
 #   W1: 상한 측정 실패(ERROR · `N/M` 꼴 못 읽음)는 정지가 아니다 — `WARN 좌석 상한 측정 실패 — 진행` 1줄. --dry-run 은 회수·큐 0(REJECT 면 옛 rc1 그대로).
@@ -416,7 +429,7 @@ if [ -n "${FT_TEAM_SEAT_CAP:-}${FT_GROUP_SEAT_CAP:-}" ]; then
             printf '%s\n' "$_cap"
             [ -f "$HERE/ft_spawn_queue.py" ] || { echo "REJECT ft_spawn_queue.py 없음: $HERE (순번 큐를 쓸 수 없다)"; exit 1; }
             python3 "$HERE/ft_spawn_queue.py" add --root "$ROOT" --prefix "$FT_NANO_PREFIX" --card "$IDX" --from "$FROM"
-            card_assign_record "$IDX" waiting 석; exit 7
+            _FTB_CAUSE="${_cap%%$'\n'*}"; card_assign_record "$IDX" waiting 석; exit 7
           else
             echo "WARN resource seat-cap ${_cap%%$'\n'*} — 회수 1회 뒤 cap+1 까지 열어 준다(r921 · 순번 큐 적재 0)" >&2
           fi
@@ -452,7 +465,7 @@ _ts_fields() { # <cap 출력> → "live cap" (못 읽으면 빈 값)
   printf '%s %s' "${l:-}" "${c:-}"
 }
 _ts_queue() { # <사유> — 순번 큐에 넣고 master 알림(있으면) · rc7
-  echo "QUEUED $2 — $1" >&2
+  _FTB_CAUSE="QUEUED $2 — $1"; echo "$_FTB_CAUSE" >&2
   [ "$DRY" = 1 ] || python3 "$HERE/ft_spawn_queue.py" add --root "$ROOT" --prefix "$_tsp" --card "$IDX" --from "$FROM" || true
   card_assign_record "$IDX" waiting 석; exit 7
 }
@@ -877,7 +890,7 @@ _pxout="$(bash "$HERE/ft-agent-ready.sh" --proxy "$WT" --agent "$AGENT" 2>&1)"; 
 if [ "$_pxrc" != 0 ]; then
   [ -f "$HERE/ft_spawn_queue.py" ] || { echo "REJECT 프록시 확인 실패(rc=$_pxrc) + ft_spawn_queue.py 없음: $HERE — 순번 큐를 쓸 수 없다(부작용 0)"; exit 1; }
   python3 "$HERE/ft_spawn_queue.py" add --root "$ROOT" --prefix "$FT_NANO_PREFIX" --card "$IDX" --from "$FROM" || { echo "REJECT 프록시 확인 실패(rc=$_pxrc) + 순번 큐 실패 — 부작용 0"; exit 1; }
-  echo "INFO 프록시 확인 실패 = 진짜 장애 — 좌석 0 · 순번 큐에 남깁니다(사유 proxy · 다음 틱 재시도)"
+  _FTB_CAUSE="INFO 프록시 확인 실패 = 진짜 장애 — 좌석 0 · 순번 큐에 남깁니다(사유 proxy · 다음 틱 재시도)"; echo "$_FTB_CAUSE"
   exit 7
 fi
 # 사건 원장 훅(PLAN-status-sheet §3-1 · 근원 ⑥): prepared 를 «먼저» — 못 쓰면 착수 거절 · 성공(⑥ 끝)에 committed · 그 밖의 종료는 abort(trap)
@@ -1152,4 +1165,4 @@ _retired="$(retired_line "$_probe")"
 [ "$REOPEN" != 1 ] || echo "REOPEN $IDX_REL seat=$NAME wt=$REOPEN_WT branch=$BRANCH head=$(git -C "$WTDIR" rev-parse HEAD 2>/dev/null)"   # r1335: 실사건 원문 1줄
 FT_SEND_FROM="$FROM" FT_REACH_AGENT="$AGENT" bash "$HERE/ft-send-verified.sh" "$NAME" "$BODY"; _src=$?   # r1750 A4: reach 판정에 에이전트를 넘긴다(ft-successor-open 과 같은 꼴)
 [ "$_src" -eq 0 ] && { echo "SPAWNED $NAME index=$NEW_IDX wt=$WTDIR · $(bash "$HERE/ft-event-check.sh" spawn "$NAME" "$IDX_WT/$NEW_IDX" "$WTDIR")"; exit 0; }   # r1474: 끝 칸 = 재측정 1회(exit 0 불변)
-echo "SPAWNED-UNVERIFIED $NAME rc=$_src — 좌석은 떴다. 도달을 사람이 확인"; exit 5
+_FTB_CAUSE="SPAWNED-UNVERIFIED $NAME rc=$_src — 좌석은 떴다. 도달을 사람이 확인"; echo "$_FTB_CAUSE"; exit 5
