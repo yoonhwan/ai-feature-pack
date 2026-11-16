@@ -174,8 +174,26 @@ def c9t(tmp, bindir=BIN, mp=None):   # ⑨ 판독 합계 7초 넘음 = 판정 �
         m.first_session((intent, "5101", str(s.wt)), s.sess)
 
 
+def budget(sec):   # DA R1 — 마지막 기록 읽기가 sec 초 걸림(주입 시계 · sleep 0) · 1초 = 결속 · 8초 = 판정 불가 · 결속 0
+    def case(tmp, bindir=BIN, mp=None):
+        s = Seat(tmp, bindir)
+        s.late([OTHER])
+        s.rec(OTHER)
+        mp.setenv("ZC_RESUME_DIR", str(s.rd))
+        m, clock, raw = mod(s), [0.0], Path.read_text
+        m.time = type("T", (), {"monotonic": staticmethod(lambda: clock[0])})
+        mp.setattr(Path, "read_text", lambda self, *a, **k: (raw(self, *a, **k), clock.__setitem__(0, clock[0] + sec if self.parent == s.rd else clock[0]))[0])
+        intent = json.loads(next((tmp / "ft2root").rglob("*.intent")).read_text(encoding="utf-8"))
+        if sec < m.CAP:
+            assert m.first_session((intent, "5101", str(s.wt)), s.sess)[0] == str(s.first) and clock[0] == sec
+            return
+        with pytest.raises(ValueError, match="이름 판독"):
+            m.first_session((intent, "5101", str(s.wt)), s.sess)
+    return case
+
+
 CASES = {"⑧": c8, "⑨1": c9a, "⑨2": c9b, "⑨3": c9c, "⑨4": c9d, "⑨5": c9e, "⑨6": c9f, "⑨7": c9g, "⑨8": c9h, "⑨o": c9o}
-DIRECT = {"⑨k": c9k, "⑨t": c9t}
+DIRECT = {"⑨k": c9k, "⑨t": c9t, "⑨b1": budget(1), "⑨b8": budget(8)}
 F2 = "ft_seat_pi_ft2.py"
 MUTANTS = {"M4": ("late = [sid for sid, path in late if not proven(path, sid, seat, end)]", "late = [sid for sid, path in late]", "⑧"),
            "M5": ('rec.get("name") == name and ', "", "⑨5"),
@@ -184,7 +202,8 @@ MUTANTS = {"M4": ("late = [sid for sid, path in late if not proven(path, sid, se
            "M7": (' and rec.get("uuid") == sid', "", "⑨4"),
            "M8": ("if name and record(name, sid, end):", "if name:", "⑨3"),
            "Mo": ('    if Path(name).name != name or name in (".", ".."):\n        return False\n', "", "⑨o"),   # DA 칸 덧 변이 — 폴더 밖 가드 지움
-           "Mk": ("for name in dict.fromkeys(got):", "for name in got:", "⑨k")}   # DA 칸 덧 변이 — 열쇠 중복 제거 지움
+           "Mk": ("for name in dict.fromkeys(got):", "for name in got:", "⑨k"),   # DA 칸 덧 변이 — 열쇠 중복 제거 지움
+           "Mb": (("    due(end)   # DA R1 — 기록 읽기·해석 뒤\n", "    due(end)   # DA R1 — 증명·결속 성공 전\n"), ("", ""), "⑨b8")}   # DA R1 — 읽기 뒤·결속 전 상한 확인 지움(읽기 전 확인만 남김)
 
 
 @pytest.mark.parametrize("name", list(CASES))
@@ -210,8 +229,10 @@ def test_mutant(name, tmp_path, monkeypatch):
     for f in FILES:
         shutil.copy(BIN / f, mut / f)
     text = (mut / F2).read_text(encoding="utf-8")
-    assert text.count(old) == 1, (name, old)
-    (mut / F2).write_text(text.replace(old, new), encoding="utf-8")
+    for o, n in zip(*((old, new) if isinstance(old, tuple) else ((old,), (new,)))):   # 여러 자리 변이 = 표지마다 1개
+        assert text.count(o) == 1, (name, o)
+        text = text.replace(o, n)
+    (mut / F2).write_text(text, encoding="utf-8")
     for sub in ("w1", "w2"):
         (tmp_path / sub).mkdir()
     run = (lambda w, *b: DIRECT[case](w, *b, mp=monkeypatch)) if case in DIRECT else CASES[case]
