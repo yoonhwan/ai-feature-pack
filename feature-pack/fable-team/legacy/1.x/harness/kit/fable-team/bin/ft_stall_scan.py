@@ -35,6 +35,11 @@ from ft_team_lib import rosters  # r1883 — _master 빈 팀의 카드 경로(�
 import ft_stall_state as stm
 from ft_nano_record_auto import land_close
 import ft_seat_succ_close
+try:
+    from ft_block import block  # r2070 A1 — 막힘 장부 올리는 한 길(없으면 호출 0 · 판정·출력 불변)
+except ImportError:
+    def block(*_a: object) -> None:
+        return None
 
 HERE = Path(__file__).resolve().parent
 REPEAT_S = stm.REPEAT_S
@@ -604,6 +609,8 @@ class Scan:
         close = os.environ.get("FT_NANO_CLOSE") or str(HERE / "ft-nano-close.sh")
         rc, out = run(["bash", due, "--all"], {**os.environ, "FT_NANO_AUTO_CLOSE": "1"}, 70)
         if rc not in (0, 3):   # r1701 ② — rc=3(판정 불가 1석 이상)이어도 «갈래=승인» 줄은 닫는다(1석이 전 팀 자동 닫기를 막던 자리)
+            block(getattr(self, "root", None), "raise", "ft-stall-scan", "team", "nano-auto-close", "--cause", f"판정 불가 auto-close close-due rc={rc} — 닫기 0",
+                  "--fix", "판정 필요 닫기 차례 목록 — ft-nano-close-due.sh --all 손 실행", "--period", "150")   # r2070 A2Ⓑ
             return [f"판정 불가 auto-close close-due rc={rc} — 닫기 0"]
         sf = self.state_dir / "nano-auto-close.json"
         try:
@@ -652,6 +659,10 @@ class Scan:
             os.replace(sf.parent / (sf.name + ".tmp"), sf)
         except OSError as e:
             lines.append(f"{stamp} WARN auto-close 상태 파일 쓰기 실패: {e}")
+        for ln in [x[len(stamp) + 1:] for x in lines if x.startswith(f"{stamp} auto-close 실패 ")]:   # r2070 A3ⓐ — 이 판에 만든 실패 줄만(건너뛰는 판 = 0)
+            seat = ln.split()[2]
+            block(root, "raise", "ft-nano-close", "seat", seat, "--cause", ln,
+                  "--fix", f"판정 필요 {seat} 닫기 — 원인을 고친 뒤 ft-nano-close.sh 손 실행(같은 HEAD 는 자동 재시도 0)")
         return lines
 
     def auto_close_da_arch(self, stamp: str) -> list[str]:
@@ -661,6 +672,13 @@ class Scan:
         due, sf, env = os.environ.get("FT_SEAT_CLOSE_DUE") or str(HERE / "ft-seat-close-due.sh"), self.state_dir / "seat-auto-close.json", {**os.environ, "FT_ROOT": str(self.root)}
         rc, out = run(["bash", due], env, 25)  # 보정 R1 ⓒ — 목록 1회 전체 25초(도구 안 예산 24초 · 넘친 좌석 = 다음 판)
         lines = [f"{stamp} 판정 불가 seat-auto-close {x[6:]}" for x in out.splitlines() if x.startswith("판정 불가 ")] + ([] if rc in (0, 3) else [f"{stamp} 판정 불가 seat-auto-close close-due rc={rc} — 닫기 0"])
+        if rc not in (0, 3):   # r2070 A2Ⓒ
+            block(self.root, "raise", "ft-stall-scan", "team", "seat-auto-close", "--cause", f"판정 불가 seat-auto-close close-due rc={rc} — 닫기 0",
+                  "--fix", "판정 필요 닫기 차례 목록 — ft-seat-close-due.sh 손 실행", "--period", "150")
+        for x in [x.split(" ", 2) for x in out.splitlines() if rc in (0, 3) and x.startswith("제외 ")]:   # r2070 A2Ⓒ — 손이 필요한 사유만(상태·유휴 문턱·조용함·현역 아님 = 0)
+            if len(x) == 3 and x[2].startswith(("미커밋 ", "미답 발주 ", "받을 일 ")):
+                block(self.root, "raise", "ft-stall-scan", "seat", x[1], "--cause", " ".join(x),
+                      "--fix", f"판정 필요 {x[1]} — 미커밋·미답 발주·받을 일을 끝낸 뒤 닫기", "--period", "150")
         try:
             tried = json.loads(sf.read_text(encoding="utf-8"))
         except (OSError, ValueError):
@@ -673,6 +691,9 @@ class Scan:
                 ok, unj = crc == 0 and first == f"CLOSED {seat} idle=1", crc in (3, 99)   # 판정 불가·시간 초과 = tried 0(다음 판이 다시 판정)
                 _ = tried.pop(seat, None) if ok or unj else tried.update({seat: end})
                 lines.append(f"{stamp} " + (f"판정 불가 seat-auto-close {seat} rc={crc} — {first}" if unj else "seat-auto-close " + (first if ok else f"실패 {seat} rc={crc} — {first}")))
+                if not (ok or unj):   # r2070 A3ⓑ — 같은 end 동안 건너뛰는 줄
+                    block(self.root, "raise", "ft-seat-close", "seat", seat, "--cause", lines[-1][len(stamp) + 1:],
+                          "--fix", f"판정 필요 {seat} 닫기 — 원인을 고친 뒤 ft-seat-close-due.sh --close {seat} 손 실행")
         _ = sf.write_text(json.dumps(tried), encoding="utf-8")  # state_dir 는 회차 앞에서 이미 쓴다(stall-scan.log 와 같은 자리)
         print("\n".join(lines)) if lines else None
         return lines
@@ -687,6 +708,9 @@ class Scan:
         """r1717 A4 ⓑ — 착지 뒤 «정리 차례» 장부의 열린 줄마다 쪽지(1회·재촉 1회 셈은 도구 몫) · FT_NANO_AUTO_CLOSE 와 무관 · rc≠0 = 로그 1줄."""
         tool = os.environ.get("FT_NANO_RECORD") or str(HERE / "ft-nano-record.sh")
         rc, _out = run(["bash", tool, "notify"], {**os.environ, "FT_ROOT": str(self.root)}, 25)
+        if rc != 0:   # r2070 A2ⓐ
+            block(self.root, "raise", "ft-stall-scan", "team", "record-notify", "--cause", f"판정 불가 record-notify rc={rc}",
+                  "--fix", "판정 필요 정리 차례 알림 — ft-nano-record.sh notify 손 실행으로 rc·출력 확인", "--period", "150")
         return [] if rc == 0 else [f"{stamp} 판정 불가 record-notify rc={rc}"]
 
     def run(self, dry: bool) -> int:
