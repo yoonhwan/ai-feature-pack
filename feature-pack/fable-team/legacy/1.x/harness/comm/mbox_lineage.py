@@ -162,6 +162,11 @@ def wait_line(left):   # r1842 T3 — 남은 수만(본문·thread 키·글쓴�
     return "WAIT thread %d · 일반 %d — 이 묶음 답 뒤 recv 다시" % (len(th), sum(1 for _, r in left if thread_key(r) is None))
 
 
+def takeable(names, me=None):   # r2146 K1 — recv(claim)·peek 가 함께 부르는 거르개 1개(역할 키 ∧ _mine ∧ me 발신 아님)
+    keys, mine = {role_key(n) for n in names}, _mine(names, me or names[0])
+    return lambda r: role_key(r.get("to")) in keys and mine(r.get("to")) and (me is None or r.get("from") != me)
+
+
 def claim(dirs, names, frm, limit, me=None, on_take=None, only=None, pick=None):
     """★선택과 소비를 «같은 잠금» 안에서 한다★ — 조회 잠금과 소비 잠금이 갈라져 있으면 옛 좌석 recv 와 후계 recv 가
     같은 행을 둘 다 읽는다. 우편함이 여럿(legacy)이면 정해진 순서로 전부 잡고 한 번에 처리한다(send 는 CANON 하나만 잡아 교착 0).
@@ -169,15 +174,13 @@ def claim(dirs, names, frm, limit, me=None, on_take=None, only=None, pick=None):
     ★비교 키 = 역할 이름(r1116)★ — names 의 역할 키 집합과 `to` 의 역할 키가 같으면 내 것(옛 번호·새 번호·번호 없음 전부).
     me 가 보낸 행은 안 가져간다(같은 역할 옛·새 세션 사이 [인계]·[레디]) · only = 추가 거르개 · on_take(행들) = 소비 «전» 영수 기록(실패 = raise → 큐 무변경).
     """
-    keys = {role_key(n) for n in names}
-    mine = _mine(names, me or names[0])
+    take = takeable(names, me)
     def run(i):
         if i < len(dirs):
             return _locked(dirs[i], lambda: run(i + 1))
         per = [(d, _load(d)) for d in dirs]
         got = [(d, r) for d, rows in per for r in rows
-               if role_key(r.get("to")) in keys and mine(r.get("to")) and (frm is None or r.get("from") == frm)
-               and (me is None or r.get("from") != me) and (only is None or only(r))]
+               if take(r) and (frm is None or r.get("from") == frm) and (only is None or only(r))]
         got = pick(got) if pick else got   # r1842 — 고르지 않은 행 = 소비 0(큐에 남음)
         got.sort(key=lambda x: x[1]["seq"], reverse=True)   # LIFO
         held = []

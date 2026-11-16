@@ -2,6 +2,7 @@
 from mbox_conf import *
 from mbox_store import _check_name, _legacy_dirs, _load, _locked
 from mbox_ops import _lineage   # recv·peek 같은 계보 칸(r1854)
+from mbox_lineage import takeable   # recv(claim)와 같은 거르개 함수(r2146 K1)
 CANON = None   # mbox.py 가 묶는다
 
 
@@ -14,10 +15,9 @@ def peek(me, rows=False):
     _check_name(me)
     dirs = [CANON] + _legacy_dirs()
     names, joined = _lineage(me)
-    mine = []
+    mine, take = [], takeable(names, me)
     for d in dirs:
-        mine.extend(r for r in _locked(d, lambda d=d: _load(d))
-                    if role_key(r.get("to")) in {role_key(n) for n in names} and r.get("from") != me)   # recv 와 같은 규칙(r1153)
+        mine.extend(r for r in _locked(d, lambda d=d: _load(d)) if take(r))   # recv 와 같은 규칙(r1153 · r2146)
     mine.sort(key=lambda r: r["seq"], reverse=True)
     head = f"pending={len(mine)}"
     if mine:
