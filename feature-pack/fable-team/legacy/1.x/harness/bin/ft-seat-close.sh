@@ -261,10 +261,12 @@ if tmux has-session -t "=$SEAT" 2>/dev/null; then
   [ -n "$VERDICT$DSEQ" ] || lineage_ok || renamed_ok || manual_close   # r2075 — 표준승인 밖 = manual_close 한 곳 · --verdict = 판정 승인 1건 + 재개 기록 확인됨 · r1691 = 이름 접두가 바뀐 승계도 같은 근거면 통과
   ATT="$(seat_attached)"; case "$ATT" in free) ;; attached*) echo "NOTE $SEAT 사람 화면 attached=${ATT#attached } — 오빠 지시로 닫음";; *) finish 3 "HELD $SEAT 판정 불가 attached(${ATT#unknown }) — kill 0 · reap 0 · 명부 표기는 남음 file=$FILE";; esac   # r1839 A4 — 계보 근거 뒤 · reap 앞 · r1976 attached N = NOTE 1줄 뒤 닫기 계속(오빠 지시) · 판정 불가 = HELD 그대로
   reap
+  SID="$(bash "$HERE/ft-session-close-ledger.sh" id "$SEAT" 2>/dev/null)" || SID=-   # r2101 DA 구현 R1 — 세션 id 는 태그 해제 앞에서 읽어 둔다(아래 note 안 tmux 0 = 태그 해제 → kill 이 붙어 있게)
   if [ -n "$(tmux show-options -qv -t "=$SEAT:" @zc_v65_active 2>/dev/null)" ]; then
     tmux set-option -t "=$SEAT:" -u @zc_v65_active || { vlog fail-tag; finish 1 "FAIL tag $SEAT — @zc_v65_active 해제 실패(세션 잔존 · 명부 표기는 남음 file=$FILE)"; }
   fi
-  tmux kill-session -t "=$SEAT" || { vlog fail-kill; finish 1 "FAIL kill $SEAT — kill-session 실패(세션 잔존 · 명부 표기는 남음 file=$FILE)"; }
+  FT_SESSION_CLOSE_ID="${SID:--}" bash "$HERE/ft-session-close-ledger.sh" note "$SEAT" ft-seat-close.sh "$REASON" >/dev/null 2>&1 || :   # r2101 — kill 바로 앞 원장 tool 줄 1(태그 해제 실패 = 줄 0 · DA 구현 R1)(rc·출력·kill 인자 섞임 0)
+  tmux kill-session -t "=$SEAT" || { bash "$HERE/ft-session-close-ledger.sh" fail "$SEAT" ft-seat-close.sh >/dev/null 2>&1; vlog fail-kill; finish 1 "FAIL kill $SEAT — kill-session 실패(세션 잔존 · 명부 표기는 남음 file=$FILE)"; }
   KILL=ok
 else reap; KILL=none; fi
 final

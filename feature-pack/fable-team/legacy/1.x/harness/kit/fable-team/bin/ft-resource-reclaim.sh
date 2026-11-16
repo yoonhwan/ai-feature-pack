@@ -402,8 +402,9 @@ reclaim_core() {   # $1=need → TABLE·OOS·CLOSED_N 채움
       basis="판정 1344 · tmux 정리 2026-07-11"; [ "$kind" != "쉬는 역할 좌석" ] || basis="오빠 판정 2197 · tmux 정리 2026-07-11"
       if [ "$DRY" = 1 ]; then row "$name" "$kind" "$basis" "WOULD-CLOSE(kill-session)"; CLOSED_N=$((CLOSED_N+1)); continue; fi
       why="$(fresh_ok "$name" "$kind")" || { row "$name" "$kind" "-" "SKIP(재확인 거절) $why"; continue; }
+      bash "$HERE/ft-session-close-ledger.sh" note "$name" ft-resource-reclaim.sh "$basis" >/dev/null 2>&1 || :   # r2101 — kill 직전 원장 tool 줄 1(rc·출력·kill 인자 섞임 0)
       if tmux kill-session -t "=$name" 2>/dev/null; then row "$name" "$kind" "$basis · 재개: zombie-clean.sh resume '$name'" "CLOSED"; CLOSED_N=$((CLOSED_N+1))
-      else row "$name" "$kind" "판정 1344" "SKIP kill-session 실패"; fi
+      else bash "$HERE/ft-session-close-ledger.sh" fail "$name" ft-resource-reclaim.sh >/dev/null 2>&1; row "$name" "$kind" "판정 1344" "SKIP kill-session 실패"; fi
     fi
   done < <(printf '%s' "$cand" | sort -t'|' -k1,1nr)
 }
