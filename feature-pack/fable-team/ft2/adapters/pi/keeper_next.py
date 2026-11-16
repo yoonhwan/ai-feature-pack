@@ -214,7 +214,9 @@ def moved_to(p, idx):
 def delivered(k, team, stem, works, state, led):
     """r2111 A1 — stem·짝 work 에 전달된 attempt 가 있으면 원장 풀림(state none ∧ released_at > 최신 attempt intent 시각) 뒤에만 고른다.
     시각 = intent started(epoch) 먼저 · 없으면 at(로컬) · 하나라도 못 읽음 = «판정 불가» · 줄은 값이 바뀔 때만 1줄."""
-    sent = [(w, a) for w in sorted(works) for a in (state.get("deliveries") or {}).get(w) or []]
+    deliveries, returned = state.get("deliveries") or {}, state.get("returned") or {}   # r2118 B1 반환된 최신 attempt = 풀림(w 의 전달 전부 뺄) · B2 dict 아님·낡음 = 그대로
+    gone = {w for w, got in returned.items() if isinstance(got, dict) and got.get("attempt") == (deliveries.get(w) or [None])[-1]}
+    sent = [(w, a) for w in sorted(set(works) - gone) for a in deliveries.get(w) or []]
     if not sent:
         return ""
     times = []
