@@ -115,7 +115,7 @@ ENVX = {"FAKE_GIT_REAL_WORKTREE": "1", "REAL_GIT": shutil.which("git")}
 def resume(root, fake, launcher, rc=None):
     return pl._launch(root, fake, launcher, extra=["--resume"], rc=rc, env_extra=ENVX)
 def subs(fake):
-    return [x["sub"] for x in pl._log(fake)]
+    return [x["sub"] for x in pl._log(fake) if x["sub"] not in ("ls-tree", "cat-file")]   # r2082 기준 sha 읽기 호출을 뺀 목록
 def state(root):
     return json.loads(pl._intent(root).read_text(encoding="utf-8"))
 def c5(tmp, launcher):   # ⑤ launch — HEAD == base_sha → sparse·checkout·tmux 만 다시 · opened ⑤b 경로 없음 → git add 부터

@@ -51,7 +51,7 @@ if name == "git" and sub == "rev-parse" and os.environ.get("FAKE_GIT_REAL_REVPAR
     os.execv(real, [real] + argv)
 if name == "git" and sub == "worktree" and os.environ.get("FAKE_GIT_REAL_WORKTREE") == "1":
     os.execv(real, [real] + argv)
-key = "FAKE_" + name.upper() + ("_REV_RC" if sub == "rev-parse" else "_SPARSE_RC" if sub == "sparse-checkout" else "_RC")
+key = "FAKE_" + name.upper() + ("_REV_RC" if sub == "rev-parse" else "_SPARSE_RC" if sub == "sparse-checkout" else "_READ_RC" if sub in ("ls-tree", "cat-file") else "_RC")   # r2082 기준 sha 읽기 = 따로
 rc = int(os.environ.get(key) or 0)
 if name == "git" and sub == "rev-parse" and "--verify" in argv and rc == 0:
     sys.stdout.write((os.environ.get("FAKE_GIT_SHA") or "__SHA__") + "\\n")
@@ -167,7 +167,7 @@ def case_open(tmp, launcher=LAUNCH):
     _runtime(root)
     out, rc = _launch(root, fake, launcher)
     assert (out["result"], rc, out["opened"]) == ("접수 성공", 0, True), out
-    lines = _log(fake)
+    lines = [line for line in _log(fake) if line["sub"] not in ("ls-tree", "cat-file")]   # r2082 기준 sha 읽기 호출을 뺀 목록 = 기준판
     assert [line["prog"] for line in lines] == ["git"] * 4 + ["tmux"] * 2, lines   # r1892: new-session 뒤 has-session 1회
     assert lines[0]["argv"] == ["-C", str(root), "rev-parse", "--verify", "--quiet", BASE + "^{commit}"], lines[0]
     assert lines[1]["argv"] == ["-C", str(root), "worktree", "add", "--no-checkout", "--detach", out["worktree"], FAKE_SHA], lines[1]
@@ -316,7 +316,7 @@ def case_repo_target(tmp, launcher=LAUNCH):
     repo = _git_repo(Path(tmp) / "repoB")
     out, rc = _launch(root, fake, launcher, extra=["--repo", str(repo)], env_extra=_repo_env())
     assert (out["result"], rc) == ("접수 성공", 0), out
-    lines = _log(fake)
+    lines = [line for line in _log(fake) if line["sub"] not in ("ls-tree", "cat-file")]   # r2082 기준 sha 읽기 호출을 뺀 목록 = 기준판
     assert [line["prog"] for line in lines] == ["git"] * 5 + ["tmux"] * 2, lines
     assert lines[0]["argv"] == ["-C", str(repo), "rev-parse", "--show-toplevel"], lines[0]
     assert lines[1]["argv"] == ["-C", str(repo), "rev-parse", "--verify", "--quiet", BASE + "^{commit}"], lines[1]
@@ -476,7 +476,7 @@ def case_sparse_order(tmp, launcher=LAUNCH):
     _runtime(root)
     out, rc = _launch(root, fake, launcher)
     assert (out["result"], rc) == ("접수 성공", 0), out
-    lines = _log(fake)
+    lines = [line for line in _log(fake) if line["sub"] not in ("ls-tree", "cat-file")]   # r2082 기준 sha 읽기 호출을 뺀 목록 = 기준판
     assert [line["sub"] for line in lines] == ["rev-parse", "worktree", "sparse-checkout", "checkout", "new-session", "has-session"], lines
     assert "--no-checkout" in lines[1]["argv"], lines[1]
     assert (lines[2]["argv"], lines[3]["argv"]) == _sparse_argv(root), lines[2:4]
@@ -489,7 +489,7 @@ def case_sparse_fail(tmp, launcher=LAUNCH):
     out, rc = _launch(root, fake, launcher, env_extra={"FAKE_GIT_SPARSE_RC": "1"})
     assert (out.get("result"), rc, out.get("step")) == ("복구 필요", 2, "git sparse"), out
     assert "worktree remove --force --force" in out["reason"], out
-    assert [line["sub"] for line in _log(fake)] == ["rev-parse", "worktree", "sparse-checkout"], _log(fake)
+    assert [line["sub"] for line in _log(fake) if line["sub"] not in ("ls-tree", "cat-file")] == ["rev-parse", "worktree", "sparse-checkout"], _log(fake)   # r2082 읽기 뺀 목록
 
 
 def case_sparse_dry(tmp, launcher=LAUNCH):

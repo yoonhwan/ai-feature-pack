@@ -3,6 +3,7 @@
 여기 있는 것은 «바깥 호출 전에 정해지는 값» 뿐이다: 열기 argv · 좌석 env 5개 · 확인 argv·판정(r1780) · 실패 사유의 복구 2줄.
 바깥 호출·의도 쓰기는 launch.py 몫이다. r1929: 내용 든 원자 예약(reserve) · 열기 pid 판정(pid_state) · 이어 열기 단계(resume_steps)도 여기 둔다.
 """
+import itertools
 import json
 import os
 import re
@@ -20,6 +21,39 @@ DIRECT = ("산출 = 가지 nano/<work> push → PR 열기(금지 목록 밖) →
 RECV = "쪽지 = bash %s/.fable-team/comm/mbox.sh recv %s · "   # r1933 2.0 나노 받는 길(첫 본문 1구)
 CARDMAP = os.path.join(".fable-team", "teams", "%s", "runtime", "cards.tsv")   # r2030 짝 표(keeper_land.CARDMAP 과 같은 자리 · 팀장 append · 여기는 읽기만)
 WAIT = re.compile(r"^(design/.+/indices)/대기/[^/]+\.md$")   # r2030 짝 표 경로 중 대기 단계(keeper_land.MAPPED 의 대기 갈래)
+TEAMS = "design/TEAMS.md"   # r2082 팀 폴더 표(«팀»·«폴더» 칸) · 기준 sha tree 안 경로
+UNREAD = "팀 폴더 표 못 읽음 — 제외 0"   # r2082 A2 의도 1칸
+FOLDER = re.compile(r"design/(?:[A-Za-z0-9._-]+/)+")   # r2082 «폴더» 칸 꼴(glob 글자 0)
+LIMIT = 12000   # r2082 A3 묶음 파일 수 상한 기본(env FT2_CHECKOUT_FILES)
+
+
+def team_table(text):
+    """r2082 A1·A2 — 기준 sha 의 design/TEAMS.md blob 글(None = 목록에 없음)의 첫 «팀»·«폴더» 표 → ({팀: 폴더}, 메모).
+    호출 리포의 작업 트리·index·HEAD 는 읽지 않는다 · 목록에 없음 = ({}, "") · 칸을 못 읽음 = ({}, UNREAD)(열기는 막지 않는다)."""
+    if text is None:
+        return {}, ""
+    rows = [[c.strip().strip("`") for c in x.strip().strip("|").split("|")] if x.lstrip().startswith("|") else None for x in text.splitlines()]
+    at = next((i for i, r in enumerate(rows) if r and "팀" in r and "폴더" in r), None)
+    if at is None:
+        return {}, UNREAD
+    t, f = rows[at].index("팀"), rows[at].index("폴더")
+    got = {r[t]: r[f] for r in itertools.takewhile(bool, rows[at + 1:]) if len(r) > max(t, f) and FOLDER.fullmatch(r[f])}
+    return (got, "") if got else ({}, UNREAD)
+
+
+def with_teams(plan, team, text):
+    """r2082 A1 — 남의 팀 폴더 제외 패턴을 내 팀 패턴 바로 뒤(짝 카드 폴더 앞 = 짝 카드는 그대로 포함)에 넣는다 · 내 팀이 표에 없으면 표의 모든 팀 폴더.
+    기준 sha 가 정해지고 읽은 «뒤» 에만 부른다(dry-run 의 sparse 인자 = 기준판)."""
+    folders, note = team_table(text)
+    at = plan["sparse"].index("/design/teams/%s/" % team) + 1
+    plan["sparse"][at:at] = ["!/" + folder for name, folder in folders.items() if name != team]
+    plan["notes"].update({"sparse_note": note} if note else {})
+
+
+def tree_read(repo, sha):
+    """r2082 A3·A5 — 기준 sha 읽기 argv · 파일 목록(늘 1회) · TEAMS.md blob(목록에 있을 때만 1회)."""
+    return (["git", "-C", repo, "ls-tree", "-r", "--name-only", "-z", sha],
+            ["git", "-C", repo, "cat-file", "blob", "%s:%s" % (sha, TEAMS)])
 
 
 def seat_env(root, team, work, holder, attempt):
@@ -110,6 +144,7 @@ def plan_of(folder, tag, root, team, holder, role_argv, worktree, repo, env, bod
             "git": ["git", "-C", repo, "worktree", "add", "--no-checkout", "--detach", path, base],
             # r1846: 빈 자리 → sparse(출처 = 1.x r835 ft_sparse_patterns · 남의 팀 design 제외) → checkout · 큰 리포도 25초 안
             "sparse": ["git", "-C", path, "sparse-checkout", "set", "--no-cone", "/*", "!/design/teams/*/", "/design/teams/%s/" % team] + (["/%s/" % WAIT.match(hit[2]).group(1)] if hit else []),
+            "notes": {},   # r2082 의도에 더할 칸(A2 · 묶음 수) · 기준 sha 읽은 뒤 채움
             "checkout": ["git", "-C", path, "checkout", "-q"],
             "tmux": ["tmux", "new-session", "-d", "-s", holder, "-c", path] + pairs + [pi or "pi"] + ["-e", seat_tools(), "--approve"] + list(role_argv) + [body],
             "mbox": "FT_MBOX_DIR=" + box if mbox else "우편함 명시 0 — %s 없음" % box,
@@ -224,6 +259,65 @@ def resume_plan(plan, repo, sha, timeout):
     if done.returncode != 0 or not sha:
         return None
     return resume_steps(plan, sha, worktree_head(done.stdout, plan["worktree"]), os.path.exists(plan["worktree"]))
+
+
+def checkout_limit():
+    """r2082 A3 — env FT2_CHECKOUT_FILES(양의 정수) · 그 밖 = 12000."""
+    raw = os.environ.get("FT2_CHECKOUT_FILES", "")
+    return int(raw) if raw.isdigit() and int(raw) > 0 else LIMIT
+
+
+def unit(path):
+    """묶음 단위 = 최상위 폴더(design 은 그 아래 폴더) · 최상위·design 바로 밑 파일 = ""(늘 묶음 1 맨 앞)."""
+    parts = path.split("/")
+    deep = 2 if parts[0] == "design" else 1
+    return "/".join(parts[:deep]) if len(parts) > deep else ""
+
+
+def batches(paths, skip, limit):
+    """[[단위…]…] — 단위별 파일 수(skip 접두 = 남의 팀 폴더는 센다 0)를 이름 차례로 합이 limit 이하가 되게 묶는다 ·
+    혼자 넘는 단위 = 혼자 1묶음(A3). 새 패턴과 파일 집합은 마지막 묶음에서 A1 패턴 그대로라, 세기는 나누는 데만 쓴다."""
+    count = {}
+    for path in paths:
+        if not path.startswith(skip):
+            count[unit(path)] = count.get(unit(path), 0) + 1
+    out, size = [], limit + 1
+    for name in sorted(count):
+        if size + count[name] <= limit:
+            out[-1].append(name)
+            size += count[name]
+        else:
+            out.append([name])
+            size = count[name]
+    return out
+
+
+def checkout_steps(plan, paths, limit):
+    """r2082 A3 — git add 뒤 단계 · 1묶음 = 지금 그대로(sparse → checkout · A5) · n묶음 = sparse(묶음 2.. 뺀 패턴) →
+    «git checkout 1/n» = checkout -q → «git checkout k/n» = sparse-checkout set(묶음 k+1.. 뺀 패턴 · n/n = A1 패턴 그대로)."""
+    skip = tuple(p[2:] for p in plan["sparse"] if p.startswith("!/design/") and "*" not in p)
+    groups = batches(paths, skip, limit)
+    if len(groups) < 2:
+        return [("git sparse", plan["sparse"]), ("git checkout", plan["checkout"])]
+    n = len(groups)
+    later = lambda k: ["!/%s/" % re.sub(r"([\\*?\[])", r"\\\1", u) for g in groups[k:] for u in g]  # noqa: E731
+    steps = [("git sparse", plan["sparse"] + later(1)), ("git checkout 1/%d" % n, plan["checkout"])]
+    return steps + [("git checkout %d/%d" % (k + 1, n), plan["sparse"] + later(k + 1)) for k in range(1, n)]
+
+
+def split_steps(plan, paths):
+    """r2082 A3 — (git add 뒤 단계, 의도 칸) · paths = 기준 sha 파일 목록(늘 센다 · 호출 리포 index 로 건너뛰기 0)."""
+    steps = checkout_steps(plan, paths, checkout_limit())
+    return steps, ({"checkout_batches": len(steps) - 1} if len(steps) > 2 else {})
+
+
+def resume_split(base, batched, failed_step):
+    """r2082 A4 — 이어 열기 단계 · 묶음 k(≥2)에서 끊긴 자리(경로 있음 ∧ HEAD == base_sha) = 묶음 k 부터(끝난 묶음 다시 쓰기 0) ·
+    그 밖 = resume_steps 의 git add(있으면) + 묶음 단계 전부(1묶음 = resume_steps 와 같다)."""
+    head, names = [s for s in base if s[0] == "git add"], [s[0] for s in batched]
+    if not head and failed_step in names[2:]:
+        return batched[names.index(failed_step):]
+    return head + batched
 
 
 def recovery(repo, path):
