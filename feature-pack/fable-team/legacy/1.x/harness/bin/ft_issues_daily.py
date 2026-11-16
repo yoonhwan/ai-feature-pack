@@ -423,25 +423,35 @@ def priority_axis(issue: dict, stale: bool) -> str:
     return "ⓔ"
 
 
-TEAM_HINTS = (
+# team:* 라벨 이름(접두 뺌 · gh 실측 17개 고정 · 조회 0) — 출력 팀 칸 = 실제 라벨 이름 (r2134)
+TEAM_LABELS = frozenset((
+    "ccu", "cfo", "chatbot", "concierge", "feature", "graphics", "harness-ops", "issues", "kk",
+    "knowledge", "lecture", "loom", "ops", "planner", "room", "shared-harness", "v65",
+))
+SHARED_HARNESS_HINT = ("shared-harness", ("ft2", "ft-", "keeper", "ci ", "ci search", "aifp", "하네스", "launchd"))
+OTHER_HINTS = (
     ("v65", ("v65",)),
     ("issues", ("이슈", "issue")),
     ("planner", ("플래너", "planner", "판정")),
     ("knowledge", ("매거진", "magazine", "지식")),
-    ("harness", ("하네스", "launchd", "ft-", "biolark")),
 )
+TEAM_HINTS = (SHARED_HARNESS_HINT,) + OTHER_HINTS
 
 
 def team_hint(issue: dict) -> tuple[str, str]:
-    """⑤ 팀 배정 후보 — team:* 라벨이 없을 때만. 라벨 쓰기 0 · 결정 = planner/issues master."""
+    """⑤ 팀 배정 후보 — team:* 라벨이 없을 때만 · 제목만 본다(본문 0). 라벨 쓰기 0 · 결정 = planner/issues master.
+    순서 = 제목 팀 머리 «[팀]»(라벨 이름일 때) → shared-harness 행 → 나머지 행 · 행 안에서 첫 일치."""
     for lab in issue["labels"]:
         if lab.startswith("team:"):
             return "", ""
-    hay = f"{issue['title']}\n{issue['body'][:2000]}".lower()
+    head = re.match(r"\[([^\]]+)\]", issue["title"])
+    if head and head.group(1).strip() in TEAM_LABELS:
+        return head.group(1).strip(), f"제목 팀 머리 «[{head.group(1).strip()}]»"
+    hay = issue["title"].lower()
     for team, words in TEAM_HINTS:
         for word in words:
             if word.lower() in hay:
-                return team, f"제목·본문 키워드 «{word}»"
+                return team, f"제목 키워드 «{word}»"
     return "", ""
 
 
