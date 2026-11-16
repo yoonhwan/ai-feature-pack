@@ -3,10 +3,12 @@
 머리 줄(열린·닫힌 골) → «지금»(바뀐 것 · 열린 골마다 1줄) → «다음»(열린 골마다 다음 한 수 · r2096) → «막힌 것, 오빠 할 일» → 끝 줄 «근거:».
 열쇠 = standing() 줄 + «다음» 칸 줄(바뀐 것 줄 · 근거 줄 밖) — 팀 카드 수 · 좌석 · 진행 카드는 열쇠에 없다. 줄은 자르지 않는다.
 """
+import os
 import re
 from datetime import datetime
 
 from ft_board_news_name import card_tag, work_name
+from ft_oppa_slack_check import OPPA_SLACK_UID
 
 MAX_CHANGES, MAX_BYTES = 5, 3500
 NO_NEXT = "정해진 다음 한 수 없음"
@@ -44,7 +46,7 @@ def standing(cur: dict) -> list[str]:
     shut = [r[1] for r in rows or [] if closed(r)]
     top = f"골 진행 알림: 열린 골 {len(rows) - len(shut)}개, 닫힌 골 {len(shut)}개" + (f"({', '.join(shut)})" if shut else "") if rows else f"골 진행 알림: {NO_TABLE}"
     goals = [goal_line(r) for r in rows or [] if not closed(r)] or (["열린 골 없음"] if rows else [])
-    todo = [f"오빠 승인 대기 {cur['h']}건" if cur["h"] else "없음"] + [f"{t} 확인 불가(수집 실패, 직전 상태 유지)" for t in cur.get("carried", [])]
+    todo = [f"<@{os.environ.get('FT_OPPA_SLACK_UID') or OPPA_SLACK_UID}> 오빠 승인 대기 {cur['h']}건" if cur["h"] else "없음"] + [f"{t} 확인 불가(수집 실패, 직전 상태 유지)" for t in cur.get("carried", [])]
     return [top, "지금", *goals, "막힌 것, 오빠 할 일", *todo]
 
 
