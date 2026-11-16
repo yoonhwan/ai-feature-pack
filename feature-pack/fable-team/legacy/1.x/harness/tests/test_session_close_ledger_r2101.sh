@@ -12,7 +12,7 @@ BIN="$(cd -- "${R2101_BIN:-$HERE/../bin}" && pwd)"; KIT="$HERE/../kit/fable-team
 TOOLS="ft-seat-close.sh ft-nano-close.sh ft-nano-spawn-undo.sh ft-resource-reclaim.sh"
 REAL_TMUX="$(command -v tmux)"; SOCK="r2101-$$"
 T="$(cd "$(mktemp -d)" && pwd -P)"; HX="$(mktemp -d /tmp/r2101hXXXXXX)"   # HX = 점 없는 임시 폴더(tmux 는 세션 이름의 «.» 을 바꾼다)
-trap 'env -u TMUX "$REAL_TMUX" -L "$SOCK" kill-server 2>/dev/null; rm -f "${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)/$SOCK"; rm -rf "$T" "$HX"' EXIT   # 그 서버와 그 소켓 파일만
+trap '( unset TMUX; "$REAL_TMUX" -L "$SOCK" kill-server 2>/dev/null ); rm -f "${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)/$SOCK"; rm -rf "$T" "$HX"' EXIT   # 그 서버와 그 소켓 파일만
 fail=0; T0=$SECONDS; STAGES=""
 ok()   { echo "PASS $1"; }
 bad()  { echo "FAIL $1"; fail=$((fail+1)); }
@@ -24,7 +24,7 @@ cols() { awk -F'\t' 'NF!=8' "$1" 2>/dev/null | wc -l | tr -d ' '; }
 kinds(){ cut -f2 "$1" 2>/dev/null | tr '\n' ',' ; }
 pairok() { awk -F'\t' 'NR==1{a=$3 FS $4 FS $8} NR==2{b=$3 FS $4 FS $8} END{print (NR==2 && a==b) ? "same" : "diff"}' "$1" 2>/dev/null; }   # tool · fail 줄의 3·4·8칸
 row()  { printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$@"; }
-REAL_HOOKS0="$(env -u TMUX_PANE "$REAL_TMUX" show-hooks -g 2>&1)"
+REAL_HOOKS0="$(unset TMUX_PANE; "$REAL_TMUX" show-hooks -g 2>&1)"
 ROOTS=""; for r in "${FT_ROOT:-}" "$(git -C "$HERE" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"; do
   [ -n "$r" ] && [ ! -e "$r/.fable-team/state/session-close" ] && ROOTS="$ROOTS $r"; done
 cp -R "$BIN" "$T/twin"; rm -f "$T/twin/ft-session-close-ledger.sh"
@@ -205,7 +205,7 @@ stage undo-reclaim "⑨⑩ hook(S4) — 별도 소켓 실 tmux"
 mkdir -p "$T/tb"; printf '#!/bin/sh\nexec "%s" -L "%s" "$@"\n' "$REAL_TMUX" "$SOCK" > "$T/tb/tmux"; chmod +x "$T/tb/tmux"
 TB() { env -u TMUX -u TMUX_PANE PATH="$T/tb:$PATH" "$@"; }
 wait_lines() { local i; for i in $(seq 1 2000); do [ "$(nl "$1")" -ge "$2" ] && return 0; done; return 1; }
-closed() { timeout 10 env -u TMUX "$REAL_TMUX" -L "$SOCK" wait-for r2101-closed; wait_lines "$1" "$2"; }
+closed() { ( unset TMUX; timeout 10 "$REAL_TMUX" -L "$SOCK" wait-for r2101-closed ); wait_lines "$1" "$2"; }
 mine() { TB tmux show-hooks -g session-closed 2>/dev/null | grep -cF "$LED hook #{q:hook_session} #{q:hook_session_name}"; }
 other() { TB tmux show-hooks -g session-closed 2>/dev/null | grep -cF '@r2101_other'; }
 L="$T/l9.tsv"; TB env FT_SESSION_CLOSE_LEDGER="$L" tmux -f /dev/null new-session -d -s keep cat
@@ -291,7 +291,7 @@ eq "$(RD "$L")" "${D}09:00:00 y ← 도구 줄 없음
 o="$(RD "$T/none.tsv")"; eq "$?|$o" "0|$E0" "⑱ 원장 없음 → 끝 줄만 rc 0"
 
 stage read "⑲ 불변(S6) · bin = kit · 줄 상한"
-eq "$(env -u TMUX_PANE "$REAL_TMUX" show-hooks -g 2>&1)" "$REAL_HOOKS0" "⑲ 실 tmux show-hooks -g 앞뒤 같음"
+eq "$(unset TMUX_PANE; "$REAL_TMUX" show-hooks -g 2>&1)" "$REAL_HOOKS0" "⑲ 실 tmux show-hooks -g 앞뒤 같음"
 for r in $ROOTS; do [ ! -e "$r/.fable-team/state/session-close" ] && ok "⑲ $r/.fable-team/state/session-close 안 생김" || bad "⑲ 시험이 $r/.fable-team/state/session-close 를 만듦"; done
 if [ -z "${R2101_BIN:-}" ]; then for f in $TOOLS ft-session-close-ledger.sh ft_session_close_read.py; do cmp -s "$BIN/$f" "$KIT/$f" && ok "⑲ bin = kit $f" || bad "⑲ bin ≠ kit $f"; done; fi
 eq "$([ -f "$LED" ] && [ "$(wc -l < "$LED")" -le 200 ] && echo yes)" yes "⑲ ft-session-close-ledger.sh ≤ 200줄"
