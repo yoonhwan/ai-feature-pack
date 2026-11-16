@@ -393,6 +393,18 @@ def prose_line_exempt(path, no, txt, show=None):   # → True = .md 펜스 밖 �
     return not any(CRIT_DESTROY.search(s) for s in md_spans(txt) or [])
 
 
+# ── r2105 «design/ 아래 .hil 계획 글» 예외 (오빠 Slack 1794810101.687389 · 사전 DA APPROVE 7c30825c9b) ──
+#   .hil = 사람이 `!` 로 직접 돌리는 계획 글이다. 머지는 기록일 뿐 실행 0 → 그 추가 줄은 ④ destroy 판정 밖(기본·d2 같음 · d2 scoped 에도 0).
+#   세 조건 «모두» 참일 때만: ⓐ 경로가 design/ 시작 ⓑ 이름이 소문자 .hil 끝 ⓒ 같은 PR 의 .hil·.md 밖 파일 추가 줄에 글자 .hil 0(부르는 낌새).
+#   하나라도 거짓 = 지금 판정 그대로(닫힌 쪽) · launchd·설정·비밀 줄(①~③) 판정은 받는다 · 글자 규칙(이어 붙인 이름·이미 있던 코드의 호출은 범위 밖).
+def hil_record_exempt(path, blocks):
+    p = path or ""
+    if not p.startswith("design/") or not p.endswith(".hil"):
+        return False
+    return not any(".hil" in t.casefold() for q, items, _n in blocks
+                   if not (q or "").endswith(".hil") and not (q or "").lower().endswith(".md") for _no, t in items)
+
+
 def critical_kinds(blocks, secret=None, show=None, profile="full", scoped=None):   # → (종류, 사유) | None · blocks = autonomy_scope_secret.parse_added 결과 · profile d2(r1934) = launchd·config(.env 밖)·apiKey 판정 0 · kill·pkill·rm -rf 줄은 scoped 에 위치를 모은다
     d2 = profile == "d2"
     for path, _items, is_new in blocks:   # ① 새 LaunchAgents/LaunchDaemons plist
@@ -407,9 +419,10 @@ def critical_kinds(blocks, secret=None, show=None, profile="full", scoped=None):
     why = secret() if secret else ""   # ③ 비밀 줄(autonomy_scope_secret.reason 재사용)
     if why:
         return "secret", why
-    for path, items, _is_new in blocks:   # ④ 파괴 명령 새 줄 — r1597 tests/ 임시 폴더 trap 줄 · r1928 .md 본문 줄만 예외
+    for path, items, _is_new in blocks:   # ④ 파괴 명령 새 줄 — r1597 tests/ 임시 폴더 trap 줄 · r1928 .md 본문 줄 · r2105 design/ .hil 계획 글만 예외
         for no, txt in items:
-            if not CRIT_DESTROY.search(txt) or mktemp_trap_exempt(path, txt, show) or prose_line_exempt(path, no, txt, show):
+            if not CRIT_DESTROY.search(txt) or mktemp_trap_exempt(path, txt, show) or prose_line_exempt(path, no, txt, show) \
+                    or hil_record_exempt(path, blocks):
                 continue
             if d2 and scoped is not None and not destroy_hard(txt):   # ⓐ 먼저 — ⓑ 꼴만 있는 줄만 위치로(DA 대상 확인 줄 필요)
                 scoped.append("%s:%d" % (path or "?", no))
