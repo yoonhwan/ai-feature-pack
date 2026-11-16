@@ -109,8 +109,10 @@ c5() {  # ⑤ drops.log UTF-8 아님 = 같은 판정 불가 줄 · 없음 = 버�
   local o d="$COMM/mailbox.drops.log"
   printf 'x seqs=42\n\377\376\n' > "$d"; cnt "$BASEBIN" due --no-fetch; o="$OUT/$RC"; cnt "$BIN" due --no-fetch
   t "⑤ UTF-8 아님 = 판정 불가 줄 50(k1·k2)" [ "$(nrow '우편함 버림 원장 읽기 rc=1 — UnicodeDecodeError')" = 50 ]; t "⑤ UTF-8 아님 출력·rc 기준판과 같음" [ "$OUT/$RC" = "$o" ]
+  t "⑤ UTF-8 아님 = 원장 읽기 1 (셈=$(nof drops))" [ "$(nof drops)" = 1 ]
   rm -f "$d"; cnt "$BASEBIN" due --no-fetch; o="$OUT/$RC"; cnt "$BIN" due --no-fetch
   t "⑤ 원장 없음 = 버림 아님(#42 끝 25)" [ "$(nrow '닫기 요청 #42')" = 25 ]; t "⑤ 원장 없음 출력·rc 기준판과 같음" [ "$OUT/$RC" = "$o" ]
+  t "⑤ 원장 없음 = 읽기 시도 1 (셈=$(nof drops))" [ "$(nof drops)" = 1 ]
   restore; closeset k1 -; closeset k2 -; cnt "$BIN" due --no-fetch; t "⑤ seq 없음 = 원장 읽기 0 (셈=$(nof drops))" [ "$(nof drops)" = 0 ]
   restore; return $E
 }
