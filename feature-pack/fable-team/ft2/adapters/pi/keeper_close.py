@@ -54,6 +54,11 @@ def _raw(path):
     return True, data if isinstance(data, dict) else None
 
 
+def _num(value, kind):
+    """r2131 필수 칸 — bool 아닌 kind 값만 참(pid_state 의 «pid 없음 = dead» 를 조용한 닫기에 잇지 않는다)."""
+    return isinstance(value, kind) and not isinstance(value, bool)
+
+
 def pane_target(holder):
     """r1822 — pane 대상(capture-pane·send-keys·pane PID) = `=이름:` · `=이름` 은 세션 대상(has-session·kill-session 만)."""
     return "=" + holder + ":"
@@ -171,6 +176,7 @@ class Closing:
         kids = []
         for name, key in ((".owner", "child_pid"), (".intent.resume", "pid")):   # ⓓ keeper_launch.alive(pid_state)
             there, data = _raw(base + name)
+            data = data if data is not None and _num(data.get(key), int) and _num(data.get("started"), (int, float)) else None   # DA #321649 R1 칸 없음·형식 틀림 = unknown
             if there and (data is None or keeper_next.kl.alive(self, {"pid": data.get(key), "started": data.get("started")}) != "dead"):
                 return None
             kids.append(there)
