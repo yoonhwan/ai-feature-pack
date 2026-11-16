@@ -40,7 +40,10 @@ old()  { TB tmux show-hooks -g session-closed 2>/dev/null | grep -cxE "session-c
 other(){ TB tmux show-hooks -g session-closed 2>/dev/null | grep -cF '@r2119_other'; }
 OLD="run-shell -b \"bash $LED hook #{q:hook_session} #{q:hook_session_name}\""
 wait_lines() { local e=$((SECONDS+4)); while [ "$(nl "$1")" -lt "$2" ]; do [ "$SECONDS" -ge "$e" ] && return 1; done; return 0; }
-close_one() { TB tmux new-session -d -s "$1" cat; TB tmux kill-session -t "=$1"; ( unset TMUX; timeout 10 "$REAL_TMUX" -L "$SOCK" wait-for r2119-closed ); }
+close_one() {
+  TB tmux new-session -d -s "$1" cat
+  TB tmux kill-session -t "=$1"
+  ( unset TMUX; timeout 10 "$REAL_TMUX" -L "$SOCK" wait-for r2119-closed ); }
 sync_tail() { TB tmux set-hook -ag session-closed 'wait-for -S r2119-closed'; }   # 내 줄 뒤에 기다림 줄
 
 stage prep "①②③④ 경로 박기(C1) — 별도 소켓 실 tmux"
