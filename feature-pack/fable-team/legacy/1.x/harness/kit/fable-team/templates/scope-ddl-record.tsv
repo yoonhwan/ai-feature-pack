@@ -3,3 +3,4 @@
 # 새 *.sql 은 아래 어느 한 곳에 «그 파일 이름 + applied + 판정 번호» 줄이 있어야 docs 로 허용 — 없으면 FORBID kind=ddl-no-record
 -	{sql}.*applied:?\s*(판정\s*)?[0-9]+|applied:?\s*(판정\s*)?[0-9]+.*{sql}
 design/teams/planner/PLAN-oppa-ledger.md	{sql}.*applied:?\s*(판정\s*)?[0-9]+|applied:?\s*(판정\s*)?[0-9]+.*{sql}
+record-only	design/teams/planner/PLAN-oppa-ledger.md	(?:^|[\s`]){path}`?\s+record-only:?\s*(판정\s*)?[0-9]+
