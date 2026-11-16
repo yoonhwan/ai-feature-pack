@@ -135,7 +135,7 @@ def _r5(root, m=M):
     out = _r1(root, m, queue=("W1", "W2", "W3"))
     assert ([row["command"] for row in out.load["queue"]], out.seats_needed) == (["q-W1", "q-W2", "q-W3"], ["W1", "W2", "W3"])
     d = m.dispatch.Dispatch(str(root), TEAM, clock=lambda: NOW)
-    assert [d.assign(w, LEAD, evidence=EV).result for w in ("W1", "W2", "W3")] == [OK] * 3
+    assert [d.assign(w, LEAD + "-" + w, evidence=EV).result for w in ("W1", "W2", "W3")] == [OK] * 3
     assert d.rs.submit("q-W1", "x" * 8, "W1").result == HOLD               # 같은 command 재접수 = 같은 행(새 줄 0)
     assert len([rec for rec in _seen(root, m)[1] if rec["kind"] == "dispatch"]) == 3
     again = _go(root, m)                                                    # 같은 키 재접수(probe absent) 탑재 목록
