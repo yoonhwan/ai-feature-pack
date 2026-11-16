@@ -185,14 +185,14 @@ DA 반례(fill 1항목 안 7초 호출 10개 = 70초)에 댄 답: 그 10개는 �
 - 판정 규칙·쪽지 글
 
 ## 완료 조건
-1. [~] 나노: 커밋 1 기준판 FAIL 원문 — 기준판(98b561f1) 새 시험 48 failed(나노 aifp 5861 · PR #1397 본문 «기준판 48 failed») = 수는 있다 · ★FAILED 줄·단언 원문은 PR 본문에도 쪽지에도 없다 = 나노가 닫기 앞에 원문 몇 줄을 보태면 [x]★ · DA 는 기준판 대조를 r1886 c7 한 칸만 했다(baseline-c7.log)
+1. [x] 나노: 커밋 1 기준판 FAIL 원문 — 기준판(98b561f1) 새 시험 48 failed(나노 aifp 5861 · PR #1397 본문 «기준판 48 failed») = 수는 있다 · ★FAILED 줄·단언 원문은 PR 본문에도 쪽지에도 없다 = 나노가 닫기 앞에 원문 몇 줄을 보태면 [x]★ · DA 는 기준판 대조를 r1886 c7 한 칸만 했다(baseline-c7.log) · ★보탬(나노 aifp 5901 · 2026-11-16 · 아래 «조건 1 원문» 절) = 기준판 98b561f1 에서 새 시험 49 failed in 3.74s · FAILED 줄 원문 10 → [x]★
 2. [x] 나노: 새 시험 전체 rc0 · 걸린 초 — head 9fc8b9ab · test_keeper_round_60s.py 49 passed rc 0(지정 31 + 환경 격리 1 + 변이 17) · 나노 = 깨끗한 셸 4.27초 · 팀장과 같은 셸 4.28초(aifp 5890 · 3번 더 돌려 같음) · DA 재실행 49 passed 5.10초(.fable-team/state/team-main/aifp-ft/DA-round-60s-impl-approve-313228/specified.log · 판정문 «지정 49개 6.112초») · ★앞 head ec5409dc 의 48 passed 3.71초는 나노의 미커밋 수정이 든 실행이었다 = 9fc8b9ab 가 그 수정(cursor 칸 이어받기)을 커밋하고 test_env_isolated 1칸을 더했다★
 3. [x] 나노: 변이별 지정 반례 FAIL(설계가 정한 M72~ 전부) — M72~M84 · M94~M97 17개 모두 검출(나노 aifp 5861 17/17 · DA .fable-team/state/team-main/aifp-ft/DA-round-60s-impl-approve-313228/mutation-audit.json 17줄 = AssertionError 13 · DID NOT RAISE 3 · KeyError 1(M80 = alert_out 없음) · 판정문 «syntax/import 오류 때문에 거짓 통과한 사례 0»)
 4. [x] 나노: 회귀 rc0(파일별 초) — 나노 실행(aifp 5890 · head 9fc8b9ab): r1817 22(32.7초) · r1992 10(5.3) · r1898 10(6.9) · r1969 9(15.2) · notify 25(18.2) · next_card 17 + 9(40.4 + 38.3 · 통째 86초라 둘로 나눠 돎) · settle 29(51.0) · penalty 16(30.2) · hold 9(19.3) · fetch 19(31.6) · 더한 3묶음 = prereq_unreadable_once 15 + 6(43.6 + 29.7 · 70초를 넘어 둘로 나눠 돎) · prereq_alarm_hold 18(36.0) · _mutants 7(15.9) · _compat 1(33.6) · _compat_b 1(10.9) · done_seat_short_idle 27(56.2) · _mutants 5(23.7) · _mutants_b 5(31.9) · DA 재실행(.fable-team/state/team-main/aifp-ft/DA-round-60s-impl-approve-313228/regressions.json · targeted.json): r1992 10 passed 14.566초 · r1969 9 passed 20.891초 · r1898 10 passed 14.95초 · done_seat ㉙도 1 passed · settle ⑦·㉕다 2 passed · r1817 2 passed · ★알려진 한계: test_full_critical_alert_r1886 은 4 passed 뒤 c7(test_c7_journal_refused_then_release) 1 failed = rc 1 · 기준판 98b561f1 에서도 같은 단언으로 Red(baseline-c7.log) = DA «신규 회귀로 세지 않는다» · 이 카드 범위 밖 후속 감 · DA 는 «기존 회귀 전체 통과» 를 주장하지 않았다(직접 돌린 범위만)★ · 기존 시험 7파일 보정 = DA «기존 의미 단언을 삭제하여 통과시킨 변경은 찾지 못했다»
 5. [~] 팀장: PR 착지 sha · 설치 판 — 착지 = PR #1397 squash d261be1a1e504d5ecc649473510a7efab3e28a6d(head 9fc8b9ab91a4e3ce565d12ebe075ac6dbdef489d · gh pr view 로 대조 · MERGED 2026-11-15T23:58:37Z = 08:58:37 KST · 커밋 4 = ff10f3bc 시험 · 27062d69 고침 · ec5409dc 문서 · 9fc8b9ab ㊳파 고침 · 바뀐 파일 13 = keeper.py · keeper_report.py · full_alert.py · CONTRACT.md · CASES.md · 새 시험 1 · 기존 시험 7) · 설치 = 아직(지금 ft2 CURRENT 2.0.75 = install-log 08:37:38 KST 로 착지보다 앞 판 · harness 설치 요청 BYZ 313289 회신 뒤 이 칸에 판·시각 1줄)
 6. [ ] arch: 설치 뒤 읽기 실측 = BYZ keeper 로그 ROUND 줄 200줄 이상에서 wall 60초 넘음 0 · `other=` 의 p50·가장 긴 값(5초 넘으면 [ ] = 가정 A1 깨짐) · FULL-ALERT 줄 수와 `alert_out` 에 2바퀴 넘게 남은 줄 0 · 단계별 초 표(p50 · p90 · 가장 긴 값)를 기준값 표와 나란히 · ROUND-CAP·판정 불가(git 7초)·NOTIFY-DEFER 줄 수 · 60초를 넘은 줄이 1개라도 있으면 원문과 함께 [ ] 로 둔다(빼고 통과 0) · ★r4 성립 여부: «`alert_out` 에 2바퀴 넘게 남은 줄 0» 은 받는 곳이 2곳인 꼴(F1)과 실패 없는 날에는 ①안으로 그대로 성립한다(끊긴 줄이 뒤로 가서 다른 받는 곳이 다음 바퀴에 나간다) · 끊기는 받는 곳이 있으면 그 줄은 실제 시도 3회까지 남고, 받는 곳이 n곳이면 tries 0 줄의 첫 시도가 n바퀴까지 밀릴 수 있다 → 실측은 «넣은 뒤 첫 시도까지 그때 목록의 받는 곳 수 바퀴 안» + «tries ≥ 1 줄은 `판정 불가 꽉 참 알림 3회 실패` 줄로 끝남(줄 수·원문)» 으로 읽는다(2바퀴 숫자를 늘린 것이 아니라 끊긴 줄을 따로 센다)★ — 대기(설치 뒤 잰다 · aifp-ft-arch-pi#23 2026-11-16 09:01)
 7. [ ] arch: 굶음 0 = 같은 구간의 ROUND `cut=` 칸에서 같은 자리가 3바퀴 연속 나온 적 0 · `예산 2회 넘음` 줄 수와 그 자리 원문 · `items=` 의 p50(㊳사·㊳하의 실 runtime 판) — 대기(설치 뒤 잰다)
-8. [~] 나노: ㊳파 끊김 수렴 표 = 순서 5개 × 끊은 자리 수 · 수렴 못 한 순서 이름(없으면 «없음») · 원자 구간으로 선언한 것의 쓰기 호출 수 — 순서 5개(닫기 probe → kill-session → receipt · 깨움 capture-pane → send-keys · 재배정 launch → record · 쉼 park → released · fill pick → submit → assign) × 끊은 자리 3 + 2 + 2 + 2 + 3 = 12칸이 모두 통과했다(c_pa1~5 · DA 49 passed 안) = 칸마다 «같은 일 집합 · 뒤 바퀴 4번 안 · ft2-keeper 쪽지 1통» 단언 · 수렴 못 한 순서 = 없음 · ★칸별 바퀴 수 표와 «원자 구간으로 선언한 것의 쓰기 호출 수» 는 어디에도 적히지 않았다(시험이 표를 만들지만 찍지 않는다) = 나노가 닫기 앞에 표 1개를 보태면 [x]★
+8. [x] 나노: ㊳파 끊김 수렴 표 = 순서 5개 × 끊은 자리 수 · 수렴 못 한 순서 이름(없으면 «없음») · 원자 구간으로 선언한 것의 쓰기 호출 수 — 순서 5개(닫기 probe → kill-session → receipt · 깨움 capture-pane → send-keys · 재배정 launch → record · 쉼 park → released · fill pick → submit → assign) × 끊은 자리 3 + 2 + 2 + 2 + 3 = 12칸이 모두 통과했다(c_pa1~5 · DA 49 passed 안) = 칸마다 «같은 일 집합 · 뒤 바퀴 4번 안 · ft2-keeper 쪽지 1통» 단언 · 수렴 못 한 순서 = 없음 · ★칸별 바퀴 수 표와 «원자 구간으로 선언한 것의 쓰기 호출 수» 는 어디에도 적히지 않았다(시험이 표를 만들지만 찍지 않는다) = 나노가 닫기 앞에 표 1개를 보태면 [x]★ · ★보탬(나노 aifp 5901 · 아래 «조건 8 원문» 절) = 칸별 바퀴 수 12칸 모두 2바퀴 · 수렴 못 한 순서 = 없음 · 원자 구간으로 선언한 것 0개(쓰기 호출 수 0) = 조건 문구의 세 항목(순서 5개 × 끊은 자리 수 · 수렴 못 한 순서 이름 · 원자 구간 쓰기 호출 수)이 모두 있다 → [x]★
 9. [x] 나노: ㊴바 AST 셈 원문(기다리는 바깥 호출 1줄 · Popen 2줄) + 문 안 판독 목록 원문 — 시험 c_s6 통과(DA 49 passed 안) · AST 셈 원문(aifp-ft-arch-pi#23 읽기 · 팩 main f88a39f6 · 같은 걷기): 기다리는 바깥 호출 = `{"full_alert.py": [15], "keeper.py": [128]}`(keeper.py 문 1줄 · full_alert.py 는 Slack 수신기 기본 손) · Popen = `{"keeper_fetch.py": [74], "keeper_launch.py": [43]}` 2줄 · 판독 목록 원문(keeper.py :28~29 · `reading` :84): `READ_GIT = ("rev-parse", "merge-base", "grep", "ls-tree", "ls-remote", "fetch", "log", "show", "cat-file", "cherry", "rev-list", "status")` + `config --get` = git 13 · `READ_TMUX = ("has-session", "display", "display-message", "capture-pane", "list-sessions")` 5 · gh pr list · ps · mbox peek · 벌점 판정기 check
 
 ## 계약↔시험 대응표
@@ -228,5 +228,31 @@ DA 반례(fill 1항목 안 7초 호출 10개 = 70초)에 댄 답: 그 10개는 �
 - 2026-11-16 · 나노 ㊳파 고침(aifp 5890) — 커밋 9fc8b9ab 1개 더(force 0) · 원인 = 기준판 FAIL 을 보려고 adapters 를 98b561f1 로 checkout 했다가 되돌리면서 커밋 안 한 one_work 수정(cursor 칸 이어받기)이 지워졌다 · 고침 = R4 이어받기 복원 + 쪽지 몫(notify_used · send_fails · send_stop)은 바퀴 끝에서 되돌림 + 새 사례 test_env_isolated · 기존 시험 보정 1건 더 = done_seat_short_idle ㉙도(keeper 꽉 참 알림이 자기 mbox 로 실제 나감)
 - 2026-11-16 09:01 · aifp-ft-arch-pi#23 착지 줄 씀(팀장 aifp 5896) · 조건 2·3·4·9 [x] · 조건 1·8 [~] = 나노 원문·표 보탬 대기 · 조건 5 [~] = 착지 sha 있음 · 설치 회신 대기(BYZ 313289) · 조건 6·7 = 설치 뒤 · 구현 범위 4 에 회귀 3묶음 더함(팀장 aifp 5866) · 나노가 루트에 썼던 증거 줄 2개를 위에 옮김(.fable-team/state/team-main/aifp-ft/handover-tmp/ft2-keeper-round-60s-nano-evidence.diff) · 코드 변경 0
 - DA 판정: APPROVE-IMPL 313228(승인 sha 9fc8b9ab91a4e3ce565d12ebe075ac6dbdef489d · 사본 .fable-team/state/team-main/aifp-ft/DA-round-60s-impl-approve-313228/verdict.md · 동결 FROZEN.md F1~F7 로만 검토 · 설계 재론 0 · 동결 범위 신규 동작 반례 0 · 지정 31 + 환경 격리 1 + 변이 17 = 49 PASS · r1992 10 · r1969 9 · r1898 10 PASS · r1886 c7 은 기준판 98b561f1 과 같은 실패 · 검증 경계 = 주입 시계·가짜 subprocess · 실 tmux·실 발신·실 설치 0 = 설치 뒤 실제 wall ≤ 60초 증거를 대신하지 않는다) · 설계 = HOLD-DESIGN 3/3 BYZ 311870 뒤 오빠 결정 ① 로 동결
+- 2026-11-16 09:05 · aifp-ft-arch-pi#23 조건 1·8 [~] → [x](팀장 aifp 5904) · 나노 보탬 원문(aifp 5901 · .fable-team/comm/bodies/5901.txt)을 아래에 글자 그대로 옮김(요약·고침 0) · 조건 5·6·7 그대로(설치 = harness#296 aifp 5902 · 2.0.76 precheck ABORT → DA 판정 대기) · 코드 변경 0
+  - 조건 1 원문(나노 aifp 5901 ①):
+    ```
+    ① 조건 1 = 기준판 98b561f1 에서 새 시험 49 failed in 3.74s (git worktree add --detach /tmp/kr60base 98b561f1 → 지금 가지의 시험 파일만 그 worktree 로 복사 → pytest · 쓰고 worktree prune 으로 걷음 · 지금 가지 파일 덮어쓰기 0) FAILED 줄 원문 10:
+    FAILED tests/test_keeper_round_60s.py::test_case[㊳가] - FileNotFoundError
+    FAILED tests/test_keeper_round_60s.py::test_case[㊳나] - FileNotFoundError
+    FAILED tests/test_keeper_round_60s.py::test_case[㊳다] - AssertionError
+    FAILED tests/test_keeper_round_60s.py::test_case[㊳라] - FileNotFoundError
+    FAILED tests/test_keeper_round_60s.py::test_case[㊳마] - AttributeError
+    FAILED tests/test_keeper_round_60s.py::test_case[㊳바] - Failed: DID NOT RAISE
+    FAILED tests/test_keeper_round_60s.py::test_case[㊳사] - FileNotFoundError
+    FAILED tests/test_keeper_round_60s.py::test_case[㊳타] - FileNotFoundError
+    FAILED tests/test_keeper_round_60s.py::test_case[㊳파-닫기]
+    FAILED tests/test_keeper_round_60s.py::test_case[㊴가] - AttributeError
+    (49 전부 FAILED · 위는 앞 10줄 · 뒤에는 ㊳하·거·너 · ㊴나·다·라·마·바·사 · ㊷가~마 · 변이 M72~M84·M94~M97)
+    ```
+  - 조건 8 원문(나노 aifp 5901 ②):
+    ```
+    ② 조건 8 = ㊳파 12칸(순서 5 × 끊은 자리) 칸별 바퀴 수 — 시험 모듈의 converge() 가 만든 값을 그대로 찍었다(시험 파일 수정 0 · 70초 안 1.2초):
+    닫기(probe·kill-session·receipt) 3칸 = cut0 2바퀴 / cut1 2바퀴 / cut2 2바퀴
+    깨움(capture-pane·send-keys) 2칸 = cut0 2바퀴 / cut1 2바퀴
+    재배정(launch·record) 2칸 = cut0 2바퀴 / cut1 2바퀴
+    쉼(park·released) 2칸 = cut0 2바퀴 / cut1 2바퀴
+    fill(pick·submit·assign) 3칸 = cut0 2바퀴 / cut1 2바퀴 / cut2 2바퀴
+    합 12칸 · 수렴 못 한 순서 = 없음 · 원자 구간으로 선언한 것 = 0개(쓰기 호출 수 0) — 어느 호출 앞에서 끊겨도 «끊긴 바퀴 1 + 이어서 끝내는 바퀴 1» 로 같은 끝(같은 일 집합 · 쪽지 1통)에 닿는다
+    ```
 - 세트 정정(나노 aifp 5890 · 팀장 aifp 5896): 위 세트 줄의 ec5409dc 는 ㊳파 고침 앞 head 다 · PR #1397 head 와 DA 승인 sha 는 9fc8b9ab 이다(뒤 커밋 1개 = 9fc8b9ab 고침) · 닫기 도구가 읽는 세트 = 맨 끝 줄
 - 세트: 9fc8b9ab91a4e3ce565d12ebe075ac6dbdef489d · 시험: python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_keeper_round_60s.py (49 passed 5.10초) rc=0 · 이슈: 0
