@@ -109,8 +109,9 @@ def read_intent(path):
         return {}
 
 
-def failed(plan, env, step, detail, repo, extra=None, note=""):
+def failed(plan, env, step, detail, repo, extra=None, note="", label=None):
     """실패 = 의도 줄에 단계 1개 — 그 줄이 있으면 다시 불러도 바깥 호출 0 · 사유에 복구 2줄(A3) · r1967 치움 = 복구 줄 대신 치움 1구."""
+    step = label or step   # r2082 A4 묶음 실패 = «git checkout k/n»
     write_intent(plan["intent"], dict(env, state="failed", step=step, reason=detail, repo=repo, at=time.strftime(STAMP), **(extra or {}), **plan["notes"]))
     reason = "%s 실패: %s — 자동 재시도 0" % (step, detail or "진단 없음")
     if step.startswith("git"):
@@ -170,7 +171,9 @@ def open_seat(given):
     sha = detail                                # 마지막 확인 = 기준 ref → 40자 sha(실제 argv 끝 · 의도 base_sha)
     write_intent(plan["intent"], dict(env, state="opening", role=item["role"], repo=repo, base=base, base_sha=sha, body_mark=mark, at=time.strftime(STAMP), **own, **plan["notes"]))   # r2082 A2 칸
     os.makedirs(os.path.dirname(plan["worktree"]), exist_ok=True)
-    steps = (("git add", planner.at_sha(plan["git"], sha)), ("git sparse", plan["sparse"]), ("git checkout", plan["checkout"]))
+    split, notes = planner.split_steps(plan, repo, sha, GIT_TIMEOUT)   # r2082 A3 파일 수 상한 넘음 = 묶음마다 git 1회(호출마다 25초)
+    plan["notes"].update(notes)
+    steps = [("git add", planner.at_sha(plan["git"], sha))] + split
     return finish(plan, env, steps, repo, sha, (item, base, mark))
 
 
@@ -187,19 +190,22 @@ def resume(plan, env, repo, own, keep):
     steps = planner.resume_plan(plan, repo, got.get("base_sha"), GIT_TIMEOUT)
     if steps is None:
         return failed(plan, env, "끊긴 열기 · 자리 불일치", "worktree 목록·HEAD ≠ base_sha %s" % got.get("base_sha"), repo)
-    return finish(plan, env, steps, repo, got["base_sha"], keep)
+    split, notes = planner.split_steps(plan, repo, got["base_sha"], GIT_TIMEOUT)   # r2082 A4 끝난 묶음은 다시 쓰지 않는다
+    plan["notes"].update(notes)
+    return finish(plan, env, planner.resume_split(steps, split, got.get("step")), repo, got["base_sha"], keep)
 
 
 def finish(plan, env, steps, repo, sha, keep):
     """git 단계 → tmux 1회 → 살아 있음 1회 → opened (처음 열기·이어 열기 공통 · 상한 그대로)."""
     item, base, mark = keep
     made = {}
-    for step, argv in steps:
+    for name, argv in steps:
+        step = " ".join(name.split()[:2])   # r2082 «git checkout k/n» = 단계 종류 git checkout(hook 끔·시간 초과 갈래 그대로) · 실패 이름 = name
         new = step == "git add" and not os.path.lexists(plan["worktree"])   # r1967 ⓐ 생성 영수 = add 직전 경로 부재 ∧ add rc0
         rc, detail = call(argv, repo, NOHOOK if step == "git checkout" else None, GIT_TIMEOUT)   # r1846: 호출마다 25초 · 실패 = 그 단계 이름 · 뒤 호출 0
         if rc != 0:
             return failed(plan, env, step, detail, repo, *cleaner.sweep(plan, repo, sha, made, GIT_TIMEOUT, TMUX_TIMEOUT,   # r1967 ③ 이번 호출이 만든 반쪽만
-                                                                    isinstance(detail, Overtime) and step == "git checkout"))   # r2044 A1 시간 초과만 = lock 정리 + 이어 열기 표시
+                                                                    isinstance(detail, Overtime) and step == "git checkout"), label=name)   # r2044 A1 시간 초과만 = lock 정리 + 이어 열기 표시
         if new:
             made = dict(add_ok=True, path_new=True)
             write_intent(plan["intent"], dict(read_intent(plan["intent"]), **made))
