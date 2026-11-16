@@ -29,7 +29,7 @@ printf '#!/bin/bash\nexit 0\n' > "$T/fake/pgrep"
 chmod +x "$T/fake/tmux" "$T/fake/pgrep"
 # 격리 env — 실 HOME·TMPDIR·FT_* 를 끊는다.
 run() {  # <cwd> <명령…>
-  OUT="$(cd "$1" && shift && env -u FT_MBOX_DIR -u FT_SEATS_JSON -u FT_ROOT HOME="$T/home" TMPDIR="$T/tmp" \
+  OUT="$(cd "$1" && shift && env -u FT_MBOX_DIR -u FT_SEAT_MBOX_DIR -u FT_SEATS_JSON -u FT_ROOT HOME="$T/home" TMPDIR="$T/tmp" \
     PATH="$T/fake:$PATH" TLOG="$TLOG" FAKE_TO="$TO" FAKE_PID=$$ FT_MBOX_RATE_N=999 FT_MBOX_FANOUT_WINDOW=0 \
     FT_MBOX_DOORBELL_MIN=0 "$@" 2>&1)"; RC=$?
 }

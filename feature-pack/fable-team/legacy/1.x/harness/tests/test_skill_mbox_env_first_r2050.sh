@@ -4,7 +4,7 @@
 #  ⓑ 같은 일을 그 env 없이 → 공용 루트 comm 1줄(= 결함 재현) · 래퍼 변경 0 이라 기준판에서도 PASS
 # 임시 git 리포·임시 우편함만 · 실 우편함·실 tmux 0 · sleep 0.
 set -uo pipefail
-for v in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY FT_ROOT FT_MBOX_DIR; do unset "$v"; done
+for v in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY FT_ROOT FT_MBOX_DIR FT_SEAT_MBOX_DIR; do unset "$v"; done
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SRC="$HERE/../../skill/scripts/ft-mbox.py"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
