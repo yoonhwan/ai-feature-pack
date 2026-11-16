@@ -367,10 +367,18 @@ print(v if isinstance(v,str) else "")' "$seats" 2>/dev/null)"
 #   ★r1821: 표 = <root> 의 표 → 없으면 git common root 의 표 · 토큰 있는데 0장 = FM_CARDS_ERR · 부른 쪽 셸에 FM_CARDS_TAB·FM_CARDS_REFS(결과 줄용)★
 #     r1804 A5: 카드 파일 이름이 «<토큰>-» 로 «시작» 할 때만(slug 가운데 «-r336-» 은 0) · «ar1478»·«r14780» 은 안 잡는다
 #     ★r1849 ⓐ r<숫자> 아닌 토큰(nano/<stem>) = 파일 이름이 정확히 <토큰>.md ⓑ 착지 리포(REPO) 공용 루트 ≠ <root> 공용 루트면 그 리포 카드 ref(ft_card_ref 팀 «» 규칙 = FT_CARD_REF|origin/main) 트리도 · 경로 = 찾은 리포 공용 루트 기준★
+#     ★r2123 D1~D3: ⓐ 의 정확한 이름이 모든 ref 에서 0장이면 «_slug(이름,40) = <토큰>»(ft-nano-spawn.sh _slug 규칙) 카드 · 정확히 1장만 잡는다 · 2장 이상 = 0장 + FM_CARDS_ERR «토큰 t slug 겹침 N장» · 이미 읽은 트리만(git 호출 수 그대로)★
+fm_card_slug_hits() {   # <경로 앞자리> <토큰…> < ls-tree 줄 : stdout = «토큰<TAB>절대경로» · 이름 = 토큰 인 카드는 빼다(정확한 이름 = D1 몸)
+  local pre="$1"; shift
+  awk -v toks="$*" -v pre="$pre" 'BEGIN{n=split(toks,a," "); for(k=1;k<=n;k++) w[a[k]]=1}
+    /^design\/.+\/indices\/.+\/[^\/]+\.md$/ { b=$0; sub(/.*\//,"",b); sub(/\.md$/,"",b); s=tolower(b); gsub(/[^a-z0-9-]/,"-",s)
+      s=substr(s,1,40); sub(/-+$/,"",s); if ((s in w) && b != s) print s "\t" pre $0 }'
+}
 fm_cards_by_tokens() {
   local root="$1"; shift; FM_CARDS_ERR=""; FM_CARDS_TAB=""; FM_CARDS_REFS=""
   [ -n "$root" ] && [ $# -gt 0 ] || return 0
-  local i ref refs out rc ok=0 bad="" rd="" p b t c rr tab="$root/.fable-team/state/directive-roots.tsv"; local -a hit=() dirs=() rfs=()
+  local i ref refs out rc ok=0 bad="" rd="" p b t c rr n st="" ex="" cand="" serr="" tab="$root/.fable-team/state/directive-roots.tsv"; local -a hit=() dirs=() rfs=()
+  for t in "$@"; do case "$t" in r[0-9]*) ;; *) st="$st $t";; esac; done   # r2123: slug 대조 후보 토큰(r<숫자> 아님)
   if [ ! -f "$tab" ]; then   # r1821 C1: root 자신의 표 먼저 → 없으면 git common root(라이브 worktree 로 불려도 공용 표) · 카드는 그대로 root 의 ref 트리
     c="$(git -C "$root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; tab=""; [ -z "$c" ] || tab="${c%/*}/.fable-team/state/directive-roots.tsv"
   fi
@@ -387,15 +395,23 @@ fm_cards_by_tokens() {
     while IFS= read -r p; do   # r1717: 한글 폴더(진행·완성)를 따옴표 꼴로 내지 않게 — 차례 장부가 이 경로를 그대로 쓴다
       case "$p" in design/*/indices/*/*.md|design/teams/*/indices/*/*.md) ;; *) continue;; esac
       b="${p##*/}"; b="${b%.md}-"
-      for t in "$@"; do case "$t" in r[0-9]*) case "$b" in "$t"-*) ;; *) continue;; esac;; *) [ "$b" = "$t-" ] || continue;; esac; hit[${#hit[@]}]="${dirs[$i]}/$p"; break; done
+      for t in "$@"; do case "$t" in r[0-9]*) case "$b" in "$t"-*) ;; *) continue;; esac;; *) [ "$b" = "$t-" ] || continue; ex="$ex $t";; esac; hit[${#hit[@]}]="${dirs[$i]}/$p"; break; done
     done <<< "$out"
+    # shellcheck disable=SC2086
+    [ -z "$st" ] || cand="$cand$(printf '%s\n' "$out" | fm_card_slug_hits "${dirs[$i]}/" $st)"$'\n'   # r2123-mut:slug
   done
   if [ "$ok" -eq 0 ]; then   # 하드 룰 20: 조용한 0장 금지 — 판정 불가를 글자로 남긴다
     FM_CARDS_ERR="카드 ref 를 하나도 못 읽음 — $bad"; echo "WARN cards_err: $FM_CARDS_ERR" >&2; return 0
   fi
   [ -z "$bad" ] || echo "WARN 카드 ref 일부 못 읽음 — $bad(나머지 ref 결과만)" >&2
+  for t in $st; do case "$ex " in *" $t "*) continue;; esac   # r2123 D1: 정확한 이름이 있으면 slug 대조 0
+    c="$(printf '%s' "$cand" | awk -F'\t' -v t="$t" '$1==t && !s[$2]++{print $2}')"; [ -n "$c" ] || continue
+    n="$(printf '%s\n' "$c" | wc -l | tr -d ' ')"
+    if [ "$n" -eq 1 ]; then hit[${#hit[@]}]="$c"   # r2123 D2 · D3: 2장 이상 = 아무것도 안 잡음(경로 3개까지)
+    else serr="토큰 $t slug 겹침 ${n}장($(printf '%s\n' "$c" | head -n3 | paste -sd, -))"; fi
+  done
   if [ "${#hit[@]}" -eq 0 ]; then   # r1821 C2: 토큰이 있는데 0장 = 판정 불가(«카드 없음» 아님)
-    FM_CARDS_ERR="토큰 $* 카드 0장 · 읽은 ref $rd · 표 $FM_CARDS_TAB"; echo "WARN cards_err: $FM_CARDS_ERR" >&2; return 0
+    FM_CARDS_ERR="${serr:-토큰 $* 카드 0장} · 읽은 ref $rd · 표 $FM_CARDS_TAB"; echo "WARN cards_err: $FM_CARDS_ERR" >&2; return 0
   fi
   printf '%s\n' "${hit[@]}" | awk '!s[$0]++'
 }
