@@ -645,7 +645,10 @@ def rest_head(body: object) -> bool:
         return False
     first = body.lstrip().split("\n", 1)[0]
     heads = first.startswith((HEARTBEAT_TOKEN, "[다음 없음]", "막힘 = 사람 답(")) or (first.startswith("[HIL]") and bool(PROMOTED.search(first.strip())))
-    return heads and bool(REST_MARK.search(first))
+    if heads and REST_MARK.search(first):
+        return True
+    rest = body.lstrip().split("\n")[1:]  # r2139 R1 — [정리] 머리 글의 둘째 줄부터 «[다음 없음]» 만 있는 단독 줄(문장 속 = 0 · R2)
+    return first.startswith(HEARTBEAT_TOKEN) and any(x.strip() == "[다음 없음]" for x in rest)
 
 
 def _rest_mark(body: object) -> bool:
