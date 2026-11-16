@@ -189,7 +189,7 @@ seq_of() { printf '%s\n' "$1" | grep -oE 'seq=[0-9]+' | head -1 | cut -d= -f2; }
 # 인박스 적재(판정 425-B · R180) — comm/mbox.sh 의 inbox_ingest·inbox_must_ring 과 같은 계약: 전송 직후 1줄 · 실패는 stderr WARN, 전송 rc 불변.
 #   적재 줄 `INGEST … cls=<분류>` 의 분류를 INBOX_CLS 에 둔다. 적재 본체(규칙표·중복 seq SKIP)는 ft-inbox 한 곳 — 여기는 부르기만 한다.
 #   ★적재 루트 = «py 가 실제 고른 우편함»에서만 유도한다★ (DA⑥ H1) — ft-mbox.py CANON 과 같은 순서: ①FT_MBOX_DIR ②스크립트 위 `.fable-team` 조상(`.worktrees` 조상이 있으면 그 부모)의 .fable-team/comm
-#   ③cwd git 공용 루트의 .fable-team/comm «실재» 할 때만(r403 · 라이브 bin) ④빈 값.
+#   ③env FT_SEAT_MBOX_DIR «실재» 폴더일 때만(r2109 · ft2 좌석 열기 칸) ④cwd git 공용 루트의 .fable-team/comm «실재» 할 때만(r403 · 라이브 bin) ⑤빈 값.
 #   env FT_ROOT 는 보지 않는다(py 가 안 보므로 — 보면 전송한 우편함과 다른 곳에서 쪽지를 찾아 큐 0). ft-inbox 에는 FT_ROOT=<우편함 두 단계 위> 로 덮어 넘긴다.
 _mbox_dir() {
   [ -n "${FT_MBOX_DIR:-}" ] && { printf '%s' "$FT_MBOX_DIR"; return; }
@@ -203,6 +203,7 @@ _mbox_dir() {
     d="$(dirname "$d")"
   done
   [ -n "$root" ] && { printf '%s/.fable-team/comm' "$root"; return; }
+  [ -n "${FT_SEAT_MBOX_DIR:-}" ] && [ -d "$FT_SEAT_MBOX_DIR" ] && { printf '%s' "$FT_SEAT_MBOX_DIR"; return; }   # r2109 ③ 좌석 우편함 · 실재 폴더일 때만
   gc="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || return 0
   [ -n "$gc" ] && [ -d "$(dirname "$gc")/.fable-team/comm" ] && printf '%s/.fable-team/comm' "$(dirname "$gc")"
 }
