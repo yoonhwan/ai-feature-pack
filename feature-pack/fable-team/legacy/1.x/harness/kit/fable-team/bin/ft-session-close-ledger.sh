@@ -16,7 +16,7 @@
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SELF="$HERE/$(basename -- "${BASH_SOURCE[0]:-$0}")"
-HOOK_CMD="run-shell -b \"$SELF hook #{q:hook_session} #{q:hook_session_name}\""
+HOOK_CMD="run-shell -b \"bash $SELF hook #{q:hook_session} #{q:hook_session_name}\""
 usage() { echo "usage: $0 note <세션> <도구> <사유> | id <세션> | fail <세션> <도구> | hook <세션 id> <세션 이름> | hook-on | hook-off | hook-status | read [--since <ISO>] [--session <이름>]" >&2; exit 2; }
 
 ledger_path() {
