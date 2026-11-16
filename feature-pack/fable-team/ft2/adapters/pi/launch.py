@@ -30,6 +30,15 @@ class Overtime(str):
     """시간 초과 진단 = 문자열 그대로(사유 불변) · 종류만 표시(r2044 DA R1 · 실행 실패 OSError 와 가름)."""
 
 
+class Output(str):
+    """진단 1줄 = 문자열 그대로 · .out = stdout 전체(r2082 기준 sha 읽기가 쓴다 · 다른 호출은 보지 않는다)."""
+
+    def __new__(cls, diag, out):
+        made = super().__new__(cls, diag)
+        made.out = out
+        return made
+
+
 class Usage(Exception):
     """인자·값이 틀렸다 = rc 64 · 쓰기 0."""
 
@@ -86,12 +95,31 @@ def seat(root, team, work):
 def call(cmd, cwd, env, timeout):
     """바깥 호출 1회 — 상한은 부르는 쪽이 정한다(git 25초 · tmux 7초 · 하드 룰 12). (rc, 진단 1줄) · 넘치거나 실행 실패 = rc None."""
     try:
-        done = subprocess.run(cmd, cwd=cwd, env=env, capture_output=True, text=True, timeout=timeout)
+        done = subprocess.run(cmd, cwd=cwd, env=env, capture_output=True, encoding="utf-8", errors="replace", timeout=timeout)
     except subprocess.TimeoutExpired as exc:
         return None, Overtime(str(exc).splitlines()[0][:200])
     except OSError as exc:
         return None, str(exc).splitlines()[0][:200]
-    return done.returncode, (done.stderr or done.stdout).strip()[:200]
+    return done.returncode, Output((done.stderr or done.stdout).strip()[:200], done.stdout)   # r2082 .out = stdout 전체
+
+
+def based(plan, env, repo, sha):
+    """r2082 A1·A3·A6 — 기준 sha 읽기 2회까지(파일 목록 늘 1회 · TEAMS.md 가 목록에 있을 때 blob 1회 · worktree add 앞) → (git add 뒤 단계, None).
+    읽기 실패·시간 초과 = (None, failed 결과) · 단계 = 그 git 하위 명령 · «판정 불가» · 뒤 호출 0 · 1묶음 폴백 0(하드 룰 20)."""
+    names, blob = planner.tree_read(repo, sha)
+    rc, out = call(names, repo, None, GIT_TIMEOUT)
+    if rc != 0:
+        return None, failed(plan, env, "git ls-tree", "판정 불가 기준 sha 파일 목록 rc %s · %s" % (rc, out or "진단 없음"), repo)
+    paths, text = [path for path in getattr(out, "out", out).split("\0") if path], None
+    if planner.TEAMS in paths:
+        rc, text = call(blob, repo, None, GIT_TIMEOUT)
+        if rc != 0:
+            return None, failed(plan, env, "git cat-file", "판정 불가 기준 sha %s rc %s · %s" % (planner.TEAMS, rc, text or "진단 없음"), repo)
+        text = getattr(text, "out", text)
+    planner.with_teams(plan, env["FT2_TEAM"], text)
+    split, notes = planner.split_steps(plan, paths)
+    plan["notes"].update(notes)
+    return split, None
 
 
 def write_intent(path, payload):
@@ -170,9 +198,10 @@ def open_seat(given):
                         reason="%s: %s — 바깥 호출 0" % (label, detail or "진단 없음")), 1
     sha = detail                                # 마지막 확인 = 기준 ref → 40자 sha(실제 argv 끝 · 의도 base_sha)
     write_intent(plan["intent"], dict(env, state="opening", role=item["role"], repo=repo, base=base, base_sha=sha, body_mark=mark, at=time.strftime(STAMP), **own, **plan["notes"]))   # r2082 A2 칸
+    split, fail = based(plan, env, repo, sha)   # r2082 기준 sha 읽기 → 표 제외 + 묶음(묶음마다 git 1회 · 호출마다 25초)
+    if split is None:
+        return fail
     os.makedirs(os.path.dirname(plan["worktree"]), exist_ok=True)
-    split, notes = planner.split_steps(plan, repo, sha, GIT_TIMEOUT)   # r2082 A3 파일 수 상한 넘음 = 묶음마다 git 1회(호출마다 25초)
-    plan["notes"].update(notes)
     steps = [("git add", planner.at_sha(plan["git"], sha))] + split
     return finish(plan, env, steps, repo, sha, (item, base, mark))
 
@@ -190,8 +219,9 @@ def resume(plan, env, repo, own, keep):
     steps = planner.resume_plan(plan, repo, got.get("base_sha"), GIT_TIMEOUT)
     if steps is None:
         return failed(plan, env, "끊긴 열기 · 자리 불일치", "worktree 목록·HEAD ≠ base_sha %s" % got.get("base_sha"), repo)
-    split, notes = planner.split_steps(plan, repo, got["base_sha"], GIT_TIMEOUT)   # r2082 A4 끝난 묶음은 다시 쓰지 않는다
-    plan["notes"].update(notes)
+    split, fail = based(plan, env, repo, got["base_sha"])   # r2082 A4·A6 의도의 base_sha 로 같은 읽기 · 끝난 묶음은 다시 쓰지 않는다
+    if split is None:
+        return fail
     return finish(plan, env, planner.resume_split(steps, split, got.get("step")), repo, got["base_sha"], keep)
 
 

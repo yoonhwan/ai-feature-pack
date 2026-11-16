@@ -9,7 +9,6 @@ import os
 import re
 import shlex
 import shutil
-import struct
 import subprocess
 import time
 
@@ -22,22 +21,18 @@ DIRECT = ("산출 = 가지 nano/<work> push → PR 열기(금지 목록 밖) →
 RECV = "쪽지 = bash %s/.fable-team/comm/mbox.sh recv %s · "   # r1933 2.0 나노 받는 길(첫 본문 1구)
 CARDMAP = os.path.join(".fable-team", "teams", "%s", "runtime", "cards.tsv")   # r2030 짝 표(keeper_land.CARDMAP 과 같은 자리 · 팀장 append · 여기는 읽기만)
 WAIT = re.compile(r"^(design/.+/indices)/대기/[^/]+\.md$")   # r2030 짝 표 경로 중 대기 단계(keeper_land.MAPPED 의 대기 갈래)
-TEAMS = os.path.join("design", "TEAMS.md")   # r2082 팀 폴더 표(«팀»·«폴더» 칸)
+TEAMS = "design/TEAMS.md"   # r2082 팀 폴더 표(«팀»·«폴더» 칸) · 기준 sha tree 안 경로
 UNREAD = "팀 폴더 표 못 읽음 — 제외 0"   # r2082 A2 의도 1칸
 FOLDER = re.compile(r"design/(?:[A-Za-z0-9._-]+/)+")   # r2082 «폴더» 칸 꼴(glob 글자 0)
 LIMIT = 12000   # r2082 A3 묶음 파일 수 상한 기본(env FT2_CHECKOUT_FILES)
 
 
-def team_folders(repo):
-    """r2082 A1·A2 — repo 작업 트리 design/TEAMS.md 의 첫 «팀»·«폴더» 표 → ({팀: 폴더}, 메모) · 파일 읽기뿐(git 호출 0 · A5).
-    파일 없음 = ({}, "") · 파일은 있는데 칸을 못 읽음 = ({}, UNREAD)(열기는 막지 않는다)."""
-    try:
-        lines = open(os.path.join(repo, TEAMS), encoding="utf-8").read().splitlines()
-    except FileNotFoundError:
+def team_table(text):
+    """r2082 A1·A2 — 기준 sha 의 design/TEAMS.md blob 글(None = 목록에 없음)의 첫 «팀»·«폴더» 표 → ({팀: 폴더}, 메모).
+    호출 리포의 작업 트리·index·HEAD 는 읽지 않는다 · 목록에 없음 = ({}, "") · 칸을 못 읽음 = ({}, UNREAD)(열기는 막지 않는다)."""
+    if text is None:
         return {}, ""
-    except (OSError, UnicodeError):
-        return {}, UNREAD
-    rows = [[c.strip().strip("`") for c in x.strip().strip("|").split("|")] if x.lstrip().startswith("|") else None for x in lines]
+    rows = [[c.strip().strip("`") for c in x.strip().strip("|").split("|")] if x.lstrip().startswith("|") else None for x in text.splitlines()]
     at = next((i for i, r in enumerate(rows) if r and "팀" in r and "폴더" in r), None)
     if at is None:
         return {}, UNREAD
@@ -46,10 +41,19 @@ def team_folders(repo):
     return (got, "") if got else ({}, UNREAD)
 
 
-def team_excludes(repo, team):
-    """r2082 A1 — (남의 팀 폴더 제외 패턴 · 표 순서, 의도 칸) · 내 팀 폴더는 빼지 않는다 · 내 팀이 표에 없으면 표의 모든 팀 폴더를 뺀다."""
-    folders, note = team_folders(repo)
-    return ["!/" + folder for name, folder in folders.items() if name != team], ({"sparse_note": note} if note else {})
+def with_teams(plan, team, text):
+    """r2082 A1 — 남의 팀 폴더 제외 패턴을 내 팀 패턴 바로 뒤(짝 카드 폴더 앞 = 짝 카드는 그대로 포함)에 넣는다 · 내 팀이 표에 없으면 표의 모든 팀 폴더.
+    기준 sha 가 정해지고 읽은 «뒤» 에만 부른다(dry-run 의 sparse 인자 = 기준판)."""
+    folders, note = team_table(text)
+    at = plan["sparse"].index("/design/teams/%s/" % team) + 1
+    plan["sparse"][at:at] = ["!/" + folder for name, folder in folders.items() if name != team]
+    plan["notes"].update({"sparse_note": note} if note else {})
+
+
+def tree_read(repo, sha):
+    """r2082 A3·A5 — 기준 sha 읽기 argv · 파일 목록(늘 1회) · TEAMS.md blob(목록에 있을 때만 1회)."""
+    return (["git", "-C", repo, "ls-tree", "-r", "--name-only", "-z", sha],
+            ["git", "-C", repo, "cat-file", "blob", "%s:%s" % (sha, TEAMS)])
 
 
 def seat_env(root, team, work, holder, attempt):
@@ -136,12 +140,11 @@ def plan_of(folder, tag, root, team, holder, role_argv, worktree, repo, env, bod
     mbox = [("FT_MBOX_DIR", box)] if os.path.isdir(box) else []
     pairs = [word for key, value in list(env.items()) + mbox for word in ("-e", key + "=" + value)]
     pi, hit = pi_path(os.environ.get("PATH")), mapped_card(root, team, env.get("FT2_WORK", ""))   # r2030 짝 표 카드 폴더만 sparse 에 더함
-    skip, notes = team_excludes(repo, team)   # r2082 A1 남의 팀 폴더 = 내 팀 뒤 · 짝 카드 폴더 앞(짝 카드는 그대로 포함)
     return {"intent": os.path.join(folder, tag + ".intent"), "worktree": path,
             "git": ["git", "-C", repo, "worktree", "add", "--no-checkout", "--detach", path, base],
             # r1846: 빈 자리 → sparse(출처 = 1.x r835 ft_sparse_patterns · 남의 팀 design 제외) → checkout · 큰 리포도 25초 안
-            "sparse": ["git", "-C", path, "sparse-checkout", "set", "--no-cone", "/*", "!/design/teams/*/", "/design/teams/%s/" % team] + skip + (["/%s/" % WAIT.match(hit[2]).group(1)] if hit else []),
-            "notes": notes,   # r2082 의도에 더할 칸(A2 · 묶음 수)
+            "sparse": ["git", "-C", path, "sparse-checkout", "set", "--no-cone", "/*", "!/design/teams/*/", "/design/teams/%s/" % team] + (["/%s/" % WAIT.match(hit[2]).group(1)] if hit else []),
+            "notes": {},   # r2082 의도에 더할 칸(A2 · 묶음 수) · 기준 sha 읽은 뒤 채움
             "checkout": ["git", "-C", path, "checkout", "-q"],
             "tmux": ["tmux", "new-session", "-d", "-s", holder, "-c", path] + pairs + [pi or "pi"] + ["-e", seat_tools(), "--approve"] + list(role_argv) + [body],
             "mbox": "FT_MBOX_DIR=" + box if mbox else "우편함 명시 0 — %s 없음" % box,
@@ -264,30 +267,6 @@ def checkout_limit():
     return int(raw) if raw.isdigit() and int(raw) > 0 else LIMIT
 
 
-def index_total(repo):
-    """r2082 A3 — repo git index 머리 12바이트의 파일 수(git 호출 0 · A5) · 못 읽음 = None(= 1묶음 · 지금 그대로)."""
-    dot = os.path.join(repo, ".git")
-    try:
-        if os.path.isfile(dot):   # repo 자신이 worktree = .git 파일의 gitdir
-            line = open(dot, encoding="utf-8").read().strip()
-            dot = os.path.join(repo, line[len("gitdir: "):]) if line.startswith("gitdir: ") else ""
-        with open(os.path.join(dot, "index"), "rb") as handle:
-            head = handle.read(12)
-    except (OSError, UnicodeError):
-        return None
-    return struct.unpack(">I", head[8:])[0] if len(head) == 12 and head[:4] == b"DIRC" else None
-
-
-def tree_paths(repo, sha, timeout):
-    """r2082 A3 — 기준 sha 파일 목록(`git ls-tree -r --name-only -z` 1회 · 상한 = git 25초) · 실패·시간 초과 = None."""
-    try:
-        done = subprocess.run(["git", "-C", repo, "ls-tree", "-r", "--name-only", "-z", sha], capture_output=True,
-                              encoding="utf-8", errors="replace", timeout=timeout)
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    return [path for path in done.stdout.split("\0") if path] if done.returncode == 0 else None
-
-
 def unit(path):
     """묶음 단위 = 최상위 폴더(design 은 그 아래 폴더) · 최상위·design 바로 밑 파일 = ""(늘 묶음 1 맨 앞)."""
     parts = path.split("/")
@@ -326,16 +305,9 @@ def checkout_steps(plan, paths, limit):
     return steps + [("git checkout %d/%d" % (k + 1, n), plan["sparse"] + later(k + 1)) for k in range(1, n)]
 
 
-def split_steps(plan, repo, sha, timeout):
-    """r2082 A3 — (git add 뒤 단계, 의도 칸) · index 파일 수 ≤ 상한·못 읽음 = 지금 그대로(git 호출 0) ·
-    넘음 = ls-tree 1회로 단위별 수를 센다 · 세기 실패 = 1묶음 + «묶음 세기 판정 불가» 1칸(열기는 막지 않는다)."""
-    limit, total = checkout_limit(), index_total(repo)
-    if total is None or total <= limit:
-        return checkout_steps(plan, [], limit), {}
-    paths = tree_paths(repo, sha, timeout)
-    if paths is None:
-        return checkout_steps(plan, [], limit), {"split_note": "묶음 세기 판정 불가(ls-tree) — 1묶음"}
-    steps = checkout_steps(plan, paths, limit)
+def split_steps(plan, paths):
+    """r2082 A3 — (git add 뒤 단계, 의도 칸) · paths = 기준 sha 파일 목록(늘 센다 · 호출 리포 index 로 건너뛰기 0)."""
+    steps = checkout_steps(plan, paths, checkout_limit())
     return steps, ({"checkout_batches": len(steps) - 1} if len(steps) > 2 else {})
 
 
