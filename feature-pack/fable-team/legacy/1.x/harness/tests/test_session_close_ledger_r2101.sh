@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test_session_close_ledger_r2101.sh — r2101 세션 닫힘 원장(ft-session-close-ledger.sh) 반례 ①~⑰ (카드 design/harness/indices/대기/r2101-session-close-ledger.md · 보정 1 = 45311de2da)
+# test_session_close_ledger_r2101.sh — r2101 세션 닫힘 원장(ft-session-close-ledger.sh) 반례 ①~⑲ (카드 design/harness/indices/대기/r2101-session-close-ledger.md · 최종판 24dbd0fcf3)
 #   닫기 도구 칸 = 가짜 tmux(kill-session 순간의 원장 줄 수를 적는다 · 세션 id 조회 답 · kill rc 는 사례가 정함) + 임시 명부 · hook 칸 = 별도 소켓 실 tmux(`tmux -L r2101-<pid>` · 끝에 그 서버만 내림)
 #   실 tmux 서버 · 실 명부 · 실 원장 0 · sleep 0(hook 기다림 = 둘째 hook 줄 «wait-for -S» + `wait-for`)
 #   R2101_BIN = 시험할 bin(기본 팩 harness/bin · 변이 사본을 줄 때) · 기준판 = 같은 bin 에서 원장 호출(note 줄 · fail 조각)만 뺀 사본(닫기 출력 · rc 대조)
@@ -224,66 +224,73 @@ eq "$(TB bash "$LED" hook-status 2>&1)" "HOOK off" "⑩ hook-status «HOOK off»
 TB tmux kill-server 2>/dev/null; o="$(TB bash "$LED" hook-status 2>&1)"; rc=$?
 eq "$([ "$rc" -ne 0 ] && echo nz)|${o:0:5}|$(printf '%s\n' "$o" | wc -l | tr -d ' ')" "nz|판정 불가|1" "⑩ tmux 조회 실패 → «판정 불가» 1줄 rc≠0"
 
-stage hook "⑪~⑯ read(S5)"
+stage hook "⑪~⑱ read(S5)"
 D=2026-11-16T; RD() { FT_SESSION_CLOSE_LEDGER="$1" bash "$LED" read "${@:2}" 2>&1; }
-E0="닫힘 0 · 도구 줄 있음 0 · 도구 줄 없음 0 · hook 줄 없음 0 · kill 실패 0 · 깨진 줄 0"
+E0="닫힘 0 · 후보 0 · 도구 줄 없음 0 · hook 줄 없음 0 · kill 실패 0 · 깨진 줄 0"
 L="$T/l11.tsv"; i='$5'
 { row ${D}12:00:00 tool s1 ft-seat-close.sh 'M#1' "판정 1" "$i" 11; row ${D}12:00:02 hook s1 - - - "$i" -; row ${D}12:10:00 hook s2 - - - "$i" -; row ${D}12:20:00 tool s3 X - r "$i" 3
   row ${D}12:29:59 tool s4 Y - r "$i" 4; row ${D}12:31:00 hook s4 - - - "$i" -; row ${D}12:40:00 hook s5 - - - "$i" -; row ${D}12:40:06 tool s5 Z - r "$i" 5
   row ${D}12:49:00 tool s6 V - r6 "$i" 6; row ${D}12:50:00 hook s6 - - - "$i" -; row ${D}13:00:00 hook s7 - - - "$i" -; row ${D}13:00:05 tool s7 W - r7 "$i" 7; } > "$L"
-W="${D}12:00:02 s1 ← ft-seat-close.sh · M#1 · 판정 1
+W="${D}12:00:02 s1 후보 ← ft-seat-close.sh · M#1 · 판정 1
 ${D}12:10:00 s2 ← 도구 줄 없음
 ${D}12:20:00 s3 ← hook 줄 없음(X)
 ${D}12:29:59 s4 ← hook 줄 없음(Y)
 ${D}12:31:00 s4 ← 도구 줄 없음
 ${D}12:40:00 s5 ← 도구 줄 없음
 ${D}12:40:06 s5 ← hook 줄 없음(Z)
-${D}12:50:00 s6 ← V · - · r6
-${D}13:00:00 s7 ← W · - · r7
-닫힘 6 · 도구 줄 있음 3 · 도구 줄 없음 3 · hook 줄 없음 3 · kill 실패 0 · 깨진 줄 0"
+${D}12:50:00 s6 후보 ← V · - · r6
+${D}13:00:00 s7 후보 ← W · - · r7
+닫힘 6 · 후보 3 · 도구 줄 없음 3 · hook 줄 없음 3 · kill 실패 0 · 깨진 줄 0"
 o="$(RD "$L")"; eq "$?|$o" "0|$W" "⑪ 짝 · 도구 줄 없음 · hook 줄 없음 · 61초 앞 / 6초 뒤 = 짝 없음 · 60초 앞 / 5초 뒤 = 짝"
 L="$T/l12.tsv"; { row ${D}10:00:00 tool x ft-nano-close.sh 'M#1' close "$i" 1; row ${D}10:00:01 hook x - - - "$i" -; row ${D}10:00:30 hook x - - - "$i" -; } > "$L"
-eq "$(RD "$L")" "${D}10:00:01 x ← ft-nano-close.sh · M#1 · close
+eq "$(RD "$L")" "${D}10:00:01 x 후보 ← ft-nano-close.sh · M#1 · close
 ${D}10:00:30 x ← 도구 줄 없음
-닫힘 2 · 도구 줄 있음 1 · 도구 줄 없음 1 · hook 줄 없음 0 · kill 실패 0 · 깨진 줄 0" "⑫ 같은 id 다시 씀 → 첫 hook 짝 · 둘째 hook 도구 줄 없음"
+닫힘 2 · 후보 1 · 도구 줄 없음 1 · hook 줄 없음 0 · kill 실패 0 · 깨진 줄 0" "⑫ 같은 id 다시 씀 → 첫 hook 짝 · 둘째 hook 도구 줄 없음"
 L="$T/l13a.tsv"; { row ${D}12:00:00 tool A T S r '$5' 1; row ${D}12:00:20 hook A - - - '$9' -; } > "$L"
 eq "$(RD "$L")" "${D}12:00:00 A ← hook 줄 없음(T)
 ${D}12:00:20 A ← 도구 줄 없음
-닫힘 1 · 도구 줄 있음 0 · 도구 줄 없음 1 · hook 줄 없음 1 · kill 실패 0 · 깨진 줄 0" "⑬ⓐ 같은 이름 · 다른 id → 짝 0"
+닫힘 1 · 후보 0 · 도구 줄 없음 1 · hook 줄 없음 1 · kill 실패 0 · 깨진 줄 0" "⑬ⓐ 같은 이름 · 다른 id → 짝 0"
 L="$T/l13b.tsv"; { row ${D}12:00:00 tool A T S5 r5 '$5' 1; row ${D}12:00:00 tool A T S9 r9 '$9' 2; row ${D}12:00:00 hook A - - - '$9' -; } > "$L"; o="$(RD "$L")"
-has "$o" "${D}12:00:00 A ← T · S9 · r9" "⑬ⓑ 같은 초 → hook 은 같은 id(\$9) tool 줄과 짝"
+has "$o" "${D}12:00:00 A 후보 ← T · S9 · r9" "⑬ⓑ 같은 초 → hook 은 같은 id(\$9) tool 줄과 짝"
 has "$o" "${D}12:00:00 A ← hook 줄 없음(T)" "⑬ⓑ \$5 tool 줄 = hook 줄 없음"
 L="$T/l13c.tsv"; { row ${D}12:00:00 tool A T S r '$5' 1; row ${D}12:00:02 hook B - - - '$5' -; } > "$L"
-eq "$(RD "$L" | tail -1)" "닫힘 1 · 도구 줄 있음 0 · 도구 줄 없음 1 · hook 줄 없음 1 · kill 실패 0 · 깨진 줄 0" "⑬ⓒ id 같고 이름 다름 → 짝 0"
+eq "$(RD "$L" | tail -1)" "닫힘 1 · 후보 0 · 도구 줄 없음 1 · hook 줄 없음 1 · kill 실패 0 · 깨진 줄 0" "⑬ⓒ id 같고 이름 다름 → 짝 0"
 L="$T/l14a.tsv"; { row ${D}12:00:00 tool A T S r '$5' 100; row ${D}12:00:00 fail A T S "kill 실패" - 100; row ${D}12:00:20 hook A - - - '$5' -; } > "$L"
 eq "$(RD "$L")" "${D}12:00:00 A ← kill 실패(T)
 ${D}12:00:20 A ← 도구 줄 없음
-닫힘 1 · 도구 줄 있음 0 · 도구 줄 없음 1 · hook 줄 없음 0 · kill 실패 1 · 깨진 줄 0" "⑭ⓐ kill 실패 뒤 손으로 닫힘 → kill 실패 · 도구 줄 없음"
+닫힘 1 · 후보 0 · 도구 줄 없음 1 · hook 줄 없음 0 · kill 실패 1 · 깨진 줄 0" "⑭ⓐ kill 실패 뒤 손으로 닫힘 → kill 실패 · 도구 줄 없음"
 L="$T/l14b.tsv"; { row ${D}12:00:00 tool A T X r '$5' 100; row ${D}12:00:00 tool A T Y r '$5' 200; row ${D}12:00:00 hook A - - - '$5' -; row ${D}12:00:00 fail A T Y "kill 실패" - 200; } > "$L"; o="$(RD "$L")"
-has "$o" "${D}12:00:00 A ← T · X · r" "⑭ⓑ 두 도구 → hook 은 pid 100(좌석 X) 줄과 짝"
+has "$o" "${D}12:00:00 A 후보 ← T · X · r" "⑭ⓑ 두 도구 → hook 은 pid 100(좌석 X) 줄과 짝"
 has "$o" "${D}12:00:00 A ← kill 실패(T)" "⑭ⓑ pid 200 줄 = kill 실패"
 L="$T/l14c.tsv"; { row ${D}12:00:00 fail A T S "kill 실패" - 300; } > "$L"
-eq "$(RD "$L")" "닫힘 0 · 도구 줄 있음 0 · 도구 줄 없음 0 · hook 줄 없음 0 · kill 실패 0 · 깨진 줄 1" "⑭ⓒ 앞 tool 줄 없는 fail 줄 → 깨진 줄 1"
+eq "$(RD "$L")" "닫힘 0 · 후보 0 · 도구 줄 없음 0 · hook 줄 없음 0 · kill 실패 0 · 깨진 줄 1" "⑭ⓒ 앞 tool 줄 없는 fail 줄 → 깨진 줄 1"
 L="$T/l15.tsv"; { row ${D}12:00:00 tool A T S r - 1; row ${D}12:00:02 hook A - - - '$5' -; } > "$L"
 eq "$(RD "$L")" "${D}12:00:00 A ← hook 줄 없음(T · id 없음)
 ${D}12:00:02 A ← 도구 줄 없음
-닫힘 1 · 도구 줄 있음 0 · 도구 줄 없음 1 · hook 줄 없음 1 · kill 실패 0 · 깨진 줄 0" "⑮ id 없는 tool 줄 → 짝 0 · «id 없음»"
+닫힘 1 · 후보 0 · 도구 줄 없음 1 · hook 줄 없음 1 · kill 실패 0 · 깨진 줄 0" "⑮ id 없는 tool 줄 → 짝 0 · «id 없음»"
+L="$T/l16.tsv"; { row ${D}12:00:00 tool A T S r '$0' 100; row ${D}12:00:20 hook A - - - '$0' -; } > "$L"; o="$(RD "$L")"
+eq "$o" "${D}12:00:20 A 후보 ← T · S · r
+닫힘 1 · 후보 1 · 도구 줄 없음 0 · hook 줄 없음 0 · kill 실패 0 · 깨진 줄 0" "⑯ 서버가 다시 뜬 뒤 같은 이름 · id → «후보» 1줄(열린 줄)"
+eq "$(printf '%s\n' "$o" | grep -cE '확정|닫음|도구 줄 있음')" 0 "⑯ 출력에 «확정» · «닫음» · «도구 줄 있음» 0"
+L="$T/l17.tsv"; { row ${D}12:00:00 tool A T S r '$5' 100; row ${D}12:00:20 hook A - - - '$5' -; } > "$L"; o="$(RD "$L")"
+eq "$(printf '%s\n' "$o" | head -1)" "${D}12:00:20 A 후보 ← T · S · r" "⑰ fail 줄 전에 도구가 죽음 → «후보» 1줄(열린 줄)"
+eq "$(printf '%s\n' "$o" | grep -cE '확정|닫음|도구 줄 있음')" 0 "⑰ 출력에 «확정» · «닫음» · «도구 줄 있음» 0"
 o="$(RD "$T/l11.tsv" --since ${D}12:15:00)"
-eq "$(printf '%s\n' "$o" | grep -c ' s[12] ')|$(printf '%s\n' "$o" | tail -1)" "0|닫힘 4 · 도구 줄 있음 2 · 도구 줄 없음 2 · hook 줄 없음 3 · kill 실패 0 · 깨진 줄 0" "⑯ --since → 앞 줄 빠짐"
+eq "$(printf '%s\n' "$o" | grep -c ' s[12] ')|$(printf '%s\n' "$o" | tail -1)" "0|닫힘 4 · 후보 2 · 도구 줄 없음 2 · hook 줄 없음 3 · kill 실패 0 · 깨진 줄 0" "⑱ --since → 앞 줄 빠짐"
 eq "$(RD "$T/l11.tsv" --session s2)" "${D}12:10:00 s2 ← 도구 줄 없음
-닫힘 1 · 도구 줄 있음 0 · 도구 줄 없음 1 · hook 줄 없음 0 · kill 실패 0 · 깨진 줄 0" "⑯ --session → 그 이름만"
+닫힘 1 · 후보 0 · 도구 줄 없음 1 · hook 줄 없음 0 · kill 실패 0 · 깨진 줄 0" "⑱ --session → 그 이름만"
 L="$T/l16.tsv"; { row ${D}09:00:00 hook y - - - "$i" -; printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' ${D}09:00:01 tool y t s r "$i"; } > "$L"
 eq "$(RD "$L")" "${D}09:00:00 y ← 도구 줄 없음
-닫힘 1 · 도구 줄 있음 0 · 도구 줄 없음 1 · hook 줄 없음 0 · kill 실패 0 · 깨진 줄 1" "⑯ 칸 7개 줄 → 세지 않고 «깨진 줄 1»"
-o="$(RD "$T/none.tsv")"; eq "$?|$o" "0|$E0" "⑯ 원장 없음 → 끝 줄만 rc 0"
+닫힘 1 · 후보 0 · 도구 줄 없음 1 · hook 줄 없음 0 · kill 실패 0 · 깨진 줄 1" "⑱ 칸 7개 줄 → 세지 않고 «깨진 줄 1»"
+o="$(RD "$T/none.tsv")"; eq "$?|$o" "0|$E0" "⑱ 원장 없음 → 끝 줄만 rc 0"
 
-stage read "⑰ 불변(S6) · bin = kit · 줄 상한"
-eq "$(env -u TMUX_PANE "$REAL_TMUX" show-hooks -g 2>&1)" "$REAL_HOOKS0" "⑰ 실 tmux show-hooks -g 앞뒤 같음"
-for r in $ROOTS; do [ ! -e "$r/.fable-team/state/session-close" ] && ok "⑰ $r/.fable-team/state/session-close 안 생김" || bad "⑰ 시험이 $r/.fable-team/state/session-close 를 만듦"; done
-if [ -z "${R2101_BIN:-}" ]; then for f in $TOOLS ft-session-close-ledger.sh ft_session_close_read.py; do cmp -s "$BIN/$f" "$KIT/$f" && ok "⑰ bin = kit $f" || bad "⑰ bin ≠ kit $f"; done; fi
-eq "$([ -f "$LED" ] && [ "$(wc -l < "$LED")" -le 200 ] && echo yes)" yes "⑰ ft-session-close-ledger.sh ≤ 200줄"
+stage read "⑲ 불변(S6) · bin = kit · 줄 상한"
+eq "$(env -u TMUX_PANE "$REAL_TMUX" show-hooks -g 2>&1)" "$REAL_HOOKS0" "⑲ 실 tmux show-hooks -g 앞뒤 같음"
+for r in $ROOTS; do [ ! -e "$r/.fable-team/state/session-close" ] && ok "⑲ $r/.fable-team/state/session-close 안 생김" || bad "⑲ 시험이 $r/.fable-team/state/session-close 를 만듦"; done
+if [ -z "${R2101_BIN:-}" ]; then for f in $TOOLS ft-session-close-ledger.sh ft_session_close_read.py; do cmp -s "$BIN/$f" "$KIT/$f" && ok "⑲ bin = kit $f" || bad "⑲ bin ≠ kit $f"; done; fi
+eq "$([ -f "$LED" ] && [ "$(wc -l < "$LED")" -le 200 ] && echo yes)" yes "⑲ ft-session-close-ledger.sh ≤ 200줄"
 for f in $TOOLS; do n=1; [ "$f" != ft-nano-close.sh ] || n=2
-  eq "$(grep -c 'ft-session-close-ledger.sh" note' "$BIN/$f")|$(grep -o 'ft-session-close-ledger.sh" fail' "$BIN/$f" | wc -l | tr -d ' ')" "$n|$n" "⑰ $f 호출 note $n · fail $n"; done
+  eq "$(grep -c 'ft-session-close-ledger.sh" note' "$BIN/$f")|$(grep -o 'ft-session-close-ledger.sh" fail' "$BIN/$f" | wc -l | tr -d ' ')" "$n|$n" "⑲ $f 호출 note $n · fail $n"; done
 
 stage invariant "끝"
 echo "STAGES$STAGES"
