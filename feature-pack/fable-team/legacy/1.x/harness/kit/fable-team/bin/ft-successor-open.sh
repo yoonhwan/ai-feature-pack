@@ -29,7 +29,7 @@ so_send_ready() { [ "$(( BUDGET - $(so_elapsed) ))" -ge "$SEND_RESERVE" ]; }
 so_verify_ready() { [ "$(( BUDGET - $(so_elapsed) ))" -ge 20 ]; }   # 확인 1회(reach 20초) 몫
 so_reach_to() { local left=$(( BUDGET - $(so_elapsed) )); [ "$left" -lt 20 ] && echo "$left" || echo 20; }
 so_budget_stop() {   # $1 = 멈춘 단계 이름 · rc5 = 열렸으나 도달 미확인(재실행이 같은 자리에서 잇는다 · r609)
-  echo "시간 상한 ${BUDGET}초 — «$1» 단계 앞에서 멈춘다(경과 $(so_elapsed)초 · 송신 0 · 도달 파일 0 · 구 좌석 닫기 0)"
+  _FTB_CAUSE="시간 상한 ${BUDGET}초 — «$1» 단계 앞에서 멈춘다(경과 $(so_elapsed)초 · 송신 0 · 도달 파일 0 · 구 좌석 닫기 0)"; echo "$_FTB_CAUSE"
   echo "다음: 같은 인자로 다시 실행(이어가기 r609)"
   exit 5
 }
@@ -101,6 +101,18 @@ _nb="${NAME%%#*}"; _nr="${_nb#*-*-}"; _nr="${_nr%%-*}"   # r1659 R1: nano 꼬리
 esac
 printf '%s\n%s\n' "$OLD" "$NAME" | grep -qvE '^[A-Za-z0-9._#-]+$' && { echo "REJECT 좌석명은 [A-Za-z0-9._#-] 만" >&2; exit 2; }
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+# ★r2067 A3★ 종료 자리 한 곳 — rc 5·6 = 장부 raise(원인 = 그 실행의 «[HIL] …»·«시간 상한 …»·«OPEN-WORK-0 …» 줄) · rc 0 = clear · 그 밖 = 호출 0 · rc 불변
+_FTB_CAUSE=""
+_ftb_so_exit() {
+  local rc=$?
+  . "$HERE/ft-block-lib.sh" 2>/dev/null && declare -F ft_block >/dev/null || return 0
+  case "$rc" in
+    0) ft_block clear ft-successor-open "$OLD";;
+    5) ft_block raise ft-successor-open seat "$OLD" --cause "${_FTB_CAUSE:-ft-successor-open rc 5}" --fix "같은 인자로 다시 실행 — 그래도 rc 5 면 판정 필요 후계 pane 확인";;
+    6) ft_block raise ft-successor-open seat "$OLD" --cause "${_FTB_CAUSE:-ft-successor-open rc 6}" --fix "판정 필요 $OLD 닫기 — ft-seat-close.sh $OLD --reason \"받을 일 0\" --verdict <판정 번호>";;
+  esac; return 0
+}
+trap _ftb_so_exit EXIT
 # ★r1412 데이터 루트 = env FT_ROOT 먼저★ (r1404 ft-role-spawn 과 같은 규칙): kakao 처럼 데이터 루트가 깃 공용 루트와 다른 팀은 FT_ROOT 로 명부·팀 명단·state 를 푼다.
 #   끝 / 제거 · .fable-team 없으면 부작용 전 REJECT · FT_ROOT 없으면 DROOT 빈 값 = 지금처럼(깃 공용 루트).
 DROOT=""
@@ -175,7 +187,7 @@ case "$_OW_RC" in
     else
       echo "WARN 팀장 좌석·mbox 없음 — 통지 0 · 줄만 남긴다" >&2
     fi
-    echo "OPEN-WORK-0 $OLD — 후계 0(받을 일 0) · $_OW_MSG"
+    _FTB_CAUSE="OPEN-WORK-0 $OLD — 후계 0(받을 일 0) · $_OW_MSG"; echo "$_FTB_CAUSE"
     exit 6 ;;
   3) printf '%s\n' "$_OW_OUT" | sed -n '/^받을 일 판정 불가/p' >&2 ;;
   *) [ -n "$_OW_OUT" ] && printf '%s\n' "$_OW_OUT" >&2 ;;
@@ -210,7 +222,7 @@ MDIR="$(dirname -- "$MBOX")"
 [ -f "$MDIR/mbox_doorbell.sh" ] || { echo "REJECT mbox 짝 파일 없음: $MDIR/mbox_doorbell.sh (mbox.sh 가 source 하는 mbox_doorbell.sh · 짝이 빠진 폴더는 쓰지 않는다)"; exit 2; }
 STATE="$ROOT/.fable-team/state/successor"
 SENTF="$STATE/$OLD.sent"   # r1660-c: «보냈으나 도달 미확인» 표지(seq 1줄) · 재실행은 이 파일이 있으면 확인만 한다
-hil() { echo "[HIL] 후계 $NAME 도달 미확인 — 구 좌석 닫기 0 (구=$OLD) · 도달 파일 없음 · $1"; }
+hil() { _FTB_CAUSE="[HIL] 후계 $NAME 도달 미확인 — 구 좌석 닫기 0 (구=$OLD) · 도달 파일 없음 · $1"; echo "$_FTB_CAUSE"; }
 RETIRE="${FT_SEAT_RETIRE:-$HERE/ft-seat-retire.sh}"
 # ⓔ 도달 파일 + ⓔ-1(r1116c) 명부 승계 — 후계가 retire 전이면 역할 우편함·ring 이 구 좌석으로만 간다(v65 #254 · planner arch#28). retire 실패는 사유만 출력 · rc 는 도달 쪽(0).
 reached() {   # reached <seq|null>

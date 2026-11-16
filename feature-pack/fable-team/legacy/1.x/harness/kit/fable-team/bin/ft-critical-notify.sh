@@ -191,6 +191,18 @@ except Exception as e:   # 알림 실패는 부른 도구의 rc 를 바꾸지 �
     warn(f"{type(e).__name__}: {e}")
 PY
 }
+wrap_block() {   # r2067 A2 — 닫기 두 도구의 «기다림» 종료(rc 0·1·2 밖) = 장부 raise · rc 0 = clear · rc 1·2 = 호출 0
+  case "$1" in ft-seat-close|ft-nano-close) ;; *) return 0;; esac
+  local tool="$1" rc="$2" out="$3" t="" a cause; shift 3
+  for a in "$@"; do case "$a" in --*) ;; *) t="$a"; break;; esac; done
+  [ -n "$t" ] && . "$HERE/ft-block-lib.sh" 2>/dev/null && declare -F ft_block >/dev/null || return 0
+  case "$rc" in 0) ft_block clear "$tool" "$t";; 1|2) ;;
+    *) cause="$(grep -m1 -E '^(HELD|WAIT) ' "$out" 2>/dev/null)"
+       [ -n "$cause" ] || cause="$(grep -m1 -F 'kill=held' "$out" 2>/dev/null)"
+       [ -n "$cause" ] || cause="$(awk 'NF{l=$0} END{print l}' "$out" 2>/dev/null)"
+       ft_block raise "$tool" seat "$t" --cause "${cause:-$tool rc $rc 출력 0줄}" --fix "판정 필요 $tool rc $rc — 원인을 고친 뒤 같은 명령 다시";;
+  esac; return 0
+}
 [ $# -ge 1 ] || usage
 if [ "${FT_CRITICAL_OFF:-0}" = 1 ]; then [ "$1" = --wrap ] && [ $# -ge 3 ] && { shift 2; exec bash "$@"; }; exit 0; fi   # A9 — 호출 0 · 기록 0
 if [ "$1" = --wrap ]; then   # A7 — 본 작업은 자식 1회(다시 돌리지 않는다) · rc·stdout·stderr 그대로
@@ -198,6 +210,7 @@ if [ "$1" = --wrap ]; then   # A7 — 본 작업은 자식 1회(다시 돌리지
   D="$(mktemp -d "${TMPDIR:-/tmp}/ft-critical-XXXXXX" 2>/dev/null)" || { FT_CRITICAL_IN=$$ bash "$SCRIPT" "$@"; exit $?; }
   FT_CRITICAL_IN=$$ FT_CRITICAL_CTX="$D/ctx" bash "$SCRIPT" "$@" | tee "$D/out"; RC=${PIPESTATUS[0]}   # r1718-mut:stream
   case "$RC" in 0|1|6) core after "$TOOL" "$RC" "$D" "$@";; esac
+  wrap_block "$TOOL" "$RC" "$D/out" "$@"
   rm -rf "$D"; exit "$RC"
 fi
 core "$@"; rc=$?; [ "$rc" = 2 ] && usage; exit 0
