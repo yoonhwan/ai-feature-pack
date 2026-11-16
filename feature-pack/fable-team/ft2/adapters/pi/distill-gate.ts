@@ -152,8 +152,10 @@ function recvAlarm(input: GateInput, env: Record<string, string | undefined>, ro
   const since = (() => { try { return fs.statSync(state ?? "").mtimeMs; } catch { return Date.now(); } })(), wait = Number(env.FT_DISTILL_OPEN_WAIT_SEC ?? envFiles(env, root).map((f) => f?.FT_DISTILL_OPEN_WAIT_SEC).find((v) => v !== undefined) ?? 300) || 300, mbox = mboxScript(env, root);
   const send = (key: string, to: string, body: string): string => { if (!to || notified.has(`${seat}|${key}|${to}`)) return ""; notified.add(`${seat}|${key}|${to}`); if (input.notify) { input.notify(to, body); return ""; } try { if (!mbox) return `우편함 없음(${key})`; execFileSync("bash", [mbox, "send", to, "ft-distill-gate", body], { timeout: 7000 }); return ""; } // r2019 보내는 이 = 도구 이름(desk 경로 판정 ⓒ 통과) · 걸린 좌석은 본문 첫머리
     catch (e: any) { const m = `${key} 알림 실패(${to}) rc=${e?.status ?? "?"}: ${String(e?.stdout || e?.stderr || e).trim().split("\n")[0]}`; console.error(`ft2 distill-gate: ${m}`); return m; } }; // r2019 실패 = 걸린 좌석 stderr 1줄(같은 열쇠 1회 = notified)
-  const crit = [String((rs.find(([f]) => f === "seats-harness.json") ?? ["", {}])[1]._master ?? ""), desk].map((to) => send("crit", to, `[크리티컬] recv 문턱 걸림 ${seat} ctx=${k} 걸린 시각 ${new Date(since).toISOString()} — 후계 도달 전 · 증류·승계 쪽지는 recv --only distill 로 받음`));
-  return [...crit, Date.now() - since < wait * 1000 ? "" : opener ? send("open", opener, `[개설] 후계 도달 없음 ${seat} ctx=${k} — 걸린 지 ${wait}초 이상 · ft-successor-open.sh 로 후계를 열어 주세요(걸린 좌석은 열지 않음)`) : "여는 곳 불명(_desk·_arch 없음)"].filter(Boolean).join(" · ");
+  const hm = String((rs.find(([f]) => f === "seats-harness.json") ?? ["", {}])[1]._master ?? ""), [owner, why] = ownerMaster(env, root, seat); // r2127 받는 이 = {harness _master · desk · 주인 팀장} 집합 · 같은 이름 1통
+  const crit = [...new Set([hm, desk, owner])].map((to) => send("crit", to, `[크리티컬] recv 문턱 걸림 ${seat} ctx=${k} 걸린 시각 ${new Date(since).toISOString()} — 후계 도달 전 · 증류·승계 쪽지는 recv --only distill 로 받음`));
+  const note = why && !notified.has(`${seat}|owner-why`) ? (notified.add(`${seat}|owner-why`), `주인 팀장 알림 판정 불가 — ${why}`) : ""; // 좌석 1회 · crit 발신 열쇠와 따로
+  return [...crit, note, Date.now() - since < wait * 1000 ? "" : opener ? send("open", opener, `[개설] 후계 도달 없음 ${seat} ctx=${k} — 걸린 지 ${wait}초 이상 · ft-successor-open.sh 로 후계를 열어 주세요(걸린 좌석은 열지 않음)`) : "여는 곳 불명(_desk·_arch 없음)"].filter(Boolean).join(" · ");
 }
 const mboxScript = (env: Record<string, string | undefined>, root: string | null): string => { // 팀장 알림 명령 = FT_MBOX > <루트>/.fable-team/comm/mbox.sh(파일이 있을 때) · 둘 다 없으면 ""
   const builtin = root ? path.join(root, ".fable-team", "comm", "mbox.sh") : "";
@@ -174,6 +176,21 @@ function teamMaster(env: Record<string, string | undefined>, root: string | null
     }
   } catch { /* 명부 없음 = 팀장 불명 */ }
   return "";
+}
+/** r2127 걸린 좌석의 주인 팀장 = [팀장, 판정 불가 이유]. teamMaster 와 같은 명부 폴더(FT_MBOX 의 .fable-team → 리포 루트) · 같은 행 규칙(이름 그대로 또는 #N 뺸 이름). 이름 글자로 팀을 짐작하지 않는다. */
+function ownerMaster(env: Record<string, string | undefined>, root: string | null, seat: string): [string, string] {
+  const mbox = mboxScript(env, root); let dir = mbox ? path.dirname(path.resolve(mbox)) : "";
+  while (dir && path.basename(dir) !== ".fable-team" && path.dirname(dir) !== dir) dir = path.dirname(dir);
+  if (path.basename(dir) !== ".fable-team") dir = path.join(root ?? "/nonexistent", ".fable-team");
+  const base = seat.replace(/#\d+$/, ""); let files: string[] = [], broken = false;
+  try { files = fs.readdirSync(dir).filter((n) => /^seats.*\.json$/.test(n)).sort(); } catch { /* 명부 없음 = 행 없음 */ }
+  for (const f of files) {
+    let j: any; try { j = JSON.parse(fs.readFileSync(path.join(dir, f), "utf8")); } catch { broken = true; continue; } // 깨진 명부 = 다른 명부에서 행을 못 찾으면 판정 불가(하드 룰 20)
+    if (!Object.keys(j ?? {}).some((r) => !r.startsWith("_") && (r === seat || r.replace(/#\d+$/, "") === base))) continue;
+    const m = String(j._master ?? "").trim();
+    return !m ? ["", "_master 빈 값"] : m === seat ? ["", "걸린 좌석 자신"] : [m, ""];
+  }
+  return ["", broken ? "명부 JSON 판독 실패" : "명부 행 없음"];
 }
 function notifyTeam(input: GateInput, env: Record<string, string | undefined>, seat: string, root: string | null, why: string): string {
   const key = `${seat}|${why}`; if (notified.has(key)) return ""; notified.add(key);
