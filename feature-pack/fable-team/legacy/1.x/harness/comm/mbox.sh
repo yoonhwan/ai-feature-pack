@@ -74,10 +74,13 @@ PY
 #     넓히면 _desk 발신이 예산 예외가 되어 사람 판정이 조용히 바뀐다(DA #276770 R2). 받는 쪽/보내는 쪽은 다른 칸이다.
 #   ★확장 파일 존재까지 보는 이유★: 확장이 없으면 그 좌석은 깨울 길이 없다 — 그때 pane 을 끄면 쪽지가 영구 대기한다(깨움 0 금지).
 #   판정 불가(명부 깨짐·agent 칸 없음·확장 파일 없음) = 거짓 = 기존 pane 경로 그대로(fail-loud). 깨진 파일 1개가 다른 파일 판정을 막지 않는다.
+#   ★r2110 A1★ ft2 나노 pi 좌석(명부 밖) = 그 tmux 세션 env FT2_HOLDER 값 == 좌석 이름 · tmux 1회 7초 · 값 없음·다른 이름·tmux 실패 = 거짓(지금 길 그대로).
+_ft2_nano_seat() { local v; v="$(_wg_timeout 7 tmux show-environment -t "=$1" FT2_HOLDER 2>/dev/null)" || return 1; [ "$v" = "FT2_HOLDER=$1" ]; }
 ext_wake_seat() {
   local sj ext; sj="$(_seats_json)"
   ext="$HOME/.pi/agent/extensions/ft-mbox-wake.ts"
   [ -f "$ext" ] || return 1
+  _ft2_nano_seat "$1" && return 0   # ★r2110 A3★ 확장 파일 ∧ (아래 명부 판정 ∨ A1)
   python3 - "$(dirname "$sj")" "$1" <<'PY' 2>/dev/null
 import glob, json, os, sys
 d, seat = sys.argv[1], sys.argv[2]
