@@ -41,7 +41,7 @@ def remote(w):
 
 def done_world(tmp, mp, done=True):
     w = world(tmp, mp)
-    w.card("r9", refs=("ops/main-base",))
+    w.card("r9", "1a" * 20, refs=("ops/main-base",))   # r2147 — 착지 줄 있는 카드만 옮김
     w.work("r9", done=done, intent=False, turn=None)
     return w
 
