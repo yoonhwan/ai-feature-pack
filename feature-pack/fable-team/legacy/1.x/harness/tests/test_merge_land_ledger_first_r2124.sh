@@ -3,6 +3,7 @@
 #   ① 정상 착지 → 장부 1줄이 PR 닫기 호출보다 먼저(가짜 gh 가 닫기 때 장부 줄 수를 적음) ② 장부 쓰기 실패(가짜 python3 rc1) → WARN 1줄 · rc 0 · 꼬리 계속
 #   ③ 정상 착지 장부 줄 1 · nano-record notify 호출 1 ④ 카드 착지 줄 push 를 가짜 git 이 멈춤 → 바깥 timeout rc124 · 장부 1줄(cards 꼴 그대로)
 #   ⑤ 설치 대조에서 멈춤 → 바깥 timeout rc124 · 장부 1줄 ⑥ DRY · 착지 실패(push 거절) → 장부 0 · 알림 0
+#   R1(DA HOLD #319782) 카드 ref 2개가 LANDED 뒤 각 6초 → 카드 찾기·doc 판정 = 공유 7초 · 바깥 12초 안 장부 1줄 · 변이 M5(공유 몫 안 넘김 → R1 FAIL)
 #   기준판(팩 9b15f1dcce) ① ④ ⑤ Red · 변이 M1~M4(bin 사본에서만) + 원본 대조 · 칸 4개를 병렬(칸마다 세계 따로 · 동시 4)
 #   세계 = _nano_record_r1717_fixture.sh + _merge_fixture.sh(임시 bare origin · 가짜 gh·mbox·tmux) · 실 리포·실 PR·실 장부·실 우편함 0 · sleep = 가짜 도구 안(바깥 timeout 확인용)뿐
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
@@ -25,6 +26,8 @@ cat > "$FX/git" <<'EOF'
 # 가짜 git — GIT_STALL_PUSH=1 이면 2번째 push(= 착지 push 뒤 카드 착지 줄 push)에서 멈춤(바깥 timeout 확인용) · 그 밖 = 실 git
 if [ -n "${GIT_STALL_PUSH:-}" ]; then for a in "$@"; do [ "$a" = push ] || continue
   n=$(( $(cat "$GIT_PUSH_N" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$GIT_PUSH_N"; [ "$n" -lt 2 ] || { : > "$STALL_MARK"; sleep 20; exit 1; }; break; done; fi
+# DA HOLD R1(#319782): DELAY_CARD_READ=1 이면 LANDED 뒤 카드 ref ls-tree 마다 6초 늦춤(ref 2개 = 12초 · 바깥 timeout 확인용)
+if [ -n "${DELAY_CARD_READ:-}" ] && grep -q '^LANDED ' "$LAND_OUT" 2>/dev/null; then case " $* " in *' ls-tree '*) echo "slow ls-tree $*" >> "$SLOW_TRACE"; sleep 6;; esac; fi
 exec "$RG" "$@"
 EOF
 cat > "$FX/python3" <<'EOF'
@@ -37,7 +40,7 @@ printf '#!/bin/bash\n: > "$STALL_MARK"; sleep 20\n' > "$FX/ic-stall.sh"
 chmod +x "$FX"/*
 ML="$T/ml"; mkdir -p "$ML/state"; mkrepo "$ML"; LEDGER="$W/.fable-team/state/land-record-turn.jsonl"; NR_LOG="$T/nr.log"; PRS="1 2 3 4 5 6 7 8 9"
 export FT_AUTONOMY_STATE_DIR="$ML/state" FT_GH="$ML/gh-stub" FT_GH_WRITE="$ML/gh-stub" STUB_LOG="$ML/gh.log" STUB_JSON="$ML/pr.json" FT_MERGE_DENY_FILE="$ML/deny.txt" LEDGER NR_LOG
-export FT_ROOT="$W" MBOX_DIR="$W/.fable-team/comm" GIT_PUSH_N="$T/push.n" STALL_MARK="$T/stall"; unset FT_SEAT MBOX_FAIL
+export FT_ROOT="$W" MBOX_DIR="$W/.fable-team/comm" GIT_PUSH_N="$T/push.n" STALL_MARK="$T/stall" LAND_OUT="$T/land.out" SLOW_TRACE="$T/slow.trace"; unset FT_SEAT MBOX_FAIL
 printf '# 시험 목록(빈)\n' > "$ML/deny.txt"
 cat > "$ML/gh-stub" <<'EOF'
 #!/bin/bash
@@ -116,6 +119,12 @@ c6() {  # ⑥ DRY · 착지 실패(원격 거절) → 장부 0 · 알림 0
   mland 7; rm -f "$ORIGIN/hooks/pre-receive"
   t "⑥ 착지 실패 rc≠0" [ "$RC" != 0 ]; t "⑥ LANDED 0" exc "$OUT" "LANDED pr=7"; t "⑥ 실패 장부 0" [ ! -s "$LEDGER" ]; t "⑥ 실패 notify 0" [ ! -s "$NR_LOG" ]; t "⑥ 실패 쪽지 0" [ "$(nsent .)" = 0 ]; return $E
 }
+cr1() {  # R1(DA HOLD #319782) 카드 ref 2개 · LANDED 뒤 ls-tree 마다 6초 → 카드 찾기 + doc 판정 = 공유 7초 몫 · 바깥 12초 안에 장부 1줄(카드 = 먼저 읽은 ref 결과 · 늦은 ref = WARN 줄)
+  E=0; printf 'one\t.\torigin/main\tindices\ntwo\t.\torigin/other\tindices\n' > "$W/.fable-team/state/directive-roots.tsv"; g "$W" update-ref refs/remotes/origin/other origin/main; : > "$SLOW_TRACE"
+  DELAY_CARD_READ=1 OTO=12 mland 8; rm -f "$W/.fable-team/state/directive-roots.tsv"
+  t "R1 장부 1줄(바깥 12초 안)" [ "$(nled 8)" = 1 ]; t "R1 LANDED 줄" inc "$OUT" "LANDED pr=8 sha="; t "R1 늦춘 ref 조회 도달" [ -s "$SLOW_TRACE" ]
+  t "R1 cards = r888 카드 1장" [ "$(grep "\"pr\": 8, " "$LEDGER" | grep -c 'r888-card.md"\]')" = 1 ]; t "R1 늦은 ref = WARN 1줄" inc "$OUT" "WARN 카드 ref 일부 못 읽음"; return $E
+}
 mut() {  # mut <M> <사례> <꼬리표> — 변이 사본(MB) 으로 FAIL ∧ 원본(OB) 으로 같은 사례 PASS
   local o; [ -f "$MB/ft-merge-land.sh" ] || { bad "$1 변이 사본 없음(변이 자리 못 찾음)"; return; }
   if o="$(BIN="$MB"; "$2" 2>&1)"; then bad "$1 변이를 못 잡음($2)"; elif grep -q '^  x ' <<<"$o"; then ok "$1 변이 → $2 FAIL(잡힘) ::$(printf '%s\n' "$o" | grep -m1 '^  x ' | sed 's/ :: .*//')"; else bad "$1 변이 사례가 검사 전에 끊김($2)" "$o"; fi
@@ -133,6 +142,7 @@ A) step "사전 · bin=kit"; for f in ft-merge-land.sh ft-merge-lib.sh; do cmp -
    prepbin "$SRC" "$T/m3" ft-merge-lib.sh '|| echo "WARN 착지 차례 장부 쓰기 실패($f) — 착지는 성공"' '|| { echo "WARN 착지 차례 장부 쓰기 실패($f) — 착지는 성공"; exit 9; }'; MB="$T/m3"; mut M3 c2
    step "변이 M4(DRY 에도 장부 → ⑥ FAIL)"
    prepbin "$SRC" "$T/m4" ft-merge-land.sh '{ hs_release; echo "DRY ALLOW' "{ hs_release; Q=\"\$S\"; $LEDL; echo \"DRY ALLOW"; MB="$T/m4"; mut M4 c6
+   step "R1 공유 7초(DA HOLD #319782)"; run "R1 카드 ref 2개 느림 → 공유 7초 · 장부 1줄" cr1
    step "변이 M1 ①(장부를 꼬리 끝으로 되돌림 → ① FAIL · ④ ⑤ = 칸 D)"; m1bin; mut M1 c1;;
 B) step "④ ⑤"; run "④ 카드 착지 줄 push 멈춤 → 장부 1줄" c4; run "⑤ 설치 대조 멈춤 → 장부 1줄" c5
    step "변이 M2(꼬리에서도 장부 → ③ FAIL)"
@@ -140,7 +150,9 @@ B) step "④ ⑤"; run "④ 카드 착지 줄 push 멈춤 → 장부 1줄" c4; r
 C) step "기준판 ① ④ ⑤ (팩 $BASESHA)"; BASE="$T/base"; mkdir -p "$BASE"
    if git -C "$H" archive "$BASESHA" -- bin 2>/dev/null | tar -x -C "$BASE" 2>/dev/null && [ -f "$BASE/bin/ft-merge-land.sh" ]; then
      prepbin "$BASE/bin" "$T/bb"; for c in c1 c4 c5; do if o="$(BIN="$T/bb"; "$c" 2>&1)"; then bad "기준판에서 $c 통과함"; elif ! grep -q '^  x ' <<<"$o"; then bad "기준판 $c 가 검사 전에 끊김" "$o"; else ok "기준판 $c FAIL(기대) ::$(printf '%s\n' "$o" | grep -m1 '^  x ' | sed 's/ :: .*//')"; fi; done
-   else bad "기준판 꺼내기 실패 — 팩 리포 밖이거나 얕은 사본"; fi;;
+   else bad "기준판 꺼내기 실패 — 팩 리포 밖이거나 얕은 사본"; fi
+   step "변이 M5(카드 찾기에 공유 7초 몫 안 넘김 → R1 FAIL)"
+   prepbin "$SRC" "$T/m5" ft-merge-lib.sh 'FM_CARDS_T0="$t0" fm_land_turn_ledger' 'fm_land_turn_ledger'; MB="$T/m5"; mut M5 cr1;;
 D) step "변이 M1 ④ ⑤(장부를 꼬리 끝으로 되돌림 → ④ ⑤ FAIL · ① = 칸 A)"; m1bin; mut M1 c5; mut M1 c4;;   # ⑤ 먼저(④ 의 멈춘 카드 줄 프로세스가 잠금을 쥔 채 남아 ⑤ 를 흐리지 않게)
 esac
 finish
