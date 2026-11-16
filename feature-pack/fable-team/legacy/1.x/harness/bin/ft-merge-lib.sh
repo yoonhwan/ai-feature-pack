@@ -40,8 +40,16 @@ fm_fetch_deadline_rem() {
   { [ -n "$d" ] && printf '%s' "$d" | grep -Eq '^[0-9]+$'; } || return 1
   echo $(( d - $(date +%s) ))
 }
-#   fm_tail_s <상한초> : r1389 — 착지 뒤 단계 1개(설치 대조 · 뒤처짐 알림)의 상한 = min(상한, FT_LAND_DEADLINE 남은 초) · 남은 ≤ 0 = 0(부른 쪽이 호출 0 — timeout 0 = 무한) · 마감 없음 = 상한 그대로
-fm_tail_s() { local r; r="$(fm_fetch_deadline_rem)" || { echo "$1"; return 0; }; [ "$r" -gt 0 ] || r=0; if [ "$r" -lt "$1" ] 2>/dev/null; then echo "$r"; else echo "$1"; fi; }
+#   fm_tail_s <상한초> : r1389 — 착지 뒤 단계 1개(설치 대조 · 뒤처짐 알림)의 상한 = min(상한, FT_LAND_DEADLINE 남은 초 − 3) · r2061: 3초 = 꼬리 뒤 마무리 여유(바깥 상한 전에 rc 를 낸다) · 결과 ≤ 0 = 0(부른 쪽이 호출 0 — timeout 0 = 무한) · 마감 없음 = 상한 그대로
+fm_tail_s() { local r; r="$(fm_fetch_deadline_rem)" || { echo "$1"; return 0; }; r=$((r - 3)); [ "$r" -gt 0 ] || r=0; if [ "$r" -lt "$1" ] 2>/dev/null; then echo "$r"; else echo "$1"; fi; }
+#   fm_tail_run <변수> <all|err> <명령…> : r2061 — 착지 뒤 단계 1개를 출력 pipe 없이 돌린다(상한 timeout 은 <명령> 안) · 출력 = 임시 파일(all = stdout+stderr · err = stderr 만, stdout 버림) → <변수>(끝 개행 제거 = $() 와 같은 값) · 파일은 끝에 지움
+#     배경으로 띄운 직접 자식 pid 만 wait — 손자(중첩 timeout 의 git fetch 등)가 파일을 잡고 남아도 기다리지 않는다(손자 종료 0) · rc = 명령 rc · mktemp 실패 = rc 125 + 빈 값(호출 0)
+fm_tail_run() {
+  local _v="$1" _m="$2" _f _rc; shift 2
+  _f="$(mktemp "${TMPDIR:-/tmp}/fm-tail.XXXXXX" 2>/dev/null)" || { printf -v "$_v" '%s' ''; return 125; }
+  if [ "$_m" = err ]; then "$@" 2>"$_f" >/dev/null & else "$@" >"$_f" 2>&1 & fi
+  wait "$!"; _rc=$?; printf -v "$_v" '%s' "$(cat "$_f" 2>/dev/null)"; rm -f "$_f"; return "$_rc"
+}
 #   fm_fetch_banner : 「오빠 예외 판정[ <N>] · 지정 <초>」 한 줄 — FT_FETCH_TIMEOUT_SEC 가 유효 지정일 때만(아니면 출력 0). N = FT_FETCH_EXCEPTION_ID(영숫자만 · 없으면 빈칸)
 fm_fetch_banner() {
   local id; [ "${FM_FETCH_SEC_VALID:-0}" = 1 ] || return 0
@@ -343,7 +351,7 @@ print(v if isinstance(v,str) else "")' "$seats" 2>/dev/null)"
     [ -n "$m" ] || { echo "INFO $kind 쪽지 생략 — 명부에 _master 없음($tg · $seats)"; continue; }
     if [ -z "${FT_MBOX:-}" ] && [ -z "$common" ]; then echo "INFO $kind 쪽지 생략 — 우편함 경로 못 풂($tg)"; continue; fi
     used=$((SECONDS - t0)); cap=$((7 - used)); [ "$cap" -ge 1 ] || cap=0
-    if el="$(fm_fetch_deadline_rem)"; then [ "$el" -ge "$cap" ] || cap="$el"; fi
+    cap="$(fm_tail_s "$cap")"   # r2061 A2: 마감 남은 − 3 여유(마감 없음 = 그대로)
     if [ "$cap" -lt 1 ]; then echo "WARN $kind 쪽지 발신 실패 → $m(0 · 시간 초과)"; continue; fi
     fm_try "$cap" bash "${FT_MBOX:-$common/.fable-team/comm/mbox.sh}" send "$m" "$from" "$line" >/dev/null 2>&1; rc=$?
     case "$rc" in
@@ -488,12 +496,12 @@ fm_land_turn() {
   of="$(mktemp "${TMPDIR:-/tmp}/fm-cards.XXXXXX" 2>/dev/null)" || of=""   # r1743 A3: FM_CARDS_ERR 를 부른 쪽 셸에서 읽는다(명령 치환 = 서브셸이면 표지가 안 남는다)
   if [ -n "$of" ]; then fm_cards_by_tokens "$root" "$@" >"$of"; err="$FM_CARDS_ERR"; while IFS= read -r p; do [ -z "$p" ] || cd[${#cd[@]}]="$p"; done <"$of"; rm -f "$of"; else err="카드 목록 임시 파일 생성 실패 — mktemp(${TMPDIR:-/tmp})"; echo "WARN cards_err: $err" >&2; fi   # r1743 R1: 임시 파일 실패도 조용한 0장 금지(하드 룰 20)
   [ $# -eq 0 ] || echo "카드 root=$root 표=${FM_CARDS_TAB:-없음} refs=${FM_CARDS_REFS:-없음} cards=${#cd[@]}"   # r1821 C3: 착지 결과 1줄(카드 stdout 과 따로)
-  cap=$((7 - (SECONDS - t0))); if el="$(fm_fetch_deadline_rem)"; then [ "$el" -ge "$cap" ] || cap="$el"; fi   # r1782 A1: 착지가 main 에 더한 파일(M→Q · 실제 착지 REPO · 남은 7초 몫) · 전부 design/·docs/ = doc_only · 실패 = doc_err(구현으로 본다)
+  cap="$(fm_tail_s $((7 - (SECONDS - t0))))"   # r2061 A2: min(7 − 쓴 초, 마감 남은 − 3) · r1782 A1: 착지가 main 에 더한 파일(M→Q · 실제 착지 REPO · 남은 7초 몫) · 전부 design/·docs/ = doc_only · 실패 = doc_err(구현으로 본다)
   if [ -z "${M:-}" ] || [ -z "${Q:-}" ]; then dk="M·Q 빈 값"; elif [ "$cap" -lt 1 ]; then dk="시간 초과(남은 0초)"; else dn="$(fm_try "$cap" git -C "${REPO:-$root}" diff --no-renames --name-only -z "$M" "$Q" | tr '\0' '\n'; exit "${PIPESTATUS[0]}")" || dk="git diff 실패 rc=$?"; fi
   [ -z "$dk" ] || { dn=""; echo "WARN doc_err: $dk — 구현 착지로 본다(pr=$pr)" >&2; }; [ -n "$dn" ] && ! grep -qvE '^(design|docs)/' <<<"$dn" && dn=1 || dn=""
   { mkdir -p "${f%/*}" && python3 -c 'import json,sys,time;a=sys.argv;d={"pr":int(a[1]),"repo":a[2],"target":a[3],"landed":a[4],"pr_head":a[5],"by":a[6],"cards":a[10:],"ts":time.strftime("%Y-%m-%dT%H:%M:%S")};a[9] and d.update(cards_err=a[9]);a[7] and d.update(doc_only=True);a[8] and d.update(doc_err=a[8]);print(json.dumps(d,ensure_ascii=False))' "$pr" "$(cd -- "${REPO:-$root}" 2>/dev/null && pwd -P)" "${TARGET:-main}" "${Q:-}" "${HEADSHA:-}" "${FT_SEAT:-}" "$dn" "$dk" "$err" ${cd[@]+"${cd[@]}"} >>"$f"; } 2>/dev/null || echo "WARN 착지 차례 장부 쓰기 실패($f) — 착지는 성공"   # r1717-mut:ledger
-  cap=$((7 - (SECONDS - t0))); if el="$(fm_fetch_deadline_rem)"; then [ "$el" -ge "$cap" ] || cap="$el"; fi
-  [ "$cap" -lt 1 ] || [ ! -f "$FM_HERE/ft-nano-record.sh" ] || FT_ROOT="$c" fm_try "$cap" bash "$FM_HERE/ft-nano-record.sh" notify --pr "$pr" --no-fetch 2>&1 || true
+  cap="$(fm_tail_s $((7 - (SECONDS - t0))))"
+  [ "$cap" -lt 1 ] || [ ! -f "$FM_HERE/ft-nano-record.sh" ] || { fm_tail_run p all env FT_ROOT="$c" "$(fm_timeout_bin)" "$cap" bash "$FM_HERE/ft-nano-record.sh" notify --pr "$pr" --no-fetch; [ -z "$p" ] || printf '%s\n' "$p"; }   # r2061 R1: 출력 파일 경로(손자가 stdout 을 잡아도 감싸기 tee 가 안 막힘)
 }
 #   fm_land_notify_d2 <PR> <착지 sha> <head 가지> <PR 제목> [승인 줄 이벤트(r1794 D3 = 표기 «상시 승인 D3»)] : r1577 · r1804 A2(카드 = fm_card_tokens · 본문 0) — D2 승인 줄로 착지했을 때 슬랙 1줄(«병합함: PR #N · 카드 · DA APPROVE · 되돌림 명령»)
 #     게시 = ft-autonomy-scope.sh 의 scope_slack_post 재사용(사본 0 · 서브셸이라 scope_err 의 exit 이 착지 rc 를 못 건드린다) · 실패 = stderr 1줄 · 착지 rc 불변
