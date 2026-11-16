@@ -3,6 +3,8 @@
 #   ① 열쇠와 발행: 승인 대기 0 → 1 = POST · 같은 입력 = 변화 없음 · 승인 대기 1 인 채 골 줄만 바뀜 = POST + 태그 1회 · 줄 순서 = 기준판
 #   ② 승인 대기 2 → `<@U0AC2JF0M7D> 오빠 승인 대기 2건` 1줄 · `<@` 1회
 #   ③ 승인 대기 0 → «없음» · `<@` 0회 / FT_OPPA_SLACK_UID=UTEST → `<@UTEST>` 1회 · 기본 id 0회 / 기본 id = ft_oppa_slack_check 상수
+#   ②③ 원장 상태 글의 mention 꼴(`<@…>` · `<!…>`) = 꺾쇠를 뺀다 → 본문 `<@` 수 = 도구 태그 수 · `<!` 0
+#   ⑦ 같은 열쇠 2회 = «변화 없음» · 발행 도구 호출 0 / 열쇠가 바뀐 입력 300초 안 = «디바운스» · 호출 0
 # 실 Slack 0 · sleep 0: FT_BOARD_BIN 스텁 · FT_THREAD_POST 스텁(본문을 파일에) · 시계 FT_BOARD_NOW. R2102_BIN = 시험할 bin(변이 사본용).
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
 set -uo pipefail
@@ -63,14 +65,29 @@ chk "① 본문 줄 순서 = 기준판(태그 글자 빼고 · 근거 줄 앞까
 
 # ② 태그 있음(A2)
 reset; goal "$G1"; mk 2; run 2026-11-16T11:00:00
-chk "② «<@$UID0> 오빠 승인 대기 2건» 1줄" '[ "$(lastbody | grep -cxF "<@$UID0> 오빠 승인 대기 2건")" = 1 ]'
+chk "② «<@${UID0}> 오빠 승인 대기 2건» 1줄" '[ "$(lastbody | grep -cxF "<@${UID0}> 오빠 승인 대기 2건")" = 1 ]'
 chk "② 본문 전체 «<@» 1회" '[ "$(tags)" = 1 ]'
+GM="1 | 하네스 운영 | 3 | 5 | 결정 담당 <@${UID0}>"
+reset; goal "$GM"; mk 2; run 2026-11-16T11:10:00
+chk "② 상태 글 «<@id>» + 승인 대기 2 → «<@» 1회(막힌 것 줄)" '[ "$(tags)" = 1 ] && [ "$(lastbody | grep -c "^<@${UID0}> 오빠 승인 대기 2건$")" = 1 ]'
+chk "② 골 줄 = «@${UID0}»(꺾쇠 없음)" 'lastbody | grep -qxF "하네스 운영: 5단계 중 3단계 끝남. 결정 담당 @${UID0}"'
 
 # ③ 태그 없음(A2) · id 바꾸기 · 기본 id 출처
 reset; goal "$G1"; mk 0; run 2026-11-16T12:00:00
 chk "③ 승인 대기 0 → «없음» · «<@» 0회" 'lastbody | grep -qx "없음" && [ "$(tags)" = 0 ]'
 reset; mk 1; FT_OPPA_SLACK_UID=UTEST run 2026-11-16T12:10:00
-chk "③ FT_OPPA_SLACK_UID=UTEST → «<@UTEST>» 1회 · 기본 id 0회" '[ "$(lastbody | grep -o "<@UTEST>" | wc -l | tr -d " ")" = 1 ] && ! lastbody | grep -q "$UID0"'
-chk "③ 기본 id = ft_oppa_slack_check.OPPA_SLACK_UID" '[ "$(cd "$BIN" && python3 -c "import ft_oppa_slack_check as m; print(m.OPPA_SLACK_UID)")" = "$UID0" ]'
+chk "③ FT_OPPA_SLACK_UID=UTEST → «<@UTEST>» 1회 · 기본 id 0회" '[ "$(lastbody | grep -o "<@UTEST>" | wc -l | tr -d " ")" = 1 ] && ! lastbody | grep -q "${UID0}"'
+reset; goal "$GM"; mk 0; run 2026-11-16T12:20:00
+chk "③ 상태 글 «<@id>» + 승인 대기 0 → «<@» 0회 · 골 줄 «@id»" '[ "$(tags)" = 0 ] && lastbody | grep -qxF "하네스 운영: 5단계 중 3단계 끝남. 결정 담당 @${UID0}"'
+reset; goal "1 | 하네스 운영 | 3 | 5 | 모두 보세요 <!channel>"; mk 0; run 2026-11-16T12:30:00
+chk "③ 상태 글 «<!channel>» → 본문 «<!» 0회 · «!channel» 남음" '! lastbody | grep -q "<!" && lastbody | grep -q "보세요 !channel"'
+chk "③ 기본 id = ft_oppa_slack_check.OPPA_SLACK_UID" '[ "$(cd "$BIN" && python3 -c "import ft_oppa_slack_check as m; print(m.OPPA_SLACK_UID)")" = "${UID0}" ]'
+
+# ⑦ 의미 없는 글 0(A6) — 기준판에서도 PASS(고정 시험)
+reset; goal "$G1"; mk 1; run 2026-11-16T13:00:00; n7="$(replies)"
+run 2026-11-16T13:02:00
+chk "⑦ 같은 열쇠 둘째 틱 = «변화 없음 — 발행 0» · 발행 도구 호출 0" 'grep -q "변화 없음 — 발행 0" "$T/out" && [ "$(replies)" = "$n7" ]'
+mk 2; run 2026-11-16T13:03:00
+chk "⑦ 열쇠 바뀜 + 300초 안 = «디바운스» · 호출 0" 'grep -q "디바운스" "$T/out" && [ "$(replies)" = "$n7" ]'
 
 echo "fail=$fail"; [ "$fail" = 0 ]
