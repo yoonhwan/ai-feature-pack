@@ -3,7 +3,7 @@
 #   desk 틱 1턴 = 이 스크립트 1회. 모델이 6항을 «직접 재지» 않는다 — 비모델이 재서 출력 ≤30줄 · 마지막 줄 `결정 필요: N`.
 #   N=0 이면 그 턴의 도구는 «이 호출 1회» 뿐이다(추가 0) · N≥1 이면 그 항목만 도구 1회 더 = 총 2회. E3(틱 턴 도구 ≤1)는 N=0 경로에서만 닫힌다.
 #   실행은 하지 않는다 — ⑥ 발송 하나만 이 스크립트가 한다.
-#   ① ft-hil.sh --pending 중 이 desk 몫(.notify 가 desk 계보) ② launchctl print(stall-scan · ft-tick · news 2종) state/last exit
+#   ① ft-hil.sh --pending 중 이 desk 몫(.notify 가 desk 계보) ② launchctl print(stall-scan · keeper · board-news · r2102) state/last exit
 #      + stall-scan 로그 마지막 ts ③ 팀장별 마지막 쪽지 시각(mailbox.log.jsonl · 20분+ 만 줄) ④ 받은편지함 감시(ft-inbox-watch) owner
 #   ⑤ mbox.sh recv <desk> 머리(seq·from·본문 60자 · 전문은 상태 폴더 파일) ⑥ planner _master 에 [완료] 3줄(스크립트가 조립·발송)
 #   ★소비 경계★: recv 는 우편함을 소비한다 — 결속(root·현재 desk·planner _master·`_desk` 일치)을 «확인한 뒤» 에만 부르고,
@@ -82,9 +82,9 @@ if item HIL; then
   fi
 fi
 
-# ② launchd 4종 state/last exit + stall-scan 로그 마지막 ts
+# ② launchd 3종 state/last exit + stall-scan 로그 마지막 ts + 뉴스 마지막 발행(r2102)
 if item LAUNCH; then
-  for spec in "stall-scan=com.byz.ft-stall-scan" "tick=com.byz.ft-tick" "news-planner=com.byz.ft-news-planner" "news-desk=com.byz.ft-news-desk"; do
+  for spec in "stall-scan=com.byz.ft-stall-scan" "keeper=com.byz.ft2-keeper" "board-news=com.byz.ft-board-news"; do   # r2102 2.0 적재 라벨
     nm="${spec%%=*}"; label="${spec#*=}"
     lout="$(X "$LAUNCHCTL" print "gui/$UIDN/$label" 2>&1)"; rc=$?
     if [ "$rc" -ne 0 ]; then fail_line "LAUNCH $nm" "$rc"; LAUNCH_BAD=$((LAUNCH_BAD+1)); continue; fi
@@ -106,6 +106,13 @@ if item LAUNCH; then
       o "STALL-SCAN 로그 $(iso "$tse") (${age}분 전)"
       [ "$age" -lt 10 ] || DEC=$((DEC+1))
     fi
+  fi
+  # r2102 뉴스 마지막 발행 = news-last.json 의 at(파일 읽기뿐) · 상한 이상 = STALE + 결정 필요 1
+  nl="$(X python3 -c 'import datetime,json,sys; a=json.load(open(sys.argv[1]))["at"]; print(a[:16], int(datetime.datetime.fromisoformat(a).timestamp()))' "$ROOT/.fable-team/state/board/news-last.json" 2>/dev/null)"
+  if [ $? -ne 0 ] || [ -z "$nl" ]; then o "NEWS 판정 불가 — news-last.json"; FAILS=$((FAILS+1)); DEC=$((DEC+1)); else
+    OKN=$((OKN+1)); nage=$(( (NOW - ${nl##* }) / 3600 )); [ "$nage" -ge 0 ] || nage=0
+    if [ "$nage" -ge "${FT_DESK_TICK_NEWS_STALE_H:-6}" ]; then o "NEWS last_post=${nl% *} age=${nage}h STALE"; DEC=$((DEC+1))
+    else o "NEWS last_post=${nl% *} age=${nage}h"; fi
   fi
 fi
 
