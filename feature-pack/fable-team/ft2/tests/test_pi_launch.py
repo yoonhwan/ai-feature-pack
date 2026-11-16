@@ -516,8 +516,8 @@ MUTANTS = {
            '    if given.get("dry"):\n        os.makedirs(os.path.dirname(plan["intent"]), exist_ok=True)\n'
            '        write_intent(plan["intent"], dict(env, state="opening"))'),
     "M3": ("launch_plan.py", "os.link(tmp, path)", "shutil.copyfile(tmp, path)"),   # r1929 O_EXCL → link 예약 · 덮어쓰기 = 두 번 열림
-    "M4": ("launch.py", '    rc, detail = call(plan["tmux"], None, dict(os.environ, **env), TMUX_TIMEOUT)\n    if rc != 0:',
-           '    rc, detail = call(plan["tmux"], None, dict(os.environ, **env), TMUX_TIMEOUT)\n    rc = 0\n    if rc != 0:'),
+    "M4": ("launch.py", '    rc, detail = call(plan["tmux"], None, dict(bare, **env), TMUX_TIMEOUT)\n    if rc != 0:',
+           '    rc, detail = call(plan["tmux"], None, dict(bare, **env), TMUX_TIMEOUT)\n    rc = 0\n    if rc != 0:'),
     "M5": ("launch_plan.py", '+ pairs + [pi or "pi"]', '+ [] + [pi or "pi"]'),
     "M6": ("launch.py", "GIT_TIMEOUT, TMUX_TIMEOUT, USAGE = 25, 7, 64", "GIT_TIMEOUT, TMUX_TIMEOUT, USAGE = 7, 7, 64"),
     "M7": ("launch.py", 'repo = os.path.abspath(given.get("repo") or root)', 'repo = os.path.abspath(root)'),
