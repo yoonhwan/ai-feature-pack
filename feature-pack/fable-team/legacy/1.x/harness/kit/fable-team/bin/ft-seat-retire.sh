@@ -220,7 +220,9 @@ if not noop:
     else:
         if role != "stop-ready" or n.get("role") == "stop-ready": n["role"] = sr   # r499 ⓘ 후계가 stop-ready 꼴(_replaced_by 없음 — 위 rc 3 이 걸렀다)이면 도출값
         if not n.get("tick"): n["tick"] = tick
-    if o.get("index") and not n.get("index"): n["index"] = o["index"]   # R370 카드 경로 상속(덮어쓰기 0) — 없으면 nano-close ⑥ 이 «카드 못 찾음»
+    if o.get("index") and not n.get("index"):
+        n["index"] = o["index"]   # R370 카드 경로 상속(덮어쓰기 0) — 없으면 nano-close ⑥ 이 «카드 못 찾음»
+        if o.get("source") == "ft2-launch": [n.setdefault(k, o[k]) for k in ("work", "source") if k in o]   # r2142 ft2 행 표시도 같이(후계에 있는 칸은 빈 값이어도 덮어쓰기 0) — 없으면 후계가 1.x 나노로 보여 «카드 파일 없음»
     n["_replaces"] = sorted(set(n.get("_replaces", []) + [old]))
 for k in keys + ([fc] if fc else []): d[k] = new
 if own: dump(p, d)   # 쓰기 중 죽어도 원본 무손상(tmp→교체)
