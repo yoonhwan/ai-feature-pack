@@ -244,8 +244,9 @@ def judge_row(table, row, ddl_ok, env_ok=lambda p: False, card_scope=None):   # 
     if not new_test_sh and ((st[0] == "M" and om != nm) or (st[0] == "A" and nm != "100644")):
         return "forbid", "mode", "모드 %s→%s: %s" % (om, nm, paths[0])
     new_sql = bool(bad) and bad[0] == "ddl" and st[0] == "A" and bad[1].endswith(".sql")
-    if new_sql and ddl_ok(bad[1]):
-        return "docs", "ddl-recorded", None
+    recorded = new_sql and ddl_ok(bad[1])   # r2104: ddl_ok → 참(applied) | "ddl-record-only"(design/ 기록만 SQL)
+    if recorded:
+        return "docs", recorded if isinstance(recorded, str) else "ddl-recorded", None
     if bad:
         return "forbid", "ddl-no-record" if new_sql else bad[0], forbid_text(bad[0], bad[1])
     return classes[-1][0], classes[-1][1], None
@@ -282,7 +283,7 @@ def d2_apply(table, rows, judged, allow):   # r1934 ① 허용 키 forbid → co
     return used
 
 
-def load_ddl_records(path):   # 줄 꼴 `기록 파일(리포 기준 경로)<TAB>줄 정규식` — 정규식에 {sql} 이 있으면 그 sql 파일 이름으로 바꾼다
+def load_ddl_records(path):   # 줄 꼴 `기록 파일(리포 기준 경로)<TAB>줄 정규식` — 정규식에 {sql} 이 있으면 그 sql 파일 이름으로 바꾼다 · r2104 3칸 `record-only<TAB>기록 파일<TAB>줄 정규식`({path} = 전체 경로)
     if not path:
         return []
     out = []
@@ -291,9 +292,9 @@ def load_ddl_records(path):   # 줄 꼴 `기록 파일(리포 기준 경로)<TAB
             if not line.strip() or line.startswith("#"):
                 continue
             cols = line.rstrip("\n").split("\t")
-            if len(cols) != 2:
+            if len(cols) != 2 and not (len(cols) == 3 and cols[0] == "record-only"):
                 raise TableErr("DDL 기록표 %s:%d 꼴 틀림" % (os.path.basename(path), n))
-            out.append((cols[0], cols[1]))
+            out.append(tuple(cols))
     return out
 
 
@@ -419,9 +420,20 @@ def critical_kinds(blocks, secret=None, show=None, profile="full", scoped=None):
 
 def ddl_recorded(records, sql_path, added, show):   # added = PR 추가 줄 · show(경로) = sha 트리의 그 파일 본문(없으면 "")
     name = re.escape(os.path.basename(sql_path))
-    for where, rx in records:
+    for where, rx in (r for r in records if len(r) == 2):   # r2104: 3칸(record-only) 줄은 이 길 밖
         pat = re.compile(rx.replace("{sql}", name))
         text = added if where == "-" else show(where)
         if any(pat.search(ln) for ln in text.split("\n")):
             return True
     return False
+
+
+def record_only(records, sql_path, show_target):   # r2104 → "ddl-record-only" | "" · show_target(경로) = <remote>/<target> 끝 tree 본문(없음·git 실패 = "")
+    parts = sql_path.split("/")
+    if parts[0] != "design" or any(p.casefold() in ("migrations", "alembic") for p in parts):   # 머지가 곧 실행인 마디 = 닫힌 쪽
+        return ""
+    for _k, where, rx in (r for r in records if len(r) == 3):
+        pat = re.compile(rx.replace("{path}", re.escape(sql_path)))
+        if any(pat.search(ln) for ln in show_target(where).split("\n")):
+            return "ddl-record-only"
+    return ""
