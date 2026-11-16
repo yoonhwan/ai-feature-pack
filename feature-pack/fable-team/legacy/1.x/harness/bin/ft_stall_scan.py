@@ -22,6 +22,7 @@ import re
 import shlex
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 import ft_card_assign_pause as pause
@@ -351,6 +352,15 @@ class Scan:
                 if hit:
                     m = re.search(r"\[인계\] #([\d,]+)", first)
                     self.wlist.append((old, new, m.group(1).split(",")[-1] if m else "?", first))
+                elif first.startswith(f"REJECT {old} [인계] 없음"):  # r2089 C4 — 도달 파일 나이 0..창 = 승계 중(0통) · 창 밖·못 읽음 = 1통(seq 칸 "-")
+                    s = int(v) if (v := os.environ.get("FT_HANDOVER_READY_WAIT_S") or "").isdigit() else 600
+                    try:
+                        r = json.loads((self.root / f".fable-team/state/successor/{old}.json").read_text(encoding="utf-8"))
+                        a = self.now - datetime.strptime(r["reached_at"], "%Y-%m-%dT%H:%M:%S%z").timestamp() if isinstance(r["successor"], str) and r["successor"] else None
+                    except (OSError, ValueError, KeyError, TypeError):
+                        a = None
+                    if a is None or not 0 <= a <= s:
+                        self.wlist.append((old, new, "-", first))
         return unknown
 
     def act_w(self, stamp: str) -> list[str]:
@@ -358,8 +368,8 @@ class Scan:
         tool, log = str(HERE / "ft-critical-notify.sh"), []
         env = {**os.environ, "FT_MBOX": self.mbox, "FT_MBOX_DIR": str(self.comm)}
         for old, new, seq, first in self.wlist:
-            rc, _out = run(["bash", tool, "ft-seat-close", old, "--event", f"ready-missing #{seq}", "--what", first[:300],
-                            "--next", f"후계가 bash mbox.sh ready {new} {old}"], env, 10)
+            ev, nx = ("handover-missing", f"bash mbox.sh handover {old} {new}") if seq == "-" else (f"ready-missing #{seq}", f"후계가 bash mbox.sh ready {new} {old}")
+            rc, _out = run(["bash", tool, "ft-seat-close", old, "--event", ev, "--what", first[:300], "--next", nx], env, 10)
             log.append(f"{stamp} act=w seat={old} succ={new} seq={seq} rc={rc}")
         return log
 
