@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # pyright: basic
 """ft_nano_record_repo.py — r1849 ⓑ 카드가 장부 루트 밖 리포(팩)에 있을 때 그 리포의 카드 ref·명부를 읽는다. 부르는 곳 = ft_nano_record_due(card_rows · cmd_settle).
+r2056 resolve_owner = due·landed 공통 차례 찾기(카드 팀 명부 → 0 이면 같은 폴더 다른 명부) · ft2 settle 의 resolve_card(카드 자리)와 별개.
 상태·보낸 기록·우편함 = 장부 루트 그대로(sub.state·sub.comm = 부른 ctx 것). 같은 루트 = 부른 ctx 그대로(git 호출 0 · r2071 묶음 판 불변)."""
 from __future__ import annotations
 
@@ -52,3 +53,28 @@ def repo_hits(ctx, ent, stem, hits):   # settle — 루트 카드 루트 표 0�
         return hits
     out = need(["git", "-C", str(sub.root), "ls-tree", "-r", "--name-only", "-z", sub.tip("")["sha"], "--", "design"], "git ls-tree 카드")[1]
     return dict(enumerate(sorted(str(sub.root / p) for p in out.split("\0") for m in [CARD_RX.search(p)] if m and m.group(4) == stem)))
+
+
+def resolve_owner(ctx, team, doc, stem, sec):   # r2056 A1~A5 — 차례(owners) 카드 팀 명부 먼저 · 0 이면 같은 폴더 seats.json·seats-*.json(카드 팀 제외 · 파일 이름 순 · 같은 규칙) → (차례를 찾은 명부, 차례들)
+    from ft_nano_record_due import owners   # due 가 이 파일을 먼저 읽는다(순환 import 0)
+    own, said = owners(ctx, doc, stem, sec), vars(ctx).setdefault("_r2056_said", set())
+
+    def say(m):   # 실행당 같은 줄 1번(due 두 판 · landed 재시도)
+        if m not in said:
+            said.add(m)
+            print(m, flush=True)
+    if own:   # r2056-mut:stop
+        return doc, own   # A2 — 다른 명부 읽기 0
+    for p in sorted((ctx.root / ".fable-team").glob("seats*.json")):   # r2056-mut:cross
+        name = "v65" if p.name == "seats.json" else p.name[6:-5] if p.name.startswith("seats-") else ""
+        if not name or name == team:
+            continue
+        try:
+            d = ctx.seats(name)
+        except Unjudged:   # A4 — 그 명부만 건너뜀(카드 팀 명부 실패 = 부른 쪽 Unjudged 그대로)
+            say(f"명부 {p.name} 판정 불가 — 건너뜀")
+            continue
+        if found := owners(ctx, d, stem, sec):
+            say(f"차례 명부 {p.name} 카드={stem} (카드 팀 명부 차례 0)")
+            return d, found
+    return doc, own   # A3 — 0 이면 지금 길(카드 팀 명부 · r1805 팀장)
