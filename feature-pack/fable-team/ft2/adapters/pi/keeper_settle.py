@@ -61,6 +61,11 @@ def descendants(rows, root, depth=CPU_DEPTH):
     return out
 
 
+def long_seat(holder):
+    """r2135 — holder 이름 역할 토큰(«byz-<팀>-» 뒤 첫 낱말 · close protected_ok 와 같은 셈)이 nano 아님 = 장기 좌석 · holder 없음 = 아님(지금 길)."""
+    return bool(holder) and not (holder.startswith("byz-") and (holder.split("-") + ["", ""])[2] == "nano")
+
+
 def working(pane):
     """A13 pane 일함 근거 — 끝 12줄 · 입력줄(❯ · ›) 뒤 글자 = 근거 0(고스트) · Working · esc to interrupt · 스피너."""
     rows = [x for x in pane.rstrip("\n").splitlines()[-12:] if not x.lstrip().startswith(("❯", "›"))]
@@ -129,13 +134,21 @@ class Settling:
         return "idle" if first is not None and now - first >= CPU_GAP else "pending"
 
     def pi_turn(self, intent):
-        """(jsonl 무활동 초, 마지막 줄 stopReason) · 파일 없음 = (None, None)."""
-        why = self.pi_last_turn(intent)
-        if why.startswith(("세션 파일 없음", "intent 시각 없음")):
-            return None, None
-        sessions = self.env.get("FT2_PI_SESSIONS") or os.path.expanduser("~/.pi/agent/sessions")
-        folder = os.path.join(sessions, "--%s--" % (intent.get("worktree") or "").strip("/").replace("/", "-"))
-        newest = max((os.path.join(folder, f) for f in os.listdir(folder) if f.endswith(".jsonl")), key=os.path.getmtime)
+        """(jsonl 무활동 초, 마지막 줄 stopReason) · 파일 없음 = (None, None).
+        r2135 L1 — 장기 좌석 holder = 좌석 jsonl(seat_log) 한 파일에서 나이·마지막 줄 · 나노 = 일 worktree 폴더(지금 길)."""
+        holder = intent.get("FT2_HOLDER") or ""
+        if long_seat(holder):   # r2135 L1
+            newest = self.seat_log(holder)
+            if not newest:
+                return None, None
+            why = self.last_line(newest)
+        else:
+            why = self.pi_last_turn(intent)
+            if why.startswith(("세션 파일 없음", "intent 시각 없음")):
+                return None, None
+            sessions = self.env.get("FT2_PI_SESSIONS") or os.path.expanduser("~/.pi/agent/sessions")
+            folder = os.path.join(sessions, "--%s--" % (intent.get("worktree") or "").strip("/").replace("/", "-"))
+            newest = max((os.path.join(folder, f) for f in os.listdir(folder) if f.endswith(".jsonl")), key=os.path.getmtime)
         stop = "stop" if not why else why.rpartition("/")[2] if why.startswith("마지막 줄") else None
         return self.now() - os.path.getmtime(newest), stop
 
@@ -267,24 +280,29 @@ class Settling:
         ① 재개 기록 seat-resume/<세션명>.json 의 jsonl 칸(파일 실재할 때만 · mtime = 나이)
         ② 없으면 session_path 의 pi(`--<cwd>--`)·claude(projects/<cwd `/`·`.` → `-`>) 폴더 최신 *.jsonl = 상한 — 무활동 ≥ PARK_IDLE = 그 나이 ·
         더 최근 ∧ 같은 session_path 에 살아 있는 byz 세션 2개 이상 = 누구 것인지 못 가름(None) · 혼자 쓰는 폴더 = 그 나이 · jsonl 0 = None."""
+        log = self.seat_log(seat)
+        return (self.now() - os.path.getmtime(log), "stop") if log else (None, None)
+
+    def seat_log(self, seat):
+        """seat_turn 의 jsonl 1개(경로) · 못 정함 = None — 규칙 = seat_turn 독스트링 ①② 그대로(r2135 L1 가 같은 파일로 나이·마지막 줄을 읽음)."""
         home = self.env.get("HOME") or os.path.expanduser("~")
         doc = self.read_json(os.path.join(self.env.get("FT2_SEAT_RESUME_DIR") or os.path.join(home, ".claude", "state", "seat-resume"), seat + ".json"))
         log = str(doc.get("jsonl") or "") if isinstance(doc, dict) else ""
         if log and os.path.isfile(log) and self.resume_ok(seat):   # R2 검증을 통과한 기록만(칸이 있다는 것만으로 0)
-            return self.now() - os.path.getmtime(log), "stop"
+            return log
         cwd, born = self.seat_path(seat), self.seat_born(seat)
         if not cwd or born is None:
-            return None, None
+            return None
         pi = self.env.get("FT2_PI_SESSIONS") or os.path.join(home, ".pi", "agent", "sessions")
         claude = self.env.get("FT2_CLAUDE_PROJECTS") or os.path.join(home, ".claude", "projects")
         files = glob.glob(os.path.join(pi, "--%s--" % cwd.strip("/").replace("/", "-"), "*.jsonl")) + glob.glob(os.path.join(claude, re.sub(r"[/.]", "-", cwd), "*.jsonl"))
-        times = [t for t in map(os.path.getmtime, files) if t >= born]   # 좌석 시작(session_created) 뒤에 쓰인 jsonl 만
+        times = {f: t for f, t in zip(files, map(os.path.getmtime, files)) if t >= born}   # 좌석 시작(session_created) 뒤에 쓰인 jsonl 만
         if not times:
-            return None, None
-        age = self.now() - max(times)
-        if age < PARK_IDLE and sum(1 for x in self.alive_sessions() if x.startswith("byz-") and self.seat_path(x) == cwd) >= 2:
-            return None, None
-        return age, "stop"
+            return None
+        log = max(times, key=times.get)
+        if self.now() - times[log] < PARK_IDLE and sum(1 for x in self.alive_sessions() if x.startswith("byz-") and self.seat_path(x) == cwd) >= 2:
+            return None
+        return log
 
     def pane2(self, holder):
         """2차 판독 — capture-pane 끝 12줄(입력줄 ❯·› 뒤 글자 = 근거 0) Working·esc to interrupt·스피너 = busy · 없음 표본 2개(간격 ≥ 30초) = rest · 1개 = pending · capture 실패 = None."""
@@ -339,6 +357,8 @@ class Settling:
         got = self.look(team, work, attempt, holder, *self.pi_turn(intent))
         if got != "REST":
             return got
+        if long_seat(holder):   # r2135 L2 — 장기 좌석 = 쉼이어도 kill·park 0 · [긴급] 0(close protected_ok 꼴)
+            return self.verdict(team, work, holder, "WORKING", "protected", "나노만 닫는다 · kill·park 0")
         shell = self.cache["@round"]["shell"][holder]
         bad = self.unsafe(team, work, holder, intent, done)
         if bad:
