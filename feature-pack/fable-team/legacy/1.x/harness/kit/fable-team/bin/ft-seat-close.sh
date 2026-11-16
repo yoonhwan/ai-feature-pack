@@ -14,11 +14,11 @@ set -uo pipefail
 # r1718 A5·A7: 자기 감싸기 1곳 — 본 작업은 자식 1회 · 출력·rc 그대로 · rc 1 REJECT 에 «진행» 아닌 사유가 있으면 desk [크리티컬] 1통 · rc 0 = 해결
 [ "${FT_CRITICAL_IN:-}" = "$PPID" ] || [ "${FT_CRITICAL_OFF:-0}" = 1 ] || [ ! -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-critical-notify.sh" ] || exec bash "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-critical-notify.sh" --wrap ft-seat-close "${BASH_SOURCE[0]:-$0}" "$@"   # r1718-mut:seatcall
 #   r1656 `--done`(2.0 세션 수명 · 팀장 role=master 만): 관문 넷 ①우편함 큐+로그의 마지막 발신 머리 `[다음 없음` ②ft-seat-open-work rc0(7초) ③close-check --no-ready rc0 ④retire --record-only --verdict <①seq> + 기록 실재 — 하나라도 아니면 REJECT rc1(쓰기 0 · kill 0). 통과 = 행 _closed.done{ts,seq} · role·_master 칸 그대로 · reap→태그→kill→final · CLOSED-DONE. 틱은 그 행을 받을 일 0 이면 «쉬는 중» 으로 본다.
-USAGE="usage: $0 <좌석> --reason \"<1줄>\" [--seats <파일>] [--verdict <번호> | --done] | $0 --reopen <좌석> [--seats <파일>]"
+USAGE="usage: $0 <좌석> --reason \"<1줄>\" [--seats <파일>] [--verdict <번호> | --done] [--defer-press] | $0 --reopen <좌석> [--seats <파일>]"
 REOPEN=0; [ "${1:-}" != --reopen ] || { REOPEN=1; shift; }
 SEAT="${1:-}"; case "$SEAT" in ""|--*) echo "$USAGE" >&2; exit 2;; esac
-shift; REASON=""; ARG=""; VERDICT=""; REC=""; NOLINE=""; DEAD=0; RN=""; DONE=0; DSEQ=""   # RN = renamed_ok 가 확정한 후계(r1691)
-while [ $# -gt 0 ]; do case "$1" in --reason) REASON="${2:-}"; shift 2;; --seats) ARG="${2:-}"; shift 2;; --reopen) REOPEN=1; shift;; --done) DONE=1; shift;; --verdict) VERDICT="${2:-}"; [[ "$VERDICT" =~ ^[0-9]+$ ]] || { echo "$USAGE — --verdict <번호>" >&2; exit 2; }; shift 2;; *) echo "unknown $1" >&2; echo "$USAGE" >&2; exit 2;; esac; done
+shift; REASON=""; ARG=""; VERDICT=""; REC=""; NOLINE=""; DEAD=0; RN=""; DONE=0; DSEQ=""; DFR=""   # DFR = r2153 retire 길 미룸(--defer-press → reap·final 에 그대로) · RN = renamed_ok 가 확정한 후계(r1691)
+while [ $# -gt 0 ]; do case "$1" in --reason) REASON="${2:-}"; shift 2;; --seats) ARG="${2:-}"; shift 2;; --reopen) REOPEN=1; shift;; --done) DONE=1; shift;; --defer-press) DFR=--defer-press; shift;; --verdict) VERDICT="${2:-}"; [[ "$VERDICT" =~ ^[0-9]+$ ]] || { echo "$USAGE — --verdict <번호>" >&2; exit 2; }; shift 2;; *) echo "unknown $1" >&2; echo "$USAGE" >&2; exit 2;; esac; done
 [ "$REOPEN" = 1 ] || [ -n "${REASON//[[:space:]]/}" ] || { echo "$USAGE — --reason 필요" >&2; exit 2; }
 [ "$REOPEN" = 0 ] || [ -z "$VERDICT" ] || { echo "$USAGE — --reopen 과 --verdict 는 같이 쓰지 않는다" >&2; exit 2; }
 [ "$DONE" = 0 ] || { [ -z "$VERDICT" ] && [ "$REOPEN" = 0 ]; } || { echo "$USAGE — --done 은 --verdict·--reopen 과 같이 쓰지 않는다" >&2; exit 2; }
@@ -213,7 +213,7 @@ PY2
 # r448: kill «앞» 그 좌석이 띄운 백그라운드 루프 정지(ft-seat-reap) — left≠0 ∨ rc≠0 = CLOSE-FAIL rc 1(세션 보존 · 명부 표기는 남음 · 사람 판단). 세션이 이미 없어도 고아 루프를 본다.
 # r1568 ② — 정지·재조사 반복은 ft-seat-reap 안에서 끝났다(마지막 정지 1회 + 재조사 · 총 3회 상한). 여기서 남으면 CLOSE-FAIL 이유 1줄 rc≠0 — 세션 보존.
 reap() {
-  local o r; o="$(bash "${FT_SEAT_REAP_BIN:-$HERE/ft-seat-reap.sh}" "$SEAT" 2>&1)"; r=$?; RL="$(printf '%s\n' "$o" | grep -oE 'left=[0-9?]+' | tail -1)"
+  local o r; o="$(bash "${FT_SEAT_REAP_BIN:-$HERE/ft-seat-reap.sh}" "$SEAT" $DFR 2>&1)"; r=$?; RL="$(printf '%s\n' "$o" | grep -oE 'left=[0-9?]+' | tail -1)"
   printf '%s\n' "$o" >&2
   [ "$r" -eq 0 ] && [ "$RL" = left=0 ] && return 0
   cfail fail-reap "reap ${RL:-left=?} rc=$r" "$o"
@@ -226,7 +226,7 @@ cfail() {   # r1568 ⑤⑥ — 실패 기록 1개(좌석·담당·이유·남은
   vlog "$tag"; finish 1 "CLOSE-FAIL $why — $SEAT 세션 보존(명부 표기는 남음 file=$FILE · 기록 $CF)"
 }
 final() {   # r1568 ④ — 닫힘 확인: 세션 부재 ∧ 최종 재조사 left=0 둘 다일 때만 닫는다 · 원문(⑥)은 stderr 에
-  local o r g L; o="$(bash "${FT_SEAT_REAP_BIN:-$HERE/ft-seat-reap.sh}" "$SEAT" 2>&1)"; r=$?
+  local o r g L; o="$(bash "${FT_SEAT_REAP_BIN:-$HERE/ft-seat-reap.sh}" "$SEAT" $DFR 2>&1)"; r=$?
   printf 'reap-final %s\n' "$(printf '%s\n' "$o" | grep -E '^reap' | tail -3)" >&2
   tmux has-session -t "=$SEAT" 2>/dev/null && g=alive || g=gone
   [ "$r" -eq 0 ] && [ "$g" = gone ] && rm -f "$CF" && return 0
