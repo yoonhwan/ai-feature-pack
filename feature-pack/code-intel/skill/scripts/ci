@@ -66,7 +66,7 @@ need_tilth() { [ -n "$TILTH" ] || die_missing tilth "  npx -y tilth --version   
 _lsp_uptime() { "$PROBE" lsp status 2>/dev/null | sed -n 's/^ *Uptime: *//p' | head -1; }
 _ep() { date -j -u -f '%Y-%m-%dT%H:%M:%S' "${1%%.*}" +%s 2>/dev/null || echo 0; }
 _lsp_crash_state() {
-  local f ents ts msg cnt last e now stamp
+  local f ents ts msg cnt last e now stamp v age
   f="${PROBE_LSP_CRASH_LOG:-$HOME/Library/Caches/probe/lsp-daemon-crashes.log}"; now="$(date +%s)"
   if [ -f "$f" ]; then
     ents="$(tail -c 8000 "$f" 2>/dev/null | awk '/^timestamp: /{ts=$2} /^message: /{if ($0 ~ /read enough data|core database|logical_log/) print ts "\t" substr($0,10)}')"
@@ -79,7 +79,9 @@ _lsp_crash_state() {
   [ "${1:-}" = "slow" ] || return 1
   stamp="${TMPDIR:-/tmp}/ci-lsp-uptime0.$(id -u)"
   case "$(_lsp_uptime)" in 0s|0sec|0secs) ;; *) rm -f "$stamp"; return 1 ;; esac
-  [ -f "$stamp" ] && [ $((now - $(cat "$stamp" 2>/dev/null || echo 0))) -lt 120 ] && { echo "Uptime 0s 2회 연속"; return 0; }
+  v="$(cat "$stamp" 2>/dev/null)"; age=$((now - ${v:-0}))   # r2024 — 하한 미만 = 같은 데몬의 첫 1초(동시 호출) · 안 센다 · stamp 그대로
+  [ -f "$stamp" ] && [ "$age" -lt "${CI_LSP_UPTIME0_MIN_GAP:-2}" ] && return 1
+  [ -f "$stamp" ] && [ "$age" -lt 120 ] && { echo "Uptime 0s 2회 연속"; return 0; }
   date +%s > "$stamp"; return 1
 }
 

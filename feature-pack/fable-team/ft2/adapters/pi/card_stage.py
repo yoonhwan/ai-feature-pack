@@ -6,10 +6,12 @@ git 1회 = 7초(하드 룰 12 · 늘리지 않는다) · 시간 초과 글에 �
 push 전 자기 검사 = 커밋 변화가 D <옛 경로> 1줄 + 완성/ 밑 .md A 1줄뿐인가(G8).
 머리 `- 상태:` 줄 = 완성 + `## 상태` 절 끝 1줄 · 커밋 글 `[docs] <카드> 2.0 완성 폴더(ft2 done)` 그대로(G7).
 rc 0 STAGED·NOOP · 1 REJECT done 없음(쓰기 0) · 3 판정 불가(push 시간초과 = 결과 불명 · 다시 돌리면 NOOP·STAGED 로 수렴).
+r2037 — `--da <판정문#§N>`: done 없음이면 §N 절을 ft_close_marker(1.x 한 곳 · 사본 0)로 읽어 닫힘이면 같은 stage() · 원장에 work 있고 done=false 면 complete 1회.
 """
 import argparse
 import importlib.util
 import os
+import re
 import subprocess
 import tempfile
 import time
@@ -21,6 +23,8 @@ _SPEC.loader.exec_module(land)
 proj = land.cli._load("projection")   # keeper_land.done 과 같은 projection.project(공개 API) · core 손 0
 PAIR = ("worktree",)   # G1 — 둘째 낱말까지 적는 명령(worktree add · worktree remove …)
 class Unsure(Exception):
+    pass
+class Reject(Exception):
     pass
 class Slow(Unsure):
     """git 1회 7초 초과 — 결과 불명(재시도 1회는 push 만 · G5)."""
@@ -88,8 +92,23 @@ def card(byz, root, team, work, sha):
     if not picks or len(doing[picks[0][0]]) != 1:
         raise Unsure("진행 카드 %d개" % sum(map(len, doing.values())))
     return picks[0]
-def restate(text, at, now, frm="진행"):
-    lines, top = text.rstrip("\n").split("\n"), "- 상태: 완성 · %s · ft2 complete %s" % (now, at)
+def da_check(root, spec, stem):
+    """r2037 A1·A2·A4 — 판정문 §N 절 → ft_close_marker <stem> · 통과 None · 거절 = 사유 1줄 · 판정문·lib 읽기 실패 = Unsure."""
+    path, _, sec = spec.rpartition("#")
+    lib = os.path.join(root, ".fable-team", "bin", "ft-team-lib.sh")   # 설치된 1.x 런타임 lib(ft_close_marker 단일 출처 · r1784)
+    try:   # 절 = `## …§N` 머리부터 다음 `## ` 전까지(ft-index-close-landed 와 같은 꼴)
+        with open(path, encoding="utf-8") as fh:
+            body = "".join(s for s in re.split(r"(?m)^(?=## )", fh.read()) if (m := re.match(r"## .*?(§\d+)(?!\d)", s)) and m.group(1) == sec)
+        p = body and subprocess.run(["bash", "-c", '. "$1" >/dev/null 2>&1 || exit 9; ft_close_marker "$2"', "x", lib, stem],
+                                    input=body.encode(), capture_output=True, timeout=7)
+    except (OSError, UnicodeDecodeError, subprocess.TimeoutExpired) as exc:
+        raise Unsure("판정문 읽기 %s" % type(exc).__name__) from None
+    if p and p.returncode > 1:
+        raise Unsure("ft_close_marker rc %s" % p.returncode)
+    out = p.stdout.decode("utf-8", "replace").strip() if p else "판정문에 %s 절 없음" % (sec or "§N")
+    return None if p and p.returncode == 0 and out[:4] in ("card", "pack") else out or "%s 에 %s 닫힘 표식 없음" % (sec, stem)
+def restate(text, at, now, frm="진행", da=None):
+    lines, top = text.rstrip("\n").split("\n"), "- 상태: 완성 · %s · %s" % (now, "DA " + da if da else "ft2 complete " + at)
     idx = next((i for i, line in enumerate(lines) if line.startswith("- 상태:")), None)
     pos = idx if idx is not None else 1
     lines[pos:pos + (idx is not None)] = [top]
@@ -97,7 +116,8 @@ def restate(text, at, now, frm="진행"):
     end = next((i for i in range(lines.index("## 상태") + 1, len(lines)) if lines[i].startswith("## ")), len(lines))
     while lines[end - 1] == "":
         end -= 1
-    return "\n".join(lines[:end] + ["- %s · ft2 card_stage %s→완성(ft2 complete %s)" % (now, frm, at)] + lines[end:]) + "\n"
+    tail = "- %s · 완성 · DA %s · ft2 card_stage %s→완성" % (now, da, frm) if da else "- %s · ft2 card_stage %s→완성(ft2 complete %s)" % (now, frm, at)
+    return "\n".join(lines[:end] + [tail] + lines[end:]) + "\n"
 def push(byz, sha, ref, timed=False):
     """G5 — 받은 커밋 SHA 를 그대로 올린다(HEAD·rebase 0) · 7초 + 재시도 1 · 두 번째 시간 초과 = 결과 불명."""
     try:
@@ -114,22 +134,22 @@ def check(byz, parent, sha, old, new):
     rows = [(toks[i], toks[i + 1]) for i in range(0, len(toks) - 1, 2)]
     if sorted(rows) != sorted([("D", old), ("A", new)]) or not new.endswith(".md") or "/indices/완성/" not in new:
         raise Unsure("card_stage 커밋 범위 밖 %d줄" % len(rows))
-def commit_tree(byz, parent, old, new, at, now, frm):
+def commit_tree(byz, parent, old, new, at, now, frm, da=None):
     """G3 ①~⑧ — 임시 index 1개로 옛 경로 D + 완성 경로 A 커밋 · 자기 검사(G8)까지 · 커밋 SHA."""
     with tempfile.TemporaryDirectory(prefix="ft2-card-stage-") as tmp:
         env = dict(os.environ, GIT_INDEX_FILE=os.path.join(tmp, "index"))
         body, text = os.path.join(tmp, "card.md"), run(byz, "show", "%s:%s" % (parent, old))
         with open(body, "w", encoding="utf-8") as fh:
-            fh.write(restate(text, at, now, frm))
+            fh.write(restate(text, at, now, frm, da))
         run_env(byz, env, "read-tree", parent)
         blob = run_env(byz, env, "hash-object", "-w", body).strip()
         run_env(byz, env, "update-index", "--force-remove", "--", old)
         run_env(byz, env, "update-index", "--add", "--cacheinfo", "100644,%s,%s" % (blob, new))
         tree = run_env(byz, env, "write-tree").strip()
-        sha = run(byz, "commit-tree", tree, "-p", parent, "-m", "[docs] %s 2.0 완성 폴더(ft2 done)" % os.path.basename(old)[:-3]).strip()
+        sha = run(byz, "commit-tree", tree, "-p", parent, "-m", "[docs] %s 2.0 완성 폴더(%s)" % (os.path.basename(old)[:-3], "DA " + da if da else "ft2 done")).strip()
         check(byz, parent, sha, old, new)
     return sha
-def stage(byz, root, team, work, at, now):
+def stage(byz, root, team, work, at, now, da=None, gate=None):
     """G2·G3·G4 — fetch 1 · 부모 SHA 고정 · 임시 index 커밋 · push · 거절 1회면 fetch 뒤 새 끝에서 1회 더.
     돌려주는 값 = (카드 stem, "<frm>→완성", 커밋 SHA) · 이미 완성/ = None(NOOP)."""
     run(byz, "fetch", "-q", "origin", *(r.split("/", 1)[1] for r in land.REFS))
@@ -142,27 +162,51 @@ def stage(byz, root, team, work, at, now):
         ref, old = picked
         frm = "대기" if "/indices/대기/" in old else "진행"
         new = old.replace("/indices/%s/" % frm, "/indices/완성/", 1)
-        commit = commit_tree(byz, sha[ref], old, new, at, now, frm)
+        why = gate(os.path.basename(old)[:-3]) if gate else None   # r2037 — 판정문 대조는 쓰기 전(거절 = 쓰기 0)
+        if why and da:
+            raise Reject(why)
+        commit = commit_tree(byz, sha[ref], old, new, at, now, frm, da)
         rc = push(byz, commit, ref)
         if rc == 0:
-            return os.path.basename(new)[:-3], frm + "→완성", commit
+            return os.path.basename(new)[:-3], frm + "→완성", commit, why
         if refused:   # G4 — 두 번째 거절 = 지금처럼 판정 불가(원격 쓰기 여부 모름)
             raise Unsure("push 결과 불명 rc %s" % rc)
         refused = True
         run(byz, "fetch", "-q", "origin", ref.split("/", 1)[1])   # 새 끝에서 card() 부터 다시
+def ledger_complete(root, team, work):
+    """r2037 A5 — 원장에 work 가 있고 done=false 면 cli complete 1회(최신 attempt) → done 재확인 · work 없음 = None(complete 0)."""
+    row = proj.project(root, team)["works"].get(work)
+    if row is None or row.get("done"):
+        return None
+    att = (row.get("deliveries") or [None])[-1]
+    if not att:
+        raise Unsure("— 원장 complete attempt 없음")
+    out, rc = land.cli.run(["complete", "--work", work, "--attempt", att, "--root", root, "--team", team])
+    if rc or done_at(root, team, work) is None:
+        raise Unsure("— 원장 complete %s" % ((out.get("reason") or out.get("result")) if rc else "done 확인 못 함"))
+    return "원장 complete %s %s" % (work, att)
 def main(argv=None):
     ap = argparse.ArgumentParser(description="ft2 2.0 done 카드 진행→완성 (r1859)")
-    [ap.add_argument(flag, required=flag != "--byz") for flag in ("--root", "--team", "--work", "--byz")]
+    [ap.add_argument(flag, required=flag not in ("--byz", "--da")) for flag in ("--root", "--team", "--work", "--byz", "--da")]
     a, now = ap.parse_args(argv), os.environ.get("FT_NOW") or time.strftime("%Y-%m-%dT%H:%M:%S")
     root, byz = os.path.abspath(a.root), os.path.abspath(a.byz or a.root)
     try:
         at = done_at(root, a.team, a.work)
-        out = None if at is None else stage(byz, root, a.team, a.work, at, now)
-        word, rc = ("REJECT done 없음 %s" % a.work, 1) if at is None else ("NOOP %s 이미 완성" % a.work, 0) if out is None \
-            else ("STAGED %s %s %s" % out, 0)
+        da, gate = a.da if at is None else None, (lambda stem: da_check(root, a.da, stem)) if a.da else None
+        out = None if at is None and not da else stage(byz, root, a.team, a.work, at or "", now, da, gate)
+        word, rc = ("REJECT done 없음 %s" % a.work, 1) if at is None and not da else ("NOOP %s 이미 완성" % a.work, 0) if out is None \
+            else ("STAGED %s %s %s" % out[:3], 0)
+        if out and a.da and not da:   # A3 — done 있음 = 지금 갈래 + 대조 1줄
+            word += "\nDA 대조 %s" % ("일치 " + a.da if out[3] is None else "불일치 " + out[3])
+        if out and da:   # A5 — 카드 이동은 이미 끝(되돌림 0) · 원장 실패는 다음 줄 판정 불가
+            print(word)
+            word = ledger_complete(root, a.team, a.work) or ""
+    except Reject as exc:
+        word, rc = "REJECT %s" % str(exc).replace("REJECT ", "", 1), 1
     except (Unsure, subprocess.TimeoutExpired) as exc:
         word, rc = "판정 불가 %s" % (exc if isinstance(exc, Unsure) else "git 시간초과"), 3
-    print(word)
+    if word:
+        print(word)
     return rc
 if __name__ == "__main__":
     raise SystemExit(main())

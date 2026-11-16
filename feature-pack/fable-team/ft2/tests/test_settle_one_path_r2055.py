@@ -5,6 +5,7 @@
 import datetime
 import importlib.util
 import json
+import re
 import os
 import shutil
 import sys
@@ -190,7 +191,8 @@ def c7(w):   # ⑦ 유휴 ≥ 60분 · dirty / unpushed → UNKNOWN [긴급] · 
     nano(w, "r9559", push=False)
     lines = two(w)
     assert has(lines, "UNKNOWN harness r9558", "dirty") and has(lines, "UNKNOWN harness r9559", "unpushed"), lines
-    assert not w.tmux("kill-session") and w.kinds("parked") == 0 and len(sent(w)) == 2
+    got = sent(w)   # r2098 R12 — keeper 꽉 참 알림도 자기 mbox 로 나간다(예전 = 경로 없는 mbox 로 조용히 실패) · 크리티컬 1 + UNKNOWN 2
+    assert not w.tmux("kill-session") and w.kinds("parked") == 0 and len(got) == 3 and sum("ft2-full-alert" in x for x in got) == 1, got
 
 
 def c9(w):   # ⑨ 질문 창(toolUse · jsonl 무활동 16분) · %cpu 0.1 ×2(30초) → UNKNOWN waiting-input · [긴급] 팀장 · kill 0
@@ -270,7 +272,7 @@ def c25c(w):   # ㉕다 같은 journal 로 keeper 한 바퀴(team_round 경유) 
         base = world(w.tmp / "base", mp)
         c25_journal(base, dict_work=False)
         want = rnd(base)
-    pick = lambda xs: [x for x in xs if x.split()[0] in ("UNKNOWN", "WORKING", "PARKED", "LANDED", "COMPLETED", "ROUND") or x.startswith("CLOSED")]   # noqa: E731
+    pick = lambda xs: [re.sub(r" wall=\S+ other=\S+", "", x) for x in xs if x.split()[0] in ("UNKNOWN", "WORKING", "PARKED", "LANDED", "COMPLETED", "ROUND") or x.startswith("CLOSED")]   # noqa: E731 · r2098 R10 wall·other 는 실 벽시계라 세계마다 다르다
     assert pick(lines) == pick(want) and has(lines, "UNKNOWN harness r9570 - accept-only"), (lines, want)
 
 

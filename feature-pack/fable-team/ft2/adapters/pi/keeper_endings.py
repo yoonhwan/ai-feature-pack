@@ -4,6 +4,7 @@
 """
 import glob, importlib.util, json, os, re  # noqa: E401
 HERE = os.path.dirname(os.path.abspath(__file__))
+ANC_S = 7   # r2022 착지 조상 확인(merge-base --is-ancestor) 1회 7초 · 재시도 0 · keeper_land 도 이 값
 GH_S, BASES, DONE, HEADS = 7, ("main", "ops/main-base"), ("완성후", "아카이브"), (("중단:", "suspended"), ("대체:", "superseded"), ("거절:", "superseded"))
 ORPHAN, REPO, SHA = re.compile(r"byz-([a-z0-9]+)-nano-(.+)#\d+"), re.compile(r"github\.com[:/]([^/]+/[^/]+?)(?:\.git)?/?$"), re.compile(r"[0-9a-f]{40}")
 _MOD = {}
@@ -62,8 +63,10 @@ def pr_landed(k, team, work):
     prs = _prs(k, REPO.search(url).group(1) if REPO.search(url) else url, "nano/" + work)
     pr = prs[0] if isinstance(prs, list) and len(prs) == 1 and isinstance(prs[0], dict) else {}
     sha, base = str((pr.get("mergeCommit") or {}).get("oid") or ""), pr.get("baseRefName")
-    if not SHA.fullmatch(sha) or base not in BASES or k.git(tree, "merge-base", "--is-ancestor", sha, "origin/" + base)[0] != 0:
+    if not SHA.fullmatch(sha) or base not in BASES:
         return none
+    if (rc := k.git(tree, "merge-base", "--is-ancestor", sha, "origin/" + base, timeout=ANC_S)[0]) != 0:
+        return none if rc == 1 else (None, None, "판정 불가 · PR 착지 조상 git rc %s" % rc)   # r2022
     if old := k.pre_attempt(team, work, tree, sha, it):
         return None, None, old
     k.notify(team, "%s|noline|%s|%s" % (k.stamp()[:10], team, work), "[줄 보완] ft2 keeper %s 카드 착지 줄 없음 · PR #%s 병합 %s — 카드에 «- 착지: %s» 보완(keeper 카드 쓰기 0)" % (work, pr.get("number"), sha[:10], sha))

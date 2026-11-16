@@ -45,6 +45,9 @@ while [ $# -gt 0 ]; do case "$1" in
 #   모델 꼬리(sol 등)는 같은 계보 승계라도 예외 0 → REJECT rc1 · 꼬리 에이전트 ≠ --agent 는 아래 r1468 관문(rc2) 몫 · nano 는 lint 만.
 _nl="${FT_NAME_LINT:-$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-name-lint.sh}"
 [ -z "$NAME" ] || _nlo="$(bash "$_nl" "$NAME" 2>&1)" || { echo "REJECT 이름 lint — ${_nlo%%$'\n'*} (세션 열기 0 · 명부 쓰기 0)" >&2; exit 1; }
+# ★r2020 석 칸 역행 0★: 옛 좌석이 이미 새 꼴(lint WARN 없음)인데 후계가 옛 꼴(WARN)이면 REJECT · 옛→옛 승계는 WARN 그대로(이행은 «옛 → <역할>-0-<에이전트>»)
+_or="${OLD#*-*-}"; if [ "${_nlo:-}" != "${_nlo#*WARN 옛 꼴}" ] && [ "${_or%%-*}" != nano ] && _olo="$(bash "$_nl" "$OLD" 2>&1)" && [ "$_olo" = "${_olo#*WARN 옛 꼴}" ]; then
+  echo "REJECT 석 칸 역행 — 옛 좌석 $OLD 는 새 꼴 · 후계 $NAME 에 석 칸 필요 (세션 열기 0 · 명부 쓰기 0)" >&2; exit 1; fi
 # ★r1569 후계 런타임 = 역할 정책표★ (오빠 #278888): --agent 를 생략하면 옛 좌석 습관 대신 정책표(역할 → agent·model)에서 고르고, 이름 꼬리도 고른 agent 로 바꾼다.
 #   역할 = 이름의 «-<역할>-» 토큰(표 위 행부터 첫 일치) · 표 없음·역할 없음 = rc2 + 이유 1줄(옛 agent 로 조용히 대체 0 · #0 RULE) · --agent 명시가 정책과 다르면 WARN 1줄(막지 않음 · 사람 지정 존중).
 POLICY="${FT_RUNTIME_POLICY:-$(dirname -- "${BASH_SOURCE[0]:-$0}")/runtime-policy.tsv}"
@@ -117,7 +120,7 @@ fi
 # R213 DA⑥ H3(r2): agents 면제(--succession)는 «실제 1석 교대» 일 때만 — ①NAME == OLD 계보 베이스#(N+1) 또는 (OLD 베이스의 꼬리 토큰을 --agent 로 바꾼 것)#(N+1)(r1468) ②OLD 가 팀 명부(seats*.json)의 역할 키(_master·_arch 등 `_` 시작 키) 값 ③OLD tmux 세션 생존. 하나라도 아니면 일반 새 좌석 문턱.
 _rgroot="${FT_RES_ROOT:-${DROOT:-$(. "$HERE/ft-harness-root.sh" && ft_repo_root "$HERE" 2>/dev/null)}}"; _rgsucc=""   # r385b: 옛 설치 꼴 · cwd 리포 공용 루트 · r1412: FT_RES_ROOT(시험 손잡이) > 데이터 루트 > 공용 루트
 if [[ "$OLD" =~ ^(.+)#([0-9]+)$ ]] && _ob="${BASH_REMATCH[1]}" && _on=$((BASH_REMATCH[2]+1)) \
-   && { [ "$NAME" = "$_ob#$_on" ] || { [ "${_ob%-*}" != "$_ob" ] && [ "$NAME" = "${_ob%-*}-$AGENT#$_on" ]; }; } && tmux has-session -t "=$OLD" 2>/dev/null \
+   && { [ "$NAME" = "$_ob#$_on" ] || { [ "${_ob%-*}" != "$_ob" ] && { [ "$NAME" = "${_ob%-*}-$AGENT#$_on" ] || [ "$NAME" = "${_ob%-*}-0-$AGENT#$_on" ]; }; }; } && tmux has-session -t "=$OLD" 2>/dev/null \
    && python3 -c 'import glob,json,sys
 for f in glob.glob(sys.argv[1]+"/.fable-team/seats*.json"):
     try: d=json.load(open(f))
