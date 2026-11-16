@@ -375,7 +375,7 @@ printf '#!/bin/bash\n[ "${1:-}" = status ] && { echo "swap=100 memfree=99 agents
 printf '#!/bin/bash\nexit 0\n' > "$CB/ft-all-stop.sh"; chmod +x "$CB/ft-all-stop.sh"
 echo "x" > "$T/card.md"
 cb() { env FT_ACCT_ROOT="$R" FT_ACCT_TMUX="$FB/tmux" FT_ACCT_MBOX="$FB/mbox.sh" FT_ACCT_NOW="${NOWS:-$NOW0}" \
-       FT_RES_ROOT="$R" FT_HOLD_GATE="$CB/ft-resource-gate.sh" FT_MBOX_SH="$FB/mbox.sh" FT_RECLAIM=0 \
+       FT_ROOT="$R" FT_RES_ROOT="$R" FT_HOLD_GATE="$CB/ft-resource-gate.sh" FT_MBOX_SH="$FB/mbox.sh" FT_RECLAIM=0 \
        PATH="$FB:$PATH" bash "$CB/$@" 2>&1; }
 out="$(cb ft-nano-spawn.sh "$T/card.md" --model 'claude-sonnet-5-5[1m]' --dry-run)"; rc=$?
 not "$out" "정지 중" "R3 모델이 다르면 acct 게이트 통과"

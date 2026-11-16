@@ -457,3 +457,17 @@ ft_pack_card() { local c="${1:-}"
 ft_bak_cap() { [ -n "${1:-}" ] && [ -n "${2:-}" ] || { echo "WARN ft_bak_cap 인자 부족(<원본 파일> <종류> [상한]) · 정리 0" >&2; return 0; }
   python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); from ft_roster_lib import bak_cap; bak_cap(sys.argv[2], sys.argv[3], sys.argv[4] if len(sys.argv) > 4 else None)' \
     "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)" "$@" || echo "WARN ft_bak_cap 실행 실패 rc=$? · 정리 0" >&2; return 0; }
+# r2075 C1 ft_autonomy_mode [<ft-autonomy.sh>] : 자율 모드 판독 한 곳 → on|off 1줄 · rc 언제나 0 · 쓰기 0
+#   on = `<도구> mode` 가 rc 0 으로 정확히 «on» 을 낼 때만 · off·tamper·빈 출력·그 밖 글·rc≠0·7초 초과(프로세스 묶음 KILL · 하드 룰 12)·도구 없음 = off(하드 룰 20)
+ft_autonomy_mode() { python3 -c 'import os, signal, subprocess, sys
+b = sys.argv[1]
+if not os.path.isfile(b): print("off"); sys.exit(0)
+try: p = subprocess.Popen(["bash", b, "mode"], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, start_new_session=True)
+except OSError: print("off"); sys.exit(0)
+try: o, _ = p.communicate(timeout=7)
+except subprocess.TimeoutExpired:
+    try: os.killpg(p.pid, signal.SIGKILL)
+    except OSError: pass
+    print("off"); sys.exit(0)
+print("on" if p.returncode == 0 and o.decode("utf-8", "replace").rstrip("\n") == "on" else "off")' \
+    "${1:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/ft-autonomy.sh}" 2>/dev/null || echo off; }

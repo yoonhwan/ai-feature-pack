@@ -58,6 +58,7 @@ hold = _load(os.path.join(HERE, "keeper_hold.py"), "ft2_keeper_hold")   # r1931 
 kf = _load(os.path.join(HERE, "keeper_fetch.py"), "ft2_keeper_fetch")   # r1975 FETCH_TARGETS · 나노 가지 · 판정 뒤 백그라운드
 settling = _load(os.path.join(HERE, "keeper_settle.py"), "ft2_keeper_settle")   # r2055 settle 한 길 · ALL_STOP
 cstage = _load(os.path.join(HERE, "card_stage.py"), "ft2_keeper_card_stage")   # r2026 complete 뒤 대기|진행 → 완성
+kblock = _load(os.path.join(HERE, "keeper_block.py"), "ft2_keeper_block")   # r2072 10분 넘게 이어진 줄 → 막힘 장부
 
 
 class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settling):
@@ -376,7 +377,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
             os.unlink(lock)
 
     def run_once(self):
-        return self.locked(self._round) or 0
+        return self.locked(lambda: kblock.after(self, self._round)) or 0   # r2072 바퀴 끝 장부 올림(잠금 안 · 판정·로그·rc 불변)
 
     def report_once(self):
         self.skip = self.skipped()   # r1835 K4 — 판독 실패 = probe·쪽지 0 · 출력 1줄(로그 줄 0)

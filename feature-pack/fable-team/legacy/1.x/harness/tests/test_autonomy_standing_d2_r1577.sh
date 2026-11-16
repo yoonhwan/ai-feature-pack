@@ -15,6 +15,7 @@ T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT; mkdir -p "$T/stub" "$T/fakebin" "$T/d
 T0=1800000000; OD=1794302162.301939; PL='byz-planner-master-claude#105'; HM='byz-harness-master-claude#115'; NANO='byz-harness-nano-r1577-x#0'
 # ── BYZ 리포 = 명부 루트 · 판정문 리포 · 실제 좌석 = 가짜 tmux 세션명
 mkrepo "$T/byz"; B="$W"; mkdir -p "$B/.fable-team"; printf '.fable-team/\n' >> "$B/.git/info/exclude"
+mkdir -p "$B/design"; printf '| 팀 | 폴더 | 상태 | 명부 |\n|---|---|---|---|\n| planner | `design/planner/` | 현역 | |\n| harness | `design/harness/` | 현역 | |\n' > "$B/design/TEAMS.md"; printf '/design/TEAMS.md\n' >> "$B/.git/info/exclude"   # r2086: r1907 명부 이름 = TEAMS.md «명부» 칸(빈 칸 = seats-<팀>.json) · exclude = PR 파일 밖
 python3 -c 'import json,sys;json.dump({"_master":sys.argv[1]},open(sys.argv[2],"w"))' "$PL" "$B/.fable-team/seats-planner.json"
 python3 -c 'import json,sys;json.dump({"_master":sys.argv[1]},open(sys.argv[2],"w"))' "$HM" "$B/.fable-team/seats-harness.json"
 SEATFILE="$T/seatname"; export SEATFILE; printf '%s' "$PL" > "$SEATFILE"
@@ -205,6 +206,7 @@ out="$(python3 "$T/mut-m9/autonomy_scope_classify.py" classify "$KSH" --repo "$B
 # ══ ⓗⓘⓙ 명부 루트 — 데이터 루트(D) ≠ 명부 루트(R) 인 격리 꼴(ⓗ 실측 반례 · ⓘ env 무관 · ⓙ 같은 함수)
 json1() { python3 -c 'import json,sys;json.dump({"_master":sys.argv[1]},open(sys.argv[2],"w"))' "$1" "$2"; }
 mkrepo "$T/rz"; RZS="$W"; mkdir -p "$RZS/.fable-team/comm"; printf '.fable-team/\n' >> "$RZS/.git/info/exclude"
+mkdir -p "$RZS/design"; printf '| 팀 | 폴더 | 상태 | 명부 |\n|---|---|---|---|\n| planner | `design/planner/` | 현역 | |\n| harness | `design/harness/` | 현역 | |\n' > "$RZS/design/TEAMS.md"; printf '/design/TEAMS.md\n' >> "$RZS/.git/info/exclude"   # r2086: r1907 명부 이름 = TEAMS.md «명부» 칸(빈 칸 = seats-<팀>.json) · exclude = PR 파일 밖
 json1 "$PL" "$RZS/.fable-team/seats-planner.json"; json1 "$HM" "$RZS/.fable-team/seats-harness.json"
 DZS="$T/rz-live"; git -C "$RZS" worktree add -q "$DZS" -b live
 printf '%s\n' "$DZS" > "$RZS/.fable-team/LIVE_ROOT"; mkdir -p "$DZS/.fable-team/comm"
