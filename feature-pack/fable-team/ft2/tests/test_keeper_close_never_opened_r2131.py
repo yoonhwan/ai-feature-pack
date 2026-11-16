@@ -109,7 +109,7 @@ def c2(w):   # ② done · intent 파일 없음 · holder = 다른 일 holder ·
 def c3(w):   # ③ 두 바퀴 → 둘째 바퀴 판정 줄 0 · alert 0 · 영수 1 그대로
     c1(w)
     lines = rnd(w, dt=60)
-    assert not has(lines, "r9701") and not sent(w), lines
+    assert has(lines, "r9701") == ["Unsure harness r9701 card_stage 진행 카드 0개"] and not sent(w), lines   # r2140 K5 판정 줄 0 · card_stage 재시도 1줄
     assert handled(w, "r9701")
 
 
