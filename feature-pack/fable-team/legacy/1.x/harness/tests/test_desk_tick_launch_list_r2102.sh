@@ -92,5 +92,11 @@ for s in 30000 25000 20000 10000; do card "s$s"; cm "$s" "c$s"; done; refs main 
 chk "⑤ 갈라진 가지: 완성 커밋 T 앞 3 · 뒤 1 → «behind=1»" 'nl | grep -q " table=$(mi 14400) age=4h behind=1 STALE$"'
 fresh; echo x > "$T/root/design/harness/indices/대기/m.md"; tbl a x; cm 14400 T; G mv design/harness/indices/대기/m.md design/harness/indices/완성/m.md; cm 10000 mv; refs HEAD HEAD; OUT="$(run)"
 chk "⑤ 대기/ → 완성/ git mv 1(T 뒤) → «behind=1»" 'nl | grep -q " age=4h behind=1 STALE$"'
+# DA HOLD #316668 보정 — R2 다음 절 제목만 바뀜 = T 그대로(표 데이터 줄만 셈) · R1 둘째 git log = git 쪽에서 시각을 먼저 거름
+fresh; tbl a x; cm 14400 T; card c; cm 10000 C; sed -i.bak 's/^## 다른 절$/## 다른 제목/' "$T/root/$LED"; rm -f "$T/root/$LED.bak"; cm 3600 head; refs HEAD HEAD; OUT="$(run)"
+chk "⑤ R2 다음 절 제목만 바뀜 → table 그대로 · «age=4h behind=1 STALE»" '[ "$(nl)" = "NEWS last_post=$(mi 7200) table=$(mi 14400) age=4h behind=1 STALE" ]'
+printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$*" >> "%s/git.argv"\nexec git "$@"\n' "$T" > "$T/fakebin/gitlog"; chmod +x "$T/fakebin/gitlog"; rm -f "$T/git.argv"
+OUT="$(FT_DESK_TICK_GIT="$T/fakebin/gitlog" run)"
+chk "⑤ R1 완성 git log 에 --since=@<T 시각> · git 2회" '[ "$(grep -c "diff-filter" "$T/git.argv")" = 1 ] && grep "diff-filter" "$T/git.argv" | grep -q -- "--since=@$((NOW - 14400))" && [ "$(wc -l < "$T/git.argv" | tr -d " ")" = 2 ]'
 
 echo "fail=$fail"; [ "$fail" = 0 ]
