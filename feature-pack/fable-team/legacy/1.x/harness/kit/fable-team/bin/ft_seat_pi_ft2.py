@@ -4,6 +4,7 @@ identity: tmux env FT2_HOLDER == seat and intent FT2_HOLDER == seat and pane com
 first_session: pane cwd == intent worktree, head.cwd == worktree, head.timestamp in [intent.at, +120s] exactly 1.
 A same-cwd session newer than the window means the pane moved on (세션 바뀜). Never choose the newest file.
 r2100: a late session whose id is another live tmux session's TMUXC_PI_SESSION_ID is that seat's, not a move.
+r2121: a late session whose last session_info name is set and never equals the seat is another seat's (dropped before owners).
 """
 import datetime
 import json
@@ -68,6 +69,31 @@ def owners(seat, tmux):
     return ids - {""}
 
 
+def names(path, end):
+    """r2121 D3 — 파일 전체를 줄 단위로 끝까지 · «"session_info"» 글자 든 줄만 JSON · 이름 목록(없음·빈 = "") · end(monotonic) 넘음 = ValueError."""
+    got = []
+    with open(path, encoding="utf-8", errors="replace") as stream:
+        for line in stream:
+            if time.monotonic() > end:
+                raise ValueError(f"Pi 이름 판독 {CAP}초 넘음")
+            try:
+                rec = json.loads(line) if '"session_info"' in line else None
+            except ValueError:
+                continue
+            if isinstance(rec, dict) and rec.get("type") == "session_info":
+                got.append(rec["name"].strip() if isinstance(rec.get("name"), str) else "")
+    return got
+
+
+def foreign(path, seat, end):
+    """r2121 남의 것 확정 = 마지막 이름 있음 ∧ 어느 session_info 에도 좌석 이름 없음(pi getSessionName = 마지막 session_info) · 못 읽음 = 아님."""
+    try:
+        got = names(path, end)
+    except OSError:
+        return False
+    return bool(seat and got and got[-1]) and seat not in got
+
+
 def first_session(got, root, owner=None):
     """(path, head, pane pid, worktree) — intent 때 첫 세션 «정확히 1개» · 0·2+·세션 바뀜 = ValueError.
 
@@ -89,7 +115,9 @@ def first_session(got, root, owner=None):
         except (OSError, ValueError, TypeError, KeyError, AttributeError):
             continue
         hits += [(str(path), head, pid, wt)] if at <= ts <= at + WINDOW else []
-        late += [head["id"]] if ts > at + WINDOW else []
+        late += [(head["id"], path)] if ts > at + WINDOW else []
+    seat, end = intent.get("FT2_HOLDER") or (owner or (None,))[0], time.monotonic() + CAP
+    late = [sid for sid, path in late if not foreign(path, seat, end)]   # r2121 D3 — owners 전에 뻘
     if late and owner:
         late = set(late) - owners(*owner)
     if late:

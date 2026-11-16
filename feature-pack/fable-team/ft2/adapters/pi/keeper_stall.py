@@ -34,6 +34,46 @@ pane_target = _load(os.path.join("adapters", "pi", "keeper_close.py"), "close").
 E = _load(os.path.join("adapters", "pi", "keeper_stall_error.py"), "error")   # r1921 세션 끝 줄 판독·오류 종류
 error_turn = E.error_turn
 endings = _load(os.path.join("adapters", "pi", "keeper_endings.py"), "endings")   # r1960 미확인 깨움 → 재깨움 1회
+SID, NAME_S = "TMUXC_PI_SESSION_ID=", 7   # r2121 D1 좌석 세션 id env · D2 이름 판독 합계 상한(초)
+
+
+class Unsure(str):
+    """r2121 세션 파일 판정 불가 사유(경로 str 과 가름)."""
+
+
+def names(path, end):
+    """r2121 D3 — 파일 전체를 줄 단위로 끝까지 · «"session_info"» 글자 든 줄만 JSON · 이름 목록(없음·빈 = "") · end(monotonic) 넘음 = ValueError."""
+    got = []
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        for line in fh:
+            if time.monotonic() > end:
+                raise ValueError("이름 판독 %d초 넘음" % NAME_S)
+            try:
+                rec = json.loads(line) if '"session_info"' in line else None
+            except ValueError:
+                continue
+            if isinstance(rec, dict) and rec.get("type") == "session_info":
+                got.append(rec["name"].strip() if isinstance(rec.get("name"), str) else "")
+    return got
+
+
+def foreign(path, seat, end):
+    """r2121 남의 것 확정 = 마지막 이름 있음 ∧ 어느 session_info 에도 좌석 이름 없음(pi getSessionName = 마지막 session_info) · 못 읽음 = 아님."""
+    try:
+        got = names(path, end)
+    except OSError:
+        return False
+    return bool(seat and got and got[-1]) and seat not in got
+
+
+def head_id(path):
+    """세션 파일 첫 줄 type session 의 id · 못 읽음 = None."""
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            head = json.loads(fh.readline())
+    except (OSError, ValueError):
+        return None
+    return head.get("id") if isinstance(head, dict) and head.get("type") == "session" else None
 
 
 def turn(path):
@@ -69,9 +109,13 @@ class Stall:
         seen = k.probe(holder)
         if seen != "alive":
             return None if seen == "absent" else k.log("판정 불가", team, "%s %s %s — 행동 0" % (work, holder, seen))
-        if self.first(team, work, attempt, holder, tree, intent, rows):
+        sess = self.session(tree, holder)
+        if isinstance(sess, Unsure):
+            return self.unsure(team, work, attempt, holder, sess)   # r2121 D1 — 판정 불가(값이 바뀔 때만 1줄) · 깨움·재배정·body-unreached 0
+        self.k.state.setdefault("sid_unsure", {}).pop("%s|%s@%s" % (team, work, attempt), None)
+        if self.first(team, work, attempt, holder, tree, intent, rows, sess):
             return                                    # r1895 — 첫 본문 도달 0 = 깨움 없이 S3 1회(facts 전)
-        facts, key = self.facts(work, attempt, rows, tree), "%s|%s@%s" % (team, work, attempt)
+        facts, key = self.facts(work, attempt, rows, tree, sess), "%s|%s@%s" % (team, work, attempt)
         if isinstance(facts, str):
             return k.log("판정 불가", team, "%s %s %s — 행동 0" % (work, holder, facts))
         hit = self.error(team, work, holder, key, facts["session"], rows)   # r1921 — 오류 턴 갈래(ready 앞 · S1 시계와 다른 키)
@@ -110,11 +154,17 @@ class Stall:
         if self.guard(team, work, holder, rows):   # 보정1 R1 — pane Working·external_wait 공통 가드
             self.wake(team, work, holder, key, int(k.now() - at), ERR_WAKE, "err_")
         return True
-    def first(self, team, work, attempt, holder, tree, intent, rows):
+    def unsure(self, team, work, attempt, holder, why):
+        """r2121 D1 판정 불가 1줄 — 같은 attempt 의 사유가 바뀔 때만 · 행동 0."""
+        book, key = self.k.state.setdefault("sid_unsure", {}), "%s|%s@%s" % (team, work, attempt)
+        if book.get(key) != why:
+            book[key] = why
+            self.k.log("판정 불가", team, "%s %s %s — 행동 0" % (work, holder, why))
+    def first(self, team, work, attempt, holder, tree, intent, rows, sess):
         """r1895 도달 확인 1회(body 키) — 새 intent(body_mark) at+60초 표식 user 줄 0 · 옛 intent 세션 0 ∧ stall_s ∧ Working 0 → S3 · 판독 불가 = 0."""
         k, key, body = self.k, "%s|%s@%s" % (team, work, attempt), self.k.state.setdefault("body", {})
         mark = intent.get("body_mark")
-        session = self.session(tree) if tree and key not in body else None
+        session = sess if key not in body else None
         try:
             age = k.now() - time.mktime(time.strptime(intent["at"], STAMP))
             seen = [json.loads(x) for x in open(session, encoding="utf-8", errors="replace")] if session and mark and age >= 60 else []
@@ -129,7 +179,7 @@ class Stall:
             return False
         k.unknown_line(team, work, "body-unreached", "%s %s 본문 도달 0(%s) — 깨움 0 · 재배정 1회" % (work, holder, "표식 줄 0" if session else "세션 파일 0"))   # r2055 UNKNOWN = [긴급]
         return self.reassign(team, work, attempt, holder, tree, intent, rows) or True
-    def facts(self, work, attempt, rows, tree):
+    def facts(self, work, attempt, rows, tree, session):
         """마지막 진척 재료 4개(wall 시각 · 논리 tick 과 섞지 않는다) — 못 읽음 = 사유 문자열."""
         mine = [r for r in rows if r.get("work") == work]
         steps = [r for r in mine if r.get("kind") in STEPS or (r.get("kind") == "progress" and r.get("tick_kind") == "progress")]
@@ -140,7 +190,6 @@ class Stall:
             return "journal at 판독 불가"
         if not tree:
             return "intent worktree 칸 없음"
-        session = self.session(tree)
         if not session:
             return "pi 세션 파일 없음(%s)" % tree
         rc, out, err = self.k.git(tree, "log", "-1", "--format=%ct", "HEAD")
@@ -150,10 +199,25 @@ class Stall:
             return {"journal": journal, "head": int(out.strip()), "mtime": os.path.getmtime(session), "session": session}
         except OSError as exc:
             return "pi 세션 파일 mtime %s" % exc
-    def session(self, tree):
-        """pi 세션 파일 = <sessions>/--<pane cwd 의 / 를 - 로>--/*.jsonl 중 가장 최근(ft-seat-retire r960 과 같은 결속)."""
-        names = {"--%s--" % p.strip("/").replace("/", "-") for p in (os.path.abspath(tree), os.path.realpath(tree))}
-        files = [f for n in sorted(names) for f in glob.glob(os.path.join(glob.escape(self.sessions), glob.escape(n), "*.jsonl"))]
+    def session(self, tree, holder):
+        """pi 세션 파일 | None | 판정 불가 사유(str). r2121 D1 = holder env TMUXC_PI_SESSION_ID 있음 → sessions 아래 모든 폴더 «*_<id>.jsonl» 중
+        첫 줄 id 같음 정확히 1개(cwd·worktree 무관). D2 = id 없음 → <sessions>/--<tree>--/*.jsonl 중 «남의 것 확정» 뺀 가장 최근(r960 결속)."""
+        k = self.k
+        rc, out, _ = k.call([k.tmux, "show-environment", "-t", "=" + holder])
+        if rc != 0:
+            return Unsure("세션 id env 조회 rc %s" % rc)
+        sid = ([ln[len(SID):] for ln in out.splitlines() if ln.startswith(SID)] or [""])[-1]
+        if sid:
+            hits = [f for f in glob.glob(os.path.join(glob.escape(self.sessions), "*", "*_%s.jsonl" % glob.escape(sid))) if head_id(f) == sid]
+            return hits[0] if len(hits) == 1 else Unsure("세션 id %s 파일 %d개" % (sid, len(hits)))
+        if not tree:
+            return None
+        dirs = {"--%s--" % p.strip("/").replace("/", "-") for p in (os.path.abspath(tree), os.path.realpath(tree))}
+        files, end = [f for n in sorted(dirs) for f in glob.glob(os.path.join(glob.escape(self.sessions), glob.escape(n), "*.jsonl"))], time.monotonic() + NAME_S
+        try:
+            files = [f for f in files if not foreign(f, holder, end)]
+        except ValueError as exc:
+            return Unsure("세션 %s" % exc)
         return max(files, key=os.path.getmtime) if files else None
     def ready(self, team, work, holder, session, rows):
         """턴 IDLE(jsonl) ∧ pane Working 0 ∧ external_wait 시한 밖 ∧ LOGGEDOUT 아님 — 고스트 `❯` 글자는 근거가 아니다(하드 룰 10)."""
