@@ -42,6 +42,18 @@ settle = importlib.util.module_from_spec(importlib.util.spec_from_file_location(
 settle.__spec__.loader.exec_module(settle)   # r2055 A13 pane 일함 근거(kill 직전 가드·2차 판독 같은 꼴)
 
 
+def _raw(path):
+    """r2131 날 JSON — 없음 = (False, {}) · 깨짐·못 읽음·dict 아님 = (True, None) = 판정 못 함(없음·dead 로 바꾸지 않는다)."""
+    if not os.path.lexists(path):
+        return False, {}
+    try:
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return True, None
+    return True, data if isinstance(data, dict) else None
+
+
 def pane_target(holder):
     """r1822 — pane 대상(capture-pane·send-keys·pane PID) = `=이름:` · `=이름` 은 세션 대상(has-session·kill-session 만)."""
     return "=" + holder + ":"
@@ -91,6 +103,10 @@ class Closing:
         intent = endings.intent(self, team, work, attempt, dispatched)   # r1960 ③ 그 attempt 없으면 같은 holder 최신 opened
         holder, gen = intent.get("FT2_HOLDER"), row.get("gen") or 1
         if not holder:   # r2055 HELD 폐지 → UNKNOWN + [긴급]
+            quiet = self.never_opened(team, work, attempt, row, dispatched)
+            if quiet:   # r2131 C1 열린 적 없는 끝난 일 = kill 0 · 판정 줄 1 · 영수 1(증거 () = 다음 배정 0)
+                self.log("CLOSED-NEVER-OPENED", team, "%s %s intent=%s owner=%s" % ((work, dispatched) + quiet))
+                return self.receipt(team, work, attempt, dispatched, gen) and None
             return self.unknown_seat(team, work, attempt, dispatched, "intent-none", "intent 없음(attempt %s)" % attempt) and None
         if not self.protected_ok(team, work, attempt, holder, dispatched):
             return
@@ -139,6 +155,28 @@ class Closing:
             return self.unknown_seat(team, work, attempt, holder, "tmux-error", seen) and None
         self.state["open"].pop(holder, None)
         self.receipt(team, work, attempt, holder, gen) if ending else keeper_next.close(self, team, work, attempt, holder, gen)   # r1960 끝 = 증거 () · 다음 배정 0
+
+    def never_opened(self, team, work, attempt, row, dispatched):
+        """r2131 C1 — ⓐ done ⓑ 그 attempt intent failed·closed·없음 ⓒ dispatch holder 세션 absent ⓓ 열기 자식(.owner·.intent.resume) dead·없음
+        → (intent, owner) 칸 · 하나라도 거짓·판정 못 함 = None(C2 · C4 열기 진행 중 보호 · 정지 중 = None)."""
+        if not row.get("done"):   # ⓐ
+            return None
+        if not dispatched or self.halt:
+            return None
+        base = os.path.join(projection.runtime_path(self.root, team), "launch", "%s@%s" % (work, attempt))
+        there, got = _raw(base + ".intent")
+        state = (got or {}).get("state") if there else "없음"
+        if state not in ("failed", "closed", "없음"):   # ⓑ 깨짐 = None · opening·opened = 그 밖
+            return None
+        kids = []
+        for name, key in ((".owner", "child_pid"), (".intent.resume", "pid")):   # ⓓ keeper_launch.alive(pid_state)
+            there, data = _raw(base + name)
+            if there and (data is None or keeper_next.kl.alive(self, {"pid": data.get(key), "started": data.get("started")}) != "dead"):
+                return None
+            kids.append(there)
+        if self.probe(dispatched) != "absent":   # ⓒ
+            return None
+        return state, "dead" if any(kids) else "없음"
 
     def noland_rows(self, team):
         """N1·N2 목록 → {(work, attempt): [근거, 승인]} · 파일 없음 = {} · 못 읽음·꼴 틀림·중복 = 판정 불가 문자열(sha 포함)."""
