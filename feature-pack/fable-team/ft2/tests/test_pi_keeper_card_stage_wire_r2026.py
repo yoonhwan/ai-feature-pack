@@ -116,7 +116,7 @@ CASES = {"T1": t1, "T2": t2, "T3": t3, "T4": t4, "R1": r1}
 KP = "adapters/pi/keeper.py"
 MUTANTS = {"M1": ("land.Landing.complete(self, *args) and (self.stage_card(*args[:2]) or True)", "land.Landing.complete(self, *args)", t1),
            "M2": ("        if n >= 3:\n            return None\n", "", t3),
-           "M3": ("            if left < CALL_S:\n", "            if False:\n", r1)}   # R1 예산 검사 삭제 → R1 FAIL
+           "M3": ("            if left is not None and left < CALL_S:\n", "            if False:\n", r1)}   # R1 예산 검사 삭제 → R1 FAIL
 
 
 @pytest.mark.parametrize("name", list(CASES))
