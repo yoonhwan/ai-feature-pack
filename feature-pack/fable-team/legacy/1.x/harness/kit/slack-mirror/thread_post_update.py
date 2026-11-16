@@ -136,7 +136,7 @@ def cmd_post(a: argparse.Namespace, target: Callable[[argparse.Namespace], Targe
     check(text, ch, human=True)  # 사람 채널 — 글 «전» 거절(게시 0)
     text = text if km is None else text.replace(f"&lt;@{km}&gt;", f"<@{km}>", 1)  # 도구 태그 첫 1개만 · 나머지 중화 그대로
     t = target(a)
-    ts = post(t.base, t.token, ch, text, None, human=True, head=body)
+    ts = post(t.base, t.token, ch, text, None, human=True, head=body, status_head=not getattr(a, "no_status_head", False))  # r2120 DA R1
     print(f"POSTED {ts}")
     return 0
 

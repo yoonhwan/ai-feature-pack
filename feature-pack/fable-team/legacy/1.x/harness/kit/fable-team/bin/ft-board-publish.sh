@@ -36,7 +36,7 @@ if [ "${1:-}" = "--news" ]; then
   OU="${FT_OPPA_SLACK_UID:-}"
   [ -n "$OU" ] || OU="$(perl -e 'alarm 7; exec @ARGV' python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); from ft_oppa_slack_check import OPPA_SLACK_UID; print(OPPA_SLACK_UID)' "$HERE" 2>/dev/null)" || OU=""
   KM=(); [ -n "$OU" ] && KM=(--keep-mention "$OU") || echo "ft-board-publish: WARN 오빠 UID 읽기 실패 — 태그 인자 없이 발행" >&2
-  python3 "$TP" post ${POST_ARGS[@]+"${POST_ARGS[@]}"} ${KM[@]+"${KM[@]}"} --text-file "$TMP/body.txt"; rc=$?
+  python3 "$TP" post ${POST_ARGS[@]+"${POST_ARGS[@]}"} --no-status-head ${KM[@]+"${KM[@]}"} --text-file "$TMP/body.txt"; rc=$?
   [ "$rc" -eq 0 ] || { echo "ft-board-publish: post 실패 rc=$rc — news-last 그대로" >&2; exit "$rc"; }
   mkdir -p "$SD" && cp "$TMP/state.json" "$SD/news-last.json.tmp" && mv "$SD/news-last.json.tmp" "$SD/news-last.json" \
     || { echo "ft-board-publish: news-last 기록 실패" >&2; exit 1; }

@@ -138,8 +138,9 @@ PY'
 
 # ⑨ 뉴스 갈래 = --no-status-head 1개 · 그 밖 갈래 바이트 불변
 reset; mk "[$H,\"bare\":1}]"; run 2026-11-16T15:00:00
-chk "⑨ --news reply = --no-status-head 1개 · --ts · --text-file" '[ "$(grep -o -- "--no-status-head" "$T/stub/tp.log" | wc -l | tr -d " ")" = 1 ] && grep -qE -- "--no-status-head --ts $TSV --text-file " "$T/stub/tp.log"'
-chk "⑨ 그 밖 갈래 = 기준판과 바이트 같음(--no-status-head 1곳 뺀 꼴)" 'cmp -s <(sed "s/ --no-status-head//" "$BIN/ft-board-publish.sh") <(sed "s/ --no-status-head//" "$BASE/ft-board-publish.sh") && [ "$(grep -c -- "--no-status-head" "$BIN/ft-board-publish.sh")" = 1 ] && grep -- "--no-status-head" "$BIN/ft-board-publish.sh" | grep -q "reply"'
+others() { sed -n '/^if \[ "${1:-}" = "--sheet" \]/,$p' "$1"; }  # --news 밖 갈래(--sheet · 뿌리 글) — r2120 E1
+chk "⑨ --news post = --no-status-head 1개 · --text-file(r2120 E1)" '[ "$(grep -o -- "--no-status-head" "$T/stub/tp.log" | wc -l | tr -d " ")" = 1 ] && grep -qE -- "^post .*--no-status-head .*--text-file " "$T/stub/tp.log"'
+chk "⑨ 그 밖 갈래 = 기준판과 바이트 같음 · --no-status-head = --news post 1곳(r2120 E1)" '[ -n "$(others "$BIN/ft-board-publish.sh")" ] && cmp -s <(others "$BIN/ft-board-publish.sh") <(others "$BASE/ft-board-publish.sh") && [ "$(grep -c -- "--no-status-head" "$BIN/ft-board-publish.sh")" = 1 ] && grep -- "--no-status-head" "$BIN/ft-board-publish.sh" | grep -q "\"\$TP\" post"'
 chk "⑦ kit 사본 = bin" 'cmp -s "$ROOT/harness/bin/ft-board-publish.sh" "$ROOT/harness/kit/fable-team/bin/ft-board-publish.sh" && cmp -s "$ROOT/harness/bin/ft_board_news.py" "$ROOT/harness/kit/fable-team/bin/ft_board_news.py"'
 
 echo "fail=$fail"; [ "$fail" = 0 ]

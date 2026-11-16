@@ -66,6 +66,7 @@ def parse(argv: list[str]) -> argparse.Namespace:
     po.add_argument("--text")
     po.add_argument("--text-file")
     po.add_argument("--keep-mention", metavar="UID", help="중화 뒤 이 UID 태그 첫 1개만 진짜 태그로 되돌린다(보드 뉴스 최상위 글 · r2120)")
+    po.add_argument("--no-status-head", action="store_true", help="카운팅 머리줄을 붙이지 않는다(보드 뉴스 최상위 글 · r2120 DA R1) — 기본 = 붙임")
     t = sub.add_parser("attach", parents=[common, chan], help="보드 뿌리 글 스레드에 파일 첨부(시트 PDF) — 첫 파일 링크를 출력")
     t.add_argument("--key", required=True, help="board:<YYYY-MM-DD>")
     t.add_argument("--file", action="append", required=True)
