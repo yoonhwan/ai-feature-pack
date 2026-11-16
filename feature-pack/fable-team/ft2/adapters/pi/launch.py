@@ -111,7 +111,7 @@ def read_intent(path):
 
 def failed(plan, env, step, detail, repo, extra=None, note=""):
     """실패 = 의도 줄에 단계 1개 — 그 줄이 있으면 다시 불러도 바깥 호출 0 · 사유에 복구 2줄(A3) · r1967 치움 = 복구 줄 대신 치움 1구."""
-    write_intent(plan["intent"], dict(env, state="failed", step=step, reason=detail, repo=repo, at=time.strftime(STAMP), **(extra or {})))
+    write_intent(plan["intent"], dict(env, state="failed", step=step, reason=detail, repo=repo, at=time.strftime(STAMP), **(extra or {}), **plan["notes"]))
     reason = "%s 실패: %s — 자동 재시도 0" % (step, detail or "진단 없음")
     if step.startswith("git"):
         reason += " · " + (note if (extra or {}).get("slot_returned") else note + " · " * bool(note) + planner.recovery(repo, plan["worktree"]))
@@ -168,7 +168,7 @@ def open_seat(given):
             return dict(result=REFUSED, work=work, repo=repo, base=base,
                         reason="%s: %s — 바깥 호출 0" % (label, detail or "진단 없음")), 1
     sha = detail                                # 마지막 확인 = 기준 ref → 40자 sha(실제 argv 끝 · 의도 base_sha)
-    write_intent(plan["intent"], dict(env, state="opening", role=item["role"], repo=repo, base=base, base_sha=sha, body_mark=mark, at=time.strftime(STAMP), **own))
+    write_intent(plan["intent"], dict(env, state="opening", role=item["role"], repo=repo, base=base, base_sha=sha, body_mark=mark, at=time.strftime(STAMP), **own, **plan["notes"]))   # r2082 A2 칸
     os.makedirs(os.path.dirname(plan["worktree"]), exist_ok=True)
     steps = (("git add", planner.at_sha(plan["git"], sha)), ("git sparse", plan["sparse"]), ("git checkout", plan["checkout"]))
     return finish(plan, env, steps, repo, sha, (item, base, mark))
@@ -209,7 +209,7 @@ def finish(plan, env, steps, repo, sha, keep):
     rc, detail = call(plan["alive"], None, dict(os.environ, **env), TMUX_TIMEOUT)   # r1892: 살아 있음 1회
     if rc != 0:
         return failed(plan, env, "tmux 즉시 종료", "세션 없음 — pi 실행 실패(PATH·인증) 의심 · %s" % (detail or "진단 없음"), repo)
-    write_intent(plan["intent"], dict(env, state="opened", role=item["role"], worktree=plan["worktree"], base=base, base_sha=sha, body_mark=mark, at=time.strftime(STAMP)))
+    write_intent(plan["intent"], dict(env, state="opened", role=item["role"], worktree=plan["worktree"], base=base, base_sha=sha, body_mark=mark, at=time.strftime(STAMP), **plan["notes"]))
     note = roster.enroll(env, plan["worktree"], planner.card_row(env["FT2_ROOT"], env["FT2_TEAM"]), os.path.dirname(plan["intent"]))   # r1983 opened «뒤» 1회 · 판정 불가여도 열기 결과 그대로
     hook = os.path.join(repo, ".git", "hooks", "post-checkout")   # r1967 ② cairn reconcile = 열기 «뒤» 1회 · 따로 25초 · 실패해도 열기 결과 그대로
     ran = "rc %s" % call([hook, "0" * 40, sha, "1"], plan["worktree"], None, GIT_TIMEOUT)[0] if os.access(hook, os.X_OK) else "hook 없음"

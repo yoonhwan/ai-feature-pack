@@ -3,6 +3,7 @@
 여기 있는 것은 «바깥 호출 전에 정해지는 값» 뿐이다: 열기 argv · 좌석 env 5개 · 확인 argv·판정(r1780) · 실패 사유의 복구 2줄.
 바깥 호출·의도 쓰기는 launch.py 몫이다. r1929: 내용 든 원자 예약(reserve) · 열기 pid 판정(pid_state) · 이어 열기 단계(resume_steps)도 여기 둔다.
 """
+import itertools
 import json
 import os
 import re
@@ -20,6 +21,33 @@ DIRECT = ("산출 = 가지 nano/<work> push → PR 열기(금지 목록 밖) →
 RECV = "쪽지 = bash %s/.fable-team/comm/mbox.sh recv %s · "   # r1933 2.0 나노 받는 길(첫 본문 1구)
 CARDMAP = os.path.join(".fable-team", "teams", "%s", "runtime", "cards.tsv")   # r2030 짝 표(keeper_land.CARDMAP 과 같은 자리 · 팀장 append · 여기는 읽기만)
 WAIT = re.compile(r"^(design/.+/indices)/대기/[^/]+\.md$")   # r2030 짝 표 경로 중 대기 단계(keeper_land.MAPPED 의 대기 갈래)
+TEAMS = os.path.join("design", "TEAMS.md")   # r2082 팀 폴더 표(«팀»·«폴더» 칸)
+UNREAD = "팀 폴더 표 못 읽음 — 제외 0"   # r2082 A2 의도 1칸
+FOLDER = re.compile(r"design/(?:[A-Za-z0-9._-]+/)+")   # r2082 «폴더» 칸 꼴(glob 글자 0)
+
+
+def team_folders(repo):
+    """r2082 A1·A2 — repo 작업 트리 design/TEAMS.md 의 첫 «팀»·«폴더» 표 → ({팀: 폴더}, 메모) · 파일 읽기뿐(git 호출 0 · A5).
+    파일 없음 = ({}, "") · 파일은 있는데 칸을 못 읽음 = ({}, UNREAD)(열기는 막지 않는다)."""
+    try:
+        lines = open(os.path.join(repo, TEAMS), encoding="utf-8").read().splitlines()
+    except FileNotFoundError:
+        return {}, ""
+    except (OSError, UnicodeError):
+        return {}, UNREAD
+    rows = [[c.strip().strip("`") for c in x.strip().strip("|").split("|")] if x.lstrip().startswith("|") else None for x in lines]
+    at = next((i for i, r in enumerate(rows) if r and "팀" in r and "폴더" in r), None)
+    if at is None:
+        return {}, UNREAD
+    t, f = rows[at].index("팀"), rows[at].index("폴더")
+    got = {r[t]: r[f] for r in itertools.takewhile(bool, rows[at + 1:]) if len(r) > max(t, f) and FOLDER.fullmatch(r[f])}
+    return (got, "") if got else ({}, UNREAD)
+
+
+def team_excludes(repo, team):
+    """r2082 A1 — (남의 팀 폴더 제외 패턴 · 표 순서, 의도 칸) · 내 팀 폴더는 빼지 않는다 · 내 팀이 표에 없으면 표의 모든 팀 폴더를 뺀다."""
+    folders, note = team_folders(repo)
+    return ["!/" + folder for name, folder in folders.items() if name != team], ({"sparse_note": note} if note else {})
 
 
 def seat_env(root, team, work, holder, attempt):
@@ -104,10 +132,12 @@ def plan_of(folder, tag, root, team, holder, role_argv, worktree, repo, env, bod
     path = os.path.abspath(worktree or os.path.join(root, ".fable-team", "teams", team, "worktrees", tag))
     pairs = [word for key, value in env.items() for word in ("-e", key + "=" + value)]
     pi, hit = pi_path(os.environ.get("PATH")), mapped_card(root, team, env.get("FT2_WORK", ""))   # r2030 짝 표 카드 폴더만 sparse 에 더함
+    skip, notes = team_excludes(repo, team)   # r2082 A1 남의 팀 폴더 = 내 팀 뒤 · 짝 카드 폴더 앞(짝 카드는 그대로 포함)
     return {"intent": os.path.join(folder, tag + ".intent"), "worktree": path,
             "git": ["git", "-C", repo, "worktree", "add", "--no-checkout", "--detach", path, base],
             # r1846: 빈 자리 → sparse(출처 = 1.x r835 ft_sparse_patterns · 남의 팀 design 제외) → checkout · 큰 리포도 25초 안
-            "sparse": ["git", "-C", path, "sparse-checkout", "set", "--no-cone", "/*", "!/design/teams/*/", "/design/teams/%s/" % team] + (["/%s/" % WAIT.match(hit[2]).group(1)] if hit else []),
+            "sparse": ["git", "-C", path, "sparse-checkout", "set", "--no-cone", "/*", "!/design/teams/*/", "/design/teams/%s/" % team] + skip + (["/%s/" % WAIT.match(hit[2]).group(1)] if hit else []),
+            "notes": notes,   # r2082 의도에 더할 칸(A2 · 묶음 수)
             "checkout": ["git", "-C", path, "checkout", "-q"],
             "tmux": ["tmux", "new-session", "-d", "-s", holder, "-c", path] + pairs + [pi or "pi"] + ["-e", seat_tools(), "--approve"] + list(role_argv) + [body],
             "pi_bin": pi, "alive": ["tmux", "has-session", "-t", "=" + holder]}   # r1892: new-session rc0 뒤 1회
