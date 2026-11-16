@@ -233,9 +233,13 @@ print(json.dumps(row, ensure_ascii=False))'
 
 # 한 좌석의 4열 값 → "seat\tpane\tage\tagent\treplaced"
 row_of() {
-  local agent rep
+  local agent rep pi_row
   agent="$(seat_field "$1" 2)"; rep="$(seat_field "$1" 3)"
-  printf '%s\t%s\t%s\t%s\t%s\n' "$1" "$(status_of "$1")" "$(jsonl_age_of "$1")" "${agent:--}" "${rep:-0}"
+  # PI ADAPTER BEGIN
+  pi_row="$(pi_dispatch --row "$1")"   # r2141 — 상태·분 = jsonl 한 번 읽기 · 실패 = UNKNOWN -(옛 --pane 으로 채움 0)
+  case $? in 0) ;; 3) pi_row="$(status_of "$1")"$'\t'"$(jsonl_age_of "$1")";; *) pi_row="UNKNOWN"$'\t'"-";; esac
+  # PI ADAPTER END
+  printf '%s\t%s\t%s\t%s\n' "$1" "$pi_row" "${agent:--}" "${rep:-0}"
 }
 
 emit() {  # stdin = row_of 행들 → 텍스트 4열 또는 JSON 배열
