@@ -1,6 +1,6 @@
 # 인덱스: ft2-keeper-git-no-lazy-fetch — 끝: ft2 keeper 의 착지 고리(착지 sha 가 어느 ref 에 닿았는지 묻는 자리)의 조상 확인·착지 sha 존재 확인 git 호출이 원격 lazy fetch 없이 로컬 객체만 보고 끝난다 · 판정값은 그대로다(로컬만으로 지금과 같은 값이 정해지는 경우만 로컬로 끝내고 그 밖은 지금 호출을 그대로 한다 · base 존재 확인과 PR 착지는 손 0) · 그 env 는 그 호출의 자식에만 실리고 keeper 가 띄우는 다른 자식으로 새지 않는다
 <!-- ledger: feature-pack/fable-team/legacy/1.x/harness/design/harness/GOAL-harness.md -->
-- Issue: 없음(초안) — 넘김 byz-harness-master-pi#295 aifp 5867(harness r1979 git 호출 비용 조사 · 착지 d8b863c8 · BYZ Issue 8660 · 카드 후보 A) · 덧 aifp 5869(harness 나노 r2022 가 같은 줄을 고치는 중) · 팀장 aifp-ft-master-pi#22 발주 aifp 5868 · 5870
+- Issue: #8670 (byz-agents · 팀장 aifp-ft-master-pi#22 등록 BYZ 313336 · DA APPROVE-DESIGN 313290) — 없음(초안) — 넘김 byz-harness-master-pi#295 aifp 5867(harness r1979 git 호출 비용 조사 · 착지 d8b863c8 · BYZ Issue 8660 · 카드 후보 A) · 덧 aifp 5869(harness 나노 r2022 가 같은 줄을 고치는 중) · 팀장 aifp-ft-master-pi#22 발주 aifp 5868 · 5870
 - 제안서: 없음 — 결함 복구(git 자식의 env 1칸) · 설계 = 이 카드 «계약»·«반례 표»
 - 근거: 실측 2026-11-16 08:30(aifp-ft-arch-pi#22 · BYZ .fable-team/state/ft2-keeper/20261116.jsonl · BYZ 루트와 팩 리포에 읽기 명령 4개 · 읽기만) + harness arch#391 실측 BYZ .fable-team/state/team-main/harness/a391/r1979-candidates.log — 아래 «기준값» 절
 - 원인 1줄: BYZ 루트는 blob:none partial clone(remote.origin.promisor=true)이다 · keeper 가 그 리포에 «없는 sha»(다른 리포의 착지 sha · 다른 리포의 base_sha)로 `git merge-base --is-ancestor` · `git cat-file -e` 를 물으면 git 이 그 객체를 원격에서 받으려 한다(lazy fetch) · 받지 못하고 6~25초 뒤에야 rc 가 나온다 · keeper 의 git 호출 문(keeper.py `git` → `call`)은 env 를 호출마다 바꿀 길이 없다
