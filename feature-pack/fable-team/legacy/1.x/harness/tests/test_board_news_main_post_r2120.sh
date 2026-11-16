@@ -131,6 +131,20 @@ for bad_uid in u0ac2jf0m7d U1 "<@$U>"; do
   chk "⑥ post --keep-mention «${bad_uid}» → rc 1 · 게시 0" '[ "$RC" = 1 ] && [ "$(posts)" = "$n0" ]'
 done
 
+# ⑤-b 카운팅 머리줄 경계(DA HOLD #319310 R1) — 뉴스 post = 머리줄 0 · 일반 post = 머리줄 그대로
+printf '스크립트 1(판정 42) · 인터뷰 0 · 막힌 팀 대기 0\n' > "$T/count.md"
+reset; goal "$G6"; mk '{"cards":{"r1-a":"대기"},"h":1}'; n0="$(posts)"
+pub 10:00:00 FT_TEAM_STATUS_FILE="$T/count.md" FT_THREAD_POST="$KIT/byz_thread_post.py" FT_BOARD_POST_ARGS="--channel C0TEST --slack-base $BASE --token-file $T/tok"
+chk "⑤-b 카운팅 메모(판정 42) 있어도 뉴스 → rc 0 · 받은 글 1 · 첫 줄 = 골 진행 알림 · news-last 갱신" \
+  '[ "$RC" = 0 ] && [ "$(posts)" = $((n0 + 1)) ] && ptext | head -n 1 | grep -q "^골 진행 알림" && [ -s "$LAST" ]'
+printf '스크립트 1 · 인터뷰 0 · 막힌 팀 대기 0\n' > "$T/count.md"; printf '일반 글\n' > "$T/b.txt"
+postdirect() { env FT_ROOT="$R" FT_SLACK_THREADS="$T/reg.json" FT_TEAM_STATUS_FILE="$T/count.md" python3 "$KIT/byz_thread_post.py" post --channel C0TEST \
+  --token-file "$T/tok" --slack-base "$BASE" --text-file "$T/b.txt" "$@" > "$T/out" 2>&1; RC=$?; }
+n0="$(posts)"; postdirect
+chk "⑤-b 일반 post(인자 없음) → 첫 줄 = 카운팅 머리줄(기준판 그대로)" '[ "$RC" = 0 ] && [ "$(posts)" = $((n0 + 1)) ] && [ "$(ptext | head -n 1)" = "스크립트 1 · 인터뷰 0 · 막힌 팀 대기 0" ]'
+n0="$(posts)"; postdirect --no-status-head
+chk "⑤-b post --no-status-head → 받은 글 = 본문만" '[ "$RC" = 0 ] && [ "$(posts)" = $((n0 + 1)) ] && [ "$(ptext)" = "일반 글" ]'
+
 # ⑦ ⑧ 실 collect(임시 카드 폴더) → snapshot → body (E3)
 card() {  # card <폴더> <id> <골좌표 줄 | -> [mtime YYYYMMDDhhmm] [앞 빈 줄 수]
   mkdir -p "$R/cards/$1"; { echo "# 인덱스: $2"; for _ in $(seq 1 "${5:-0}"); do echo "- 칸: x"; done; [ "$3" = - ] || echo "- 골좌표: $3"; echo "본문"; } > "$R/cards/$1/$2.md"
