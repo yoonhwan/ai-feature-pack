@@ -3,13 +3,17 @@
 identity: tmux env FT2_HOLDER == seat and intent FT2_HOLDER == seat and pane command basename == pi.
 first_session: pane cwd == intent worktree, head.cwd == worktree, head.timestamp in [intent.at, +120s] exactly 1.
 A same-cwd session newer than the window means the pane moved on (세션 바뀜). Never choose the newest file.
+r2100: a late session whose id is another live tmux session's TMUXC_PI_SESSION_ID is that seat's, not a move.
 """
 import datetime
 import json
 import os
+import subprocess
+import time
 from pathlib import Path
 
 WINDOW = 120
+CAP = 7   # r2100 owners() tmux 추가 조회 전체 상한(초)
 
 
 def identity(seat, tmux, env, run, pane):
@@ -37,12 +41,42 @@ def candidates(root, cwd, none_yet):   # r1993 cwd 폴더 1개 먼저 · 거기�
         yield from root.glob("*/*.jsonl")
 
 
-def first_session(got, root):
-    """(path, head, pane pid, worktree) — intent 때 첫 세션 «정확히 1개» · 0·2+·세션 바뀜 = ValueError."""
+def owners(seat, tmux):
+    """r2100 산 tmux 세션(좌석 자신 제외)의 env TMUXC_PI_SESSION_ID 값 집합 — 남의 세션 증명.
+
+    list-sessions 실패·시간 초과·상한(7초) 넘음 = 예외(판정 불가) · env 조회 «can't find session» = 그 세션만 건너뜀.
+    """
+    end = time.monotonic() + CAP
+
+    def call(*args):
+        left = end - time.monotonic()
+        if left <= 0:
+            raise RuntimeError("tmux 조회 상한 넘음")
+        return subprocess.run([tmux, "-u", *args], capture_output=True, text=True, timeout=left)
+
+    listed = call("list-sessions", "-F", "#{session_name}")
+    if listed.returncode:
+        raise RuntimeError(f"tmux list-sessions 실패 rc={listed.returncode}")
+    ids = set()
+    for name in listed.stdout.splitlines():
+        env = call("show-environment", "-t", "=" + name) if name and name != seat else None
+        if env is None or (env.returncode and "can't find session" in env.stderr):
+            continue
+        if env.returncode:
+            raise RuntimeError(f"tmux show-environment 실패 rc={env.returncode}")
+        ids.update(ln.partition("=")[2] for ln in env.stdout.splitlines() if ln.startswith("TMUXC_PI_SESSION_ID="))
+    return ids - {""}
+
+
+def first_session(got, root, owner=None):
+    """(path, head, pane pid, worktree) — intent 때 첫 세션 «정확히 1개» · 0·2+·세션 바뀜 = ValueError.
+
+    owner = (좌석, tmux) — 창 뒤(late) 후보가 있을 때만 owners() 로 증명된 남의 세션을 뺀다(r2100).
+    """
     intent, pid, cwd = got
     if not all(isinstance(intent.get(k), str) for k in ("worktree", "at")):
         raise ValueError("Pi intent worktree·at 없음")
-    wt, at, hits, late = os.path.realpath(intent["worktree"]), epoch(intent["at"]), [], 0
+    wt, at, hits, late = os.path.realpath(intent["worktree"]), epoch(intent["at"]), [], []
     if cwd != wt:
         raise ValueError("Pi pane cwd ≠ intent worktree")
     for path in candidates(root, wt, lambda: not hits and not late):
@@ -55,7 +89,9 @@ def first_session(got, root):
         except (OSError, ValueError, TypeError, KeyError, AttributeError):
             continue
         hits += [(str(path), head, pid, wt)] if at <= ts <= at + WINDOW else []
-        late += ts > at + WINDOW
+        late += [head["id"]] if ts > at + WINDOW else []
+    if late and owner:
+        late = set(late) - owners(*owner)
     if late:
         raise ValueError("세션 바뀜")
     if len(hits) != 1:
