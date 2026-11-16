@@ -3,6 +3,8 @@
 T1~T4 · 변이 M1(호출 줄 삭제 → T1 FAIL) · M2(재시도 상한 삭제 → T3 FAIL)."""
 import importlib.util
 import shutil
+import time
+import types
 from pathlib import Path
 
 import pytest
@@ -85,7 +87,31 @@ def t4(w, mp):   # T4 NOOP(이미 완성) → 재시도 0
     assert len(fake.calls) == 1
 
 
-CASES = {"T1": t1, "T2": t2, "T3": t3, "T4": t4}
+def r1(w, mp):   # R1(DA HOLD #313466) — 실 card_stage · git 매회 rc0 + 주입 6.5초 → 바퀴 60초 안 · 예산 < 7초면 다음 git 0 · DEFER → 다음 바퀴 이동
+    w.card("r9267", w.pack_sha(), refs=("ops/main-base",)), w.work("r9267", intent=False)
+    step, starts = [6.5], []
+    def keeper6():
+        k = w.keeper()
+        mp.setitem(k.run_once.__globals__, "time", types.SimpleNamespace(monotonic=lambda: w.t, time=time.time))
+        real = k.cs.spawn
+        def spawn(cwd, args, env=None):
+            starts.append(w.t)
+            out = real(cwd, args, env)
+            w.t += step[0]
+            return out
+        mp.setattr(k.cs, "spawn", spawn)
+        return k
+    t0, lines = w.t, w.round(keeper6())
+    rnd = [x for x in lines if x.startswith("ROUND ")]
+    assert w.kinds("complete") == 1 and starts and max(starts) - t0 <= 60 - 7, (starts, lines)
+    assert len(rnd) == 1 and " OVER" not in rnd[0] and not any(x.startswith("CARD-STAGE") for x in lines), lines
+    assert [x.split(" card_stage")[0] for x in lines if x.startswith("DEFER")] == ["DEFER harness r9267"], lines
+    step[0], n = 0.0, len(starts)
+    lines = w.round(keeper6())
+    assert len(starts) > n and [x.split()[:4] for x in lines if x.startswith("CARD-STAGE")] == [["CARD-STAGE", "harness", "r9267", "진행→완성"]], lines
+
+
+CASES = {"T1": t1, "T2": t2, "T3": t3, "T4": t4, "R1": r1}
 KP = "adapters/pi/keeper.py"
 MUTANTS = {"M1": ("land.Landing.complete(self, *args) and (self.stage_card(*args[:2]) or True)", "land.Landing.complete(self, *args)", t1),
            "M2": ("        if n >= 3:\n            return None\n", "", t3)}
