@@ -265,7 +265,7 @@ if tmux has-session -t "=$SEAT" 2>/dev/null; then
     tmux set-option -t "=$SEAT:" -u @zc_v65_active || { vlog fail-tag; finish 1 "FAIL tag $SEAT — @zc_v65_active 해제 실패(세션 잔존 · 명부 표기는 남음 file=$FILE)"; }
   fi
   bash "$HERE/ft-session-close-ledger.sh" note "$SEAT" ft-seat-close.sh "$REASON" >/dev/null 2>&1 || :   # r2101 — kill 직전 원장 tool 줄 1(rc·출력·kill 인자 섞임 0)
-  tmux kill-session -t "=$SEAT" || { vlog fail-kill; finish 1 "FAIL kill $SEAT — kill-session 실패(세션 잔존 · 명부 표기는 남음 file=$FILE)"; }
+  tmux kill-session -t "=$SEAT" || { bash "$HERE/ft-session-close-ledger.sh" fail "$SEAT" ft-seat-close.sh >/dev/null 2>&1; vlog fail-kill; finish 1 "FAIL kill $SEAT — kill-session 실패(세션 잔존 · 명부 표기는 남음 file=$FILE)"; }
   KILL=ok
 else reap; KILL=none; fi
 final
