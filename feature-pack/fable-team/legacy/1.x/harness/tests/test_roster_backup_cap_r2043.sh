@@ -18,7 +18,7 @@ cnt() { ls -d "$1".bak-"$2"-* 2>/dev/null | wc -l | tr -d ' '; }
 ts_of() { printf '20250101%06d' "$1"; }   # i → 14자리 ts(i 클수록 최근)
 mkbaks() { local f="$1" k="$2" n="$3" i; for ((i=n-1; i>=0; i--)); do echo "b$i" > "$f.bak-$k-$(ts_of "$i")"; done; }   # 최근 것부터 만든다(mtime ≠ ts 순서)
 seats() { mkdir -p "$1"; printf '%s' '{"_master": "M#1", "M#1": {"role": "master", "agent": "claude", "model": "m1", "tick": "ft-master-tick"}}' > "$1/seats-x.json"; }
-retire() { bash "$RETIRE" 'M#1' 'M#2' --seats "$1/seats-x.json"; }
+retire() { FT_ROOT="$1" bash "$RETIRE" 'M#1' 'M#2' --seats "$1/seats-x.json"; }   # r2086: r1909 데이터 루트 = 임시 폴더(FT_ROOT)
 capsh() { ( . "$BIN/ft-team-lib.sh"; ft_bak_cap "$@" ); }
 cappy() { python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); from ft_roster_lib import bak_cap; bak_cap(sys.argv[2], sys.argv[3])' "$BIN" "$@"; }
 
