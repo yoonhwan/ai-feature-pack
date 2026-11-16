@@ -59,6 +59,7 @@ def parse(argv: list[str]) -> argparse.Namespace:
     rpl.add_argument("--answered", type=int, help="내가 답한 개수 — --asked 보다 적으면 --left 가 필요")
     rpl.add_argument("--left", help="덜 답했을 때 못 한 것 1줄 — 게시 본문 끝에 «아직 못 한 것: …» 로 붙는다")
     rpl.add_argument("--no-status-head", action="store_true", help="--ts 전용 — 카운팅 머리줄을 붙이지 않는다(보드 뉴스 답글 · r2063)")
+    rpl.add_argument("--keep-mention", metavar="UID", help="--ts 전용 — 중화 뒤 이 UID 태그 첫 1개만 진짜 태그로 되돌린다(보드 뉴스 오빠 태그 · r2108)")
     rpl.add_argument("--force-thread", action="store_true", help="--thread 로 보내되 «답 안 된 오빠 글» 검사를 건너뛴다(명시 · stderr WARN · r558)")
     po = sub.add_parser("post", parents=[common, chan_reply], help="방에 새 글 1개(스레드 아님) — 승인·뉴스·알림(r561)")
     po.add_argument("--to", help="등록부(slack-threads.json) 이름 예 desk — 그 채널 «방» 에 올린다")
