@@ -14,7 +14,10 @@
 #     뒤에 붙는 송신·도달 확인까지 70초 상한(하드 룰 12·22)을 넘겨 래퍼가 끊었다(사건 = issues-master-sol#60 rc124 2회 · 기계 [인계] 0).
 #     그래서 ⓒ-2 를 갈래로 나누고, 한 실행이 FT_SO_BUDGET 을 넘기기 전에 단계 사이에서 rc5 + «다시 실행» 1줄로 넘긴다(이어가기는 아래 r609 그대로).
 set -uo pipefail
-[ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
+# ★r2090 자기 폴더 1회★ ~/.local/bin 심링크로 불려도 짝 파일은 실제 폴더에서 찾는다 — 심링크를 끝까지 따라감(상대 = 링크가 놓인 폴더 기준 · 여러 단)
+_so_self="${BASH_SOURCE[0]:-$0}"; while [ -L "$_so_self" ]; do _so_l="$(readlink -- "$_so_self")"; case "$_so_l" in /*) _so_self="$_so_l";; *) _so_self="$(dirname -- "$_so_self")/$_so_l";; esac; done
+SO_DIR="$(cd -- "$(dirname -- "$_so_self")" && pwd)"
+[ -f "$SO_DIR/ft-live-entry.sh" ] && . "$SO_DIR/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
 # ★r1660 한 실행 시간 상한★ — T0 = 도구가 시작하는 자리(인자 검사·문지기까지 전체 경과). 남은 시간이 0 이면 «단계 사이» 에서 멈춘다.
 BUDGET="${FT_SO_BUDGET:-60}"; SO_T0="$(date +%s)"
 so_elapsed() { echo $(( $(date +%s) - SO_T0 )); }
@@ -43,14 +46,15 @@ while [ $# -gt 0 ]; do case "$1" in
   --carry) CARRY="${2:-}"; CARRY_SET=1; shift 2;; *) usage;; esac; done
 # ★r1659 이름 lint 관문★ (오빠 «이름 꼬리 = 에이전트만 · 모델은 이름에 안 넣음»): 열기·명부·쪽지·재실행 이어가기 전에 ft-name-lint 를 통과해야 한다.
 #   모델 꼬리(sol 등)는 같은 계보 승계라도 예외 0 → REJECT rc1 · 꼬리 에이전트 ≠ --agent 는 아래 r1468 관문(rc2) 몫 · nano 는 lint 만.
-_nl="${FT_NAME_LINT:-$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-name-lint.sh}"
+_nl="${FT_NAME_LINT:-$SO_DIR/ft-name-lint.sh}"
+[ -z "$NAME" ] || [ -f "$_nl" ] || { echo "REJECT 이름 lint 도구 없음: $_nl (세션 열기 0 · 명부 쓰기 0)" >&2; exit 1; }
 [ -z "$NAME" ] || _nlo="$(bash "$_nl" "$NAME" 2>&1)" || { echo "REJECT 이름 lint — ${_nlo%%$'\n'*} (세션 열기 0 · 명부 쓰기 0)" >&2; exit 1; }
 # ★r2020 석 칸 역행 0★: 옛 좌석이 이미 새 꼴(lint WARN 없음)인데 후계가 옛 꼴(WARN)이면 REJECT · 옛→옛 승계는 WARN 그대로(이행은 «옛 → <역할>-0-<에이전트>»)
 _or="${OLD#*-*-}"; if [ "${_nlo:-}" != "${_nlo#*WARN 옛 꼴}" ] && [ "${_or%%-*}" != nano ] && _olo="$(bash "$_nl" "$OLD" 2>&1)" && [ "$_olo" = "${_olo#*WARN 옛 꼴}" ]; then
   echo "REJECT 석 칸 역행 — 옛 좌석 $OLD 는 새 꼴 · 후계 $NAME 에 석 칸 필요 (세션 열기 0 · 명부 쓰기 0)" >&2; exit 1; fi
 # ★r1569 후계 런타임 = 역할 정책표★ (오빠 #278888): --agent 를 생략하면 옛 좌석 습관 대신 정책표(역할 → agent·model)에서 고르고, 이름 꼬리도 고른 agent 로 바꾼다.
 #   역할 = 이름의 «-<역할>-» 토큰(표 위 행부터 첫 일치) · 표 없음·역할 없음 = rc2 + 이유 1줄(옛 agent 로 조용히 대체 0 · #0 RULE) · --agent 명시가 정책과 다르면 WARN 1줄(막지 않음 · 사람 지정 존중).
-POLICY="${FT_RUNTIME_POLICY:-$(dirname -- "${BASH_SOURCE[0]:-$0}")/runtime-policy.tsv}"
+POLICY="${FT_RUNTIME_POLICY:-$SO_DIR/runtime-policy.tsv}"
 _pol=""; [ -f "$POLICY" ] && _pol="$(awk -v n="-${NAME%%#*}-" '!/^#/ && NF>=3 && index(n, "-" $1 "-") {print $2, $3; exit}' "$POLICY")"
 if [ -z "$AGENT" ]; then
   [ -f "$POLICY" ] || { echo "REJECT 런타임 정책표 없음: $POLICY — 표를 설치하거나 --agent 를 적어라(옛 좌석 agent 로 대체 0)" >&2; exit 2; }
@@ -62,7 +66,7 @@ elif [ -n "$_pol" ] && [ "$AGENT" != "${_pol%% *}" ]; then
   echo "WARN --agent $AGENT 는 정책과 다름(정책 = ${_pol%% *} ${_pol#* }) — 사람 지정 존중 · 그대로 연다" >&2
 elif [ -n "$_pol" ] && [ -z "$MODEL" ]; then MODEL="${_pol#* }"; fi
 # r1675 — 옛 좌석의 팀이 2.0 전환됨이면 후계 개설(state/successor·쪽지) 전에 멈춘다(첫 게이트). 명부 자체 수정 0 = 명부 쓰기는 ft-seat-retire 가 따로 막는다.
-_ft20h="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"   # r1675 — HERE 정의(아래 74줄)보다 앞에서 도는 가드라 자기 폴더를 직접 푼다
+_ft20h="$SO_DIR"   # r1675 — HERE 정의(아래 74줄)보다 앞에서 도는 가드라 자기 폴더를 직접 푼다
 if [ -f "$_ft20h/ft20-switch-lib.sh" ]; then . "$_ft20h/ft20-switch-lib.sh"; _ft20_root="$(ft20_root_of "$WT")" || exit $?; ft20_guard_handover "$_ft20_root" "$OLD" "$NAME" "" || exit $?; else _ft20_r="${FT_FT20_ROOT:-$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)}"; compgen -G "${_ft20_r%/.git}/.fable-team/state/ft20-switch/*.json" >/dev/null 2>&1 && { echo "REJECT 2.0 전환 표식이 있는데 ft20-switch-lib.sh 없음(설치 누락) — 1.x 쓰기 0(판정 불가)" >&2; exit 3; }; fi
 # ★r1037 모델 약어★ (오빠 2026-10-28 «sn5.5 → sn5.5 · op5.5 → op5.5 · sn5.5 → op5.5»): `sn` = claude-sonnet-5-5 · `op` = claude-opus-5-5.
 #   비어 있지 않을 때만 풀고, 그 밖의 값(풀네임 포함)은 그대로 둔다 — 모델을 모르는 도구가 값을 고치지 않는다.
@@ -100,7 +104,7 @@ _nb="${NAME%%#*}"; _nr="${_nb#*-*-}"; _nr="${_nr%%-*}"   # r1659 R1: nano 꼬리
   [ "${_nb##*-}" = "$AGENT" ] || { echo "REJECT 이름 꼬리 ${_nb##*-} ≠ --agent $AGENT — 이름 = ${_nb%-*}-$AGENT#N" >&2; exit 2; };;
 esac
 printf '%s\n%s\n' "$OLD" "$NAME" | grep -qvE '^[A-Za-z0-9._#-]+$' && { echo "REJECT 좌석명은 [A-Za-z0-9._#-] 만" >&2; exit 2; }
-HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+HERE="$SO_DIR"
 # ★r2067 A3★ 종료 자리 한 곳 — rc 5·6 = 장부 raise(원인 = 그 실행의 «[HIL] …»·«시간 상한 …»·«OPEN-WORK-0 …» 줄) · rc 0 = clear · 그 밖 = 호출 0 · rc 불변
 _FTB_CAUSE=""
 _ftb_so_exit() {
