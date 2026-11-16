@@ -132,7 +132,7 @@ fresh; mkwt "$SW" nano/refwt-fix nano/refwt; alive_at "$SW"; out="$(CLOSE_BIN="$
 case "$out" in *"후보도 0개"*) bad "M6 안 먹음";; *) ok "M6 FAIL(«후보 0» 사라짐 rc=$rc) = N10a 가 잡는다";; esac
 echo "== 변이 M7 «REJECT 판정을 kill 뒤로» → N2(부작용) 가 잡는다"
 mutant '_lp_cwd_head_gate || bad+=("$_lp_cwd_head_err")' '_lp_cwd_head_gate || _m7="$_lp_cwd_head_err"' \
-  'tmux kill-session -t "$PANE" || { echo "FAIL $SEAT — kill-session 실패(세션 잔존 · 태그는 해제됨)"; exit 1; }' 'tmux kill-session -t "$PANE" || exit 1; [ -z "${_m7:-}" ] || { echo "REJECT $SEAT"; exit 1; }'
+  'tmux kill-session -t "$PANE" || { bash "$HERE/ft-session-close-ledger.sh" fail "$SEAT" ft-nano-close.sh >/dev/null 2>&1; echo "FAIL $SEAT — kill-session 실패(세션 잔존 · 태그는 해제됨)"; exit 1; }' 'tmux kill-session -t "$PANE" || exit 1; [ -z "${_m7:-}" ] || { echo "REJECT $SEAT"; exit 1; }'
 n2; out="$(CLOSE_BIN="$T/mutbin/ft-nano-close.sh" close --landed-pr 363)"; rc=$?
 [ -n "$(cat "$T/tlog")" ] && ok "M7 FAIL(REJECT 인데 kill 흔적 rc=$rc) = N2 부작용 검사가 잡는다" || bad "M7 안 먹음 rc=$rc"
 
