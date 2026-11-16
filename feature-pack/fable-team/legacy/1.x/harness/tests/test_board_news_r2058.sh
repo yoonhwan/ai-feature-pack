@@ -73,8 +73,8 @@ reset; goal "$G1" "$G2"; mk "$BASE"; run 2026-11-15T10:00:00
 chk "① rc 0" '[ "$RC" = 0 ]'
 chk "① reply 1회" '[ "$(replies)" = 1 ]'
 chk "① --ts $TSV" 'grep -q -- "reply.*--ts $TSV" "$T/stub/tp.log"'
-chk "① 막대 0 · 골 줄 2개(r2095)" '[ "$(lastbody | grep -c "[▓░]")" = 0 ] && [ "$(now_section | grep -c "단계 끝남")" = 2 ]'
-chk "① 20/23 = 23단계 중 20단계(r2095)" 'lastbody | grep -qxF "ft 2.0 완성: 23단계 중 20단계 끝남. 진행 중"'
+chk "① 막대 골 줄 2개(r2103)" '[ "$(lastbody | grep -c "[▓░]")" = 2 ] && [ "$(now_section | grep -c " [▓░]\{10\} [0-9]*/[0-9]*\.")" = 2 ]'
+chk "① 20/23 = 막대 8칸(r2103)" 'lastbody | grep -qxF "ft 2.0 완성 ▓▓▓▓▓▓▓▓░░ 20/23. 진행 중"'
 chk "① news-last 생김" '[ -f "$LAST" ]'
 chk "① 다음 줄 = 정해진 다음 한 수 없음(r2096 · 5 column 원장)" '[ "$(next_section)" = "정해진 다음 한 수 없음" ]'
 chk "① 오빠 할 일 1건" 'lastbody | grep -q "1건"'
@@ -89,7 +89,7 @@ chk "④ reply 0" '[ "$RC" = 0 ] && [ "$(replies)" = 1 ]'
 goal "1 | ft 2.0 완성 | 21 | 23 | 진행 중" "$G2"; run 2026-11-15T10:30:00
 chk "⑤ reply 1회" '[ "$(replies)" = 2 ]'
 chk "⑤ 지금 «바뀜: 20단계 → 21단계»(r2095)" 'now_section | grep -qxF "바뀜: ft 2.0 완성 20단계 → 21단계(전체 23)"'
-chk "⑤ 21/23 골 줄(r2095)" 'lastbody | grep -qxF "ft 2.0 완성: 23단계 중 21단계 끝남. 진행 중"'
+chk "⑤ 21/23 골 줄(r2103)" 'lastbody | grep -qxF "ft 2.0 완성 ▓▓▓▓▓▓▓▓▓░ 21/23. 진행 중"'
 goal "1 | ft 2.0 완성 | 23 | 23 | 끝" "$G2"; run 2026-11-15T10:40:00
 chk "⑤ 23/23 = 닫힌 골 첫 줄(r2095)" 'lastbody | head -1 | grep -qF "닫힌 골 1개(ft 2.0 완성)" && ! now_section | grep -q "^ft 2.0 완성:"'
 # ⑥ 카드 대기→진행 + 세션 새로 열림(같은 틱) → 지금 2줄
@@ -127,7 +127,7 @@ reset; echo 1 > "$T/stub/collect_rc"; run 2026-11-15T14:00:00
 chk "⑧ collect rc 1 = rc 1 · reply 0" '[ "$RC" = 1 ] && [ "$(replies)" = 0 ]'
 # ⑨ 꼴: 30석 → 12줄 + 외 18석 · 표·코드블록 0 · 3500B · 끝 줄 밖 번호·sha·ts 0
 reset; goal "$G1" "$G2"; mk '{"cards":{"r2058-oppa-a":"대기"},"seats":{},"ncards":30}'; run 2026-11-15T15:00:00
-chk "⑨ 다음 = 1줄 · 카드 이름 0(r2096)" '[ "$(next_section)" = "정해진 다음 한 수 없음" ] && ! lastbody | grep -qE "c0[0-9]|외 [0-9]"'
+chk "⑨ 다음 = 1줄 · 다음 칸 카드 이름 0(r2096 · r2103)" '[ "$(next_section)" = "정해진 다음 한 수 없음" ] && ! next_section | grep -qE "c0[0-9]|외 [0-9]"'
 mk "$BASE"; run 2026-11-15T15:10:00
 for f in "$T/stub"/body.*.txt; do
   chk "⑨ $(basename "$f") 표·코드블록 0 · 3500B" '! grep -q "|---" "$f" && ! grep -qF "\`\`\`" "$f" && [ "$(wc -c < "$f")" -le 3500 ]'
