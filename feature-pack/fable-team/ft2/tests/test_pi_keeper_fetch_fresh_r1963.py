@@ -117,7 +117,7 @@ CASES = {"c1": c1, "c2": c2, "c3": c3, "c4": c4, "c5": c5, "c6": c6, "c7": c7, "
 KP, KL = "adapters/pi/keeper.py", "adapters/pi/keeper_land.py"
 ORDER = "order = [] if self.root in self.stale else self.teams()"
 MUTANTS = {"M1": (KP, ORDER, "order = [] if self.stale else self.teams()", c1),                      # 낡음 있으면 통째 0 그대로
-           "M2": (KL, "if repo not in self.stale and self.git(", "if self.git(", c2),               # 낡은 팩 ref 도 조상 검사
+           "M2": (KL, "if repo in self.stale:   # r1963", "if False:   # r1963", c2),               # 낡은 팩 ref 도 조상 검사
            "M3": (KL, 'if self.stale else (sha, None, "미도달")', 'if False else (sha, None, "미도달")', c2),   # 낡음 사유 대신 미도달
            "M4": (KP, "near.split() == [far.get(n) for n in names]", "True", c7),                   # ls-remote 결과를 안 보고 늘 신선
            "M5": (KP, "pool.map(self.fresh, repos)", "map(self.fresh, repos)", c9),                 # 두 리포 차례로

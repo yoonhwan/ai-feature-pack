@@ -132,7 +132,7 @@ CASES = {"①": c1, "②": c2, "③": c3, "④": c4, "④′": c4b, "④″": c4
          "⑪": c11, "⑪′": c11b, "⑪″": c11c, "⑫": c12, "⑫′": c4, "⑫″": c12c,
          "B2-pi": c13, "B5-role": c14}
 KP, KL, KC, KS = "adapters/pi/keeper.py", "adapters/pi/keeper_land.py", "adapters/pi/keeper_close.py", "adapters/pi/keeper_settle.py"
-MUTANTS = {"M1": ("ft2", KL, '"--is-ancestor", sha, ref)[0] == 0', '"--is-ancestor", sha, ref)[0] in (0, 1, 128)', c3),
+MUTANTS = {"M1": ("ft2", KL, "            if rc == 0:\n", "            if rc in (0, 1, 128):\n", c3),   # r2022 조상 확인 rc 변수로 닻 이동
            "M2": ("ft2", KL, '(self.pack, "origin/main"), (self.root, REFS[0]), (self.root, REFS[1])', '(self.pack, "origin/main"),', c2),
            "M3": ("ft2", KS, 'return "idle" if first is not None and now - first >= CPU_GAP else "pending"', 'return "idle"', c4b),   # r2055 A13 CPU 표본 1개 = pending
            "M4": ("ft2", KC, 'self.call([self.tmux, "kill-session"', 'self.receipt(team, work, attempt, holder, gen); self.call([self.tmux, "kill-session"', c4),
