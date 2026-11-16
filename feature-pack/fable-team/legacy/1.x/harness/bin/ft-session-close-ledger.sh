@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # ft-session-close-ledger.sh — r2101 세션 닫힘 원장: tmux session-closed hook 줄(언제 · 어느 세션) + 닫기 도구 줄(누가 · 왜)을 한 원장에 남기고 짝지어 읽는다
 #   note <세션> <도구> <사유>      tool 줄 1개(좌석 = env FT_SEAT 또는 «-» · 세션 id = 이름이 글자 그대로 같은 tmux 세션의 #{session_id} 또는 «-» · 호출 pid = 부른 프로세스)
+#                                  env FT_SESSION_CLOSE_ID 가 있으면 그 값을 세션 id 칸에 그대로(note 안 tmux 호출 0 · 닫기 도구가 kill 바로 앞에서 부를 때)
+#   id <세션>                    그 이름의 세션 id 1줄(«$N» 또는 «-» · 언제나 rc 0) — note 의 세션 id 읽기를 먼저 해 둘 때(r2101 DA 구현 R1)
 #   fail <세션> <도구>             fail 줄 1개(사유 «kill 실패» · id «-» · tmux 호출 0) — 닫기 도구의 kill-session 실패 갈래 맨 앞
 #                                  note · fail: rc 0 · 원장 쓰기 실패 = stderr «판정 불가 원장 쓰기 실패 <경로>» rc 1
 #   hook <세션 id> <세션 이름>     hook 줄 1개(도구 · 좌석 · 사유 · pid 칸 «-») · 인자가 2개가 아니면 줄 0 · 화면 출력 0 · 언제나 rc 0
@@ -15,7 +17,7 @@ set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SELF="$HERE/$(basename -- "${BASH_SOURCE[0]:-$0}")"
 HOOK_CMD="run-shell -b \"$SELF hook #{q:hook_session} #{q:hook_session_name}\""
-usage() { echo "usage: $0 note <세션> <도구> <사유> | fail <세션> <도구> | hook <세션 id> <세션 이름> | hook-on | hook-off | hook-status | read [--since <ISO>] [--session <이름>]" >&2; exit 2; }
+usage() { echo "usage: $0 note <세션> <도구> <사유> | id <세션> | fail <세션> <도구> | hook <세션 id> <세션 이름> | hook-on | hook-off | hook-status | read [--since <ISO>] [--session <이름>]" >&2; exit 2; }
 
 ledger_path() {
   if [ -n "${FT_SESSION_CLOSE_LEDGER:-}" ]; then printf '%s\n' "$FT_SESSION_CLOSE_LEDGER"; return 0; fi
@@ -61,7 +63,8 @@ read_ledger() {
 }
 
 case "${1:-}" in
-  note) [ $# -eq 4 ] || usage; put tool "$2" "$3" "${FT_SEAT:-}" "$4" "$(session_id "$2")" "$PPID" || exit 1;;
+  note) [ $# -eq 4 ] || usage; put tool "$2" "$3" "${FT_SEAT:-}" "$4" "${FT_SESSION_CLOSE_ID-$(session_id "$2")}" "$PPID" || exit 1;;
+  id) [ $# -eq 2 ] || usage; session_id "$2";;
   fail) [ $# -eq 3 ] || usage; put fail "$2" "$3" "${FT_SEAT:-}" "kill 실패" - "$PPID" || exit 1;;
   hook) [ $# -eq 3 ] && put hook "$3" - - - "$2" - >/dev/null 2>&1; exit 0;;
   hook-on) hook_on;;
