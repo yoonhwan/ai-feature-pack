@@ -63,7 +63,7 @@ chmod +x "$T/fakebin/launchctl" "$T/fakebin/ps"   # 시험 픽스처만 실행 �
 printf 'ts=%s stall=0 a=0 b=0 c=0 d=0 seats=1\n' "$NOW" > "$T/stall.log"
 printf '{"ts":"2026-11-08T11:02:44Z","from":"%s","to":"x","body":"y"}\n' "$PLANNER" \
   > "$T/root/.fable-team/comm/mailbox.log.jsonl"   # 5분 전 = 20분 미만이라 팀장 줄이 안 나와야 한다
-mkdir -p "$T/root/.fable-team/state/board" && python3 -c 'import datetime,sys; print("{\"at\": \"%s\"}" % datetime.datetime.fromtimestamp(int(sys.argv[1])).isoformat())' "$NOW" > "$T/root/.fable-team/state/board/news-last.json"   # r2102 NEWS 줄 = 방금 발행
+( cd "$T/root" && git init -q && mkdir -p design/teams/planner && printf '## 골 진행\n\n## 끝\n' > design/teams/planner/PLAN-oppa-ledger.md && git add design && git -c user.email=t@t -c user.name=t commit -qm t && git update-ref refs/remotes/origin/main HEAD && git update-ref refs/remotes/origin/ops/main-base HEAD )   # r2102 NEWS 줄 = 원장 리포(완성 커밋 0)
 
 PSLINE="4242 python3 -u - $T/root/.fable-team/bin $DESK"
 export FAKE_PS="$PSLINE"
