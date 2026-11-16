@@ -15,7 +15,7 @@ from pathlib import Path
 
 from ft_nano_record import CARD_RX, DONE_RX, Ctx, Reject, Unjudged, left_free, left_of, marks, rec_of, section, seq_dropped
 from ft_nano_record_batch import prepare
-from ft_nano_record_repo import at, repo_hits, seats_at
+from ft_nano_record_repo import at, proxy_master, repo_hits, seats_at
 
 DOCW = "문서 PR · 구현 착지 아님"   # r1782 A2: 장부 doc_only(착지 파일 전부 design/·docs/) 줄의 «끝» 사유
 
@@ -71,7 +71,7 @@ def card_rows(ctx, e, path):
     base = {"pr": e.get("pr"), "q": e["landed"], "stem": stem, "team": team, "iroot": iroot, "e": e, "master": ""}
     try:
         doc = ctx.seats(team)
-        base["master"] = str(doc.get("_master") or "")
+        base["master"], base["proxy"] = str(doc.get("_master") or ""), proxy_master(ctx, doc, team)   # r2039 A1·A2: 카드 ref = main 팀 = «차례» 받는 이 팀장
         base["path"], raw = ctx.card(team, iroot, stem)
         lines, st, en = section(raw.decode("utf-8", "replace"))
         sec = lines[st + 1:en] if st is not None else []   # r1717-mut:section

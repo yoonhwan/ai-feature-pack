@@ -2,7 +2,7 @@
 # test_land_record_card_repo_r1849.sh — r1849: 팩 리포 PR 카드(번호 없는 이름)도 착지 장부에 잡히고 due·settle 이 그 카드를 장부 repo 리포에서 읽는다
 #   세계 = 임시 리포 2개(R = 장부 루트·BYZ 꼴 · 카드 ref origin/ops/main-base / P = 팩 꼴 · 카드 ref origin/main · 명부 seats-aifp.json)
 #   착지 = ft-merge-land.sh 의 실제 fm_land_notify_land 줄 eval · 쪽지 대역 · 가짜 tmux(PATH 앞) · 원격·fetch·gh·sleep 0
-#   ④(DA HOLD R1) 팩 나노 landed = 팩 카드 ref 에 기록 DONE · 팩 명부 팀장 settle = SETTLED(가짜 우편함 FT_MBOX · 팩 원격 = 임시 bare)
+#   ④(DA HOLD R1) 팩 팀장 landed(r2039 대리 · 완료 칸 = 나노) = 팩 카드 ref 에 기록 DONE · 팩 명부 팀장 settle = SETTLED(가짜 우편함 FT_MBOX · 팩 원격 = 임시 bare)
 #   변이: M1 repo 카드 ref 트리 검색 빼기(r1849-mut:repo) → ① 잡힘 · M2 Ctx 카드 읽기를 장부 루트로 고정(r1849-mut:at) → ② 잡힘
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
 set -uo pipefail
@@ -76,8 +76,8 @@ ck "M2 Ctx 루트 고정 → ② due 잡힘" bash -c '! grep -qF "차례 $1" <<<
 rec "$T/m2" settle --seat "$MASTER" --pr 1 --card "$STEM"
 ck "M2 Ctx 루트 고정 → ② settle 잡힘" bash -c '! grep -qF SETTLED <<<"$1"' _ "$OUT"
 
-echo "### ④ DA HOLD R1 — 팩 나노 landed · 팩 팀장 settle(장부 루트에서)"
-rec "$BIN" landed --seat "$NANO" --pr 1 --card "$STEM" --test 'bash r1849.sh rc=0'
+echo "### ④ DA HOLD R1 — 팩 팀장 landed(r2039 카드 ref = main = 차례 나노 대리) · 팩 팀장 settle(장부 루트에서)"
+rec "$BIN" landed --seat 'byz-aifp-master-pi#1' --pr 1 --card "$STEM" --test 'bash r1849.sh rc=0'
 ck "④ landed = DONE(팩 카드 ref)" grep -qx DONE <<<"$OUT"
 ck "④ 팩 원격 카드에 완료 줄" grep -qF -- "- 완료: $NANO · 병합 상태: 착지" <<<"$(git -C "$T/pack.git" show "main:$PI/$STEM.md")"
 rec "$BIN" settle --seat 'byz-aifp-master-pi#1' --pr 1 --card "$STEM"
