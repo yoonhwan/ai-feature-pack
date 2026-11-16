@@ -30,7 +30,10 @@ if [ "${1:-}" = "--news" ]; then
   V="$(FT_ROOT="$ROOT" python3 "$HERE/ft_board_news.py" --collect "$TMP/collect.json" --last "$SD/news-last.json" --body "$TMP/body.txt" --state "$TMP/state.json")"; rc=$?
   [ "$rc" -eq 0 ] || exit "$rc"
   [ "$V" = POST ] || { echo "ft-board-publish: $V"; exit 0; }
-  python3 "$TP" reply ${POST_ARGS[@]+"${POST_ARGS[@]}"} --no-status-head --ts "$TS" --text-file "$TMP/body.txt"; rc=$?
+  # r2108: 오빠 태그 1개만 진짜 태그로 — UID = env FT_OPPA_SLACK_UID ∨ ft_oppa_slack_check.OPPA_SLACK_UID(body 모듈과 같은 출처) · 읽기 실패 = 인자 없이
+  OU="${FT_OPPA_SLACK_UID:-$(python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); from ft_oppa_slack_check import OPPA_SLACK_UID; print(OPPA_SLACK_UID)' "$HERE" 2>/dev/null)}"
+  KM=(); [ -n "$OU" ] && KM=(--keep-mention "$OU") || echo "ft-board-publish: WARN 오빠 UID 읽기 실패 — 태그 인자 없이 발행" >&2
+  python3 "$TP" reply ${POST_ARGS[@]+"${POST_ARGS[@]}"} --no-status-head ${KM[@]+"${KM[@]}"} --ts "$TS" --text-file "$TMP/body.txt"; rc=$?
   [ "$rc" -eq 0 ] || { echo "ft-board-publish: reply 실패 rc=$rc — news-last 그대로" >&2; exit "$rc"; }
   mkdir -p "$SD" && cp "$TMP/state.json" "$SD/news-last.json.tmp" && mv "$SD/news-last.json.tmp" "$SD/news-last.json" \
     || { echo "ft-board-publish: news-last 기록 실패" >&2; exit 1; }

@@ -34,6 +34,7 @@ from root_readback_guard import Post, ReadbackError, readback
 KEY = re.compile(r"board:\d{4}-\d{2}-\d{2}")
 TS = re.compile(r"\d+\.\d+")
 NAME = re.compile(r"[a-z][a-z0-9_-]{0,31}")
+UID = re.compile(r"U[A-Z0-9]{8,11}")
 KST = ZoneInfo("Asia/Seoul")
 THREADS_ENV = "FT_SLACK_THREADS"
 
@@ -85,11 +86,16 @@ def cmd_reply(a: argparse.Namespace, target: Callable[[argparse.Namespace], Targ
         raise MirrorError(f"--to-slack 는 오빠 글 ts 꼴(예 1700000000.000100): {a.to_slack}")
     if a.thread is not None and not NAME.fullmatch(a.thread):
         raise MirrorError(f"--thread 는 소문자 이름(예 desk): {a.thread}")
+    km = getattr(a, "keep_mention", None)
+    if km is not None and (a.ts is None or not UID.fullmatch(km)):
+        raise MirrorError(f"--keep-mention 은 reply --ts 전용 · UID 꼴 U[A-Z0-9]{{8,11}}: {km}")
     body = (a.text if a.text is not None else Path(a.text_file).read_text(encoding="utf-8")).strip()
     if not body:
         raise MirrorError(f"본문이 비었다: {a.text_file or '--text'}")
     text = esc(body)
     check(text, a.channel or "", human=True)  # 뿌리 글 «전» — 본문이 걸리면 뿌리·등록부 불변
+    if km is not None:  # r2108 — 도구가 밝힌 태그 첫 1개만 되돌린다 · 원장 글 mention 은 중화 그대로
+        text = text.replace(f"&lt;@{km}&gt;", f"<@{km}>", 1)
     if a.ts is not None or a.to_slack is not None:  # 답글 길도 스레드 = 주제 대화 전용(r617)
         if trs.refuse_room_post(body, a.force_thread):
             return 2  # 게시 0 — 방 글은 post --to desk
