@@ -13,6 +13,7 @@ T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT; mkdir -p "$T/stub" "$T/fakebin" "$T/d
 T0=1800000000; OD=1794302162.301939; PL='byz-planner-master-claude#105'; HM='byz-harness-master-claude#115'
 # ── BYZ 리포 = 명부 루트 · 판정문 리포 · 실제 좌석 = 가짜 tmux 세션명
 mkrepo "$T/byz"; B="$W"; mkdir -p "$B/.fable-team"; printf '.fable-team/\n' >> "$B/.git/info/exclude"
+mkdir -p "$B/design"; printf '| 팀 | 폴더 | 상태 | 명부 |\n|---|---|---|---|\n| planner | `design/planner/` | 현역 | |\n| harness | `design/harness/` | 현역 | |\n' > "$B/design/TEAMS.md"; printf '/design/TEAMS.md\n' >> "$B/.git/info/exclude"   # r2086: r1907 명부 이름 = TEAMS.md «명부» 칸(빈 칸 = seats-<팀>.json) · exclude = PR 파일 밖
 python3 -c 'import json,sys;json.dump({"_master":sys.argv[1]},open(sys.argv[2],"w"))' "$PL" "$B/.fable-team/seats-planner.json"
 python3 -c 'import json,sys;json.dump({"_master":sys.argv[1]},open(sys.argv[2],"w"))' "$HM" "$B/.fable-team/seats-harness.json"
 SEATFILE="$T/seatname"; export SEATFILE; printf '%s' "$PL" > "$SEATFILE"
