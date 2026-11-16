@@ -362,6 +362,13 @@ def check_team(spec, root, team, live, roster=None, active_teams=None):
     stk = len(sq.stuck_cards(root, prefix_of(team)))
     if stk:
         warn.append(f"큐 확인 필요 {stk}(카드 없음·명부 행 없음)")
+        try:   # r2070 A4 — 막힘 장부(없으면 호출 0 · 판정·출력 불변)
+            from ft_block import block
+        except ImportError:
+            block = None
+        if block:
+            block(root, "raise", "ft-teamset", "team", team, "--cause", f"큐 확인 필요 {stk}(카드 없음·명부 행 없음)",
+                  "--fix", f"판정 필요 {team} 순번 큐 — 큐 파일의 없는 카드 줄 정리", "--period", "900")
     note = sq.notify_master(root, prefix_of(team), cap - len(nano), m) if master_ok else ""
     if note:
         info.append(note)
