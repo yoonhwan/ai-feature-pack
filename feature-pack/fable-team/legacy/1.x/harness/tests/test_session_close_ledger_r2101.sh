@@ -210,9 +210,9 @@ mine() { TB tmux show-hooks -g session-closed 2>/dev/null | grep -cF "$LED hook 
 other() { TB tmux show-hooks -g session-closed 2>/dev/null | grep -cF '@r2101_other'; }
 L="$T/l9.tsv"; TB env FT_SESSION_CLOSE_LEDGER="$L" tmux -f /dev/null new-session -d -s keep cat
 TB tmux set-hook -g session-closed 'set-option -g @r2101_other 1'
-o1="$(TB bash "$LED" hook-on 2>&1)"; r1=$?; o2="$(TB bash "$LED" hook-on 2>&1)"; r2=$?
+o1="$(TB env FT_SESSION_CLOSE_LEDGER="$L" bash "$LED" hook-on 2>&1)"; r1=$?; o2="$(TB env FT_SESSION_CLOSE_LEDGER="$L" bash "$LED" hook-on 2>&1)"; r2=$?   # r2119: hook-on 은 원장 경로를 풀어 줄에 박는다(카드 ④ · git 밖 cwd · env 없음 = rc 1)
 eq "$r1|$r2|$(mine)|$(other)" "0|0|1|1" "⑩ hook-on 2회 → 내 줄 1 · 남의 줄 1 그대로"
-eq "$(TB bash "$LED" hook-status 2>&1)" "HOOK on" "⑩ hook-status «HOOK on»"
+eq "$(TB bash "$LED" hook-status 2>&1)" "HOOK on $L" "⑩ hook-status «HOOK on <원장>»(r2119 C3)"
 TB tmux set-hook -ag session-closed 'wait-for -S r2101-closed'
 N9=("plain-a" "review room" "a;touch $HX/x" "\$(touch $HX/y)"); WANT=""; n=0
 sid() { TB tmux list-sessions -F '#{session_id} #{session_name}' | S="$1" awk '{i=$1; sub(/^[^ ]+ /,"")} $0==ENVIRON["S"]{print i}'; }
