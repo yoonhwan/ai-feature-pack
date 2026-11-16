@@ -4,7 +4,7 @@ identity: tmux env FT2_HOLDER == seat and intent FT2_HOLDER == seat and pane com
 first_session: pane cwd == intent worktree, head.cwd == worktree, head.timestamp in [intent.at, +120s] exactly 1.
 A same-cwd session newer than the window means the pane moved on (세션 바뀜). Never choose the newest file.
 r2100: a late session whose id is another live tmux session's TMUXC_PI_SESSION_ID is that seat's, not a move.
-r2121: a late session whose last session_info name is set and never equals the seat is another seat's (dropped before owners).
+r2121: a late session is another seat's when one of its session_info names (never the seat) keys a seat-resume record with that name and uuid == its id.
 """
 import datetime
 import json
@@ -85,13 +85,32 @@ def names(path, end):
     return got
 
 
-def foreign(path, seat, end):
-    """r2121 남의 것 확정 = 마지막 이름 있음 ∧ 어느 session_info 에도 좌석 이름 없음(pi getSessionName = 마지막 session_info) · 못 읽음 = 아님."""
+def record(name, sid, end):
+    """r2121 보정2 — 은퇴 기록 폴더 직접 자식 <name>.json 의 name·uuid 가 같음 = 증명 · 폴더 밖 이름(/·절대·.·..)·못 읽음·깨짐 = 0."""
+    if Path(name).name != name or name in (".", ".."):
+        return False
+    if time.monotonic() > end:
+        raise ValueError(f"Pi 이름 판독 {CAP}초 넘음")
+    folder = Path(os.path.expanduser(os.environ.get("ZC_RESUME_DIR") or "~/.claude/state/seat-resume"))
+    try:
+        rec = json.loads((folder / (name + ".json")).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return isinstance(rec, dict) and rec.get("name") == name and rec.get("uuid") == sid
+
+
+def proven(path, sid, seat, end):
+    """r2121 D3 보정2 다른 좌석 기록 증명 = 좌석 이름 아닌 session_info 이름(중복 제거)의 은퇴 기록 uuid = 세션 id ∧ 파일 안 좌석 이름 0 · 이름만 = 증거 아님."""
     try:
         got = names(path, end)
     except OSError:
         return False
-    return bool(seat and got and got[-1]) and seat not in got
+    if not seat or seat in got:
+        return False
+    for name in dict.fromkeys(got):
+        if name and record(name, sid, end):
+            return True
+    return False
 
 
 def first_session(got, root, owner=None):
@@ -117,7 +136,7 @@ def first_session(got, root, owner=None):
         hits += [(str(path), head, pid, wt)] if at <= ts <= at + WINDOW else []
         late += [(head["id"], path)] if ts > at + WINDOW else []
     seat, end = intent.get("FT2_HOLDER") or (owner or (None,))[0], time.monotonic() + CAP
-    late = [sid for sid, path in late if not foreign(path, seat, end)]   # r2121 D3 — owners 전에 뻘
+    late = [sid for sid, path in late if not proven(path, sid, seat, end)]   # r2121 D3 보정2 — owners 전에 뺌
     if late and owner:
         late = set(late) - owners(*owner)
     if late:

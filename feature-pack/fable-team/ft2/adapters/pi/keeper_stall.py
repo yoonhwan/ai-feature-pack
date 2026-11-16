@@ -58,7 +58,7 @@ def names(path, end):
 
 
 def foreign(path, seat, end):
-    """r2121 남의 것 확정 = 마지막 이름 있음 ∧ 어느 session_info 에도 좌석 이름 없음(pi getSessionName = 마지막 session_info) · 못 읽음 = 아님."""
+    """r2121 D2 남의 이름 확정 = 마지막 이름 있음 ∧ 어느 session_info 에도 좌석 이름 없음(pi getSessionName = 마지막 session_info) · 못 읽음 = 아님 · keeper 파일 고르기에만(결속·은퇴 0)."""
     try:
         got = names(path, end)
     except OSError:
