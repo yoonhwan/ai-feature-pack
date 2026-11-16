@@ -137,7 +137,7 @@ def plan_of(folder, tag, root, team, holder, role_argv, worktree, repo, env, bod
     git argv 끝 = 기준 ref 이름(r1780) — dry-run 은 이 이름 그대로 보이고, 실제 실행은 `at_sha` 로 확인한 sha 로 바꾼다."""
     path = os.path.abspath(worktree or os.path.join(root, ".fable-team", "teams", team, "worktrees", tag))
     box = os.path.join(root, ".fable-team", "comm")   # r2050 좌석 우편함 = FT2_ROOT 것 · 실재 폴더일 때만(부모 env 값 물려주기 0)
-    mbox = [("FT_MBOX_DIR", box)] if os.path.isdir(box) else []
+    mbox = [("FT_SEAT_MBOX_DIR", box)] if os.path.isdir(box) else []   # r2109 이름 = 스킬 mbox 래퍼만 읽음(FT_MBOX_DIR 은 모든 도구의 1순위 → 좌석 안 시험이 실 우편함에 씀)
     pairs = [word for key, value in list(env.items()) + mbox for word in ("-e", key + "=" + value)]
     pi, hit = pi_path(os.environ.get("PATH")), mapped_card(root, team, env.get("FT2_WORK", ""))   # r2030 짝 표 카드 폴더만 sparse 에 더함
     return {"intent": os.path.join(folder, tag + ".intent"), "worktree": path,
@@ -147,7 +147,7 @@ def plan_of(folder, tag, root, team, holder, role_argv, worktree, repo, env, bod
             "notes": {},   # r2082 의도에 더할 칸(A2 · 묶음 수) · 기준 sha 읽은 뒤 채움
             "checkout": ["git", "-C", path, "checkout", "-q"],
             "tmux": ["tmux", "new-session", "-d", "-s", holder, "-c", path] + pairs + [pi or "pi"] + ["-e", seat_tools(), "--approve"] + list(role_argv) + [body],
-            "mbox": "FT_MBOX_DIR=" + box if mbox else "우편함 명시 0 — %s 없음" % box,
+            "mbox": "FT_SEAT_MBOX_DIR=" + box if mbox else "우편함 명시 0 — %s 없음" % box,
             "pi_bin": pi, "alive": ["tmux", "has-session", "-t", "=" + holder]}   # r1892: new-session rc0 뒤 1회
 
 

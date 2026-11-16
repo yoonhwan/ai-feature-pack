@@ -25,7 +25,7 @@ if sys.argv[2] == "kind":
 else:
     print(" ".join("1" if m.seat(n) else "0" for n in sys.argv[2:]))
 PY
-seats() { python3 "$T/probe.py" "$@" 2>&1; }   # seats <파일> <이름…> → "1 0 …"
+seats() { env -u FT_SEAT_MBOX_DIR python3 "$T/probe.py" "$@" 2>&1; }   # seats <파일> <이름…> → "1 0 …"
 lintv() { local n o=""; for n in "$@"; do bash "$T/lint.sh" "$n" >/dev/null 2>&1 && o="$o 1" || o="$o 0"; done; echo "${o# }"; }
 rep() { local v="$1" n="$2" o="" i; for ((i = 0; i < n; i++)); do o="$o $v"; done; echo "${o# }"; }
 for f in keep kit skill; do
