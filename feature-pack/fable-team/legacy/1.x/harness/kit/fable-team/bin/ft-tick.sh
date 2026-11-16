@@ -832,6 +832,17 @@ sweep_wt() {
   done
 }
 
+# r2117 카드 원천 따라가기 — 명부 _cards_wt worktree 를 origin/<가지> 로 ff(ft-cards-wt-sync.sh) · 못 따라가면 사유가 바뀔 때만 1줄 · FT_TICK_CARDS_WT_SYNC=0 으로 끔 · 바퀴 rc 불변(항상 0)
+cards_wt_sync() {
+  local bin="${FT_TICK_CARDS_WT_SYNC_BIN:-$HERE/ft-cards-wt-sync.sh}" out rc l
+  [ "${FT_TICK_CARDS_WT_SYNC:-1}" = 1 ] || return 0
+  if [ "$DRY" = 1 ]; then echo "DRY kind=cards-wt-sync bin=$bin"; return 0; fi
+  out="$(bash "$bin" "${ROOT:-$WT}" "$STATE_DIR" 2>&1)"; rc=$?
+  while IFS= read -r l; do [ -z "$l" ] || log "cards_wt_sync: $l"; done <<< "$out"
+  [ "$rc" = 0 ] || [ -n "$out" ] || log "cards_wt_sync: 판정 불가 rc=$rc (출력 0)"
+  return 0
+}
+
 drift_watch() {
   local out err errf cause rc shrc hdr items sig sigf stamp rows master
   [ "$DRIFT_ENABLED" = 1 ] || return 0
@@ -1571,6 +1582,7 @@ pass_core() {
   step close_due_snapshot close_due_snapshot   # r1360
   step stall stall
   step sweep_wt sweep_wt
+  step cards_wt_sync cards_wt_sync   # r2117
   step drift_watch drift_watch
   step raised_watch raised_watch
   step renamed_watch renamed_watch
