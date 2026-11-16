@@ -165,6 +165,9 @@ def stage(byz, root, team, work, at, now, da=None, gate=None):
         why = gate(os.path.basename(old)[:-3]) if gate else None   # r2037 — 판정문 대조는 쓰기 전(거절 = 쓰기 0)
         if why and da:
             raise Reject(why)
+        landed = re.search(r"(?m)^- 착지: [0-9a-f]{40}\b", run(byz, "show", "%s:%s" % (sha[ref], old)))
+        if not landed and not (gate and why is None):   # r2147 C1 — 착지 줄 또는 통과한 DA 만 옮김(쓰기·push 0)
+            raise Unsure("착지 줄 없음 %s" % os.path.basename(old)[:-3])
         commit = commit_tree(byz, sha[ref], old, new, at, now, frm, da)
         rc = push(byz, commit, ref)
         if rc == 0:
