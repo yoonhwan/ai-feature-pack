@@ -156,7 +156,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
     def stage_card(self, team, work):
         """r2026 — STAGED·NOOP = 끝 · Unsure = 쓰기 0 + 다음 바퀴 재시도(같은 work · 하루 3회 상한)."""
         book, key, day = self.state.setdefault("staging", {}), team + "|" + work, self.stamp()[:10]
-        if key in self.state.setdefault("staged", {}) or key in self.tried:   # r2140 K3 성공 기억 · DA ⓐ 한 바퀴 같은 work 1회
+        if self.state.setdefault("staged", {}).get(key) == day or key in self.tried:   # r2140 K3 성공 기억(r2149 그날만) · DA ⓐ 한 바퀴 같은 work 1회
             return None
         self.tried.add(key)
         n = book[key][1] if book.get(key, [None])[0] == day else 0   # 날이 바뀜 = 0부터
