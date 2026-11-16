@@ -131,7 +131,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
             at = self.now()
             over = False
             try:
-                done = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, env=self.env, cwd=self.root)
+                done = subprocess.run(argv, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout, env=self.env, cwd=self.root)   # r2115 A1 깨진 바이트 = U+FFFD
                 out = (done.returncode, done.stdout, done.stderr.strip()[:200])
             except subprocess.TimeoutExpired as exc:
                 out, over = (None, "", str(exc)[:200]), True
@@ -550,6 +550,9 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
                 close = self.one_work(team, work, attempt, row, dispatched, rows)
             except Ungraded:
                 continue   # R7 git 7초 = 그 자리 남은 판정 0 · 다음 자리
+            except Exception as exc:   # r2115 A2 예상 밖 예외 = 그 work 1줄 · close 0 · 다음 work(Cut 같은 BaseException = 위로)
+                self.log("판정 불가", team, "%s 내부 오류 %s" % (work, type(exc).__name__))
+                continue
             if close == "close" and self.sock and (team, work, attempt) not in self.parked_failed and self.at_pos("b2c"):
                 self.timed("b2c", self.close, team, work, attempt, row, dispatched)   # r2058 L2 착지면 complete 만 · 세션 없으면 닫기 0
         self.at_work = "-"
