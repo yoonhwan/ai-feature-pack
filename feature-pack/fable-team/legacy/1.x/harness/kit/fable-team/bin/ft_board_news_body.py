@@ -71,8 +71,8 @@ def next_line(cur: dict, nm, k: int) -> str:
     if not work:
         return "진행 중인 일 없음"
     names = [nm(t, c) for t, c in work[:k]]
-    rest = f" 외 {len(work) - len(names)}개" if len(work) > len(names) else ""
-    return f"진행 중인 일 {len(work)}개" + (f": {', '.join(names)}{rest}" if names else "")
+    rest = f"외 {len(work) - len(names)}개" if len(work) > len(names) else ""  # 이름 0개 경계에도 남김(DA R1)
+    return f"진행 중인 일 {len(work)}개: " + " ".join(p for p in (", ".join(names), rest) if p)
 
 
 def body(cur: dict, prev: dict | None, now: datetime, sha: str, tt: dict | None = None) -> str:
