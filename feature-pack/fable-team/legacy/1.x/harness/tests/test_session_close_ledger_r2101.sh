@@ -12,7 +12,7 @@ BIN="$(cd -- "${R2101_BIN:-$HERE/../bin}" && pwd)"; KIT="$HERE/../kit/fable-team
 TOOLS="ft-seat-close.sh ft-nano-close.sh ft-nano-spawn-undo.sh ft-resource-reclaim.sh"
 REAL_TMUX="$(command -v tmux)"; SOCK="r2101-$$"
 T="$(cd "$(mktemp -d)" && pwd -P)"
-trap 'env -u TMUX "$REAL_TMUX" -L "$SOCK" kill-server 2>/dev/null; rm -rf "$T"' EXIT
+trap 'env -u TMUX "$REAL_TMUX" -L "$SOCK" kill-server 2>/dev/null; rm -f "${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)/$SOCK"; rm -rf "$T"' EXIT   # 그 서버와 그 소켓 파일만
 fail=0; T0=$SECONDS; STAGES=""
 ok()   { echo "PASS $1"; }
 bad()  { echo "FAIL $1"; fail=$((fail+1)); }
