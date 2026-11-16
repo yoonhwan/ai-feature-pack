@@ -170,10 +170,7 @@ def main() -> int:
     if last and (gap := (now - datetime.fromisoformat(last["at"])).total_seconds()) < DEBOUNCE_S:
         print(f"디바운스 — 직전 발행 {int(gap)}초 전 · 발행 0")
         return 0
-    mk = lambda meas: body(cur, last and last.get("snap"), now, sha, titles(d), meas=meas, mark=ledger_mark(ledger_at, now), beat=beat)  # noqa: E731
-    if len((out := mk(measure(now, d))).encode()) > MAX_BYTES:  # r2126: 접어도 넘으면 실측 줄을 빼고 다시 접는다(기준판 상한 · 접기 그대로)
-        print("WARN ft_board_news: 본문 상한 — 실측 줄 빼고 다시 접음", file=sys.stderr)
-        out = mk("")
+    out = body(cur, last and last.get("snap"), now, sha, titles(d), meas=measure(now, d), mark=ledger_mark(ledger_at, now), beat=beat)  # 접어도 넘으면 아래 상한 실패(실측 줄 지움 0 · DA #320425 R3)
     if len(out.encode()) > MAX_BYTES:
         print(f"ERROR ft_board_news: 본문 {len(out.encode())}B > {MAX_BYTES}B — 발행 0", file=sys.stderr)
         return 1

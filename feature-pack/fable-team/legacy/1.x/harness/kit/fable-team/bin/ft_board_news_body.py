@@ -40,8 +40,8 @@ def polite(text: str) -> tuple[str, list[str]]:
     """V1(r2126) 원장 칸 반말 끝 → 존댓말 · 이미 «니다» · 인용 안 · «다» 아닌 끝 = 그대로 → (글, 바꿀 수 없는 문장 앞 20자들)."""
     parts, bad = SENT_END.split(text), []
     for i in range(0, len(parts), 2):
-        s = parts[i].rstrip()
-        if not s.endswith("다") or s.endswith("니다") or s.count("«") > s.count("»") or s.count('"') % 2:
+        s, seen = parts[i].rstrip(), "".join(parts[:i + 1])  # 인용 열림 = 칸 처음부터 센다(여러 문장 인용 · DA #320425 R1)
+        if not s.endswith("다") or s.endswith("니다") or seen.count("«") > seen.count("»") or seen.count('"') % 2:
             continue
         new = hapsyo(s)
         if new is None:
@@ -163,7 +163,8 @@ def voiced(r: list[str], mark: str) -> list[str]:
         r[i], bad = polite(r[i])
         for s in bad:
             print(f"WARN 말투 바꿈 불가: {r[1]} — {s}", file=sys.stderr)
-    r[4] = f"{mark} {r[4]}" if mark and r[4] else r[4]
+    for i in (4, 5)[:len(r) - 4]:  # F1 표지 = 지금 · 다음 칸 둘 다(DA #320425 R2) · 빈칸 · «—» = 줄 없음
+        r[i] = f"{mark} {r[i]}" if mark and r[i] not in ("", "—", "-") else r[i]
     return r
 
 
