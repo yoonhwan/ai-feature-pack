@@ -49,12 +49,35 @@ def stale_warns(rows: list | None) -> list[str]:
     return out
 
 
-def standing(cur: dict, bar: bool = True) -> list[str]:
-    """열쇠가 되는 본문 줄 = 머리 줄 · 열린 골 줄 · 막힌 것 칸 줄(열쇠 = 막대 꼴 · bar=False = 기준판 꼴)."""
+def goal_counts(cur: dict, name: str, today: str = "") -> list[int]:
+    """[완성, 오늘 완성, 진행, 대기] — 모든 팀 카드 중 골좌표 글에 골 짧은 이름이 글자 그대로 든 카드(r2120 E3)."""
+    out = [0, 0, 0, 0]
+    for team, states in (cur.get("cards") or {}).items():
+        goals, done = (cur.get("card_goals") or {}).get(team) or {}, (cur.get("done_on") or {}).get(team) or {}
+        for cid in [c for c in states if name and name in goals.get(c, "")]:
+            st = states[cid]
+            out = [out[0] + (st == "완성"), out[1] + (st == "완성" and done.get(cid) == today), out[2] + (st == "진행"), out[3] + (st == "대기")]
+    return out
+
+
+def card_tail(cur: dict, name: str, today: str) -> str:
+    """«카드 완성 N장(오늘 +k), 진행 n장, 대기 m장» — 0 인 칸은 빼고 셋 다 0 이면 빈 글."""
+    n, k, p, w = goal_counts(cur, name, today)
+    parts = [f"카드 완성 {n}장" + (f"(오늘 +{k})" if k else "")] if n else []
+    return ", ".join(parts + ([f"진행 {p}장"] if p else []) + ([f"대기 {w}장"] if w else []))
+
+
+def with_tail(line: str, tail: str) -> str:
+    return f"{line}{'' if line.endswith('.') else '.'} {tail}" if tail else line
+
+
+def standing(cur: dict, bar: bool = True, tails: dict | None = None) -> list[str]:
+    """열쇠가 되는 본문 줄 = 머리 줄 · 열린 골 줄 · 막힌 것 칸 줄(열쇠 = 막대 꼴 · bar=False = 기준판 꼴).
+    tails = {골 번호: 카드 진행 글} — 본문에만 붙는다(열쇠 밖 · r2120)."""
     rows = cur["goals"]
     shut = [r[1] for r in rows or [] if closed(r)]
     top = f"골 진행 알림: 열린 골 {len(rows) - len(shut)}개, 닫힌 골 {len(shut)}개" + (f"({', '.join(shut)})" if shut else "") if rows else f"골 진행 알림: {NO_TABLE}"
-    goals = [goal_line(r, bar) for r in rows or [] if not closed(r)] or (["열린 골 없음"] if rows else [])
+    goals = [with_tail(goal_line(r, bar), (tails or {}).get(r[0], "")) for r in rows or [] if not closed(r)] or (["열린 골 없음"] if rows else [])
     todo = [f"<@{os.environ.get('FT_OPPA_SLACK_UID') or OPPA_SLACK_UID}> 오빠 승인 대기 {cur['h']}건" if cur["h"] else "없음"] + [f"{t} 확인 불가(수집 실패, 직전 상태 유지)" for t in cur.get("carried", [])]
     return [top, "지금", *goals, "막힌 것, 오빠 할 일", *todo]
 
@@ -108,6 +131,7 @@ def body(cur: dict, prev: dict | None, now: datetime, sha: str, tt: dict | None 
     → ⓓ «다음» 칸 줄을 아래부터 빼고 «그 밖의 골 N개» 로 맺는다. 상한 안 첫 단계에서 멈춘다(골 줄 · 상태 글은 줄이지 않음 · r2103 A4)."""
     nm = lambda team, cid: work_name(cid, (tt or {}).get(team, {}).get(cid))  # noqa: E731
     fresh = [(quiet(t), ids) for t, ids in news(prev, cur, nm)]
+    tails = {r[0]: quiet(card_tail(cur, r[1], f"{now:%F}")) for r in cur["goals"] or [] if not closed(r)}  # r2120 E3
     rows = [[quiet(c) for c in r] for r in cur["goals"]] if cur["goals"] else cur["goals"]
     cur = {**cur, "goals": rows, "carried": [quiet(t) for t in cur.get("carried", [])]}
     tags = list(dict.fromkeys(g for _, ids in fresh for c in ids if (g := card_tag(c))))  # 근거 줄 번호
@@ -118,11 +142,11 @@ def body(cur: dict, prev: dict | None, now: datetime, sha: str, tt: dict | None 
         cut = st.index("막힌 것, 오빠 할 일")
         return "\n".join([*st[:2], *[t for t, _ in fresh], *st[2:cut], *grp, "다음", *nxt, *st[cut:], tail]) + "\n"
     rows, bare = doing(cur, nm)
-    st = standing(cur)
+    st = standing(cur, tails=tails)
     for grp in [doing_lines(rows, bare, k) for k in range(min(MAX_DOING, len(rows)), -1, -1)] + [[]]:  # ⓐ · ⓑ
         if len((out := text(st, grp, steps or [NO_NEXT])).encode()) <= MAX_BYTES:
             return out
-    st = standing(cur, bar=False)  # ⓒ · ⓓ = 기준판(r2102) 본문
+    st = standing(cur, bar=False)  # ⓒ · ⓓ = 기준판(r2102) 본문 — 카드 진행 덧붙임도 빠짐(r2120 E4)
     for k in range(len(steps), -1, -1):
         nxt = steps[:k] + ([f"그 밖의 골 {len(steps) - k}개"] if k < len(steps) else []) if steps else [NO_NEXT]
         out = text(st, [], nxt)

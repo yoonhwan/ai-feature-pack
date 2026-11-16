@@ -22,6 +22,7 @@ QUEUE_TOP = 5
 
 
 TITLE_SCAN_LINES = 5
+GOAL_SCAN_LINES = 12  # r2120 «- 골좌표:» 줄을 찾는 머리 줄 수
 
 
 def _title(path: Path) -> str:
@@ -35,8 +36,15 @@ def _title(path: Path) -> str:
     return f"{path.stem} (제목 없음)"
 
 
+def _goal(path: Path) -> str:
+    """머리 12줄 안 «- 골좌표:» 줄의 글(r2120) — 없으면 빈 글."""
+    with path.open(encoding="utf-8") as f:
+        head = [f.readline() for _ in range(GOAL_SCAN_LINES)]
+    return next((line.split(":", 1)[1].strip() for line in head if line.startswith("- 골좌표:")), "")
+
+
 def read_cards(cards_dir: Path) -> dict:
-    """{id: {state, folders, title, mtime}} — 같은 id 가 두 폴더에 있으면 1장 · state=중복 (어느 쪽도 버리지 않는다)."""
+    """{id: {state, folders, title, mtime, goal}} — 같은 id 가 두 폴더에 있으면 1장 · state=중복 (어느 쪽도 버리지 않는다)."""
     hits: dict = {}
     for folder in FOLDERS:
         d = cards_dir / folder
@@ -46,7 +54,7 @@ def read_cards(cards_dir: Path) -> dict:
     for name, by_folder in hits.items():
         newest = max(by_folder.values(), key=lambda p: p.stat().st_mtime)
         cards[name] = {"state": "중복" if len(by_folder) > 1 else next(iter(by_folder)),
-                       "folders": sorted(by_folder), "title": _title(newest), "mtime": newest.stat().st_mtime}
+                       "folders": sorted(by_folder), "title": _title(newest), "mtime": newest.stat().st_mtime, "goal": _goal(newest)}
     return cards
 
 
@@ -87,6 +95,11 @@ def _done_today(cards: dict, date: str) -> dict:
     return {"n": len(today), "last": max(today)[1] if today else None}
 
 
+def _done_on(cards: dict) -> dict:
+    """{완성 카드 id: YYYY-MM-DD} — _done_today 와 같은 날짜 규칙(파일 mtime · 로컨 날짜 · r2120)."""
+    return {n: datetime.fromtimestamp(c["mtime"]).strftime("%F") for n, c in cards.items() if c["state"] == "완성"}
+
+
 def _parent(root: Path, path: Path, seats: dict) -> str | None:
     """위성팀 보고선 — 명부 `_parent`(없으면 None · 표시 0). 명부 목록에 없는 팀이면 "?" + stderr 1줄(조용한 빈칸 0 · R252)."""
     parent = seats.get("_parent")
@@ -114,7 +127,7 @@ def team_block(root: Path, path: Path, alive: set, date: str, vds: list, mail: M
     key = "v65" if path.stem == "seats" else path.stem.removeprefix("seats-")
     block = {"key": key, "label": seats.get("_label") or key, "parent": _parent(root, path, seats), "master": seats.get("_master"),
              "cards_dir": seats.get("_cards"), "tree": seats.get("_tree"), "states": {}, "axes": [], "progress": {},
-             "queue": [], "done_today": {"n": 0, "last": None}, "leads": _leads(seats, alive, cells),
+             "queue": [], "done_today": {"n": 0, "last": None}, "goals": {}, "done_on": {}, "leads": _leads(seats, alive, cells),
              "counts": dict.fromkeys(STATES, 0),
              "oppa_todo": [v["n"] for v in vds if v["state"] == "open" and v["oppa_todo"] and key in v["teams"]]}
     block.update(seats=cells.all(), stalled=cells.rows(), declared=cells.declared())
@@ -135,6 +148,7 @@ def team_block(root: Path, path: Path, alive: set, date: str, vds: list, mail: M
         block["counts"][c["state"]] += 1
     block.update(states={n: c["state"] for n, c in cards.items()}, progress=_progress(seats, cards, alive, cells),
                  done_today=_done_today(cards, date), axes=fold(nodes, cards),
+                 goals={n: c["goal"] for n, c in cards.items()}, done_on=_done_on(cards),
                  queue=[{"idx": n, "title": c["title"]} for n, c in sorted(cards.items()) if c["state"] == "대기"][:QUEUE_TOP])
     return block
 

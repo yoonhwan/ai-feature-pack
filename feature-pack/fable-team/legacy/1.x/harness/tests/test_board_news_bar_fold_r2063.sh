@@ -68,7 +68,7 @@ now_section() { lastbody | awk '/^지금$/{f=1;next} /^다음$/{f=0} f'; }  # r2
 next_section() { lastbody | awk '/^다음$/{f=1;next} /^막힌 것, 오빠 할 일$/{f=0} f'; }
 # run <시각> [bin] — FT_BOARD_POST_ARGS 는 부르는 쪽 env 그대로(없으면 비움)
 run() { RC=0; env -u FT_BOARD_THREAD_TS FT_ROOT="$T/ft" FT_BOARD_BIN="$T/stub/board" FT_THREAD_POST="$T/stub/tp.py" \
-  FT_GOAL_PROGRESS_MD="$T/goal.md" FT_BOARD_NOW="$1" FT_BOARD_THREAD_TS=$TSV FT_BOARD_POST_ARGS="${PA:-}" \
+  FT_GOAL_PROGRESS_MD="$T/goal.md" FT_BOARD_NOW="$1" FT_BOARD_THREAD_TS=$TSV FT_BOARD_POST_ARGS="${PA---channel C0TEST}" \
   bash "${2:-$BIN}/ft-board-publish.sh" --news > "$T/out" 2> "$T/err" || RC=$?; }
 H='{"key":"harness","label":"하네스"'
 
@@ -123,9 +123,9 @@ chk "⑤ 카드 없는 좌석 1석 열림 = reply 0(r2095 S2)" '[ "$(replies)" =
 
 # ⑥ 채널 env
 reset; mk "[$H,\"bare\":1}]"; PA="--channel C0C9GRFHJE5" run 2026-11-16T14:00:00
-chk "⑥ env 있음 = --channel C0C9GRFHJE5 · --ts" 'grep -qF -- "--channel C0C9GRFHJE5" "$T/stub/tp.log" && grep -qF -- "--ts $TSV" "$T/stub/tp.log"'
-reset; run 2026-11-16T14:00:00
-chk "⑥ env 없음 = --channel 0" '[ "$(replies)" = 1 ] && ! grep -qF -- "--channel" "$T/stub/tp.log"'
+chk "⑥ env 있음 = post … --channel C0C9GRFHJE5(r2120)" 'grep -q -- "^post.*--channel C0C9GRFHJE5" "$T/stub/tp.log"'
+reset; PA= run 2026-11-16T14:00:00
+chk "⑥ env 없음 = 채널 없음 rc 2 · 호출 0(r2120)" '[ "$RC" = 2 ] && [ "$(replies)" = 0 ]'
 PL="$ROOT/harness/kit/slack-mirror/com.byz.ft-board-news.plist.template"
 chk "⑥ plist 템플릿 env · 그 밖 키 불변" 'python3 - "$PL" "${R2063_BASE_PLIST:-$T/base.plist}" <<'"'"'PY'"'"'
 import plistlib, sys

@@ -65,6 +65,7 @@ def parse(argv: list[str]) -> argparse.Namespace:
     po.add_argument("--to", help="등록부(slack-threads.json) 이름 예 desk — 그 채널 «방» 에 올린다")
     po.add_argument("--text")
     po.add_argument("--text-file")
+    po.add_argument("--keep-mention", metavar="UID", help="중화 뒤 이 UID 태그 첫 1개만 진짜 태그로 되돌린다(보드 뉴스 최상위 글 · r2120)")
     t = sub.add_parser("attach", parents=[common, chan], help="보드 뿌리 글 스레드에 파일 첨부(시트 PDF) — 첫 파일 링크를 출력")
     t.add_argument("--key", required=True, help="board:<YYYY-MM-DD>")
     t.add_argument("--file", action="append", required=True)

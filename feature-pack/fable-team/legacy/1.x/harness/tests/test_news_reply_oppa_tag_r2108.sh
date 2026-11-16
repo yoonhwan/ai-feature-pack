@@ -112,19 +112,19 @@ printf '%s\n' "## 골 진행" "" "| 골 번호 | 골 짧은 이름 | 닫힘 n | 
 pub() {  # pub <TP> [env…] — rc $RC · stderr $T/err
   local tp="$1"; shift; rm -rf "$T/ft/.fable-team/state" "$T/stub/argv.log"
   env FT_ROOT="$T/ft" FT_BOARD_BIN="$T/stub/board" FT_THREAD_POST="$tp" FT_GOAL_PROGRESS_MD="$T/goal.md" FT_SLACK_TOPIC_ONLY= \
-    FT_BOARD_POST_ARGS="--slack-base $BASE --token-file $T/tok" FT_SLACK_THREADS="$T/reg.json" \
+    FT_BOARD_POST_ARGS="--channel C0TEST --slack-base $BASE --token-file $T/tok" FT_SLACK_THREADS="$T/reg.json" \
     FT_BOARD_NOW=2026-11-16T10:00:00 FT_BOARD_THREAD_TS="$TS" "$@" bash "$PUB" --news > "$T/out" 2> "$T/err"; RC=$?
 }
 km() { awk -F'\t' '{for (i = 1; i < NF; i++) if ($i == "--keep-mention") print $(i + 1)}' "$T/stub/argv.log" | paste -sd, -; }
 newslast() { [ -s "$T/ft/.fable-team/state/board/news-last.json" ]; }
 
 n0="$(posts)"; pub "$KIT/byz_thread_post.py"
-chk "④ publish → 진짜 reply → rc 0 · 받은 글 1" '[ "$RC" = 0 ] && [ "$(posts)" = $((n0 + 1)) ]'
+chk "④ publish → 진짜 post(r2120) → rc 0 · 받은 글 1" '[ "$RC" = 0 ] && [ "$(posts)" = $((n0 + 1)) ]'
 chk "④ 받은 글 진짜 태그 «<@» 1개(도구 것 · 승인 대기 줄 머리) · 원장 mention «@${U}» 꺾쇠 0" \
   '[ "$(cnt "<@")" = 1 ] && last | grep -qxF "$B2" && last | grep -qF "결정 담당 @$U" && [ "$(cnt "&lt;@")" = 0 ]'
 
 pub "$T/stub/tp.py" FT_OPPA_SLACK_UID=U0TEST00001
-chk "⑥ env 판 → argv «--keep-mention U0TEST00001» 1쌍 · rc 0 · news-last 쓰임" '[ "$RC" = 0 ] && [ "$(km)" = U0TEST00001 ] && newslast'
+chk "⑥ env 판 → argv 동사 post(r2120) · «--keep-mention U0TEST00001» 1쌍 · rc 0 · news-last 쓰임" '[ "$RC" = 0 ] && [ "$(cut -f1 "$T/stub/argv.log")" = post ] && [ "$(km)" = U0TEST00001 ] && newslast'
 pub "$T/stub/tp.py"
 chk "⑥ 기본 판 → argv «--keep-mention ${U}»(OPPA_SLACK_UID) 1쌍 · rc 0 · news-last 쓰임" '[ "$RC" = 0 ] && [ "$(km)" = "$U" ] && newslast'
 for mode in fail out1 slow; do

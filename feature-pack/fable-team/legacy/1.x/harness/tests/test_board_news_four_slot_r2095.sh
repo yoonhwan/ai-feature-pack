@@ -53,7 +53,7 @@ replies() { [ -f "$T/stub/tp.log" ] && wc -l < "$T/stub/tp.log" | tr -d ' ' || e
 lastbody() { cat "$T/stub/body.$(replies).txt"; }
 now_section() { lastbody | awk '/^지금$/{f=1;next} /^다음$/{f=0} f'; }
 next_section() { lastbody | awk '/^다음$/{f=1;next} /^막힌 것, 오빠 할 일$/{f=0} f'; }
-run() { RC=0; env FT_ROOT="$T/ft" FT_BOARD_BIN="$T/stub/board" FT_THREAD_POST="$T/stub/tp.py" FT_BOARD_POST_ARGS= \
+run() { RC=0; env FT_ROOT="$T/ft" FT_BOARD_BIN="$T/stub/board" FT_THREAD_POST="$T/stub/tp.py" FT_BOARD_POST_ARGS="--channel C0TEST" \
   FT_GOAL_PROGRESS_MD="$T/goal.md" FT_BOARD_NOW="$1" FT_BOARD_THREAD_TS=1794790937.978069 bash "$BIN/ft-board-publish.sh" --news > "$T/out" 2> "$T/err" || RC=$?; }
 rep() { python3 -c "import sys; print(sys.argv[1] * int(sys.argv[2]))" "$1" "$2"; }
 

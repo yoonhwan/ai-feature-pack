@@ -47,7 +47,7 @@ replies() { [ -f "$T/stub/tp.log" ] && wc -l < "$T/stub/tp.log" | tr -d ' ' || e
 lastbody() { cat "$T/stub/body.$(replies).txt"; }
 tags() { lastbody | grep -o '<@' | wc -l | tr -d ' '; }
 run() { env FT_ROOT="$T/ft" FT_BOARD_BIN="$T/stub/board" FT_THREAD_POST="$T/stub/tp.py" FT_GOAL_PROGRESS_MD="$T/goal.md" \
-  FT_BOARD_NOW="$1" FT_BOARD_THREAD_TS=1794729663.977629 bash "$PUB" --news > "$T/out" 2> "$T/err"; }
+  FT_BOARD_NOW="$1" FT_BOARD_THREAD_TS=1794729663.977629 FT_BOARD_POST_ARGS="--channel C0TEST" bash "$PUB" --news > "$T/out" 2> "$T/err"; }
 G1="1 | 하네스 운영 | 3 | 5 | 진행 중"
 
 # ① 열쇠와 발행(A1)
