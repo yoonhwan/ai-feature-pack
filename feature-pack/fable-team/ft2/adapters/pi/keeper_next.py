@@ -11,12 +11,14 @@ OK, BLOCK, NONE = "접수 성공", ("정지", "석", "선행", "DA", "사람"), 
 URGENT, HIGH = re.compile(r"- 긴급:\s*예\s*$"), re.compile(r"- 우선(?:순위)?:\s*높음")
 REF = re.compile(r"(?<![A-Za-z0-9_])r(\d+)(?![0-9])")   # r2027 카드 참조 r<번호>
 MONTH = re.compile(r"/아카이브/\d{4}-\d{2}")   # DA R1 월별 아카이브(루트 뒤 꼬리)
-MARK, SHELL = ("사람", "정지", "DA", "lint", "면제대기", "선행", "껍데기"), ("- 상태: 대기(NEW_CARD_HOLD", "- 대기(NEW_CARD_HOLD")   # r2093 S1 껍데기 표식 줄 두 꼴   # r2058 L9 — 카드 «- 배정: 대기(<사유> · …)» 의 막는 사유(새 표식 · «석» 은 여기 없다)
+MARK, SHELL = ("사람", "정지", "DA", "lint", "면제대기", "선행"), ("- 상태: 대기(NEW_CARD_HOLD", "- 대기(NEW_CARD_HOLD")   # r2093 S1 껍데기 표식 줄 두 꼴   # r2058 L9 — 카드 «- 배정: 대기(<사유> · …)» 의 막는 사유(새 표식 · «석» 은 여기 없다)
 def prereq(lines, where):
     """r2027 카드 본문 선행 막힘 = "" · "선행" · "선행불명"(판정 불가) · where = {번호: 카드가 있는 폴더 집합}.
     반환 = (판정, 까닭) — 까닭은 선행불명일 때만 찬다(`번호 참조 없음` · `루트에 없는 번호 r<a> r<b> …` · 없는 번호 전부·번호 순 · I2·I3).
     r2058 L9 — «- 배정: 대기(<사유> · 시각)» 의 사유가 사람·정지·DA·lint·면제대기·선행 이면 그 사유 그대로 막는다(«대기(석» 은 새 표식이 아니다)."""
-    mark = "껍데기" if any(x.startswith(SHELL) for x in lines) else next((x[len("- 배정: 대기("):].split(" · ")[0].strip().rstrip(")").strip() for x in lines if x.startswith("- 배정: 대기(")), "")
+    if any(x.startswith(SHELL) for x in lines):   # r2093 S1 — 두 표식 줄이 있을 때만(«- 배정: 대기(» 사유와 따로 · MARK 손 0 · DA R1)
+        return "껍데기", ""
+    mark = next((x[len("- 배정: 대기("):].split(" · ")[0].strip().rstrip(")").strip() for x in lines if x.startswith("- 배정: 대기(")), "")
     if mark in MARK:
         return mark, ""   # ① 카드 배정 줄(원장·owner 를 본 뒤의 자리)
     val = next((x.split(":", 1)[1].strip() for x in lines if x.startswith("- 선행:")), "")

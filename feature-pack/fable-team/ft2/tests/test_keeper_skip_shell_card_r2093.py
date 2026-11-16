@@ -70,7 +70,7 @@ def cR1(tmp, mp, ft2):   # R1 (DA #313535) 표식 두 꼴 없이 «- 배정: 대
 
 
 CASES = {"①": c1, "②": c2, "③": c3, "④": c4, "⑤": c5, "R1": cR1}
-MUTANTS = {"M1": ('"껍데기" if any(x.startswith(SHELL) for x in lines) else ', "", ("①", "②", "③")),
+MUTANTS = {"M1": ("if any(x.startswith(SHELL) for x in lines):", "if False:", ("①", "②", "③")),
            "M2": ('k.log("NEXT-SKIP", team, "%s 건너뜀 — NEW_CARD_HOLD 껍데기" % stem) or ', "", ("④",))}
 
 
