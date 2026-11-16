@@ -72,7 +72,7 @@ def unsure(lines):
     return [x for x in lines if x.startswith("판정 불가") and "세션 id" in x]
 
 
-def tester21(tmp, mp, ft2, old=False):   # ① tester#21 꼴 — intent worktree W2 폴더 파일 0 · 실 세션 = 다른 폴더 W10 의 *_X.jsonl(WORKING)
+def seat21(tmp, mp, ft2, old=False):   # ① tester#21 꼴 — intent worktree W2 폴더 파일 0 · 실 세션 = 다른 폴더 W10 의 *_X.jsonl(WORKING)
     w = envify(tb.world(tmp, mp, ft2, at=-20 * M, user=None), X)
     sfile(w, tmp / "W10", X, -10, stop="toolUse", user=tb.MARK + " 좌석 x")
     if old:   # ② W2 폴더에 다른 id 옛 IDLE 파일(30분 전)
@@ -81,13 +81,13 @@ def tester21(tmp, mp, ft2, old=False):   # ① tester#21 꼴 — intent worktree
 
 
 def c1(tmp, mp, ft2):   # ① body-unreached 0 · reassign 0 · HELD-STALL 0 · [크리티컬] 0
-    w = tester21(tmp, mp, ft2)
+    w = seat21(tmp, mp, ft2)
     w.round()
     assert acts(w) == (0, 0, 0, 0, 0) and w.kinds("dispatch") == 1 and bound(w), w.k.lines
 
 
 def c2(tmp, mp, ft2):   # ② 옛 IDLE 파일 안 씀 · 깨움 0 · 재배정 0
-    w = tester21(tmp, mp, ft2, old=True)
+    w = seat21(tmp, mp, ft2, old=True)
     w.round()
     assert acts(w) == (0, 0, 0, 0, 0) and w.kinds("dispatch") == 1 and bound(w), w.k.lines
 
