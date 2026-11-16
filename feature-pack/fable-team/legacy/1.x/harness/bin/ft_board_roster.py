@@ -31,7 +31,7 @@ def _pointers(seats: dict) -> dict:
     out = {}
     for key, val in seats.items():
         row = seats.get(val) if isinstance(val, str) else None
-        if key.startswith("_") and isinstance(row, dict) and (row.get("role") == key[1:] or (row.get("role") in FIXED_ROLES and "_" not in key[1:])):
+        if key.startswith("_") and isinstance(row, dict) and (row.get("role") == re.sub(r"-[1-9][0-9]*$", "", key[1:]) or (row.get("role") in FIXED_ROLES and "_" not in key[1:])):   # r2020 `_<role>-<K>` = 석 K 포인터
             out[key[1:]] = val
     return out
 
