@@ -6,6 +6,7 @@
 #   ④ 원장 상태 글 mention(body 모듈 quiet) + 도구 태그 → 진짜 태그 1개(publish → 진짜 reply → 가짜 Slack)
 #   ⑤ 인자 없음 → 받은 글 · 출력 꼴 · rc = 기준판과 같음(`&lt;@…&gt;`)
 #   ⑥ ft-board-publish.sh → 가짜 TP argv: env 판 · 기본 판 · python 읽기 실패 판(인자 0 + WARN 1줄) · rc 0 · news-last 쓰임
+#     읽기 실패 = 출력 없음 rc1 · 유효 UID 출력 + rc1(DA R1) · 9초 뒤 UID 출력(DA R2 · 7초 상한 → 9초 전에 끝남)
 # 실 Slack · 실 토큰 · 실 원장 0 · sleep 0(포트 = fifo). R2108_HARNESS = 시험할 harness 폴더(기준판·변이 사본용).
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
 set -uo pipefail
@@ -91,7 +92,14 @@ import os, sys
 open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "argv.log"), "a").write("\t".join(sys.argv[1:]) + "\n")
 EOF
 REALPY="$(command -v python3)"
-printf '#!/usr/bin/env bash\ncase "$*" in *OPPA_SLACK_UID*) exit 1 ;; esac\nexec "%s" "$@"\n' "$REALPY" > "$T/py/python3"
+cat > "$T/py/python3" <<EOF
+#!/usr/bin/env bash
+case "\$*" in *OPPA_SLACK_UID*) case "\$(cat "$T/py/mode")" in
+  out1) echo $U; exit 1 ;;
+  slow) exec "$REALPY" -c 'import time; time.sleep(9); print("$U")' ;;
+  *) exit 1 ;; esac ;; esac
+exec "$REALPY" "\$@"
+EOF
 chmod +x "$T/stub/board" "$T/py/python3"
 python3 - > "$T/stub/collect.json" <<'PY'
 import json
@@ -119,8 +127,10 @@ pub "$T/stub/tp.py" FT_OPPA_SLACK_UID=U0TEST00001
 chk "⑥ env 판 → argv «--keep-mention U0TEST00001» 1쌍 · rc 0 · news-last 쓰임" '[ "$RC" = 0 ] && [ "$(km)" = U0TEST00001 ] && newslast'
 pub "$T/stub/tp.py"
 chk "⑥ 기본 판 → argv «--keep-mention ${U}»(OPPA_SLACK_UID) 1쌍 · rc 0 · news-last 쓰임" '[ "$RC" = 0 ] && [ "$(km)" = "$U" ] && newslast'
-pub "$T/stub/tp.py" PATH="$T/py:$PATH"
-chk "⑥ python 읽기 실패 판 → 인자 0 · stderr WARN 1줄 · rc 0 · news-last 쓰임" \
-  '[ "$RC" = 0 ] && [ -s "$T/stub/argv.log" ] && [ -z "$(km)" ] && [ "$(grep -c "WARN" "$T/err")" = 1 ] && newslast'
+for mode in fail out1 slow; do
+  echo "$mode" > "$T/py/mode"; s0=$SECONDS; pub "$T/stub/tp.py" PATH="$T/py:$PATH"; el=$((SECONDS - s0))
+  chk "⑥ python 읽기 실패 판($mode) → 인자 0 · stderr WARN 1줄 · rc 0 · news-last 쓰임 · ${el}초 < 9" \
+    '[ "$RC" = 0 ] && [ -s "$T/stub/argv.log" ] && [ -z "$(km)" ] && [ "$(grep -c "WARN" "$T/err")" = 1 ] && newslast && [ "$el" -lt 9 ]'
+done
 
 echo "fail=$fail"; [ "$fail" = 0 ]
