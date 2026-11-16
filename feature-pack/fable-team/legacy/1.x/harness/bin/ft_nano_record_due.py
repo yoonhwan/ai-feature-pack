@@ -13,9 +13,9 @@ import sys
 import time
 from pathlib import Path
 
-from ft_nano_record import CARD_RX, DONE_RX, Ctx, Reject, Unjudged, left_free, left_of, marks, rec_of, section, seq_dropped
+from ft_nano_record import CARD_RX, DONE_RX, Ctx, Reject, Unjudged, left_free, left_of, marks, rec_of, section
 from ft_nano_record_batch import prepare
-from ft_nano_record_repo import at, proxy_master, repo_hits, resolve_owner, seats_at
+from ft_nano_record_repo import at, drops_scope, dropped, nanos_of, proxy_master, repo_hits, resolve_owner, seats_at
 
 DOCW = "문서 PR · 구현 착지 아님"   # r1782 A2: 장부 doc_only(착지 파일 전부 design/·docs/) 줄의 «끝» 사유
 
@@ -30,8 +30,7 @@ def idx_stem(row):
 
 
 def owners(ctx, doc, stem, sec):   # 차례 좌석 → [(좌석, 종류, 그 좌석의 지금 카드)] · 종류 닫기 = 지금 index · 기록만 = 재사용 좌석
-    nanos = {k: v for k, v in doc.items() if not k.startswith("_") and isinstance(v, dict) and v.get("role") == "nano" and not v.get("_replaced_by")}
-    if not nanos:
+    if not (nanos := nanos_of(ctx, doc)):   # r2151 O1: 명부 doc 마다 실행당 1회(ft_nano_record_repo)
         return []
     now = [(k, "닫기", stem) for k, v in sorted(nanos.items()) if idx_stem(v) == stem and k in ctx.live()]
     if now:
@@ -57,7 +56,7 @@ def judge(ctx, base, seat, sort, sec, alive=True):   # 좌석 1개의 줄(단계
         return {**row, "k": "끝", "why": "남은 일 — 닫기 요청 0", "left": left_of(m["c"])}
     st, key, rec = ctx.store(), f"{seat}|{base['stem']}|{q}", rec_of(m)
     sent = st["close"].get(key) or {}
-    if sent.get("rec") == rec and not seq_dropped(ctx, sent.get("seq")):   # r1820 B3: 버린 seq = 미전달 → 밀림(다시 보냄)
+    if sent.get("rec") == rec and not dropped(ctx, sent.get("seq")):   # r1820 B3: 버린 seq = 미전달 → 밀림(다시 보냄) · r2151 O2 due_rows 스냅샷
         return {**row, "k": "끝", "why": f"닫기 요청 #{sent.get('seq')}", "rec": rec, "seq": sent.get("seq")}
     if st["rejrec"].get(key) == rec or not alive:
         return {**row, "k": "끝", "why": "닫기 거절 — 기록을 고친 뒤 다시" if alive else "좌석 없음 · 기록 있음", "rec": rec}
@@ -111,6 +110,7 @@ def rows(ctx, pr=None):   # 장부 줄마다 카드별 줄
     return out
 
 
+@drops_scope   # r2151 O2: 버림 원장 스냅샷 = 이 평가 한정
 def due_rows(ctx, pr=None, fetch=True):   # A2 — fetch 는 «열린 줄» 이 있을 때만 실행당 1회(remote-tracking 판으로 먼저 본다) · r2071 = 판마다 묶음 읽기·묶음 fetch(전 항목 그대로)
     ks, ctx.fetch = [k for e in ctx.ledger() if pr is None or e.get("pr") == pr for k in map(card_key, e["cards"]) if k], False
     out = rows(prepare(ctx, ks), pr)
