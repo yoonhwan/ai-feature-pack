@@ -11,9 +11,9 @@ FT2 = HERE.parent
 spec = importlib.util.spec_from_file_location("r2050_pl", str(HERE / "test_pi_launch.py"))
 pl = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(pl)
-KEY = "FT_MBOX_DIR"
+KEY = "FT_SEAT_MBOX_DIR"   # r2109 좌석 칸 이름(옛 FT_MBOX_DIR)
 MUTANTS = {"M1": ("launch_plan.py", " + mbox for word", " for word"), "M2": ("launch_plan.py", "if os.path.isdir(box) else []", "if True else []"),
-           "M3": ("launch.py", ", mbox=plan[\"mbox\"]", ""), "M4": ("launch.py", 'if k != "FT_MBOX_DIR"', "if True")}
+           "M3": ("launch.py", ", mbox=plan[\"mbox\"]", ""), "M4": ("launch.py", 'if k not in ("FT_MBOX_DIR", "FT_SEAT_MBOX_DIR")', "if True")}
 SEEN = [*pl.SEAT_ENV, KEY, "PATH", "HOME"]   # 가짜 tmux 가 적는 프로세스 env 키(없는 키 = null)
 
 
@@ -81,7 +81,7 @@ def case6(tmp, launcher=pl.LAUNCH):   # ⑥ 실제 열기 성공 결과 mbox 칸
     assert (rc, out.get("opened"), out.get("mbox")) == (0, True, "우편함 명시 0 — %s 없음" % (root / ".fable-team" / "comm")), out
     root, fake = world(tmp / "b")
     out, rc, _, _ = launch(root, fake, launcher)
-    assert (rc, out.get("opened"), out.get("mbox")) == (0, True, "FT_MBOX_DIR=%s" % (root / ".fable-team" / "comm")), out
+    assert (rc, out.get("opened"), out.get("mbox")) == (0, True, "FT_SEAT_MBOX_DIR=%s" % (root / ".fable-team" / "comm")), out
 
 
 def case7(tmp, launcher=pl.LAUNCH):   # ⑦ 부모 값 → tmux 프로세스 env 에 키 없음 · argv 칸 = comm 없음 0 · 있음 루트 값 1 · PATH·HOME 그대로
