@@ -24,6 +24,10 @@ SLOW_S = 5   # r1992 바깥 호출 1시도 ≥ 5초 = SLOW-CALL 1줄(동작 변�
 OK = "접수 성공"
 
 
+class OutOfRound(Exception):
+    """r2026 R1 — 바퀴 남은 예산 < git 1회 상한(card_stage.spawn 7초) · 다음 git 0 → 다음 바퀴."""
+
+
 def _load(path, alias):
     spec = importlib.util.spec_from_file_location(alias, path)
     module = importlib.util.module_from_spec(spec)
@@ -62,6 +66,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         self.table, self.nano, self.refs, self.picked, self.bg, self.fetch_s = {}, {}, {}, [], {}, {}   # r1975
         self.stage, self.tally = "-", {}   # r1992 지금 칸(timed) · (팀, 칸) → [호출 시도 수, SLOW-CALL 초 합]
         self.halt, self.unknown = False, 0   # r2055 ALL_STOP(바퀴마다 판독) · 바퀴 UNKNOWN 수(ROUND unknown=N)
+        self.started = None   # r2026 R1 바퀴 시작(monotonic) · None = 바퀴 밖(예산 묶음 0)
 
     def call(self, argv, timeout=CALL_S, retry=0):
         """바깥 호출 1곳 → (rc, stdout, stderr 1줄) · 넘침·실행 실패 = rc None · retry = rc≠0 때 다시 부르는 횟수."""
@@ -94,6 +99,13 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         n = book[key][1] if book.get(key, [None])[0] == day else 0   # 날이 바뀜 = 0부터
         if n >= 3:
             return None
+        real = self.cs.spawn
+        def spawn(*args, **kw):   # r2026 R1 — card_stage git 1회 전마다 바퀴 남은 예산 ≥ 7초
+            left = ROUND_S - (time.monotonic() - self.started) if self.started is not None else ROUND_S
+            if left < CALL_S:
+                raise OutOfRound("바퀴 예산 남음 %g초" % round(left, 1))
+            return real(*args, **kw)
+        self.cs.spawn = spawn
         try:
             at = self.cs.done_at(self.root, team, work)
             if not at:
@@ -102,6 +114,11 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         except (self.cs.Unsure, subprocess.TimeoutExpired, OSError) as exc:
             book[key] = [day, n + 1]
             return self.log("Unsure", team, "%s card_stage %s" % (work, exc))
+        except OutOfRound as exc:   # 예산 모자람 = 하루 3회 셈 밖 · 다음 바퀴
+            book[key] = [day, n]
+            return self.log("DEFER", team, "%s card_stage %s — 다음 바퀴" % (work, exc))
+        finally:
+            self.cs.spawn = real
         book.pop(key, None)
         return self.log("CARD-STAGE", team, "%s %s %s" % (work, out[1], out[2])) if out else self.log("NOOP", team, work + " 이미 완성")
 
@@ -249,6 +266,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
 
     def _round(self):
         start, self.skip = time.monotonic(), self.skipped()
+        self.started = start   # r2026 R1 card_stage 예산 기준
         self.halt, self.unknown, self.orphan_scope = self.stopped(), 0, set()   # r2055 orphan_scope = 고아 길이 판정한 팀(S1) 정지 = 판정·[긴급]·«예정» 만 · kill·park·깨움·fill·B3 0
         self.fresh_samples()   # r2055 A13 표본 = 직전 바퀴 것만
         self.cache["@round"] = {}   # r1969 바퀴 캐시(keeper_next.once · 팀 사이 공유 · 다음 바퀴 새로 읽음)
