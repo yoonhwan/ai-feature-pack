@@ -37,7 +37,8 @@ def c4(w):   # ④·⑫′ done + 조상 + 유휴 → kill 1 → 부재 확인 �
     w.enable(), w.card("r9004", w.pack_sha())
     holder = w.work("r9004", done=True, alive=True)
     w.CLI.run(["submit", "--command", "c-r9099", "--body", "대기 일", "--work", "r9099", "--root", str(w.root), "--team", TEAM])
-    assert [x.split()[0] for x in w.round() if "r9004" in x] == ["CLOSED-SESSION", "RECEIPT"]
+    mine = [x for x in w.round() if "r9004" in x]   # r2140 K5 done 닫기 길 card_stage 1줄(대역 = 두 가지에 진행 카드)
+    assert [x.split()[0] for x in mine] == ["Unsure", "CLOSED-SESSION", "RECEIPT"] and mine[0] == "Unsure harness r9004 card_stage 두 가지에 진행 카드", mine
     assert [r for r in w.journal() if r["kind"] == "dispatch" and r.get("work") == "r9099"] == []   # 다음 배정 0(팀장 몫)
     assert w.tmux("kill-session") == [["kill-session", "-t", "=" + holder]] and w.kinds("close_receipt") == 1
 def c4b(w):  # ④′ pane «Working» → kill 0 · HELD
@@ -118,7 +119,8 @@ def c13(w):  # 보정1 B2 Pi 턴 끝 근거 없음(파일 0 · toolUse) + captur
     w.work("r9041", done=True, alive=True, pane="", turn=None), w.work("r9051", done=True, alive=True, pane="", turn="toolUse")
     lines = w.round()
     mine = [x for x in lines if ("r9041" in x or "r9051" in x) and not x.startswith("NOTIFIED")]   # r2055 A13 세션 파일 0 = UNKNOWN session-none([긴급]) · toolUse = WORKING turn-open
-    assert [x.split()[0] for x in mine] == ["UNKNOWN", "WORKING"] and "session-none" in mine[0] and "판정 불가" in mine[1], lines
+    assert [x.split()[0] for x in mine] == ["Unsure", "UNKNOWN", "Unsure", "WORKING"] and "session-none" in mine[1] and "판정 불가" in mine[3], lines   # r2140 K5 work 마다 card_stage 1줄
+    assert [mine[0], mine[2]] == ["Unsure harness %s card_stage 두 가지에 진행 카드" % x for x in ("r9041", "r9051")], lines
     assert w.tmux("kill-session") == [] and w.kinds("close_receipt") == 0
 def c14(w):  # 보정1 B5 보호 역할(master holder) · intent holder ≠ 최신 dispatch holder → 닫기 0 · 영수 0
     w.enable(), w.card("r9061", w.pack_sha()), w.card("r9071", w.pack_sha())
