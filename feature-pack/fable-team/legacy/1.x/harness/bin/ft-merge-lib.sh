@@ -379,6 +379,7 @@ fm_cards_by_tokens() {
   [ -n "$root" ] && [ $# -gt 0 ] || return 0
   local i ref refs out rc ok=0 bad="" rd="" p b t c rr n st="" ex="" cand="" serr="" tab="$root/.fable-team/state/directive-roots.tsv"; local -a hit=() dirs=() rfs=()
   for t in "$@"; do case "$t" in r[0-9]*) ;; *) st="$st $t";; esac; done   # r2123: slug 대조 후보 토큰(r<숫자> 아님)
+  local cap   # r2124 R1: ref 조회 상한(공유 7초 몫 · 아래 루프)
   if [ ! -f "$tab" ]; then   # r1821 C1: root 자신의 표 먼저 → 없으면 git common root(라이브 worktree 로 불려도 공용 표) · 카드는 그대로 root 의 ref 트리
     c="$(git -C "$root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; tab=""; [ -z "$c" ] || tab="${c%/*}/.fable-team/state/directive-roots.tsv"
   fi
@@ -388,8 +389,9 @@ fm_cards_by_tokens() {
   for ref in $refs; do dirs[${#dirs[@]}]="$root"; rfs[${#rfs[@]}]="$ref"; done
   c="$(git -C "${REPO:-$root}" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; rr="$(git -C "$root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"
   if [ -n "$c" ] && [ "$c" != "$rr" ]; then dirs[${#dirs[@]}]="${c%/.git}"; rfs[${#rfs[@]}]="${FT_CARD_REF:-origin/main}"; FM_CARDS_REFS="$FM_CARDS_REFS,${c%/.git}:${FT_CARD_REF:-origin/main}"; fi   # r1849-mut:repo
-  for i in "${!rfs[@]}"; do ref="${rfs[$i]}"
-    out="$(fm_try 7 git -c core.quotepath=false -C "${dirs[$i]}" ls-tree -r --name-only "$ref" -- design 2>/dev/null)"; rc=$?
+  for i in "${!rfs[@]}"; do ref="${rfs[$i]}"; cap=7   # r2124 R1: FM_CARDS_T0(시작 SECONDS) 가 있으면 ref 전부 = 공유 몫 min(7 − 쓴 초, 마감 남은 − 3) · < 1초 = 그 ref 조회 0(rc=124 · 시간 초과)
+    if [ -n "${FM_CARDS_T0:-}" ]; then cap="$(fm_tail_s $((7 - (SECONDS - FM_CARDS_T0))))"; [ "$cap" -ge 1 ] || { bad="${bad:+$bad, }$ref(rc=124 시간 초과)"; continue; }; fi
+    out="$(fm_try "$cap" git -c core.quotepath=false -C "${dirs[$i]}" ls-tree -r --name-only "$ref" -- design 2>/dev/null)"; rc=$?
     if [ "$rc" -ne 0 ]; then bad="${bad:+$bad, }$ref(rc=$rc)"; continue; fi
     ok=$((ok + 1)); rd="${rd:+$rd,}$ref"
     while IFS= read -r p; do   # r1717: 한글 폴더(진행·완성)를 따옴표 꼴로 내지 않게 — 차례 장부가 이 경로를 그대로 쓴다
@@ -512,7 +514,7 @@ fm_land_turn() { fm_land_turn_ledger "$@"; fm_land_turn_notify "$1" "$2" "$3"; }
 #   fm_land_turn_first <카드리포루트> <PR> <head 가지> <PR 제목> : r2124 G1 — ft-merge-land 가 LANDED·push ok 바로 뒤에 부름 · 카드 토큰 = fm_card_tokens(꼬리 알림과 같은 규칙) · 7초 몫 시작 = 이 자리 · 반환 0
 fm_land_turn_first() { local t0=$SECONDS tok; tok="$(fm_card_tokens "$3" "$4")"
   # shellcheck disable=SC2086
-  fm_land_turn_ledger "$1" "$2" "$t0" $tok; }
+  FM_CARDS_T0="$t0" fm_land_turn_ledger "$1" "$2" "$t0" $tok; }   # r2124 R1(DA HOLD #319782): 카드 ref 조회도 같은 7초 몫(doc 판정과 공유) · 옛 fm_land_turn 길은 ref 마다 7초 그대로
 fm_land_common() { local c; c="$(git -C "$1" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; c="${c%/.git}"; printf '%s' "${c:-$1}"; }   # 장부·notify 의 공용 루트
 fm_land_turn_ledger() {
   local root="$1" pr="$2" t0="$3" c f cap el of err="" p dk="" dn=""; local -a cd=(); shift 3; c="$(fm_land_common "$root")"; f="$c/.fable-team/state/land-record-turn.jsonl"
