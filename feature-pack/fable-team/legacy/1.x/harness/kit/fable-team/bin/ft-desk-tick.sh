@@ -71,9 +71,11 @@ HIL_N=0; HIL_DESK=0; MAIL_N=0; LAUNCH_BAD=0; STALE=0; WATCH="?"
 o() { OUT+=("$*"); }
 fail_line() { o "$1 판정 불가 rc=$2"; FAILS=$((FAILS+1)); DEC=$((DEC+1)); }
 news_fail() { o "NEWS 판정 불가 — $1 rc=$([ "$2" -ne 0 ] && echo "$2" || echo 1)"; FAILS=$((FAILS+1)); DEC=$((DEC+1)); }   # r2102
-item() {  # item <이름> — 전체 25초를 넘으면 그 항목은 실행하지 않고 판정 불가 1줄(6항 자리는 지킨다)
+budget_ok() { [ $(( BUDGET * 1000 - ( $(ms) - START_MS ) - $1 * 1000 )) -ge 1 ]; }   # budget_ok <남길 초> — XB 와 같은 예산 확인
+item() {  # item <이름> [남길 초] — 전체 25초를 넘으면 그 항목은 실행하지 않고 판정 불가 1줄(6항 자리는 지킨다)
   if [ $(( $(date +%s) - START )) -gt 25 ]; then fail_line "$1" 124; return 1; fi
-  RAN=1; return 0
+  if budget_ok "${2:-$RESERVE}"; then RAN=1; fi   # 예산 확인 통과 뒤에만 «돈 항목»(T4 · DA #322039)
+  return 0
 }
 
 # ① 사람 결정 대기 중 «이 desk 몫»
@@ -204,7 +206,7 @@ tock ④
 # 결속 확인 — 우편함을 «소비하기 전» 에 root·현재 desk·planner 가 이 좌석으로 묶였는지 본다(반례②). 실패면 recv 0 · 송신 0
 BIND_OK=0; PLANNER=""; SAVE_OK=1
 tick
-if item 결속; then
+if item 결속 0; then
   if [ ! -f "$MBOX" ]; then fail_line 결속 5; else
     bind="$(X6 python3 - "$PLANNER_SEATS" "$DESKBASE" <<'PY'
 import json, sys
@@ -252,7 +254,7 @@ tock ⑤
 # ⑥ planner _master 에 [완료] 3줄 — 본문은 스크립트가 조립한다(모델 출력이 아니다: 백틱·$() 가 들어갈 자리 0). 첫 줄 = [완료] 머리(반례④)
 tick
 if [ "$BIND_OK" = 1 ] && [ "$SAVE_OK" = 1 ]; then
-  RAN=1
+  if budget_ok 0; then RAN=1; fi
   body="$(printf '[완료] desk 틱 — HIL 대기 %d건(desk %d) · 쪽지 %d건 · launch 경고 %d건\n남은 일: 결정 필요 %d · 팀장 정체 %d건 · 감시 %s\n회차: %s · 6항 판정 불가 %d건 · 좌석 %s' \
     "$HIL_N" "$HIL_DESK" "$MAIL_N" "$LAUNCH_BAD" "$DEC" "$STALE" "$WATCH" "$NOWISO" "$FAILS" "$DESKBASE")"
   sout="$(X6 bash "$MBOX" send "$PLANNER" "$SEAT" "$body" 2>&1)"; rc=$?
