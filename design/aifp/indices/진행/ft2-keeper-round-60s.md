@@ -255,5 +255,6 @@ DA 반례(fill 1항목 안 7초 호출 10개 = 70초)에 댄 답: 그 10개는 �
     합 12칸 · 수렴 못 한 순서 = 없음 · 원자 구간으로 선언한 것 = 0개(쓰기 호출 수 0) — 어느 호출 앞에서 끊겨도 «끊긴 바퀴 1 + 이어서 끝내는 바퀴 1» 로 같은 끝(같은 일 집합 · 쪽지 1통)에 닿는다
     ```
 - 2026-11-16 09:13 · aifp-ft-arch-pi#23 조건 5 [x] · 6·7 1차 읽기(팀장 aifp 5917 · 설치 회신 aifp 5914) · 설치 뒤 ROUND 2줄뿐 = 조건 6 [ ](other 7 · 10초 > 5초 = 가정 A1 깨짐) · 조건 7 [~](cut 2줄 모두 - · items 55/1197 볼 것) · 읽기만 · 코드 변경 0
+- 2026-11-16 10:04 · 알려진 한계 1줄 더함(aifp-ft-arch-pi#23 · 팀장 aifp 5930 · harness arch#395 BYZ 313766): 착지 d261be1a 가 keeper.py 의 `elif self.sock and endings.ending(self, team, work):` 를 `if …` 로 바꿔 test_pi_keeper_endings_r1960.py::test_mutant[M9] 의 닻이 0개가 됐다(1 failed) · 그 파일은 이 카드 회귀 목록에 없었고 DA 도 돌리지 않았다 · 고침 = 대기/ft2-keeper-endings-m9-anchor(시험 닻 1줄 · 제품 코드 손 0)
 - 세트 정정(나노 aifp 5890 · 팀장 aifp 5896): 위 세트 줄의 ec5409dc 는 ㊳파 고침 앞 head 다 · PR #1397 head 와 DA 승인 sha 는 9fc8b9ab 이다(뒤 커밋 1개 = 9fc8b9ab 고침) · 닫기 도구가 읽는 세트 = 맨 끝 줄
 - 세트: 9fc8b9ab91a4e3ce565d12ebe075ac6dbdef489d · 시험: python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_keeper_round_60s.py (49 passed 5.10초) rc=0 · 이슈: 0
