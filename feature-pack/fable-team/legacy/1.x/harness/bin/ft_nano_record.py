@@ -105,7 +105,7 @@ class Ctx:
         self.root = Path((c[:-5] if c.endswith("/.git") else c) if rc == 0 and c else r)
         self.state = self.root / ".fable-team" / "state"
         self.comm = Path(os.environ.get("FT_INBOX_ROOT") or self.root / ".fable-team" / "comm")
-        self.fetch, self._tips, self._live = True, {}, None
+        self.fetch, self._tips, self._live, self._seats = True, {}, None, {}   # _seats = r2129 명부 캐시(실제 경로 → dict|실패 표지 · sub Ctx 공유)
 
     def store(self):   # 보낸·전달·거절 기록(없으면 빈 꼴 · 읽기만)
         try:
@@ -134,14 +134,14 @@ class Ctx:
                     e["cards"], e["nocard"] = list(d.get("cards") or []), str(d.get("why") or "")
         return list(ents.values())
 
-    def seats(self, team):   # 팀 명부(착지 쪽지와 같은 규칙: FT_SEATS_JSON › seats.json(v65) › seats-<팀>.json)
-        p = os.environ.get("FT_SEATS_JSON") or self.root / ".fable-team" / ("seats.json" if team == "v65" else f"seats-{team}.json")
+    def seats(self, team):   # 팀 명부(착지 쪽지와 같은 규칙: FT_SEATS_JSON › seats.json(v65) › seats-<팀>.json) · r2129 실행당 실제 경로마다 1회 읽고 풂(실패 = 종류만 캐시 · 오류 글의 팀 = 호출마다 원문)
+        p = os.path.realpath(os.environ.get("FT_SEATS_JSON") or self.root / ".fable-team" / ("seats.json" if team == "v65" else f"seats-{team}.json"))
         try:
-            d = json.loads(Path(p).read_text(encoding="utf-8"))
+            d = self._seats[p] if p in self._seats else json.loads(Path(p).read_text(encoding="utf-8"))
         except (OSError, ValueError):
-            raise Unjudged(f"명부 읽기({team}) rc=1") from None
-        if not isinstance(d, dict):
-            raise Unjudged(f"명부 꼴({team}) rc=1")
+            d = Unjudged   # 읽기·풀기 실패 표지
+        if not isinstance(d := self._seats.setdefault(p, d), dict):
+            raise Unjudged(f"명부 {'읽기' if d is Unjudged else '꼴'}({team}) rc=1")
         return d
 
     def live(self):   # 살아 있는 tmux 세션 이름(실행당 1회)
