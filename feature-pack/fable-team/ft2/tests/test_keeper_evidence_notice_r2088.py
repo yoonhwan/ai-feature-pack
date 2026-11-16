@@ -40,9 +40,9 @@ def test_6_sends_once_day_restart_next_day(tmp_path, monkeypatch):   # ⑥ N1·N
     assert mail(w) == ["send M-harness ft2-keeper " + body], _lines(str(w.mbox) + ".log")
     refs = _git(w.root, "ls-remote", "origin")
     k, _ = notice(w, "r9801")
-    assert len(mail(w)) == 1   # ⑥a 같은 날 다음 바퀴 0통
+    assert len(mail(w)) == 1   # ⑥b 재기동 = 새 keeper(state.json 다시 읽기) · 같은 날 0통(M4)
     notice(w, "r9801", k=k)
-    assert len(mail(w)) == 1   # ⑥b 재기동 = 새 keeper(state.json 다시 읽기) 0통
+    assert len(mail(w)) == 1   # ⑥a 같은 keeper · 같은 날 다음 바퀴 0통
     w.t += 86400
     notice(w, "r9801")
     assert len(mail(w)) == 2 and _git(w.root, "ls-remote", "origin") == refs   # ⑥c D+1 1통 · N3 카드 ref·git 쓰기 0

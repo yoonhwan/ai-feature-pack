@@ -574,6 +574,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
             return self.stall_pos(team, work, attempt, dispatched, row, rows, "")
         if row.get("done"):   # 착지면 complete 만 = close 자리
             self.unused.add((team, work, "stall"))
+            endings.evidence_notice(self, team, work)   # r2088 증거 줄 없음 안내(close 바로 앞 · 쓰기 0)
             return "close"
         self.at_pos("b1")
         landed = self.landing(team, work)
