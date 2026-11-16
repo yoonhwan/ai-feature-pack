@@ -33,7 +33,7 @@ def at(ctx, where):   # 카드 절대경로·장부 repo → 그 리포 Ctx(상�
     key = (str(roots[r]), ctx.fetch, id(ctx._tips))   # due_rows 의 fetch 판(새 _tips)마다 새 sub
     if key not in subs:
         subs[key] = sub = Ctx(roots[r])
-        sub.state, sub.comm, sub.fetch = ctx.state, ctx.comm, ctx.fetch
+        sub.state, sub.comm, sub.fetch, sub._seats = ctx.state, ctx.comm, ctx.fetch, ctx._seats   # r2129: 명부 캐시 공유(due 두 판 · 외부 리포)
     return subs[key]
 
 
