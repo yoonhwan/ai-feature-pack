@@ -11,6 +11,7 @@ OK, BLOCK, NONE = "접수 성공", ("정지", "석", "선행", "DA", "사람"), 
 URGENT, HIGH = re.compile(r"- 긴급:\s*예\s*$"), re.compile(r"- 우선(?:순위)?:\s*높음")
 REF = re.compile(r"(?<![A-Za-z0-9_])r(\d+)(?![0-9])")   # r2027 카드 참조 r<번호>
 MONTH = re.compile(r"/아카이브/\d{4}-\d{2}")   # DA R1 월별 아카이브(루트 뒤 꼬리)
+MOVED = ("완성", "완성후", "아카이브")   # r2114 A1 대기에서 옮겨진 카드 단계(짝 표 대기 경로 = 줄 0)
 MARK, SHELL = ("사람", "정지", "DA", "lint", "면제대기", "선행"), ("- 상태: 대기(NEW_CARD_HOLD", "- 대기(NEW_CARD_HOLD")   # r2093 S1 껍데기 표식 줄 두 꼴   # r2058 L9 — 카드 «- 배정: 대기(<사유> · …)» 의 막는 사유(새 표식 · «석» 은 여기 없다)
 def prereq(lines, where):
     """r2027 카드 본문 선행 막힘 = "" · "선행" · "선행불명"(판정 불가) · where = {번호: 카드가 있는 폴더 집합}.
@@ -194,14 +195,22 @@ def mapped(k, team, found, where):
             continue
         rc3, text, _ = once(k, ("mapped", repo, ref, path), lambda: k.git(repo, "show", "%s:%s" % (ref, path)))
         rc4, names, _ = once(k, ("mapped-tree", repo, ref, idx), lambda: k.git(repo, "ls-tree", "-r", "--name-only", ref, "--", idx + "/"))
-        if rc3 != 0 or rc4 != 0:
-            once(k, ("map-show", team, path), lambda: k.log("판정 불가", team, "짝 표 카드 %s:%s git rc %s/%s — 건너뜀" % (ref, path, rc3, rc4)))
+        if rc3 != 0 and rc4 == 0 and any(os.path.basename(p) == stem + ".md" and moved_to(p, idx) in MOVED for p in names.splitlines()):
+            continue   # r2114 A1 옮겨진 카드 = 후보 0 · 줄 0
+        if rc3 != 0 or rc4 != 0:   # r2114 A2 (팀 · 경로)마다 값이 바뀔 때만 1줄(keeper 상태 파일 · 재기동해도 다시 찍지 않음)
+            book, key, val = k.state.setdefault("map_seen", {}), "%s|%s" % (team, path), "%s/%s" % (rc3, rc4)
+            if book.get(key) != val:
+                book[key] = val
+                k.log("판정 불가", team, "짝 표 카드 %s:%s git rc %s/%s — 건너뜀" % (ref, path, rc3, rc4))
             continue
         heads = [x for x in text.splitlines() if re.match(r"- (긴급|우선|대상|선행|배정)", x) or x.startswith(SHELL)]
         found[stem] = [any(URGENT.match(x) for x in heads), any(HIGH.match(x) for x in heads), [x for x in heads if x.startswith("- 대상")], [x for x in heads if x.startswith(("- 선행", "- 배정") + SHELL)]]
         for p in (x for x in names.splitlines() if x.endswith(".md")):
             m, stage = re.match(r"r(\d+)(?![0-9])", os.path.basename(p)), "아카이브" if MONTH.fullmatch(os.path.dirname(p)[len(idx):]) else os.path.basename(os.path.dirname(p)) if os.path.dirname(os.path.dirname(p)) == idx else ""
             where.setdefault(m.group(1), set()).add(stage) if m and stage in ("완성", "완성후", "아카이브") else None
+def moved_to(p, idx):
+    """r2114 A1 indices 안 경로 p 의 단계 폴더 이름 · 아카이브/<YYYY-MM>/ = 아카이브 · 그 밖 = ""(mapped where 갈래와 같은 꼴)."""
+    return "아카이브" if MONTH.fullmatch(os.path.dirname(p)[len(idx):]) else os.path.basename(os.path.dirname(p)) if os.path.dirname(os.path.dirname(p)) == idx else ""
 def target(k, r, lines):
     """(리포, base) — 팩·feature-pack/ = 팩 origin/main · 없음 = 루트 리포·표 ref · 팩·BYZ 둘 다 = None."""
     pack, byz = any("팩" in x or "feature-pack/" in x for x in lines), any("BYZ" in x for x in lines)
