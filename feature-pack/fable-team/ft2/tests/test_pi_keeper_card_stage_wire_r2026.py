@@ -1,6 +1,6 @@
 """r2026 ft2 keeper — complete 접수(done 확인) 직후 card_stage 1회 · Unsure = 다음 바퀴 재시도(같은 work · 하루 3회 상한) · NOOP·STAGED = 끝.
 대역 = r1812 World(임시 리포·가짜 tmux·주입 시계 w.t) + 가짜 card_stage(k.cs · 호출 기록) · 실 BYZ 리포·실 push 0 · sleep 0.
-T1~T4 · 변이 M1(호출 줄 삭제 → T1 FAIL) · M2(재시도 상한 삭제 → T3 FAIL)."""
+T1~T4 · 변이 M1(호출 줄 삭제 → T1 FAIL) · M2(재시도 상한 삭제 → T3 FAIL) · R1(DA HOLD #313466 바퀴 60초 예산) · M3(예산 검사 삭제 → R1 FAIL)."""
 import importlib.util
 import shutil
 import time
@@ -19,6 +19,7 @@ class Fake:
     """card_stage 대역 — plan 차례로 돌려줌(예외 객체 = raise · None = NOOP · 끝나면 마지막 값 반복)."""
     class Unsure(Exception):
         pass
+    spawn = None   # card_stage git 1회 자리(keeper 가 예산 검사로 감쌀 · 대역은 git 0)
 
     def __init__(self, plan):
         self.plan, self.calls = list(plan), []
@@ -114,7 +115,8 @@ def r1(w, mp):   # R1(DA HOLD #313466) — 실 card_stage · git 매회 rc0 + �
 CASES = {"T1": t1, "T2": t2, "T3": t3, "T4": t4, "R1": r1}
 KP = "adapters/pi/keeper.py"
 MUTANTS = {"M1": ("land.Landing.complete(self, *args) and (self.stage_card(*args[:2]) or True)", "land.Landing.complete(self, *args)", t1),
-           "M2": ("        if n >= 3:\n            return None\n", "", t3)}
+           "M2": ("        if n >= 3:\n            return None\n", "", t3),
+           "M3": ("            if left < CALL_S:\n", "            if False:\n", r1)}   # R1 예산 검사 삭제 → R1 FAIL
 
 
 @pytest.mark.parametrize("name", list(CASES))
