@@ -5,7 +5,18 @@ r2056 resolve_owner = due·landed 공통 차례 찾기(카드 팀 명부 → 0 �
 상태·보낸 기록·우편함 = 장부 루트 그대로(sub.state·sub.comm = 부른 ctx 것). 같은 루트 = 부른 ctx 그대로(git 호출 0 · r2071 묶음 판 불변)."""
 from __future__ import annotations
 
-from ft_nano_record import CARD_RX, Ctx, Unjudged, need
+from ft_nano_record import CARD_RX, Ctx, Reject, Unjudged, need
+
+
+def proxy_master(ctx, doc, team):   # r2039 A1 판정 한 곳(due 가 내보냄 · notify 받는 이·write 차례 좌석) — 그 팀 카드 ref 가지 = main → 팀장(차례 나노 대리) · 아니면 None · ref 읽기 실패 = Unjudged 그대로
+    return (str(doc.get("_master") or "") or None) if ctx.tip(team)["br"] == "main" else None   # r2039-mut:main
+
+
+def proxy_turn(ctx, doc, team, own, seat):   # r2039 A3·A5 → («완료» 칸 좌석들, 차례 좌석 표) · own = 차례 나노 · 팀장 대리 = 나노마다(표에 팀장 덧붙임) · main 팀 나노 직접 = push 전 REJECT(나노 main push 0 · 가드 불변)
+    px = proxy_master(ctx, doc, team)
+    if px and seat in own:   # r2039-mut:pre
+        raise Reject(f"카드 ref = main — 기록 = 팀장 대리(landed --seat {px})")
+    return (sorted(own), {**own, seat: ("대리", "")}) if own and seat == px else ([seat], own)
 
 
 def at(ctx, where):   # 카드 절대경로·장부 repo → 그 리포 Ctx(상태 = 장부 루트) · 루트 같음·상대경로 = ctx

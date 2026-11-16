@@ -15,7 +15,7 @@ from pathlib import Path
 
 from ft_nano_record import CARD_RX, DONE_RX, Ctx, Reject, Unjudged, left_free, left_of, marks, rec_of, section, seq_dropped
 from ft_nano_record_batch import prepare
-from ft_nano_record_repo import at, repo_hits, resolve_owner, seats_at
+from ft_nano_record_repo import at, proxy_master, repo_hits, resolve_owner, seats_at
 
 DOCW = "문서 PR · 구현 착지 아님"   # r1782 A2: 장부 doc_only(착지 파일 전부 design/·docs/) 줄의 «끝» 사유
 
@@ -74,8 +74,8 @@ def card_rows(ctx, e, path):
         base["path"], raw = ctx.card(team, iroot, stem)
         lines, st, en = section(raw.decode("utf-8", "replace"))
         sec = lines[st + 1:en] if st is not None else []   # r1717-mut:section
-        doc, own = resolve_owner(ctx, team, doc, stem, sec)   # r2056 A5: landed 와 같은 함수
-        base["master"] = str(doc.get("_master") or "")   # 차례를 찾은 명부의 팀장(닫기 요청 받는 이)
+        found, own = resolve_owner(ctx, team, doc, stem, sec)   # r2056 A5: landed 와 같은 함수 · master = 차례를 찾은 명부 팀장(닫기 요청 받는 이)
+        base["master"], base["proxy"] = str(found.get("_master") or ""), proxy_master(ctx, doc, team)   # r2039 A1·A2: 카드 ref = main 팀 = «차례» 받는 이 = 카드 팀 명부 팀장
         if e.get("doc_only") and not any(k == "닫기" for _s, k, _c in own):   # r1782 A2ⓑ: 문서만 바꾼 착지 · 카드 쥔 나노 없음 = 끝(쪽지 0)
             return [{**base, "k": "끝", "why": DOCW}]
         gone = sorted({m.group(1) for ln in sec for m in [DONE_RX.match(ln)] if m and f"착지 {e['landed'][:10]}" in ln} - {s for s, _k, _c in own})

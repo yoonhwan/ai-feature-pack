@@ -11,11 +11,13 @@ OK, BLOCK, NONE = "접수 성공", ("정지", "석", "선행", "DA", "사람"), 
 URGENT, HIGH = re.compile(r"- 긴급:\s*예\s*$"), re.compile(r"- 우선(?:순위)?:\s*높음")
 REF = re.compile(r"(?<![A-Za-z0-9_])r(\d+)(?![0-9])")   # r2027 카드 참조 r<번호>
 MONTH = re.compile(r"/아카이브/\d{4}-\d{2}")   # DA R1 월별 아카이브(루트 뒤 꼬리)
-MARK = ("사람", "정지", "DA", "lint", "면제대기", "선행")   # r2058 L9 — 카드 «- 배정: 대기(<사유> · …)» 의 막는 사유(새 표식 · «석» 은 여기 없다)
+MARK, SHELL = ("사람", "정지", "DA", "lint", "면제대기", "선행"), ("- 상태: 대기(NEW_CARD_HOLD", "- 대기(NEW_CARD_HOLD")   # r2093 S1 껍데기 표식 줄 두 꼴   # r2058 L9 — 카드 «- 배정: 대기(<사유> · …)» 의 막는 사유(새 표식 · «석» 은 여기 없다)
 def prereq(lines, where):
     """r2027 카드 본문 선행 막힘 = "" · "선행" · "선행불명"(판정 불가) · where = {번호: 카드가 있는 폴더 집합}.
     반환 = (판정, 까닭) — 까닭은 선행불명일 때만 찬다(`번호 참조 없음` · `루트에 없는 번호 r<a> r<b> …` · 없는 번호 전부·번호 순 · I2·I3).
     r2058 L9 — «- 배정: 대기(<사유> · 시각)» 의 사유가 사람·정지·DA·lint·면제대기·선행 이면 그 사유 그대로 막는다(«대기(석» 은 새 표식이 아니다)."""
+    if any(x.startswith(SHELL) for x in lines):   # r2093 S1 — 두 표식 줄이 있을 때만(«- 배정: 대기(» 사유와 따로 · MARK 손 0 · DA R1)
+        return "껍데기", ""
     mark = next((x[len("- 배정: 대기("):].split(" · ")[0].strip().rstrip(")").strip() for x in lines if x.startswith("- 배정: 대기(")), "")
     if mark in MARK:
         return mark, ""   # ① 카드 배정 줄(원장·owner 를 본 뒤의 자리)
@@ -156,7 +158,7 @@ def cards(k, team):
         return "카드 루트 표 행 없음"
     raw, r = r[3], [r[0], os.path.join(k.root, r[1]), r[2], r[3].replace("*", team)]   # r1969 raw git = (리포·ref·표 행 루트) 바퀴당 1회 · 팀 걸러내기는 따로
     rc, names, err, rc2, heads = once(k, ("cards", r[1], r[2], raw), lambda: k.git(r[1], "ls-tree", "-r", "--name-only", r[2], "--", raw.split("*")[0] if "*" in raw else raw + "/")   # r2027 루트 전체 = 선행 참조 폴더
-                                      + k.git(r[1], "grep", "-I", "-E", r"^- (긴급|우선|대상|선행|배정)", r[2], "--", ":(glob)%s/대기/*" % raw)[:2])
+                                      + k.git(r[1], "grep", "-I", "-E", r"^- (긴급|우선|대상|선행|배정|상태: 대기\(NEW_CARD_HOLD|대기\(NEW_CARD_HOLD)", r[2], "--", ":(glob)%s/대기/*" % raw)[:2])
     if rc != 0 or rc2 not in (0, 1):
         return "카드 루트 git rc %s/%s %s" % (rc, rc2, err[:60])
     mine = r[3] + "/대기"
@@ -170,7 +172,7 @@ def cards(k, team):
         if row is not None:
             row[0], row[1] = row[0] or bool(URGENT.match(line)), row[1] or bool(HIGH.match(line))
             row[2] += [line] if line.startswith("- 대상") else []
-            row[3] += [line] if line.startswith(("- 선행", "- 배정")) else []
+            row[3] += [line] if line.startswith(("- 선행", "- 배정") + SHELL) else []
     mapped(k, team, found, where)   # r2030 짝 표 대기 카드(팀 폴더 밖 포함)
     for row in found.values():
         val = next((x.split(":", 1)[1].strip() for x in row[3] if x.startswith("- 선행:")), "")   # I1 기억에 넣을 선행 값 그대로
@@ -195,8 +197,8 @@ def mapped(k, team, found, where):
         if rc3 != 0 or rc4 != 0:
             once(k, ("map-show", team, path), lambda: k.log("판정 불가", team, "짝 표 카드 %s:%s git rc %s/%s — 건너뜀" % (ref, path, rc3, rc4)))
             continue
-        heads = [x for x in text.splitlines() if re.match(r"- (긴급|우선|대상|선행|배정)", x)]
-        found[stem] = [any(URGENT.match(x) for x in heads), any(HIGH.match(x) for x in heads), [x for x in heads if x.startswith("- 대상")], [x for x in heads if x.startswith(("- 선행", "- 배정"))]]
+        heads = [x for x in text.splitlines() if re.match(r"- (긴급|우선|대상|선행|배정)", x) or x.startswith(SHELL)]
+        found[stem] = [any(URGENT.match(x) for x in heads), any(HIGH.match(x) for x in heads), [x for x in heads if x.startswith("- 대상")], [x for x in heads if x.startswith(("- 선행", "- 배정") + SHELL)]]
         for p in (x for x in names.splitlines() if x.endswith(".md")):
             m, stage = re.match(r"r(\d+)(?![0-9])", os.path.basename(p)), "아카이브" if MONTH.fullmatch(os.path.dirname(p)[len(idx):]) else os.path.basename(os.path.dirname(p)) if os.path.dirname(os.path.dirname(p)) == idx else ""
             where.setdefault(m.group(1), set()).add(stage) if m and stage in ("완성", "완성후", "아카이브") else None
@@ -218,6 +220,8 @@ def choose(k, team, skip=frozenset()):
     for stem, (urgent, high, lines, pre, seen) in sorted(found.items()):
         led = ledger(k, stem)
         block = "배정됨" if led.get("state") == "seat" or stem in owners else led.get("reason") if led.get("reason") in BLOCK else pre   # r2027 ⑤ 원장·카드 둘 중 하나
+        shell = k.state.setdefault("shell_seen", [])   # r2093 S2 — 껍데기 건너뜀 1줄(카드마다 1회 · keeper 상태 파일)
+        shell += [k.log("NEXT-SKIP", team, "%s 건너뜀 — NEW_CARD_HOLD 껍데기" % stem) or "%s|%s" % (team, stem)] if pre == "껍데기" and "%s|%s" % (team, stem) not in shell else []
         if pre == "선행불명":   # I1·I2 — 값·까닭이 바뀔 때만 1줄(기억 = keeper 상태 파일 · 재기동해도 다시 찍지 않는다 · DA 310229)
             book, key = k.state.setdefault("prereq_seen", {}), "%s|%s" % (team, stem)
             if book.get(key) != seen:
