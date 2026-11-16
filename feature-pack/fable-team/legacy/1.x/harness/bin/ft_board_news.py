@@ -18,7 +18,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from ft_board_news_body import MAX_BYTES, NO_TABLE, body, news, next_key, stale_warns, standing
+from ft_board_news_body import MAX_BYTES, NO_TABLE, body, closed, goal_counts, news, next_key, stale_warns, standing
 from ft_board_news_name import card_disp, titles  # noqa: F401 — card_disp = 옛 이름(시험 호환)
 
 DEBOUNCE_S = 300
@@ -93,10 +93,13 @@ def snapshot(d: dict, rows: list | None, prev: dict | None = None) -> dict:
                 sessions[name] = [t["label"], *seat_card(name, t, all_states)]
     snap = {"goals": rows, "cards": {t["label"]: t.get("states") or {} for t in teams},
             "counts": {t["label"]: [(t.get("counts") or {}).get(f, 0) for f in FOLDERS] for t in teams},
-            "sessions": sessions, "h_by": {t["label"]: sorted(set(t.get("oppa_todo") or [])) for t in teams}, "err": err, "carried": [], "masterless": masterless}
+            "sessions": sessions, "h_by": {t["label"]: sorted(set(t.get("oppa_todo") or [])) for t in teams}, "err": err, "carried": [], "masterless": masterless,
+            "card_goals": {t["label"]: t.get("goals") or {} for t in teams}, "done_on": {t["label"]: t.get("done_on") or {} for t in teams}}  # r2120 E3
     for label in err if prev else []:  # carried = 직전 상태를 실제로 이어 쓴 팀만(«확인 불가» 줄 · R3)
         if label in prev["cards"]:
             snap["cards"][label], snap["counts"][label] = prev["cards"][label], prev["counts"][label]
+            for f in ("card_goals", "done_on"):  # 골 칸도 직전 값(옛 news-last = 빈 칸)
+                snap[f][label] = (prev.get(f) or {}).get(label, {})
             snap["carried"].append(label)
         old = {n: v for n, v in prev["sessions"].items() if v[0] == label}
         snap["sessions"].update(old)
@@ -107,7 +110,9 @@ def snapshot(d: dict, rows: list | None, prev: dict | None = None) -> dict:
 
 
 def key(s: dict) -> list[str]:
-    return standing(s) + ["다음", *next_key(s)]
+    """열쇠 = standing · «다음» 칸 + 열린 골별 카드 완성 수(r2120 · 진행·대기 이동은 밖 · 옛 열쇠와 달라 전환 1회 발행)."""
+    done = [f"{r[1]} {goal_counts(s, r[1])[0]}" for r in s["goals"] or [] if not closed(r)]
+    return standing(s) + ["다음", *next_key(s), "완성", *done]
 
 
 def main() -> int:

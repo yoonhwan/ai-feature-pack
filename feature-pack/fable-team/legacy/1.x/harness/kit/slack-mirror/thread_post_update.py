@@ -124,15 +124,19 @@ def topic_channel(a: argparse.Namespace) -> str:
 
 
 def cmd_post(a: argparse.Namespace, target: Callable[[argparse.Namespace], Target]) -> int:
-    """`post (--to <등록부 이름> | --channel <ID>) (--text|--text-file)` — 방에 새 글 1개(thread_ts 없음). 장부·등록부·답 기록 쓰기 0."""
+    """`post (--to <등록부 이름> | --channel <ID>) (--text|--text-file) [--keep-mention UID]` — 방에 새 글 1개(thread_ts 없음). 장부·등록부·답 기록 쓰기 0."""
+    km = getattr(a, "keep_mention", None)  # r2120 — reply 와 같은 꼴 규칙(r2108)
+    if km is not None and not UID.fullmatch(km):
+        raise MirrorError(f"--keep-mention 은 UID 꼴 U[A-Z0-9]{{8,11}}: {km}")
     body = (a.text if a.text is not None else Path(a.text_file).read_text(encoding="utf-8")).strip()
     if not body:
         raise MirrorError(f"본문이 비었다: {a.text_file or '--text'}")
     ch = topic_channel(a)
     text = esc(body)
     check(text, ch, human=True)  # 사람 채널 — 글 «전» 거절(게시 0)
+    text = text if km is None else text.replace(f"&lt;@{km}&gt;", f"<@{km}>", 1)  # 도구 태그 첫 1개만 · 나머지 중화 그대로
     t = target(a)
-    ts = post(t.base, t.token, ch, text, None, human=True, head=body)
+    ts = post(t.base, t.token, ch, text, None, human=True, head=body, status_head=not getattr(a, "no_status_head", False))  # r2120 DA R1
     print(f"POSTED {ts}")
     return 0
 

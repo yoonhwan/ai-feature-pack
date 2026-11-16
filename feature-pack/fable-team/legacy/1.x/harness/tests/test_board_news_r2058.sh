@@ -63,7 +63,7 @@ lastbody() { cat "$T/stub/body.$(replies).txt"; }
 now_section() { lastbody | awk '/^지금$/{f=1;next} /^다음$/{f=0} f'; }  # r2095: Slack 4칸 머리
 next_section() { lastbody | awk '/^다음$/{f=1;next} /^막힌 것, 오빠 할 일$/{f=0} f'; }
 run() { RC=0; env -u FT_BOARD_THREAD_TS FT_ROOT="$T/ft" FT_BOARD_BIN="$T/stub/board" FT_THREAD_POST="$T/stub/tp.py" \
-  FT_GOAL_PROGRESS_MD="$T/goal.md" FT_BOARD_NOW="$1" ${TS_ENV-FT_BOARD_THREAD_TS=$TSV} bash "$PUB" --news > "$T/out" 2> "$T/err" || RC=$?; }
+  FT_GOAL_PROGRESS_MD="$T/goal.md" FT_BOARD_NOW="$1" ${TS_ENV-FT_BOARD_THREAD_TS=$TSV} FT_BOARD_POST_ARGS="${CH_ARGS---channel C0TEST}" bash "$PUB" --news > "$T/out" 2> "$T/err" || RC=$?; }
 
 BASE='{"cards":{"r2058-oppa-a":"대기","r2059-beta":"진행"},"seats":{"byz-harness-nano-r2059-beta#0":"작업중","byz-harness-master-pi#283":"정지 3분"},"h":[7]}'
 G1="1 | ft 2.0 완성 | 20 | 23 | 진행 중"; G2="2 | 하네스 운영 | 3 | 5 | 진행 중"
@@ -72,7 +72,7 @@ G1="1 | ft 2.0 완성 | 20 | 23 | 진행 중"; G2="2 | 하네스 운영 | 3 | 5 
 reset; goal "$G1" "$G2"; mk "$BASE"; run 2026-11-15T10:00:00
 chk "① rc 0" '[ "$RC" = 0 ]'
 chk "① reply 1회" '[ "$(replies)" = 1 ]'
-chk "① --ts $TSV" 'grep -q -- "reply.*--ts $TSV" "$T/stub/tp.log"'
+chk "① post --channel C0TEST(r2120)" 'grep -q -- "^post.*--channel C0TEST" "$T/stub/tp.log"'
 chk "① 막대 골 줄 2개(r2103)" '[ "$(lastbody | grep -c "[▓░]")" = 2 ] && [ "$(now_section | grep -c " [▓░]\{10\} [0-9]*/[0-9]*\.")" = 2 ]'
 chk "① 20/23 = 막대 8칸(r2103)" 'lastbody | grep -qxF "ft 2.0 완성 ▓▓▓▓▓▓▓▓░░ 20/23. 진행 중"'
 chk "① news-last 생김" '[ -f "$LAST" ]'
@@ -121,8 +121,8 @@ chk "⑧ 절 없음 = reply 1회 · 표 없음 1줄 · WARN" '[ "$RC" = 0 ] && [
 reset; goal "1 | ft 2.0 완성 | — | — | 정본 확인 중" "2 | 하네스 운영 | 25 | 23 | 진행 중"; run 2026-11-15T14:00:00
 chk "⑧ n=— = 수 없는 줄(r2095)" 'lastbody | grep -qx "ft 2.0 완성: 정본 확인 중"'
 chk "⑧ n>m = 수 판독 불가(r2095)" 'lastbody | grep -qx "하네스 운영: 수 판독 불가. 진행 중" && [ "$(lastbody | grep -c "[▓░]")" = 0 ]'
-reset; goal "$G1"; TS_ENV= run 2026-11-15T14:00:00
-chk "⑧ thread ts 없음 = rc 2 · reply 0" '[ "$RC" = 2 ] && [ "$(replies)" = 0 ] && grep -q ERROR "$T/err"'
+reset; goal "$G1"; CH_ARGS= run 2026-11-15T14:00:00
+chk "⑧ 채널 없음 = rc 2 · 호출 0(r2120)" '[ "$RC" = 2 ] && [ "$(replies)" = 0 ] && grep -q ERROR "$T/err"'
 reset; echo 1 > "$T/stub/collect_rc"; run 2026-11-15T14:00:00
 chk "⑧ collect rc 1 = rc 1 · reply 0" '[ "$RC" = 1 ] && [ "$(replies)" = 0 ]'
 # ⑨ 꼴: 30석 → 12줄 + 외 18석 · 표·코드블록 0 · 3500B · 끝 줄 밖 번호·sha·ts 0
