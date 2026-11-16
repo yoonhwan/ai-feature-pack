@@ -63,7 +63,13 @@ def c5(tmp, mp, ft2):   # ⑤ 표식 없는 카드 2장(긴급 1 · 보통 1) �
     assert base.launched(w) == [B], base.launched(w)
 
 
-CASES = {"①": c1, "②": c2, "③": c3, "④": c4, "⑤": c5}
+def cR1(tmp, mp, ft2):   # R1 (DA #313535) 표식 두 꼴 없이 «- 배정: 대기(껍데기)» 만 → 기준판처럼 배정 1(기존 배정 사유 불변)
+    w = world(tmp, mp, ft2, {}, {"r9901-plain": "- 배정: 대기(껍데기)\n"})
+    lines = w.round()
+    assert base.launched(w) == ["r9901-plain"] and not any("건너뜀" in x for x in lines), (base.launched(w), lines)
+
+
+CASES = {"①": c1, "②": c2, "③": c3, "④": c4, "⑤": c5, "R1": cR1}
 MUTANTS = {"M1": ('"껍데기" if any(x.startswith(SHELL) for x in lines) else ', "", ("①", "②", "③")),
            "M2": ('k.log("NEXT-SKIP", team, "%s 건너뜀 — NEW_CARD_HOLD 껍데기" % stem) or ', "", ("④",))}
 
