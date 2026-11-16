@@ -91,7 +91,7 @@ def locate(seat, tmux=None, source=False):
         if got is None:
             raise ValueError("Pi session ID 확인 불가")
         from ft_seat_pi_ft2 import first_session
-        return first_session(got, root) + (("ft2-intent",) if source else ())
+        return first_session(got, root, (seat, tmux)) + (("ft2-intent",) if source else ())
     pid, cwd, sid = live_identity(seat, tmux)
     found = []
     for path in candidates(root, cwd, f"*_{glob.escape(sid)}.jsonl", lambda: not found):
