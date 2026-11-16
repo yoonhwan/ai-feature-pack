@@ -6,6 +6,7 @@
 ⓑ' 짝 줄 = «<시각> <세션> 후보 ← <도구> · <좌석> · <사유>»(후보일 뿐 확정 아님)
 ⓒ 짝 없는 tool 줄 = «hook 줄 없음(<도구>)»(id «-» 면 «· id 없음») · 끝 줄 «닫힘 N · 후보 a · 도구 줄 없음 b · hook 줄 없음 c · kill 실패 f · 깨진 줄 d»
 원장 한 줄 = 탭 8칸 «시각 · 종류 · 세션 · 도구 · 좌석 · 사유 · 세션 id · 호출 pid»
+r2119 C5: <원장>.1(회전된 앞 판)이 있으면 먼저 읽고 본 원장을 이어 한 흐름으로 짝짓는다(.1 없음 = 본 원장만)
 """
 import datetime as D
 import sys
@@ -23,10 +24,12 @@ def when(s):
 
 def load(path, lo, sess):
     """→ (rows, broken) · rows = [(원장 순번, 시각, 칸들)] · 거르기(--since · --session) 뒤"""
-    try:
-        lines = open(path, encoding="utf-8", errors="replace").read().splitlines()
-    except FileNotFoundError:
-        return [], 0
+    lines = []
+    for p in (path + ".1", path):
+        try:
+            lines += open(p, encoding="utf-8", errors="replace").read().splitlines()
+        except FileNotFoundError:
+            pass
     rows, broken = [], 0
     for n, ln in enumerate(lines):
         if not ln.strip():
