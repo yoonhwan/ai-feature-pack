@@ -15,7 +15,7 @@
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/pi/keeper.py(`one_work` 의 landing 호출 1줄 · 분모 셈 2줄) · 새 시험 feature-pack/fable-team/ft2/tests/test_keeper_round_cells.py
 - 정본 영향 없음: aifp 정본 변경 0 · 팩 ft2 계약 문서도 변경 0 — CONTRACT.md §13 R10 은 이미 `items=<돈 자리>/<돈 수 있는 자리>` 라고 적혀 있다(구현이 그 글과 다르다) · «옛 칸·순서 그대로» 도 60초 카드 R10 글 그대로다
 - 크기: 코드 1파일(5줄 안팎) · 새 시험 1파일 · PR 1개
-- 배정: 대기(석 · 2026-11-16T09:26)
+- 배정: 대기(정지 · 2026-11-16T09:27)
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -97,4 +97,4 @@ keeper 60초 카드는 «`other=` 의 가장 긴 값이 5초를 넘으면 가정
 
 ## 상태
 - 2026-11-16 09:17 · 대기 — aifp-ft-arch-pi#23 초안(팀장 aifp 5919 · 읽기 조사 3회 · 구현 0) · 다음 = 팀장 PR merge → DA 설계 → Issue → 나노 1석
-- 2026-11-16 09:26 · 대기 — aifp-ft-arch-pi#23 머리 줄(팀장 aifp 5923) · Issue #8676 · DA 판정: APPROVE-DESIGN 313472(승인 sha f7b0614e28a8ca4e8806b56d4e145dd45f94692f · 사본 .fable-team/state/team-main/aifp-ft/DA-round-cells-design-approve-313472/verdict.md · 수용 동작 반례 0 · 알려진 한계 1줄 계약에 보탬) · 배정 줄 꼴 고침 · 그 밖 손 0 · 다음 = 팀장 착지 → 나노 spawn
+- 2026-11-16 09:26 · 대기 — aifp-ft-arch-pi#23 머리 줄(팀장 aifp 5923) · Issue #8676 · DA 판정: APPROVE-DESIGN 313472(승인 sha f7b0614e28a8ca4e8806b56d4e145dd45f94692f · 사본 .fable-team/state/team-main/aifp-ft/DA-round-cells-design-approve-313472/verdict.md · 수용 동작 반례 0 · 알려진 한계 1줄 계약에 보탬) · 배정 줄 꼴 고침(대기 · 정지 = BYZ 전팀 정지 판정 4244 ② · 팀장 aifp 5924) · 그 밖 손 0 · 다음 = 팀장 착지 → 인터뷰 뒤 나노 spawn
