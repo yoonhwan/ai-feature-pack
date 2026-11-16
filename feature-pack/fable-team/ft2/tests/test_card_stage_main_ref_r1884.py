@@ -19,7 +19,7 @@ def world(tmp, mp, refs, stage="진행", ops_row=True):
         kw._git(w.root, "config", k, v)
     if not ops_row:   # 실사건 — ops/main-base 의 TEAMS.md 에 팀 행 0 · main 에만 있음
         w.commit("byz", {"design/TEAMS.md": NO_ROW}, OPS)
-    w.card("r9", stage=stage, refs=refs)
+    w.card("r9", "1a" * 20, stage=stage, refs=refs)   # r2147 — 착지 줄 있는 카드만 옮김
     w.work("r9", done=True, intent=False, turn=None)
     return w
 

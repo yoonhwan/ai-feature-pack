@@ -26,7 +26,7 @@ def world(tmp, mp, stage="진행", refs=(OPS,), work="r9", done=True, cards=()):
     for k, v in (("user.email", "t@t"), ("user.name", "t"), ("commit.gpgsign", "false")):
         kw._git(w.root, "config", k, v)
     for name in (work,) + tuple(cards):
-        w.card(name, stage=stage, refs=refs)
+        w.card(name, "1a" * 20, stage=stage, refs=refs)   # r2147 — 착지 줄 있는 카드만 옮김
         w.work(name, done=done, intent=False, turn=None)
     return w
 
@@ -339,7 +339,7 @@ def test_14_big_repo_untouched(tmp_path, monkeypatch, capsys):
     sub.mkdir()
     w = world(sub, monkeypatch)
     w.commit("byz", {"big/d%02d/f%04d.txt" % (i % 50, i): "x%d\n" % i for i in range(BULK)}, OPS)
-    w.card("r9", refs=(OPS,))       # 카드를 bulk 위에 다시 올린다
+    w.card("r9", "1a" * 20, refs=(OPS,))       # 카드를 bulk 위에 다시 올린다 · r2147 착지 줄
     assert len(names(w)) > BULK
     before = wt_lines(w)
     rc, out = call(w, capsys)
