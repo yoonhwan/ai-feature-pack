@@ -114,7 +114,7 @@ def rows(ctx, pr=None):   # 장부 줄마다 카드별 줄
 def due_rows(ctx, pr=None, fetch=True):   # A2 — fetch 는 «열린 줄» 이 있을 때만 실행당 1회(remote-tracking 판으로 먼저 본다) · r2071 = 판마다 묶음 읽기·묶음 fetch(전 항목 그대로)
     ks, ctx.fetch = [k for e in ctx.ledger() if pr is None or e.get("pr") == pr for k in map(card_key, e["cards"]) if k], False
     out = rows(prepare(ctx, ks), pr)
-    if fetch and any(r["k"] not in ("끝", "카드없음") for r in out):
+    if fetch and any(r["k"] not in ("끝", "카드없음", "카드ref불가") for r in out):   # r2138 F1: 카드ref불가 = 장부 값 · fetch 로 안 바뀜
         ctx.fetch, ctx._tips = True, {}
         out = rows(prepare(ctx, ks), pr)
     return out
