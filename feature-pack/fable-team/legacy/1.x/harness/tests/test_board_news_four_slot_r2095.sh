@@ -91,7 +91,7 @@ mk '{"ncards":40}'; run 2026-11-16T12:00:00
 chk "⑤ rc 0 · POST · ≤3500B" '[ "$RC" = 0 ] && [ "$(replies)" = 1 ] && [ "$(lastbody | wc -c | tr -d " ")" -le 3500 ]'
 chk "⑤ «외 N개» 1번 · 진행 중인 일 40개" '[ "$(lastbody | grep -oE "외 [0-9]+개" | wc -l | tr -d " ")" = 1 ] && next_section | grep -q "^진행 중인 일 40개"'
 chk "⑤ 골 줄 3개 전부" '[ "$(now_section | grep -cF "$L330")" = 3 ]'
-L350="$(rep 다 350)"; reset; goal "4 | 넘침 하나 | — | — | $L350" "5 | 넘침 둘 | 1 | 4 | $L350" "6 | 넘침 셋 | — | — | $L350"
+L350="$(rep 다 355)"; reset; goal "4 | 넘침 하나 | — | — | $L350" "5 | 넘침 둘 | 1 | 4 | $L350" "6 | 넘침 셋 | — | — | $L350"  # 355자 = 이름 1개면 3500B 넘고 0개면 안 넘는 자리
 mk '{"ncards":40}'; run 2026-11-16T12:00:00  # DA HOLD R1: 이름 0개 경계
 chk "⑤ 이름 0개 경계 = ≤3500B · «외 40개» 1번 · 골 줄 3개" '[ "$RC" = 0 ] && [ "$(lastbody | wc -c | tr -d " ")" -le 3500 ] && [ "$(lastbody | grep -oE "외 [0-9]+개" | wc -l | tr -d " ")" = 1 ] && next_section | grep -q "외 40개$" && [ "$(now_section | grep -cF "$L350")" = 3 ]'
 # ⑥ 꼴: 골 9행(닫힌 2 · 수 있는 열린 1 · 수 없는 열린 6) = 5덩이 순서 · 장식·표·코드블록·가운뎃점 0
