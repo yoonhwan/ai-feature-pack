@@ -26,10 +26,34 @@ if [ "${1:-}" = "--news" ]; then
   CH=""; for ((i = 0; i < ${#POST_ARGS[@]}; i++)); do [ "${POST_ARGS[i]}" = --channel ] && CH="${POST_ARGS[i + 1]:-}"; done
   [ -n "$CH" ] || { echo "ft-board-publish: ERROR 뉴스 채널 없음(FT_BOARD_POST_ARGS --channel) — 발행 0" >&2; exit 2; }
   TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+  # r2126 H2: collect · ft_board_news · post 실패 = planner 명부 _desk 에 «[긴급] 자동 뉴스 실패 — <단계> rc=<n>» 1통(FT_MBOX → comm/mbox.sh · 25초)
+  #   (단계, rc)별 30분 창 · 표식 state/board/news-fail-last.json = send 성공 뒤에만 · 좌석 없음 ∨ send 실패 = stderr 1줄 · 각 단계 rc 그대로
+  fail_mark() { python3 - "$SD/news-fail-last.json" "$1" "$2" "${FT_BOARD_NOW:-}" <<'PY'
+import json, sys
+from datetime import datetime
+from pathlib import Path
+f, k, op, at = Path(sys.argv[1]), *sys.argv[2:5]
+now = datetime.fromisoformat(at) if at else datetime.now()
+try:
+    d = json.loads(f.read_text(encoding="utf-8"))
+except (OSError, ValueError):
+    d = {}
+if op == "check":
+    sys.exit(0 if k not in d or (now - datetime.fromisoformat(d[k])).total_seconds() >= 1800 else 3)  # 3 = 창 안(그 밖 rc = 표식 못 읽음 → 보냄)
+f.parent.mkdir(parents=True, exist_ok=True)
+f.write_text(json.dumps({**d, k: now.isoformat()}, ensure_ascii=False), encoding="utf-8")
+PY
+  }
+  news_fail() { local k="$1 rc=$2" mb="${FT_MBOX:-$ROOT/.fable-team/comm/mbox.sh}" desk
+    fail_mark "$k" check 2>/dev/null; [ $? -eq 3 ] && return 0
+    desk="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("_desk") or "")' "$ROOT/.fable-team/seats-planner.json" 2>/dev/null)"
+    if [ -n "$desk" ] && perl -e 'alarm 25; exec @ARGV' bash "$mb" send "$desk" ft-board-news "[긴급] 자동 뉴스 실패 — $k" >/dev/null 2>&1; then
+      fail_mark "$k" mark
+    else echo "ft-board-publish: 판정 불가 — desk 알림 실패($k)" >&2; fi; }
   "$BOARD" collect --out "$TMP/collect.json"; rc=$?
-  [ "$rc" -eq 0 ] || { echo "ft-board-publish: collect 실패 rc=$rc — 발행 0" >&2; exit "$rc"; }
+  [ "$rc" -eq 0 ] || { echo "ft-board-publish: collect 실패 rc=$rc — 발행 0" >&2; news_fail collect "$rc"; exit "$rc"; }
   V="$(FT_ROOT="$ROOT" python3 "$HERE/ft_board_news.py" --collect "$TMP/collect.json" --last "$SD/news-last.json" --body "$TMP/body.txt" --state "$TMP/state.json")"; rc=$?
-  [ "$rc" -eq 0 ] || exit "$rc"
+  [ "$rc" -eq 0 ] || { news_fail ft_board_news "$rc"; exit "$rc"; }
   [ "$V" = POST ] || { echo "ft-board-publish: $V"; exit 0; }
   # r2108: 오빠 태그 1개만 진짜 태그로 — UID = env FT_OPPA_SLACK_UID ∨ ft_oppa_slack_check.OPPA_SLACK_UID(body 모듈과 같은 출처) · 읽기 실패 = 인자 없이
   #   python 1회 · 7초 상한(perl alarm · macOS 에 timeout 없음) · rc 0 일 때만 출력을 씀다(rc≠0 ∨ 7초 넘음 = 실패)
@@ -37,7 +61,7 @@ if [ "${1:-}" = "--news" ]; then
   [ -n "$OU" ] || OU="$(perl -e 'alarm 7; exec @ARGV' python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); from ft_oppa_slack_check import OPPA_SLACK_UID; print(OPPA_SLACK_UID)' "$HERE" 2>/dev/null)" || OU=""
   KM=(); [ -n "$OU" ] && KM=(--keep-mention "$OU") || echo "ft-board-publish: WARN 오빠 UID 읽기 실패 — 태그 인자 없이 발행" >&2
   python3 "$TP" post ${POST_ARGS[@]+"${POST_ARGS[@]}"} --no-status-head ${KM[@]+"${KM[@]}"} --text-file "$TMP/body.txt"; rc=$?
-  [ "$rc" -eq 0 ] || { echo "ft-board-publish: post 실패 rc=$rc — news-last 그대로" >&2; exit "$rc"; }
+  [ "$rc" -eq 0 ] || { echo "ft-board-publish: post 실패 rc=$rc — news-last 그대로" >&2; news_fail post "$rc"; exit "$rc"; }
   mkdir -p "$SD" && cp "$TMP/state.json" "$SD/news-last.json.tmp" && mv "$SD/news-last.json.tmp" "$SD/news-last.json" \
     || { echo "ft-board-publish: news-last 기록 실패" >&2; exit 1; }
   echo "ft-board-publish: 글 1통 발행"; exit 0

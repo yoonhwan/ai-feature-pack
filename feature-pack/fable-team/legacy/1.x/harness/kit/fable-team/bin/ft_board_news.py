@@ -13,6 +13,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 from datetime import datetime
@@ -22,26 +23,54 @@ from ft_board_news_body import MAX_BYTES, NO_TABLE, body, closed, goal_counts, n
 from ft_board_news_name import card_disp, titles  # noqa: F401 — card_disp = 옛 이름(시험 호환)
 
 DEBOUNCE_S = 300
+BEAT_S = STALE_S = 1800  # r2126 H1 무변화 상태 글 문턱(master#306 #320151) · F1 원장 칸 표지 문턱
 DEFAULT_MD = "gitref:origin/main:design/teams/planner/PLAN-oppa-ledger.md"
 FOLDERS = ("대기", "진행", "완성")
 MASTERLESS = "판정 불가(_master 빔)"  # ft_board_collect 팀 진단 글 = 팀장 자리 빈 팀(수집 고장 아님 · r2096 N3)
 CLOSED = ("닫힘", "은퇴", "정지(세션 없음)")  # SeatCells text — 명부상 닫힌 좌석 = 열린 세션 아님(A6 · DA R2)
 
 
-def read_md(spec: str, root: str) -> tuple[str | None, str]:
-    """(본문 | None, 원장 sha10) — gitref 는 git show 1회(7초) · 파일은 그대로 읽는다."""
+def read_md(spec: str, root: str) -> tuple[str | None, str, datetime | None]:
+    """(본문 | None, 원장 sha10, 원장 시각 | None) — gitref 는 git show 1회(7초) · 파일은 그대로 읽는다.
+    r2126 F1: 원장 시각 = 읽은 파일 mtime | 그 경로를 바꾼 마지막 커밋 시각(7초) · 못 읽으면 None(now 로 대신 0)."""
     try:
         if spec.startswith("gitref:"):
             _, ref, path = spec.split(":", 2)
             run = lambda *a: subprocess.run(["git", "-C", root, *a], capture_output=True, text=True, timeout=7)  # noqa: E731
             r = run("show", f"{ref}:{path}")
             if r.returncode != 0:
-                return None, "원장 없음"
-            return r.stdout, run("rev-parse", ref).stdout.strip()[:10] or "sha 불명"
+                return None, "원장 없음", None
+            ct = run("log", "-1", "--format=%ct", ref, "--", path).stdout.strip()
+            at = datetime.fromtimestamp(int(ct)) if ct.isdigit() else None
+            return r.stdout, run("rev-parse", ref).stdout.strip()[:10] or "sha 불명", at
         text = Path(spec).read_text(encoding="utf-8")
-        return text, hashlib.sha1(text.encode()).hexdigest()[:10]
+        return text, hashlib.sha1(text.encode()).hexdigest()[:10], datetime.fromtimestamp(Path(spec).stat().st_mtime)
     except (OSError, ValueError, subprocess.TimeoutExpired):
-        return None, "원장 없음"
+        return None, "원장 없음", None
+
+
+def ledger_mark(at: datetime | None, now: datetime) -> str:
+    """F1 — 원장 시각에서 30분 넘은 칸 앞 표지 · 시각 모름 = 판정 불가."""
+    if at is None:
+        return "(원장 시각 판정 불가)"
+    return f"(원장 {at:%H:%M} 기준)" if (now - at).total_seconds() > STALE_S else ""
+
+
+def measure(now: datetime, d: dict) -> str:
+    """F1 — 발행할 때만 df 1회(7초 · FT_BOARD_DF = 시험 가짜) · 실패 = 판정 불가(rc) · 카드 수 = collect 그대로."""
+    free, rc = None, 127
+    try:
+        r = subprocess.run(shlex.split(os.environ.get("FT_BOARD_DF") or "df -g /"), capture_output=True, text=True, timeout=7)
+        rc = r.returncode
+        if rc == 0:
+            head, *_, row = r.stdout.splitlines()
+            free = f"{int(row.split()[[h[:5] for h in head.split()].index('Avail')])}Gi"
+    except subprocess.TimeoutExpired:
+        rc = 124
+    except (OSError, ValueError, IndexError):
+        pass
+    n = lambda f: sum((t.get("counts") or {}).get(f, 0) for t in d["teams"] if "error" not in t)  # noqa: E731
+    return f"지금 실측({now:%H:%M}): 디스크 여유 {free or f'판정 불가(rc={rc})'}, 진행 카드 {n('진행')}, 대기 카드 {n('대기')}"
 
 
 def goal_rows(text: str | None) -> list[list[str]] | None:
@@ -121,7 +150,7 @@ def main() -> int:
         ap.add_argument(a, required=True)
     a = ap.parse_args()
     now = datetime.fromisoformat(os.environ["FT_BOARD_NOW"]) if os.environ.get("FT_BOARD_NOW") else datetime.now()
-    text, sha = read_md(os.environ.get("FT_GOAL_PROGRESS_MD") or DEFAULT_MD, os.environ.get("FT_ROOT") or ".")
+    text, sha, ledger_at = read_md(os.environ.get("FT_GOAL_PROGRESS_MD") or DEFAULT_MD, os.environ.get("FT_ROOT") or ".")
     rows = goal_rows(text)
     if rows is None:
         print(f"WARN ft_board_news: {NO_TABLE} — 골 줄 없이 발행", file=sys.stderr)
@@ -132,18 +161,22 @@ def main() -> int:
     if cur["masterless"]:
         print(f"INFO 팀장 빈 팀: {', '.join(cur['masterless'])}", file=sys.stderr)
     done = any(ids for _, ids in news(last and last.get("snap"), cur, lambda team, cid: cid))
-    if last and last.get("key") == key(cur) and not done:
-        print("변화 없음 — 발행 0")
-        return 0
+    beat = ""
+    if last and last.get("key") == key(cur) and not done:  # r2126 H1: 직전 발행 30분 뒤 = 짧은 상태 글(key 그대로 · at 만 새로)
+        if (now - (prev_at := datetime.fromisoformat(last["at"]))).total_seconds() < BEAT_S:
+            print("변화 없음 — 발행 0")
+            return 0
+        beat = f"변화 없음, 지난 글 {prev_at:%H:%M}"  # 본문 « · » 0(r2095 ⑥)
     if last and (gap := (now - datetime.fromisoformat(last["at"])).total_seconds()) < DEBOUNCE_S:
         print(f"디바운스 — 직전 발행 {int(gap)}초 전 · 발행 0")
         return 0
-    out = body(cur, last and last.get("snap"), now, sha, titles(d))
+    out = body(cur, last and last.get("snap"), now, sha, titles(d), meas=measure(now, d), mark=ledger_mark(ledger_at, now), beat=beat)  # 접어도 넘으면 아래 상한 실패(실측 줄 지움 0 · DA #320425 R3)
     if len(out.encode()) > MAX_BYTES:
         print(f"ERROR ft_board_news: 본문 {len(out.encode())}B > {MAX_BYTES}B — 발행 0", file=sys.stderr)
         return 1
     Path(a.body).write_text(out, encoding="utf-8")
-    Path(a.state).write_text(json.dumps({"at": now.isoformat(), "key": key(cur), "snap": cur}, ensure_ascii=False), encoding="utf-8")
+    state = {**last, "at": now.isoformat()} if beat else {"at": now.isoformat(), "key": key(cur), "snap": cur}
+    Path(a.state).write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
     print("POST")
     return 0
 

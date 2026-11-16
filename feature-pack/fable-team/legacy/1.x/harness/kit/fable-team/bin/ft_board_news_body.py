@@ -6,6 +6,7 @@ r2103: 골 줄 = 막대 10칸 + n/m · 골 줄 뒤 «진행 중인 일» 묶음(
 """
 import os
 import re
+import sys
 from datetime import datetime
 
 from ft_board_news_name import card_tag, work_name
@@ -17,10 +18,37 @@ NO_TABLE = "골 진행 표 없음 — planner 원장 «## 골 진행»"
 STALE = ("닫는 증거 칸", "main 밖", "좌석", "세션", "나노", "keeper")  # 원장 상태 글의 내부어(S5 · 알리기만)
 STALE_DATE = re.compile(r"\(\d{2}-\d{2} 판\)")
 MENTION = re.compile(r"<([@!][^<>]*)>")  # r2102 원장·카드 글의 Slack mention 꼴 → 꺾쇠를 뺀다(태그 = 도구가 붙인 1개뿐)
+SENT_END = re.compile(r"(\.(?=\s|$)|\s·\s)")  # r2126 V1 문장 끝 = 마침표 · « · » 나눔 · 칸 끝
 
 
 def quiet(s: str) -> str:
     return MENTION.sub(r"\1", s)
+
+
+def hapsyo(s: str) -> str | None:
+    """«…다» 끝 → 바꿈표 첫 맞음 1개(ⓐ 이다 ⓑ 는다 ⓒ 받침 ㄴ ⓓ 그 밖 받침 ⓔ 받침 없음) · 앞 글자가 한글 아님 = None."""
+    c, head = s[-2:-1], s[:-2]
+    if c in ("이", "는"):
+        return head + ("입니다" if c == "이" else "습니다")
+    if not "가" <= c <= "힣":
+        return None
+    j = (ord(c) - 0xAC00) % 28  # 받침 번호 · 4 = ㄴ → 17 = ㅂ
+    return head + (chr(ord(c) + 13) + "니다" if j == 4 else c + ("습니다" if j else "입니다"))
+
+
+def polite(text: str) -> tuple[str, list[str]]:
+    """V1(r2126) 원장 칸 반말 끝 → 존댓말 · 이미 «니다» · 인용 안 · «다» 아닌 끝 = 그대로 → (글, 바꿀 수 없는 문장 앞 20자들)."""
+    parts, bad = SENT_END.split(text), []
+    for i in range(0, len(parts), 2):
+        s, seen = parts[i].rstrip(), "".join(parts[:i + 1])  # 인용 열림 = 칸 처음부터 센다(여러 문장 인용 · DA #320425 R1)
+        if not s.endswith("다") or s.endswith("니다") or seen.count("«") > seen.count("»") or seen.count('"') % 2:
+            continue
+        new = hapsyo(s)
+        if new is None:
+            bad.append(s.strip()[:20])
+        else:
+            parts[i] = new + parts[i][len(s):]
+    return "".join(parts), bad
 
 
 def closed(r: list[str]) -> bool:
@@ -126,13 +154,28 @@ def doing_lines(rows: list[str], bare: int, k: int) -> list[str]:
     return ["진행 중인 일", *rows[:k], *more, *([f"카드 없이 열린 좌석 {bare}석"] if bare else [])]
 
 
-def body(cur: dict, prev: dict | None, now: datetime, sha: str, tt: dict | None = None) -> str:
+def voiced(r: list[str], mark: str) -> list[str]:
+    """열린 골 행의 상태 · 다음 칸 = V1 바꿈 + 상태 칸 앞 F1 원장 시각 표지(r2126 · 본문만 · 열쇠 밖)."""
+    r = [quiet(c) for c in r]
+    if closed(r):
+        return r
+    for i in (4, 5)[:len(r) - 4]:
+        r[i], bad = polite(r[i])
+        for s in bad:
+            print(f"WARN 말투 바꿈 불가: {r[1]} — {s}", file=sys.stderr)
+    for i in (4, 5)[:len(r) - 4]:  # F1 표지 = 지금 · 다음 칸 둘 다(DA #320425 R2) · 빈칸 · «—» = 줄 없음
+        r[i] = f"{mark} {r[i]}" if mark and r[i] not in ("", "—", "-") else r[i]
+    return r
+
+
+def body(cur: dict, prev: dict | None, now: datetime, sha: str, tt: dict | None = None, meas: str = "", mark: str = "", beat: str = "") -> str:
     """본문 — 3500B 를 넘으면 ⓐ 진행 줄을 아래부터 → ⓑ 묶음을 통째로 → ⓒ 막대를 모두 빼고(= 기준판 본문)
-    → ⓓ «다음» 칸 줄을 아래부터 빼고 «그 밖의 골 N개» 로 맺는다. 상한 안 첫 단계에서 멈춘다(골 줄 · 상태 글은 줄이지 않음 · r2103 A4)."""
+    → ⓓ «다음» 칸 줄을 아래부터 빼고 «그 밖의 골 N개» 로 맺는다. 상한 안 첫 단계에서 멈춘다(골 줄 · 상태 글은 줄이지 않음 · r2103 A4).
+    r2126: meas = «지금» 칸 첫 줄(실측) · mark = 원장 칸 앞 표지 · beat = 무변화 상태 글 첫 줄(진행 묶음 0 = 짧은 글)."""
     nm = lambda team, cid: work_name(cid, (tt or {}).get(team, {}).get(cid))  # noqa: E731
     fresh = [(quiet(t), ids) for t, ids in news(prev, cur, nm)]
     tails = {r[0]: quiet(card_tail(cur, r[1], f"{now:%F}")) for r in cur["goals"] or [] if not closed(r)}  # r2120 E3
-    rows = [[quiet(c) for c in r] for r in cur["goals"]] if cur["goals"] else cur["goals"]
+    rows = [voiced(r, mark) for r in cur["goals"]] if cur["goals"] else cur["goals"]
     cur = {**cur, "goals": rows, "carried": [quiet(t) for t in cur.get("carried", [])]}
     tags = list(dict.fromkeys(g for _, ids in fresh for c in ids if (g := card_tag(c))))  # 근거 줄 번호
     tail = f"근거: 발행 {now:%Y-%m-%d %H:%M}, 골 진행 원장 {sha}" + (f", 카드 {' '.join(tags)}" if tags else "")
@@ -140,10 +183,10 @@ def body(cur: dict, prev: dict | None, now: datetime, sha: str, tt: dict | None 
 
     def text(st: list[str], grp: list[str], nxt: list[str]) -> str:
         cut = st.index("막힌 것, 오빠 할 일")
-        return "\n".join([*st[:2], *[t for t, _ in fresh], *st[2:cut], *grp, "다음", *nxt, *st[cut:], tail]) + "\n"
+        return "\n".join([*([beat] if beat else []), *st[:2], *([meas] if meas else []), *[t for t, _ in fresh], *st[2:cut], *grp, "다음", *nxt, *st[cut:], tail]) + "\n"
     rows, bare = doing(cur, nm)
     st = standing(cur, tails=tails)
-    for grp in [doing_lines(rows, bare, k) for k in range(min(MAX_DOING, len(rows)), -1, -1)] + [[]]:  # ⓐ · ⓑ
+    for grp in ([] if beat else [doing_lines(rows, bare, k) for k in range(min(MAX_DOING, len(rows)), -1, -1)]) + [[]]:  # ⓐ · ⓑ
         if len((out := text(st, grp, steps or [NO_NEXT])).encode()) <= MAX_BYTES:
             return out
     st = standing(cur, bar=False)  # ⓒ · ⓓ = 기준판(r2102) 본문 — 카드 진행 덧붙임도 빠짐(r2120 E4)
