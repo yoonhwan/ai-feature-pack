@@ -47,7 +47,7 @@ def log(msg):
         f.write(time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(NOW)) + f" ft-idle-wake: {msg}\n")
 
 
-def run(argv, timeout=30):
+def run(argv, timeout=25):  # r2150 F5 — 하드 룰 12 로컬 하네스 25초
     return subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
 
 
@@ -209,7 +209,10 @@ def recover(seat, seq, age, st):
         return "예산 소진(예약 거절 rc=3) — 복구 깨움 0 · 다음 실행 다시 봄"
     if rc != 0:
         return f"예산 예약 판정 불가 rc={rc} — 복구 깨움 0"
-    ok, why = idle_and_unwatched(seat)  # ⓑ 예약 뒤 IDLE·client_activity 재확인
+    try:
+        ok, why = idle_and_unwatched(seat)  # ⓑ 예약 뒤 IDLE·client_activity 재확인
+    except (subprocess.SubprocessError, OSError, ValueError) as e:  # r2150 F1 — 깨움 0 확실 = 환불 · st 쓰기 0(다음 실행 다시 봄)
+        return f"예약 뒤 재확인 예외 {type(e).__name__} — refund rc={budget('refund', seat)} · 복구 깨움 0"
     if not ok:
         r = budget("refund", seat)
         return f"예약 뒤 재확인 실패({why or 'IDLE 아님/키 입력 120초 안'}) — refund rc={r} · 복구 깨움 0" + ("" if r == 0 else " · 환불 판정 불가")
@@ -218,16 +221,22 @@ def recover(seat, seq, age, st):
     try:
         p = run([*TMUX, "list-panes", "-a", "-F", "#{session_name}|#{pane_id}"], timeout=7)
         pane = next((ln.split("|", 1)[1] for ln in p.stdout.splitlines() if ln.split("|", 1)[0] == seat and "|" in ln), "")
-        if p.returncode != 0 or not pane or run([*TMUX, "send-keys", "-t", pane, "Escape"], timeout=7).returncode != 0:
-            st[seat]["result"] = "failed"
-            return f"Escape 실패(pane={pane or '없음'}) — refund rc={budget('refund', seat)} · 복구 깨움 0"
+        esc = p.returncode == 0 and pane and run([*TMUX, "send-keys", "-t", pane, "Escape"], timeout=7).returncode == 0
+    except (subprocess.SubprocessError, OSError) as e:  # r2150 F2 — ring 전 예외 = 깨움 0 확실 · failed(다음 실행 재시도) · 환불
+        st[seat]["result"] = "failed"
+        return f"Escape 예외 {type(e).__name__} — refund rc={budget('refund', seat)} · 복구 깨움 0"
+    if not esc:
+        st[seat]["result"] = "failed"
+        return f"Escape 실패(pane={pane or '없음'}) — refund rc={budget('refund', seat)} · 복구 깨움 0"
+    try:
         r = run(["bash", MBOX, "ring", seat, str(seq), "--reserved"])  # ⓓ 같은 예약(재차감 0 · --auto 아님)
     except (subprocess.SubprocessError, OSError) as e:
         log(f"{seat} seq={seq} 복구 결과 불명 {type(e).__name__} — 재전송 0")
         st[seat]["result"] = "unsure"
         return None
     db = (re.search(r"doorbell=(\w+)", r.stdout) or [None, ""])[1]
-    log(f"{seat} seq={seq} 복구 ring rc={r.returncode} {r.stdout.strip()[:80]}")
+    rf = "" if r.returncode == 0 else f" · refund rc={budget('refund', seat)}"  # r2150 F3 — --reserved rc≠0 = doorbell 전 종료(예약은 내 것)
+    log(f"{seat} seq={seq} 복구 ring rc={r.returncode} {r.stdout.strip()[:80]}{rf}")
     st[seat]["result"] = "failed" if r.returncode != 0 else (db or "unsure")  # 출력을 못 읽음 = sent 로 만들지 않는다
     if st[seat]["result"] == "sent":
         notify(seat, seq)
