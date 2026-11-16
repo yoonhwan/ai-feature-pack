@@ -28,7 +28,7 @@ REAL_HOOKS0="$(env -u TMUX_PANE "$REAL_TMUX" show-hooks -g 2>&1)"
 ROOTS=""; for r in "${FT_ROOT:-}" "$(git -C "$HERE" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's|/\.git$||')"; do
   [ -n "$r" ] && [ ! -e "$r/.fable-team/state/session-close" ] && ROOTS="$ROOTS $r"; done
 cp -R "$BIN" "$T/twin"; rm -f "$T/twin/ft-session-close-ledger.sh"
-for f in $TOOLS; do grep -v 'ft-session-close-ledger.sh" note' "$BIN/$f" | sed 's/bash "\$HERE\/ft-session-close-ledger.sh" fail [^;]*; //' > "$T/x" && cat "$T/x" > "$T/twin/$f"; done
+for f in $TOOLS; do grep -v -e 'ft-session-close-ledger.sh" note' -e 'ft-session-close-ledger.sh" id' "$BIN/$f" | sed 's/bash "\$HERE\/ft-session-close-ledger.sh" fail [^;]*; //' > "$T/x" && cat "$T/x" > "$T/twin/$f"; done
 
 stage prep "①②③④ note · fail 줄(S1 · S2) — 가짜 tmux"
 mkdir -p "$T/nf"; printf '#!/bin/bash\necho "$*" >> "$NF_LOG"\n[ "${NF_RC:-0}" = 0 ] || exit 1\ncase "$1" in list-sessions) printf "%%s\\n" "${NF_SESS:-}";; esac\nexit 0\n' > "$T/nf/tmux"; chmod +x "$T/nf/tmux"
@@ -63,6 +63,7 @@ cat > "$T/sc/fake/tmux" <<'EOF'
 case "$1" in
   has-session) [ "${FAKE_SESSION:-1}" = 1 ] && ! grep -q '^kill-session' "$TMUX_LOG" 2>/dev/null || exit 1;;
   show-options) echo 1;;
+  set-option) exit "${FAKE_TAG_RC:-0}";;
   kill-session) n=0; [ -f "${FT_SESSION_CLOSE_LEDGER:-/nonexistent}" ] && n=$(wc -l < "$FT_SESSION_CLOSE_LEDGER"); echo "$* lines=${n// /}" >> "$TMUX_LOG"; exit "${FAKE_KILL_RC:-0}";;
   list-sessions) case "$*" in *session_id*) for x in ${FAKE_LIVE:-}; do echo "\$5 $x"; done;; *) for x in ${FAKE_LIVE:-}; do echo "$x"; done;; esac;;
   display-message) case "$*" in *session_attached*) echo 0;; *) echo caller#0;; esac;;
@@ -73,7 +74,8 @@ chmod +x "$T/sc/fake/tmux"
 sc() {  # sc <bin> <원장> [인자…] → $T/sc/out · rc · 가짜 tmux 로그 $T/sc/log
   local b="$1" l="$2"; shift 2; : > "$T/sc/log"; echo '{}' > "$T/sc/resume/W#1.json"
   printf '%s' '{"_master": "M#1", "_hil_route": "P#1", "M#1": {"role": "master", "tick": "t"}, "P#1": {"role": "planner", "tick": "t"}, "W#1": {"role": "tester", "agent": "claude", "model": "m", "tick": null}}' > "$T/sc/seats.json"
-  ( cd "$T" && PATH="$T/sc/fake:$PATH" TMUX_LOG="$T/sc/log" FT_SEAT_REAP_BIN="$T/sc/reap.sh" ZC_RESUME_DIR="$T/sc/resume" FT_SESSION_CLOSE_LEDGER="$l" FT_SEAT='byz-t-master#1' \
+  mkdir -p "$T/sc/comm" "$T/sc/state"   # 크리티컬 알림·우편함 = 임시 폴더(실 우편함 쓰기 0 · master #316920)
+  ( cd "$T" && unset FT_ROOT FT_MBOX && FT_MBOX_DIR="$T/sc/comm" FT_CRITICAL_STATE_DIR="$T/sc/state" PATH="$T/sc/fake:$PATH" TMUX_LOG="$T/sc/log" FT_SEAT_REAP_BIN="$T/sc/reap.sh" ZC_RESUME_DIR="$T/sc/resume" FT_SESSION_CLOSE_LEDGER="$l" FT_SEAT='byz-t-master#1' \
     bash "$b/ft-seat-close.sh" 'W#1' --seats "$T/sc/seats.json" "$@" > "$T/sc/out" 2>&1 ); echo $?; }
 L="$T/l5.tsv"; rc="$(FAKE_LIVE="W#1 W#2" sc "$BIN" "$L" --reason "판정 2050 노출 나노")"; o="$(cat "$T/sc/out")"; k="$(grep '^kill-session' "$T/sc/log")"
 r2="$(FAKE_LIVE="W#1 W#2" sc "$T/twin" "$T/l5b.tsv" --reason "판정 2050 노출 나노")"; o2="$(cat "$T/sc/out")"
@@ -89,6 +91,10 @@ eq "$rc|$o" "$r2|$(cat "$T/sc/out")" "⑦ HELD 출력 · rc = 기준판"
 eq "$rc|$(nl "$L")|$(grep -c '^kill-session' "$T/sc/log")" "3|0|0" "⑦ seat-close HELD rc 3 → tool · fail 줄 0 · kill 0"
 rc="$(FAKE_LIVE="W#1 W#2" sc "$BIN" "$L" --reason r --verdict 99999)"; o="$(cat "$T/sc/out")"
 eq "$rc|${o:0:6}|$(nl "$L")|$(grep -c '^kill-session' "$T/sc/log")" "1|REJECT|0|0" "⑦ seat-close REJECT → tool · fail 줄 0 · kill 0"
+L="$T/l7t.tsv"; rc="$(FAKE_TAG_RC=1 FAKE_LIVE="W#1 W#2" sc "$BIN" "$L" --reason r)"; o="$(cat "$T/sc/out")"
+r2="$(FAKE_TAG_RC=1 FAKE_LIVE="W#1 W#2" sc "$T/twin" "$T/l7u.tsv" --reason r)"
+eq "$rc|$o" "$r2|$(cat "$T/sc/out")" "⑦ seat-close 태그 해제 실패 출력 · rc = 기준판(DA 구현 R1)"
+eq "$rc|$(grep -c '^FAIL tag W#1' <<<"$o")|$(nl "$L")|$(grep -c '^kill-session' "$T/sc/log")" "1|1|0|0" "⑦ seat-close 태그 해제 실패 rc 1 · kill 0 → tool · fail 줄 0(DA 구현 R1)"
 L="$T/l8a.tsv"; rc="$(FAKE_KILL_RC=1 FAKE_LIVE="W#1 W#2" sc "$BIN" "$L" --reason r)"; o="$(cat "$T/sc/out")"
 r2="$(FAKE_KILL_RC=1 FAKE_LIVE="W#1 W#2" sc "$T/twin" "$T/l8x.tsv" --reason r)"
 eq "$rc|$o" "$r2|$(cat "$T/sc/out")" "⑧ seat-close kill 실패 출력 · rc = 기준판"
