@@ -275,7 +275,8 @@ if [ -f "$BASE/ft_issues_daily.py" ]; then
   chk "C8 기준판 rc=0" 0 "$RCB8"
   has "totalCount=7" "$TB8" "C8 새 경로 = 총수 + totalCount"
   nhas "totalCount=" "$TBB8" "C8 기준판 = totalCount 없음(옛 경로 확인)"
-  strip_head() { grep -v -e '^# 이슈 일일 표 —' -e '^- 합:' "$1"; }
+  # §⑤ 팀 후보 절은 r2134 가 일부러 바꾼다(제목만 · 라벨 이름) — 그 절만 빼고 나머지 바이트 비교 (master#308 #321632)
+  strip_head() { grep -v -e '^# 이슈 일일 표 —' -e '^- 합:' "$1" | awk '/^## /{skip=/^## ⑤/} !skip'; }
   if diff -u <(strip_head "$TBB8") <(strip_head "$TB8") > "$T/c8.diff" 2>&1; then
     echo "  OK   C8 표 본문 바이트 같음(하류 꼴 변경 0)"
   else
