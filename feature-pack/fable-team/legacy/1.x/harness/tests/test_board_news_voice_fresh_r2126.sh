@@ -92,6 +92,21 @@ chk "⑦ news-last key 그대로 · at 새로" '[ "$(key_of "$T/last.json")" = "
 news 10:45
 chk "⑦ 상태 글 14분 뒤 → 발행 0" 'grep -q "^변화 없음" "$T/out"'
 
+# DA HOLD #320425 R1 — 여러 문장 인용(« » · "") 전체 그대로 · 인용 밖 문장만 바꿈 (V1 · V3)
+goal "다시 시작했다. 오빠 «첫째다. 둘째다. 셋째다.» 확인함. 회신을 기다린다."; rm -f "$T/last.json"; news 22:00
+chk "②-b « » 안 여러 문장 그대로 · 밖은 존댓말" 'grep -qF "3/5. 다시 시작했습니다. 오빠 «첫째다. 둘째다. 셋째다.» 확인함. 회신을 기다립니다." "$T/body.txt"'
+goal 'say "하나다. 둘이다." 끝났다'; rm -f "$T/last.json"; news 22:00
+chk "②-c \"\" 안 여러 문장 그대로 · 밖은 존댓말" 'grep -qF "3/5. say \"하나다. 둘이다.\" 끝났습니다" "$T/body.txt"'
+
+# DA HOLD #320425 R2 — 30분 넘은 원장의 «다음» 칸 앞에도 표지 · 열쇠 = 원문 (F1)
+goal "진행 중" "디스크 여유가 30Gi 아래라 기다린다"; touch -t 202611162115 "$T/goal.md"; rm -f "$T/last.json"; news 22:00
+chk "⑤-b 다음 칸 «(원장 21:15 기준)»" 'grep -qxF "하네스 운영 정리: (원장 21:15 기준) 디스크 여유가 30Gi 아래라 기다립니다" "$T/body.txt" && grep -qF "3/5. (원장 21:15 기준) 진행 중" "$T/body.txt"'
+chk "⑤-b 열쇠 = 다음 칸 원문(표지 · 바꿈 0)" 'key_of "$T/state.json" | grep -qF "하네스 운영 정리: 디스크 여유가 30Gi 아래라 기다린다" && ! key_of "$T/state.json" | grep -qF "(원장 "'
+
+# DA HOLD #320425 R3 — 다 접어도 실측 줄이 안 들어가면 발행 0(기존 상한 실패 길) · 실측 줄 지운 글 0 (F1 · V2)
+goal "$(python3 -c 'print("가" * 1054)') 확인함"; touch -t 202611162115 "$T/goal.md"; rm -f "$T/last.json"; news 22:00
+chk "⑤-c 상한 경계 → rc 1 · POST 0 · 본문 0 · «> 3500B — 발행 0»" '[ "$RC" = 1 ] && [ "$(cat "$T/out")" != POST ] && [ ! -e "$T/body.txt" ] && grep -q "B > 3500B — 발행 0" "$T/err" && ! grep -qF "실측 줄 빼고" "$T/err"'
+
 # ⑧ H2 — ft-board-publish --news 실패 = planner _desk [긴급] 1통 · (단계, rc)별 30분 · send 성공 뒤 표식 · 원 rc
 printf '{"_desk":"desk#1","_master":"pm#1"}' > "$FB/seats-planner.json"
 cat > "$T/stub/board" <<'EOF'
