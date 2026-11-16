@@ -2,7 +2,8 @@
 
   ft_board_news.py --collect <collect dict> --last <news-last.json> --body <본문 출력> --state <새 news-last 출력>
   stdout 1줄: «POST» = 본문·새 상태를 썼다(발행은 부르는 쪽) · «변화 없음 …» · «디바운스 …» = 발행 0 · rc≠0 = 본문 못 만듦
-열쇠 = 근거 줄 · 바뀐 것 줄 · «다음» 칸을 뺀 본문 줄(r2095 · 골 · 승인 대기 · 확인 불가 팀) — 끝난 일이 있으면 열쇠가 같아도 발행.
+열쇠 = 근거 줄 · 바뀐 것 줄을 뺀 본문 줄(r2095 · 골 · 승인 대기 · 확인 불가 팀 · r2096 «다음» 칸 = 골별 다음 한 수) — 끝난 일이 있으면 열쇠가 같아도 발행.
+팀장 빈 팀(error «판정 불가(_master 빔)») = 본문·열쇠 0 · stderr INFO 1줄(r2096).
 팀 카드 수 · 좌석 열림 · 대기↔진행 이동 · 시각은 열쇠에 없다(같은 글 0통).
 골 진행 정본 = env FT_GOAL_PROGRESS_MD(파일 | gitref:<ref>:<경로> · 기본 gitref:origin/main:design/teams/planner/PLAN-oppa-ledger.md) «## 골 진행» 첫 표.
 도구는 골 진행 수를 만들지 않는다 — 표가 없으면 «골 진행 표 없음» 1줄 · 수가 이상하면 «수 판독 불가».
@@ -17,12 +18,13 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from ft_board_news_body import MAX_BYTES, NO_TABLE, body, news, stale_warns, standing
+from ft_board_news_body import MAX_BYTES, NO_TABLE, body, news, next_key, stale_warns, standing
 from ft_board_news_name import card_disp, titles  # noqa: F401 — card_disp = 옛 이름(시험 호환)
 
 DEBOUNCE_S = 300
 DEFAULT_MD = "gitref:origin/main:design/teams/planner/PLAN-oppa-ledger.md"
 FOLDERS = ("대기", "진행", "완성")
+MASTERLESS = "판정 불가(_master 빔)"  # ft_board_collect 팀 진단 글 = 팀장 자리 빈 팀(수집 고장 아님 · r2096 N3)
 CLOSED = ("닫힘", "은퇴", "정지(세션 없음)")  # SeatCells text — 명부상 닫힌 좌석 = 열린 세션 아님(A6 · DA R2)
 
 
@@ -43,7 +45,7 @@ def read_md(spec: str, root: str) -> tuple[str | None, str]:
 
 
 def goal_rows(text: str | None) -> list[list[str]] | None:
-    """«## 골 진행» 절의 첫 표 행들 [번호, 이름, n, m, 지금 상태] — 절·표·행 없음 = None."""
+    """«## 골 진행» 절의 첫 표 행들 [번호, 이름, n, m, 지금 상태, 다음 한 수] — 여섯째 column 머리에 «다음» 없으면 빈칸 · 절·표·행 없음 = None."""
     if text is None:
         return None
     lines, inside, table = text.splitlines(), False, []
@@ -57,7 +59,8 @@ def goal_rows(text: str | None) -> list[list[str]] | None:
             table.append([c.strip() for c in s.strip("|").split("|")])
         elif inside and table:
             break
-    rows = [(r + [""] * 5)[:5] for r in table[2:]] if len(table) > 2 and set(table[1][0]) <= set("-: ") else []
+    nxt = bool(table) and len(table[0]) > 5 and "다음" in table[0][5]
+    rows = [(r + [""] * 6)[:5] + [(r + [""] * 6)[5] if nxt else ""] for r in table[2:]] if len(table) > 2 and set(table[1][0]) <= set("-: ") else []
     return rows or None
 
 
@@ -80,7 +83,8 @@ def seat_card(name: str, block: dict, all_states: dict) -> tuple[str, str]:
 def snapshot(d: dict, rows: list | None, prev: dict | None = None) -> dict:
     """수집 실패 팀(error 블록) = 직전 발행 상태를 이어 씀(열쇠·변화 0 · DA R1) — 직전에도 없으면 빈칸 · err 에 이름."""
     teams = [t for t in d["teams"] if "error" not in t]
-    err = sorted(t["label"] for t in d["teams"] if "error" in t)
+    err = sorted(t["label"] for t in d["teams"] if "error" in t and t["error"] != MASTERLESS)
+    masterless = sorted(t["label"] for t in d["teams"] if t.get("error") == MASTERLESS)
     all_states = {c: s for t in teams for c, s in (t.get("states") or {}).items()}
     sessions = {}
     for t in teams:
@@ -89,7 +93,7 @@ def snapshot(d: dict, rows: list | None, prev: dict | None = None) -> dict:
                 sessions[name] = [t["label"], *seat_card(name, t, all_states)]
     snap = {"goals": rows, "cards": {t["label"]: t.get("states") or {} for t in teams},
             "counts": {t["label"]: [(t.get("counts") or {}).get(f, 0) for f in FOLDERS] for t in teams},
-            "sessions": sessions, "h_by": {t["label"]: sorted(set(t.get("oppa_todo") or [])) for t in teams}, "err": err, "carried": []}
+            "sessions": sessions, "h_by": {t["label"]: sorted(set(t.get("oppa_todo") or [])) for t in teams}, "err": err, "carried": [], "masterless": masterless}
     for label in err if prev else []:  # carried = 직전 상태를 실제로 이어 쓴 팀만(«확인 불가» 줄 · R3)
         if label in prev["cards"]:
             snap["cards"][label], snap["counts"][label] = prev["cards"][label], prev["counts"][label]
@@ -103,7 +107,7 @@ def snapshot(d: dict, rows: list | None, prev: dict | None = None) -> dict:
 
 
 def key(s: dict) -> list[str]:
-    return standing(s)
+    return standing(s) + ["다음", *next_key(s)]
 
 
 def main() -> int:
@@ -120,6 +124,8 @@ def main() -> int:
         print(w, file=sys.stderr)
     last = json.loads(Path(a.last).read_text(encoding="utf-8")) if Path(a.last).is_file() else None
     cur = snapshot(d := json.loads(Path(a.collect).read_text(encoding="utf-8")), rows, last and last.get("snap"))
+    if cur["masterless"]:
+        print(f"INFO 팀장 빈 팀: {', '.join(cur['masterless'])}", file=sys.stderr)
     done = any(ids for _, ids in news(last and last.get("snap"), cur, lambda team, cid: cid))
     if last and last.get("key") == key(cur) and not done:
         print("변화 없음 — 발행 0")

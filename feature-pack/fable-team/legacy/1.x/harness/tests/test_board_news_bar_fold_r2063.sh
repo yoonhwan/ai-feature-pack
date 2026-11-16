@@ -20,7 +20,7 @@ REL="feature-pack/fable-team/legacy/1.x/harness"
 BASE="${R2063_BASE_BIN:-}"
 if [ -z "$BASE" ]; then
   BASE="$T/base"
-  for f in ft-board-publish.sh ft_board_news.py ft_board_news_name.py; do
+  for f in ft-board-publish.sh ft_board_news.py ft_board_news_body.py ft_board_news_name.py; do  # r2096: r2095 뒤 기준판은 body 모듈을 import
     git -C "$HERE" show "origin/main:$REL/bin/$f" > "$BASE/$f" 2>/dev/null || { echo "판정 불가 — 기준판 $f 못 꺼냄(git show origin/main)"; exit 2; }
   done
   git -C "$HERE" show "origin/main:$REL/kit/slack-mirror/com.byz.ft-board-news.plist.template" > "$T/base.plist" 2>/dev/null \
@@ -89,23 +89,23 @@ chk "② 열린 골 = 6줄(r2095)" '[ "$(now_section | wc -l | tr -d " ")" = 6 ]
 # ③ 카드 없는 좌석 6석
 goal "1 | 골 | 22 | 23 | 진행"
 reset; mk "[$H,\"bare\":3},{\"key\":\"planner\",\"label\":\"플래너\",\"bare\":3}]"; run 2026-11-16T11:00:00
-chk "③ 다음 = 진행 중인 일 없음 · 좌석 줄 0(r2095)" '[ "$(next_section)" = "진행 중인 일 없음" ] && ! lastbody | grep -q "좌석"'
+chk "③ 다음 = 정해진 다음 한 수 없음 · 좌석 줄 0(r2096)" '[ "$(next_section)" = "정해진 다음 한 수 없음" ] && ! lastbody | grep -q "좌석"'
 chk "③ 본문 «— · —» 0" '! lastbody | grep -qF "— · —"'
 
 # ④ 섞임 · 상한 · 0석 · 카드 파일 없음 · 카드 없는 좌석 0 · 수집 실패 팀
 reset; mk "[$H,\"card\":2,\"bare\":3}]"; run 2026-11-16T12:00:00
-chk "④ 카드 2 + 없음 3 = 진행 중인 일 2개 1줄(r2095)" '[ "$(next_section)" = "진행 중인 일 2개: harnessc00, harnessc01" ]'
+chk "④ 카드 2 + 없음 3 = 다음 1줄 · 카드 이름 0(r2096)" '[ "$(next_section)" = "정해진 다음 한 수 없음" ] && ! lastbody | grep -q "harnessc0"'
 reset; mk "[$H,\"card\":30,\"bare\":2}]"; run 2026-11-16T12:00:00
-chk "④ 카드 30 + 없음 2 = 이름 5개 + 외 25개(r2095)" '[ "$(next_section | wc -l | tr -d " ")" = 1 ] && next_section | grep -q "^진행 중인 일 30개: .* 외 25개$"'
+chk "④ 카드 30 + 없음 2 = 다음 1줄 · «외 N개» 0(r2096)" '[ "$(next_section | wc -l | tr -d " ")" = 1 ] && ! lastbody | grep -q "외 [0-9]"'
 reset; mk "[$H}]"; run 2026-11-16T12:00:00
-chk "④ 좌석 0 = «진행 중인 일 없음»(r2095)" '[ "$(next_section)" = "진행 중인 일 없음" ]'
+chk "④ 좌석 0 = «정해진 다음 한 수 없음»(r2096)" '[ "$(next_section)" = "정해진 다음 한 수 없음" ]'
 reset; mk "[$H,\"miss\":1,\"bare\":1}]"; run 2026-11-16T12:00:00
-chk "④ 카드 파일 없는 나노 = 본문에 좌석 0(r2095)" '[ "$(next_section)" = "진행 중인 일 없음" ] && ! lastbody | grep -q "gone0"'
+chk "④ 카드 파일 없는 나노 = 본문에 좌석 0(r2096)" '[ "$(next_section)" = "정해진 다음 한 수 없음" ] && ! lastbody | grep -q "gone0"'
 reset; mk "[$H,\"card\":2}]"; run 2026-11-16T12:00:00
 chk "④ 카드 없는 좌석 0 = 접는 줄 0" '[ "$(next_section | wc -l | tr -d " ")" = 1 ] && ! lastbody | grep -q "카드 없이 열린 좌석"'
 reset; mk "[{\"key\":\"aa\",\"label\":\"에이\",\"bare\":2},{\"key\":\"bb\",\"label\":\"비\",\"bare\":3}]"; run 2026-11-16T12:00:00
 goal "1 | 골 | 23 | 23 | 끝"; mk "[{\"key\":\"aa\",\"label\":\"에이\",\"err\":true},{\"key\":\"bb\",\"label\":\"비\",\"bare\":3}]"; run 2026-11-16T12:10:00
-chk "④ 수집 실패 팀 이어 쓴 좌석 = 본문 0(r2095)" '[ "$(replies)" = 2 ] && [ "$(next_section)" = "진행 중인 일 없음" ]'
+chk "④ 수집 실패 팀 이어 쓴 좌석 = 본문 0(r2096)" '[ "$(replies)" = 2 ] && [ "$(next_section)" = "정해진 다음 한 수 없음" ]'
 chk "④ 수집 실패 팀 «확인 불가» 줄 그대로" '[ "$(lastbody | grep -c "^에이 확인 불가")" = 1 ]'
 goal "1 | 골 | 22 | 23 | 진행"
 
@@ -117,7 +117,7 @@ chk "⑤ 기준판 news-last 위 새 판 = 열쇠 꼴이 바뀌어 1회 발행(r
 run 2026-11-16T13:20:00
 chk "⑤ 그 뒤 같은 입력 = 변화 없음(r2095)" '[ "$RC" = 0 ] && [ "$(replies)" = 2 ] && grep -q "변화 없음" "$T/out"'
 reset; run 2026-11-16T13:00:00
-chk "⑤ 같은 입력 = 상태 파일 snap 같음(r2095: key 꼴만 바뀜)" 'python3 -c "import json,sys; a,b=(json.load(open(p)) for p in sys.argv[1:]); sys.exit(0 if a[\"snap\"]==b[\"snap\"] else 1)" "$T/base-last.json" "$LAST"'
+chk "⑤ 같은 입력 = 상태 파일 snap 같음(r2096: 골 행 여섯째 칸 · masterless 만 덧붙음)" 'python3 -c "import json,sys; a,b=(json.load(open(p))[\"snap\"] for p in sys.argv[1:]); assert b.pop(\"masterless\")==[]; b[\"goals\"]=[r[:5] for r in b[\"goals\"]]; sys.exit(0 if a==b else 1)" "$T/base-last.json" "$LAST"'
 mk "[$H,\"card\":1,\"bare\":3,\"miss\":1},{\"key\":\"planner\",\"label\":\"플래너\",\"bare\":3}]"; run 2026-11-16T13:10:00
 chk "⑤ 카드 없는 좌석 1석 열림 = reply 0(r2095 S2)" '[ "$(replies)" = 1 ] && grep -q "변화 없음" "$T/out"'
 

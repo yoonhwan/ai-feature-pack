@@ -76,7 +76,7 @@ chk "① --ts $TSV" 'grep -q -- "reply.*--ts $TSV" "$T/stub/tp.log"'
 chk "① 막대 0 · 골 줄 2개(r2095)" '[ "$(lastbody | grep -c "[▓░]")" = 0 ] && [ "$(now_section | grep -c "단계 끝남")" = 2 ]'
 chk "① 20/23 = 23단계 중 20단계(r2095)" 'lastbody | grep -qxF "ft 2.0 완성: 23단계 중 20단계 끝남. 진행 중"'
 chk "① news-last 생김" '[ -f "$LAST" ]'
-chk "① 다음 줄 = 진행 중인 일(r2095)" '[ "$(next_section)" = "진행 중인 일 1개: beta" ]'
+chk "① 다음 줄 = 정해진 다음 한 수 없음(r2096 · 5 column 원장)" '[ "$(next_section)" = "정해진 다음 한 수 없음" ]'
 chk "① 오빠 할 일 1건" 'lastbody | grep -q "1건"'
 chk "⑫ 첫 발행 = «엑스 확인 불가» 0줄(직전에 없던 error 팀)" '! lastbody | grep -q "엑스 확인 불가"'
 # ② 같은 입력 +600초
@@ -127,7 +127,7 @@ reset; echo 1 > "$T/stub/collect_rc"; run 2026-11-15T14:00:00
 chk "⑧ collect rc 1 = rc 1 · reply 0" '[ "$RC" = 1 ] && [ "$(replies)" = 0 ]'
 # ⑨ 꼴: 30석 → 12줄 + 외 18석 · 표·코드블록 0 · 3500B · 끝 줄 밖 번호·sha·ts 0
 reset; goal "$G1" "$G2"; mk '{"cards":{"r2058-oppa-a":"대기"},"seats":{},"ncards":30}'; run 2026-11-15T15:00:00
-chk "⑨ 다음 = 1줄 · 이름 5개 + 외 25개(r2095)" '[ "$(next_section)" = "진행 중인 일 30개: c00, c01, c02, c03, c04 외 25개" ]'
+chk "⑨ 다음 = 1줄 · 카드 이름 0(r2096)" '[ "$(next_section)" = "정해진 다음 한 수 없음" ] && ! lastbody | grep -qE "c0[0-9]|외 [0-9]"'
 mk "$BASE"; run 2026-11-15T15:10:00
 for f in "$T/stub"/body.*.txt; do
   chk "⑨ $(basename "$f") 표·코드블록 0 · 3500B" '! grep -q "|---" "$f" && ! grep -qF "\`\`\`" "$f" && [ "$(wc -c < "$f")" -le 3500 ]'
@@ -168,10 +168,10 @@ chk "⑪ 닫힌 좌석 빠짐 + BUSY/IDLE 만 = reply 0" '[ "$RC" = 0 ] && [ "$(
 TB='"r2059-beta":"r2059-beta — 끝: 보드 뉴스 이름 시험(판정 4175 · #308536)","r2060-long":"r2060-long — 아주아주 긴 하는 일 이름이 스물다섯 글자를 넘는 경우"'
 S14='"seats":{"byz-harness-nano-r2059-beta#0":"작업중"}'
 reset; goal "$G1"; mk "{\"cards\":{\"r2058-oppa-a\":\"대기\",\"r2059-beta\":\"진행\",\"r2060-long\":\"대기\"},$S14,\"titles\":{$TB}}"; run 2026-11-15T19:00:00
-chk "⑭ 다음 줄 = 하는 일 이름" 'next_section | grep -qxF "진행 중인 일 1개: 보드 뉴스 이름 시험"'
+chk "⑭ 다음 줄 = 진행 카드 이름 0(r2096)" '[ "$(next_section)" = "정해진 다음 한 수 없음" ]'
 mk "{\"cards\":{\"r2058-oppa-a\":\"진행\",\"r2059-beta\":\"완성\",\"r2060-long\":\"진행\"},$S14,\"titles\":{$TB}}"; run 2026-11-15T19:10:00
 chk "⑭ 지금 = 끝난 일 이름 · beta slug 0(r2095)" 'now_section | grep -qxF "끝난 일: 보드 뉴스 이름 시험" && ! now_section | grep -q beta'
-chk "⑭ 25자 넘는 제목 = 24자 + … · 제목 없는 카드 = slug(다음 칸 · r2095)" 'next_section | grep -qxF "진행 중인 일 2개: oppa-a, 아주아주 긴 하는 일 이름이 스물다섯 글자를…"'
+chk "⑭ 진행 카드 제목 · slug = 다음 칸 0(r2096)" '[ "$(next_section)" = "정해진 다음 한 수 없음" ] && ! lastbody | grep -qE "oppa-a|아주아주"'
 chk "⑭ 근거 줄 = 끝난 일 카드 번호(r2095)" 'lastbody | tail -1 | grep -q ", 카드 r2059$"'
 n14="$(replies)"; mk "{\"cards\":{\"r2058-oppa-a\":\"진행\",\"r2059-beta\":\"완성\",\"r2060-long\":\"진행\"},$S14,\"titles\":{\"r2059-beta\":\"다른 제목\"}}"; run 2026-11-15T19:20:00
 chk "⑭ 제목만 바뀜 = reply 0" '[ "$RC" = 0 ] && [ "$(replies)" = "$n14" ]'
