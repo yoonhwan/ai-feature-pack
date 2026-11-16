@@ -57,8 +57,14 @@ def once(k, key, read):
     got, fn = k.cache.get("@round"), read if callable(read) else lambda: k.call(read)
     return fn() if got is None else got[key] if key in got else got.setdefault(key, fn())
 def nano_name(k, team, stem):
-    """r2016 나노 좌석 이름 = stem 앞 40자 · 끝 «-» 지움(1.x ft-nano-spawn.sh _slug 와 같은 규칙) · 빈 값 = None + 경고 1줄(지어내기 0)."""
+    """r2016 나노 좌석 이름 = stem 앞 40자 · 끝 «-» 지움(1.x ft-nano-spawn.sh _slug 와 같은 규칙) · 빈 값 = None + 경고 1줄(지어내기 0).
+    r2113 A2 — 40자 넘게 잘리는 stem = 원장 state seat 이름 먼저 · 없으면 앞 33자(끝 «-» 지움) + «-» + sha1(stem) 앞 6자(후속 카드와 겹침 0)."""
     cut = stem[:40].rstrip("-")
+    if len(stem) > 40 and cut:
+        led = ledger(k, stem)
+        if led.get("state") == "seat" and isinstance(led.get("seat"), str) and led["seat"]:
+            return led["seat"]
+        cut = stem[:33].rstrip("-") and "%s-%s" % (stem[:33].rstrip("-"), hashlib.sha1(stem.encode("utf-8")).hexdigest()[:6])
     return "byz-%s-nano-%s#0" % (team, cut) if cut else k.log("경고", team, "%s 나노 이름 빈 값 — 그 카드 0" % stem)
 def ledger(k, stem):
     return k.read_json(os.path.join(k.root, ".fable-team", "state", "card-assign", stem + ".json"))
@@ -148,7 +154,7 @@ def hold_read(k, path):
         return "깨짐"
     return reason, str(data.get("until") or "").strip() or "-"
 def cards(k, team):
-    """({stem: [긴급, 높음, 대상 줄들, 선행 막힘]}, 루트 행) · 판독 실패 = 사유 문자열 (git 2회 · 작업 트리 0)."""
+    """({stem: [긴급, 높음, 대상 줄들, 선행 막힘, 기억 값, 재개 줄들(r2113)]}, 루트 행) · 판독 실패 = 사유 문자열 (git 2회 · 작업 트리 0)."""
     try:
         with open(os.path.join(k.root, ".fable-team", "state", "directive-roots.tsv"), encoding="utf-8") as fh:
             rows = [x.rstrip("\n").split("\t") for x in fh if not x.startswith("#") and len(x.split("\t")) >= 4]
@@ -159,11 +165,11 @@ def cards(k, team):
         return "카드 루트 표 행 없음"
     raw, r = r[3], [r[0], os.path.join(k.root, r[1]), r[2], r[3].replace("*", team)]   # r1969 raw git = (리포·ref·표 행 루트) 바퀴당 1회 · 팀 걸러내기는 따로
     rc, names, err, rc2, heads = once(k, ("cards", r[1], r[2], raw), lambda: k.git(r[1], "ls-tree", "-r", "--name-only", r[2], "--", raw.split("*")[0] if "*" in raw else raw + "/")   # r2027 루트 전체 = 선행 참조 폴더
-                                      + k.git(r[1], "grep", "-I", "-E", r"^- (긴급|우선|대상|선행|배정|상태: 대기\(NEW_CARD_HOLD|대기\(NEW_CARD_HOLD)", r[2], "--", ":(glob)%s/대기/*" % raw)[:2])
+                                      + k.git(r[1], "grep", "-I", "-E", r"^- (긴급|우선|대상|선행|배정|재개:|상태: 대기\(NEW_CARD_HOLD|대기\(NEW_CARD_HOLD)", r[2], "--", ":(glob)%s/대기/*" % raw)[:2])
     if rc != 0 or rc2 not in (0, 1):
         return "카드 루트 git rc %s/%s %s" % (rc, rc2, err[:60])
     mine = r[3] + "/대기"
-    found = {os.path.basename(p)[:-3]: [False, False, [], []] for p in names.splitlines() if p.endswith(".md") and os.path.dirname(p) == mine}
+    found = {os.path.basename(p)[:-3]: [False, False, [], [], None, []] for p in names.splitlines() if p.endswith(".md") and os.path.dirname(p) == mine}
     where = {}
     for p in (x for x in names.splitlines() if x.endswith(".md") and (os.path.dirname(os.path.dirname(x)) == r[3] or x.startswith(r[3] + "/") and MONTH.fullmatch(os.path.dirname(x)[len(r[3]):]))):
         m = re.match(r"r(\d+)(?![0-9])", os.path.basename(p))   # DA R1 · 아카이브/<YYYY-MM>/ = 아카이브
@@ -174,11 +180,12 @@ def cards(k, team):
             row[0], row[1] = row[0] or bool(URGENT.match(line)), row[1] or bool(HIGH.match(line))
             row[2] += [line] if line.startswith("- 대상") else []
             row[3] += [line] if line.startswith(("- 선행", "- 배정") + SHELL) else []
+            row[5] += [line] if line.startswith("- 재개:") else []   # r2113 A1
     mapped(k, team, found, where)   # r2030 짝 표 대기 카드(팀 폴더 밖 포함)
     for row in found.values():
         val = next((x.split(":", 1)[1].strip() for x in row[3] if x.startswith("- 선행:")), "")   # I1 기억에 넣을 선행 값 그대로
         verdict, why = prereq(row[3], where)
-        row[3], row[4:] = verdict, [{"val": val, "why": why}]   # row[4] = I1·I6 기억 값
+        row[3], row[4] = verdict, {"val": val, "why": why}   # row[4] = I1·I6 기억 값
     return found, r
 def mapped(k, team, found, where):
     """r2030 짝 표 대기 카드 → found 후보(같은 stem 1개) · 그 카드 indices 의 완성·완성후·아카이브(월별 포함) 참조 → where(DA R2).
@@ -203,8 +210,9 @@ def mapped(k, team, found, where):
                 book[key] = val
                 k.log("판정 불가", team, "짝 표 카드 %s:%s git rc %s/%s — 건너뜀" % (ref, path, rc3, rc4))
             continue
-        heads = [x for x in text.splitlines() if re.match(r"- (긴급|우선|대상|선행|배정)", x) or x.startswith(SHELL)]
-        found[stem] = [any(URGENT.match(x) for x in heads), any(HIGH.match(x) for x in heads), [x for x in heads if x.startswith("- 대상")], [x for x in heads if x.startswith(("- 선행", "- 배정") + SHELL)]]
+        heads = [x for x in text.splitlines() if re.match(r"- (긴급|우선|대상|선행|배정|재개:)", x) or x.startswith(SHELL)]
+        found[stem] = [any(URGENT.match(x) for x in heads), any(HIGH.match(x) for x in heads), [x for x in heads if x.startswith("- 대상")], [x for x in heads if x.startswith(("- 선행", "- 배정") + SHELL)],
+                       None, [x for x in heads if x.startswith("- 재개:")]]   # r2113 A1
         for p in (x for x in names.splitlines() if x.endswith(".md")):
             m, stage = re.match(r"r(\d+)(?![0-9])", os.path.basename(p)), "아카이브" if MONTH.fullmatch(os.path.dirname(p)[len(idx):]) else os.path.basename(os.path.dirname(p)) if os.path.dirname(os.path.dirname(p)) == idx else ""
             where.setdefault(m.group(1), set()).add(stage) if m and stage in ("완성", "완성후", "아카이브") else None
@@ -233,10 +241,41 @@ def delivered(k, team, stem, works, state, led):
               " · 원장 풀림 뒤 다시 고름 · 풀기 = ft-card-assign record %s waiting <사유> → clear <사유>" % stem if why == "전달됨" else " intent started·at 못 읽음"))
     book[key] = val
     return why
+def reopen(k, team, stem, back, works, state):
+    """r2113 A1 — 카드 머리 마지막 «- 재개: <로컬 YYYY-MM-DDTHH:MM:SS>» 이 ⓐ 최신 attempt intent 시각 ∧ ⓑ 착지 sha committer 시각보다 뒤 = 참(«전달됨»·«착지» 로 막지 않음).
+    줄 없음 = 거짓(읽기 0) · 꼴 깨짐·착지 시각 못 읽음 = 거짓 + «판정 불가» 1줄(값이 바뀔 때만) · intent 시각 못 읽음 = 거짓(줄은 delivered)."""
+    if not back:
+        return False
+    val, why, book, key = back[-1].split(":", 1)[1].strip(), "", k.state.setdefault("reopen_seen", {}), "%s|%s" % (team, stem)
+    try:
+        at = time.mktime(time.strptime(val, "%Y-%m-%dT%H:%M:%S"))   # DA #318934 R2 — 값 전체가 꼴(뒤 문구 버리기 0)
+    except ValueError:
+        at, why = None, "재개 줄 꼴 깨짐 %r — 고칠 꼴 «- 재개: YYYY-MM-DDTHH:MM:SS»" % val[:30]
+    for w, a in ((w, a) for w in sorted(works) for a in (state.get("deliveries") or {}).get(w) or []) if at else ():
+        got = k.read_json(os.path.join(kl.projection.runtime_path(k.root, team), "launch", "%s@%s.intent" % (w, a)))
+        try:
+            t = float(got["started"]) if "started" in got else time.mktime(time.strptime(got.get("at"), "%Y-%m-%dT%H:%M:%S"))
+            if t >= at:
+                return False
+        except (TypeError, ValueError):
+            return False
+    landed = once(k, ("landed", team, stem), lambda: k.landing(team, stem)) if at else (None, None, "")
+    if landed[0]:   # DA #318934 R1 — 미도달 등 사유가 있어도 착지 sha 가 있으면 그 시각을 읽는다(못 읽음 = 막음 그대로)
+        out = next((o for repo in (k.pack, k.root) for rc, o, _ in [k.git(repo, "log", "-1", "--format=%ct", landed[0])] if rc == 0), "").strip()
+        end = int(out) if out.isdigit() else None
+        why = "" if end is not None else "착지 %s committer 시각 못 읽음" % landed[0][:10]
+        at = None if end is None or end >= at else at
+    if why and book.get(key) != why:
+        k.log("판정 불가", team, "%s %s — 재개 없이 기존 막음 그대로" % (stem, why))
+    book[key] = why
+    return at is not None
 def clash(k, team, stem):
-    """r2111 A2 — nano_name 과 대소문자만 다른 세션이 살아 있으면 «이름겹침» · list-sessions 실패 = «판정 불가» · 줄은 값이 바뀔 때만 1줄."""
+    """r2111 A2 — nano_name 과 대소문자만 다른 세션이 살아 있으면 «이름겹침» · list-sessions 실패 = «판정 불가» · 줄은 값이 바뀔 때만 1줄.
+    r2113 A2b — 40자 넘게 잘리는 stem 은 옛 40자 이름과 대소문자 무시하고 같은 세션(글자 그대로 포함)도 «이름겹침»."""
     nh, (rc, out, _) = nano_name(k, team, stem), once(k, "ls", [k.tmux, "list-sessions", "-F", "#{session_name}"])
-    other = "" if rc != 0 or not nh else next((x for x in out.split() if x != nh and x.lower() == nh.lower()), "")
+    olds0 = {"byz-%s-nano-%s#0" % (team, stem[:40].rstrip("-"))} if len(stem) > 40 and stem[:40].rstrip("-") else set()
+    olds = {x.lower() for x in olds0}
+    other = "" if rc != 0 or not nh else next((x for x in out.split() if x.lower() in olds or x != nh and x.lower() == nh.lower()), "")
     why = "판정 불가" if rc != 0 else "이름겹침" if other else ""
     book, key, val = k.state.setdefault("clash_seen", {}), "%s|%s" % (team, stem), "%s|%s" % (why, other)
     if why and book.get(key) != val:
@@ -258,7 +297,7 @@ def choose(k, team, skip=frozenset()):
             pair.setdefault(os.path.basename(p)[:-3], set()).add(work)
     (found, r), done, why, ready = got, state.get("done") or {}, {}, []
     owners = {s for s in found if ({s} | pair.get(s, set())) & set(state.get("owners") or {})}   # stem·짝 work 중 owner 있음
-    for stem, (urgent, high, lines, pre, seen) in sorted(found.items()):
+    for stem, (urgent, high, lines, pre, seen, back) in sorted(found.items()):
         led = ledger(k, stem)
         block = "배정됨" if led.get("state") == "seat" or stem in owners else led.get("reason") if led.get("reason") in BLOCK else pre   # r2027 ⑤ 원장·카드 둘 중 하나
         shell = k.state.setdefault("shell_seen", [])   # r2093 S2 — 껍데기 건너뜀 1줄(카드마다 1회 · keeper 상태 파일)
@@ -269,12 +308,17 @@ def choose(k, team, skip=frozenset()):
                 book[key] = seen
                 k.log("판정 불가", team, "%s 선행 줄 판독 불가(%s) — 건너뜀 · 고칠 꼴 «- 선행: 없음» 또는 «- 선행: r<번호>»" % (stem, seen["why"]))
         block = block or ("보류" if stem in skip else "끝남" if stem in done or pair.get(stem, set()) & set(done) else "")   # r1887 stem·짝 work done
+        back = not block and reopen(k, team, stem, back, {stem} | pair.get(stem, set()), state)   # r2113 A1 재개 줄(없거나 막힌 카드 = 읽기 0)
+        block = block or ("재개" if back else "")   # r2113 A1 — 재개 줄 = «착지» 판독 건너뜀(바로 아래에서 푼다)
         block = block or ("착지" if skip_landed(k, team, stem) else "")   # r2058 L5 착지 카드 = 다시 넣지도 닫기 뒤 다음으로도 고르지 않는다
+        block = "" if block == "재개" else block
         place = None if block else target(k, r, lines)
         if not block and place is None:
             block = k.log("판정 불가", team, "%s 대상 팩·BYZ 둘 다 — 건너뜀" % stem) or "대상"
         block = block or ("팩낡음" if place[0] in k.stale else "")   # r1963 낡은 팩 base 로 나노 열기 0(이 바퀴 보류 · BYZ 대상 카드는 그대로)
+        block = block or ("재개" if back else "")   # r2113 A1 — 재개 줄 = «전달됨» 판독 건너뜀(바로 아래에서 푼다)
         block = block or delivered(k, team, stem, {stem} | pair.get(stem, set()), state, led)   # r2111 A1
+        block = "" if block == "재개" else block
         block = block or clash(k, team, stem)   # r2111 A2
         ready.append(((not urgent, not high, led.get("since") or 0), stem) + place) if not block else why.update({block: why.get(block, 0) + 1})
     if why.get("팩낡음"):

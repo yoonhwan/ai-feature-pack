@@ -2,7 +2,7 @@
 T1~T3 = 이름 함수 1개(가짜 keeper · 로그만) · T4 = r1913 세계(임시 root·git·가짜 tmux·가짜 record)에서 닫기(close)·새 칸(fill)·띄운 칸 잇기 세 자리가 같은 이름.
 실 tmux·명부·ft2 원장·mbox·설치 0 · sleep 0. 변이는 사본에서만 · 원본으로 1회 더(r1913 꼴).
 """
-import importlib.util, json, shutil  # noqa: E401
+import hashlib, importlib.util, json, shutil  # noqa: E401
 from pathlib import Path
 import pytest
 
@@ -15,11 +15,16 @@ LA = "r9001-" + "a" * 33 + "-with-pi-tail"   # 40번째 글자 = «-»
 LB = "r9002-" + "b" * 33 + "-with-pi-tail"
 SHORT = "r9003-short-card"
 DASH = "-" * 40 + "tail"
-def want(stem):
+LD = "r9004-" + "d" * 26 + "-with-pi-tail-more"   # r2113 A2 — 33번째 글자 = «-»
+def want(stem):   # r2113 A2 — 40자 넘게 잘리는 stem(원장 seat 없음) = 앞 33자(끝 «-» 지움) + «-» + sha1(stem) 6자
+    if len(stem) > 40:
+        return "byz-harness-nano-%s-%s#0" % (stem[:33].rstrip("-"), hashlib.sha1(stem.encode("utf-8")).hexdigest()[:6])
     return "byz-harness-nano-%s#0" % stem[:40].rstrip("-")
 class FakeKeeper:
     def __init__(s):
-        s.lines = []
+        s.lines, s.root = [], "/nonexistent-r2016"   # r2113 A2 — 잘리는 stem 은 원장 seat 을 먼저 읽는다(원장 없음)
+    def read_json(s, path):
+        return {}
     def log(s, kind, team="", text=""):
         s.lines.append(" ".join(w for w in (kind, team, text) if w))
 def load(ft2):
@@ -30,9 +35,10 @@ def load(ft2):
 def t1(tmp, mp, ft2):   # T1 40번째 글자 «-» → 끝 «-#0» 0 · «…-with-pi»·«…a#0»
     k = FakeKeeper()
     got = load(ft2).nano_name(k, "harness", LA)
-    assert got == "byz-harness-nano-r9001-%s#0" % ("a" * 33) and not got.endswith("-#0") and k.lines == [], (got, k.lines)
+    assert got == want(LA) and not got.endswith("-#0") and k.lines == [], (got, k.lines)
     real = "r1618-ctx-plan-claude-quota-sum-with-pi-claude-usage"
-    assert load(ft2).nano_name(k, "harness", real) == "byz-harness-nano-r1618-ctx-plan-claude-quota-sum-with-pi#0"
+    assert load(ft2).nano_name(k, "harness", real) == want(real)
+    assert load(ft2).nano_name(k, "harness", LD) == want(LD) and "--" not in want(LD), want(LD)   # r2113 A2 꼬리 앞 «-» 1개
 def t2(tmp, mp, ft2):   # T2 40자 안 stem → 지금과 같은 이름
     k = FakeKeeper()
     assert load(ft2).nano_name(k, "harness", SHORT) == "byz-harness-nano-%s#0" % SHORT and k.lines == []
@@ -50,8 +56,8 @@ def t4(tmp, mp, ft2):   # T4 같은 바퀴 닫기 LA · fill LB(띄운 칸 잇�
     assert nx.ledger(w, LA)["seat"] == want(LA) and nx.ledger(w, LB)["seat"] == want(LB)
 CASES = {"T1": t1, "T2": t2, "T3": t3, "T4": t4}
 KN = "adapters/pi/keeper_next.py"
-OLD = 'stem[:40].rstrip("-")'
-MUTANTS = {"M1": (OLD, "stem[:40]", "T1"),
+OLD = '(stem[:33].rstrip("-"), hashlib'   # r2113 A2 — 잘린 이름 끝 «-» 지움 자리
+MUTANTS = {"M1": (OLD, "(stem[:33], hashlib", "T1"),
            "M2a": ('(pick[0], nano_name(k, team, pick[0]))', '(pick[0], "byz-%s-nano-%s#0" % (team, pick[0][:40]))', "T4"),   # 닫기 자리만 옛 꼴
            "M2b": ('stem, nano_name(k, team, stem), None)', 'stem, "byz-%s-nano-%s#0" % (team, stem[:40]), None)', "T4"),   # 띄운 칸 잇기 자리만 옛 꼴
            "M2c": ('None, nano_name(k, team, pick[0])', 'None, "byz-%s-nano-%s#0" % (team, pick[0][:40])', "T4")}   # fill 자리만 옛 꼴
