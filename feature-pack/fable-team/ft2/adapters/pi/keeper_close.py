@@ -260,7 +260,11 @@ class Closing:
         return True
 
     def pi_last_turn(self, intent):
-        """빈 문자열 = 턴 끝 · 그 밖 = 사유 1줄(파일·시각·마지막 줄)."""
+        """빈 문자열 = 턴 끝 · 그 밖 = 사유 1줄(파일·시각·마지막 줄) · r2135 L1 장기 좌석 holder = 좌석 jsonl(seat_log) 마지막 줄."""
+        holder = intent.get("FT2_HOLDER") or ""
+        if settle.long_seat(holder):   # r2135 L1
+            log = self.seat_log(holder)
+            return self.last_line(log) if log else "세션 파일 없음 좌석 %s" % holder
         sessions = self.env.get("FT2_PI_SESSIONS") or os.path.expanduser("~/.pi/agent/sessions")
         tree = intent.get("worktree") or ""
         try:
@@ -271,9 +275,13 @@ class Closing:
         files = sorted(glob.glob(os.path.join(folder, "*.jsonl")), key=os.path.getmtime) if tree else []
         if not files or os.path.getmtime(files[-1]) < opened:
             return "세션 파일 없음 %s" % folder
+        return self.last_line(files[-1])
+
+    def last_line(self, path):
+        """세션 jsonl 마지막 줄 → 빈 문자열(assistant · stopReason stop) 또는 사유 1줄."""
         try:
-            with open(files[-1], "rb") as fh:
-                fh.seek(max(0, os.path.getsize(files[-1]) - 65536))
+            with open(path, "rb") as fh:
+                fh.seek(max(0, os.path.getsize(path) - 65536))
                 last = json.loads([x for x in fh.read().decode("utf-8", "replace").splitlines() if x.strip()][-1])
         except (OSError, ValueError, IndexError) as exc:
             return "세션 파일 판독 불가 %s" % type(exc).__name__
