@@ -31,16 +31,21 @@ def drops_scope(fn):   # r2151 O2 — due_rows 한 번 = 버림 원장 스냅샷
     return scoped
 
 
-def dropped(ctx, seq):   # r2151 O2 — judge 의 버림 판정 · 스냅샷 안 = 원장 1회 읽은 seqs 집합(숫자 토큰 정확 비교) · 밖·seq 없음·없음·실패 = seq_dropped 그대로(문구 한 곳)
+def dropped(ctx, seq):   # r2151 O2 — judge 의 버림 판정 · 스냅샷 안 = 원장 1회 읽은 seqs 집합(숫자 토큰 정확 비교) · 스냅샷 밖·seq 없음 = seq_dropped 그대로(seq 없음 = 읽기 0)
     snap = shared(ctx).get("drops")   # r2151-mut:snap
     if snap is None or not seq:
         return seq_dropped(ctx, seq)
-    if "seqs" not in snap:
+    if "seqs" not in snap:   # 평가당 읽기 1회 — 없음(아니오)·읽기 실패(seq_dropped 와 같은 Unjudged 문구)도 스냅샷에 기억
+        snap["seqs"], snap["err"] = set(), ""
         try:
             raw = (ctx.comm / "mailbox.drops.log").read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            return seq_dropped(ctx, seq)
-        snap["seqs"] = {t for m in re.finditer(r"(?:^|\s)seqs=(\S*)", raw) for t in m.group(1).split(",")}
+            snap["seqs"] = {t for m in re.finditer(r"(?:^|\s)seqs=(\S*)", raw) for t in m.group(1).split(",")}
+        except FileNotFoundError:
+            pass
+        except (OSError, UnicodeDecodeError) as e:
+            snap["err"] = f"우편함 버림 원장 읽기 rc=1 — {type(e).__name__}"
+    if snap["err"]:
+        raise Unjudged(snap["err"])
     return str(seq) in snap["seqs"]
 
 
