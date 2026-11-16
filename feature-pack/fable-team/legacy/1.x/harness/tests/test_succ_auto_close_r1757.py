@@ -120,7 +120,7 @@ def test_c1_seven_true_calls_standard_close(w):
     m = _import_scan(BIN)
     out = w.scan(m).succ_close("T")
     args = w.calls.read_text().splitlines()
-    assert args == ["byz-x-master#1 --reason 승계 끝 자동 닫기 → byz-x-master#2"], args
+    assert args == ["byz-x-master#1 --reason 승계 끝 자동 닫기 → byz-x-master#2 --defer-press"], args
     assert out == ["T succ-close byz-x-master#1 rc=0 — CLOSED-SESSION byz-x-master#1 stub"], out
 
 
@@ -141,7 +141,7 @@ def test_c3b_successor_is_end_of_chain(w):
     w.pair("byz-x-master#2", "byz-x-master#3", resume=False)
     w.alive.remove("byz-x-master#2")
     out = w.scan(_import_scan(BIN)).succ_close("T")
-    assert w.calls.read_text().splitlines() == ["byz-x-master#1 --reason 승계 끝 자동 닫기 → byz-x-master#3"], out
+    assert w.calls.read_text().splitlines() == ["byz-x-master#1 --reason 승계 끝 자동 닫기 → byz-x-master#3 --defer-press"], out
 
 
 def test_c4_no_resume_record_is_not_candidate(w):
@@ -204,7 +204,7 @@ def test_c9b_self_session_is_excluded(w, monkeypatch):
     monkeypatch.setenv("TMUX_PANE", "%9")
     (w.tm / "me").write_text("byz-x-master#1\n", encoding="utf-8")
     out = w.scan(_import_scan(BIN)).succ_close("T")
-    assert w.calls.read_text().splitlines() == ["byz-y-master#1 --reason 승계 끝 자동 닫기 → byz-y-master#2"], out
+    assert w.calls.read_text().splitlines() == ["byz-y-master#1 --reason 승계 끝 자동 닫기 → byz-y-master#2 --defer-press"], out
 
 
 def test_wired_into_round():
