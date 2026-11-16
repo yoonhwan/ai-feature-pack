@@ -1372,6 +1372,7 @@ if [ "$_hrc" -eq 1 ] && [ -n "$_lrow" ]; then
   _seat_reap || { echo "CLOSE-FAIL reap ${_rp_left:-left=?} rc=$_rp_rc — $SEAT 세션 보존(재실행 · 명부·원장 그대로 · 루프를 멈춘 뒤 같은 close 재실행)"; exit 1; }
   if [ -n "$PANE" ]; then
     tmux set-option -t "$PANE" -u @zc_v65_active || { echo "FAIL $SEAT — @zc_v65_active 해제 실패(재실행 · 세션 잔존)"; exit 1; }
+    bash "$HERE/ft-session-close-ledger.sh" note "$SEAT" ft-nano-close.sh "재실행" >/dev/null 2>&1 || :   # r2101 — kill 직전 원장 tool 줄 1(rc·출력·kill 인자 섞임 0)
     tmux kill-session -t "$PANE" || { echo "FAIL $SEAT — kill-session 실패(재실행 · 세션 잔존 · 태그는 해제됨)"; exit 1; }
     echo "KILLED $SEAT (@zc_v65_active 해제 · 세션 kill · 브랜치 보존) · $(bash "$HERE/ft-event-check.sh" close "$SEAT" "${CARD:-}" "${PLAN:-}")"   # r1474: 끝 칸 = 재측정 1회(exit 불변)
   fi
@@ -2284,6 +2285,7 @@ nf_bound "$(nf_cap "$(nf_fixed slots)" 1)" bash "$(dirname "$0")/ft-nano-slots.s
 # (nano-close 경로 하나 · 나노 계보 keep-last-2 면제 · ★브랜치 삭제 0★ · 역할 좌석은 keep-last-2 그대로).
 # 둘 중 하나라도 실패하면 조용히 넘기지 않는다(#0 RULE) — 명부는 이미 지워졌으므로 같은 close 를 다시 부르면 남은 정리만 이어진다(RERUN).
 tmux set-option -t "$PANE" -u @zc_v65_active || { echo "FAIL $SEAT — @zc_v65_active 해제 실패(세션 잔존 · 명부는 삭제됨)"; exit 1; }
+bash "$HERE/ft-session-close-ledger.sh" note "$SEAT" ft-nano-close.sh "${SUSP_REASON:-${NEVER_REASON:-close}}" >/dev/null 2>&1 || :   # r2101 — kill 직전 원장 tool 줄 1(rc·출력·kill 인자 섞임 0)
 tmux kill-session -t "$PANE" || { echo "FAIL $SEAT — kill-session 실패(세션 잔존 · 태그는 해제됨)"; exit 1; }
 echo "KILLED $SEAT (@zc_v65_active 해제 · 세션 kill · 브랜치 보존) · $(bash "$HERE/ft-event-check.sh" close "$SEAT" "${CARD:-}" "${PLAN:-}")"   # r1474: 끝 칸 = 재측정 1회(exit 불변)
 _oc_close   # r286 + R387 — 위 정의(세션 kill «뒤»)

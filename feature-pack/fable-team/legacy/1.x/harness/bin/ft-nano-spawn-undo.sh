@@ -149,6 +149,7 @@ fi
 tmux set-option -t "$PANE_ID" -u "$TAG" 2>/dev/null || rej "태그 해제 실패 — kill 0"
 restore() { tmux set-option -t "$PANE_ID" "$TAG" 1 2>/dev/null; }
 r="$( gate dyn )" || { restore; echo "$r"; exit 1; }
+bash "$HERE/ft-session-close-ledger.sh" note "$SEAT" ft-nano-spawn-undo.sh "spawn-undo $MODE" >/dev/null 2>&1 || :   # r2101 — kill 직전 원장 tool 줄 1(rc·출력·kill 인자 섞임 0)
 tmux kill-session -t "$PANE_ID" 2>/dev/null || { restore; rej "kill-session 실패"; }
 if [ "$MODE" = EXEC ]; then
   python3 - "$SEATS" "$SEAT" <<'PY' || echo "WARN 명부 행 삭제 실패 — 손으로 지울 것: $SEAT"
