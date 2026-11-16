@@ -54,6 +54,8 @@ def names(path, end):
                 continue
             if isinstance(rec, dict) and rec.get("type") == "session_info":
                 got.append(rec["name"].strip() if isinstance(rec.get("name"), str) else "")
+    if time.monotonic() > end:   # DA R1 — 마지막 줄 읽기 뒤
+        raise ValueError("이름 판독 %d초 넘음" % NAME_S)
     return got
 
 

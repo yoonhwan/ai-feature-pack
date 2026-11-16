@@ -69,19 +69,25 @@ def owners(seat, tmux):
     return ids - {""}
 
 
+def due(end):
+    """r2121 한 판정의 읽기 합계 상한 — 읽기 전·읽기 뒤·결속 성공 전 공용 · 넘음 = ValueError(판정 불가)."""
+    if time.monotonic() > end:
+        raise ValueError(f"Pi 이름 판독 {CAP}초 넘음")
+
+
 def names(path, end):
     """r2121 D3 — 파일 전체를 줄 단위로 끝까지 · «"session_info"» 글자 든 줄만 JSON · 이름 목록(없음·빈 = "") · end(monotonic) 넘음 = ValueError."""
     got = []
     with open(path, encoding="utf-8", errors="replace") as stream:
         for line in stream:
-            if time.monotonic() > end:
-                raise ValueError(f"Pi 이름 판독 {CAP}초 넘음")
+            due(end)
             try:
                 rec = json.loads(line) if '"session_info"' in line else None
             except ValueError:
                 continue
             if isinstance(rec, dict) and rec.get("type") == "session_info":
                 got.append(rec["name"].strip() if isinstance(rec.get("name"), str) else "")
+    due(end)   # DA R1 — 마지막 줄 읽기 뒤
     return got
 
 
@@ -89,13 +95,13 @@ def record(name, sid, end):
     """r2121 보정2 — 은퇴 기록 폴더 직접 자식 <name>.json 의 name·uuid 가 같음 = 증명 · 폴더 밖 이름(/·절대·.·..)·못 읽음·깨짐 = 0."""
     if Path(name).name != name or name in (".", ".."):
         return False
-    if time.monotonic() > end:
-        raise ValueError(f"Pi 이름 판독 {CAP}초 넘음")
+    due(end)
     folder = Path(os.path.expanduser(os.environ.get("ZC_RESUME_DIR") or "~/.claude/state/seat-resume"))
     try:
         rec = json.loads((folder / (name + ".json")).read_text(encoding="utf-8"))
     except (OSError, ValueError):
-        return False
+        rec = None
+    due(end)   # DA R1 — 기록 읽기·해석 뒤
     return isinstance(rec, dict) and rec.get("name") == name and rec.get("uuid") == sid
 
 
@@ -137,6 +143,7 @@ def first_session(got, root, owner=None):
         late += [(head["id"], path)] if ts > at + WINDOW else []
     seat, end = intent.get("FT2_HOLDER") or (owner or (None,))[0], time.monotonic() + CAP
     late = [sid for sid, path in late if not proven(path, sid, seat, end)]   # r2121 D3 보정2 — owners 전에 뺌
+    due(end)   # DA R1 — 증명·결속 성공 전
     if late and owner:
         late = set(late) - owners(*owner)
     if late:
