@@ -76,9 +76,14 @@ def evidence_notice(k, team, work):
     """r2088 done 갈래 — OPEN PR 1개 ∧ 카드 ref 마지막 «세트:» 줄 D2 ④ 꼴 아님 → 받는 곳 첫 값에 묶음 0 · 1통/일 · 못 읽음 = 판정 불가 1줄 · 쓰기 0."""
     key, (attempt, holder) = "%s|noset|%s|%s" % (k.stamp()[:10], team, work), (latest(k, team) or {}).get(work, (None, None))
     tree = "" if team in k.skip or k.blocked(key) or not attempt else intent(k, team, work, attempt, holder).get("worktree") or ""
-    if not os.path.isdir(tree) or k.git(tree, "rev-parse", "--abbrev-ref", "HEAD")[1].strip() != "nano/" + work:
+    if not os.path.isdir(tree):
         return None
-    url, (cards, mapped) = k.git(tree, "config", "--get", "remote.origin.url")[1].strip(), k.resolve_card(team, work)
+    (brc, branch, _), (urc, url, _) = k.git(tree, "rev-parse", "--abbrev-ref", "HEAD"), k.git(tree, "config", "--get", "remote.origin.url")
+    if brc != 0 or urc != 0 or not url.strip():   # DA HOLD #314896 — 못 읽음(rc) ≠ 다른 가지(정상 결과)
+        return k.log("판정 불가", team, "%s 증거 줄 안내 0통 · git rev-parse rc %s · config remote rc %s" % (work, brc, urc))
+    if branch.strip() != "nano/" + work:
+        return None
+    url, (cards, mapped) = url.strip(), k.resolve_card(team, work)
     cards = [] if isinstance(cards, str) else [(r, p) for r, p in cards if mapped or os.path.basename(p) == work + ".md"] or [   # landing F1 이름 고르기
         (r, p) for r, p in cards if os.path.basename(p).startswith(work + "-") and p.endswith(".md")]
     rc, out, _ = k.call([k.env.get("FT2_GH") or "gh", "pr", "list", "-R", REPO.search(url).group(1) if REPO.search(url) else url, "--head", "nano/" + work,
