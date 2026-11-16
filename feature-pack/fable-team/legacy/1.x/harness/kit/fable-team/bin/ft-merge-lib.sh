@@ -40,8 +40,16 @@ fm_fetch_deadline_rem() {
   { [ -n "$d" ] && printf '%s' "$d" | grep -Eq '^[0-9]+$'; } || return 1
   echo $(( d - $(date +%s) ))
 }
-#   fm_tail_s <상한초> : r1389 — 착지 뒤 단계 1개(설치 대조 · 뒤처짐 알림)의 상한 = min(상한, FT_LAND_DEADLINE 남은 초) · 남은 ≤ 0 = 0(부른 쪽이 호출 0 — timeout 0 = 무한) · 마감 없음 = 상한 그대로
-fm_tail_s() { local r; r="$(fm_fetch_deadline_rem)" || { echo "$1"; return 0; }; [ "$r" -gt 0 ] || r=0; if [ "$r" -lt "$1" ] 2>/dev/null; then echo "$r"; else echo "$1"; fi; }
+#   fm_tail_s <상한초> : r1389 — 착지 뒤 단계 1개(설치 대조 · 뒤처짐 알림)의 상한 = min(상한, FT_LAND_DEADLINE 남은 초 − 3) · r2061: 3초 = 꼬리 뒤 마무리 여유(바깥 상한 전에 rc 를 낸다) · 결과 ≤ 0 = 0(부른 쪽이 호출 0 — timeout 0 = 무한) · 마감 없음 = 상한 그대로
+fm_tail_s() { local r; r="$(fm_fetch_deadline_rem)" || { echo "$1"; return 0; }; r=$((r - 3)); [ "$r" -gt 0 ] || r=0; if [ "$r" -lt "$1" ] 2>/dev/null; then echo "$r"; else echo "$1"; fi; }
+#   fm_tail_run <변수> <all|err> <명령…> : r2061 — 착지 뒤 단계 1개를 출력 pipe 없이 돌린다(상한 timeout 은 <명령> 안) · 출력 = 임시 파일(all = stdout+stderr · err = stderr 만, stdout 버림) → <변수>(끝 개행 제거 = $() 와 같은 값) · 파일은 끝에 지움
+#     배경으로 띄운 직접 자식 pid 만 wait — 손자(중첩 timeout 의 git fetch 등)가 파일을 잡고 남아도 기다리지 않는다(손자 종료 0) · rc = 명령 rc · mktemp 실패 = rc 125 + 빈 값(호출 0)
+fm_tail_run() {
+  local _v="$1" _m="$2" _f _rc; shift 2
+  _f="$(mktemp "${TMPDIR:-/tmp}/fm-tail.XXXXXX" 2>/dev/null)" || { printf -v "$_v" '%s' ''; return 125; }
+  if [ "$_m" = err ]; then "$@" 2>"$_f" >/dev/null & else "$@" >"$_f" 2>&1 & fi
+  wait "$!"; _rc=$?; printf -v "$_v" '%s' "$(cat "$_f" 2>/dev/null)"; rm -f "$_f"; return "$_rc"
+}
 #   fm_fetch_banner : 「오빠 예외 판정[ <N>] · 지정 <초>」 한 줄 — FT_FETCH_TIMEOUT_SEC 가 유효 지정일 때만(아니면 출력 0). N = FT_FETCH_EXCEPTION_ID(영숫자만 · 없으면 빈칸)
 fm_fetch_banner() {
   local id; [ "${FM_FETCH_SEC_VALID:-0}" = 1 ] || return 0
