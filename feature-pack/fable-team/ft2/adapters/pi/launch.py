@@ -4,7 +4,7 @@
 코어는 일을 기록할 뿐 좌석을 열지 않는다(`close_next`·`reopen` 의 «spawn·tmux = 호출자»). 그 호출자가 이 명령이다.
 ① journal·state 읽기만(잠금·쓰기 0)으로 «최신 dispatch»(holder · attempt)를 찾고 그 attempt 가 전달되지 않았으면 열지 않는다
 ② 열기 의도를 내용 든 원자 예약(link · pid 든 claiming · r1929)으로 «한 번만» 만들어 두 번째 호출을 0 으로 만든다 ③ 의도가 잡히면 git 3호출(worktree add --no-checkout --detach → sparse-checkout set → checkout · r1846) →
-`tmux new-session` 1회(-e K=V 5개 · 이미 뜬 서버의 새 pane 에도 env 가 간다). 실행권(claim·start)은 좌석 몫 ·
+`tmux new-session` 1회(-e K=V 5개 + FT_MBOX_DIR 1(r2050 · comm 실재 때만) · 이미 뜬 서버의 새 pane 에도 env 가 간다). 실행권(claim·start)은 좌석 몫 ·
 상한은 두 값이다(r1769): git·로컬 하네스 25초 · tmux(바깥 호출) 7초 · `--repo` 를 주면 그 리포에서 worktree 를 만든다 ·
 실패는 의도 줄에 단계 + rc2 «복구 필요»(자동 재시도 0) + 복구 2줄 · 결과 낱말은 계약 8낱말 밖 0 · 부르는 법:
     python3 adapters/pi/launch.py --root R --team T --work W [--worktree 경로] [--repo 경로] [--role 역할] [--base ref] [--dry-run | --resume]
