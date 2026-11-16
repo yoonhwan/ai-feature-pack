@@ -5,7 +5,57 @@ r2056 resolve_owner = due·landed 공통 차례 찾기(카드 팀 명부 → 0 �
 상태·보낸 기록·우편함 = 장부 루트 그대로(sub.state·sub.comm = 부른 ctx 것). 같은 루트 = 부른 ctx 그대로(git 호출 0 · r2071 묶음 판 불변)."""
 from __future__ import annotations
 
-from ft_nano_record import CARD_RX, Ctx, Reject, Unjudged, need
+import re
+
+from ft_nano_record import CARD_RX, Ctx, Reject, Unjudged, need, seq_dropped
+
+
+def shared(ctx):   # r2151 실행당 캐시 칸(sub Ctx = 부른 ctx 것을 같이 씀 · at)
+    return vars(ctx).setdefault("_r2151", {})
+
+
+def nanos_of(ctx, doc):   # r2151 O1 — owners 의 나노 목록(role nano ∧ _replaced_by 없음) = 명부 doc 마다 실행당 1회 · doc 를 쥐어 id 재사용 0
+    memo, k = shared(ctx).setdefault("nanos", {}), id(doc)   # r2151-mut:key
+    if k not in memo:   # r2151-mut:memo
+        memo[k] = (doc, {s: v for s, v in doc.items() if not s.startswith("_") and isinstance(v, dict) and v.get("role") == "nano" and not v.get("_replaced_by")})
+    return memo[k][1]
+
+
+def drops_scope(fn):   # r2151 O2 — due_rows 한 번 = 버림 원장 스냅샷 1개(judge 의 dropped 가 채움) · 끝나면 버림(notify close_request = seq_dropped 최신 읽기)
+    def scoped(ctx, *a, **k):
+        shared(ctx)["drops"] = {}
+        try:
+            return fn(ctx, *a, **k)
+        finally:
+            shared(ctx).pop("drops", None)   # r2151-mut:scope
+    return scoped
+
+
+def dropped(ctx, seq):   # r2151 O2 — judge 의 버림 판정 · 스냅샷 안 = 원장 1회 읽은 seqs 집합(숫자 토큰 정확 비교) · 스냅샷 밖·seq 없음 = seq_dropped 그대로(seq 없음 = 읽기 0)
+    snap = shared(ctx).get("drops")   # r2151-mut:snap
+    if snap is None or not seq:
+        return seq_dropped(ctx, seq)
+    if "seqs" not in snap:   # 평가당 읽기 1회 — 없음(아니오)·읽기 실패(seq_dropped 와 같은 Unjudged 문구)도 스냅샷에 기억
+        snap["seqs"], snap["err"] = set(), ""
+        try:
+            raw = (ctx.comm / "mailbox.drops.log").read_text(encoding="utf-8")
+            snap["seqs"] = {t for m in re.finditer(r"(?:^|\s)seqs=(\S*)", raw) for t in m.group(1).split(",")}
+        except FileNotFoundError:
+            pass
+        except (OSError, UnicodeDecodeError) as e:
+            snap["err"] = f"우편함 버림 원장 읽기 rc=1 — {type(e).__name__}"
+    if snap["err"]:
+        raise Unjudged(snap["err"])
+    return str(seq) in snap["seqs"]
+
+
+def seat_files(ctx):   # r2151 O3 — 같은 폴더 seats.json·seats-*.json → [(파일, 팀 이름)] = Ctx 마다 1회 glob(파일 이름 순)
+    ls = vars(ctx).get("_r2151_ls")
+    if ls is None:
+        ls = vars(ctx)["_r2151_ls"] = []
+        for p in sorted((ctx.root / ".fable-team").glob("seats*.json")):   # r2056-mut:cross
+            ls.append((p, "v65" if p.name == "seats.json" else p.name[6:-5] if p.name.startswith("seats-") else ""))
+    return ls
 
 
 def proxy_master(ctx, doc, team):   # r2039 A1 판정 한 곳(due 가 내보냄 · notify 받는 이·write 차례 좌석) — 그 팀 카드 ref 가지 = main → 팀장(차례 나노 대리) · 아니면 None · ref 읽기 실패 = Unjudged 그대로
@@ -34,6 +84,7 @@ def at(ctx, where):   # 카드 절대경로·장부 repo → 그 리포 Ctx(상�
     if key not in subs:
         subs[key] = sub = Ctx(roots[r])
         sub.state, sub.comm, sub.fetch, sub._seats = ctx.state, ctx.comm, ctx.fetch, ctx._seats   # r2129: 명부 캐시 공유(due 두 판 · 외부 리포)
+        vars(sub)["_r2151"] = shared(ctx)   # r2151: nanos·버림 스냅샷 공유(명부 파일 목록 = 제 루트)
     return subs[key]
 
 
@@ -65,8 +116,7 @@ def resolve_owner(ctx, team, doc, stem, sec):   # r2056 A1~A5 — 차례(owners)
             print(m, flush=True)
     if own:   # r2056-mut:stop
         return doc, own   # A2 — 다른 명부 읽기 0
-    for p in sorted((ctx.root / ".fable-team").glob("seats*.json")):   # r2056-mut:cross
-        name = "v65" if p.name == "seats.json" else p.name[6:-5] if p.name.startswith("seats-") else ""
+    for p, name in seat_files(ctx):   # r2151 O3
         if not name or name == team:
             continue
         try:
