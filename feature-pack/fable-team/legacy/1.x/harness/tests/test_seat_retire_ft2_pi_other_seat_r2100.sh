@@ -75,7 +75,7 @@ rows = {n: {"role": "nano", "agent": "pi", "model": "og/m1", "tick": None} for n
 rows[sys.argv[9]]["_replaced_by"] = "byz-room-arch-pi#90"
 json.dump(dict(_master="byz-room-master-pi#49", **rows), open(sys.argv[1], "w"), ensure_ascii=False)
 PY
-E_() { (cd "$R" && env PATH="$T/fake:$PATH" TM="$TM" FT_TMUX="$T/fake/tmux" HOME="$T/home" ZC_RESUME_DIR="$T/resume" FT_PI_SESSIONS="$PS" \
+E_() { (cd "$R" && PATH="$T/fake:$PATH" TM="$TM" FT_TMUX="$T/fake/tmux" HOME="$T/home" ZC_RESUME_DIR="$T/resume" FT_PI_SESSIONS="$PS" \
   FT_SEAT_REAP_BIN="$T/bin/ft-seat-reap.sh" FT_SEAT_QUIESCE_BIN="$T/bin/ft-seat-quiesce.sh" "$@" 2>&1); }
 ret() { rm -f "$T/resume/"*; E_ bash "${BD:-$T/bin}/ft-seat-retire.sh" "$@" --seats "$S"; }
 fp() { md5 -q "$S" 2>/dev/null || md5sum "$S" | cut -d' ' -f1; }
