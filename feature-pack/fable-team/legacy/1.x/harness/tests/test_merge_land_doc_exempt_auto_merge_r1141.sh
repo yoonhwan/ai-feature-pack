@@ -14,6 +14,7 @@ T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 SEAT='byz-planner-master-claude#105'   # 문서 면제 판정 좌석(임시 명부의 planner _master · test_doc_exempt_r725.sh 꼴)
 mkrepo "$T"; mkdir -p "$T/state" "$W/.fable-team" "$T/fakebin"
 printf '.fable-team/\n' >> "$W/.git/info/exclude"
+mkdir -p "$W/design"; printf '| 팀 | 폴더 | 상태 | 명부 |\n|---|---|---|---|\n| planner | `design/planner/` | 현역 | |\n' > "$W/design/TEAMS.md"; printf '/design/TEAMS.md\n' >> "$W/.git/info/exclude"   # r2086: r1907 명부 이름 = TEAMS.md «명부» 칸(빈 칸 = seats-<팀>.json) · exclude = PR 파일 밖
 python3 -c 'import json,sys;json.dump({"_master":sys.argv[1]},open(sys.argv[2],"w"))' "$SEAT" "$W/.fable-team/seats-planner.json"
 printf '#!/bin/bash\n[ "$1" = display-message ] && { printf "%%s" "%s"; exit 0; }\nexit 1\n' "$SEAT" > "$T/fakebin/tmux"; chmod +x "$T/fakebin/tmux"
 export FT_ROOT="$W" FT_AUTONOMY_STATE_DIR="$T/state" FT_SEAT="$SEAT" FT_GH="$T/gh-stub" FT_GH_WRITE="$T/gh-stub" STUB_LOG="$T/gh.log" STUB_JSON="$T/pr.json" FT_MERGE_DENY_FILE="$T/deny.txt" FT_INSTALL_CHECK="$T/install-stub"
