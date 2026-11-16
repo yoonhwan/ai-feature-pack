@@ -17,6 +17,22 @@ def shell(world, command, *args, script="ft-seat-status.sh", env=None):
                           env=env, capture_output=True, text=True, timeout=7)
 
 
+@pytest.fixture
+def close_world(world, tmp_path, monkeypatch):  # r2144: r1481 판정 원장 관문용 임시 git ref(origin/main 없음 · 관문 mock 0)
+    tmux = tmp_path / "tmux"  # r1839 attached = 사람 화면 0 · r1568 final = 가짜 kill 뒤 세션 없음
+    tmux.write_text(tmux.read_text().replace("*) exit 1;;", "display-message) echo 0;;\n"
+                                             "has-session) [ ! -f \"$FT_ROOT/killed\" ];;\n*) exit 1;;"), encoding="utf-8")
+    planner = tmp_path / "design/teams/planner"
+    planner.mkdir(parents=True)
+    (tmp_path / "design/TEAMS.md").write_text("| 팀 | 폴더 |\n|---|---|\n| planner | `design/teams/planner/` |\n", encoding="utf-8")
+    (planner / "VERDICTS-planner-synthetic.md").write_text("| 123 | synthetic |\n", encoding="utf-8")
+    git = ["git", "-C", str(tmp_path), "-c", "user.name=t", "-c", "user.email=t@t", "-c", "core.hooksPath=/dev/null",
+           "-c", "commit.gpgsign=false"]
+    for args in (["init", "-q", "-b", "synthetic-ledger"], ["add", "design"], ["commit", "-qm", "ledger"]):
+        subprocess.run(git + args, check=True, capture_output=True, timeout=7)
+    monkeypatch.setenv("FT_TEAMS_REF", "synthetic-ledger")
+
+
 def test_seat_status_all_modes(world):
     path = write(world, [message(stopReason="stop")])
     os.utime(path, (1, 1))
@@ -109,7 +125,7 @@ def test_retire_records_only_bound_session_and_rejects_stale_keep(world, tmp_pat
     assert result.returncode != 0 and saved.read_bytes() == before
 
 
-def test_close_rejects_ambiguous_pi_without_roster_write_or_kill(world, tmp_path):
+def test_close_rejects_ambiguous_pi_without_roster_write_or_kill(world, tmp_path, close_world):
     write(world, [message(stopReason="stop")])
     write(world, [message(stopReason="stop")], name="ambiguous")
     roster = world[2] / "seats.json"
@@ -120,7 +136,7 @@ def test_close_rejects_ambiguous_pi_without_roster_write_or_kill(world, tmp_path
     assert roster.read_bytes() == before and "HELD" in result.stdout
 
 
-def test_close_success_uses_bound_file_with_fake_kill(world, tmp_path):
+def test_close_success_uses_bound_file_with_fake_kill(world, tmp_path, close_world):
     path = write(world, [message(stopReason="stop")])
     tmux = tmp_path / "tmux"
     body = tmux.read_text().replace("*) exit 1;;", "has-session|show-options|set-option) exit 0;;\nkill-session) echo fake-kill >> \"$FT_ROOT/killed\";;\n*) exit 1;;")
