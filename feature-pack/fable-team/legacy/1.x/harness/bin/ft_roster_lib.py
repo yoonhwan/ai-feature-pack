@@ -94,9 +94,9 @@ def held_roles(dd, keys, new):   # r499 후계가 맡는(맡을) 역할 칸 — 
 
 
 def succ_role(o, cells, name):   # r499 후계 role — 옛 role(stop-ready 아니면) → 옛 _retired_role → 역할 칸(cells 순) 이름 → 이름 토큰(byz-<팀>-<역할>-<에이전트>#N) · 다 없으면 stop-ready(추측 0)
-    if o.get("role") != "stop-ready": return o.get("role")
+    if o.get("role") != "stop-ready": return (role_tok(name) or "nano") if o.get("role") == "nano" else o.get("role")   # r2133 R1 옛 role nano ∧ 이름 토큰 상주 역할 = 토큰
     r = o.get("_retired_role")
-    if isinstance(r, str) and r and r != "stop-ready": return r
+    if isinstance(r, str) and r and r != "stop-ready": return (role_tok(name) or "nano") if r == "nano" else r   # r2133 R1 _retired_role 갈래도 같음
     for k in cells:
         if k in ROLES: return k[1:]
     t = (name_cell(name) or "").split("-")[0]   # r1641 석 칸이 있어도 역할 = 칸의 역할 부분
