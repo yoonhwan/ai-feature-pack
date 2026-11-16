@@ -1,5 +1,5 @@
 """r2113 ft2 keeper 다음 카드 — 카드 머리 «- 재개: <로컬 시각>» 이 최신 attempt intent · 착지 sha committer 시각보다 뒤면 «착지»·«전달됨» 으로 막지 않음 ·
-40자 넘게 잘리는 stem 의 나노 이름 = 앞 33자 + «-» + sha1(stem) 6자(원장 seat 이 먼저) · 옛 40자 이름 세션도 이름겹침 (반례 ①~⑧ · 변이 M1~M7).
+40자 넘게 잘리는 stem 의 나노 이름 = 앞 33자 + «-» + sha1(stem) 6자(원장 seat 이 먼저) · 옛 40자 이름 세션도 이름겹침 (반례 ①~⑧ · ⑩ ⑪(DA #318934 R1 R2) · 변이 M1~M9).
 대역 = r2111 세계(r1871 world · 임시 root·git·가짜 tmux·launch·record · launch/<work>@<att>.intent · card-assign 원장 json).
 실 tmux·명부·ft2 원장·우편함·설치 0 · sleep 0. 기준판 = ① ⑥ Red(착지 카드 재개 0 · 잘린 이름 같음).
 """
@@ -126,14 +126,29 @@ def c8c(w, mp):   # ⑧ 셋째 칸 — 둘 다 없음 → 고름 · 새 이름(�
     assert base.launched(w) == [L121] and holders == {tail(L121)} and skip(lines, L121, "이름겹침") == [], (holders, lines)
 
 
-CASES = {"①": c1, "②": c2, "③": c3, "③'": c3b, "④": c4, "⑤": c5, "⑥": c6, "⑦": c7, "⑧": c8, "⑧'": c8b, "⑧''": c8c}
+def c10(w, mp):   # ⑩ DA #318934 R1 — 착지 sha 객체 없음(미도달) · a1 at 15:37 · 재개 16:00 → 착지 시각 못 읽음 = 막음 그대로 · launch 0 · «판정 불가» 1줄
+    hand(w, S, DAY + "15:37:00")
+    card(w, S, "- 착지: " + "f" * 40, "- 재개: " + DAY + "16:00:00")
+    lines = w.round()
+    assert base.launched(w) == [] and len([x for x in lines if x.startswith("판정 불가 harness %s" % S) and "committer" in x]) == 1, lines
+
+
+def c11(w, mp):   # ⑪ DA #318934 R2 — 재개 값 뒤 문구(«16:28:00 어제쯤») = 꼴 깨짐 → 착지 막음 그대로 · launch 0
+    landed_card(w, mp, DAY + "16:28:00 어제쯤")
+    lines = w.round()
+    assert base.launched(w) == [] and len([x for x in lines if x.startswith("판정 불가 harness %s" % S) and "재개" in x]) == 1, lines
+
+
+CASES = {"①": c1, "②": c2, "③": c3, "③'": c3b, "④": c4, "⑤": c5, "⑥": c6, "⑦": c7, "⑧": c8, "⑧'": c8b, "⑧''": c8c, "⑩": c10, "⑪": c11}
 MUTANTS = {"M1": (" or end >= at", "", ("②",)),
            "M2": ("            if t >= at:\n                return False\n", "", ("③",)),
            "M3": ("back[-1].split", "back[0].split", ("⑤",)),
            "M4": ('        if led.get("state") == "seat" and isinstance(led.get("seat"), str) and led["seat"]:\n            return led["seat"]\n', "", ("⑦",)),
            "M5": ("sha1(stem.encode", "sha1(stem[:40].encode", ("⑥",)),
            "M6": ("x.lower() in olds or ", "", ("⑧",)),
-           "M7": ("x.lower() in olds or ", "x not in olds0 and x.lower() in olds or ", ("⑧'",))}
+           "M7": ("x.lower() in olds or ", "x not in olds0 and x.lower() in olds or ", ("⑧'",)),
+           "M8": ("    if landed[0]:", "    if landed[0] and not landed[2]:", ("⑩",)),   # DA #318934 R1 — 미도달 sha 시각 검사 건너뜀
+           "M9": ("time.strptime(val, ", "time.strptime(val.split()[0] if val else \"\", ", ("⑪",))}   # DA #318934 R2 — 뒤 문구 버림
 
 
 def run(name, tmp, mp, ft2=kw.FT2):
