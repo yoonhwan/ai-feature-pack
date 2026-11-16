@@ -102,7 +102,9 @@ def plan_of(folder, tag, root, team, holder, role_argv, worktree, repo, env, bod
     """의도·워크트리·열기 argv — `--detach`(가지 몰래 만들기 0) · git 은 `-C <repo>`(A2) · pi argv 는 역할 표 그대로(A5).
     git argv 끝 = 기준 ref 이름(r1780) — dry-run 은 이 이름 그대로 보이고, 실제 실행은 `at_sha` 로 확인한 sha 로 바꾼다."""
     path = os.path.abspath(worktree or os.path.join(root, ".fable-team", "teams", team, "worktrees", tag))
-    pairs = [word for key, value in env.items() for word in ("-e", key + "=" + value)]
+    box = os.path.join(root, ".fable-team", "comm")   # r2050 좌석 우편함 = FT2_ROOT 것 · 실재 폴더일 때만(부모 env 값 물려주기 0)
+    mbox = [("FT_MBOX_DIR", box)] if os.path.isdir(box) else []
+    pairs = [word for key, value in list(env.items()) + mbox for word in ("-e", key + "=" + value)]
     pi, hit = pi_path(os.environ.get("PATH")), mapped_card(root, team, env.get("FT2_WORK", ""))   # r2030 짝 표 카드 폴더만 sparse 에 더함
     return {"intent": os.path.join(folder, tag + ".intent"), "worktree": path,
             "git": ["git", "-C", repo, "worktree", "add", "--no-checkout", "--detach", path, base],
@@ -110,6 +112,7 @@ def plan_of(folder, tag, root, team, holder, role_argv, worktree, repo, env, bod
             "sparse": ["git", "-C", path, "sparse-checkout", "set", "--no-cone", "/*", "!/design/teams/*/", "/design/teams/%s/" % team] + (["/%s/" % WAIT.match(hit[2]).group(1)] if hit else []),
             "checkout": ["git", "-C", path, "checkout", "-q"],
             "tmux": ["tmux", "new-session", "-d", "-s", holder, "-c", path] + pairs + [pi or "pi"] + ["-e", seat_tools(), "--approve"] + list(role_argv) + [body],
+            "mbox": "FT_MBOX_DIR=" + box if mbox else "우편함 명시 0 — %s 없음" % box,
             "pi_bin": pi, "alive": ["tmux", "has-session", "-t", "=" + holder]}   # r1892: new-session rc0 뒤 1회
 
 
