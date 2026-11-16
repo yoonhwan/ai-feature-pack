@@ -2,7 +2,8 @@
 
   ft_board_news.py --collect <collect dict> --last <news-last.json> --body <본문 출력> --state <새 news-last 출력>
   stdout 1줄: «POST» = 본문·새 상태를 썼다(발행은 부르는 쪽) · «변화 없음 …» · «디바운스 …» = 발행 0 · rc≠0 = 본문 못 만듦
-열쇠 = 골 진행 (번호·n·m) · 팀 카드 수 (대기·진행·완성) · 열린 팀 세션 (이름·카드·단계) — 시각·유휴 분·BUSY/IDLE 은 넣지 않는다.
+열쇠 = 근거 줄 · 바뀐 것 줄 · «다음» 칸을 뺀 본문 줄(r2095 · 골 · 승인 대기 · 확인 불가 팀) — 끝난 일이 있으면 열쇠가 같아도 발행.
+팀 카드 수 · 좌석 열림 · 대기↔진행 이동 · 시각은 열쇠에 없다(같은 글 0통).
 골 진행 정본 = env FT_GOAL_PROGRESS_MD(파일 | gitref:<ref>:<경로> · 기본 gitref:origin/main:design/teams/planner/PLAN-oppa-ledger.md) «## 골 진행» 첫 표.
 도구는 골 진행 수를 만들지 않는다 — 표가 없으면 «골 진행 표 없음» 1줄 · 수가 이상하면 «수 판독 불가».
 """
@@ -16,11 +17,10 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from ft_board_news_body import NO_TABLE, body, changes, goal_line, seat_short  # noqa: F401 — 본문 그리기(r2095 분리 · 옛 이름 시험 호환)
+from ft_board_news_body import MAX_BYTES, NO_TABLE, body, news, stale_warns, standing
 from ft_board_news_name import card_disp, titles  # noqa: F401 — card_disp = 옛 이름(시험 호환)
 
 DEBOUNCE_S = 300
-MAX_BYTES = 3500
 DEFAULT_MD = "gitref:origin/main:design/teams/planner/PLAN-oppa-ledger.md"
 FOLDERS = ("대기", "진행", "완성")
 CLOSED = ("닫힘", "은퇴", "정지(세션 없음)")  # SeatCells text — 명부상 닫힌 좌석 = 열린 세션 아님(A6 · DA R2)
@@ -102,9 +102,8 @@ def snapshot(d: dict, rows: list | None, prev: dict | None = None) -> dict:
     return snap
 
 
-def key(s: dict) -> dict:
-    return {"goals": [[r[0], r[2], r[3]] for r in s["goals"]] if s["goals"] else None,
-            "counts": s["counts"], "sessions": {n: v[1:] for n, v in s["sessions"].items()}}
+def key(s: dict) -> list[str]:
+    return standing(s)
 
 
 def main() -> int:
@@ -117,9 +116,12 @@ def main() -> int:
     rows = goal_rows(text)
     if rows is None:
         print(f"WARN ft_board_news: {NO_TABLE} — 골 줄 없이 발행", file=sys.stderr)
+    for w in stale_warns(rows):
+        print(w, file=sys.stderr)
     last = json.loads(Path(a.last).read_text(encoding="utf-8")) if Path(a.last).is_file() else None
     cur = snapshot(d := json.loads(Path(a.collect).read_text(encoding="utf-8")), rows, last and last.get("snap"))
-    if last and last.get("key") == key(cur):
+    done = any(ids for _, ids in news(last and last.get("snap"), cur, lambda team, cid: cid))
+    if last and last.get("key") == key(cur) and not done:
         print("변화 없음 — 발행 0")
         return 0
     if last and (gap := (now - datetime.fromisoformat(last["at"])).total_seconds()) < DEBOUNCE_S:
