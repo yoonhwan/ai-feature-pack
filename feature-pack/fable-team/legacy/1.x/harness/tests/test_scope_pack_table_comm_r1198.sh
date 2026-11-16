@@ -30,5 +30,5 @@ ck "ⓓ R5 bin → code pack-bin" "$H/bin/ft-hil.sh code pack-bin"
 ck "ⓓ R5 tests → code pack-tests" "$H/tests/x.sh code pack-tests"
 ck "ⓓ R5 evidence → docs pack-evidence" "$H/evidence/y.md docs pack-evidence"
 ck "ⓓ R5 리포 밖 README.md → forbid repo-outside" "README.md forbid repo-outside"
-ck "ⓔ 표 꼴 · 줄 23개(origin/main 22 = r1583·r1588·r1866·r1934·r2009 누적 · r2018 pack-ctx 1 추가)" "ROWS 23"
+ck "ⓔ 표 꼴 · 줄 24개(origin/main 23 = r1583·r1588·r1866·r1934·r2009·r2018 누적 · r2099 pack-harness-pi 1 추가)" "ROWS 24"
 echo "fail=$fail"; [ "$fail" = 0 ]
