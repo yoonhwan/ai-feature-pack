@@ -156,6 +156,9 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
     def stage_card(self, team, work):
         """r2026 — STAGED·NOOP = 끝 · Unsure = 쓰기 0 + 다음 바퀴 재시도(같은 work · 하루 3회 상한)."""
         book, key, day = self.state.setdefault("staging", {}), team + "|" + work, self.stamp()[:10]
+        if key in self.state.setdefault("staged", {}) or key in self.tried:   # r2140 K3 성공 기억 · DA ⓐ 한 바퀴 같은 work 1회
+            return None
+        self.tried.add(key)
         n = book[key][1] if book.get(key, [None])[0] == day else 0   # 날이 바뀜 = 0부터
         if n >= 3:
             return None
@@ -180,6 +183,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         finally:
             self.cs.spawn = real
         book.pop(key, None)
+        self.state["staged"][key] = day   # r2140 K3 STAGED·NOOP = 기억(state.json · Unsure·DEFER 는 0)
         return self.log("CARD-STAGE", team, "%s %s %s" % (work, out[1], out[2])) if out else self.log("NOOP", team, work + " 이미 완성")
 
     @staticmethod
@@ -426,6 +430,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         self.start, self.skip = time.monotonic(), self.skipped()   # r2098 R1 예산 시계 = 바퀴 시작 벽시계(주입 시계)
         self.sect, self.items, self.total, self.cut, self.cut_pos, self.prev_cursor, self.curs = WORK_S, 0, 0, "-", None, None, None
         self.jrows, self.ws, self.order, self.report_seat, self.nano_dl, self.unused = {}, {}, [], None, None, set()
+        self.tried = set()   # r2140 DA ⓐ 이 바퀴에 card_stage 를 부른 team|work
         self.prev_cursor = dict(self.state.get("cursor") or {}) or None   # R5 «같은 자리 2바퀴 연속» 을 세려고 남긴다
         self.deferred = {}   # R8 쪽지 몫(notify_used · send_fails · send_stop)은 바퀴 끝에서 되돌린다(한 바퀴 3통 · 시간 초과 2회)
         self.halt, self.unknown, self.orphan_scope = self.stopped(), 0, set()   # r2055 orphan_scope = 고아 길이 판정한 팀(S1) 정지 = 판정·[긴급]·«예정» 만 · kill·park·깨움·fill·B3 0
@@ -544,6 +549,8 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         self.parked_failed = {(team, rec["work"], rec.get("attempt")) for rec in rows if rec.get("kind") == "parked" and rec.get("reason") == settling.LAUNCH_FAILED}   # r2058 L1
         for work, (attempt, dispatched) in sorted(latest.items()):
             if "%s|%s@%s" % (team, work, attempt) in self.state["handled"] or (work, attempt) in back:
+                if (work, attempt) in back and (proj["works"].get(work) or {}).get("done"):
+                    self.timed("b1", self.stage_card, team, work)   # r2140 K2
                 continue   # r1990 반환·r2055 쉼인 최신 attempt = B1 complete·판정·깨움 0(새 dispatch 면 attempt 가 달라 다시 본다)
             self.at_work, row, self.why = work, proj["works"].get(work) or {}, ""   # r2055 판정 줄 꼬리 = 이 work 의 착지 판정 사유
             try:
@@ -577,6 +584,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
                 return "close"
             return self.stall_pos(team, work, attempt, dispatched, row, rows, "")
         if row.get("done"):   # 착지면 complete 만 = close 자리
+            self.timed("b1", self.stage_card, team, work)   # r2140 K1
             self.unused.add((team, work, "stall"))
             endings.evidence_notice(self, team, work)   # r2088 증거 줄 없음 안내(close 바로 앞 · 쓰기 0)
             return "close"
