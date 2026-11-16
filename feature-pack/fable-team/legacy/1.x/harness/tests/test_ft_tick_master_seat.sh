@@ -10,6 +10,10 @@ FX="$HERE/fixtures"
 TICKS=("$ROOT/harness/bin/ft-tick.sh" "$ROOT/harness/bin/ft-tick-team.sh")
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/comm"   # r691: 틱은 comm 폴더가 없으면 rc1(r459 ft_comm_dir) — 임시 comm 을 FT_MBOX_DIR 로(실 루트 comm 0)
+# r2148 S2: 자기 임시 데이터 루트 — 시험 팀 행 1개 TEAMS.md · 그 명부(_master·_cards) · 카드 폴더(실 루트·실 TEAMS.md 0)
+export FT_ROOT="$TMP/root"; mkdir -p "$FT_ROOT/.fable-team" "$FT_ROOT/design/t27/indices"
+printf '| 팀 | 폴더 | 오케 | 상태 | 명부 |\n|---|---|---|---|---|\n| t27 | `design/t27/` | x | 현역 | seats-t27.json |\n' > "$FT_ROOT/design/TEAMS.md"
+printf '%s' '{"_master": "T#2", "_cards": "design/t27/indices", "T#2": {"role": "master"}}' > "$FT_ROOT/.fable-team/seats-t27.json"
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
