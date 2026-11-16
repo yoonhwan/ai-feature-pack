@@ -6,13 +6,14 @@
 #   ④ BUDGET=12 · hil · launchctl 7초 잠 · send 6초 뒤 성공 → «완료쪽지 → (3줄)» (T3)
 #   ⑤ 정상 틱 → «초:» 줄 1개 · 칸 7개 · 그 다음 줄 = 마지막 «결정 필요: N» (T4)
 #   ⑥b 결속 불일치 + LOG 에 이 회차 줄 → send 0 · 늦은 확인 0 · 완료쪽지 줄 0 (T5 · 나머지 T5 = 기존 시험 재실행)
+#   ⑦ 예산 0(r1462 T13) × T4 → hil·ps·send 호출 0 · «초:» 6칸 모두 «-» (DA #322039 HOLD 보정)
 # 전부 합성(임시 루트 · 가짜 mbox·hil·launchctl·ps · 고정 NOW) · 실 우편함·실 launchctl·실 tmux 0.
 # 잠은 시험 대상 계약(7초 상한)을 재는 가짜 명령 안에만 있다.
-# env: R2137_BIN = 시험할 bin 폴더(변이 사본·기준판용) · R2137_CASES = 돌릴 사례(기본 "1 2 3 4 5 6")
+# env: R2137_BIN = 시험할 bin 폴더(변이 사본·기준판용) · R2137_CASES = 돌릴 사례(기본 "1 2 3 4 5 6 7")
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 S="${R2137_BIN:-$HERE/../bin}/ft-desk-tick.sh"
-CASES=" ${R2137_CASES:-1 2 3 4 5 6} "
+CASES=" ${R2137_CASES:-1 2 3 4 5 6 7} "
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
@@ -133,6 +134,15 @@ if has 6; then
   [ "$(ncalls)" = 0 ] && ok "⑥b 결속 불일치 → send 0" || bad "⑥b send $(ncalls)회"
   printf '%s\n' "$out" | grep -q '^완료쪽지' && bad "⑥b 완료쪽지 줄이 있다: $(flat "$out")" || ok "⑥b 늦은 확인 0 · 완료쪽지 줄 0"
   printf '%s\n' "$out" | grep -qx '결속 판정 불가 rc=9' && [ "$rc" -eq 1 ] && ok "⑥b 결속 판정 불가 rc=9 · rc1" || bad "⑥b $(flat "$out") rc=$rc"
+fi
+
+if has 7; then
+  reset "$DESK"
+  out="$(FT_DESK_TICK_BUDGET=0 run)"; rc=$?
+  [ "$(ncalls)" = 0 ] && ok "⑦ 예산 0 → send 0" || bad "⑦ send $(ncalls)회"
+  sl="$(printf '%s\n' "$out" | grep '^초: ')"
+  printf '%s\n' "$sl" | grep -qE '^초: ① - · ② - · ③ - · ④ - · ⑤ - · ⑥ - · 전체 [0-9]+/0$' && ok "⑦ 실행 0 → 초 칸 6개 모두 «-»: $sl" || bad "⑦ 초 줄: $sl"
+  [ "$rc" -eq 1 ] && ok "⑦ rc1" || bad "⑦ rc=$rc"
 fi
 
 [ "$fail" -eq 0 ] && echo "ALL PASS" || echo "FAILED $fail"
