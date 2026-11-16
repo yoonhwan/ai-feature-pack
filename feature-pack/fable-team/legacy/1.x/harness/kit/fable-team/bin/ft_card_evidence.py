@@ -14,7 +14,7 @@ from ft_nano_record_write import apply, lock
 
 
 def judge(a):   # 단계 0~3 — 거절 = Reject · git·gh 실패 = Unjudged
-    for bad, why in ((any("-nano-" in os.environ.get(k, "") for k in ("FT2_HOLDER", "FT_SEAT_NAME")), "나노 좌석 = D2 좌석 아님"), (not re.fullmatch(r"[0-9a-f]{40}", a.set), "--set 이 40hex 아님")):
+    for bad, why in ((any("-nano-" in os.environ.get(k, "") for k in ("FT2_HOLDER", "FT_SEAT_NAME")), "나노 좌석 = D2 좌석 아님"), (not re.fullmatch(r"[0-9a-f]{40}", a.set), "--set 이 40hex 아님"), (bool(re.search(r"[\r\n]", a.test)), "--test 에 줄바꿈(CR·LF) — 한 줄만")):
         if bad:
             raise Reject(why)
     check_test(a.test)
