@@ -203,10 +203,11 @@ def finish(plan, env, steps, repo, sha, keep):
         if new:
             made = dict(add_ok=True, path_new=True)
             write_intent(plan["intent"], dict(read_intent(plan["intent"]), **made))
-    rc, detail = call(plan["tmux"], None, dict(os.environ, **env), TMUX_TIMEOUT)
+    bare = {k: v for k, v in os.environ.items() if k != "FT_MBOX_DIR"}   # r2050 A6 부모 우편함 값 끊기 · 좌석 값은 argv -e 칸으로만
+    rc, detail = call(plan["tmux"], None, dict(bare, **env), TMUX_TIMEOUT)
     if rc != 0:
         return failed(plan, env, "tmux", detail, repo)
-    rc, detail = call(plan["alive"], None, dict(os.environ, **env), TMUX_TIMEOUT)   # r1892: 살아 있음 1회
+    rc, detail = call(plan["alive"], None, dict(bare, **env), TMUX_TIMEOUT)   # r1892: 살아 있음 1회
     if rc != 0:
         return failed(plan, env, "tmux 즉시 종료", "세션 없음 — pi 실행 실패(PATH·인증) 의심 · %s" % (detail or "진단 없음"), repo)
     write_intent(plan["intent"], dict(env, state="opened", role=item["role"], worktree=plan["worktree"], base=base, base_sha=sha, body_mark=mark, at=time.strftime(STAMP)))
@@ -214,7 +215,7 @@ def finish(plan, env, steps, repo, sha, keep):
     hook = os.path.join(repo, ".git", "hooks", "post-checkout")   # r1967 ② cairn reconcile = 열기 «뒤» 1회 · 따로 25초 · 실패해도 열기 결과 그대로
     ran = "rc %s" % call([hook, "0" * 40, sha, "1"], plan["worktree"], None, GIT_TIMEOUT)[0] if os.access(hook, os.X_OK) else "hook 없음"
     return dict(result=OK, opened=True, work=env["FT2_WORK"], attempt=env["FT2_ATTEMPT"], holder=env["FT2_HOLDER"],
-                worktree=plan["worktree"], intent=plan["intent"], reconcile=ran, roster=note), 0
+                worktree=plan["worktree"], intent=plan["intent"], reconcile=ran, roster=note, mbox=plan["mbox"]), 0   # r2050 A5
 
 
 def main(argv):
