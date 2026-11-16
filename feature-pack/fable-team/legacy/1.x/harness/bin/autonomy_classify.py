@@ -5,9 +5,9 @@
   autonomy_classify.py da-check <DA⑥ 판정문> <40hex sha>     push-merge 근거: «마지막 판정 머리» 가 APPROVE ∧ 그 절의 «고정 세트» 줄이 sha
 
 출력 한 줄: `PROXY` (rc 0) | `QUEUE <사유>` (rc 2). 판정기 실패·인자 오류도 QUEUE (대리 쪽으로 새지 않는다 · #0 RULE).
-대리 가능 종류는 다섯 가지뿐 — `reversible-choice` 는 오빠 값(판정 1322)으로 넣지 않는다(모르는 종류 = QUEUE).
+대리 가능 종류는 여섯 가지뿐 — `reversible-choice` 는 오빠 값(판정 1322)으로 넣지 않는다(모르는 종류 = QUEUE).
 `push-merge` 는 오빠 값(판정 1675)이라 항상 QUEUE — 병합 승인은 `ft-autonomy.sh approve-merge`(오빠 `!`)뿐이다.
-`nano-reopen`·`docs-push`·`wt-clean` 의 근거 검증은 ft-proxy-decide.sh 가 하고 판정기는 종류·제외 어휘만 본다.
+`nano-reopen`·`docs-push`·`wt-clean`·`seat-close` 의 근거 검증은 ft-proxy-decide.sh 가 하고 판정기는 종류·제외 어휘만 본다.
 제외 어휘는 종류 선언과 무관하게 글에 있으면 QUEUE — 오탐은 QUEUE(안전한 쪽)로만 난다.
 `--plan-text`(R410 · 판정 2326) = ft-nano-close 가 만든 wt-clean 계획 본문: 주석 줄(# …)은 빼고 실행 줄만 같은 표로 본다.
   단 [삭제] 는 계획 자신의 일(임시 파일 rm · 브랜치 보존 워크트리 정리 = 2026-09-25 표준승인)이라 실행 줄에선 세지 않는다 — 브랜치 삭제·force·kill 등 나머지는 그대로 QUEUE.
@@ -15,7 +15,7 @@
 import re
 import sys
 
-PROXY_KINDS = ("card-start", "press-order", "nano-reopen", "docs-push", "wt-clean")
+PROXY_KINDS = ("card-start", "press-order", "nano-reopen", "docs-push", "wt-clean", "seat-close")
 QUEUE_ONLY = {"push-merge": "main 병합·main push = 오빠 값(판정 1675)"}
 
 # (이름, 정규식) — 하드 룰 2 파괴·비가역 + 설계 §3 절대 제외. 표본 시험: tests/harness/fixtures/autonomy-exclusions.tsv
@@ -35,6 +35,8 @@ EXCLUDE = [
     ("오빠 원문과 다른 설계", r"원문과\s*다른|원문.{0,6}(변경|바꾸)|오빠\s*원문.{0,10}다른"),
 ]
 _COMPILED = [(name, re.compile(rx, re.IGNORECASE)) for name, rx in EXCLUDE]
+# r2075 C4 — 종류별로 바꾸는 제외 줄: seat-close(수동 닫기 지원)만 낱말 «kill» 을 허용 · kill-server·pkill·죽이 와 나머지 줄은 그대로
+KIND_EXCLUDE = {"seat-close": {"kill": re.compile(r"\bkill-server\b|\bpkill\b|죽이", re.IGNORECASE)}}
 PLAN_OWN = ("삭제",)  # wt-clean 계획 실행 줄에서만 세지 않는 이름 — 위 --plan-text 설명
 
 
@@ -44,9 +46,10 @@ def classify(kind: str, texts: list[str], plans: tuple[str, ...] = ()) -> tuple[
         return "QUEUE", QUEUE_ONLY[kind]
     if kind not in PROXY_KINDS:
         return "QUEUE", "대리 가능 종류 아님: %s" % kind
+    own = KIND_EXCLUDE.get(kind, {})
     for text in texts:
         for name, rx in _COMPILED:
-            if rx.search(text):
+            if own.get(name, rx).search(text):
                 return "QUEUE", "제외 어휘 [%s]" % name
     for plan in plans:
         body = "\n".join(ln for ln in plan.splitlines() if not ln.lstrip().startswith("#"))

@@ -7,6 +7,7 @@
 #   R400 «역할 좌석 닫기» `--verdict <번호>`(판정 2304 — 사람 승인 1건의 번호): ⓪실행 세션 == 좌석 → REJECT ①재개 기록(ft-seat-retire --record-only --verdict · env FT_SEAT_RETIRE_BIN) 실패 = HELD rc 3(명부 쓰기 0 · kill 0) ②행 있음 → 위 표기 + _closed.verdict + 어느 명부든 값 == 좌석인 최상위 `_*` 문자열 칸 "" (파일마다 .bak-close-<ts> · tmp→mv) · 행 없음 = NOROW rc 3(kill 0 · 그 리포 루트에서) ③lineage_ok 건너뜀 → 태그 해제 → kill · 원장 <ft_data_root>/.fable-team/state/seat-close-verdict.log 1행/좌석. --verdict 없는 호출은 위 동작 그대로.
 #   r1319 close-check C7 — [인계] 는 보냈는데 retire 를 안 돌린 채 닫으려 하면 close-check 가 REJECT 한다. 면제 = --verdict(사람 판정 1건 · R400) 와 «후계 행 없음»(개설 실패·승계 취소) 둘뿐 — --verdict 닫기는 close-check 에 --verdict 를 넘긴다. · r427 죽은 좌석(--verdict · tmux 세션 없음): 재개 기록 = --keep-existing(기존 보존 · 없으면 대화 기록 탐색 · 둘 다 없으면 NORECORD 도 진행) → 위 ② 표기 + _closed.dead · kill 0 · 비운 칸은 행 `_closed_from`. `--reopen <좌석>` = zombie-clean resume 으로 되살린 좌석: role=_closed_role(없으면 active)·tick 복원 · _closed* 제거 · `REOPENED <좌석> roles=<칸들>`.
 #   ★r960 — 닫기 결과 출력은 finish() "하나"★: 어느 종료 갈래(CLOSED-ROLE · CLOSED-DEAD · CLOSED-SESSION · HELD · FAIL)든 결과 줄 다음에 record=NORECORD 면 `NORECORD <좌석> <사유>` 1줄을 반드시 남긴다(갈래마다 출력을 따로 두면 다음 갈래가 또 빠뜨린다 — DA r1·r2 반례). 갈래 안 exit 는 이 함수로만. pi 좌석 재개 기록 근거 = ft-seat-retire.sh ⓒ(pi 세션 파일) · model 은 ft_roster_lib._pi_model · 살아 있는 좌석의 NORECORD 수용은 «명부 agent 칸 = pi» 일 때만(r4: 출력 글자 판정 0). ★r5★ 명부 경로·행·agent·role·재개 기록 경로는 «입구에서 1회» 확정(ft_roster_lib.seat_facts)해 갈래·자식에 값으로 넘긴다 — 확정 밖 명부에 같은 좌석이 다른 agent/role 로 있으면 판정 아님(REJECT rc 1 · 명부 쓰기 0 · kill 0).
+#   r2075 수동 닫기 지원 — «표준승인 밖» 자리(manual_close)만: 부른 좌석이 planner _master·_desk 이면 자율 모드(ft_autonomy_mode)를 읽어 ON = ft-proxy-decide --kind seat-close 1회(«대리» 원장 1줄) 뒤 기존 닫기 · OFF = held rc 3 + «[오빠 질문 필요]» 1줄 · 그 밖 좌석 = 기존 held 그대로.
 #   r1481 ``--verdict`` 원장 관문 — ②③ 면제의 근거는 «사람 판정 1건»이므로 번호가 planner 판정 원장(``${FT_TEAMS_REF:-origin/main}``:``design/teams/planner/VERDICTS-planner-*.md`` · fetch 0)에 실재할 때만 닫는다. 못 읽음·번호 없음 = REJECT rc 1(명부 쓰기 0 · kill 0).
 #   r1568 — 승계 끝 확인: reap 이 남기면 «1회 더» 보고(짧은 git 자식이 스스로 사라지는 사이), kill 뒤에 «세션 부재 ∧ 최종 재조사 left=0» 을 한 번 더 재서 CLOSED(둘 중 하나라도 거짓 = CLOSE-FAIL rc≠0 — 거짓 성공 0). 최종 실패 = 기록 1개(<루트>/.fable-team/state/close-fail/<좌석>.txt · 좌석·담당·이유·남은 것·다음 실행) + master 쪽지 1통(다음 닫기 성공 때만 지운다) · 최종 재조사 원문(reap 줄)은 stderr 에 남는다.
 set -uo pipefail
@@ -228,8 +229,28 @@ seat_attached() {   # r1839 A1·A3 — 사람 화면 수 1회: free | attached <
   local o r; o="$(tmux display-message -p -t "=$SEAT:" '#{session_attached}' 2>&1)"; r=$?
   if [ "$r" = 0 ] && [[ "$o" =~ ^[0-9]+$ ]]; then if [ "$o" -ge 1 ]; then echo "attached $o"; else echo free; fi; else echo "unknown rc=$r ${o%%$'\n'*}"; fi
 }
+planner_owner() {   # r2075 C2 — 부른 좌석(BY = $TMUX_PANE 의 tmux 세션 이름)이 <데이터 루트>/.fable-team/seats-planner.json 의 _master·_desk 값과 글자 그대로 같을 때만 참 · 명부 없음·못 읽음·빈 칸 = 거짓
+  local d; case "$BY" in ""|unknown) return 1;; esac
+  d="$(. "$HERE/ft-harness-root.sh" && ft_data_root "$HERE" 2>/dev/null)" && [ -n "$d" ] || return 1
+  python3 - "$d/.fable-team/seats-planner.json" "$BY" 2>/dev/null <<'PY5'
+import json, sys
+try: d = json.load(open(sys.argv[1], encoding="utf-8"))
+except (OSError, ValueError): sys.exit(1)
+sys.exit(0 if isinstance(d, dict) and any(isinstance(d.get(k), str) and d[k] != "" and d[k] == sys.argv[2] for k in ("_master", "_desk")) else 1)
+PY5
+}
+manual_close() {   # r2075 C3 — «표준승인 밖» 한 자리: 주인 아님 = 기존 held 그대로(모드·대리 0) · 주인 ∧ off = held + 질문 글 1줄 · 주인 ∧ on = attached 판정 → 대리 1회 → rc 0 이면 아래 기존 닫기 길
+  local h="CLOSED-SESSION $SEAT file=$FILE role_was=$WAS kill=held(표준승인 밖 — 나노는 ft-nano-close · 그 밖은 [HIL])" o r
+  planner_owner || finish 3 "$h"
+  [ "$BY" != "$SEAT" ] || finish 1 "REJECT $SEAT 은 지금 이 명령을 실행하는 세션 자신 — 다른 좌석에서 닫는다(kill 0 · 명부 표기는 남음 file=$FILE)"
+  { . "$HERE/ft-team-lib.sh" && [ "$(ft_autonomy_mode "${FT_AUTONOMY_BIN:-$HERE/ft-autonomy.sh}")" = on ]; } 2>/dev/null || finish 3 "$h" "[오빠 질문 필요] $SEAT 닫기 — 이유 $REASON · 되살리는 길 zombie-clean.sh resume '$SEAT'"   # 도구는 발신 0(Slack 은 desk 손)
+  o="$(seat_attached)"; if [[ "$o" == unknown* ]]; then finish 3 "HELD $SEAT 판정 불가 attached(${o#unknown }) — kill 0 · reap 0 · 명부 표기는 남음 file=$FILE"; fi   # 기존 attached 판정을 대리보다 먼저(판정 불가 = 기존 HELD 줄 · 대리 호출 0)
+  o="$(bash "${FT_PROXY_DECIDE_BIN:-$HERE/ft-proxy-decide.sh}" --kind seat-close --seat "$SEAT" --q "$SEAT 닫기(표준승인 밖 · 수동 닫기 지원)" --choice "$SEAT 닫기" --why "$REASON" --undo "zombie-clean.sh resume '$SEAT'" 2>&1)"; r=$?
+  [ "$r" = 0 ] || finish 3 "$h" "${o%%$'\n'*}"
+  printf '%s\n' "$o"
+}
 if tmux has-session -t "=$SEAT" 2>/dev/null; then
-  [ -n "$VERDICT$DSEQ" ] || lineage_ok || renamed_ok || finish 3 "CLOSED-SESSION $SEAT file=$FILE role_was=$WAS kill=held(표준승인 밖 — 나노는 ft-nano-close · 그 밖은 [HIL])"   # --verdict = 판정 승인 1건 + 재개 기록 확인됨 · r1691 = 이름 접두가 바뀐 승계도 같은 근거면 통과
+  [ -n "$VERDICT$DSEQ" ] || lineage_ok || renamed_ok || manual_close   # r2075 — 표준승인 밖 = manual_close 한 곳 · --verdict = 판정 승인 1건 + 재개 기록 확인됨 · r1691 = 이름 접두가 바뀐 승계도 같은 근거면 통과
   ATT="$(seat_attached)"; case "$ATT" in free) ;; attached*) echo "NOTE $SEAT 사람 화면 attached=${ATT#attached } — 오빠 지시로 닫음";; *) finish 3 "HELD $SEAT 판정 불가 attached(${ATT#unknown }) — kill 0 · reap 0 · 명부 표기는 남음 file=$FILE";; esac   # r1839 A4 — 계보 근거 뒤 · reap 앞 · r1976 attached N = NOTE 1줄 뒤 닫기 계속(오빠 지시) · 판정 불가 = HELD 그대로
   reap
   if [ -n "$(tmux show-options -qv -t "=$SEAT:" @zc_v65_active 2>/dev/null)" ]; then
