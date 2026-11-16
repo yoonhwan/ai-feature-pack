@@ -153,6 +153,9 @@ class Dispatch:
         reason = self._eligible(state, work, pre, evidence, resources)
         if not reason and not self._accepted(records, work):        # r1616: 접수 영수 없는 일은 배정 0
             reason = "영수-없음"
+        busy = "" if reason else self._busy(state, work, holder)      # r2116 한 좌석 한 work(기존 거절 뒤 · _claim_plan 앞)
+        if busy:
+            reason = "좌석 사용 중 %s — 새 좌석 열기 또는 앞 work complete 뒤" % busy
         if reason:
             return Grant(REFUSED, work, "reject", reason=reason)
         gen, hold, owner = self.ex._claim_plan(state, records, work, holder, rotation)
@@ -244,6 +247,16 @@ class Dispatch:
         if not set(self.REQUIRED_EVIDENCE) <= set(evidence):
             return "ver-all"
         return "resource" if [res for res in resources if res in taken] else ""
+
+    def _busy(self, state, work, holder):
+        """r2116 — holder 의 살아 있는 다른 work 중 이름 순 첫(없으면 ""). 살아 있음 = owner holder 글자 같음 · done 아님 ·
+        그 owner 배정을 닫은 영수 없음(close_receipts 행의 work · seat · gen 셋 다 같음 · DA R1)."""
+        done, closes = state.get("done") or {}, list((state.get("close_receipts") or {}).values())
+        live = sorted(name for name, row in (state.get("owners") or {}).items()
+                      if name != work and row.get("holder") == holder and name not in done
+                      and not any((c.get("work"), c.get("seat"), c.get("gen")) == (name, holder, row.get("gen"))
+                                  for c in closes))
+        return live[0] if live else ""
 
     def _accepted(self, records, work):
         """접수 영수 = 같은 work 를 남긴 accept 줄 — 없으면 배정 0(r1616). 판정 본문은 실행권 모듈 한 곳(r1632 ⓓ)."""
