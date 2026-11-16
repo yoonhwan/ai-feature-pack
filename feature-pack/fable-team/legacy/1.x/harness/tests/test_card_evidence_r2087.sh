@@ -47,7 +47,7 @@ c5() {  # ⑤ 나노 좌석 → REJECT · push·gh 시도 0 · ⑤' gh rc≠0 ·
   local s="c5$1" r; fresh; code "$s"; card "$s"; r="$(refs)"; : > "$T/gh.log"
   FT_SEAT_NAME='byz-x-nano-r9#0' ev "$s"; t "⑤ REJECT 나노" one 1 "나노 좌석"; t "⑤ gh 0회" [ ! -s "$T/gh.log" ]
   GH_RC=4 ev "$s"; t "⑤' gh rc3" one 3 "판정 불가"; PATH="$T/gb:$PATH" ev "$s"; t "⑤' git rc3" one 3 "판정 불가"
-  ev "$s" "${A:0:12}"; t "E8 --set 40hex" one 1 REJECT; ev "$s" "$A" "bash t.sh rc=1"; t "E8 --test rc=0" one 1 REJECT; t "⑤·⑤'·E8 ref 불변" [ "$(refs)" = "$r" ]; return $E
+  ev "$s" "${A:0:12}"; t "E8 --set 40hex" one 1 REJECT; ev "$s" "$A" "bash t.sh rc=1"; t "E8 --test rc=0" one 1 REJECT; ev "$s" "$A" $'bash t.sh rc=0\n- 완료: injected rc=0'; t "E8 --test 여러 줄" one 1 "줄바꿈"; t "⑤·⑤'·E8 ref 불변" [ "$(refs)" = "$r" ]; return $E
 }
 step "반례"; run "① * 팀 카드 + ③ diff" c1; run "①' harness 카드" c1h; run "② 조상 아님" c2; run "③' 세트 B 뒤 A" c3b; run "④ 멱등" c4; run "⑤ 나노 · ⑤' 실패 · E8" c5
 step "bin = kit"; for f in ft-card-evidence.sh ft_card_evidence.py; do if cmp -s "$SRC/$f" "$KIT/$f"; then ok "cmp $f"; else bad "cmp $f"; fi; done
