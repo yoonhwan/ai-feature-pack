@@ -21,7 +21,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from ft_nano_record import ENV, SET_RX, Ctx, Reject, Unjudged, check_test, left_free, left_of, marks, need, rec_of, run, section
-from ft_nano_record_due import at, card_key, owners
+from ft_nano_record_due import at, card_key, resolve_owner
 from ft_nano_record_notify import close_request, send, seq_known, try_record, update
 
 
@@ -159,7 +159,8 @@ def cmd_landed(ctx, a):
     doc, info = ctx.seats(team), {}
 
     def plan(sec):
-        own = {s: (k, c) for s, k, c in owners(ctx, doc, stem, sec)}
+        info["doc"], found = resolve_owner(ctx, team, doc, stem, sec)   # r2056 A1·A5: due 와 같은 함수 · 닫기 요청 = 찾은 명부 팀장
+        own = {s: (k, c) for s, k, c in found}
         own = own or {s: ("팀장", stem) for s in [doc.get("_master")] if s and s == a.seat}   # r1805 A1 · r1814 A1
         if a.seat not in own:   # r1717-mut:turnseat
             raise Reject(f"{a.seat} 은 {stem} 의 차례 좌석이 아님(지금 차례 = {' '.join(own) or '없음'})")
@@ -171,7 +172,7 @@ def cmd_landed(ctx, a):
         t = ctx.tip(team)
         path = ctx.card(team, iroot, stem)[0]
     print(status)
-    return finish(ctx, {"pr": a.pr, "q": q, "stem": stem, "seat": a.seat, "sort": info["sort"], "master": str(doc.get("_master") or ""),
+    return finish(ctx, {"pr": a.pr, "q": q, "stem": stem, "seat": a.seat, "sort": info["sort"], "master": str(info["doc"].get("_master") or ""),
                         "m": marks(sec, a.seat, q), "ref": t["ref"], "path": path}, a)
 
 
