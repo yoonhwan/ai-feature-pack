@@ -45,9 +45,10 @@ export function piMasterFile(root: string, seat: string): string { const d = pat
 export function teamMasterOf(root: string, seat: string): string { const d = path.join(root, ".fable-team"), b = seat.replace(/#\d+$/, ""); let names: string[] = []; try { names = fs.readdirSync(d).filter((f) => /^seats.*\.json$/.test(f)).sort(); } catch { return ""; } for (const f of names) { try { const j = JSON.parse(fs.readFileSync(path.join(d, f), "utf-8")); if (Object.keys(j).some((k) => k === seat || k.replace(/#\d+$/, "") === b)) return String(j._master ?? ""); } catch { continue; } } return ""; }
 
 export default function (pi: ExtensionAPI) {
-  const root = process.env.FT_MBOX_ROOT || gitRoot() || process.cwd();
-  const seat = seatName();
-  const seatKnown = (): boolean | null => { if (process.env.FT_SEAT) return true; if (!process.env.TMUX_PANE) return false; if (!seat) return null; const b = seat.replace(/#\d+$/, ""), d = path.join(root, ".fable-team"); let files: string[] = [], bad = false; try { files = fs.readdirSync(d).filter((f) => /^seats.*\.json$/.test(f)); } catch { return false; } const hit = files.some((f) => { try { const j = JSON.parse(fs.readFileSync(path.join(d, f), "utf-8")); return Object.keys(j).some((k) => !k.startsWith("_") && (k === seat || k.replace(/#\d+$/, "") === b)); } catch { bad = true; return false; } }); return hit ? true : bad ? null : false; }; // ★r1634★ ft 좌석인가 = distill-gate 와 같은 규칙(FT_SEAT ∨ 명부 행) · false = no-op · null = 판정 불가(tmux 안인데 이름 못 읽음·명부 깨짐 = 지금처럼)
+  const seat = seatName(), nano = !!seat && process.env.FT2_HOLDER === seat; // ★r2110 A1★ ft2 나노 pi 좌석(명부 밖) = 세션 env FT2_HOLDER 가 내 좌석 이름과 글자 그대로 같음
+  const ft2Root = (() => { const r = process.env.FT2_ROOT ?? ""; try { return nano && r && fs.statSync(r).isDirectory() ? r : ""; } catch { return ""; } })(); // ★r2110 A2 · DA R1★ 나노 = 팀 루트(cwd 가 다른 리포 worktree 여도 팀 우편함) · 없는 폴더 = 지금 순서
+  const root = process.env.FT_MBOX_ROOT || ft2Root || gitRoot() || process.cwd(); // 명시 값 먼저
+  const seatKnown = (): boolean | null => { if (process.env.FT_SEAT || nano) return true; if (!process.env.TMUX_PANE) return false; if (!seat) return null; const b = seat.replace(/#\d+$/, ""), d = path.join(root, ".fable-team"); let files: string[] = [], bad = false; try { files = fs.readdirSync(d).filter((f) => /^seats.*\.json$/.test(f)); } catch { return false; } const hit = files.some((f) => { try { const j = JSON.parse(fs.readFileSync(path.join(d, f), "utf-8")); return Object.keys(j).some((k) => !k.startsWith("_") && (k === seat || k.replace(/#\d+$/, "") === b)); } catch { bad = true; return false; } }); return hit ? true : bad ? null : false; }; // ★r1634★ ft 좌석인가 = distill-gate 와 같은 규칙(FT_SEAT ∨ 명부 행) · false = no-op · null = 판정 불가(tmux 안인데 이름 못 읽음·명부 깨짐 = 지금처럼)
   const mbox = process.env.FT_MBOX_FILE ?? path.join(root, ".fable-team", "comm", "mailbox.jsonl");
   const mboxDir = path.dirname(mbox); // ★입력·감시·recv 는 «같은 지정 우편함» 에 결속한다(FT_MBOX_FILE 지원)
   const localSh = path.join(mboxDir, "mbox.sh");
@@ -112,8 +113,8 @@ export default function (pi: ExtensionAPI) {
     try { const d = JSON.parse(fs.readFileSync(path.join(root, ".fable-team", "seats-planner.json"), "utf-8")); return { master: String(d._master ?? ""), desk: String(d._desk ?? "") }; } catch { return { master: "", desk: "" }; }
   };
   // ★판 2 활성 판정(arch#267 · 카드 954fe550)★ = 「seats*.json 하나의 _master 이고 «같은 파일» 그 행 agent=='pi'」 ∨ 「seats-planner.json _desk」 — 셸 comm/mbox.sh ext_wake_seat 와 «같은 칸»(두 벌이 다른 말을 하면 좌석이 두 길로 깨운다).
-  const activeFlag = (): boolean => !!piMasterFile(root, seat) || (!!seat && seats().desk === seat); // _master ∧ 같은 파일 agent=='pi' ∨ planner _desk
-  const activeSeat = (say: boolean): boolean => { // 다른 pi 좌석(나노) 자동 활성화 0 — _master/_desk 만
+  const activeFlag = (): boolean => nano || !!piMasterFile(root, seat) || (!!seat && seats().desk === seat); // r2110 나노 pi ∨ _master ∧ 같은 파일 agent=='pi' ∨ planner _desk
+  const activeSeat = (say: boolean): boolean => { // 다른 pi 좌석 자동 활성화 0 — _master/_desk · r2110 ft2 나노(A1)만
     const mine = !!seat && activeFlag(), s = seats();
     if (mine) { announced = ""; return true; }
     const why = `inactive seat=${seat || "?"} master=${s.master || "?"} desk=${s.desk || "?"}`;
