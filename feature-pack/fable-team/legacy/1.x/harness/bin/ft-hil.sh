@@ -28,11 +28,10 @@ rp() {  # 절대경로(실재하면 realpath 폴더 기준) — 대상 비교용
   if [ -e "$x" ]; then echo "$(cd "$(dirname "$x")" && pwd -P)/$(basename "$x")"; else echo "$x"; fi
 }
 
-max_n() {  # $D/h<숫자> (링크·파일·깨진 링크 모두) 중 최대 번호 — 손 선례(/tmp/h1·h2)와 겹치지 않게
+max_n() {  # $D/h<숫자> (링크·파일·깨진 링크 모두) 중 최대 번호 — 손 선례(/tmp/h1·h2)와 겹치지 않게 · r2130 K5: «h<N>.» 이름(.ran · .held · 바뀐 이름)도 셈
   local f n m=0
   for f in "$D"/h[0-9]*; do
-    [ -e "$f" ] || [ -L "$f" ] || continue
-    n="${f##*/h}"; [[ "$n" =~ ^[0-9]+$ ]] || continue
+    { [ -e "$f" ] || [ -L "$f" ]; } && n="${f##*/h}" && n="${n%%.*}" && [[ "$n" =~ ^[0-9]+$ ]] || continue
     [ "$((10#$n))" -le "$m" ] || m="$((10#$n))"
   done
   echo "$m"
@@ -49,6 +48,7 @@ entry_body() {  # $1=계획 $2=표식 접두(=진입 파일) $3=쪽지함 $4=요
   printf '#!/usr/bin/env bash\n# ft-hil-entry plan=%s\nP=%q; M=%q; N=%q; C=%q; S=%q\n' "$1" "$1" "$2" "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/ft-hil-notify.sh" "$3" "$4"
   cat <<'EOS'
 [ ! -f "$M.superseded" ] || { echo "REJECT 대체됨 → $(cat "$M.superseded")" >&2; exit 1; }
+[ ! -e "$M.held" ] || { L="$(sed -n '/[^[:space:]]/h; ${x;p;}' "$M.held")" || { echo "판정 불가 — ${M##*/}.held 못 읽음(계획 실행 0)" >&2; exit 3; }; case "$L" in "hold "*) L="${L#hold }"; echo "REJECT 보류 중 — ${L#* } · 풀기 = ft-hil.sh --unhold ${M##*/}" >&2; exit 1;; esac; }   # r2130 K2: 판정기가 없거나 옛 판정기여도 보류 h 실행 0
 [ -f "$P" ] || { echo "REJECT 계획 파일이 없다: $P" >&2; exit 1; }; G="${N%/*}/ft-hil-gate.sh"; [ -f "$G" ] || { echo "판정 불가 — 보조 도구 없음: $G (계획 실행 0)" >&2; exit 3; }; B="$(bash "$G" read "$P" "$M")" || exit $?; B="${B%.}"   # r2078 G3: 한 번 읽어 sha 견준 바이트(끝 표식 1자 뗌) · 다름 = REJECT rc1 · .sha 없음 = rc3
 date +%s >> "$M.ran"
 ( umask 077; : > "$M.out" )

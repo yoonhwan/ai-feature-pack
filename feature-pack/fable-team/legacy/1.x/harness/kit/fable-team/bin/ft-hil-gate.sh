@@ -35,6 +35,7 @@ case "${1:-}" in
     elif [ "${4:-}" = "$n" ]; then echo ""
     else echo "REJECT 계획이 바뀜 — h$n 등록 ${o:0:16} ≠ 지금 ${2:0:16} · --supersedes h$n 을 붙여 다시 등록" >&2; exit 1; fi ;;
   read)
+    [ ! -e "$3.held" ] || { l="$(sed -n '/[^[:space:]]/h; ${x;p;}' "$3.held")" || { echo "판정 불가 — ${3##*/}.held 못 읽음(계획 실행 0)" >&2; exit 3; }; case "$l" in "hold "*) l="${l#hold }"; echo "REJECT 보류 중 — ${l#* } · 풀기 = ft-hil.sh --unhold ${3##*/}" >&2; exit 1;; esac; }   # r2130 K1: 마지막 비지 않은 줄이 hold = 보류 · 계획 바이트 0
     [ -f "$3.sha" ] || { echo "판정 불가 — ${3##*/}.sha 없음(새 꼴 진입 파일 · 계획 실행 0)" >&2; exit 3; }
     [ -f "$2" ] && b="$(cat -- "$2" && printf .)" || { echo "판정 불가 — 계획 파일을 못 읽음: $2" >&2; exit 3; }
     s="$(printf '%s' "${b%.}" | sha256 "$2")" || exit 3; o="$(old "$3")"
