@@ -29,7 +29,7 @@ mkdir -p "$R/.fable-team/comm"; echo 100 > "$R/.fable-team/comm/.mbox-seq"; prin
 printf 'harness\t.\torigin/ops/main-base\tdesign/harness/indices\n' > "$R/.fable-team/state/directive-roots.tsv"
 printf '{"_master": "%s", "_cards": "design/harness/indices"}\n' "$MASTER" > "$R/.fable-team/seats-harness.json"
 printf '{"_master": "byz-aifp-master-pi#1", "_cards": "design/aifp/indices", "%s": {"role": "nano", "index": "%s/%s.md"}}\n' "$NANO" "$PI" "$STEM" > "$P/.fable-team/seats-aifp.json"
-CALL="$(grep -m1 '^fm_land_notify_land ' "$BIN/ft-merge-land.sh" | sed 's/; HLTO=.*//')"
+CALL="$(grep -m1 -o '^fm_land_turn_first [^;]*' "$BIN/ft-merge-land.sh")"$'\n'"$(grep -m1 '^fm_land_notify_land ' "$BIN/ft-merge-land.sh" | sed 's/; HLTO=.*//')"   # r2124: 장부 = LANDED 바로 뒤 줄 · 꼬리 = notify
 ck "사전 착지 호출 줄 1개" [ -n "$CALL" ]
 L="$R/.fable-team/state/land-record-turn.jsonl"
 land() {  # land <bin> <PR> <head> <제목> <착지 리포> → ROW = 장부 cards(리포 이름 꼴: byz:<stem> · pack:<stem>) + ERR
