@@ -4,6 +4,7 @@ keeper.py 가 부른다 · 판정 앞 fetch 자체(ls-remote 신선 · 시도마
 import glob, importlib.util, os, subprocess, sys  # noqa: E401
 HERE = os.path.dirname(os.path.abspath(__file__))
 CAP, FETCH_S = 5, 7   # 리포당 지정 ref 상한 · 백그라운드도 1회 7초 + 재시도 1
+MIN_S = 1   # r2122 C5 남은 몫 < 1초 = 판독 시작 0(keeper.MIN_S 와 같은 값)
 _spec = importlib.util.spec_from_file_location("ft2_keeper_fetch_endings", os.path.join(HERE, "keeper_endings.py"))
 ends = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(ends)
@@ -40,16 +41,63 @@ def targets(k):
     return table or None
 
 
+def _head(tree):
+    """r2122 C1 worktree 파일 판독(git 0) → (HEAD 가지 · detached = "", 공용 폴더 realpath) · 못 읽음 = None(C2 = git 길)."""
+    dot = os.path.join(tree, ".git")
+    try:
+        if os.path.isdir(dot):   # 일반 clone
+            gitdir = dot
+        else:   # linked worktree = «gitdir: <경로>» 1줄
+            with open(dot, encoding="utf-8") as fh:
+                line = fh.readline().strip()
+            if not line.startswith("gitdir:") or not line[7:].strip():
+                return None
+            gitdir = os.path.join(tree, line[7:].strip())
+        with open(os.path.join(gitdir, "HEAD"), encoding="utf-8") as fh:
+            head = fh.read().strip()
+        try:
+            with open(os.path.join(gitdir, "commondir"), encoding="utf-8") as fh:
+                common = os.path.join(gitdir, fh.read().strip())   # 상대 경로 = gitdir 기준
+        except FileNotFoundError:
+            common = gitdir
+    except (OSError, UnicodeError):
+        return None
+    return (head[len("ref: refs/heads/"):] if head.startswith("ref: refs/heads/") else ""), os.path.realpath(common)
+
+
+def _gate(k):   # r2122 C5 판독 시작 전 남은 몫 < MIN_S = 시작 0 · Keeper.call 과 같은 Cut
+    if (left := k.left()) is not None and left < MIN_S:
+        raise k.cut_at()
+
+
+def _one(k, tree, work, got):   # worktree 1개 · HEAD = nano/<work> 면 got 에 보탬
+    seen = _head(tree)
+    if seen is None:   # C2 못 읽음 = 지금 git 길
+        if k.git(tree, "rev-parse", "--abbrev-ref", "HEAD")[1].strip() == "nano/" + work:
+            got.setdefault(ends._common(k, tree), []).append("nano/" + work)
+    elif seen[0] == "nano/" + work:
+        got.setdefault(seen[1], []).append("nano/" + work)
+
+
 def nanos(k, teams):
-    """⑥ 그 바퀴 판정 대상(팀마다 최신 dispatch · handled 아님) 중 intent worktree HEAD = nano/<work> → {git common-dir: [가지]}."""
+    """⑥ 그 바퀴 판정 대상(팀마다 최신 dispatch · handled 아님) 중 intent worktree HEAD = nano/<work> → {git common-dir: [가지]}.
+    r2122 — HEAD·공용 폴더 = 파일 판독(C1·C2) · 팀마다 journal 1회(C3 · _rows 를 그 팀 행으로 잠시 고정 · finally 원복) · 예산 문(C5)."""
     got = {}
     for team in teams:
-        for work, (attempt, holder) in sorted((ends.latest(k, team) or {}).items()):
-            if "%s|%s@%s" % (team, work, attempt) in k.state["handled"]:
-                continue
-            tree = ends.intent(k, team, work, attempt, holder).get("worktree") or ""
-            if os.path.isdir(tree) and k.git(tree, "rev-parse", "--abbrev-ref", "HEAD")[1].strip() == "nano/" + work:
-                got.setdefault(ends._common(k, tree), []).append("nano/" + work)
+        _gate(k)
+        keep = ends._rows
+        rows = keep(k, team)
+        ends._rows = lambda k_, t_, rows=rows, team=team, keep=keep: rows if t_ == team else keep(k_, t_)
+        try:
+            for work, (attempt, holder) in sorted((ends.latest(k, team) or {}).items()):
+                if "%s|%s@%s" % (team, work, attempt) in k.state["handled"]:
+                    continue
+                _gate(k)
+                tree = ends.intent(k, team, work, attempt, holder).get("worktree") or ""
+                if os.path.isdir(tree):
+                    _one(k, tree, work, got)
+        finally:
+            ends._rows = keep
     return got
 
 
