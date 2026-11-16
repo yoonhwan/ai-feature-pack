@@ -41,7 +41,15 @@ fi
 dead_seat() {   # r1520 dead-seat 갈래(DESIGN-r1498 §5 ⓑ) — 입구 = close-check REJECT «[인계] 없음» · 조건 3 전부 참 = retire --record-only → 명부 _closed → CLOSED-DEAD(kill 0) · 하나라도 거짓·판정 불가 = 멈춤 1줄(명부 쓰기 0 · 하드 룰 20·23)
   [ -z "$VERDICT" ] && [[ "$1" == *"[인계] 없음"* ]] || return 1
   local o r n s="명부 쓰기 0 · kill 0"; o="$(tmux has-session -t "=$SEAT" 2>&1)"; r=$?
-  [ "$r" != 0 ] || finish 1 "REJECT $SEAT [인계] 없음 · 세션 살아 있음 — handover 먼저 또는 --verdict($s)"
+  [ "$r" != 0 ] || { w="$(python3 - "${ROOT:-.}/.fable-team/state/successor/$SEAT.json" "$SEAT" "${FT_NOW:-}" "${FT_HANDOVER_READY_WAIT_S:-}" <<'PY5'
+import datetime, json, sys, time   # r2089 C1 — 도달 파일(개설 도구) reached_at 나이 0..창 = 승계 중 · 그 밖·못 읽음 = 지금 REJECT(C2)
+p, seat, now, v = sys.argv[1:5]; s = int(v) if v.isdigit() else 600
+try: d = json.load(open(p, encoding="utf-8")); n = d["successor"]; a = float(now or time.time()) - datetime.datetime.strptime(d["reached_at"], "%Y-%m-%dT%H:%M:%S%z").timestamp()
+except (OSError, ValueError, KeyError, TypeError): sys.exit(1)
+if isinstance(n, str) and n and 0 <= a <= s: print(f"WAIT {seat} 후계 {n} [인계] 기다림({int(a)}초 · 창 {s}초) — bash mbox.sh handover {seat} {n} (명부 쓰기 0 · kill 0)"); sys.exit(0)
+sys.exit(1)
+PY5
+)" && finish 4 "$w"; finish 1 "REJECT $SEAT [인계] 없음 · 세션 살아 있음 — handover 먼저 또는 --verdict($s)"; }
   case "$o" in *"can't find session"*|*"no server running"*|*"No such file or directory"*) ;; *) finish 1 "REJECT $SEAT dead-seat 판정 불가 생존 확인(tmux rc=$r ${o%%$'\n'*}) — $s";; esac   # tmux 실패를 «세션 없음» 으로 읽지 않는다
   o="$(bash "${FT_SEAT_REAP_BIN:-$HERE/ft-seat-reap.sh}" "$SEAT" --dry-run 2>/dev/null)"; r=$?; n="$(printf '%s\n' "$o" | sed -n 's/^reap .* found=\([0-9][0-9]*\) dry-run.*/\1/p' | tail -1)"
   [ "$r" = 0 ] && [ -n "$n" ] || finish 1 "REJECT $SEAT dead-seat 판정 불가 생존 확인(reap --dry-run rc=$r) — $s"; [ "$n" = 0 ] || finish 1 "REJECT $SEAT dead-seat 조건 미충족 생존 확인(그 이름 pane 자손 $n) — $s"
