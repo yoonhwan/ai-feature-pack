@@ -1,6 +1,5 @@
 """r2088 keeper 증거 줄 없음 안내 — 원장 done · nano/<work> OPEN PR 1개 · 카드 ref 마지막 세트 줄 D2 꼴 아님 → 받는 곳 첫 값에 묶음 없이 1통/일
-(카드 r2088 반례 ⑥ ⑥a ⑥b ⑥c ⑥d ⑥e ⑦ ⑦' · 변이 M3 키 날짜 삭제 → ⑥c · M4 지문 메모리만 → ⑥b · M5 notify() 묶음 → ⑥d).
-대역 = r1812 World(임시 BYZ·팩 리포·가짜 tmux·쪽지 STUB·주입 시계) + 가짜 gh(FT2_GH · 가지별 출력) · 실 원장·우편함·Slack·sleep 0."""
+(카드 r2088 반례 ⑥ ⑥a ⑥b ⑥c ⑥d ⑥e ⑦ ⑦' · 변이 M3 키 날짜 삭제 → ⑥c · M4 지문 메모리만 → ⑥b · M5 notify() 묶음 → ⑥d) · 대역 = r1812 World(임시 BYZ·팩 리포·가짜 tmux·쪽지 STUB·주입 시계) + 가짜 gh(FT2_GH · 가지별 출력) · 실 원장·우편함·Slack·sleep 0."""
 import importlib.util, json  # noqa: E401
 from pathlib import Path
 FT2 = Path(__file__).resolve().parents[1]
@@ -59,9 +58,13 @@ def test_6e_set_line_present(tmp_path, monkeypatch):   # ⑥e 마지막 세트 �
     done(w, "r9803", text="- 세트: (빈 양식)\n" + SET)
     k, _ = notice(w, "r9803")
     assert not mail(w) and not [x for x in k.lines if "판정 불가" in x], k.lines
-def test_7_unreadable_and_pr_count(tmp_path, monkeypatch):   # ⑦ gh 실패 · 카드 없음 → 0통 + 판정 불가 1줄 · ⑦' OPEN 0·2개 → 0통 · 판정 줄 0
+def test_7_unreadable_and_pr_count(tmp_path, monkeypatch):   # ⑦ gh 실패 · 카드 없음 · git branch·remote rc9(DA HOLD #314896) → 0통 + 판정 불가 1줄 · ⑦' OPEN 0·2개 → 0통 · 판정 줄 0
     w = world(tmp_path, monkeypatch)
-    for work, kv, bad in (("r9804", {"rc": 1}, 1), ("r9805", {"card": False}, 1), ("r9806", {"n": 0}, 0), ("r9807", {"n": 2}, 0)):
+    for work, kv, bad, verb in (("r9804", {"rc": 1}, 1, ""), ("r9805", {"card": False}, 1, ""), ("r9806", {"n": 0}, 0, ""), ("r9807", {"n": 2}, 0, ""),
+                                ("r9808", {}, 1, "rev-parse"), ("r9809", {}, 1, "config")):
         done(w, work, **kv)
-        k, _ = notice(w, work)
+        k = w.K.Keeper(str(w.root), env=w.env, now=lambda: w.t)
+        k.git = (lambda real, verb: lambda repo, *a, **o: (9, "", "x") if verb and a[:1] == (verb,) and repo != k.root else real(repo, *a, **o))(k.git, verb)
+        notice(w, work, k=k)
         assert not mail(w) and len([x for x in k.lines if x.startswith("판정 불가 harness %s" % work)]) == bad, (work, k.lines)
+        assert not verb or work not in "".join(_lines(str(w.tmp / "gh") + ".log"))   # git 조회 실패 = gh 0회
