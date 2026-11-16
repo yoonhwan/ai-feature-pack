@@ -248,7 +248,7 @@ def reopen(k, team, stem, back, works, state):
         return False
     val, why, book, key = back[-1].split(":", 1)[1].strip(), "", k.state.setdefault("reopen_seen", {}), "%s|%s" % (team, stem)
     try:
-        at = time.mktime(time.strptime(val.split()[0] if val else "", "%Y-%m-%dT%H:%M:%S"))
+        at = time.mktime(time.strptime(val, "%Y-%m-%dT%H:%M:%S"))   # DA #318934 R2 — 값 전체가 꼴(뒤 문구 버리기 0)
     except ValueError:
         at, why = None, "재개 줄 꼴 깨짐 %r — 고칠 꼴 «- 재개: YYYY-MM-DDTHH:MM:SS»" % val[:30]
     for w, a in ((w, a) for w in sorted(works) for a in (state.get("deliveries") or {}).get(w) or []) if at else ():
@@ -260,7 +260,7 @@ def reopen(k, team, stem, back, works, state):
         except (TypeError, ValueError):
             return False
     landed = once(k, ("landed", team, stem), lambda: k.landing(team, stem)) if at else (None, None, "")
-    if landed[0] and not landed[2]:
+    if landed[0]:   # DA #318934 R1 — 미도달 등 사유가 있어도 착지 sha 가 있으면 그 시각을 읽는다(못 읽음 = 막음 그대로)
         out = next((o for repo in (k.pack, k.root) for rc, o, _ in [k.git(repo, "log", "-1", "--format=%ct", landed[0])] if rc == 0), "").strip()
         end = int(out) if out.isdigit() else None
         why = "" if end is not None else "착지 %s committer 시각 못 읽음" % landed[0][:10]
