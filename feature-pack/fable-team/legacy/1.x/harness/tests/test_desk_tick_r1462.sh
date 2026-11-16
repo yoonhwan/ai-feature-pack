@@ -63,6 +63,7 @@ chmod +x "$T/fakebin/launchctl" "$T/fakebin/ps"   # 시험 픽스처만 실행 �
 printf 'ts=%s stall=0 a=0 b=0 c=0 d=0 seats=1\n' "$NOW" > "$T/stall.log"
 printf '{"ts":"2026-11-08T11:02:44Z","from":"%s","to":"x","body":"y"}\n' "$PLANNER" \
   > "$T/root/.fable-team/comm/mailbox.log.jsonl"   # 5분 전 = 20분 미만이라 팀장 줄이 안 나와야 한다
+( cd "$T/root" && git init -q && mkdir -p design/teams/planner && printf '## 골 진행\n\n| 1 | a |\n\n## 끝\n' > design/teams/planner/PLAN-oppa-ledger.md && git add design && git -c user.email=t@t -c user.name=t commit -qm t && git update-ref refs/remotes/origin/main HEAD && git update-ref refs/remotes/origin/ops/main-base HEAD )   # r2102 NEWS 줄 = 원장 리포(완성 커밋 0)
 
 PSLINE="4242 python3 -u - $T/root/.fable-team/bin $DESK"
 export FAKE_PS="$PSLINE"
@@ -87,7 +88,7 @@ n="$(printf '%s\n' "$out" | wc -l | tr -d ' ')"
 [ "$el" -le 25 ] && ok "T1 소요 ${el}초 ≤25" || bad "T1 소요 ${el}초 >25"
 printf '%s\n' "$out" | tail -1 | grep -qx '결정 필요: 0' && ok "T1 마지막 줄 «결정 필요: 0»" || bad "T1 마지막 줄: $(printf '%s\n' "$out" | tail -1)"
 missing=""
-for k in '^HIL 대기 0건' '^LAUNCH stall-scan ' '^LAUNCH tick ' '^LAUNCH news-planner ' '^LAUNCH news-desk ' '^STALL-SCAN ' '^INBOX-WATCH ' '^결속 OK planner ' '^쪽지 0건'; do
+for k in '^HIL 대기 0건' '^LAUNCH stall-scan ' '^LAUNCH keeper ' '^LAUNCH board-news ' '^STALL-SCAN ' '^INBOX-WATCH ' '^결속 OK planner ' '^쪽지 0건'; do
   printf '%s\n' "$out" | grep -q "$k" || missing="$missing $k"
 done
 [ -z "$missing" ] && ok "T1 ①HIL ②launch ③팀장 ④감시 ⑤결속 ⑥쪽지/완료 6항 출력" || bad "T1 항목 줄 없음:$missing"

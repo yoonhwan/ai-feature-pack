@@ -3,7 +3,7 @@
 #   desk 틱 1턴 = 이 스크립트 1회. 모델이 6항을 «직접 재지» 않는다 — 비모델이 재서 출력 ≤30줄 · 마지막 줄 `결정 필요: N`.
 #   N=0 이면 그 턴의 도구는 «이 호출 1회» 뿐이다(추가 0) · N≥1 이면 그 항목만 도구 1회 더 = 총 2회. E3(틱 턴 도구 ≤1)는 N=0 경로에서만 닫힌다.
 #   실행은 하지 않는다 — ⑥ 발송 하나만 이 스크립트가 한다.
-#   ① ft-hil.sh --pending 중 이 desk 몫(.notify 가 desk 계보) ② launchctl print(stall-scan · ft-tick · news 2종) state/last exit
+#   ① ft-hil.sh --pending 중 이 desk 몫(.notify 가 desk 계보) ② launchctl print(stall-scan · keeper · board-news · r2102) state/last exit
 #      + stall-scan 로그 마지막 ts ③ 팀장별 마지막 쪽지 시각(mailbox.log.jsonl · 20분+ 만 줄) ④ 받은편지함 감시(ft-inbox-watch) owner
 #   ⑤ mbox.sh recv <desk> 머리(seq·from·본문 60자 · 전문은 상태 폴더 파일) ⑥ planner _master 에 [완료] 3줄(스크립트가 조립·발송)
 #   ★소비 경계★: recv 는 우편함을 소비한다 — 결속(root·현재 desk·planner _master·`_desk` 일치)을 «확인한 뒤» 에만 부르고,
@@ -14,7 +14,7 @@
 #   한 항목이 실패하면 그 항목 «판정 불가 rc=N» 1줄 · 나머지는 계속 · 전체 rc1(조용한 0 금지 · docs/rules/no_silent_fallback.md).
 #   항목당 7초 · 전체 FT_DESK_TICK_BUDGET(기본 25초) — 하위 명령은 모두 «남은 예산» 안에서만 돌고 남은 예산 0 이면 실행 0 · rc124.
 #   출력 30줄(넘으면 접고 마지막 줄은 지킨다). 전부 rc0 = 0 · usage = 2.
-#   env(시험·이식용): FT_ROOT · FT_HIL_DIR · FT_DESK_TICK_MBOX · FT_DESK_TICK_HIL · FT_DESK_TICK_LAUNCHCTL · FT_DESK_TICK_PS
+#   env(시험·이식용): FT_ROOT · FT_HIL_DIR · FT_DESK_TICK_MBOX · FT_DESK_TICK_HIL · FT_DESK_TICK_LAUNCHCTL · FT_DESK_TICK_GIT · FT_DESK_TICK_NEWS_STALE_H · FT_DESK_TICK_PS
 #                     FT_DESK_TICK_STALL_LOG · FT_DESK_TICK_LOG · FT_DESK_TICK_NOW(epoch) · FT_DESK_TICK_STATE_DIR · FT_DESK_TICK_UID · FT_DESK_TICK_MAX_LINES · FT_DESK_TICK_BUDGET
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -27,6 +27,7 @@ ROOT="${FT_ROOT:-$(git -C "$WT" rev-parse --path-format=absolute --git-common-di
 MBOX="${FT_DESK_TICK_MBOX:-$ROOT/.fable-team/comm/mbox.sh}"
 HIL="${FT_DESK_TICK_HIL:-$HERE/ft-hil.sh}"
 LAUNCHCTL="${FT_DESK_TICK_LAUNCHCTL:-launchctl}"
+GIT="${FT_DESK_TICK_GIT:-git}"; LEDGER=design/teams/planner/PLAN-oppa-ledger.md   # r2102 NEWS 줄 = 원장 리포 git(fetch 0)
 PS="${FT_DESK_TICK_PS:-ps}"
 HILDIR="${FT_HIL_DIR:-/tmp}"
 LOG="${FT_DESK_TICK_LOG:-$ROOT/.fable-team/comm/mailbox.log.jsonl}"
@@ -39,6 +40,7 @@ PLANNER_SEATS="$ROOT/.fable-team/seats-planner.json"
 START="$(date +%s)"
 iso() { date -u -r "$1" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -u -d "@$1" '+%Y-%m-%dT%H:%M:%SZ'; }
 NOWISO="$(iso "$NOW")"
+lmin() { date -r "$1" '+%Y-%m-%dT%H:%M' 2>/dev/null || date -d "@$1" '+%Y-%m-%dT%H:%M'; }   # 지역 시각 분까지(news-last at 과 같은 꼴)
 
 to() {  # to <초> <명령…> — 항목당 7초 상한(외부 호출 7초 룰). macOS 에 timeout 이 없어 perl alarm 으로 받친다.
   local s="$1"; shift
@@ -58,6 +60,7 @@ OUT=("DESK-TICK $SEAT $NOWISO"); FAILS=0; DEC=0; OKN=0
 HIL_N=0; HIL_DESK=0; MAIL_N=0; LAUNCH_BAD=0; STALE=0; WATCH="?"
 o() { OUT+=("$*"); }
 fail_line() { o "$1 판정 불가 rc=$2"; FAILS=$((FAILS+1)); DEC=$((DEC+1)); }
+news_fail() { o "NEWS 판정 불가 — $1 rc=$([ "$2" -ne 0 ] && echo "$2" || echo 1)"; FAILS=$((FAILS+1)); DEC=$((DEC+1)); }   # r2102
 item() {  # item <이름> — 전체 25초를 넘으면 그 항목은 실행하지 않고 판정 불가 1줄(6항 자리는 지킨다)
   if [ $(( $(date +%s) - START )) -gt 25 ]; then fail_line "$1" 124; return 1; fi
   return 0
@@ -82,9 +85,9 @@ if item HIL; then
   fi
 fi
 
-# ② launchd 4종 state/last exit + stall-scan 로그 마지막 ts
+# ② launchd 3종 state/last exit + stall-scan 로그 마지막 ts + 뉴스 마지막 발행(r2102)
 if item LAUNCH; then
-  for spec in "stall-scan=com.byz.ft-stall-scan" "tick=com.byz.ft-tick" "news-planner=com.byz.ft-news-planner" "news-desk=com.byz.ft-news-desk"; do
+  for spec in "stall-scan=com.byz.ft-stall-scan" "keeper=com.byz.ft2-keeper" "board-news=com.byz.ft-board-news"; do   # r2102 2.0 적재 라벨
     nm="${spec%%=*}"; label="${spec#*=}"
     lout="$(X "$LAUNCHCTL" print "gui/$UIDN/$label" 2>&1)"; rc=$?
     if [ "$rc" -ne 0 ]; then fail_line "LAUNCH $nm" "$rc"; LAUNCH_BAD=$((LAUNCH_BAD+1)); continue; fi
@@ -105,6 +108,22 @@ if item LAUNCH; then
       OKN=$((OKN+1)); age=$(( (NOW - tse) / 60 )); [ "$age" -ge 0 ] || age=0
       o "STALL-SCAN 로그 $(iso "$tse") (${age}분 전)"
       [ "$age" -lt 10 ] || DEC=$((DEC+1))
+    fi
+  fi
+  # r2102 뉴스 줄 — 마지막 발행(news-last.json · 못 읽으면 ?) · 골 진행 표 커밋 T · T 뒤 완성/ 추가 커밋 수 behind(fetch 0 · git 2회)
+  #   behind = origin/main · origin/ops/main-base 에서 닿고 T 에서 안 닿고 커밋 시각 ≥ T(같은 초 포함) · age ≥ 상한 ∧ behind ≥ 1 = STALE(경보만)
+  lp="$(X python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["at"][:16])' "$ROOT/.fable-team/state/board/news-last.json" 2>/dev/null)" || lp=""
+  #   T = 절 안의 표 데이터 줄(`|` 로 시작)을 바꾼 마지막 커밋 — 다음 절 제목 · 설명 줄만 바뀐 커밋은 T 가 아니다(DA #316668 R2)
+  tl="$(X "$GIT" -C "$ROOT" log --format='C %H %ct' -L "/^## 골 진행$/,/^## /:$LEDGER" origin/main 2>/dev/null | awk '/^C [0-9a-f]+ [0-9]+$/{c=substr($0,3); next} /^[-+]\|/ && t==""{t=c} END{print t}')"; rc=$?
+  if [ "$rc" -ne 0 ] || [ -z "$tl" ]; then news_fail 표 "$rc"; else
+    tct="${tl##* }"   # 둘째 log = git 쪽에서 시각 ≥ T 로 먼저 거른다(전체 이력 읽기 0 · DA #316668 R1)
+    bl="$(X "$GIT" -C "$ROOT" log --full-history --diff-filter=AR --name-only --format=@%ct --since="@$tct" origin/main origin/ops/main-base "^${tl%% *}" -- ':(glob)design/**/indices/완성/**' 2>/dev/null)"; rc=$?
+    if [ "$rc" -ne 0 ]; then news_fail 완성 "$rc"; else
+      OKN=$((OKN+1))
+      nb="$(printf '%s\n' "$bl" | awk -v t="$tct" '/^@/{c=substr($0,2)+0; f=0; next} NF && !f && c>=t {n++; f=1} END{print n+0}')"
+      nage=$(( (NOW - tct) / 3600 )); [ "$nage" -ge 0 ] || nage=0
+      line="NEWS last_post=${lp:-?} table=$(lmin "$tct") age=${nage}h behind=$nb"
+      if [ "$nage" -ge "${FT_DESK_TICK_NEWS_STALE_H:-3}" ] && [ "$nb" -ge 1 ]; then o "$line STALE"; DEC=$((DEC+1)); else o "$line"; fi
     fi
   fi
 fi

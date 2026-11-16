@@ -3,16 +3,23 @@
 머리 줄(열린·닫힌 골) → «지금»(바뀐 것 · 열린 골마다 1줄) → «다음»(열린 골마다 다음 한 수 · r2096) → «막힌 것, 오빠 할 일» → 끝 줄 «근거:».
 열쇠 = standing() 줄 + «다음» 칸 줄(바뀐 것 줄 · 근거 줄 밖) — 팀 카드 수 · 좌석 · 진행 카드는 열쇠에 없다. 줄은 자르지 않는다.
 """
+import os
 import re
 from datetime import datetime
 
 from ft_board_news_name import card_tag, work_name
+from ft_oppa_slack_check import OPPA_SLACK_UID
 
 MAX_CHANGES, MAX_BYTES = 5, 3500
 NO_NEXT = "정해진 다음 한 수 없음"
 NO_TABLE = "골 진행 표 없음 — planner 원장 «## 골 진행»"
 STALE = ("닫는 증거 칸", "main 밖", "좌석", "세션", "나노", "keeper")  # 원장 상태 글의 내부어(S5 · 알리기만)
 STALE_DATE = re.compile(r"\(\d{2}-\d{2} 판\)")
+MENTION = re.compile(r"<([@!][^<>]*)>")  # r2102 원장·카드 글의 Slack mention 꼴 → 꺾쇠를 뺀다(태그 = 도구가 붙인 1개뿐)
+
+
+def quiet(s: str) -> str:
+    return MENTION.sub(r"\1", s)
 
 
 def closed(r: list[str]) -> bool:
@@ -44,7 +51,7 @@ def standing(cur: dict) -> list[str]:
     shut = [r[1] for r in rows or [] if closed(r)]
     top = f"골 진행 알림: 열린 골 {len(rows) - len(shut)}개, 닫힌 골 {len(shut)}개" + (f"({', '.join(shut)})" if shut else "") if rows else f"골 진행 알림: {NO_TABLE}"
     goals = [goal_line(r) for r in rows or [] if not closed(r)] or (["열린 골 없음"] if rows else [])
-    todo = [f"오빠 승인 대기 {cur['h']}건" if cur["h"] else "없음"] + [f"{t} 확인 불가(수집 실패, 직전 상태 유지)" for t in cur.get("carried", [])]
+    todo = [f"<@{os.environ.get('FT_OPPA_SLACK_UID') or OPPA_SLACK_UID}> 오빠 승인 대기 {cur['h']}건" if cur["h"] else "없음"] + [f"{t} 확인 불가(수집 실패, 직전 상태 유지)" for t in cur.get("carried", [])]
     return [top, "지금", *goals, "막힌 것, 오빠 할 일", *todo]
 
 
@@ -81,7 +88,9 @@ def next_key(cur: dict) -> list[str]:
 def body(cur: dict, prev: dict | None, now: datetime, sha: str, tt: dict | None = None) -> str:
     """본문 — 3500B 를 넘으면 «다음» 칸 줄을 아래부터 빼고 «그 밖의 골 N개» 로 맺는다(골 줄 · 상태 글은 줄이지 않음)."""
     nm = lambda team, cid: work_name(cid, (tt or {}).get(team, {}).get(cid))  # noqa: E731
-    fresh = news(prev, cur, nm)
+    fresh = [(quiet(t), ids) for t, ids in news(prev, cur, nm)]
+    rows = [[quiet(c) for c in r] for r in cur["goals"]] if cur["goals"] else cur["goals"]
+    cur = {**cur, "goals": rows, "carried": [quiet(t) for t in cur.get("carried", [])]}
     tags = list(dict.fromkeys(g for _, ids in fresh for c in ids if (g := card_tag(c))))  # 근거 줄 번호
     st = standing(cur)
     cut = st.index("막힌 것, 오빠 할 일")

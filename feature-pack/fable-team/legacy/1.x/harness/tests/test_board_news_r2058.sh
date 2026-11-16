@@ -153,7 +153,7 @@ goal "1 | ft 2.0 완성 | 21 | 23 | 진행 중" "$G2"; run 2026-11-15T16:20:00
 chk "⑩ 부분 실패 + 골 변화 = reply 1 · 바뀜 = 골 1줄(r2095)" '[ "$(replies)" = 3 ] && [ "$(now_section | grep -c "^바뀜: ")" = 1 ] && now_section | grep -qF "20단계 → 21단계"'
 chk "⑩ 본문 «하네스 확인 불가» 1줄" '[ "$(lastbody | grep -c "^하네스 확인 불가")" = 1 ] && ! lastbody | grep -qE "닫힘|→없음"'
 chk "⑫ 부분 실패 본문에도 «엑스 확인 불가» 0줄" '! lastbody | grep -q "엑스 확인 불가"'
-chk "⑬ 팀 수집 실패 중 «오빠 승인 대기 1건» 유지" 'lastbody | grep -qx "오빠 승인 대기 1건" && ! lastbody | grep -qx "없음"'
+chk "⑬ 팀 수집 실패 중 «오빠 승인 대기 1건» 유지" 'lastbody | grep -qx "<@U0AC2JF0M7D> 오빠 승인 대기 1건" && ! lastbody | grep -qx "없음"'
 mk "$BASE"; run 2026-11-15T16:30:00
 chk "⑩ 복구 = 가짜 열림 0 · reply 1 «수집 복구»(r2095 S2)" '[ "$RC" = 0 ] && [ "$(replies)" = 4 ] && now_section | grep -qxF "수집 복구: 하네스" && ! lastbody | grep -q "열림"'
 reset; goal "$G1"; mk '{"err":true}'; run 2026-11-15T17:00:00
