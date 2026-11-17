@@ -13,6 +13,7 @@ H4(r909 r3 · 하드 룰 14 「추적 대신 예외를 좁힌다」): 셸 판정
   자료 확장자(.json·.txt·.sql …) 제외는 없다(DA⑥ r2 반례 1 — ci/task.txt 의 printf 비밀). 문서(.md)는 셔뱅이 «없을» 때만 doc_cmds(반례 3).
   셔뱅 있는 파일은 확장자 무관 전 줄 판정(r1645: 해석기가 셸 아님 + 코드 확장자면 리터럴 길로). YAML 은 추가 줄만 보고 run:/script: 값·목록 항목의 명령을 뽑아 판정한다(기준판처럼 전문 블록 재검사 0 — 오탐 2).
   키 원문 모양(SECRET_SHAPE)은 종전대로 모든 추가 줄을 본다(줄이지 않음).
+  r2165: 셸 문맥 글(전문을 그대로 넘기던 네 자리)에서도 «확인된 파이썬 인용 heredoc 본문» 줄만 같은 «set(» 가림을 한다(autonomy_scope_py_heredoc).
 """
 import re
 import subprocess
@@ -238,16 +239,21 @@ def non_shell_shebang(full):   # r1645: 셔뱅 해석기가 «셸 아님이 확�
     return name in NON_SHELL_INTERP or re.fullmatch(r"python3\.\d+", name) is not None
 
 
+def _shell(items, full):   # r2165: 셸 문맥 글 = 추가 줄 원문 · 확인된 파이썬 인용 heredoc 본문 줄만 set( 가린 글로
+    import autonomy_scope_py_heredoc   # 이 네 갈래에서만 부른다
+    body = autonomy_scope_py_heredoc.body_lines(full, shield_set_call)
+    return "\n".join(body.get(n, t) for n, t in items)
+
+
 def shell_text(path, is_doc, items, full):   # plan() 에 넘길 글 · "" = 이 파일은 셸 판정 밖
-    text = "\n".join(t for _n, t in items)
     if path is None:   # 경로를 못 풀면 전부 판정(닫힌 쪽)
-        return text
+        return _shell(items, full)
     ext = ext_of(path)
     if ext in SHELL_EXT or not ext:
-        return text   # 셸 확장자 · 확장자 없는 실행 스크립트
+        return _shell(items, full)   # 셸 확장자 · 확장자 없는 실행 스크립트
     if full and full.split("\n", 1)[0].startswith("#!"):
         if not (ext in CODE_EXT and non_shell_shebang(full)):   # r1645: 셸 아닌 해석기 + 코드 확장자만 비켜선다
-            return text   # 셔뱅 있는 파일 = 셸 문맥(확장자 무관 · DA⑥ r3 반례 3)
+            return _shell(items, full)   # 셔뱅 있는 파일 = 셸 문맥(확장자 무관 · DA⑥ r3 반례 3)
     if is_doc or ext in DOC_EXT:
         return doc_cmds(full, items)   # 문서는 «셔뱅 없는» 파일만(실행될 수 있는 줄)
     if ext in YAML_EXT:
@@ -257,6 +263,7 @@ def shell_text(path, is_doc, items, full):   # plan() 에 넘길 글 · "" = 이
         mask = autonomy_scope_code_word.drop(full, _in_literals(full), ext in (".py", ".pyi"))   # 보정1: 파이썬 주석 괄호는 추적 밖
         kept = "".join(c if m or c == "\n" else " " for c, m in zip(full, mask)).split("\n")   # 줄 번호는 그대로
         return "\n".join(kept[n - 1] if 0 < n <= len(kept) else t for n, t in items)
+    text = _shell(items, full)   # r2165 · 아래 줄은 r909 변이 시험이 글자로 찾는 자리
     return text   # 그 밖 = 판정한다(닫힌 쪽)
 
 
