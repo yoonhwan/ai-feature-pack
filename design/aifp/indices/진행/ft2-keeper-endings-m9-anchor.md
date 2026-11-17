@@ -6,6 +6,7 @@
 - 원인 1줄: keeper 60초 카드(PR #1397 · d261be1a)가 바퀴 고리를 `one_work` 로 옮기면서 `elif self.sock and endings.ending(self, team, work):` 를 `if self.sock and endings.ending(self, team, work):` 로 바꿨다 · M9 는 옛 글자(`elif …`)를 닻으로 찾아 바꾸는 변이라 `assert text.count(old) == 1` 에서 0 으로 떨어진다 · 그 PR 은 이 시험 파일을 고치지 않았고 카드 회귀 목록에도 이 파일이 없었다
 - 앞 카드: 진행/ft2-keeper-round-60s(PR #1397) · r1960(일이 끝난 나노 자리 닫기 · M1~M10) · r2000(M9 = cli complete 를 바로 부르는 꼴)
 - 상태: 대기
+- 착지: d30c5789(팩 main · PR #1516 · squash · 세트 18146adb69196d4619b364632161e34dbed1b0ca · DA APPROVE-DESIGN BYZ 326251 · 팀장 재실행 -k 'M9 or M3' = M9 passed · M3 failed 기준판 같음)
 - 설치: 없음 — 시험 파일만 바뀐다(설치본에 tests 는 실리지만 keeper 동작 변화 0 · 판 올림을 따로 하지 않는다)
 - 선행: 없음(팩 origin/main 97b15fdc)
 - 시험 입력: 그 시험 파일이 이미 쓰는 것 그대로(임시 루트 · ft2 사본에 글자 바꾸기 · 가짜 tmux·mbox · 실 runtime 0 · 네트워크 0)
