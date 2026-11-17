@@ -170,9 +170,9 @@ def _card_end(k, team, work):
     return _resolved_end(k, team, work)
 def _resolved_end(k, team, work):
     """r2055 A1·A7 §3b — 팀 폴더 후보 0 = landing 과 같은 resolve_card(짝 표 → 팀 폴더 → 발주 본문) 카드의 «## 상태» 머리 · 우선 ref 에 2장↑ = False · 0 = None."""
-    cards = k.resolve_card(team, work)[0]
-    if isinstance(cards, str):
-        return None
+    cards, mapped = k.resolve_card(team, work)
+    if isinstance(cards, str):   # r2177 R11 — 짝 표 1줄의 카드가 진행·대기·완성에 없을 때만 완성후·아카이브를 찾는다
+        return _moved_end(k, mapped[0]) if mapped and len(mapped) == 1 and cards.startswith("판정 불가 · 짝 표 카드 없음") else None
     land = _mod("land", os.path.join(HERE, "keeper_land.py"))
     for ref in land.REFS:
         paths = sorted({p for r, p in cards if r == ref})
@@ -181,6 +181,23 @@ def _resolved_end(k, team, work):
         if paths:
             rc, body, _ = k.git(k.root, "show", "%s:%s" % (ref, paths[0]))
             return _head(body) if rc == 0 else False
+    return None
+def _moved_end(k, path):
+    """r2177 R11 — 짝 표 경로와 같은 indices 의 완성후/·아카이브/(월 폴더 포함) 같은 파일 이름 · 가지 순서 · 가지마다 ls-tree 1회.
+    처음 나온 가지에 1개 = superseded · 2개↑ = False · 두 가지 0 = None · ls-tree 실패 = False."""
+    land = _mod("land", os.path.join(HERE, "keeper_land.py"))
+    m = land.MAPPED.match(path)
+    head = m and m.group(1) + "/indices/"
+    for ref in land.REFS if m else ():
+        rc, names, _ = k.git(k.root, "ls-tree", "-r", "--name-only", ref, "--", *(head + d for d in DONE))
+        if rc != 0:
+            return False
+        hits = [p[len(head):] for p in names.splitlines() if p.startswith(head) and os.path.basename(p) == m.group(2)
+                and p[len(head):].split("/")[0] in DONE and p[len(head):].count("/") <= 2]
+        if len(hits) > 1:
+            return False
+        if hits:
+            return "superseded", "카드 %s/" % hits[0].split("/")[0]
     return None
 def unsure(st, team, work, holder, key, idle, fmt=None, slot=""):
     """④ 미확인 깨움 — after_s 뒤 재깨움 1회(정상·오류 턴 길 같은 rewoke 키) · 또 미확인 = harness master [크리티컬] 1통/일 · 재배정·kill 0."""
