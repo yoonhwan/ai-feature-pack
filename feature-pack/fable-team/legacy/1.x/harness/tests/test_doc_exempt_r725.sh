@@ -26,7 +26,7 @@ mkdir -p "$T/fakebin"; SEATFILE="$T/seatname"; export SEATFILE; printf '%s' "$SE
 tmux_stub() { printf '#!/bin/bash\n[ "$1" = display-message ] && { cat "$%s"; exit 0; }\nexit 1\n' "$1" > "$T/fakebin/tmux"; chmod +x "$T/fakebin/tmux"; }
 tmux_stub SEATFILE
 export FT_ROOT="$W" FT_AUTONOMY_STATE_DIR="$T/state" FT_PLANNER_DIR="$T/pdir" FT_SEAT="$SEAT" FT_GH="$T/gh-stub" FT_GH_WRITE="$T/gh-stub" STUB_LOG="$T/gh.log" STUB_JSON="$T/pr.json" FT_INSTALL_CHECK="$T/install-stub" FT_AUTONOMY_SH="$AUT"
-printf '| 팀 | 폴더 | 상태 | 명부 |\n|---|---|---|---|\n| planner | `design/teams/planner/` | 현역 | |\n| issues | `design/teams/issues/` | 현역 | |\n| cfo | `design/teams/cfo/` | 현역 | |\n| feature | `design/teams/feature/` | 현역 | |\n| room | `design/teams/room/` | 현역 | |\n' > "$T/TEAMS.md"; export FT_TEAMS_MD="$T/TEAMS.md"   # r2219: r1907 명부 칸 판정용 픽스처 TEAMS.md(리포 밖 $T · 명부 빈 칸 = seats-<팀>.json)
+printf '| 팀 | 폴더 | 상태 | 명부 |\n|---|---|---|---|\n| planner | `design/planner/` | 현역 | |\n| issues | `design/issues/` | 현역 | |\n| cfo | `design/cfo/` | 현역 | |\n| feature | `design/feature/` | 현역 | |\n| room | `design/room/` | 현역 | |\n' > "$T/TEAMS.md"; export FT_TEAMS_MD="$T/TEAMS.md"   # r2219: r1907 명부 칸 판정용 픽스처 TEAMS.md(리포 밖 $T · 명부 빈 칸 = seats-<팀>.json)
 export TMUX_PANE=%9 PATH="$T/fakebin:$PATH"
 cat > "$T/gh-stub" <<'EOF'
 #!/bin/bash
