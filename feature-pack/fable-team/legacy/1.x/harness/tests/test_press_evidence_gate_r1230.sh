@@ -18,7 +18,7 @@ BASE_SHA=13fd93322fe99bf1e52a99390932733ba087c6c9
 TOP="$(git -C "$HERE" rev-parse --show-toplevel 2>/dev/null)" && TOP="$(cd "$TOP" && pwd -P)"; PFX="$(cd "$HERE/.." && pwd -P)"; PFX="${PFX#$TOP/}"; mkdir -p "$T/red"
 if [ -n "$TOP" ] && git -C "$TOP" cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
   for f in "$BIN"/*; do ln -s "$f" "$T/red/$(basename "$f")"; done; rm -f "$T/red/ft-merge-land.sh"
-  git -C "$TOP" show "$BASE_SHA:$PFX/bin/ft-merge-land.sh" > "$T/red/ft-merge-land.sh" && [ -s "$T/red/ft-merge-land.sh" ] || { echo "FAIL 기준판을 못 꺼냄"; exit 1; }
+  git -C "$TOP" show "$BASE_SHA:${PFX/legacy\/1.x\//}/bin/ft-merge-land.sh" > "$T/red/ft-merge-land.sh" && [ -s "$T/red/ft-merge-land.sh" ] || { echo "FAIL 기준판을 못 꺼냄"; exit 1; }  # r2218: 고정 sha 는 legacy/1.x 이동(625fbdfc) 앞 = 옛 경로
   mkpr 20 b20 "worker/base.py=x"; land "$T/red/ft-merge-land.sh" 20 --approve-sha "$PRSHA"
   [ "$rc" = 0 ] && [[ "$out" == *"LANDED pr=20 "* ]] && [[ "$out" != *"press 증거"* ]]; ck "기준판: worker 변경 · 묶음 0 → 그대로 착지(검사 0 재현)" $?
 else echo "SKIP 기준판 칸 — base_sha $BASE_SHA 객체 없음"; fi

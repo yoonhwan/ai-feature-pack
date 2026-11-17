@@ -34,7 +34,7 @@ st() { local n="$1" p="$2" want="$3" stt="${4:-A}"; out="$(py "$BIN" "$p" "$stt"
 # ===== ⓐ 빨강 먼저: 옛 판(착지 전 main 73f097b3)은 대기/ 새 카드도 «제외 폴더» 로 거절한다 =====
 mkdir -p "$T/red"
 OLD_BASE=73f097b396eecfe23a916082a69152176fb19911   # r804 착지 전 main — 착지 뒤 origin/main 은 새 판이라 고정
-git -C "$TOP" show "$OLD_BASE:$KPFX/ft_doc_exempt_paths.py" > "$T/red/ft_doc_exempt_paths.py" || { echo "FAIL 옛 판을 못 꺼냄"; exit 1; }
+git -C "$TOP" show "$OLD_BASE:${KPFX/legacy\/1.x\//}/ft_doc_exempt_paths.py" > "$T/red/ft_doc_exempt_paths.py" || { echo "FAIL 옛 판을 못 꺼냄"; exit 1; }  # r2218: 고정 sha 는 legacy/1.x 이동(625fbdfc) 앞 = 옛 경로
 [ -s "$T/red/ft_doc_exempt_paths.py" ] || { echo "FAIL 옛 판이 비었다"; exit 1; }
 CARDPATH='design/teams/lecture/indices/대기/L51-x.md'
 out="$(py "$T/red" "$CARDPATH")"
