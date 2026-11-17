@@ -59,7 +59,7 @@ KN = "adapters/pi/keeper_next.py"
 OLD = '(stem[:33].rstrip("-"), hashlib'   # r2113 A2 — 잘린 이름 끝 «-» 지움 자리
 MUTANTS = {"M1": (OLD, "(stem[:33], hashlib", "T1"),
            "M2a": ('(pick[0], nano_name(k, team, pick[0]))', '(pick[0], "byz-%s-nano-%s#0" % (team, pick[0][:40]))', "T4"),   # 닫기 자리만 옛 꼴
-           "M2b": ('stem, nano_name(k, team, stem), None)', 'stem, "byz-%s-nano-%s#0" % (team, stem[:40]), None)', "T4"),   # 띄운 칸 잇기 자리만 옛 꼴
+           "M2b": ('nh = then_name(k, team, stem)', 'nh = "byz-%s-nano-%s#0" % (team, stem[:40])', "T4"),   # 띄운 칸 잇기 자리만 옛 꼴
            "M2c": ('None, nano_name(k, team, pick[0])', 'None, "byz-%s-nano-%s#0" % (team, pick[0][:40])', "T4")}   # fill 자리만 옛 꼴
 @pytest.mark.parametrize("name", list(CASES))
 def test_case(name, tmp_path, monkeypatch):
