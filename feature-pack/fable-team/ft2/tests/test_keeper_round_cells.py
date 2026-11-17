@@ -8,6 +8,7 @@ import shutil
 
 import pytest
 
+import keeper_world_r1812 as W
 from test_keeper_round_60s import FT2, KP, Rig, _next, field, line
 
 
@@ -115,12 +116,28 @@ CASES = {"㊻가": c_ga, "㊻나": c_na, "㊻다": c_da, "㊻라": c_ra, "㊻마
 MUTANTS = {
     "M109": (KP, "        landed = self.timed(\"b1\", self.landing, team, work)", "        landed = self.landing(team, work)",
              ("㊻가", "㊻바", "㊻사")),
-    "M110": (KP, " and (p[0], p[1]) not in gone])", "])", ("㊻나", "㊻다")),
+    "M110": (KP, " and (p[0], p[1]) not in self.skipped_works])", "])", ("㊻나", "㊻다")),
     "M111": (KP, 'if rec.get("kind") == "parked" and rec.get("reason") != settling.LAUNCH_FAILED', 'if rec.get("kind") == "parked"',
              ("㊻라",)),
-    "M112": (KP, "return len([p for p in self.positions() if not self.before(*p) and p not in self.unused and (p[0], p[1]) not in gone])",
+    "M112": (KP, "return len([p for p in self.positions() if not self.before(*p) and p not in self.unused and (p[0], p[1]) not in self.skipped_works])",
              "return len(self.positions())", ("㊻나", "㊻아")),
 }
+
+
+def test_receipt_cells(tmp_path, monkeypatch):   # R3 (DA HOLD 2/3) 실제 완료→close→receipt 경로 = 이번 방문 자리를 분모에서 빼지 않는다
+    """Rig 의 close 대역은 state.handled 를 안 바꿔 이 회귀를 가린다 — 임시 git·가짜 tmux 로 keeper 바퀴를 실제로 돌린다.
+
+    receipt(keeper_close)가 이번 바퀴 work 를 handled 에 적은 뒤 분모를 다시 읽으면 이미 센 b2c 까지 빠져 4/3 이 된다(기대 4/4).
+    """
+    w = W.World(tmp_path, monkeypatch)
+    w.enable()
+    w.card("r9", w.pack_sha())
+    w.work("r9", done=True, alive=True)
+    k = w.keeper()
+    lines = w.round(k)
+    assert "harness|r9@a1" in k.state["handled"], k.state["handled"]   # 영수 경로가 이번 바퀴에 handled 를 적었다
+    assert field(k, "items") == "4/4" and field(k, "cut") == "-", lines
+    assert any(x.startswith("RECEIPT") for x in lines), lines   # 끊김 없이 영수까지 갔다
 
 
 @pytest.mark.parametrize("name", list(CASES))
