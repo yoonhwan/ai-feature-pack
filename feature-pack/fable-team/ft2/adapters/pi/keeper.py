@@ -239,8 +239,25 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         return sorted(pos, key=lambda one: self.key(*one))
 
     def cell_total(self):
-        """R10 분모 — 이 바퀴에 돌 수 있는 자리 = 자리 목록 에서 cursor 앞 · 자리 없이 닫은 자리(unused) · 건너뛰는 work 의 자리를 뺀 것."""
-        return len([p for p in self.positions() if not self.before(*p) and p not in self.unused and (p[0], p[1]) not in self.skipped_works])
+        """R10 분모 — 이 바퀴에 돌 수 있는 자리 = 자리 목록 에서 cursor 앞 · 안 도는 자리(unused) · 건너뛰는 work 의 자리를 뺀 것.
+
+        모둔 팀의 건너뛸 work 를 미리 센다 — 앞 팀에서 끊겨도 뒤 팀의 handled work 가 분모에 남지 않는다."""
+        gone = {(team, work) for team in self.order for work in self.book(team)[1]}
+        return len([p for p in self.positions() if not self.before(*p) and p not in self.unused and (p[0], p[1]) not in gone])
+
+    def book(self, team):
+        """r1990·r2055 — (반환·쉼 (work, attempt), 건너뛰는 work) · 고리와 분모 셈이 같은 식을 쓴다."""
+        rows = self.rows_of(team)
+        back = {(rec["work"], rec.get("attempt")) for rec in rows if rec.get("kind") == "returned"}
+        back |= {(rec["work"], rec.get("attempt")) for rec in rows if rec.get("kind") == "parked" and rec.get("reason") != settling.LAUNCH_FAILED}
+        latest = {rec["work"]: rec.get("attempt") for rec in rows if rec.get("kind") == "dispatch" and rec.get("work")}
+        return back, {work for work, attempt in latest.items() if "%s|%s@%s" % (team, work, attempt) in self.state["handled"] or (work, attempt) in back}
+
+    def left_over(self, team, work):
+        """R10 — 판정이 끝난 work 의 안 돈 자리(b1 · b2c · stall)는 이 바퀴에 돌 수 있는 자리가 아니다."""
+        for stage in ORDER[:3]:
+            if (team, work, stage) not in self.seen:
+                self.unused.add((team, work, stage))
 
     def before(self, team, work, stage):
         """R4 — cursor 자리 앞이면 True(이번 바퀴 0 · 재판독 0)."""
@@ -252,6 +269,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
             return False
         self.items += 1
         self.cursor_stage = stage
+        self.seen.add((self.at, self.at_work, stage))   # R10 분모 = 돈 자리
         return True
 
     def next_pos(self, team, work, stage):
@@ -435,7 +453,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         self.sect, self.items, self.total, self.cut, self.cut_pos, self.prev_cursor, self.curs = WORK_S, 0, 0, "-", None, None, None
         self.jrows, self.ws, self.order, self.report_seat, self.nano_dl, self.unused = {}, {}, [], None, None, set()
         self.tried = set()   # r2140 DA ⓐ 이 바퀴에 card_stage 를 부른 team|work
-        self.skipped_works = set()   # R10 분모 = 고리가 건너뛴 work(handled·반환·쉼)의 자리는 이 바퀴에 돌 수 있는 자리가 아니다
+        self.seen = set()   # R10 분모 = 이 바퀴에 돈 자리(at_pos 가 적는다) · 안 돈 자리는 left_over 가 뺀다
         self.prev_cursor = dict(self.state.get("cursor") or {}) or None   # R5 «같은 자리 2바퀴 연속» 을 세려고 남긴다
         self.deferred = {}   # R8 쪽지 몫(notify_used · send_fails · send_stop)은 바퀴 끝에서 되돌린다(한 바퀴 3통 · 시간 초과 2회)
         self.halt, self.unknown, self.orphan_scope = self.stopped(), 0, set()   # r2055 orphan_scope = 고아 길이 판정한 팀(S1) 정지 = 판정·[긴급]·«예정» 만 · kill·park·깨움·fill·B3 0
@@ -488,8 +506,12 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
             self.cursor_stage = "stall"   # accept_only 동안(자리 없이 도는 팀 칸)
             if self.sock and not self.halt and self.at_pos("b3o"):
                 self.timed("b3", endings.orphans, self, self.order)   # r1960 ⑤ 스냅샷 뒤 journal 새로 읽기
+            else:
+                self.unused.add(("-", "-", "b3o"))   # R10 안 도는 자리 = 분모에 남기지 않는다
             if self.sock and self.at_pos("b3r"):
                 self.timed("b3", self.retired)   # r2055 정지 중 = 판정·«예정» 줄만(retire_one 안에서)
+            else:
+                self.unused.add(("-", "-", "b3r"))
         except Cut:
             self.mark_cut()   # R3 끊김 = 이 바퀴 업무 구획 끝 · cursor 남김 · 뒤 항목 시작 0
         except Ungraded:
@@ -549,11 +571,8 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         rows = self.rows_of(team)   # r2098 자리 순서 셈과 같은 읽기(바퀴 안 1회)
         latest = {rec["work"]: (rec.get("attempt"), rec.get("holder")) for rec in rows
                   if rec.get("kind") == "dispatch" and rec.get("work")}
-        back = {(rec["work"], rec.get("attempt")) for rec in rows if rec.get("kind") == "returned"}   # r1990 반환 줄
-        back |= {(rec["work"], rec.get("attempt")) for rec in rows if rec.get("kind") == "parked" and rec.get("reason") != settling.LAUNCH_FAILED}   # r2055 쉼 줄
+        back, gone = self.book(team)   # r1990 반환·r2055 쉼 줄 · R10 건너뛰는 work(분모 셈과 같은 식)
         self.parked_failed = {(team, rec["work"], rec.get("attempt")) for rec in rows if rec.get("kind") == "parked" and rec.get("reason") == settling.LAUNCH_FAILED}   # r2058 L1
-        gone = {work for work, (attempt, _) in latest.items() if "%s|%s@%s" % (team, work, attempt) in self.state["handled"] or (work, attempt) in back}   # R10 건너뛰는 work = 끊기기 전에 미리 센다(분모 셈이 같은 식)
-        self.skipped_works |= {(team, work) for work in gone}
         for work, (attempt, dispatched) in sorted(latest.items()):
             if work in gone:
                 if (work, attempt) in back and (proj["works"].get(work) or {}).get("done"):
@@ -563,18 +582,23 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
             try:
                 close = self.one_work(team, work, attempt, row, dispatched, rows)
             except Ungraded:
-                continue   # R7 git 7초 = 그 자리 남은 판정 0 · 다음 자리
+                self.left_over(team, work)   # R7 git 7초 = 그 자리 남은 판정 0 · 다음 자리
+                continue
             except Exception as exc:   # r2115 A2 예상 밖 예외 = 그 work 1줄 · close 0 · 다음 work(Cut 같은 BaseException = 위로)
                 self.log("판정 불가", team, "%s 내부 오류 %s" % (work, type(exc).__name__))
+                self.left_over(team, work)
                 continue
             if close == "close" and self.sock and (team, work, attempt) not in self.parked_failed and self.at_pos("b2c"):
                 self.timed("b2c", self.close, team, work, attempt, row, dispatched)   # r2058 L2 착지면 complete 만 · 세션 없으면 닫기 0
+            self.left_over(team, work)   # R10 이 work 의 안 돈 자리 = 분모에 남기지 않는다
         self.at_work = "-"
         self.cursor_stage = "stall"
         if self.sock:
             self.timed("stall", self.accept_only, team, rows)   # r2055 ⑪ accept 만 · PARK_IDLE 넘음 = UNKNOWN
         if self.sock and not self.halt and self.at_pos("b2f"):   # r1913 빈 나노 칸 1장(팀마다 1회) · r2055 정지 중 fill 0
             self.timed("b2f", closing.keeper_next.fill, self, team)
+        else:
+            self.unused.add((team, "-", "b2f"))   # R10 이 바퀴에 안 도는 자리 = 분모에 남기지 않는다
 
     def one_work(self, team, work, attempt, row, dispatched, rows):
         """B1 한 자리(landing + complete) → «close» | «none» · 착지 밖이면 stall 칸(끊기면 Cut 이 위로).
