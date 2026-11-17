@@ -195,6 +195,21 @@ hand_gate() {  # <to> <from> <body>
   [ "$rc" = 3 ] || return 0; printf '%s\n' "$e" >&2; return 3
 }
 holder_of() { local h; h="$(python3 "$MBOXPY" holder "$1" 2>/dev/null)" && [ -n "$h" ] && _check_name "$h" 2>/dev/null && echo "$h" || echo "$1"; }
+# r2167 도구 알림 표(alert-policy.tsv) — 판정은 큐 적재 «전»(읽기만) · «마지막에 넣은 통» 기록은 적재 rc 0 «뒤» · 판정 불가 = 넣는다(본문 = mbox_alert_policy.py)
+#   좌석 쪽지(발신 끝 #N) · --urgent · --force · FT_ALERT_POLICY=0 · 표 없음 = 표를 읽지 않는다. rc 1 = 걸름(SKIPPED 줄 찍음) · AP_HOLD = 적재 뒤 기록할 현역 이름.
+AP_HOLD=""
+_ap_run() { local tm; tm="$(command -v timeout || command -v gtimeout)" || tm=""
+  FT_MBOX_STATE_DIR="$(_wg_state)" ${tm:+"$tm" 7} python3 "$DIR/mbox_alert_policy.py" "$@"; }
+alert_policy_check() {  # <to> <from> <body> <urgent> <force 수>
+  local out rc=0
+  [ "${FT_ALERT_POLICY:-1}" != 0 ] && [ -e "$DIR/alert-policy.tsv" ] && [ "$4" = 0 ] && [ "$5" = 0 ] || return 0
+  if [[ "$2" =~ \#[0-9]+$ ]]; then return 0; fi
+  out="$(_ap_run check "$1" "$2" "$3")" || rc=$?
+  if [ "$rc" != 0 ]; then echo "WARN alert-policy 판정 불가 — 판정 호출 rc=$rc$([ "$rc" != 124 ] || echo ' · 7초 초과')" >&2; return 0; fi
+  case "$out" in SKIPPED*) printf '%s\n' "$out"; return 1;; QUEUE$'\t'*) AP_HOLD="${out#QUEUE$'\t'}";; esac
+  return 0
+}
+alert_policy_record() { _ap_run record "$@" || echo "WARN alert-policy 기록 실패 rc=$? — 다음 통은 걸러지지 않는다" >&2; }
 
 cmd="${1:-}"; shift || true
 case "$cmd" in
@@ -214,6 +229,7 @@ case "$cmd" in
     guard_check "$to" "${args[*]}" "$from" || exit $?   # rc 3 = REJECT(큐 적재 0) · 후계 전달·[합치기] 치환은 GUARD_TO·GUARD_BODY
     to="$GUARD_TO"; args=("$GUARD_BODY"); dbto="$(holder_of "$to")"
     case "${args[*]}" in "[레디]"*) dbto="$to";; esac   # [레디] = 은퇴한 옛 세션 앞 핸드셰이크 회신 — 현역(후계 자신) 말고 그 pane 을 깨운다(r1116 ②)
+    alert_policy_check "$to" "$from" "${args[*]}" "$urgent" "${#force[@]}" || exit 0   # r2167 — 가드 뒤 · 깨움 게이트(예산) 전 · 걸러진 통 = seq · doorbell · 예산 0
     case "${args[*]}" in "[인계]"*|"[레디]"*) dbf=1;; esac   # 승계 핸드셰이크 두 쪽지 = 발주처럼 doorbell 시간 억제를 뚫는다(r1160) · py --force(가드 우회)는 안 넘긴다
     # ★r1476 깨움 게이트 — 판정은 enqueue «전»★ (seq 는 py 가 그 뒤에 발급한다 · 판정에 seq 가 없다)
     head="$(_wg_head "${args[*]}")"
@@ -242,6 +258,7 @@ case "$cmd" in
     fi
     py_out="$(python3 "$MBOXPY" send "$to" "$from" "${args[*]}" ${force[@]+"${force[@]}"})" || { _rc=$?; [ "$_rc" != 5 ] || printf '%s\n' "$py_out"; [ -z "$SK" ] || bash "$SE" abort "$SK"; [ "$gate" != sent ] || wake_budget_refund "$dbto" send >/dev/null 2>&1 || true; exit $_rc; }
     seq="$(seq_of "$py_out")" || seq=""
+    [ -z "$AP_HOLD" ] || alert_policy_record "$from" "$AP_HOLD" "${args[*]}"   # r2167 — 적재 rc 0 뒤에만
     case "$py_out" in BRIDGED*)   # ★r1562 — 다른 루트로 간 쪽지면 여기서 끝난다★(사유는 bridged_out 주석 · rsv = 이 게이트가 «예약을 실제로 했나»)
       case "$gate" in sent) if [ "${urgent}${uf}${ew}" = 000 ] && ! _wg_human_sender "$from" && case "$head" in '[긴급]'|'[인계]'|'[레디]') false;; *) true;; esac; then rsv=1; fi;; esac
       [ -z "$SK" ] || bash "$SE" commit "$SK" --ref "bridged seq $seq" >/dev/null || true
