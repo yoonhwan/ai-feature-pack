@@ -610,6 +610,9 @@ def pending_mail(comm: Path, now: float) -> dict[str, tuple[int, float]]:
                 age = (now - datetime.strptime(r["ts"][:19], "%Y-%m-%dT%H:%M:%S").timestamp()) / 60
             except (ValueError, KeyError):
                 continue
+            wake = r.get("wake_at")  # r2170 — 묶인 행(정수 · 지금 < wake_at ≤ 지금 + 3600 · r2169 W4·W6 같은 식)은 아직 미읽음이 아니다
+            if type(wake) is int and now < wake <= now + 3600:
+                continue
             if age >= IDLE_MIN and (r["to"] not in out or age > out[r["to"]][1]):
                 out[r["to"]] = (int(r["seq"]), age)
     return out
