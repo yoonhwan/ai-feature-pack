@@ -16,8 +16,10 @@ chk() { local t="$1"; shift; WHY=""; if "$@"; then ok "$t"; else bad "$t — $WH
 C="$T/comm"; mkdir -p "$C" "$T/home"
 printf '#!/bin/bash\nprintf "%%s\\t%%s\\t%%s\\n" "$2" "$3" "$4" >> "$(dirname "$0")/sent.log"\n' > "$C/mbox.sh"
 hil()  { local b="$1"; shift; env -i HOME="$T/home" PATH="/usr/bin:/bin" HIL_DIR="$HD" HIL_CLIP=0 FT_SECRET_JUDGE="$T/n" FT_TRAFFIC_JUDGE="$T/n" FT_SCOPE_JUDGE="$T/n" FT_MIX_JUDGE="$T/n" FT_PACK_PATH_JUDGE="$T/n" FT_MBOX_DIR="$C" bash "$b/ft-hil.sh" "$@" 2>/dev/null; }
-TO="$(command -v timeout || command -v gtimeout || echo env)"; [ "$TO" = env ] && TO="env" || TO="$TO 30"
-runh() { ( cd "$T" && exec env -i HOME="$T/home" PATH="/usr/bin:/bin" $TO bash "$H" ); }   # 사람이 치는 `bash /tmp/h<N>` · 30초 = 멈춘 변이의 상한
+TO="$(command -v timeout || command -v gtimeout)"   # 멈춘 변이의 상한 30초 · 없으면 상한 없이
+runh() {  # 사람이 치는 `bash /tmp/h<N>` · env 뒤 첫 명령 = 글자 bash(timeout 은 env 바깥)
+  if [ -n "$TO" ]; then ( cd "$T" && exec "$TO" 30 env -i HOME="$T/home" PATH="/usr/bin:/bin" bash "$H" )
+  else ( cd "$T" && exec env -i HOME="$T/home" PATH="/usr/bin:/bin" bash "$H" ); fi; }
 bgh()  { ( cd "$T" && exec env -i HOME="$T/home" PATH="/usr/bin:/bin" bash "$H" ) > "$T/$1.o" 2>&1 & echo $! > "$T/$1.pid"; }   # 뒤로 띄움 · pid = 진입 bash
 fresh() { HD="$T/hd-$1"; rm -rf "$HD"; mkdir -p "$HD"; rm -f "$C/sent.log"; }   # 칸마다 새 폴더(h 번호가 h1 부터) · 쪽지 장부 비움
 nsent() { cat "$C/sent.log" 2>/dev/null | grep -c "\[완료 ${H##*/}\]"; }
