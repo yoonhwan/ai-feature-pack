@@ -45,9 +45,12 @@ FAKE
   printf '#!/usr/bin/env bash\necho "SLEEP $*" >> "$FAKE_DIR/sleep.log"\n' > "$SB/bin/sleep"
   chmod +x "$SB/probe" "$SB/bin/timeout" "$SB/bin/sleep"
 }
-run_ci() { # 부른 쪽 MVCC 값은 비우고 시작(③ ④ 는 EXTRA 로 준다)
-  env -u PROBE_LSP_DB_DISABLE_MVCC -u PROBE_LSP_DB_ENABLE_MVCC HOME="$SB/home" TMPDIR="$SB/tmp" PROBE_BIN="$SB/probe" \
-      FAKE_DIR="$SB" CI_TIMEOUT=10 "${EXTRA:-CI_R2186_EXTRA=0}" bash "$CI" "$@" 2>&1; }
+run_ci() { # 부른 쪽 MVCC 값은 unset 으로 시작 · ③ ④ 은 MV_ENABLE / MV_DISABLE 로 준다(빈 값도 «준 값»)
+  ( unset PROBE_LSP_DB_DISABLE_MVCC PROBE_LSP_DB_ENABLE_MVCC
+    [ -n "${MV_ENABLE+x}" ] && export PROBE_LSP_DB_ENABLE_MVCC="$MV_ENABLE"
+    [ -n "${MV_DISABLE+x}" ] && export PROBE_LSP_DB_DISABLE_MVCC="$MV_DISABLE"
+    export HOME="$SB/home" TMPDIR="$SB/tmp" PROBE_BIN="$SB/probe" FAKE_DIR="$SB" CI_TIMEOUT=10
+    bash "$CI" "$@" 2>&1 ); }
 run_rp() { # repair = 가짜 timeout·sleep 가 PATH 앞 · 기다림 0 · 가짜 시계
   PATH="$SB/bin:$PATH" CI_LSP_REPAIR_WAIT=0 CI_LSP_REPAIR_NOW_CMD="cat $SB/clock" run_ci lsp repair; }
 all_d() { # $1=이름 → 가짜 probe 가 받은 모든 호출에 D=1
@@ -59,10 +62,10 @@ for v in "lsp status" "doctor" "refs a.py:1:1" "search foo ."; do
   mk; ( cd "$SB" && run_ci $v >/dev/null ); all_d "② ci $v"
 done
 echo "== ③ 부른 쪽 ENABLE=1 → 그대로 · DISABLE 없음 =="; mk
-EXTRA="PROBE_LSP_DB_ENABLE_MVCC=1" run_ci lsp status >/dev/null
+MV_ENABLE=1 run_ci lsp status >/dev/null
 chk "③ probe 가 받은 값" "$(grep -m1 'ARGS:' "$SB/probe.log" | cut -d' ' -f1-2)" "D=unset E=1"
 echo "== ④ 부른 쪽 DISABLE=0 → 0 그대로 =="; mk
-EXTRA="PROBE_LSP_DB_DISABLE_MVCC=0" run_ci lsp status >/dev/null
+MV_DISABLE=0 run_ci lsp status >/dev/null
 chk "④ probe 가 받은 값" "$(grep -m1 'ARGS:' "$SB/probe.log" | cut -d' ' -f1-2)" "D=0 E=unset"
 
 echo "== ⑤ L2 — 0s → 0s → 3s = OK =="; mk
