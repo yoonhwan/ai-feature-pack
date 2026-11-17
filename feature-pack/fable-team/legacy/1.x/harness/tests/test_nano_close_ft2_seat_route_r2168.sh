@@ -70,8 +70,9 @@ run() {
   if [ "$pc" = - ]; then : > "$T/panes"; else printf '%s|%%1\n' "$SEAT" > "$T/panes"; printf '%s' "$pc" > "$T/cwd"; fi
   ( cd "${RUN_CWD:-$R}" && env -i HOME="$T/home" PATH="$T/fake:$PATH" FT_SHEET_ROOT="$T/sheet" FAKE_PANES="$T/panes" FAKE_CWD="$T/cwd" FAKE_LOG="$T/tlog" \
       FT_CRITICAL_OFF=1 FT_ROOTS_TSV="$T/none.tsv" FT_SEATS_JSON="$SEATS" FT_INBOX_ROOT="$T/comm" FT_NANO_LEDGER="$LEDGER" FT_CARD_REF=origin/ops \
-      FT_NANO_IDLE_MIN=0 FT_WT_CLEAN_DIR="$T/wtclean" FT_NANO_PREFIX=byz-harness-nano- FT_NANO_LEDGER_WT="$LOK" "${envs[@]}" \
-      bash "$T/$b/ft-nano-close.sh" "$SEAT" --result "$T/result.md" --recv 1 "$@" 2>"$T/err" ); }
+      FT_NANO_IDLE_MIN=0 FT_WT_CLEAN_DIR="$T/wtclean" FT_NANO_PREFIX=byz-harness-nano- FT_NANO_LEDGER_WT="$LOK" \
+      bash -c 'while [ "$1" != -- ]; do export "$1"; shift; done; shift; exec bash "$@"' _ "${envs[@]}" -- \
+      "$T/$b/ft-nano-close.sh" "$SEAT" --result "$T/result.md" --recv 1 "$@" 2>"$T/err" ); }   # 사례 env = 글자 bash -c 안에서 export(env 와 명령 사이 펼침 0 · 분류기 FORBID 0 · master #326229)
 ft2_ok() {   # <이름> <출력> <rc> — T3: FT2-SEAT 줄 정확히 1개 = 마지막 줄 · rc 5 · REJECT/CLOSED/HELD/WAIT 줄 0
   local n last; n="$(printf '%s\n' "$2" | grep -c '^FT2-SEAT ')"; last="$(printf '%s\n' "$2" | awk 'NF{l=$0} END{print l}')"
   [ "$3" = 5 ] && [ "$n" = 1 ] && case "$last" in "FT2-SEAT $SEAT — 1.x 닫기 대상 아님 · 닫는 길 = ft2 keeper"*"워크트리=$W2") true;; *) false;; esac \
