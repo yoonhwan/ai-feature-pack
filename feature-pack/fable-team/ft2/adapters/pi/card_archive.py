@@ -19,6 +19,7 @@ _SPEC.loader.exec_module(cs)
 land, verdict, proj, Unsure, Reject = cs.land, cs.verdict, cs.proj, cs.Unsure, cs.Reject
 MONTH = re.compile(r"\d{4}-\d{2}/[^/]+\.md")   # 아카이브/ 밑 꼬리 = <YYYY-MM>/<파일>
 CANON = re.compile(r"(?m)^- 정본 영향 없음:")
+TO_EXAMPLE = "design/teams/<팀>/indices/대기/<카드>.md"   # r2185 꼴 예시(대기 · 진행 · 완성 가운데 실제 폴더 · 팀 폴더는 부르는 사람이)
 
 
 def judge(root, text, sec, stem):
@@ -39,7 +40,8 @@ def judge(root, text, sec, stem):
     keys = tuple("%s — %s — %s" % (w, stem, v) for w in ("닫힘", "CLOSE") for v in ("버림", "쓸모 없음"))
     if any(line.strip().startswith(keys) for line in body.splitlines()):
         return None
-    return "%s 에 «(닫힘|CLOSE) — %s — 버림»·«… — 쓸모 없음» 으로 시작하는 줄 없음" % (sec, stem)
+    return ("{0} 에 «닫힘 — {1} — 버림»·«닫힘 — {1} — 쓸모 없음» 으로 시작하는 줄 없음"
+            " · 통과 줄 예시 «닫힘 — {1} — 버림» · 닫힘 또는 CLOSE 가운데 한 낱말만 쓴다").format(sec, stem)
 
 
 def ledger(root, team, work, to):
@@ -101,7 +103,8 @@ def target(byz, sha, ref, to, old):
     if to is None:
         return
     if to == old or not land.MAPPED.match(to) or not cs.run(byz, "ls-tree", sha[ref], "--", to).strip():
-        raise Reject("--to %s — 고른 가지의 indices 대기|진행|완성 카드가 아님(자기 자신 · 없음 · indices 밖)" % to)
+        raise Reject("--to %s — 고른 가지의 indices 대기|진행|완성 카드가 아님(자기 자신 · 없음 · indices 밖)"
+                     " · --to 는 카드 이름이 아니라 경로 · 예 %s" % (to, TO_EXAMPLE))
 
 
 def restate(text, now, da, frm, seat, to):
@@ -172,7 +175,8 @@ def archive(byz, root, a, now, seen):
 def main(argv=None):
     ap = argparse.ArgumentParser(description="ft2 2.0 버림 카드 대기·진행→아카이브 (r2177)")
     for flag in ("--root", "--team", "--work", "--da", "--seat", "--to", "--byz"):
-        ap.add_argument(flag, required=flag not in ("--to", "--byz"))
+        ap.add_argument(flag, required=flag not in ("--to", "--byz"),
+                        help="받는 카드의 경로(카드 이름 아님) · 예 %s" % TO_EXAMPLE if flag == "--to" else None)
     a, now = ap.parse_args(argv), os.environ.get("FT_NOW") or time.strftime("%Y-%m-%dT%H:%M:%S")
     root, byz, seen = os.path.abspath(a.root), os.path.abspath(a.byz or a.root), {}
     try:
