@@ -3,7 +3,8 @@
 # 실 터널·실 launchd·실 VM 0. 실행: bash tests/harness/test_stt_tunnel_install.sh (리포 어느 워크트리에서든)
 set -uo pipefail
 REPO="$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
-SRC="$REPO/feature-pack/fable-team/harness/kit/stt-tunnel"
+HX="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"   # r2222: harness = 시험 폴더의 부모(옛 경로 글자 대신)
+SRC="$HX/kit/stt-tunnel"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 S="$T/state"; B="$T/bin"; AG="$T/agents"; mkdir -p "$S" "$B"
 fail=0
