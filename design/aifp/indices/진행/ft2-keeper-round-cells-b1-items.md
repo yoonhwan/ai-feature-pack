@@ -103,3 +103,4 @@ keeper 60초 카드는 «`other=` 의 가장 긴 값이 5초를 넘으면 가정
 - 2026-11-16 09:26 · 대기 — aifp-ft-arch-pi#23 머리 줄(팀장 aifp 5923) · Issue #8676 · DA 판정: APPROVE-DESIGN 313472(승인 sha f7b0614e28a8ca4e8806b56d4e145dd45f94692f · 사본 .fable-team/state/team-main/aifp-ft/DA-round-cells-design-approve-313472/verdict.md · 수용 동작 반례 0 · 알려진 한계 1줄 계약에 보탬) · 배정 줄 꼴 고침(대기 · 정지 = BYZ 전팀 정지 판정 4244 ② · 팀장 aifp 5924) · 그 밖 손 0 · 다음 = 팀장 착지 → 인터뷰 뒤 나노 spawn
 - 2026-11-17 14:13 — 대기→진행 · 좌석 aifp-ft-nano-ft2-keeper-round-cells-b1-items#0
 - [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
+- 세트: 4ca226e14922d58e580f490b1b7e0e27f4fbfc1b · 시험: python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_keeper_round_cells.py (15 passed · 2.6초 · 변이 M109~M112 4/4) rc=0 · 이슈: 0
