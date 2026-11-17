@@ -82,3 +82,5 @@ r1960 시험의 변이 M1~M10 은 제품 파일 사본에서 글자 한 줄을 �
 - 2026-11-17 14:23 · 대기 — DA 설계 APPROVE-DESIGN(BYZ 326251 · aifp 6004 · 고정판 0536a1fa) · Issue #8986 등록(BYZ 326278) · 배정 = 대기(석) · 완료 조건 2 를 «파일 전체 rc0» 에서 «M9 PASS + 새 실패 0» 으로(기준판 같은 실패 c4 · M3 2건 = 알려진 한계 · 후속 카드) · aifp-ft-arch-pi#24(팀장 발주 aifp 6005 · 구현 0) · 다음 = 팀장 착지 → 나노 spawn
 - 2026-11-17 14:24 — 대기→진행 · 좌석 aifp-ft-nano-ft2-keeper-endings-m9-anchor#0
 - [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
+- 세트: aba2d39f799fc00568590bc9aeff36c7a0c95614 · 시험: python3.11 -m pytest tests/test_pi_keeper_endings_r1960.py -k M9 rc=0 · 이슈: 0
+- 완료: aifp-ft-nano-ft2-keeper-endings-m9-anchor#0 · 한 일: test_pi_keeper_endings_r1960.py 162행 변이 M9 닻 elif→if (제품 코드 손 0 · 변이 뜻 그대로 · 브랜치 nano/ft2-keeper-endings-m9-anchor 커밋 aba2d39f) · 산출: nano/ft2-keeper-endings-m9-anchor@aba2d39f79 · 병합 상태: 착지 전(push 전) · 남은 일: 없음
