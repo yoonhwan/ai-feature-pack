@@ -27,8 +27,8 @@ import thread_ledger as lg
 import thread_reply_slack as trs
 from file_guard import check_files
 from magazine_slack import Target, upload_file
-from mirror_lib import MirrorError, api_call, esc
-from post_guard import DEFAULT_ROOT, ROOT_ENV, check, guarded_post as post
+from mirror_lib import DESK_MENTION, MirrorError, api_call, esc
+from post_guard import DEFAULT_ROOT, DESK_MENTION_ENV, ROOT_ENV, check, guarded_post as post
 from root_readback_guard import Post, ReadbackError, readback
 
 KEY = re.compile(r"board:\d{4}-\d{2}-\d{2}")
@@ -37,6 +37,24 @@ NAME = re.compile(r"[a-z][a-z0-9_-]{0,31}")
 UID = re.compile(r"U[A-Z0-9]{8,11}")
 KST = ZoneInfo("Asia/Seoul")
 THREADS_ENV = "FT_SLACK_THREADS"
+ASK_HEADS = ("[질문", "[인터뷰", "[답 요청", "[결정 요청")  # r2190 — 오빠께 묻는 글 첫 줄 머리(«[결정]» = planner GO 알림이라 뺌)
+
+
+def oppa_tag(text: str, body: str, ask: bool) -> str:
+    """r2190 — 질문 글(본문 첫 줄 머리 ∨ --ask)이면 오빠 진짜 태그 1개: 이미 있음 = 그대로 · 글자 태그 = 첫 1개 되돌림 · 없음 = 첫 줄 끝."""
+    if not (ask or body.split("\n", 1)[0].startswith(ASK_HEADS)):
+        return text
+    uid = os.environ.get(DESK_MENTION_ENV, "").strip() or DESK_MENTION
+    if not UID.fullmatch(uid):
+        print(f"WARN 오빠 태그 0 — {DESK_MENTION_ENV} 가 UID 꼴 아님: {uid!r}", file=sys.stderr)
+        return text
+    real, quoted = f"<@{uid}>", f"&lt;@{uid}&gt;"
+    if real in text:
+        return text
+    if quoted in text:
+        return text.replace(quoted, real, 1)
+    first, nl, rest = text.partition("\n")
+    return f"{first} {real}{nl}{rest}"
 
 
 def threads_path() -> Path:
@@ -96,6 +114,7 @@ def cmd_reply(a: argparse.Namespace, target: Callable[[argparse.Namespace], Targ
     check(text, a.channel or "", human=True)  # 뿌리 글 «전» — 본문이 걸리면 뿌리·등록부 불변
     if km is not None:  # r2108 — 도구가 밝힌 태그 첫 1개만 되돌린다 · 원장 글 mention 은 중화 그대로
         text = text.replace(f"&lt;@{km}&gt;", f"<@{km}>", 1)
+    text = oppa_tag(text, body, getattr(a, "ask", False))  # r2190 — 검사 «뒤»
     if a.ts is not None or a.to_slack is not None:  # 답글 길도 스레드 = 주제 대화 전용(r617)
         if trs.refuse_room_post(body, a.force_thread):
             return 2  # 게시 0 — 방 글은 post --to desk
@@ -135,6 +154,7 @@ def cmd_post(a: argparse.Namespace, target: Callable[[argparse.Namespace], Targe
     text = esc(body)
     check(text, ch, human=True)  # 사람 채널 — 글 «전» 거절(게시 0)
     text = text if km is None else text.replace(f"&lt;@{km}&gt;", f"<@{km}>", 1)  # 도구 태그 첫 1개만 · 나머지 중화 그대로
+    text = oppa_tag(text, body, getattr(a, "ask", False))  # r2190 — 검사 «뒤»
     t = target(a)
     ts = post(t.base, t.token, ch, text, None, human=True, head=body, status_head=not getattr(a, "no_status_head", False))  # r2120 DA R1
     print(f"POSTED {ts}")
