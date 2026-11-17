@@ -6,7 +6,6 @@
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CI="${CI_UNDER_TEST:-$HERE/../skill/scripts/ci}"
-BASH_BIN="$(command -v bash)"
 n=0; fail=0
 ok()  { n=$((n+1)); echo "  ok   $1"; }
 bad() { n=$((n+1)); fail=$((fail+1)); echo "  FAIL $1"; }
@@ -48,7 +47,7 @@ FAKE
 }
 run_ci() { # 부른 쪽 MVCC 값은 비우고 시작(③ ④ 는 EXTRA 로 준다)
   env -u PROBE_LSP_DB_DISABLE_MVCC -u PROBE_LSP_DB_ENABLE_MVCC HOME="$SB/home" TMPDIR="$SB/tmp" PROBE_BIN="$SB/probe" \
-      FAKE_DIR="$SB" CI_TIMEOUT=10 ${EXTRA:-} "$BASH_BIN" "$CI" "$@" 2>&1; }
+      FAKE_DIR="$SB" CI_TIMEOUT=10 "${EXTRA:-CI_R2186_EXTRA=0}" bash "$CI" "$@" 2>&1; }
 run_rp() { # repair = 가짜 timeout·sleep 가 PATH 앞 · 기다림 0 · 가짜 시계
   PATH="$SB/bin:$PATH" CI_LSP_REPAIR_WAIT=0 CI_LSP_REPAIR_NOW_CMD="cat $SB/clock" run_ci lsp repair; }
 all_d() { # $1=이름 → 가짜 probe 가 받은 모든 호출에 D=1
