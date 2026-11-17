@@ -15,6 +15,7 @@ from pathlib import Path
 
 from ft_nano_record import CARD_RX, DONE_RX, Ctx, Reject, Unjudged, left_free, left_of, marks, rec_of, section
 from ft_nano_record_batch import prepare
+from ft_nano_record_budget import step
 from ft_nano_record_fmt import fmt   # r2202 [structure]: 줄 꼴 = 옆 파일(notify 는 지금처럼 due 에서 fmt 를 읽는다)
 from ft_nano_record_repo import at, drops_scope, dropped, nanos_of, proxy_master, repo_hits, resolve_owner, seats_at
 
@@ -111,13 +112,21 @@ def rows(ctx, pr=None):   # 장부 줄마다 카드별 줄
     return out
 
 
+def opened(out):   # r2202 F1 — fetch 사유 = «주인 없음» 을 뺀 열린 줄(주인 없음 = 카드 ⓢⓛ 표식 없음 · fetch 로 거의 안 바뀜 · 한계 1)
+    out = [r for r in out if r["k"] != "주인없음"]
+    return any(r["k"] not in ("끝", "카드없음", "카드ref불가") for r in out)   # r2138 F1: 카드ref불가 = 장부 값 · fetch 로 안 바뀜
+
+
 @drops_scope   # r2151 O2: 버림 원장 스냅샷 = 이 평가 한정
 def due_rows(ctx, pr=None, fetch=True):   # A2 — fetch 는 «열린 줄» 이 있을 때만 실행당 1회(remote-tracking 판으로 먼저 본다) · r2071 = 판마다 묶음 읽기·묶음 fetch(전 항목 그대로)
     ks, ctx.fetch = [k for e in ctx.ledger() if pr is None or e.get("pr") == pr for k in map(card_key, e["cards"]) if k], False
     out = rows(prepare(ctx, ks), pr)
-    if fetch and any(r["k"] not in ("끝", "카드없음", "카드ref불가") for r in out):   # r2138 F1: 카드ref불가 = 장부 값 · fetch 로 안 바뀜
+    step(ctx, "due-1")   # r2202 F2 — 표식 = notify 안(Budget)만 · due 손 실행 = 0
+    if fetch and opened(out):
+        step(ctx, "fetch")
         ctx.fetch, ctx._tips = True, {}
         out = rows(prepare(ctx, ks), pr)
+        step(ctx, "due-2")
     return out
 
 
