@@ -156,7 +156,7 @@ ft 2.0 뒤 Claude 사용량이 주간 한도를 넘었다. desk 가 재 보니 �
 2. [x] 나노: 새 시험 전체 rc0 · 걸린 초 · 변이 M113~M128 지정 반례 FAIL — 나노 aifp 5983 원문: «조건 2 (새 시험 전체 걸린 초) = python3 feature-pack/ctx-burn/test/test_share.py rc=0 · 44 사례 · 실패 0 · 총 2.1초. 사례별 = 대부분 0.04~0.06초 · 느린 것 x50_ra 0.13 · M125 0.11 · x88_ta·x88_pa·M118 각 0.08. bash feature-pack/fable-team/legacy/1.x/harness/tests/test_board_publish_ctx_share.sh rc=0 · 13 PASS(하네스 갈래 6 · kit 갈래 6 · M126 대조 1) · 자체 2.4초(ft-test-slot 포함 4.8초 · sleep 0 = fifo).» · 변이 = 상태 절 14:00 줄(M113~M125·M127·M128 각각 지정 반례 FAIL · M126 대조) + DA APPROVE-IMPL BYZ 326155
 3. [x] 나노: 검산 2개 = ㊾가(150%) · 같은 창에서 cat2.py 조율 % 와 도구의 조율 % 를 나란히(다르면 어느 좌석이 갈래를 옮겼는지 위 5개) — 검산 = 상태 절 14:00 줄(㊾가 150% · cat2.py 80.1% 대 ctx-share 85.9%) · 갈래 바뀐 좌석 = 나노 aifp 5983 원문: «조건 3 (갈래가 바뀐 좌석 · 같은 48시간 창 2026-11-17 13:50 KST · 전체 1700.3M · 좌석 461): ①byz-room-arch-pi#40 5.43M work→coord ②byz-room-arch-pi#39 4.33M work→coord ③byz-issues-arch-pi#14 4.14M work→coord ④byz-issues-arch-pi#13 4.03M work→coord ⑤byz-lecture-tester-l112-off-seal-pending-translation-blank#2 4.02M coord→work. 갈래 바뀐 좌석은 모두 36개 154.3M(9.1%)이고 그중 가장 큰 덩어리는 좌석 이름이 아니라 이름 없는 세션 묶음 106.65M work→못 가림(이름 없음은 cat2 「그 밖=조율」이지만 도구는 못 가림 분모 밖 — 정의 1 그대로). 그 밖 = byz-issues-arch-pi#15 3.82M work→coord · byz-harness-nano-r2080-…-alarm-#0 3.60M work→못 가림(이름 끝에 -#0 = 빈 토큰 → 문법 밖).»
 4. [x] 팀장: PR 착지 sha · 설치(ctx-share 심링크 + harness 판 올림 = 덧 호출 1줄이 설치본 ft-board-publish.sh 에 있음) — 착지 PR #1507 squash 69ad8145(DA APPROVE-IMPL BYZ 326155 · 승인 sha b5b60fd8) · 설치 harness#316 aifp 5979 원문: «[설치 끝 #326167] rc=0 · 판 = 팩 69ad814587(squash 파일 3개 = DA 승인 head b5b60fd8 와 diff 0 확인) · ①~/.local/bin/ctx-share -> ai-feature-pack/feature-pack/ctx-burn/bin/ctx-share(--help 0.27초 OK) ②live/1.1.292/bin/ft-board-publish.sh cmp=0 ↔ 69ad8145 kit 판 · 설치 전 라이브 = 69ad8145~1 판 확인» · 되돌림 h = BYZ .fable-team/state/team-main/harness/h-ctx-share-install-20261117.sh · arch 읽기 14:03: 설치본 ft-board-publish.sh 20행에 덧 호출 1줄 있음 · 심링크 실재
-5. [~] arch(board.md 원문 있음 · 48시간 창 걸린 초 14.9(last.json elapsed_s · 상한 25초 안) · samples.tsv 지금 1줄 = 3줄 못 참 · 30분 간격이라 15:07경 뒤 · 원문은 상태 절 14:07 줄): 설치 뒤 board.md 원문 1장 · `samples.tsv` 3줄 이상(30분 간격) · 48시간 창 걸린 초
+5. [x] arch(board.md 원문 = 상태 절 14:07 줄 · 15:09 줄 · samples.tsv 3줄 = 14:07 · 14:37 · 15:08(간격 30분 · 31분) · 48시간 창 걸린 초 14.9(14:07) · 14.2(15:08) = 상한 25초 안): 설치 뒤 board.md 원문 1장 · `samples.tsv` 3줄 이상(30분 간격) · 48시간 창 걸린 초
 6. [x] arch(못 가림 6.7% ≤ 10%(last.json unknown_pct · 보드 ④ 7%) · 보드 ② 조율 86% · ③ 로컬 W 환산 164% · 계정 실측 33.9% 를 읽을 수 있음 · ③ 차·표지 원문 «차 −130.4%p · 로컬이 더 큼 −130.4%p · 자 차» · 계정 실측 판정 불가 아님 · ⑦ 목표 밖): 못 가림 몫 ≤ 10%(넘으면 어느 세션이 이름이 없는지 위 5개와 함께 [ ] 로 둔다) · 보드 ②③ 줄에서 «조율 ≤ 50% · 로컬 W 환산 ≤ 100% · 계정 실측 ≤ 100%» 여부를 읽을 수 있음 · ③ 줄의 차·표지 원문 1줄(계정 실측이 판정 불가면 사유와 함께 [ ] 로 둔다)(값이 목표 안인지는 이 카드의 완료가 아니다 = 오빠 완료 기준은 desk 가 그 보드로 판정한다)
 
 ## 계약↔시험 대응표
@@ -196,3 +196,17 @@ ft 2.0 뒤 Claude 사용량이 주간 한도를 넘었다. desk 가 재 보니 �
   ⑦ 판정 = 목표 밖
   samples.tsv 원문 1줄: 2026-11-17 14:07 | 48 | 86 | 14 | 7 | 164 | 33.9 | −130.4 | 목표 밖
   last.json: sessions 2800 · requests 81716 · skipped 0 · elapsed_s 14.9 · weighted 1711.0M · unknown_pct 6.7 · missing_constants 0
+- 2026-11-17 15:09 · 진행 — 조건 5 [x] · 조건 1~6 전부 [x](aifp-ft-arch-pi#24 · 팀장 ring aifp 6052 · 읽기만 · 보드 손 0) · 보드 15:08 = 조율 86% · 로컬 W 환산 166% · 계정 실측 34.7% · 못 가림 6.5% · 판정 목표 밖(값이 목표 안인지는 이 카드의 완료가 아니다)
+  samples.tsv 원문 3줄:
+  2026-11-17 14:07 | 48 | 86 | 14 | 7 | 164 | 33.9 | −130.4 | 목표 밖
+  2026-11-17 14:37 | 48 | 86 | 14 | 7 | 165 | 34.2 | −130.9 | 목표 밖
+  2026-11-17 15:08 | 48 | 86 | 14 | 7 | 166 | 34.7 | −131.3 | 목표 밖
+  board.md 원문 7줄(15:08):
+  ① 잰 시각 2026-11-17 15:08 · 창 48시간
+  ② 조율 86% · 구현 14% (목표 ≤ 50%)
+  ③ 로컬 W 환산 166% (낮은 앵커 229%) · 계정 실측 34.7% (표본 2026-11-17 15:00) · 차 −131.3%p · 로컬이 더 큼 −131.3%p · 자 차 · 목표 = 둘 다 ≤ 100%
+  ④ 못 가림 7%
+  ⑤ 참고 24시간 184% · 168시간 119%
+  ⑥ 조율 상위 5: byz-cfo-master-pi#162 9.2M 1% · byz-knowledge-master-pi#108 8.7M 1% · byz-planner-desk-pi#185 8.5M 1% · byz-planner-desk-pi#192 8.4M 1% · byz-feature-master-pi#75 8.3M 1%
+  ⑦ 판정 = 목표 밖
+  last.json(15:08): sessions 2816 · requests 82704 · skipped 0 · elapsed_s 14.2 · weighted 1728.8M · unknown_pct 6.5 · missing_constants 0
