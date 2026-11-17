@@ -9,6 +9,7 @@
 # 픽스처 = mktemp 임시 git 리포 1 · 실 리포·실 원장·실 좌석·외부 호출 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; REPO="${R644_REPO:-$HERE/../..}"
+PFX="$(cd -- "$HERE/.." && pwd -P)"; PFX="${PFX#$(git -C "$HERE" rev-parse --show-toplevel)/}"  # r2224 움직이는 ref 의 리포 상대 실경로
 TOOL="${R644_TOOL:-$REPO/harness/bin/ft_goal_table.py}"  # R644_TOOL = «전» 판(base) 대조용
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0; ok() { echo "PASS $1"; }; bad() { echo "FAIL $1"; fail=$((fail+1)); }
@@ -92,7 +93,7 @@ RC="$(env -u FT_ROOT FT_GOAL_REPO="$R" FT_LEDGER_REPO="$R" FT_TEAMS_REF=nosuchre
 # ── ⓗ 기존 render·teams 바이트 동일(base 대조) + 뉴스 첫 판 순서(골 표 → 팀별 → 표준절차)
 ROOT="$(git -C "$REPO" rev-parse --show-toplevel)"; BASE="$T/basebin/ft_goal_table.py"  # base 판 = 형제 모듈(ft_goal_ledger·ft_team_lib)까지 같이 사본
 cp -R "$REPO/harness/bin" "$T/basebin"
-git -C "$ROOT" show origin/main:feature-pack/fable-team/harness/bin/ft_goal_table.py > "$BASE"
+git -C "$ROOT" show origin/main:$PFX/bin/ft_goal_table.py > "$BASE"
 printf '# 자율 골 A6\n\n## 골 → 팀 → 닫는 증거\n\n| 골(원문) | 담당 팀 | 닫는 증거 |\n|---|---|---|\n' > "$R/$F/AUTONOMY-GOAL-A6-20261018.md"
 for i in 1 2 3 4 5 6; do printf '| goal-%s | 팀%s | 착지 sha |\n' "$i" "$i" >> "$R/$F/AUTONOMY-GOAL-A6-20261018.md"; done
 ledger "② 제안서 진행" "① 골 등록 끝"; commit c11

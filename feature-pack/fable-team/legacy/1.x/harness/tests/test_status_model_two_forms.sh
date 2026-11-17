@@ -10,6 +10,7 @@
 # 픽스처 = stdin 텍스트만 · tmux 0 · 실 스폰 0 · 고정 sleep 0 · 자기 재호출 0 · 임시 폴더 mktemp 만.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+PFX="$(cd -- "$HERE/.." && pwd -P)"; PFX="${PFX#$(git -C "$HERE" rev-parse --show-toplevel)/}"  # r2224 움직이는 ref 의 리포 상대 실경로
 ROOT="$HERE/../.."
 KITBIN="$ROOT/harness/kit/fable-team/bin"
 SKILLBIN="$ROOT/skill/scripts"
@@ -88,7 +89,7 @@ n_k="$(grep -c "Model:" "$SPAWN_KIT")"; n_s="$(grep -c "Model:" "$SPAWN_SKILL")"
 h_k="$(grep -c 'ft-status-model\.sh' "$SPAWN_KIT")"; h_s="$(grep -c 'ft-status-model\.sh' "$SPAWN_SKILL")"
 [ "${h_k}" = 1 ] && [ "${h_s}" = 1 ] && ok "ⓔ 도우미 호출 각 1회(kit=${h_k} skill=${h_s})" || bad "ⓔ 도우미 호출 kit=${h_k} skill=${h_s}"
 cmp -s "$HELP" "$SKILLBIN/ft-status-model.sh"; ck "ⓔ 도우미 쌍 cmp0(kit = skill/scripts)" $?
-base_k="$(git -C "$REPO" show origin/main:feature-pack/fable-team/harness/kit/fable-team/bin/ft-tmux-spawn.sh 2>/dev/null | wc -l | tr -d ' ')"
+base_k="$(git -C "$REPO" show origin/main:$PFX/kit/fable-team/bin/ft-tmux-spawn.sh 2>/dev/null | wc -l | tr -d ' ')"
 now_k="$(wc -l < "$SPAWN_KIT" | tr -d ' ')"; now_s="$(wc -l < "$SPAWN_SKILL" | tr -d ' ')"
 [ -n "${base_k}" ] && [ "${now_k}" -le "${base_k}" ] && [ "${now_s}" -le "${base_k}" ] \
   && ok "ⓔ 스폰 줄 수 안 늘림(kit=${now_k} skill=${now_s} ≤ 기준=${base_k})" \
