@@ -3,6 +3,7 @@
 계약: A1 쉼 표식 = 심박 첫 줄의 `[다음 없음]` 또는 `막힘 = 사람 답(<10>.<6>)` · A2 사건 = 그 팀장이 오간 쪽지(발신 ft-stall-scan 제외) · 사건이 있으면 첫 사건부터 다시 센다 ·
 A3 면제 상한 FT_LEAD_REST_MAX_MIN(기본 240분) · A4 읽기 규칙 그대로(깨진 줄·7초 예산 = 판정 불가) · A5 그 밖 팀장 판정은 지금과 같다.
 R1729_BIN = 시험할 bin 폴더(기본 kit) — 변이 사본을 넣어 반대 결과를 대조한다.
+r2172 — A2 사건 = 그 팀장 앞 «일 쪽지» 만(L2) · 표식 없는 [정리] 도 60분 안 + 일 쪽지 0 = 경보 0(L3) → ③b · ⑦ · ⑫a 기대값이 바뀌었다.
 ⑬ = arch R1 탐침: 표식 없는 팀장도 20분 창 밖 깨진 줄 하나로 u 가 되면 안 된다(면제 0 = 지금 판정 그대로).
 """
 import json
@@ -69,8 +70,8 @@ def test_rest_mark_is_exempt(w: World, body: str) -> None:
     assert not w.mbox_log()
 
 
-@pytest.mark.parametrize(("body", "rest"), [("[정리] 한 일 3줄 · 막힘 = 사람 답", False), ("[정리] 한 일 3줄\n[다음 없음]", True)], ids=["③b ts 없는 막힘", "④ 둘째 줄 표식"])
-def test_r3b_r4_not_a_rest_mark(w: World, body: str, rest: bool) -> None:  # ③b 표식 아님 = 지금 판정 그대로 · ④ 둘째 줄 단독 표식 = 쉼(r2139 R4)
+@pytest.mark.parametrize(("body", "rest"), [("[정리] 한 일 3줄 · 막힘 = 사람 답", True), ("[정리] 한 일 3줄\n[다음 없음]", True)], ids=["③b ts 없는 막힘", "④ 둘째 줄 표식"])
+def test_r3b_r4_not_a_rest_mark(w: World, body: str, rest: bool) -> None:  # ③b 표식 아님 = 쉼 아님 · 60분 + 일 쪽지 0 = r2172 L3 유휴 면제 · ④ 둘째 줄 단독 표식 = 쉼(r2139 R4)
     c = rest_lead(w, 60, body)
     if rest:
         assert c["f"] == "0" and c["b"] == "0" and c["u"] == "0", c
@@ -101,9 +102,9 @@ def test_r6b_order_after_rest_10min_is_quiet(w: World) -> None:  # ⑥ 사건 10
     assert not w.mbox_log()
 
 
-def test_r7_lead_sent_order_after_rest_is_an_event(w: World) -> None:  # ⑦ 보낸이가 그 팀장인 쪽지도 사건
-    assert rest_lead(w, 60, REST, ("t1-nano#0", 773, 25, "t1-master#1", "발주 — 이어서 하세요"))["f"] == "1"
-    assert len(sends(w, "t1-master#1")) == 1
+def test_r7_lead_sent_order_after_rest_is_an_event(w: World) -> None:  # ⑦ 보낸이가 그 팀장인 쪽지 = r2172 L2 부터 사건 아님(일 쪽지 아님)
+    assert rest_lead(w, 60, REST, ("t1-nano#0", 773, 25, "t1-master#1", "발주 — 이어서 하세요"))["f"] == "0"
+    assert not w.mbox_log()
 
 
 def test_r8_stall_scan_notice_is_not_an_event(w: World) -> None:  # ⑧ 스캐너 [멈춤] 만(25분 전) = 사건 0
@@ -149,9 +150,9 @@ def test_r11b_future_rest_heartbeat_is_not_fresh(w: World) -> None:  # ⑪ 미�
 
 
 # ── ⑫ 표식 없는 팀장 판정은 지금과 같다 ─────────────────────────────────────
-def test_r12a_plain_heartbeat_over_20min_is_alert(w: World) -> None:  # ⑫ 25분
-    assert rest_lead(w, 25, "[정리] 한 일 3줄")["f"] == "1"
-    assert len(sends(w, "t1-master#1")) == 1
+def test_r12a_plain_heartbeat_over_20min_is_alert(w: World) -> None:  # ⑫ 25분 · 일 쪽지 0 = r2172 L3 유휴 면제(경보 0)
+    assert rest_lead(w, 25, "[정리] 한 일 3줄")["f"] == "0"
+    assert not w.mbox_log()
 
 
 def test_r12b_plain_heartbeat_within_20min_is_quiet(w: World) -> None:  # ⑫ 10분

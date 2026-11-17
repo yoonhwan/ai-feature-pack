@@ -30,10 +30,10 @@ def bodies(w: World, to: str) -> list[str]:
 
 
 def lead_stall(w: World) -> None:
-    """팀장 b 후보(IDLE 5분 · 미래형 선언) + 심박 25분 = f 후보(임계 20분)."""
+    """팀장 b 후보(IDLE 5분 · 미래형 선언) + 심박 61분 = f 후보(임계 20분 · r2172 L3 상한 60분 밖)."""
     w.state("t1-master#1", "IDLE", 5)
     w.jsonl("t1-master#1", "확인했습니다. 지금 착수하겠습니다")
-    w.heartbeat("t1-master#1", 25)
+    w.heartbeat("t1-master#1", 61)  # r2172 — 일 쪽지 0 인 [정리] 60분 안 = L3 유휴 면제 · 멈춘 팀장 대역은 61분
 
 
 def next_none(w: World, frm: str = "t1-master#1", seq: int = 950) -> None:
@@ -88,7 +88,7 @@ def test_c_notice_has_no_cron_words(w: World) -> None:  # ⓒ (판정 불가 = �
     _ = scan(w)  # 카드 폴더 없음 = ft-seat-open-work rc3 = 경보 그대로
     s = bodies(w, "t1-master#1")
     assert len(s) == 1, w.mbox_log()
-    assert s[0].startswith("[멈춤] t1-master#1 팀장 심박 25분"), s[0]
+    assert s[0].startswith("[멈춤] t1-master#1 팀장 심박 61분"), s[0]  # r2172 — 대역 심박 61분(L3 밖)
     assert "정리 1통" in s[0], s[0]
     for word in ("CronList", "CronCreate", "cron=<id>", "15분 틱"):
         assert word not in s[0], (word, s[0])
@@ -114,7 +114,7 @@ def test_d2_open_work_undecidable_keeps_alert_with_note(w: World) -> None:  # �
 
 # ── P1·P2 — arch HOLD(#283056) 반례: 작은 파일의 «첫 줄» 을 버리면 안 된다 ──────────────
 def test_p1_first_queue_line_is_the_latest_mail(w: World) -> None:  # P1
-    w.mail("planner#1", 990, 22, frm="t1-master#1", body="[정리] 새 일 착수")  # 큐 첫 줄 = 더 새 발신
+    w.mail("planner#1", 990, 61, frm="t1-master#1", body="[정리] 새 일 착수")  # 큐 첫 줄 = 더 새 발신(seq) · r2172 — 22분이면 이 [정리] 가 L3 유휴 면제를 연다 → 61분
     lead_stall(w)
     next_none(w)
     open_work_zero(w)
@@ -154,7 +154,7 @@ def test_two_teams_closed_wait_one_note_each(w: World) -> None:
     w.team("t2", "t2-master#1", [])  # 두 번째 팀 — 현역 팀장 1명
     w.state("t2-master#1", "IDLE", 6)
     w.jsonl("t2-master#1", "지금 착수하겠습니다")
-    w.heartbeat("t2-master#1", 25, seq=901)
+    w.heartbeat("t2-master#1", 61, seq=901)  # r2172 — 일 쪽지 0 인 [정리] 60분 안 = L3 유휴 면제 · 멈춘 팀장 대역은 61분
     next_none(w, frm="t2-master#1", seq=990)
     open_work_zero(w, ("t1", "t2"))
     r = scan(w)
