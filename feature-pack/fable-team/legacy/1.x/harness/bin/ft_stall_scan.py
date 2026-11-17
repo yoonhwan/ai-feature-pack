@@ -720,11 +720,12 @@ class Scan:
     def record_notify(self, stamp: str) -> list[str]:
         """r1717 A4 ⓑ — 착지 뒤 «정리 차례» 장부의 열린 줄마다 쪽지(1회·재촉 1회 셈은 도구 몫) · FT_NANO_AUTO_CLOSE 와 무관 · rc≠0 = 로그 1줄."""
         tool = os.environ.get("FT_NANO_RECORD") or str(HERE / "ft-nano-record.sh")
+        t0 = __import__("ft_nano_record_budget").epoch()   # r2175 N6 — 이번 호출 시작(표식과 같은 꼴)
         rc, _out = run(["bash", tool, "notify"], {**os.environ, "FT_ROOT": str(self.root)}, 25)
         if rc != 0:   # r2070 A2ⓐ
             block(self.root, "raise", "ft-stall-scan", "team", "record-notify", "--cause", f"판정 불가 record-notify rc={rc}",
                   "--fix", "판정 필요 정리 차례 알림 — ft-nano-record.sh notify 손 실행으로 rc·출력 확인", "--period", "150")
-        return [] if rc == 0 else [f"{stamp} 판정 불가 record-notify rc={rc}"]
+        return [] if rc == 0 else [f"{stamp} 판정 불가 record-notify rc={rc} — 멎은 곳: {__import__('ft_nano_record_budget').stop_trace(self.root, t0)}"]
 
     def run(self, dry: bool) -> int:
         pen = ft_penalty.load()
