@@ -42,6 +42,7 @@ case "${1:-}" in
           *) w "$1" "$2" "$3";;
         esac
         echo "QUEUED seq=9 to=$1"; exit 0;;
+  peek) echo "pending=0 scanned=1 lineage=fake"; exit 0;;
   recv) echo "SCANNED 1 mailbox(es): fake"; exit 0;;
 esac
 exit 2

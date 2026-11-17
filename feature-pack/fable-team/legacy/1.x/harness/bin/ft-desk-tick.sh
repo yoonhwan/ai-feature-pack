@@ -5,10 +5,10 @@
 #   실행은 하지 않는다 — ⑥ 발송 하나만 이 스크립트가 한다.
 #   ① ft-hil.sh --pending 중 이 desk 몫(.notify 가 desk 계보) ② launchctl print(stall-scan · keeper · board-news · r2102) state/last exit
 #      + stall-scan 로그 마지막 ts ③ 팀장별 마지막 쪽지 시각(mailbox.log.jsonl · 20분+ 만 줄) ④ 받은편지함 감시(ft-inbox-watch) owner
-#   ⑤ mbox.sh recv <desk> 머리(seq·from·본문 60자 · 전문은 상태 폴더 파일) ⑥ planner _master 에 [완료] 3줄(스크립트가 조립·발송)
-#   ★소비 경계★: recv 는 우편함을 소비한다 — 결속(root·현재 desk·planner _master·`_desk` 일치)을 «확인한 뒤» 에만 부르고,
-#   전문 사본 저장까지 실패하면 완료를 보내지 않는다(판정 불가 1줄 · rc1). `_desk` 가 비었거나 불일치면 recv 0·송신 0
-#   (이름 접두로 소비 권한을 주지 않는다 · DA #273899).
+#   ⑤ mbox.sh peek <desk> --rows 머리(seq·from·본문 첫 줄 ≤3 · «외» · recv 안내) ⑥ planner _master 에 [완료] 3줄(스크립트가 조립·발송)
+#   ★우편함 경계★(r2187): 틱은 쪽지를 읽기만 한다(peek · recv 0 · 사본 파일 0) — desk 가 «결정 필요» 를 보고 직접 recv 한다.
+#   peek 도 결속(root·현재 desk·planner _master·`_desk` 일치)을 «확인한 뒤» 에만 부른다. `_desk` 가 비었거나 불일치면 mbox 호출 0·송신 0
+#   (이름 접두로 권한을 주지 않는다 · DA #273899).
 #   ④ 감시 판정은 «이름» 이 아니라 argv 로 한다 — 실 watcher 의 argv 는 실행 파일 이름과 무관하게 «-u - <bin> <좌석>» 꼴이다
 #   (이 Mac 실측: /opt/homebrew/…/Python.app/Contents/MacOS/Python -u - <bin> <좌석>).
 #   한 항목이 실패하면 그 항목 «판정 불가 rc=N» 1줄 · 나머지는 계속 · 전체 rc1(조용한 0 금지 · docs/rules/no_silent_fallback.md).
@@ -18,7 +18,7 @@
 #   «결정 필요» 바로 앞 1줄 = «초: ① a · … · ⑥ f · 전체 g/BUDGET»(돌지 않은 항목 = -).
 #   출력 30줄(넘으면 접고 마지막 2줄 «초:» · «결정 필요» 는 지킨다). 전부 rc0 = 0 · usage = 2.
 #   env(시험·이식용): FT_ROOT · FT_HIL_DIR · FT_DESK_TICK_MBOX · FT_DESK_TICK_HIL · FT_DESK_TICK_LAUNCHCTL · FT_DESK_TICK_GIT · FT_DESK_TICK_NEWS_STALE_H · FT_DESK_TICK_PS
-#                     FT_DESK_TICK_STALL_LOG · FT_DESK_TICK_LOG · FT_DESK_TICK_NOW(epoch) · FT_DESK_TICK_STATE_DIR · FT_DESK_TICK_UID · FT_DESK_TICK_MAX_LINES · FT_DESK_TICK_BUDGET
+#                     FT_DESK_TICK_STALL_LOG · FT_DESK_TICK_LOG · FT_DESK_TICK_NOW(epoch) · FT_DESK_TICK_UID · FT_DESK_TICK_MAX_LINES · FT_DESK_TICK_BUDGET
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 usage() { echo "usage: ft-desk-tick.sh <desk 좌석>" >&2; exit 2; }
@@ -36,7 +36,6 @@ HILDIR="${FT_HIL_DIR:-/tmp}"
 LOG="${FT_DESK_TICK_LOG:-$ROOT/.fable-team/comm/mailbox.log.jsonl}"
 UIDN="${FT_DESK_TICK_UID:-$(id -u)}"
 NOW="${FT_DESK_TICK_NOW:-$(date +%s)}"
-STATE="${FT_DESK_TICK_STATE_DIR:-${TMPDIR:-/tmp}/ft-desk-tick}"
 MAXL="${FT_DESK_TICK_MAX_LINES:-30}"
 BUDGET="${FT_DESK_TICK_BUDGET:-25}"
 PLANNER_SEATS="$ROOT/.fable-team/seats-planner.json"
@@ -204,8 +203,8 @@ if item 감시; then
 fi
 tock ④
 
-# 결속 확인 — 우편함을 «소비하기 전» 에 root·현재 desk·planner 가 이 좌석으로 묶였는지 본다(반례②). 실패면 recv 0 · 송신 0
-BIND_OK=0; PLANNER=""; SAVE_OK=1
+# 결속 확인 — 우편함을 «보기 전» 에 root·현재 desk·planner 가 이 좌석으로 묶였는지 본다(반례②). 실패면 mbox 호출 0 · 송신 0
+BIND_OK=0; PLANNER=""
 tick
 if item 결속 0; then
   if [ ! -f "$MBOX" ]; then fail_line 결속 5; else
@@ -228,25 +227,41 @@ PY
   fi
 fi
 
-# ⑤ 내 쪽지 머리 — recv 는 소비다. 전문은 상태 폴더에 남겨 잃지 않는다. 저장까지 실패하면 완료송신 0(반례②)
+# ⑤ 내 쪽지 머리 — peek --rows 는 읽기만 한다(r2187 · 소비 0 · 사본 0). 판독 = mail_peek 한 함수
+mail_peek() {  # 1줄째 = N · 그 뒤 머리 ≤3줄(seq 작은 순 · 100자 안) · rc≠0 = 판정 불가(peek rc 그대로 · 꼴 어긋남 65)
+  local raw rc
+  raw="$(X bash "$MBOX" peek "$SEAT" --rows 2>/dev/null)"; rc=$?
+  [ "$rc" -eq 0 ] || return "$rc"
+  python3 - "$raw" <<'PY'
+import json, re, sys
+lines = sys.argv[1].split("\n")
+m = re.fullmatch(r"pending=(\d+)( .*)?", lines[0])
+if not m: sys.exit(65)
+rows = [l for l in lines[1:] if l.strip()]
+if len(rows) != int(m.group(1)): sys.exit(65)
+try: rows = [json.loads(l) for l in rows]
+except ValueError: sys.exit(65)
+if not all(isinstance(r, dict) for r in rows): sys.exit(65)
+print(len(rows))
+for r in rows[:3]:
+    first = (str(r.get("body") or "").splitlines() or [""])[0]
+    print(("  #%s %s %s" % (r.get("seq"), r.get("from"), first))[:100])
+PY
+}
 if [ "$BIND_OK" = 1 ] && item 쪽지; then
-  recv_out="$(X bash "$MBOX" recv "$SEAT" 2>&1)"; rc=$?
+  mp="$(mail_peek)"; rc=$?
   if [ "$rc" -ne 0 ]; then fail_line 쪽지 "$rc"; else
     OKN=$((OKN+1))
-    MAIL_N="$(printf '%s\n' "$recv_out" | awk '/^READ \[/{c++} END{print c+0}')"
+    MAIL_N="$(printf '%s\n' "$mp" | head -1)"
     o "쪽지 ${MAIL_N}건"
     if [ "$MAIL_N" -gt 0 ]; then
-      heads="$(printf '%s\n' "$recv_out" | awk '/^READ \[/{print}' | head -3)"
-      while IFS= read -r l; do
-        [ -n "$l" ] || continue
-        o "  $(printf '%s' "$l" | sed -E 's/^READ \[([^]]*)->[^]]*\] #([0-9]+) [^ ]+ (.*)$/#\2 \1 \3/' | cut -c1-100)"
-      done <<< "$heads"
-      if mkdir -p "$STATE" 2>/dev/null && printf '%s\n' "$recv_out" > "$STATE/$SEAT-recv-$NOW.txt" 2>/dev/null; then
-        o "쪽지 전문 $STATE/$SEAT-recv-$NOW.txt"
-      else
-        o "쪽지 전문 저장 실패 $STATE (완료송신 0)"; fail_line "쪽지 저장" 1; SAVE_OK=0
-      fi
+      while IFS= read -r l; do o "$l"; done <<< "$(printf '%s\n' "$mp" | sed 1d)"
+      [ "$MAIL_N" -le 3 ] || o "  외 $((MAIL_N-3))통"
+      o "쪽지 읽기: bash $MBOX recv $SEAT"
       DEC=$((DEC+1))
+      if [ "$MAIL_N" -ge "${FT_MBOX_RING:-10}" ]; then   # ring 상한 = mbox_conf MAX_PER_TO · 넘치면 send 가 옛 쪽지를 버린다
+        o "우편함 가득 — 다음 쪽지부터 옛 것 버림 · 지금 recv"; DEC=$((DEC+1))
+      fi
     fi
   fi
 fi
@@ -254,7 +269,7 @@ tock ⑤
 
 # ⑥ planner _master 에 [완료] 3줄 — 본문은 스크립트가 조립한다(모델 출력이 아니다: 백틱·$() 가 들어갈 자리 0). 첫 줄 = [완료] 머리(반례④)
 tick
-if [ "$BIND_OK" = 1 ] && [ "$SAVE_OK" = 1 ]; then
+if [ "$BIND_OK" = 1 ]; then
   if budget_ok 0; then RAN=1; fi
   body="$(printf '[완료] desk 틱 — HIL 대기 %d건(desk %d) · 쪽지 %d건 · launch 경고 %d건\n남은 일: 결정 필요 %d · 팀장 정체 %d건 · 감시 %s\n회차: %s · 6항 판정 불가 %d건 · 좌석 %s' \
     "$HIL_N" "$HIL_DESK" "$MAIL_N" "$LAUNCH_BAD" "$DEC" "$STALE" "$WATCH" "$NOWISO" "$FAILS" "$DESKBASE")"

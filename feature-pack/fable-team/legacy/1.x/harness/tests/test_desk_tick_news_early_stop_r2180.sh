@@ -22,7 +22,7 @@ DESK='byz-planner-desk-claude#121'; PLANNER='byz-planner-master-claude#240'
 R="$T/root/.fable-team"; NL="$R/state/board/news-last.json"; LED=design/teams/planner/PLAN-oppa-ledger.md
 mkdir -p "$R/comm" "$R/state/board" "$T/fakebin" "$T/hil" "$T/state" "$T/base"
 printf '{"_master":"%s","_desk":"%s"}\n' "$PLANNER" "$DESK" > "$R/seats-planner.json"
-printf '#!/usr/bin/env bash\ncase "$1" in send) echo QUEUED; exit 0;; recv) echo "SCANNED 1 mailbox(es): fake"; exit 0;; esac\nexit 2\n' > "$R/comm/mbox.sh"
+printf '#!/usr/bin/env bash\ncase "$1" in send) echo QUEUED; exit 0;; peek) echo "pending=0 scanned=1 lineage=fake"; exit 0;; recv) echo "SCANNED 1 mailbox(es): fake"; exit 0;; esac\nexit 2\n' > "$R/comm/mbox.sh"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$T/hil/ft-hil.sh"
 printf '#!/usr/bin/env bash\nprintf "%%s\\n\\tstate = running\\n\\tlast exit code = 0\\n" "$2"\n' > "$T/fakebin/launchctl"
 printf '#!/usr/bin/env bash\necho "4242 python3 -u - /x %s"\n' "$DESK" > "$T/fakebin/ps"
