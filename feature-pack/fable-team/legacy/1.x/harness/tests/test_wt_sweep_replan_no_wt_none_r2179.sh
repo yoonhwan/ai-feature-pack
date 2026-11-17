@@ -72,6 +72,10 @@ c3() { fresh; oldplan "$S" a1 "$NOWT"; swp "$1"
 c3b() { fresh; printf '%s\n' "$L_B" > "$LEDGER"; oldplan "$S" a1 "$NOWT"; swp "$1"
   inc "$OUT" "OK   $S wt=none" "③-b OK none" && eqn "$(ncall)" 0 "③-b 발신" && inc "$(tail -1 "$D/$S.sh.done" 2>/dev/null)" "원장 표식 못 함" "③-b .done 끝줄" \
     && eqn "$(cat "$LEDGER")" "$L_B" "③-b 원장 불변"; }
+# ③-c(DA HOLD1 R1) 긴 정상 WT 경로(구성요소 100자 미만 · 전체 300자 넘게) + 그 좌석 닫힘 행 없음 → .done 끝줄에 NONE 줄 전체(«원장 표식 못 함» 까지)
+LONGWT="$T/gone/projects-$(printf 'a%.0s' $(seq 80))/nested-$(printf 'b%.0s' $(seq 80))/.worktrees-$(printf 'c%.0s' $(seq 80))/nano-review"
+c3c() { fresh; printf '%s\n' "$L_B" > "$LEDGER"; oldplan "$S" a1 "$LONGWT"; swp "$1"
+  inc "$OUT" "OK   $S wt=none" "③-c OK none" && inc "$(tail -1 "$D/$S.sh.done" 2>/dev/null)" "WT 없음($LONGWT) — 정리할 것 없음 (원장 표식 못 함: $S 닫힘 행 없음)" "③-c .done 끝줄 = NONE 줄 전체"; }
 c4() { fresh; printf '%s\n' "$L_A" > "$LEDGER"; oldplan "$S" a1 "$NOWT"; swp "$1"
   inc "$OUT" "OK   $S wt=none — 옛 판 계획 · WT 없음" "④ OK 줄" && exc "$OUT" "STALE" "④ STALE 줄" && eqn "$RC" 0 "④ sweep rc" \
     && inc "$(tail -1 "$D/$S.sh.done" 2>/dev/null)" "# none(replan): NONE --replan:" "④ .done 끝줄" \
@@ -100,6 +104,7 @@ tc "① 생성기 --replan WT 없음 → NONE rc 0 · 새 계획 0" c1; basefail
 tc "② 원장 그 좌석 마지막 행 wt=none · 다른 행 불변" c2; basefail ② c2
 tc "③ 원장 파일 없음 → none · .done 끝줄 «원장 표식 못 함» · 발신 0" c3; basefail ③ c3
 tc "③-b 그 좌석 닫힘 행 없음 → 같은 결과" c3b; basefail ③-b c3b
+tc "③-c 긴 WT 경로 + 행 없음 → .done 끝줄에 NONE 줄 전체(자름 0)" c3c; basefail ③-c c3c
 tc "④ sweep OK wt=none · .done(# none(replan):) · .stale·.replanned 0 · rc 0" c4; basefail ④ c4
 tc "⑤ mbox 호출 0 · critical-pending 0" c5; basefail ⑤ c5; step ①~⑤
 tc "⑥ 혼합 pass → none 2 · REPLAN 1 · cleaned/none 3 · stale 0 · 크리티컬 0" c6; basefail ⑥ c6; step ⑥
