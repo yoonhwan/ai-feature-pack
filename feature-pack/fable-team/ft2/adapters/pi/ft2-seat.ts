@@ -4,6 +4,7 @@
 // ③ 필수 인자 빠짐 = cli 를 부르기 «전» 에 오류(쓰기 0 · 루트 파일 변화 0).
 // ④ 상주 프로세스·주기 폴링·이벤트 훅 0 — 이 파일은 registerTool 만 한다(타이머·이벤트 훅·상주 자식 없음).
 // ⑤ 외부 호출 1회 상한 7초(하드 룰 12) — 넘으면 SIGKILL 로 끝낸다(SIGTERM 무시 자식도 7초에 반환).
+// ⑥ 한 턴에 묶여도 원문 순서로 하나씩 — 도구 4개 executionMode "sequential"(ft2 도구가 낀 묶음만 · r2178).
 import { execFile } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -84,6 +85,7 @@ const fail = (text: string, verb = "") => ({ content: [{ type: "text" as const, 
 function tool(name: string, spec: VerbSpec, description: string) {
   return {
     name, label: LABELS[name], description, promptSnippet: description, parameters: PARAMETERS[name],
+    executionMode: "sequential" as const,
     async execute(_toolCallId: string, params: any, signal?: AbortSignal, _onUpdate?: any, ctx?: any) {
       const bad = missing(spec, params);
       if (bad) return fail(`인자 빠짐: ${bad} — cli 호출 0 · 쓰기 0`, spec.verb);
