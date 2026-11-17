@@ -247,7 +247,7 @@ replan_one() {
   mv "$1" "$1.replanned" || { echo "옛 계획 비키기 실패"; return 1; }
   out="$(FT_WT_CLEAN_DIR="$DIR" bash "$GEN" "$2" --replan "$1.replanned" 2>&1)"; rc=$?
   if [ "$rc" -eq 0 ] && [ -f "$1" ] && plan_ver_check "$1" >/dev/null; then return 0; fi
-  local nl; nl="$(printf '%s\n' "$out" | grep -m1 '^NONE --replan:' | cut -c1-300)"
+  local nl; nl="$(printf '%s\n' "$out" | grep -m1 '^NONE --replan:')"   # r2179 HOLD1: 자르지 않는다(줄 끝 «원장 표식 못 함» 보존)
   if [ "$rc" -eq 0 ] && [ -n "$nl" ] && [ ! -e "$1" ] && mv "$1.replanned" "$1.done"; then
     printf '# none(replan): %s\n' "$nl" >> "$1.done"; echo "$nl"; return 6
   fi
