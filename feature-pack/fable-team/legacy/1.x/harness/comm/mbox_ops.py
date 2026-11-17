@@ -59,6 +59,8 @@ def send(to, frm, body, force=False, desk_attach=""):
         cross, cross_at = _crossed(rows, to, frm, keys)   # r2081 C1 — 큐를 읽은 그 잠금 안 · 0통 = 칸 없음(기준판 바이트)
         if cross:
             row["crossed"] = cross   # C3 — 큐 행·기록 행 둘 다
+        if (w := os.environ.get("FT_MBOX_WAKE_AT", "")).isdigit():   # r2169 W2 — mbox.sh 판정 값(정수 epoch 초)만 · 빈 글 = 칸 없음(기준판 바이트)
+            row["wake_at"] = int(w)
         # ★전문 보관은 «큐에 넣기 전»★ — 행은 큐에 있는데 전문은 없는 순간을 만들지 않는다.
         #   그 순간이 있으면 그 사이에 도착한 recv 가 «되찾을 수 없는 절단»을 하게 된다.
         if len(body) > MAX_BODY:
