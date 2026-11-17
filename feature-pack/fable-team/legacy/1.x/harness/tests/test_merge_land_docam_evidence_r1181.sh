@@ -64,7 +64,7 @@ BASE_SHA=f1a77fb8d1ec2fc7846d83d89b89667da3e3ed38   # r1181 직전 팩 origin/ma
 TOP="$(git -C "$HERE" rev-parse --show-toplevel 2>/dev/null)" && TOP="$(cd "$TOP" && pwd -P)"; PFX="$(cd "$HERE/.." && pwd -P)"; PFX="${PFX#$TOP/}"; mkdir -p "$T/red"
 if [ -n "$TOP" ] && git -C "$TOP" cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
   for f in "$BIN"/*; do ln -s "$f" "$T/red/$(basename "$f")"; done; rm -f "$T/red/ft-merge-land.sh"
-  git -C "$TOP" show "$BASE_SHA:$PFX/kit/fable-team/bin/ft-merge-land.sh" > "$T/red/ft-merge-land.sh" && [ -s "$T/red/ft-merge-land.sh" ] || { echo "FAIL 기준판을 못 꺼냄"; exit 1; }
+  git -C "$TOP" show "$BASE_SHA:${PFX/legacy\/1.x\//}/kit/fable-team/bin/ft-merge-land.sh" > "$T/red/ft-merge-land.sh" && [ -s "$T/red/ft-merge-land.sh" ] || { echo "FAIL 기준판을 못 꺼냄"; exit 1; }  # r2218: 고정 sha 는 legacy/1.x 이동(625fbdfc) 앞 = 옛 경로
   land "$T/red/ft-merge-land.sh" 1 --approve-sha "$A1"; notauto "$M1"
   ck "기준판(r1181 직전 main 판): R1 → REJECT «최신화 먼저» · main 불변(승인 다시 받기 재현)" $?
 else echo "SKIP 기준판 칸(R1 REJECT 재현) — base_sha $BASE_SHA 객체 없음(git 사본 아님)"; fi
