@@ -551,3 +551,8 @@ fm_land_notify_move() {
   [ -n "$rt" ] || rt="$b"
   fm_land_notify 이동 "[카드 이동] $rt ${from}→${dst}${da:+ · DA $da}" "$card"
 }
+fm_not_card_md() { grep -vE -e '^design/teams/[^/]+/indices/.+\.md$' -e '^design/harness/indices/.+\.md$' || true; }   # r2215 O1: stdin 경로(줄마다 · -z 를 tr 로 편 것) 중 카드 .md(design/teams/<팀>/indices/** · design/harness/indices/** 아래 .md · 한글 폴더 그대로) 아닌 줄만 낸다 · 빈 출력 = 전부 카드 .md
+fm_card_overlap() {   # fm_card_overlap <repo> <승인 A> <S> <main ref> : r2215 O3 — equiv 와 같은 base(mb = merge-base(A, mx) · mx = merge-base(S, main))로 «A 가 바꾼 파일 ∩ main 이 바꾼 파일» 을 git diff -z --no-renames 로 직접 센다(equiv names= 를 읽지 않음) · stdout = 겹친 파일 줄마다 · git 실패 = rc1(부르는 쪽 REJECT)
+  local mx mb a b; mx="$(git -C "$1" merge-base "$3" "$4")" && mb="$(git -C "$1" merge-base "$2" "$mx")" && a="$(git -C "$1" diff --no-renames --name-only -z "$mb" "$2" | tr '\0' '\n')" && b="$(git -C "$1" diff --no-renames --name-only -z "$mb" "$mx" | tr '\0' '\n')" || return 1
+  [ -z "$a" ] || [ -z "$b" ] || grep -Fx -f <(printf '%s\n' "$b") <<<"$a" || true
+}
