@@ -94,12 +94,12 @@ def test_c1b_heartbeat_15_to_20min_zero(w: World) -> None:  # ⓑ (여유 5분)
 # ── C2 — 20분 넘음 또는 없음 = 그 팀 1통 · 같은 서명 10분 안 재알림 0 ─────────
 def test_c2c_heartbeat_over_20min_one_stall_notice(w: World) -> None:  # ⓒ
     lead_b_candidate(w)
-    w.heartbeat("t1-master#1", 21)
+    w.heartbeat("t1-master#1", 61)  # r2172 — 일 쪽지 0 인 [정리] 60분 안 = L3 유휴 면제 · 멈춘 팀장 대역은 61분
     r = scan(w)
     assert counts(r.stdout)["f"] == "1" and counts(r.stdout)["b"] == "0", r.stdout
     s = sends(w, "t1-master#1")
     assert len(s) == 1, w.mbox_log()
-    assert body_of(s[0]).startswith("[멈춤] t1-master#1 팀장 심박 21분"), s[0]
+    assert body_of(s[0]).startswith("[멈춤] t1-master#1 팀장 심박 61분"), s[0]  # r2172 — 대역 심박 61분(L3 밖)
     assert "--urgent" not in s[0]
 
 
@@ -115,7 +115,7 @@ def test_c2d_no_heartbeat_at_all_one_stall_notice(w: World) -> None:  # ⓓ 심�
 def test_c2e_same_signature_within_ten_minutes_is_one_notice(w: World) -> None:  # ⓔ 연속 2회
     w.env["FT_STALL_PENALTY_AUTO"] = "0"
     lead_b_candidate(w)
-    w.heartbeat("t1-master#1", 21)
+    w.heartbeat("t1-master#1", 61)  # r2172 — 일 쪽지 0 인 [정리] 60분 안 = L3 유휴 면제 · 멈춘 팀장 대역은 61분
     _ = scan(w)
     w.advance(120)
     r = scan(w)
@@ -126,7 +126,7 @@ def test_c2e_same_signature_within_ten_minutes_is_one_notice(w: World) -> None: 
 def test_c2e2_lead_with_both_kinds_gets_one_notice_per_team(w: World) -> None:  # ⓔ2 «팀당 1통»
     lead_b_candidate(w)
     w.mail("t1-master#1", 7, 4.5, frm="planner#1")  # 미읽음 쪽지(d 후보)도 함께
-    w.heartbeat("t1-master#1", 21)
+    w.heartbeat("t1-master#1", 61)  # r2172 — 일 쪽지 0 인 [정리] 60분 안 = L3 유휴 면제 · 멈춘 팀장 대역은 61분
     r = scan(w)
     c = counts(r.stdout)
     assert c["f"] == "1" and c["b"] == "0" and c["d"] == "0", r.stdout
@@ -217,7 +217,7 @@ def test_c5_h4_future_ts_is_never_fresh(w: World) -> None:  # 시계 어긋난 �
 # ── attached·rest·stop-ready 팀장은 처리 0(base 게이트 그대로) ──────────────────
 def test_attached_lead_listed_but_no_action(w: World) -> None:
     lead_b_candidate(w)
-    w.heartbeat("t1-master#1", 21)
+    w.heartbeat("t1-master#1", 61)  # r2172 — 일 쪽지 0 인 [정리] 60분 안 = L3 유휴 면제 · 멈춘 팀장 대역은 61분
     w.attach("t1-master#1")
     r = scan(w)
     assert counts(r.stdout)["f"] == "1" and "attached" in r.stdout and not w.mbox_log()
@@ -241,7 +241,7 @@ def test_working_lead_is_not_a_stall(w: World) -> None:
 # ── dry-run 은 아무것도 보내지 않는다 ─────────────────────────────────────────
 def test_dry_run_lead_stall_sends_nothing(w: World) -> None:
     lead_b_candidate(w)
-    w.heartbeat("t1-master#1", 21)
+    w.heartbeat("t1-master#1", 61)  # r2172 — 일 쪽지 0 인 [정리] 60분 안 = L3 유휴 면제 · 멈춘 팀장 대역은 61분
     r = scan(w, "--dry-run")
     assert counts(r.stdout)["f"] == "1" and not w.mbox_log() and not w.scan_log()
 
@@ -276,7 +276,7 @@ def test_n_two_live_masters_one_notice_per_team(w: World) -> None:  # ⓝ 승계
     lead_b_candidate(w)
     w.state("t1-master#0", "IDLE", 6)
     w.jsonl("t1-master#0", "지금 착수하겠습니다")
-    w.heartbeat("t1-master#1", 21)
+    w.heartbeat("t1-master#1", 61)  # r2172 — 일 쪽지 0 인 [정리] 60분 안 = L3 유휴 면제 · 멈춘 팀장 대역은 61분
     r = scan(w)
     c = counts(r.stdout)
     assert c["f"] == "1" and c["b"] == "0" and c["d"] == "0", r.stdout  # b 중복 0
@@ -301,7 +301,7 @@ def test_o_suppression_key_is_team_not_seat(w: World) -> None:  # ⓞ 대상 좌
     lead_b_candidate(w)
     w.state("t1-master#0", "IDLE", 6)
     w.jsonl("t1-master#0", "지금 착수하겠습니다")
-    w.heartbeat("t1-master#1", 21)
+    w.heartbeat("t1-master#1", 61)  # r2172 — 일 쪽지 0 인 [정리] 60분 안 = L3 유휴 면제 · 멈춘 팀장 대역은 61분
     _ = scan(w)
     assert len([x for x in w.mbox_log() if x.startswith("send|t1-master#")]) == 1, w.mbox_log()
     w.advance(120)
@@ -356,7 +356,7 @@ def test_t_old_log_heartbeat_only_is_not_fresh(w: World) -> None:  # ⓣ 로그�
     quiet_others(w)
     lead_b_candidate(w)
     w.mail("t1-master#1", 5, 3, frm="planner#1")
-    log_mail(w, "planner#1", 900, 60, frm="t1-master#1")
+    log_mail(w, "planner#1", 900, 61, frm="t1-master#1")  # r2172 — 60분 = L3 유휴 면제 안 · 61분 = 밖
     r = scan(w)
     c = counts(r.stdout)
     assert c["f"] == "1" and c["u"] == "0", r.stdout

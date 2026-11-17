@@ -45,7 +45,7 @@ def test_r3_closed_wait_with_own_line_mark(tmp_path: Path) -> None:
         w.state(seat, "WORKING", 0.1)
     w.state("t1-master#1", "IDLE", 5)
     w.jsonl("t1-master#1", "확인했습니다. 지금 착수하겠습니다")
-    w.heartbeat("t1-master#1", 25)
+    w.heartbeat("t1-master#1", 61)  # r2172 — 일 쪽지 0 인 [정리] 60분 안 = L3 유휴 면제 · 멈춘 팀장 대역은 61분
     w.mail("t1-nano#0", 950, 21, frm="t1-master#1", body=CASE1)
     (w.root / "design/t1/indices/진행").mkdir(parents=True, exist_ok=True)  # open-work rc0(받을 일 0)
     r = subprocess.run(["bash", str(BIN / "ft-stall-scan.sh")], env=w.env, capture_output=True, text=True, timeout=70)
