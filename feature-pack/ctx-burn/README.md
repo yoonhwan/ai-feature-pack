@@ -164,6 +164,68 @@ ctx-plan --from /tmp/burn.json --inventory                     # 0순위 상수 
 ctx-plan --from /tmp/burn.json --capacity --accounts 5x:5,ultra:5
 ```
 
+## `ctx-share` — 조율 몫과 주간 환산 보드
+
+`ctx-burn` 이 «쓴 양» 을 재면 `ctx-share` 는 «그중 조율이 얼마인지» 와 «주간 한도의 몇 %인지» 를
+보드 한 장에 쓴다. 정의 정본 = `design/aifp/indices/진행/usage-monitor-coord-weekly.md`.
+
+```bash
+ctx-share                                  # 48시간 창을 재서 보드 폴더에 쓴다
+ctx-share --hours 24 --json                # 기계 판독(보드 쓰기 0)
+ctx-share --now 2026-11-17T13:00:00 --force # 시험·재측정
+```
+
+### 정의 1 — 조율/구현 분류 = 좌석 이름의 역할 칸
+
+세션 파일이 스스로 가진 이름(`session_info.name`, 없으면 seat-resume 기록의 `jsonl` → `name`)을
+문법 `<프로젝트>-<팀>-<역할>[-<꼬리>]#<N>` 로 가른다. `#` 뒤가 숫자뿐이고, `#` 앞을 `-` 로 갈라
+토큰이 3개 이상(빈 토큰 0)이면 **셋째 토큰이 역할**이다. 팀 이름·카드 slug 는 읽지 않는다.
+
+| 갈래 | 역할 토큰 |
+|---|---|
+| 구현 | `nano` · `tester` · `qa` · `repro` · `tool` · `implementer` · `worker` |
+| 조율 | `master` · `arch` · `da` · `desk` · `pm` · `checker` · `analyst` · `lead` · `architect` · `orch` |
+| 못 가림 | 이름 없음 · 문법으로 안 풀리는 이름 · 표에 없는 역할 |
+
+조율 몫 % = 조율 ÷ (조율 + 구현). 못 가림은 분모에서 빼고 따로 보인다. 10% 를 넘으면 판정 불가다.
+
+### 정의 2 — 주간 환산 사용률
+
+주간 % = (창 안 claude 모델 가중 합 × 168 ÷ 창 시간)
+÷ ((5x 장수 × `FT_CAP_WK_5X` + ultra 장수 × `FT_CAP_WK_ULTRA`) × `FT_CAP_TARGET_UTIL`) × 100
+
+가중 = `input` + 1.25 × (cacheWrite − cacheWrite1h) + 2.0 × cacheWrite1h + 0.1 × cacheRead + 5 × output
+(`ctx-burn` 과 같은 상수). 상수는 `accounts.env` 에서 읽고, 하나라도 비면 % 를 내지 않는다.
+보드에는 낮은 앵커(`WK_*_LOW`) 값도 괄호로 함께 쓴다.
+
+### 정의 2-2 — 계정 실측 %(대조 값)
+
+`anchor-snapshots.jsonl` 의 마지막 표본으로 Σ(w × 계정 한도) ÷ Σ 계정 한도를 낸다(`TARGET_UTIL` 0).
+차 = 계정 실측 − 로컬 W 환산. +20%p 이상이면 «다른 머신·밖 경로 의심», −20%p 이하이면
+«로컬이 더 큼 · 자 차» 표지를 붙인다. 판정(목표 안)은 두 값 모두 ≤ 100% 일 때만이다.
+
+### 정의 3 — 보드 자리와 갱신 주기
+
+보드 = `<out>/board.md`(사람) · `last.json`(기계) · `samples.tsv`(갱신마다 1줄) · 기본 `out` =
+`$FT_ROOT/.fable-team/state/usage-monitor`(없으면 BYZ 루트). 30분 안에 잰 값이 있으면 스스로
+건너뛰고 rc 0(`--force` 로 바로 잼). 보드는 임시 파일에 쓴 뒤 이름을 바꾼다.
+
+`board.md` 줄 순서 = ① 잰 시각·창 ② 조율·구현(목표 ≤ 50%) ③ 로컬 W 환산(낮은 앵커)·계정 실측·차·표지
+④ 못 가림 ⑤ 24시간·168시간 참고 ⑥ 조율 상위 5좌석 ⑦ 판정(목표 안 / 목표 밖 / 판정 불가 <사유>).
+rc 0 = 쟀다(목표 안·밖), rc 1 = 판정 불가(세션 폴더 없음 · 상수 결손 · 계정 표본 문제 · 못 가림 초과).
+보드 폴더 밖 쓰기 0 · 네트워크 0 · 세션 로그·좌석 기록·상수·계정 표본은 읽기만 한다.
+
+| option | default | meaning |
+|---|---|---|
+| `--hours N` | 48 | 창 시간 |
+| `--now ISO` | 지금 | 재는 시각(시험) |
+| `--sessions-dir` / `--resume-dir` | `~/.pi/agent/sessions` · `~/.claude/state/seat-resume` | 읽을 곳 |
+| `--inv-file` | `accounts.env`(`$CTX_PLAN_CAP_FILE`) | 상수 |
+| `--acct-file` | `anchor-snapshots.jsonl` | 계정 표본 |
+| `--out` | 위 «정의 3» | 보드 폴더 |
+| `--json` | off | 기계 판독 · 보드 쓰기 0 |
+| `--force` | off | 30분 건너뜀 무시 |
+
 ## How to fix what you find
 
 | priority | action | how |

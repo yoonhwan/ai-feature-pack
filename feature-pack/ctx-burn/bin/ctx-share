@@ -1,0 +1,543 @@
+#!/usr/bin/env python3
+"""ctx-share — 조율 몫과 주간 환산 사용률을 보드 한 장에 쓴다(읽기 전용 측정).
+
+정의 정본 = design/aifp/indices/진행/usage-monitor-coord-weekly.md (이 도구가 그 정의를 구현한다).
+  정의 1  분류 = 세션 파일이 스스로 가진 좌석 이름의 역할 칸(셋째 토큰). 폴더 글자는 읽지 않는다.
+  정의 2  주간 % = (창 안 claude 가중 합 × 168 ÷ 창 시간)
+                  ÷ ((5x 장수 × WK_5X + ultra 장수 × WK_ULTRA) × TARGET_UTIL) × 100
+  정의 2-2 계정 실측 % = Σ(w × 계정 한도) ÷ Σ 계정 한도 (anchor-snapshots.jsonl 마지막 표본 · TARGET_UTIL 0)
+  정의 3  보드 = <out>/board.md(사람) · last.json(기계) · samples.tsv(추세)
+
+가중 식 = ctx-burn 과 같은 상수: input 1 · cacheRead 0.1 · cacheWrite1h 2.0 ·
+cacheWrite(5m) 1.25 · output 5.0.
+
+안전: 세션 로그·좌석 기록·상수·계정 표본은 읽기만. 네트워크 0. 보드 폴더 밖 쓰기 0.
+30분 안에 잰 값이 있으면 재지 않는다(--force 로 바로 잼).
+"""
+import argparse
+import json
+import os
+import sys
+import time
+from datetime import datetime
+
+W_READ, W_W1H, W_W5M, W_OUT = 0.1, 2.0, 1.25, 5.0
+WEEK_HOURS = 168.0
+M_UNIT = 1_000_000.0     # accounts.env 의 WK_5X · WK_ULTRA 단위 = M(백만 토큰)
+REF_HOURS = (24.0, 168.0)
+IMPL_ROLES = frozenset({"nano", "tester", "qa", "repro", "tool", "implementer", "worker"})
+COORD_ROLES = frozenset({"master", "arch", "da", "desk", "pm", "checker", "analyst",
+                         "lead", "architect", "orch"})
+INV_KEYS = ("FT_CAP_CLAUDE_5X", "FT_CAP_CLAUDE_ULTRA", "FT_CAP_WK_5X",
+            "FT_CAP_WK_ULTRA", "FT_CAP_TARGET_UTIL")
+DEFAULT_NUM = {"FT_CAP_CLAUDE_5X": 5.0, "FT_CAP_CLAUDE_ULTRA": 5.0,
+               "FT_CAP_WK_5X": 172.0, "FT_CAP_WK_ULTRA": 686.0,
+               "FT_CAP_TARGET_UTIL": 0.85}
+STALE_MIN = 30.0
+UNKNOWN_MAX = 10.0
+DIFF_FLAG = 20.0
+SKIP_SEC = 30 * 60
+HOME = os.path.expanduser("~")
+DEFAULT_SESSIONS = os.path.join(HOME, ".pi", "agent", "sessions")
+DEFAULT_RESUME = os.path.join(HOME, ".claude", "state", "seat-resume")
+DEFAULT_INV = os.path.join(HOME, ".claude", "fable-team", "state", "capacity", "accounts.env")
+DEFAULT_ACCT = os.path.join(HOME, ".claude", "fable-team", "state", "capacity",
+                            "anchor-snapshots.jsonl")
+DEFAULT_DATA_ROOT = os.path.join(HOME, "Project", "Agent", "BYZ-Work", "BYZ-Agents")
+
+
+# ---------------------------------------------------------------- 숫자·시각
+def pint(x):
+    return "%d" % int(round(x))
+
+
+def p1(x):
+    s = "%.1f" % x
+    return s[:-2] if s.endswith(".0") else s
+
+
+def signed(x):
+    return ("+" if x >= 0 else "−") + p1(abs(x))
+
+
+def mfmt(w):
+    return p1(w / 1e6) if w >= 50_000 else "%.3f" % (w / 1e6)
+
+
+def fmt_ts(t):
+    return datetime.fromtimestamp(t).strftime("%Y-%m-%d %H:%M")
+
+
+def parse_ts(s):
+    if isinstance(s, (int, float)):
+        return float(s)
+    if not isinstance(s, str) or not s.strip():
+        return None
+    try:
+        d = datetime.fromisoformat(s.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return d.timestamp()
+
+
+def share(part, whole):
+    return 100.0 * part / whole if whole > 0 else 0.0
+
+
+# ---------------------------------------------------------------- 정의 1 분류
+def role_token(name):
+    """좌석 이름 문법 `<프로젝트>-<팀>-<역할>[-<꼬리>]#<N>` 의 셋째 토큰만 역할로 쓴다."""
+    if not name or name.count("#") != 1:
+        return None
+    head, num = name.split("#")
+    if not num.isdigit():
+        return None
+    toks = head.split("-")
+    if len(toks) < 3 or any(t == "" for t in toks):
+        return None
+    return toks[2]
+
+
+def class_of(name):
+    role = role_token(name)
+    if role in IMPL_ROLES:
+        return "work"
+    if role in COORD_ROLES:
+        return "coord"
+    return "unknown"
+
+
+def class_of_session(name, folder):
+    """정의 1 — 이름이 이긴다. 폴더 글자는 읽지 않는다(기준값 사)."""
+    return class_of(name)
+
+
+def load_resume(folder):
+    """`<좌석>.json` 의 `jsonl` → `name` 지도. 이름 ⓑ 자리."""
+    out = {}
+    if not folder or not os.path.isdir(folder):
+        return out
+    for fn in sorted(os.listdir(folder)):
+        if not fn.endswith(".json"):
+            continue
+        try:
+            with open(os.path.join(folder, fn), encoding="utf-8", errors="ignore") as fh:
+                rec = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        if not isinstance(rec, dict):
+            continue
+        path, name = rec.get("jsonl"), rec.get("name")
+        if isinstance(path, str) and path and isinstance(name, str) and name:
+            out[norm_path(path)] = name
+    return out
+
+
+def norm_path(path):
+    return os.path.realpath(os.path.abspath(path))
+
+
+def name_from_resume(path, resume):
+    """ⓑ 는 그 파일 하나에만 준다 — 다른 파일 이름을 빌려주지 않는다(DA HOLD-IMPL R2)."""
+    return resume.get(norm_path(path))
+
+
+# ---------------------------------------------------------------- 가중·스캔
+def weight(u):
+    def g(k):
+        return float(u.get(k) or 0)
+    cw, cw1 = g("cacheWrite"), g("cacheWrite1h")
+    if cw1 > cw:
+        cw1 = cw
+    return g("input") + W_W5M * (cw - cw1) + W_W1H * cw1 + W_READ * g("cacheRead") + W_OUT * g("output")
+
+
+def scan(sessions_dir, resume, now, hours):
+    """창(최대 168시간) 안 claude 요청만. 깨진 줄은 세고 건너뛴다(정의 1 · U4)."""
+    lo = now - max(hours, max(REF_HOURS)) * 3600.0
+    rows, files, skipped, requests = [], 0, 0, 0
+    for dirpath, _dirs, fnames in os.walk(sessions_dir):
+        folder = os.path.basename(dirpath)
+        for fn in sorted(fnames):
+            if not fn.endswith(".jsonl"):
+                continue
+            path = os.path.join(dirpath, fn)
+            files += 1
+            name, own = None, []
+            try:
+                fh = open(path, encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+            with fh:
+                for line in fh:
+                    if not line.strip():
+                        continue
+                    try:
+                        d = json.loads(line)
+                    except ValueError:
+                        skipped += 1
+                        continue
+                    if d.get("type") == "session_info":
+                        nm = d.get("name")
+                        if isinstance(nm, str) and nm:
+                            name = nm
+                        continue
+                    msg = d.get("message") or {}
+                    u = msg.get("usage") or {}
+                    if not u:
+                        continue
+                    if "claude" not in str(msg.get("model") or "").lower():
+                        continue
+                    t = parse_ts(d.get("timestamp"))
+                    if t is None or not (lo <= t < now):
+                        continue
+                    own.append((t, weight(u)))
+                    requests += 1
+            if name is None:
+                name = name_from_resume(path, resume)
+            cls = class_of_session(name, folder)
+            for t, w in own:
+                rows.append((t, w, cls, name))
+    return rows, files, skipped, requests
+
+
+def spread(rows, now, hours):
+    start = now - hours * 3600.0
+    tot = {"coord": 0.0, "work": 0.0, "unknown": 0.0}
+    per_name = {}
+    for t, w, cls, name in rows:
+        if not (start <= t < now):
+            continue
+        tot[cls] += w
+        if cls == "coord":
+            per_name[name] = per_name.get(name, 0.0) + w
+    return tot, per_name
+
+
+# ---------------------------------------------------------------- 정의 2 상수·환산
+def load_inv(path):
+    raw = {}
+    if path and os.path.isfile(path):
+        try:
+            with open(path, encoding="utf-8", errors="ignore") as fh:
+                for line in fh:
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    k, v = line.split("=", 1)
+                    raw[k.strip()] = v.strip().strip('"').strip("'")
+        except OSError:
+            raw = {}
+    missing = [k for k in INV_KEYS if not raw.get(k)]
+    inv = {k: (float(raw[k]) if raw.get(k) else DEFAULT_NUM[k]) for k in INV_KEYS}
+    for k in ("FT_CAP_WK_5X_LOW", "FT_CAP_WK_ULTRA_LOW"):
+        if raw.get(k):
+            inv[k] = float(raw[k])
+    return inv, missing
+
+
+def quota_limit(inv, low=False):
+    """분모 = (5x 장수 × WK_5X + ultra 장수 × WK_ULTRA) × TARGET_UTIL."""
+    if low:
+        wk5x, wkultra = inv.get("FT_CAP_WK_5X_LOW"), inv.get("FT_CAP_WK_ULTRA_LOW")
+        if not wk5x or not wkultra:
+            return None
+    else:
+        wk5x, wkultra = inv["FT_CAP_WK_5X"], inv["FT_CAP_WK_ULTRA"]
+    return (inv["FT_CAP_CLAUDE_5X"] * wk5x + inv["FT_CAP_CLAUDE_ULTRA"] * wkultra) * inv["FT_CAP_TARGET_UTIL"] * M_UNIT
+
+
+def weekly_pct(weighted, hours, limit):
+    if not limit or hours <= 0:
+        return None
+    return 100.0 * (weighted * WEEK_HOURS / hours) / limit
+
+
+# ---------------------------------------------------------------- 정의 2-2 계정 실측
+def read_lines(path):
+    if not path or not os.path.isfile(path):
+        return None
+    try:
+        with open(path, encoding="utf-8", errors="ignore") as fh:
+            return fh.read().splitlines()
+    except OSError:
+        return None
+
+
+def load_acct(path, inv, now):
+    """정의 2-2 — 파일 뒤에서부터 처음 읽히는 줄 1개. (%, 표본 시각, 판정 불가 사유)."""
+    lines = read_lines(path)
+    if lines is None:
+        return None, "", "계정 표본 없음"
+    for line in reversed(lines):
+        if not line.strip():
+            continue
+        try:
+            rec = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(rec, dict):
+            continue
+        ts = parse_ts(rec.get("ts"))
+        if ts is None:
+            continue
+        ts_text = fmt_ts(ts)
+        age_min = (now - ts) / 60.0
+        accounts = rec.get("accounts") or []
+        num = den = 0.0
+        for a in accounts:
+            if not isinstance(a, dict):
+                continue
+            tier = a.get("tier")
+            w = a.get("w")
+            email = str(a.get("email") or "")
+            if w is None:
+                return None, ts_text, "계정 표본 빈 값 %s" % (email[:3] or "?")
+            limit = {"max_5x": inv["FT_CAP_WK_5X"], "max_20x": inv["FT_CAP_WK_ULTRA"]}.get(tier)
+            if not limit:
+                return None, ts_text, "계정 tier %s" % tier
+            num += float(w) * limit
+            den += limit
+        if den <= 0:
+            return None, ts_text, "계정 표본 없음"
+        if age_min > STALE_MIN:
+            return None, ts_text, "계정 표본 낡음 %d분" % int(round(age_min))
+        return num / den, ts_text, ""
+    return None, "", "계정 표본 없음"
+
+
+def diff_flag(diff):
+    if diff >= DIFF_FLAG:
+        return "다른 머신·밖 경로 의심 %s%%p" % signed(diff)
+    if diff <= -DIFF_FLAG:
+        return "로컬이 더 큼 %s%%p · 자 차" % signed(diff)
+    return ""
+
+
+# ---------------------------------------------------------------- 정의 3 보드
+def default_out():
+    env = os.environ.get("FT_SHARE_OUT")
+    if env:
+        return env
+    root = os.environ.get("FT_ROOT") or ""
+    if not root and os.path.isdir(DEFAULT_DATA_ROOT):
+        root = DEFAULT_DATA_ROOT
+    if not root:
+        return os.path.join(HOME, ".claude", "fable-team", "state", "usage-monitor")
+    return os.path.join(root, ".fable-team", "state", "usage-monitor")
+
+
+def board_text(st):
+    lines = []
+    head = "잰 시각 %s · 창 %s시간" % (fmt_ts(st["now"]), p1(st["hours"]))
+    if st["unknown_over"]:
+        lines.append("① 판정 불가 · 못 가림 %s%% · %s" % (pint(st["unknown_pct"]), head))
+    else:
+        lines.append("① " + head)
+    two = "② 조율 %s%% · 구현 %s%%" % (pint(st["coord_pct"]), pint(st["work_pct"]))
+    two += " (참고 · 목표 ≤ 50%)" if st["unknown_over"] else " (목표 ≤ 50%)"
+    lines.append(two)
+    three = "③ "
+    if st["missing"]:
+        three += "로컬 W 환산 판정 불가 · 상수 %s" % st["missing"][0]
+    else:
+        three += "로컬 W 환산 %s%%" % pint(st["weekly_pct"])
+        if st["weekly_low"] is not None:
+            three += " (낮은 앵커 %s%%)" % pint(st["weekly_low"])
+    if st["acct_err"]:
+        three += " · 계정 실측 판정 불가 · %s" % st["acct_err"]
+    else:
+        three += " · 계정 실측 %s%% (표본 %s)" % (p1(st["acct_pct"]), st["acct_ts"])
+        if not st["missing"]:
+            three += " · 차 %s%%p" % signed(st["diff_pp"])
+            if st["flag"]:
+                three += " · " + st["flag"]
+    three += " · 목표 = 둘 다 ≤ 100%"
+    lines.append(three)
+    lines.append("④ 못 가림 %s%%" % pint(st["unknown_pct"]))
+    if st["missing"]:
+        lines.append("⑤ 참고 판정 불가 · 상수 %s" % st["missing"][0])
+    else:
+        lines.append("⑤ 참고 24시간 %s%% · 168시간 %s%%"
+                     % (pint(st["w24"]), pint(st["w168"])))
+    top = st["top"]
+    if not top:
+        lines.append("⑥ 조율 상위 0: (없음)")
+    else:
+        cells = ["%s %sM %s%%" % (n, mfmt(w), pint(share(w, st["coord_w"] or 1.0)))
+                 for n, w in top]
+        lines.append("⑥ 조율 상위 %d: %s" % (len(top), " · ".join(cells)))
+    lines.append("⑦ 판정 = %s" % st["verdict"])
+    return "\n".join(lines) + "\n"
+
+
+def sample_line(st):
+    cols = [fmt_ts(st["now"]), p1(st["hours"]), pint(st["coord_pct"]), pint(st["work_pct"]),
+            pint(st["unknown_pct"])]
+    cols.append("" if st["weekly_pct"] is None else pint(st["weekly_pct"]))
+    cols.append("" if st["acct_pct"] is None else p1(st["acct_pct"]))
+    cols.append("" if st["acct_pct"] is None else signed(st["diff_pp"]))
+    cols.append(st["verdict"])
+    return "\t".join(cols)
+
+
+def write_atomic(path, text):
+    tmp = "%s.tmp.%d" % (path, os.getpid())
+    with open(tmp, "w", encoding="utf-8") as fh:
+        fh.write(text)
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.replace(tmp, path)
+
+
+def read_last(out_dir):
+    path = os.path.join(out_dir, "last.json")
+    try:
+        with open(path, encoding="utf-8", errors="ignore") as fh:
+            d = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    return d if isinstance(d, dict) else None
+
+
+def state_json(st):
+    return {
+        "now": fmt_ts(st["now"]),
+        "hours": st["hours"],
+        "sessions": st["sessions"],
+        "requests": st["requests"],
+        "skipped": st["skipped"],
+        "elapsed_s": round(st["elapsed_s"], 2),
+        "weighted": round(st["weighted"], 1),
+        "coord_pct": round(st["coord_pct"], 1),
+        "work_pct": round(st["work_pct"], 1),
+        "unknown_pct": round(st["unknown_pct"], 1),
+        "weekly_pct": None if st["weekly_pct"] is None else round(st["weekly_pct"], 1),
+        "weekly_low_pct": None if st["weekly_low"] is None else round(st["weekly_low"], 1),
+        "acct_pct": None if st["acct_pct"] is None else round(st["acct_pct"], 1),
+        "acct_ts": st["acct_ts"],
+        "diff_pp": None if st["acct_pct"] is None or st["weekly_pct"] is None
+        else round(st["diff_pp"], 1),
+        "flag": st["flag"],
+        "missing_constants": st["missing"],
+        "verdict": st["verdict"],
+    }
+
+
+# ---------------------------------------------------------------- main
+def main(argv=None):
+    ap = argparse.ArgumentParser(
+        prog="ctx-share",
+        description="조율 몫·주간 환산 사용률을 보드 한 장에 쓴다(읽기 전용 측정).")
+    ap.add_argument("--hours", type=float, default=48.0, help="창 시간(기본 48)")
+    ap.add_argument("--now", help="재는 시각(ISO · 시험용)")
+    ap.add_argument("--sessions-dir", help="pi 세션 폴더")
+    ap.add_argument("--resume-dir", help="seat-resume 폴더")
+    ap.add_argument("--inv-file", help="상수 파일(accounts.env)")
+    ap.add_argument("--acct-file", help="계정 표본 jsonl")
+    ap.add_argument("--out", help="보드 폴더")
+    ap.add_argument("--json", action="store_true", help="기계 판독 출력(보드 쓰기 0)")
+    ap.add_argument("--force", action="store_true", help="30분 건너뜀 무시")
+    a = ap.parse_args(argv)
+
+    t0 = time.time()
+    now = parse_ts(a.now) if a.now else time.time()
+    if now is None:
+        print("판정 불가 · --now 형식", file=sys.stderr)
+        return 2
+    hours = a.hours if a.hours and a.hours > 0 else 48.0
+    sessions_dir = a.sessions_dir or DEFAULT_SESSIONS
+    resume_dir = a.resume_dir or DEFAULT_RESUME
+    out_dir = a.out or default_out()
+    acct_path = a.acct_file or DEFAULT_ACCT
+    inv_path = a.inv_file or os.environ.get("CTX_PLAN_CAP_FILE") or DEFAULT_INV
+
+    prev = read_last(out_dir)
+    if not a.force and not a.json and prev:
+        lt = parse_ts(prev.get("now"))
+        if lt is not None and 0 <= now - lt < SKIP_SEC:
+            print("ctx-share: %d분 전에 쟀음 — 재지 않음(--force 로 바로 잼)"
+                  % int((now - lt) // 60))
+            return 0
+
+    if not os.path.isdir(sessions_dir):
+        print("판정 불가 · 세션 폴더")
+        return 1
+
+    inv, missing = load_inv(inv_path)
+    rows, files, skipped, requests = scan(sessions_dir, load_resume(resume_dir), now, hours)
+    tot, per_name = spread(rows, now, hours)
+    measured = tot["coord"] + tot["work"]
+    total = measured + tot["unknown"]
+    coord_pct = share(tot["coord"], measured)
+    work_pct = share(tot["work"], measured)
+    unknown_pct = share(tot["unknown"], total)
+    unknown_over = unknown_pct > UNKNOWN_MAX
+
+    if missing:                       # 상수 결손 = 주간 환산 계열 미산정(기본값 노출 0)
+        limit = limit_low = None
+    else:
+        limit = quota_limit(inv)
+        limit_low = quota_limit(inv, low=True)
+    in_window = sum(1 for t, _w, _c, _n in rows if now - hours * 3600.0 <= t < now)
+    weighted = sum(tot.values())
+    weekly = weekly_pct(weighted, hours, limit)
+    weekly_low = weekly_pct(weighted, hours, limit_low)
+    tot24, _ = spread(rows, now, REF_HOURS[0])
+    tot168, _ = spread(rows, now, REF_HOURS[1])
+    w24 = weekly_pct(sum(tot24.values()), REF_HOURS[0], limit)
+    w168 = weekly_pct(sum(tot168.values()), REF_HOURS[1], limit)
+
+    acct_pct, acct_ts, acct_err = None, "", ""
+    if missing:
+        acct_err = "상수 %s" % missing[0]
+    else:
+        acct_pct, acct_ts, acct_err = load_acct(acct_path, inv, now)
+    diff_pp = 0.0
+    flag = ""
+    if acct_pct is not None and weekly is not None:
+        diff_pp = acct_pct - weekly
+        flag = diff_flag(diff_pp)
+
+    if unknown_over:
+        verdict = "판정 불가 · 못 가림 %s%%" % pint(unknown_pct)
+    elif missing:
+        verdict = "판정 불가 · 상수 %s" % missing[0]
+    elif acct_err:
+        verdict = "판정 불가 · %s" % acct_err
+    elif coord_pct <= 50.0 and weekly is not None and weekly <= 100.0 \
+            and acct_pct is not None and acct_pct <= 100.0:
+        verdict = "목표 안"
+    elif weekly is None:
+        verdict = "판정 불가 · 주간 %"
+    else:
+        verdict = "목표 밖"
+
+    top = sorted(per_name.items(), key=lambda kv: -kv[1])[:5]
+    st = {
+        "now": now, "hours": hours, "sessions": files, "requests": in_window,
+        "skipped": skipped, "elapsed_s": time.time() - t0, "weighted": weighted,
+        "coord_pct": coord_pct, "work_pct": work_pct, "unknown_pct": unknown_pct,
+        "unknown_over": unknown_over, "weekly_pct": weekly, "weekly_low": weekly_low,
+        "w24": w24, "w168": w168, "acct_pct": acct_pct, "acct_ts": acct_ts,
+        "acct_err": acct_err, "diff_pp": diff_pp, "flag": flag, "verdict": verdict,
+        "missing": missing, "top": top, "coord_w": tot["coord"],
+    }
+
+    if a.json:
+        print(json.dumps(state_json(st), ensure_ascii=False, indent=1))
+        return 0 if verdict in ("목표 안", "목표 밖") else 1
+
+    os.makedirs(out_dir, exist_ok=True)
+    write_atomic(os.path.join(out_dir, "board.md"), board_text(st))
+    with open(os.path.join(out_dir, "samples.tsv"), "a", encoding="utf-8") as fh:
+        fh.write(sample_line(st) + "\n")
+    write_atomic(os.path.join(out_dir, "last.json"),
+                 json.dumps(state_json(st), ensure_ascii=False, indent=1) + "\n")
+    print("ctx-share: 조율 %s%% · 구현 %s%% · 못 가림 %s%% · 판정 = %s"
+          % (pint(coord_pct), pint(work_pct), pint(unknown_pct), verdict))
+    return 0 if verdict in ("목표 안", "목표 밖") else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
