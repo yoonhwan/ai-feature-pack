@@ -1,11 +1,12 @@
 # 인덱스: ft2-keeper-lsremote-m5-anchor — 끝: test_pi_keeper_lsremote_once_r1963b.py 의 사례 ⑥(c6)이 지금 keeper.py 에서 통과하고 · 변이 M5 · M6 이 그 사례를 «변이 때문에» 실패시킨다(닻만 맞추는 것으로는 이 끝에 못 간다)
 <!-- ledger: feature-pack/fable-team/legacy/1.x/harness/design/harness/GOAL-harness.md -->
-- Issue: 없음(초안) — 나노 훑기 aifp 6025 [새 카드 필요 1줄](완성/ft2-keeper-endings-m9-anchor 구현 범위 3) · 팀장 aifp-ft-master-pi#24 발주 aifp 6039
+- Issue: #9000 (byz-agents · 등록 aifp-ft-master-pi#24 · planner 접수 BYZ 326472 · DA APPROVE-DESIGN 326435) — 나노 훑기 aifp 6025 [새 카드 필요 1줄](완성/ft2-keeper-endings-m9-anchor 구현 범위 3) · 팀장 aifp-ft-master-pi#24 발주 aifp 6039
 - 제안서: 없음 — 시험 1파일 복구 · 설계 = 이 카드 «계약»
 - 근거: 읽기·시험 실행 2026-11-17 14:50(aifp-ft-arch-pi#24 · 팩 origin/main b9553142 · 제품·시험 파일 손 0 · 임시 시험 사본 1개는 지움) — 아래 «읽은 것» 절
 - 원인 1줄: keeper 60초 카드(PR #1397 · d261be1a)가 나노 가지 모으기 줄을 `self.nano_s = self.now() - at` 에서 `self.nano, self.nano_s, self.nano_dl = (…), time.monotonic() - at, None` 으로 바꿨다 · ① M5 는 옛 줄을 닻으로 찾아 0곳에서 떨어진다 ② 나노 초를 재는 시계가 주입 시계(`self.now`)에서 `time.monotonic` 으로 바뀌어, 주입 시계만 움직이는 사례 ⑥ 이 기준판에서 실패한다(nano 칸 없음 · s=4) ③ 그래서 M6 은 지금 «사례가 원래 실패하니 통과» 하는 빈 통과다 · 그 PR 은 이 시험 파일을 고치지 않았다
 - 앞 카드: 진행/ft2-keeper-round-60s(PR #1397) · r1963b(ls-remote 리포당 1회 · 나노 모으기 = fetch 시계 밖 · M1~M6) · 완성/ft2-keeper-endings-m9-anchor(PR #1516 · 같은 부류 선례)
 - 상태: 대기
+- DA 판정: APPROVE-DESIGN BYZ 326435(사본 .fable-team/state/team-main/aifp-ft/DA-lsremote-m5-design-approve-326435/verdict.md) · 고정 팩 main fada7b08 · 수용 동작 반례 0 · 임시 사본 모델 = 파일 전체 14 PASS 26.49초 · 원본 c6 PASS · M5 ROUND s7/fetch7/nano 없음 · M6 ROUND s4/fetch4/nano3 · 무변이 대조 DID NOT RAISE(구현 승인 아님)
 - 설치: 없음 — 시험 파일만 바뀐다(keeper 동작 변화 0 · 판 올림을 따로 하지 않는다)
 - 선행: 없음(팩 origin/main b9553142)
 - 시험 입력: 그 시험 파일이 이미 쓰는 것 그대로(임시 루트 · r1812 대역 World · 실제 git · tmp bare 원격 · 주입 시계 · 실 runtime 0 · 네트워크 0 · sleep 0)
@@ -15,7 +16,7 @@
 - 대상: 팩 feature-pack/fable-team/ft2/tests/test_pi_keeper_lsremote_once_r1963b.py(사례 c6 · 변이 M5 · 변이 틀)
 - 정본 영향 없음: aifp 정본 변경 0 · 팩 ft2 계약 문서 변경 0 · 제품 코드 변경 0
 - 크기: 시험 1파일(c6 대역 · M5 2곳 · 변이 틀 대조 1줄) · PR 1개
-- 배정: 대기(DA · 2026-11-17T14:52)
+- 배정: 대기(석 · 2026-11-17T15:00)
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -41,13 +42,13 @@ r1963b 시험의 변이 M1~M6 은 keeper.py 사본에서 글자 한 줄을 찾�
 | 아 | 기준판 M5 실패 원문 | `AssertionError: ('M5', '        self.nano_s = self.now() - at\n')` · `assert 0 == 1` |
 | 자 | 변이 틀(121~131행) | `assert text.count(old) == 1, (name, old)` → 바꾼 사본에서 `with pytest.raises(AssertionError): case(World(…, tree))` · 원본에서 그 사례가 통과하는지는 보지 않는다(`test_case` 가 따로 본다) |
 | 차 | keeper 의 시계 2개 | `self.now`(주입 · `timed()` 의 칸 초 `self.spent[…]`) · `time.monotonic`(7곳 · 바퀴 예산 · 나노 모으기 초 · wall) · 60초 카드 시험은 keeper 모듈의 `time` 을 통째로 주입 시계로 바꾼다(test_keeper_round_60s.py :43 `g["time"] = types.SimpleNamespace(monotonic=s.clock, time=s.clock)`) |
-| 카 | 닻만 맞춘 꼴을 임시 사본으로 재 봄(M5 닻·바꿀 글자를 튜플 줄로 · ⑥ 에 keeper 모듈 `time` 주입 1줄) | `3 failed, 13 passed in 20.88s` · ⑥ 은 여전히 `('4', None, '4')` · M5 변이판도 `fetch=4`(fetch_root 만 0 → 4) = 나노 모으기 3초가 어느 시계에도 안 들어갔다 · [확인 필요: 까닭 — `kf.nanos` 가 지금은 팀마다 불리는데(`self.teams()`) ⑥ 의 World 에 대상 팀이 0 이라 바꿔 둔 `nanos` 가 한 번도 안 불리는지 · 나노 구현 때 먼저 잰다] |
+| 카 | 닻만 맞춘 꼴을 임시 사본으로 재 봄(M5 닻·바꿀 글자를 튜플 줄로 · ⑥ 에 keeper 모듈 `time` 주입 1줄) | `3 failed, 13 passed in 20.88s` · ⑥ 은 여전히 `('4', None, '4')` · M5 변이판도 `fetch=4`(fetch_root 만 0 → 4) = 나노 모으기 3초가 어느 시계에도 안 들어갔다 · 까닭(DA BYZ 326435 실측) = 수정 전 ⑥ 의 `keeper.teams()` = `[]` · `kf.nanos` 호출 0회(대상 팀이 없어 바꿔 둔 `nanos` 가 한 번도 안 불린다) → 시계 주입만으로는 못 고친다 |
 
 ## 계약
-- L1 사례 ⑥ 이 지금 keeper.py 원본에서 통과한다 · 기대값 `("4", "3", "7")` 과 둘째 단언(모으기 0초 → ` nano=` 칸 없음)은 그대로 둔다 · 고치는 것은 ⑥ 의 대역뿐이다: ⓐ 나노 모으기 3초가 keeper 가 실제로 재는 시계(`time.monotonic`)에 들어가게 한다(60초 카드 시험의 주입 꼴을 따른다 · 그 World 한 개 안에서만 · 다른 사례로 새지 않는다) ⓑ 바꿔 둔 `nanos` 가 실제로 1회 이상 불리게 한다(읽은 것 카 의 까닭을 먼저 재고, 대상 팀이 0 이어서라면 ⑥ 에 팀 1개를 세운다)
+- L1 사례 ⑥ 이 지금 keeper.py 원본에서 통과한다 · 기대값 `("4", "3", "7")` 과 둘째 단언(모으기 0초 → ` nano=` 칸 없음)은 그대로 둔다 · 고치는 것은 ⑥ 의 대역뿐이다: ⓐ 나노 모으기 3초가 keeper 가 실제로 재는 시계(`time.monotonic`)에 들어가게 한다(60초 카드 시험의 주입 꼴을 따른다 · 그 World 한 개 안에서만 · 다른 사례로 새지 않는다) ⓑ 바꿔 둔 `nanos` 가 실제로 1회 이상 불리게 한다 = ⑥ 안에서 기존 `World.work` 로 팀·일 1개를 세운다(DA 모델이 선 꼴 · 까닭 = 읽은 것 카)
 - L2 M5 의 닻 2곳을 지금 줄에 맞춘다 · 찾는 글자 = `        self.nano, self.nano_s, self.nano_dl = ({} if self.table else got), time.monotonic() - at, None\n` · 바꿀 글자 = 같은 자리에서 그 초를 `self.spent["fetch"]` 에 더하고 `self.nano_s` 를 0.0 으로 두는 한 줄(`self.nano` · `self.nano_dl` 대입은 원본과 같게) · 변이의 뜻(나노 모으기를 fetch 시계 안에)은 그대로다
 - L3 M6 의 글자는 손 0 이다(닻 `        s += self.nano_s` 는 지금도 1곳) · L1 이 서면 M6 은 빈 통과가 아니게 된다
-- L4 빈 통과 막기: M5 · M6 이 변이판에서 ⑥ 을 실패시킬 때 그 실패가 «변이가 만든 값» 임을 PR 본문에 원문으로 보인다(M5 = fetch 7 · nano 없음 / M6 = s 4) · 변이 틀에 «원본에서 그 사례 PASS» 대조를 넣을지는 나노가 걸린 초를 재서 정한다(파일 전체가 70초 안이면 넣는다 · 넘으면 넣지 않고 그 까닭 1줄)
+- L4 빈 통과 막기: M5 · M6 이 변이판에서 ⑥ 을 실패시킬 때 그 실패가 «변이가 만든 값» 임을 PR 본문에 원문으로 보인다(M5 = fetch 7 · nano 없음 / M6 = s 4) · 변이 틀에 «원본에서 그 사례 PASS» 대조를 넣는다(DA 모델 전체 26.49초 · ⑥ 1회 약 1.7초 = 여유 있음) · 나노가 실제 전체 걸린 초를 재서 70초를 넘으면 넣지 않고 그 까닭 1줄
 - L5 제품 코드 손 0(keeper.py 의 나노 초를 `self.now` 로 되돌리지 않는다 · 나노 모으기 7초 문 `nano_dl` 이 바퀴 예산과 같은 시계를 쓰는 것이 60초 카드 R6 계약이다) · 다른 사례 c1~c5b · c7 · 변이 M1~M4 손 0
 - L6 L1 ⓐⓑ 를 시험 파일만으로 못 세우면(제품 코드를 고쳐야만 ⑥ 이 선다) 고치지 않고 팀장에 1줄 = 그때는 제품 1줄 카드로 다시 짠다(사람 판단)
 
@@ -73,9 +74,9 @@ r1963b 시험의 변이 M1~M6 은 keeper.py 사본에서 글자 한 줄을 찾�
 - 60초 카드 회귀 목록에 이 파일을 더하는 일 = 팀장 판단.
 
 ## 완료 조건
-1. [ ] 나노: 구현 범위 1 의 잰 값 1줄(nanos 불린 횟수 · teams 값)
+1. [ ] 나노: 구현 범위 1 의 잰 값 1줄(기준판 ⑥ 에서 nanos 불린 횟수 · teams 값 = DA 실측 0회 · `[]` 와 대조)
 2. [ ] 나노: 기준판 FAIL 원문(51가 · 51나)
-3. [ ] 나노: 그 파일 전체 14 passed rc0 · 걸린 초(51라) · 변이판 원문 2줄(M5 fetch 7 · M6 s 4 = L4)
+3. [ ] 나노: ⓐ 원본에서 `test_case[c6]` PASS ⓑ M5 · M6 변이판에서 ⑥ 이 AssertionError = ROUND 원문 2줄(M5 s=7 fetch=7 nano 칸 없음 · M6 s=4 fetch=4 nano=3 = L4) ⓒ 무변이 대조(M5 바꿀 글자를 원본과 같게 둔 사본)에서 변이 틀이 DID NOT RAISE 로 실패(51바) ⓓ 그 파일 전체 = 새 실패 0(14 passed rc0 · 실패 node 가 하나라도 있으면 기준판과 나란히 적고 [ ]) · 걸린 초 70초 안(DA 모델 26.49초 · 51라)
 4. [ ] 나노: 바뀐 파일 1개(제품 코드 손 0) · L6 에 걸리면 고치지 않고 팀장 1줄
 5. [ ] 팀장: PR 착지 sha
 
@@ -89,3 +90,4 @@ r1963b 시험의 변이 M1~M6 은 keeper.py 사본에서 글자 한 줄을 찾�
 
 ## 상태
 - 2026-11-17 14:52 · 대기 — aifp-ft-arch-pi#24 초안(팀장 aifp 6039 · 나노 훑기 aifp 6025 · 읽기 + 시험 실행 4회 3·17·22·2초 · 임시 시험 사본은 지움 · 제품·시험 파일 손 0) · 판단 = 닻만 맞춰서는 M5 뜻이 서지 않는다(사례 ⑥ 이 기준판에서 실패 · M6 은 지금 빈 통과) → 범위 = 시험 1파일에서 ⑥ 대역 + M5 닻 · 다음 = 팀장 PR merge → DA 설계 → Issue → 나노 1석
+- 2026-11-17 15:00 · 대기 — DA 설계 APPROVE-DESIGN(BYZ 326435 · aifp 6043 · 고정판 fada7b08 · 수용 반례 0) · Issue #9000 등록(planner 접수 BYZ 326472) · 배정 = 대기(석) · 확인 필요 풀림(teams() = [] · nanos 0회) → L1 ⓑ = World.work 로 팀·일 1개 · 완료 조건 3 = 원본 c6 PASS · M5·M6 AssertionError 원문 · 무변이 대조 DID NOT RAISE · 새 실패 0 · 70초 안 · aifp-ft-arch-pi#24(팀장 발주 aifp 6044 · 구현 0) · 다음 = 팀장 착지 → 나노 spawn
