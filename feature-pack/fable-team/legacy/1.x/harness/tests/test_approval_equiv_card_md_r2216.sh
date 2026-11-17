@@ -73,11 +73,12 @@ got="$(cut -f1 <<<"$P12" | python3 -I -c 'import importlib.util as u,sys
 s=u.spec_from_file_location("e",sys.argv[1]); m=u.module_from_spec(s); s.loader.exec_module(m)
 for p in sys.stdin.read().splitlines(): print("%s\t%s" % (p, "y" if m.is_card(p) else "n"))' "$EQP" 2>&1)"
 out="$got"; [ "$got" = "$P12" ]; ck "⑫a python 카드 경로 판정 = O1 기대표(한글 폴더)" $?
-FN="${FT_TEST_R2215_FN:-}"
-if [ -n "$FN" ]; then
-  gb="$(cut -f1 <<<"$P12" | while IFS= read -r p; do (. "$BIN/ft-merge-lib.sh" >/dev/null 2>&1; "$FN" "$p" && echo "$p	y" || echo "$p	n"); done)"
+FN="${FT_TEST_R2215_FN:-fm_not_card_md}"   # r2215 판정 = stdin 필터(카드 .md 아닌 줄만 냄 · ft-merge-lib.sh) → 낸 줄 = n · 나머지 = y
+if grep -q "^$FN()" "$BIN/ft-merge-lib.sh" 2>/dev/null; then
+  nl="$(cut -f1 <<<"$P12" | (. "$BIN/ft-merge-lib.sh" >/dev/null 2>&1; "$FN"))"
+  gb="$(cut -f1 <<<"$P12" | while IFS= read -r p; do grep -qxF -- "$p" <<<"$nl" && echo "$p	n" || echo "$p	y"; done)"
   out="$gb"; [ "$gb" = "$got" ]; ck "⑫b r2215 bash 판정($FN) = python 판정" $?
-else echo "SKIP ⑫b r2215 bash 판정 미착지(FT_TEST_R2215_FN 없음) — r2215 착지 뒤 그 함수 이름으로 다시 돈다"; fi
+else echo "SKIP ⑫b r2215 bash 판정 함수 $FN 이 ft-merge-lib.sh 에 없음(r2215 미착지 판)"; fi
 cmp -s "$BIN/ft_approval_equiv.py" "$BIN/../kit/fable-team/bin/ft_approval_equiv.py"; rc=$?; out=""; ck "bin == kit cmp(ft_approval_equiv.py · 설치 = kit 쪽)" $rc   # DA#16 #331663
 t4=$SECONDS
 echo "단계별 초: 픽스처 $((t1 - t0)) · ②~⑦ $((t2 - t1)) · ⑧~⑪ $((t3 - t2)) · ⑫ $((t4 - t3)) · 전체 $((SECONDS - t0))"
