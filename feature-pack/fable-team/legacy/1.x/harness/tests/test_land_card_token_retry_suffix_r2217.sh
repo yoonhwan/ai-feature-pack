@@ -85,7 +85,7 @@ fi
 if mut m2 '=~ ^(.+)-r[0-9]+$ ]]' '=~ ^(.+)-r?[0-9]+$ ]]'; then
   ck "M2 꼬리 정규식 -[0-9]+ 로 넓힘 → ⑥ 잡힘" miss c6 "$T/m2"; ck "M2 원본 대조 ⑥" c6 "$BIN"
 fi
-if mut m3 'if [ "$n" -eq 1 ]; then hit[${#hit[@]}]="$c"; return 0' 'if c="${c%%$'"'"'\n'"'"'*}"; then hit[${#hit[@]}]="$c"; return 0'; then
+if mut m3 '[ "$n" -eq 1 ] || { serr="토큰 $u' 'c="${c%%$'"'"'\n'"'"'*}" || { serr="토큰 $u'; then
   ck "M3 꼬리 slug 겹침 검사 빼기 → ⑦ 잡힘" miss c7 "$T/m3"; ck "M3 원본 대조 ⑦" c7 "$BIN"
 fi
 S3=$SECONDS
