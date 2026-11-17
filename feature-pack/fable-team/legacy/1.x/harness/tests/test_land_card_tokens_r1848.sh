@@ -19,13 +19,15 @@ for c in r1840-x r1812-a r1813-b r1844-c r1845-d; do printf 'card\n' > "$R/$IX/$
 git -C "$R" add -A && git -C "$R" commit -qm cards && git -C "$R" update-ref refs/remotes/origin/ops/main-base HEAD
 CALL="$(grep -m1 '^fm_land_notify_land ' "$LAND" | sed 's/; HLTO=.*//')"
 ck "사전 착지 호출 줄 1개" [ -n "$CALL" ]
+CALL0="$(grep -m1 '^fm_land_turn_first ' "$LAND" | sed 's/; fm_land_ledger .*//')"   # r2158: r2124 뒤 장부 = :103 fm_land_turn_first(첫 조각만)
+ck "사전 장부 호출 줄 1개" grep -qx 'fm_land_turn_first [^;]*' <<<"$CALL0"
 L="$R/.fable-team/state/land-record-turn.jsonl"
 case_run() {  # case_run <PR> <head> <제목> <본문> → ROW = 장부 cards 토큰 · NOTE = 쪽지 줄
   ( . "$LIB" >/dev/null 2>&1; FM_HERE="$T/no-bin"
     fm_land_notify() { printf '%s | %s\n' "$2" "$(shift 2; printf '%s ' "$@")" >>"$T/note"; }
     PH="$2" PT="$3" PB="$4"; pf() { case "$1" in headRefName) printf '%s' "$PH";; title) printf '%s' "$PT";; body) printf '%s' "$PB";; esac; }
     ROOT="$R" PR="$1" Q="$(git -C "$R" rev-parse HEAD)" M="$Q" HEADSHA="$Q" REPO="$R" TARGET=main irc=0 IOUT='OK n=1'
-    eval "$CALL" ) >/dev/null 2>&1
+    eval "$CALL0"; eval "$CALL" ) >/dev/null 2>&1
   ROW="$(python3 -c 'import json,sys,re
 for l in open(sys.argv[1]):
   d=json.loads(l)
