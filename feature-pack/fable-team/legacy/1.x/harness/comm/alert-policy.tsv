@@ -1,0 +1,6 @@
+발신	머리 꼴(숫자열 → N)	머리 뒤 첫 낱말	갈래	값
+ft-idle-scan	[유휴 점검 N:N]	유지	안 넣음	-
+ft-idle-scan	[N분 점검 N:N]		바뀐 때만	줄:닫기 대상|줄:시간 모름|글:미발송 N
+ft-tick	[계정 안내]		바뀐 때만	전문
+ft-desk-tick	[틱 N:N]		주기	15
+ft-desk-tick	[aifp N분 점검 N:N]		주기	30
