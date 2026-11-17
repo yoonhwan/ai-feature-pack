@@ -157,7 +157,7 @@ def hold_read(k, path):
     if not reason:   # 빈 파일·JSON 아님(read_json = {})·reason 없음
         return "깨짐"
     return reason, str(data.get("until") or "").strip() or "-"
-def cards(k, team):
+def cards(k, team, unread=None):
     """({stem: [긴급, 높음, 대상 줄들, 선행 막힘, 기억 값, 재개 줄들(r2113)]}, 루트 행) · 판독 실패 = 사유 문자열 (git 2회 · 작업 트리 0)."""
     try:
         with open(os.path.join(k.root, ".fable-team", "state", "directive-roots.tsv"), encoding="utf-8") as fh:
@@ -185,17 +185,18 @@ def cards(k, team):
             row[2] += [line] if line.startswith("- 대상") else []
             row[3] += [line] if line.startswith(("- 선행", "- 배정", WAIT) + SHELL) else []
             row[5] += [line] if line.startswith("- 재개:") else []   # r2113 A1
-    mapped(k, team, found, where)   # r2030 짝 표 대기 카드(팀 폴더 밖 포함)
+    mapped(k, team, found, where, set() if unread is None else unread)   # r2030 짝 표 대기 카드(팀 폴더 밖 포함)
     for row in found.values():
         val = next((x.split(":", 1)[1].strip() for x in row[3] if x.startswith("- 선행:")), "")   # I1 기억에 넣을 선행 값 그대로
         verdict, why = prereq(row[3], where)
         row[3], row[4] = verdict, {"val": val, "why": why}   # row[4] = I1·I6 기억 값
     return found, r
-def mapped(k, team, found, where):
+def mapped(k, team, found, where, unread):
     """r2030 짝 표 대기 카드 → found 후보(같은 stem 1개) · 그 카드 indices 의 완성·완성후·아카이브(월별 포함) 참조 → where(DA R2).
     짝 work ≠ 카드 stem(별칭) = 후보 0 + 1줄(DA R1 · 별칭 기동 지원 0) · 판독 실패 = 지금 길 + 1줄."""
     mc = lp.mapped_cards(k.root, team)
     if isinstance(mc, str):
+        unread.add("*")   # r2210 O5 짝 표 판독 실패 = 빠진 카드를 «사라짐» 으로 보지 않는다
         return once(k, ("map-log", team), lambda: k.log("경고", team, "%s — 팀 폴더 대기 카드만" % mc))
     for work, (repo, ref, path) in sorted(mc.items()):
         stem, idx = os.path.basename(path)[:-3], lp.WAIT.match(path).group(1)
@@ -213,6 +214,7 @@ def mapped(k, team, found, where):
             if book.get(key) != val:
                 book[key] = val
                 k.log("판정 불가", team, "짝 표 카드 %s:%s git rc %s/%s — 건너뜀" % (ref, path, rc3, rc4))
+            unread.add(stem)   # r2210 O5
             continue
         heads = [x for x in text.splitlines() if re.match(r"- (긴급|우선|대상|선행|배정|재개:|대기 사유:)", x) or x.startswith(SHELL)]
         found[stem] = [any(URGENT.match(x) for x in heads), any(HIGH.match(x) for x in heads), [x for x in heads if x.startswith("- 대상")], [x for x in heads if x.startswith(("- 선행", "- 배정", WAIT) + SHELL)],
@@ -325,7 +327,8 @@ def held_choose(k, team):
     return choose(k, team, release(k, team))
 def choose(k, team, skip=frozenset()):
     """(stem, 리포, base) · skip = fill 보류 stem(r1913 «보류») · 고를 카드 0 = None(그때만 [다음 없음] 1통) · 판독 실패 = None(쪽지 0)."""
-    got, state = cards(k, team), ft2_state(k, team)
+    unread, waits = set(), set()   # r2210 이 바퀴 판독 실패 짝 표 카드 · 대기사유로 막힌 카드
+    got, state = cards(k, team, unread), ft2_state(k, team)
     if isinstance(got, str) or state is None:
         return k.log("판정 불가", team, "다음 카드 고르기 %s — 다음 카드 0" % (got if isinstance(got, str) else "ft2 state"))
     pair = pairs(k, team)   # r1887 짝 표
@@ -340,6 +343,7 @@ def choose(k, team, skip=frozenset()):
         shell += [k.log("NEXT-SKIP", team, "%s 건너뜀 — NEW_CARD_HOLD 껍데기" % stem) or "%s|%s" % (team, stem)] if pre == "껍데기" and "%s|%s" % (team, stem) not in shell else []
         if block == "대기사유":   # r2205 O4 — 값이 바뀔 때만 1줄(keeper 상태 파일 {팀|stem: 값} · prereq_seen 꼴)
             book, key = k.state.setdefault("wait_seen", {}), "%s|%s" % (team, stem)
+            waits.add(stem)
             if book.get(key) != seen["why"]:
                 book[key] = seen["why"]
                 k.log("NEXT-SKIP", team, "%s 건너뜀 — 대기 사유 줄 · 풀기 = «- 대기 사유: 없음»" % stem)
@@ -362,6 +366,9 @@ def choose(k, team, skip=frozenset()):
         block = "" if block == "재개" else block
         block = block or clash(k, team, stem)   # r2111 A2
         ready.append(((not urgent, not high, led.get("since") or 0), stem) + place) if not block else why.update({block: why.get(block, 0) + 1}) or names.setdefault(block, []).append((stem, own))
+    book = k.state.setdefault("wait_seen", {})   # r2210 O2·O3·O4·O5 — 위 found 를 다 본 뒤: 그 팀 키 중 대기사유 막힘이 아니게 됐거나 사라진 카드를 지운다(판독 실패 카드 = 그대로)
+    for key in [x for x in book if x.partition("|")[0] == team and x.partition("|")[2] not in waits and (x.partition("|")[2] in found or not unread & {x.partition("|")[2], "*"})]:
+        book.pop(key, None)   # r2210 (prereq 변이 M40 의 글자와 겹치지 않게)
     if why.get("팩낡음"):
         k.log("판정 불가", team, "다음 카드 보류 %d장 · 팩 fetch 실패" % why["팩낡음"])
     prereq_tell(k, team, {s: row[4] for s, row in found.items() if row[3] == "선행불명"})   # I4~I8 · 고를 카드가 있든 없든 간다
