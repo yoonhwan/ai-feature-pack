@@ -85,7 +85,7 @@ def c5(w, mp):   # ⑤ 재개 줄 2개(앞 16:28 · 뒤 13:00) → 마지막 줄
 
 
 def tail(stem):
-    return "byz-harness-nano-%s-%s#0" % (stem[:33].rstrip("-"), hashlib.sha1(stem.encode("utf-8")).hexdigest()[:6])
+    return "byz-harness-nano-%s-%s#0" % (stem[:33].rstrip("-").lower(), hashlib.sha1(stem.encode("utf-8")).hexdigest()[:6])
 
 
 def old40(stem):
@@ -104,7 +104,7 @@ def c7(w, mp):   # ⑦ 41자 이상 · 원장 seat = 옛 40자 이름 → 그 �
     w.round()
     k, kn = w.keeper(), w.K.closing.keeper_next
     assert kn.nano_name(k, "harness", LONG) == old40(LONG) and LONG not in base.launched(w), base.launched(w)
-    assert kn.nano_name(k, "harness", S) == "byz-harness-nano-%s#0" % S and k.lines == [], k.lines
+    assert kn.nano_name(k, "harness", S) == "byz-harness-nano-%s#0" % S.lower() and k.lines == [], k.lines
 
 
 def c8(w, mp, name=None):   # ⑧ L121 · 원장 없음 · deliveries 0 · 옛 40자 이름(소문자) 살아 있음 → 고르지 않음 · «이름겹침» · launch 0
