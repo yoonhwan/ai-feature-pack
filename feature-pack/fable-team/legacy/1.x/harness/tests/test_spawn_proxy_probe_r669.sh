@@ -10,7 +10,8 @@ set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 REPO="$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
-KIT="$REPO/feature-pack/fable-team/harness/kit/fable-team/bin"
+HX="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"   # r2222: harness = 시험 폴더의 부모(옛 경로 글자 대신)
+KIT="$HX/kit/fable-team/bin"
 T="$(cd "$(mktemp -d)" && pwd -P)"; PIDS=()
 trap 'for p in ${PIDS[@]+"${PIDS[@]}"}; do kill "$p" 2>/dev/null; done; rm -rf "$T"' EXIT
 fail=0
@@ -122,7 +123,7 @@ has "$o" "사유 proxy" "ⓔ 출력에 사유 proxy 1줄"
 [ "$el" -le 20 ] && ok "ⓔ 경과 ≤ 20 s ($el s)" || bad "ⓔ 경과 $el s"
 
 echo "== ⓕ 키트↔추적 짝 (설치 cmp0 의 근거)"
-BIN="$REPO/feature-pack/fable-team/harness/bin"
+BIN="$HX/bin"
 for s in ft-agent-ready.sh ft-nano-spawn.sh; do cmp -s "$KIT/$s" "$BIN/$s" && ok "cmp0 $s" || bad "짝 불일치 $s"; done
 
 echo; [ "$fail" -eq 0 ] && echo "ALL PASS" || echo "FAILED ($fail)"; exit "$fail"
