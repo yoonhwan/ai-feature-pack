@@ -5,7 +5,7 @@
 - 근거: 읽기 2026-11-16 09:32(aifp-ft-arch-pi#23 · 팩 origin/main 97b15fdc · 읽기만) + 팀장 재현 «1 failed 0.16초»(aifp 5930) — 아래 «읽은 것» 절
 - 원인 1줄: keeper 60초 카드(PR #1397 · d261be1a)가 바퀴 고리를 `one_work` 로 옮기면서 `elif self.sock and endings.ending(self, team, work):` 를 `if self.sock and endings.ending(self, team, work):` 로 바꿨다 · M9 는 옛 글자(`elif …`)를 닻으로 찾아 바꾸는 변이라 `assert text.count(old) == 1` 에서 0 으로 떨어진다 · 그 PR 은 이 시험 파일을 고치지 않았고 카드 회귀 목록에도 이 파일이 없었다
 - 앞 카드: 진행/ft2-keeper-round-60s(PR #1397) · r1960(일이 끝난 나노 자리 닫기 · M1~M10) · r2000(M9 = cli complete 를 바로 부르는 꼴)
-- 상태: 대기
+- 상태: 완성
 - 착지: d30c5789(팩 main · PR #1516 · squash · 세트 18146adb69196d4619b364632161e34dbed1b0ca · DA APPROVE-DESIGN BYZ 326251 · 팀장 재실행 -k 'M9 or M3' = M9 passed · M3 failed 기준판 같음)
 - 설치: 없음 — 시험 파일만 바뀐다(설치본에 tests 는 실리지만 keeper 동작 변화 0 · 판 올림을 따로 하지 않는다)
 - 선행: 없음(팩 origin/main 97b15fdc)
@@ -68,7 +68,7 @@ r1960 시험의 변이 M1~M10 은 제품 파일 사본에서 글자 한 줄을 �
 2. [x] 나노: 그 파일 전체 = M9 PASS + 그 밖 실패 집합이 기준판과 같음(새 실패 0) · 실패한 node id 목록을 기준판과 고친 판 나란히 · 걸린 초(㊼나) — 기준판(팩 main 0536a1fa)에서 같은 이름·같은 단언으로 실패하는 2건 = 사례 c4(다른 holder 의 UNKNOWN intent 없음 기대 · attempt a2) · `test_mutant[M3]`(원본 대조에서 같은 c4) 은 «기준판 같은 실패 = 알려진 한계» 로 센다 · 실패 줄의 단언이 기준판과 다르거나 다른 node 가 실패하면 [ ] · «파일 전체 rc0» 이라고 보고하지 않는다(DA APPROVE-DESIGN BYZ 326251)
 3. [x] 나노: 변이판에서 ③ 이 실패한 원문 1줄(J2) — «나노 증거 ③»
 4. [x] 나노: 훑기 결과(파일 이름 · rc · 깨진 닻 수) — «나노 증거 ④»
-5. [ ] 팀장: PR 착지 sha
+5. [x] 팀장: PR 착지 sha = d30c5789(PR #1516 · 세트 보정 PR #1518 · 나노 닫힘 rc0 14:46)
 
 ## 계약↔시험 대응표
 | 계약 | 시험 |
