@@ -3,7 +3,8 @@
 #   ① 몰린 줄 8 · +5초/발신 → 3통 · 미룸 5 · rc 0   ② 이어 보냄 3 · 2   ③ 예산 안 = 기준판 stdout   ④ 발신 없는 줄 = 미룸 0 · 앞 6줄만 기록 = 미룸 2
 #   ⑤ 밀림 줄 + 시계 20 = drift 0 · 닫기 요청 0 · 미룸 1 (⑤b 버린 seq = 미룸 1 · 다음 실행 재발신 1)   ⑥ 판정불가 줄 그대로 · rc 3
 #   ⑦ 표식(둘째 발신 · ring 직전 · 끝)   ⑧ stall-scan 로그 «멎은 곳»(a 새 표식 · b 옛 표식 · c rc 0 · 경계 epoch)   확인② due 시간 포함(시계 15 · 단조 시계)
-#   변이 M1~M6 = 사본에서만 · 원본 대조 1회씩 · 세계 = _nano_record_r1717_fixture.sh(가짜 mbox·명부·tmux · 시계 파일) — 실 우편함·실 tmux·네트워크 0 · sleep 0
+#   ⑤c·⑤d (DA R1) drift 캐시 DRIFT + [설치 먼저] 기록 = 외부 호출 0 줄은 예산 밖 · 기록 없음 = 미룸 · M7 = 밀림 줄 예산을 무조건
+#   변이 M1~M7 = 사본에서만 · 원본 대조 1회씩 · 세계 = _nano_record_r1717_fixture.sh(가짜 mbox·명부·tmux · 시계 파일) — 실 우편함·실 tmux·네트워크 0 · sleep 0
 #   기준판 Red = R1717_BIN=<앞 판 bin> R2175_NO_MUT=1 bash <이 파일>
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 . "$HERE/_nano_record_r1717_fixture.sh"
@@ -16,7 +17,14 @@ cat > "$CM" <<'EOF'
 [ "$1" != send ] || [ -z "${CLK_ADD:-}" ] || awk -v a="$(cat "$CLK_FILE" 2>/dev/null || echo 0)" -v b="$CLK_ADD" 'BEGIN{print a+b}' > "$CLK_FILE.n" && mv "$CLK_FILE.n" "$CLK_FILE"
 exec bash "$INNER_MBOX" "$@"
 EOF
-printf '#!/usr/bin/env bash\necho "$*" >> "$DRIFT_LOG"\nexit 0\n' > "$T/fdrift.sh"
+cat > "$T/fdrift.sh" <<'EOF'
+#!/usr/bin/env bash
+# 가짜 drift 검사 — 부를 때마다 DRIFT_LOG 1줄 · DRIFT_ADD 초를 시계에 더함 · DRIFT_RC=1 이면 «DIFF ft_x.py» 1줄
+echo "$*" >> "$DRIFT_LOG"
+[ -z "${DRIFT_ADD:-}" ] || awk -v a="$(cat "$CLK_FILE" 2>/dev/null || echo 0)" -v b="$DRIFT_ADD" 'BEGIN{print a+b}' > "$CLK_FILE.n" && mv "$CLK_FILE.n" "$CLK_FILE"
+[ "${DRIFT_RC:-0}" != 1 ] || echo "DIFF ft_x.py"
+exit "${DRIFT_RC:-0}"
+EOF
 export STEP_FILE="$SF" STEP_COPY="$CP" CLK_FILE="$CLKF" INNER_MBOX="$FK/mbox.sh" DRIFT_LOG="$DL"
 nt() { echo "$1" > "$CLKF"; : > "$CP"; CLK_ADD="$2" FT_LAND_RECORD_CLOCK="$CLKF" FT_MBOX="$CM" FT_DRIFT_CHECK="$T/fdrift.sh" rec notify "${@:3}"; }   # nt <시계 시작> <발신당 +초> [인자…]
 norm() { printf '%s\n' "$1" | sed -E 's/ #[0-9]+$/ #N/'; }
@@ -82,6 +90,22 @@ c5b() {  # ⑤b 전달한 seq 가 drops log 에 있음 → 시계 20 = 미룸 1 
   nt 0 5; t "⑤b 다음 실행 재발신 1" [ "$(nreq "$SS")" = 2 ]; t "⑤b 미룸 0" exc "$OUT" "미룸"
   nt 0 5; t "⑤b 또 = 0" [ "$(nreq "$SS")" = 2 ]; rm -f "$COMM/mailbox.drops.log"; return $E
 }
+mil2() {  # mil2 <꼬리표> <PR> — 같은 장부 줄의 «밀림» 2줄(SA·SB · 좌석 NA·NB · 세션 기록 있음)
+  SA="ma$1"; SB="mb$1"; NA="$(NN "$SA")"; NB="$(NN "$SB")"; fresh; land "$2"; card "$SA"; card "$SB"; seats "$NA|nano|$SA" "$NB|nano|$SB"; turn "$2" "$SA" "$SB"
+  MBOX_FAIL_HEAD='[완료·닫기 요청]' rec landed --seat "$NA" --pr "$2" --card "$SA" --test 'bash t.sh rc=0'
+  MBOX_FAIL_HEAD='[완료·닫기 요청]' rec landed --seat "$NB" --pr "$2" --card "$SB" --test 'bash t.sh rc=0'; : > "$DL"
+}
+ninst() { nto "$MASTER" "\[설치 먼저\]"; }
+c5c() {  # ⑤c (DA R1) 밀림 2줄 · [설치 먼저] 기록 둘 다 · 시계 11 · drift 1회 +7 = DRIFT → 둘째 줄 = 캐시·기록 = 외부 호출 0 → 미룸 0 · 두 줄 다 «닫기 요청 미룸»(기준판과 같음)
+  mil2 "c5c$1" 32; storeset install "$SA|$Q" '{"seq": 1}'; storeset install "$SB|$Q" '{"seq": 2}'
+  DRIFT_RC=1 DRIFT_ADD=7 nt 11 5; t "⑤c drift 1회" [ "$(wc -l < "$DL" | tr -d ' ')" = 1 ]; t "⑤c 미룸 0" exc "$OUT" "줄 — 실행 예산"
+  t "⑤c 닫기 요청 미룸 2줄" [ "$(printf '%s\n' "$OUT" | grep -c '^닫기 요청 미룸 ')" = 2 ]; t "⑤c 발신 0" [ "$(nreq "$SA") $(nreq "$SB") $(ninst)" = "0 0 0" ]; t "⑤c rc 0" [ "$RC" = 0 ]; return $E
+}
+c5d() {  # ⑤d 같은 입력 · 둘째 줄 [설치 먼저] 기록 없음 = 발신 필요 → 시계 18 ≥ 12 = 미룸 1 · 설치 먼저 0통
+  mil2 "c5d$1" 33; storeset install "$SA|$Q" '{"seq": 1}'
+  DRIFT_RC=1 DRIFT_ADD=7 nt 11 5; t "⑤d drift 1회" [ "$(wc -l < "$DL" | tr -d ' ')" = 1 ]; t "⑤d 미룸 1" inc "$OUT" "미룸 1줄 — 실행 예산 12초"
+  t "⑤d 닫기 요청 미룸 1줄" [ "$(printf '%s\n' "$OUT" | grep -c '^닫기 요청 미룸 ')" = 1 ]; t "⑤d 설치 먼저 0" [ "$(ninst)" = 0 ]; return $E
+}
 c6() {  # ⑥ ① + 판정불가 줄 1 → 그 줄 그대로 · 미룸 5 · rc 3
   own "c6$1" 28 8; printf '{"pr":99,"repo":"%s","target":"main","landed":"%s","pr_head":"%s","by":"","cards":["bogus.md"],"ts":"t"}\n' "$PACK" "$Q" "$PH" >> "$STATE/land-record-turn.jsonl"
   nt 0 5; t "⑥ rc 3" [ "$RC" = 3 ]; t "⑥ 판정 불가 줄 1" [ "$(printf '%s\n' "$OUT" | grep -c '^판정 불가 .*카드 경로 꼴 rc=1')" = 1 ]
@@ -128,7 +152,7 @@ c9() {  # 확인② due 가 쓴 초 포함 — 시계 15(due 15초 모델) = 발
 }
 step "사례"
 run "① 몰린 줄 = 3통 · 미룸 5" c1; run "② 이어 보냄" c2; run "③ 예산 안 = 기준판" c3; run "④ 발신 없는 줄" c4; run "④b 앞 6줄만 기록" c4b
-run "⑤ 밀림 줄 예산" c5; run "⑤b 버린 seq 미룸 → 재발신" c5b; run "⑥ 판정불가 + 미룸 = rc 3" c6; run "⑦ 단계 표식" c7; run "⑦r ring 직전 표식" c7r
+run "⑤ 밀림 줄 예산" c5; run "⑤b 버린 seq 미룸 → 재발신" c5b; run "⑤c 캐시·기록 = 예산 밖" c5c; run "⑤d 설치 먼저 필요 = 미룸" c5d; run "⑥ 판정불가 + 미룸 = rc 3" c6; run "⑦ 단계 표식" c7; run "⑦r ring 직전 표식" c7r
 run "⑧ stall-scan 멎은 곳" c8; run "확인④ epoch 경계" c8e; run "확인② due 포함 시계" c9
 
 if [ -z "${R2175_NO_MUT:-}" ]; then
@@ -139,12 +163,13 @@ if [ -z "${R2175_NO_MUT:-}" ]; then
     if __import__("ft_nano_record_budget").over(ctx):
         return
 '; mutcase M2 c4 2
-  mutbin m3 ft_nano_record_notify.py 'if over(ctx):   # r2175 N1 — 밀림 줄의 첫 외부 호출(drift·발신) 앞' 'if False:'; mutcase M3 c5 3
+  mutbin m3 ft_nano_record_notify.py 'if close_over(ctx, r):   # r2175 N1 — 밀림 줄의 첫 외부 호출(drift·발신) 앞 · 호출 0 = 예산 밖' 'if False:'; mutcase M3 c5 3
   mutbin m4 ft_nano_record_budget.py 'return 3 if any(' 'return 3 if self.deferred or any('; mutcase M4 c1 4
   mutbin m5 ft_nano_record_budget.py '        bud.mark(step, target)
     rc, out, err = run(cmd, env=dict(os.environ))' '        pass
     rc, out, err = run(cmd, env=dict(os.environ))
     bud and bud.mark(step, target)'; mutcase M5 c7 5
+  mutbin m7 ft_nano_record_notify.py 'if close_over(ctx, r):' 'if over(ctx):'; mutcase M7 c5c 7
   mutbin m6 ft_nano_record_budget.py 'if float(ep) >= float(start):' 'if True:'; mutcase M6 c8 6
 fi
 finish
