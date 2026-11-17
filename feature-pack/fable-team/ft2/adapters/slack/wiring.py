@@ -325,7 +325,8 @@ class Wiring:
         desk, key = self.seat("_desk"), row.get("key") or [None] * 3
         if not desk:
             return self.log("[notify] desk 없음 " + json.dumps(row, ensure_ascii=False))
-        self.wake(desk, alert_body(why, key, command, row.get("digest"), self.question(key)), command)
+        mine = key[2] and command == receive.command_for(receive.Key(*key))  # r2197 Q1 이번 글 = thread 첫 글 → 질문 0
+        self.wake(desk, alert_body(why, key, command, row.get("digest"), self.question(key) if not mine else None), command)
 
     def question(self, key):  # r2189 B2 — thread 첫 글 머리 = ⓐ route 사람 글 digest ⓑ receive 봇 글 head · 외부 호출 0
         if not key[2]:
