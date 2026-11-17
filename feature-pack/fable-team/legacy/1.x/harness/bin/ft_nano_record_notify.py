@@ -17,7 +17,7 @@ import sys
 import time
 
 from ft_nano_record import HERE, Ctx, Unjudged, seq_dropped
-from ft_nano_record_budget import Budget, over, ring_mark, traced   # r2175 실행 예산 · 단계 표식
+from ft_nano_record_budget import Budget, close_over, over, ring_mark, traced   # r2175 실행 예산 · 단계 표식
 from ft_nano_record_due import due_rows, fmt
 
 FROM = "ft-nano-record"
@@ -126,7 +126,7 @@ def close_request(ctx, r, path):   # A10 — 팀장에 «[완료·닫기 요청]
     if not r["master"]:
         print(f"WARN 닫기 요청 생략 — 명부에 _master 없음({r['stem']})")
         return None
-    if over(ctx):   # r2175 N1 — 밀림 줄의 첫 외부 호출(drift·발신) 앞
+    if close_over(ctx, r):   # r2175 N1 — 밀림 줄의 첫 외부 호출(drift·발신) 앞 · 호출 0 = 예산 밖
         return None
     ctx.held = held(ctx, r)
     if ctx.held:

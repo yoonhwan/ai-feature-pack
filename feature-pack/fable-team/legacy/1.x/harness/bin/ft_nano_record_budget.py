@@ -85,6 +85,13 @@ def over(ctx):   # notify 밖(landed·done)에서 부르면 늘 False
     return bool(bud and bud.over())
 
 
+def close_over(ctx, r):   # 밀림 줄 — 같은 실행의 drift 캐시가 DRIFT 이고 [설치 먼저] 기록이 있거나 판정 불가면 이번에 외부 호출 0 = 예산 밖(N2)
+    d = getattr(ctx, "_drift", None)
+    if d is not None and d[0] != 0 and (d[0] != 1 or ctx.store()["install"].get(f"{r['stem']}|{r['q']}")):
+        return False
+    return over(ctx)
+
+
 def traced(ctx, step, target, cmd):   # 표식 → run(7초) · send 성공 = 보냄 +1
     bud = getattr(ctx, "bud", None)
     if bud:
