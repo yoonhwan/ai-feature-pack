@@ -6,6 +6,7 @@ F = S 의 first-parent 사슬에서 «M 의 조상인 첫 커밋». F == M(처�
 r461: 다른 폴더로 옮긴 파일(git R, 또는 D 인데 S 트리에 같은 이름이 정확히 1개)은 옮긴 곳에서 줄을 센다 — 옛 경로 글자 → 새 경로 글자 1쌍 치환 허용 · 후보 0·2+ 는 삭제로 deny.
 r477: 비교 «전» main 이 더한 줄에 명단(ref FT_TEAMS_REF · 기본 origin/main) 기준 팀 폴더 정규화(옛 꼴 `design/<팀>/` → 새 꼴 `design/teams/<팀>/` · 명단 꼴2 팀만 · 한 방향)를 적용해 «정규화 뒤 같은 줄 = 같은 줄»(PATHSUBST). 후보 줄은 원문 그대로 — 새 꼴을 옛 꼴로 되돌린 줄은 소실. 명단 못 읽음 = 정규화 0 + stderr WARN 1줄(옛 동작 그대로).
 r1741 --replace-ok <리포 상대 경로>@<sha>#§<절>: DA 판정문(카드 리포 = FT_ROOT → 후보 리포)의 그 절 ```gate-replace 블록(첫 줄 `head <40hex>` · 다음 줄 `<경로>TAB<main 줄 원문>TAB<개수>`)에 적힌 (경로·원문) 만큼만 소실에서 뺀다. «판정:» 값이 APPROVE 로 시작하고 블록 head 가 S 이거나 S=«head 뒤 main 병합만 + 자기 변경 동일»(ft-approval-equiv)일 때만 유효 — 못 읽음·블록 없음·APPROVE 아님·head 불일치 = DENY(통과 0). 인자 없으면 옛 동작 바이트 그대로.
+r2174: 소실이 있을 때만 «가지 줄»(S 의 first-parent 사슬 (F, S] 의 부모 1개 커밋이 같은 경로에 더한 줄 · 50개 넘으면 0)을 개수만큼 먼저 빼고 PASS 줄에 « · OWN <n>줄» — 블록은 남은 소실에만.
 r2098: 소실 DENY 첫 줄 = 앞 8 항목 + «외 N 파일» + «합계 <파일> 파일 · <줄> 줄» · 둘째 줄 «다음: …» · --lost-rows = 판정 대신 블록 줄(rc 1 = 줄로 못 적는 소실 · stderr).
 exit 0 = 통과 · 1 = deny(사유 stdout) · 2 = 명령 실패(사유 stdout · deny 와 같게 취급)."""
 import collections
@@ -167,12 +168,25 @@ def replace_ok(repo, spec, s):
     return {(c[0], c[1].rstrip("\r")): int(c[2]) for c in rows}, "%s@%s#§%s" % (path, sha[:10], sec)
 
 
+def own_lines(repo, f, s):
+    """r2174 O1·O2·O6: 가지 줄 = S 의 first-parent 사슬 (F, S] 에서 부모 1개 커밋이 더한 줄 {경로: Counter} · merge 커밋·사슬 밖 0 · 50개 넘으면 {}."""
+    one = [c.split() for c in git(repo, "rev-list", "--first-parent", "--parents", "%s..%s" % (f, s)).split("\n")]
+    one = [c for c in one if len(c) == 2]
+    if len(one) > 50:
+        return {}
+    own = {}
+    for c, p in one:
+        for path, cnt in added_lines(repo, p, c)[0].items():
+            own.setdefault(path, collections.Counter()).update(cnt)
+    return own
+
+
 def losses(repo, f, m, s, rok):
-    """r2098: 소실 계산 1곳(DENY · --lost-rows 공용) → ([(경로, 사유, {main 줄 원문: 소실 개수})], 이동, PATHSUBST 줄, REPLACE-OK 줄, 보호 집합 파일 수)."""
+    """r2098: 소실 계산 1곳(DENY · --lost-rows 공용) → ([(경로, 사유, {main 줄 원문: 소실 개수})], 이동, PATHSUBST 줄, REPLACE-OK 줄, 보호 집합 파일 수, OWN 줄)."""
     table = team_table(repo)
     adds, binary = added_lines(repo, f, m)
     changed, bad, moved, tree, pathsubst = m_to_s(repo, m, s), [], [], [], 0
-    rok_n = 0
+    rok_n, own, own_n = 0, None, 0
     for path in sorted(set(adds) | binary):
         if path not in changed:
             continue
@@ -193,10 +207,15 @@ def losses(repo, f, m, s, rok):
             moved_line = l.replace(path, sp)
             raw_hit = max(raw[l], raw[moved_line])
             hit = max(raw[l], raw[moved_line], raw[norm(l, table)], raw[norm(moved_line, table)])
+            loss = max(0, n - hit)
+            if loss and own is None:                 # r2174 O4: 소실이 있을 때만 가지 줄을 센다(소실 0 = git 호출 수 그대로)
+                own = own_lines(repo, f, s)
+            mine = min(loss, own.get(path, collections.Counter())[l]) if loss else 0   # O1: 같은 경로 · 개수만큼
+            own_n, loss = own_n + mine, loss - mine  # O5: 가지 줄 먼저 · 블록은 남은 소실에만
             allow = rok.get((path, l), 0)            # A4: (경로·원문)마다 블록 개수만큼만 소실에서 뺀다
-            if n - hit - allow > 0:
-                rows[l] = n - hit - allow
-            rok_n += min(max(0, n - hit), allow)     # 실제로 사라진 줄만 REPLACE-OK 로 센다(안 사라진 줄은 무시)
+            if loss - allow > 0:
+                rows[l] = loss - allow
+            rok_n += min(loss, allow)                # 실제로 사라진 줄만 REPLACE-OK 로 센다(안 사라진 줄은 무시)
             if min(n, hit) > min(n, raw_hit):  # 정규화로만 같아진 줄 = PATHSUBST
                 pathsubst += 1
         lost = sum(rows.values())
@@ -205,7 +224,7 @@ def losses(repo, f, m, s, rok):
                         else "%s 로 이동했으나 main 이 더한 줄 %d 개 없음" % (sp, lost), rows))
         elif sp != path:
             moved.append("%s -> %s" % (path, sp))
-    return bad, moved, pathsubst, rok_n, len(adds) + len(binary)
+    return bad, moved, pathsubst, rok_n, len(adds) + len(binary), own_n
 
 
 def lost_rows(repo, f, m, s):
@@ -238,7 +257,7 @@ def main(repo, m, s, spec="", rows=False):
         except Fail as e:
             print("DENY %s" % e)
             return 1
-    bad, moved, pathsubst, rok_n, n_set = losses(repo, f, m, s, rok)
+    bad, moved, pathsubst, rok_n, n_set, own_n = losses(repo, f, m, s, rok)
     if bad:
         more = " 외 %d 파일" % (len(bad) - 8) if len(bad) > 8 else ""
         print("DENY main 이 더한 줄을 지움(옛 브랜치 F=%s) — main 에서 새 브랜치로 따라: %s%s · 합계 %d 파일 · %d 줄" % (
@@ -247,8 +266,9 @@ def main(repo, m, s, spec="", rows=False):
         return 1
     show = "".join("; MOVED " + x for x in moved[:3]) + (" 외 %d" % (len(moved) - 3) if len(moved) > 3 else "")
     sub = " · PATHSUBST %d줄" % pathsubst if pathsubst else ""
+    mine = " · OWN %d줄" % own_n if own_n else ""
     ok = " · REPLACE-OK %d줄 (%s)" % (rok_n, rok_disp) if rok_n else ""
-    print("PASS 보호 집합 %d 파일 · F=%s · 이동 인정 %d%s%s%s" % (n_set, f[:10], len(moved), show, sub, ok))
+    print("PASS 보호 집합 %d 파일 · F=%s · 이동 인정 %d%s%s%s%s" % (n_set, f[:10], len(moved), show, sub, mine, ok))
     return 0
 
 
