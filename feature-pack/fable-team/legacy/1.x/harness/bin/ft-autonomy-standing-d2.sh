@@ -9,6 +9,16 @@
 #   standing-stop D2 "<사유>"   누구나 · 멈춘 뒤 standing-approve D2 = 거절 · 다시 켜기 = approve-standing D2
 # 원장 $STATE/autonomy-standing/D2.ledger.tsv 7칸 = 시각·head·PR·da=<A>·DA 원문 경로·착지 sha·되돌림 명령(D1 과 같은 칸 · ft-merge-land 가 채운다)
 D2_VREF='refs/remotes/origin/docs/da-278062'   # r1590 ③ 판정문 읽는 ref = DA 판정 가지(코드 상수 · 호출자가 못 고른다)
+D2_VREFS="$D2_VREF refs/remotes/origin/main"   # r2181 V1 ③ 판정문 찾는 순서 = DA 가지 먼저 → origin/main(지금 통과 입력 불변) · 작업 트리는 안 읽는다
+d2_vref() {  # r2181 <판정문> → D2_VREF = 경로가 처음 있는 ref(V2 필드도 그 blob) · «없음» = git 성공 + 빈 답(ref = rev-parse rc1 · 경로 = ls-tree rc0 빈 출력)만 · 그 밖 실패 = 판정 불가(V5)
+  local f="$1" d r seen=""; [ -f "$f" ] && d="$(cd "$(dirname "$f")" && pwd -P)" && [ -n "$(std_common "$ROOT")" ] && [ "$(std_common "$d")" = "$(std_common "$ROOT")" ] || return 0   # 이 꼴의 거절 = std_verdict 글 그대로
+  f="$(git -C "$d" rev-parse --show-prefix)$(basename "$f")"
+  for r in $D2_VREFS; do std_t7 git -C "$ROOT" rev-parse --verify -q "$r"
+    if [ "$RC" = 0 ]; then std_t7 git -C "$ROOT" ls-tree --full-tree --name-only "$r" -- "$f"; [ "$RC" = 0 ] || std_err "③ 판정 불가 — 판정문 조회 실패 ${r#refs/remotes/} rc=$RC"; [ -z "$OUT" ] || { D2_VREF="$r"; return 0; }
+    elif [ "$RC" != 1 ] || [ -n "$OUT" ]; then std_err "③ 판정 불가 — 판정문 조회 실패 ${r#refs/remotes/} rc=$RC"; fi
+    seen="${seen:+$seen · }${r#refs/remotes/}"; done
+  std_err "③ 판정문이 BYZ $seen 에 없음(로컬만): $f — 착지·git fetch 뒤 다시"
+}
 D2="$STATE/autonomy-standing"; . "$HERE/ft-autonomy-standing.sh"   # D1 헬퍼(std_t7·std_field·std_verdict·std_da_out·std_equiv·std_seat_probe·std_plain) 재사용 — 사본 0
 D2_TARGET=main   # r1955: 분류·critical·gate·merge-tree 가 같이 쓰는 PR base — env 로 안 받는다 · standing-approve 가 autonomy_pr_target 으로 1회 정한다
 D2_GRANT_RE='^approve-standing D2 [0-9]+ repos=(byz|pack|byz,pack) classes=(code|docs)(,(code|docs))? oppa_decision=[0-9]+\.[0-9]{6}$'
@@ -168,7 +178,7 @@ cmd_standing_approve() {
   d2_on || d2_scope_via || std_err "① 상시 승인 D2 꺼짐(approve-standing D2 줄 없음 또는 standing-stop 뒤)"   # r1775: ① 진입 조건 = D2 켜짐 ∨ 자율 풀자동 범위 승인
   d2_repo "$rk"; D2_TARGET="$(autonomy_pr_target "$D2_REPO" "$pr" "$rk")" || std_err "$D2_TARGET"   # r1955 나·라 — 이 값 하나를 끝까지(다시 읽지 않는다)
   if grep -q "^standing-use D2 $head " "$LOG" 2>/dev/null; then m="$(amt_same "$head" "$D2_TARGET")" || std_err "$m"; echo "STANDING-NOOP $head (이미 상시 승인함)"; return 0; fi
-  d2_classify "$head"; std_verdict "$vf" "$D2_VREF"; std_da_out "$V_OUT" "$V_A"; [ -z "${D2_BILLING:-}" ] || d2_billing_line; std_equiv "$V_A" "$head"
+  d2_classify "$head"; d2_vref "$vf"; std_verdict "$vf" "$D2_VREF"; std_da_out "$V_OUT" "$V_A"; [ -z "${D2_BILLING:-}" ] || d2_billing_line; std_equiv "$V_A" "$head"
   [ "$D2_CLS" != code ] || scope_code_check "$head" "$card"   # ④ 카드 시험 세트(rc≠0 = scope_err = STANDING-REJECT)
   d2_critical "$head"
   [ -z "${D2_VIA_S:-}" ] || d2_gate "$head"   # r1775 ⑤ 자율 길에만 게이트 ALLOW 재확인
