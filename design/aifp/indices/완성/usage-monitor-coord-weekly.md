@@ -5,7 +5,7 @@
 - 근거: 기준 측정 desk#194(사본 .fable-team/state/team-main/aifp-ft/usage-monitor-baseline-desk194/ = cat2.py · table.txt · h24~h160.json) + 읽기 2026-11-17 10:45(aifp-ft-arch-pi#23 · 읽기만 · 적어 둔 값 .fable-team/state/team-main/aifp-ft/A23-usage-monitor/read-notes.txt) — 아래 «기준값» 절
 - 원인 1줄: 조율 몫 80% · 주간 150~171% 는 desk 가 손으로 한 번 잰 값이다 · 분류는 세션 폴더 이름 글자 맞추기(cat2.py)이고 환산식·분모는 어디에도 적혀 있지 않다 → harness 가 조율 비용을 줄여도 «줄었다» 를 같은 자로 다시 읽을 곳이 없다
 - 앞 카드: ctx-burn(«쓴 양» 측정 · 가중 상수) · ctx-plan(«감당량» · 상수 파일 accounts.env · 계약 ctx.v1)
-- 상태: 대기
+- 상태: 완성
 - 착지: 69ad814587ef1dd6511b5df1589b6df8831ca12e(팩 main · PR #1507 squash · 설치 harness#316 aifp 5979)
 - DA 판정: APPROVE-IMPL BYZ 326155(사본 .fable-team/state/team-main/aifp-ft/DA-usage-monitor-impl-approve-326155/verdict.md) · 승인 sha b5b60fd80f4c92b0a4aae6e4de003094a93bf8e8
 - 설치: 있음 — 도구 1개 설치 + 갱신 호출 1줄 · 되돌림 = 호출 1줄 빼기 + 도구 지움(상태 파일은 보드 폴더뿐)
