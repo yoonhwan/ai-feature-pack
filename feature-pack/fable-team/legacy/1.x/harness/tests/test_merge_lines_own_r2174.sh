@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test_merge_lines_own_r2174.sh — r2174: 줄 대조(ft_merge_lines.py)가 «가지가 같은 경로에 스스로 더한 줄» 을 main 줄 소실로 세지 않는가 (임시 리포만 · 외부 호출 0 · sleep 0)
-# 반례 ①~⑪ (⑫ = 기존 시험 재실행은 따로) · RED 재현: FT_MERGE_LINES=<기준판 ft_merge_lines.py> bash test_merge_lines_own_r2174.sh (① ② ④ FAIL)
+# 반례 ①~⑪ (⑫ = 기존 시험 재실행은 따로) · RED 재현: FT_MERGE_LINES=<기준판 ft_merge_lines.py> bash test_merge_lines_own_r2174.sh (① ② ④ ⑩-d FAIL · ⑩-a ⑩-c ⑪-50 도 새 기능이라 FAIL)
+# 기준판은 bin 폴더 사본 안(ft_team_lib.py 옆)에 둔다 — 홀로 두면 명단 읽기 길이 달라져 git 호출 수(⑨ ⑩-b)가 어긋난다
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$HERE/../../harness/bin"; LINES="${FT_MERGE_LINES:-$BIN/ft_merge_lines.py}"
@@ -93,8 +94,14 @@ out="$(FT_ROOT="$CARD" python3 -I "$LINES" "$W" "$MG" "$S10" --replace-ok "$DAP@
 co m10b "$M0"; put a.txt 'l1\nl2\nl3\nL\nL\n'; cm "$W" "main L L"; MH="$(sha "$W" HEAD)"
 co s10b "$M0"; put a.txt 'l1\nl2\nl3\nL\n'; cm "$W" "c1 L"; ours m10b; put a.txt 'l1\nl2\nl3\n'; cm "$W" "c2 drop"; S10B="$(sha "$W" HEAD)"
 C10B="$(dac "$S10B" "a.txt|L|2")"
-out="$(FT_ROOT="$CARD" python3 -I "$LINES" "$W" "$MH" "$S10B" --replace-ok "$DAP@$C10B#§2" 2>/dev/null)"; rc=$?
-[ "$rc" = 0 ] && [[ "$out" == "PASS "*" · OWN 1줄 · REPLACE-OK 1줄 ($DAP@${C10B:0:10}#§2)" ]]; ck "⑩-b 같은 L 소실 2 · 가지 1 · 블록 2 → OWN 1줄 · REPLACE-OK 1줄(M6)" $?
+FT_ROOT="$CARD" run "$MH" "$S10B" --replace-ok "$DAP@$C10B#§2"
+[ "$rc" = 0 ] && [ "$out" = "PASS 보호 집합 1 파일 · F=${M0:0:10} · 이동 인정 0 · REPLACE-OK 2줄 ($DAP@${C10B:0:10}#§2)" ] && [ "$calls" = 9 ]
+ck "⑩-b 블록만으로 이미 통과(사전 DA R1 꼴) · 가지 1 · 블록 2 → stdout 기준판과 같음(REPLACE-OK 2줄 · OWN 없음) · git 9회(M5)" $?
+co m10d "$M0"; put a.txt 'l1\nl2\nl3\nL\nL\n'; cm "$W" "main L L"; MI="$(sha "$W" HEAD)"
+co s10d "$M0"; put a.txt 'l1\nl2\nl3\nL\nL\n'; cm "$W" "c1 L L"; ours m10d; put a.txt 'l1\nl2\nl3\n'; cm "$W" "c2 drop"; S10D="$(sha "$W" HEAD)"
+C10D="$(dac "$S10D" "a.txt|L|1")"
+FT_ROOT="$CARD" run "$MI" "$S10D" --replace-ok "$DAP@$C10D#§2"
+[ "$rc" = 0 ] && [[ "$out" == "PASS "*" · 이동 인정 0 · OWN 2줄" ]]; ck "⑩-d 순서: 같은 L 소실 2 · 가지 2 · 블록 1 → PASS · OWN 2줄 · REPLACE-OK 조각 없음(기준판 DENY 1 줄 = Red · M6)" $?
 run "$MG" "$S10" --lost-rows; [ "$rc" = 0 ] && [ "$out" = "$(printf 'head %s\na.txt\tL2\t1' "$S10")" ]; ck "⑩-c --lost-rows → 블록 줄 = L2 1줄뿐" $?
 
 # ⑪ 상한: ① 꼴 + 부모 1개 커밋 50개 → PASS OWN · 51개 → DENY 기준판 바이트
