@@ -1137,7 +1137,7 @@ autonomy_expire() {
 #   하루 h 당 1통 = mkdir 선점(성공한 틱만 송신 · 송신 실패면 rmdir 해 다음 틱 재시도) · 상태는 이 틱의 STATE_DIR 아래.
 HIL_BIN="${FT_TICK_HIL_BIN:-$HERE/ft-hil.sh}"; HIL_NOTIFY_MIN="${FT_TICK_HIL_NOTIFY_MIN:-30}"
 hil_watch() {
-  local out sigf cnt each h m sdir day seat comm mk tab body
+  local out sigf cnt each h m sdir day seat comm mk tab body rl
   [ "${FT_TICK_HIL:-1}" = 1 ] || return 0
   [ "$(basename "$SEATS")" = seats.json ] || return 0
   [ -f "$HIL_BIN" ] || { echo "$(date '+%F %T') hil_watch: missing $HIL_BIN" >&2; return 0; }
@@ -1151,7 +1151,8 @@ hil_watch() {
   each="$(bash "$HIL_BIN" --pending --each 2>/dev/null)"; sdir="$STATE_DIR/hil-notified"; day="$(date +%Y%m%d)"
   while read -r h m; do
     [ -n "$h" ] && [ "${m:-0}" -ge "$HIL_NOTIFY_MIN" ] || continue
-    body="[HIL 미실행] $h 가 ${m}분째 안 끝났다(미실행 또는 중단/실행 중) — 오빠가 칠 줄 = ! bash ${HIL_DIR:-/tmp}/$h (이미 대체된 장이면 무시)"
+    rl="$(bash "${HIL_BIN%/*}/ft-hil-gate.sh" run-line "${HIL_DIR:-/tmp}/$h" 2>/dev/null)"   # r2161: 실행 줄 = run-line 1줄(승인값 표지 · 값 0)
+    body="[HIL 미실행] $h 가 ${m}분째 안 끝났다(미실행 또는 중단/실행 중) — 오빠가 칠 줄 = ! ${rl:-bash ${HIL_DIR:-/tmp}/$h} (이미 대체된 장이면 무시)"
     # 원자적 선점 — 진 쪽은 송신하지 않는다
     if ! { mkdir -p "$sdir" && mkdir "$sdir/$h.$day" 2>/dev/null; }; then continue; fi
     mk="$(hil_marker "$h")"; tab=$'\t'; seat="${mk%%"$tab"*}"; comm="${mk#*"$tab"}"

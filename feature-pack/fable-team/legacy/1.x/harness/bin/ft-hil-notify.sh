@@ -17,6 +17,7 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 die() { echo "ft-hil-notify 판정 불가 — $*" >&2; exit 1; }
 comm() { [ -n "${1:-}" ] && { printf '%s\n' "$1"; return; }; . "$HERE/ft-harness-root.sh" && ft_comm_dir "$HERE"; }
 seat_of() { python3 -c 'import json,sys;v=json.load(open(sys.argv[1]+"/../seats-planner.json")).get(sys.argv[2]);print(v if isinstance(v,str) else "")' "$1" "$2" 2>/dev/null; }  # r1517: _master·_desk 공용(없거나 문자열 아님 = 빈 값)
+rl() { local l; l="$(bash "$HERE/ft-hil-gate.sh" run-line "$1" 2>/dev/null)"; printf '%s' "${l:-bash $1}"; }  # r2161: <h> → 실행 줄 1줄(승인값 표지 판정 = ft-hil-gate.sh run-line 한 곳)
 send() {  # <쪽지함> <발신자> <본문> <수신…> — 빈 이름·같은 역할(끝 #N 뺀 이름 = mbox_conf.role_key · r1159)은 건너뛴다
   local c="$1" f="$2" b="$3" to k seen=" " bad=0 o="" rc=0; shift 3
   [ -f "$c/mbox.sh" ] || die "쪽지함 도구 없음: $c/mbox.sh"
@@ -44,7 +45,7 @@ pending_block() {  # r1517: <h 폴더> → PB_BLOCK(화면 1~2줄) · PB_TAIL(�
   if [ "$n" -eq 0 ]; then PB_BLOCK="남은 미실행 h 0"; return 0; fi
   PB_BLOCK="남은 미실행 h $n:$items"; PB_TAIL=" · 남은 $n"
   [ -z "$next" ] || { PB_BLOCK="$PB_BLOCK
-다음 실행 줄 = ! bash $d/$next"; PB_TAIL="$PB_TAIL · 다음 $next"; }
+다음 실행 줄 = ! $(rl "$d/$next")"; PB_TAIL="$PB_TAIL · 다음 $next"; }
 }
 done_mail() {
   local m="$1" rc="$2" c n r b s=0
@@ -76,9 +77,11 @@ void_scan() {  # r1200: <상태 폴더> <리포…> — 확장자 없는 40hex �
     mv -- "$f" "$f.void" || die "표식 이름 바꾸기 실패: $f"; echo "VOID $s seat=$(sed -n 's/^seat=\([^ ]*\).*/\1/p' "$f.void" | head -1)"; n=$((n+1)); done
   echo "void-scan 끝 바꿈=$n 그대로=$k"; }
 issue_mail() {  # r1130: <h 진입 파일> <계획> <쪽지함> <좌석> — ft-hil.sh --add --notify 등록 직후 1통 · 7초 · 재시도 0
-  local n="${1##*/}" to; to="$(command -v timeout || command -v gtimeout)" || to=""
+  local n="${1##*/}" to b o="! bash $1 " r; to="$(command -v timeout || command -v gtimeout)" || to=""
   [ -f "$3/mbox.sh" ] || die "쪽지함 도구 없음: $3/mbox.sh"
-  FT_MBOX_DIR="$3" ${to:+"$to" 7} bash "$3/mbox.sh" send "$4" "ft-hil-$n" "[HIL] $n 발급 — 실행 줄 = ! bash $1 (자율 ON = desk 가 PR head 확인 뒤 실행 · OFF = 오빠께) · 계획 $2" >/dev/null 2>&1 || die "mbox send rc≠0 to=$4"
+  b="[HIL] $n 발급 — 실행 줄 = ! bash $1 (자율 ON = desk 가 PR head 확인 뒤 실행 · OFF = 오빠께) · 계획 $2"
+  r="! $(rl "$1") "; b="${b%%"$o"*}$r${b#*"$o"}"   # r2161: 실행 줄 자리 = run-line 1줄(승인값 표지 · 값 0)
+  FT_MBOX_DIR="$3" ${to:+"$to" 7} bash "$3/mbox.sh" send "$4" "ft-hil-$n" "$b" >/dev/null 2>&1 || die "mbox send rc≠0 to=$4"
 }
 case "${1:-}" in
   done) [ $# -ge 3 ] || die "usage: done <접두> <rc> [쪽지함] [좌석…]"; shift; done_mail "$@" ;;
