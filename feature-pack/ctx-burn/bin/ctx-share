@@ -129,16 +129,17 @@ def load_resume(folder):
             continue
         path, name = rec.get("jsonl"), rec.get("name")
         if isinstance(path, str) and path and isinstance(name, str) and name:
-            out[os.path.abspath(path)] = name
+            out[norm_path(path)] = name
     return out
 
 
+def norm_path(path):
+    return os.path.realpath(os.path.abspath(path))
+
+
 def name_from_resume(path, resume):
-    key = os.path.abspath(path)
-    for jp, name in resume.items():
-        if key == jp or key.startswith(jp):
-            return name
-    return None
+    """ⓑ 는 그 파일 하나에만 준다 — 다른 파일 이름을 빌려주지 않는다(DA HOLD-IMPL R2)."""
+    return resume.get(norm_path(path))
 
 
 # ---------------------------------------------------------------- 가중·스캔
@@ -169,21 +170,17 @@ def scan(sessions_dir, resume, now, hours):
                 continue
             with fh:
                 for line in fh:
-                    if '"usage"' not in line:
-                        if '"session_info"' in line:
-                            try:
-                                d = json.loads(line)
-                            except ValueError:
-                                skipped += 1
-                                continue
-                            nm = d.get("name")
-                            if isinstance(nm, str) and nm:
-                                name = nm
+                    if not line.strip():
                         continue
                     try:
                         d = json.loads(line)
                     except ValueError:
                         skipped += 1
+                        continue
+                    if d.get("type") == "session_info":
+                        nm = d.get("name")
+                        if isinstance(nm, str) and nm:
+                            name = nm
                         continue
                     msg = d.get("message") or {}
                     u = msg.get("usage") or {}
@@ -477,8 +474,11 @@ def main(argv=None):
     unknown_pct = share(tot["unknown"], total)
     unknown_over = unknown_pct > UNKNOWN_MAX
 
-    limit = quota_limit(inv)
-    limit_low = quota_limit(inv, low=True)
+    if missing:                       # 상수 결손 = 주간 환산 계열 미산정(기본값 노출 0)
+        limit = limit_low = None
+    else:
+        limit = quota_limit(inv)
+        limit_low = quota_limit(inv, low=True)
     in_window = sum(1 for t, _w, _c, _n in rows if now - hours * 3600.0 <= t < now)
     weighted = sum(tot.values())
     weekly = weekly_pct(weighted, hours, limit)

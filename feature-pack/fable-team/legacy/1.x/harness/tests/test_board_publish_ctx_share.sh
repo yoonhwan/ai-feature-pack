@@ -116,6 +116,8 @@ EOF
 
 suite "harness" "$HERE/../bin/ft-board-publish.sh"
 suite "kit" "$HERE/../kit/fable-team/bin/ft-board-publish.sh"
+# DA 재현 명령(CSA_HARNESS=…)도 같은 걸음을 돌게 한다
+[ -n "${CSA_HARNESS:-}" ] && suite "env" "$CSA_HARNESS/bin/ft-board-publish.sh"
 
 echo "fail=$fail"
 [ "$fail" = 0 ]
