@@ -16,7 +16,7 @@
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/pi/keeper_land.py(로컬만 보는 git 손 1개 · 쓰는 곳 = 착지 고리 1곳) · 새 시험 feature-pack/fable-team/ft2/tests/test_keeper_git_no_lazy_fetch.py
 - 정본 영향 없음: aifp 정본(docs/architect · docs/rules · design 팀 GUIDE·README) 변경 0 · 팩 ft2 계약 문서(CONTRACT.md · CASES.md)도 변경 0 — 판정값·rc 뜻·로그 줄 꼴은 그대로이고 바뀌는 것은 git 자식의 env 1칸뿐이다(사례표는 새 시험 파일 머리 글에 둔다 = 60초 카드가 고치는 두 문서와 겹치지 않게)
 - 크기: 코드 1파일(10줄 안팎) · 새 시험 1파일 · PR 1개
-- 배정: 대기(DA · 2026-11-16T08:35)
+- 배정: 좌석 aifp-ft-nano-ft2-keeper-git-no-lazy-fetch#0
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -159,6 +159,9 @@ r2022 판(팩 PR #1401 · head 6d47494a · 2026-11-16 08:46 대조)의 줄: keep
 | G7 그대로 | ㊸자 · ㊸라 |
 
 ## 상태
+- base_sha: 34f538264bdf1dd9f77ccb42b361e577b004f560 (spawn 2026-11-17)
 - 2026-11-16 08:35 · 대기 — aifp-ft-arch-pi#22 초안(팀장 aifp 5868 · 5870 · 넘김 harness#295 aifp 5867 · 5869 · 실측 = BYZ keeper 로그 SLOW-CALL 122줄 · 읽기 명령 4개 · 구현 0) · 선행 r2022(harness 나노 일 중) · 다음 = 팀장 PR merge → DA 설계 → Issue → r2022 착지 뒤 나노 1석
 - 2026-11-16 08:55 · 대기 — aifp-ft-arch-pi#23 r2(팀장 aifp 5879 · DA HOLD-DESIGN 1/3 = aifp 5878 · BYZ 313081 R1) · R1 의도 판정 = 진행(지금 값) 동결 · G4 = base 존재 확인 3단(로컬 → 짝 리포 로컬 → 지금처럼 원격) · 정한 차이 1칸(실측 3번 · 팀장 확인 칸) · r1 «알려진 차이 1줄» 지움 · ㊸나 · ㊸차 고침 · ㊹가~마 · M103~M105 더함 · G3 = r2022 판(#1401 6d47494a) 순서로 맞춤 · 실측 = A23-no-lazy-r2/probe_r2.py 8줄(2.086초) · 구현 0 · 다음 = 팀장 PR merge → DA 설계 2/3
 - 2026-11-16 08:57 · 대기 — aifp-ft-arch-pi#23 r3(팀장 aifp 5893 · DA HOLD-DESIGN 2/3 = aifp 5892 · BYZ 313213 R2) · 범위를 착지 고리 1곳으로 줄임 = base 존재 확인(pre_attempt)·PR 착지 손 0 · r2 의 규칙·«정한 차이 1칸» 지움 · R1 · R2 의도 판정 = 지금 값 동결(㊸차 · ㊺가) · G3 = ⓐ 로컬 조상 확인 ⓑ 없는 착지 sha ∧ 풀리는 ref = 다음 ref ⓒ 그 밖 = 지금 호출 그대로 · 실측 = A23-no-lazy-r3/probe_r3.py 7줄 모두 같음(3.417초) · 남는 효과 = cat-file 14줄 239.8초 남음 · merge-base 상한 6줄 106.3초 · 대상 keeper_land.py 1파일 · 구현 0 · 다음 = 팀장 PR merge → DA 설계 3/3
+- 2026-11-17 14:13 — 대기→진행 · 좌석 aifp-ft-nano-ft2-keeper-git-no-lazy-fetch#0
+- [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
