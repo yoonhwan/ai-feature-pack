@@ -148,6 +148,11 @@ class SlackReceive:
             if reason == "bot" and event.get("user") in self.bot_users and event.get("thread_ts") \
                     and event.get("channel") in self.allowed_channels:  # r1927 탱크 thread 답 = 앞 글 완료
                 row["settle"] = self._reply_settle(command, key, event)
+            head = _fold(event.get("text"), "")
+            if reason == "bot" and head and event.get("channel") in self.allowed_channels \
+                    and str(event.get("thread_ts") or key.ts) == key.ts:  # r2189 B2 · ⓕ 허용 채널 안 봇 thread 첫 글만
+                head = head[:40] + "…" if len(head) > 40 else head
+                row["head"] = head
             return self._append(row)
         prior = self.latest().get(command)
         if prior and prior.get("state") in (DISPATCHED, DUPLICATE, IGNORED, SETTLED):
