@@ -129,8 +129,9 @@ if item LAUNCH; then
   #   behind = origin/main · origin/ops/main-base 에서 닿고 T 에서 안 닿고 커밋 시각 ≥ T(같은 초 포함) · age ≥ 상한 ∧ behind ≥ 1 = STALE(경보만)
   lp="$(X python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["at"][:16])' "$ROOT/.fable-team/state/board/news-last.json" 2>/dev/null)" || lp=""
   #   T = 절 안의 표 데이터 줄(`|` 로 시작)을 바꾼 마지막 커밋 — 다음 절 제목 · 설명 줄만 바뀐 커밋은 T 가 아니다(DA #316668 R2)
-  tl="$(X "$GIT" -C "$ROOT" log --format='C %H %ct' -L "/^## 골 진행$/,/^## /:$LEDGER" origin/main 2>/dev/null | awk '/^C [0-9a-f]+ [0-9]+$/{c=substr($0,3); next} /^[-+]\|/ && t==""{t=c} END{print t}')"; rc=$?
-  if [ "$rc" -ne 0 ] || [ -z "$tl" ]; then news_fail 표 "$rc"; else
+  #   r2180: T 를 정하면 awk 가 끝낸다(이력 끝까지 읽기 0) · 그 뒤 git SIGPIPE 141 은 실패 아님 = 성공 판정은 T 있음
+  tl="$(X "$GIT" -C "$ROOT" log --format='C %H %ct' -L "/^## 골 진행$/,/^## /:$LEDGER" origin/main 2>/dev/null | awk '/^C [0-9a-f]+ [0-9]+$/{c=substr($0,3); next} /^[-+]\|/ && c!=""{t=c; exit} END{print t}')"; rc=$?
+  if [ -z "$tl" ]; then news_fail 표 "$rc"; else
     tct="${tl##* }"   # 둘째 log = git 쪽에서 시각 ≥ T 로 먼저 거른다(전체 이력 읽기 0 · DA #316668 R1)
     bl="$(X "$GIT" -C "$ROOT" log --full-history --diff-filter=AR --name-only --format=@%ct --since="@$tct" origin/main origin/ops/main-base "^${tl%% *}" -- ':(glob)design/**/indices/완성/**' 2>/dev/null)"; rc=$?
     if [ "$rc" -ne 0 ]; then news_fail 완성 "$rc"; else
