@@ -513,6 +513,7 @@ PY
 fm_land_turn() { fm_land_turn_ledger "$@"; fm_land_turn_notify "$1" "$2" "$3"; }
 #   fm_land_turn_first <카드리포루트> <PR> <head 가지> <PR 제목> : r2124 G1 — ft-merge-land 가 LANDED·push ok 바로 뒤에 부름 · 카드 토큰 = fm_card_tokens(꼬리 알림과 같은 규칙) · 7초 몫 시작 = 이 자리 · 반환 0
 fm_land_turn_first() { local t0=$SECONDS tok; tok="$(fm_card_tokens "$3" "$4")"
+  [[ "$3" =~ ^planner/verdict-[0-9]+$ ]] && tok=""   # r2157 T1: planner 판정 PR = 카드 일 아님 → 장부 토큰 0(cards:[] · 제목의 대상 카드 번호 안 잡음) · 알림·카드 착지 줄·D2 = fm_card_tokens 그대로
   # shellcheck disable=SC2086
   FM_CARDS_T0="$t0" fm_land_turn_ledger "$1" "$2" "$t0" $tok; }   # r2124 R1(DA HOLD #319782): 카드 ref 조회도 같은 7초 몫(doc 판정과 공유) · 옛 fm_land_turn 길은 ref 마다 7초 그대로
 fm_land_common() { local c; c="$(git -C "$1" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; c="${c%/.git}"; printf '%s' "${c:-$1}"; }   # 장부·notify 의 공용 루트
