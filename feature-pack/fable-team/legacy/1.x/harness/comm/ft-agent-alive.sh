@@ -39,17 +39,19 @@ _ps_rows() {
 #   caffeinate·timeout·env·nohup·setsid·bash·claude-hr 같은 래퍼는 후보가 아니다 — 래퍼 «인자» 속 claude --resume 는 본체가 아니다(DA⑥ H1).
 #   claude = 실행 주체 claude(경로 끝 /claude · claude-code/) ∧ 그 뒤 인자에 --dangerously-skip-permissions 또는 --resume[=]  ·  codex = 실행 주체 codex(경로 끝 /codex · npm exec @openai/codex)
 #   그 밖(cmd·opencode·명부에 없음) = root 아래 아무 자손(이름 미실측 — 조용히 NOAGENT 로 바꾸지 않는다).
+#   r2207: 그 밖 갈래에서 root 자신의 실행 주체가 pi 면 root 도 본체 — ft2 는 pi 를 pane 뿌리로 바로 띄운다(쉬는 pi 는 자손 0). 그 밖 뿌리는 그대로.
 agent_body_pids() {
   awk -v root="$1" -v ag="$2" '
     { pp[$1]=$2; st[$1]=$3; a=$0; sub(/^ *[0-9]+ +[0-9]+ +[^ ]+ */, "", a); ar[$1]=a; o[++n]=$1 }
     END { for (i=1; i<=n; i++) { p=o[i]; q=p; in_=0
       for (d=0; q!="" && q!=0 && d<12; d++) { if (q==root) { in_=1; break }; q=pp[q] }
       if (!in_ || st[p] ~ /^[TZ]/) continue
-      if (ag!="claude" && ag!="codex") { if (p!=root) print p; continue }
+      if (ag!="claude" && ag!="codex" && p!=root) { print p; continue }
       nt=split(ar[p], tk, " "); if (nt==0) continue
       ei=1; ex=tk[1]; b=tk[1]; sub(/.*\//, "", b)
       if (b ~ /^(node|npm|npx|bun|bunx|deno|pnpm|python|python3)$/) { ex=""; for (k=2; k<=nt; k++) { if (tk[k] ~ /^-/ || tk[k]=="exec" || tk[k]=="run" || tk[k]=="dlx") continue; ex=tk[k]; ei=k; break } }
       if (ex=="") continue
+      if (ag!="claude" && ag!="codex") { if (ex ~ /(^|\/)pi$/) print p; continue }   # r2207: 여기 오는 것은 root 뿐
       if (ag=="claude") { if (ex ~ /(^|\/)claude$|\/claude-code\//) { for (k=ei+1; k<=nt; k++) if (tk[k]=="--dangerously-skip-permissions" || tk[k]=="--resume" || tk[k] ~ /^--resume=/) { print p; break } } }
       else if (ex ~ /(^|\/)codex$|^@openai\/codex$|\/@openai\/codex\//) print p } }'
 }

@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 # pyright: basic
 """ft_nano_record_write.py — r1717 A6~A10 `landed --seat <좌석> --pr <N> --card <stem> [--test "<명령> rc=0"] [--left "<종류>=<담당>"] [--handoff <경로>]`.
-조건(A6): 장부에 (pr · 카드) 줄 · 착지 sha Q 가 그 리포 origin/<target> 의 조상 · <좌석> 이 «지금» 그 카드의 차례 좌석 · --test 는 rc=0 으로 끝난다. 아니면 REJECT(rc 1 · 쓰기 0).
-쓰는 줄(A7 · 카드 «## 상태» 절 끝 · 줄마다 «없을 때만»): ⓢ `- 세트:` · ⓛ `- 착지: <Q>` · ⓒ `- 완료: <좌석>` — 있던 줄은 지우거나 고치지 않는다.
-카드 ref 반영(A8): 바탕 = 방금 받은 원격 끝 · 새 커밋 = 부모 1개 · 바뀐 경로 = 그 카드 1개 · 더한 줄뿐(임시 인덱스 + commit-tree → URL 로 non-force push).
-  공유 작업 트리·인덱스·HEAD·로컬 가지·remote-tracking 손 0(객체만) · 잠금 = state/land-record.lock(fetch 부터 확인까지) · non-FF 거절 = 새 끝에서 1회 다시 · force 0.
-  확인 = push 뒤 다시 받아 이번 줄이 다 보일 때만 stdout `DONE`(쓸 줄 0 = `ALREADY` · 뒤 단계는 건너뛰지 않는다 — A9).
+조건(A6): 장부에 (pr · 카드) 줄 · 착지 sha Q 가 그 리포 origin/<target> 의 조상 · <좌석> 이 «지금» 그 카드의 차례 좌석 · --test 는 rc=0 으로 끝난다. 아니면 REJECT(rc 1 · 쓰기 0). 쓰는 줄(A7 · 카드 «## 상태» 절 끝 · 줄마다 «없을 때만»): ⓢ `- 세트:` · ⓛ `- 착지: <Q>` · ⓒ `- 완료: <좌석>` — 있던 줄은 지우거나 고치지 않는다.
+카드 ref 반영(A8): 바탕 = 방금 받은 원격 끝 · 새 커밋 = 부모 1개 · 바뀐 경로 = 그 카드 1개 · 더한 줄뿐(임시 인덱스 + commit-tree → URL 로 non-force push) · 공유 작업 트리·인덱스·HEAD·로컬 가지·remote-tracking 손 0(객체만) · 잠금 = state/land-record.lock(fetch 부터 확인까지) · non-FF 거절 = 새 끝에서 1회 다시 · force 0.
+  확인 = push 뒤 다시 받아 이번 줄이 다 보일 때만 stdout `DONE`(쓸 줄 0 = `ALREADY` · 뒤 단계는 건너뛰지 않는다 — A9) · push 시간 초과도 같은 확인(안 보이면 «push rc=- · 확인 줄 안 보임» · r2209).
 뒤 단계(종류=닫기 · 잔여 없음): A13 세션 기록 → A10 팀장 «[완료·닫기 요청]» → 끝줄 `NEXT bash ft-nano-close.sh <좌석> --landed-pr <N> --result <세션 기록> --recv <seq>` · 값이 하나라도 없으면 NEXT 0 · «닫기 명령 보류 빠짐=…» rc 3. tmux kill·닫기 도구 호출 0(A14). env: FT_LAND_RECORD_LOCK_S(잠금 기다림 · 기본 25)."""
 from __future__ import annotations
 
@@ -72,10 +70,10 @@ def read_sec(ctx, team, iroot, stem):   # 카드 ref 를 새로 받아 → (끝 
     return ctx.tip(team), path, lines, st, en
 
 
-def verify(ctx, team, iroot, stem, add):   # A8 ㉣ — 다시 받아 이번 줄이 전부 보일 때만 통과
+def verify(ctx, team, iroot, stem, add, why="확인(카드 ref 에 이번 줄이 안 보임) rc=1"):   # A8 ㉣ — 다시 받아 이번 줄이 전부 보일 때만 통과 · why = 안 보일 때 줄(r2209)
     _t, _p, lines, st, en = read_sec(ctx, team, iroot, stem)
     if any(a not in lines[st + 1:en] for a in add):
-        raise Unjudged("확인(카드 ref 에 이번 줄이 안 보임) rc=1")
+        raise Unjudged(why)
     return lines[st + 1:en]
 
 
@@ -96,6 +94,8 @@ def apply(ctx, team, iroot, stem, plan, msg):   # A8·A9 → ("DONE"|"ALREADY", 
         rc, _out, err = run(["git", "-C", str(ctx.root), "push", "-q", purl.strip(), f"{sha}:refs/heads/{t['br']}"])
         if rc == 0:
             break
+        if rc is None and err == "시간 초과":   # r2209 — 원격이 받고 나서 끊겼을 수 있다 → 다시 받아 확인(재시도 0 · OSError 는 아래 판정 불가)
+            return "DONE", verify(ctx, team, iroot, stem, add, "push rc=- · 확인 줄 안 보임")   # r2209-mut:verify
         if "PUSH_DENIED" in err:   # r1999-mut:denied
             raise Reject(next(x[x.find("PUSH_DENIED"):] for x in err.splitlines() if "PUSH_DENIED" in x))   # r1999: 나노 가드 거절 = REJECT · 재시도 0
         if attempt == 2 or not re.search(r"rejected|non-fast-forward|fetch first|stale info", err):
