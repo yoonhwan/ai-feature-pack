@@ -13,7 +13,7 @@
 #        FT_RECLAIM_INFO(: 구분) · FT_RECLAIM_DF_PATH(/System/Volumes/Data) · FT_RECLAIM_TIMEOUT(25초 · 지우기 호출 포함)
 #   지우기가 상한을 넘기면 그 줄 SKIP `시간 초과`(큰 폴더는 다음 apply 로 · rm 이 중간까지 지웠을 수 있음)
 #   r2196 squash 길: «조상 아님» 이어도 가지 = MERGED PR(base main) headRefName 정확히 1건 · HEAD = headRefOid · 착지 커밋 로컬 있음 ·
-#         착지 커밋이 바꾼 파일 전부 HEAD 와 같음 → 조건 통과 · 줄 끝 « squash PR #N». 조회 = 리포마다 1회(FT_RECLAIM_GH · gh · 7초 + 재시도 1)
+#         착지 커밋이 바꾼 파일 전부 HEAD 와 같음 → 조건 통과 · 줄 끝 « squash PR #N». 조회 = 리포마다 1회(FT_RECLAIM_GH · gh --limit 500 · 7초 + 재시도 1)
 #         실패 → 그 리포 squash 길 0 · stderr `squash 길 판정 불가 <리포> rc=<rc>`.
 set -uo pipefail
 case "${1:-}" in plan|apply) [ $# -eq 2 ] || { echo "usage: $0 plan <산출 폴더> | apply <candidates.tsv>" >&2; exit 2; } ;;
@@ -103,7 +103,7 @@ def wt_list(repo):   # [{path, head, flags}] · 첫 항목 = 주 worktree
 GH, MERGED = E.get("FT_RECLAIM_GH", "gh"), {}
 def merged(repo):   # r2196 D1 · 리포마다 MERGED PR 목록 1회 · None = 판정 불가(squash 길 0)
     if repo not in MERGED:
-        cmd = [GH, "pr", "list", "--state", "merged", "--limit", "2000", "--json", "number,headRefName,headRefOid,baseRefName,mergeCommit"]
+        cmd = [GH, "pr", "list", "--state", "merged", "--limit", "500", "--json", "number,headRefName,headRefOid,baseRefName,mergeCommit"]
         for _ in range(2):
             rc, out = run(cmd, min(T, 7), repo)
             if rc == 0: break
