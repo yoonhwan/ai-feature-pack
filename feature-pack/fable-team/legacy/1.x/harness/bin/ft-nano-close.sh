@@ -57,7 +57,8 @@
 #     확인: 좌석 세션 0(tmux 조회 성공) · 그 경로가 이 리포 .worktrees/ 아래 등록 워크트리 · 가지가 nano/<좌석 키>[-rN]. 통과하면 <wt-clean>/<seat>.sh 생성 + `PLANNED <경로>` + exit 0 — 실행은 기존 ft-wt-sweep.sh. 착지 판정은 호출자(census) 몫이고, 원장에 닫힘 행이 없어도 계획은 표식 실패로 멈추지 않는다.
 #   --replan <옛 계획 파일> = 옛 판(plan-ver ≠ 이 생성기) 계획을 같은 좌석·같은 WT 로 다시 만든다(r535 · ft-wt-sweep.sh 가 부른다). 굽힌 값(SEAT·CARD_SLUG(옛 판 KEY)·WT·PREFIX·LEDGER·FT_NANO_WIP·PLAN_ONLY·MAINREF)만 옛 계획에서 읽고
 #     몸통·가드는 지금 생성기 그대로 — 종료조건·팀 env·드리프트·원장 해석·명부·kill 전부 건너뜀. 새 계획 = <옛 계획 폴더>/<seat>.sh(FT_WT_CLEAN_DIR 가 이긴다).
-#     rc 0 `PLANNED <경로>` · 4 = WAIT(계보 세션 살아 있음 · tmux 조회 실패) · 1 = REJECT 사유 1줄(좌석 불일치 · --wt/--branch 계획 · WT 없음 · 가지 nano/* 아님 · 원장 값 없음) · 실행 0.
+#     rc 0 `PLANNED <경로>` · 4 = WAIT(계보 세션 살아 있음 · tmux 조회 실패) · 1 = REJECT 사유 1줄(좌석 불일치 · --wt/--branch 계획 · 가지 nano/* 아님 · 원장 값 없음) · 실행 0.
+#     ★r2179★ WT 없음 = rc 0 `NONE --replan: WT 없음(<WT>) — 정리할 것 없음` · 새 계획 0 · 원장 그 좌석 마지막 닫힘 행 wt=none(표식 못 하면 줄 끝 «(원장 표식 못 함: <사유>)» · 그래도 rc 0).
 #   Seatbelt 0.3 · 나노 좌석을 «값으로» 닫는다 (SEATBELT-README §3 닫기 · NANO-LEDGER 종료조건 3).
 #   exit 0 = 닫힘(명부 삭제·원장 append·@zc_v65_active 해제·세션 kill) · 1 = REJECT(조건 미충족) 또는 FAIL(해제/kill 실패, 사유 stdout) · 2 = usage
 #   ★r2168★ exit 5 = ft2 좌석(--wt 또는 pane cwd 또는 ★r2173★ 명부 그 좌석 행 worktree 칸이 $ROOT/.fable-team/teams/<팀>/worktrees/<폴더> 이거나 그 아래) — 마지막 줄 «FT2-SEAT <좌석> …» 1개 · 닫는 길 = ft2 keeper · 손 0.
@@ -682,6 +683,32 @@ SH
   chmod 755 "$PLAN"
 }
 # ★r535 --replan★ 옛 판 계획 → 같은 좌석·같은 WT 의 새 계획(지금 생성기 몸통). 실행 가드는 새 계획이 다시 건다 — 여기선 «만들어도 되나» 만 본다.
+# ★r2179★ WT 없음 = 정리할 것 없음(닫기 길 _wt_clean_plan · 계획 본문 «[ -d "$WT" ] || mark none» 과 같은 규칙) — 원장 표식은 계획 mark() 와 같은 행·같은 락 · 표식 실패는 사유만 붙인다(rc 0).
+_rp_none() {
+  local why="" lock="$LEDGER.lock" i=0 rc
+  if [ ! -f "$LEDGER" ]; then why="원장 파일 없음($LEDGER)"
+  else
+    until mkdir "$lock" 2>/dev/null; do i=$((i+1)); [ "$i" -lt 100 ] || break; sleep 0.1; done
+    if [ "$i" -ge 100 ]; then why="원장 락 실패($lock)"
+    else
+      python3 - "$LEDGER" "$SEAT" none <<'PY'
+import os, re, sys
+p, seat, val = sys.argv[1:4]
+s = open(p, encoding="utf-8").read(); lines = s.split("\n")
+key = "`%s` 닫힘(ft-nano-close)" % seat
+idx = [i for i, l in enumerate(lines) if key in l]
+if not idx: sys.exit(3)
+i = idx[-1]; lines[i] = re.sub(r"( · wt=.*)?$", " · wt=" + val, lines[i], count=1)
+tmp = p + ".tmp.%d" % os.getpid()
+with open(tmp, "w", encoding="utf-8") as f: f.write("\n".join(lines)); f.flush(); os.fsync(f.fileno())
+os.replace(tmp, p)
+PY
+      rc=$?; rmdir "$lock"
+      case "$rc" in 0) ;; 3) why="$SEAT 닫힘 행 없음";; *) why="표식 실패 rc=$rc";; esac
+    fi
+  fi
+  echo "NONE --replan: WT 없음($WT) — 정리할 것 없음${why:+ (원장 표식 못 함: $why)}"
+}
 if [ "$REPLAN" -eq 1 ]; then
   _rs="$SEAT"; _vl="$(grep -m1 '^SEAT=' "$RP_OLD")"
   [ -n "$_vl" ] || { echo "REJECT --replan: 굽힌 값 줄(SEAT=…) 없음: $RP_OLD"; exit 1; }
@@ -691,7 +718,7 @@ if [ "$REPLAN" -eq 1 ]; then
   [ -z "$NAMED_BR" ] || { echo "REJECT --replan: --wt/--branch 계획(사람 경로 · 자율 재생성 대상 아님)"; exit 1; }
   [ -n "$CARD_SLUG" ] || CARD_SLUG="$KEY"   # r1405: 옛 판 계획(굽힌 이름 KEY=)도 그대로 다시 만든다(동작 0)
   { [ -n "$CARD_SLUG" ] && [ -n "$PREFIX" ] && [ -n "$LEDGER" ]; } || { echo "REJECT --replan: 원장 값 없음(CARD_SLUG·PREFIX·LEDGER)"; exit 1; }
-  [ -d "$WT" ] || { echo "REJECT --replan: WT 없음($WT)"; exit 1; }
+  [ -d "$WT" ] || { _rp_none; exit 0; }
   _rb="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("branch",""))' "$WT/.worktree-info.json" 2>/dev/null)"
   [ -n "$_rb" ] || _rb="$(git -C "$WT" symbolic-ref --short -q HEAD)"
   case "$_rb" in nano/*) ;; *) echo "REJECT --replan: 가지=${_rb:-?} (nano/* 아님)"; exit 1;; esac
