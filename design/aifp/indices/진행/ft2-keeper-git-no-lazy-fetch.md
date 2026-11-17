@@ -165,3 +165,5 @@ r2022 판(팩 PR #1401 · head 6d47494a · 2026-11-16 08:46 대조)의 줄: keep
 - 2026-11-16 08:57 · 대기 — aifp-ft-arch-pi#23 r3(팀장 aifp 5893 · DA HOLD-DESIGN 2/3 = aifp 5892 · BYZ 313213 R2) · 범위를 착지 고리 1곳으로 줄임 = base 존재 확인(pre_attempt)·PR 착지 손 0 · r2 의 규칙·«정한 차이 1칸» 지움 · R1 · R2 의도 판정 = 지금 값 동결(㊸차 · ㊺가) · G3 = ⓐ 로컬 조상 확인 ⓑ 없는 착지 sha ∧ 풀리는 ref = 다음 ref ⓒ 그 밖 = 지금 호출 그대로 · 실측 = A23-no-lazy-r3/probe_r3.py 7줄 모두 같음(3.417초) · 남는 효과 = cat-file 14줄 239.8초 남음 · merge-base 상한 6줄 106.3초 · 대상 keeper_land.py 1파일 · 구현 0 · 다음 = 팀장 PR merge → DA 설계 3/3
 - 2026-11-17 14:13 — 대기→진행 · 좌석 aifp-ft-nano-ft2-keeper-git-no-lazy-fetch#0
 - [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
+- 세트: c3ceb28d64908aeb2de01798d2fef62d11b7e981 · 시험: python3.11 -m pytest tests/test_keeper_git_no_lazy_fetch.py rc=0 · 이슈: 0
+- 완료: aifp-ft-nano-ft2-keeper-git-no-lazy-fetch#0 · 한 일: keeper 착지 고리에 git_local(GIT_NO_LAZY_FETCH=1) + G3 ⓐⓑⓒ · 새 시험 26칸 · 산출: nano/ft2-keeper-git-no-lazy-fetch@c3ceb28d64 · 병합 상태: 착지 전(push 전) · 남은 일: 없음
