@@ -16,7 +16,8 @@ import re
 import sys
 import time
 
-from ft_nano_record import HERE, Ctx, Unjudged, run, seq_dropped
+from ft_nano_record import HERE, Ctx, Unjudged, seq_dropped
+from ft_nano_record_budget import Budget, over, ring_mark, traced   # r2175 실행 예산 · 단계 표식
 from ft_nano_record_due import due_rows, fmt
 
 FROM = "ft-nano-record"
@@ -40,7 +41,7 @@ def update(ctx, fn):   # 보낸 기록 읽기→고치기→쓰기(짧은 배타
 
 
 def send(ctx, to, frm, body):   # → 실제 seq(못 읽으면 0) | None(발신 실패 · WARN 1줄) · 7초
-    rc, out, _err = run(["bash", os.environ.get("FT_MBOX") or str(ctx.comm / "mbox.sh"), "send", to, frm, body], env=dict(os.environ))
+    rc, out, _err = traced(ctx, "send", to, ["bash", os.environ.get("FT_MBOX") or str(ctx.comm / "mbox.sh"), "send", to, frm, body])
     if rc != 0:
         print(f"WARN 쪽지 발신 실패 → {to}(rc={'-' if rc is None else rc})")
         return None
@@ -90,7 +91,7 @@ def try_record(ctx, seat, fields, handoff=""):   # → 경로 | None(«판정 �
 def drift(ctx):   # r1721 A2 — 닫기 도구 입구와 같은 검사(라이브 설치 꼴 2개에서만 · 주입 = 늘) → (rc|None, 항목 이름들)
     if getattr(ctx, "_drift", None) is None:
         chk = os.environ.get("FT_DRIFT_CHECK") or (str(HERE / "ft-live-bin-drift-check.sh") if re.search(r"/\.fable-team/bin$|/fable-team/live/[^/]+/bin$", str(HERE)) else "")
-        rc, out, _e = run(["bash", chk, "--bin", str(HERE)], env=dict(os.environ)) if chk else (0, "", "")
+        rc, out, _e = traced(ctx, "drift", "-", ["bash", chk, "--bin", str(HERE)]) if chk else (0, "", "")
         ctx._drift = (rc, re.findall(r"^(?:DIFF|MISSING|EXTRA|MODE|PENDING) (\S+)", out, re.M))
     return ctx._drift
 
@@ -124,6 +125,8 @@ def close_request(ctx, r, path):   # A10 — 팀장에 «[완료·닫기 요청]
         print(f"INFO 닫기 요청 #{had.get('seq')} 우편함에서 버려짐 → 다시 보냄")
     if not r["master"]:
         print(f"WARN 닫기 요청 생략 — 명부에 _master 없음({r['stem']})")
+        return None
+    if over(ctx):   # r2175 N1 — 밀림 줄의 첫 외부 호출(drift·발신) 앞
         return None
     ctx.held = held(ctx, r)
     if ctx.held:
@@ -166,11 +169,12 @@ def notify_row(ctx, r, now, gap):
     ent = ctx.store()["sent"].get(key)
     if ent and not (ent.get("n") == 1 and now - float(ent.get("ts") or 0) >= gap):   # r1717-mut:sent
         return
-    seq = send(ctx, to, FROM, body)
+    seq = None if over(ctx) else send(ctx, to, FROM, body)   # r2175 N1 — 첫 발신 앞 예산
     if seq is None:
         return
     update(ctx, lambda st: st["sent"].__setitem__(key, {"n": (ent or {}).get("n", 0) + 1, "ts": now, "seq": seq}))
     print(f"NOTIFIED {r['k']} → {to} #{seq}")
+    ring_mark(ctx, r)
     __import__("ft_nano_record_wake").wake(ctx, r, seq, send, update, FROM)   # r2015 — 차례 줄만 · doorbell ≠ sent → ring 1회 · 실패 = 팀장 1통(200줄 상한 → 줄 안 import)
     if ent and r["k"] == "차례" and r["master"]:
         send(ctx, r["master"], FROM, f"[정리 차례 무응답] {r['seat']} {r['stem']} 빠짐 {r['miss']} — 착지 {r['q'][:10]}(PR #{r['pr']}) · 차례 쪽지 2통에 기록 없음")
@@ -184,16 +188,12 @@ def main(argv):
     now, gap = float(os.environ.get("FT_LAND_RECORD_NOW") or time.time()), float(os.environ.get("FT_LAND_RECORD_REMIND_S") or 1800)
     try:
         ctx = Ctx()
+        ctx.bud = Budget(ctx.root)   # r2175 — 시계는 모듈을 읽은 때부터 · 표식 «due»
         out = due_rows(ctx, a.pr, not a.no_fetch)
     except Unjudged as e:
         print(f"판정 불가 {e}")
         return 3
-    for r in out:
-        if r["k"] in ("차례", "주인없음", "카드없음", "밀림"):
-            notify_row(ctx, r, now, gap)
-        elif r["k"] == "판정불가":
-            print(fmt(r))
-    return 3 if any(r["k"] == "판정불가" for r in out) else 0
+    return ctx.bud.walk(out, lambda r: notify_row(ctx, r, now, gap), fmt)
 
 
 if __name__ == "__main__":
