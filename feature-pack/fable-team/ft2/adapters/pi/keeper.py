@@ -239,11 +239,11 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         return sorted(pos, key=lambda one: self.key(*one))
 
     def cell_total(self):
-        """R10 분모 — 이 바퀴에 돌 수 있는 자리 = 자리 목록 에서 cursor 앞 · 안 도는 자리(unused) · 건너뛰는 work 의 자리를 뺀 것.
+        """R10 분모 — 이 바퀴에 돌 수 있는 자리 = 자리 목록 에서 cursor 앞 · 안 도는 자리(unused) · 처음부터 건너뛸 work 의 자리를 뺀 것.
 
-        모둔 팀의 건너뛸 work 를 미리 센다 — 앞 팀에서 끊겨도 뒤 팀의 handled work 가 분모에 남지 않는다."""
-        gone = {(team, work) for team in self.order for work in self.book(team)[1]}
-        return len([p for p in self.positions() if not self.before(*p) and p not in self.unused and (p[0], p[1]) not in gone])
+        건너뛸 work 는 바퀴 시작 스냅샷(self.skipped_works)이다 — 이번 바퀴에 방문해서 handled 가 된 work(영수)는
+        이미 센 자리라서 빼지 않는다(R3). 뒤 팀의 처리 끝난 work 는 시작부터 스냅샷에 있어 앞 팀에서 끊겨도 분모에 안 남는다(R2)."""
+        return len([p for p in self.positions() if not self.before(*p) and p not in self.unused and (p[0], p[1]) not in self.skipped_works])
 
     def book(self, team):
         """r1990·r2055 — (반환·쉼 (work, attempt), 건너뛰는 work) · 고리와 분모 셈이 같은 식을 쓴다."""
@@ -454,6 +454,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         self.jrows, self.ws, self.order, self.report_seat, self.nano_dl, self.unused = {}, {}, [], None, None, set()
         self.tried = set()   # r2140 DA ⓐ 이 바퀴에 card_stage 를 부른 team|work
         self.seen = set()   # R10 분모 = 이 바퀴에 돈 자리(at_pos 가 적는다) · 안 돈 자리는 left_over 가 뺀다
+        self.skipped_works = set()   # R10 바퀴 시작에 건너뛸 work(handled·반환·쉼) — 이번 방문 뒤 handled 는 안 든다(R3)
         self.prev_cursor = dict(self.state.get("cursor") or {}) or None   # R5 «같은 자리 2바퀴 연속» 을 세려고 남긴다
         self.deferred = {}   # R8 쪽지 몫(notify_used · send_fails · send_stop)은 바퀴 끝에서 되돌린다(한 바퀴 3통 · 시간 초과 2회)
         self.halt, self.unknown, self.orphan_scope = self.stopped(), 0, set()   # r2055 orphan_scope = 고아 길이 판정한 팀(S1) 정지 = 판정·[긴급]·«예정» 만 · kill·park·깨움·fill·B3 0
@@ -494,6 +495,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         if not self.state.get("cursor") and self.state.get("cap_next") in self.order:   # r1898 옛 키 = cursor 로 옮긴다(팀 자리)
             self.state["cursor"] = {"team": self.state.pop("cap_next"), "work": "-", "stage": "b1", "cuts": 0}
         self.curs = self.cursor_key()
+        self.skipped_works = {(team, work) for team in self.order for work in self.book(team)[1]}   # R10 처음부터 건너뛸 work = 모든 팀을 바퀴 시작에 센다
         self.total = self.cell_total()
         skip = self.order.index(self.state["cursor"]["team"]) if self.curs is not None else 0   # R4 커서 팀 앞은 이번 바퀴 0
         try:
