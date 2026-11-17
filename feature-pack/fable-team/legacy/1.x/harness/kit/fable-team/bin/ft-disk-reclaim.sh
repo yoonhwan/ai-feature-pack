@@ -11,6 +11,7 @@
 #   판정 불가: lsof · tmux · git worktree list · df 가 rc≠0 또는 시간 초과 → `판정 불가 <명령>` · rc 3 · plan 은 목록 0 · apply 는 ABORT 줄 뒤 지우기 0.
 #   env: FT_RECLAIM_TMP_ROOT(/private/tmp) · FT_RECLAIM_CACHE_ROOT(~/Library/Caches) · FT_RECLAIM_REPOS(: 구분 · BYZ · 팩)
 #        FT_RECLAIM_INFO(: 구분) · FT_RECLAIM_DF_PATH(/System/Volumes/Data) · FT_RECLAIM_TIMEOUT(25초 · 지우기 호출 포함)
+#        FT_RECLAIM_ONLY(: 구분 경로 접두 · r2200) = plan 이 실경로로 풀어 그 접두 아래(같거나 «접두/») tmp · cache · worktree 만 잰다 · 없거나 비면 전부
 #   지우기가 상한을 넘기면 그 줄 SKIP `시간 초과`(큰 폴더는 다음 apply 로 · rm 이 중간까지 지웠을 수 있음)
 #   r2196 squash 길 = 옆 파일 _disk_reclaim_squash.py(r2199) · apply 쪽 dfree · recheck = _disk_reclaim_apply.py(r2200) · 못 읽으면 stderr `판정 불가 squash 모듈` · rc 3 · apply 는 ABORT 줄 뒤 지우기 0.
 set -uo pipefail
@@ -28,6 +29,8 @@ BYZ = HOME + "/Project/Agent/BYZ-Work/BYZ-Agents"
 T = float(E.get("FT_RECLAIM_TIMEOUT", "25"))
 REPOS = [r for r in E.get("FT_RECLAIM_REPOS", BYZ + ":" + HOME + "/Project/ai-feature-pack").split(":") if r]
 DFP = E.get("FT_RECLAIM_DF_PATH", "/System/Volumes/Data")
+ONLY = [os.path.realpath(x) for x in E.get("FT_RECLAIM_ONLY", "").split(":") if x]   # r2200 plan 경로 접두
+def keep(p): return not ONLY or p in ONLY or any(p.startswith(o + "/") for o in ONLY)   # 낱말 경계 = «접두/»
 
 class Abort(Exception): pass
 
@@ -134,10 +137,12 @@ def plan(outdir, roots):
     for kind, r in roots.items():
         for name in sorted(os.listdir(r)):
             n += 1; tick(n); p = r + "/" + name
+            if not keep(p): continue
             if entry_bad(p, kind, op) is None and (k := du(p)) is not None: rows[kind].append((k, p, "조건 전부"))
     for repo in REPOS:
         for i, w in enumerate(wt_list(repo)):
             n += 1; tick(n)
+            if not keep(os.path.realpath(w["path"])): continue
             bad = wt_bad(repo, w, i == 0, op, pn)
             tail = f" squash PR #{w['sq']}" if w.get("sq") else ""
             if bad: hold.append(f"hold\t-\t{w['path']}\t{bad}{tail}")
