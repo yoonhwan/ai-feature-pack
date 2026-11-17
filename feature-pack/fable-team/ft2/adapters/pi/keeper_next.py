@@ -299,8 +299,10 @@ def choose(k, team, skip=frozenset()):
             pair.setdefault(os.path.basename(p)[:-3], set()).add(work)
     (found, r), done, why, ready = got, state.get("done") or {}, {}, []
     owners = {s for s in found if ({s} | pair.get(s, set())) & set(state.get("owners") or {})}   # stem·짝 work 중 owner 있음
+    names = {}   # r2182 N1·N2 {사유: [(카드, 원장이 먼저 막음)]}
     for stem, (urgent, high, lines, pre, seen, back) in sorted(found.items()):
         led = ledger(k, stem)
+        own = led.get("state") != "seat" and stem not in owners and led.get("reason") in BLOCK   # r2182 ⓗ 배정됨이 먼저면 원장 표시 0
         block = "배정됨" if led.get("state") == "seat" or stem in owners else led.get("reason") if led.get("reason") in BLOCK else pre   # r2027 ⑤ 원장·카드 둘 중 하나
         shell = k.state.setdefault("shell_seen", [])   # r2093 S2 — 껍데기 건너뜀 1줄(카드마다 1회 · keeper 상태 파일)
         shell += [k.log("NEXT-SKIP", team, "%s 건너뜀 — NEW_CARD_HOLD 껍데기" % stem) or "%s|%s" % (team, stem)] if pre == "껍데기" and "%s|%s" % (team, stem) not in shell else []
@@ -322,13 +324,29 @@ def choose(k, team, skip=frozenset()):
         block = block or delivered(k, team, stem, {stem} | pair.get(stem, set()), state, led)   # r2111 A1
         block = "" if block == "재개" else block
         block = block or clash(k, team, stem)   # r2111 A2
-        ready.append(((not urgent, not high, led.get("since") or 0), stem) + place) if not block else why.update({block: why.get(block, 0) + 1})
+        ready.append(((not urgent, not high, led.get("since") or 0), stem) + place) if not block else why.update({block: why.get(block, 0) + 1}) or names.setdefault(block, []).append((stem, own))
     if why.get("팩낡음"):
         k.log("판정 불가", team, "다음 카드 보류 %d장 · 팩 fetch 실패" % why["팩낡음"])
     prereq_tell(k, team, {s: row[4] for s, row in found.items() if row[3] == "선행불명"})   # I4~I8 · 고를 카드가 있든 없든 간다
     if ready or why.get("팩낡음") or why.get("판정 불가"):   # 보류뿐이면 [다음 없음] 쪽지 0 · r2111 판정 불가 = 쪽지 0
         return min(ready)[1:] if ready else None
-    k.notify(team, "%s|next-none|%s" % (k.stamp()[:10], team), "%s %s · 배정 없는 카드 0 · 막힌 사유별 %s" % (NONE, team, " ".join("%s %d" % kv for kv in sorted(why.items())) or "0"))
+    none_tell(k, team, "%s %s · 배정 없는 카드 0 · 막힌 사유별 %s" % (NONE, team, " ".join("%s %d" % kv for kv in sorted(why.items())) or "0"), names)
+NAMES, NONE_CAP = True, 3   # r2182 N1 이름 싣기 · N3 팀당 하루 [다음 없음] 상한(옛 열쇠 1통 포함 · ⓖ)
+FIX = " · 원장이 카드 줄과 다르면: bash .fable-team/bin/ft-card-assign-watch.sh record <카드> clear <사유>"
+def none_tell(k, team, head, names):
+    """r2182 [다음 없음] 1통 — 기준 글 + 사유마다 이름순 3장(«(원장)» · «외 n») + 원장 카드가 있으면 풀기 꼴 1칸.
+    열쇠 = <날짜>|next-none|<팀>|<지문>(막힌 목록 전체 · 이름순 · ⓕ) · 같은 날 같은 지문 = 0 · 팀당 하루 NONE_CAP 통."""
+    key = "%s|next-none|%s" % (k.stamp()[:10], team)
+    rows = sorted((b, s, own) for b, got in names.items() for s, own in got)
+    fp = hashlib.sha1(repr(rows).encode("utf-8")).hexdigest()[:12]
+    if sum(x == key or x.startswith(key + "|") for x in k.state.get("sent") or {}) >= NONE_CAP:
+        return
+    part = {}
+    for b, s, own in rows:
+        part.setdefault(b, []).append(s + ("(원장)" if own else ""))
+    tell = " / ".join("%s %s%s" % (b, " · ".join(cut[:3]), " 외 %d" % (len(cut) - 3) if len(cut) > 3 else "") for b, cut in part.items())
+    body = head + (" · 막힌 카드 " + tell if NAMES and tell else "") + (FIX if any(own for _, _, own in rows) else "")
+    k.notify(team, "%s|%s" % (key, fp), body)
 def prereq_mute(k, team):
     """P1 묵음 — 전팀 정지(k.halt) · 팀 PAUSED(state/<팀>-tick/PAUSED) · 새 카드 보류(NEW_CARD_HOLD.json · 깨짐 포함) 중 하나라도 참.
     판정 자리 = prereq_tell 안 1곳(부르는 쪽 앞 조건이 나중에 바뀌어도 새지 않게 하는 방어 · 설계 P1)."""
