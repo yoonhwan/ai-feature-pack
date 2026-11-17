@@ -7,7 +7,7 @@ set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 TOP="$(git -C "$HERE" rev-parse --show-toplevel)"
 ROOT="$HERE/../.."; BIN="$ROOT/harness/bin"; DX="$BIN/ft_doc_exempt.py"; PM="$BIN/ft_doc_exempt_paths.py"
-KITBIN="$(cd "$HERE/../kit/fable-team/bin" && pwd)"; KPFX="${KITBIN#$TOP/}"
+KITBIN="$(cd "$HERE/../kit/fable-team/bin" && pwd -P)"; KPFX="${KITBIN#$TOP/}"
 . "$HERE/_merge_fixture.sh"
 fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:240}"; fail=$((fail+1)); fi; }
