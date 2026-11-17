@@ -16,7 +16,7 @@
 - 대상: 팩 feature-pack/fable-team/ft2/tests/test_pi_keeper_lsremote_once_r1963b.py(사례 c6 · 변이 M5 · 변이 틀)
 - 정본 영향 없음: aifp 정본 변경 0 · 팩 ft2 계약 문서 변경 0 · 제품 코드 변경 0
 - 크기: 시험 1파일(c6 대역 · M5 2곳 · 변이 틀 대조 1줄) · PR 1개
-- 배정: 대기(석 · 2026-11-17T15:00)
+- 배정: 좌석 aifp-ft-nano-ft2-keeper-lsremote-m5-anchor#0
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -89,5 +89,7 @@ r1963b 시험의 변이 M1~M6 은 keeper.py 사본에서 글자 한 줄을 찾�
 | L5 제품 코드 손 0 | PR 바뀐 파일 1개 |
 
 ## 상태
+- base_sha: 62973028e4ed03cab5b816f90593af366050755b (spawn 2026-11-17)
 - 2026-11-17 14:52 · 대기 — aifp-ft-arch-pi#24 초안(팀장 aifp 6039 · 나노 훑기 aifp 6025 · 읽기 + 시험 실행 4회 3·17·22·2초 · 임시 시험 사본은 지움 · 제품·시험 파일 손 0) · 판단 = 닻만 맞춰서는 M5 뜻이 서지 않는다(사례 ⑥ 이 기준판에서 실패 · M6 은 지금 빈 통과) → 범위 = 시험 1파일에서 ⑥ 대역 + M5 닻 · 다음 = 팀장 PR merge → DA 설계 → Issue → 나노 1석
 - 2026-11-17 15:00 · 대기 — DA 설계 APPROVE-DESIGN(BYZ 326435 · aifp 6043 · 고정판 fada7b08 · 수용 반례 0) · Issue #9000 등록(planner 접수 BYZ 326472) · 배정 = 대기(석) · 확인 필요 풀림(teams() = [] · nanos 0회) → L1 ⓑ = World.work 로 팀·일 1개 · 완료 조건 3 = 원본 c6 PASS · M5·M6 AssertionError 원문 · 무변이 대조 DID NOT RAISE · 새 실패 0 · 70초 안 · aifp-ft-arch-pi#24(팀장 발주 aifp 6044 · 구현 0) · 다음 = 팀장 착지 → 나노 spawn
+- 2026-11-17 15:02 — 대기→진행 · 좌석 aifp-ft-nano-ft2-keeper-lsremote-m5-anchor#0
