@@ -164,13 +164,31 @@ class Landing:
         for repo, ref in ((self.pack, "origin/main"), (self.root, REFS[0]), (self.root, REFS[1])):
             if repo in self.stale:   # r1963 낡은 리포 ref = 조상으로도 «조상 아님» 으로도 안 셈
                 continue
-            rc = self.git(repo, "merge-base", "--is-ancestor", sha, ref, timeout=endings.ANC_S)[0]   # r2022 1회 7초
+            rc = self.git_local(repo, "merge-base", "--is-ancestor", sha, ref, timeout=endings.ANC_S)[0]   # r2022 1회 7초 · 로컬 객체만
+            if rc == 0:
+                old = self.pre_attempt(team, work, repo, sha)
+                return (None, None, old) if old else (sha, ("pack:" if repo == self.pack else "byz:") + ref, "")
+            if rc == 128 and self.git_local(repo, "cat-file", "-e", sha, timeout=endings.ANC_S)[0] == 1 and self.git_local(repo, "rev-parse", "-q", "--verify", ref + "^{commit}", timeout=endings.ANC_S)[0] == 0:
+                continue   # G3 ⓑ 착지 sha 가 이 리포에 없고 ref 는 멀쩡하다 = 받을 것이 없다 · 다음 ref
+            if rc == 1:
+                continue   # 조상 아님 = 다음 ref
+
+            rc = self.git(repo, "merge-base", "--is-ancestor", sha, ref, timeout=endings.ANC_S)[0]   # G3 ⓒ 지금 판 두 호출 그대로(env 없음 = 원격에 묻는다)
             if rc == 0:
                 old = self.pre_attempt(team, work, repo, sha)
                 return (None, None, old) if old else (sha, ("pack:" if repo == self.pack else "byz:") + ref, "")
             if rc != 1 and (rc != 128 or self.git(repo, "cat-file", "-e", sha, timeout=endings.ANC_S)[0] != 1):
                 return None, None, "판정 불가 · 착지 조상 git rc %s" % rc   # r2022 rc128 ∧ 객체 없음(다른 repo) = 다음 ref · 그 밖 = 다음 바퀴
         return (None, None, "판정 불가 · 팩 fetch 실패") if self.stale else (sha, None, "미도달")   # 낡음이 있으면 미도달 알림 0
+
+    def git_local(self, repo, *args, **kw):
+        """G1 — 로컬 객체만 보는 git 손: 그 호출의 자식에만 GIT_NO_LAZY_FETCH=1 을 싣고 끝나면 원래 env 객체로 되돌린다(G5·G6)."""
+        keep = self.env
+        self.env = dict(keep, GIT_NO_LAZY_FETCH="1")
+        try:
+            return self.git(repo, *args, **kw)
+        finally:
+            self.env = keep
 
     def pre_attempt(self, team, work, repo, sha, intent=None):
         """r1893 — 최신 dispatch attempt intent base_sha 대조 · rc0 = 옛 줄 · rc1 = 조상 아님(진행) · 그 밖 = 판정 불가 · intent·base_sha 없음 = ""."""
