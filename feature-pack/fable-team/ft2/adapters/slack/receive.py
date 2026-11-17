@@ -67,6 +67,16 @@ def resend_marker(key, attempts):
         return ""
     return "[[slack-key %s/%s/%s]] 재송 %d\n" % (key.workspace, key.channel, key.ts, attempts - 1)
 
+def _fold(value, absent):
+    return " ".join(str(value or "").split()) or absent
+
+def file_line(files):
+    """r2166 파일 줄 — 이름(id) 10개까지 · 넘는 파일은 id 를 빠짐없이 «외 k개(…)» · 이름 80자 · id 자름 0."""
+    fold = _fold
+    shown = " · ".join("%s(%s)" % (fold(f.get("name"), "이름 없음")[:80], fold(f.get("id"), "id 없음")) for f in files[:10])
+    rest = " · 외 %d개(%s)" % (len(files) - 10, " · ".join(fold(f.get("id"), "id 없음") for f in files[10:]))
+    return "[파일 %d개 · 본문 없음] %s%s" % (len(files), shown, rest if len(files) > 10 else "")
+
 class SlackReceive:
     """Slack 사건 1건 = 판정 1개. 상태는 `state` 한 낱말로만 말한다."""
     _key = staticmethod(message_key)
@@ -126,6 +136,7 @@ class SlackReceive:
         self.steps = []
         if not event:
             return self.pass_idle()
+        event = self.with_file_text(event)  # r2166 — route 들머리와 같은 함수
         self._step("filter")
         reason, key = self._drop_reason(event), self._key(event)
         self._step("key")
@@ -251,6 +262,14 @@ class SlackReceive:
             return "unknown", found
         later = [m["ts"] for m in found if m.get("bot_id") and float(m.get("ts") or 0) > float(key[2] or 0)]
         return (SETTLED, "봇 답 있음 %s" % later[0]) if later else ("", "")
+
+    def with_file_text(self, event):
+        """r2166 — 거름 사유가 «무변화» 이고 files 에 dict 원소가 있으면 본문 = 파일 줄(새 dict) · 아니면 그대로."""
+        files = event.get("files") if isinstance(event.get("files"), list) else []
+        files = [f for f in files if isinstance(f, dict)]
+        if not files or self._drop_reason(event) != "무변화":
+            return event
+        return dict(event, text=file_line(files))
 
     def _drop_reason(self, event):
         if event.get("type", "message") != "message":
