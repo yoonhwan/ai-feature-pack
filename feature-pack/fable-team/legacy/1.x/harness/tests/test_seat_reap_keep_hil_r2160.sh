@@ -99,7 +99,7 @@ rm -f "$TMP/defer/"*; echo "$((B+9)) $U python3 tests/e2e/x_press.py" > "$TMP/pr
 chk "R1a reap-kill 0 · 미룸 행 2 남음 · 끝줄" "$(grep -c '^reap-kill' <<< "$o8") $(cat "$TMP/defer/"*.jsonl 2>/dev/null | grep -cE "\"pid\": ($A|$S),") $(tail -1 <<< "$o8" | sed "s/^reap $SEAT //")" "0 2 stopped=0 hil=1 left=0 rc=0"
 rm -f "$TMP/defer/"*
 echo "== 변이(사본) — 원본 대조 = 위 ①②③"
-if mutb M1 ft-seat-reap.sh "keep = hil_tree(t, me)" "keep = {}"; then
+if mutb M1 ft-seat-reap.sh "keep = hil_tree(t, me, cand)" "keep = {}"; then
   chk "M1 건너뜀 지움 → ① FAIL(잡힘)" "$([ "$(case1 "$TMP/mb/M1" "bash /tmp/h8538")" != "$W1" ] && echo caught)" caught
   table "bash /tmp/h8538"; chk "M1 → ② FAIL(잡힘)" "$([ "$(close "$TMP/mb/M1")" != "4 1 0 same 0" ] && echo caught)" caught
 else bad "M1 사본 치환 실패"; fi

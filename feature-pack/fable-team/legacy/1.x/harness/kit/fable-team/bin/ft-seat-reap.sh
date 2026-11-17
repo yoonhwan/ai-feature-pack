@@ -39,7 +39,7 @@
 #       resume 파일(ZC_RESUME_DIR)/<좌석>.json "handed" 칸은 «보기용 사본»(판정 근거 아님).
 #     ├ 닫기·일반 reap 은 반대로 «등록한 작업도 이 좌석의 일» 로 후보에 넣어 정리하고, 끝나면 죽은 줄을 prune 한다(장부 줄이 영원히 남지 않는다).
 #   r2160 — 실행 중 h 건너뜀(모든 모드 · dry-run 포함): 내 uid 프로세스 argv 에 «/tmp/h<숫자>»·«/private/tmp/h<숫자>» 토큰(정확히 그 파일 · .out·.ran 꼬리 0) 또는 ft-hil.sh 가 있으면
-#     그 h 의 조상 · h · 자손 전부(자손 argv 에 토큰 0 이어도)가 후보에서 빠진다 = 신호 0 · 미룸 파일 0 · left 에 안 셈 — 뿌리마다 `reap-skip pid=<n> why=hil-running h=<hN>`
+#     그 h 의 조상 · h · 자손 + h 의 조상 중 «후보에 든 가장 위 뿌리» 아래 전체(형제 자식 포함 · 토큰 0 이어도)가 후보에서 빠진다(survey · 미룸 소화 둘 다 정지 앞) = 신호 0 · 미룸 파일 0 · left 에 안 셈 — 뿌리마다 `reap-skip pid=<n> why=hil-running h=<hN>`
 #     · 끝 줄 left 앞에 ` hil=<n>`(h 수 · 1 이상일 때만 — 없으면 끝 줄 글자 그대로) · dry-run 은 `dry-run hil=<n>` · ft-seat-close 가 hil≥1 이면 WAIT rc 4.
 #   r1568 — 마지막 정지: 2회전 뒤 «한 번 더» 정지(TERM→KILL 같은 규칙 · 총 3회 상한)하고 그 재조사만 left 로 센다(짧은 git 자식 1번 = left=0 rc0 · 계속 태어나면 left≥1 rc1). KILL 직전에는 새 ps 표에서 «lstart 같음 ∧ 같은 소유 규칙 ∧ 서비스 아님» 셋 다 참일 때만 누른다(pid 재사용·주인 바뀜 = KILL 0 · `reap-skip … why=owner-changed`).
 set -uo pipefail
@@ -229,17 +229,19 @@ def hil_of(cmd):   # h 이름 · 아니면 ""
         if os.path.basename(a) == "ft-hil.sh": return "ft-hil"
     return ""
 HIL, HILH = {}, set()   # 건너뛴 pid → h 이름(줄은 한 번만) · 걸린 h pid(끝 줄 hil=<n>)
-def hil_tree(t, me):   # pid → (h pid, h 이름) — h 의 조상 · h · 자손 전부
+def hil_tree(t, me, cand):   # pid → (h pid, h 이름) — h 의 조상 · h · 자손 + 조상 중 후보에 든 가장 위 뿌리 아래 전체(DA HOLD #324785 R1b)
     out = {}
     for h, r in t.items():
         n = hil_of(r[4]) if r[2] == me else ""
         if not n: continue
-        tree, p = desc(t, [h]) | {h}, t[h][0]
-        while p in t and p > 1 and p not in tree: tree.add(p); p = t[p][0]
+        chain, p = [], h
+        while p in t and p > 1 and p not in chain: chain.append(p); p = t[p][0]
+        top = next((q for q in reversed(chain) if q in cand), h)
+        tree = set(chain) | desc(t, [top]) | desc(t, [h])
         for q in tree: out.setdefault(q, (h, n))
     return out
 def hil_skip(cand, t, me):   # r2160 T1 — h 든 나무 = 후보에서 뺀다(신호 0) · 뿌리마다 reap-skip 1줄
-    keep = hil_tree(t, me)
+    keep = hil_tree(t, me, cand)
     for p in sorted(set(cand) & set(keep)):
         h, n = keep[p]; HILH.add(h)
         if p not in HIL and cand[p][0] != "자손": print(f"reap-skip pid={p} why=hil-running h={n}")
@@ -368,11 +370,12 @@ def digest():   # 미룸 소화(닫는 사건) — lstart 같은 내 pid 만 · 
             why = "self" if p in anc else "handover" if p in handed else "protect-exe" if exe in PROTECT else svc.get(p, "")
             if why: print(f"reap-skip pid={p} why={why} cmd={t[p][4][:100]}"); continue
             live[p] = ("⑤미룸", r["lstart"], t[p][4])
+        held = set(live); live = hil_skip(live, t, me); held -= set(live)   # r2160 R1a — 미룸 뒤 시작한 h 의 나무 = 정지 0 · 그 행은 파일에 남긴다(다음 소화)
         if live: stop(live)
-        kept = alive(live)
+        ka = alive(live); kept = ka + sorted(held)
         if kept: open(f, "w", encoding="utf-8").write("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows if r.get("pid") in kept))
         else: os.remove(f)
-        print(f"reap-deferred-done file={f} stopped={len(live) - len(kept)} kept={len(kept)}")
+        print(f"reap-deferred-done file={f} stopped={len(live) - len(ka)} kept={len(kept)}")
 hn, HANDED = 0, set()
 if HAND and not dry:   # r3 고침 1 — 넘김 분리를 digest(미룸 소화)·reap 보다 «먼저»(press 가 끝난 뒤 digest 가 미룬 등록 DA 를 ⑤미룸으로 죽이는 길 0)
     t0 = ps_table(); now0 = time.time()
