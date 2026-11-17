@@ -5,6 +5,8 @@
 #   ③ 자손이 tail -f /tmp/h8538.out(h 아님) → 지금처럼 reap-kill  ③' bash /private/tmp/h8538 → ① 과 같음
 #   ④ h 끝남(프로세스 0) → reap-kill 그대로 · 자손 0 좌석 닫기 = CLOSED-SESSION rc 0 · kill-session 1
 #   ⑤ press 진행 + h 없음 + --defer-press → reap-defer press-active 그대로  ⑤' h 있음 + press → h 나무는 미룸 파일 0
+#   R1b(구현 DA HOLD #324785) 같은 뿌리 아래 형제 자식(h 와 무관한 psql) → 신호 0 · left 에 안 셈
+#   R1a(같은 HOLD) press 미룸(h 없음) 뒤 그 셸 아래 h 시작 → 미룸 소화가 h 조상을 정지 경로에 넣지 않음 · 미룸 행 보존
 #   변이 M1(건너뜀 지움) · M2(토큰 «/tmp/h 로 시작») · M3(토큰 프로세스 1개만) — 사본에서 · 원본 대조는 같은 사례
 #   입력 = 가짜 ps 표(FT_PS) · 가짜 lsof(FT_LSOF) · 가짜 tmux(PATH) · 임시 명부 · FT_REAP_NOSIGNAL=1 — 실 h·실 세션·실 신호 0 · sleep 0
 set -uo pipefail
@@ -87,6 +89,15 @@ chk "⑤ press-active · 셸 미룸 · kill 0 · 끝줄" "$(grep -c '^reap-press
 rm -f "$TMP/defer/"*; table "bash /tmp/h8538"; o5b="$(reap "$BIN" --defer-press)"
 chk "⑤' h + press → hil 건너뜀 · h 나무 미룸 파일 0" "$(grep -c 'why=hil-running' <<< "$o5b") $(cat "$TMP/defer/"* 2>/dev/null | grep -cE "\"pid\": ($A|$S|$H|$C),")" "4 0"
 : > "$TMP/press.txt"
+X=$((B+6))
+echo "== R1b 같은 뿌리 아래 형제 자식(토큰 0 · h 와 무관) → 신호 0 · left 에 안 셈"
+table "bash /tmp/h8538"; row "$X" "$S" "timeout 30 psql other_task" >> "$FPS"; o7="$(reap "$BIN")"
+chk "R1b reap-kill 0 · 끝줄" "$(grep -c '^reap-kill' <<< "$o7") $(tail -1 <<< "$o7" | sed "s/^reap $SEAT //")" "0 stopped=0 hil=1 left=0 rc=0"
+echo "== R1a press 미룸(h 없음) → press 끝 + h 시작 → 미룸 소화가 조상 정지 0 · 미룸 행 보존"
+rm -f "$TMP/defer/"*; echo "$((B+9)) $U python3 tests/e2e/x_press.py" > "$TMP/press.txt"; table -; reap "$BIN" --defer-press >/dev/null
+: > "$TMP/press.txt"; table "bash /tmp/h8538"; o8="$(reap "$BIN")"
+chk "R1a reap-kill 0 · 미룸 행 2 남음 · 끝줄" "$(grep -c '^reap-kill' <<< "$o8") $(cat "$TMP/defer/"*.jsonl 2>/dev/null | grep -cE "\"pid\": ($A|$S),") $(tail -1 <<< "$o8" | sed "s/^reap $SEAT //")" "0 2 stopped=0 hil=1 left=0 rc=0"
+rm -f "$TMP/defer/"*
 echo "== 변이(사본) — 원본 대조 = 위 ①②③"
 if mutb M1 ft-seat-reap.sh "keep = hil_tree(t, me)" "keep = {}"; then
   chk "M1 건너뜀 지움 → ① FAIL(잡힘)" "$([ "$(case1 "$TMP/mb/M1" "bash /tmp/h8538")" != "$W1" ] && echo caught)" caught
@@ -95,7 +106,7 @@ else bad "M1 사본 치환 실패"; fi
 if mutb M2 ft-seat-reap.sh 'r"^(?:/private)?/tmp/h\d+$"' 'r"^(?:/private)?/tmp/h"'; then
   table "tail -f /tmp/h8538.out"; chk "M2 토큰 느슨 → ③ FAIL(잡힘)" "$([ "$(nkill "$(reap "$TMP/mb/M2")" "$H" "$C" "$S")" != 3 ] && echo caught)" caught
 else bad "M2 사본 치환 실패"; fi
-if mutb M3 ft-seat-reap.sh "tree, p = desc(t, [h]) | {h}, t[h][0]" "tree, p = {h}, -1"; then
+if mutb M3 ft-seat-reap.sh "tree = set(chain) | desc(t, [top]) | desc(t, [h])" "tree = {h}"; then
   table "bash /tmp/h8538"; o="$(reap "$TMP/mb/M3")"
   chk "M3 토큰 1개만 → ① 자식·조상 TERM(잡힘)" "$([ "$(nkill "$o" "$C" "$S")" != 0 ] && echo caught)" caught
 else bad "M3 사본 치환 실패"; fi
