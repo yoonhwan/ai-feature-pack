@@ -6,7 +6,7 @@
 바퀴마다 keeper 를 새로 만든다 = 실제처럼 프로세스가 바뀐다(상태는 상태 파일로만 이어진다 · I9 · 쪽지 상한 3통은 바퀴당).
 기준판(팩 origin/main 2b5037d1) = ㉟가 · ㉟바 · ㉟차 · ㉟타 Red(바퀴 캐시만 있어 둘째 바퀴에 같은 줄이 또 찍히고, [다음 막힘] 쪽지가 없다).
 """
-import importlib.util, json, shutil  # noqa: E401
+import importlib.util, json  # noqa: E401
 from pathlib import Path
 
 import pytest
@@ -288,19 +288,7 @@ def run(name, tmp, mp, ft2=kw.FT2):
     CASES[name](tmp, mp, lambda path, cards, cap="4": world(path, mp, cards, cap=cap, ft2=ft2))
 
 
-@pytest.mark.parametrize("name", list(CASES))
+# r2212 파일 하나 35초 안: 앞 사례 [:8] = 여기 · 뒤 사례 [8:] = _b · 변이 6 = _mut (세계·CASES·MUTANTS·run 은 이 파일)
+@pytest.mark.parametrize("name", list(CASES)[:8])
 def test_case(name, tmp_path, monkeypatch):
     run(name, tmp_path, monkeypatch)
-
-
-@pytest.mark.parametrize("name", list(MUTANTS))
-def test_mutant(name, tmp_path, monkeypatch):
-    path, old, new, cases = MUTANTS[name]
-    tree = tmp_path / "m" / "ft2"
-    shutil.copytree(kw.FT2, tree, ignore=shutil.ignore_patterns("tests", "__pycache__"))
-    text = (tree / path).read_text(encoding="utf-8")
-    assert text.count(old) == 1, (name, old)
-    (tree / path).write_text(text.replace(old, new), encoding="utf-8")
-    for i, case in enumerate(cases):
-        with pytest.raises(AssertionError):   # 변이 = 그 사례가 무너진다
-            run(case, tmp_path / ("w%d" % i), monkeypatch, tree)
