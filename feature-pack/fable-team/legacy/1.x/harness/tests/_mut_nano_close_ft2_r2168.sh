@@ -26,7 +26,7 @@ mutate() {  # <M> <폴더> — 사본 4파일에 변이 1개
     M8) sub "$d/ft-critical-notify.sh" "  [ \"\$tool:\$rc\" = ft-nano-close:5 ] && grep -q '^FT2-SEAT ' \"\$out\" 2>/dev/null && return 0" '  :';;
     M9) sub "$d/ft_nano_record_auto.py" '    if ft2_seat(crc, cout):' '    if crc == 5:';;
     M10) sub "$d/ft_stall_scan.py" '            elif ft2_seat(crc, cout):' '            elif False:';;
-    M11) blk="$(python3 -c 'import io,sys;s=io.open(sys.argv[1],encoding="utf-8").read();a=s.index("# ★r2168 ft2 좌석 가림★");b=s.index("exit 5; }\n",a)+len("exit 5; }\n");print(s[a:b],end="")' "$c")"
+    M11) blk="$(python3 -c 'import io,sys;s=io.open(sys.argv[1],encoding="utf-8").read();a=s.index("# ★r2168 ft2 좌석 가림★");b=s.index("exit 5; }\n",a)+len("exit 5; }\n");print(s[a:b],end="")' "$c"; echo x)"; blk="${blk%x}"   # 끝 개행 보존(명령 치환이 깎는다 · DA #325888)
          sub "$c" "$blk" '' && sub "$c" '_FT_CALLER_LEDGER_WT="${FT_NANO_LEDGER_WT:-}"' "$blk"'_FT_CALLER_LEDGER_WT="${FT_NANO_LEDGER_WT:-}"';;
     M12) sub "$c" '[ -z "$pane" ] || pc=' '[ -z "$pane" ] || [ -n "$NWT" ] || pc=';;
   esac
@@ -39,6 +39,10 @@ bash "$(file r)" > "$T/orig-r.log" 2>&1; bash "$(file c)" > "$T/orig-c.log" 2>&1
 for m in ${@:-M1 M2 M3 M4 M5 M6 M7 M8 M9 M10 M11 M12}; do
   d="$T/$m"; mkdir -p "$d"; for f in ft-nano-close.sh ft-critical-notify.sh ft_nano_record_auto.py ft_stall_scan.py; do cp "$KIT/$f" "$d/"; done
   mutate "$m" "$d" || { echo "MUT $m 변이 적용 실패"; fail=$((fail+1)); continue; }
+  # 변이 사본이 문법부터 깨지면 동작 반례 검출이 아니라 주입 실패다(DA #325888) — 판정 0 · 실패로 센다
+  if ! { bash -n "$d/ft-nano-close.sh" && bash -n "$d/ft-critical-notify.sh" && python3 -c 'import ast,sys;[ast.parse(open(f,encoding="utf-8").read()) for f in sys.argv[1:]]' "$d/ft_nano_record_auto.py" "$d/ft_stall_scan.py"; } 2>"$T/$m.syntax"; then
+    echo "MUT $m 주입 실패 — 변이 사본 문법 오류: $(head -c 200 "$T/$m.syntax")"; fail=$((fail+1)); continue
+  fi
   t="${TEST[$m]}"; R2168_BIN="$d" bash "$(file "$t")" > "$T/$m.log" 2>&1
   read -r -a cs <<< "${CASE[$m]}"; [ "$m" = M9 ] && cs=("${CASE[$m]}")
   for cse in "${cs[@]}"; do
