@@ -60,7 +60,7 @@
 #     rc 0 `PLANNED <경로>` · 4 = WAIT(계보 세션 살아 있음 · tmux 조회 실패) · 1 = REJECT 사유 1줄(좌석 불일치 · --wt/--branch 계획 · WT 없음 · 가지 nano/* 아님 · 원장 값 없음) · 실행 0.
 #   Seatbelt 0.3 · 나노 좌석을 «값으로» 닫는다 (SEATBELT-README §3 닫기 · NANO-LEDGER 종료조건 3).
 #   exit 0 = 닫힘(명부 삭제·원장 append·@zc_v65_active 해제·세션 kill) · 1 = REJECT(조건 미충족) 또는 FAIL(해제/kill 실패, 사유 stdout) · 2 = usage
-#   ★r2168★ exit 5 = ft2 좌석(--wt 또는 pane cwd 가 $ROOT/.fable-team/teams/<팀>/worktrees/<폴더> 이거나 그 아래) — 마지막 줄 «FT2-SEAT <좌석> …» 1개 · 닫는 길 = ft2 keeper · 손 0.
+#   ★r2168★ exit 5 = ft2 좌석(--wt 또는 pane cwd 또는 ★r2173★ 명부 그 좌석 행 worktree 칸이 $ROOT/.fable-team/teams/<팀>/worktrees/<폴더> 이거나 그 아래) — 마지막 줄 «FT2-SEAT <좌석> …» 1개 · 닫는 길 = ft2 keeper · 손 0.
 #   --kill 은 호환용 — 닫으면 항상 태그 해제 + kill-session(2026-10-02 · keep-last-2 검사 삭제, nano 계보는 대상 아님).
 # 종료조건 3 (전부 «값»): ①--result 경로 실재 ②--recv master 회수 seq 가 우편함/bodies 에 실재 ③jsonl 마지막 활동 ≥ IDLE_MIN 분 전
 # 종료조건 ④ (팩 1.0.2): press/시험 카드면 마지막 checkpoint 표 실재 + alarm=no (checkpoint.json 미설정 프로젝트는 경고만).
@@ -361,16 +361,24 @@ WT_PREFIX="${FT_NANO_WT_PREFIX:-v65-}"
 [[ "$WT_PREFIX" =~ ^[a-z0-9-]+$ ]] || { echo "REJECT FT_NANO_WT_PREFIX(${WT_PREFIX}) 는 소문자·숫자·'-' 만 허용"; exit 1; }
 case "$SEAT" in "$NANO_PREFIX"*) ;; *) echo "REJECT 나노(${_NANO_PREFIXES//,/|}*)만 닫는다: $SEAT"; exit 1;; esac   # role 무관(nano·impl·checker·tester 전부 같은 접두)
 # ★r2168 ft2 좌석 가림★ — ft2 가 연 좌석(워크트리 = $ROOT/.fable-team/teams/<팀>/worktrees/<폴더>)은 1.x 닫기 대상이 아니다. 닫는 길 = ft2 keeper.
-#   후보 = --wt 값 · 그 좌석 pane cwd(tmux 조회 실패·세션 없음 = 후보 없음 · 기준판 흐름 그대로 · T6) — 둘 중 하나만 맞아도 ft2. 실제 경로 + 경로 조각 경계로 대조.
+#   후보 = --wt 값 · 그 좌석 pane cwd(tmux 조회 실패·세션 없음 = 후보 없음 · 기준판 흐름 그대로 · T6) · ★r2173★ 명부 그 좌석 행의 글자 worktree 칸(못 읽음·글자 아님·빈 글 = 그 후보만 없음 · G2) — 하나만 맞아도 ft2. 실제 경로 + 경로 조각 경계로 대조.
 #   원장 풀이 · 원장 WT 신선도 · 좌석 워크트리 풀이 · 카드 단계보다 앞(T2) · 명부 · 원장 · tmux · 워크트리 · 가지 손 0(T4) · rc 5(T3 · 호출자 3곳이 «대상 아님» 으로 읽는다).
 _ft2_seat_wt() {   # stdout = ft2 좌석 워크트리 경로(아니면 빈 줄)
   local pane pc=""
   pane="$(tmux list-panes -a -F '#{session_name}|#{pane_id}' 2>/dev/null | awk -F'|' -v s="$SEAT" '$1==s{print $2; exit}')"
   [ -z "$pane" ] || pc="$(tmux display-message -p -t "$pane" '#{pane_current_path}' 2>/dev/null)" || pc=""
-  python3 - "$ROOT" "$NWT" "$pc" <<'PY' 2>/dev/null
-import os, sys
+  python3 - "$ROOT" "${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}" "$SEAT" "$NWT" "$pc" <<'PY' 2>/dev/null
+import json, os, sys
 base = os.path.join(os.path.realpath(sys.argv[1]), ".fable-team", "teams")
-for c in sys.argv[2:]:
+cands = sys.argv[4:]
+try:   # r2173: 명부는 읽기만 1회 · 어떤 예외든 이 후보만 없음(--wt · pane cwd 판정은 그대로)
+    with open(sys.argv[2], encoding="utf-8") as f:
+        w = json.load(f)[sys.argv[3]]["worktree"]
+    if isinstance(w, str) and w and "\0" not in w:
+        cands.append(w)
+except Exception:
+    pass
+for c in cands:
     p = os.path.realpath(c) if c else ""
     parts = p[len(base) + 1:].split(os.sep) if p.startswith(base + os.sep) else []
     if len(parts) >= 3 and parts[0] and parts[1] == "worktrees" and parts[2]:
