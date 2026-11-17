@@ -41,6 +41,15 @@ def _epoch(text):  # 장부 at 문자열 → 초 · 못 읽음 = 0(간격 이미
 def _landed_row(row):  # 앞 판 장부 호환 = why 칸 «적재 있음» 도 적재로 센다
     return row.get("landed") == "있음" or "적재 있음" in str(row.get("why") or "")
 
+def _clip(text, size):  # r2189 B3 — 한 줄 · «» → ‹› · size 자를 넘으면 뒤 «…»
+    text = " ".join(str(text or "").split()).replace("«", "‹").replace("»", "›")
+    return text[:size] + "…" if len(text) > size else text
+
+def alert_body(why, key, command, answer=None, question=None):  # r2189 B3 — 본문 조립 1곳 · 조각 0 = 기준판 바이트
+    parts = [" · %s «%s»" % (name, _clip(text, size)) for name, text, size in (("답", answer, 20), ("질문", question, 40))
+             if _clip(text, size)]
+    return "[Slack] 알림 %s%s · thread %s · command %s" % (why, "".join(parts), key[2], command)
+
 class _Ledger(keeper.Reporting):
     """r2065 E7 공용 장부 판독 — Reporting 은 root 만 있으면 tail_rows·boundary·arrived 를 쓴다(그대로 부른다)."""
 
@@ -316,7 +325,16 @@ class Wiring:
         desk, key = self.seat("_desk"), row.get("key") or [None] * 3
         if not desk:
             return self.log("[notify] desk 없음 " + json.dumps(row, ensure_ascii=False))
-        self.wake(desk, "[Slack] 알림 %s · thread %s · command %s" % (why, key[2], command), command)
+        self.wake(desk, alert_body(why, key, command, row.get("digest"), self.question(key)), command)
+
+    def question(self, key):  # r2189 B2 — thread 첫 글 머리 = ⓐ route 사람 글 digest ⓑ receive 봇 글 head · 외부 호출 0
+        if not key[2]:
+            return None
+        first, router, rx = receive.command_for(receive.Key(*key)), getattr(self, "router", None), getattr(self, "receive", None)
+        said = [r.get("digest") for r in (router.entries(route.ROUTE) if router else [])
+                if r.get("command") == first and r.get("state") != receive.IGNORED and r.get("digest")]
+        return (said + [r.get("head") for r in (rx.entries() if rx else []) if r.get("command") == first and r.get("head")]
+                or [None])[0]
 
 
 def wire(root, *, receive, bindings, notify=None, log=None, team="planner", clock=None, wake=None, now=None):
