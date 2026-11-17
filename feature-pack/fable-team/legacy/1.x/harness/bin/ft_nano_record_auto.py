@@ -66,6 +66,10 @@ def ancestor(ctx, seat, rec):   # ⓑ — 전달 기록(그 rec) → 장부 줄 
     return "" if rc == 0 else f"착지 sha {e['landed'][:10]} 조상 확인 rc={'-' if rc is None else rc}"
 
 
+def ft2_seat(rc, out):   # r2168 T5 — «rc 5 ∧ FT2-SEAT 줄» = ft-nano-close 가 ft2 좌석을 가렸다(1.x 닫기 대상 아님 · 닫는 길 = keeper)
+    return rc == 5 and any(x.startswith("FT2-SEAT ") for x in (out or "").splitlines())
+
+
 def land_close(ln, tried, stamp, close, run, root=None):
     tok = {t.split("=", 1)[0]: t.split("=", 1)[1] for t in ln.split(" — ", 1)[0].split() if "=" in t}
     seat, cmd, key = (ln.split() + ["", "", ""])[2], ln.split(" — ", 1)[-1], f"{tok.get('set', '')}|{tok.get('rec', '')}"
@@ -95,6 +99,8 @@ def land_close(ln, tried, stamp, close, run, root=None):
         tried.pop(seat, None)
         return [f"{stamp} auto-close {closed} 갈래=착지기록 rec={tok['rec']}"]
     tried[seat] = key
+    if ft2_seat(crc, cout):   # r2168 T5ⓑ — 실패 아님 · alert 0 · 같은 열쇠 재시도 0
+        return [f"{stamp} auto-close 대상 아님 {seat} ft2 갈래=착지기록 — keeper"]
     first = (cout.strip().splitlines() or [""])[0][:120]
     if crc != 1:
         alert(ctx, seat, master, tok["rec"], f"rc={crc} — {first}")

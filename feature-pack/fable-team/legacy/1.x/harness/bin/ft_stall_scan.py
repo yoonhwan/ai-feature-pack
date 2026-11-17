@@ -34,7 +34,7 @@ from ft_stall_detect import DESK_READ_MIN, IDLE_MIN, all_stop, all_stop_note, ag
 from ft_stall_seats import Seats
 from ft_team_lib import rosters  # r1883 — _master 빈 팀의 카드 경로(명부 doc)
 import ft_stall_state as stm
-from ft_nano_record_auto import land_close
+from ft_nano_record_auto import ft2_seat, land_close
 import ft_seat_succ_close
 try:
     from ft_block import block  # r2070 A1 — 막힘 장부 올리는 한 길(없으면 호출 0 · 판정·출력 불변)
@@ -657,6 +657,9 @@ class Scan:
             if crc == 0 and closed:   # r1735 A3 — rc≠0 은 CLOSED 줄이 있어도 실패(rc 우선)
                 tried.pop(seat, None)
                 lines.append(f"{stamp} auto-close {closed} set={head}")
+            elif ft2_seat(crc, cout):   # r2168 T5ⓒ — 실패 줄 0(block raise 0) · 같은 HEAD 재시도 0
+                tried[seat] = head
+                lines.append(f"{stamp} auto-close 대상 아님 {seat} ft2 — keeper")
             else:
                 tried[seat] = head
                 why = next((x for x in rows if not x.startswith("INFO")), (rows or [""])[0])[:120]   # r1735 A2 — INFO 줄은 사유가 아니다
