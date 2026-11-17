@@ -529,7 +529,7 @@ def reconcile(k, team, work, attempt, stem, nh, pick):
         place = pick[1:] if pick else (lambda g: None if isinstance(g, str) or stem not in g[0] else target(k, g[1], g[0][stem][2]))(cards(k, team))
         if place and place[0] in k.stale:   # r1963 복구 launch 도 낡은 팩 base 로는 안 연다(handled 0 · 다음 바퀴)
             return k.log("판정 불가", team, "%s -> %s 다음 카드 보류 · 팩 fetch 실패" % (work, stem))
-        argv = [sys.executable, k.env.get("FT2_KEEPER_LAUNCH") or os.path.join(HERE, "launch.py"), "--root", k.root, "--team", team, "--work", stem, "--repo", place[0], "--base", place[1], "--role", "session"] if place else None
+        argv = [sys.executable, k.env.get("FT2_KEEPER_LAUNCH") or os.path.join(HERE, "launch.py"), "--root", k.root, "--team", team, "--work", stem, "--repo", place[0], "--base", place[1], "--role", "nano"] if place else None
         att = (((ft2_state(k, team) or {}).get("deliveries") or {}).get(stem) or [None])[-1]
         spot = os.path.join(kl.projection.runtime_path(k.root, team), "launch", "%s@%s" % (stem, att))
         if place and "repo:" + place[0] in k.cache.setdefault("launching", set()) and not any(os.path.exists(spot + x) for x in (".intent", ".owner")):   # r1967 ① 같은 리포 새 열기 = 바퀴당 1개 · 나머지 다음 바퀴(여는 중 = 1칸)
