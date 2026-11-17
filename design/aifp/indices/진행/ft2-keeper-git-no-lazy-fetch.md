@@ -7,6 +7,8 @@
 - 앞 카드: 진행/ft2-keeper-round-60s(R7 = 로컬 git 상한 25 → 7초 · PR #1397 열림) · harness 대기/r2022-keeper-ancestor-call-7s(조상 확인 3곳 7초 · rc 갈래) · 1.x 선례 r1401(`_ft_landed_git` · ft-team-lib.sh 313줄) · r1783(ft_approval_equiv.py 57줄 · 176줄)
 - 앞 카드와의 관계: r2022 가 keeper_land.py 의 착지 고리(:165) · pre_attempt(:182) · keeper_endings.py :65 를 고친다 = 이 카드와 같은 줄이라 r2022 착지 뒤에 그 판 위에서 한다 · keeper 60초 카드의 R7 이 착지하면 lazy fetch 로 7초를 넘는 호출이 «판정 불가 git» 줄로 바뀐다 → 이 카드가 그 줄 수를 줄인다(60초 카드 파일 keeper.py · keeper_report.py · full_alert.py · CONTRACT.md · CASES.md 는 이 카드에서 손 0)
 - 상태: 대기
+- 착지: 379a66d3(팩 main · PR #1519 · squash · 세트 c3ceb28d64908aeb2de01798d2fef62d11b7e981 · 팀장 재실행 26 passed 36.5s)
+- DA 판정: APPROVE-IMPL BYZ 326355(aifp 6031 · 승인 c3ceb28d · 사본 .fable-team/state/team-main/aifp-ft/DA-git-no-lazy-fetch-impl-approve-326355/verdict.md · 회귀 9파일 126 passed 3 failed = endings ④·④c·M3 기준판 같음 · 나노 «9파일 rc0» 보고는 정정)
 - 설치: 있음 — ft2 판 올림 1회 · 되돌림 = 앞 판으로 판 전환(상태 파일·설정 변화 0)
 - 선행: r2022 — harness 카드 r2022-keeper-ancestor-call-7s(BYZ design/harness/indices · 나노 byz-harness-nano-r2022-keeper-ancestor-call-7s#0 일 중 · 같은 줄 keeper_land.py :165 · :182 · keeper_endings.py :65) · 그 착지 판이 나노 base 다
 - 시험 입력: 임시 폴더(tmp_path) 안의 실 git 리포 대역 = 로컬 bare 원격(uploadpack.allowFilter) + blob:none partial clone + «느린 upload-pack» 대역(호출마다 기록 1줄 + 3초) · 1.x test_landed_git_no_lazy_r1401.sh 와 같은 꼴 · 가짜 gh · 가짜 시계 0 · 실 원격 0 · 실 리포 0 · 실 runtime 0 · 네트워크 0 · 사례 1개 70초 안
