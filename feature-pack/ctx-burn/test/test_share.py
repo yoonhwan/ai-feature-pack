@@ -503,6 +503,45 @@ def x50_ka(c):
     has(b, "⑦ 판정 = 판정 불가")
 
 
+# ---------------------------------------------------------------- DA HOLD-IMPL 1/3 반례 (R2~R4)
+@case
+def xhold_r2_resume_exact(c):
+    """R2 — seat-resume jsonl 은 «그 파일» exact match: a.jsonl-backup 은 이름을 못 받는다."""
+    a = c.sess("f1", "a.jsonl", None, [(1, used(inp=100))])
+    c.sess("f1", "a.jsonl-backup.jsonl", None, [(1, used(inp=900))])
+    c.resume_record(a, "byz-harness-nano-r1#0")
+    c.run(rc=1)
+    b = c.board()
+    has(b, "① 판정 불가 · 못 가림 90%")
+    has(b, "② 조율 0% · 구현 100% (참고 · 목표 ≤ 50%)")
+    has(b, "④ 못 가림 90%")
+
+
+@case
+def xhold_r3_broken_json_no_keyword(c):
+    """R3 — usage·session_info 글자가 없는 깨진 JSON 줄도 skipped 에 센다."""
+    path = c.sess("f1", "a.jsonl", "byz-harness-master-pi#1", [(1, used(inp=100))])
+    with open(path, "a", encoding="utf-8") as fh:
+        fh.write('{\n{"type":\n{"type":"message","timestamp":\n')
+    c.run()
+    last = c.last()
+    assert last["skipped"] == 3, last
+    assert last["requests"] == 1, last
+    has(c.board(), "② 조율 100%")
+
+
+@case
+def xhold_r4_missing_const_json(c):
+    """R4 — 상수 누락이면 --json 의 주간 환산 칸은 null(기본값으로 낸 값 노출 0)."""
+    c.write_inv(FT_CAP_WK_ULTRA=None)
+    c.sess("f1", "a.jsonl", "byz-harness-master-pi#1", [(1, used(inp=wsum(80)))])
+    p = c.run("--json", rc=1)
+    js = json.loads(p.stdout)
+    assert js["weekly_pct"] is None, js
+    assert js["weekly_low_pct"] is None, js
+    has(js["verdict"], "판정 불가 · 상수 FT_CAP_WK_ULTRA")
+
+
 # ---------------------------------------------------------------- 변이 (지정 반례가 FAIL 해야 한다)
 MUTATIONS = [
     ("M113", "x88_na",
