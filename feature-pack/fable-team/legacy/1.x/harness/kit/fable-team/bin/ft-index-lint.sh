@@ -131,7 +131,7 @@ for f in "$@"; do
   LEDGER="$(ledger_for "$f")"
   [ -f "$LEDGER" ] || { echo "REJECT $f — 선언된 정본 없음: $LEDGER"; rc=1; continue; }
   LEDGER_N="$(norm < "$LEDGER")"
-  if [ "$(awk 'END{print NR}' "$f")" -le 20 ] && ! grep -qE '^## 골 원문' "$f"; then small=1; small_card "$f"; else small=""   # r1844: 21줄 이상·8절 꼴 = 지금 그대로 · 작은 카드는 구조 검사·⑨·⑫ 만 건너뛴다
+  if [ "$(grep -vcE '^- 남은 범위:' "$f")" -le 20 ] && ! grep -qE '^## 골 원문' "$f"; then small=1; small_card "$f"; else small=""   # r1844: 21줄 이상·8절 꼴 = 지금 그대로 · 작은 카드는 구조 검사·⑨·⑫ 만 건너뛴다 · r2206: 줄 수는 «- 남은 범위:» 기록 줄(ft-index-move:135 와 같은 머리)을 빼고 센다
   { read -r GOAL1; read -r GOAL2; read -r GOAL3; } < <(goal_lines_for "$f")
   grep -qxF -- "$GOAL1" "$f" || bad+=("골 1줄 불일치")
   grep -qxF -- "$GOAL2" "$f" || bad+=("골 2줄 불일치")
