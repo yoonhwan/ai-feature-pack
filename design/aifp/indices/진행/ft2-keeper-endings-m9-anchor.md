@@ -63,10 +63,10 @@ r1960 시험의 변이 M1~M10 은 제품 파일 사본에서 글자 한 줄을 �
 - 대기/ft2-keeper-round-cells-b1-items(같은 `one_work` 의 landing 줄을 고친다 · 이 카드의 닻 줄과 다른 줄이라 순서 무관 · 그 카드 회귀 목록에 이 파일을 더할지는 팀장 판단).
 
 ## 완료 조건
-1. [ ] 나노: 기준판 FAIL 원문(㊼가)
-2. [ ] 나노: 그 파일 전체 = M9 PASS + 그 밖 실패 집합이 기준판과 같음(새 실패 0) · 실패한 node id 목록을 기준판과 고친 판 나란히 · 걸린 초(㊼나) — 기준판(팩 main 0536a1fa)에서 같은 이름·같은 단언으로 실패하는 2건 = 사례 c4(다른 holder 의 UNKNOWN intent 없음 기대 · attempt a2) · `test_mutant[M3]`(원본 대조에서 같은 c4) 은 «기준판 같은 실패 = 알려진 한계» 로 센다 · 실패 줄의 단언이 기준판과 다르거나 다른 node 가 실패하면 [ ] · «파일 전체 rc0» 이라고 보고하지 않는다(DA APPROVE-DESIGN BYZ 326251)
-3. [ ] 나노: 변이판에서 ③ 이 실패한 원문 1줄(J2)
-4. [ ] 나노: 훑기 결과(파일 이름 · rc · 깨진 닻 수)
+1. [x] 나노: 기준판 FAIL 원문(㊼가) — 아래 상태 절 «나노 증거 ①»
+2. [x] 나노: 그 파일 전체 = M9 PASS + 그 밖 실패 집합이 기준판과 같음(새 실패 0) · 실패한 node id 목록을 기준판과 고친 판 나란히 · 걸린 초(㊼나) — 기준판(팩 main 0536a1fa)에서 같은 이름·같은 단언으로 실패하는 2건 = 사례 c4(다른 holder 의 UNKNOWN intent 없음 기대 · attempt a2) · `test_mutant[M3]`(원본 대조에서 같은 c4) 은 «기준판 같은 실패 = 알려진 한계» 로 센다 · 실패 줄의 단언이 기준판과 다르거나 다른 node 가 실패하면 [ ] · «파일 전체 rc0» 이라고 보고하지 않는다(DA APPROVE-DESIGN BYZ 326251)
+3. [x] 나노: 변이판에서 ③ 이 실패한 원문 1줄(J2) — «나노 증거 ③»
+4. [x] 나노: 훑기 결과(파일 이름 · rc · 깨진 닻 수) — «나노 증거 ④»
 5. [ ] 팀장: PR 착지 sha
 
 ## 계약↔시험 대응표
@@ -81,6 +81,11 @@ r1960 시험의 변이 M1~M10 은 제품 파일 사본에서 글자 한 줄을 �
 - 2026-11-16 10:04 · 대기 — aifp-ft-arch-pi#23 초안(팀장 aifp 5930 · 알림 harness arch#395 BYZ 313766 · 읽기 2회 · 구현 0 · 시험 실행 0) · 판단 = 닻만 맞춘다(변이 뜻은 지금 판에서도 선다) · 다음 = 팀장 PR merge → DA 설계(정지 풀린 뒤) → 나노 1석
 - 2026-11-17 14:23 · 대기 — DA 설계 APPROVE-DESIGN(BYZ 326251 · aifp 6004 · 고정판 0536a1fa) · Issue #8986 등록(BYZ 326278) · 배정 = 대기(석) · 완료 조건 2 를 «파일 전체 rc0» 에서 «M9 PASS + 새 실패 0» 으로(기준판 같은 실패 c4 · M3 2건 = 알려진 한계 · 후속 카드) · aifp-ft-arch-pi#24(팀장 발주 aifp 6005 · 구현 0) · 다음 = 팀장 착지 → 나노 spawn
 - 2026-11-17 14:24 — 대기→진행 · 좌석 aifp-ft-nano-ft2-keeper-endings-m9-anchor#0
+- 나노 증거 ①(기준판 FAIL 원문 · 완료 조건 1) — `python3.11 -m pytest tests/test_pi_keeper_endings_r1960.py -k M9` = 1 failed · `AssertionError: ('M9', 'elif self.sock and endings.ending(self, team, work):')` · `assert 0 == 1 where 0 = count('elif self.sock and endings.ending(self, team, work):')` · 28 deselected · 0.11초
+- 나노 증거 ②(파일 전체 · 완료 조건 2 · 노드 나란히) — 기준판(c6a9f49e · 고침 전) = `FAILED test_case[④·④c] · FAILED test_mutant[M3] · FAILED test_mutant[M9]` 3 failed 26 passed 66.67초 → 고친 판(aba2d39f) = `FAILED test_case[④·④c] · FAILED test_mutant[M3]` **2 failed 27 passed 64.71초** = M9 만 사라지고 다른 노드·다른 단언 변화 0(새 실패 0) · 기준판 같은 실패 2건 = 알려진 한계 · 파일 rc 는 1 이다(rc0 아님) · origin/main(7d951fcf) 병합 뒤 다시 돌린 M9 = 1 passed 2.94초
+- 나노 증거 ③(변이판 ③ 실패 원문 · J2 · 완료 조건 3) — 변이판 사례 ③ = `kills=[['kill-session', '-t', '=byz-harness-nano-r9603-t#0']]` · `w.kinds('complete')=1` · 원본 같은 사례 = `w.kinds('complete')=0` → 단언 `len(kills)==1 and w.kinds('complete')==0` 이 1 로 깨져 AssertionError(CLOSED-ENDING 줄은 있음) = J2 가 지금 판에서도 선다 · ㊼다(바꿀 글자에서 `and (land.cli.run(…) or True)` 빼먹은 꼴) = 변이판이 원본과 같아져 ③ 통과 = pytest.raises 실패, 그 꼴은 착지 못 함
+- 나노 증거 ④(훑기 · 완료 조건 4 · 고침 0) — ft2/tests 에서 `adapters/pi/keeper.py` 를 글자 닻으로 쓰는 파일 15개 중 60초 카드 회귀 목록(11파일 + 3묶음) 밖 14파일 변이 부분 rc: rc0 = test_keeper_round_60s(17 passed) · test_core_return_delivered_r1990(5) · test_keeper_fill_empty_slot_r1913(7) · test_pi_keeper_card_stage_wire_r2026(3) · test_pi_keeper_fetch_targets_r1975(7) · test_pi_keeper_skip_teams_r1835(9) · test_pi_keeper_stall_r1813(9) · test_pi_keeper_stage_external_done_r2140(4) · test_pi_keeper_staged_memory_day_r2149(4) · test_pi_keeper_tmux_target_r1822(변이 시험 0 · rc=5) · rc1 = test_launch_failed_end(M11·M12·M16·M30·M31 · 단언은 뜻 차이 — 크리티컬 꽉 참 알림이 한 통 더) · test_pi_keeper_fetch_narrow_r1937(M2 DID NOT RAISE) · test_pi_keeper_r1812(M5 환경 REJECT 데이터 루트 판정 불가 — 변이 아님) · ★깨진 닻 1개 = `test_pi_keeper_lsremote_once_r1963b.py` M5 `'        self.nano_s = self.now() - at'` count 0(지금 keeper.py :453 은 `self.nano, self.nano_s, self.nano_dl = ({} …), time.monotonic() - at, None` 튜플 대입) = 같은 부류 결함 · 고치지 않음 = 새 카드(팀장)
+- 2026-11-17 14:39 · 나노 완료 — 커밋 aba2d39f [test](부모 c6a9f49e · origin/main 7d951fcf 병합) · 바뀐 파일 1개(tests/test_pi_keeper_endings_r1960.py 1줄) · 제품 코드 손 0 · push 0 · press 0 · 측정 조작 0 · 새 실패 0
 - [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
 - 세트: aba2d39f799fc00568590bc9aeff36c7a0c95614 · 시험: python3.11 -m pytest tests/test_pi_keeper_endings_r1960.py -k M9 rc=0 · 이슈: 0
 - 완료: aifp-ft-nano-ft2-keeper-endings-m9-anchor#0 · 한 일: test_pi_keeper_endings_r1960.py 162행 변이 M9 닻 elif→if (제품 코드 손 0 · 변이 뜻 그대로 · 브랜치 nano/ft2-keeper-endings-m9-anchor 커밋 aba2d39f) · 산출: nano/ft2-keeper-endings-m9-anchor@aba2d39f79 · 병합 상태: 착지 전(push 전) · 남은 일: 없음
