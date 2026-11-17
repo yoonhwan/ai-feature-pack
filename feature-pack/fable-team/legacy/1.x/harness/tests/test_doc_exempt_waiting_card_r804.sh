@@ -81,6 +81,7 @@ python3 -c 'import json,sys;json.dump({"_master":sys.argv[2]},open(sys.argv[1],"
 mkdir -p "$T/fakebin"; printf '%s' "$SEAT" > "$T/seatname"
 printf '#!/bin/bash\n[ "$1" = display-message ] && { cat %s; exit 0; }\nexit 1\n' "$T/seatname" > "$T/fakebin/tmux"; chmod +x "$T/fakebin/tmux"
 export FT_ROOT="$W" FT_SEAT="$SEAT" TMUX_PANE=%9 PATH="$T/fakebin:$PATH"
+printf '| 팀 | 폴더 | 상태 | 명부 |\n|---|---|---|---|\n| planner | `design/teams/planner/` | 현역 | |\n| lecture | `design/teams/lecture/` | 현역 | |\n' > "$T/TEAMS.md"; export FT_TEAMS_MD="$T/TEAMS.md"   # r2219: r1907 명부 칸 판정용 픽스처 TEAMS.md(리포 밖 $T · 명부 빈 칸 = seats-<팀>.json)
 dx() { out="$(FT_SEAT="$SEAT" python3 "$DX" --mode doc-exempt --repo "$W" --root "$W" --base "$BASEC" --head "$1" 2>&1)"; rc=$?; }
 git -C "$W" checkout -q -B c-main origin/main; BASEC="$(sha "$W" c-main)"
 mkb() { git -C "$W" checkout -q -B "$1" c-main; shift; for p in "$@"; do mkdir -p "$W/$(dirname "$p")"; printf 'x\n' > "$W/$p"; done; cm "$W" "case $1"; }
