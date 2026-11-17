@@ -6,7 +6,7 @@ F = S 의 first-parent 사슬에서 «M 의 조상인 첫 커밋». F == M(처�
 r461: 다른 폴더로 옮긴 파일(git R, 또는 D 인데 S 트리에 같은 이름이 정확히 1개)은 옮긴 곳에서 줄을 센다 — 옛 경로 글자 → 새 경로 글자 1쌍 치환 허용 · 후보 0·2+ 는 삭제로 deny.
 r477: 비교 «전» main 이 더한 줄에 명단(ref FT_TEAMS_REF · 기본 origin/main) 기준 팀 폴더 정규화(옛 꼴 `design/<팀>/` → 새 꼴 `design/teams/<팀>/` · 명단 꼴2 팀만 · 한 방향)를 적용해 «정규화 뒤 같은 줄 = 같은 줄»(PATHSUBST). 후보 줄은 원문 그대로 — 새 꼴을 옛 꼴로 되돌린 줄은 소실. 명단 못 읽음 = 정규화 0 + stderr WARN 1줄(옛 동작 그대로).
 r1741 --replace-ok <리포 상대 경로>@<sha>#§<절>: DA 판정문(카드 리포 = FT_ROOT → 후보 리포)의 그 절 ```gate-replace 블록(첫 줄 `head <40hex>` · 다음 줄 `<경로>TAB<main 줄 원문>TAB<개수>`)에 적힌 (경로·원문) 만큼만 소실에서 뺀다. «판정:» 값이 APPROVE 로 시작하고 블록 head 가 S 이거나 S=«head 뒤 main 병합만 + 자기 변경 동일»(ft-approval-equiv)일 때만 유효 — 못 읽음·블록 없음·APPROVE 아님·head 불일치 = DENY(통과 0). 인자 없으면 옛 동작 바이트 그대로.
-r2174: 소실이 있을 때만 «가지 줄»(S 의 first-parent 사슬 (F, S] 의 부모 1개 커밋이 같은 경로에 더한 줄 · 50개 넘으면 0)을 개수만큼 먼저 빼고 PASS 줄에 « · OWN <n>줄» — 블록은 남은 소실에만.
+r2174: 블록까지 뺀 최종 줄 소실이 있을 때만 «가지 줄»(S 의 first-parent 사슬 (F, S] 의 부모 1개 커밋이 같은 경로에 더한 줄 · 50개 넘으면 0)을 개수만큼 먼저 빼고 PASS 줄에 « · OWN <n>줄» — 블록은 남은 소실에만.
 r2098: 소실 DENY 첫 줄 = 앞 8 항목 + «외 N 파일» + «합계 <파일> 파일 · <줄> 줄» · 둘째 줄 «다음: …» · --lost-rows = 판정 대신 블록 줄(rc 1 = 줄로 못 적는 소실 · stderr).
 exit 0 = 통과 · 1 = deny(사유 stdout) · 2 = 명령 실패(사유 stdout · deny 와 같게 취급)."""
 import collections
@@ -181,12 +181,35 @@ def own_lines(repo, f, s):
     return own
 
 
+def tally(recs, rok, own):
+    """r2174: 줄 기록 → (소실, 이동, REPLACE-OK 줄, OWN 줄) — own=None 이면 기준판 식 그대로 · 있으면 O5 가지 줄 먼저 · 블록은 남은 소실에만."""
+    bad, moved, rok_n, own_n = [], [], 0, 0
+    for path, sp, items in recs:
+        if items is None:                            # 줄 아닌 소실(O3) — sp 자리 = 사유
+            bad.append((path, sp, {}))
+            continue
+        rows = {}
+        for row, loss in items:
+            mine = min(loss, own.get(path, collections.Counter())[row]) if own else 0   # O1: 같은 경로 · 개수만큼
+            own_n, loss = own_n + mine, loss - mine
+            allow = rok.get((path, row), 0)          # A4: (경로·원문)마다 블록 개수만큼만 소실에서 뺀다
+            if loss - allow > 0:
+                rows[row] = loss - allow
+            rok_n += min(loss, allow)                # 실제로 사라진 줄만 REPLACE-OK 로 센다(안 사라진 줄은 무시)
+        lost = sum(rows.values())
+        if lost:
+            bad.append((path, "main 이 더한 줄 %d 개가 S 에서 사라짐" % lost if sp == path
+                        else "%s 로 이동했으나 main 이 더한 줄 %d 개 없음" % (sp, lost), rows))
+        elif sp != path:
+            moved.append("%s -> %s" % (path, sp))
+    return bad, moved, rok_n, own_n
+
+
 def losses(repo, f, m, s, rok):
     """r2098: 소실 계산 1곳(DENY · --lost-rows 공용) → ([(경로, 사유, {main 줄 원문: 소실 개수})], 이동, PATHSUBST 줄, REPLACE-OK 줄, 보호 집합 파일 수, OWN 줄)."""
     table = team_table(repo)
     adds, binary = added_lines(repo, f, m)
-    changed, bad, moved, tree, pathsubst = m_to_s(repo, m, s), [], [], [], 0
-    rok_n, own, own_n = 0, None, 0
+    changed, recs, tree, pathsubst = m_to_s(repo, m, s), [], [], 0
     for path in sorted(set(adds) | binary):
         if path not in changed:
             continue
@@ -194,36 +217,28 @@ def losses(repo, f, m, s, rok):
         if st == "D":
             sp, why = (None, "S 가 삭제") if path in binary else moved_to(repo, s, path, tree)
             if why:
-                bad.append((path, "main 이 바꾼 파일을 %s" % why, {})); continue
+                recs.append((path, "main 이 바꾼 파일을 %s" % why, None)); continue
         if path in binary:
-            bad.append((path, "바이너리가 main 의 것과 다름", {})); continue
+            recs.append((path, "바이너리가 main 의 것과 다름", None)); continue
         raw = collections.Counter(l.rstrip("\r") for l in git(repo, "show", "%s:%s" % (s, sp)).split("\n") if l.strip())
         # r477: «main 이 더한 줄» 만 팀 폴더 옛 꼴 → 새 꼴 정규화(한 방향) — 후보가 새 꼴을 옛 꼴로 되돌린 줄은 소실 그대로
         # r461: 이동이면 main 줄 속 «옛 경로» 글자를 «새 경로» 로 바꾼 줄도 같은 줄로 센다(치환은 그 1쌍만)
-        rows = {}
+        items = []
         for l, n in adds[path].items():
             if not l.strip():
                 continue
             moved_line = l.replace(path, sp)
             raw_hit = max(raw[l], raw[moved_line])
             hit = max(raw[l], raw[moved_line], raw[norm(l, table)], raw[norm(moved_line, table)])
-            loss = max(0, n - hit)
-            if loss and own is None:                 # r2174 O4: 소실이 있을 때만 가지 줄을 센다(소실 0 = git 호출 수 그대로)
-                own = own_lines(repo, f, s)
-            mine = min(loss, own.get(path, collections.Counter())[l]) if loss else 0   # O1: 같은 경로 · 개수만큼
-            own_n, loss = own_n + mine, loss - mine  # O5: 가지 줄 먼저 · 블록은 남은 소실에만
-            allow = rok.get((path, l), 0)            # A4: (경로·원문)마다 블록 개수만큼만 소실에서 뺀다
-            if loss - allow > 0:
-                rows[l] = loss - allow
-            rok_n += min(loss, allow)                # 실제로 사라진 줄만 REPLACE-OK 로 센다(안 사라진 줄은 무시)
+            items.append((l, max(0, n - hit)))
             if min(n, hit) > min(n, raw_hit):  # 정규화로만 같아진 줄 = PATHSUBST
                 pathsubst += 1
-        lost = sum(rows.values())
-        if lost:
-            bad.append((path, "main 이 더한 줄 %d 개가 S 에서 사라짐" % lost if sp == path
-                        else "%s 로 이동했으나 main 이 더한 줄 %d 개 없음" % (sp, lost), rows))
-        elif sp != path:
-            moved.append("%s -> %s" % (path, sp))
+        recs.append((path, sp, items))
+    bad, moved, rok_n, own_n = tally(recs, rok, None)
+    if any(b[2] for b in bad):                       # r2174 O4: 블록까지 뺀 최종 줄 소실 ≥ 1 일 때만 가지 줄(아니면 출력·git 호출 수 그대로)
+        own = own_lines(repo, f, s)
+        if own:
+            bad, moved, rok_n, own_n = tally(recs, rok, own)
     return bad, moved, pathsubst, rok_n, len(adds) + len(binary), own_n
 
 
