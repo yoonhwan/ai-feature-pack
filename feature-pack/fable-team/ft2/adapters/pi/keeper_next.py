@@ -487,7 +487,7 @@ def fill(k, team):
     mine = [x for x in opened if x.split("|")[0] == team]
     for x in mine:   # r1929 띄운 열기 잇기 · 그 바퀴 새 fill 0
         stem = x.split("|", 1)[1]
-        nh = then_name(k, team, stem)   # r2208 O5 띄운 때 이름(다시 셈 0)
+        nh = then_name(k, team, stem, opened[x])   # r2208 O5 띄운 때 이름(다시 셈 0)
         reconcile(k, team, "fill:" + stem, opened[x], stem, nh, None) if nh else None
         opened.pop(x) if "%s|fill:%s@%s" % (team, stem, opened[x]) in k.state["handled"] else None
     if mine:
@@ -517,11 +517,21 @@ def fill(k, team):
             return k.notify(team, "%s|fill-hold|%s|%s" % (k.stamp()[:10], team, stem), "[다음 막힘] ft2 keeper fill %s %s %s — 같은 카드 자동 재시도 0 · 원장을 손보면 다시 시도" % (stem, verb, out.get("result"))) and None
     reconcile(k, team, "fill:" + stem, attempt, stem, nh, pick)
     opened.update({} if "%s|fill:%s@%s" % (team, stem, attempt) in k.state["handled"] else {"%s|%s" % (team, stem): attempt})
-def then_name(k, team, stem):
-    """r2208 O5 — 띄운 열기 잇기 이름 = 띄운 때 이름(ft2 state owners[stem].holder · assign 이 씀 core/dispatch.py:171) · 못 읽음 = «판정 불가» 1줄(다시 셈 0)."""
-    st = ft2_state(k, team)
-    nh = ((st or {}).get("owners") or {}).get(stem, {}).get("holder")
-    return nh if isinstance(nh, str) and nh else k.log("판정 불가", team, "fill:%s 띄운 때 이름 못 읽음(%s) — 다음 바퀴" % (stem, "state 판독 실패" if st is None else "owner 없음"))
+def then_name(k, team, stem, attempt):
+    """r2208 O5 — 띄운 열기 잇기 이름 = 띄운 때 이름(ft2 state owners[stem].holder · assign 이 씀 core/dispatch.py:171) · 다시 셈 0.
+    state 판독 실패 = «판정 불가 · 다음 바퀴»(줄은 값이 바뀔 때만) · owner 없음 = 그 열기 닫기(handled · HELD-NEXT «복구 필요» 1줄 · 새 나노 0 · DA #330593)."""
+    st, book, key = ft2_state(k, team), k.state.setdefault("then_seen", {}), "%s|%s" % (team, stem)
+    if st is None:
+        if book.get(key) != "state":
+            k.log("판정 불가", team, "fill:%s 띄운 때 이름 못 읽음(state 판독 실패) — 다음 바퀴" % stem)
+        book[key] = "state"
+        return None
+    book.pop(key, None)
+    nh = ((st.get("owners") or {}).get(stem) or {}).get("holder")
+    if isinstance(nh, str) and nh:
+        return nh
+    k.state["handled"]["%s|fill:%s@%s" % (team, stem, attempt)] = k.stamp()
+    return k.log("HELD-NEXT", team, "fill:%s -> %s 띄운 때 이름 owner 없음 · 복구 필요" % (stem, stem))
 def reconcile(k, team, work, attempt, stem, nh, pick):
     """launch(세션 없음) · record(원장 ≠ seat) 를 따로 맞춘다 · 실패 = 단계 + «복구 필요» 1줄(재시도 0) · 그 뒤 handled."""
     seen, led = k.probe(nh), ledger(k, stem)
