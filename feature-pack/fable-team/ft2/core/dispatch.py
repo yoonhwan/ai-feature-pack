@@ -202,6 +202,9 @@ class Dispatch:
         if owner and not assigned:
             return Grant(REFUSED, work, "complete", revision=state["revision"],
                          reason="배정 계보 없는 실행권 owner = 완료 거절(쓰기 0)")
+        held = self._refusal_hold(state, work, attempt)
+        if held:
+            return held
         marker, at = ("required" if assigned else ""), self.clock()
         rec = record.build(self.team, (records[-1]["seq"] if records else 0) + 1, work, attempt or "arranged", at, work, work,
                            kind="complete", holder=owner.get("holder"), gen=owner.get("gen"),
@@ -211,6 +214,18 @@ class Dispatch:
         grant = self._reassess(self.ex._state_records(), work, "contract") if marker else None
         return Grant(OK, work, "complete", attempt, owner.get("gen"), owner.get("holder"),
                      grant.revision if grant else rev, True, grant.released if grant else "")
+
+    def _refusal_hold(self, state, work, attempt):
+        """r2183 — 그 work(키 첫 칸이 통째로 같음)의 풀리지 않은 거절 키 = 완료 유보(쓰기 0). 옛 행(open 칸 없음)은
+        해소 0 = 풀리지 않음. 글은 키와 푸는 길만 알린다 — 해소는 새 근거·권한 결정을 얻은 쪽이 적는다."""
+        keys = sorted(key for key, row in (state.get("refusals") or {}).items()
+                      if key.split("|", 1)[0] == work and row.get("open", not row.get("resolutions")))
+        if not keys:
+            return None
+        more = " 외 %d" % (len(keys) - 1) if len(keys) > 1 else ""
+        return Grant(HOLD, work, "complete", attempt, revision=state["revision"],
+                     reason="거절 미해소 = 완료 유보(쓰기 0) · 키 %s%s · 새 근거나 권한 결정을 얻은 뒤에만 그 키를 "
+                            "resolve(사유 «새 근거» | «권한 결정») 한다" % (keys[0], more))
 
     def _reassess(self, context, work, mode="marker"):
         state, records = context
