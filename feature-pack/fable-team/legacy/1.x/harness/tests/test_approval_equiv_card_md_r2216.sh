@@ -78,6 +78,7 @@ if [ -n "$FN" ]; then
   gb="$(cut -f1 <<<"$P12" | while IFS= read -r p; do (. "$BIN/ft-merge-lib.sh" >/dev/null 2>&1; "$FN" "$p" && echo "$p	y" || echo "$p	n"); done)"
   out="$gb"; [ "$gb" = "$got" ]; ck "⑫b r2215 bash 판정($FN) = python 판정" $?
 else echo "SKIP ⑫b r2215 bash 판정 미착지(FT_TEST_R2215_FN 없음) — r2215 착지 뒤 그 함수 이름으로 다시 돈다"; fi
+cmp -s "$BIN/ft_approval_equiv.py" "$BIN/../kit/fable-team/bin/ft_approval_equiv.py"; rc=$?; out=""; ck "bin == kit cmp(ft_approval_equiv.py · 설치 = kit 쪽)" $rc   # DA#16 #331663
 t4=$SECONDS
 echo "단계별 초: 픽스처 $((t1 - t0)) · ②~⑦ $((t2 - t1)) · ⑧~⑪ $((t3 - t2)) · ⑫ $((t4 - t3)) · 전체 $((SECONDS - t0))"
 echo "fail=$fail"; [ "$fail" = 0 ]
