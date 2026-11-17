@@ -35,9 +35,10 @@ new_env() {   # new_env [nopolicy] — 격리 우편함 · state · TMPDIR
   [ "${1:-}" != nopolicy ] || rm -f "$C/alert-policy.tsv" "$C/mbox_alert_policy.py"
   [ -z "${R2167_MUT:-}" ] || [ "${1:-}" = nopolicy ] || (cd "$C" && eval "$R2167_MUT")
 }
-xsh() { env -u FT_PLANNER_HEAD_MODE -u FT_MBOX_STATE_DIR -u FT_BIN -u FT_ALERT_POLICY PATH="$T/stub:$PATH" TMPDIR="$E/tmp" FT_SEATS_JSON="$E/seats/seats.json" \
+xsh() { ( unset FT_ALERT_POLICY; for kv in ${XENV[@]+"${XENV[@]}"}; do export "$kv"; done   # XENV = env 앞 하위 셸에서 export(env ↔ bash 사이 펼침 0)
+  env -u FT_PLANNER_HEAD_MODE -u FT_MBOX_STATE_DIR -u FT_BIN PATH="$T/stub:$PATH" TMPDIR="$E/tmp" FT_SEATS_JSON="$E/seats/seats.json" \
   FT_MBOX_DIR="$C" FT_MBOX_RATE_N=999 FT_MBOX_FANOUT_WINDOW=0 FT_MBOX_RESEND_COOLDOWN=0 FT_NAME_LINT="$BIN/ft-name-lint.sh" \
-  FT_MBOX_PY="$C/mbox.py" FT_BIN="$BIN" FT_DESK_GATE="$T/stub/desk_gate.py" FT_MBOX_NOW="${NOW:-1763340000}" ${XENV[@]+"${XENV[@]}"} bash "$C/mbox.sh" send "$@"; }
+  FT_MBOX_PY="$C/mbox.py" FT_BIN="$BIN" FT_DESK_GATE="$T/stub/desk_gate.py" FT_MBOX_NOW="${NOW:-1763340000}" bash "$C/mbox.sh" send "$@" ); }
 sh_() { OUT="$(cd "$E" && xsh "$@" 2>"$E/err")"; RC=$?; ERR="$(cat "$E/err")"; }
 st() { find "$ST" -type f ! -path '*/alert-policy/*' -exec cksum {} + 2>/dev/null | sort; }
 lines() { if [ -f "$1" ]; then grep -c . "$1"; else echo 0; fi; }
