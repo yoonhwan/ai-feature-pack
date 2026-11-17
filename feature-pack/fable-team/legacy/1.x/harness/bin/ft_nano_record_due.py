@@ -15,6 +15,7 @@ from pathlib import Path
 
 from ft_nano_record import CARD_RX, DONE_RX, Ctx, Reject, Unjudged, left_free, left_of, marks, rec_of, section
 from ft_nano_record_batch import prepare
+from ft_nano_record_fmt import fmt   # r2202 [structure]: 줄 꼴 = 옆 파일(notify 는 지금처럼 due 에서 fmt 를 읽는다)
 from ft_nano_record_repo import at, drops_scope, dropped, nanos_of, proxy_master, repo_hits, resolve_owner, seats_at
 
 DOCW = "문서 PR · 구현 착지 아님"   # r1782 A2: 장부 doc_only(착지 파일 전부 design/·docs/) 줄의 «끝» 사유
@@ -118,24 +119,6 @@ def due_rows(ctx, pr=None, fetch=True):   # A2 — fetch 는 «열린 줄» 이 
         ctx.fetch, ctx._tips = True, {}
         out = rows(prepare(ctx, ks), pr)
     return out
-
-
-def fmt(r):
-    tail = f"pr={r.get('pr')} 착지={str(r.get('q') or '')[:10]}"
-    k = r["k"]
-    if k == "차례":
-        return f"차례 {r['seat']} 종류={r['sort']} 빠짐={r['miss']} 카드={r['stem']} {tail}"
-    if k == "밀림":
-        return f"닫기 요청 밀림 {r['seat']} 카드={r['stem']} {tail} rec={r['rec']}"
-    if k == "끝":
-        return f"끝 {r['stem']} {tail} 좌석={r.get('seat') or '-'} ({r['why']})"
-    if k == "주인없음":
-        return f"주인 없음 {r['stem']} 담당={r['master'] or '-'} 빠짐={r['miss']} {tail}"
-    if k == "카드없음":
-        return f"카드 없음 PR #{r.get('pr')} 담당={r['master'] or '-'} 착지={str(r.get('q') or '')[:10]}"
-    if k == "카드ref불가":
-        return f"판정 불가 카드 ref {r['why']} pr={r.get('pr')} 착지={str(r.get('q') or '')[:10]}"
-    return f"판정 불가 {r['stem']} {r['why']}"
 
 
 def cmd_settle(ctx, a):
