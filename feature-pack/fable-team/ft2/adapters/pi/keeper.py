@@ -85,6 +85,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         self.order, self.jrows, self.ws, self.curs, self.prev_cursor, self.cut_pos = [], {}, {}, None, None, None
         self.report_seat, self.notify_used, self.deferred = None, 0, {}   # R8·R12 구획 상태(바퀴마다 새로)
         self.send_fails, self.send_stop = 0, False   # R8 send 시간 초과 2회 = 그 바퀴 남은 쪽지 미룸
+        self.seen, self.tried, self.unused = set(), set(), set()   # r2201 K1 바퀴 밖 Keeper 도 stall 길을 탄다 · 바퀴마다 _round 가 다시 비운다
         self.fa = _Alert(self)   # R12 keeper 손 = 보내지 않고 state.alert_out 에 넣는다(바퀴 안 바깥 호출 0)
 
     def reading(self, argv):
