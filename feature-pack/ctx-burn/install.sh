@@ -18,6 +18,10 @@ say "  [✓] $BIN_DIR/ctx-burn → $PKG_DIR/bin/ctx-burn"
 # alias — 옛 이름(ctx-waste)은 영구 유지한다(오빠 승인 #278848). 부르는 쪽 스크립트를 고치지 않는다.
 ln -sfn "$PKG_DIR/bin/ctx-burn" "$BIN_DIR/ctx-waste"
 say "  [✓] $BIN_DIR/ctx-waste → $PKG_DIR/bin/ctx-burn (alias)"
+# ctx-share — 조율 몫·주간 환산 보드(카드 usage-monitor-coord-weekly). 갱신 호출은 ft-board-publish.sh 가 한다.
+chmod +x "$PKG_DIR/bin/ctx-share"
+ln -sfn "$PKG_DIR/bin/ctx-share" "$BIN_DIR/ctx-share"
+say "  [✓] $BIN_DIR/ctx-share → $PKG_DIR/bin/ctx-share"
 
 case ":$PATH:" in
   *":$BIN_DIR:"*) : ;;
@@ -30,4 +34,5 @@ say "설치 완료. 프로젝트 폴더에서:"
 say "  ctx-burn                 # 최근 3시간 감사"
 say "  ctx-burn --hours 12      # 12시간"
 say "  ctx-burn --json          # 기계 판독 (계약 ctx.v1 · plan_input)"
+say "  ctx-share                # 조율 몫·주간 환산 보드 (state/usage-monitor/)"
 say "용량·구독 산정(--capacity·--inventory·--need)은 ctx-plan 이 한다."
