@@ -25,6 +25,7 @@ ROOM = "R-room-runner-t15-expire-delete"   # 실사건(room t15)
 LONG = "M5-goal6-upper-last-sentence-release-confirm-lag"   # 48자 · 대문자
 LOW = "r9003-short-card"
 UP = "R9711-Up-card"   # ⑤ ⑦ ⑧ 대문자 stem
+NEXT = "r9712-next-card"   # ⑧ 둘째 바퀴에 fill 이 고를 카드(DA #330593)
 
 
 def tail(stem):   # 소문자 앞 33자 + «-» + sha1(원래 stem) 6자
@@ -72,8 +73,8 @@ def c5(tmp, mp, ft2):   # ⑤ 대문자 옛 세션 살아 있음 → 이름겹�
     assert UP not in r13.base.launched(w) and len(r13.skip(lines, UP, "이름겹침")) == 1, lines
 
 
-def fill_world(tmp, mp, ft2, owner):   # ⑦ ⑧ 공통 — 설치 전 대문자 이름으로 띄운 열기 · 그 세션 살아 있음 · 원장 seat = 대문자
-    w = hc.world(tmp, mp, cards={TEAM: {UP: ""}}, ft2=ft2)
+def fill_world(tmp, mp, ft2, owner, more=()):   # ⑦ ⑧ 공통 — 설치 전 대문자 이름으로 띄운 열기 · 그 세션 살아 있음 · 원장 seat = 대문자
+    w = hc.world(tmp, mp, cards={TEAM: dict({UP: ""}, **{x: "" for x in more})}, ft2=ft2)
     if owner:
         w.work(UP, intent=False, holder=old(UP), turn=None)
     st = json.loads(w.tm.read_text(encoding="utf-8"))
@@ -91,17 +92,32 @@ def c7(tmp, mp, ft2):   # ⑦ 띄운 열기 잇기 = 그때 이름 → 새 나�
     assert "NEXT harness fill:%s -> %s %s" % (UP, UP, old(UP)) in lines, lines
 
 
-def c8(tmp, mp, ft2):   # ⑧ 그때 이름 못 읽음(owner 없음) → 다시 셈 후퇴 0 · 판정 불가 1줄 · 새 나노 0
-    w = fill_world(tmp, mp, ft2, False)
-    lines = w.round()
-    bad = [x for x in lines if x.startswith("판정 불가 harness fill:%s" % UP) and "다음 바퀴" in x]
+def c8(tmp, mp, ft2):   # ⑧ 그때 이름 못 읽음(owner 없음) → 다시 셈 후퇴 0 · HELD-NEXT … 복구 필요 1줄로 그 열기 닫음 · 새 나노 0 · 다음 바퀴 fill 다시 고름
+    w = fill_world(tmp, mp, ft2, False, (NEXT,))
+    k = w.keeper()
+    lines = list(w.round(k))
+    bad = [x for x in lines if x.startswith("HELD-NEXT harness fill:%s" % UP) and "owner 없음" in x and "복구 필요" in x]
     assert hc.launched(w) == [] and len(bad) == 1 and hc.ledger(w, UP) == {"state": "seat", "seat": old(UP)}, lines
+    w.t += 60
+    more = w.round(k)[len(lines):]
+    assert hc.launched(w) == [NEXT] and not any("fill:%s" % UP in x for x in more), more   # DA #330593 다음 바퀴 fill 다시 고름
 
 
-CASES = {"②": c2, "③": c3, "④": c4, "⑤": c5, "⑥": c6, "⑦": c7, "⑧": c8}
+def c8b(tmp, mp, ft2):   # ⑧b state 판독 실패 → 다음 바퀴 · 판정 불가 줄 = 값이 바뀔 때만(두 바퀴 1줄) · 새 나노 0
+    w = fill_world(tmp, mp, ft2, True, (NEXT,))
+    K = w.K   # 접근마다 새 모듈 → 가짜를 심은 그 모듈로 keeper 1개
+    mp.setattr(K.closing.keeper_next, "ft2_state", lambda k, team: None)
+    k = K.Keeper(str(w.root), env=w.env, now=lambda: w.t)
+    w.round(k), w.round(k)
+    bad = [x for x in k.lines if x.startswith("판정 불가 harness fill:%s" % UP) and "state 판독 실패" in x]
+    assert hc.launched(w) == [] and len(bad) == 1, k.lines
+
+
+CASES = {"②": c2, "③": c3, "④": c4, "⑤": c5, "⑥": c6, "⑦": c7, "⑧": c8, "⑧b": c8b}
 KN = "adapters/pi/keeper_next.py"
 MUTANTS = {"M1": ("sha1(stem.encode", "sha1(stem.lower().encode", ("③",)),   # sha1 꼬리를 소문자 stem 으로 셈
-           "M2": ("nh = then_name(k, team, stem)", "nh = nano_name(k, team, stem)", ("⑦",))}   # 잇기 = 다시 셈
+           "M2": ("nh = then_name(k, team, stem, opened[x])", "nh = nano_name(k, team, stem)", ("⑦",)),   # 잇기 = 다시 셈
+           "M3": ('k.state["handled"]["%s|fill:%s@%s" % (team, stem, attempt)] = k.stamp()', "pass", ("⑧",))}   # owner 없음 = 열기 닫기 0(DA #330593)   # 잇기 = 다시 셈
 
 
 @pytest.mark.parametrize("name", list(CASES))
