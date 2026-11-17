@@ -314,7 +314,10 @@ def release(k, team):
             k.log("FILL-HOLD-DROP", team, "%s 끝남" % stem)
     return {x.split("|", 1)[1] for x in held if x.split("|")[0] == team}
 def held_choose(k, team):
-    """r2188 H2 — 닫기 영수 고르기 = 채우기와 같은 보류 목록(release)을 skip 으로(보류 카드 다시 고르기 0)."""
+    """r2188 H2 — 닫기 영수 고르기 = 채우기와 같은 보류 목록(release)을 skip 으로(보류 카드 다시 고르기 0).
+    그 팀 보류 0 = 풀 것도 건널 것도 없다 → 옛 꼴 choose(k, team) 그대로(2인자로 바꿔 끼운 choose 도 그대로 · r1886 c4)."""
+    if not any(x.split("|")[0] == team for x in k.state.get("fill_hold") or {}):
+        return choose(k, team)
     return choose(k, team, release(k, team))
 def choose(k, team, skip=frozenset()):
     """(stem, 리포, base) · skip = fill 보류 stem(r1913 «보류») · 고를 카드 0 = None(그때만 [다음 없음] 1통) · 판독 실패 = None(쪽지 0)."""
