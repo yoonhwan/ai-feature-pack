@@ -15,7 +15,7 @@
 - 대상: 팩 feature-pack/fable-team/ft2/tests/test_pi_keeper_endings_r1960.py(162행 M9 의 닻 글자 2곳)
 - 정본 영향 없음: aifp 정본 변경 0 · 팩 ft2 계약 문서 변경 0 · 제품 코드 변경 0
 - 크기: 시험 1파일 1줄 · PR 1개
-- 배정: 대기(석 · 2026-11-17T14:23)
+- 배정: 좌석 aifp-ft-nano-ft2-keeper-endings-m9-anchor#0
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -77,5 +77,8 @@ r1960 시험의 변이 M1~M10 은 제품 파일 사본에서 글자 한 줄을 �
 | J3 제품 코드 손 0 | PR 바뀐 파일 1개 |
 
 ## 상태
+- base_sha: c6a9f49e688b89c1d83039da7d2e8db84356b901 (spawn 2026-11-17)
 - 2026-11-16 10:04 · 대기 — aifp-ft-arch-pi#23 초안(팀장 aifp 5930 · 알림 harness arch#395 BYZ 313766 · 읽기 2회 · 구현 0 · 시험 실행 0) · 판단 = 닻만 맞춘다(변이 뜻은 지금 판에서도 선다) · 다음 = 팀장 PR merge → DA 설계(정지 풀린 뒤) → 나노 1석
 - 2026-11-17 14:23 · 대기 — DA 설계 APPROVE-DESIGN(BYZ 326251 · aifp 6004 · 고정판 0536a1fa) · Issue #8986 등록(BYZ 326278) · 배정 = 대기(석) · 완료 조건 2 를 «파일 전체 rc0» 에서 «M9 PASS + 새 실패 0» 으로(기준판 같은 실패 c4 · M3 2건 = 알려진 한계 · 후속 카드) · aifp-ft-arch-pi#24(팀장 발주 aifp 6005 · 구현 0) · 다음 = 팀장 착지 → 나노 spawn
+- 2026-11-17 14:24 — 대기→진행 · 좌석 aifp-ft-nano-ft2-keeper-endings-m9-anchor#0
+- [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
