@@ -6,6 +6,7 @@
 - 원인 1줄: keeper 60초 카드(PR #1397 · d261be1a)가 나노 가지 모으기 줄을 `self.nano_s = self.now() - at` 에서 `self.nano, self.nano_s, self.nano_dl = (…), time.monotonic() - at, None` 으로 바꿨다 · ① M5 는 옛 줄을 닻으로 찾아 0곳에서 떨어진다 ② 나노 초를 재는 시계가 주입 시계(`self.now`)에서 `time.monotonic` 으로 바뀌어, 주입 시계만 움직이는 사례 ⑥ 이 기준판에서 실패한다(nano 칸 없음 · s=4) ③ 그래서 M6 은 지금 «사례가 원래 실패하니 통과» 하는 빈 통과다 · 그 PR 은 이 시험 파일을 고치지 않았다
 - 앞 카드: 진행/ft2-keeper-round-60s(PR #1397) · r1963b(ls-remote 리포당 1회 · 나노 모으기 = fetch 시계 밖 · M1~M6) · 완성/ft2-keeper-endings-m9-anchor(PR #1516 · 같은 부류 선례)
 - 상태: 대기
+- 착지: 29d17530(팩 main · PR #1529 · squash · 세트 591188e0e95e6aab08dd23291cc4adbeb103f55b · DA APPROVE-DESIGN BYZ 326435 · 팀장 재실행 14 passed 26.49s)
 - DA 판정: APPROVE-DESIGN BYZ 326435(사본 .fable-team/state/team-main/aifp-ft/DA-lsremote-m5-design-approve-326435/verdict.md) · 고정 팩 main fada7b08 · 수용 동작 반례 0 · 임시 사본 모델 = 파일 전체 14 PASS 26.49초 · 원본 c6 PASS · M5 ROUND s7/fetch7/nano 없음 · M6 ROUND s4/fetch4/nano3 · 무변이 대조 DID NOT RAISE(구현 승인 아님)
 - 설치: 없음 — 시험 파일만 바뀐다(keeper 동작 변화 0 · 판 올림을 따로 하지 않는다)
 - 선행: 없음(팩 origin/main b9553142)
@@ -74,10 +75,10 @@ r1963b 시험의 변이 M1~M6 은 keeper.py 사본에서 글자 한 줄을 찾�
 - 60초 카드 회귀 목록에 이 파일을 더하는 일 = 팀장 판단.
 
 ## 완료 조건
-1. [ ] 나노: 구현 범위 1 의 잰 값 1줄(기준판 ⑥ 에서 nanos 불린 횟수 · teams 값 = DA 실측 0회 · `[]` 와 대조)
-2. [ ] 나노: 기준판 FAIL 원문(51가 · 51나)
-3. [ ] 나노: ⓐ 원본에서 `test_case[c6]` PASS ⓑ M5 · M6 변이판에서 ⑥ 이 AssertionError = ROUND 원문 2줄(M5 s=7 fetch=7 nano 칸 없음 · M6 s=4 fetch=4 nano=3 = L4) ⓒ 무변이 대조(M5 바꿀 글자를 원본과 같게 둔 사본)에서 변이 틀이 DID NOT RAISE 로 실패(51바) ⓓ 그 파일 전체 = 새 실패 0(14 passed rc0 · 실패 node 가 하나라도 있으면 기준판과 나란히 적고 [ ]) · 걸린 초 70초 안(DA 모델 26.49초 · 51라)
-4. [ ] 나노: 바뀐 파일 1개(제품 코드 손 0) · L6 에 걸리면 고치지 않고 팀장 1줄
+1. [x] 나노: 구현 범위 1 의 잰 값 1줄(기준판 ⑥ 에서 nanos 불린 횟수 · teams 값 = DA 실측 0회 · `[]` 와 대조)
+2. [x] 나노: 기준판 FAIL 원문(51가 · 51나)
+3. [x] 나노: ⓐ 원본에서 `test_case[c6]` PASS ⓑ M5 · M6 변이판에서 ⑥ 이 AssertionError = ROUND 원문 2줄(M5 s=7 fetch=7 nano 칸 없음 · M6 s=4 fetch=4 nano=3 = L4) ⓒ 무변이 대조(M5 바꿀 글자를 원본과 같게 둔 사본)에서 변이 틀이 DID NOT RAISE 로 실패(51바) ⓓ 그 파일 전체 = 새 실패 0(14 passed rc0 · 실패 node 가 하나라도 있으면 기준판과 나란히 적고 [ ]) · 걸린 초 70초 안(DA 모델 26.49초 · 51라)
+4. [x] 나노: 바뀐 파일 1개(제품 코드 손 0) · L6 에 걸리면 고치지 않고 팀장 1줄
 5. [ ] 팀장: PR 착지 sha
 
 ## 계약↔시험 대응표
@@ -93,3 +94,9 @@ r1963b 시험의 변이 M1~M6 은 keeper.py 사본에서 글자 한 줄을 찾�
 - 2026-11-17 14:52 · 대기 — aifp-ft-arch-pi#24 초안(팀장 aifp 6039 · 나노 훑기 aifp 6025 · 읽기 + 시험 실행 4회 3·17·22·2초 · 임시 시험 사본은 지움 · 제품·시험 파일 손 0) · 판단 = 닻만 맞춰서는 M5 뜻이 서지 않는다(사례 ⑥ 이 기준판에서 실패 · M6 은 지금 빈 통과) → 범위 = 시험 1파일에서 ⑥ 대역 + M5 닻 · 다음 = 팀장 PR merge → DA 설계 → Issue → 나노 1석
 - 2026-11-17 15:00 · 대기 — DA 설계 APPROVE-DESIGN(BYZ 326435 · aifp 6043 · 고정판 fada7b08 · 수용 반례 0) · Issue #9000 등록(planner 접수 BYZ 326472) · 배정 = 대기(석) · 확인 필요 풀림(teams() = [] · nanos 0회) → L1 ⓑ = World.work 로 팀·일 1개 · 완료 조건 3 = 원본 c6 PASS · M5·M6 AssertionError 원문 · 무변이 대조 DID NOT RAISE · 새 실패 0 · 70초 안 · aifp-ft-arch-pi#24(팀장 발주 aifp 6044 · 구현 0) · 다음 = 팀장 착지 → 나노 spawn
 - 2026-11-17 15:02 — 대기→진행 · 좌석 aifp-ft-nano-ft2-keeper-lsremote-m5-anchor#0
+- 2026-11-17 16:20 · 진행 — 나노 산출(가지 nano/ft2-keeper-lsremote-m5-anchor · 바뀐 파일 1개 tests/test_pi_keeper_lsremote_once_r1963b.py · 제품 코드 손 0 · L6 아님) · 세트: 591188e0e95e6aab08dd23291cc4adbeb103f55b · 시험: python3.11 -m pytest tests/test_pi_keeper_lsremote_once_r1963b.py (14 passed, 26.99초) rc=0 · 이슈: 0
+  - 완료 조건 1 잰 값: 기준판 ⑥ = teams() `[]` · 바꿔 둔 nanos 0회(World.work 1개를 세우면 teams `['harness']` · nanos 1회 — 그래도 nano 칸은 안 생긴다 = keeper 가 `time.monotonic` 으로 재기 때문) → ⑥ 이 기준판에서 실패한 까닭 2개가 실측으로 확인됨
+  - 완료 조건 2 기준판 FAIL 원문(62973028 · 2 failed 12 passed 17.15초): 51가 `AssertionError: ROUND s=4 fetch=4 b1=0 b2c=0 b2f=0 b3=0 stall=0 fetch_root=0 fetch_pack=4 wall=4 other=0 items=2/2 cut=- slow=-` + `assert ('4', None, '4') == ('4', '3', '7')` · 51나 `AssertionError: ('M5', '        self.nano_s = self.now() - at')` + `assert 0 == 1`
+  - 완료 조건 3 ⓐ 원본 c6 PASS = `ROUND s=7 fetch=4 b1=0 b2c=0 b2f=0 b3=0 stall=0 fetch_root=4 fetch_pack=4 nano=3 wall=7 other=0 items=5/5 cut=- slow=harness:b1:0 unknown=1`(둘째 바퀴는 nano 칸 없음) ⓑ M5 변이판 = `ROUND s=7 fetch=7 … nano 칸 없음` · M6 변이판 = `ROUND s=4 fetch=4 … nano=3`(둘 다 AssertionError) ⓒ 무변이 대조 = NO RAISE(변이 틀이 DID NOT RAISE 로 실패 = 51바) ⓓ 새 실패 0 · 14 passed rc0 26.99초(70초 안 — 변이 틀마다 원본 대조 1회가 붙어 DA 모델 26.49초와 같은 대)
+  - 완료 조건 4: `git diff --stat` = 1 file changed, 16 insertions(+), 3 deletions(-) · keeper.py·keeper_fetch.py 손 0 · ft-test-reentry-lint.sh «시험파일» rc=0 · ruff All checks passed
+  - press 필요: 0(단위 시험·캡처만 · 라이브 오디오 0 · 측정 조작 0) · 남은 것 = 완료 조건 5(팀장 PR 착지 sha)
