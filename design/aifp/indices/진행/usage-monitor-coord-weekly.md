@@ -15,7 +15,7 @@
 - 대상: 팩 feature-pack/ctx-burn/bin/ctx-share(새 도구 1개 · 읽기 전용 측정) · feature-pack/ctx-burn/test/share.sh 또는 test_share.py(새 시험 1) · feature-pack/ctx-burn/README.md(절 1개) · feature-pack/fable-team/legacy/1.x/harness/bin/ft-board-publish.sh(덧 호출 1줄 · 자리 = 구현 범위 3 에 고정) + 그 줄의 시험 1(harness tests/)
 - 정본 영향 없음: aifp 정본 변경 0 · ctx-burn · ctx-plan 의 기존 출력·계약 ctx.v1 변경 0(새 도구는 따로 선다)
 - 크기: 코드 1파일(새) · 시험 2파일(도구 · 덧 호출) · 문서 1절 · 호출 1줄 · PR 1개
-- 배정: 대기(석 · 2026-11-17T13:43)
+- 배정: 좌석 aifp-ft-nano-usage-monitor-coord-weekly#0
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -169,7 +169,10 @@ ft 2.0 뒤 Claude 사용량이 주간 한도를 넘었다. desk 가 재 보니 �
 | U1 가중 상수 | ㊽하 |
 
 ## 상태
+- base_sha: db760658bdd1ba2baee63b5c7b0a468ea05067cd (spawn 2026-11-17)
 - 2026-11-17 10:47 · 대기 — aifp-ft-arch-pi#23 초안(팀장 aifp 5942 · 오빠 직송 aifp 5941 · 읽기 5묶음 · 구현 0 · 시험 실행 0) · 정의 3개 고정 = 분류는 좌석 이름 역할 토큰 · 주간 = 48시간 창 × 3.5 ÷ 3646.5M · 보드 = state/usage-monitor/board.md 30분 · 다음 = 팀장 PR merge → DA 설계 → 나노(pi)
 - 2026-11-17 12:56 · 대기 — aifp-ft-arch-pi#24 보정(팀장 결정 aifp 5945 · 읽기만 · 구현 0) · ① 갱신 자리 = ft-board-publish.sh 덧 호출 1줄로 고정(U9 · 나노 질문 지움 · 실측: 부르는 launchd 는 com.byz.ft-board-news 15분) ② 정의 2-2 계정 실측 주간 %(anchor-snapshots.jsonl 가장 최근 표본 · 한도 가중 평균) · 보드 ③ 줄에 로컬 W 환산과 나란히 · 차 ±20%p 표지 · 완료 판정 = 둘 다 ≤ 100% · 반례 ㊿가~아 · 변이 M120~M126
 - 2026-11-17 13:22 · 대기 — aifp-ft-arch-pi#24 r2(DA HOLD-DESIGN 1/3 BYZ 325717 · 팀장 발주 aifp 5957 · 읽기만 · 구현 0) · 정의 1 의 역할 = «표에 있는 첫 토큰» → «이름 문법의 역할 칸(셋째 토큰)» · 문법 밖 이름 = 못 가림 · 표에 lint 예약어 repro · tool 더함(구현) · 반례 ㊿자(DA 입력 그대로) · ㊿차 · ㊿카 · 변이 M127 · M128 · 정의 2 · 2-2 · 3 손 0
 - 2026-11-17 13:43 · 대기 — DA 설계 2/3 APPROVE-DESIGN(BYZ 326003 · aifp 5962 · 앞 HOLD 325717 의 R1 해소 · 대상 a1a6aef8) · Issue #8973 등록(BYZ 326022) · 배정 = 대기(석) · 다음 = 팀장 착지 → 나노 spawn(pi)
+- 2026-11-17 13:45 — 대기→진행 · 좌석 aifp-ft-nano-usage-monitor-coord-weekly#0
+- [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
