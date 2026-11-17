@@ -17,7 +17,8 @@ kill-session) : > "$TMP/killed";;
 esac
 exit 0
 EOS
-printf '#!/bin/sh\necho reap >> "%s/reap.log"\necho "reap left=0"\n' "$TMP" > "$TMP/reap.sh"; chmod +x "$TMP/fake/tmux"
+printf '#!/bin/sh\n[ "$2" = --dry-run ] && exit 0\necho reap >> "%s/reap.log"\necho "reap left=0"\n' "$TMP" > "$TMP/reap.sh";   # r2160 — 닫기 앞 h 관문(--dry-run · 읽기만)은 정지 호출로 안 센다
+ chmod +x "$TMP/fake/tmux"
 printf 'print("CLOSE-OK stub")\n' > "$TMP/mbox.py"
 export PATH="$TMP/fake:$PATH" ZC_RESUME_DIR="$TMP/resume" FT_SEAT_REAP_BIN="$TMP/reap.sh" FT_MBOX_PY="$TMP/mbox.py" FT_CRITICAL_OFF=1
 fail=0; chk() { if [ "$2" = "$3" ]; then echo "PASS $1"; else echo "FAIL $1 (got=[$2] want=[$3])"; fail=$((fail+1)); fi; }
