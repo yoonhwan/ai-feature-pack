@@ -288,15 +288,43 @@ def target(k, r, lines):
     """(리포, base) — 팩·feature-pack/ = 팩 origin/main · 없음 = 루트 리포·표 ref · 팩·BYZ 둘 다 = None."""
     pack, byz = any("팩" in x or "feature-pack/" in x for x in lines), any("BYZ" in x for x in lines)
     return None if pack and byz else (k.pack, "origin/main") if pack else (r[1], r[2])
+def pairs(k, team):
+    """r1887 짝 표 {work: [경로]} → {카드 stem: 짝 work 집합} · 판독 실패 = 짝 0(stem 만) · choose 와 r2188 release 가 같이 부른다."""
+    cmap, pair = k.cardmap(team), {}
+    for work, paths in (cmap.items() if isinstance(cmap, dict) else ()):
+        for p in paths:
+            pair.setdefault(os.path.basename(p)[:-3], set()).add(work)
+    return pair
+def ended(stem, pair, done):
+    """r1887 «끝남» = stem·짝 work 중 하나가 done · r2188 ⓕ choose 와 보류 지움이 같은 판정."""
+    return "끝남" if stem in done or pair.get(stem, set()) & set(done) else ""
+def release(k, team):
+    """r2188 H1 — 그 팀 fill 보류 중 풀린 것을 지우고 남은 stem 집합 · 원장 쓰기 0(keeper 상태만).
+    풀림 = ⓐ 원장 updated > 보류 시각(r1939 값 = 시각 또는 «시각|사유») ⓑ stem·짝 work done(ended) · ft2 state 판독 실패 = ⓑ 0."""
+    held = k.state.setdefault("fill_hold", {})
+    mine = [x for x in held if x.split("|")[0] == team]
+    state = ft2_state(k, team) if mine else None
+    pair, done = pairs(k, team) if state is not None else {}, (state or {}).get("done") or {}
+    for x in mine:
+        stem = x.split("|", 1)[1]
+        if (ledger(k, stem).get("updated") or 0) > float(str(held[x]).split("|")[0]):
+            held.pop(x)
+        elif state is not None and ended(stem, pair, done):
+            held.pop(x)
+            k.log("FILL-HOLD-DROP", team, "%s 끝남" % stem)
+    return {x.split("|", 1)[1] for x in held if x.split("|")[0] == team}
+def held_choose(k, team):
+    """r2188 H2 — 닫기 영수 고르기 = 채우기와 같은 보류 목록(release)을 skip 으로(보류 카드 다시 고르기 0).
+    그 팀 보류 0 = 풀 것도 건널 것도 없다 → 옛 꼴 choose(k, team) 그대로(2인자로 바꿔 끼운 choose 도 그대로 · r1886 c4)."""
+    if not any(x.split("|")[0] == team for x in k.state.get("fill_hold") or {}):
+        return choose(k, team)
+    return choose(k, team, release(k, team))
 def choose(k, team, skip=frozenset()):
     """(stem, 리포, base) · skip = fill 보류 stem(r1913 «보류») · 고를 카드 0 = None(그때만 [다음 없음] 1통) · 판독 실패 = None(쪽지 0)."""
     got, state = cards(k, team), ft2_state(k, team)
     if isinstance(got, str) or state is None:
         return k.log("판정 불가", team, "다음 카드 고르기 %s — 다음 카드 0" % (got if isinstance(got, str) else "ft2 state"))
-    cmap, pair = k.cardmap(team), {}   # r1887 짝 표 {work: [경로]} → {카드 stem: 짝 work 집합} · 판독 실패 = 짝 0(stem 만)
-    for work, paths in (cmap.items() if isinstance(cmap, dict) else ()):
-        for p in paths:
-            pair.setdefault(os.path.basename(p)[:-3], set()).add(work)
+    pair = pairs(k, team)   # r1887 짝 표
     (found, r), done, why, ready = got, state.get("done") or {}, {}, []
     owners = {s for s in found if ({s} | pair.get(s, set())) & set(state.get("owners") or {})}   # stem·짝 work 중 owner 있음
     names = {}   # r2182 N1·N2 {사유: [(카드, 원장이 먼저 막음)]}
@@ -311,7 +339,7 @@ def choose(k, team, skip=frozenset()):
             if book.get(key) != seen:
                 book[key] = seen
                 k.log("판정 불가", team, "%s 선행 줄 판독 불가(%s) — 건너뜀 · 고칠 꼴 «- 선행: 없음» 또는 «- 선행: r<번호>»" % (stem, seen["why"]))
-        block = block or ("보류" if stem in skip else "끝남" if stem in done or pair.get(stem, set()) & set(done) else "")   # r1887 stem·짝 work done
+        block = block or ("보류" if stem in skip else ended(stem, pair, done))   # r1887 stem·짝 work done
         back = not block and reopen(k, team, stem, back, {stem} | pair.get(stem, set()), state)   # r2113 A1 재개 줄(없거나 막힌 카드 = 읽기 0)
         block = block or ("재개" if back else "")   # r2113 A1 — 재개 줄 = «착지» 판독 건너뜀(바로 아래에서 푼다)
         block = block or ("착지" if skip_landed(k, team, stem) else "")   # r2058 L5 착지 카드 = 다시 넣지도 닫기 뒤 다음으로도 고르지 않는다
@@ -416,6 +444,7 @@ def prereq_tell(k, team, unread):
 
 def close(k, team, work, attempt, holder, gen):
     """닫기 영수 1회(지금 자리) + 다음 카드. 반환 = 영수 결과. r2101 H3 = 새 카드 보류면 이 고르기만 멈춘다(영수·이어 잇기 그대로)."""
+    choose = held_choose   # r2188 H2 채우기와 같은 보류 목록 · 아래 고르기 줄은 글자 그대로(r1871 M5 · 벌점 M63 변이가 그 줄을 찾는다)
     seen = ((ft2_state(k, team) or {}).get("close_receipts") or {}).get("keeper:%s@%s" % (work, attempt))
     pick = None
     if seen is None and not new_card_hold(k, team):
@@ -461,7 +490,7 @@ def fill(k, team):
         opened.pop(x) if "%s|fill:%s@%s" % (team, stem, opened[x]) in k.state["handled"] else None
     if mine:
         return None
-    [held.pop(x) for x in list(held) if x.split("|")[0] == team and (ledger(k, x.split("|", 1)[1]).get("updated") or 0) > float(str(held[x]).split("|")[0])]   # 풀림 · r1939 값 = 시각 또는 «시각|사유»
+    release(k, team)   # r2188 H1 풀림 한 함수(원장 updated · 끝난 일) · 아래 choose 의 보류 집합 = 남은 보류
     if new_card_hold(k, team):   # r2101 H3 — 보류 = 새 카드 고르기만 멈춘다(위 이어 열기·settle·닫기는 그대로)
         return None
     pick = intake_open(k, team) and choose(k, team, {x.split("|", 1)[1] for x in held if x.split("|")[0] == team}) if gates(k, team) and penalty_open(k, team) else None
