@@ -197,6 +197,8 @@ class Settling:
         done, owner = bool(row.get("done")), row.get("owner")
         raw = self.read_json(os.path.join(PROJ.runtime_path(self.root, team), "launch", "%s@%s.intent" % (work, attempt)))
         seen = self.probe(holder)
+        key = "%s|%s|%s|%s" % (team, work, attempt, holder)   # r2214 O1a 처음 absent 본 시각 키(attempt 포함 = 새 attempt 는 다시 셈)
+        first = self.state.setdefault("absent_since", {}).pop(key, None)   # session-absent 갈래 밖 바퀴 = 지움
         opening = bool(owner) and raw.get("state") == "opening"   # L6 — 여는 중인 열기(잇는 중·문턱 안쪽 = 손 0)
         stalled = opening and self.opening_stale(raw) and not self.launching_now(team, work)
         if seen == "absent":
@@ -210,7 +212,10 @@ class Settling:
                 return self.failed_end(team, work, attempt, holder, raw, why, park=True)
             if opening:   # L6 — 문턱 안쪽·잇는 중 열기 = 손 0 · [긴급] 0(아직 판정할 수 없다)
                 return self.verdict(team, work, holder, "WORKING", "launch-joining" if self.launching_now(team, work) else "launch-pending", "opening %d분" % self.opening_age(raw))
-            return self.unknown_seat(team, work, attempt, holder, "owner-orphan" if owner else "session-absent", why)
+            word = self.unknown_seat(team, work, attempt, holder, "owner-orphan" if owner else "session-absent", why)
+            if not owner:   # r2214 session-absent 만(owner-orphan = 팀장 park 몸)
+                self.absent_release(team, work, holder, key, first)
+            return word
         if seen != "alive":
             if stalled:   # L6 — tmux 조회 실패 = «부재» 가 아니다(판정 불가 1줄 · park 0)
                 return self.log("판정 불가", team, "%s %s opening %d분 좌석 판독 불가 %s — park 0" % (work, holder, self.opening_age(raw), seen))
@@ -330,6 +335,43 @@ class Settling:
             return self.now() - datetime.datetime.strptime(str(intent.get("at")), "%Y-%m-%dT%H:%M:%S").timestamp() >= OPEN_STALE
         except ValueError:
             return False
+
+    def absent_release(self, team, work, holder, key, first):
+        """r2214 O1·O2·O4·O5 — session-absent(owner·done 없음)이 OPEN_STALE 넘게 이어지면 1.x 배정 원장 seat 를 1회 푼다 → 다음 fill 새 attempt.
+        상태 칸 absent_since{팀|work|attempt|holder: 초}(verdict 책과 같은 keeper 상태 파일 = 재기동 뒤 이어짐) · absent_unsure{팀|work|holder: 사유}."""
+        now = self.now()
+        first = self.state["absent_since"][key] = now if first is None else first   # O1a 첫 absent 바퀴 = 시각만
+        if now - first < OPEN_STALE:
+            return
+        if self.halt:   # r2214 O3 정지 중 풀기 0(call 그물은 bash 를 막지 않음 · 시각은 그대로)
+            return
+        led = self.read_json(os.path.join(self.root, ".fable-team", "state", "card-assign", work + ".json"))
+        if led.get("state") != "seat" or led.get("seat") != holder:   # O1d·O4 다른 좌석·풀린 원장 = 손 0
+            return
+        why = self.release_block(holder)
+        if not why:   # O2 원장 도구 1회(fill 과 같은 경로 · 7초 · 재시도 0)
+            rc, _, _ = self.call(["bash", self.env.get("FT2_CARD_ASSIGN_BIN") or os.path.join(os.path.dirname(self.close_bin or ""), "ft-card-assign-watch.sh"),
+                                  "record", work, "clear", "seat", "--seat", holder])
+            why = "" if rc == 0 else "원장 풀기 rc %s" % rc
+        book, mark = self.state.setdefault("absent_unsure", {}), "%s|%s|%s" % (team, work, holder)
+        if not why:
+            book.pop(mark, None)
+            return self.log("RELEASED", team, "%s %s · 원장 풀림 · 다음 fill 새 attempt" % (work, holder))
+        if book.get(mark) != why:   # O5 같은 사유 반복 줄 0
+            book[mark] = why
+            self.log("판정 불가", team, "%s %s 원장 풀기 0 · %s" % (work, holder, why))
+
+    def release_block(self, holder):
+        """r2214 O1b·O1c — 풀기 앞 tmux 확인 · "" = 풀어도 됨 · 그 밖 = 판정 불가 사유(probe 반환 꼴은 그대로 · err 는 여기서 가름)."""
+        rc, _, err = self.call([self.tmux, "has-session", "-t", "=" + holder])
+        if rc != 1 or "can't find session" not in err:   # O1b 서버 없음·소켓 어긋남 = 한꺼번에 풀림 막음
+            return "tmux 서버 없음" if "no server running" in err else "tmux has-session rc %s %s" % (rc, err)
+        got = self.cache.setdefault("@round", {})   # keeper_next.once 와 같은 바퀴 캐시 칸(ls)
+        rc, out, _ = got["ls"] if "ls" in got else got.setdefault("ls", self.call([self.tmux, "list-sessions", "-F", "#{session_name}"]))
+        if rc != 0:
+            return "tmux list-sessions rc %s" % rc
+        other = next((x for x in out.splitlines() if x != holder and x.casefold() == holder.casefold()), "")   # O1c r2208 대문자 stem 꼴
+        return "대소문자만 다른 세션 %s" % other if other else ""
 
     def launching_now(self, team, work):
         """L6 — fill_open(잇는 중)에 있는 열기인가(그 열기는 손 0)."""
