@@ -9,6 +9,8 @@
 #                                  다름 = REJECT 1줄 rc 1 · .sha 없음 · 못 읽음 = 판정 불가 rc 3 (rc 와 바이트는 섞지 않는다 — 진입 파일이 표식만 떼고 bash -c 로 실행)
 #   budget <계획|-> <h 파일> [시작 끝] → 선언 초(`# ft-hil-budget: <초>` · - = stdin 의 실행한 바이트 · 없으면 70)와 .ran 마지막 시작 줄 · rc 줄 시각 차(시험은 인자로 주입)
 #                                  넘으면 `[상한 초과] …` 1줄을 stderr 와 <h>.out 끝에 · 늘 rc 0(계획 rc 는 진입 파일이 그대로)
+#   run-line <h 파일>           → r2161: 실행 줄 1줄(앞 «! » 없음) · 계획(«# ft-hil-entry plan=»)의 주석 아닌 줄에 `$HIL_APPROVED` · `${HIL_APPROVED` 읽기가 있으면
+#                                  «bash <h> · 승인값 필요(사람 · 변수 HIL_APPROVED · 오빠 ! 줄로만)» · 아니면(옛 링크 · 계획 없음 · 못 읽음 포함) «bash <h>» · 늘 rc 0 · 승인값 «=1» 은 찍지 않는다
 set -uo pipefail
 MAXB=100000
 sha256() {  # stdin → sha256 64자(못 구하면 rc 3 · 판정 불가 1줄)
@@ -50,5 +52,9 @@ case "${1:-}" in
     e=$((en - st)); [ "$e" -gt "$d" ] || exit 0
     l="[상한 초과] ${3##*/} ${e}초 > ${d}초 — 묶음을 줄여 다시 등록"
     echo "$l" >&2; echo "$l" >> "$3.out" ;;
-  *) echo "usage: ft-hil-gate.sh pre|post|write|reuse|read|budget …" >&2; exit 2 ;;
+  run-line)
+    t=""; TAG_R=" · 승인값 필요(사람 · 변수 HIL_APPROVED · 오빠 ! 줄로만)"; p="$(sed -n 's/^# ft-hil-entry plan=//p' "${2:-}" 2>/dev/null | head -1)"
+    [ -L "${2:-}" ] || [ -z "$p" ] || ! awk '!/^[[:space:]]*#/ && (/\$HIL_APPROVED/ || /\$[{]HIL_APPROVED/) {f=1} END {exit !f}' "$p" 2>/dev/null || t="$TAG_R"
+    echo "bash ${2:-}$t"; exit 0 ;;
+  *) echo "usage: ft-hil-gate.sh pre|post|write|reuse|read|budget|run-line …" >&2; exit 2 ;;
 esac
