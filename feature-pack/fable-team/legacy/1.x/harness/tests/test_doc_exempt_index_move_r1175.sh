@@ -7,7 +7,7 @@ set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 TOP="$(git -C "$HERE" rev-parse --show-toplevel)"
 BIN="$HERE/../bin"; DX="$BIN/ft_doc_exempt.py"; MV="$BIN/ft_doc_exempt_moves.py"
-KITBIN="$(cd "$HERE/../kit/fable-team/bin" && pwd)"; KPFX="${KITBIN#$TOP/}"
+KITBIN="$(cd "$HERE/../kit/fable-team/bin" && pwd -P)"; KPFX="${KITBIN#$TOP/}"
 . "$HERE/_merge_fixture.sh"
 fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:240}"; fail=$((fail+1)); fi; }
@@ -25,6 +25,7 @@ python3 -c 'import json,sys;json.dump({"_master":sys.argv[2]},open(sys.argv[1],"
 mkdir -p "$T/fakebin"; printf '%s' "$SEAT" > "$T/seatname"
 printf '#!/bin/bash\n[ "$1" = display-message ] && { cat %s; exit 0; }\nexit 1\n' "$T/seatname" > "$T/fakebin/tmux"; chmod +x "$T/fakebin/tmux"
 export FT_ROOT="$W" FT_SEAT="$SEAT" TMUX_PANE=%9 PATH="$T/fakebin:$PATH"
+printf '| 팀 | 폴더 | 상태 | 명부 |\n|---|---|---|---|\n| planner | `design/planner/` | 현역 | |\n| t | `design/t/` | 현역 | |\n' > "$T/TEAMS.md"; export FT_TEAMS_MD="$T/TEAMS.md"   # r2221: r1907 명부 칸 판정용 픽스처 TEAMS.md(리포 밖 $T · 명부 빈 칸 = seats-<팀>.json · r2219 꼴)
 dxw() { out="$(FT_SEAT="$SEAT" python3 "$1" --mode doc-exempt --repo "$W" --root "$W" --base "$BASEC" --head "$2" 2>&1)"; rc=$?; }
 dx() { dxw "$DX" "$1"; }
 
@@ -55,7 +56,7 @@ mkmove() { local b="$1" src="$2" dst="$3" body="$4"; shift 4
 done_card "$DA_OK" > "$T/r1.md"
 # ===== ⓐ 빨강 먼저: 옛 판(착지 전 팩 main 1ce58fcf)은 R1 도 «추가·수정 아닌 변경(D)» 으로 거절 =====
 mkdir -p "$T/red"; cp -R "$BIN/." "$T/red/"
-git -C "$TOP" show "1ce58fcf0b8bb25a302b03bb19a61d7cff09ad0a:$KPFX/ft_doc_exempt.py" > "$T/red/ft_doc_exempt.py" || { echo "FAIL 옛 판을 못 꺼냄"; exit 1; }
+git -C "$TOP" show "1ce58fcf0b8bb25a302b03bb19a61d7cff09ad0a:${KPFX/legacy\/1.x\//}/ft_doc_exempt.py" > "$T/red/ft_doc_exempt.py" || { echo "FAIL 옛 판을 못 꺼냄"; exit 1; }  # r2221: 고정 sha 는 legacy/1.x 이동(625fbdfc) 앞 = 옛 경로
 mkmove r1 "$RUN" "$DONE" "$T/r1.md"; R1SHA="$HS"
 dxw "$T/red/ft_doc_exempt.py" "$R1SHA"
 [ "$rc" = 1 ] && [[ "$out" == NOT* ]]; ck "ⓐ 빨강: 옛 판 = R1 이동도 거절(${out:0:60})" $?
