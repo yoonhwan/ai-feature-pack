@@ -12,7 +12,7 @@
 #   env: FT_RECLAIM_TMP_ROOT(/private/tmp) · FT_RECLAIM_CACHE_ROOT(~/Library/Caches) · FT_RECLAIM_REPOS(: 구분 · BYZ · 팩)
 #        FT_RECLAIM_INFO(: 구분) · FT_RECLAIM_DF_PATH(/System/Volumes/Data) · FT_RECLAIM_TIMEOUT(25초 · 지우기 호출 포함)
 #   지우기가 상한을 넘기면 그 줄 SKIP `시간 초과`(큰 폴더는 다음 apply 로 · rm 이 중간까지 지웠을 수 있음)
-#   r2196 squash 길 = 옆 파일 _disk_reclaim_squash.py(r2199) · 못 읽으면 stderr `판정 불가 squash 모듈` · rc 3 · apply 는 ABORT 줄 뒤 지우기 0.
+#   r2196 squash 길 = 옆 파일 _disk_reclaim_squash.py(r2199) · apply 쪽 dfree · recheck = _disk_reclaim_apply.py(r2200) · 못 읽으면 stderr `판정 불가 squash 모듈` · rc 3 · apply 는 ABORT 줄 뒤 지우기 0.
 set -uo pipefail
 case "${1:-}" in plan|apply) [ $# -eq 2 ] || { echo "usage: $0 plan <산출 폴더> | apply <candidates.tsv>" >&2; exit 2; } ;;
   *) echo "usage: $0 plan <산출 폴더> | apply <candidates.tsv>" >&2; exit 2 ;; esac
@@ -20,7 +20,7 @@ exec python3 - "$@" "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)" <<
 import bisect, json, os, stat, subprocess, sys, time
 MODE, ARG = sys.argv[1], sys.argv[2]
 sys.dont_write_bytecode = True; sys.path.insert(0, sys.argv[3])   # r2199 · bin/__pycache__ 쓰기 0
-try: import _disk_reclaim_squash as SQ   # r2196 squash 길(merged · squash_pr · GH · MERGED) = 옆 파일
+try: import _disk_reclaim_squash as SQ, _disk_reclaim_apply as AP   # r2196 squash 길(merged · squash_pr · GH · MERGED) · r2200 dfree · recheck = 옆 파일
 except Exception: MODE == "apply" and open(os.path.join(os.path.dirname(os.path.abspath(ARG)), "deleted.log"), "a").write("ABORT 판정 불가 squash 모듈 deleted=0 skipped=0\n"); print("판정 불가 squash 모듈", file=sys.stderr); sys.exit(3)
 E = os.environ
 HOME = os.path.realpath(os.path.expanduser("~"))
@@ -150,34 +150,19 @@ def plan(outdir, roots):
     cnt = " ".join(f"{k}={len(v)}/{sum(x[0] for x in v)}KiB" for k, v in rows.items())
     print(f"PLAN {out} {cnt} hold={len(hold)}")
 
-def dfree():
-    try: return int(must(["df", "-k", DFP], "df").splitlines()[-1].split()[3])
-    except (ValueError, IndexError): raise Abort("df")
-
-def recheck(kind, p, roots, op):   # (사유 | None, 리포)
-    if kind in roots:
-        r = roots[kind]; name = p[len(r) + 1:] if p.startswith(r + "/") else ""
-        if not name or "/" in name or name in (".", ".."): return "범위 밖", None
-        return entry_bad(p, kind, op), None
-    for repo in REPOS:
-        ws = wt_list(repo)
-        for i, w in enumerate(ws):
-            if w["path"] == p: return wt_bad(repo, w, i == 0, op, panes()), repo
-    return "범위 밖 리포", None
-
 def apply(tsv, roots):
     log = os.path.join(os.path.dirname(os.path.abspath(tsv)), "deleted.log")
     rows = [l.split("\t") for l in open(tsv).read().splitlines()]
     d = s = 0
     with open(log, "a") as L:
         try:
-            before, op = dfree(), Opened()
+            before, op = AP.dfree(sys.modules[__name__]), Opened()
             for n, f in enumerate(rows, 1):
                 tick(n)
                 if not f or f[0] not in ("tmp", "cache", "worktree"): continue
                 if len(f) != 4: L.write(f"SKIP\t{f[0]}\t-\t줄 꼴\n"); s += 1; continue
                 kind, kib, p = f[0], f[1], f[2]
-                why, repo = recheck(kind, p, roots, op)
+                why, repo = AP.recheck(sys.modules[__name__], kind, p, roots, op)
                 if not why:
                     cmd = ["git", "-C", repo, "worktree", "remove", p] if repo else ["rm", "-rf", "--", p]
                     rc = run(cmd)[0]
@@ -185,7 +170,7 @@ def apply(tsv, roots):
                 if why: L.write(f"SKIP\t{kind}\t{p}\t{why}\n"); s += 1
                 else: L.write(f"DELETED\t{kind}\t{kib}\t{p}\n"); d += 1
                 L.flush()
-            after = dfree()
+            after = AP.dfree(sys.modules[__name__])
         except Abort as a:
             L.write(f"ABORT 판정 불가 {a} deleted={d} skipped={s}\n"); print(f"판정 불가 {a}", file=sys.stderr); sys.exit(3)
         line = f"SUMMARY freed_gib={(after - before) / 1048576:.1f} before_kib={before} after_kib={after} deleted={d} skipped={s}"
