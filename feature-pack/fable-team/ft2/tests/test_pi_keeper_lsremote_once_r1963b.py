@@ -5,6 +5,8 @@
 import importlib.util
 import re
 import shutil
+import threading
+import types
 from pathlib import Path
 
 import pytest
@@ -86,10 +88,18 @@ def c5b(w):  # ⑤′(사전 DA HOLD) ls-remote rc≠0 + 표 ref foo 는 원격�
     assert w.kinds("complete") == 0 and not [x for x in lines if x.startswith("COMPLETED")], lines
 def c6(w):   # ⑥ 주입 시계: 나노 모으기 3초 · fetch 4초 → ROUND fetch=4 · nano=3 · s=7 / 모으기 0초 → nano= 칸 없음(옛 줄 그대로)
     sync(w), w.pack_sha()
+    w.work("c6w")   # 나노 모으기 대상 = 팀·일 1개 · 팀이 0 이면 바꿔 둔 nanos 가 한 번도 안 불려 사례가 원래 실패한다(DA 실측)
     k = w.keeper()
-    real, git = kf_of(k).nanos, k.git
+    type(k).__init__.__globals__["time"] = types.SimpleNamespace(monotonic=lambda: w.t, time=lambda: w.t)   # 60초 카드 시험의 주입 꼴 — 이 World 모듈 안에서만 · 나노 모으기 초는 keeper 가 time.monotonic 으로 잰다
+    real, git, bump = kf_of(k).nanos, k.git, threading.Lock()
     kf_of(k).nanos = lambda *a: (setattr(w, "t", w.t + 3), real(*a))[1]
-    k.git = lambda repo, *a, **o: (setattr(w, "t", w.t + 4) if a[0] == "fetch" else None, git(repo, *a, **o))[1]
+    def fetcht(repo, *a, **o):   # fetch 4초 = 두 리포를 동시에 도는 한 구간(동시라 한 번만 늘린다 — fetch_root·fetch_pack 칸은 안 본다)
+        if a[0] == "fetch":
+            with bump:
+                if not getattr(w, "bumped", False):
+                    w.bumped, w.t = True, w.t + 4
+        return git(repo, *a, **o)
+    k.git = fetcht
     row = [x for x in w.round(k) if x.startswith("ROUND")][0]
     cell = dict(re.findall(r"(\w+)=([\d.]+)", row))
     assert (cell["fetch"], cell.get("nano"), cell["s"]) == ("4", "3", "7"), row
@@ -109,7 +119,8 @@ MUTANTS = {"M1": (CAP, "self.cap(repo, fixed + extra)", c3),                    
            "M2": (ONE, ONE + "\n        self.table or self.default_refs(repo)", c1),                             # 실재 확인 ls-remote 를 따로 한 번 더(2회)
            "M3": (CAP, "self.cap(repo, [n for n in (fixed + extra)[:kf.CAP] if n in fixed or n in seen])", c4),   # 거르기 앞에 상한 자름
            "M4": ("if rc == 0 else set(extra)", "if rc == 0 else set()", c5b),                                     # ls-remote 실패 때 extra 를 빼고 고정 ref 만으로 신선
-           "M5": ("        self.nano_s = self.now() - at\n", '        self.spent["fetch"] += self.now() - at; self.nano_s = 0.0\n', c6),   # 나노 모으기를 fetch 시계 안에
+           "M5": ("        self.nano, self.nano_s, self.nano_dl = ({} if self.table else got), time.monotonic() - at, None\n",
+                  '        self.nano, self.nano_s, self.nano_dl = ({} if self.table else got), 0.0, None; self.spent["fetch"] += time.monotonic() - at\n', c6),   # 나노 모으기를 fetch 시계 안에
            "M6": ("        s += self.nano_s", "        s += 0", c6)}                                              # 나노 초를 s 에 안 넣음
 
 
@@ -121,6 +132,8 @@ def test_case(name, tmp_path, monkeypatch):
 @pytest.mark.parametrize("name", list(MUTANTS))
 def test_mutant(name, tmp_path, monkeypatch):   # 변이 = 사본에서만 → 그 사례 FAIL
     old, new, case = MUTANTS[name]
+    (tmp_path / "o").mkdir()
+    case(World(tmp_path / "o", monkeypatch))   # L4 대조 — 원본에서 그 사례가 먼저 통과해야 한다(사례가 원래 실패하면 변이 틀은 빈 통과)
     tree = tmp_path / "m" / "ft2"
     shutil.copytree(FT2, tree, ignore=shutil.ignore_patterns("tests", "__pycache__"))
     text = (tree / KP).read_text(encoding="utf-8")
