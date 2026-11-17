@@ -38,6 +38,9 @@
 #     H2 넘김 = 장부 좌석 칸 갱신(잠금+읽기-병합-원자 교체 · 다른 줄 보존) → 후계의 다음 retire·닫기·leak-reap 이 같은 장부로 그 작업을 본다.
 #       resume 파일(ZC_RESUME_DIR)/<좌석>.json "handed" 칸은 «보기용 사본»(판정 근거 아님).
 #     ├ 닫기·일반 reap 은 반대로 «등록한 작업도 이 좌석의 일» 로 후보에 넣어 정리하고, 끝나면 죽은 줄을 prune 한다(장부 줄이 영원히 남지 않는다).
+#   r2160 — 실행 중 h 건너뜀(모든 모드 · dry-run 포함): 내 uid 프로세스 argv 에 «/tmp/h<숫자>»·«/private/tmp/h<숫자>» 토큰(정확히 그 파일 · .out·.ran 꼬리 0) 또는 ft-hil.sh 가 있으면
+#     그 h 의 조상 · h · 자손 전부(자손 argv 에 토큰 0 이어도)가 후보에서 빠진다 = 신호 0 · 미룸 파일 0 · left 에 안 셈 — 뿌리마다 `reap-skip pid=<n> why=hil-running h=<hN>`
+#     · 끝 줄 left 앞에 ` hil=<n>`(h 수 · 1 이상일 때만 — 없으면 끝 줄 글자 그대로) · dry-run 은 `dry-run hil=<n>` · ft-seat-close 가 hil≥1 이면 WAIT rc 4.
 #   r1568 — 마지막 정지: 2회전 뒤 «한 번 더» 정지(TERM→KILL 같은 규칙 · 총 3회 상한)하고 그 재조사만 left 로 센다(짧은 git 자식 1번 = left=0 rc0 · 계속 태어나면 left≥1 rc1). KILL 직전에는 새 ps 표에서 «lstart 같음 ∧ 같은 소유 규칙 ∧ 서비스 아님» 셋 다 참일 때만 누른다(pid 재사용·주인 바뀜 = KILL 0 · `reap-skip … why=owner-changed`).
 set -uo pipefail
 USAGE="usage: $0 <좌석> [--dry-run] [--wt <워크트리>] [--orphans-only] [--defer-press] [--handover <후계>]"
@@ -219,6 +222,29 @@ def ancestors(t):   # 이 명령 자신과 조상
     anc, p = set(), os.getpid()
     while p in t and p not in anc and p > 1: anc.add(p); p = t[p][0]
     return anc
+HIL_TOK = re.compile(r"^(?:/private)?/tmp/h\d+$")   # r2160 T1 — 사람 실행 h 진입 파일 정확히(.out·.ran 꼬리 0)
+def hil_of(cmd):   # h 이름 · 아니면 ""
+    for a in cmd.split():
+        if HIL_TOK.match(a): return os.path.basename(a)
+        if os.path.basename(a) == "ft-hil.sh": return "ft-hil"
+    return ""
+HIL, HILH = {}, set()   # 건너뛴 pid → h 이름(줄은 한 번만) · 걸린 h pid(끝 줄 hil=<n>)
+def hil_tree(t, me):   # pid → (h pid, h 이름) — h 의 조상 · h · 자손 전부
+    out = {}
+    for h, r in t.items():
+        n = hil_of(r[4]) if r[2] == me else ""
+        if not n: continue
+        tree, p = desc(t, [h]) | {h}, t[h][0]
+        while p in t and p > 1 and p not in tree: tree.add(p); p = t[p][0]
+        for q in tree: out.setdefault(q, (h, n))
+    return out
+def hil_skip(cand, t, me):   # r2160 T1 — h 든 나무 = 후보에서 뺀다(신호 0) · 뿌리마다 reap-skip 1줄
+    keep = hil_tree(t, me)
+    for p in sorted(set(cand) & set(keep)):
+        h, n = keep[p]; HILH.add(h)
+        if p not in HIL and cand[p][0] != "자손": print(f"reap-skip pid={p} why=hil-running h={n}")
+        HIL[p] = n
+    return {p: v for p, v in cand.items() if p not in keep}
 def survey():
     t, pl, me = ps_table(), panes(), os.getuid()
     anc = ancestors(t)
@@ -244,7 +270,7 @@ def survey():
         if r[2] == me and (r[5] is None or r[5] == seat) and os.path.basename((r[4].split() or [""])[0]) not in PROTECT:
             if pid in svc: skip[pid] = (svc[pid], r[4])
             else: cand[pid] = ("자손", r[3], r[4])
-    return cand, t, shared, skip
+    return hil_skip(cand, t, me), t, shared, skip
 NOSIG = os.environ.get("FT_REAP_NOSIGNAL") == "1"
 try: TERMW = float(os.environ.get("FT_REAP_TERM_WAIT") or 3)   # 시험 전용 — TERM 뒤 대기 초(기본 3) · KILL 뒤 대기 = 그 1/3
 except ValueError: TERMW = 3.0
@@ -362,9 +388,10 @@ cand, tbl, shared, skip = survey()
 for p, (w, c) in sorted(skip.items()): print(f"reap-skip pid={p} why={w} cmd={c[:100]}")
 tail = " cwd=shared" if shared else ""
 dtail = " deferred=0" if defer else ""
+def hl(): return f" hil={len(HILH)}" if HILH else ""   # r2160 — h 없으면 끝 줄 글자 그대로
 if dry:
     for p, (v, _, c) in sorted(cand.items()): print(f"reap-cand pid={p} via={v} cmd={c[:100]}")
-    print(f"reap {seat} found={len(cand)} dry-run rc=0{tail}"); sys.exit(0)
+    print(f"reap {seat} found={len(cand)} dry-run{hl()} rc=0{tail}"); sys.exit(0)
 now = time.time()
 allreg = registered(tbl, os.getuid(), now)                                  # r939 H1 — 전 좌석 등록 장부(짐작 0)
 reg = {p: v for p, v in allreg.items() if v[0] == seat}                      # 이 좌석의 작업(--handover 면 위에서 이미 후계 칸으로 넘어가 비어 있다)
@@ -381,6 +408,7 @@ for p, (v, lst, c) in sorted(cand.items()):   # 등록 안 한 «끝나는 일»
 if not HAND:   # 닫기·일반 reap — 이 좌석의 등록 작업은 «이 좌석의 일» 이므로 후보에 넣고, 남의(넘겨받은) 등록 작업은 건드리지 않는다
     for p, v in reg.items():
         if p in tbl and p not in cand: cand[p] = ("등록", tbl[p][3], tbl[p][4])
+cand = hil_skip(cand, tbl, os.getuid())   # r2160 — 등록 후보로 들어온 h 나무도 신호 0
 if defer and cand and press():
     if not ddir: die("미룸 파일 경로를 못 풂 — FT_REAP_DEFER_DIR 없음 · 데이터 루트 못 풂(미룸을 적을 곳이 없으면 닫는 사건도 없다)")
     os.makedirs(ddir, exist_ok=True)
@@ -389,7 +417,7 @@ if defer and cand and press():
         for p, (v, lst, c) in sorted(cand.items()):
             print(f"reap-defer pid={p} why=press-active cmd={c[:100]}")
             fh.write(json.dumps({"pid": p, "lstart": lst, "cmd": c[:200], "via": v}, ensure_ascii=False) + "\n")
-    print(f"reap {seat} stopped=0 left=0 deferred={sum(1 for x in cand.values() if x[0] != '자손')} rc=0{tail}"); sys.exit(0)
+    print(f"reap {seat} stopped=0{hl()} left=0 deferred={sum(1 for x in cand.values() if x[0] != '자손')} rc=0{tail}"); sys.exit(0)
 ht = f" handed={hn}" if HAND else ""
 seen, again = set(), cand
 for _ in range(3):   # r1568 ① — 3회 상한: 2회전 사이에 새로 드러난 것 + 마지막 재조사에서 드러난 «짧은 git 자식 1번» 까지 한 번 더 멈추고, 그 재조사만 left 로 센다
@@ -399,5 +427,5 @@ for _ in range(3):   # r1568 ① — 3회 상한: 2회전 사이에 새로 드�
 left = sum(1 for x in again.values() if x[0] != "자손"); rc = 1 if left else 0
 for p, (v, _, c) in sorted(again.items()): print(f"reap-left pid={p} via={v} cmd={c[:100]}")
 bgf("prune")   # 끝난(죽은) 작업 줄 정리 — 넘긴 작업의 줄은 살아 있으니 그대로(후계·다음 retire 가 본다)
-print(f"reap {seat} stopped={len(seen - set(again))}{ht} left={left}{dtail} rc={rc}{tail}"); sys.exit(rc)   # stopped = 뿌리 수(자손 sleep 등은 reap-kill 줄에만)
+print(f"reap {seat} stopped={len(seen - set(again))}{ht}{hl()} left={left}{dtail} rc={rc}{tail}"); sys.exit(rc)   # stopped = 뿌리 수(자손 sleep 등은 reap-kill 줄에만)
 PY
