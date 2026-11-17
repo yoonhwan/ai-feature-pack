@@ -115,11 +115,13 @@ def _fold_refusal(refusals, rec):
             step, request = "유보", not row["requested"]
             row["requested"] = True
         row["held"], row["last"] = step == "유보", {"event": event, "next": step, "request_human": request}
+        row["open"] = True                           # r2183: 마지막 거절 뒤 해소 0 = 열림
     else:
         if event in [res["event"] for res in row["resolutions"]]:
             return refusals
         row["resolutions"] = row["resolutions"] + [{"event": event, "why": rec.get("why")}]
         row["open_retries"] += 1
+        row["open"] = False                          # r2183: 해소 = 닫힘(뒤 거절이 다시 연다)
     return dict(refusals, **{key: row})
 
 
