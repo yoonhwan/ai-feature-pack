@@ -6,6 +6,8 @@
 - 원인 1줄: keeper 60초 카드(PR #1397 · d261be1a)가 바퀴 고리를 `team_round` → `one_work` 로 옮기면서 `self.landing(team, work)` 를 `self.timed("b1", …)` 밖에서 부르게 됐다(앞 판은 `self.timed("b1", self.landing, team, work)`) → 착지 판정의 git 초가 `b1=` 에서 빠져 `other=` 로 간다 · `items=` 분모는 `positions()` 가 journal 의 모든 dispatch work 를 세는데 고리는 처리 끝난 work(`handled` · 반환 · 쉼)를 자리 진입 없이 건너뛴다
 - 앞 카드: 진행/ft2-keeper-round-60s(R10 ROUND 칸 · 가정 A1 · 완료 조건 6·7) · r1817(단계별 초) · r1969(slow 칸)
 - 상태: 대기
+- 착지: cf2a00ec(팩 main · PR #1513 · squash · 승인 head 4ca226e14922d58e580f490b1b7e0e27f4fbfc1b · 팀장 재실행 round_cells+round_60s 64 passed 11.2s)
+- DA 판정: APPROVE-IMPL 3/3 BYZ 326406(aifp 6035 · 앞 HOLD 1/3 326273 · 2/3 326352 · 사본 .fable-team/state/team-main/aifp-ft/DA-round-cells-impl-approve-326406/verdict.md · 알려진 한계 = b2_split_cache_r1969 ② main 같은 1 failed)
 - 설치: 있음 — ft2 판 올림 1회 · 되돌림 = 앞 판으로 판 전환(상태 파일·설정 변화 0)
 - 선행: 없음(팩 origin/main e95184f0)
 - 시험 입력: 임시 루트(tmp_path) · 시험 안에서 만든 journal·카드 · 가짜 tmux·가짜 mbox·가짜 git(걸린 초를 가짜 시계로 더함) · 주입 시계 · sleep 0 · 네트워크 0 · 실 runtime 0 · test_keeper_round_60s.py 의 Rig 을 그대로 쓴다 · 사례 1개 70초 안
