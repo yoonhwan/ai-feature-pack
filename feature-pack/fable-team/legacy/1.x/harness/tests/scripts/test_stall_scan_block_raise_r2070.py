@@ -364,7 +364,7 @@ def test_3_to_10_cases(case, tmp_path, blk, monkeypatch, capfd):
 def test_3_record_notify_returns_line(tmp_path, blk, monkeypatch):
     stub, calls = blk
     monkeypatch.setenv("FT_BLOCK_BIN", str(stub))
-    assert c_rn99(tmp_path, monkeypatch) == [[f"{STAMP} 판정 불가 record-notify rc=99"]]
+    assert c_rn99(tmp_path, monkeypatch) == [[f"{STAMP} 판정 불가 record-notify rc=99 — 멎은 곳: 표식 없음"]]   # r2175 N6
 
 
 def test_6_same_head_no_close_no_block(tmp_path, blk, monkeypatch):
