@@ -8,7 +8,7 @@ set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 LIB="${FT_HARNESS_ROOT_LIB:-$HERE/../bin/ft-harness-root.sh}"
 TOOL="${FT_DISK_RECLAIM_BIN:-$HERE/../bin/ft-disk-reclaim.sh}"
-W="$(mktemp -d "${TMPDIR:-/tmp}/r2242.XXXXXX")"; W="${W%/}"; W="${W//\/\//\/}"; trap 'git -C "$W/rA" worktree unlock "$W/wts/lk" 2>/dev/null; rm -rf "$W"' EXIT
+W="$(mktemp -d "${TMPDIR:-/tmp}/r2242.XXXXXX")"; W="$(printf '%s' "$W" | tr -s /)"; W="${W%/}"; trap 'git -C "$W/rA" worktree unlock "$W/wts/lk" 2>/dev/null; rm -rf "$W"' EXIT
 fail=0; T0=$SECONDS
 chk() { if [ "$2" = "$3" ]; then echo "PASS $1"; else echo "FAIL $1 (got=[$2] want=[$3])"; fail=$((fail+1)); fi; }
 echo "INFO W=$W"
