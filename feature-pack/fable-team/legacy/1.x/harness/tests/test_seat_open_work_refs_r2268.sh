@@ -70,6 +70,17 @@ printf '*\t.\torigin/main\tdesign/teams/\377/indices\n' > "$R/.fable-team/state/
 run_tool 'byz-ccu-nano-x#0' "$R"
 { [ "$RC" = 3 ] && printf '%s' "$OUT" | grep -q '^OPEN-WORK 불가 '; } && ok "③ⓔ 표 읽기 실패 → rc3" || bad "③ⓔ rc=$RC out=$OUT"
 
+# ③ⓕ 표 ref 일부만 있음(ops 미fetch 클론 · main 만) → rc3 «카드 ref 판독»(그 행 작업 트리로 안 내려감 · DA#27 #340140 ①)
+world; branch main "$KEEP"; clone
+mkdir -p "$R/design/harness/indices/진행"; printf -- '- 상태: 진행\n' > "$R/design/harness/indices/진행/old.md"
+run_tool 'byz-harness-master-pi#1' "$R"
+{ [ "$RC" = 3 ] && printf '%s' "$OUT" | grep -q '^OPEN-WORK 불가 이유=카드 ref 판독'; } && ok "③ⓕ 표 ref 일부만 → rc3 카드 ref 판독" || bad "③ⓕ rc=$RC out=$OUT"
+# ③ⓖ 표 2칸(리포)이 «.» 아님 = <root>/<2칸> 리포에서 읽음(DA#27 #340140 ②)
+world; branch main 'design/teams/ccu/indices/진행/a.md=- 배정: 좌석 byz-ccu-nano-x#3'; branch ops/main-base "$HKEEP"
+G="$T/g.$RANDOM"; mkdir -p "$G/.fable-team/state"; git clone -q "$O" "$G/cards" 2>/dev/null; rm -f "$G/cards/design/teams/ccu/indices/진행/a.md"
+printf '*\tcards\torigin/main\tdesign/teams/*/indices\n' > "$G/.fable-team/state/directive-roots.tsv"
+run_tool 'byz-ccu-nano-x#0' "$G"
+{ [ "$RC" = 1 ] && printf '%s' "$OUT" | grep -q '^OPEN-WORK 있음 이유=배정 1 (a.md)$'; } && ok "③ⓖ 표 2칸 cards → <root>/cards 리포 ref 읽음" || bad "③ⓖ rc=$RC out=$OUT"
 # ④ 루트가 git 리포 아님 → 작업 트리 꼴 그대로 · ④b 리포 안 하위 폴더도 루트 리포 아님(위로 올라가 남의 ref 를 읽지 않음)
 P="$T/plain"; mkdir -p "$P/design/teams/ccu/indices/진행"; printf -- '- 상태: 진행\n' > "$P/design/teams/ccu/indices/진행/x.md"
 run_tool "$LEAD" "$P"
