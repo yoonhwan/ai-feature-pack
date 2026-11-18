@@ -7,7 +7,7 @@ import glob, json, os, pathlib, re, shutil, subprocess, sys
 NOT_WORK = ("[처리", "[다음 없음", "[알림", "[정리")
 ASSIGN = re.compile(r"^-\s*배정:\s*좌석\s+([A-Za-z0-9._#-]+)", re.M)
 NAME = re.compile(r"^[A-Za-z0-9._#-]+$")
-REFS, IDX = ("origin/ops/main-base", "origin/main"), re.compile(r"design/(?:teams/)?[^/]+/indices/")   # 카드 ref = keeper_land.REFS 순서(r2268) · ★두 꼴★ design/<팀>/ · design/teams/<팀>/ (DA r1539 R2)
+IDX = re.compile(r"design/(?:teams/)?[^/]+/indices/")   # ★두 꼴★ design/<팀>/ · design/teams/<팀>/ (DA r1539 R2)
 
 def rk(name):   # 좌석 계보 = «#» 앞 이름
     return re.sub(r"#\d+$", "", name or "")
@@ -77,14 +77,14 @@ def intake(root, tm, seat):   # r2076 E5·E6 — 팀장 빈 2.0 팀의 사슬 �
         return 3, "접수 판독", ""
     return (1, "접수 남은 일 %d" % n, "") if n else None
 
-def cards_of(root):   # r2268 (indices · 진행 폴더 · {진행 카드: 본문}) 상대 경로 — 카드 ref 가 있으면 그 합집합만(C1 · 같은 경로 = REFS 앞 ref) · 없으면 작업 트리(C2) · git 실패·7초 = SubprocessError(C3 · 작업 트리로 안 내려감)
-    git = lambda *a, ok=False: subprocess.run(["git", "-C", root] + list(a), capture_output=True, timeout=7, check=not ok, env=dict(os.environ, GIT_CEILING_DIRECTORIES=os.path.dirname(os.path.abspath(root))))   # 1회 7초 · 재시도 0 · fetch 0 · 루트 위 리포 ref 0
-    refs = [r for r in REFS if shutil.which("git") and git("rev-parse", "-q", "--verify", r + "^{commit}", ok=True).returncode == 0]   # git 없음·리포 아님 = ref 0
-    seen = {os.path.relpath(p, root) + "/" * os.path.isdir(p): "" for b in ("design/*/indices", "design/teams/*/indices") for s in ("", "/진행", "/진행/*.md") for p in ([] if refs else glob.glob(os.path.join(root, b + s)))}
-    [seen.setdefault(p, r) for r in refs for p in git("ls-tree", "-r", "-z", "--name-only", r, "--", "design").stdout.decode().split("\0")]
+def cards_of(root):   # r2268 (indices · 진행 폴더 · {진행 카드: 본문}) 상대 경로 — 카드 루트 표(directive-roots.tsv · keeper_next cards() 같은 읽기)의 행마다 정본 ref 1개만(C1 · «*» 행은 자기 행 있는 팀 뺌 · 표 밖 루트 0) · 표·ref 없음 = 작업 트리(C2 · 표 읽기 실패 = OSError·ValueError) · git 실패·7초 = SubprocessError(C3 · 작업 트리로 안 내려감)
+    git = lambda d, *a, ok=False: subprocess.run(["git", "-C", d] + list(a), capture_output=True, timeout=7, check=not ok, env=dict(os.environ, GIT_CEILING_DIRECTORIES=os.path.dirname(os.path.abspath(d))))   # 1회 7초 · 재시도 0 · fetch 0 · 루트 위 리포 ref 0
+    rows = [x for x in (y.split("\t") for y in t.read_text(encoding="utf-8").splitlines() if not y.startswith("#")) if len(x) >= 4 and shutil.which("git") and git(os.path.join(root, x[1]), "rev-parse", "-q", "--verify", x[2] + "^{commit}", ok=True).returncode == 0] if (t := pathlib.Path(root, ".fable-team", "state", "directive-roots.tsv")).is_file() else []   # ref 없는 행 = 0
+    seen = {os.path.relpath(p, root) + "/" * os.path.isdir(p): "" for b in ("design/*/indices", "design/teams/*/indices") for s in ("", "/진행", "/진행/*.md") for p in ([] if rows else glob.glob(os.path.join(root, b + s)))}
+    [seen.setdefault(p, (os.path.join(root, x[1]), x[2])) for x in rows for p in git(os.path.join(root, x[1]), "ls-tree", "-r", "-z", "--name-only", x[2], "--", x[3].split("*")[0]).stdout.decode().split("\0") if (m := re.match(re.escape(x[3]).replace(r"\*", "([^/]+)") + "/", p)) and not (m.groups() and m.group(1) in {y[0] for y in rows})]
     ms = [m for m in map(IDX.match, seen) if m]
     dirs = {m.group(0) + "진행" for m in ms if m.string.startswith(m.group(0) + "진행/")}
-    read = lambda p: git("cat-file", "blob", "%s:%s" % (seen[p], p)).stdout.decode() if refs else pathlib.Path(root, p).read_text(encoding="utf-8")
+    read = lambda p: git(seen[p][0], "cat-file", "blob", "%s:%s" % (seen[p][1], p)).stdout.decode() if rows else pathlib.Path(root, p).read_text(encoding="utf-8")
     return sorted({m.group(0)[:-1] for m in ms}), dirs, {p: read(p) for p in sorted(seen) if os.path.dirname(p) in dirs and re.match(r"[^.].*\.md$", os.path.basename(p))}
 
 def verdict(seat, root, mdir):
