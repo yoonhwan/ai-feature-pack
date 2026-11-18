@@ -1,13 +1,14 @@
 # 인덱스: ft2-keeper-ungraded-team-rest — 끝: 한 팀의 팀 자리(work 밖)에서 git 이 7초를 넘어도 그 바퀴의 뒤 팀이 그대로 돈다 · 끊기지 않은 바퀴(cut=-)의 ROUND items 가 N/N 이다
 <!-- ledger: feature-pack/fable-team/legacy/1.x/harness/design/harness/GOAL-harness.md -->
-- Issue: 없음(초안) — 설치 뒤 실측 aifp 6067(진행/ft2-keeper-round-cells-b1-items 조건 6 [ ]) · 팀장 aifp-ft-master-pi#24 발주 aifp 6068 ㉠
+- Issue: #9321 — 설치 뒤 실측 aifp 6067(진행/ft2-keeper-round-cells-b1-items 조건 6 [ ]) · 팀장 aifp-ft-master-pi#24 발주 aifp 6068 ㉠
 - 제안서: 없음 — keeper 1곳 고침 · 설계 = 이 카드 «계약»
 - 근거: 실측 2026-11-18 12:55(aifp-ft-arch-pi#24 · BYZ .fable-team/state/ft2-keeper/2026111[78].jsonl · 11-17 14:50:06 ~ 11-18 12:55:39 ROUND 1012줄 · 읽기만 · 셈 = .fable-team/state/team-main/aifp-ft/A24-keeper-measure/) + 코드 읽기(팩 origin/main 14d7677f · feature-pack/fable-team/ft2/adapters/pi/keeper.py) — 아래 «읽은 것» 절
 - 원인 1줄: keeper.py :147~149 가 로컬 git 7초 넘음에 `Ungraded` 를 던진다 · work 안에서 난 것은 :587 이 받아 «다음 자리» 로 간다 · 팀 자리(`at_work` = `-` · 예: b2f 의 merge-base · ls-tree)에서 난 것은 받는 곳이 팀 고리(:502 `for team in self.order[skip:]`) 밖의 :520 `except Ungraded: pass` 하나뿐이다 → 그 팀의 남은 자리뿐 아니라 뒤 팀 전부와 b3 가 이 바퀴에서 돌지 않는다 · `self.cut` 은 `-` 그대로라 :522 가 cursor 를 지우고 ROUND 는 `cut=-` 인데 items 가 N/N 이 아니다(:520 주석 «그 자리 남은 판정 0 · 다음 자리» 와 동작이 다르다)
 - 앞 카드: 진행/ft2-keeper-round-60s(PR #1397 · R7 git 7초 · R10 items) · 진행/ft2-keeper-round-cells-b1-items(PR #1513 · items 분모)
 - 상태: 대기
+- DA 판정: APPROVE-DESIGN 2/3 aifp 6084(사본 .fable-team/state/team-main/aifp-ft/DA-ungraded-team-rest-design-approve/verdict-6084.txt) · 승인 sha 6048e40b · 앞 반례 사라짐 · 새 반례 0 · 메모 1개 = 52바 를 무는 변이(M137) 반영(구현 승인 아님)
 - 설치: 있음 — ft2 판 올림 1회 · 되돌림 = 앞 판으로 판 전환(상태 파일·설정 변화 0)
-- 선행: 없음(팩 origin/main 14d7677f)
+- 선행: 없음(팩 origin/main 14d7677f) · 대기/ft2-keeper-nano-cut-blank-cell 과 같은 파일(keeper.py)의 다른 줄(순서 무관 · 뒤에 착지하는 쪽이 rebase)
 - 시험 입력: 60초 카드 시험 대역 그대로(임시 루트 · 주입 시계 · 가짜 subprocess.run · 실 runtime 0 · 네트워크 0 · sleep 0 · 사례 1개 70초 안)
 - 기준값: 22시간 ROUND 1012줄 가운데 끊기지 않은 줄(cut=-) 910 · 그중 items 가 N/N 이 아닌 줄 24 = 모두 그 바퀴 안에 «판정 불가 <팀> - git 7초 넘음» 이 있다 · 그 꼴의 판정 불가 줄 27(work 이름이 붙은 것 11은 :587 이 받아 문제없음) → 목표 = 그 꼴 바퀴에서도 뒤 팀이 돌고 cut=- 줄의 items 는 N/N
 - 규칙: 없음 — 상시 로드 변경 0
@@ -15,7 +16,7 @@
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/pi/keeper.py(바퀴 팀 고리 :502~506 근처 1곳) · feature-pack/fable-team/ft2/tests/test_keeper_round_60s.py 또는 새 시험 1파일 · CASES.md 1줄
 - 정본 영향 없음: aifp 정본 변경 0 · ft2 CONTRACT.md 의 R7 글(«그 자리 남은 판정 0 · 다음 자리»)은 그대로 = 코드를 글에 맞춘다
 - 크기: 코드 1파일 3줄 안팎 · 시험 1파일 · PR 1개
-- 배정: 대기(DA · 2026-11-18T13:01)
+- 배정: 대기(석 · 2026-11-18T13:46)
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -56,11 +57,11 @@ keeper 는 한 바퀴에 팀을 이름순으로 돈다. 로컬 git 호출이 7�
 | 52마 | 7초 넘음 없음 | ROUND 줄 · 판정 줄이 고치기 앞 판과 바이트 같음 | 같음 |
 | 52바 | b3o 에서 git 7초 넘음 | b3r 가 돈다(T4) | b3r 0 |
 
-변이(M130 은 뺐다 = b2f 원천에서는 등가 변이 · DA aifp 6071): M129 받는 곳을 팀 고리 밖에 그대로 둠 → 52가·52다 / M131 `Ungraded` 를 `Cut` 처럼 다뤄 cursor 를 남김 → 52다 / M132 `Cut` 까지 삼켜 뒤 팀을 돎 → 52라
+변이(M130 은 뺐다 = b2f 원천에서는 등가 변이 · DA aifp 6071): M129 받는 곳을 팀 고리 밖에 그대로 둠 → 52가·52다 / M131 `Ungraded` 를 `Cut` 처럼 다뤄 cursor 를 남김 → 52다 / M132 `Cut` 까지 삼켜 뒤 팀을 돎 → 52라 / M137 b3o 갈래의 `Ungraded` 를 받는 곳을 뺌(팀 고리만 고침) → 52바
 
 ## 구현 범위 (나노 1 · 팩 base origin/main 최신 · DA 설계 승인 뒤)
 1. 먼저 잰다(고침 0): BYZ keeper 로그에서 «판정 불가 - - git 7초 넘음» 꼴 줄 수(T4) · 팀 자리 Ungraded 가 난 칸 분포(b2f · stall · b1) 1줄
-2. 커밋 1 [test] — 52가~바 · 변이 M129 · M131 · M132 · 기준판 FAIL 원문(52가 · 52나 · 52다)
+2. 커밋 1 [test] — 52가~바 · 변이 M129 · M131 · M132 · M137 · 기준판 FAIL 원문(52가 · 52나 · 52다)
 3. 커밋 2 [fix] — keeper.py T1 · T2 · CASES.md 1줄
 4. 회귀 = test_keeper_round_60s.py · test_keeper_round_cells.py · test_keeper_git_no_lazy_fetch.py(파일별 초) · 실행 = `python3.11 -m pytest`(ft-test-slot) · git stash 쓰지 않는다 · 착지 = 카드 docs PR(세트 줄) 먼저 → 코드 PR(팀장 집행)
 
@@ -73,7 +74,7 @@ keeper 는 한 바퀴에 팀을 이름순으로 돈다. 로컬 git 호출이 7�
 ## 완료 조건
 1. [ ] 나노: 구현 범위 1 의 잰 값 1줄
 2. [ ] 나노: 기준판 FAIL 원문(52가 · 52나 · 52다)
-3. [ ] 나노: 새 시험 전체 rc0 · 걸린 초 · 변이 M129 · M131 · M132 지정 반례 FAIL
+3. [ ] 나노: 새 시험 전체 rc0 · 걸린 초(사례 1개 70초 안 · 하드 룰 22) · 변이 M129 · M131 · M132 · M137 지정 반례 FAIL
 4. [ ] 나노: 회귀 rc0(파일별 초)
 5. [ ] 팀장: PR 착지 sha · 설치 판
 6. [ ] arch: 설치 뒤 읽기 실측 = BYZ keeper 로그 ROUND 200줄 이상(양 끝 시각)에서 cut=- 줄의 items 가 모두 N/N · «판정 불가 <팀> - git 7초 넘음» 이 있는 바퀴 수와 그 바퀴의 items 원문 2줄 · 아닌 줄이 있으면 원문과 함께 [ ]
@@ -85,8 +86,9 @@ keeper 는 한 바퀴에 팀을 이름순으로 돈다. 로컬 git 호출이 7�
 | T1 뒤 팀이 돈다 | 52가 · 52나 · 52다 · M129 |
 | T2 남은 자리 0 · 분모 손 0 | 52가(items N/N) |
 | T3 Cut·cursor 그대로 | 52다 · 52라 · 52마 · M131 · M132 |
-| T4 b3 | 52바 |
+| T4 b3 | 52바 · M137 |
 
 ## 상태
 - 2026-11-18 13:01 · 대기 — aifp-ft-arch-pi#24 초안(팀장 aifp 6068 ㉠ · 실측 aifp 6067 · 읽기만 · 시험·코드 손 0) · 원인 = 팀 자리 Ungraded 를 받는 곳이 팀 고리 밖(:520) · 다음 = 팀장 PR merge → DA 설계 → Issue → 나노 1석
 - 2026-11-18 13:42 · 대기 — aifp-ft-arch-pi#25 보정(DA 설계 A HOLD 1/3 aifp 6071 · 팀장 발주 aifp 6072 + 덧 6074) · T2 를 «원천 = b2f 뿐 → 남은 자리 0 · 분모 손 0» 으로 줄임 · M130 뺌 · T4 문장 고침 · report() 안 Ungraded = 범위 밖 1줄 · T1 · T3 · M131 · M132 손 0 · 다음 = 팀장 DA 설계 2/3
+- 2026-11-18 13:46 · 대기 — aifp-ft-arch-pi#25 머리 줄(팀장 aifp 6085) · Issue #9321 · DA 판정 APPROVE-DESIGN 2/3 aifp 6084 · 배정 = 대기(석) · DA 메모 반영 = M137(b3o 갈래 받는 곳 뺌 → 52바) · 완료 조건 3 에 70초 안 · 선행 줄에 rebase 1줄 · 다음 = 팀장 착지 → 나노 1석

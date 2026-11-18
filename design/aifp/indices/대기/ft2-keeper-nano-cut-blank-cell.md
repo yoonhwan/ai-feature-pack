@@ -1,11 +1,12 @@
 # 인덱스: ft2-keeper-nano-cut-blank-cell — 끝: 나노 가지 모으기가 7초에 끊겨도 ROUND 의 cut 칸에 빈 자리 이름(`-:-:-`)이 찍히지 않는다 · cut 칸은 업무 구획이 실제로 끊긴 자리만 말한다
 <!-- ledger: feature-pack/fable-team/legacy/1.x/harness/design/harness/GOAL-harness.md -->
-- Issue: 없음(초안) — 설치 뒤 실측 aifp 6067(진행/ft2-keeper-round-60s 조건 7 [ ]) · 팀장 aifp-ft-master-pi#24 발주 aifp 6068 ㉡ · 앞 인계서 «볼 것» 8(11-16 09:15:47 `-:-:-` 1줄)
+- Issue: #9322 — 설치 뒤 실측 aifp 6067(진행/ft2-keeper-round-60s 조건 7 [ ]) · 팀장 aifp-ft-master-pi#24 발주 aifp 6068 ㉡ · 앞 인계서 «볼 것» 8(11-16 09:15:47 `-:-:-` 1줄)
 - 제안서: 없음 — keeper 1곳 고침 · 설계 = 이 카드 «계약»
 - 근거: 실측 2026-11-18 12:55(aifp-ft-arch-pi#24 · BYZ .fable-team/state/ft2-keeper/2026111[78].jsonl · 11-17 14:50:06 ~ 11-18 12:55:39 ROUND 1012줄 · 읽기만 · 셈 = .fable-team/state/team-main/aifp-ft/A24-keeper-measure/) + 코드 읽기(팩 origin/main 14d7677f · feature-pack/fable-team/ft2/adapters/pi/keeper.py) — 아래 «읽은 것» 절
 - 원인 1줄: 나노 가지 모으기(keeper.py :471~478) 동안에는 `left()` 가 나노 7초 끝(`nano_dl`)까지만 남은 몫으로 준다(:203~204) · 그 몫이 다하면 `call` 이 :126 · :130 에서 `raise self.cut_at()` 을 던지고, `cut_at`(:208~213)은 던지기 앞에 `self.cut_pos` 와 `self.cut` 을 쓴다 · 이때는 팀 밖이라 `self.at` = None · `at_work` = `-` · 칸 = `-` → `self.cut = "-:-:-"` · :476 `except Cut:` 은 `nano_cut = True` 만 하고 그 두 값을 되돌리지 않는다 → 업무 구획이 끝까지 돌아도 ROUND 는 `cut=-:-:-` 이고 :522 `if self.cut == "-"` 가 거짓이라 cursor 도 지워지지 않는다
 - 앞 카드: 진행/ft2-keeper-round-60s(PR #1397 · R3·R4 끊긴 자리 · R6 나노 7초 · R10 ROUND cut 칸)
 - 상태: 대기
+- DA 판정: APPROVE-DESIGN 2/3 aifp 6083(사본 .fable-team/state/team-main/aifp-ft/DA-nano-cut-blank-cell-design-approve/verdict-6083.txt) · 승인 sha 6048e40b · 앞 반례 사라짐 · 새 반례 0(구현 승인 아님)
 - 설치: 있음 — ft2 판 올림 1회 · 되돌림 = 앞 판으로 판 전환(상태 파일·설정 변화 0)
 - 선행: 없음(팩 origin/main 14d7677f) · 대기/ft2-keeper-ungraded-team-rest 와 같은 파일의 다른 줄(순서 무관 · 뒤에 착지하는 쪽이 rebase)
 - 시험 입력: 60초 카드 시험 대역 그대로(임시 루트 · 주입 시계 · 가짜 subprocess.run · 실 runtime 0 · 네트워크 0 · sleep 0 · 사례 1개 70초 안)
@@ -15,7 +16,7 @@
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/pi/keeper.py(:476 `except Cut:` 갈래 1곳) · feature-pack/fable-team/ft2/tests/test_keeper_round_60s.py 또는 새 시험 1파일 · CASES.md 1줄
 - 정본 영향 없음: aifp 정본 변경 0 · ft2 CONTRACT.md 변경 0(R10 «cut = 끊긴 자리» 글에 코드를 맞춘다)
 - 크기: 코드 1파일 1~2줄 · 시험 1파일 · PR 1개
-- 배정: 대기(DA · 2026-11-18T13:01)
+- 배정: 대기(석 · 2026-11-18T13:46)
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -70,7 +71,7 @@ keeper ROUND 줄의 cut 칸은 «예산이 다해 업무 구획이 끊긴 자리
 
 ## 완료 조건
 1. [ ] 나노: 기준판 FAIL 원문(53가 · 53나 · 53라)
-2. [ ] 나노: 새 시험 전체 rc0 · 걸린 초 · 변이 M133~M136 지정 반례 FAIL
+2. [ ] 나노: 새 시험 전체 rc0 · 걸린 초(사례 1개 70초 안 · 하드 룰 22) · 변이 M133~M136 지정 반례 FAIL
 3. [ ] 나노: 회귀 rc0(파일별 초)
 4. [ ] 팀장: PR 착지 sha · 설치 판
 5. [ ] arch: 설치 뒤 읽기 실측 = BYZ keeper 로그 ROUND 200줄 이상(양 끝 시각)에서 `cut=-:-:-` 0줄 · 그 구간의 «나노 가지 모으기 7초 넘음» 줄 수(0 이면 줄 수가 찰 때까지 [~] = 끊긴 바퀴가 있어야 본 것이다)와 그 바퀴 ROUND 원문 2줄
@@ -88,3 +89,4 @@ keeper ROUND 줄의 cut 칸은 «예산이 다해 업무 구획이 끊긴 자리
 ## 상태
 - 2026-11-18 13:01 · 대기 — aifp-ft-arch-pi#24 초안(팀장 aifp 6068 ㉡ · 실측 aifp 6067 · 읽기만 · 시험·코드 손 0) · 원인 = 나노 모으기 Cut 이 cut_at 으로 `self.cut` 을 쓰고 :476 이 되돌리지 않음(37줄 전부 나노 7초 바퀴) · 다음 = 팀장 PR merge → DA 설계 → Issue → 나노 1석
 - 2026-11-18 13:42 · 대기 — aifp-ft-arch-pi#25 보정(DA 설계 B HOLD 1/3 aifp 6075 · 팀장 발주 aifp 6080) · N1 = «:476 갈래를 나올 때 self.cut = -» 로 줄임(cut_pos 는 계약·시험 대상 아님) · M134 = «되돌림을 ROUND 줄 바로 앞에서만» 으로 바꿈 · 다른 칸 손 0 · 다음 = 팀장 DA 설계 2/3
+- 2026-11-18 13:46 · 대기 — aifp-ft-arch-pi#25 머리 줄(팀장 aifp 6085) · Issue #9322 · DA 판정 APPROVE-DESIGN 2/3 aifp 6083 · 배정 = 대기(석) · 완료 조건 2 에 70초 안 · 다음 = 팀장 착지 → 나노 1석
