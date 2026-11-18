@@ -4,7 +4,7 @@ import time   # r2213 — batched 칸(시계 · 로컬 시각)
 from mbox_conf import *
 from mbox_store import _check_name, _legacy_dirs, _load, _locked
 from mbox_ops import _lineage   # recv·peek 같은 계보 칸(r1854)
-from mbox_lineage import takeable   # recv(claim)와 같은 거르개 함수(r2146 K1)
+from mbox_lineage import takeable, self_wake   # recv(claim)와 같은 거르개 함수(r2146 K1) · 자기 [깨움](r2259)
 CANON = None   # mbox.py 가 묶는다
 
 
@@ -15,14 +15,14 @@ def _int(w):   # r2213 — JS Number.isInteger 와 같은 칸(참거짓·글자�
 def _batched(rows, me):
     """r2213 — 묶음 대기 칸 « batched=<수> wake=<HH:MM>» | "" · 확장 ft-mbox-wake.ts check() 와 같은 칸.
 
-    rows = 정본 우편함 행 · 셈 = to == me ∧ from ≠ me(확장 mine()) · 8통 이상 = 0(ⓔ) ·
+    rows = 정본 우편함 행 · 셈 = to == me ∧ (from ≠ me ∨ 자기 [깨움] · r2259)(확장 mine()) · 8통 이상 = 0(ⓔ) ·
     묶음 = wake_at 정수 ∧ 0 이상 ∧ 지금+3600초 이하(wakeOk) ∧ 지금보다 미래 · 지금 = FT_MBOX_NOW | 시스템 시각.
     """
     try:
         now = int(float(os.environ.get("FT_MBOX_NOW") or time.time()) // 1)
     except ValueError:
         return ""
-    own = [r for r in rows if r.get("to") == me and r.get("from") != me]
+    own = [r for r in rows if r.get("to") == me and (r.get("from") != me or self_wake(r, me))]
     if len(own) >= 8:
         return ""
     held = [r["wake_at"] for r in own if _int(r.get("wake_at")) and 0 <= r["wake_at"] <= now + 3600 and r["wake_at"] > now]
