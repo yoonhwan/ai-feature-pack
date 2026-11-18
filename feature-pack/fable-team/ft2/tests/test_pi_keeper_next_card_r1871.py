@@ -103,9 +103,9 @@ def c2b(w, mp=None):  # ②′ r2271 C2 같은 날 지문이 바뀌는 [다음 �
         kw._put(w.state / "card-assign" / (stem + ".json"), {"state": "waiting", "reason": "사람", "since": 1.0})
         close(w, work)
         w.t += 60   # 같은 날 안
-        w.round()
+        lines = w.round()
         assert len(notes(w)) == min(i + 2, 3), (i, notes(w))
-    assert launched(w) == []
+    assert sum(x.startswith("NEXT-NONE-MUTE harness") for x in lines) == 1 and launched(w) == [], lines   # 4번째 = 로그 1줄 · 쪽지 0
 def c3(w, mp=None):   # ③ 표식 없음 → 다음 카드 0 · RECEIPT-HOLD
     assert any(x.startswith("RECEIPT-HOLD harness %s" % W1) for x in w.round())
     assert count(w, "accept", B) == 0 and launched(w) == [] and notes(w) == []
