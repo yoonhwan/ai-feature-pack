@@ -2,7 +2,7 @@
 # test_merge_land_card_only_pr_r2248.sh — r2248: 카드 파일(design/**/indices/**)만 바꾼 PR 을 ft-merge-land 가 합치면 카드 «- 착지:» 줄 0 · 장부 카드 짝 0 · 나노 닫기 줄 0
 #   세계 A = test_merge_land_card_land_line_r2034 꼴(코드 리포 W + 카드 ref 리포 cards.git ops/main-base · gh 스텁 · bin 사본) — ① ③ ④ ⑤ ⑦ + ② 장부 행
 #   세계 B = _nano_record_r1717_fixture(가짜 명부·mbox·tmux) — ② 나노 기록 due(별 프로세스 `--due` · 변수 섞임 0)
-#   FT_R2248_BIN = 시험할 bin(기본 추적본 · 기준판·변이 사본) · FT_R2248_ONLY = 돌릴 사례(c1 c2 c3 c4 c5 c7 · 빈 값 = 전부 + 기준판 + 변이)
+#   FT_R2248_BIN = 시험할 bin(기본 추적본 · 기준판·변이 사본) · FT_R2248_ONLY = 돌릴 사례(c1 c2 c3 c4 c5 c7 · 빈 값 = 전부) · 기준판 Red·변이 M1~M3 = 짝 시험 test_merge_land_card_only_pr_mut_r2248.sh(70초 상한 · 쪼갬)
 #   실 좌석·실 리포·실 gh·네트워크 0 · sleep 0
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
 set -uo pipefail
@@ -29,20 +29,23 @@ export FT_AUTONOMY_LEVEL=each FT_CRITICAL_OFF=1
 fail=0; rc=0; out=""; T0=$SECONDS
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:700}"; fail=$((fail+1)); fi; }
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
-mkrepo "$T"; mkdir -p "$T/state"; ghremote "$W" "$ORIGIN" o/w   # r1746: 원장 루트(카드 리포) ≠ 착지 리포 = github 꼴 원격 필요(전송은 가짜 ssh → 로컬 bare)
-CB="$T/cards.git"; C="$T/croot"; IX="design/harness/indices"; LEDGER="$C/.fable-team/state/land-record-turn.jsonl"
-git init -q --bare -b ops/main-base "$CB"; git clone -q "$CB" "$C" 2>/dev/null; git -C "$C" checkout -q -b ops/main-base
-git -C "$C" config user.name t; git -C "$C" config user.email t@t; git -C "$C" config commit.gpgsign false
-mkdir -p "$C/$IX/대기" "$C/$IX/진행" "$C/$IX/완성" "$C/.fable-team/state"
-printf 'harness\t.\torigin/ops/main-base\t%s\n' "$IX" > "$C/.fable-team/state/directive-roots.tsv"
-printf '/.fable-team/\n' >> "$(git -C "$C" rev-parse --git-path info/exclude | sed "s|^\.git|$C/.git|")"
-printf '# 대기 카드\n\n## 상태\n- 대기\n' > "$C/$IX/대기/r9000-wait.md"; cm "$C" seed && git -C "$C" push -q origin ops/main-base
-export FT_ROOT="$C" FT_AUTONOMY_STATE_DIR="$T/state" FT_GH="$T/gh-stub" FT_GH_WRITE="$T/gh-stub" STUB_LOG="$T/gh.log" STUB_JSON="$T/pr.json" FT_INSTALL_CHECK="$T/install-stub"
-printf '#!/bin/bash\necho "$*" >> "$STUB_LOG"\n[ "$1 $2" = "pr view" ] && { cat "$STUB_JSON"; exit 0; }\nexit 0\n' > "$T/gh-stub"
-printf '#!/bin/bash\necho "OK n=1 (r2248 stub)"\nexit 0\n' > "$T/install-stub"; chmod +x "$T/gh-stub" "$T/install-stub"
-FIXB="$T/bin"; cp -R "$BIN" "$FIXB"; rm -rf "$FIXB/__pycache__"
-printf '#!/bin/bash\nexit 0\n' > "$FIXB/ft-head-lag.sh"; printf '#!/bin/bash\nexit 0\n' > "$FIXB/ft-nano-record.sh"
-mkdir -p "$T/gitw"; printf '#!/bin/bash\ncase " $* " in *" diff --no-renames --name-only -z "*) [ -z "${FT_R2248_DIFF_FAIL:-}" ] || { echo "r2248 stub diff fail" >&2; exit 128; };; esac\nexec "%s" "$@"\n' "$(command -v git)" > "$T/gitw/git"; chmod +x "$T/gitw/git"
+worlda() {  # 세계 A 준비(①③④⑤⑦ 을 돌릴 때만 · ② 만이면 0)
+  mkrepo "$T"; mkdir -p "$T/state"; ghremote "$W" "$ORIGIN" o/w   # r1746: 원장 루트(카드 리포) ≠ 착지 리포 = github 꼴 원격 필요(전송은 가짜 ssh → 로컬 bare)
+  CB="$T/cards.git"; C="$T/croot"; IX="design/harness/indices"; LEDGER="$C/.fable-team/state/land-record-turn.jsonl"
+  git init -q --bare -b ops/main-base "$CB"; git clone -q "$CB" "$C" 2>/dev/null; git -C "$C" checkout -q -b ops/main-base
+  git -C "$C" config user.name t; git -C "$C" config user.email t@t; git -C "$C" config commit.gpgsign false
+  mkdir -p "$C/$IX/대기" "$C/$IX/진행" "$C/$IX/완성" "$C/.fable-team/state"
+  printf 'harness\t.\torigin/ops/main-base\t%s\n' "$IX" > "$C/.fable-team/state/directive-roots.tsv"
+  printf '/.fable-team/\n' >> "$(git -C "$C" rev-parse --git-path info/exclude | sed "s|^\.git|$C/.git|")"
+  printf '# 대기 카드\n\n## 상태\n- 대기\n' > "$C/$IX/대기/r9000-wait.md"; cm "$C" seed && git -C "$C" push -q origin ops/main-base
+  export FT_ROOT="$C" FT_AUTONOMY_STATE_DIR="$T/state" FT_GH="$T/gh-stub" FT_GH_WRITE="$T/gh-stub" STUB_LOG="$T/gh.log" STUB_JSON="$T/pr.json" FT_INSTALL_CHECK="$T/install-stub"
+  printf '#!/bin/bash\necho "$*" >> "$STUB_LOG"\n[ "$1 $2" = "pr view" ] && { cat "$STUB_JSON"; exit 0; }\nexit 0\n' > "$T/gh-stub"
+  printf '#!/bin/bash\necho "OK n=1 (r2248 stub)"\nexit 0\n' > "$T/install-stub"; chmod +x "$T/gh-stub" "$T/install-stub"
+  FIXB="$T/bin"; cp -R "$BIN" "$FIXB"; rm -rf "$FIXB/__pycache__"
+  printf '#!/bin/bash\nexit 0\n' > "$FIXB/ft-head-lag.sh"; printf '#!/bin/bash\nexit 0\n' > "$FIXB/ft-nano-record.sh"
+  mkdir -p "$T/gitw"; printf '#!/bin/bash\ncase " $* " in *" diff --no-renames --name-only -z "*) [ -z "${FT_R2248_DIFF_FAIL:-}" ] || { echo "r2248 stub diff fail" >&2; exit 128; };; esac\nexec "%s" "$@"\n' "$(command -v git)" > "$T/gitw/git"; chmod +x "$T/gitw/git"
+}
+WA=""; for c in c1 c3 c4 c5 c7; do want "$c" && WA=1; done; [ -z "$WA" ] || worlda
 
 card_put() {  # card_put <단계> <stem> — 카드 ref 에 착지 줄 없는 카드 1장
   git -C "$C" fetch -q origin && git -C "$C" reset -q --hard origin/ops/main-base
@@ -113,27 +116,5 @@ S2=$SECONDS
 if want c2; then o="$(FT_R2248_BIN="$BIN" bash "$SELF" --due 2>&1)"; r=$?; printf '%s\n' "$o" | grep -E '^(PASS|FAIL)'; rc=$r; out="$o"; [ "$r" = 0 ]; ck "② 나노 기록 due(세계 B) 전부 PASS" $?; fi
 S3=$SECONDS
 
-if [ -z "$ONLY" ]; then   # 기준판 Red ①② · 변이 M1~M3(사본 · 그 자리만) — 원본 대조 = 위 본 실행의 같은 사례 PASS
-  mut() {  # mut <이름> <파일> <옛 글> <새 글> → MB
-    MB="$T/mut-$1"; rm -rf "$MB"; cp -R "$BIN" "$MB"; rm -rf "$MB/__pycache__"
-    python3 - "$MB/$2" "$3" "$4" <<'PY'
-import sys
-p, old, new = sys.argv[1:4]; s = open(p, encoding="utf-8").read()
-assert s.count(old) == 1, f"변이 자리 {s.count(old)}곳: {old[:60]}"
-open(p, "w", encoding="utf-8").write(s.replace(old, new, 1))
-PY
-  }
-  red() {  # red <이름> <bin> <사례> — 그 bin 으로 그 사례만 → FAIL 기대
-    local o r; o="$(FT_R2248_BIN="$2" FT_R2248_ONLY="$3" bash "$SELF" 2>&1)"; r=$?
-    rc=$r; out="$(printf '%s\n' "$o" | grep -E '^(PASS|FAIL)' | sed 's/ :: .*//' | tr '\n' ' ')"; [ "$r" != 0 ]; ck "$1 → $3 FAIL(기대) :: $out" $?
-  }
-  mut m1 ft-merge-lib.sh "grep -qvE '^design/(.+/)?indices/'" "grep -qvE '^design/'" && red "M1 indices 접두 뺌" "$MB" c4
-  mut m2 ft-merge-lib.sh "  case \"\${FM_CARD_ONLY:-}\" in 1|'?') tok=\"\";; esac   # r2248 O3" "  # r2248 O3" && red "M2 짝에는 판정 안 검" "$MB" c2
-  mut m3 ft-merge-land.sh 'fm_card_only "$REPO" "$M" "$Q"' 'fm_card_only "$REPO" "$Q^1" "$Q"' && red "M3 기준 Q^1" "$MB" c7
-  BASE="$T/base"; mkdir -p "$BASE"
-  if git -C "$HERE/.." archive 19fd4739a5dab3da21d5c1aebed1aeec09bda2ed -- bin 2>/dev/null | tar -x -C "$BASE" 2>/dev/null && [ -f "$BASE/bin/ft-merge-land.sh" ]; then
-    red "기준판(팩 19fd4739 = 착지 전 origin/main)" "$BASE/bin" c1; red "기준판(팩 19fd4739)" "$BASE/bin" c2
-  else rc=1; out="git archive 실패"; ck "기준판 꺼내기" 1; fi
-fi
-echo "단계별 초: 준비 $((S1 - T0)) · 세계 A $((S2 - S1)) · 세계 B $((S3 - S2)) · 기준판·변이 $((SECONDS - S3)) · 전체 $((SECONDS - T0))"
+echo "단계별 초: 준비 $((S1 - T0)) · 세계 A $((S2 - S1)) · 세계 B $((S3 - S2)) · 전체 $((SECONDS - T0))"
 [ "$fail" = 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }
