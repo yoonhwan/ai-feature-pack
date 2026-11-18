@@ -7,6 +7,7 @@ E3 실패도 그날 지문(같은 열쇠 재시도 0 · 날짜가 바뀌면 1회
 E6 세 칸 다 빈칸 = «받는 곳 없음» 그날 1줄 · E7 7초를 넘긴 send 는 우편함 장부 seq 경계로 도착 확인 · E8 명부 경로는 launch_roster 한 함수.
 """
 import collections
+import hashlib
 import importlib.util
 import json
 import os
@@ -191,6 +192,21 @@ class Reporting:
             self.defer(team)
             return False
         return self.finish(team, key, to, rc, seen, body)
+
+    def wake(self, team, names):
+        """r2267 W4 — 깨움 후보 1통 = planner _master 전용 길(notify 는 skip 팀 = False · r1835 K4) · 열쇠 날짜 칸 0 ·
+        성공 지문은 도착 확인 때만 · 실패·받는 곳 없음 = fail|<날짜> 지문(그날 1줄 · 다음 날 1회 다시)."""
+        to = self.read_json(roster.roster_path(self.root, "planner") or "").get("_master") or ""
+        key = "%s|wake|%s|%s" % (team, to, hashlib.sha1("\n".join(names).encode("utf-8")).hexdigest()[:12])
+        body = "[깨움 후보] %s 선행 풀린 카드 %d장: %s%s · 휴면 풀기 = SKIP_TEAMS 에서 %s 줄 지움" % (
+            team, len(names), " · ".join(names[:3]), " · 외 %d" % (len(names) - 3) if len(names) > 3 else "", team)
+        if self.blocked(key) or to and not self.budget(team):
+            return False
+        rc, seen = self.send(to, body) if to else ("받는 곳 없음", "")
+        if rc == "defer":   # R8 미룸 = 지문·횟수 미소비 · 다음 바퀴
+            self.notify_used = max(0, getattr(self, "notify_used", 1) - 1)
+            return False
+        return self.finish(team, key, to, rc, seen, body)   # W4
 
     def alert_rows(self):
         return list(self.state.get("alert_out") or [])
