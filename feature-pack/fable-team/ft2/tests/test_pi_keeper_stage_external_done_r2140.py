@@ -94,8 +94,8 @@ def c5(w, mp):   # ⑤ 쉼 · done 아님 → card_stage 0(건너뜀) · keeper 
 
 CASES = {"①": c1, "②": two("parked"), "③": two("returned"), "④": c4, "⑤": c5}
 KP = "adapters/pi/keeper.py"
-MUTANTS = {"M1": ('            self.timed("b1", self.stage_card, team, work)   # r2140 K1', "", ("①",)),
-           "M2": ('                self.timed("b1", self.stage_card, team, work)   # r2140 K2', "                pass", ("②", "③")),
+MUTANTS = {"M1": ('            self.timed("b1", self.stage_card, team, work)   # r2140 K1', "", ("①", "②")),   # r2251 O1 쉼 ∧ done = K1 길(② 는 K2 에서 옮김)
+           "M2": ('                self.timed("b1", self.stage_card, team, work)   # r2140 K2', "                pass", ("③",)),
            "M3": ('        self.state["staged"][key] = day', "", ("④",))}
 
 
