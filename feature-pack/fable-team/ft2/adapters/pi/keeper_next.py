@@ -77,12 +77,18 @@ def skip_landed(k, team, stem):
     """r2058 L5 — 착지 판독(바퀴 캐시 · 카드당 1회) 참 = fill·닫기 뒤 pick 둘 다 고르지 않는다 · `NEXT-SKIP` 1줄(값이 바뀔 때만)."""
     landed = once(k, ("landed", team, stem), lambda: k.landing(team, stem))
     yes = bool(landed[0]) and not landed[2]
+    val = yes or (landed[2] if str(landed[2] or "").startswith("판정 불가") else False)   # r2262 C2 기억 값 셋 = 착지 · 판정 불가 사유 전문 · 거짓
     book, key = k.state.setdefault("next_skip", {}), "%s|%s" % (team, stem)
-    if book.get(key) != yes:
-        book[key] = yes
+    if book.get(key) != val:
+        book[key] = val
         if yes:
             k.log("NEXT-SKIP", team, "%s 이미 착지 — 카드 정리 필요" % stem)
+        elif val:
+            k.log("NEXT-SKIP", team, "%s 착지 판정 불가(%s) — 이 바퀴 보류" % (stem, val[:40]))
     return yes
+def landed_hold(k, team, stem):
+    """r2262 C1 — 착지 판독(같은 바퀴 캐시) 사유가 «판정 불가» 로 시작 = block «판정 불가»(이 바퀴만 · 원장 쓰기 0 · [다음 없음] 0) · 그 밖 = ""."""
+    return "판정 불가" if str(once(k, ("landed", team, stem), lambda: k.landing(team, stem))[2] or "").startswith("판정 불가") else ""
 def gates(k, team):
     """참 = 다음 카드 칸이 열림 · 거짓 = 0(켜기 전·팀 정지·spawn·계정 정지·나노 상한 · 판정 불가 포함)."""
     st = os.path.join(k.root, ".fable-team", "state")
@@ -366,6 +372,7 @@ def choose(k, team, skip=frozenset()):
         back = not block and reopen(k, team, stem, back, {stem} | pair.get(stem, set()), state)   # r2113 A1 재개 줄(없거나 막힌 카드 = 읽기 0)
         block = block or ("재개" if back else "")   # r2113 A1 — 재개 줄 = «착지» 판독 건너뜀(바로 아래에서 푼다)
         block = block or ("착지" if skip_landed(k, team, stem) else "")   # r2058 L5 착지 카드 = 다시 넣지도 닫기 뒤 다음으로도 고르지 않는다
+        block = block or landed_hold(k, team, stem)   # r2262 C1
         block = "" if block == "재개" else block
         place = None if block else target(k, r, lines)
         if not block and place is None:
