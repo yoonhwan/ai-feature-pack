@@ -145,7 +145,9 @@ class Closing:
             return self.verdict(team, work, holder, "예정 LANDED", "close", "정지 중 kill 0") and None
         if seen == "alive":
             self.state["open"].setdefault(holder, {"team": team, "since": self.now()})
-            if self.look(team, work, attempt, holder, *self.pi_turn(intent), wait="landed-wait", idle_s=done_idle if landed_close else settle.PARK_IDLE) != "REST":   # A6·A13 닫기 = 끝남 ∧ 한 판독 쉼
+            turn = self.pi_turn(intent)
+            short = landed_close or (wide == "done-card-완성" and turn[1] == "stop")   # r2264 C1 done ∧ 카드 완성 = 턴 닫힘일 때만 짧은 문턱
+            if self.look(team, work, attempt, holder, *turn, wait="landed-wait", idle_s=done_idle if short else settle.PARK_IDLE) != "REST":   # A6·A13 닫기 = 끝남 ∧ 한 판독 쉼
                 return
             if not self.turn_ended(team, work, holder, intent):
                 return
