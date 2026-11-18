@@ -33,7 +33,7 @@ body() { printf '골 1\n골 2\n골 3\n본문 4행\n열린 칸 감시: 없음\n';
 P='앞 인계서: design/p/H353.md'; KEEP='## 열린 칸'$'\n''- 승계 진행 desk #326867'$'\n''## 기타'   # 새 «## 열린 칸» 절은 «## 기타» 에서 끝(닫음 줄이 절 안에 섞이지 않게)
 so_run() {  # so_run <개설도구> [env…] — 본문 = $T/b.txt · cwd = $T(ROOT 밖)
   local s="$1"; shift; rm -f "$lg" "$T/opened" "$T/sent.txt"; rm -rf "$R/.fable-team/state"; : > "$lg"
-  (cd "$T" && env "${SOENV[@]}" "$@" bash "$s" "$OLD" "$R" --name "$NEW" --agent claude --model m --body-file "$T/b.txt") > "$T/out" 2>&1; RC=$?
+  (cd "$T" && export "${SOENV[@]}" "$@" && bash "$s" "$OLD" "$R" --name "$NEW" --agent claude --model m --body-file "$T/b.txt") > "$T/out" 2>&1; RC=$?
 }
 pass_c() {  # pass_c <이름> [도구] — 본문 = $T/b.txt
   so_run "${2:-$SO}"; { [ "$RC" = 0 ] && grep -q '^tmuxc open' "$lg" && grep -q '^send' "$lg"; } && ok "$1 통과 rc0 · 열기·send" || bad "$1" "rc=$RC out=$(cat "$T/out")"
