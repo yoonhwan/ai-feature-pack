@@ -504,11 +504,17 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
                 if (left := self.left()) is not None and left < MIN_S:   # R2 — 다음 팀 첫 호출 전에도 남은 몫을 본다
                     self.cut_pos, self.cut = (team, "-", "b1"), "%s:-:b1" % team
                     raise Cut(self.cut)
-                self.team_round(team)
+                try:
+                    self.team_round(team)
+                except Ungraded:
+                    continue   # R7 팀 자리 판정 불가 = 그 자리 남은 판정 0 · 뒤 팀은 돈다(원천 = b2f = 그 팀 마지막 자리 · 남은 자리 0 · 분모 손 0)
             self.at, self.at_work = None, "-"
             self.cursor_stage = "stall"   # accept_only 동안(자리 없이 도는 팀 칸)
             if self.sock and not self.halt and self.at_pos("b3o"):
-                self.timed("b3", endings.orphans, self, self.order)   # r1960 ⑤ 스냅샷 뒤 journal 새로 읽기
+                try:
+                    self.timed("b3", endings.orphans, self, self.order)   # r1960 ⑤ 스냅샷 뒤 journal 새로 읽기
+                except Ungraded:
+                    pass   # R7 b3o 판정 불가 = b3o 자리만 0 · b3r 은 돈다
             else:
                 self.unused.add(("-", "-", "b3o"))   # R10 안 도는 자리 = 분모에 남기지 않는다
             if self.sock and self.at_pos("b3r"):
