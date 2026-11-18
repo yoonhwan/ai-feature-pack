@@ -502,20 +502,27 @@ def live_bin_drift(root):
 
 
 def local_bin_drift(root):
-    """r2017: ~/.local/bin 의 ft-* 심링크(LIVE_BIN 에 <이름>.sh 가 있는 하네스 도구 이름만 · DA#26 H1) 대상이 «루트 LIVE_BIN 아래» 도 «루트 shim(<root>/.fable-team/bin 의 SHIMMARK 파일)» 도 아니면 DRIFT-LINK 줄.
+    """r2017: ~/.local/bin 의 ft-* 심링크(LIVE_BIN 에 <이름>.sh 가 있는 하네스 도구 이름만 · DA#26 H1) 대상이 «루트 LIVE_BIN 아래» 도 «루트 shim(점검 루트·루트 명부 루트의 .fable-team/bin 의 SHIMMARK 파일 · r2017b)» 도 아니면 DRIFT-LINK 줄.
     깨진 링크 = «(대상 없음)» · ft-* 아닌 이름·일반 파일 = 검사 밖 · LIVE_BIN·~/.local/bin 없음 = 검사 밖 · 읽기만(링크 수정 0)."""
     lf, lb = os.path.join(root, ".fable-team", "LIVE_BIN"), os.path.join(os.environ["HOME"], ".local", "bin")
     if not os.path.isfile(lf) or not os.path.isdir(lb):
         return []
     with open(lf, encoding="utf-8") as fh:
         live = os.path.realpath(fh.readline().strip())
-    sdir, out = os.path.realpath(os.path.join(root, ".fable-team", "bin")), []
+    tsv = os.environ.get("FT_ROOTS_TSV") or os.path.join(os.environ["HOME"], ".claude", "fable-team", "roots.tsv")
+    try:  # r2017b: 링크는 머신 공용 — shim 허용 = 점검 루트 + 루트 명부(r1407 과 같은 파일·칸 · isabs ∧ isdir 행만)
+        with open(tsv, encoding="utf-8") as fh:
+            reg = [c[1] for c in (ln.split("\t") for ln in fh.read().splitlines() if ln.strip() and not ln.startswith("#")) if len(c) > 1]
+    except (OSError, UnicodeDecodeError):
+        reg = []  # 명부 없음·읽기 실패 = 점검 루트만(r2017 꼴)
+    roots = [root] + [r for r in reg if os.path.isabs(r) and os.path.isdir(r)]
+    sdirs, out = {os.path.realpath(os.path.join(r, ".fable-team", "bin")) for r in roots}, []
     for name in sorted(n for n in os.listdir(lb) if n.startswith("ft-") and os.path.islink(os.path.join(lb, n))
                        and os.path.isfile(os.path.join(live, n + ".sh"))):
         tgt, real = os.readlink(os.path.join(lb, name)), os.path.realpath(os.path.join(lb, name))
         if not os.path.exists(real):
             out.append("DRIFT-LINK %s -> %s (대상 없음)" % (name, tgt))
-        elif not (real.startswith(live + os.sep) or (os.path.dirname(real) == sdir and is_shim(real))):
+        elif not (real.startswith(live + os.sep) or (os.path.dirname(real) in sdirs and is_shim(real))):
             out.append("DRIFT-LINK %s -> %s" % (name, tgt))
     return out
 
