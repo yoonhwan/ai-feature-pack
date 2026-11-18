@@ -131,13 +131,13 @@ def close_request(ctx, r, path):   # A10 — 팀장에 «[완료·닫기 요청]
     ctx.held = held(ctx, r)
     if ctx.held:
         return None
-    seq = send(ctx, r["master"], r["seat"], f"[완료·닫기 요청] {r['stem']} 착지 {r['q'][:10]} · 좌석 {r['seat']} · 세션 기록 {path}")
+    seq = send(ctx, r["master"], r["seat"], f"[완료·닫기 요청] {r['stem']} 착지 {r['q'][:10]} · 좌석 {r['seat']} · 세션 기록 {path}") if (got := 0 if had.get("rec") else __import__("ft_nano_record_seqfind").find_close(ctx, r)) == 0 else got   # r2272 장부 빈칸 = 발신 앞 우편 로그에서 같은 요청 찾기(seq · 0 = 없음 → send · None = 판정 불가)
     if not seq:
         if seq == 0:
             print("WARN 닫기 요청 쪽지의 seq 를 못 읽음 — 전달 기록 0")
         return None
     update(ctx, lambda st: st["close"].__setitem__(key, {"rec": r["rec"], "seq": seq, "result": str(path), "pr": r["pr"]}))
-    print(f"NOTIFIED 닫기 요청 → {r['master']} #{seq}")
+    print(f"NOTIFIED 닫기 요청 → {r['master']} #{seq}") if got == 0 else None
     return seq
 
 
