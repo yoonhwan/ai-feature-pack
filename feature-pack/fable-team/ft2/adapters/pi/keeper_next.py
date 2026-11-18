@@ -166,8 +166,8 @@ def hold_read(k, path):
     if not reason:   # 빈 파일·JSON 아님(read_json = {})·reason 없음
         return "깨짐"
     return reason, str(data.get("until") or "").strip() or "-"
-def cards(k, team, unread=None):
-    """({stem: [긴급, 높음, 대상 줄들, 선행 막힘, 기억 값, 재개 줄들(r2113)]}, 루트 행) · 판독 실패 = 사유 문자열 (git 2회 · 작업 트리 0)."""
+def cards(k, team, unread=None, resume=True):
+    """({stem: [긴급, 높음, 대상 줄들, 선행 막힘, 기억 값, 재개 줄들(r2113)]}, 루트 행) · 판독 실패 = 사유 문자열 (git 2회 · 작업 트리 0) · resume=False = progress 0(r2267 휴면 길)."""
     try:
         with open(os.path.join(k.root, ".fable-team", "state", "directive-roots.tsv"), encoding="utf-8") as fh:
             rows = [x.rstrip("\n").split("\t") for x in fh if not x.startswith("#") and len(x.split("\t")) >= 4]
@@ -201,6 +201,7 @@ def cards(k, team, unread=None):
         val = next((x.split(":", 1)[1].strip() for x in row[3] if x.startswith("- 선행:")), "")   # I1 기억에 넣을 선행 값 그대로
         verdict, why = prereq(row[3], where)
         row[3], row[4] = verdict, {"val": val, "why": why}   # row[4] = I1·I6 기억 값
+    prog = prog if resume else {}   # 빈 prog = progress 첫 줄에서 {}(gh·resume_seen 0)
     r.append(progress(k, team, r, found, prog))
     return found, r
 def resume_line(line):
@@ -576,7 +577,7 @@ def prereq_tell(k, team, unread):
 def wake_read(k, team):
     """r2267 W1~W3 — 휴면 팀 선행 판정만(cards 1회 · fill·stage·close·원장·팀 쪽지·gh·fetch 0) · 기억 = wake_seen[팀]{카드: 판정} ·
     앞 판독에서 선행/선행불명(또는 풀림)이던 카드가 "" = 풀림 · 처음 보는 팀·카드 = 기억만 · 풀림 묶음(이름순) ≥ 1 → k.wake(planner 1통 · 같은 열쇠 0)."""
-    got = cards(k, team)
+    got = cards(k, team)   # 사전 DA H1 — 휴면 길 = progress(재개 줄 → gh · resume_seen) 0
     if isinstance(got, str):
         return
     book = k.state.setdefault("wake_seen", {})
