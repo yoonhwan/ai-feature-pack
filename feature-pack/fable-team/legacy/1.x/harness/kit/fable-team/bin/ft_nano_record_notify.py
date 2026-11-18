@@ -193,7 +193,7 @@ def main(argv):
     except Unjudged as e:
         print(f"판정 불가 {e}")
         return 3
-    return ctx.bud.walk(out, lambda r: notify_row(ctx, r, now, gap), fmt)
+    return (ctx.bud.walk(out, lambda r: notify_row(ctx, r, now, gap), fmt), __import__("ft_nano_record_fin").remember(ctx, out))[0]   # r2250 O4 판 끝 fin 쓰기(200줄 → 줄 안 import)
 
 
 if __name__ == "__main__":
