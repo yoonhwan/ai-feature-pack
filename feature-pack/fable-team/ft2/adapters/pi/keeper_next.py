@@ -216,7 +216,7 @@ def resume_say(k, team, stem, why, part="pr"):
     if why and book.get(key) != why:
         k.log("판정 불가" if why.startswith("판정 불가") else "NEXT-SKIP", team, "%s 재개 건너뜀 — %s" % (stem, why))
     book[key] = why
-    return "판정 불가" if why.startswith("판정 불가") else why.split(" ", 1)[0]
+    return why.split(" ", 1)[0] if not why.startswith("판정 불가") else "판정 불가"   # r2262 변이 M2 대상 글자와 겹침 0
 def progress(k, team, r, found, prog):
     """r2159 T1·T2 — 진행/ 카드 중 «- 재개:» 줄 있는 정렬 첫 장 1장만 PR 대조(바퀴 캐시) → {stem: (리포, headRefOid 40자, 재개 시각)} · 그 카드 = found 후보.
     prog = cards 의 raw grep(바퀴 1회 · r1969) 중 진행/ 카드 재개·대상 줄 · 재개 줄 없는 진행/ 카드 = 버림 · 대기/ 에 같은 stem = 0 · 막힘 = {} + 1줄(resume_say)."""
