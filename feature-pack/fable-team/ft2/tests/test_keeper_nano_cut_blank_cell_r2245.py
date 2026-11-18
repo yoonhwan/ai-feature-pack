@@ -123,13 +123,14 @@ GOLDEN = ("ROUND s=0 fetch=0 b1=0 b2c=0 b2f=0 b3=0 stall=0 fetch_root=0 fetch_pa
 CASES = {"53가": c_ga, "53나": c_na, "53다": c_da, "53라": c_ra, "53마": c_ma, "53바": c_ba}
 
 FIX = '            self.cut, self.cut_pos = "-", None   # r2245 N1 — 나노 모으기 끊김은 업무 구획 끊김이 아니다(cut 칸·cursor 흔적 0)'
-TAIL = '        top = max((kv for kv in self.per.items() if kv[0][0]), key=lambda kv: kv[1], default=None)'
-RESET_AT_TAIL = '        self.cut = "-"   # 변이 M134·M135 — 되돌림 자리만 ROUND 줄 앞으로 옮긴다\n'
+ROUND_LOG = '        self.log("ROUND", text="s=%g %s slow=%s%s%s%s"'
+POP_CURSOR = '        if self.cut == "-":   # R4 — 끊기지 않고 바퀴를 다 돌았으면 cursor 를 지운다'
 # 변이 = (파일, [(옛 글, 새 글) ...], 잡히는 사례) — 여러 곳을 같이 바꾸는 변이(M134)를 담으려고 목록이다
 MUTANTS = {
     "M133": (KP, [(FIX, "            pass")], ("53가", "53나", "53라")),   # :476 갈래에서 되돌리지 않음(지금 판)
-    "M134": (KP, [(FIX, "            pass"), (TAIL, RESET_AT_TAIL + TAIL)], ("53라",)),   # 되돌림을 ROUND 줄 앞에서만
-    "M135": (KP, [(TAIL, RESET_AT_TAIL + TAIL)], ("53다",)),   # 업무 구획 끝에서 cut 을 무조건 -
+    "M134": (KP, [(FIX, "            pass"), (ROUND_LOG, '        self.cut = "-"   # 변이 M134 — 되돌림을 ROUND 줄 앞에서만\n' + ROUND_LOG)],
+             ("53라",)),   # 되돌림을 ROUND 줄 바로 앞에서만 = :522 가 먼저 돌아 cursor 가 남는다
+    "M135": (KP, [(POP_CURSOR, '        self.cut = "-"   # 변이 M135 — 업무 구획 끝에서 무조건\n' + POP_CURSOR)], ("53다",)),
     "M136": (KP, [('        if nano_cut or self.nano_s >= NANO_S:\n            self.log("판정 불가", text="나노 가지 모으기 7초 넘음 — 모은 것만")',
                     '        if nano_cut or self.nano_s >= NANO_S:\n            pass')], ("53가",)),   # 나노 판정 불가 줄을 지움
 }
