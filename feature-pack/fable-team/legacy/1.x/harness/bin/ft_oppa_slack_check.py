@@ -7,7 +7,9 @@ r1606: 창 안 오빠 답글의 «내용» 도 본다 — 답글을 토막(공�
 env: FT_SLACK_REPLIES_CMD(시험용 · 이 명령의 stdout = conversations.replies JSON · 조회할 ts 는 env FT_SLACK_TS 로 준다) · FT_SCOPE_SLACK_TOKEN_FILE · FT_SCOPE_SLACK_CHANNEL · r1857: 첫 인자 `<채널>:<ts>` 면 그 채널(env 보다 앞섬 · 가짜 조회엔 FT_SLACK_CHANNEL 로 준다)
 --reply-only <질문 ts>(r1591) = sha 칸이 없는 질문(설계 승인 등) 모드 — stdout 은 `REPLY-SEEN parent=<ts> reply=<ts>` 한 줄(rc0) · 답글 아직 없으면 rc3 · 판정 불가 rc2 · SLACK-OK 를 «한 줄도» 내지 않는다(승인 길에 못 쓴다).
 r1764: `--reply-only <부모 ts> --after <글 ts>` = 그 시각 «뒤» 첫 오빠 글만 본다(스레드 새 글 감시 · 글이 더 없으면 rc3) — 승인 길·--after 없는 길은 그대로.
-r1776: `--reply-only <질문 ts> [--after <ts>] [--stop-at <ts>[,<ts>…]]`(순서 무관) = 같은 스레드에 있는 stop ts 중 질문 뒤 가장 이른 것 앞에서 창을 끊는다(스레드에 없는 ts 무시) · 승인 길(sha)에 --stop-at = rc2 usage."""
+r1776: `--reply-only <질문 ts> [--after <ts>] [--stop-at <ts>[,<ts>…]]`(순서 무관) = 같은 스레드에 있는 stop ts 중 질문 뒤 가장 이른 것 앞에서 창을 끊는다(스레드에 없는 ts 무시) · 승인 길(sha)에 --stop-at = rc2 usage.
+r2164: `<질문 ts> --plan-sha <64hex>` = h 계획 잠금 sha256 승인 확인(ft-hil-gate.sh run-line 이 부른다) · 출력 · rc 는 승인 길과 같다 · 이 모드에서만 상태 덧글 = «40자 이상 hex 낱말 0» ∧ 머리
+  (다른 계획 64자를 담은 [알림] 등 = 창 경계) · positional 40자 · 64자 길 · --reply-only 는 그대로."""
 import json
 import os
 import re
@@ -30,6 +32,7 @@ TAIL_NO = ("아니", "안", "않", "말", "마", "못", "하지", "보류", "취
 
 
 HEX40 = re.compile(r"(?<![0-9a-fA-F])[0-9a-fA-F]{40}(?![0-9a-fA-F])")
+HEXW = re.compile(r"(?<![0-9a-fA-F])[0-9a-fA-F]{40,}(?![0-9a-fA-F])")  # r2164 · --plan-sha 모드 상태 덧글 판정 = 40자 이상 hex 낱말(64자 포함)
 # r2013 ② · 질문 뒤 같은 작성자 글 중 40hex 0 이고 첫 줄이 이 머리로 시작 = 상태 덧글 → 승인 창을 끊지 않는다(그 밖 40hex 0 글 = 다음 질문 = 끊음 · fail-closed). 바꾸려면 PR.
 STATUS_HEADS = ("[멈춤]", "[정리]", "[알림]")
 
@@ -73,6 +76,10 @@ def item_number(sha: str, text: str, msgs: list, me: list, t: Decimal) -> int:
 
 def status_note(txt: str) -> bool:
     return not HEX40.search(txt) and txt.lstrip().startswith(STATUS_HEADS)
+
+
+def plan_note(txt: str) -> bool:  # r2164 T2b · --plan-sha 모드 = 40자 이상 hex 낱말 0 ∧ 머리 · 같은 계획 64자 재게시는 has_sha 가 잇는다
+    return not HEXW.search(txt) and txt.lstrip().startswith(STATUS_HEADS)
 
 
 def first_chunk_words(m: dict) -> list:
@@ -149,7 +156,7 @@ def locate(ts: str) -> list:
 
 
 
-def judge(ts: str, shas: list, after: str | None = None, stop: list | None = None) -> list:  # r1764 · after = 이 ts «뒤» 만(스레드 새 글 감시) · r1776 stop = 다음 질문 ts
+def judge(ts: str, shas: list, after: str | None = None, stop: list | None = None, plan: bool = False) -> list:  # r2164 plan = --plan-sha  # r1764 · after = 이 ts «뒤» 만(스레드 새 글 감시) · r1776 stop = 다음 질문 ts
     msgs = locate(ts)
     q = next(m for m in msgs if m.get("ts") == ts)
     if not isinstance(q.get("text"), str):
@@ -171,6 +178,8 @@ def judge(ts: str, shas: list, after: str | None = None, stop: list | None = Non
             return bool(HEX40.search(txt))   # --reply-only(r1591) = sha 칸 없음 → 40hex 담은 글(재게시)은 창을 끊지 않는다(카드 ⓗ)
         return bool(re.search(r"(?<![0-9a-fA-F])%s(?![0-9a-fA-F])" % sha, txt, re.I))
     notes = {x for x, txt in mine if status_note(txt)}  # r2013 ⓒ
+    if plan:  # r2164 T2b · --plan-sha 모드만 상태 덧글 식을 바꾼다
+        notes = {x for x, txt in mine if plan_note(txt)}
     out = []
     for sha in shas:
         if not re.search(r"(?<![0-9a-fA-F])%s(?![0-9a-fA-F])" % sha, text, re.I) and sha:  # r1591 · 빈 sha = 답글 확인 모드(sha 낱말 검사 없음)
@@ -219,6 +228,13 @@ def main(argv: list) -> int:
                 return 2
             args, opt[flag] = args[:i] + args[i + 2:], v
     after, stop = opt.get("--after"), opt["--stop-at"].split(",") if "--stop-at" in opt else None
+    plan = "--plan-sha" in args  # r2164 · <질문 ts> --plan-sha <64hex> 만(다른 sha 칸 · --reply-only 와 섞으면 usage)
+    if plan:
+        i = args.index("--plan-sha")
+        if i != 1 or len(args) != 3 or not re.fullmatch(r"[0-9a-fA-F]{64}", args[2]):
+            print("usage: ft_oppa_slack_check.py [<채널>:]<질문 글 ts> --plan-sha <64hex>", file=sys.stderr)
+            return 2
+        args = [args[0], args[2]]
     if args[:1] == ["--reply-only"]:  # r1591 · h·sha 칸이 없는 질문(설계 승인 등) — 빈 sha = 답글 확인 모드(REPLY-SEEN 만)
         if len(args) != 2 or not CHAN_TS.fullmatch(args[1]):
             print("usage: ft_oppa_slack_check.py --reply-only <질문 글 ts>", file=sys.stderr)
@@ -230,7 +246,7 @@ def main(argv: list) -> int:
     global CHANNEL
     CHANNEL, parent = CHAN_TS.fullmatch(args[0]).groups()  # r1857  # r1764 보정 · NoReply 문구는 부모 ts(예전 argv[1] 재할당 빠짐으로 «parent=--reply-only» 가 새었나)
     try:
-        print("\n".join(judge(parent, args[1:], after, stop)))
+        print("\n".join(judge(parent, args[1:], after, stop, plan)))
         return 0
     except NoReply as e:  # r1591 · 답글 아직 없음 = 정상 열린 질문(판정 불가 아님 · ANSWERED 아님)
         print("REPLY-NONE parent=%s — %s" % (parent, e), file=sys.stderr)
