@@ -164,6 +164,7 @@ class SlackRoute:
         """사건 1건 → 판정 1개. 목적지는 binding 이, kind 는 상태가 정한다(모델 분류기 0)."""
         if not event:  # 무변화 pass = 도구 안에서 끝난다 — 모델 호출·좌석 깨움·기록 증가 0(줄 16)
             return {"t": ROUTE, "kind": None, "to": None, "state": IDLE}
+        event = self.receive.with_file_text(event)  # r2166 — 파일만 있는 글의 본문·지문 = 파일 줄
         key, content = thread_key(event), digest(event.get("text"))
         which = ANSWERED if str(event.get("thread_ts") or "") else QUESTION
         kind, to, repeated = self._plan(key, self.binding.get(key), which, content)

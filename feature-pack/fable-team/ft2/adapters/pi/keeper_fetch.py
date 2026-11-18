@@ -1,7 +1,7 @@
 """ft 2.0 keeper fetch 대상 (r1975) — ① FETCH_TARGETS 판독 ⑥ 판정 대상 나노 가지 ⑦ 판정 뒤 전체 fetch 백그라운드(기다림 0 · 겹침 0).
 keeper.py 가 부른다 · 판정 앞 fetch 자체(ls-remote 신선 · 시도마다 1줄)는 keeper.py fresh 그대로.
 """
-import glob, importlib.util, os, subprocess, sys  # noqa: E401
+import glob, importlib.util, os, re, subprocess, sys, time  # noqa: E401
 HERE = os.path.dirname(os.path.abspath(__file__))
 CAP, FETCH_S = 5, 7   # 리포당 지정 ref 상한 · 백그라운드도 1회 7초 + 재시도 1
 MIN_S = 1   # r2122 C5 남은 몫 < 1초 = 판독 시작 0(keeper.MIN_S 와 같은 값)
@@ -63,6 +63,41 @@ def _head(tree):
     except (OSError, UnicodeError):
         return None
     return (head[len("ref: refs/heads/"):] if head.startswith("ref: refs/heads/") else ""), os.path.realpath(common)
+
+
+LOCK_AGE_S, LOCK_CAP, LOCK_S = 60, 3, 1.0   # r2241 묵은 ref 잠금 = 나이 ≥ 60초 · 최대 3개 · 찾기 1초 상한
+
+
+def lock_note(repos, errs):
+    """r2241 O4·O5 — fetch 실패 리포의 묵은 ref 잠금 → «묵은 ref 잠금 N개(<common 기준 경로> <나이>분 · …) · » | "".
+    찾는 차례 = stderr ref 이름의 <X>.lock → packed-refs.lock → refs 아래 *.lock 걷기 · 읽기만(stat) · 지우기·git 호출 0 · 1초 넘음 = ""(원인 칸 생략)."""
+    end, now, found = time.monotonic() + LOCK_S, time.time(), []
+    def take(common, rel):
+        try:
+            age = now - os.stat(os.path.join(common, rel)).st_mtime
+        except OSError:
+            return
+        if age >= LOCK_AGE_S and rel not in (x for x, _ in found) and len(found) < LOCK_CAP:
+            found.append((rel, int(age // 60)))
+    for repo in repos:
+        seen = None if len(found) >= LOCK_CAP else _head(repo)
+        if seen is None:
+            continue
+        names = re.findall(r"(?:fetching ref |cannot lock ref ')([^\s']+)", errs.get(repo) or "")
+        for rel in [n + ".lock" for n in names if ".." not in n and not n.startswith("/")] + ["packed-refs.lock"]:
+            take(seen[1], rel)
+        for base, dirs, files in os.walk(os.path.join(seen[1], "refs")):
+            dirs.sort()
+            for f in sorted(files):
+                if time.monotonic() > end:
+                    return ""
+                if f.endswith(".lock"):
+                    take(seen[1], os.path.relpath(os.path.join(base, f), seen[1]))
+            if len(found) >= LOCK_CAP:
+                break
+    if not found or time.monotonic() > end:
+        return ""
+    return "묵은 ref 잠금 %d개(%s) · " % (len(found), " · ".join("%s %d분" % x for x in found))
 
 
 def _gate(k):   # r2122 C5 판독 시작 전 남은 몫 < MIN_S = 시작 0 · Keeper.call 과 같은 Cut

@@ -4,11 +4,12 @@
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1   # R201: 시험은 추적 사본 원본을 직접 부른다(LIVE_BIN 으로 넘기지 않음)
 REPO="$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
-SRC="$REPO/feature-pack/fable-team/harness/kit/satellite"
-BIN="$REPO/feature-pack/fable-team/harness/bin"
-KIT="$REPO/feature-pack/fable-team/harness/kit/fable-team/bin"
+HX="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"   # r2222: harness = 시험 폴더의 부모(옛 경로 글자 대신)
+SRC="$HX/kit/satellite"
+BIN="$HX/bin"
+KIT="$HX/kit/fable-team/bin"
 T="$(mktemp -d)"; ROOT="$T/root"; trap 'rm -rf "$T"' EXIT
-. "$REPO/feature-pack/fable-team/harness/tests/lib/fake_resource_env.sh"; fake_resource_env "$T/sensors" ok
+. "$HX/tests/lib/fake_resource_env.sh"; fake_resource_env "$T/sensors" ok
 fail=0
 ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=1; }

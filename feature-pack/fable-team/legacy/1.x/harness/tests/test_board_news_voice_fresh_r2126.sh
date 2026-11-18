@@ -103,9 +103,9 @@ goal "진행 중" "디스크 여유가 30Gi 아래라 기다린다"; touch -t 20
 chk "⑤-b 다음 칸 «(원장 21:15 기준)»" 'grep -qxF "하네스 운영 정리: (원장 21:15 기준) 디스크 여유가 30Gi 아래라 기다립니다" "$T/body.txt" && grep -qF "3/5. (원장 21:15 기준) 진행 중" "$T/body.txt"'
 chk "⑤-b 열쇠 = 다음 칸 원문(표지 · 바꿈 0)" 'key_of "$T/state.json" | grep -qF "하네스 운영 정리: 디스크 여유가 30Gi 아래라 기다린다" && ! key_of "$T/state.json" | grep -qF "(원장 "'
 
-# DA HOLD #320425 R3 — 다 접어도 실측 줄이 안 들어가면 발행 0(기존 상한 실패 길) · 실측 줄 지운 글 0 (F1 · V2)
+# DA HOLD #320425 R3 — 실측 줄 지운 글 0 (F1 · V2) · r2184: 다 접어도 넘으면 긴 골 상태 글을 줄여 발행(전엔 발행 0)
 goal "$(python3 -c 'print("가" * 1054)') 확인함"; touch -t 202611162115 "$T/goal.md"; rm -f "$T/last.json"; news 22:00
-chk "⑤-c 상한 경계 → rc 1 · POST 0 · 본문 0 · «> 3500B — 발행 0»" '[ "$RC" = 1 ] && [ "$(cat "$T/out")" != POST ] && [ ! -e "$T/body.txt" ] && grep -q "B > 3500B — 발행 0" "$T/err" && ! grep -qF "실측 줄 빼고" "$T/err"'
+chk "⑤-c 상한 경계 → POST · ≤ 3500B · 실측 줄 있음 · 표지 남은 골 줄 «…» · 알림 1개" '[ "$RC" = 0 ] && [ "$(cat "$T/out")" = POST ] && [ "$(wc -c < "$T/body.txt")" -le 3500 ] && grep -q "^지금 실측(22:00): " "$T/body.txt" && grep -q "^하네스 운영 정리: 5단계 중 3단계 끝남. (원장 21:15 기준) 가.*가…$" "$T/body.txt" && grep -qxF "상태 글 1개는 길어서 줄였습니다, 전문은 골 진행 원장" "$T/body.txt" && ! grep -q "B > 3500B" "$T/err"'
 
 # ⑧ H2 — ft-board-publish --news 실패 = planner _desk [긴급] 1통 · (단계, rc)별 30분 · send 성공 뒤 표식 · 원 rc
 printf '{"_desk":"desk#1","_master":"pm#1"}' > "$FB/seats-planner.json"

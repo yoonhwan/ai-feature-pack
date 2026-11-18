@@ -9,7 +9,7 @@ import { spawnSync, execSync } from "node:child_process";
 import { createLocalBashOperations, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { appendLoadLine } from "./ft-load-line.ts"; // r1537 — 세션 기록 «로드 <카드> <판>» 1줄(턴 0)
 import { say } from "./ft-load-line.ts"; // r1837 — 진단 1줄 출력 길(TUI = 파일 로그)
-type Row = { seq: number; to: string; body: string; from: string };
+type Row = { seq: number; to: string; body: string; from: string; wake?: unknown };
 const QUIET = ["[정리]", "[회신]", "[완료 보고]"]; // r1476 종류 표와 같은 값 — 큐만
 const LOUD = ["[긴급]", "[인계]", "[레디]"]; // 예산 밖 즉시
 
@@ -20,13 +20,14 @@ export function parseRows(text: string): Row[] {
     if (!line.trim()) continue;
     try {
       const r = JSON.parse(line);
-      if (typeof r?.seq === "number" && typeof r?.to === "string") rows.push({ seq: r.seq, to: r.to, body: String(r.body ?? ""), from: String(r.from ?? "") });
+      if (typeof r?.seq === "number" && typeof r?.to === "string") rows.push({ seq: r.seq, to: r.to, body: String(r.body ?? ""), from: String(r.from ?? ""), wake: r.wake_at });
     } catch { continue; } // 깨진 줄 1개가 우편함 전체를 막지 않는다
   }
   return rows;
 }
 export const quietOnly = (rows: Row[]) => rows.length > 0 && rows.every((r) => QUIET.includes(headOf(r.body)));
 export const loud = (rows: Row[]) => rows.some((r) => LOUD.includes(headOf(r.body)));
+export const wakeOk = (r: Row, now: number) => Number.isInteger(r.wake) && (r.wake as number) >= 0 && (r.wake as number) <= now + 3600; // ★r2169 W6★ wake_at 칸 = 정수 · 0 이상 · 지금+3600초 이하 · 그 밖(글자·음수·소수·null·먼 미래) = 칸 없는 행
 // mbox_wakegate.sh:12~18 «사람 발신» 경계 — planner 표식(slack-*·*-oppa·oppa) + 좌석 _master. 미등록 좌석은 사람이 아니다.
 export const humanSender = (from: string, master: string) => from === master || from === "oppa" || from.startsWith("slack-") || from.endsWith("-oppa");
 const keyOf = (s: string) => s.replace(/[^A-Za-z0-9._#-]/g, "_");
@@ -108,7 +109,7 @@ export default function (pi: ExtensionAPI) {
     hTimer = setTimeout(() => { hTimer = null; hArmed = true; try { hFlush(); } catch (e) { fail(`h 끝 처리 실패 — ${e}`); } }, hQuiet);
   }
   const userQuiet = Number(process.env.FT_USER_BASH_QUIET_MS ?? hQuiet); // ★r1555★ 오빠 `!`(user_bash) 뒤 «조용함 창» — 기본 = r1540 창 값 · 창 안에서는 쪽지 깨움 턴 0 · seq 0 · 예산 0 · held 기록 0
-  let uTimer: ReturnType<typeof setTimeout> | null = null, uUntil = 0; // 창 끝 1회짜리 타이머가 run() 1회(우편함 파일이 정본이라 손실 0) · `!` 가 또 오면 «마지막 `!` 기준» 으로 다시 잰다(주기 타이머 0)
+  let uTimer: ReturnType<typeof setTimeout> | null = null, uUntil = 0, bT: ReturnType<typeof setTimeout> | null = null; // 창 끝 1회짜리 타이머가 run() 1회(우편함 파일이 정본이라 손실 0) · `!` 가 또 오면 «마지막 `!` 기준» 으로 다시 잰다(주기 타이머 0) · bT = r2169 묶음 끝 시각 1회 타이머(좌석당 1개)
   const openUserQuiet = () => { if (userQuiet <= 0) return; uUntil = Date.now() + userQuiet; if (uTimer) clearTimeout(uTimer); uTimer = setTimeout(() => { uTimer = null; uUntil = 0; run(); }, userQuiet); };
 
   // ★활성 = 이벤트마다 재확인★ — 승계(retire) 전에 새 세션이 뜨면 _master 는 아직 옛 좌석이다. 한 번만 읽고 굳으면 영영 꺼진다.
@@ -126,8 +127,8 @@ export default function (pi: ExtensionAPI) {
     return false;
   };
 
-  // ★내 행 = «recv 가 소비할 행» 과 같은 칸(r1153: to === seat ∧ from !== seat)★ — 자기 발신 행(ft-index-move·ft-merge-land 알림)은 recv 가 안 소비해 우편함에 남는다.
-  const mine = (): Row[] => { try { return parseRows(fs.readFileSync(mbox, "utf-8")).filter((r) => r.to === seat && r.from !== seat); } catch (e) { fail(`우편함 읽기 실패 ${mbox} — ${e}`); return []; } };
+  // ★내 행 = «recv 가 소비할 행» 과 같은 칸(r1153: to === seat ∧ from !== seat · r2259: ∨ to === seat ∧ 머리 [깨움] = mbox_lineage.self_wake)★ — 그 밖의 자기 발신 행(ft-index-move·ft-merge-land 알림)은 recv 가 안 소비해 우편함에 남는다.
+  const mine = (): Row[] => { try { return parseRows(fs.readFileSync(mbox, "utf-8")).filter((r) => r.to === seat && r.from !== seat || r.to === seat && r.body.trimStart().startsWith("[깨움]")); } catch (e) { fail(`우편함 읽기 실패 ${mbox} — ${e}`); return []; } };
   const readSeq = (): number => { try { const n = Number(fs.readFileSync(seqFile, "utf-8").trim()); return Number.isFinite(n) ? n : -1; } catch { return -1; } };
   const writeSeq = (n: number | null) => { try { if (n === null) fs.rmSync(seqFile, { force: true }); else fs.writeFileSync(seqFile, `${n}\n`); } catch { /* 폴더 없음 = 다음 회수 */ } };
   const reserve = () => spawnSync("bash", [mboxSh, "budget", "reserve", seat, "pi"], { encoding: "utf-8", timeout: 7000, env: { ...process.env, FT_MBOX_DIR: mboxDir } }).status ?? 1; // recv·예산이 «지정 우편함» 을 보게 한다(FT_MBOX_DIR).
@@ -167,15 +168,16 @@ export default function (pi: ExtensionAPI) {
   }
   function check(force: boolean) { B.check = nowS(); B.why = "uquiet"; // ★r2128 W1★ 반환 이유는 갈래마다 B.why 에 남는다(run 이 .beat 1줄)
     if (uUntil > Date.now()) return; // ★r1555★ 창 안 = 아무것도 하지 않는다(우편함 읽기·seq·예산·held 0) — 창 끝 타이머가 run() 을 1회 부른다
-    const rows = mine();
-    if (rows.length === 0 || quietOnly(rows)) { B.why = rows.length === 0 ? "empty" : "quiet-only"; if (rows.length === 0) wakePending = false; return; } // 보고 전용 머리만 · 미읽음 0 = recv 가 소비했다(배달 대기 해제) · 예산 0
+    const rows = mine(), now = nowS(), held = rows.filter((r) => wakeOk(r, now) && (r.wake as number) > now), act = rows.length >= 8 ? rows : rows.filter((r) => !held.includes(r)); // ★r2169 W4★ «아직 묶음» = wake_at 미래 · ⓔ 미읽음 8행 이상 = 시각이 지난 행으로 본다
+    if (bT) clearTimeout(bT); bT = held.length && !down ? setTimeout(() => { bT = null; run(); }, Math.min(...held.map((r) => r.wake as number)) * 1000 - Number(process.env.FT_MBOX_NOW ?? Date.now() / 1000) * 1000) : null; // ⓑ 가장 이른 wake_at 에 check 1회 · check 마다 다시 잼 · 주기 0
+    if (act.length === 0 || quietOnly(act)) { B.why = rows.length === 0 ? "empty" : act.length ? "quiet-only" : "batched"; if (rows.length === 0) wakePending = false; return; } // 보고 전용 머리만 · 미읽음 0 = recv 가 소비했다(배달 대기 해제) · 예산 0
     B.why = inTurn ? "in-turn" : wakePending ? "wake-pending" : "inactive"; if (!activeSeat(false) || inTurn || wakePending) return; // ★매 이벤트 재확인★ · 판 2(r1529) = 턴 도중 쌓기 0 · 배달 안 된 깨움 1개 상한(ⓗⓘⓙ)
     const master = seats().master; // 사람 발신 판정 = _master(desk 로 활성돼도 같다)
     const seq = Math.max(...rows.map((r) => r.seq));
     const viaNudge = fs.existsSync(nudge); // r1476 sweep 이 이미 예약했다 — 재예약 0(이중 차감 0)
     B.why = "seq-dup"; if (!force && !viaNudge && readSeq() >= seq) return; // 턴 진행 중 중복 억제
     B.why = "gated"; if (recvGate(rows, seq, viaNudge)) return; // ★r1669★ 증류 게이트 좌석 = 같은 미읽음에 깨움 1회(예산·턴 0) — nudge 예약분도 같은 칸(첫 예약은 기록하고 깨우고 · 이미 억제한 seq 면 깨움 0 · DA R1·R2)
-    const exempt = loud(rows) || rows.some((r) => humanSender(r.from, master)); // 예산 밖(카드 ④)
+    const exempt = loud(rows.filter((r) => !wakeOk(r, now))) || rows.some((r) => humanSender(r.from, master)); // 예산 밖(카드 ④)
     if (!viaNudge && !exempt) {
       const rc = reserve();
       if (rc !== 0) { B.why = "budget-held"; recordHeld(seq); if (rc !== 3) fail(`예산 CLI 실패 rc=${rc} — 턴 0(${seat} #${seq})`); return; } // fail-closed = 턴 0
@@ -229,5 +231,5 @@ export default function (pi: ExtensionAPI) {
   });
   pi.on("input", (event: { source?: string }) => { if (event.source !== "interactive") return; uUntil = 0; if (uTimer) { clearTimeout(uTimer); uTimer = null; } }); // ★r1555★ 오빠 일반 메시지(source="interactive") = 창 즉시 닫기 — 대기 영역이 비었고 그 턴이 끝나면 agent_end 가 우편함을 다시 본다 · "extension"·"rpc" 는 창 불변
   // 세션 교체(reload/resume)·종료 = 감시 해제. 안 닫으면 옛 인스턴스가 같은 우편함에 2중으로 깨운다.
-  pi.on("session_shutdown", async () => { down = true; for (const w of watchers) { closed.add(w); w.close(); } watchers = []; if (rearmT) clearTimeout(rearmT); rearmT = null; if (timer) clearTimeout(timer); if (fallback) clearTimeout(fallback); if (hTimer) clearTimeout(hTimer); if (uTimer) clearTimeout(uTimer); timer = fallback = hTimer = uTimer = null; });
+  pi.on("session_shutdown", async () => { down = true; for (const w of watchers) { closed.add(w); w.close(); } watchers = []; if (rearmT) clearTimeout(rearmT); rearmT = null; if (timer) clearTimeout(timer); if (fallback) clearTimeout(fallback); if (hTimer) clearTimeout(hTimer); if (uTimer) clearTimeout(uTimer); if (bT) clearTimeout(bT); timer = fallback = hTimer = uTimer = bT = null; });
 }

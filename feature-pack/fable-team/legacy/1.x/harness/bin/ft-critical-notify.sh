@@ -194,6 +194,7 @@ PY
 wrap_block() {   # r2067 A2 — 닫기 두 도구의 «기다림» 종료(rc 0·1·2 밖) = 장부 raise · rc 0 = clear · rc 1·2 = 호출 0
   case "$1" in ft-seat-close|ft-nano-close) ;; *) return 0;; esac
   local tool="$1" rc="$2" out="$3" t="" a cause; shift 3
+  [ "$tool:$rc" = ft-nano-close:5 ] && grep -q '^FT2-SEAT ' "$out" 2>/dev/null && return 0   # r2168 T5ⓐ — ft2 좌석 = 1.x 닫기 대상 아님(raise · clear 0)
   for a in "$@"; do case "$a" in --*) ;; *) t="$a"; break;; esac; done
   [ -n "$t" ] && . "$HERE/ft-block-lib.sh" 2>/dev/null && declare -F ft_block >/dev/null || return 0
   case "$rc" in 0) ft_block clear "$tool" "$t";; 1|2) ;;

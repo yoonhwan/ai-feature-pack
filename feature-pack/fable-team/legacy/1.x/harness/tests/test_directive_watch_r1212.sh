@@ -167,7 +167,7 @@ PY
 export PYTHONPATH="$BIN"
 mut "$TOOL" "$T/m1.py" "6 * 3600" "10 ** 9"; r1180_env; TOOL_RUN="$T/m1.py" run status --now 2026-10-31T01:00:00
 [ "$RC" = 0 ] && ok "변이1(6시간 → 무한) → R1 빨강(rc0)" || bad "변이1 이 R1 에 안 잡힘 rc=$RC"
-mut "$TOOL" "$T/m2.py" '"^- 지시:"' '"판정"'; new_root; row new 3001 2026-10-20T10:00:00 "오빠 지시(slack 1792900000.123456): 새 감시" harness > "$MDF"
+mut "$TOOL" "$T/m2.py" '"^- 지시( #)?:"' '"판정"'; new_root; row new 3001 2026-10-20T10:00:00 "오빠 지시(slack 1792900000.123456): 새 감시" harness > "$MDF"
 card "$R" "design/harness/indices/대기/r9001-bg.md" "2026-10-20 10:30:00 +0900" "- 근거: 판정 3001 · 오빠 slack 1792900000.123456"; TOOL_RUN="$T/m2.py" run status --now 2026-10-20T11:01:00
 case "$OUT" in "담당 없는 오빠 지시 0"*) ok "변이2(인용 아무 데나 연결) → R3 빨강(담당 없음 0)";; *) bad "변이2 가 R3 에 안 잡힘 :: $OUT";; esac
 mut "$TOOL" "$T/m4.py" "if not self.virtual and c.is_file():" "if c.is_file():"; r1180_env; run status; TOOL_RUN="$T/m4.py" run status --now 2026-10-31T01:00:00

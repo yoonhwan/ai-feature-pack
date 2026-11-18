@@ -4,6 +4,7 @@
 # R836_PY=<다른 ft_head_lag.py> 로 변이본을 같은 시험에 돌린다(옆에 ft_head_lag_seats.py · ft-head-skip.txt 필요).
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+PFX="$(cd -- "$HERE/.." && pwd -P)"; PFX="${PFX#$(git -C "$HERE" rev-parse --show-toplevel)/}"  # r2224 움직이는 ref 의 리포 상대 실경로
 BIN="$HERE/../../harness/bin"; PY="${R836_PY:-$BIN/ft_head_lag.py}"
 . "$HERE/_merge_fixture.sh"
 fail=0; rc=0; out=""
@@ -46,8 +47,8 @@ git -C "$T/wa" merge -q --no-edit origin/main >/dev/null 2>&1; run --event
 [ "$rc" = 0 ] && [ "$(keys)" = "" ] && [ "$(msgs)" = 2 ]; ck "ⓒ W 가 main 따라잡음 → W 기록 삭제 · 발송 0" $?
 mainc c5; run --event; [ "$(msgs)" = 3 ] && [ "$(rec x "$RA" | cut -d' ' -f3)" = 1 ]; ck "ⓒ 다시 뒤처짐 → 바로 발송 1(새 사건 · n=1)" $?
 # ── ⓓ 워크트리 2 · 팀 2 → 팀별 1통 · 문구 = 기준판(origin/main ft_head_lag.py)과 글자 같음
-OLD="$T/old"; mkdir -p "$OLD"; cp "$BIN/ft_head_lag_seats.py" "$BIN/ft-head-skip.txt" "$OLD/"
-git -C "$HERE" show origin/main:feature-pack/fable-team/harness/bin/ft_head_lag.py > "$OLD/ft_head_lag.py"
+OLD="$T/old"; mkdir -p "$OLD"; cp "$BIN"/ft_head_lag_*.py "$BIN/ft-head-skip.txt" "$OLD/"
+git -C "$HERE" show origin/main:$PFX/bin/ft_head_lag.py > "$OLD/ft_head_lag.py"
 mkwt wb wip/wb "$L" 'byz-teamb-nano-claude#0'
 rm -f "$SF"; : > "$MBOX_LOG"; PY="$OLD/ft_head_lag.py" run --event; cp "$MBOX_LOG" "$T/old.log"
 rm -f "$SF"; : > "$MBOX_LOG"; run --event

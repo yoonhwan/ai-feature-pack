@@ -100,10 +100,12 @@ def check(repo, a, s, remote, target):
     if not anc(repo, ac, sc, shallow):
         return rebased(repo, ac, sc, m, shallow)
     extra = out(repo, "rev-list", "--no-merges", sc, "^" + ac, "^" + m).split()
+    cards = card_commits(repo, sc, ac, m) if extra else set()   # r2216 O2: 카드 .md 만 바꾼 커밋은 이 셈에서만 빠짐(규칙 3·4 는 카드까지 엄격)
+    extra = [c for c in extra if c not in cards]
     if extra:
         raise No("승인 뒤 main 이 아닌 일반 커밋 %d 개(%s…)" % (len(extra), extra[0][:10]))
     merges = [r.split() for r in out(repo, "rev-list", "--merges", "--topo-order", "--parents", sc, "^" + ac, "^" + m).split("\n") if r]
-    if not merges:
+    if not merges and not cards:   # r2216 O3: 병합 0 이어도 카드 커밋이 있으면 아래 규칙 3·4 로 본다(mx = merge-base(S, main))
         raise No("승인 뒤 main 병합 커밋이 없음 — 같은 승인으로 볼 근거 없음")
     trunk = set(out(repo, "rev-list", sc, "^" + ac, "^" + m).split()) | {ac}
     for c, first, *rest in merges:
@@ -125,7 +127,26 @@ def check(repo, a, s, remote, target):
         raise No("승인 세트와 main 이 깨끗이 병합되지 않음(충돌) — 충돌 해소는 새 세트")
     if p.stdout.decode().split()[0] != out(repo, "rev-parse", sc + "^{tree}", share=True).strip():
         raise No("S 트리가 «승인 세트 + main 의 깨끗한 병합»과 다름(병합 커밋이 그 밖의 변경을 담음)")
-    return "EQUIV approve=%s head=%s merges=%d files=%d mode=merge overlap=%d base=%s%s" % (ac, sc, len(merges), len(da), overlap(repo, da, mb, mx), mx[:10], ov_names(repo, da, mb, mx))
+    return "EQUIV approve=%s head=%s merges=%d files=%d mode=merge overlap=%d base=%s%s%s" % (ac, sc, len(merges), len(da), overlap(repo, da, mb, mx), mx[:10], ov_names(repo, da, mb, mx),
+                                                                                     " cards=%d" % len(cards) if cards else "")
+
+
+def is_card(p):
+    """r2216 O1 카드 .md 경로(r2215 O1 과 같은 글자): design/teams/<팀>/indices/** 또는 design/harness/indices/** 의 .md."""
+    return re.fullmatch(r"design/teams/[^/]+/indices/.+\.md|design/harness/indices/.+\.md", p) is not None
+
+
+def card_commits(repo, sc, ac, m):
+    """r2216 O2: S ^A ^main 병합 아닌 커밋 중 바꾼 경로(추가·수정·삭제 · --no-renames)가 1개 이상이고 전부 O1 인 커밋 집합 — git log 1회 · 커밋 경계 = %x01."""
+    paths, c = {}, None
+    for t in out(repo, "log", "--no-merges", "--no-renames", "--name-only", "-z", "--format=%x01%H", sc, "^" + ac, "^" + m).split("\0"):
+        t = t.lstrip("\n")
+        if t.startswith("\x01"):
+            c = t[1:]
+            paths[c] = []
+        elif t and c:
+            paths[c].append(t)
+    return {c for c, ps in paths.items() if ps and all(is_card(p) for p in ps)}
 
 
 def ov_names(repo, da, mb, m):

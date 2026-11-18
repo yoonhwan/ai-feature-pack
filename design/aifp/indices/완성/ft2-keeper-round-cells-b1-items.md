@@ -5,7 +5,9 @@
 - 근거: 읽기 조사 2026-11-16 09:16(aifp-ft-arch-pi#23 · 설치본 ft2 2.0.76 · BYZ .fable-team/state/ft2-keeper/20261116.jsonl · 팩 origin/main e95184f0 · 읽기만) — 아래 «조사 결과» 절
 - 원인 1줄: keeper 60초 카드(PR #1397 · d261be1a)가 바퀴 고리를 `team_round` → `one_work` 로 옮기면서 `self.landing(team, work)` 를 `self.timed("b1", …)` 밖에서 부르게 됐다(앞 판은 `self.timed("b1", self.landing, team, work)`) → 착지 판정의 git 초가 `b1=` 에서 빠져 `other=` 로 간다 · `items=` 분모는 `positions()` 가 journal 의 모든 dispatch work 를 세는데 고리는 처리 끝난 work(`handled` · 반환 · 쉼)를 자리 진입 없이 건너뛴다
 - 앞 카드: 진행/ft2-keeper-round-60s(R10 ROUND 칸 · 가정 A1 · 완료 조건 6·7) · r1817(단계별 초) · r1969(slow 칸)
-- 상태: 대기
+- 상태: 완성
+- 착지: cf2a00ec(팩 main · PR #1513 · squash · 승인 head 4ca226e14922d58e580f490b1b7e0e27f4fbfc1b · 팀장 재실행 round_cells+round_60s 64 passed 11.2s)
+- DA 판정: APPROVE-IMPL 3/3 BYZ 326406(aifp 6035 · 앞 HOLD 1/3 326273 · 2/3 326352 · 사본 .fable-team/state/team-main/aifp-ft/DA-round-cells-impl-approve-326406/verdict.md · 알려진 한계 = b2_split_cache_r1969 ② main 같은 1 failed)
 - 설치: 있음 — ft2 판 올림 1회 · 되돌림 = 앞 판으로 판 전환(상태 파일·설정 변화 0)
 - 선행: 없음(팩 origin/main e95184f0)
 - 시험 입력: 임시 루트(tmp_path) · 시험 안에서 만든 journal·카드 · 가짜 tmux·가짜 mbox·가짜 git(걸린 초를 가짜 시계로 더함) · 주입 시계 · sleep 0 · 네트워크 0 · 실 runtime 0 · test_keeper_round_60s.py 의 Rig 을 그대로 쓴다 · 사례 1개 70초 안
@@ -15,7 +17,7 @@
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/pi/keeper.py(`one_work` 의 landing 호출 1줄 · 분모 셈 2줄) · 새 시험 feature-pack/fable-team/ft2/tests/test_keeper_round_cells.py
 - 정본 영향 없음: aifp 정본 변경 0 · 팩 ft2 계약 문서도 변경 0 — CONTRACT.md §13 R10 은 이미 `items=<돈 자리>/<돈 수 있는 자리>` 라고 적혀 있다(구현이 그 글과 다르다) · «옛 칸·순서 그대로» 도 60초 카드 R10 글 그대로다
 - 크기: 코드 1파일(5줄 안팎) · 새 시험 1파일 · PR 1개
-- 배정: 대기(정지 · 2026-11-16T09:27)
+- 배정: 좌석 aifp-ft-nano-ft2-keeper-round-cells-b1-items#0
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -80,12 +82,12 @@ keeper 60초 카드는 «`other=` 의 가장 긴 값이 5초를 넘으면 가정
 - `cut=-:-:-` 꼴(조사 결과 볼 것) = 원인 조사 0. 새 카드 감.
 
 ## 완료 조건
-1. [ ] 나노: 커밋 1 기준판 FAIL 원문(㊻가 · ㊻나 · ㊻다 · ㊻마 · ㊻바 · ㊻사 · ㊻아)
-2. [ ] 나노: 새 시험 전체 rc0 · 걸린 초
-3. [ ] 나노: 변이 M109~M112 지정 반례 FAIL
-4. [ ] 나노: 회귀 rc0(파일별 초)
-5. [ ] 팀장: PR 착지 sha · 설치 판
-6. [ ] arch: 설치 뒤 읽기 실측 = BYZ keeper 로그 ROUND 50줄 이상(양 끝 시각)에서 `b1=` 이 0 이 아닌 줄 수와 p50 · `other=` 의 p50·가장 긴 값을 기준값(7 · 10 · 16.2 · 10.3초)과 나란히 · 끊기지 않은 줄(`cut=-`)의 `items=` 가 모두 N/N · 아닌 줄이 있으면 원문과 함께 [ ] 로 둔다
+1. [x] 나노: 커밋 1 기준판 FAIL 원문(㊻가 · ㊻나 · ㊻다 · ㊻마 · ㊻바 · ㊻사 · ㊻아) — PR #1513 본문 «기준판 e3fa4688: 7 failed 1 passed(㊻라만 통과) · 나노 aifp 6002 원문»
+2. [x] 나노: 새 시험 전체 rc0 · 걸린 초 — 세트 줄 15 passed 2.6초 rc=0
+3. [x] 나노: 변이 M109~M112 지정 반례 FAIL — 세트 줄 4/4
+4. [x] 나노: 회귀 rc0(파일별 초) — 착지 줄 팀장 재실행 round_cells+round_60s 64 passed 11.2s
+5. [x] 팀장: PR 착지 sha · 설치 판 — 착지 cf2a00ec(PR #1513) · 설치 ft2 2.0.102(상태 절 창1 근거) · 실측 판 = 2.0.118
+6. [x] arch: 설치 뒤 읽기 실측 ★2회차 = 충족(aifp-ft-arch-pi#25 · aifp 6117 · ft2 2.0.118 · ROUND 54줄 14:11:43 ~ 15:30:17 · cut=- 32줄 items 모두 N/N · 아닌 줄 0 · b1 0 아님 53/54 p50 14.0초 · other p50 2.2 · 가장 긴 값 7.9초 · 증거 .fable-team/state/team-main/aifp-ft/A25-post-install-measure/w2.txt)★ · 1회차 = BYZ keeper 로그 ROUND 50줄 이상(양 끝 시각)에서 `b1=` 이 0 이 아닌 줄 수와 p50 · `other=` 의 p50·가장 긴 값을 기준값(7 · 10 · 16.2 · 10.3초)과 나란히 · 끊기지 않은 줄(`cut=-`)의 `items=` 가 모두 N/N · 아닌 줄이 있으면 원문과 함께 [ ] 로 둔다 · ★설치 뒤 실측(읽기만 · aifp-ft-arch-pi#24 2026-11-18 12:57 · 팀장 aifp 6041 · 6066 · BYZ .fable-team/state/ft2-keeper/2026111[78].jsonl · 셈 스크립트·출력 = .fable-team/state/team-main/aifp-ft/A24-keeper-measure/) = [ ] 그대로: 끊기지 않은 줄(cut=-) 가운데 items 가 N/N 이 아닌 줄이 있다 · 창1 = 11-17 14:50:06(2.0.102 설치) ~ 17:22:03(2.0.103 설치 전) ROUND 114줄(14:51:11 ~ 17:21:10): b1 0 아님 108/114줄 · b1 p50 3.2초 · other p50 1.1 · 가장 긴 값 12.3초(기준값 7 · 10 · 16.2 · 10.3) · cut=- 107줄 가운데 N/N 103 · 아닌 줄 4 · 창2 = 11-17 14:50:06 ~ 11-18 12:55:39(판 2.0.102 ~ 2.0.116) ROUND 1012줄(14:51:11 ~ 12:55:04): b1 0 아님 954/1012줄 · b1 p50 1.6(0 아닌 것 1.8) · other p50 1.4 · 가장 긴 값 26.9초 · cut=- 910줄 가운데 N/N 886 · 아닌 줄 24 · 아닌 24줄은 모두 그 바퀴 안에 «판정 불가 <팀> - git 7초 넘음» 줄이 있다(팀 고리가 git 7초에 끊겼는데 cut 칸은 `-`) · 원문은 상태 절★
 
 ## 계약↔시험 대응표
 | 계약 | 시험 |
@@ -96,5 +98,13 @@ keeper 60초 카드는 «`other=` 의 가장 긴 값이 5초를 넘으면 가정
 | H4 other 식 | ㊻가 |
 
 ## 상태
+- base_sha: 34f538264bdf1dd9f77ccb42b361e577b004f560 (spawn 2026-11-17)
 - 2026-11-16 09:17 · 대기 — aifp-ft-arch-pi#23 초안(팀장 aifp 5919 · 읽기 조사 3회 · 구현 0) · 다음 = 팀장 PR merge → DA 설계 → Issue → 나노 1석
 - 2026-11-16 09:26 · 대기 — aifp-ft-arch-pi#23 머리 줄(팀장 aifp 5923) · Issue #8676 · DA 판정: APPROVE-DESIGN 313472(승인 sha f7b0614e28a8ca4e8806b56d4e145dd45f94692f · 사본 .fable-team/state/team-main/aifp-ft/DA-round-cells-design-approve-313472/verdict.md · 수용 동작 반례 0 · 알려진 한계 1줄 계약에 보탬) · 배정 줄 꼴 고침(대기 · 정지 = BYZ 전팀 정지 판정 4244 ② · 팀장 aifp 5924) · 그 밖 손 0 · 다음 = 팀장 착지 → 인터뷰 뒤 나노 spawn
+- 2026-11-17 14:13 — 대기→진행 · 좌석 aifp-ft-nano-ft2-keeper-round-cells-b1-items#0
+- [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
+- 2026-11-18 12:57 · 진행 — 조건 6 설치 뒤 실측 = [ ](aifp-ft-arch-pi#24 · 읽기만) · b1 · other 는 기준값보다 나아졌다(other p50 7~10 → 1.1~1.4) · 남은 것 = git 7초에 끊긴 바퀴가 cut=- 인 채 items 가 N/N 이 아님(창1 4줄 · 창2 24줄)
+  원문 2줄: `16:01:45 판정 불가 harness - git 7초 넘음` → `ROUND s=27.6 fetch=3.5 b1=4.8 b2c=0 b2f=13.3 b3=0 stall=0.3 fetch_root=3.5 fetch_pack=0.7 nano=5.6 wall=31.2 other=3.6 items=11/39 cut=- slow=harness:b2f:11.5 unknown=6` · `16:09:43 판정 불가 harness - git 7초 넘음` → `ROUND s=23.3 fetch=3.8 b1=0 b2c=0 b2f=16.8 b3=0 stall=0.1 fetch_root=3.8 fetch_pack=0.8 nano=2.6 wall=24.1 other=0.7 items=1/29 cut=- slow=harness:b2f:16.8`
+  아닌 줄 시각 분포(창2): 11-17 16시 4 · 19시 1 · 21시 3 · 22시 3 · 23시 5 · 11-18 05시 2 · 06시 1 · 12시 3
+- 2026-11-18 15:32 · 완성 — 조건 6 2회차 충족(aifp 6117 · ungraded-team-rest 2.0.118 설치 뒤) · 1~5 근거 줄 채움 · 볼 것(판정 밖) = b1 p50 1.6~3.2 → 14.0초 · 끊긴 줄 22/54 · ROUND-CAP 22 · SLOW-CALL cat-file 58줄 → 팀장 후속 판단 · 진행→완성
+- 세트: 4ca226e14922d58e580f490b1b7e0e27f4fbfc1b · 시험: python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_keeper_round_cells.py (15 passed · 2.6초 · 변이 M109~M112 4/4) rc=0 · 이슈: 0

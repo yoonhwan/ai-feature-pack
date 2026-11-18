@@ -8,7 +8,7 @@
 #   ★r-wt-sweep-route-timeout★ ①초과는 rc 124 정직(perl 이 자기 TERM 을 무시) ②baton 머리줄이 로그에 있는 «삭제 단계» 초과는 WAIT + <계획>.tmo 연속 카운트(FT_WT_SWEEP_TMO_MAX=3 회면 HIL)
 #   ③(r535 개정) pass 1회 = 시간 상한 FT_WT_SWEEP_BUDGET_SEC(기본 90 · 계획 1건 상한은 그대로) 안에서 막히지 않은 계획을 차례로 · FT_WT_SWEEP_MAX 는 명시할 때만 건수 상한(기본 0 = 없음 · 좌석·cwd WAIT 는 안 센다)
 #   ④[HIL] 줄은 «seat=<좌석>» 을 담는다(호출자가 팀 master 로 라우팅).
-#   ★r535★ ⓐ옛 판 계획 = 거부 전에 옆 생성기 `--replan` 으로 같은 좌석·같은 WT 계획 재생성(옛 파일 .replanned · REPLAN 1줄) → 같은 pass 에 실행 · 계보 세션 살아 있음 = WAIT(제자리) · 불가 = 지금처럼 .stale + 사유
+#   ★r535★ ⓐ옛 판 계획 = 거부 전에 옆 생성기 `--replan` 으로 같은 좌석·같은 WT 계획 재생성(옛 파일 .replanned · REPLAN 1줄) → 같은 pass 에 실행 · 계보 세션 살아 있음 = WAIT(제자리) · 불가 = 지금처럼 .stale + 사유 · ★r2179★ WT 없음(생성기 NONE rc 0) = 옛 계획 .done(끝줄 # none(replan):) · OK wt=none · 재생성 0
 #     ⓑ실행 직전 WT 크기 `du -sk`(FT_WT_DU_SEC 기본 5 상한 · 넘으면 ? · <계획>.kb 캐시) → cleaned 면 .done 끝 `# freed_kb=` · <state>/wt-sweep.log 폴더별 `freed seat= kb=` + pass 줄 끝 `freed_kb=<합>`
 #     ⓒ등록 없는 폴더(<SCAN_ROOT>/.worktrees/* 인데 git worktree list 에 없음) → <state>/wt-orphans.tsv(이름·mtime·크기) 목록만(FT_WT_ORPHAN_SCAN_SEC 기본 3600 간격 · 삭제 0) ⓓ.sh.hil 수 → 요약 `hil_files N`(처리 0).
 #   ★r166 2단 정리★ 생성기 계획은 «이름 바꾸기(즉시) → 분리 프로세스 정리» 로 끝난다(상한 TERM 이 삭제 도중 걸려도 원래 경로엔 껍데기 0).
@@ -240,12 +240,17 @@ plan_ver_check() {
   echo "plan-ver=${pv:-없음} ≠ 라이브 생성기=${lv:-없음}"; return 1
 }
 # r535 옛 판 재생성 — 옛 계획을 .replanned 로 비켜 두고 옆 생성기 --replan 으로 같은 자리(<seat>.sh)에 새 계획. rc 0 = 새 계획 · 4 = WAIT(옛 계획 제자리) · 그 밖 = 실패(옛 계획 제자리 · 호출자가 .stale).
+#   r2179: 6 = 생성기 rc 0 + `NONE --replan:` 줄(WT 없음) → 옛 계획을 <계획>.done 으로(끝에 `# none(replan): <NONE 줄>`) · 그 줄을 stdout.
 replan_one() {
   local out rc
   [ -f "$GEN" ] || { echo "생성기 없음($GEN)"; return 1; }
   mv "$1" "$1.replanned" || { echo "옛 계획 비키기 실패"; return 1; }
   out="$(FT_WT_CLEAN_DIR="$DIR" bash "$GEN" "$2" --replan "$1.replanned" 2>&1)"; rc=$?
   if [ "$rc" -eq 0 ] && [ -f "$1" ] && plan_ver_check "$1" >/dev/null; then return 0; fi
+  local nl; nl="$(printf '%s\n' "$out" | grep -m1 '^NONE --replan:')"   # r2179 HOLD1: 자르지 않는다(줄 끝 «원장 표식 못 함» 보존)
+  if [ "$rc" -eq 0 ] && [ -n "$nl" ] && [ ! -e "$1" ] && mv "$1.replanned" "$1.done"; then
+    printf '# none(replan): %s\n' "$nl" >> "$1.done"; echo "$nl"; return 6
+  fi
   rm -f "$1"; mv "$1.replanned" "$1"
   echo "$(printf '%s\n' "$out" | grep -E '^(REJECT|WAIT|ERROR|usage)' | tail -1 | cut -c1-200)"; [ "$rc" -eq 4 ] && return 4; return 1
 }
@@ -406,6 +411,7 @@ for plan in "$DIR"/*.sh; do
     case "$rrc" in
       0) rp=$((rp+1)); echo "REPLAN $seat — $why → 같은 좌석·같은 WT 새 계획(옛 계획 $plan.replanned)";;
       4) w=$((w+1)); echo "WAIT $seat 옛 판 계획 — 재생성 보류(${rwhy#WAIT --replan: })"; continue;;
+      6) n=$((n+1)); c=$((c+1)); rm -f "$plan.kb"; echo "OK   $seat wt=none — 옛 판 계획 · WT 없음(재생성 0)"; continue;;   # r2179
       *) st=$((st+1)); mv "$plan" "$plan.stale"; echo "STALE $seat — 옛 생성기 계획 실행 거부($why) · 재생성 불가: ${rwhy:-사유 없음} (옛 계획 $plan.stale)"; continue;;
     esac
   fi

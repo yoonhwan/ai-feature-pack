@@ -20,7 +20,7 @@ check_body() {
   case "$line" in *"ft-press-gate ⑦"*) ok "$label ft-press-gate ⑦ 근거";; *) bad "$label BODY 에 'ft-press-gate ⑦' 없음";; esac
   case "$line" in *"측정 조작 금지"*"/dev/bubble-replay"*"BOOT 20"*) ok "$label 측정 조작 금지 문장";; *) bad "$label BODY 에 '측정 조작 금지' 문장 없음";; esac
   case "$line" in *serena*|*Serena*|*find_symbol*) bad "$label BODY 에 은퇴 도구 지시(serena·find_symbol) 남음";; *) ok "$label BODY 에 Serena 0";; esac
-  case "$line" in *"증거 줄"*"완료 턴에 네가 인덱스 «상태» 절에 직접"*"master 는 커밋만"*) ok "$label 증거 줄 직접 기록 문장";; *) bad "$label BODY 에 '증거 줄 직접 기록' 문장 없음";; esac
+  case "$line" in *"증거 줄"*"카드 파일에 쓰지 않는다"*"완료 쪽지 본문"*) ok "$label 증거 줄 완료 쪽지 문장(r2246)";; *) bad "$label BODY 에 '증거 줄 완료 쪽지' 문장 없음";; esac
 }
 
 bash -n "$TRACKED" && ok "bash -n 추적본" || bad "bash -n 추적본"

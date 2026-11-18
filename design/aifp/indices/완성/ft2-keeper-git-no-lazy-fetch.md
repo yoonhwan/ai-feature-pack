@@ -6,7 +6,9 @@
 - 원인 1줄: BYZ 루트는 blob:none partial clone(remote.origin.promisor=true)이다 · keeper 가 그 리포에 «없는 sha»(다른 리포의 착지 sha · 다른 리포의 base_sha)로 `git merge-base --is-ancestor` · `git cat-file -e` 를 물으면 git 이 그 객체를 원격에서 받으려 한다(lazy fetch) · 받지 못하고 6~25초 뒤에야 rc 가 나온다 · keeper 의 git 호출 문(keeper.py `git` → `call`)은 env 를 호출마다 바꿀 길이 없다
 - 앞 카드: 진행/ft2-keeper-round-60s(R7 = 로컬 git 상한 25 → 7초 · PR #1397 열림) · harness 대기/r2022-keeper-ancestor-call-7s(조상 확인 3곳 7초 · rc 갈래) · 1.x 선례 r1401(`_ft_landed_git` · ft-team-lib.sh 313줄) · r1783(ft_approval_equiv.py 57줄 · 176줄)
 - 앞 카드와의 관계: r2022 가 keeper_land.py 의 착지 고리(:165) · pre_attempt(:182) · keeper_endings.py :65 를 고친다 = 이 카드와 같은 줄이라 r2022 착지 뒤에 그 판 위에서 한다 · keeper 60초 카드의 R7 이 착지하면 lazy fetch 로 7초를 넘는 호출이 «판정 불가 git» 줄로 바뀐다 → 이 카드가 그 줄 수를 줄인다(60초 카드 파일 keeper.py · keeper_report.py · full_alert.py · CONTRACT.md · CASES.md 는 이 카드에서 손 0)
-- 상태: 대기
+- 상태: 완성
+- 착지: 379a66d3(팩 main · PR #1519 · squash · 세트 c3ceb28d64908aeb2de01798d2fef62d11b7e981 · 팀장 재실행 26 passed 36.5s)
+- DA 판정: APPROVE-IMPL BYZ 326355(aifp 6031 · 승인 c3ceb28d · 사본 .fable-team/state/team-main/aifp-ft/DA-git-no-lazy-fetch-impl-approve-326355/verdict.md · 회귀 9파일 126 passed 3 failed = endings ④·④c·M3 기준판 같음 · 나노 «9파일 rc0» 보고는 정정)
 - 설치: 있음 — ft2 판 올림 1회 · 되돌림 = 앞 판으로 판 전환(상태 파일·설정 변화 0)
 - 선행: r2022 — harness 카드 r2022-keeper-ancestor-call-7s(BYZ design/harness/indices · 나노 byz-harness-nano-r2022-keeper-ancestor-call-7s#0 일 중 · 같은 줄 keeper_land.py :165 · :182 · keeper_endings.py :65) · 그 착지 판이 나노 base 다
 - 시험 입력: 임시 폴더(tmp_path) 안의 실 git 리포 대역 = 로컬 bare 원격(uploadpack.allowFilter) + blob:none partial clone + «느린 upload-pack» 대역(호출마다 기록 1줄 + 3초) · 1.x test_landed_git_no_lazy_r1401.sh 와 같은 꼴 · 가짜 gh · 가짜 시계 0 · 실 원격 0 · 실 리포 0 · 실 runtime 0 · 네트워크 0 · 사례 1개 70초 안
@@ -16,7 +18,7 @@
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/pi/keeper_land.py(로컬만 보는 git 손 1개 · 쓰는 곳 = 착지 고리 1곳) · 새 시험 feature-pack/fable-team/ft2/tests/test_keeper_git_no_lazy_fetch.py
 - 정본 영향 없음: aifp 정본(docs/architect · docs/rules · design 팀 GUIDE·README) 변경 0 · 팩 ft2 계약 문서(CONTRACT.md · CASES.md)도 변경 0 — 판정값·rc 뜻·로그 줄 꼴은 그대로이고 바뀌는 것은 git 자식의 env 1칸뿐이다(사례표는 새 시험 파일 머리 글에 둔다 = 60초 카드가 고치는 두 문서와 겹치지 않게)
 - 크기: 코드 1파일(10줄 안팎) · 새 시험 1파일 · PR 1개
-- 배정: 대기(DA · 2026-11-16T08:35)
+- 배정: 좌석 aifp-ft-nano-ft2-keeper-git-no-lazy-fetch#0
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -138,13 +140,13 @@ r2022 판(팩 PR #1401 · head 6d47494a · 2026-11-16 08:46 대조)의 줄: keep
 - fetch · ls-remote · show · grep · ls-tree 의 느림(오늘 SLOW-CALL 의 나머지 줄) · GIT_S 상한 값.
 
 ## 완료 조건
-1. [ ] 나노: 커밋 1 기준판 FAIL 원문(㊸가 · ㊺마) · 기준판 PASS(㊸나 · ㊸마 · ㊸차 · ㊹가 · ㊹다 · ㊺가~라)
-2. [ ] 나노: 새 시험 전체 rc0 · 걸린 초
-3. [ ] 나노: 변이 M98~M102 · M106~M108 지정 반례 FAIL
-4. [ ] 나노: 회귀 rc0(파일별 초)
-5. [ ] 팀장: PR 착지 sha · 설치 판
-6. [ ] arch: 설치 뒤 읽기 실측 = BYZ keeper 로그 ROUND 200줄 이상 구간(양 끝 시각)에서 `git BYZ-Agents merge-base` SLOW-CALL 줄 수와 합 초를 «r3 실측» 의 남는 효과 줄(10줄 130.8초 · rc 128·None 6줄 106.3초)과 나란히 · `git BYZ-Agents cat-file` 줄은 base 존재 확인 몫이라 남는 것이 맞다(줄 수·합 초만 적는다) · merge-base rc=128 줄이 남으면 원문과 함께 [ ] 로 둔다
-7. [ ] arch: 판정값 그대로 = 설치 앞 1시간과 뒤 1시간에 같이 있는 work 의 판정 줄 종류(착지 · 미도달 · 판정 불가)가 같음 · 다른 work 가 있으면 원문 · «판정 불가 … cat-file rc» 줄이 설치 뒤 늘지 않음
+1. [x] 나노: 커밋 1 기준판 FAIL 원문(㊸가 · ㊺마) · 기준판 PASS(㊸나 · ㊸마 · ㊸차 · ㊹가 · ㊹다 · ㊺가~라)
+2. [x] 나노: 새 시험 전체 rc0 · 걸린 초
+3. [x] 나노: 변이 M98~M102 · M106~M108 지정 반례 FAIL
+4. [x] 나노: 회귀 rc0(파일별 초)
+5. [x] 팀장: PR 착지 sha · 설치 판 = 379a66d3(PR #1519) · ft2 2.0.101(harness#316 aifp 6034 · cmp 0) · 1~4 근거 = 나노 aifp 6019·6021 원문 + DA APPROVE-IMPL 326355 재현(26 passed · 변이 8 FAIL · 회귀 9파일 126 passed 3 failed = 기준판 같음)
+6. [x] arch: 설치 뒤 읽기 실측 = BYZ keeper 로그 ROUND 200줄 이상 구간(양 끝 시각)에서 `git BYZ-Agents merge-base` SLOW-CALL 줄 수와 합 초를 «r3 실측» 의 남는 효과 줄(10줄 130.8초 · rc 128·None 6줄 106.3초)과 나란히 · `git BYZ-Agents cat-file` 줄은 base 존재 확인 몫이라 남는 것이 맞다(줄 수·합 초만 적는다) · merge-base rc=128 줄이 남으면 원문과 함께 [ ] 로 둔다 · ★설치 뒤 실측(읽기만 · aifp-ft-arch-pi#24 2026-11-18 12:57 · 팀장 aifp 6041 · 6066 · BYZ .fable-team/state/ft2-keeper/2026111[78].jsonl · 셈 스크립트·출력 = .fable-team/state/team-main/aifp-ft/A24-keeper-measure/) · 구간 = 11-17 14:43:40(2.0.101 설치) ~ 11-18 12:55:39 ROUND 1017줄(14:44:30 ~ 12:55:04): `git BYZ-Agents merge-base` SLOW-CALL 21줄 136.6초(rc 1 7줄 40.5초 · rc None 13줄 91.0초 · rc 0 1줄 5.1초 · rc 128 0줄) · `git BYZ-Agents cat-file` 0줄 0초 · 나란히 = r3 실측 약 9시간에 merge-base 10줄 130.8초(rc 128·None 6줄 106.3초) · cat-file 14줄 239.8초 → 22시간에 21줄 136.6초 · cat-file 0 · 2.0.103 설치 전까지(14:43:40 ~ 17:22:03 · ROUND 119줄)만 보면 merge-base 5줄 29.8초(rc 1 3 · None 1 · 0 1) · cat-file 0 · 팀장 기준값(설치 앞 같은 날 39줄 257초 · 내 셈 39줄 262.9초) · merge-base rc=128 줄 0 → [x] · 볼 것: rc None 13줄은 7초 상한에 끊긴 호출이다(줄마다 7.0초 · 앞 판은 25초)★
+7. [~] arch: 판정값 그대로 = 설치 앞 1시간과 뒤 1시간에 같이 있는 work 의 판정 줄 종류(착지 · 미도달 · 판정 불가)가 같음 · 다른 work 가 있으면 원문 · «판정 불가 … cat-file rc» 줄이 설치 뒤 늘지 않음 · ★설치 뒤 실측(읽기만 · aifp-ft-arch-pi#24 2026-11-18 12:57 · 팀장 aifp 6041 · 6066 · BYZ .fable-team/state/ft2-keeper/2026111[78].jsonl · 셈 스크립트·출력 = .fable-team/state/team-main/aifp-ft/A24-keeper-measure/) = [~](비교할 work 가 모자라다): 설치 앞 1시간(13:43:40 ~ 14:43:40) COMPLETED 착지 work 7 · 뒤 1시간(~ 15:43:40) 5 · 두 창에 같이 나온 이름 있는 work 1개 = harness r2172-stall-lead-exempt-no-work-mail(앞 WORKING → 뒤 WORKING · UNKNOWN · COMPLETED 착지 = 일이 끝난 흐름 · 판정 종류가 뒤집힌 것 아님) · «미도달» 글자는 keeper 로그에 앞뒤 모두 0줄(로그에 안 찍히는 판정) · «판정 불가» 앞 8줄 · 뒤 7줄(꼴: 나노 가지 모으기 3 → 3 · git 7초 넘음 4 → 1 · fetch 실패 1 → 1) · «판정 불가 … cat-file rc» 앞 0줄 · 뒤 0줄(22시간 전체도 0줄) = 늘지 않음 · 같은 work 의 착지·미도달·판정 불가를 앞뒤로 맞대어 볼 표본이 1개뿐이라 [x] 를 주지 않는다★
 
 ## 계약↔시험 대응표
 | 계약 | 시험 |
@@ -159,6 +161,13 @@ r2022 판(팩 PR #1401 · head 6d47494a · 2026-11-16 08:46 대조)의 줄: keep
 | G7 그대로 | ㊸자 · ㊸라 |
 
 ## 상태
+- base_sha: 34f538264bdf1dd9f77ccb42b361e577b004f560 (spawn 2026-11-17)
 - 2026-11-16 08:35 · 대기 — aifp-ft-arch-pi#22 초안(팀장 aifp 5868 · 5870 · 넘김 harness#295 aifp 5867 · 5869 · 실측 = BYZ keeper 로그 SLOW-CALL 122줄 · 읽기 명령 4개 · 구현 0) · 선행 r2022(harness 나노 일 중) · 다음 = 팀장 PR merge → DA 설계 → Issue → r2022 착지 뒤 나노 1석
 - 2026-11-16 08:55 · 대기 — aifp-ft-arch-pi#23 r2(팀장 aifp 5879 · DA HOLD-DESIGN 1/3 = aifp 5878 · BYZ 313081 R1) · R1 의도 판정 = 진행(지금 값) 동결 · G4 = base 존재 확인 3단(로컬 → 짝 리포 로컬 → 지금처럼 원격) · 정한 차이 1칸(실측 3번 · 팀장 확인 칸) · r1 «알려진 차이 1줄» 지움 · ㊸나 · ㊸차 고침 · ㊹가~마 · M103~M105 더함 · G3 = r2022 판(#1401 6d47494a) 순서로 맞춤 · 실측 = A23-no-lazy-r2/probe_r2.py 8줄(2.086초) · 구현 0 · 다음 = 팀장 PR merge → DA 설계 2/3
 - 2026-11-16 08:57 · 대기 — aifp-ft-arch-pi#23 r3(팀장 aifp 5893 · DA HOLD-DESIGN 2/3 = aifp 5892 · BYZ 313213 R2) · 범위를 착지 고리 1곳으로 줄임 = base 존재 확인(pre_attempt)·PR 착지 손 0 · r2 의 규칙·«정한 차이 1칸» 지움 · R1 · R2 의도 판정 = 지금 값 동결(㊸차 · ㊺가) · G3 = ⓐ 로컬 조상 확인 ⓑ 없는 착지 sha ∧ 풀리는 ref = 다음 ref ⓒ 그 밖 = 지금 호출 그대로 · 실측 = A23-no-lazy-r3/probe_r3.py 7줄 모두 같음(3.417초) · 남는 효과 = cat-file 14줄 239.8초 남음 · merge-base 상한 6줄 106.3초 · 대상 keeper_land.py 1파일 · 구현 0 · 다음 = 팀장 PR merge → DA 설계 3/3
+- 2026-11-17 14:13 — 대기→진행 · 좌석 aifp-ft-nano-ft2-keeper-git-no-lazy-fetch#0
+- [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
+- 2026-11-18 12:57 · 진행 — 조건 6 [x] · 7 [~] 설치 뒤 실측(aifp-ft-arch-pi#24 · 읽기만) · cat-file SLOW-CALL 0줄 · merge-base rc 128 0줄 · «cat-file rc» 판정 불가 0줄 · 7 은 앞뒤 1시간에 같이 있는 work 1개뿐
+- 세트: c3ceb28d64908aeb2de01798d2fef62d11b7e981 · 시험: python3.11 -m pytest tests/test_keeper_git_no_lazy_fetch.py rc=0 · 이슈: 0
+- 완료: aifp-ft-nano-ft2-keeper-git-no-lazy-fetch#0 · 한 일: keeper 착지 고리에 git_local(GIT_NO_LAZY_FETCH=1) + G3 ⓐⓑⓒ · 새 시험 26칸 · 산출: nano/ft2-keeper-git-no-lazy-fetch@c3ceb28d64 · 병합 상태: 착지 전(push 전) · 남은 일: 없음
+- 알려진 한계(하드 룰 21 · 동작 반례 0): 조건 7 [~] = 설치 앞뒤 1시간에 같이 있는 이름 있는 work 1개뿐 · «cat-file rc» 판정 불가 0 → 0 · b2f·b2c merge-base 는 이 카드 범위 밖이라 21줄 136.6초 남음(48시간 리포트 I1) · 완성 이동 aifp-ft-master-pi#24 2026-11-18

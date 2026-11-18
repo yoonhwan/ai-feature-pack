@@ -34,7 +34,7 @@ from ft_stall_detect import DESK_READ_MIN, IDLE_MIN, all_stop, all_stop_note, ag
 from ft_stall_seats import Seats
 from ft_team_lib import rosters  # r1883 — _master 빈 팀의 카드 경로(명부 doc)
 import ft_stall_state as stm
-from ft_nano_record_auto import land_close
+from ft_nano_record_auto import ft2_seat, land_close
 import ft_seat_succ_close
 try:
     from ft_block import block  # r2070 A1 — 막힘 장부 올리는 한 길(없으면 호출 0 · 판정·출력 불변)
@@ -657,6 +657,9 @@ class Scan:
             if crc == 0 and closed:   # r1735 A3 — rc≠0 은 CLOSED 줄이 있어도 실패(rc 우선)
                 tried.pop(seat, None)
                 lines.append(f"{stamp} auto-close {closed} set={head}")
+            elif ft2_seat(crc, cout):   # r2168 T5ⓒ — 실패 줄 0(block raise 0) · 같은 HEAD 재시도 0
+                tried[seat] = head
+                lines.append(f"{stamp} auto-close 대상 아님 {seat} ft2 — keeper")
             else:
                 tried[seat] = head
                 why = next((x for x in rows if not x.startswith("INFO")), (rows or [""])[0])[:120]   # r1735 A2 — INFO 줄은 사유가 아니다
@@ -717,11 +720,12 @@ class Scan:
     def record_notify(self, stamp: str) -> list[str]:
         """r1717 A4 ⓑ — 착지 뒤 «정리 차례» 장부의 열린 줄마다 쪽지(1회·재촉 1회 셈은 도구 몫) · FT_NANO_AUTO_CLOSE 와 무관 · rc≠0 = 로그 1줄."""
         tool = os.environ.get("FT_NANO_RECORD") or str(HERE / "ft-nano-record.sh")
+        t0 = __import__("ft_nano_record_budget").epoch()   # r2175 N6 — 이번 호출 시작(표식과 같은 꼴)
         rc, _out = run(["bash", tool, "notify"], {**os.environ, "FT_ROOT": str(self.root)}, 25)
         if rc != 0:   # r2070 A2ⓐ
             block(self.root, "raise", "ft-stall-scan", "team", "record-notify", "--cause", f"판정 불가 record-notify rc={rc}",
                   "--fix", "판정 필요 정리 차례 알림 — ft-nano-record.sh notify 손 실행으로 rc·출력 확인", "--period", "150")
-        return [] if rc == 0 else [f"{stamp} 판정 불가 record-notify rc={rc}"]
+        return [] if rc == 0 else [f"{stamp} 판정 불가 record-notify rc={rc} — 멎은 곳: {__import__('ft_nano_record_budget').stop_trace(self.root, t0)}"]
 
     def run(self, dry: bool) -> int:
         pen = ft_penalty.load()

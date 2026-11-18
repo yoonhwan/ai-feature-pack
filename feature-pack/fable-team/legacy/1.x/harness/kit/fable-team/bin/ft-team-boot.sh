@@ -136,7 +136,7 @@ else
     if grep -q -- '--resume' <(bash "$SO" 2>&1 | head -3) 2>/dev/null; then so_args+=(--resume); echo "B2 재개 기록 있음 — --resume 1개"
     else echo "WARN --resume 미지원($SO usage 에 없음 · 재개 기록 $RESUME_UUID) — 새 세션으로 연다"; fi
   fi
-  so_out="$(bash "$SO" "${so_args[@]}" 2>&1)"; so_rc=$?
+  so_out="$(FT_CARRY_WARN_ONLY=1 bash "$SO" "${so_args[@]}" 2>&1)"; so_rc=$?   # r2229 O1b 자동 길 = 열린 칸 대조 실패도 WARN 뒤 진행(부르는 줄에만 · export 0)
   echo "B2 $NEXT rc=$so_rc"; printf '%s\n' "$so_out" | tail -3
   [ "$so_rc" -eq 0 ] || { plan_set b2 "rc=$so_rc name=$NEXT"; STOP "팀장 미도달 rc=$so_rc(하위 0 · $NEXT)"; }
   plan_set b2 "done name=$NEXT rc=0"; b2name="$NEXT"

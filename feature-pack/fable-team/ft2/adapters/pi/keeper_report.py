@@ -147,9 +147,9 @@ class Reporting:
                 fh.write(json.dumps({"to": to, "rc": rc, "head": body[:120], "tries": row["tries"]}, ensure_ascii=False) + "\n")
 
     def blocked(self, key):
-        """E3 지문 있음 = 다시 보내지 않는다 · fail|<날짜>| 은 그날만(날짜가 바뀌면 1회 다시 시도)."""
+        """E3 지문 있음 = 다시 보내지 않는다 · fail|<날짜>| · stand|<날짜> 은 그날만(날짜가 바뀌면 1회 다시 시도 · r2203)."""
         got = self.state["sent"].get(key)
-        return got is not None and (not str(got).startswith("fail|") or str(got).split("|")[1] == self.stamp()[:10])
+        return got is not None and (not str(got).startswith(("fail|", "stand|")) or str(got).split("|")[1] == self.stamp()[:10])
 
     def finish(self, team, key, to, rc, seen, body):
         """E3·E7 결과 — rc 0 이거나 장부에 그 글이 있으면 성공 지문 · 아니면 fail|<날짜>|<rc> 지문(그날 재시도 0) · 판정 줄 그날 1줄."""
@@ -161,10 +161,12 @@ class Reporting:
         self.log("판정 불가", team, "쪽지 %s%s — %s" % (rc, " 도착 판독 불가" if seen in ("창 밖", "판독 불가") else "", body[:80]))
         return False
 
-    def stand_in(self, team, body):
-        """E2 대신 받는 곳에는 글마다 보내지 않는다 — state.undelivered[팀] 에 쌓고 바퀴 끝 묶음 1통(팀당 하루 1통)."""
+    def stand_in(self, team, key, body):
+        """E2 대신 받는 곳에는 글마다 보내지 않는다 — state.undelivered[팀] 에 쌓고 바퀴 끝 묶음 1통(팀당 하루 1통) ·
+        r2203 같은 열쇠는 그날 1건(stand|<날짜> 지문 · blocked 가 그날만 막는다)."""
         heads = (body or "").splitlines()[:1] or [""]
         self.state.setdefault("undelivered", {}).setdefault(team, []).append(heads[0][:60])
+        self.state["sent"][key] = "stand|%s" % self.stamp()[:10]
         return True
 
     def notify(self, team, key, body):
@@ -176,7 +178,7 @@ class Reporting:
         if not to:   # E6 세 칸 다 빈칸 = 그날 1줄 · E3 과 같은 실패 지문
             return self.finish(team, key, "", "받는 곳 없음", "", body)
         if stand:
-            return self.stand_in(team, body)
+            return self.stand_in(team, key, body)
         if not self.budget(team):   # E5 상한 밖 = 지문 0 · 다음 바퀴(바퀴 끝 NOTIFY-DEFER 1줄)
             return False
         rc, seen = self.send(to, body)

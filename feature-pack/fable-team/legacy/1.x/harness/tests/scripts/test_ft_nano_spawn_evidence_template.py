@@ -42,7 +42,7 @@ def test_body_has_exact_template_line_and_phrase():
     text = SPAWN.read_text(encoding="utf-8")
     assert TEMPLATE in text
     assert "rc= 바로 뒤는 « · 이슈:» — 괄호·설명은 rc= 앞에" in text
-    assert text.index("(판정 1125)★") < text.index(TEMPLATE) < text.index("★팀 구조")
+    assert text.index("카드 줄은 arch 가 인수 뒤 docs PR 로★") < text.index(TEMPLATE) < text.index("★팀 구조")
 
 
 def test_filled_template_passes_evidence_check(tmp_path, nano):

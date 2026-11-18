@@ -20,6 +20,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 _SPEC = importlib.util.spec_from_file_location("ft2_card_stage_land", os.path.join(HERE, "keeper_land.py"))
 land = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(land)
+_VSPEC = importlib.util.spec_from_file_location("ft2_card_stage_verdict", os.path.join(HERE, "card_verdict.py"))
+verdict = importlib.util.module_from_spec(_VSPEC)
+_VSPEC.loader.exec_module(verdict)   # r2176 — 판정문 글을 얻는 한 곳
 proj = land.cli._load("projection")   # keeper_land.done 과 같은 projection.project(공개 API) · core 손 0
 PAIR = ("worktree",)   # G1 — 둘째 낱말까지 적는 명령(worktree add · worktree remove …)
 class Unsure(Exception):
@@ -92,16 +95,22 @@ def card(byz, root, team, work, sha):
     if not picks or len(doing[picks[0][0]]) != 1:
         raise Unsure("진행 카드 %d개" % sum(map(len, doing.values())))
     return picks[0]
-def da_check(root, spec, stem):
-    """r2037 A1·A2·A4 — 판정문 §N 절 → ft_close_marker <stem> · 통과 None · 거절 = 사유 1줄 · 판정문·lib 읽기 실패 = Unsure."""
+def da_check(root, spec, stem, byz=None, sha=None, seen=None):
+    """r2037 A1·A2·A4 — 판정문 §N 절 → ft_close_marker <stem> · 통과 None · 거절 = 사유 1줄 · 판정문·lib 읽기 실패 = Unsure.
+    r2176 — 글 = card_verdict(작업 트리 파일 먼저 → 고정 SHA 가지 순서) · git 으로 통과하면 seen["src"] = "<가지> <sha 10자>"."""
     path, _, sec = spec.rpartition("#")
+    why, src = verdict.verdict(path, lambda text: da_judge(root, text, sec, stem), byz or root, sha, land.REFS, run, Unsure)
+    if seen is not None:
+        seen["src"] = src
+    return why
+def da_judge(root, text, sec, stem):
     lib = os.path.join(root, ".fable-team", "bin", "ft-team-lib.sh")   # 설치된 1.x 런타임 lib(ft_close_marker 단일 출처 · r1784)
-    try:   # 절 = `## …§N` 머리부터 다음 `## ` 전까지(ft-index-close-landed 와 같은 꼴)
-        with open(path, encoding="utf-8") as fh:
-            body = "".join(s for s in re.split(r"(?m)^(?=## )", fh.read()) if (m := re.match(r"## .*?(§\d+)(?!\d)", s)) and m.group(1) == sec)
+    # 절 = `## …§N` 머리부터 다음 `## ` 전까지(ft-index-close-landed 와 같은 꼴)
+    body = "".join(s for s in re.split(r"(?m)^(?=## )", text) if (m := re.match(r"## .*?(§\d+)(?!\d)", s)) and m.group(1) == sec)
+    try:
         p = body and subprocess.run(["bash", "-c", '. "$1" >/dev/null 2>&1 || exit 9; ft_close_marker "$2"', "x", lib, stem],
                                     input=body.encode(), capture_output=True, timeout=7)
-    except (OSError, UnicodeDecodeError, subprocess.TimeoutExpired) as exc:
+    except (OSError, subprocess.TimeoutExpired) as exc:
         raise Unsure("판정문 읽기 %s" % type(exc).__name__) from None
     if p and p.returncode > 1:
         raise Unsure("ft_close_marker rc %s" % p.returncode)
@@ -162,7 +171,7 @@ def stage(byz, root, team, work, at, now, da=None, gate=None):
         ref, old = picked
         frm = "대기" if "/indices/대기/" in old else "진행"
         new = old.replace("/indices/%s/" % frm, "/indices/완성/", 1)
-        why = gate(os.path.basename(old)[:-3]) if gate else None   # r2037 — 판정문 대조는 쓰기 전(거절 = 쓰기 0)
+        why = gate(os.path.basename(old)[:-3], sha) if gate else None   # r2037 — 판정문 대조는 쓰기 전(거절 = 쓰기 0)
         if why and da:
             raise Reject(why)
         stem = os.path.basename(old)[:-3]
@@ -198,12 +207,15 @@ def main(argv=None):
     root, byz = os.path.abspath(a.root), os.path.abspath(a.byz or a.root)
     try:
         at = done_at(root, a.team, a.work)
-        da, gate = a.da if at is None else None, (lambda stem: da_check(root, a.da, stem)) if a.da else None
+        seen = {}   # r2176 — git 으로 통과한 판정문 출처
+        da, gate = a.da if at is None else None, (lambda stem, sha: da_check(root, a.da, stem, byz, sha, seen)) if a.da else None
         out = None if at is None and not da else stage(byz, root, a.team, a.work, at or "", now, da, gate)
         word, rc = ("REJECT done 없음 %s" % a.work, 1) if at is None and not da else ("NOOP %s 이미 완성" % a.work, 0) if out is None \
             else ("STAGED %s %s %s" % out[:3], 0)
         if out and a.da and not da:   # A3 — done 있음 = 지금 갈래 + 대조 1줄
             word += "\nDA 대조 %s" % ("일치 " + a.da if out[3] is None else "불일치 " + out[3])
+        if out and a.da and seen.get("src"):   # r2176 V3·V7 — git 출처로 통과 = STAGED·대조 줄 바로 다음 1줄
+            word += "\n판정문 출처 %s" % seen["src"]
         if out and da:   # A5 — 카드 이동은 이미 끝(되돌림 0) · 원장 실패는 다음 줄 판정 불가
             print(word)
             word = ledger_complete(root, a.team, a.work) or ""

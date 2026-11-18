@@ -18,7 +18,7 @@ PARK_IDLE, WAIT_S, DAY = 3600, 900, 86400   # 유휴 문턱 60분 · 질문 창 
 DONE_IDLE = 300                             # 카드 착지 끝 좌석의 짧은 유휴 문턱(설계 DESIGN-pA r4 §3 · 계약 A1)
 ROLE_CELLS = ("_master", "_arch", "_desk")   # A6② 마감을 밝힐 수 있는 명부 역할 칸
 CLOSED_MAIL = re.compile(r"^\[마감(?: #\d+)?\] 할 일 0(?: · 착지 [0-9a-f]{7,40})?$")   # A6① 닫힌 꼴 한 줄
-LAUNCH_FAILED, OPEN_STALE = "launch-failed", 900   # r2058 L3·L6 — 끝 사유 낱말 · opening 멈춤 문턱(초)
+LAUNCH_FAILED = "launch-failed"   # r2058 L3 — 끝 사유 낱말 · opening 멈춤 문턱 OPEN_STALE = 아래 keeper_launch 값(r2252 O0 한 값)
 CPU_IDLE, CPU_GAP, CPU_DEPTH = 0.3, 30, 8   # tmuxc UC12 %cpu < 0.3 · 표본 간격 ≥ 30초 · pane_descendant_pids 깊이 8
 SHELLS = ("zsh", "bash", "fish")            # tmuxc cmd_clean
 KINDS = ("nano", "master", "arch", "da", "desk", "tester", "pm", "qa", "orch", "temp")   # S1 명부 role 칸 = 좌석 종류 낱말
@@ -26,6 +26,7 @@ BUSY = re.compile("Working|[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]")
 NAME = re.compile(r"byz-[a-z0-9]+(?:-[A-Za-z0-9._]+)+#\d+")
 NEXT = {"waiting-input": "팀장이 질문 창에 답", "dirty": "나노에게 커밋·push 요청", "unpushed": "나노에게 push 요청",
         "shell-only-unsafe": "워크트리 확인 뒤 손 정리", "owner-orphan": "owner·intent 대조 뒤 손 park",
+        "session-absent": "산출 가지 확인 → 인수 또는 반환",   # r2069 A1 — 산출 push·result 뒤 닫힌 좌석 꼴
         LAUNCH_FAILED: "원인 고친 뒤 원장 갱신 → fill 재시도 · 필요 없으면 return 또는 카드 끝 표식",
         "accept-only": "거두기(r1925 길) 또는 배정", "roster-outside": "명부 등록 또는 손 정리", "name-bad": "세션 이름 확인",
         "tmuxc-mismatch": "tmuxc·settle 판정 대조"}
@@ -46,6 +47,8 @@ cli = _load(os.path.join(FT2, "core", "cli.py"), "ft2_keeper_settle_cli")
 PROJ = cli._load("projection")
 endings = _load(os.path.join(HERE, "keeper_endings.py"), "ft2_keeper_settle_endings")
 roster = _load(os.path.join(HERE, "launch_roster.py"), "ft2_keeper_settle_roster")   # A6② 명부 경로 = 행 E 한 함수
+kl = _load(os.path.join(HERE, "keeper_launch.py"), "ft2_keeper_settle_launch")   # r2252 O0 이어 열기 한 판정(launching 과 같은 함수)
+OPEN_STALE = kl.OPEN_STALE   # r2058 L6 opening 멈춤 문턱 900초 = r2252 O0 이어 열기 문턱(한 값)
 
 
 def descendants(rows, root, depth=CPU_DEPTH):
@@ -197,6 +200,8 @@ class Settling:
         done, owner = bool(row.get("done")), row.get("owner")
         raw = self.read_json(os.path.join(PROJ.runtime_path(self.root, team), "launch", "%s@%s.intent" % (work, attempt)))
         seen = self.probe(holder)
+        key = "%s|%s|%s|%s" % (team, work, attempt, holder)   # r2214 O1a 처음 absent 본 시각 키(attempt 포함 = 새 attempt 는 다시 셈)
+        first = self.state.setdefault("absent_since", {}).pop(key, None)   # session-absent 갈래 밖 바퀴 = 지움
         opening = bool(owner) and raw.get("state") == "opening"   # L6 — 여는 중인 열기(잇는 중·문턱 안쪽 = 손 0)
         stalled = opening and self.opening_stale(raw) and not self.launching_now(team, work)
         if seen == "absent":
@@ -205,12 +210,18 @@ class Settling:
             if (team, work, attempt) in self.parked_failed:   # L1·L3 이미 launch-failed 쉼 = 같은 판정 유지 · park 다시 0
                 return self.failed_end(team, work, attempt, holder, raw, why, park=False)
             if owner and raw.get("state") in ("failed", "closed"):   # 반쪽(r1968·r1973 꼴) = 세션 0 · owner 남음
+                wait = self.resume_wait(team, work, attempt, raw)   # r2252 O3 이어 열기 자리 = 쉼 미룸
+                if wait:
+                    return self.verdict(team, work, holder, "WORKING", wait, self.failed_tail(raw))
                 return self.failed_end(team, work, attempt, holder, raw, why, park=True)
             if stalled:   # L6 — 여는 중에 멈춘 열기(세션 부재 = rc1 «can't find session» 로 확인) = L3 과 같은 길
                 return self.failed_end(team, work, attempt, holder, raw, why, park=True)
             if opening:   # L6 — 문턱 안쪽·잇는 중 열기 = 손 0 · [긴급] 0(아직 판정할 수 없다)
                 return self.verdict(team, work, holder, "WORKING", "launch-joining" if self.launching_now(team, work) else "launch-pending", "opening %d분" % self.opening_age(raw))
-            return self.unknown_seat(team, work, attempt, holder, "owner-orphan" if owner else "session-absent", why)
+            word = self.unknown_seat(team, work, attempt, holder, "owner-orphan" if owner else "session-absent", why)
+            if not owner:   # r2214 session-absent 만(owner-orphan = 팀장 park 몸)
+                self.absent_release(team, work, holder, key, first)
+            return word
         if seen != "alive":
             if stalled:   # L6 — tmux 조회 실패 = «부재» 가 아니다(판정 불가 1줄 · park 0)
                 return self.log("판정 불가", team, "%s %s opening %d분 좌석 판독 불가 %s — park 0" % (work, holder, self.opening_age(raw), seen))
@@ -331,6 +342,51 @@ class Settling:
         except ValueError:
             return False
 
+    def absent_release(self, team, work, holder, key, first):
+        """r2214 O1·O2·O4·O5 — session-absent(owner·done 없음)이 OPEN_STALE 넘게 이어지면 1.x 배정 원장 seat 를 1회 푼다 → 다음 fill 새 attempt.
+        상태 칸 absent_since{팀|work|attempt|holder: 초}(verdict 책과 같은 keeper 상태 파일 = 재기동 뒤 이어짐) · absent_unsure{팀|work|holder: 사유}."""
+        now = self.now()
+        first = self.state["absent_since"][key] = now if first is None else first   # O1a 첫 absent 바퀴 = 시각만
+        if now - first < OPEN_STALE:
+            return
+        if self.halt:   # r2214 O3 정지 중 풀기 0(call 그물은 bash 를 막지 않음 · 시각은 그대로)
+            return
+        led = self.read_json(os.path.join(self.root, ".fable-team", "state", "card-assign", work + ".json"))
+        if led.get("state") != "seat" or led.get("seat") != holder:   # O1d·O4 다른 좌석·풀린 원장 = 손 0
+            return
+        why = self.release_block(holder)
+        if not why:   # O2 원장 도구 1회(fill 과 같은 경로 · 7초 · 재시도 0)
+            rc, _, _ = self.call(["bash", self.env.get("FT2_CARD_ASSIGN_BIN") or os.path.join(os.path.dirname(self.close_bin or ""), "ft-card-assign-watch.sh"),
+                                  "record", work, "clear", "seat", "--seat", holder])
+            why = "" if rc == 0 else "원장 풀기 rc %s" % rc
+        book, mark = self.state.setdefault("absent_unsure", {}), "%s|%s|%s" % (team, work, holder)
+        if not why:
+            book.pop(mark, None)
+            return self.log("RELEASED", team, "%s %s · 원장 풀림 · 다음 fill 새 attempt" % (work, holder))
+        if book.get(mark) != why:   # O5 같은 사유 반복 줄 0
+            book[mark] = why
+            self.log("판정 불가", team, "%s %s 원장 풀기 0 · %s" % (work, holder, why))
+
+    def release_block(self, holder):
+        """r2214 O1b·O1c — 풀기 앞 tmux 확인 · "" = 풀어도 됨 · 그 밖 = 판정 불가 사유(probe 반환 꼴은 그대로 · err 는 여기서 가름)."""
+        rc, _, err = self.call([self.tmux, "has-session", "-t", "=" + holder])
+        if rc != 1 or "can't find session" not in err:   # O1b 서버 없음·소켓 어긋남 = 한꺼번에 풀림 막음
+            return "tmux 서버 없음" if "no server running" in err else "tmux has-session rc %s %s" % (rc, err)
+        got = self.cache.setdefault("@round", {})   # keeper_next.once 와 같은 바퀴 캐시 칸(ls)
+        rc, out, _ = got["ls"] if "ls" in got else got.setdefault("ls", self.call([self.tmux, "list-sessions", "-F", "#{session_name}"]))
+        if rc != 0:
+            return "tmux list-sessions rc %s" % rc
+        other = next((x for x in out.splitlines() if x != holder and x.casefold() == holder.casefold()), "")   # O1c r2208 대문자 stem 꼴
+        return "대소문자만 다른 세션 %s" % other if other else ""
+
+    def resume_wait(self, team, work, attempt, intent):
+        """r2252 O3 — keeper_launch.resume_state(launching 과 한 판정) → "" = 지금 길(failed_end) · launch-resumable · launch-resuming(예약 pid 살아 있음 = 900초 검사 0).
+        정지 중 = ""(failed_end 의 «예정» 줄 그대로 · ⑩) · 예약 pid 죽음 = ""(1회 소진 · r2058 L3)."""
+        if self.halt:
+            return ""
+        seen = kl.resume_state(self, os.path.join(PROJ.runtime_path(self.root, team), "launch", "%s@%s" % (work, attempt)), intent)
+        return "launch-" + seen if seen else ""
+
     def launching_now(self, team, work):
         """L6 — fill_open(잇는 중)에 있는 열기인가(그 열기는 손 0)."""
         return ("%s|%s" % (team, work)) in (self.state.get("fill_open") or {})
@@ -366,7 +422,7 @@ class Settling:
         return self.park_seat(team, work, attempt, holder, "idle-done", ("shell-only · " if shell else "") + why, alive=True, done=done)
 
     def unsafe(self, team, work, seat, intent, done):
-        """남길 것 안전 = 사유 "" · clean ∧ (HEAD = origin 같은 가지 ∨ base 위 커밋 0) ∧ 미수신 쪽지 0 ∧ 미확정·효과 표식 0."""
+        """남길 것 안전 = 사유 "" · clean ∧ (HEAD = origin 같은 가지 ∨ base 위 커밋 0 ∨ HEAD 를 품은 origin 가지) ∧ 미수신 쪽지 0 ∧ 미확정·효과 표식 0."""
         tree = intent["worktree"]
         rc, out, _ = self.git(tree, "status", "--porcelain")
         if rc != 0 or out.strip():
@@ -376,7 +432,9 @@ class Settling:
         if not (rc == 0 and len(set(heads.split())) == 1):
             base = str(intent.get("base_sha") or "")
             if not base or self.git(tree, "rev-list", "--count", base + "..HEAD")[:2] != (0, "0\n"):
-                return "unpushed"
+                rc, held, _ = self.git_local(tree, "for-each-ref", "--count=1", "--contains", "HEAD", "refs/remotes/origin")   # r2260 O1 — HEAD 를 품은 origin 가지 1개 = 안전(detached · 로컬 ref 만 · fetch 0)
+                if rc != 0 or not held.strip():
+                    return "git-error" if rc != 0 else "unpushed"
         code = self.mail_gate(team, work, seat, PARK_IDLE)   # A5~A8 — 미읽음 판독(빼는 마감 쪽지 밖은 막는다)
         if code:
             return code

@@ -8,6 +8,7 @@ a 대기 카드 있는데 master IDLE · b 선언 뒤 IDLE · c 정책 정지(�
 좌석 상태는 ft-seat-status.sh turn(jsonl IDLE/WORKING) 출력을 그대로 쓴다 — pane·mtime 을 쓰지 않는다.
 """
 import hashlib  # r1392 — lint 판(ft-index-lint.sh) sha256 = 캐시 열쇠
+import importlib.util  # r2172 — «일 아님» 판정 정본(ft-seat-open-work.py is_not_work)을 불러 쓴다
 import json
 import os
 import re
@@ -35,6 +36,9 @@ FUTURE = re.compile(r"하겠습니다|할게요|진행하겠|착수하겠|진행
 REST = "[완료·휴식]"
 REST_MARK = re.compile(r"\[다음 없음\]|막힘 = 사람 답\(\d{10}\.\d{6}\)")  # r1729 — 쉼 심박 표식(첫 줄만 · A1)
 LEAD_REST_MAX_MIN = 240.0  # r1729 — 쉼 면제 상한 4시간(A3)
+LEAD_IDLE_EXEMPT_MIN = 60.0  # r2172 L3 — 일 쪽지 없는 팀장 유휴 면제 상한(판정 4395 · 0 = 끔)
+WORK_URGENT = ("[긴급]", "[크리티컬]")  # r2172 L1 ⓓ — 도구 발신이어도 이 머리면 일 쪽지
+SEAT_NO = re.compile(r"#\d+$")  # r2172 L1 ⓓ — 좌석 발신 = «#숫자» 로 끝남
 _HB_EXTRA: dict[str, Any] = {}  # r1729 — _hb_line 이 같은 파싱에서 모으는 «쉼 심박 ts · 사건 ts»(읽기 1회)
 REF = re.compile(r"indices/(대기|진행|완성)/([\w.\-]+)\.md")
 OFF_ROLES = ("stop-ready", "closed")
@@ -610,6 +614,9 @@ def pending_mail(comm: Path, now: float) -> dict[str, tuple[int, float]]:
                 age = (now - datetime.strptime(r["ts"][:19], "%Y-%m-%dT%H:%M:%S").timestamp()) / 60
             except (ValueError, KeyError):
                 continue
+            wake = r.get("wake_at")  # r2170 — 묶인 행(정수 · 지금 < wake_at ≤ 지금 + 3600 · r2169 W4·W6 같은 식)은 아직 미읽음이 아니다
+            if type(wake) is int and now < wake <= now + 3600:
+                continue
             if age >= IDLE_MIN and (r["to"] not in out or age > out[r["to"]][1]):
                 out[r["to"]] = (int(r["seq"]), age)
     return out
@@ -670,9 +677,8 @@ def _hb_line(line: str, masters: set[str], recipients: set[str], now: float, is_
         return None, False, True
     if ts > now + 5:  # 미래 ts = 시계 어긋남 — 신선으로 읽지 않는다
         return ts, False, True
-    keys = {role_key(x) for x in masters}  # r1729 — «그 팀장» 과 오간 쪽지 = 사건(A2)
-    if r.get("from") != "ft-stall-scan" and (role_key(str(r.get("to"))) in keys or role_key(str(r.get("from"))) in keys):
-        _HB_EXTRA.setdefault("ev", []).append(ts)  # 스캐너의 [멈춤] 은 사건이 아니다(반례 ⑧)
+    if is_work_mail(r, {role_key(x) for x in masters}):  # r2172 L2 — 사건 = «그 팀장» 앞 일 쪽지만(r1729 = 오간 모든 쪽지)
+        _HB_EXTRA.setdefault("ev", []).append(ts)
     body = r.get("body")
     if not (is_hb or _is_heartbeat_body)(body):  # r2080 — desk 심박은 머리 판정만 바꿔 같은 읽기를 쓴다
         return ts, False, False  # 심박 아닌 쪽지(발주·보고)는 판정 대상이 아니다
@@ -681,6 +687,37 @@ def _hb_line(line: str, masters: set[str], recipients: set[str], now: float, is_
     if _rest_mark(body):  # r1729 — 쉼 심박(첫 줄 표식 · A1)
         _HB_EXTRA["rest"] = max(ts, _HB_EXTRA.get("rest") or 0.0)
     return ts, True, False
+
+
+_NOT_WORK: dict[str, Any] = {}  # r2172 — 경로 → is_not_work(못 읽음 = None) · 프로세스당 1회 적재
+
+
+def _not_work_fn() -> Any:
+    """r2172 L1 ⓒ — «일 아님» 판정 정본 = ft-seat-open-work.py is_not_work(고치지 않고 불러 쓴다 · 경로 = FT_SEAT_OPEN_WORK 또는 옆 파일).
+    못 읽으면 None — 부르는 쪽은 면제 0(L5)."""
+    path = os.environ.get("FT_SEAT_OPEN_WORK") or str(Path(__file__).resolve().parent / "ft-seat-open-work.py")
+    if path not in _NOT_WORK:
+        try:
+            spec = importlib.util.spec_from_file_location("ft_seat_open_work_r2172", path)
+            mod = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
+            spec.loader.exec_module(mod)  # type: ignore[union-attr]
+            _NOT_WORK[path] = mod.is_not_work
+        except Exception:  # 없음·문법·이름 없음 = 판정 불가 한 갈래
+            _NOT_WORK[path] = None
+    return _NOT_WORK[path]
+
+
+def is_work_mail(r: dict[str, Any], keys: set[str]) -> bool:
+    """r2172 L1 — 쪽지 1줄이 «그 팀장 앞 일 쪽지» 인가(keys = 그 팀 현역 팀장 role_key).
+    받는이 = 팀장 ∧ 발신 ≠ ft-stall-scan ∧ 팀장 발신 아님 ∧ 도구 일반 알림 아님 ∧ is_not_work 거짓. is_not_work 를 못 읽으면 참(면제 0 은 lead_rest_state 가 낸다)."""
+    frm, body = str(r.get("from")), r.get("body")
+    if role_key(str(r.get("to"))) not in keys or frm == "ft-stall-scan" or role_key(frm) in keys:
+        return False
+    text = body if isinstance(body, str) else ""
+    if not SEAT_NO.search(frm) and frm.startswith(("ft-", "ft2-")) and not text.lstrip().startswith(WORK_URGENT):
+        return False  # 도구 일반 알림(ⓓ)
+    not_work = _not_work_fn()
+    return not_work is None or not not_work(text)
 
 
 def _lines_from_end(fh, chunk: int = 1 << 16):
@@ -797,31 +834,45 @@ def lead_rest_max_min() -> float:
     return v if v > 0 else LEAD_REST_MAX_MIN
 
 
-def lead_rest_state(comm: Path, masters: set[str], recipients: set[str], now: float) -> tuple[str, float | None, float | None]:
+def lead_idle_exempt_min() -> float:
+    """r2172 L4 — 유휴 면제 상한 N = FT_LEAD_IDLE_EXEMPT_MIN(기본 60분). 0~240 숫자만 · 0 = L3 끔 · 글자·음수·240 초과·NaN = 기본."""
+    try:
+        v = float(os.environ.get("FT_LEAD_IDLE_EXEMPT_MIN") or LEAD_IDLE_EXEMPT_MIN)
+    except ValueError:
+        return LEAD_IDLE_EXEMPT_MIN
+    return v if 0 <= v <= 240 else LEAD_IDLE_EXEMPT_MIN
+
+
+def _first_after(ev: list[float], t: float | None) -> float | None:
+    return None if t is None else min((x for x in ev if x > t), default=None)
+
+
+def lead_rest_state(comm: Path, masters: set[str], recipients: set[str], now: float) -> tuple[str, float | None, float | None, float | None, float | None]:
     """r1729 — 쉼 심박(A1)과 그 뒤 첫 사건(A2)을 «면제 상한» 창까지 한 번 더 읽어 낸다.
-    → ("ok", 쉼 심박 ts|None, 그 뒤 첫 사건 ts|None) · ("ERROR", None, None) = 쉼 로그 판정 불가(깨진 줄·7초 예산 · A4).
-    쉼 심박이 상한(FT_LEAD_REST_MAX_MIN · A3)을 넘었으면 ("ok", None, None) = 면제 0(지금 판정 그대로).
+    → ("ok", 쉼 심박 ts|None, 그 뒤 첫 사건 ts|None, 마지막 심박 ts|None, 그 뒤 첫 일 쪽지 ts|None) · ("ERROR", None ×4) = 판정 불가(깨진 줄·7초 예산 · A4 · open-work 못 읽음 = r2172 L5).
+    쉼 심박이 상한(FT_LEAD_REST_MAX_MIN · A3)을 넘었으면 쉼 심박 = None = 쉼 면제 0. 사건 = 그 팀장 앞 일 쪽지(r2172 L2) · 창 = max(쉼 상한, N).
     읽기는 lead_heartbeat 와 같은 끝 읽기·예산을 쓰고 로그 창만 상한까지 넓힌다(A4).
     ERROR 는 «면제 0» 이다 — 부르는 쪽(lead_alert)은 이때 지금 판정(경보 후보 = 경보 1)을 그대로 쓴다(A5 · 탐침 ⑬)."""
     budget = float(os.environ.get("FT_STALL_HEARTBEAT_BUDGET") or 7)
     t0 = time.monotonic()
     cap = lead_rest_max_min()
     _HB_EXTRA.clear()  # 같은 파싱에서 모은 쉼·사건은 이번 읽기의 것만 쓴다
-    err, _best, broken, _n = _read_mailbox(comm / "mailbox.jsonl", masters, recipients, now, budget, t0)
+    err, best, broken, _n = _read_mailbox(comm / "mailbox.jsonl", masters, recipients, now, budget, t0)
     if err:
-        return "ERROR", None, None
-    err, _ts, bad, _n2 = _read_mailbox_log(comm.joinpath("mailbox.log.jsonl"), masters, recipients, now, cap, budget, t0)
+        return "ERROR", None, None, None, None
+    err, ts, bad, _n2 = _read_mailbox_log(comm.joinpath("mailbox.log.jsonl"), masters, recipients, now, max(cap, lead_idle_exempt_min()), budget, t0)
     if err:
-        return "ERROR", None, None
+        return "ERROR", None, None, None, None
     if broken + bad:
-        return "ERROR", None, None  # 판정 불가 = 처리 0 + u(A4 · 반례 ⑪)
-    if time.monotonic() - t0 > budget:
-        return "ERROR", None, None
+        return "ERROR", None, None, None, None  # 판정 불가 = 처리 0 + u(A4 · 반례 ⑪)
+    if time.monotonic() - t0 > budget or _not_work_fn() is None:  # r2172 L5 — «일 아님» 정본을 못 읽으면 일 쪽지 0 으로 보지 않는다
+        return "ERROR", None, None, None, None
     rest = _HB_EXTRA.get("rest")
-    if rest is None or (now - rest) / 60 > cap:
-        return "ok", None, None
-    ev = [t for t in _HB_EXTRA.get("ev", []) if t > rest]
-    return "ok", rest, min(ev) if ev else None
+    if rest is not None and (now - rest) / 60 > cap:
+        rest = None
+    hb = max((t for t in (best, ts) if t is not None), default=None)
+    ev = _HB_EXTRA.get("ev", [])
+    return "ok", rest, _first_after(ev, rest), hb, _first_after(ev, hb)
 
 
 def lead_recipients(root: Path, warn: bool = False) -> set[str]:
@@ -846,11 +897,15 @@ def lead_alert(root: Path, comm: Path, master: str, now: float) -> tuple[bool, f
     if state == "ERROR":
         return False, None, True
     if ts is None or (now - ts) / 60 > lead_heartbeat_min():  # r1729 — 경보 후보일 때만 쉼 면제를 본다(늘 읽기 1회 더는 아니다)
-        rstate, rest, first_ev = lead_rest_state(comm, lead_names(root, master), lead_recipients(root), now)
+        rstate, rest, first_ev, hb, first_work = lead_rest_state(comm, lead_names(root, master), lead_recipients(root), now)
         if rstate == "ok" and rest is not None:  # rstate ERROR = 쉼 로그 판정 불가 → 면제 0 = 지금 판정 그대로(A5 · 진짜 멈춤을 가리지 않는다)
             if first_ev is None:  # 쉼 심박 뒤 사건 0 = 경보 0(A1)
                 return False, (now - rest) / 60, False
             return (now - first_ev) / 60 > lead_heartbeat_min(), (now - first_ev) / 60, False  # 사건이 있으면 첫 사건 ts 부터 다시 센다(A2)
+        if rstate == "ok" and hb is not None and (now - hb) / 60 <= lead_idle_exempt_min() and lead_idle_exempt_min() > 0:  # r2172 L3 유휴 면제
+            if first_work is None:  # 마지막 심박 뒤 일 쪽지 0 = 경보 0
+                return False, (now - hb) / 60, False
+            return (now - first_work) / 60 > lead_heartbeat_min(), (now - first_work) / 60, False  # 첫 일 쪽지부터 20분
     if ts is None:
         return True, None, False  # 심박 창(20분) 안 [정리] 0 = 멈춤 — 로그는 창 안만 읽으므로 «한 번도 안 보냄» 이 아니다(r1143)
     age = (now - ts) / 60

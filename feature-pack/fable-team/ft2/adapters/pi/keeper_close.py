@@ -109,6 +109,8 @@ class Closing:
         holder, gen = intent.get("FT2_HOLDER"), row.get("gen") or 1
         if not holder:   # r2055 HELD 폐지 → UNKNOWN + [긴급]
             quiet = self.never_opened(team, work, attempt, row, dispatched)
+            if quiet and self.halt:   # r2066 A3 정지 중 = «예정» 줄 1 · 영수·[긴급] 0
+                return self.verdict(team, work, dispatched, "예정 CLOSED-NEVER-OPENED", "intent=%s owner=%s" % quiet, "정지 중 영수 0") and None
             if quiet:   # r2131 C1 열린 적 없는 끝난 일 = kill 0 · 판정 줄 1 · 영수 1(증거 () = 다음 배정 0)
                 self.log("CLOSED-NEVER-OPENED", team, "%s %s intent=%s owner=%s" % ((work, dispatched) + quiet))
                 return self.receipt(team, work, attempt, dispatched, gen) and None
@@ -143,7 +145,9 @@ class Closing:
             return self.verdict(team, work, holder, "예정 LANDED", "close", "정지 중 kill 0") and None
         if seen == "alive":
             self.state["open"].setdefault(holder, {"team": team, "since": self.now()})
-            if self.look(team, work, attempt, holder, *self.pi_turn(intent), wait="landed-wait", idle_s=done_idle if landed_close else settle.PARK_IDLE) != "REST":   # A6·A13 닫기 = 끝남 ∧ 한 판독 쉼
+            turn = self.pi_turn(intent)
+            short = landed_close or (wide == "done-card-완성" and turn[1] == "stop")   # r2264 C1 done ∧ 카드 완성 = 턴 닫힘일 때만 짧은 문턱
+            if self.look(team, work, attempt, holder, *turn, wait="landed-wait", idle_s=done_idle if short else settle.PARK_IDLE) != "REST":   # A6·A13 닫기 = 끝남 ∧ 한 판독 쉼
                 return
             if not self.turn_ended(team, work, holder, intent):
                 return
@@ -163,15 +167,16 @@ class Closing:
 
     def never_opened(self, team, work, attempt, row, dispatched):
         """r2131 C1 — ⓐ done ⓑ 그 attempt intent failed·closed·없음 ⓒ dispatch holder 세션 absent ⓓ 열기 자식(.owner·.intent.resume) dead·없음
-        → (intent, owner) 칸 · 하나라도 거짓·판정 못 함 = None(C2 · C4 열기 진행 중 보호 · 정지 중 = None)."""
+        → (intent, owner) 칸 · 하나라도 거짓·판정 못 함 = None(C2 · C4 열기 진행 중 보호).
+        r2066 — ⓑ 에 opening 더함(끝난 일의 멈춘 열기 · ⓓ 자식 dead 는 그대로 봄) · 정지 중 = 칸은 돌려주고 영수는 호출자가 막음(A3)."""
         if not row.get("done"):   # ⓐ
             return None
-        if not dispatched or self.halt:
+        if not dispatched:
             return None
         base = os.path.join(projection.runtime_path(self.root, team), "launch", "%s@%s" % (work, attempt))
         there, got = _raw(base + ".intent")
         state = (got or {}).get("state") if there else "없음"
-        if state not in ("failed", "closed", "없음"):   # ⓑ 깨짐 = None · opening·opened = 그 밖
+        if state not in ("failed", "closed", "없음", "opening"):   # ⓑ 깨짐 = None · opened = 그 밖 · r2066 opening 안
             return None
         kids = []
         for name, key in ((".owner", "child_pid"), (".intent.resume", "pid")):   # ⓓ keeper_launch.alive(pid_state)

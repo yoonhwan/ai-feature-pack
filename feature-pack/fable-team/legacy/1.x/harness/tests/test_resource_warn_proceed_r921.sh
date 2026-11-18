@@ -92,6 +92,12 @@ cat > "$S/tmuxc" <<'X'
 echo "tmuxc $*" >> "${CALL_LOG:-/dev/null}"
 exit 1
 X
+cat > "$S/tmm" <<'X'   # r2223: 대역 tmm — spawn 보고 대상(r975)이 «tmm ls --names <접두>» 를 부른다 · 그 밖 인자 = exit 1
+#!/bin/sh
+[ "$1 $2" = "ls --names" ] || exit 1
+{ echo "$FAKE_TMM_FROM"; tmux list-sessions 2>/dev/null; } | grep "^$3-"; exit 0
+X
+export FAKE_TMM_FROM="byz-alpha-master-claude#1"   # r2223: 시험의 --from 4곳과 같은 이름(살아 있는 master 1석)
 chmod 755 "$S"/*
 # 가짜 회수 두 종류 — noop: 불렀지만 아무것도 못 닫았다(RECLAIMED 0) · free: 닫아서 문턱 아래로 만들었다(touch LOW)
 reclaim_stub() { # <noop|free>
@@ -194,11 +200,13 @@ mkdir -p "$R/design/alpha/indices/대기" && echo "# 카드" > "$R/design/alpha/
 printf '{"_master":"byz-alpha-master-claude#1"}\n' > "$R/.fable-team/seats-alpha.json"
 printf '# 표\n## 표 1 — 역할\n| 역할 | 수 | 모델 | effort | 명부 키 | 승계 | 닫기 |\n|---|---|---|---|---|---|---|\n| nano | 상한 N | `m` | high | — | a | b |\n- 나노 상한 기본: 3\n## 표 2 — 팀\n| 팀 | 나노 상한 | tester | arch 상시 |\n|---|---|---|---|\n| alpha | 2 | 0 | 아니오 |\n' > "$T/TEAMSET.md"
 SESSF="$T/sessions.txt"
+printf '| 팀 | 폴더 | 상태 | 명부 |\n|---|---|---|---|\n| alpha | `design/alpha/` | 현역 | |\n' > "$T/TEAMS.md"   # r2223: r1907 명부 칸 판정용 픽스처(리포 밖 $T · export 0 = capspawn env 줄에만 · 세계 W 로 안 샘)
 capspawn() { # <세션들> [--nodry] <env…> — 팀 상한 칸까지 지나간 spawn 1회
   local sess="$1"; shift; local dry="--dry-run"; [ "${1:-}" = --nodry ] && { dry=""; shift; }
   printf '%s\n' "$sess" | tr ' ' '\n' > "$SESSF"
   rm -f "$T/low" "$R/.fable-team/state/spawn-queue-alpha.tsv" "$R/.fable-team/state/spawn-queue-alpha.notified"; : > "$CALL_LOG"
   OUT="$(cd "$R" && env -u GIT_DIR -u GIT_WORK_TREE HOME="$T/home" PATH="$S:$PATH" FT_RES_ROOT="$R" FT_ROOT="$R" FAKE_TOPDIR="$R" \
+    FT_TEAMS_MD="$T/TEAMS.md" \
     TMUX_SESS_FILE="$SESSF" FT_TEAMSET_MD="$T/TEAMSET.md" FT_NANO_PREFIX="byz-alpha-nano-" FT_SEATS_JSON="$R/.fable-team/seats-alpha.json" \
     FT_DISK_MIN_GIB=0 FT_DISK_HARD_MIN_MIB=1 FT_SWAP_HARD_MIB=999999999 FT_PRESSURE_MAX=99 FT_SWAP_RATE_MAX=999999999 FT_MEM_FREE_MIN_PCT=0 FT_AGENT_MAX=999999 FAKE_LOWFILE="$T/low" \
     "$@" bash "$B/ft-nano-spawn.sh" "$R/design/alpha/indices/대기/f.md" --from byz-alpha-master-claude#1 $dry 2>&1)"; RC=$?
@@ -281,7 +289,7 @@ case "$1" in
   *) exit 0;;
 esac
 X
-for f in sysctl memory_pressure vm_stat df pgrep; do cp "$S/$f" "$WF/$f"; done   # 센서 대역만 — git·tmux 는 $WF 판(실 git 이 필요하다)
+for f in sysctl memory_pressure vm_stat df pgrep tmm; do cp "$S/$f" "$WF/$f"; done   # 센서 대역만 — git·tmux 는 $WF 판(실 git 이 필요하다)
 chmod 755 "$WF"/*
 git -C "$W" init -q -b main
 printf '# 인덱스: x\n## 상태\n' > "$W/design/alpha/indices/대기/x.md"
@@ -434,80 +442,7 @@ runspawn "" FT_TEAMSET=1 FT_TEAMSET_MD="$T/TS4.md" FAKE_OPEN_FAIL=1
   || bad "ⓠ 잠금+abort+exit1 rc=$RC lock=$([ -e "$W/.fable-team/state/nano-cap.lock.d" ] && echo 남음 || echo 0) sheet=$(grep '^sheet' "$CALL_LOG" | tr '\n' ' ') $(printf '%s' "$OUT" | tail -2)"
 mv -f "$WB/ft-sheet-events.real.sh" "$WB/ft-sheet-events.sh"
 
-# ══ 변이 대조 — ★DA⑥ r1★ 각 변이는 «전체 시험 재실행» 으로 판정한다(단일 칸·문법 오류·rc 만 보는 검출은 인정 0) ══
-#   판정 = 변이 사본에서 «그 칸은 FAIL» ∧ «대조 칸은 PASS» ∧ «문법 오류 없음». 재실행 사본은 R921_NO_MUT=1 로 변이 절을 끈다.
-if [ "${R921_NO_MUT:-0}" = 1 ]; then
-  echo "SKIP 변이 — 내부 재실행(R921_NO_MUT=1)"
-else
-mutcase() { # <이름> <harness 상대경로 파일> <old> <new> <빨강 라벨 조각> <초록 라벨 조각>
-  local name="$1" f="$2" old="$3" new="$4" redl="$5" greenl="$6"
-  local st="$T/mstage"; rm -rf "$st"; mkdir -p "$st/harness"
-  cp -R "$REPO/harness/bin" "$st/harness/" && cp -R "$REPO/harness/kit" "$st/harness/" && cp -R "$REPO/harness/tests" "$st/harness/" || { bad "변이 $name 준비 실패(copy)"; return; }
-  local kf="${f/bin\//kit/fable-team/bin/}"   # bin/ → kit/fable-team/bin/ 짝도 같이 변이한다(시험은 kit 사본을 $B 로 쓰고 kit cmp 도 초록이어야 한다)
-  python3 - "$REPO/harness/$f" "$st/harness/$f" "$old" "$new" "$REPO/harness/$kf" "$st/harness/$kf" <<'PP' || { bad "변이 $name 준비 실패(치환 0)"; return; }
-import sys
-src, dst, old, new = sys.argv[1:5]
-s = open(src, encoding="utf-8").read()
-if old not in s:
-    sys.exit("MUT-OLD 없음")
-open(dst, "w", encoding="utf-8").write(s.replace(old, new, 1))
-if len(sys.argv) == 7:
-    k_src, k_dst = sys.argv[5], sys.argv[6]
-    ks = open(k_src, encoding="utf-8").read()
-    if old in ks:
-        open(k_dst, "w", encoding="utf-8").write(ks.replace(old, new, 1))
-PP
-  local out; out="$(cd "$st/harness" && R921_NO_MUT=1 bash "$st/harness/tests/test_resource_warn_proceed_r921.sh" 2>&1)"
-  local syn=0; case "$out" in *"syntax error"*|*"command not found"*) syn=1;; esac
-  if [ "$syn" = 1 ]; then bad "변이 $name — 문법 오류라 검출로 안 친다"; return; fi
-  local rd=0 gr=0
-  case "$out" in *"FAIL ${redl}"*) rd=1;; esac     # 파이프 대신 case — pipefail + grep -q 조기종료의 EPIPE 헛빨강을 피한다
-  case "$out" in *"PASS ${greenl}"*) gr=1;; esac
-  { [ "$rd" = 1 ] && [ "$gr" = 1 ]; } \
-    && ok "변이 $name → «${redl}» 만 빨강(대조 «${greenl}» 초록 · 전체 재실행)" \
-    || bad "변이 $name — red=$rd green=$gr syntax=$syn :: $(printf '%s\n' "$out" | grep -E '^FAIL' | head -2 | tr '\n' ' ')"
-}
-# 변이1 «WARN 을 REJECT 로 복귀» → ⓐ 빨강 · 대조 ⓙ 초록
-mutcase "WARN→REJECT 복귀(문지기)" "bin/ft-resource-gate.sh" \
-  '[ -z "$WARNS" ] || { echo "WARN resource $WARNS"; exit 0; }' \
-  '[ -z "$WARNS" ] || { echo "REJECT resource $WARNS"; exit 3; }' \
-  "ⓐ swap" "ⓙ FT_DISK_HARD_MIN_MIB=abc"
-# 변이2 «하한 값 검증 끔» → ⓙ 빨강 · 대조 ⓒ 디스크 소프트 초록
-mutcase "하한 값 검증 끔" "bin/ft-resource-gate.sh" \
-  '[ "$_dh_ok" = 1 ] || { echo "ERROR 하한 값 이상' \
-  '[ "$_dh_ok" = 1 ] || [ -n x ] || { echo "ERROR 하한 값 이상' \
-  "ⓙ abc" "ⓒ 디스크 4GiB"
-# 변이3 «회수 상한 끔» → ⓚ 빨강 · 대조 ⓐ' 초록
-mutcase "회수 7초 상한 끔" "bin/ft-reclaim-capped.sh" \
-  '  local lim="$FT_RECLAIM_TIMEOUT_SEC"' \
-  '  local lim=999' \
-  "ⓚ dt=" "ⓐ' 자원 넘김"
-# 변이4 «상한 잠금 끔» → ⓛ 빨강 · 대조 ⓗ 초록
-mutcase "cap 잠금 끔" "bin/ft-nano-spawn.sh" \
-  '    _ts_lock_take "$ROOT/.fable-team/state/nano-cap.lock.d" || _ts_lock_fail=1' \
-  '    true' \
-  "ⓛ 세션=" "ⓗ cap=4"
-# 변이5 «좌석 상한 = cap 에서 큐»(W1 복귀) → ⓝ 빨강 · 대조 ⓗ 초록
-mutcase "좌석 상한 cap 에서 큐" "bin/ft-nano-spawn.sh" \
-  '          elif [ "$_cl" -ge "$((_cc + 1))" ]; then' \
-  '          elif [ "$_cl" -ge "$_cc" ]; then' \
-  "ⓝ cap=4·live=4" "ⓗ cap=4"
-# 변이6 «하한 자릿수 검사 끔»(W2 큰 수) → ⓞ 빨강 · 대조 ⓙ abc 초록
-mutcase "하한 7자리 검사 끔" "bin/ft-resource-gate.sh" \
-  '=~ ^[0-9]{1,7}$ ]]' \
-  '=~ ^[0-9]+$ ]]' \
-  "ⓞ 큰 수" "ⓙ FT_DISK_HARD_MIN_MIB=abc"
-# 변이7 «회수 입구 첫 항목만»(W3 복귀) → ⓟ 빨강 · 대조 ⓐ' 초록
-mutcase "회수 입구 첫 항목만" "bin/ft-resource-reclaim.sh" \
-  "_items0=\"\$(printf '%s\\n' \"\$ONREJ\" | sed -nE 's/^(REJECT|WARN) resource //p' | tr ';' '\\n'" \
-  "_items0=\"\$(printf '%s\\n' \"\$ONREJ\" | sed -nE 's/^(REJECT|WARN) resource //p' | sed 's/;.*//'" \
-  "ⓟ freeze 뒤 agents" "ⓐ' 자원 넘김"
-# 변이8 «abort trap 덮어쓰기»(W4 복귀) → ⓠ 빨강 · 대조 ⓗ 초록
-mutcase "abort trap 덮어쓰기" "bin/ft-nano-spawn.sh" \
-  '_ON_EXIT+=(_sheet_abort)' \
-  'trap _sheet_abort EXIT' \
-  "ⓠ 잠금+abort+exit1" "ⓗ cap=4"
-fi
+# ══ 변이 대조 8개 = lib/r921_mut.sh + test_resource_warn_proceed_r921_mut1~8.sh(파일마다 1개 · 전체 재실행 판정 그대로 · r2225 시험 1개 70초 상한) ══
 
 # ── 키트 짝 · 문법 ──
 for f in ft-resource-gate.sh ft-nano-spawn.sh ft-role-spawn.sh ft-tick.sh ft-research-seat-lib.sh ft-resource-reclaim.sh ft-successor-open.sh ft_spawn_queue.py; do

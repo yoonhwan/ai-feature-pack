@@ -148,7 +148,8 @@ def plan_of(folder, tag, root, team, holder, role_argv, worktree, repo, env, bod
             "checkout": ["git", "-C", path, "checkout", "-q"],
             "tmux": ["tmux", "new-session", "-d", "-s", holder, "-c", path] + pairs + [pi or "pi"] + ["-e", seat_tools(), "--approve"] + list(role_argv) + [body],
             "mbox": "FT_SEAT_MBOX_DIR=" + box if mbox else "우편함 명시 0 — %s 없음" % box,
-            "pi_bin": pi, "alive": ["tmux", "has-session", "-t", "=" + holder]}   # r1892: new-session rc0 뒤 1회
+            "pi_bin": pi, "alive": ["tmux", "has-session", "-t", "=" + holder],   # r1892: new-session rc0 뒤 1회
+            "receipt": ["tmux", "display-message", "-p", "-t", "=%s:" % holder, "#{session_id}\t#{session_created}"]}   # r2257 O1: alive rc0 뒤 1회 · 개설 영수만(살아 있음 판정 0)
 
 
 def repo_check(repo):

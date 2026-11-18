@@ -3,7 +3,7 @@
 #   ① 막대(A1): 3/10 · 1/3 · 0/5 · «—» · 7/5 · 코드블록·표 줄 0
 #   ② 진행 중인 일(A2): 팀 이름 순 · 카드 없는 좌석 1줄 · 상한 8 + «그 밖 N개» · 좌석 0 · mention 꺾쇠 빼기
 #   ③ 열쇠(A3): 좌석만 바뀜 = 변화 없음 · n 3 → 4 = POST + 막대 칸 바뀜
-#   ④ 길이(A4): 판정문 R1 입력 = ⓑ 3488B · ⓐ · ⓒ · ⓓ · 기준판에서도 넘는 입력(rc 1)
+#   ④ 길이(A4): 판정문 R1 입력 = ⓑ 3488B · ⓐ · ⓒ · ⓓ · 기준판에서도 넘는 입력(r2184 줄임 · POST)
 #   ⑤ 불변(A5): 줄 순서 · bin = kit cmp 0 (기존 시험 5개는 따로 돌린다)
 # 실 Slack 0 · sleep 0: ft_board_news.py 를 직접 부름 · 시계 FT_BOARD_NOW. R2103_BIN = 시험할 bin(변이 사본용).
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
@@ -116,7 +116,9 @@ steps = [f"골{i}: {'나' * 60}" for i in range(1, 10)]
 o = b.body(cur(60, "나" * 60), None, NOW, SHA)
 chk(f"④ ⓓ 단계 → 기준판 «다음» 칸 접기와 글자 같음({len(o.encode())}B)", o == base(60, steps) and "그 밖의 골" in o and whole(o, 60))
 o = b.body(cur(120), None, NOW, SHA)
-chk(f"④ 기준판에서도 넘는 입력 → 출력 = 기준판 본문({len(o.encode())}B)", o == base(120, []) and len(o.encode()) > 3500 and whole(o, 120))
+cut = [ln for ln in o.splitlines() if ln.startswith("골") and ln.endswith("…")]  # r2184: 기준판에서도 넘음 → 골 9줄 같은 상한으로 줄임
+chk(f"④ 기준판에서도 넘는 입력({len(base(120, []).encode())}B) → 골 9줄 «…» · 알림 «9개» · {len(o.encode())}B ≤ 3500B",
+    len(base(120, []).encode()) > 3500 and len(o.encode()) <= 3500 and len(cut) == 9 and "상태 글 9개는 길어서 줄였습니다, 전문은 골 진행 원장" in o.splitlines())
 open(f"{sys.argv[2]}/over.bytes", "w").write(str(len(base(120, []).encode())))
 sys.exit(1 if fails else 0)
 PY
@@ -126,7 +128,7 @@ S8="$(python3 -c 'import json; print(json.dumps({"label":"팀","seats":{f"byz-t0
 reset; nine "$(python3 -c 'print("가"*108)')"; mk "[$S8]"; run 2026-11-16T15:00:00
 chk "④ R1 입력(CLI) → rc 0 · POST · 본문 3488B" '[ "$(cat "$T/rc")" = 0 ] && grep -qx POST "$T/out" && [ "$(wc -c < "$T/body.txt" | tr -d " ")" = 3488 ]'
 reset; nine "$(python3 -c 'print("가"*120)')"; run 2026-11-16T15:00:00
-chk "④ 기준판에서도 넘는 입력(CLI) → rc 1 · «본문 $(cat "$T/over.bytes")B > 3500B» · 본문 0" '[ "$(cat "$T/rc")" = 1 ] && grep -q "본문 $(cat "$T/over.bytes")B > 3500B — 발행 0" "$T/err" && [ ! -e "$T/body.txt" ]'
+chk "④ 기준판에서도 넘는 입력(CLI · $(cat "$T/over.bytes")B) → rc 0 · POST · 본문 ≤ 3500B · 알림 1줄(r2184)" '[ "$(cat "$T/rc")" = 0 ] && grep -qx POST "$T/out" && [ "$(wc -c < "$T/body.txt")" -le 3500 ] && grep -qxF "상태 글 9개는 길어서 줄였습니다, 전문은 골 진행 원장" "$T/body.txt"'
 
 # ⑤ bin = kit 사본(A5)
 [ -z "${R2103_BIN:-}" ] && chk "⑤ bin 과 kit 사본 cmp 0" 'cmp -s "$BIN/ft_board_news_body.py" "$HERE/../kit/fable-team/bin/ft_board_news_body.py"'

@@ -268,6 +268,7 @@ chk "ⓑ쓰기 0 · kill 0" "$(cmp -s "$S" "$TMP/k2.orig" && echo same || echo c
 # ⓒ 1차 CLOSE-FAIL(reap left=1) → 2차(같은 기록) → CLOSED · record=kept · 1차가 남긴 기록 그대로
 cat > "$TMP/bin/reap-flaky" <<'EOF'
 #!/bin/sh
+[ "$2" = --dry-run ] && exit 0   # r2160 — 닫기 앞 h 관문(읽기만)은 정지 호출로 안 센다
 n=$(cat "$REAP_CNT" 2>/dev/null || echo 0); n=$((n+1)); echo "$n" > "$REAP_CNT"
 [ "$n" -le 1 ] && { echo "reap $1 stopped=0 left=1 rc=0"; exit 0; }
 echo "reap $1 stopped=0 left=0 rc=0"

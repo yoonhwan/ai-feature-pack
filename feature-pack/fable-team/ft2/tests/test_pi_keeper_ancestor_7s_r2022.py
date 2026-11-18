@@ -24,6 +24,7 @@ def fake(land, script, root="/byz"):
     class Fake(land.Landing):
         def __init__(s):
             s.root, s.pack, s.stale, s.cache, s.script, s.calls, s.sent = root, "/pack", set(), {}, list(script), [], []
+            s.env = {}   # ft2-keeper-git-no-lazy-fetch — git_local 이 바꿔 끼우는 env 자리
 
         def resolve_card(s, team, work):
             return [("origin/ops/main-base", "design/harness/indices/진행/%s.md" % work)], None
@@ -32,6 +33,8 @@ def fake(land, script, root="/byz"):
             s.calls.append((repo, a, timeout))
             if a[0] == "show":
                 return 0, "# 인덱스\n- 착지: %s\n" % SHA, ""
+            if a[0] == "rev-parse":   # ⓑ ref 가 로컬에서 커밋으로 풀린다
+                return 0, SHA, ""
             if a[0] in ("merge-base", "cat-file"):
                 return s.script.pop(0) if s.script else (1, "", "")   # 대본 끝 = 조상 아님
             raise AssertionError(a)
@@ -50,15 +53,15 @@ def anc(k):
 
 
 def t1(land, tmp):   # T1 timeout(rc None) → 판정 불가 · 미도달 0 · [크리티컬] 0 · timeout = 7
-    k = fake(land, [(None, "", "timeout")])
+    k = fake(land, [(None, "", "timeout"), (None, "", "timeout")])   # 두 번째 = G3 ⓒ 다시 부름
     out = k.landing(TEAM, WORK)
     assert out == (None, None, "판정 불가 · 착지 조상 git rc None"), out
     assert k.complete(TEAM, WORK, "a1", out) is None and k.sent == [], k.sent
-    assert anc(k) == [7], k.calls
+    assert anc(k) == [7, 7], k.calls   # 두 번째 = G3 ⓒ 다시 부름도 같은 7초
 
 
 def t2(land, tmp):   # T2 git rc 128 · 객체 있음(cat-file rc0) → 판정 불가
-    k = fake(land, [(128, "", "fatal"), (0, "", "")])
+    k = fake(land, [(128, "", "fatal"), (0, "", ""), (128, "", "fatal"), (0, "", "")])   # 뒤 둘 = G3 ⓒ 다시 부름
     assert k.landing(TEAM, WORK) == (None, None, "판정 불가 · 착지 조상 git rc 128")
 
 
@@ -100,7 +103,7 @@ def t6(land, tmp):   # T6 pre_attempt 조상 대조도 7초(③ · 갈래는 지
 CASES = {"T1": t1, "T2": t2, "T2b": t2b, "T3": t3, "T4": t4, "T5": t5, "T6": t6}
 BRANCH = 'if rc != 1 and (rc != 128 or self.git(repo, "cat-file", "-e", sha, timeout=endings.ANC_S)[0] != 1):'
 MUTANTS = {"M1": (BRANCH, "if False:", (t1, t2)),   # ② 갈래 삭제 = rc≠0 이면 다음 ref
-           "M2": ('sha, ref, timeout=endings.ANC_S)[0]', 'sha, ref)[0]', (t1,))}
+           "M2": ('sha, ref, timeout=endings.ANC_S)[0]   # r2022 1회 7초 · 로컬 객체만', 'sha, ref)[0]   # r2022 1회 7초 · 로컬 객체만', (t1,))}
 
 
 @pytest.mark.parametrize("name", list(CASES))

@@ -9,7 +9,7 @@ import re
 import sys
 from datetime import datetime
 
-from ft_board_news_name import card_tag, work_name
+from ft_board_news_name import card_tag, shorten, work_name
 from ft_oppa_slack_check import OPPA_SLACK_UID
 
 MAX_CHANGES, MAX_BYTES, MAX_DOING, BAR = 5, 3500, 8, 10
@@ -170,7 +170,7 @@ def voiced(r: list[str], mark: str) -> list[str]:
 
 def body(cur: dict, prev: dict | None, now: datetime, sha: str, tt: dict | None = None, meas: str = "", mark: str = "", beat: str = "") -> str:
     """본문 — 3500B 를 넘으면 ⓐ 진행 줄을 아래부터 → ⓑ 묶음을 통째로 → ⓒ 막대를 모두 빼고(= 기준판 본문)
-    → ⓓ «다음» 칸 줄을 아래부터 빼고 «그 밖의 골 N개» 로 맺는다. 상한 안 첫 단계에서 멈춘다(골 줄 · 상태 글은 줄이지 않음 · r2103 A4).
+    → ⓓ «다음» 칸 줄을 아래부터 빼고 «그 밖의 골 N개» 로 맺는다. 상한 안 첫 단계에서 멈춘다 · 그래도 넘으면 ⓔ 긴 골 상태 글부터 줄임(r2184 · 그 앞은 r2103 A4).
     r2126: meas = «지금» 칸 첫 줄(실측) · mark = 원장 칸 앞 표지 · beat = 무변화 상태 글 첫 줄(진행 묶음 0 = 짧은 글)."""
     nm = lambda team, cid: work_name(cid, (tt or {}).get(team, {}).get(cid))  # noqa: E731
     fresh = [(quiet(t), ids) for t, ids in news(prev, cur, nm)]
@@ -195,4 +195,6 @@ def body(cur: dict, prev: dict | None, now: datetime, sha: str, tt: dict | None 
         out = text(st, [], nxt)
         if len(out.encode()) <= MAX_BYTES:
             break
+    if len(out.encode()) > MAX_BYTES:  # ⓔ r2184 · 못 맞추면 넘는 글 그대로(= N 의 발행 0 · 실측 줄 지움 0)
+        out = shorten(st, [r[4] for r in cur["goals"] or [] if not closed(r)], mark, lambda s: text(s, [], nxt), MAX_BYTES) or out
     return out
