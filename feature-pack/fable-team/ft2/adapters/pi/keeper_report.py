@@ -165,7 +165,11 @@ class Reporting:
         """E2 대신 받는 곳에는 글마다 보내지 않는다 — state.undelivered[팀] 에 쌓고 바퀴 끝 묶음 1통(팀당 하루 1통) ·
         r2203 같은 열쇠는 그날 1건(stand|<날짜> 지문 · blocked 가 그날만 막는다)."""
         heads = (body or "").splitlines()[:1] or [""]
-        self.state.setdefault("undelivered", {}).setdefault(team, []).append(heads[0][:60])
+        tail = key[11:] if key[10:11] == "|" and key[:10].replace("-", "").isdigit() else None   # r2266 C3 날짜 칸을 뺀 열쇠 · 날짜 없는 열쇠 = 지금 꼴(r2203)
+        seen = self.state.setdefault("stand_keys", {}).setdefault(team, [])
+        if tail not in seen:
+            self.state.setdefault("undelivered", {}).setdefault(team, []).append(heads[0][:60])
+            seen.append(tail) if tail else None
         self.state["sent"][key] = "stand|%s" % self.stamp()[:10]
         return True
 
@@ -209,6 +213,7 @@ class Reporting:
                     break
                 if self.finish(team, key, to, rc, seen, text):
                     del book[:]   # 간 것은 지운다 — 다음 묶음 = 그 뒤에 쌓인 것
+                    self.state.setdefault("stand_keys", {}).pop(team, None)   # r2266 C3 간 묶음의 열쇠도 지움
         for team, n in sorted(defer.items()):
             if self.state.setdefault("defer", {}).get(team) != n:
                 self.state["defer"][team] = n
