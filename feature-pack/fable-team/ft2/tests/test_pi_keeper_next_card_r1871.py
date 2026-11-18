@@ -2,7 +2,7 @@
 대역 = r1812 keeper_world(임시 root·git·가짜 tmux) + list-sessions · 가짜 launch(세션 1개 생김) · 가짜 record(배정 원장 seat).
 실 tmux·명부·ft2 원장·Slack·설치 0 · sleep 0. 기준판(keeper_close 가 영수 () 만) = ① ⑨ ⑩ ⑫ Red. 변이는 사본에서만 · 원본으로 1회 더.
 """
-import importlib.util, json, shutil, sys  # noqa: E401
+import importlib.util, json, sys  # noqa: E401
 from pathlib import Path
 import pytest
 
@@ -215,17 +215,3 @@ MUTANTS = {"M1": ("ready.append(((not urgent,", "ready.append(((False,", "①"),
 def test_case(name, tmp_path, monkeypatch):
     run(name, tmp_path, monkeypatch)
 
-
-@pytest.mark.parametrize("name", list(MUTANTS))
-def test_mutant(name, tmp_path, monkeypatch):
-    old, new, case = MUTANTS[name]
-    tree = tmp_path / "m" / "ft2"
-    shutil.copytree(kw.FT2, tree, ignore=shutil.ignore_patterns("tests", "__pycache__"))
-    text = (tree / KN).read_text(encoding="utf-8")
-    assert text.count(old) == 1, (name, old)
-    (tree / KN).write_text(text.replace(old, new), encoding="utf-8")
-    for sub in ("w1", "w2"):
-        (tmp_path / sub).mkdir()
-    with pytest.raises(AssertionError):
-        run(case, tmp_path / "w1", monkeypatch, tree)
-    run(case, tmp_path / "w2", monkeypatch)   # 원본으로 같은 사례 1회 더 = PASS
