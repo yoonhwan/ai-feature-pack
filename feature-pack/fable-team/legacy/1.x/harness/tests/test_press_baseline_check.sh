@@ -131,6 +131,7 @@ base r-ctlstr profile room control "$(rctl room-keyboard)" evidence "$P/ev/RESUL
 base r-press profile room control "$(rctl room-keyboard "$(roomflags PRESS_LST=unset PRESS_DOMAIN_QS=__DROP__)")" evidence "$RE"
 base r-v6 profile room control "$(rctl room-keyboard "$(roomflags V6_LST=0)")" evidence "$RE"
 base r-roomx profile roomx control "$(rctl room-keyboard)" evidence "$RE"
+base r-noev profile room control "$(rctl room-keyboard)" evidence ""
 base r-mid profile room control "$(rctl room-keyboard "$(roomflags PRESS_LST_TOGGLE_MID_PRESS_MS=500)")" evidence "$RE"
 rc_() { card "$1" "기준선: $P/$1.md" '실험: 없음'; }
 expect 3 'diff 0 = 커밋 소스 동일' "① 머리줄 profile: room(≠ 카드 머리 프로필) · click=room-keyboard · RESULT click null+사유 · scenario_id → 통과" "$(rc_ r-ok)" "$ST"
@@ -143,6 +144,7 @@ expect 3 'NOTE room: PRESS_\* 11개 대조 제외' "⑤ profile room · PRESS_LS
 expect 1 'BLOCK control flags: V6_LST=0 ≠ 기본값 1' "⑥ profile room · V6_LST=0(worker key) → 막힘" "$(rc_ r-v6)" "$ST"
 expect 1 'BLOCK profile: roomx — profile: room 만' "⑦ profile: roomx → 막힘" "$(rc_ r-roomx)" "$ST"
 expect 1 'BLOCK control flags: PRESS_LST_TOGGLE_MID_PRESS_MS=500 ≠ 기본값 0' "⑨ profile room · PRESS_LST_TOGGLE_MID_PRESS_MS=500(방 러너가 읽음) → 막힘" "$(rc_ r-mid)" "$ST"; notes1
+expect 1 'BLOCK profile room ↔ RESULT 없음(evidence 빈 값)' "⑩ profile room · evidence: 빈 값 → 막힘(RESULT 대조 건너뜀 0)" "$(rc_ r-noev)" "$ST"
 
 echo "cases=$n fail=$fail"; [ $fail -eq 0 ] && echo "ALL PASS"
 [ $fail -eq 0 ]
