@@ -10,7 +10,8 @@ set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 REPO="$(git -C "$(dirname -- "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
-KIT="$REPO/feature-pack/fable-team/harness/kit/fable-team/bin"; TRK="$REPO/feature-pack/fable-team/harness/bin"
+HX="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"   # r2222: harness = 시험 폴더의 부모(옛 경로 글자 대신)
+KIT="$HX/kit/fable-team/bin"; TRK="$HX/bin"
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
 fail=0
 ok()  { echo "PASS $1"; }

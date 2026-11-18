@@ -2,7 +2,7 @@
 # pyright: basic
 """ft_directive_watch.py status|tick [--now <ISO|epoch>] — 오빠 지시마다 «담당 카드가 있고 움직이는가» (r1212 · Issue #5342 · 사전 DA ③ APPROVE).
 후보 = 판정 번호의 권위인 planner md 원장(루트 표 ref 의 design/teams/planner/VERDICTS-planner-*.md · r1267 · verdicts.jsonl 은 읽지 않는다)에서 «오빠» 와 slack ts 가 든 행 · 시각 = 그 행 첫 slack ts · 닫음 표(state/directive-closed.tsv: n·사유·좌석·시각)·내용이 «무효»·«철회» 로 시작하는 행 제외.
-담당 = 카드의 «- 지시: 판정 N[, 판정 M]» 줄만 · 카드는 카드 루트 표(state/directive-roots.tsv: 팀·리포·ref·카드 폴더)의 ref 에서 읽는다(워크트리 무관).
+담당 = 카드의 «- 지시:»·«- 지시 #:» 줄의 «판정 N» · 원문자 붙은 «4323②»(r2256 · 맨 숫자 0) · 카드는 카드 루트 표(state/directive-roots.tsv: 팀·리포·ref·카드 폴더)의 ref 에서 읽는다(워크트리 무관).
 움직임 = max(카드 파일 마지막 커밋 · 나노 가지 nano/<stem 앞 40자> 의 base 밖 커밋) · 쪽지·경보·상태 보고는 움직임 아님 · git 은 전부 --until=<평가 시각>.
 판정: 담당 0 + 판정 뒤 60분 넘음 = 담당 없음 · 대기·진행 담당의 마지막 움직임이 6시간 넘음 = 멈춤 · 담당 전부 완성·아카이브 = 닫힘.
 머리 «담당 없는 오빠 지시 N · 멈춘 오빠 지시 M · 판본 <stamp>» → stamps.tsv 1줄 · rc 0 = 둘 다 0 · 1 = 하나라도 · 3 = «지시 감시 판정 불가 · <사유>» 1줄.
@@ -20,6 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ft_penalty import root  # noqa: E402
+from ft_status_root import status_root  # noqa: E402
 
 SLACK_TS = re.compile(r"(?<!\d)1\d{9}(?:\.\d{1,6})?(?!\d)")
 MD_ROW = re.compile(r"^(?:- \*\*(\d+)\*\*|\|\s*(\d+)\s*\|)")
@@ -167,7 +168,7 @@ class Watch:
                 continue
             times = self.card_times(r, tip)
             depth, star = len(r[3].split("/")), r[3].split("/").index("*") if "*" in r[3] else -1
-            hits = self.git(repo, "grep", "-I", "-e", "^- 지시:", tip, "--", card_pathspec(r), ok=(0, 1))
+            hits = self.git(repo, "grep", "-I", "-E", "-e", "^- 지시( #)?:", tip, "--", card_pathspec(r), ok=(0, 1))
             for ln in hits.splitlines():
                 path, _, text = ln[len(tip) + 1:].partition(":")
                 parts = path.split("/")
@@ -177,7 +178,7 @@ class Watch:
                 if stem not in times:
                     continue
                 card = dict(team=parts[star] if r[0] == "*" else r[0], stem=stem, state=parts[depth], moved=times[stem], repo=repo, ref=r[2])
-                for n in dict.fromkeys(re.findall(r"판정\s*(\d+)", text.split(":", 1)[1] if ":" in text else "")):
+                for n in dict.fromkeys(a or b for a, b in re.findall(r"판정\s*(\d+)|(?<![#\d.A-Za-z:/-])(\d{4,5})[①-⑳]", text.split(":", 1)[1] if ":" in text else "")):
                     found.setdefault(n, []).append(card)
         return found, tips
 
@@ -286,6 +287,8 @@ def main(argv: list[str]) -> int:
         print(f"지시 감시 판정 불가 · --now 꼴 아님({v})")
         return 3
     virtual, R = now < real, root()  # 유예 0 — 지금보다 앞이면 운영 파일 읽기·쓰기 0
+    D, tail = status_root(R) if argv[0] == "status" else (R, "")  # r1982: 위성 status = 본 루트 표 읽기만(가상과 같이 쓰기 0)
+    virtual, R = virtual or D != R, D
     if argv[0] == "tick" and virtual:
         print("지시 감시 판정 불가 · tick 은 가상 시각을 받지 않는다")
         return 3
@@ -298,6 +301,7 @@ def main(argv: list[str]) -> int:
             print("\n".join(tick(R, now, None, why, [])))
         return 3
     lines = render(rows, stamp, last_ts)
+    lines[0] += tail
     print("\n".join(lines))
     if not virtual:
         wd = R / ".fable-team/state/directive-watch"

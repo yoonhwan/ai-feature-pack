@@ -50,6 +50,7 @@ ROSTER = {  # 명부 파일 → 좌석들 — 첫 명부(seats.json)에는 pi �
 PI_STOP = {"t-feature-arch-pi#1": "toolUse", "t-aifp-master-pi#4": "stop"}  # toolUse = 일하는 중 · stop = 끝남
 TMUX = r"""#!/bin/sh
 W="$R1689_W"
+[ "${1:-}" = -u ] && shift  # r2144: ft_seat_pi.py 가 tmux -u 로 부른다
 case "$1" in
   list-sessions) cat "$W/sessions";;
   list-panes) case "$*" in

@@ -60,10 +60,10 @@ goal() { { echo "# 원장"; echo; echo "## 골 진행"; echo; echo "| 골 번호
 reset() { rm -rf "$T/ft/.fable-team/state" "$T/stub/tp.log" "$T/stub"/body.*.txt "$T/stub/tp_rc" "$T/stub/collect_rc"; }
 replies() { [ -f "$T/stub/tp.log" ] && wc -l < "$T/stub/tp.log" | tr -d ' ' || echo 0; }
 lastbody() { cat "$T/stub/body.$(replies).txt"; }
-now_section() { lastbody | awk '/^② 지금/{f=1;next} /^③ /{f=0} f'; }
-next_section() { lastbody | awk '/^③ 다음/{f=1;next} /^④ /{f=0} f'; }
+now_section() { lastbody | awk '/^지금$/{f=1;next} /^다음$/{f=0} f'; }  # r2095: Slack 4칸 머리
+next_section() { lastbody | awk '/^다음$/{f=1;next} /^막힌 것, 오빠 할 일$/{f=0} f'; }
 run() { RC=0; env -u FT_BOARD_THREAD_TS FT_ROOT="$T/ft" FT_BOARD_BIN="$T/stub/board" FT_THREAD_POST="$T/stub/tp.py" \
-  FT_GOAL_PROGRESS_MD="$T/goal.md" FT_BOARD_NOW="$1" ${TS_ENV-FT_BOARD_THREAD_TS=$TSV} bash "$PUB" --news > "$T/out" 2> "$T/err" || RC=$?; }
+  FT_GOAL_PROGRESS_MD="$T/goal.md" FT_BOARD_NOW="$1" ${TS_ENV-FT_BOARD_THREAD_TS=$TSV} FT_BOARD_POST_ARGS="${CH_ARGS---channel C0TEST}" bash "$PUB" --news > "$T/out" 2> "$T/err" || RC=$?; }
 
 BASE='{"cards":{"r2058-oppa-a":"대기","r2059-beta":"진행"},"seats":{"byz-harness-nano-r2059-beta#0":"작업중","byz-harness-master-pi#283":"정지 3분"},"h":[7]}'
 G1="1 | ft 2.0 완성 | 20 | 23 | 진행 중"; G2="2 | 하네스 운영 | 3 | 5 | 진행 중"
@@ -72,11 +72,11 @@ G1="1 | ft 2.0 완성 | 20 | 23 | 진행 중"; G2="2 | 하네스 운영 | 3 | 5 
 reset; goal "$G1" "$G2"; mk "$BASE"; run 2026-11-15T10:00:00
 chk "① rc 0" '[ "$RC" = 0 ]'
 chk "① reply 1회" '[ "$(replies)" = 1 ]'
-chk "① --ts $TSV" 'grep -q -- "reply.*--ts $TSV" "$T/stub/tp.log"'
-chk "① 막대 2줄" '[ "$(lastbody | grep -c "[▓░]")" = 2 ]'
-chk "① 20/23 막대 8칸" 'lastbody | grep -qF "ft 2.0 완성 \`▓▓▓▓▓▓▓▓░░\` 20/23"'
+chk "① post --channel C0TEST(r2120)" 'grep -q -- "^post.*--channel C0TEST" "$T/stub/tp.log"'
+chk "① 막대 골 줄 2개(r2103)" '[ "$(lastbody | grep -c "[▓░]")" = 2 ] && [ "$(now_section | grep -c " [▓░]\{10\} [0-9]*/[0-9]*\.")" = 2 ]'
+chk "① 20/23 = 막대 8칸(r2103)" 'lastbody | grep -qxF "ft 2.0 완성 ▓▓▓▓▓▓▓▓░░ 20/23. 진행 중"'
 chk "① news-last 생김" '[ -f "$LAST" ]'
-chk "① 다음 줄 = 세션별" 'next_section | grep -qF "하네스 · nano-beta · beta · 진행"'
+chk "① 다음 줄 = 정해진 다음 한 수 없음(r2096 · 5 column 원장)" '[ "$(next_section)" = "정해진 다음 한 수 없음" ]'
 chk "① 오빠 할 일 1건" 'lastbody | grep -q "1건"'
 chk "⑫ 첫 발행 = «엑스 확인 불가» 0줄(직전에 없던 error 팀)" '! lastbody | grep -q "엑스 확인 불가"'
 # ② 같은 입력 +600초
@@ -88,27 +88,24 @@ chk "④ reply 0" '[ "$RC" = 0 ] && [ "$(replies)" = 1 ]'
 # ⑤ 골 20/23 → 21/23 → 23/23
 goal "1 | ft 2.0 완성 | 21 | 23 | 진행 중" "$G2"; run 2026-11-15T10:30:00
 chk "⑤ reply 1회" '[ "$(replies)" = 2 ]'
-chk "⑤ 지금 «20→21 (23 중)»" 'now_section | grep -qF "ft 2.0 완성 20→21 (23 중)"'
-chk "⑤ 막대 9칸" 'lastbody | grep -qF "\`▓▓▓▓▓▓▓▓▓░\` 21/23"'
+chk "⑤ 지금 «바뀜: 20단계 → 21단계»(r2095)" 'now_section | grep -qxF "바뀜: ft 2.0 완성 20단계 → 21단계(전체 23)"'
+chk "⑤ 21/23 골 줄(r2103)" 'lastbody | grep -qxF "ft 2.0 완성 ▓▓▓▓▓▓▓▓▓░ 21/23. 진행 중"'
 goal "1 | ft 2.0 완성 | 23 | 23 | 끝" "$G2"; run 2026-11-15T10:40:00
-chk "⑤ 23/23 완성" 'lastbody | grep -qE "\`▓{10}\` 23/23 완성$"'
+chk "⑤ 23/23 = 닫힌 골 첫 줄(r2095)" 'lastbody | head -1 | grep -qF "닫힌 골 1개(ft 2.0 완성)" && ! now_section | grep -q "^ft 2.0 완성:"'
 # ⑥ 카드 대기→진행 + 세션 새로 열림(같은 틱) → 지금 2줄
 mk '{"cards":{"r2058-oppa-a":"진행","r2059-beta":"진행"},"seats":{"byz-harness-nano-r2059-beta#0":"작업중","byz-harness-master-pi#283":"정지 3분","byz-harness-nano-r2058-oppa-a#0":"작업중"},"h":[7]}'
 run 2026-11-15T10:50:00
-chk "⑥ reply 1회" '[ "$(replies)" = 4 ]'
-chk "⑥ 지금 2줄" '[ "$(now_section | wc -l | tr -d " ")" = 2 ]'
-chk "⑥ 카드 줄" 'now_section | grep -qF "하네스 oppa-a 대기→진행"'
-chk "⑥ 세션 줄" 'now_section | grep -qF "nano-oppa-a 열림"'
+chk "⑥ 대기→진행 · 세션 열림 = reply 0(r2095 S2)" '[ "$(replies)" = 3 ] && grep -q "변화 없음" "$T/out"'
 mk '{"cards":{"r2058-oppa-a":"진행","r2059-beta":"진행","c1":"대기","c2":"대기","c3":"대기","c4":"대기","c5":"대기","c6":"대기","c7":"대기"},"seats":{"byz-harness-nano-r2059-beta#0":"작업중","byz-harness-master-pi#283":"정지 3분","byz-harness-nano-r2058-oppa-a#0":"작업중"},"h":[7]}'
 run 2026-11-15T11:00:00
-chk "⑥ 7건 → 5줄 + 외 2건" '[ "$(now_section | wc -l | tr -d " ")" = 6 ] && now_section | tail -1 | grep -qx "외 2건"'
+chk "⑥ 대기 카드 7장 = reply 0(r2095 S2)" '[ "$(replies)" = 3 ] && grep -q "변화 없음" "$T/out"'
 # ⑦ 디바운스
 reset; goal "$G1" "$G2"; mk "$BASE"; run 2026-11-15T12:00:00
 cp "$LAST" "$T/last0"
 goal "1 | ft 2.0 완성 | 21 | 23 | 진행 중" "$G2"; run 2026-11-15T12:02:00
 chk "⑦ 120초 = reply 0 · news-last 그대로" '[ "$RC" = 0 ] && [ "$(replies)" = 1 ] && cmp -s "$LAST" "$T/last0"'
 goal "1 | ft 2.0 완성 | 21 | 23 | 진행 중" "2 | 하네스 운영 | 4 | 5 | 진행 중"; run 2026-11-15T12:05:00
-chk "⑦ 300초 = reply 1회 · 변화 2건" '[ "$(replies)" = 2 ] && now_section | grep -qF "20→21" && now_section | grep -qF "3→4"'
+chk "⑦ 300초 = reply 1회 · 변화 2건" '[ "$(replies)" = 2 ] && now_section | grep -qF "20단계 → 21단계" && now_section | grep -qF "3단계 → 4단계"'
 # ③ 발행 실패 → rc 1 · news-last 그대로 → 다음 실행 같은 변화로 1회
 reset; goal "$G1" "$G2"; mk "$BASE"; echo 1 > "$T/stub/tp_rc"; run 2026-11-15T13:00:00
 chk "③ 첫 실행 실패 rc 1 · news-last 없음" '[ "$RC" = 1 ] && [ ! -f "$LAST" ]'
@@ -117,20 +114,20 @@ chk "③ 성공 스텁 = 발행" '[ "$RC" = 0 ] && [ -f "$LAST" ]'
 cp "$LAST" "$T/last1"; goal "1 | ft 2.0 완성 | 21 | 23 | 진행 중" "$G2"; echo 1 > "$T/stub/tp_rc"; run 2026-11-15T13:20:00
 chk "③ 실패 rc 1 · news-last 그대로" '[ "$RC" = 1 ] && cmp -s "$LAST" "$T/last1"'
 n0="$(replies)"; rm -f "$T/stub/tp_rc"; run 2026-11-15T13:30:00
-chk "③ 다음 실행 = 같은 변화로 1회" '[ "$RC" = 0 ] && [ "$(replies)" = $((n0 + 1)) ] && now_section | grep -qF "20→21"'
+chk "③ 다음 실행 = 같은 변화로 1회" '[ "$RC" = 0 ] && [ "$(replies)" = $((n0 + 1)) ] && now_section | grep -qF "20단계 → 21단계"'
 # ⑧ 골 진행 절 없음 · n=— · n>m · thread ts 없음 · collect 실패
 reset; printf '# 원장\n\n## 다른 절\n' > "$T/goal.md"; mk "$BASE"; run 2026-11-15T14:00:00
-chk "⑧ 절 없음 = reply 1회 · 표 없음 1줄 · WARN" '[ "$RC" = 0 ] && [ "$(replies)" = 1 ] && lastbody | grep -q "골 진행 표 없음" && grep -q WARN "$T/err" && lastbody | grep -q "^② 지금"'
+chk "⑧ 절 없음 = reply 1회 · 표 없음 1줄 · WARN" '[ "$RC" = 0 ] && [ "$(replies)" = 1 ] && lastbody | grep -q "골 진행 표 없음" && grep -q WARN "$T/err" && lastbody | grep -q "^지금$"'
 reset; goal "1 | ft 2.0 완성 | — | — | 정본 확인 중" "2 | 하네스 운영 | 25 | 23 | 진행 중"; run 2026-11-15T14:00:00
-chk "⑧ n=— = 막대 없는 줄" 'lastbody | grep -qx "ft 2.0 완성 — 정본 확인 중"'
-chk "⑧ n>m = 수 판독 불가" 'lastbody | grep -qx "하네스 운영 수 판독 불가" && [ "$(lastbody | grep -c "[▓░]")" = 0 ]'
-reset; goal "$G1"; TS_ENV= run 2026-11-15T14:00:00
-chk "⑧ thread ts 없음 = rc 2 · reply 0" '[ "$RC" = 2 ] && [ "$(replies)" = 0 ] && grep -q ERROR "$T/err"'
+chk "⑧ n=— = 수 없는 줄(r2095)" 'lastbody | grep -qx "ft 2.0 완성: 정본 확인 중"'
+chk "⑧ n>m = 수 판독 불가(r2095)" 'lastbody | grep -qx "하네스 운영: 수 판독 불가. 진행 중" && [ "$(lastbody | grep -c "[▓░]")" = 0 ]'
+reset; goal "$G1"; CH_ARGS= run 2026-11-15T14:00:00
+chk "⑧ 채널 없음 = rc 2 · 호출 0(r2120)" '[ "$RC" = 2 ] && [ "$(replies)" = 0 ] && grep -q ERROR "$T/err"'
 reset; echo 1 > "$T/stub/collect_rc"; run 2026-11-15T14:00:00
 chk "⑧ collect rc 1 = rc 1 · reply 0" '[ "$RC" = 1 ] && [ "$(replies)" = 0 ]'
 # ⑨ 꼴: 30석 → 12줄 + 외 18석 · 표·코드블록 0 · 3500B · 끝 줄 밖 번호·sha·ts 0
 reset; goal "$G1" "$G2"; mk '{"cards":{"r2058-oppa-a":"대기"},"seats":{},"ncards":30}'; run 2026-11-15T15:00:00
-chk "⑨ 다음 = 12줄 + 외 18석" '[ "$(next_section | wc -l | tr -d " ")" = 13 ] && next_section | tail -1 | grep -qx "외 18석"'
+chk "⑨ 다음 = 1줄 · 다음 칸 카드 이름 0(r2096 · r2103)" '[ "$(next_section)" = "정해진 다음 한 수 없음" ] && ! next_section | grep -qE "c0[0-9]|외 [0-9]"'
 mk "$BASE"; run 2026-11-15T15:10:00
 for f in "$T/stub"/body.*.txt; do
   chk "⑨ $(basename "$f") 표·코드블록 0 · 3500B" '! grep -q "|---" "$f" && ! grep -qF "\`\`\`" "$f" && [ "$(wc -c < "$f")" -le 3500 ]'
@@ -151,14 +148,14 @@ PY'
 # ⑩ 정상 → 팀 수집 부분 실패 → 복구 (DA R1): 거짓 «닫힘»·«→없음»·«열림» 0
 reset; goal "$G1" "$G2"; mk "$BASE"; run 2026-11-15T16:00:00
 cp "$LAST" "$T/last10"; mk '{"err":true}'; run 2026-11-15T16:10:00
-chk "⑩ 부분 실패만 = reply 0 · news-last 그대로" '[ "$RC" = 0 ] && [ "$(replies)" = 1 ] && cmp -s "$LAST" "$T/last10"'
+chk "⑩ 부분 실패만 = reply 1 «확인 불가» 줄 · 거짓 닫힘 0(r2095 S2 · 실패 팀 = 소식)" '[ "$RC" = 0 ] && [ "$(replies)" = 2 ] && [ "$(lastbody | grep -c "^하네스 확인 불가")" = 1 ] && ! lastbody | grep -qE "닫힘|→없음|^바뀜"'
 goal "1 | ft 2.0 완성 | 21 | 23 | 진행 중" "$G2"; run 2026-11-15T16:20:00
-chk "⑩ 부분 실패 + 골 변화 = reply 1 · 지금 = 골 1줄" '[ "$(replies)" = 2 ] && [ "$(now_section | wc -l | tr -d " ")" = 1 ] && now_section | grep -qF "20→21"'
+chk "⑩ 부분 실패 + 골 변화 = reply 1 · 바뀜 = 골 1줄(r2095)" '[ "$(replies)" = 3 ] && [ "$(now_section | grep -c "^바뀜: ")" = 1 ] && now_section | grep -qF "20단계 → 21단계"'
 chk "⑩ 본문 «하네스 확인 불가» 1줄" '[ "$(lastbody | grep -c "^하네스 확인 불가")" = 1 ] && ! lastbody | grep -qE "닫힘|→없음"'
 chk "⑫ 부분 실패 본문에도 «엑스 확인 불가» 0줄" '! lastbody | grep -q "엑스 확인 불가"'
-chk "⑬ 팀 수집 실패 중 «오빠 승인 대기 1건» 유지" 'lastbody | grep -qx "오빠 승인 대기 1건" && ! lastbody | grep -qx "없음"'
+chk "⑬ 팀 수집 실패 중 «오빠 승인 대기 1건» 유지" 'lastbody | grep -qx "<@U0AC2JF0M7D> 오빠 승인 대기 1건" && ! lastbody | grep -qx "없음"'
 mk "$BASE"; run 2026-11-15T16:30:00
-chk "⑩ 복구 = 가짜 열림 0 · reply 0" '[ "$RC" = 0 ] && [ "$(replies)" = 2 ]'
+chk "⑩ 복구 = 가짜 열림 0 · reply 1 «수집 복구»(r2095 S2)" '[ "$RC" = 0 ] && [ "$(replies)" = 4 ] && now_section | grep -qxF "수집 복구: 하네스" && ! lastbody | grep -q "열림"'
 reset; goal "$G1"; mk '{"err":true}'; run 2026-11-15T17:00:00
 mk "$BASE"; run 2026-11-15T17:10:00
 chk "⑩ 첫 발행부터 실패 → 복구 = 열림·없음→ 0" '[ "$(replies)" = 2 ] && ! now_section | grep -qE "열림|없음→"'
@@ -171,20 +168,19 @@ chk "⑪ 닫힌 좌석 빠짐 + BUSY/IDLE 만 = reply 0" '[ "$RC" = 0 ] && [ "$(
 TB='"r2059-beta":"r2059-beta — 끝: 보드 뉴스 이름 시험(판정 4175 · #308536)","r2060-long":"r2060-long — 아주아주 긴 하는 일 이름이 스물다섯 글자를 넘는 경우"'
 S14='"seats":{"byz-harness-nano-r2059-beta#0":"작업중"}'
 reset; goal "$G1"; mk "{\"cards\":{\"r2058-oppa-a\":\"대기\",\"r2059-beta\":\"진행\",\"r2060-long\":\"대기\"},$S14,\"titles\":{$TB}}"; run 2026-11-15T19:00:00
-chk "⑭ 다음 줄 = 하는 일 이름" 'next_section | grep -qxF "하네스 · nano-beta · 보드 뉴스 이름 시험 · 진행"'
+chk "⑭ 다음 줄 = 진행 카드 이름 0(r2096)" '[ "$(next_section)" = "정해진 다음 한 수 없음" ]'
 mk "{\"cards\":{\"r2058-oppa-a\":\"진행\",\"r2059-beta\":\"완성\",\"r2060-long\":\"진행\"},$S14,\"titles\":{$TB}}"; run 2026-11-15T19:10:00
-chk "⑭ 지금 = 이름 · beta slug 0" 'now_section | grep -qxF "하네스 보드 뉴스 이름 시험 진행→완성" && ! now_section | grep -q beta'
-chk "⑭ 25자 넘는 제목 = 24자 + …" 'now_section | grep -qxF "하네스 아주아주 긴 하는 일 이름이 스물다섯 글자를… 대기→진행"'
-chk "⑭ 제목 없는 카드 = slug" 'now_section | grep -qxF "하네스 oppa-a 대기→진행"'
-chk "⑭ 근거 줄 = ② 카드 번호 순서" 'lastbody | tail -1 | grep -q " · 카드 r2058 r2059 r2060$"'
+chk "⑭ 지금 = 끝난 일 이름 · beta slug 0(r2095)" 'now_section | grep -qxF "끝난 일: 보드 뉴스 이름 시험" && ! now_section | grep -q beta'
+chk "⑭ 진행 카드 제목 · slug = 다음 칸 0(r2096)" '[ "$(next_section)" = "정해진 다음 한 수 없음" ] && ! lastbody | grep -qE "oppa-a|아주아주"'
+chk "⑭ 근거 줄 = 끝난 일 카드 번호(r2095)" 'lastbody | tail -1 | grep -q ", 카드 r2059$"'
 n14="$(replies)"; mk "{\"cards\":{\"r2058-oppa-a\":\"진행\",\"r2059-beta\":\"완성\",\"r2060-long\":\"진행\"},$S14,\"titles\":{\"r2059-beta\":\"다른 제목\"}}"; run 2026-11-15T19:20:00
 chk "⑭ 제목만 바뀜 = reply 0" '[ "$RC" = 0 ] && [ "$(replies)" = "$n14" ]'
 # ⑮ L 번호 카드 → ② 줄에 번호 0 · 근거 줄에 «카드 L102» (R6)
 TL='"titles":{"L102-sealed-gap":"L102-sealed-gap — 켬 강의 번역 빈칸"}'
 reset; goal "$G1"; mk "{\"cards\":{\"L102-sealed-gap\":\"진행\"},$TL}"; run 2026-11-15T20:00:00
 mk "{\"cards\":{\"L102-sealed-gap\":\"완성\"},$TL}"; run 2026-11-15T20:10:00
-chk "⑮ ② 줄 = 이름 · L102 0" 'now_section | grep -qxF "하네스 켬 강의 번역 빈칸 진행→완성" && ! now_section | grep -q L102'
-chk "⑮ 근거 줄 «카드 L102»" 'lastbody | tail -1 | grep -q " · 카드 L102$"'
+chk "⑮ 지금 줄 = 이름 · L102 0" 'now_section | grep -qxF "끝난 일: 켬 강의 번역 빈칸" && ! now_section | grep -q L102'
+chk "⑮ 근거 줄 «카드 L102»" 'lastbody | tail -1 | grep -q ", 카드 L102$"'
 chk "⑮ 끝 줄 밖 번호 0" '! lastbody | sed "\$d" | grep -qE "r[0-9]{3,4}|L[0-9]{2,}|[0-9a-f]{10,}|[0-9]{10}\.[0-9]{6}|#[0-9]+"'
 
 echo "fail=$fail"; [ "$fail" = 0 ]

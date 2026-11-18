@@ -734,7 +734,7 @@ def _mix(root, node, role):
     """교차 자식 — 배정 · 접수 · 실행권을 같은 runtime 에서 섞는다(BUSY 는 다음 tick)."""
     if role == "assign":
         for index in range(3):
-            grant = _retry(lambda index=index: node.assign("M%d" % index, "h1", evidence=EV,
+            grant = _retry(lambda index=index: node.assign("M%d" % index, "h%d" % (index + 2), evidence=EV,
                                                            resources=["slot-%d" % index]))
             if grant.written:
                 _retry(lambda grant=grant: node.deliver(grant.work, grant.attempt))
@@ -770,7 +770,7 @@ def _child_main(argv):
     _wait(os.path.join(root, "go"))
     out = {"written": False}
     if rest[0] == "race":
-        grant = node.assign(role, "h1", evidence=EV, resources=["shared-slot"])
+        grant = node.assign(role, {"W1": "h1", "W3": "h2"}[role], evidence=EV, resources=["shared-slot"])   # r2116 work 마다 holder
         out = {"written": bool(grant.written), "result": grant.result}
         if grant.written and not rest[2:]:                     # 변이 arm 은 전달하지 않는다
             delivered = _deliver_until(node, grant.work, grant.attempt)

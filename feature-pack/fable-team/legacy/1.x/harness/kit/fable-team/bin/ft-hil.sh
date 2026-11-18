@@ -28,11 +28,10 @@ rp() {  # 절대경로(실재하면 realpath 폴더 기준) — 대상 비교용
   if [ -e "$x" ]; then echo "$(cd "$(dirname "$x")" && pwd -P)/$(basename "$x")"; else echo "$x"; fi
 }
 
-max_n() {  # $D/h<숫자> (링크·파일·깨진 링크 모두) 중 최대 번호 — 손 선례(/tmp/h1·h2)와 겹치지 않게
+max_n() {  # $D/h<숫자> (링크·파일·깨진 링크 모두) 중 최대 번호 — 손 선례(/tmp/h1·h2)와 겹치지 않게 · r2130 K5: «h<N>.» 이름(.ran · .held · 바뀐 이름)도 셈
   local f n m=0
   for f in "$D"/h[0-9]*; do
-    [ -e "$f" ] || [ -L "$f" ] || continue
-    n="${f##*/h}"; [[ "$n" =~ ^[0-9]+$ ]] || continue
+    { [ -e "$f" ] || [ -L "$f" ]; } && n="${f##*/h}" && n="${n%%.*}" && [[ "$n" =~ ^[0-9]+$ ]] || continue
     [ "$((10#$n))" -le "$m" ] || m="$((10#$n))"
   done
   echo "$m"
@@ -49,16 +48,17 @@ entry_body() {  # $1=계획 $2=표식 접두(=진입 파일) $3=쪽지함 $4=요
   printf '#!/usr/bin/env bash\n# ft-hil-entry plan=%s\nP=%q; M=%q; N=%q; C=%q; S=%q\n' "$1" "$1" "$2" "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/ft-hil-notify.sh" "$3" "$4"
   cat <<'EOS'
 [ ! -f "$M.superseded" ] || { echo "REJECT 대체됨 → $(cat "$M.superseded")" >&2; exit 1; }
+[ ! -e "$M.held" ] || { L="$(sed -n '/[^[:space:]]/h; ${x;p;}' "$M.held")" || { echo "판정 불가 — ${M##*/}.held 못 읽음(계획 실행 0)" >&2; exit 3; }; case "$L" in "hold "*) L="${L#hold }"; echo "REJECT 보류 중 — ${L#* } · 풀기 = ft-hil.sh --unhold ${M##*/}" >&2; exit 1;; esac; }   # r2130 K2: 판정기가 없거나 옛 판정기여도 보류 h 실행 0
 [ -f "$P" ] || { echo "REJECT 계획 파일이 없다: $P" >&2; exit 1; }; G="${N%/*}/ft-hil-gate.sh"; [ -f "$G" ] || { echo "판정 불가 — 보조 도구 없음: $G (계획 실행 0)" >&2; exit 3; }; B="$(bash "$G" read "$P" "$M")" || exit $?; B="${B%.}"   # r2078 G3: 한 번 읽어 sha 견준 바이트(끝 표식 1자 뗌) · 다름 = REJECT rc1 · .sha 없음 = rc3
+K="$M.lock"; S0="$(date +%s)"; W=""; lk() { local t r; t="$(mktemp "$1.XXXXXX")" || return 2; printf '%s\n' "$2" > "$t" && ln "$t" "$1" 2>/dev/null; r=$?; unlink "$t" 2>/dev/null; return "$r"; }; al() { kill -0 "$1" 2>/dev/null || [[ "$(kill -0 "$1" 2>&1)" == *ermitted* ]]; }; rd() { p=""; e=""; [ -e "$1" ] || return 1; { read -r p e _ < "$1"; } 2>/dev/null; [[ "$p" =~ ^[0-9]+$ ]] && { [ -n "${2:-}" ] || [[ "$e" =~ ^[0-9]+$ ]]; } || return 2; }; bz() { echo "REJECT 실행 중 — ${M##*/} pid $p · 시작 $( [ -z "$e" ] && echo - || date -r "$e" +%H:%M:%S 2>/dev/null || date -d "@$e" +%H:%M:%S)" >&2; exit 1; }; nd() { echo "판정 불가 — ${M##*/}.lock $1(계획 실행 0 · 잠금 파일은 master 가 본다)" >&2; exit 3; }   # r2193 B1: 잠금 = 일반 파일 «pid epoch» · 임시 파일 + ln = 없을 때만 만들기
+tk() { lk "$K" "$$ $S0" && return 0; rd "$K"; case $? in 2) nd "내용을 못 읽음";; 1) lk "$K" "$$ $S0" && return 0; rd "$K" || nd "내용을 못 읽음";; esac; ! al "$p" || bz; local d="$p"; if ! lk "$K.take" "$$"; then rd "$K.take" 1 || nd ".take 내용을 못 읽음"; e=""; ! al "$p" || bz; nd ".take 의 pid $p 가 죽었다"; fi; rd "$K"; case $? in 0) ! al "$p" && unlink "$K" 2>/dev/null && lk "$K" "$$ $S0";; 1) lk "$K" "$$ $S0";; *) false;; esac && { unlink "$K.take" 2>/dev/null; echo "INFO 죽은 잠금 넘겨받음 — ${M##*/} pid $d" >&2; return 0; }; unlink "$K.take" 2>/dev/null; rd "$K" && bz; nd "넘겨받기 실패"; }; kt() { local a=" $1 " b="" l x y; l="$(ps -A -o pid= -o ppid=)" || { echo "$1"; return; }; while [ "$a" != "$b" ]; do b="$a"; while read -r x y; do [[ "$a" == *" $y "* && "$a" != *" $x "* ]] && a="$a$x "; done <<< "$l"; done; echo $a; }; cl() { local t i; if [ -n "$W" ]; then t="$(kt "$W")"; kill -TERM $t 2>/dev/null; wait "$W" 2>/dev/null; t="${t#"$W"}"; for i in {1..70}; do kill -0 $t 2>/dev/null || break; sleep 0.1; done; kill -KILL $t 2>/dev/null; for i in {1..20}; do kill -0 $t 2>/dev/null || break; sleep 0.1; done; fi; rd "$K" && [ "$p" = $$ ] && unlink "$K" 2>/dev/null; rd "$K.take" 1 && [ "$p" = $$ ] && unlink "$K.take" 2>/dev/null; }; for g in 1:HUP 2:INT 15:TERM; do trap "cl; exit $((128 + ${g%%:*}))" "${g#*:}"; done; tk   # r2193 B3: 죽은 잠금 = .lock.take 를 쥔 실행만 지우고 다시 건다 · B2: 신호 = 계획과 그 자식을 먼저 끝냄(TERM · 7초 · KILL) → 제 잠금만 푼다 · rc 128+n · .ran rc 줄·쪽지 0
 date +%s >> "$M.ran"
-( umask 077; : > "$M.out" )
-rc=""; R="$(git -C "$(dirname "$P")" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; R="${R%/.git}"
+( umask 077; : > "$M.out" ); rc=""; R="$(git -C "$(dirname "$P")" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; R="${R%/.git}"
 if [ -z "$R" ]; then echo "INFO 리포 밖 계획 — cd 0 ($P)" >&2; elif [ ! -f "$R/.fable-team/LIVE_ROOT" ]; then echo "판정 불가 — 계획 $P 의 리포($R)에 .fable-team/LIVE_ROOT 없음" | tee "$M.out" >&2; rc=3
 elif cd "$R"; then unset FT_ROOT; else echo "판정 불가 — 계획 리포 루트로 cd 실패: $R" | tee "$M.out" >&2; rc=3; fi
-[ -n "$rc" ] || { bash -c "$B" "$P" "$@" 2>&1 | tee "$M.out"; rc=${PIPESTATUS[0]}; }   # r2078: 검사한 바이트를 실행(파일 다시 읽기 0 · $0 = 계획 경로)
+[ -n "$rc" ] || { ( bash -c "$B" "$P" "$@" 2>&1 | tee "$M.out"; rc=${PIPESTATUS[0]}; exit "$rc" ) <&0 & W=$!; wait "$W"; rc=$?; W=""; }   # r2078: 검사한 바이트를 실행(파일 다시 읽기 0 · $0 = 계획 경로)
 echo "rc=$rc $(date +%s)" >> "$M.ran"; printf '%s' "$B" | bash "$G" budget - "$M"; export FT_HIL_RECHECK="$(FT_EVENT_COMM="$C" bash "${N%/*}/ft-event-check.sh" hil "$M" "$rc" "$M.out")"; FT_HIL_RECHECK="${FT_HIL_RECHECK:-재측정: 판정 불가(ft-event-check 출력 없음)}"   # r1474: 사건 직후 1회 재측정 → done 쪽지 끝 칸(rc 불변)
-bash "$N" done "$M" "$rc" "$C" $S || echo "WARN 결과 쪽지 실패 — h rc 는 그대로($rc)" >&2
-exit "$rc"
+bash "$N" done "$M" "$rc" "$C" $S || echo "WARN 결과 쪽지 실패 — h rc 는 그대로($rc)" >&2; cp -p "$M.out" "$M.out.$S0.$$" 2>/dev/null || echo "WARN 실행 사본 실패 — ${M##*/}.out.$S0.$$" >&2; rd "$K" && [ "$p" = $$ ] && unlink "$K" 2>/dev/null; exit "$rc"   # r2193 B4·B2: 쪽지 뒤 실행별 사본 → 제 pid 잠금만 푼다
 EOS
 }
 # .ran = 실행마다 «시작 epoch» + «rc=<n> <epoch>» 이어 쓰기(r1124) — 읽기는 마지막 시작 줄·마지막 줄 기준
@@ -135,7 +135,7 @@ add() {
   [ -z "$ns" ] || printf 'seat=%s\ncomm=%s\n' "$ns" "$nc" > "$D/h$n.notify" || die "수신자 표식을 못 썼다: $D/h$n.notify"
   rmdir "$D/.hil.lock"; trap - EXIT
   [ -z "$ns" ] || [ -z "$new" ] || bash "$(dirname "${BASH_SOURCE[0]}")/ft-hil-notify.sh" issue "$D/h$n" "$t" "$nc" "$ns" 2>/dev/null || echo "WARN [HIL] 쪽지 실패 — h$n 은 등록됨 · 틱 30분 알림이 남는다(to=$ns comm=$nc)" >&2   # r1130: 새 h 만 1통
-  echo "! bash $D/h$n"; [ -z "$new" ] || FT_ROOT="${FT_ROOT:-$(dirname "${rc_c%/*}")}" python3 "$(dirname "${BASH_SOURCE[0]}")/ft_desk_reply_wake.py" --register-plan "$t" "h$n" >/dev/null || true   # r1587: 새 h 만 · 계획에 `approve-merge <sha40> … --oppa-slack <ts>` 가 1개면 감시 등록(실패는 도구가 stderr «감시 등록 실패 <ts>» 1줄 · h 발급 rc 그대로 · 루트는 쪽지함에서 푼 공용 루트, 못 풀면 cwd)
+  l="$(bash "$g" run-line "$D/h$n" 2>/dev/null)"; echo "! ${l:-bash $D/h$n}"; [ -z "$new" ] || FT_ROOT="${FT_ROOT:-$(dirname "${rc_c%/*}")}" python3 "$(dirname "${BASH_SOURCE[0]}")/ft_desk_reply_wake.py" --register-plan "$t" "h$n" >/dev/null || true   # r1587: 새 h 만 · 계획에 `approve-merge <sha40> … --oppa-slack <ts>` 가 1개면 감시 등록(실패는 도구가 stderr «감시 등록 실패 <ts>» 1줄 · h 발급 rc 그대로 · 루트는 쪽지함에서 푼 공용 루트, 못 풀면 cwd)
   clip "bash $D/h$n"
 }
 

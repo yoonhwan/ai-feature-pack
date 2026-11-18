@@ -57,9 +57,11 @@
 #     확인: 좌석 세션 0(tmux 조회 성공) · 그 경로가 이 리포 .worktrees/ 아래 등록 워크트리 · 가지가 nano/<좌석 키>[-rN]. 통과하면 <wt-clean>/<seat>.sh 생성 + `PLANNED <경로>` + exit 0 — 실행은 기존 ft-wt-sweep.sh. 착지 판정은 호출자(census) 몫이고, 원장에 닫힘 행이 없어도 계획은 표식 실패로 멈추지 않는다.
 #   --replan <옛 계획 파일> = 옛 판(plan-ver ≠ 이 생성기) 계획을 같은 좌석·같은 WT 로 다시 만든다(r535 · ft-wt-sweep.sh 가 부른다). 굽힌 값(SEAT·CARD_SLUG(옛 판 KEY)·WT·PREFIX·LEDGER·FT_NANO_WIP·PLAN_ONLY·MAINREF)만 옛 계획에서 읽고
 #     몸통·가드는 지금 생성기 그대로 — 종료조건·팀 env·드리프트·원장 해석·명부·kill 전부 건너뜀. 새 계획 = <옛 계획 폴더>/<seat>.sh(FT_WT_CLEAN_DIR 가 이긴다).
-#     rc 0 `PLANNED <경로>` · 4 = WAIT(계보 세션 살아 있음 · tmux 조회 실패) · 1 = REJECT 사유 1줄(좌석 불일치 · --wt/--branch 계획 · WT 없음 · 가지 nano/* 아님 · 원장 값 없음) · 실행 0.
+#     rc 0 `PLANNED <경로>` · 4 = WAIT(계보 세션 살아 있음 · tmux 조회 실패) · 1 = REJECT 사유 1줄(좌석 불일치 · --wt/--branch 계획 · 가지 nano/* 아님 · 원장 값 없음) · 실행 0.
+#     ★r2179★ WT 없음 = rc 0 `NONE --replan: WT 없음(<WT>) — 정리할 것 없음` · 새 계획 0 · 원장 그 좌석 마지막 닫힘 행 wt=none(표식 못 하면 줄 끝 «(원장 표식 못 함: <사유>)» · 그래도 rc 0).
 #   Seatbelt 0.3 · 나노 좌석을 «값으로» 닫는다 (SEATBELT-README §3 닫기 · NANO-LEDGER 종료조건 3).
 #   exit 0 = 닫힘(명부 삭제·원장 append·@zc_v65_active 해제·세션 kill) · 1 = REJECT(조건 미충족) 또는 FAIL(해제/kill 실패, 사유 stdout) · 2 = usage
+#   ★r2168★ exit 5 = ft2 좌석(--wt 또는 pane cwd 또는 ★r2173★ 명부 그 좌석 행 worktree 칸이 $ROOT/.fable-team/teams/<팀>/worktrees/<폴더> 이거나 그 아래) — 마지막 줄 «FT2-SEAT <좌석> …» 1개 · 닫는 길 = ft2 keeper · 손 0.
 #   --kill 은 호환용 — 닫으면 항상 태그 해제 + kill-session(2026-10-02 · keep-last-2 검사 삭제, nano 계보는 대상 아님).
 # 종료조건 3 (전부 «값»): ①--result 경로 실재 ②--recv master 회수 seq 가 우편함/bodies 에 실재 ③jsonl 마지막 활동 ≥ IDLE_MIN 분 전
 # 종료조건 ④ (팩 1.0.2): press/시험 카드면 마지막 checkpoint 표 실재 + alarm=no (checkpoint.json 미설정 프로젝트는 경고만).
@@ -359,6 +361,33 @@ esac
 WT_PREFIX="${FT_NANO_WT_PREFIX:-v65-}"
 [[ "$WT_PREFIX" =~ ^[a-z0-9-]+$ ]] || { echo "REJECT FT_NANO_WT_PREFIX(${WT_PREFIX}) 는 소문자·숫자·'-' 만 허용"; exit 1; }
 case "$SEAT" in "$NANO_PREFIX"*) ;; *) echo "REJECT 나노(${_NANO_PREFIXES//,/|}*)만 닫는다: $SEAT"; exit 1;; esac   # role 무관(nano·impl·checker·tester 전부 같은 접두)
+# ★r2168 ft2 좌석 가림★ — ft2 가 연 좌석(워크트리 = $ROOT/.fable-team/teams/<팀>/worktrees/<폴더>)은 1.x 닫기 대상이 아니다. 닫는 길 = ft2 keeper.
+#   후보 = --wt 값 · 그 좌석 pane cwd(tmux 조회 실패·세션 없음 = 후보 없음 · 기준판 흐름 그대로 · T6) · ★r2173★ 명부 그 좌석 행의 글자 worktree 칸(못 읽음·글자 아님·빈 글 = 그 후보만 없음 · G2) — 하나만 맞아도 ft2. 실제 경로 + 경로 조각 경계로 대조.
+#   원장 풀이 · 원장 WT 신선도 · 좌석 워크트리 풀이 · 카드 단계보다 앞(T2) · 명부 · 원장 · tmux · 워크트리 · 가지 손 0(T4) · rc 5(T3 · 호출자 3곳이 «대상 아님» 으로 읽는다).
+_ft2_seat_wt() {   # stdout = ft2 좌석 워크트리 경로(아니면 빈 줄)
+  local pane pc=""
+  pane="$(tmux list-panes -a -F '#{session_name}|#{pane_id}' 2>/dev/null | awk -F'|' -v s="$SEAT" '$1==s{print $2; exit}')"
+  [ -z "$pane" ] || pc="$(tmux display-message -p -t "$pane" '#{pane_current_path}' 2>/dev/null)" || pc=""
+  python3 - "$ROOT" "${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}" "$SEAT" "$NWT" "$pc" <<'PY' 2>/dev/null
+import json, os, sys
+base = os.path.join(os.path.realpath(sys.argv[1]), ".fable-team", "teams")
+cands = sys.argv[4:]
+try:   # r2173: 명부는 읽기만 1회 · 어떤 예외든 이 후보만 없음(--wt · pane cwd 판정은 그대로)
+    with open(sys.argv[2], encoding="utf-8") as f:
+        w = json.load(f)[sys.argv[3]]["worktree"]
+    if isinstance(w, str) and w and "\0" not in w:
+        cands.append(w)
+except Exception:
+    pass
+for c in cands:
+    p = os.path.realpath(c) if c else ""
+    parts = p[len(base) + 1:].split(os.sep) if p.startswith(base + os.sep) else []
+    if len(parts) >= 3 and parts[0] and parts[1] == "worktrees" and parts[2]:
+        print(os.path.join(base, *parts[:3])); break
+PY
+}
+_FT2_WT="$(_ft2_seat_wt)"
+[ -z "$_FT2_WT" ] || { echo "FT2-SEAT $SEAT — 1.x 닫기 대상 아님 · 닫는 길 = ft2 keeper(카드에 «- 남은 범위» 줄 → complete → 세션 닫기) · 워크트리=$_FT2_WT"; exit 5; }
 SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"; COMM="${FT_INBOX_ROOT:-$ROOT/.fable-team/comm}"
 # 원장 = 리포 고정(운영 정본 = v6-realtime-live 워크트리 · FT_NANO_LEDGER_WT 로 override). $WT 에 묶지 않는다 — 나노가 자기 워크트리에서 부르면 원장이 삭제 대상 안에 놓인다(DA r2 C).
 LEDGER_WT="${FT_NANO_LEDGER_WT:-$ROOT/.worktrees/v6-realtime-live}"; [ -d "$LEDGER_WT" ] || LEDGER_WT="$WT"
@@ -654,6 +683,32 @@ SH
   chmod 755 "$PLAN"
 }
 # ★r535 --replan★ 옛 판 계획 → 같은 좌석·같은 WT 의 새 계획(지금 생성기 몸통). 실행 가드는 새 계획이 다시 건다 — 여기선 «만들어도 되나» 만 본다.
+# ★r2179★ WT 없음 = 정리할 것 없음(닫기 길 _wt_clean_plan · 계획 본문 «[ -d "$WT" ] || mark none» 과 같은 규칙) — 원장 표식은 계획 mark() 와 같은 행·같은 락 · 표식 실패는 사유만 붙인다(rc 0).
+_rp_none() {
+  local why="" lock="$LEDGER.lock" i=0 rc
+  if [ ! -f "$LEDGER" ]; then why="원장 파일 없음($LEDGER)"
+  else
+    until mkdir "$lock" 2>/dev/null; do i=$((i+1)); [ "$i" -lt 100 ] || break; sleep 0.1; done
+    if [ "$i" -ge 100 ]; then why="원장 락 실패($lock)"
+    else
+      python3 - "$LEDGER" "$SEAT" none <<'PY'
+import os, re, sys
+p, seat, val = sys.argv[1:4]
+s = open(p, encoding="utf-8").read(); lines = s.split("\n")
+key = "`%s` 닫힘(ft-nano-close)" % seat
+idx = [i for i, l in enumerate(lines) if key in l]
+if not idx: sys.exit(3)
+i = idx[-1]; lines[i] = re.sub(r"( · wt=.*)?$", " · wt=" + val, lines[i], count=1)
+tmp = p + ".tmp.%d" % os.getpid()
+with open(tmp, "w", encoding="utf-8") as f: f.write("\n".join(lines)); f.flush(); os.fsync(f.fileno())
+os.replace(tmp, p)
+PY
+      rc=$?; rmdir "$lock"
+      case "$rc" in 0) ;; 3) why="$SEAT 닫힘 행 없음";; *) why="표식 실패 rc=$rc";; esac
+    fi
+  fi
+  echo "NONE --replan: WT 없음($WT) — 정리할 것 없음${why:+ (원장 표식 못 함: $why)}"
+}
 if [ "$REPLAN" -eq 1 ]; then
   _rs="$SEAT"; _vl="$(grep -m1 '^SEAT=' "$RP_OLD")"
   [ -n "$_vl" ] || { echo "REJECT --replan: 굽힌 값 줄(SEAT=…) 없음: $RP_OLD"; exit 1; }
@@ -663,7 +718,7 @@ if [ "$REPLAN" -eq 1 ]; then
   [ -z "$NAMED_BR" ] || { echo "REJECT --replan: --wt/--branch 계획(사람 경로 · 자율 재생성 대상 아님)"; exit 1; }
   [ -n "$CARD_SLUG" ] || CARD_SLUG="$KEY"   # r1405: 옛 판 계획(굽힌 이름 KEY=)도 그대로 다시 만든다(동작 0)
   { [ -n "$CARD_SLUG" ] && [ -n "$PREFIX" ] && [ -n "$LEDGER" ]; } || { echo "REJECT --replan: 원장 값 없음(CARD_SLUG·PREFIX·LEDGER)"; exit 1; }
-  [ -d "$WT" ] || { echo "REJECT --replan: WT 없음($WT)"; exit 1; }
+  [ -d "$WT" ] || { _rp_none; exit 0; }
   _rb="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("branch",""))' "$WT/.worktree-info.json" 2>/dev/null)"
   [ -n "$_rb" ] || _rb="$(git -C "$WT" symbolic-ref --short -q HEAD)"
   case "$_rb" in nano/*) ;; *) echo "REJECT --replan: 가지=${_rb:-?} (nano/* 아님)"; exit 1;; esac
@@ -1372,7 +1427,8 @@ if [ "$_hrc" -eq 1 ] && [ -n "$_lrow" ]; then
   _seat_reap || { echo "CLOSE-FAIL reap ${_rp_left:-left=?} rc=$_rp_rc — $SEAT 세션 보존(재실행 · 명부·원장 그대로 · 루프를 멈춘 뒤 같은 close 재실행)"; exit 1; }
   if [ -n "$PANE" ]; then
     tmux set-option -t "$PANE" -u @zc_v65_active || { echo "FAIL $SEAT — @zc_v65_active 해제 실패(재실행 · 세션 잔존)"; exit 1; }
-    tmux kill-session -t "$PANE" || { echo "FAIL $SEAT — kill-session 실패(재실행 · 세션 잔존 · 태그는 해제됨)"; exit 1; }
+    bash "$HERE/ft-session-close-ledger.sh" note "$SEAT" ft-nano-close.sh "재실행" >/dev/null 2>&1 || :   # r2101 — kill 직전 원장 tool 줄 1(rc·출력·kill 인자 섞임 0)
+    tmux kill-session -t "$PANE" || { bash "$HERE/ft-session-close-ledger.sh" fail "$SEAT" ft-nano-close.sh >/dev/null 2>&1; echo "FAIL $SEAT — kill-session 실패(재실행 · 세션 잔존 · 태그는 해제됨)"; exit 1; }
     echo "KILLED $SEAT (@zc_v65_active 해제 · 세션 kill · 브랜치 보존) · $(bash "$HERE/ft-event-check.sh" close "$SEAT" "${CARD:-}" "${PLAN:-}")"   # r1474: 끝 칸 = 재측정 1회(exit 불변)
   fi
   _oc_close
@@ -2284,7 +2340,8 @@ nf_bound "$(nf_cap "$(nf_fixed slots)" 1)" bash "$(dirname "$0")/ft-nano-slots.s
 # (nano-close 경로 하나 · 나노 계보 keep-last-2 면제 · ★브랜치 삭제 0★ · 역할 좌석은 keep-last-2 그대로).
 # 둘 중 하나라도 실패하면 조용히 넘기지 않는다(#0 RULE) — 명부는 이미 지워졌으므로 같은 close 를 다시 부르면 남은 정리만 이어진다(RERUN).
 tmux set-option -t "$PANE" -u @zc_v65_active || { echo "FAIL $SEAT — @zc_v65_active 해제 실패(세션 잔존 · 명부는 삭제됨)"; exit 1; }
-tmux kill-session -t "$PANE" || { echo "FAIL $SEAT — kill-session 실패(세션 잔존 · 태그는 해제됨)"; exit 1; }
+bash "$HERE/ft-session-close-ledger.sh" note "$SEAT" ft-nano-close.sh "${SUSP_REASON:-${NEVER_REASON:-close}}" >/dev/null 2>&1 || :   # r2101 — kill 직전 원장 tool 줄 1(rc·출력·kill 인자 섞임 0)
+tmux kill-session -t "$PANE" || { bash "$HERE/ft-session-close-ledger.sh" fail "$SEAT" ft-nano-close.sh >/dev/null 2>&1; echo "FAIL $SEAT — kill-session 실패(세션 잔존 · 태그는 해제됨)"; exit 1; }
 echo "KILLED $SEAT (@zc_v65_active 해제 · 세션 kill · 브랜치 보존) · $(bash "$HERE/ft-event-check.sh" close "$SEAT" "${CARD:-}" "${PLAN:-}")"   # r1474: 끝 칸 = 재측정 1회(exit 불변)
 _oc_close   # r286 + R387 — 위 정의(세션 kill «뒤»)
 # 세션이 사라졌다 — 이제 계획을 실행한다(계보의 다른 세션·cwd 보유가 남아 있으면 계획이 skipped:좌석/cwd 로 대기시킨다)

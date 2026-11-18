@@ -19,7 +19,7 @@ bash -n "$LAND"; ck "bash -n land" $?
 python3 -I -c "import ast;ast.parse(open('$BIN/ft_merge_lines.py').read())"; ck "py 구문 ft_merge_lines" $?
 
 # 팩 꼴: main 이 a·b·c 에 «== (1, 16)» 단언을 더한다 · PR 가지는 M0 에서 자기 파일을 더한 뒤 main 을 병합하고 «17» 로 정당 교체
-mkrepo "$T"
+mkrepo "$T"; ghremote "$W" "$ORIGIN" fake/w   # r1746: FT_ROOT(카드 리포) ≠ 대상 = 다른 리포 — 대상 원격은 github owner/name 꼴(전송은 로컬 bare)
 git -C "$W" checkout -q main
 printf 'l1\nl2\nl3\nKIND == (1, 16)\n' > "$W/a.txt"; printf 'b1\nCAP == (1, 16)\n' > "$W/b.txt"; printf 'c1\nEXTRA == (1, 16)\n' > "$W/c.txt"; printf 'DUP == (1, 16)\nDUP == (1, 16)\n' > "$W/e.txt"
 cm "$W" "main adds 16 assertions"; git -C "$W" push -q origin main; git -C "$W" fetch -q origin
@@ -40,8 +40,8 @@ dac() {  # dac <판정값> <head|-> <"경로|줄|개수"…> — 카드 리포 �
 
 # ⑤(--replace-ok 없음) = 지금과 같은 DENY 바이트 · ① 의 기준판(Red)
 gate "$S0"
-[ "$rc" = 1 ] && [ "$out" = "$(printf 'DENY main 이 더한 줄을 지움(옛 브랜치 F=%s) — main 에서 새 브랜치로 따라: a.txt: main 이 더한 줄 1 개가 S 에서 사라짐; b.txt: main 이 더한 줄 1 개가 S 에서 사라짐\nINFO fetch 상한 25(판정 4114)' "${M0:0:10}")" ]
-ck "⑤ 인자 없음 = 옛 DENY 그대로(줄·꼬리 INFO 포함 바이트 일치)" $?
+[ "$rc" = 1 ] && [ "$out" = "$(printf 'DENY main 이 더한 줄을 지움(옛 브랜치 F=%s) — main 에서 새 브랜치로 따라: a.txt: main 이 더한 줄 1 개가 S 에서 사라짐; b.txt: main 이 더한 줄 1 개가 S 에서 사라짐 · 합계 2 파일 · 2 줄\n다음: 의도된 교체면 DA 판정문 gate-replace 블록 → 착지 명령에 --replace-ok <경로>@<sha>#§<절> · 블록 줄 = ft_merge_lines.py %s %s %s --lost-rows\nINFO fetch 상한 25(판정 4114)' "${M0:0:10}" "$W" "$(sha "$W" origin/main)" "$S0")" ]
+ck "⑤ 인자 없음 = DENY 바이트 일치(r2098: 합계 · 다음: 줄 · 꼬리 INFO 포함)" $?
 
 C1="$(dac APPROVE "$S0" "a.txt|KIND == (1, 16)|1" "b.txt|CAP == (1, 16)|1")"
 gate "$S0" --replace-ok "$DAP@$C1#§2"

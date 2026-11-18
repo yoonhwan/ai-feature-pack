@@ -80,7 +80,7 @@ def c11(t):   # ⑪ 같은 work command 2개(accept 만) → 의무 2줄 · 용�
 
 def c11b(t):   # ⑪′ 용량 상한 = work 단위 · 쉼 제외(상한 8 · 쉼 1 → 9번째 접수 성공)
     for n in range(8):
-        a = t.open("w%d" % n, res="R%d" % n)
+        a = t.open("w%d" % n, res="R%d" % n, holder="%s-%d" % (NANO, n))   # r2116 work 마다 holder
     assert t.run("submit", "--command", "c-x", "--body", "b", "--work", "x")[0]["result"] == "용량 부족"
     t.ok("park", "--work", "w7", "--attempt", a, "--reason", "idle-done")
     assert t.run("submit", "--command", "c-x", "--body", "b", "--work", "x")[0]["result"] == "접수 성공"

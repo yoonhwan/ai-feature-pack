@@ -5,6 +5,7 @@ import json, shutil  # noqa: E401
 import pytest
 import keeper_world_r1812 as kw
 W, KC = "r9976", "adapters/pi/keeper_close.py"
+STAGE = "Unsure harness %s card_stage 두 가지에 진행 카드" % W   # r2140 K5 done 닫기 길 card_stage 1줄(대역 = 두 가지에 진행 카드)
 def _world(w, att, rc=0, **kv):
     w.enable(), w.card(W, w.pack_sha())
     holder = w.work(W, done=True, alive=True, **kv)
@@ -15,8 +16,8 @@ def _world(w, att, rc=0, **kv):
 def c2(w):   # ② 착지 끝 나노 · 유휴·턴 끝 · attached 2 → NOTE 1줄 → kill 1 → CLOSED-SESSION · 영수 1
     holder = _world(w, 2)
     lines = [x for x in w.round() if W in x]
-    assert [x.split()[0] for x in lines] == ["NOTE", "CLOSED-SESSION", "RECEIPT"], lines
-    assert lines[0] == "NOTE harness %s 사람 화면 attached=2 — 오빠 지시로 닫음 · %s" % (holder, W)
+    assert [x.split()[0] for x in lines] == ["Unsure", "NOTE", "CLOSED-SESSION", "RECEIPT"] and lines[0] == STAGE, lines
+    assert lines[1] == "NOTE harness %s 사람 화면 attached=2 — 오빠 지시로 닫음 · %s" % (holder, W)
     assert len(w.tmux("kill-session")) == 1 and w.kinds("close_receipt") == 1
 def c3(w):   # ③ attached 읽기 실패(rc 1) → HELD 판정 불가 그대로 · kill 0 · 영수 0 · NOTE 0
     _world(w, "", rc=1)

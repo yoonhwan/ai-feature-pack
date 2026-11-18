@@ -50,6 +50,12 @@ if os.path.exists(st + ".ps_rc"): sys.exit(int(open(st + ".ps_rc").read()))
 sys.stdout.write(open(st + ".ps").read() if os.path.exists(st + ".ps") else "100 1 0.0 zsh\n101 100 0.0 pi\n")
 '''
 STUB = '#!/bin/sh\nprintf "%s\\n" "$*" >> "$0.log"\necho "STUB $1"\nexit "$(cat "$0.rc" 2>/dev/null || echo 0)"\n'
+# 카드 ft2-done-seat-short-idle A4 — mbox 대역은 `peek --rows`(새 문)에만 머리줄을 답한다(`pending=` = `.pending` 파일 · 없으면 0).
+# 옛 문(`peek <좌석>`)은 지금처럼 STUB 줄 = 설치된 옛 mbox 꼴(mail-unknown 그대로 · 다른 시험의 기대를 바꾸지 않는다).
+MBOX = ('#!/bin/sh\nprintf "%s\\n" "$*" >> "$0.log"\n'
+        'if [ "$1" = peek ] && [ "$3" = "--rows" ]; then echo "pending=$(cat "$0.pending" 2>/dev/null || echo 0) scanned=1 lineage=0"; '
+        'exit "$(cat "$0.peekrc" 2>/dev/null || echo 0)"; fi\n'
+        'echo "STUB $1"\nexit "$(cat "$0.rc" 2>/dev/null || echo 0)"\n')
 def _mod(path, alias):
     spec = importlib.util.spec_from_file_location(alias, str(path))
     module = importlib.util.module_from_spec(spec)
@@ -75,7 +81,7 @@ class World:
             s.commit(name, {"design/TEAMS.md": TEAMS}, "main")
         s.commit("byz", {}, "ops/main-base", new=True)
         _git(tmp, "clone", "-q", str(tmp / "byz.git"), "root"), _git(tmp, "clone", "-q", str(tmp / "pack.git"), "pack")
-        for name, body in (("tmux", TMUX.replace("__PY__", sys.executable)), ("tmuxc", TMUXC.replace("__PY__", sys.executable)), ("close", STUB), ("mbox", STUB),
+        for name, body in (("tmux", TMUX.replace("__PY__", sys.executable)), ("tmuxc", TMUXC.replace("__PY__", sys.executable)), ("close", STUB), ("mbox", MBOX),
                            ("reap", '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n')):
             _put(b / name, body), (b / name).chmod(0o755)
         _put(tmp / "psbin" / "ps", PS.replace("__PY__", sys.executable)), (tmp / "psbin" / "ps").chmod(0o755)   # r2055 A13 가짜 ps(PATH · ps 만 있는 폴더)
@@ -87,6 +93,7 @@ class World:
                      PATH=str(tmp / "psbin") + os.pathsep + os.environ["PATH"])
         for team in (TEAM, "planner"):
             _put(s.root / ".fable-team" / ("seats-%s.json" % team), {"_master": "M-" + team})
+        _put(s.state / "disk-alarm.log", ""), os.utime(s.state / "disk-alarm.log", (T0, T0))   # r2238 하루 정리 살아 있음(나이 0) = 생존 검사 줄·쪽지 0
     @property
     def K(s):
         return _mod(s.ft2 / "adapters" / "pi" / "keeper.py", "kp_%d" % id(s))

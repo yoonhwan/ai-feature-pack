@@ -105,7 +105,7 @@ def classify(repo, remote, target, scope, sha, table=None, records=None, learned
         raise Err("빈 diff(승인할 변경 없음)")
     blocks = secret_lines.parse_added(git, repo, base, sha)   # diff 상태 기계(파일마다 git 호출 0) · added = ddl 기록 대조용 전문
     added = "\n".join(t for _p, items, _n in blocks for _no, t in items)
-    ddl_ok = lambda p: rules.ddl_recorded(records or [], p, added, show_at(repo, sha))  # noqa: E731
+    ddl_ok = lambda p: rules.ddl_recorded(records or [], p, added, show_at(repo, sha)) or rules.record_only(records or [], p, lambda f: (lambda q: q.stdout if q.returncode == 0 else "")(run(repo, ["show", "%s:%s" % (ref, f)])))  # noqa: E731 · r2104 기록만 = 끝 tree 원장(git 실패 = 기록 없음)
     full = secret_lines.read_new(repo, sha, [p for p, _i, _n in blocks if p and rules.ENV_TEMPLATE.search(p)])   # .env 견본 = 바뀐 뒤 전문(따옴표 값 «안» 줄 판별 · 칸 3)
     env_ok = lambda p: rules.env_added_values_ok(full.get(p), [(n, t) for q, items, _n in blocks if q == p for n, t in items])  # noqa: E731
     table, card_scope = table or rules.BYZ_TABLE, rules.card_scope_file(card, repo)   # 판정 입력 · 카드 범위 = «- 대상:» 줄·«## 구현 범위» 경로(못 읽으면 빈 집합 = 닫힌 쪽)
@@ -117,7 +117,7 @@ def classify(repo, remote, target, scope, sha, table=None, records=None, learned
     hit = next(((k, w) for c, k, w in judged if c == "forbid"), None)
     if hit:
         return 3, "FORBID kind=%s %s" % hit
-    if any(k == "ddl-recorded" for _, k, _ in judged) and any(c != "docs" for c, _, _ in judged):
+    if any(k in ("ddl-recorded", "ddl-record-only") for _, k, _ in judged) and any(c != "docs" for c, _, _ in judged):
         return 3, "FORBID kind=ddl DDL 기록 PR 에 문서 밖 변경"
     tail = (" kind=%s learned" % ",".join(used) if used else "") + (" kind=%s d2" % ",".join(d2) if d2 else "")
     if any(c != "docs" for c, _, _ in judged):

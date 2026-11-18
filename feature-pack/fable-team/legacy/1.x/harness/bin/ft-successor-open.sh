@@ -14,7 +14,10 @@
 #     뒤에 붙는 송신·도달 확인까지 70초 상한(하드 룰 12·22)을 넘겨 래퍼가 끊었다(사건 = issues-master-sol#60 rc124 2회 · 기계 [인계] 0).
 #     그래서 ⓒ-2 를 갈래로 나누고, 한 실행이 FT_SO_BUDGET 을 넘기기 전에 단계 사이에서 rc5 + «다시 실행» 1줄로 넘긴다(이어가기는 아래 r609 그대로).
 set -uo pipefail
-[ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
+# ★r2090 자기 폴더 1회★ ~/.local/bin 심링크로 불려도 짝 파일은 실제 폴더에서 찾는다 — 심링크를 끝까지 따라감(상대 = 링크가 놓인 폴더 기준 · 여러 단)
+_so_self="${BASH_SOURCE[0]:-$0}"; while [ -L "$_so_self" ]; do _so_l="$(readlink -- "$_so_self")"; case "$_so_l" in /*) _so_self="$_so_l";; *) _so_self="$(dirname -- "$_so_self")/$_so_l";; esac; done
+SO_DIR="$(cd -- "$(dirname -- "$_so_self")" && pwd)"
+[ -f "$SO_DIR/ft-live-entry.sh" ] && . "$SO_DIR/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
 # ★r1660 한 실행 시간 상한★ — T0 = 도구가 시작하는 자리(인자 검사·문지기까지 전체 경과). 남은 시간이 0 이면 «단계 사이» 에서 멈춘다.
 BUDGET="${FT_SO_BUDGET:-60}"; SO_T0="$(date +%s)"
 so_elapsed() { echo $(( $(date +%s) - SO_T0 )); }
@@ -29,7 +32,7 @@ so_send_ready() { [ "$(( BUDGET - $(so_elapsed) ))" -ge "$SEND_RESERVE" ]; }
 so_verify_ready() { [ "$(( BUDGET - $(so_elapsed) ))" -ge 20 ]; }   # 확인 1회(reach 20초) 몫
 so_reach_to() { local left=$(( BUDGET - $(so_elapsed) )); [ "$left" -lt 20 ] && echo "$left" || echo 20; }
 so_budget_stop() {   # $1 = 멈춘 단계 이름 · rc5 = 열렸으나 도달 미확인(재실행이 같은 자리에서 잇는다 · r609)
-  echo "시간 상한 ${BUDGET}초 — «$1» 단계 앞에서 멈춘다(경과 $(so_elapsed)초 · 송신 0 · 도달 파일 0 · 구 좌석 닫기 0)"
+  _FTB_CAUSE="시간 상한 ${BUDGET}초 — «$1» 단계 앞에서 멈춘다(경과 $(so_elapsed)초 · 송신 0 · 도달 파일 0 · 구 좌석 닫기 0)"; echo "$_FTB_CAUSE"
   echo "다음: 같은 인자로 다시 실행(이어가기 r609)"
   exit 5
 }
@@ -43,11 +46,15 @@ while [ $# -gt 0 ]; do case "$1" in
   --carry) CARRY="${2:-}"; CARRY_SET=1; shift 2;; *) usage;; esac; done
 # ★r1659 이름 lint 관문★ (오빠 «이름 꼬리 = 에이전트만 · 모델은 이름에 안 넣음»): 열기·명부·쪽지·재실행 이어가기 전에 ft-name-lint 를 통과해야 한다.
 #   모델 꼬리(sol 등)는 같은 계보 승계라도 예외 0 → REJECT rc1 · 꼬리 에이전트 ≠ --agent 는 아래 r1468 관문(rc2) 몫 · nano 는 lint 만.
-_nl="${FT_NAME_LINT:-$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-name-lint.sh}"
+_nl="${FT_NAME_LINT:-$SO_DIR/ft-name-lint.sh}"
+[ -z "$NAME" ] || [ -f "$_nl" ] || { echo "REJECT 이름 lint 도구 없음: $_nl (세션 열기 0 · 명부 쓰기 0)" >&2; exit 1; }
 [ -z "$NAME" ] || _nlo="$(bash "$_nl" "$NAME" 2>&1)" || { echo "REJECT 이름 lint — ${_nlo%%$'\n'*} (세션 열기 0 · 명부 쓰기 0)" >&2; exit 1; }
+# ★r2020 석 칸 역행 0★: 옛 좌석이 이미 새 꼴(lint WARN 없음)인데 후계가 옛 꼴(WARN)이면 REJECT · 옛→옛 승계는 WARN 그대로(이행은 «옛 → <역할>-0-<에이전트>»)
+_or="${OLD#*-*-}"; if [ "${_nlo:-}" != "${_nlo#*WARN 옛 꼴}" ] && [ "${_or%%-*}" != nano ] && _olo="$(bash "$_nl" "$OLD" 2>&1)" && [ "$_olo" = "${_olo#*WARN 옛 꼴}" ]; then
+  echo "REJECT 석 칸 역행 — 옛 좌석 $OLD 는 새 꼴 · 후계 $NAME 에 석 칸 필요 (세션 열기 0 · 명부 쓰기 0)" >&2; exit 1; fi
 # ★r1569 후계 런타임 = 역할 정책표★ (오빠 #278888): --agent 를 생략하면 옛 좌석 습관 대신 정책표(역할 → agent·model)에서 고르고, 이름 꼬리도 고른 agent 로 바꾼다.
 #   역할 = 이름의 «-<역할>-» 토큰(표 위 행부터 첫 일치) · 표 없음·역할 없음 = rc2 + 이유 1줄(옛 agent 로 조용히 대체 0 · #0 RULE) · --agent 명시가 정책과 다르면 WARN 1줄(막지 않음 · 사람 지정 존중).
-POLICY="${FT_RUNTIME_POLICY:-$(dirname -- "${BASH_SOURCE[0]:-$0}")/runtime-policy.tsv}"
+POLICY="${FT_RUNTIME_POLICY:-$SO_DIR/runtime-policy.tsv}"
 _pol=""; [ -f "$POLICY" ] && _pol="$(awk -v n="-${NAME%%#*}-" '!/^#/ && NF>=3 && index(n, "-" $1 "-") {print $2, $3; exit}' "$POLICY")"
 if [ -z "$AGENT" ]; then
   [ -f "$POLICY" ] || { echo "REJECT 런타임 정책표 없음: $POLICY — 표를 설치하거나 --agent 를 적어라(옛 좌석 agent 로 대체 0)" >&2; exit 2; }
@@ -59,8 +66,8 @@ elif [ -n "$_pol" ] && [ "$AGENT" != "${_pol%% *}" ]; then
   echo "WARN --agent $AGENT 는 정책과 다름(정책 = ${_pol%% *} ${_pol#* }) — 사람 지정 존중 · 그대로 연다" >&2
 elif [ -n "$_pol" ] && [ -z "$MODEL" ]; then MODEL="${_pol#* }"; fi
 # r1675 — 옛 좌석의 팀이 2.0 전환됨이면 후계 개설(state/successor·쪽지) 전에 멈춘다(첫 게이트). 명부 자체 수정 0 = 명부 쓰기는 ft-seat-retire 가 따로 막는다.
-_ft20h="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"   # r1675 — HERE 정의(아래 74줄)보다 앞에서 도는 가드라 자기 폴더를 직접 푼다
-if [ -f "$_ft20h/ft20-switch-lib.sh" ]; then . "$_ft20h/ft20-switch-lib.sh"; ft20_guard_handover "$(ft20_root_of "$WT" 2>/dev/null)" "$OLD" "$NAME" "" || exit $?; else _ft20_r="${FT_FT20_ROOT:-$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)}"; compgen -G "${_ft20_r%/.git}/.fable-team/state/ft20-switch/*.json" >/dev/null 2>&1 && { echo "REJECT 2.0 전환 표식이 있는데 ft20-switch-lib.sh 없음(설치 누락) — 1.x 쓰기 0(판정 불가)" >&2; exit 3; }; fi
+_ft20h="$SO_DIR"   # r1675 — HERE 정의(아래 74줄)보다 앞에서 도는 가드라 자기 폴더를 직접 푼다
+if [ -f "$_ft20h/ft20-switch-lib.sh" ]; then . "$_ft20h/ft20-switch-lib.sh"; _ft20_root="$(ft20_root_of "$WT")" || exit $?; ft20_guard_handover "$_ft20_root" "$OLD" "$NAME" "" || exit $?; else _ft20_r="${FT_FT20_ROOT:-$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)}"; compgen -G "${_ft20_r%/.git}/.fable-team/state/ft20-switch/*.json" >/dev/null 2>&1 && { echo "REJECT 2.0 전환 표식이 있는데 ft20-switch-lib.sh 없음(설치 누락) — 1.x 쓰기 0(판정 불가)" >&2; exit 3; }; fi
 # ★r1037 모델 약어★ (오빠 2026-10-28 «sn5.5 → sn5.5 · op5.5 → op5.5 · sn5.5 → op5.5»): `sn` = claude-sonnet-5-5 · `op` = claude-opus-5-5.
 #   비어 있지 않을 때만 풀고, 그 밖의 값(풀네임 포함)은 그대로 둔다 — 모델을 모르는 도구가 값을 고치지 않는다.
 case "$MODEL" in sn) MODEL="claude-sonnet-5-5";; op) MODEL="claude-opus-5-5";; esac
@@ -97,7 +104,19 @@ _nb="${NAME%%#*}"; _nr="${_nb#*-*-}"; _nr="${_nr%%-*}"   # r1659 R1: nano 꼬리
   [ "${_nb##*-}" = "$AGENT" ] || { echo "REJECT 이름 꼬리 ${_nb##*-} ≠ --agent $AGENT — 이름 = ${_nb%-*}-$AGENT#N" >&2; exit 2; };;
 esac
 printf '%s\n%s\n' "$OLD" "$NAME" | grep -qvE '^[A-Za-z0-9._#-]+$' && { echo "REJECT 좌석명은 [A-Za-z0-9._#-] 만" >&2; exit 2; }
-HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+HERE="$SO_DIR"
+# ★r2067 A3★ 종료 자리 한 곳 — rc 5·6 = 장부 raise(원인 = 그 실행의 «[HIL] …»·«시간 상한 …»·«OPEN-WORK-0 …» 줄) · rc 0 = clear · 그 밖 = 호출 0 · rc 불변
+_FTB_CAUSE=""
+_ftb_so_exit() {
+  local rc=$?
+  . "$HERE/ft-block-lib.sh" 2>/dev/null && declare -F ft_block >/dev/null || return 0
+  case "$rc" in
+    0) ft_block clear ft-successor-open "$OLD";;
+    5) ft_block raise ft-successor-open seat "$OLD" --cause "${_FTB_CAUSE:-ft-successor-open rc 5}" --fix "같은 인자로 다시 실행 — 그래도 rc 5 면 판정 필요 후계 pane 확인";;
+    6) ft_block raise ft-successor-open seat "$OLD" --cause "${_FTB_CAUSE:-ft-successor-open rc 6}" --fix "판정 필요 $OLD 닫기 — ft-seat-close.sh $OLD --reason \"받을 일 0\" --verdict <판정 번호>";;
+  esac; return 0
+}
+trap _ftb_so_exit EXIT
 # ★r1412 데이터 루트 = env FT_ROOT 먼저★ (r1404 ft-role-spawn 과 같은 규칙): kakao 처럼 데이터 루트가 깃 공용 루트와 다른 팀은 FT_ROOT 로 명부·팀 명단·state 를 푼다.
 #   끝 / 제거 · .fable-team 없으면 부작용 전 REJECT · FT_ROOT 없으면 DROOT 빈 값 = 지금처럼(깃 공용 루트).
 DROOT=""
@@ -117,7 +136,7 @@ fi
 # R213 DA⑥ H3(r2): agents 면제(--succession)는 «실제 1석 교대» 일 때만 — ①NAME == OLD 계보 베이스#(N+1) 또는 (OLD 베이스의 꼬리 토큰을 --agent 로 바꾼 것)#(N+1)(r1468) ②OLD 가 팀 명부(seats*.json)의 역할 키(_master·_arch 등 `_` 시작 키) 값 ③OLD tmux 세션 생존. 하나라도 아니면 일반 새 좌석 문턱.
 _rgroot="${FT_RES_ROOT:-${DROOT:-$(. "$HERE/ft-harness-root.sh" && ft_repo_root "$HERE" 2>/dev/null)}}"; _rgsucc=""   # r385b: 옛 설치 꼴 · cwd 리포 공용 루트 · r1412: FT_RES_ROOT(시험 손잡이) > 데이터 루트 > 공용 루트
 if [[ "$OLD" =~ ^(.+)#([0-9]+)$ ]] && _ob="${BASH_REMATCH[1]}" && _on=$((BASH_REMATCH[2]+1)) \
-   && { [ "$NAME" = "$_ob#$_on" ] || { [ "${_ob%-*}" != "$_ob" ] && [ "$NAME" = "${_ob%-*}-$AGENT#$_on" ]; }; } && tmux has-session -t "=$OLD" 2>/dev/null \
+   && { [ "$NAME" = "$_ob#$_on" ] || { [ "${_ob%-*}" != "$_ob" ] && { [ "$NAME" = "${_ob%-*}-$AGENT#$_on" ] || [ "$NAME" = "${_ob%-*}-0-$AGENT#$_on" ]; }; }; } && tmux has-session -t "=$OLD" 2>/dev/null \
    && python3 -c 'import glob,json,sys
 for f in glob.glob(sys.argv[1]+"/.fable-team/seats*.json"):
     try: d=json.load(open(f))
@@ -172,7 +191,7 @@ case "$_OW_RC" in
     else
       echo "WARN 팀장 좌석·mbox 없음 — 통지 0 · 줄만 남긴다" >&2
     fi
-    echo "OPEN-WORK-0 $OLD — 후계 0(받을 일 0) · $_OW_MSG"
+    _FTB_CAUSE="OPEN-WORK-0 $OLD — 후계 0(받을 일 0) · $_OW_MSG"; echo "$_FTB_CAUSE"
     exit 6 ;;
   3) printf '%s\n' "$_OW_OUT" | sed -n '/^받을 일 판정 불가/p' >&2 ;;
   *) [ -n "$_OW_OUT" ] && printf '%s\n' "$_OW_OUT" >&2 ;;
@@ -207,7 +226,7 @@ MDIR="$(dirname -- "$MBOX")"
 [ -f "$MDIR/mbox_doorbell.sh" ] || { echo "REJECT mbox 짝 파일 없음: $MDIR/mbox_doorbell.sh (mbox.sh 가 source 하는 mbox_doorbell.sh · 짝이 빠진 폴더는 쓰지 않는다)"; exit 2; }
 STATE="$ROOT/.fable-team/state/successor"
 SENTF="$STATE/$OLD.sent"   # r1660-c: «보냈으나 도달 미확인» 표지(seq 1줄) · 재실행은 이 파일이 있으면 확인만 한다
-hil() { echo "[HIL] 후계 $NAME 도달 미확인 — 구 좌석 닫기 0 (구=$OLD) · 도달 파일 없음 · $1"; }
+hil() { _FTB_CAUSE="[HIL] 후계 $NAME 도달 미확인 — 구 좌석 닫기 0 (구=$OLD) · 도달 파일 없음 · $1"; echo "$_FTB_CAUSE"; }
 RETIRE="${FT_SEAT_RETIRE:-$HERE/ft-seat-retire.sh}"
 # ⓔ 도달 파일 + ⓔ-1(r1116c) 명부 승계 — 후계가 retire 전이면 역할 우편함·ring 이 구 좌석으로만 간다(v65 #254 · planner arch#28). retire 실패는 사유만 출력 · rc 는 도달 쪽(0).
 reached() {   # reached <seq|null>
@@ -240,6 +259,16 @@ if len(w) != 1 or not w[0][len("열린 칸 감시: "):].strip() or len(w[0]) > 1
 print(w[0])
 PYWATCH
 )" || { printf '%s\n' "$WATCH"; exit 1; }
+# ⓐ-4 (r2229) 앞 인계서 열린 칸 대조 — 본문 «앞 인계서: <경로>»(ROOT 기준) 의 «## 열린 칸» 칸마다 새 본문에 키 이월 · «닫음: <키> — <근거>» · «<키>: 이월» 줄(판정 = ft-carry-check.py 1곳 · 부작용 전)
+#   줄 없음 = WARN 진행(옛 꼴) · 사람 길 = REJECT rc1 · 자동 길(부르는 줄에만 FT_CARRY_WARN_ONLY=1 = team-boot B2 · model_swap) = REJECT 를 WARN 1줄로 낮추고 진행
+D2C=""; case "-${NAME%%#*}-" in *-planner-master-*|*-planner-desk-*) D2C="--d2-carry";; esac   # r2234 planner master · desk 만 오빠 질문 이월 D2 재분류 · 앞·새 인계서 줄 필수
+CARRY_OUT="$(python3 "$HERE/ft-carry-check.py" "$BODY" --root "$ROOT" $D2C 2>&1)"; CARRY_RC=$?
+if [ "$CARRY_RC" != 0 ]; then
+  case "$CARRY_OUT" in REJECT*) ;; *) CARRY_OUT="REJECT 앞 인계서 판정 불가 대조 도구 rc=$CARRY_RC — ${CARRY_OUT:0:200}";; esac
+  [ "${FT_CARRY_WARN_ONLY:-}" = 1 ] || { printf '%s\n' "$CARRY_OUT"; exit 1; }
+  CARRY_OUT="WARN 자동 길(FT_CARRY_WARN_ONLY=1) 진행 — ${CARRY_OUT#REJECT }"
+fi
+printf '%s\n' "$CARRY_OUT" >&2
 # ⓐ-1 (r1391) 승계 본문 첫머리 지침 블록 — 정본 governance 에서 표식 블록을 «개설 전» 에 읽는다(desk 는 §11-6 블록).
 #   표식이 없거나 여러 개거나 300자 초과면 그 자리에서 REJECT rc1 = 세션 개설 0(이 도구의 fail-closed 꼴 그대로 · 본문 받은 뒤 거절되는 후계 0).
 #   본문 조립은 ⓓ — 골 3줄 다음에 이 블록을 넣는다(블록 본문은 한 곳 = governance · 이 파일은 복사만).
@@ -299,6 +328,18 @@ if core not in " ".join(" ".join(lines[:10]).split()):
 bad = sorted({x.group(1) for x in re.finditer(r"(?:send|relay)\s+['\"\x60]?((?:byz|ft)-([a-z0-9]+)-[A-Za-z0-9._#-]*)", "\n".join(lines)) if x.group(2) != "planner"})
 if bad:
     print("REJECT desk 승계 본문에 팀 직발 예시가 있다(%s) — desk 는 planner 에게만 보낸다: 그 줄을 지우고 planner 주소로 바꿔라" % ", ".join(bad)); sys.exit(3)
+# r2233: 묻는 기준 줄 — 안내서에서 «- **desk 묻는 기준**» 줄을 세어 정확히 1줄일 때 표식 뒤 글(앞 «:»·공백 걷음 · 공백 정규화)이 본문 첫 10줄에 있어야 연다
+MK = "- **desk 묻는 기준**"
+asks = [(i, g) for i, g in enumerate(guide.splitlines(), 1) if g.startswith(MK)]
+if len(asks) == 0:
+    print("REJECT GUIDE 에 「%s」 줄이 없다 — WT 에서 git fetch origin 뒤 다시(그래도 없으면 사람이 확인해야 한다)" % MK); sys.exit(3)
+if len(asks) != 1:
+    print("REJECT GUIDE 에 「%s」 줄이 여러 줄(%s줄) — 한 줄만 남겨라(사람이 확인해야 한다)" % (MK, ",".join(str(i) for i, _ in asks))); sys.exit(3)
+aln, ask = asks[0][0], " ".join(asks[0][1][len(MK):].lstrip(": \t").split())
+if not ask:
+    print("REJECT GUIDE %s줄 「%s」 뒤 글이 비었다(사람이 확인해야 한다)" % (aln, MK)); sys.exit(3)
+if ask not in " ".join(" ".join(lines[:10]).split()):
+    print("REJECT desk 승계 본문 첫 10줄에 묻는 기준 줄이 없다(planner 안내서 %s줄) — 이 줄을 그대로 옮겨 적어라: 「%s」" % (aln, ask)); sys.exit(3)
 sys.exit(0)
 PYGUIDE
 )"; _grc=$?
@@ -326,7 +367,7 @@ fi
 
 # ⓑ 열기 — tmuxc 옵션은 에이전트별로 다르다(ft-role-spawn.sh 와 같은 규칙: --ctx 는 claude 만 · --effort 는 claude·cmd·codex·pi)
 if [ "$RESUMED" = 0 ]; then
-OPEN=(tmuxc open "$WT" --name "$NAME" --agent "$AGENT" --model "$MODEL")
+OPEN=(env -u FT_CARRY_WARN_ONLY tmuxc open "$WT" --name "$NAME" --agent "$AGENT" --model "$MODEL")
 [ "$AGENT" = claude ] && [ -n "$CTX" ] && OPEN+=(--ctx "$CTX")
 case "$AGENT" in claude|cmd|codex|pi) [ -n "$EFFORT" ] && OPEN+=(--effort "$EFFORT");; esac
 # r838: 실패 이유를 버리지 않는다 — 출력 마지막 3줄(200자 · 토큰꼴 가림)을 REJECT 줄 끝에 · 성공 때 출력은 버림(그대로)

@@ -108,7 +108,7 @@ close_marker() { ( . "$HERE/ft-team-lib.sh" >/dev/null 2>&1 && ft_close_marker "
 IDX_ROOT="$(cd "$(dirname "$SRC")/.." && pwd)"
 FROM="$(basename "$(dirname "$SRC")")"
 # r1675 — 카드가 속한 팀이 2.0 전환됨이면 이동·§상태 쓰기 전에 멈췄다(표식 = <데이터루트>/.fable-team/state/ft20-switch/<팀>.json).
-if [ -f "$HERE/ft20-switch-lib.sh" ]; then . "$HERE/ft20-switch-lib.sh"; ft20_guard_move "$(ft20_root_of "$IDX_ROOT" 2>/dev/null)" "$SRC" || exit $?; else _ft20_r="${FT_FT20_ROOT:-$(git -C "$IDX_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)}"; compgen -G "${_ft20_r%/.git}/.fable-team/state/ft20-switch/*.json" >/dev/null 2>&1 && { echo "REJECT 2.0 전환 표식이 있는데 ft20-switch-lib.sh 없음(설치 누락) — 1.x 쓰기 0(판정 불가)" >&2; exit 3; }; fi
+if [ -f "$HERE/ft20-switch-lib.sh" ]; then . "$HERE/ft20-switch-lib.sh"; _ft20_root="$(ft20_root_of "$IDX_ROOT")" || exit $?; ft20_guard_move "$_ft20_root" "$SRC" || exit $?; else _ft20_r="${FT_FT20_ROOT:-$(git -C "$IDX_ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)}"; compgen -G "${_ft20_r%/.git}/.fable-team/state/ft20-switch/*.json" >/dev/null 2>&1 && { echo "REJECT 2.0 전환 표식이 있는데 ft20-switch-lib.sh 없음(설치 누락) — 1.x 쓰기 0(판정 불가)" >&2; exit 3; }; fi
 [ "$FROM" != "$DST" ] || { echo "REJECT 이미 $DST 에 있다"; exit 1; }
 if [ "$DST" = 진행 ]; then
   [ -f "$HERE/ft-index-lint.sh" ] || { echo "REJECT ft-index-lint.sh 없음: $HERE (런타임 .fable-team/bin/ 에서 실행하라)"; exit 1; }
@@ -208,32 +208,38 @@ PY
   # r959: 절 헤더 «## §32 <카드> — 닫힘 (CLOSE)» 는 표식이 아니다(함수가 정확한 모양만 읽는다 · r462·r560·r756)
   FT_LANDED_MARKER="$(printf '%s\n' "$body" | close_marker "$(basename "$SRC" .md)" | cut -s -f1)"; export FT_LANDED_MARKER
   CANON_RES="$(printf '%s\n' "$body" | bash "$HERE/ft-index-move-canon.sh" "$SRC" "$WT" "$LANDED")"
-  CANON_KIND="$(printf '%s' "$CANON_RES" | cut -f1)"; CANON_NOTE="$(printf '%s' "$CANON_RES" | cut -f2-)"
+  GR=()   # r1844: 완성 관문(정본·규칙·설치·남은 범위) 사유를 모아 한 번에 낸다 — 머리 줄 = 첫 사유 · 아래 «  - <사유>» 전부
+  CANON_KIND="$(printf '%s' "$CANON_RES" | head -1 | cut -f1)"; CANON_NOTE="$(printf '%s' "$CANON_RES" | head -1 | cut -f2-)"
   case "$CANON_KIND" in
     OK) ;;
-    REJECT) echo "REJECT 정본 게이트 — $CANON_NOTE (이동 0 · 카드에 줄을 쓰고 다시 이동)"; exit 1;;
-    *) echo "REJECT 정본 게이트 검사 실행 실패 — 이동 0"; exit 1;;
+    REJECT) while IFS= read -r _l; do GR+=("정본 게이트 — ${_l#REJECT$'\t'} (카드에 줄을 쓰고 다시 이동)"); done < <(printf '%s\n' "$CANON_RES" | grep '^REJECT');;
+    *) GR+=("정본 게이트 검사 실행 실패");;
   esac
   # r106b — 규칙 줄 검사: 규칙은 «읽히는 곳(상시 로드 지침)» + «막는 곳(훅·게이트)» 이 실재해야 닫는다(R83→R106 재발 차단).
   RUSE="쓰는 법: 「- 규칙: 지침=<상시 로드 파일>[:줄] · 강제=<훅·게이트 파일>」 또는 「- 규칙: 없음 — <사유 10자 이상>」 (구분자 = 공백 em dash 공백)"
+  rule_gate() {   # r1844: 사유 1줄 stdout + rc 1 (모음은 부르는 쪽)
   RLINE="$(grep -m1 '^- 규칙:' "$SRC")"
-  [ -n "$RLINE" ] || { echo "REJECT 카드에 「- 규칙:」 줄 없음 — $RUSE (이동 0)"; exit 1; }
+  [ -n "$RLINE" ] || { echo "카드에 「- 규칙:」 줄 없음 — $RUSE"; return 1; }
   RNONE='^- 규칙: 없음 — (.+)$'; RPATH='^- 규칙: 지침=([^[:space:]]+) · 강제=([^[:space:]]+)$'   # 정확한 두 형식만 — 접두 «없음» 면제 없음
   if [[ "$RLINE" =~ $RNONE ]]; then
-    [ "$(python3 -c 'import sys; print(len(sys.argv[1]))' "${BASH_REMATCH[1]}")" -ge 10 ] || { echo "REJECT 「- 규칙:」 줄 형식 틀림 — 「없음 — 사유」 사유가 10자 미만 — $RUSE (이동 0)"; exit 1; }
+    [ "$(python3 -c 'import sys; print(len(sys.argv[1]))' "${BASH_REMATCH[1]}")" -ge 10 ] || { echo "「- 규칙:」 줄 형식 틀림 — 「없음 — 사유」 사유가 10자 미만 — $RUSE"; return 1; }
   elif [[ "$RLINE" =~ $RPATH ]]; then
     RG="${BASH_REMATCH[1]%%:[0-9]*}"; RF="${BASH_REMATCH[2]}"; RG="${RG/#\~/$HOME}"; RF="${RF/#\~/$HOME}"
     case "$RG" in /*) ;; *) RG="$WT/$RG";; esac; case "$RF" in /*) ;; *) RF="$WT/$RF";; esac
-    [ -f "$RG" ] || { echo "REJECT 「- 규칙:」 지침 경로 실재 0 — $RUSE (이동 0)"; exit 1; }
-    [ -f "$RF" ] || { echo "REJECT 「- 규칙:」 강제(훅·게이트) 경로 실재 0 — $RUSE (이동 0)"; exit 1; }
+    [ -f "$RG" ] || { echo "「- 규칙:」 지침 경로 실재 0 — $RUSE"; return 1; }
+    [ -f "$RF" ] || { echo "「- 규칙:」 강제(훅·게이트) 경로 실재 0 — $RUSE"; return 1; }
     case "$RG" in *..*) RG="";; "$HOME/.claude/CLAUDE.md"|"$WT/CLAUDE.md"|"$WT/.claude/rules/"*.md|"$HOME/.claude/skills/tmuxc/COMM-GUIDE-BOOT.md"|"$HOME/.claude/skills/fable-team/references/main-team-governance.md") ;; *) RG="";; esac
-    [ -n "$RG" ] || { echo "REJECT 「- 규칙:」 지침이 상시 로드 파일 5종 밖 — 전역·프로젝트 CLAUDE.md · .claude/rules/*.md · COMM-GUIDE-BOOT · main-team-governance 중 하나 (이동 0)"; exit 1; }
+    [ -n "$RG" ] || { echo "「- 규칙:」 지침이 상시 로드 파일 5종 밖 — 전역·프로젝트 CLAUDE.md · .claude/rules/*.md · COMM-GUIDE-BOOT · main-team-governance 중 하나"; return 1; }
   else
-    echo "REJECT 「- 규칙:」 줄 형식 틀림 — $RUSE (이동 0)"; exit 1
+    echo "「- 규칙:」 줄 형식 틀림 — $RUSE"; return 1
   fi
+  }
+  _r="$(rule_gate)" || GR+=("$_r")
   # R245 병합 ≠ 끝 — 하네스 카드 설치 게이트(ft-index-move-install.sh · 설치: 있음 = 라이브 cmp0 + 실사건 증거). 다른 팀 indices 는 게이트 안에서 통과.
-  bash "$HERE/ft-index-move-install.sh" "$SRC" ${LANDED:+--landed "$LANDED"} || exit 1
-  followup_gate "$SRC" "$IDX_ROOT" || exit 1   # r1997 — 기존 완성 검사 순서·문구 뒤에 덧붙인다
+  _io="$(bash "$HERE/ft-index-move-install.sh" "$SRC" ${LANDED:+--landed "$LANDED"})" || { _il="$(printf '%s\n' "$_io" | sed -n 's/^  - //p')"; [ -n "$_il" ] || _il="$(printf '%s\n' "$_io" | sed -n 's/^REJECT //p')"; while IFS= read -r _l; do GR+=("${_l% (이동 0)}"); done <<< "$_il"; }
+  printf '%s\n' "$_io" | grep -vE '^(REJECT |  - |$)'   # 대조기·INFO 줄은 그대로 보인다
+  _f="$(followup_gate "$SRC" "$IDX_ROOT")" || { _f="${_f#REJECT }"; GR+=("${_f% (이동 0)}"); }   # r1997 — 기존 완성 검사 순서·문구 뒤에 덧붙인다
+  [ "${#GR[@]}" = 0 ] || { echo "REJECT ${GR[0]} (이동 0 · 사유 ${#GR[@]}건)"; printf '  - %s\n' "${GR[@]}"; exit 1; }
 fi
 if [ "$DST" = 아카이브 ]; then
   # r1000 — «버림»·«쓸모 없음» 카드의 닫는 길. 착지 sha 가 없는 카드는 완성 갈래를 못 지나므로 여기로 닫는다(설치 대조 우회 금지 · R1).

@@ -4,7 +4,7 @@
 코어는 일을 기록할 뿐 좌석을 열지 않는다(`close_next`·`reopen` 의 «spawn·tmux = 호출자»). 그 호출자가 이 명령이다.
 ① journal·state 읽기만(잠금·쓰기 0)으로 «최신 dispatch»(holder · attempt)를 찾고 그 attempt 가 전달되지 않았으면 열지 않는다
 ② 열기 의도를 내용 든 원자 예약(link · pid 든 claiming · r1929)으로 «한 번만» 만들어 두 번째 호출을 0 으로 만든다 ③ 의도가 잡히면 git 3호출(worktree add --no-checkout --detach → sparse-checkout set → checkout · r1846) →
-`tmux new-session` 1회(-e K=V 5개 · 이미 뜬 서버의 새 pane 에도 env 가 간다). 실행권(claim·start)은 좌석 몫 ·
+`tmux new-session` 1회(-e K=V 5개 + FT_SEAT_MBOX_DIR 1(r2050 · r2109 이름 · comm 실재 때만) · 이미 뜬 서버의 새 pane 에도 env 가 간다). 실행권(claim·start)은 좌석 몫 ·
 상한은 두 값이다(r1769): git·로컬 하네스 25초 · tmux(바깥 호출) 7초 · `--repo` 를 주면 그 리포에서 worktree 를 만든다 ·
 실패는 의도 줄에 단계 + rc2 «복구 필요»(자동 재시도 0) + 복구 2줄 · 결과 낱말은 계약 8낱말 밖 0 · 부르는 법:
     python3 adapters/pi/launch.py --root R --team T --work W [--worktree 경로] [--repo 경로] [--role 역할] [--base ref] [--dry-run | --resume]
@@ -28,6 +28,15 @@ NOHOOK = dict(os.environ, GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="core.hooksPath
 
 class Overtime(str):
     """시간 초과 진단 = 문자열 그대로(사유 불변) · 종류만 표시(r2044 DA R1 · 실행 실패 OSError 와 가름)."""
+
+
+class Output(str):
+    """진단 1줄 = 문자열 그대로 · .out = stdout 전체(r2082 기준 sha 읽기가 쓴다 · 다른 호출은 보지 않는다)."""
+
+    def __new__(cls, diag, out):
+        made = super().__new__(cls, diag)
+        made.out = out
+        return made
 
 
 class Usage(Exception):
@@ -86,12 +95,41 @@ def seat(root, team, work):
 def call(cmd, cwd, env, timeout):
     """바깥 호출 1회 — 상한은 부르는 쪽이 정한다(git 25초 · tmux 7초 · 하드 룰 12). (rc, 진단 1줄) · 넘치거나 실행 실패 = rc None."""
     try:
-        done = subprocess.run(cmd, cwd=cwd, env=env, capture_output=True, text=True, timeout=timeout)
+        done = subprocess.run(cmd, cwd=cwd, env=env, capture_output=True, encoding="utf-8", errors="replace", timeout=timeout)
     except subprocess.TimeoutExpired as exc:
         return None, Overtime(str(exc).splitlines()[0][:200])
     except OSError as exc:
         return None, str(exc).splitlines()[0][:200]
-    return done.returncode, (done.stderr or done.stdout).strip()[:200]
+    return done.returncode, Output((done.stderr or done.stdout).strip()[:200], done.stdout)   # r2082 .out = stdout 전체
+
+
+def based(plan, env, repo, sha):
+    """r2082 A1·A3·A6 — 기준 sha 읽기 2회까지(파일 목록 늘 1회 · TEAMS.md 가 목록에 있을 때 blob 1회 · worktree add 앞) → (git add 뒤 단계, None).
+    읽기 실패·시간 초과 = (None, failed 결과) · 단계 = 그 git 하위 명령 · «판정 불가» · 뒤 호출 0 · 1묶음 폴백 0(하드 룰 20)."""
+    names, blob = planner.tree_read(repo, sha)
+    rc, out = call(names, repo, None, GIT_TIMEOUT)
+    if rc != 0:
+        return None, failed(plan, env, "git ls-tree", "판정 불가 기준 sha 파일 목록 rc %s · %s" % (rc, out or "진단 없음"), repo)
+    paths, text = [path for path in getattr(out, "out", out).split("\0") if path], None
+    if planner.TEAMS in paths:
+        rc, text = call(blob, repo, None, GIT_TIMEOUT)
+        if rc != 0:
+            return None, failed(plan, env, "git cat-file", "판정 불가 기준 sha %s rc %s · %s" % (planner.TEAMS, rc, text or "진단 없음"), repo)
+        text = getattr(text, "out", text)
+    planner.with_teams(plan, env["FT2_TEAM"], text)
+    split, notes = planner.split_steps(plan, paths)
+    plan["notes"].update(notes)
+    return split, None
+
+
+def receipt(plan, env):
+    """r2257 O1·O2 — 개설 영수 1회(alive rc0 뒤) → intent 칸 · 두 칸 꼴 아님(rc≠0·빈 출력·시간 초과 포함) = 두 칸 빈 값 + tmux_note · opened 그대로."""
+    rc, out = call(plan["receipt"], None, env, TMUX_TIMEOUT)
+    text = getattr(out, "out", "") if rc == 0 else "rc %s %s" % (rc, out)
+    got = text.strip("\n").split("\t")
+    if len(got) == 2 and got[0].startswith("$") and got[0][1:].isdigit() and got[1].isdigit():
+        return {"tmux_sid": got[0], "tmux_created": got[1]}
+    return {"tmux_sid": "", "tmux_created": "", "tmux_note": "영수 판독 실패 %s" % text[:60]}
 
 
 def write_intent(path, payload):
@@ -109,9 +147,10 @@ def read_intent(path):
         return {}
 
 
-def failed(plan, env, step, detail, repo, extra=None, note=""):
+def failed(plan, env, step, detail, repo, extra=None, note="", label=None):
     """실패 = 의도 줄에 단계 1개 — 그 줄이 있으면 다시 불러도 바깥 호출 0 · 사유에 복구 2줄(A3) · r1967 치움 = 복구 줄 대신 치움 1구."""
-    write_intent(plan["intent"], dict(env, state="failed", step=step, reason=detail, repo=repo, at=time.strftime(STAMP), **(extra or {})))
+    step = label or step   # r2082 A4 묶음 실패 = «git checkout k/n»
+    write_intent(plan["intent"], dict(env, state="failed", step=step, reason=detail, repo=repo, at=time.strftime(STAMP), **(extra or {}), **plan["notes"]))
     reason = "%s 실패: %s — 자동 재시도 0" % (step, detail or "진단 없음")
     if step.startswith("git"):
         reason += " · " + (note if (extra or {}).get("slot_returned") else note + " · " * bool(note) + planner.recovery(repo, plan["worktree"]))
@@ -168,9 +207,12 @@ def open_seat(given):
             return dict(result=REFUSED, work=work, repo=repo, base=base,
                         reason="%s: %s — 바깥 호출 0" % (label, detail or "진단 없음")), 1
     sha = detail                                # 마지막 확인 = 기준 ref → 40자 sha(실제 argv 끝 · 의도 base_sha)
-    write_intent(plan["intent"], dict(env, state="opening", role=item["role"], repo=repo, base=base, base_sha=sha, body_mark=mark, at=time.strftime(STAMP), **own))
+    write_intent(plan["intent"], dict(env, state="opening", role=item["role"], repo=repo, base=base, base_sha=sha, body_mark=mark, at=time.strftime(STAMP), **own, **plan["notes"]))   # r2082 A2 칸
+    split, fail = based(plan, env, repo, sha)   # r2082 기준 sha 읽기 → 표 제외 + 묶음(묶음마다 git 1회 · 호출마다 25초)
+    if split is None:
+        return fail
     os.makedirs(os.path.dirname(plan["worktree"]), exist_ok=True)
-    steps = (("git add", planner.at_sha(plan["git"], sha)), ("git sparse", plan["sparse"]), ("git checkout", plan["checkout"]))
+    steps = [("git add", planner.at_sha(plan["git"], sha))] + split
     return finish(plan, env, steps, repo, sha, (item, base, mark))
 
 
@@ -187,34 +229,40 @@ def resume(plan, env, repo, own, keep):
     steps = planner.resume_plan(plan, repo, got.get("base_sha"), GIT_TIMEOUT)
     if steps is None:
         return failed(plan, env, "끊긴 열기 · 자리 불일치", "worktree 목록·HEAD ≠ base_sha %s" % got.get("base_sha"), repo)
-    return finish(plan, env, steps, repo, got["base_sha"], keep)
+    split, fail = based(plan, env, repo, got["base_sha"])   # r2082 A4·A6 의도의 base_sha 로 같은 읽기 · 끝난 묶음은 다시 쓰지 않는다
+    if split is None:
+        return fail
+    return finish(plan, env, planner.resume_split(steps, split, got.get("step")), repo, got["base_sha"], keep)
 
 
 def finish(plan, env, steps, repo, sha, keep):
     """git 단계 → tmux 1회 → 살아 있음 1회 → opened (처음 열기·이어 열기 공통 · 상한 그대로)."""
     item, base, mark = keep
     made = {}
-    for step, argv in steps:
+    for name, argv in steps:
+        step = " ".join(name.split()[:2])   # r2082 «git checkout k/n» = 단계 종류 git checkout(hook 끔·시간 초과 갈래 그대로) · 실패 이름 = name
         new = step == "git add" and not os.path.lexists(plan["worktree"])   # r1967 ⓐ 생성 영수 = add 직전 경로 부재 ∧ add rc0
         rc, detail = call(argv, repo, NOHOOK if step == "git checkout" else None, GIT_TIMEOUT)   # r1846: 호출마다 25초 · 실패 = 그 단계 이름 · 뒤 호출 0
         if rc != 0:
             return failed(plan, env, step, detail, repo, *cleaner.sweep(plan, repo, sha, made, GIT_TIMEOUT, TMUX_TIMEOUT,   # r1967 ③ 이번 호출이 만든 반쪽만
-                                                                    isinstance(detail, Overtime) and step == "git checkout"))   # r2044 A1 시간 초과만 = lock 정리 + 이어 열기 표시
+                                                                    isinstance(detail, Overtime) and step == "git checkout"), label=name)   # r2044 A1 시간 초과만 = lock 정리 + 이어 열기 표시
         if new:
             made = dict(add_ok=True, path_new=True)
             write_intent(plan["intent"], dict(read_intent(plan["intent"]), **made))
-    rc, detail = call(plan["tmux"], None, dict(os.environ, **env), TMUX_TIMEOUT)
+    bare = {k: v for k, v in os.environ.items() if k not in ("FT_MBOX_DIR", "FT_SEAT_MBOX_DIR")}   # r2050 A6 · r2109 A3 부모 우편함 값 끊기 · 좌석 값은 argv -e 칸으로만
+    rc, detail = call(plan["tmux"], None, dict(bare, **env), TMUX_TIMEOUT)
     if rc != 0:
         return failed(plan, env, "tmux", detail, repo)
-    rc, detail = call(plan["alive"], None, dict(os.environ, **env), TMUX_TIMEOUT)   # r1892: 살아 있음 1회
+    rc, detail = call(plan["alive"], None, dict(bare, **env), TMUX_TIMEOUT)   # r1892: 살아 있음 1회
     if rc != 0:
         return failed(plan, env, "tmux 즉시 종료", "세션 없음 — pi 실행 실패(PATH·인증) 의심 · %s" % (detail or "진단 없음"), repo)
-    write_intent(plan["intent"], dict(env, state="opened", role=item["role"], worktree=plan["worktree"], base=base, base_sha=sha, body_mark=mark, at=time.strftime(STAMP)))
+    got = receipt(plan, dict(bare, **env))   # r2257 O2: 판독 실패여도 열기 결과 그대로
+    write_intent(plan["intent"], dict(env, state="opened", role=item["role"], worktree=plan["worktree"], base=base, base_sha=sha, body_mark=mark, at=time.strftime(STAMP), **got, **plan["notes"]))
     note = roster.enroll(env, plan["worktree"], planner.card_row(env["FT2_ROOT"], env["FT2_TEAM"]), os.path.dirname(plan["intent"]))   # r1983 opened «뒤» 1회 · 판정 불가여도 열기 결과 그대로
     hook = os.path.join(repo, ".git", "hooks", "post-checkout")   # r1967 ② cairn reconcile = 열기 «뒤» 1회 · 따로 25초 · 실패해도 열기 결과 그대로
     ran = "rc %s" % call([hook, "0" * 40, sha, "1"], plan["worktree"], None, GIT_TIMEOUT)[0] if os.access(hook, os.X_OK) else "hook 없음"
     return dict(result=OK, opened=True, work=env["FT2_WORK"], attempt=env["FT2_ATTEMPT"], holder=env["FT2_HOLDER"],
-                worktree=plan["worktree"], intent=plan["intent"], reconcile=ran, roster=note), 0
+                worktree=plan["worktree"], intent=plan["intent"], reconcile=ran, roster=note, mbox=plan["mbox"]), 0   # r2050 A5
 
 
 def main(argv):

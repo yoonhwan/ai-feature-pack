@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # ft-proxy-decide.sh — 자율 대리 결정 도구 (DESIGN-autonomy-proxy-decision r3 §4(b) · 판정 1322)
-#   ft-proxy-decide.sh --kind <card-start|press-order|nano-reopen|docs-push|wt-clean> --q "<질문>" --choice "<추천안>" --why "<근거>" --undo "<되돌림 1줄>"
+#   ft-proxy-decide.sh --kind <card-start|press-order|nano-reopen|docs-push|wt-clean|seat-close> --q "<질문>" --choice "<추천안>" --why "<근거>" --undo "<되돌림 1줄>"
 #       [--card <카드.md> --verdict <판정 번호>]       card-start 근거: 판정 줄에 카드 이름 + 착수 낱말 · 카드 본문 제외 어휘 검사
 #       [--card <진행/카드.md> --seat <좌석>]          nano-reopen 근거(설계 r1-1 ①~④ + r1-9 H2 ⑤): 진행 폴더 카드 · nano/* 브랜치 · 재개 기록 · 자원 문지기 rc 0 · spawn 기준선과 같음
 #       [--branch <가지> --sha <40hex>]               docs-push 근거: diff 전부 *.md(ft_doc_exempt.py --mode md-files 한 곳 · R725) · 가지 ∉ {main}∪FT_DEPLOY_BRANCHES(미설정=QUEUE) · fast-forward
 #       [--plan <상태>/wt-clean/<좌석>.sh.hil]        wt-clean 근거(R410 · 판정 2326): ft-nano-close 계획 · plan-ver = 라이브 생성기 blob · «브랜치는 지우지 않는다» · 좌석 tmux 세션 0 · 실행 줄 제외 어휘(계획 실행은 PROXY 뒤 호출자 몫)
+#       [--seat <좌석>]                             seat-close 근거(r2075 · ft-seat-close manual_close 가 부름): tmux «=좌석» 있음 · 재개 기록 있음 · 어느 명부의 `_*` 칸 값 아님 · --seat 없음 = rc 4
 #       [--team <팀>]                               r529 큐 줄 팀 칸(없으면 --card 경로의 팀 · 둘 다 없으면 -)
 #   push-merge(main 병합·main push)는 오빠 값(판정 1675) — 항상 QUEUE, ok 파일 쓰기 0. 병합 승인 = ft-autonomy.sh approve-merge(오빠 `!`)뿐.
 # rc 0 = 대리(PROXY): 판정 원장에 «대리» 1줄 · rc 2 = 대리 불가(QUEUE): 오빠 큐 1행 · rc 3 = 모드 OFF/위변조(인터뷰로) · rc 4 = 인자 오류
@@ -42,6 +43,7 @@ while [ $# -gt 0 ]; do
   shift 2
 done
 for v in kind q choice why undo; do [ -n "${!v}" ] || usage "--$v 필수"; done
+[ "$kind" != seat-close ] || [ -n "$seat" ] || usage "seat-close 에는 --seat 필요"
 # r529: 큐 줄 팀 칸 = --team → --card 경로의 design/[teams/]<팀>/indices/ → -
 qteam="${team:--}"; case "$qteam" in *[!a-z0-9_-]*) usage "--team 형식 틀림: $team" ;; esac
 if [ -z "$team" ] && [[ "$card" =~ (^|/)design/(teams/)?([a-z0-9][a-z0-9_-]*)/indices/ ]]; then qteam="${BASH_REMATCH[3]}"; fi
@@ -165,6 +167,14 @@ wt_clean_check() {  # R410 · 판정 2326 — 근거 = ft-nano-close 가 만든 
   PLAN_TEXT="$(cat "$plan")" || queue_exit "⑤ 계획 본문을 못 읽음"
 }
 
+seat_close_check() {  # r2075 C4 — 근거 셋 중 하나라도 아니면(못 읽음 포함) QUEUE
+  local tm="${FT_TMUX_BIN:-$(command -v tmux 2>/dev/null)}" rec="${FT_SEAT_RESUME_DIR:-$HOME/.claude/state/seat-resume}/$seat.json"
+  case "$seat" in */*|*..*) queue_exit "--seat 형식 틀림" ;; esac
+  [ -n "$tm" ] && [ -x "$tm" ] && "$tm" has-session -t "=$seat" 2>/dev/null || queue_exit "① 좌석 tmux 세션 없음·확인 불가: $seat"
+  [ -f "$rec" ] || queue_exit "② 재개 기록($rec) 없음"
+  python3 -c 'import glob, json, sys; r, s = sys.argv[1:3]; ds = [json.load(open(f, encoding="utf-8")) for f in glob.glob(r + "/.fable-team/seats*.json")]; sys.exit(0 if all(isinstance(d, dict) and not any(k.startswith("_") and v == s for k, v in d.items()) for d in ds) else 1)' "$ROOT" "$seat" 2>/dev/null || queue_exit "③ 좌석이 명부 역할 칸 값이거나 명부를 못 읽음: $seat"
+}
+
 if [ -f "$SEEN" ] && grep -qxF "$EV $qhash" "$SEEN"; then
   echo "QUEUE 같은 질문 재시도 — 이미 큐에 있음 · 큐 파일 $QUEUE"; exit 2
 fi
@@ -173,7 +183,7 @@ CARD_TEXT=""; PLAN_TEXT=""
 [ "$kind" != card-start ] || card_check
 [ "$kind" != wt-clean ] || wt_clean_check
 out="$(python3 "$CLS" --kind "$kind" --text "$q" --text "$choice" --text "$why" --text "$undo" --text "$CARD_TEXT" --plan-text "$PLAN_TEXT")" || queue_exit "${out#QUEUE }"
-case "$kind" in nano-reopen) nano_reopen_check ;; docs-push) docs_push_check ;; esac
+case "$kind" in nano-reopen) nano_reopen_check ;; docs-push) docs_push_check ;; seat-close) seat_close_check ;; esac
 
 # PROXY — 판정 원장 1줄 (번호 = 원장 폴더 최대 번호 + 1)
 LEDGER="${FT_PROXY_LEDGER:-$(ls "$PLANNER"/VERDICTS-*.md 2>/dev/null | sed 's/.*planner-\([0-9]*\)-.*/\1 &/' | sort -n | tail -1 | cut -d' ' -f2-)}"

@@ -115,13 +115,13 @@ ENVX = {"FAKE_GIT_REAL_WORKTREE": "1", "REAL_GIT": shutil.which("git")}
 def resume(root, fake, launcher, rc=None):
     return pl._launch(root, fake, launcher, extra=["--resume"], rc=rc, env_extra=ENVX)
 def subs(fake):
-    return [x["sub"] for x in pl._log(fake)]
+    return [x["sub"] for x in pl._log(fake) if x["sub"] not in ("ls-tree", "cat-file")]   # r2082 기준 sha 읽기 호출을 뺀 목록
 def state(root):
     return json.loads(pl._intent(root).read_text(encoding="utf-8"))
 def c5(tmp, launcher):   # ⑤ launch — HEAD == base_sha → sparse·checkout·tmux 만 다시 · opened ⑤b 경로 없음 → git add 부터
     root, fake = lw(tmp / "a", add=True)
     out, rc = resume(root, fake, launcher)
-    assert (rc, out.get("opened")) == (0, True) and subs(fake) == ["worktree", "sparse-checkout", "checkout", "new-session", "has-session"], (out, subs(fake))
+    assert (rc, out.get("opened")) == (0, True) and subs(fake) == ["worktree", "sparse-checkout", "checkout", "new-session", "has-session", "display-message"], (out, subs(fake))   # r2257 개설 영수 1회
     assert state(root)["state"] == "opened"
     root, fake = lw(tmp / "b")
     assert resume(root, fake, launcher)[1] == 0 and subs(fake)[:3] == ["worktree", "worktree", "sparse-checkout"], subs(fake)

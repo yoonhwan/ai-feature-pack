@@ -6,6 +6,7 @@
 #  ⓒ 기존 승계 시험 rc 불변 — 기본 = 빠른 3종(r1116 · recipient_r1460 · ready_renamed_r1493) · R1600_SLOW=1 = 느린 2종(seat_handover · r939)
 #  격리: 정본 comm 사본 + 가짜 명부(seats-zz.json) + 임시 우편함 · 실 명부·실 큐·실 tmux 0 · 고정 sleep 0 · 자기 재호출 0.
 set -uo pipefail
+export FT_HANDOVER_READY_WAIT_S=0   # r2080 — 승계 창 끔: 이 시험은 «[인계] 직후 [레디] 0 = 바로 REJECT» 를 본다(창 = test_close_wait_window_r2080.sh)
 for v in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY; do unset "$v"; done
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; REPO="$HERE/../.."
 SRC="$REPO/harness/comm"

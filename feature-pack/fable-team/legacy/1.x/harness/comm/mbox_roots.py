@@ -123,6 +123,22 @@ def roster_keys(base: Path) -> set[str]:
     return keys
 
 
+def ft2_seat(base: Path, to: str) -> bool:
+    """r1933 — keeper 가 연 2.0 나노 = opened intent 의 FT2_HOLDER 가 받는이 전체 이름과 같고 그 이름 tmux 세션이 산다(명부 쓰기 0).
+    판독 실패·이름 불일치·세션 없음·tmux 실패 = False(= 지금처럼 판정 불가) · role_key 비교 0(DA R1)."""
+    for intent in sorted(base.glob(".fable-team/teams/*/runtime/launch/*.intent")):
+        try:
+            doc = json.loads(intent.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if isinstance(doc, dict) and doc.get("state") == "opened" and doc.get("FT2_HOLDER") == to:
+            try:
+                return subprocess.run(["tmux", "has-session", "-t", "=" + to], capture_output=True, timeout=7).returncode == 0
+            except (OSError, subprocess.SubprocessError):
+                return False
+    return False
+
+
 def comm_of(base: Path) -> Path:
     return base / ".fable-team" / "comm"
 
@@ -162,6 +178,8 @@ def bridge(to: str, frm: str, body: str) -> str | None:
     want = role_key(to)
     if want in roster_keys(me):
         return None                       # ① 내 명부에 있으면 다리 0
+    if ft2_seat(me, to):
+        return None                       # ①' r1933 살아 있는 2.0 나노 = 내 명부와 같게(다리 0)
     for row in live:                      # ② 다른 루트 명부에 있으면 그 루트 우편함으로
         if Path(str(row["path"])).resolve() == me.resolve():
             continue

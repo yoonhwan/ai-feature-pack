@@ -34,6 +34,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from ft_directive_watch import Git, Undecided, hhmm, team_master, tsv, until  # noqa: E402
 from ft_penalty import root  # noqa: E402
 from ft_latest_write import write_latest  # noqa: E402
+from ft_status_root import status_root  # noqa: E402
 from ft_card_assign_pause import DAY_S, held_add, held_once, held_prune, jload, jsave, notice, team_pause, team_paused, team_resume  # noqa: E402
 from ft_team_lib import TeamPathError, basis_ref, root_row, team_names  # noqa: E402
 
@@ -42,6 +43,7 @@ PAUSED = ("정지", "석")
 LEGACY = ("부하",)  # 판정 3914 — «부하» 는 대기 사유가 아니다(load 문턱은 press·tester 만 ft-press-gate) · 새 기록 REJECT · 옛 원장 행·거울 줄은 읽기만(행 = «배정 없음» 으로 셈 · 조용한 삭제 0)
 WAIT_REASONS, WAIT_KIND = ("석", "선행"), "석·선행 대기"  # A6 — 석·선행 대기 = 경보·rc 밖(머리 칸으로만 센다)
 VALUE = re.compile(r"좌석 \S+|없음|대기\((?:" + "|".join(REASONS + LEGACY) + r") · \d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?\)")  # 옛 거울 «대기(부하 · …)» 도 lint 통과(spawn 이 막히지 않게)
+HUMAN_SINCE, HUMAN_WHY = "2026-11-17T12:00", ("kill", "삭제", "force push", "외부 설정", "새 범위", "비용")  # r2162 — 이 시각 이후 사람 보류 = 머리 «- 사람 사유:» 필수(앞자리 일치)
 WAIT_S, URGENT_S, ORDER_S, MUTE_S, CLAIM_S = 4 * 3600, 3600, 2 * 3600, 3600, 60
 OPEN, CLOSED = ("대기", "진행"), ("완성", "아카이브")
 QUIET = ("정지 중", "보류 중", "판정 불가", "석·선행 대기")  # 경보·rc 에 안 세는 칸(A6 석·선행 대기 포함)
@@ -249,15 +251,35 @@ def added_before(card: Path, inst: float) -> bool:
     return bool(p.stdout.strip())
 
 
+def human_reason(text: str, val: str) -> int:
+    """r2162 — 기준 시각 이후 «대기(사람 · 시각)» = 머리 «- 사람 사유: <허용 낱말> …» 줄 필수 · 없으면 REJECT 1줄 rc1."""
+    m = re.fullmatch(r"대기\(사람 · (\S+)\)", val)
+    if not m or iso(m.group(1)) < iso(HUMAN_SINCE):
+        return 0
+    why = [ln[len("- 사람 사유:"):].strip() for ln in head(text) if ln.startswith("- 사람 사유:")]
+    if why and why[0].startswith(HUMAN_WHY):
+        return 0
+    print(f"사람 보류 사유 없음 — «- 사람 사유: <{'|'.join(HUMAN_WHY)}> …» 또는 대기(DA · 시각) · 없음")
+    return 1
+
+
+def da_open(text: str, val: str, arg: str) -> int:
+    """r2220 — 머리 «- 배정: 없음» ∧ 본문 «사전 DA 확인칸» ∧ 줄머리 «- 사전 DA APPROVE» 0 = WARN 1줄(keeper 를 막는 대기(DA) 표식 빠짐) · rc 그대로 0."""
+    if val == "없음" and "사전 DA 확인칸" in text and not re.search(r"^- 사전 DA APPROVE", text, re.M):
+        print(f"WARN {arg} — 사전 DA 판정 전인데 「- 배정: 없음」 · 머리를 「- 배정: 대기(DA · <YYYY-MM-DDTHH:MM>)」 로 쓰고 판정 커밋에서 없음으로 푼다(r2220)")
+    return 0
+
+
 def lint(card: Path) -> int:
     """ft-index-lint ⑭ — 출력 = REJECT 사유 1줄 rc1 · 빈 출력 rc0."""
-    card = card.resolve()  # git -C <폴더> 의 pathspec 은 그 폴더 기준 — 절대경로로 묻는다
+    arg, card = str(card), card.resolve()  # git -C <폴더> 의 pathspec 은 그 폴더 기준 — 절대경로로 묻는다
     if card.parent.name not in OPEN:
         return 0
-    vals = [ln[len("- 배정:"):].strip() for ln in head(card.read_text(encoding="utf-8")) if ln.startswith("- 배정:")]
+    text = card.read_text(encoding="utf-8")
+    vals = [ln[len("- 배정:"):].strip() for ln in head(text) if ln.startswith("- 배정:")]
     if vals:
         if VALUE.fullmatch(vals[0]):
-            return 0
+            return human_reason(text, vals[0]) or da_open(text, vals[0], arg)
         print(f"「- 배정:」 값 꼴 — 좌석 <이름> | 대기(<{'|'.join(REASONS)}> · <YYYY-MM-DDTHH:MM>) | 없음: {vals[0][:40]}")
         return 1
     try:
@@ -832,6 +854,8 @@ def main(argv: list[str]) -> int:
             print("latest 안 씀(rc 3)", file=sys.stderr)
         return 3
     virtual, R = now < real - 1, root()
+    D, tail = status_root(R) if cmd == "status" else (R, "")  # r1982: 위성 status = 본 루트 표 읽기만(가상과 같이 쓰기 0 · latest = 위성)
+    virtual, R, own = virtual or D != R, D, R
     if cmd != "status" and virtual:
         print(f"배정 감시 판정 불가 · {cmd} 은 가상 시각을 받지 않는다")
         if write:
@@ -855,6 +879,7 @@ def main(argv: list[str]) -> int:
             print("latest 안 씀(rc 3)", file=sys.stderr)
         return 3
     lines = render(rows, stamp, st.team_counts) + st.notes  # notes = 행 뒤 꼬리(tick 은 zip 으로 행만 짝짓는다)
+    lines[0] += tail
     output = json.dumps(rows, ensure_ascii=False) if "--json" in argv else "\n".join(lines)
     print(output)
     hot = [x for x in rows if x["kind"] not in QUIET and not closed_pointer(x)]  # 정지 중·보류 중·Q·«닫힌 카드» 는 rc 에 안 셈(머리에만)
@@ -870,7 +895,7 @@ def main(argv: list[str]) -> int:
             return 3
     rc = 1 if hot else 0
     if write:
-        write_latest(R, "card-assign", "ft-card-assign-watch.sh", output.splitlines()[0] if output else "", rows, int(now), stamp)
+        write_latest(own, "card-assign", "ft-card-assign-watch.sh", output.splitlines()[0] if output else "", rows, int(now), stamp)
     return rc
 
 

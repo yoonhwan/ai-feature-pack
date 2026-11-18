@@ -244,8 +244,9 @@ def judge_row(table, row, ddl_ok, env_ok=lambda p: False, card_scope=None):   # 
     if not new_test_sh and ((st[0] == "M" and om != nm) or (st[0] == "A" and nm != "100644")):
         return "forbid", "mode", "모드 %s→%s: %s" % (om, nm, paths[0])
     new_sql = bool(bad) and bad[0] == "ddl" and st[0] == "A" and bad[1].endswith(".sql")
-    if new_sql and ddl_ok(bad[1]):
-        return "docs", "ddl-recorded", None
+    recorded = new_sql and ddl_ok(bad[1])   # r2104: ddl_ok → 참(applied) | "ddl-record-only"(design/ 기록만 SQL)
+    if recorded:
+        return "docs", recorded if isinstance(recorded, str) else "ddl-recorded", None
     if bad:
         return "forbid", "ddl-no-record" if new_sql else bad[0], forbid_text(bad[0], bad[1])
     return classes[-1][0], classes[-1][1], None
@@ -282,7 +283,7 @@ def d2_apply(table, rows, judged, allow):   # r1934 ① 허용 키 forbid → co
     return used
 
 
-def load_ddl_records(path):   # 줄 꼴 `기록 파일(리포 기준 경로)<TAB>줄 정규식` — 정규식에 {sql} 이 있으면 그 sql 파일 이름으로 바꾼다
+def load_ddl_records(path):   # 줄 꼴 `기록 파일(리포 기준 경로)<TAB>줄 정규식` — 정규식에 {sql} 이 있으면 그 sql 파일 이름으로 바꾼다 · r2104 3칸 `record-only<TAB>기록 파일<TAB>줄 정규식`({path} = 전체 경로)
     if not path:
         return []
     out = []
@@ -291,9 +292,9 @@ def load_ddl_records(path):   # 줄 꼴 `기록 파일(리포 기준 경로)<TAB
             if not line.strip() or line.startswith("#"):
                 continue
             cols = line.rstrip("\n").split("\t")
-            if len(cols) != 2:
+            if len(cols) != 2 and not (len(cols) == 3 and cols[0] == "record-only"):
                 raise TableErr("DDL 기록표 %s:%d 꼴 틀림" % (os.path.basename(path), n))
-            out.append((cols[0], cols[1]))
+            out.append(tuple(cols))
     return out
 
 
@@ -360,6 +361,50 @@ def mktemp_trap_exempt(path, txt, show=None):   # → True = «그 시험이 방
     return bool(re.search(MKTEMP_LINE % v + MKTEMP_VALUE + MKTEMP_TAIL, body))   # 값 «전체» 가 mktemp -d (DA② R1-a: 뒤에 붙은 /../.. = destroy)
 
 
+# ── r1928 .md 는 코드 줄만 destroy 판정(planner DA#3 APPROVE-DESIGN) — 펜스 밖 본문 낱말(«손 kill»)로는 거절 0 · 판독 실패·줄 어긋남·백틱 짝 남음·들여쓰기 4칸 = 지금처럼 destroy(닫힌 쪽)
+MD_FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
+MD_SPAN = re.compile(r"(?<!`)(`+)(?!`)(.*?)(?<!`)\1(?!`)")   # 같은 길이 백틱 묶음이 열고 닫는 인라인 코드 조각
+
+
+def md_spans(line):   # → 그 줄의 인라인 코드 조각 · 짝 없는 백틱이 남으면 None
+    return None if "`" in MD_SPAN.sub("", line) else [m.group(2) for m in MD_SPAN.finditer(line)]
+
+
+def prose_line_exempt(path, no, txt, show=None):   # → True = .md 펜스 밖 본문 줄 ∧ 문단 백틱 짝 ∧ 인라인 조각에 파괴 명령 0
+    body = (show(path) if show and (path or "").lower().endswith(".md") else "") or ""
+    lines, fence, at = body.split("\n"), None, False
+    if not body or not 0 < no <= len(lines) or lines[no - 1] != txt:   # 판독 실패·줄 번호 어긋남 = 판정 불가
+        return False
+    for ln in lines[:no]:   # 펜스 열림·닫힘(닫는 줄 = 같은 글자 · 같거나 긴 묶음 · 뒤 글 0)
+        m = MD_FENCE.match(ln)
+        at = bool(m) and (fence is None or (m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence) and not m.group(2).strip()))
+        fence = (m.group(1) if fence is None else None) if at else fence
+    if fence or at:   # 펜스 안 · 펜스 줄 자체
+        return False
+    if re.match(r"( {4}|\t)", txt) and (no == 1 or lines[no - 2][:1] in ("", " ", "\t")):   # 들여쓰기 4칸 코드 블록(범위 밖 · 닫힌 쪽)
+        return False
+    a = b = no - 1   # 그 줄이 든 문단 = 빈 줄·펜스 줄로 나뉜 연속 줄
+    while a > 0 and lines[a - 1].strip() and not MD_FENCE.match(lines[a - 1]):
+        a -= 1
+    while b + 1 < len(lines) and lines[b + 1].strip() and not MD_FENCE.match(lines[b + 1]):
+        b += 1
+    if any(md_spans(ln) is None for ln in lines[a:b + 1]):   # 여러 줄 inline code = 한 줄로 본문 확정 불가
+        return False
+    return not any(CRIT_DESTROY.search(s) for s in md_spans(txt) or [])
+
+
+# ── r2105 «design/ 아래 .hil 계획 글» 예외 (오빠 Slack 1794810101.687389 · 사전 DA APPROVE 7c30825c9b) ──
+#   .hil = 사람이 `!` 로 직접 돌리는 계획 글이다. 머지는 기록일 뿐 실행 0 → 그 추가 줄은 ④ destroy 판정 밖(기본·d2 같음 · d2 scoped 에도 0).
+#   세 조건 «모두» 참일 때만: ⓐ 경로가 design/ 시작 ⓑ 이름이 소문자 .hil 끝 ⓒ 같은 PR 의 .hil·.md 밖 파일 추가 줄에 글자 .hil 0(부르는 낌새).
+#   하나라도 거짓 = 지금 판정 그대로(닫힌 쪽) · launchd·설정·비밀 줄(①~③) 판정은 받는다 · 글자 규칙(이어 붙인 이름·이미 있던 코드의 호출은 범위 밖).
+def hil_record_exempt(path, blocks):
+    p = path or ""
+    if not p.startswith("design/") or not p.endswith(".hil"):
+        return False
+    return not any(".hil" in t.casefold() for q, items, _n in blocks
+                   if not (q or "").endswith(".hil") and not (q or "").lower().endswith(".md") for _no, t in items)
+
+
 def critical_kinds(blocks, secret=None, show=None, profile="full", scoped=None):   # → (종류, 사유) | None · blocks = autonomy_scope_secret.parse_added 결과 · profile d2(r1934) = launchd·config(.env 밖)·apiKey 판정 0 · kill·pkill·rm -rf 줄은 scoped 에 위치를 모은다
     d2 = profile == "d2"
     for path, _items, is_new in blocks:   # ① 새 LaunchAgents/LaunchDaemons plist
@@ -374,9 +419,10 @@ def critical_kinds(blocks, secret=None, show=None, profile="full", scoped=None):
     why = secret() if secret else ""   # ③ 비밀 줄(autonomy_scope_secret.reason 재사용)
     if why:
         return "secret", why
-    for path, items, _is_new in blocks:   # ④ 파괴 명령 새 줄 — r1597 tests/ 임시 폴더 trap 줄만 예외
+    for path, items, _is_new in blocks:   # ④ 파괴 명령 새 줄 — r1597 tests/ 임시 폴더 trap 줄 · r1928 .md 본문 줄 · r2105 design/ .hil 계획 글만 예외
         for no, txt in items:
-            if not CRIT_DESTROY.search(txt) or mktemp_trap_exempt(path, txt, show):
+            if not CRIT_DESTROY.search(txt) or mktemp_trap_exempt(path, txt, show) or prose_line_exempt(path, no, txt, show) \
+                    or hil_record_exempt(path, blocks):
                 continue
             if d2 and scoped is not None and not destroy_hard(txt):   # ⓐ 먼저 — ⓑ 꼴만 있는 줄만 위치로(DA 대상 확인 줄 필요)
                 scoped.append("%s:%d" % (path or "?", no))
@@ -387,9 +433,20 @@ def critical_kinds(blocks, secret=None, show=None, profile="full", scoped=None):
 
 def ddl_recorded(records, sql_path, added, show):   # added = PR 추가 줄 · show(경로) = sha 트리의 그 파일 본문(없으면 "")
     name = re.escape(os.path.basename(sql_path))
-    for where, rx in records:
+    for where, rx in (r for r in records if len(r) == 2):   # r2104: 3칸(record-only) 줄은 이 길 밖
         pat = re.compile(rx.replace("{sql}", name))
         text = added if where == "-" else show(where)
         if any(pat.search(ln) for ln in text.split("\n")):
             return True
     return False
+
+
+def record_only(records, sql_path, show_target):   # r2104 → "ddl-record-only" | "" · show_target(경로) = <remote>/<target> 끝 tree 본문(없음·git 실패 = "")
+    parts = sql_path.split("/")
+    if parts[0] != "design" or any(p.casefold() in ("migrations", "alembic") for p in parts):   # 머지가 곧 실행인 마디 = 닫힌 쪽
+        return ""
+    for _k, where, rx in (r for r in records if len(r) == 3):
+        pat = re.compile(rx.replace("{path}", re.escape(sql_path)))
+        if any(pat.search(ln) for ln in show_target(where).split("\n")):
+            return "ddl-record-only"
+    return ""

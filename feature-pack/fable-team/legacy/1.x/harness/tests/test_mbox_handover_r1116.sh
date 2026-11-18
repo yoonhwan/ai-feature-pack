@@ -4,6 +4,7 @@
 # 정본 mbox* 를 임시 폴더에 복사해 격리 큐로만 돈다 — 실 좌석 kill 0(가짜 명부만) · tmux·ft-hil 스텁 · 자기 재호출 0 · 고정 sleep 0.
 # 백그라운드 명령 칸 재료 = 이 시험이 띄운 «tail -f /dev/null» 1개(끝에 정리).
 set -uo pipefail
+export FT_HANDOVER_READY_WAIT_S=0   # r2080 — 승계 창 끔: 이 시험은 «[인계] 직후 [레디] 0 = 바로 REJECT» 를 본다(창 = test_close_wait_window_r2080.sh)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; REPO="$HERE/../.."
 SRC="$REPO/harness/comm"; BIN="$REPO/harness/bin"
 T="$(mktemp -d)"; BGP=""

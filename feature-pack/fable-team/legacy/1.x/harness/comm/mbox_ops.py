@@ -4,11 +4,27 @@ from mbox_store import _check_name, _clip, _legacy_dirs, _load, _locked, _mbox, 
 from mbox_guard import _guard_log, _guard_record, _guard_verdict, _log_sent, _reply_exempt
 import mbox_keep   # r912 — 넘칠 때 버리는 순서(시스템 → 일반 · 사람 글 보존)
 import mbox_drops, mbox_compact  # r1651 — 버린 seq 를 받는 좌석의 다음 recv 에 1줄(유실 표시) · r1661 받는 이 검사·중복 접기·큐 정리(보관 이동)
-import mbox_roots  # r1309 — 다른 루트 받는이 = 우편 다리(roots.tsv)
+import mbox_roots, mbox_relay  # r1309 — 다른 루트 받는이 = 우편 다리(roots.tsv) · r1981 relay 스냅샷
 from mbox_lineage import claim, eligible, retired_to, thread_batch, wait_line
 import mbox_handover   # r1116 ③ 영수(받은 쪽지마다 1줄) — 승계 마무리 검사(close-check)의 재료
 from mbox_desk_gate import verdict as _desk_verdict   # r660 · DA⑥ r1 ⓒ: 판정 자리 = python send 층 하나(셸·python 직접·relay 전부)
 CANON = None   # mbox.py 가 묶는다
+SEAT_RE = re.compile(r"#\d+$")   # r2081 C1 — 좌석 이름 = 끝에 #N · 도구 쪽지(ft2-slack-listen · ft-idle-scan) = 없음
+
+
+def _my_keys(frm):   # r2081 C1 — 보낸 이 계보(옛 이름)의 역할 키 · 계보 함수 그대로 · 명부 못 읽음 = 나 하나
+    try:
+        return {role_key(n) for n in eligible(frm)[0]}
+    except Exception:
+        return {role_key(frm)}
+
+
+def _crossed(rows, to, frm, keys):   # r2081 C1 — 받는 좌석 역할이 나(계보) 앞으로 보낸, 아직 큐에 있는 좌석 쪽지 · 같은 역할([인계]·[레디]) = 0
+    if role_key(to) == role_key(frm):
+        return None, ""
+    got = sorted((r for r in rows if role_key(r.get("from")) == role_key(to) and role_key(r.get("to")) in keys
+                  and SEAT_RE.search(r.get("from") or "")), key=lambda r: r["seq"], reverse=True)
+    return ({"seqs": [r["seq"] for r in got[:5]], "n": len(got)}, str(got[0].get("ts", ""))[11:19]) if got else (None, "")
 
 
 def send(to, frm, body, force=False, desk_attach=""):
@@ -21,6 +37,7 @@ def send(to, frm, body, force=False, desk_attach=""):
         return
     # ★desk 창구 고정(r660 · 판정 1125)★ — 잠금 «밖»에서 판정(큐 무관) · --force 로 안 풀린다 · 판정기 고장 = REJECT(fail-closed).
     desk = _desk_verdict(to, frm, body, desk_attach, CANON or "")
+    keys = _my_keys(frm)   # r2081 C1 — 명부 읽기는 잠금 밖
 
     def op():
         if desk:
@@ -39,6 +56,11 @@ def send(to, frm, body, force=False, desk_attach=""):
         seq = _next_seq(rows)
         row = {"seq": seq, "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
                "to": to, "from": frm, "body": body}
+        cross, cross_at = _crossed(rows, to, frm, keys)   # r2081 C1 — 큐를 읽은 그 잠금 안 · 0통 = 칸 없음(기준판 바이트)
+        if cross:
+            row["crossed"] = cross   # C3 — 큐 행·기록 행 둘 다
+        if (w := os.environ.get("FT_MBOX_WAKE_AT", "")).isdigit():   # r2169 W2 — mbox.sh 판정 값(정수 epoch 초)만 · 빈 글 = 칸 없음(기준판 바이트)
+            row["wake_at"] = int(w)
         # ★전문 보관은 «큐에 넣기 전»★ — 행은 큐에 있는데 전문은 없는 순간을 만들지 않는다.
         #   그 순간이 있으면 그 사이에 도착한 recv 가 «되찾을 수 없는 절단»을 하게 된다.
         if len(body) > MAX_BODY:
@@ -70,7 +92,7 @@ def send(to, frm, body, force=False, desk_attach=""):
             _guard_record(to, frm, body, exempt)
         except Exception:
             pass
-        return seq, sum(1 for r in keep if role_key(r["to"]) == role_key(to)), dropped, oldest, overflow, seqs
+        return seq, sum(1 for r in keep if role_key(r["to"]) == role_key(to)), dropped, oldest, overflow, seqs, (cross, cross_at)
     if (res := _locked(CANON, op))[0] == "__DUP__": return print(res[1])   # r1661 ⓒ QUEUED-DUP · 새 행·로그·청소 0
     if res[0] == "__BLOCKED__":
         reason, hint = res[1]
@@ -83,12 +105,15 @@ def send(to, frm, body, force=False, desk_attach=""):
         tail = " · desk 경로는 --force 로 안 풀린다" if reason.startswith("DESK_ROUTE") else " · 정말 필요하면 --force"
         sys.stderr.write("BLOCKED %s\n%s\n→ BLOCKED %s%s\n" % (reason, hint, reason, tail))
         sys.exit(3)
-    seq, pend, dropped, oldest, overflow, seqs = res
+    seq, pend, dropped, oldest, overflow, seqs, (cross, cross_at) = res
     # ★r1820 B2★ 이 호출의 쪽지 자신이 버려졌으면 QUEUED 0 · DROPPED-SELF + rc 5(보낸 쪽이 다시 보낼 주체) · 옛 seq 만 버림 = QUEUED rc0
     self_drop = seq in seqs
     # ★«어느 파일에 몇 바이트» 를 찍는다★ — QUEUED 를 «도착»으로도 «온전»으로도 읽지 않게.
     print(f"DROPPED-SELF seq={seq} to={to}" if self_drop else f"QUEUED seq={seq} to={to} pending={pend} "
           f"file={_mbox(CANON)} bytes={len(body.encode('utf-8'))}")
+    if cross and not self_drop:   # r2081 C2 — 막지 않는다(rc·QUEUED 그대로) · 1줄
+        sys.stderr.write("엇갈림 %s 가 보낸 안 읽은 쪽지 %d통(가장 새 #%s %s) — 이 쪽지는 그것을 안 읽고 보낸 글이다 · "
+                         "recv 뒤 어긋나면 정정 1통\n" % (to, cross["n"], cross["seqs"][0], cross_at))
     if dropped:
         sys.stderr.write(
             "DROPPED %d to=%s (ring=%d 포화 · 시스템 알림 먼저 · 사람 글 보존) — 이 좌석이 %d건을 안 읽고 쌓아뒀다.%s\n"
@@ -117,27 +142,7 @@ def relay(to, frm, path, summary):
     자동 요약을 끼우면 받는 쪽은 결국 원문 전체를 열게 되고, 아낀 게 없어진다.
     """
     _check_name(to); _check_name(frm)
-    if not os.path.isfile(path):
-        sys.stderr.write("NO_SUCH_FILE %s\n" % path); sys.exit(1)
-    if not summary.strip():
-        sys.stderr.write("EMPTY_SUMMARY 요약 3~5줄은 보내는 사람이 쓴다.\n"); sys.exit(1)
-    os.makedirs(RELAY_DIR, exist_ok=True)
-    safe = re.sub(r'[^A-Za-z0-9._#-]', '_', os.path.basename(path))
-    base = os.path.join(RELAY_DIR, "%s-%s-to-%s-" % (time.strftime("%Y%m%dT%H%M%S"), frm, to))
-    # ★같은 이름이면 «덮어쓰지 않고» 새 자리를 만든다★ — 초 단위 타임스탬프라 같은 초에 같은
-    # from→to 로 같은 파일명을 보내면 앞 스냅샷이 파괴돼, 먼저 보낸 포인터가 «나중 내용»을
-    # 가리킨다. 스냅샷이 안 남으면 relay 는 경로만 보내는 것과 다를 게 없다.
-    dest, n = base + safe, 1
-    while os.path.exists(dest):
-        n += 1
-        dest = "%s%d-%s" % (base, n, safe)
-    shutil.copyfile(path, dest)
-    # 판정 재료에 «전문» 을 넣는다(r660 · DA⑥ r1 ⓑ③) — 요약 1줄에 여러 줄 전문을 붙여 h 결과 예외를 통과하는 길 0.
-    try:
-        with open(dest, encoding="utf-8", errors="replace") as f:
-            full = f.read()
-    except OSError:
-        full = ""
+    dest, full = mbox_relay.snapshot(to, frm, path, summary)   # r1981 — 복사·전문 읽기 = mbox_relay(200줄 규칙 분리)
     send(to, frm, "%s\n상세(전문): %s (%d B)"
          % (summary.strip(), dest, os.path.getsize(dest)), desk_attach=full)
 
@@ -177,6 +182,8 @@ def recv(me, frm=None, limit=None):
         tag = "" if os.path.abspath(d) == os.path.abspath(CANON) else " (legacy)"
         shown, note = _clip(r)
         print(f"READ [{r['from']}->{me}] #{r['seq']}{tag} — {shown}")
+        if isinstance(x := r.get("crossed"), dict) and x.get("seqs"):   # r2081 C3 — 옛 행(칸 없음) = 표시 0
+            print("엇갈림 — %s 이 네 쪽지 %s(%s통)를 안 읽고 보낸 글" % (r["from"], ",".join("#%s" % s for s in x["seqs"]), x.get("n")))
         if note:
             print(note)
     if held:
@@ -185,19 +192,3 @@ def recv(me, frm=None, limit=None):
             print(f"  · #{r['seq']} [{r['from']}] {r['body'][:70].replace(chr(10), ' ')}…")
     if left:
         print(wait_line(left))
-
-
-def peek(me):
-    _check_name(me)
-    dirs = [CANON] + _legacy_dirs()
-    names, joined = _lineage(me)
-    mine = []
-    for d in dirs:
-        mine.extend(r for r in _locked(d, lambda d=d: _load(d))
-                    if role_key(r.get("to")) in {role_key(n) for n in names} and r.get("from") != me)   # recv 와 같은 규칙(r1153)
-    mine.sort(key=lambda r: r["seq"], reverse=True)
-    head = f"pending={len(mine)}"
-    if mine:
-        head += f" latest_seq={mine[0]['seq']} from={mine[0]['from']}"
-    print(f"{head} scanned={len(dirs)} lineage={joined}")
-

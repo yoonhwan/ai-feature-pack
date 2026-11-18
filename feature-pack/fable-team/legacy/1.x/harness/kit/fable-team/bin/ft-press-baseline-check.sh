@@ -6,6 +6,7 @@
 #   카드 머리줄(줄 맨 앞 «키: 값»): 기준선:(self | 기준선 파일 경로 | 없음) · 실험:(key=value,… | 없음) · 비교 언어:(기본 right=ko,left=en)
 #     self 는 «기준선 전용 카드»만 — 종류: 기준선 · 회차: 1 · 실험: 없음 · 프로필: default-3bubble 전부.
 #   기준선 파일 머리줄: set_sha · control · side_lang · server_ready · visible_at_settle · evidence · run_id (형식 = design/v65/baselines/README.md)
+#     선택 profile:(없음 = solo · room = 방 러너 기준선 — click=room-keyboard · RESULT control.click null+사유 ∧ scenario_id 결속 · PRESS_* 대조 제외 NOTE · r2245)
 #   세트 경로 정의는 ft-press-set-check.sh --print-set-paths 를 읽는다(복사 0). 토글 정본 = <repo>/design/v65/baselines/FLAGS.md.
 #   exit 0 = 통과 · 1 = 막힘(칸마다 «BLOCK <칸>: 사유» 한 줄) · 2 = usage. ★침묵 통과 0★
 set -uo pipefail
@@ -91,16 +92,23 @@ want = langs(card_langs)
 if want is None: out("BLOCK", f"카드 비교 언어: right/left 해석 불가({card_langs})")
 if "side_lang" in H and langs(H["side_lang"]) != want:
     out("BLOCK", f"side_lang: 기준선 {H['side_lang']} ≠ 카드 비교 언어 {card_langs}")
+prof = H.get("profile"); room = prof == "room"   # r2245: 머리줄 profile(카드 머리 «프로필:» 과 다른 칸) · 없음 = solo
+if prof is not None and not room: out("BLOCK", f"profile: {prof} — profile: room 만(없으면 solo)")
 if "control" in H:
     ctl = dict(t.split("=", 1) for t in H["control"].split() if "=" in t)
     for k in ("lane", "stt_provider", "side_lang", "click", "flags"):
         if not ctl.get(k): out("BLOCK", f"control: {k}= 없음")
     if ctl.get("side_lang") and langs(ctl["side_lang"]) != want:
         out("BLOCK", f"control side_lang: {ctl['side_lang']} ≠ 카드 비교 언어 {card_langs}")
-    if ctl.get("click") and ctl["click"] != "PRESS_SIDE_LANG_CLICK:1":
+    if room and ctl.get("click") and ctl["click"] != "room-keyboard":
+        out("BLOCK", f"control click: {ctl['click']} — profile room 은 room-keyboard 만(방 러너는 클릭하지 않음)")
+    elif not room and ctl.get("click") and ctl["click"] != "PRESS_SIDE_LANG_CLICK:1":
         out("BLOCK", f"control click: {ctl['click']} — 기준선 프로필은 PRESS_SIDE_LANG_CLICK:1 고정")
     got = dict(kv.split("=", 1) for kv in ctl.get("flags", "").split(",") if "=" in kv)
-    for k in sorted(set(flags) | set(got)):
+    # r2245 O4: 방 러너가 읽지 않는 PRESS_* 만 대조 제외(PRESS_LST_TOGGLE_MID_PRESS_MS 는 방 러너가 읽음 · 수 = 셈 값)
+    skip = {k for k in flags if k.startswith("PRESS_") and k != "PRESS_LST_TOGGLE_MID_PRESS_MS"} if room else set()
+    if room: out("NOTE", f"room: PRESS_* {len(skip)}개 대조 제외(방 러너가 읽지 않음)")
+    for k in sorted((set(flags) | set(got)) - skip):
         if k not in got: out("BLOCK", f"control flags: {k} 누락(FLAGS.md 기본값 {flags[k]})")
         elif k not in flags: out("BLOCK", f"control flags: FLAGS.md 에 없는 토글 {k}")
         elif got[k] != flags[k]: out("BLOCK", f"control flags: {k}={got[k]} ≠ 기본값 {flags[k]}")
@@ -110,6 +118,7 @@ if "server_ready" in H:
 if "visible_at_settle" in H and H["visible_at_settle"] != "yes":
     out("BLOCK", f"visible_at_settle: {H['visible_at_settle']} — yes 만 통과")
 ev = H.get("evidence", "")
+if "evidence" in H and not ev: out("BLOCK", "evidence: 빈 값 — RESULT json 경로 필수")   # r2249 O4: profile 상관없이(r2245 room 줄 합침) · 빈 값이면 아래 대조를 건너뛴다 · 키 없음 = 셸 «머리줄 빠짐»
 if ev:
     p = ev if os.path.isabs(ev) else os.path.join(os.environ["REPO"], ev)
     try: res = json.load(open(p, encoding="utf-8"))
@@ -123,6 +132,11 @@ if ev:
         if rv in (None, "", {}): out("BLOCK", f"evidence: 증거 없음 — RESULT 에 {name} 기록 없음({ev})")
         elif (langs(rv) != langs(hv or "")) if name == "side_lang_at_press" else (str(rv) != hv):
             out("BLOCK", f"evidence: 증거 불일치 — RESULT {name}={rv} ≠ 머리줄 {hv}")
+    if room:   # r2245 O3: profile 한 줄로 검사를 피하는 길 막기(하드 룰 11) — RESULT 가 방 러너 꼴일 때만
+        rc_ = res.get("control")
+        if not (isinstance(rc_, dict) and rc_.get("click") is None and str(rc_.get("click_reason") or "").strip() and res.get("scenario_id")):
+            why = "control dict 아님" if not isinstance(rc_, dict) else f"control.click={rc_.get('click')!r} · click_reason={rc_.get('click_reason')!r} · scenario_id={res.get('scenario_id')!r}"
+            out("BLOCK", f"profile room ↔ RESULT 불일치 — {why}({ev})")
     if True in (res.get("failed"), (res.get("marks") or {}).get("failed")): out("NOTE", "측정 실패 회차(failed=true) — 유효한 측정으로 통과 · 제품 성공 아님")
 PY
 }

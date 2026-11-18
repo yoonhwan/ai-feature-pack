@@ -2,7 +2,7 @@
 # 파일 기반 세션 메시지 큐 (mbox) — 파일 큐 + push 알림 하이브리드.
 # send = 파일 append + 수신자 tmux에 recv 트리거 주입(push). 본문은 파일(유실0), tmux엔 트리거만.
 # LIFO·per-to 10 ring·fcntl.flock·consume-on-read·to==me grep.
-# Usage: mbox.sh {send <to> <from> <body...> [--urgent] | recv <me> | peek <me> | ring <sess> [seq]}
+# Usage: mbox.sh {send <to> <from> <body...> [--urgent] | recv <me> | peek <me> [--rows] | ring <sess> [seq]}
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MBOXPY="$DIR/mbox.py"
@@ -74,10 +74,13 @@ PY
 #     넓히면 _desk 발신이 예산 예외가 되어 사람 판정이 조용히 바뀐다(DA #276770 R2). 받는 쪽/보내는 쪽은 다른 칸이다.
 #   ★확장 파일 존재까지 보는 이유★: 확장이 없으면 그 좌석은 깨울 길이 없다 — 그때 pane 을 끄면 쪽지가 영구 대기한다(깨움 0 금지).
 #   판정 불가(명부 깨짐·agent 칸 없음·확장 파일 없음) = 거짓 = 기존 pane 경로 그대로(fail-loud). 깨진 파일 1개가 다른 파일 판정을 막지 않는다.
+#   ★r2110 A1★ ft2 나노 pi 좌석(명부 밖) = 그 tmux 세션 env FT2_HOLDER 값 == 좌석 이름 · tmux 1회 7초 · 값 없음·다른 이름·tmux 실패 = 거짓(지금 길 그대로).
+_ft2_nano_seat() { local v; v="$(_wg_timeout 7 tmux show-environment -t "=$1" FT2_HOLDER 2>/dev/null)" || return 1; [ "$v" = "FT2_HOLDER=$1" ]; }
 ext_wake_seat() {
   local sj ext; sj="$(_seats_json)"
   ext="$HOME/.pi/agent/extensions/ft-mbox-wake.ts"
   [ -f "$ext" ] || return 1
+  _ft2_nano_seat "$1" && return 0   # ★r2110 A3★ 확장 파일 ∧ (아래 명부 판정 ∨ A1)
   python3 - "$(dirname "$sj")" "$1" <<'PY' 2>/dev/null
 import glob, json, os, sys
 d, seat = sys.argv[1], sys.argv[2]
@@ -153,7 +156,7 @@ uf_watch() {  # <to> <계기 쪽지 seq>
   fi
   hm="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1],encoding="utf-8")).get("_master") or "")' "${FT_HARNESS_SEATS_JSON:-$ft/seats-harness.json}" 2>/dev/null)" || hm=""
   [ -n "$hm" ] || { echo "WARN planner watch 없음 $to — 하네스 master 를 못 찾음 · 긴급 0통" >&2; return 0; }
-  q="$(python3 "$MBOXPY" send "$hm" ft-watch-alarm "[긴급 · planner watch 없음] $to · 감지 $(date +%H:%M) · 계기 쪽지 #${2:-?} · 감시 프로세스 0(pgrep) · $ev · 하네스 감시·미수신 상태 확인 필요")" \
+  q="$(FT_MBOX_WAKE_AT= python3 "$MBOXPY" send "$hm" ft-watch-alarm "[긴급 · planner watch 없음] $to · 감지 $(date +%H:%M) · 계기 쪽지 #${2:-?} · 감시 프로세스 0(pgrep) · $ev · 하네스 감시·미수신 상태 확인 필요")" \
     || { echo "WARN planner watch 없음 $to — 긴급 적재 실패(다음 send 재시도)" >&2; return 0; }
   mkdir -p "$ft/state" && : > "$mk"
   echo "WARN planner watch 없음 $to — 하네스 master $hm 긴급 $(seq_of "$q" || true)" >&2
@@ -192,6 +195,21 @@ hand_gate() {  # <to> <from> <body>
   [ "$rc" = 3 ] || return 0; printf '%s\n' "$e" >&2; return 3
 }
 holder_of() { local h; h="$(python3 "$MBOXPY" holder "$1" 2>/dev/null)" && [ -n "$h" ] && _check_name "$h" 2>/dev/null && echo "$h" || echo "$1"; }
+# r2167 도구 알림 표(alert-policy.tsv) — 판정은 큐 적재 «전»(읽기만) · «마지막에 넣은 통» 기록은 적재 rc 0 «뒤» · 판정 불가 = 넣는다(본문 = mbox_alert_policy.py)
+#   좌석 쪽지(발신 끝 #N) · --urgent · --force · FT_ALERT_POLICY=0 · 표 없음 = 표를 읽지 않는다. rc 1 = 걸름(SKIPPED 줄 찍음) · AP_HOLD = 적재 뒤 기록할 현역 이름.
+AP_HOLD=""; AP_WAKE=""   # r2169 AP_WAKE = wake_at 후보(확장 좌석일 때만 py send 에 FT_MBOX_WAKE_AT 으로 넘김 · 그 밖 py send 는 빈 글로 덮어씁)
+_ap_run() { local tm; tm="$(command -v timeout || command -v gtimeout)" || tm=""
+  FT_MBOX_STATE_DIR="$(_wg_state)" ${tm:+"$tm" 7} python3 "$DIR/mbox_alert_policy.py" "$@"; }
+alert_policy_check() {  # <to> <from> <body> <urgent> <force 수>
+  local out rc=0
+  [ "${FT_ALERT_POLICY:-1}" != 0 ] && [ -e "$DIR/alert-policy.tsv" ] && [ "$4" = 0 ] && [ "$5" = 0 ] || return 0
+  if [[ "$2" =~ \#[0-9]+$ ]]; then return 0; fi
+  out="$(_ap_run check "$1" "$2" "$3")" || rc=$?
+  if [ "$rc" != 0 ]; then echo "WARN alert-policy 판정 불가 — 판정 호출 rc=$rc$([ "$rc" != 124 ] || echo ' · 7초 초과')" >&2; return 0; fi
+  case "$out" in SKIPPED*) printf '%s\n' "$out"; return 1;; QUEUE$'\t'*) out="${out#QUEUE$'\t'}"; AP_HOLD="${out%%$'\t'*}"; [ "$out" = "$AP_HOLD" ] || AP_WAKE="${out#*$'\t'}";; esac
+  return 0
+}
+alert_policy_record() { _ap_run record "$@" "$to" "$seq" "$AP_WAKE" || echo "WARN alert-policy 기록 실패 rc=$? — 다음 통은 걸러지지 않는다" >&2; }
 
 cmd="${1:-}"; shift || true
 case "$cmd" in
@@ -211,6 +229,7 @@ case "$cmd" in
     guard_check "$to" "${args[*]}" "$from" || exit $?   # rc 3 = REJECT(큐 적재 0) · 후계 전달·[합치기] 치환은 GUARD_TO·GUARD_BODY
     to="$GUARD_TO"; args=("$GUARD_BODY"); dbto="$(holder_of "$to")"
     case "${args[*]}" in "[레디]"*) dbto="$to";; esac   # [레디] = 은퇴한 옛 세션 앞 핸드셰이크 회신 — 현역(후계 자신) 말고 그 pane 을 깨운다(r1116 ②)
+    alert_policy_check "$to" "$from" "${args[*]}" "$urgent" "${#force[@]}" || exit 0   # r2167 — 가드 뒤 · 깨움 게이트(예산) 전 · 걸러진 통 = seq · doorbell · 예산 0
     case "${args[*]}" in "[인계]"*|"[레디]"*) dbf=1;; esac   # 승계 핸드셰이크 두 쪽지 = 발주처럼 doorbell 시간 억제를 뚫는다(r1160) · py --force(가드 우회)는 안 넘긴다
     # ★r1476 깨움 게이트 — 판정은 enqueue «전»★ (seq 는 py 가 그 뒤에 발급한다 · 판정에 seq 가 없다)
     head="$(_wg_head "${args[*]}")"
@@ -237,8 +256,11 @@ case "$cmd" in
       bash "$SE" prepare "$SK" "$(python3 -c 'import json,sys;print(json.dumps(dict(zip(("ev","team","id","seat","ref","by"),sys.argv[1:]))))' "${SK%%:*}" "" "" "$from" "" mbox)" >/dev/null \
         || { echo "REJECT 사건 원장 prepared 실패 — 큐 적재 0" >&2; exit 1; }
     fi
-    py_out="$(python3 "$MBOXPY" send "$to" "$from" "${args[*]}" ${force[@]+"${force[@]}"})" || { _rc=$?; [ "$_rc" != 5 ] || printf '%s\n' "$py_out"; [ -z "$SK" ] || bash "$SE" abort "$SK"; [ "$gate" != sent ] || wake_budget_refund "$dbto" send >/dev/null 2>&1 || true; exit $_rc; }
+    [ "$uf" = 1 ] || [ "$ew" = 1 ] || AP_WAKE=""   # r2169 W2 · W7 ⓑ — 확장이 깨우는 좌석만 칸을 단다(uf · ew 다시 계산 0)
+    py_out="$(FT_MBOX_WAKE_AT="$AP_WAKE" python3 "$MBOXPY" send "$to" "$from" "${args[*]}" ${force[@]+"${force[@]}"})" || { _rc=$?; [ "$_rc" != 5 ] || printf '%s\n' "$py_out"; [ -z "$SK" ] || bash "$SE" abort "$SK"; [ "$gate" != sent ] || wake_budget_refund "$dbto" send >/dev/null 2>&1 || true; exit $_rc; }
     seq="$(seq_of "$py_out")" || seq=""
+    case "$py_out" in QUEUED-DUP*|BRIDGED*) AP_WAKE="";; esac   # r2169 — 접힌 행 · 다른 루트 = 칸을 단 통이 아니다(batched.log 0)
+    [ -z "$AP_HOLD$AP_WAKE" ] || alert_policy_record "$from" "$AP_HOLD" "${args[*]}"   # r2167 — 적재 rc 0 뒤에만 · r2169 첫 통 기록 · batched.log
     case "$py_out" in BRIDGED*)   # ★r1562 — 다른 루트로 간 쪽지면 여기서 끝난다★(사유는 bridged_out 주석 · rsv = 이 게이트가 «예약을 실제로 했나»)
       case "$gate" in sent) if [ "${urgent}${uf}${ew}" = 000 ] && ! _wg_human_sender "$from" && case "$head" in '[긴급]'|'[인계]'|'[레디]') false;; *) true;; esac; then rsv=1; fi;; esac
       [ -z "$SK" ] || bash "$SE" commit "$SK" --ref "bridged seq $seq" >/dev/null || true
@@ -320,7 +342,14 @@ case "$cmd" in
          echo "PENDING-AFTER ${_pn:-?}"
          if [ "${_pn:-1}" = 0 ]; then doorbell_clear_held "$me"; fi
          exit "$_rrc" ;;
-  peek)  exec python3 "$MBOXPY" peek "${1:?me}" ;;
+  # r2183 — keeper(ft2/adapters/pi/keeper_settle.py)가 부르는 입구가 이 갈래다 · 뒤 인자를 버리면 `--rows` 가 사라져
+  #   미읽음 판독이 머리줄만 받는다(2.0.70 설치 뒤 harness 두 좌석 실측). 좌석은 첫 인자 · 모르는 인자는 조용히 버리지 않고 rc 2.
+  peek)  _pme="${1:?me}"; shift || true; _pr=0
+         case "$_pme" in -*) echo "usage: mbox.sh peek <me> [--rows]" >&2; exit 2 ;; esac
+         case "$#:${1:-}" in 0:) ;; 1:--rows) _pr=1 ;; *) echo "usage: mbox.sh peek <me> [--rows]" >&2; exit 2 ;; esac
+         if [ "$_pr" = 1 ]; then exec python3 "$MBOXPY" peek "$_pme" --rows; fi
+         exec python3 "$MBOXPY" peek "$_pme" ;;
+  show)  exec python3 "$MBOXPY" show "$@" ;;   # r2081 A — 쪽지 번호 조회(큐·보낸 기록·회전본·전문 파일) · 쓰기 0
   # ★승계 마무리(r1116)★ — handover <구> <후계> [«손 항목»…] = 남은 쪽지 끝까지 recv + 미표시·h·bg 를 [인계] 로 보내고 그 쪽지들을 «인계» 표시 ·
   #   ready <후계> <구> = [인계] 항목마다 «받음» [레디] 회신 · mark·unmarked·close-check = 표시·검사(retire·닫기 관문이 부른다)
   handover) old="${1:?old}"; new="${2:?new}"; shift 2; _check_name "$old" && _check_name "$new" || exit 1
@@ -378,5 +407,5 @@ case "$cmd" in
             refund)  wake_budget_refund "$@" ;;
             *) echo "usage: mbox.sh budget reserve|refund <좌석> [<출처>]" >&2; exit 2 ;;
           esac ;;
-  *) echo "usage: mbox.sh {send <to> <from> <body> [--urgent] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all] [--only distill]|peek <me>|ring <sess> [seq] [--reserved] [--auto]|sweep|budget reserve|refund <좌석> [<출처>]|handover <구> <후계>|handover-drop <구> <후계> <seq> --verdict <판정 번호>|ready <후계> <구>|mark <me> <seq,…> 처리함·인계|unmarked <me>|close-check <좌석> [--no-ready]}" >&2; exit 2;;
+  *) echo "usage: mbox.sh {send <to> <from> <body> [--urgent] [--force]|relay <to> <from> <file> <summary>|recv <me> [<from>] [--all] [--only distill]|peek <me> [--rows]|ring <sess> [seq] [--reserved] [--auto]|sweep|budget reserve|refund <좌석> [<출처>]|handover <구> <후계>|handover-drop <구> <후계> <seq> --verdict <판정 번호>|ready <후계> <구>|mark <me> <seq,…> 처리함·인계|unmarked <me>|close-check <좌석> [--no-ready]}" >&2; exit 2;;
 esac

@@ -22,7 +22,7 @@ cat > "$T/gh-stub" <<'EOF'
 echo "$*" >> "$STUB_LOG"; case "$1" in pr-comment|pr-close) exit 0;; *) exit 2;; esac
 EOF
 chmod +x "$T/gh-stub"
-mkrepo "$T"
+mkrepo "$T"; ghremote "$W" "$ORIGIN" fake/w   # r1746: FT_ROOT(카드 리포) ≠ 대상 = 다른 리포 — 대상 원격은 github owner/name 꼴(전송은 로컬 bare)
 json() { python3 -c 'import json,sys;print(json.dumps({"headRefOid":sys.argv[1],"headRefName":sys.argv[2],"isCrossRepository":False,"title":"t "+sys.argv[3],"body":"b","state":"OPEN","baseRefName":"main"}))' "$1" "$2" "$3" > "$STUB_JSON"; }
 pushpr() { git -C "$W" push -q -f origin "$2:refs/pull/$1/head"; PRSHA="$(sha "$W" "$2")"; json "$PRSHA" "$2" "$1"; }
 adv() { git -C "$W" fetch -q origin; git -C "$W" checkout -q -B main origin/main; mkdir -p "$(dirname "$W/$1")"; printf '%s\n' "$2" > "$W/$1"; cm "$W" "main adv"; git -C "$W" push -q origin main; git -C "$W" fetch -q origin; }
@@ -79,7 +79,7 @@ C3="$(printf '%s\n' "$D3" | sed -n 's/.* cand=\([0-9a-f]*\) .*/\1/p')"
 MU2="$(mutd skip-docam 'mgate || { docam "$GOUT" ||' 'mgate || { { [ -z "$DRY" ] && docam "$GOUT"; } ||')"
 run "$MU2/ft-merge-land.sh" 3 --approve-sha "$S3" --dry; [ "$rc" = 1 ] && [[ "$(dline)" == "DRY DENY 게이트: "*"포함하지 않음"* ]]; ck "M2 변이(dry 가 자동 병합 생략) → ③ FAIL 재현(DENY)" $?
 MU1="$(mutd dry-push '[ -z "$DRY" ] || { hs_release; echo "DRY ALLOW' '[ -n "$DRY" ] || { hs_release; echo "DRY ALLOW')"
-BHF="$CARD/.fable-team/state/base-head"; cp "$BHF" "$T/bh.keep" 2>/dev/null; B3="$(oref)"; run "$MU1/ft-merge-land.sh" 3 --approve-sha "$S3" --dry; [ "$(oref)" != "$B3" ]; ck "M1 변이(dry 가 push 까지) → 원격 ref 변화(쓰기 0 칸 FAIL 재현)" $?
+BHF="$CARD/.fable-team/state/base-head-fake-w"; cp "$BHF" "$T/bh.keep" 2>/dev/null; B3="$(oref)"; run "$MU1/ft-merge-land.sh" 3 --approve-sha "$S3" --dry; [ "$(oref)" != "$B3" ]; ck "M1 변이(dry 가 push 까지) → 원격 ref 변화(쓰기 0 칸 FAIL 재현)" $?
 git -C "$ORIGIN" update-ref refs/heads/main "$M3"; if [ -f "$T/bh.keep" ]; then cp "$T/bh.keep" "$BHF"; else rm -f "$BHF"; fi   # M1 이 옮긴 main·기준 헤드를 되돌린다(임시만)
 run "$LAND" 3 --approve-sha "$S3"; [ "$rc" = 0 ] && [[ "$out" == *"LANDED pr=3 "* ]] && [[ "$out" == *"INFO 문서 PR main 자동 병합 C="* ]]; ck "④ ③ 뒤 실제 착지 → 같은 C 판정으로 LANDED" $?
 

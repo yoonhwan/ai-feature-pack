@@ -113,9 +113,9 @@ GIT rev-parse --verify -q refs/heads/nano/rp >/dev/null && ok "ⓒ  └ 가지 n
 echo "== ⓓ 재생성 불가 → .stale + 사유 1줄 (실작업물 미커밋은 새 계획의 가드가 HIL)"
 D="$T/d1"; oldplan "$D" 'byz-harness-nano-nw#0' nw "$REPO/.worktrees/v65-nowhere"
 o="$(swp "$D")"
-has "$o" "STALE byz-harness-nano-nw#0" "ⓓ WT 없음 → STALE"
+has "$o" "OK   byz-harness-nano-nw#0 wt=none" "ⓓ WT 없음 → none(r2179 · STALE 아님)"
 has "$o" "WT 없음" "ⓓ  └ 사유 1줄"
-chk "ⓓ  └ .stale 이동" "$(isf "$D/byz-harness-nano-nw#0.sh.stale")" yes
+chk "ⓓ  └ .done 이동 · .stale 0" "$(isf "$D/byz-harness-nano-nw#0.sh.done"):$(isf "$D/byz-harness-nano-nw#0.sh.stale")" yes:no
 mkwt v65-ft feat/ft
 D="$T/d2"; oldplan "$D" 'byz-harness-nano-ft#0' ft "$REPO/.worktrees/v65-ft"
 o="$(swp "$D")"

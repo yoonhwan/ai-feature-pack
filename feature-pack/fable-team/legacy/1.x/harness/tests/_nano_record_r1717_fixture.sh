@@ -46,13 +46,15 @@ EOF
 cat > "$FK/mbox.sh" <<'EOF'
 #!/usr/bin/env bash
 # 가짜 우편함 — send <to> <from> <body> · 기록 = <seq>\t<to>\t<from>\t<body> · 실패 주입: MBOX_FAIL(전부) · MBOX_FAIL_HEAD(본문 머리가 그 글이면)
+#   r2015: send 출력 doorbell=${MBOX_DB-sent}(빈 값 = 칸 없음) · ring <좌석> = $MBOX_LOG.ring 에 1줄 · rc MBOX_RING_RC · 출력 doorbell=${MBOX_RING_DB:-sent}
+if [ "$1" = ring ]; then echo "$2" >> "$MBOX_LOG.ring"; [ "${MBOX_RING_RC:-0}" = 0 ] || exit "$MBOX_RING_RC"; echo "RING $2 doorbell=${MBOX_RING_DB:-sent}"; exit 0; fi
 [ "$1" = send ] || exit 2
 [ -z "${MBOX_TOUCH:-}" ] || : > "$MBOX_TOUCH"
 case "$4" in "${MBOX_FAIL_HEAD:-$'\001'}"*) MBOX_FAIL=5;; esac
 [ -z "${MBOX_FAIL:-}" ] || { printf 'FAIL\t%s\t%s\t%s\n' "$2" "$3" "$4" >> "$MBOX_LOG"; echo QUEUE_FULL >&2; exit "$MBOX_FAIL"; }
 n=$(( $(cat "$MBOX_DIR/.mbox-seq") + 1 )); echo "$n" > "$MBOX_DIR/.mbox-seq"
 printf '%s\n' "$4" > "$MBOX_DIR/bodies/$n.txt"; printf '%s\t%s\t%s\t%s\n' "$n" "$2" "$3" "$4" >> "$MBOX_LOG"
-echo "QUEUED seq=$n to=$2 pending=1"
+db="${MBOX_DB-sent}"; echo "QUEUED seq=$n to=$2 pending=1${db:+ doorbell=$db}"
 EOF
 chmod +x "$FK"/*
 CREM="$T/card.git"; ROOT="$T/root"; OPS="$ROOT/.worktrees/ops"; PREM="$T/pack.git"; PACK="$T/ai-pack"; IDX="design/harness/indices"

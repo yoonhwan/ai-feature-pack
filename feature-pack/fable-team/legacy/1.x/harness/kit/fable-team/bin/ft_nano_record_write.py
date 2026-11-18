@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 # pyright: basic
 """ft_nano_record_write.py — r1717 A6~A10 `landed --seat <좌석> --pr <N> --card <stem> [--test "<명령> rc=0"] [--left "<종류>=<담당>"] [--handoff <경로>]`.
-조건(A6): 장부에 (pr · 카드) 줄 · 착지 sha Q 가 그 리포 origin/<target> 의 조상 · <좌석> 이 «지금» 그 카드의 차례 좌석 · --test 는 rc=0 으로 끝난다. 아니면 REJECT(rc 1 · 쓰기 0).
-쓰는 줄(A7 · 카드 «## 상태» 절 끝 · 줄마다 «없을 때만»): ⓢ `- 세트:` · ⓛ `- 착지: <Q>` · ⓒ `- 완료: <좌석>` — 있던 줄은 지우거나 고치지 않는다.
-카드 ref 반영(A8): 바탕 = 방금 받은 원격 끝 · 새 커밋 = 부모 1개 · 바뀐 경로 = 그 카드 1개 · 더한 줄뿐(임시 인덱스 + commit-tree → URL 로 non-force push).
-  공유 작업 트리·인덱스·HEAD·로컬 가지·remote-tracking 손 0(객체만) · 잠금 = state/land-record.lock(fetch 부터 확인까지) · non-FF 거절 = 새 끝에서 1회 다시 · force 0.
-  확인 = push 뒤 다시 받아 이번 줄이 다 보일 때만 stdout `DONE`(쓸 줄 0 = `ALREADY` · 뒤 단계는 건너뛰지 않는다 — A9).
-뒤 단계(종류=닫기 · 잔여 없음): A13 세션 기록 → A10 팀장 «[완료·닫기 요청]» → 끝줄 `NEXT bash ft-nano-close.sh <좌석> --landed-pr <N> --result <세션 기록> --recv <seq>`.
-  값이 하나라도 없으면 NEXT 0 · «닫기 명령 보류 빠짐=…» rc 3. tmux kill·닫기 도구 호출 0(A14). env: FT_LAND_RECORD_LOCK_S(잠금 기다림 · 기본 25)."""
+조건(A6): 장부에 (pr · 카드) 줄 · 착지 sha Q 가 그 리포 origin/<target> 의 조상 · <좌석> 이 «지금» 그 카드의 차례 좌석 · --test 는 rc=0 으로 끝난다. 아니면 REJECT(rc 1 · 쓰기 0). 쓰는 줄(A7 · 카드 «## 상태» 절 끝 · 줄마다 «없을 때만»): ⓢ `- 세트:` · ⓛ `- 착지: <Q>` · ⓒ `- 완료: <좌석>` — 있던 줄은 지우거나 고치지 않는다.
+카드 ref 반영(A8): 바탕 = 방금 받은 원격 끝 · 새 커밋 = 부모 1개 · 바뀐 경로 = 그 카드 1개 · 더한 줄뿐(임시 인덱스 + commit-tree → URL 로 non-force push) · 공유 작업 트리·인덱스·HEAD·로컬 가지·remote-tracking 손 0(객체만) · 잠금 = state/land-record.lock(fetch 부터 확인까지) · non-FF 거절 = 새 끝에서 1회 다시 · force 0.
+  확인 = push 뒤 다시 받아 이번 줄이 다 보일 때만 stdout `DONE`(쓸 줄 0 = `ALREADY` · 뒤 단계는 건너뛰지 않는다 — A9) · push 시간 초과도 같은 확인(안 보이면 «push rc=- · 확인 줄 안 보임» · r2209).
+뒤 단계(종류=닫기 · 잔여 없음): A13 세션 기록 → A10 팀장 «[완료·닫기 요청]» → 끝줄 `NEXT bash ft-nano-close.sh <좌석> --landed-pr <N> --result <세션 기록> --recv <seq>` · 값이 하나라도 없으면 NEXT 0 · «닫기 명령 보류 빠짐=…» rc 3. tmux kill·닫기 도구 호출 0(A14). env: FT_LAND_RECORD_LOCK_S(잠금 기다림 · 기본 25)."""
 from __future__ import annotations
 
 import argparse
@@ -21,8 +18,9 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from ft_nano_record import ENV, SET_RX, Ctx, Reject, Unjudged, check_test, left_free, left_of, marks, need, rec_of, run, section
-from ft_nano_record_due import card_key, owners
+from ft_nano_record_due import at, card_key, resolve_owner
 from ft_nano_record_notify import close_request, send, seq_known, try_record, update
+from ft_nano_record_repo import proxy_turn
 
 
 @contextmanager
@@ -72,10 +70,10 @@ def read_sec(ctx, team, iroot, stem):   # 카드 ref 를 새로 받아 → (끝 
     return ctx.tip(team), path, lines, st, en
 
 
-def verify(ctx, team, iroot, stem, add):   # A8 ㉣ — 다시 받아 이번 줄이 전부 보일 때만 통과
+def verify(ctx, team, iroot, stem, add, why="확인(카드 ref 에 이번 줄이 안 보임) rc=1"):   # A8 ㉣ — 다시 받아 이번 줄이 전부 보일 때만 통과 · why = 안 보일 때 줄(r2209)
     _t, _p, lines, st, en = read_sec(ctx, team, iroot, stem)
     if any(a not in lines[st + 1:en] for a in add):
-        raise Unjudged("확인(카드 ref 에 이번 줄이 안 보임) rc=1")
+        raise Unjudged(why)
     return lines[st + 1:en]
 
 
@@ -96,6 +94,8 @@ def apply(ctx, team, iroot, stem, plan, msg):   # A8·A9 → ("DONE"|"ALREADY", 
         rc, _out, err = run(["git", "-C", str(ctx.root), "push", "-q", purl.strip(), f"{sha}:refs/heads/{t['br']}"])
         if rc == 0:
             break
+        if rc is None and err == "시간 초과":   # r2209 — 원격이 받고 나서 끊겼을 수 있다 → 다시 받아 확인(재시도 0 · OSError 는 아래 판정 불가)
+            return "DONE", verify(ctx, team, iroot, stem, add, "push rc=- · 확인 줄 안 보임")   # r2209-mut:verify
         if "PUSH_DENIED" in err:   # r1999-mut:denied
             raise Reject(next(x[x.find("PUSH_DENIED"):] for x in err.splitlines() if "PUSH_DENIED" in x))   # r1999: 나노 가드 거절 = REJECT · 재시도 0
         if attempt == 2 or not re.search(r"rejected|non-fast-forward|fetch first|stale info", err):
@@ -103,8 +103,8 @@ def apply(ctx, team, iroot, stem, plan, msg):   # A8·A9 → ("DONE"|"ALREADY", 
     return "DONE", verify(ctx, team, iroot, stem, add)   # r1717-mut:verify
 
 
-def lines_for(ctx, e, stem, a, info, sec):   # A7 — 줄마다 «없을 때만»(순서 ⓢ ⓛ ⓒ)
-    q, m, add = e["landed"], marks(sec, a.seat, e["landed"]), []
+def lines_for(ctx, e, stem, a, info, sec, seat):   # A7 — 줄마다 «없을 때만»(순서 ⓢ ⓛ ⓒ) · seat = ⓒ 칸 좌석(r2039 대리 = 차례 나노 · 아니면 a.seat)
+    q, m, add = e["landed"], marks(sec, seat, e["landed"]), []
     if not m["s"]:
         if a.test is None or not re.fullmatch(r"[0-9a-f]{40}", str(e.get("pr_head") or "")):
             raise Reject("세트 줄 없음 — --test 필요" if a.test is None else "장부 줄에 pr_head 40-hex 없음 — 세트 줄을 못 쓴다")
@@ -115,9 +115,9 @@ def lines_for(ctx, e, stem, a, info, sec):   # A7 — 줄마다 «없을 때만�
     if info["sort"] == "닫기":
         want = (a.left or "").strip() or "없음"
         if not m["c"] or left_of(m["c"]) != want:
-            add.append(f"- 완료: {a.seat} · 병합 상태: 착지 {q[:10]} · 남은 일: {want} · 차례 #{turn}")
+            add.append(f"- 완료: {seat} · 병합 상태: 착지 {q[:10]} · 남은 일: {want} · 차례 #{turn}")
     elif not m["c"] and info["sort"] != "팀장":   # r1814 A1: 팀장 갈래 = 세트·착지 두 줄뿐(due «끝 주인 기록»)
-        add.append(f"- 완료: {a.seat} · 병합 상태: 착지 {q[:10]} · 좌석 계속(지금 카드 {info['cur']}) · 차례 #{turn}")
+        add.append(f"- 완료: {seat} · 병합 상태: 착지 {q[:10]} · 좌석 계속(지금 카드 {info['cur']}) · 차례 #{turn}")
     return add
 
 
@@ -136,9 +136,8 @@ def finish(ctx, r, a):   # A13 세션 기록 → A10 닫기 요청 · NEXT (종�
     seq = close_request(ctx, {**r, "rec": rec_of(r["m"])}, path) if path else None
     want = path or ctx.state / "seat-record" / f"{seat}.md"
     miss = [n for n, ok in (("세션 기록", path is not None and want.is_file()), ("닫기 요청 seq", seq_known(ctx, seq))) if not ok]   # r1717-mut:inputs
-    if miss:
-        print(f"닫기 명령 보류 빠짐={'·'.join(miss)} 채울 이={seat}(landed 를 다시)")
-        return 3
+    if miss:   # r1721 A2 — held=drift(설치 먼저) = 미룸 줄은 held 가 냈다 · 기록은 남음 · NEXT 0 · rc 0(다음 notify 가 닫기 요청)
+        return 0 if getattr(ctx, "held", None) == "drift" else print(f"닫기 명령 보류 빠짐={'·'.join(miss)} 채울 이={seat}(landed 를 다시)") or 3
     print(f"NEXT bash ft-nano-close.sh {seat} --landed-pr {r['pr']} --result {want} --recv {seq}")
     return 0
 
@@ -148,7 +147,7 @@ def cmd_landed(ctx, a):
     if not hit:
         raise Reject(f"장부에 (PR #{a.pr} · {a.card}) 줄 없음")
     e, cpath = hit[-1]
-    team, iroot, stem = card_key(cpath)
+    (team, iroot, stem), ctx = card_key(cpath), at(ctx, cpath)   # r1849 ⓑ: 카드 리포의 카드 ref·명부(잠금·보낸 기록·우편함 = 장부 루트)
     if a.test is not None:
         check_test(a.test)
     q, repo, target = e["landed"], str(e.get("repo") or ""), str(e.get("target") or "main")
@@ -160,20 +159,21 @@ def cmd_landed(ctx, a):
     doc, info = ctx.seats(team), {}
 
     def plan(sec):
-        own = {s: (k, c) for s, k, c in owners(ctx, doc, stem, sec)}
+        info["doc"], found = resolve_owner(ctx, team, doc, stem, sec)   # r2056 A1·A5: due 와 같은 함수 · 닫기 요청 = 찾은 명부 팀장
+        who, own = proxy_turn(ctx, doc, team, {s: (k, c) for s, k, c in found}, a.seat)   # r2039 A1·A3·A5 — ⓒ 칸 좌석들(main 팀 팀장 = 차례 나노 대리)
         own = own or {s: ("팀장", stem) for s in [doc.get("_master")] if s and s == a.seat}   # r1805 A1 · r1814 A1
         if a.seat not in own:   # r1717-mut:turnseat
             raise Reject(f"{a.seat} 은 {stem} 의 차례 좌석이 아님(지금 차례 = {' '.join(own) or '없음'})")
-        info["sort"], info["cur"] = own.get(a.seat) or ("닫기", stem)
-        return lines_for(ctx, e, stem, a, info, sec)
+        info["who"] = {s: own[s] for s in who}
+        return list(dict.fromkeys(ln for s in who for ln in lines_for(ctx, e, stem, a, dict(zip(("sort", "cur"), own[s])), sec, s)))   # ⓢ·ⓛ 같은 줄 = 1번
 
     with lock(ctx):
         status, sec = apply(ctx, team, iroot, stem, plan, f"[docs] {stem} 착지·완료 줄 (나노 {a.seat})")
         t = ctx.tip(team)
         path = ctx.card(team, iroot, stem)[0]
     print(status)
-    return finish(ctx, {"pr": a.pr, "q": q, "stem": stem, "seat": a.seat, "sort": info["sort"], "master": str(doc.get("_master") or ""),
-                        "m": marks(sec, a.seat, q), "ref": t["ref"], "path": path}, a)
+    return max(finish(ctx, {"pr": a.pr, "q": q, "stem": stem, "seat": s, "sort": k, "master": str(info["doc"].get("_master") or ""),   # r2039 A6: 좌석 칸 = 차례 나노
+                            "m": marks(sec, s, q), "ref": t["ref"], "path": path}, a) for s, (k, _c) in info["who"].items())
 
 
 def main(argv):

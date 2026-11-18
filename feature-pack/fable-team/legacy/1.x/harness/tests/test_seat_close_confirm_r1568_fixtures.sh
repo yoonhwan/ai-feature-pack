@@ -14,6 +14,7 @@ mkdir -p "$TMP/else" "$TMP/wt" "$TMP/mb" "$TMP/psbin" "$TMP/resume" "$TMP/cf/com
 git -C "$TMP/wt" init -q
 export ZC_RESUME_DIR="$TMP/resume" FT_REAP_DEFER_DIR="$TMP/defer" FT_PERMIT_DIR="$TMP/permits" FT_BG_FINITE_LEDGER="$TMP/ledger.tsv"
 export FT_PRESS_RUNNER_RE="r1568-never-$$" FT_SUCCESSOR_DIR="$TMP/succ" FT_MBOX_PY="$TMP/mbox-ok.py"
+export FT_SESSION_CLOSE_LEDGER="$TMP/session-close.tsv"   # r2101: 닫기 도구의 원장 줄 = 임시(실 루트 원장 0)
 export FT_REAP_TERM_WAIT=0.15 FIX_STOP="$TMP/stop" FIX_PARENT="$TEST_PID"   # TERM 대기 0.15초 = 시험 전용(제품 기본 3초)
 printf 'print("CLOSE-OK stub")\n' > "$TMP/mbox-ok.py"
 printf '#!/bin/sh\necho "$*" >> %s/mbox.log\nexit 0\n' "$TMP/cf" > "$TMP/cf/comm/mbox.sh"

@@ -23,7 +23,7 @@ while [ $# -gt 0 ]; do case "$1" in
 CO_ARGS=(); [ "$HAVE_CO" -eq 0 ] || { [ -n "${CO//[[:space:]]/}" ] || { echo "usage: --cherry-override \"<사유>\" — 사유가 비었다(사유 없는 우회 거부)" >&2; exit 2; }; CO_ARGS=(--override "$CO"); }
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 # r1675 — 카드 팀이 2.0 전환됨이면 spawn(워크트리·명부 행·카드 이동) 전에 멈춘다(첫 게이트). 표식 쓰기·지우기 = ft-team-switch.sh
-if [ -f "$HERE/ft20-switch-lib.sh" ]; then . "$HERE/ft20-switch-lib.sh"; ft20_guard_spawn "$(ft20_root_of "${IDX:-.}" 2>/dev/null)" "${IDX:-}" "${FT_SEATS_JSON:-}" || exit $?; else _ft20_r="${FT_FT20_ROOT:-$(git -C "${IDX:-.}" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)}"; compgen -G "${_ft20_r%/.git}/.fable-team/state/ft20-switch/*.json" >/dev/null 2>&1 && { echo "REJECT 2.0 전환 표식이 있는데 ft20-switch-lib.sh 없음(설치 누락) — 1.x 쓰기 0(판정 불가)" >&2; exit 3; }; fi
+if [ -f "$HERE/ft20-switch-lib.sh" ]; then . "$HERE/ft20-switch-lib.sh"; _ft20_root="$(ft20_root_of "${IDX:-.}")" || exit $?; ft20_guard_spawn "$_ft20_root" "${IDX:-}" "${FT_SEATS_JSON:-}" || exit $?; else _ft20_r="${FT_FT20_ROOT:-$(git -C "${IDX:-.}" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)}"; compgen -G "${_ft20_r%/.git}/.fable-team/state/ft20-switch/*.json" >/dev/null 2>&1 && { echo "REJECT 2.0 전환 표식이 있는데 ft20-switch-lib.sh 없음(설치 누락) — 1.x 쓰기 0(판정 불가)" >&2; exit 3; }; fi
 [ -f "$HERE/ft-heavy-slot-lib.sh" ] || { echo "REJECT ft-heavy-slot-lib.sh 없음: $HERE — 좌석 0"; exit 1; }; . "$HERE/ft-heavy-slot-lib.sh"   # r1286: 무거운 git 전역 자리(동시 2) — 없으면 조용한 통과 0
 _cmd_on="${FT_CMD_ENABLED:-0}"
 # ★일반화(2026-10-20 오빠 «ft-nano-spawn.sh 일반화 업그레이드»)★ — 티어는 «기본값 공급자»다: --agent 를 명시하면 티어가 에이전트·모델·effort·fast 를 덮어쓰지 않는다
@@ -384,8 +384,21 @@ SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"   # ⑤명부 «등록» 
 [ -n "${FT_NANO_PREFIX:-}" ] || FT_NANO_PREFIX="$DEF_NANO_PREFIX"
 # ★EXIT 정리 목록 (r921 r3 · DA⑥ r2 W4)★: trap 을 «덮어쓰지» 않는다 — 정리 함수를 _ON_EXIT 에 이어 붙이고 trap 은 _on_exit 하나만 건다(잠금 해제·사건 원장 abort 가 둘 다 돈다).
 _ON_EXIT=()
-_on_exit() { local f; for f in ${_ON_EXIT[@]+"${_ON_EXIT[@]}"}; do "$f" || true; done; }
+_on_exit() { _ON_EXIT_RC=$?; local f; for f in ${_ON_EXIT[@]+"${_ON_EXIT[@]}"}; do "$f" || true; done; }
 trap _on_exit EXIT
+# ★r2067 A4★ 종료 자리 한 곳(정리 목록에 이어 붙임) — rc 5 = 새 좌석 raise · rc 7 = 카드 raise · rc 0 = 둘 다 clear · 그 밖·--dry-run = 호출 0 · rc 불변
+_FTB_CAUSE=""
+_ftb_spawn_exit() {
+  [ "$DRY" != 1 ] && . "$HERE/ft-block-lib.sh" 2>/dev/null && declare -F ft_block >/dev/null || return 0
+  local stem; stem="$(basename -- "$IDX" .md)"
+  case "${_ON_EXIT_RC:-}" in
+    0) [ -n "${NAME:-}" ] && ft_block clear ft-nano-spawn "$NAME"; ft_block clear ft-nano-spawn "$stem";;
+    5) [ -n "${NAME:-}" ] && ft_block raise ft-nano-spawn seat "$NAME" --cause "${_FTB_CAUSE:-ft-nano-spawn rc 5}" --fix "판정 필요 $NAME pane 도달 확인" --period 900;;
+    7) ft_block raise ft-nano-spawn card "$stem" --cause "${_FTB_CAUSE:-ft-nano-spawn rc 7}" --fix "판정 필요 정원·프록시 — 순번 큐가 다음 틱에 다시 시도" --period 900;;
+  esac
+  return 0
+}
+_ON_EXIT+=(_ftb_spawn_exit)
 # ★좌석 상한 (R252 · 판정 1949 · ★r921 r3 = DA⑥ r2 W1★)★: 팀 env 에 FT_TEAM_SEAT_CAP·FT_GROUP_SEAT_CAP 가 있는 팀(위성)만 — 부작용 0 지점(워크트리·세션·명부 «전»)에서 센다. env 가 없는 팀은 검사 0.
 #   팀셋 상한과 같은 W4 규칙: 판정기 REJECT(live >= cap) = 회수 1회(ft_reclaim_capped · 7초 상한) → 다시 셈 → live < cap+1 이면 WARN 1줄 + 개설 · 그래도 live >= cap+1 이면 순번 큐(exit 7).
 #   W1: 상한 측정 실패(ERROR · `N/M` 꼴 못 읽음)는 정지가 아니다 — `WARN 좌석 상한 측정 실패 — 진행` 1줄. --dry-run 은 회수·큐 0(REJECT 면 옛 rc1 그대로).
@@ -416,7 +429,7 @@ if [ -n "${FT_TEAM_SEAT_CAP:-}${FT_GROUP_SEAT_CAP:-}" ]; then
             printf '%s\n' "$_cap"
             [ -f "$HERE/ft_spawn_queue.py" ] || { echo "REJECT ft_spawn_queue.py 없음: $HERE (순번 큐를 쓸 수 없다)"; exit 1; }
             python3 "$HERE/ft_spawn_queue.py" add --root "$ROOT" --prefix "$FT_NANO_PREFIX" --card "$IDX" --from "$FROM"
-            card_assign_record "$IDX" waiting 석; exit 7
+            _FTB_CAUSE="${_cap%%$'\n'*}"; card_assign_record "$IDX" waiting 석; exit 7
           else
             echo "WARN resource seat-cap ${_cap%%$'\n'*} — 회수 1회 뒤 cap+1 까지 열어 준다(r921 · 순번 큐 적재 0)" >&2
           fi
@@ -452,7 +465,7 @@ _ts_fields() { # <cap 출력> → "live cap" (못 읽으면 빈 값)
   printf '%s %s' "${l:-}" "${c:-}"
 }
 _ts_queue() { # <사유> — 순번 큐에 넣고 master 알림(있으면) · rc7
-  echo "QUEUED $2 — $1" >&2
+  _FTB_CAUSE="QUEUED $2 — $1"; echo "$_FTB_CAUSE" >&2
   [ "$DRY" = 1 ] || python3 "$HERE/ft_spawn_queue.py" add --root "$ROOT" --prefix "$_tsp" --card "$IDX" --from "$FROM" || true
   card_assign_record "$IDX" waiting 석; exit 7
 }
@@ -793,10 +806,10 @@ echo "BODY+${_SPX}"
 _SRX=" ★저장소 전체 검색 금지 — grep -r · git log --all -S · find / 를 리포 루트·홈에서 돌리지 않는다(부하 40 → 다른 팀 press 오염 · r570) · 카드 §구현 범위 경로나 자기 워크트리 폴더를 지정해 찾는다 · 코드 찾기·바꾸기는 \`ci sym/refs/outline/search\`(스코프 = 카드 §구현 범위 폴더 · 리포 루트 scope 금지) · grep 은 로그·결과·명부만 · ci 가 안 돌면(끊김·미설치) 결함이다. 그 턴에 보고처(팀 master · master 는 harness master)에 [긴급] 1통을 보낸다(링크·대상 경로 · \`ci doctor\` 원문). 복구 전까지만 rg+Read 로 진행한다(하드 룰 16 · r1353) · 명부(seats.json · seats-<팀>.json)는 손대지 않는다(spawn 이 이미 등록 · 손 행 = 쪽지 반송)★"
 echo "BODY+${_SRX}"
 # r1035: 나노가 산출 보고를 «턴 종료» 로 읽고 멈추던 사고(10-28 ops 나노 REWORK 보고 뒤 약 20분 유휴 · 카드에 닫을 수 있는 행 3개가 남아 있었고 지적 뒤 5분 만에 끝남) — 첫 발주문 고정 줄 1개. 에이전트 분기 0(claude·pi·opencode·codex 같은 줄).
-_AFX=" ★산출 보고 뒤 = 멈춤 아님 — ①보고 직후 카드 «완료 조건» 표를 행마다 다시 훑어 네가 닫을 수 있는 행은 그 턴에 닫고 증거 줄을 카드 «상태» 절에 더한다(master 회신 대기는 일이 아니다) ②보고의 «남은 것» 항목마다 «네가 못 닫는 이유» 를 한 줄 붙이고 못 쓰면 네가 닫는다 ③남은 것이 0 이면 «남은 것 0 + 근거» 와 좌석 종료 요청을 같은 쪽지에 넣는다(r1035)★"
+_AFX=" ★산출 보고 뒤 = 멈춤 아님 — ①보고 직후 카드 «완료 조건» 표를 행마다 다시 훑어 네가 닫을 수 있는 행은 그 턴에 일을 끝내고, 그 행 번호와 증거 줄을 완료 쪽지에 적는다(카드 파일 쓰기 0 · [x] 는 arch 가 인수 뒤 docs PR)(master 회신 대기는 일이 아니다) ②보고의 «남은 것» 항목마다 «네가 못 닫는 이유» 를 한 줄 붙이고 못 쓰면 네가 닫는다 ③남은 것이 0 이면 «남은 것 0 + 근거» 와 좌석 종료 요청을 같은 쪽지에 넣는다(r1035)★"
 echo "BODY+${_AFX}"
 # r1041: 나노 시험이 자기 파일을 가드 없이 다시 불러 fork 폭주 → 사용자 프로세스 상한(kern.maxprocperuid 6000) 도달 · 전 좌석 셸 fork 실패(10-28 r1038) — 첫 발주문 고정 줄 1개. 에이전트 분기 0.
-_RLX=" ★시험 안전선(r1041) — 시험은 «ulimit -u»(지금 사용자 프로세스 수 + 여유) 와 «timeout 70» 안에서만 돌린다 · 자기 파일을 다시 부르는 시험은 재진입 표지(환경변수 검사 + exit)가 필수다 · 완료 보고에 ft-test-reentry-lint.sh «시험파일» rc0 을 싣는다 — 가드 없는 자기 호출은 lint rc3 으로 막힌다★"
+_RLX=" ★시험 안전선(r1041) — 시험은 «ulimit -u»(지금 사용자 프로세스 수 + 여유) 와 «timeout 70» 안에서만 돌린다 · 시험 줄은 \`$HERE/ft-test-slot <시험 명령>\` 꼴로 쓴다(머신 전체 동시 4 · 래퍼가 timeout 70 을 건다 · r1978) · 자기 파일을 다시 부르는 시험은 재진입 표지(환경변수 검사 + exit)가 필수다 · 완료 보고에 ft-test-reentry-lint.sh «시험파일» rc0 을 싣는다 — 가드 없는 자기 호출은 lint rc3 으로 막힌다★"
 echo "BODY+${_RLX}"
 # r1672: 나노가 카드 «- 설치: 있음» 줄을 자기 일로 읽고 라이브 자리(LIVE_BIN·.fable-team/bin*·comm 원장·pi 확장)에 직접 cp 하던 사고 2건(11-11 16:15 r1396 · 16:20 r1397) — 첫 발주문 고정 줄 1개. 에이전트 분기 0.
 _LWX=" ★라이브(LIVE_BIN·.fable-team/bin*·comm 원장·pi 확장) 쓰기 0 — 카드 «설치:»·«켜기» 줄 = master 몫(나노 지시 아님) · 나노는 산출 보고에 «설치 h 필요» 1줄만 적는다(도구 문지기가 라이브 자리 쓰기를 그 자리에서 거절한다 · r1672)★"
@@ -877,7 +890,7 @@ _pxout="$(bash "$HERE/ft-agent-ready.sh" --proxy "$WT" --agent "$AGENT" 2>&1)"; 
 if [ "$_pxrc" != 0 ]; then
   [ -f "$HERE/ft_spawn_queue.py" ] || { echo "REJECT 프록시 확인 실패(rc=$_pxrc) + ft_spawn_queue.py 없음: $HERE — 순번 큐를 쓸 수 없다(부작용 0)"; exit 1; }
   python3 "$HERE/ft_spawn_queue.py" add --root "$ROOT" --prefix "$FT_NANO_PREFIX" --card "$IDX" --from "$FROM" || { echo "REJECT 프록시 확인 실패(rc=$_pxrc) + 순번 큐 실패 — 부작용 0"; exit 1; }
-  echo "INFO 프록시 확인 실패 = 진짜 장애 — 좌석 0 · 순번 큐에 남깁니다(사유 proxy · 다음 틱 재시도)"
+  _FTB_CAUSE="INFO 프록시 확인 실패 = 진짜 장애 — 좌석 0 · 순번 큐에 남깁니다(사유 proxy · 다음 틱 재시도)"; echo "$_FTB_CAUSE"
   exit 7
 fi
 # 사건 원장 훅(PLAN-status-sheet §3-1 · 근원 ⑥): prepared 를 «먼저» — 못 쓰면 착수 거절 · 성공(⑥ 끝)에 committed · 그 밖의 종료는 abort(trap)
@@ -1123,7 +1136,7 @@ bash "$HERE/ft-sheet-events.sh" commit "$_SK" >/dev/null || true   # 좌석 열�
 
 # ⑦⑧ 첫 발주 = 인덱스 경로 한 줄 + README. 본문은 파일에 있다. 도달은 jsonl 층(ft-send-verified)
 #   r1072: $_SBR 은 좌석 열기 «전»(seatbelt_readme_path)에 이미 풀렸다 — 여기서 다시 풀지 않는다(경로가 두 벌이 되면 갈린다).
-BODY="[Seatbelt 발주] 네 인덱스: $IDX_WT/$NEW_IDX — 먼저 $_SBR${_SBR_REF:+ (ref $_SBR_REF 판 사본)} §2 부팅 5단계(첫 보고까지), 그 다음 인덱스 §구현 범위만. ★명부 = $SEATS · 내 행은 spawn 이 이미 등록함 · 손으로 쓰기 0★ 커밋은 브랜치 $BRANCH, push 금지. 산출 경로를 mbox 로 $FROM 에. ★press(라이브 오디오 시험) 금지 — 나노는 쏘지 않는다(ft-press-gate ⑦ 이 tester·checker 좌석만 허가 · 오빠 10-07) · 시험은 단위·캡처·기존 로그만, press 가 필요하면 산출에 「press 필요: <무엇을 볼지>」 1줄로 적어 $FROM 에 넘긴다★ ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★ ★편집은 Edit 절대경로($WTDIR/…)만★ ★읽기는 Read · 코드 찾기는 ci, Bash 는 실행(git·pytest·ruff·mbox)만★ — cat/sed -n/grep 으로 파일을 읽으면 전문이 컨텍스트에 쌓인다(2026-09-14 나노 16좌석 실측: Bash 100~156회 중 절반이 파일 읽기). ★증거 줄(세트: … · 시험: … rc=… · 이슈: …)은 완료 턴에 네가 인덱스 «상태» 절에 직접 쓴다($IDX_WT/$NEW_IDX 절대경로 Edit) — master 는 커밋만(판정 1125)★ 증거 줄 템플릿(그대로 복사해 <> 만 채움): 세트: <나노 HEAD 40자> · 시험: <명령 — «(N passed)» 같은 꼬리는 여기> rc=<n> · 이슈: 0 — rc= 바로 뒤는 « · 이슈:» — 괄호·설명은 rc= 앞에. ★팀 구조: 각 팀 = master(집행) + arch(설계·발주·DA 소환) + DA(반박 게이트) 상시 · 실제 작업은 전부 나노(카드 1장 = 나노 1석) · master·arch·DA 는 코드·시안·카드 증거 줄을 쓰지 않는다★${_WFX}${_NFX}${_EVX}${_SPX}${_SRX}${_AFX}${_RLX}${_LWX}${_RTX}$_PKX${_EBN}"
+BODY="[Seatbelt 발주] 네 인덱스: $IDX_WT/$NEW_IDX — 먼저 $_SBR${_SBR_REF:+ (ref $_SBR_REF 판 사본)} §2 부팅 5단계(첫 보고까지), 그 다음 인덱스 §구현 범위만. ★명부 = $SEATS · 내 행은 spawn 이 이미 등록함 · 손으로 쓰기 0★ 커밋은 브랜치 $BRANCH, push 금지. 산출 경로를 mbox 로 $FROM 에. ★press(라이브 오디오 시험) 금지 — 나노는 쏘지 않는다(ft-press-gate ⑦ 이 tester·checker 좌석만 허가 · 오빠 10-07) · 시험은 단위·캡처·기존 로그만, press 가 필요하면 산출에 「press 필요: <무엇을 볼지>」 1줄로 적어 $FROM 에 넘긴다★ ★측정 조작 금지(오빠 절대지침) — 임의 Redis 쓰기(redis-cli SET·HSET·XADD·PUBLISH 등 제품 키 직접 주입)·말풍선 DOM 주입(재생 하네스·/dev/bubble-replay·appendChild)으로 만든 결과는 증거 아님 · 측정은 trusted 클릭 + 기존 e2e 러너의 실제 음성 경로만 · 격리 Redis 픽스처 시험은 별개 · 이미 썼으면 [HIL] 로 올림 (BOOT 20)★ ★편집은 Edit 절대경로($WTDIR/…)만★ ★읽기는 Read · 코드 찾기는 ci, Bash 는 실행(git·pytest·ruff·mbox)만★ — cat/sed -n/grep 으로 파일을 읽으면 전문이 컨텍스트에 쌓인다(2026-09-14 나노 16좌석 실측: Bash 100~156회 중 절반이 파일 읽기). ★증거 줄(세트: … · 시험: … rc=… · 이슈: …)은 카드 파일에 쓰지 않는다 · 완료 쪽지 본문에 템플릿 그대로 1줄 · 카드 줄은 arch 가 인수 뒤 docs PR 로★ 증거 줄 템플릿(그대로 복사해 <> 만 채움): 세트: <나노 HEAD 40자> · 시험: <명령 — «(N passed)» 같은 꼬리는 여기> rc=<n> · 이슈: 0 — rc= 바로 뒤는 « · 이슈:» — 괄호·설명은 rc= 앞에. ★팀 구조: 각 팀 = master(집행) + arch(설계·발주·DA 소환) + DA(반박 게이트) 상시 · 실제 작업은 전부 나노(카드 1장 = 나노 1석) · master·arch·DA 는 코드 · 시안을 쓰지 않는다 · 카드 증거 줄은 arch 가 인수 뒤 docs PR★${_WFX}${_NFX}${_EVX}${_SPX}${_SRX}${_AFX}${_RLX}${_LWX}${_RTX}$_PKX${_EBN}"
 [ -z "$_ASG_LINE" ] || BODY="[Seatbelt 발주] $_ASG_LINE — ${BODY#\[Seatbelt 발주\] }"   # r1217: 머리 뒤 배정 1줄
 [ "$RESEARCH" != 1 ] || BODY="$BODY$_RSP"
 [ "$REOPEN" != 1 ] || BODY="$BODY ★재개 — 카드 «상태» 절 마지막 줄부터 · 가지의 미커밋·커밋을 먼저 읽는다(r1335 · 옛 좌석이 하던 일을 처음부터 다시 하지 않는다)★"
@@ -1152,4 +1165,4 @@ _retired="$(retired_line "$_probe")"
 [ "$REOPEN" != 1 ] || echo "REOPEN $IDX_REL seat=$NAME wt=$REOPEN_WT branch=$BRANCH head=$(git -C "$WTDIR" rev-parse HEAD 2>/dev/null)"   # r1335: 실사건 원문 1줄
 FT_SEND_FROM="$FROM" FT_REACH_AGENT="$AGENT" bash "$HERE/ft-send-verified.sh" "$NAME" "$BODY"; _src=$?   # r1750 A4: reach 판정에 에이전트를 넘긴다(ft-successor-open 과 같은 꼴)
 [ "$_src" -eq 0 ] && { echo "SPAWNED $NAME index=$NEW_IDX wt=$WTDIR · $(bash "$HERE/ft-event-check.sh" spawn "$NAME" "$IDX_WT/$NEW_IDX" "$WTDIR")"; exit 0; }   # r1474: 끝 칸 = 재측정 1회(exit 0 불변)
-echo "SPAWNED-UNVERIFIED $NAME rc=$_src — 좌석은 떴다. 도달을 사람이 확인"; exit 5
+_FTB_CAUSE="SPAWNED-UNVERIFIED $NAME rc=$_src — 좌석은 떴다. 도달을 사람이 확인"; echo "$_FTB_CAUSE"; exit 5

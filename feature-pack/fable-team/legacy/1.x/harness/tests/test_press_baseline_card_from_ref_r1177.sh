@@ -5,15 +5,18 @@
 #   반례 R1~R5(카드 «반례 집합») + 변이 1(ref 분기 삭제 → R1 BLOCK = FAIL). 자기 파일 재호출 0(guard 재실행은 RSG_ACTIVE 표지).
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
+fin=0; T=""   # r2249 O2: 끝 표지 — 중간에 죽거나 exit 0 해도 EXIT trap 이 rc 1 로 바꾼다
+trap 'rc=$?; [ -n "$T" ] && rm -rf "$T"; [ "$fin" = 1 ] || { echo "FAIL 끝 줄 없음 — 시험이 끝까지 돌지 않음(rc=$rc)"; exit 1; }; exit $rc' EXIT
+WANT_CASES=13   # r2249 O2: 기대 PASS 수(칸을 더하면 같이 고친다)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$HERE/../../harness/bin"
 CHK="$BIN/ft-press-baseline-check.sh"
-fail=0
-ok()  { echo "PASS $1"; }
-bad() { echo "FAIL $1"; fail=$((fail+1)); }
+fail=0; n=0
+ok()  { echo "PASS $1"; n=$((n+1)); }
+bad() { echo "FAIL $1"; fail=$((fail+1)); n=$((n+1)); }
 bash -n "$CHK" && ok "bash -n baseline-check" || bad "bash -n baseline-check"
 
-T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
+T="$(mktemp -d)"
 R="$T/repo"; mkdir -p "$R/worker" "$R/design/v65/baselines" "$R/cards" "$T/tmp"
 export TMPDIR="$T/tmp"   # 임시 카드 잔류 검사를 이 시험 폴더로 좁힌다(동시 좌석 파일 0)
 git -C "$R" init -q && git -C "$R" config user.email t@t && git -C "$R" config user.name t
@@ -22,11 +25,11 @@ printf '| key | 기본값 | OFF 값 | 읽는 자리 |\n|---|---|---|---|\n| `V65
 echo 'x = 1' > "$R/worker/a.py"
 git -C "$R" add -A && git -C "$R" commit -qm set
 A="$(git -C "$R" rev-parse HEAD)"
-card() { # 파일 [빼거나 바꿀 줄: 키=값 | -키] → 기준선 self 카드
+card() { # 파일 [빼거나 바꿀 줄: 키=값 | -키] → 기준선 self 카드 · r2249: 연관 배열 대신 키·값 배열 둘(bash 3.2)
   local f="$1"; shift
-  local -A v=([기준선]=self [종류]=기준선 [회차]=1 [실험]=없음 [프로필]=default-3bubble)
-  local a; for a in "$@"; do case "$a" in -*) v[${a#-}]="__DROP__" ;; *) v[${a%%=*}]="${a#*=}" ;; esac; done
-  mkdir -p "$(dirname "$f")"; : > "$f"; local k; for k in 기준선 종류 회차 실험 프로필; do [ "${v[$k]}" = "__DROP__" ] || echo "$k: ${v[$k]}" >> "$f"; done
+  local keys=(기준선 종류 회차 실험 프로필) vals=(self 기준선 1 없음 default-3bubble) a i
+  for a in "$@"; do for i in 0 1 2 3 4; do case "$a" in "-${keys[i]}") vals[i]="__DROP__" ;; "${keys[i]}="*) vals[i]="${a#*=}" ;; esac; done; done
+  mkdir -p "$(dirname "$f")"; : > "$f"; for i in 0 1 2 3 4; do [ "${vals[i]}" = "__DROP__" ] || echo "${keys[i]}: ${vals[i]}" >> "$f"; done
 }
 commit_card() { # 이름 [card 인자…] → 그 카드를 A 위에 커밋한 sha (작업 트리는 다시 A)
   local name="$1"; shift
@@ -79,4 +82,6 @@ if cmp -s "$CHK" "$M/ft-press-baseline-check.sh"; then bad "변이: 치환 0(대
   [ "$RC" -ne 0 ] && ok "변이 ref 분기 삭제 → R1 막힘(rc=$RC) = 시험이 잡음" || bad "변이 살아남음: $OUT"
 fi
 
+[ "$n" -eq "$WANT_CASES" ] || bad "사례 수 $n ≠ 기대 $WANT_CASES"
+echo "cases=$n fail=$fail"; fin=1
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

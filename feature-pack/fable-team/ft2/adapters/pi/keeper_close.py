@@ -42,6 +42,23 @@ settle = importlib.util.module_from_spec(importlib.util.spec_from_file_location(
 settle.__spec__.loader.exec_module(settle)   # r2055 A13 pane 일함 근거(kill 직전 가드·2차 판독 같은 꼴)
 
 
+def _raw(path):
+    """r2131 날 JSON — 없음 = (False, {}) · 깨짐·못 읽음·dict 아님 = (True, None) = 판정 못 함(없음·dead 로 바꾸지 않는다)."""
+    if not os.path.lexists(path):
+        return False, {}
+    try:
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return True, None
+    return True, data if isinstance(data, dict) else None
+
+
+def _num(value, kind):
+    """r2131 필수 칸 — bool 아닌 kind 값만 참(pid_state 의 «pid 없음 = dead» 를 조용한 닫기에 잇지 않는다)."""
+    return isinstance(value, kind) and not isinstance(value, bool)
+
+
 def pane_target(holder):
     """r1822 — pane 대상(capture-pane·send-keys·pane PID) = `=이름:` · `=이름` 은 세션 대상(has-session·kill-session 만)."""
     return "=" + holder + ":"
@@ -84,13 +101,19 @@ class Closing:
         holder = intent.get("FT2_HOLDER")
         if not holder or not os.path.isdir(intent.get("worktree") or "") or self.probe(holder) != "alive":
             return True
-        return self.look(team, work, attempt, holder, *self.pi_turn(intent), wait="landed-wait") == "REST"
+        return self.look(team, work, attempt, holder, *self.pi_turn(intent), wait="landed-wait", idle_s=settle.DONE_IDLE) == "REST"
 
     def close(self, team, work, attempt, row, dispatched=None):
         """B2 — intent holder 나노(B5) · 착지 조상 · 유휴(pane ∧ Pi 턴 끝) → kill 1 → 부재 확인 → 닫기 영수."""
         intent = endings.intent(self, team, work, attempt, dispatched)   # r1960 ③ 그 attempt 없으면 같은 holder 최신 opened
         holder, gen = intent.get("FT2_HOLDER"), row.get("gen") or 1
         if not holder:   # r2055 HELD 폐지 → UNKNOWN + [긴급]
+            quiet = self.never_opened(team, work, attempt, row, dispatched)
+            if quiet and self.halt:   # r2066 A3 정지 중 = «예정» 줄 1 · 영수·[긴급] 0
+                return self.verdict(team, work, dispatched, "예정 CLOSED-NEVER-OPENED", "intent=%s owner=%s" % quiet, "정지 중 영수 0") and None
+            if quiet:   # r2131 C1 열린 적 없는 끝난 일 = kill 0 · 판정 줄 1 · 영수 1(증거 () = 다음 배정 0)
+                self.log("CLOSED-NEVER-OPENED", team, "%s %s intent=%s owner=%s" % ((work, dispatched) + quiet))
+                return self.receipt(team, work, attempt, dispatched, gen) and None
             return self.unknown_seat(team, work, attempt, dispatched, "intent-none", "intent 없음(attempt %s)" % attempt) and None
         if not self.protected_ok(team, work, attempt, holder, dispatched):
             return
@@ -107,6 +130,7 @@ class Closing:
                 return
         ending = None if verdict or seen not in (NOLINE, NOCARD) else endings.ending(self, team, work, holder)   # r1960 ② complete 0 · r1972 empty = holder 줄 때만
         noland = seen == "absent"   # r1841 CLOSED-NOLAND 뒤 = 기존 영수 길(settle 0)
+        landed_close = not (verdict or ending or noland) and not seen   # A1·A2 — 착지 줄이 참인 닫기 길만 DONE_IDLE(그 밖 = PARK_IDLE)
         seen = "" if verdict or ending or noland else seen
         wide = self.wide_landed(team, work, intent, bool(row.get("done"))) if seen else ""   # r2055 A7 착지 근거 넓힘
         ending, seen = (("landed", wide), "") if wide else (ending, seen)
@@ -116,11 +140,14 @@ class Closing:
                 self.receipt(team, work, attempt, holder, gen)   # 증거 () = 다음 배정 0
             return
         seen = "absent" if noland else self.probe(holder)
+        done_idle = settle.DONE_IDLE   # A2 — 착지 닫기 길만 짧은 문턱(카드 ft2-done-seat-short-idle)
         if seen == "alive" and self.halt:   # r2055 정지 중 = «예정» 줄만
             return self.verdict(team, work, holder, "예정 LANDED", "close", "정지 중 kill 0") and None
         if seen == "alive":
             self.state["open"].setdefault(holder, {"team": team, "since": self.now()})
-            if self.look(team, work, attempt, holder, *self.pi_turn(intent), wait="landed-wait") != "REST":   # A6·A13 닫기 = 끝남 ∧ 한 판독 쉼
+            turn = self.pi_turn(intent)
+            short = landed_close or (wide == "done-card-완성" and turn[1] == "stop")   # r2264 C1 done ∧ 카드 완성 = 턴 닫힘일 때만 짧은 문턱
+            if self.look(team, work, attempt, holder, *turn, wait="landed-wait", idle_s=done_idle if short else settle.PARK_IDLE) != "REST":   # A6·A13 닫기 = 끝남 ∧ 한 판독 쉼
                 return
             if not self.turn_ended(team, work, holder, intent):
                 return
@@ -132,11 +159,35 @@ class Closing:
             seen = self.probe(holder)
             if seen != "absent":
                 return self.unknown_seat(team, work, attempt, holder, "kill-failed", "부재 확인 없음(%s)" % seen) and None
-            self.log("CLOSED-ENDING" if ending else "CLOSED-VERDICT" if verdict else "CLOSED-SESSION", team, " ".join(filter(None, (work, holder, verdict) + (ending or ()))))
+            self.log("CLOSED-ENDING" if ending else "CLOSED-VERDICT" if verdict else "CLOSED-SESSION", team, " ".join(filter(None, (work, holder, verdict) + tuple(ending or ()) + ((self.parked_tail(holder) or None,)))))   # A8 미읽음 마감 꼬리
         elif seen != "absent":
             return self.unknown_seat(team, work, attempt, holder, "tmux-error", seen) and None
         self.state["open"].pop(holder, None)
         self.receipt(team, work, attempt, holder, gen) if ending else keeper_next.close(self, team, work, attempt, holder, gen)   # r1960 끝 = 증거 () · 다음 배정 0
+
+    def never_opened(self, team, work, attempt, row, dispatched):
+        """r2131 C1 — ⓐ done ⓑ 그 attempt intent failed·closed·없음 ⓒ dispatch holder 세션 absent ⓓ 열기 자식(.owner·.intent.resume) dead·없음
+        → (intent, owner) 칸 · 하나라도 거짓·판정 못 함 = None(C2 · C4 열기 진행 중 보호).
+        r2066 — ⓑ 에 opening 더함(끝난 일의 멈춘 열기 · ⓓ 자식 dead 는 그대로 봄) · 정지 중 = 칸은 돌려주고 영수는 호출자가 막음(A3)."""
+        if not row.get("done"):   # ⓐ
+            return None
+        if not dispatched:
+            return None
+        base = os.path.join(projection.runtime_path(self.root, team), "launch", "%s@%s" % (work, attempt))
+        there, got = _raw(base + ".intent")
+        state = (got or {}).get("state") if there else "없음"
+        if state not in ("failed", "closed", "없음", "opening"):   # ⓑ 깨짐 = None · opened = 그 밖 · r2066 opening 안
+            return None
+        kids = []
+        for name, key in ((".owner", "child_pid"), (".intent.resume", "pid")):   # ⓓ keeper_launch.alive(pid_state)
+            there, data = _raw(base + name)
+            data = data if data is not None and _num(data.get(key), int) and _num(data.get("started"), (int, float)) else None   # DA #321649 R1 칸 없음·형식 틀림 = unknown
+            if there and (data is None or keeper_next.kl.alive(self, {"pid": data.get(key), "started": data.get("started")}) != "dead"):
+                return None
+            kids.append(there)
+        if self.probe(dispatched) != "absent":   # ⓒ
+            return None
+        return state, "dead" if any(kids) else "없음"
 
     def noland_rows(self, team):
         """N1·N2 목록 → {(work, attempt): [근거, 승인]} · 파일 없음 = {} · 못 읽음·꼴 틀림·중복 = 판정 불가 문자열(sha 포함)."""
@@ -214,7 +265,11 @@ class Closing:
         return True
 
     def pi_last_turn(self, intent):
-        """빈 문자열 = 턴 끝 · 그 밖 = 사유 1줄(파일·시각·마지막 줄)."""
+        """빈 문자열 = 턴 끝 · 그 밖 = 사유 1줄(파일·시각·마지막 줄) · r2135 L1 장기 좌석 holder = 좌석 jsonl(seat_log) 마지막 줄."""
+        holder = intent.get("FT2_HOLDER") or ""
+        if settle.long_seat(holder):   # r2135 L1
+            log = self.seat_log(holder)
+            return self.last_line(log) if log else "세션 파일 없음 좌석 %s" % holder
         sessions = self.env.get("FT2_PI_SESSIONS") or os.path.expanduser("~/.pi/agent/sessions")
         tree = intent.get("worktree") or ""
         try:
@@ -225,9 +280,13 @@ class Closing:
         files = sorted(glob.glob(os.path.join(folder, "*.jsonl")), key=os.path.getmtime) if tree else []
         if not files or os.path.getmtime(files[-1]) < opened:
             return "세션 파일 없음 %s" % folder
+        return self.last_line(files[-1])
+
+    def last_line(self, path):
+        """세션 jsonl 마지막 줄 → 빈 문자열(assistant · stopReason stop) 또는 사유 1줄."""
         try:
-            with open(files[-1], "rb") as fh:
-                fh.seek(max(0, os.path.getsize(files[-1]) - 65536))
+            with open(path, "rb") as fh:
+                fh.seek(max(0, os.path.getsize(path) - 65536))
                 last = json.loads([x for x in fh.read().decode("utf-8", "replace").splitlines() if x.strip()][-1])
         except (OSError, ValueError, IndexError) as exc:
             return "세션 파일 판독 불가 %s" % type(exc).__name__
@@ -304,7 +363,7 @@ class Closing:
         if not self.close_bin:
             self.log("판정 불가", text="ft-seat-close 경로 없음(FT_SEAT_CLOSE_BIN) — B3 0")
             return "stop"
-        argv = ["bash", self.close_bin, seat, "--reason", "retire -> " + (new or "close-receipt"), "--seats", path]
+        argv = ["bash", self.close_bin, seat, "--reason", "retire -> " + (new or "close-receipt"), "--seats", path, "--defer-press"]   # r2155 — press 진행 중이면 러너 «미룸»(r2153)
         rc, out, err = self.call(argv, GIT_S)
         first = ((out or err).strip().splitlines() or [""])[0][:160]
         self.log("CLOSED-SEAT" if rc == 0 else "HELD-SEAT", name, "%s rc %s %s" % (seat, rc, first))

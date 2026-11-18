@@ -212,7 +212,27 @@ def turn_on(reason: str) -> int:
     return _report(f"all_stop=on since={d['since']}", sent, failed)
 
 
+def paused_left() -> None:
+    """r2085: <state>/<팀>-tick/PAUSED 가 일반 파일인 팀 수·이름 1줄(0팀 = 줄 0) · 쓰기 0 · 목록 못 읽음 = 판정 불가 1줄."""
+    try:
+        names = sorted(d.name[: -len("-tick")] for d in state_dir().iterdir() if d.name.endswith("-tick") and (d / "PAUSED").is_file())
+    except OSError as e:
+        print(f"팀 정지 표식 판정 불가 — {type(e).__name__}")
+        return
+    if names:
+        more = f" 외 {len(names) - 5}" if len(names) > 5 else ""
+        print(f"팀 정지 표식 {len(names)}팀 남음: {' · '.join(names[:5])}{more} — 전팀 정지와 별개 · 이 팀들은 계속 멈춰 있다")
+
+
 def turn_off() -> int:
+    """off 결과 줄 뒤 팀 정지 표식 줄(r2085) — REJECT(rc 1) 갈래는 줄 0."""
+    rc = _turn_off()
+    if rc != 1:
+        paused_left()
+    return rc
+
+
+def _turn_off() -> int:
     p, sd = _file(), state_dir()
     lg = ledger()
     if not sd.is_dir() or (os.path.lexists(p) and p.is_dir()) or isinstance(lg, str):

@@ -14,6 +14,7 @@ T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 SEAT='byz-planner-master-claude#105'   # 문서 면제 판정 좌석(임시 명부의 planner _master · test_doc_exempt_r725.sh 꼴)
 mkrepo "$T"; mkdir -p "$T/state" "$W/.fable-team" "$T/fakebin"
 printf '.fable-team/\n' >> "$W/.git/info/exclude"
+mkdir -p "$W/design"; printf '| 팀 | 폴더 | 상태 | 명부 |\n|---|---|---|---|\n| planner | `design/planner/` | 현역 | |\n' > "$W/design/TEAMS.md"; printf '/design/TEAMS.md\n' >> "$W/.git/info/exclude"   # r2086: r1907 명부 이름 = TEAMS.md «명부» 칸(빈 칸 = seats-<팀>.json) · exclude = PR 파일 밖
 python3 -c 'import json,sys;json.dump({"_master":sys.argv[1]},open(sys.argv[2],"w"))' "$SEAT" "$W/.fable-team/seats-planner.json"
 printf '#!/bin/bash\n[ "$1" = display-message ] && { printf "%%s" "%s"; exit 0; }\nexit 1\n' "$SEAT" > "$T/fakebin/tmux"; chmod +x "$T/fakebin/tmux"
 export FT_ROOT="$W" FT_AUTONOMY_STATE_DIR="$T/state" FT_SEAT="$SEAT" FT_GH="$T/gh-stub" FT_GH_WRITE="$T/gh-stub" STUB_LOG="$T/gh.log" STUB_JSON="$T/pr.json" FT_MERGE_DENY_FILE="$T/deny.txt" FT_INSTALL_CHECK="$T/install-stub"
@@ -62,7 +63,7 @@ BASE_SHA=32b8c0a0bf654f24a6bb558cc23b28f88ed01cc4
 TOP="$(git -C "$HERE" rev-parse --show-toplevel 2>/dev/null)" && TOP="$(cd "$TOP" && pwd -P)"; PFX="$(cd "$HERE/.." && pwd -P)"; PFX="${PFX#$TOP/}"
 HAVE_BASE=0; [ -n "$TOP" ] && git -C "$TOP" cat-file -e "$BASE_SHA^{commit}" 2>/dev/null && HAVE_BASE=1
 if [ "$HAVE_BASE" = 1 ]; then
-  git -C "$TOP" show "$BASE_SHA:$PFX/kit/fable-team/bin/ft-merge-land.sh" > "$T/red.sh" && [ -s "$T/red.sh" ] || { echo "FAIL 기준판을 못 꺼냄"; exit 1; }
+  git -C "$TOP" show "$BASE_SHA:${PFX/legacy\/1.x\//}/kit/fable-team/bin/ft-merge-land.sh" > "$T/red.sh" && [ -s "$T/red.sh" ] || { echo "FAIL 기준판을 못 꺼냄"; exit 1; }  # r2218: 고정 sha 는 legacy/1.x 이동(625fbdfc) 앞 = 옛 경로
   binof "$T/red" "$T/red.sh"
   land "$T/red/ft-merge-land.sh" 1; notauto "$M1"; ck "기준판(r1141 직전 main 판): R1 → REJECT «최신화 먼저» · main 불변(사람 왕복 재현)" $?
 else echo "SKIP 기준판 칸(R1 REJECT 재현) — base_sha $BASE_SHA 객체 없음(git 사본 아님 · git archive 사본)"; fi

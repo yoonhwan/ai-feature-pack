@@ -4,6 +4,7 @@
 #  close-check = T4 개명 후계 [레디] CLOSE-OK · T5 번호 승계 회귀 CLOSE-OK · T6 «받음» 누락 REJECT · T7 같은 역할 키 비후계 [레디] REJECT.
 #  격리: 정본 comm 사본 + 가짜 명부(seats-zz.json) + 임시 우편함 · 실 명부·실 큐·실 tmux 0 · 고정 sleep 0 · 자기 재호출 0.
 set -uo pipefail
+export FT_HANDOVER_READY_WAIT_S=0   # r2080 — 승계 창 끔: 이 시험은 «[인계] 직후 [레디] 0 = 바로 REJECT» 를 본다(창 = test_close_wait_window_r2080.sh)
 for v in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY; do unset "$v"; done
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; REPO="$HERE/../.."
 SRC="$REPO/harness/comm"

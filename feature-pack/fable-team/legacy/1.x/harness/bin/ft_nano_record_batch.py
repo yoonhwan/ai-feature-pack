@@ -2,7 +2,7 @@
 # pyright: basic
 """ft_nano_record_batch.py — r2071 due·notify 길에서만 쓰는 묶음 읽기(판정 규칙·출력·rc 0 변경). 부르는 곳 = ft_nano_record_due.due_rows 한 곳.
 A2 카드 본문 = 한 판에 `git cat-file --batch` 1회(팀·ref 끝·경로 묶음 · 장부 항목 수와 무관) · 실패(rc≠0 · 7초 · 본문 빠짐) = 그 카드 줄 «판정 불가 … rc=<N>».
-A3 fetch = 원격 URL 마다 1회(같은 URL 팀들의 카드 가지를 한 번에 개인 ref 로 받고 sha 만 쥐고 전부 지운다) · 묶음 rc≠0 = 그 URL 의 팀은 팀마다 fetch(기준판 길 · 실패 = 그 팀만 판정 불가).
+A3 fetch = 원격 URL 마다 1회(같은 URL 팀들의 카드 가지를 한 번에 개인 ref 로 받고 sha 만 쥐고 전부 지운다) · 묶음 rc≠0 = 그 URL 의 팀은 팀마다 fetch(기준판 길 · 실패 = 그 팀만 판정 불가) · r2250 notify(Budget) = fetch 예산 안 · 건너뜀·실패 = fetch 0 판(다시 받기 0).
 묶음은 그 Ctx 인스턴스의 tip·card 만 씌운다(landed·settle·done·refused 의 Ctx 손 0 · A5)."""
 from __future__ import annotations
 
@@ -39,8 +39,12 @@ def prepare(ctx, keys):   # 한 판 머리에 1회 — fetch 판이면 URL 마�
     return ctx
 
 
+def fetch_cap(bud):   # r2250 O1 — Budget(notify) 있으면 fetch 마감 FB = B÷2 · URL 상한 = min(7, FB − 지난 초) · 없으면 7초(due 손 실행 그대로)
+    return min(7.0, bud.b / 2 - bud.elapsed()) if bud else 7.0
+
+
 def fetch_all(ctx, teams, bad):   # A3 — 팀의 ref·URL·가지 = fetch 0 판 tip()(같은 한 곳) · URL 마다 git fetch 1회 → ctx._tips 를 원격 끝으로
-    root, groups = str(ctx.root), {}
+    root, groups, bud = str(ctx.root), {}, getattr(ctx, "bud", None)
     ctx.fetch = False
     for team in teams:
         try:
@@ -53,14 +57,23 @@ def fetch_all(ctx, teams, bad):   # A3 — 팀의 ref·URL·가지 = fetch 0 판
     for url, ts in groups.items():
         brs = sorted({ctx._tips[t]["br"] for t in ts})
         priv = [f"refs/ft-record/{os.getpid()}-{i}" for i in range(len(brs))]
-        rc = run(["git", "-c", "gc.auto=0", "-C", root, "fetch", "-q", "--no-write-fetch-head", url] + [f"+refs/heads/{b}:{p}" for b, p in zip(brs, priv)])[0]
-        rc, out, _e = run(["git", "-C", root, "rev-parse", *[p + "^{commit}" for p in priv]]) if rc == 0 else (1, "", "")
-        run(["git", "-C", root, "update-ref", "--stdin"], inp="".join(f"delete {p}\n" for p in priv).encode())
+        name, cap, rc, out = ctx._tips[ts[0]]["ref"].partition("/")[0], fetch_cap(bud), "건너뜀", ""
+        if cap >= 1:   # 1초 미만 = 그 URL fetch 0
+            if bud:
+                bud.mark("fetch", name)   # O3 — 멎은 곳에 어느 원격인지
+            rc = run(["git", "-c", "gc.auto=0", "-C", root, "fetch", "-q", "--no-write-fetch-head", url] + [f"+refs/heads/{b}:{p}" for b, p in zip(brs, priv)], cap)[0]
+            rc, out, _e = run(["git", "-C", root, "rev-parse", *[p + "^{commit}" for p in priv]]) if rc == 0 else (rc, "", "")
+            run(["git", "-C", root, "update-ref", "--stdin"], inp="".join(f"delete {p}\n" for p in priv).encode())
         got = dict(zip(brs, out.split())) if rc == 0 and len(out.split()) == len(brs) else {}
+        if bud and not got:   # O1·O2 — 건너뜀·실패 = 1줄(rc 그대로)
+            print(f"fetch {name} {rc if rc == '건너뜀' else '실패 rc=' + ('-' if rc is None else str(rc or 1))} — remote-tracking 판")
         for team in ts:
             t = ctx._tips.pop(team)
             if t["br"] in got:
                 ctx._tips[team] = {**t, "sha": got[t["br"]], "files": {}}
+                continue
+            if bud:   # O2 — 팀마다 다시 받기 0 · fetch 0 판 tip(remote-tracking · landed tips 규칙) 그대로
+                ctx._tips[team] = t
                 continue
             try:
                 ctx.tip(team)   # 묶음 실패 = 기준판 길(팀마다 fetch 1회 · 실패 = 그 팀 카드 줄만 판정 불가)

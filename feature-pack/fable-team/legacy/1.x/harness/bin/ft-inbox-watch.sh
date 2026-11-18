@@ -10,6 +10,7 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 exec python3 -u - "$HERE" "$1" <<'PY'
 import json
 import os
+import re
 import signal
 import sys
 import time
@@ -50,8 +51,8 @@ def identity():
     if lineage.holder(SEAT) != SEAT:
         return None
     row, role = doc[SEAT], doc[SEAT].get("role")
-    fields = [key for key in ("_master", "_arch", "_desk", "_da", "_tester", "_pm") if doc.get(key) == SEAT]
-    if fields != ["_" + str(role)] or lineage._team_rows(SEAT)[1] != row:
+    fields = [key for key, value in doc.items() if value == SEAT and key.split("-")[0] in ("_master", "_arch", "_desk", "_da", "_tester", "_pm") and re.fullmatch(r"_[a-z]+(-[1-9][0-9]*)?", key)]   # r2020 석 K 칸 `_<역할>-<K>`
+    if [key.split("-")[0] for key in fields] != ["_" + str(role)] or lineage._team_rows(SEAT)[1] != row:
         raise ValueError("현역 역할 필드 불일치")
     for name in (key for key, value in doc.items() if isinstance(value, dict)):
         seen, current = set(), name

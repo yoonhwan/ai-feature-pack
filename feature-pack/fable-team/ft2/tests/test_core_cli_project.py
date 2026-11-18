@@ -88,17 +88,19 @@ def test_b_free_counts_in_progress_works(tmp_path):
     root = tmp_path / "b"
     _chain(root, "W1")
     assert _project(root)["holders"]["h1"] == {"free": True, "works": []}
-    for work in ("W2", "W3"):
+    for work, holder in (("W2", "h2"), ("W3", "h3")):                       # r2116 한 좌석 한 work = W3 는 h3
         _ok(root, "submit", "--command", "c-" + work, "--body", "본문-" + work, "--work", work)
-        _ok(root, "assign", "--work", work, "--holder", "h2", "--evidence", EV)
+        _ok(root, "assign", "--work", work, "--holder", holder, "--evidence", EV)
     held = _project(root)["holders"]
-    assert held["h2"] == {"free": False, "works": ["W2", "W3"]} and held["h1"]["free"] is True
+    assert (held["h2"], held["h3"]) == ({"free": False, "works": ["W2"]}, {"free": False, "works": ["W3"]})
+    assert held["h1"]["free"] is True
     _ok(root, "deliver", "--work", "W2")
     gen = str(_ok(root, "claim", "--work", "W2", "--holder", "h2")["gen"])
     for step, extra in (("start", ()), ("effect", ("--effect", "e-W2")), ("result", ())):
         _ok(root, step, "--work", "W2", "--holder", "h2", "--gen", gen, *extra)
     _ok(root, "complete", "--work", "W2")
-    assert _project(root)["holders"]["h2"] == {"free": False, "works": ["W3"]}
+    held = _project(root)["holders"]
+    assert (held["h2"], held["h3"]) == ({"free": True, "works": []}, {"free": False, "works": ["W3"]})
 
 
 def test_c_free_after_chain_and_busy_after_claim(tmp_path):

@@ -17,6 +17,7 @@ roster "$PLSEAT" seats-planner.json; roster "$LECSEAT" seats-lecture.json
 mkdir -p "$T/fakebin"; SEATFILE="$T/seatname"; export SEATFILE
 printf '#!/bin/bash\n[ "$1" = display-message ] && { cat "$SEATFILE"; exit 0; }\nexit 1\n' > "$T/fakebin/tmux"; chmod +x "$T/fakebin/tmux"
 export TMUX_PANE=%9 PATH="$T/fakebin:$PATH"
+printf '| 팀 | 폴더 | 상태 | 명부 |\n|---|---|---|---|\n| planner | `design/planner/` | 현역 | |\n| lecture | `design/lecture/` | 현역 | |\n| v65 | `design/v65/` | 현역 | |\n' > "$T/TEAMS.md"; export FT_TEAMS_MD="$T/TEAMS.md"   # r2221: r1907 명부 칸 판정용 픽스처 TEAMS.md(리포 밖 $T · 명부 빈 칸 = seats-<팀>.json · r2219 꼴)
 
 # mkdoc <팀> — origin/main 에서 딴 head 에 design/teams/<팀>/NOTE-<n>.md 1개만 추가 → HEAD = $H
 n=0; mkdoc() { n=$((n+1)); git -C "$W" checkout -q -B "pr$n" origin/main; mkdir -p "$W/design/teams/$1"; printf 'x\n' > "$W/design/teams/$1/NOTE-$n.md"; cm "$W" "doc $n"; H="$(sha "$W" HEAD)"; }
@@ -26,9 +27,9 @@ dx() { printf '%s' "$2" > "$SEATFILE"; out="$(FT_SEAT="$2" python3 "$1" --mode d
 python3 -c 'import ast,sys;ast.parse(open(sys.argv[1]).read())' "$DX"; ck "py 문법" $?
 
 # ===== ⓐ 빨강 먼저: 옛 판(팩 73f097b3 고정 — origin/main 은 착지 뒤 새 판이 된다)은 v65 명부를 seats-v65.json 으로 찾아 판정 불가 =====
-TOP="$(git -C "$HERE" rev-parse --show-toplevel)"; PFX="$(cd "$HERE/.." && pwd)"; PFX="${PFX#$TOP/}"
+TOP="$(git -C "$HERE" rev-parse --show-toplevel)"; PFX="$(cd "$HERE/.." && pwd -P)"; PFX="${PFX#$TOP/}"
 mkdir -p "$T/red"; for f in "$BIN"/*; do ln -s "$f" "$T/red/$(basename "$f")"; done; rm -f "$T/red/ft_doc_exempt.py"
-git -C "$TOP" show "73f097b3:$PFX/kit/fable-team/bin/ft_doc_exempt.py" > "$T/red/ft_doc_exempt.py" || { echo "FAIL 옛 판을 못 꺼냄"; exit 1; }
+git -C "$TOP" show "73f097b3:${PFX/legacy\/1.x\//}/kit/fable-team/bin/ft_doc_exempt.py" > "$T/red/ft_doc_exempt.py" || { echo "FAIL 옛 판을 못 꺼냄"; exit 1; }  # r2221: 고정 sha 는 legacy/1.x 이동(625fbdfc) 앞 = 옛 경로
 roster "$V65SEAT" seats.json; mkdoc v65
 dx "$T/red/ft_doc_exempt.py" "$V65SEAT"
 [ "$rc" = 2 ] && [[ "$out" == *"v65 명부에 _master 없음"* ]]; ck "ⓐ 빨강: v65 문서 PR · seats.json 만 있음 → 옛 판 rc2 «v65 명부에 _master 없음» (seats-v65.json 을 찾아 빈 값)" $?

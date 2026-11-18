@@ -13,8 +13,12 @@ import sys
 import time
 from pathlib import Path
 
-from ft_nano_record import CARD_RX, DONE_RX, Ctx, Reject, Unjudged, left_free, left_of, marks, rec_of, section, seq_dropped
+from ft_nano_record import CARD_RX, DONE_RX, Ctx, Reject, Unjudged, left_free, left_of, marks, rec_of, section
 from ft_nano_record_batch import prepare
+from ft_nano_record_budget import step
+from ft_nano_record_fin import key as fin_key, load as fin_load, row as fin_row   # r2250 O4 닫힌 줄 기억(notify 만)
+from ft_nano_record_fmt import fmt   # r2202 [structure]: 줄 꼴 = 옆 파일(notify 는 지금처럼 due 에서 fmt 를 읽는다)
+from ft_nano_record_repo import at, drops_scope, dropped, nanos_of, proxy_master, repo_hits, resolve_owner, seats_at
 
 DOCW = "문서 PR · 구현 착지 아님"   # r1782 A2: 장부 doc_only(착지 파일 전부 design/·docs/) 줄의 «끝» 사유
 
@@ -29,8 +33,7 @@ def idx_stem(row):
 
 
 def owners(ctx, doc, stem, sec):   # 차례 좌석 → [(좌석, 종류, 그 좌석의 지금 카드)] · 종류 닫기 = 지금 index · 기록만 = 재사용 좌석
-    nanos = {k: v for k, v in doc.items() if not k.startswith("_") and isinstance(v, dict) and v.get("role") == "nano" and not v.get("_replaced_by")}
-    if not nanos:
+    if not (nanos := nanos_of(ctx, doc)):   # r2151 O1: 명부 doc 마다 실행당 1회(ft_nano_record_repo)
         return []
     now = [(k, "닫기", stem) for k, v in sorted(nanos.items()) if idx_stem(v) == stem and k in ctx.live()]
     if now:
@@ -56,7 +59,7 @@ def judge(ctx, base, seat, sort, sec, alive=True):   # 좌석 1개의 줄(단계
         return {**row, "k": "끝", "why": "남은 일 — 닫기 요청 0", "left": left_of(m["c"])}
     st, key, rec = ctx.store(), f"{seat}|{base['stem']}|{q}", rec_of(m)
     sent = st["close"].get(key) or {}
-    if sent.get("rec") == rec and not seq_dropped(ctx, sent.get("seq")):   # r1820 B3: 버린 seq = 미전달 → 밀림(다시 보냄)
+    if sent.get("rec") == rec and not dropped(ctx, sent.get("seq")):   # r1820 B3: 버린 seq = 미전달 → 밀림(다시 보냄) · r2151 O2 due_rows 스냅샷
         return {**row, "k": "끝", "why": f"닫기 요청 #{sent.get('seq')}", "rec": rec, "seq": sent.get("seq")}
     if st["rejrec"].get(key) == rec or not alive:
         return {**row, "k": "끝", "why": "닫기 거절 — 기록을 고친 뒤 다시" if alive else "좌석 없음 · 기록 있음", "rec": rec}
@@ -64,18 +67,17 @@ def judge(ctx, base, seat, sort, sec, alive=True):   # 좌석 1개의 줄(단계
 
 
 def card_rows(ctx, e, path):
-    key = card_key(path)
-    if not key:
+    if not (key := card_key(path)):
         return [{"k": "판정불가", "stem": Path(path).stem, "why": "카드 경로 꼴 rc=1"}]
-    team, iroot, stem = key
+    (team, iroot, stem), ctx = key, at(ctx, path)   # r1849 ⓑ: 카드가 속한 리포의 카드 ref·명부
     base = {"pr": e.get("pr"), "q": e["landed"], "stem": stem, "team": team, "iroot": iroot, "e": e, "master": ""}
     try:
         doc = ctx.seats(team)
-        base["master"] = str(doc.get("_master") or "")
         base["path"], raw = ctx.card(team, iroot, stem)
         lines, st, en = section(raw.decode("utf-8", "replace"))
         sec = lines[st + 1:en] if st is not None else []   # r1717-mut:section
-        own = owners(ctx, doc, stem, sec)
+        found, own = resolve_owner(ctx, team, doc, stem, sec)   # r2056 A5: landed 와 같은 함수 · master = 차례를 찾은 명부 팀장(닫기 요청 받는 이)
+        base["master"], base["proxy"] = str(found.get("_master") or ""), proxy_master(ctx, doc, team)   # r2039 A1·A2: 카드 ref = main 팀 = «차례» 받는 이 = 카드 팀 명부 팀장
         if e.get("doc_only") and not any(k == "닫기" for _s, k, _c in own):   # r1782 A2ⓑ: 문서만 바꾼 착지 · 카드 쥔 나노 없음 = 끝(쪽지 0)
             return [{**base, "k": "끝", "why": DOCW}]
         gone = sorted({m.group(1) for ln in sec for m in [DONE_RX.match(ln)] if m and f"착지 {e['landed'][:10]}" in ln} - {s for s, _k, _c in own})
@@ -96,7 +98,7 @@ def rows(ctx, pr=None):   # 장부 줄마다 카드별 줄
             continue
         if e["cards"]:
             for c in e["cards"]:
-                out += card_rows(ctx, e, c)
+                out += fin_row(ctx, e, card_key(c)) or card_rows(ctx, e, c)   # r2250 O4: 기억한 열쇠 = 같은 «끝» 줄 · 카드 읽기 0
             continue
         base = {"pr": e.get("pr"), "q": e["landed"], "stem": f"PR#{e.get('pr')}", "e": e, "master": ""}
         team = (str(e.get("by") or "").split("-") + ["", ""])[1]
@@ -104,46 +106,38 @@ def rows(ctx, pr=None):   # 장부 줄마다 카드별 줄
             base["master"] = str(ctx.seats(team).get("_master") or "") if team else ""
         except Unjudged:
             pass
-        if e.get("cards_err"):   # r1743 A3: ref 못 읽음 = «카드 없음» 아님 · 판정 불가(하드 룰 20)
+        if e.get("cards_err") and not e["nocard"]:   # r1743 A3: ref 못 읽음 = «카드 없음» 아님 · 판정 불가(하드 룰 20) · r2145 D1: settle --no-card(사람 판정)가 먼저
             out.append({**base, "k": "카드ref불가", "why": str(e["cards_err"])})
             continue
         out.append({**base, "k": "끝", "why": f"카드 없음 확정 · {e['nocard']}"} if e["nocard"] else {**base, "k": "끝", "why": DOCW} if e.get("doc_only") else {**base, "k": "카드없음"})   # r1782 A2ⓒ
     return out
 
 
+def opened(out):   # r2202 F1 — fetch 사유 = «주인 없음» 을 뺀 열린 줄(주인 없음 = 카드 ⓢⓛ 표식 없음 · fetch 로 거의 안 바뀜 · 한계 1)
+    out = [r for r in out if r["k"] != "주인없음"]
+    return any(r["k"] not in ("끝", "카드없음", "카드ref불가") for r in out)   # r2138 F1: 카드ref불가 = 장부 값 · fetch 로 안 바뀜
+
+
+@drops_scope   # r2151 O2: 버림 원장 스냅샷 = 이 평가 한정
 def due_rows(ctx, pr=None, fetch=True):   # A2 — fetch 는 «열린 줄» 이 있을 때만 실행당 1회(remote-tracking 판으로 먼저 본다) · r2071 = 판마다 묶음 읽기·묶음 fetch(전 항목 그대로)
-    ks, ctx.fetch = [k for e in ctx.ledger() if pr is None or e.get("pr") == pr for k in map(card_key, e["cards"]) if k], False
+    ctx._fin = fin_load(ctx)   # r2250 O4 — Budget(notify) 있을 때만 · due 손 실행 = {}(O6)
+    ks, ctx.fetch = [k for e in ctx.ledger() if pr is None or e.get("pr") == pr for k in map(card_key, e["cards"]) if k and fin_key(e, k[2]) not in ctx._fin], False
     out = rows(prepare(ctx, ks), pr)
-    if fetch and any(r["k"] not in ("끝", "카드없음") for r in out):
+    step(ctx, "due-1")   # r2202 F2 — 표식 = notify 안(Budget)만 · due 손 실행 = 0
+    if fetch and opened(out):
+        step(ctx, "fetch")
         ctx.fetch, ctx._tips = True, {}
         out = rows(prepare(ctx, ks), pr)
+        step(ctx, "due-2")
     return out
 
 
-def fmt(r):
-    tail = f"pr={r.get('pr')} 착지={str(r.get('q') or '')[:10]}"
-    k = r["k"]
-    if k == "차례":
-        return f"차례 {r['seat']} 종류={r['sort']} 빠짐={r['miss']} 카드={r['stem']} {tail}"
-    if k == "밀림":
-        return f"닫기 요청 밀림 {r['seat']} 카드={r['stem']} {tail} rec={r['rec']}"
-    if k == "끝":
-        return f"끝 {r['stem']} {tail} 좌석={r.get('seat') or '-'} ({r['why']})"
-    if k == "주인없음":
-        return f"주인 없음 {r['stem']} 담당={r['master'] or '-'} 빠짐={r['miss']} {tail}"
-    if k == "카드없음":
-        return f"카드 없음 PR #{r.get('pr')} 담당={r['master'] or '-'} 착지={str(r.get('q') or '')[:10]}"
-    if k == "카드ref불가":
-        return f"판정 불가 카드 ref {r['why']} pr={r.get('pr')} 착지={str(r.get('q') or '')[:10]}"
-    return f"판정 불가 {r['stem']} {r['why']}"
-
-
 def cmd_settle(ctx, a):
-    doc = ctx.seats((a.seat.split("-") + ["", ""])[1])
+    doc = seats_at(ctx, (ents := [e for e in ctx.ledger() if e.get("pr") == a.pr]), (a.seat.split("-") + ["", ""])[1])   # r1849 ⓑ
     row = doc.get(a.seat)
     if isinstance(row, dict) and row.get("role") == "nano" or not isinstance(row, dict) and a.seat not in (doc.get("_master"), doc.get("_arch")):
         raise Reject(f"settle 은 팀장·arch 만 — {a.seat} (role=nano 또는 명부 밖)")
-    if not [e for e in ctx.ledger() if e.get("pr") == a.pr]:
+    if not ents:
         raise Reject(f"장부에 PR #{a.pr} 줄 없음")
     if bool(a.card) == bool((a.no_card or "").strip()):
         raise Reject("--card <stem>… 또는 --no-card \"<사유>\" 중 하나")
@@ -156,6 +150,7 @@ def cmd_settle(ctx, a):
             path = ctx.card(key[0], key[1], stem)[0]   # r2036 A1: 좌석 팀 뿌리 먼저(지금 그대로)
         except Unjudged as u:   # 없음일 때만 카드 루트 표 전 행 · A2 정확히 1개 = 실제 경로 · 2개 이상 = 모호 REJECT · 0개 = 판정 불가 그대로
             hits = ctx.root_hits(stem) if str(u).startswith("카드 ref 에 카드 없음") else None
+            hits = repo_hits(ctx, ents[-1], stem, hits)   # r1849 ⓑ: 루트 표 0개 + 장부 repo 가 다른 리포 = 그 리포 카드 ref 트리(절대경로)
             if not hits or len(hits) > 1:
                 raise Reject(f"카드 모호 — {' '.join(sorted(hits.values()))}") if hits else u
             path = next(iter(hits.values()))

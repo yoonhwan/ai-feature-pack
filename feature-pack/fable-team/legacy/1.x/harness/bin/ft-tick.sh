@@ -832,6 +832,17 @@ sweep_wt() {
   done
 }
 
+# r2117 카드 원천 따라가기 — 명부 _cards_wt worktree 를 origin/<가지> 로 ff(ft-cards-wt-sync.sh) · 못 따라가면 사유가 바뀔 때만 1줄 · FT_TICK_CARDS_WT_SYNC=0 으로 끔 · 바퀴 rc 불변(항상 0)
+cards_wt_sync() {
+  local bin="${FT_TICK_CARDS_WT_SYNC_BIN:-$HERE/ft-cards-wt-sync.sh}" out rc l
+  [ "${FT_TICK_CARDS_WT_SYNC:-1}" = 1 ] || return 0
+  if [ "$DRY" = 1 ]; then echo "DRY kind=cards-wt-sync bin=$bin"; return 0; fi
+  out="$(bash "$bin" "${ROOT:-$WT}" "$STATE_DIR" 2>&1)"; rc=$?
+  while IFS= read -r l; do [ -z "$l" ] || log "cards_wt_sync: $l"; done <<< "$out"
+  [ "$rc" = 0 ] || [ -n "$out" ] || log "cards_wt_sync: 판정 불가 rc=$rc (출력 0)"
+  return 0
+}
+
 drift_watch() {
   local out err errf cause rc shrc hdr items sig sigf stamp rows master
   [ "$DRIFT_ENABLED" = 1 ] || return 0
@@ -1126,7 +1137,7 @@ autonomy_expire() {
 #   하루 h 당 1통 = mkdir 선점(성공한 틱만 송신 · 송신 실패면 rmdir 해 다음 틱 재시도) · 상태는 이 틱의 STATE_DIR 아래.
 HIL_BIN="${FT_TICK_HIL_BIN:-$HERE/ft-hil.sh}"; HIL_NOTIFY_MIN="${FT_TICK_HIL_NOTIFY_MIN:-30}"
 hil_watch() {
-  local out sigf cnt each h m sdir day seat comm mk tab body
+  local out sigf cnt each h m sdir day seat comm mk tab body rl
   [ "${FT_TICK_HIL:-1}" = 1 ] || return 0
   [ "$(basename "$SEATS")" = seats.json ] || return 0
   [ -f "$HIL_BIN" ] || { echo "$(date '+%F %T') hil_watch: missing $HIL_BIN" >&2; return 0; }
@@ -1140,7 +1151,8 @@ hil_watch() {
   each="$(bash "$HIL_BIN" --pending --each 2>/dev/null)"; sdir="$STATE_DIR/hil-notified"; day="$(date +%Y%m%d)"
   while read -r h m; do
     [ -n "$h" ] && [ "${m:-0}" -ge "$HIL_NOTIFY_MIN" ] || continue
-    body="[HIL 미실행] $h 가 ${m}분째 안 끝났다(미실행 또는 중단/실행 중) — 오빠가 칠 줄 = ! bash ${HIL_DIR:-/tmp}/$h (이미 대체된 장이면 무시)"
+    rl="$(bash "${HIL_BIN%/*}/ft-hil-gate.sh" run-line "${HIL_DIR:-/tmp}/$h" 2>/dev/null)"   # r2161: 실행 줄 = run-line 1줄(승인값 표지 · 값 0)
+    body="[HIL 미실행] $h 가 ${m}분째 안 끝났다(미실행 또는 중단/실행 중) — 오빠가 칠 줄 = ! ${rl:-bash ${HIL_DIR:-/tmp}/$h} (이미 대체된 장이면 무시)"
     # 원자적 선점 — 진 쪽은 송신하지 않는다
     if ! { mkdir -p "$sdir" && mkdir "$sdir/$h.$day" 2>/dev/null; }; then continue; fi
     mk="$(hil_marker "$h")"; tab=$'\t'; seat="${mk%%"$tab"*}"; comm="${mk#*"$tab"}"
@@ -1571,6 +1583,7 @@ pass_core() {
   step close_due_snapshot close_due_snapshot   # r1360
   step stall stall
   step sweep_wt sweep_wt
+  step cards_wt_sync cards_wt_sync   # r2117
   step drift_watch drift_watch
   step raised_watch raised_watch
   step renamed_watch renamed_watch

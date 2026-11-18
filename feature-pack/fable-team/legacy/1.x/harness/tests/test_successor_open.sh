@@ -62,7 +62,7 @@ run() { # run <환경 KEY=VAL…> — 호출마다 로그·카운터·도달 파
   # r609 ⓞ: 도달 파일을 미리 심는다(«이미 도달» 갈래) — run 이 STATE 를 비우므로 환경 플래그로 심는다
   [ -n "${SEED_REACHED:-}" ] && mkdir -p "$STATE" && printf '{"successor":"%s","seq":777,"reached_at":"t","rc":0,"model":"m"}\n' "$NEW" > "$STATE/$OLD.json"
   env HOME="$TMP/home" PANE_CWD="$TMP/pane" PATH="$FAKE:$PATH" LOG="$LOG" CNT="$CNT" OPENED="$OPENED" EXISTS="${EXISTS:-}" \
-      PANE_CWD_OVERRIDE="${PANE_CWD_OVERRIDE:-}" FT_SO_POLL=0 FT_SO_WAIT_MAX=5 \
+      PANE_CWD_OVERRIDE="${PANE_CWD_OVERRIDE:-}" FT_SO_POLL=0 FT_SO_WAIT_MAX=5 FT_CARRY_WARN_ONLY=1 \
       BE_RC="${BE_RC:-0}" BE_OUT="${BE_OUT:-}" \
       FT_RES_ROOT="$RES" SENSORS="$SENSORS" FT_TEAMSET_MD="$TMP/teamset.md" SENT_TEXT="$TMP/sent.txt" FT_GOV_MD="$TMP/gov-ok.md" \
       FT_SEND_VERIFIED="$FAKE/send" FT_MBOX_SH="$FAKE/mbox" FT_REACH_CHECK="$FAKE/reach" "$@" \
@@ -154,7 +154,7 @@ mkstub send   'echo send >> "$LOG"; echo "mboxenv $(cd -- "$(dirname -- "${FT_MB
 runx() { # runx <설치 사본> <대상 워크트리> <환경 KEY=VAL…> — FT_MBOX_SH 를 걸지 않는다
   local sox="$1" wt="$2"; shift 2; rm -f "$LOG" "$CNT" "$OPENED"; rm -rf "$STATE"; : > "$LOG"
   env -u FT_MBOX_SH HOME="$TMP/home" PANE_CWD="$TMP/pane" PATH="$FAKE:$PATH" LOG="$LOG" CNT="$CNT" OPENED="$OPENED" EXISTS="${EXISTS:-}" \
-      PANE_CWD_OVERRIDE="${PANE_CWD_OVERRIDE:-}" FT_SO_POLL=0 FT_SO_WAIT_MAX=5 \
+      PANE_CWD_OVERRIDE="${PANE_CWD_OVERRIDE:-}" FT_SO_POLL=0 FT_SO_WAIT_MAX=5 FT_CARRY_WARN_ONLY=1 \
       FT_RES_ROOT="$RES" SENSORS="$SENSORS" FT_SEND_VERIFIED="$FAKE/send" FT_REACH_CHECK="$FAKE/reach" "$@" \
       bash "$sox" "$OLD" "$wt" --name "$NEW" --agent claude --model 'claude-opus-5-5[1m]' --ctx 1m --effort high --body-file "$BODY" > "$TMP/out" 2>&1
   RC=$?
@@ -280,11 +280,12 @@ rm -rf "$JDIR_WT"
 #   원문 출처 = 대상 리포 origin/main(못 읽으면 REJECT · fail-closed) · planner 역할 승계 판정 불변(문 밖).
 GDIR="$REPO/design/teams/planner"; mkdir -p "$GDIR"
 GUIDE_LINE='- **desk 좌석(판정 1779 · R205)**: desk 는 인터뷰·응대·요청 정리만(코드·커밋 0 · 팀 직접 발주 0 · 정리한 요청은 master 에 1통).'
-{ for i in $(seq 1 26); do echo "- 안내서 $i 줄"; done; echo "$GUIDE_LINE"; } > "$GDIR/GUIDE-planner.md"
+ASK_CORE='묻는 기준(시험): 자율 ON 이면 desk 가 그 턴에 고른다'; ASK_LINE="- **desk 묻는 기준** $ASK_CORE"   # r2233: desk 개설 = 묻는 기준 줄도 있어야 통과
+{ for i in $(seq 1 26); do echo "- 안내서 $i 줄"; done; echo "$GUIDE_LINE"; echo "$ASK_LINE"; } > "$GDIR/GUIDE-planner.md"
 printf '| 팀 | 폴더 | 오케 | 상태 |\n|---|---|---|---|\n| planner | `design/teams/planner/` | p | 현역 |\n' > "$REPO/design/TEAMS.md"   # r688: 안내서 폴더 = 명단(origin/main) planner 칸
 git -C "$REPO" add -A && git -C "$REPO" -c user.name=t -c user.email=t@t commit -q -m 'guide-planner 27줄'
 git -C "$REPO" update-ref refs/remotes/origin/main HEAD
-printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n%s\n열린 칸 감시: 없음\n' "$GUIDE_LINE" > "$TMP/desk_ok.txt"
+printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n%s\n%s\n열린 칸 감시: 없음\n' "$GUIDE_LINE" "$ASK_CORE" > "$TMP/desk_ok.txt"
 printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n인계: 오빠 응대 이어받아라\n열린 칸 감시: 없음\n' > "$TMP/desk_noguide.txt"
 printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n%s\n팀에는 이렇게 보낸다: send byz-harness-master-claude#92 "[발주] 이거 해라"\n열린 칸 감시: 없음\n' "$GUIDE_LINE" > "$TMP/desk_direct.txt"
 DESK_OLD='byz-planner-desk-claude#38'; DESK_NEW='byz-planner-desk-claude#39'
@@ -317,7 +318,7 @@ run FT_GUIDE_REF=HEAD~1 SEND_RC=0
 
 # ⓤ r826 — 안내서 구절을 «줄 번호» 가 아니라 안내서 전체에서 찾는다(정확히 1줄일 때만) · 옛 판 = 27줄 고정 → 구절이 30줄로 밀리면 REJECT
 guide_commit() { # guide_commit <앞 줄 수> <구절 반복 수> — 안내서를 다시 써 origin/main 으로 올린다
-  { for i in $(seq 1 "$1"); do echo "- 안내서 $i 줄"; done; for ((k = 0; k < $2; k++)); do echo "$GUIDE_LINE"; done; echo "- 꼬리 줄"; } > "$GDIR/GUIDE-planner.md"   # 반복 = 산술 루프(seq 1 0 = BSD 거꾸로 2줄)
+  { for i in $(seq 1 "$1"); do echo "- 안내서 $i 줄"; done; for ((k = 0; k < $2; k++)); do echo "$GUIDE_LINE"; done; echo "$ASK_LINE"; echo "- 꼬리 줄"; } > "$GDIR/GUIDE-planner.md"   # 반복 = 산술 루프(seq 1 0 = BSD 거꾸로 2줄)
   git -C "$REPO" add -A && git -C "$REPO" -c user.name=t -c user.email=t@t commit -q -m "guide $1+$2"
   git -C "$REPO" update-ref refs/remotes/origin/main HEAD
 }

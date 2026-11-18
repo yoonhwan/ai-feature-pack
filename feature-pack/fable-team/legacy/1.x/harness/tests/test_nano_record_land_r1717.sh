@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test_nano_record_land_r1717.sh — r1717 착지 꼬리 사례: ① 장부 1줄 + 나노 «[정리 차례]» 1통 · ② 장부 쓰기 실패 = WARN · 착지 rc 불변 · ⑧ mbox 실패 = 착지 rc 불변 · 보낸 기록 0
+# test_nano_record_land_r1717.sh — r1717 착지 꼬리 사례: ① 장부 1줄 + 팀장 «[정리 차례 · 대리]» 1통(r2039 · 이 세계 카드 ref = main) · ② 장부 쓰기 실패 = WARN · 착지 rc 불변 · ⑧ mbox 실패 = 착지 rc 불변 · 보낸 기록 0
 #   ⑨ 꼬리 남은 시간 0 → 발신 0 · 장부는 남음 → 점검(ft_stall_scan record_notify)이 보냄 · ⑩ 발주문 문장 · 변이 M1(장부 append 삭제 → ① FAIL · 원본 대조) · 기준판 ①(팩 103be13029 = 나노 쪽지 0)
 #   ①②⑧ = «실» ft-merge-land.sh(임시 bare origin + clone · 가짜 gh·mbox·tmux — test_landing_note_r1478.sh 꼴) · 실 gh·실 원격·실 쪽지·실 명부 0 · sleep 0
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # 실 상태 지문 + git 밖 cwd + HIL_DIR 격리(approve-merge 번호표)
@@ -57,8 +57,8 @@ c1() {  # ① 착지 1건 · 카드 1장 · 현역 나노
   local p n; p="$(prof "$1")"; n="$(NN "$p")"; E=0; mland "$p"
   t "① 착지 rc0 · LANDED" [ "$RC" = 0 ]; t "① LANDED 줄" inc "$OUT" "LANDED pr=$p sha="
   t "① 장부 1줄(pr·카드·40hex 둘)" [ "$(grep -c "\"pr\": $p, .*\"landed\": \"[0-9a-f]\{40\}\", \"pr_head\": \"$PRSHA\".*r88$p-card.md\"\]" "$LEDGER" 2>/dev/null)" = 1 ]
-  t "① 나노 우편함 «[정리 차례]» 1통" [ "$(nto "$n" "\[정리 차례\] r88$p-card 착지 ")" = 1 ]
-  t "① 본문에 landed 명령 1줄" [ "$(nto "$n" "ft-nano-record.sh landed --seat $n --pr $p --card r88$p-card ")" = 1 ]
+  t "① 팀장 우편함 «[정리 차례 · 대리]» 1통(r2039 카드 ref = main)" [ "$(nto "$MASTER" "\[정리 차례 · 대리\] r88$p-card 착지 .* 차례 $n — ")" = 1 ]
+  t "① 본문에 landed 명령 1줄" [ "$(nto "$MASTER" "ft-nano-record.sh landed --seat $MASTER --pr $p --card r88$p-card ")" = 1 ]
   t "① 착지 쪽지([착지] → 팀장)는 그대로 1통" [ "$(nto "$MASTER" "\[착지\] pr=$p ")" = 1 ]; return $E
 }
 c2() {  # ② 장부 쓰기 실패(쓰기 자리 오류 주입) → WARN 1줄 · rc·LANDED 줄 그대로
@@ -69,15 +69,15 @@ c2() {  # ② 장부 쓰기 실패(쓰기 자리 오류 주입) → WARN 1줄 ·
 }
 c8() {  # ⑧ mbox 실패 → WARN · 보낸 기록 0 · 착지 rc 불변 → 다음 notify 가 보냄
   local n; n="$(NN 3)"; E=0; MBOX_FAIL=5 mland 3
-  t "⑧ 착지 rc 불변 · LANDED" [ "$RC" = 0 ]; t "⑧ LANDED 줄" inc "$OUT" "LANDED pr=3 sha="; t "⑧ WARN 줄(정리 차례 쪽지)" inc "$OUT" "WARN 쪽지 발신 실패 → $n"
+  t "⑧ 착지 rc 불변 · LANDED" [ "$RC" = 0 ]; t "⑧ LANDED 줄" inc "$OUT" "LANDED pr=3 sha="; t "⑧ WARN 줄(정리 차례 쪽지)" inc "$OUT" "WARN 쪽지 발신 실패 → $MASTER"
   t "⑧ 장부는 남음" [ "$(grep -c . "$LEDGER")" = 1 ]; t "⑧ 보낸 기록 0" [ ! -s "$W/.fable-team/state/land-record-notified.json" ]
-  rec notify --pr 3 --no-fetch; t "⑧ 다음 호출이 다시 보냄" [ "$(nto "$n" "\[정리 차례\] r883-card ")" = 1 ]; return $E
+  rec notify --pr 3 --no-fetch; t "⑧ 다음 호출이 다시 보냄" [ "$(nto "$MASTER" "\[정리 차례 · 대리\] r883-card .* 차례 $n — ")" = 1 ]; return $E
 }
 c9() {  # ⑨ 꼬리에 남은 시간 0(시작 시각을 7초 앞으로 주입) → 발신 0 · 장부 1줄 → 점검 사본의 notify 가 1통
   local n q; n="$(NN 4)"; q="$(sha "$ORIGIN" refs/heads/main)"; E=0; : > "$MBOX_LOG"; rm -f "$LEDGER" "$W/.fable-team/state/land-record-notified.json"
   OUT="$(set +u; . "$BIN/ft-merge-lib.sh"; REPO="$W"; TARGET=main; Q="$q"; HEADSHA="$M0"; fm_land_turn "$W" 4 "$((SECONDS - 7))" r884 2>&1)"
   t "⑨ 장부 1줄은 남음" [ "$(grep -c '"pr": 4, ' "$LEDGER" 2>/dev/null)" = 1 ]; t "⑨ 꼬리 발신 0" [ "$(nsent .)" = 0 ]
-  scan notify "$BIN" "$W"; t "⑨ 점검(stall-scan 사본) notify 가 1통" [ "$(nto "$n" "\[정리 차례\] r884-card ")" = 1 ]; t "⑨ 점검 로그 줄 0(rc 0)" [ -z "$OUT" ]
+  scan notify "$BIN" "$W"; t "⑨ 점검(stall-scan 사본) notify 가 1통" [ "$(nto "$MASTER" "\[정리 차례 · 대리\] r884-card .* 차례 $n — ")" = 1 ]; t "⑨ 점검 로그 줄 0(rc 0)" [ -z "$OUT" ]
   scan notify "$BIN" "$W"; t "⑨ 한 번 더 = 0통" [ "$(nsent .)" = 1 ]; return $E
 }
 c10() {  # ⑩ 발주문에 «[정리 차례]» 문장 정확히 1회(추적본·키트 · spawn --dry-run 은 BODY 를 내지 않아 정의 줄·BODY 줄을 읽는다 — test_nano_spawn_body_press.sh 꼴)
@@ -98,6 +98,6 @@ fullbin m1 ft-merge-lib.sh '${cd[@]+"${cd[@]}"} >>"$f"; }' '${cd[@]+"${cd[@]}"} 
 step "기준판 ① (팩 103be13029fc16eb35fb0a305defcbad6c46ce10 — 나노 쪽지 0)"
 BASE="$T/base"; mkdir -p "$BASE"
 if git -C "$H" archive 103be13029fc16eb35fb0a305defcbad6c46ce10 -- bin 2>/dev/null | tar -x -C "$BASE" 2>/dev/null && [ -f "$BASE/bin/ft-merge-land.sh" ]; then
-  if o="$(BIN="$BASE/bin"; c1 6)"; then bad "기준판에서 ① 이 통과함"; else ok "기준판 ① FAIL(기대)"; inc "$o" "나노 우편함 «[정리 차례]» 1통" && ok "기준판 ① 사유 = 나노 쪽지 0" || bad "기준판 ① 사유가 다름" "$o"; fi
+  if o="$(BIN="$BASE/bin"; c1 6)"; then bad "기준판에서 ① 이 통과함"; else ok "기준판 ① FAIL(기대)"; inc "$o" "팀장 우편함 «[정리 차례 · 대리]» 1통" && ok "기준판 ① 사유 = 나노 쪽지 0" || bad "기준판 ① 사유가 다름" "$o"; fi
 else bad "기준판 꺼내기 실패 — 팩 리포 밖이거나 얕은 사본"; fi
 finish

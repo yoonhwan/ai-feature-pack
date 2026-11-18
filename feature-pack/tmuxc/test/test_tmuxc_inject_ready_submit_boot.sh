@@ -72,7 +72,9 @@ TMUXC_SUBMIT_WAIT=1 call_limited cmd_boot_enter sess
 { [ "$RC" = 4 ] && [ "$(enters)" = 0 ]; } \
   && ok "g9 옛 기록 + 자리표시 → rc=4 · Enter 0" || bad "g9 rc=$RC enters=$(enters) out=$(outline)"
 
-# ⓛ codex·pi(plain) 경로 = 기준 커밋(cbe218a5)과 «같은 tmux 호출» (P3 회귀 0) — 준비 2초 늦은 대역
+# ⓛ shell 경로 = 기준 커밋(cbe218a5) plain 과 «같은 tmux 호출» (P3 회귀 0) — 준비 2초 늦은 대역
+#   r2059: plain(pi·codex·send·restore)은 이제 끝 공백 뗌 + 제출 확인을 한다 → test_tmuxc_plain_inject_submit_r2059.sh 가 잰다.
+#          «확인 없는 종전 경로» 는 shell(open·fork 의 실행 명령)만 남는다.
 BASE_SHA=cbe218a5
 ROOT="$(git -C "$HERE" rev-parse --show-toplevel 2>/dev/null)"
 if [ -n "$ROOT" ] && git -C "$ROOT" cat-file -e "${BASE_SHA}:feature-pack/tmuxc/core/bin/tmuxc" 2>/dev/null; then
@@ -88,11 +90,10 @@ if [ -n "$ROOT" ] && git -C "$ROOT" cat-file -e "${BASE_SHA}:feature-pack/tmuxc/
     cp "$D/log" "$out.log" 2>/dev/null || : > "$out.log"
   }
   plain_calls "$T/shim-base.sh" "$T/plain-base.txt"
-  plain_calls "$SHIM" "$T/plain-new.txt" plain
-  plain_calls "$SHIM" "$T/plain-new2.txt"
+  plain_calls "$SHIM" "$T/plain-new.txt" shell
   { cmp -s "$T/plain-base.txt.log" "$T/plain-new.txt.log" && cmp -s "$T/plain-base.txt" "$T/plain-new.txt" \
-    && cmp -s "$T/plain-base.txt.log" "$T/plain-new2.txt.log" && grep -q '^rc=0$' "$T/plain-new.txt" && ! grep -q 'capture-pane' "$T/plain-new.txt.log"; } \
-    && ok "ⓛ plain·인자 없음(send·restore) → 기준 커밋 cbe218a5 과 tmux 호출·결과 바이트 같음 · 캡처 0" \
+    && grep -q '^rc=0$' "$T/plain-new.txt" && ! grep -q 'capture-pane' "$T/plain-new.txt.log"; } \
+    && ok "ⓛ shell → 기준 커밋 cbe218a5 plain 과 tmux 호출·결과 바이트 같음 · 캡처 0" \
     || bad "ⓛ plain 회귀: base=[$(tr '\n' '|' < "$T/plain-base.txt.log")] new=[$(tr '\n' '|' < "$T/plain-new.txt.log")]"
 else
   bad "ⓛ 기준 커밋 ${BASE_SHA} 을 못 읽어 plain 회귀를 못 잰다(root=${ROOT:-none})"

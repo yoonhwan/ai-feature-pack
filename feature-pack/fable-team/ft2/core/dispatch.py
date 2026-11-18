@@ -153,6 +153,9 @@ class Dispatch:
         reason = self._eligible(state, work, pre, evidence, resources)
         if not reason and not self._accepted(records, work):        # r1616: 접수 영수 없는 일은 배정 0
             reason = "영수-없음"
+        busy = "" if reason else self._busy(state, work, holder)      # r2116 한 좌석 한 work(기존 거절 뒤 · _claim_plan 앞)
+        if busy:
+            reason = "좌석 사용 중 %s — 새 좌석 열기 또는 앞 work complete 뒤" % busy
         if reason:
             return Grant(REFUSED, work, "reject", reason=reason)
         gen, hold, owner = self.ex._claim_plan(state, records, work, holder, rotation)
@@ -199,6 +202,9 @@ class Dispatch:
         if owner and not assigned:
             return Grant(REFUSED, work, "complete", revision=state["revision"],
                          reason="배정 계보 없는 실행권 owner = 완료 거절(쓰기 0)")
+        held = self._refusal_hold(state, work, attempt)
+        if held:
+            return held
         marker, at = ("required" if assigned else ""), self.clock()
         rec = record.build(self.team, (records[-1]["seq"] if records else 0) + 1, work, attempt or "arranged", at, work, work,
                            kind="complete", holder=owner.get("holder"), gen=owner.get("gen"),
@@ -208,6 +214,18 @@ class Dispatch:
         grant = self._reassess(self.ex._state_records(), work, "contract") if marker else None
         return Grant(OK, work, "complete", attempt, owner.get("gen"), owner.get("holder"),
                      grant.revision if grant else rev, True, grant.released if grant else "")
+
+    def _refusal_hold(self, state, work, attempt):
+        """r2183 — 그 work(키 첫 칸이 통째로 같음)의 풀리지 않은 거절 키 = 완료 유보(쓰기 0). 옛 행(open 칸 없음)은
+        해소 0 = 풀리지 않음. 글은 키와 푸는 길만 알린다 — 해소는 새 근거·권한 결정을 얻은 쪽이 적는다."""
+        keys = sorted(key for key, row in (state.get("refusals") or {}).items()
+                      if key.split("|", 1)[0] == work and row.get("open", not row.get("resolutions")))
+        if not keys:
+            return None
+        more = " 외 %d" % (len(keys) - 1) if len(keys) > 1 else ""
+        return Grant(HOLD, work, "complete", attempt, revision=state["revision"],
+                     reason="거절 미해소 = 완료 유보(쓰기 0) · 키 %s%s · 새 근거나 권한 결정을 얻은 뒤에만 그 키를 "
+                            "resolve(사유 «새 근거» | «권한 결정») 한다" % (keys[0], more))
 
     def _reassess(self, context, work, mode="marker"):
         state, records = context
@@ -244,6 +262,16 @@ class Dispatch:
         if not set(self.REQUIRED_EVIDENCE) <= set(evidence):
             return "ver-all"
         return "resource" if [res for res in resources if res in taken] else ""
+
+    def _busy(self, state, work, holder):
+        """r2116 — holder 의 살아 있는 다른 work 중 이름 순 첫(없으면 ""). 살아 있음 = owner holder 글자 같음 · done 아님 ·
+        그 owner 배정을 닫은 영수 없음(close_receipts 행의 work · seat · gen 셋 다 같음 · DA R1)."""
+        done, closes = state.get("done") or {}, list((state.get("close_receipts") or {}).values())
+        live = sorted(name for name, row in (state.get("owners") or {}).items()
+                      if name != work and row.get("holder") == holder and name not in done
+                      and not any((c.get("work"), c.get("seat"), c.get("gen")) == (name, holder, row.get("gen"))
+                                  for c in closes))
+        return live[0] if live else ""
 
     def _accepted(self, records, work):
         """접수 영수 = 같은 work 를 남긴 accept 줄 — 없으면 배정 0(r1616). 판정 본문은 실행권 모듈 한 곳(r1632 ⓓ)."""

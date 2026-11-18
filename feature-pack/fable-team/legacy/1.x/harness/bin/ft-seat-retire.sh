@@ -22,7 +22,7 @@ ROOT="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 
 # r1675 — 옛 좌석의 팀이 2.0 전환됨이면 명부 쓰기 전에 멈춘다(표식 = <데이터루트>/.fable-team/state/ft20-switch/<팀>.json).
 #   팀 = --seats/FT_SEATS_JSON 명부 파일 이름, 없으면 <구> 행을 가진 명부 파일 이름. ★--record-only 는 막지 않는다★ — 재개 기록은 닫기 경로(전환 뒤에도 옛 좌석 정리용 · 카드 범위 밖).
 # r1777(R336) — 교대 창 허용 쪽: 표식이 «없고» 보관본(<팀>.json.unmarked-<ts>)이 있는 창에서 보관본 h 가 A<N> 꼴이거나 «사건 쏙파일»(<보관본>.window · A<N> 로 연 교대)이 있으면 그 자율 조건(ON ∧ full ∧ A<N> = 지금 이벤트)을 통과해야 은퇴가 진행된다(ft20_guard_retire → ft20_window_guard · 숫자 h 창은 옛 그대로 · DA #292018: 숫자 원표식 팀을 A17 로 연 교대도 A17 문맥 유지).
-if [ "${RECONLY:-0}" = 0 ]; then _ft20h="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; if [ -f "$_ft20h/ft20-switch-lib.sh" ]; then . "$_ft20h/ft20-switch-lib.sh"; ft20_guard_handover "$(ft20_root_of "${ROOT:-.}" 2>/dev/null)" "$OLD" "$NEW" "${ARG:-${FT_SEATS_JSON:-}}" || exit $?; else _ft20_r="${FT_FT20_ROOT:-${ROOT:-.}}"; compgen -G "$_ft20_r/.fable-team/state/ft20-switch/*.json" >/dev/null 2>&1 && { echo "REJECT 2.0 전환 표식이 있는데 ft20-switch-lib.sh 없음(설치 누락) — 1.x 쓰기 0(판정 불가)" >&2; exit 3; }; fi; fi
+if [ "${RECONLY:-0}" = 0 ]; then _ft20h="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; if [ -f "$_ft20h/ft20-switch-lib.sh" ]; then . "$_ft20h/ft20-switch-lib.sh"; _ft20_root="$(ft20_root_of "${ROOT:-.}")" || exit $?; ft20_guard_handover "$_ft20_root" "$OLD" "$NEW" "${ARG:-${FT_SEATS_JSON:-}}" || exit $?; else _ft20_r="${FT_FT20_ROOT:-${ROOT:-.}}"; compgen -G "$_ft20_r/.fable-team/state/ft20-switch/*.json" >/dev/null 2>&1 && { echo "REJECT 2.0 전환 표식이 있는데 ft20-switch-lib.sh 없음(설치 누락) — 1.x 쓰기 0(판정 불가)" >&2; exit 3; }; fi; fi
 python3 - "${ARG:-${FT_SEATS_JSON:-}}" "${ROOT:-.}" "$OLD" "$NEW" "$RECONLY" "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)" "$VERDICT" "$KEEP" <<'PY'
 import json, os, re, sys, glob, shutil, shlex, datetime, subprocess, collections
 arg, root, old, new, reconly, here, verdict, keep = sys.argv[1:9]
@@ -220,7 +220,9 @@ if not noop:
     else:
         if role != "stop-ready" or n.get("role") == "stop-ready": n["role"] = sr   # r499 ⓘ 후계가 stop-ready 꼴(_replaced_by 없음 — 위 rc 3 이 걸렀다)이면 도출값
         if not n.get("tick"): n["tick"] = tick
-    if o.get("index") and not n.get("index"): n["index"] = o["index"]   # R370 카드 경로 상속(덮어쓰기 0) — 없으면 nano-close ⑥ 이 «카드 못 찾음»
+    if o.get("index") and not n.get("index"):
+        n["index"] = o["index"]   # R370 카드 경로 상속(덮어쓰기 0) — 없으면 nano-close ⑥ 이 «카드 못 찾음»
+        if o.get("source") == "ft2-launch": [n.setdefault(k, o[k]) for k in ("work", "source") if k in o]   # r2142 ft2 행 표시도 같이(후계에 있는 칸은 빈 값이어도 덮어쓰기 0) — 없으면 후계가 1.x 나노로 보여 «카드 파일 없음»
     n["_replaces"] = sorted(set(n.get("_replaces", []) + [old]))
 for k in keys + ([fc] if fc else []): d[k] = new
 if own: dump(p, d)   # 쓰기 중 죽어도 원본 무손상(tmp→교체)
@@ -245,4 +247,4 @@ RO="$(bash "${FT_SEAT_REAP_BIN:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" 
 RD="$(printf '%s\n' "$RO" | tail -1 | grep -oE 'deferred=[0-9]+' | cut -d= -f2)"; [ "${RD:-0}" -gt 0 ] && echo "reap deferred=$RD (press 중 · 끝난 뒤 다음 정리에서)"
 bash "${FT_SEAT_QUIESCE_BIN:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft-seat-quiesce.sh}" "$OLD" --mode handover --to "$NEW" --reason retire >/dev/null 2>&1 || echo "WARN 자식 인계 표 실패 rc=$? — 후계 --mode done 이 옛 자식을 못 본다(은퇴는 그대로 · r1113)" >&2; echo "reap left=0 rc=0"; [ "$RECONLY" = 0 ] && [ -n "$NEW" ] && { MBOX="${ROOT:+$ROOT/.fable-team/comm/}mbox.sh"; printf "다음: bash %s recv '%s' → bash %s ready '%s' '%s' (pane 입력 [레디] 는 닫기 관문이 세지 않음)\n" "$MBOX" "$NEW" "$MBOX" "$NEW" "$OLD"; }   # r1113 승계 = 자식 인계 표(kill 0 · 오빠 판정 2770)
 # r1812 B3① 승계 끝 = 옛 좌석 세션 닫기 1회(세션이 살아 있을 때만 · ft-seat-close 가드 그대로 · 결과 줄 그대로) — 그 rc(3 HELD 포함)는 retire rc 에 섞지 않는다 · 남은 것은 ft2 keeper 가 10분 간격으로 다시 부른다
-"${FT_TMUX:-tmux}" has-session -t "=$OLD" 2>/dev/null && bash "${FT_SEAT_CLOSE_BIN:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft-seat-close.sh}" "$OLD" --reason "retire -> $NEW" ${ARG:+--seats "$ARG"}; exit 0
+"${FT_TMUX:-tmux}" has-session -t "=$OLD" 2>/dev/null && bash "${FT_SEAT_CLOSE_BIN:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/ft-seat-close.sh}" "$OLD" --reason "retire -> $NEW" --defer-press ${ARG:+--seats "$ARG"}; exit 0

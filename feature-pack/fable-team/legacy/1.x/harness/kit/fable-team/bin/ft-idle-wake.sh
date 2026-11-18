@@ -11,6 +11,8 @@
 #   명시 실패(mbox rc≠0)는 다음 실행에 재시도 · 결과 불명(예외·시간 초과)·attempt 로 남은 것은 재전송 0(unsure).
 # ★입력 보호의 한계(DA⑥ H3)★: ring 직전에 client_activity 를 «한 번 더» 읽어 최근 키면 보류한다. 그 재확인~mbox 의 send-keys 사이(수 ms)는 «0 보장 아님 · 창을 최소화» 한 것이다.
 # r1326: 깨울 좌석(받는 이의 역할 현역 = `mbox.py holder`) = 보낸 좌석 인 행은 후보에서 뺀다(로그 «자기 발신» 좌석·seq 당 1줄 · 표식 `<좌석>~`) · holder 조회 실패 = 그 받는 이 깨우기 0 + «holder 판정 불가» 1줄.
+# r2128: 확장 좌석(pi ft-mbox-wake) 복구 — 비 QUIET 가장 오래된 미읽음 ≥ FT_IDLE_WAKE_EXT_SEC(600) ∧ IDLE ∧ .beat 의 event·woke < 그 ts(또는 .beat 없음) → 예산 reserve → 재확인(실패 = refund) → attempt 기록 → Escape 1 → ring --reserved → sent 뒤에만 팀장·desk 1통.
+#   기록 result = ext(--auto 위임) · quiet(예산 거절) · sent · failed · attempt/unsure · 그 밖 doorbell 이름 — 같은 seq 건너뛰기 = sent·attempt·unsure 만(확장 좌석의 옛 done = ext 로 봄 · 비확장 좌석은 지금처럼).
 # 환경: FT_ROOT · FT_MBOX · FT_MBOX_PY · FT_SEAT_STATUS · FT_TMUX(기본 tmux) · FT_IDLE_WAKE_NOW(시험 시계) · FT_IDLE_WAKE_LOG. 외부 호출 0 · 상주 메모리 0.
 set +e
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -20,7 +22,7 @@ if [ -z "${FT_ROOT:-}" ]; then
 fi
 export FT_ROOT HERE
 python3 - <<'PYEOF'
-import fcntl, json, os, shlex, subprocess, sys, time
+import fcntl, glob, json, os, re, shlex, subprocess, sys, time
 
 ROOT, HERE = os.environ["FT_ROOT"], os.environ["HERE"]
 COMM = os.path.join(ROOT, ".fable-team", "comm")
@@ -34,6 +36,9 @@ TMUX = shlex.split(os.environ.get("FT_TMUX") or "tmux")
 WAKE_SEC = int(os.environ.get("FT_IDLE_WAKE_SEC") or 180)
 CLIENT_SEC = int(os.environ.get("FT_IDLE_CLIENT_SEC") or 120)
 NOW = float(os.environ.get("FT_IDLE_WAKE_NOW") or time.time())
+EXT_SEC = int(os.environ.get("FT_IDLE_WAKE_EXT_SEC") or 600)  # r2128 W3 확장 좌석 복구 문턱
+WAKE_DIR = os.path.join(STATE_DIR, "pi-wake")
+COUNT = {}  # r2128 — 받는 이별 미읽음 수(알림 본문)
 
 
 def log(msg):
@@ -42,7 +47,7 @@ def log(msg):
         f.write(time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(NOW)) + f" ft-idle-wake: {msg}\n")
 
 
-def run(argv, timeout=30):
+def run(argv, timeout=25):  # r2150 F5 — 하드 룰 12 로컬 하네스 25초
     return subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
 
 
@@ -85,6 +90,7 @@ def oldest_per_seat():
         if len(keep) < len(rs):
             skipped[to] = (h, sorted(s for a, s, f in rs if f == h and a >= WAKE_SEC))
         if keep:
+            COUNT[to] = len(keep)
             age, seq, _ = max(keep, key=lambda x: x[0])
             out[to] = (seq, age, None)
     return out, skipped
@@ -115,6 +121,126 @@ def idle_and_unwatched(seat):
         return False, "닫기 대기(카드 상태 끝 = 증거·중단 줄) — 깨우기 0"
     typing, why = typing_recently(seat)
     return (not typing), why  # 오빠가 그 화면에서 치는 중이면 why 없이 False — 절단 0
+
+
+def ext_seat(seat):
+    """r2128 — comm/mbox.sh ext_wake_seat 과 같은 칸: 확장 파일 ∧ (ft2 나노 FT2_HOLDER ∨ seats*.json _master ∧ 같은 파일 agent=='pi' ∨ planner _desk). 모름 = False."""
+    if not os.path.isfile(os.path.join(os.path.expanduser("~"), ".pi", "agent", "extensions", "ft-mbox-wake.ts")):
+        return False
+    try:
+        if run([*TMUX, "show-environment", "-t", f"={seat}", "FT2_HOLDER"], timeout=7).stdout.strip() == f"FT2_HOLDER={seat}":
+            return True
+    except (subprocess.SubprocessError, OSError):
+        pass
+    d = os.path.dirname(os.environ.get("FT_SEATS_JSON") or os.path.join(ROOT, ".fable-team", "seats.json"))
+    for f in sorted(glob.glob(os.path.join(d, "seats*.json"))):
+        try:
+            j = json.load(open(f, encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        row = j.get(seat) if isinstance(j, dict) else None
+        if (isinstance(row, dict) and j.get("_master") == seat and row.get("agent") == "pi") or (os.path.basename(f) == "seats-planner.json" and isinstance(j, dict) and j.get("_desk") == seat):
+            return True
+    return False
+
+
+def seat_file(seat, ext):
+    return os.path.join(WAKE_DIR, re.sub(r"[^A-Za-z0-9._#-]", "_", seat) + ext)  # ft-mbox-wake keyOf 와 같은 칸
+
+
+def num(v, default=0):
+    try:
+        return int(str(v).strip())
+    except (ValueError, TypeError):
+        return default
+
+
+def notify(seat, seq):
+    """복구 sent 뒤에만 — 팀장(ft-mbox-wake teamMasterOf 꼴: 내 행이 있는 seats 파일의 _master) · planner _desk 에 1통씩(같은 이름 1통)."""
+    d, base, to = os.path.join(ROOT, ".fable-team"), re.sub(r"#\d+$", "", seat), []
+    for f in sorted(glob.glob(os.path.join(d, "seats*.json"))):
+        try:
+            j = json.load(open(f, encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if isinstance(j, dict) and any(k == seat or re.sub(r"#\d+$", "", k) == base for k in j):
+            to.append(str(j.get("_master") or ""))
+            break
+    try:
+        to.append(str(json.load(open(os.path.join(d, "seats-planner.json"), encoding="utf-8")).get("_desk") or ""))
+    except (OSError, ValueError, AttributeError):
+        pass
+    body = f"[멈춤] {seat} 확장 깨움 멎음 · 미읽음 {COUNT.get(seat, '?')}(가장 오래된 #{seq}) · 바깥 ring 1"
+    for t in dict.fromkeys(x for x in to if x):
+        try:
+            rc = run(["bash", MBOX, "send", t, "ft-idle-wake", body], timeout=7).returncode
+        except (subprocess.SubprocessError, OSError) as e:
+            rc = type(e).__name__
+        log(f"{seat} seq={seq} 멈춤 알림 → {t} rc={rc}")
+
+
+def budget(op, seat):
+    try:
+        return run(["bash", MBOX, "budget", op, seat, "idle-wake"], timeout=12).returncode
+    except (subprocess.SubprocessError, OSError) as e:
+        return type(e).__name__
+
+
+def recover(seat, seq, age, st):
+    """r2128 W3·W4 확장 좌석 복구 깨움 1회 — 반환 = 깨움 0 사유(로그 1줄) | None(ring 까지 감). 순서 = 예약 → 재확인 → attempt 기록 → Escape → ring --reserved."""
+    b = {}
+    try:
+        b = dict(kv.split("=", 1) for kv in open(seat_file(seat, ".beat"), encoding="utf-8").read().split() if "=" in kv)
+    except OSError:
+        pass  # .beat 없음 = 옛 확장 — 복구 조건 그대로 본다
+    if b.get("why") == "uquiet":
+        return "오빠 `!` 창(.beat why=uquiet) — 복구 깨움 0"
+    if max(num(b.get("event")), num(b.get("woke"))) >= NOW - age:
+        return "확장 감시 살아 있음(.beat 사건·깨움이 미읽음 뒤) — 복구 깨움 0"
+    try:
+        gated = num(open(seat_file(seat, ".gated"), encoding="utf-8").read(), -1)
+    except OSError:
+        gated = -1
+    if gated >= seq:
+        return f"증류 게이트(.gated ≥ {seq}) — 복구 깨움 0"
+    rc = budget("reserve", seat)  # ⓐ 공용 예산 먼저(held 파일 유무와 무관)
+    if rc == 3:
+        st[seat] = {"seq": seq, "result": "quiet"}
+        return "예산 소진(예약 거절 rc=3) — 복구 깨움 0 · 다음 실행 다시 봄"
+    if rc != 0:
+        return f"예산 예약 판정 불가 rc={rc} — 복구 깨움 0"
+    try:
+        ok, why = idle_and_unwatched(seat)  # ⓑ 예약 뒤 IDLE·client_activity 재확인
+    except (subprocess.SubprocessError, OSError, ValueError) as e:  # r2150 F1 — 깨움 0 확실 = 환불 · st 쓰기 0(다음 실행 다시 봄)
+        return f"예약 뒤 재확인 예외 {type(e).__name__} — refund rc={budget('refund', seat)} · 복구 깨움 0"
+    if not ok:
+        r = budget("refund", seat)
+        return f"예약 뒤 재확인 실패({why or 'IDLE 아님/키 입력 120초 안'}) — refund rc={r} · 복구 깨움 0" + ("" if r == 0 else " · 환불 판정 불가")
+    st[seat] = {"seq": seq, "result": "attempt"}  # 바깥 입력 전에 선점 기록(죽어도 같은 seq 재전송 0)
+    save(st)
+    try:
+        p = run([*TMUX, "list-panes", "-a", "-F", "#{session_name}|#{pane_id}"], timeout=7)
+        pane = next((ln.split("|", 1)[1] for ln in p.stdout.splitlines() if ln.split("|", 1)[0] == seat and "|" in ln), "")
+        esc = p.returncode == 0 and pane and run([*TMUX, "send-keys", "-t", pane, "Escape"], timeout=7).returncode == 0
+    except (subprocess.SubprocessError, OSError) as e:  # r2150 F2 — ring 전 예외 = 깨움 0 확실 · failed(다음 실행 재시도) · 환불
+        st[seat]["result"] = "failed"
+        return f"Escape 예외 {type(e).__name__} — refund rc={budget('refund', seat)} · 복구 깨움 0"
+    if not esc:
+        st[seat]["result"] = "failed"
+        return f"Escape 실패(pane={pane or '없음'}) — refund rc={budget('refund', seat)} · 복구 깨움 0"
+    try:
+        r = run(["bash", MBOX, "ring", seat, str(seq), "--reserved"])  # ⓓ 같은 예약(재차감 0 · --auto 아님)
+    except (subprocess.SubprocessError, OSError) as e:
+        log(f"{seat} seq={seq} 복구 결과 불명 {type(e).__name__} — 재전송 0")
+        st[seat]["result"] = "unsure"
+        return None
+    db = (re.search(r"doorbell=(\w+)", r.stdout) or [None, ""])[1]
+    rf = "" if r.returncode == 0 else f" · refund rc={budget('refund', seat)}"  # r2150 F3 — --reserved rc≠0 = doorbell 전 종료(예약은 내 것)
+    log(f"{seat} seq={seq} 복구 ring rc={r.returncode} {r.stdout.strip()[:80]}{rf}")
+    st[seat]["result"] = "failed" if r.returncode != 0 else (db or "unsure")  # 출력을 못 읽음 = sent 로 만들지 않는다
+    if st[seat]["result"] == "sent":
+        notify(seat, seq)
+    return None
 
 
 def save(st):
@@ -150,10 +276,18 @@ for seat, (h, seqs) in sorted(skipped.items()):
     st[seat + "~"] = seqs
 for seat, (seq, age, hwhy) in sorted(picked.items()):
     prev = st.get(seat)
-    if age < WAKE_SEC or (isinstance(prev, dict) and prev.get("seq") == seq):
+    same = isinstance(prev, dict) and prev.get("seq") == seq
+    if age < WAKE_SEC or (same and prev.get("result") in ("sent", "attempt", "unsure")):
         continue
+    rec = not hwhy and age >= EXT_SEC and ext_seat(seat)  # r2128 — 확장 좌석 복구 후보(ext·quiet·failed·옛 done 은 같은 seq 라도 다시 봄)
+    if same and not rec:
+        continue  # 비확장 좌석 done · 문턱 전 ext = 지금처럼 건너뜀
     try:
         ok, why = (False, hwhy) if hwhy else idle_and_unwatched(seat)
+        if rec and ok:
+            why = recover(seat, seq, age, st)
+        elif rec and not why:
+            why = "턴 중/키 입력 120초 안 — 복구 깨움 0"
     except (subprocess.SubprocessError, OSError, ValueError) as e:
         ok, why = False, f"조회 예외 {type(e).__name__}"
     lo = (why or "").startswith("로그아웃")
@@ -163,8 +297,8 @@ for seat, (seq, age, hwhy) in sorted(picked.items()):
     if why and st.get(seat + "!") != mark:
         log(f"{seat} seq={seq} 깨우지 않음 — {why}")
         st[seat + "!"] = mark
-    if not ok:
-        continue
+    if not ok or rec:
+        continue  # rec = recover 가 기록·로그를 남겼다(끝 save 한 곳)
     typing, why = typing_recently(seat)  # ring 직전 재확인(H3) — 조회 뒤에 키가 들어왔으면 보류, 다음 실행에 다시 본다
     if typing:
         continue
@@ -173,7 +307,7 @@ for seat, (seq, age, hwhy) in sorted(picked.items()):
     try:
         r = run(["bash", MBOX, "ring", seat, str(seq), "--auto"])   # r1524 `--auto` = 자동 장치가 부른 ring(사람 손 ring 과 구분 — 확장 감시 좌석은 pane 0)
         log(f"{seat} seq={seq} ring rc={r.returncode} {r.stdout.strip()[:80]}")
-        st[seat]["result"] = "done" if r.returncode == 0 else "failed"
+        st[seat]["result"] = ("ext" if "doorbell=ext" in r.stdout else "done") if r.returncode == 0 else "failed"  # r2128 — ext = 확장 위임(pane 0) · 복구 조건을 다시 본다
     except (subprocess.SubprocessError, OSError) as e:
         log(f"{seat} seq={seq} ring 결과 불명 {type(e).__name__} — 재전송 0")
         st[seat]["result"] = "unsure"

@@ -17,7 +17,7 @@ for l in open(sys.argv[1]):
   if d["pr"]==int(sys.argv[2]): print(" ".join(sorted(c.rsplit("/",1)[-1][:-3] for c in d["cards"])))' "$L" "$1"; }
 ctok() { ( . "$1/ft-merge-lib.sh" >/dev/null 2>&1; fm_card_tokens "$2" "$3" ); }
 call_land() {  # call_land <bin> <PR> <head> <제목> <본문> — ft-merge-land 의 실제 착지 알림 줄 · NOTE = 쪽지 줄
-  local b="$1" c; c="$(grep -m1 '^fm_land_notify_land ' "$b/ft-merge-land.sh" | sed 's/; HLTO=.*//')"; land "$2"; : > "$T/note"
+  local b="$1" c; c="$(grep -m1 -o '^fm_land_turn_first [^;]*' "$b/ft-merge-land.sh")"$'\n'"$(grep -m1 '^fm_land_notify_land ' "$b/ft-merge-land.sh" | sed 's/; HLTO=.*//')"; land "$2"; : > "$T/note"   # r2124: 장부 줄(LANDED 바로 뒤) + 꼬리 notify
   ( . "$b/ft-merge-lib.sh" >/dev/null 2>&1
     fm_land_notify() { printf '%s | %s\n' "$2" "$(shift 2; printf '%s ' "$@")" >>"$T/note"; }
     PH_="$3" PT="$4" PB="$5"; pf() { case "$1" in headRefName) printf '%s' "$PH_";; title) printf '%s' "$PT";; body) printf '%s' "$PB";; esac; }

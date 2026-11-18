@@ -23,6 +23,7 @@ from file_guard import Checked, check_files
 from post_guard import check, guarded_post as post
 from thread_card import CardError, read_line, unit_id, verdict_title, write_line
 from thread_post_args import parse
+import thread_post_ask as tpa
 from thread_post_update import cmd_attach, cmd_post, cmd_reply, cmd_update
 from thread_unit import repair_root
 
@@ -190,7 +191,7 @@ def main(argv: list[str] | None = None) -> int:
         a = parse(argv)
         return {"start": cmd_start, "progress": cmd_progress, "result": cmd_result, "check": cmd_check, "repair": cmd_repair,
                 "update": lambda x: cmd_update(x, target), "attach": lambda x: cmd_attach(x, target), "reply": lambda x: cmd_reply(x, target),
-                "post": lambda x: cmd_post(x, target)}[a.cmd](a)
+                "post": lambda x: cmd_post(x, target), "ask": lambda x: tpa.cmd_ask(x, target)}[a.cmd](a)
     except (MirrorError, CardError, OSError, ValueError) as e:
         print(f"ERROR {type(e).__name__}: {e}", file=sys.stderr)
         return 1

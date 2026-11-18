@@ -15,7 +15,7 @@ import status_head as sh
 PLANNER = "byz-planner-master-claude#181"
 NOTE = "스크립트 1(h360) · 인터뷰 2 · 막힌 팀 대기 3"
 PLAIN = "스크립트 1 · 인터뷰 2 · 막힌 팀 대기 3"
-BROKEN = "스크립트 ? · 인터뷰 2 · 막힌 팀 대기 3"
+BROKEN = "스크립트 x · 인터뷰 2 · 막힌 팀 대기 3"
 FAKE_MBOX = '#!/bin/bash\nprintf "%s\\037" "$@" >> "$(dirname "$0")/calls.log"; echo >> "$(dirname "$0")/calls.log"\nexit "${FAKE_MBOX_RC:-0}"\n'
 
 
@@ -73,7 +73,7 @@ def test_r4_same_edition_three_heads_one_alarm(root, tmp_path, monkeypatch):  # 
 
 def test_r5_new_broken_edition_sends_one_more(root, tmp_path, monkeypatch):  # ⓑ · R5
     sh.head(now=status(tmp_path, monkeypatch, BROKEN))
-    sh.head(now=status(tmp_path, monkeypatch, "스크립트 ? · 인터뷰 ? · 막힌 팀 대기 3", mtime=1_793_000_600))
+    sh.head(now=status(tmp_path, monkeypatch, "스크립트 x · 인터뷰 x · 막힌 팀 대기 3", mtime=1_793_000_600))
     assert len(calls(root)) == 2
 
 

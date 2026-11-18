@@ -122,12 +122,29 @@ def judge(cmd: str, q: str, sha: str, argv: list | None = None) -> tuple[int, st
     return last
 
 
+def head_seen(q: str, sha: str, chan: str) -> int:  # r2013 ① · 질문 글 본문에 승인 head 40hex 낱말 = 0 · 없음 = rc3 · 조회 실패 = rc2(등록 0)
+    sys.path[:0], why = [str(Path(__file__).resolve().parent)], ""
+    for _ in range(2):  # 7초 + 재시도 1(하드 룰 12 · 조회 = ft_oppa_slack_check.locate 그대로)
+        try:
+            import ft_oppa_slack_check as chk
+            chk.CHANNEL = chan or None
+            text = str(next(m for m in chk.locate(q) if m.get("ts") == q).get("text") or "")
+            hit = re.search(r"(?<![0-9a-f])%s(?![0-9a-f])" % sha, text, re.I)
+            return 0 if hit else print("등록 거절: 질문 글에 head 없음 — 본문에 승인 head 40hex 를 넣어 다시 올려라", file=sys.stderr) or 3
+        except Exception as e:  # 조회 실패·꼴 아님 = 판정 불가
+            why = str(e)[:120] or type(e).__name__
+    print("감시 등록 판정 불가 — 질문 글 조회 실패(%s)" % why, file=sys.stderr)
+    return 2
+
+
 def register(led: Path, a: list, now: float, chan: str = "") -> int:  # ⓐ 등록 · 같은 질문 ts = 멱등 · 다른 값 = 거절(조용한 중복 0)
     h = a[1] if len(a) > 1 and HN.match(a[1]) else ("h" + a[1] if len(a) > 1 and a[1].isdigit() else "")
     row = {"q_ts": a[0] if a else "", "h": h, "sha": a[2].lower() if len(a) > 2 else "", "at": int(now), "deadline": int(now + DAY), "state": "open", **({"channel": chan} if chan else {})}  # r1857 · 채널 칸 없는 옛 줄 = byz-desk
     if len(a) != 3 or not TS.match(row["q_ts"]) or not h or not SHA.match(row["sha"]):
         print("감시 등록 실패 — 사용: --register <질문ts(1794295513.494289)> <h번호> <sha40>", file=sys.stderr)
         return 3
+    if (rc := head_seen(row["q_ts"], row["sha"], chan)):
+        return rc
     try:
         fh = lock(led)
     except OSError as e:
@@ -156,6 +173,9 @@ def register(led: Path, a: list, now: float, chan: str = "") -> int:  # ⓐ 등�
 
 def register_question(led: Path, a: list, now: float) -> int:  # r1591 · h·sha 칸이 없는 오빠 질문(설계 승인 등) — key 한 칸 · 승인 실행 기록(h 실행) 닫힘 없음
     row = {"q_ts": a[0] if a else "", "kind": "question", "key": a[1] if len(a) > 1 else "", "at": int(now), "deadline": int(now + DAY), "state": "open"}
+    if len(a) == 6 and a[2::2] == ["--d2", "--why"]:  # r2235 · 뒤 «--d2 <값> --why <글>» = 장부 칸(값 판정·거절 0 · 없으면 지금 그대로)
+        row.update(d2=a[3], why=a[5])
+        a = a[:2]
     if len(a) != 2 or not TS.match(row["q_ts"]) or not KEY.match(row["key"]):
         print("감시 등록 실패 — 사용: --register-question <질문ts(1794295513.494289)> <사유키(r1590)>", file=sys.stderr)
         return 3

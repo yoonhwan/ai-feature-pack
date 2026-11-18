@@ -44,7 +44,7 @@ def t2a(w):   # T2′ (DA R1) r9001 = 월별 아카이브/2026-11/ → 고름
 
 def t3(w):   # T3 r 참조 없는 선행 → 고르지 않음 · 판정 불가 로그 1줄
     lines = w.round()
-    assert lines.count("판정 불가 harness %s 선행 줄 판독 불가 — 건너뜀" % P) == 1, lines
+    assert lines.count("판정 불가 harness %s 선행 줄 판독 불가(번호 참조 없음) — 건너뜀 · 고칠 꼴 «- 선행: 없음» 또는 «- 선행: r<번호>»" % P) == 1, lines
     blocked(w, "선행불명")
 
 
@@ -68,7 +68,7 @@ LINE = "- 선행: r9001 착지\n"
 CASES = {"T1": (t1, LINE), "T2": (t2, LINE), "T2′": (t2a, LINE), "T3": (t3, "- 선행: #8596 착지\n"),
          "T4": (t4, "- 배정: 대기(선행 · 2026-11-02T10:45:51)\n"), "T5": (t5, "- 선행: 없음\n"), "T6": (t6, "")}
 MUTANTS = {"M1": ('if any(s & {"대기", "진행"} for s in seen):', "if False:", "T1"),
-           "M2": ('return "선행불명"   # ④', 'return ""   # ④', "T3")}
+           "M2": ('return "선행불명", "번호 참조 없음"   # ④', 'return "", ""   # ④', "T3")}
 
 
 def run(name, tmp, mp, ft2=kw.FT2):

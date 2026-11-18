@@ -1,4 +1,4 @@
-# ft2 keeper settle 계약 사례표 (r2055 · 보정 3)
+# ft2 keeper settle 계약 사례표 (r2055 · 보정 3 · 카드 ft2-done-seat-short-idle)
 
 `CONTRACT.md` 의 약속마다 **입력 → 기대 결과**와 그것을 묶은 시험을 적는다.
 사례 문장은 설계 정본 §7·§12·§13 과 시험 파일의 사례 주석에서 옮겼다. 새 사례는 없다.
@@ -10,10 +10,63 @@
 | `test_settle_one_path_r2055.py` | ① ② ②′ ③ ④ ④′ ⑤ ⑥ ⑦ ⑨ ⑩ ⑪ ⑫ ⑰가~바 ⑱ ⑲ ⑳ ㉕가·나·다 | M3 · M4 · M5 · M6 |
 | `test_settle_da_r2055.py` | DA 반례 R1~R4 · ㉑가~라 · ㉒가~바 · ㉓ · ㉔ | — |
 | `test_slack_accept_capacity.py` | ㉖가~바 | M7 · M8 · M9 |
+| `test_keeper_round_60s.py` | ㊳가~너 ㊴가~바 ㊷가~마 | M72~M84 · M94~M97 |
+| `test_keeper_ungraded_team_rest.py` | 52가~바(6) — 팀 자리 `Ungraded` = 그 팀만 0 · 뒤 팀은 돈다 · b3o 판정 불가 = b3r 은 돈다 | M129 · M131 · M132 · M137 |
+| `test_keeper_nano_cut_blank_cell_r2245.py` | 53가~바(나노 모으기 끊김 = cut 칸·cursor 흔적 0) | M133~M136 |
 | `test_keeper_notify_recipient.py` | ㉚가~거 | M17 · M18 · M19 · M23 · M24 · M25 · M32 · M33 |
 | `test_launch_failed_end.py` | ㉘가~카 · ㉛가~라 | M11 · M12 · M13 · M16 · M30 · M31 |
+| `test_prereq_unreadable_once.py` | ㉟가~하 · ㉟거 | M39 · M40 · M41 · M56 · M57 · M58 |
+| `test_prereq_alarm_hold.py` | ㊵가~버(18) | — |
+| `test_prereq_alarm_hold_mutants.py` | — | M85 · M86 · M87 · M88 · M89 · M90 · M91 |
+| `test_prereq_alarm_hold_compat.py` | ㊵더(앞 카드 13칸) | — |
+| `test_prereq_alarm_hold_compat_b.py` | ㊵더(앞 카드 무거운 2칸) | — |
+| `test_done_seat_short_idle.py` | ㉙가~도(27) | — (변이는 아래 두 파일) |
+| `test_done_seat_short_idle_mutants.py` | — | M20 · M21 · M22 · M44 · M45 |
+| `test_done_seat_short_idle_mutants_b.py` | — | M51~M55 |
 
-돌리는 법: `python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_core_park_capacity_r2055.py -q`(나머지 2개도 같은 꼴 · 시험 1개 70초 상한).
+돌리는 법: `python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_core_park_capacity_r2055.py -q`(나머지도 같은 꼴 · 시험 1개 70초 상한).
+
+## 9.1 선행 줄 쪽지 묵음·전체 목록 (`test_prereq_alarm_hold.py` · 카드 ft2-prereq-alarm-hold)
+
+계약 P0~P8(`CONTRACT.md` §12.1) · 설계 = 카드 «계약»·«반례 표»(DA HOLD-DESIGN 1/3 반영 r2).
+대역 = 9절과 같은 r1871 세계 + 주입 시계 · sleep 0 · 실 우편함·runtime 쓰기 0.
+「실제 fill 길」·「실제 닫기 뒤 고르기 길」 칸은 `keeper_next.fill` · `keeper_next.close` 를 돌리고 `prereq_tell` 호출 수를 센다. `prereq_tell` 을 직접 부르는 칸은 ㊵라 · ㊵하 · ㊵너 셋뿐이다.
+
+| 사례 | 입력 | 기대 | 계약 |
+|---|---|---|---|
+| ㊵가 | 실제 fill 길 · `NEW_CARD_HOLD.json` 있음 · 선행불명 2장 · 두 바퀴 | 쪽지 0통 · `prereq_tell` 호출 0 · `prereq_now`·`prereq_told`·목록 파일 없음 · `NEW-CARD-HOLD` 줄 1줄(그대로) | P0 · H3 |
+| ㊵나 | 실제 fill 길 · 팀 `PAUSED` 있음 · 선행불명 2장 | 쪽지 0통 · 기억·파일 손 0 | P0 |
+| ㊵다 | `ALL_STOP` 중 · 닫기 뒤 고르기 길로 `choose` 가 불림(세션 없음) · 선행불명 2장 | 쪽지 0통 · `prereq_told` 없음 | P1 |
+| ㊵라 | 함수 단위 방어: 세 표식을 하나씩 켬(3칸) · `prereq_tell` 직접 | 칸마다 쪽지 0통 · `prereq_told` 그대로 · `prereq_now` 와 목록 파일은 고쳐짐 | P1 |
+| ㊵마 | 실제 fill 길 · ㊵가 뒤 표식 파일을 지움 | 다음 fill 바퀴 1통 · 그 다음 바퀴 0통 | P2 |
+| ㊵바 | 실제 fill 길: 열린 바퀴에 묶음 X 전함 → `NEW_CARD_HOLD` 켬 → 카드를 Y 로 바꿈 → 보류 2바퀴 → 표식 지움 → fill 1회 | 보류 바퀴 = 쪽지 0통 · 호출 0 · `prereq_now`·파일 = X 그대로 / 풀린 뒤 fill = 쪽지 1통 · `prereq_told` = Y 지문 · 파일 = Y | P0 · P2 · P4 |
+| ㊵사 | ㊵바와 같되 보류 중 카드를 모두 고침 | 보류 바퀴 = X 파일 남음 / 풀린 뒤 fill = 쪽지 0통 · `prereq_told` 비움 · 목록 파일 지움 | P2 · P4 |
+| ㊵러 | 실제 닫기 뒤 고르기 길 · `NEW_CARD_HOLD` 있음 · 선행불명 2장 | 쪽지 0통 · 호출 0 · 닫기 영수는 그대로 | P0 |
+| ㊵아 | 열림 · 선행불명 5장 | 1통 · 수 5 · 이름 3개 · «전체 목록 <경로>» 1개 · 파일 5줄(이름순 · 값 · 까닭 · 첫 줄 `# 관측 … · 5장`) | P3 · P4 |
+| ㊵자 | 열림 · 선행불명 3장 | 본문은 지금 글 그대로(경로 칸 0) · 파일 3줄 | P3 · P4 · P8 |
+| ㊵차 | `_master` 빈칸 · harness master 있음 · 선행불명 4장 · 두 바퀴 | 쪽지 0통 · `undelivered` 에 그 글 0 · `PREREQ-WAIT` 1줄(둘째 바퀴 0줄) · `prereq_told` 없음 | P5 |
+| ㊵카 | ㊵차 뒤 `_master` 칸을 채움 | 그 바퀴 팀장에게 1통 · `prereq_wait` 지움 · 다음 바퀴 0통 | P2 · P5 |
+| ㊵타 | ㊵차 뒤 카드 1장 더(묶음 바뀜) | `PREREQ-WAIT` 1줄 다시(5장) · 쪽지 0통 | P5 |
+| ㊵파 | `_master` 빈칸 · `_desk` 있음 | ㊵차와 같음(대신 받는 곳 = 보류) | P5 |
+| ㊵하 | 함수 단위 방어: `NEW_CARD_HOLD` 깨짐(빈 파일) · 선행불명 2장 · `prereq_tell` 직접 | 쪽지 0통 | P1 |
+| ㊵거 | 실제 fill 길 · ㊵바의 보류 중 keeper 를 다시 만듦(상태 파일 그대로) → 표식 지움 → fill | Y 1통(재기동이 0통이나 2통을 만들지 않는다) | P2 · I9 |
+| ㊵너 | 함수 단위 방어: 팀장 없음 + `NEW_CARD_HOLD` · `prereq_tell` 직접 | 쪽지 0통 · `PREREQ-WAIT` 0줄 | P6 |
+| ㊵버 | 판 올림 승계(DA 312085 반례): 열린 바퀴에 묶음 X 관측 → 목록 파일만 지움(지문은 state.json 에 그대로) → 두 바퀴 | 첫 바퀴 파일 6줄 · 다음 바퀴에 파일 **1회 다시 만듦**(없는 경로를 가리키지 않는다) · `PREREQ-WAIT`·쪽지 0줄 더 · 그 뒤 파일 있고 지문 그대로 = 첫 줄 «관측 시각» 부터 손 0 | P4 · P4-a |
+| ㊵더 | 세 표식 0 · 팀장 있음 | 앞 카드 사례 ㉟가~거 전부 통과(`test_prereq_alarm_hold_compat.py` + `_compat_b.py`) | P7 |
+
+| 변이 | 바꾸는 곳 | 잡는 사례 |
+|---|---|---|
+| M85 | `prereq_mute` 에서 전팀 정지(`k.halt`) 조건을 뺌 | ㊵라 · ㊵다 |
+| M86 | 묵음 바퀴에 `prereq_told` 를 씀 | ㊵라 |
+| M87 | 본문 `전체 목록 <경로>` 칸을 뺌 | ㊵아 |
+| M88 | 팀장 없음에도 `k.notify` 를 부름(대신 받는 곳 = 묶음) | ㊵차 · ㊵파 |
+| M89 | `PREREQ-WAIT` 를 묶음이 바뀌지 않아도 바퀴마다 찍음 | ㊵차 |
+| M90 | 불린 바퀴에 묶음이 비어도 목록 파일을 지우지 않음 | ㊵사 |
+| M91 | 풀린 뒤 첫 호출 바퀴에 목록 파일을 고치지 않음(X 그대로) | ㊵바 |
+
+- 기준판(팩 origin/main c4b78196)에서 FAIL 이던 사례 = ㊵다 ㊵라 ㊵마 ㊵바 ㊵사 ㊵아 ㊵자 ㊵차 ㊵카 ㊵타 ㊵파 ㊵하 ㊵거 ㊵버(14) · 지키던 사례 = ㊵가 ㊵나 ㊵러 ㊵너(4).
+- ㊵버는 앞 커밋(cbf0a5a7 = DA HOLD-IMPL 1회차 판)에서 FAIL 하고 이 고침 커밋에서 rc0 이 된다.
+- 파일을 넷으로 나눈 이유 = 한 파일 70초 상한(DA 312085). ㊵더 하나가 50초대라 앞 카드 사례를 두 파일로 나눴다.
 
 ## 1. settle 판정 사례 (`test_settle_one_path_r2055.py`)
 
@@ -179,3 +232,117 @@
 | M31 | `keeper_next.prereq` 가 카드 배정 줄 사유 표(`MARK`)를 안 봄(선행만) | ㉘차(그 밖에 ㉘아·㉘자·㉘하도 함께 죽는다) · M67 은 `test_pi_launch_roster_r1983.py`(enroll 명부 경로 하드코딩 되돌림 → ㉘거) |
 
 - 기준판(팩 origin/main c7860542)에서 FAIL 이던 사례 = ㉘가 ㉘나 ㉘다 ㉘라 ㉘바 ㉘아 ㉘자 ㉘차 ㉘하 ㉛가 ㉛나 ㉛다 ㉛라(13) · 지키던 사례 = ㉘마 ㉘사 ㉘카 ㉘타 ㉘파(5).
+
+## 8. 전 세션 정지 재개 전 팀 (`test_penalty_team_no_new_pick.py` · r2073 · 카드 ft2-penalty-team-no-new-pick)
+
+계약 P1~P8(`CONTRACT.md` §10) · 설계 `feature-pack/fable-team/design/DESIGN-pJ-penalty-team-no-new-pick-20261116.md`. 대역 = `keeper_world_r1812` 세계 + 가짜 판정기 `ft-penalty.sh`(rc 를 사례가 정하고 인자·`FT_ROOT` 를 기록) + 가짜 launch·record. 실 판정기·실 `PENALTY_STOP`·runtime 쓰기 0.
+
+| 사례 | 입력 | 기대 | 계약 |
+|---|---|---|---|
+| ㊲가 | 표식 파일 있음 · 판정기 rc 3 · 빈 나노 칸 · 대기 카드 1 · 두 바퀴 | fill submit 0 · journal 줄 수 그대로 · `NEXT-HOLD <팀> PENALTY_STOP 재개 전 — 다음 카드 0` 1줄 · 둘째 바퀴 0줄 | P1 · P3 · P6 |
+| ㊲나 | 표식 있음 · rc 0(재개됨) | fill 1장(submit·assign·deliver·launch·record) · PENALTY 줄 0 | P1 |
+| ㊲다 | 표식 파일 없음 | fill 1장 · 판정기 호출 0 | P1 |
+| ㊲라 | 표식 있음 · rc 3 · 나노 닫기 1 | 닫기 영수 1(next 없음) · 다음 카드 submit 0 · launch 0 | P3 · P4 |
+| ㊲마 | 표식 있음 · rc 3 · `fill_open` 에 잇는 열기 1 | reconcile 그대로(launch 1 · record seat · `NEXT … fill:` 1줄) | P5 |
+| ㊲바 | 표식 있음 · rc 3 · gates 거짓(CLOSE-NEXT 표식 없음) · `fill_open` 1 | 복구 launch 0 · 표식 파일 없을 때와 같은 결과 · 판정기 호출 0 | P5 |
+| ㊲사 | 판정기 rc 1 / 도구 파일 없음 / 시간 초과 | 셋 다 fill 0 · `판정 불가 <팀> PENALTY_STOP 판독 rc <값> — 다음 카드 0` 1줄 | P1 |
+| ㊲아 | rc 3 → 0 → 3 | `NEXT-OPEN` 1줄 + fill 1장 → `NEXT-HOLD` 1줄 다시 | P6 |
+| ㊲자 | 1줄 찍은 뒤 keeper 다시 만듦(상태 파일 그대로) | PENALTY 줄 0 · 판정기는 매 바퀴 부른다 | P7 |
+| ㊲차 | 두 팀 한 바퀴(rc 0 · rc 3) | rc 0 팀만 fill 1장 · 판정기 호출 팀당 바퀴 1회 | P2 |
+| ㊲카 | 팀 PAUSED · 표식 있음 | 판정기 호출 0 · PENALTY 줄 0 | P3 |
+
+| 변이 | 바꾸는 곳 | 잡는 사례 |
+|---|---|---|
+| M62 | `keeper_next.fill()` 의 pick 줄에서 `and penalty_open(k, team)` 를 뺌 | ㊲가 |
+| M63 | `keeper_next.close()` 의 pick 줄에서 `and penalty_open(k, team)` 를 뺌 | ㊲라 |
+| M64 | `penalty_open` 이 rc 0 이 아닌 값을 전부 «열림» 으로 봄 | ㊲사 |
+| M65 | `reconcile` 의 복구 launch 가드에 `and penalty_open(k, team)` 를 더함 | ㊲바 |
+| M66 | `penalty_seen` 이 상태 파일 대신 메모리 사전만 씀 | ㊲가(둘째 바퀴) · ㊲자 |
+
+- 기준판(팩 origin/main cd0bd9ee)에서 FAIL 이던 사례 = ㊲가 ㊲라 ㊲사 ㊲아 ㊲자 ㊲차(6) · 지키던 사례 = ㊲나 ㊲다 ㊲마 ㊲바 ㊲카(5).
+
+## 9. 선행불명 로그·쪽지 (`test_prereq_unreadable_once.py` · 카드 ft2-prereq-unreadable-once)
+
+계약 I1~I9(`CONTRACT.md` §12) · 설계 `feature-pack/fable-team/design/DESIGN-pI-prereq-unreadable-log-once-20261116.md`.
+대역 = `keeper_world_r1812` 세계(r1871 시험의 세계 그대로) + 주입 시계 · 사례가 `w.t` 를 밀어 날짜 넘김을 만든다 · sleep 0 · 실 우편함·runtime 쓰기 0.
+바퀴마다 keeper 를 새로 만든다(rnd) = 실제처럼 프로세스가 바뀐다 → 세 기억이 상태 파일에 있어야만 통과한다(I9).
+
+| 사례 | 입력 | 기대 | 계약 |
+|---|---|---|---|
+| ㉟가 | 선행이 글뿐인 카드 1장 · 두 바퀴 | `판정 불가 … 선행 줄 판독 불가(번호 참조 없음) — 건너뜀 · 고칠 꼴 …` 1줄 · 둘째 바퀴 0줄 · 두 바퀴 모두 그 카드 submit 0 | I1 · I2 |
+| ㉟나 | ㉟가 뒤 선행 글을 다른 글로 바꿈 | 1줄 다시(= 값이 바뀜) | I1 |
+| ㉟다 | 선행 `결정 원문 r5 PR 8503 착지` · 루트에 r5 없음 | 1줄 · 까닭 `루트에 없는 번호 r5` | I2 |
+| ㉟라 | ㉟가 뒤 keeper 다시 만듦(상태 파일 그대로) 한 바퀴 | 0줄 · 쪽지 0 | I1 · I9 |
+| ㉟마 | ㉟가 뒤 선행을 `없음` 으로 고침 → 고름 → 다시 글로 바꿈 | 고친 바퀴 0줄 · submit 1 · 다시 바꾼 바퀴 1줄 | I4 |
+| ㉟바 | 선행불명 2장 + 고를 카드 1장 | `[다음 막힘]` 1통(2장 · 이름 2개) · 고를 카드 submit 1 · 둘째 바퀴 쪽지 0 | I5 |
+| ㉟사 | ㉟바 뒤 선행불명 카드 1장이 더 생김 | `[다음 막힘]` 1통 다시(3장) | I5 · I6 |
+| ㉟아 | 선행불명 5장 | 쪽지 이름 3개 · 수 5 · 로그 5줄 | I5 |
+| ㉟자 | 선행 `r9100` 이 대기에 있음 / 완성에 있음 | 앞 = 판정 `선행`(막힘 · 줄 0 · 쪽지 0) · 뒤 = 열림(submit 1) | I3 |
+| ㉟차 | 같은 날 X 쪽지 성공 → `없음` 으로 고침(빈 묶음) → 같은 글로 되돌림(X) | `[다음 막힘]` 2통 · 로그 2줄 | I7 · I8 |
+| ㉟카 | 같은 날 X 쪽지 성공 → 카드 1장 더 생겨 Y 성공 → 그 카드를 고쳐 다시 X | `[다음 막힘]` 3통 | I7 · I8 |
+| ㉟타 | 선행 `r9100 r9101` · 둘 다 없음 → 다음 바퀴에 r9100 이 완성에 생김(선행 글 그대로) | 첫 1줄 까닭 `루트에 없는 번호 r9100 r9101` · 다음 1줄 까닭 `루트에 없는 번호 r9101` · 쪽지 2통 · submit 0 | I1 · I2 · I6 |
+| ㉟파 | X 성공 → Y 가 됨 · send rc 3 → 같은 날 다시 → 날짜 바뀐 바퀴 → 성공 → 같은 날 다시 / 같은 꼴에서 넘김(defer) | 실패한 날 send 1회뿐 · 날짜가 바뀌면 1 · 성공한 뒤 0 · 넘김이면 다음 바퀴 1 | I8 |
+| ㉟하 | X 성공 → Y send 실패 → 카드를 고쳐 다시 X | 쪽지 0(팀장이 아는 묶음) · 로그는 바뀐 카드만 1줄 | I8 |
+| ㉟거 | 인수 칸(DA BYZ 310229) = 상태 저장 뒤 keeper 다시 만듦 → 변화 없음 발신 0 → 그 뒤 X 재발 | 0통 · 0줄 → X 재발 1통 | I9 |
+
+| 변이 | 바꾸는 곳 | 잡는 사례 |
+|---|---|---|
+| M39 | `keeper_next.choose` 의 선행불명 로그 기억을 상태 파일 대신 바퀴 캐시(`once`)로 | ㉟가 · ㉟라 |
+| M40 | `keeper_next.prereq_tell` 의 기억 치우기(`prereq_seen` pop)를 뺌 | ㉟마 |
+| M41 | `[다음 막힘]` 을 고를 카드 0 일 때만 보냄 | ㉟바 |
+| M56 | `prereq_told` 를 전송 결과와 상관없이 바꿈 | ㉟파 |
+| M57 | 열쇠에서 전이 번호를 뺌(묶음 지문만) | ㉟차 · ㉟카 |
+| M58 | 로그 기억에서 까닭을 뺌(선행 값만 비교) | ㉟타 |
+
+- 기준판(팩 origin/main 2b5037d1)에서 FAIL 이던 사례 = ㉟가 ㉟나 ㉟다 ㉟라 ㉟마 ㉟바 ㉟사 ㉟아 ㉟차 ㉟카 ㉟타 ㉟파 ㉟하 ㉟거(14) · 지키던 사례 = ㉟자(1 · 판정 그대로).
+
+## 10. 착지한 좌석의 짧은 문턱 · 빼는 미읽음 사례 (`test_done_seat_short_idle.py` · 카드 ft2-done-seat-short-idle)
+
+계약 A1~A9(`CONTRACT.md` §2) · 설계 `design/DESIGN-pA-done-idle-threshold-20261116.md` r4(DA 대행 APPROVE · BYZ 310212) · DA HOLD-IMPL 반례 1(311515) 반영.
+파일 셋 = 사례 `test_done_seat_short_idle.py`(27) · 변이 `test_done_seat_short_idle_mutants.py`(M20~M45) · `test_done_seat_short_idle_mutants_b.py`(M51~M55) — 파일마다 70초 안.
+가짜 mbox = 머리줄 + `--rows` JSON 줄(사례가 정함) · 실 tmux·실 우편함·sleep 0 · 사례 1개 70초 안.
+
+| 사례 | 입력 | 기대 | 계약 |
+|---|---|---|---|
+| ㉙가 | 착지 참 · 마지막 줄 stop · 무활동 6분 · CPU idle 2회 · 쪽지 0 | `COMPLETED` 1 · 닫기 1(complete 1) | A1·A2 |
+| ㉙나 | 착지 참 · 마지막 줄 toolUse · 6분 | `WORKING landed-wait` · 닫기 0(턴이 안 닫혔으면 일하는 중) | A1 |
+| ㉙도 | 착지 참 · toolUse · 무활동 16분(질문 창 15분 지남) · CPU idle 2회 · 미읽음 0 | `WORKING landed-wait` · 닫기·complete·[긴급] 0 (질문 창 판정은 park 길만 — DA 반례 311515 R1) | A1 |
+| ㉙다 | 착지 참 · stop · 4분(문턱 안) | `WORKING landed-wait` · 닫기 0 | A1 |
+| ㉙라 | 착지 참 · stop · 6분 · CPU busy | `WORKING cpu-busy` · 닫기 0 | A1 |
+| ㉙마 | 착지 0 · stop · 61분 · 미읽음 `[마감 #N] 할 일 0`(75분 · 보낸 이 `_master`) | `PARKED idle-done` · 꼬리 `미읽음 마감 1통 제외(seq …)` · 닫기 1 · 큐 그대로(mark·recv 0) | A6·A8 |
+| ㉙바 | 착지 0 · stop · 6분 | `WORKING` · 닫기 0 · park 0(짧은 문턱은 착지 좌석만) | A3 |
+| ㉙사 | 착지 0 · stop · 61분 | `PARKED idle-done`(지금 그대로) | A3 |
+| ㉙아 | 착지 참 · 셸만 남은 pane · 6분 | `COMPLETED` 1 · 닫기 1(셸은 CPU 무관 · 문턱만 300초) | A1 |
+| ㉙자 | 미읽음 `[긴급] …`(75분) | `UNKNOWN mail-pending` · 닫기 0 | A6 |
+| ㉙차 | 미읽음 `[발주 #N] …`(75분) | `UNKNOWN mail-pending` | A6 |
+| ㉙카 | 미읽음 1통 2줄(첫 줄 닫힌 꼴 + 둘째 줄 `[발주]`) | `UNKNOWN mail-pending`(줄 전체가 맞아야 한다) | A6① |
+| ㉙타 | 닫힌 꼴 10분 전(문턱 60분 안쪽) | `UNKNOWN mail-pending` | A6③ |
+| ㉙파 | 미읽음 2통 = 닫힌 꼴 + `[발주]` | `UNKNOWN mail-pending`(한 통이라도 막으면 막는다) | A7 |
+| ㉙하 | 머리 없는 글(75분) | `UNKNOWN mail-pending` | A6① |
+| ㉙거 | peek rc ≠ 0 | `UNKNOWN mail-unknown`(지금과 같음) | A5 |
+| ㉙너 | 착지 참 · 6분 · `[마감] 할 일 0 · 착지 4ccf2a6` + `골좌표:` 줄(7분) | `CLOSED-SESSION` 1 · 꼬리 `미읽음 마감 1통 제외` · 닫기 1 · 큐 그대로 | A6·A8 |
+| ㉙더 | 착지 참 · 6분 · 닫힌 꼴 2분 전 | 닫기 0(문턱 안 쪽지) | A6③ |
+| ㉙러 | 미읽음 1통 4줄(첫 줄 닫힌 꼴 · 4번째 줄 `[긴급][발주]`) | `UNKNOWN mail-pending` · 닫기 0 · 쉼 0 | A6① |
+| ㉙머 | DA 입력 2개(자유 글 답장 · «할 일 0» 이 들어 있어도 줄 전체가 안 맞음) | 둘 다 `UNKNOWN mail-pending` | A6① |
+| ㉙버 | 현역 seat#1 · 큐에 to = seat#0(옛 이름) `[발주]` 1통 + 자기 몫 닫힌 꼴 1통 | peek pending 2 = 판독 2통 · `UNKNOWN mail-pending`(옛 이름 쪽지도 읽는다) | A4 |
+| ㉙서 | 줄 수 ≠ pending(2 vs 1) / 옛 mbox(줄 0 · pending 1) | `mail-unknown` / `mail-pending`(지금과 같음) | A5 |
+| ㉙어 · ㉙저 | 자유 글 답장(`[답 #N] 확인했습니다.` / `[답 #N] 할 일 0 은 아니고 …`) | 둘 다 `UNKNOWN mail-pending` | A6① |
+| ㉙고 | 닫힌 꼴의 보낸 이가 다른 나노 / 명부 못 읽음 | 둘 다 `UNKNOWN mail-pending` | A6② |
+| ㉙허 | `[마감 #N] 할 일 0이 아닙니다`(줄 전체가 안 맞음) | `UNKNOWN mail-pending` | A6① |
+| ㉙노 | r2057 실사건 원문(자유 글 답장 · 옛 착지 줄) | `UNKNOWN mail-pending`(치르는 값으로 고정 — 빠지지 않는다) | A6① |
+
+| 변이 | 바꾸는 곳 | 잡는 사례 |
+|---|---|---|
+| M20 | `keeper_close.land_ready` 가 `DONE_IDLE` 을 안 넘김 | ㉙가 · ㉙아 |
+| M21 | 짧은 문턱에서 stop 검사를 뺌 | ㉙나 |
+| M22 | park 길에도 `DONE_IDLE` 을 씀 | ㉙바 |
+| M44 | 미읽음 행을 `to` 글자 일치로 거름 | ㉙버 |
+| M45 | 줄 수 ↔ pending 대조를 뺌 | ㉙서 |
+| M51 | 조건 ① 을 «줄 전체 일치» 대신 «`할 일 0` 이 들어 있음» 으로 | ㉙머 · ㉙허 |
+| M52 | 조건 ① 을 «첫 줄만 봄» 으로 | ㉙러 · ㉙카 |
+| M53 | 조건 ②(보낸 이 = 역할 칸 좌석)를 뺌 | ㉙고 |
+| M54 | 조건 ③(나이)을 뺌 | ㉙타 · ㉙더 |
+| M55 | 미읽음 판독을 지금(1통이라도 막음)으로 되돌림 | ㉙마 · ㉙너 |
+
+- 기준판(팩 origin/main cd0bd9ee)에서 FAIL 이던 사례 = ㉙가 ㉙마 ㉙아 ㉙너 ㉙서(5 · ㉙서는 첫 갈래만) · 지키던 사례 = 나머지 21. ㉙도 = 1차 구현(head e3e91f00)에서 FAIL 이던 사례(UNKNOWN waiting-input + [긴급] · 기대 WORKING landed-wait) · 보정 뒤 rc0.
+- `peek --rows` 사례 = 1.x `tests/scripts/test_mbox_peek_self_sent_r1153.py` r4(줄 수 = pending · 계보 옛 이름 앞 쪽지 포함 · from == me 셈 밖 · `--rows` 없으면 출력 바이트 같음).

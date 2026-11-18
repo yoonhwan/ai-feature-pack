@@ -5,7 +5,7 @@
 #   ② N2 실사건 꼴: 건너뜀 1줄 · 팩 폴더·가지 0 · 이어서 좌석 worktree add -b rc0
 #   ③ N2 관문 순서: 루트 가지 side = REJECT 먼저 · dry-run = 건너뜀 · 남은 폴더(같은 가지 · 다른 가지) 손 0
 #   ④ N3 발주 줄: 같은 리포 = «이 좌석 워크트리» 줄 · 다른 리포 = 기준판 글자 · 팩 카드 아님 = 0
-#   ⑤ N4 불변: 팩 카드 아님 = 0 · 기존 r1408·r1205 시험 · bin·kit cmp0 · 두 함수 밖 diff 0(origin/main 대비) · 실 팩 워크트리 목록 앞뒤 같음
+#   ⑤ N4 불변: 팩 카드 아님 = 0 · 기존 r1408·r1205 시험 · bin·kit cmp0 · 두 함수 밖 diff 0(r2077 고정 두 커밋 대조 · r2097) · 실 팩 워크트리 목록 앞뒤 같음
 # 변이·기준판: FT_R2077_SPAWN=<사본> → 함수 칸(①~④ · ⑤ 첫 칸)만 그 사본으로 돈다.
 # 꼴 = 임시 «팩 꼴» 리포(bare 원격 + 루트) · 두 함수를 awk 로 꺼내 eval · 실 팩 쓰기·실 명부·실 tmux 0 · sleep 0.
 set -uo pipefail
@@ -102,10 +102,12 @@ done
 cmp -s "$BIN/ft-nano-spawn.sh" "$KIT/ft-nano-spawn.sh" && ok "⑤ bin·kit cmp0" || bad "⑤ bin·kit 다름"
 /bin/bash -n "$BIN/ft-nano-spawn.sh" && ok "⑤ /bin/bash 3.2 -n" || bad "⑤ bash 3.2 구문"
 strip() { awk '/^pack_wt_(prepare|line)\(\) \{/{s=1} !s{print} s&&/^\}/{s=0}'; }
-BASE="$(git -C "$REPO" show origin/main:feature-pack/fable-team/legacy/1.x/harness/bin/ft-nano-spawn.sh 2>/dev/null)"
-if [ -z "$BASE" ]; then bad "⑤ 기준판(origin/main) 판정 불가"
-elif [ "$(printf '%s\n' "$BASE" | strip)" = "$(strip < "$BIN/ft-nano-spawn.sh")" ]; then ok "⑤ 두 함수 밖 diff 0(origin/main 대비)"
-else bad "⑤ 두 함수 밖이 바뀜"; fi
+PIN0=158d3520f3452e4ec5effd02b6c79f8c1ba42928; PIN1=731bc23623c10cd68cc18210d47c7d1793f20e4c  # r2077 부모 · fix(고정 40hex · 작업 판·origin/main 안 씀)
+NS=feature-pack/fable-team/legacy/1.x/harness/bin/ft-nano-spawn.sh
+B0="$(git -C "$REPO" show "$PIN0:$NS" 2>/dev/null)"; B1="$(git -C "$REPO" show "$PIN1:$NS" 2>/dev/null)"
+if [ -z "$B0" ] || [ -z "$B1" ]; then bad "⑤ 기준판(r2077 고정 커밋) 판정 불가"
+elif [ "$(printf '%s\n' "$B0" | strip)" = "$(printf '%s\n' "$B1" | strip)" ]; then ok "⑤ 두 함수 밖 diff 0(r2077 고정 커밋 대조)"
+else bad "⑤ 두 함수 밖이 바뀜(r2077 고정 커밋 대조)"; fi
 [ "$(real_wts)" = "$REAL0" ] && ok "⑤ 실 팩 워크트리 목록 앞뒤 같음($REAL0)" || bad "⑤ 실 팩 워크트리 수 $REAL0 → $(real_wts)"
 
 echo; [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }

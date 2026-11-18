@@ -32,12 +32,18 @@ def world(tmp, home_pi=True, bin_pi=False, has_rc=0):
     return root, fake, home, {"HOME": str(home), "PATH": "%s:/usr/bin:/bin" % fake, "FAKE_TMUX_HAS_RC": str(has_rc)}
 
 
+def _tmux(fake):
+    """new-session 부터의 바깥 호출 — git 단계 수가 판마다 달라도 위치로 자르지 않는다."""
+    lines = pl._log(fake)
+    return lines[[line["sub"] for line in lines].index("new-session"):]
+
+
 def case_home_pi(tmp, launcher=pl.LAUNCH):
     """① env PATH 에 pi 없음 · 가짜 HOME/.local/bin 에만 → new-session 명령 = 그 절대 경로 · 모델 인자 그대로."""
     root, fake, home, extra = world(tmp)
     out, rc = pl._launch(root, fake, launcher, env_extra=extra)
     assert (out["result"], rc, out.get("opened")) == ("접수 성공", 0, True), out
-    new = pl._log(fake)[4]["argv"]
+    new = _tmux(fake)[0]["argv"]
     assert new[16] == str(home / ".local" / "bin" / "pi") and new[-5:-1] == pl.SESSION_ARGV, new
 
 
@@ -70,8 +76,8 @@ def case_alive(tmp, launcher=pl.LAUNCH):
     root, fake, _, extra = world(tmp, home_pi=False, bin_pi=True)
     out, rc = pl._launch(root, fake, launcher, env_extra=extra)
     assert (out["result"], rc, out.get("opened")) == ("접수 성공", 0, True), out
-    lines = pl._log(fake)[4:]
-    assert [line["sub"] for line in lines] == ["new-session", "has-session"], lines
+    lines = _tmux(fake)
+    assert [line["sub"] for line in lines] == ["new-session", "has-session", "display-message"], lines
     assert lines[1]["argv"] == ["has-session", "-t", "=" + pl.HOLDER] and lines[0]["argv"][16] == str(fake / "pi"), lines
     assert lines[0]["argv"][6:16:2] == ["-e"] * 5, lines[0]
     assert json.loads(pl._intent(root).read_text(encoding="utf-8"))["state"] == "opened"

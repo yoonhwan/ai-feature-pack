@@ -7,18 +7,18 @@
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 export FT_ALLOW_TRACKED_BIN=1
-HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; PACK="$(cd -- "$HERE/../../../.." && pwd)"   # 워크트리 루트(REL 이 feature-pack/ 로 시작한다)
-REL="feature-pack/fable-team/harness/kit/fable-team/bin/ft-successor-open.sh"
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; PACK="$(git -C "$HERE" rev-parse --show-toplevel)"; HX="$(cd -- "$HERE/.." && pwd -P)"   # r2226: 리포 루트 = git · harness = 시험 폴더의 부모(옛 깊이·경로 글자 대신)
+REL="${HX#$PACK/}/kit/fable-team/bin/ft-successor-open.sh"
 SO="${FT_SO_PATH:-$PACK/$REL}"
 fail=0; ok() { echo "PASS $1"; }; bad() { echo "FAIL $1"; fail=$((fail+1)); }
 
 [ -f "$SO" ] && bash -n "$SO" && ok "bash -n" || { bad "ft-successor-open.sh 없음·구문 오류: $SO"; echo "FAILED $fail"; exit 1; }
-cmp -s "$PACK/$REL" "$PACK/feature-pack/fable-team/harness/bin/ft-successor-open.sh" && ok "짝 사본(harness/bin ↔ kit) cmp=0" || bad "짝 사본이 다르다(harness/bin ↔ kit)"
+cmp -s "$PACK/$REL" "$HX/bin/ft-successor-open.sh" && ok "짝 사본(harness/bin ↔ kit) cmp=0" || bad "짝 사본이 다르다(harness/bin ↔ kit)"
 
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 FAKE="$TMP/fakebin"; LOG="$TMP/calls.log"; CNT="$TMP/pgrep.cnt"; OPENED="$TMP/opened"; BODY="$TMP/body.txt"
 mkdir -p "$FAKE"
-printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n본문 나머지\n' > "$BODY"
+printf '골 원문 1줄\n골 원문 2줄\n골 원문 3줄\n열린 칸 감시: 없음\n본문 나머지\n' > "$BODY"
 
 mkstub() { printf '#!/usr/bin/env bash\n%s\n' "$2" > "$FAKE/$1"; chmod +x "$FAKE/$1"; }
 mkstub tmux   'case "$1" in
@@ -51,12 +51,14 @@ printf '%s\n' "$LIVE" > "$W1/.fable-team/LIVE_ROOT"
 printf '%s\n' "$LIVE" > "$W2/.fable-team/LIVE_ROOT"
 
 OLD='byz-planner-master-claude#94'; NEW='byz-planner-master-claude#95'
+printf '| 팀 | 폴더 | 상태 | 명부 |\n|---|---|---|---|\n' > "$TMP/TEAMS.md"   # r2226: 팀 행 0 = arch 상시 게이트 SKIP(이 시험 범위 밖) · 리포 밖 · export 0
 run() { # run <스크립트 경로> <워크트리> <환경 KEY=VAL…>
   local so="$1" wt="$2"; shift 2
   rm -f "$LOG" "$CNT" "$OPENED"; : > "$LOG"
   env HOME="$TMP/home" PATH="$FAKE:$PATH" LOG="$LOG" CNT="$CNT" OPENED="$OPENED" PANE_CWD="$wt" \
-      FT_SO_POLL=0 FT_SO_WAIT_MAX=5 FT_RES_ROOT="$RES" SENSORS="$SENSORS" \
-      FT_SEND_VERIFIED="$FAKE/send" FT_MBOX_SH="$R/.fable-team/comm/mbox.sh" FT_REACH_CHECK="$FAKE/reach" "$@" \
+      FT_SO_POLL=0 FT_SO_WAIT_MAX=5 FT_CARRY_WARN_ONLY=1 FT_RES_ROOT="$RES" SENSORS="$SENSORS" \
+      FT_SEND_VERIFIED="$FAKE/send" FT_MBOX_SH="$R/.fable-team/comm/mbox.sh" FT_REACH_CHECK="$FAKE/reach" \
+      FT_TEAMS_MD="$TMP/TEAMS.md" FT_GOV_MD="$HX/../skill/references/main-team-governance.md" "$@" \
       bash "$so" "$OLD" "$wt" --name "$NEW" --agent claude --model 'claude-opus-5-5[1m]' --ctx 1m --effort high --body-file "$BODY" > "$TMP/out" 2>&1
   RC=$?
 }
@@ -67,14 +69,14 @@ withbin() { # withbin <폴더이름> <ft-successor-open.sh 대체본> → 그 �
 clean() { [ ! -e "$R/.fable-team/state/successor/$OLD.json" ]; }   # 도달 파일(부작용) 0
 
 # ⓐ 빨강 — 옛 판(base 판)은 W1 에서 그대로 연다: 승계 도구가 자리를 보지 않았다
-BASE_SO="$TMP/base.successor-open.sh"
-if git -C "$PACK" show "${FT_SO_BASE_REF:-origin/main}:$REL" > "$BASE_SO" 2>/dev/null; then
+BASE_SO="$TMP/base.successor-open.sh"; BASE_REF="${FT_SO_BASE_REF:-8375e8a795be6cd1329d75512277cc02fb5dc309}"   # r2226: = f20cfe16^ · r756 앞 · main 안 · legacy/1.x 이동(625fbdfc) 앞 = 옛 경로
+if git -C "$PACK" show "$BASE_REF:${REL/legacy\/1.x\//}" > "$BASE_SO" 2>/dev/null; then
   withbin basebin "$BASE_SO"; run "$WITHSO" "$W1"
   { [ "$RC" -eq 0 ] && [ "$(count tmuxc)" = 1 ] && [ "$(count send)" = 1 ]; } \
     && ok "ⓐ 옛 판(base) = W1(뒤진 가지)에서 연다 rc=0 · open 1 · 송신 1(빨강 재현)" || bad "ⓐ 옛 판이 W1 을 거절했다 rc=$RC :: $(head -2 "$TMP/out")"
   rm -rf "$R/.fable-team/state"   # ⓐ 가 남긴 도달 파일(부작용) — ⓑ 의 «도달 파일 0» 단언은 이 자리부터 센다
 else
-  bad "ⓐ base 판을 못 읽음(${FT_SO_BASE_REF:-origin/main}:$REL) — 빨강 재현 0"
+  bad "ⓐ base 판을 못 읽음($BASE_REF:${REL/legacy\/1.x\//}) — 빨강 재현 0"
 fi
 
 # ⓑ 지금 판 W1 = REJECT(열기 «전») · 뒤처짐 수 표시 · open·송신·도달 파일 0

@@ -14,6 +14,7 @@ fail=0; rc=0; out=""; T0=$SECONDS
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:700}"; fail=$((fail+1)); fi; }
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 mkrepo "$T"; mkdir -p "$T/state"
+ghremote "$W" "$ORIGIN" o/w   # r2253: 원장 루트(카드 리포) ≠ 착지 리포 = github 꼴 원격 필요(r1746 · 전송은 가짜 ssh → 로컬 bare)
 CB="$T/cards.git"; C="$T/croot"; IX="design/harness/indices"; HL="$T/hook.log"
 git init -q --bare -b ops/main-base "$CB"; git clone -q "$CB" "$C" 2>/dev/null; git -C "$C" checkout -q -b ops/main-base
 git -C "$C" config user.name t; git -C "$C" config user.email t@t; git -C "$C" config commit.gpgsign false

@@ -9,7 +9,7 @@ import { spawnSync, execSync } from "node:child_process";
 import { createLocalBashOperations, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { appendLoadLine } from "./ft-load-line.ts"; // r1537 — 세션 기록 «로드 <카드> <판>» 1줄(턴 0)
 import { say } from "./ft-load-line.ts"; // r1837 — 진단 1줄 출력 길(TUI = 파일 로그)
-type Row = { seq: number; to: string; body: string; from: string };
+type Row = { seq: number; to: string; body: string; from: string; wake?: unknown };
 const QUIET = ["[정리]", "[회신]", "[완료 보고]"]; // r1476 종류 표와 같은 값 — 큐만
 const LOUD = ["[긴급]", "[인계]", "[레디]"]; // 예산 밖 즉시
 
@@ -20,13 +20,14 @@ export function parseRows(text: string): Row[] {
     if (!line.trim()) continue;
     try {
       const r = JSON.parse(line);
-      if (typeof r?.seq === "number" && typeof r?.to === "string") rows.push({ seq: r.seq, to: r.to, body: String(r.body ?? ""), from: String(r.from ?? "") });
+      if (typeof r?.seq === "number" && typeof r?.to === "string") rows.push({ seq: r.seq, to: r.to, body: String(r.body ?? ""), from: String(r.from ?? ""), wake: r.wake_at });
     } catch { continue; } // 깨진 줄 1개가 우편함 전체를 막지 않는다
   }
   return rows;
 }
 export const quietOnly = (rows: Row[]) => rows.length > 0 && rows.every((r) => QUIET.includes(headOf(r.body)));
 export const loud = (rows: Row[]) => rows.some((r) => LOUD.includes(headOf(r.body)));
+export const wakeOk = (r: Row, now: number) => Number.isInteger(r.wake) && (r.wake as number) >= 0 && (r.wake as number) <= now + 3600; // ★r2169 W6★ wake_at 칸 = 정수 · 0 이상 · 지금+3600초 이하 · 그 밖(글자·음수·소수·null·먼 미래) = 칸 없는 행
 // mbox_wakegate.sh:12~18 «사람 발신» 경계 — planner 표식(slack-*·*-oppa·oppa) + 좌석 _master. 미등록 좌석은 사람이 아니다.
 export const humanSender = (from: string, master: string) => from === master || from === "oppa" || from.startsWith("slack-") || from.endsWith("-oppa");
 const keyOf = (s: string) => s.replace(/[^A-Za-z0-9._#-]/g, "_");
@@ -45,9 +46,10 @@ export function piMasterFile(root: string, seat: string): string { const d = pat
 export function teamMasterOf(root: string, seat: string): string { const d = path.join(root, ".fable-team"), b = seat.replace(/#\d+$/, ""); let names: string[] = []; try { names = fs.readdirSync(d).filter((f) => /^seats.*\.json$/.test(f)).sort(); } catch { return ""; } for (const f of names) { try { const j = JSON.parse(fs.readFileSync(path.join(d, f), "utf-8")); if (Object.keys(j).some((k) => k === seat || k.replace(/#\d+$/, "") === b)) return String(j._master ?? ""); } catch { continue; } } return ""; }
 
 export default function (pi: ExtensionAPI) {
-  const root = process.env.FT_MBOX_ROOT || gitRoot() || process.cwd();
-  const seat = seatName();
-  const seatKnown = (): boolean | null => { if (process.env.FT_SEAT) return true; if (!process.env.TMUX_PANE) return false; if (!seat) return null; const b = seat.replace(/#\d+$/, ""), d = path.join(root, ".fable-team"); let files: string[] = [], bad = false; try { files = fs.readdirSync(d).filter((f) => /^seats.*\.json$/.test(f)); } catch { return false; } const hit = files.some((f) => { try { const j = JSON.parse(fs.readFileSync(path.join(d, f), "utf-8")); return Object.keys(j).some((k) => !k.startsWith("_") && (k === seat || k.replace(/#\d+$/, "") === b)); } catch { bad = true; return false; } }); return hit ? true : bad ? null : false; }; // ★r1634★ ft 좌석인가 = distill-gate 와 같은 규칙(FT_SEAT ∨ 명부 행) · false = no-op · null = 판정 불가(tmux 안인데 이름 못 읽음·명부 깨짐 = 지금처럼)
+  const seat = seatName(), nano = !!seat && process.env.FT2_HOLDER === seat; // ★r2110 A1★ ft2 나노 pi 좌석(명부 밖) = 세션 env FT2_HOLDER 가 내 좌석 이름과 글자 그대로 같음
+  const ft2Root = (() => { const r = process.env.FT2_ROOT ?? ""; try { return nano && r && fs.statSync(r).isDirectory() ? r : ""; } catch { return ""; } })(); // ★r2110 A2 · DA R1★ 나노 = 팀 루트(cwd 가 다른 리포 worktree 여도 팀 우편함) · 없는 폴더 = 지금 순서
+  const root = process.env.FT_MBOX_ROOT || ft2Root || gitRoot() || process.cwd(); // 명시 값 먼저
+  const seatKnown = (): boolean | null => { if (process.env.FT_SEAT || nano) return true; if (!process.env.TMUX_PANE) return false; if (!seat) return null; const b = seat.replace(/#\d+$/, ""), d = path.join(root, ".fable-team"); let files: string[] = [], bad = false; try { files = fs.readdirSync(d).filter((f) => /^seats.*\.json$/.test(f)); } catch { return false; } const hit = files.some((f) => { try { const j = JSON.parse(fs.readFileSync(path.join(d, f), "utf-8")); return Object.keys(j).some((k) => !k.startsWith("_") && (k === seat || k.replace(/#\d+$/, "") === b)); } catch { bad = true; return false; } }); return hit ? true : bad ? null : false; }; // ★r1634★ ft 좌석인가 = distill-gate 와 같은 규칙(FT_SEAT ∨ 명부 행) · false = no-op · null = 판정 불가(tmux 안인데 이름 못 읽음·명부 깨짐 = 지금처럼)
   const mbox = process.env.FT_MBOX_FILE ?? path.join(root, ".fable-team", "comm", "mailbox.jsonl");
   const mboxDir = path.dirname(mbox); // ★입력·감시·recv 는 «같은 지정 우편함» 에 결속한다(FT_MBOX_FILE 지원)
   const localSh = path.join(mboxDir, "mbox.sh");
@@ -61,6 +63,10 @@ export default function (pi: ExtensionAPI) {
   const debounce = Number(process.env.FT_MBOX_WAKE_DEBOUNCE_MS ?? 300);
   let timer: ReturnType<typeof setTimeout> | null = null;
   let watchers: fs.FSWatcher[] = [], fallback: ReturnType<typeof setTimeout> | null = null, inTurn = false, wakePending = false; // fallback = 기동 창 1회 재확인 · 판 2(r1529) = 턴 도중 표지 · 배달 안 된 깨움 1개
+  // ★r2128 W1★ 감시 진단 1줄 = <state>/pi-wake/<키>.beat(일반 파일 · 덮어쓰기 · 시각 = epoch 초 · 0 = 아직 없음) — 칸: event(마지막 감시 사건) check why inTurn wakePending watchers rearm woke(마지막 깨움 = ft-idle-wake W3 이 읽음). 쓰기 자체는 감시 사건이 아니다(wakeDir 감시 = .nudge 이름만).
+  const beatF = path.join(wakeDir, `${keyOf(seat)}.beat`), rearmMs = Number(process.env.FT_MBOX_WAKE_REARM_MS ?? 600000), nowS = () => Math.floor(Number(process.env.FT_MBOX_NOW ?? Date.now() / 1000)), B = { event: 0, check: 0, why: "-", rearm: 0, woke: 0 }, said = new Set<string>(), closed = new WeakSet<fs.FSWatcher>();
+  let rearmT: ReturnType<typeof setTimeout> | null = null, live = false, down = false; // rearmT = 유휴 1회 재무장 타이머(W2 · 주기 0) · live = session_start 가 감시를 건 좌석 · down = session_shutdown 뒤(재무장 0)
+  const once = (k: string, m: string) => { if (!said.has(k)) { said.add(k); fail(m); } }, beat = () => { if (!live) return; try { fs.writeFileSync(beatF, `event=${B.event} check=${B.check} why=${B.why} inTurn=${+inTurn} wakePending=${+wakePending} watchers=${watchers.length} rearm=${B.rearm} woke=${B.woke}\n`); said.delete("beat"); } catch (e) { if (!said.has("beat")) { said.add("beat"); log(`.beat 쓰기 실패 ${beatF} — ${e} · 깨움 동작 불변`); } } };
   // ★r1540 h 끝 모음 상태★ — 목록은 보낸 뒤 비우고(같은 h 두 번 알림 0), 타이머는 h 1건마다 «다시 거는» 1회짜리뿐이다(주기 타이머 0).
   //  ★R1(DA 277721)★ = 창이 열려 있는 동안(타이머 안 끝) 정상 settled 가 와도 보내지 않는다 → hArmed 가 「창이 끝났다」 한 표시.
   //  ★R2(DA 277721)★ = 대기 목록의 정본은 «파일»(<state>/pi-wake/<키>.hdone) — reload·shutdown 으로 확장 인스턴스가 갈리어도 새 session_start 가 회수한다(유실 0).
@@ -103,7 +109,7 @@ export default function (pi: ExtensionAPI) {
     hTimer = setTimeout(() => { hTimer = null; hArmed = true; try { hFlush(); } catch (e) { fail(`h 끝 처리 실패 — ${e}`); } }, hQuiet);
   }
   const userQuiet = Number(process.env.FT_USER_BASH_QUIET_MS ?? hQuiet); // ★r1555★ 오빠 `!`(user_bash) 뒤 «조용함 창» — 기본 = r1540 창 값 · 창 안에서는 쪽지 깨움 턴 0 · seq 0 · 예산 0 · held 기록 0
-  let uTimer: ReturnType<typeof setTimeout> | null = null, uUntil = 0; // 창 끝 1회짜리 타이머가 run() 1회(우편함 파일이 정본이라 손실 0) · `!` 가 또 오면 «마지막 `!` 기준» 으로 다시 잰다(주기 타이머 0)
+  let uTimer: ReturnType<typeof setTimeout> | null = null, uUntil = 0, bT: ReturnType<typeof setTimeout> | null = null; // 창 끝 1회짜리 타이머가 run() 1회(우편함 파일이 정본이라 손실 0) · `!` 가 또 오면 «마지막 `!` 기준» 으로 다시 잰다(주기 타이머 0) · bT = r2169 묶음 끝 시각 1회 타이머(좌석당 1개)
   const openUserQuiet = () => { if (userQuiet <= 0) return; uUntil = Date.now() + userQuiet; if (uTimer) clearTimeout(uTimer); uTimer = setTimeout(() => { uTimer = null; uUntil = 0; run(); }, userQuiet); };
 
   // ★활성 = 이벤트마다 재확인★ — 승계(retire) 전에 새 세션이 뜨면 _master 는 아직 옛 좌석이다. 한 번만 읽고 굳으면 영영 꺼진다.
@@ -112,8 +118,8 @@ export default function (pi: ExtensionAPI) {
     try { const d = JSON.parse(fs.readFileSync(path.join(root, ".fable-team", "seats-planner.json"), "utf-8")); return { master: String(d._master ?? ""), desk: String(d._desk ?? "") }; } catch { return { master: "", desk: "" }; }
   };
   // ★판 2 활성 판정(arch#267 · 카드 954fe550)★ = 「seats*.json 하나의 _master 이고 «같은 파일» 그 행 agent=='pi'」 ∨ 「seats-planner.json _desk」 — 셸 comm/mbox.sh ext_wake_seat 와 «같은 칸»(두 벌이 다른 말을 하면 좌석이 두 길로 깨운다).
-  const activeFlag = (): boolean => !!piMasterFile(root, seat) || (!!seat && seats().desk === seat); // _master ∧ 같은 파일 agent=='pi' ∨ planner _desk
-  const activeSeat = (say: boolean): boolean => { // 다른 pi 좌석(나노) 자동 활성화 0 — _master/_desk 만
+  const activeFlag = (): boolean => nano || !!piMasterFile(root, seat) || (!!seat && seats().desk === seat); // r2110 나노 pi ∨ _master ∧ 같은 파일 agent=='pi' ∨ planner _desk
+  const activeSeat = (say: boolean): boolean => { // 다른 pi 좌석 자동 활성화 0 — _master/_desk · r2110 ft2 나노(A1)만
     const mine = !!seat && activeFlag(), s = seats();
     if (mine) { announced = ""; return true; }
     const why = `inactive seat=${seat || "?"} master=${s.master || "?"} desk=${s.desk || "?"}`;
@@ -121,8 +127,8 @@ export default function (pi: ExtensionAPI) {
     return false;
   };
 
-  // ★내 행 = «recv 가 소비할 행» 과 같은 칸(r1153: to === seat ∧ from !== seat)★ — 자기 발신 행(ft-index-move·ft-merge-land 알림)은 recv 가 안 소비해 우편함에 남는다.
-  const mine = (): Row[] => { try { return parseRows(fs.readFileSync(mbox, "utf-8")).filter((r) => r.to === seat && r.from !== seat); } catch (e) { fail(`우편함 읽기 실패 ${mbox} — ${e}`); return []; } };
+  // ★내 행 = «recv 가 소비할 행» 과 같은 칸(r1153: to === seat ∧ from !== seat · r2259: ∨ to === seat ∧ 머리 [깨움] = mbox_lineage.self_wake)★ — 그 밖의 자기 발신 행(ft-index-move·ft-merge-land 알림)은 recv 가 안 소비해 우편함에 남는다.
+  const mine = (): Row[] => { try { return parseRows(fs.readFileSync(mbox, "utf-8")).filter((r) => r.to === seat && r.from !== seat || r.to === seat && r.body.trimStart().startsWith("[깨움]")); } catch (e) { fail(`우편함 읽기 실패 ${mbox} — ${e}`); return []; } };
   const readSeq = (): number => { try { const n = Number(fs.readFileSync(seqFile, "utf-8").trim()); return Number.isFinite(n) ? n : -1; } catch { return -1; } };
   const writeSeq = (n: number | null) => { try { if (n === null) fs.rmSync(seqFile, { force: true }); else fs.writeFileSync(seqFile, `${n}\n`); } catch { /* 폴더 없음 = 다음 회수 */ } };
   const reserve = () => spawnSync("bash", [mboxSh, "budget", "reserve", seat, "pi"], { encoding: "utf-8", timeout: 7000, env: { ...process.env, FT_MBOX_DIR: mboxDir } }).status ?? 1; // recv·예산이 «지정 우편함» 을 보게 한다(FT_MBOX_DIR).
@@ -137,8 +143,8 @@ export default function (pi: ExtensionAPI) {
 
   function wakeNow(seq: number, viaNudge: boolean) { // 빌린 CLI 일 때만 FT_MBOX_DIR 로 «recv 대상 우편함» 을 밝힌다.
     const content = `[발주 #${seq}] ${borrowed ? `FT_MBOX_DIR="${mboxDir}" ` : ""}bash ${mboxSh} recv ${seat} — 실행하고 그 안의 지시를 즉시 착수하라`;
-    try { pi.sendMessage({ customType: "ft-mbox", content, display: true }, { triggerTurn: true, deliverAs: "followUp" }); } catch (e) { return fail(`sendMessage 실패 — ${e}`); }
-    writeSeq(seq); wakePending = true; // 성공한 깨움 = 배달 대기 1개(세션 시작 회수 포함 · DA HOLD R1) — agent_start 에서 소비
+    try { pi.sendMessage({ customType: "ft-mbox", content, display: true }, { triggerTurn: true, deliverAs: "followUp" }); } catch (e) { B.why = "send-fail"; return fail(`sendMessage 실패 — ${e}`); }
+    writeSeq(seq); wakePending = true; B.woke = nowS(); B.why = "woke"; // 성공한 깨움 = 배달 대기 1개(세션 시작 회수 포함 · DA HOLD R1) — agent_start 에서 소비
     if (viaNudge) fs.rmSync(nudge, { force: true }); // nudge 삭제 = 깨운 뒤
   }
   // ★r1669★ true = 이번 깨움 억제 · false = 지금 동작 그대로(표식 없음 ⓔ · 후계·직전 세대 표식 ⓓ · 첫 억제 1회 · 새 쪽지 1회 더 ⓒ) · scheduled = r1476 sweep 이 미리 예약한 nudge 자리(재차감 0 · 기록은 하되 이미 억제한 seq 면 깨우지 않는다 · DA R1·R2)
@@ -160,49 +166,52 @@ export default function (pi: ExtensionAPI) {
     try { fs.writeFileSync(gatedMark, body); } catch (e) { fail(`알림 기록 실패 ${gatedMark} — ${e}`); }
     return false;
   }
-  function check(force: boolean) {
+  function check(force: boolean) { B.check = nowS(); B.why = "uquiet"; // ★r2128 W1★ 반환 이유는 갈래마다 B.why 에 남는다(run 이 .beat 1줄)
     if (uUntil > Date.now()) return; // ★r1555★ 창 안 = 아무것도 하지 않는다(우편함 읽기·seq·예산·held 0) — 창 끝 타이머가 run() 을 1회 부른다
-    const rows = mine();
-    if (rows.length === 0 || quietOnly(rows)) { if (rows.length === 0) wakePending = false; return; } // 보고 전용 머리만 · 미읽음 0 = recv 가 소비했다(배달 대기 해제) · 예산 0
-    if (!activeSeat(false) || inTurn || wakePending) return; // ★매 이벤트 재확인★ · 판 2(r1529) = 턴 도중 쌓기 0 · 배달 안 된 깨움 1개 상한(ⓗⓘⓙ)
+    const rows = mine(), now = nowS(), held = rows.filter((r) => wakeOk(r, now) && (r.wake as number) > now), act = rows.length >= 8 ? rows : rows.filter((r) => !held.includes(r)); // ★r2169 W4★ «아직 묶음» = wake_at 미래 · ⓔ 미읽음 8행 이상 = 시각이 지난 행으로 본다
+    if (bT) clearTimeout(bT); bT = held.length && !down ? setTimeout(() => { bT = null; run(); }, Math.min(...held.map((r) => r.wake as number)) * 1000 - Number(process.env.FT_MBOX_NOW ?? Date.now() / 1000) * 1000) : null; // ⓑ 가장 이른 wake_at 에 check 1회 · check 마다 다시 잼 · 주기 0
+    if (act.length === 0 || quietOnly(act)) { B.why = rows.length === 0 ? "empty" : act.length ? "quiet-only" : "batched"; if (rows.length === 0) wakePending = false; return; } // 보고 전용 머리만 · 미읽음 0 = recv 가 소비했다(배달 대기 해제) · 예산 0
+    B.why = inTurn ? "in-turn" : wakePending ? "wake-pending" : "inactive"; if (!activeSeat(false) || inTurn || wakePending) return; // ★매 이벤트 재확인★ · 판 2(r1529) = 턴 도중 쌓기 0 · 배달 안 된 깨움 1개 상한(ⓗⓘⓙ)
     const master = seats().master; // 사람 발신 판정 = _master(desk 로 활성돼도 같다)
     const seq = Math.max(...rows.map((r) => r.seq));
     const viaNudge = fs.existsSync(nudge); // r1476 sweep 이 이미 예약했다 — 재예약 0(이중 차감 0)
-    if (!force && !viaNudge && readSeq() >= seq) return; // 턴 진행 중 중복 억제
-    if (recvGate(rows, seq, viaNudge)) return; // ★r1669★ 증류 게이트 좌석 = 같은 미읽음에 깨움 1회(예산·턴 0) — nudge 예약분도 같은 칸(첫 예약은 기록하고 깨우고 · 이미 억제한 seq 면 깨움 0 · DA R1·R2)
-    const exempt = loud(rows) || rows.some((r) => humanSender(r.from, master)); // 예산 밖(카드 ④)
+    B.why = "seq-dup"; if (!force && !viaNudge && readSeq() >= seq) return; // 턴 진행 중 중복 억제
+    B.why = "gated"; if (recvGate(rows, seq, viaNudge)) return; // ★r1669★ 증류 게이트 좌석 = 같은 미읽음에 깨움 1회(예산·턴 0) — nudge 예약분도 같은 칸(첫 예약은 기록하고 깨우고 · 이미 억제한 seq 면 깨움 0 · DA R1·R2)
+    const exempt = loud(rows.filter((r) => !wakeOk(r, now))) || rows.some((r) => humanSender(r.from, master)); // 예산 밖(카드 ④)
     if (!viaNudge && !exempt) {
       const rc = reserve();
-      if (rc !== 0) { recordHeld(seq); if (rc !== 3) fail(`예산 CLI 실패 rc=${rc} — 턴 0(${seat} #${seq})`); return; } // fail-closed = 턴 0
+      if (rc !== 0) { B.why = "budget-held"; recordHeld(seq); if (rc !== 3) fail(`예산 CLI 실패 rc=${rc} — 턴 0(${seat} #${seq})`); return; } // fail-closed = 턴 0
     }
     wakeNow(seq, viaNudge);
   }
-  const run = () => { try { check(false); } catch (e) { fail(`감시 처리 실패 — ${e}`); } }, schedule = () => { if (!timer) timer = setTimeout(() => { timer = null; run(); }, debounce); }; // schedule = 폴더 사건 → 바운스 1회, run = 이벤트 처리
+  const run = () => { try { check(false); } catch (e) { fail(`감시 처리 실패 — ${e}`); } beat(); }, schedule = () => { if (!timer) timer = setTimeout(() => { timer = null; run(); }, debounce); }; // ★r2128★ run 끝 = .beat 1줄 · schedule = 폴더 사건 → 바운스 1회, run = 이벤트 처리
   pi.on("session_start", async (_event, ctx) => {
     ctxNow = ctx as { isIdle(): boolean }; // r1540 — h 끝 판정은 ctx.isIdle 로만 한다(r1531 과 같은 칸)
     appendLoadLine(pi, "r1529", "ft-mbox-wake.ts"); // 조기 return 앞 — 기록은 확장이 실렸다는 사실만 말한다
     if (seatKnown() === false) return; if (!fs.existsSync(mbox)) return fail(`우편함 없음 ${mbox} — 확장 비활성(폴링 폴백 0)`); // ★r1634★ 좌석 아님 = 조용히(session_start 만 보고 끝 — ERROR 0 · watch 0 · sendMessage 0)
     try { fs.mkdirSync(wakeDir, { recursive: true }); } catch { /* 이미 있음 */ }
-    try {
-      // ★부모 폴더 감시★ — os.replace 로 inode 가 바뀌어도 폴더 감시는 유지된다(파일 직접 watch 0).
-      watchers = [
-        fs.watch(mboxDir, (_e, fn) => { if (!fn || fn === path.basename(mbox)) schedule(); }),
-        fs.watch(wakeDir, (_e, fn) => { if (fn === path.basename(nudge)) schedule(); }),
-      ];
-    } catch (e) { return fail(`watch 실패 ${mboxDir} / ${wakeDir} — ${e}`); }
+    live = true; if (!arm()) { live = false; return; } // ★부모 폴더 감시★(os.replace 로 inode 가 바뀌어도 유지 · 파일 직접 watch 0) · 등록 = arm() 한 곳(r2128 재무장과 같은 길)
     activeSeat(true); inTurn = wakePending = false; // 시작 로그 = 활성/비활성 1줄 · 표지 초기화(승계·/reload)
     hLoad(); // ★R2★ 옛 확장의 h 대기 목록 회수 — 남은 창이 있으면 그만큼 기다렸다가 1회(즉시 발사 0 · R3)
-    check(true); // 시작 회수 = 우편함에 «남아 있는» to=내 좌석 행(소비 ACK 기준 · seq 파일 무관)
+    check(true); beat(); idleArm(); // 시작 회수 = 우편함에 «남아 있는» to=내 좌석 행(소비 ACK 기준 · seq 파일 무관)
     // ★감시 기동 창★ — fs.watch 등록 직후 사건은 유실될 수 있다(FSEvents startup). 주기 0 · 시작 1회 재확인만.
     fallback = setTimeout(() => { fallback = null; run(); }, debounce + 250); // 사건 타이머를 막지 않는다(사건이 오면 즉시 처리)
   });
-  pi.on("agent_start", async () => { inTurn = true; wakePending = false; }); // 판 2 = 턴 시작(배달된 깨움 소비) · 도중 도착은 쌓지 않는다
-  pi.on("agent_end", async () => { inTurn = false; wakePending = false; writeSeq(null); if (seatKnown() !== false) run(); }); // 표지 해제 + 우편함 재확인 1회(소비 안 됐으면 다시 깨운다) · r1634 좌석 밖에서는 우편함을 읽지 않는다(ERROR 0)
+  // ★r2128 W2★ 재무장 = 옛 watcher 를 «일부러 닫음» 표시 뒤 닫고 새로 건다(교체 길 · 그 close 는 재무장 0) · 'error'·'close' 사건 = ERROR 1줄(같은 이유 1회) + 그 자리 재무장(사건 길) · shutdown 뒤 0.
+  function arm(): boolean { for (const w of watchers) { closed.add(w); try { w.close(); } catch { /* 이미 닫힘 */ } } watchers = []; if (down) return false; const ws: fs.FSWatcher[] = [];
+    try { ws.push(fs.watch(mboxDir, (_e, fn) => { if (!fn || fn === path.basename(mbox)) hit(); })); ws.push(fs.watch(wakeDir, (_e, fn) => { if (fn === path.basename(nudge)) hit(); })); } catch (e) { for (const w of ws) { closed.add(w); w.close(); } once(`watch ${e}`, `watch 실패 ${mboxDir} / ${wakeDir} — ${e}`); beat(); return false; }
+    for (const w of ws) { w.on("error", (e) => lost(w, `error ${(e as NodeJS.ErrnoException)?.code ?? e}`)); w.on("close", () => lost(w, "close")); }
+    watchers = ws; B.rearm = nowS(); beat(); return true; }
+  function lost(w: fs.FSWatcher, why: string) { if (closed.has(w) || down) return; closed.add(w); once(`lost ${why}`, `감시 ${why} — 그 자리 재무장(${seat})`); arm(); }
+  const hit = () => { B.event = nowS(); if (rearmT) { clearTimeout(rearmT); rearmT = null; } schedule(); }; // 감시 사건 = 진단 시각 + 유휴 1회 타이머 지움
+  const idleArm = () => { if (rearmT) clearTimeout(rearmT); rearmT = down || !live ? null : setTimeout(() => { rearmT = null; if (!down) { arm(); run(); } }, rearmMs); }; // 유휴 진입 = 1회짜리(주기 0 · 유휴 1번에 최대 1회) — 그 사이 감시 사건 0 이면 재무장 + check 1회
+  pi.on("agent_start", async () => { inTurn = true; wakePending = false; if (rearmT) { clearTimeout(rearmT); rearmT = null; } }); // 판 2 = 턴 시작(배달된 깨움 소비) · 도중 도착은 쌓지 않는다
+  pi.on("agent_end", async () => { inTurn = false; wakePending = false; writeSeq(null); if (seatKnown() !== false) { if (live) arm(); idleArm(); run(); } }); // ★r2128 W2★ 턴 끝 = 재무장 + 유휴 타이머 + check // 표지 해제 + 우편함 재확인 1회(소비 안 됐으면 다시 깨운다) · r1634 좌석 밖에서는 우편함을 읽지 않는다(ERROR 0)
   // ★r1540 = 창이 끝났을 때 일하던 중이던 h 결과를 여기서 1회 알린다★ — 중단(Escape) settled 는 미룬다(r1531 꼴).
   pi.on("agent_settled", async (event, ctx) => {
     ctxNow = ctx as { isIdle(): boolean };
     if ((event as { aborted?: boolean })?.aborted) { hHeld = true; return; }
-    hHeld = false;
+    hHeld = false; if (live) { arm(); idleArm(); run(); } // ★r2128 W2★ 정상 settled = 재무장 + check 1회
     hFlush();
   });
   // ④ 오빠가 `! bash /tmp/hN` 을 돌리면 «끝난 뒤» 턴 1회 — 결과(rc·출력)는 건드리지 않는다(desk 결함 11-09 18:5x).
@@ -222,5 +231,5 @@ export default function (pi: ExtensionAPI) {
   });
   pi.on("input", (event: { source?: string }) => { if (event.source !== "interactive") return; uUntil = 0; if (uTimer) { clearTimeout(uTimer); uTimer = null; } }); // ★r1555★ 오빠 일반 메시지(source="interactive") = 창 즉시 닫기 — 대기 영역이 비었고 그 턴이 끝나면 agent_end 가 우편함을 다시 본다 · "extension"·"rpc" 는 창 불변
   // 세션 교체(reload/resume)·종료 = 감시 해제. 안 닫으면 옛 인스턴스가 같은 우편함에 2중으로 깨운다.
-  pi.on("session_shutdown", async () => { for (const w of watchers) w.close(); watchers = []; if (timer) clearTimeout(timer); if (fallback) clearTimeout(fallback); if (hTimer) clearTimeout(hTimer); if (uTimer) clearTimeout(uTimer); timer = fallback = hTimer = uTimer = null; });
+  pi.on("session_shutdown", async () => { down = true; for (const w of watchers) { closed.add(w); w.close(); } watchers = []; if (rearmT) clearTimeout(rearmT); rearmT = null; if (timer) clearTimeout(timer); if (fallback) clearTimeout(fallback); if (hTimer) clearTimeout(hTimer); if (uTimer) clearTimeout(uTimer); if (bT) clearTimeout(bT); timer = fallback = hTimer = uTimer = bT = null; });
 }

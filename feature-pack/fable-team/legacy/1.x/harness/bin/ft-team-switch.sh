@@ -41,7 +41,7 @@ if [ "$ACT" != status ]; then
       fi;;
   esac
 fi
-ROOT="${ROOT_ARG:-$(ft20_root_of . 2>/dev/null)}"
+if [ -n "$ROOT_ARG" ]; then ROOT="$ROOT_ARG"; else ROOT="$(ft20_root_of .)" || exit $?; fi
 [ -n "$ROOT" ] || { echo "REJECT 데이터 루트 못 풂 — --root <데이터루트> 또는 git 리포 안에서" >&2; exit 2; }
 ROOT="${ROOT%/}"; DIR="$(ft20_switch_dir "$ROOT")"
 [ "$ACT" = status ] || [ -d "$ROOT/.fable-team" ] || { echo "REJECT 데이터 루트 아님(<데이터루트>/.fable-team 없음): $ROOT" >&2; exit 2; }

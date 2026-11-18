@@ -4,7 +4,9 @@
 """
 import glob, importlib.util, json, os, re  # noqa: E401
 HERE = os.path.dirname(os.path.abspath(__file__))
+ANC_S = 7   # r2022 착지 조상 확인(merge-base --is-ancestor) 1회 7초 · 재시도 0 · keeper_land 도 이 값
 GH_S, BASES, DONE, HEADS = 7, ("main", "ops/main-base"), ("완성후", "아카이브"), (("중단:", "suspended"), ("대체:", "superseded"), ("거절:", "superseded"))
+SETLINE = re.compile(r"세트:\s*[0-9a-f]{40}\s*·\s*시험:.+\src=0\s*·\s*이슈:\s*0\s*$")   # r2088 D2 ④ scope_code_check 정규식 그대로
 ORPHAN, REPO, SHA = re.compile(r"byz-([a-z0-9]+)-nano-(.+)#\d+"), re.compile(r"github\.com[:/]([^/]+/[^/]+?)(?:\.git)?/?$"), re.compile(r"[0-9a-f]{40}")
 _MOD = {}
 def _mod(name, path):
@@ -62,12 +64,46 @@ def pr_landed(k, team, work):
     prs = _prs(k, REPO.search(url).group(1) if REPO.search(url) else url, "nano/" + work)
     pr = prs[0] if isinstance(prs, list) and len(prs) == 1 and isinstance(prs[0], dict) else {}
     sha, base = str((pr.get("mergeCommit") or {}).get("oid") or ""), pr.get("baseRefName")
-    if not SHA.fullmatch(sha) or base not in BASES or k.git(tree, "merge-base", "--is-ancestor", sha, "origin/" + base)[0] != 0:
+    if not SHA.fullmatch(sha) or base not in BASES:
         return none
+    if (rc := k.git(tree, "merge-base", "--is-ancestor", sha, "origin/" + base, timeout=ANC_S)[0]) != 0:
+        return none if rc == 1 else (None, None, "판정 불가 · PR 착지 조상 git rc %s" % rc)   # r2022
     if old := k.pre_attempt(team, work, tree, sha, it):
         return None, None, old
     k.notify(team, "%s|noline|%s|%s" % (k.stamp()[:10], team, work), "[줄 보완] ft2 keeper %s 카드 착지 줄 없음 · PR #%s 병합 %s — 카드에 «- 착지: %s» 보완(keeper 카드 쓰기 0)" % (work, pr.get("number"), sha[:10], sha))
     return sha, "origin/%s · 착지 줄 없음 · PR #%s 병합" % (base, pr.get("number")), ""
+def evidence_notice(k, team, work):
+    """r2088 done 갈래 — OPEN PR 1개 ∧ 카드 ref 마지막 «세트:» 줄 D2 ④ 꼴 아님 → 받는 곳 첫 값에 묶음 0 · 1통/일 · 못 읽음 = 판정 불가 1줄 · 쓰기 0."""
+    key, (attempt, holder) = "%s|noset|%s|%s" % (k.stamp()[:10], team, work), (latest(k, team) or {}).get(work, (None, None))
+    tree = "" if team in k.skip or k.blocked(key) or not attempt else intent(k, team, work, attempt, holder).get("worktree") or ""
+    if not os.path.isdir(tree):
+        return None
+    (brc, branch, _), (urc, url, _) = k.git(tree, "rev-parse", "--abbrev-ref", "HEAD"), k.git(tree, "config", "--get", "remote.origin.url")
+    if brc != 0 or urc != 0 or not url.strip():   # DA HOLD #314896 — 못 읽음(rc) ≠ 다른 가지(정상 결과)
+        return k.log("판정 불가", team, "%s 증거 줄 안내 0통 · git rev-parse rc %s · config remote rc %s" % (work, brc, urc))
+    if branch.strip() != "nano/" + work:
+        return None
+    url, (cards, mapped) = url.strip(), k.resolve_card(team, work)
+    cards = [] if isinstance(cards, str) else [(r, p) for r, p in cards if mapped or os.path.basename(p) == work + ".md"] or [   # landing F1 이름 고르기
+        (r, p) for r, p in cards if os.path.basename(p).startswith(work + "-") and p.endswith(".md")]
+    rc, out, _ = k.call([k.env.get("FT2_GH") or "gh", "pr", "list", "-R", REPO.search(url).group(1) if REPO.search(url) else url, "--head", "nano/" + work,
+                         "--state", "open", "--limit", "2", "--json", "number,headRefOid"], GH_S, retry=1)
+    ref = next((r for r in _mod("land", os.path.join(HERE, "keeper_land.py")).REFS if r in dict(cards)), None)
+    paths = sorted({p for r, p in cards if r == ref}) if ref else []   # 우선 ref 하나 · 그 ref 에 2장↑ = 판독 실패(추측 0)
+    crc, body, _ = k.git(k.root, "show", "%s:%s" % (ref, paths[0])) if len(paths) == 1 else (None, "", "")
+    try:
+        prs = json.loads(out) if rc == 0 else None
+    except ValueError:
+        prs = None
+    if crc != 0 or not isinstance(prs, list) or not all(isinstance(p, dict) and SHA.fullmatch(str(p.get("headRefOid"))) for p in prs):
+        return k.log("판정 불가", team, "%s 증거 줄 안내 0통 · %s" % (work, "카드 ref 판독 실패" if crc != 0 else "gh rc %s" % rc))
+    if len(prs) != 1 or SETLINE.search(([x for x in body.splitlines() if "세트:" in x] or [""])[-1]):
+        return None
+    to, num, head = k.recipients(team)[0], prs[0].get("number"), prs[0]["headRefOid"]
+    text = "[줄 보완] ft2 keeper %s 카드 증거 줄 없음 · PR #%s head %s — D2 좌석이 `bash ft-card-evidence.sh --card %s --set %s --pr %s --test \"<나노 보고 시험 줄> rc=0\"` 1회(keeper 카드 쓰기 0)" % (work, num, head[:10], work, head, num)
+    if to and (k.stopping() or not k.budget(team)):   # E5 상한 밖·R8 미룸 = 지문 0 · 다음 바퀴
+        return None
+    return k.finish(team, key, to, *(k.send(to, text) if to else ("받는 곳 없음", "")), text)
 def _cards(k, team, ref):
     """우선 ref 의 팀 폴더 indices 아래 .md 전부(단계 5 · 아카이브 하위 폴더 포함) · 판독 실패 = None · 바퀴 안 캐시."""
     if ("endings", team, ref) not in k.cache:
@@ -134,9 +170,9 @@ def _card_end(k, team, work):
     return _resolved_end(k, team, work)
 def _resolved_end(k, team, work):
     """r2055 A1·A7 §3b — 팀 폴더 후보 0 = landing 과 같은 resolve_card(짝 표 → 팀 폴더 → 발주 본문) 카드의 «## 상태» 머리 · 우선 ref 에 2장↑ = False · 0 = None."""
-    cards = k.resolve_card(team, work)[0]
-    if isinstance(cards, str):
-        return None
+    cards, mapped = k.resolve_card(team, work)
+    if isinstance(cards, str):   # r2177 R11 — 짝 표 1줄의 카드가 진행·대기·완성에 없을 때만 완성후·아카이브를 찾는다
+        return _moved_end(k, mapped[0]) if mapped and len(mapped) == 1 and cards.startswith("판정 불가 · 짝 표 카드 없음") else None
     land = _mod("land", os.path.join(HERE, "keeper_land.py"))
     for ref in land.REFS:
         paths = sorted({p for r, p in cards if r == ref})
@@ -145,6 +181,23 @@ def _resolved_end(k, team, work):
         if paths:
             rc, body, _ = k.git(k.root, "show", "%s:%s" % (ref, paths[0]))
             return _head(body) if rc == 0 else False
+    return None
+def _moved_end(k, path):
+    """r2177 R11 — 짝 표 경로와 같은 indices 의 완성후/·아카이브/(월 폴더 포함) 같은 파일 이름 · 가지 순서 · 가지마다 ls-tree 1회.
+    처음 나온 가지에 1개 = superseded · 2개↑ = False · 두 가지 0 = None · ls-tree 실패 = False."""
+    land = _mod("land", os.path.join(HERE, "keeper_land.py"))
+    m = land.MAPPED.match(path)
+    head = m and m.group(1) + "/indices/"
+    for ref in land.REFS if m else ():
+        rc, names, _ = k.git(k.root, "ls-tree", "-r", "--name-only", ref, "--", *(head + d for d in DONE))
+        if rc != 0:
+            return False
+        hits = [p[len(head):] for p in names.splitlines() if p.startswith(head) and os.path.basename(p) == m.group(2)
+                and p[len(head):].split("/")[0] in DONE and p[len(head):].count("/") <= 2]
+        if len(hits) > 1:
+            return False
+        if hits:
+            return "superseded", "카드 %s/" % hits[0].split("/")[0]
     return None
 def unsure(st, team, work, holder, key, idle, fmt=None, slot=""):
     """④ 미확인 깨움 — after_s 뒤 재깨움 1회(정상·오류 턴 길 같은 rewoke 키) · 또 미확인 = harness master [크리티컬] 1통/일 · 재배정·kill 0."""

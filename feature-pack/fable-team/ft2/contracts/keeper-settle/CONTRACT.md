@@ -1,4 +1,4 @@
-# ft2 keeper settle 계약 — 끝난 좌석은 한 길로 정리한다 (r2055 · 보정 3 · r2065)
+# ft2 keeper settle 계약 — 끝난 좌석은 한 길로 정리한다 (r2055 · 보정 3 · r2065 · 카드 ft2-done-seat-short-idle)
 
 keeper 는 좌석마다 매 바퀴 판정 1개를 낸다. 이 문서는 그 판정과 core `park`·`capacity` 의 약속을 **파일로 고정**한 계약이다.
 새 설계 판단은 없다. 설계 정본과 착지한 코드·시험에 있는 것만 옮겼다.
@@ -8,9 +8,10 @@ keeper 는 좌석마다 매 바퀴 판정 1개를 낸다. 이 문서는 그 판�
 | 설계 정본 | `feature-pack/fable-team/design/DESIGN-r2055-seat-settle-one-path.md`(원본 BYZ ops/main-base @457df3cdd1 · r9) |
 | 착지 코드 | 팩 d88ef381(PR 1246 · settle 한 길 · core park·capacity · resolve_card) · 77511fcc(PR 1249 · 보정 3 accept_only) |
 | 설치 판정기 고침 | 팩 4b0567c3(PR 1250 · r2065 · 1.x `ft_launchd_llm_gate.py`) — settle 계약 밖이고, 2.0.61 되돌림이 막힌 원인이라 사고 기록에 함께 적는다 |
-| 구현 자리 | `adapters/pi/keeper_settle.py` · `adapters/pi/keeper_close.py` · `adapters/pi/keeper_land.py` · `adapters/pi/keeper_endings.py` · `core/dispatch.py`(`park`) · `core/record.py`(`capacity`) |
+| 구현 자리 | `adapters/pi/keeper_settle.py` · `adapters/pi/keeper_close.py` · `adapters/pi/keeper_land.py` · `adapters/pi/keeper_endings.py` · `core/dispatch.py`(`park`) · `core/record.py`(`capacity`) · 1.x `comm/mbox_ops.py`(`peek --rows`) |
 | 사례·시험 대응 | 같은 폴더 `CASES.md` |
 | 사고 기록 | `feature-pack/fable-team/troubleshoot/2026-11-15-ended-seat-not-closed-r2055.md` |
+| 카드 ft2-done-seat-short-idle | 착지한 좌석은 무활동 300초에 닫고(`DONE_IDLE`), 쉼 판정에서 «닫힌 꼴 마감 쪽지» 만 뺀다(A1~A9) · 설계 = `design/DESIGN-pA-done-idle-threshold-20261116.md`(원본 sha256 700e2174…353f · DA 대행 APPROVE-DAY BYZ 310212) · 시험 = `tests/test_done_seat_short_idle.py` |
 | 설계 뒤 고침(r2058) | 열기 실패(`launch-failed`)와 열기 멈춤(`opening`)의 끝 = 쉼 + `UNKNOWN` · 설계 = `feature-pack/fable-team/design/DESIGN-p2-launch-failed-no-park-rest-20261116.md` · `design/SWEEP-FIX-table-20261116.md` §F |
 
 ## 1. 판정 4개 (좌석마다 바퀴당 정확히 1개)
@@ -39,11 +40,14 @@ keeper 는 좌석마다 매 바퀴 판정 1개를 낸다. 이 문서는 그 판�
 
 지켜야 하는 약속:
 
+- **착지한 좌석만 짧은 문턱을 쓴다**(A1·A2). `landing()` 이 참인 좌석(카드 착지 줄 · 넓힌 근거)의 닫기 길은 `DONE_IDLE` 300초다. 조건은 마지막 pi 턴 `stopReason=stop` ∧ CPU idle 2회 ∧ 막는 미읽음 0 이다. 착지 0 좌석·셸만 남은 pane 의 park 길은 지금과 같다(`PARK_IDLE` 3600초 · 셸은 CPU 무관). 문턱이 짧아도 턴이 안 닫혔으면 `WORKING landed-wait` 다(닫기 0) — 질문 창(`WAIT_S` 900초) 판정은 park 길만 본다. 착지 좌석이 15분을 넘겨도 마지막 줄이 `stop` 이 아니면 계속 `WORKING landed-wait` 이고 [긴급] 도 0 이다(DA 반례 311515 R1).
+- **쉼 판정에서 빼는 미읽음 = «닫힌 꼴 마감 쪽지» 뿐이다**(A5~A8). 읽는 대상은 keeper 가 부르는 `mbox.sh peek <좌석>` 의 그 집합이고, `peek --rows` 로 미읽음마다 JSON 1줄(seq·ts·to·from·body)을 받는다. 한 통이 아래 셋을 모두 채워야 빼고, 하나라도 못 채우면 그 좌석은 `UNKNOWN mail-pending` 이다. ① 본문이 닫힌 꼴이다 — `골좌표:` 로 시작하는 줄과 빈 줄을 뺀 나머지가 정확히 1줄이고 그 줄 전체가 `[마감 #<숫자>] 할 일 0` 또는 `[마감] 할 일 0` 이며 꼬리는 ` · 착지 <7~40자 hex>` 하나만 된다(자유 글은 안 읽는다) ② 보낸 이가 그 팀 명부의 역할 칸(`_master`·`_arch`·`_desk`)에 지금 적힌 좌석이다(명부를 못 읽으면 막는다) ③ 쪽지 `ts` 가 그 좌석에 쓰는 유휴 문턱보다 오래됐다. 빼는 쪽지는 큐에 그대로 둔다(keeper 는 mark·recv 하지 않는다). 근거 줄 꼬리 = `· 미읽음 마감 <n>통 제외(seq <앞 3개> · 가장 오래된 <분>분)`.
+- `peek --rows` 판독 실패는 이렇게 가른다 — rc ≠ 0 · 머리줄에 `pending=` 없음 · JSON 깨짐 · `0 < 줄 수 ≠ pending` = `mail-unknown` · 머리줄은 읽혔는데 줄이 0 이고 `pending > 0` = 옛 mbox(`--rows` 모름) → `mail-pending`. 착지 좌석은 `peek --rows` 한 번, 그 밖 좌석은 `peek` 으로 pending 을 먼저 보고 0 이 아니면 `--rows` 로 내용을 읽는다(옛 mbox 호환).
 - **CPU idle 단독은 유휴·닫기 근거가 아니다.** 유휴 = jsonl 무활동 ≥ `PARK_IDLE` ∧ CPU idle 2회 둘 다. pi 는 API 응답을 기다리는 동안 %cpu 가 0.0 이다. 셸만 남은 pane 은 CPU 와 무관하게 에이전트 종료 근거다.
 - **판독 실패를 `WORKING` 으로 두지 않는다.** 근거를 못 읽으면 `UNKNOWN` 이다.
 - **끝남 판독 순서**(설계 §13): 1차 = `tmuxc clean` 바퀴당 1회(실행 파일 호출 · import 0)와 CPU 규칙. 1차를 못 세운 좌석만 2차 = pane 끝 줄 읽기. 입력줄 `❯`·`›` 뒤 글자는 근거가 아니다. 둘 다 못 세우면 `UNKNOWN probe-fail`.
 - **세션 부재 확정** = raw `tmux has-session` rc 1 + «can't find session» 뿐이다.
-- 상수(`adapters/pi/keeper_settle.py`): `PARK_IDLE` 3600초 · 질문 창 `WAIT_S` 900초 · `CPU_IDLE` 0.3 · `CPU_GAP` 30초 · `CPU_DEPTH` 8 · 셸 목록 `zsh`·`bash`·`fish`. CPU 문턱·간격·후손 깊이·셸 목록은 tmuxc 규칙과 같은 값이다.
+- 상수(`adapters/pi/keeper_settle.py`): `PARK_IDLE` 3600초 · 착지 좌석 닫기 `DONE_IDLE` 300초 · 질문 창 `WAIT_S` 900초 · `CPU_IDLE` 0.3 · `CPU_GAP` 30초 · `CPU_DEPTH` 8 · 셸 목록 `zsh`·`bash`·`fish`. CPU 문턱·간격·후손 깊이·셸 목록은 tmuxc 규칙과 같은 값이다.
 
 ## 3. 사유 코드
 
@@ -57,7 +61,7 @@ keeper 는 좌석마다 매 바퀴 판정 1개를 낸다. 이 문서는 그 판�
 | `WORKING` | `keep-recent` · `keep-last-2` · `ready-wait` | 장기 좌석 보존(닫기 0 · [긴급] 0 · 정상 보존) · 후계 [레디] 영수 0 |
 | `UNKNOWN` | `waiting-input` | 마지막 줄 toolUse ∧ jsonl 무활동 ≥ 15분 ∧ CPU idle 2회 = 사람 답 대기 |
 | `UNKNOWN` | `dirty` · `unpushed` · `git-error` | 남길 것이 안전하지 않음 |
-| `UNKNOWN` | `mail-pending` · `mail-unknown` | 그 좌석 앞 미수신 쪽지 있음 · 못 읽음 |
+| `UNKNOWN` | `mail-pending` · `mail-unknown` | 그 좌석 앞 «막는 미읽음» 이 있음(빼는 마감 쪽지 밖) · 판독 실패(§2 약속 · A5~A8) |
 | `UNKNOWN` | `shell-only-unsafe` | 셸만 남았는데 남길 것이 안전하지 않음 |
 | `UNKNOWN` | `owner-orphan` · `session-absent` | 세션 없음 · owner 판독이 반쪽 꼴과 다름 |
 | `UNKNOWN` | `intent-bad` | intent 에 worktree 칸 없음 등 새 꼴 |
@@ -76,14 +80,14 @@ keeper 는 좌석마다 매 바퀴 판정 1개를 낸다. 이 문서는 그 판�
 - 지문 = (team, work, attempt, reason). 같은 지문은 하루 1회다. 새 사유·새 attempt 는 첫 1회 즉시 보낸다.
 - **실패도 그날 지문이다**(r2065 · 값 `fail|<날짜>|<rc>`). 같은 열쇠로 그날 다시 보내지 않고 `판정 불가` 줄도 그날 1회다. 날짜가 바뀌면 1회 다시 시도한다.
 - 받는 곳 차례 = 그 팀 `_master` → 그 팀 `_desk` → harness `_master`. 처음으로 값이 있는 한 곳에만 보낸다(두 곳 동시 0).
-- 대신 받는 곳(`_desk`·harness `_master`)에는 글마다 보내지 않는다. 팀당 하루 1통 묶음 `[긴급] <팀> 팀장 없음 · 못 전한 keeper 판정 <n>건 · 앞 3건: …` 이고, 그날 뒤에 생긴 판정은 `state.undelivered[<팀>]` 에만 쌓여 다음 날 묶음에 들어간다.
+- 대신 받는 곳(`_desk`·harness `_master`)에는 글마다 보내지 않는다. 팀당 하루 1통 묶음 `[긴급] <팀> 팀장 없음 · 못 전한 keeper 판정 <n>건 · 앞 3건: …` 이고, 그날 뒤에 생긴 판정은 `state.undelivered[<팀>]` 에만 쌓여 다음 날 묶음에 들어간다. 묶음 장부도 같은 지문은 하루 1건이다(r2203 · 값 `stand|<날짜>` · 날짜가 바뀌면 1회 다시 쌓인다). 그날 팀장이 다시 서면 이미 `stand|<오늘>` 인 열쇠는 그날 팀장 쪽지로 가지 않고 다음 날 1회 간다(판정 늦음 ≤ 1일).
 - 세 칸이 다 빈칸 = `판정 불가 <팀> 쪽지 받는 곳 없음` 그날 1줄 + 같은 실패 지문.
 - 통마다 7초 · 재시도 0 · 한 바퀴 3통. 넘는 것은 지문을 쓰지 않고 다음 바퀴로 넘긴다(`NOTIFY-DEFER <팀> <n>통 · 다음 바퀴` 1줄 · 값이 바뀔 때만).
 - 7초를 넘겨 rc None 이거나 rc≠0 이면 우편함 장부(`<루트>/.fable-team/comm/mailbox.log.jsonl` 끝 200줄 · 읽기만)에서 도착을 확인한다. 경계 = send 직전 장부 끝 200줄의 정수 seq 최댓값이고, 경계보다 큰 seq 줄 중 «보낸 이 ft2-keeper · 받는 곳 · 본문 첫 줄» 이 같은 줄이 있으면 도착이다(성공 지문 + `NOTIFIED <받는 곳> (도착 확인 · rc <값>)`). 시각(`ts`)은 비교에 쓰지 않는다.
 - 경계를 못 잡으면(장부 없음·못 읽음·seq 줄 0) send 결과만 본다. 경계와 창 사이를 못 봤으면(창 밖) «없음» 이 아니라 `도착 판독 불가` 로 적는다.
 - rc 0 인 send 는 장부를 다시 읽지 않는다(경계 읽기 1회만 든다).
 - 명부 찾기 = `launch_roster.roster_path(root, team)` 한 함수. `seats-<팀>.json` 이 있으면 그 파일 · 없고 팀이 v65 면 `seats.json` · 그 밖은 명부 없음(차례의 다음 칸).
-- 운영 1줄: 팀장을 다시 세운 날 바로 받게 하려면 `state.json` 의 `sent` 에서 그 팀 `fail|` 값을 사람이 지운다.
+- 운영 1줄: 팀장을 다시 세운 날 바로 받게 하려면 `state.json` 의 `sent` 에서 그 팀 `fail|` · `stand|` 값을 사람이 지운다.
 - `full_alert` 의 받는 곳(팀 master + harness master 두 곳)은 이 절과 별개다(r1927 그대로).
 - 바퀴마다 `ROUND` 줄에 `unknown=N` 을 적는다.
 
@@ -130,3 +134,79 @@ keeper 는 좌석마다 매 바퀴 판정 1개를 낸다. 이 문서는 그 판�
 - PR 본문의 두 한계는 77511fcc 시점 코드에서 풀려 있다(코드 읽기): keeper 가 `tmuxc clean` 을 부른다(`keeper_settle.py` `tmuxc_status`) · `keeper_endings` 가 `resolve_card` 를 쓴다.
 - r2065 행 E 의 두 한계(DA BYZ 310019 승인 범위): ① 7초 안에 장부가 200줄 넘게 늘면 창이 경계를 지나 도착했어도 `도착 판독 불가` 로 남는다 ② 그 글은 실패 지문이라 다음 날 1회 다시 가서 같은 글이 2통이 될 수 있다. 장부 seq 가 늘 커진다는 것은 전제이고 실행 보증이 아니다.
 - 이 계약은 시험 4개가 묶는 값만 적었다. 실사건 관측 값은 담지 않는다.
+
+## 10. 전 세션 정지 재개 전 팀 (`PENALTY_STOP` · r2073 · 카드 ft2-penalty-team-no-new-pick)
+
+- 무엇을 막나 = 새 카드를 넣는 두 자리뿐이다. `keeper_next.fill()` 의 새 pick 과 `keeper_next.close()` 의 닫기 뒤 pick. 꼴은 `gates(k, team) and penalty_open(k, team)` 이고 `gates()` 가 거짓이면 판정기를 부르지 않는다.
+- 안 막는 것 = 이미 연 열기 잇기(`fill_open` · `reconcile`) · 복구 launch 직전 가드(`reconcile` 의 `pick is None and not gates(k, team)` 그대로) · settle · 착지 complete · 닫기 영수 · 깨움 · 사람 손 `ft2 submit/assign/deliver` · 팀장 개설·승계.
+- 판정기 자리 = env `FT2_PENALTY_BIN` → 없으면 `dirname(close_bin)/ft-penalty.sh`(SPAWN_HOLD·ACCT_PAUSE 와 같은 폴더 규칙). 부르는 꼴 = `bash <판정기> check <팀>` · env `FT_ROOT = k.root` · 상한 7초(하드 룰 12). 팀당 바퀴 1회만 부른다(`once` 캐시).
+- keeper 는 `state/PENALTY_STOP` JSON 을 직접 풀지 않는다. 재개 규칙·면제 팀은 1.x `ft_penalty.py` 한 곳이 한다.
+- 판정 = 표식 파일 `state/PENALTY_STOP` 자체가 없으면 참(판정기 호출 0) · 있으면 판정기 rc 로: `0` = 참(재개됨) · `3` = 거짓(재개 전) · 그 밖(`1`·`2`·도구 없음·시간 초과) = 거짓 + 판정 불가. 판정 불가도 새 카드 0 이다.
+- 줄 꼴(값이 바뀔 때만 1줄): `NEXT-HOLD <팀> PENALTY_STOP 재개 전 — 다음 카드 0` · `판정 불가 <팀> PENALTY_STOP 판독 rc <값> — 다음 카드 0` · 풀리면 `NEXT-OPEN <팀> PENALTY_STOP 풀림`.
+- 상태 키 = keeper 상태 파일 `state/ft2-keeper/state.json` 의 `penalty_seen[<팀>]`. 값은 마지막으로 찍은 표식(`hold` 또는 `rc <값>`)이고 열림이면 키가 없다. 메모리에만 두지 않는다 — 재기동해도 같은 줄을 다시 찍지 않는다.
+- 알려진 한계 = 바퀴 캐시 안에서 바뀐 정지·재개는 다음 관측(다음 바퀴)에 반영된다. 사람 손 발주는 이 계약이 막지 않는다.
+
+## 11. 새 카드 보류 설정 (`NEW_CARD_HOLD` · r2101 · 카드 ft2-new-card-hold)
+
+- 설정 자리 = `<데이터 루트>/.fable-team/state/NEW_CARD_HOLD.json` 1개(전 팀 공통). 꼴 = `{"reason": "<10자 이상>", "by": "<좌석>", "at": "<시각>", "until": "<사람이 읽는 조건>"}`.
+- 판독 = keeper 가 바퀴당 1회(`once` 캐시 · 팀 사이 공유). 없음 = 열림 · 있음 = 보류 · 깨짐(빈 파일 · JSON 아님 · `reason` 없음) = 보류 + `판정 불가` 1줄. 깨진 파일을 «꺼짐» 으로 읽지 않는다.
+- 막는 곳 = 새 카드를 스스로 고르는 두 자리뿐이다. `keeper_next.fill()` 의 새 pick 과 `keeper_next.close()` 의 닫기 뒤 pick.
+- 안 막는 것 = 이미 연 열기 잇기(`fill_open` · `reconcile`) · 복구 launch 직전 가드 · settle · 착지 complete · 닫기 영수(`close_receipt`) · 깨움 · 사람 손 `ft2 submit/assign/deliver` · 팀장 개설·승계·사람 손 나노 개설.
+- 이 파일을 읽는 곳은 `adapters/pi/keeper_next.py` 뿐이다. `gates()` 본문 · ALL_STOP · 팀별 `PAUSED` · `ft-successor-open.sh` · `ft-nano-spawn.sh` · `tmuxc open` 은 이 파일을 읽지 않는다(시험 ㉗사 = 실행 파일 문자열 검색).
+- 줄 꼴(값이 바뀔 때만): `NEW-CARD-HOLD <팀> <reason> · until <until>` · 깨짐이면 `판정 불가 <팀> NEW_CARD_HOLD 판독 불가(빈 파일·JSON 아님·reason 없음) — 새 카드 0` · 풀리면 `NEW-CARD-OPEN <팀>`.
+- 상태 키 = keeper 상태 파일 `state/ft2-keeper/state.json` 의 `new_card_hold_seen[<팀>]`. 값은 마지막으로 찍은 표식(`<reason>|<until>` 또는 `깨짐`)이고 열림이면 키가 없다. 메모리에만 두지 않는다 — 재기동해도 같은 줄을 다시 찍지 않는다.
+- 풀기 = 파일을 `NEW_CARD_HOLD.released-<시각>` 으로 이름 바꾼다(ALL_STOP 과 같은 손). «2.0 완료» 같은 기간의 끝은 기계가 판정하지 않는다 — 사람이 둔 파일이 기준이다.
+- 알려진 한계 = 판독이 바퀴 캐시 안이라 파일을 두거나 치운 뒤 첫 반영은 다음 바퀴다. 보류 중에도 `[다음 없음]` 쪽지는 나가지 않는다(고르기를 아예 부르지 않는다).
+
+## 12. 선행불명 로그·쪽지 (`- 선행:` 을 못 읽는 카드 · 카드 ft2-prereq-unreadable-once)
+
+읽지 못하는 `- 선행:` 은 **건너뛰는 판정 그대로** 두고, 줄 수와 알리는 길만 바꾼다. 설계 정본 = `feature-pack/fable-team/design/DESIGN-pI-prereq-unreadable-log-once-20261116.md`.
+
+- I1 기억 = keeper 상태 파일 `state/ft2-keeper/state.json` 의 `prereq_seen["<팀>|<카드>"] = {"val": <선행 값 그대로>, "why": <까닭>}`. 로그는 값과 까닭이 **둘 다** 같을 때만 0줄이고, 까닭만 바뀌어도 1줄이다.
+- I2 줄 꼴 = `판정 불가 <팀> <카드> 선행 줄 판독 불가(<까닭>) — 건너뜀 · 고칠 꼴 «- 선행: 없음» 또는 «- 선행: r<번호>»`. 까닭 = `번호 참조 없음` 또는 `루트에 없는 번호 r<a> r<b> …`(루트에 없는 번호는 **전부** · 번호 순).
+- I3 `keeper_next.prereq(lines, where)` 의 반환 = `(판정, 까닭)`. 판정 값 셋(`""` · `선행` · `선행불명`)과 고르지 않는 판정은 r2027·r2058 L9 그대로이고, 까닭은 선행불명일 때만 찬다.
+- I4 기억 치우기 = 그 카드가 선행불명이 아니게 되거나 대기 폴더에서 사라지면 `prereq_seen` 에서 지운다. 다시 선행불명이 되면 1줄 다시 찍는다.
+- I5 팀장 쪽지 = `[다음 막힘] <팀> 선행 줄을 못 읽는 카드 <n>장: <앞 3장 이름> · 고칠 꼴 «- 선행: 없음» 또는 «- 선행: r<번호>»`. **고를 카드가 있든 없든** 간다(닫기 뒤 pick·fill 두 자리 모두).
+- I6 묶음 지문 = 그 팀 선행불명 카드의 (이름 · 선행 값 · 까닭) 전부 → sha1 앞 12자. 바퀴마다 다시 계산하고 0장이면 빈 묶음이다.
+- I7 기억 둘 = `prereq_now[<팀>] = {"fp": <앞 바퀴 묶음 지문>, "n": <전이 번호>}`(묶음이 바뀔 때마다 +1) · `prereq_told[<팀>] = <마지막으로 전송에 성공한 묶음 지문>`. 지금 묶음이 비면 `prereq_told` 를 비운다.
+- I8 보낼지 = 지금 묶음이 비어 있지 않고 `prereq_told` 와 다를 때. 열쇠 = `prereq|<팀>|<묶음 지문>|<전이 번호>`(전이 번호가 들어가므로 같은 묶음이 다시 나타나도 옛 지문과 겹치지 않는다). `prereq_told` 는 `k.notify` 가 성공(rc 0 또는 도착 확인)을 돌려줄 때만 바뀐다 — 실패·바퀴 3통 넘김(defer)은 바꾸지 않는다.
+- I9 세 기억(`prereq_seen` · `prereq_now` · `prereq_told`)은 모두 keeper 상태 파일의 키다. 메모리에만 두어 재기동 때 번호가 초기화되면 불합격.
+- I10 그대로 = `[다음 없음]` 쪽지(하루 1통 · 사유별 수 · 선행불명도 그 수에 든다) · choose 의 고르기 순서 · 보내기는 `k.notify`(받는 곳 차례 · 실패 지문 · 바퀴 3통 = §4).
+
+### 12.1 멈춘 팀·팀장 없는 팀·전체 목록 (카드 ft2-prereq-alarm-hold · P0~P8)
+
+I1~I10 위에 얹는 줄이다. 바뀌는 곳은 `keeper_next.prereq_tell` 한 함수이고 `choose` · `fill` · `close` · `new_card_hold` · `gates` 는 손대지 않는다.
+
+- P0 갱신 시점 = 이 절의 모든 기억·파일 갱신은 `prereq_tell` 이 실제로 불린 바퀴에만 일어난다. 부르는 곳은 `choose` 안 1줄뿐이고 `choose` 는 카드를 고르는 바퀴에만 불린다. `NEW_CARD_HOLD` · 팀 `PAUSED` · PENALTY 재개 전 · 나노 정원 꽉 참인 바퀴는 `fill`·닫기 뒤 고르기가 `choose` 앞에서 돌아가므로 그 바퀴에는 쪽지·`prereq_now`·`prereq_told`·`prereq_wait`·목록 파일 모두 손 0 이다. 보류 중에 남아 있는 값은 «마지막으로 고른 바퀴의 관측값» 이다.
+- P1 묵음 = `prereq_tell` 이 불린 바퀴에 전팀 정지(`k.halt`) · 팀 `PAUSED`(`state/<팀>-tick/PAUSED`) · `NEW_CARD_HOLD`(깨짐 포함 = 보류) 중 하나라도 참이면 그 팀 `[다음 막힘]` 쪽지는 0통이다. 판정 자리 = `prereq_tell` 안 1곳(`prereq_mute`). 묵음 바퀴에도 `prereq_now` 와 목록 파일은 고치고 `prereq_told` 는 바꾸지 않는다. `PREREQ-WAIT` 줄도 0줄이다.
+- P2 풀림 = 표식이 풀린 뒤 `prereq_tell` 이 처음 불린 바퀴에 묶음이 비어 있지 않고 `prereq_told` 와 다르면 1통(I8 그대로). 보류 중 카드가 X → Y 로 바뀌었으면 그 바퀴에 Y 만 1통이고 목록 파일도 Y 다. 보류 중 모두 고쳤으면 그 바퀴에 0통 + `prereq_told` 비움 + 목록 파일 지움. «풀린 바로 그 바퀴» 는 약속하지 않는다(정원 꽉 참이면 고르는 바퀴가 뒤로 밀린다).
+- P3 본문 = 카드 3장까지는 I5 글 그대로. 3장을 넘으면 `[다음 막힘] <팀> 선행 줄을 못 읽는 카드 <n>장: <앞 3장 이름> · 전체 목록 <경로> · 고칠 꼴 «- 선행: 없음» 또는 «- 선행: r<번호>»`.
+- P4 목록 파일 = `<root>/.fable-team/state/ft2-keeper/prereq-<팀>.txt`(일반 파일). 첫 줄 `# 관측 <시각> · <n>장`(마지막으로 고른 바퀴의 값임을 읽는 사람이 안다) · 그 아래 줄마다 `<카드>\t<선행 값>\t<까닭>` 이름순. `prereq_tell` 이 불린 바퀴에 묶음 지문이 바뀌었거나 목록 파일이 없으면 원자 쓰기(tmp → replace) · 그 바퀴에 묶음이 비면 지운다 · 지문이 그대로이고 파일이 있으면 쓰지도 지우지도 않는다. 3장 이하도 쓴다(쪽지에는 경로를 싣지 않을 뿐).
+- P4-a 승계(DA 312085 반례) = 판을 올리면 옛 판이 만든 상태(`prereq_now` 에 지문은 있고 목록 파일은 없다)가 그대로 남는다. 그 상태에서 `prereq_tell` 이 처음 불린 바퀴에 목록 파일을 **한 번** 만든다(지문이 같아도) — 그러지 않으면 `PREREQ-WAIT`·본문이 없는 파일 경로를 가리킨다. 파일이 생긴 뒤 지문이 그대로면 손 0. 보류 때문에 `prereq_tell` 호출 자체가 없는 바퀴는 계속 손 0(P0).
+- P5 팀장 없음 = 판독은 `k.recipients(team)`(그 팀 `_master` → `_desk` → harness `_master` 차례 · §4 E1). 처음 값이 있는 곳이 대신 받는 곳이거나 없으면 선행 줄 쪽지는 보류한다 — `k.notify` 를 부르지 않으므로 harness `[긴급]` 묶음에 쌓이지 않는다. `prereq_told` 는 그대로. `PREREQ-WAIT <팀> 팀장 없음 — 선행 줄 쪽지 보류 <n>장 · 목록 <경로>` 1줄(묶음 지문이 바뀔 때만 · 기억 = 상태 키 `prereq_wait[<팀>]` = 지문). 팀장 칸이 채워진 바퀴에 P2 로 1통 + 기억 지움.
+- P6 판정 순서 = 묶음 빔(I7) → P1 묵음 → P5 팀장 없음 → I8 보냄.
+- P7 그대로 = I1~I4 · I6·I7·I9 · I8 의 열쇠와 «성공 때만 told» · I10 · §11 H1~H8 · §4 E1~E8 · `[다음 없음]` 쪽지 · 고르기 순서 · 막는 판정.
+- P8 I5 가 바뀐다 = 3장을 넘을 때 본문에 «전체 목록 <경로>» 칸이 붙는다(앞 카드 사례 ㉟아의 기대 = 이름 3개는 그대로 통과한다).
+- 상태 키 = `prereq_wait[<팀>] = <마지막으로 보류한 묶음 지문>`. 보류가 아니면 키가 없다(옛 판은 이 키를 읽지 않는다 · 되돌림 = 앞 판으로 판 전환).
+- 반례 밖 = 줄바꿈·탭이 든 카드 이름 · 권한을 바꾼 목록 파일/표식 파일 · 주입한 mbox 실패의 꼴 맞추기(하드 룰 18·19·20).
+
+
+## 13. 바퀴 예산 — 한 바퀴가 벽시계 60초 안에 끝난다 (r2098 · 카드 ft2-keeper-round-60s · R1~R13)
+
+상한 검사가 팀 고리 머리 1곳뿐이라 한 칸이 혼자 60초를 넘겨도 끊지 못했다(실측 210바퀴 중 14바퀴 60초 넘음 · 가장 긴 152.5초). 예산 시계 1개를 세우고 느린 항목을 그 아래에 둔다. 판정 규칙(착지·끝·settle)과 쪽지 글·받는 곳은 그대로다(§1~§12).
+
+- **R1 구획 3개** = 바퀴 시작부터의 벽시계 초(`time.monotonic`). 업무 0~45초(fetch · 나노 가지 모으기 · 팀 항목 · b3) · report 45~55초 · 마무리 55~60초(state.json 원자 쓰기 · ROUND 줄 · 꽉 참 관측 = 바깥 호출 0). 숫자는 상한에서 거꾸로 센 값이지 실측값이 아니다.
+- **R2 호출 문 1곳**(`Keeper.call`) = 바깥 호출을 시작하기 전마다 남은 몫을 본다. *판독*(git 동사 13 · tmux 5 · `gh pr list` · `ps` · `mbox peek` · 벌점 판정기 `check`)은 `min(자기 상한, 남은 몫)`으로 줄여 부르고 그 상한에 걸리면 **끊김**(느린 것이 아니라 예산이 다한 것 · `판정 불가` 로 적지 않는다). *쓰기*(판독 목록 밖 전부 · 모르는 호출도 쓰기)는 남은 몫이 자기 상한보다 작으면 시작 0(끊김)이고, 시작한 쓰기는 자기 상한 그대로 끝난다. 긴 쓰기(자기 상한 > 7초 = 닫기 도구·재배정 launch·배정 원장 record)는 20초 뒤로는 시작하지 않는다. 남은 몫 1초 미만 = 시작 0.
+- **R3 끊김** = 그 바퀴 업무 구획의 끝. 뒤 항목 시작 0 → report 구획 → 마무리. 끊김은 `Cut(BaseException)` 1종으로 올려 `except Exception` 에 먹히지 않는다(㊳거).
+- **R4 cursor** = `state.json` 의 `cursor {team, work, stage, cuts}` + report 용 `rep_cursor {seat}`. 자리 차례 = 팀(이름순) → work(이름순) → 칸(`b1`·`b2c`·`stall`) → 팀의 `b2f`(fill) → `b3o` → `b3r`. 다음 바퀴는 cursor 자리부터 돌고 커서 팀 앞은 통째로 건너뛴다. 끊김 없이 한 바퀴를 다 돌면 cursor 를 지운다. 옛 `cap_next` 는 읽어서 그 팀 머리 cursor 로 옮긴다.
+- **R5 굶김 0** = 같은 자리가 연속 2바퀴 끊기면 `판정 불가 <팀> <work> <칸> 예산 2회 넘음 — 건너뜀` 1줄 + cursor 를 다음 자리로. 로컬 git 7초 실패(R7)는 끊김이 아니다.
+- **R6 앞 단계 몫** = fetch 는 지금 규칙 그대로(리포당 ls-remote 7 + fetch 7 + 재시도 1 · 예산 문 밖). 나노 가지 모으기 = 합 7초(판독을 R2 로 줄임) · 넘으면 `판정 불가 나노 가지 모으기 7초 넘음 — 모은 것만` 1줄 + 모은 것으로 진행.
+- **R7 로컬 git 상한 25 → 7초**. 자기 상한에 걸리면 `판정 불가 <팀> <work> git 7초 넘음` 1줄 + `Ungraded` 로 그 자리의 남은 판정 0(성공으로도 실패로도 읽지 않는다 · 상태 쓰기 0) · 다음 자리로.
+- **R8 쪽지** = 한 바퀴에서 send 시간 초과(rc None) 2회면 그 바퀴 남은 쪽지를 보내지 않는다. 예산 미룸(남은 몫 < 7초)과 함께 지문·횟수 미소비 + `NOTIFY-DEFER` 1줄(값이 바뀔 때만). 그 전에 간 쪽지의 지문·횟수는 그대로.
+- **R9 끊김 수렴** = 어느 호출 앞에서 끊겨도 뒤 바퀴들이 «끊기지 않은 실행» 과 같은 끝에 닿는다(journal work 별 끝 줄 종류 · 쪽지 수 · 닫힌 세션). 지금 선언한 원자 구간 = 없다(㊳파 5순서 × 자리 전부에서 수렴).
+- **R10 드러냄** = ROUND 줄 끝에 `wall=<초> other=<wall − 칸 합계> items=<돈 자리>/<돈 수 있는 자리> cut=<팀:work:칸|->`. `OVER` 는 wall 판정. 끊김 1줄 = `ROUND-CAP <팀> <work> <칸> — 다음 바퀴 여기부터`(report 끊김은 `<팀> <work>` 자리에 `- -`). 옛 칸·순서는 그대로.
+- **R11 그대로** = 판정 규칙 · 쪽지 글·받는 곳 · fetch 규칙 · `gates()` · ALL_STOP · PENALTY_STOP · NEW_CARD_HOLD · 잠금 · SLOW-CALL·SLOW-CELL 줄 꼴 · 꽉 참 알림의 글·받는 곳·서명 규칙.
+- **R12 꽉 참 알림**(전2) = keeper 바퀴 안에서는 보내지 않는다. `full_alert.observe·remaining·journal` 에 «보내는 손» 인자 1칸(기본값 = 지금 `_send` · Slack 수신기 쪽 동작 그대로)을 더하고 keeper 는 `state.alert_out` 에 `{to, body, sig, tries, mark, log}` 1줄을 더하는 손을 꽂는다(서명 저장은 지금 순서 그대로 = 재알림 폭주 0). 보내기 = report 구획 머리에서 앞줄부터 **바퀴마다 1줄 1회**: 성공(rc 0 또는 E7 도착 확인) = 지움 + `FULL-ALERT <받는 곳> <글 머리>` · 실패 = `tries +1` + `mark`(그 시도의 장부 seq 경계) + 그 받는 곳의 줄 전부를 목록 맨 뒤로(수신자 순환) · `mark` 가 있으면 다시 보내기 앞에 도착 확인 1회(늦게 닿은 알림 중복 0) · 예산 미룸만 tries 0 · tries 3 = 지움 + `판정 불가 꽉 참 알림 3회 실패 <받는 곳>` 1줄 + `ft2-full-alert.jsonl` 1줄. «keeper 바퀴» 관측은 마무리 구획 1회 · 값 = wall · 끊김(ROUND-CAP)만으로는 꽉 참이 아니다.
+- **R13 문 밖 바깥 호출 0** = keeper 바퀴에서 닿는 파일의 기다리는 바깥 호출은 `keeper.py` 의 문 1줄뿐 · 예외 = «대기 없는 띄우기» 2줄(keeper_launch.py · keeper_fetch.py 의 Popen 뒤 wait·communicate 0) · `full_alert.py` 의 `_send` 1줄은 Slack 수신기 쪽 기본 손(바퀴는 자기 손을 꽂아 지나지 않는다). 시험이 AST 로 센다.
+- **가정 A1**(증명 밖) = 프로세스 안 초(cli.run 동사 · 파일 읽기 · 파이썬)는 문이 끊지 못한다. 문은 다음 호출 앞에서 그 초를 남은 몫에 반영할 뿐이고 마지막 문 뒤에 몰린 초는 막지 못한다 → 마무리 5초가 그 몫 · `other=` 로 잰다(가장 긴 값이 5초를 넘으면 [ ]).
+- **범위 밖** = `mbox.sh send` 가 7초에 끊기는 까닭 · 긴 쓰기 3줄의 상한 줄이기 · Slack 수신기 쪽 full_alert 호출 · keeper 가 바퀴 도중 죽어 state 를 못 쓴 경우 · gh/git 네트워크 속도 · launchd 주기(60초) · 판정 규칙·쪽지 글.

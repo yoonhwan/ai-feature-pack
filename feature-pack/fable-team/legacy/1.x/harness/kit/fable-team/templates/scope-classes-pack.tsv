@@ -6,6 +6,7 @@ forbid	scope-table	(?i)^feature-pack/fable-team/legacy/1\.x/harness/kit/fable-te
 code	pack-kit	^feature-pack/fable-team/legacy/1\.x/harness/kit/
 code	pack-bin	^feature-pack/fable-team/legacy/1\.x/harness/bin/
 code	pack-comm	^feature-pack/fable-team/legacy/1\.x/harness/comm/
+code	pack-harness-pi	^feature-pack/fable-team/legacy/1\.x/harness/pi/
 code	pack-install	^feature-pack/fable-team/legacy/1\.x/harness/install\.sh$
 code	pack-tests	^feature-pack/fable-team/legacy/1\.x/harness/tests/
 docs	pack-changes	^feature-pack/fable-team/legacy/1\.x/CHANGES\.md$

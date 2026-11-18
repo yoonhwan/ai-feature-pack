@@ -50,19 +50,19 @@ def test_rest_head_any_form_is_exempt(w: World, body: str) -> None:
     assert not sends(w), w.mbox_log()
 
 
-def test_r3_event_after_rest_head_alerts(w: World) -> None:  # ③ 그 뒤 사건 1통 · 21분 = A2 그대로
+def test_r3_event_after_rest_head_alerts(w: World) -> None:  # ③ 팀장이 보낸 발주 21분 = r2172 L2 부터 사건 아님(일 쪽지 아님) → 쉼 면제 유지
     candidate(w)
     w.heartbeat("t1-master#1", 40, body="[다음 없음] 막힘 = 사람 답(1794632106.348429)")
     w.mail("t1-nano#0", 950, 21, frm="t1-master#1", body="발주 — 이어서 하세요")
-    assert scan(w)["f"] == "1"
-    assert len(sends(w)) == 1
+    assert scan(w)["f"] == "0"
+    assert len(sends(w)) == 0
 
 
-def test_r4_mark_on_second_line_only_is_not_rest(w: World) -> None:  # ④ 둘째 줄 표식 = 쉼 0
+def test_r4_mark_on_second_line_only_is_rest(w: World) -> None:  # ④ 둘째 줄 단독 표식 = 쉼(r2139 R4)
     candidate(w)
     w.heartbeat("t1-master#1", 33, body="[정리] 한 일 3줄\n[다음 없음]")
-    assert scan(w)["f"] == "1"
-    assert len(sends(w)) == 1
+    assert scan(w)["f"] == "0"
+    assert len(sends(w)) == 0
 
 
 def test_r5_rest_head_to_non_lead_role_is_not_heartbeat(w: World) -> None:  # ⑤ 받는이 = nano → 심박 아님
@@ -73,9 +73,9 @@ def test_r5_rest_head_to_non_lead_role_is_not_heartbeat(w: World) -> None:  # �
 
 
 def test_r6_closed_wait_uses_rest_head(w: World) -> None:  # ⑥ 마지막 발신 «[정리] [다음 없음]» + 받을 일 0 → 닫기 대기
-    """심박([정리]) 25분 = 경보 후보 · 쉼 머리 쪽지는 nano 앞(심박 아님 = r1729 면제 0) → r1647 닫기 대기만 남는다."""
+    """심박([정리]) 61분 = 경보 후보(r2172 L3 밖) · 쉼 머리 쪽지는 nano 앞(심박 아님 = r1729 면제 0) → r1647 닫기 대기만 남는다."""
     candidate(w)
-    w.heartbeat("t1-master#1", 25)
+    w.heartbeat("t1-master#1", 61)  # r2172 — 일 쪽지 0 인 [정리] 60분 안 = L3 유휴 면제 · 멈춘 팀장 대역은 61분
     w.mail("t1-nano#0", 950, 21, frm="t1-master#1", body=HEAD_REST)
     (w.root / "design/t1/indices/진행").mkdir(parents=True, exist_ok=True)  # open-work rc0(받을 일 0)
     c = scan(w)

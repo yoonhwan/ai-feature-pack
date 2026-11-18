@@ -5,6 +5,7 @@
 # 전부 mktemp 임시 FT_ROOT(가짜 큐·가짜 우편함) · 실 인박스·실 mbox·Haiku/tmux 호출 0.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+PFX="$(cd -- "$HERE/.." && pwd -P)"; PFX="${PFX#$(git -C "$HERE" rev-parse --show-toplevel)/}"  # r2224 움직이는 ref 의 리포 상대 실경로
 REPO="$HERE/../.."
 INBOX="$REPO/harness/bin/ft-inbox.sh"
 CORE="$REPO/harness/bin/ft_inbox_core.py"
@@ -74,7 +75,7 @@ AFTER="$(count)"; eq "ⓒ 후 = 결정 인터뷰 0건" "$(cut -d' ' -f1-3 <<<"$A
 echo "   ⓒ 원문: 전 «${BEFORE}» · 후 «${AFTER}»"
 
 # ⓓ 닫힘 술어 함수 바이트 불변 (origin/main 판 ft_inbox_core.py 의 obligation_closed 와 비교)
-BASE="$(git -C "$REPO" show origin/main:feature-pack/fable-team/harness/bin/ft_inbox_core.py 2>/dev/null)"
+BASE="$(git -C "$REPO" show origin/main:$PFX/bin/ft_inbox_core.py 2>/dev/null)"
 if [ -z "$BASE" ]; then bad "ⓓ origin/main 판 못 읽음"; else
   python3 - "$CORE" "$BASE" <<'PY'
 import re, sys

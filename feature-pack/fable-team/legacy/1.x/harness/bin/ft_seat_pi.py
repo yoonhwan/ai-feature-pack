@@ -15,7 +15,7 @@ import time
 from pathlib import Path
 
 from ft_seat_codex import agent_of
-from ft_seat_pi_turn import file_row, is_pi_file
+from ft_seat_pi_turn import file_row, is_pi_file, judge
 
 
 def run(args):
@@ -91,7 +91,7 @@ def locate(seat, tmux=None, source=False):
         if got is None:
             raise ValueError("Pi session ID 확인 불가")
         from ft_seat_pi_ft2 import first_session
-        return first_session(got, root) + (("ft2-intent",) if source else ())
+        return first_session(got, root, (seat, tmux)) + (("ft2-intent",) if source else ())
     pid, cwd, sid = live_identity(seat, tmux)
     found = []
     for path in candidates(root, cwd, f"*_{glob.escape(sid)}.jsonl", lambda: not found):
@@ -119,6 +119,20 @@ def locate(seat, tmux=None, source=False):
     return found[0] + (("pi-session",) if source else ())
 
 
+def snapshot(path):   # r2141 상태 판독 1회 — 한 번 열어 끝까지 읽고, 분은 같은 fd 의 fstat mtime
+    records = []
+    with open(path, "rb") as stream:
+        for line in stream:
+            try:
+                record = json.loads(line)
+            except ValueError:
+                raise ValueError("Pi jsonl 불완전/손상 레코드") from None
+            if isinstance(record, dict):
+                records.append(record)
+        mtime = os.fstat(stream.fileno()).st_mtime
+    return judge(records)[0], mtime
+
+
 def row(seat, tmux=None):
     return file_row(locate(seat, tmux)[0])
 
@@ -143,11 +157,16 @@ def bind_result(seat, expected=None):
 
 def main(argv):
     try:
-        if len(argv) == 3 and argv[0] in ("--if-pi", "--path", "--pane", "--age"):
+        if len(argv) == 3 and argv[0] in ("--if-pi", "--path", "--pane", "--age", "--row"):
             if not is_pi(argv[2], argv[1]):
                 return 3
             if argv[0] == "--path":
                 print(locate(argv[2])[0])
+                return 0
+            if argv[0] == "--row":   # r2141 «상태\t분» 한 행 = locate 1회 + snapshot 1회
+                state, mtime = snapshot(locate(argv[2])[0])
+                pane = "BUSY" if state in ("WORKING", "PENDING") else state
+                print("%s\t%s" % (pane, int(time.time() - mtime) if state == "IDLE" else "-"))
                 return 0
             if argv[0] in ("--pane", "--age"):
                 path = locate(argv[2])[0]

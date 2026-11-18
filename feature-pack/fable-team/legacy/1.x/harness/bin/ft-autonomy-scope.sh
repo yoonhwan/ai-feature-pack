@@ -231,6 +231,28 @@ scope_classify() {  # <sha> → CLS(종류) CLS_LEARNED(학습 키 · 없으면 
   CLS="${BASH_REMATCH[1]}"; CLS_LEARNED="${BASH_REMATCH[3]}"
 }
 
+SCOPE_HOLD_MARKS="사람 정지 DA lint 면제대기 선행"   # r2106 A2 — ft2 keeper_next.py MARK 6낱말과 같은 글자(시험이 대조 · «석» 은 막는 낱말 아님)
+scope_card_line() {  # r2106 A2 카드 본문(stdin) → `start=… 배정=… 선행=…` · keeper_next.py prereq 앞 두 단계와 같은 순서·글자 처리(껍데기 → 첫 «- 배정: 대기(» 줄 사유) · 선행은 값만
+  perl -CSDA -Mutf8 -e '
+    my %mark = map { $_ => 1 } split / /, shift; my ($shell, $why, $as, $pre);
+    while (my $l = <STDIN>) { chomp $l;
+      $shell = 1 if $l =~ /^- (상태: )?대기\(NEW_CARD_HOLD/;
+      if (!defined $why && $l =~ /^- 배정: 대기\((.*)$/) { $why = (split / · /, $1, 2)[0] // ""; s/^\s+|\s+$//g, s/\)+$//, s/^\s+|\s+$//g for $why; }
+      $as //= $1 if $l =~ /^- 배정:(.*)$/; $pre //= $1 if $l =~ /^- 선행:(.*)$/; }
+    my $start = $shell ? "held(껍데기)" : defined $why && $mark{$why} ? "held($why)" : "open";
+    my @v = map { my $x = $_ // ""; $x =~ s/^\s+|\s+$//g; $x eq "" ? "-" : substr($x, 0, 40) } $as, $pre;
+    print "start=$start 배정=$v[0] 선행=$v[1]\n";' "$SCOPE_HOLD_MARKS"
+}
+scope_new_cards() {  # r2106 A1·A4 <sha> — SCOPE-OK 뒤 · PR 이 새로 더한(A · 이름 바꿈도 A) 대기 카드마다 NEW-CARD 1줄(stem 순) · stdout 만 · 원장 0 · 실패해도 승인·rc 그대로
+  local repo="${SCOPE_REPO:-$ROOT}" base list p b stem body
+  base="$(git -C "$repo" merge-base "refs/remotes/origin/$SCOPE_TARGET" "$1" 2>/dev/null)" \
+    && list="$(git -C "$repo" -c core.quotepath=off diff --no-renames --name-only --diff-filter=A "$base" "$1" -- ':(glob)design/**/indices/대기/*.md' 2>/dev/null)" \
+    || { echo "NEW-CARD - start=판정 불가"; return 0; }   # 하드 룰 20 — 목록 git 실패 = 1줄
+  while IFS=$'\t' read -r stem p; do
+    if body="$(git -C "$repo" show "$1:$p" 2>/dev/null)"; then echo "NEW-CARD $stem $(scope_card_line <<<"$body")"; else echo "NEW-CARD $stem start=판정 불가"; fi
+  done < <(while IFS= read -r p; do [ -n "$p" ] || continue; b="${p##*/}"; printf '%s\t%s\n' "${b%.md}" "$p"; done <<<"$list" | LC_ALL=C sort)
+}
+
 cmd_scope_approve() {
   local sha="${1:-}" pr="" card="" rk=byz cls used today now line ev="" cu="" tail="" eq="" CODE_EQUIV="" dir="$STATE/autonomy-merge-approved" SCOPE_TARGET=main
   [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || scope_err "sha 형식 틀림(40hex 소문자): $sha (usage: scope-approve <40hex> [--pr <N>] [--card <카드.md>] [--repo byz|pack])"
@@ -272,6 +294,7 @@ cmd_scope_approve() {
   ev="$ev$tail"; ev="${ev# }"
   printf '%s\t%s\t%s\t%s\t%s\t\t\n' "$now" "$sha" "$pr" "$cls" "$ev" >> "$SDIR/$G_S.ledger.tsv" || scope_wfail "$SDIR/$G_S.ledger.tsv"
   echo "SCOPE-OK $sha class=$cls${cu:+ code=$cu/$G_CODEMAX} used=$used/$G_MAX today=$today/$G_DAILY${CODE_EQUIV:+ equiv=$CODE_EQUIV}${eq:+ equiv=$eq}$tail"
+  scope_new_cards "$sha"   # r2106 A1 — 알림일 뿐(승인·rc·원장 손 0)
 }
 
 cmd_scope_stop() {

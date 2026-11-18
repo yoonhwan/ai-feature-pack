@@ -1,0 +1,26 @@
+발신	머리 꼴(숫자열 → N)	머리 뒤 첫 낱말	갈래	값
+ft-idle-scan	[유휴 점검 N:N]	유지	안 넣음	-
+ft-idle-scan	[N분 점검 N:N]		바뀐 때만	줄:닫기 대상|줄:시간 모름|글:미발송 N
+ft-tick	[계정 안내]		바뀐 때만	전문
+ft-desk-tick	[틱 N:N]		주기	15
+ft-desk-tick	[aifp N분 점검 N:N]		주기	30
+ft-stall-scan	[멈춤]		묶음	15분
+ft-goal-table	[골 번호 바뀜]		묶음	15분
+ft2-keeper	[다음 없음]		묶음	15분
+ft2-keeper	[다음 막힘]		묶음	15분
+ft-nano-record	[정리 차례 · 주인 없음]		묶음	15분
+ft-nano-record	[정리 차례 · 깨움 실패]		묶음	15분
+ft-nano-record	[정리 차례 · 대리]		묶음	15분
+ft-nano-record	[정리 차례 · 카드 없음]		묶음	15분
+ft-nano-record	[정리 차례 · 닫기 거절]		묶음	15분
+ft-idle-scan	[N분 점검 N:N]		묶음	15분
+ft-tick	[계정 안내]		묶음	15분
+ft-desk-tick	[틱 N:N]		묶음	15분
+ft-desk-tick	[aifp N분 점검 N:N]		묶음	15분
+ft-idle-scan	[긴급]		첫 통	60분 · 15분
+ft-distill-gate	[크리티컬]		첫 통	60분 · 15분
+ft2-keeper	[긴급]		첫 통	60분 · 15분
+ft2-keeper	[크리티컬]		첫 통	60분 · 15분
+ft-merge-land	[크리티컬]		첫 통	60분 · 15분
+ft-seat-close	[크리티컬]		첫 통	60분 · 15분
+ft-nano-close	[크리티컬]		첫 통	60분 · 15분

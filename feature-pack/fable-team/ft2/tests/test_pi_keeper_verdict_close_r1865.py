@@ -21,6 +21,7 @@ kw, r1812 = _mod("keeper_world_r1812"), _mod("test_pi_keeper_r1812")
 W, N, SEQ, DESK = "r9865", "9865", "296001", "byz-planner-desk-pi#150"
 HOLDER = "byz-harness-nano-%s-t#0" % W
 LEDGER = "design/teams/planner/VERDICTS-planner-225-20261104.md"
+STAGE = {card: "Unsure harness %s card_stage %s" % (W, x) for card, x in ((True, "두 가지에 진행 카드"), (False, "진행 카드 0개"))}   # r2140 K5 done 닫기 길 card_stage 1줄(카드 있음 · 없음)
 
 
 def _world(w, line=(W, "a1", "판정 " + N, "%s #%s" % (DESK, SEQ)), card=True, alive=True, ledger=None, mail=None, **work):
@@ -42,20 +43,20 @@ def _mine(lines):
     return [x for x in lines if W in x]
 
 
-def _closed(w, holder):
+def _closed(w, holder, card=True):
     lines = w.round()
-    assert [x.split()[0] for x in _mine(lines)] == ["CLOSED-VERDICT", "RECEIPT"], lines
+    assert [x.split()[0] for x in _mine(lines)] == ["Unsure", "CLOSED-VERDICT", "RECEIPT"] and _mine(lines)[0] == STAGE[card], lines
     assert "CLOSED-VERDICT harness %s %s 판정 %s %s #%s" % (W, holder, N, DESK, SEQ) in lines
     assert w.tmux("kill-session") == [["kill-session", "-t", "=" + holder]] and w.kinds("close_receipt") == 1
 
 
 def _held(w, start, once=False):
     lines = [x for x in _mine(w.round()) if not x.startswith("NOTIFIED")]   # r2055 UNKNOWN [긴급] 전송 줄(NOTIFIED)은 셈 밖
-    assert len(lines) == 1 and lines[0].startswith(("UNKNOWN harness %s %s" % (W, start), "WORKING harness %s %s" % (W, start))), lines   # r2055 HELD 폐지 → UNKNOWN·WORKING
+    assert len(lines) == 2 and lines[0] == STAGE[True] and lines[1].startswith(("UNKNOWN harness %s %s" % (W, start), "WORKING harness %s %s" % (W, start))), lines   # r2055 HELD 폐지 → UNKNOWN·WORKING
     assert w.tmux("kill-session") == [] and w.kinds("close_receipt") == 0
     if once:   # 같은 사유 두 바퀴째 새 줄 0
-        assert _mine(w.round()) == [] and w.tmux("kill-session") == []
-    return lines[0]
+        assert _mine(w.round()) == [STAGE[True]] and w.tmux("kill-session") == []
+    return lines[1]
 
 
 def c1(w):    # ① 착지 줄 없는 카드 + 목록 + 원장 행 + desk 승인 + 유휴·턴 끝·attached 0 → kill 1 · CLOSED-VERDICT · 영수
@@ -63,7 +64,7 @@ def c1(w):    # ① 착지 줄 없는 카드 + 목록 + 원장 행 + desk 승인
 
 
 def c2(w):    # ② 카드 후보 0(r1808c 꼴) + 목록 → 같음
-    _closed(w, _world(w, card=False))
+    _closed(w, _world(w, card=False), card=False)
 
 
 def c3(w):    # ③ Working → HELD · kill 0
@@ -76,7 +77,7 @@ def c4(w):    # ④ [의도 변경 r1976] attached 1 → NOTE 1 → kill 1 · CL
     d = json.loads(w.tm.read_text(encoding="utf-8"))
     d["att"] = {HOLDER: 1}
     w.tm.write_text(json.dumps(d), encoding="utf-8")
-    assert [x.split()[0] for x in _mine(w.round())] == ["NOTE", "CLOSED-VERDICT", "RECEIPT"]
+    assert [x.split()[0] for x in _mine(w.round())] == ["Unsure", "NOTE", "CLOSED-VERDICT", "RECEIPT"]
     assert w.tmux("kill-session") == [["kill-session", "-t", "=" + HOLDER]] and w.kinds("close_receipt") == 1
 
 

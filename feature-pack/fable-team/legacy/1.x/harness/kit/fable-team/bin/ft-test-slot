@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+# ft-test-slot <명령…> — 한 머신의 하네스 시험 동시 상한 4(r1978 · 하드 룰 22) · 좌석마다 -P 를 따로 써도 합이 4 를 넘지 않는다.
+#   슬롯 = ${FT_TEST_SLOT_DIR:-~/.claude/state/test-slots}/<0..3>.lock flock · 빈 것 1개를 잡고 `timeout 70 <명령>` 으로 exec 한다.
+#   잠금 fd 는 명령이 물고 간다 → 끝나거나 죽으면(SIGKILL 포함) 커널이 푼다 · kill 0 · 빈 슬롯 없으면 기다림 · 상한 ${FT_TEST_SLOT_WAIT:-70}초 넘으면 rc 75 «슬롯 대기 초과» 1줄 · 명령 실행 0 · rc = 명령 rc 그대로(timeout 끊김 = 124).
+import fcntl, os, sys, time
+
+SLOTS = 4
+
+def grab(d):
+    for i in range(SLOTS):
+        fd = os.open(os.path.join(d, f"{i}.lock"), os.O_RDWR | os.O_CREAT, 0o644)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return fd
+        except OSError:
+            os.close(fd)
+    return None
+
+
+def main(argv):
+    try:
+        wait = float(os.environ.get("FT_TEST_SLOT_WAIT") or 70)
+        d = os.environ.get("FT_TEST_SLOT_DIR") or os.path.expanduser("~/.claude/state/test-slots")
+        os.makedirs(d, exist_ok=True)
+        assert argv, "명령 없음"
+    except (ValueError, OSError, AssertionError) as e:
+        print(f"usage: ft-test-slot <명령…> — 판정 불가 ({e})", file=sys.stderr); return 2
+    end = time.monotonic() + wait
+    while (fd := grab(d)) is None:
+        if time.monotonic() >= end:
+            print(f"ft-test-slot: 슬롯 대기 초과 — {SLOTS}개 사용 중 · {wait:g}초 · 시험 실행 0", file=sys.stderr); return 75
+        time.sleep(0.05)
+    os.set_inheritable(fd, True)
+    try:
+        os.execvp("timeout", ["timeout", "70", *argv])
+    except OSError as e:
+        print(f"ft-test-slot: 판정 불가 — timeout 실행 실패 ({e})", file=sys.stderr); return 127
+
+
+sys.exit(main(sys.argv[1:]))

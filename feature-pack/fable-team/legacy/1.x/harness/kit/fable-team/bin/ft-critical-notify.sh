@@ -24,7 +24,8 @@ NOW, T0 = float(os.environ.get("FT_CRITICAL_NOW") or time.time()), time.monotoni
 try: DEDUPE, BUDGET = float(os.environ.get("FT_CRITICAL_DEDUPE_S") or 3600), min(7.0, float(os.environ.get("FT_CRITICAL_BUDGET_S") or 7))
 except ValueError: DEDUPE, BUDGET = 3600.0, 7.0
 PROG = re.compile(r"pane 작업 중|\(IDLE 아님\)|분 내 편집|jsonl 마지막 기록\(|미제출 입력|도구 셸 실행|미읽음 쪽지|doorbell \d+건 미전달|미커밋 (실작업물|변경|\d+줄)|실작업물 미커밋")   # A6 «진행» 사유 표(세션이 일하는 중) — 표에 없는 글 = 진행 아님(알린다)
-CLOSE_NEXT = [(r"(세트:|- 착지:|증거 줄).*없", "그 나노에 정리 기록 차례(r1717 landed 명령) · 나노 없음이면 팀장"), (r"낡음|갈라짐", "원장 ref 를 맞춘 뒤 다시 닫기 — 팀 넘는 나노면 arch 판단")]
+CLOSE_NEXT = [(r"(세트:|- 착지:|증거 줄).*없", "그 나노에 정리 기록 차례(r1717 landed 명령) · 나노 없음이면 팀장"), (r"낡음|갈라짐", "원장 ref 를 맞춘 뒤 다시 닫기 — 팀 넘는 나노면 arch 판단"),
+              (r"라이브 도구가 main 키트와 다르다", "설치 h 먼저 — 드리프트 파일: {drift}")]   # r1721 A5 — {drift} = 검사 출력의 항목 줄 첫 3줄
 LAND_NEXT = [(r"동일승인 대조", "지금 head sha 로 다시 승인"), (r"충돌|non-FF|조상이 아님|포함하지 않음|최신화", "PR 가지를 main 위로 최신화 → 새 head sha 로 오빠께 다시 질문")]
 warn = lambda m: print("WARN ft-critical-notify: " + m, file=sys.stderr)
 key = lambda r: (r.get("tool"), r.get("target"), r.get("event")); sha12 = lambda s: hashlib.sha256(s.encode("utf-8")).hexdigest()[:12]
@@ -154,7 +155,8 @@ def close_after(tool, args, out):   # A5·A5b·A6 — «진행» 사유만이면
         except (OSError, subprocess.TimeoutExpired): ok = False
         if not ok: warn(f"ft-nano-record.sh refused 없음·실패 — 거절 이력 0({seat})")
     stem = re.sub(r"\.md$", "", os.path.basename(idx)) or "-"
-    notify(tool, seat, f"{stem}:{sha12(chr(10).join(live))}", cause, nexts(CLOSE_NEXT, live, "REJECT 원문대로"), idx or seat)
+    drift = " / ".join(re.findall(r"^(?:DIFF|MISSING|EXTRA|MODE|PENDING) \S+.*$", out, re.M)[:3]) or "-"   # r1721 A5
+    notify(tool, seat, f"{stem}:{sha12(chr(10).join(live))}", cause, nexts(CLOSE_NEXT, live, "REJECT 원문대로").replace("{drift}", drift), idx or seat)
 
 def land_after(args, out, ctx):   # A4 — rc 1 거절 전부 · 지문 = <PR head sha>:<REJECT 원문 전체 sha256 앞 12>(사유 분류는 다음 손 안내에만)
     opt = lambda k, d: next((args[n + 1] for n, a in enumerate(args[:-1]) if a == k), d)
@@ -170,9 +172,10 @@ def land_after(args, out, ctx):   # A4 — rc 1 거절 전부 · 지문 = <PR he
     text = "\n".join(ls[i:j + 1])
     notify("ft-merge-land", f"{slug} PR #{pr}", f"{ctx or '-'}:{sha12(text)}", ls[i], nexts(LAND_NEXT, [text], "REJECT 원문대로 고친 뒤 다시 land"), f"{slug}#{pr}")   # r1718-mut:landevent
 
-def after(tool, rc, d, args):   # --wrap 끝 — rc 1 = 알림 · rc 0 = 해결 · 그 밖(rc 2 usage·승인 없음 등) = 호출 0
+def after(tool, rc, d, args):   # --wrap 끝 — rc 1 = 알림(ft-merge-land 는 rc 6 원격 거절도 · r2007) · rc 0 = 해결 · 그 밖(rc 2 usage·승인 없음 등) = 호출 0
     read = lambda n: open(os.path.join(d, n), encoding="utf-8", errors="replace").read() if os.path.isfile(os.path.join(d, n)) else ""
-    if tool == "ft-merge-land": return land_after(args, read("out") if rc == "1" else None, read("ctx").strip())
+    if tool == "ft-merge-land": return land_after(args, read("out") if rc in ("1", "6") else None, read("ctx").strip())
+    if rc == "6": return   # rc 6 = ft-merge-land 전용(다른 도구는 지금처럼 호출 0)
     if rc == "0": return resolve(tool, next((a for a in args if not a.startswith("--")), ""))
     close_after(tool, args, read("out"))
 
@@ -188,13 +191,27 @@ except Exception as e:   # 알림 실패는 부른 도구의 rc 를 바꾸지 �
     warn(f"{type(e).__name__}: {e}")
 PY
 }
+wrap_block() {   # r2067 A2 — 닫기 두 도구의 «기다림» 종료(rc 0·1·2 밖) = 장부 raise · rc 0 = clear · rc 1·2 = 호출 0
+  case "$1" in ft-seat-close|ft-nano-close) ;; *) return 0;; esac
+  local tool="$1" rc="$2" out="$3" t="" a cause; shift 3
+  [ "$tool:$rc" = ft-nano-close:5 ] && grep -q '^FT2-SEAT ' "$out" 2>/dev/null && return 0   # r2168 T5ⓐ — ft2 좌석 = 1.x 닫기 대상 아님(raise · clear 0)
+  for a in "$@"; do case "$a" in --*) ;; *) t="$a"; break;; esac; done
+  [ -n "$t" ] && . "$HERE/ft-block-lib.sh" 2>/dev/null && declare -F ft_block >/dev/null || return 0
+  case "$rc" in 0) ft_block clear "$tool" "$t";; 1|2) ;;
+    *) cause="$(grep -m1 -E '^(HELD|WAIT) ' "$out" 2>/dev/null)"
+       [ -n "$cause" ] || cause="$(grep -m1 -F 'kill=held' "$out" 2>/dev/null)"
+       [ -n "$cause" ] || cause="$(awk 'NF{l=$0} END{print l}' "$out" 2>/dev/null)"
+       ft_block raise "$tool" seat "$t" --cause "${cause:-$tool rc $rc 출력 0줄}" --fix "판정 필요 $tool rc $rc — 원인을 고친 뒤 같은 명령 다시";;
+  esac; return 0
+}
 [ $# -ge 1 ] || usage
 if [ "${FT_CRITICAL_OFF:-0}" = 1 ]; then [ "$1" = --wrap ] && [ $# -ge 3 ] && { shift 2; exec bash "$@"; }; exit 0; fi   # A9 — 호출 0 · 기록 0
 if [ "$1" = --wrap ]; then   # A7 — 본 작업은 자식 1회(다시 돌리지 않는다) · rc·stdout·stderr 그대로
   [ $# -ge 3 ] || usage; TOOL="$2"; SCRIPT="$3"; shift 3
   D="$(mktemp -d "${TMPDIR:-/tmp}/ft-critical-XXXXXX" 2>/dev/null)" || { FT_CRITICAL_IN=$$ bash "$SCRIPT" "$@"; exit $?; }
   FT_CRITICAL_IN=$$ FT_CRITICAL_CTX="$D/ctx" bash "$SCRIPT" "$@" | tee "$D/out"; RC=${PIPESTATUS[0]}   # r1718-mut:stream
-  case "$RC" in 0|1) core after "$TOOL" "$RC" "$D" "$@";; esac
+  case "$RC" in 0|1|6) core after "$TOOL" "$RC" "$D" "$@";; esac
+  wrap_block "$TOOL" "$RC" "$D/out" "$@"
   rm -rf "$D"; exit "$RC"
 fi
 core "$@"; rc=$?; [ "$rc" = 2 ] && usage; exit 0

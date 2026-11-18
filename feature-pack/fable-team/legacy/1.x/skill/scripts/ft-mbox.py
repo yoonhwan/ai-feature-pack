@@ -115,6 +115,8 @@ def seat(name: str) -> bool:
     role, tail = toks[2], "-".join(toks[3:])
     rng, _, last = tail.rpartition("-")           # r1658 qa 꼬리 = 에이전트 또는 «범위 1토큰 + 에이전트»(lint r1650 갈래)
     tail = last if role == "qa" and rng and "-" not in rng and rng not in agents else tail
+    k, _, rest = tail.partition("-")              # r2020 석 칸 <K>-<에이전트>(K = 0 또는 앞자리 0 없는 정수 · lint r1641 갈래)
+    tail = rest if role != "nano" and rest and set(k) <= _DIGITS and (k == "0" or k[0] != "0") else tail
     return role in roles and (bool(tail) if role == "nano" else tail in agents)
 
 
@@ -241,14 +243,17 @@ def _cwd_common_comm():
 
 _ROOT = _repo_root(os.path.dirname(os.path.abspath(__file__)))
 # ★루트 순서 (r403 · sh `_mbox_dir` 와 같은 걸음)★: ①명시 FT_MBOX_DIR ②스크립트 조상 `.fable-team`
-#   ③cwd git 공용 루트의 `.fable-team/comm` «실재» ④NO_MAILBOX_ROOT rc2.
+#   ③env FT_SEAT_MBOX_DIR(ft2 좌석 열기 칸 · r2109 · «실재» 폴더일 때만 · 만들지 않음) ④cwd git 공용 루트의 `.fable-team/comm` «실재» ⑤NO_MAILBOX_ROOT rc2.
 # ★명시가 추론을 이긴다★ — env 로 준 FT_MBOX_DIR 은 그대로 존중한다(이전엔 래퍼가 덮어썼다).
 # ★F4: 어느 단계도 못 찾으면 fail-loud — 스크립트 디렉토리 «안»에 우편함을 만들지 않는다.
+_SEAT = os.environ.get("FT_SEAT_MBOX_DIR") or ""   # r2109 ③ — 이 이름은 스킬 래퍼만 읽는다(ft_comm_dir·comm/mbox·알림 도구는 모름)
 CANON = os.environ.get("FT_MBOX_DIR") or (
     os.path.join(_ROOT, ".fable-team", "comm") if _ROOT else None
 )
 if CANON:
-    os.makedirs(CANON, exist_ok=True)  # 생성은 ①② 만 — ③ 은 실재 조건이다.
+    os.makedirs(CANON, exist_ok=True)  # 생성은 ①② 만 — ③④ 는 실재 조건이다.
+elif os.path.isdir(_SEAT):
+    CANON = _SEAT
 else:
     _GIT_ROOT, CANON = _cwd_common_comm()
     if not CANON:

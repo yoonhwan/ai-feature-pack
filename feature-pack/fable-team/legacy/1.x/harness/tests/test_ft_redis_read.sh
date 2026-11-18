@@ -4,6 +4,7 @@
 # 가짜 docker·op 는 준비 h 스크립트 PATH 에만. 대조표 1행 = 1검사. 표 미달이면 exit 1.
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+PFX="$(cd -- "$HERE/.." && pwd -P)"; PFX="${PFX#$(git -C "$HERE" rev-parse --show-toplevel)/}"  # r2224 움직이는 ref 의 리포 상대 실경로
 ROOT="$HERE/.."
 KIT="$ROOT/kit/fable-team/bin"
 TOOL="$KIT/ft-redis-read.sh"; MOD="$KIT/ft_redis_read.py"; USERSH="$KIT/ft-redis-readonly-user.sh"
@@ -221,7 +222,7 @@ chk r6-official '[ "$e3" = 0 ] && grep -q "^OK ft-redis-readonly-user" "$T/b3.tx
 
 # ── 훅 변경 0 · 쌍둥이 · 기존 inject 시험 · 원장 1줄 ─────────────────────────────
 if git -C "$ROOT/../.." rev-parse --verify -q origin/main >/dev/null 2>&1; then
-  chk r4-hook-unchanged 'git -C "$ROOT/../.." show "origin/main:feature-pack/fable-team/harness/kit/fable-team/templates/hooks/block-destructive.sh" | cmp -s - "$KHOOK"' "훅 = origin/main 판 cmp0" np
+  chk r4-hook-unchanged 'git -C "$ROOT/../.." show "origin/main:$PFX/kit/fable-team/templates/hooks/block-destructive.sh" | cmp -s - "$KHOOK"' "훅 = origin/main 판 cmp0" np
 else echo "SKIP [r4-hook-unchanged] origin/main 없음"; fi
 for f in ft-redis-read.sh ft_redis_read.py ft-redis-readonly-user.sh; do
   chk "r4-twin[$f]" 'cmp -s "$KIT/$f" "$ROOT/bin/$f"' "키트 ↔ 추적본 cmp0" np

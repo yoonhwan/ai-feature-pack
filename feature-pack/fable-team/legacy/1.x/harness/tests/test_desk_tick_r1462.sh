@@ -2,7 +2,7 @@
 # test_desk_tick_r1462.sh — ft-desk-tick.sh(r1462) 계약: T1 6항 출력 ≤30줄 · 마지막 줄 `결정 필요: N` · 25초 안
 #   T2 한 항목 실패 = 그 항목 «판정 불가 rc=N» 1줄 · 나머지 계속 · 전체 rc1
 #   T3 [완료] 쪽지 1통 · 본문 3줄 · 첫줄 [완료] 머리 · 백틱·$() 0
-#   T10 결속(planner _master 없음) 전 recv 0 · 완료송신 0 · T11 전문 저장 실패 → 완료송신 0 · rc1
+#   T10 결속(planner _master 없음) 전 peek·recv 0 · 완료송신 0 · T11 상태 폴더 없음 → 쪽지 저장 0 · 완료송신 1 · rc0(r2187)
 #   T12 실제 watcher argv(python3 -u - <bin> <좌석>)를 감시 있음으로 · T13 전체 예산 0 → 하위 명령 0 · 전 항목 rc=124
 # 전부 합성(임시 루트·가짜 mbox·가짜 launchctl·가짜 ps) · 실 우편함·실 launchctl·실 세션 쓰기 0 · sleep 0.
 set -uo pipefail
@@ -21,7 +21,7 @@ mkdir -p "$T/root/.fable-team/comm" "$T/fakebin" "$T/hil" "$T/state"
 PLANNER='byz-planner-master-claude#240'
 printf '{"_master":"%s","_desk":"%s"}\n' "$PLANNER" "$DESK" > "$T/root/.fable-team/seats-planner.json"
 
-# 가짜 mbox: send = $FAKE_SENT 에 1줄 · recv = $FAKE_RECV 파일 그대로(+호출 표식 $FAKE_RECV_MARK)
+# 가짜 mbox: send = $FAKE_SENT 에 1줄 · peek = $FAKE_PEEK 파일 그대로 · recv = $FAKE_RECV 파일 그대로(+호출 표식 $FAKE_RECV_MARK · r2187 peek 도)
 cat > "$T/root/.fable-team/comm/mbox.sh" <<'EOS'
 #!/usr/bin/env bash
 case "${1:-}" in
@@ -31,6 +31,9 @@ import json, sys
 open(sys.argv[1], "a").write(json.dumps({"to": sys.argv[2], "from": sys.argv[3], "body": sys.argv[4]}) + "\n")
 PY
         echo "QUEUED seq=1 to=$1 pending=1 doorbell=sent"; exit 0;;
+  peek) [ -n "${FAKE_RECV_MARK:-}" ] && printf 'peek\n' >> "$FAKE_RECV_MARK"
+        [ -n "${FAKE_PEEK:-}" ] && [ -f "$FAKE_PEEK" ] && cat "$FAKE_PEEK" || echo "pending=0 scanned=1 lineage=fake"
+        exit 0;;
   recv) [ -n "${FAKE_RECV_MARK:-}" ] && printf 'called\n' >> "$FAKE_RECV_MARK"
         [ -n "${FAKE_RECV:-}" ] && [ -f "$FAKE_RECV" ] && cat "$FAKE_RECV" || echo "SCANNED 1 mailbox(es): fake"
         exit 0;;
@@ -63,6 +66,7 @@ chmod +x "$T/fakebin/launchctl" "$T/fakebin/ps"   # 시험 픽스처만 실행 �
 printf 'ts=%s stall=0 a=0 b=0 c=0 d=0 seats=1\n' "$NOW" > "$T/stall.log"
 printf '{"ts":"2026-11-08T11:02:44Z","from":"%s","to":"x","body":"y"}\n' "$PLANNER" \
   > "$T/root/.fable-team/comm/mailbox.log.jsonl"   # 5분 전 = 20분 미만이라 팀장 줄이 안 나와야 한다
+( cd "$T/root" && git init -q && mkdir -p design/teams/planner && printf '## 골 진행\n\n| 1 | a |\n\n## 끝\n' > design/teams/planner/PLAN-oppa-ledger.md && git add design && git -c user.email=t@t -c user.name=t commit -qm t && git update-ref refs/remotes/origin/main HEAD && git update-ref refs/remotes/origin/ops/main-base HEAD )   # r2102 NEWS 줄 = 원장 리포(완성 커밋 0)
 
 PSLINE="4242 python3 -u - $T/root/.fable-team/bin $DESK"
 export FAKE_PS="$PSLINE"
@@ -87,7 +91,7 @@ n="$(printf '%s\n' "$out" | wc -l | tr -d ' ')"
 [ "$el" -le 25 ] && ok "T1 소요 ${el}초 ≤25" || bad "T1 소요 ${el}초 >25"
 printf '%s\n' "$out" | tail -1 | grep -qx '결정 필요: 0' && ok "T1 마지막 줄 «결정 필요: 0»" || bad "T1 마지막 줄: $(printf '%s\n' "$out" | tail -1)"
 missing=""
-for k in '^HIL 대기 0건' '^LAUNCH stall-scan ' '^LAUNCH tick ' '^LAUNCH news-planner ' '^LAUNCH news-desk ' '^STALL-SCAN ' '^INBOX-WATCH ' '^결속 OK planner ' '^쪽지 0건'; do
+for k in '^HIL 대기 0건' '^LAUNCH stall-scan ' '^LAUNCH keeper ' '^LAUNCH board-news ' '^STALL-SCAN ' '^INBOX-WATCH ' '^결속 OK planner ' '^쪽지 0건'; do
   printf '%s\n' "$out" | grep -q "$k" || missing="$missing $k"
 done
 [ -z "$missing" ] && ok "T1 ①HIL ②launch ③팀장 ④감시 ⑤결속 ⑥쪽지/완료 6항 출력" || bad "T1 항목 줄 없음:$missing"
@@ -121,61 +125,61 @@ printf '%s\n' "$out" | grep -q '^쪽지 0건' && ok "T2 다른 항목 계속 측
 printf '%s\n' "$out" | tail -1 | grep -qE '^결정 필요: [1-9][0-9]*$' && ok "T2 결정 필요 N≥1" || bad "T2 마지막 줄: $(printf '%s\n' "$out" | tail -1)"
 printf '%s\n' "$out" | grep -q '^LAUNCH stall-scan state=' && bad "T2 실패한 항목에 정상 줄이 남았다" || ok "T2 실패 항목은 정상 줄을 내지 않는다"
 
-# ── T1b 쪽지 1건 = 머리(seq·from·60자) + 결정 필요 N≥1 · 전문 사본 경로
-printf 'SCANNED 1 mailbox(es)\nREAD [%s->%s] #273617 — [회신 #273610] ① 명부 등록 됨: seats-harness.json 에 네 행(role=nano) 있다\n본문 2번째 줄\n' \
-  "$PLANNER" "$DESK" > "$T/recv.txt"
+# ── T1b 쪽지 1건 = 머리(seq·from·본문 첫 줄) + 결정 필요 N≥1 · «쪽지 읽기» recv 안내(r2187 · 사본 파일 0)
+printf 'pending=1 scanned=1 lineage=fake\n{"seq": 273617, "ts": "t", "to": "%s", "from": "%s", "body": "[회신 #273610] ① 명부 등록 됨: seats-harness.json 에 네 행(role=nano) 있다\\n본문 2번째 줄"}\n' \
+  "$DESK" "$PLANNER" > "$T/peek.txt"
 rm -f "$T/sent.jsonl"
-export FAKE_RECV="$T/recv.txt"
+export FAKE_PEEK="$T/peek.txt"
 out="$(run)"; rc=$?
-unset FAKE_RECV
+unset FAKE_PEEK
 printf '%s\n' "$out" | grep -q '^쪽지 1건' && ok "T1b 쪽지 1건" || bad "T1b 쪽지 줄: $(printf '%s\n' "$out" | grep '^쪽지' | head -1)"
 printf '%s\n' "$out" | grep -q "  #273617 $PLANNER " && ok "T1b 머리 = seq·from·본문 60자" || bad "T1b 머리: $(printf '%s\n' "$out" | grep '273617' | head -1)"
-printf '%s\n' "$out" | grep -q '^쪽지 전문 ' && ok "T1b 전문 사본 경로 1줄" || bad "T1b 전문 경로 없음"
+printf '%s\n' "$out" | grep -q "^쪽지 읽기: bash .* recv $DESK$" && ok "T1b «쪽지 읽기» recv 안내 1줄" || bad "T1b 읽기 안내 없음"
 printf '%s\n' "$out" | tail -1 | grep -qE '^결정 필요: [1-9]' && ok "T1b 쪽지 있으면 결정 필요 ≥1" || bad "T1b 마지막 줄: $(printf '%s\n' "$out" | tail -1)"
 
-# ── T10(반례②-a) 결속 확인 전 recv 0 — planner _master 가 없으면 우편함을 건드리지도, 완료를 보내지도 않는다
+# ── T10(반례②-a) 결속 확인 전 peek·recv 0 — planner _master 가 없으면 우편함을 건드리지도, 완료를 보내지도 않는다
 rm -f "$T/sent.jsonl" "$T/recv-called.txt"
 printf '{"_desk":"%s"}\n' "$DESK" > "$T/root/.fable-team/seats-planner.json"
 export FAKE_RECV_MARK="$T/recv-called.txt"
 out="$(run)"; rc=$?
 unset FAKE_RECV_MARK
 [ "$rc" -eq 1 ] && ok "T10 결속 실패 → rc1" || bad "T10 rc=$rc"
-[ -f "$T/recv-called.txt" ] && bad "T10 결속 확인 전에 recv 를 불렀다(우편함 소비 위험)" || ok "T10 결속 전 recv 0"
+[ -f "$T/recv-called.txt" ] && bad "T10 결속 확인 전에 우편함을 불렀다" || ok "T10 결속 전 peek·recv 0"
 [ -f "$T/sent.jsonl" ] && bad "T10 결속 실패인데 완료쪽지를 보냈다" || ok "T10 결속 실패 → 완료송신 0"
 printf '%s\n' "$out" | grep -q '결속 판정 불가 rc=' && ok "T10 «결속 판정 불가 rc=N» 1줄" || bad "T10 결속 줄 없음: $(printf '%s' "$out" | tr '\n' '/' | cut -c1-160)"
 printf '{"_master":"%s","_desk":"%s"}\n' "$PLANNER" "$DESK" > "$T/root/.fable-team/seats-planner.json"   # 원복
 
-# ── T10b(반례②-2) _master 정상 + _desk «비어 있음» = 소비 권한 없음 → recv 0 · 송신 0 · rc1 (이름 접두 통과 금지)
+# ── T10b(반례②-2) _master 정상 + _desk «비어 있음» = 권한 없음 → peek·recv 0 · 송신 0 · rc1 (이름 접두 통과 금지)
 rm -f "$T/sent.jsonl" "$T/recv-called.txt"
 printf '{"_master":"%s"}\n' "$PLANNER" > "$T/root/.fable-team/seats-planner.json"
 export FAKE_RECV_MARK="$T/recv-called.txt"
 out="$(run)"; rc=$?
 unset FAKE_RECV_MARK
 [ "$rc" -eq 1 ] && ok "T10b _desk 빈칸 → rc1" || bad "T10b rc=$rc"
-[ -f "$T/recv-called.txt" ] && bad "T10b _desk 빈칸인데 recv 를 불렀다(소비 권한 없음)" || ok "T10b _desk 빈칸 → recv 0"
+[ -f "$T/recv-called.txt" ] && bad "T10b _desk 빈칸인데 우편함을 불렀다" || ok "T10b _desk 빈칸 → peek·recv 0"
 [ -f "$T/sent.jsonl" ] && bad "T10b _desk 빈칸인데 완료쪽지를 보냈다" || ok "T10b _desk 빈칸 → 완료송신 0"
 printf '%s\n' "$out" | grep -q '결속 판정 불가 rc=' && ok "T10b «결속 판정 불가 rc=N» 1줄" || bad "T10b 결속 줄 없음"
 printf '{"_master":"%s","_desk":"%s"}\n' "$PLANNER" "$DESK" > "$T/root/.fable-team/seats-planner.json"   # 원복
 
-# ── T10c(반례②-3) _desk 가 «다른 좌석» 이면 역시 소비 권한 없음
+# ── T10c(반례②-3) _desk 가 «다른 좌석» 이면 역시 권한 없음
 rm -f "$T/sent.jsonl" "$T/recv-called.txt"
 printf '{"_master":"%s","_desk":"ft-planner-desk-sonnet#1"}\n' "$PLANNER" > "$T/root/.fable-team/seats-planner.json"
 export FAKE_RECV_MARK="$T/recv-called.txt"
 out="$(run)"; rc=$?
 unset FAKE_RECV_MARK
-[ "$rc" -eq 1 ] && [ ! -f "$T/recv-called.txt" ] && ok "T10c _desk 불일치 → recv 0 · rc1" || bad "T10c rc=$rc recv=$([ -f "$T/recv-called.txt" ] && echo yes || echo no)"
+[ "$rc" -eq 1 ] && [ ! -f "$T/recv-called.txt" ] && ok "T10c _desk 불일치 → peek·recv 0 · rc1" || bad "T10c rc=$rc recv=$([ -f "$T/recv-called.txt" ] && echo yes || echo no)"
 printf '{"_master":"%s","_desk":"%s"}\n' "$PLANNER" "$DESK" > "$T/root/.fable-team/seats-planner.json"   # 원복
 
-# ── T11(반례②-b) 전문 사본 저장 실패 = 판정 불가 · rc1 · 완료송신 0
+# ── T11(r2187 · 새 시험 ⑨) 상태 폴더를 만들 수 없어도 틱은 쪽지를 저장하지 않으므로 rc0 · 완료송신 1
 rm -f "$T/sent.jsonl"
 printf 'nope\n' > "$T/notadir"   # 부모가 파일 이라 mkdir -p 가 실패한다
-export FAKE_RECV="$T/recv.txt"
+export FAKE_PEEK="$T/peek.txt"
 STATE_DIR_OVERRIDE="$T/notadir/sub"
 out="$(run)"; rc=$?
-STATE_DIR_OVERRIDE=""; unset FAKE_RECV
-[ "$rc" -eq 1 ] && ok "T11 저장 실패 → rc1" || bad "T11 rc=$rc"
-printf '%s\n' "$out" | grep -q '쪽지 저장 판정 불가 rc=' && ok "T11 «쪽지 저장 판정 불가» 1줄" || bad "T11 저장 실패 줄 없음: $(printf '%s' "$out" | tr '\n' '/' | cut -c1-160)"
-[ -f "$T/sent.jsonl" ] && bad "T11 저장 실패인데 완료쪽지를 보냈다" || ok "T11 저장 실패 → 완료송신 0"
+STATE_DIR_OVERRIDE=""; unset FAKE_PEEK
+[ "$rc" -eq 0 ] && ok "T11 상태 폴더 없음 → rc0" || bad "T11 rc=$rc"
+printf '%s\n' "$out" | grep -qE '쪽지 전문|쪽지 저장' && bad "T11 저장 글이 남았다: $(printf '%s' "$out" | tr '\n' '/' | cut -c1-160)" || ok "T11 «쪽지 전문» · «쪽지 저장» 글 0"
+[ -f "$T/sent.jsonl" ] && ok "T11 완료송신 1" || bad "T11 완료쪽지를 보내지 않았다"
 
 # ── T12(반례③) 실제 watcher argv(python3 -u - <bin> <좌석>)를 감시 있음으로 본다
 rm -f "$T/sent.jsonl"

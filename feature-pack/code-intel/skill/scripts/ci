@@ -17,6 +17,8 @@ _resolve() { # $1=name  → echo path or empty
 }
 
 PROBE="${PROBE:-$(_resolve probe || true)}"
+# r2186 L1 — probe LSP 캐시 DB 의 MVCC 를 끈다(cache.db-log 0 → 다시 뜰 때 log 읽기 panic 0) · 부른 쪽이 준 값은 그대로
+[ -n "${PROBE_LSP_DB_ENABLE_MVCC+x}${PROBE_LSP_DB_DISABLE_MVCC+x}" ] || export PROBE_LSP_DB_DISABLE_MVCC=1
 
 # ── 부하 가드 (2026-10-23 tilth 585% 폭주 사고 후 추가) ────────────────────
 #   · 모든 심볼/구조 검색은 CI_TIMEOUT(기본 60s) 안에서만 돈다
@@ -59,14 +61,14 @@ need_tilth() { [ -n "$TILTH" ] || die_missing tilth "  npx -y tilth --version   
   또는 cargo install tilth"; }
 
 # ── LSP crash-loop 판정 (r1636) ───────────────────────────────────────────
-#  probe 0.6.0 은 워크스페이스 캐시의 MVCC logical log 끝이 잘리면 기동 중 panic 한다("couldn't read
+#  probe 0.6.0 은 워크스페이스 캐시의 MVCC logical log 를 다시 읽다가(잘림 아님 · r2186) 기동 중 panic 한다("couldn't read
 #  enough data") → 데몬 즉사 → 호출은 25초를 기다린다(하드 룰 12). 창(기본 120초) 안 DB crash 2회 이상 = crash-loop.
 #  crash-log 에는 클라이언트 panic(예: md char-boundary f344d642)도 쌓인다 → 데몬 DB 열기 형태만 세고, 창 «안» 시각인 항목만 센다(보정 #282277).
 #  $1=slow 이면 crash-log 없이도 Uptime 0s 2회 연속을 본다(doctor·refs 공통 판정). rc0=crash-loop · rc1=정상
 _lsp_uptime() { "$PROBE" lsp status 2>/dev/null | sed -n 's/^ *Uptime: *//p' | head -1; }
 _ep() { date -j -u -f '%Y-%m-%dT%H:%M:%S' "${1%%.*}" +%s 2>/dev/null || echo 0; }
 _lsp_crash_state() {
-  local f ents ts msg cnt last e now stamp
+  local f ents ts msg cnt last e now stamp v age
   f="${PROBE_LSP_CRASH_LOG:-$HOME/Library/Caches/probe/lsp-daemon-crashes.log}"; now="$(date +%s)"
   if [ -f "$f" ]; then
     ents="$(tail -c 8000 "$f" 2>/dev/null | awk '/^timestamp: /{ts=$2} /^message: /{if ($0 ~ /read enough data|core database|logical_log/) print ts "\t" substr($0,10)}')"
@@ -79,9 +81,17 @@ _lsp_crash_state() {
   [ "${1:-}" = "slow" ] || return 1
   stamp="${TMPDIR:-/tmp}/ci-lsp-uptime0.$(id -u)"
   case "$(_lsp_uptime)" in 0s|0sec|0secs) ;; *) rm -f "$stamp"; return 1 ;; esac
-  [ -f "$stamp" ] && [ $((now - $(cat "$stamp" 2>/dev/null || echo 0))) -lt 120 ] && { echo "Uptime 0s 2회 연속"; return 0; }
+  v="$(cat "$stamp" 2>/dev/null)"; age=$((now - ${v:-0}))   # r2024 — 하한 미만 = 같은 데몬의 첫 1초(동시 호출) · 안 센다 · stamp 그대로
+  [ -f "$stamp" ] && [ "$age" -lt "${CI_LSP_UPTIME0_MIN_GAP:-2}" ] && return 1
+  [ -f "$stamp" ] && [ "$age" -lt 120 ] && { echo "Uptime 0s 2회 연속"; return 0; }
   date +%s > "$stamp"; return 1
 }
+
+# ── repair 상한 (r2186 L4) — 전체 예산 25초 · probe 호출 하나 = min(7, 남은 예산) · 시각은 _rp_now 한 곳(시험 = CI_LSP_REPAIR_NOW_CMD) ──
+_rp_now() { eval "${CI_LSP_REPAIR_NOW_CMD:-date +%s}"; }
+_rp_left() { echo $(( 25 - ($(_rp_now) - RP_T0) )); }
+_rp_call() { local l; l="$(_rp_left)"; [ "$l" -ge 1 ] || return 124; _cap "$(( l < 7 ? l : 7 ))" "$PROBE" "$@"; }   # 예산 0 = 부르지 않고 124
+_rp_capped() { echo "판정 불가 repair — 상한 ($1 · 예산 25초 · 호출 7초 · 옮긴 캐시 ${moved:-0} 개는 그대로 · 다시 실행)" >&2; exit 3; }
 
 # ── LSP 실패 보이기 (r1381) — 빈 status·초기화 멈춤·데몬 시간 초과를 «정상»·«참조 없음» 꼴로 두지 않는다 ──
 #  status 1회 → LS_OUT · LS_RC (상한 CI_LSP_STATUS_TIMEOUT 기본 10초 · 걸리면 rc124)
@@ -134,7 +144,7 @@ usage() {
   cat <<'EOF'
 ci — code-intel (probe + tilth)
 
-  ci search "<query>" [path] [--max N]      의미/키워드 검색 (BM25 + AST 블록)
+  ci search "<query>" [path] [--max N] [--no-tests]      의미/키워드 검색 (BM25 + AST 블록 · 시험 파일 포함이 기본)
   ci sym <name> [--scope P] [--callers|--deps]
                                             심볼 정의/호출자/의존성 (정의 우선 정렬)
   ci outline <file> [--section S]           파일 아웃라인 (+토큰 수)
@@ -164,6 +174,8 @@ _cap() {
 #  판정만 전역 SE_RC · SE_PANIC · SE_TIMEOUT 에 남긴다. 함수 rc 는 늘 0(판정은 세 전역으로만 본다).
 _probe_search() { # $1=<q> $2=<path> $3=<max> $4=<단계 이름> [probe 추가 인자…]
   local q="$1" p="$2" mx="$3" st="$4"; shift 4
+  # T1·T2: 시험 파일 포함이 기본(호출 2곳 공통 — 1단계·OR 재시도). 끄기 = search 갈래가 _SE_ALLOW_TESTS=0.
+  if [ "${_SE_ALLOW_TESTS:-1}" = "1" ]; then set -- --allow-tests "$@"; fi
   SE_OUT="$_SE_DIR/out.$st"; SE_ERR="$_SE_DIR/err.$st"
   SE_TIMEOUT=0
   # K6(E6): probe 단계 상한 = min(CI_TIMEOUT, 25) · 정수 아니면 25 · probe --timeout 도 같은 값.
@@ -199,10 +211,21 @@ case "$cmd" in
   search)
     need_probe
     q="${1:?query required}"; shift || true
-    path="."; max="5"
+    # T1~T5 (카드 ci-search-test-files): probe 기본값은 시험 파일·시험 블록을 뺀다 — search 갈래는 기본으로
+    #   --allow-tests 를 준다. 끄는 인자 = --no-tests 하나(같은 이름이 두 번 오면 뒤 것이 이긴다).
+    #   모르는 «-» 인자는 path 로 삼키지 않고 rc 2 로 멈춘다(삼키면 probe 가 옵션으로 읽어 path 가 cwd 로 떨어진다).
+    path="."; max="5"; _SE_ALLOW_TESTS=1
     while [ $# -gt 0 ]; do
       case "$1" in
-        --max) max="$2"; shift 2 ;;
+        --max)
+          if [ $# -lt 2 ]; then
+            echo "ci search: --max 값이 없다 — ci search \"<query>\" [path] [--max N] [--no-tests]" >&2
+            exit 2
+          fi
+          max="$2"; shift 2 ;;
+        --no-tests) _SE_ALLOW_TESTS=0; shift ;;
+        --allow-tests) _SE_ALLOW_TESTS=1; shift ;;
+        -*) echo "ci search: 모르는 인자 $1 — ci search \"<query>\" [path] [--max N] [--no-tests]" >&2; exit 2 ;;
         *) path="$1"; shift ;;
       esac
     done
@@ -274,7 +297,8 @@ case "$cmd" in
       [ -n "$loc" ] || loc="stderr 없음"
       dl="$(wc -l < "$out1" 2>/dev/null | tr -d ' ')"; [ -n "$dl" ] || dl=0
       if [ -n "${orq}" ] && [ -f "${out2:-}" ]; then dl=$((dl + $(wc -l < "$out2" | tr -d ' '))); fi
-      echo "[warn] probe panic rc=$panic_rc ($loc) → rg 폴백 · 부분 출력 ${dl}줄 버림" >&2
+      # T6: rg 는 probe 의 시험 판정을 흉내 내지 않는다 — --no-tests 였음을 경고 1줄로 밝힌다.
+      [ "${_SE_ALLOW_TESTS:-1}" = "1" ] || echo "[warn] rg 폴백은 시험 파일을 가르지 않는다" >&2
 
       # 낱말 OR(-F 글자 그대로) · 파일당 1줄(-m 1) · 파일명 강제(-H · 단일 파일 갈래도 파일:줄)
       # 낱말 분리 = read -a (glob 확장 0 · DA 4202 R3) · rg 원래 rc 를 이 자리에서 바로 받는다(R2 · 파이프 0)
@@ -299,6 +323,7 @@ case "$cmd" in
         echo "판정 불가 ci search: probe panic rc=$panic_rc · rg 폴백 실패($failwhy)" >&2
         exit 3
       fi
+      echo "[warn] probe 출력 panic rc=$panic_rc ($loc) → rg 폴백 · 글자 일치 결과 전부 · probe 순위 출력 ${dl}줄은 버림(잘린 줄 섞기 0) · ci 결함 아님" >&2   # r1991 — rg 성공 뒤에만(③ 판정 불가 갈래에 «결함 아님» 0)
       echo "== rg 폴백 (probe panic rc=$panic_rc) =="
       if [ "$rgrc" -eq 1 ]; then
         echo "(0건)"; rc=1
@@ -437,9 +462,12 @@ case "$cmd" in
       down)   exec "$PROBE" lsp shutdown ;;
       status) exec "$PROBE" lsp status ;;
       repair)
+        # r2186 L4 — 상한 없는 실행 0: GNU timeout 이 없으면 probe 호출 0 · 옮기기 0 · rc3
+        command -v timeout >/dev/null 2>&1 || { echo "판정 불가 repair — timeout 없음 (brew install coreutils 뒤 다시 · probe 호출 0 · 옮긴 캐시 0)" >&2; exit 3; }
+        RP_T0="$(_rp_now)"
         wsroot="${PROBE_LSP_WORKSPACE_CACHE_DIR:-$HOME/Library/Caches/probe/lsp/workspaces}"; only=""
         [ "${1:-}" = "--ws" ] && { only="$2"; shift 2; }
-        "$PROBE" lsp shutdown >/dev/null 2>&1 || { echo "판정 불가 repair — lsp shutdown rc≠0 · 아무것도 옮기지 않았다" >&2; exit 3; }
+        _rp_call lsp shutdown >/dev/null 2>&1 || { echo "판정 불가 repair — lsp shutdown rc≠0 · 아무것도 옮기지 않았다" >&2; exit 3; }
         ts="$(date +%Y%m%d%H%M%S)"; moved=0
         for d in "$wsroot"/*; do
           [ -d "$d" ] && [ -f "$d/cache.db-log" ] || continue; case "$d" in *.corrupt-*) continue;; esac
@@ -447,10 +475,14 @@ case "$cmd" in
           mv "$d" "$d.corrupt-$ts" 2>/dev/null || { echo "판정 불가 repair — 옮기기 실패(지우지 않았다): $d" >&2; exit 3; }
           echo "옮김: $d → $d.corrupt-$ts"; moved=$((moved+1))
         done
-        for n in 1 2; do "$PROBE" lsp init -w "${CI_LSP_SCOPE:-$PWD}" >/dev/null 2>&1 && break; [ "$n" = 2 ] && { echo "판정 불가 repair — lsp init rc≠0 2회 (옮긴 캐시 $moved 개 · 되돌림 = 이름 되돌리기)" >&2; exit 3; }; done
-        up="$("$PROBE" lsp status 2>/dev/null | sed -n 's/^ *Uptime: *//p' | head -1)"
-        case "$up" in ""|0s|0sec|0secs) echo "판정 불가 repair — 데몬이 Uptime>0 으로 서지 않았다 (status: ${up:-none})" >&2; exit 3 ;; esac
-        echo "repair OK — 데몬 Uptime $up · 옮긴 워크스페이스 $moved 개"; exit 0
+        for n in 1 2; do _rp_call lsp init -w "${CI_LSP_SCOPE:-$PWD}" >/dev/null 2>&1 && break; [ "$n" = 2 ] && { echo "판정 불가 repair — lsp init rc≠0 2회 (옮긴 캐시 $moved 개 · 되돌림 = 이름 되돌리기)" >&2; exit 3; }; done
+        for n in 1 2 3; do   # r2186 L2 — 데몬 첫 1초는 Uptime 0s · 최대 3회 다시 본다(남은 예산 안에서만)
+          st="$(_rp_call lsp status 2>/dev/null)"; [ "$?" -eq 124 ] && _rp_capped "status ${n}회째"
+          up="$(printf '%s\n' "$st" | sed -n 's/^ *Uptime: *//p' | head -1)"
+          case "$up" in ""|0s|0sec|0secs) ;; *) echo "repair OK — 데몬 Uptime $up · 옮긴 워크스페이스 $moved 개"; exit 0 ;; esac
+          [ "$n" -lt 3 ] && [ "$(_rp_left)" -ge 1 ] && sleep "${CI_LSP_REPAIR_WAIT:-1}"
+        done
+        echo "판정 불가 repair — 데몬이 Uptime>0 으로 서지 않았다 (status: ${up:-none})" >&2; exit 3
         ;;
       *)      exec "$PROBE" lsp "$sub" ;;
     esac

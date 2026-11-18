@@ -37,8 +37,13 @@ def holds(k, team, work):
 def check(k, team, work, attempt, rows):
     """n 이 늘었고 n ≤ 2 → 깨움 1회 · n ≥ 3 → 깨움 0 + HELD 1회 · 카드·holder·pane 못 읽음 = 판정 불가 1줄."""
     n, key = holds(k, team, work), "%s|%s" % (team, work)
-    if isinstance(n, str):
-        return k.log("판정 불가", team, "%s HOLD 판독 %s — 깨움 0" % (work, n))
+    if isinstance(n, str):   # r2114 A3 (팀 · work)마다 사유 글자가 바뀔 때만 1줄(keeper 상태 파일)
+        book = k.state.setdefault("hold_read", {})
+        if book.get(key) != n:
+            book[key] = n
+            return k.log("판정 불가", team, "%s HOLD 판독 %s — 깨움 0" % (work, n))
+        return None
+    k.state.get("hold_read", {}).pop(key, None)   # r2114 A3 판독이 숫자 = 기억 지움(다음 실패 = 다시 1줄)
     seen = k.state.setdefault("hold", {}).get(key, 0)
     if n <= seen:
         return None

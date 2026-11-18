@@ -16,18 +16,23 @@ ft_harness_root() {
 }
 # 데이터 루트 2종 (r385 · arch#90 109417·109422 · 새 설치본 = git 밖이라 «자기 위치» 로 루트를 못 푼다 → ~/.claude 로 조용히 풀리는 경로 0):
 #   ft_data_root <도구 폴더> → 라이브 루트(옛 $HERE/../.. 묶음: 자율·대리 결정·재개·press 허가 · 상태 = <라이브 루트>/.fable-team/state)
-#     ①env FT_ROOT ②cwd git 공용 루트의 .fable-team/LIVE_ROOT 1줄(절대경로 폴더) ③옛 설치 꼴(<폴더> = */.fable-team/bin)이면 <폴더>/../.. ④ERROR(stderr) rc1
+#     ①env FT_ROOT(그 안에 .fable-team/LIVE_ROOT 가 있으면 그 값 · r2112) ②cwd git 공용 루트의 .fable-team/LIVE_ROOT 1줄(절대경로 폴더) ③옛 설치 꼴(<폴더> = */.fable-team/bin)이면 <폴더>/../.. ④ERROR(stderr) rc1
 #     ★state 용이다 — comm(우편함·판정기)은 이것을 쓰지 않는다(r459 · ft_comm_dir)★
 #   ft_repo_root <도구 폴더> → 리포 공용 루트(옛 git -C $HERE 묶음: 자원·정지·디스크·사본·비밀 검사 · 상태 = <리포 루트>/.fable-team/state)
 #     ①env 는 부르는 쪽(FT_RES_ROOT 등) ②옛 설치 꼴이면 git -C <폴더> 공용 루트(없으면 <폴더>/../..) ③cwd git 공용 루트(.fable-team/ 있을 때) ④ERROR(stderr) rc1
 _ft_common_root() { local g; g="$(git ${1:+-C "$1"} rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || return 1; [ -n "$g" ] || return 1; printf '%s\n' "${g%/.git}"; }
 ft_data_root() {
   local h="$1" r v
+  if [ -n "${FT_ROOT:-}" ] && [ -f "$FT_ROOT/.fable-team/LIVE_ROOT" ]; then   # r2112: FT_ROOT = 리포 공용 루트(틱·벌점·멈춤 감시) → 그 LIVE_ROOT
+    v="$(sed -n '1p' "$FT_ROOT/.fable-team/LIVE_ROOT" | tr -d '\r')"
+    case "$v" in /*) [ -d "$v" ] && { printf '%s\n' "$v"; return 0; }; echo "ERROR LIVE_ROOT 폴더 없음: «${v}» (${FT_ROOT}/.fable-team/LIVE_ROOT) — worktree 가 지워졌는지 확인" >&2; return 1;; esac   # r2242
+    echo "ERROR LIVE_ROOT 가 절대경로 폴더가 아님: «${v}» (${FT_ROOT}/.fable-team/LIVE_ROOT)" >&2; return 1
+  fi
   if [ -n "${FT_ROOT:-}" ]; then printf '%s\n' "$FT_ROOT"; return 0; fi
   if r="$(_ft_common_root)" && [ -f "$r/.fable-team/LIVE_ROOT" ]; then
     v="$(sed -n '1p' "$r/.fable-team/LIVE_ROOT" | tr -d '\r')"
-    case "$v" in /*) [ -d "$v" ] && { printf '%s\n' "$v"; return 0; };; esac
-    echo "ERROR LIVE_ROOT 가 절대경로 폴더가 아님: «$v» ($r/.fable-team/LIVE_ROOT)" >&2; return 1
+    case "$v" in /*) [ -d "$v" ] && { printf '%s\n' "$v"; return 0; }; echo "ERROR LIVE_ROOT 폴더 없음: «${v}» (${r}/.fable-team/LIVE_ROOT) — worktree 가 지워졌는지 확인" >&2; return 1;; esac   # r2242
+    echo "ERROR LIVE_ROOT 가 절대경로 폴더가 아님: «${v}» (${r}/.fable-team/LIVE_ROOT)" >&2; return 1
   fi
   case "$h" in */.fable-team/bin) (cd -- "$h/../.." && pwd); return;; esac
   echo "ERROR 라이브 루트를 못 풂 — FT_ROOT 없음 · cwd($(pwd)) 가 .fable-team/LIVE_ROOT 있는 git 리포 아님 · 옛 설치 꼴 아님($h)" >&2; return 1
@@ -40,11 +45,16 @@ ft_repo_root() {
 }
 # ft_comm_dir <도구 폴더> → <공용 루트>/.fable-team/comm (r459 · 자리 규칙: 코드 = LIVE_BIN · 데이터 = 공용 루트 · 정본 = ref origin/main)
 #   ①env FT_MBOX_DIR(comm 폴더 그 자체) ②env FT_ROOT ③<폴더> = */.fable-team/bin 이면 git -C <폴더> 공용 루트(없으면 <폴더>/../..) ④cwd git 공용 루트
-#   LIVE_ROOT 는 읽지 않는다(옛 라이브 워크트리 comm = 판정기 없음 → 틱 발사 0 · r459) · comm 폴더 없음 = ERROR(stderr) rc1 · 도구별 env 는 부르는 쪽
+#   LIVE_ROOT comm 은 쓰지 않는다(옛 라이브 워크트리 comm = 판정기 없음 → 틱 발사 0 · r459) · comm 폴더 없음 = ERROR(stderr) rc1 · 도구별 env 는 부르는 쪽
+#   ②' r1942: FT_ROOT 에 comm 없고 FT_ROOT = cwd 공용 루트의 LIVE_ROOT(pwd -P 같음 · 착지 h 꼴)면 그 공용 루트 comm · 그 밖 FT_ROOT = ERROR 그대로
+_ft_live_comm() {
+  local r v a b; r="$(_ft_common_root)" && [ -f "$r/.fable-team/LIVE_ROOT" ] || return 1
+  v="$(sed -n '1p' "$r/.fable-team/LIVE_ROOT" | tr -d '\r')"; [ -n "$v" ] && a="$(cd -- "$v" 2>/dev/null && pwd -P)" && b="$(cd -- "$1" 2>/dev/null && pwd -P)" || return 1
+  [ -n "$a" ] && [ "$a" = "$b" ] && printf '%s\n' "$r/.fable-team/comm"; }
 ft_comm_dir() {
   local h="$1" c=""
   if [ -n "${FT_MBOX_DIR:-}" ]; then c="$FT_MBOX_DIR"
-  elif [ -n "${FT_ROOT:-}" ]; then c="$FT_ROOT/.fable-team/comm"
+  elif [ -n "${FT_ROOT:-}" ]; then c="$FT_ROOT/.fable-team/comm"; [ -d "$c" ] || c="$(_ft_live_comm "$FT_ROOT")" || c="$FT_ROOT/.fable-team/comm"
   else
     case "$h" in */.fable-team/bin) c="$(_ft_common_root "$h" || (cd -- "$h/../.." && pwd))/.fable-team/comm";;
       *) c="$(_ft_common_root)" || { echo "ERROR comm 폴더를 못 풂 — FT_MBOX_DIR·FT_ROOT 없음 · cwd($(pwd)) 가 git 리포 아님 · 옛 설치 꼴 아님($h)" >&2; return 1; }

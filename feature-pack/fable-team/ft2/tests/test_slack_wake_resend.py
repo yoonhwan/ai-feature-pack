@@ -1,7 +1,9 @@
 """r2065 행 G Slack 글 접수 뒤 깨움 실패 = 유휴 회차에 다시 보낸다 — ㉞가~㉞파 13칸 + 인수 칸 ㉞하·㉞거·㉞자·㉞타 · 변이 M34~M38.
+pG2 회귀 고침 — ㉞머·㉞버·㉞서·㉞어(G12 재기동 복원 경계) · ㉞저(G13 재전송은 issues 입구 0) · 변이 M68~M70.
 
 임시 root · 가짜 mbox(subprocess.run 대역 = 회차별 rc·출력·적재 줄) · 가짜 clock · 가짜 장부(seq 경계) · 실 Slack·
 실 우편함·실 명부 0 · sleep 0 · 사례 1개 70초 안. 기준판(wiring 재전송 없음)에서 ㉞가·㉞다·㉞아·㉞차 Red.
+기준판(54c7aa01)에서 ㉞머·㉞버·㉞서·㉞어·㉞저 Red(G12·G13 없음).
 """
 import importlib.util
 import inspect
@@ -81,8 +83,12 @@ class NoHub:  # 기준판에는 후보 표·재전송이 없다 — 계약 자�
         return None
 
 
-def world(root, monkeypatch, clock, steps, m=M, mail=None):
-    """임시 root 1개 = 명부·장부·가짜 mbox · (run, receive, router, hub) 반환."""
+def world(root, monkeypatch, clock, steps, m=M, mail=None, wire_rows=None, log=None):
+    """임시 root 1개 = 명부·장부·가짜 mbox · (run, receive, router, hub) 반환.
+
+    wire_rows = 재기동을 흔드는 사례용 — _restore 가 읽을 wire.jsonl 을 먼저 놓는다(경계 칸·시각을 사례가 정한다).
+    log = listen.log 1줄을 보는 사례용 수집기(기본 = 버림).
+    """
     fable = root / ".fable-team"
     (fable / "comm").mkdir(parents=True)
     (fable / "seats-planner.json").write_text(json.dumps({"_master": MASTER, "_desk": DESK}), encoding="utf-8")
@@ -91,6 +97,8 @@ def world(root, monkeypatch, clock, steps, m=M, mail=None):
     rows = [{"seq": 100, "body": "다른 쪽지"}] if mail is None else mail
     (fable / "comm" / "mailbox.log.jsonl").write_text(
         "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows), encoding="utf-8")
+    if wire_rows is not None:
+        _write_wire(root, wire_rows)
     monkeypatch.setenv("FT2_SLACK_WAKE", "fake-wake")
     run = Run(root, steps)
     monkeypatch.setattr(subprocess, "run", run)
@@ -98,7 +106,7 @@ def world(root, monkeypatch, clock, steps, m=M, mail=None):
                                      allowed_channels=(C,), clock=clock.stamp)
     extra = {"now": clock.now} if "now" in inspect.signature(m.wire).parameters else {}
     router, _notify = m.wire(str(root), receive=receive, bindings=m.binding.ThreadBinding(str(root), "planner"),
-                             team="planner", clock=clock.stamp, **extra)
+                             team="planner", clock=clock.stamp, log=log, **extra)
     return run, receive, router, getattr(getattr(receive, "resend", None), "__self__", None) or NoHub()
 
 
@@ -135,6 +143,32 @@ def wakes(run, to=None):
 
 def bodies(run, to=MASTER):
     return [call[-1] for call in wakes(run, to)]
+
+
+_NOEDGE = object()   # 경계 칸(seq0)을 «아예 쓰지 않은» G 착지 앞 줄 — 값 null 과 다르다(칸이 있어야 G5 를 한다)
+
+
+def stamp_at(clock, offset):
+    """clock 기준 offset 초의 장부 at 문자열 — 반례 «5분 뒤»·«55시간 전»을 그대로 만든다."""
+    return time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(clock.t + offset))
+
+
+def failed_row(ts, clock, *, seq0=100, at=None, rc=-1, to=MASTER, head=None):
+    """_restore 가 읽는 wake 1줄 — seq0=_NOEDGE 면 칸 자체를 쓰지 않는다."""
+    row = {"t": "wake", "to": to, "command": cmd(ts), "rc": rc, "head": head or head_of(ts),
+           "at": clock.stamp() if at is None else at}
+    if seq0 is not _NOEDGE:
+        row["seq0"] = seq0
+    return row
+
+
+def _write_wire(root, rows):
+    slack = os.path.join(str(root), ".fable-team", "teams", "planner", "slack")
+    os.makedirs(slack, exist_ok=True)
+    path = os.path.join(slack, "wire.jsonl")
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.writelines(json.dumps(row, ensure_ascii=False) + "\n" for row in rows)
+    return path
 
 
 # ── ㉞가·㉞라·㉞마 : G1·G2 유휴 회차 재전송 ──────────────────────────────────────────────
@@ -273,13 +307,13 @@ def test_a_out_records_guard_reason(tmp_path, monkeypatch):
 
 
 # ── ㉞차·㉞카·㉞하·㉞거 : G9 재기동 · 인수 칸 ────────────────────────────────────────────
-def _restart(tmp_path, monkeypatch, clock, steps, m=M):
+def _restart(tmp_path, monkeypatch, clock, steps, m=M, log=None):
     receive = m.receive.SlackReceive(str(tmp_path), ack=lambda event: None, team="planner", allowed_users=(U,),
                                      allowed_channels=(C,), clock=clock.stamp)
     extra = {"now": clock.now} if "now" in inspect.signature(m.wire).parameters else {}
     router, _notify = m.wire(str(tmp_path), receive=receive,
                              bindings=m.binding.ThreadBinding(str(tmp_path), "planner"), team="planner",
-                             clock=clock.stamp, **extra)
+                             clock=clock.stamp, log=log, **extra)
     run = Run(tmp_path, steps)
     monkeypatch.setattr(subprocess, "run", run)
     return run, receive, router, getattr(getattr(receive, "resend", None), "__self__", None) or NoHub()
@@ -387,6 +421,95 @@ def test_reo_landed_on_last_attempt_is_success(tmp_path, monkeypatch):
     assert [r["why"] for r in wrows(tmp_path, "alert")] == ["깨움 실패"]   # 첫 실패 알림 1통만
 
 
+# ── ㉞머·㉞버·㉞서·㉞어 : G12 재기동 복원 경계 ────────────────────────────────────────────
+def test_meo_restart_skips_row_without_seq0(tmp_path, monkeypatch):
+    clock = Clock()
+    lines = []
+    rows = [failed_row("1794624020.000100", clock, seq0=_NOEDGE, at=stamp_at(clock, -300))]   # 5분 전 · 경계 칸 없음
+    run, receive, _router, hub = world(tmp_path, monkeypatch, clock, [{"rc": 0}], wire_rows=rows, log=lines.append)
+    assert hub.candidates == {}                                    # G 착지 앞 줄 = 다시 보내지 않는다
+    assert lines == ["[재전송] 복원 제외 1건 · 경계 칸 없음 1 · 창 밖 0"]
+    clock.tick(600)
+    assert receive.pass_idle()["reason"] == "무변화" and bodies(run) == []
+
+
+def test_beo_restart_skips_row_outside_window(tmp_path, monkeypatch):
+    clock = Clock()
+    lines = []
+    rows = [failed_row("1794624021.000100", clock, at=stamp_at(clock, -55 * 3600))]   # seq0 칸 있음 · 55시간 전
+    run, receive, _router, hub = world(tmp_path, monkeypatch, clock, [{"rc": 0}], wire_rows=rows, log=lines.append)
+    assert hub.candidates == {} and bodies(run) == []
+    assert lines == ["[재전송] 복원 제외 1건 · 경계 칸 없음 0 · 창 밖 1"]
+    later = Clock(base=clock.t + 60)                               # 다시 재기동 = 줄이 더 오래됨
+    lines2 = []
+    run2, receive2, _router2, hub2 = _restart(tmp_path, monkeypatch, later, [{"rc": 0}], log=lines2.append)
+    assert hub2.candidates == {}
+    assert lines2 == ["[재전송] 복원 제외 1건 · 경계 칸 없음 0 · 창 밖 1"]
+    later.tick(600)
+    assert receive2.pass_idle()["reason"] == "무변화" and bodies(run2) == []
+
+
+def test_seo_window_edge_and_bad_at(tmp_path, monkeypatch):
+    clock = Clock()
+    run, receive, _router, hub = world(tmp_path / "edge600", monkeypatch, clock, [{"rc": 0}],
+                                       wire_rows=[failed_row("1794624022.000100", clock, at=stamp_at(clock, -600))])
+    assert cmd("1794624022.000100") in hub.candidates               # 창 끝(600초) = 안쪽
+    clock = Clock()
+    lines = []
+    run, receive, _router, hub = world(tmp_path / "edge601", monkeypatch, clock, [{"rc": 0}], log=lines.append,
+                                       wire_rows=[failed_row("1794624023.000100", clock, at=stamp_at(clock, -601))])
+    assert hub.candidates == {}                                     # 601초 = 바깥
+    assert lines == ["[재전송] 복원 제외 1건 · 경계 칸 없음 0 · 창 밖 1"]
+    assert receive.pass_idle()["reason"] == "무변화" and bodies(run) == []
+    for name, at in (("noat", "언제"), ("future", stamp_at(clock, 30))):   # at 못 읽음 · 기동 시각보다 뒤 = 둘 다 창 밖
+        lines = []
+        run, receive, _router, hub = world(tmp_path / name, monkeypatch, Clock(), [{"rc": 0}], log=lines.append,
+                                          wire_rows=[failed_row("1794624024.000100", clock, at=at)])
+        assert hub.candidates == {}
+        assert lines == ["[재전송] 복원 제외 1건 · 경계 칸 없음 0 · 창 밖 1"]
+        assert receive.pass_idle()["reason"] == "무변화" and bodies(run) == []
+
+
+def test_eo_mixed_old_rows_send_nothing(tmp_path, monkeypatch):
+    clock = Clock()
+    lines = []
+    rows = ([failed_row("179462403%d.000100" % n, clock, seq0=_NOEDGE, at=stamp_at(clock, -300)) for n in range(9)]
+            + [failed_row("179462404%d.000100" % n, clock, at=stamp_at(clock, -55 * 3600)) for n in range(9)])
+    run, receive, _router, hub = world(tmp_path, monkeypatch, clock, [{"rc": 0}], wire_rows=rows, log=lines.append)
+    assert hub.candidates == {} and bodies(run) == []
+    assert lines == ["[재전송] 복원 제외 18건 · 경계 칸 없음 9 · 창 밖 9"]   # 건별 줄 0 · 한 줄
+    path = os.path.join(str(tmp_path), ".fable-team", "teams", "planner", "slack", "wire.jsonl")
+    before = os.path.getsize(path)
+    clock.tick(300)
+    assert [receive.pass_idle()["reason"] for _ in range(3)] == ["무변화"] * 3
+    assert os.path.getsize(path) == before and bodies(run) == []           # wire 줄 증가 0
+    assert wrows(tmp_path, "issue") == []                                  # issue 줄 0
+    assert not os.path.exists(os.path.join(str(tmp_path), ".fable-team", "teams", "issues"))   # issues 접수 0
+
+
+def _count_intake(monkeypatch, m):
+    """G13 — 재전송이 issues 입구(submit·lookup)를 부르는지 세는 대역 — 부르면 부른 이름이 calls 에 남는다."""
+    calls = []
+    got = types.SimpleNamespace(result="접수 성공", attempt=None)
+    monkeypatch.setattr(m.receive.intake.Intake, "submit", lambda self, *a, **kw: calls.append("submit") or got)
+    monkeypatch.setattr(m.receive.intake.Intake, "lookup", lambda self, *a, **kw: calls.append("lookup") or got)
+    return calls
+
+
+# ── ㉞저 : G13 재전송은 issues 입구에 쓰지 않는다 ─────────────────────────────────────
+def test_jeo_resend_writes_no_issue_intake(tmp_path, monkeypatch):
+    clock = Clock()
+    run, receive, router, _hub = world(tmp_path, monkeypatch, clock, [{"timeout": True}, {"rc": 0}])
+    ts = "1794624050.000100"
+    say(router, ts)
+    assert [r.get("result") for r in wrows(tmp_path, "issue")] == ["접수 성공"]   # 처음 deliver = 1회(그대로)
+    calls = _count_intake(monkeypatch, M)
+    clock.tick(60)
+    assert receive.pass_idle()["reason"] == "재전송 2/3"
+    assert calls == []                                                            # 재전송은 입구를 부르지 않는다
+    assert [r.get("result") for r in wrows(tmp_path, "issue")] == ["접수 성공"]
+
+
 # ── ㉞타 : G10 빈 후보 표 = 읽기·쓰기·깨움 0 ────────────────────────────────────────────
 def test_ta_empty_candidates_idle_reads_nothing(tmp_path, monkeypatch):
     clock = Clock()
@@ -464,6 +587,33 @@ def case_cha(m, root, monkeypatch):                                 # G9 재기�
     return len(bodies(run))
 
 
+def case_meo(m, root, monkeypatch):                                 # G12 (가) 경계 칸 없음
+    clock = Clock()
+    rows = [failed_row("1794624105.000100", clock, seq0=_NOEDGE, at=stamp_at(clock, -300))]
+    _run, _receive, _router, hub = world(root, monkeypatch, clock, [{"rc": 0}], m=m, wire_rows=rows)
+    return len(hub.candidates)
+
+
+def case_beo(m, root, monkeypatch):                                 # G12 (나) 창 밖 · 창 끝(㉞버·㉞서)
+    got = []
+    for name, offset in (("old", -55 * 3600), ("over", -601), ("edge", -600)):
+        clock = Clock()
+        rows = [failed_row("1794624106.000100", clock, at=stamp_at(clock, offset))]
+        _run, _receive, _router, hub = world(root / name, monkeypatch, clock, [{"rc": 0}], m=m, wire_rows=rows)
+        got.append(len(hub.candidates))
+    return tuple(got)
+
+
+def case_jeo(m, root, monkeypatch):                                 # G13 재전송은 issues 입구 0
+    clock = Clock()
+    _run, receive, router, _hub = world(root, monkeypatch, clock, [{"timeout": True}, {"rc": 0}], m=m)
+    say(router, "1794624107.000100")
+    calls = _count_intake(monkeypatch, m)
+    clock.tick(60)
+    receive.pass_idle()
+    return len(calls)
+
+
 MUTANTS = [  # (변이, 파일, 바꿀 글, 새 글, 시나리오, 깨짐 판정)
     ("M34", RX, "sent = self.resend() if self.resend else None", "sent = None",
      case_ga, lambda got: got != 2),
@@ -477,6 +627,12 @@ MUTANTS = [  # (변이, 파일, 바꿀 글, 새 글, 시나리오, 깨짐 판정
     ("M38", WR, "or self.woke(command):", "or any(not str(r.get(\"head\") or \"\").startswith(\"[Slack] 알림\")"
      " for r in self.entries(\"wake\") if r.get(\"command\") == command):",
      case_cha, lambda got: got != 1),
+    ("M68", WR, "            if \"seq0\" not in row:", "            if False:",   # G12 (가) 뺨
+     case_meo, lambda got: got != 0),
+    ("M69", WR, "            if not 0 <= age <= RESTORE_WINDOW:", "            if False:",   # G12 (나) 뺨
+     case_beo, lambda got: got != (0, 0, 1)),
+    ("M70", WR, "        if kind == route.NEW and not resend:", "        if kind == route.NEW:",   # G13 뺨
+     case_jeo, lambda got: got != 0),
 ]
 
 

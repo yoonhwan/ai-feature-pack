@@ -5,6 +5,7 @@
 # T1 미표시 영수 있어도 --verdict 면제(③) · T2 원장 실재 → CLOSED-ROLE(끝까지) · T3 --verdict 없음 = 지금 그대로 REJECT · T4 원장에 번호 없음(경계 포함) · T5 원장 확인 불가 · T6 후계 없음·--reopen 불변
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
+export FT_HANDOVER_READY_WAIT_S=0   # r2080 — 승계 창 끔: 이 시험은 «[인계] 직후 [레디] 0 = 바로 REJECT» 를 본다(창 = test_close_wait_window_r2080.sh)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; REPO="$HERE/../.."; BIN="$REPO/harness/bin"; SRC="$REPO/harness/comm"
 CLOSE="${FT_SEAT_CLOSE_BIN:-$BIN/ft-seat-close.sh}"; RB="$(command -v git)"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
