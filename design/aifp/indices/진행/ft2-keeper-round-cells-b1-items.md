@@ -87,7 +87,7 @@ keeper 60초 카드는 «`other=` 의 가장 긴 값이 5초를 넘으면 가정
 3. [ ] 나노: 변이 M109~M112 지정 반례 FAIL
 4. [ ] 나노: 회귀 rc0(파일별 초)
 5. [ ] 팀장: PR 착지 sha · 설치 판
-6. [ ] arch: 설치 뒤 읽기 실측 = BYZ keeper 로그 ROUND 50줄 이상(양 끝 시각)에서 `b1=` 이 0 이 아닌 줄 수와 p50 · `other=` 의 p50·가장 긴 값을 기준값(7 · 10 · 16.2 · 10.3초)과 나란히 · 끊기지 않은 줄(`cut=-`)의 `items=` 가 모두 N/N · 아닌 줄이 있으면 원문과 함께 [ ] 로 둔다
+6. [ ] arch: 설치 뒤 읽기 실측 = BYZ keeper 로그 ROUND 50줄 이상(양 끝 시각)에서 `b1=` 이 0 이 아닌 줄 수와 p50 · `other=` 의 p50·가장 긴 값을 기준값(7 · 10 · 16.2 · 10.3초)과 나란히 · 끊기지 않은 줄(`cut=-`)의 `items=` 가 모두 N/N · 아닌 줄이 있으면 원문과 함께 [ ] 로 둔다 · ★설치 뒤 실측(읽기만 · aifp-ft-arch-pi#24 2026-11-18 12:57 · 팀장 aifp 6041 · 6066 · BYZ .fable-team/state/ft2-keeper/2026111[78].jsonl · 셈 스크립트·출력 = .fable-team/state/team-main/aifp-ft/A24-keeper-measure/) = [ ] 그대로: 끊기지 않은 줄(cut=-) 가운데 items 가 N/N 이 아닌 줄이 있다 · 창1 = 11-17 14:50:06(2.0.102 설치) ~ 17:22:03(2.0.103 설치 전) ROUND 114줄(14:51:11 ~ 17:21:10): b1 0 아님 108/114줄 · b1 p50 3.2초 · other p50 1.1 · 가장 긴 값 12.3초(기준값 7 · 10 · 16.2 · 10.3) · cut=- 107줄 가운데 N/N 103 · 아닌 줄 4 · 창2 = 11-17 14:50:06 ~ 11-18 12:55:39(판 2.0.102 ~ 2.0.116) ROUND 1012줄(14:51:11 ~ 12:55:04): b1 0 아님 954/1012줄 · b1 p50 1.6(0 아닌 것 1.8) · other p50 1.4 · 가장 긴 값 26.9초 · cut=- 910줄 가운데 N/N 886 · 아닌 줄 24 · 아닌 24줄은 모두 그 바퀴 안에 «판정 불가 <팀> - git 7초 넘음» 줄이 있다(팀 고리가 git 7초에 끊겼는데 cut 칸은 `-`) · 원문은 상태 절★
 
 ## 계약↔시험 대응표
 | 계약 | 시험 |
@@ -103,4 +103,7 @@ keeper 60초 카드는 «`other=` 의 가장 긴 값이 5초를 넘으면 가정
 - 2026-11-16 09:26 · 대기 — aifp-ft-arch-pi#23 머리 줄(팀장 aifp 5923) · Issue #8676 · DA 판정: APPROVE-DESIGN 313472(승인 sha f7b0614e28a8ca4e8806b56d4e145dd45f94692f · 사본 .fable-team/state/team-main/aifp-ft/DA-round-cells-design-approve-313472/verdict.md · 수용 동작 반례 0 · 알려진 한계 1줄 계약에 보탬) · 배정 줄 꼴 고침(대기 · 정지 = BYZ 전팀 정지 판정 4244 ② · 팀장 aifp 5924) · 그 밖 손 0 · 다음 = 팀장 착지 → 인터뷰 뒤 나노 spawn
 - 2026-11-17 14:13 — 대기→진행 · 좌석 aifp-ft-nano-ft2-keeper-round-cells-b1-items#0
 - [배정 불명] 불명(scope 표 없음 opengateway/deepseek/deepseek-v4.1-flash-ultrafast)
+- 2026-11-18 12:57 · 진행 — 조건 6 설치 뒤 실측 = [ ](aifp-ft-arch-pi#24 · 읽기만) · b1 · other 는 기준값보다 나아졌다(other p50 7~10 → 1.1~1.4) · 남은 것 = git 7초에 끊긴 바퀴가 cut=- 인 채 items 가 N/N 이 아님(창1 4줄 · 창2 24줄)
+  원문 2줄: `16:01:45 판정 불가 harness - git 7초 넘음` → `ROUND s=27.6 fetch=3.5 b1=4.8 b2c=0 b2f=13.3 b3=0 stall=0.3 fetch_root=3.5 fetch_pack=0.7 nano=5.6 wall=31.2 other=3.6 items=11/39 cut=- slow=harness:b2f:11.5 unknown=6` · `16:09:43 판정 불가 harness - git 7초 넘음` → `ROUND s=23.3 fetch=3.8 b1=0 b2c=0 b2f=16.8 b3=0 stall=0.1 fetch_root=3.8 fetch_pack=0.8 nano=2.6 wall=24.1 other=0.7 items=1/29 cut=- slow=harness:b2f:16.8`
+  아닌 줄 시각 분포(창2): 11-17 16시 4 · 19시 1 · 21시 3 · 22시 3 · 23시 5 · 11-18 05시 2 · 06시 1 · 12시 3
 - 세트: 4ca226e14922d58e580f490b1b7e0e27f4fbfc1b · 시험: python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_keeper_round_cells.py (15 passed · 2.6초 · 변이 M109~M112 4/4) rc=0 · 이슈: 0
