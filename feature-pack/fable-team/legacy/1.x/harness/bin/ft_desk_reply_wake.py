@@ -173,6 +173,9 @@ def register(led: Path, a: list, now: float, chan: str = "") -> int:  # ⓐ 등�
 
 def register_question(led: Path, a: list, now: float) -> int:  # r1591 · h·sha 칸이 없는 오빠 질문(설계 승인 등) — key 한 칸 · 승인 실행 기록(h 실행) 닫힘 없음
     row = {"q_ts": a[0] if a else "", "kind": "question", "key": a[1] if len(a) > 1 else "", "at": int(now), "deadline": int(now + DAY), "state": "open"}
+    if len(a) == 6 and a[2::2] == ["--d2", "--why"]:  # r2235 · 뒤 «--d2 <값> --why <글>» = 장부 칸(값 판정·거절 0 · 없으면 지금 그대로)
+        row.update(d2=a[3], why=a[5])
+        a = a[:2]
     if len(a) != 2 or not TS.match(row["q_ts"]) or not KEY.match(row["key"]):
         print("감시 등록 실패 — 사용: --register-question <질문ts(1794295513.494289)> <사유키(r1590)>", file=sys.stderr)
         return 3

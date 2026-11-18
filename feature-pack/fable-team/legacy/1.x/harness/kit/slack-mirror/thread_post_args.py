@@ -69,6 +69,13 @@ def parse(argv: list[str]) -> argparse.Namespace:
     po.add_argument("--keep-mention", metavar="UID", help="중화 뒤 이 UID 태그 첫 1개만 진짜 태그로 되돌린다(보드 뉴스 최상위 글 · r2120)")
     po.add_argument("--ask", action="store_true", help="오빠께 묻는 글 — 첫 줄 머리표 없이도 오빠 태그 1개(r2190)")
     po.add_argument("--no-status-head", action="store_true", help="카운팅 머리줄을 붙이지 않는다(보드 뉴스 최상위 글 · r2120 DA R1) — 기본 = 붙임")
+    ak = sub.add_parser("ask", parents=[common, chan_reply], help="desk 의 오빠 질문 1개 — D2 재판정 값 검사 → 게시 → 감시 등록(r2235 · thread_post_ask)")
+    dest = ak.add_mutually_exclusive_group(required=True)
+    dest.add_argument("--to", help="등록부(slack-threads.json) 이름 예 desk — 그 채널 «방» 에 올린다")
+    dest.add_argument("--ts", help="스레드 뿌리 ts — --channel 과 함께")
+    for n in ("key", "d2", "why", "default"):  # 빠짐 = argparse rc2 가 아니라 thread_post_ask 가 rc3 «D2 재판정 값 없음»
+        ak.add_argument(f"--{n}")
+    ak.add_argument("--text-file", required=True)
     t = sub.add_parser("attach", parents=[common, chan], help="보드 뿌리 글 스레드에 파일 첨부(시트 PDF) — 첫 파일 링크를 출력")
     t.add_argument("--key", required=True, help="board:<YYYY-MM-DD>")
     t.add_argument("--file", action="append", required=True)
@@ -86,6 +93,8 @@ def parse(argv: list[str]) -> argparse.Namespace:
             p.error("post 는 --to <등록부 이름> 또는 --channel <ID> 중 하나가 필요하다")
         if (a.text is None) == (a.text_file is None):
             p.error("post 는 --text 또는 --text-file 중 하나가 필요하다")
-    if a.cmd not in ("update", "attach", "reply", "post") and not (a.card or getattr(a, "unit_id", None)):
+    if a.cmd == "ask" and (a.ts is None) != (a.channel is None):
+        p.error("ask 는 --to <등록부 이름> 또는 --ts <뿌리> --channel <ID> 중 하나가 필요하다")
+    if a.cmd not in ("update", "attach", "reply", "post", "ask") and not (a.card or getattr(a, "unit_id", None)):
         p.error("--card 가 필요하다")
     return a
