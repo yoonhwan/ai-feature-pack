@@ -95,6 +95,17 @@ def c2(w, mp=None):   # ② 고를 카드 0 → [다음 없음] 1통 · 같은 �
     close(w, W2)
     w.t += 60
     assert any(x.startswith("RECEIPT harness %s" % W2) for x in w.round()) and len(notes(w)) == 1 and launched(w) == []
+def c2b(w, mp=None):  # ②′ r2271 C2 같은 날 지문이 바뀌는 [다음 없음] 4바퀴 → 3통 뒤 4번째 0통(NONE_CAP 3 · 날짜 열쇠가 가름)
+    w.round()
+    for i, work in enumerate(W2 + ch for ch in "abc"):
+        stem = "r9010-%s" % work[-1]   # 바퀴마다 «사람» 막힌 카드 1장 더 = 지문 바뀜
+        w.commit("byz", {"design/harness/indices/대기/%s.md" % stem: "# 인덱스: %s\n- 상태: 대기\n" % stem}, "main")
+        kw._put(w.state / "card-assign" / (stem + ".json"), {"state": "waiting", "reason": "사람", "since": 1.0})
+        close(w, work)
+        w.t += 60   # 같은 날 안
+        lines = w.round()
+        assert len(notes(w)) == min(i + 2, 3), (i, notes(w))
+    assert sum(x.startswith("NEXT-NONE-MUTE harness") for x in lines) == 1 and launched(w) == [], lines   # 4번째 = 로그 1줄 · 쪽지 0
 def c3(w, mp=None):   # ③ 표식 없음 → 다음 카드 0 · RECEIPT-HOLD
     assert any(x.startswith("RECEIPT-HOLD harness %s" % W1) for x in w.round())
     assert count(w, "accept", B) == 0 and launched(w) == [] and notes(w) == []
@@ -171,7 +182,7 @@ def pre6(w):          # ⑥ 팀 나노 수 = 상한 → 0
     d = json.loads(w.tm.read_text(encoding="utf-8"))
     kw._put(w.tm, dict(d, alive=d["alive"] + ["byz-harness-nano-zz#0"]))
 TWO = {A: "", B: URG}
-CASES = {"①": (c1, TWO, None), "②": (c2, None, None), "③": (c3, TWO, "off"), "④": (c4, {A: ""}, "사람"), "⑤": (c5, TWO, "paused"),
+CASES = {"①": (c1, TWO, None), "②": (c2, None, None), "②′": (c2b, None, None), "③": (c3, TWO, "off"), "④": (c4, {A: ""}, "사람"), "⑤": (c5, TWO, "paused"),
          "⑥": (c5, TWO, pre6), "⑦": (c7, TWO, None), "⑧": (c8, {A: "", B: URG + BOTH}, None), "Ⓓ": (cD, TWO, "seat"),
          "⑨": (c9, TWO, None), "⑩": (c10, TWO, None), "⑪": (c11, TWO, None), "⑫": (c12, TWO, None),
          "R2": (cR2, TWO, None), "R3": (cR3, TWO, nokey), "R3″": (cR3, TWO, badkey), "R3′": (cR3c, TWO, rootkey)}
@@ -189,7 +200,7 @@ def run(name, tmp, mp, ft2=kw.FT2):
     case(w, mp)
 KN = "adapters/pi/keeper_next.py"
 MUTANTS = {"M1": ("ready.append(((not urgent,", "ready.append(((False,", "①"),
-           "M2": ('"%s|next-none|%s" % (k.stamp()[:10], team)', '"%s|next-none|%s" % (k.stamp(), team)', "②"),
+           "M2": ('"%s|next-none|%s" % (k.stamp()[:10], team)', '"%s|next-none|%s" % (k.stamp(), team)', "②′"),
            "M3": ('if not os.path.exists(os.path.join(k.root, ".fable-team", "teams", team, "CLOSE-NEXT.enabled")) or ', "if ", "③"),
            "M4": ('block = "배정됨" if led.get("state") == "seat" or stem in owners else', 'block = "배정됨" if stem in owners else', "Ⓓ"),
            "M5": ("        pick = choose(k, team) if gates(k, team) and penalty_open(k, team) else None",
