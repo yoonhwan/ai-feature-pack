@@ -197,14 +197,33 @@ fi
 tock ③
 
 # ④ 받은편지함 감시 owner — 실 watcher 의 argv 는 `python3 -u - <bin> <좌석>` 이다(이름 «ft-inbox-watch» 만으로는 안 잡힌다 · 반례③)
+#   r2263: seats-*.json 의 이 좌석 행 agent 값이 모두 «pi» 면 감시가 없는 게 정상이다(doorbell 이 깨움) → ps 판독 0 · DEC 그대로.
+#   행 없음 · 값 다름 · 파일 깨짐 · 두 파일 값 다름 = 지금 판정 그대로(fail-closed). 이름 토큰으로 판정하지 않는다.
+seat_agent_pi() {
+  X python3 - "$ROOT/.fable-team" "$SEAT" <<'PY' >/dev/null 2>&1
+import glob, json, os, sys
+vals = set()
+for f in sorted(glob.glob(os.path.join(sys.argv[1], "seats-*.json"))):
+    try: cfg = json.load(open(f, encoding="utf-8"))
+    except Exception: sys.exit(1)
+    if not isinstance(cfg, dict): sys.exit(1)
+    if sys.argv[2] in cfg:
+        row = cfg[sys.argv[2]]
+        vals.add(row.get("agent") if isinstance(row, dict) else None)
+sys.exit(0 if vals == {"pi"} else 1)
+PY
+}
 tick
 if item 감시; then
-  pout="$(X "$PS" -Ao pid=,command= 2>&1)"; rc=$?
-  if [ "$rc" -ne 0 ]; then fail_line 감시 "$rc"; else
-    OKN=$((OKN+1))
-    hit="$(printf '%s\n' "$pout" | awk -v d="$DESKBASE" 'index($0,d)>0 && (index($0,"ft-inbox-watch")>0 || index($0," -u - ")>0)' | grep -v ft-desk-tick | head -1)"
-    if [ -n "$hit" ]; then o "INBOX-WATCH $(printf '%s' "$hit" | awk '{print $1}') $DESKBASE 감시 중"; WATCH="감시 중"
-    else o "INBOX-WATCH 없음(desk 감시 프로세스 0)"; WATCH="없음"; DEC=$((DEC+1)); fi
+  if seat_agent_pi; then OKN=$((OKN+1)); o "INBOX-WATCH 해당 없음(pi · doorbell 깨움)"; WATCH="해당 없음"
+  else
+    pout="$(X "$PS" -Ao pid=,command= 2>&1)"; rc=$?
+    if [ "$rc" -ne 0 ]; then fail_line 감시 "$rc"; else
+      OKN=$((OKN+1))
+      hit="$(printf '%s\n' "$pout" | awk -v d="$DESKBASE" 'index($0,d)>0 && (index($0,"ft-inbox-watch")>0 || index($0," -u - ")>0)' | grep -v ft-desk-tick | head -1)"
+      if [ -n "$hit" ]; then o "INBOX-WATCH $(printf '%s' "$hit" | awk '{print $1}') $DESKBASE 감시 중"; WATCH="감시 중"
+      else o "INBOX-WATCH 없음(desk 감시 프로세스 0)"; WATCH="없음"; DEC=$((DEC+1)); fi
+    fi
   fi
 fi
 tock ④
