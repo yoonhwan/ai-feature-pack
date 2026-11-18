@@ -4,7 +4,7 @@
 (= legacy/1.x/harness/tests/test_landed_git_no_lazy_r1401.sh 꼴을 파이썬으로 옮김) · 실 원격 0 · 실 라이브 쓰기 0 · sleep 은 upload-pack 대역에만.
 | # | 입력 | 기대 |
 | ㊸가 | 루트 = partial clone · 착지 sha = 그 리포에 없는 sha(팩 대역 객체 · 팩 origin/main 에는 없음) | upload-pack 0줄 · (sha, None, "미도달") · 2초 안 (기준판 FAIL) |
-| ㊸나 | intent base_sha = 그 리포에 없는 sha · 착지 sha 는 그 리포 ref 의 조상 | pre_attempt 손 0 = cat-file rc 1 → 시각 비교 길 · upload-pack 1줄 이상 · env=1 0줄 |
+| ㊸나 | intent base_sha = 그 리포에 없는 sha · 착지 sha 는 그 리포 ref 의 조상 | r2247 cat-file = git_local rc 1 → 시각 비교 길 · upload-pack 0줄 · env=1 1줄 |
 | ㊸다 | 착지 sha = 팩 origin/main 의 조상(있는 객체) | (sha, "pack:origin/main", "") · upload-pack 0줄 |
 | ㊸라 | 착지 sha 가 세 ref 어디에도 조상 아님(로컬 객체) | «미도달» 그대로 · upload-pack 0줄 |
 | ㊸마 | PR 착지 — worktree 리포에 gh mergeCommit sha 없음 | PR 착지 손 0(git_local 0회) · upload-pack 수·판정이 env 없앤 판과 같다 |
@@ -12,11 +12,11 @@
 | ㊸사 | git_local 안에서 self.git 이 예외 | 예외 그대로 · self.env 에 GIT_NO_LAZY_FETCH 없음(되돌림) |
 | ㊸아 | 한 바퀴: 카드 본문 show(blob 없음) → 착지 판정 → Popen 대역 | show 는 본문을 읽어 온다(upload-pack 1줄 이상) · Popen 대역 env 에 GIT_NO_LAZY_FETCH 없음 · git_local 밖 git 자식 env 에도 없음 |
 | ㊸자 | 루트가 낡은 리포(self.stale) | 그 리포로 git 호출 0 · «판정 불가 · 팩 fetch 실패» 그대로 |
-| ㊸차 | pre_attempt · base 가 그 리포에 없음 · L 시각 < at | "" (진행) · upload-pack 1줄 · env=1 0줄 |
-| ㊹가 | pre_attempt · base 로컬 · L 이 base 의 조상 | «옛 착지 줄(attempt 전) <sha8>» · env=1 0줄 |
-| ㊹다 | pre_attempt · base 가 어디에도 없는 sha | 시각 비교 길 · env=1 0줄 |
-| 㓈가 | pre_attempt · base 로컬 · L·base 시각 = at | «옛 착지 줄(attempt 전) <sha8>» · env=1 0줄 |
-| 㓈나 | pre_attempt · base 로컬 · L 이 base 의 조상 아님 | "" (진행) · env=1 0줄 |
+| ㊸차 | pre_attempt · base 가 그 리포에 없음 · L 시각 < at | "" (진행) · upload-pack 0줄 · env=1 1줄(r2247) |
+| ㊹가 | pre_attempt · base 로컬(fetch 로 받음) · L 이 base 의 조상 | «옛 착지 줄(attempt 전) <sha8>» · env=1 = cat-file 1줄(r2247) |
+| ㊹다 | pre_attempt · base 가 어디에도 없는 sha | 시각 비교 길 · env=1 = cat-file 1줄(r2247) |
+| 㓈가 | pre_attempt · base 로컬(fetch 로 받음) · L·base 시각 = at | «옛 착지 줄(attempt 전) <sha8>» · env=1 = cat-file 1줄(r2247) |
+| 㓈나 | pre_attempt · base 로컬(fetch 로 받음) · L 이 base 의 조상 아님 | "" (진행) · env=1 = cat-file 1줄(r2247) |
 | 㓈다 | 착지 고리 · 착지 sha 원격 다른 가지에만 · ref 하나가 그 리포에 없음(안 풀림) | «판정 불가 · 착지 조상 git rc 128» · ⓒ 로 가서 upload-pack 1줄 |
 | 㓈라 | 착지 고리 · 착지 sha 로컬 · ref 그 리포에 없음 | «판정 불가 · 착지 조상 git rc 128» · upload-pack 0줄 |
 | 㓈마 | 착지 고리 · 착지 sha 원격 다른 가지에만 · ref 는 풀림 · 조상 아님 | 다음 ref · upload-pack 0줄 (기준판 FAIL) |
@@ -297,49 +297,57 @@ def test_a_round_show_and_popen(w, land=_land):
     assert "GIT_NO_LAZY_FETCH" not in k.env
 
 
-# ── ㊸나 · ㊸차 · ㊹가 · ㊹다 · 㓈가 · 㓈나 — pre_attempt 손 0(env 가 새지 않는다 · 판정값 그대로)
-def pre(w, land, sha, base, at):
+# ── ㊸나 · ㊸차 · ㊹가 · ㊹다 · 㓈가 · 㓈나 — r2247 pre_attempt cat-file = git_local(판정값 그대로 · env=1 은 cat-file 1줄뿐)
+def pre(w, land, sha, base, at, fetch=None):
+    if fetch:   # base 를 pc 에 실제로 받아 둔다(로컬 base 대역)
+        _run([GIT, "-C", w.pc, "fetch", "-q", "origin", fetch], w.env)
+        w.clear()
     k = keeper(w, land)
     return k, k.pre_attempt(TEAM, WORK, w.pc, sha, {"base_sha": base, "at": at})
+
+
+def cat1(w, base):
+    return ["env=1 ::-C %s cat-file -e %s" % (w.pc, base)]
 
 
 def test_na_base_absent_remote(w, land=_land):
     k, out = pre(w, land(), w.c1, w.hidden, "2030-01-01T00:00:00")
     assert out.startswith("옛 착지 줄(attempt 전 · 다른 repo 시각)"), out
-    assert w.upn() >= 1, w.up.read_text()
-    assert w.env1() == [], w.env1()
+    assert w.upn() == 0, w.up.read_text()
+    assert w.env1() == cat1(w, w.hidden), w.env1()
 
 
 def test_cha_base_absent_progress(w, land=_land):
     sha = w.local("local-only")
     k, out = pre(w, land(), sha, w.hidden, "2000-01-01T00:00:00")
     assert out == "", out
-    assert w.upn() >= 1, w.up.read_text()
-    assert w.env1() == [], w.env1()
+    assert w.upn() == 0, w.up.read_text()
+    assert w.env1() == cat1(w, w.hidden), w.env1()
 
 
 def test_ga_base_local_ancestor(w, land=_land):
-    k, out = pre(w, land(), w.c1, w.side, "2030-01-01T00:00:00")
+    k, out = pre(w, land(), w.c1, w.side, "2030-01-01T00:00:00", fetch="side")
     assert out == "옛 착지 줄(attempt 전) " + w.c1[:8], out
-    assert w.env1() == [], w.env1()
+    assert w.env1() == cat1(w, w.side), w.env1()
 
 
 def test_da_base_nowhere(w, land=_land):
-    k, out = pre(w, land(), w.c1, "0123456789" + "0" * 30, "2000-01-01T00:00:00")
+    base = "0123456789" + "0" * 30
+    k, out = pre(w, land(), w.c1, base, "2000-01-01T00:00:00")
     assert out == "", out
-    assert w.env1() == [], w.env1()
+    assert w.env1() == cat1(w, base), w.env1()
 
 
 def test_ga_base_local_equal_second(w, land=_land):
-    k, out = pre(w, land(), w.c1, w.side, "2000-01-01T00:00:00")
+    k, out = pre(w, land(), w.c1, w.side, "2000-01-01T00:00:00", fetch="side")
     assert out == "옛 착지 줄(attempt 전) " + w.c1[:8], out
-    assert w.env1() == [], w.env1()
+    assert w.env1() == cat1(w, w.side), w.env1()
 
 
 def test_na_base_local_not_ancestor(w, land=_land):
-    k, out = pre(w, land(), w.c1, w.orphan, "2030-01-01T00:00:00")
+    k, out = pre(w, land(), w.c1, w.orphan, "2030-01-01T00:00:00", fetch="root2")
     assert out == "", out
-    assert w.env1() == [], w.env1()
+    assert w.env1() == cat1(w, w.orphan), w.env1()
 
 
 # ── ㊸마 — PR 착지 손 0(git_local 0회) · upload-pack 수·판정이 env 없앤 판과 같다
@@ -376,9 +384,9 @@ MUTANTS = {
              (test_da_ref_missing_remote_only_sha,)),
     "M107": ('rc = self.git(repo, "merge-base", "--is-ancestor", sha, ref, timeout=endings.ANC_S)[0]   # G3 ⓒ', 'rc = 128   # G3 ⓒ',
              (test_branch_c_other_rc_asks_remote,)),
-    "M108": ('have = self.git(repo, "cat-file", "-e", base)[0] if base else 0', 'have = self.git_local(repo, "cat-file", "-e", base)[0] if base else 0',
+    "M108": ('have = self.git_local(repo, "cat-file", "-e", base)[0] if base else 0', 'have = self.git(repo, "cat-file", "-e", base)[0] if base else 0',
              (test_na_base_absent_remote, test_cha_base_absent_progress, test_ga_base_local_ancestor, test_da_base_nowhere,
-              test_ga_base_local_equal_second, test_na_base_local_not_ancestor)),
+              test_ga_base_local_equal_second, test_na_base_local_not_ancestor)),   # r2247 방향 뒤집음 = 손 되돌림 → 6칸 FAIL
 }
 
 

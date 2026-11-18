@@ -197,7 +197,7 @@ class Landing:
         att, who = ([(r.get("attempt"), r.get("holder")) for r in recs if r.get("kind") == "dispatch" and r.get("work") == work] or [(None, None)])[-1]
         intent = intent or (self.read_json(os.path.join(runtime, "launch", "%s@%s.intent" % (work, att))) or endings.intent(self, team, work, att, who) if att else {})   # r1960 R1 — close 와 같은 대체 intent
         base = intent.get("base_sha")
-        have = self.git(repo, "cat-file", "-e", base)[0] if base else 0   # r1910 rc1 = 명시적 missing(다른 repo) · 그 밖 = git 실패
+        have = self.git_local(repo, "cat-file", "-e", base)[0] if base else 0   # r1910 rc1 = 명시적 missing(다른 repo) · 그 밖 = git 실패 · r2247 로컬 객체만(lazy fetch 0)
         if have == 1:
             return self.pre_attempt_time(repo, sha, intent.get("at"))
         if have != 0:
