@@ -16,6 +16,7 @@ from pathlib import Path
 from ft_nano_record import CARD_RX, DONE_RX, Ctx, Reject, Unjudged, left_free, left_of, marks, rec_of, section
 from ft_nano_record_batch import prepare
 from ft_nano_record_budget import step
+from ft_nano_record_fin import key as fin_key, load as fin_load, row as fin_row   # r2250 O4 닫힌 줄 기억(notify 만)
 from ft_nano_record_fmt import fmt   # r2202 [structure]: 줄 꼴 = 옆 파일(notify 는 지금처럼 due 에서 fmt 를 읽는다)
 from ft_nano_record_repo import at, drops_scope, dropped, nanos_of, proxy_master, repo_hits, resolve_owner, seats_at
 
@@ -97,7 +98,7 @@ def rows(ctx, pr=None):   # 장부 줄마다 카드별 줄
             continue
         if e["cards"]:
             for c in e["cards"]:
-                out += card_rows(ctx, e, c)
+                out += fin_row(ctx, e, card_key(c)) or card_rows(ctx, e, c)   # r2250 O4: 기억한 열쇠 = 같은 «끝» 줄 · 카드 읽기 0
             continue
         base = {"pr": e.get("pr"), "q": e["landed"], "stem": f"PR#{e.get('pr')}", "e": e, "master": ""}
         team = (str(e.get("by") or "").split("-") + ["", ""])[1]
@@ -119,7 +120,8 @@ def opened(out):   # r2202 F1 — fetch 사유 = «주인 없음» 을 뺀 열�
 
 @drops_scope   # r2151 O2: 버림 원장 스냅샷 = 이 평가 한정
 def due_rows(ctx, pr=None, fetch=True):   # A2 — fetch 는 «열린 줄» 이 있을 때만 실행당 1회(remote-tracking 판으로 먼저 본다) · r2071 = 판마다 묶음 읽기·묶음 fetch(전 항목 그대로)
-    ks, ctx.fetch = [k for e in ctx.ledger() if pr is None or e.get("pr") == pr for k in map(card_key, e["cards"]) if k], False
+    ctx._fin = fin_load(ctx)   # r2250 O4 — Budget(notify) 있을 때만 · due 손 실행 = {}(O6)
+    ks, ctx.fetch = [k for e in ctx.ledger() if pr is None or e.get("pr") == pr for k in map(card_key, e["cards"]) if k and fin_key(e, k[2]) not in ctx._fin], False
     out = rows(prepare(ctx, ks), pr)
     step(ctx, "due-1")   # r2202 F2 — 표식 = notify 안(Budget)만 · due 손 실행 = 0
     if fetch and opened(out):
