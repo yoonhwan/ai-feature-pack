@@ -323,7 +323,8 @@ class Lifecycle:
         """«남은 일» — intake 용량 상한과 **같은** 장부(`record.remaining` · 회수된 접수·done work 제외).
         command 이름이 work 와 달라도 마감 판정이 맞도록 accept 줄로 command → work 사상을 먼저 한다."""
         by_command = {rec["command"]: rec.get("work") for rec in records if rec["kind"] == "accept"}
-        return [by_command.get(command) or command for command in record.remaining(state, records)]
+        works = {cmd: work for cmd, work in by_command.items() if isinstance(work, str)}   # r2068 str 아닌 work = command 로 셈
+        return [works.get(command) or command for command in record.remaining(state, records)]
 
     def _owner_word(self, records, work):
         """착수 기록이 있으면 STARTED · 실행권만 있으면 GRANTED(원자료 낱말)."""

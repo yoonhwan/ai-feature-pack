@@ -277,9 +277,11 @@ class Journal:
 
     def _segment_closed(self, seg, records, state):
         """그 segment 의 모든 줄이 «닫힌 work» — work 없는 줄(accept work=None)은 늘 열림(보존).
-        r1774 R1: import 줄은 닫힌 줄이다(내용 전부가 imported 에 접히고 PROJ_FIELDS 로 남는다)."""
+        r1774 R1: import 줄은 닫힌 줄이다(내용 전부가 imported 에 접히고 PROJ_FIELDS 로 남는다).
+        r2068: str 아닌 work(Slack 접수 dict)도 work 없는 줄 = 열림."""
         return all(work is not None and self._work_closed(work, records, state)
-                   for work in {rec.get("work") for rec in seg if rec["kind"] != "import"})
+                   for work in {rec.get("work") if isinstance(rec.get("work"), str) else None for rec in seg
+                                if rec["kind"] != "import"})
 
     def _work_closed(self, work, records, state):
         """done + (required 면 reassess_done) + owners·uncertain 없음 + 마지막 result 뒤 start·effect 없음
