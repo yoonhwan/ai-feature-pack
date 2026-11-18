@@ -41,10 +41,10 @@ base() { # 이름 [키 값]… → 기준선 파일(기본 머리줄 · 값 __DR
   local f="$R/design/v65/baselines/$1.md"; shift
   local -A v=([set_sha]="$SHA" [control]="lane=c2c-dev stt_provider=gpu side_lang=right:ko,left:en click=PRESS_SIDE_LANG_CLICK:1 flags=$OKFLAGS"
     [side_lang]="right=ko left=en" [server_ready]="2026-10-07T03:00:00Z" [visible_at_settle]="yes"
-    [evidence]="design/v65/baselines/ev/RESULT-ok.json" [run_id]="run-1")
+    [evidence]="design/v65/baselines/ev/RESULT-ok.json" [run_id]="run-1" [profile]="__DROP__")
   while [ $# -gt 0 ]; do v[$1]="$2"; shift 2; done
   : > "$f"
-  for k in set_sha control side_lang server_ready visible_at_settle evidence run_id; do
+  for k in profile set_sha control side_lang server_ready visible_at_settle evidence run_id; do
     [ "${v[$k]}" = "__DROP__" ] || echo "$k: ${v[$k]}" >> "$f"
   done
   printf '\n| 칸 | 값 |\n|---|---|\n| 빈 칸 | 0 |\n' >> "$f"
@@ -102,6 +102,49 @@ expect 1 'BLOCK 세트 변경' "세트 경로 변경 뒤 → 막힘" "$OKCARD" "
 n=$((n+1)); gate "$SELFCARD" "$ST"; got=$?
 [ "$got" -eq 3 ] && printf '%s' "$OUT" | grep -q '^PRESS-GATE SELFTEST PASS$' && ! printf '%s' "$OUT" | grep -q '발화해도 된다' \
   && ok "$n. SELFTEST 성공 출력에 «발화해도 된다» 0건 · 마지막 판정 = SELFTEST PASS" || bad "$n. SELFTEST 출력 (exit $got)"
+
+# r2245: 기준선 머리줄 «profile: room»(방 러너 기준선) — 카드 머리 «프로필: default-3bubble» 과 다른 칸 · 새 저장소(위 세트 변경과 분리)
+R="$T/repo2"; mkdir -p "$R/worker" "$R/$P/ev" "$R/cards" && cp "$T/repo/design/TEAMS.md" "$R/design/TEAMS.md"
+git -C "$R" init -q && git -C "$R" config user.email t@t && git -C "$R" config user.name t
+echo 'x = 1' > "$R/worker/a.py"
+RK="PRESS_LST:1 PRESS_POLISH_DIFF:0 PRESS_DOMAIN_QS:dental PRESS_VAD_AUTO:unset PRESS_VAD_SHAPE:unset PRESS_VAD_P:unset PRESS_CHUNK_MS:unset PRESS_SILENCE_MS:unset PRESS_LST_INTERVAL_MS:unset PRESS_OWNER_CAP_MS:unset PRESS_TTS_RIGHT:unset PRESS_LST_TOGGLE_MID_PRESS_MS:0 V6_LST:1 V65_TOGGLE_A:1"
+{ printf '| key | 기본값 | OFF 값 | 읽는 자리 |\n|---|---|---|---|\n'; for kv in $RK; do printf '| `%s` | `%s` | `0` | x |\n' "${kv%%:*}" "${kv#*:}"; done; } > "$R/$P/FLAGS.md"
+git -C "$R" add -A && git -C "$R" commit -qm base
+SHA="$(git -C "$R" rev-parse HEAD)"
+roomflags() { # [key=값 바꿈 | key=__DROP__]… → FLAGS.md 기본값 기준 flags= 값
+  local kv k v o out=""; for kv in $RK; do k="${kv%%:*}"; v="${kv#*:}"
+    for o in "$@"; do [ "${o%%=*}" = "$k" ] && v="${o#*=}"; done
+    [ "$v" = "__DROP__" ] || out="$out${out:+,}$k=$v"; done; printf '%s' "$out"; }
+OKFLAGS="$(roomflags)"
+rctl() { echo "lane=c2c-dev stt_provider=gpu side_lang=right:ko,left:en click=$1 flags=${2:-$OKFLAGS}"; }
+roomres() { # 파일 control-json [scenario_id 칸] → 방 러너 RESULT json(가짜 · 네트워크 0)
+  printf '{"set_sha":"%s","side_lang_at_press":{"right":"ko","left":"en"},"session_id":"run-1","control":%s%s}\n' "$SHA" "$2" "${3-,\"scenario_id\":\"room-s1\"}" > "$R/$P/ev/$1"; }
+roomres RESULT-room.json '{"click":null,"click_reason":"방 러너는 PRESS_SIDE_LANG_CLICK 을 안 읽음"}'
+roomres RESULT-room-click.json '{"click":"PRESS_SIDE_LANG_CLICK:1","click_reason":null}'
+roomres RESULT-room-ctlstr.json '"click=room-keyboard"'
+RE="$P/ev/RESULT-room.json"
+base r-ok profile room control "$(rctl room-keyboard)" evidence "$RE"
+base r-solo control "$(rctl room-keyboard)" evidence "$RE"
+base r-click1 profile room control "$(rctl PRESS_SIDE_LANG_CLICK:1)" evidence "$RE"
+base r-resclick profile room control "$(rctl room-keyboard)" evidence "$P/ev/RESULT-room-click.json"
+base r-ctlstr profile room control "$(rctl room-keyboard)" evidence "$P/ev/RESULT-room-ctlstr.json"
+base r-press profile room control "$(rctl room-keyboard "$(roomflags PRESS_LST=unset PRESS_DOMAIN_QS=__DROP__)")" evidence "$RE"
+base r-v6 profile room control "$(rctl room-keyboard "$(roomflags V6_LST=0)")" evidence "$RE"
+base r-roomx profile roomx control "$(rctl room-keyboard)" evidence "$RE"
+base r-noev profile room control "$(rctl room-keyboard)" evidence ""
+base r-mid profile room control "$(rctl room-keyboard "$(roomflags PRESS_LST_TOGGLE_MID_PRESS_MS=500)")" evidence "$RE"
+rc_() { card "$1" "기준선: $P/$1.md" '실험: 없음'; }
+expect 3 'diff 0 = 커밋 소스 동일' "① 머리줄 profile: room(≠ 카드 머리 프로필) · click=room-keyboard · RESULT click null+사유 · scenario_id → 통과" "$(rc_ r-ok)" "$ST"
+expect 1 'BLOCK control click: room-keyboard — 기준선 프로필은 PRESS_SIDE_LANG_CLICK:1 고정' "② profile 없음(solo) · click=room-keyboard → 막힘" "$(rc_ r-solo)" "$ST"
+expect 1 'BLOCK control click: PRESS_SIDE_LANG_CLICK:1 — profile room 은 room-keyboard 만' "③ profile room · click=PRESS_SIDE_LANG_CLICK:1 → 막힘" "$(rc_ r-click1)" "$ST"
+expect 1 'BLOCK profile room ↔ RESULT 불일치' "④ profile room · RESULT control.click 값 있음 → 막힘" "$(rc_ r-resclick)" "$ST"
+expect 1 'BLOCK profile room ↔ RESULT 불일치 — control dict 아님' "④-2 profile room · RESULT control 이 dict 아님 → 막힘" "$(rc_ r-ctlstr)" "$ST"
+notes1() { [ "$(printf '%s\n' "$OUT" | grep -c 'NOTE room: PRESS_\* 11개 대조 제외(방 러너가 읽지 않음)')" -eq 1 ] && ok "$n-b. NOTE 1줄(11개)" || bad "$n-b. NOTE 수"; }
+expect 3 'NOTE room: PRESS_\* 11개 대조 제외' "⑤ profile room · PRESS_LST=unset · PRESS_DOMAIN_QS 누락 → 통과 + NOTE" "$(rc_ r-press)" "$ST"; notes1
+expect 1 'BLOCK control flags: V6_LST=0 ≠ 기본값 1' "⑥ profile room · V6_LST=0(worker key) → 막힘" "$(rc_ r-v6)" "$ST"
+expect 1 'BLOCK profile: roomx — profile: room 만' "⑦ profile: roomx → 막힘" "$(rc_ r-roomx)" "$ST"
+expect 1 'BLOCK control flags: PRESS_LST_TOGGLE_MID_PRESS_MS=500 ≠ 기본값 0' "⑨ profile room · PRESS_LST_TOGGLE_MID_PRESS_MS=500(방 러너가 읽음) → 막힘" "$(rc_ r-mid)" "$ST"; notes1
+expect 1 'BLOCK profile room ↔ RESULT 없음(evidence 빈 값)' "⑩ profile room · evidence: 빈 값 → 막힘(RESULT 대조 건너뜀 0)" "$(rc_ r-noev)" "$ST"
 
 echo "cases=$n fail=$fail"; [ $fail -eq 0 ] && echo "ALL PASS"
 [ $fail -eq 0 ]
