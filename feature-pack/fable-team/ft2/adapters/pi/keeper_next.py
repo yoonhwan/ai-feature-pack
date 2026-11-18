@@ -577,7 +577,7 @@ def prereq_tell(k, team, unread):
 def wake_read(k, team):
     """r2267 W1~W3 — 휴면 팀 선행 판정만(cards 1회 · fill·stage·close·원장·팀 쪽지·gh·fetch 0) · 기억 = wake_seen[팀]{카드: 판정} ·
     앞 판독에서 선행/선행불명(또는 풀림)이던 카드가 "" = 풀림 · 처음 보는 팀·카드 = 기억만 · 풀림 묶음(이름순) ≥ 1 → k.wake(planner 1통 · 같은 열쇠 0)."""
-    got = cards(k, team)   # 사전 DA H1 — 휴면 길 = progress(재개 줄 → gh · resume_seen) 0
+    got = cards(k, team, resume=False)   # 사전 DA H1 — 휴면 길 = progress(재개 줄 → gh · resume_seen) 0
     if isinstance(got, str):
         return
     book = k.state.setdefault("wake_seen", {})
