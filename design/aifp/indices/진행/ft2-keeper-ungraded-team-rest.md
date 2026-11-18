@@ -16,7 +16,7 @@
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/pi/keeper.py(바퀴 팀 고리 :502~506 근처 1곳) · feature-pack/fable-team/ft2/tests/test_keeper_round_60s.py 또는 새 시험 1파일 · CASES.md 1줄
 - 정본 영향 없음: aifp 정본 변경 0 · ft2 CONTRACT.md 의 R7 글(«그 자리 남은 판정 0 · 다음 자리»)은 그대로 = 코드를 글에 맞춘다
 - 크기: 코드 1파일 3줄 안팎 · 시험 1파일 · PR 1개
-- 배정: 대기(석 · 2026-11-18T13:46)
+- 배정: 좌석 aifp-ft-nano-ft2-keeper-ungraded-team-rest#0
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -89,6 +89,8 @@ keeper 는 한 바퀴에 팀을 이름순으로 돈다. 로컬 git 호출이 7�
 | T4 b3 | 52바 · M137 |
 
 ## 상태
+- base_sha: 1ff2c25cc29049e7a942dcd7237b94688d6c3174 (spawn 2026-11-18)
 - 2026-11-18 13:01 · 대기 — aifp-ft-arch-pi#24 초안(팀장 aifp 6068 ㉠ · 실측 aifp 6067 · 읽기만 · 시험·코드 손 0) · 원인 = 팀 자리 Ungraded 를 받는 곳이 팀 고리 밖(:520) · 다음 = 팀장 PR merge → DA 설계 → Issue → 나노 1석
 - 2026-11-18 13:42 · 대기 — aifp-ft-arch-pi#25 보정(DA 설계 A HOLD 1/3 aifp 6071 · 팀장 발주 aifp 6072 + 덧 6074) · T2 를 «원천 = b2f 뿐 → 남은 자리 0 · 분모 손 0» 으로 줄임 · M130 뺌 · T4 문장 고침 · report() 안 Ungraded = 범위 밖 1줄 · T1 · T3 · M131 · M132 손 0 · 다음 = 팀장 DA 설계 2/3
 - 2026-11-18 13:46 · 대기 — aifp-ft-arch-pi#25 머리 줄(팀장 aifp 6085) · Issue #9321 · DA 판정 APPROVE-DESIGN 2/3 aifp 6084 · 배정 = 대기(석) · DA 메모 반영 = M137(b3o 갈래 받는 곳 뺌 → 52바) · 완료 조건 3 에 70초 안 · 선행 줄에 rebase 1줄 · 다음 = 팀장 착지 → 나노 1석
+- 2026-11-18 13:47 — 대기→진행 · 좌석 aifp-ft-nano-ft2-keeper-ungraded-team-rest#0
