@@ -166,7 +166,7 @@ class Intake:
             state, records = self._state(), self.records()
             state = record.recover_state(state, records)      # DA R2: 내구 journal 이 기준(공통 writer)
             prior = self._prior_receipt(records, command)
-            if prior is not None:
+            if prior is not None and prior["attempt"] not in (state.get("withdrawn") or {}):   # r1925b 철회된 attempt = 새 attempt
                 return Receipt(RESULT_HOLD, command, prior["attempt"], state["revision"], reason="같은 command 기록 = 재부여 0")
             if self._orphan_body(command):
                 return Receipt(RESULT_HOLD, command, None, state["revision"], reason="본문만 남음 = 영수 미확정")
@@ -197,7 +197,7 @@ class Intake:
 
     def _next_state(self, state, command, pending):
         """교체가 아닌 «병합» — 세대·owner·불명 표시 등 확장 칸을 보존한다(ⓘ)."""
-        return dict(state, revision=state["revision"] + 1, pending=pending + [command],
+        return dict(state, revision=state["revision"] + 1, pending=list(dict.fromkeys(pending + [command])),
                     attempts=dict(state["attempts"],
                                   **{command: state["attempts"].get(command, 0) + 1}))
 

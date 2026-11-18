@@ -23,6 +23,7 @@ PROJ_FIELDS = ("generations", "owners", "reservations", "deliveries", "done",
                "imported",   # r1774: 가져온 기록(F6)
                "returned",   # r1990: 반환(열린 work 라 회수 대상은 아니지만 base 칸도 같은 해석)
                "parked",     # r2055: 쉼(returned 와 같은 해석)
+               "withdrawn",  # r1925b: 철회 attempt(회수 뒤에도 같은 command 재접수 판정 유지)
                "reassess_done", "released", "owners_recovered", "uncertain", "close_receipts", "refusals")
 
 
@@ -239,6 +240,7 @@ class Journal:
         base = dict(state.get("journal_base") or {})
         upto, last = base.get("upto") or 0, (records[-1]["seq"] if records else 0)
         targets, bodies, new_upto = [], [], upto
+        withdrawn = state.get("withdrawn") or {}            # r1925b DA2 ⓐ: 철회 attempt 본문 = 옮긴 경로
         for _n, path in self.closed():
             seg = self._records_of(path)
             top = max([rec["seq"] for rec in seg] or [0])
@@ -247,7 +249,10 @@ class Journal:
                 break                                      # 마지막 seq segment · 열린 work = 보존
             targets.append(path)                           # top ≤ upto = 재실행(멱등) / 닫힌 segment
             new_upto = max(new_upto, top)
-            bodies += [rec["body"] for rec in seg if rec["kind"] == "accept" and rec.get("body")]
+            bodies += [(withdrawn.get(rec["attempt"]) or {}).get("body") or rec["body"]
+                       for rec in seg if rec["kind"] == "accept" and rec.get("body")]
+        live = {rec.get("body") for rec in records if rec["kind"] == "accept" and rec["seq"] > new_upto}
+        bodies = [name for name in bodies if name not in live]   # r1925b DA2 ⓑ: 살아 있는 accept 본문은 둔다
         if new_upto > upto:
             folded = [rec for rec in records if rec["seq"] <= new_upto]
             proj = self.rec.recover_state(state, folded)
@@ -278,7 +283,10 @@ class Journal:
     def _segment_closed(self, seg, records, state):
         """그 segment 의 모든 줄이 «닫힌 work» — work 없는 줄(accept work=None)은 늘 열림(보존).
         r1774 R1: import 줄은 닫힌 줄이다(내용 전부가 imported 에 접히고 PROJ_FIELDS 로 남는다).
-        r2068: str 아닌 work(Slack 접수 dict)도 work 없는 줄 = 열림."""
+        r2068: str 아닌 work(Slack 접수 dict)도 work 없는 줄 = 열림.
+        r1925b R1: 철회된 attempt 의 accept·withdraw 줄은 닫힌 줄이다(work 는 done 으로 만들지 않는다)."""
+        withdrawn = state.get("withdrawn") or {}
+        seg = [rec for rec in seg if not (rec["kind"] in ("accept", "withdraw") and rec["attempt"] in withdrawn)]
         return all(work is not None and self._work_closed(work, records, state)
                    for work in {rec.get("work") if isinstance(rec.get("work"), str) else None for rec in seg
                                 if rec["kind"] != "import"})

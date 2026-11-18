@@ -31,7 +31,7 @@ KINDS = ("accept", "claim", "start", "effect", "result", "uncertain",
          "dispatch", "deliver", "execute", "complete", "reassess", "progress", "close", "refuse", "resolve",
          "reopen", "import",
          "close_receipt", "returned",   # r1990 반환(전달·착지 0 의 최신 attempt) — dispatch.py 만
-         "parked")   # r2055 쉼(끝났고 남길 것 안전 · owner·예약 해제 · 의무 그대로) — dispatch.py 만
+         "parked", "withdraw")   # r1925b 철회(배정·전달 전 접수 attempt) — withdraw.py 만 · r2055 쉼(끝났고 남길 것 안전 · owner·예약 해제 · 의무 그대로) — dispatch.py 만
 STATE_FIELDS = ("revision", "pending", "attempts")
 # 확장 state 칸 — 없으면 기본값 {} 로 채운다(다른 writer 가 병합해 보존한다 · ⓘ).
 EXTENDED_STATE_FIELDS = ("generations", "owners", "uncertain", "deliveries", "reservations",
@@ -40,7 +40,7 @@ EXTENDED_STATE_FIELDS = ("generations", "owners", "uncertain", "deliveries", "re
                          "imported",            # r1774 가져온 기록
                          "journal_base", "refusals", "close_receipts",
                          "returned",            # r1990
-                         "parked")              # r2055 쉼 {work: {attempt, at, reason, released}} · 같은 work 새 dispatch 가 지운다 · r1990 반환 {work: {attempt, at, by}} · 같은 work 새 dispatch 가 지운다   # r1584: base checkpoint · r1724: 거절 이력 · r1725: 닫기 영수
+                         "parked", "withdrawn")  # r1925b 철회 {attempt: {command, why, body}} · r2055 쉼 {work: {attempt, at, reason, released}} · 같은 work 새 dispatch 가 지운다 · r1990 반환 {work: {attempt, at, by}} · 같은 work 새 dispatch 가 지운다   # r1584: base checkpoint · r1724: 거절 이력 · r1725: 닫기 영수
 
 
 class RecordError(ValueError):
@@ -156,8 +156,12 @@ def remaining(state, records):
                        if isinstance(cmd, str) and cmd not in by_command})
     folded, done = (state.get("journal_base") or {}).get("receipts") or {}, state.get("done") or {}
     gone = set(done) | set(state.get("returned") or {})   # r1990 반환된 최신 attempt = 남은 일 밖(새 dispatch 면 다시 셈)
+    last = {rec["command"]: rec.get("attempt") for rec in records if rec["kind"] == "accept"}
+    last = {cmd: last.get(cmd) or folded.get(cmd) for cmd in by_command}   # r1925b R2 마지막 attempt(suffix · 없으면 base)
+    shut = {cmd for cmd, att in last.items() if (cmd in folded and att == folded[cmd])   # 그 attempt 가 회수됨
+            or (isinstance(att, str) and att in (state.get("withdrawn") or {}))}        # ∨ 철회됨
     return [cmd for cmd, work in by_command.items()
-            if cmd not in folded and (work if isinstance(work, str) else cmd) not in gone]
+            if cmd not in shut and (work if isinstance(work, str) else cmd) not in gone]
 
 
 def capacity(state, records, left=None):
@@ -199,6 +203,7 @@ def recover_state(state, records):
     imported = dict(proj.get("imported") or {})       # r1774: 같은 꼴(시작값 = checkpoint · key 멱등)
     returned = dict(proj.get("returned") or {})       # r1990: 같은 꼴 · 같은 work 의 뒤 dispatch 가 지운다
     parked = dict(proj.get("parked") or {})           # r2055: 같은 꼴(returned 와 같은 수명)
+    withdrawn = dict(proj.get("withdrawn") or {})     # r1925b: 같은 꼴 · attempt 열쇠(work 0)
     for rec in rows:
         work, kind, gen = rec.get("work"), rec["kind"], rec.get("gen") or 0
         if kind in ("claim", "dispatch") and work and gen > gens.get(work, 0):
@@ -245,6 +250,8 @@ def recover_state(state, records):
             done.update(_close_done(closes, done, rec["team"], None, rec["at"]))
         elif kind == "reopen" and work:
             reopens = _fold_reopen(reopens, done, lifted, rec)
+        elif kind == "withdraw":
+            withdrawn[rec["attempt"]] = {"command": rec["command"], "why": rec.get("why"), "body": rec.get("moved")}
         elif kind == "import":
             imported.setdefault(rec["key"], {"sha256": rec.get("sha256"), "held": rec["body"], "src": rec.get("src"),
                                              "seq": rec["seq"], "at": rec["at"]})
@@ -252,7 +259,7 @@ def recover_state(state, records):
                 reservations=kept, deliveries=sent, done=done, reassess_done=reassessed,
                 released=released, owners_recovered=recovered, uncertain=uncertain, lanes=lanes, refusals=refusals,
                 reopens=reopens, lifted=lifted, imported=imported,
-                close_receipts=closes, returned=returned, parked=parked)
+                close_receipts=closes, returned=returned, parked=parked, withdrawn=withdrawn)
 
 
 def build(team, seq, command, attempt, at, body, work=None, goal=None, kind="accept",
