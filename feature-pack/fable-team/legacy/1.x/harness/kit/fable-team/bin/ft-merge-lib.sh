@@ -439,17 +439,28 @@ fm_card_tokens() {
   case "${1:-}" in nano/*/*|nano/r[0-9]*|nano/) ;; nano/*) printf '%s' "${1#nano/}"; return 0;; esac
   printf '%s\n' "${2:-}" | LC_ALL=C grep -oE 'r[0-9]{2,5}[a-z]?' | awk '!s[$0]++' | paste -sd' ' -
 }
+#   fm_card_only <착지 리포> <M> <Q> : r2248 O1 — 착지 전 target tip M 대비 바뀐 파일(git diff --name-only M Q · squash = Q^1 == M · --ff = PR 커밋 전부)이 1개 이상이고 전부 ^design/(.+/)?indices/ 아래면 FM_CARD_ONLY=1 · 아니면 0
+#     git 실패·시간 초과 = FM_CARD_ONLY=? + «판정 불가 — 카드 파일만 판정 <사유>» 1줄(그때 착지 줄·짝 쓰기 0 · 하드 룰 20) · 상한 = min(7, 착지 마감 남은 − 3) · 반환 0 고정(착지 rc 불변)
+#     부른 쪽 셸에서 부른다(명령 치환 0) · FM_CARD_ONLY 빈 값(안 부름) = 옛 동작 그대로
+fm_card_only() {
+  local cap dn; FM_CARD_ONLY='?'; cap="$(fm_tail_s 7)"
+  [ "$cap" -ge 1 ] 2>/dev/null || { echo "판정 불가 — 카드 파일만 판정 시간 초과(남은 0초)"; return 0; }
+  dn="$(fm_try "$cap" git -C "$1" diff --no-renames --name-only -z "$2" "$3" | tr '\0' '\n'; exit "${PIPESTATUS[0]}")" || { echo "판정 불가 — 카드 파일만 판정 git diff 실패 rc=$?"; return 0; }
+  FM_CARD_ONLY=0; [ -n "$dn" ] && ! grep -qvE '^design/(.+/)?indices/' <<<"$dn" && FM_CARD_ONLY=1   # r2248-mut:prefix
+  return 0
+}
 #   fm_land_notify_land <카드리포루트> <PR> <착지 sha 앞자리> <PR 제목> <설치 검사 rc> <설치 검사 출력> [<head 가지>] : r1478 — ft-merge-land 끝 1줄
 #     카드 = fm_card_tokens(r1848 · r1804: head 가지 토큰 하나 · 아니면 제목 토큰 · 본문 0 — 옛 카드 재알림 막음) · 설치 칸 = OK(대조 n>=1) | PENDING(검사 rc!=0 · 시간 초과 포함) | SKIP(범위에 하네스 파일 0)
 #     받은 root 는 FM_NOTIFY_REPO 로 넘긴다(env 가 다른 리포를 가리켜도 카드 리포가 이김 · DA HOLD #274782 F2)
 fm_land_notify_land() {
-  local root="$1" pr="$2" sh="$3" txt="$4" irc="$5" iout="$6" nst=SKIP tok t0=$SECONDS
+  local root="$1" pr="$2" sh="$3" txt="$4" irc="$5" iout="$6" nst=SKIP tok cl t0=$SECONDS
   printf '%s\n' "$iout" | head -n1 | grep -qE '^OK n=[1-9]' && nst=OK
   [ "${irc:-0}" = 0 ] || nst=PENDING
   [ "$nst" = PENDING ] && nst="PENDING · 다음 손: 설치 h 먼저(그 전 나노 닫기는 DRIFT 로 거절됨)"   # r1721 A1 — 본문 끝(설치 칸이 마지막 칸)
-  tok="$(fm_card_tokens "${7:-}" "$txt")"
+  tok="$(fm_card_tokens "${7:-}" "$txt")"; cl="${tok:-없음}"
+  case "${FM_CARD_ONLY:-}" in 1) cl="없음 · 카드 파일만(${tok:-토큰 0} 짝 0)"; tok="";; '?') cl="없음 · 카드 파일만 판정 불가(${tok:-토큰 0} 짝 0)"; tok="";; esac   # r2248 O3: 카드 목록 0 · 알림 1줄 그대로
   # shellcheck disable=SC2086
-  FM_NOTIFY_REPO="$root" fm_land_notify 착지 "[착지] pr=$pr sha=$sh 카드 ${tok:-없음} · 설치 $nst" $(fm_cards_by_tokens "$root" $tok)
+  FM_NOTIFY_REPO="$root" fm_land_notify 착지 "[착지] pr=$pr sha=$sh 카드 $cl · 설치 $nst" $(fm_cards_by_tokens "$root" $tok)
   fm_land_turn_notify "$root" "$pr" "$t0"   # r2124 G2: 꼬리 = nano-record notify 만(장부 = ft-merge-land 가 LANDED 바로 뒤 fm_land_turn_ledger)
 }
 #   fm_land_card_line <카드리포루트> <PR> <착지 sha 40> <PR 제목> <head 가지> <리포 이름> <target> : r2034 A1~A4 — 착지 뒤 카드(토큰 = fm_land_notify_land 와 같은 규칙 · fm_cards_by_tokens)마다
@@ -458,6 +469,7 @@ fm_land_notify_land() {
 #     r2042: 상한 = 착지 본체 기준 — fetch 상한(fm_fetch_sec) + push 1단위(fm_push_calc ? = F+7) · 남은 총 마감으로 자름 · FT_LAND_CARD_LINE_S 는 줄이기만 · 남은 < push 1단위 = 시도 0 «마감 부족(남은 N초)» · 프로세스 안 git 호출 기본 상한 = 그 값 · 카드 ref fetch 1회 = min(fetch 상한, 그 값)(DA HOLD R1)
 fm_land_card_line() {
   local root="$1" pr="$2" q="$3" txt="$4" head="$5" rn="$6" tgt="$7" tok of err cap rc p pv rem fs; local -a cd=()
+  case "${FM_CARD_ONLY:-}" in 1) echo "SKIP 카드 파일만 바꾼 PR #$pr — 카드 착지 줄 쓰기 0"; return 0;; '?') return 0;; esac   # r2248 O2: 판정 불가 = fm_card_only 의 1줄로 끝(쓰기 0)
   tok="$(fm_card_tokens "$head" "$txt")"
   [ -n "$tok" ] || { echo "SKIP 카드 없음 — 카드 토큰 0(카드 착지 줄 쓰기 0)"; return 0; }
   of="$(mktemp "${TMPDIR:-/tmp}/fm-cardline.XXXXXX" 2>/dev/null)" || { echo "판정 불가 — 카드 착지 줄 $tok mktemp 실패(${TMPDIR:-/tmp})"; return 0; }
@@ -528,6 +540,7 @@ PY
 fm_land_turn() { fm_land_turn_ledger "$@"; fm_land_turn_notify "$1" "$2" "$3"; }
 #   fm_land_turn_first <카드리포루트> <PR> <head 가지> <PR 제목> : r2124 G1 — ft-merge-land 가 LANDED·push ok 바로 뒤에 부름 · 카드 토큰 = fm_card_tokens(꼬리 알림과 같은 규칙) · 7초 몫 시작 = 이 자리 · 반환 0
 fm_land_turn_first() { local t0=$SECONDS tok; tok="$(fm_card_tokens "$3" "$4")"
+  case "${FM_CARD_ONLY:-}" in 1|'?') tok="";; esac   # r2248 O3: 카드 파일만(판정 불가 포함) = 장부 cards:[] · 장부 행 그대로(r2248-mut:pair)
   [[ "$3" =~ ^planner/verdict-[0-9]+$ ]] && tok=""   # r2157 T1: planner 판정 PR = 카드 일 아님 → 장부 토큰 0(cards:[] · 제목의 대상 카드 번호 안 잡음) · 알림·카드 착지 줄·D2 = fm_card_tokens 그대로
   # shellcheck disable=SC2086
   FM_CARDS_T0="$t0" fm_land_turn_ledger "$1" "$2" "$t0" $tok; }   # r2124 R1(DA HOLD #319782): 카드 ref 조회도 같은 7초 몫(doc 판정과 공유) · 옛 fm_land_turn 길은 ref 마다 7초 그대로
@@ -540,7 +553,7 @@ fm_land_turn_ledger() {
   cap="$(fm_tail_s $((7 - (SECONDS - t0))))"   # r2061 A2: min(7 − 쓴 초, 마감 남은 − 3) · r1782 A1: 착지가 main 에 더한 파일(M→Q · 실제 착지 REPO · 남은 7초 몫) · 전부 design/·docs/ = doc_only · 실패 = doc_err(구현으로 본다)
   if [ -z "${M:-}" ] || [ -z "${Q:-}" ]; then dk="M·Q 빈 값"; elif [ "$cap" -lt 1 ]; then dk="시간 초과(남은 0초)"; else dn="$(fm_try "$cap" git -C "${REPO:-$root}" diff --no-renames --name-only -z "$M" "$Q" | tr '\0' '\n'; exit "${PIPESTATUS[0]}")" || dk="git diff 실패 rc=$?"; fi
   [ -z "$dk" ] || { dn=""; echo "WARN doc_err: $dk — 구현 착지로 본다(pr=$pr)" >&2; }; [ -n "$dn" ] && ! grep -qvE '^(design|docs)/' <<<"$dn" && dn=1 || dn=""
-  { mkdir -p "${f%/*}" && python3 -c 'import json,sys,time;a=sys.argv;d={"pr":int(a[1]),"repo":a[2],"target":a[3],"landed":a[4],"pr_head":a[5],"by":a[6],"cards":a[10:],"ts":time.strftime("%Y-%m-%dT%H:%M:%S")};a[9] and d.update(cards_err=a[9]);a[7] and d.update(doc_only=True);a[8] and d.update(doc_err=a[8]);print(json.dumps(d,ensure_ascii=False))' "$pr" "$(cd -- "${REPO:-$root}" 2>/dev/null && pwd -P)" "${TARGET:-main}" "${Q:-}" "${HEADSHA:-}" "${FT_SEAT:-}" "$dn" "$dk" "$err" ${cd[@]+"${cd[@]}"} >>"$f"; } 2>/dev/null || echo "WARN 착지 차례 장부 쓰기 실패($f) — 착지는 성공"   # r1717-mut:ledger
+  { mkdir -p "${f%/*}" && FM_CARD_ONLY="${FM_CARD_ONLY:-}" python3 -c 'import json,os,sys,time;a=sys.argv;d={"pr":int(a[1]),"repo":a[2],"target":a[3],"landed":a[4],"pr_head":a[5],"by":a[6],"cards":a[10:],"ts":time.strftime("%Y-%m-%dT%H:%M:%S")};a[9] and d.update(cards_err=a[9]);a[7] and d.update(doc_only=True);a[8] and d.update(doc_err=a[8]);os.environ.get("FM_CARD_ONLY")=="1" and d.update(card_only=True);print(json.dumps(d,ensure_ascii=False))' "$pr" "$(cd -- "${REPO:-$root}" 2>/dev/null && pwd -P)" "${TARGET:-main}" "${Q:-}" "${HEADSHA:-}" "${FT_SEAT:-}" "$dn" "$dk" "$err" ${cd[@]+"${cd[@]}"} >>"$f"; } 2>/dev/null || echo "WARN 착지 차례 장부 쓰기 실패($f) — 착지는 성공"   # r1717-mut:ledger
   return 0
 }
 fm_land_turn_notify() {   # fm_land_turn_notify <카드리포루트> <PR> <시작 SECONDS> : ② 만(상한 = 남은 7초 몫 · < 1초 = 호출 0 · 반환 0 고정)
