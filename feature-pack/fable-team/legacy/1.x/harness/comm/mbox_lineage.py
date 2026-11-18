@@ -162,9 +162,13 @@ def wait_line(left):   # r1842 T3 — 남은 수만(본문·thread 키·글쓴�
     return "WAIT thread %d · 일반 %d — 이 묶음 답 뒤 recv 다시" % (len(th), sum(1 for _, r in left if thread_key(r) is None))
 
 
-def takeable(names, me=None):   # r2146 K1 — recv(claim)·peek 가 함께 부르는 거르개 1개(역할 키 ∧ _mine ∧ me 발신 아님)
+def self_wake(r, me):   # r2259 O1 — 받는이 = me 글자 그대로 ∧ 본문 머리(앞 공백 뒤) «[깨움]» = 좌석이 일부러 자기에게 보낸 깨움
+    return r.get("to") == me and str(r.get("body") or "").lstrip().startswith("[깨움]")
+
+
+def takeable(names, me=None):   # r2146 K1 — recv(claim)·peek 가 함께 부르는 거르개 1개(역할 키 ∧ _mine ∧ (me 발신 아님 ∨ 자기 [깨움] · r2259))
     keys, mine = {role_key(n) for n in names}, _mine(names, me or names[0])
-    return lambda r: role_key(r.get("to")) in keys and mine(r.get("to")) and (me is None or r.get("from") != me)
+    return lambda r: role_key(r.get("to")) in keys and mine(r.get("to")) and (me is None or r.get("from") != me or self_wake(r, me))
 
 
 def claim(dirs, names, frm, limit, me=None, on_take=None, only=None, pick=None):
