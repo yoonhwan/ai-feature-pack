@@ -6,7 +6,7 @@
 #           tmp · cache = «뿌리 실경로/이름 한 마디» 일 때만 `rm -rf --` · worktree = 그 리포 목록에 있을 때만 `git worktree remove`(--force 0).
 #           로그 = 목록과 같은 폴더 deleted.log(DELETED · SKIP 줄 + SUMMARY 또는 ABORT).
 #   조건: tmp = 소유자 본인 · 심링크 아님 · 안의 모든 mtime 이 7일 넘음 · 열린 파일 0 · 이름에 탭/줄바꿈 0 / cache = 심링크 아님 · 열린 파일 0 · 이름
-#         worktree = 주 아님 · locked 아님 · 폴더 있음 · HEAD ⊂ origin/main · status 0줄 · push 안 된 커밋 0 · tmux pane 0 · 열린 파일 0 · index 24시간 넘음
+#         worktree = 주 아님 · LIVE_ROOT 아님(r2242 · 공용 루트 .fable-team/LIVE_ROOT 1행과 samefile) · locked 아님 · 폴더 있음 · HEAD ⊂ origin/main · status 0줄 · push 안 된 커밋 0 · tmux pane 0 · 열린 파일 0 · index 24시간 넘음
 #   지우지 않는 것: 목록 밖 · 뿌리 밖 · 심링크가 가리키는 곳 · 가지 · prune · sudo. 뿌리 실경로가 / 또는 홈이면 rc 2.
 #   판정 불가: lsof · tmux · git worktree list · df 가 rc≠0 또는 시간 초과 → `판정 불가 <명령>` · rc 3 · plan 은 목록 0 · apply 는 ABORT 줄 뒤 지우기 0.
 #   env: FT_RECLAIM_TMP_ROOT(/private/tmp) · FT_RECLAIM_CACHE_ROOT(~/Library/Caches) · FT_RECLAIM_REPOS(: 구분 · BYZ · 팩)
@@ -107,9 +107,19 @@ def index_mtime(p):
         return os.stat(os.path.join(p, g, "index")).st_mtime if g else None
     except OSError: return None
 
+def live_root(repo, p):   # r2242 · <공용 루트>/.fable-team/LIVE_ROOT 1행과 같은 폴더(장치 · inode) · git 실패 = "판정 불가" · 파일 없음 · 못 읽음 · 절대경로 아님 · stat 실패 = None
+    rc, g = run(["git", "-C", repo, "rev-parse", "--path-format=absolute", "--git-common-dir"])
+    if rc or not g.strip(): return "판정 불가"
+    g = g.strip(); g = g[:-5] if g.endswith("/.git") else g
+    try:
+        v = open(os.path.join(g, ".fable-team", "LIVE_ROOT")).read().split("\n")[0].strip("\r")
+        return "LIVE_ROOT" if v.startswith("/") and os.path.samefile(p, v) else None
+    except (OSError, ValueError): return None
+
 def wt_bad(repo, w, main, op, pn):   # 처음 어긋난 조건 · None = 후보
     p = w["path"]; rp = os.path.realpath(p)
     if main: return "주 worktree"
+    if (lr := live_root(repo, p)): return lr
     if "locked" in w["flags"]: return "locked"
     if not os.path.isdir(p): return "폴더 없음"
     idx = index_mtime(p)
