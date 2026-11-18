@@ -26,6 +26,7 @@ WORK_S, REPORT_S, TAIL_S = 45, 55, 60   # R1 구획 = 업무 0~45 · report 45~5
 NANO_S, LONG_S, MIN_S = 7, 20, 1   # R6 나노 합 7초 · R2 긴 쓰기(자기 상한 > 7)는 20초 뒤 시작 0 · 남은 몫 < 1초 = 시작 0
 ORDER = ("b1", "b2c", "stall", "b2f", "b3o", "b3r")   # R4 자리 차례(팀 → work → 칸 → b3o → b3r)
 READ_GIT = frozenset(("rev-parse", "merge-base", "grep", "ls-tree", "ls-remote", "fetch", "log", "show", "cat-file", "cherry", "rev-list", "status"))   # R2 판독 git 동사
+STUCK = ("착지 줄 없음", "두 가지에 진행 카드", "진행·대기 둘 다 카드", "진행 카드 ")   # r2266 C1 card_stage 영구 Unsure 사유 머리 · done 없음·일시 사유 = 밖
 READ_TMUX = frozenset(("has-session", "display", "display-message", "capture-pane", "list-sessions"))   # R2 판독 tmux 동사
 
 
@@ -165,6 +166,8 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         n = book[key][1] if book.get(key, [None])[0] == day else 0   # 날이 바뀜 = 0부터
         if n >= 3:
             return None
+        if len(book.get(key, ())) > 2 and self.root not in self.stale and book[key][3] == self.hits(team, work):   # r2266 C1 영구 사유 · 적중 지문 같음 = 재시도 0(날 무관 · BYZ 낡은 바퀴 = 비교 0)
+            return None
         real = self.cs.spawn
         def spawn(*args, **kw):   # r2026 R1 — card_stage git 1회 전마다 바퀴 남은 예산 ≥ 7초(main 예산 시계 self.left)
             left = self.left()   # r2098 R1 바퀴 예산 시계(구획 끝까지 남은 초 · 바퀴 밖 = None = 묶음 0)
@@ -178,7 +181,8 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
                 raise self.cs.Unsure("done 없음")
             out = self.cs.stage(self.root, self.root, team, work, at, self.stamp())
         except (self.cs.Unsure, subprocess.TimeoutExpired, OSError) as exc:
-            book[key] = [day, n + 1]
+            got = self.hits(team, work) if str(exc).startswith(STUCK) and self.root not in self.stale else None   # r2266 C1 값 기억 = [사유, 적중 지문]
+            book[key] = [day, n + 1] + ([str(exc), got] if got is not None else [])
             return self.log("Unsure", team, "%s card_stage %s" % (work, exc))
         except OutOfRound as exc:   # 예산 모자람 = 하루 3회 셈 밖 · 다음 바퀴
             book[key] = [day, n]
@@ -188,6 +192,24 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         book.pop(key, None)
         self.state["staged"][key] = day   # r2140 K3 STAGED·NOOP = 기억(state.json · Unsure·DEFER 는 0)
         return self.log("CARD-STAGE", team, "%s %s %s" % (work, out[1], out[2])) if out else self.log("NOOP", team, work + " 이미 완성")
+
+    def hits(self, team, work):
+        """r2266 C1 적중 지문 = land.REFS 두 ref 의 design/**/indices/<단계>/ 카드 중 card() 이름 규칙(짝 표 → <work>.md → <work>-*.md)에 드는 [ref, 경로, blob] 이름순(적중 0 = []) ·
+        읽기 = 바퀴 fetch 로 신선한 remote-tracking ref(ls-tree 1회 · ref 마다 바퀴 캐시) · 판독 실패 = None."""
+        mapped = self.cardmap(team)
+        mapped = mapped.get(work) or [] if isinstance(mapped, dict) else mapped
+        if isinstance(mapped, str):
+            return None
+        names, dirs, out, trees = {os.path.basename(p) for p in mapped}, [["indices", s] for s in land.STAGES], [], self.cache.setdefault("@round", {}).setdefault("tree", {})
+        like = lambda b: b in names if names else b == work + ".md" or b.startswith(work + "-") and b.endswith(".md")   # noqa: E731
+        for ref in land.REFS:
+            if ref not in trees:
+                rc, text, _ = self.git(self.root, "ls-tree", "-r", "-z", ref, "--", "design")
+                if rc != 0:
+                    return None
+                trees[ref] = [row.partition("\t")[::2] for row in text.split("\0") if "\t" in row]
+            out += [[ref, p, meta.split()[2]] for meta, p in trees[ref] if like(os.path.basename(p)) and p.split("/")[-3:-1] in dirs]
+        return sorted(out)
 
     @staticmethod
     def git_call(argv):
