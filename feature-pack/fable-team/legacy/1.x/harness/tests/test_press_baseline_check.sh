@@ -6,7 +6,7 @@
 set -uo pipefail
 fin=0; T=""   # r2249 O2: 끝 표지 — 중간에 죽거나 exit 0 해도 EXIT trap 이 rc 1 로 바꾼다(bash 3.2 연관 배열 죽음 = rc 0)
 trap 'rc=$?; [ -n "$T" ] && rm -rf "$T"; [ "$fin" = 1 ] || { echo "FAIL 끝 줄 없음 — 시험이 끝까지 돌지 않음(rc=$rc)"; exit 1; }; exit $rc' EXIT
-WANT_CASES=29   # r2249 O2: 기대 사례 수(expect 칸을 더하면 같이 고친다)
+WANT_CASES=30   # r2249 O2: 기대 사례 수(expect 칸을 더하면 같이 고친다)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$HERE/../../harness/bin"
 GATE="$BIN/ft-press-gate.sh"
@@ -136,6 +136,7 @@ base r-v6 profile room control "$(rctl room-keyboard "$(roomflags V6_LST=0)")" e
 base r-roomx profile roomx control "$(rctl room-keyboard)" evidence "$RE"
 base r-noev profile room control "$(rctl room-keyboard)" evidence ""
 base r-mid profile room control "$(rctl room-keyboard "$(roomflags PRESS_LST_TOGGLE_MID_PRESS_MS=500)")" evidence "$RE"
+base s-noev control "$(rctl PRESS_SIDE_LANG_CLICK:1)" evidence ""   # r2249 ④: solo · evidence 키 있음 ∧ 값 빈
 rc_() { card "$1" "기준선: $P/$1.md" '실험: 없음'; }
 expect 3 'diff 0 = 커밋 소스 동일' "① 머리줄 profile: room(≠ 카드 머리 프로필) · click=room-keyboard · RESULT click null+사유 · scenario_id → 통과" "$(rc_ r-ok)" "$ST"
 expect 1 'BLOCK control click: room-keyboard — 기준선 프로필은 PRESS_SIDE_LANG_CLICK:1 고정' "② profile 없음(solo) · click=room-keyboard → 막힘" "$(rc_ r-solo)" "$ST"
@@ -147,7 +148,10 @@ expect 3 'NOTE room: PRESS_\* 11개 대조 제외' "⑤ profile room · PRESS_LS
 expect 1 'BLOCK control flags: V6_LST=0 ≠ 기본값 1' "⑥ profile room · V6_LST=0(worker key) → 막힘" "$(rc_ r-v6)" "$ST"
 expect 1 'BLOCK profile: roomx — profile: room 만' "⑦ profile: roomx → 막힘" "$(rc_ r-roomx)" "$ST"
 expect 1 'BLOCK control flags: PRESS_LST_TOGGLE_MID_PRESS_MS=500 ≠ 기본값 0' "⑨ profile room · PRESS_LST_TOGGLE_MID_PRESS_MS=500(방 러너가 읽음) → 막힘" "$(rc_ r-mid)" "$ST"; notes1
-expect 1 'BLOCK profile room ↔ RESULT 없음(evidence 빈 값)' "⑩ profile room · evidence: 빈 값 → 막힘(RESULT 대조 건너뜀 0)" "$(rc_ r-noev)" "$ST"
+EVE='BLOCK evidence: 빈 값 — RESULT json 경로 필수'
+evempty1() { [ "$(printf '%s\n' "$OUT" | grep -c '^[[:space:]]*BLOCK evidence: 빈 값')" -eq 1 ] && ! printf '%s' "$OUT" | grep -q 'RESULT 없음' && ok "$n-b. 빈 evidence BLOCK 1줄 · 겹침 0" || bad "$n-b. 빈 evidence BLOCK 수"; }
+expect 1 "$EVE" "⑩ profile room · evidence: 빈 값 → 막힘(RESULT 대조 건너뜀 0)" "$(rc_ r-noev)" "$ST"; evempty1
+expect 1 "$EVE" "⑪ solo · evidence: 빈 값 → 막힘(profile 상관없음 · r2249)" "$(rc_ s-noev)" "$ST"; evempty1
 
 [ "$n" -eq "$WANT_CASES" ] || bad "사례 수 $n ≠ 기대 $WANT_CASES"
 echo "cases=$n fail=$fail"; fin=1; [ $fail -eq 0 ] && echo "ALL PASS"
