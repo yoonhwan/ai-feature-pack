@@ -93,6 +93,7 @@ class World:
                      PATH=str(tmp / "psbin") + os.pathsep + os.environ["PATH"])
         for team in (TEAM, "planner"):
             _put(s.root / ".fable-team" / ("seats-%s.json" % team), {"_master": "M-" + team})
+        _put(s.state / "disk-alarm.log", ""), os.utime(s.state / "disk-alarm.log", (T0, T0))   # r2238 하루 정리 살아 있음(나이 0) = 생존 검사 줄·쪽지 0
     @property
     def K(s):
         return _mod(s.ft2 / "adapters" / "pi" / "keeper.py", "kp_%d" % id(s))

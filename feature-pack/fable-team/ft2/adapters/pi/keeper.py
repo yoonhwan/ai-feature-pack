@@ -59,6 +59,7 @@ kf = _load(os.path.join(HERE, "keeper_fetch.py"), "ft2_keeper_fetch")   # r1975 
 settling = _load(os.path.join(HERE, "keeper_settle.py"), "ft2_keeper_settle")   # r2055 settle 한 길 · ALL_STOP
 cstage = _load(os.path.join(HERE, "card_stage.py"), "ft2_keeper_card_stage")   # r2026 complete 뒤 대기|진행 → 완성
 kblock = _load(os.path.join(HERE, "keeper_block.py"), "ft2_keeper_block")   # r2072 10분 넘게 이어진 줄 → 막힘 장부
+daily = _load(os.path.join(HERE, "keeper_daily.py"), "ft2_keeper_daily")   # r2238 하루 정리 생존 검사
 
 
 class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settling):
@@ -525,6 +526,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         self.sect = REPORT_S   # R1 report 구획(45~55초)
         try:
             self.report()
+            daily.check(self)   # r2238 O2~O4 하루 정리 생존 검사(하루 1회 · stat 1회 · 멈춤 = [긴급] 1통)
         except Cut:
             self.mark_cut()   # R3 report 끊김 = rep_cursor · 마무리는 한다
         self.sect = TAIL_S   # R1 마무리 구획(55~60초) = 바깥 호출 0
