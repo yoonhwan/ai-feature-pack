@@ -90,6 +90,20 @@ def first_word_tail_ok(fc: list) -> bool:
     return bool(fc) and fc[0] in FIRST_OK and len(tail) <= 3 and not any("?" in w or "？" in w for w in fc) and not any(s.startswith(TAIL_NO) for w in tail for s in re.split(r"\W+", w))
 
 
+# r2195 · r1950 덧말 갈래의 덧말 조각 = 영문·숫자·_·- 가 이어진 것(숫자만 = 길이 무관 · 그 밖 3자 이상). 오빠 확인 대상 — 바꾸려면 PR.
+TAIL_BIT = re.compile(r"[A-Za-z0-9_-]+")
+
+
+def tail_words_ok(fc: list, sha: str, text: str) -> bool:
+    """r2195 B1·B2 — 덧말 조각 전부가 이 sha 의 열쇠(열쇠 줄 정확히 1개 · 다른 sha 와 안 겹침) 또는 승인 낱말일 때만 True(«네 ENFORCE» = 다른 항목 = False). 오빠 확인 대상 — 바꾸려면 PR."""
+    keys = KEY_LINE.findall(text)
+    mine = [k.lower() for k, h in keys if h.lower() == sha.lower()]
+    others = {k.lower() for k, h in keys if h.lower() != sha.lower()}
+    key = mine[0] if len(mine) == 1 and mine[0] not in others else None
+    bits = [b for w in fc[1:] for b in TAIL_BIT.findall(w.lower()) if b.isdigit() or len(b) >= 3]
+    return all(b == key or b in APPROVE_WORDS for b in bits)
+
+
 def reply_words(m: dict) -> list:
     """답글 토막 — 앞뒤 공백 제거 · 영문 소문자 · 끝 문장부호(. ! ~) 제거 뒤 공백·쉼표로 나눈다(«예. 승인» = [예, 승인]). 본문 없으면 빈 목록."""
     t = m.get("text")
@@ -202,6 +216,7 @@ def judge(ts: str, shas: list, after: str | None = None, stop: list | None = Non
         if no:
             raise ValueError("오빠 거절 답글 reply=%s" % no[0])
         yes = [t for t, _, fc in said if fc and all(w in APPROVE_WORDS for w in fc)] or [t for t, _, fc in said if first_word_tail_ok(fc)]  # r1696 ⓑ · r1950 · «첫 조각» 의 토막이 전부 승인 낱말이면 승인
+        yes = [t for t, _, fc in said if t in yes and tail_words_ok(fc, sha, text)]  # r2195 B2 · 덧말 갈래만 걸린다(첫 갈래 토막 = 승인 낱말뿐 · 영문 ok·go 는 2자라 조각 0)
         if not yes:  # r1606 · 오타·모르는 토막 = 승인 0 (BYZ #8243 «tmddls»)
             raise Unjudgeable("답글 내용 승인 낱말 아님")
         out.append("SLACK-OK %s parent=%s reply=%s" % (sha, ts, yes[0]))
