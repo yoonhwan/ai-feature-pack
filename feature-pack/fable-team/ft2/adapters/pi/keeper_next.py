@@ -486,6 +486,19 @@ def prereq_tell(k, team, unread):
         told[team] = fp
 
 
+def wake_read(k, team):
+    """r2267 W1~W3 — 휴면 팀 선행 판정만(cards 1회 · fill·stage·close·원장·팀 쪽지·gh·fetch 0) · 기억 = wake_seen[팀]{카드: 판정} ·
+    앞 판독에서 선행/선행불명(또는 풀림)이던 카드가 "" = 풀림 · 처음 보는 팀·카드 = 기억만 · 풀림 묶음(이름순) ≥ 1 → k.wake(planner 1통 · 같은 열쇠 0)."""
+    got = cards(k, team)
+    if isinstance(got, str):
+        return
+    book = k.state.setdefault("wake_seen", {})
+    prev = book.get(team)
+    book[team] = {s: "풀림" if row[3] == "" and prev and prev.get(s) in ("선행", "선행불명", "풀림") else row[3] for s, row in got[0].items()}
+    if freed := sorted(s for s, v in book[team].items() if v == "풀림"):
+        k.wake(team, freed)
+
+
 def close(k, team, work, attempt, holder, gen):
     """닫기 영수 1회(지금 자리) + 다음 카드. 반환 = 영수 결과. r2101 H3 = 새 카드 보류면 이 고르기만 멈춘다(영수·이어 잇기 그대로)."""
     choose = held_choose   # r2188 H2 채우기와 같은 보류 목록 · 아래 고르기 줄은 글자 그대로(r1871 M5 · 벌점 M63 변이가 그 줄을 찾는다)

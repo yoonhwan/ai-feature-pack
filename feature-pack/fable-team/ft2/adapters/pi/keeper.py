@@ -567,6 +567,16 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
             self.mark_cut()   # R3 끊김 = 이 바퀴 업무 구획 끝 · cursor 남김 · 뒤 항목 시작 0
         except Ungraded:
             pass   # R7 판정 불가 = 그 자리 남은 판정 0 · 다음 자리(이미 판정 줄을 썼다)
+        for team in [t for t in self.state.get("wake_seen", {}) if t not in self.skip]:
+            self.state["wake_seen"].pop(team)   # r2267 H2 휴면 밖 바퀴 = 기억 지움(다시 휴면 = 처음 보는 팀)
+        cut0 = (self.cut, self.cut_pos)
+        try:
+            for team in ([] if self.root in self.stale else sorted(self.skip)):   # r2267 W1 업무 구획 끝 · 휴면 팀 선행 판독 · BYZ 낡은 바퀴 = 0
+                if (left := self.left()) is not None and left < CALL_S:
+                    break   # W1 남은 몫 < 7초 = 그 바퀴 0 · 다음 바퀴
+                closing.keeper_next.wake_read(self, team)
+        except (Cut, Ungraded):
+            self.cut, self.cut_pos = cut0   # 판독 끊김 = 업무 구획 cut·cursor 흔적 0
         if self.cut == "-":   # R4 — 끊기지 않고 바퀴를 다 돌았으면 cursor 를 지운다
             self.state.pop("cursor", None)
         self.at, self.at_work, self.cursor_stage = None, "-", "-"
