@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_mbox_alert_batch_r2169.sh — r2169: 도구 일반 알림 = 큐 행에 wake_at(15분 뒤) · 긴급 = 첫 통만 즉시, 같은 지문 반복(60분 창) = wake_at.
-#  ① 묶음 칸(큐 · 기록 행 · 기준판 Red)  ② 묶음 13꼴 + 표 밖 5통  ③ [크리티컬] 첫 통 · 반복 · PR 번호 · 받는 좌석 · 승계  ④ 60분 창(마지막 통 기준)
+#  ① 묶음 칸(큐 · 기록 행 · 기준판 Red)  ② 묶음 11꼴 + 표 밖 5통 + desk 틱 2꼴(칸 0 · r2269)  ③ [크리티컬] 첫 통 · 반복 · PR 번호 · 받는 좌석 · 승계  ④ 60분 창(마지막 통 기준)
 #  ⑤ 지문 ⓐ 좌석 이름 통째 · ⓑ 카드 번호 r숫자  ⑥ 적재 실패 → 기록 0  ⑦ 거름 먼저(SKIPPED = wake_judge 호출 0 · batched 0 · 첫 통 기록 불변)
 #  ⑧ 판정 불가 = 칸 0  ⑨ 불변(좌석 쪽지 · --urgent · --force · 표 밖 · tmux 좌석 · 호출 환경 값)  ⑩ recv · peek · 접기  ⑪ batched.log
 # 격리: 정본 comm 사본 + 가짜 명부(팀장 agent pi · agent claude · planner _master · _desk) + 확장 파일 대역(HOME) + 임시 우편함 · state · tmux 스텁 · 실 우편함 0 · sleep 0.
@@ -107,6 +107,8 @@ ft-nano-record|[정리 차례 · 카드 없음] byz-harness-nano-r2101#0
 ft-nano-record|[정리 차례 · 닫기 거절] byz-harness-nano-r2101#0
 ft-idle-scan|[5분 점검 10:57] 작업 7 · 닫기 대상 0
 ft-tick|[계정 안내] 풀 claude: 가용 8/10
+ROWS
+  while IFS='|' read -r f b; do new_env; NOW=$T0 w - "② desk 틱 칸 0(r2269) $f ${b%%]*}]" "$M1" "$f" "$b"; done <<'ROWS'
 ft-desk-tick|[틱 10:57] 5분 정기 프로그레스
 ft-desk-tick|[aifp 15분 점검 10:57] aifp master Working
 ROWS
@@ -163,16 +165,14 @@ wrap_wj() {   # 판정 모듈을 불러 wake_judge 를 호출 수를 세는 대�
   mv "$C/mbox_alert_policy.py" "$C/mbox_alert_policy_real.py"
   printf 'import importlib.util, os, sys\nh = os.path.dirname(os.path.abspath(__file__))\ns = importlib.util.spec_from_file_location("ap", os.path.join(h, "mbox_alert_policy_real.py")); m = importlib.util.module_from_spec(s); s.loader.exec_module(m)\no = m.wake_judge\ndef c(*a, **k):\n    open(os.path.join(h, "WJ_COUNT"), "a").write("1\\n"); return o(*a, **k)\nm.wake_judge = c\nsys.exit(m.main(sys.argv[1:]))\n' > "$C/mbox_alert_policy.py"
 }
-if want 7; then new_env; wrap_wj
-  TK() { printf '[틱 %s] 5분 정기 프로그레스 — ft-desk-tick.sh 1회' "$1"; }
-  NOW=$T0 w $((T0+900)) "⑦ [틱] 첫 통 → QUEUED + wake_at" "$M1" ft-desk-tick "$(TK 10:57)"
+if want 7; then new_env; wrap_wj   # r2269: 보기 갈래 = ft-idle-scan [N분 점검 N:N](바뀐 때만 + 묶음) · ft-desk-tick 묶음 행은 지움
+  C5() { printf '[5분 점검 %s] 작업 7 · 10분↑ 유휴 3 · 시간 모름 1\n%s\n유휴: a#1 3분[유지]\n시간 모름: 0\n팀장 통보: 보냄 3통 · 미발송 0\n할 일: 닫기 대상 줄 먼저' "$1" "$2"; }
+  NOW=$T0 w $((T0+900)) "⑦ [5분 점검] 첫 통 → QUEUED + wake_at" "$M1" ft-idle-scan "$(C5 10:55 '닫기 대상 0')"
   chk "⑦ 첫 통 = wake_judge 호출 1(실 mbox.sh send 길)" "$(lines "$C/WJ_COUNT")" 1
   b0="$(lines "$AP/batched.log")"; f0="$(cksum "$AP/first.json" 2>/dev/null || echo none)"
-  NOW=$((T0+300)) sh_ "$M1" ft-desk-tick "$(TK 11:02)"
-  chk "⑦ 5분 뒤 [틱] → SKIPPED · wake_judge 호출 0 · batched 줄 0 · 첫 통 기록 불변" \
+  NOW=$((T0+300)) sh_ "$M1" ft-idle-scan "$(C5 11:00 '닫기 대상 0')"
+  chk "⑦ 5분 뒤 안 바뀐 [5분 점검] → SKIPPED · wake_judge 호출 0 · batched 줄 0 · 첫 통 기록 불변" \
     "${OUT%%갈래=*}|$(lines "$C/WJ_COUNT")|$(( $(lines "$AP/batched.log") - b0 ))|$(cksum "$AP/first.json" 2>/dev/null || echo none)" "SKIPPED alert-policy |1|0|$f0"
-  C5() { printf '[5분 점검 %s] 작업 7 · 10분↑ 유휴 3 · 시간 모름 1\n%s\n유휴: a#1 3분[유지]\n시간 모름: 0\n팀장 통보: 보냄 3통 · 미발송 0\n할 일: 닫기 대상 줄 먼저' "$1" "$2"; }
-  NOW=$T0 w $((T0+900)) "⑦ [5분 점검] 첫 통" "$M1" ft-idle-scan "$(C5 10:55 '닫기 대상 0')"
   NOW=$((T0+300)) w $((T0+1200)) "⑦ [5분 점검] 닫기 대상 줄이 바뀐 통 → QUEUED + wake_at" "$M1" ft-idle-scan "$(C5 11:00 '닫기 대상 1 — x-nano#0 22분[착지 끝 — 닫기]')"
 fi
 if want 8; then

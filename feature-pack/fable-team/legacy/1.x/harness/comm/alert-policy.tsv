@@ -15,8 +15,6 @@ ft-nano-record	[정리 차례 · 카드 없음]		묶음	15분
 ft-nano-record	[정리 차례 · 닫기 거절]		묶음	15분
 ft-idle-scan	[N분 점검 N:N]		묶음	15분
 ft-tick	[계정 안내]		묶음	15분
-ft-desk-tick	[틱 N:N]		묶음	15분
-ft-desk-tick	[aifp N분 점검 N:N]		묶음	15분
 ft-idle-scan	[긴급]		첫 통	60분 · 15분
 ft-distill-gate	[크리티컬]		첫 통	60분 · 15분
 ft2-keeper	[긴급]		첫 통	60분 · 15분
