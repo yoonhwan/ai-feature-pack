@@ -4,7 +4,8 @@
 # 사건: ft-successor-open 을 PATH 로 부르면 판 번호가 박힌 옛 판(1.1.270)이 돌았다 — 링크를 손으로 만들었고 점검이 없었다.
 # T1 링크 → 옛 판 = DRIFT-LINK 1줄 rc1 · T2 링크 → 지금 LIVE_BIN = 0줄 · T3 링크 → 루트 shim = 0줄
 # T4 ft-* 아닌 링크·ft-* 일반 파일 = 0줄 · T5 깨진 링크 = DRIFT-LINK(대상 없음) 1줄
-# 변이(손 적용 확인): M1 = 판 비교 삭제 → T1 FAIL · M2 = shim 허용 삭제 → T3 FAIL
+# T6 ft-* 인데 LIVE_BIN 에 <이름>.sh 없음(ft-visual 꼴 · 하네스 도구 아님) = 0줄 (DA#26 H1)
+# 변이(손 적용 확인): M1 = 판 비교 삭제 → T1 FAIL · M2 = shim 허용 삭제 → T3 FAIL · M3 = 이름 대조 삭제 → T6 FAIL
 # 임시 HOME·가짜 live 2판·임시 루트·임시 git 리포만 — 실 ~/.local/bin·실 ~/.claude 0 · 링크 수정 0 확인 · timeout 70.
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY GIT_CEILING_DIRECTORIES
@@ -22,6 +23,7 @@ export HOME="$T/home"; mkdir -p "$HOME/Library/LaunchAgents" "$HOME/.local/bin";
 export FT_ROOTS_TSV="$T/none.tsv"
 LV="$T/fable-team/live"; OLD="$LV/1.1.270/bin"; NEW="$LV/1.1.292/bin"
 for d in "$OLD" "$NEW"; do mkdir -p "$d"; printf '#!/bin/bash\necho x\n' > "$d/ft-budget.sh"; chmod +x "$d/ft-budget.sh"; done
+for n in ft-plain ft-x; do printf '#!/bin/bash\necho x\n' > "$NEW/$n.sh"; done   # 하네스 도구 이름(LIVE_BIN 에 있음)
 
 # ── 픽스처: 키트 리포(skip 행만 — 다른 점검 줄 0) · 루트 P(LIVE_BIN = NEW · .fable-team/bin 에 shim 1개) ──
 R="$T/repo"; mkdir -p "$R/kit"; G() { git -C "$R" "$@"; }
@@ -62,6 +64,10 @@ clr; ln -s "$OLD/ft-budget.sh" "$LB/budget"; printf '#!/bin/bash\n' > "$LB/ft-pl
 clr; ln -s "$T/gone/ft-x.sh" "$LB/ft-x"; chk
 [ "$rc" = 1 ] && has "DRIFT-LINK ft-x -> $T/gone/ft-x.sh (대상 없음)" && [ "$(cnt 'DRIFT-LINK')" = 1 ]
 ck "T5 깨진 링크 → DRIFT-LINK(대상 없음) 1줄 rc1" $?
+
+# ── T6: ft-* 인데 LIVE_BIN 에 같은 이름 .sh 없음(ft-visual 꼴) → 0줄 (DA#26 H1) ──────────────
+clr; mkdir -p "$T/state"; printf '#!/bin/bash\n' > "$T/state/visual-r1429.sh"; ln -s "$T/state/visual-r1429.sh" "$LB/ft-visual"; chk
+[ "$rc" = 0 ] && hasnt "DRIFT-LINK"; ck "T6 ft-* 이름이 LIVE_BIN 에 없음(ft-visual) → 0줄 rc0" $?
 
 # ── 범위 밖: 루트 LIVE_BIN 없음 → 이 갈래 줄 0 · ~/.local/bin 없음 → 줄 0 ───────────────────
 clr; ln -s "$OLD/ft-budget.sh" "$LB/ft-budget"; mv "$P/.fable-team/LIVE_BIN" "$T/LIVE_BIN.off"; chk
