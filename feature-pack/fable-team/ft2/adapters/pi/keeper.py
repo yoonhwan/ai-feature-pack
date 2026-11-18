@@ -77,7 +77,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         self.stall = _load(os.path.join(HERE, "keeper_stall.py"), "ft2_keeper_stall").Stall(self)   # r1813 S1~S5
         self.spent, self.sock, self.skip, self.stale = dict.fromkeys(("fetch", "b1", "b2c", "b2f", "b3", "stall"), 0.0), True, set(), set()
         self.per, self.at = {}, None   # r1969 (팀, 칸) 초 → ROUND slow 칸 · at = 지금 도는 팀(None = 팀 밖)
-        self.table, self.nano, self.refs, self.picked, self.bg, self.fetch_s = {}, {}, {}, [], {}, {}   # r1975
+        self.table, self.nano, self.refs, self.picked, self.bg, self.fetch_s, self.fetch_err = {}, {}, {}, [], {}, {}, {}   # r1975 · r2241 fetch_err
         self.stage, self.tally = "-", {}   # r1992 지금 칸(timed) · (팀, 칸) → [호출 시도 수, SLOW-CALL 초 합]
         self.halt, self.unknown = False, 0   # r2055 ALL_STOP(바퀴마다 판독) · 바퀴 UNKNOWN 수(ROUND unknown=N)
         self.start, self.sect, self.items, self.total, self.cut = None, WORK_S, 0, 0, "-"   # r2098 R1 예산 시계 · R10 ROUND 칸
@@ -345,7 +345,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         def fetch(repo, retry=1):   # r1975 시도마다 1줄(소요 초·rc · 재시도 포함 · ROUND 합과 따로)
             for n in range(1, retry + 2):
                 at = self.now()
-                rc = self.git(repo, "fetch", "-q", "--no-tags", "origin", *self.fetch_refs(repo), timeout=FETCH_S)[0]
+                rc, _, self.fetch_err[repo] = self.git(repo, "fetch", "-q", "--no-tags", "origin", *self.fetch_refs(repo), timeout=FETCH_S)   # r2241 stderr = 묵은 ref 잠금 찾기 첫 후보
                 self.log("FETCH-TRY", text="%s %d/%d rc=%s s=%g" % (repo, n, retry + 1, rc, round(self.now() - at, 1)))
                 if rc == 0:
                     break
@@ -488,7 +488,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
             self.in_fetch = False
         self.sock = self.socket_ok()
         if self.stale:   # BYZ 낡음 = 카드·TEAMS·짝 표도 낡음 → 판정 0 · 팩만 낡음 = 팩 ref 를 읽는 판정(landing 조상·다음 카드 target)만 0
-            self.log("판정 불가", text="git fetch 실패 %s — %s" % (" ".join(r for r in (self.root, self.pack) if r in self.stale), "이 바퀴 B1·B2 0" if self.root in self.stale else "팩 기대 판정만 0"))
+            self.log("판정 불가", text="git fetch 실패 %s — %s%s" % (" ".join(r for r in (self.root, self.pack) if r in self.stale), kf.lock_note([r for r in (self.root, self.pack) if r in self.stale], self.fetch_err), "이 바퀴 B1·B2 0" if self.root in self.stale else "팩 기대 판정만 0"))
         if out := [r for r in (self.root, self.pack) if r not in self.picked]:   # r1975 ② 목록 밖 리포 = fetch 0 · 그 리포를 읽는 판정만 0
             self.stale |= set(out)
             self.log("판정 불가", text="FETCH_TARGETS 밖 %s — fetch 0 · %s" % (" ".join(out), "이 바퀴 B1·B2 0" if self.root in out else "팩 기대 판정만 0"))
