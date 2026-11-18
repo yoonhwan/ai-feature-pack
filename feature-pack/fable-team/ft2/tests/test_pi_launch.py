@@ -168,7 +168,7 @@ def case_open(tmp, launcher=LAUNCH):
     out, rc = _launch(root, fake, launcher)
     assert (out["result"], rc, out["opened"]) == ("접수 성공", 0, True), out
     lines = [line for line in _log(fake) if line["sub"] not in ("ls-tree", "cat-file")]   # r2082 기준 sha 읽기 호출을 뺀 목록 = 기준판
-    assert [line["prog"] for line in lines] == ["git"] * 4 + ["tmux"] * 2, lines   # r1892: new-session 뒤 has-session 1회
+    assert [line["prog"] for line in lines] == ["git"] * 4 + ["tmux"] * 3, lines   # r1892: new-session 뒤 has-session 1회 · r2257: 그 뒤 개설 영수 1회
     assert lines[0]["argv"] == ["-C", str(root), "rev-parse", "--verify", "--quiet", BASE + "^{commit}"], lines[0]
     assert lines[1]["argv"] == ["-C", str(root), "worktree", "add", "--no-checkout", "--detach", out["worktree"], FAKE_SHA], lines[1]
     lines = lines[:2] + lines[4:]                     # r1846: sparse·checkout 2줄은 case_sparse_order 가 본다
@@ -317,7 +317,7 @@ def case_repo_target(tmp, launcher=LAUNCH):
     out, rc = _launch(root, fake, launcher, extra=["--repo", str(repo)], env_extra=_repo_env())
     assert (out["result"], rc) == ("접수 성공", 0), out
     lines = [line for line in _log(fake) if line["sub"] not in ("ls-tree", "cat-file")]   # r2082 기준 sha 읽기 호출을 뺀 목록 = 기준판
-    assert [line["prog"] for line in lines] == ["git"] * 5 + ["tmux"] * 2, lines
+    assert [line["prog"] for line in lines] == ["git"] * 5 + ["tmux"] * 3, lines   # r2257 개설 영수 1회
     assert lines[0]["argv"] == ["-C", str(repo), "rev-parse", "--show-toplevel"], lines[0]
     assert lines[1]["argv"] == ["-C", str(repo), "rev-parse", "--verify", "--quiet", BASE + "^{commit}"], lines[1]
     base_sha = _git(repo, "rev-parse", "refs/remotes/origin/main")
@@ -477,7 +477,7 @@ def case_sparse_order(tmp, launcher=LAUNCH):
     out, rc = _launch(root, fake, launcher)
     assert (out["result"], rc) == ("접수 성공", 0), out
     lines = [line for line in _log(fake) if line["sub"] not in ("ls-tree", "cat-file")]   # r2082 기준 sha 읽기 호출을 뺀 목록 = 기준판
-    assert [line["sub"] for line in lines] == ["rev-parse", "worktree", "sparse-checkout", "checkout", "new-session", "has-session"], lines
+    assert [line["sub"] for line in lines] == ["rev-parse", "worktree", "sparse-checkout", "checkout", "new-session", "has-session", "display-message"], lines   # r2257 개설 영수 1회
     assert "--no-checkout" in lines[1]["argv"], lines[1]
     assert (lines[2]["argv"], lines[3]["argv"]) == _sparse_argv(root), lines[2:4]
 
