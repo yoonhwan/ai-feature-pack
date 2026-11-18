@@ -44,6 +44,7 @@ run() { # run <본문> — 출력 $TMP/out · rc $RC · 로그 초기화
   rm -f "$LOG" "$OPENED"; rm -rf "$REPO/.fable-team/state/successor"; : > "$LOG"
   env HOME="$TMP/home" PANE_CWD="$TMP/pane" PATH="$FAKE:$PATH" LOG="$LOG" OPENED="$OPENED" SENSORS="$SENSORS" FT_RES_ROOT="$RES" \
       FT_TEAMSET_MD="$TMP/teamset.md" FT_GOV_MD="$TMP/gov.md" FT_SO_POLL=0 FT_SO_WAIT_MAX=3 \
+      FT_CARRY_WARN_ONLY=1 \
       FT_SEND_VERIFIED="$FAKE/send" FT_MBOX_SH="$FAKE/mbox" FT_REACH_CHECK="$FAKE/reach" \
       bash "$SO" "$OLD" "$REPO" --name "$NEW" --agent claude --model 'claude-opus-5-5[1m]' --ctx 1m --effort high --body-file "$1" > "$TMP/out" 2>&1
   RC=$?

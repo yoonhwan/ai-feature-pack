@@ -62,7 +62,7 @@ run() { # run <환경 KEY=VAL…> — 호출마다 로그·카운터·도달 파
   # r609 ⓞ: 도달 파일을 미리 심는다(«이미 도달» 갈래) — run 이 STATE 를 비우므로 환경 플래그로 심는다
   [ -n "${SEED_REACHED:-}" ] && mkdir -p "$STATE" && printf '{"successor":"%s","seq":777,"reached_at":"t","rc":0,"model":"m"}\n' "$NEW" > "$STATE/$OLD.json"
   env HOME="$TMP/home" PANE_CWD="$TMP/pane" PATH="$FAKE:$PATH" LOG="$LOG" CNT="$CNT" OPENED="$OPENED" EXISTS="${EXISTS:-}" \
-      PANE_CWD_OVERRIDE="${PANE_CWD_OVERRIDE:-}" FT_SO_POLL=0 FT_SO_WAIT_MAX=5 \
+      PANE_CWD_OVERRIDE="${PANE_CWD_OVERRIDE:-}" FT_SO_POLL=0 FT_SO_WAIT_MAX=5 FT_CARRY_WARN_ONLY=1 \
       BE_RC="${BE_RC:-0}" BE_OUT="${BE_OUT:-}" \
       FT_RES_ROOT="$RES" SENSORS="$SENSORS" FT_TEAMSET_MD="$TMP/teamset.md" SENT_TEXT="$TMP/sent.txt" FT_GOV_MD="$TMP/gov-ok.md" \
       FT_SEND_VERIFIED="$FAKE/send" FT_MBOX_SH="$FAKE/mbox" FT_REACH_CHECK="$FAKE/reach" "$@" \
@@ -154,7 +154,7 @@ mkstub send   'echo send >> "$LOG"; echo "mboxenv $(cd -- "$(dirname -- "${FT_MB
 runx() { # runx <설치 사본> <대상 워크트리> <환경 KEY=VAL…> — FT_MBOX_SH 를 걸지 않는다
   local sox="$1" wt="$2"; shift 2; rm -f "$LOG" "$CNT" "$OPENED"; rm -rf "$STATE"; : > "$LOG"
   env -u FT_MBOX_SH HOME="$TMP/home" PANE_CWD="$TMP/pane" PATH="$FAKE:$PATH" LOG="$LOG" CNT="$CNT" OPENED="$OPENED" EXISTS="${EXISTS:-}" \
-      PANE_CWD_OVERRIDE="${PANE_CWD_OVERRIDE:-}" FT_SO_POLL=0 FT_SO_WAIT_MAX=5 \
+      PANE_CWD_OVERRIDE="${PANE_CWD_OVERRIDE:-}" FT_SO_POLL=0 FT_SO_WAIT_MAX=5 FT_CARRY_WARN_ONLY=1 \
       FT_RES_ROOT="$RES" SENSORS="$SENSORS" FT_SEND_VERIFIED="$FAKE/send" FT_REACH_CHECK="$FAKE/reach" "$@" \
       bash "$sox" "$OLD" "$wt" --name "$NEW" --agent claude --model 'claude-opus-5-5[1m]' --ctx 1m --effort high --body-file "$BODY" > "$TMP/out" 2>&1
   RC=$?

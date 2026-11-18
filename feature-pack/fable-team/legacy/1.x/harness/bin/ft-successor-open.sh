@@ -261,7 +261,8 @@ PYWATCH
 )" || { printf '%s\n' "$WATCH"; exit 1; }
 # ⓐ-4 (r2229) 앞 인계서 열린 칸 대조 — 본문 «앞 인계서: <경로>»(ROOT 기준) 의 «## 열린 칸» 칸마다 새 본문에 키 이월 · «닫음: <키> — <근거>» · «<키>: 이월» 줄(판정 = ft-carry-check.py 1곳 · 부작용 전)
 #   줄 없음 = WARN 진행(옛 꼴) · 사람 길 = REJECT rc1 · 자동 길(부르는 줄에만 FT_CARRY_WARN_ONLY=1 = team-boot B2 · model_swap) = REJECT 를 WARN 1줄로 낮추고 진행
-CARRY_OUT="$(python3 "$HERE/ft-carry-check.py" "$BODY" --root "$ROOT" 2>&1)"; CARRY_RC=$?
+D2C=""; case "-${NAME%%#*}-" in *-planner-master-*|*-planner-desk-*) D2C="--d2-carry";; esac   # r2234 planner master · desk 만 오빠 질문 이월 D2 재분류 · 앞·새 인계서 줄 필수
+CARRY_OUT="$(python3 "$HERE/ft-carry-check.py" "$BODY" --root "$ROOT" $D2C 2>&1)"; CARRY_RC=$?
 if [ "$CARRY_RC" != 0 ]; then
   case "$CARRY_OUT" in REJECT*) ;; *) CARRY_OUT="REJECT 앞 인계서 판정 불가 대조 도구 rc=$CARRY_RC — ${CARRY_OUT:0:200}";; esac
   [ "${FT_CARRY_WARN_ONLY:-}" = 1 ] || { printf '%s\n' "$CARRY_OUT"; exit 1; }
