@@ -96,12 +96,25 @@ TAIL_BIT = re.compile(r"[A-Za-z0-9_-]+")
 
 def tail_words_ok(fc: list, sha: str, text: str) -> bool:
     """r2195 B1·B2 — 덧말 조각 전부가 이 sha 의 열쇠(열쇠 줄 정확히 1개 · 다른 sha 와 안 겹침) 또는 승인 낱말일 때만 True(«네 ENFORCE» = 다른 항목 = False). 오빠 확인 대상 — 바꾸려면 PR."""
+    bits = [b for w in fc[1:] for b in TAIL_BIT.findall(w.lower()) if b.isdigit() or len(b) >= 3]
+    return bits_ok(bits, sha, text)
+
+
+def next_chunk_bits(m: dict) -> list:
+    """r2261 C1 — 첫 비어 있지 않은 조각 «다음» 조각들(경계 = first_chunk_words 와 같음)의 조각 = TAIL_BIT · 숫자만 조각도 3자 이상(«1파일»·«2.0.0» 0) · 한글 0. 오빠 확인 대상 — 바꾸려면 PR."""
+    t = m.get("text") if isinstance(m.get("text"), str) else ""
+    chunks = [c for c in re.split(r"(?:[\r\n]+|\s+/\s+)", t) if not re.fullmatch(r"[\s,.!~]*", c)]  # 경계 뜻은 first_chunk_words 와 같고 글자만 다름(r1696 M5 변이 글자 1회) · 빈 조각 = 그 토막 0 과 같은 글자
+    return [b for c in chunks[1:] for b in TAIL_BIT.findall(c.lower()) if len(b) >= 3]
+
+
+def bits_ok(bits: list, sha: str, text: str) -> bool:
+    """r2195 B2 · r2261 C2 — 조각 전부가 이 sha 의 열쇠 · 승인 낱말 · 이 sha 머리 글자(7자 이상 16진)일 때만 True. 오빠 확인 대상 — 바꾸려면 PR."""
     keys = KEY_LINE.findall(text)
     mine = [k.lower() for k, h in keys if h.lower() == sha.lower()]
     others = {k.lower() for k, h in keys if h.lower() != sha.lower()}
     key = mine[0] if len(mine) == 1 and mine[0] not in others else None
-    bits = [b for w in fc[1:] for b in TAIL_BIT.findall(w.lower()) if b.isdigit() or len(b) >= 3]
-    return all(b == key or b in APPROVE_WORDS for b in bits)
+    head = lambda b: len(b) >= 7 and re.fullmatch(r"[0-9a-f]+", b) is not None and sha.lower().startswith(b)  # noqa: E731 · r2261 C2 «head 457ae87…»
+    return all(b == key or b in APPROVE_WORDS or head(b) for b in bits)
 
 
 def reply_words(m: dict) -> list:
@@ -202,7 +215,7 @@ def judge(ts: str, shas: list, after: str | None = None, stop: list | None = Non
         if not sha:  # r1591 · --reply-only 는 «도착» 만 본다(r1606 내용 판정은 승인 길에만 · 범위 밖)
             out.append("REPLY-SEEN parent=%s reply=%s" % (ts, ok[0][0]))
             continue
-        said = []
+        said, rest = [], {}
         for t, m in ok:  # r2194 B5 · 번호 답 = 이 sha 번호의 조각만 본다 · 이 sha 번호가 없으면 이 sha 에 답하지 않은 글
             nr = numbered(m)
             if nr is not None:
@@ -212,11 +225,13 @@ def judge(ts: str, shas: list, after: str | None = None, stop: list | None = Non
                     continue
                 m = {"text": c}
             said.append((t, reply_words(m), first_chunk_words(m)))
+            rest[t] = next_chunk_bits(m)
         no = [t for t, ws, _ in said if REJECT_WORDS.intersection(ws)]  # r1606 · 거절은 «본문 전체» 토막 검사 그대로(«예\n근데 보류» = 거절)
         if no:
             raise ValueError("오빠 거절 답글 reply=%s" % no[0])
         yes = [t for t, _, fc in said if fc and all(w in APPROVE_WORDS for w in fc)] or [t for t, _, fc in said if first_word_tail_ok(fc)]  # r1696 ⓑ · r1950 · «첫 조각» 의 토막이 전부 승인 낱말이면 승인
         yes = [t for t, _, fc in said if t in yes and tail_words_ok(fc, sha, text)]  # r2195 B2 · 덧말 갈래만 걸린다(첫 갈래 토막 = 승인 낱말뿐 · 영문 ok·go 는 2자라 조각 0)
+        yes = [t for t in yes if bits_ok(rest[t], sha, text)]  # r2261 C1 · 두 갈래 모두 다음 조각에도 걸린다(«네 ⏎ ENFORCE 켜요» = 승인 0 · 한글 설명 줄 = 조각 0)
         if not yes:  # r1606 · 오타·모르는 토막 = 승인 0 (BYZ #8243 «tmddls»)
             raise Unjudgeable("답글 내용 승인 낱말 아님")
         out.append("SLACK-OK %s parent=%s reply=%s" % (sha, ts, yes[0]))
