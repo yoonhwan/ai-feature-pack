@@ -18,7 +18,7 @@ PARK_IDLE, WAIT_S, DAY = 3600, 900, 86400   # 유휴 문턱 60분 · 질문 창 
 DONE_IDLE = 300                             # 카드 착지 끝 좌석의 짧은 유휴 문턱(설계 DESIGN-pA r4 §3 · 계약 A1)
 ROLE_CELLS = ("_master", "_arch", "_desk")   # A6② 마감을 밝힐 수 있는 명부 역할 칸
 CLOSED_MAIL = re.compile(r"^\[마감(?: #\d+)?\] 할 일 0(?: · 착지 [0-9a-f]{7,40})?$")   # A6① 닫힌 꼴 한 줄
-LAUNCH_FAILED, OPEN_STALE = "launch-failed", 900   # r2058 L3·L6 — 끝 사유 낱말 · opening 멈춤 문턱(초)
+LAUNCH_FAILED = "launch-failed"   # r2058 L3 — 끝 사유 낱말 · opening 멈춤 문턱 OPEN_STALE = 아래 keeper_launch 값(r2252 O0 한 값)
 CPU_IDLE, CPU_GAP, CPU_DEPTH = 0.3, 30, 8   # tmuxc UC12 %cpu < 0.3 · 표본 간격 ≥ 30초 · pane_descendant_pids 깊이 8
 SHELLS = ("zsh", "bash", "fish")            # tmuxc cmd_clean
 KINDS = ("nano", "master", "arch", "da", "desk", "tester", "pm", "qa", "orch", "temp")   # S1 명부 role 칸 = 좌석 종류 낱말
@@ -46,6 +46,8 @@ cli = _load(os.path.join(FT2, "core", "cli.py"), "ft2_keeper_settle_cli")
 PROJ = cli._load("projection")
 endings = _load(os.path.join(HERE, "keeper_endings.py"), "ft2_keeper_settle_endings")
 roster = _load(os.path.join(HERE, "launch_roster.py"), "ft2_keeper_settle_roster")   # A6② 명부 경로 = 행 E 한 함수
+kl = _load(os.path.join(HERE, "keeper_launch.py"), "ft2_keeper_settle_launch")   # r2252 O0 이어 열기 한 판정(launching 과 같은 함수)
+OPEN_STALE = kl.OPEN_STALE   # r2058 L6 opening 멈춤 문턱 900초 = r2252 O0 이어 열기 문턱(한 값)
 
 
 def descendants(rows, root, depth=CPU_DEPTH):
@@ -207,6 +209,9 @@ class Settling:
             if (team, work, attempt) in self.parked_failed:   # L1·L3 이미 launch-failed 쉼 = 같은 판정 유지 · park 다시 0
                 return self.failed_end(team, work, attempt, holder, raw, why, park=False)
             if owner and raw.get("state") in ("failed", "closed"):   # 반쪽(r1968·r1973 꼴) = 세션 0 · owner 남음
+                wait = self.resume_wait(team, work, attempt, raw)   # r2252 O3 이어 열기 자리 = 쉼 미룸
+                if wait:
+                    return self.verdict(team, work, holder, "WORKING", wait, self.failed_tail(raw))
                 return self.failed_end(team, work, attempt, holder, raw, why, park=True)
             if stalled:   # L6 — 여는 중에 멈춘 열기(세션 부재 = rc1 «can't find session» 로 확인) = L3 과 같은 길
                 return self.failed_end(team, work, attempt, holder, raw, why, park=True)
@@ -372,6 +377,14 @@ class Settling:
             return "tmux list-sessions rc %s" % rc
         other = next((x for x in out.splitlines() if x != holder and x.casefold() == holder.casefold()), "")   # O1c r2208 대문자 stem 꼴
         return "대소문자만 다른 세션 %s" % other if other else ""
+
+    def resume_wait(self, team, work, attempt, intent):
+        """r2252 O3 — keeper_launch.resume_state(launching 과 한 판정) → "" = 지금 길(failed_end) · launch-resumable · launch-resuming(예약 pid 살아 있음 = 900초 검사 0).
+        정지 중 = ""(failed_end 의 «예정» 줄 그대로 · ⑩) · 예약 pid 죽음 = ""(1회 소진 · r2058 L3)."""
+        if self.halt:
+            return ""
+        seen = kl.resume_state(self, os.path.join(PROJ.runtime_path(self.root, team), "launch", "%s@%s" % (work, attempt)), intent)
+        return "launch-" + seen if seen else ""
 
     def launching_now(self, team, work):
         """L6 — fill_open(잇는 중)에 있는 열기인가(그 열기는 손 0)."""
