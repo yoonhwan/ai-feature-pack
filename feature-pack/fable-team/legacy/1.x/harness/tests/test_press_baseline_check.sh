@@ -4,6 +4,9 @@
 #   SELFTEST 성공 = 3 · 막힘 = 1 · 보통 모드에 SELFTEST 상속 = 1 · SELFTEST 출력에 «발화해도 된다» 0건.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
+fin=0; T=""   # r2249 O2: 끝 표지 — 중간에 죽거나 exit 0 해도 EXIT trap 이 rc 1 로 바꾼다(bash 3.2 연관 배열 죽음 = rc 0)
+trap 'rc=$?; [ -n "$T" ] && rm -rf "$T"; [ "$fin" = 1 ] || { echo "FAIL 끝 줄 없음 — 시험이 끝까지 돌지 않음(rc=$rc)"; exit 1; }; exit $rc' EXIT
+WANT_CASES=29   # r2249 O2: 기대 사례 수(expect 칸을 더하면 같이 고친다)
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$HERE/../../harness/bin"
 GATE="$BIN/ft-press-gate.sh"
@@ -14,7 +17,7 @@ bad() { echo "FAIL $1"; fail=$((fail+1)); }
 bash -n "$GATE" && ok "bash -n gate" || bad "bash -n gate"
 bash -n "$BIN/ft-press-baseline-check.sh" && ok "bash -n baseline-check" || bad "bash -n baseline-check"
 
-T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
+T="$(mktemp -d)"
 R="$T/repo"; mkdir -p "$R/worker" "$R/design/v65/baselines/ev" "$R/cards" "$T/root/.fable-team"
 mkdir -p "$T/root/.fable-team/state"   # r626 DA⑥ r2: 상태 폴더 없음 = 전팀 정지 — 픽스처 루트에 빈 상태 폴더(원장·상태 파일 없음 = 꺼짐)
 printf '2026-10-21T00:00:00\toff\tinstall\tinit\n' > "$T/root/.fable-team/state"/all-stop.log   # r626 r4: 원장 없음 = 전팀 정지 — 설치가 남기는 init 줄(꺼짐)
@@ -37,15 +40,15 @@ result() { # 파일 set_sha session_id → 러너 RESULT json
 result "$R/design/v65/baselines/ev/RESULT-ok.json" "$SHA" run-1
 result "$R/design/v65/baselines/ev/RESULT-other.json" "$(printf 'a%.0s' {1..40})" run-1
 
-base() { # 이름 [키 값]… → 기준선 파일(기본 머리줄 · 값 __DROP__ = 그 줄 빼기)
+base() { # 이름 [키 값]… → 기준선 파일(기본 머리줄 · 값 __DROP__ = 그 줄 빼기) · r2249: 연관 배열 대신 v_<키> 변수(bash 3.2)
   local f="$R/design/v65/baselines/$1.md"; shift
-  local -A v=([set_sha]="$SHA" [control]="lane=c2c-dev stt_provider=gpu side_lang=right:ko,left:en click=PRESS_SIDE_LANG_CLICK:1 flags=$OKFLAGS"
-    [side_lang]="right=ko left=en" [server_ready]="2026-10-07T03:00:00Z" [visible_at_settle]="yes"
-    [evidence]="design/v65/baselines/ev/RESULT-ok.json" [run_id]="run-1" [profile]="__DROP__")
-  while [ $# -gt 0 ]; do v[$1]="$2"; shift 2; done
+  local v_set_sha="$SHA" v_control="lane=c2c-dev stt_provider=gpu side_lang=right:ko,left:en click=PRESS_SIDE_LANG_CLICK:1 flags=$OKFLAGS" \
+    v_side_lang="right=ko left=en" v_server_ready="2026-10-07T03:00:00Z" v_visible_at_settle="yes" \
+    v_evidence="design/v65/baselines/ev/RESULT-ok.json" v_run_id="run-1" v_profile="__DROP__" k vn
+  while [ $# -gt 0 ]; do printf -v "v_$1" '%s' "$2"; shift 2; done
   : > "$f"
   for k in profile set_sha control side_lang server_ready visible_at_settle evidence run_id; do
-    [ "${v[$k]}" = "__DROP__" ] || echo "$k: ${v[$k]}" >> "$f"
+    vn="v_$k"; [ "${!vn}" = "__DROP__" ] || echo "$k: ${!vn}" >> "$f"
   done
   printf '\n| 칸 | 값 |\n|---|---|\n| 빈 칸 | 0 |\n' >> "$f"
 }
@@ -146,5 +149,6 @@ expect 1 'BLOCK profile: roomx — profile: room 만' "⑦ profile: roomx → �
 expect 1 'BLOCK control flags: PRESS_LST_TOGGLE_MID_PRESS_MS=500 ≠ 기본값 0' "⑨ profile room · PRESS_LST_TOGGLE_MID_PRESS_MS=500(방 러너가 읽음) → 막힘" "$(rc_ r-mid)" "$ST"; notes1
 expect 1 'BLOCK profile room ↔ RESULT 없음(evidence 빈 값)' "⑩ profile room · evidence: 빈 값 → 막힘(RESULT 대조 건너뜀 0)" "$(rc_ r-noev)" "$ST"
 
-echo "cases=$n fail=$fail"; [ $fail -eq 0 ] && echo "ALL PASS"
+[ "$n" -eq "$WANT_CASES" ] || bad "사례 수 $n ≠ 기대 $WANT_CASES"
+echo "cases=$n fail=$fail"; fin=1; [ $fail -eq 0 ] && echo "ALL PASS"
 [ $fail -eq 0 ]
