@@ -122,6 +122,16 @@ def based(plan, env, repo, sha):
     return split, None
 
 
+def receipt(plan, env):
+    """r2257 O1·O2 — 개설 영수 1회(alive rc0 뒤) → intent 칸 · 두 칸 꼴 아님(rc≠0·빈 출력·시간 초과 포함) = 두 칸 빈 값 + tmux_note · opened 그대로."""
+    rc, out = call(plan["receipt"], None, env, TMUX_TIMEOUT)
+    text = getattr(out, "out", "") if rc == 0 else "rc %s %s" % (rc, out)
+    got = text.strip("\n").split("\t")
+    if len(got) == 2 and got[0].startswith("$") and got[0][1:].isdigit() and got[1].isdigit():
+        return {"tmux_sid": got[0], "tmux_created": got[1]}
+    return {"tmux_sid": "", "tmux_created": "", "tmux_note": "영수 판독 실패 %s" % text[:60]}
+
+
 def write_intent(path, payload):
     """의도 줄 1개 = JSON 1줄. 같은 자리를 다시 쓰면 «마지막 상태» 만 남는다 · tmp → replace(빈 의도 판독 0 · r1929)."""
     with open(path + ".w", "w", encoding="utf-8") as handle:
@@ -246,7 +256,8 @@ def finish(plan, env, steps, repo, sha, keep):
     rc, detail = call(plan["alive"], None, dict(bare, **env), TMUX_TIMEOUT)   # r1892: 살아 있음 1회
     if rc != 0:
         return failed(plan, env, "tmux 즉시 종료", "세션 없음 — pi 실행 실패(PATH·인증) 의심 · %s" % (detail or "진단 없음"), repo)
-    write_intent(plan["intent"], dict(env, state="opened", role=item["role"], worktree=plan["worktree"], base=base, base_sha=sha, body_mark=mark, at=time.strftime(STAMP), **plan["notes"]))
+    got = receipt(plan, dict(bare, **env))   # r2257 O2: 판독 실패여도 열기 결과 그대로
+    write_intent(plan["intent"], dict(env, state="opened", role=item["role"], worktree=plan["worktree"], base=base, base_sha=sha, body_mark=mark, at=time.strftime(STAMP), **got, **plan["notes"]))
     note = roster.enroll(env, plan["worktree"], planner.card_row(env["FT2_ROOT"], env["FT2_TEAM"]), os.path.dirname(plan["intent"]))   # r1983 opened «뒤» 1회 · 판정 불가여도 열기 결과 그대로
     hook = os.path.join(repo, ".git", "hooks", "post-checkout")   # r1967 ② cairn reconcile = 열기 «뒤» 1회 · 따로 25초 · 실패해도 열기 결과 그대로
     ran = "rc %s" % call([hook, "0" * 40, sha, "1"], plan["worktree"], None, GIT_TIMEOUT)[0] if os.access(hook, os.X_OK) else "hook 없음"
