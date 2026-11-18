@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # pyright: basic
-"""ft_nano_record_seqfind.py — r2272 닫기 요청 발신 «앞» 우편 로그(<comm>/mailbox.log.jsonl · 끝 파일 1개 · 마지막 2000줄)에서 같은 요청 = from <좌석> · to <팀장> · 본문 머리 «[완료·닫기 요청] <stem> 착지 <Q 10자>»
-(버려진 seq 제외 · 가장 늦은 seq 1개) → seq(찾음 · INFO 1줄) | 0(찾은 행 0 · 로그 파일 없음 = 지금 길 send) | None(읽기 실패 · 깨진 줄만 = «판정 불가 우편 로그 …» 1줄 · 재발신 0)."""
+"""ft_nano_record_seqfind.py — r2272 닫기 요청 발신 «앞» 우편 로그(<comm>/mailbox.log.jsonl · 끝 파일 1개 · 마지막 2000줄)에서 같은 요청 = from <좌석> · to <팀장> · 본문 머리 «[완료·닫기 요청] <stem> 착지 <Q 10자>» (버려진 seq 제외 · 가장 늦은 seq 1개) → seq(찾음 · INFO 1줄) | fire()(찾은 행 0 · 로그 파일 없음 = 지금 길 send) | None(읽기 실패 · 깨진 줄만 · 버림 원장 판독 실패 = «판정 불가 …» 1줄 · 재발신 0)."""
 import json
 from collections import deque
 
@@ -27,7 +26,7 @@ def rows(ctx):   # → 마지막 2000줄의 dict 들 | [](파일 없음) · 못 
     return [d for d in out if isinstance(d, dict)]
 
 
-def find_close(ctx, r):   # close_request 의 send 앞 1회(장부에 rec 없을 때만)
+def found(ctx, r, fire):   # close_request 의 발신 줄(장부 빈칸 · r1820 B3 버려짐 갈래) · Unjudged 는 여기서 잡음(notify walk 끊김 0)
     head = f"[완료·닫기 요청] {r['stem']} 착지 {r['q'][:10]}"   # r2272-mut:head
     try:
         hit = sorted({d["seq"] for d in rows(ctx) if d.get("from") == r["seat"] and d.get("to") == r["master"]   # r2272-mut:from
@@ -38,4 +37,4 @@ def find_close(ctx, r):   # close_request 의 send 앞 1회(장부에 rec 없을
         return None
     if seq:
         print(f"INFO 닫기 요청 #{seq} 우편 로그에서 찾음 → 다시 보냄 0")
-    return seq
+    return seq or fire()   # 찾은 행 0 = 지금 길(send 출력·반환 그대로)
