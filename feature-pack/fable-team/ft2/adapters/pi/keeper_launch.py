@@ -6,6 +6,7 @@ import importlib.util, os, subprocess, time  # noqa: E401
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FT2, LAUNCH_S = os.path.dirname(os.path.dirname(HERE)), 7   # 띄우기·판독 바깥 호출 상한(ps 1회 · 하드 룰 12)
+OPEN_STALE = 900   # r2252 O0 이어 열기 문턱(초) · keeper_settle.OPEN_STALE(r2058 L6) 이 이 값을 쓴다(한 값)
 def _load(path, alias):
     spec = importlib.util.spec_from_file_location(alias, path)
     module = importlib.util.module_from_spec(spec)
@@ -52,6 +53,18 @@ def last_line(path):
             return (fh.read().strip().splitlines() or [""])[-1]
     except OSError:
         return ""
+def resumable(k, got):
+    """r2252 O0(DA#23) «이어 열 수 있음» 한 판정 = intent failed ∧ resumable checkout ∧ intent at 부터 OPEN_STALE 안쪽 · 시각 못 읽음 = 거짓.
+    launching(O2)·keeper_settle.settle_nano(O3) 가 같이 부른다 · 문턱을 넘으면 두 곳 모두 지금 길(«실패 …» · failed_end)."""
+    if got.get("state") != "failed" or got.get("resumable") != "checkout":
+        return False
+    try:
+        return k.now() - time.mktime(time.strptime(str(got.get("at")), "%Y-%m-%dT%H:%M:%S")) < OPEN_STALE
+    except (ValueError, OverflowError):
+        return False
+def reserved(k, base):
+    """r2252 O2·O3 이어 열기 예약(.intent.resume) = None 없음 · 그 밖 = 예약 pid 판정(alive·dead·unknown · launch.py reserve 가 쓴 pid·started)."""
+    return alive(k, k.read_json(base + ".intent.resume")) if os.path.exists(base + ".intent.resume") else None
 def launching(k, team, stem, attempt, nh, argv):
     """의도 판독 → ⓐ 없음 = .owner 없음 띄우기 · 있음 = ⓖ 자식 판정 ⓑ 열기 중 ⓒ opened ⓓ failed ⓔ 끊긴 열기 = 이어 열기 1회."""
     if not argv or not attempt:
@@ -61,6 +74,11 @@ def launching(k, team, stem, attempt, nh, argv):
     if got.get("state") == "opened":
         return None
     if got.get("state") == "failed":
+        seen = reserved(k, base) if resumable(k, got) else "dead"   # r2252 O2 checkout 시간 초과 = attempt 당 이어 열기 1회(r2058 L3 예외 하나)
+        if seen is None:
+            return spawn(k, team, nh, argv + ["--resume"], base, "이어 열기")
+        if seen != "dead":   # 예약 pid 살아 있음·판정 못 함 = again 길이 남은 묶음을 도는 중(intent 는 failed 그대로 · DA#22)
+            return busy(k, team, nh, "LAUNCH-WAIT", "이어 열기 중")
         return "실패 %s %s" % (got.get("step"), str(got.get("reason"))[:60])
     if not os.path.exists(base + ".intent"):
         if not os.path.exists(base + ".owner"):
