@@ -11,6 +11,8 @@
 #                                  넘으면 `[상한 초과] …` 1줄을 stderr 와 <h>.out 끝에 · 늘 rc 0(계획 rc 는 진입 파일이 그대로)
 #   run-line <h 파일>           → r2161: 실행 줄 1줄(앞 «! » 없음) · 계획(«# ft-hil-entry plan=»)의 주석 아닌 줄에 `$HIL_APPROVED` · `${HIL_APPROVED` 읽기가 있으면
 #                                  «bash <h> · 승인값 필요(사람 · 변수 HIL_APPROVED · 오빠 ! 줄로만)» · 아니면(옛 링크 · 계획 없음 · 못 읽음 포함) «bash <h>» · 늘 rc 0 · 승인값 «=1» 은 찍지 않는다
+#                                  r2164: 그 표지일 때 계획에 «# ft-hil-oppa-ask: <질문 ts>» 1줄 + <h>.sha 64자 → ft_oppa_slack_check --plan-sha 1회(7초 + 재시도 1) · SLACK-OK 면
+#                                  «… · 오빠 승인 reply=<ts> · desk 값 넣기 가능 · 실행 줄에 ts 기록» · 그 밖(ask 0 제외) = r2161 표지 + « · <사유>» · ask 0 = r2161 표지 그대로
 set -uo pipefail
 MAXB=100000
 sha256() {  # stdin → sha256 64자(못 구하면 rc 3 · 판정 불가 1줄)
@@ -21,6 +23,23 @@ sha256() {  # stdin → sha256 64자(못 구하면 rc 3 · 판정 불가 1줄)
 }
 fsha() { [ -f "$1" ] && [ -r "$1" ] || { echo "판정 불가 — 계획 파일을 못 읽음: $1" >&2; return 3; }; sha256 "$1" < "$1"; }
 old() { head -1 "$1.sha" 2>/dev/null; }
+desk_tag() {  # r2164 <h> <계획> → 승인값 표지 꼬리 1개 · 계획에 적힌 ts 만으로는 열지 않는다(확인기가 질문 글의 그 64자 + 오빠 승인 답글을 봐야 열림)
+  local a n s o rc=142 r
+  a="$(grep -E '^[[:space:]]*#[[:space:]]*ft-hil-oppa-ask:' "$2" 2>/dev/null)"; n="$(printf '%s' "$a" | grep -c .)"
+  [ "$n" != 0 ] || { echo "$TAG_R"; return; }
+  [ "$n" = 1 ] || { echo "$TAG_R · ask 줄 여럿"; return; }
+  a="$(printf '%s\n' "$a" | head -1)"; a="${a#*:}"; a="${a//[[:space:]]/}"; s="$(old "$1")"
+  [[ "$s" =~ ^[0-9a-fA-F]{64}$ ]] || { echo "$TAG_R · sha 없음"; return; }
+  for _ in 1 2; do  # 하드 룰 12 · 1회 7초(alarm · rc 142) + 재시도 1
+    [ "$rc" = 142 ] || break
+    o="$(perl -e 'alarm 7; exec @ARGV' python3 "$(dirname -- "${BASH_SOURCE[0]}")/ft_oppa_slack_check.py" "$a" --plan-sha "$s" 2>/dev/null)"; rc=$?
+  done
+  r="${o##* reply=}"
+  if [ "$rc" = 0 ] && [ "$o" = "SLACK-OK $s parent=${a#*:} reply=$r" ] && [[ "$r" =~ ^[0-9]+\.[0-9]{6}$ ]]; then
+    echo " · 승인값 필요(변수 HIL_APPROVED) · 오빠 승인 reply=$r · desk 값 넣기 가능 · 실행 줄에 ts 기록"; return
+  fi
+  case "$rc:$o" in 3:*|2:*"답글 없음"*) r="답글 없음";; 2:*"판정 불가"*) r="판정 불가";; "2:REJECT "*) r="거절";; *) r="판정 불가";; esac
+  echo "$TAG_R · $r"; }
 case "${1:-}" in
   pre)
     b="$(wc -c < "$2" 2>/dev/null | tr -d ' ')"; [[ "$b" =~ ^[0-9]+$ ]] || { echo "판정 불가 — 계획 크기를 못 구함: $2" >&2; exit 3; }
@@ -55,6 +74,7 @@ case "${1:-}" in
   run-line)
     t=""; TAG_R=" · 승인값 필요(사람 · 변수 HIL_APPROVED · 오빠 ! 줄로만)"; p="$(sed -n 's/^# ft-hil-entry plan=//p' "${2:-}" 2>/dev/null | head -1)"
     [ -L "${2:-}" ] || [ -z "$p" ] || ! awk '!/^[[:space:]]*#/ && (/\$HIL_APPROVED/ || /\$[{]HIL_APPROVED/) {f=1} END {exit !f}' "$p" 2>/dev/null || t="$TAG_R"
+    [ -z "$t" ] || t="$(desk_tag "$2" "$p")"   # r2164
     echo "bash ${2:-}$t"; exit 0 ;;
   *) echo "usage: ft-hil-gate.sh pre|post|write|reuse|read|budget|run-line …" >&2; exit 2 ;;
 esac

@@ -95,6 +95,7 @@ PR·Issue 는 본문에서 번호 인덱스(`#836`)로만 부르고, 글 맨 아
 <!-- S11-DESK-BEGIN -->
 6. **desk 틱마다 직접 잰다**(오빠 11-05 «이거 증류 두번이면 잃어버리는데» · #260461): ①대기 h(`ft-hil --pending`) 가 desk 범위면 그 턴 실행 ②`launchctl print` 로 stall-scan · ft-tick* · news 로드 상태 + stall-scan.log 마지막 ts ③팀장별 마지막 [정리] 시각(20분+ 이면 멈춤) · R4 첫 줄 O/X. 결과는 카운터 줄 다음 줄에 숫자로 쓴다.
 <!-- S11-DESK-END -->
+7. **desk run-line 오빠 질문의 ask 줄 순서**(r2164 DA 메모 (가) · harness arch#465): run-line 오빠 질문에 ask 줄이 필요하면 순서를 지킨다: 질문 올림 → 계획에 `# ft-hil-oppa-ask: <질문 ts>` 넣고 등록 → 질문 글의 sha256 을 새 계획 sha 로 고침 → 오빠 답. 등록 뒤 계획을 바꾸면 read 가 «계획이 등록 뒤 바뀜» REJECT rc1 이다.
 강제 = 하네스 카드(`desk-bash-fg-gate` 를 master·planner 좌석까지 넓힘).
 
 ## 12. 팀별 Desktop 피드백 좌석 (오빠 2026-10-27 11:3x «오 잘되네. 이방법을 공식 하네스팀 랜딩.»)
