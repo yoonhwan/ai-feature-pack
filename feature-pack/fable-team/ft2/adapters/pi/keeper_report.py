@@ -7,6 +7,7 @@ E3 실패도 그날 지문(같은 열쇠 재시도 0 · 날짜가 바뀌면 1회
 E6 세 칸 다 빈칸 = «받는 곳 없음» 그날 1줄 · E7 7초를 넘긴 send 는 우편함 장부 seq 경계로 도착 확인 · E8 명부 경로는 launch_roster 한 함수.
 """
 import collections
+import hashlib
 import importlib.util
 import json
 import os
@@ -165,7 +166,11 @@ class Reporting:
         """E2 대신 받는 곳에는 글마다 보내지 않는다 — state.undelivered[팀] 에 쌓고 바퀴 끝 묶음 1통(팀당 하루 1통) ·
         r2203 같은 열쇠는 그날 1건(stand|<날짜> 지문 · blocked 가 그날만 막는다)."""
         heads = (body or "").splitlines()[:1] or [""]
-        self.state.setdefault("undelivered", {}).setdefault(team, []).append(heads[0][:60])
+        tail = key[11:] if key[10:11] == "|" and key[:10].replace("-", "").isdigit() else None   # r2266 C3 날짜 칸을 뺀 열쇠 · 날짜 없는 열쇠 = 지금 꼴(r2203)
+        seen = self.state.setdefault("stand_keys", {}).setdefault(team, [])
+        if tail not in seen:
+            self.state.setdefault("undelivered", {}).setdefault(team, []).append(heads[0][:60])
+            seen.append(tail) if tail else None
         self.state["sent"][key] = "stand|%s" % self.stamp()[:10]
         return True
 
@@ -188,6 +193,21 @@ class Reporting:
             return False
         return self.finish(team, key, to, rc, seen, body)
 
+    def wake(self, team, names):
+        """r2267 W4 — 깨움 후보 1통 = planner _master 전용 길(notify 는 skip 팀 = False · r1835 K4) · 열쇠 날짜 칸 0 ·
+        성공 지문은 도착 확인 때만 · 실패·받는 곳 없음 = fail|<날짜> 지문(그날 1줄 · 다음 날 1회 다시)."""
+        to = self.read_json(roster.roster_path(self.root, "planner") or "").get("_master") or ""
+        key = "%s|wake|%s|%s" % (team, to, hashlib.sha1("\n".join(names).encode("utf-8")).hexdigest()[:12])
+        body = "[깨움 후보] %s 선행 풀린 카드 %d장: %s%s · 휴면 풀기 = SKIP_TEAMS 에서 %s 줄 지움" % (
+            team, len(names), " · ".join(names[:3]), " · 외 %d" % (len(names) - 3) if len(names) > 3 else "", team)
+        if self.blocked(key) or to and not self.budget(team):
+            return False
+        rc, seen = self.send(to, body) if to else ("받는 곳 없음", "")
+        if rc == "defer":   # R8 미룸 = 지문·횟수 미소비 · 다음 바퀴
+            self.notify_used = max(0, getattr(self, "notify_used", 1) - 1)
+            return False
+        return self.finish(team, key, to, rc, seen, body)   # W4
+
     def alert_rows(self):
         return list(self.state.get("alert_out") or [])
 
@@ -209,6 +229,7 @@ class Reporting:
                     break
                 if self.finish(team, key, to, rc, seen, text):
                     del book[:]   # 간 것은 지운다 — 다음 묶음 = 그 뒤에 쌓인 것
+                    self.state.setdefault("stand_keys", {}).pop(team, None)   # r2266 C3 간 묶음의 열쇠도 지움
         for team, n in sorted(defer.items()):
             if self.state.setdefault("defer", {}).get(team) != n:
                 self.state["defer"][team] = n

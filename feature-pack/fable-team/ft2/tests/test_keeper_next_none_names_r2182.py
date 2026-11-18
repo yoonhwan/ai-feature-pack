@@ -84,10 +84,10 @@ def c8(w):   # ⑧ ready 1장 → 쪽지 0
     assert base.notes(w) == [] and base.launched(w) == [B], (base.notes(w), base.launched(w))
 
 
-def c9(w):   # ⑨ 다음 날 같은 입력 → 1통 더
+def c9(w):   # ⑨ 다음 날 같은 입력 → 더 0통(r2266 C2 · 같은 지문은 날 무관 0통 · 다른 지문 다음 날 1통 = r2266 ⑤)
     w.round()
     again(w, base.W2, 86400)
-    assert len(base.notes(w)) == 2, base.notes(w)
+    assert len(base.notes(w)) == 1, base.notes(w)
 
 
 def c9h(w):   # ⓕ 글에 안 보이는 4번째 뒤 카드만 바뀌어도 지문이 바뀐다 → 1통 더

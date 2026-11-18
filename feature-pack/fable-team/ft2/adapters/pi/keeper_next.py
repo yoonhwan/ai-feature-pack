@@ -490,14 +490,22 @@ def none_tell(k, team, head, names):
     key = "%s|next-none|%s" % (k.stamp()[:10], team)
     rows = sorted((b, s, own) for b, got in names.items() for s, own in got)
     fp = hashlib.sha1(repr(rows).encode("utf-8")).hexdigest()[:12]
+    to = k.recipients(team)[0]   # r2266 C2 (팀, 받는 좌석)마다 마지막 지문 · 같으면 날 무관 0통
+    mk, mem = "%s|%s" % (team, to), k.state.setdefault("none_seen", {})
+    if team in k.skip or mem.get(mk) == fp:
+        return
     if sum(x == key or x.startswith(key + "|") for x in k.state.get("sent") or {}) >= NONE_CAP:
+        if k.state.setdefault("none_mute", {}).get(team) != fp:   # r2266 C2 상한 뒤 지문 바뀜 = 로그 1줄(쪽지 0) · 같은 지문 = 0
+            k.state["none_mute"][team] = fp
+            k.log("NEXT-NONE-MUTE", team, "하루 %d통 상한 뒤 지문 %s · 쪽지 0" % (NONE_CAP, fp))
         return
     part = {}
     for b, s, own in rows:
         part.setdefault(b, []).append(s + ("(원장)" if own else ""))
     tell = " / ".join("%s %s%s" % (b, " · ".join(cut[:3]), " 외 %d" % (len(cut) - 3) if len(cut) > 3 else "") for b, cut in part.items())
     body = head + (" · 막힌 카드 " + tell if NAMES and tell else "") + (FIX if any(own for _, _, own in rows) else "")
-    k.notify(team, "%s|%s" % (key, fp), body)
+    if k.notify(team, "%s|%s" % (key, fp), body):   # r2266 C2 도착 확인 · stand_in 쌓음만 기억(실패 · 받는 곳 없음 · defer = 0)
+        mem[mk] = fp
 def prereq_mute(k, team):
     """P1 묵음 — 전팀 정지(k.halt) · 팀 PAUSED(state/<팀>-tick/PAUSED) · 새 카드 보류(NEW_CARD_HOLD.json · 깨짐 포함) 중 하나라도 참.
     판정 자리 = prereq_tell 안 1곳(부르는 쪽 앞 조건이 나중에 바뀌어도 새지 않게 하는 방어 · 설계 P1)."""
@@ -563,6 +571,19 @@ def prereq_tell(k, team, unread):
     ok = k.notify(team, "prereq|%s|%s|%s" % (team, fp, n), prereq_body(k, team, unread))
     if ok:   # I8 성공(rc 0·도착 확인)일 때만 told 를 바꾼다 · 실패·넘김(defer)은 그대로
         told[team] = fp
+
+
+def wake_read(k, team):
+    """r2267 W1~W3 — 휴면 팀 선행 판정만(cards 1회 · fill·stage·close·원장·팀 쪽지·gh·fetch 0) · 기억 = wake_seen[팀]{카드: 판정} ·
+    앞 판독에서 선행/선행불명(또는 풀림)이던 카드가 "" = 풀림 · 처음 보는 팀·카드 = 기억만 · 풀림 묶음(이름순) ≥ 1 → k.wake(planner 1통 · 같은 열쇠 0)."""
+    got = cards(k, team)
+    if isinstance(got, str):
+        return
+    book = k.state.setdefault("wake_seen", {})
+    prev = book.get(team)
+    book[team] = {s: "풀림" if row[3] == "" and prev and prev.get(s) in ("선행", "선행불명", "풀림") else row[3] for s, row in got[0].items()}
+    if freed := sorted(s for s, v in book[team].items() if v == "풀림"):
+        k.wake(team, freed)
 
 
 def close(k, team, work, attempt, holder, gen):

@@ -11,10 +11,10 @@ VAR_NAME = re.compile(r"\$\{?([A-Za-z_][A-Za-z0-9_]*)")
 STRONG_PIECE = re.compile(r"(?:PASSWORD|PASSWD|TOKEN|SECRET|DSN|KEY|WEBHOOK)S?$")
 
 
-def secret_name(name: str) -> bool:  # 변수 이름을 «_» 조각으로 본다 · 강한 낱말은 어느 조각이든 끝/같음이면 비밀 · PASS 는 «마지막 조각» 일 때만(DB_PASS · PGPASS) — PASS_MAX·PASS_ID 는 아니다
-    pieces = [p.rstrip("0123456789") for p in name.upper().split("_")]
-    pieces = [p for p in pieces if p]
-    return any(STRONG_PIECE.search(p) for p in pieces) or bool(pieces and pieces[-1].endswith("PASS"))
+def secret_name(name: str) -> bool:  # 변수 이름을 «_» 조각으로 본다 · 강한 낱말은 어느 조각이든 끝/같음이면 비밀 · PASS 는 «마지막 조각» 일 때만(DB_PASS · PGPASS) — PASS_MAX·PASS_ID 는 아니다 · r2023: PASS 는 원래 글자가 대문자인 조각만(소문자 카운터 pass·npass 는 아님)
+    raw = [p for p in (q.rstrip("0123456789") for q in name.split("_")) if p]
+    pieces = [p.upper() for p in raw]
+    return any(STRONG_PIECE.search(p) for p in pieces) or bool(raw and raw[-1].isupper()) and bool(pieces and pieces[-1].endswith("PASS"))
 
 
 def secret_var(word: str) -> bool:
