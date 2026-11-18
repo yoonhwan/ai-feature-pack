@@ -70,9 +70,9 @@ keeper ROUND 줄의 cut 칸은 «예산이 다해 업무 구획이 끊긴 자리
 - 60초 넘은 바퀴 1줄 · other 5초 넘음 = 진행/ft2-keeper-round-60s 조건 6 에 남는다.
 
 ## 완료 조건
-1. [ ] 나노: 기준판 FAIL 원문(53가 · 53나 · 53라)
-2. [ ] 나노: 새 시험 전체 rc0 · 걸린 초(사례 1개 70초 안 · 하드 룰 22) · 변이 M133~M136 지정 반례 FAIL
-3. [ ] 나노: 회귀 rc0(파일별 초)
+1. [x] 나노: 기준판 FAIL 원문(53가 · 53나 · 53라) — 53가 `cut=-:-:-` · 53나 세 바퀴 모두 `-:-:-` · 53라 `cut=-:-:-` + cursor 남음
+2. [x] 나노: 새 시험 전체 rc0 · 걸린 초(사례 1개 70초 안 · 하드 룰 22) · 변이 M133~M136 지정 반례 FAIL — 10 passed 0.8초(사례 6 + 변이 4 · 파일 실행 3.7초) · M133→53가·53나·53라 / M134→53라 / M135→53다 / M136→53가
+3. [x] 나노: 회귀 rc0(파일별 초) — test_keeper_round_60s.py 49 passed 10.6초 · test_keeper_round_cells.py 15 passed 4.6초 · test_pi_keeper_lsremote_once_r1963b.py 14 passed 51.7초
 4. [ ] 팀장: PR 착지 sha · 설치 판
 5. [ ] arch: 설치 뒤 읽기 실측 = BYZ keeper 로그 ROUND 200줄 이상(양 끝 시각)에서 `cut=-:-:-` 0줄 · 그 구간의 «나노 가지 모으기 7초 넘음» 줄 수(0 이면 줄 수가 찰 때까지 [~] = 끊긴 바퀴가 있어야 본 것이다)와 그 바퀴 ROUND 원문 2줄
 6. [ ] arch: 다시 재는 순서 = 이 카드와 대기/ft2-keeper-ungraded-team-rest 가 모두 설치된 뒤 ROUND 200줄에서 진행/ft2-keeper-round-60s 조건 7(같은 자리 3바퀴 연속 0 · 예산 2회 넘음 줄 · items p50)을 다시 잰다 · 조건 6(other 5초 · 60초 넘음)은 두 카드로 줄지 않으므로 같은 구간 값만 나란히 적는다
@@ -92,3 +92,5 @@ keeper ROUND 줄의 cut 칸은 «예산이 다해 업무 구획이 끊긴 자리
 - 2026-11-18 13:42 · 대기 — aifp-ft-arch-pi#25 보정(DA 설계 B HOLD 1/3 aifp 6075 · 팀장 발주 aifp 6080) · N1 = «:476 갈래를 나올 때 self.cut = -» 로 줄임(cut_pos 는 계약·시험 대상 아님) · M134 = «되돌림을 ROUND 줄 바로 앞에서만» 으로 바꿈 · 다른 칸 손 0 · 다음 = 팀장 DA 설계 2/3
 - 2026-11-18 13:46 · 대기 — aifp-ft-arch-pi#25 머리 줄(팀장 aifp 6085) · Issue #9322 · DA 판정 APPROVE-DESIGN 2/3 aifp 6083 · 배정 = 대기(석) · 완료 조건 2 에 70초 안 · 다음 = 팀장 착지 → 나노 1석
 - 2026-11-18 13:49 — 대기→진행 · 좌석 aifp-ft-nano-ft2-keeper-nano-cut-blank-cell#0
+- 2026-11-18 13:55 · 나노 완료 — 고침 = keeper.py 나노 가지 모으기 `except Cut` 갈래에서 `self.cut`·`self.cut_pos` 를 되돌린다(1줄 추가 · 그 밖 손 0: cut_at 자리 셈·mark_cut·report·fetch·NANO_S·«판정 불가 나노 … 7초 넘음» 줄 그대로) · 새 시험 = `tests/test_keeper_nano_cut_blank_cell_r2245.py`(53가~바 · 변이 M133~M136 · 대역 = test_keeper_round_60s.Rig 그대로) · CASES.md 1줄 · 기준판(1ff2c25c) FAIL 원문 = 53가 `cut=-:-:-` · 53나 세 바퀴 모두 `-:-:-` · 53라 `cut=-:-:-` + cursor 남음 / 53다·53마·53바 = 지금 판 PASS · 회귀 rc0(60s 49 passed 10.6초 · cells 15 passed 4.6초 · lsremote_once 14 passed 51.7초) · reentry-lint rc0 · ruff rc0 · 남은 것 = 착지(팀장) · 설치(팀장) · 설치 뒤 읽기 실측(arch) · press 필요 없음(단위·캡처만 봄)
+- 세트: 898985c5ffed310063c2359322dd2e5d83533b00 · 시험: python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_keeper_nano_cut_blank_cell_r2245.py -q (10 passed) rc=0 · 이슈: 0
