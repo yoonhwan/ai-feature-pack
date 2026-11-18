@@ -18,8 +18,9 @@ check   : 본문에 ⓐ마커 블록(N행 = 마커 sha10 의 정본 골 칸과 �
 teams   : 원장 `## 팀별 완성 진행` 첫 표(팀 | 끝선 N/M | 마지막 착지 | 지금 하는 것) → 마커 2줄(`★팀별 완성 진행 (<원장 sha10>)★` … `★/팀별 완성 진행★`) 사이 표(≤1600B · R458).
           표 없음·예산 초과 = 빈 출력 + stderr WARN rc0 — 거절 게이트 0(뉴스·매거진을 멈추지 않는다 · check 는 골 표만).
 procs   : 원장 «메인 골 …줄» 만 읽어 안 보이던 오늘 등록 표준절차 골(r644) — planner 팀 폴더(ref 트리) 의 `GOAL-*-<8자리 날짜>.md` 마다 1줄(골 이름 = 파일 머리 `# 골 — …` · 담당 = 진행표 «담당» 칸 → 골 파일 `담당:` 줄 → `—`) · «지금 단계» = 원장 `## 표준절차 골 진행표` 의 «골 파일» 칸이 그 파일인 행(없으면 «진행표 행 없음» + stderr WARN) → 마커 2줄(`★표준절차 골 (<원장 sha10>)★` … `★/표준절차 골★`).
-          «지금 단계» 칸이 `완료` 로 시작하고 그 행에 저장소에 실재하는 sha10 이 있으면 그 골은 목록에서 빼 «완성 N: 이름들» 1줄로 위에 묶는다(sha 없음 = 완성 아님 + WARN). 행 `git blame` 시각이 `FT_GOAL_PROC_STALE_H`(24)시간을 넘으면 그 줄 끝 `⚠ N시간 정지` + 블록 끝 `정지 골 N: …` 1줄. 시계 = `FT_NOW`("YYYY-MM-DD HH:MM").
-          예산 1600B 넘으면 «지금 단계» 칸부터 줄임(teams 와 같은 꼴) · 골 파일 0개 = `표준절차 골 0` 1줄 · 원장·폴더 못 읽음 = `ERROR` rc1(조용히 빈 블록 0) — 소비처는 실패를 WARN + 빈 글로 받는다(뉴스·매거진을 멈추지 않는다).
+          «지금 단계» 칸이 `완료` 로 시작하고 그 행에 저장소에 실재하는 sha10 이 있으면 그 골은 목록에서 빼 «완성 N: 이름들» 1줄로 위에 묶는다(sha 없음 = 완성 아님 + WARN). 행 `git blame` 시각이 `FT_GOAL_PROC_STALE_H`(24)시간을 넘으면 그 줄 끝 `⚠ N시간 정지` + 블록 끝 `정지 골 N` 1줄(r2236 이름 반복 0). 시계 = `FT_NOW`("YYYY-MM-DD HH:MM").
+          r2236: 진행표 행 없음 ∧ 담당 `—` 인 골 파일은 골 줄 뒤 `진행표 행 없음 N: 이름들` 1줄로 묶는다(«담당:» 줄 있으면 제 줄 · stderr WARN 은 파일마다 그대로).
+          예산 1600B 넘으면 처음 드는 단계에서 멈춤: ① 단계 칸 40자 → ② 24자 → ③ 24자 + 묶음 줄 수만 → ④ 12자 → ⑤ `완성 N` 수만 → ⑥ 골 줄을 아래부터 접어 `… 외 K골(정지 M)` 1줄(정지 줄 먼저 · 살아 있는 골 줄은 마지막 · `정지 골 N` = ⚠ 줄 + M · stderr `WARN … — K줄 접음`) — 빈 블록 0 · 골 파일 0개 = `표준절차 골 0` 1줄 · 원장·폴더 못 읽음 = `ERROR` rc1(조용히 빈 블록 0) — 소비처는 실패를 WARN + 빈 글로 받는다(뉴스·매거진을 멈추지 않는다).
 정본 = env FT_GOAL_A6_MD(파일 경로 | `gitref:<ref>:<경로>` · 기본 = `gitref:<FT_TEAMS_REF·origin/main>:<planner 팀 폴더>/AUTONOMY-GOAL-A6-20261018.md` — r545: 체크아웃(LIVE_ROOT) 파일이 아니라 그 ref 에 올라간 판 · 폴더도 ref 트리에서 푼다) · 상태 = 원장 env FT_GOAL_A6_LEDGER(같은 두 형식 · 기본 같은 꼴) · 저장소 = FT_GOAL_REPO(기본 FT_LEDGER_REPO · FT_ROOT). sha10 = 파일이면 내용 sha256 · gitref 면 commit sha. 머리에는 출처 종류(`origin/main@` | `file:`)를 sha10 앞에 붙인다(r545 · 옛 꼴 `(<sha10> · …)` 도 읽는다).
 원장: 행 수 ≠ N = ERROR rc1(N = 정본 표 행 수 · r668) · 파일·절 없음 = «상태 없음» + stderr WARN · 머리 `원장:<갱신>` · 24h 초과 = «상태 낡음».
 """
@@ -66,6 +67,8 @@ BLOCK_MARKS: tuple[tuple[str, re.Pattern[str], str], ...] = (
     ("표준절차 골", re.compile("^" + re.escape(PROCS_HEAD) + r"[0-9a-f]{10}\)★$"), PROCS_TAIL),
 )
 PROCS_NAME_CELLS = (40, 24, 12)  # «지금 단계» 칸 — 예산(1600B)에 들 때까지 줄인다(teams 와 같은 꼴)
+# r2236 줄임 단계 ①~⑤ = (단계 칸, 묶음 줄 이름, 완성 줄 이름) · 그래도 넘치면 ⑥ 접기(_procs_fit)
+PROCS_STEPS = ((PROCS_NAME_CELLS[0], True, True), (PROCS_NAME_CELLS[1], True, True), (PROCS_NAME_CELLS[1], False, True), (PROCS_NAME_CELLS[2], False, True), (PROCS_NAME_CELLS[2], False, False))
 PROCS_FILE = re.compile(r"^GOAL-.+-[0-9]{8}\.md$")  # 날짜 붙은 골 파일만(AUTONOMY-GOAL-A6·GOAL-planner.md·날짜 없는 파일 제외)
 PROCS_TITLE = re.compile(r"^#\s*골\s*[—–-]\s*(.+?)\s*$")
 PROCS_OWNER = re.compile(r"^[>\s]*담당\s*[:：]\s*(\S.*)$")
@@ -563,7 +566,7 @@ def _procs_lines(rows: list[tuple[int, list[str]]], head: list[str]) -> list[dic
             done = False
         age = _row_age(ledger_spec(GoalError), lineno) if row is not None and lineno else None
         out.append({"name": _goal_head(file, ref, folder), "owner": _norm(owner), "stage": _norm(stage),
-                    "done": done, "stale": 0 if age is None else int(age // 1), "late": age is not None and age > _stale_h()})
+                    "pack": row is None and _norm(owner) == "—", "done": done, "stale": 0 if age is None else int(age // 1), "late": age is not None and age > _stale_h()})
     return out
 
 
@@ -580,16 +583,40 @@ def render_procs() -> str:
     items = _procs_lines(rows, head)
     if not items:
         return "\n".join([f"{PROCS_HEAD}{sha})★", "표준절차 골 0", PROCS_TAIL]) + "\n"
-    done = [i for i in items if i["done"]]
-    late = [i for i in items if i["late"] and not i["done"]]
-    for width in PROCS_NAME_CELLS:
-        body = [f"- {i['name']} · {i['owner']} · {_clip(i['stage'], width)}" + (f" ⚠ {i['stale']}시간 정지" if i["late"] else "") for i in items if not i["done"]]
-        out = "\n".join([f"{PROCS_HEAD}{sha})★", *([f"완성 {len(done)}: " + ", ".join(i["name"] for i in done)] if done else []), *body,
-                         *([f"정지 골 {len(late)}: " + ", ".join(i["name"] for i in late)] if late else []), PROCS_TAIL])
+    return _procs_fit(sha, items) + "\n"
+
+
+def _procs_row(i: dict, width: int) -> str:
+    return f"- {i['name']} · {i['owner']} · {_clip(i['stage'], width)}" + (f" ⚠ {i['stale']}시간 정지" if i["late"] else "")
+
+
+def _procs_join(sha: str, parts: dict, rows: list[str], pack_names: bool, done_names: bool, fold: str = "") -> str:
+    done, pack, late_n = parts["done"], parts["pack"], parts["late_n"]
+    names = lambda xs, on: (": " + ", ".join(i["name"] for i in xs)) if on else ""  # noqa: E731
+    return "\n".join([f"{PROCS_HEAD}{sha})★", *([f"완성 {len(done)}{names(done, done_names)}"] if done else []), *rows, *([fold] if fold else []),
+                      *([f"진행표 행 없음 {len(pack)}{names(pack, pack_names)}"] if pack else []), *([f"정지 골 {late_n}"] if late_n else []), PROCS_TAIL])
+
+
+def _procs_fit(sha: str, items: list[dict]) -> str:
+    """r2236 줄임 단계 — 예산에 처음 드는 단계에서 멈춘다(①~⑤ PROCS_STEPS) · 그래도 넘치면 ⑥ 골 줄을 아래부터 접는다(정지 줄 먼저)."""
+    body = [i for i in items if not i["done"] and not i["pack"]]
+    parts = {"done": [i for i in items if i["done"]], "pack": [i for i in items if i["pack"] and not i["done"]],
+             "late_n": sum(1 for i in items if i["late"] and not i["done"])}
+    for width, pack_names, done_names in PROCS_STEPS:
+        out = _procs_join(sha, parts, [_procs_row(i, width) for i in body], pack_names, done_names)
         if len(out.encode("utf-8")) <= BUDGET:
-            return out + "\n"
-    print(f"WARN 표준절차 골 예산 초과 {len(out.encode('utf-8'))}B > {BUDGET}B ({len(items)}줄) — 블록 없이 발행", file=sys.stderr)
-    return ""
+            return out
+    over = len(out.encode("utf-8"))
+    order = [i for i in reversed(body) if i["late"]] + [i for i in reversed(body) if not i["late"]]
+    k = 0
+    for k in range(1, len(order) + 1):
+        gone = [id(i) for i in order[:k]]
+        fold = f"… 외 {k}골(정지 {sum(1 for i in order[:k] if i['late'])})"
+        out = _procs_join(sha, parts, [_procs_row(i, PROCS_STEPS[-1][0]) for i in body if id(i) not in gone], False, False, fold)
+        if len(out.encode("utf-8")) <= BUDGET:
+            break
+    print(f"WARN 표준절차 골 예산 초과 {over}B > {BUDGET}B ({len(items)}줄) — {k}줄 접음", file=sys.stderr)
+    return out
 
 
 def _canon_for(sha: str) -> tuple[list[list[str]], str, list[list[str]]]:
