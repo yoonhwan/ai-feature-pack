@@ -18,7 +18,7 @@
 #   «결정 필요» 바로 앞 1줄 = «초: ① a · … · ⑥ f · 전체 g/BUDGET»(돌지 않은 항목 = -).
 #   출력 30줄(넘으면 접고 마지막 2줄 «초:» · «결정 필요» 는 지킨다). 전부 rc0 = 0 · usage = 2.
 #   env(시험·이식용): FT_ROOT · FT_HIL_DIR · FT_DESK_TICK_MBOX · FT_DESK_TICK_HIL · FT_DESK_TICK_LAUNCHCTL · FT_DESK_TICK_GIT · FT_DESK_TICK_NEWS_STALE_H · FT_DESK_TICK_PS
-#                     FT_DESK_TICK_STALL_LOG · FT_DESK_TICK_LOG · FT_DESK_TICK_NOW(epoch) · FT_DESK_TICK_UID · FT_DESK_TICK_MAX_LINES · FT_DESK_TICK_BUDGET
+#                     FT_DESK_TICK_STALL_LOG · FT_DESK_TICK_LOG · FT_DESK_TICK_NOW(epoch) · FT_DESK_TICK_UID · FT_DESK_TICK_MAX_LINES · FT_DESK_TICK_BUDGET · FT_DESK_TICK_HEAD
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 usage() { echo "usage: ft-desk-tick.sh <desk 좌석>" >&2; exit 2; }
@@ -97,6 +97,12 @@ if item HIL; then
   fi
 fi
 tock ①
+# 머리 카운터(r2255) — planner-tick 폴더 없음 = 생략 1줄(rc 영향 0) · 있음 = TEAM-STATUS.md 1행 새로(① 실패면 «스크립트 ?» · ① 성공 = OKN 1)
+HEADPY="${FT_DESK_TICK_HEAD:-$HERE/ft_team_status_line.py}"; hilarg="?"; [ "$OKN" -ge 1 ] && hilarg="$HIL_N"
+if [ ! -d "$ROOT/.fable-team/state/planner-tick" ]; then o "머리 생략(폴더 없음)"
+elif item 머리; then hout="$(X python3 "$HEADPY" --hil "$hilarg" --root "$ROOT" --now "$NOW" 2>/dev/null)"; rc=$?
+  if [ "$rc" -eq 0 ]; then o "머리 $hout"; else fail_line 머리 "$rc"; fi
+fi
 
 # ② launchd 3종 state/last exit + stall-scan 로그 마지막 ts + 뉴스 마지막 발행(r2102)
 tick

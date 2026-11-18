@@ -18,7 +18,7 @@ import status_head as sh
 
 PLANNER = "byz-planner-master-claude#181"
 PLAIN = "스크립트 0 · 인터뷰 0 · 막힌 팀 대기 0"
-BROKEN = "스크립트 ? · 인터뷰 0 · 막힌 팀 대기 0"
+BROKEN = "스크립트 x · 인터뷰 0 · 막힌 팀 대기 0"
 STALE = "카운팅 확인 불가(낡음)"
 MTIME = 1_793_000_000
 FAKE_MBOX = '#!/bin/bash\nprintf "%s\\037" "$@" >> "$(dirname "$0")/calls.log"; echo >> "$(dirname "$0")/calls.log"\nexit 0\n'
