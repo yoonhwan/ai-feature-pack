@@ -21,9 +21,9 @@ def cli(w, *argv):
     return out
 
 
-def made(w, mp, work, via="parked", reason="idle-done", done=True):
+def made(w, mp, work, via="parked", reason="idle-done", done=True, line=True):
     """착지 카드 + dispatch a1(intent · 유휴 나노 세션) → (쉼 | 반환) a1 → (complete a1) — 전부 keeper 밖(실 CLI)."""
-    w.enable(), w.card(work, w.pack_sha())
+    w.enable(), w.card(work, w.pack_sha() if line else None)   # r2258 line=False = 착지 줄 없음(쉼 착지 = complete 길은 r2258 ①)
     holder = w.work(work, alive=True)
     if via == "parked":
         cli(w, "park", "--work", work, "--attempt", "a1", "--reason", reason)
@@ -80,8 +80,8 @@ def c4(w, mp):   # ④ 쉼 LAUNCH_FAILED a1 ∧ done → close 0(parked_failed �
     assert w.tmux("kill-session") == [] and w.kinds("close_receipt") == 0, lines
 
 
-def c5(w, mp):   # ⑤ 쉼 a1 · done 아님 → gone 그대로 · B1 0(complete 0) · close 0 · 판정 줄 0
-    made(w, mp, "r9515", done=False)
+def c5(w, mp):   # ⑤ 쉼 a1 · done 아님 · 착지 줄 없음 → gone 그대로 · B1 0(complete 0) · close 0 · 판정 줄 0
+    made(w, mp, "r9515", done=False, line=False)
     lines = w.round(keeper(w, Fake([STAGED])))
     assert w.kinds("complete") == 0 and w.tmux("kill-session") == [] and not mine(lines, "r9515"), lines
 

@@ -270,7 +270,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
             proj = self.proj_of(team)
             works = (proj.get("works") or {}) if proj.get("result") == OK else {}
             gone -= {work for work in open_ if (works.get(work) or {}).get("done")}   # r2251 O1 쉼 ∧ done
-        return back, gone
+        return back, gone, open_   # r2258 O1 open_ = 쉼(LAUNCH_FAILED·반환 밖) ∧ handled 밖
 
     def left_over(self, team, work):
         """R10 — 판정이 끝난 work 의 안 돈 자리(b1 · b2c · stall)는 이 바퀴에 돌 수 있는 자리가 아니다."""
@@ -601,12 +601,14 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         rows = self.rows_of(team)   # r2098 자리 순서 셈과 같은 읽기(바퀴 안 1회)
         latest = {rec["work"]: (rec.get("attempt"), rec.get("holder")) for rec in rows
                   if rec.get("kind") == "dispatch" and rec.get("work")}
-        back, gone = self.book(team)   # r1990 반환·r2055 쉼 줄 · R10 건너뛰는 work(분모 셈과 같은 식)
+        back, gone, open_ = self.book(team)   # r1990 반환·r2055 쉼 줄 · R10 건너뛰는 work(분모 셈과 같은 식)
         self.parked_failed = {(team, rec["work"], rec.get("attempt")) for rec in rows if rec.get("kind") == "parked" and rec.get("reason") == settling.LAUNCH_FAILED}   # r2058 L1
         for work, (attempt, dispatched) in sorted(latest.items()):
             if work in gone:
                 if (work, attempt) in back and (proj["works"].get(work) or {}).get("done"):
                     self.timed("b1", self.stage_card, team, work)   # r2140 K2
+                elif work in open_:   # r2258 O1 쉼 ∧ done 아님 = 착지 판정만(깨움·stall·HOLD 0)
+                    self.parked_landing(team, work, attempt)
                 continue   # r1990 반환·r2055 쉼인 최신 attempt = B1 complete·판정·깨움 0(새 dispatch 면 attempt 가 달라 다시 본다)
             self.at_work, row, self.why = work, proj["works"].get(work) or {}, ""   # r2055 판정 줄 꼬리 = 이 work 의 착지 판정 사유
             try:
@@ -629,6 +631,32 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
             self.timed("b2f", closing.keeper_next.fill, self, team)
         else:
             self.unused.add((team, "-", "b2f"))   # R10 이 바퀴에 안 도는 자리 = 분모에 남기지 않는다
+
+    def tips(self):
+        """r2258 O2 — landing 이 읽는 ref tip 3개(팩 origin/main · BYZ REFS 2) · 바퀴 안 1회 · 못 읽음 = None(기억 0)."""
+        rnd = self.cache.setdefault("@round", {})
+        if "tips" not in rnd:
+            (prc, pout, _), (brc, bout, _) = self.git(self.pack, "rev-parse", "origin/main"), self.git(self.root, "rev-parse", *land.REFS)
+            rnd["tips"] = pout.split() + bout.split() if prc == 0 and brc == 0 else None
+        return rnd["tips"]
+
+    def parked_landing(self, team, work, attempt):
+        """r2258 O1·O2 — 쉼 work 착지 판정 1회 → 착지면 complete 1회(land_ready 0 · 쉼 = 이미 유휴 끝) · «미도달» 만 tip 3개 키로 기억 · 그 밖 줄 0."""
+        memo, key, self.at_work = self.state.setdefault("parked_unreached", {}), "%s|%s@%s" % (team, work, attempt), work
+        try:
+            tips = self.tips()
+            if tips and memo.get(key) == tips:
+                return None   # O2 세 tip 같음 = 다시 안 봄
+            got = self.timed("b1", self.landing, team, work)
+            if got[2] == "미도달" and tips:
+                memo[key] = tips
+                return None
+            memo.pop(key, None)   # 착지 줄 없음 · 판정 불가 = 기억 0(다음 바퀴 다시 봄)
+            return bool(got[0] and not got[2]) and self.timed("b1", self.complete, team, work, attempt, got)
+        except Ungraded:
+            return None
+        except Exception as exc:   # r2115 A2 꼴 — 그 work 1줄 · 다음 work
+            return self.log("판정 불가", team, "%s 쉼 착지 내부 오류 %s" % (work, type(exc).__name__))
 
     def one_work(self, team, work, attempt, row, dispatched, rows):
         """B1 한 자리(landing + complete) → «close» | «none» · 착지 밖이면 stall 칸(끊기면 Cut 이 위로).
