@@ -58,11 +58,31 @@ def c1(w):   # ① mtime 10일 전 → 줄 1 · [긴급] 1통 · 기준판 = 0�
     assert len(got) == 1 and got[0].startswith("send M-harness ft2-keeper [긴급] 하루 정리 멈춤 10일"), got
     no_side(w, calls, m)
     assert len(spent) == 1 and spent[0] < 1.0, spent
-def c2(w):   # ② 같은 판 같은 날 바퀴 2번째 → 줄 0 · 쪽지 0(하루 1통)
+def stats(k):   # O4 — 이 바퀴 stat 부른 횟수(표식 오늘 = 0)
+    g, got = type(k).__init__.__globals__, []
+    real = g["daily"].check
+    g["daily"].check = lambda kk: real(kk, stat=lambda p: (got.append(p), os.stat(p))[1])
+    return got
+def c2(w):   # ② 같은 판 같은 날 바퀴 2번째 → 줄 0 · 쪽지 0(하루 1통) · 검사 0회
     c1(w)
-    lines = w.round()
+    k = w.keeper()
+    got = stats(k)
+    lines = w.round(k)
     assert daily(lines) == [], lines
     assert len(sends(w)) == 1, sends(w)
+    assert got == [], got
+def c5(w):   # ② 경계 — 1바퀴 notify False(한 바퀴 3통 상한 다 참) → 줄 1 · 쪽지 0 / 2바퀴 → 줄 0 · 쪽지 1 / 3바퀴 → 검사 0
+    age(w, 10 * DAY + 5)
+    k = w.keeper()
+    k.notify_used = 3   # 상한 다 참 = budget False → notify False(지문 0)
+    lines = w.round(k)
+    assert len(daily(lines)) == 1 and sends(w) == [], (lines, sends(w))
+    lines = w.round()
+    assert daily(lines) == [] and len(sends(w)) == 1, (lines, sends(w))
+    k = w.keeper()
+    got = stats(k)
+    lines = w.round(k)
+    assert daily(lines) == [] and len(sends(w)) == 1 and got == [], (lines, got)
 def c3(w):   # ③ 파일 없음 → «없음» 1줄 · 1통
     log_path(w).unlink()
     k = w.keeper()
@@ -97,7 +117,7 @@ def c4(w):   # ④ mtime 1시간 전 → 줄 0 · 쪽지 0 · keeper 로그 바�
     assert lines == base_lines and mbox == base_mbox * 2, (lines, base_lines)
     no_side(w, calls, w.t - 3600)
     assert len(spent) == 1 and spent[0] < 1.0, spent
-CASES = {"c1": c1, "c2": c2, "c3": c3, "c3s": c3s, "c4": c4}
+CASES = {"c1": c1, "c2": c2, "c3": c3, "c3s": c3s, "c4": c4, "c5": c5}
 
 
 def world(base, monkeypatch, tree=FT2):
@@ -128,11 +148,21 @@ def mutant(monkeypatch, old, new):
     return tmp, World(tmp / "w", monkeypatch, tree)
 
 
-def test_mutant_m1(monkeypatch):   # M1 하루 1회 표식 뺌 → ② 2번째 바퀴 줄 1(FAIL) · 원본 = 줄 0(test_case c2)
+def test_mutant_m1(monkeypatch):   # M1 하루 1회 표식 뺌 → ② 2번째 바퀴 검사 1회(FAIL) · 원본 = 0회(test_case c2)
     tmp, w = mutant(monkeypatch, '    if k.state.get("daily_sweep") == day:\n        return None\n', "")
     try:
         with pytest.raises(AssertionError):
             c2(w)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_mutant_m3(monkeypatch):   # M3 표식 먼저 쓰기(보정 전 꼴) → c5 2바퀴 쪽지 0(FAIL) · 원본 = 1통(test_case c5)
+    old = '    if k.state.get("daily_sweep") == day:\n        return None\n'
+    tmp, w = mutant(monkeypatch, old, old + '    k.state["daily_sweep"] = day\n')
+    try:
+        with pytest.raises(AssertionError):
+            c5(w)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
