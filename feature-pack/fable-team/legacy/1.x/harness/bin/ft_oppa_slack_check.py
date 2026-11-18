@@ -34,6 +34,43 @@ HEX40 = re.compile(r"(?<![0-9a-fA-F])[0-9a-fA-F]{40}(?![0-9a-fA-F])")
 STATUS_HEADS = ("[멈춤]", "[정리]", "[알림]")
 
 
+# r2194 · 번호 답 «N.<글>»·«N)<글>»(N 1~2자리 · 글 1자 이상) · 열쇠 줄 = 한 줄 전체 «<열쇠> <40hex>»(열쇠 = 영문·숫자·_·- 3자 이상). 오빠 확인 대상 — 바꾸려면 PR.
+NUM_PART = re.compile(r"(\d{1,2})[.)]\s*(\S.*)", re.S)
+KEY_LINE = re.compile(r"^[ \t]*([A-Za-z0-9_-]{3,})[ \t]+([0-9a-fA-F]{40})[ \t]*$", re.M)
+
+
+def numbered(m: dict):
+    """r2194 B1 — 비어 있지 않은 조각 전부가 «N.<글>»·«N)<글>» 이고 번호 겹침 0 이면 {N: 글} · 아니면 None(기준판 길). 오빠 확인 대상 — 바꾸려면 PR."""
+    t = m.get("text") if isinstance(m.get("text"), str) else ""
+    got = [NUM_PART.fullmatch(c.strip()) for c in re.split(r"\s+/\s+|[\r\n]+", t) if c.strip()]  # 조각 경계 = first_chunk_words 와 같음(줄바꿈·공백 낀 «/»)
+    if not got or not all(got) or len({int(g.group(1)) for g in got}) != len(got):
+        return None
+    return {int(g.group(1)): g.group(2) for g in got}
+
+
+def item_number(sha: str, text: str, msgs: list, me: list, t: Decimal) -> int:
+    """r2194 B2~B4 — sha → 질문 글 열쇠 줄(정확히 1개 · 다른 sha 와 안 겹침) → 답글 앞 같은 작성자 목록 글(정확히 1개 · 셈 범위 고친 시각 < 답)
+    → 열쇠를 낱말로 담은 항목(정확히 1개 · 다른 열쇠 0 · 번호 겹침 0) 의 번호. 못 묶으면 «판정 불가». 오빠 확인 대상 — 바꾸려면 PR."""
+    keys = KEY_LINE.findall(text)
+    mine = [k.lower() for k, h in keys if h.lower() == sha.lower()]
+    others = {k.lower() for k, h in keys if h.lower() != sha.lower()}
+    if len(mine) != 1 or mine[0] in others:
+        raise Unjudgeable("번호 답 열쇠 줄 아님")
+    pool = [m for m in msgs if dec(m.get("ts")) < t and set(me) & {m.get("user"), m.get("bot_id")} - {None}]
+    lists = [(m, [g for g in (NUM_PART.match(x.strip()) for x in (m.get("text") if isinstance(m.get("text"), str) else "").splitlines()) if g]) for m in pool]
+    lists = [(m, items) for m, items in lists if items]
+    if len(lists) != 1:
+        raise Unjudgeable("번호 답 목록 글 %d개" % len(lists))
+    lm, items = lists[-1]
+    if any(m.get("edited") is not None and (not isinstance(m.get("edited"), dict) or dec(m["edited"].get("ts")) >= t) for m in pool):
+        raise Unjudgeable("번호 답 셈 범위 글이 답 뒤에 고쳐짐")
+    word = lambda k, s: re.search(r"(?<![A-Za-z0-9_-])%s(?![A-Za-z0-9_-])" % re.escape(k), s, re.I)  # noqa: E731
+    hit = [g for g in items if word(mine[0], g.group(0))]
+    if len(hit) != 1 or len({int(g.group(1)) for g in items}) != len(items) or any(word(o, hit[0].group(0)) for o in others):
+        raise Unjudgeable("번호 답 항목 묶기 실패")
+    return int(hit[0].group(1))
+
+
 def status_note(txt: str) -> bool:
     return not HEX40.search(txt) and txt.lstrip().startswith(STATUS_HEADS)
 
@@ -151,7 +188,16 @@ def judge(ts: str, shas: list, after: str | None = None, stop: list | None = Non
         if not sha:  # r1591 · --reply-only 는 «도착» 만 본다(r1606 내용 판정은 승인 길에만 · 범위 밖)
             out.append("REPLY-SEEN parent=%s reply=%s" % (ts, ok[0][0]))
             continue
-        said = [(t, reply_words(m), first_chunk_words(m)) for t, m in ok]
+        said = []
+        for t, m in ok:  # r2194 B5 · 번호 답 = 이 sha 번호의 조각만 본다 · 이 sha 번호가 없으면 이 sha 에 답하지 않은 글
+            nr = numbered(m)
+            if nr is not None:
+                n = item_number(sha, text, msgs, me, t)
+                c = nr.get(n)
+                if c is None:
+                    continue
+                m = {"text": c}
+            said.append((t, reply_words(m), first_chunk_words(m)))
         no = [t for t, ws, _ in said if REJECT_WORDS.intersection(ws)]  # r1606 · 거절은 «본문 전체» 토막 검사 그대로(«예\n근데 보류» = 거절)
         if no:
             raise ValueError("오빠 거절 답글 reply=%s" % no[0])
