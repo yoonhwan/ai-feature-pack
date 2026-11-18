@@ -44,8 +44,9 @@ reset; land "$LAND" 12 SHIM_FAIL_ROOT="$D"
 # ③ 재실행 → 두 루트 SHIM n · MOVED 0 · 쓰기 0(멱등)
 land "$LAND" 13 X=1; land "$LAND" 14 X=1
 [ "$rc" = 0 ] && [ "$(tr '\n' ' ' < "$SHIM_LOG")" = "$D w=0 $P w=0 " ] && [ "$(grep -c '^SHIM-AFTER-LAND .* MOVED 0 ' <<<"$out")" = 2 ]; ck "③ 재실행 → 두 루트 쓰기 0" $?
-# 같은 루트(데이터 루트 = 팩 리포) → 1회
-land "$LAND" 15 FT_ROOT="$P"
+# 같은 루트(데이터 루트 = 팩 리포 = 대상 리포 W · r1746 다른 리포 URL 검사 밖) → 1회
+mkdir -p "$W/harness/kit/fable-team" "$W/.fable-team/bin"; cp "$D/.fable-team/LIVE_BIN" "$W/.fable-team/LIVE_BIN"
+land "$LAND" 15 FT_ROOT="$W" FT_HARNESS_ROOT="$W/harness"
 [ "$rc" = 0 ] && [ "$(grep -c '^SHIM-AFTER-LAND ' <<<"$out")" = 1 ] && [ "$(wc -l < "$SHIM_LOG" | tr -d ' ')" = 1 ]; ck "같은 루트 → 1회" $?
 S2=$SECONDS
 
