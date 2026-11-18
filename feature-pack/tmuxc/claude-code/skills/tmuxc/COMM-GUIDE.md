@@ -328,6 +328,7 @@ tmux send-keys -t {orch} Enter
 2. tmux 메시지는 **파일 경로 + 핵심 요약 한둘**만 보낸다. "원문은 `{path}` 참조"를 명시.
 3. 수신 측은 파일을 Read해서 원문을 확정하고, tmux 텍스트만으로 판단하지 않는다.
 4. 발신자가 tmux로 계속 여러 파트를 보내는 관행 자체는 막지 않되(원저작), **중계·집계 책임(오케 등)은 파일화해 authoritative 버전을 고정**한다 — pane별 scrollback 유실/캡처 타이밍 오탐을 근본 차단.
+5. 카드 보기 = ft-card-tail · 줄 덧붙이기 = ft-card-append · 덧붙인 뒤 확인 = ft-card-tail --ref <PUSHED sha>
 
 ## 4b. 설계·판정 방식 — 하네스 대신 DA approve loop (2026-07-29 확정)
 

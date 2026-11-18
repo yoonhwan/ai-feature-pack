@@ -1,8 +1,8 @@
 # COMM-GUIDE-INDEX — 절 지도 (필요한 절만 `Read offset/limit≤200`)
 
-전문 정본 = `COMM-GUIDE.md` (410줄). 상시 로드본 = `COMM-GUIDE-BOOT.md` (17줄 ≤2KB, 여기 지도는 그 파일에서 내렸다).
+전문 정본 = `COMM-GUIDE.md` (411줄). 상시 로드본 = `COMM-GUIDE-BOOT.md` (17줄 ≤2KB, 여기 지도는 그 파일에서 내렸다).
 
-- 전문 sha256 앞16 = `d64777274c4b371a` · 기준일 2026-11-06 · 전문이 바뀌면 이 값과 아래 줄 범위를 같이 갱신한다. 대조 = `ft-version.sh check`.
+- 전문 sha256 앞16 = `94ace32fe6cec007` · 기준일 2026-11-18 · 전문이 바뀌면 이 값과 아래 줄 범위를 같이 갱신한다. 대조 = `ft-version.sh check`.
 - 읽기 규칙: 전문 Read·cat 금지. 아래 줄 범위로 `Read(offset, limit≤200)` 한 절씩.
 - HARD 열 = «읽기 전에 실행되는 계약». BOOT 17줄에 조항 단위로 실려 있으면 O, 아니면 X(경보).
 
@@ -20,10 +20,10 @@
 | §0 보냈다 ≠ 도착했다 | 221–235 | | tmux 폴백 시 3회 도달검증 |
 | §1 메시지 포맷 | 237–254 | | `[{from}->{to}]` · ASCII 화살표 |
 | §2 검증 송신 4스텝 · Step1 HARD GATE | 256–297 | HARD | `-l`/`Enter` 별도 호출 · `pgrep -P`=0 이면 send 금지 |
-| §3 수신 · §4 보고 · §4a 파일 우선 | 299–330 | | 수신·보고 규약 |
-| §4b DA approve loop | 332–359 | | architect 설계 → DA 반박 → checker 확인 |
-| §4c 버전 정합 | 361–401 | | tester·checker press 전 기동>최신커밋 |
-| §5 금지 요약 | 403–410 | | 금지 9항 |
+| §3 수신 · §4 보고 · §4a 파일 우선 | 299–331 | | 수신·보고 규약 |
+| §4b DA approve loop | 333–360 | | architect 설계 → DA 반박 → checker 확인 |
+| §4c 버전 정합 | 362–402 | | tester·checker press 전 기동>최신커밋 |
+| §5 금지 요약 | 404–411 | | 금지 9항 |
 
 ## HARD 조항 → BOOT 줄 대조 (6곳 전부 O)
 
