@@ -335,7 +335,7 @@ def choose(k, team, skip=frozenset()):
     pair = pairs(k, team)   # r1887 짝 표
     (found, r), done, why, ready = got, state.get("done") or {}, {}, []
     owners = {s for s in found if ({s} | pair.get(s, set())) & set(state.get("owners") or {})}   # stem·짝 work 중 owner 있음
-    names = {}   # r2182 N1·N2 {사유: [(카드, 원장이 먼저 막음)]}
+    names, ends = {}, set()   # r2182 N1·N2 {사유: [(카드, 원장이 먼저 막음)]} · r2254 끝남 ∧ 재개 줄 카드
     for stem, (urgent, high, lines, pre, seen, back) in sorted(found.items()):
         led = ledger(k, stem)
         own = led.get("state") != "seat" and stem not in owners and led.get("reason") in BLOCK   # r2182 ⓗ 배정됨이 먼저면 원장 표시 0
@@ -356,6 +356,13 @@ def choose(k, team, skip=frozenset()):
                 book[key] = seen
                 k.log("판정 불가", team, "%s 선행 줄 판독 불가(%s) — 건너뜀 · 고칠 꼴 «- 선행: 없음» 또는 «- 선행: r<번호>»" % (stem, seen["why"]))
         block = block or ("보류" if stem in skip else ended(stem, pair, done))   # r1887 stem·짝 work done
+        if block == "끝남" and back:   # r2254 O1 끝난 work 카드의 재개 줄 = NEXT-SKIP 1줄(값이 바뀔 때만 · wait_seen 꼴) · block·reopen 호출 0 그대로
+            dw, done_book, key = min(w for w in {stem} | pair.get(stem, set()) if w in done), k.state.setdefault("done_skip_seen", {}), "%s|%s" % (team, stem)
+            got = "%s@%s" % (dw, done[dw].get("attempt") if isinstance(done[dw], dict) else done[dw])
+            val = ends.add(stem) or "%s|%s" % (" ".join(back), got)   # 값 = 재개 줄들 · done attempt
+            if done_book.get(key) != val:
+                done_book[key] = val
+                k.log("NEXT-SKIP", team, "%s 건너뜀 — 끝남(ft2 done %s) · 재개 줄 무시 · 끝난 work 는 같은 이름으로 다시 안 열림 · 새 work 이름으로 손 발주" % (stem, got))
         back = not block and reopen(k, team, stem, back, {stem} | pair.get(stem, set()), state)   # r2113 A1 재개 줄(없거나 막힌 카드 = 읽기 0)
         block = block or ("재개" if back else "")   # r2113 A1 — 재개 줄 = «착지» 판독 건너뜀(바로 아래에서 푼다)
         block = block or ("착지" if skip_landed(k, team, stem) else "")   # r2058 L5 착지 카드 = 다시 넣지도 닫기 뒤 다음으로도 고르지 않는다
@@ -372,6 +379,9 @@ def choose(k, team, skip=frozenset()):
     book = k.state.setdefault("wait_seen", {})   # r2210 O2·O3·O4·O5 — 위 found 를 다 본 뒤: 그 팀 키 중 대기사유 막힘이 아니게 됐거나 사라진 카드를 지운다(판독 실패 카드 = 그대로)
     for key in [x for x in book if x.partition("|")[0] == team and x.partition("|")[2] not in waits and (x.partition("|")[2] in found or not unread & {x.partition("|")[2], "*"})]:
         book.pop(key, None)   # r2210 (prereq 변이 M40 의 글자와 겹치지 않게)
+    gone = k.state.setdefault("done_skip_seen", {})   # r2254 O3 — 끝남 ∧ 재개 줄이 아니게 됐거나 사라진 카드 키 지움(판독 실패 카드 = 그대로 · wait_seen 꼴)
+    for key in [x for x in gone if x.partition("|")[0] == team and x.partition("|")[2] not in ends and (x.partition("|")[2] in found or not unread & {x.partition("|")[2], "*"})]:
+        gone.pop(key, None)
     if why.get("팩낡음"):
         k.log("판정 불가", team, "다음 카드 보류 %d장 · 팩 fetch 실패" % why["팩낡음"])
     prereq_tell(k, team, {s: row[4] for s, row in found.items() if row[3] == "선행불명"})   # I4~I8 · 고를 카드가 있든 없든 간다
