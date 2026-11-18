@@ -16,8 +16,8 @@ KIT="$REPO/harness/kit/fable-team/bin"; KD="${FT_KIT_DIR:-$KIT}"   # FT_KIT_DIR 
 F="$T/fakebin"; lg="$T/calls.log"; R="$T/repo"
 DESK0="byz-planner-desk-pi#204"; DESK="byz-planner-desk-pi#205"; MAS0="byz-planner-master-pi#363"; MAS="byz-planner-master-pi#364"
 ARC0="byz-planner-arch-pi#57"; ARC="byz-planner-arch-pi#58"
-mkdir -p "$F" "$R/design/p"; git -C "$R" init -q; mkdir -p "$R/design/teams/planner"
-printf -- '- **desk 좌석**: desk 는 인터뷰·응대·요청 정리만(코드·커밋 0 · 팀 직접 발주 0 · 정리한 요청은 master 에 1통)\n' > "$R/design/teams/planner/GUIDE-planner.md"   # desk 안내서 단계 = 실 #332594 2줄 구절
+mkdir -p "$F" "$R/design/p"; git -C "$R" init -q; mkdir -p "$R/design/teams/planner"; ASK='선택지마다 D2 3문 · «예» 가 하나라도 있으면 오빠께'
+printf -- '- **desk 좌석**: desk 는 인터뷰·응대·요청 정리만(코드·커밋 0 · 팀 직접 발주 0 · 정리한 요청은 master 에 1통)\n- **desk 묻는 기준** %s\n' "$ASK" > "$R/design/teams/planner/GUIDE-planner.md"   # desk 안내서 단계 = 실 #332594 2줄 구절 · r2233 묻는 기준 줄
 git -C "$R" add -A && git -C "$R" -c user.name=t -c user.email=t@t commit -q -m r0; mkstub() { printf '#!/usr/bin/env bash\n%s\n' "$2" > "$F/$1"; chmod +x "$F/$1"; }
 mkstub tmux 'case "$1" in has-session) [ -f "$OPENED" ] && exit 0; exit 1;; list-panes) echo 4242;; display-message) echo "$PANE_CWD";; esac; exit 0'
 mkstub tmuxc 'echo "tmuxc $* CW=${FT_CARRY_WARN_ONLY-unset}" >> "$LOG"; : > "$OPENED"; exit 0'
@@ -37,7 +37,7 @@ cp "$FX/HANDOVER-362-to-363-20261118.md" "$R/design/p/H363.md"; cp "$FX/handover
 sed -n 36,44p "$FX/HANDOVER-362-to-363-20261118.md" > "$R/design/p/ask6.md"; sed -n 18p "$FX/HANDOVER-362-stop-20261118.md" > "$R/design/p/stop18.md"
 printf '# 새 인계서\n\n## 재개 중\n- 연세 선택지 h desk 실행 #332550\n' > "$R/design/p/N0.md"
 B1="$FX/body-332594.txt"; P363='앞 인계서: design/p/H363.md'
-b1() { cat "$B1"; echo; [ $# -gt 0 ] && printf '%s\n' "$@"; return 0; }   # 실 #332594 본문(9줄 · 끝 줄바꿈 0) + 덧줄
+b1() { cat "$B1"; echo; echo "desk 묻는 기준: $ASK"; [ $# -gt 0 ] && printf '%s\n' "$@"; return 0; }   # 실 #332594 본문(9줄 · 끝 줄바꿈 0) + 10줄 r2233 묻는 기준 + 덧줄
 so_run() {  # so_run <kit 폴더> <구> <후계> [env…] — 본문 = $T/b.txt · cwd = $T(ROOT 밖)
   local d="$1" o="$2" n="$3"; shift 3; rm -f "$lg" "$T/opened" "$T/sent.txt"; rm -rf "$R/.fable-team/state"; : > "$lg"
   (cd "$T" && export "${SOENV[@]}" "$@" && bash "$d/ft-successor-open.sh" "$o" "$R" --name "$n" --agent pi --model m --body-file "$T/b.txt") > "$T/out" 2>&1; RC=$?
