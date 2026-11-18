@@ -78,7 +78,7 @@ keeper 는 한 바퀴에 팀을 이름순으로 돈다. 로컬 git 호출이 7�
 2. [x] 나노: 기준판 FAIL 원문(52가 · 52나 · 52다)
 3. [x] 나노: 새 시험 전체 rc0 · 걸린 초(사례 1개 70초 안 · 하드 룰 22) · 변이 M129 · M131 · M132 · M137 지정 반례 FAIL
 4. [x] 나노: 회귀 rc0(파일별 초)
-5. [ ] 팀장: PR 착지 sha · 설치 판
+5. [x] 팀장: PR 착지 sha · 설치 판 = 착지 49d6b45a(PR #1600) · 설치 ft2 2.0.118(2.0.117 → · 소스 bdfa7bcf · keeper.py = 승인 6838b985 diff 0 · POSTCHECK OK · keeper 재기동 2026-11-18 14:11:09 pid 93069 · harness#329 aifp 6107)
 6. [ ] arch: 설치 뒤 읽기 실측 = BYZ keeper 로그 ROUND 200줄 이상(양 끝 시각)에서 cut=- 줄의 items 가 모두 N/N · «판정 불가 <팀> - git 7초 넘음» 이 있는 바퀴 수와 그 바퀴의 items 원문 2줄 · 아닌 줄이 있으면 원문과 함께 [ ]
 7. [ ] arch: 다시 재는 순서 = 이 카드 설치 뒤 ROUND 50줄에서 진행/ft2-keeper-round-cells-b1-items 조건 6 을 다시 잰다(그 카드의 남은 칸은 이것 하나) · 진행/ft2-keeper-round-60s 조건 7 은 대기/ft2-keeper-nano-cut-blank-cell 까지 설치된 뒤 ROUND 200줄에서 다시 잰다
 
@@ -100,4 +100,5 @@ keeper 는 한 바퀴에 팀을 이름순으로 돈다. 로컬 git 호출이 7�
 - 2026-11-18 13:52 · 기준판 FAIL 원문(고치기 앞 keeper.py · 팩 origin/main 14d7677f · 같은 대역) — 52가: 판정 불가 1줄 · ROUND items=3/16 cut=- · b·c land 0 / 52나: 판정 불가 1줄(a 것)뿐이라 c 에 닿지 않음 · items=3/16 cut=- / 52다: 2바퀴 모두 b·c land 0 / 52바: b3r retired 0 · 52라·52마 = 기준판 PASS(그대로 지킨다)
 - 2026-11-18 13:52 · 고침 = keeper.py `_round` 팀 고리 안에서 `except Ungraded: continue`(그 팀만 0 · 뒤 팀은 돈다 · Cut 은 BaseException 이라 안 삼킴) · b3o 갈래 `except Ungraded: pass`(b3r 은 돈다) · 범위 밖 손 0 · 변이 M129·M131·M132·M137 을 지정 반례가 잡음
 - 2026-11-18 13:52 · 시험 = 새 파일 `test_keeper_ungraded_team_rest.py`(52가~바 6칸 + 변이 4) 10 passed 2초 · 회귀 rc0(60s 49 passed 12초 · cells 15 passed 7초 · git_no_lazy_fetch 26 passed 70초) · 재진입 lint OK rc=0 · ruff 통과
+- 2026-11-18 14:13 · 설치 — ft2 2.0.118(harness#329 aifp 6107 · NONLLM BYZ 334791) · 조건 5 [x] · 다음 = arch 설치 뒤 실측(조건 6·7)
 - 세트: 6838b985d77df655ece8659a874fc0190eaef81a · 시험: python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_keeper_ungraded_team_rest.py -q (10 passed) rc=0 · 이슈: 0
