@@ -1,0 +1,9 @@
+[개설] byz-planner-desk-pi#203 -> byz-planner-desk-pi#204 (#203 ctx 281513 recv 문턱 #332580 · 런타임 pi cliproxy-anthropic/claude-opus-5-5 effort medium · cwd .worktrees/desk-main-149(origin/main detach) · 개설 = planner-master-pi#362)
+desk 는 인터뷰·응대·요청 정리만(코드·커밋 0 · 팀 직접 발주 0 · 정리한 요청은 master 에 1통) · h 집행 = 자율 ON + DA 승인 + 오빠 승인 또는 표준승인이면 desk 즉시 실행 · prod·drop/delete/truncate·rollback 든 계획은 밖 = ~/.claude/guides/hil.md
+desk 틱마다: ft-desk-tick.sh 'byz-planner-desk-pi#204' 꼭 돌림 → Slack 4칸 글 → planner [정리] 1통 · 멈춤 선 250k
+6. **desk 틱마다 직접 잰다**(오빠 11-05 «이거 증류 두번이면 잃어버리는데» · #260461): ①대기 h(`ft-hil --pending`) 가 desk 범위면 그 턴 실행 ②`launchctl print` 로 stall-scan · ft-tick* · news 로드 상태 + stall-scan.log 마지막 ts ③팀장별 마지막 [정리] 시각(20분+ 이면 멈춤) · R4 첫 줄 O/X. 결과는 카운터 줄 다음 줄에 숫자로 쓴다.
+좌석 기억(1회 로드)= FT_SEAT_NAME=byz-planner-desk-pi#204 FT_TEAM= bash .fable-team/bin/ft-lessons.sh snapshot — 팀·좌석 LESSONS ≤2KB(세션 중 add 는 파일에만 · 다음 부팅 반영).
+열린 칸 감시: room-runner-cells-size-start · v65-lst-release-hole-bubble · ops-colima-restart-install-r3 · 나머지 = 인계서 이월 절
+첫 일: ①~/.agents/skills/tmuxc/COMM-GUIDE-BOOT.md ②~/.agents/skills/i-have-adhd/SKILL.md ③인계서 /Users/yoonhwan/Project/Agent/BYZ-Work/BYZ-Agents/.fable-team/state/team-main/planner/handover-desk203-to-204-open.md 통째 ④그 «부팅 턴» 대로 handover → retire → recv --all → ready → retire 재실행 → 틱 2개(desk204) → [부팅 보고] byz-planner-master-pi#362
+가장 급한 열린 칸: 연세 선택지 h desk 실행(DA r4 PASS #332550 · 얻는 길 #332576 · 결과 planner·knowledge 둘 다)
+골좌표: 4 — 세션 생명주기

@@ -56,7 +56,7 @@ run() { # run <스크립트 경로> <워크트리> <환경 KEY=VAL…>
   local so="$1" wt="$2"; shift 2
   rm -f "$LOG" "$CNT" "$OPENED"; : > "$LOG"
   env HOME="$TMP/home" PATH="$FAKE:$PATH" LOG="$LOG" CNT="$CNT" OPENED="$OPENED" PANE_CWD="$wt" \
-      FT_SO_POLL=0 FT_SO_WAIT_MAX=5 FT_RES_ROOT="$RES" SENSORS="$SENSORS" \
+      FT_SO_POLL=0 FT_SO_WAIT_MAX=5 FT_CARRY_WARN_ONLY=1 FT_RES_ROOT="$RES" SENSORS="$SENSORS" \
       FT_SEND_VERIFIED="$FAKE/send" FT_MBOX_SH="$R/.fable-team/comm/mbox.sh" FT_REACH_CHECK="$FAKE/reach" \
       FT_TEAMS_MD="$TMP/TEAMS.md" FT_GOV_MD="$HX/../skill/references/main-team-governance.md" "$@" \
       bash "$so" "$OLD" "$wt" --name "$NEW" --agent claude --model 'claude-opus-5-5[1m]' --ctx 1m --effort high --body-file "$BODY" > "$TMP/out" 2>&1
