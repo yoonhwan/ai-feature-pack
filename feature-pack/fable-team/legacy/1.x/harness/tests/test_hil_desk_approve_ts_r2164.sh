@@ -108,7 +108,7 @@ if [ -z "${FT_R2164_BIN:-}" ]; then
       "$c" "$BIN" >/dev/null && ok "  └ 원본 $c PASS" || bad "  └ 원본 $c FAIL"
     done; }
   mut M1 ft_oppa_slack_check.py 'if not re.search(r"(?<![0-9a-fA-F])%s(?![0-9a-fA-F])" % sha, text, re.I) and sha:' 'if False:' c2
-  mut M2 ft-hil-gate.sh 'ft-hil-oppa-ask:' 'ft-hil-oppa-ts:' c4
+  mut M2 ft-hil-gate.sh "ft-hil-oppa-ask:' \"\$2\"" "ft-hil-oppa-ts:' \"\$2\"" c4
   mut M3 ft_oppa_slack_check.py 'if plan_note(txt)}' 'if status_note(txt)}' c8
   mut M4 ft_oppa_slack_check.py 'return not HEXW.search(txt) and' 'return False and' c9
   mut M5 ft-hil-gate.sh '[ "$n" = 1 ] ||' '[ "$n" -ge 1 ] ||' c5b
