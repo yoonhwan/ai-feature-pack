@@ -25,14 +25,14 @@ ft_data_root() {
   local h="$1" r v
   if [ -n "${FT_ROOT:-}" ] && [ -f "$FT_ROOT/.fable-team/LIVE_ROOT" ]; then   # r2112: FT_ROOT = 리포 공용 루트(틱·벌점·멈춤 감시) → 그 LIVE_ROOT
     v="$(sed -n '1p' "$FT_ROOT/.fable-team/LIVE_ROOT" | tr -d '\r')"
-    case "$v" in /*) [ -d "$v" ] && { printf '%s\n' "$v"; return 0; };; esac
+    case "$v" in /*) [ -d "$v" ] && { printf '%s\n' "$v"; return 0; }; echo "ERROR LIVE_ROOT 폴더 없음: «${v}» (${FT_ROOT}/.fable-team/LIVE_ROOT) — worktree 가 지워졌는지 확인" >&2; return 1;; esac   # r2242
     echo "ERROR LIVE_ROOT 가 절대경로 폴더가 아님: «${v}» (${FT_ROOT}/.fable-team/LIVE_ROOT)" >&2; return 1
   fi
   if [ -n "${FT_ROOT:-}" ]; then printf '%s\n' "$FT_ROOT"; return 0; fi
   if r="$(_ft_common_root)" && [ -f "$r/.fable-team/LIVE_ROOT" ]; then
     v="$(sed -n '1p' "$r/.fable-team/LIVE_ROOT" | tr -d '\r')"
-    case "$v" in /*) [ -d "$v" ] && { printf '%s\n' "$v"; return 0; };; esac
-    echo "ERROR LIVE_ROOT 가 절대경로 폴더가 아님: «$v» ($r/.fable-team/LIVE_ROOT)" >&2; return 1
+    case "$v" in /*) [ -d "$v" ] && { printf '%s\n' "$v"; return 0; }; echo "ERROR LIVE_ROOT 폴더 없음: «${v}» (${r}/.fable-team/LIVE_ROOT) — worktree 가 지워졌는지 확인" >&2; return 1;; esac   # r2242
+    echo "ERROR LIVE_ROOT 가 절대경로 폴더가 아님: «${v}» (${r}/.fable-team/LIVE_ROOT)" >&2; return 1
   fi
   case "$h" in */.fable-team/bin) (cd -- "$h/../.." && pwd); return;; esac
   echo "ERROR 라이브 루트를 못 풂 — FT_ROOT 없음 · cwd($(pwd)) 가 .fable-team/LIVE_ROOT 있는 git 리포 아님 · 옛 설치 꼴 아님($h)" >&2; return 1
