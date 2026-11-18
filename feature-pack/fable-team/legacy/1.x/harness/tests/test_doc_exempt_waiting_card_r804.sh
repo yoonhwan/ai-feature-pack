@@ -7,7 +7,7 @@ set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 TOP="$(git -C "$HERE" rev-parse --show-toplevel)"
 ROOT="$HERE/../.."; BIN="$ROOT/harness/bin"; DX="$BIN/ft_doc_exempt.py"; PM="$BIN/ft_doc_exempt_paths.py"
-KITBIN="$(cd "$HERE/../kit/fable-team/bin" && pwd)"; KPFX="${KITBIN#$TOP/}"
+KITBIN="$(cd "$HERE/../kit/fable-team/bin" && pwd -P)"; KPFX="${KITBIN#$TOP/}"
 . "$HERE/_merge_fixture.sh"
 fail=0; rc=0; out=""
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:240}"; fail=$((fail+1)); fi; }
@@ -34,7 +34,7 @@ st() { local n="$1" p="$2" want="$3" stt="${4:-A}"; out="$(py "$BIN" "$p" "$stt"
 # ===== ⓐ 빨강 먼저: 옛 판(착지 전 main 73f097b3)은 대기/ 새 카드도 «제외 폴더» 로 거절한다 =====
 mkdir -p "$T/red"
 OLD_BASE=73f097b396eecfe23a916082a69152176fb19911   # r804 착지 전 main — 착지 뒤 origin/main 은 새 판이라 고정
-git -C "$TOP" show "$OLD_BASE:$KPFX/ft_doc_exempt_paths.py" > "$T/red/ft_doc_exempt_paths.py" || { echo "FAIL 옛 판을 못 꺼냄"; exit 1; }
+git -C "$TOP" show "$OLD_BASE:${KPFX/legacy\/1.x\//}/ft_doc_exempt_paths.py" > "$T/red/ft_doc_exempt_paths.py" || { echo "FAIL 옛 판을 못 꺼냄"; exit 1; }  # r2218: 고정 sha 는 legacy/1.x 이동(625fbdfc) 앞 = 옛 경로
 [ -s "$T/red/ft_doc_exempt_paths.py" ] || { echo "FAIL 옛 판이 비었다"; exit 1; }
 CARDPATH='design/teams/lecture/indices/대기/L51-x.md'
 out="$(py "$T/red" "$CARDPATH")"
@@ -81,6 +81,7 @@ python3 -c 'import json,sys;json.dump({"_master":sys.argv[2]},open(sys.argv[1],"
 mkdir -p "$T/fakebin"; printf '%s' "$SEAT" > "$T/seatname"
 printf '#!/bin/bash\n[ "$1" = display-message ] && { cat %s; exit 0; }\nexit 1\n' "$T/seatname" > "$T/fakebin/tmux"; chmod +x "$T/fakebin/tmux"
 export FT_ROOT="$W" FT_SEAT="$SEAT" TMUX_PANE=%9 PATH="$T/fakebin:$PATH"
+printf '| 팀 | 폴더 | 상태 | 명부 |\n|---|---|---|---|\n| planner | `design/planner/` | 현역 | |\n| lecture | `design/lecture/` | 현역 | |\n' > "$T/TEAMS.md"; export FT_TEAMS_MD="$T/TEAMS.md"   # r2219: r1907 명부 칸 판정용 픽스처 TEAMS.md(리포 밖 $T · 명부 빈 칸 = seats-<팀>.json)
 dx() { out="$(FT_SEAT="$SEAT" python3 "$DX" --mode doc-exempt --repo "$W" --root "$W" --base "$BASEC" --head "$1" 2>&1)"; rc=$?; }
 git -C "$W" checkout -q -B c-main origin/main; BASEC="$(sha "$W" c-main)"
 mkb() { git -C "$W" checkout -q -B "$1" c-main; shift; for p in "$@"; do mkdir -p "$W/$(dirname "$p")"; printf 'x\n' > "$W/$p"; done; cm "$W" "case $1"; }

@@ -263,16 +263,23 @@ def human_reason(text: str, val: str) -> int:
     return 1
 
 
+def da_open(text: str, val: str, arg: str) -> int:
+    """r2220 — 머리 «- 배정: 없음» ∧ 본문 «사전 DA 확인칸» ∧ 줄머리 «- 사전 DA APPROVE» 0 = WARN 1줄(keeper 를 막는 대기(DA) 표식 빠짐) · rc 그대로 0."""
+    if val == "없음" and "사전 DA 확인칸" in text and not re.search(r"^- 사전 DA APPROVE", text, re.M):
+        print(f"WARN {arg} — 사전 DA 판정 전인데 「- 배정: 없음」 · 머리를 「- 배정: 대기(DA · <YYYY-MM-DDTHH:MM>)」 로 쓰고 판정 커밋에서 없음으로 푼다(r2220)")
+    return 0
+
+
 def lint(card: Path) -> int:
     """ft-index-lint ⑭ — 출력 = REJECT 사유 1줄 rc1 · 빈 출력 rc0."""
-    card = card.resolve()  # git -C <폴더> 의 pathspec 은 그 폴더 기준 — 절대경로로 묻는다
+    arg, card = str(card), card.resolve()  # git -C <폴더> 의 pathspec 은 그 폴더 기준 — 절대경로로 묻는다
     if card.parent.name not in OPEN:
         return 0
     text = card.read_text(encoding="utf-8")
     vals = [ln[len("- 배정:"):].strip() for ln in head(text) if ln.startswith("- 배정:")]
     if vals:
         if VALUE.fullmatch(vals[0]):
-            return human_reason(text, vals[0])
+            return human_reason(text, vals[0]) or da_open(text, vals[0], arg)
         print(f"「- 배정:」 값 꼴 — 좌석 <이름> | 대기(<{'|'.join(REASONS)}> · <YYYY-MM-DDTHH:MM>) | 없음: {vals[0][:40]}")
         return 1
     try:

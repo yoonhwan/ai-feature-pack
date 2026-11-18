@@ -192,7 +192,7 @@ class Swap(Account):
         so = os.environ.get("FT_SUCCESSOR_OPEN", str(HERE / "ft-successor-open.sh"))
         with (self.sd / f"{name}.log").open("ab") as log:
             _ = subprocess.Popen(["bash", so, seat, wt, "--name", name, "--agent", "claude", "--model", new, "--ctx", "1m", "--effort", "high",
-                                  "--body-file", str(bf)], stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+                                  "--body-file", str(bf)], env={**os.environ, "FT_CARRY_WARN_ONLY": "1"}, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
         for to in dict.fromkeys(v for v in (d.get("_master"), d.get("_hil_route")) if isinstance(v, str) and v and v != seat):
             self.send(to, f"[자동 교대] {seat} -> {name} · {cut.model} -> {new} · 사유 한도" + (" · 감시 미상" if unk else ""))
         return True

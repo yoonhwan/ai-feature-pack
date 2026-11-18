@@ -80,6 +80,12 @@ class Budget:
         return 3 if any(r["k"] == "판정불가" for r in out) else 0
 
 
+def step(ctx, name):   # r2202 F2 — due 안 단계 표식(due-1 · fetch · due-2) · Budget 은 notify 안에서만 있다 = due 손 실행은 표식 0
+    bud = getattr(ctx, "bud", None)
+    if bud:
+        bud.mark(name)
+
+
 def over(ctx):   # notify 밖(landed·done)에서 부르면 늘 False
     bud = getattr(ctx, "bud", None)
     return bool(bud and bud.over())

@@ -4,6 +4,7 @@
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+PFX="$(cd -- "$HERE/.." && pwd -P)"; PFX="${PFX#$(git -C "$HERE" rev-parse --show-toplevel)/}"  # r2224 움직이는 ref 의 리포 상대 실경로
 ROOT="$HERE/../.."
 PUB="${NORM_PUB:-$ROOT/harness/bin/ft-board-publish.sh}"
 PL="$ROOT/harness/kit/slack-mirror/com.byz.ft-board-publish.plist.template"
@@ -54,10 +55,10 @@ mutn "s# -e 's/\\\\(턴 끝 ([^']*'##" "- s#0 대기열 있음(턴 끝 00:58)" "
   && bad "변이: 턴 끝 규칙 제거해도 ⓚ 둘째 쌍 같음(검사 무력)" || ok "변이: 턴 끝 규칙 제거 → ⓚ 둘째 쌍이 달라짐(FAIL 감지 가능)"
 
 # ⓜ 발행 본문 불변: HEAD 의 옛 스크립트와 새 스크립트가 같은 입력에서 published.txt 바이트 동일
-if git -C "$ROOT" cat-file -e HEAD:feature-pack/fable-team/harness/bin/ft-board-publish.sh 2>/dev/null; then
+if git -C "$ROOT" cat-file -e HEAD:$PFX/bin/ft-board-publish.sh 2>/dev/null; then
   mkdir -p "$T/old" "$T/new" "$T/stub"
   cp "$ROOT"/harness/bin/ft_board_root.py "$T/old/"; cp "$ROOT"/harness/bin/ft_board_root.py "$T/new/"
-  git -C "$ROOT" show HEAD:feature-pack/fable-team/harness/bin/ft-board-publish.sh > "$T/old/ft-board-publish.sh"; cp "$PUB" "$T/new/ft-board-publish.sh"
+  git -C "$ROOT" show HEAD:$PFX/bin/ft-board-publish.sh > "$T/old/ft-board-publish.sh"; cp "$PUB" "$T/new/ft-board-publish.sh"
   printf '#!/usr/bin/env bash\ncase "$1" in render) cat "%s/body.txt";; snapshot) echo "{\\"snap\\":\\"a→a\\",\\"changes\\":[],\\"prev_day_last\\":null}";; *) exit 0;; esac\n' "$T" > "$T/stub/fb"
   chmod +x "$T/stub/fb"; printf 'import sys\n' > "$T/stub/tp.py"
   python3 - > "$T/body.txt" <<'PY'
@@ -73,6 +74,8 @@ PY
   cmp -s "$T/old-root/.fable-team/state/board/2026-10-09/published.txt" "$T/new-root/.fable-team/state/board/2026-10-09/published.txt" \
     && [ -s "$T/new-root/.fable-team/state/board/2026-10-09/published.txt" ] \
     && ok "ⓜ 발행 본문(published.txt) 옛·새 스크립트 바이트 동일" || bad "ⓜ 발행 본문이 달라짐/비었음"
+else
+  bad "ⓜ HEAD 옛 스크립트를 못 읽음"
 fi
 
 echo "fail=$fail"; [ "$fail" = 0 ]

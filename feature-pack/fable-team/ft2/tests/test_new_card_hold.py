@@ -164,7 +164,7 @@ def c_gna(w, mp):       # ㉗나 파일 있음 · 나노 닫기 1 → 닫기 영
 
 def c_gda(w, mp):       # ㉗다 파일 있음 · fill_open 에 잇는 열기 1 → reconcile 그대로(launch 1 · record seat)
     hold(w)
-    w.work(A, intent=False)   # 전달 attempt a1 만 만들고 의도 파일은 두지 않는다(열기 전 상태)
+    w.work(A, intent=False, holder=nh(TEAM, A))   # 전달 attempt a1 만 만들고 의도 파일은 두지 않는다(열기 전 상태)
     kw._put(w.kdir / "state.json", {"fill_open": {"%s|%s" % (TEAM, A): "a1"}})
     k = w.keeper()
     assert w.round(k) and launched(w) == [A] and ledger(w, A) == {"state": "seat", "seat": nh(TEAM, A)}, k.lines

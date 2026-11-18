@@ -51,7 +51,7 @@ git -C "$W" fetch -q origin; git -C "$W" merge -q --no-edit origin/main; BIG1="$
 pushpr 1 big
 if [ "$HAVE_BASE" = 1 ]; then
   for f in "$BIN"/*; do ln -s "$f" "$T/red/$(basename "$f")"; done; rm -f "$T/red/ft-merge-land.sh"
-  git -C "$TOP" show "$BASE_SHA:$PFX/kit/fable-team/bin/ft-merge-land.sh" > "$T/red/ft-merge-land.sh" || { echo "FAIL 옛 판을 못 꺼냄"; exit 1; }
+  git -C "$TOP" show "$BASE_SHA:${PFX/legacy\/1.x\//}/kit/fable-team/bin/ft-merge-land.sh" > "$T/red/ft-merge-land.sh" || { echo "FAIL 옛 판을 못 꺼냄"; exit 1; }  # r2218: 고정 sha 는 legacy/1.x 이동(625fbdfc) 앞 = 옛 경로
   [ -s "$T/red/ft-merge-land.sh" ] || { echo "FAIL 옛 판이 비었다"; exit 1; }
   landb "$T/red/ft-merge-land.sh" 1 --approve-sha "$PRSHA"
   [ "$rc" = 0 ] && [[ "$out" == LANDED* ]] && [ "$(omain)" != "$M1" ]; ck "ⓐ 빨강(옛 판): main 을 품은 big 가지가 그대로 착지(구멍 재현)" $?

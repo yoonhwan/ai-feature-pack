@@ -22,6 +22,7 @@ SEATFILE="$T/seatname"; export SEATFILE; printf '%s' "$SEAT" > "$SEATFILE"
 printf '#!/bin/bash\n[ "$1" = display-message ] && { cat "$SEATFILE"; exit 0; }\nexit 1\n' > "$T/fakebin/tmux"; chmod +x "$T/fakebin/tmux"
 S="$T/state"; LOG="$S/autonomy.log"
 export FT_ROOT="$B" FT_AUTONOMY_STATE_DIR="$S" FT_PLANNER_DIR="$T/pdir" FT_SEAT="$SEAT" TMUX_PANE=%9 PATH="$T/fakebin:$PATH"
+printf '| 팀 | 폴더 | 상태 | 명부 |\n|---|---|---|---|\n| planner | `design/planner/` | 현역 | |\n' > "$T/TEAMS.md"; export FT_TEAMS_MD="$T/TEAMS.md"   # r2219: r1907 명부 칸 판정용 픽스처 TEAMS.md(리포 밖 $T · 명부 빈 칸 = seats-<팀>.json)
 printf '#!/usr/bin/env bash\necho "SLACK-TS 1800000000.000100"\n' > "$T/stub/post.sh"; export FT_SCOPE_SLACK_POST="$T/stub/post.sh"
 
 # ── 팩 리포(하네스 루트 = <리포>/feature-pack/fable-team/harness) · origin = git@github.com:fake/pack.git (ssh 스텁 → 로컬 bare)

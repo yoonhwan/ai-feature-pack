@@ -116,14 +116,14 @@ def c6b(w, swap=False):   # ⑥b W [a1] at T0 · S [a1] at T2 · released_at T1 
 
 
 def c7(w):   # ⑦ deliveries 0 · 소문자 세션 살아 있음 → 고르지 않음 · «이름겹침» · launch 0 / 같은 글자 세션만 → 지금과 같음(고름)
-    alive(w, base.nh(S).lower())
+    alive(w, base.nh(S))
     lines = w.round()
     assert not picked(w) and base.launched(w) == [] and len(skip(lines, "이름겹침")) == 1, lines
     assert any("막힌 사유별 이름겹침 1" in x for x in base.notes(w)), base.notes(w)
 
 
 def c7same(w):   # ⑦ 둘째 칸 — 같은 글자 세션만 → 이름겹침 0 · 고름(submit)
-    alive(w, base.nh(S))
+    alive(w, base.nh(S).lower())
     lines = w.round()
     assert skip(lines, "이름겹침") == [] and base.count(w, "accept", S) == 1, lines
 

@@ -259,6 +259,15 @@ if len(w) != 1 or not w[0][len("열린 칸 감시: "):].strip() or len(w[0]) > 1
 print(w[0])
 PYWATCH
 )" || { printf '%s\n' "$WATCH"; exit 1; }
+# ⓐ-4 (r2229) 앞 인계서 열린 칸 대조 — 본문 «앞 인계서: <경로>»(ROOT 기준) 의 «## 열린 칸» 칸마다 새 본문에 키 이월 · «닫음: <키> — <근거>» · «<키>: 이월» 줄(판정 = ft-carry-check.py 1곳 · 부작용 전)
+#   줄 없음 = WARN 진행(옛 꼴) · 사람 길 = REJECT rc1 · 자동 길(부르는 줄에만 FT_CARRY_WARN_ONLY=1 = team-boot B2 · model_swap) = REJECT 를 WARN 1줄로 낮추고 진행
+CARRY_OUT="$(python3 "$HERE/ft-carry-check.py" "$BODY" --root "$ROOT" 2>&1)"; CARRY_RC=$?
+if [ "$CARRY_RC" != 0 ]; then
+  case "$CARRY_OUT" in REJECT*) ;; *) CARRY_OUT="REJECT 앞 인계서 판정 불가 대조 도구 rc=$CARRY_RC — ${CARRY_OUT:0:200}";; esac
+  [ "${FT_CARRY_WARN_ONLY:-}" = 1 ] || { printf '%s\n' "$CARRY_OUT"; exit 1; }
+  CARRY_OUT="WARN 자동 길(FT_CARRY_WARN_ONLY=1) 진행 — ${CARRY_OUT#REJECT }"
+fi
+printf '%s\n' "$CARRY_OUT" >&2
 # ⓐ-1 (r1391) 승계 본문 첫머리 지침 블록 — 정본 governance 에서 표식 블록을 «개설 전» 에 읽는다(desk 는 §11-6 블록).
 #   표식이 없거나 여러 개거나 300자 초과면 그 자리에서 REJECT rc1 = 세션 개설 0(이 도구의 fail-closed 꼴 그대로 · 본문 받은 뒤 거절되는 후계 0).
 #   본문 조립은 ⓓ — 골 3줄 다음에 이 블록을 넣는다(블록 본문은 한 곳 = governance · 이 파일은 복사만).
@@ -345,7 +354,7 @@ fi
 
 # ⓑ 열기 — tmuxc 옵션은 에이전트별로 다르다(ft-role-spawn.sh 와 같은 규칙: --ctx 는 claude 만 · --effort 는 claude·cmd·codex·pi)
 if [ "$RESUMED" = 0 ]; then
-OPEN=(tmuxc open "$WT" --name "$NAME" --agent "$AGENT" --model "$MODEL")
+OPEN=(env -u FT_CARRY_WARN_ONLY tmuxc open "$WT" --name "$NAME" --agent "$AGENT" --model "$MODEL")
 [ "$AGENT" = claude ] && [ -n "$CTX" ] && OPEN+=(--ctx "$CTX")
 case "$AGENT" in claude|cmd|codex|pi) [ -n "$EFFORT" ] && OPEN+=(--effort "$EFFORT");; esac
 # r838: 실패 이유를 버리지 않는다 — 출력 마지막 3줄(200자 · 토큰꼴 가림)을 REJECT 줄 끝에 · 성공 때 출력은 버림(그대로)

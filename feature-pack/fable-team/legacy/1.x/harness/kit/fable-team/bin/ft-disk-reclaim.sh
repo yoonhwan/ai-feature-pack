@@ -11,22 +11,26 @@
 #   판정 불가: lsof · tmux · git worktree list · df 가 rc≠0 또는 시간 초과 → `판정 불가 <명령>` · rc 3 · plan 은 목록 0 · apply 는 ABORT 줄 뒤 지우기 0.
 #   env: FT_RECLAIM_TMP_ROOT(/private/tmp) · FT_RECLAIM_CACHE_ROOT(~/Library/Caches) · FT_RECLAIM_REPOS(: 구분 · BYZ · 팩)
 #        FT_RECLAIM_INFO(: 구분) · FT_RECLAIM_DF_PATH(/System/Volumes/Data) · FT_RECLAIM_TIMEOUT(25초 · 지우기 호출 포함)
+#        FT_RECLAIM_ONLY(: 구분 경로 접두 · r2200) = plan 이 실경로로 풀어 그 접두 아래(같거나 «접두/») tmp · cache · worktree 만 잰다 · 없거나 비면 전부
 #   지우기가 상한을 넘기면 그 줄 SKIP `시간 초과`(큰 폴더는 다음 apply 로 · rm 이 중간까지 지웠을 수 있음)
-#   r2196 squash 길: «조상 아님» 이어도 가지 = MERGED PR(base main) headRefName 정확히 1건 · HEAD = headRefOid · 착지 커밋 로컬 있음 ·
-#         착지 커밋이 바꾼 파일 전부 HEAD 와 같음 → 조건 통과 · 줄 끝 « squash PR #N». 조회 = 리포마다 1회(FT_RECLAIM_GH · gh --limit 500 · 7초 + 재시도 1)
-#         실패 → 그 리포 squash 길 0 · stderr `squash 길 판정 불가 <리포> rc=<rc>`.
+#   r2196 squash 길 = 옆 파일 _disk_reclaim_squash.py(r2199) · apply 쪽 dfree · recheck = _disk_reclaim_apply.py(r2200) · 못 읽으면 stderr `판정 불가 squash 모듈` · rc 3 · apply 는 ABORT 줄 뒤 지우기 0.
 set -uo pipefail
 case "${1:-}" in plan|apply) [ $# -eq 2 ] || { echo "usage: $0 plan <산출 폴더> | apply <candidates.tsv>" >&2; exit 2; } ;;
   *) echo "usage: $0 plan <산출 폴더> | apply <candidates.tsv>" >&2; exit 2 ;; esac
-exec python3 - "$@" <<'PY'
+exec python3 - "$@" "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)" <<'PY'
 import bisect, json, os, stat, subprocess, sys, time
 MODE, ARG = sys.argv[1], sys.argv[2]
+sys.dont_write_bytecode = True; sys.path.insert(0, sys.argv[3])   # r2199 · bin/__pycache__ 쓰기 0
+try: import _disk_reclaim_squash as SQ, _disk_reclaim_apply as AP   # r2196 squash 길(merged · squash_pr · GH · MERGED) · r2200 dfree · recheck = 옆 파일
+except Exception: MODE == "apply" and open(os.path.join(os.path.dirname(os.path.abspath(ARG)), "deleted.log"), "a").write("ABORT 판정 불가 squash 모듈 deleted=0 skipped=0\n"); print("판정 불가 squash 모듈", file=sys.stderr); sys.exit(3)
 E = os.environ
 HOME = os.path.realpath(os.path.expanduser("~"))
 BYZ = HOME + "/Project/Agent/BYZ-Work/BYZ-Agents"
 T = float(E.get("FT_RECLAIM_TIMEOUT", "25"))
 REPOS = [r for r in E.get("FT_RECLAIM_REPOS", BYZ + ":" + HOME + "/Project/ai-feature-pack").split(":") if r]
 DFP = E.get("FT_RECLAIM_DF_PATH", "/System/Volumes/Data")
+ONLY = [os.path.realpath(x) for x in E.get("FT_RECLAIM_ONLY", "").split(":") if x]   # r2200 plan 경로 접두
+def keep(p): return not ONLY or p in ONLY or any(p.startswith(o + "/") for o in ONLY)   # 낱말 경계 = «접두/»
 
 class Abort(Exception): pass
 
@@ -35,17 +39,14 @@ def run(cmd, t=T, cwd=None):   # (rc, stdout) · 시간 초과 = 124 · 실행 �
     except subprocess.TimeoutExpired: return 124, ""
     except OSError: return 127, ""
     return p.returncode, p.stdout
-
 def must(cmd, name):
     rc, out = run(cmd)
     if rc != 0: raise Abort(name)
     return out
-
 def root(env, default):
     r = os.path.realpath(E.get(env, default))
     if r in ("/", HOME): print(f"REJECT 뿌리 실경로 {r} = / 또는 홈 — 쓰기 0", file=sys.stderr); sys.exit(2)
     return r
-
 class Opened:   # lsof 스냅샷 · 60초보다 오래되면 새로
     def __init__(s): s.refresh()
     def refresh(s):
@@ -61,7 +62,6 @@ class Opened:   # lsof 스냅샷 · 60초보다 오래되면 새로
 
 def panes(): return [os.path.realpath(l) for l in must(["tmux", "list-panes", "-a", "-F", "#{pane_current_path}"], "tmux").splitlines() if l]
 def under(p, xs): return any(x == p or x.startswith(p + "/") for x in xs)
-
 def du(p):
     rc, out = run(["du", "-sk", p])
     try: return int(out.split()[0]) if rc in (0, 1) else None
@@ -100,33 +100,6 @@ def wt_list(repo):   # [{path, head, flags}] · 첫 항목 = 주 worktree
         if res and l.startswith("branch "): res[-1]["branch"] = l[7:]
     return res
 
-GH, MERGED = E.get("FT_RECLAIM_GH", "gh"), {}
-def merged(repo):   # r2196 D1 · 리포마다 MERGED PR 목록 1회 · None = 판정 불가(squash 길 0)
-    if repo not in MERGED:
-        cmd = [GH, "pr", "list", "--state", "merged", "--limit", "500", "--json", "number,headRefName,headRefOid,baseRefName,mergeCommit"]
-        for _ in range(2):
-            rc, out = run(cmd, min(T, 7), repo)
-            if rc == 0: break
-        try: v = json.loads(out) if rc == 0 else None
-        except ValueError: rc, v = "json", None
-        MERGED[repo] = v if isinstance(v, list) else None
-        if MERGED[repo] is None: print(f"squash 길 판정 불가 {repo} rc={rc}", file=sys.stderr)
-    return MERGED[repo]
-
-def squash_pr(repo, w):   # r2196 D2 · squash 착지로 ⓑ 를 채우면 PR 번호 · 아니면 None
-    b = w.get("branch", "")
-    if not b.startswith("refs/heads/") or (prs := merged(repo)) is None: return None
-    m = [x for x in prs if isinstance(x, dict) and x.get("headRefName") == b[11:]]
-    if len(m) != 1: return None
-    pr = m[0]; mc = (pr.get("mergeCommit") or {}).get("oid") or ""
-    if pr.get("baseRefName") != "main" or not w["head"] or pr.get("headRefOid") != w["head"]: return None
-    if len(mc) != 40 or mc.strip("0123456789abcdef") or run(["git", "-C", repo, "cat-file", "-e", mc + "^{commit}"])[0]: return None
-    rc, out = run(["git", "-C", repo, "diff-tree", "-r", "-z", "--no-commit-id", "--name-only", mc])
-    fs = [f for f in out.split("\0") if f]
-    if rc or not fs: return None
-    rc, _ = run(["git", "--literal-pathspecs", "-C", repo, "diff", "--quiet", w["head"], mc, "--", *fs])
-    return pr.get("number") if rc == 0 else None
-
 def index_mtime(p):
     try:
         g = open(os.path.join(p, ".git")).read().strip()
@@ -142,7 +115,7 @@ def wt_bad(repo, w, main, op, pn):   # 처음 어긋난 조건 · None = 후보
     idx = index_mtime(p)
     rc, _ = run(["git", "-C", repo, "merge-base", "--is-ancestor", w["head"] or "-", "origin/main"])
     if rc not in (0, 1): return "판정 불가"
-    w["sq"] = squash_pr(repo, w) if rc == 1 else None
+    w["sq"] = SQ.squash_pr(repo, w, run, T) if rc == 1 else None
     if rc == 1 and not w["sq"]: return "조상 아님"
     rc, out = run(["git", "-C", p, "status", "--porcelain"])
     if rc: return "판정 불가"
@@ -164,10 +137,12 @@ def plan(outdir, roots):
     for kind, r in roots.items():
         for name in sorted(os.listdir(r)):
             n += 1; tick(n); p = r + "/" + name
+            if not keep(p): continue
             if entry_bad(p, kind, op) is None and (k := du(p)) is not None: rows[kind].append((k, p, "조건 전부"))
     for repo in REPOS:
         for i, w in enumerate(wt_list(repo)):
             n += 1; tick(n)
+            if not keep(os.path.realpath(w["path"])): continue
             bad = wt_bad(repo, w, i == 0, op, pn)
             tail = f" squash PR #{w['sq']}" if w.get("sq") else ""
             if bad: hold.append(f"hold\t-\t{w['path']}\t{bad}{tail}")
@@ -180,34 +155,19 @@ def plan(outdir, roots):
     cnt = " ".join(f"{k}={len(v)}/{sum(x[0] for x in v)}KiB" for k, v in rows.items())
     print(f"PLAN {out} {cnt} hold={len(hold)}")
 
-def dfree():
-    try: return int(must(["df", "-k", DFP], "df").splitlines()[-1].split()[3])
-    except (ValueError, IndexError): raise Abort("df")
-
-def recheck(kind, p, roots, op):   # (사유 | None, 리포)
-    if kind in roots:
-        r = roots[kind]; name = p[len(r) + 1:] if p.startswith(r + "/") else ""
-        if not name or "/" in name or name in (".", ".."): return "범위 밖", None
-        return entry_bad(p, kind, op), None
-    for repo in REPOS:
-        ws = wt_list(repo)
-        for i, w in enumerate(ws):
-            if w["path"] == p: return wt_bad(repo, w, i == 0, op, panes()), repo
-    return "범위 밖 리포", None
-
 def apply(tsv, roots):
     log = os.path.join(os.path.dirname(os.path.abspath(tsv)), "deleted.log")
     rows = [l.split("\t") for l in open(tsv).read().splitlines()]
     d = s = 0
     with open(log, "a") as L:
         try:
-            before, op = dfree(), Opened()
+            before, op = AP.dfree(sys.modules[__name__]), Opened()
             for n, f in enumerate(rows, 1):
                 tick(n)
                 if not f or f[0] not in ("tmp", "cache", "worktree"): continue
                 if len(f) != 4: L.write(f"SKIP\t{f[0]}\t-\t줄 꼴\n"); s += 1; continue
                 kind, kib, p = f[0], f[1], f[2]
-                why, repo = recheck(kind, p, roots, op)
+                why, repo = AP.recheck(sys.modules[__name__], kind, p, roots, op)
                 if not why:
                     cmd = ["git", "-C", repo, "worktree", "remove", p] if repo else ["rm", "-rf", "--", p]
                     rc = run(cmd)[0]
@@ -215,7 +175,7 @@ def apply(tsv, roots):
                 if why: L.write(f"SKIP\t{kind}\t{p}\t{why}\n"); s += 1
                 else: L.write(f"DELETED\t{kind}\t{kib}\t{p}\n"); d += 1
                 L.flush()
-            after = dfree()
+            after = AP.dfree(sys.modules[__name__])
         except Abort as a:
             L.write(f"ABORT 판정 불가 {a} deleted={d} skipped={s}\n"); print(f"판정 불가 {a}", file=sys.stderr); sys.exit(3)
         line = f"SUMMARY freed_gib={(after - before) / 1048576:.1f} before_kib={before} after_kib={after} deleted={d} skipped={s}"
