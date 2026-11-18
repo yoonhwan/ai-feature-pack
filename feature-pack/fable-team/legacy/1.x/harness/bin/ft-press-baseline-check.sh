@@ -118,7 +118,7 @@ if "server_ready" in H:
 if "visible_at_settle" in H and H["visible_at_settle"] != "yes":
     out("BLOCK", f"visible_at_settle: {H['visible_at_settle']} — yes 만 통과")
 ev = H.get("evidence", "")
-if room and not ev: out("BLOCK", "profile room ↔ RESULT 없음(evidence 빈 값)")   # r2245 DA#21 #335259: 빈 값이면 아래 O3 대조를 건너뛴다
+if "evidence" in H and not ev: out("BLOCK", "evidence: 빈 값 — RESULT json 경로 필수")   # r2249 O4: profile 상관없이(r2245 room 줄 합침) · 빈 값이면 아래 대조를 건너뛴다 · 키 없음 = 셸 «머리줄 빠짐»
 if ev:
     p = ev if os.path.isabs(ev) else os.path.join(os.environ["REPO"], ev)
     try: res = json.load(open(p, encoding="utf-8"))
