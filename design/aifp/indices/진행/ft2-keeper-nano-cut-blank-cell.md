@@ -16,7 +16,7 @@
 - 대상: 팩 feature-pack/fable-team/ft2/adapters/pi/keeper.py(:476 `except Cut:` 갈래 1곳) · feature-pack/fable-team/ft2/tests/test_keeper_round_60s.py 또는 새 시험 1파일 · CASES.md 1줄
 - 정본 영향 없음: aifp 정본 변경 0 · ft2 CONTRACT.md 변경 0(R10 «cut = 끊긴 자리» 글에 코드를 맞춘다)
 - 크기: 코드 1파일 1~2줄 · 시험 1파일 · PR 1개
-- 배정: 대기(석 · 2026-11-18T13:46)
+- 배정: 좌석 aifp-ft-nano-ft2-keeper-nano-cut-blank-cell#0
 
 ## 골 원문 (항상 이 3줄)
 내부 하네스, 내부 스킬스를 모니터하고 요청을 사용자에게 받아 해당 부분 바로 확인 검토하고. 실제 하네스와 스킬스를 업그레이드하고 레포에 커밋 푸시하며 전 환경에 물리적 컴퓨팅 환경에도 설치하도록 배포 발행(슬랙) 수신해 반영되 업그레이드.
@@ -87,6 +87,8 @@ keeper ROUND 줄의 cut 칸은 «예산이 다해 업무 구획이 끊긴 자리
 | N5 그대로 | 53바 |
 
 ## 상태
+- base_sha: 1ff2c25cc29049e7a942dcd7237b94688d6c3174 (spawn 2026-11-18)
 - 2026-11-18 13:01 · 대기 — aifp-ft-arch-pi#24 초안(팀장 aifp 6068 ㉡ · 실측 aifp 6067 · 읽기만 · 시험·코드 손 0) · 원인 = 나노 모으기 Cut 이 cut_at 으로 `self.cut` 을 쓰고 :476 이 되돌리지 않음(37줄 전부 나노 7초 바퀴) · 다음 = 팀장 PR merge → DA 설계 → Issue → 나노 1석
 - 2026-11-18 13:42 · 대기 — aifp-ft-arch-pi#25 보정(DA 설계 B HOLD 1/3 aifp 6075 · 팀장 발주 aifp 6080) · N1 = «:476 갈래를 나올 때 self.cut = -» 로 줄임(cut_pos 는 계약·시험 대상 아님) · M134 = «되돌림을 ROUND 줄 바로 앞에서만» 으로 바꿈 · 다른 칸 손 0 · 다음 = 팀장 DA 설계 2/3
 - 2026-11-18 13:46 · 대기 — aifp-ft-arch-pi#25 머리 줄(팀장 aifp 6085) · Issue #9322 · DA 판정 APPROVE-DESIGN 2/3 aifp 6083 · 배정 = 대기(석) · 완료 조건 2 에 70초 안 · 다음 = 팀장 착지 → 나노 1석
+- 2026-11-18 13:49 — 대기→진행 · 좌석 aifp-ft-nano-ft2-keeper-nano-cut-blank-cell#0
