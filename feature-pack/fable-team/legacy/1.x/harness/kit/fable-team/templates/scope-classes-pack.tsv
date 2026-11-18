@@ -20,6 +20,7 @@ code	ft2-tools	^feature-pack/fable-team/ft2/tools/
 docs	ft2-md	^feature-pack/fable-team/ft2/README\.md$
 forbid	repo-outside	^feature-pack/fable-team/ft2/contracts/
 code	ft2-all	^feature-pack/fable-team/ft2/
+code	goal-close	^feature-pack/fable-team/goal-close/
 docs	pack-design-md	^design/[^/]+/.*\.md$
 code	pack-skill	^feature-pack/fable-team/legacy/1\.x/skill/
 code	code-intel	^feature-pack/code-intel/
