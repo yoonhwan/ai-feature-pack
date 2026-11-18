@@ -4,7 +4,7 @@
 
 1. Serena 은퇴 · 탐색=`ci` · grep=로그·문구만 · ci 불가=[긴급] 1통 → 복구까지 rg+Read.
 2. 부팅 보고 = 세션명·모델+창·ci 가부 + `adhd=`·`cron=`·`launchd=` → 보고 전 착수 0.
-3. 발주=mbox 큐+창 1줄 · 재발주는 `ring <최초 seq>` · send 반복 0 · 3초 busy 확인.
+3. 발주=mbox 큐+창 1줄 · 재발주=`ring <좌석> <첫 seq>` · send 반복 0 · 3초 busy 확인.
 4. mbox: `send <to> <me> "본문"`(3~5줄) · `recv` · `peek` · `relay` · master 로는 집행·사람판정 2종만.
 5. 포맷 `[{from}->{to}] 내용` · 화살표는 ASCII `->`.
 6. tmux 폴백(쪽지 불가 시)만 · `-l`/`Enter` 별도 호출 · 3회 도달검증 · 보냈다≠도착했다.

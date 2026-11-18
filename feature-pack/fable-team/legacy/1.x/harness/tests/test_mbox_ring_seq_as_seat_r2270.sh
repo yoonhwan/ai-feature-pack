@@ -75,4 +75,21 @@ l3="$(grep -E '^3\. ' "$BOOT")"
   && [ "$(wc -c < "$BOOT" | tr -d ' ')" -le 2048 ] && [ "$(grep -cE '^[0-9]+\. ' "$BOOT")" = 17 ]; } \
   && ok "⑥ BOOT 3줄 ring <좌석> <첫 seq> · ≤2048 · 번호 줄 17" || bad "⑥ BOOT" "l3=[$l3] bytes=$(wc -c < "$BOOT")"
 
+# 변이 M1~M4 — 사본 mbox.sh 만 바꾼다 · 변이마다 원본으로 같은 사례 1회 더
+ORIG="$COMM/mbox.sh"; M="$T/mut"; mkdir -p "$M"
+awk '/REJECT ring 좌석 아님/{next}1' "$ORIG" > "$M/m1.sh"
+awk '/REJECT ring 좌석 아님/{g=$0; next} /db="\$\(doorbell_status "\$sess" 1/{print g} 1' "$ORIG" > "$M/m2.sh"
+sed 's/\^#?\[0-9\]+\$/^[0-9]+$/' "$ORIG" > "$M/m3.sh"
+sed 's/\(db="\$(doorbell_status "\$sess" 1 "\$_rsq")";\)/\1 [ "$db" = absent ] \&\& exit 2;/' "$ORIG" > "$M/m4.sh"
+mut() {  # mut <이름> <사례 함수> <사례 인자…> — 변이 = FAIL · 원본 = PASS
+  local n="$1" f="$2"; shift 2
+  if cmp -s "$ORIG" "$M/$n.sh"; then bad "$n 변이 적용 실패"; return; fi
+  if "$f" "$n-m" "$M/$n.sh" "$@"; then bad "$n 변이가 안 잡힘" "$(desc)"; else ok "$n 변이 → FAIL($(desc))"; fi
+  "$f" "$n-o" "" "$@" && ok "$n 원본 같은 사례 PASS" || bad "$n 원본 같은 사례" "$(desc)"
+}
+mut m1 case_rej 340590      # 숫자 거름 지움 → ①
+mut m2 case_rej 340590      # 거름을 예산 뒤로 → ① 장부 줄
+mut m3 case_rej '#340590'   # # 붙은 숫자 안 거름 → ②
+mut m4 case_abs             # pane 없는 ring 모두 rc 2 → ④
+
 [ "$fail" -eq 0 ] && { echo "ALL PASS"; exit 0; } || { echo "FAILED $fail"; exit 1; }
