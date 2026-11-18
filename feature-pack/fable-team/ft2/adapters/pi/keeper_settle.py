@@ -422,7 +422,7 @@ class Settling:
         return self.park_seat(team, work, attempt, holder, "idle-done", ("shell-only · " if shell else "") + why, alive=True, done=done)
 
     def unsafe(self, team, work, seat, intent, done):
-        """남길 것 안전 = 사유 "" · clean ∧ (HEAD = origin 같은 가지 ∨ base 위 커밋 0) ∧ 미수신 쪽지 0 ∧ 미확정·효과 표식 0."""
+        """남길 것 안전 = 사유 "" · clean ∧ (HEAD = origin 같은 가지 ∨ base 위 커밋 0 ∨ HEAD 를 품은 origin 가지) ∧ 미수신 쪽지 0 ∧ 미확정·효과 표식 0."""
         tree = intent["worktree"]
         rc, out, _ = self.git(tree, "status", "--porcelain")
         if rc != 0 or out.strip():
@@ -432,7 +432,9 @@ class Settling:
         if not (rc == 0 and len(set(heads.split())) == 1):
             base = str(intent.get("base_sha") or "")
             if not base or self.git(tree, "rev-list", "--count", base + "..HEAD")[:2] != (0, "0\n"):
-                return "unpushed"
+                rc, held, _ = self.git_local(tree, "for-each-ref", "--count=1", "--contains", "HEAD", "refs/remotes/origin")   # r2260 O1 — HEAD 를 품은 origin 가지 1개 = 안전(detached · 로컬 ref 만 · fetch 0)
+                if rc != 0 or not held.strip():
+                    return "git-error" if rc != 0 else "unpushed"
         code = self.mail_gate(team, work, seat, PARK_IDLE)   # A5~A8 — 미읽음 판독(빼는 마감 쪽지 밖은 막는다)
         if code:
             return code
