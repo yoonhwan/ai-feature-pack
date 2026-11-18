@@ -6,6 +6,8 @@
 - 원인 1줄: keeper.py :147~149 가 로컬 git 7초 넘음에 `Ungraded` 를 던진다 · work 안에서 난 것은 :587 이 받아 «다음 자리» 로 간다 · 팀 자리(`at_work` = `-` · 예: b2f 의 merge-base · ls-tree)에서 난 것은 받는 곳이 팀 고리(:502 `for team in self.order[skip:]`) 밖의 :520 `except Ungraded: pass` 하나뿐이다 → 그 팀의 남은 자리뿐 아니라 뒤 팀 전부와 b3 가 이 바퀴에서 돌지 않는다 · `self.cut` 은 `-` 그대로라 :522 가 cursor 를 지우고 ROUND 는 `cut=-` 인데 items 가 N/N 이 아니다(:520 주석 «그 자리 남은 판정 0 · 다음 자리» 와 동작이 다르다)
 - 앞 카드: 진행/ft2-keeper-round-60s(PR #1397 · R7 git 7초 · R10 items) · 진행/ft2-keeper-round-cells-b1-items(PR #1513 · items 분모)
 - 상태: 대기
+- 착지: 49d6b45a(팩 main · PR #1600 · squash · 세트 6838b985d77df655ece8659a874fc0190eaef81a · 팀장 재실행 25 passed 15.1s)
+- DA 판정: APPROVE-IMPL 1/3 aifp 6100(da-pi#20 · 승인 6838b985 · 사본 .fable-team/state/team-main/aifp-ft/DA-ungraded-team-rest-impl-approve/verdict-6100.txt · 메모 = 변이 판정 except BaseException · git_no_lazy_fetch 시험 46~61초)
 - DA 판정: APPROVE-DESIGN 2/3 aifp 6084(사본 .fable-team/state/team-main/aifp-ft/DA-ungraded-team-rest-design-approve/verdict-6084.txt) · 승인 sha 6048e40b · 앞 반례 사라짐 · 새 반례 0 · 메모 1개 = 52바 를 무는 변이(M137) 반영(구현 승인 아님)
 - 설치: 있음 — ft2 판 올림 1회 · 되돌림 = 앞 판으로 판 전환(상태 파일·설정 변화 0)
 - 선행: 없음(팩 origin/main 14d7677f) · 대기/ft2-keeper-nano-cut-blank-cell 과 같은 파일(keeper.py)의 다른 줄(순서 무관 · 뒤에 착지하는 쪽이 rebase)
