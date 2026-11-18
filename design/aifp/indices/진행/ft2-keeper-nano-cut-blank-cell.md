@@ -75,7 +75,7 @@ keeper ROUND 줄의 cut 칸은 «예산이 다해 업무 구획이 끊긴 자리
 1. [x] 나노: 기준판 FAIL 원문(53가 · 53나 · 53라) — 53가 `cut=-:-:-` · 53나 세 바퀴 모두 `-:-:-` · 53라 `cut=-:-:-` + cursor 남음
 2. [x] 나노: 새 시험 전체 rc0 · 걸린 초(사례 1개 70초 안 · 하드 룰 22) · 변이 M133~M136 지정 반례 FAIL — 10 passed 0.8초(사례 6 + 변이 4 · 파일 실행 3.7초) · M133→53가·53나·53라 / M134→53라 / M135→53다 / M136→53가
 3. [x] 나노: 회귀 rc0(파일별 초) — test_keeper_round_60s.py 49 passed 10.6초 · test_keeper_round_cells.py 15 passed 4.6초 · test_pi_keeper_lsremote_once_r1963b.py 14 passed 51.7초
-4. [ ] 팀장: PR 착지 sha · 설치 판
+4. [x] 팀장: PR 착지 sha · 설치 판 = 착지 07e820c2(PR #1605) · 설치 ft2 2.0.119(2026-11-18 14:26:51 KST · install-log rc 0 · 설치본 keeper.py ↔ 07e820c2 cmp 0 팀장 실측) · 지금 판 2.0.120(r2247 · keeper.py ↔ 팩 main cmp 0 · 고침 1줄 :478 그대로)
 5. [ ] arch: 설치 뒤 읽기 실측 = BYZ keeper 로그 ROUND 200줄 이상(양 끝 시각)에서 `cut=-:-:-` 0줄 · 그 구간의 «나노 가지 모으기 7초 넘음» 줄 수(0 이면 줄 수가 찰 때까지 [~] = 끊긴 바퀴가 있어야 본 것이다)와 그 바퀴 ROUND 원문 2줄
 6. [ ] arch: 다시 재는 순서 = 이 카드와 대기/ft2-keeper-ungraded-team-rest 가 모두 설치된 뒤 ROUND 200줄에서 진행/ft2-keeper-round-60s 조건 7(같은 자리 3바퀴 연속 0 · 예산 2회 넘음 줄 · items p50)을 다시 잰다 · 조건 6(other 5초 · 60초 넘음)은 두 카드로 줄지 않으므로 같은 구간 값만 나란히 적는다
 
@@ -97,4 +97,5 @@ keeper ROUND 줄의 cut 칸은 «예산이 다해 업무 구획이 끊긴 자리
 - 2026-11-18 13:55 · 나노 완료 — 고침 = keeper.py 나노 가지 모으기 `except Cut` 갈래에서 `self.cut`·`self.cut_pos` 를 되돌린다(1줄 추가 · 그 밖 손 0: cut_at 자리 셈·mark_cut·report·fetch·NANO_S·«판정 불가 나노 … 7초 넘음» 줄 그대로) · 새 시험 = `tests/test_keeper_nano_cut_blank_cell_r2245.py`(53가~바 · 변이 M133~M136 · 대역 = test_keeper_round_60s.Rig 그대로) · CASES.md 1줄 · 기준판(1ff2c25c) FAIL 원문 = 53가 `cut=-:-:-` · 53나 세 바퀴 모두 `-:-:-` · 53라 `cut=-:-:-` + cursor 남음 / 53다·53마·53바 = 지금 판 PASS · 회귀 rc0(60s 49 passed 10.6초 · cells 15 passed 4.6초 · lsremote_once 14 passed 51.7초) · reentry-lint rc0 · ruff rc0 · 남은 것 = 착지(팀장) · 설치(팀장) · 설치 뒤 읽기 실측(arch) · press 필요 없음(단위·캡처만 봄)
 - 2026-11-18 14:20 · 병합 — 나노 origin/main d8015b00 병합 1커밋 023eefab(팀장 발주 aifp 6111 · 회신 6112) · CASES.md 충돌 1곳 = 52칸·53칸 두 줄 다 · keeper.py 자동 병합(고침 1줄 :478 그대로) · rebase·force 0 · 재실행 r2245 10 passed 0.77초 · round_cells 15 passed 2.19초 · round_60s 49 passed 3.79초 · ungraded_team_rest 10 passed 0.60초 · 승인 898985c5 ↔ 병합 head = main 쪽 변경만
 - 2026-11-18 14:21 · 착지 — 코드 PR #1605 squash 07e820c2(match-head 023eefab) · 다음 = 설치 요청 harness#329(ft2 2.0.119) → 나노 닫기
+- 2026-11-18 15:35 · 설치 — ft2 2.0.119 14:26:51(harness 완료 회신 미도착 · 팀장이 install-log·cmp 로 확인) → 2.0.120 15:24:18 · 조건 4 [x] · 다음 = arch 설치 뒤 ROUND 200줄 실측(조건 5) · round-60s 조건 7(조건 6)
 - 세트: 023eefab3da21275811f24b86516264f5134c7e0 · 시험: python3.11 -m pytest feature-pack/fable-team/ft2/tests/test_keeper_nano_cut_blank_cell_r2245.py -q (10 passed) rc=0 · 이슈: 0
