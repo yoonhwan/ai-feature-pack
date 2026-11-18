@@ -53,11 +53,18 @@ def last_line(path):
             return (fh.read().strip().splitlines() or [""])[-1]
     except OSError:
         return ""
-def resumable(k, got):
-    """r2252 O0(DA#23) «이어 열 수 있음» 한 판정 = intent failed ∧ resumable checkout ∧ intent at 부터 OPEN_STALE 안쪽 · 시각 못 읽음 = 거짓.
-    launching(O2)·keeper_settle.settle_nano(O3) 가 같이 부른다 · 문턱을 넘으면 두 곳 모두 지금 길(«실패 …» · failed_end)."""
+def resume_state(k, base, got):
+    """r2252 O0(DA#23) 이어 열기 한 판정 — launching(O2)·keeper_settle.settle_nano(O3) 가 같이 부른다.
+    "" = 지금 길(«실패 …» · failed_end) · failed ∧ resumable checkout 일 때만 → 예약 pid 살아 있음·판정 못 함 = "resuming"(900초 검사 0 · 구현 DA HOLD 1)
+    · 예약 없음 ∧ intent at 부터 OPEN_STALE 안쪽 = "resumable" · 예약 pid 죽음 = ""(1회 소진)."""
     if got.get("state") != "failed" or got.get("resumable") != "checkout":
-        return False
+        return ""
+    seen = reserved(k, base)
+    if seen is None:
+        return "resumable" if fresh(k, got) else ""
+    return "resuming" if seen != "dead" else ""
+def fresh(k, got):
+    """r2252 O0 — intent at(로컬) 부터 OPEN_STALE 안쪽 · 시각 못 읽음 = 거짓."""
     try:
         return k.now() - time.mktime(time.strptime(str(got.get("at")), "%Y-%m-%dT%H:%M:%S")) < OPEN_STALE
     except (ValueError, OverflowError):
@@ -74,10 +81,10 @@ def launching(k, team, stem, attempt, nh, argv):
     if got.get("state") == "opened":
         return None
     if got.get("state") == "failed":
-        seen = reserved(k, base) if resumable(k, got) else "dead"   # r2252 O2 checkout 시간 초과 = attempt 당 이어 열기 1회(r2058 L3 예외 하나)
-        if seen is None:
+        seen = resume_state(k, base, got)   # r2252 O2 checkout 시간 초과 = attempt 당 이어 열기 1회(r2058 L3 예외 하나)
+        if seen == "resumable":
             return spawn(k, team, nh, argv + ["--resume"], base, "이어 열기")
-        if seen != "dead":   # 예약 pid 살아 있음·판정 못 함 = again 길이 남은 묶음을 도는 중(intent 는 failed 그대로 · DA#22)
+        if seen == "resuming":   # 예약 pid 살아 있음·판정 못 함 = again 길이 남은 묶음을 도는 중(intent 는 failed 그대로 · DA#22)
             return busy(k, team, nh, "LAUNCH-WAIT", "이어 열기 중")
         return "실패 %s %s" % (got.get("step"), str(got.get("reason"))[:60])
     if not os.path.exists(base + ".intent"):

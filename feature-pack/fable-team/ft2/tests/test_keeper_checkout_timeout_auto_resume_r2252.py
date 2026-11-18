@@ -1,4 +1,4 @@
-"""r2252 O0·O2·O3 ft2 keeper — checkout 25초 넘음(intent failed ∧ resumable checkout)은 같은 attempt 를 1회 이어 열고, 그동안 쉼을 미룬다 (반례 ⑤~⑩ ⑫ ⑬ · 변이 M3~M6).
+"""r2252 O0·O2·O3 ft2 keeper — checkout 25초 넘음(intent failed ∧ resumable checkout)은 같은 attempt 를 1회 이어 열고, 그동안 쉼을 미룬다 (반례 ⑤~⑩ ⑫ ⑫′ ⑬ · 변이 M3~M7 · ⑫′ M7 = 구현 DA HOLD 1 보정).
 settle 쪽 = r2058 세계(test_launch_failed_end · 임시 root·git·가짜 tmux·launch·record·mbox · 주입 시계) 한 바퀴.
 launching 쪽 = keeper_launch 모듈을 바로 부른다(가짜 keeper · 가짜 Popen · 가짜 ps 출력 · 같은 세계의 intent 파일).
 실 kill 0(os.kill 0 신호 판독만) · 실 launch 0 · 네트워크 0 · sleep 0. 기준판 = ⑤ ⑥ ⑫ Red(«실패 git checkout …» · failed_end park 1).
@@ -120,6 +120,15 @@ def c12(w, mp, ft2):   # ⑫ 예약 있음 ∧ 예약 pid 살아 있음 ∧ fail
     assert got is True and spawned == [] and [x for x in out if x.startswith("LAUNCH-WAIT") and "이어 열기 중" in x], (got, spawned, out)
 
 
+def c12b(w, mp, ft2):   # ⑫′ 구현 DA HOLD 1 — ⑫ 꼴인데 intent at 부터 900초 넘음 → 그래도 기다림(park 0 · LAUNCH-WAIT · spawn 0 · 살아 있음 갈래 = 900초 검사 0)
+    failed(w, age=1000, resume=ALIVE)
+    lines, parked = round_(w)
+    assert parked == 0 and fe.has(lines, "WORKING %s %s" % (TEAM, W), "launch-resuming"), lines
+    assert not fe.has(lines, "UNKNOWN %s %s" % (TEAM, W)), lines
+    got, spawned, out = launch(w, mp, ft2)
+    assert got is True and spawned == [] and [x for x in out if x.startswith("LAUNCH-WAIT") and "이어 열기 중" in x], (got, spawned, out)
+
+
 def c13(w, mp, ft2):   # ⑬ 예약 없음 ∧ 900초 넘음 ∧ fill_open 잇기 ∧ gates 참 → 같은 바퀴 b2c park 1 · b2f spawn 0 · launching 도 «실패» (O0 한 판정)
     failed(w, age=1000)
     kw._put(w.state / "ft2-keeper" / "state.json", {"fill_open": {"%s|%s" % (TEAM, W): "a1"}})
@@ -129,14 +138,15 @@ def c13(w, mp, ft2):   # ⑬ 예약 없음 ∧ 900초 넘음 ∧ fill_open 잇�
     assert spawned == [] and str(got).startswith("실패 git checkout"), (got, spawned)
 
 
-CASES = {"⑤": c5, "⑥": c6, "⑦": c7, "⑧": c8, "⑨": c9, "⑩": c10, "⑫": c12, "⑬": c13}
+CASES = {"⑤": c5, "⑥": c6, "⑦": c7, "⑧": c8, "⑨": c9, "⑩": c10, "⑫": c12, "⑫′": c12b, "⑬": c13}
 NEEDS = {"⑬": dict(nano_max="4")}
-O2 = '        seen = reserved(k, base) if resumable(k, got) else "dead"'
-MUTANTS = {   # (고칠 파일, 고칠 글자, 새 글자, 반드시 FAIL 이어야 하는 사례)
-    "M3": (KL, O2, '        seen = None if resumable(k, got) else "dead"', ("⑦",)),   # O2 .intent.resume 검사 뺌
-    "M4": (KS, "        if self.halt or not kl.resumable(self, intent):", "        if self.halt:", ("⑧",)),   # O3 resumable 조건 뺌
-    "M5": (KL, '    return alive(k, k.read_json(base + ".intent.resume")) if', '    return "dead" if', ("⑫",)),   # O2·O3 예약 pid 살아 있음 검사 뺌
-    "M6": (KL, O2, '        seen = reserved(k, base) if got.get("resumable") == "checkout" else "dead"', ("⑬",)),   # O2 900초 검사 뺌(O0 대신 따로 둔 식)
+ALIVE_ARM = '    return "resuming" if seen != "dead" else ""'
+MUTANTS = {   # (고칠 파일, 고칠 글자, 새 글자, 반드시 FAIL 이어야 하는 사례) · 모두 한 판정 keeper_launch.resume_state 안
+    "M3": (KL, "    seen = reserved(k, base)\n", "    seen = None\n", ("⑦",)),   # .intent.resume 검사 뺌
+    "M4": (KL, '    if got.get("state") != "failed" or got.get("resumable") != "checkout":', '    if got.get("state") != "failed":', ("⑧",)),   # resumable 조건 뺌
+    "M5": (KL, ALIVE_ARM, '    return ""', ("⑫",)),   # 예약 pid 살아 있음 검사 뺌
+    "M6": (KL, '        return "resumable" if fresh(k, got) else ""', '        return "resumable"', ("⑬",)),   # 900초 검사 뺌
+    "M7": (KL, ALIVE_ARM, '    return "resuming" if seen != "dead" and fresh(k, got) else ""', ("⑫′",)),   # 구현 DA HOLD 1 — 살아 있음 갈래에 900초 붙임
 }
 
 

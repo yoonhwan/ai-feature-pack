@@ -379,13 +379,12 @@ class Settling:
         return "대소문자만 다른 세션 %s" % other if other else ""
 
     def resume_wait(self, team, work, attempt, intent):
-        """r2252 O3 — "" = 지금 길(failed_end) · O0 참 ∧ 예약 없음 = launch-resumable · 예약 pid 살아 있음·판정 못 함 = launch-resuming.
+        """r2252 O3 — keeper_launch.resume_state(launching 과 한 판정) → "" = 지금 길(failed_end) · launch-resumable · launch-resuming(예약 pid 살아 있음 = 900초 검사 0).
         정지 중 = ""(failed_end 의 «예정» 줄 그대로 · ⑩) · 예약 pid 죽음 = ""(1회 소진 · r2058 L3)."""
-        if self.halt or not kl.resumable(self, intent):
+        if self.halt:
             return ""
-        base = os.path.join(PROJ.runtime_path(self.root, team), "launch", "%s@%s" % (work, attempt))
-        seen = kl.reserved(self, base)
-        return "launch-resumable" if seen is None else "launch-resuming" if seen != "dead" else ""
+        seen = kl.resume_state(self, os.path.join(PROJ.runtime_path(self.root, team), "launch", "%s@%s" % (work, attempt)), intent)
+        return "launch-" + seen if seen else ""
 
     def launching_now(self, team, work):
         """L6 — fill_open(잇는 중)에 있는 열기인가(그 열기는 손 0)."""
