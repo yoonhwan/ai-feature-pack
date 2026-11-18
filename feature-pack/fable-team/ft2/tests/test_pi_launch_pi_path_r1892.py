@@ -77,7 +77,7 @@ def case_alive(tmp, launcher=pl.LAUNCH):
     out, rc = pl._launch(root, fake, launcher, env_extra=extra)
     assert (out["result"], rc, out.get("opened")) == ("접수 성공", 0, True), out
     lines = _tmux(fake)
-    assert [line["sub"] for line in lines][:2] == ["new-session", "has-session"], lines
+    assert [line["sub"] for line in lines] == ["new-session", "has-session", "display-message"], lines
     assert lines[1]["argv"] == ["has-session", "-t", "=" + pl.HOLDER] and lines[0]["argv"][16] == str(fake / "pi"), lines
     assert lines[0]["argv"][6:16:2] == ["-e"] * 5, lines[0]
     assert json.loads(pl._intent(root).read_text(encoding="utf-8"))["state"] == "opened"
