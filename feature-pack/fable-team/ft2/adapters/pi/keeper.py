@@ -475,6 +475,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
                 got.update(kf.nanos(self, [team]))   # 팀마다 모아 두고 끊기면 모은 것만(부분 손실 0)
         except Cut:
             nano_cut = True
+            self.cut, self.cut_pos = "-", None   # r2245 N1 — 나노 모으기 끊김은 업무 구획 끊김이 아니다(cut 칸·cursor 흔적 0)
         self.nano, self.nano_s, self.nano_dl = ({} if self.table else got), time.monotonic() - at, None
         if nano_cut or self.nano_s >= NANO_S:
             self.log("판정 불가", text="나노 가지 모으기 7초 넘음 — 모은 것만")
