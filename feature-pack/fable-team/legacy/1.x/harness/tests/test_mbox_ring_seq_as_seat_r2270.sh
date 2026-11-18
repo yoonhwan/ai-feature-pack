@@ -71,9 +71,9 @@ box c5; run ring 'a;b'
 
 # 사례 ⑥ — 부팅 안내 3줄
 l3="$(grep -E '^3\. ' "$BOOT")"
-{ printf '%s' "$l3" | grep -qF '`ring <좌석> <첫 seq>`' && ! grep -qF '`ring <최초 seq>`' "$BOOT" \
+{ printf '%s' "$l3" | grep -qF '재발주=`ring <좌석> <첫 seq>`' && ! grep -qF '`ring <최초 seq>`' "$BOOT" \
   && [ "$(wc -c < "$BOOT" | tr -d ' ')" -le 2048 ] && [ "$(grep -cE '^[0-9]+\. ' "$BOOT")" = 17 ]; } \
-  && ok "⑥ BOOT 3줄 ring <좌석> <첫 seq> · ≤2048 · 번호 줄 17" || bad "⑥ BOOT" "l3=[$l3] bytes=$(wc -c < "$BOOT")"
+  && ok "⑥ BOOT 3줄 재발주=ring <좌석> <첫 seq> · ≤2048 · 번호 줄 17" || bad "⑥ BOOT" "l3=[$l3] bytes=$(wc -c < "$BOOT")"
 
 # 변이 M1~M4 — 사본 mbox.sh 만 바꾼다 · 변이마다 원본으로 같은 사례 1회 더
 ORIG="$COMM/mbox.sh"; M="$T/mut"; mkdir -p "$M"
