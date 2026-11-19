@@ -100,6 +100,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         self.halt, self.unknown = False, 0   # r2055 ALL_STOP(바퀴마다 판독) · 바퀴 UNKNOWN 수(ROUND unknown=N)
         self.start, self.sect, self.items, self.total, self.cut = None, WORK_S, 0, 0, "-"   # r2098 R1 예산 시계 · R10 ROUND 칸
         self.at_work, self.cursor_stage, self.nano_dl, self.in_fetch = "-", "-", None, False   # r2098 R4 자리 · R6 나노 몫
+        self.nano_stat = {}   # r2315 N1 바퀴마다 비우는 나노 팀 셈(초·rows·git·works·slow·other)
         self.who = ""   # r2303 A3 나노 끊김 줄의 일지 team 칸(줄 글자 그대로)
         self.order, self.jrows, self.ws, self.curs, self.prev_cursor, self.cut_pos = [], {}, {}, None, None, None
         self.jprojs = {}   # r2251 O1 팀 투영 바퀴 안 1회(book() · team_round 같은 값)
@@ -270,6 +271,16 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         if self.nano_dl is not None:
             end = min(end, self.nano_dl)
         return end - time.monotonic()   # R1 벽시계 = monotonic 주입점
+
+    def nano_slow(self):
+        """r2315 N2 — «NANO-SLOW» 1줄: 팀마다 s(초) · rows(journal 판독 초) · git 수 · works(판독한 work 수) · slow(가장 느린 work) · other(나머지).
+        셈이 없으면(대역·옛 꼴) 합만 남긴다."""
+        cells = []
+        for team in sorted(self.nano_stat):
+            c = self.nano_stat[team]
+            cells.append("%s s=%.2f rows=%.2f git=%d works=%d slow=%s:%.2f other=%.2f"
+                         % (team, c["s"], c["rows"], c["git"], c["works"], c["slow"][0] or "-", c["slow"][1], c["other"]))
+        return "합 %.2f%s" % (self.nano_s, " · " + " · ".join(cells) if cells else "")
 
     def cut_at(self):
         """R3·R4 — 끊긴 자리 = (팀, work, 칸) → Cut(예산)."""
@@ -556,12 +567,15 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         kf.collect(self)
         self.picked = [r for r in (self.root, self.pack) if not self.table or r in self.table]
         at, got, nano_cut = time.monotonic(), {}, False   # r2098 R6 나노 가지 모으기 = 합 7초(판독을 R2 로 줄임)
+        self.nano_stat = {}   # r2315 N1 바퀴마다 셈을 비운다
         self.nano_dl, order, team = at + NANO_S, ([] if self.table else self.teams()), ""
         first = order.index(self.state["nano_next"]) if self.state.get("nano_next") in order else 0   # r2303 A1 끊긴 팀부터 · A2 없으면 맨 앞
         order = order[first:] + order[:first]
         try:
             for team in order:
-                got.update(kf.nanos(self, [team]))   # 팀마다 모아 두고 끊기면 모은 것만(부분 손실 0)
+                part = kf.nanos(self, [team])   # 팀마다 모아 두고 끊기면 모은 것만(부분 손실 0)
+                got.update(part)
+                self.nano_stat.update(getattr(part, "stat", None) or {})   # r2315 N1 팀 셈
         except Cut:
             nano_cut = True
             self.cut, self.cut_pos = "-", None   # r2245 N1 — 나노 모으기 끊김은 업무 구획 끊김이 아니다(cut 칸·cursor 흔적 0)
@@ -572,6 +586,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         self.who = team if nano_cut else ""   # r2303 A3 끊김 줄 team 칸 = 끊긴 팀
         if nano_cut or self.nano_s >= NANO_S:
             self.log("판정 불가", text="나노 가지 모으기 7초 넘음 — 모은 것만")
+            self.log("NANO-SLOW", text=self.nano_slow())   # r2315 N2 넘김·끊김 때만 팀마다 초·git·work 를 남긴다
         self.who = ""
         def both(repos=self.picked):   # r1963 두 리포 동시 → fetch 단계 = 느린 쪽 하나 · 낡은 리포 집합은 바퀴마다 새로 · R6 fetch 는 지금 규칙 그대로
             with concurrent.futures.ThreadPoolExecutor(2) as pool:
