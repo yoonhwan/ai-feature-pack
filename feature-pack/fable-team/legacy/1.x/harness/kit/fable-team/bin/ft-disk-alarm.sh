@@ -67,16 +67,23 @@ post() { # 본문 → planner. 실패면 상태를 안 바꾼다(다음 틱 재�
   bash "$MBOX" send "$ROUTE" ft-disk-alarm "$1" >/dev/null 2>>"$LOG" && { sent=$NOW; return 0; }
   logline "ERROR 쪽지 발신 실패 to=$ROUTE"; return 1
 }
-sweep() { # 하루 1회 주인 없는 사본 정리(판정 1920 · 첫 1회는 목록 보고만) — 결과 1줄을 planner 로. 디스크 단계 반복 타이머(sent)와 무관
-  [ $((NOW-swept)) -ge 86400 ] || return 0
-  local s rc last; s="$(bash "$SCRATCH" --sweep 2>>"$LOG")"; rc=$?; last="$(tail -n 1 <<<"$s")"
+sweep() { # 주인 없는 사본 정리(판정 1920 · 첫 1회는 목록 보고만) — 결과 1줄을 planner 로. 디스크 단계 반복 타이머(sent)와 무관
+  #   r2301 A1: 단계가 warn·urgent 면 «측정 틱마다» · ok 면 하루 1회 그대로(좌석이 사본을 만드는 속도가 하루 1회보다 빠르다 · 실사건 11-19 25GiB).
+  #   단계 = 이번 틱의 새 판정값($new · 한 틱 늦음 0) · A1b: 경보 단계 틱 쪽지는 «지운 것(swept≥1)» 이 있을 때만(planner 큐 보호 · swept=0 = 로그 1줄).
+  local each=0 s rc last; case "$new" in warn|urgent) each=1;; esac
+  [ "$each" = 1 ] || [ $((NOW-swept)) -ge 86400 ] || return 0
+  s="$(bash "$SCRATCH" --sweep 2>>"$LOG")"; rc=$?; last="$(tail -n 1 <<<"$s")"
+  logline "사본 정리 rc=$rc 단계=$new 틱마다=$each ${last:-<출력 없음>}"
   if [ "$rc" = 5 ]; then   # r1286: 무거운 git 자리 대기 초과 = «남은 항목 삭제 0» — swept 를 안 바꿔 다음 틱 재시도(24시간 미루기 0)
     logline "사본 정리 자리 대기 초과 rc=5 $last"
     bash "$MBOX" send "$ROUTE" ft-disk-alarm "[사본 정리 미완] 무거운 git 자리 대기 초과 rc 5 · 다음 틱 재시도${last:+\n$last}" >/dev/null 2>>"$LOG" || logline "ERROR 사본 정리 쪽지 발신 실패"
     return 0
   fi
-  swept=$NOW
-  [ -z "$s" ] || bash "$MBOX" send "$ROUTE" ft-disk-alarm "$s" >/dev/null 2>>"$LOG" || logline "ERROR 사본 정리 쪽지 발신 실패"
+  #  «하루 1회» 타이머(swept)의 기준 = ok 단계에서 돈 마지막 sweep — 경보 틱은 이 값을 안 옮긴다(경보 기간이 하루 1회를 먹지 않게)
+  [ "$each" = 1 ] || swept=$NOW
+  [ -n "$s" ] || return 0
+  [ "$each" = 0 ] || case "$last" in *swept=0*) return 0;; esac   # A1b: 경보 단계 틱 «지운 0» = 쪽지 0(로그 1줄로 충분)
+  bash "$MBOX" send "$ROUTE" ft-disk-alarm "$s" >/dev/null 2>>"$LOG" || logline "ERROR 사본 정리 쪽지 발신 실패"
 }
 REAP_PEND="$STATE/docker-reap.pending"   # 못 보낸 경보 본문 — 정리 «시도 일자»(reaped) 와 «경보 전달» 을 떼어 둔다(송신 실패가 다음날까지 묻히지 않게)
 reap_alert() { # 본문 → planner. 실패면 pending 파일에 남겨 다음 틱에 경보만 재시도
