@@ -90,7 +90,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         self.succeed = _load(os.path.join(HERE, "keeper_succeed.py"), "ft2_keeper_succeed").Succeed(self)   # r2276 표식 승계(self.succeeding)
         self.close_old = _load(os.path.join(HERE, "keeper_close_old.py"), "ft2_keeper_close_old").CloseOld(self)   # r2281 승계 끝 구 나노 닫기
         self.spent, self.sock, self.skip, self.stale = dict.fromkeys(("fetch", "b1", "b2c", "b2f", "b3", "stall"), 0.0), True, set(), set()
-        self.per, self.at = {}, None   # r1969 (팀, 칸) 초 → ROUND slow 칸 · at = 지금 도는 팀(None = 팀 밖)
+        self.per, self.at, self.b3p = {}, None, {}   # r1969 (팀, 칸) 초 → ROUND slow 칸 · at = 지금 도는 팀(None = 팀 밖)
         self.table, self.nano, self.refs, self.picked, self.bg, self.fetch_s, self.fetch_err = {}, {}, {}, [], {}, {}, {}   # r1975 · r2241 fetch_err
         self.stage, self.tally = "-", {}   # r1992 지금 칸(timed) · (팀, 칸) → [호출 시도 수, SLOW-CALL 초 합]
         self.cell_calls = {}   # r2287 C3 (팀, 칸) → [바깥 호출 초 합(keeper.call · 주입 손), 큰 3개 [(초, 길)]]
@@ -503,13 +503,15 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
 
     def timed(self, stage, fn, *args):
         """r1817 D3 — 단계별 초(주입 시계 self.now) 누적 · 반환 = fn 결과."""
-        at, prev, self.stage = self.now(), self.stage, stage
+        at, prev, self.stage, pos = self.now(), self.stage, stage, self.cursor_stage
         try:
             return fn(*args)
         finally:
             self.stage, dt = prev, self.now() - at
             self.spent[stage] += dt
             self.per[(self.at, stage)] = self.per.get((self.at, stage), 0.0) + dt
+            if stage == "b3":   # r2298 A2 b3 칸 = b3o·b3r 자리 몫(at_pos 가 적은 자리)
+                self.b3p[pos] = self.b3p.get(pos, 0.0) + dt
 
     def socket_ok(self):
         """r1817 D4 — 기준 소켓(FT2_TMUX_SOCKET · 설치 렌더 고정)과 tmux 가 보는 서버가 같을 때만 닫는다 · 기준 없음 = 셀 손 실행."""
@@ -635,13 +637,15 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         self.notify_used, self.send_fails, self.send_stop = 0, 0, False   # R8 쪽지 몫 = 바퀴마다 새로(바퀴 끝에 되돌린다)
         self.total = self.cell_total()   # R10 items = 돈 자리 / (돈 수 있는 자리)
         cells += " wall=%g other=%g items=%d/%d cut=%s" % (round(wall, 1), round(max(wall - s, 0.0), 1), self.items, self.total, self.cut)   # R10
-        top = max((kv for kv in self.per.items() if kv[0][0]), key=lambda kv: kv[1], default=None)   # r1969 가장 느린 (팀, 칸) 1개
+        top = max((kv for kv in self.per.items() if kv[0][0] or kv[0] == (None, "b3")), key=lambda kv: kv[1], default=None)   # r1969 가장 느린 (팀, 칸) 1개
+        who = top and (top[0][0] or "-")   # r2298 A1 팀 밖 b3 칸 = «-»
         if top:   # r1992 ⑦ slow 칸의 호출 시도 수·SLOW-CALL 합(5초 미만 여러 번 = slow_call 0 으로 드러남) · ROUND 줄 그대로
             got = self.tally.get(top[0], [0, 0.0])
             spent, big = self.cell_calls.get(top[0], (0.0, []))   # r2287 C3 끝에 덧붙임만 · 호출 밖 초 = 칸 초 − 호출 초 합
             tail = " top=%s py=%g" % (",".join("%s:%g" % (path, sec) for sec, path in big) or "-", round(max(top[1] - spent, 0.0), 1)) if big or round(top[1], 1) else ""   # 호출·초 둘 다 0 = 옛 줄 그대로
-            self.log("SLOW-CELL", top[0][0], "%s s=%g n=%d slow_call=%g" % (top[0][1], round(top[1], 1), got[0], round(got[1], 1)) + tail)
-        self.log("ROUND", text="s=%g %s slow=%s%s%s%s" % (round(s, 1), cells, "%s:%s:%g" % (top[0] + (round(top[1], 1),)) if top else "-", " OVER" if wall > ROUND_S else "", " unknown=%d" % self.unknown if self.unknown else "",
+            tail += " parts=b3o:%g,b3r:%g" % (round(self.b3p.get("b3o", 0.0), 1), round(self.b3p.get("b3r", 0.0), 1)) if top[0] == (None, "b3") else ""
+            self.log("SLOW-CELL", who, "%s s=%g n=%d slow_call=%g" % (top[0][1], round(top[1], 1), got[0], round(got[1], 1)) + tail)
+        self.log("ROUND", text="s=%g %s slow=%s%s%s%s" % (round(s, 1), cells, "%s:%s:%g" % (who, top[0][1], round(top[1], 1)) if top else "-", " OVER" if wall > ROUND_S else "", " unknown=%d" % self.unknown if self.unknown else "",
                                                        self.skip and " skip=" + ",".join(sorted(self.skip)) or ""))   # r2055 unknown=N(skip= 은 끝 칸 그대로) · OVER = wall 판정(R10)
 
     def cursor_key(self):
