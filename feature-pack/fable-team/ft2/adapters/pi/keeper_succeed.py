@@ -3,7 +3,7 @@
 들어오는 자리 = 바퀴마다 팀 투영 owners 순회(stall.check 의 dispatch attempt 길과 따로 · claim 으로 받은 work 도 닿음) · S1 보다 먼저.
 표식 있는 owner work = 그 바퀴 깨움·S3 0(keeper.succeeding). 구 worktree = FT2_HOLDER == holder 인 intent 중 가장 늦은 1개 → 없으면 pane 경로.
 C1 표식(<루트>/.fable-team/state/pi-distill-pending/<좌석 베이스> · 본문 seat=<holder>) 나이 ≥ FT2_SUCCEED_WAIT(300초) ∧ pane Working 0.
-C2 구 worktree clean ∧ HEAD 로컬 보존(r2280 · push·fetch 0) = 가지 끝 · 없으면 refs/ft2/keep/<work>/<attempt> 만들기만(덮기 0) · 충돌·git 실패 = 판정 불가 · dirty = 승계 0 + [크리티컬] · kill 0.
+C2 구 worktree clean ∧ HEAD 로컬 보존(r2280 · push·fetch 0) = 가지 끝 · 없으면 refs/ft2/keep/<work>/<attempt>-<HEAD sha12> 만들기만(덮기 0 · 앞선 HEAD = 새 이름 1개) · git 실패 = 판정 불가 · dirty = 승계 0 + [크리티컬] · kill 0.
 C3~C5 = keeper_stall.handoff(S3 와 같은 단계 · 사본 0) · plan 의 core _hold 판독(rotation) = 효과 미확정이면 kill 0 + [크리티컬].
 C6 인계 3줄 = 새 holder 우편함(첫 본문의 recv 길) · C7 키 = 팀|work|g세대(S4 reassigned 와 따로) · 같은 work 하루 3회 상한.
 C8 core·launch.py·distill-gate 글자 0 · 표식 쓰기 0 · git·tmux·표식·장부 못 읽음 = 판정 불가 1줄 · 쓰기 0.
@@ -27,6 +27,11 @@ def _load(path, alias):
 pane_target = _load(os.path.join(HERE, "keeper_close.py"), "close").pane_target
 planner = _load(os.path.join(HERE, "launch_plan.py"), "plan")
 projection = _load(os.path.join(FT2, "core", "projection.py"), "projection")
+
+
+def keep_name(work, attempt, sha):
+    """C1ⓑ keep ref 이름 = <attempt>-<HEAD sha12>(r2280 · DA#29 조건 1 — 앞선 HEAD 는 새 이름 · 충돌 갈래 0)."""
+    return "refs/ft2/keep/%s/%s-%s" % (work, attempt, sha[:12])
 
 
 class Succeed:
@@ -116,7 +121,7 @@ class Succeed:
 
     def keep(self, work, tree, attempt):
         """C2(r2280) — 로컬 보존 · push·fetch·가지 옮기기 0 → ("", 보존 이름) | («판정 불가 …», "").
-        ⓐ HEAD = 로컬 가지 끝(symbolic-ref · 분리면 for-each-ref --points-at) ⓑ 없으면 keep ref 만들기만(빈 옛 값 = 덮기 0)."""
+        ⓐ HEAD = 로컬 가지 끝(symbolic-ref · 분리면 for-each-ref --points-at) ⓑ 없으면 keep_name 만들기만(빈 옛 값 = 덮기 0)."""
         k = self.k  # C1
         rc, out, err = k.git(tree, "symbolic-ref", "-q", "HEAD")
         if rc == 0 and out.strip().startswith("refs/heads/"):
@@ -128,17 +133,18 @@ class Succeed:
             return "판정 불가 · for-each-ref rc %s %s" % (rc, (err or "").strip()[:80]), ""
         if out.split():
             return "", out.split()[0]
-        keep = "refs/ft2/keep/%s/%s" % (work, attempt)
-        rc = k.git(tree, "update-ref", keep, "HEAD", "")[0]
+        rc, out, err = k.git(tree, "rev-parse", "--verify", "-q", "HEAD")
+        head = out.strip()
+        if rc != 0 or not head:
+            return "판정 불가 · rev-parse HEAD rc %s %s" % (rc, (err or "").strip()[:80]), ""
+        name = keep_name(work, attempt, head)
+        rc = k.git(tree, "update-ref", name, head, "")[0]
         if rc == 0:
-            return "", keep
-        rc, out, err = k.git(tree, "rev-parse", "HEAD", keep)
-        shas = out.split()
-        if rc == 0 and len(shas) == 2 and shas[0] == shas[1]:
-            return "", keep   # 같은 sha = 보존 됨 · 다시 쓰기 0
-        if rc == 0 and len(shas) == 2:
-            return "판정 불가 · keep ref 충돌 %s = %s ≠ HEAD %s" % (keep, shas[1][:10], shas[0][:10]), ""
-        return "판정 불가 · keep ref 못 만듦 rc %s %s" % (rc, (err or "").strip()[:80]), ""
+            return "", name
+        rc, out, err = k.git(tree, "rev-parse", "--verify", "-q", name)
+        if rc == 0 and out.strip() == head:
+            return "", name   # 같은 이름 = 같은 sha = 보존 됨 · 다시 쓰기 0
+        return "판정 불가 · keep ref 못 만듦 %s rc %s %s" % (name, rc, (err or "").strip()[:80]), ""
 
     def relay(self, team, work, holder, p, name):
         """C6 인계 3줄 → 새 holder 우편함(deliver 뒤 · launch 앞 · 첫 본문 recv 가 읽음) · 못 보냄 = 로그 1줄 · 열기는 계속."""
