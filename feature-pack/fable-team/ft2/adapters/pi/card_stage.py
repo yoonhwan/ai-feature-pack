@@ -214,11 +214,13 @@ def evidence(byz, root, text, lands):
         raise Noop("착지 줄 0" if lands else "착지 줄 0 · 보완")
     impl(byz, root, hexes[-1])
 def impl(byz, root, sha):
-    """r2274 C3 — 착지 sha 가 있는 리포(BYZ → 팩 · 로컬 객체만) 에 keeper_land.land_kind · 카드 문서만 = Noop · 판정 불가 = Unsure · 둘 다 없음 = 지금 길(미도달은 keeper 몫)."""
+    """r2274 C3 — 착지 sha 가 있는 리포(BYZ → 팩 · 로컬 객체만) 에 keeper_land.land_kind · 카드 문서만 = Noop · 판정 불가·둘 다 없음 = Unsure(쓰기 0)."""
     pack = os.environ.get("FT2_PACK_REPO") or os.path.expanduser("~/Project/ai-feature-pack")   # keeper.py 와 같은 팩 자리
     env = dict(os.environ, GIT_NO_LAZY_FETCH="1")
     repo = next((r for r in (byz, pack) if os.path.isdir(r) and spawn(r, ["rev-parse", "-q", "--verify", sha + "^{commit}"], env)[0] == 0), None)
-    kind = land.land_kind(root, repo, sha, sh) if repo else "구현"
+    if repo is None:   # DA#29 H3ⓑ — 둘 다 없음 = C1 «실패 = 판정 불가»(쓰기 0)
+        raise Unsure("착지 sha 로컬 0(BYZ·팩) %s" % sha[:8])
+    kind = land.land_kind(root, repo, sha, sh)
     if kind == "카드 문서만":
         raise Noop("카드 문서만 착지 " + sha[:8])
     if kind != "구현":

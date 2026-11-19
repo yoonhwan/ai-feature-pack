@@ -2,7 +2,7 @@
 # ft-land-kind-lib.sh — «구현 착지» 판정 한 곳 + 구현 0 카드 예외 한 곳 (r2274 · source 전용)
 #   ft_land_kind <repo> <sha> → stdout 1줄: 구현 | 카드 문서만 | 판정 불가 <사유>  (rc 0 · 0 · 3)
 #     규칙 = sha 의 첫 부모 대비 바뀐 경로(merge 는 first-parent · 뿌리 커밋은 빈 트리 대비)가 모두 «design/ 로 시작 ∧ /indices/ 포함» = 카드 문서만
-#     하나라도 밖 = 구현(팩 kit/fable-team/templates/team/indices 배포 템플릿 포함) · 바뀐 경로 0(빈 커밋) = 구현(문서만 증거 없음 = 지금 길)
+#     하나라도 밖 = 구현(팩 kit/fable-team/templates/team/indices 배포 템플릿 포함) · 바뀐 경로 0(빈 커밋) = 카드 문서만(구현 증거 0 · DA#29 H3ⓐ)
 #     git 1회 7초(하드 룰 12 · env FT_LAND_KIND_SEC 는 줄이기만 = 시험 대역) · 로컬 객체만(GIT_NO_LAZY_FETCH=1 · r1401) · 실패·시간 초과 = 판정 불가(하드 룰 20)
 #   ft_no_code [<카드 본문> | stdin] → 예외(구현 0 카드) 꼴 1줄 rc 0 · 예외 아님 = 출력 0 rc 1 — 고정 3꼴(r2274 C3 · r2275 도 씀)
 #     ⓐ 머리 «- 구현: 없음 — <사유>» ⓑ «- 닫힘(» 또는 «- <날짜> — 닫힘(» 으로 여는 줄에 «코드 0»
@@ -31,7 +31,7 @@ except OSError as exc:
 if p.returncode:
     out("판정 불가 git diff-tree rc %s %s" % (p.returncode, sha[:8]), 3)
 paths = [x for x in p.stdout.split("\0") if x]
-out("카드 문서만" if paths and all(x.startswith("design/") and "/indices/" in x for x in paths) else "구현", 0)
+out("카드 문서만" if all(x.startswith("design/") and "/indices/" in x for x in paths) else "구현", 0)
 '
 _FT_NO_CODE_PY='
 import re, sys
