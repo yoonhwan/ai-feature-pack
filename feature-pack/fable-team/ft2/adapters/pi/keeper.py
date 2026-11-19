@@ -363,10 +363,12 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
     def before(self, team, work, stage):
         """R4 — cursor 자리 앞이면 True(이번 바퀴 0 · 재판독 0).
 
-        r2323 T2 — 상한으로 멈춘 팀은 바퀴 cursor 가 아니라 그 팀 자리(state team_cursor)를 열쇠로 쓴다(그 팀만 · 1곳)."""
-        if cur := self.tcurs.get(team):
-            return self.team_key(team, work, stage) < self.team_key(team, cur.get("work"), cur.get("stage") or "b1")
-        return self.curs is not None and self.key(team, work, stage) < self.curs
+        r2323 T2 — 바퀴 cursor 를 먼저 본다(T3 «R2 끊긴 자리 우선» · DA#39 ⓐ: 재개한 팀이 그 팀 안에서 끊긴 자리)
+        그 뒤에 그 팀 자리(state team_cursor)를 견준다 — 상한으로 멈춘 팀만 · 1곳."""
+        if self.curs is not None and self.key(team, work, stage) < self.curs:
+            return True
+        cur = self.tcurs.get(team)
+        return bool(cur) and self.team_key(team, work, stage) < self.team_key(team, cur.get("work"), cur.get("stage") or "b1")
 
     def team_cap(self, team, work, stage):
         """r2323 T1·T2 — 이 바퀴 그 팀이 쓴 업무 초 ≥ WORK_S/2 이고 뒤 팀이 남았으면 그 팀은 여기서 멈춘다.
