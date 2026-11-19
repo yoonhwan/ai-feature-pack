@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_card_commit_move_r2288.sh — r2288: ft-card-commit.sh 카드 폴더 이동 = «고치기 전 판» 을 옛 판으로 lint(새 경로 BASE 에 없을 때).
-#   반례 ①~⑤ · 변이 M1(짝 찾기 끔) · M2(r0 = r1) (카드 동결) · C1 이동 짝 · C2 main 전용 옛 판 · C3 짝 꼴 이상 · C4 불변.
+#   반례 ①ⓐⓑ ② ③ ④ⓐⓑⓒⓓ ⑤ · 변이 M1(짝 찾기 끔) · M2(r0 = r1) (카드 동결) · C1 이동 짝 · C2 main 전용 옛 판 · C3 짝 꼴 이상 · C4 불변.
 # 격리만: 임시 bare origin(ops/main-base · main 따로) + 클론 · lint = 대역(FT_CARD_LINT) · 실 리포 · 실 원격 0 · sleep 0.
 # 변이용: R2288_TOOL=<사본 경로> 로 도구를 바꿔 끼운다(M1 · M2 는 이 시험이 사본을 만들어 돌린다).
 set -uo pipefail
@@ -31,8 +31,8 @@ world() {   # W(ops/main-base) · M(main · 따로 뿌리) → O(bare) → R(클
   local d="$T/w.$RANDOM$RANDOM" M; W="$d/W" M="$d/M" O="$d/O.git" R="$d/R"
   git init -q -b ops/main-base "$W" && git init -q -b main "$M" && git init -q --bare -b main "$O"
   put "$W" "$LED" 'GL-A\n'; put "$W" "$I/대기/X.md" "$OLDX"; put "$W" design/teamb/indices/대기/X2.md "$OLDX"
-  put "$W" "$I/대기/X3.md" "$OLDX"; put "$W" "$I/완성/X3.md" "$OLDX"
-  put "$M" "$LED" 'GL-A\n'; put "$M" "$I/진행/Z.md" "$OLDZ"; put "$M" "$I/진행/Q.md" "$OLDZ"; put "$M" "$I/대기/Q.md" "$OLDZ"
+  put "$W" "$I/대기/X3.md" "$OLDX"; put "$W" "$I/완성/X3.md" "$OLDX"; put "$W" "$I/대기/Z9.md" "$OLDZ"
+  put "$M" "$LED" 'GL-A\n'; put "$M" "$I/진행/Z.md" "$OLDZ"; put "$M" "$I/진행/Z9.md" "$OLDZ"; put "$M" "$I/진행/Q.md" "$OLDZ"; put "$M" "$I/대기/Q.md" "$OLDZ"
   git -C "$W" add -A && git -C "$W" commit -qm base && git -C "$W" push -q "$O" ops/main-base 2>/dev/null
   git -C "$M" add -A && git -C "$M" commit -qm main && git -C "$M" push -q "$O" main 2>/dev/null
   git clone -q -b ops/main-base "$O" "$R" 2>/dev/null
@@ -55,6 +55,10 @@ case2() {   # ② 같은 짝 · 완료 조건 절을 비움 → REJECT 새 사�
     && printf '%s' "$OUT" | grep -qxF '  - 완료 조건 절 비어 있음'; }
 
 case1 && ok "① 이동 짝 · 옛 사유만 → PUSHED · D 옛 · A 새" || bad "① rc=$RC out=$OUT"
+# ①ⓑ 같은 짝을 차례 뒤집어(+완성/X.md 먼저 · -대기/X.md 뒤) → PUSHED(짝 찾기 = SPECS 전체)
+world; t0="$(tip)"
+run "+$I/완성/X.md=$(f x5 "$(card '골줄: GL-OLD1\n' '- 완료: x\n' '완성')")" "-$I/대기/X.md"
+pushed "$t0" && ok "①ⓑ 차례 뒤집은 짝 → PUSHED" || bad "①ⓑ rc=$RC out=$OUT"
 case2 && ok "② 이동 짝 · 내 글자 사유 → REJECT 1줄 · push 0" || bad "② rc=$RC out=$OUT"
 
 # ③ main 전용: BASE 에 없음 · origin/main 진행/Z.md(옛 사유 2) · +완성/Z.md=<옛 판 + 상태 줄> → PUSHED
@@ -70,10 +74,14 @@ run "+$I/완성/Q.md=$(f q1 "$(card '골줄: GL-OLD1\n골줄: GL-OLD2\n' '- 완�
 t0="$(tip)"
 run "-design/teamb/indices/대기/X2.md" "+$I/완성/X2.md=$(f x3 "$(card '골줄: GL-OLD1\n' '- 완료: x\n' '완성')")"
 { held "$t0" 1 && printf '%s' "$OUT" | grep -qxF '  - 골줄 원장에 없음 (GL-OLD1)'; } && ok "④ⓑ 다른 팀 짝 → REJECT · push 0" || bad "④ⓑ rc=$RC out=$OUT"
-# ④ⓒ 같은 이름 -짝 2개 → 짝 없음 → REJECT · push 0
+# ④ⓒ BASE 대기/Z9.md 있음 · origin/main 진행/Z9.md 있음 · -짝 없이 +완성/Z9.md 만 → 짝 없음 → REJECT(ops 에 같은 카드 2장 막음) · push 0
+t0="$(tip)"
+run "+$I/완성/Z9.md=$(f z9 "$(card '골줄: GL-OLD1\n골줄: GL-OLD2\n' '- 완료: z\n' '완성')")"
+{ held "$t0" 1 && [ "$(newr)" = 2 ]; } && ok "④ⓒ BASE 같은 이름 · -짝 없음 → REJECT · push 0" || bad "④ⓒ rc=$RC out=$OUT"
+# ④ⓓ 같은 이름 -짝 2개 → 짝 없음 → REJECT · push 0
 t0="$(tip)"
 run "-$I/대기/X3.md" "-$I/완성/X3.md" "+$I/진행/X3.md=$(f x4 "$(card '골줄: GL-OLD1\n' '- 완료: x\n' '진행')")"
-held "$t0" 1 && ok "④ⓒ -짝 2개 → REJECT · push 0" || bad "④ⓒ rc=$RC out=$OUT"
+held "$t0" 1 && ok "④ⓓ -짝 2개 → REJECT · push 0" || bad "④ⓓ rc=$RC out=$OUT"
 
 # ⑤ 짝 없음 · 새 카드 +완성/Y.md(옛 판 어디에도 없음 · 사유 1) → REJECT · push 0
 t0="$(tip)"
