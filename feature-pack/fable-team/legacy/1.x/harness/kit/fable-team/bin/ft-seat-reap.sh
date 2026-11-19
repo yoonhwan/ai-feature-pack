@@ -7,6 +7,7 @@
 #     ③env 에 FT_SEAT 안 보임 ∧ ppid 1(고아) ∧ cwd ⊂ 좌석 워크트리(--wt · 없으면 세션 session_path · `.git` 있는 폴더만 · 안쪽 다른 워크트리 제외) ∧ 명령에 sleep·while
 #        — 다른 라이브 tmux 세션이 그 워크트리 안에 있으면 ③ 생략(출력 `cwd=shared`) · 다른 세션 pane 나무에 속한 것도 제외
 #     ④argv 낱말 하나가 좌석 이름과 «정확히» 같은(앞뒤 = 줄 머리·끝·공백 · 부분 글자 0 · #2190 0) 프로세스의 사슬을 올라 ppid 1 첫 조상(뿌리)을 찾고 뿌리 + 그 자손 전부(r2317 · 승계 뒤 «bash -c 래퍼 아래 틱» — env·pane·cwd 셋 다 안 보이는 나무)
+#     ④b 씨앗 «스크립트 본문»(r2324 · 실사건 desk219 — 틱 루프는 이름을 파일 본문에 두고 argv 에는 경로만 남긴다): 명령 낱말이 «절대 경로» 이고 그 파일이 일반 파일(lstat — 심링크·디렉터리 0 · 따라가기 0)이면 앞 64KiB 만 읽기 1회(경로당) · NUL 0 · 본문에 좌석 이름이 «정확 경계»(줄 머리·끝 또는 [A-Za-z0-9._#-] 밖 문자 — 따옴표 붙은 «'이름'» 잡힘 · #2190 0)로 있으면 그 프로세스도 ④ 씨앗 · `bash -c …`(-c 있음) = 경로 아님(본문 씨앗 0) · 상대 경로 = 0(cwd 풀기 0) · 못 읽음 = 0
 #        거름(뿌리마다 `reap-skip pid=<뿌리> why=…` 1줄 · stopped·left 에 안 셈): 뿌리나 그 자손에 살아 있는 tmux pane pid 1개라도 = 0(`root-pane`) · 사슬·뿌리 자손 中 남 uid 1개라도 = 0(`root-uid` — sshd [priv]·login 같은 사람 세션) · ps tty 칸이 «??» 아닌 것 1개라도 = 0(`root-tty` — 오빠 셸·iTermServer 나무) · 뿌리 exe ∈ 보호 exe 또는 뿌리 pid 가 `launchctl list` PID 칸 = 0(`root-protect` · launchctl·ps tty 실패 = rc 20) · 뿌리+자손(거름 전 전부) > 8 = 0(`tree-large n=<수>` — 사람 판단)
 #   제외: 남의 FT_SEAT · 보호 exe(ft-leak-reap.sh 의 PROTECT_EXE 를 그대로 읽음 — 못 읽으면 rc 20) · 이 명령 자신과 조상
 #     · 서비스 나무(r505 — 모든 모드 · 서비스 정지는 scripts/server/stop.command 몫): ⓐTCP LISTEN 을 쥔 프로세스와 그 조상·자손(`lsof -iTCP -sTCP:LISTEN` · 실패 = rc 20)
@@ -53,7 +54,7 @@ HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 DDIR="${FT_REAP_DEFER_DIR:-}"; PDIR="${FT_PERMIT_DIR:-}"; LDG="${FT_BG_FINITE_LEDGER:-}"   # 못 풀면 빈 값 — 미룸이 실제로 필요할 때만 python 이 rc 20
 if [ -z "$DDIR" ] || [ -z "$PDIR" ] || [ -z "$LDG" ]; then DR="$(. "$HERE/ft-harness-root.sh" && ft_data_root "$HERE" 2>/dev/null)" || DR=""; DDIR="${DDIR:-${DR:+$DR/.fable-team/state/reap-deferred}}"; PDIR="${PDIR:-${DR:+$DR/.fable-team/state/permits}}"; LDG="${LDG:-${DR:+$DR/.fable-team/state/bg-finite.tsv}}"; fi
 exec python3 - "$SEAT" "$DRY" "$WT" "$ORPH" "$HERE/ft-leak-reap.sh" "$DEFER" "$DDIR" "$PDIR" "$HAND" "$LDG" <<'PY'
-import ast, json, os, re, shutil, signal, subprocess, sys, time
+import ast, json, os, re, shutil, signal, stat, subprocess, sys, time
 seat, dry, wt_arg, orph, leak = sys.argv[1], sys.argv[2] == "1", sys.argv[3], sys.argv[4] == "1", sys.argv[5]
 defer, ddir, pdir, HAND = sys.argv[6] == "1", sys.argv[7], sys.argv[8], sys.argv[9]
 LEDGER_ARG = sys.argv[10]
@@ -226,6 +227,24 @@ def ancestors(t):   # 이 명령 자신과 조상
     while p in t and p not in anc and p > 1: anc.add(p); p = t[p][0]
     return anc
 TREE_CAP = 8   # r2317 ④ 나무 크기 상한(S1c) — 넘으면 사람 판단(HIL) · 거름 전 뿌리+자손 전부로 센다
+SEED_BYTES = 65536   # r2324 ④b 본문 읽기 상한 — 파일당 1회 · 앞 64KiB 만(그 뒤는 안 본다)
+NAME_CH = "A-Za-z0-9._#-"   # r2324 ④b 이름 글자 — 경계 = 줄 머리·끝 또는 이 밖 문자(따옴표·공백·;·=·( ) … · 공백 split 아님)
+_seed_re = re.compile(r"(?:^|[^" + NAME_CH + r"])" + re.escape(seat) + r"(?:$|[^" + NAME_CH + r"])", re.M)
+_seed_cache = {}
+def body_seed(path):   # r2324 ④b U1/U3 — 일반 파일 본문에 좌석 이름(정확 경계) → True · lstat(심링크·디렉터리 0) · 읽기 1회 · 64KiB · NUL 0 · 못 읽음 = 0
+    if path in _seed_cache: return _seed_cache[path]
+    hit = False
+    try:
+        if stat.S_ISREG(os.lstat(path).st_mode):
+            with open(path, "rb") as fh: data = fh.read(SEED_BYTES)
+            hit = b"\x00" not in data and bool(_seed_re.search(data.decode("utf-8", "replace")))
+    except OSError: hit = False
+    _seed_cache[path] = hit
+    return hit
+def script_seed(cmd):   # r2324 ④b U1a — argv 의 절대 경로 낱말 본문 · `bash -c …`(-c 있음) = 경로 아님 → 0 · 상대 경로 = 0(cwd 풀기 0)
+    words = cmd.split()
+    if "-c" in words[1:]: return False
+    return any(w.startswith("/") and body_seed(w) for w in words[1:])
 _launchd = []
 def launchd_pids():   # r2317 ④ S1a — `launchctl list` PID 칸 · 실패 = rc 20(판정 불가 · 하드 룰 20 · 한 번만 부른다)
     if _launchd: return _launchd[0]
@@ -242,7 +261,8 @@ def tty_map():   # r2317 ④ S1e — pid → tty 칸("??" = 제어 tty 없음) �
 def name_roots(t, me, anc):   # r2317 ④ — argv 낱말 = 좌석 이름(정확)인 프로세스의 ppid 1 첫 조상(뿌리) → ({뿌리: (lstart, cmd)}, skip 미정)
     roots = {}
     for pid, r in t.items():
-        if r[2] != me or pid in anc or seat not in r[4].split(): continue      # 정확 낱말만 — 부분 글자(#2190)·짧은 이름 0
+        if r[2] != me or pid in anc: continue
+        if seat not in r[4].split() and not script_seed(r[4]): continue      # r2324 — argv 낱말(정확 · 부분 글자 #2190 0) 또는 틱 스크립트 본문(정확 경계)
         chain, p = [], pid
         while p in t and p > 1 and p not in chain: chain.append(p); p = t[p][0]
         if not chain or chain[-1] not in t or t[chain[-1]][0] != 1: continue    # ppid 1 첫 조상 없음(사슬 끊김) = 0
