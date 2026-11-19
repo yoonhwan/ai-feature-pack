@@ -18,6 +18,12 @@ for p in sys.argv[3:]: print("%s %s %s" % ((p,) + r.path_class(t, p)))
 ' "$BIN" "$@" 2>&1
 }
 has() { grep -qxF -- "$2" <<<"$1"; }
+subseq() {  # subseq <기준 줄들> <규칙 줄들> → 기준 줄이 같은 글자·같은 순서로 모두 있으면 0(사이 다른 줄 허용 · r2265)
+  python3 -I -c '
+import sys; it = iter(sys.argv[2].split("\n"))
+sys.exit(0 if all(any(b == r for r in it) for b in sys.argv[1].split("\n")) else 1)
+' "$1" "$2"
+}
 # 기준판(팩 origin/main 7a2349b818 · fa8c3427) 규칙 23줄 — 글자·순서 동결(⑩)
 BASE23="$(cat <<'B23'
 forbid	scope-table	(?i)^feature-pack/fable-team/legacy/1\.x/harness/kit/fable-team/templates/scope-classes-[^/]*\.tsv$
@@ -46,9 +52,8 @@ forbid	repo-outside	.
 B23
 )"
 
-# ① 자리 · 줄 수
+# ① 자리(줄 수는 고정하지 않는다 · 줄 수 검사 = r1198 ⓔ · r2265)
 rows="$(grep -v '^#' "$TABLE" | grep -v '^$')"
-[ "$(wc -l <<<"$rows" | tr -d ' ')" = 24 ]; ok "① 규칙 줄 = 24" $? "$(wc -l <<<"$rows")"
 n="$(grep -nxF -- "$NEW" <<<"$rows" | cut -d: -f1)"
 [ -n "$n" ] && [ "$(grep -cxF -- "$NEW" <<<"$rows")" = 1 ]; ok "① 새 줄 글자 1개" $? "n=$n"
 prev="$(sed -n "$(( ${n:-1} - 1 ))p" <<<"$rows")"; next="$(sed -n "$(( ${n:-0} + 1 ))p" <<<"$rows")"
@@ -69,7 +74,7 @@ for p in feature-pack/fable-team/legacy/1.x/pi/x.ts feature-pack/fable-team/pi/x
 for p in "$H/fixtures/x.json" "$H/state/x.json" "$H/plans/x.txt"; do has "$out" "$p forbid repo-outside"; ok "⑧ 표에 없는 $p → forbid repo-outside" $? "$out"; done
 has "$out" "$H/kit/fable-team/templates/scope-classes-pack.tsv forbid scope-table"; ok "⑨ 표 자신 → forbid scope-table" $? "$out"
 [ "$(tail -1 <<<"$rows")" = "$(printf 'forbid\trepo-outside\t.')" ]; ok "⑨ 마지막 규칙 줄 = forbid repo-outside ." $?
-[ "$(grep -vxF -- "$NEW" <<<"$rows")" = "$BASE23" ]; ok "⑩ 새 줄 뺀 23줄 = 기준판 글자·순서" $?
+subseq "$BASE23" "$(grep -vxF -- "$NEW" <<<"$rows")"; ok "⑩ 기준판 23줄 = 같은 글자·같은 순서(부분열)" $?
 has "$out" "$H/bin/ft-hil.sh code pack-bin"; ok "⑩ bin → code pack-bin" $? "$out"
 has "$out" "$H/comm/mbox_lineage.py code pack-comm"; ok "⑩ comm → code pack-comm" $? "$out"
 has "$out" "$H/tests/x.sh code pack-tests"; ok "⑩ tests → code pack-tests" $? "$out"
