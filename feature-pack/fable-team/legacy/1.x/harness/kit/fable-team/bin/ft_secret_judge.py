@@ -196,6 +196,8 @@ EXITS = re.compile(r"stderr|/dev/tty|/dev/fd/|>&\s*[2-9]|(?<![\w-])(?:tee|exec)(
 
 
 def func_bodies(t: str) -> dict[str, set[int]] | None:  # r2310: 이름별 본문 줄(정의 줄 포함) · 끝 = 주석 뺀 줄이 «}» 로 끝나고 { } 셈 0 · 경계 모호 = None
+    if re.search(r"(?m)^\s*function\s+[A-Za-z_][\w-]*(?![\w-]|\s*\()", t):  # A1e(DA#36): 괄호 없는 «function 이름» = 머리 못 가름 → 통과 0
+        return None
     name, depth, opened, out = "", 0, False, {}
     for k, line in enumerate(t.split("\n"), 1):
         m = re.match(r"\s*(?:function\s+)?([A-Za-z_][\w-]*)\s*\(\)", line)
