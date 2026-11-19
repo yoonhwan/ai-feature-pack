@@ -188,6 +188,75 @@ def func_lines(t: str) -> set[int]:  # `name() {` … `}` 본문 줄 — 옛 계
     return lines
 
 
+CALL_OK = r"\s*([A-Za-z_][\w-]*)(?:\s+[^|&;<>()`]*)?"  # r2310 A1b: 치환 안 = 함수 이름 + 낱말 인자만(| > >& 2> ; && || & 0)
+
+
+NC = r"[^\s(){}|&;<>\"'$`=\\]"  # r2310 ⑰: 셸 이름 글자 = 메타문자 아닌 글자 전부(a.err · err+ 포함)
+DEF_ANY = re.compile(r"(?<!%s)(?:function\s+(%s+)|(%s+)\s*\(\)(?![.),\]]))" % (NC, NC, NC))  # P1 이름 모음 · 원문 어디든 «이름()»·«function 이름» · 뒤가 . ) , ] = 호출 사슬(.read().strip())
+QUOTED = re.compile(r"\"(?:[^\"\\]|\\.)*\"|'[^']*'")  # r2310 DA P2: 따옴표 글
+EXITS = re.compile(r"stderr|/dev/tty|/dev/fd/|>&\s*[2-9]|(?<![\w-])(?:tee|exec)(?![\w-])")  # r2310 DA H1~H3: 본문이 stdout 밖으로 냄 = drop 0
+
+
+def func_bodies(t: str) -> dict[str, set[int]] | None:  # r2310: 이름별 본문 줄(정의 줄 포함) · 끝 = 주석 뺀 줄이 «}» 로 끝나고 { } 셈 0 · 경계 모호 = None
+    name, depth, opened, out = "", 0, False, {}
+    for k, line in enumerate(t.split("\n"), 1):
+        m = re.match(r"\s*(?:function\s+)?([A-Za-z_][\w-]*)\s*\(\)", line)
+        bare = re.sub(r"(^|\s)#.*$", "", QUOTED.sub("", re.sub(r"\$\{[^}]*\}", "", line))).strip()
+        if (m and name) or (not name and bare.startswith("}")):  # 본문 안 다른 함수 머리 · 본문 밖 닫는 }
+            return None
+        name = name or (m.group(1) if m else "")
+        if name:
+            if any(q.count("{") != q.count("}") for q in QUOTED.findall(re.sub(r"\$\{[^}]*\}", "", line))):  # DA P2 ⓑ: 따옴표 하나 안 { } 개수가 안 맞음 = 통과 0 · 맞으면 따옴표 글 빼고 셈
+                return None
+            out.setdefault(name, set()).add(k)
+            depth, opened = depth + bare.count("{") - bare.count("}"), opened or "{" in bare
+            if depth < 0 or (depth == 0 and opened and not bare.endswith("}")):  # «} >&2» 꼴 · 셈이 어긋남
+                return None
+            if depth == 0 and opened:
+                name, opened = "", False
+    return None if name else out
+
+
+def captures(segs: list[Seg], nl: list[int], fn: set[int]) -> list[tuple[str, int, str]]:  # r2310 A1b: 함수 밖 «이름=$(함수 낱말…)»·«export 이름=$(…)» → [(함수, 줄, 받은 변수)]
+    out = []
+    for s in segs:
+        line = line_no(nl, s.start)
+        ws = s.assigns if not s.args else s.args[1:] if s.args[0] == "export" else []
+        for w in (ws if line not in fn else []):
+            m = re.fullmatch(r"([A-Za-z_]\w*)=\x00", w)
+            c = re.fullmatch(CALL_OK, w.subs[0]) if m and len(w.subs) == 1 else None
+            if c:
+                out.append((c.group(1), line, m.group(1)))
+    return out
+
+
+def captured_only(text: str, t: str, nl: list[int], segs: list[Seg]) -> tuple[set[int], dict[int, set[str]]]:  # r2310 A1: (뺄 본문 줄, {줄: 받은 변수})
+    bodies = func_bodies(t)
+    if not bodies:  # 함수 0 · 경계 모호(None) = 통과 0
+        return set(), {}
+    fn, lines = set().union(*bodies.values()), text.split("\n")
+    cap, ok = captures(segs, nl, fn), set()
+    defined = {a or b for a, b in DEF_ANY.findall(text)}  # DA#36: P1 넘김 이름 = 원문 어디서든(따옴표·줄 가운데·then 뒤 포함) 정의 꼴 이름
+    for name in bodies:
+        mine = [v for f, _k, v in cap if f == name]
+        word = re.compile(r"(?<![\w-])%s(?![\w-])" % re.escape(name))
+        head = re.compile(r"\s*(?:function\s+)?%s\s*\(\)" % re.escape(name))
+        bare = sum(len(word.findall(x)) - bool(head.match(x)) for x in lines) - len(mine)  # A1c: 정의 밖 모든 자리 − 허용 대입
+        uses = re.compile(r"\$\{?[#!]?(?:%s)(?![A-Za-z0-9_])" % "|".join(map(re.escape, mine or [""])))
+        used = bool(mine) and any(uses.search(lines[k - 1]) for k in fn)  # A1d: 함수 본문이 받은 변수를 씀
+        rest = (defined | set(bodies)) - {name}
+        others = re.compile(r"(?<!%s)(?:%s)(?!%s)" % (NC, "|".join(map(re.escape, rest)), NC)) if rest else None
+        loud = any(EXITS.search(lines[k - 1]) or (others and others.search(lines[k - 1])) for k in bodies[name])  # DA ①: stderr·tty·fd·tee·exec · P1: 다른 함수로 넘김
+        if mine and bare == 0 and not used and not loud:
+            ok.add(name)
+    drop = set().union(*(b for n, b in bodies.items() if n in ok)) - set().union(*(b for n, b in bodies.items() if n not in ok))
+    recv: dict[int, set[str]] = {}
+    for f, k, v in cap:
+        if f in ok:
+            recv.setdefault(k, set()).add(v)
+    return drop, recv
+
+
 def line_no(nl: list[int], pos: int) -> int:  # r1277: pos 앞 개행 수 + 1 (옛 t.count("\n", 0, pos) + 1 과 같은 값) — nl = 개행 위치 오름차순 표
     return bisect_left(nl, pos) + 1
 
@@ -196,10 +265,13 @@ def plan(text: str) -> list[tuple[int, str]]:  # 계획 파일: judge 와 같은
     t = strip_heredocs(text)
     nl = [m.start() for m in re.finditer("\n", t)]  # r1277: 개행 위치 표 1회 + 이분 탐색(옛 t.count 는 문장마다 처음부터 세어 제곱 시간)
     found = [(line_no(nl, o), why) for o, why in check(t)]
+    segs = parse(t)
+    drop, recv = captured_only(text, t, nl, segs)
+    found = [(k, why) for k, why in found if not (k in drop and why.endswith(" 출력이 화면·파이프로 감"))]
     if re.match(r"#!.*\s-[a-z]*x", t):
         found.append((1, "셔뱅 -x 로 값이 추적 출력됨"))
     fn, tracked = func_lines(t), set()
-    for s in parse(t):
+    for s in segs:
         line, to_file = line_no(nl, s.start), out_state(s.redirs)[0]
         if s.args[:1] == ["set"] and any(re.fullmatch(r"-[a-zA-Z]*x[a-zA-Z]*", a) or a == "xtrace" for a in s.args[1:]):
             found.append((line, "set -x 로 값이 추적 출력됨"))
@@ -208,7 +280,7 @@ def plan(text: str) -> list[tuple[int, str]]:  # 계획 파일: judge 와 같은
             if any(use.search(a) for a in s.args[1:]):
                 found.append((line, "비밀 변수를 인자로 넘긴 명령의 출력이 화면으로 감(>/dev/null 또는 --format 필요)"))
         if line not in fn:
-            tracked |= {w.split("=")[0] for w in s.assigns + (s.args[1:] if s.decl else []) if "=" in w and any(has_target(x) for x in w.subs)}
+            tracked |= {w.split("=")[0] for w in s.assigns + (s.args[1:] if s.decl else []) if "=" in w and any(has_target(x) for x in w.subs)} | recv.get(line, set())
     return sorted(set(found))
 
 
