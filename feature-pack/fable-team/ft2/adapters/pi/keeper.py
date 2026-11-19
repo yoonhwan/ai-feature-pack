@@ -193,6 +193,8 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
             self.cs.spawn = real
         book.pop(key, None)
         self.state["staged"][key] = day   # r2140 K3 STAGED·NOOP = 기억(state.json · Unsure·DEFER 는 0)
+        if out:   # r2284 C1 STAGED = ref 옮김 → 그 팀 카드 목록 캐시 버림(같은 바퀴 B2 landing 새 ref 로 다시 읽음 · NOOP = 그대로)
+            self.cache.pop(team, None), [self.cache["@round"].pop(x) for x in list(self.cache.get("@round", {})) if isinstance(x, tuple) and x[:2] == ("card", team)]
         return self.log("CARD-STAGE", team, "%s %s %s" % (work, out[1], out[2])) if out else self.log("NOOP", team, work + " 이미 완성")
 
     def hits(self, team, work):
