@@ -18,7 +18,7 @@ hasnt() { case "$2" in *"$3"*) bad "$1 — [$3] 있으면 안 됨";; *) ok "$1";
 
 SB="$(mktemp -d "${TMPDIR:-/tmp}/ci-lsp-visible.XXXXXX")"
 trap 'rm -rf "$SB"' EXIT
-mkdir -p "$SB/home" "$SB/tmp"
+mkdir -p "$SB/home" "$SB/tmp" "$SB/ws"   # r2292 — refs 교차 확인 범위 = 빈 폴더(L5 = 정말 0곳)
 cat > "$SB/probe" <<'FAKE'
 #!/usr/bin/env bash
 case "$1" in
@@ -49,7 +49,7 @@ chmod +x "$SB/probe"
 run() {
   local st="$1" cl="$2"; shift 2
   HOME="$SB/home" TMPDIR="$SB/tmp" PROBE_BIN="$SB/probe" FAKE_STATUS="$st" FAKE_CALL="$cl" \
-    PROBE_LSP_CRASH_LOG="$SB/none.log" timeout 70 bash "$CI" "$@" >"$SB/out" 2>"$SB/err"
+    PROBE_LSP_CRASH_LOG="$SB/none.log" CI_LSP_SCOPE="$SB/ws" timeout 70 bash "$CI" "$@" >"$SB/out" 2>"$SB/err"
   RC=$?; OUT="$(cat "$SB/out")"; ERR="$(cat "$SB/err")"
 }
 
