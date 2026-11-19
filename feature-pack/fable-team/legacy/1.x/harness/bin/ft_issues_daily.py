@@ -43,6 +43,8 @@ DAY = 86400.0
 LABEL_APPROVED = "approved"
 LABEL_PP = "status:proposal-pending"
 LABEL_NT = "needs-triage"
+LABEL_APPROVED_ALL = (LABEL_APPROVED, "status:approved")   # 정확 글자 · hil:approved 는 그 밖
+LABEL_NT_ALL = (LABEL_NT, "status:needs-triage")
 STALE_DAYS = 7
 OPEN_PAGE = 50          # 열린 이슈 1쪽 = 50건 (쪽당 0.9~2.0초 실측 · 25초의 1/12)
 OPEN_MAX_PAGES = 40     # 2,000건 상한 — 넘으면 «판정 불가» (잘린 목록 0)
@@ -384,11 +386,11 @@ def bucket(issue: dict) -> str:
     labels = issue["labels"]
     if not labels:
         return "none"
-    if LABEL_APPROVED in labels:
+    if any(lab in LABEL_APPROVED_ALL for lab in labels):
         return "approved"
     if LABEL_PP in labels:
         return "pp"
-    if LABEL_NT in labels:
+    if any(lab in LABEL_NT_ALL for lab in labels):
         return "nt"
     return "other"
 
