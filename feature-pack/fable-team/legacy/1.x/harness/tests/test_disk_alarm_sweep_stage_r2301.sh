@@ -98,6 +98,18 @@ tick 45 900;  w1=$(sent); c2=$(calls)
 { [ "$c1" = 1 ] && [ "$c2" = 2 ] && [ $((w1-w0)) = 1 ] && has '\[사본 정리 미완\]'; } \
   && ok "①b rc 5 = [사본 정리 미완] 1통 · 다음 틱 재시도(호출 1/2)" || bad "①b rc5 c1=$c1 c2=$c2 증가=$((w1-w0))"
 
+# ①b' 경보가 24시간 넘게 이어져도 «보류·unknown 요약 쪽지(sweep 끝 줄)» 는 하루 1통 — 경보 틱이 침묵하는 것은 swept=0 **이면서 하루 경계가 아닐 때** 뿐
+newroot
+printf 'swept=0 owner-dead=0 tmp=0 held=0 refused-dirty=1 refused-keep=0 held-lsof=0 refused-other=0 kept=0 unknown=0\n' > "$T/scr.out"
+sw() { grep -c '|swept=0 owner-dead=0' "$MLOG"; }   # 경보 본문과 갈라 «sweep 요약 쪽지» 만 센다
+tick 45 0;       s1=$(sw)
+tick 45 900;     s2=$(sw)
+tick 45 86460;   s3=$(sw)
+tick 45 87360;   s4=$(sw)
+{ [ "$s1" = 1 ] && [ "$s2" = 1 ]; } && ok "①b' 경보 틱 swept=0 · 하루 경계 전 = 쪽지 0(1통 그대로)" || bad "①b' 경계 전 s1=$s1 s2=$s2"
+{ [ "$s3" = 2 ] && [ "$s4" = 2 ]; } && ok "①b' 24시간 넘긴 경보 틱 = 보류 요약 1통(하루 1회 그대로)" || bad "①b' 경계 뒤 s3=$s3 s4=$s4 (하루 1통이어야)"
+{ tail -1 "$MLOG" | grep -q 'refused-dirty=1' || [ "$s4" = 2 ]; } && ok "①b' 본문 = 기준판과 같은 끝 줄(보류 수 그대로)" || bad "①b' 본문=[$(tail -1 "$MLOG")]"
+
 T1=$SECONDS
 # ⑥ 회귀: 기존 ft-disk-alarm 시험 그대로 rc0 · 70초 안
 s=$SECONDS; o="$(bash "$HERE/test_disk_alarm.sh" 2>&1 | tail -1)"; e=$((SECONDS-s))
