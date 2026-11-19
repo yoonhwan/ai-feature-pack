@@ -2,6 +2,7 @@
 import sys, os, re, json, time, fcntl, hashlib, shutil, glob
 
 MAX_PER_TO = int(os.environ.get("FT_MBOX_RING") or 10)
+RING_LEAD = int(os.environ.get("FT_MBOX_RING_LEAD") or 30)   # r2291 역할 좌석(명부 _master·_arch·_desk) 상한 · 고르기 = mbox_ring.ring
 # 세션명 allowlist — 세션명이 doorbell 명령 문자열에 삽입되므로 하드 거부(명령 삽입 원천 차단).
 NAME_RE = re.compile(r'^[A-Za-z0-9._#-]+$')
 

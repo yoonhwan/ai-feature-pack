@@ -28,14 +28,14 @@ from pathlib import Path as _Path
 
 HUMAN_SENDERS = frozenset({"slack-oppa"})     # 사람(오빠 슬랙) 보낸 이 — 절대 안 버린다
 HUMAN_HEADS = ("[HIL]", "[긴급]")              # 사람 판정 머리(보낸 이가 좌석일 때만 사람으로 본다)
-REAL_HEADS = ("[완료",)                        # r1651 좌석의 납품 보고 — 시스템 보낸 이의 [완료] 는 그대로 시스템
+REAL_HEADS = ("[완료", "[결과", "[레디", "[인계", "[결정", "[회신")   # r1651 좌석의 납품 보고 · r2291 결과·판정 머리 5개 — 시스템 보낸 이의 같은 머리는 그대로 시스템
 REAL_SENDERS = _re.compile(r"^ft-hil-h[0-9]+$")   # r1651 h 결과·발급 도구 — 좌석도 자동 명단도 아니다
 # 자동 보낸 이 = 틱·경보·교대 도구(mailbox.log.jsonl 실측 상위 2026-10-25 · 좌석 이름 제외).
 SYSTEM_SENDERS = frozenset({
     "ft-tick", "ft-head-lag", "ft-model-swap", "ft-api-outage", "ft-decision-count",
     "ft-stall-scan", "ft-watch-alarm", "os-goal-tick", "ft-ledger-fill", "ft-launchd-check",
     "ft-index-move", "ft-resource-watch", "ft-disk-alarm", "ft-news-ledger", "ft-secret-scan",
-    "ft-broadcast",
+    "ft-broadcast", "ft-mbox-ring",   # r2291 큐 포화 경보 — 버려도 되는 자동 알림
 })
 NAME_LINT = "ft-name-lint.sh"                 # 좌석 이름 문법 정본 — 역할·에이전트 예약어도 이 파일 하나에서 읽는다(사본 0)
 _BASE_CHARS = frozenset("abcdefghijklmnopqrstuvwxyz0123456789-")

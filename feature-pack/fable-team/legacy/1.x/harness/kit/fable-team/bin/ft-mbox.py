@@ -20,6 +20,7 @@ import hashlib
 import shutil
 import glob
 import subprocess
+import contextlib
 
 
 def _role_key(name):
@@ -27,6 +28,7 @@ def _role_key(name):
     return re.sub(r"#\d+$", "", name or "")
 
 MAX_PER_TO = int(os.environ.get("FT_MBOX_RING") or 10)
+RING_LEAD = int(os.environ.get("FT_MBOX_RING_LEAD") or 30)   # r2291 역할 좌석(명부 _master·_arch·_desk) 상한(comm/mbox_ring.py 와 같은 규칙)
 # 세션명 allowlist — 세션명이 doorbell 명령 문자열에 삽입되므로 하드 거부(명령 삽입 원천 차단).
 NAME_RE = re.compile(r"^[A-Za-z0-9._#-]+$")
 
@@ -38,14 +40,14 @@ from pathlib import Path as _Path
 
 HUMAN_SENDERS = frozenset({"slack-oppa"})     # 사람(오빠 슬랙) 보낸 이 — 절대 안 버린다
 HUMAN_HEADS = ("[HIL]", "[긴급]")              # 사람 판정 머리(보낸 이가 좌석일 때만 사람으로 본다)
-REAL_HEADS = ("[완료",)                        # r1651 좌석의 납품 보고 — 시스템 보낸 이의 [완료] 는 그대로 시스템
+REAL_HEADS = ("[완료", "[결과", "[레디", "[인계", "[결정", "[회신")   # r1651 좌석의 납품 보고 · r2291 결과·판정 머리 5개 — 시스템 보낸 이의 같은 머리는 그대로 시스템
 REAL_SENDERS = _re.compile(r"^ft-hil-h[0-9]+$")   # r1651 h 결과·발급 도구 — 좌석도 자동 명단도 아니다
 # 자동 보낸 이 = 틱·경보·교대 도구(mailbox.log.jsonl 실측 상위 2026-10-25 · 좌석 이름 제외).
 SYSTEM_SENDERS = frozenset({
     "ft-tick", "ft-head-lag", "ft-model-swap", "ft-api-outage", "ft-decision-count",
     "ft-stall-scan", "ft-watch-alarm", "os-goal-tick", "ft-ledger-fill", "ft-launchd-check",
     "ft-index-move", "ft-resource-watch", "ft-disk-alarm", "ft-news-ledger", "ft-secret-scan",
-    "ft-broadcast",
+    "ft-broadcast", "ft-mbox-ring",   # r2291 큐 포화 경보 — 버려도 되는 자동 알림
 })
 NAME_LINT = "ft-name-lint.sh"                 # 좌석 이름 문법 정본 — 역할·에이전트 예약어도 이 파일 하나에서 읽는다(사본 0)
 _BASE_CHARS = frozenset("abcdefghijklmnopqrstuvwxyz0123456789-")
@@ -631,6 +633,71 @@ def _drop_seq_tail(seqs):
     return " · 버린 seq #" + ",#".join(str(s) for s in show) + (" (앞 %d개 생략)" % omitted if omitted else "")
 
 
+# ── r2291 상한 고르기 + 큐 포화 경보 — comm/mbox_ring.py 와 같은 규칙(사본 설명은 그 파일 머리) ──
+_RING_ROSTERS = {}
+
+
+def _ring_team(name):
+    m = re.match(r"^(?:byz|ft)-([a-z0-9]+)-", name or "")
+    return m.group(1) if m else ""
+
+
+def _ring_roster(team):
+    """팀 명부 dict — 못 읽음·dict 아님 = {}(보수 쪽)."""
+    if team not in _RING_ROSTERS:
+        d = os.path.dirname(os.environ.get("FT_SEATS_JSON") or os.path.join(os.path.dirname(CANON), "seats.json")) or "."
+        try:
+            with open(os.path.join(d, "seats-%s.json" % team), encoding="utf-8") as fh:
+                v = json.load(fh)
+        except (OSError, ValueError):
+            v = {}
+        _RING_ROSTERS[team] = v if isinstance(v, dict) else {}
+    return _RING_ROSTERS[team]
+
+
+def _ring(to):
+    team = _ring_team(to)
+    doc = _ring_roster(team) if team else {}
+    leads = {_role_key(v) for k in ("_master", "_arch", "_desk") if isinstance(v := doc.get(k), str) and v}
+    return RING_LEAD if _role_key(to) in leads else MAX_PER_TO
+
+
+def _ring_boss(to):
+    m = _ring_roster(_ring_team(to)).get("_master") if _ring_team(to) else None
+    if isinstance(m, str) and m and _role_key(m) != _role_key(to):
+        return m
+    h = _ring_roster("harness").get("_master")
+    return h if isinstance(h, str) else ""
+
+
+def _ring_after(to, pend, cap, dropped, oldest):
+    """send 가 잠금을 푼 뒤 1회 — pending < ring = 표식 삭제 · 버림 + 표식 10분 밖 = 팀 master 에 «[큐 포화]» 1통."""
+    sd = os.environ.get("FT_MBOX_STATE_DIR") or os.path.join(CANON, "..", "state")
+    mk = os.path.join(sd, "ring-full." + _role_key(to))
+    if pend < cap:
+        with contextlib.suppress(OSError):
+            os.remove(mk)
+        return
+    if not dropped:
+        return
+    with contextlib.suppress(OSError):
+        if time.time() - os.path.getmtime(mk) < 600:
+            return
+    who = _ring_boss(to)
+    if not who:
+        sys.stderr.write("[큐 포화] 경보 받을 master 판정 불가 to=%s (명부 _master 없음)\n" % to)
+        return
+    body = "[큐 포화] to=%s pending=%d ring=%d 버림 %d oldest=#%s · drops.log 참조" % (to, pend, cap, dropped, oldest)
+    try:
+        os.makedirs(sd, exist_ok=True)
+        with open(mk, "w", encoding="utf-8") as fh:   # 표식 «먼저» — 경보 send 가 다시 넘쳐도 되부름이 끝난다
+            fh.write(body + "\n")
+        with contextlib.redirect_stdout(sys.stderr):
+            send(who, "ft-mbox-ring", body, force=True)
+    except (Exception, SystemExit) as e:
+        sys.stderr.write("[큐 포화] 경보 발신 실패 to=%s → %s: %s\n" % (to, who, e))
+
+
 def send(to, frm, body, force=False, dispatch=False, desk_attach=""):
     _check_name(to)
     _check_name(frm)
@@ -678,6 +745,7 @@ def send(to, frm, body, force=False, dispatch=False, desk_attach=""):
             # ★밀려난 건수를 «센다»★ — ring 은 조용히 버린다. 안 세면 «보낸 사람은 QUEUED 를
             # 봤는데 받는 사람은 영영 못 보는» 유실이 무증상으로 쌓인다.
             # ★버리는 순서 = 시스템 알림 → 일반 · 사람 글은 안 버린다★ (r912 · 위 공유 블록).
+            MAX_PER_TO = _ring(t)   # r2291 역할 좌석 = RING_LEAD · op() 안 지역 이름(아래 줄 글자 = keep_human_mail 변이 고리 · 그대로 둔다)
             k, d, _oldest, ov = trim(rs, MAX_PER_TO)
             keep.extend(k)
             if t == _role_key(to):
@@ -712,6 +780,7 @@ def send(to, frm, body, force=False, dispatch=False, desk_attach=""):
         )
         sys.exit(3)
     seq, pend, dropped, overflow, seqs = res
+    ring = _ring(to)   # r2291 — DROPPED·ERROR 줄의 ring 값 = 이 좌석 상한
     # ★«어느 파일에 몇 바이트» 를 찍는다★ — QUEUED 를 «도착»으로도 «온전»으로도 읽지 않게.
     print(
         f"QUEUED seq={seq} to={to} pending={pend} "
@@ -721,18 +790,19 @@ def send(to, frm, body, force=False, dispatch=False, desk_attach=""):
         sys.stderr.write(
             "DROPPED %d to=%s (ring=%d 포화 · 시스템 알림 먼저 · 사람 글 보존) — 이 좌석이 %d건을 안 읽고 쌓아뒀다.%s\n"
             "버려진 %d건은 «영구 유실»이다. 좌석 상태를 보고, 급하면 pane 으로 직접 보낸다.\n"
-            % (dropped, to, MAX_PER_TO, pend, _drop_seq_tail(seqs), dropped)
+            % (dropped, to, ring, pend, _drop_seq_tail(seqs), dropped)
         )
     if overflow:
         # ★사람 글은 안 버린다★ — 상한을 넘긴 채로 두고 «그 사실»을 알린다(조용한 초과 0 · r912).
         sys.stderr.write(
             "ERROR 사람 글로 큐 넘침 — to=%s pending=%d (ring=%d) · 버리기 0 · 받는 좌석 확인\n"
-            % (to, pend, MAX_PER_TO)
+            % (to, pend, ring)
         )
     # ★청소는 «QUEUED 를 찍은 뒤», «잠금 밖»에서★ — 이 호출이 실패하거나 느려도
     #   메시지는 이미 큐에 들어갔고 발신자는 이미 결과를 받았다. relay 는 send 를
     #   타므로 여기 한 곳이면 두 경로가 모두 덮인다.
     _prune_bodies(CANON)
+    _ring_after(to, pend, ring, dropped, min(seqs) if seqs else None)   # r2291 포화 경보 · 표식 닫기 · 잠금 밖
 
 
 def relay(to, frm, path, summary, force=False):

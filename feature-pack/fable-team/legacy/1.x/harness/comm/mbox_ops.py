@@ -2,7 +2,7 @@
 from mbox_conf import *
 from mbox_store import _check_name, _clip, _legacy_dirs, _load, _locked, _mbox, _next_seq, _prune_bodies, _save, _stash_body
 from mbox_guard import _guard_log, _guard_record, _guard_verdict, _log_sent, _reply_exempt
-import mbox_keep   # r912 — 넘칠 때 버리는 순서(시스템 → 일반 · 사람 글 보존)
+import mbox_keep, mbox_ring   # r912 — 넘칠 때 버리는 순서(시스템 → 일반 · 사람 글 보존) · r2291 역할 상한·큐 포화 경보
 import mbox_drops, mbox_compact  # r1651 — 버린 seq 를 받는 좌석의 다음 recv 에 1줄(유실 표시) · r1661 받는 이 검사·중복 접기·큐 정리(보관 이동)
 import mbox_roots, mbox_relay  # r1309 — 다른 루트 받는이 = 우편 다리(roots.tsv) · r1981 relay 스냅샷
 from mbox_lineage import claim, eligible, retired_to, thread_batch, wait_line
@@ -77,7 +77,7 @@ def send(to, frm, body, force=False, desk_attach=""):
             # 봤는데 받는 사람은 영영 못 보는» 유실이 무증상으로 쌓인다. 포화는 대개 «받는 쪽이
             # 안 읽고 있다» 는 신호라, 이 줄이 그 사실을 처음 알린다.
             # ★버리는 순서 = 시스템 알림 → 일반 · 사람 글은 안 버린다★ (r912 · mbox_keep).
-            k, d, o, ov = mbox_keep.trim(rs, MAX_PER_TO)
+            k, d, o, ov = mbox_keep.trim(rs, mbox_ring.ring(t))   # r2291 역할 좌석 = RING_LEAD
             keep.extend(k)
             if t == role_key(to):
                 dropped, oldest, overflow = d, o, overflow + ov
@@ -106,6 +106,7 @@ def send(to, frm, body, force=False, desk_attach=""):
         sys.stderr.write("BLOCKED %s\n%s\n→ BLOCKED %s%s\n" % (reason, hint, reason, tail))
         sys.exit(3)
     seq, pend, dropped, oldest, overflow, seqs, (cross, cross_at) = res
+    ring = mbox_ring.ring(to)   # r2291 — DROPPED·ERROR 줄의 ring 값 = 이 좌석 상한
     # ★r1820 B2★ 이 호출의 쪽지 자신이 버려졌으면 QUEUED 0 · DROPPED-SELF + rc 5(보낸 쪽이 다시 보낼 주체) · 옛 seq 만 버림 = QUEUED rc0
     self_drop = seq in seqs
     # ★«어느 파일에 몇 바이트» 를 찍는다★ — QUEUED 를 «도착»으로도 «온전»으로도 읽지 않게.
@@ -118,16 +119,17 @@ def send(to, frm, body, force=False, desk_attach=""):
         sys.stderr.write(
             "DROPPED %d to=%s (ring=%d 포화 · 시스템 알림 먼저 · 사람 글 보존) — 이 좌석이 %d건을 안 읽고 쌓아뒀다.%s\n"
             "버려진 %d건은 «영구 유실»이다. 좌석 상태를 보고, 급하면 pane 으로 직접 보낸다.\n"
-            % (dropped, to, MAX_PER_TO, pend, mbox_drops.drop_seq_tail(seqs), dropped))
+            % (dropped, to, ring, pend, mbox_drops.drop_seq_tail(seqs), dropped))
         mbox_drops.log_drop(CANON, to, dropped, oldest, seqs)   # r1651 — 버린 seq 전부를 원장에
     if overflow:
         # ★사람 글은 안 버린다★ — 상한을 넘긴 채로 두고 «그 사실»을 알린다(조용한 초과 0 · r912).
         sys.stderr.write(
             "ERROR 사람 글로 큐 넘침 — to=%s pending=%d (ring=%d) · 버리기 0 · 받는 좌석 확인\n"
-            % (to, pend, MAX_PER_TO))
+            % (to, pend, ring))
     # ★청소는 «QUEUED 를 찍은 뒤», «잠금 밖»에서★ — 이 호출이 실패하거나 느려도 메시지는 이미 큐에 들어갔고
     #   발신자는 이미 결과를 받았다. relay 는 send 를 타므로 여기 한 곳이면 두 경로가 모두 덮인다.
     _prune_bodies(CANON); mbox_compact.sweep(CANON)   # r1661 ⓑ 같은 1시간 억제 · 잠금 밖
+    mbox_ring.after(CANON, to, pend, ring, dropped, oldest, send)   # r2291 포화 경보(10분 1회) · 표식 닫기 · 잠금 밖
     if self_drop:
         raise SystemExit(5)   # r1820 B2 — 지금 송신 버림 = rc 5
     mbox_roots.home_receipt(to, frm, body, seq)   # r1416 B6 — FT_MBOX_BRIDGED=1 직접 송신 = 보낸 이 루트 기록에 영수(다리 부모가 쓴 건 0)
