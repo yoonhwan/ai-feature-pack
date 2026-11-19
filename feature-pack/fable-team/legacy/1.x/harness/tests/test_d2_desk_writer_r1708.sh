@@ -73,7 +73,7 @@ as_seat "$DESK"; fresh; run env "$BASH" "$T/bx/ft-autonomy.sh" standing-approve 
 [ "$rc" = 2 ] && has '팀 master 좌석만'; ck "기준판 ⑤ desk → REJECT(«팀 master 좌석만»)" $?
 # ⑤ desk + ON full → 승인 파일·standing-use·원장(by=desk)
 fresh; sa "$A11" 11 "$V11"
-[ "$rc" = 0 ] && has "^STANDING-OK $A11 pr=11 repo=pack da=$A11 card=card.md by=$DESK$"; ck "⑤ desk + 자율 ON full → STANDING-OK by=desk" $?
+[ "$rc" = 0 ] && has "^STANDING-OK $A11 pr=11 repo=pack da=$A11 card=card.md by=$DESK class=code$"; ck "⑤ desk + 자율 ON full → STANDING-OK by=desk" $?
 grep -qx "standing-use D2 $A11 $T0 pr=11 repo=pack da=$A11" "$LOG" && [ "$(cat "$S/autonomy-merge-approved/$A11")" = "approve-merge $A11 D2 $T0" ]; ck "⑤ log 1줄 + 승인 파일" $?
 [ "$(awk -F'\t' -v a="$A11" '$2==a {print $3 "|" $4}' "$S/autonomy-standing/D2.ledger.tsv")" = "11|da=$A11" ]; ck "⑤ 원장 1행(PR·da)" $?
 # ⑥ 자율 OFF·mid·each·tamper → REJECT · 쓰기 0

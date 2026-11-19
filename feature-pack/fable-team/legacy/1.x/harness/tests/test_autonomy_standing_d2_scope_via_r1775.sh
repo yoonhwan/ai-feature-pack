@@ -70,7 +70,7 @@ S1="$T/s1"; autolog "$S1" full A16 "$SC45"; L0="$(nlog "$S1")"; rm -f "$T/slack.
 mkpr 11 "$PRF"; A11="$PRSHA"; mkda ok11 APPROVE "$A11"; mkv ok11 "$A11" "$DAO"; V11="$VF"; card "$A11"
 grep -q '^approve-standing D2 ' "$S1/autonomy.log" && ck "①-a0 전제: D2 켜짐 줄 없음" 1 || ck "①-a0 전제: D2 켜짐 줄 없음" 0
 sa "$S1" "$A11" 11 "$V11"
-[ "$rc" = 0 ] && has "^STANDING-OK $A11 pr=11 repo=pack da=$A11 card=card.md by=$HM via=S45$"; ck "①-a1 자율 풀자동 + 활성 S45 → STANDING-OK(via=S45 · 오빠 질문 0)" $?
+[ "$rc" = 0 ] && has "^STANDING-OK $A11 pr=11 repo=pack da=$A11 card=card.md by=$HM via=S45 class=code$"; ck "①-a1 자율 풀자동 + 활성 S45 → STANDING-OK(via=S45 · 오빠 질문 0)" $?
 grep -qx "approve-merge $A11 D2 $T0" "$S1/autonomy.log" && grep -qx "standing-use D2 $A11 $T0 pr=11 repo=pack da=$A11" "$S1/autonomy.log"; ck "①-a2 승인 줄 이벤트 칸 = D2 그대로 · standing-use 꼴" $?
 [ ! -s "$T/slack.log" ] && ck "①-a3 승인 단계 슬랙 질문 0(게시 0)" 0 || ck "①-a3 승인 단계 슬랙 질문 0" 1
 [ "$(cat "$S1/autonomy-standing/D2.via.tsv")" = "$T0	$A11	A16	S45" ]; ck "①-a4 D2.via.tsv 1행(시각·head·A16·S45)" $?
@@ -91,7 +91,7 @@ mkpr 12 "$PRF"; A12="$PRSHA"; mkda ok12 APPROVE "$A12"; mkv ok12 "$A12" "$DAO"; 
 S2="$T/s2"; autolog "$S2" full A16 "$SC45"
 printf 'approve-standing D2 %s repos=byz,pack classes=docs oppa_decision=1794302162.301939\nstanding-stop D2 %s 시험 멈춤\n' "$T0" "$T0" >> "$S2/autonomy.log"
 mkpr 21 "$PRF"; A21="$PRSHA"; mkda ok21 APPROVE "$A21"; mkv ok21 "$A21" "$DAO"; card "$A21"; sa "$S2" "$A21" 21 "$VF"
-[ "$rc" = 0 ] && has "^STANDING-OK $A21 .* via=S45$"; ck "①-b1 D2 정지 뒤에도 S45 범위로 code PR 승인(옛 D2 범위 재사용 0)" $?
+[ "$rc" = 0 ] && has "^STANDING-OK $A21 .* via=S45 class=code$"; ck "①-b1 D2 정지 뒤에도 S45 범위로 code PR 승인(옛 D2 범위 재사용 0)" $?
 grep -q '^\(approve-standing\|standing-stop\) D2 ' "$S2/autonomy.log"; ck "①-b2 뒤: 새 켜짐 줄 없음" $?
 
 # ══ ③④⑤⑥⑧⑨⑩ — 거절 칸

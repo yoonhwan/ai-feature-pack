@@ -136,6 +136,7 @@ d2_classify() {  # ② <head> → D2_CLS — byz = 내장 BYZ 표 · pack = 팩 
   std_t7 python3 "$cls" classify "$1" --repo "$D2_REPO" --remote origin --target "$D2_TARGET" --scope S0 --d2-allow billing,deps,global-rule "${a[@]}"   # r1934 ①②
   [ "$RC" = 0 ] || std_err "② 분류기 거절 rc=$RC: ${FIRST:-출력 없음(시간 초과 7초 포함)}"
   [[ "$FIRST" =~ ^CLASS\ (docs|ff|code)(\ kind=([a-z0-9,-]+)\ d2)?$ ]] || std_err "② 종류가 code·docs 아님: $FIRST"
+  D2_KIND="${BASH_REMATCH[3]}"   # r2295 A1 — 뒤 d2_critical 의 =~ 가 BASH_REMATCH 를 덮으므로 변수에 남긴다(STANDING-OK 줄 kind 칸)
   D2_BILLING=""; case ",${BASH_REMATCH[3]}," in *,billing,*) D2_BILLING=1 ;; esac   # ③ 뒤 d2_billing_line
   k="${BASH_REMATCH[1]}"; [ "$k" != ff ] || k=docs   # ff = 문서만 바뀌고 main 이 head 의 조상(D1 과 같은 꼴)
   case ",$D2_CLASSES," in *",$k,"*) ;; *) std_err "② 종류 $k 는 상시 승인 범위(classes=$D2_CLASSES) 밖" ;; esac
@@ -162,7 +163,7 @@ d2_write() {  # <head> <pr> <A> <원문> — log(standing-use → approve-merge)
   { printf '%s\n' "$line" > "$dir/$1.tmp" && mv "$dir/$1.tmp" "$dir/$1"; } || std_wfail "$dir/$1"
   printf '%s\t%s\t%s\tda=%s\t%s\t\t\n' "$now" "$1" "$2" "$3" "$4" >> "$D2/D2.ledger.tsv" || std_wfail "$D2/D2.ledger.tsv"
   [ -z "${D2_VIA_S:-}" ] || printf '%s\t%s\t%s\t%s\n' "$now" "$1" "$D2_VIA_A" "$D2_VIA_S" >> "$D2/D2.via.tsv" || std_wfail "$D2/D2.via.tsv"   # r1775 ⑦ 출처는 log 밖(별도 상태 파일 · log 형식 불변)
-  echo "STANDING-OK $1 pr=$2 repo=$D2_RK da=$3 card=$(basename "$D2_CARD") by=$D2_BY${STD_EQ:+ equiv=$STD_EQ}${D2_VIA_S:+ via=$D2_VIA_S}"
+  echo "STANDING-OK $1 pr=$2 repo=$D2_RK da=$3 card=$(basename "$D2_CARD") by=$D2_BY${STD_EQ:+ equiv=$STD_EQ}${D2_VIA_S:+ via=$D2_VIA_S} class=$D2_CLS${D2_KIND:+ kind=$D2_KIND}"   # r2295 A1 끝 칸 class·kind(try-auto --land 판독)
 }
 cmd_standing_approve() {
   local d="${1:-}" head pr="" rk="" vf="" card="" D2_VIA_S="" D2_VIA_A="" D2_TARGET=main m
