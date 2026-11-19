@@ -16,10 +16,10 @@ run() { local d="$1"; shift; if "$@" >/dev/null 2>&1; then ok "$d"; else bad "$d
 mkdir -p "$T/home" "$T/comm"; HD="$T/hil"; mkdir -p "$HD"
 printf 'import sys\nsys.exit(2)\n' > "$T/die.py"; printf '#!/usr/bin/env bash\necho ok\n' > "$T/ok.sh"
 hil() {  # <bin> <--add 계획 | --cmd 글> [판정기 경로] — 임시 HIL_DIR 등록 1회 · HO=stdout · HE=stderr · HV=rc
-  local a=(env -i HOME="$T/home" PATH="/usr/bin:/bin" HIL_DIR="$HD" HIL_CLIP=0 FT_MBOX_DIR="$T/comm"
+  local a=(HOME="$T/home" PATH="/usr/bin:/bin" HIL_DIR="$HD" HIL_CLIP=0 FT_MBOX_DIR="$T/comm"
     FT_SECRET_JUDGE="$T/none.py" FT_TRAFFIC_JUDGE="$T/none.py" FT_SCOPE_JUDGE="$T/none.py" FT_MIX_JUDGE="$T/none.py" FT_PACK_PATH_JUDGE="$T/none.py")
   [ -z "${4:-}" ] || a+=(FT_PLAN_SYNTAX_JUDGE="$4")
-  HO="$("${a[@]}" bash "$1/ft-hil.sh" "$2" "$3" 2>"$T/err.txt")"; HV=$?; HE="$(cat "$T/err.txt")"
+  HO="$(env -i "${a[@]}" bash "$1/ft-hil.sh" "$2" "$3" 2>"$T/err.txt")"; HV=$?; HE="$(cat "$T/err.txt")"
 }
 nh() { find "$HD" -maxdepth 1 -name 'h[0-9]*' ! -name '*.*' | wc -l | tr -d ' '; }
 plan() { printf '#!/usr/bin/env bash\n# ft-hil-request seat=byz-planner-master-claude#1\nset -uo pipefail\n%s\n' "$2" > "$T/$1.hil"; }
