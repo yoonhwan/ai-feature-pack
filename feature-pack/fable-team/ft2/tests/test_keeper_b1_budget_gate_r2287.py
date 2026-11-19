@@ -23,7 +23,7 @@ REAL_RUN = subprocess.run
 class Seen:
     """바깥 호출 시작 기록 — (길, 시작 때 남은 몫) · lib bash = 가짜(card_stage·card_archive 손 6초) · git = 진짜 + 4초(jump_git)."""
     def __init__(self, w, mp, step=BASH_S):
-        self.w, self.k, self.starts, self.step = w, None, [], step
+        self.w, self.k, self.starts, self.step, self.argvs = w, None, [], step, []
         mp.setattr(subprocess, "run", self.run)
 
     def left(self):
@@ -34,6 +34,7 @@ class Seen:
             return REAL_RUN(argv, *a, **kw)
         fn = argv[5] if argv[5:6] and argv[5].startswith("ft_") else "ft_close_marker"   # lib_call = [bash -c 글 x lib fn …] · da_judge = [… lib stem]
         self.starts.append((fn, self.left()))
+        self.argvs.append((fn, list(argv)))
         self.w.t += 0 if "cwd" in kw else self.step   # keeper.call(cwd=root · 이미 문 안) = 0초 · card_stage·card_archive 손 = 6초
         rc, out = {"ft_no_code": (1, ""), "ft_land_kind": (0, "구현\n"), "ft_close_marker": (1, "")}[fn]
         return subprocess.CompletedProcess(argv, rc, out if kw.get("text") else out.encode(), "" if kw.get("text") else b"")
@@ -137,6 +138,7 @@ def c4(w, mp):   # ④ 느린 칸 — 호출 4초 × 3 + 파이썬 5초 → SLOW
     def stage(byz, root, team, work, at, now, da=None, gate=None):
         for verb in ("fetch", "show", "log"):
             k.cs.spawn(byz, [verb, "-q"])
+        k.cs.da_judge(root, "## 판정 §1\n본문\n", "§1", "r9875-x"), k.cs.land.no_code(root, "본문", k.cs.sh)   # lib bash 두 손(0초)
         w.t += 5.0   # 호출 밖 파이썬 초
         return "r9875-x", "진행→완성", "c0ffee"
     mp.setattr(k.cs, "stage", stage)
@@ -146,6 +148,9 @@ def c4(w, mp):   # ④ 느린 칸 — 호출 4초 × 3 + 파이썬 5초 → SLOW
     head, _, tail = slow[0].partition(" top=")
     assert head.startswith("SLOW-CELL harness b1 s=17 n=") and " slow_call=" in head, slow
     assert tail == "git+fetch:4,git+show:4,git+log:4 py=5", slow
+    head2 = k.run_once.__globals__["head2"]   # DA#31 — lib bash 길 = bash+<함수> · da_judge 와 sh 길이 서로 다름
+    paths = {fn: head2(argv) for fn, argv in seen.argvs}
+    assert paths["ft_close_marker"] == "bash+ft_close_marker" and paths["ft_no_code"] == "bash+ft_no_code" and all(p == "bash+" + fn for fn, p in paths.items()), paths
     rnd = [x for x in lines if x.startswith("ROUND ")]
     assert len(rnd) == 1 and "slow=harness:b1:17" in rnd[0] and "top=" not in rnd[0], rnd
 
