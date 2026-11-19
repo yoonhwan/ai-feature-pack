@@ -4,6 +4,7 @@
 읽기는 `git ls-tree`·`git show` 뿐(작업 트리 0). 착지 = 마지막 `- 착지: <sha40>` 줄 → 팩 origin/main ∨ BYZ 두 ref 의 조상.
 """
 import datetime
+import hashlib
 import importlib.util
 import os
 import re
@@ -25,6 +26,43 @@ LAND = re.compile(r"^- 착지: ([0-9a-f]{40})(?=\s|$)", re.M)   # r1817 D2 — 4
 CARDMAP = os.path.join(".fable-team", "teams", "%s", "runtime", "cards.tsv")   # r1819 F2 짝 표 · 팀장 append · keeper 읽기만
 MAPPED = re.compile(r"^(design/.+)/indices/(?:진행|대기|완성)/([^/]+\.md)$")
 BODYPATH = re.compile(r"design/[^\s()`'\"<>·,]+\.md")   # r2055 발주 본문 속 카드 경로 토큰(MAPPED 로 다시 거름)
+MEMO_CAP = 1000   # r2307 C4 기억 칸(anc_true · land_kind)마다 키 상한(DA#34 권고)
+
+
+def memo(state, slot):
+    """r2307 — keeper 상태(state.json)의 기억 칸 dict · 상태 없음 = None(기억 0) · 칸 꼴 오류(dict 아님) = 빈 칸으로 바꿈(C4)."""
+    if not isinstance(state, dict):
+        return None
+    if not isinstance(state.get(slot), dict):
+        state[slot] = {}
+    return state[slot]
+
+
+def memo_put(book, key, word):
+    """r2307 C4 — 값 = [적은 차례, 낱말] · 상한 넘으면 적은 차례가 가장 앞선 키부터 버림(state.json 은 sort_keys 라 dict 순서 ≠ 적은 차례)."""
+    def order(name):
+        got = book.get(name)
+        return got[0] if isinstance(got, list) and got and isinstance(got[0], int) else 0   # 꼴 오류 값 = 가장 먼저 버림
+    rows = [name for name in book if name != "@lib"]
+    book[key] = [max(map(order, rows), default=0) + 1, word]
+    rows = [name for name in book if name != "@lib"]
+    for name in sorted(rows, key=order)[:max(0, len(rows) - MEMO_CAP)]:
+        del book[name]
+
+
+def lib_mark(root):
+    """r2307 C3 — lib_call 이 실제로 읽는 ft-land-kind-lib.sh 본체의 sha1 · 루트 bin = LIVE_BIN shim → LIVE_BIN 폴더 본체 · 루트 bin 없음 = 팩 사본 · 못 읽음 = None(기억 0)."""
+    lib = os.path.join(root, ".fable-team", "bin", "ft-land-kind-lib.sh")
+    try:
+        if os.path.isfile(lib):
+            with open(os.path.join(root, ".fable-team", "LIVE_BIN"), encoding="utf-8") as fh:
+                lib = os.path.join(fh.readline().strip(), "ft-land-kind-lib.sh")
+        else:
+            lib = os.path.join(os.path.dirname(FT2), "legacy", "1.x", "harness", "bin", "ft-land-kind-lib.sh")
+        with open(lib, "rb") as fh:
+            return hashlib.sha1(fh.read()).hexdigest()
+    except (OSError, ValueError):
+        return None
 
 
 def lib_call(root, fn, args, call):
@@ -191,7 +229,10 @@ class Landing:
         for repo, ref in ((self.pack, "origin/main"), (self.root, REFS[0]), (self.root, REFS[1])):
             if repo in self.stale:   # r1963 낡은 리포 ref = 조상으로도 «조상 아님» 으로도 안 셈
                 continue
+            if self.anc_seen(repo, ref, sha):   # r2307 C1 앞 바퀴 조상 참 = git 0
+                return self.landed_in(team, work, repo, ref, sha)
             rc = self.git_local(repo, "merge-base", "--is-ancestor", sha, ref, timeout=endings.ANC_S)[0]   # r2022 1회 7초 · 로컬 객체만
+            self.anc_keep(repo, ref, sha, rc)
             if rc == 0:
                 return self.landed_in(team, work, repo, ref, sha)
             if rc == 128 and self.git_local(repo, "cat-file", "-e", sha, timeout=endings.ANC_S)[0] == 1 and self.git_local(repo, "rev-parse", "-q", "--verify", ref + "^{commit}", timeout=endings.ANC_S)[0] == 0:
@@ -200,6 +241,7 @@ class Landing:
                 continue   # 조상 아님 = 다음 ref
 
             rc = self.git(repo, "merge-base", "--is-ancestor", sha, ref, timeout=endings.ANC_S)[0]   # G3 ⓒ 지금 판 두 호출 그대로(env 없음 = 원격에 묻는다)
+            self.anc_keep(repo, ref, sha, rc)
             if rc == 0:
                 return self.landed_in(team, work, repo, ref, sha)
             if rc != 1 and (rc != 128 or self.git(repo, "cat-file", "-e", sha, timeout=endings.ANC_S)[0] != 1):
@@ -211,10 +253,38 @@ class Landing:
         old = self.pre_attempt(team, work, repo, sha)
         if old:
             return None, None, old
-        kind = land_kind(self.root, repo, sha, lambda argv, cap: self.call(argv, cap))
+        kind = self.kind_of(repo, sha)
         if kind != "구현":
             return None, None, "카드 문서만 착지 " + sha[:8] if kind == "카드 문서만" else kind.replace("판정 불가 ", "판정 불가 · ", 1)
         return sha, ("pack:" if repo == self.pack else "byz:") + ref, ""
+
+    def anc_seen(self, repo, ref, sha):
+        """r2307 C1 — 상태 anc_true 에 «<리포>|<ref>|<sha40>» 가 있으면 조상 참(git 0)."""
+        book = memo(getattr(self, "state", None), "anc_true")
+        return book is not None and "%s|%s|%s" % (repo, ref, sha) in book
+
+    def anc_keep(self, repo, ref, sha, rc):
+        """r2307 C1·C2 — rc 0 만 적음 · 거짓(1)·판정 불가(128·None) = 적지 않음(다음 바퀴 다시 부름)."""
+        book = memo(getattr(self, "state", None), "anc_true")
+        if rc == 0 and book is not None:
+            memo_put(book, "%s|%s|%s" % (repo, ref, sha), 0)
+
+    def kind_of(self, repo, sha):
+        """r2307 C3 — land_kind 기억 «<리포>|<sha40>» → 구현 | 카드 문서만 · 바퀴 첫 판독 때 lib 판 표지가 다르면 칸 비움 · 판정 불가 = 적지 않음."""
+        book, rnd = memo(getattr(self, "state", None), "land_kind"), self.cache.setdefault("@round", {})
+        mark = rnd["lib_mark"] if "lib_mark" in rnd else rnd.setdefault("lib_mark", lib_mark(self.root))
+        book, key = book if mark else None, "%s|%s" % (repo, sha)   # 표지 못 읽음 = 기억 0(지금 꼴)
+        if book is not None:
+            if book.get("@lib") != mark:
+                book.clear()
+                book["@lib"] = mark
+            got = book.get(key)
+            if isinstance(got, list) and len(got) == 2 and got[1] in ("구현", "카드 문서만"):
+                return got[1]
+        kind = land_kind(self.root, repo, sha, lambda argv, cap: self.call(argv, cap))
+        if kind in ("구현", "카드 문서만") and book is not None:
+            memo_put(book, key, kind)
+        return kind
 
     def git_local(self, repo, *args, **kw):
         """G1 — 로컬 객체만 보는 git 손: 그 호출의 자식에만 GIT_NO_LAZY_FETCH=1 을 싣고 끝나면 원래 env 객체로 되돌린다(G5·G6)."""
