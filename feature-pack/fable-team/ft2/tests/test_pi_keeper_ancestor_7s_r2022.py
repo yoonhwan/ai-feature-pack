@@ -42,6 +42,9 @@ def fake(land, script, root="/byz"):
         def pre_attempt(s, *a, **kv):
             return ""
 
+        def call(s, argv, timeout=7, retry=0):   # r2274 — keeper 바깥 호출 손 대역(land_kind = 구현)
+            return 0, "구현", ""
+
         def notify(s, *a):
             s.sent.append(a)
 

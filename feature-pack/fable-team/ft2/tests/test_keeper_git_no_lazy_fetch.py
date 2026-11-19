@@ -100,7 +100,9 @@ class World:
         s.clear()
 
     def commit(s, msg, push=None):
-        _run([GIT, "-C", s.mk, "commit", "-q", "--allow-empty", "-m", msg], s.env)
+        (s.mk / "src.txt").write_text(msg, encoding="utf-8")   # r2274 — 착지 대역 = 구현 커밋(빈 커밋 = 카드 문서만 · DA#29 H3ⓐ)
+        _run([GIT, "-C", s.mk, "add", "src.txt"], s.env)
+        _run([GIT, "-C", s.mk, "commit", "-q", "-m", msg], s.env)
         sha = _run([GIT, "-C", s.mk, "rev-parse", "HEAD"], s.env)
         if push:
             _run([GIT, "-C", s.mk, "push", "-q", "origin", "HEAD:refs/heads/" + push], s.env)
@@ -108,7 +110,9 @@ class World:
 
     def local(s, msg):
         """pc 안에서만 커밋(ref 를 옮기지 않는다) — 로컬 객체 대역."""
-        _run([GIT, "-C", s.pc, "commit", "-q", "--allow-empty", "-m", msg], s.env)
+        (s.pc / "src.txt").write_text(msg, encoding="utf-8")   # r2274 — 구현 커밋 대역
+        _run([GIT, "-C", s.pc, "add", "src.txt"], s.env)
+        _run([GIT, "-C", s.pc, "commit", "-q", "-m", msg], s.env)
         return _run([GIT, "-C", s.pc, "rev-parse", "HEAD"], s.env)
 
     def card_commit(s, sha):
@@ -163,6 +167,10 @@ class K:
                     return 0, self.body, ""
                 p = subprocess.run(["git", "-C", str(repo)] + [str(x) for x in a], capture_output=True, text=True,
                                    env=self.env, timeout=60)
+                return p.returncode, p.stdout, p.stderr.strip()[:200]
+
+            def call(self, argv, timeout=7, retry=0):   # r2274 — keeper 바깥 호출 손 대역(land_kind · 같은 env)
+                p = subprocess.run(argv, capture_output=True, text=True, env=self.env, timeout=60)
                 return p.returncode, p.stdout, p.stderr.strip()[:200]
 
             def git_local(self, *a, **kw):   # 계측 — 기준판(손 없음)은 그대로 git 으로 떨어짐다

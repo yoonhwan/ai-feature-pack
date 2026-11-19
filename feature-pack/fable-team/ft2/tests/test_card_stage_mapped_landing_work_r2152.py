@@ -22,6 +22,8 @@ def world(tmp, mp, work, name, stage="진행", extra="", mapped=None):
     for k, v in (("user.email", "t@t"), ("user.name", "t"), ("commit.gpgsign", "false")):
         kw._git(w.root, "config", k, v)
     w.path = IDX % (stage, name)
+    for fake in (LAND, MINE):   # r2274 DA#29 H3ⓑ — 가짜 sha = 판정 불가 → 실제 팩 커밋
+        extra = extra.replace(fake, w.land_sha()) if fake in extra else extra
     w.commit("byz", {w.path: HEAD % name + extra}, OPS)
     w.work(work, done=True, intent=False, turn=None)
     if mapped:
@@ -45,10 +47,10 @@ def run(w, capsys):
 
 
 def held(w, capsys):
-    """착지 줄 없음 → rc 3 1줄 · 두 원격 ref 그대로 · 카드 바이트 그대로(커밋 0 · push 0)."""
+    """착지 줄 없음 → r2274 C3 rc 0 «NOOP <work> 완성 증거 0 착지 줄 0 · 보완» 1줄(옛 r2152 = rc 3 판정 불가) · 두 원격 ref 그대로 · 카드 바이트 그대로(커밋 0 · push 0)."""
     before, body = heads(w), bare(w, "show", OPS + ":" + w.path)
     rc, out = run(w, capsys)
-    assert (rc, out) == (3, "판정 불가 착지 줄 없음 %s" % w.name), out
+    assert (rc, out) == (0, "NOOP %s 완성 증거 0 착지 줄 0 · 보완" % w.run_work), out
     assert heads(w) == before and bare(w, "show", OPS + ":" + w.path) == body
 
 
