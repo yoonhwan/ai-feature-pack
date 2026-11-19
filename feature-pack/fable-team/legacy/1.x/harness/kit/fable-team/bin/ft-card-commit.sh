@@ -48,9 +48,11 @@ run_lint() {  # $1=카드 판 파일 $2=사유 목록 파일 (LW · LP · LED �
   printf '%s\n' "$out" | sed -n 's/^  - //p' | sort -u > "$2"
 }
 lint_card() {  # $1=경로 $2=바뀐 판 파일 → 새 사유 0 이면 돌아옴 · 아니면 REJECT
-  local t="" e x new
+  local t="" e x new om
   [ -f "$LINT" ] || die "lint 없음 ($LINT)"
   LP="$1" LW="$T/lint"; rm -rf "$LW"; git init -q "$LW" >/dev/null 2>&1 || die lint-init
+  printf '%s\n' "$COMMON/objects" > "$LW/.git/objects/info/alternates" || die lint-alternates   # 원 리포 객체를 빌려 본다(복사 · fetch 0)
+  om="$(git rev-parse -q --verify refs/remotes/origin/main)" && { git -C "$LW" update-ref refs/remotes/origin/main "$om" || die lint-origin-main; }   # 카드 번호 검사 · origin/main tree 폴백이 원 리포와 같은 판을 본다(DA#29 H1)
   case "$LP" in */indices/*) t="${LP%/indices/*}"; t="${t##*/}";; esac
   e="$MAIN_ROOT/.fable-team/bin-$t/$t-env.sh"
   LED="$(grep -oE '<!-- *ledger: *[^ >]+ *-->' "$2" | head -1 | sed -E 's/<!-- *ledger: *([^ >]+) *-->/\1/')"
