@@ -250,6 +250,8 @@ if "pin" in modes:
 if "hook" in modes:
     subprocess.run(["bash", os.environ["HOOK"]], check=True)   # 고정 «뒤» 에 다른 좌석이 origin/main 을 옮긴다
 print("HEAD=" + gt.render().splitlines()[0])
+for sha, rows in getattr(gt, "PENDING_NOTICE", []):   # r2285 C1 — 공지·표식은 CLI main() 몫(render() = 표 글만) · N9 는 main 과 같은 순서로 부른다
+    gt._notify_or_skip(sha, rows)
 if "negcanon" in modes:   # 고정 중에 ref «이름» 으로 지정한 정본은 정본 렌더가 아니다(R5)
     os.environ["FT_GOAL_A6_MD"] = "gitref:origin/main:design/planner/AUTONOMY-GOAL-A6-20261018.md"
     print("CANON_BY_NAME=" + str(gt._canon_render()))
