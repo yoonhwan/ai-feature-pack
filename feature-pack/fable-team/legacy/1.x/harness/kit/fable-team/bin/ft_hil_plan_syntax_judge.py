@@ -40,7 +40,10 @@ def code_lines(text: str):
             buf += line[:-1] + " "
             continue
         full, buf = buf + line, ""
-        cut = scan(full)[0]
+        cut, _, q = scan(full)
+        if q:  # r2294 따옴표가 열린 채 끝남 = 닫힐 때까지 같은 논리 줄(첫 줄 번호)
+            buf, arr = full + "\n", False
+            continue
         arr = bool(ARRAY.search(cut)) and cut.count("(") > cut.count(")")
         if arr:
             buf = full + " "
