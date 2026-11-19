@@ -13,7 +13,7 @@
 #        FT_RECLAIM_INFO(: 구분) · FT_RECLAIM_DF_PATH(/System/Volumes/Data) · FT_RECLAIM_TIMEOUT(25초 · 지우기 호출 포함)
 #        FT_RECLAIM_ONLY(: 구분 경로 접두 · r2200) = plan 이 실경로로 풀어 그 접두 아래(같거나 «접두/») tmp · cache · worktree 만 잰다 · 없거나 비면 전부
 #   지우기가 상한을 넘기면 그 줄 SKIP `시간 초과`(큰 폴더는 다음 apply 로 · rm 이 중간까지 지웠을 수 있음)
-#   r2196 squash 길 = 옆 파일 _disk_reclaim_squash.py(r2199) · apply 쪽 dfree · recheck = _disk_reclaim_apply.py(r2200) · 못 읽으면 stderr `판정 불가 squash 모듈` · rc 3 · apply 는 ABORT 줄 뒤 지우기 0.
+#   r2196 squash 길 = 옆 파일 _disk_reclaim_squash.py(r2199) · apply 쪽 dfree · recheck = _disk_reclaim_apply.py(r2200) · plan = _disk_reclaim_plan.py(r2277) · 못 읽으면 stderr `판정 불가 squash 모듈` · rc 3 · apply 는 ABORT 줄 뒤 지우기 0.
 set -uo pipefail
 case "${1:-}" in plan|apply) [ $# -eq 2 ] || { echo "usage: $0 plan <산출 폴더> | apply <candidates.tsv>" >&2; exit 2; } ;;
   *) echo "usage: $0 plan <산출 폴더> | apply <candidates.tsv>" >&2; exit 2 ;; esac
@@ -21,7 +21,7 @@ exec python3 - "$@" "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)" <<
 import bisect, json, os, stat, subprocess, sys, time
 MODE, ARG = sys.argv[1], sys.argv[2]
 sys.dont_write_bytecode = True; sys.path.insert(0, sys.argv[3])   # r2199 · bin/__pycache__ 쓰기 0
-try: import _disk_reclaim_squash as SQ, _disk_reclaim_apply as AP   # r2196 squash 길(merged · squash_pr · GH · MERGED) · r2200 dfree · recheck = 옆 파일
+try: import _disk_reclaim_squash as SQ, _disk_reclaim_apply as AP, _disk_reclaim_plan as PL   # r2196 squash 길(merged · squash_pr · GH · MERGED) · r2200 dfree · recheck · r2277 plan = 옆 파일
 except Exception: MODE == "apply" and open(os.path.join(os.path.dirname(os.path.abspath(ARG)), "deleted.log"), "a").write("ABORT 판정 불가 squash 모듈 deleted=0 skipped=0\n"); print("판정 불가 squash 모듈", file=sys.stderr); sys.exit(3)
 E = os.environ
 HOME = os.path.realpath(os.path.expanduser("~"))
@@ -142,29 +142,6 @@ def wt_bad(repo, w, main, op, pn):   # 처음 어긋난 조건 · None = 후보
 def tick(n):
     if n % 100 == 0: print(f"진행 {n}", file=sys.stderr)
 
-def plan(outdir, roots):
-    op, pn, rows, hold, n = Opened(), panes(), {"tmp": [], "cache": [], "worktree": []}, [], 0
-    for kind, r in roots.items():
-        for name in sorted(os.listdir(r)):
-            n += 1; tick(n); p = r + "/" + name
-            if not keep(p): continue
-            if entry_bad(p, kind, op) is None and (k := du(p)) is not None: rows[kind].append((k, p, "조건 전부"))
-    for repo in REPOS:
-        for i, w in enumerate(wt_list(repo)):
-            n += 1; tick(n)
-            if not keep(os.path.realpath(w["path"])): continue
-            bad = wt_bad(repo, w, i == 0, op, pn)
-            tail = f" squash PR #{w['sq']}" if w.get("sq") else ""
-            if bad: hold.append(f"hold\t-\t{w['path']}\t{bad}{tail}")
-            elif (k := du(w["path"])) is not None: rows["worktree"].append((k, w["path"], "repo=" + repo + tail))
-    info = E.get("FT_RECLAIM_INFO", f"{HOME}/.claude/projects:{roots['cache']}:{roots['tmp']}:{BYZ}/.worktrees:{BYZ}/.fable-team/teams")
-    lines = [f"{k}\t{s}\t{p}\t{why}" for k in rows for s, p, why in sorted(rows[k], key=lambda x: -x[0])] + hold
-    lines += [f"info\t{k if os.path.exists(p) and (k := du(p)) is not None else '?'}\t{p}\tinfo" for p in info.split(":") if p]
-    os.makedirs(outdir, exist_ok=True); out = os.path.join(outdir, "candidates.tsv")
-    with open(out, "w") as f: f.write("".join(l + "\n" for l in lines))
-    cnt = " ".join(f"{k}={len(v)}/{sum(x[0] for x in v)}KiB" for k, v in rows.items())
-    print(f"PLAN {out} {cnt} hold={len(hold)}")
-
 def apply(tsv, roots):
     log = os.path.join(os.path.dirname(os.path.abspath(tsv)), "deleted.log")
     rows = [l.split("\t") for l in open(tsv).read().splitlines()]
@@ -193,7 +170,7 @@ def apply(tsv, roots):
 
 roots = {"tmp": root("FT_RECLAIM_TMP_ROOT", "/private/tmp"), "cache": root("FT_RECLAIM_CACHE_ROOT", HOME + "/Library/Caches")}
 try:
-    plan(ARG, roots) if MODE == "plan" else apply(ARG, roots)
+    PL.plan(sys.modules[__name__], ARG, roots) if MODE == "plan" else apply(ARG, roots)
 except Abort as a:
     print(f"판정 불가 {a}", file=sys.stderr); sys.exit(3)
 PY
