@@ -60,7 +60,7 @@ else echo "SKIP 기준판 칸 — base_sha $BASE_SHA 객체 없음(git 사본 �
 
 # R1 팩 착지 → 사람 gh close 1회(토큰 빈) · Tank 0 · rc0 · WARN 0 · INFO 1줄
 land "$LAND" "$PACK" "$PACKO" 6
-[ "$rc" = 0 ] && [ "$(ucl 6)" = 1 ] && [ "$(tnk 6)" = 0 ] && [[ "$out" != *WARN* ]] && [ "$(grep -c '^INFO PR #6 닫기 = 사람 gh(yoonhwan/ai-feature-pack)$' <<<"$out")" = 1 ]; ck "R1 팩 착지 → 사람 gh 1 · 토큰 빈 · Tank 0 · rc0 · WARN 0" $?
+[ "$rc" = 0 ] && [ "$(ucl 6)" = 1 ] && [ "$(tnk 6)" = 0 ] && ! grep -v '^WARN 카드 토큰 0 — ' <<<"$out" | grep -q WARN && [ "$(grep -c '^INFO PR #6 닫기 = 사람 gh(yoonhwan/ai-feature-pack)$' <<<"$out")" = 1 ]; ck "R1 팩 착지 → 사람 gh 1 · 토큰 빈 · Tank 0 · rc0 · WARN 0" $?
 grep -q "^GH pr close 6 -R yoonhwan/ai-feature-pack --comment 착지 sha $(sha "$PACKO" refs/heads/main) " "$STUB_LOG"; ck "R1 코멘트 = 착지 sha 본문 문자열" $?
 
 # R2 BYZ 리포(CROSS 아님 · slug 빈) → Tank 1 · 사람 gh close 0

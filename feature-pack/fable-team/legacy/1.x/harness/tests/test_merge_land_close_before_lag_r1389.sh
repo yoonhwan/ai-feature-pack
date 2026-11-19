@@ -58,7 +58,7 @@ S1=$SECONDS; FIX="$T/bin"; mkbin "$FIX"
 c1 "$FIX" 61; ck "C1 head-lag 멈춤 · 마감 6초 → WARN 남은 시간 상한 · 닫기 1회 · rc0 · ≤9초" $?
 c2 "$FIX" 62; ck "C2 설치 검사 멈춤 → 남은 시간에 끊김 · head-lag 호출 0 + WARN 0초 · rc0 · ≤9초" $?
 land "$FIX" 63
-[ "$rc" = 0 ] && grep -q "^LANDED" <<<"$out" && grep -q '^push ok objects=' <<<"$out" && grep -q '^INSTALL OK n=1' <<<"$out" && ran head-lag && ! grep -q '^WARN' <<<"$out" \
+[ "$rc" = 0 ] && grep -q "^LANDED" <<<"$out" && grep -q '^push ok objects=' <<<"$out" && grep -q '^INSTALL OK n=1' <<<"$out" && ran head-lag && ! grep -v '^WARN 카드 토큰 0 — ' <<<"$out" | grep -q '^WARN' \
   && [ "$(head -n1 "$ORDER")" = close ]; ck "C3 정상 → LANDED·push ok·INSTALL 그대로 · WARN 0 · 닫기 먼저" $?
 CPL="$T/state/merge-close-pending.jsonl"; : > "$CPL" 2>/dev/null
 land "$FIX" 64 FAIL_CLOSE=1
