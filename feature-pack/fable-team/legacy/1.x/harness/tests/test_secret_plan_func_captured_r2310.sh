@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_secret_plan_func_captured_r2310.sh — r2310: plan() 이 함수 본문 비밀 stdout 을, 그 함수가 파일 안에서
 #   «이름=$(함수 낱말…)»·«export 이름=$(…)»(함수 밖)로만 불릴 때 뺀다 · 받은 변수는 추적 · 그 밖 = reject 그대로
-#   반례 ①~⑬·①b·⑫b + 변이 M1~M9(사본 · 변이마다 원본 대조) · 가짜 계획 글만(실 gcloud·op 0) · 네트워크 0 · sleep 0
+#   반례 ①~⑭·①b·⑫b·⑬b + 변이 M1~M10(카드) · DA 보정 반례 H1~H4·P1·P2 + 변이 D1~D4(사본 · 변이마다 원본 대조) · 가짜 계획 글만(실 gcloud·op 0) · 네트워크 0 · sleep 0
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="${R2310_BIN:-$HERE/../bin}"
@@ -63,9 +63,10 @@ SH
     H4) one 'DSN() {' '  gcloud secrets versions access latest --secret=x; }' 'gcloud secrets versions access latest --secret=y' 'say() { echo hi; }' 'D=$(DSN)'; run "$b"; has 4 ;;
     P1) one 'err() { cat >&2; }' 'DSN() { gcloud secrets versions access latest --secret=x | err; }' 'D=$(DSN)'; run "$b"; has 3 ;;
     P2) one 'DSN() {' '  printf "{"; gcloud secrets versions access latest --secret=x; }' 'gcloud secrets versions access latest --secret=y' '}' 'D=$(DSN)'; run "$b"; has 4 ;;
+    14) one 'function err { cat >&2; }' 'DSN() { gcloud secrets versions access latest --secret=x | err; }' 'D=$(DSN)'; run "$b"; has 3 ;;   # A1e · DA#36
   esac
 }
-for c in 1 1b 2 3 4 5 6 7 9 10 11 12 12b 13 13b H1 H2 H3 H4 P1 P2; do
+for c in 1 1b 2 3 4 5 6 7 9 10 11 12 12b 13 13b 14 H1 H2 H3 H4 P1 P2; do
   case_do "$c" "$BIN"; ck "반례 $c" "$?"
 done
 t1=$(date +%s)
@@ -94,8 +95,9 @@ mut M5 9  ' | recv.get(line, set())' ''
 mut M6 10 'CALL_OK = r"\s*([A-Za-z_][\w-]*)(?:\s+[^|&;<>()`]*)?"' 'CALL_OK = r"\s*([A-Za-z_][\w-]*)(?:\s+.*)?"'
 mut M7 11 'r"(?<![\w-])%s(?![\w-])"' 'r"(?:^\s*|\$\()%s(?![\w-])"'
 mut M8 13b 'used = bool(mine) and ' 'used = False and '
+mut M10 14 '    if re.search(r"(?m)^\s*function\s+' '    if False and re.search(r"(?m)^\s*function\s+'   # A1e 지움
 mut M9 12b 'for w in (ws if line not in fn else [])' 'for w in ws'
-mut M10 H1 ' and not loud:' ':'   # DA ① 지움
+mut D1 H1 ' and not loud:' ':'   # DA ① 지움
 OLD_FB="$(cat <<'OLD'
     name, out = "", {}
     for k, line in enumerate(t.split("\n"), 1):
@@ -108,9 +110,9 @@ OLD_FB="$(cat <<'OLD'
 OLD
 )"
 NEW_FB="$(python3 -c 'import sys; s=open(sys.argv[1],encoding="utf-8").read(); a=s.index("    name, depth, opened, out"); e="    return None if name else out"; print(s[a:s.index(e)+len(e)])' "$BIN/ft_secret_judge.py")"
-mut M11 H4 "$NEW_FB" "$OLD_FB"   # DA ② 지움 = 옛 func_lines 경계
-mut M12 P1 ' or (others and others.search(lines[k - 1]))' ''   # DA P1 지움
-mut M13 P2 'q.count("{") != q.count("}")' 'False' 'QUOTED.sub("", re.sub(' '(re.sub('   # DA P2 ⓑ 지움(개수 검사 + 따옴표 글 빼기 둘 다 · 하나만 지우면 남은 쪽이 P2 를 막음)
+mut D2 H4 "$NEW_FB" "$OLD_FB"   # DA ② 지움 = 옛 func_lines 경계
+mut D3 P1 ' or (others and others.search(lines[k - 1]))' ''   # DA P1 지움
+mut D4 P2 'q.count("{") != q.count("}")' 'False' 'QUOTED.sub("", re.sub(' '(re.sub('   # DA P2 ⓑ 지움(개수 검사 + 따옴표 글 빼기 둘 다 · 하나만 지우면 남은 쪽이 P2 를 막음)
 t2=$(date +%s)
 echo "단계별 초: 반례 $((t1-t0)) · 변이 $((t2-t1))"
 [ "$fail" = 0 ] && echo "ALL PASS" || echo "FAILED $fail"
