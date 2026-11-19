@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # test_nano_close_hint_placeholder_r2290.sh — r2290: 닫기 차례 줄·닫기 ① 거절의 «출력 글자» 만 바뀐다(판정·rc·명부·원장 0).
-#   A1 채움 실패 줄 = « — 채울 일: ft-nano-close.sh …»(«bash» 0) · A2 채움 성공·승인·--summary 줄 = 기준판과 바이트 같음
+#   A1 채움 실패 줄 = « — {lr}채울 일: ft-nano-close.sh … --result {산출} --recv {seq}»(«bash»·< > 0) · A2 채움 성공·승인·--summary 줄 = 기준판과 바이트 같음
 #   A3 상대경로 --result 가 없어 ① 거절 → 사유 뒤 «다음:» 1줄(나노 워크트리에 있으면 그 절대경로 · 없으면 cwd 기준 안내) · A4 그 밖 그대로.
-#   반례 ①~⑦ + 변이 M1·M2(변이마다 원본 대조) · 기준판 = 팩 6fdbe0706(git show) 에서 ①②⑤ Red.
+#   반례 ①~⑦ + 변이 M1·M1b·M2(변이마다 원본 대조) · 기준판 = 팩 6fdbe0706(git show) 에서 ①②⑤ Red.
 #   세계 = _nano_record_r1717_fixture.sh(임시 bare remote · 가짜 명부·mbox·tmux) + _nano_record_r1717_close_fixture.sh(«실» 닫기 도구 사본 · 가짜 gh·tmux)
-#   ② 문구 정정: A1 꼴도 «<산출»(리다이렉트)이 명령 찾기보다 먼저라 «산출: No such file» 은 양쪽 같다 → ② = 산출·seq 파일이 있는 cwd 에서 eval 해도 닫기 도구가 안 돈다.
+#   ② = 빈 임시 폴더에서 eval · PATH bash·/bin/bash 둘 다 rc=127 · stderr «채울:» · 폴더 파일 0({lr} 있음·없음 2줄).
 #   실 명부·실 우편함·실 tmux·네트워크 0 · sleep 0 · 자기 재호출 0.
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 . "$HERE/_nano_record_r1717_fixture.sh"; . "$HERE/_nano_record_r1717_close_fixture.sh"
@@ -34,19 +34,25 @@ world; closebin "$SRC"
 step "세계: 착지 PR #20 · a = 착지 뒤 기록 다 섬 · c = 완료 줄 없음"
 na="$(NN a)"; nc="$(NN c)"; fresh; land 20; cardf a; cardf c "$(setl)" "$(landl 20)"; cpush
 seats "$na|nano|a" "$nc|nano|c"; turn 20 a c; landed() { rec landed --seat "$1" --pr "$2" --card "$3" "${@:4}"; }; landed "$na" 20 a --test "$TST"
+g "$PACK" push -q origin "$Q:refs/heads/ops/main-base"; g "$PACK" fetch -q origin   # 같은 착지를 ops/main-base 에도 → FT_LAND_REF 로 {lr} 줄
 due_of() { cdue "$1"; printf '%s' "$OUT"; }
-NEW="$(due_of "$SRC")"; OLD="$(due_of "$BASEBIN")"
+due_lr() { line_of "$(cd "$T" && FT_LAND_REF=origin/ops/main-base FT_NANO_AUTO_CLOSE=1 bash "$1/ft-nano-close-due.sh" --all --why 2>&1)" "$nc"; }
+NEW="$(due_of "$SRC")"; OLD="$(due_of "$BASEBIN")"; NEWL="$(due_lr "$SRC")"; OLDL="$(due_lr "$BASEBIN")"
 
-c1() {  # ① 채움 실패 줄 = « — 채울 일: ft-nano-close.sh» · «bash» 0 · 끝 «빠짐=착지 뒤 완료 줄 채울 이=…»
-  local L; L="$(line_of "$2" "$nc")"
-  t "① 채울 일 꼴" inc "$L" " — 채울 일: ft-nano-close.sh $nc --landed-pr 20 --result <산출> --recv <seq> 빠짐=착지 뒤 완료 줄 채울 이=$nc"
-  t "① «bash» 0" exc "$L" "bash"; t "① 머리 그대로" inc "$L" "닫기 차례 $nc 팀=harness 가지="; return $E
+c1() {  # ① c1 <줄 모음> <{lr} 줄> — 채울 일 꼴 · {산출}·{seq} · «bash»·< > 0 · {lr} 은 «채울 일:» 앞
+  local L; L="$(line_of "$1" "$nc")"
+  t "① 채울 일 꼴" inc "$L" " — 채울 일: ft-nano-close.sh $nc --landed-pr 20 --result {산출} --recv {seq} 빠짐=착지 뒤 완료 줄 채울 이=$nc"
+  t "① «bash» 0" exc "$L" "bash"; t "① < 0" exc "$L" "<"; t "① > 0" exc "$L" ">"; t "① 머리 그대로" inc "$L" "닫기 차례 $nc 팀=harness 가지="
+  t "① {lr} 줄" inc "$2" " — FT_LAND_REF=origin/ops/main-base 채울 일: ft-nano-close.sh $nc --landed-pr "; t "① {lr} 줄 «bash» 0" exc "$2" "bash"; return $E
 }
-c2() {  # ② 산출·seq 파일이 있는 cwd 에서 줄 꼬리를 eval → 닫기 도구(가짜 PATH 스텁) 호출 0 · «command not found» rc≠0
-  local L d="$T/ev$RANDOM" o r; L="$(line_of "$2" "$nc")"; mkdir -p "$d/p"; : > "$d/산출"; : > "$d/seq"
-  printf '#!/bin/sh\necho "$*" >> "%s/called"\n' "$d" > "$d/p/ft-nano-close.sh"; cp "$d/p/ft-nano-close.sh" "$d/p/bash"; chmod +x "$d/p/"*
-  o="$(cd "$d" && PATH="$d/p:/usr/bin:/bin" /bin/bash -c "eval \"\${1#* — }\"" _ "$L" 2>&1)"; r=$?
-  t "② 닫기 도구 호출 0" [ ! -e "$d/called" ]; t "② rc≠0" [ "$r" -ne 0 ]; t "② command not found" inc "$o" "command not found"; return $E
+ev1() {  # ev1 <bash> <줄> — 빈 임시 폴더에서 줄 꼬리 eval → rc=127 · stderr «채울:» · 폴더 파일 0(로캘 문구로 판정 0)
+  local d="$T/ev$RANDOM$RANDOM" e="$T/everr$RANDOM$RANDOM" r; mkdir -p "$d"
+  ( cd "$d" && "$1" -c 'eval "${1#* — }"' _ "$2" ) >/dev/null 2>"$e"; r=$?
+  t "② $1 rc=127(지금 $r)" [ "$r" = 127 ]; t "② $1 stderr «채울:»" inc "$(cat "$e")" "채울:"; t "② $1 폴더 파일 0" [ -z "$(ls -A "$d")" ]
+}
+c2() {  # ② c2 <줄 모음> <{lr} 줄> — ① 줄 2개({lr} 없음·있음) × PATH bash·/bin/bash
+  local L b; L="$(line_of "$1" "$nc")"; t "② 줄 있음" [ -n "$L" ]; t "② {lr} 줄 있음" [ -n "$2" ]
+  for b in bash /bin/bash; do ev1 "$b" "$L"; ev1 "$b" "$2"; done; return $E
 }
 c3() {  # ③ 채움 성공 줄(갈래=착지기록) = 기준판과 바이트 같음
   local L; L="$(line_of "$NEW" "$na")"
@@ -60,15 +66,18 @@ c4() {  # ④ --summary · 채움 실패 줄 밖 모든 줄 = 기준판과 같�
   t "④ 승인 갈래(r1670)" bash "$HERE/test_nano_close_after_approve_r1670.sh" >/dev/null 2>&1; return $E
 }
 step "반례 ①~④ (close-due)"
-c1n() { c1 x "$NEW"; }; c2n() { c2 x "$NEW"; }
+c1n() { c1 "$NEW" "$NEWL"; }; c2n() { c2 "$NEW" "$NEWL"; }
 run "① 새 판" c1n; run "② 새 판 eval 해도 안 돈다" c2n; run "③ 채움 성공 줄 그대로" c3; run "④ 승인·요약·그 밖 줄 그대로" c4
-c1o() { c1 x "$OLD"; }; c2o() { c2 x "$OLD"; }
+c1o() { c1 "$OLD" "$OLDL"; }; c2o() { c2 "$OLD" "$OLDL"; }
 ( c1o ) >/dev/null 2>&1 && bad "기준판 ① 통과(Red 아님)" || ok "기준판 ① Red"
 ( c2o ) >/dev/null 2>&1 && bad "기준판 ② 통과(Red 아님)" || ok "기준판 ② Red"
-mkmut ft-nano-close-due.sh '— 채울 일: {lr}ft-nano-close.sh' '— {lr}bash ft-nano-close.sh'; MD="$(due_of "$MB")"   # M1
-c1m() { c1 x "$MD"; }; c2m() { c2 x "$MD"; }
+mkmut ft-nano-close-due.sh '— {lr}채울 일: ft-nano-close.sh {k} --landed-pr {pr} --result {{산출}} --recv {{seq}}' '— {lr}bash ft-nano-close.sh {k} --landed-pr {pr} --result <산출> --recv <seq>'   # M1 — 채울 일→bash + { }→< >
+MD="$(due_of "$MB")"; MDL="$(due_lr "$MB")"; c1m() { c1 "$MD" "$MDL"; }; c2m() { c2 "$MD" "$MDL"; }
 ( c1m ) >/dev/null 2>&1 && bad "M1 ① 생존" || ok "M1 ① FAIL(잡힘)"; ( c2m ) >/dev/null 2>&1 && bad "M1 ② 생존" || ok "M1 ② FAIL(잡힘)"
 run "M1 원본 대조 ①" c1n; run "M1 원본 대조 ②" c2n
+mkmut ft-nano-close-due.sh '--result {{산출}} --recv {{seq}}' '--result <산출> --recv <seq>'   # M1b — 자리표시만 < > 로(«채울 일:» 유지)
+MD="$(due_of "$MB")"; MDL="$(due_lr "$MB")"
+( c2m ) >/dev/null 2>&1 && bad "M1b ② 생존" || ok "M1b ② FAIL(잡힘)"; run "M1b 원본 대조 ②" c2n
 
 step "세계: 닫기 ① 거절 — 팀장 워크트리(cwd=ROOT) · 나노 워크트리 NW"
 ns="$(NN s)"; fresh; land 21; card s "$(setl)" "$(landl 21)"; seats "$ns|nano|s"; nwt s; mkdir -p "$NW/out"; echo r > "$NW/out/r.md"

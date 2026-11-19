@@ -30,7 +30,7 @@ e2() {  # E2 (R1 반례 2) 남은 일 나노 몫 = 기록만 남기고 닫기 �
   t "E2 기록 3줄(완료 줄에 남은 일)" [ "$(nline "$s" "^- 세트: ")$(nline "$s" "^- 착지: ")$(nline "$s" "^- 완료: $n · 병합 상태: 착지 ${Q:0:10} · 남은 일: 보정=$n ")" = 111 ]
   t "E2 닫기 요청 0" [ "$(nreq "$s")" = 0 ]; t "E2 팀장 «[기록 완료 · 남은 일]» 1통" [ "$(nto "$MASTER" "\[기록 완료 · 남은 일\] $n $s — 보정=$n · 닫기 요청 0")" = 1 ]
   rec due --pr 32; t "E2 due 끝(남은 일 — 닫기 요청 0)" inc "$OUT" "끝 $s pr=32 착지=${Q:0:10} 좌석=$n (남은 일 — 닫기 요청 0)"
-  cdue; t "E2 close-due 자리표시 그대로 + 빠짐" inc "$OUT" "$n --landed-pr 32 --result <산출> --recv <seq> 빠짐=남은 일(보정=$n) 채울 이=$n"; scan auto; t "E2 auto_close 집행 0" [ "$(ncl)" = 0 ]
+  cdue; t "E2 close-due 자리표시 그대로 + 빠짐" inc "$OUT" "$n --landed-pr 32 --result {산출} --recv {seq} 빠짐=남은 일(보정=$n) 채울 이=$n"; scan auto; t "E2 auto_close 집행 0" [ "$(ncl)" = 0 ]
   landed "$n" 32 "$s"; t "E2 다시 실행 = 완료 줄 1개 더(남은 일: 없음)" [ "$(nline "$s" "^- 완료: $n ")$(nline "$s" "남은 일: 없음 ")" = 21 ]
   t "E2 닫기 요청 1통" [ "$(nreq "$s")" = 1 ]; t "E2 NEXT" inc "$OUT" "NEXT bash ft-nano-close.sh $n --landed-pr 32 --result "
   landed "$m" 32 "$u" --test "$TST" --left "설치=팀장"; t "E2 팀장 인계(잔여 없음) = 처음부터 닫기 요청 1통" [ "$(nreq "$u")" = 1 ]; t "E2 팀장 인계 NEXT" inc "$OUT" "NEXT "; return $E
@@ -70,7 +70,7 @@ e6() {  # E6 (R2) 세션 기록 파일을 못 씀 → NEXT 0 · 닫기 명령 �
   MUTSRC="$BIN" mutbin "e6w$1" ft_nano_record_notify.py "${WFAIL[@]}"; TOOL="$MB/ft-nano-record.sh"
   landed "$n" 36 "$s" --test "$TST"; t "E6 rc 3" [ "$RC" = 3 ]; t "E6 NEXT 0" exc "$OUT" "NEXT "; t "E6 판정 불가 세션 기록" inc "$OUT" "판정 불가 세션 기록 쓰기"
   t "E6 닫기 명령 보류 1줄" [ "$(printf '%s\n' "$OUT" | grep -c "^닫기 명령 보류 빠짐=세션 기록·닫기 요청 seq 채울 이=$n(landed 를 다시)")" = 1 ]; t "E6 닫기 요청 0" [ "$(nreq "$s")" = 0 ]
-  cdue; t "E6 close-due 자리표시 그대로 + 빠짐" inc "$OUT" "$n --landed-pr 36 --result <산출> --recv <seq> 빠짐=닫기 요청 전달 채울 이=$n"; scan auto; t "E6 집행 0" [ "$(ncl)" = 0 ]; return $E
+  cdue; t "E6 close-due 자리표시 그대로 + 빠짐" inc "$OUT" "$n --landed-pr 36 --result {산출} --recv {seq} 빠짐=닫기 요청 전달 채울 이=$n"; scan auto; t "E6 집행 0" [ "$(ncl)" = 0 ]; return $E
 }
 e7() {  # E7 (R3 동시) 다른 카드 2장 · 같은 카드에 좌석 2 → 둘 다 DONE · 줄 유실·중복 0
   local a="e7a$1" b="e7b$1" c="e7c$1" c0 k; fresh; land 37; for s in "$a" "$b" "$c"; do cardf "$s"; done; cpush
