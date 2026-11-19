@@ -131,7 +131,7 @@ def close_request(ctx, r, path):   # A10 — 팀장에 «[완료·닫기 요청]
     ctx.held = held(ctx, r)
     if ctx.held:
         return None
-    seq = send(ctx, r["master"], r["seat"], f"[완료·닫기 요청] {r['stem']} 착지 {r['q'][:10]} · 좌석 {r['seat']} · 세션 기록 {path}")
+    seq = __import__("ft_nano_record_seqfind").found(ctx, r, lambda: send(ctx, r["master"], r["seat"], f"[완료·닫기 요청] {r['stem']} 착지 {r['q'][:10]} · 좌석 {r['seat']} · 세션 기록 {path}"))
     if not seq:
         if seq == 0:
             print("WARN 닫기 요청 쪽지의 seq 를 못 읽음 — 전달 기록 0")
