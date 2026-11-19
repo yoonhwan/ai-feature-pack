@@ -1,6 +1,7 @@
 """r2147 card_stage 착지 관문 시험 (카드 반례 ①~⑤d · 변이 M1~M4).
 r2037 꼴 그대로 — keeper_world_r1812 대역 · 임시 bare 원격(byz.git · main·ops/main-base) + 임시 루트 · 임시 원장(done 1행) · 합성 카드 본문 · 임시 판정문만 쓴다(실 리포·실 원장·실 keeper 0).
 관문 = 고른 카드(부모 SHA 본문)에 `^- 착지: <40자>` 줄 · 또는 gate 있음 ∧ why None. 둘 다 없으면 rc 3 «착지 줄 없음 <stem>» · 원격 쓰기 0.
+r2274 C3 — 둘 다 없으면 rc 0 «NOOP r9 완성 증거 0 착지 줄 0[ · 보완]»(16진수 없는 착지 줄 = «착지 줄 0» · 착지 줄 없음 = «· 보완») · 7~40자 16진수 = 그 sha 로 판정.
 기준판 = 팩 origin/main → ① ③ ⑤c Red(착지 줄 없이 STAGED). sleep 0.
 """
 import importlib.util
@@ -49,11 +50,11 @@ def run(w, capsys, sec=None):
     return rc, capsys.readouterr().out.strip()
 
 
-def held(w, capsys, stage, sec=None):
-    """착지 줄 없음 → rc 3 1줄 · 두 원격 ref 그대로 · 카드 바이트 그대로."""
+def held(w, capsys, stage, sec=None, why="착지 줄 0 · 보완"):
+    """착지 증거 없음 → r2274 rc 0 NOOP 1줄 · 두 원격 ref 그대로 · 카드 바이트 그대로."""
     before, body = heads(w), bare(w, "show", OPS + ":" + CARD % stage)
     rc, out = run(w, capsys, sec)
-    assert (rc, out) == (3, "판정 불가 착지 줄 없음 r9-x"), out
+    assert (rc, out) == (0, "NOOP r9 완성 증거 0 " + why), out
     assert heads(w) == before and bare(w, "show", OPS + ":" + CARD % stage) == body
 
 
@@ -78,9 +79,15 @@ def test_2_done_doing_card_with_landing_line_stages(tmp_path, monkeypatch, capsy
     assert bare(w, "rev-parse", OPS + "^") == before[OPS]   # 지금과 같은 커밋 1
 
 
-@pytest.mark.parametrize("line", ["- 착지: 대기\n", "- 착지: 139335c\n", "- 착지: %s\n" % ("1a" * 20 + "b")])
+@pytest.mark.parametrize("line", ["- 착지: 대기\n", "- 착지: %s\n" % ("1a" * 20 + "b")])
 def test_3_landing_line_not_40_hex_holds(tmp_path, monkeypatch, capsys, line):
-    held(world(tmp_path, monkeypatch, extra=line), capsys, "진행")
+    held(world(tmp_path, monkeypatch, extra=line), capsys, "진행", why="착지 줄 0")
+
+
+def test_3b_short_hex_landing_line_judged_by_that_sha(tmp_path, monkeypatch, capsys):   # r2274 ④ⓕ — 7자 16진수 = 그 sha(어느 리포에도 없음 = 지금 길)
+    w = world(tmp_path, monkeypatch, extra="- 착지: 139335c\n")
+    rc, out = run(w, capsys)
+    staged(w, "진행", out, rc)
 
 
 def test_4_landing_line_inside_status_section_stages(tmp_path, monkeypatch, capsys):
