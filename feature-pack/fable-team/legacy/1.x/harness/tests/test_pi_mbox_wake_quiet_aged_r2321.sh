@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # test_pi_mbox_wake_quiet_aged_r2321.sh — r2321: 큐만(quiet) 미읽음이 «늙어» 유휴 좌석에 남으면 ft-mbox-wake 가 1회 깨운다
-#  Q1 늙음 깨움 = ①⑥⑦ · Q2 1회 = ③④⑩ · Q3 늙음 타이머 = ②④ · Q4 ts 판독 = ⑤ · Q5 불변 = ⑧⑨
+#  Q1 늙음 깨움 = ①⑥⑦ · Q2 1회 = ③④⑩ · Q3 늙음 타이머 = ②④ · Q4 ts 판독 = ⑤ · Q5 불변 = ⑧⑨ · 이미 깨운 옛 행은 안 셈(DA#38 ⓐ) = ④ M7
 #  기준판(늙음 갈래 없음) = ① ⑦ Red. 격리 = r1529/r2259 꼴(임시 루트 · 합성 mailbox.jsonl · 가짜 pi · 스텁 mbox.sh · pi 패키지 스텁 · 실 우편함·실 pi 0).
-#  시계 = FT_MBOX_NOW(소수 초) 고정 + 늙음 창(FT_MBOX_WAKE_QUIET_AGED_MS) 짧게 — sleep 은 ② 의 실제 타이머 대기 1곳뿐(폴링).
+#  시계 = FT_MBOX_NOW(소수 초) 고정 + 늙음 창(FT_MBOX_QUIET_AGE_S 초) 짧게 — sleep 은 ② 의 실제 타이머 대기 1곳뿐(폴링).
 #  ★TZ = Asia/Seoul 고정★ — ⑤ 는 «Z 없는 ts = 지역 시각» 을 재는 시험이라 실행기 TZ 에 흔들리면 안 된다.
 #  R2321_EXT = 다른 확장 파일(기준판·변이)을 볼 때만 · R2321_CASES = 돌릴 시험 번호(기본 전부).
 # 새 파일 mode 100644(실행 비트 0) — `bash <이 파일>` 로 부른다.
@@ -25,7 +25,7 @@ import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 
 const EXT = process.env.R2321_EXT, SEAT = process.env.R2321_SEAT, ROOT = process.env.R2321_TMP;
-const CASES = (process.env.R2321_CASES || "1 2 3 4 5 6 7 8 9 10").split(/\s+/);
+const CASES = (process.env.R2321_CASES || "1 2 3 4 5 6 7 8 9 10 11").split(/\s+/);
 const want = (n) => CASES.includes(String(n));
 const T0 = 1795000000; // 고정 «지금»(초) — 늙음 판정은 FT_MBOX_NOW 로 얼린다
 const MIN = 60;
@@ -57,7 +57,7 @@ function setup(name, rows, o = {}) {
   fs.writeFileSync(mbox, rows.map((r) => JSON.stringify(r) + "\n").join(""));
   Object.assign(process.env, { FT_MBOX_ROOT: dir, FT_MBOX_STATE_DIR: state, FT_MBOX_FILE: mbox, FT_SEAT: SEAT,
     FT_MBOX_WAKE_DEBOUNCE_MS: "5", FT_MBOX_WAKE_REARM_MS: "86400000", FT_MBOX_NOW: String(T0) });
-  if (o.agedMs !== undefined) process.env.FT_MBOX_WAKE_QUIET_AGED_MS = String(o.agedMs); else delete process.env.FT_MBOX_WAKE_QUIET_AGED_MS;
+  if (o.agedMs !== undefined) process.env.FT_MBOX_QUIET_AGE_S = String(o.agedMs); else delete process.env.FT_MBOX_QUIET_AGE_S;
   if (o.realClock) delete process.env.FT_MBOX_NOW;
   cur = { dir, mbox, budgetLog, state, k: keyOf(SEAT) };
   return cur;
@@ -68,11 +68,11 @@ const agedFile = (c) => path.join(c.state, "pi-wake", `${c.k}.aged`);
 const seqOf = (pi) => Number((String(pi.calls.at(-1)?.content ?? "").match(/^\[발주 #(\d+)\]/) ?? [])[1] ?? -1);
 
 const live = [];
-async function load() {
+async function load(o = {}) { // o.throwFirst = 첮 n회 sendMessage 를 던짐(배달 실패 쪽 검사)
   for (const p of live.splice(0)) { p.retired = true; await p.emit("session_shutdown", {}); }
   const pi = { calls: [], retired: false, h: {}, on(e, f) { (this.h[e] ??= []).push(f); },
     async emit(e, ev = {}) { for (const f of this.h[e] ?? []) await f(ev, { isIdle: () => true }); },
-    appendEntry() {}, sendMessage(m) { if (!this.retired) this.calls.push(m); } };
+    appendEntry() {}, sendMessage(m) { if (this.retired) return; if (o.throwFirst > 0) { o.throwFirst--; throw new Error("배달 실패(시험)"); } this.calls.push(m); } };
   live.push(pi);
   (await import(`${pathToFileURL(EXT).href}?v=${++modv}`)).default(pi);
   await pi.emit("session_start", {});
@@ -93,7 +93,7 @@ if (want(1)) {
 }
 // ── ② Q3 아직 안 늙음 = 0 · 늙는 시각에 타이머 1회 ───────────────────────────────────
 if (want(2)) {
-  const c = setup("q2", [row(711, { ts: isoT(Math.floor(Date.now() / 1000)) })], { agedMs: 2000, realClock: true }); // ts = 초 단위 글자(최대 999ms 과거) — 창 2초면 «즉시 늙음» 이 아니다
+  const c = setup("q2", [row(711, { ts: isoT(Math.floor(Date.now() / 1000)) })], { agedMs: 2, realClock: true }); // ts = 초 단위 글자(최대 999ms 과거) — 창 2초면 «즉시 늙음» 이 아니다
   const pi = await load();
   eq("② 지금 온 [정리] = 즉시 깨움 0", pi.calls.length, 0);
   const woke = await until(() => pi.calls.length >= 1, 5000);
@@ -123,14 +123,24 @@ if (want(3) || want(4) || want(10)) {
     p = await load(); // 새 인스턴스 = session_start check(true)
     eq("⑩ check(true) 뒤에도 = 깨움 0", p.calls.length, 0);
   }
-  if (want(4)) {
-    appendRow(c, row(722, { ts: isoT(T0 - 40 * MIN) })); // 새 quiet 행 = 표지(721) 보다 큰 seq
-    await poke(p);
-    eq("④ 새 quiet 행(722) = 깨움 1", p.calls.length, 1);
-    eq("④ 새 seq 로 깨움", seqOf(p), 722);
-    await poke(p);
-    eq("④ 그 seq 재확인 = 0", p.calls.length, 1);
-  }
+  await shutdown();
+}
+// ── ④ Q2·Q3 이미 깨운 옛 행은 안 셈 = 새 quiet 행(«지금»)은 바로 0 · 그 행 기준 900초 뒤 1 ─────
+if (want(4)) {
+  const c = setup("q4", [row(721, { ts: isoT(T0 - 30 * MIN) })]); // ① 꼴 = 늙은 1행을 먼저 깨운다
+  const pi = await load();
+  eq("④ (앞) 늙은 1행 = 깨움 1", pi.calls.length, 1);
+  await turnEnd(pi); // 깨움 소비 + seq 표지 비움 — 표지(.aged)만으로 막히는 자리
+  eq("④ 깨움 소비 뒤 추가 깨움 0(옛 행은 안 셈)", pi.calls.length, 1);
+  appendRow(c, row(722, { ts: isoT(T0) })); // 카드 ④ = «지금» 온 새 quiet 행
+  await poke(pi);
+  eq("④ 새 quiet 행(지금 온) = 바로 깨움 0", pi.calls.length, 1);
+  process.env.FT_MBOX_NOW = String(T0 + 901); // 새 행 ts + 900초
+  await poke(pi);
+  eq("④ 새 행 ts+900초 뒤 = 깨움 1", pi.calls.length, 2);
+  eq("④ 발주 seq = 722(새 행)", seqOf(pi), 722);
+  await poke(pi);
+  eq("④ 그 seq 재확인 = 0", pi.calls.length, 2);
   await shutdown();
 }
 // ── ⑤ Q4 ts 판독 = Z 없는 글자 = «지역 시각»(UTC 로 읽으면 9시간 어긋난다) · 글자 꼴 아님 = 못 읽음 ─
@@ -178,6 +188,17 @@ if (want(9)) {
   eq("⑨ 예산 CLI 1회(불변)", budgetCalls(c), 1);
   const held = path.join(c.state, "doorbell-held", c.k);
   eq("⑨ held 기록(reason=budget)", fs.existsSync(held) && /reason=budget/.test(fs.readFileSync(held, "utf-8")), true);
+  await shutdown();
+}
+// ── ⑪ 메모2 Q2 배달 실패 = 늙음 표지 0(다음 check 에서 다시 시도) ──────────────
+if (want(11)) {
+  const c = setup("q11", [row(781, { ts: isoT(T0 - 60 * MIN) })]);
+  const pi = await load({ throwFirst: 1 });
+  eq("⑪ 배달 실패 = 깨움 0", pi.calls.length, 0);
+  eq("⑪ 배달 실패 = 늙음 표지 0", fs.existsSync(agedFile(c)), false);
+  await poke(pi);
+  eq("⑪ 다시 check = 깨움 1", pi.calls.length, 1);
+  eq("⑪ 이번에 표지 기록 = 781", fs.existsSync(agedFile(c)) ? fs.readFileSync(agedFile(c), "utf-8").trim() : "없음", "781");
   await shutdown();
 }
 console.log("---");

@@ -2,7 +2,7 @@
 //  · 활성 = FT_SEAT(없으면 tmux 세션명) == <루트>/.fable-team/seats-planner.json `_master` «매 이벤트 재확인» · 루트 = FT_MBOX_ROOT ?? git 공용 루트 ?? cwd.
 //  · 설치 = `~/.pi/agent/extensions/ft-mbox-wake.ts` 복사 1개(pi 재시작 1회) · env: FT_MBOX_FILE(다른 데이터 루트) · FT_MBOX_STATE_DIR · FT_MBOX_WAKE_DEBOUNCE_MS · FT_H_DONE_QUIET_MS(r1540) · FT_USER_BASH_QUIET_MS(r1555) · 시험 = tests/test_pi_mbox_wake_{r1477,self_r1529}.sh · tests/test_pi_bash_pending_r1540.sh · tests/test_pi_user_bash_quiet_r1555.sh · tests/test_pi_mbox_wake_recv_gate_r1669.sh(r1669 = 증류 게이트 좌석은 같은 미읽음에 깨움 1회 + 팀장 1통 · .gated·.gatedmark)
 //  · r1529 = 내 행 판정을 recv 와 같은 칸으로(from !== seat) + 판 2 턴 도중 깨움 쌓기 0(agent_start~agent_end 표지 · 배달 안 된 깨움 1개 상한).
-//  · r2321 = ★큐만(quiet) 늙음 1회★ — quiet 미읽음만 있는 좌석은 늘 «다음 깨움 때 같이 읽힘» 을 전제로 큐만 했는데, 유휴 좌석에는 그 다음 깨움이 오지 않아 영원히 남았다(실사건 room-tester-pi#45 → room-master-pi#64 17~84분 3회). 이제 가장 오래된 quiet 행 ts + FT_MBOX_WAKE_QUIET_AGED_MS(기본 15분)가 지나고 쉬는 좌석이면 1회 깨운다. 1회 표지 = <state>/pi-wake/<키>.aged 일반 파일 1줄(seq · agent_end·check(true) 가 안 지운다 · seq 표지와 별개) · 늙음 타이머 aT 1개(bT 와 다른 변수 · 주기 0) · Row 에 ts 1칸 · 종류 표·예산·loud·사람 발신·증류 게이트·묶음(wake_at) 은 그대로 · 시험 = tests/test_pi_mbox_wake_quiet_aged_r2321.sh
+//  · r2321 = ★큐만(quiet) 늙음 1회★ — quiet 미읽음만 있는 좌석은 늘 «다음 깨움 때 같이 읽힘» 을 전제로 큐만 했는데, 유휴 좌석에는 그 다음 깨움이 오지 않아 영원히 남았다(실사건 room-tester-pi#45 → room-master-pi#64 17~84분 3회). 이제 «아직 안 깨운» quiet 행(seq > .aged)의 가장 오래된 ts + FT_MBOX_QUIET_AGE_S(초·기본 900)가 지나고 쉬는 좌석이면 1회 깨운다(이미 깨운 옛 행은 안 셈 — 새 행마다 바로 깨움 0). 1회 표지 = <state>/pi-wake/<키>.aged 일반 파일 1줄(seq · agent_end·check(true) 가 안 지운다 · seq 표지와 별개) · 늙음 타이머 aT 1개(bT 와 다른 변수 · 주기 0) · Row 에 ts 1칸 · 종류 표·예산·loud·사람 발신·증류 게이트·묶음(wake_at) 은 그대로 · 시험 = tests/test_pi_mbox_wake_quiet_aged_r2321.sh
 //  · r1540 = h 끝 알림을 «모은다» — h 마다 즉시 턴을 만들면 오빠의 다음 `!` 이 거의 늘 streaming 중이고, pi 는 그 결과를 대화로 옮기지 않는다(interactive-mode.js:5960·5982 · flush 는 :2781 한 곳). 마지막 h 뒤 조용함 창(FT_H_DONE_QUIET_MS · 기본 20000)이 지나고 좌석이 쉬면 한 통, 일하는 중이면 다음 정상 settled 에서 1회. 창이 안 끝난 settled 는 0(R1) · 대기 목록은 파일(<state>/pi-wake/<키>.hdone)이 정본이라 reload·shutdown 에서 유실 0(R2 · 새 session_start 회수 · ★R3★ 창은 «h 완료 시각» 에서 재므로 새 인스턴스는 남은 창을 존중한다).
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -58,7 +58,7 @@ export default function (pi: ExtensionAPI) {
   const borrowed = !fs.existsSync(localSh), mboxSh = borrowed ? path.join(root, ".fable-team", "comm", "mbox.sh") : localSh; // CLI 없으면 루트 것을 빌린다
   const state = process.env.FT_MBOX_STATE_DIR ?? path.join(root, ".fable-team", "state");
   const wakeDir = path.join(state, "pi-wake");
-  const seqFile = path.join(wakeDir, `${keyOf(seat)}.seq`), agedFile = path.join(wakeDir, `${keyOf(seat)}.aged`), agedMs = Number(process.env.FT_MBOX_WAKE_QUIET_AGED_MS ?? 900000); // ★r2321★ 늙음 창(기본 15분) · .aged = 늙어 깨운 최대 seq 1줄(일반 파일 · 못 읽음 = 표지 없음 · agent_end 의 writeSeq(null)·check(true) 가 안 지운다 · seq 표지와 별개)
+  const seqFile = path.join(wakeDir, `${keyOf(seat)}.seq`), agedFile = path.join(wakeDir, `${keyOf(seat)}.aged`), agedMs = Number(process.env.FT_MBOX_QUIET_AGE_S ?? 900) * 1000; // ★r2321★ 늙음 창 = FT_MBOX_QUIET_AGE_S 초(기본 900 = 15분 · 카드 글자와 같음) · .aged = 늙어 깨운 최대 seq 1줄(일반 파일 · 못 읽음 = 표지 없음 · agent_end 의 writeSeq(null)·check(true) 가 안 지운다 · seq 표지와 별개)
   const nudge = path.join(wakeDir, `${keyOf(seat)}.nudge`);
   // ★r1669★ 증류 게이트에 걸린 좌석 = recv 가 막혀 미읽음을 못 비운다 → 같은 미읽음에는 깨움 1회 뒤 억제(agent_end 가 지우지 않는다) + 팀장 1통.
   const gated = path.join(wakeDir, `${keyOf(seat)}.gated`), gatedMark = path.join(wakeDir, `${keyOf(seat)}.gatedmark`), markerFile = path.join(state, "pi-distill-pending", seat.replace(/#\d+$/, "")); // .gated = 억제한 최대 seq · .gatedmark = 팀장에 알린 표식 본문(같은 표식 두 번 알림 0)
@@ -144,11 +144,11 @@ export default function (pi: ExtensionAPI) {
     } catch (e) { fail(`held 기록 실패 ${f} — ${e}`); }
   }
 
-  function wakeNow(seq: number, viaNudge: boolean) { // 빌린 CLI 일 때만 FT_MBOX_DIR 로 «recv 대상 우편함» 을 밝힌다.
+  function wakeNow(seq: number, viaNudge: boolean): boolean { // 빌린 CLI 일 때만 FT_MBOX_DIR 로 «recv 대상 우편함» 을 밝힌다. · 반환 = 배달 성공(send-fail 이면 false — 늙음 표지 0)
     const content = `[발주 #${seq}] ${borrowed ? `FT_MBOX_DIR="${mboxDir}" ` : ""}bash ${mboxSh} recv ${seat} — 실행하고 그 안의 지시를 즉시 착수하라`;
-    try { pi.sendMessage({ customType: "ft-mbox", content, display: true }, { triggerTurn: true, deliverAs: "followUp" }); } catch (e) { B.why = "send-fail"; return fail(`sendMessage 실패 — ${e}`); }
+    try { pi.sendMessage({ customType: "ft-mbox", content, display: true }, { triggerTurn: true, deliverAs: "followUp" }); } catch (e) { B.why = "send-fail"; fail(`sendMessage 실패 — ${e}`); return false; }
     writeSeq(seq); wakePending = true; B.woke = nowS(); B.why = "woke"; // 성공한 깨움 = 배달 대기 1개(세션 시작 회수 포함 · DA HOLD R1) — agent_start 에서 소비
-    if (viaNudge) fs.rmSync(nudge, { force: true }); // nudge 삭제 = 깨운 뒤
+    if (viaNudge) fs.rmSync(nudge, { force: true }); return true; // nudge 삭제 = 깨운 뒤
   }
   // ★r1669★ true = 이번 깨움 억제 · false = 지금 동작 그대로(표식 없음 ⓔ · 후계·직전 세대 표식 ⓓ · 첫 억제 1회 · 새 쪽지 1회 더 ⓒ) · scheduled = r1476 sweep 이 미리 예약한 nudge 자리(재차감 0 · 기록은 하되 이미 억제한 seq 면 깨우지 않는다 · DA R1·R2)
   function recvGate(rows: Row[], seq: number, scheduled: boolean): boolean {
@@ -169,25 +169,25 @@ export default function (pi: ExtensionAPI) {
     try { fs.writeFileSync(gatedMark, body); } catch (e) { fail(`알림 기록 실패 ${gatedMark} — ${e}`); }
     return false;
   }
-  function armAged(act: Row[]) { const oldest = oldestTsMs(act), left = Number.isFinite(oldest) ? oldest + agedMs - nowMs() : -1; if (aT) { clearTimeout(aT); aT = null; } if (down || left <= 0) return; aT = setTimeout(() => { aT = null; run(); }, left); } // ★r2321 Q3★ 늙음 타이머 = 가장 오래된 큐만 행 + agedMs 시각에 check 1회(check 마다 다시 잼 · 주기 0 · 못 읽는 ts 뿐이면 0)
+  function armAged(pend: Row[]) { const oldest = oldestTsMs(pend), left = Number.isFinite(oldest) ? oldest + agedMs - nowMs() : -1; if (aT) { clearTimeout(aT); aT = null; } if (down || left <= 0) return; aT = setTimeout(() => { aT = null; run(); }, left); } // ★r2321 Q3★ 늙음 타이머 = «아직 안 깨운» 큐만 행의 가장 오래된 ts + agedMs 시각에 check 1회(check 마다 다시 잼 · 주기 0 · 못 읽는 ts 뿐이면 0)
   function check(force: boolean) { B.check = nowS(); B.why = "uquiet"; // ★r2128 W1★ 반환 이유는 갈래마다 B.why 에 남는다(run 이 .beat 1줄)
     if (uUntil > Date.now()) return; // ★r1555★ 창 안 = 아무것도 하지 않는다(우편함 읽기·seq·예산·held 0) — 창 끝 타이머가 run() 을 1회 부른다
     const rows = mine(), now = nowS(), held = rows.filter((r) => wakeOk(r, now) && (r.wake as number) > now), act = rows.length >= 8 ? rows : rows.filter((r) => !held.includes(r)); // ★r2169 W4★ «아직 묶음» = wake_at 미래 · ⓔ 미읽음 8행 이상 = 시각이 지난 행으로 본다
     if (bT) clearTimeout(bT); bT = held.length && !down ? setTimeout(() => { bT = null; run(); }, Math.min(...held.map((r) => r.wake as number)) * 1000 - Number(process.env.FT_MBOX_NOW ?? Date.now() / 1000) * 1000) : null; // ⓑ 가장 이른 wake_at 에 check 1회 · check 마다 다시 잼 · 주기 0
-    const quiet = act.length > 0 && quietOnly(act), aged = quiet && oldestTsMs(act) + agedMs <= nowMs(); if (quiet && !aged) armAged(act); else if (aT) { clearTimeout(aT); aT = null; } // ★r2321★ 큐만 = 늙었으면 1회 깨운다(그 전엔 지금처럼 큐만 · 늙는 시각에 타이머 1회)
+    const quiet = act.length > 0 && quietOnly(act), pend = act.filter((r) => r.seq > readAged()), aged = quiet && pend.length > 0 && oldestTsMs(pend) + agedMs <= nowMs(); if (quiet && !aged) armAged(pend); else if (aT) { clearTimeout(aT); aT = null; } // ★r2321★ 큐만 = «아직 안 깨운 행만» 세어 늙었으면 1회 깨운다 — 이미 깨운 옛 행이 남아도 새 행마다 바로 깨움 0 · 그 전엔 지금처럼 큐만 · 늙는 시각에 타이머 1회
     if (act.length === 0 || (quiet && !aged)) { B.why = rows.length === 0 ? "empty" : act.length ? "quiet-only" : "batched"; if (rows.length === 0) wakePending = false; return; } // 보고 전용 머리만 · 미읽음 0 = recv 가 소비했다(배달 대기 해제) · 예산 0
     B.why = inTurn ? "in-turn" : wakePending ? "wake-pending" : "inactive"; if (!activeSeat(false) || inTurn || wakePending) return; // ★매 이벤트 재확인★ · 판 2(r1529) = 턴 도중 쌓기 0 · 배달 안 된 깨움 1개 상한(ⓗⓘⓙ)
     const master = seats().master; // 사람 발신 판정 = _master(desk 로 활성돼도 같다)
     const seq = Math.max(...rows.map((r) => r.seq));
     const viaNudge = fs.existsSync(nudge); // r1476 sweep 이 이미 예약했다 — 재예약 0(이중 차감 0)
-    if (quiet) B.why = "quiet-aged"; B.why = "seq-dup"; if (!force && !viaNudge && readSeq() >= seq) return; // 턴 진행 중 중복 억제(여기 내려왔다는 것 = 늙은 큐만이면 «늙음» 갈래)
+    B.why = quiet ? "quiet-aged" : "seq-dup"; if (!force && !viaNudge && readSeq() >= seq) return; // 턴 진행 중 중복 억제
     B.why = "gated"; if (recvGate(rows, seq, viaNudge)) return; // ★r1669★ 증류 게이트 좌석 = 같은 미읽음에 깨움 1회(예산·턴 0) — nudge 예약분도 같은 칸(첫 예약은 기록하고 깨우고 · 이미 억제한 seq 면 깨움 0 · DA R1·R2)
-    B.why = "aged-done"; if (quiet && readAged() >= seq) return; const exempt = loud(rows.filter((r) => !wakeOk(r, now))) || rows.some((r) => humanSender(r.from, master)); // ★r2321 Q2★ 같은 seq 늙음 깨움 = 1회 / 예산 밖(카드 ④)
+    const exempt = loud(rows.filter((r) => !wakeOk(r, now))) || rows.some((r) => humanSender(r.from, master)); // 예산 밖(카드 ④)
     if (!viaNudge && !exempt) {
       const rc = reserve();
       if (rc !== 0) { B.why = "budget-held"; recordHeld(seq); if (rc !== 3) fail(`예산 CLI 실패 rc=${rc} — 턴 0(${seat} #${seq})`); return; } // fail-closed = 턴 0
     }
-    wakeNow(seq, viaNudge); if (quiet) writeAged(seq); // ★r2321★ 깨운 뒤 표지 — 같은 seq 로 다시 0(새 seq 는 1회 더)
+    const woke = wakeNow(seq, viaNudge); if (quiet && woke) writeAged(seq); // ★r2321★ 깨운 뒤에만 표지(배달 실패면 표지 0) — 같은 seq 로 다시 0 · 새 seq 는 1회 더
   }
   const run = () => { try { check(false); } catch (e) { fail(`감시 처리 실패 — ${e}`); } beat(); }, schedule = () => { if (!timer) timer = setTimeout(() => { timer = null; run(); }, debounce); }; // ★r2128★ run 끝 = .beat 1줄 · schedule = 폴더 사건 → 바운스 1회, run = 이벤트 처리
   pi.on("session_start", async (_event, ctx) => {
