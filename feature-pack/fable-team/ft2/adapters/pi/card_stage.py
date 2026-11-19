@@ -35,7 +35,7 @@ class Noop(Unsure):
     """r2274 C3 — 완성 증거 0(카드 문서만 착지 · 착지 줄 0) · main = rc 0 NOOP · keeper = 쓰기 0 Unsure(영구 사유 «완성 증거 0»)."""
     def __init__(self, why):
         super().__init__("완성 증거 0 " + why)
-HEX = re.compile(r"(?<![0-9A-Za-z])[0-9a-f]{7,40}(?![0-9A-Za-z])")   # r2274 C3 착지 줄 안 sha(마지막 것) · ft_no_code ⓒ 와 같은 꼴
+HEX = re.compile(r"(?<![0-9A-Za-z])(?=[0-9]*[a-f])[0-9a-f]{7,40}(?![0-9A-Za-z])")   # r2274 C3 착지 줄 안 sha(마지막 것 · a~f 1자 이상 = 숫자만 = Slack ts·PR 번호는 sha 아님 · DA#29 #342848) · ft_no_code ⓒ 와 같은 꼴
 class Slow(Unsure):
     """git 1회 7초 초과 — 결과 불명(재시도 1회는 push 만 · G5)."""
     pass

@@ -6,7 +6,7 @@
 #     git 1회 7초(하드 룰 12 · env FT_LAND_KIND_SEC 는 줄이기만 = 시험 대역) · 로컬 객체만(GIT_NO_LAZY_FETCH=1 · r1401) · 실패·시간 초과 = 판정 불가(하드 룰 20)
 #   ft_no_code [<카드 본문> | stdin] → 예외(구현 0 카드) 꼴 1줄 rc 0 · 예외 아님 = 출력 0 rc 1 — 고정 3꼴(r2274 C3 · r2275 도 씀)
 #     ⓐ 머리 «- 구현: 없음 — <사유>» ⓑ «- 닫힘(» 또는 «- <날짜> — 닫힘(» 으로 여는 줄에 «코드 0»
-#     ⓒ 마지막 «- 착지:» 줄 안에 16진수 7~40자 0 ∧ 값이 «라이브 DB 반영» 으로 시작
+#     ⓒ 마지막 «- 착지:» 줄 안에 16진수 7~40자(a~f 1자 이상 · 숫자만 = sha 아님) 0 ∧ 값이 «라이브 DB 반영» 으로 시작
 #   부르는 곳 = ft2 keeper_land.landing · ft2 card_stage.stage(keeper_land.land_kind·no_code 경유) · ft-card-flow.sh 착지됐는데 진행
 _FT_LAND_KIND_PY='
 import os, subprocess, sys
@@ -36,7 +36,7 @@ out("카드 문서만" if all(x.startswith("design/") and "/indices/" in x for x
 _FT_NO_CODE_PY='
 import re, sys
 body = sys.argv[1] if len(sys.argv) > 1 else sys.stdin.read()
-HEX = re.compile(r"(?<![0-9A-Za-z])[0-9a-f]{7,40}(?![0-9A-Za-z])")
+HEX = re.compile(r"(?<![0-9A-Za-z])(?=[0-9]*[a-f])[0-9a-f]{7,40}(?![0-9A-Za-z])")
 lands = re.findall(r"(?m)^- 착지(?:\([^)\n]*\))?:[ \t]*(.*)$", body)
 if re.search(r"(?m)^- 구현: 없음 — \S", body):
     print("ⓐ 구현 없음")
