@@ -69,6 +69,8 @@ def c_2(w):   # ② ① 뒤 = 바퀴 cursor B 머리 · 다음 바퀴 B·C 만(A
     _next(w)
     assert line(w.k, CAP) == [] and line(w.k, "ROUND-CAP") == [], w.k.lines
     assert _lands(w, "t1") == [] and _lands(w, "t2") == ["w01", "w02", "w03"], w.done   # A 0
+    ran, can = field(w.k, "items").split("/")   # DA#39 ⓑ — A 의 안 돈 자리(바퀴 cursor 앞)가 분모에 남지 않는다
+    assert ran == can, w.k.lines
     assert "cursor" not in _state(w), _state(w)   # 바퀴를 다 돌면 cursor 를 지운다
     _next(w)   # 3바퀴 = 앞부터 · A 는 7칸째부터
     assert _lands(w, "t1") == ["w07", "w08", "w09", "w10"], w.done
@@ -125,6 +127,31 @@ def c_8(w):   # ⑧ 한 바퀴에 A TEAM-CAP 뒤 C 에서 R2 cut → 바퀴 curs
     assert _state(w)["team_cursor"] == {"t1": {"work": "w07", "stage": "b1"}}, _state(w)
 
 
+# ── ⑨ 재개한 팀이 그 팀 안에서 끊김(DA#39 ⓐ) ────────────────────────────────
+def c_9(w):   # ⑨ 상한으로 멈춘 팀이 다시 돌다 그 팀 안에서 R2 끊김 → 다음 바퀴는 끊긴 자리부터 · 앞 work land 0(team_cursor 만 보면 w07 재판독)
+    _world(w, {"t1": 4.0, "t2": 1.0, "t3": 1.0}, {"t1": 10, "t2": 3, "t3": 3})
+    w.round()   # 1바퀴 = A 멈춤(w07) · cursor = t2 머리
+    assert line(w.k, CAP) == ["TEAM-CAP t1 w07 b1 s=24 — 다음 팀"], w.k.lines
+    _next(w)   # 2바퀴 = t2·t3(A 0) · 다 돌아 cursor 지움
+    assert "cursor" not in _state(w), _state(w)
+    land = w.k.landing
+
+    def slow_landing(team, work):   # 3바퀴 — 재개한 A 가 8칸째에서 몫을 다 쓴다
+        if team == "t1" and work == "w08":
+            w.t += 40.0
+        return land(team, work)
+    w.k.landing = slow_landing
+    _next(w)
+    assert _lands(w, "t1")[:2] == ["w07", "w08"], w.done
+    assert _state(w)["cursor"] == {"team": "t1", "work": "w08", "stage": "b1", "cuts": 1}, _state(w)   # R2 자리 우선
+    assert _state(w)["team_cursor"] == {"t1": {"work": "w07", "stage": "b1"}}, _state(w)   # 안 끝났으니 그대로
+    w.k.landing = land
+    _next(w)   # 4바퀴 = 끊긴 자리(w08)부터 · w07 재판독 0
+    assert _lands(w, "t1")[0] == "w08" and "w07" not in _lands(w, "t1"), w.done
+    ran, can = field(w.k, "items").split("/")
+    assert ran == can, w.k.lines
+
+
 # ── ⑦ 회귀 · T4 불변 ─────────────────────────────────────────────────────────
 def c_7(w):   # ⑦ keeper 시험 전부 = 기준판과 실패 이름 diff 0 — 그 자리에서 바퀴 판정 두 파일을 돌린다(실패 = 이름이 그대로 실패)
     got = subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "test_keeper_round_60s.py", "test_keeper_round_cells.py"],
@@ -133,7 +160,7 @@ def c_7(w):   # ⑦ keeper 시험 전부 = 기준판과 실패 이름 diff 0 —
 
 
 # ── 사례·변이 ────────────────────────────────────────────────────────────────
-CASES = {"1": c_1, "2": c_2, "3": c_3, "4": c_4, "5": c_5, "6": c_6, "7": c_7, "8": c_8}
+CASES = {"1": c_1, "2": c_2, "3": c_3, "4": c_4, "5": c_5, "6": c_6, "7": c_7, "8": c_8, "9": c_9}
 
 GUARD = "        if not nxt or spent < WORK_S / 2:"
 MEMO = '        self.state.setdefault("team_cursor", {})[team] = {"work": work, "stage": stage}'
