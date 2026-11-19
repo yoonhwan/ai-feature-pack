@@ -6,11 +6,14 @@ C3 유휴 = Pi 턴 끝 ∧ pane Working 0 ∧ 사람 화면 0(attached N 도 닫
 C4 재개 기록 먼저 = seat-resume/<S>.json(uuid = cwd 세션 폴더 *.jsonl 정확히 1개 ∧ mtime ≥ session_created) · tmp → replace · resume_ok 통과 · 같은 name·uuid = 다시 쓰기 0.
 C5 세션만 닫기 = kill-session 1 → 부재 확인 → «CLOSED-SUCCEEDED <팀> <W> <S> -> <H>» · 가지·worktree·keep ref·명부·ft2 장부 쓰기 0 · 정지 중 = «예정» 줄만.
 C6 B2·B3·승계·판정 목록 길 글자 0 · 나노 밖 좌석 손 0 · 1.x 도구 호출 0.
+r2311 K3 팀·좌석 초(주입 시계) · SEAT_S 이상 = «SLOW-SEAT <팀> <좌석> s=<초> step=sweep:<keep|idle|resume|kill>»(팀 안 좌석 밖 초 = «- … step=sweep:team») · 큰 순 SEAT_CAP 줄 + «외 N».
+r2311 K4 팀 하나 끝낼 때마다 바퀴 남은 몫 < MIN_S = 다음 팀부터 다음 바퀴(state sweep_cursor) · 팀 안 Cut = cursor 그 팀 · 다 돌면 지움 · 목록에 없는 cursor = 처음부터.
 """
 import glob, importlib.util, json, os  # noqa: E401
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FT2 = os.path.dirname(os.path.dirname(HERE))
+SEAT_S, SEAT_CAP = 5, 5   # r2311 K3 r2306 SLOW-SEAT 와 같은 문턱·줄 수
 
 
 def _load(path, alias):
@@ -50,23 +53,76 @@ def model_of(path):
 class CloseOld:
     def __init__(self, keeper):
         self.k = keeper
+        self.slow, self.inner, self.marks, self.cur, self.t0 = [], 0.0, {}, None, 0.0   # r2311 K3
 
     def sweep(self):
-        """바퀴 1회 — 팀마다 최신 dispatch · intent 표 1회 → 후보 S 마다 one()."""
-        k = self.k
-        alive = k.alive_sessions()
+        """바퀴 1회 — 팀마다 최신 dispatch · intent 표 1회 → 후보 S 마다 one() · r2311 SLOW-SEAT 줄은 finally(끊김·예외도 씀)."""
+        alive = self.k.alive_sessions()
         if not alive:
             return
-        for team in k.teams():
+        self.slow = []
+        try:
+            self.rounds(alive)
+        finally:
+            self.slow_lines()
+
+    def rounds(self, alive):
+        """r2311 K4 — cursor 팀부터 팀 단위 · 팀 끝마다 남은 몫 · 팀 안에서는 예산으로 끊지 않음(좌석 kill 반쪽 0)."""
+        k, teams = self.k, list(self.k.teams())
+        at = k.state.get("sweep_cursor")
+        for n in range(teams.index(at) if at in teams else 0, len(teams)):
+            k.state["sweep_cursor"] = teams[n]   # 사전 DA 조건 2 — 팀 안 Cut = 이 팀부터 다시(one() 은 다시 돌아도 안전)
+            self.team(teams[n], alive)
+            left = k.left()
+            if n + 1 < len(teams) and left is not None and left < k.MIN_S:
+                k.state["sweep_cursor"] = teams[n + 1]
+                return
+        k.state.pop("sweep_cursor", None)
+
+    def team(self, team, alive):
+        """팀 1개 — 최신 dispatch · intent 표 1회 → 후보 S 마다 one() · r2311 K3 좌석 밖 초 ≥ SEAT_S = «- s=… step=sweep:team» 후보."""
+        k, at, self.inner = self.k, self.k.now(), 0.0
+        try:
             last = endings.latest(k, team)
             if last is None:
-                k.log("판정 불가", team, "장부 못 읽음 — 승계 끝 구 나노 닫기 0")
-                continue
+                return k.log("판정 불가", team, "장부 못 읽음 — 승계 끝 구 나노 닫기 0")
             trees = self.intents(team)
             for seat in sorted(alive):
                 hit = self.target(team, seat, alive, last, trees)
                 if hit:
-                    self.one(team, seat, alive, *hit)
+                    self.seat(team, seat, alive, hit)
+        finally:
+            rest = k.now() - at - self.inner
+            if rest >= SEAT_S:
+                self.slow.append((rest, team, "- s=%g step=sweep:team" % round(rest, 1)))
+
+    def seat(self, team, seat, alive, hit):
+        """r2311 K3 — one() 1회 초 · SEAT_S 이상 = 가장 긴 단계 이름 1개(끊김·예외도 finally)."""
+        self.marks, at = {}, self.k.now()
+        try:
+            self.one(team, seat, alive, *hit)
+        finally:
+            self.lap(None)
+            dt = self.k.now() - at
+            self.inner += dt
+            if dt >= SEAT_S:
+                step = max(self.marks, key=self.marks.get) if self.marks else "-"
+                self.slow.append((dt, team, "%s s=%g step=sweep:%s" % (seat, round(dt, 1), step)))
+
+    def lap(self, step):
+        """r2311 K3 — 단계 경계(주입 시계) · 앞 단계 초를 marks 에 더하고 step 을 열음(None = 닫기만)."""
+        now = self.k.now()
+        if self.cur:
+            self.marks[self.cur] = self.marks.get(self.cur, 0.0) + now - self.t0
+        self.cur, self.t0 = step, now
+
+    def slow_lines(self):
+        """r2311 K3 — r2306 꼴 · 큰 순 SEAT_CAP 줄 + 넘친 수 1줄 · 후보 0 = 줄 0."""
+        rows = sorted(self.slow, key=lambda r: -r[0])
+        for _, team, text in rows[:SEAT_CAP]:
+            self.k.log("SLOW-SEAT", team, text)
+        if len(rows) > SEAT_CAP:
+            self.k.log("SLOW-SEAT", text="외 %d" % (len(rows) - SEAT_CAP))
 
     def intents(self, team):
         """holder → (work, intent) · FT2_HOLDER 로 가진 가장 늦은 intent 1개(at · 경로 순)."""
@@ -91,16 +147,20 @@ class CloseOld:
     def one(self, team, seat, alive, work, new, intent, new_intent):
         """C2 → C3 → 정지 중 «예정» → C4 재개 기록 → C5 kill 1 · 부재 확인 · 닫기 줄."""
         k = self.k
+        self.lap("keep")   # r2311 K3 단계 경계
         why = self.keep(intent.get("worktree") or "", new_intent.get("worktree") or "")
         if why.startswith("판정 불가"):
             return k.log("판정 불가", team, "%s %s %s — 닫기 0" % (work, seat, why[len("판정 불가 · "):]))
         if why:
             return self.held(team, work, seat, why)
+        self.lap("idle")
         if not self.idle(team, work, seat, intent):
             return None
         if k.halt:
             return k.verdict(team, work, seat, "예정 CLOSED-SUCCEEDED", "close-old", "-> %s · 정지 중 kill 0" % new) and None
+        self.lap("resume")
         why = self.resume(seat, new, intent)
+        self.lap("kill")
         if why:
             return k.log("판정 불가", team, "%s %s 재개 기록 %s — 닫기 0" % (work, seat, why))
         k.call([k.tmux, "kill-session", "-t", "=" + seat])
