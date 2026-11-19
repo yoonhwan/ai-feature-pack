@@ -86,8 +86,8 @@ c2() { local o r; base_case c2; git -C "$W" remote set-url origin "$C/없는리�
   o="$(. "$1/ft-card-target-lib.sh" && ft_land_refs "$W")"; r=$?
   [ "$r" -ne 0 ] && [ "$(printf '%s\n' "$o" | grep -c .)" = 1 ] && case "$o" in "판정 불가 착지 ref — git ls-remote origin rc=128"*) true;; *) false;; esac || { WHY="rc=$r «$o»"; return 1; }; }
 c3() { mk3; due "$1"; in_ "닫기 차례 $SEAT 팀=harness 가지=nano/x landed=squash ref=origin/ops/main-base main=" \
-  && in_ " — FT_LAND_REF=origin/ops/main-base bash ft-nano-close.sh $SEAT --landed-pr 7 " && [ "$RC" = 0 ]; }
-c4() { mk45 c4; due "$1"; in_ "닫기 차례 $SEAT 팀=harness 가지=nano/x landed=squash ref=origin/main main=" && in_ " — bash ft-nano-close.sh $SEAT --landed-pr 7 " && [ "$RC" = 0 ]; }
+  && in_ " — 채울 일: FT_LAND_REF=origin/ops/main-base ft-nano-close.sh $SEAT --landed-pr 7 " && [ "$RC" = 0 ]; }
+c4() { mk45 c4; due "$1"; in_ "닫기 차례 $SEAT 팀=harness 가지=nano/x landed=squash ref=origin/main main=" && in_ " — 채울 일: ft-nano-close.sh $SEAT --landed-pr 7 " && [ "$RC" = 0 ]; }
 c5() { mk45 c5; due "$1"; in_ "$NONE" && ! in_ "닫기 차례 $SEAT" && [ "$RC" = 0 ]; }
 
 # ── ⑦ evidence-check: origin main · ops/main-base(갈라짐) · 세트 S(ops 위) · HEAD = S 에 ops/main-base 병합 ──
@@ -113,7 +113,7 @@ c8() { local a b ar br
   [ "$o" = origin/main ] || { WHY="ft_land_refs env «$o»"; return 1; }
   mk3; FT_LAND_REF=origin/main due "$1"; a="$OUT"; ar=$RC; FT_LAND_REF=origin/main due "$BASEB"; [ "$a/$ar" = "$OUT/$RC" ] || { WHY="due env main ③ 다름 «$a» vs «$OUT»"; return 1; }
   case "$a" in *"$NONE"*) ;; *) WHY="due env main ③ 제외 아님 «$a»"; return 1;; esac
-  mk8m; due "$1"; a="$(printf '%s' "$OUT" | sed 's/ ref=origin\/main / /')"; ar=$RC; due "$BASEB"; [ "$a/$ar" = "$OUT/$RC" ] || { WHY="due main 착지 다름(ref= 칸 빼고) «$a» vs «$OUT»"; return 1; }
+  mk8m; due "$1"; a="$(printf '%s' "$OUT" | sed 's/ ref=origin\/main / /; s/ — 채울 일: / — bash /')"; ar=$RC; due "$BASEB"; [ "$a/$ar" = "$OUT/$RC" ] || { WHY="due main 착지 다름(ref= 칸 빼고) «$a» vs «$OUT»"; return 1; }   # r2290 A1 — 채움 실패 줄 «채울 일:» 꼴만 기준판 말(« — bash »)로 되돌려 대조
   mk7; FT_LAND_REF=origin/main ev "$1"; a="$OUT"; ar=$RC; FT_LAND_REF=origin/main ev "$BASEB"; [ "$a/$ar" = "$OUT/$RC" ] && [ "$ar" = 1 ] || { WHY="evidence env main 다름 «$a»/$ar vs «$OUT»/$RC"; return 1; }; }
 lap 준비
 

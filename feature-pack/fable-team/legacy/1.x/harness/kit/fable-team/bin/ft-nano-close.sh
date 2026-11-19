@@ -2178,6 +2178,7 @@ fi
 #   번호 = 명부 index 파일 이름의 r<숫자> · 찾는 곳 = 카드 루트의 indices/{진행,완성,아카이브}/r<번호>-*.md · 정확히 1개일 때만 --superseded-by 꼴을 보여 준다(추측 0 · 0·2개 이상 = 개수만).
 #   폴더 조회 실패·번호 못 뽑음 = «판정 불가» 1줄(하드 룰 20) — 판정을 바꾸지 않는다.
 nf_superseded_next_hint() {
+  nf_result_relpath_hint   # r2290 — ① 상대경로 안내도 «사유 줄 뒤» 이 자리에서(REJECT 줄 문자열 = r1733 변이 자리 그대로)
   local _h=0 _b _nm _num _rt _own _d _bs _f _rel _hit="" _cnt=0 _one=""
   for _b in "${bad[@]}"; do case "$_b" in
     "⑥카드 못 찾음:"*|*"«세트 + main 병합뿐» 도 아님(판정기 rc="*) _h=1;;   # ⑥카드 못 찾음 4곳(:1650·:1658·:1741·:1765) · ⑥--landed-pr NOT-EQUIV(:1076)
@@ -2202,6 +2203,14 @@ nf_superseded_next_hint() {
     0) echo "다음: 같은 번호 카드 0개 — 명부 index 를 확인해라(추측 0)";;
     *) echo "다음: 같은 번호 카드 ${_cnt}개 — 명부 index 를 확인해라(추측 0)";;
   esac
+}
+# ★r2290★ ①«결과 경로 없음» 이 상대경로 --result 면 기준 폴더를 말한다 — 사유 줄들 «뒤» 에 «다음:» 1줄(cwd 기준으로 찾았다 · 상대경로 자동 수용 0).
+#   좌석 워크트리($SEAT_WT)에 그 상대경로가 있으면 그 절대경로 · 없으면 cwd 기준 안내. 절대경로·빈 값·다른 갈래 = 이 줄 0 · 판정·rc·명부·원장 그대로(A4).
+nf_result_relpath_hint() {
+  case "${RESULT:-/}" in /*) return 0;; esac
+  case "|$(printf '%s|' "${bad[@]}")" in *"|①결과 경로 없음: "*) ;; *) return 0;; esac
+  if [ -n "${SEAT_WT:-}" ] && [ -e "$SEAT_WT/$RESULT" ]; then echo "다음: --result $SEAT_WT/$RESULT(나노 워크트리 기준 절대경로)"   # r2290-mut:seatwt
+  else echo "다음: --result 는 cwd 기준 — 나노 워크트리 기준 절대경로로"; fi
 }
 if [ "${#bad[@]}" -gt 0 ]; then echo "REJECT $SEAT"; printf '  - %s\n' "${bad[@]}"; nf_superseded_next_hint; exit 1; fi
 # r1405: 팩 워크트리 판정 = 첫 쓰기(중단 [wip]·카드 줄·pid 기록·sheet·명부·원장) «전» — git·판정기 실패 = 여기서 REJECT rc1 · 착지 전 보존·후계 공유·never-started·공유 워크트리는 보지 않는다
