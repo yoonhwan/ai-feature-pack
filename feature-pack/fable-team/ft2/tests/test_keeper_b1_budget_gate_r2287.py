@@ -1,4 +1,4 @@
-"""r2287 ft2 keeper — card_stage·card_archive 의 바깥 호출(git spawn · lib bash)이 모두 바퀴 예산 문(남은 몫 ≥ 7초)을 지나고,
+"""r2287 ft2 keeper — card_stage 의 바깥 호출(git spawn · lib bash = da_judge · sh)이 모두 바퀴 예산 문(남은 몫 ≥ 7초)을 지나고,
 SLOW-CELL 줄 끝에 그 칸의 오래 걸린 호출 3개와 호출 밖 초(top=… py=…)를 덧붙인다.
 대역 = r1812 World(임시 리포·가짜 tmux·주입 시계 w.t) · 가짜 lib bash(ft_close_marker·ft_no_code·ft_land_kind 1회 6초) · 가짜 git 1회 4초 · sleep 0.
 ①~⑤ · 변이 M1~M3 = 자매 test_keeper_b1_budget_gate_mut_r2287.py."""
@@ -99,23 +99,30 @@ def c2(w, mp):   # ② 남은 몫 6초에서 da_judge 차례 → bash 시작 0 �
     assert "harness|r9873" not in k.state.get("staged", {}), k.state.get("staged")
 
 
-def archive_mod(w):
-    spec = importlib.util.spec_from_file_location("r2287_archive_%d" % id(w), str(w.ft2 / "adapters" / "pi" / "card_archive.py"))
+def stage_mod(w):
+    """바퀴 밖 card_stage(keeper 손 0) — 그 World 의 ft2 사본에서 읽음."""
+    spec = importlib.util.spec_from_file_location("r2287_stage_%d" % id(w), str(w.ft2 / "adapters" / "pi" / "card_stage.py"))
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
 
 
-def c3(w, mp):   # ③ card_archive.judge 같은 꼴 → bash 시작 0 · OutOfRound(keeper = DEFER)
-    seen, arch = Seen(w, mp), archive_mod(w)
-    k = keeper(w, mp, seen)
-    k.start, k.sect = w.t, WORK_S
-    mp.setattr(arch.cs, "proc", k.gate(arch.cs.proc, lambda argv, *a, **kw: "bash"))
-    at_left(w, k, 6)
-    K = k.run_once.__globals__
-    with pytest.raises(K["OutOfRound"]):
-        arch.judge(str(w.root), "## 판정 §1\n닫힘 — r9874-x — 버림\n", "§1", "r9874-x")
-    assert seen.starts == [], seen.starts
+def c3(w, mp):   # ③ 남은 몫 6초에서 impl 차례(2.0.135 sh · ft_land_kind) → bash 시작 0 · DEFER · «판정 불가 land_kind» 줄 0
+    w.card("r9874", w.land_sha(), refs=("ops/main-base",)), w.work("r9874", intent=False)
+    seen = Seen(w, mp, 0)
+    def git(k, real):
+        def spawn(cwd, args, env=None):
+            out = real(cwd, args, env)
+            if list(args[:2]) == ["rev-parse", "-q"] and out[0] == 0:   # impl 의 착지 sha 확인 git 뒤 = land_kind 차례
+                at_left(w, k, 6)
+            return out
+        return spawn
+    k = keeper(w, mp, seen, git)
+    lines = w.round(k)
+    assert not [x for x in seen.starts if x[0] == "ft_land_kind" and x[1] is not None and x[1] < CALL_S], (seen.starts, lines)
+    assert [x.split(" card_stage")[0] for x in lines if x.startswith("DEFER")] == ["DEFER harness r9874"], lines
+    assert not any("판정 불가 land_kind" in x or x.startswith("CARD-STAGE") for x in lines), lines
+    assert "harness|r9874" not in k.state.get("staged", {}), k.state.get("staged")
 
 
 def c4(w, mp):   # ④ 느린 칸 — 호출 4초 × 3 + 파이썬 5초 → SLOW-CELL 줄 끝 «top=… py=5» · 초 큰 순 · 기존 칸 그대로
@@ -143,20 +150,18 @@ def c4(w, mp):   # ④ 느린 칸 — 호출 4초 × 3 + 파이썬 5초 → SLOW
     assert len(rnd) == 1 and "slow=harness:b1:17" in rnd[0] and "top=" not in rnd[0], rnd
 
 
-def c5(w, mp):   # ⑤ 바퀴 밖(left None) card_stage·card_archive 손 단독 → 지금과 같은 출력 · 호출 상한 7초 그대로
-    seen, arch = Seen(w, mp), archive_mod(w)
+def c5(w, mp):   # ⑤ 바퀴 밖(left None) card_stage 손 단독 → 지금과 같은 출력 · 호출 상한 7초 그대로
+    seen, cs = Seen(w, mp), stage_mod(w)
     caps = []
     def run(argv, *a, **kw):
         caps.append(kw.get("timeout"))
         return seen.run(argv, *a, **kw)
     mp.setattr(subprocess, "run", run)
-    cs = arch.cs
     assert cs.da_judge(str(w.root), "## 판정 §1\n본문\n", "§1", "r9876-x") == "§1 에 r9876-x 닫힘 표식 없음"
     lib = str(w.root / ".fable-team" / "bin" / "ft-land-kind-lib.sh")
     assert cs.sh(["bash", "-c", "x", "x", lib, "ft_no_code"], 7) == (1, "")
     assert cs.sh(["bash", "-c", "x", "x", lib, "ft_land_kind"], 7) == (0, "구현\n")
-    assert arch.judge(str(w.root), "## 판정 §1\n닫힘 — r9876-x — 버림\n", "§1", "r9876-x") is None
-    assert caps == [7, 7, 7, 7] and [x[1] for x in seen.starts] == [None] * 4, (caps, seen.starts)
+    assert caps == [7, 7, 7] and [x[1] for x in seen.starts] == [None] * 3, (caps, seen.starts)
 
 
 CASES = {"c1": c1, "c2": c2, "c3": c3, "c4": c4, "c5": c5}
