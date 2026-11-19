@@ -63,7 +63,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 // 사건 전달은 비동기 — «깨움이 일어났는가» 를 상한 600ms 안에서 확인한다(사건 유실이면 FAIL 그대로).
 const until = async (fn, ms = 600) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (fn()) return true; await wait(10); } return fn(); };
 const keyOf = (s) => s.replace(/[^A-Za-z0-9._#-]/g, "_");
-const row = (seq, to, body) => JSON.stringify({ seq, ts: "2026-11-09T00:00:00", to, from: "test-sender", body });
+const row = (seq, to, body) => JSON.stringify({ seq, ts: new Date().toISOString(), to, from: "test-sender", body }); // ★r2321★ ts = «지금» — T8a(보고 전용 머리 = 큐만)는 «지금 온 [정리]» 를 잰다(늙은 ts 면 늙음 깨움 갈래로 간다)
 const append = (f, ...rows) => fs.appendFileSync(f, rows.map((r) => r + "\n").join(""));
 const replace = (f, ...rows) => { const t = `${f}.tmp`; fs.writeFileSync(t, rows.map((r) => r + "\n").join("")); fs.renameSync(t, f); };
 const lines = (f) => { try { return fs.readFileSync(f, "utf-8").split("\n").filter((l) => l.trim()).length; } catch { return 0; } };
