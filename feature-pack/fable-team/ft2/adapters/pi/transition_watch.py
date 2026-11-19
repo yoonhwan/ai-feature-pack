@@ -14,6 +14,7 @@ def _load(name):
 
 land = _load("keeper_land")
 BUDGET_S, GIT_S, DAY_CAP, NAMES, DAY = 5.0, 7, 3, 10, 86400   # 예산 5초 = 마지막 카드 1장(git log·land_kind)이 넘쳐도 바퀴 +7초 안
+Stop = type("Stop", (Exception,), {"__doc__": "C6 R2 문 — 바퀴 남은 몫 < 7초 = 이 바퀴 멈춤(이어 보기 · 판정 불가 아님 · seen 그대로)"})
 CARD, LANDT = re.compile(r"^(design/.+)/indices/(대기|진행|완성)/([^/]+)\.md$"), re.compile(land.LAND.pattern + "(.*)$", re.M)
 PRE, TOK = re.compile(r"^- 선행:(.*)$", re.M), re.compile(r"[^\s()·,`'\"<>«»:;]+")
 # C1 표 한 곳 — (칸, 증거 함수 e_<이름>, 상한 키, 기본 초, 위임 대상 · 빈칸 = 신규 알림) · 차례 = 고정 첫 일치(① 증거 모순 → ② 위임 → ③ 시간 상한)
@@ -30,10 +31,12 @@ def limits(k):   # 상한 = env > <루트>/.fable-team/thresholds.env > ~/.claud
     return {fn: int(v) if (v := (k.env.get(key) or next((x.split("=", 1)[1].strip() for p in files for x in open(p, encoding="utf-8") if x.startswith(key + "=")), "")) if key else "").isascii() and v.isdigit() else sec
             for _, fn, key, sec, _ in ROWS}
 class Watch:
-    def __init__(s, k, clock=time.monotonic):
-        s.k, s.clock, s.now, s.lim, s.books, s.recent, s.st = k, clock, k.now(), limits(k), {}, {}, k.state.setdefault("transition", {})
+    def __init__(s, k, clock=time.monotonic, hard=None):   # hard = 바깥 호출 문 끝 시각(check = 시작 + 7+7초 · survey = None = 문 없음)
+        s.k, s.clock, s.hard, s.now, s.lim, s.books, s.recent, s.st = k, clock, hard, k.now(), limits(k), {}, {}, k.state.setdefault("transition", {})
         s.kind, s.nc = s.st.setdefault("kind", {}), s.st.setdefault("nc", {})   # 구현 착지 판정 · no_code 기억(바퀴 사이 · 4000 넘으면 비움)
     def run(s, argv, inp=None):   # 바깥 호출 1곳 · 7초 · 재시도 0(하드 룰 12) · 넘침·실행 실패 = rc None
+        if s.hard is not None and (s.hard - s.clock() < GIT_S or (left := s.k.left()) is not None and left < GIT_S):
+            raise Stop("남은 몫 7초 아래")   # C6 문 — 남은 몫(문 끝·keeper 구획) ≥ 7초일 때만 시작 = check 1회 바깥 호출 합 ≤ 7+7초
         try:
             done = subprocess.run(argv, input=inp, capture_output=True, timeout=GIT_S, env=s.k.env, cwd=s.k.root)
         except (subprocess.TimeoutExpired, OSError) as exc:
@@ -42,8 +45,7 @@ class Watch:
     def call(s, argv, cap): return s.run(argv)   # keeper_land.lib_call 손 → (rc, stdout)
     def git(s, *args, inp=None): return s.run(["git", "-C", s.k.root, "-c", "core.quotepath=off"] + list(args), inp)
     def index(s):   # [카드 dict] 경로 순 · 같은 (팀, stem) = 앞 ref 1장 · 판독 실패 = «판정 불가 <사유>».
-        rc, md = s.git("show", land.REFS[0] + ":design/TEAMS.md")
-        fmap, pick = {}, {}
+        fmap, pick, (rc, md) = {}, {}, s.git("show", land.REFS[0] + ":design/TEAMS.md")
         for cells in ([x.strip() for x in ln.strip().strip("|").split("|")] for ln in md.splitlines()) if rc == 0 else ():
             [fmap.setdefault(f, cells[0]) for f in (land.folders(cells[1]) if len(cells) > 1 and "design/" in cells[1] else ())]
         for ref in land.REFS if rc == 0 else ():
@@ -73,8 +75,7 @@ class Watch:
         return s.books[team]
     @staticmethod
     def works(c, book):   # 카드 stem 에 맞는 work(정확 → «work-» 접두 · 긴 것 먼저)
-        stem = c["stem"]
-        return [x for x in [stem] + [stem[:i] for i in range(len(stem) - 1, 0, -1) if stem[i] == "-"] if x in book]
+        return [x for x in [c["stem"]] + [c["stem"][:i] for i in range(len(c["stem"]) - 1, 0, -1) if c["stem"][i] == "-"] if x in book]
     def kind_of(s, sha, tail):   # r2274 land_kind 1곳(착지 줄 꼬리에 ai-feature-pack = 팩 먼저) · 판정 불가 = 기억 0
         for repo in ((s.k.pack, s.k.root) if "ai-feature-pack" in tail else (s.k.root, s.k.pack)) if sha not in s.kind else ():
             if not (word := land.land_kind(s.k.root, repo, sha, s.call)).startswith("판정 불가"):
@@ -96,8 +97,7 @@ class Watch:
                 at = int(ln[1:]) if ln.startswith("@") else at
                 ln.startswith("@") or not ln or got.setdefault(ln, at)
             s.recent[c["ref"]] = (got, since) if rc == 0 else "판정 불가 git log %s rc %s" % (c["ref"], rc)
-        got = s.recent[c["ref"]]
-        return got if isinstance(got, str) else got[0].get(c["path"], got[1])
+        return got if isinstance(got := s.recent[c["ref"]], str) else got[0].get(c["path"], got[1])
     def marker(s, holder):   # keeper_succeed.marker 와 같은 증류 미완 표식 · 나이(초) · 없음·남의 좌석 = None
         path = os.path.join(s.k.root, ".fable-team", "state", "pi-distill-pending", re.sub(r"#\d+$", "", holder))
         try:
@@ -141,17 +141,18 @@ class Watch:
         s.rej = "REJECT" in ([x for x in c["body"].splitlines() if "착지" in x] or [""])[-1]   # 마지막 착지 시도 줄 REJECT
         return next(((row, got) for row in ROWS for got in [getattr(s, "e_" + row[1])(c)] if got is not None), None)   # C1 첫 일치 (행, 내용) · 일치 0 = None · 판정 불가 = 그 칸에서 멈춤(내용 = 사유)
 def sweep(w, deadline=None):   # 카드 차례대로 한 칸씩 · (끝났나, 판정 불가 사유) · 결과 = st.hits {팀|칸: [[이름, 내용], …]} · 이어 보기 = st.seen.
-    cards = w.index()
-    if isinstance(cards, str):
-        return False, cards
-    seen, hits = set(w.st.setdefault("seen", [])), w.st.setdefault("hits", {})
-    for c in (c for c in cards if c["path"] not in seen):
-        if deadline is not None and w.clock() >= deadline:
-            return False, ""   # C6 예산 넘음 = 다음 바퀴 이어서(묶음 0)
-        got = w.classify(c)
-        got and hits.setdefault("%s|%s" % (c["team"], got[0][1]), []).append([c["stem"], got[1]])
-        w.st["seen"].append(c["path"])
-    return True, ""
+    try:
+        cards = w.index()
+        seen, hits = set(w.st.setdefault("seen", [])), w.st.setdefault("hits", {})
+        for c in [] if isinstance(cards, str) else [c for c in cards if c["path"] not in seen]:
+            if deadline is not None and w.clock() >= deadline:
+                return False, ""   # C6 예산 넘음 = 다음 바퀴 이어서(묶음 0)
+            got = w.classify(c)
+            got and hits.setdefault("%s|%s" % (c["team"], got[0][1]), []).append([c["stem"], got[1]])
+            w.st["seen"].append(c["path"])
+    except Stop:
+        return False, ""   # C6 문 = 이 카드 seen 0 · 다음 바퀴 그 자리부터
+    return not isinstance(cards, str), cards if isinstance(cards, str) else ""
 def bundles(w, hits, day):   # C6 (팀 · 칸) 묶음 = [팀, 칸, 날짜, 지문, 본문] · 위임 칸 = 0 · 판정 불가 = 1줄(알림 0).
     out = []
     for key in sorted(hits):
@@ -176,10 +177,9 @@ def flush(w, day):   # C6 보내기 — keeper notify 길 · (팀 · 칸) 하루
 def check(k, clock=time.monotonic, budget=BUDGET_S):   # keeper 바퀴 끝 1회(반환 None) — 미룬 묶음 보내기 → 이어 스캔(예산 안) → 스캔이 끝났으면 묶음 → 보내기.
     if (left := k.left()) is not None and left < 2 or k.root in k.stale or not os.path.exists(os.path.join(k.root, ".git")):
         return None   # 남은 몫 2초 아래 · BYZ 낡음(keeper 가 판정 불가 1줄을 이미 씀) · git 리포 아닌 루트 = 이 바퀴 0
-    w, day = Watch(k, clock), k.stamp()[:10]
+    w, day = Watch(k, clock, clock() + 2 * GIT_S), k.stamp()[:10]
     done, err = sweep(w, clock() + min(budget, left - 1 if left is not None else budget))
-    err and w.st.get("err") != err and k.log("판정 불가", text="전이 감시 " + err)
-    w.st["err"] = err
+    w.st["err"] = (err and w.st.get("err") != err and k.log("판정 불가", text="전이 감시 " + err)) or err   # 판정 불가 = 사유가 바뀔 때 1줄
     if done:
         w.st["out"], w.st["seen"] = (w.st.get("out") or []) + bundles(w, w.st.pop("hits", {}), day), []
         [w.st[x].clear() for x in ("kind", "nc") if len(w.st[x]) > 4000]
