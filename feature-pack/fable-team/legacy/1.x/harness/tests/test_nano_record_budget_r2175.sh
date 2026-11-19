@@ -113,13 +113,13 @@ c6() {  # ⑥ ① + 판정불가 줄 1 → 그 줄 그대로 · 미룸 5 · rc 3
 }
 c7() {  # ⑦ 둘째 발신 때 표식 = «<epoch> send <받는 이> 경과=5 보냄=1 남음=6» · 끝 = «끝» · ring 직전 = 경과 18 · 보냄 1
   own "c7$1" 29 8; nt 0 5
-  t "⑦ 둘째 발신 표식" [ "$(sed -n 2p "$CP" | sed -E 's/^send [0-9]+\.[0-9]{6} /send E /')" = "send E send $MASTER 경과=5 보냄=1 남음=6" ]
+  t "⑦ 둘째 발신 표식" [ "$(sed -n 2p "$CP" | sed -E 's/^send [0-9]+\.[0-9]{6} /send E /; s/ 단계=.*$//')" = "send E send $MASTER 경과=5 보냄=1 남음=6" ]
   t "⑦ 끝 표식" [ "$(cut -d' ' -f2,3 "$SF")" = "끝 -" ]; return $E
 }
 c7r() {  # ⑦r 재촉 줄 ring 직전 표식 = 경과 18 · 보냄 1(시계 11 에서 차례 쪽지 +7)
   local s n; s="c7r$1"; n="$(NN "$s")"; fresh; land 30; card "$s"; seats "$n|nano|$s"; turn 30 "$s"
   MBOX_DB=quiet nt 11 7; t "⑦ ring 1" inc "$(cat "$MBOX_LOG.ring" 2>/dev/null)" "$n"
-  t "⑦ ring 직전 표식" [ "$(grep '^ring ' "$CP" | head -n1 | cut -d' ' -f1,3-)" = "ring ring $n 경과=18 보냄=1 남음=0" ]; return $E
+  t "⑦ ring 직전 표식" [ "$(grep '^ring ' "$CP" | head -n1 | cut -d' ' -f1,3- | sed -E 's/ 단계=.*$//')" = "ring ring $n 경과=18 보냄=1 남음=0" ]; return $E
 }
 c8() {  # ⑧ stall-scan — a 새 표식 rc 99 · b 옛 표식 rc 99 · c rc 0
   mkdir -p "$STATE"

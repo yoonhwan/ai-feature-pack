@@ -23,7 +23,7 @@ def nanos_of(ctx, doc):   # r2151 O1 — owners 의 나노 목록(role nano ∧ 
 
 def drops_scope(fn):   # r2151 O2 — due_rows 한 번 = 버림 원장 스냅샷 1개(judge 의 dropped 가 채움) · 끝나면 버림(notify close_request = seq_dropped 최신 읽기)
     def scoped(ctx, *a, **k):
-        shared(ctx)["drops"] = {}
+        shared(ctx)["drops"], shared(ctx)["ext"] = {}, False   # r2316 R1: ext = due-1 판독이 세운 «외부 리포 카드 키»(at)
         try:
             return fn(ctx, *a, **k)
         finally:
@@ -85,6 +85,7 @@ def at(ctx, where):   # 카드 절대경로·장부 repo → 그 리포 Ctx(상�
         subs[key] = sub = Ctx(roots[r])
         sub.state, sub.comm, sub.fetch, sub._seats = ctx.state, ctx.comm, ctx.fetch, ctx._seats   # r2129: 명부 캐시 공유(due 두 판 · 외부 리포)
         vars(sub)["_r2151"] = shared(ctx)   # r2151: nanos·버림 스냅샷 공유(명부 파일 목록 = 제 루트)
+    shared(ctx)["ext"] = True   # r2316 R1 — 외부 리포 카드 키(at 이 세운다 · due_rows 스코프가 0 에서 시작)
     return subs[key]
 
 

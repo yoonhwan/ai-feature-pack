@@ -14,11 +14,11 @@ import time
 from pathlib import Path
 
 from ft_nano_record import CARD_RX, DONE_RX, Ctx, Reject, Unjudged, left_free, left_of, marks, rec_of, section
-from ft_nano_record_batch import prepare
+from ft_nano_record_batch import fetch_cap, prepare
 from ft_nano_record_budget import step
 from ft_nano_record_fin import key as fin_key, load as fin_load, row as fin_row   # r2250 O4 닫힌 줄 기억(notify 만)
 from ft_nano_record_fmt import fmt   # r2202 [structure]: 줄 꼴 = 옆 파일(notify 는 지금처럼 due 에서 fmt 를 읽는다)
-from ft_nano_record_repo import at, drops_scope, dropped, nanos_of, proxy_master, repo_hits, resolve_owner, seats_at
+from ft_nano_record_repo import at, drops_scope, dropped, nanos_of, proxy_master, repo_hits, resolve_owner, seats_at, shared
 
 DOCW = "문서 PR · 구현 착지 아님"   # r1782 A2: 장부 doc_only(착지 파일 전부 design/·docs/) 줄의 «끝» 사유
 
@@ -119,15 +119,21 @@ def opened(out):   # r2202 F1 — fetch 사유 = «주인 없음» 을 뺀 열�
 
 
 @drops_scope   # r2151 O2: 버림 원장 스냅샷 = 이 평가 한정
-def due_rows(ctx, pr=None, fetch=True):   # A2 — fetch 는 «열린 줄» 이 있을 때만 실행당 1회(remote-tracking 판으로 먼저 본다) · r2071 = 판마다 묶음 읽기·묶음 fetch(전 항목 그대로)
+def due_rows(ctx, pr=None, fetch=True):   # A2 — fetch 는 «열린 줄» 이 있을 때만 실행당 1회(remote-tracking 판으로 먼저 본다) · r2071 = 판마다 묶음 읽기·묶음 fetch(전 항목 그대로) · r2316 = 건너뜀 판이면 due-2 판독 0
     ctx._fin = fin_load(ctx)   # r2250 O4 — Budget(notify) 있을 때만 · due 손 실행 = {}(O6)
     ks, ctx.fetch = [k for e in ctx.ledger() if pr is None or e.get("pr") == pr for k in map(card_key, e["cards"]) if k and fin_key(e, k[2]) not in ctx._fin], False
     out = rows(prepare(ctx, ks), pr)
     step(ctx, "due-1")   # r2202 F2 — 표식 = notify 안(Budget)만 · due 손 실행 = 0
     if fetch and opened(out):
+        bud = getattr(ctx, "bud", None)
+        if bud and fetch_cap(bud) < 1:   # r2316 R2 — due-1 이 예산을 다 썼다 = fetch 갈래 진입 0(_tips 비움·ctx.fetch=True 전 = tip() 재계산 0)
+            return step(ctx, "fetch 예산 넘김") or out
         step(ctx, "fetch")
         ctx.fetch, ctx._tips = True, {}
-        out = rows(prepare(ctx, ks), pr)
+        prepare(ctx, ks)   # r2316 R1 — 판독 앞에서 가른다: 받은 것이 없으면 due-2 판독 0
+        if bud and ctx._fetchn[2] == 0 and not shared(ctx)["ext"]:   # 받은 수 0(묶음 0·건너뜀·실패) ∧ 외부 리포 카드 0 = 같은 판을 다시 돌지 않는다
+            return step(ctx, f"due-2 생략 묶음={ctx._fetchn[0]} 시도={ctx._fetchn[1]} 받음=0") or out
+        out = rows(ctx, pr)
         step(ctx, "due-2")
     return out
 

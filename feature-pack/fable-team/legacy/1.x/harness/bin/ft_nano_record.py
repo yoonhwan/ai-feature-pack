@@ -11,11 +11,11 @@ import hashlib
 import json
 import os
 import re
-import subprocess
 from pathlib import Path
 
+from ft_nano_record_call import ENV, run   # r2316 R3 — 도구 실행 + 호출 셈(이름·초)은 옆 파일(200줄 상한) · 여기서 다시 내보낸다
+
 HERE = Path(__file__).resolve().parent
-ENV = {**os.environ, "LC_ALL": "C"}
 CARD_RX = re.compile(r"(design/(?:teams/([^/]+)|([^/]+))/indices)/[^/]+(?:/\d{4}-\d{2})?/([^/]+)\.md$")
 SET_RX = re.compile(r"세트:\s*([0-9a-f]{40})")
 LAND_RX = re.compile(r"^\s*-\s*착지:\s*([0-9a-f]{7,40})\b")
@@ -29,16 +29,6 @@ class Unjudged(Exception):
 
 class Reject(Exception):
     """조건 불충족 — rc 1 · 쓰기 0."""
-
-
-def run(cmd, cap=7.0, env=None, inp=None, raw=False):   # → (rc|None, stdout, stderr) · 시간 초과·실행 불가 = rc None
-    try:
-        p = subprocess.run(cmd, capture_output=True, input=inp, timeout=max(0.5, cap), env=env or ENV)
-    except subprocess.TimeoutExpired:
-        return None, b"" if raw else "", "시간 초과"
-    except OSError as e:
-        return None, b"" if raw else "", str(e)
-    return p.returncode, p.stdout if raw else p.stdout.decode("utf-8", "replace"), p.stderr.decode("utf-8", "replace")
 
 
 def need(cmd, what, ok=(0,), **kw):
