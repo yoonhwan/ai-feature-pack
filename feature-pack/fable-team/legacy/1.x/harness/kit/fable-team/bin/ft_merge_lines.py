@@ -124,6 +124,22 @@ def norm(line, table):
     return line
 
 
+def same_repo_root(root, sha, s, why):
+    """r2308 A1·A2: 판정문 리포 = 후보 리포면 판정문 sha 가 «후보 S 조상 아님» ∧ «<remote>/main 또는 <remote>/ops/main-base 조상» 일 때만 root · 그 밖 Fail(사유 꼬리 1개)."""
+    rem = os.environ.get("FT_REPLACE_REMOTE") or "origin"
+    def anc(a, b):
+        try:
+            return subprocess.run(["git", "-C", root, "merge-base", "--is-ancestor", a, b], capture_output=True, timeout=7).returncode
+        except subprocess.TimeoutExpired:
+            raise Fail(why + " — 7초 초과")
+    r = anc(sha, s)
+    if r == 0:
+        raise Fail(why + " — 후보 조상 · 판정문을 후보 밖 보호 줄기 새 커밋으로 다시 올림")
+    if r != 1 or not any(anc(sha, "refs/remotes/%s/%s" % (rem, b)) == 0 for b in ("main", "ops/main-base")):
+        raise Fail(why + " — 보호 줄기 조상 아님 · fetch 뒤 다시")
+    return root
+
+
 def replace_ok(repo, spec, s):
     """r1741 A1~A3: DA 판정문 §<절> 의 ```gate-replace 블록 → ({(경로, 원문): 개수}, «경로@sha10#§절») — 리포 = FT_ROOT(카드) → 후보.
     못 읽음(카드 리포 FT_ROOT 하나 · 7초 상한)·절 없음·APPROVE 아님·블록 꼴 아님·head 불일치는 Fail(통과 0 · 게이트가 DENY … 판정 불가 로 낸다)."""
@@ -138,6 +154,8 @@ def replace_ok(repo, spec, s):
         except subprocess.TimeoutExpired:
             raise Fail(why + " — 7초 초과")
         root = alt if cd[0] and cd[0] != cd[1] else ""
+        if cd[0] and cd[0] == cd[1]:   # r2308 A1
+            root = same_repo_root(alt, sha, s, why)
     text = None   # 판정문 리포 = 카드 리포(FT_ROOT) 하나뿐 — 후보 리포 폴백 0 · FT_ROOT 가 빈 값이면 git -C ""(=cwd 리포)를 부르지도 않는다
     if root:
         try:
