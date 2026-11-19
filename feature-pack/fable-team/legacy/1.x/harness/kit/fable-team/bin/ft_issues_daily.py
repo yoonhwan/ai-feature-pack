@@ -428,7 +428,7 @@ TEAM_LABELS = frozenset((
     "ccu", "cfo", "chatbot", "concierge", "feature", "graphics", "harness-ops", "issues", "kk",
     "knowledge", "lecture", "loom", "ops", "planner", "room", "shared-harness", "v65",
 ))
-SHARED_HARNESS_HINT = ("shared-harness", ("ft2", "ft-", "keeper", "ci ", "ci search", "aifp", "하네스", "launchd"))
+SHARED_HARNESS_HINT = ("harness-ops", ("ft2", "ft-", "keeper", "ci ", "ci search", "aifp", "하네스", "launchd"))
 OTHER_HINTS = (
     ("v65", ("v65",)),
     ("issues", ("이슈", "issue")),
@@ -436,6 +436,8 @@ OTHER_HINTS = (
     ("knowledge", ("매거진", "magazine", "지식")),
 )
 TEAM_HINTS = (SHARED_HARNESS_HINT,) + OTHER_HINTS
+# 하네스 제목 머리 별칭 — 정본 접두 «[harness]»·옛 라벨 머리 = team:harness-ops 하나 (r2305)
+HARNESS_HEADS = frozenset(("harness", "shared-harness", "harness-ops"))
 
 
 def team_hint(issue: dict) -> tuple[str, str]:
@@ -445,6 +447,8 @@ def team_hint(issue: dict) -> tuple[str, str]:
         if lab.startswith("team:"):
             return "", ""
     head = re.match(r"\[([^\]]+)\]", issue["title"])
+    if head and head.group(1).strip() in HARNESS_HEADS:
+        return "harness-ops", f"제목 팀 머리 «[{head.group(1).strip()}]»"
     if head and head.group(1).strip() in TEAM_LABELS:
         return head.group(1).strip(), f"제목 팀 머리 «[{head.group(1).strip()}]»"
     hay = issue["title"].lower()
