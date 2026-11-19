@@ -26,7 +26,7 @@ WORK_S, REPORT_S, TAIL_S = 45, 55, 60   # R1 구획 = 업무 0~45 · report 45~5
 NANO_S, LONG_S, MIN_S = 7, 20, 1   # R6 나노 합 7초 · R2 긴 쓰기(자기 상한 > 7)는 20초 뒤 시작 0 · 남은 몫 < 1초 = 시작 0
 ORDER = ("b1", "b2c", "stall", "b2f", "b3o", "b3r")   # R4 자리 차례(팀 → work → 칸 → b3o → b3r)
 READ_GIT = frozenset(("rev-parse", "merge-base", "grep", "ls-tree", "ls-remote", "fetch", "log", "show", "cat-file", "cherry", "rev-list", "status"))   # R2 판독 git 동사
-STUCK = ("착지 줄 없음", "두 가지에 진행 카드", "진행·대기 둘 다 카드", "진행 카드 ")   # r2266 C1 card_stage 영구 Unsure 사유 머리 · done 없음·일시 사유 = 밖
+STUCK = ("착지 줄 없음", "완성 증거 0", "두 가지에 진행 카드", "진행·대기 둘 다 카드", "진행 카드 ")   # r2266 C1 card_stage 영구 Unsure 사유 머리 · done 없음·일시 사유 = 밖 · r2274 «완성 증거 0»(카드가 바뀌어야 풀림)
 READ_TMUX = frozenset(("has-session", "display", "display-message", "capture-pane", "list-sessions"))   # R2 판독 tmux 동사
 
 
