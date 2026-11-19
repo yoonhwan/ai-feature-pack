@@ -43,11 +43,14 @@ exit 0
 SH
 chmod +x "$T/mbox/mbox.sh"
 export MBOX_LOG="$T/mbox.log"; : > "$MBOX_LOG"
-genv() { env -u FT_GOAL_MAX -u FT_TEAMS_REF -u FT_TEAMS_REF_PINNED_FROM -u FT_GOAL_REF_PIN -u FT_GOAL_A6_MD FT_ROOT="$R" FT_MBOX="$T/mbox/mbox.sh" \
-  FT_GOAL_A6_MD="${MD:-gitref:origin/main:$CPATH}" FT_GOAL_A6_LEDGER="gitref:origin/main:$LPATH" FT_GOAL_REPO="$R" FT_LEDGER_REPO="$R" "$@"; }
+genv() {  # [K=V…] — 부른 subshell 안 환경 변수만 바꿈 · 실행할 명령은 부르는 곳이 글자로 씀(try-auto FORBID kind=secret 자리)
+  unset FT_GOAL_MAX FT_TEAMS_REF FT_TEAMS_REF_PINNED_FROM FT_GOAL_REF_PIN FT_GOAL_A6_MD
+  export FT_ROOT="$R" FT_MBOX="$T/mbox/mbox.sh" FT_GOAL_A6_MD="${MD:-gitref:origin/main:$CPATH}" FT_GOAL_A6_LEDGER="gitref:origin/main:$LPATH" FT_GOAL_REPO="$R" FT_LEDGER_REPO="$R"
+  local kv; for kv in "$@"; do export "$kv"; done
+}
 render() {  # <stdout 파일> <stderr 파일> [env…] — 바깥 timeout 15(기준판 25초+ 가 이 시험을 넘기지 않게) · rc → RC · 걸린 초 → EL
   local o="$1" e="$2"; shift 2; local s=$SECONDS
-  genv OUTFILE="$o" "$@" timeout 15 python3 "$TOOL" > "$o" 2> "$e"; RC=$?; EL=$((SECONDS - s))
+  ( genv OUTFILE="$o" "$@"; exec timeout 15 python3 "$TOOL" ) > "$o" 2> "$e"; RC=$?; EL=$((SECONDS - s))
 }
 names() { cut -d' ' -f1 "$MBOX_LOG" | sort; }
 first() { head -1 "$MARK" 2>/dev/null; }
@@ -60,7 +63,7 @@ OLD="$(first)"
 
 if on 1; then
   put b1 b2 b3 b4 b5; : > "$MBOX_LOG"; cp "$MARK" "$T/mark1b"
-  OUT="$(genv MBOX_SLEEP=5 timeout 3 python3 - "$(dirname "$TOOL")" <<'PY' 2>&1
+  OUT="$(genv MBOX_SLEEP=5; timeout 3 python3 - "$(dirname "$TOOL")" <<'PY' 2>&1
 import sys, time
 sys.path.insert(0, sys.argv[1])
 import ft_goal_table as gt
@@ -125,7 +128,7 @@ try:
 except subprocess.TimeoutExpired:
     print("잠금 기다리다 5초 끊김", file=sys.stderr); raise SystemExit(124)
 PY
-  s=$SECONDS; genv python3 "$T/hold.py" "$MARK.lock" python3 "$TOOL" > "$T/o4" 2> "$T/e4"; RC=$?; EL=$((SECONDS - s))
+  s=$SECONDS; ( genv; exec python3 "$T/hold.py" "$MARK.lock" python3 "$TOOL" ) > "$T/o4" 2> "$T/e4"; RC=$?; EL=$((SECONDS - s))
   [ "$RC" = 0 ] && [ "$EL" -lt 3 ] && [ ! -s "$MBOX_LOG" ] && cmp -s "$MARK" "$T/mark4" && [ "$(grep -c '^INFO 골 번호 공지 건너뜀' "$T/e4")" = 1 ] \
     && ok "④ 잠금 잡힘 = 공지 0 · INFO 1줄 · rc0 · ${EL}s" || bad "④ rc=$RC ${EL}s :: $(cat "$MBOX_LOG") :: $(head -c 300 "$T/e4")"
 fi
