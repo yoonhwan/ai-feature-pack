@@ -166,7 +166,10 @@ def _card_end(k, team, work):
             if stage in DONE:
                 return "superseded", "카드 %s/" % stage
             rc, body, _ = k.git(k.root, "show", "%s:%s" % (ref, hits[0][1]))
-            return _head(body) if rc == 0 else False
+            if rc != 0 or (got := _head(body)) or stage != "완성" or re.search(r"^- 착지: ", body, re.M):
+                return False if rc != 0 else got   # r2296 A1·A2 — 완성 · 착지 줄 0 · _head None 일 때만 아래
+            done = re.findall(r"^- 완료: .*$", body, re.M)
+            return ("superseded", "카드 완성 · ALREADY") if done and "ALREADY" in done[-1] else held(k, team, "end-done-noland:" + work, "%s 완성 · 착지 줄 0 · 끝 판독 불가" % work)
     return _resolved_end(k, team, work)
 def _resolved_end(k, team, work):
     """r2055 A1·A7 §3b — 팀 폴더 후보 0 = landing 과 같은 resolve_card(짝 표 → 팀 폴더 → 발주 본문) 카드의 «## 상태» 머리 · 우선 ref 에 2장↑ = False · 0 = None."""

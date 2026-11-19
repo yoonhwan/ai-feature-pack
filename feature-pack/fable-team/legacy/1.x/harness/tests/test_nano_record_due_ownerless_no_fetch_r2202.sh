@@ -80,7 +80,7 @@ c6() {  # ⑥ (F2) 표식 순서 — fetch 0 판 = due → due-1 → 끝 · fetc
   local s="c6$1"; own1 "$s" 26
   mx; t "⑥ fetch 0 판 fetch 0" [ "$(nfetch)" = 0 ]; t "⑥ fetch 0 판 순서 «$(dmarks)»" [ "$(dmarks)" = "due due-1 끝" ]
   own1 "${s}b" 27 "${s}t"
-  mx; t "⑥ fetch 판 fetch 1" [ "$(nfetch)" = 1 ]; t "⑥ fetch 판 순서 «$(dmarks)»" [ "$(dmarks)" = "due due-1 fetch due-2 끝" ]
+  mx; t "⑥ fetch 판 fetch 1" [ "$(nfetch)" = 1 ]; t "⑥ fetch 판 순서 «$(dmarks)»" [ "$(dmarks)" = "due due-1 fetch fetch due-2 끝" ]   # r2250 O3: URL 마다 «fetch <원격>» 표식 1줄 더(여기 URL 1)
   return $E
 }
 c6b() {  # ⑥b (발주 글 ②) due 손 실행(옵션 없음 · --no-fetch 둘 다) 뒤 STEP 파일 바이트 = 실행 전 그대로
@@ -96,7 +96,7 @@ run "⑤ fetch 자리 멈춤 = 표식 fetch" c5; run "⑥ 표식 순서" c6; run
 if [ "$PART" = mut ]; then step "변이 M1·M2 (+원본 대조)"
 mutbin m1 ft_nano_record_due.py 'out = [r for r in out if r["k"] != "주인없음"]' 'out = [r for r in out]'; mutcase M1 c2 1
 mutbin m2 ft_nano_record_due.py '        step(ctx, "fetch")
-' ''; mutcase M2 c5 2; fi
+' '' ft_nano_record_batch.py '                bud.mark("fetch", name)' '                pass'; mutcase M2 c5 2; fi   # r2250 O3: fetch 자리 표식 = 단계 1 + URL 마다 1 → 둘 다 지움
 if [ "$PART" = base ]; then step "기준판 ②·⑤ Red (팩 $BASE_SHA)"
 for c in c2 c5; do o="$( ( BIN="$BB"; TOOL="$BIN/ft-nano-record.sh"; "$c" base ) 2>&1 )" && bad "기준판에서 $c 통과함" || ok "기준판 $c FAIL(기대 Red)"; printf '%s\n' "$o" | grep '^  x ' | head -3; done; fi
 finish

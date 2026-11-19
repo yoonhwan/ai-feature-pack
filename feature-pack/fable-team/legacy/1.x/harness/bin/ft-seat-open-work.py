@@ -3,10 +3,11 @@
 rc 0 = 받을 일 0(후계 0 · 좌석 닫기 대기) · 1 = 있음(기존 승계) · 3 = 판정 불가(기존 승계 + stderr 1줄 · ①쪽지·카드 못 읽음 ②indices/ 자체가 없음 — 진행/ 만 없으면 0 이다 r1541) · stdout = `OPEN-WORK 0|있음|불가 이유=…` (+ rc0 이면 `LEADER <팀장|->`)
 입력 = ①우편함(아직 recv 안 한 큐 + 받고도 «처리함|인계» 표시 없는 영수) ②진행 카드 «- 배정: 좌석 <좌석>» ③state/card-assign «seat» ④팀장 좌석이면 팀 진행 카드 · 좌석 계보 = «#» 앞 이름 · «일 아님» 꼴 목록(정본 = 이 파일 한 곳) = 머리 «[처리»·«[다음 없음»·«[알림»·«[정리» · 본문 첫 줄에 «다음 일 없음» · recv 인용 «READ » — 그 밖은 일로 센다. «내가 나에게» 보낸 쪽지만 빼고 같은 계보 후계에게 보낸 [인계] 는 센다(r1575).
 """
-import glob, json, os, re, subprocess, sys
+import glob, json, os, pathlib, re, shutil, subprocess, sys
 NOT_WORK = ("[처리", "[다음 없음", "[알림", "[정리")
 ASSIGN = re.compile(r"^-\s*배정:\s*좌석\s+([A-Za-z0-9._#-]+)", re.M)
 NAME = re.compile(r"^[A-Za-z0-9._#-]+$")
+IDX = re.compile(r"design/(?:teams/)?[^/]+/indices/")   # ★두 꼴★ design/<팀>/ · design/teams/<팀>/ (DA r1539 R2)
 
 def rk(name):   # 좌석 계보 = «#» 앞 이름
     return re.sub(r"#\d+$", "", name or "")
@@ -76,6 +77,15 @@ def intake(root, tm, seat):   # r2076 E5·E6 — 팀장 빈 2.0 팀의 사슬 �
         return 3, "접수 판독", ""
     return (1, "접수 남은 일 %d" % n, "") if n else None
 
+def cards_of(root):   # r2268 (indices · 진행 폴더 · {진행 카드: 본문}) 상대 경로 — 카드 루트 표(directive-roots.tsv · keeper_next cards() 같은 읽기)의 행마다 정본 ref 1개만(C1 · «*» 행은 자기 행 있는 팀 뺌 · 표 밖 루트 0) · 표·ref 없음 = 작업 트리(C2 · 표 읽기 실패 = OSError·ValueError) · git 실패·7초 = SubprocessError(C3 · 작업 트리로 안 내려감)
+    git = lambda d, *a, ok=False: subprocess.run(["git", "-C", d] + list(a), capture_output=True, timeout=7, check=not ok, env=dict(os.environ, GIT_CEILING_DIRECTORIES=os.path.dirname(os.path.abspath(d))))   # 1회 7초 · 재시도 0 · fetch 0 · 루트 위 리포 ref 0
+    rows = [x[:4] + [bool(shutil.which("git") and git(os.path.join(root, x[1]), "rev-parse", "-q", "--verify", x[2] + "^{commit}", ok=True).returncode == 0)] for x in (y.split("\t") for y in t.read_text(encoding="utf-8").splitlines() if not y.startswith("#")) if len(x) >= 4] if (t := pathlib.Path(root, ".fable-team", "state", "directive-roots.tsv")).is_file() else []
+    n = sum(x[4] for x in rows)   # 표 ref 하나도 없음 = 작업 트리(C2) · 일부만 = 없는 ref 의 ls-tree 실패 = rc3(그 행 작업 트리로 안 내려감 · DA#27 #340140)
+    seen = {os.path.relpath(p, root) + "/" * os.path.isdir(p): "" for b in ("design/*/indices", "design/teams/*/indices") for s in ("", "/진행", "/진행/*.md") for p in ([] if n else glob.glob(os.path.join(root, b + s)))}
+    [seen.setdefault(p, (os.path.join(root, x[1]), x[2])) for x in (rows if n else []) for p in git(os.path.join(root, x[1]), "ls-tree", "-r", "-z", "--name-only", x[2], "--", x[3].split("*")[0]).stdout.decode().split("\0") if (m := re.match(re.escape(x[3]).replace(r"\*", "([^/]+)") + "/", p)) and not (m.groups() and m.group(1) in {y[0] for y in rows})]
+    dirs = {m.group(0) + "진행" for m in map(IDX.match, seen) if m and m.string.startswith(m.group(0) + "진행/")}
+    return sorted({m.group(0)[:-1] for m in map(IDX.match, seen) if m}), dirs, {p: (git(seen[p][0], "cat-file", "blob", "%s:%s" % (seen[p][1], p)).stdout.decode() if n else pathlib.Path(root, p).read_text(encoding="utf-8")) for p in sorted(seen) if os.path.dirname(p) in dirs and re.match(r"[^.].*\.md$", os.path.basename(p))}
+
 def verdict(seat, root, mdir):
     key = rk(seat)
     team = key.split("-")
@@ -83,15 +93,14 @@ def verdict(seat, root, mdir):
         msgs = unread(seat, mdir)
     except (OSError, ValueError) as e:
         return 3, "쪽지 %s" % type(e).__name__, ""
-    idx = sorted({d for pat in ("design/*/indices", "design/teams/*/indices") for d in glob.glob(os.path.join(root, pat))})   # ★두 꼴★ design/<팀>/ · design/teams/<팀>/ (DA r1539 R2)
-    dirs = [os.path.join(d, "진행") for d in idx if os.path.isdir(os.path.join(d, "진행"))]
+    try:
+        idx, dirs, body = cards_of(root)
+    except (OSError, ValueError, subprocess.SubprocessError) as e:
+        return 3, ("카드 ref 판독 %s" if isinstance(e, subprocess.SubprocessError) else "카드·배정 %s") % type(e).__name__, ""
     if not idx:   # ★진행/ 없음 ≠ 못 읽음★ git 은 빈 폴더를 안 남긴다 — indices/ 가 있으면 진행 카드 0 으로 판정 계속(r1541)
         return 3, "카드 폴더 없음 design/*/indices · design/teams/*/indices", ""
-    cards, states = [], []
+    cards, states = [os.path.basename(p) for p in sorted(body) for m in ASSIGN.finditer(body[p]) if rk(m.group(1)) == key], []
     try:
-        for p in sorted(sum([glob.glob(os.path.join(d, "*.md")) for d in dirs], [])):
-            with open(p, encoding="utf-8") as f:
-                cards += [os.path.basename(p) for m in ASSIGN.finditer(f.read()) if rk(m.group(1)) == key]
         st = os.path.join(root, ".fable-team", "state", "card-assign")
         for n in sorted(os.listdir(st)) if os.path.isdir(st) else []:
             if n.endswith(".json") and rk(load(os.path.join(st, n)).get("seat") or "") == key:
@@ -99,13 +108,13 @@ def verdict(seat, root, mdir):
     except (OSError, ValueError) as e:
         return 3, "카드·배정 %s" % type(e).__name__, ""
     tm = team[1] if len(team) > 1 else ""
-    tidx = [p for p in ("design/" + tm, "design/teams/" + tm) if os.path.isdir(os.path.join(root, p, "indices"))]
-    tdir = next((os.path.join(root, p, "indices", "진행") for p in tidx if os.path.isdir(os.path.join(root, p, "indices", "진행"))), "")
+    tidx = [p for p in ("design/" + tm, "design/teams/" + tm) if p + "/indices" in idx]
+    tdir = next((p + "/indices/진행" for p in tidx if p + "/indices/진행" in dirs), "")
     if len(team) > 2 and team[2] in ("master", "arch"):   # 팀장 좌석 = 팀 진행 카드도 이 좌석 일
         if not tidx:   # 팀 indices/ 자체가 없을 때만 판정 불가 · 진행/ 만 없으면 진행 카드 0(r1541)
             return 3, "팀 카드 폴더 없음 %s" % tdir, ""
-        if tdir and glob.glob(os.path.join(tdir, "*.md")):
-            return 1, "팀 진행 %d" % len(glob.glob(os.path.join(tdir, "*.md"))), ""
+        if tdir and any(os.path.dirname(c) == tdir for c in body):
+            return 1, "팀 진행 %d" % sum(os.path.dirname(c) == tdir for c in body), ""
     work = [m for m in msgs if not is_not_work(m.get("body"))]
     if work:
         return 1, "쪽지 일 %d" % len(work), ""

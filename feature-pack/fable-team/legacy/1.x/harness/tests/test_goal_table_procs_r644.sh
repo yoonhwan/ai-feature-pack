@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # test_goal_table_procs_r644.sh — 골 표·뉴스·매거진이 원장 «메인 골 6줄» 만 읽어 오늘 등록한 표준절차 골 파일이 보고에서 빠졌다 → `procs` 하위 명령(r644).
-#   ⓐ 골 파일 2(a = 진행표 행 있음 · b = 행 없음) → 마커 2줄 사이 2줄: a = «골 이름 · 담당 · 지금 단계» · b = «… · 진행표 행 없음» + stderr WARN 1줄
+#   ⓐ 골 파일 2(a = 진행표 행 있음 · b = 행 없음) → 마커 2줄 사이 2줄: a = «골 이름 · 담당 · 지금 단계» · b = «진행표 행 없음 1: 이름»(r2236 묶음) + stderr WARN 1줄
 #   ⓑ 새 골 파일 커밋 1개 → 다음 렌더에 1줄 자동 추가(손 등록 0)   ⓒ «지금 단계» 가 `완료` + 저장소에 실재하는 sha10 → «완성 N: 이름» 1줄로 위에 / sha 없음 = 완성 아님 + WARN
-#   ⓓ 행 git blame 시각이 FT_GOAL_PROC_STALE_H(24) 넘음 → 그 줄 끝 «⚠ N시간 정지» + 블록 끝 «정지 골 N: …» 1줄
+#   ⓓ 행 git blame 시각이 FT_GOAL_PROC_STALE_H(24) 넘음 → 그 줄 끝 «⚠ N시간 정지» + 블록 끝 «정지 골 N» 1줄(r2236)
 #   ⓔ 담당 = 진행표 «담당» 칸 → 골 파일 «담당:» 줄 → «—»   ⓕ 날짜 붙은 `GOAL-*-<8자리>.md` 만(AUTONOMY-GOAL-A6·GOAL-planner.md·날짜 없음 제외) · 0개 = «표준절차 골 0» 1줄
 #   ⓖ 예산 1600B 넘으면 «지금 단계» 칸부터 줄임 · 원장 못 읽음/폴더 못 풂 = ERROR rc1(조용히 빈 블록 0)
 #   ⓗ 기존 render·teams 바이트 동일(base 대조) · 뉴스 첫 판 순서 = 골 표 → 팀별 완성 진행 → 표준절차 골
@@ -38,13 +38,13 @@ SHA0="$(git -C "$R" rev-parse origin/main | cut -c1-10)"
 EXTRA=(); OUT="$(procs)"; RC=$?
 [ "$RC" = 0 ] && [ "$(line1 "$OUT")" = "★표준절차 골 ($SHA0)★" ] && ok "ⓐ1 rc0 · 머리 = ★표준절차 골 (<원장 sha10>)★" || bad "ⓐ1 rc=$RC :: $(line1 "$OUT")"
 printf '%s\n' "$OUT" | sed -n '2p' | grep -qxF -- "- 골-A · — · ② 제안서 진행" && ok "ⓐ2 a = «골 이름 · 담당 · 지금 단계(원장 행)»" || bad "ⓐ2 :: $(printf '%s\n' "$OUT" | sed -n '2p')"
-printf '%s\n' "$OUT" | sed -n '3p' | grep -qxF -- "- 골-B · — · 진행표 행 없음" && ok "ⓐ3 b = «… · 진행표 행 없음»" || bad "ⓐ3 :: $(printf '%s\n' "$OUT" | sed -n '3p')"
+printf '%s\n' "$OUT" | sed -n '3p' | grep -qxF -- "진행표 행 없음 1: 골-B" && ok "ⓐ3 b = «진행표 행 없음 N: 이름» 묶음 줄(r2236)" || bad "ⓐ3 :: $(printf '%s\n' "$OUT" | sed -n '3p')"
 grep -q "WARN 표준절차 골 진행표 행 없음: GOAL-b-20261021.md" "$T/err" && [ "$(grep -c WARN "$T/err")" = 1 ] && ok "ⓐ4 stderr WARN 1줄(행 없는 골 파일 지목)" || bad "ⓐ4 :: $(cat "$T/err")"
 [ "$(printf '%s\n' "$OUT" | tail -1)" = "★/표준절차 골★" ] && ok "ⓐ5 꼬리 마커" || bad "ⓐ5 :: $(printf '%s\n' "$OUT" | tail -1)"
 # ── ⓑ 새 골 파일 커밋 1개 → 자동 1줄 추가
 goal_file "골-C" GOAL-c-20261021.md; commit c1
 OUT="$(procs)"
-[ "$(printf '%s\n' "$OUT" | grep -c '^- ')" = 3 ] && printf '%s\n' "$OUT" | grep -qxF -- "- 골-C · — · 진행표 행 없음" && ok "ⓑ 새 골 파일 = 다음 렌더에 1줄 자동 추가(손 등록 0)" || bad "ⓑ :: $OUT"
+[ "$(printf '%s\n' "$OUT" | grep -c '^- ')" = 1 ] && printf '%s\n' "$OUT" | grep -qxF -- "진행표 행 없음 2: 골-B, 골-C" && ok "ⓑ 새 골 파일 = 다음 렌더에 1줄 자동 추가(손 등록 0)" || bad "ⓑ :: $OUT"
 # ── ⓒ «완료» + 저장소에 실재하는 sha10 → «완성 N: 이름» 위로 · 없는 sha = 완성 아님 + WARN
 REALSHA="$(git -C "$R" rev-parse HEAD | cut -c1-10)"
 ledger "② 제안서 진행" "완료 $REALSHA"; commit c2
@@ -58,8 +58,8 @@ printf '%s\n' "$OUT" | grep -qxF -- "- 골-B · — · 완료 deadbeef99" && ! p
 ledger "② 제안서 진행" "① 골 등록 끝"; commit c4
 EXTRA=(FT_NOW="$(python3 -c 'import datetime;print((datetime.datetime.now()+datetime.timedelta(hours=30)).strftime("%Y-%m-%d %H:%M"))')")
 OUT="$(procs)"; EXTRA=()
-printf '%s\n' "$OUT" | grep -qE '^- 골-A · — · ② 제안서 진행 ⚠ [0-9]+시간 정지$' && [ "$(printf '%s\n' "$OUT" | tail -2 | head -1)" = "정지 골 2: 골-A, 골-B" ] \
-  && ok "ⓓ 24시간 넘게 안 바뀐 행 = «⚠ N시간 정지» + «정지 골 N: …» 1줄" || bad "ⓓ :: $OUT"
+printf '%s\n' "$OUT" | grep -qE '^- 골-A · — · ② 제안서 진행 ⚠ [0-9]+시간 정지$' && [ "$(printf '%s\n' "$OUT" | tail -2 | head -1)" = "정지 골 2" ] \
+  && ok "ⓓ 24시간 넘게 안 바뀐 행 = «⚠ N시간 정지» + «정지 골 N» 1줄(r2236 이름 반복 0)" || bad "ⓓ :: $OUT"
 EXTRA=(FT_GOAL_PROC_STALE_H=1000); OUT="$(procs)"; EXTRA=()
 printf '%s\n' "$OUT" | grep -q '정지' && bad "ⓓ2 문턱을 올리면 정지 0" || ok "ⓓ2 FT_GOAL_PROC_STALE_H 로 문턱을 바꾼다(24h 기본)"
 # ── ⓔ 담당 = 진행표 «담당» 칸 → 골 파일 «담당:» 줄 → «—»
@@ -76,7 +76,7 @@ printf '%s\n' "$OUT" | grep -qxF -- "- 골-A · — · ② 제안서 진행" && 
 cp "$R/$F/GOAL-a-20261021.md" "$R/$F/GOAL-planner.md"; cp "$R/$F/GOAL-a-20261021.md" "$R/$F/GOAL-nodate.md"
 cp "$R/$F/GOAL-a-20261021.md" "$R/$F/AUTONOMY-GOAL-A6-20261018.md"; commit c8
 OUT="$(procs)"
-[ "$(printf '%s\n' "$OUT" | grep -c '^- ')" = 3 ] && ! printf '%s\n' "$OUT" | grep -q 'GOAL-planner\|GOAL-nodate\|AUTONOMY' && ok "ⓕ GOAL-*-<8자리>.md 만(AUTONOMY-GOAL-A6·GOAL-planner.md·날짜 없음 제외)" || bad "ⓕ :: $OUT"
+[ "$(printf '%s\n' "$OUT" | grep -c '^- ')" = 2 ] && printf '%s\n' "$OUT" | grep -qxF "진행표 행 없음 1: 골-C" && ! printf '%s\n' "$OUT" | grep -q 'GOAL-planner\|GOAL-nodate\|AUTONOMY' && ok "ⓕ GOAL-*-<8자리>.md 만(AUTONOMY-GOAL-A6·GOAL-planner.md·날짜 없음 제외)" || bad "ⓕ :: $OUT"
 git -C "$R" rm -q "$F/GOAL-a-20261021.md" "$F/GOAL-b-20261021.md" "$F/GOAL-c-20261021.md"; commit c9
 OUT="$(procs)"
 printf '%s\n' "$OUT" | grep -qxF "표준절차 골 0" && [ "$(printf '%s\n' "$OUT" | wc -l | tr -d ' ')" = 3 ] && ok "ⓕ2 골 파일 0개 = «표준절차 골 0» 1줄" || bad "ⓕ2 :: $OUT"

@@ -125,7 +125,7 @@ cmp -s "$M3/ft-nano-spawn.sh" "$BIN/ft-nano-spawn.sh" && bad "변이3 가 사본
 cmp -s "$M2/ft-nano-spawn.sh" "$BIN/ft-nano-spawn.sh" && bad "변이2 가 spawn 사본을 안 바꿨다(sed 패턴이 구현과 안 맞음)"; cmp -s "$M2/ft-index-lint.sh" "$BIN/ft-index-lint.sh" && bad "변이2 가 lint 사본을 안 바꿨다"
 
 echo "== ⓓ 발주 BODY 팀 구조 1문장 (전 팀)"
-SENT="각 팀 = master(집행) + arch(설계·발주·DA 소환) + DA(반박 게이트) 상시 · 실제 작업은 전부 나노(카드 1장 = 나노 1석) · master·arch·DA 는 코드·시안·카드 증거 줄을 쓰지 않는다"
+SENT="각 팀 = master(집행) + arch(설계·발주·DA 소환) + DA(반박 게이트) 상시 · 실제 작업은 전부 나노(카드 1장 = 나노 1석) · master·arch·DA 는 코드 · 시안을 쓰지 않는다 · 카드 증거 줄은 arch 가 인수 뒤 docs PR"
 out="$(real "$BIN" design/planner/indices/대기/bodyp.md)"; has "$(cat "$T/body.txt" 2>/dev/null)" "$SENT" "planner 팀 BODY 에 팀 구조 1문장"
 out="$(real "$BIN2" design/v65/indices/대기/v65card.md)"; has "$(cat "$T/body.txt" 2>/dev/null)" "$SENT" "v65(default) 팀 BODY 에도 팀 구조 1문장"
 has "$(cat "$T/body.txt" 2>/dev/null)" "[Seatbelt 발주] 네 인덱스:" "  └ 기존 BODY 첫 문장 그대로"

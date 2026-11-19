@@ -22,7 +22,7 @@ def world(tmp, mp, bulk=0):
         kw._git(w.root, "config", k, v)
     if bulk:
         w.commit("byz", {"big/d%02d/f%04d.txt" % (i % 50, i): "x%d\n" % i for i in range(bulk)}, OPS)
-    w.card("r9", "1a" * 20, refs=(OPS,))   # r2147 — 착지 줄 있는 카드만 옮김
+    w.card("r9", w.land_sha(), refs=(OPS,))   # r2147 — 착지 줄 있는 카드만 옮김
     w.work("r9", done=True, intent=False, turn=None)
     return w
 

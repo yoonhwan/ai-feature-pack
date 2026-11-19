@@ -23,12 +23,18 @@ yes() { [ "$2" = yes ] && ok "$1" || bad "$1 (조건 불충족 :: ${3:-})"; }
 has() { case "$1" in *"$2"*) ok "$3";; *) bad "$3 — 없음 «$2» ← ${1:0:300}";; esac; }
 not() { case "$1" in *"$2"*) bad "$3 — 있으면 안 됨 «$2» ← ${1:0:300}";; *) ok "$3";; esac; }
 val() { printf '%s\n' "$1" | sed -n "s/^$2=//p" | head -1; }
+BL_CASES="기준판 N1|기준판 N5|기준판 N10|기준판 N8"   # r2286 C1 — 옛 판 사본(BASE)으로 도는 사례 이름 목록 · FT_TEST_BASELINE=1 일 때만 돈다
+BL=0; [ "${FT_TEST_BASELINE:-}" = 1 ] && BL=1 || echo "SKIP 기준판 구간($BASESHA) $(awk -F'|' '{print NF}' <<< "$BL_CASES") — FT_TEST_BASELINE=1 로 켬 · 사례: ${BL_CASES//|/ · }"
+bl() {  # <사례 이름> [사본 성공 1/0] — 목록 안 이름 · 켬 · 사본 성공일 때만 0(사본 실패 = 그 사례 PASS 0)
+  case "|$BL_CASES|" in *"|$1|"*) ;; *) bad "기준판 목록 밖 이름 «$1»"; return 1;; esac
+  [ "$BL" = 1 ] && [ "${2:-1}" = 1 ]
+}
+pre_move() { git -C "$TOP" cat-file -e "$1:$2" 2>/dev/null && printf '%s' "$2" || printf '%s' "${2/legacy\/1.x\//}"; }   # r2286 C2 <sha> <경로> → 그 sha 트리의 경로(없으면 legacy/1.x 이동 전 경로)
 STAGE0=$SECONDS; STAGES=""; stage() { STAGES="$STAGES $1=$((SECONDS - STAGE0))s"; STAGE0=$SECONDS; }
 
 # ── 도구 사본: 기준판 · 변이 4 ────────────────────────────────────────────────
-BASE="$T/base"; mkdir -p "$BASE"
-git -C "$TOP" archive "$BASESHA" "$KITREL" | tar -x -C "$BASE" || bad "기준판 사본 못 뜸($BASESHA)"
-BASEBIN="$BASE/$KITREL"
+BASE="$T/base"; mkdir -p "$BASE"; BASEREL="$(pre_move "$BASESHA" "$KITREL")"; BASEBIN="$BASE/$BASEREL"; BASE_OK=0
+[ "$BL" = 1 ] && { git -C "$TOP" archive "$BASESHA" "$BASEREL" 2>/dev/null | tar -x -C "$BASE" 2>/dev/null && [ -n "$(ls -A "$BASEBIN" 2>/dev/null)" ] && BASE_OK=1 || bad "기준판 사본 못 뜸($BASESHA)"; }
 mut() {  # <이름> <파일> <원문> <바꿈> → 변이 bin 폴더(.py 만 사본 · 문자열 1곳 치환 — BSD sed 의 \n 차이를 피해 python)
   mkdir -p "$T/mut-$1"; cp -c "$KIT"/*.py "$T/mut-$1/" 2>/dev/null || cp "$KIT"/*.py "$T/mut-$1/"
   python3 - "$T/mut-$1/$2" "$3" "$4" <<'PY' || bad "변이 $1 사본이 안 만들어졌다(원문이 1번 나오지 않음)"
@@ -250,6 +256,8 @@ if "pin" in modes:
 if "hook" in modes:
     subprocess.run(["bash", os.environ["HOOK"]], check=True)   # 고정 «뒤» 에 다른 좌석이 origin/main 을 옮긴다
 print("HEAD=" + gt.render().splitlines()[0])
+for sha, rows in getattr(gt, "PENDING_NOTICE", []):   # r2285 C1 — 공지·표식은 CLI main() 몫(render() = 표 글만) · N9 는 main 과 같은 순서로 부른다
+    gt._notify_or_skip(sha, rows)
 if "negcanon" in modes:   # 고정 중에 ref «이름» 으로 지정한 정본은 정본 렌더가 아니다(R5)
     os.environ["FT_GOAL_A6_MD"] = "gitref:origin/main:design/planner/AUTONOMY-GOAL-A6-20261018.md"
     print("CANON_BY_NAME=" + str(gt._canon_render()))
@@ -358,19 +366,27 @@ not "$OUT" "원장 뉴스 실패" "N16a «원장 뉴스 실패» 0"
 stage C
 
 echo "== ⓑ 기준판($BASESHA) — 같은 시험이 «빨갛다»"
+if bl "기준판 N1" "$BASE_OK"; then
 desk "$BASEBIN" n1
 eq "기준판 N1 = 첫 틱들에 12통(상한)" "$(val "$OUT" relays)" "12"
 eq "기준판 N1 최소 간격 10분" "$(val "$OUT" mingap)" "10"
+fi
+if bl "기준판 N5" "$BASE_OK"; then
 mkroot base5; round "$BASEBIN" base5
 eq "기준판 N5 = exit 3" "$RC" "3"
 has "$OUT" "표지 sha10" "기준판 N5 «표지 sha10 … 다르다» 재현"
 eq "기준판 N5 초안 0" "$(drafts base5)" "0"
+fi
+if bl "기준판 N10" "$BASE_OK"; then
 desk "$BASEBIN" n10 FT_DESK_TOOL_TIMEOUT=0.5 FT_DESK_RELAY_GAP_MIN=0
 eq "기준판 N10 = «판정 불가 relay»(rc1) + 다음 틱 재발송(relay 2통)" "$(val "$OUT" rc1)/$(val "$OUT" relays)" "1/2"
+fi
+if bl "기준판 N8" "$BASE_OK"; then
 mkroot base8; touch "$WT/design/planner/NEWS-old-draft-p1.md"
 round "$BASEBIN" base8 HOOK="$T/noop.sh" FT_LEDGER_SYNCED=0 FT_LEDGER_SYNC="$T/sync-fail.sh" FT_LEDGER_SYNC_MIN=0
 eq "기준판 N8 = [긴급] 0(ERROR 줄만)" "$(grep -c '\[긴급\] 뉴스 원장 사본 checkout 막힘' "$T/base8/mbox.log" || true)" "0"
 rm -f "$WT/design/planner/NEWS-old-draft-p1.md"
+fi
 stage 기준판
 
 echo "== ⓒ 변이 — 각 변이가 대응 시험을 깬다"

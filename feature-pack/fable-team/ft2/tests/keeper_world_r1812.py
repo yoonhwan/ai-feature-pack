@@ -81,6 +81,9 @@ class World:
             s.commit(name, {"design/TEAMS.md": TEAMS}, "main")
         s.commit("byz", {}, "ops/main-base", new=True)
         _git(tmp, "clone", "-q", str(tmp / "byz.git"), "root"), _git(tmp, "clone", "-q", str(tmp / "pack.git"), "pack")
+        lk = old / "bin" / "ft-land-kind-lib.sh"   # r2274 설치본 자리(<root>/.fable-team/bin) — ft2 사본 변이 시험도 같은 lib 를 읽는다
+        lk.exists() and _put(s.root / ".fable-team" / "bin" / lk.name, lk.read_text(encoding="utf-8"))
+        mp.setenv("FT2_PACK_REPO", str(tmp / "pack"))   # r2274 card_stage 착지 sha 찾기도 임시 팩만(실 팩 0)
         for name, body in (("tmux", TMUX.replace("__PY__", sys.executable)), ("tmuxc", TMUXC.replace("__PY__", sys.executable)), ("close", STUB), ("mbox", MBOX),
                            ("reap", '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n')):
             _put(b / name, body), (b / name).chmod(0o755)
@@ -93,6 +96,7 @@ class World:
                      PATH=str(tmp / "psbin") + os.pathsep + os.environ["PATH"])
         for team in (TEAM, "planner"):
             _put(s.root / ".fable-team" / ("seats-%s.json" % team), {"_master": "M-" + team})
+        _put(s.state / "disk-alarm.log", ""), os.utime(s.state / "disk-alarm.log", (T0, T0))   # r2238 하루 정리 살아 있음(나이 0) = 생존 검사 줄·쪽지 0
     @property
     def K(s):
         return _mod(s.ft2 / "adapters" / "pi" / "keeper.py", "kp_%d" % id(s))
@@ -110,6 +114,11 @@ class World:
                              + ("- 착지: %s\n" % sha if sha else "")}, ref)
     def pack_sha(s):
         return s.commit("pack", {"p.txt": str(os.urandom(4))}, "main")
+    def land_sha(s):
+        """r2274 — card_stage 가 구현 착지로 읽는 실제 팩 커밋(임시 팩 clone 에도 받음 · DA#29 H3ⓑ 가짜 sha = 판정 불가)."""
+        sha = s.pack_sha()
+        _git(s.tmp / "pack", "fetch", "-q", "origin")
+        return sha
     def work(s, work, done=False, team=TEAM, intent=True, alive=False, pane="✻ Brewed for 3s\n❯ ", holder=None,
              seat=None, turn="stop"):
         """일 1개 = submit→assign→deliver(→complete) · intent(holder=seat) · Pi 세션 jsonl 마지막 줄 stopReason=turn(None=파일 0)."""

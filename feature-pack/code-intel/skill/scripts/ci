@@ -107,7 +107,19 @@ _lsp_brief() {
     /^ +Readiness: /{sub(/^ *Readiness: */,""); r=r " · " l "=" $0} END{printf "status=%s%s", (s=="" ? "출력 0" : s), r}'
 }
 #  refs/def/impl — exec 대신 결과·rc·stderr 를 받는다. 데몬 시간 초과 또는 rc≠0+stdout 0줄 = 판정 불가 1줄 rc3.
-#  정상 결과·probe 정상 0건(«No references found» rc0 · 재현 실측) = stdout·stderr·rc 그대로.
+#  정상 결과 = stdout·stderr·rc 그대로 · refs 빈 결과(«No references found» rc0)만 r2292 교차 확인을 거친다.
+#  r2292 C1·C3 — 같은 범위 글자 출현을 1번 센다(rg -o 낱말 단위 · 점 든 이름 = 마지막 마디 · 선언 낱말 1개 뺌) · rc1 = 판정 불가 줄을 냈다
+_refs_empty() { case "$(tr -d ' \t\n' <"$1")" in Noreferencesfound|Noreferencesfound.|'[]'|'{"references":[]}'|'{"locations":[]}') return 0 ;; esac; return 1; }
+_refs_cross() { # $1=loc · file:line:col 꼴(이름 없음) = 교차 확인 0
+  local f="${1%%#*}" s="${1##*#}" rg hits r L n
+  [ "$f" = "$1" ] && return 0; s="${s##*.}"; rg="${RG_BIN:-$(_resolve rg || true)}"
+  hits="$(_cap 7 "$rg" -n -o -F -w -H --no-heading --color never -e "$s" -- "${CI_LSP_SCOPE:-$PWD}" 2>/dev/null)"; r=$?
+  [ -n "$rg" ] && [ "$r" -le 1 ] || { echo "판정 불가 ci refs — 교차 확인 실패(rg rc=$r)" >&2; return 1; }
+  L="$(grep -nwE "(def|class|function|func|fn|struct|interface|type|enum|const|let|var)[[:space:]]+$s" "$f" 2>/dev/null | head -1 | cut -d: -f1)"
+  [ -n "$L" ] && hits="$(x=; while IFS= read -r h; do p="${h%%:[0-9]*}"; case "${h#"$p":}" in "$L:"*) [ -z "$x" ] && [ "$p" -ef "$f" ] && { x=1; continue; } ;; esac; printf '%s\n' "$h"; done <<< "$hits")"   # r2292-M2
+  n="$(printf '%s\n' "$hits" | grep -c .)"; [ "$n" -gt 0 ] || return 0
+  { echo "판정 불가 ci refs — LSP 0건 · 글자 출현 ${n}곳(LSP 미색인 의심 · ci lsp status 의 Workspaces 확인)"; printf '%s\n' "$hits" | grep . | head -5; } >&2; return 1
+}
 _lsp_call() { # $1=ci 동사 · $2..=probe lsp call 인자
   local verb="$1" d rc sec why t0=$SECONDS; shift
   d="$(mktemp -d "${TMPDIR:-/tmp}/ci-lsp.XXXXXX")" || { echo "판정 불가 ci $verb: 임시 폴더를 만들지 못했다" >&2; exit 3; }
@@ -115,7 +127,9 @@ _lsp_call() { # $1=ci 동사 · $2..=probe lsp call 인자
   if grep -qE "Timeout (connecting to daemon|reading message)" "$d/err"; then
     sec="$(sed -n 's/.*after \([0-9]*\)000ms.*/\1/p' "$d/err" | head -1)"; why="LSP 데몬 응답 없음(${sec:-$((SECONDS - t0))}s)"
   elif [ "$rc" -ne 0 ] && [ ! -s "$d/out" ]; then why="probe rc=$rc 출력 0"
-  else cat "$d/err" >&2; cat "$d/out"; rm -rf "$d"; exit "$rc"; fi
+  else
+    [ "$verb" = refs ] && [ "$rc" -eq 0 ] && _refs_empty "$d/out" && ! _refs_cross "$2" && { rm -rf "$d"; exit 3; }   # r2292 C1
+    cat "$d/err" >&2; cat "$d/out"; rm -rf "$d"; exit "$rc"; fi
   rm -rf "$d"; _lsp_status
   echo "판정 불가 ci $verb — $why · $(_lsp_brief "$LS_OUT")" >&2
   exit 3
@@ -503,6 +517,7 @@ case "$cmd" in
       if [ "$LS_RC" -ne 0 ] || [ -z "$LS_OUT" ]; then printf "lsp   : 판정 불가 status rc=%s 출력 %s\n" "$LS_RC" "$(printf '%s' "$LS_OUT" | grep -c .)"
       elif [ -n "$w" ]; then printf "lsp   : WARN %s\n" "$w"
       else printf "lsp   : %s\n" "$(printf '%s' "$LS_OUT" | tr '\n' ' ' | cut -c1-90)"; fi
+      printf '%s\n' "$LS_OUT" | sed -n 's/^ *• *//p' | grep -Fxq "$HOME" && echo "[warn] LSP workspace 에 홈 전체 — refs 느림 · 빈 결과 원인 · ci lsp repair"   # r2292 C4
       [ "$pre_lsp" = "0" ] && "$PROBE" lsp shutdown >/dev/null 2>&1
       printf "smoke : "
       out="$("$PROBE" search "function OR def" . --max-results 1 2>/dev/null | head -3 | tr '\n' ' ')"

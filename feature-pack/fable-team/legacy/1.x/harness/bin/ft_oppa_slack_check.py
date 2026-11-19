@@ -7,7 +7,9 @@ r1606: 창 안 오빠 답글의 «내용» 도 본다 — 답글을 토막(공�
 env: FT_SLACK_REPLIES_CMD(시험용 · 이 명령의 stdout = conversations.replies JSON · 조회할 ts 는 env FT_SLACK_TS 로 준다) · FT_SCOPE_SLACK_TOKEN_FILE · FT_SCOPE_SLACK_CHANNEL · r1857: 첫 인자 `<채널>:<ts>` 면 그 채널(env 보다 앞섬 · 가짜 조회엔 FT_SLACK_CHANNEL 로 준다)
 --reply-only <질문 ts>(r1591) = sha 칸이 없는 질문(설계 승인 등) 모드 — stdout 은 `REPLY-SEEN parent=<ts> reply=<ts>` 한 줄(rc0) · 답글 아직 없으면 rc3 · 판정 불가 rc2 · SLACK-OK 를 «한 줄도» 내지 않는다(승인 길에 못 쓴다).
 r1764: `--reply-only <부모 ts> --after <글 ts>` = 그 시각 «뒤» 첫 오빠 글만 본다(스레드 새 글 감시 · 글이 더 없으면 rc3) — 승인 길·--after 없는 길은 그대로.
-r1776: `--reply-only <질문 ts> [--after <ts>] [--stop-at <ts>[,<ts>…]]`(순서 무관) = 같은 스레드에 있는 stop ts 중 질문 뒤 가장 이른 것 앞에서 창을 끊는다(스레드에 없는 ts 무시) · 승인 길(sha)에 --stop-at = rc2 usage."""
+r1776: `--reply-only <질문 ts> [--after <ts>] [--stop-at <ts>[,<ts>…]]`(순서 무관) = 같은 스레드에 있는 stop ts 중 질문 뒤 가장 이른 것 앞에서 창을 끊는다(스레드에 없는 ts 무시) · 승인 길(sha)에 --stop-at = rc2 usage.
+r2164: `<질문 ts> --plan-sha <64hex>` = h 계획 잠금 sha256 승인 확인(ft-hil-gate.sh run-line 이 부른다) · 출력 · rc 는 승인 길과 같다 · 이 모드에서만 상태 덧글 = «40자 이상 hex 낱말 0» ∧ 머리
+  (다른 계획 64자를 담은 [알림] 등 = 창 경계) · positional 40자 · 64자 길 · --reply-only 는 그대로."""
 import json
 import os
 import re
@@ -30,6 +32,7 @@ TAIL_NO = ("아니", "안", "않", "말", "마", "못", "하지", "보류", "취
 
 
 HEX40 = re.compile(r"(?<![0-9a-fA-F])[0-9a-fA-F]{40}(?![0-9a-fA-F])")
+HEXW = re.compile(r"(?<![0-9a-fA-F])[0-9a-fA-F]{40,}(?![0-9a-fA-F])")  # r2164 · --plan-sha 모드 상태 덧글 판정 = 40자 이상 hex 낱말(64자 포함)
 # r2013 ② · 질문 뒤 같은 작성자 글 중 40hex 0 이고 첫 줄이 이 머리로 시작 = 상태 덧글 → 승인 창을 끊지 않는다(그 밖 40hex 0 글 = 다음 질문 = 끊음 · fail-closed). 바꾸려면 PR.
 STATUS_HEADS = ("[멈춤]", "[정리]", "[알림]")
 
@@ -75,6 +78,10 @@ def status_note(txt: str) -> bool:
     return not HEX40.search(txt) and txt.lstrip().startswith(STATUS_HEADS)
 
 
+def plan_note(txt: str) -> bool:  # r2164 T2b · --plan-sha 모드 = 40자 이상 hex 낱말 0 ∧ 머리 · 같은 계획 64자 재게시는 has_sha 가 잇는다
+    return not HEXW.search(txt) and txt.lstrip().startswith(STATUS_HEADS)
+
+
 def first_chunk_words(m: dict) -> list:
     """r1696 ⓑ — 답 본문을 줄바꿈과 «/» 로 조각낸 뒤 «첫 비어 있지 않은 조각» 의 토막. «예\n\n헤드는 …» = [예] (설명 줄이 붙어도 승인)."""
     t = m.get("text") if isinstance(m.get("text"), str) else ""
@@ -88,6 +95,33 @@ def first_chunk_words(m: dict) -> list:
 def first_word_tail_ok(fc: list) -> bool:
     tail = fc[1:]
     return bool(fc) and fc[0] in FIRST_OK and len(tail) <= 3 and not any("?" in w or "？" in w for w in fc) and not any(s.startswith(TAIL_NO) for w in tail for s in re.split(r"\W+", w))
+
+
+# r2195 · r1950 덧말 갈래의 덧말 조각 = 영문·숫자·_·- 가 이어진 것(숫자만 = 길이 무관 · 그 밖 3자 이상). 오빠 확인 대상 — 바꾸려면 PR.
+TAIL_BIT = re.compile(r"[A-Za-z0-9_-]+")
+
+
+def tail_words_ok(fc: list, sha: str, text: str) -> bool:
+    """r2195 B1·B2 — 덧말 조각 전부가 이 sha 의 열쇠(열쇠 줄 정확히 1개 · 다른 sha 와 안 겹침) 또는 승인 낱말일 때만 True(«네 ENFORCE» = 다른 항목 = False). 오빠 확인 대상 — 바꾸려면 PR."""
+    bits = [b for w in fc[1:] for b in TAIL_BIT.findall(w.lower()) if b.isdigit() or len(b) >= 3]
+    return bits_ok(bits, sha, text)
+
+
+def next_chunk_bits(m: dict) -> list:
+    """r2261 C1 — 첫 비어 있지 않은 조각 «다음» 조각들(경계 = first_chunk_words 와 같음)의 조각 = TAIL_BIT · 숫자만 조각도 3자 이상(«1파일»·«2.0.0» 0) · 한글 0. 오빠 확인 대상 — 바꾸려면 PR."""
+    t = m.get("text") if isinstance(m.get("text"), str) else ""
+    chunks = [c for c in re.split(r"(?:[\r\n]+|\s+/\s+)", t) if not re.fullmatch(r"[\s,.!~]*", c)]  # 경계 뜻은 first_chunk_words 와 같고 글자만 다름(r1696 M5 변이 글자 1회) · 빈 조각 = 그 토막 0 과 같은 글자
+    return [b for c in chunks[1:] for b in TAIL_BIT.findall(c.lower()) if len(b) >= 3]
+
+
+def bits_ok(bits: list, sha: str, text: str) -> bool:
+    """r2195 B2 · r2261 C2 — 조각 전부가 이 sha 의 열쇠 · 승인 낱말 · 이 sha 머리 글자(7자 이상 16진)일 때만 True. 오빠 확인 대상 — 바꾸려면 PR."""
+    keys = KEY_LINE.findall(text)
+    mine = [k.lower() for k, h in keys if h.lower() == sha.lower()]
+    others = {k.lower() for k, h in keys if h.lower() != sha.lower()}
+    key = mine[0] if len(mine) == 1 and mine[0] not in others else None
+    head = lambda b: len(b) >= 7 and re.fullmatch(r"[0-9a-f]+", b) is not None and sha.lower().startswith(b)  # noqa: E731 · r2261 C2 «head 457ae87…»
+    return all(b == key or b in APPROVE_WORDS or head(b) for b in bits)
 
 
 def reply_words(m: dict) -> list:
@@ -149,7 +183,7 @@ def locate(ts: str) -> list:
 
 
 
-def judge(ts: str, shas: list, after: str | None = None, stop: list | None = None) -> list:  # r1764 · after = 이 ts «뒤» 만(스레드 새 글 감시) · r1776 stop = 다음 질문 ts
+def judge(ts: str, shas: list, after: str | None = None, stop: list | None = None, plan: bool = False) -> list:  # r2164 plan = --plan-sha  # r1764 · after = 이 ts «뒤» 만(스레드 새 글 감시) · r1776 stop = 다음 질문 ts
     msgs = locate(ts)
     q = next(m for m in msgs if m.get("ts") == ts)
     if not isinstance(q.get("text"), str):
@@ -171,6 +205,8 @@ def judge(ts: str, shas: list, after: str | None = None, stop: list | None = Non
             return bool(HEX40.search(txt))   # --reply-only(r1591) = sha 칸 없음 → 40hex 담은 글(재게시)은 창을 끊지 않는다(카드 ⓗ)
         return bool(re.search(r"(?<![0-9a-fA-F])%s(?![0-9a-fA-F])" % sha, txt, re.I))
     notes = {x for x, txt in mine if status_note(txt)}  # r2013 ⓒ
+    if plan:  # r2164 T2b · --plan-sha 모드만 상태 덧글 식을 바꾼다
+        notes = {x for x, txt in mine if plan_note(txt)}
     out = []
     for sha in shas:
         if not re.search(r"(?<![0-9a-fA-F])%s(?![0-9a-fA-F])" % sha, text, re.I) and sha:  # r1591 · 빈 sha = 답글 확인 모드(sha 낱말 검사 없음)
@@ -188,7 +224,7 @@ def judge(ts: str, shas: list, after: str | None = None, stop: list | None = Non
         if not sha:  # r1591 · --reply-only 는 «도착» 만 본다(r1606 내용 판정은 승인 길에만 · 범위 밖)
             out.append("REPLY-SEEN parent=%s reply=%s" % (ts, ok[0][0]))
             continue
-        said = []
+        said, rest = [], {}
         for t, m in ok:  # r2194 B5 · 번호 답 = 이 sha 번호의 조각만 본다 · 이 sha 번호가 없으면 이 sha 에 답하지 않은 글
             nr = numbered(m)
             if nr is not None:
@@ -198,10 +234,13 @@ def judge(ts: str, shas: list, after: str | None = None, stop: list | None = Non
                     continue
                 m = {"text": c}
             said.append((t, reply_words(m), first_chunk_words(m)))
+            rest[t] = next_chunk_bits(m)
         no = [t for t, ws, _ in said if REJECT_WORDS.intersection(ws)]  # r1606 · 거절은 «본문 전체» 토막 검사 그대로(«예\n근데 보류» = 거절)
         if no:
             raise ValueError("오빠 거절 답글 reply=%s" % no[0])
         yes = [t for t, _, fc in said if fc and all(w in APPROVE_WORDS for w in fc)] or [t for t, _, fc in said if first_word_tail_ok(fc)]  # r1696 ⓑ · r1950 · «첫 조각» 의 토막이 전부 승인 낱말이면 승인
+        yes = [t for t, _, fc in said if t in yes and tail_words_ok(fc, sha, text)]  # r2195 B2 · 덧말 갈래만 걸린다(첫 갈래 토막 = 승인 낱말뿐 · 영문 ok·go 는 2자라 조각 0)
+        yes = [t for t in yes if bits_ok(rest[t], sha, text)]  # r2261 C1 · 두 갈래 모두 다음 조각에도 걸린다(«네 ⏎ ENFORCE 켜요» = 승인 0 · 한글 설명 줄 = 조각 0)
         if not yes:  # r1606 · 오타·모르는 토막 = 승인 0 (BYZ #8243 «tmddls»)
             raise Unjudgeable("답글 내용 승인 낱말 아님")
         out.append("SLACK-OK %s parent=%s reply=%s" % (sha, ts, yes[0]))
@@ -219,6 +258,13 @@ def main(argv: list) -> int:
                 return 2
             args, opt[flag] = args[:i] + args[i + 2:], v
     after, stop = opt.get("--after"), opt["--stop-at"].split(",") if "--stop-at" in opt else None
+    plan = "--plan-sha" in args  # r2164 · <질문 ts> --plan-sha <64hex> 만(다른 sha 칸 · --reply-only 와 섞으면 usage)
+    if plan:
+        i = args.index("--plan-sha")
+        if i != 1 or len(args) != 3 or not re.fullmatch(r"[0-9a-fA-F]{64}", args[2]):
+            print("usage: ft_oppa_slack_check.py [<채널>:]<질문 글 ts> --plan-sha <64hex>", file=sys.stderr)
+            return 2
+        args = [args[0], args[2]]
     if args[:1] == ["--reply-only"]:  # r1591 · h·sha 칸이 없는 질문(설계 승인 등) — 빈 sha = 답글 확인 모드(REPLY-SEEN 만)
         if len(args) != 2 or not CHAN_TS.fullmatch(args[1]):
             print("usage: ft_oppa_slack_check.py --reply-only <질문 글 ts>", file=sys.stderr)
@@ -230,7 +276,7 @@ def main(argv: list) -> int:
     global CHANNEL
     CHANNEL, parent = CHAN_TS.fullmatch(args[0]).groups()  # r1857  # r1764 보정 · NoReply 문구는 부모 ts(예전 argv[1] 재할당 빠짐으로 «parent=--reply-only» 가 새었나)
     try:
-        print("\n".join(judge(parent, args[1:], after, stop)))
+        print("\n".join(judge(parent, args[1:], after, stop, plan)))
         return 0
     except NoReply as e:  # r1591 · 답글 아직 없음 = 정상 열린 질문(판정 불가 아님 · ANSWERED 아님)
         print("REPLY-NONE parent=%s — %s" % (parent, e), file=sys.stderr)

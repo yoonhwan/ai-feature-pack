@@ -46,6 +46,11 @@ SEATS_JSON="${FT_SEATS_JSON:-}"
 if [ -z "$SEATS_JSON" ]; then
   common="$(git -C "$(dirname "$0")" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"
   [ -n "$common" ] && SEATS_JSON="$(dirname "$common")/.fable-team/seats.json"
+  # r2237 O4 — 스크립트 폴더가 리포 밖(live bin)이면 현재 폴더 리포를 한 번 더 · 그 리포 seats.json 실재일 때만 «찾음»
+  if [ -z "$common" ]; then
+    common="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"
+    [ -n "$common" ] && [ -f "$(dirname "$common")/.fable-team/seats.json" ] && SEATS_JSON="$(dirname "$common")/.fable-team/seats.json"
+  fi
 fi
 # 좌석명\tagent\treplaced(0|1)\t찾은 명부 폴더 — 파일이 없으면 stderr 한 줄 (조용히 넘기지 않는다)
 # r1689 — 명부 1개가 아니라 «찾을 수 있는 명부 전부»: ①SEATS_JSON ②같은 폴더 seats*.json(다른 팀)

@@ -7,6 +7,8 @@ push 전 자기 검사 = 커밋 변화가 D <옛 경로> 1줄 + 완성/ 밑 .md 
 머리 `- 상태:` 줄 = 완성 + `## 상태` 절 끝 1줄 · 커밋 글 `[docs] <카드> 2.0 완성 폴더(ft2 done)` 그대로(G7).
 rc 0 STAGED·NOOP · 1 REJECT done 없음(쓰기 0) · 3 판정 불가(push 시간초과 = 결과 불명 · 다시 돌리면 NOOP·STAGED 로 수렴).
 r2037 — `--da <판정문#§N>`: done 없음이면 §N 절을 ft_close_marker(1.x 한 곳 · 사본 0)로 읽어 닫힘이면 같은 stage() · 원장에 work 있고 done=false 면 complete 1회.
+r2274 — 통과한 DA 없이 옮길 증거 = 예외 3꼴(ft_no_code) 또는 마지막 착지 줄 sha 의 구현 착지(ft_land_kind · 둘 다 1.x 한 곳 · keeper_land 경유) ·
+  아니면 rc 0 «NOOP <work> 완성 증거 0 <카드 문서만 착지 sha8 | 착지 줄 0 | 착지 줄 0 · 보완>» · 쓰기 0.
 """
 import argparse
 import importlib.util
@@ -29,6 +31,11 @@ class Unsure(Exception):
     pass
 class Reject(Exception):
     pass
+class Noop(Unsure):
+    """r2274 C3 — 완성 증거 0(카드 문서만 착지 · 착지 줄 0) · main = rc 0 NOOP · keeper = 쓰기 0 Unsure(영구 사유 «완성 증거 0»)."""
+    def __init__(self, why):
+        super().__init__("완성 증거 0 " + why)
+HEX = re.compile(r"(?<![0-9A-Za-z])[0-9a-f]{7,40}(?![0-9A-Za-z])")   # r2274 C3 착지 줄 안 sha(마지막 것) · ft_no_code ⓒ 와 같은 꼴
 class Slow(Unsure):
     """git 1회 7초 초과 — 결과 불명(재시도 1회는 push 만 · G5)."""
     pass
@@ -39,6 +46,9 @@ def spawn(cwd, args, env=None):
     except subprocess.TimeoutExpired:
         raise Slow("git %s 시간초과 7초" % (" ".join(args[:2]) if args[:1] and args[0] in PAIR else (args[0] if args else ""))) from None
     return p.returncode, p.stdout
+def proc(argv, cap, **kw):
+    """r2287 C2 — git 밖 바깥 호출 1곳(lib bash · da_judge · sh · card_archive.judge) · keeper 가 spawn 과 같은 남은 몫 문으로 감쌀 · 바퀴 밖 = 상한 cap 그대로."""
+    return subprocess.run(argv, capture_output=True, timeout=cap, **kw)
 def git(cwd, *args):
     return spawn(cwd, args)
 def git_env(cwd, env, *args):   # G3 ① — 임시 index 로 부르는 git
@@ -108,8 +118,7 @@ def da_judge(root, text, sec, stem):
     # 절 = `## …§N` 머리부터 다음 `## ` 전까지(ft-index-close-landed 와 같은 꼴)
     body = "".join(s for s in re.split(r"(?m)^(?=## )", text) if (m := re.match(r"## .*?(§\d+)(?!\d)", s)) and m.group(1) == sec)
     try:
-        p = body and subprocess.run(["bash", "-c", '. "$1" >/dev/null 2>&1 || exit 9; ft_close_marker "$2"', "x", lib, stem],
-                                    input=body.encode(), capture_output=True, timeout=7)
+        p = body and proc(["bash", "-c", '. "$1" >/dev/null 2>&1 || exit 9; ft_close_marker "$2"', "x", lib, stem], 7, input=body.encode())
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise Unsure("판정문 읽기 %s" % type(exc).__name__) from None
     if p and p.returncode > 1:
@@ -176,10 +185,10 @@ def stage(byz, root, team, work, at, now, da=None, gate=None):
             raise Reject(why)
         stem = os.path.basename(old)[:-3]
         own = stem == work or stem.startswith(work + "-")   # r2152 G1·G2 — 짝 표 남의 카드는 «착지(<work>):» 줄만(keeper_land F3 와 같은 규칙)
-        pat = r"(?m)^- 착지: [0-9a-f]{40}\b" if own else r"(?m)^- 착지\(%s\): [0-9a-f]{40}(?=\s|$)" % re.escape(work)
-        landed = re.search(pat, run(byz, "show", "%s:%s" % (sha[ref], old)))
-        if not landed and not (gate and why is None):   # r2147 C1 — 착지 줄 또는 통과한 DA 만 옮김(쓰기·push 0)
-            raise Unsure("착지 줄 없음 %s" % os.path.basename(old)[:-3])
+        pat = r"(?m)^- 착지:[ \t]*(.*)$" if own else r"(?m)^- 착지\(%s\):[ \t]*(.*)$" % re.escape(work)
+        text = run(byz, "show", "%s:%s" % (sha[ref], old))
+        if not (gate and why is None):   # r2147 C1 · r2274 C3 — 통과한 DA 없음 = 예외 3꼴 · 착지 줄 sha 의 구현 착지만 옮김(쓰기·push 0)
+            evidence(byz, root, text, re.findall(pat, text))
         commit = commit_tree(byz, sha[ref], old, new, at, now, frm, da)
         rc = push(byz, commit, ref)
         if rc == 0:
@@ -188,6 +197,36 @@ def stage(byz, root, team, work, at, now, da=None, gate=None):
             raise Unsure("push 결과 불명 rc %s" % rc)
         refused = True
         run(byz, "fetch", "-q", "origin", ref.split("/", 1)[1])   # 새 끝에서 card() 부터 다시
+def sh(argv, cap):
+    """r2274 — land_kind 의 바깥 호출 손(상한 cap 초 · 넘침 = rc None)."""
+    try:
+        p = proc(argv, cap, text=True)
+    except subprocess.TimeoutExpired:
+        return None, ""
+    return p.returncode, p.stdout
+def evidence(byz, root, text, lands):
+    """r2274 C3 — 예외 3꼴(ft_no_code) = 옮김 · 마지막 착지 줄 16진수 7~40자(마지막 것) = impl · 그 밖 착지 줄 = «착지 줄 0» · 착지 줄 없음 = «착지 줄 0 · 보완»."""
+    exc = land.no_code(root, text, sh)
+    if exc.startswith("판정 불가 "):
+        raise Unsure(exc.replace("판정 불가 ", "", 1))
+    if exc:
+        return
+    hexes = HEX.findall(lands[-1]) if lands else []
+    if not hexes:
+        raise Noop("착지 줄 0" if lands else "착지 줄 0 · 보완")
+    impl(byz, root, hexes[-1])
+def impl(byz, root, sha):
+    """r2274 C3 — 착지 sha 가 있는 리포(BYZ → 팩 · 로컬 객체만) 에 keeper_land.land_kind · 카드 문서만 = Noop · 판정 불가·둘 다 없음 = Unsure(쓰기 0)."""
+    pack = os.environ.get("FT2_PACK_REPO") or os.path.expanduser("~/Project/ai-feature-pack")   # keeper.py 와 같은 팩 자리
+    env = dict(os.environ, GIT_NO_LAZY_FETCH="1")
+    repo = next((r for r in (byz, pack) if os.path.isdir(r) and spawn(r, ["rev-parse", "-q", "--verify", sha + "^{commit}"], env)[0] == 0), None)
+    if repo is None:   # DA#29 H3ⓑ — 둘 다 없음 = C1 «실패 = 판정 불가»(쓰기 0)
+        raise Unsure("착지 sha 로컬 0(BYZ·팩) %s" % sha[:8])
+    kind = land.land_kind(root, repo, sha, sh)
+    if kind == "카드 문서만":
+        raise Noop("카드 문서만 착지 " + sha[:8])
+    if kind != "구현":
+        raise Unsure(kind.replace("판정 불가 ", "", 1))
 def ledger_complete(root, team, work):
     """r2037 A5 — 원장에 work 가 있고 done=false 면 cli complete 1회(최신 attempt) → done 재확인 · work 없음 = None(complete 0)."""
     row = proj.project(root, team)["works"].get(work)
@@ -219,6 +258,8 @@ def main(argv=None):
         if out and da:   # A5 — 카드 이동은 이미 끝(되돌림 0) · 원장 실패는 다음 줄 판정 불가
             print(word)
             word = ledger_complete(root, a.team, a.work) or ""
+    except Noop as exc:
+        word, rc = "NOOP %s %s" % (a.work, exc), 0
     except Reject as exc:
         word, rc = "REJECT %s" % str(exc).replace("REJECT ", "", 1), 1
     except (Unsure, subprocess.TimeoutExpired) as exc:

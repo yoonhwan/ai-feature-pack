@@ -17,7 +17,7 @@ def world(tmp, mp, stages, done=True):
     for k, v in (("user.email", "t@t"), ("user.name", "t"), ("commit.gpgsign", "false")):
         kw._git(w.root, "config", k, v)
     for stage in stages:
-        w.card("r9", "1a" * 20, stage=stage, refs=(OPS,))   # r2147 — 착지 줄 있는 카드만 옮김
+        w.card("r9", w.land_sha(), stage=stage, refs=(OPS,))   # r2147 — 착지 줄 있는 카드만 옮김
     w.work("r9", done=done, intent=False, turn=None)
     return w
 

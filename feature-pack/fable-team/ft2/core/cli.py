@@ -20,7 +20,7 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 USAGE = 64
 # 처리 결과 낱말 → rc (계약). 표에 없는 낱말은 성공이 아니다 = 1.
 RC = {"접수 성공": 0, "회수 결과": 0, "접수 거부": 1, "BUSY": 1, "용량 부족": 1,
-      "완료 유보": 1, "낡은 실행권": 1, "복구 필요": 2}
+      "완료 유보": 1, "낡은 실행권": 1, "복구 필요": 2, "철회 성공": 0, "사용법": USAGE}   # r1925b
 # 동사 → (클래스, 공개 메서드, 필수 인자, 선택 인자). 순서가 곧 호출 인자 순서다.
 VERBS = {
     "submit": ("Intake", "submit", ("command", "body"), ("work",)),
@@ -36,7 +36,7 @@ VERBS = {
     "reassess": ("Dispatch", "reassess", ("work",), ("mode",)),
     "return": ("Dispatch", "give_back", ("work", "attempt", "evidence"), ()),   # r1990 손 = 현역 master · 근거 = 글 1줄
     "park": ("Dispatch", "park", ("work", "attempt", "reason"), ()),   # r2055 쉼 = owner·예약 해제 · 의무 그대로
-    "recover": ("Dispatch", "recover", (), ("mode",)),
+    "recover": ("Dispatch", "recover", (), ("mode",)), "withdraw": ("Withdraw", "withdraw", ("command", "why"), ()),
     "reclaim": ("Journal", "reclaim", (), ()),
     "project": ("Projection", "project", (), ()),      # 읽기 동사 — 잠금·쓰기 0 (r1617)
     "refuse": ("RefuseHistory", "refuse", ("work", "place", "gen", "cause", "artifact", "event"), ("by",)),
@@ -128,6 +128,7 @@ def call(verb, given, clock):
     classes["RefuseHistory"] = _load("refuse_history").RefuseHistory   # r1724 회수 거절 이력
     classes["CloseNext"] = _load("close_next").CloseNext               # r1725 닫기 영수 → 다음 발주
     classes["Reopen"] = _load("reopen").Reopen                         # r1727 재개 = 팀장 1번만
+    classes["Withdraw"] = _load("withdraw").Withdraw                   # r1925b 배정 전 접수 철회
     cls_name, method, required, optional = VERBS[verb]
     root, team = os.path.abspath(given["root"]), given["team"]
     if cls_name == "Projection":                        # 읽기 동사 — 인스턴스·잠금 없이 투영만 읽는다

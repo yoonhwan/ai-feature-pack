@@ -4,6 +4,7 @@
 #     대기/진행 = <팀 폴더>/indices/{대기,진행}/*.md 개수 · 좌석 M = 진행 카드 중 ① «-<slug>#» 가 tmux 세션명에 든 것(ft-orphan-cards.sh 와 같은 대응 · 대소문자 무시)
 #       또는 ② 카드 «- 배정: 좌석 <이름>» 의 <이름> 이 tmux 세션 목록에 있음(r1693 재사용 나노 — 세션 이름은 첫 카드 slug 그대로다 · 카드 본문은 이미 읽는 1회 안에서 본다)
 #     K = 카드 `- 착지:` 바로 뒤 «첫 낱말 하나»(양쪽 백틱 한 쌍은 벗김)가 `^[0-9a-f]{7,40}$` 이고, 그 낱말이 기준(main) 조상 커밋 sha 의 앞머리와 같을 때 센다 — 근거 없는 카드는 세지 않는다(거짓 양성 0 · 40자 고정은 완성 카드 착지 줄 184/321 을 버린다)
+#       r2274: 그 sha 가 카드 문서만(`*/indices/*`) 바꾼 합침이면(ft-land-kind-lib.sh ft_land_kind) K 에 안 센다 — 요약 줄에 « · 문서 착지 D»(D>0 일 때만 · rc·WARN 밖) · 판정 불가 = 지금처럼 K
 #       --branch-check = 착지 줄이 없는 카드 중 가지 nano/<slug> 가 ft-finished-check FINISHED 인 것도 센다(수동용 · 실측 한 번에 27초 · 틱·spawn 은 안 쓴다)
 #   --warn = «건강 그리고 확인 불가 0» 일 때만 출력 0 · 진행 > 좌석 + 2 또는 K > 0 이면 `WARN 카드 흐름 — … 이동 먼저: <카드 최대 5>` 1줄(ft-nano-spawn 앞 경보 · rc 불변)
 #   --gate = 상한 판정(r1292 · r1693 · r1715): 상한 N = max(바닥 FT_CARD_CAP_FLOOR(기본 10 · 정수 아님 = 10), 좌석 M + 2) — 셈 P = 진행 카드 − 관찰 대기 K > N 이면
@@ -61,6 +62,7 @@ MAIN="${FT_FINISHED_MAIN:-}"
 [ -n "$MAIN" ] || { git -C "$ROOT" rev-parse -q --verify origin/main >/dev/null 2>&1 && MAIN=origin/main || MAIN=main; }
 git -C "$ROOT" rev-parse -q --verify "$MAIN^{commit}" >/dev/null 2>&1 || unavailable "기준 ref 없음: $MAIN"
 FCHK="${FT_CARD_FLOW_FINISHED:-$HERE/ft-finished-check.sh}"
+. "$HERE/ft-land-kind-lib.sh" 2>/dev/null || true   # r2274 구현 착지 판정 한 곳(ft_land_kind) · 없으면 판정 불가 = 지금처럼 L
 
 # 카드 수·좌석·착지 판정은 python 한 번 + git rev-list 한 번(카드마다 git 호출 = 진행 207장에서 7초 초과 · 실측 10-26)
 PYOUT="$(CF_SESSIONS="$sessions" CF_REF="$RREF" CF_REFDIR="$RFOLD" CF_REFREPO="$RREPO" python3 -I - "$DIR" "$ROOT" "$MAIN" "$LIMIT" <<'PY'
@@ -154,7 +156,7 @@ if want:
 print('N',wait,len(rows),seat,obsn)
 for slug,live,sha in rows:
     st='L' if sha and sha in hit else ('U' if not sha else 'N')   # L 착지 확인 · U 착지 줄 없음(가지 판정 후보) · N 착지 줄 있으나 main 조상 아님
-    print('C',st,int(live),esc(slug))   # 이름 안 개행이 줄 조각으로 읽히지 않게 이스케이프(DA r6 반례 1)
+    print('C',st,int(live),sha or '-',esc(slug))   # 이름 안 개행이 줄 조각으로 읽히지 않게 이스케이프(DA r6 반례 1)
 PY
 )"; PYRC=$?
 case "$PYOUT" in TIMEOUT*) unavailable "시간 초과";; esac
@@ -162,7 +164,7 @@ case "$PYOUT" in TIMEOUT*) unavailable "시간 초과";; esac
 [ "$PYRC" -eq 0 ] || unavailable "계산 실패(rc=$PYRC)"
 over && unavailable "시간 초과"
 read -r _ wait_n prog seat obs <<<"$(printf '%s\n' "$PYOUT" | grep '^N ')"
-landed=0; unk_t=0; unk_f=0; unk_s=0; lcards=(); ocards=()
+landed=0; doc=0; unk_t=0; unk_f=0; unk_s=0; lcards=(); ocards=()
 # 가지 판정 = 세 값(ACTIVE · FINISHED · UNKNOWN+사유) 한 함수 · 출력 = emit 한 함수 — 일반·--warn 모두 같은 길을 거친다(r3 재설계)
 branch_verdict() { # <slug> → V=ACTIVE|FINISHED|UNKNOWN · VWHY=시간 초과|실패
   local slug="$1" rem out; V=UNKNOWN; VWHY="시간 초과"
@@ -202,13 +204,14 @@ emit() { # 모든 모드의 출력 — 확인 불가가 있으면 건강해도 �
     mv="(없음)"; if [ "${#cand[@]}" -gt 0 ]; then mv="$(printf '%s\n' "${cand[@]}" | head -5 | tr '\n' ' ' | sed 's/ $//')"; [ "${#cand[@]}" -le 5 ] || mv="$mv 외 $(( ${#cand[@]} - 5 ))"; fi
     echo "REJECT 카드 상한 — $TEAM 진행 $p(좌석 $seat · 관찰 대기 $obs) > 상한 $cap(max($floor, $seat+2)) · 이동 먼저: $mv"; return 4
   fi
-  if [ "$WARN" != 1 ]; then echo "카드 대기 $wait_n · 진행 $p(좌석 $seat · 관찰 대기 $obs) · 착지됐는데 진행 $landed$note$SUFFIX"; return 0; fi
+  local dtxt=""; [ "$doc" -eq 0 ] || dtxt=" · 문서 착지 $doc"   # r2274 C4 — 카드 문서만 착지 = L 아님 · 새 칸(rc·WARN 밖)
+  if [ "$WARN" != 1 ]; then echo "카드 대기 $wait_n · 진행 $p(좌석 $seat · 관찰 대기 $obs) · 착지됐는데 진행 $landed$dtxt$note$SUFFIX"; return 0; fi
   if [ "$landed" -gt 0 ] || [ "$p" -gt "$cap" ] || [ -n "$note" ]; then
     pick=("${lcards[@]+"${lcards[@]}"}"); [ "${#pick[@]}" -gt 0 ] || pick=("${ocards[@]+"${ocards[@]}"}")
-    echo "WARN 카드 흐름 — $TEAM 진행 $p(좌석 $seat · 관찰 대기 $obs) · 착지됐는데 진행 $landed$note$( [ "$landed" -gt 0 ] || [ "$p" -gt "$cap" ] && echo " · 이동 먼저: $(printf '%s\n' "${pick[@]+"${pick[@]}"}" | head -5 | tr '\n' ' ' | sed 's/ $//')")$SUFFIX"
+    echo "WARN 카드 흐름 — $TEAM 진행 $p(좌석 $seat · 관찰 대기 $obs) · 착지됐는데 진행 $landed$dtxt$note$( [ "$landed" -gt 0 ] || [ "$p" -gt "$cap" ] && echo " · 이동 먼저: $(printf '%s\n' "${pick[@]+"${pick[@]}"}" | head -5 | tr '\n' ' ' | sed 's/ $//')")$SUFFIX"
   fi
 }
-while read -r _ st live slug; do
+while read -r _ st live lsha slug; do
   [ "$live" = 1 ] || ocards+=("$slug.md")
   if [ "$st" = U ] && [ "$BRANCHCHK" = 1 ]; then   # 착지 줄이 없는 카드만 가지 판정 대상
     # 시작 실패 = 확인 불가(건너뛰지 않는다 · 보강 ③): 판정 스크립트 없음 · show-ref rc≥2(가지 없음 rc1 만 «대상 아님»)
@@ -219,6 +222,7 @@ while read -r _ st live slug; do
     branch_verdict "$slug"
     case "$V" in FINISHED) st=L;; UNKNOWN) [ "$VWHY" = "시간 초과" ] && unk_t=$((unk_t+1)) || unk_f=$((unk_f+1));; esac
   fi
+  [ "$st" = L ] && [ "$(ft_land_kind "$ROOT" "$lsha" 2>/dev/null)" = "카드 문서만" ] && { doc=$((doc+1)); st=D; }   # r2274 C4
   [ "$st" = L ] && { landed=$((landed+1)); lcards+=("$slug.md"); }
 done <<<"$(printf '%s\n' "$PYOUT" | grep '^C ')"
 emit

@@ -47,7 +47,7 @@ _wg_lock() {  # <wake-budget 폴더> → rc0 획득 · rc1 상한 초과
   until mkdir "$d" 2>/dev/null; do
     pid="$(cat "$d/pid" 2>/dev/null || printf '')"
     case "$pid" in
-      ''|*[!0-9]*) ;;
+      ''|*[!0-9]*) if _wg_lock_stale "$d"; then continue; fi ;;
       *) if ! kill -0 "$pid" 2>/dev/null; then
            rm -rf "$d" 2>/dev/null || true
            echo "WARN 예산 잠금 죽은 보유 pid $pid 해제 — $d" >&2
@@ -192,4 +192,18 @@ PY
   _wg_unlock "$sd"
   printf '%s\n' "${out:-refunded n=? team=?}"
   return "$rc"
+}
+
+# r2241 빈·숫자 아닌 pid 잠금(mkdir 와 pid 쓰기 사이에 죽음) — 나이(실제 시각 − .lock mtime) ≥ FT_MBOX_WAKE_LOCK_STALE_S(60)초면 풂.
+#   mtime 못 읽음(사라짐 · stat 실패 · 숫자 아님) = 젊음 → 풀기 0 · 기다림(하드 룰 20). rc0 풀었음 · rc1 기다림.
+_wg_lock_stale() {
+  local d="$1" m age max="${FT_MBOX_WAKE_LOCK_STALE_S:-60}"
+  m="$(stat -c %Y "$d" 2>/dev/null)" || m="$(stat -f %m "$d" 2>/dev/null)" || return 1
+  case "$m" in ''|*[!0-9]*) return 1 ;; esac
+  age=$(( $(date +%s) - m ))
+  [ "$age" -ge "$max" ] 2>/dev/null || return 1
+  rm -rf "$d" 2>/dev/null || true
+  echo "WARN 예산 잠금 빈 pid ${age}초 해제 — $d" >&2
+  _wg_errlog "lock-stale-empty age=$age"
+  return 0
 }

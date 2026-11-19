@@ -5,6 +5,7 @@
 #     통과 = `TRY-OK via=D2|S<n> <기존 명령 끝줄>` rc 0 · 둘 다 거절 = `TRY-REJECT <D2 사유> · <S 사유>` rc 2 · 자율 OFF = `TRY-SKIP 자율 OFF` rc 3
 #     둘째 줄 = 사람 말 1줄(A7) · 통과면 `SHARE <사람 말> · PR <N>` — Slack 글 꼴만 내고 실 발신 0(A8)
 #     어떤 거절도 통과로 바꾸지 않는다(A4) · 시간 상한 = 기존 두 명령 각자의 상한 그대로(A5)
+#   --land(r2293) = TRY-OK 뒤에만 ft-merge-land.sh 를 desk h 와 같은 인자로 1회(끝에 착지 출력 · rc = 착지 rc) · 통과 출력의 CLASS 줄 class·kind 에 global-rule·billing·deps 또는 판독 불가 = 착지 0(h 길) · r2295 = OK 줄 class=·kind=·learned= 먼저(class docs·ff·code ∧ kind·learned 0 만 착지)
 #   brief — 자율 상태 1줄(읽기만): `자율 ON A17 · 범위 S44 ~23:30 · 사용 0/30(code 0/10) · 상시 D2 켜짐`
 #     OFF = `자율 OFF · 병합·착수는 오빠 질문` · 범위 없음·만료 = `범위 없음` · D2 꺼짐 = `상시 D2 꺼짐` · 못 읽음 = `자율 상태 확인 불가(<사유>)`(추정 0)
 #     try-auto 가 보는 상태와 «같은 함수»(mode · d2_on · scope_load · scope_block)에서만 나온다 — 사본 0
@@ -25,14 +26,30 @@ try_root() {   # <byz|pack> → 판정문 상대 경로의 기준(그 리포 최
   git -C "$h" rev-parse --show-toplevel 2>/dev/null || printf '%s' "$h"
 }
 try_verdict() { [ "${1#/}" != "$1" ] && printf '%s' "$1" || printf '%s/%s' "$(try_root "$2")" "$1"; }
+try_kinds() {   # r2295 A3 통과 출력 → OK 줄(STANDING-OK·SCOPE-OK) 낱말 머리 class=·kind=·learned= 만(card= 이름 속 글자 0) · class 낱말 0 = r2293 «CLASS …» 줄 → «class kind…» · 꼴 다른 CLASS 머리 줄·class 2개 이상 = 빈 값(판독 불가 = 닫힌 쪽)
+  local t w; t="$(cat)"; [ -z "$(grep '^CLASS' <<<"$t" | grep -vE '^CLASS (docs|ff|revert|code)( kind=([a-z0-9,-]+).*)?$')" ] || return 0
+  w="$(grep -E '^(STANDING|SCOPE)-OK ' <<<"$t" | tr ' ' '\n' | grep -E '^(class|kind|learned)=')"
+  case "$(grep -c '^class=' <<<"$w")" in
+    1) tr '\n' ' ' <<<"$w" ;;
+    0) sed -nE 's/^CLASS (docs|ff|revert|code)( kind=([a-z0-9,-]+).*)?$/\1 \3/p' <<<"$t" | tr ',' ' ' ;;
+  esac
+}
+try_land() {   # r2293 C2·C3 <head> <pr> <byz|pack> <class·kind 값> — 사람 승인 분류·판독 불가 = 착지 0(h 길)
+  local k; [ -n "$4" ] || { echo "자동 착지 0 · kind 판독 불가 · h 길"; return 0; }
+  for k in $4; do case "$k" in global-rule|billing|deps) echo "자동 착지 제외 kind=$k · h 길"; return 0 ;; esac; done
+  for k in $4; do case "$k" in kind=*|learned=*) echo "자동 착지 제외 kind=${k#*=} · h 길"; return 0 ;; esac; done   # r2295 A3 OK 줄 kind·learned = 값 무관 h 길
+  for k in $4; do case "$k" in class=docs|class=ff|class=code) ;; class=*) echo "자동 착지 0 · $k · h 길"; return 0 ;; esac; done   # r2295 A3 class revert·equiv·그 밖 = h 길
+  bash "$HERE/ft-merge-land.sh" "$2" --approve-sha "$1" --repo "$(try_root "$3")"
+}
 try_sha_missing() {  # <판정문> — 파일이 있는데 «승인 sha:» 줄 0 = D2 판정문 꼴 아님(A10 ⓑ)
   [ -f "$1" ] && [ "$(grep -cE '^[-*]?[[:space:]]*승인 sha:[[:space:]]*[0-9a-f]{40}[[:space:]]*$' "$1")" = 0 ]
 }
 
 cmd_try_auto() {
-  local head="${1:-}" pr="" rk="" card="" vf="" d2r="" sr="" o e via="" last="" ok=0
+  local head="${1:-}" pr="" rk="" card="" vf="" d2r="" sr="" o e via="" last="" ok=0 land=0 lo="" lrc=0
   [[ "$head" =~ ^[0-9a-f]{40}$ ]] || try_usage "sha 형식 틀림(40hex 소문자): $head"; shift
   while [ $# -gt 0 ]; do
+    [ "$1" = --land ] && { land=1; shift; continue; }   # r2293 C2 값 없는 인자
     [ $# -ge 2 ] || try_usage "$1 값 없음"
     case "$1" in
       --pr) [[ "$2" =~ ^[0-9]+$ ]] || try_usage "--pr 값 틀림: $2"; pr="$2" ;;
@@ -58,8 +75,9 @@ cmd_try_auto() {
       ok=1; via="S?"; scope_load 2>/dev/null && via="$G_S"; last="$(try_last < "$o")"
     else sr="$(try_why "$e")"; fi
   fi
+  [ "$ok" = 1 ] && [ "$land" = 1 ] && { lo="$(try_land "$head" "$pr" "$rk" "$(try_kinds < "$o")" 2>&1)"; lrc=$?; }   # r2293 C2·C3 kind 판독 = rm 전 $o
   rm -f "$o" "$e"
-  if [ "$ok" = 1 ]; then printf 'TRY-OK via=%s %s\nSHARE %s · PR %s\n' "$via" "$last" "$(try_person "$via")" "$pr"; return 0; fi   # A2 · A8
+  if [ "$ok" = 1 ]; then printf 'TRY-OK via=%s %s\nSHARE %s · PR %s\n' "$via" "$last" "$(try_person "$via")" "$pr"; [ -z "$lo" ] || printf '%s\n' "$lo"; return "$lrc"; fi   # A2 · A8
   d2r="${d2r:-거절}"; sr="${sr:-거절}"
   printf 'TRY-REJECT %s · %s\n범위 밖 · 오빠 질문 — %s · %s\n' "$d2r" "$sr" "$d2r" "$sr"; return 2   # A1③ · A7
 }

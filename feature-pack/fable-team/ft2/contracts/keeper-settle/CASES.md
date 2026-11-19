@@ -11,6 +11,8 @@
 | `test_settle_da_r2055.py` | DA 반례 R1~R4 · ㉑가~라 · ㉒가~바 · ㉓ · ㉔ | — |
 | `test_slack_accept_capacity.py` | ㉖가~바 | M7 · M8 · M9 |
 | `test_keeper_round_60s.py` | ㊳가~너 ㊴가~바 ㊷가~마 | M72~M84 · M94~M97 |
+| `test_keeper_ungraded_team_rest.py` | 52가~바(6) — 팀 자리 `Ungraded` = 그 팀만 0 · 뒤 팀은 돈다 · b3o 판정 불가 = b3r 은 돈다 | M129 · M131 · M132 · M137 |
+| `test_keeper_nano_cut_blank_cell_r2245.py` | 53가~바(나노 모으기 끊김 = cut 칸·cursor 흔적 0) | M133~M136 |
 | `test_keeper_notify_recipient.py` | ㉚가~거 | M17 · M18 · M19 · M23 · M24 · M25 · M32 · M33 |
 | `test_launch_failed_end.py` | ㉘가~카 · ㉛가~라 | M11 · M12 · M13 · M16 · M30 · M31 |
 | `test_prereq_unreadable_once.py` | ㉟가~하 · ㉟거 | M39 · M40 · M41 · M56 · M57 · M58 |

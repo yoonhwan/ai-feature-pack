@@ -98,7 +98,7 @@ def c6(tmp, mp, ft2):   # ⑥ 짝 표 카드 A 막힘 → git rc≠0 바퀴(건�
 
 
 CASES = {"②": c2, "③": c3, "④": c4, "⑤": c5, "⑥": c6}
-MUTANTS = {"M1": ('x.partition("|")[0] == team and ', "", ("⑤",))}
+MUTANTS = {"M1": ('x for x in book if x.partition("|")[0] == team and ', "x for x in book if ", ("⑤",))}   # r2271 C1 닻 유일(r2254 gone 줄과 겹침 0)
 
 
 @pytest.mark.parametrize("name", list(CASES))

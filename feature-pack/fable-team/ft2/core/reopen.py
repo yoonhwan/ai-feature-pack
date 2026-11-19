@@ -133,6 +133,7 @@ class Reopen:
         큐 = journal accept 줄 + state 접수 장부 두 곳을 command 로 묶는다(같은 요청 = 같은 행)."""
         fields = self.record_cls(self.root, self.team).read().fields or {}
         works = {rec["command"]: rec.get("work") for rec in records if rec["kind"] == "accept"}
+        works = {cmd: work for cmd, work in works.items() if isinstance(work, str)}   # r2068 str 아닌 work = work 없는 접수
         rows = [rec["command"] for rec in records if rec["kind"] == "accept"] + list(state.get("pending") or [])
         left = set(record.remaining(state, records))
         sent = {rec.get("work") for rec in records if rec["kind"] == "dispatch" and rec.get("work")}

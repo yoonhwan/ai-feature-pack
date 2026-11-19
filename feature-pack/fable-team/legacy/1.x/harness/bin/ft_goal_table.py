@@ -18,8 +18,9 @@ check   : 본문에 ⓐ마커 블록(N행 = 마커 sha10 의 정본 골 칸과 �
 teams   : 원장 `## 팀별 완성 진행` 첫 표(팀 | 끝선 N/M | 마지막 착지 | 지금 하는 것) → 마커 2줄(`★팀별 완성 진행 (<원장 sha10>)★` … `★/팀별 완성 진행★`) 사이 표(≤1600B · R458).
           표 없음·예산 초과 = 빈 출력 + stderr WARN rc0 — 거절 게이트 0(뉴스·매거진을 멈추지 않는다 · check 는 골 표만).
 procs   : 원장 «메인 골 …줄» 만 읽어 안 보이던 오늘 등록 표준절차 골(r644) — planner 팀 폴더(ref 트리) 의 `GOAL-*-<8자리 날짜>.md` 마다 1줄(골 이름 = 파일 머리 `# 골 — …` · 담당 = 진행표 «담당» 칸 → 골 파일 `담당:` 줄 → `—`) · «지금 단계» = 원장 `## 표준절차 골 진행표` 의 «골 파일» 칸이 그 파일인 행(없으면 «진행표 행 없음» + stderr WARN) → 마커 2줄(`★표준절차 골 (<원장 sha10>)★` … `★/표준절차 골★`).
-          «지금 단계» 칸이 `완료` 로 시작하고 그 행에 저장소에 실재하는 sha10 이 있으면 그 골은 목록에서 빼 «완성 N: 이름들» 1줄로 위에 묶는다(sha 없음 = 완성 아님 + WARN). 행 `git blame` 시각이 `FT_GOAL_PROC_STALE_H`(24)시간을 넘으면 그 줄 끝 `⚠ N시간 정지` + 블록 끝 `정지 골 N: …` 1줄. 시계 = `FT_NOW`("YYYY-MM-DD HH:MM").
-          예산 1600B 넘으면 «지금 단계» 칸부터 줄임(teams 와 같은 꼴) · 골 파일 0개 = `표준절차 골 0` 1줄 · 원장·폴더 못 읽음 = `ERROR` rc1(조용히 빈 블록 0) — 소비처는 실패를 WARN + 빈 글로 받는다(뉴스·매거진을 멈추지 않는다).
+          «지금 단계» 칸이 `완료` 로 시작하고 그 행에 저장소에 실재하는 sha10 이 있으면 그 골은 목록에서 빼 «완성 N: 이름들» 1줄로 위에 묶는다(sha 없음 = 완성 아님 + WARN). 행 `git blame` 시각이 `FT_GOAL_PROC_STALE_H`(24)시간을 넘으면 그 줄 끝 `⚠ N시간 정지` + 블록 끝 `정지 골 N` 1줄(r2236 이름 반복 0). 시계 = `FT_NOW`("YYYY-MM-DD HH:MM").
+          r2236: 진행표 행 없음 ∧ 담당 `—` 인 골 파일은 골 줄 뒤 `진행표 행 없음 N: 이름들` 1줄로 묶는다(«담당:» 줄 있으면 제 줄 · stderr WARN 은 파일마다 그대로).
+          예산 1600B 넘으면 처음 드는 단계에서 멈춤: ① 단계 칸 40자 → ② 24자 → ③ 24자 + 묶음 줄 수만 → ④ 12자 → ⑤ `완성 N` 수만 → ⑥ 골 줄을 아래부터 접어 `… 외 K골(정지 M)` 1줄(정지 줄 먼저 · 살아 있는 골 줄은 마지막 · `정지 골 N` = ⚠ 줄 + M · stderr `WARN … — K줄 접음`) — 빈 블록 0 · 골 파일 0개 = `표준절차 골 0` 1줄 · 원장·폴더 못 읽음 = `ERROR` rc1(조용히 빈 블록 0) — 소비처는 실패를 WARN + 빈 글로 받는다(뉴스·매거진을 멈추지 않는다).
 정본 = env FT_GOAL_A6_MD(파일 경로 | `gitref:<ref>:<경로>` · 기본 = `gitref:<FT_TEAMS_REF·origin/main>:<planner 팀 폴더>/AUTONOMY-GOAL-A6-20261018.md` — r545: 체크아웃(LIVE_ROOT) 파일이 아니라 그 ref 에 올라간 판 · 폴더도 ref 트리에서 푼다) · 상태 = 원장 env FT_GOAL_A6_LEDGER(같은 두 형식 · 기본 같은 꼴) · 저장소 = FT_GOAL_REPO(기본 FT_LEDGER_REPO · FT_ROOT). sha10 = 파일이면 내용 sha256 · gitref 면 commit sha. 머리에는 출처 종류(`origin/main@` | `file:`)를 sha10 앞에 붙인다(r545 · 옛 꼴 `(<sha10> · …)` 도 읽는다).
 원장: 행 수 ≠ N = ERROR rc1(N = 정본 표 행 수 · r668) · 파일·절 없음 = «상태 없음» + stderr WARN · 머리 `원장:<갱신>` · 24h 초과 = «상태 낡음».
 """
@@ -33,6 +34,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 import unicodedata
 from datetime import datetime
 from pathlib import Path
@@ -66,6 +68,8 @@ BLOCK_MARKS: tuple[tuple[str, re.Pattern[str], str], ...] = (
     ("표준절차 골", re.compile("^" + re.escape(PROCS_HEAD) + r"[0-9a-f]{10}\)★$"), PROCS_TAIL),
 )
 PROCS_NAME_CELLS = (40, 24, 12)  # «지금 단계» 칸 — 예산(1600B)에 들 때까지 줄인다(teams 와 같은 꼴)
+# r2236 줄임 단계 ①~⑤ = (단계 칸, 묶음 줄 이름, 완성 줄 이름) · 그래도 넘치면 ⑥ 접기(_procs_fit)
+PROCS_STEPS = ((PROCS_NAME_CELLS[0], True, True), (PROCS_NAME_CELLS[1], True, True), (PROCS_NAME_CELLS[1], False, True), (PROCS_NAME_CELLS[2], False, True), (PROCS_NAME_CELLS[2], False, False))
 PROCS_FILE = re.compile(r"^GOAL-.+-[0-9]{8}\.md$")  # 날짜 붙은 골 파일만(AUTONOMY-GOAL-A6·GOAL-planner.md·날짜 없는 파일 제외)
 PROCS_TITLE = re.compile(r"^#\s*골\s*[—–-]\s*(.+?)\s*$")
 PROCS_OWNER = re.compile(r"^[>\s]*담당\s*[:：]\s*(\S.*)$")
@@ -80,6 +84,8 @@ GRACE_ENV = "FT_GOAL_RENUMBER_GRACE_H"
 LEGACY_N = 6  # r668 H4: 예전 코드가 박아 둔 골 개수 — 표식 없는 첫 렌더에서 «바뀐 판인가» 의 기준
 CANON_NAME = re.compile(r"^AUTONOMY-GOAL-A6-\d{8}\.md$")  # r728 — 정본 꼴 이름(기본 spec 과 같은 꼴 · DEFAULT_NAME)
 NOTIFY_TIMEOUT = 7  # r668 H4: 송신 1통 상한(초) — mbox 가 멈춰도 렌더는 계속
+NOTIFY_BUDGET = 10  # r2285 C3: 렌더 1회 공지 합계 상한(초) — 다음 1통을 시작할 남은 몫 < NOTIFY_TIMEOUT 이면 멈추고 남은 팀장은 다음 렌더가 잇는다
+SENT_TAG = "sent"  # r2285 C2 — 표식 줄 `sent	<번호표 지문>	<받은 팀장 이름,>`(그 번호표 판을 이미 받은 팀장 = 다시 보내기 0)
 
 
 class GoalError(RuntimeError):  # RuntimeError — 뉴스 원장 실행의 기존 except(RuntimeError) 가 «발행 0» 으로 받는다
@@ -245,8 +251,28 @@ def _renumber_sig(sha: str, rows: list[list[str]]) -> str:
 
 def _split_mark(text: str) -> tuple[str, str]:
     """표식 글 → (첫 줄 = 지금 판, «직전 판» 줄 또는 빈 글). 옛 꼴(한 줄)도 그대로 읽는다."""
-    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip() and not ln.strip().startswith(SENT_TAG + "\t")]  # r2285: sent 줄은 첫 줄이 아니다
     return (lines[0] if lines else ""), next((ln for ln in lines[1:] if ln.startswith(PREV_TAG + "\t")), "")
+
+
+def _sent_names(text: str, fp: str) -> set[str]:
+    """r2285 C2 — 표식의 sent 줄 중 «번호표 지문 = fp» 인 줄의 받은 팀장 이름들(다른 판·없음 = 빈 집합)."""
+    for ln in text.splitlines():
+        f = ln.strip().split("\t")
+        if len(f) == 3 and f[0] == SENT_TAG and f[1] == fp:
+            return {n for n in f[2].split(",") if n}
+    return set()
+
+
+def _save_sent(mark: Path, cur_line: str, prev_line: str, fp: str, got: set[str]) -> None:
+    """r2285 C2 — 1통 rc0 직후 sent 줄에 받은 팀장을 더한다(첫 줄·prev 줄 그대로 · tmp → mv)."""
+    lines = [x for x in (cur_line, prev_line, f"{SENT_TAG}\t{fp}\t{','.join(sorted(got))}") if x]
+    tmp = mark.with_name(mark.name + ".tmp")
+    try:
+        tmp.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        os.replace(tmp, mark)
+    except OSError as e:
+        print(f"WARN 골 번호 공지 표식 못 씀 {mark}: {e}", file=sys.stderr)
 
 
 def _advance(mark: Path, sig: str, prev_line: str = "") -> None:
@@ -375,26 +401,38 @@ def _notify_once(root: Path, mark: Path, sha: str, rows: list[list[str]]) -> Non
     for name in bad:
         print(f"WARN 골 번호 공지 — 깨진 명부(조용히 빼지 않는다): {name}", file=sys.stderr)
     mbox = os.environ.get("FT_MBOX") or str(root / ".fable-team" / "comm" / "mbox.sh")
-    sent = True
     if not Path(mbox).is_file():
         print(f"WARN 골 번호 공지 못 함 — mbox 없음: {mbox}", file=sys.stderr)
-        sent = False
-    else:
-        body = f"[골 번호 바뀜] 정본 {sha} · 새 번호표 {len(rows)}줄: {numbering(rows)}"
-        for to in masters:
-            try:
-                done = subprocess.run(["bash", mbox, "send", to, "ft-goal-table", body], capture_output=True, text=True, check=False, timeout=NOTIFY_TIMEOUT)
-            except (OSError, subprocess.SubprocessError) as e:
-                print(f"WARN 골 번호 공지 실패 {to}: {e}", file=sys.stderr)
-                sent = False
-                continue
-            if done.returncode != 0:
-                print(f"WARN 골 번호 공지 실패 {to}: {done.stderr.strip()[:120]}", file=sys.stderr)
-                sent = False
-    if bad or not sent:
-        return  # 표식 전진 0 — 굳히지 않고 다음 렌더가 다시 시도한다
+        return
+    fp = sig.partition("\t")[2]
+    got = set() if bad else _sent_names(prev, fp)  # r2285 C2: 깨진 명부 = 지금 그대로(받은 목록 0 · 표식 전진 0)
+    todo = [m for m in masters if m not in got]
+    body = f"[골 번호 바뀜] 정본 {sha} · 새 번호표 {len(rows)}줄: {numbering(rows)}"
+    start = time.monotonic()
+    for i, to in enumerate(todo):
+        if NOTIFY_BUDGET - (time.monotonic() - start) < NOTIFY_TIMEOUT:  # r2285 C3
+            print(f"WARN 골 번호 공지 남음 {len(todo) - i} — 합계 상한 {NOTIFY_BUDGET}초 · 다음 렌더가 잇는다", file=sys.stderr)
+            return
+        if _send_one(mbox, to, body) and not bad:
+            got.add(to)
+            _save_sent(mark, cur_line, prev_line, fp, got)
+    if bad or not set(masters) <= got:
+        return  # 표식 전진 0 — 굳히지 않고 다음 렌더가 남은 팀장에게만 다시 시도한다
     old_sha = cur_line.partition("\t")[0]  # r726: 번호표가 바뀐 순간 직전 판을 박아 둔다(유예 근거)
     _advance(mark, sig, f"{PREV_TAG}\t{old_sha}\t{old_sig}\t{int(_procs_now().timestamp())}" if old_sha else "")
+
+
+def _send_one(mbox: str, to: str, body: str) -> bool:
+    """1통(상한 NOTIFY_TIMEOUT) — rc0 = True · rc≠0·예외 = WARN 1줄 + False(r668 H4 · r2285 C5)."""
+    try:
+        done = subprocess.run(["bash", mbox, "send", to, "ft-goal-table", body], capture_output=True, text=True, check=False, timeout=NOTIFY_TIMEOUT)
+    except (OSError, subprocess.SubprocessError) as e:
+        print(f"WARN 골 번호 공지 실패 {to}: {e}", file=sys.stderr)
+        return False
+    if done.returncode != 0:
+        print(f"WARN 골 번호 공지 실패 {to}: {done.stderr.strip()[:120]}", file=sys.stderr)
+        return False
+    return True
 
 
 DRAFT_INFO: list[str] = []  # r728 — 시안 렌더 INFO 1줄은 «블록을 stdout 에 쓴 뒤» stderr 로 낸다(2>&1 캡처에서 블록이 첫 줄 = 소비처 파싱 그대로)
@@ -419,7 +457,11 @@ def notify_renumber(sha: str, rows: list[list[str]]) -> None:
     try:
         mark.parent.mkdir(parents=True, exist_ok=True)
         with open(mark.with_name(RENUMBER_STATE + ".lock"), "a+", encoding="utf-8") as lock:
-            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+            try:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)  # r2285 C4: 기다림 0
+            except BlockingIOError:
+                print("INFO 골 번호 공지 건너뜀 — 다른 렌더가 보내는 중(잠금)", file=sys.stderr)
+                return
             try:
                 _notify_once(root, mark, sha, rows)
             finally:
@@ -431,6 +473,9 @@ def notify_renumber(sha: str, rows: list[list[str]]) -> None:
 def _goal_hash(goal: str) -> str:
     """골 칸 전문(NFC·공백 정규화) sha256 앞 10자 — 회차 파일의 행 식별과 «같은 함수»(대응 대조 · 설계 r3 §4)."""
     return hashlib.sha256(_norm(goal).encode("utf-8")).hexdigest()[:10]
+
+
+PENDING_NOTICE: list[tuple[str, list[list[str]]]] = []  # r2285 C1 — render() 는 표 글만(공지 0) · CLI main() 만 표를 stdout 에 쓰고 flush 한 뒤 공지(뉴스 경로 같은 프로세스 render = 공지 0)
 
 
 def render() -> str:
@@ -451,7 +496,7 @@ def render() -> str:
         out = "\n".join([f"★골 표 A6 ({src}{sha} · {head} · {note})★",
                           "| 골 | 팀 | 지금 상태 | 닫는 증거 | 재조정 |", "|---|---|---|---|---|", *body, TAIL])
         if len(out.encode("utf-8")) <= BUDGET:
-            _notify_or_skip(sha, rows)
+            PENDING_NOTICE.append((sha, rows))
             return out + "\n"
     raise GoalError(f"ERROR 골 표 예산 초과 {len(out.encode('utf-8'))}B > {BUDGET}B (골 원문 칸은 절단하지 않는다)")
 
@@ -563,7 +608,7 @@ def _procs_lines(rows: list[tuple[int, list[str]]], head: list[str]) -> list[dic
             done = False
         age = _row_age(ledger_spec(GoalError), lineno) if row is not None and lineno else None
         out.append({"name": _goal_head(file, ref, folder), "owner": _norm(owner), "stage": _norm(stage),
-                    "done": done, "stale": 0 if age is None else int(age // 1), "late": age is not None and age > _stale_h()})
+                    "pack": row is None and _norm(owner) == "—", "done": done, "stale": 0 if age is None else int(age // 1), "late": age is not None and age > _stale_h()})
     return out
 
 
@@ -580,16 +625,40 @@ def render_procs() -> str:
     items = _procs_lines(rows, head)
     if not items:
         return "\n".join([f"{PROCS_HEAD}{sha})★", "표준절차 골 0", PROCS_TAIL]) + "\n"
-    done = [i for i in items if i["done"]]
-    late = [i for i in items if i["late"] and not i["done"]]
-    for width in PROCS_NAME_CELLS:
-        body = [f"- {i['name']} · {i['owner']} · {_clip(i['stage'], width)}" + (f" ⚠ {i['stale']}시간 정지" if i["late"] else "") for i in items if not i["done"]]
-        out = "\n".join([f"{PROCS_HEAD}{sha})★", *([f"완성 {len(done)}: " + ", ".join(i["name"] for i in done)] if done else []), *body,
-                         *([f"정지 골 {len(late)}: " + ", ".join(i["name"] for i in late)] if late else []), PROCS_TAIL])
+    return _procs_fit(sha, items) + "\n"
+
+
+def _procs_row(i: dict, width: int) -> str:
+    return f"- {i['name']} · {i['owner']} · {_clip(i['stage'], width)}" + (f" ⚠ {i['stale']}시간 정지" if i["late"] else "")
+
+
+def _procs_join(sha: str, parts: dict, rows: list[str], pack_names: bool, done_names: bool, fold: str = "") -> str:
+    done, pack, late_n = parts["done"], parts["pack"], parts["late_n"]
+    names = lambda xs, on: (": " + ", ".join(i["name"] for i in xs)) if on else ""  # noqa: E731
+    return "\n".join([f"{PROCS_HEAD}{sha})★", *([f"완성 {len(done)}{names(done, done_names)}"] if done else []), *rows, *([fold] if fold else []),
+                      *([f"진행표 행 없음 {len(pack)}{names(pack, pack_names)}"] if pack else []), *([f"정지 골 {late_n}"] if late_n else []), PROCS_TAIL])
+
+
+def _procs_fit(sha: str, items: list[dict]) -> str:
+    """r2236 줄임 단계 — 예산에 처음 드는 단계에서 멈춘다(①~⑤ PROCS_STEPS) · 그래도 넘치면 ⑥ 골 줄을 아래부터 접는다(정지 줄 먼저)."""
+    body = [i for i in items if not i["done"] and not i["pack"]]
+    parts = {"done": [i for i in items if i["done"]], "pack": [i for i in items if i["pack"] and not i["done"]],
+             "late_n": sum(1 for i in items if i["late"] and not i["done"])}
+    for width, pack_names, done_names in PROCS_STEPS:
+        out = _procs_join(sha, parts, [_procs_row(i, width) for i in body], pack_names, done_names)
         if len(out.encode("utf-8")) <= BUDGET:
-            return out + "\n"
-    print(f"WARN 표준절차 골 예산 초과 {len(out.encode('utf-8'))}B > {BUDGET}B ({len(items)}줄) — 블록 없이 발행", file=sys.stderr)
-    return ""
+            return out
+    over = len(out.encode("utf-8"))
+    order = [i for i in reversed(body) if i["late"]] + [i for i in reversed(body) if not i["late"]]
+    k = 0
+    for k in range(1, len(order) + 1):
+        gone = [id(i) for i in order[:k]]
+        fold = f"… 외 {k}골(정지 {sum(1 for i in order[:k] if i['late'])})"
+        out = _procs_join(sha, parts, [_procs_row(i, PROCS_STEPS[-1][0]) for i in body if id(i) not in gone], False, False, fold)
+        if len(out.encode("utf-8")) <= BUDGET:
+            break
+    print(f"WARN 표준절차 골 예산 초과 {over}B > {BUDGET}B ({len(items)}줄) — {k}줄 접음", file=sys.stderr)
+    return out
 
 
 def _canon_for(sha: str) -> tuple[list[list[str]], str, list[list[str]]]:
@@ -697,6 +766,8 @@ def main(argv: list[str]) -> int:
             return rc
         sys.stdout.write({"teams": render_teams, "procs": render_procs}.get(argv[0] if argv else "", render)())
         sys.stdout.flush()
+        for sha, rows in PENDING_NOTICE:   # r2285 C1 — 공지는 표 출력 뒤
+            _notify_or_skip(sha, rows)
         for line in DRAFT_INFO:   # r728 — 시안 렌더 INFO(블록 뒤 · 소비처가 첫 줄을 머리로 읽는다)
             print(line, file=sys.stderr)
         return 0
