@@ -2,7 +2,8 @@
 """ft_hil_plan_syntax_judge — h 계획의 bash 문법 · 명령 경로 검사 (r2289 · r1101 재접수 · 실사건 h465 h466 «bash/Users…» · h335 상대 경로).
 CLI: --plan <파일> → `ok` rc0 | `reject <이유> — 줄 <n>`(걸린 것마다 · rc1) | 못 읽음 · bash 실행 실패 rc2
 C1 셔뱅 없음 · bash · sh = bash -n (다른 셔뱅은 검사 0) · C2 명령 자리 첫 낱말이 «bash/…» 꼴(해석기와 경로 사이 공백 빠짐)
-C3 bash·sh·zsh·python3? 다음 낱말이 / 로 시작하면 그 파일이 있어야 함($ 든 경로는 검사 0) · C4 / 가 든 상대 경로 .sh·.py 낱말
+C3 bash·sh·zsh·python3? 다음 낱말이 / 로 시작하면 그 파일이 있어야 함($ 든 경로는 검사 0)
+C4 명령 자리 첫 낱말 · 해석기 뒤 첫 인자가 / 든 상대 경로 .sh·.py(대입 · 그 밖 인자는 검사 0)
 명령 자리 = 줄 머리 · ; & | ( 뒤 · $( )·백틱 안 — 앞의 VAR=값 · env · nohup · exec · timeout <초> · if·then·do 같은 낱말은 건너뜀.
 주석 · here-doc 본문은 C2~C4 검사 밖(데이터). ft-hil.sh lint 가 등록 전에 부른다(실행 0 · bash -n 만)."""
 from __future__ import annotations
@@ -19,11 +20,12 @@ SKIP = PRE | {"env", "nohup", "exec"}
 INTERP = {"bash", "sh", "zsh", "python", "python3"}
 GLUED = re.compile(r"^(bash|sh|zsh|python3?)/")
 HEREDOC = re.compile(r"(?<!<)<<(-?)\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\2")
+ARRAY = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\+?=\(")  # 배열 대입 — 여러 줄이면 ) 까지 한 줄(원소 = 명령 자리 아님)
 
 
 def code_lines(text: str):
-    """(첫 줄 번호, 이어 쓰기를 합친 줄) — 주석 줄 · here-doc 본문은 건너뛴다."""
-    buf, start, ends = "", 0, []  # type: str, int, list[tuple[bool, str]]
+    """(첫 줄 번호, 이어 쓰기 · 여러 줄 배열을 합친 줄) — 주석 줄 · here-doc 본문은 건너뛴다."""
+    buf, start, ends, arr = "", 0, [], False  # type: str, int, list[tuple[bool, str]], bool
     for n, line in enumerate(text.splitlines(), 1):
         if ends:
             dash, word = ends[0]
@@ -32,13 +34,18 @@ def code_lines(text: str):
             continue
         if not buf:
             start = n
-            if line.lstrip().startswith("#"):
-                continue
+        if (not buf or arr) and line.lstrip().startswith("#"):
+            continue
         if line.endswith("\\"):
             buf += line[:-1] + " "
             continue
         full, buf = buf + line, ""
-        ends = [(m.group(1) == "-", m.group(3)) for m in HEREDOC.finditer(scan(full)[0])]
+        cut = scan(full)[0]
+        arr = bool(ARRAY.search(cut)) and cut.count("(") > cut.count(")")
+        if arr:
+            buf = full + " "
+            continue
+        ends = [(m.group(1) == "-", m.group(3)) for m in HEREDOC.finditer(cut)]
         yield start, full
     if buf:
         yield start, buf
@@ -49,6 +56,8 @@ def commands(toks: list[str]):
     i = 0
     while i < len(toks):
         while i < len(toks) and (ASSIGN.match(toks[i]) or toks[i] in SKIP or set(toks[i]) & SEP):
+            if toks[i].endswith("=") and toks[i + 1:i + 2] == ["("]:  # 배열 원소는 건너뜀
+                i = next((k for k in range(i + 2, len(toks)) if ")" in toks[k]), len(toks) - 1)
             i += 1
         if i < len(toks) and toks[i] == "timeout":
             i += 1
@@ -68,11 +77,12 @@ def path_reasons(text: str) -> list[str]:
             for cmd, arg in commands(toks):
                 if GLUED.match(cmd):
                     out.append("해석기와 경로 사이 공백 빠짐: %s — 줄 %d" % (cmd, n))
-                elif cmd in INTERP and arg.startswith("/") and "$" not in arg and not os.path.exists(arg):
+                    continue
+                for w in [cmd] + ([arg] if cmd in INTERP else []):  # C4 = 명령 자리 첫 낱말 · 해석기 뒤 첫 인자만
+                    if "/" in w and w[0] not in "/$~" and w.endswith((".sh", ".py")):
+                        out.append("상대 경로 — 절대 경로로: %s — 줄 %d" % (w, n))
+                if cmd in INTERP and arg.startswith("/") and "$" not in arg and not os.path.exists(arg):
                     out.append("명령 경로 없음: %s — 줄 %d" % (arg, n))
-            for w in (t.split("=", 1)[1] if ASSIGN.match(t) else t for t in toks):  # VAR=값 은 값만
-                if "/" in w and w[0] not in "/$~" and not set(w) & set(": \t") and w.endswith((".sh", ".py")) and not GLUED.match(w):
-                    out.append("상대 경로 — 절대 경로로: %s — 줄 %d" % (w, n))
     return list(dict.fromkeys(out))
 
 
