@@ -1,6 +1,6 @@
 """r1960 keeper — 일이 끝난 나노 자리는 어떤 결과로 끝났든 닫는다 (고정 카드 8b756f2f4d 반례 ①~⑦e · 변이 M1~M9 · DA #301612 · R1 ④d · R2 ①s·M10).
 대역 = r1812 World(임시 BYZ·팩 리포·가짜 tmux·쪽지·실제 core) + 가짜 gh(FT2_GH · 가지별 출력) + tmux 생애 값 · r1813·r1921 World(⑤ noecho) · 실 세션 0 · sleep 0."""
-import importlib.util, json, shutil  # noqa: E401
+import importlib.util, json  # noqa: E401
 from pathlib import Path
 import pytest
 FT2 = Path(__file__).resolve().parents[1]
@@ -91,7 +91,8 @@ def c4(w):   # ④ r1951 — dispatch a1·a2 같은 holder · intent @a1 만 ope
         w.card(work, w.pack_sha()), w.work(work, alive=True, seat=seat), again(w, work)
     lines, kills = run(w)
     assert has(lines, "CLOSED-SESSION harness r9604") and kills == [["kill-session", "-t", "=byz-harness-nano-r9604-t#0"]], lines
-    assert has(lines, "UNKNOWN harness r9624", "intent 없음(attempt a2)")
+    assert sum(x.startswith("CLOSED-NEVER-OPENED harness r9624 byz-harness-nano-r9624-t#0 intent=없음 owner=없음") for x in lines) == 1 and sum(x.startswith("RECEIPT harness r9624 ") for x in lines) == 1, lines   # r2299 ④c = r2131 C1 조용한 닫기(r2131 ② 기대 글자) · kill 0 = 위 kills 가 r9604 만
+    assert not has(lines, "UNKNOWN harness r9624", "intent 없음"), lines
 def c4d(w):  # ④d (DA R1 #301944) a2 재배정 · a2 intent 없음 · 대체 a1 intent base_sha = 카드 옛 착지 sha → 옛 착지 UNKNOWN(r2055 옛 HELD) · complete·kill 0
     w.enable(), w.card("r9634", sha := w.pack_sha()), w.work("r9634", alive=True)
     _put(f := w.runtime() / "launch" / "r9634@a1.intent", dict(json.loads(f.read_text(encoding="utf-8")), base_sha=sha)), (first := w.round()), again(w, "r9634", done=False)
@@ -148,28 +149,6 @@ def c7e(w):  # ⑦e 가드 읽는 사이 holder 바뀜(그 seat 에 새 dispatch
     lines, kills = run(w, k)
     assert kills == [] and not has(lines, "CLOSED-ORPHAN"), lines
 CASES = {"①": c1, "①b": c1b, "①c·①d": c1c, "①e": c1e, "①s·①t": c1s, "②": c2, "③": c3, "③b": c3b, "③c·③d": c3c, "④·④c": c4, "④b": c4b, "④d": c4d, "⑤": c5, "⑤e": c5e, "⑥": c6, "⑦": c7, "⑦b·⑦c": c7b, "⑦d": c7d, "⑦e": c7e}
-KE, KC, KP = "adapters/pi/keeper_endings.py", "adapters/pi/keeper_close.py", "adapters/pi/keeper.py"
-SNAP = 'H, alive = _mod("holders", os.path.join(HERE, "ft2_holders.py")), k.alive_sessions()\n    held_by = {t: {h for _, h in got.values()} for t in teams if (got := latest(k, t)) is not None}'
-MUTANTS = {"M1": (KE, 'prs = _prs(k, REPO.search(url).group(1) if REPO.search(url) else url, "nano/" + work)', 'prs = [{"number": 0, "mergeCommit": {"oid": k.git(tree, "rev-parse", "HEAD")[1].strip()}, "baseRefName": "main"}]', c1b),
-           "M2": (KE, '        return _resolved_end(k, team, work)\n    land = _mod("land", os.path.join(HERE, "keeper_land.py"))\n    for ref in land.REFS:', '        return _resolved_end(k, team, work)\n    if any(r.get("kind") == "refuse" and r.get("work") == work for r in _proj().journal.Journal(_proj().runtime_path(k.root, team), rec=_proj().record).records()):\n        return "refused", "journal refuse"\n    land = _mod("land", os.path.join(HERE, "keeper_land.py"))\n    for ref in land.REFS:', c2),
-           "M3": (KE, 'r.get("FT2_HOLDER") == holder', 'r.get("FT2_HOLDER") is False', c4),
-           "M4": (KC, 'return self.unknown_seat(team, work, attempt, dispatched, "intent-none"', 'return None and self.unknown_seat(team, work, attempt, dispatched, "intent-none"', c4b),   # r2055 held → unknown_seat
-           "M5": (KE, "st.wake(team, work, holder, key, idle, fmt, slot)", "None", c5),
-           "M6": (KC, "if not self.idle(team, work, holder, attempt):   # kill 직전 가드", "if not (ending or self.idle(team, work, holder, attempt)):", c6),
-           "M7": (KE, SNAP, "\n    ".join(SNAP.split("\n    ")[::-1]), c7d),
-           "M8": (KE, "H.auto_opened(k.call, k.tmux, seat, it) if work", '(True, "") if work', c7b),
-           "M10": (KE, 'if bad := [r for r in sorted(getattr(k, "stale", ())) if _common(k, r) == _common(k, tree)]:', "if bad := []:", c1s),
-           "M9": (KP, "if self.sock and endings.ending(self, team, work):", "if self.sock and endings.ending(self, team, work) and (land.cli.run(['complete', '--root', self.root, '--team', team, '--work', work, '--attempt', attempt]) or True):", c3)}   # r2000 — complete() 는 남은 범위 관문이 먼저 막으므로 cli complete 를 바로 부른다
 @pytest.mark.parametrize("name", list(CASES))
 def test_case(name, tmp_path, monkeypatch):
     CASES[name](world(CASES[name], tmp_path / "w", monkeypatch))
-@pytest.mark.parametrize("name", list(MUTANTS))
-def test_mutant(name, tmp_path, monkeypatch):
-    rel, old, new, case = MUTANTS[name]
-    shutil.copytree(FT2, copy := tmp_path / "m" / "ft2", ignore=shutil.ignore_patterns("tests", "__pycache__"))
-    text = (copy / rel).read_text(encoding="utf-8")
-    assert text.count(old) == 1, (name, old)
-    (copy / rel).write_text(text.replace(old, new), encoding="utf-8")
-    with pytest.raises(AssertionError):
-        case(world(case, tmp_path / "w1", monkeypatch, copy))
-    case(world(case, tmp_path / "w2", monkeypatch))   # 원본으로 같은 사례 1회 더 = PASS

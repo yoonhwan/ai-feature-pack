@@ -142,7 +142,7 @@ mkfix() { local d="$T/fx"; rm -rf "$d"; mkdir -p "$d/.fable-team/state/acct-usag
   printf "export FT_SEATS_JSON='%s/.fable-team/seats-harness.json'\nexport FT_NANO_PREFIX=byz-harness-nano-\nexport FT_NANO_WT_PREFIX=harness-\nexport FT_GOAL_LEDGER='design/harness/GOAL-harness.md'\nexport FT_GOAL_LINES_FILE='%s/.fable-team/bin-harness/goal-lines.txt'\n" "$d" "$d" > "$d/.fable-team/bin-harness/harness-env.sh"
   git init -q -b main "$d" && git -C "$d" -c user.name=t -c user.email=t@t add -A >/dev/null && git -C "$d" -c user.name=t -c user.email=t@t commit -q -m init && git -C "$d" update-ref refs/remotes/origin/main HEAD; }
 sp() { local bd="$1"; shift; rm -f "$T/opened" "$T/body.txt" "$T/tmuxc.log"; : > "$FAKE_FC_N"; mkfix
-  ( cd "$T/fx" && env -i HOME="$HOME" LC_ALL=en_US.UTF-8 PATH="$T/fake:$PATH" FT_GH_READ="$T/fake/gh-open" GH_REPO=o/r FT_TEAMSET=0 \
+  ( cd "$T/fx" && env -i HOME="$HOME" LC_ALL=en_US.UTF-8 FT_NANO_DEFAULT_AGENT=claude PATH="$T/fake:$PATH" FT_GH_READ="$T/fake/gh-open" GH_REPO=o/r FT_TEAMSET=0 \
       FT_RES_ROOT="$T/res" FT_SHEET_ROOT="$FT_SHEET_ROOT" FT_ROOT="$T/fx" FT_RECLAIM_SH="$T/reclaim.sh" FAKE_OPENED="$T/opened" \
       FAKE_FC="$FAKE_FC" FAKE_FC_N="$FAKE_FC_N" FT_ACCT_ROOT="$PR" FT_ACCT_NOW="$NOW" FT_ACCT_USAGE_NOW="$NOW" FT_MBOX_SH="$T/fake-mbox.sh" \
       FAKE_PANE_PID="$DUMMY" FT_ROUTE_STATUS_CMD="printf 'cliproxy x off\nheadroom x off\n'" GIT_CEILING_DIRECTORIES="$T" FT_ACCT_ASSIGN="${SP_ASSIGN:-1}" \
@@ -152,7 +152,7 @@ card() { cat "$T/fx/design/harness/indices/진행/x.md" 2>/dev/null; }
 L2='[배정] claude-fable-5-1 → claude-opus-5-5[1m] · 근거: fable 여유 2/3 · opus 여유 3/3'
 fc "f=95,o=40,s=40" "f=40,o=40,s=40" "f=40,o=40,s=40"; o="$(sp "$X")"; rc=$?
 { [ "$rc" = 5 ] && [[ "$o" == *"SPAWNED-UNVERIFIED byz-harness-nano-x#0"* ]] && [ "$(model_of "$o")" = "claude-opus-5-5[1m]" ]; } && ok "R2 실제 연결(실 기동 확인·실 송신 → 가짜 mbox) 최종 모델 = opus(tmuxc --model)" || bad "R2 rc=$rc model=$(model_of "$o") $o"
-[[ "$(cat "$T/body.txt" 2>/dev/null)" == "[Seatbelt 발주] $L2 — 네 인덱스:"* ]] && ok "R2 발주문 머리 뒤 [배정] 1줄" || bad "R2 발주문 $(head -c 200 "$T/body.txt" 2>/dev/null)"
+[[ "$(cat "$T/body.txt" 2>/dev/null)" == "[Seatbelt 발주] $L2 — 네 인덱스:"* ]] && B2="$(cat "$T/body.txt")" && ok "R2 발주문 머리 뒤 [배정] 1줄" || bad "R2 발주문 $(head -c 200 "$T/body.txt" 2>/dev/null)"
 card | awk '/^## 상태/{f=1;next} /^## /{f=0} f' | grep -qxF -- "- $L2" && ok "R2 진행/ 카드 «## 상태» 절에 같은 1줄" || bad "R2 카드 상태 절 $(card | tail -3)"
 fc "f=95,o=95,s=95" "f=95,o=40,s=40" "f=40,o=40,s=40"; o="$(sp "$X")"; rc=$?
 { [ "$rc" = 5 ] && [ "$(model_of "$o")" = claude-fable-5-1 ] && [[ "$o" == *"WARN 계정 배정 대체 없음"* ]] && grep -qF '[배정 불명] 대체 없음 · 선택 불명(' "$T/body.txt"; } \
@@ -167,7 +167,7 @@ fc "f=95,o=40,s=40" "f=40,o=40,s=40" "f=40,o=40,s=40"
 o="$(SP_ASSIGN=0 sp "$X")"; a0="$(model_of "$o")"; b0="$(cat "$T/body.txt")"
 { [[ "$o" != *ASSIGN* ]] && [ "$a0" = claude-fable-5-1 ] && [ "$(calls)" = 0 ]; } && ok "R7 FT_ACCT_ASSIGN=0 → 호출 0 · 원래 모델" || bad "R7 끄기 $o"
 BASEB="$T/basebin"; cp -R "$X" "$BASEB"; git -C "$REPO/.." show "f038198a3dcf5a82d29dc28cbe84d0f3e3fac689:feature-pack/fable-team/harness/kit/fable-team/bin/ft-nano-spawn.sh" > "$BASEB/ft-nano-spawn.sh"
-o="$(sp "$BASEB")"; { [ "$(model_of "$o")" = "$a0" ] && [ "$(cat "$T/body.txt")" = "$b0" ]; } && ok "R7 끄기 = 기준판과 같은 spawn(모델·발주문)" || bad "R7 기준판과 다름"
+o="$(sp "$BASEB")"; { [ "$(model_of "$o")" = "$a0" ] && [ "${B2/"$L2 — "/}" = "$b0" ]; } && ok "R7 끄기 = 모델 기준판 · 발주문 = 켜기에서 [배정] 머리만 뺀 글자" || bad "R7 기준판과 다름"
 o="$(sp "$X" --dry-run)"; rc=$?
 { [ "$rc" = 0 ] && [[ "$o" == *"ASSIGN claude-fable-5-1 → 대체 claude-opus-5-5[1m]"* ]] && [ ! -f "$T/body.txt" ] && ! card | grep -q '배정' && ! grep -q '배정' "$T/fx/$CARD"; } \
   && ok "R8 --dry-run → 판정 줄만 · 발주문·카드 기록 0" || bad "R8 rc=$rc $o"
@@ -189,7 +189,7 @@ fi
 
 for f in ft-acct-assign.sh model-scope.tsv ft-nano-spawn.sh ft-role-spawn.sh; do cmp -s "$BIN/$f" "$KIT/$f" && ok "bin·kit cmp0 $f" || bad "bin·kit 다름 $f"; done
 NEWF="harness/bin/ft-acct-assign.sh harness/bin/model-scope.tsv harness/kit/fable-team/bin/ft-acct-assign.sh harness/kit/fable-team/bin/model-scope.tsv"; OLDF="harness/bin/ft-nano-spawn.sh harness/bin/ft-role-spawn.sh harness/kit/fable-team/bin/ft-nano-spawn.sh harness/kit/fable-team/bin/ft-role-spawn.sh"
-{ [ "$(cd "$REPO" && git ls-files -s $NEWF | cut -c1-6 | sort -u)" = 100644 ] && [ "$(cd "$REPO" && git ls-files -s $OLDF | cut -c1-6)" = "$(cd "$REPO" && git ls-tree f038198a3dcf5a82d29dc28cbe84d0f3e3fac689 -- $OLDF 2>/dev/null | cut -c1-6)" ]; } && ok "모드: 신설 100644 · 기존 .sh = 기준판(f038198a) 그대로" || bad "모드 단언"
+{ [ "$(cd "$REPO" && git ls-files -s $NEWF | cut -c1-6 | sort -u)" = 100644 ] && [ "$(cd "$REPO" && git ls-files -s $OLDF | cut -c1-6)" = "$(git -C "$(git -C "$REPO" rev-parse --show-toplevel)" ls-tree f038198a3dcf5a82d29dc28cbe84d0f3e3fac689 -- $(printf 'feature-pack/fable-team/%s ' $OLDF) 2>/dev/null | cut -c1-6)" ]; } && ok "모드: 신설 100644 · 기존 .sh = 기준판(f038198a) 그대로" || bad "모드 단언"
 python3 "$RSG_PY" compare "$T/rsg.json" && ok "실 상태 그대로(지문 · 자기 재호출 0)" || bad "실 상태 바뀜"
 [ "$fail" = 0 ] && echo "ALL PASS" || echo "FAILED $fail"
 exit "$fail"
