@@ -23,6 +23,10 @@ grep -q LINTUNK "$f" && exit 3
 while IFS= read -r g; do grep -qxF "$g" "$ROOT/$led" 2>/dev/null || bad+=("골줄 원장에 없음 ($g)"); done < <(sed -n 's/^골줄: //p' "$f")
 grep -q LINTBAD "$f" && bad+=("금지어 LINTBAD")
 grep -q LINTOLD "$f" && bad+=("옛 사유 LINTOLD")
+n="$(basename "$f" | grep -oE '^r[0-9]+')"; t="${f%/indices/*}"   # 카드 번호 검사 대역(ft-card-number lint 꼴): origin/main 없음 = WARN 판정 불가 rc0
+if [ -n "$n" ]; then if git rev-parse -q --verify refs/remotes/origin/main >/dev/null; then
+  git ls-tree -r --name-only refs/remotes/origin/main | grep -v "^$t/" | grep -q "/indices/.*/$n-" && bad+=("카드 번호 $n 가 다른 팀과 겹침")
+else echo "WARN $f — 카드 번호 검사 판정 불가 BASE origin/main 없음"; fi; fi
 [ ${#bad[@]} -eq 0 ] && { echo "OK $f"; exit 0; }; echo "REJECT $f"; printf '  - %s\n' "${bad[@]}"; exit 1
 EOF
 CA='design/harness/indices/대기/a.md' CB='design/harness/indices/대기/b.md' LED='design/harness/GOAL-harness.md'
@@ -32,6 +36,7 @@ world() {   # W(작업) → O(bare) → R(클론 = 원 리포 · ops/main-base c
   local d="$T/w.$RANDOM$RANDOM"; W="$d/W" O="$d/O.git" R="$d/R"
   git init -q -b ops/main-base "$W" && git init -q --bare -b main "$O"
   put "$LED" $'GL-A\n'; put "$CA" "$(card GL-A '본문 1')"; put "$CB" "$(card GL-A 'LINTOLD 본문')"
+  put design/teams/planner/indices/완성/r1771-plan.md $'p\n'
   put design/x.md $'x1\n'; put design/old.md $'old\n'; put design/TEAMS.md $'| 팀 |\n'; put gateway/y.py $'y=1\n'
   git -C "$W" add -A && git -C "$W" commit -qm base && git -C "$W" push -q "$O" ops/main-base ops/main-base:main 2>/dev/null
   git clone -q -b ops/main-base "$O" "$R" 2>/dev/null
@@ -103,6 +108,11 @@ run ops/main-base "원장 없음" "$NC=$(f n1 $'# 새\n골줄: GL-A\n')"
 mkdir -p "$R/.fable-team/bin-harness"; printf 'export FT_GOAL_LEDGER=%s\n' "$LED" > "$R/.fable-team/bin-harness/harness-env.sh"
 run ops/main-base "팀 env 원장" "$NC=$(f n2 $'# 새\n골줄: GL-B\n')"
 [ "$RC" = 0 ] && ok "④ⓔ 팀 env FT_GOAL_LEDGER → 가지 원장으로 판정" || bad "④ⓔ env rc=$RC out=$OUT"
+
+# ④ⓕ 다른 팀과 번호 겹친 새 카드(r1771 = planner) → 임시 폴더도 원 리포 origin/main 을 본다 → REJECT · push 0 (DA#29 H1)
+t0="$(tip)"
+run ops/main-base "번호 겹침" "design/harness/indices/대기/r1771-dup.md=$(f d1 "$(card GL-A '본문 8')")"
+{ [ "$RC" = 1 ] && printf '%s' "$OUT" | grep -qx '  - 카드 번호 r1771 가 다른 팀과 겹침' && [ "$(tip)" = "$t0" ]; } && ok "④ⓕ 번호 겹친 새 카드 → REJECT · push 0" || bad "④ⓕ rc=$RC out=$OUT"
 
 # ⑦ git 없음 · fetch 실패 → «판정 불가 <단계>» rc≠0 · push 0
 world; t0="$(tip)"
