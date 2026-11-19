@@ -64,9 +64,9 @@ def dispatches(w, work):
 
 
 def succeeded(w, work, lines):
-    """① · ⑥ 공통 결과 — push(원격 = 구 HEAD) · kill 1 · assign(H1 · rotation) · deliver · launch --base 구 HEAD · 인계 3줄 · SUCCEEDED 1줄."""
+    """① · ⑥ 공통 결과 — 로컬 보존(push 0 · r2280) · kill 1 · assign(H1 · rotation) · deliver · launch --base 구 HEAD · 인계 3줄 · SUCCEEDED 1줄."""
     assert [x for x in lines if x.startswith("SUCCEEDED harness %s %s -> %s" % (work, H0, H1))], lines
-    assert remote(w, work) == w.c2
+    assert remote(w, work) == ""
     assert [x["a"][-1] for x in w.tmux("kill-session")] == ["=" + H0] and len(w.tmux("new-session")) == 1
     last = dispatches(w, work)[-1]
     assert last["holder"] == H1 and w.journal()[-1]["kind"] == "deliver" and w.journal()[-1]["work"] == work
@@ -74,13 +74,19 @@ def succeeded(w, work, lines):
     assert intent["base_sha"] == w.c2 and intent["FT2_HOLDER"] == H1
     text = "\n".join(w.notes())
     hand = text[text.index("send %s " % H1):]
-    assert "구 좌석 %s" % H0 in hand and "구 HEAD %s · 원격 가지 nano/%s" % (w.c2, work) in hand and "/대기/%s.md" % work in hand, hand
+    assert "구 좌석 %s" % H0 in hand and "구 HEAD %s · 보존 " % w.c2 in hand and "/대기/%s.md" % work in hand, hand
+
+
+def kept(w, work):
+    """r2280 로컬 보존 ref(claim 으로 받은 work = g1) · 없음 = ""."""
+    done = subprocess.run(["git", "-C", str(w.repo), "rev-parse", "--verify", "-q", "refs/ft2/keep/%s/g1" % work], capture_output=True, text=True, timeout=25)
+    return done.stdout.strip()
 
 
 def untouched(w, work, pushed=False):
-    """승계 0 — kill 0 · 새 배정 0 · (pushed=False 면) 원격 가지 0."""
+    """승계 0 — kill 0 · 새 배정 0 · (pushed=False 면) 원격 가지 0 · keep ref 0(r2280)."""
     assert w.tmux("kill-session") == [] and not [r for r in dispatches(w, work) if r["holder"] == H1]
-    assert pushed or remote(w, work) == ""
+    assert pushed or (remote(w, work) == "" and kept(w, work) == "")
 
 
 def c1(w):   # ① M6-c 재생 — claim 행만(dispatch 0) · 표식 10분 · Working 0 · 로컬 커밋 1 · 원격 가지 0 → 승계 1
@@ -88,9 +94,9 @@ def c1(w):   # ① M6-c 재생 — claim 행만(dispatch 0) · 표식 10분 · W
     succeeded(w, W2, w.round())
 
 
-def c1b(w):  # ①′ 원격 가지 = 승계 뒤 구 HEAD(M1 짝)
+def c1b(w):  # ①′ keep ref = 승계 뒤 구 HEAD(M1 짝 · r2280 로컬 보존 · 원격 가지 0)
     claimed(w), marker(w, 10 * M), w.round()
-    assert remote(w, W2) == w.c2
+    assert kept(w, W2) == w.c2 and remote(w, W2) == ""
 
 
 def c2(w):   # ② 표식 10분 · Working → 승계 0(push 0 포함) · 표식 2분 → 승계 0
@@ -122,7 +128,7 @@ def c2d(w):  # ②ⓓ 표식 2분(승계 안 섬) + 진척 0 20분(dispatch 있�
     assert w.tmux("send-keys") == [] and w.tmux("kill-session") == [] and len(dispatches(w, W)) == 1
 
 
-def c3(w):   # ③ push 거절(원격이 앞섬 · non-ff) → 승계 0 · kill 0 · [크리티컬] «승계 막힘 · push 거절» 1통
+def c3(w):   # ③ 원격이 앞섬(non-ff) → r2280 = fetch·push 0 · 로컬 보존 · 승계 1 · 원격 그대로
     tree = claimed(w)
     other = w.tmp / "other"
     B._git(w.repo, "worktree", "add", "-q", "--detach", str(other), w.c1)
@@ -130,10 +136,9 @@ def c3(w):   # ③ push 거절(원격이 앞섬 · non-ff) → 승계 0 · kill 
     B._git(other, "push", "-q", "origin", "HEAD:refs/heads/nano/%s" % W2)
     far = remote(w, W2)
     marker(w, 10 * M), w.round()
-    untouched(w, W2, pushed=True)
     assert remote(w, W2) == far and B._git(tree, "rev-parse", "HEAD") == w.c2
-    notes = [x for x in w.notes() if "승계 막힘" in x]
-    assert len(notes) == 1 and "승계 막힘 · push 거절" in notes[0], w.notes()
+    assert not [x for x in w.notes() if "승계 막힘" in x], w.notes()
+    assert [r for r in dispatches(w, W2) if r["holder"] == H1]
 
 
 def c4(w):   # ④ worktree dirty → 승계 0 · kill 0 · [크리티컬] «승계 막힘 · dirty» 1통
