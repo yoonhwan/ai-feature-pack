@@ -98,6 +98,8 @@ class Stall:
     def check(self, team, work, attempt, rows):
         """S1 → S2 또는 S3. 대상 = 최신 dispatch(attempt) 전달됨 ∧ 그 attempt intent 의 FT2_HOLDER 세션 생존."""
         k = self.k
+        if (team, work) in getattr(k, "succeeding", ()):
+            return                                    # r2276 H3 — 표식 갈래(keeper_succeed)에 든 work = 이 바퀴 깨움·S3 0
         intent = k.read_json(os.path.join(projection.runtime_path(k.root, team), "launch", "%s@%s.intent" % (work, attempt)))
         holder, tree = intent.get("FT2_HOLDER"), intent.get("worktree")
         if not holder:
@@ -274,10 +276,11 @@ class Stall:
             k.notify(team, "%s|stall-repeat|%s" % (k.stamp()[:10], wk), "[크리티컬] 같은 일 두 번 멈춤 %s %s %s — 자동 재배정 0" % (team, work, holder))
             return
         return self.handoff(team, work, attempt, holder, tree, intent, rows, ("reassigned", wk), "REASSIGNED")
-    def handoff(self, team, work, attempt, holder, tree, intent, rows, slot, tag):
-        """S3 단계 한 길 — plan → Working 재확인 → kill → assign(rotation) → deliver → launch · slot = 반복 막기 기억 (칸, 키) · tag = 성공 로그 낱말."""
+    def handoff(self, team, work, attempt, holder, tree, intent, rows, slot, tag, p=None, relay=None):
+        """S3 단계 한 길 — plan → Working 재확인 → kill → assign(rotation) → deliver → launch · slot = 반복 막기 기억 (칸, 키) · tag = 성공 로그 낱말.
+        r2276 승계 = p(미리 부른 plan) · relay(p)(deliver 뒤 · launch 앞 인계 쪽지)."""
         k = self.k
-        p = self.plan(team, work, holder, tree, intent, rows)
+        p = p or self.plan(team, work, holder, tree, intent, rows)
         if p is None:
             return                                    # r1840 K3 — 역할만 못 정함 = plan 이 판정 불가 1줄 · 크리티컬 0
         if isinstance(p, str):
@@ -300,13 +303,15 @@ class Stall:
         out, rc = cli.run(["deliver", "--work", work] + g)
         if rc != 0:
             return self.stop(team, work, attempt, "deliver", "%s 새 배정 %s · deliver %s — launch 0" % (work, p["next"], out.get("result")))
+        if relay:
+            relay(p)
         rc, text, err = k.call(launch, LAUNCH_S)
         if rc != 0:
             return self.stop(team, work, attempt, "launch", "%s 새 배정 %s 전달됨 · launch rc %s %s" % (work, p["next"], rc, (text or err).strip()[:120]))
         return k.log(tag, team, "%s %s -> %s repo=%s base=%s role=%s" % (work, holder, p["next"], p["repo"], p["base"][:12], p["role"]))
     def plan(self, team, work, holder, tree, intent, rows):
         """S3-a 사전 판독(쓰기 0 · kill 전) — ⓐ pre·evidence·resources=()·rotation ⓑ 실제 core 읽기 함수 ⓒ repo·base·role 복원."""
-        k, last = self.k, [r for r in rows if r.get("kind") == "dispatch" and r.get("work") == work][-1]
+        k, last = self.k, ([r for r in rows if r.get("kind") == "dispatch" and r.get("work") == work] or [{}])[-1]   # r2276 dispatch 0(claim work) = pre ()
         pre, d = tuple(last.get("pre") or ()), dispatch.Dispatch(k.root, team)
         try:
             state, records = d.ex._state_records()
