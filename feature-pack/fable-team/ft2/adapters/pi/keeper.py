@@ -97,6 +97,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         self.halt, self.unknown = False, 0   # r2055 ALL_STOP(바퀴마다 판독) · 바퀴 UNKNOWN 수(ROUND unknown=N)
         self.start, self.sect, self.items, self.total, self.cut = None, WORK_S, 0, 0, "-"   # r2098 R1 예산 시계 · R10 ROUND 칸
         self.at_work, self.cursor_stage, self.nano_dl, self.in_fetch = "-", "-", None, False   # r2098 R4 자리 · R6 나노 몫
+        self.who = ""   # r2303 A3 나노 끊김 줄의 일지 team 칸(줄 글자 그대로)
         self.order, self.jrows, self.ws, self.curs, self.prev_cursor, self.cut_pos = [], {}, {}, None, None, None
         self.jprojs = {}   # r2251 O1 팀 투영 바퀴 안 1회(book() · team_round 같은 값)
         self.report_seat, self.notify_used, self.deferred = None, 0, {}   # R8·R12 구획 상태(바퀴마다 새로)
@@ -443,7 +444,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         self.lines.append(line)
         os.makedirs(self.dir, exist_ok=True)
         with open(os.path.join(self.dir, at[:10].replace("-", "") + ".jsonl"), "a", encoding="utf-8") as fh:
-            fh.write(json.dumps({"at": at, "kind": kind, "team": team, "line": line}, ensure_ascii=False) + "\n")
+            fh.write(json.dumps({"at": at, "kind": kind, "team": team or self.who, "line": line}, ensure_ascii=False) + "\n")
 
     @staticmethod
     def read_json(path):
@@ -544,16 +545,23 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         kf.collect(self)
         self.picked = [r for r in (self.root, self.pack) if not self.table or r in self.table]
         at, got, nano_cut = time.monotonic(), {}, False   # r2098 R6 나노 가지 모으기 = 합 7초(판독을 R2 로 줄임)
-        self.nano_dl = at + NANO_S
+        self.nano_dl, order, team = at + NANO_S, ([] if self.table else self.teams()), ""
+        first = order.index(self.state["nano_next"]) if self.state.get("nano_next") in order else 0   # r2303 A1 끊긴 팀부터 · A2 없으면 맨 앞
+        order = order[first:] + order[:first]
         try:
-            for team in ([] if self.table else self.teams()):
+            for team in order:
                 got.update(kf.nanos(self, [team]))   # 팀마다 모아 두고 끊기면 모은 것만(부분 손실 0)
         except Cut:
             nano_cut = True
             self.cut, self.cut_pos = "-", None   # r2245 N1 — 나노 모으기 끊김은 업무 구획 끊김이 아니다(cut 칸·cursor 흔적 0)
+            self.state["nano_next"] = order[1 % len(order)] if team == order[0] else team   # r2303 A1 시작 팀 끊김 = 다음 팀(혼자 몫 초과가 시작을 붙잡지 않게)
+        if order and not nano_cut:   # r2303 A1 끊기지 않고 다 돎 = 키 지움
+            self.state.pop("nano_next", None)
         self.nano, self.nano_s, self.nano_dl = ({} if self.table else got), time.monotonic() - at, None
+        self.who = team if nano_cut else ""   # r2303 A3 끊김 줄 team 칸 = 끊긴 팀
         if nano_cut or self.nano_s >= NANO_S:
             self.log("판정 불가", text="나노 가지 모으기 7초 넘음 — 모은 것만")
+        self.who = ""
         def both(repos=self.picked):   # r1963 두 리포 동시 → fetch 단계 = 느린 쪽 하나 · 낡은 리포 집합은 바퀴마다 새로 · R6 fetch 는 지금 규칙 그대로
             with concurrent.futures.ThreadPoolExecutor(2) as pool:
                 return [repo for repo, ok in zip(repos, pool.map(self.fresh, repos)) if not ok]
