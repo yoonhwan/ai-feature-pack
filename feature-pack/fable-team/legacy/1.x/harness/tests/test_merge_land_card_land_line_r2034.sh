@@ -86,7 +86,7 @@ mkpr 104 nano/r9004-w 'r9004 다른 착지'; land "$FIXB/ft-merge-land.sh" 104
 
 echo "### ⑤ 카드 토큰 없음 → 쓰기 0 · SKIP · 착지 rc0"
 T5="$(tip)"; mkpr 105 feat/plain '코드만 고침'; land "$FIXB/ft-merge-land.sh" 105
-[ "$rc" = 0 ] && [[ "$out" == LANDED* ]] && [ "$(tip)" = "$T5" ] && [ "$(grep -c '^SKIP 카드 없음' <<<"$out")" = 1 ]; ck "⑤ 카드 ref 그대로 · SKIP 카드 없음 1줄 · rc0" $?
+[ "$rc" = 0 ] && [[ "$out" == LANDED* ]] && [ "$(tip)" = "$T5" ] && [ "$(grep -c '^WARN 카드 토큰 0 — PR #105 ' <<<"$out")" = 1 ]; ck "⑤ 카드 ref 그대로 · WARN 카드 토큰 0 1줄(r2314 C3 · 옛 SKIP) · rc0" $?
 
 echo "### ⑥ 카드 ref push 실패(pre-receive 거절) → 판정 불가 1줄 · 착지 rc·LANDED·PR 닫기·기준 헤드 그대로"
 card_put 진행 r9006-v $'# 카드 ⑥\n\n## 상태\n- 진행\n'; T6="$(tip)"

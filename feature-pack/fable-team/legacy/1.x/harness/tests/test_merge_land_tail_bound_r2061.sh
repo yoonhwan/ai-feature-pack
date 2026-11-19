@@ -16,7 +16,7 @@ land "$FIX" 63 14 FT_LAND_TOTAL_S=12 HOLD_LAG=1 HOLD_INSTALL=1 FT_INSTALL_CHECK_
 S2=$SECONDS
 mkbin "$T/b0" ft-merge-land.sh "$NEWI" "$OLDI" ft-merge-land.sh "$NEWH" "$OLDH" ft-merge-lib.sh 'r=$((r - 3)); ' ''; B0=$?
 land "$FIX" 64 30; o4="$out"; r4=$rc; land "$T/b0" 65 30
-[ "$B0" = 0 ] && [ "$r4" = 0 ] && [ "$rc" = 0 ] && [ "$(norm <<<"$o4")" = "$(norm <<<"$out")" ] && grep -q '^판정 불가 2곳' <<<"$o4" && ! grep -q '^WARN' <<<"$o4" && grep -q '^INSTALL OK n=1' <<<"$o4"
+[ "$B0" = 0 ] && [ "$r4" = 0 ] && [ "$rc" = 0 ] && [ "$(norm <<<"$o4")" = "$(norm <<<"$out")" ] && grep -q '^판정 불가 2곳' <<<"$o4" && ! grep -v '^WARN 카드 토큰 0 — ' <<<"$o4" | grep -q '^WARN' && grep -q '^INSTALL OK n=1' <<<"$o4"
 ck "④ 바로 끝남 → 옛 꼴(명령 치환 · 여유 0)과 줄·순서 같음 · 판정 불가 줄 통과" $?
 land "$FIX" 66 14 FT_LAND_TOTAL_S=12 "FT_LAND_DEADLINE=$(( $(date +%s) + 3 ))"
 [ "$rc" = 0 ] && grep -q '^LANDED' <<<"$out" && ! ran install && ! ran head-lag && grep -q '^INSTALL-PENDING 설치 검사 0초 초과' <<<"$out" && grep -q '^WARN 뒤처짐 알림 0초 초과' <<<"$out"
