@@ -61,6 +61,7 @@ settling = _load(os.path.join(HERE, "keeper_settle.py"), "ft2_keeper_settle")   
 cstage = _load(os.path.join(HERE, "card_stage.py"), "ft2_keeper_card_stage")   # r2026 complete 뒤 대기|진행 → 완성
 kblock = _load(os.path.join(HERE, "keeper_block.py"), "ft2_keeper_block")   # r2072 10분 넘게 이어진 줄 → 막힘 장부
 daily = _load(os.path.join(HERE, "keeper_daily.py"), "ft2_keeper_daily")   # r2238 하루 정리 생존 검사
+tw = _load(os.path.join(HERE, "transition_watch.py"), "ft2_keeper_transition")   # r2275 카드 전이 증거 감시(알림만)
 
 
 class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settling):
@@ -589,6 +590,10 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         try:
             self.report()
             daily.check(self)   # r2238 O2~O4 하루 정리 생존 검사(하루 1회 · stat 1회 · 멈춤 = [긴급] 1통)
+            try:
+                tw.check(self)   # r2275 C6 바퀴 끝 · 예산 5초 + 카드 1장(넘으면 다음 바퀴 이어서) · (팀 · 칸) 하루 묶음
+            except Exception as exc:   # noqa: BLE001 — 감시 결함이 바퀴를 세우지 않는다(판정 불가 1줄)
+                self.log("판정 불가", text="전이 감시 %s %s" % (type(exc).__name__, str(exc)[:80]))
         except Cut:
             self.mark_cut()   # R3 report 끊김 = rep_cursor · 마무리는 한다
         self.sect = TAIL_S   # R1 마무리 구획(55~60초) = 바깥 호출 0
