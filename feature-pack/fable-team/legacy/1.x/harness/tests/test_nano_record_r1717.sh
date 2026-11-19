@@ -135,10 +135,10 @@ c20() {  # ⑳ (A11) 다 선 좌석 = 자리표시 0 + 갈래=착지기록 + 1�
   storeset close "$nd|c20d$1|$Q" "{\"rec\":\"$(recof "c20d$1" "$nd")\",\"seq\":100,\"result\":\"$STATE/seat-record/$nd.md\",\"pr\":20}"
   cdue; L="$(printf '%s\n' "$OUT" | grep "^닫기 차례 $na ")"
   t "⑳ 갈래=착지기록 rec=" inc "$L" " 갈래=착지기록 rec="; t "⑳ 자리표시 0" exc "$L" "<"; t "⑳ 실제 인자" inc "$L" "--landed-pr 20 --result '$STATE/seat-record/$na.md' --recv "
-  t "⑳ 좌석 계속 = 그대로 + 빠짐" inc "$OUT" "$nb --landed-pr 20 --result <산출> --recv <seq> 빠짐=닫을 좌석 아님(좌석 계속) 채울 이=팀장"
-  t "⑳ 완료 줄 없음" inc "$OUT" "$nc --landed-pr 20 --result <산출> --recv <seq> 빠짐=착지 뒤 완료 줄 채울 이=$nc"
-  t "⑳ 남은 일 나노 몫" inc "$OUT" "$nd --landed-pr 20 --result <산출> --recv <seq> 빠짐=남은 일(보정=$nd) 채울 이=$nd"
-  t "⑳ 전달 기록 없음" inc "$OUT" "$ne --landed-pr 20 --result <산출> --recv <seq> 빠짐=닫기 요청 전달 채울 이=$ne"
+  t "⑳ 좌석 계속 = 그대로 + 빠짐" inc "$OUT" "$nb --landed-pr 20 --result {산출} --recv {seq} 빠짐=닫을 좌석 아님(좌석 계속) 채울 이=팀장"
+  t "⑳ 완료 줄 없음" inc "$OUT" "$nc --landed-pr 20 --result {산출} --recv {seq} 빠짐=착지 뒤 완료 줄 채울 이=$nc"
+  t "⑳ 남은 일 나노 몫" inc "$OUT" "$nd --landed-pr 20 --result {산출} --recv {seq} 빠짐=남은 일(보정=$nd) 채울 이=$nd"
+  t "⑳ 전달 기록 없음" inc "$OUT" "$ne --landed-pr 20 --result {산출} --recv {seq} 빠짐=닫기 요청 전달 채울 이=$ne"
   AUTO=0 scan auto; t "⑳ FT_NANO_AUTO_CLOSE≠1 → 집행 0" [ ! -s "$NC_LOG" ]
   scan auto; t "⑳ 1회 집행(그 좌석만)" [ "$(grep -c . "$NC_LOG") $(cut -d' ' -f1 "$NC_LOG")" = "1 $na" ]; t "⑳ 로그 CLOSED 갈래=착지기록" inc "$OUT" "auto-close CLOSED $na landed-pr 갈래=착지기록 rec="
   return $E
