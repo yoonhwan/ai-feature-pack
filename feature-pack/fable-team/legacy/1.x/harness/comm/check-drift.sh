@@ -37,6 +37,8 @@ MAP=(
   "mbox_retire_check.py|.fable-team/comm/mbox_retire_check.py"
   # ★mbox_keep.py = mbox_ops.py 가 import 함(넘치는 큐에서 버릴 순서 · 사람 글 보존 · r912) — 한쪽만 깔리면 전 좌석 send ImportError★
   "mbox_keep.py|.claude/fable-team/bin/mbox_keep.py"
+  # ★mbox_ring.py = mbox_ops.py 가 import 함(r2291 역할 좌석 상한·큐 포화 경보) — 한쪽만 깔리면 전 좌석 send ImportError★
+  "mbox_ring.py|.fable-team/comm/mbox_ring.py"
   # ★mbox_handover.py = mbox_ops.py·mbox.py 가 import 함(영수·[인계]·[레디]·close-check · r1116) — 한쪽만 깔리면 전 좌석 recv ImportError★
   "mbox_handover.py|.claude/fable-team/bin/mbox_handover.py"
   # v6-realtime-live 워크트리 소멸 뒤 라이브 = 루트 .fable-team/comm — 분리 쌍만 고침, 나머지 행은 별 카드
