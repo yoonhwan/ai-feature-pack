@@ -4,7 +4,7 @@
   «for p in sorted(set(a) & set(b)):» 이 셸 글로 읽혀 «set» 이 환경변수 통째 출력으로 거절됐다(r2160 try-auto).
 확인 조건 다섯(모두 참일 때만 가린다 · 하나라도 거짓이면 빈 표 = 기준판 그대로):
   ⓐ 바뀐 뒤 전문을 읽었다 ⓑ 머리 줄에 heredoc 이 1개이고 delimiter 가 인용 꼴('끝' "끝" \\끝)이다
-  ⓒ heredoc 앞 글이 «[이름=$(][exec ]python[숫자·점]» 이고 python 바로 뒤가 « - » 이거나 곧바로 heredoc 이다
+  ⓒ heredoc 앞 글이 «[이름=$(][exec ]python[숫자·점]» 이고 python 바로 뒤가 « - » 이거나 곧바로 heredoc 이다 — 또는(r2300) «cat >|>> <낱말 1개>» 이고 heredoc 뒤가 공백뿐 · 낱말에 셸 메타문자(파이프·세미콜론·앰퍼샌드·괄호·역슬래시·백틱·리다이렉트·따옴표)·/dev/ 가 없다(«f|sh» 처럼 본문이 셸로 실행되는 꼴 제외)
   ⓓ 앞 줄이 «\\» 로 끝나지 않고 판정기 쪼개기(scan · strip_heredocs 뒤 글)가 머리 줄에서 새 구간을 시작한다
   ⓔ 끝 줄이 있고 머리 줄과 끝 줄 사이가 strip_heredocs 결과에서 모두 빈 줄이다.
 heredoc 은 위에서 아래로 차례대로 읽는다(앞 heredoc 본문 안의 «<<» 는 머리가 아니다). 줄 수·줄 순서는 그대로다.
@@ -14,6 +14,7 @@ import re
 import ft_secret_lex as lex
 
 HEAD = re.compile(r"^[ \t]*(?:[A-Za-z_]\w*=\"?\$\()?(?:exec[ \t]+)?python[0-9.]*(?:[ \t]+-(?=[ \t])|[ \t]*$)")   # ⓒ
+CAT = re.compile(r"""^[ \t]*cat[ \t]+>{1,2}[ \t]*(?!.*/dev/)(?:"[^"]*"|'[^']*'|[^\s"'<>|;&()\\\x60]+)[ \t]*$""")   # ⓒ «cat > 파일» 머리(r2300)
 
 
 def body_lines(full, shield):   # 바뀐 뒤 전문 → {본문 줄 번호(1부터): 가린 글} · shield = 리터럴 밖 «set(» 가림 함수
@@ -37,7 +38,9 @@ def body_lines(full, shield):   # 바뀐 뒤 전문 → {본문 줄 번호(1부�
             break                                                  # ⓔ 끝 줄 없음 = 뒤는 판단 불가
         lead = len(stripped[i]) - len(stripped[i].lstrip(" \t"))
         if (len(ms) == 1 and not m.group("n")                      # ⓑ
-                and HEAD.match(lines[i][:m.start()])               # ⓒ
+                and (HEAD.match(lines[i][:m.start()])              # ⓒ python 머리
+                     or (CAT.match(lines[i][:m.start()])           # ⓒ «cat > 파일» 머리
+                         and not lines[i][m.end():].strip()))
                 and not (i > 0 and lines[i - 1].endswith("\\"))    # ⓓ
                 and (off[i] in starts or off[i] + lead in starts)
                 and all(s == "" for s in stripped[i + 1:end + 1])):   # ⓔ
