@@ -25,6 +25,7 @@ cat > "$T/calls" <<'SH'
 D=$(DSN)
 OWN=$(tok "$ITEM_A")
 SH
+one() { printf '#!/bin/bash\n' > "$T/p.sh"; for x in "$@"; do printf '%s\n' "$x" >> "$T/p.sh"; done; }   # one <줄>… (defs 없이)
 mk() { cat "$T/defs" > "$T/p.sh"; for x in "$@"; do printf '%s\n' "$x" >> "$T/p.sh"; done; }   # mk <추가 줄>…
 run() { out="$(timeout 60 python3 "$1/ft_secret_judge.py" --plan "$T/p.sh" 2>&1)"; }        # run <bin>
 has() { grep -q "^reject $1 " <<<"$out"; }                                               # has <줄>
@@ -53,11 +54,16 @@ SH
         mk "$C" "if DSN; then :; fi"; run "$b"; has 3 || return 1
         mk "$C" "# DSN 주석"; run "$b"; has 3 ;;
     12) mk "OWN=\$(tok x)" 'wrap(){ local d; d=$(DSN); echo "$d"; }; wrap'; run "$b"; has 3 ;;
-    12b) mk "OWN=\$(tok x)" 'wrap(){ local d; d=$(DSN); : ; }; wrap'; run "$b"; has 3 ;;
+    12b) mk "OWN=\$(tok x)" 'wrap(){ local d; d=$(DSN); : ; }' wrap; run "$b"; has 3 ;;   # 호출 줄 따로(«}; wrap» 는 경계 모호로도 막힘)
     13) mk "$C" 'show(){ echo "$D"; }; show'; run "$b"; has 3 ;;
+    13b) mk "$C" 'show(){ echo "$D"; }' show; run "$b"; has 3 ;;
+    H1) one 'DSN() { gcloud secrets versions access latest --secret=x >&2; }' 'D=$(DSN)'; run "$b"; has 2 ;;
+    H2) one 'DSN() { gcloud secrets versions access latest --secret=x | tee /dev/stderr; }' 'D=$(DSN)'; run "$b"; has 2 ;;
+    H3) one 'tok() { echo "$BYZ_TOKEN" >/dev/tty; }' 'T=$(tok)'; run "$b"; has 2 ;;
+    H4) one 'DSN() {' '  gcloud secrets versions access latest --secret=x; }' 'gcloud secrets versions access latest --secret=y' 'say() { echo hi; }' 'D=$(DSN)'; run "$b"; has 4 ;;
   esac
 }
-for c in 1 1b 2 3 4 5 6 7 9 10 11 12 12b 13; do
+for c in 1 1b 2 3 4 5 6 7 9 10 11 12 12b 13 13b H1 H2 H3 H4; do
   case_do "$c" "$BIN"; ck "반례 $c" "$?"
 done
 t1=$(date +%s)
@@ -83,8 +89,22 @@ mut M4 7  'why.endswith(" 출력이 화면·파이프로 감")' '("화면" in wh
 mut M5 9  ' | recv.get(line, set())' ''
 mut M6 10 'CALL_OK = r"\s*([A-Za-z_][\w-]*)(?:\s+[^|&;<>()`]*)?"' 'CALL_OK = r"\s*([A-Za-z_][\w-]*)(?:\s+.*)?"'
 mut M7 11 'r"(?<![\w-])%s(?![\w-])"' 'r"(?:^\s*|\$\()%s(?![\w-])"'
-mut M8 13 'used = bool(mine) and ' 'used = False and '
+mut M8 13b 'used = bool(mine) and ' 'used = False and '
 mut M9 12b 'for w in (ws if line not in fn else [])' 'for w in ws'
+mut M10 H1 ' and not loud:' ':'   # DA ① 지움
+OLD_FB="$(cat <<'OLD'
+    name, out = "", {}
+    for k, line in enumerate(t.split("\n"), 1):
+        m = re.match(r"\s*(?:function\s+)?([A-Za-z_][\w-]*)\s*\(\)", line)
+        name = name or (m.group(1) if m else "")
+        if name:
+            out.setdefault(name, set()).add(k)
+            name = "" if line.strip() == "}" or re.search(r"\{.*\}\s*$", line) else name
+    return out
+OLD
+)"
+NEW_FB="$(python3 -c 'import sys; s=open(sys.argv[1],encoding="utf-8").read(); a=s.index("    name, depth, opened, out"); e="    return None if name else out"; print(s[a:s.index(e)+len(e)])' "$BIN/ft_secret_judge.py")"
+mut M11 H4 "$NEW_FB" "$OLD_FB"   # DA ② 지움 = 옛 func_lines 경계
 t2=$(date +%s)
 echo "단계별 초: 반례 $((t1-t0)) · 변이 $((t2-t1))"
 [ "$fail" = 0 ] && echo "ALL PASS" || echo "FAILED $fail"
