@@ -59,7 +59,7 @@ cmd_try_auto() {
   done
   [ -n "$pr" ] && [ -n "$card" ] || try_usage "--pr·--card 필수"
   case "$rk" in byz|pack) ;; *) try_usage "--repo 는 byz|pack(받은 값: ${rk:-없음})" ;; esac
-  [ "$(mode)" = on ] || { printf 'TRY-SKIP 자율 OFF\n자율 OFF · 오빠 질문\n'; return 3; }   # ④ 자율 OFF = Slack 길 · D2·S 호출 0
+  [ "$(mode)" = on ] || { printf 'TRY-SKIP 자율 OFF\n자율 OFF · 오빠 질문\n'; return 3; }; [ -n "${FT_LAND_DEADLINE:-}" ] || { FT_LAND_DEADLINE=$(( $(date +%s) + 67 )); export FT_LAND_DEADLINE; }   # r2320 T5: 착지 1회 마감을 try-auto «시작»에서 정한다(try 판정에 쓴 초도 같은 마감에 듦 · FT_LAND_TOTAL_S 기본 67 = 바깥 70 − 3) — env 에 있으면 덮지 않음 · ④ 자율 OFF = Slack 길 · D2·S 호출 0
   o="$(mktemp)"; e="$(mktemp)"
   if [ -n "$vf" ] && d2_on; then   # ① 상시 승인 D2 먼저 — 기존 명령 그대로
     vf="$(try_verdict "$vf" "$rk")"

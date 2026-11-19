@@ -113,7 +113,7 @@ o3="$(env FT_FETCH_TIMEOUT_SEC=71 bash -c '. "$1"; fm_fetch_sec' _ "$LIB" 2>&1)"
 land 107 FT_SLOW_FETCH=24
 B7="$(nth 1 2)"
 [ "$rc" = 0 ] && [[ "$out" == *LANDED* ]] && [[ "$out" == *"push ok"* ]] && [ "$B7" = 25 ]; ck "D7 지정 없음 · 24초 head fetch(상한 ${B7}초) + 게이트 + push → rc0 LANDED(막힘 0)" $?
-grep -q 'FT_LAND_TOTAL_S:-100' "$LAND" && grep -q 'LIM" -le 100' "$LAND"; ck "D7b 총 마감 기본 = 25초 × 단계 4 = 100 · 지정은 1~100(줄이기만)" $?
+grep -q 'FT_LAND_TOTAL_S:-67' "$LAND" && grep -q 'LIM" -le 100' "$LAND"; ck "D7b 총 마감 기본 = 바깥 70 − 3 = 67초(r2320) · 지정은 1~100(줄이기만)" $?
 
 
 # ── 변이 6 — 각 변이가 위 계약 칸에서 FAIL 하는지(검출력) ──
@@ -131,9 +131,9 @@ Bm="$(nmaxf)"
 [ "$Bm" -gt 20 ]; ck "변이4 는 D1b 칸에서 FAIL(자식 상한 최대 ${Bm}초 > 20초 — 마감 전파 0)" $?
 
 
-MV="$T/m6"; mutd "$MV"; sed -i '' 's/FT_LAND_TOTAL_S:-100/FT_LAND_TOTAL_S:-70/; s/LIM" -le 100/LIM" -le 70/' "$MV/ft-merge-land.sh"
+MV="$T/m6"; mutd "$MV"; sed -i '' 's/FT_LAND_TOTAL_S:-67/FT_LAND_TOTAL_S:-70/; s/LIM" -le 100/LIM" -le 70/' "$MV/ft-merge-land.sh"
 ! cmp -s "$LAND" "$MV/ft-merge-land.sh"; ck "변이6 적용(총 마감 기본 100 → 70)" $?
-! grep -q 'FT_LAND_TOTAL_S:-100' "$MV/ft-merge-land.sh"; ck "변이6 은 D7b 칸에서 FAIL(기본 100 문구 0)" $?
+! grep -q 'FT_LAND_TOTAL_S:-67' "$MV/ft-merge-land.sh"; ck "변이6 은 D7b 칸에서 FAIL(기본 67 문구 0)" $?
 
 
 [ "$fail" = 0 ] && echo "ALL PASS" || { echo "FAILED $fail"; exit 1; }

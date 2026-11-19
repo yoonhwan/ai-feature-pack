@@ -28,6 +28,7 @@ cat > "$T/gh-stub" <<'EOF'
 #!/bin/bash
 echo "$*" >> "$STUB_LOG"
 [ "$1 $2" = "pr view" ] && { cat "$STUB_JSON"; exit 0; }
+[ "$1" = pr-close ] && [ -n "${SLOW_CLOSE:-}" ] && sleep "$SLOW_CLOSE"   # r2320: 닫기에서 초를 써서 «착지 뒤 남은 초»를 만든다(env 마감이 push 진입 게이트를 지나야 하므로)
 exit 0
 EOF
 printf '#!/bin/bash\necho "OK n=1 (r2042 stub)"\nexit 0\n' > "$T/install-stub"; chmod +x "$T/gh-stub" "$T/install-stub"
@@ -66,9 +67,9 @@ grep -qx "DONE 카드 착지 줄 r9101-a ${QL:0:10}" <<<"$out" && [ "$(grep -c "
 inv 201; ck "⑤-① 착지 rc0 · LANDED · PR 닫기 · 원격 main = Q" $?
 S2=$SECONDS
 
-echo "### ② 남은 마감 < push 1단위(F+7=14) → 시도 0 · «마감 부족» 1줄"
+echo "### ② 남은 마감 < push 1단위(F+7=14) → 시도 0 · «마감 부족» 1줄(r2320: 닫기에서 6초를 써 남은 초를 만든다 — push 진입 전에 마감이 짧으면 착지 자체가 거절된다)"
 card_put r9102-b $'# 카드 ②\n\n## 상태\n- 진행\n'; slow 0
-mkpr 202 nano/r9102-b 'r9102'; land 202 FT_LAND_DEADLINE=$(( $(date +%s) + 8 ))
+mkpr 202 nano/r9102-b 'r9102'; land 202 FT_LAND_DEADLINE=$(( $(date +%s) + 20 )) SLOW_CLOSE=6
 [ "$(calls)" = 0 ] && [ "$(grep -cE '^판정 불가 — 카드 착지 줄 r9102 마감 부족\(남은 [0-9]+초\)$' <<<"$out")" = 1 ] && ! grep -q '^- 착지:' <<<"$(card_get r9102-b)"; ck "② 스텁 호출 0 · 마감 부족 1줄 · 카드 쓰기 0" $?
 inv 202; ck "⑤-② 착지 rc0 · LANDED · PR 닫기 · 원격 main = Q" $?
 S3=$SECONDS

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # test_merge_land_close_before_lag_r1389.sh — r1389: 착지 뒤 단계(설치 대조 · 뒤처짐 알림)는 착지 마감(FT_LAND_DEADLINE)의 «남은 시간» 안에서만 돈다.
 #   PR 닫기는 그 앞(r1592) · 남은 시간 < 1초면 호출 0 + 1줄(timeout 0 = 무한 함정 차단) · 착지 rc·LANDED 줄·push 줄 불변
-#   C1 head-lag 멈춤 + 마감 6초 → 상한 = 남은 시간(<25) WARN · rc0 · 닫기 1회  C2 설치 검사 멈춤 → 남은 시간에 끊김 · head-lag 은 호출 0 + WARN
+#   C1 head-lag 멈춤 + 마감 9초 → 상한 = 남은 시간(<25) WARN · rc0 · 닫기 1회  C2 설치 검사 멈춤 → 남은 시간에 끊김 · head-lag 은 호출 0 + WARN
 #   C3 정상 = 출력·rc 그대로  C4 닫기 실패 = rc3 · 장부 1줄 · 뒤 단계 돎  C5 push 거절 = 닫기 0
 #   변이 V1(head-lag 고정 상한) → C1 FAIL · V2(설치 고정 상한) → C2 FAIL · V3(남은 0 검사 삭제) → C2 FAIL
 #   임시 origin+clone · 가짜 gh·가짜 head-lag(HERE 사본)·가짜 설치 검사 · 고정 sleep 0 · 실 원격·실 gh 0
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
 set -uo pipefail
-export FT_AUTONOMY_LEVEL=each
+export FT_AUTONOMY_LEVEL=each FT_PUSH_FIXED_S=0.1   # r2320: push 1단위 = 0.1+7 = 7초(정수) — 남은 9초로 착지 + 꼬리 상한을 같이 본다
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN="$(cd "$HERE/../../harness/bin" && pwd -P)"
 . "$HERE/_merge_fixture.sh"
@@ -47,15 +47,15 @@ land() {  # land <bin> <번호> [KEY=VAL…] — 바깥 timeout 40(호출자 70 
 }
 ran() { grep -qx "$1" "$ORDER" 2>/dev/null; }
 closes() { grep -c '^pr-close' "$STUB_LOG" 2>/dev/null; }
-dl() { echo "FT_LAND_DEADLINE=$(( $(date +%s) + 6 ))"; }   # 호출자 마감 대역 — 착지 1회 마감 epoch(r1363 이 자식에 넘기는 값과 같은 칸)
+dl() { echo "FT_LAND_DEADLINE=$(( $(date +%s) + 9 ))"; }   # r2320: env 마감도 push 진입 게이트가 본다(한 시계 · 계약 T1·T4) — push 1단위 = FT_PUSH_FIXED_S+7 = 7초(r2320 아래 export)라 9초면 착지되고 꼬리만 잘린다   # 호출자 마감 대역 — 착지 1회 마감 epoch(r1363 이 자식에 넘기는 값과 같은 칸)
 c1() { land "$1" "$2" HOLD_LAG=1 FT_HEAD_LAG_EVENT_S=12 "$(dl)"
-  [ "$rc" = 0 ] && grep -q "^LANDED" <<<"$out" && [ "$(closes)" = 1 ] && grep -qE '^WARN 뒤처짐 알림 [0-6]초 초과' <<<"$out" && [ "$el" -le 9 ]; }
+  [ "$rc" = 0 ] && grep -q "^LANDED" <<<"$out" && [ "$(closes)" = 1 ] && grep -qE '^WARN 뒤처짐 알림 [0-7]초 초과' <<<"$out" && [ "$el" -le 9 ]; }
 c2() { land "$1" "$2" HOLD_INSTALL=1 FT_INSTALL_CHECK_TIMEOUT=12 "$(dl)"
-  [ "$rc" = 0 ] && grep -q "^LANDED" <<<"$out" && [ "$(closes)" = 1 ] && grep -q '^INSTALL-PENDING 설치 검사 [0-6]초 초과' <<<"$out" \
+  [ "$rc" = 0 ] && grep -q "^LANDED" <<<"$out" && [ "$(closes)" = 1 ] && grep -q '^INSTALL-PENDING 설치 검사 [0-7]초 초과' <<<"$out" \
     && ! ran head-lag && grep -qE '^WARN 뒤처짐 알림 0초 초과' <<<"$out" && [ "$el" -le 9 ]; }
 S1=$SECONDS; FIX="$T/bin"; mkbin "$FIX"
 
-c1 "$FIX" 61; ck "C1 head-lag 멈춤 · 마감 6초 → WARN 남은 시간 상한 · 닫기 1회 · rc0 · ≤9초" $?
+c1 "$FIX" 61; ck "C1 head-lag 멈춤 · 마감 9초 → WARN 남은 시간 상한 · 닫기 1회 · rc0 · ≤9초" $?
 c2 "$FIX" 62; ck "C2 설치 검사 멈춤 → 남은 시간에 끊김 · head-lag 호출 0 + WARN 0초 · rc0 · ≤9초" $?
 land "$FIX" 63
 [ "$rc" = 0 ] && grep -q "^LANDED" <<<"$out" && grep -q '^push ok objects=' <<<"$out" && grep -q '^INSTALL OK n=1' <<<"$out" && ran head-lag && ! grep -v '^WARN 카드 토큰 0 — ' <<<"$out" | grep -q '^WARN' \
