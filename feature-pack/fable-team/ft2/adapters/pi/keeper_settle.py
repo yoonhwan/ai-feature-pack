@@ -20,6 +20,7 @@ ROLE_CELLS = ("_master", "_arch", "_desk")   # A6② 마감을 밝힐 수 있는
 CLOSED_MAIL = re.compile(r"^\[마감(?: #\d+)?\] 할 일 0(?: · 착지 [0-9a-f]{7,40})?$")   # A6① 닫힌 꼴 한 줄
 LAUNCH_FAILED = "launch-failed"   # r2058 L3 — 끝 사유 낱말 · opening 멈춤 문턱 OPEN_STALE = 아래 keeper_launch 값(r2252 O0 한 값)
 CPU_IDLE, CPU_GAP, CPU_DEPTH = 0.3, 30, 8   # tmuxc UC12 %cpu < 0.3 · 표본 간격 ≥ 30초 · pane_descendant_pids 깊이 8
+SAMPLE_KEEP = 600                           # r2284 C2 표본 장부 수명(잰 지 600초 안 = 남김 · keeper STALE_S 같은 값)
 SHELLS = ("zsh", "bash", "fish")            # tmuxc cmd_clean
 KINDS = ("nano", "master", "arch", "da", "desk", "tester", "pm", "qa", "orch", "temp")   # S1 명부 role 칸 = 좌석 종류 낱말
 BUSY = re.compile("Working|[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]")
@@ -78,11 +79,12 @@ def working(pane):
 class Settling:
     parked_failed = frozenset()   # r2058 L1 — 이 팀·work·attempt 가 launch-failed 쉼인가(keeper.team_round 가 채운다)
     def fresh_samples(self):
-        """표본 장부(cpu · pane2)는 직전 바퀴에 잰 것만 남김(바퀴 시작 1회) — 끊긴 표본으로 쉼 확정 0 · 영구 pending 0(arch #308380)."""
+        """표본 장부(cpu · pane2)는 직전 바퀴에 잰 것 ∨ 잰 지 SAMPLE_KEEP 안 것만 남김(바퀴 시작 1회) — 끊긴 표본으로 쉼 확정 0 · 영구 pending 0(arch #308380) · 그 좌석을 못 잰 바퀴 1개로 지움 0(r2284 C2)."""
         prev, self.state["round_at"] = self.state.get("round_at"), self.now()
+        now = self.state["round_at"]
         for name in ("cpu", "pane2"):
             book = self.state.setdefault(name, {})
-            for seat in [x for x, v in book.items() if prev is None or not isinstance(v, dict) or v.get("at", 0) < prev]:
+            for seat in [x for x, v in book.items() if not isinstance(v, dict) or (prev is None or v.get("at", 0) < prev) and now - v.get("at", 0) > SAMPLE_KEEP]:
                 book.pop(seat)
 
     def stopped(self):
