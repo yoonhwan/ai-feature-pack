@@ -109,7 +109,7 @@ add() {
     [ -n "$nc" ] || nc="$(comm_default)" || { echo "REJECT 쪽지함 폴더를 못 풂 — --notify-comm <폴더> 를 줘라" >&2; exit 2; }
     [ -d "$nc" ] || { echo "REJECT 쪽지함 폴더가 없다: $nc" >&2; exit 2; }
   fi; [ -f "$g" ] || { echo "판정 불가 — 보조 도구 없음: $g (등록 0)" >&2; exit 3; }; s0="$(bash "$g" pre "$f")" || exit $?   # r2078 G3: 판정기 사슬 앞 sha · 100000바이트 초과 = REJECT
-  l="$(dirname "${BASH_SOURCE[0]}")"; lint "$f" "${FT_SECRET_JUDGE:-$l/ft_secret_judge.py}" "비밀 출력 경로" "계획 파일 비밀 출력 경로 — " && lint "$f" "${FT_TRAFFIC_JUDGE:-$l/ft_traffic_plan_judge.py}" "트래픽 전환" "" && lint "$f" "${FT_SCOPE_JUDGE:-$l/ft_scope_plan_judge.py}" "범위 승인 경로" "" && lint "$f" "${FT_MIX_JUDGE:-$l/ft_hil_mix_judge.py}" "h 섞임" "" && lint "$f" "${FT_PACK_PATH_JUDGE:-$l/ft_pack_path_plan_judge.py}" "팩 1.x 경로 접두" "" && lint "$f" "$l/ft_hil_gate_judge.py" "h 공통 규칙" "" || exit 1; bash "$g" post "$f" "$s0" || exit $?
+  l="$(dirname "${BASH_SOURCE[0]}")"; lint "$f" "${FT_SECRET_JUDGE:-$l/ft_secret_judge.py}" "비밀 출력 경로" "계획 파일 비밀 출력 경로 — " && lint "$f" "${FT_TRAFFIC_JUDGE:-$l/ft_traffic_plan_judge.py}" "트래픽 전환" "" && lint "$f" "${FT_SCOPE_JUDGE:-$l/ft_scope_plan_judge.py}" "범위 승인 경로" "" && lint "$f" "${FT_MIX_JUDGE:-$l/ft_hil_mix_judge.py}" "h 섞임" "" && lint "$f" "${FT_PACK_PATH_JUDGE:-$l/ft_pack_path_plan_judge.py}" "팩 1.x 경로 접두" "" && lint "$f" "$l/ft_hil_gate_judge.py" "h 공통 규칙" "" && lint "$f" "${FT_PLAN_SYNTAX_JUDGE:-$l/ft_hil_plan_syntax_judge.py}" "계획 문법·명령 경로" "" || exit 1; bash "$g" post "$f" "$s0" || exit $?
   t="$(rp "$(cd "$(dirname "$f")" && pwd -P)/$(basename "$f")")"
   case "$t" in *[[:cntrl:]]*) die "계획 경로에 개행·제어문자가 있다(진입 파일 주입 방지): ${t//[[:cntrl:]]/?}";; esac
   mkdir -p "$D" || die "진입점 폴더를 못 만들었다: $D"
