@@ -92,7 +92,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         self.per, self.at = {}, None   # r1969 (팀, 칸) 초 → ROUND slow 칸 · at = 지금 도는 팀(None = 팀 밖)
         self.table, self.nano, self.refs, self.picked, self.bg, self.fetch_s, self.fetch_err = {}, {}, {}, [], {}, {}, {}   # r1975 · r2241 fetch_err
         self.stage, self.tally = "-", {}   # r1992 지금 칸(timed) · (팀, 칸) → [호출 시도 수, SLOW-CALL 초 합]
-        self.calls = {}   # r2287 C3 (팀, 칸) → [바깥 호출 초 합(keeper.call · 주입 손), 큰 3개 [(초, 길)]]
+        self.cell_calls = {}   # r2287 C3 (팀, 칸) → [바깥 호출 초 합(keeper.call · 주입 손), 큰 3개 [(초, 길)]]
         self.halt, self.unknown = False, 0   # r2055 ALL_STOP(바퀴마다 판독) · 바퀴 UNKNOWN 수(ROUND unknown=N)
         self.start, self.sect, self.items, self.total, self.cut = None, WORK_S, 0, 0, "-"   # r2098 R1 예산 시계 · R10 ROUND 칸
         self.at_work, self.cursor_stage, self.nano_dl, self.in_fetch = "-", "-", None, False   # r2098 R4 자리 · R6 나노 몫
@@ -220,7 +220,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
 
     def note(self, path, dt):
         """r2287 C3 — 지금 칸(팀, 칸)에 바깥 호출 1회 초 · 합 + 큰 3개(초 큰 순 · 같으면 먼저 온 것)."""
-        got = self.calls.setdefault((self.at, self.stage), [0.0, []])
+        got = self.cell_calls.setdefault((self.at, self.stage), [0.0, []])
         got[0] += dt
         got[1] = sorted(got[1] + [(round(dt, 1), path)], key=lambda x: -x[0])[:3]
 
@@ -633,8 +633,8 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         top = max((kv for kv in self.per.items() if kv[0][0]), key=lambda kv: kv[1], default=None)   # r1969 가장 느린 (팀, 칸) 1개
         if top:   # r1992 ⑦ slow 칸의 호출 시도 수·SLOW-CALL 합(5초 미만 여러 번 = slow_call 0 으로 드러남) · ROUND 줄 그대로
             got = self.tally.get(top[0], [0, 0.0])
-            spent, big = self.calls.get(top[0], (0.0, []))   # r2287 C3 끝에 덧붙임만 · 호출 밖 초 = 칸 초 − 호출 초 합
-            tail = " top=%s py=%g" % (",".join("%s:%g" % (path, sec) for sec, path in big) or "-", round(max(top[1] - spent, 0.0), 1))
+            spent, big = self.cell_calls.get(top[0], (0.0, []))   # r2287 C3 끝에 덧붙임만 · 호출 밖 초 = 칸 초 − 호출 초 합
+            tail = " top=%s py=%g" % (",".join("%s:%g" % (path, sec) for sec, path in big) or "-", round(max(top[1] - spent, 0.0), 1)) if big or round(top[1], 1) else ""   # 호출·초 둘 다 0 = 옛 줄 그대로
             self.log("SLOW-CELL", top[0][0], "%s s=%g n=%d slow_call=%g" % (top[0][1], round(top[1], 1), got[0], round(got[1], 1)) + tail)
         self.log("ROUND", text="s=%g %s slow=%s%s%s%s" % (round(s, 1), cells, "%s:%s:%g" % (top[0] + (round(top[1], 1),)) if top else "-", " OVER" if wall > ROUND_S else "", " unknown=%d" % self.unknown if self.unknown else "",
                                                        self.skip and " skip=" + ",".join(sorted(self.skip)) or ""))   # r2055 unknown=N(skip= 은 끝 칸 그대로) · OVER = wall 판정(R10)
