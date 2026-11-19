@@ -5,7 +5,7 @@
 #   가지 = ops/main-base · docs/* 만(main · 그 밖 = REJECT · 착지 게이트 우회 0) · 경로 = design/** 만 · REJECT = push 0.
 #   쓰기 전 검사: .md·.txt·.tsv·.json = UTF-8 · design/**/indices/**.md = ft-index-lint 를 «고치기 전 판» · «바뀐 판» 두 번
 #     (입력 = 그 카드 · 원장 · design/TEAMS.md 는 origin/<가지> tree 에서, 팀 env 는 리포 .fable-team/bin-<팀> 에서 임시 git init 폴더로)
-#     → 두 사유 목록 diff 의 «새 사유» 0 일 때만 push · 원장을 못 정하거나 가지에 없음 = 판정 불가(거짓 통과 0).
+#     → 두 사유 목록 diff 의 «새 사유» 0 일 때만 push · 원장(머리 → 팀 env → 기본 v65 · r2283)을 못 정하거나 가지에 없음 = 판정 불가(거짓 통과 0).
 #   출력: 성공 = «PUSHED <sha40> base=<sha40>» + diff --stat · rc 0 성공 · 1 REJECT · 2 usage · 3 «판정 불가 <단계>»(하드 룰 20)
 #   env: FT_CARD_LINT = lint 경로(기본 = <리포>/.fable-team/LIVE_BIN 이 가리키는 폴더의 ft-index-lint.sh)
 set -uo pipefail
@@ -47,6 +47,12 @@ run_lint() {  # $1=카드 판 파일 $2=사유 목록 파일 (LW · LP · LED �
   [ "$rc" -le 1 ] || die "lint rc=$rc ($LP)"
   printf '%s\n' "$out" | sed -n 's/^  - //p' | sort -u > "$2"
 }
+default_led() {  # r2283: 머리 · env 둘 다 없으면 ft-index-lint default_ledger 와 같은 규칙 — 명단 v65 꼴 후보 중 BASE tree 에 GOAL-LEDGER-v65.md 실재 정확히 1개(루트 checkout 판 0)
+  local c h=()
+  while IFS= read -r c; do [ -n "$c" ] && git cat-file -e "$BASE:${c#"$LW"/}/GOAL-LEDGER-v65.md" 2>/dev/null && h+=("${c#"$LW"/}/GOAL-LEDGER-v65.md"); done \
+    < <(. "$(dirname "$LINT")/ft-team-lib.sh" >/dev/null 2>&1 && ft_team_cands_ref "$LW" v65 "$BASE" 2>/dev/null)
+  [ "${#h[@]}" = 1 ] || die "lint-원장 (카드 머리 ledger · 팀 env FT_GOAL_LEDGER 둘 다 없음 · 기본 원장 후보 ${#h[@]} · $LP)"
+  LED="${h[0]}"; }
 lint_card() {  # $1=경로 $2=바뀐 판 파일 → 새 사유 0 이면 돌아옴 · 아니면 REJECT
   local t="" e x new om
   [ -f "$LINT" ] || die "lint 없음 ($LINT)"
@@ -57,7 +63,7 @@ lint_card() {  # $1=경로 $2=바뀐 판 파일 → 새 사유 0 이면 돌아�
   e="$MAIN_ROOT/.fable-team/bin-$t/$t-env.sh"
   LED="$(grep -oE '<!-- *ledger: *[^ >]+ *-->' "$2" | head -1 | sed -E 's/<!-- *ledger: *([^ >]+) *-->/\1/')"
   [ -n "$LED" ] || LED="$( [ -f "$e" ] && . "$e" >/dev/null 2>&1; printf '%s' "${FT_GOAL_LEDGER:-}" )"
-  [ -n "$LED" ] || die "lint-원장 (카드 머리 ledger · 팀 env FT_GOAL_LEDGER 둘 다 없음 · $LP)"
+  [ -n "$LED" ] || default_led
   [ ! -f "$e" ] || { mkdir -p "$LW/.fable-team/bin-$t" && cp "$e" "$LW/.fable-team/bin-$t/"; } || die lint-env
   for x in "$LED" design/TEAMS.md; do
     git cat-file -e "$BASE:$x" 2>/dev/null || { [ "$x" = design/TEAMS.md ] && continue; die "lint-원장 ($LED · origin/$B 에 없음)"; }
