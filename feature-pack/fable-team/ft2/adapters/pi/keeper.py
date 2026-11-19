@@ -91,6 +91,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         self.close_old = _load(os.path.join(HERE, "keeper_close_old.py"), "ft2_keeper_close_old").CloseOld(self)   # r2281 승계 끝 구 나노 닫기
         self.spent, self.sock, self.skip, self.stale = dict.fromkeys(("fetch", "b1", "b2c", "b2f", "b3", "stall"), 0.0), True, set(), set()
         self.per, self.at, self.b3p = {}, None, {}   # r1969 (팀, 칸) 초 → ROUND slow 칸 · at = 지금 도는 팀(None = 팀 밖)
+        self.b3r_parts = {}   # r2306 K1 b3r 자리 안 몫(b3r.sweep·b3r.retired) 초
         self.table, self.nano, self.refs, self.picked, self.bg, self.fetch_s, self.fetch_err = {}, {}, {}, [], {}, {}, {}   # r1975 · r2241 fetch_err
         self.stage, self.tally = "-", {}   # r1992 지금 칸(timed) · (팀, 칸) → [호출 시도 수, SLOW-CALL 초 합]
         self.cell_calls = {}   # r2287 C3 (팀, 칸) → [바깥 호출 초 합(keeper.call · 주입 손), 큰 3개 [(초, 길)]]
@@ -502,8 +503,8 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         except (OSError, UnicodeDecodeError) as exc:
             return set() if isinstance(exc, FileNotFoundError) else None
 
-    def timed(self, stage, fn, *args):
-        """r1817 D3 — 단계별 초(주입 시계 self.now) 누적 · 반환 = fn 결과."""
+    def timed(self, stage, fn, *args, part=None):
+        """r1817 D3 — 단계별 초(주입 시계 self.now) 누적 · 반환 = fn 결과 · r2306 K1 part = b3r 자리 안 몫 키(b3r.sweep·b3r.retired)."""
         at, prev, self.stage, pos = self.now(), self.stage, stage, self.cursor_stage
         try:
             return fn(*args)
@@ -513,6 +514,8 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
             self.per[(self.at, stage)] = self.per.get((self.at, stage), 0.0) + dt
             if stage == "b3":   # r2298 A2 b3 칸 = b3o·b3r 자리 몫(at_pos 가 적은 자리)
                 self.b3p[pos] = self.b3p.get(pos, 0.0) + dt
+            if part:   # r2306 K1 b3r 자리 안 몫(끊김·예외로 빠져도 finally 에서 더함)
+                self.b3r_parts[part] = self.b3r_parts.get(part, 0.0) + dt
 
     def socket_ok(self):
         """r1817 D4 — 기준 소켓(FT2_TMUX_SOCKET · 설치 렌더 고정)과 tmux 가 보는 서버가 같을 때만 닫는다 · 기준 없음 = 셀 손 실행."""
@@ -602,8 +605,8 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
             else:
                 self.unused.add(("-", "-", "b3o"))   # R10 안 도는 자리 = 분모에 남기지 않는다
             if self.sock and self.at_pos("b3r"):
-                self.timed("b3", self.close_old.sweep)   # r2281 승계 끝 구 나노 = B3 앞(닫힌 세션은 B3 list-sessions 밖)
-                self.timed("b3", self.retired)   # r2055 정지 중 = 판정·«예정» 줄만(retire_one 안에서)
+                self.timed("b3", self.close_old.sweep, part="b3r.sweep")   # r2281 승계 끝 구 나노 = B3 앞(닫힌 세션은 B3 list-sessions 밖)
+                self.timed("b3", self.retired, part="b3r.retired")   # r2055 정지 중 = 판정·«예정» 줄만(retire_one 안에서)
             else:
                 self.unused.add(("-", "-", "b3r"))
         except Cut:
@@ -651,8 +654,10 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
             got = self.tally.get(top[0], [0, 0.0])
             spent, big = self.cell_calls.get(top[0], (0.0, []))   # r2287 C3 끝에 덧붙임만 · 호출 밖 초 = 칸 초 − 호출 초 합
             tail = " top=%s py=%g" % (",".join("%s:%g" % (path, sec) for sec, path in big) or "-", round(max(top[1] - spent, 0.0), 1)) if big or round(top[1], 1) else ""   # 호출·초 둘 다 0 = 옛 줄 그대로
+            sweep = round(self.b3r_parts.get("b3r.sweep", 0.0), 1)   # r2306 K1 b3r 나눔 · sweep 0 = b3r 전부 retired = 꼬리 그대로(r2298 줄 바이트 같음)
+            split = ",b3r.sweep:%g,b3r.retired:%g" % (sweep, round(self.b3r_parts.get("b3r.retired", 0.0), 1)) if top[0] == (None, "b3") and sweep else ""
             tail += " parts=b3o:%g,b3r:%g" % (round(self.b3p.get("b3o", 0.0), 1), round(self.b3p.get("b3r", 0.0), 1)) if top[0] == (None, "b3") else ""
-            self.log("SLOW-CELL", who, "%s s=%g n=%d slow_call=%g" % (top[0][1], round(top[1], 1), got[0], round(got[1], 1)) + tail)
+            self.log("SLOW-CELL", who, "%s s=%g n=%d slow_call=%g" % (top[0][1], round(top[1], 1), got[0], round(got[1], 1)) + tail + split)
         self.log("ROUND", text="s=%g %s slow=%s%s%s%s" % (round(s, 1), cells, "%s:%s:%g" % (who, top[0][1], round(top[1], 1)) if top else "-", " OVER" if wall > ROUND_S else "", " unknown=%d" % self.unknown if self.unknown else "",
                                                        self.skip and " skip=" + ",".join(sorted(self.skip)) or ""))   # r2055 unknown=N(skip= 은 끝 칸 그대로) · OVER = wall 판정(R10)
 

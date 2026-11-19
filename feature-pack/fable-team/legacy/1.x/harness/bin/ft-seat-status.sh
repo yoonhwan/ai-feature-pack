@@ -247,6 +247,24 @@ row_of() {
   printf '%s\t%s\t%s\t%s\n' "$1" "$pi_row" "${agent:--}" "${rep:-0}"
 }
 
+# r2306 K3·K4 — list 좌석마다 row_of 초($SECONDS · date fork 0) · 5초 이상 = stderr «SLOW-SEAT <좌석> s=<초> agent=<agent>»(큰 순 5줄 + «SLOW-SEAT 외 N»)
+#   env FT_SEAT_STATUS_TRACE=<파일> = 시작에 비우고 좌석마다 START·END 줄(timeout 에 끊기면 끝 줄 = 멈춘 좌석 START) · env 없음 = 파일 쓰기 0 · stdout 글자 그대로
+list_rows() {
+  local s t0 dt slow="" trace="${FT_SEAT_STATUS_TRACE:-}"
+  [ -n "$trace" ] && : > "$trace"
+  for s in $(seats "${ARG:-^ft-}"); do
+    t0=$SECONDS
+    [ -n "$trace" ] && printf '%s\tSTART\t%s\n' "${EPOCHSECONDS:-$(date +%s)}" "$s" >> "$trace"
+    row_of "$s"
+    dt=$((SECONDS - t0))
+    [ -n "$trace" ] && printf '%s\tEND\t%s\t%s\n' "${EPOCHSECONDS:-$(date +%s)}" "$s" "$dt" >> "$trace"
+    [ "$dt" -ge 5 ] && slow="$slow$dt"$'\t'"$s"$'\t'"$(seat_field "$s" 2)"$'\n'
+  done
+  [ -n "$slow" ] && printf '%s' "$slow" | sort -t$'\t' -k1,1nr \
+    | awk -F'\t' 'NR<=5 { printf "SLOW-SEAT %s s=%s agent=%s\n", $2, $1, ($3 == "" ? "-" : $3) } END { if (NR > 5) printf "SLOW-SEAT 외 %d\n", NR - 5 }' >&2
+  return 0
+}
+
 emit() {  # stdin = row_of 행들 → 텍스트 4열 또는 JSON 배열
   if [ "$JSON" = 1 ]; then
     python3 -c '
@@ -284,7 +302,7 @@ done
 
 case "$CMD" in
   list)
-    for s in $(seats "${ARG:-^ft-}"); do row_of "$s"; done | emit ;;
+    list_rows | emit ;;
   stalled)   # 정지 = JSONL_AGE ≥ MIN분 AND pane 스피너 없음. replaced 제외. age 측정 불가는 stderr 로 드러낸다.
     for s in $(seats "${ARG:-^ft-}"); do row_of "$s"; done \
       | awk -F'\t' -v lim=$(( MIN * 60 )) '
