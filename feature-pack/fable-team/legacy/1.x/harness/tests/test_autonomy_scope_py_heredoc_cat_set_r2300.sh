@@ -30,6 +30,16 @@ open(p, "w", encoding="utf-8").write(t2)
 sys.exit(0 if n == 1 else 1)
 EOF
 }
+applyl() {  # applyl <폴더> <파일> <옛 글> <새 글> — 글자 그대로 치환 1회
+  python3 - "$1/$2" "$3" "$4" <<'EOF'
+import sys
+p, old, new = sys.argv[1:4]
+t = open(p, encoding="utf-8").read()
+n = t.count(old)
+open(p, "w", encoding="utf-8").write(t.replace(old, new))
+sys.exit(0 if n == 1 else 1)
+EOF
+}
 BASE="$T/base"; cp_bin "$BASE"
 apply "$BASE" autonomy_scope_py_heredoc.py '^CAT = re\.compile\(.*$' 'CAT = re.compile(r"(?!)")'
 ck "기준판 사본 = r2165 판(cat 머리 꼴 없음)" $?
@@ -59,6 +69,9 @@ fx c3e tools/b3e.sh 3 'x = a & set(keep)' 'echo hi \' "$CAT" 'PY'; same "③e �
 fx c3f tools/b3f.sh 3 'x = a & set(keep)' "$CAT" 'x = 1'; same "③f 끝 줄 없음(ⓔ)" 3
 fx c3g tools/b3g.sh 2 'x = a & set(keep)' "cat > \"\$LIB\" <<${Q}PY${Q} >/dev/null" 'PY'; same "③g heredoc 뒤 글 있음(ⓖ)" 3
 fx c3h tools/b3h.sh 2 'x = a & set(keep)' "cat > /dev/null <<${Q}E${Q}" 'E'; same "③h 대상 /dev/(ⓗ)" 3
+k=0; for h in 'f|sh' 'f;bash' 'f&&sh' 'f&sh'; do k=$((k+1))
+  fx "c3i$k" "tools/b3i$k.sh" 2 'x = a & set(keep)' "cat > $h <<${Q}E${Q}" 'E'; same "③i 대상에 «${h}» 꼴(본문이 셸로 실행됨)" 3; done
+fx c3j tools/b3j.sh 2 'x = a & set(keep)' "cat > /de\\v/stdout <<${Q}E${Q}" 'E'; same "③j /de<>v/stdout(ⓗ 우회 꼴)" 3
 # ④ 셸 set 꼴 불변
 fx c4a tools/b4a.zsh 2 'set(N)' 'echo hi'; same "④a .zsh 맨 줄 set(N)" 3
 fx c4b tools/b4b.sh 2 'set | tee /tmp/x' 'echo hi'; same "④b set | tee" 3
@@ -84,7 +97,9 @@ mutre M1 autonomy_scope_py_heredoc.py '^CAT = re\.compile\(.*$' 'CAT = re.compil
 for c in c1 c2a; do mcase M1 "$c" 3 0; done
 mutre M2 autonomy_scope_py_heredoc.py '^CAT = re\.compile\(.*$' 'CAT = re.compile(r"""^[ \t]*cat[ \t]+(?:>>?)?[ \t]*(?:[^ \t]+)?[ \t]*$""")'
 mcase M2 c3b 0 3
-mutre M3 autonomy_scope_py_heredoc.py "\\[\\^\\\\s\"'<>\\]\\+" "[^\\s\"']+"   # 대상 낱말에 «>» 허용
+mutl() {  # mutl <이름> <파일> <옛 글> <새 글>
+  MD="$T/mut_$1"; cp_bin "$MD"; applyl "$MD" "$2" "$3" "$4"; ck "$1 변이 적용" $?; }
+mutl M3 autonomy_scope_py_heredoc.py "\"'<>|;&()" "\"'|;&()"   # 대상 낱말에 «<» «>» 허용
 mcase M3 c3c 0 3
 
 for f in autonomy_scope_secret.py autonomy_scope_py_heredoc.py; do cmp -s "$BIN/$f" "$KIT/$f"; ck "kit 사본 cmp0 $f" $?; done
