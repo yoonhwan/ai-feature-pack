@@ -273,6 +273,10 @@ class Stall:
         if wk in k.state.setdefault("reassigned", {}):
             k.notify(team, "%s|stall-repeat|%s" % (k.stamp()[:10], wk), "[크리티컬] 같은 일 두 번 멈춤 %s %s %s — 자동 재배정 0" % (team, work, holder))
             return
+        return self.handoff(team, work, attempt, holder, tree, intent, rows, ("reassigned", wk), "REASSIGNED")
+    def handoff(self, team, work, attempt, holder, tree, intent, rows, slot, tag):
+        """S3 단계 한 길 — plan → Working 재확인 → kill → assign(rotation) → deliver → launch · slot = 반복 막기 기억 (칸, 키) · tag = 성공 로그 낱말."""
+        k = self.k
         p = self.plan(team, work, holder, tree, intent, rows)
         if p is None:
             return                                    # r1840 K3 — 역할만 못 정함 = plan 이 판정 불가 1줄 · 크리티컬 0
@@ -292,14 +296,14 @@ class Stall:
         if rc != 0:
             return self.stop(team, work, attempt, "assign", "%s 옛 좌석 닫힘 · 새 배정 0 · 옛 worktree %s · assign %s %s" % (work, tree, out.get("result"), out.get("reason", "")[:80]))
         launch = [sys.executable, LAUNCH, "--root", k.root, "--team", team, "--work", work, "--repo", p["repo"], "--base", p["base"], "--role", p["role"]]
-        k.state["reassigned"][wk] = {"at": k.stamp(), "from": holder, "to": p["next"], "launch": launch[1:]}
+        k.state.setdefault(slot[0], {})[slot[1]] = {"at": k.stamp(), "from": holder, "to": p["next"], "launch": launch[1:]}
         out, rc = cli.run(["deliver", "--work", work] + g)
         if rc != 0:
             return self.stop(team, work, attempt, "deliver", "%s 새 배정 %s · deliver %s — launch 0" % (work, p["next"], out.get("result")))
         rc, text, err = k.call(launch, LAUNCH_S)
         if rc != 0:
             return self.stop(team, work, attempt, "launch", "%s 새 배정 %s 전달됨 · launch rc %s %s" % (work, p["next"], rc, (text or err).strip()[:120]))
-        return k.log("REASSIGNED", team, "%s %s -> %s repo=%s base=%s role=%s" % (work, holder, p["next"], p["repo"], p["base"][:12], p["role"]))
+        return k.log(tag, team, "%s %s -> %s repo=%s base=%s role=%s" % (work, holder, p["next"], p["repo"], p["base"][:12], p["role"]))
     def plan(self, team, work, holder, tree, intent, rows):
         """S3-a 사전 판독(쓰기 0 · kill 전) — ⓐ pre·evidence·resources=()·rotation ⓑ 실제 core 읽기 함수 ⓒ repo·base·role 복원."""
         k, last = self.k, [r for r in rows if r.get("kind") == "dispatch" and r.get("work") == work][-1]
