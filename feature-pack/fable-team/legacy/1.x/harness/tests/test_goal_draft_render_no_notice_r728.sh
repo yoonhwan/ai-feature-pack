@@ -13,10 +13,15 @@ TOOL="$REPO/harness/bin/ft_goal_table.py"
 ROOT="$(git -C "$REPO" rev-parse --show-toplevel)"; KITREL="${REPO#"$ROOT"/}/harness/kit/fable-team/bin"
 BASESHA=50e88b8c   # r726 착지 판 = 이 카드 이전(«이동하는 origin/main» 아님 · 고정 sha)
 MODS="ft_goal_table.py ft_goal_ledger.py ft_team_lib.py ft_goal_readjust_state.py"
-BL=0; [ "${FT_TEST_BASELINE:-}" = 1 ] && BL=1 || echo "SKIP 기준판 구간 — 고정 옛 sha($BASESHA) 대조는 FT_TEST_BASELINE=1 일 때만 돈다(r2286)"
-pre_move() { git -C "$ROOT" cat-file -e "$1:$2" 2>/dev/null && printf '%s' "$2" || printf '%s' "${2/legacy\/1.x\//}"; }   # r2286 <sha> <경로> → 그 sha 트리의 경로(없으면 legacy/1.x 이동 전 경로)
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0; ok() { echo "PASS $1"; }; bad() { echo "FAIL $1"; fail=$((fail+1)); }
+BL_CASES="ⓐ"   # r2286 C1 — 옛 판 사본(BASE)으로 도는 사례 이름 목록 · FT_TEST_BASELINE=1 일 때만 돈다
+BL=0; [ "${FT_TEST_BASELINE:-}" = 1 ] && BL=1 || echo "SKIP 기준판 구간($BASESHA) $(awk -F'|' '{print NF}' <<< "$BL_CASES") — FT_TEST_BASELINE=1 로 켬"
+bl() {  # <사례 이름> [사본 성공 1/0] — 목록 안 이름 · 켬 · 사본 성공일 때만 0(사본 실패 = 그 사례 PASS 0)
+  case "|$BL_CASES|" in *"|$1|"*) ;; *) bad "기준판 목록 밖 이름 «$1»"; return 1;; esac
+  [ "$BL" = 1 ] && [ "${2:-1}" = 1 ]
+}
+pre_move() { git -C "$ROOT" cat-file -e "$1:$2" 2>/dev/null && printf '%s' "$2" || printf '%s' "${2/legacy\/1.x\//}"; }   # r2286 C2 <sha> <경로> → 그 sha 트리의 경로(없으면 legacy/1.x 이동 전 경로)
 has() { case "$1" in *"$2"*) ok "$3";; *) bad "$3 — 없음 «$2» ← ${1:0:300}";; esac; }
 not() { case "$1" in *"$2"*) bad "$3 — 있으면 안 됨 «$2» ← ${1:0:300}";; *) ok "$3";; esac; }
 
@@ -31,7 +36,7 @@ snapsha() {  # <sha> <bin 폴더> — 그 sha 의 판정기 모듈 사본(없는
   [ "$got" = 1 ]
 }
 CUR="$T/curbin"; snap "$CUR" || bad "지금 판 사본 못 뜸"
-BASE="$T/basebin"; [ "$BL" = 1 ] && { snapsha "$BASESHA" "$BASE" || bad "base 사본 못 뜸($BASESHA)"; }
+BASE="$T/basebin"; BASE_OK=0; [ "$BL" = 1 ] && { snapsha "$BASESHA" "$BASE" && BASE_OK=1 || bad "base 사본 못 뜸($BASESHA)"; }
 MUT="$T/mutbin"; snap "$MUT" && sed -i.bak 's/^    if _canon_render():/    if True:/' "$MUT/ft_goal_table.py"
 cmp -s "$MUT/ft_goal_table.py" "$CUR/ft_goal_table.py" && bad "변이 사본이 안 만들어졌다(조건 줄 못 찾음)"
 
@@ -71,7 +76,7 @@ git -C "$R" add -A; git -C "$R" -c user.name=t -c user.email=t@t commit -q -m ba
 git -C "$R" update-ref refs/remotes/origin/main HEAD; git -C "$R" update-ref refs/remotes/origin/draft HEAD
 
 echo "== ⓐ 빨강 — base 판($BASESHA): 시안 렌더가 공지 1통 + 표식 덮어씀 → 다음 기본 렌더가 재공지"
-if [ "$BL" = 1 ]; then
+if bl "ⓐ" "$BASE_OK"; then
 : > "$MBOX_LOG"; rm -f "$MARK"
 B="$(render "$BASE" "$DEF")"; RC=$?
 [ "$RC" = 0 ] && ok "ⓐ0 base · 기본 6행 렌더 rc0" || bad "ⓐ0 base 렌더 rc=$RC :: $B"
