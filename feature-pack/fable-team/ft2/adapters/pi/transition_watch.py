@@ -12,7 +12,7 @@ def _load(name):
     spec.loader.exec_module(module)
     return module
 
-land = _load("keeper_land")
+land, lw = _load("keeper_land"), _load("land_wait")   # lw = r2297 착지 대기 거짓 경보 판독
 BUDGET_S, GIT_S, DAY_CAP, NAMES, DAY = 5.0, 7, 3, 10, 86400   # 예산 5초 = 마지막 카드 1장(git log·land_kind)이 넘쳐도 바퀴 +7초 안
 Stop = type("Stop", (Exception,), {"__doc__": "C6 R2 문 — 바퀴 남은 몫 < 7초 = 이 바퀴 멈춤(이어 보기 · 판정 불가 아님 · seen 그대로)"})
 CARD, LANDT = re.compile(r"^(design/.+)/indices/(대기|진행|완성)/([^/]+)\.md$"), re.compile(land.LAND.pattern + "(.*)$", re.M)
@@ -46,7 +46,7 @@ class Watch:
         return done.returncode, done.stdout if inp else done.stdout.decode("utf-8", "replace")   # inp(cat-file --batch) = 바이트 그대로
     def call(s, argv, cap): return s.run(argv)   # keeper_land.lib_call 손 → (rc, stdout)
     def git(s, *args, inp=None): return s.run(["git", "-C", s.k.root, "-c", "core.quotepath=off"] + list(args), inp)
-    def index(s):   # [카드 dict] 경로 순 · 같은 (팀, stem) = 앞 ref 1장 · 판독 실패 = «판정 불가 <사유>».
+    def index(s):   # [카드 dict] 경로 순 · 같은 (팀, stem) = ref 마다 첫 사본 → lw.pick 1장(r2297 A4 · cat-file 1회 그대로) · 판독 실패 = «판정 불가 <사유>».
         fmap, pick, (rc, md) = {}, {}, s.git("show", land.REFS[0] + ":design/TEAMS.md")
         for cells in ([x.strip() for x in ln.strip().strip("|").split("|")] for ln in md.splitlines()) if rc == 0 else ():
             [fmap.setdefault(f, cells[0]) for f in (land.folders(cells[1]) if len(cells) > 1 and "design/" in cells[1] else ())]
@@ -54,14 +54,15 @@ class Watch:
             rc, out = s.git("ls-tree", "-r", "-z", ref, "--", "design")
             for meta, _, path in (row.partition("\t") for row in out.split("\0")) if rc == 0 else ():
                 team = fmap.get(m.group(1)) if (m := CARD.match(path)) and len(meta.split()) == 3 else None
-                team and pick.setdefault((team, m.group(3)), {"team": team, "stage": m.group(2), "stem": m.group(3), "path": path, "ref": ref, "blob": meta.split()[2]})
-        cards, pos = sorted(pick.values(), key=lambda c: c["path"]), 0
-        rc, raw = s.git("cat-file", "--batch", inp="".join(c["blob"] + "\n" for c in cards).encode()) if rc == 0 else (rc, b"")
+                team and pick.setdefault((team, m.group(3)), {}).setdefault(ref, {"team": team, "stage": m.group(2), "stem": m.group(3), "path": path, "ref": ref, "blob": meta.split()[2]})
+        every, pos = [c for refs in pick.values() for c in refs.values()], 0
+        rc, raw = s.git("cat-file", "--batch", inp="".join(c["blob"] + "\n" for c in every).encode()) if rc == 0 else (rc, b"")
         if rc != 0:
             return "판정 불가 카드 판독 git rc %s" % rc
-        for c in cards:
+        for c in every:
             size = int(raw[pos:(nl := raw.index(b"\n", pos))].split()[2])
             c["body"], pos = raw[nl + 1:nl + 1 + size].decode("utf-8", "replace"), nl + 2 + size
+        cards = sorted((lw.pick(list(refs.values())) for refs in pick.values()), key=lambda c: c["path"])
         s.stems = {c["stem"]: c for c in reversed(cards)}   # 같은 stem = 경로 순 앞 카드
         return cards
     def ledger(s, team):   # 팀 장부 {done: {work: 시각}, open: {work: holder}, all} · runtime 없음 = 빈 장부 · 못 읽음 = «판정 불가 …».
@@ -130,8 +131,8 @@ class Watch:
             return None   # C2 선행 = 모두 완성 ∧ 구현 착지일 때만 풀림
         at = sorted((s.ct(p) for p in pre), key=lambda x: isinstance(x, str), reverse=True)   # 판정 불가 사유 먼저
         return at[0] if isinstance(at[0], str) else "%s ← %s" % (c["stem"], " ".join(p["stem"] for p in pre)) if s.now - max(at) >= s.lim["prereq"] else None
-    def e_land(s, c):   # r2293 C1 착지 대기 — 완성 아님 · 세트 증거 줄 · 착지 줄 0 · 카드 마지막 줄 시각(ct) 뒤 상한 넘음 = 분 단위
-        return None if c["stage"] == "완성" or not SETL.search(c["body"]) or LANDT.search(c["body"]) else at if isinstance(at := s.ct(c), str) else "%s 세트 뒤 %d분 · 착지 줄 0" % (c["stem"], (s.now - at) // 60) if s.now - at >= s.lim["land"] else None
+    def e_land(s, c):   # r2293 C1 착지 대기 — 완성 아님 · 세트 증거 줄 · 착지 줄 0 · r2297 표지·끝 줄 0(lw.skip) · 카드 마지막 줄 시각(ct) 뒤 상한 넘음 = 분 단위(꼴 틀림 이름표 = lw.text)
+        return None if c["stage"] == "완성" or not SETL.search(c["body"]) or LANDT.search(c["body"]) or lw.skip(land.endings, c["body"]) else at if isinstance(at := s.ct(c), str) else lw.text(c["stem"], c["body"], (s.now - at) // 60) if s.now - at >= s.lim["land"] else None
     def e_seat(s, c): return s.o if not isinstance(s.o, tuple) else None if s.marker(s.o[1]) is not None or s.replaced(c["team"], s.o[1]) else ""
     def e_succ(s, c): return "" if isinstance(s.o, tuple) and s.marker(s.o[1]) is None and s.replaced(c["team"], s.o[1]) else None
     def e_wait(s, c): return "" if c["stage"] == "대기" and not s.rej and s.o is None else None
