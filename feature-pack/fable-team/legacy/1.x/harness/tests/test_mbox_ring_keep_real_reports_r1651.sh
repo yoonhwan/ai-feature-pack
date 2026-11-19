@@ -24,13 +24,14 @@ new_env() {   # 격리 루트 · 빈 큐 · ring 3 · comm 사본(mbox*.py 전�
   printf '{"_master": "byz-x-master-claude#1"}\n' > "$ENVROOT/seats/seats.json"
   if [ -n "${MUT:-}" ]; then "$MUT"; fi
 }
+# r2291 — 역할 좌석(ⓔ④ 의 명부 _master)도 ring 3 으로 고정(FT_MBOX_RING_LEAD 기본 30 이면 버림 0 → 이 시험의 관심인 표시 소유권을 못 본다)
 send() {   # send <to> <from> <body> — 발신 가드는 이 시험의 관심이 아니다 → --force
-  FT_SEATS_JSON="$ENVROOT/seats/seats.json" FT_MBOX_DIR="$C" FT_MBOX_RING=3 \
+  FT_SEATS_JSON="$ENVROOT/seats/seats.json" FT_MBOX_DIR="$C" FT_MBOX_RING=3 FT_MBOX_RING_LEAD=3 \
     python3 "$C/mbox.py" send "$1" "$2" "$3" --force >"$ENVROOT/out" 2>"$ENVROOT/err"; RC=$?
   cat "$ENVROOT/err" >> "$ENVROOT/errs"
 }
 recv() {   # recv <me>
-  FT_SEATS_JSON="$ENVROOT/seats/seats.json" FT_MBOX_DIR="$C" FT_MBOX_RING=3 \
+  FT_SEATS_JSON="$ENVROOT/seats/seats.json" FT_MBOX_DIR="$C" FT_MBOX_RING=3 FT_MBOX_RING_LEAD=3 \
     python3 "$C/mbox.py" recv "$1" >"$ENVROOT/recv" 2>"$ENVROOT/rerr"; RC=$?
 }
 rows_to() { grep -c "\"to\": \"$1\"" "$Q"; }
