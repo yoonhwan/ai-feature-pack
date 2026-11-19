@@ -27,6 +27,20 @@ MAPPED = re.compile(r"^(design/.+)/indices/(?:진행|대기|완성)/([^/]+\.md)$
 BODYPATH = re.compile(r"design/[^\s()`'\"<>·,]+\.md")   # r2055 발주 본문 속 카드 경로 토큰(MAPPED 로 다시 거름)
 
 
+def land_kind(root, repo, sha, call):
+    """r2274 C1 — 1.x ft_land_kind 한 곳(card_stage 가 ft_close_marker 를 읽는 길 · 사본 0) → 구현 | 카드 문서만 | 판정 불가 <사유>.
+    lib = <root>/.fable-team/bin(설치본) · 없으면 같은 팩의 legacy/1.x bin · call(argv, 상한) → (rc, stdout, …) = 부르는 쪽 바깥 호출 손
+    (keeper = Keeper.call 1곳 · card_stage = 자기 손) · 상한 7초(lib 안 git 7초와 같음) · rc None(넘침·실행 실패) = 판정 불가."""
+    lib = os.path.join(root, ".fable-team", "bin", "ft-land-kind-lib.sh")
+    if not os.path.isfile(lib):
+        lib = os.path.join(os.path.dirname(FT2), "legacy", "1.x", "harness", "bin", "ft-land-kind-lib.sh")
+    rc, out = call(["bash", "-c", '. "$1" >/dev/null 2>&1 || exit 9; ft_land_kind "$2" "$3"', "x", lib, repo, sha], endings.ANC_S)[:2]
+    word = (out or "").strip()
+    if word in ("구현", "카드 문서만") or word.startswith("판정 불가 "):
+        return word
+    return "판정 불가 land_kind %s" % ("시간초과" if rc is None else "rc %s" % rc)
+
+
 def team_row(md, team):
     """TEAMS.md 표에서 팀 행(칸 목록) 1개 · 없으면 None."""
     for line in md.splitlines():
@@ -166,8 +180,7 @@ class Landing:
                 continue
             rc = self.git_local(repo, "merge-base", "--is-ancestor", sha, ref, timeout=endings.ANC_S)[0]   # r2022 1회 7초 · 로컬 객체만
             if rc == 0:
-                old = self.pre_attempt(team, work, repo, sha)
-                return (None, None, old) if old else (sha, ("pack:" if repo == self.pack else "byz:") + ref, "")
+                return self.landed_in(team, work, repo, ref, sha)
             if rc == 128 and self.git_local(repo, "cat-file", "-e", sha, timeout=endings.ANC_S)[0] == 1 and self.git_local(repo, "rev-parse", "-q", "--verify", ref + "^{commit}", timeout=endings.ANC_S)[0] == 0:
                 continue   # G3 ⓑ 착지 sha 가 이 리포에 없고 ref 는 멀쩡하다 = 받을 것이 없다 · 다음 ref
             if rc == 1:
@@ -175,11 +188,20 @@ class Landing:
 
             rc = self.git(repo, "merge-base", "--is-ancestor", sha, ref, timeout=endings.ANC_S)[0]   # G3 ⓒ 지금 판 두 호출 그대로(env 없음 = 원격에 묻는다)
             if rc == 0:
-                old = self.pre_attempt(team, work, repo, sha)
-                return (None, None, old) if old else (sha, ("pack:" if repo == self.pack else "byz:") + ref, "")
+                return self.landed_in(team, work, repo, ref, sha)
             if rc != 1 and (rc != 128 or self.git(repo, "cat-file", "-e", sha, timeout=endings.ANC_S)[0] != 1):
                 return None, None, "판정 불가 · 착지 조상 git rc %s" % rc   # r2022 rc128 ∧ 객체 없음(다른 repo) = 다음 ref · 그 밖 = 다음 바퀴
         return (None, None, "판정 불가 · 팩 fetch 실패") if self.stale else (sha, None, "미도달")   # 낡음이 있으면 미도달 알림 0
+
+    def landed_in(self, team, work, repo, ref, sha):
+        """조상인 착지 sha → 옛 착지 줄 · r2274 C2 카드 문서만(land_kind) · 판정 불가 = 착지 아님(사유) · 그 밖 = (sha, ref, "")."""
+        old = self.pre_attempt(team, work, repo, sha)
+        if old:
+            return None, None, old
+        kind = land_kind(self.root, repo, sha, lambda argv, cap: self.call(argv, cap))
+        if kind != "구현":
+            return None, None, "카드 문서만 착지 " + sha[:8] if kind == "카드 문서만" else kind.replace("판정 불가 ", "판정 불가 · ", 1)
+        return sha, ("pack:" if repo == self.pack else "byz:") + ref, ""
 
     def git_local(self, repo, *args, **kw):
         """G1 — 로컬 객체만 보는 git 손: 그 호출의 자식에만 GIT_NO_LAZY_FETCH=1 을 싣고 끝나면 원래 env 객체로 되돌린다(G5·G6)."""

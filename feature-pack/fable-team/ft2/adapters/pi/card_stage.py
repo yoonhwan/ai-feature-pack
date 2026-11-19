@@ -7,6 +7,7 @@ push 전 자기 검사 = 커밋 변화가 D <옛 경로> 1줄 + 완성/ 밑 .md 
 머리 `- 상태:` 줄 = 완성 + `## 상태` 절 끝 1줄 · 커밋 글 `[docs] <카드> 2.0 완성 폴더(ft2 done)` 그대로(G7).
 rc 0 STAGED·NOOP · 1 REJECT done 없음(쓰기 0) · 3 판정 불가(push 시간초과 = 결과 불명 · 다시 돌리면 NOOP·STAGED 로 수렴).
 r2037 — `--da <판정문#§N>`: done 없음이면 §N 절을 ft_close_marker(1.x 한 곳 · 사본 0)로 읽어 닫힘이면 같은 stage() · 원장에 work 있고 done=false 면 complete 1회.
+r2274 — 마지막 착지 줄 sha 가 카드 문서만 바꾼 합침(keeper_land.land_kind = 1.x ft_land_kind 한 곳)이면 rc 0 «NOOP <work> 완성 증거 0 카드 문서만 착지 <sha8>» · 쓰기 0 · 예외 = 머리 «- 구현: 없음 — <사유>».
 """
 import argparse
 import importlib.util
@@ -29,6 +30,10 @@ class Unsure(Exception):
     pass
 class Reject(Exception):
     pass
+class Noop(Exception):
+    """r2274 C3 — 착지 줄이 카드 문서만 바꾼 합침 = 완성 증거 0(rc 0 · 쓰기 0)."""
+    pass
+DOCCARD = re.compile(r"(?m)^- 구현: 없음 — \S")   # r2274 C3 예외 — 문서 카드 머리 1줄
 class Slow(Unsure):
     """git 1회 7초 초과 — 결과 불명(재시도 1회는 push 만 · G5)."""
     pass
@@ -176,10 +181,13 @@ def stage(byz, root, team, work, at, now, da=None, gate=None):
             raise Reject(why)
         stem = os.path.basename(old)[:-3]
         own = stem == work or stem.startswith(work + "-")   # r2152 G1·G2 — 짝 표 남의 카드는 «착지(<work>):» 줄만(keeper_land F3 와 같은 규칙)
-        pat = r"(?m)^- 착지: [0-9a-f]{40}\b" if own else r"(?m)^- 착지\(%s\): [0-9a-f]{40}(?=\s|$)" % re.escape(work)
-        landed = re.search(pat, run(byz, "show", "%s:%s" % (sha[ref], old)))
+        pat = r"(?m)^- 착지: ([0-9a-f]{40})\b" if own else r"(?m)^- 착지\(%s\): ([0-9a-f]{40})(?=\s|$)" % re.escape(work)
+        text = run(byz, "show", "%s:%s" % (sha[ref], old))
+        landed = re.findall(pat, text)
         if not landed and not (gate and why is None):   # r2147 C1 — 착지 줄 또는 통과한 DA 만 옮김(쓰기·push 0)
             raise Unsure("착지 줄 없음 %s" % os.path.basename(old)[:-3])
+        if landed and not (gate and why is None) and not DOCCARD.search(text):   # r2274 C3 — 마지막 착지 줄이 증거일 때만
+            impl(byz, root, landed[-1])
         commit = commit_tree(byz, sha[ref], old, new, at, now, frm, da)
         rc = push(byz, commit, ref)
         if rc == 0:
@@ -188,6 +196,23 @@ def stage(byz, root, team, work, at, now, da=None, gate=None):
             raise Unsure("push 결과 불명 rc %s" % rc)
         refused = True
         run(byz, "fetch", "-q", "origin", ref.split("/", 1)[1])   # 새 끝에서 card() 부터 다시
+def sh(argv, cap):
+    """r2274 — land_kind 의 바깥 호출 손(상한 cap 초 · 넘침 = rc None)."""
+    try:
+        p = subprocess.run(argv, capture_output=True, text=True, timeout=cap)
+    except subprocess.TimeoutExpired:
+        return None, ""
+    return p.returncode, p.stdout
+def impl(byz, root, sha):
+    """r2274 C3 — 착지 sha 가 있는 리포(BYZ → 팩 · 로컬 객체만) 에 keeper_land.land_kind · 카드 문서만 = Noop · 판정 불가 = Unsure · 둘 다 없음 = 지금 길(미도달은 keeper 몫)."""
+    pack = os.environ.get("FT2_PACK_REPO") or os.path.expanduser("~/Project/ai-feature-pack")   # keeper.py 와 같은 팩 자리
+    env = dict(os.environ, GIT_NO_LAZY_FETCH="1")
+    repo = next((r for r in (byz, pack) if os.path.isdir(r) and spawn(r, ["rev-parse", "-q", "--verify", sha + "^{commit}"], env)[0] == 0), None)
+    kind = land.land_kind(root, repo, sha, sh) if repo else "구현"
+    if kind == "카드 문서만":
+        raise Noop("카드 문서만 착지 " + sha[:8])
+    if kind != "구현":
+        raise Unsure(kind.replace("판정 불가 ", "", 1))
 def ledger_complete(root, team, work):
     """r2037 A5 — 원장에 work 가 있고 done=false 면 cli complete 1회(최신 attempt) → done 재확인 · work 없음 = None(complete 0)."""
     row = proj.project(root, team)["works"].get(work)
@@ -219,6 +244,8 @@ def main(argv=None):
         if out and da:   # A5 — 카드 이동은 이미 끝(되돌림 0) · 원장 실패는 다음 줄 판정 불가
             print(word)
             word = ledger_complete(root, a.team, a.work) or ""
+    except Noop as exc:
+        word, rc = "NOOP %s 완성 증거 0 %s" % (a.work, exc), 0
     except Reject as exc:
         word, rc = "REJECT %s" % str(exc).replace("REJECT ", "", 1), 1
     except (Unsure, subprocess.TimeoutExpired) as exc:
