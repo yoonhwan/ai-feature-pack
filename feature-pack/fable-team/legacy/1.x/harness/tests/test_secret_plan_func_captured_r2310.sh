@@ -64,9 +64,14 @@ SH
     P1) one 'err() { cat >&2; }' 'DSN() { gcloud secrets versions access latest --secret=x | err; }' 'D=$(DSN)'; run "$b"; has 3 ;;
     P2) one 'DSN() {' '  printf "{"; gcloud secrets versions access latest --secret=x; }' 'gcloud secrets versions access latest --secret=y' '}' 'D=$(DSN)'; run "$b"; has 4 ;;
     14) one 'function err { cat >&2; }' 'DSN() { gcloud secrets versions access latest --secret=x | err; }' 'D=$(DSN)'; run "$b"; has 3 ;;   # A1e · DA#36
+    15) one 'true; function err { cat >&2; }' 'DSN() { gcloud secrets versions access latest --secret=x | err; }' 'D=$(DSN)'; run "$b"; has 3 || return 1   # ⑮ v1 · DA#36 줄 가운데 정의
+        one 'if true; then function err { cat >&2; }; fi' 'DSN() { gcloud secrets versions access latest --secret=x | err; }' 'D=$(DSN)'; run "$b"; has 3 || return 1   # v5
+        one 'true; err() { cat >&2; }' 'DSN() { gcloud secrets versions access latest --secret=x | err; }' 'D=$(DSN)'; run "$b"; has 3 ;;   # v6
+    15g) one 'DSN() { gcloud secrets versions access latest --secret=x; }' 'D=$(DSN)'; run "$b"; [ "$out" = ok ] || return 1   # ⑮ g1 정상 대입
+        one "DSN() { gcloud secrets versions access latest --secret=x | python3 -c 'import sys;print(sys.stdin.read().strip())'; }" 'export D=$(DSN)'; run "$b"; [ "$out" = ok ] ;;   # g2 줄 가운데 read()·strip() 은 정의 아님
   esac
 }
-for c in 1 1b 2 3 4 5 6 7 9 10 11 12 12b 13 13b 14 H1 H2 H3 H4 P1 P2; do
+for c in 1 1b 2 3 4 5 6 7 9 10 11 12 12b 13 13b 14 15 15g H1 H2 H3 H4 P1 P2; do
   case_do "$c" "$BIN"; ck "반례 $c" "$?"
 done
 t1=$(date +%s)
@@ -96,6 +101,7 @@ mut M6 10 'CALL_OK = r"\s*([A-Za-z_][\w-]*)(?:\s+[^|&;<>()`]*)?"' 'CALL_OK = r"\
 mut M7 11 'r"(?<![\w-])%s(?![\w-])"' 'r"(?:^\s*|\$\()%s(?![\w-])"'
 mut M8 13b 'used = bool(mine) and ' 'used = False and '
 mut M10 14 '    if re.search(r"(?m)^\s*function\s+' '    if False and re.search(r"(?m)^\s*function\s+'   # A1e 지움
+mut D5 15 '    if any(MID_DEF.search(' '    if False and any(MID_DEF.search('   # ⑮ 검사 지움
 mut M9 12b 'for w in (ws if line not in fn else [])' 'for w in ws'
 mut D1 H1 ' and not loud:' ':'   # DA ① 지움
 OLD_FB="$(cat <<'OLD'
