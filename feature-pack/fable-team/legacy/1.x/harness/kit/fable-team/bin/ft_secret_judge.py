@@ -191,6 +191,7 @@ def func_lines(t: str) -> set[int]:  # `name() {` … `}` 본문 줄 — 옛 계
 CALL_OK = r"\s*([A-Za-z_][\w-]*)(?:\s+[^|&;<>()`]*)?"  # r2310 A1b: 치환 안 = 함수 이름 + 낱말 인자만(| > >& 2> ; && || & 0)
 
 
+QUOTED = re.compile(r"\"(?:[^\"\\]|\\.)*\"|'[^']*'")  # r2310 DA P2: 따옴표 글
 EXITS = re.compile(r"stderr|/dev/tty|/dev/fd/|>&\s*[2-9]|(?<![\w-])(?:tee|exec)(?![\w-])")  # r2310 DA H1~H3: 본문이 stdout 밖으로 냄 = drop 0
 
 
@@ -198,11 +199,13 @@ def func_bodies(t: str) -> dict[str, set[int]] | None:  # r2310: 이름별 본�
     name, depth, opened, out = "", 0, False, {}
     for k, line in enumerate(t.split("\n"), 1):
         m = re.match(r"\s*(?:function\s+)?([A-Za-z_][\w-]*)\s*\(\)", line)
-        bare = re.sub(r"(^|\s)#.*$", "", re.sub(r"\$\{[^}]*\}", "", line)).strip()
+        bare = re.sub(r"(^|\s)#.*$", "", QUOTED.sub("", re.sub(r"\$\{[^}]*\}", "", line))).strip()
         if (m and name) or (not name and bare.startswith("}")):  # 본문 안 다른 함수 머리 · 본문 밖 닫는 }
             return None
         name = name or (m.group(1) if m else "")
         if name:
+            if any(q.count("{") != q.count("}") for q in QUOTED.findall(re.sub(r"\$\{[^}]*\}", "", line))):  # DA P2 ⓑ: 따옴표 하나 안 { } 개수가 안 맞음 = 통과 0 · 맞으면 따옴표 글 빼고 셈
+                return None
             out.setdefault(name, set()).add(k)
             depth, opened = depth + bare.count("{") - bare.count("}"), opened or "{" in bare
             if depth < 0 or (depth == 0 and opened and not bare.endswith("}")):  # «} >&2» 꼴 · 셈이 어긋남
@@ -238,7 +241,8 @@ def captured_only(text: str, t: str, nl: list[int], segs: list[Seg]) -> tuple[se
         bare = sum(len(word.findall(x)) - bool(head.match(x)) for x in lines) - len(mine)  # A1c: 정의 밖 모든 자리 − 허용 대입
         uses = re.compile(r"\$\{?[#!]?(?:%s)(?![A-Za-z0-9_])" % "|".join(map(re.escape, mine or [""])))
         used = bool(mine) and any(uses.search(lines[k - 1]) for k in fn)  # A1d: 함수 본문이 받은 변수를 씀
-        loud = any(EXITS.search(lines[k - 1]) for k in bodies[name])  # DA ①: stderr·tty·fd·tee·exec
+        others = re.compile(r"(?<![\w-])(?:%s)(?![\w-])" % "|".join(map(re.escape, set(bodies) - {name}))) if len(bodies) > 1 else None
+        loud = any(EXITS.search(lines[k - 1]) or (others and others.search(lines[k - 1])) for k in bodies[name])  # DA ①: stderr·tty·fd·tee·exec · P1: 다른 함수로 넘김
         if mine and bare == 0 and not used and not loud:
             ok.add(name)
     drop = set().union(*(b for n, b in bodies.items() if n in ok)) - set().union(*(b for n, b in bodies.items() if n not in ok))
