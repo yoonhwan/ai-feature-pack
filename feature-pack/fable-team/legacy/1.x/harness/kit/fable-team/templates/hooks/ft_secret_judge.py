@@ -191,7 +191,8 @@ def func_lines(t: str) -> set[int]:  # `name() {` … `}` 본문 줄 — 옛 계
 CALL_OK = r"\s*([A-Za-z_][\w-]*)(?:\s+[^|&;<>()`]*)?"  # r2310 A1b: 치환 안 = 함수 이름 + 낱말 인자만(| > >& 2> ; && || & 0)
 
 
-DEF_ANY = re.compile(r"(?<![\w.-])(?:function\s+([A-Za-z_][\w-]*)|([A-Za-z_][\w-]*)\s*\(\))")  # r2310 P1 이름 모음 · 원문 어디든 «이름()»·«function 이름» (.read() 같은 점 뒤 호출은 아님)
+NC = r"[^\s(){}|&;<>\"'$`=\\]"  # r2310 ⑰: 셸 이름 글자 = 메타문자 아닌 글자 전부(a.err · err+ 포함)
+DEF_ANY = re.compile(r"(?<!%s)(?:function\s+(%s+)|(%s+)\s*\(\)(?![.),\]]))" % (NC, NC, NC))  # P1 이름 모음 · 원문 어디든 «이름()»·«function 이름» · 뒤가 . ) , ] = 호출 사슬(.read().strip())
 QUOTED = re.compile(r"\"(?:[^\"\\]|\\.)*\"|'[^']*'")  # r2310 DA P2: 따옴표 글
 EXITS = re.compile(r"stderr|/dev/tty|/dev/fd/|>&\s*[2-9]|(?<![\w-])(?:tee|exec)(?![\w-])")  # r2310 DA H1~H3: 본문이 stdout 밖으로 냄 = drop 0
 
@@ -244,7 +245,7 @@ def captured_only(text: str, t: str, nl: list[int], segs: list[Seg]) -> tuple[se
         uses = re.compile(r"\$\{?[#!]?(?:%s)(?![A-Za-z0-9_])" % "|".join(map(re.escape, mine or [""])))
         used = bool(mine) and any(uses.search(lines[k - 1]) for k in fn)  # A1d: 함수 본문이 받은 변수를 씀
         rest = (defined | set(bodies)) - {name}
-        others = re.compile(r"(?<![\w-])(?:%s)(?![\w-])" % "|".join(map(re.escape, rest))) if rest else None
+        others = re.compile(r"(?<!%s)(?:%s)(?!%s)" % (NC, "|".join(map(re.escape, rest)), NC)) if rest else None
         loud = any(EXITS.search(lines[k - 1]) or (others and others.search(lines[k - 1])) for k in bodies[name])  # DA ①: stderr·tty·fd·tee·exec · P1: 다른 함수로 넘김
         if mine and bare == 0 and not used and not loud:
             ok.add(name)
