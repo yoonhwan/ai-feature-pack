@@ -4,6 +4,8 @@
 #           종류 tmp · cache · worktree(지울 후보 · 종류 안 크기 큰 순) · hold(조건 하나가 어긋난 worktree · 처음 어긋난 조건) · info(크기 참고).
 #   apply = 목록의 tmp · cache · worktree 줄만 위에서부터 · 줄마다 지우기 직전 조건 전부 다시 판정 → 어긋나면 SKIP.
 #           tmp · cache = «뿌리 실경로/이름 한 마디» 일 때만 `rm -rf --` · worktree = 그 리포 목록에 있을 때만 `git worktree remove`(--force 0).
+#           r2301 A2 · A2b · A3 · A4 = 옆 파일 _disk_reclaim_quarantine.py — worktree 는 격리 자리(<git common dir>/ft-reclaim-q/)로 먼저 옮기고 거기서 지운다.
+#             상한에 끊겨도 원래 자리에 반쯤 지운 것이 남지 않고, 다음 apply 가 표식(<git common dir>/ft-reclaim-q.tsv)만 보고 사람 손 없이 마무리한다.
 #           로그 = 목록과 같은 폴더 deleted.log(DELETED · SKIP 줄 + SUMMARY 또는 ABORT).
 #   조건: tmp = 소유자 본인 · 심링크 아님 · 안의 모든 mtime 이 7일 넘음 · 열린 파일 0 · 이름에 탭/줄바꿈 0 / cache = 심링크 아님 · 열린 파일 0 · 이름
 #         worktree = 주 아님 · LIVE_ROOT 아님(r2242 · 공용 루트 .fable-team/LIVE_ROOT 1행과 samefile) · locked 아님 · 폴더 있음 · HEAD ⊂ origin/main · status 0줄 · push 안 된 커밋 0 · tmux pane 0 · 열린 파일 0 · index 24시간 넘음
@@ -12,6 +14,7 @@
 #   env: FT_RECLAIM_TMP_ROOT(/private/tmp) · FT_RECLAIM_CACHE_ROOT(~/Library/Caches) · FT_RECLAIM_REPOS(: 구분 · BYZ · 팩)
 #        FT_RECLAIM_INFO(: 구분) · FT_RECLAIM_DF_PATH(/System/Volumes/Data) · FT_RECLAIM_TIMEOUT(25초 · 지우기 호출 포함)
 #        FT_RECLAIM_ONLY(: 구분 경로 접두 · r2200) = plan 이 실경로로 풀어 그 접두 아래(같거나 «접두/») tmp · cache · worktree 만 잰다 · 없거나 비면 전부
+#        FT_RECLAIM_MOVE_ONLY_KIB(r2301 A4 · 1048576=1GiB) = 이 KiB 를 넘는 worktree 줄은 옮기기까지만 하고 지우기는 다음 apply 로
 #   지우기가 상한을 넘기면 그 줄 SKIP `시간 초과`(큰 폴더는 다음 apply 로 · rm 이 중간까지 지웠을 수 있음)
 #   r2196 squash 길 = 옆 파일 _disk_reclaim_squash.py(r2199) · apply 쪽 dfree · recheck = _disk_reclaim_apply.py(r2200) · plan = _disk_reclaim_plan.py(r2277) · 못 읽으면 stderr `판정 불가 squash 모듈` · rc 3 · apply 는 ABORT 줄 뒤 지우기 0.
 set -uo pipefail
@@ -21,7 +24,7 @@ exec python3 - "$@" "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)" <<
 import bisect, json, os, stat, subprocess, sys, time
 MODE, ARG = sys.argv[1], sys.argv[2]
 sys.dont_write_bytecode = True; sys.path.insert(0, sys.argv[3])   # r2199 · bin/__pycache__ 쓰기 0
-try: import _disk_reclaim_squash as SQ, _disk_reclaim_apply as AP, _disk_reclaim_plan as PL   # r2196 squash 길(merged · squash_pr · GH · MERGED) · r2200 dfree · recheck · r2277 plan = 옆 파일
+try: import _disk_reclaim_squash as SQ, _disk_reclaim_apply as AP, _disk_reclaim_plan as PL, _disk_reclaim_quarantine as QD   # r2196 squash 길(merged · squash_pr · GH · MERGED) · r2200 dfree · recheck · r2277 plan = 옆 파일
 except Exception: MODE == "apply" and open(os.path.join(os.path.dirname(os.path.abspath(ARG)), "deleted.log"), "a").write("ABORT 판정 불가 squash 모듈 deleted=0 skipped=0\n"); print("판정 불가 squash 모듈", file=sys.stderr); sys.exit(3)
 E = os.environ
 HOME = os.path.realpath(os.path.expanduser("~"))
@@ -118,6 +121,7 @@ def live_root(repo, p):   # r2242 · <공용 루트>/.fable-team/LIVE_ROOT 1행�
 
 def wt_bad(repo, w, main, op, pn):   # 처음 어긋난 조건 · None = 후보
     p = w["path"]; rp = os.path.realpath(p)
+    if (hp := QD.home(sys.modules[__name__], repo, rp)): return hp   # r2301: 격리 자리는 apply 마무리 몫 — 목록 후보도 지우기 대상도 아니다
     if main: return "주 worktree"
     if (lr := live_root(repo, p)): return lr
     if "locked" in w["flags"]: return "locked"
@@ -149,15 +153,20 @@ def apply(tsv, roots):
     with open(log, "a") as L:
         try:
             before, op = AP.dfree(sys.modules[__name__]), Opened()
+            for repo in REPOS:   # A3: 들어온 목록과 무관하게 표식 파일 먼저 — 다른 목록으로 돈 apply 도 마무리한다
+                fd, fs = QD.finish(sys.modules[__name__], repo, L, op); d += fd; s += fs
             for n, f in enumerate(rows, 1):
                 tick(n)
                 if not f or f[0] not in ("tmp", "cache", "worktree"): continue
                 if len(f) != 4: L.write(f"SKIP\t{f[0]}\t-\t줄 꼴\n"); s += 1; continue
                 kind, kib, p = f[0], f[1], f[2]
-                why, repo = AP.recheck(sys.modules[__name__], kind, p, roots, op)
-                if not why:
-                    cmd = ["git", "-C", repo, "worktree", "remove", p] if repo else ["rm", "-rf", "--", p]
-                    rc = run(cmd)[0]
+                why, repo, head = AP.recheck(sys.modules[__name__], kind, p, roots, op)
+                if not why and repo:   # A2·A4: worktree 는 격리 자리로 먼저 옮기고 거기서 지운다(끊겨도 원래 자리에 반쯤 지운 것 0)
+                    st, why = QD.carry(sys.modules[__name__], repo, p, head, kib)
+                    if st == "moved":   # A4: «MOVED · 지우기 다음 차례»
+                        L.write(f"MOVED\t{kind}\t{kib}\t{p}\t지우기 다음 차례\n"); s += 1; continue
+                elif not why:
+                    rc = run(["rm", "-rf", "--", p])[0]
                     why = "시간 초과" if rc == 124 else "지우기 실패" if rc else None
                 if why: L.write(f"SKIP\t{kind}\t{p}\t{why}\n"); s += 1
                 else: L.write(f"DELETED\t{kind}\t{kib}\t{p}\n"); d += 1
