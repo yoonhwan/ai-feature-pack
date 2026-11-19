@@ -109,6 +109,19 @@ def c2c(w):  # ②ⓒ 표식 10분 + 진척 0 20분(dispatch 있는 work) → �
     assert not [x for x in lines if x.startswith(("WOKE", "REASSIGNED"))] and w.tmux("send-keys") == []
 
 
+def c2d(w):  # ②ⓓ 표식 2분(승계 안 섬) + 진척 0 20분(dispatch 있는 work · S1 조건 충족) → 깨움·S3·kill 0 (DA#28 H1 · M4 짝)
+    w.seat(step=-20 * M), marker(w, 2 * M)
+    lines = w.round()
+    assert not [x for x in lines if x.startswith(("WOKE", "REASSIGNED", "SUCCEEDED"))] and w.tmux("send-keys") == [], lines
+    path = w.root / ".fable-team" / "state" / "ft2-keeper" / "state.json"
+    state = json.loads(path.read_text(encoding="utf-8"))
+    state.setdefault("woke", {})["%s|%s@a1" % (TEAM, W)] = T0 - 11 * M   # S3 문턱(깨움 뒤 10분) 넘은 꼴
+    B._put(path, state)
+    lines = w.round(M)   # 표식 3분 = 아직 승계 안 섬
+    assert not [x for x in lines if x.startswith(("WOKE", "REASSIGNED", "SUCCEEDED"))], lines
+    assert w.tmux("send-keys") == [] and w.tmux("kill-session") == [] and len(dispatches(w, W)) == 1
+
+
 def c3(w):   # ③ push 거절(원격이 앞섬 · non-ff) → 승계 0 · kill 0 · [크리티컬] «승계 막힘 · push 거절» 1통
     tree = claimed(w)
     other = w.tmp / "other"
@@ -185,7 +198,7 @@ def c8b(w):  # ⑧′ 장부 못 읽음 대역 → 판정 불가 1줄 · 쓰기 
     assert len(w.journal()) == before and w.tmux("kill-session") == [] and remote(w, W2) == ""
 
 
-CASES = {"①": c1, "①′": c1b, "②": c2, "②ⓒ": c2c, "③": c3, "④": c4, "⑤": c5, "⑤ⓑ": c5b, "⑥": c6, "⑦": c7, "⑦′": c7b, "⑧": c8, "⑧′": c8b}
+CASES = {"①": c1, "①′": c1b, "②": c2, "②ⓒ": c2c, "②ⓓ": c2d, "③": c3, "④": c4, "⑤": c5, "⑤ⓑ": c5b, "⑥": c6, "⑦": c7, "⑦′": c7b, "⑧": c8, "⑧′": c8b}
 
 
 @pytest.mark.parametrize("name", list(CASES))
