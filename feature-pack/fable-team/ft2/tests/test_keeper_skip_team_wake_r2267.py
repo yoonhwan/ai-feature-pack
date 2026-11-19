@@ -1,6 +1,6 @@
 """r2267 ft2 keeper 휴면 팀 깨움 후보 — SKIP_TEAMS 팀은 선행 판정만 읽고, 풀린 카드 묶음이 생기면 planner _master 에 1통 (반례 ①~⑧ · 변이 M1~M8).
 대역 = r1812 keeper_world(임시 root·git·가짜 tmux·가짜 mbox·주입 시계 w.t) + SKIP_TEAMS cb + 카드 루트 표 cb 행 + 가짜 gh(호출 기록).
-실 리포·실 tmux·실 원장·설치 0 · sleep 0. 기준판 = ③ Red(휴면 팀은 바퀴에서 통째로 빠진다). M6 = r2159(progress) 착지 뒤 판에서 돌린다.
+실 리포·실 tmux·실 원장·설치 0 · sleep 0. 기준판 = ③ Red(휴면 팀은 바퀴에서 통째로 빠진다) · r2159 합친 판(휴면 길 progress 켬) = ① · M1 Red.
 """
 import importlib.util
 import json
@@ -60,12 +60,12 @@ def seen(w):
 
 
 def c1(w):   # ① 휴면 팀 판독 = 원장·팀 쪽지·fill·gh 0 · 재개 줄 진행 카드 · BYZ 낡은 바퀴 = 판독 0
-    put(w, "진행", RUN, "- 재개: PR #1\n")
+    put(w, "진행", RUN, "- 재개: 2026-11-13T09:00:00 · PR #1 · head abc1234 · 가지 nano/r9504-run\n- 대상: 팩 feature-pack/x.py\n")   # r2159 재개 꼴 = progress 가 돌면 gh 1회
     w.round(), move(w, DA)
     lines = w.round()
     assert len(wakes(w)) == 1 and len(mails(w)) == 1, mails(w)
     assert [x for x in lines if " cb " in " %s " % x and not x.startswith("NOTIFIED cb ")] == [], lines
-    assert not w.runtime(CB).exists() and not kw._lines(str(w.tmp / "bin" / "gh") + ".log")
+    assert not w.runtime(CB).exists() and not kw._lines(str(w.tmp / "bin" / "gh") + ".log"), kw._lines(str(w.tmp / "bin" / "gh") + ".log")
     st = json.loads((w.state / "ft2-keeper" / "state.json").read_text(encoding="utf-8"))
     assert not [key for key in st.get("resume_seen", {}) if CB in key], st
     assert "fill_open" not in st and "fill_hold" not in st, st   # fill 이 한 번이라도 불리면 생기는 칸(활성 팀 0 바퀴)
@@ -153,6 +153,7 @@ MUTANTS = {
     "M3": (KN, ' and prev and prev.get(s) in ("선행", "선행불명", "풀림")', "", "④"),
     "M4": (KR, 'key = "%s|wake|%s|%s" % (team, to,', 'key = "%s|%s|wake|%s|%s" % (self.stamp()[:10], team, to,', "⑤"),
     "M5": (KR, "return self.finish(team, key, to, rc, seen, body)   # W4", "return self.finish(team, key, to, 0, seen, body)   # W4", "⑥"),
+    "M6": (KN, "got = cards(k, team, resume=False)", "got = cards(k, team)", "①"),
     "M7": (KP, 'self.state["wake_seen"].pop(team)', "None", "④"),
     "M8": (KN, "k.wake(team, freed)", 'k.notify(team, "wake", "[깨움 후보] " + " ".join(freed))', "③"),
 }
@@ -180,8 +181,3 @@ def test_mutant(name, tmp_path, monkeypatch):
     with pytest.raises(AssertionError):
         run(case, tmp_path / "w1", monkeypatch, tree)
     run(case, tmp_path / "w2", monkeypatch)   # 원본으로 같은 사례 1회 더 = PASS
-
-
-@pytest.mark.skip(reason="M6 = 휴면 팀 길에서 progress() 부름 — r2159(진행 카드 재개 줄 progress) 미착지 판 · r2159 착지 뒤 판에서 돌린다")
-def test_mutant_m6():
-    pass
