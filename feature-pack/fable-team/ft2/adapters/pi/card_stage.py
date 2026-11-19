@@ -167,10 +167,12 @@ def commit_tree(byz, parent, old, new, at, now, frm, da=None):
         sha = run(byz, "commit-tree", tree, "-p", parent, "-m", "[docs] %s 2.0 완성 폴더(%s)" % (os.path.basename(old)[:-3], "DA " + da if da else "ft2 done")).strip()
         check(byz, parent, sha, old, new)
     return sha
-def stage(byz, root, team, work, at, now, da=None, gate=None):
+def stage(byz, root, team, work, at, now, da=None, gate=None, fetch=True):
     """G2·G3·G4 — fetch 1 · 부모 SHA 고정 · 임시 index 커밋 · push · 거절 1회면 fetch 뒤 새 끝에서 1회 더.
+    r2311 K1 — fetch=False = 첫 fetch 0(keeper 바퀴가 두 ref 를 이미 맞춤) · 거절 뒤 fetch 는 그대로 · CLI·다른 호출 = 기본값(K2).
     돌려주는 값 = (카드 stem, "<frm>→완성", 커밋 SHA) · 이미 완성/ = None(NOOP)."""
-    run(byz, "fetch", "-q", "origin", *(r.split("/", 1)[1] for r in land.REFS))
+    if fetch:
+        run(byz, "fetch", "-q", "origin", *(r.split("/", 1)[1] for r in land.REFS))
     refused = False
     while True:
         sha, picked = pins(byz), None

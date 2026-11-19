@@ -11,6 +11,7 @@ core 손 0 — 공개 동사(cli.run)·공개 API(project·CloseNext)만 부른�
 import concurrent.futures
 import datetime
 import importlib.util
+import inspect
 import json
 import os
 import re
@@ -75,6 +76,7 @@ tw = _load(os.path.join(HERE, "transition_watch.py"), "ft2_keeper_transition")  
 
 class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settling):
     fa, cs = full_alert, cstage   # r1886 keeper_land·keeper_next 도 이것으로 부른다 · r2026 card_stage
+    MIN_S = MIN_S   # r2311 K4 close_old.sweep 팀 끝 남은 몫 문턱(같은 값)
     def __init__(self, root, env=None, now=None):
         self.root = os.path.abspath(root)
         self.env = dict(os.environ if env is None else env)
@@ -192,7 +194,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
             at = self.cs.done_at(self.root, team, work)
             if not at:
                 raise self.cs.Unsure("done 없음")
-            out = self.cs.stage(self.root, self.root, team, work, at, self.stamp())
+            out = self.cs.stage(self.root, self.root, team, work, at, self.stamp(), **self.no_fetch())
         except (self.cs.Unsure, subprocess.TimeoutExpired, OSError) as exc:
             got = self.hits(team, work) if str(exc).startswith(STUCK) and self.root not in self.stale else None   # r2266 C1 값 기억 = [사유, 적중 지문]
             book[key] = [day, n + 1] + ([str(exc), got] if got is not None else [])
@@ -207,6 +209,12 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         if out:   # r2284 C1 STAGED = ref 옮김 → 그 팀 카드 목록 캐시 버림(같은 바퀴 B2 landing 새 ref 로 다시 읽음 · NOOP = 그대로)
             self.cache.pop(team, None), [self.cache["@round"].pop(x) for x in list(self.cache.get("@round", {})) if isinstance(x, tuple) and x[:2] == ("card", team)]
         return self.log("CARD-STAGE", team, "%s %s %s" % (work, out[1], out[2])) if out else self.log("NOOP", team, work + " 이미 완성")
+
+    def no_fetch(self):
+        """r2311 K1 — 이 바퀴 fresh 가 BYZ land.REFS 두 가지(main·ops/main-base)를 다 맞췄을 때만 card_stage 첫 fetch 0(사전 DA 조건 1) · 대역 stage 가 인자를 모르면 인자 0."""
+        want = ["+refs/heads/%s:refs/remotes/origin/%s" % ((r.split("/", 1)[1],) * 2) for r in land.REFS]
+        fresh = self.root not in self.stale and all(x in self.refs.get(self.root, ()) for x in want)
+        return {"fetch": False} if fresh and "fetch" in inspect.signature(self.cs.stage).parameters else {}
 
     def gate(self, real, head):
         """r2026 R1 · r2287 C2 — card_stage 바깥 호출 1회(git spawn · lib proc) 전마다 바퀴 남은 몫 ≥ 7초 · 모자람 = OutOfRound(시작 0) · 초 = 칸 top(C3)."""
