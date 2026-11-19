@@ -384,7 +384,10 @@ case "$cmd" in
   #   ★seq 를 그대로 다시 싣는다★ — 새 번호를 만들지 않으므로 1차 마커가 그대로 유효하다.
   #   ★force=1 로 억제를 뚫는다★ — 재발주는 «반드시» 창에 떠야 한다. 억제되면 아무것도
   #   안 뜨고 그건 미도달과 구분이 안 된다(팩 ring 과 같은 계약).
-  ring)  sess="${1:?sess}"; _check_name "$sess" || exit 1; sess="$(holder_of "$sess")"
+  ring)  sess="${1:?sess}"; _check_name "$sess" || exit 1
+         # ★r2270 좌석 칸에 쪽지 번호(숫자만 · #숫자) = 좌석 아님★ — 예산·held·holder·tmux 전에 rc 2 1줄(absent rc 0 으로 조용히 끝나던 손 실수)
+         [[ "$sess" =~ ^#?[0-9]+$ ]] && { echo "REJECT ring 좌석 아님 $sess — 꼴: ring <좌석> [<seq>]"; exit 2; }
+         sess="$(holder_of "$sess")"
          # ★r1476 직접 ring 도 예산을 쓴다★ — 예약 소유자 = 부르는 쪽 1곳. `--reserved` 면 예약·환불 0(부른 쪽이 이미 예약).
          # ★r1524 `--auto`★ = 좌석 자동 장치(ft-idle-wake)가 부른 ring — 사람 손 ring(--auto 없음)과 «구별»해야
          #   확장 좌석에서 자동 ring 만 pane 0 으로 끄고 손 ring 은 그대로 둘 수 있다(DA #276770 R1).
