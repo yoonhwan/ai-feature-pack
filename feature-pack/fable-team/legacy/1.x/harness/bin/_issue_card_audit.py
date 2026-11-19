@@ -27,6 +27,7 @@ ISSUE_LINE_RE = re.compile(r"^\s*[-*]\s*Issue\s*[:：]")
 # 카드 경로 두 꼴 — origin/main = design/teams/<팀>/indices/… · ops/main-base = design/<팀>/indices/… (arch#173 반송 r2)
 CARD_PATH_RE = re.compile(r"^design/(?:teams/)?[^/]+/indices/(?P<bucket>[^/.][^/]*)/.+\.md$")
 FINISHED = ("완성", "아카이브")                   # 닫기 후보 = 연결 카드가 «전부» 여기 (R7)
+LABEL_APPROVED_ALL = ("approved", "status:approved")   # 정확 글자 · hil:approved 는 그 밖 (r2312)
 
 RC_OK, RC_USAGE, RC_UNJUDGEABLE = 0, 2, 5
 
@@ -235,7 +236,7 @@ def main(argv):
         repo = args.repo or os.getcwd()
         issues = load_issues(args.from_json, gh_bin, limit)
         if not args.all_open:
-            issues = [i for i in issues if "approved" in i["labels"]]
+            issues = [i for i in issues if any(lab in LABEL_APPROVED_ALL for lab in i["labels"])]
         cards = load_cards(git_bin, repo, [args.ref_main, args.ref_harness], limit)
     except Unjudgeable as exc:
         print(f"ISSUE-CARD 판정 불가 — {exc}")
