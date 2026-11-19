@@ -78,6 +78,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         self.state = {key: {} for key in ("held", "open", "sent", "handled", "woke", "reassigned")}
         self.stall = _load(os.path.join(HERE, "keeper_stall.py"), "ft2_keeper_stall").Stall(self)   # r1813 S1~S5
         self.succeed = _load(os.path.join(HERE, "keeper_succeed.py"), "ft2_keeper_succeed").Succeed(self)   # r2276 표식 승계(self.succeeding)
+        self.close_old = _load(os.path.join(HERE, "keeper_close_old.py"), "ft2_keeper_close_old").CloseOld(self)   # r2281 승계 끝 구 나노 닫기
         self.spent, self.sock, self.skip, self.stale = dict.fromkeys(("fetch", "b1", "b2c", "b2f", "b3", "stall"), 0.0), True, set(), set()
         self.per, self.at = {}, None   # r1969 (팀, 칸) 초 → ROUND slow 칸 · at = 지금 도는 팀(None = 팀 밖)
         self.table, self.nano, self.refs, self.picked, self.bg, self.fetch_s, self.fetch_err = {}, {}, {}, [], {}, {}, {}   # r1975 · r2241 fetch_err
@@ -561,6 +562,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
             else:
                 self.unused.add(("-", "-", "b3o"))   # R10 안 도는 자리 = 분모에 남기지 않는다
             if self.sock and self.at_pos("b3r"):
+                self.timed("b3", self.close_old.sweep)   # r2281 승계 끝 구 나노 = B3 앞(닫힌 세션은 B3 list-sessions 밖)
                 self.timed("b3", self.retired)   # r2055 정지 중 = 판정·«예정» 줄만(retire_one 안에서)
             else:
                 self.unused.add(("-", "-", "b3r"))
