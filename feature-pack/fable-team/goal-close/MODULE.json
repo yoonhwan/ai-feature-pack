@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "gc-1.2",
+  "version": "gc-1.3",
   "interface": 1,
   "source": "BYZ docs/aifp-arch7-ft20-close-flow-20261114@9108b6d6387f83d1d4d67d83af92f2b08a559e31 design/teams/planner/research/ft-2.0/PLAN-goal-close-flow-20261114.md · first_body_tail = 팩 PR 1147 a7a7ccb2 DIRECT",
   "files": {
@@ -9,7 +9,7 @@
     "20-situations.md": "85b1443ccb0829448c01aaae908f029229bcaf88258caa579f9eac24d63c771c",
     "30-direct.md": "b766dba841d27f6d7d7f66565c2e437c265e827195af0b081d6fb42f1512ce4d",
     "40-conduct.md": "eeee280778104bd64ff89306b28b13ecec35ccdc8b56372e6ba2f5f7fbaba4da",
-    "phrases.tsv": "29c7bfa2df7bbd5f76b647d0600ef0cf9d621330e8216324501a64bce623955b",
+    "phrases.tsv": "25638436d6ce3e3c59b0ef4b15c5a4f4131fc258f8f61703820b5d68d35671eb",
     "roles/arch.md": "545ff7cc602244399abeeef4c2d60893f12a09f169352363e68796f3e1a17174",
     "roles/da.md": "0fb4fa963b4a09cb3004dca5c9191ee779ac34b9d94146174a9e3c47778c6018",
     "roles/master.md": "f35bdbdb03308fad373b1d39a6f45f20e93e2d09395f0d84438718d4ef38b259",

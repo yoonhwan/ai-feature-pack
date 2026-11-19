@@ -16,15 +16,17 @@ land = _load("keeper_land")
 BUDGET_S, GIT_S, DAY_CAP, NAMES, DAY = 5.0, 7, 3, 10, 86400   # 예산 5초 = 마지막 카드 1장(git log·land_kind)이 넘쳐도 바퀴 +7초 안
 Stop = type("Stop", (Exception,), {"__doc__": "C6 R2 문 — 바퀴 남은 몫 < 7초 = 이 바퀴 멈춤(이어 보기 · 판정 불가 아님 · seen 그대로)"})
 CARD, LANDT = re.compile(r"^(design/.+)/indices/(대기|진행|완성)/([^/]+)\.md$"), re.compile(land.LAND.pattern + "(.*)$", re.M)
-PRE, TOK = re.compile(r"^- 선행:(.*)$", re.M), re.compile(r"[^\s()·,`'\"<>«»:;]+")
+PRE, TOK, SETL = re.compile(r"^- 선행:(.*)$", re.M), re.compile(r"[^\s()·,`'\"<>«»:;]+"), re.compile(r"^- 세트(?:\([^)\n]*\))?:", re.M)   # r2293 세트 증거 줄 = «- 세트:» · «- 세트(…):»
 # C1 표 한 곳 — (칸, 증거 함수 e_<이름>, 상한 키, 기본 초, 위임 대상 · 빈칸 = 신규 알림) · 차례 = 고정 첫 일치(① 증거 모순 → ② 위임 → ③ 시간 상한)
 ROWS = (("완성 증거 0", "done0", "", 0, ""), ("장부 완료 · 카드 열림", "ledger", "FT2_TW_DONE_OPEN_S", 3600, ""),
-        ("선행 풀림 미반영", "prereq", "FT2_TW_PREREQ_S", 3600, ""), ("진행 · 좌석 있음", "seat", "", 0, "keeper_stall"),
+        ("선행 풀림 미반영", "prereq", "FT2_TW_PREREQ_S", 3600, ""), ("착지 대기", "land", "FT2_TW_LAND_WAIT_S", 600, ""),   # r2293 C1 4번째 = e_seat 앞
+        ("진행 · 좌석 있음", "seat", "", 0, "keeper_stall"),
         ("승계 중", "succ", "", 0, "stall-scan"), ("대기 · 배정", "wait", "", 0, "assign-watch"),
         ("진행 · 나노 승계 막힘", "nano", "FT2_TW_NANO_S", 1800, ""), ("병합 거절", "reject", "FT2_TW_REJECT_S", DAY, ""),
         ("진행 24시간", "prog", "FT2_TW_PROGRESS_S", DAY, ""))
 HINT = {"done0": "카드 착지 줄 확인(되돌림 = 팀장 판단)", "ledger": "다시 접수", "prereq": "«풀림» 줄 또는 착수",
-        "nano": "나노 승계 막힘 · 2.0 승계 길 없음", "reject": "새 head 재검 또는 착지", "prog": "착지 줄 또는 새 판정 줄"}
+        "nano": "나노 승계 막힘 · 2.0 승계 길 없음", "reject": "새 head 재검 또는 착지", "prog": "착지 줄 또는 새 판정 줄",
+        "land": "착지(h 또는 try-auto --land) · 막힌 단계 확인"}
 def limits(k):   # 상한 = env > <루트>/.fable-team/thresholds.env > ~/.claude/fable-team > 샘플(keeper_next 차례) · 못 읽음 = 기본값.
     files = [p for p in (os.path.join(k.root, ".fable-team", "thresholds.env"), os.path.join(k.env.get("HOME") or os.path.expanduser("~"), ".claude", "fable-team", "thresholds.env"),
                          os.path.join(HERE, "thresholds.env.sample")) if os.path.isfile(p)]
@@ -128,6 +130,8 @@ class Watch:
             return None   # C2 선행 = 모두 완성 ∧ 구현 착지일 때만 풀림
         at = sorted((s.ct(p) for p in pre), key=lambda x: isinstance(x, str), reverse=True)   # 판정 불가 사유 먼저
         return at[0] if isinstance(at[0], str) else "%s ← %s" % (c["stem"], " ".join(p["stem"] for p in pre)) if s.now - max(at) >= s.lim["prereq"] else None
+    def e_land(s, c):   # r2293 C1 착지 대기 — 완성 아님 · 세트 증거 줄 · 착지 줄 0 · 카드 마지막 줄 시각(ct) 뒤 상한 넘음 = 분 단위
+        return None if c["stage"] == "완성" or not SETL.search(c["body"]) or LANDT.search(c["body"]) else at if isinstance(at := s.ct(c), str) else "%s 세트 뒤 %d분 · 착지 줄 0" % (c["stem"], (s.now - at) // 60) if s.now - at >= s.lim["land"] else None
     def e_seat(s, c): return s.o if not isinstance(s.o, tuple) else None if s.marker(s.o[1]) is not None or s.replaced(c["team"], s.o[1]) else ""
     def e_succ(s, c): return "" if isinstance(s.o, tuple) and s.marker(s.o[1]) is None and s.replaced(c["team"], s.o[1]) else None
     def e_wait(s, c): return "" if c["stage"] == "대기" and not s.rej and s.o is None else None

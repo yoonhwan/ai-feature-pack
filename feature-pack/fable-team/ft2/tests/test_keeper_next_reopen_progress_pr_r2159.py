@@ -124,16 +124,16 @@ def c8(w, mp):   # ⑧ 진행/ 카드 재개 줄 없음 → 읽기 0 · gh 호�
     assert base.launched(w) == [] and calls(w) == [] and [x for x in lines if S in x] == [], lines
 
 
-def c10(w, mp, folder=GC, ft2=kw.FT2):   # ⑩ 팩 goal-close: check = gc-1.2 · install·promote 뒤 실제 first_body 에 재개 구 · 예시 줄 = keeper 판독 함수가 받음
+def c10(w, mp, folder=GC, ft2=kw.FT2):   # ⑩ 팩 goal-close: check = gc-1.3 · install·promote 뒤 실제 first_body 에 재개 구 · 예시 줄 = keeper 판독 함수가 받음
     mp.setenv("FT2_GC_ROOT", str(w.tmp / "gcroot"))
     gc = load(ft2 / "tools" / "goal_close.py", "gc_r2159")
-    assert gc.check(str(folder)) == "gc-1.2"
-    assert gc.main(["install", "--pkg", str(folder)]) == 0 and gc.main(["promote", "--root", str(w.root), "--version", "gc-1.2"]) == 0
+    assert gc.check(str(folder)) == "gc-1.3"
+    assert gc.main(["install", "--pkg", str(folder)]) == 0 and gc.main(["promote", "--root", str(w.root), "--version", "gc-1.3"]) == 0
     tail = gc.phrase(str(w.root), "harness", "nano", "first_body_tail", {"da": "byz-harness-da#1"})
     lp = load(ft2 / "adapters" / "pi" / "launch_plan.py", "lp_r2159")
     env = {"FT2_TEAM": "harness", "FT2_WORK": S, "FT2_ATTEMPT": "a1", "FT2_HOLDER": base.nh(S), "FT2_ROOT": str(w.root)}
     body = lp.first_body(env, (str(w.root), "origin/main", "design/harness/indices"), tail)[1]
-    for need in ("gc=gc-1.2", "재개", "git push origin HEAD:<가지>", "새 가지·새 PR 0", "진행/<work>.md", "ft2_claim → ft2_start", "HOLD 줄이 3 이면 DA 요청 0"):
+    for need in ("gc=gc-1.3", "재개", "git push origin HEAD:<가지>", "새 가지·새 PR 0", "진행/<work>.md", "ft2_claim → ft2_start", "HOLD 줄이 3 이면 DA 요청 0"):
         assert need in body, (need, body)
     example = re.search(r"«(- 재개: [^»]+)»", body)
     assert example and load(ft2 / KN, "kn_r2159").resume_line(example.group(1)) == ("2026-11-17T10:30:00", "7051", "abc1234", "nano/<work>"), body
