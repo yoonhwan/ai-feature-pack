@@ -47,7 +47,7 @@ c1() {  # ① c1 <줄 모음> <{lr} 줄> — 채울 일 꼴 · {산출}·{seq} �
 }
 ev1() {  # ev1 <bash> <줄> — 빈 임시 폴더에서 줄 꼬리 eval → rc=127 · stderr «채울:» · 폴더 파일 0(로캘 문구로 판정 0)
   local d="$T/ev$RANDOM$RANDOM" e="$T/everr$RANDOM$RANDOM" r; mkdir -p "$d"
-  ( cd "$d" && "$1" -c 'eval "${1#* — }"' _ "$2" ) >/dev/null 2>"$e"; r=$?
+  ( cd "$d" && LC_ALL=en_US.UTF-8 "$1" -c 'eval "${1#* — }"' _ "$2" ) >/dev/null 2>"$e"; r=$?   # 사람 터미널 꼴(UTF-8) — 픽스처 LC_ALL=C 면 bash 5 가 «채울» 을 $'\3xx' 로 찍는다
   t "② $1 rc=127(지금 $r)" [ "$r" = 127 ]; t "② $1 stderr «채울:»" inc "$(cat "$e")" "채울:"; t "② $1 폴더 파일 0" [ -z "$(ls -A "$d")" ]
 }
 c2() {  # ② c2 <줄 모음> <{lr} 줄> — ① 줄 2개({lr} 없음·있음) × PATH bash·/bin/bash
