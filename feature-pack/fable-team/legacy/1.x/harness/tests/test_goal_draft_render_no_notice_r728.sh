@@ -16,7 +16,7 @@ MODS="ft_goal_table.py ft_goal_ledger.py ft_team_lib.py ft_goal_readjust_state.p
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0; ok() { echo "PASS $1"; }; bad() { echo "FAIL $1"; fail=$((fail+1)); }
 BL_CASES="ⓐ"   # r2286 C1 — 옛 판 사본(BASE)으로 도는 사례 이름 목록 · FT_TEST_BASELINE=1 일 때만 돈다
-BL=0; [ "${FT_TEST_BASELINE:-}" = 1 ] && BL=1 || echo "SKIP 기준판 구간($BASESHA) $(awk -F'|' '{print NF}' <<< "$BL_CASES") — FT_TEST_BASELINE=1 로 켬"
+BL=0; [ "${FT_TEST_BASELINE:-}" = 1 ] && BL=1 || echo "SKIP 기준판 구간($BASESHA) $(awk -F'|' '{print NF}' <<< "$BL_CASES") — FT_TEST_BASELINE=1 로 켬 · 사례: ${BL_CASES//|/ · }"
 bl() {  # <사례 이름> [사본 성공 1/0] — 목록 안 이름 · 켬 · 사본 성공일 때만 0(사본 실패 = 그 사례 PASS 0)
   case "|$BL_CASES|" in *"|$1|"*) ;; *) bad "기준판 목록 밖 이름 «$1»"; return 1;; esac
   [ "$BL" = 1 ] && [ "${2:-1}" = 1 ]

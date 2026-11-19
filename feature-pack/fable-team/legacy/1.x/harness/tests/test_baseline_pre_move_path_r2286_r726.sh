@@ -8,6 +8,7 @@ TG=r726
 E="$(git -C "$C" commit-tree "$(git -C "$C" hash-object -t tree -w /dev/null)" -m r2286-empty)" || { echo "판정 불가 — 빈 커밋 못 만듦"; exit 1; }
 main_tree
 variant $R726 _r2286_fake_$R726 '^BASESHA=[0-9a-f]+' "BASESHA=$E"
+variant $R726 _r2286_fakeold_$R726 '^(BASESHA=[0-9a-f]+; )OLDSHA=[0-9a-f]+' "BASESHA=050dae3e; OLDSHA=$E"
 variant $R726 _r2286_broken_$R726 '^TOOL=.*$' 'TOOL="$R2286_BROKEN/ft_goal_table.py"'
 variant $R726 _r2286_m1_$R726 '\[ "\$\{FT_TEST_BASELINE:-\}" = 1 \]' '[ "${FT_TEST_BASELINE:-}" != 1 ]'
 variant $R726 _r2286_m2_$R726 '"\$\{2/legacy\\/1\.x\\//\}"' '"$2"'
@@ -22,13 +23,15 @@ assert s.count(a) == 1
 open(p, "w", encoding="utf-8").write(s.replace(a, "", 1))
 PY
 printf '%s\n' "ⓐ" "ⓑ3" > "$T/fake.pfx"   # 가짜 BASESHA 사본으로 도는 사례
+printf '%s\n' "ⓙ 빨강" "ⓚ 빨강" "ⓛ 빨강" "ⓜ 빨강" "ⓝ 빨강" "ⓞ 빨강" "ⓟ 빨강" "ⓠ 빨강" "ⓡ 빨강 " > "$T/fakeold.pfx"   # 가짜 OLDSHA(판정기 · 옛 가드) 사본으로 도는 사례
 stage 준비
 run d $R726 0; run o $R726 0 "" "$MT"; run b $R726 1; run f _r2286_fake_$R726 1; wait
 run k _r2286_broken_$R726 0 "$BROKEN"; run m1 _r2286_m1_$R726 0; run m2 _r2286_m2_$R726 1; run m3 _r2286_m3_$R726 0; wait
+run fo _r2286_fakeold_$R726 1; wait
 stage 실행
 default_ok d && ok "① r726 기본 rc0 · SKIP 1줄 · FAIL 0" || bad "① r726 기본 rc=$(rc d) SKIP=$(cnt d '^SKIP 기준판 구간(') :: $(grep '^FAIL' "$T/d.log" | head -3)"
 in70 d "①"
-set_check r726 d o $R726 "ⓠ 가드 stderr 에 GL-GRACE" "ⓡ relay 유예 = GL-GRACE 1줄"
+set_check r726 d o $R726 "ⓠ 가드 stderr 에 GL-GRACE" "ⓡ relay 유예 = GL-GRACE 1줄" "ⓡ 빨강2" "ⓢ relay 첨부 유예 + 본문 REJECT =" "ⓢ relay 첨부 유예 + 본문 REJECT 는 rc3"
 baseline_ok b && ok "② r726 켬 → «사본 못 뜸» 0(rc=$(rc b) 은 따지지 않음)" || bad "② r726 켬 → $(grep '사본 못 뜸' "$T/b.log" | head -2)"
 in70 b "②"
 [ "$(cnt f "^FAIL.*사본 못 뜸")" = 1 ] && [ "$(rc f)" = 1 ] && [ "$(pass_with f "$T/fake.pfx")" = 0 ] \
@@ -36,9 +39,14 @@ in70 b "②"
   || bad "③ $TG «사본 못 뜸» $(cnt f "^FAIL.*사본 못 뜸")줄 · 그 사본 사례 PASS $(pass_with f "$T/fake.pfx") · rc=$(rc f)(기대 1줄 · 0 · rc1)"
 in70 f "③"
 g4() { [ "$(cnt "$1" 'grep: empty (sub)expression')" = 0 ] && [ "$(cnt "$1" '^PASS ⓠ 가드는 유예 통과를 막지 않는다')" = 1 ] \
-  && [ "$(cnt "$1" '^PASS ⓠ 가드 stderr 에 GL-GRACE')" = 1 ] && [ "$(cnt "$1" '^PASS ⓡ relay 유예 = GL-GRACE 1줄')" = 1 ]; }
-g4 d && ok "④ r726 기본 → 지금 판 가드 ⓠ·ⓠ경고·ⓡ PASS · «grep: empty (sub)expression» 0" \
-  || bad "④ r726 지금 판 가드 :: grep 빈 식 $(cnt d 'grep: empty (sub)expression')줄 · $(grep -E '^FAIL ⓠ|^FAIL ⓡ' "$T/d.log" | head -3)"
+  && [ "$(cnt "$1" '^PASS ⓠ 가드 stderr 에 GL-GRACE')" = 1 ] && [ "$(cnt "$1" '^PASS ⓡ relay 유예 = GL-GRACE 1줄')" = 1 ] \
+  && [ "$(cnt "$1" '^PASS ⓡ 빨강2 ')" = 1 ] && [ "$(cnt "$1" '^PASS ⓢ relay')" = 2 ]; }
+g4 d && ok "④ r726 기본 → 지금 판 가드 ⓠ·ⓠ경고·ⓡ·ⓡ빨강2·ⓢ×2 PASS · «grep: empty (sub)expression» 0" \
+  || bad "④ r726 지금 판 가드 :: grep 빈 식 $(cnt d 'grep: empty (sub)expression')줄 · $(grep -E '^FAIL ⓠ|^FAIL ⓡ|^FAIL ⓢ' "$T/d.log" | head -3)"
+[ "$(cnt fo '^FAIL.*사본 못 뜸')" = 2 ] && [ "$(rc fo)" = 1 ] && [ "$(pass_with fo "$T/fakeold.pfx")" = 0 ] \
+  && ok "③ r726 빈 커밋 OLDSHA + 켬 → «사본 못 뜸» FAIL 2줄(판정기 · 옛 가드) · ⓙ~ⓡ 빨강 PASS 0(빈 옛 가드 PASS 0) · rc1" \
+  || bad "③ r726 OLDSHA «사본 못 뜸» $(cnt fo '^FAIL.*사본 못 뜸')줄 · 그 사본 사례 PASS $(pass_with fo "$T/fakeold.pfx") · rc=$(rc fo)(기대 2줄 · 0 · rc1)"
+in70 fo "③"
 [ "$(cnt k '^FAIL ⓒ1 ')" -ge 1 ] && [ "$(rc k)" = 1 ] && [ "$(cnt k '^SKIP 기준판 구간(')" = 1 ] \
   && ok "⑤ r726 유예 시간 검사 깨뜨림 + 기본 → ⓒ1 FAIL · rc1(꺼짐이 지금 판 사례를 가리지 않음)" \
   || bad "⑤ r726 깨진 bin 기본 rc=$(rc k) ⓒ1 FAIL=$(cnt k '^FAIL ⓒ1 ')"

@@ -24,7 +24,7 @@ has() { case "$1" in *"$2"*) ok "$3";; *) bad "$3 — 없음 «$2» ← ${1:0:30
 not() { case "$1" in *"$2"*) bad "$3 — 있으면 안 됨 «$2» ← ${1:0:300}";; *) ok "$3";; esac; }
 val() { printf '%s\n' "$1" | sed -n "s/^$2=//p" | head -1; }
 BL_CASES="기준판 N1|기준판 N5|기준판 N10|기준판 N8"   # r2286 C1 — 옛 판 사본(BASE)으로 도는 사례 이름 목록 · FT_TEST_BASELINE=1 일 때만 돈다
-BL=0; [ "${FT_TEST_BASELINE:-}" = 1 ] && BL=1 || echo "SKIP 기준판 구간($BASESHA) $(awk -F'|' '{print NF}' <<< "$BL_CASES") — FT_TEST_BASELINE=1 로 켬"
+BL=0; [ "${FT_TEST_BASELINE:-}" = 1 ] && BL=1 || echo "SKIP 기준판 구간($BASESHA) $(awk -F'|' '{print NF}' <<< "$BL_CASES") — FT_TEST_BASELINE=1 로 켬 · 사례: ${BL_CASES//|/ · }"
 bl() {  # <사례 이름> [사본 성공 1/0] — 목록 안 이름 · 켬 · 사본 성공일 때만 0(사본 실패 = 그 사례 PASS 0)
   case "|$BL_CASES|" in *"|$1|"*) ;; *) bad "기준판 목록 밖 이름 «$1»"; return 1;; esac
   [ "$BL" = 1 ] && [ "${2:-1}" = 1 ]

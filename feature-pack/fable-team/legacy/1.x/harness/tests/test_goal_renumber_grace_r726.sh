@@ -19,8 +19,8 @@ ROOT="$(git -C "$REPO" rev-parse --show-toplevel)"; KITREL="${REPO#"$ROOT"/}/har
 BASESHA=050dae3e; OLDSHA=ce876315fcfa191cf6c206050527e6a018d0c301   # OLDSHA = r726 r2 판(r3 반송 입력)
 MODS="ft_goal_table.py ft_goal_ledger.py ft_team_lib.py ft_goal_readjust_state.py"
 # r2286 C1 — 옛 판 사본(BASE · OLD · 옛 가드)으로 도는 사례 이름 목록 · FT_TEST_BASELINE=1 일 때만 돈다
-BL_CASES="ⓐ|ⓑ3|ⓙ 빨강|ⓚ 빨강|ⓛ 빨강|ⓜ 빨강|ⓝ 빨강|ⓞ 빨강|ⓟ 빨강|ⓠ 빨강|ⓡ 빨강|ⓡ 빨강2|ⓢ 옛 가드 대조"
-BL=0; [ "${FT_TEST_BASELINE:-}" = 1 ] && BL=1 || echo "SKIP 기준판 구간($BASESHA · ${OLDSHA:0:8}) $(awk -F'|' '{print NF}' <<< "$BL_CASES") — FT_TEST_BASELINE=1 로 켬"
+BL_CASES="ⓐ|ⓑ3|ⓙ 빨강|ⓚ 빨강|ⓛ 빨강|ⓜ 빨강|ⓝ 빨강|ⓞ 빨강|ⓟ 빨강|ⓠ 빨강|ⓡ 빨강"
+BL=0; [ "${FT_TEST_BASELINE:-}" = 1 ] && BL=1 || echo "SKIP 기준판 구간($BASESHA · ${OLDSHA:0:8}) $(awk -F'|' '{print NF}' <<< "$BL_CASES") — FT_TEST_BASELINE=1 로 켬 · 사례: ${BL_CASES//|/ · }"
 bl() {  # <사례 이름> [사본 성공 1/0] — 목록 안 이름 · 켬 · 사본 성공일 때만 0(사본 실패 = 그 사례 PASS 0)
   case "|$BL_CASES|" in *"|$1|"*) ;; *) bad "기준판 목록 밖 이름 «$1»"; return 1;; esac
   [ "$BL" = 1 ] && [ "${2:-1}" = 1 ]
@@ -365,7 +365,6 @@ if bl "ⓡ 빨강" "$GOLD_OK"; then
 GOUT="$(gtest "$GUARDOLD" "[발주] relay 시험"$'\n'"골좌표: 2 — k2" "$GATT")"
 [ "$(printf '%s\n' "$GOUT" | grep -c 'GL-GRACE')" = 0 ] && ok "ⓡ 빨강 = r1 판 가드는 relay 에서도 경고 0" || bad "ⓡ 빨강 ← $GOUT"
 fi
-if bl "ⓡ 빨강2"; then
 GUARDR3="$T/guard-r3.sh"; python3 - "$GUARD" "$GUARDR3" <<'PY'
 import sys
 s = open(sys.argv[1], encoding="utf-8").read()
@@ -374,14 +373,16 @@ assert a in s, "r3 판 복원 대상 없음"
 open(sys.argv[2], "w", encoding="utf-8").write(s.replace(a, '\n    _goal_grace_note "$res"' + a, 1))
 PY
 GOUT="$(gtest "$GUARDR3" "[발주] relay 시험"$'\n'"골좌표: 2 — k2" "$GATT")"
-[ "$(printf '%s\n' "$GOUT" | grep -c 'GL-GRACE')" = 2 ] && ok "ⓡ 빨강2 = r3 판(첨부 경로도 경고)은 같은 relay 에서 경고 2줄" || bad "ⓡ 빨강2 r3 판 경고 $(printf '%s\n' "$GOUT" | grep -c 'GL-GRACE')줄(기대 2) ← $GOUT"
-fi
+# r2286(master #344126 (b)): r1830 뒤 [발주] = 좌표 머리 → 첨부의 골 표를 GOAL-TRIM 으로 떼고 첨부 검사 0 → r3 판을 되살려도 경고는 1줄
+[ "$(printf '%s\n' "$GOUT" | grep -c 'GL-GRACE')" = 1 ] && [ "$(printf '%s\n' "$GOUT" | grep -cE '^GOAL-TRIM [0-9]+B$')" = 1 ] \
+  && ok "ⓡ 빨강2 = r3 판(첨부 경로도 경고)을 되살려도 좌표 머리는 붙은 표를 떼서(GOAL-TRIM 1줄) 경고 1줄" \
+  || bad "ⓡ 빨강2 r3 판 경고 $(printf '%s\n' "$GOUT" | grep -c 'GL-GRACE')줄 · GOAL-TRIM $(printf '%s\n' "$GOUT" | grep -cE '^GOAL-TRIM [0-9]+B$')줄(기대 1 · 1) ← $GOUT"
 GNEW="$(gtest "$GUARD" "[발주] relay 시험" "$GATT")"; GNRC=$?   # 본문에 골좌표 없음 → REJECT
-if bl "ⓢ 옛 가드 대조" "$GOLD_OK"; then
-GOLD="$(gtest "$GUARDOLD" "[발주] relay 시험" "$GATT")"; GORC=$?
-[ "$GNEW" = "$GOLD" ] && [ "$GNRC" = "$GORC" ] && ok "ⓢ relay 첨부 유예 + 본문 REJECT = r1 판과 같은 출력·rc($GNRC)" || bad "ⓢ relay REJECT 출력이 r1 판과 다르다 — new(rc=$GNRC)=$GNEW / old(rc=$GORC)=$GOLD"
-fi
-[ "$GNRC" = 3 ] || bad "ⓢ relay 첨부 유예 + 본문 REJECT 는 rc3 이어야 한다 — rc=$GNRC"
+GWANT="REFUSE \`골좌표: <1~7> — <골 원문 앞 12자>\` 줄이 없다 · 새 번호표 7줄: 1 — k1 · 2 — k9 · 3 — k9b · 4 — k4 · 5 — k5 · 6 — k6 · 7 — k7"   # r2286: 지금 가드 출력 글자 고정(유예 경고 0)
+[ "$(printf '%s\n' "$GNEW" | sed -n 1p | grep -cE '^GOAL-TRIM [0-9]+B$')" = 1 ] && [ "$(printf '%s\n' "$GNEW" | sed -n '2,$p')" = "$GWANT" ] \
+  && ok "ⓢ relay 첨부 유예 + 본문 REJECT = GOAL-TRIM 1줄 + REFUSE 글자 그대로(유예 경고 0)" \
+  || bad "ⓢ relay REJECT 출력이 고정 글자와 다르다 — rc=$GNRC :: $GNEW"
+[ "$GNRC" = 3 ] && ok "ⓢ relay 첨부 유예 + 본문 REJECT 는 rc3" || bad "ⓢ relay 첨부 유예 + 본문 REJECT 는 rc3 이어야 한다 — rc=$GNRC"
 R="$T/repo"; MARK="$T/repo/.fable-team/state/goal-numbering.tsv"   # 뒤 시험을 위해 원래 리포로 되돌린다
 
 echo "== test_goal_renumber_grace_r726: fail=$fail"
