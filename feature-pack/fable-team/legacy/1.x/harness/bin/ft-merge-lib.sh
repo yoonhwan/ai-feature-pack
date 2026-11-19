@@ -439,7 +439,14 @@ fm_cards_by_tokens() {
 fm_card_tokens() {
   local t; t="$(printf '%s\n' "${1##*/}" | LC_ALL=C grep -oE '^r[0-9]{2,5}[a-z]?-')" && { printf '%s' "${t%-}"; return 0; }
   case "${1:-}" in nano/*/*|nano/r[0-9]*|nano/) ;; nano/*) printf '%s' "${1#nano/}"; return 0;; esac
-  printf '%s\n' "${2:-}" | LC_ALL=C grep -oE 'r[0-9]{2,5}[a-z]?' | awk '!s[$0]++' | paste -sd' ' -
+  local sp; sp="$(printf '%s\n' "${2:-}" | fm_card_title_split)"   # r2314 C1: 제목 r<N> = card: 덩이 뺀 나머지에서만 · 그 뒤 card:<이름> 토큰(나온 순서 · 중복 0)
+  { sed -n 's/^r //p' <<<"$sp" | LC_ALL=C grep -oE 'r[0-9]{2,5}[a-z]?'; sed -n 's/^c //p' <<<"$sp"; } | awk '!s[$0]++' | paste -sd' ' -
+}
+#   fm_card_title_split : r2314 C1 — stdin 제목 → «c <이름>» 줄(card: 표지 · 나온 순서) + 줄마다 «r <card: 덩이 뺀 제목>» · 이름 = [a-z0-9][a-z0-9-]*[a-z0-9] · 앞 = 줄 머리·공백·( · 뒤 = 줄 끝·공백·)
+fm_card_title_split() {
+  LC_ALL=C awk '{ s = " " $0 " "; r = ""
+    while (match(s, /[ (]card:[a-z0-9][a-z0-9-]*[a-z0-9][ )]/)) { print "c " substr(s, RSTART + 6, RLENGTH - 7); r = r substr(s, 1, RSTART); s = substr(s, RSTART + RLENGTH - 1) }
+    print "r " r s }'
 }
 #   fm_card_only <착지 리포> <M> <Q> : r2248 O1 — 착지 전 target tip M 대비 바뀐 파일(git diff --name-only M Q · squash = Q^1 == M · --ff = PR 커밋 전부)이 1개 이상이고 전부 ^design/(.+/)?indices/ 아래면 FM_CARD_ONLY=1 · 아니면 0
 #     git 실패·시간 초과 = FM_CARD_ONLY=? + «판정 불가 — 카드 파일만 판정 <사유>» 1줄(그때 착지 줄·짝 쓰기 0 · 하드 룰 20) · 상한 = min(7, 착지 마감 남은 − 3) · 반환 0 고정(착지 rc 불변)
@@ -473,7 +480,8 @@ fm_land_card_line() {
   local root="$1" pr="$2" q="$3" txt="$4" head="$5" rn="$6" tgt="$7" tok of err cap rc p pv rem fs; local -a cd=()
   case "${FM_CARD_ONLY:-}" in 1) echo "SKIP 카드 파일만 바꾼 PR #$pr — 카드 착지 줄 쓰기 0"; return 0;; '?') return 0;; esac   # r2248 O2: 판정 불가 = fm_card_only 의 1줄로 끝(쓰기 0)
   tok="$(fm_card_tokens "$head" "$txt")"
-  [ -n "$tok" ] || { echo "SKIP 카드 없음 — 카드 토큰 0(카드 착지 줄 쓰기 0)"; return 0; }
+  [ -n "$tok" ] || { if [ "${FM_CARD_ONLY:-}" = 0 ] && ! [[ "$head" == planner/verdict-* ]]; then echo "WARN 카드 토큰 0 — PR #$pr 제목에 card:<카드 이름> 없음 · 착지 줄 쓰기 0"   # r2314 C3: BYZ·팩 착지 토큰 0 = 경보 1줄(반환 0 · 착지 rc 불변)
+    else echo "SKIP 카드 없음 — 카드 토큰 0(카드 착지 줄 쓰기 0)"; fi; return 0; }
   of="$(mktemp "${TMPDIR:-/tmp}/fm-cardline.XXXXXX" 2>/dev/null)" || { echo "판정 불가 — 카드 착지 줄 $tok mktemp 실패(${TMPDIR:-/tmp})"; return 0; }
   # shellcheck disable=SC2086
   fm_cards_by_tokens "$root" $tok >"$of" 2>/dev/null; err="$FM_CARDS_ERR"; while IFS= read -r p; do [ -z "$p" ] || cd[${#cd[@]}]="$p"; done <"$of"; rm -f "$of"
