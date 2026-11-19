@@ -84,7 +84,7 @@ mutre M1 autonomy_scope_py_heredoc.py '^CAT = re\.compile\(.*$' 'CAT = re.compil
 for c in c1 c2a; do mcase M1 "$c" 3 0; done
 mutre M2 autonomy_scope_py_heredoc.py '^CAT = re\.compile\(.*$' 'CAT = re.compile(r"""^[ \t]*cat[ \t]+(?:>>?)?[ \t]*(?:[^ \t]+)?[ \t]*$""")'
 mcase M2 c3b 0 3
-mutre M3 autonomy_scope_py_heredoc.py "\[\\s\"'<>\]\+" "[^\\s\"']+"   # 대상 낱말에 «>» 허용
+mutre M3 autonomy_scope_py_heredoc.py "\\[\\^\\\\s\"'<>\\]\\+" "[^\\s\"']+"   # 대상 낱말에 «>» 허용
 mcase M3 c3c 0 3
 
 for f in autonomy_scope_secret.py autonomy_scope_py_heredoc.py; do cmp -s "$BIN/$f" "$KIT/$f"; ck "kit 사본 cmp0 $f" $?; done
