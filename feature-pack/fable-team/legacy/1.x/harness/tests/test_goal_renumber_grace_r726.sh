@@ -18,14 +18,18 @@ not() { case "$1" in *"$2"*) bad "$3 — 있으면 안 됨 «$2» ← ${1:0:300}
 ROOT="$(git -C "$REPO" rev-parse --show-toplevel)"; KITREL="${REPO#"$ROOT"/}/harness/kit/fable-team/bin"
 BASESHA=050dae3e; OLDSHA=ce876315fcfa191cf6c206050527e6a018d0c301   # OLDSHA = r726 r2 판(r3 반송 입력)
 MODS="ft_goal_table.py ft_goal_ledger.py ft_team_lib.py ft_goal_readjust_state.py"
+BL=0; [ "${FT_TEST_BASELINE:-}" = 1 ] && BL=1 || echo "SKIP 기준판 구간 — 고정 옛 sha($BASESHA · ${OLDSHA:0:8}) 대조는 FT_TEST_BASELINE=1 일 때만 돈다(r2286)"
+pre_move() { git -C "$ROOT" cat-file -e "$1:$2" 2>/dev/null && printf '%s' "$2" || printf '%s' "${2/legacy\/1.x\//}"; }   # r2286 <sha> <경로> → 그 sha 트리의 경로(없으면 legacy/1.x 이동 전 경로)
 snap() {  # <sha> <폴더> — 그 sha 의 판정기 모듈 사본(없는 모듈은 건너뛴다) · 성공 0
-  local sha="$1" d="$2" f got=0; mkdir -p "$d"
-  for f in $MODS; do git -C "$ROOT" cat-file -e "$sha:$KITREL/$f" 2>/dev/null || continue
-    git -C "$ROOT" show "$sha:$KITREL/$f" > "$d/$f" && got=1 || return 1; done
+  local sha="$1" d="$2" f got=0 rel; mkdir -p "$d"; rel="$(pre_move "$sha" "$KITREL")"
+  for f in $MODS; do git -C "$ROOT" cat-file -e "$sha:$rel/$f" 2>/dev/null || continue
+    git -C "$ROOT" show "$sha:$rel/$f" > "$d/$f" && got=1 || return 1; done
   [ "$got" = 1 ]
 }
+if [ "$BL" = 1 ]; then
 BASE="$T/basebin"; snap "$BASESHA" "$BASE" || bad "base 사본 못 뜸($BASESHA)"
 OLD="$T/oldbin"; snap "$OLDSHA" "$OLD" || bad "r2 판 사본 못 뜸($OLDSHA)"
+fi
 BEFORE="$(git -C "$ROOT" status --porcelain | wc -l | tr -d ' ')"
 
 CPATH=design/planner/AUTONOMY-GOAL-A6-20261018.md; LPATH=design/planner/PLAN-oppa-ledger.md
@@ -73,11 +77,13 @@ grep -q "^prev	$S1SHA	" "$MARK" && ok "표식 둘째 줄 = «직전 판» = 옛 
 cp "$MARK" "$T/mark-prev6"   # 유예 판정 기준 상태(직전 판 = 6행 판) — 변이 시험에서 되돌린다
 
 echo "== ⓐ 빨강 — base 판(origin/main)은 같은 쪽지를 REJECT"
+if [ "$BL" = 1 ]; then
 OUT="$(checkx "$BLOCK6"$'\n'"골좌표: 2 — k2" "$NOW" "$BASE/ft_goal_table.py")"; RC=$?
 [ "$RC" = 3 ] || bad "ⓐ 옛 블록 + 옛 골좌표 → REJECT rc3(빨강) — rc=$RC :: $OUT"
 [ "$RC" = 3 ] && has "$OUT" "옛 번호표로는 판정하지 않는다" "ⓐ 옛 블록 + 옛 골좌표 → REJECT rc3(빨강)"
 has "$OUT" "새 번호표 7줄: 1 — k1" "ⓐ 거절 문구에 새 번호표 7줄"
 echo "   ⓐ 원문(base): $OUT"
+fi
 
 echo "== ⓑ 후판 — 직전 판 1개를 유예로 인정(GOAL-OK + 경고 줄)"
 OUT="$(checkx "$BLOCK6"$'\n'"골좌표: 2 — k2" "$NOW")"; RC=$?
@@ -88,9 +94,11 @@ echo "   ⓑ 판정(새 판): $(printf '%s\n' "$OUT" | grep '^GOAL-OK')"
 OUT="$(checkx "$BLOCK6"$'\n'"골좌표: 2 — k2" "$LATER")"; RC=$?
 [ "$RC" = 0 ] || bad "ⓑ2 23시간 뒤 = 남은 시간이 줄어든다(유예 1시간 남음) — rc=$RC :: $OUT"
 [ "$RC" = 0 ] && has "$OUT" "유예 1시간 남음" "ⓑ2 23시간 뒤 = 남은 시간이 줄어든다(유예 1시간 남음)"
+if [ "$BL" = 1 ]; then
 OUT="$(checkx "$BLOCK6"$'\n'"골좌표: 2 — k2" "$NOW" "$BASE/ft_goal_table.py")"; RC=$?
 [ "$RC" = 3 ] || bad "ⓑ3 같은 쪽지 · base 판은 여전히 REJECT(차이 = 이 카드) — rc=$RC :: $OUT"
 [ "$RC" = 3 ] && ok "ⓑ3 같은 쪽지 · base 판은 여전히 REJECT(차이 = 이 카드)"
+fi
 
 echo "== ⓔ 유예 중에도 옛 판에 없는 번호 = REJECT"
 OUT="$(checkx "$BLOCK6"$'\n'"골좌표: 7 — k7" "$NOW")"; RC=$?
@@ -245,45 +253,57 @@ cp "$T/mark-r3" "$MARK"; printf 'garbage\n%s\n' "$(prev_line)" > "$MARK"
 OUT="$(checkx "$(base_q)" "$NOW")"; RC=$?
 [ "$RC" = 3 ] || bad "ⓙ 손상 첫 줄 → 새 판은 REJECT 여야 한다 — rc=$RC :: $OUT"
 [ "$RC" = 3 ] && ok "ⓙ 손상 첫 줄(형식 위반) → REJECT rc3"
+if [ "$BL" = 1 ]; then
 OUT="$(checkx "$(base_q)" "$NOW" "$OLD/ft_goal_table.py")"; RC=$?
 [ "$RC" = 0 ] && ok "ⓙ 빨강 = r2 판은 같은 쪽지를 통과시켰다(rc0 · 형식 검사가 없었다)" || bad "ⓙ 빨강 rc=$RC(기대 0) :: $OUT"
+fi
 
 echo "-- ⓚ 빈 prev sha = 유예 0(_fp_dist(\"\") 가 0 을 돌지 않는다)"
 cp "$T/mark-r3" "$MARK"; printf '%s\nprev\t\t%s\t%s\n' "$(cur_line)" "$fp6" "$ts7" > "$MARK"
 OUT="$(checkx "$(base_q)" "$NOW")"; RC=$?
 [ "$RC" = 3 ] && ok "ⓚ 빈 prev sha → REJECT rc3" || bad "ⓚ 빈 prev sha rc=$RC :: $OUT"
+if [ "$BL" = 1 ]; then
 OUT="$(checkx "$(base_q)" "$NOW" "$OLD/ft_goal_table.py")"; RC=$?
 [ "$RC" = 0 ] && ok "ⓚ 빨강 = r2 판은 빈 sha 로도 통과(rc0)" || bad "ⓚ 빨강 rc=$RC(기대 0) :: $OUT"
+fi
 
 echo "-- ⓛ 가짜 prev(이력과 지문이 다르다) = 유예 0"
 cp "$T/mark-r3" "$MARK"; printf '%s\nprev\t%s\t%s\t%s\n' "$(cur_line)" "$c7sha" "$fp6" "$ts7" > "$MARK"
 OUT="$(checkx "$(base_q)" "$NOW")"; RC=$?
 [ "$RC" = 3 ] && ok "ⓛ prev sha 가 C7 인데 지문은 6행 → REJECT rc3(이력 대조)" || bad "ⓛ 가짜 prev rc=$RC :: $OUT"
+if [ "$BL" = 1 ]; then
 OUT="$(checkx "$(base_q)" "$NOW" "$OLD/ft_goal_table.py")"; RC=$?
 [ "$RC" = 0 ] && ok "ⓛ 빨강 = r2 판은 표식에 적힌 sha·지문을 그대로 믿었다(rc0)" || bad "ⓛ 빨강 rc=$RC(기대 0) :: $OUT"
+fi
 
 echo "-- ⓜ 미래 시각 = 유예 0(경과 < 0)"
 cp "$T/mark-r3" "$MARK"; printf '%s\nprev\t%s\t%s\t%s\n' "$(cur_line)" "$c6sha" "$fp6" "$(( ts7 + 8784 * 3600 ))" > "$MARK"
 OUT="$(checkx "$(base_q)" "$NOW")"; RC=$?
 [ "$RC" = 3 ] && ok "ⓜ 미래 시각(+8784h) → REJECT rc3" || bad "ⓜ 미래 시각 rc=$RC :: $OUT"
+if [ "$BL" = 1 ]; then
 OUT="$(checkx "$(base_q)" "$NOW" "$OLD/ft_goal_table.py")"; RC=$?
 [ "$RC" = 0 ] && ok "ⓜ 빨강 = r2 판은 미래 시각을 «남은 시간 큼» 으로 읽었다(rc0)" || bad "ⓜ 빨강 rc=$RC(기대 0) :: $OUT"
+fi
 
 echo "-- ⓝ 시각 칸이 NaN = 유예 0(유한 정수만)"
 cp "$T/mark-r3" "$MARK"; printf '%s\nprev\t%s\t%s\tnan\n' "$(cur_line)" "$c6sha" "$fp6" > "$MARK"
 OUT="$(checkx "$(base_q)" "$NOW")"; RC=$?
 [ "$RC" = 3 ] && ok "ⓝ 시각 nan → REJECT rc3" || bad "ⓝ nan rc=$RC :: $OUT"
+if [ "$BL" = 1 ]; then
 OUT="$(checkx "$(base_q)" "$NOW" "$OLD/ft_goal_table.py")"; RC=$?
 [ "$RC" = 0 ] && ok "ⓝ 빨강 = r2 판은 float(\"nan\") 을 받아 rem 비교가 전부 거짓 → 통과(rc0)" || bad "ⓝ 빨강 rc=$RC(기대 0) :: $OUT"
+fi
 
 echo "-- ⓞ env 유예는 «줄이기» 만 = 25시간 뒤엔 REJECT(GRACE_H=1e9 무시)"
 cp "$T/mark-r3" "$MARK"
 OUT="$(printf '%s\n' "$(base_q)" | env FT_ROOT="$R" FT_NOW="$EXPIRED" FT_SEAT="byz-nano-grace-test#0" FT_GOAL_RENUMBER_GRACE_H=1e9 \
   FT_GOAL_A6_MD="gitref:origin/main:$CPATH" FT_GOAL_REPO="$R" FT_LEDGER_REPO="$R" python3 "$TOOL" check - 2>&1)"; RC=$?
 [ "$RC" = 3 ] && ok "ⓞ GRACE_H=1e9 · 25시간 뒤 → REJECT rc3(min(env,24))" || bad "ⓞ env 큰 값 rc=$RC :: $OUT"
+if [ "$BL" = 1 ]; then
 OUT="$(printf '%s\n' "$(base_q)" | env FT_ROOT="$R" FT_NOW="$EXPIRED" FT_SEAT="byz-nano-grace-test#0" FT_GOAL_RENUMBER_GRACE_H=1e9 \
   FT_GOAL_A6_MD="gitref:origin/main:$CPATH" FT_GOAL_REPO="$R" FT_LEDGER_REPO="$R" python3 "$OLD/ft_goal_table.py" check - 2>&1)"; RC=$?
 [ "$RC" = 0 ] && ok "ⓞ 빨강 = r2 판은 env 값 그대로 유예를 늘렸다(25시간 뒤 rc0)" || bad "ⓞ 빨강 rc=$RC(기대 0) :: $OUT"
+fi
 cp "$T/mark-r3" "$MARK"
 
 echo "-- ⓟ 공지 실패 뒤 «두 판 전» = 유예 0(표식 첫 줄이 지금 판이 아니다)"
@@ -298,19 +318,21 @@ canon k1 k2 k3 k4 > "$R/$CPATH"; ledger 4 > "$R/$LPATH"; commit renumber4       
 cmp -s "$MARK" "$T/mark-r5a" && ok "ⓟ 공지 실패 = 표식 전진 0(첫 줄은 아직 5행 판)" || bad "ⓟ 표식이 전진했다 :: $(cat "$MARK")"
 OUT="$(checkx "$B5"$'\n'"골좌표: 6 — k6" "$NOW")"; RC=$?
 [ "$RC" = 3 ] && ok "ⓟ 공지 실패 뒤 두 판 전(6행) 블록 → REJECT rc3(표식 첫 줄 ≠ 지금 판)" || bad "ⓟ 두 판 전 rc=$RC :: $OUT"
+if [ "$BL" = 1 ]; then
 OUT="$(checkx "$B5"$'\n'"골좌표: 6 — k6" "$NOW" "$OLD/ft_goal_table.py")"; RC=$?
 [ "$RC" = 0 ] && ok "ⓟ 빨강 = r2 판은 두 판 전 블록을 유예로 통과시켰다(rc0)" || bad "ⓟ 빨강 rc=$RC(기대 0) :: $OUT"
+fi
 
 echo "-- ⓠ 가드가 유예 통과를 송신자에게 보인다(GL-GRACE 1줄)"
 GUARD="$REPO/harness/comm/mbox_guard_goal.sh"; GUARDREL="${REPO#"$ROOT"/}/harness/comm/mbox_guard_goal.sh"
-GUARDOLD="$T/guard-old.sh"; git -C "$ROOT" show "$OLDSHA:$GUARDREL" > "$GUARDOLD" 2>/dev/null || bad "r2 판 가드 사본 못 뜸"
+GUARDOLD="$T/guard-old.sh"; [ "$BL" = 1 ] && { git -C "$ROOT" show "$OLDSHA:$(pre_move "$OLDSHA" "$GUARDREL")" > "$GUARDOLD" 2>/dev/null || bad "r2 판 가드 사본 못 뜸"; }
 mkdir -p "$T/gbin" "$T/gstate"
 printf '#!/usr/bin/env bash\nexec python3 "$GOAL_TOOL" "$@"\n' > "$T/gbin/ft-goal-table.sh"; chmod +x "$T/gbin/ft-goal-table.sh"
 R="$T/repo4"; MARK="$R/.fable-team/state/goal-numbering.tsv"; cp "$T/mark-r3" "$MARK"
 gtest() {  # <가드 파일> <본문> [첨부] — 가드 한 번 · stdout+stderr
   env GOAL_TOOL="$TOOL" FT_ROOT="$R" FT_NOW="$NOW" FT_SEAT="byz-nano-grace-test#0" \
       FT_GOAL_A6_MD="gitref:origin/main:$CPATH" FT_GOAL_REPO="$R" FT_LEDGER_REPO="$R" \
-      bash -c 'GOAL_HEADS="^\[(부팅|틱|발주|완료·휴식)"; GUARD_STATE="$1"; DIR="$1"; GT="$2"
+      bash -c 'GOAL_HEADS="^\[(부팅|틱|발주|완료·휴식)"; GOAL_TABLE_HEADS="^\[(부팅|틱|A6|완료·휴식)"; GOAL_COORD_HEADS="^\[(발주|팀 발주|착지 차례)"; GUARD_STATE="$1"; DIR="$1"; GT="$2"
         _goal_sender_in_roles() { return 0; }
         _ft_live_bin() { printf "%s" "$GT/gbin/$1"; }
         _goal_refuse() { printf "REFUSE %s\n" "$3" >&2; return 3; }
@@ -320,14 +342,17 @@ GBODY="[발주] r726 곡 표 시험"$'\n'"$(base_q)"
 GOUT="$(gtest "$GUARD" "$GBODY")"; GRC=$?
 [ "$GRC" = 0 ] && ok "ⓠ 가드는 유예 통과를 막지 않는다(rc0)" || bad "ⓠ 가드 rc=$GRC :: $GOUT"
 case "$GOUT" in *"GL-GRACE"*"옛 번호표(유예"*) ok "ⓠ 가드 stderr 에 GL-GRACE … 옛 번호표(유예 …) 1줄";; *) bad "ⓠ 가드 경고 0 ← $GOUT";; esac
+if [ "$BL" = 1 ]; then
 GOUT="$(gtest "$GUARDOLD" "$GBODY")"
 case "$GOUT" in *"GL-GRACE"*) bad "ⓠ 빨강 = r2 판 가드는 경고를 내면 안 되는데 냈다 ← $GOUT";; *) ok "ⓠ 빨강 = r2 판 가드는 rc0 이면 출력을 버렸다(경고 0)";; esac
+fi
 echo "-- ⓡ·ⓢ relay 경로 — 유예 경고는 «본문 판정 1회» 만(r4 · 첨부 검사에서는 안 낸다)"
 GATT="$T/guard-attach.txt"; printf '%s\n' "$B4" > "$GATT"   # 첨부 = 골 표 블록만(골좌표 줄 없음)
 GOUT="$(gtest "$GUARD" "[발주] relay 시험"$'\n'"골좌표: 2 — k2" "$GATT")"; GRC=$?
 [ "$GRC" = 0 ] || bad "ⓡ relay 유예 통과 rc=$GRC :: $GOUT"
 GN="$(printf '%s\n' "$GOUT" | grep -c 'GL-GRACE')"
 [ "$GN" = 1 ] && ok "ⓡ relay 유예 = GL-GRACE 1줄(첨부·본문 합쳐)" || bad "ⓡ relay 경고 ${GN}줄(기대 1) ← $GOUT"
+if [ "$BL" = 1 ]; then
 GOUT="$(gtest "$GUARDOLD" "[발주] relay 시험"$'\n'"골좌표: 2 — k2" "$GATT")"
 [ "$(printf '%s\n' "$GOUT" | grep -c 'GL-GRACE')" = 0 ] && ok "ⓡ 빨강 = r1 판 가드는 relay 에서도 경고 0" || bad "ⓡ 빨강 ← $GOUT"
 GUARDR3="$T/guard-r3.sh"; python3 - "$GUARD" "$GUARDR3" <<'PY'
@@ -339,9 +364,12 @@ open(sys.argv[2], "w", encoding="utf-8").write(s.replace(a, '\n    _goal_grace_n
 PY
 GOUT="$(gtest "$GUARDR3" "[발주] relay 시험"$'\n'"골좌표: 2 — k2" "$GATT")"
 [ "$(printf '%s\n' "$GOUT" | grep -c 'GL-GRACE')" = 2 ] && ok "ⓡ 빨강2 = r3 판(첨부 경로도 경고)은 같은 relay 에서 경고 2줄" || bad "ⓡ 빨강2 r3 판 경고 $(printf '%s\n' "$GOUT" | grep -c 'GL-GRACE')줄(기대 2) ← $GOUT"
+fi
 GNEW="$(gtest "$GUARD" "[발주] relay 시험" "$GATT")"; GNRC=$?   # 본문에 골좌표 없음 → REJECT
+if [ "$BL" = 1 ]; then
 GOLD="$(gtest "$GUARDOLD" "[발주] relay 시험" "$GATT")"; GORC=$?
 [ "$GNEW" = "$GOLD" ] && [ "$GNRC" = "$GORC" ] && ok "ⓢ relay 첨부 유예 + 본문 REJECT = r1 판과 같은 출력·rc($GNRC)" || bad "ⓢ relay REJECT 출력이 r1 판과 다르다 — new(rc=$GNRC)=$GNEW / old(rc=$GORC)=$GOLD"
+fi
 [ "$GNRC" = 3 ] || bad "ⓢ relay 첨부 유예 + 본문 REJECT 는 rc3 이어야 한다 — rc=$GNRC"
 R="$T/repo"; MARK="$T/repo/.fable-team/state/goal-numbering.tsv"   # 뒤 시험을 위해 원래 리포로 되돌린다
 
