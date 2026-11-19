@@ -142,6 +142,22 @@ if (want(4)) {
   await poke(pi);
   eq("④ 그 seq 재확인 = 0", pi.calls.length, 2);
   await shutdown();
+  // ④-b wake_at 묶음 행 + 늙음 행이 함께 = check 뒤에도 bT·aT 두 예약이 다 남는다(카드 ④ 꼴)
+  const st = globalThis.setTimeout, seenMs = []; // 건 타이머 ms 를 엿본다(실 타이머는 그대로 건다)
+  globalThis.setTimeout = (fn, ms, ...a) => { seenMs.push(Number(ms)); return st(fn, ms, ...a); };
+  setup("q4b", [row(741, { ts: isoT(T0) }), row(742, { ts: isoT(T0), body: "[긴급] 묶인 일", wake: T0 + 1800 })]);
+  const pj = await load();
+  globalThis.setTimeout = st;
+  eq("④-b 묶음+늙음 함께 = 지금 깨움 0(두 타이머 대기)", pj.calls.length, 0);
+  eq("④-b check 뒤 bT(1800000)·aT(900000) 두 예약 다 있음", `${seenMs.includes(1800000)},${seenMs.includes(900000)}`, "true,true");
+  process.env.FT_MBOX_NOW = String(T0 + 901); // 늙음 시각만 지남(묶음은 1800초)
+  await poke(pj);
+  eq("④-b 늙음 타이머(900초) 살아 있음 = 깨움 1", pj.calls.length, 1);
+  await turnEnd(pj);
+  process.env.FT_MBOX_NOW = String(T0 + 1801); // 묶음 시각도 지남
+  await poke(pj);
+  eq("④-b 묶음 타이머(1800초)도 살아 있음 = 깨움 2", pj.calls.length, 2);
+  await shutdown();
 }
 // ── ⑤ Q4 ts 판독 = Z 없는 글자 = «지역 시각»(UTC 로 읽으면 9시간 어긋난다) · 글자 꼴 아님 = 못 읽음 ─
 if (want(5)) {
