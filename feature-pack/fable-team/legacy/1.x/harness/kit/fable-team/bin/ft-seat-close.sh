@@ -243,9 +243,9 @@ seat_attached() {   # r1839 A1·A3 — 사람 화면 수 1회: free | attached <
   local o r; o="$(tmux display-message -p -t "=$SEAT:" '#{session_attached}' 2>&1)"; r=$?
   if [ "$r" = 0 ] && [[ "$o" =~ ^[0-9]+$ ]]; then if [ "$o" -ge 1 ]; then echo "attached $o"; else echo free; fi; else echo "unknown rc=$r ${o%%$'\n'*}"; fi
 }
-planner_owner() {   # r2075 C2 — 부른 좌석(BY = $TMUX_PANE 의 tmux 세션 이름)이 <데이터 루트>/.fable-team/seats-planner.json 의 _master·_desk 값과 글자 그대로 같을 때만 참 · 명부 없음·못 읽음·빈 칸 = 거짓
+planner_owner() {   # r2075 C2 — 부른 좌석(BY = $TMUX_PANE 의 tmux 세션 이름)이 <리포 공용 루트>/.fable-team/seats-planner.json 의 _master·_desk 값과 글자 그대로 같을 때만 참 · 명부 없음·못 읽음·빈 칸 = 거짓
   local d; case "$BY" in ""|unknown) return 1;; esac
-  d="$(. "$HERE/ft-harness-root.sh" && ft_data_root "$HERE" 2>/dev/null)" && [ -n "$d" ] || return 1
+  d="${FT_ROOT:-$(. "$HERE/ft-harness-root.sh" && ft_repo_root "$HERE" 2>/dev/null)}" && [ -n "$d" ] || return 1
   python3 - "$d/.fable-team/seats-planner.json" "$BY" 2>/dev/null <<'PY5'
 import json, sys
 try: d = json.load(open(sys.argv[1], encoding="utf-8"))
