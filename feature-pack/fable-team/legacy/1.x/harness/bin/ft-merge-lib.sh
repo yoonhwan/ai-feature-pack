@@ -303,6 +303,7 @@ fm_land_ledger() {
 #   fm_land_notify <종류> <본문 1줄> [카드 경로…] : r1478 — 착지·이동 «사건» 1줄을 카드 팀 master 에 1통(착지 1건 = 1통 · 묶음 1통 · r1476 종류 표의 «사건 = doorbell»)
 #     팀 = 카드 경로들의 팀 «합집합»(ft_team_has · 카드마다 그 팀 · 2팀이면 각 팀 1통) · 카드 0 일 때만 부른 좌석 FT_SEAT 둘째 토막 · 하나도 못 정하면 `INFO <종류> 쪽지 생략 — 팀 못 정함` 1줄(아무 팀장에게나 보내기 0)
 #     수신 = 명부 seats-<팀>.json(FT_SEATS_JSON 이 이김 · v65 = seats.json) `_master` · 발신 = FT_SEAT | ft-merge-land | ft-index-move
+#     r2302 A1: 카드 0 ∧ 수신 = 발신(정확 글자) = 발신 0 · `INFO <종류> 쪽지 생략 — 자기 앞(카드 0 · <수신>) · <본문 줄>` 1줄(부른 좌석은 stdout·장부로 이미 앎 · 카드 ≥1·수신 ≠ 발신 = 그대로)
 #     발신 1회 상한 7초(재시도 0 · FT_LAND_DEADLINE 남은 시간이 더 짧으면 그 값 · 모자라면 호출 0) · 반환 0 고정(부른 쪽 rc 불변)
 #     카드 리포 루트 = FM_NOTIFY_REPO → FT_REPO_ROOT → FT_ROOT → 카드 경로의 git 루트(팀 판정 = 그 워크트리)
 #     ★명부·comm 은 «공용 루트»(--git-common-dir)에서 찾는다(보정 r2 · 착지 aaa7d2bf 뒤 실사건: 연결 worktree 안 카드 이동이 워크트리/.fable-team 을 뒤져 4통 유실)★
@@ -349,6 +350,7 @@ except Exception: sys.exit(0)
 v=d.get("_master","") if isinstance(d,dict) else ""
 print(v if isinstance(v,str) else "")' "$seats" 2>/dev/null)"
     [ -n "$m" ] || { echo "INFO $kind 쪽지 생략 — 명부에 _master 없음($tg · $seats)"; continue; }
+    if [ $# -eq 0 ] && [ "$m" = "$from" ]; then echo "INFO $kind 쪽지 생략 — 자기 앞(카드 0 · $m) · $line"; continue; fi   # r2302-mut:self
     if [ -z "${FT_MBOX:-}" ] && [ -z "$common" ]; then echo "INFO $kind 쪽지 생략 — 우편함 경로 못 풂($tg)"; continue; fi
     used=$((SECONDS - t0)); cap=$((7 - used)); [ "$cap" -ge 1 ] || cap=0
     cap="$(fm_tail_s "$cap")"   # r2061 A2: 마감 남은 − 3 여유(마감 없음 = 그대로)
