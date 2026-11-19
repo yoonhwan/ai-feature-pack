@@ -25,7 +25,7 @@ SHA=6d5975bc0123456789abcdef0123456789abcdef
 HD="$T/hil"; mkdir -p "$HD"
 fresh() { rm -rf "$HD"; mkdir -p "$HD"; : > "$T/calls.log"; }
 hil() {  # <bin> <모드 대역> <범위 대역> <계획> — 한 줄(ft_secret_judge 가 env 뒤 명령을 글자로 확정)
-  env -i HOME="$T/home" PATH="/usr/bin:/bin" HIL_DIR="$HD" HIL_CLIP=0 FT_SECRET_JUDGE="$T/none.py" FT_MBOX_DIR="$T/comm" FT_AUTONOMY_MODE_CMD="bash $T/st/$2" FT_SCOPE_STATUS_CMD="bash $T/st/$3" bash "$1/ft-hil.sh" --add "$T/$4.sh.hil" 2>&1
+  env -i HOME="$T/home" PATH="/usr/bin:/bin" HIL_DIR="$HD" HIL_CLIP=0 FT_SECRET_JUDGE="$T/none.py" FT_PLAN_SYNTAX_JUDGE="$T/none.py" FT_MBOX_DIR="$T/comm" FT_AUTONOMY_MODE_CMD="bash $T/st/$2" FT_SCOPE_STATUS_CMD="bash $T/st/$3" bash "$1/ft-hil.sh" --add "$T/$4.sh.hil" 2>&1
 }
 nh() { find "$HD" -maxdepth 1 -name 'h[0-9]*' ! -name '*.*' | wc -l | tr -d ' '; }
 nc() { wc -l < "$T/calls.log" 2>/dev/null | tr -d ' ' || echo 0; }
