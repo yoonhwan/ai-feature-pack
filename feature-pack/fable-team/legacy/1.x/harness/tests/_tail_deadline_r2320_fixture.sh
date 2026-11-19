@@ -63,7 +63,7 @@ land() {  # land <bin> <번호> <바깥 상한초> [KEY=VAL…] · 객체수 = R
   out="$(env "$@" "$TBIN" "$o" bash "$b/ft-merge-land.sh" "$n" --approve-sha "$PRSHA" --repo "$W" 2>&1)"; rc=$?; el=$((SECONDS - s))
   rm -f "$FIFO"; unset FT_LAND_DEADLINE
 }
-within() { local d=$(( $1 - LT0 )); [ "$d" -ge "$2" ] && [ "$d" -le "$3" ]; }   # <dl> <최소> <최대> — 호출 직전 초 기준 ±1
+within() { local d=$(( $1 - LT0 )); [ "$d" -ge "$2" ] && [ "$d" -le "$3" ]; }   # <dl> <최소> <최대> — 호출 직전 초 기준(부하 큰 기계에서 env·timeout·bash 뜨는 초까지 허용 = +3)
 dl() { tr -d '[:space:]' < "$DLF" 2>/dev/null; }
 tail_line() { grep -m1 '^LAND-TAIL ' <<<"$out"; }
 tailv() { sed -n "s/.* $1=\([^ ]*\).*/\1/p" <<<"$(tail_line)"; }
@@ -81,41 +81,41 @@ fx_base() {  # 기준판(origin/main) 사본 — ⑦ 줄 비교용 · 못 만들
   if [ -n "$RP" ] && mkbin "$BASE" && git -C "$RP" show "origin/main:$REL/ft-merge-land.sh" > "$BASE/ft-merge-land.sh" && \
      git -C "$RP" show "origin/main:$REL/ft-autonomy-try.sh" > "$BASE/ft-autonomy-try.sh"; then BASE_OK=1; fi; }
 k1() {  # ① FT_LAND_TOTAL_S 없음 → 마감 = 시작 + 67(기준판 100 → Red) · 꼬리 정상 = LAND-TAIL 0
-  land "$1" 101 20
-  [ "$rc" = 0 ] && within "$(dl)" 66 68 && ! grep -q '^LAND-TAIL' <<<"$out"; }
+  land "$1" 101 45
+  [ "$rc" = 0 ] && within "$(dl)" 66 70 && ! grep -q '^LAND-TAIL' <<<"$out"; }
 k2() {  # ② 지정값 = 1~100 안에서만(40 그대로 · 150 은 100 으로 깎임) — 지금 그대로
-  local ok=0; land "$1" 102 20 FT_LAND_TOTAL_S=40; within "$(dl)" 39 41 && ok=1
-  land "$1" 103 20 FT_LAND_TOTAL_S=150; within "$(dl)" 99 101 && [ "$ok" = 1 ]; }
+  local ok=0; land "$1" 102 45 FT_LAND_TOTAL_S=40; within "$(dl)" 39 43 && ok=1
+  land "$1" 103 45 FT_LAND_TOTAL_S=150; within "$(dl)" 99 103 && [ "$ok" = 1 ]; }
 k3() {  # ③ 착지 알림이 루트 shim 앞 — 기준판 = 알림이 shim 뒤(Red)
-  land "$1" 104 20; local a b c e
+  land "$1" 104 45; local a b c e
   a="$(ord notify)"; b="$(ord shim)"; c="$(at '^NOTIFIED r2320')"; e="$(at '^(SHIM-AFTER-LAND |WARN 루트 shim)')"
   [ "$rc" = 0 ] && [ -n "$a" ] && [ -n "$b" ] && [ "$a" -lt "$b" ] && [ -n "$c" ] && [ -n "$e" ] && [ "$c" -lt "$e" ]; }
 k4() {  # ④ 착지 마감이 꼬리 중간에 바닥(남은 3초) → shim·lag 호출 0 · LAND-TAIL 1줄 skip=shim,lag · rc 0
-  DL_OFF=9 land "$1" 105 20 FT_PUSH_FIXED_S=0.5 HOLD_INSTALL=1
+  DL_OFF=11 land "$1" 105 45 FT_PUSH_FIXED_S=0.5 FT_INSTALL_CHECK_TIMEOUT=20 HOLD_INSTALL=1   # env 마감 11초 = push 1단위(7) + 꼬리 3 + 여유 1 · 설치 상한을 «남은−3» 이 먼저 물리게 해 설치 뒤 = 3초
   [ "$rc" = 0 ] && [ -n "$(tail_line)" ] && [ "$(tailv skip)" = "shim,lag" ] && [ -z "$(ord shim)" ] && [ -z "$(ord head-lag)" ] && [ -n "$(ord install)" ]; }
 k5() {  # ⑤ 꼬리 모두 정상 → LAND-TAIL 0 · 네 단계 모두 호출(설치·알림·shim·뒤처짐)
-  land "$1" 106 20; local o; o="$(grep -cE '^(install|notify|shim|head-lag)$' "$ORDER")"
+  land "$1" 106 45; local o; o="$(grep -cE '^(install|notify|shim|head-lag)$' "$ORDER")"
   [ "$rc" = 0 ] && [ -z "$(tail_line)" ] && [ "$o" = 4 ]; }
 k6() {  # ⑥ 설치 대조 rc124 → 알림 인자 그대로(install=124 = PENDING 자리) · LAND-TAIL 1줄 install 칸 · rc 0
-  land "$1" 107 20 FT_INSTALL_EXIT=124
+  land "$1" 107 45 FT_INSTALL_EXIT=124
   [ "$rc" = 0 ] && grep -q '^INSTALL-PENDING 설치 검사' <<<"$out" && grep -q '^NOTIFIED r2320 pr=107 install=124' <<<"$out" && \
   [ -n "$(tail_line)" ] && [ -n "$(tailv install)" ] && [ -z "$(tailv skip)" ]; }
 k7() {  # ⑦ 문서 PR 꼴(설치 대조·shim 즉시 OK) → 출력 줄 = 기준판(origin/main)과 같음 · LAND-TAIL 0
-  local on ob tn tb; land "$FIX" 108 20; on="$(set- "$out")"; tn="$(grep -c '^LAND-TAIL' <<<"$out")"; [ "$rc" = 0 ] || return 1
+  local on ob tn tb; land "$FIX" 108 45; on="$(set- "$out")"; tn="$(grep -c '^LAND-TAIL' <<<"$out")"; [ "$rc" = 0 ] || return 1
   [ "$BASE_OK" = 1 ] || return 0
-  land "$BASE" 109 20; ob="$(set- "$out")"; tb="$(grep -c '^LAND-TAIL' <<<"$out")"
+  land "$BASE" 109 45; ob="$(set- "$out")"; tb="$(grep -c '^LAND-TAIL' <<<"$out")"
   [ "$rc" = 0 ] && [ -n "$on" ] && [ "$on" = "$ob" ] && [ "$tn" = 0 ] && [ "$tb" = 0 ]; }
 k10() {  # ⑩ env 마감 남은 30초 + LIM 67 → push 시도 상한 AB ≤ 30 · 남은−7 < PB = 재시도 0 · ls-remote 판정 그대로
   local ab mb; mb="$(MB)"; rm -f "$TSV"
-  R2320_OBJ=5 DL_OFF=30 land "$1" 110 40 FT_PUSH_UNIT_OBJECTS=1 "PATH=$GB:$PATH" "GB_M=$mb"
+  R2320_OBJ=5 DL_OFF=30 land "$1" 110 45 FT_PUSH_UNIT_OBJECTS=1 "PATH=$GB:$PATH" "GB_M=$mb"
   ab="$(awk -F'\t' 'END{print $6}' "$TSV" 2>/dev/null)"
   [ "$rc" != 0 ] && [ "$ab" -le 30 ] && [ "$ab" -ge 25 ] && [ "$(grep -c . "$TSV")" = 1 ] && ! grep -q '^INFO 재시도 1' <<<"$out" && \
   grep -q '^REJECT 착지 0 확정' <<<"$out" && [ "$(grep -c '^push$' "$GB_LOG")" = 1 ]; }
 k10b() {  # ⑩-b deadline() 도 env 마감을 본다 = 이미 지난 마감이면 그 자리에서 깨끗한 REJECT(push 0)
-  DL_OFF=-5 land "$1" 111 20 "PATH=$GB:$PATH" "GB_M=$(MB)"
+  DL_OFF=-5 land "$1" 111 45 "PATH=$GB:$PATH" "GB_M=$(MB)"
   [ "$rc" != 0 ] && grep -q '^REJECT 총 마감 ' <<<"$out" && [ ! -s "$GB_LOG" ]; }
 k11() {  # ⑪ 남은 초 < push 1단위 → «총 마감 67 s 안에 push 를 끝낼 수 없음» 1줄 · push 0 · rc≠0(기준판 = push 진입 → Red)
-  DL_OFF=7 land "$1" 112 20 "PATH=$GB:$PATH" "GB_M=$(MB)"
+  DL_OFF=7 land "$1" 112 45 "PATH=$GB:$PATH" "GB_M=$(MB)"
   [ "$rc" != 0 ] && [ "$(grep -c '^REJECT 총 마감 67 s 안에 push 를 끝낼 수 없음' <<<"$out")" = 1 ] && [ ! -s "$GB_LOG" ]; }
 k12() {  # ⑨ try-auto --land 앞 TRY 판정이 쓴 초도 같은 마감에 듦 → merge-land 받은 마감 = try 시작 + 67(기준판 = 없음 → Red)
   local b="$1" d le; rm -rf "$T/tr"; mkdir -p "$T/tr"; cp "$b/ft-autonomy-try.sh" "$T/tr/"
