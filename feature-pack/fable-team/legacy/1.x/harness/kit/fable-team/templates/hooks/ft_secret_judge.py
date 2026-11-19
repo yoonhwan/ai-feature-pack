@@ -188,6 +188,56 @@ def func_lines(t: str) -> set[int]:  # `name() {` … `}` 본문 줄 — 옛 계
     return lines
 
 
+CALL_OK = r"\s*([A-Za-z_][\w-]*)(?:\s+[^|&;<>()`]*)?"  # r2310 A1b: 치환 안 = 함수 이름 + 낱말 인자만(| > >& 2> ; && || & 0)
+
+
+def func_bodies(t: str) -> dict[str, set[int]]:  # r2310: 이름별 본문 줄(정의 줄 포함) — func_lines 와 같은 경계
+    name, out = "", {}
+    for k, line in enumerate(t.split("\n"), 1):
+        m = re.match(r"\s*(?:function\s+)?([A-Za-z_][\w-]*)\s*\(\)", line)
+        name = name or (m.group(1) if m else "")
+        if name:
+            out.setdefault(name, set()).add(k)
+            name = "" if line.strip() == "}" or re.search(r"\{.*\}\s*$", line) else name
+    return out
+
+
+def captures(segs: list[Seg], nl: list[int], fn: set[int]) -> list[tuple[str, int, str]]:  # r2310 A1b: 함수 밖 «이름=$(함수 낱말…)»·«export 이름=$(…)» → [(함수, 줄, 받은 변수)]
+    out = []
+    for s in segs:
+        line = line_no(nl, s.start)
+        ws = s.assigns if not s.args else s.args[1:] if s.args[0] == "export" else []
+        for w in (ws if line not in fn else []):
+            m = re.fullmatch(r"([A-Za-z_]\w*)=\x00", w)
+            c = re.fullmatch(CALL_OK, w.subs[0]) if m and len(w.subs) == 1 else None
+            if c:
+                out.append((c.group(1), line, m.group(1)))
+    return out
+
+
+def captured_only(text: str, t: str, nl: list[int], segs: list[Seg]) -> tuple[set[int], dict[int, set[str]]]:  # r2310 A1: (뺄 본문 줄, {줄: 받은 변수})
+    bodies = func_bodies(t)
+    if not bodies:
+        return set(), {}
+    fn, lines = set().union(*bodies.values()), text.split("\n")
+    cap, ok = captures(segs, nl, fn), set()
+    for name in bodies:
+        mine = [v for f, _k, v in cap if f == name]
+        word = re.compile(r"(?<![\w-])%s(?![\w-])" % re.escape(name))
+        head = re.compile(r"\s*(?:function\s+)?%s\s*\(\)" % re.escape(name))
+        bare = sum(len(word.findall(x)) - bool(head.match(x)) for x in lines) - len(mine)  # A1c: 정의 밖 모든 자리 − 허용 대입
+        uses = re.compile(r"\$\{?[#!]?(?:%s)(?![A-Za-z0-9_])" % "|".join(map(re.escape, mine or [""])))
+        used = bool(mine) and any(uses.search(lines[k - 1]) for k in fn)  # A1d: 함수 본문이 받은 변수를 씀
+        if mine and bare == 0 and not used:
+            ok.add(name)
+    drop = set().union(*(b for n, b in bodies.items() if n in ok)) - set().union(*(b for n, b in bodies.items() if n not in ok))
+    recv: dict[int, set[str]] = {}
+    for f, k, v in cap:
+        if f in ok:
+            recv.setdefault(k, set()).add(v)
+    return drop, recv
+
+
 def line_no(nl: list[int], pos: int) -> int:  # r1277: pos 앞 개행 수 + 1 (옛 t.count("\n", 0, pos) + 1 과 같은 값) — nl = 개행 위치 오름차순 표
     return bisect_left(nl, pos) + 1
 
@@ -196,10 +246,13 @@ def plan(text: str) -> list[tuple[int, str]]:  # 계획 파일: judge 와 같은
     t = strip_heredocs(text)
     nl = [m.start() for m in re.finditer("\n", t)]  # r1277: 개행 위치 표 1회 + 이분 탐색(옛 t.count 는 문장마다 처음부터 세어 제곱 시간)
     found = [(line_no(nl, o), why) for o, why in check(t)]
+    segs = parse(t)
+    drop, recv = captured_only(text, t, nl, segs)
+    found = [(k, why) for k, why in found if not (k in drop and why.endswith(" 출력이 화면·파이프로 감"))]
     if re.match(r"#!.*\s-[a-z]*x", t):
         found.append((1, "셔뱅 -x 로 값이 추적 출력됨"))
     fn, tracked = func_lines(t), set()
-    for s in parse(t):
+    for s in segs:
         line, to_file = line_no(nl, s.start), out_state(s.redirs)[0]
         if s.args[:1] == ["set"] and any(re.fullmatch(r"-[a-zA-Z]*x[a-zA-Z]*", a) or a == "xtrace" for a in s.args[1:]):
             found.append((line, "set -x 로 값이 추적 출력됨"))
@@ -208,7 +261,7 @@ def plan(text: str) -> list[tuple[int, str]]:  # 계획 파일: judge 와 같은
             if any(use.search(a) for a in s.args[1:]):
                 found.append((line, "비밀 변수를 인자로 넘긴 명령의 출력이 화면으로 감(>/dev/null 또는 --format 필요)"))
         if line not in fn:
-            tracked |= {w.split("=")[0] for w in s.assigns + (s.args[1:] if s.decl else []) if "=" in w and any(has_target(x) for x in w.subs)}
+            tracked |= {w.split("=")[0] for w in s.assigns + (s.args[1:] if s.decl else []) if "=" in w and any(has_target(x) for x in w.subs)} | recv.get(line, set())
     return sorted(set(found))
 
 
