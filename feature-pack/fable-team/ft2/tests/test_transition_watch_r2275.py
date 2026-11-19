@@ -165,8 +165,22 @@ def c8(w):   # ⑧ --survey → 칸마다 1줄 · 쓰기 0 · 알림 0 · 70초 
     bad = subprocess.run([sys.executable, str(tw), "--survey", "--root", str(w.tmp / "empty")], capture_output=True, text=True, timeout=70, env=w.env)
     assert bad.returncode == 0 and all("판정 불가" in x for x in bad.stdout.splitlines()[:9]), bad.stdout
 
+def c9(w):   # C6 문(DA#31 H1) — 바깥 호출마다 7초 대역 → check 1회 바깥 호출 초 합 ≤ 7+7 · 판정 불가 0 · 알림 0 · seen 0(다음 바퀴 이어서)
+    many(w, 20)
+    at(w, 0)
+    if w.T is None:
+        return w.round() and None
+    tick, calls, real = [0.0], [], w.T.Watch.run
+    def slow(s, argv, inp=None):   # 시간초과 흉내 = 호출 1회마다 주입 시계 +7초(결과는 진짜)
+        calls.append(argv[:4]), tick.__setitem__(0, tick[0] + 7)
+        return real(s, argv, inp)
+    w.T.Watch.run = slow
+    k = once(w, clock=lambda: tick[0])
+    assert 7 * len(calls) <= 14 and sends(w) == [] and not [x for x in k.lines if "판정 불가" in x], (calls, k.lines)
+    assert not k.state["transition"].get("seen"), k.state["transition"].get("seen")
 
-CASES = {"c1": c1, "c2": c2, "c3": c3, "c4": c4, "c5": c5, "c6a": c6a, "c6b": c6b, "c6c": c6c, "c7a": c7a, "c7b": c7b, "c7c": c7c, "c7d": c7d, "c8": c8}
+
+CASES = {"c1": c1, "c2": c2, "c3": c3, "c4": c4, "c5": c5, "c6a": c6a, "c6b": c6b, "c6c": c6c, "c7a": c7a, "c7b": c7b, "c7c": c7c, "c7d": c7d, "c8": c8, "c9": c9}
 
 
 def mutant(tmp, mp, pairs, case):
