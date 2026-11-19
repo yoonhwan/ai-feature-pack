@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ft-card-commit.sh <가지> "<커밋 글>" <경로>=<로컬 파일> | +<경로>=<덧붙일 파일> | -<경로> …
 #   r2278: 카드(design/**) 고침을 worktree · checkout · 작업 폴더 0 으로 커밋 · push 한다(원 리포 index · 작업 폴더 글자 0).
-#   fetch 1회 → 임시 GIT_INDEX_FILE 로 origin/<가지> 위 커밋 1개 → push(force 0 · 7초 · 실패면 fetch 뒤 새 끝에서 1회 더).
+#   fetch 1회 → 임시 GIT_INDEX_FILE 로 origin/<가지> 위 커밋 1개 → push(force 0 · 7초 · 실패면 fetch → 새 끝이 내 커밋을 품으면 도착(r2282) · 아니면 새 끝에서 1회 더 · tree 같으면 NOCHANGE).
 #   가지 = ops/main-base · docs/* 만(main · 그 밖 = REJECT · 착지 게이트 우회 0) · 경로 = design/** 만 · REJECT = push 0.
 #   쓰기 전 검사: .md·.txt·.tsv·.json = UTF-8 · design/**/indices/**.md = ft-index-lint 를 «고치기 전 판» · «바뀐 판» 두 번
 #     (입력 = 그 카드 · 원장 · design/TEAMS.md 는 origin/<가지> tree 에서, 팀 env 는 리포 .fable-team/bin-<팀> 에서 임시 git init 폴더로)
@@ -37,7 +37,7 @@ MAIN_ROOT="${COMMON%/.git}"
 LINT="${FT_CARD_LINT:-$(cat "$MAIN_ROOT/.fable-team/LIVE_BIN" 2>/dev/null)/ft-index-lint.sh}"
 T="$(mktemp -d)" || die mktemp; trap 'rm -rf "$T"' EXIT
 fetch() {
-  { t7 git fetch -q origin "+refs/heads/$B:refs/remotes/origin/$B" || t7 git fetch -q origin "+refs/heads/$B:refs/remotes/origin/$B"; } >/dev/null 2>&1 || die fetch
+  { t7 git fetch -q origin "+refs/heads/$B:refs/remotes/origin/$B" || t7 git fetch -q origin "+refs/heads/$B:refs/remotes/origin/$B"; } >/dev/null 2>&1 || die "fetch${1:+ $1}"
   BASE="$(git rev-parse -q --verify "refs/remotes/origin/$B^{commit}")" || die fetch
 }
 run_lint() {  # $1=카드 판 파일 $2=사유 목록 파일 (LW · LP · LED 사용)
@@ -96,12 +96,16 @@ build() {  # origin/<가지> 끝(BASE) 위 커밋 1개 → NEW · TREE
   NEW="$(printf '%s\n' "$MSG" | git commit-tree "$TREE" -p "$BASE")" || die commit-tree
 }
 push() { t7 git push -q origin "$NEW:refs/heads/$B" >/dev/null 2>&1; }
-fetch; build
-[ "$TREE" != "$(git rev-parse "$BASE^{tree}")" ] || { echo "NOCHANGE base=$BASE"; exit 0; }
-if ! push; then
-  OLD="$BASE"; fetch
-  [ "$BASE" = "$OLD" ] || build   # 원격이 앞섬 → 새 끝 위에 다시(검사 포함)
-  push || die push
-fi
-echo "PUSHED $NEW base=$BASE"
-git diff --stat "$BASE" "$NEW"
+arrived() { git merge-base --is-ancestor "$NEW" "$BASE"; case $? in 0) return 0;; 1) return 1;; *) die merge-base;; esac; }   # r2282 C1
+same() { [ "$TREE" != "$(git rev-parse "$BASE^{tree}")" ] || { echo "NOCHANGE base=$BASE"; exit 0; }; }
+fetch; build; same
+for n in 1 2; do   # push 실패 = 끊김 전에 도착했을 수도 · 원격이 앞섰을 수도
+  push && break
+  OLD="$BASE"; fetch "(push 도착 여부 모름)"
+  arrived && break
+  [ "$n" = 1 ] || die push
+  [ "$BASE" = "$OLD" ] || { build; same; }   # 원격이 앞섬 → 새 끝 위에 다시(검사 · NOCHANGE 포함 · r2282 C2)
+done
+P0="$(git rev-parse "$NEW^")" || die rev-parse   # base · stat = 늘 내 커밋의 부모(r2282 C1)
+echo "PUSHED $NEW base=$P0"
+git diff --stat "$P0" "$NEW"
