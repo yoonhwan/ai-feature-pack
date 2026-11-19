@@ -46,6 +46,9 @@ def spawn(cwd, args, env=None):
     except subprocess.TimeoutExpired:
         raise Slow("git %s 시간초과 7초" % (" ".join(args[:2]) if args[:1] and args[0] in PAIR else (args[0] if args else ""))) from None
     return p.returncode, p.stdout
+def proc(argv, cap, **kw):
+    """r2287 C2 — git 밖 바깥 호출 1곳(lib bash · da_judge · sh · card_archive.judge) · keeper 가 spawn 과 같은 남은 몫 문으로 감쌀 · 바퀴 밖 = 상한 cap 그대로."""
+    return subprocess.run(argv, capture_output=True, timeout=cap, **kw)
 def git(cwd, *args):
     return spawn(cwd, args)
 def git_env(cwd, env, *args):   # G3 ① — 임시 index 로 부르는 git
@@ -115,8 +118,7 @@ def da_judge(root, text, sec, stem):
     # 절 = `## …§N` 머리부터 다음 `## ` 전까지(ft-index-close-landed 와 같은 꼴)
     body = "".join(s for s in re.split(r"(?m)^(?=## )", text) if (m := re.match(r"## .*?(§\d+)(?!\d)", s)) and m.group(1) == sec)
     try:
-        p = body and subprocess.run(["bash", "-c", '. "$1" >/dev/null 2>&1 || exit 9; ft_close_marker "$2"', "x", lib, stem],
-                                    input=body.encode(), capture_output=True, timeout=7)
+        p = body and proc(["bash", "-c", '. "$1" >/dev/null 2>&1 || exit 9; ft_close_marker "$2"', "x", lib, stem], 7, input=body.encode())
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise Unsure("판정문 읽기 %s" % type(exc).__name__) from None
     if p and p.returncode > 1:
@@ -198,7 +200,7 @@ def stage(byz, root, team, work, at, now, da=None, gate=None):
 def sh(argv, cap):
     """r2274 — land_kind 의 바깥 호출 손(상한 cap 초 · 넘침 = rc None)."""
     try:
-        p = subprocess.run(argv, capture_output=True, text=True, timeout=cap)
+        p = proc(argv, cap, text=True)
     except subprocess.TimeoutExpired:
         return None, ""
     return p.returncode, p.stdout
