@@ -176,6 +176,18 @@ def test_4e_plan_landing_line_noop(tmp_path, monkeypatch, capsys):
     noop(stage_world(tmp_path, monkeypatch, {}, tail="- 착지: ★사람 승인★ — 오빠 승인 뒤 main 머지\n"), capsys, "착지 줄 0")
 
 
+def test_4e2_plan_line_with_slack_ts_noop(tmp_path, monkeypatch, capsys):   # DA#29 #342848 — 숫자만(Slack ts) = sha 아님 → «착지 줄 0»
+    noop(stage_world(tmp_path, monkeypatch, {}, tail="- 착지: 오빠 승인 1회(Slack 1795049302.628279)\n"), capsys, "착지 줄 0")
+
+
+def test_4g_unknown_hex_undecidable(tmp_path, monkeypatch, capsys):   # DA#29 #342848 — 어느 리포에도 없는 16진수 = 판정 불가 · 쓰기 0
+    w = stage_world(tmp_path, monkeypatch, {}, tail="- 착지: deadbeefcafe1234\n")
+    before = heads(w)
+    rc, out = run_stage(w, capsys)
+    assert (rc, out) == (3, "판정 불가 착지 sha 로컬 0(BYZ·팩) deadbeef"), out
+    assert heads(w) == before
+
+
 def test_4f_short_sha_in_line_judged(tmp_path, monkeypatch, capsys):
     w = stage_world(tmp_path, monkeypatch, {}, tail="- 착지: main {sha10} (PR 3657 · 머지)\n")
     noop(w, capsys, "카드 문서만 착지 " + w.sha[:8])
@@ -227,8 +239,9 @@ def test_6_land_kind_direct(tmp_path, files, want):
                                        ("- 2026-11-15 — 닫힘(대조 · 코드 0 · x)\n", (0, "ⓑ 닫힘 코드 0")),
                                        ("- 착지: 라이브 DB 반영(11-15)\n", (0, "ⓒ 라이브 DB 반영")),
                                        ("- 착지: 라이브 DB 반영(e6ba7693c6)\n", (1, "")),
+                                       ("- 착지: 라이브 DB 반영(Slack 1795049302.628279)\n", (0, "ⓒ 라이브 DB 반영")),
                                        ("- 착지: ★사람 승인★ — x\n", (1, "")), ("- 2026-11-15 — 닫힘(대조)\n", (1, "")), ("", (1, ""))],
-                         ids=["a", "b", "b_date", "c", "c_hex", "plan", "close_no_code0", "empty"])
+                         ids=["a", "b", "b_date", "c", "c_hex", "c_ts", "plan", "close_no_code0", "empty"])
 def test_no_code_fixed_three(body, want):
     assert lib_fn("ft_no_code", body) == want
 
