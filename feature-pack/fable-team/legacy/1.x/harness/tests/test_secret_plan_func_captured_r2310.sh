@@ -73,9 +73,12 @@ SH
         one 'for i in 1' 'do err() { cat >&2; }' 'done' 'DSN() { gcloud secrets versions access latest --secret=x | err; }' 'D=$(DSN)'; run "$b"; has 5 || return 1   # do 뒤
         one 'if true' 'then function err { cat >&2; }' 'fi' 'DSN() { gcloud secrets versions access latest --secret=x | err; }' 'D=$(DSN)'; run "$b"; has 5 || return 1   # then function
         one "eval 'err() { cat >&2; }'" 'DSN() { gcloud secrets versions access latest --secret=x | err; }' 'D=$(DSN)'; run "$b"; has 3 ;;   # eval 따옴표 안 정의
+    17) one 'my.err() { cat >&2; }' 'DSN() { gcloud secrets versions access latest --secret=x | my.err; }' 'D=$(DSN)'; run "$b"; has 3 || return 1   # ⑰ r1
+        one 'a.err() { cat >&2; }' 'DSN() { gcloud secrets versions access latest --secret=x | a.err; }' 'D=$(DSN)'; run "$b"; has 3 || return 1   # r6
+        one 'err+() { cat >&2; }' 'DSN() { gcloud secrets versions access latest --secret=x | err+; }' 'D=$(DSN)'; run "$b"; has 3 ;;   # r7
   esac
 }
-for c in 1 1b 2 3 4 5 6 7 9 10 11 12 12b 13 13b 14 15 15g 16 H1 H2 H3 H4 P1 P2; do
+for c in 1 1b 2 3 4 5 6 7 9 10 11 12 12b 13 13b 14 15 15g 16 17 H1 H2 H3 H4 P1 P2; do
   case_do "$c" "$BIN"; ck "반례 $c" "$?"
 done
 t1=$(date +%s)
@@ -104,7 +107,7 @@ mut M5 9  ' | recv.get(line, set())' ''
 mut M6 10 'CALL_OK = r"\s*([A-Za-z_][\w-]*)(?:\s+[^|&;<>()`]*)?"' 'CALL_OK = r"\s*([A-Za-z_][\w-]*)(?:\s+.*)?"'
 mut M7 11 'r"(?<![\w-])%s(?![\w-])"' 'r"(?:^\s*|\$\()%s(?![\w-])"'
 mut M8 13b 'used = bool(mine) and ' 'used = False and '
-mut M10 14 '(?:function\s+([A-Za-z_][\w-]*)|([A-Za-z_]' '(?:(?!)([A-Za-z_][\w-]*)|([A-Za-z_]'   # A1e: 이름 모으기를 «이름()» 꼴만으로
+mut M10 14 '(?:function\s+(%s+)|' '(?:(?!)(%s+)|'   # A1e: 이름 모으기를 «이름()» 꼴만으로
 mut D6 16 '        rest = (defined | set(bodies)) - {name}' '        rest = set(bodies) - {name}'   # 이름 모으기를 bodies 키로 되돌림 → q 깨짐
 mut M9 12b 'for w in (ws if line not in fn else [])' 'for w in ws'
 mut D1 H1 ' and not loud:' ':'   # DA ① 지움
