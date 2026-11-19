@@ -5,7 +5,7 @@
 #   가지 = ops/main-base · docs/* 만(main · 그 밖 = REJECT · 착지 게이트 우회 0) · 경로 = design/** 만 · REJECT = push 0.
 #   쓰기 전 검사: .md·.txt·.tsv·.json = UTF-8 · design/**/indices/**.md = ft-index-lint 를 «고치기 전 판» · «바뀐 판» 두 번
 #     (입력 = 그 카드 · 원장 · design/TEAMS.md 는 origin/<가지> tree 에서, 팀 env 는 리포 .fable-team/bin-<팀> 에서 임시 git init 폴더로)
-#     → 두 사유 목록 diff 의 «새 사유» 0 일 때만 push · 원장(머리 → 팀 env → 기본 v65 · r2283)을 못 정하거나 가지에 없음 = 판정 불가(거짓 통과 0).
+#     → 두 사유 목록 diff 의 «새 사유» 0 일 때만 push(r2288: 새 경로가 BASE 에 없으면 고치기 전 판 = -짝 옛 판 · 없으면 origin/main 같은 이름 1개) · 원장(머리 → 팀 env → 기본 v65 · r2283)을 못 정하거나 가지에 없음 = 판정 불가(거짓 통과 0).
 #   출력: 성공 = «PUSHED <sha40> base=<sha40>» + diff --stat · rc 0 성공 · 1 REJECT · 2 usage · 3 «판정 불가 <단계>»(하드 룰 20)
 #   env: FT_CARD_LINT = lint 경로(기본 = <리포>/.fable-team/LIVE_BIN 이 가리키는 폴더의 ft-index-lint.sh)
 set -uo pipefail
@@ -53,6 +53,15 @@ default_led() {  # r2283: 머리 · env 둘 다 없으면 ft-index-lint default_
     < <(. "$(dirname "$LINT")/ft-team-lib.sh" >/dev/null 2>&1 && ft_team_cands_ref "$LW" v65 "$BASE" 2>/dev/null)
   [ "${#h[@]}" = 1 ] || die "lint-원장 (카드 머리 ledger · 팀 env FT_GOAL_LEDGER 둘 다 없음 · 기본 원장 후보 ${#h[@]} · $LP)"
   LED="${h[0]}"; }
+before() {  # r2288: 고치기 전 판 → BR(<ref>:<경로> · 빈 = 없음) · BP(lint 자리) — 같은 경로 BASE 판 > -짝(같은 팀 indices · 같은 이름 1개 · C1) > origin/main 같은 이름 1개(C2) · 2개+ = 없음(C3)
+  local s p l n="${LP##*/}" d="${LP%/indices/*}/indices/" h=()
+  BR="" BP="$LP"; git cat-file -e "$BASE:$LP" 2>/dev/null && { BR="$BASE:$LP"; return; }
+  for s in "${SPECS[@]}"; do p="${s#-}"; [ "$s" != "$p" ] && [ "${p##*/}" = "$n" ] && [ "${p#"$d"}" != "$p" ] && h+=("$BASE:$p"); done
+  if [ "${#h[@]}" = 0 ] && [ -n "$om" ]; then
+    l="$(git -c core.quotepath=off ls-tree -r --name-only "$om" -- "$d")" || die lint-main
+    while IFS= read -r p; do [ -n "$p" ] && [ "${p##*/}" = "$n" ] && h+=("$om:$p"); done <<< "$l"
+  fi
+  [ "${#h[@]}" = 1 ] && git cat-file -e "${h[0]}" 2>/dev/null && { BR="${h[0]}" BP="${h[0]#*:}"; }; return 0; }
 lint_card() {  # $1=경로 $2=바뀐 판 파일 → 새 사유 0 이면 돌아옴 · 아니면 REJECT
   local t="" e x new om
   [ -f "$LINT" ] || die "lint 없음 ($LINT)"
@@ -69,8 +78,8 @@ lint_card() {  # $1=경로 $2=바뀐 판 파일 → 새 사유 0 이면 돌아�
     git cat-file -e "$BASE:$x" 2>/dev/null || { [ "$x" = design/TEAMS.md ] && continue; die "lint-원장 ($LED · origin/$B 에 없음)"; }
     mkdir -p "$LW/$(dirname "$x")" && git cat-file blob "$BASE:$x" > "$LW/$x" || die lint-input
   done
-  : > "$T/r0"
-  if git cat-file -e "$BASE:$LP" 2>/dev/null; then git cat-file blob "$BASE:$LP" > "$T/before" || die lint-input; run_lint "$T/before" "$T/r0"; fi
+  : > "$T/r0"; before
+  if [ -n "$BR" ]; then git cat-file blob "$BR" > "$T/before" || die lint-input; LP="$BP" run_lint "$T/before" "$T/r0"; [ "$BP" = "$LP" ] || rm -f "$LW/$BP"; fi   # 옮긴 판은 옛 자리에서 lint · 폴더로 생긴 사유 = 새 사유(r2288)
   run_lint "$2" "$T/r1"
   new="$(comm -13 "$T/r0" "$T/r1")"
   [ -z "$new" ] || { echo "REJECT lint 새 사유 ($LP)"; printf '%s\n' "$new" | sed 's/^/  - /'; exit 1; }
