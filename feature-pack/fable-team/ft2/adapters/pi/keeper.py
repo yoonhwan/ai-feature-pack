@@ -77,6 +77,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         self.project, self.lines, self.cache = projection.project, [], {}
         self.state = {key: {} for key in ("held", "open", "sent", "handled", "woke", "reassigned")}
         self.stall = _load(os.path.join(HERE, "keeper_stall.py"), "ft2_keeper_stall").Stall(self)   # r1813 S1~S5
+        self.succeed = _load(os.path.join(HERE, "keeper_succeed.py"), "ft2_keeper_succeed").Succeed(self)   # r2276 표식 승계(self.succeeding)
         self.spent, self.sock, self.skip, self.stale = dict.fromkeys(("fetch", "b1", "b2c", "b2f", "b3", "stall"), 0.0), True, set(), set()
         self.per, self.at = {}, None   # r1969 (팀, 칸) 초 → ROUND slow 칸 · at = 지금 도는 팀(None = 팀 밖)
         self.table, self.nano, self.refs, self.picked, self.bg, self.fetch_s, self.fetch_err = {}, {}, {}, [], {}, {}, {}   # r1975 · r2241 fetch_err
@@ -631,6 +632,8 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         for key in [k for k in self.state.get("staging", {}) if k.startswith(team + "|")]:   # r2026 앞 바퀴 Unsure = 재시도
             self.timed("b1", self.stage_card, team, key[len(team) + 1:])
         rows = self.rows_of(team)   # r2098 자리 순서 셈과 같은 읽기(바퀴 안 1회)
+        if self.sock and not self.halt:
+            self.succeed.sweep(team, proj, rows)   # r2276 owners 순회 · 표식 갈래 = S1 먼저(승계 시도만 stall 초)
         latest = {rec["work"]: (rec.get("attempt"), rec.get("holder")) for rec in rows
                   if rec.get("kind") == "dispatch" and rec.get("work")}
         back, gone, open_ = self.book(team)   # r1990 반환·r2055 쉼 줄 · R10 건너뛰는 work(분모 셈과 같은 식)
