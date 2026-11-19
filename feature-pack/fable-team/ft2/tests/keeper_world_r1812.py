@@ -81,6 +81,8 @@ class World:
             s.commit(name, {"design/TEAMS.md": TEAMS}, "main")
         s.commit("byz", {}, "ops/main-base", new=True)
         _git(tmp, "clone", "-q", str(tmp / "byz.git"), "root"), _git(tmp, "clone", "-q", str(tmp / "pack.git"), "pack")
+        lk = old / "bin" / "ft-land-kind-lib.sh"   # r2274 설치본 자리(<root>/.fable-team/bin) — ft2 사본 변이 시험도 같은 lib 를 읽는다
+        lk.exists() and _put(s.root / ".fable-team" / "bin" / lk.name, lk.read_text(encoding="utf-8"))
         for name, body in (("tmux", TMUX.replace("__PY__", sys.executable)), ("tmuxc", TMUXC.replace("__PY__", sys.executable)), ("close", STUB), ("mbox", MBOX),
                            ("reap", '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n')):
             _put(b / name, body), (b / name).chmod(0o755)

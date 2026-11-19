@@ -165,6 +165,10 @@ class K:
                                    env=self.env, timeout=60)
                 return p.returncode, p.stdout, p.stderr.strip()[:200]
 
+            def call(self, argv, timeout=7, retry=0):   # r2274 — keeper 바깥 호출 손 대역(land_kind · 같은 env)
+                p = subprocess.run(argv, capture_output=True, text=True, env=self.env, timeout=60)
+                return p.returncode, p.stdout, p.stderr.strip()[:200]
+
             def git_local(self, *a, **kw):   # 계측 — 기준판(손 없음)은 그대로 git 으로 떨어짐다
                 self.gitlocal += 1
                 fn = getattr(type(self).__mro__[1], "git_local", None)

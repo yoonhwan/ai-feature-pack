@@ -35,6 +35,7 @@ git clone -q "$T/origin.git" "$T/w" 2>/dev/null
 # c0: alpha 진행 A·c · beta 진행 b1 · delta 진행 d1 (체크아웃이 가진 옛 판)
 card "$T/w/design/alpha/indices/진행/A.md"; card "$T/w/design/alpha/indices/진행/c.md"
 card "$T/w/design/beta/indices/진행/b1.md"; card "$T/w/design/delta/indices/진행/d1.md"
+echo x > "$T/w/f"   # r2274 — 착지 커밋 c0 = 구현 착지(카드 문서만 합침은 «문서 착지» 로 따로 센다)
 G "$T/w" add -A >/dev/null; G "$T/w" commit -q -m c0; LANDED="$(G "$T/w" rev-parse HEAD)"; G "$T/w" push -q origin main 2>/dev/null
 git clone -q "$T/origin.git" "$T/root" 2>/dev/null
 # ref 쪽 2커밋: A 완성으로 이동 + B 신설 / 착지 줄 카드 land1 + 대기 W (알파만 바뀜 — delta 는 같음)
