@@ -13,6 +13,7 @@ import datetime
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -45,6 +46,8 @@ class OutOfRound(Exception):
 def head2(argv):
     """r2287 C3 — 호출 길 = 머리 2낱말(git -C <repo> 는 repo 를 건너뜀 · 경로 = 끝 이름) · 줄 칸에 공백이 없도록 + 로 잇는다."""
     words = [argv[0]] + list(argv[3:] if argv[1:2] == ["-C"] else argv[1:])
+    if argv[1:2] == ["-c"] and os.path.basename(str(argv[0])) == "bash":   # DA#31 — lib bash = 함수 이름(lib_call = argv[5] · da_judge = 글 속 ft_ 함수)
+        words = [argv[0]] + ([w for w in argv[5:6] if str(w).startswith("ft_")] or re.findall(r"\bft_\w+", str(argv[2]) if argv[2:3] else "")[-1:])
     return "+".join(os.path.basename(str(w).rstrip("/")) or str(w) for w in words[:2])
 
 
