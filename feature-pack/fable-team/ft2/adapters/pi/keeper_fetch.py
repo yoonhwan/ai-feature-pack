@@ -122,19 +122,23 @@ def _one(k, tree, work, got):   # worktree 1개 · HEAD = nano/<work> 면 got �
 def nanos(k, teams):
     """⑥ 그 바퀴 판정 대상(팀마다 최신 dispatch · handled 아님) 중 intent worktree HEAD = nano/<work> → {git common-dir: [가지]}.
     r2122 — HEAD·공용 폴더 = 파일 판독(C1·C2) · 팀마다 journal 1회(C3 · _rows 를 그 팀 행으로 잠시 고정 · finally 원복) · 예산 문(C5).
-    r2315 N1 — 돌려준 Got.stat 에 팀마다 s(초) · rows(journal 판독 초) · git(부른 수) · works(판독한 work 수) · slow(가장 느린 work, 초) · other(나머지 초).
-    초는 time.monotonic 하나로만 잰다(끊김·예외 때도 finally 로 원복 · 예외는 그대로 올린다)."""
+    r2315 N1 — 팀 셈 = Got.stat · k.nano_stat 둘 다에 남긴다(끊긴 팀도 finally 안에서 남긴다 — DA H1).
+    칸 = s(초) · rows(journal 판독 초) · git(부른 수) · git_s(git 에 쓴 초) · works(판독한 work 수) · slow(가장 느린 work, 초).
+    초는 time.monotonic 하나로만 잰다(원복은 finally · 예외는 그대로 올린다)."""
     got = Got()
     got.stat = {}
     for team in teams:
         _gate(k)
         keep, real_git = ends._rows, k.git
-        t_team, rows_s, git_n, work_s, works, slow = time.monotonic(), 0.0, 0, 0.0, 0, ("", 0.0)
+        t_team, rows_s, git_n, git_s, works, slow = time.monotonic(), 0.0, 0, 0.0, 0, ("", 0.0)
 
-        def git(repo, *args, _real=real_git, **kw):   # r2315 — 이 팀이 부른 git 수(끝나면 finally 에서 되돌린다)
-            nonlocal git_n
-            git_n += 1
-            return _real(repo, *args, **kw)
+        def git(repo, *args, _real=real_git, **kw):   # r2315 — 이 팀이 부른 git 수·초(끝나면 finally 에서 되돌린다)
+            nonlocal git_n, git_s
+            at, git_n = time.monotonic(), git_n + 1
+            try:
+                return _real(repo, *args, **kw)
+            finally:
+                git_s += time.monotonic() - at
         k.git = git
         try:
             at_rows = time.monotonic()
@@ -153,16 +157,19 @@ def nanos(k, teams):
                             _one(k, tree, work, got)
                         finally:
                             dt = time.monotonic() - at_work
-                            works, work_s = works + 1, work_s + dt
+                            works = works + 1
                             if dt > slow[1]:
                                 slow = (work, dt)
             finally:
                 ends._rows = keep
         finally:
             k.git = real_git
-        end = time.monotonic()
-        got.stat[team] = {"s": end - t_team, "rows": rows_s, "git": git_n, "works": works, "slow": slow,
-                          "other": max(0.0, end - t_team - rows_s - work_s)}
+            got.stat[team] = cell = {"s": time.monotonic() - t_team, "rows": rows_s, "git": git_n, "git_s": git_s,
+                                     "works": works, "slow": slow}
+            stat = getattr(k, "nano_stat", None)
+            if not isinstance(stat, dict):
+                stat = k.nano_stat = {}
+            stat[team] = cell   # r2315 H1 — 끊겨도 준 팀 셈은 남는다(keeper 가 part 를 못 받아도 읽는다)
     return got
 
 
