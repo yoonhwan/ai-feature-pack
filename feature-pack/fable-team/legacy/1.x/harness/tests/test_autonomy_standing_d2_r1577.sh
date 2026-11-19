@@ -82,7 +82,7 @@ run a approve-standing D2 --repos byz --classes code,docs; [ "$rc" = 2 ] && has 
 # ══ ⓑ 승인 — 분류 ∧ DA APPROVE 꼬리 ∧ 카드 시험 세트 ∧ 크리티컬 0 → STANDING-OK(팀 master 좌석)
 fresh; grant; mkpr 11 "$PRF"; A11="$PRSHA"; mkda ok11 APPROVE "$A11"; mkv ok11 "$A11" "$DAO"; V11="$VF"; card "$A11"
 as_seat "$HM"; sa "$A11" 11 "$V11"
-[ "$rc" = 0 ] && has "^STANDING-OK $A11 pr=11 repo=pack da=$A11 card=card.md by=$HM$"; ck "ⓑ1 code PR(카드 시험 세트 통과) → STANDING-OK(팀 master)" $?
+[ "$rc" = 0 ] && has "^STANDING-OK $A11 pr=11 repo=pack da=$A11 card=card.md by=$HM class=code$"; ck "ⓑ1 code PR(카드 시험 세트 통과) → STANDING-OK(팀 master)" $?
 grep -qx "standing-use D2 $A11 $T0 pr=11 repo=pack da=$A11" "$LOG" && grep -qx "approve-merge $A11 D2 $T0" "$LOG" && [ "$(cat "$S/autonomy-merge-approved/$A11")" = "approve-merge $A11 D2 $T0" ]; ck "ⓑ2 log 2줄 + 승인 파일(같은 줄)" $?
 [ "$(awk -F'\t' -v a="$A11" '$2==a {print $3 "|" $4}' "$S/autonomy-standing/D2.ledger.tsv")" = "11|da=$A11" ]; ck "ⓑ3 D2 원장 1행(PR·da)" $?
 L0="$(nlog)"; sa "$A11" 11 "$V11"; [ "$rc" = 0 ] && has "^STANDING-NOOP $A11" && [ "$(nlog)" = "$L0" ]; ck "ⓑ4 같은 head 두 번 = NOOP(쓰기 0)" $?
