@@ -374,6 +374,8 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         """r2323 T1·T2 — 이 바퀴 그 팀이 쓴 업무 초 ≥ WORK_S/2 이고 뒤 팀이 남았으면 그 팀은 여기서 멈춘다.
 
         멈춘 자리 = state team_cursor(그 팀만 · 다음 차례에 거기부터) · 바퀴 cursor = 다음 팀 머리(감아 돌기 0 · T4 혼자 남은 팀 = 상한 0)."""
+        if team not in self.order:   # R4 거름 — order 밖 팀(단위 호출·낡은 명부) = 상한 0
+            return False
         spent = self.now() - self.team_at
         nxt = self.order[self.order.index(team) + 1:]
         if not nxt or spent < WORK_S / 2:
@@ -674,8 +676,9 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
                 closing.keeper_next.wake_read(self, team)
         except (Cut, Ungraded):
             self.cut, self.cut_pos = cut0   # 판독 끊김 = 업무 구획 cut·cursor 흔적 0
-        if self.cut == "-" and not self.capped:   # R4 — 끊기지 않고 바퀴를 다 돌았으면 cursor 를 지운다 · r2323 T1 멈춤 = 다음 팀 머리를 남긴다
-            self.state.pop("cursor", None)
+        if self.cut == "-":   # R4 — 끊기지 않고 바퀴를 다 돌았으면 cursor 를 지운다
+            if not self.capped:   # r2323 T1 상한으로 멈춘 바퀴 = 다음 팀 머리를 남긴다
+                self.state.pop("cursor", None)
         self.at, self.at_work, self.cursor_stage = None, "-", "-"
         self.sect = REPORT_S   # R1 report 구획(45~55초)
         try:
