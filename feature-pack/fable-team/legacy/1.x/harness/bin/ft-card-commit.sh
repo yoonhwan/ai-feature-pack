@@ -53,14 +53,14 @@ default_led() {  # r2283: 머리 · env 둘 다 없으면 ft-index-lint default_
     < <(. "$(dirname "$LINT")/ft-team-lib.sh" >/dev/null 2>&1 && ft_team_cands_ref "$LW" v65 "$BASE" 2>/dev/null)
   [ "${#h[@]}" = 1 ] || die "lint-원장 (카드 머리 ledger · 팀 env FT_GOAL_LEDGER 둘 다 없음 · 기본 원장 후보 ${#h[@]} · $LP)"
   LED="${h[0]}"; }
-before() {  # r2288: 고치기 전 판 → BR(<ref>:<경로> · 빈 = 없음) · BP(lint 자리) — 같은 경로 BASE 판 > -짝(같은 팀 indices · 같은 이름 1개 · C1) > origin/main 같은 이름 1개(C2) · 2개+ = 없음(C3)
-  local s p l n="${LP##*/}" d="${LP%/indices/*}/indices/" h=()
+named() {  # $1=ref → 그 tree 의 같은 팀 indices(d) 아래 같은 이름(n) 을 h 에 덧붙임(before 의 d · n · h)
+  local l p; l="$(git -c core.quotepath=off ls-tree -r --name-only "$1" -- "$d")" || die lint-ls-tree
+  while IFS= read -r p; do [ -n "$p" ] && [ "${p##*/}" = "$n" ] && h+=("$1:$p"); done <<< "$l"; }
+before() {  # r2288: 고치기 전 판 → BR(<ref>:<경로> · 빈 = 없음) · BP(lint 자리) — 같은 경로 BASE 판 > -짝(같은 팀 indices · 같은 이름 1개 · C1) > BASE 같은 이름 0 일 때만 origin/main 같은 이름 1개(C2) · 그 밖 = 없음(C3)
+  local s p n="${LP##*/}" d="${LP%/indices/*}/indices/" h=()
   BR="" BP="$LP"; git cat-file -e "$BASE:$LP" 2>/dev/null && { BR="$BASE:$LP"; return; }
   for s in "${SPECS[@]}"; do p="${s#-}"; [ "$s" != "$p" ] && [ "${p##*/}" = "$n" ] && [ "${p#"$d"}" != "$p" ] && h+=("$BASE:$p"); done
-  if [ "${#h[@]}" = 0 ] && [ -n "$om" ]; then
-    l="$(git -c core.quotepath=off ls-tree -r --name-only "$om" -- "$d")" || die lint-main
-    while IFS= read -r p; do [ -n "$p" ] && [ "${p##*/}" = "$n" ] && h+=("$om:$p"); done <<< "$l"
-  fi
+  if [ "${#h[@]}" = 0 ]; then named "$BASE"; [ "${#h[@]}" = 0 ] || return 0; [ -z "$om" ] || named "$om"; fi   # BASE 에 같은 이름 · -짝 없음 = 짝 없음(C3 · DA#31)
   [ "${#h[@]}" = 1 ] && git cat-file -e "${h[0]}" 2>/dev/null && { BR="${h[0]}" BP="${h[0]#*:}"; }; return 0; }
 lint_card() {  # $1=경로 $2=바뀐 판 파일 → 새 사유 0 이면 돌아옴 · 아니면 REJECT
   local t="" e x new om
