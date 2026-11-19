@@ -16,6 +16,7 @@ import time
 
 FT2 = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 GIT_S, RETRY_S = 25, 600
+SEAT_S, SEAT_CAP = 5, 5   # r2306 K2 retire_one 1회 ≥ 5초 = SLOW-SEAT 1줄 · 바퀴당 큰 순 5줄 + «SLOW-SEAT 외 N»
 BUSY = re.compile("Working|[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]")
 OK = "접수 성공"
 NOCARD, NOLAND = "판정 불가 · 카드 후보 0", "keeper-noland-close.tsv"   # r1841 N1 · 사람·master 가 쓰고 keeper 는 읽기만
@@ -310,6 +311,22 @@ class Closing:
         return out
 
     def retired(self):
+        """r2306 K2 — B3② 한 바퀴 · SLOW-SEAT 줄은 finally(끊김·예외도 쓴다 · 끊김·예외는 그대로 올라간다)."""
+        self.slow_seats = []
+        try:
+            return self.retired_rows()
+        finally:
+            self.slow_seat_lines()
+
+    def slow_seat_lines(self):
+        """r2306 K2 — 바퀴당 큰 순 SEAT_CAP 줄 + 넘친 수 1줄 · 후보 0 = 줄 0."""
+        rows = sorted(self.slow_seats, key=lambda r: -r[0])
+        for _, name, text in rows[:SEAT_CAP]:
+            self.log("SLOW-SEAT", name, text)
+        if len(rows) > SEAT_CAP:
+            self.log("SLOW-SEAT", text="외 %d" % (len(rows) - SEAT_CAP))
+
+    def retired_rows(self):
         """B3② — 명부 `_replaced_by` 행 + 세션 생존(r1898 바퀴당 list-sessions 1회) → ft-seat-close 1회."""
         alive = self.alive_sessions()
         if alive is None:
@@ -342,18 +359,40 @@ class Closing:
         return self.log("판정 불가", text="tmux list-sessions rc %s %s — 이 바퀴 B3 0" % (rc, err))
 
     def retire_one(self, path, seat, new, alive, nano=None):
+        """r2306 K2 — 좌석 1개 단계 초 · SEAT_S 이상 = SLOW-SEAT 후보(finally · 끊김·예외 = cut=1 · 못 간 단계 «-»)."""
+        marks, at, cut = {}, self.now(), 1
+        try:
+            out = self.retire_seat(path, seat, new, alive, nano, marks)
+            cut = 0
+            return out
+        finally:
+            dt = self.now() - at
+            if dt >= SEAT_S:
+                cells = " ".join("%s=%s" % (k, "%g" % round(marks[k], 1) if k in marks else "-") for k in ("ready", "keep", "look", "idle", "close"))
+                self.slow_seats = getattr(self, "slow_seats", [])
+                self.slow_seats.append((dt, os.path.basename(path)[:-5], "%s s=%g %s cut=%d" % (seat, round(dt, 1), cells, cut)))
+
+    def staged(self, marks, key, fn, *args):
+        """r2306 K2 — retire_one 단계 1개 초(주입 시계 · finally = 끊긴 단계도 그때까지 초)."""
+        at = self.now()
+        try:
+            return fn(*args)
+        finally:
+            marks[key] = marks.get(key, 0.0) + self.now() - at
+
+    def retire_seat(self, path, seat, new, alive, nano, marks):
         name = os.path.basename(path)[:-5]
         if seat not in alive:
             self.state["open"].pop(seat, None)
             return
         team = name[6:] if name.startswith("seats-") else "v65"
         nano = (seat.split("-") + ["", ""])[2] == "nano" if nano is None else nano   # hil.md 나노 표준승인 = 보존 조건(keep-last-2) 면제 · S2 = 장기 좌석만 · 종류 = 명부 role(S1)
-        if new and not nano and not self.ready_seen(new, seat):   # S2 (마) 끝남 근거 = _replaced_by ∧ 후계 [레디] 영수 · ready 0 = 닫기 0
+        if new and not nano and not self.staged(marks, "ready", self.ready_seen, new, seat):   # S2 (마) 끝남 근거 = _replaced_by ∧ 후계 [레디] 영수 · ready 0 = 닫기 0
             return self.verdict(team, "-", seat, "WORKING", "ready-wait", "후계 %s [레디] 0" % new) and None
-        keep = "" if nano else self.keep_gate(seat, new, alive)   # S2 닫기 자격(hil.md 보존) · 걸림 = 정상 보존(kill 0 · [긴급] 0)
+        keep = "" if nano else self.staged(marks, "keep", self.keep_gate, seat, new, alive)   # S2 닫기 자격(hil.md 보존) · 걸림 = 정상 보존(kill 0 · [긴급] 0)
         if keep:
             return self.verdict(team, "-", seat, "WORKING", keep) and None
-        if self.look(team, "-", "-", seat, *self.seat_turn(seat)) != "REST" or not self.idle(team, "-", seat):   # A13 한 판독 쉼 · kill 직전 가드
+        if self.staged(marks, "look", lambda: self.look(team, "-", "-", seat, *self.seat_turn(seat))) != "REST" or not self.staged(marks, "idle", self.idle, team, "-", seat):   # A13 한 판독 쉼 · kill 직전 가드
             return
         if self.halt:   # r2055 정지 중 = «예정» 줄만
             return self.verdict(team, "-", seat, "예정 LANDED", "succession", "정지 중 닫기 0") and None
@@ -364,7 +403,7 @@ class Closing:
             self.log("판정 불가", text="ft-seat-close 경로 없음(FT_SEAT_CLOSE_BIN) — B3 0")
             return "stop"
         argv = ["bash", self.close_bin, seat, "--reason", "retire -> " + (new or "close-receipt"), "--seats", path, "--defer-press"]   # r2155 — press 진행 중이면 러너 «미룸»(r2153)
-        rc, out, err = self.call(argv, GIT_S)
+        rc, out, err = self.staged(marks, "close", self.call, argv, GIT_S)
         first = ((out or err).strip().splitlines() or [""])[0][:160]
         self.log("CLOSED-SEAT" if rc == 0 else "HELD-SEAT", name, "%s rc %s %s" % (seat, rc, first))
         self.state["held"][seat] = self.now()
