@@ -160,7 +160,7 @@ def c8(w):   # ⑧ --survey → 칸마다 1줄 · 쓰기 0 · 알림 0 · 70초 
     tw = w.ft2 / "adapters" / "pi" / "transition_watch.py"
     out = subprocess.run([sys.executable, str(tw), "--survey", "--root", str(w.root), "--pack", str(w.tmp / "pack")], capture_output=True, text=True, timeout=70, env=w.env)
     lines = out.stdout.splitlines()
-    assert out.returncode == 0 and len(lines) == 10 and lines[0].startswith("전이 완성 증거 0 3 · harness:r9100-doc"), (out.stdout, out.stderr)
+    assert out.returncode == 0 and len(lines) == 11 and lines[0].startswith("전이 완성 증거 0 3 · harness:r9100-doc"), (out.stdout, out.stderr)
     assert snap() == before and sends(w) == [] and time.monotonic() - t < 70
     bad = subprocess.run([sys.executable, str(tw), "--survey", "--root", str(w.tmp / "empty")], capture_output=True, text=True, timeout=70, env=w.env)
     assert bad.returncode == 0 and all("판정 불가" in x for x in bad.stdout.splitlines()[:9]), bad.stdout
