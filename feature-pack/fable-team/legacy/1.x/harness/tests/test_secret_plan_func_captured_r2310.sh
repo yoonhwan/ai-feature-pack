@@ -61,22 +61,26 @@ SH
     H2) one 'DSN() { gcloud secrets versions access latest --secret=x | tee /dev/stderr; }' 'D=$(DSN)'; run "$b"; has 2 ;;
     H3) one 'tok() { echo "$BYZ_TOKEN" >/dev/tty; }' 'T=$(tok)'; run "$b"; has 2 ;;
     H4) one 'DSN() {' '  gcloud secrets versions access latest --secret=x; }' 'gcloud secrets versions access latest --secret=y' 'say() { echo hi; }' 'D=$(DSN)'; run "$b"; has 4 ;;
+    P1) one 'err() { cat >&2; }' 'DSN() { gcloud secrets versions access latest --secret=x | err; }' 'D=$(DSN)'; run "$b"; has 3 ;;
+    P2) one 'DSN() {' '  printf "{"; gcloud secrets versions access latest --secret=x; }' 'gcloud secrets versions access latest --secret=y' '}' 'D=$(DSN)'; run "$b"; has 4 ;;
   esac
 }
-for c in 1 1b 2 3 4 5 6 7 9 10 11 12 12b 13 13b H1 H2 H3 H4; do
+for c in 1 1b 2 3 4 5 6 7 9 10 11 12 12b 13 13b H1 H2 H3 H4 P1 P2; do
   case_do "$c" "$BIN"; ck "반례 $c" "$?"
 done
 t1=$(date +%s)
 # 변이 — 사본 bin 에 글자 1곳 바꿈 → 그 사례 기대 깨짐(FAIL 이 맞음) · 원본은 같은 사례 기대대로
-mut() {  # mut <이름> <사례> <원 글자> <바꿀 글자>
+mut() {  # mut <이름> <사례> <원 글자> <바꿀 글자> [<원 글자 2> <바꿀 글자 2>]
   local d="$T/m$1"; mkdir -p "$d"; cp -p "$BIN"/ft_secret_*.py "$d/"
-  python3 - "$d/ft_secret_judge.py" "$3" "$4" <<'PY' || { echo "FAIL 변이 $1 :: 원 글자 없음"; fail=$((fail+1)); return; }
+  python3 - "$d/ft_secret_judge.py" "${@:3}" <<'PY' || { echo "FAIL 변이 $1 :: 원 글자 없음"; fail=$((fail+1)); return; }
 import sys
-p, a, b = sys.argv[1:]
+p, *ab = sys.argv[1:]
 s = open(p, encoding="utf-8").read()
-if s.count(a) != 1:
-    sys.exit(1)
-open(p, "w", encoding="utf-8").write(s.replace(a, b))
+for a, b in zip(ab[::2], ab[1::2]):
+    if s.count(a) != 1:
+        sys.exit(1)
+    s = s.replace(a, b)
+open(p, "w", encoding="utf-8").write(s)
 PY
   case_do "$2" "$d"; local m=$?
   case_do "$2" "$BIN"; local o=$?
@@ -105,6 +109,8 @@ OLD
 )"
 NEW_FB="$(python3 -c 'import sys; s=open(sys.argv[1],encoding="utf-8").read(); a=s.index("    name, depth, opened, out"); e="    return None if name else out"; print(s[a:s.index(e)+len(e)])' "$BIN/ft_secret_judge.py")"
 mut M11 H4 "$NEW_FB" "$OLD_FB"   # DA ② 지움 = 옛 func_lines 경계
+mut M12 P1 ' or (others and others.search(lines[k - 1]))' ''   # DA P1 지움
+mut M13 P2 'q.count("{") != q.count("}")' 'False' 'QUOTED.sub("", re.sub(' '(re.sub('   # DA P2 ⓑ 지움(개수 검사 + 따옴표 글 빼기 둘 다 · 하나만 지우면 남은 쪽이 P2 를 막음)
 t2=$(date +%s)
 echo "단계별 초: 반례 $((t1-t0)) · 변이 $((t2-t1))"
 [ "$fail" = 0 ] && echo "ALL PASS" || echo "FAILED $fail"
