@@ -78,8 +78,8 @@ def succeeded(w, work, lines):
 
 
 def kept(w, work):
-    """r2280 로컬 보존 ref(claim 으로 받은 work = g1) · 없음 = ""."""
-    done = subprocess.run(["git", "-C", str(w.repo), "rev-parse", "--verify", "-q", "refs/ft2/keep/%s/g1" % work], capture_output=True, text=True, timeout=25)
+    """r2280 로컬 보존 ref(refs/ft2/keep/<work>/…) 가 가리키는 sha 들 · 없음 = ""."""
+    done = subprocess.run(["git", "-C", str(w.repo), "for-each-ref", "--format=%(objectname)", "refs/ft2/keep/%s/" % work], capture_output=True, text=True, timeout=25)
     return done.stdout.strip()
 
 

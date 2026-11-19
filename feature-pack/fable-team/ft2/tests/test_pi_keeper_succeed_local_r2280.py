@@ -12,7 +12,15 @@ _spec = importlib.util.spec_from_file_location("r2276_cases_for_r2280", str(FT2 
 S = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(S)
 B, W2, M, H0, H1 = S.B, S.W2, S.M, S.H0, S.H1
-KEEP = "refs/ft2/keep/%s/g1" % W2   # claim 으로 받은 work = dispatch 0 → attempt = g<세대>
+ATTEMPT = "g1"   # claim 으로 받은 work = dispatch 0 → attempt = g<세대>
+
+
+def keep(w, sha):
+    """시험 대상 ft2 의 keep ref 이름(C1ⓑ <attempt>-<HEAD sha12>) — 변이 사본이면 변이 이름(M1)."""
+    spec = importlib.util.spec_from_file_location("ks_name_%d" % id(w), str(w.ft2 / "adapters" / "pi" / "keeper_succeed.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.keep_name(W2, ATTEMPT, sha)
 REAL_GIT = shutil.which("git")
 HOOK = '#!/bin/sh\necho push >> "%s"\nsleep 10\nexit 1\n'
 FAKE_GIT = ('#!/bin/sh\ncase " $* " in *" for-each-ref --points-at "*) %s ;; esac\nexec "%s" "$@"\n')
@@ -66,7 +74,7 @@ def c1(w):   # ① 구 worktree 가지 nano/<work> · 원격 가지 0 · push �
     B._git(tree, "checkout", "-q", "-b", "nano/%s" % W2)
     S.marker(w, 10 * M)
     ok(w, w.round(), tree, "nano/%s" % W2)
-    assert ref(tree, KEEP) == "" and S.remote(w, W2) == ""
+    assert ref(tree, keep(w, w.c2)) == "" and S.remote(w, W2) == ""
 
 
 def c2(w):   # ② 원격 가지 있음 · 로컬이 앞섬 → push 0 · fetch 0 · SUCCEEDED · 원격 그대로
@@ -78,26 +86,28 @@ def c2(w):   # ② 원격 가지 있음 · 로컬이 앞섬 → push 0 · fetch 
     assert S.remote(w, W2) == w.c1
 
 
-def c3(w):   # ③ 분리 HEAD · 끝 가진 가지 0 → keep ref = HEAD · SUCCEEDED · push 0
+def c3(w):   # ③ 분리 HEAD · 끝 가진 가지 0 → keep ref(<attempt>-<HEAD sha12>) = HEAD · SUCCEEDED · push 0
     tree = S.claimed(w)
     S.marker(w, 10 * M)
-    ok(w, w.round(), tree, KEEP)
-    assert ref(tree, KEEP) == w.c2 and S.remote(w, W2) == ""
+    name = "refs/ft2/keep/%s/%s-%s" % (W2, ATTEMPT, w.c2[:12])
+    ok(w, w.round(), tree, name)
+    assert ref(tree, name) == w.c2 and S.remote(w, W2) == ""
 
 
-def c3c(w):  # ③ⓒ 같은 keep ref 가 다른 sha 로 이미 있음 → 덮기 0 · 판정 불가 1줄 · 승계 0 · kill 0
+def c3c(w):  # ③ⓒ 같은 <work>/<attempt> 의 옛 sha keep ref 있음 · HEAD 앞섬 → 새 sha keep ref 1개 · 옛 것 그대로 · SUCCEEDED · base = 새 HEAD
     tree = S.claimed(w)
-    B._git(tree, "update-ref", KEEP, w.c1)
+    old = keep(w, w.c1)   # 앞 바퀴가 옛 HEAD(c1)로 만든 이름 — 시험 대상 ft2 의 이름 규칙 그대로
+    B._git(tree, "update-ref", old, w.c1)
     S.marker(w, 10 * M)
-    held(w, w.round(), "keep ref 충돌")
-    assert ref(tree, KEEP) == w.c1
+    ok(w, w.round(), tree, keep(w, w.c2))
+    assert ref(tree, keep(w, w.c2)) == w.c2 and ref(tree, old) == w.c1
 
 
-def c3d(w):  # ③′ 같은 keep ref 가 이미 HEAD 와 같은 sha → 보존 됨(다시 쓰기 0) · SUCCEEDED
+def c3d(w):  # ③′ 같은 이름 keep ref 가 이미 HEAD 와 같은 sha → 보존 됨(다시 쓰기 0) · SUCCEEDED
     tree = S.claimed(w)
-    B._git(tree, "update-ref", KEEP, w.c2)
+    B._git(tree, "update-ref", keep(w, w.c2), w.c2)
     S.marker(w, 10 * M)
-    ok(w, w.round(), tree, KEEP)
+    ok(w, w.round(), tree, keep(w, w.c2))
 
 
 def _fake(w, body):
@@ -110,7 +120,7 @@ def c4(w, body="echo boom >&2; exit 128"):   # ④ for-each-ref 대역 rc 128 �
     S.marker(w, 10 * M)
     _fake(w, body)
     held(w, w.round(), "for-each-ref")
-    assert ref(tree, KEEP) == ""
+    assert ref(tree, keep(w, w.c2)) == ""
 
 
 def c4b(w):  # ④′ for-each-ref 대역 8초 → 판정 불가 1줄 · 승계 0 · 쓰기 0
@@ -119,15 +129,15 @@ def c4b(w):  # ④′ for-each-ref 대역 8초 → 판정 불가 1줄 · 승계 
     _fake(w, "sleep 8; exit 0")
     lines = w.round()
     assert [x for x in lines if x.startswith("판정 불가 harness")], lines
-    assert not [x for x in lines if x.startswith("SUCCEEDED")] and pushes(w) == [] and ref(tree, KEEP) == ""
+    assert not [x for x in lines if x.startswith("SUCCEEDED")] and pushes(w) == [] and ref(tree, keep(w, w.c2)) == ""
     S.untouched(w, W2)
 
 
 CASES = {"①": c1, "②": c2, "③": c3, "③ⓒ": c3c, "③′": c3d, "④": c4, "④′": c4b, "⑤": S.c4}
 KS = "adapters/pi/keeper_succeed.py"
-MUTANTS = {"M1": (('"update-ref", keep, "HEAD", ""', '"update-ref", keep, "HEAD"'), c3c),
+MUTANTS = {"M1": (('return "refs/ft2/keep/%s/%s-%s" % (work, attempt, sha[:12])', 'return "refs/ft2/keep/%s/%s" % (work, attempt)'), c3c),
            "M2": (("k = self.k  # C1", 'k = self.k; self.k.git(tree, "push", "origin", "HEAD:refs/heads/nano/" + work, retry=1)'), c1),
-           "M3": (('rc = k.git(tree, "update-ref", keep, "HEAD", "")[0]', "rc = 0"), c3)}
+           "M3": (('rc = k.git(tree, "update-ref", name, head, "")[0]', "rc = 0"), c3)}
 
 
 @pytest.mark.parametrize("name", list(CASES))
