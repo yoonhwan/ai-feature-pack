@@ -191,15 +191,25 @@ def func_lines(t: str) -> set[int]:  # `name() {` … `}` 본문 줄 — 옛 계
 CALL_OK = r"\s*([A-Za-z_][\w-]*)(?:\s+[^|&;<>()`]*)?"  # r2310 A1b: 치환 안 = 함수 이름 + 낱말 인자만(| > >& 2> ; && || & 0)
 
 
-def func_bodies(t: str) -> dict[str, set[int]]:  # r2310: 이름별 본문 줄(정의 줄 포함) — func_lines 와 같은 경계
-    name, out = "", {}
+EXITS = re.compile(r"stderr|/dev/tty|/dev/fd/|>&\s*[2-9]|(?<![\w-])(?:tee|exec)(?![\w-])")  # r2310 DA H1~H3: 본문이 stdout 밖으로 냄 = drop 0
+
+
+def func_bodies(t: str) -> dict[str, set[int]] | None:  # r2310: 이름별 본문 줄(정의 줄 포함) · 끝 = 주석 뺀 줄이 «}» 로 끝나고 { } 셈 0 · 경계 모호 = None
+    name, depth, opened, out = "", 0, False, {}
     for k, line in enumerate(t.split("\n"), 1):
         m = re.match(r"\s*(?:function\s+)?([A-Za-z_][\w-]*)\s*\(\)", line)
+        bare = re.sub(r"(^|\s)#.*$", "", re.sub(r"\$\{[^}]*\}", "", line)).strip()
+        if (m and name) or (not name and bare.startswith("}")):  # 본문 안 다른 함수 머리 · 본문 밖 닫는 }
+            return None
         name = name or (m.group(1) if m else "")
         if name:
             out.setdefault(name, set()).add(k)
-            name = "" if line.strip() == "}" or re.search(r"\{.*\}\s*$", line) else name
-    return out
+            depth, opened = depth + bare.count("{") - bare.count("}"), opened or "{" in bare
+            if depth < 0 or (depth == 0 and opened and not bare.endswith("}")):  # «} >&2» 꼴 · 셈이 어긋남
+                return None
+            if depth == 0 and opened:
+                name, opened = "", False
+    return None if name else out
 
 
 def captures(segs: list[Seg], nl: list[int], fn: set[int]) -> list[tuple[str, int, str]]:  # r2310 A1b: 함수 밖 «이름=$(함수 낱말…)»·«export 이름=$(…)» → [(함수, 줄, 받은 변수)]
@@ -217,7 +227,7 @@ def captures(segs: list[Seg], nl: list[int], fn: set[int]) -> list[tuple[str, in
 
 def captured_only(text: str, t: str, nl: list[int], segs: list[Seg]) -> tuple[set[int], dict[int, set[str]]]:  # r2310 A1: (뺄 본문 줄, {줄: 받은 변수})
     bodies = func_bodies(t)
-    if not bodies:
+    if not bodies:  # 함수 0 · 경계 모호(None) = 통과 0
         return set(), {}
     fn, lines = set().union(*bodies.values()), text.split("\n")
     cap, ok = captures(segs, nl, fn), set()
@@ -228,7 +238,8 @@ def captured_only(text: str, t: str, nl: list[int], segs: list[Seg]) -> tuple[se
         bare = sum(len(word.findall(x)) - bool(head.match(x)) for x in lines) - len(mine)  # A1c: 정의 밖 모든 자리 − 허용 대입
         uses = re.compile(r"\$\{?[#!]?(?:%s)(?![A-Za-z0-9_])" % "|".join(map(re.escape, mine or [""])))
         used = bool(mine) and any(uses.search(lines[k - 1]) for k in fn)  # A1d: 함수 본문이 받은 변수를 씀
-        if mine and bare == 0 and not used:
+        loud = any(EXITS.search(lines[k - 1]) for k in bodies[name])  # DA ①: stderr·tty·fd·tee·exec
+        if mine and bare == 0 and not used and not loud:
             ok.add(name)
     drop = set().union(*(b for n, b in bodies.items() if n in ok)) - set().union(*(b for n, b in bodies.items() if n not in ok))
     recv: dict[int, set[str]] = {}
