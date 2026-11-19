@@ -29,8 +29,7 @@ def judge(root, text, sec, stem):
     if not body:
         return "판정문에 %s 절 없음" % (sec or "§N")
     try:
-        p = subprocess.run(["bash", "-c", '. "$1" >/dev/null 2>&1 || exit 9; ft_close_marker "$2"', "x", lib, stem],
-                           input=body.encode(), capture_output=True, timeout=7)
+        p = cs.proc(["bash", "-c", '. "$1" >/dev/null 2>&1 || exit 9; ft_close_marker "$2"', "x", lib, stem], 7, input=body.encode())   # r2287 C2 주입 손
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise Unsure("판정문 읽기 %s" % type(exc).__name__) from None
     if p.stdout.strip():
