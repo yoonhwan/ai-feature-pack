@@ -7,7 +7,7 @@
 #     ③env 에 FT_SEAT 안 보임 ∧ ppid 1(고아) ∧ cwd ⊂ 좌석 워크트리(--wt · 없으면 세션 session_path · `.git` 있는 폴더만 · 안쪽 다른 워크트리 제외) ∧ 명령에 sleep·while
 #        — 다른 라이브 tmux 세션이 그 워크트리 안에 있으면 ③ 생략(출력 `cwd=shared`) · 다른 세션 pane 나무에 속한 것도 제외
 #     ④argv 낱말 하나가 좌석 이름과 «정확히» 같은(앞뒤 = 줄 머리·끝·공백 · 부분 글자 0 · #2190 0) 프로세스의 사슬을 올라 ppid 1 첫 조상(뿌리)을 찾고 뿌리 + 그 자손 전부(r2317 · 승계 뒤 «bash -c 래퍼 아래 틱» — env·pane·cwd 셋 다 안 보이는 나무)
-#        거름(뿌리마다 `reap-skip pid=<뿌리> why=…` 1줄 · stopped·left 에 안 셈): 뿌리나 그 자손에 살아 있는 tmux pane pid 1개라도 = 0(`root-pane`) · 뿌리 exe ∈ 보호 exe 또는 뿌리 pid 가 `launchctl list` PID 칸 = 0(`root-protect` · launchctl 실패 = rc 20) · 뿌리+자손(거름 전 전부) > 8 = 0(`tree-large n=<수>` — 사람 판단)
+#        거름(뿌리마다 `reap-skip pid=<뿌리> why=…` 1줄 · stopped·left 에 안 셈): 뿌리나 그 자손에 살아 있는 tmux pane pid 1개라도 = 0(`root-pane`) · 사슬·뿌리 자손 中 남 uid 1개라도 = 0(`root-uid` — sshd [priv]·login 같은 사람 세션) · ps tty 칸이 «??» 아닌 것 1개라도 = 0(`root-tty` — 오빠 셸·iTermServer 나무) · 뿌리 exe ∈ 보호 exe 또는 뿌리 pid 가 `launchctl list` PID 칸 = 0(`root-protect` · launchctl·ps tty 실패 = rc 20) · 뿌리+자손(거름 전 전부) > 8 = 0(`tree-large n=<수>` — 사람 판단)
 #   제외: 남의 FT_SEAT · 보호 exe(ft-leak-reap.sh 의 PROTECT_EXE 를 그대로 읽음 — 못 읽으면 rc 20) · 이 명령 자신과 조상
 #     · 서비스 나무(r505 — 모든 모드 · 서비스 정지는 scripts/server/stop.command 몫): ⓐTCP LISTEN 을 쥔 프로세스와 그 조상·자손(`lsof -iTCP -sTCP:LISTEN` · 실패 = rc 20)
 #       ⓑ 서비스 명령 꼴 FT_REAP_SERVICE_RE(기본 아래 SERVICE_RE)와 그 자손 — 후보였을 것만 앞 줄 `reap-skip pid=<n> why=service-listen|service-cmd cmd=<앞 100자>`(stopped·left 에 안 셈)
@@ -232,8 +232,15 @@ def launchd_pids():   # r2317 ④ S1a — `launchctl list` PID 칸 · 실패 = r
     out = run([LAUNCHCTL, "list"])
     _launchd.append({int(f[0]) for f in (l.split("\t") for l in out.splitlines()[1:]) if f and f[0].isdigit()})
     return _launchd[0]
-def name_trees(t, me, anc, pane_pids):   # r2317 ④ — argv 낱말 = 좌석 이름(정확)인 프로세스의 ppid 1 첫 조상(뿌리) + 그 자손 → ({pid: (via, lstart, cmd)}, skip)
-    four, skip = {}, {}
+def tty_map():   # r2317 ④ S1e — pid → tty 칸("??" = 제어 tty 없음) · 실패 = rc 20(판정 불가)
+    out = run([PS, "-axww", "-o", "pid=,tty="])
+    r = {}
+    for ln in out.splitlines():
+        f = ln.split()
+        if len(f) >= 2 and f[0].isdigit(): r[int(f[0])] = f[1]
+    return r
+def name_roots(t, me, anc):   # r2317 ④ — argv 낱말 = 좌석 이름(정확)인 프로세스의 ppid 1 첫 조상(뿌리) → ({뿌리: (lstart, cmd)}, skip 미정)
+    roots = {}
     for pid, r in t.items():
         if r[2] != me or pid in anc or seat not in r[4].split(): continue      # 정확 낱말만 — 부분 글자(#2190)·짧은 이름 0
         chain, p = [], pid
@@ -241,10 +248,19 @@ def name_trees(t, me, anc, pane_pids):   # r2317 ④ — argv 낱말 = 좌석 �
         if not chain or chain[-1] not in t or t[chain[-1]][0] != 1: continue    # ppid 1 첫 조상 없음(사슬 끊김) = 0
         root = chain[-1]
         if any(q in anc or (t[q][5] is not None and t[q][5] != seat) for q in chain): continue   # 이 명령 조상 · 남의 FT_SEAT(보이는 것) = 0
+        roots[root] = (t[root][3], t[root][4])
+    return roots
+def name_trees(t, me, anc, pane_pids, covered, roots):   # r2317 ④ — 뿌리 거름(S1b·S1d·S1e·S1a·S1c) → ({pid: (via, lstart, cmd)}, skip)
+    four, skip, tty = {}, {}, []
+    for root, (_, cmd) in sorted(roots.items()):
         tree = {root} | desc(t, [root])
-        if tree & pane_pids: skip[root] = ("root-pane", t[root][4]); continue   # S1b — 살아 있는 pane pid 1개라도(어느 좌석이든 · run-shell 꼴도 여기서 막힌다)
-        if os.path.basename((t[root][4].split() or [""])[0]) in PROTECT or root in launchd_pids(): skip[root] = ("root-protect", t[root][4]); continue   # S1a
-        if len(tree) > TREE_CAP: skip[root] = (f"tree-large n={len(tree)}", t[root][4]); continue   # S1c
+        if tree <= covered: continue      # ①②②b③·자손이 이미 잡은 나무 = 새 라벨·새 거름 줄 0(기존 stopped·left 셈법 불변)
+        if tree & pane_pids: skip[root] = ("root-pane", cmd); continue   # S1b — 살아 있는 pane pid 1개라도(어느 좌석이든 · run-shell 꼴도 여기서 막힌다)
+        if any(t[q][2] != me for q in tree): skip[root] = ("root-uid", cmd); continue   # S1d — 남 uid 1개라도 지나면 0(sshd [priv]·login 등 사람 세션)
+        if not tty: tty.append(tty_map())   # S1e — 제어 tty 있는 프로세스 1개라도 = 사람 터미널 나무 = 0
+        if any(tty[0].get(q, "??") not in ("?", "??") for q in tree): skip[root] = ("root-tty", cmd); continue
+        if os.path.basename((cmd.split() or [""])[0]) in PROTECT or root in launchd_pids(): skip[root] = ("root-protect", cmd); continue   # S1a
+        if len(tree) > TREE_CAP: skip[root] = (f"tree-large n={len(tree)}", cmd); continue   # S1c
         for q in sorted(tree):
             if t[q][2] == me and q not in anc: four[q] = ("④", t[q][3], t[q][4])
     return four, skip
@@ -284,8 +300,8 @@ def survey():
     cw = cwds() if wt and not shared else {}
     bg = {p for p, r in t.items() if re.search(r"ft-bg-loop\.sh .*--seat " + re.escape(seat) + r"(\s|$)", r[4])}
     pane_pids = {int(x[1]) for x in pl}
-    four, skip = name_trees(t, me, anc, pane_pids)   # r2317 ④ 이름 나무(뿌리 거름 줄은 skip 에)
-    cand, tree, svc = {}, desc(t, mine), services(t)
+    roots = name_roots(t, me, anc)   # r2317 ④ — 싼 준비(사슬·뿌리만 · 추가 호출 0)
+    cand, tree, svc, skip = {}, desc(t, mine), services(t), {}
     for pid, (ppid, pgid, uid, lst, cmd, fs, fb) in t.items():
         if uid != me or pid in anc or pid in mine or (orph and ppid != 1): continue
         if fs is not None and fs != seat and pid not in bg: continue   # 남의 좌석(래퍼 argv --seat 가 env 보다 우선 — 래퍼는 띄운 좌석의 env 를 물려받는다)
@@ -300,7 +316,9 @@ def survey():
         if r[2] == me and (r[5] is None or r[5] == seat) and os.path.basename((r[4].split() or [""])[0]) not in PROTECT:
             if pid in svc: skip[pid] = (svc[pid], r[4])
             else: cand[pid] = ("자손", r[3], r[4])
-    for pid, (v, lst, c) in sorted(four.items()):   # r2317 ④ — ①②②b③·자손이 이미 잡은 pid 는 라벨 그대로(기존 stopped·left 셈법 불변)
+    four, fskip = name_trees(t, me, anc, pane_pids, set(cand), roots)   # r2317 ④ — 무거운 거름(launchctl·tty)은 이미 잡힌 나무를 건너뛴다
+    skip.update(fskip)
+    for pid, (v, lst, c) in sorted(four.items()):   # ①②②b③·자손이 이미 잡은 pid 는 라벨 그대로(기존 stopped·left 셈법 불변)
         if pid in cand or pid in anc: continue
         r = t[pid]
         if r[2] != me or (r[5] is not None and r[5] != seat): continue

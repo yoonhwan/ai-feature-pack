@@ -5,7 +5,8 @@
 #   ⑤ 사슬 중간이 남의 FT_SEAT(보이는 것) → 0  ⑥ 나무 안 보호 exe(침묵) · 서비스 2종 → 지금처럼 거름(reap-skip 줄)
 #   ⑦ --defer-press + press 진행 → ④ 후보도 미룸 파일 1줄씩 · 신호 0  ⑨ run-shell 꼴(pane 자손) → why=root-pane
 #   ⑩ launchd 잡 뿌리 → why=root-protect · 가짜 launchctl rc 1 → rc 20 · 신호 0  ⑪ 뿌리+자손 10 → why=tree-large n=10
-#   변이 M1~M8(사본에서 1곳만) — 변이마다 원본으로 같은 사례 1회 더 = 반대 결과 대조
+#   ⑫ ssh 꼴(sshd [priv] uid 0) · ⑬ iTermServer+login 꼴(login uid 0) → why=root-uid · ⑭ iTermServer 직접 셸(tty 있음) → why=root-tty
+#   변이 M1~M10(사본에서 1곳만) — 변이마다 원본으로 같은 사례 1회 더 = 반대 결과 대조
 #   입력 = 가짜 ps 표(FT_PS) · 가짜 tmux(PATH) · 가짜 lsof(FT_LSOF) · 가짜 launchctl(FT_LAUNCHCTL) · 신호 0 = --dry-run · 실 프로세스 0 · sleep 0
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -20,6 +21,7 @@ cat > "$TMP/fake/ps" <<'EOS'
 #!/bin/bash
 case " $* " in
   *" -axEww "*) awk -F'\t' '{n = split($1, a, " "); c = ""; for (i = 10; i <= n; i++) c = c (i > 10 ? " " : "") a[i]; printf "%s %s%s\n", a[1], c, ($2 == "" ? "" : " FT_SEAT=" $2)}' "$FPS";;
+  *"pid=,tty="*) awk -F'\t' '{split($1, a, " "); printf "%s %s\n", a[1], ($3 == "" ? "??" : $3)}' "$FPS";;
   *) awk -F'\t' '{print $1}' "$FPS";;
 esac
 EOS
@@ -49,7 +51,7 @@ export FT_REAP_NOSIGNAL=1 FT_REAP_TERM_WAIT=0 FT_REAP_DEFER_DIR="$TMP/defer" FT_
 export FT_PRESS_PS_SNAPSHOT="$TMP/press.txt" FT_PRESS_RUNNER_RE="r2317press"
 unset TMUX_PANE FT_SEATS_JSON
 : > "$TMP/ps.txt"; : > "$TMP/tmux.txt"; : > "$TMP/listen.txt"; : > "$TMP/launchd.txt"; : > "$TMP/press.txt"; rm -f "$LFAIL" "$TMP"/defer/* 2>/dev/null
-row() { printf '%s %s %s %s %s %s\t%s\n' "$1" "$2" "$1" "$U" "$LS" "$3" "${4:-}" >> "$FPS"; }   # row pid ppid cmd [env좌석]
+row() { printf '%s %s %s %s %s %s\t%s\t%s\n' "$1" "$2" "$1" "${6:-$U}" "$LS" "$3" "${4:-}" "${5:-}" >> "$FPS"; }   # row pid ppid cmd [env좌석] [tty] [uid]
 tbl_reset() { : > "$FPS"; : > "$FTAB"; : > "$FLIS"; : > "$LPIDS"; : > "$TMP/press.txt"; rm -f "$LFAIL" "$TMP"/defer/* 2>/dev/null; }
 pane() { printf '%s\t%s\t%s\t%s\n' "$1" "$2" "$TMP" "$TMP" >> "$FTAB"; }                        # pane 세션 pane_pid cwd 세션경로
 reap() { ( cd "$TMP" && bash "$BIN/ft-seat-reap.sh" "$SEAT" "$@" 2>&1 ); }
@@ -142,6 +144,32 @@ case11() {  # ⑪ 뿌리+자손 10 → tree-large n=10
   local o; o="$(reap --orphans-only --dry-run)"
   chk "⑪ 나무 10개 → 후보 0 · tree-large n=10 1줄" "$(n '^reap-cand ' "$o") $(n '^reap-skip pid=4291800 why=tree-large n=10 ' "$o")" "0 1"
 }
+case12() {  # ⑫ ssh 꼴 — 사슬에 남 uid(sshd [priv]) → root-uid
+  tbl_reset
+  row 4292000 1 "sshd: yoonhwan [priv]" "" "" 0
+  row 4292001 4292000 "sshd: yoonhwan"
+  row 4292002 4292001 "-zsh" "" ttys005
+  row 4292003 4292002 "tmux attach -t $SEAT" "" ttys005
+  local o; o="$(reap --orphans-only --dry-run)"
+  chk "⑫ ssh 꼴 → 후보 0 · root-uid 1줄(root-tty 0)" "$(n '^reap-cand ' "$o") $(n '^reap-skip pid=4292000 why=root-uid ' "$o") $(n 'why=root-tty' "$o")" "0 1 0"
+}
+case13() {  # ⑬ iTermServer+login 꼴 — login(uid 0) → root-uid
+  tbl_reset
+  row 4292100 1 "iTermServer"
+  row 4292101 4292100 "login" "" "" 0
+  row 4292102 4292101 "-zsh" "" ttys006
+  row 4292103 4292102 "tail -f /tmp/r2317.log $SEAT" "" ttys006
+  local o; o="$(reap --orphans-only --dry-run)"
+  chk "⑬ iTermServer+login 꼴 → 후보 0 · root-uid 1줄" "$(n '^reap-cand ' "$o") $(n '^reap-skip pid=4292100 why=root-uid ' "$o")" "0 1"
+}
+case14() {  # ⑭ iTermServer 직접 셸 — uid 전부 나 · 제어 tty 있음 → root-tty
+  tbl_reset
+  row 4292200 1 "iTermServer"
+  row 4292201 4292200 "-zsh" "" ttys007
+  row 4292202 4292201 "tail -f /tmp/r2317.log $SEAT" "" ttys007
+  local o; o="$(reap --orphans-only --dry-run)"
+  chk "⑭ 사람 셸 나무(tty) → 후보 0 · root-tty 1줄" "$(n '^reap-cand ' "$o") $(n '^reap-skip pid=4292200 why=root-tty ' "$o")" "0 1"
+}
 mutb() {  # mutb <이름> <옛 글자> <새 글자> — bin 통째 사본 + ft-seat-reap.sh 1곳만 치환
   local d="$TMP/mb/$1"; mkdir -p "$d"; cp -R "$BIN/." "$d"/
   python3 - "$d/ft-seat-reap.sh" "$2" "$3" <<'PY'
@@ -165,6 +193,7 @@ mcheck() {  # mcheck <변이> <반례번호> <옛> <새> — 원본 PASS · 변�
 if [ -n "${R2317_CASE:-}" ]; then
   case "$R2317_CASE" in
     1) case1;; 2) case2;; 3) case3;; 4) case4;; 5) case5;; 6) case6;; 7) case7;; 9) case9;; 10) case10;; 11) case11;;
+    12) case12;; 13) case13;; 14) case14;;
     *) echo "FAIL 알 수 없는 사례 $R2317_CASE"; exit 1;;
   esac
   [ "$fail" -eq 0 ] && { echo "CASE $R2317_CASE PASS"; exit 0; }
@@ -174,7 +203,7 @@ fi
 T0=$SECONDS
 bash -n "$BIN/ft-seat-reap.sh" && ok "bash -n ft-seat-reap.sh" || bad "bash -n ft-seat-reap.sh"
 cmp -s "$BIN/ft-seat-reap.sh" "$BIN/../kit/fable-team/bin/ft-seat-reap.sh" && ok "짝 cmp0 ft-seat-reap.sh" || bad "짝 다름 ft-seat-reap.sh"
-for c in 1 2 3 4 5 6 7 9 10 11; do
+for c in 1 2 3 4 5 6 7 9 10 11 12 13 14; do
   echo "== ④ 사례 $c"
   R2317_CASE="$c" R2317_REAP_DIR="$BIN" bash "$SELF" 2>&1 | sed 's/^/  /'
   [ "${PIPESTATUS[0]}" -eq 0 ] || fail=$((fail + 1))
@@ -186,15 +215,17 @@ if [ -n "$BASE" ] && [ -f "$BASE" ]; then
   R2317_CASE=1 R2317_REAP_DIR="$TMP/base" bash "$SELF" > "$TMP/base.out" 2>&1
   grep -q '^PASS ① 후보 4개' "$TMP/base.out" && bad "기준판이 ① 을 통과(Red 아님)" || ok "기준판 ① Red(후보 0) — $(grep -m1 '^FAIL' "$TMP/base.out" | cut -c1-70)"
 else bad "기준판 없음 — R2317_BASE=<옛 bin/ft-seat-reap.sh> 로 다시"; fi
-echo "== 변이 M1~M8(사본 · 원본 대조)"
+echo "== 변이 M1~M10(사본 · 원본 대조)"
 mcheck M1 1 'for pid, (v, lst, c) in sorted(four.items()):' 'for pid, (v, lst, c) in []:'
 mcheck M2 3 'seat not in r[4].split()' 'seat not in r[4]'
-mcheck M3 4 'if tree & pane_pids: skip[root] = ("root-pane", t[root][4]); continue' 'if False: pass'
+mcheck M3 4 'if tree & pane_pids: skip[root] = ("root-pane", cmd); continue' 'if False: pass'
 mcheck M4 5 'if any(q in anc or (t[q][5] is not None and t[q][5] != seat) for q in chain): continue' 'if any(q in anc for q in chain): continue'
 mcheck M5 7 'if defer and cand and press():' 'if defer and {p: v for p, v in cand.items() if v[0] != "④"} and press():'
-mcheck M6 10 'if os.path.basename((t[root][4].split() or [""])[0]) in PROTECT or root in launchd_pids(): skip[root] = ("root-protect", t[root][4]); continue' 'if False: pass'
-mcheck M7 9 'if tree & pane_pids: skip[root] = ("root-pane", t[root][4]); continue' 'if False: pass'
-mcheck M8 11 'if len(tree) > TREE_CAP: skip[root] = (f"tree-large n={len(tree)}", t[root][4]); continue' 'if False: pass'
+mcheck M6 10 'if os.path.basename((cmd.split() or [""])[0]) in PROTECT or root in launchd_pids(): skip[root] = ("root-protect", cmd); continue' 'if False: pass'
+mcheck M7 9 'if tree & pane_pids: skip[root] = ("root-pane", cmd); continue' 'if False: pass'
+mcheck M8 11 'if len(tree) > TREE_CAP: skip[root] = (f"tree-large n={len(tree)}", cmd); continue' 'if False: pass'
+mcheck M9 12 'if any(t[q][2] != me for q in tree): skip[root] = ("root-uid", cmd); continue' 'if False: pass'
+mcheck M10 14 'if any(tty[0].get(q, "??") not in ("?", "??") for q in tree): skip[root] = ("root-tty", cmd); continue' 'if False: pass'
 Q=$((SECONDS - T0))
 chk "시간 $Q 초 ≤ 70" "$([ "$Q" -le 70 ] && echo ok)" ok
 echo; if [ "$fail" -eq 0 ]; then echo "ALL PASS ($Q 초)"; exit 0; else echo "FAILED $fail"; exit 1; fi
