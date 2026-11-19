@@ -191,12 +191,15 @@ def func_lines(t: str) -> set[int]:  # `name() {` … `}` 본문 줄 — 옛 계
 CALL_OK = r"\s*([A-Za-z_][\w-]*)(?:\s+[^|&;<>()`]*)?"  # r2310 A1b: 치환 안 = 함수 이름 + 낱말 인자만(| > >& 2> ; && || & 0)
 
 
+MID_DEF = re.compile(r"[;&|({]\s*(?:(?:then|do|else|elif|!)\s+)*(?:function\s+[A-Za-z_][\w-]*|[A-Za-z_][\w-]*\s*\(\))")  # r2310 ⑮
 QUOTED = re.compile(r"\"(?:[^\"\\]|\\.)*\"|'[^']*'")  # r2310 DA P2: 따옴표 글
 EXITS = re.compile(r"stderr|/dev/tty|/dev/fd/|>&\s*[2-9]|(?<![\w-])(?:tee|exec)(?![\w-])")  # r2310 DA H1~H3: 본문이 stdout 밖으로 냄 = drop 0
 
 
 def func_bodies(t: str) -> dict[str, set[int]] | None:  # r2310: 이름별 본문 줄(정의 줄 포함) · 끝 = 주석 뺀 줄이 «}» 로 끝나고 { } 셈 0 · 경계 모호 = None
     if re.search(r"(?m)^\s*function\s+[A-Za-z_][\w-]*(?![\w-]|\s*\()", t):  # A1e(DA#36): 괄호 없는 «function 이름» = 머리 못 가름 → 통과 0
+        return None
+    if any(MID_DEF.search(QUOTED.sub("", x)) for x in t.split("\n")):  # DA#36 ⑮: 줄 가운데(; & | ( { 뒤 · 따옴표 밖) 함수 정의 = 머리 못 가름 → 통과 0
         return None
     name, depth, opened, out = "", 0, False, {}
     for k, line in enumerate(t.split("\n"), 1):
