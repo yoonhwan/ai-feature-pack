@@ -38,13 +38,13 @@ def rows(raws):
     return out
 TITLES = json.load(open(sys.argv[2], encoding="utf-8"))
 CASES = {
-    "1": ([raw(8645, TITLES["8645"])], {8645: "shared-harness"}),
+    "1": ([raw(8645, TITLES["8645"])], {8645: "harness-ops"}),
     "2": ([raw(8488, TITLES["8488"])], {8488: "ops"}),
-    "3": ([raw(8510, TITLES["8510"])], {8510: "shared-harness"}),
+    "3": ([raw(8510, TITLES["8510"])], {8510: "harness-ops"}),
     "4": ([raw(9001, "LangSmith 계정 이전 정리", body="본문에만 planner 낱말")], {}),
     "5": ([raw(int(k), v) for k, v in TITLES.items()]
           + [raw(9002, "[ops] ft2 이미 라벨 있음", labels=("team:ops",))],
-          {int(k): ("ops" if k == "8488" else "shared-harness") for k in TITLES}),
+          {int(k): ("ops" if k == "8488" else "harness-ops") for k in TITLES}),
 }
 for case in sys.argv[3:]:
     issues, want = CASES[case]
