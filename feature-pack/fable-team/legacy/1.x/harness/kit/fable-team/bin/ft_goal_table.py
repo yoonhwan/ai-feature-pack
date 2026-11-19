@@ -475,10 +475,10 @@ def _goal_hash(goal: str) -> str:
     return hashlib.sha256(_norm(goal).encode("utf-8")).hexdigest()[:10]
 
 
-PENDING_NOTICE: list[tuple[str, list[list[str]]]] = []  # r2285 C1 — 기본 렌더(main)는 표를 stdout 에 쓰고 flush 한 뒤에 공지한다
+PENDING_NOTICE: list[tuple[str, list[list[str]]]] = []  # r2285 C1 — render() 는 표 글만(공지 0) · CLI main() 만 표를 stdout 에 쓰고 flush 한 뒤 공지(뉴스 경로 같은 프로세스 render = 공지 0)
 
 
-def render(defer: bool = False) -> str:
+def render() -> str:
     text, sha, src = load_canon()
     rows = parse_rows(text)
     head, states = ledger_state(_ledger_show, GoalError, n=len(rows))
@@ -496,10 +496,7 @@ def render(defer: bool = False) -> str:
         out = "\n".join([f"★골 표 A6 ({src}{sha} · {head} · {note})★",
                           "| 골 | 팀 | 지금 상태 | 닫는 증거 | 재조정 |", "|---|---|---|---|---|", *body, TAIL])
         if len(out.encode("utf-8")) <= BUDGET:
-            if defer:
-                PENDING_NOTICE.append((sha, rows))
-            else:
-                _notify_or_skip(sha, rows)
+            PENDING_NOTICE.append((sha, rows))
             return out + "\n"
     raise GoalError(f"ERROR 골 표 예산 초과 {len(out.encode('utf-8'))}B > {BUDGET}B (골 원문 칸은 절단하지 않는다)")
 
@@ -767,7 +764,7 @@ def main(argv: list[str]) -> int:
             rc, msg = check_coord(text) if "--coord-only" in argv else check(text, "--block-only" in argv)
             print(msg)
             return rc
-        sys.stdout.write({"teams": render_teams, "procs": render_procs}.get(argv[0] if argv else "", lambda: render(defer=True))())
+        sys.stdout.write({"teams": render_teams, "procs": render_procs}.get(argv[0] if argv else "", render)())
         sys.stdout.flush()
         for sha, rows in PENDING_NOTICE:   # r2285 C1 — 공지는 표 출력 뒤
             _notify_or_skip(sha, rows)
