@@ -51,7 +51,7 @@ assert old in s, "변이 대상 없음: " + old
 open(dst, "w", encoding="utf-8").write(s.replace(old, new, 1))
 PY
 }
-mut m1 '"카드 문서만" if paths' '"구현" if paths'     # M1 늘 «구현»
+mut m1 '"카드 문서만" if all(' '"구현" if all('     # M1 늘 «구현»
 BOUND='x.startswith("design/") and "/indices/" in x'
 mut m3 "$BOUND" 'x.startswith("design/")'          # M3 경계 design/* 로 넓힘
 mut m3b "$BOUND" '"/indices/" in x'                 # M3 경계 */indices/* 로 풂

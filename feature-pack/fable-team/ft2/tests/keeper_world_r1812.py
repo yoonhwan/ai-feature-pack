@@ -114,6 +114,11 @@ class World:
                              + ("- 착지: %s\n" % sha if sha else "")}, ref)
     def pack_sha(s):
         return s.commit("pack", {"p.txt": str(os.urandom(4))}, "main")
+    def land_sha(s):
+        """r2274 — card_stage 가 구현 착지로 읽는 실제 팩 커밋(임시 팩 clone 에도 받음 · DA#29 H3ⓑ 가짜 sha = 판정 불가)."""
+        sha = s.pack_sha()
+        _git(s.tmp / "pack", "fetch", "-q", "origin")
+        return sha
     def work(s, work, done=False, team=TEAM, intent=True, alive=False, pane="✻ Brewed for 3s\n❯ ", holder=None,
              seat=None, turn="stop"):
         """일 1개 = submit→assign→deliver(→complete) · intent(holder=seat) · Pi 세션 jsonl 마지막 줄 stopReason=turn(None=파일 0)."""

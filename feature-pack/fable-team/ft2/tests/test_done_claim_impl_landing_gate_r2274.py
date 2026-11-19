@@ -88,6 +88,24 @@ def test_1d_card_stage_undecidable_write_0(tmp_path, monkeypatch, capsys):
     assert heads(w) == before
 
 
+def test_1e_card_stage_sha_in_no_repo_undecidable(tmp_path, monkeypatch, capsys):   # DA#29 H3ⓑ — BYZ·팩 로컬 둘 다 없음 = 판정 불가 · 쓰기 0
+    w = stage_world(tmp_path, monkeypatch, {}, tail="- 착지: %s\n" % ("1a" * 20))
+    before = heads(w)
+    rc, out = run_stage(w, capsys)
+    assert (rc, out) == (3, "판정 불가 착지 sha 로컬 0(BYZ·팩) 1a1a1a1a"), out
+    assert heads(w) == before
+
+
+def test_2b_keeper_empty_commit_landing_complete_0(tmp_path, monkeypatch):   # DA#29 H3ⓐ — 빈 커밋 = 구현 증거 0 = 카드 문서만
+    w = kw.World(tmp_path, monkeypatch)
+    sha = w.commit("pack", {}, "main")
+    w.card("r9403", sha)
+    w.work("r9403", intent=False)
+    lines = w.round()
+    assert w.kinds("complete") == 0, lines
+    assert any("r9403" in x and "카드 문서만 착지 " + sha[:8] in x for x in lines), lines
+
+
 # ── ② keeper: 카드 문서만 착지 = complete 0 ──
 def test_2_keeper_card_doc_only_landing_complete_0(tmp_path, monkeypatch):
     w = kw.World(tmp_path, monkeypatch)
@@ -198,7 +216,7 @@ def test_6c_keeper_pack_template_landing_completes(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("files,want", [({"src/a.py": "x"}, "구현"), ({"design/rag/sql/m.sql": "x"}, "구현"), (TPL, "구현"),
                                         ({"design/k/indices/진행/a.md": "x", "design/teams/p/indices/대기/b.md": "y"}, "카드 문서만"),
-                                        ({}, "구현")], ids=["code", "sql", "pack_tpl", "card", "empty"])
+                                        ({}, "카드 문서만")], ids=["code", "sql", "pack_tpl", "card", "empty"])
 def test_6_land_kind_direct(tmp_path, files, want):
     r, sha = repo(tmp_path, files)
     assert lib_fn("ft_land_kind", r, sha) == (0, want)
@@ -225,7 +243,7 @@ def mutant(tmp, old, new):
 
 
 BOUND = 'x.startswith("design/") and "/indices/" in x'
-MUT = {"M1": ('"카드 문서만" if paths', '"구현" if paths', {}, "STAGED "),   # 카드 문서만인데 옮김 = ③ FAIL
+MUT = {"M1": ('"카드 문서만" if all(', '"구현" if all(', {}, "STAGED "),   # 카드 문서만인데 옮김 = ③ FAIL
        "M3a": (BOUND, 'x.startswith("design/")', {"design/rag/sql/m6.sql": "select 1;\n"}, "NOOP r9 완성 증거 0 카드 문서만"),   # ⑥ⓑ FAIL
        "M3b": (BOUND, '"/indices/" in x', TPL, "NOOP r9 완성 증거 0 카드 문서만")}   # ⑥ⓒ FAIL(템플릿을 문서로 봄)
 

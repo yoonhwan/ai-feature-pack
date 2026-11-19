@@ -24,6 +24,7 @@ def world(tmp, mp, stage="진행", extra="", ledger=True):
     w = kw.World(tmp, mp)
     for k, v in (("user.email", "t@t"), ("user.name", "t"), ("commit.gpgsign", "false")):
         kw._git(w.root, "config", k, v)
+    extra = extra.replace(LAND, w.land_sha()) if LAND in extra else extra   # r2274 DA#29 H3ⓑ — 가짜 sha = 판정 불가 → 실제 팩 커밋
     w.commit("byz", {CARD % stage: HEAD + extra}, OPS)
     if ledger is not None:
         w.work("r9", done=ledger, intent=False, turn=None)
@@ -84,10 +85,12 @@ def test_3_landing_line_not_40_hex_holds(tmp_path, monkeypatch, capsys, line):
     held(world(tmp_path, monkeypatch, extra=line), capsys, "진행", why="착지 줄 0")
 
 
-def test_3b_short_hex_landing_line_judged_by_that_sha(tmp_path, monkeypatch, capsys):   # r2274 ④ⓕ — 7자 16진수 = 그 sha(어느 리포에도 없음 = 지금 길)
+def test_3b_short_hex_landing_line_judged_by_that_sha(tmp_path, monkeypatch, capsys):   # r2274 ④ⓕ — 7자 16진수 = 그 sha · 어느 리포에도 없음 = 판정 불가(DA#29 H3ⓑ)
     w = world(tmp_path, monkeypatch, extra="- 착지: 139335c\n")
+    before = heads(w)
     rc, out = run(w, capsys)
-    staged(w, "진행", out, rc)
+    assert (rc, out) == (3, "판정 불가 착지 sha 로컬 0(BYZ·팩) 139335c"), out
+    assert heads(w) == before
 
 
 def test_4_landing_line_inside_status_section_stages(tmp_path, monkeypatch, capsys):

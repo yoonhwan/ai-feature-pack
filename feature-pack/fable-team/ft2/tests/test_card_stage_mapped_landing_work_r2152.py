@@ -22,6 +22,8 @@ def world(tmp, mp, work, name, stage="진행", extra="", mapped=None):
     for k, v in (("user.email", "t@t"), ("user.name", "t"), ("commit.gpgsign", "false")):
         kw._git(w.root, "config", k, v)
     w.path = IDX % (stage, name)
+    for fake in (LAND, MINE):   # r2274 DA#29 H3ⓑ — 가짜 sha = 판정 불가 → 실제 팩 커밋
+        extra = extra.replace(fake, w.land_sha()) if fake in extra else extra
     w.commit("byz", {w.path: HEAD % name + extra}, OPS)
     w.work(work, done=True, intent=False, turn=None)
     if mapped:
