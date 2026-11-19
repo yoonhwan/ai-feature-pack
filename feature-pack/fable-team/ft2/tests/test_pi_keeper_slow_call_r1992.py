@@ -62,7 +62,7 @@ def c7(w, mp):   # ⑦ slow 칸 = b2c 호출 3회(2·2·6초) → SLOW-CELL 1줄
     k.complete, k.retired = (lambda *a: True), (lambda: None)
     k.close = lambda *a: [k.call(["tmux", "has", M]) for _ in range(3)] and None
     rows = [x for x in w.round(k) if x.startswith(("SLOW-CELL", "ROUND"))]
-    assert rows[0] == "SLOW-CELL harness b2c s=10 n=3 slow_call=6" and rows[1].startswith("ROUND s=10 ") and " slow=harness:b2c:10" in rows[1], rows
+    assert (rows[0] == "SLOW-CELL harness b2c s=10 n=3 slow_call=6" or rows[0].startswith("SLOW-CELL harness b2c s=10 n=3 slow_call=6 top=")) and rows[1].startswith("ROUND s=10 ") and " slow=harness:b2c:10" in rows[1], rows
     assert slow(k) == ["SLOW-CALL harness b2c tmux has SLOWFAKE s=6 rc=0 try=1/1"]
 CASES = {"①": c1, "②": c2, "③": c3, "④": c4, "⑤": c5, "⑥": c6, "⑦": c7}
 KP = "adapters/pi/keeper.py"

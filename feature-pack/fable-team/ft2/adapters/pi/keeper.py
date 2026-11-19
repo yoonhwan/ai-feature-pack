@@ -13,6 +13,7 @@ import datetime
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -40,6 +41,14 @@ class Ungraded(BaseException):
 
 class OutOfRound(Exception):
     """r2026 R1 — 바퀴 남은 예산 < git 1회 상한(card_stage.spawn 7초) · 다음 git 0 → 다음 바퀴."""
+
+
+def head2(argv):
+    """r2287 C3 — 호출 길 = 머리 2낱말(git -C <repo> 는 repo 를 건너뜀 · 경로 = 끝 이름) · 줄 칸에 공백이 없도록 + 로 잇는다."""
+    words = [argv[0]] + list(argv[3:] if argv[1:2] == ["-C"] else argv[1:])
+    if argv[1:2] == ["-c"] and os.path.basename(str(argv[0])) == "bash":   # DA#31 — lib bash = 함수 이름(lib_call = argv[5] · da_judge = 글 속 ft_ 함수)
+        words = [argv[0]] + ([w for w in argv[5:6] if str(w).startswith("ft_")] or re.findall(r"\bft_\w+", str(argv[2]) if argv[2:3] else "")[-1:])
+    return "+".join(os.path.basename(str(w).rstrip("/")) or str(w) for w in words[:2])
 
 
 def _load(path, alias):
@@ -84,6 +93,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         self.per, self.at = {}, None   # r1969 (팀, 칸) 초 → ROUND slow 칸 · at = 지금 도는 팀(None = 팀 밖)
         self.table, self.nano, self.refs, self.picked, self.bg, self.fetch_s, self.fetch_err = {}, {}, {}, [], {}, {}, {}   # r1975 · r2241 fetch_err
         self.stage, self.tally = "-", {}   # r1992 지금 칸(timed) · (팀, 칸) → [호출 시도 수, SLOW-CALL 초 합]
+        self.cell_calls = {}   # r2287 C3 (팀, 칸) → [바깥 호출 초 합(keeper.call · 주입 손), 큰 3개 [(초, 길)]]
         self.halt, self.unknown = False, 0   # r2055 ALL_STOP(바퀴마다 판독) · 바퀴 UNKNOWN 수(ROUND unknown=N)
         self.start, self.sect, self.items, self.total, self.cut = None, WORK_S, 0, 0, "-"   # r2098 R1 예산 시계 · R10 ROUND 칸
         self.at_work, self.cursor_stage, self.nano_dl, self.in_fetch = "-", "-", None, False   # r2098 R4 자리 · R6 나노 몫
@@ -145,6 +155,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
             except OSError as exc:
                 out = (None, "", str(exc)[:200])
             dt, cell = self.now() - at, self.tally.setdefault((self.at, self.stage), [0, 0.0])
+            self.note(head2(argv), dt)
             cell[:] = [cell[0] + 1, cell[1] + (dt if dt >= SLOW_S else 0.0)]
             if dt >= SLOW_S:   # r1992 시도마다 1줄 · argv 앞 3낱말(git -C <repo> = repo 이름 · 경로 = 끝 이름 · 뒤 토큰 0)
                 head = [argv[0]] + argv[2:] if argv[1:2] == ["-C"] else argv
@@ -171,13 +182,10 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
             return None
         if len(book.get(key, ())) > 2 and self.root not in self.stale and book[key][3] == self.hits(team, work):   # r2266 C1 영구 사유 · 적중 지문 같음 = 재시도 0(날 무관 · BYZ 낡은 바퀴 = 비교 0)
             return None
-        real = self.cs.spawn
-        def spawn(*args, **kw):   # r2026 R1 — card_stage git 1회 전마다 바퀴 남은 예산 ≥ 7초(main 예산 시계 self.left)
-            left = self.left()   # r2098 R1 바퀴 예산 시계(구획 끝까지 남은 초 · 바퀴 밖 = None = 묶음 0)
-            if left is not None and left < CALL_S:
-                raise OutOfRound("바퀴 예산 남음 %g초" % round(left, 1))
-            return real(*args, **kw)
-        self.cs.spawn = spawn
+        real = {name: getattr(self.cs, name) for name in ("spawn", "proc") if hasattr(self.cs, name)}   # r2287 C2 git · lib bash 둘 다 문 안(대역은 spawn 만일 수 있음)
+        heads = {"spawn": lambda cwd, args, env=None: head2(["git", "-C", cwd] + list(args)), "proc": lambda argv, *a, **kw: head2(argv)}
+        for name, hand in real.items():
+            setattr(self.cs, name, self.gate(hand, heads[name]))
         try:
             at = self.cs.done_at(self.root, team, work)
             if not at:
@@ -191,12 +199,31 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
             book[key] = [day, n]
             return self.log("DEFER", team, "%s card_stage %s — 다음 바퀴" % (work, exc))
         finally:
-            self.cs.spawn = real
+            [setattr(self.cs, name, hand) for name, hand in real.items()]
         book.pop(key, None)
         self.state["staged"][key] = day   # r2140 K3 STAGED·NOOP = 기억(state.json · Unsure·DEFER 는 0)
         if out:   # r2284 C1 STAGED = ref 옮김 → 그 팀 카드 목록 캐시 버림(같은 바퀴 B2 landing 새 ref 로 다시 읽음 · NOOP = 그대로)
             self.cache.pop(team, None), [self.cache["@round"].pop(x) for x in list(self.cache.get("@round", {})) if isinstance(x, tuple) and x[:2] == ("card", team)]
         return self.log("CARD-STAGE", team, "%s %s %s" % (work, out[1], out[2])) if out else self.log("NOOP", team, work + " 이미 완성")
+
+    def gate(self, real, head):
+        """r2026 R1 · r2287 C2 — card_stage 바깥 호출 1회(git spawn · lib proc) 전마다 바퀴 남은 몫 ≥ 7초 · 모자람 = OutOfRound(시작 0) · 초 = 칸 top(C3)."""
+        def hand(*args, **kw):
+            left = self.left()   # r2098 R1 바퀴 예산 시계(구획 끝까지 남은 초 · 바퀴 밖 = None = 묶음 0)
+            if left is not None and left < CALL_S:
+                raise OutOfRound("바퀴 예산 남음 %g초" % round(left, 1))
+            at = self.now()
+            try:
+                return real(*args, **kw)
+            finally:
+                self.note(head(*args), self.now() - at)
+        return hand
+
+    def note(self, path, dt):
+        """r2287 C3 — 지금 칸(팀, 칸)에 바깥 호출 1회 초 · 합 + 큰 3개(초 큰 순 · 같으면 먼저 온 것)."""
+        got = self.cell_calls.setdefault((self.at, self.stage), [0.0, []])
+        got[0] += dt
+        got[1] = sorted(got[1] + [(round(dt, 1), path)], key=lambda x: -x[0])[:3]
 
     def hits(self, team, work):
         """r2266 C1 적중 지문 = land.REFS 두 ref 의 design/**/indices/<단계>/ 카드 중 card() 이름 규칙(짝 표 → <work>.md → <work>-*.md)에 드는 [ref, 경로, blob] 이름순(적중 0 = []) ·
@@ -611,7 +638,9 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         top = max((kv for kv in self.per.items() if kv[0][0]), key=lambda kv: kv[1], default=None)   # r1969 가장 느린 (팀, 칸) 1개
         if top:   # r1992 ⑦ slow 칸의 호출 시도 수·SLOW-CALL 합(5초 미만 여러 번 = slow_call 0 으로 드러남) · ROUND 줄 그대로
             got = self.tally.get(top[0], [0, 0.0])
-            self.log("SLOW-CELL", top[0][0], "%s s=%g n=%d slow_call=%g" % (top[0][1], round(top[1], 1), got[0], round(got[1], 1)))
+            spent, big = self.cell_calls.get(top[0], (0.0, []))   # r2287 C3 끝에 덧붙임만 · 호출 밖 초 = 칸 초 − 호출 초 합
+            tail = " top=%s py=%g" % (",".join("%s:%g" % (path, sec) for sec, path in big) or "-", round(max(top[1] - spent, 0.0), 1)) if big or round(top[1], 1) else ""   # 호출·초 둘 다 0 = 옛 줄 그대로
+            self.log("SLOW-CELL", top[0][0], "%s s=%g n=%d slow_call=%g" % (top[0][1], round(top[1], 1), got[0], round(got[1], 1)) + tail)
         self.log("ROUND", text="s=%g %s slow=%s%s%s%s" % (round(s, 1), cells, "%s:%s:%g" % (top[0] + (round(top[1], 1),)) if top else "-", " OVER" if wall > ROUND_S else "", " unknown=%d" % self.unknown if self.unknown else "",
                                                        self.skip and " skip=" + ",".join(sorted(self.skip)) or ""))   # r2055 unknown=N(skip= 은 끝 칸 그대로) · OVER = wall 판정(R10)
 
