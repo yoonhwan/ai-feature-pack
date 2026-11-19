@@ -2,7 +2,7 @@
 # test_card_commit_move_r2288.sh — r2288: ft-card-commit.sh 카드 폴더 이동 = «고치기 전 판» 을 옛 판으로 lint(새 경로 BASE 에 없을 때).
 #   반례 ①ⓐⓑ ② ③ ④ⓐⓑⓒⓓ ⑤ · 변이 M1(짝 찾기 끔) · M2(r0 = r1) (카드 동결) · C1 이동 짝 · C2 main 전용 옛 판 · C3 짝 꼴 이상 · C4 불변.
 # 격리만: 임시 bare origin(ops/main-base · main 따로) + 클론 · lint = 대역(FT_CARD_LINT) · 실 리포 · 실 원격 0 · sleep 0.
-# 변이용: R2288_TOOL=<사본 경로> 로 도구를 바꿔 끼운다(M1 · M2 는 이 시험이 사본을 만들어 돌린다).
+# 변이용: R2288_TOOL=<사본 경로> 로 도구를 바꿔 끼운다(M1 · M2 · M3 는 이 시험이 사본을 만들어 돌린다).
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; REPO="$(cd "$HERE/.." && pwd)"
 TOOL="${R2288_TOOL:-$REPO/bin/ft-card-commit.sh}"; T0="$TOOL"
@@ -75,9 +75,10 @@ t0="$(tip)"
 run "-design/teamb/indices/대기/X2.md" "+$I/완성/X2.md=$(f x3 "$(card '골줄: GL-OLD1\n' '- 완료: x\n' '완성')")"
 { held "$t0" 1 && printf '%s' "$OUT" | grep -qxF '  - 골줄 원장에 없음 (GL-OLD1)'; } && ok "④ⓑ 다른 팀 짝 → REJECT · push 0" || bad "④ⓑ rc=$RC out=$OUT"
 # ④ⓒ BASE 대기/Z9.md 있음 · origin/main 진행/Z9.md 있음 · -짝 없이 +완성/Z9.md 만 → 짝 없음 → REJECT(ops 에 같은 카드 2장 막음) · push 0
-t0="$(tip)"
-run "+$I/완성/Z9.md=$(f z9 "$(card '골줄: GL-OLD1\n골줄: GL-OLD2\n' '- 완료: z\n' '완성')")"
-{ held "$t0" 1 && [ "$(newr)" = 2 ]; } && ok "④ⓒ BASE 같은 이름 · -짝 없음 → REJECT · push 0" || bad "④ⓒ rc=$RC out=$OUT"
+case4c() { world; t0="$(tip)"
+  run "+$I/완성/Z9.md=$(f z9 "$(card '골줄: GL-OLD1\n골줄: GL-OLD2\n' '- 완료: z\n' '완성')")"
+  held "$t0" 1 && [ "$(newr)" = 2 ]; }
+case4c && ok "④ⓒ BASE 같은 이름 · -짝 없음 → REJECT · push 0" || bad "④ⓒ rc=$RC out=$OUT"
 # ④ⓓ 같은 이름 -짝 2개 → 짝 없음 → REJECT · push 0
 t0="$(tip)"
 run "-$I/대기/X3.md" "-$I/완성/X3.md" "+$I/진행/X3.md=$(f x4 "$(card '골줄: GL-OLD1\n' '- 완료: x\n' '진행')")"
@@ -88,11 +89,12 @@ t0="$(tip)"
 run "+$I/완성/Y.md=$(f y1 "$(card '골줄: GL-NEW\n' '- 완료: y\n' '완성')")"
 { held "$t0" 1 && [ "$(newr)" = 1 ]; } && ok "⑤ 새 카드 사유 → REJECT · push 0" || bad "⑤ rc=$RC out=$OUT"
 
-# 변이(사본만 · 원본 줄은 위 ① ② 가 같은 사례 1회): M1 짝 찾기 끔 → ① FAIL · M2 r0 = r1 → ② FAIL
+# 변이(사본만 · 원본 줄은 위 ① ② 가 같은 사례 1회): M1 짝 찾기 끔 → ① FAIL · M2 r0 = r1 → ② FAIL · M3 BASE 같은 이름 갈래 끔 → ④ⓒ FAIL
 mut() {   # $1=이름 $2=sed 식 → 사본 TOOL · 글자 바뀜 확인
   sed "$2" "$T0" > "$T/$1.sh"; TOOL="$T/$1.sh"; ! cmp -s "$T0" "$TOOL"; }
 if mut m1 's/^  for s in "\${SPECS\[@\]}"; do p=.*$/  :/'; then { ! case1 && held "$t0" 1; } && ok "M1 짝 찾기 끔 → ① FAIL(REJECT)" || bad "M1 rc=$RC out=$OUT"; else bad "M1 변이 자리 없음"; fi
 if mut m2 's/git cat-file blob "\$BR" > "\$T\/before"/cp "$2" "$T\/before"/'; then { ! case2 && pushed "$t0"; } && ok "M2 r0 = r1 → ② FAIL(PUSHED)" || bad "M2 rc=$RC out=$OUT"; else bad "M2 변이 자리 없음"; fi
+if mut m3 's/named "\$BASE"; \[ "\${#h\[@\]}" = 0 \] || return 0; //'; then { ! case4c && pushed "$t0"; } && ok "M3 BASE 같은 이름 갈래 끔 → ④ⓒ FAIL(PUSHED)" || bad "M3 rc=$RC out=$OUT"; else bad "M3 변이 자리 없음"; fi
 TOOL="$T0"
 
 echo "---"; [ "$fail" = 0 ] && { echo "ALL PASS"; exit 0; }; echo "FAIL $fail"; exit 1
