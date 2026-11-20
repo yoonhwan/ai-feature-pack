@@ -680,6 +680,10 @@ cmd_boot_enter() {
   [[ -n "$name" ]] || die "boot-enter requires <name>"
   [[ "$wait_s" =~ ^[0-9]+$ ]] || die "TMUXC_SUBMIT_WAIT=$wait_s 정수 아님"
   tmux has-session -t "=$name" 2>/dev/null || die "session not found: $name"
+  if sid="$(session_env_value "$name" TMUXC_PI_SESSION_ID)" && [[ -n "$sid" ]]; then
+    boot_enter_pi "$name" "$sid" "$wait_s"
+    return
+  fi
   sid="$(session_env_value "$name" TMUXC_CLAUDE_SESSION_ID)" || sid=""
   [[ -n "$sid" ]] || sid="$(seat_uuid_fallback "$name")" || sid=""
   text="$(session_env_value "$name" TMUXC_BOOT_TEXT)" || text=""
@@ -712,6 +716,63 @@ cmd_boot_enter() {
     sleep 0.2
   done
   printf '[HIL] 부팅 문장 제출 확인 실패 — %s · Enter 1회 · %s초 안에 기록 없음(재전송 0)\n' "$name" "$wait_s" >&2
+  return 1
+}
+
+# r2328 pi 세션 기록 «한 파일» — <FT_PI_SESSIONS_DIR 기본 ~/.pi/agent/sessions>/<cwd 폴더>/*_<id>.jsonl.
+#   pi 는 부팅 글이 제출돼야 이 파일을 쓴다 — 파일 있음 = 제출됨(DA#39 확인).
+#   rc0 = 경로 출력 · rc1 = 아직 없음 · rc2 = 판정 불가(id 꼴 아님 · 같은 id 둘 이상)
+pi_session_file_of() {
+  local sid="$1" base="${FT_PI_SESSIONS_DIR:-$HOME/.pi/agent/sessions}" f found="" n=0
+  [[ "$sid" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || return 2
+  for f in "$base"/*/*_"$sid".jsonl; do
+    [[ -f "$f" ]] || continue
+    found="$f"; n=$((n + 1))
+  done
+  [[ "$n" -eq 0 ]] && return 1
+  [[ "$n" -eq 1 ]] || return 2
+  printf '%s\n' "$found"
+}
+
+# r2328 boot-enter pi 갈래 — 기록 파일 있음 = Enter 0 · rc0 / 없고 입력줄 = TMUXC_BOOT_TEXT 전문(완전 일치)이면 Enter 1회
+#   → 마감(TMUXC_SUBMIT_WAIT초 벽시계) 안 파일 생기면 rc0 · rc 뜻은 claude 갈래와 같다(1 기록 없음 · 2 판독 불가 · 3 근거 없음 · 4 다른 글자).
+boot_enter_pi() {
+  local name="$1" sid="$2" wait_s="$3" text pane st fs now t_end
+  text="$(session_env_value "$name" TMUXC_BOOT_TEXT)" || text=""
+  fs=0; pi_session_file_of "$sid" >/dev/null || fs=$?
+  if [[ "$fs" -eq 0 ]]; then
+    printf 'state=submitted session=%s enters=0 — pi 세션 기록 있음(이미 제출됨)\n' "$name"
+    return 0
+  fi
+  [[ "$fs" -eq 1 ]] || { printf '[HIL] pi 세션 기록 판정 불가 — %s (id=%s) · Enter 0\n' "$name" "$sid" >&2; return 2; }
+  if [[ -z "$text" ]]; then
+    printf '[HIL] 세션 기록 못 찾음 — %s 의 TMUXC_BOOT_TEXT 가 없다 · Enter 0\n' "$name" >&2
+    return 3
+  fi
+  pane="$(pane_id_of "$name")"
+  [[ -n "$pane" ]] || { printf '[HIL] 입력줄 판독 불가 — %s pane 없음 · Enter 0\n' "$name" >&2; return 2; }
+  st=0; input_is_message "$pane" "$text" || st=$?
+  if [[ "$st" -eq 2 ]]; then
+    printf '[HIL] 입력줄 판독 불가 — %s (화면 못 읽음) · Enter 0\n' "$name" >&2
+    return 2
+  fi
+  if [[ "$st" -ne 0 ]]; then
+    printf '[HIL] 입력줄이 부팅 문장 전문이 아니다 — %s · Enter 0(남의 글자·자동완성 제안·빈 줄)\n' "$name" >&2
+    return 4
+  fi
+  now="$(now_ms)"; t_end=$(( now + wait_s * 1000 ))
+  tmux send-keys -t "$pane" Enter
+  while :; do
+    fs=0; pi_session_file_of "$sid" >/dev/null || fs=$?
+    case "$fs" in
+      0) printf 'state=submitted session=%s enters=1\n' "$name"; return 0 ;;
+      2) printf '[HIL] pi 세션 기록 판정 불가 — %s · Enter 1회 뒤\n' "$name" >&2; return 2 ;;
+    esac
+    now="$(now_ms)"
+    (( now < t_end )) || break
+    sleep 0.2
+  done
+  printf '[HIL] 부팅 문장 제출 확인 실패 — %s · Enter 1회 · %s초 안에 pi 세션 기록 없음(재전송 0)\n' "$name" "$wait_s" >&2
   return 1
 }
 
@@ -906,8 +967,9 @@ cmd_open() {
   create_tmux_session "$name" "$root" ${seat_env[@]+"${seat_env[@]}"}
   inject_message "$name" "$run_cmd" shell
   # r925: claude 경로는 아래 guide 주입이 «입력 상자가 그려졌나» 로 스스로 기다린다(고정 sleep 삭제).
-  #        다른 에이전트(codex·cmd·pi) 경로는 종전과 같이 고정 sleep 4 를 둔다(P3 · 회귀 0).
-  [[ "$agent" == "claude" ]] || sleep 4
+  #        다른 에이전트(codex·cmd) 경로는 종전과 같이 고정 sleep 4 를 둔다(P3 · 회귀 0).
+  # r2328: pi 는 아래 주입 전에 pi_wait_input_box 로 기다린다(load 가 높으면 4초 뒤에도 상자가 없다).
+  [[ "$agent" == "claude" || "$agent" == "pi" ]] || sleep 4
 
   local guide
   if [[ "$agent" == "claude" ]]; then
@@ -921,13 +983,17 @@ cmd_open() {
   fi
   local guide_kind="plain"
   [[ "$agent" == "claude" ]] && guide_kind="agent"
-  # r925 r3: 이어가기(tmuxc boot-enter)가 «넣은 전문» 과 완전 일치로만 Enter 하도록 부팅 문장을 세션 env 에 남긴다.
-  if [[ "$agent" == "claude" ]]; then
+  # r925 r3: 이어가기(tmuxc boot-enter)가 «넣은 전문» 과 완전 일치로만 Enter 하도록 부팅 문장을 세션 env 에 남긴다(r2328: pi 도).
+  if [[ "$agent" == "claude" || "$agent" == "pi" ]]; then
     tmux set-environment -t "=$name" TMUXC_BOOT_TEXT "$guide" 2>/dev/null \
       || printf 'WARN TMUXC_BOOT_TEXT 기록 실패(%s) — 이어가기 boot-enter 는 «근거 없음» 으로 멈춘다\n' "$name" >&2
   fi
   local inj_rc=0
-  inject_message "$name" "$guide" "$guide_kind" "$claude_sid" || inj_rc=$?
+  if [[ "$agent" == "pi" ]] && ! pi_wait_input_box "$name"; then
+    printf 'state=not-ready session=%s — pi 입력 상자가 %s초 안에 안 떴다, 주입 0\n' "$name" "${TMUXC_READY_MAX:-30}" >&2
+    inj_rc=1
+  fi
+  [[ "$inj_rc" -ne 0 ]] || inject_message "$name" "$guide" "$guide_kind" "$claude_sid" || inj_rc=$?
   if [[ -n "$prompt" && "$inj_rc" -eq 0 ]]; then
     sleep 0.8
     inject_message "$name" "$prompt" "$guide_kind" "$claude_sid" || inj_rc=$?
@@ -1109,7 +1175,7 @@ cmd_fork() {
   tmux has-session -t "$name" 2>/dev/null && die "session already exists: $name"
   create_tmux_session "$name" "$root" ${seat_env[@]+"${seat_env[@]}"}
   inject_message "$name" "$run_cmd" shell
-  [[ "$agent" == "claude" ]] || sleep 4   # r925 P3: claude 외 경로는 종전 그대로
+  [[ "$agent" == "claude" || "$agent" == "pi" ]] || sleep 4   # r925 P3: claude 외 경로는 종전 그대로 · r2328: pi 는 주입 전 pi_wait_input_box
 
   local parent_hint="${from:-source=$source_id}"
   # 뒤이어 --prompt 가 올 수도, 안 올 수도 있다 — "아래 작업만 수행하라"처럼 작업이
@@ -1128,12 +1194,16 @@ cmd_fork() {
   fi
   local guide_kind="plain"
   [[ "$agent" == "claude" ]] && guide_kind="agent"
-  if [[ "$agent" == "claude" ]]; then
+  if [[ "$agent" == "claude" || "$agent" == "pi" ]]; then
     tmux set-environment -t "=$name" TMUXC_BOOT_TEXT "$guide" 2>/dev/null \
       || printf 'WARN TMUXC_BOOT_TEXT 기록 실패(%s) — 이어가기 boot-enter 는 «근거 없음» 으로 멈춘다\n' "$name" >&2
   fi
   local inj_rc=0
-  inject_message "$name" "$guide" "$guide_kind" "$claude_sid" || inj_rc=$?
+  if [[ "$agent" == "pi" ]] && ! pi_wait_input_box "$name"; then
+    printf 'state=not-ready session=%s — pi 입력 상자가 %s초 안에 안 떴다, 주입 0\n' "$name" "${TMUXC_READY_MAX:-30}" >&2
+    inj_rc=1
+  fi
+  [[ "$inj_rc" -ne 0 ]] || inject_message "$name" "$guide" "$guide_kind" "$claude_sid" || inj_rc=$?
   if [[ -n "$prompt" && "$inj_rc" -eq 0 ]]; then
     sleep 0.8
     inject_message "$name" "$prompt" "$guide_kind" "$claude_sid" || inj_rc=$?
@@ -2059,6 +2129,37 @@ plain_input_line() {
         if (s != "") print s
       }
     }'
+}
+
+# r2328 pi 입력 상자 «쉼» 판독 — 맨 아래 «─────» 위로 가장 가까운 테두리가 «─────» 면 뜸(rc0) · «── <스피너> Working ──» 면 바쁨(rc1)
+#   테두리 없음 = 아직 안 그려짐(rc1) · capture 실패 = rc2. 꼴 = 실물 pi 1.5.2 화면(유휴·바쁨 마지막 8줄 · r2328 카드 상태 줄).
+pi_input_box_idle() {
+  local cap
+  cap="$(tmux capture-pane -t "$1" -p 2>/dev/null)" || return 2
+  printf '%s\n' "$cap" | awk '
+    { l[NR] = $0 }
+    END {
+      for (i = NR; i >= 1; i--) {
+        if (!b) { if (l[i] ~ /^─────/) b = i; continue }
+        if (l[i] ~ /^─────/) exit 0
+        if (l[i] ~ /^── [^ ]+ Working ─/) exit 1
+      }
+      exit 1
+    }'
+}
+
+# r2328 pi 좌석 부팅 글 주입 전 대기 — 고정 sleep 4 대신 입력 상자가 «쉼» 으로 그려질 때까지(claude wait_input_box 와 같은 상한 이름).
+#   상한 = TMUXC_READY_MAX(기본 30)초 벽시계 · 조회 횟수(0.5초 간격 × 상한×2) 중 먼저 닿는 쪽 · rc0 = 뜸 · rc1 = 안 뜸(주입 0은 부른 쪽)
+pi_wait_input_box() {
+  local pane="$1" rmax="${TMUXC_READY_MAX:-30}" deadline n=0
+  [[ "$rmax" =~ ^[0-9]+$ ]] || rmax=30
+  deadline=$(( SECONDS + rmax ))
+  while :; do
+    pi_input_box_idle "$pane" && return 0
+    n=$(( n + 1 ))
+    (( SECONDS < deadline && n <= rmax * 2 )) || return 1
+    sleep 0.5
+  done
 }
 
 # r2059 plain 주입 제출 확인 — Enter 뒤 입력 상자가 비었나 읽는다 · 남았으면 Enter 1회 더 · 최대 3회(submit_enter_loop 와 같은 횟수·간격).
