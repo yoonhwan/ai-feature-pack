@@ -14,6 +14,8 @@ def _adapter(name):  # 어댑터 5파일 = 경로로 읽기만(수정 0) · wiri
     return module
 receive, route, publish, binding, backfill, wiring, channels = map(_adapter, (
     "receive", "route", "publish", "binding", "backfill", "wiring", "channels"))
+alert_intake = _adapter("alert_intake")  # r2337 — 경보 갈래(설정 파일 없으면 갈래 0)
+AUTO = object()  # Listener(alert=AUTO) = 설정에서 만든다 · 시험은 만든 것을 꽂는다
 
 class Undecided(Exception):
     """판정 불가(rc 3) — 메시지에는 이름만 담는다(하드 룰 20)."""
@@ -84,7 +86,8 @@ def _ws_connect(url):
 
 class Listener:  # 상주 수신기 1개 = 연결 1개 · 허용 = CHANNELS on 줄(r1923 · --channel = 파일 없을 때 씨앗 1회) · 팀 1곳
     def __init__(self, root, *, channel=None, app_token, bot_token, master, desk=None, seats=None, team="planner", users=(), bot_users=(),
-                 reply_users=(), web=web_api, connect=_ws_connect, sleep=time.sleep, mono=time.monotonic, notify=None, clock=None):
+                 reply_users=(), web=web_api, connect=_ws_connect, sleep=time.sleep, mono=time.monotonic, notify=None, clock=None,
+                 alert=AUTO):
         self.root, self.master, self.desk, self.web, self.connect, self.sleep = root, master, desk, web, connect, sleep
         self.tank = set(bot_users)  # r1985 — 가입·탈퇴(자동 채널) 신원 = 탱크만 · reply_users = 답 완료에만
         self.seats = seats  # owner-seats 경로 · desk 교대를 재기동 없이 따라감(r1861 R1)
@@ -96,15 +99,26 @@ class Listener:  # 상주 수신기 1개 = 연결 1개 · 허용 = CHANNELS on �
         self.chan = channels.Channels(channels.path_of(root, team), channel, self.log)  # 깨짐·없음 = Corrupt(수신 시작 0)
         self.channel = self.chan.role("main")  # 게시 = 주 채널만 · 묶기 = 허용 전부(주 = master · 그 밖 = desk 또는 owner 칸)
         self.notify = notify or (lambda row: self.log("[notify] " + json.dumps(row, ensure_ascii=False)))
+        self.alert = (alert_intake.AlertIntake(root, team=team, conf=alert_intake.load_config(root, team), log=self.log)
+                      if alert is AUTO else alert)  # r2337 — 설정 없음 = None(수신 결과 지금 그대로)
         self.receive = receive.SlackReceive(root, ack=self._ack, allowed_users=users, allowed_channels=(),
                                             bot_users=tuple(bot_users) + tuple(reply_users), notify=self.notify, replies=self._replies,
-                                            deadline=self.deadline, mono=mono, log=self.log, **same)
+                                            deadline=self.deadline, mono=mono, log=self.log,
+                                            alert=self.alert.feed if self.alert is not None else None, **same)
         self.receive.allowed_channels = self.chan.allowed  # 같은 set 객체 — 발견·등록·삭제가 재기동 없이 반영
         self.router, self.notify = wiring.wire(root, receive=self.receive, bindings=self.bindings, notify=notify,
                                                log=self.log, team=team, clock=clock)  # r1807 깨움·issues·desk 배선
         self.publish = publish.SlackPublish(root, post=self._post, bindings=self.bindings, notify=self.notify, **same)
         self.backfill = backfill.Backfill(root, route=self, fetch=self._fetch, notify=self.notify, **same)
     def run(self, sessions=None):  # 상주 루프 — 반환 = rc(경쟁 수신 4) · sessions = 시험용 연결 횟수 상한
+        if self.alert is not None:  # r2337 — 일꾼 스레드 1 시작(장부 1회 읽어 마감 표 재구성)
+            self.alert.start()
+        try:
+            return self._run(sessions)
+        finally:
+            if self.alert is not None:
+                self.alert.stop()
+    def _run(self, sessions):
         for verdict in self.receive.recover():  # 재기동 1회 복구(A4) — dispatched 면 영수도 같은 길(R1)
             self.router.recovered(verdict)  # r1807 보정1 R2 — 복구 dispatched 도 입구 기록·좌석 깨움
             rows = [r["key"] for r in self.router.entries("route") if r.get("command") == verdict.get("command")]
@@ -137,6 +151,20 @@ class Listener:  # 상주 수신기 1개 = 연결 1개 · 허용 = CHANNELS on �
             return out
     def on_idle(self):  # envelope 0 인 1초 — Slack 읽기·기록 증가·모델 호출 0(타이머로 Slack 을 읽는 코드 0)
         self.receive.pass_idle()
+        if self.alert is not None:  # r2337 G4 — 일꾼 수명 is_alive 1줄(입출력 0)
+            self.alert.on_idle()
+    def _alert_history(self, deadline):  # r2337 G1 — 연결 1번(hello)마다 경보 채널 history 1쪽 1회(폴링 아님)
+        if self.alert is None:
+            return
+        oldest = self.alert.oldest()
+        for channel in self.alert.channels:
+            if deadline - self.mono() <= 0:
+                return self.log("판정 불가 경보 history 예산 끝 — 보충 중단")
+            try:
+                out = self._web("conversations.history", {"channel": channel, "oldest": oldest, "limit": 200}, deadline)
+            except Exception as exc:
+                return self.log("판정 불가 경보 history %s — %s" % (channel, type(exc).__name__))
+            self.alert.ingest(out.get("messages") or [], bool(out.get("has_more")))
     def _hello(self, env, reconnect, deadline):
         if env.get("type") != "hello":
             raise RuntimeError("hello 없음")
@@ -150,6 +178,7 @@ class Listener:  # 상주 수신기 1개 = 연결 1개 · 허용 = CHANNELS on �
             self.log("판정 불가 자동 채널 — %s" % type(exc).__name__)
         if len(self.chan.explicit()) > 1:  # r1833 C2 — 참여 확인 = main·admin·req 줄만(채널 1개 = 2ea518 그대로 · C4)
             self._members(deadline)
+        self._alert_history(deadline)  # r2337 — 재연결·재시작 사건마다 1회(첫 세션 포함 · 첫 세션 reconnect=False)
         if reconnect:  # 재연결 사건 1회 = 보충 1회(주기 폴링 0)
             self.backfill.run(backfill.RECONNECT, [(r["seat"], r["key"][1], r["key"][2])
                                                    for r in self.bindings.settled().values() if r["open"]])
