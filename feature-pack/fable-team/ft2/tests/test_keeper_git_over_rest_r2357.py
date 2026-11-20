@@ -4,12 +4,17 @@
 바퀴 사이는 **새 Keeper**(state.json 만 이어진다 = 실제 `keeper --once` 꼴 · `Rig.boot`).
 Rig 주입값(DA#46 M-b): 바퀴 한 장 = ROUND_S 60초(업무 구획 WORK_S 45초 · report 55 · 마무리 60) ·
 git 넘김 주입 = 8초 1회 — 로컬 git 상한 GIT_S 7초에서 끊겨 시계는 7초만 흐른다(GIT_COST) ·
-바퀴 사이 간격 = 125초(카드 «약 120초» + 7초 넘김 몫 — 그래서 쉼 600초가 바퀴2~5 를 덮고 바퀴6 에 풀린다) · REST_S = 600초.
+바퀴 사이 간격 = 125초(카드 «약 120초» + 7초 넘김 몫 — 그래서 쉼 600초가 바퀴2~5 를 덮고 바퀴6 에 풀린다) · REST_S = 600초 ·
+② 의 바퀴 머리 = 18초(실사건 «ROUND items 1/97» 꼴 — fetch·나노 모으기가 예산을 먼저 먹는다 · `boot(head=…)`).
 
-② 의 기준판 적음(실측): 카드 «기준판 = 6바퀴 동안 a b2f 0» 은 work 3장 세계에서 재현 0 이다 —
-3장 × 7초 = 21초 < 업무 예산 45초라 기준판도 매 바퀴 b2f 에 닿는다(6바퀴 b2f 1·1·1·1·1·1).
-대신 기준판이 값으로 드러나는 곳 = 같은 work 를 매 바퀴 다시 부르는 것(6바퀴 git 7초 넘음 18줄 · 고친 판 3줄)이라
-② 는 «바퀴2 에 a 의 landing 0 · a b2f 1회 · b land 1회» 로 적고, 기준판(변이 M1)이 그 바퀴에 landing 3회로 FAIL 하는 것을 Red 로 삼는다.
+② 의 세계·기준판(실측 · DA#47 HOLD 1/2 반영): 팀 a work 5장 전부 git 8초 · 뒤 팀 b · 바퀴 머리 18초.
+- 굶음 = 5장 × 7초 = 35초 + 머리 18초 = 53초 > 업무 예산 45초 → 바퀴마다 w4 의 landing 이 예산에서 끊긴다(R2 · 그 바퀴는 b2f·뒤 팀까지 못 간다).
+- 고친 판 = 바퀴2 부터 매 바퀴 a b2f 1회 · b land 1회(쉼이 붙은 뒤로 5장이 예산을 안 먹는다) — 6바퀴 실측 = 0·1·1·1·1·1.
+- 기준판 = 홀수 바퀴(3·5번째)에 a b2f 0 · b land 0 — 같은 work 5장이 매 바퀴 35초를 다시 써서 그 바퀴가 w4 에서 끊긴다. 6바퀴 실측 = 0·1·0·1·0·1.
+- 카드 «기준판 = 6바퀴 동안 a b2f 0» 은 그래서 «6바퀴 중 3바퀴 0(홀수 바퀴)» 으로 적었다 — 이 대역에서 6바퀴 전부 0 인 세계는 고친 판도 0 이라(같은 pass 를 다시 도는 구조) ② 가 아무것도 못 가른다.
+- DA#47 이 짚은 «4장이면 28초 ≥ 22.5 → b2f 앞 TEAM-CAP» 은 실측과 다르다. TEAM-CAP 문턱은 그 팀이 그 바퀴에 쓴 초만 센다(바퀴 머리 초는 team_at 앞이라 안 들어간다)
+  → 3장 = 문턱 14초 · 4장 = 21초 < 22.5 = TEAM-CAP 0줄 · 5장 = 28초 ≥ 22.5 = TEAM-CAP 1줄(머리 0초일 때). 그 5장·머리 0초 세계도 재 봤지만 기준판이 b2f 에 닿는다(6바퀴 0·1·0·0·1·0) — 굶음을 가르는 값이 약하다.
+  그래서 ② 는 «머리 18초 + 5장» 으로 두었고, 굶음은 TEAM-CAP 이 아니라 R2 예산 끊김으로 온다(같은 실사건 «바퀴 예산이 그 팀 b1 에서 끝난다»).
 """
 import datetime
 import json
@@ -19,7 +24,7 @@ import pytest
 
 from test_keeper_round_60s import FT2, KP, Rig, field, line
 
-GIT8, GIT_COST, WHEEL, REST_S = 8.0, 7.0, 125, 600   # 주입 초 · 실제로 흐르는 초 · 바퀴 간격 · 쉼 창
+GIT8, GIT_COST, WHEEL, REST_S, HEAD = 8.0, 7.0, 125, 600, 18.0   # 주입 초 · 실제로 흐르는 초 · 바퀴 간격 · 쉼 창 · ② 바퀴 머리 초
 
 
 def stamp(seconds):
@@ -49,11 +54,13 @@ def hands(w, slow=(), waits=None):
     w.k.landing = landing
 
 
-def boot(w, n, slow=(), attempts=None, waits=None, done=None, returns=None):
+def boot(w, n, slow=(), attempts=None, waits=None, done=None, returns=None, head=0.0):
     """n번째 바퀴 1장 — 주입 시계 = (n-1) × WHEEL · 새 Keeper(state.json 다시 읽음) · 대역 손 다시 건다."""
     w.t = (n - 1) * WHEEL
     w.boot()
     hands(w, slow, waits)
+    if head:   # 바퀴 머리(fetch·나노 모으기)가 업무 예산을 먼저 먹는다 — 실사건 «items 1/97» 꼴
+        w.mod.Keeper.__init__.__globals__["kf"].collect = lambda k: w.wait(head)
     if attempts:   # 그 work 만 새 dispatch attempt(키가 달라진다)
         base = w.rows
         w.k.rows_of = lambda team: [dict(r, attempt=attempts.get((team, r["work"]), r["attempt"])) for r in base(team)]
@@ -86,15 +93,19 @@ def c1(w):   # ① 팀 a · w1 git 8초 → «git 7초 넘음» + «GIT-OVER» 1
     assert w.state()["git_over"] == {"a|w1@a1": GIT_COST + REST_S}, w.state()
 
 
-def c2(w):   # ② 실사건 꼴: 팀 a work 3장이 매 바퀴 git 7초 · 뒤 팀 b → 바퀴2 에 a landing 0 · a b2f 1회 · b land 1회
-    w.teams, w.works = ["a", "b"], {"a": ["w1", "w2", "w3"], "b": ["w1"]}
-    slow = {("a", "w1"), ("a", "w2"), ("a", "w3")}
-    boot(w, 1, slow)
-    assert len(line(w.k, "GIT-OVER")) == 3 and len(line(w.k, "판정 불가")) == 3, w.k.lines
-    got = boot(w, 2, slow)
-    assert lands(got, "a") == [], got   # 바퀴1 이 쉬게 한 3장은 이 바퀴에 다시 부르지 않는다
-    assert ["fill", "a"] in got and ["land", "b", "w1"] in got, got
-    assert line(w.k, "GIT-OVER") == [] and line(w.k, "판정 불가") == [], w.k.lines
+def c2(w):   # ② 실사건 꼴: 팀 a work 5장이 매 바퀴 git 7초 + 바퀴 머리 18초 · 뒤 팀 b → 바퀴2 부터 매 바퀴 a b2f 1회 · b land 1회(기준판 = 홀수 바퀴 굶음)
+    works = ["w1", "w2", "w3", "w4", "w5"]
+    w.teams, w.works = ["a", "b"], {"a": works, "b": ["w1"]}
+    slow = {("a", work) for work in works}
+    got = boot(w, 1, slow, head=HEAD)   # 바퀴1 = 5장이 45초 예산을 다 먹어 w4 에서 끊긴다 → b2f·뒤 팀 0(실사건 그대로)
+    armed = len(line(w.k, "GIT-OVER"))
+    assert [d[2] for d in lands(got, "a")] == ["w1", "w2", "w3", "w4"], got
+    assert ["fill", "a"] not in got and ["land", "b", "w1"] not in got, got
+    for n in (2, 3, 4, 5, 6):   # 바퀴2 부터 매 바퀴 빈 칸 채우기와 뒤 팀이 돈다(쉼 = 5장이 예산을 안 먹는다)
+        got = boot(w, n, slow, head=HEAD)
+        assert ["fill", "a"] in got, (n, got)   # 기준판은 여기서 선다 = 홀수 바퀴에 b2f·뒤 팀이 굶는다
+        assert ["land", "b", "w1"] in got, (n, got)
+    assert armed == 3, w.k.lines   # 바퀴1 이 쉬게 한 3장(w4 는 예산에서 끊겨 못 쉬었다)
 
 
 def c3(w):   # ③ 바퀴 사이 state.json 만 이어도(새 Keeper = 실제 --once 꼴) ① 과 같은 결과
