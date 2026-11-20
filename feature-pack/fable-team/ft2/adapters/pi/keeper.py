@@ -23,6 +23,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 FT2 = os.path.dirname(os.path.dirname(HERE))
 GIT_S, CALL_S, ROUND_S, STALE_S, FETCH_S = 7, 7, 60, 600, 7   # r2098 R7 로컬 git 상한 25 → 7(하드 룰 12) · FETCH_S = fetch 1회 7초(+ 재시도 1)
 SLOW_S = 5   # r1992 바깥 호출 1시도 ≥ 5초 = SLOW-CALL 1줄(동작 변경 0)
+REST_S = 600   # r2357 K1 git 7초 넘은 work 의 쉼 창(5바퀴 × 바퀴 간격 약 120초) · 호출 상한 아님(하드 룰 12 밖)
 ITEM_STAGES, ITEM_SLOW_S = ("b1", "b2f"), 3   # r2339 I1 항목 = 한 work 안에서 재는 칸(b1·b2f 만) · I3 이 초 이상 쓴 항목만 ITEM-SLOW 1줄
 OK = "접수 성공"
 WORK_S, REPORT_S, TAIL_S = 45, 55, 60   # R1 구획 = 업무 0~45 · report 45~55 · 마무리 55~60(바깥 호출 0)
@@ -388,6 +389,32 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
             if (team, work, stage) not in self.seen:
                 self.unused.add((team, work, stage))
 
+    @staticmethod
+    def git_key(team, work, attempt):
+        """r2357 K1 — 쉼 장부 키(새 dispatch = attempt 가 달라 곧바로 판독한다)."""
+        return "%s|%s@%s" % (team, work, attempt)
+
+    def git_rest(self, team, work, attempt):
+        """r2357 K2 — git 7초 넘음으로 쉬는 중이면 남은 초 · 키 없음·풀림 = None(지금처럼 판독한다)."""
+        until = (self.state.get("git_over") or {}).get(self.git_key(team, work, attempt))
+        return until - self.now() if until and self.now() < until else None
+
+    def git_rest_set(self, team, work, attempt):
+        """r2357 K1 — git 7초 넘은 work 를 REST_S 만큼 쉬게 한다 · 쉬는 중 다시 Ungraded 면 창을 늘리지 않는다."""
+        over, key, now = self.state.setdefault("git_over", {}), self.git_key(team, work, attempt), self.now()
+        if (over.get(key) or 0) > now:
+            return None   # 쉼 중(stall 자리 git 등) = 풀리는 시각 그대로(DA#46 M2)
+        over[key] = now + REST_S
+        return self.log("GIT-OVER", team, "%s %s 까지 쉼" % (work, datetime.datetime.fromtimestamp(over[key]).strftime("%Y-%m-%dT%H:%M:%S")))
+
+    def git_rest_sweep(self):
+        """r2357 K3 — 바퀴 끝 · 풀리는 시각이 지난 키를 모두 지운다(팀·attempt 무관 · 방문 횟수 셈 0)."""
+        over, now = self.state.get("git_over") or {}, self.now()
+        for key in [k for k, until in over.items() if not until or until <= now]:
+            over.pop(key)
+        if not over:
+            self.state.pop("git_over", None)   # 남은 키 0 = 칸도 지운다(state.json 깨끗하게)
+
     def team_key(self, team, work, stage):
         """r2323 T2 — 팀 안 자리 좌표(work 차례, 칸 차례) · team_cursor 는 그 팀 안에서만 견준다."""
         works = self.works_of(team) if team in self.order else []
@@ -551,6 +578,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         try:
             self.state.update(self.read_json(path))
             out = body()
+            self.git_rest_sweep()   # r2357 K3 — 바퀴 끝(Cut·Ungraded 로 끊긴 바퀴 포함 · state 쓰기 바로 앞)
             with open(path + ".tmp", "w", encoding="utf-8") as fh:
                 json.dump(self.state, fh, ensure_ascii=False, sort_keys=True)
             os.replace(path + ".tmp", path)
@@ -806,6 +834,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
             try:
                 close = self.one_work(team, work, attempt, row, dispatched, rows)
             except Ungraded:
+                self.git_rest_set(team, work, attempt)   # r2357 K1 — git 7초 넘은 work 는 REST_S 동안 다시 부르지 않는다
                 self.left_over(team, work)   # R7 git 7초 = 그 자리 남은 판정 0 · 다음 자리
                 continue
             except Exception as exc:   # r2115 A2 예상 밖 예외 = 그 work 1줄 · close 0 · 다음 work(Cut 같은 BaseException = 위로)
@@ -872,6 +901,8 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
             endings.evidence_notice(self, team, work)   # r2088 증거 줄 없음 안내(close 바로 앞 · 쓰기 0)
             return "close"
         self.at_pos("b1")
+        if self.git_rest(team, work, attempt) is not None:   # r2357 K2 — 쉼 중 = landing·complete·ending 0 · stall 자리만(줄 0)
+            return self.stall_pos(team, work, attempt, dispatched, row, rows, "판정 불가 · git 쉼")
         landed = self.timed("b1", self.landing, team, work, work=work)   # r2183 H1 착지 판정 초 = b1 칸(앞 판과 같다)
         if landed[0] and not landed[2] and self.sock and not self.land_ready(team, work, attempt, dispatched):
             return "none"   # r2055 A6·S4-1 landed-wait · complete·kill 0
