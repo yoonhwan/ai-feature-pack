@@ -158,12 +158,19 @@ class Listener:  # 상주 수신기 1개 = 연결 1개 · 허용 = CHANNELS on �
             return
         oldest = self.alert.oldest()
         for channel in self.alert.channels:
-            if deadline - self.mono() <= 0:
-                return self.log("판정 불가 경보 history 예산 끝 — 보충 중단")
-            try:
-                out = self._web("conversations.history", {"channel": channel, "oldest": oldest, "limit": 200}, deadline)
-            except Exception as exc:
-                return self.log("판정 불가 경보 history %s — %s" % (channel, type(exc).__name__))
+            for attempt in (1, 2):  # 7초 상한 · 재시도 1 · 남은 예산 ≤0 = 호출 0
+                if deadline - self.mono() <= 0:
+                    return self.log("판정 불가 경보 history 예산 끝 — 보충 중단")
+                try:
+                    out = self._web("conversations.history",
+                                    {"channel": channel, "oldest": oldest, "limit": 200}, deadline)
+                    break
+                except Exception as exc:
+                    if attempt == 2:
+                        self.log("판정 불가 경보 history %s — %s" % (channel, type(exc).__name__))
+                        out = None
+            if out is None:
+                continue
             self.alert.ingest(out.get("messages") or [], bool(out.get("has_more")))
     def _hello(self, env, reconnect, deadline):
         if env.get("type") != "hello":

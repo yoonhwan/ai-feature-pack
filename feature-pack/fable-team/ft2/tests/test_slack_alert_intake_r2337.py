@@ -412,6 +412,7 @@ class Band:
 
     def __init__(self, scripts, alert_rows):
         self.scripts, self.alert_rows, self.calls, self.oldest = list(scripts), list(alert_rows), [], []
+        self.fail_history = 0  # 첫 호출 실패 횟수(재시도 1 확인용)
         self.server = serve(self._handler, "127.0.0.1", 0)
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
         self.url = "ws://127.0.0.1:%d" % self.server.socket.getsockname()[1]
@@ -427,6 +428,9 @@ class Band:
         if method == "apps.connections.open":
             return {"ok": True, "url": self.url}
         if method == "conversations.history":
+            if self.fail_history:
+                self.fail_history -= 1
+                raise RuntimeError("slack_down")
             oldest = float((params or {}).get("oldest") or 0)
             self.oldest.append(oldest)
             return {"ok": True, "has_more": False,
@@ -489,9 +493,10 @@ def case_16(tmp, mod=M, band_of=None, base=FT2):
     band = band_of([[HELLO, {"type": "disconnect", "reason": "refresh"}], [HELLO]],
                    [post("1700000100.000100", state="닫힘"),
                     post("1700000101.000100", inc="0.beef000011112222", policy="[TEST r2337] byz-redis cpu &gt; 0 시험")])
+    band.fail_history = 1  # 첫 호출 실패 → 재시도 1로 잇는다
     listener = _listen(sock, tmp, band, alert)
     assert listener.run(sessions=2) == 0
-    assert band.calls.count("conversations.history") == 2  # 연결 2번 = 1쪽씩
+    assert band.calls.count("conversations.history") == 3  # 연결 2번 = 1쪽씩 + 재시도 1
     assert band.oldest[0] == pytest.approx(1700000001.0001)  # oldest = 장부 마지막 글 ts
     pump(alert, clock)
     assert inc_of(tmp)["closed_at"] is not None  # 끊김 동안 닫힘 반영
@@ -499,7 +504,7 @@ def case_16(tmp, mod=M, band_of=None, base=FT2):
     assert len([r for r in rows(tmp) if r.get("t") == "mail" and r.get("sent")]) == 2  # 새 사건 1(중복 0)
     pump(alert, clock, 1800)
     assert any("닫힘" in body for body in notes(alert.send))
-    assert band.calls.count("conversations.history") == 2  # 그 뒤 이벤트 0 = 호출 0
+    assert band.calls.count("conversations.history") == 3  # 그 뒤 이벤트 0 = 호출 0
 
 
 def case_17(tmp, mod=M):
