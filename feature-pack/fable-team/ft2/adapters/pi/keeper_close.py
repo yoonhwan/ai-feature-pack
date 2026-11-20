@@ -191,7 +191,8 @@ class Closing:
     def superseded_back(self, team, proj, latest):
         """r2352 K2 — 이미 닫기 영수를 받고(close 키) done 0 으로 굳은 superseded 일을 다음 바퀴에 되찾는다.
         landing 1회(카드 캐시) → K1 관문 → complete → done 재확인만 · receipt·kill 0 · 후보 판독(ending git 포함)과 되찾기 모두 팀마다 바퀴당 1건 ·
-        상한 SUPERSEDED_CAP(셈 = keeper 자기 상태 파일 superseded_retry · done 되면 지움) · 반환 = 이번 바퀴에 끝낸 work(닫기 길이 같은 일을 다시 보지 않게)."""
+        상한 SUPERSEDED_CAP(셈 = keeper 자기 상태 파일 superseded_retry · done 되면 지움) · 반환 = 이번 바퀴에 끝낸 work(닫기 길이 같은 일을 다시 보지 않게).
+        DA#46 B1 — 대체 아닌 끝도 같은 셈을 올린다(이름순 앞의 suspended·PARKED 영수 일이 뒤 대체 일을 영영 가리지 않게 · 상한 뒤엔 probe·판독 앞에서 빠진다)."""
         book, book_done = self.state.setdefault("superseded_retry", {}), (keeper_next.ft2_state(self, team) or {}).get("done") or {}
         for work in sorted(latest):
             attempt, holder = latest[work] or (None, None)
@@ -202,11 +203,12 @@ class Closing:
                 book.pop(key, None)   # done = 셈 지움
                 continue
             if book.get(key, 0) >= SUPERSEDED_CAP:
-                continue   # 상한 넘음 = 다음 바퀴부터 0
+                continue   # 상한 넘음 = 후보에서 뻐짐(probe·판독 앞 · DA#46 메모 2) · 다음 후보로
             if not holder or self.probe(holder) != "absent":
                 continue   # 세션 살아 있음·판정 불가 = 닫기 길이 본다
             got = endings.ending(self, team, work)   # 후보 판독 = 팀마다 바퀴당 1건
             if not (isinstance(got, tuple) and got[0] == "superseded"):
+                book[key] = book.get(key, 0) + 1   # DA#46 B1 — 대체 아닌 끝(suspended·PARKED 영수)도 셈을 올려 상한 2 뒤 다음 후보로(Git 판독 끝없음 0)
                 return None
             self.landing(team, work)   # 관문이 읽을 카드 캐시 1회(다시 show 0)
             if self.superseded_complete(team, work, attempt, "되찾기"):

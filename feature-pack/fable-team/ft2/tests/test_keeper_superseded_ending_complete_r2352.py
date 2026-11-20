@@ -1,4 +1,4 @@
-"""r2352 ft2 keeper — keeper 가 «대체(superseded)» 끝으로 나노 좌석을 닫은 일도 complete 관문 1회를 거쳐 done 이 된다(카드 계약 K1~K3 · 반례 ①~⑦ · 변이 M1~M5).
+"""r2352 ft2 keeper — keeper 가 «대체(superseded)» 끝으로 나노 좌석을 닫은 일도 complete 관문 1회를 거쳐 done 이 된다(카드 계약 K1~K3 · 반례 ①~⑧ · 변이 M1~M6).
 ① 대체 끝 · 관문 통과 · 세션 alive → kill 1 → CLOSED-ENDING → RECEIPT → complete 1 → COMPLETED 1 · done 1
 ② ① 에서 관문 거절(남은 범위 줄 없음) → complete 0 · UNKNOWN 사유 1줄 · done 0
 ③ r1965 꼴: close 키 있음 · done 0 · absent · superseded · 카드 고침 → 다음 바퀴 landing 1 · complete 1 · close-receipt 0 · done 1
@@ -7,7 +7,7 @@
 ⑥ suspended 끝 → complete 0(지금과 같음) · ⑦ empty 끝(이미 done) → complete 0 · 줄 변화 0
 대역 = r2055 settle 세계(keeper_world_r1812 임시 root·두 ref·가짜 tmux·가짜 gh·주입 시계) + 실 cli complete(임시 root) · 실 tmux·실 keeper 상주·실 pi·네트워크 0 ·
 complete 셈 = 이 바퀴 keeper_close 의 cli.run 대역(감싸서 세고 그대로 부른다) · sleep 0 · 시험 1개 70초.
-기준판(팩 origin/main 0225f4c7) = ① ③ Red(complete 0 · done 0) · ② ④ ⑤ ⑥ ⑦ = 지킴(양성 회귀). 변이 M1~M5 = 자매 파일 ..._mut_r2352.py.
+기준판(팩 origin/main 0225f4c7) = ① ③ Red(complete 0 · done 0) · ② ④ ⑤ ⑥ ⑦ = 지킴(양성 회귀) · ⑧ 은 0225f4c7 에 이 길이 없어 Red. 변이 M1~M6 = 자매 파일 ..._mut_r2352.py.
 """
 import importlib.util
 import json
@@ -35,11 +35,13 @@ def card(w, work, body):
         w.commit("byz", {"design/harness/indices/진행/%s-x.md" % work: body}, ref)
 
 
-def world(tmp, mp, works=("r9352",), scope=(), ft2=FT2, done=()):
-    """일 n개 = 카드(대체 끝) → nano 좌석(접수·배정·전달·intent·세션 살아 있음) · scope = «남은 범위: 없음» 줄 있는 work."""
+def world(tmp, mp, works=("r9352",), scope=(), ft2=FT2, done=(), bodies=None):
+    """일 n개 = 카드(대체 끝) → nano 좌석(접수·배정·전달·intent·세션 살아 있음) · scope = «남은 범위: 없음» 줄 있는 work ·
+    bodies = work → 카드 본문(그 밖 = 대체 끝 본문)."""
     w = S.world(tmp, mp, ft2)
     for work in works:
-        card(w, work, BODY % (work, "- 남은 범위: 없음\n" if work in scope else ""))
+        body = (bodies or {}).get(work) or BODY % (work, "- 남은 범위: 없음\n" if work in scope else "")
+        card(w, work, body)
         S.nano(w, work, done=work in done)
     return w
 
@@ -64,6 +66,18 @@ def done(w, work):
 def retry(w):
     path = w.state / "ft2-keeper" / "state.json"
     return json.loads(path.read_text(encoding="utf-8")).get("superseded_retry") or {} if path.exists() else {}
+
+
+def reading_of(k, work):
+    """이 바퀴 keeper_close 가 그 work 의 끝을 읽은 횟수(가짜 아님 · endings.ending 을 감싸 센다) · 반환 = (셈 list, 되돌리기)."""
+    mod = k.superseded_complete.__func__.__globals__["endings"]
+    real, calls = mod.ending, []
+
+    def ending(*a, **kw_):
+        calls.extend([a[2]] if len(a) > 2 and a[2] == work else [])
+        return real(*a, **kw_)
+    mod.ending = ending
+    return calls, lambda: setattr(mod, "ending", real)
 
 
 def complete_calls(k, fail=False):
@@ -163,19 +177,35 @@ def c7(w, mp):   # ⑦ empty 끝(이미 done) → complete 0 · 줄 변화 0(끝
     assert has(lines, "COMPLETED") == [] and done(w, "r9357") and retry(w) == {}, lines
 
 
-CASES = {"①": c1, "②": c2, "③": c3, "④": c4, "⑤": c5, "⑥": c6, "⑦": c7}
-WORKS = {"⑤": ("r9358", "r9359"), "⑥": (), "⑦": ()}   # ⑥⑦ = 카드를 그 사례가 직접 만든다
+def c8(w, mp):   # ⑧ 이름순 앞 = suspended 끝 · 뒤 = 대체 끝(카드 고침) → 4바퀴 안에 뒤 일 COMPLETED 1 · 앞 일 끝 판독 ≤ 2회(DA#46 B1)
+    w.round(w.keeper())   # 두 일 닫힘(r9350 suspended · r9352 대체 + 관문 거절)
+    assert w.kinds("close_receipt") == 2, w.kinds("close_receipt")
+    scope(w, "r9352")     # 뒤 일 카드 고침
+    got = []
+    for _ in range(4):
+        k = w.keeper()
+        reads, stop = reading_of(k, "r9350")
+        got.append((len(has(w.round(k), "COMPLETED", TEAM, "r9352")), len(reads)))
+        stop()
+    assert sum(x for x, _ in got) == 1 and done(w, "r9352"), got   # 앞 일이 뒤 일을 가리지 않는다
+    assert sum(y for _, y in got) <= 2 and not done(w, "r9350"), got   # 상한 2 뒤 앞 일 판독 0(git 판독 끝없음 0)
+
+
+CASES = {"①": c1, "②": c2, "③": c3, "④": c4, "⑤": c5, "⑥": c6, "⑦": c7, "⑧": c8}
+WORKS = {"⑤": ("r9358", "r9359"), "⑥": (), "⑦": (), "⑧": ("r9350", "r9352")}   # ⑥⑦ = 카드를 그 사례가 직접 만든다
 SCOPE = {"①": ("r9352",)}   # «남은 범위: 없음» 줄을 카드에 넣을 사례(그 밖 = 관문 거절 · 되찾기)
 ALL_DONE = {"⑦": ("r9357",)}
+BODIES = {"⑧": {"r9350": STOP % "r9350"}}   # 앞 일 = suspended 끝(이름순 앞 · K2 후보 조건은 다 채운다)
 
 
 def build(tmp, mp, ft2=FT2, name="①"):
-    return world(tmp, mp, ft2=ft2, works=WORKS.get(name, ("r9352",)), scope=SCOPE.get(name, ()), done=ALL_DONE.get(name, ()))
+    return world(tmp, mp, ft2=ft2, works=WORKS.get(name, ("r9352",)), scope=SCOPE.get(name, ()), done=ALL_DONE.get(name, ()),
+                 bodies=BODIES.get(name, {}))
 
 
 def mutant(tmp_path, mp, pairs, case, name):
     """사본 ft2 의 변이(pairs = [(파일, old, new)] · 각 old 1회) → 그 사례 FAIL · 원본으로 같은 사례 1회 더 = 통과(반대 결과 대조).
-    자매 = test_keeper_superseded_ending_complete_mut_r2352.py(변이 M1~M5 · 70초 나눔)."""
+    자매 = test_keeper_superseded_ending_complete_mut_r2352.py(변이 M1~M6 · 70초 나눔)."""
     tree = tmp_path / "m" / "ft2"
     shutil.copytree(FT2, tree, ignore=shutil.ignore_patterns("tests", "__pycache__"))
     for rel, old, new in pairs:
