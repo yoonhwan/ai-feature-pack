@@ -186,7 +186,7 @@ PY
 ! block_ok "$TMP/gov-l2.md" && ok "$(secs "M5 governance 블록 줄 2 지움 → ⑥ FAIL 재현")" || bad "M5 가 ⑥ 에 안 잡힘" ""
 block_ok "$GOV_REAL" && ok "$(secs "M5 원본 대조 — ⑥ 다시 통과")" || bad "M5 원본 대조" ""
 # M6 sed 에 더한 tester 머리 3개 되돌림 → ⑦ FAIL(블록 2번)
-mut; patch '열린 칸 감시: |tester 목적 0 =|기다림 = sleep 폴링 0|press 단계 = 작업 폴더)' '열린 칸 감시: )' || bad "M6 적용" "$MUT"
+mut; patch '|tester 목적 0 =|기다림 = sleep 폴링 0|press 단계 = 작업 폴더' '' || bad "M6 적용" "$MUT"
 printf '%s\n' '골 원문 1줄' '골 원문 2줄' '골 원문 3줄' "$EXPECT" '본문 나머지' '열린 칸 감시: 없음' > "$BODY"
 world pi; reset_out; run pi
 { [ "$(scount 'tester 목적 0 =')" = 2 ]; } \

@@ -524,7 +524,7 @@ so_send_ready || so_budget_stop "검증 송신(송신·도달 예산 ${SEND_RESE
 # ★r1037 이월 1★: 알림줄 꼬리(r1036 · FT_DOORBELL_TAIL)를 «송신과 링 재시도 둘 다»에 켠다 — 낱말은 본문에 싣지 않는다(본문은 도구 결과라 효과가 불확실하고 둘째 경로로 샌다).
 # r1443: 승계 좌석도 부팅 1회 기억 로드를 받는다(BLOCK 300자 상한은 건드리지 않고 별도 1줄로 붙인다)
 LESSONS_LINE="좌석 기억(1회 로드)= FT_SEAT_NAME=$NAME FT_TEAM=${FT_TEAM:-} bash .fable-team/bin/ft-lessons.sh snapshot — 팀·좌석 LESSONS ≤2KB(세션 중 add 는 파일에만 · 다음 부팅 반영)."
-SEND_TEXT="$( { sed -n '1,3p' "$BODY"; printf '%s\n' "$BLOCK"; printf '%s\n' "$LESSONS_LINE"; printf '%s\n' "$WATCH"; sed -n -E '4,${/^(목적 0 =|크론 0|배정표 |좌석 기억\(1회 로드\)=|승계 이월 |열린 칸 감시: |tester 목적 0 =|기다림 = sleep 폴링 0|press 단계 = 작업 폴더)/d;p;}' "$BODY"; } )"  # r1391/r1443 — 골 3줄 + 지침 블록 + 기억 로드 1줄 + 본문 4행~ · r1863 4행~ 의 지침 머리 5개 줄은 뺀다(도구 줄이 정본) · r1957 감시 줄 = 기억 로드 바로 다음(4행~ 에서는 뺀다) · r2364 tester 블록 머리 3개도 뺀다(블록 2번 0)
+SEND_TEXT="$( { sed -n '1,3p' "$BODY"; printf '%s\n' "$BLOCK"; printf '%s\n' "$LESSONS_LINE"; printf '%s\n' "$WATCH"; sed -n -E '4,${/^(목적 0 =|크론 0|배정표 |좌석 기억\(1회 로드\)=|승계 이월 |tester 목적 0 =|기다림 = sleep 폴링 0|press 단계 = 작업 폴더|열린 칸 감시: )/d;p;}' "$BODY"; } )"  # r1391/r1443 — 골 3줄 + 지침 블록 + 기억 로드 1줄 + 본문 4행~ · r1863 4행~ 의 지침 머리 5개 줄은 뺀다(도구 줄이 정본) · r1957 감시 줄 = 기억 로드 바로 다음(4행~ 에서는 뺀다) · r2364 tester 블록 머리 3개도 뺀다(블록 2번 0)
 if [ "${NAME#*-master-}" != "$NAME" ]; then
   if [ "$CARRY" = 1 ]; then
     SEND_TEXT="$SEND_TEXT"$'\n'"승계 이월 1: 앞 세션의 확대 사고를 이어 받는다. 문제가 풀리면 다음 승계에서 이월 0."
