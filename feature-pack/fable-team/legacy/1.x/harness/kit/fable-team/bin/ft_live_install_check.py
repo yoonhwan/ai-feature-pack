@@ -16,6 +16,8 @@ r1407: 루트 명부(FT_ROOTS_TSV · 기본 ~/.claude/fable-team/roots.tsv) 각 
 → `DRIFT live-bin <경로> pinned=<판> want=<판>` (옛 판 포인터로 좌석 열기가 막힌 airag 1.1.14 사건) · 포인터 없음 = 줄 0 · 절대경로 폴더 아님 = ERROR rc3 · 포인터 수정 0.
   게이트 = 루트 포인터 + 살아 있는 tmux pane cwd 가 든 worktree 만(DA #298671) · 나머지 stale worktree = `INFO live-bin inactive=<n>`(rc 불변) ·
   tmux(FT_TMUX) cwd 는 한 번만 · `no server running` = 빈 좌석 · 그 밖 실패 = 판정 불가 rc3.
+r2325: --clear-pending <루트> = opt-in 지움 1개 — --range A..B 와 함께일 때만 · 검사 OK ∧ 그 착지의 대기 파일(<루트>/.fable-team/state/install-pending/<Q>.txt) 본문에 «range=<M>..<Q>» 줄이 정확히 1개 ∧ 그 Q = 파일 이름 Q ∧ A 가 M 의 조상이면 지우고 `CLEARED install-pending <Q 10자>` 1줄.
+  나머지 갈래 = 파일 그대로 + `KEEP install-pending <Q 10자> <사유>` 1줄(검사 rc≠0 · 파일 없음 · range 줄 0·2개 이상 · Q 불일치 · A 가 M 의 조상 아님) / `판정 불가 — install-pending …` 1줄(is-ancestor rc≥2 · 못 푸는 sha — 하드 룰 20). 옵션 없으면 쓰기 0 · 출력 줄 0(그대로).
 r1394: 이 머신에서 «의도로 끈» launchd 라벨은 NOTLOADED 로 세지 않는다 — LaunchAgents 에 <라벨>.plist 가 없고 <라벨>.plist.off-* 가 있거나, 프로젝트 루트 `.fable-team/state/launchd-intent-off.tsv`(탭 3칸: 라벨·사유·근거)에 그 라벨 행이 있으면 `SKIP 의도 끔 <라벨> — <사유>` 1줄(OK 집계 · PENDING 아님). 명단이 깨짐(칸 수 ≠3 · 빈 사유) = ERROR rc3 · 켜기·끄기 0.
 """
 import fnmatch
@@ -30,11 +32,14 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ft_plist_env  # noqa: E402 — r426 설치기 관리 plist 렌더(같은 폴더 · 설치본에도 함께 복사)
 
 KD = MAPPATH = KBIN = ""  # main 이 --kit 으로 채운다(리포 기준 키트 경로 · 끝 / )
+PEND = {"root": None, "q": None}  # r2325: --clear-pending 상태(ERROR 갈래에서도 KEEP 1줄을 내야 한다)
 SHIMMARK = "# ft-root-bin-shim:"  # ft-root-bin-shim.sh 가 연결 파일 2행에 쓰는 표식
 
 
 def die(msg):
     print("ERROR " + msg)
+    if PEND["root"]:  # r2325: 검사 ERROR(rc 3) 갈래 = 대기 파일 그대로 · KEEP 1줄 · rc 불변(반례 ⑪)
+        print("KEEP install-pending %s 검사 ERROR — %s" % (PEND["q"] or "-", msg[:80]))
     sys.exit(3)
 
 
@@ -58,16 +63,18 @@ def git(repo, *args, inp=None):
 
 
 def parse_args(argv):
-    o = {"range": None, "all": False, "ref": "origin/main", "repo": None, "map": None, "kit": None, "project": None}
+    o = {"range": None, "all": False, "ref": "origin/main", "repo": None, "map": None, "kit": None, "project": None, "clear": None}
     i = 0
     while i < len(argv):
         if argv[i] == "--all":
             o["all"], i = True, i + 1
-        elif argv[i] in ("--range", "--ref", "--repo", "--map", "--kit", "--project") and i + 1 < len(argv):
-            o[argv[i][2:]], i = argv[i + 1], i + 2
+        elif argv[i] in ("--range", "--ref", "--repo", "--map", "--kit", "--project", "--clear-pending") and i + 1 < len(argv):
+            o["clear" if argv[i] == "--clear-pending" else argv[i][2:]], i = argv[i + 1], i + 2
         else:
             sys.exit(2)
     if bool(o["range"]) == o["all"]:
+        sys.exit(2)
+    if o["clear"] is not None and not o["range"]:  # r2325: 지움은 «범위를 덮는 재검» 전용 — --all 은 지움 갈래 0(usage)
         sys.exit(2)
     return o
 
@@ -681,6 +688,61 @@ def is_shim(path):
         return any(SHIMMARK in fh.readline() for _ in range(3))
 
 
+def pend_q(repo, landed):
+    """r2325: 범위 끝 B 를 40hex 로 푼다(대기 파일 이름 Q) · 못 풀면 빈 문자열."""
+    r = run(["git", "-C", repo, "rev-parse", "--verify", "-q", str(landed) + "^{commit}"])
+    return r.stdout.strip() if r.returncode == 0 else ""
+
+
+def keep_pending(repo, landed, rc):
+    """r2325: 대기 파일 그대로 + KEEP 1줄(검사 rc≠0 갈래)."""
+    q = pend_q(repo, landed)
+    print("KEEP install-pending %s 검사 rc=%d" % (q[:10] or str(landed)[:10], rc))
+
+
+def clear_pending(repo, o, landed):
+    """r2325: 이 재검이 덮는 착지의 설치 대기 파일 1개를 지운다 — 지움 갈래가 아니면 KEEP·판정 불가 1줄만."""
+    root, a = o["clear"], o["range"].partition("..")[0]
+    q = pend_q(repo, landed)
+    if not q:  # B 를 못 풀면 파일 이름 Q 가 없다 — 판정 불가(P3 · 검사 rc 불변)
+        print("판정 불가 — install-pending %s B(%s)를 이 리포에서 못 풂" % (str(landed)[:10], landed))
+        return
+    PEND["q"] = q[:10]
+    pf = os.path.join(root, ".fable-team", "state", "install-pending", q + ".txt")
+    if not os.path.isfile(pf):
+        print("KEEP install-pending %s 대기 파일 없음" % q[:10])
+        return
+    try:
+        with open(pf, encoding="utf-8", errors="surrogateescape") as fh:
+            rl = [ln for ln in fh.read().splitlines() if ln.startswith("range=")]
+    except OSError as e:
+        print("판정 불가 — install-pending %s 대기 파일 못 읽음(%s)" % (q[:10], e.__class__.__name__))
+        return
+    if len(rl) != 1:  # r2325 ⓐ: 옛 파일(0줄) · 겹친 기록(2줄 이상)은 지우지 않는다 · 자리는 안 본다
+        print("KEEP install-pending %s range 줄 %d개(정확히 1개여야 지움)" % (q[:10], len(rl)))
+        return
+    m, _, rq = rl[0][len("range="):].strip().partition("..")
+    if rq.strip() != q:  # 남의 대기 파일을 지우지 않는다
+        print("KEEP install-pending %s range 줄 Q(%s) ≠ 파일 이름 Q" % (q[:10], rq.strip()[:10] or "-"))
+        return
+    are = run(["git", "-C", repo, "merge-base", "--is-ancestor", a, m.strip()])
+    if are.returncode == 1:  # A 가 M 의 조상 아님 = 범위가 좁다
+        print("KEEP install-pending %s 범위 좁음(A=%s 가 M=%s 의 조상 아님)" % (q[:10], a[:10], m.strip()[:10]))
+        return
+    if are.returncode != 0:  # r2325 ⓑ: rc 1(범위 좁음)과 rc≥2(못 푸는 sha)를 가른다 — 하드 룰 20
+        print("판정 불가 — install-pending %s is-ancestor rc=%d" % (q[:10], are.returncode))
+        return
+    try:
+        os.unlink(pf)
+    except FileNotFoundError:  # 동시 재검 — 지움 실패가 아니다
+        print("CLEARED install-pending %s(이미 없음)" % q[:10])
+        return
+    except OSError as e:
+        print("판정 불가 — install-pending 지움 실패 %s(%s)" % (q[:10], e.__class__.__name__))
+        return
+    print("CLEARED install-pending %s" % q[:10])
+
+
 def main():
     sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")  # 로케일과 무관하게 한글은 원형 · non-UTF8 경로는 \udcff 대신 이스케이프 출력
     if sys.argv[1:2] == ["--restart-scan"]:  # r459: install.sh --apply 끝 — RESTART 줄만(읽기 전용 · rc0)
@@ -696,6 +758,8 @@ def main():
         print("\n".join(restart_scan(pdir, project)) or "RESTART 0")
         sys.exit(0)
     o = parse_args(sys.argv[1:])
+    if o["clear"]:  # r2325: opt-in 지움 — 기본(옵션 없음)은 지금 그대로 쓰기 0
+        PEND["root"], PEND["q"] = o["clear"], (o["range"] or "").partition("..")[2][:10]
     repo = resolve_kit(o)
     global PROOT
     PROOT = plist_root(repo, o["project"])  # r1394: 의도 끔 명단(.fable-team/state)의 기준 루트
@@ -803,6 +867,8 @@ def main():
             print(s)
         for w in warns:
             print(w)
+        if o["clear"]:
+            clear_pending(repo, o, landed)  # r2325: 덮는 재검 OK → 그 착지의 대기 파일 1개(옵션 없으면 호출 0 = 쓰기 0)
         return 0
     print("PENDING n=%d" % len(bad))
     print("\n".join(sorted(bad)))
@@ -811,6 +877,8 @@ def main():
     print("\n".join("HINT %s %s" % (k, hints[k]) for k in sorted(hints)))
     for w in warns:
         print(w)
+    if o["clear"]:
+        keep_pending(repo, landed, 1)  # r2325: 검사 PENDING = 파일 그대로 · KEEP 1줄
     return 1
 
 
