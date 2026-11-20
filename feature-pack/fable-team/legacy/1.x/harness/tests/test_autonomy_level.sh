@@ -57,7 +57,7 @@ fresh; run a on --level full --code-max 31; [ $rc = 2 ] && [ ! -e "$LOG" ]; ck "
 fresh; run a on --level turbo; [ $rc = 2 ] && has 'full\|mid\|each' && [ ! -e "$LOG" ]; ck "ⓑ 모르는 레벨 → REJECT rc 2 · 쓰기 0" $?
 # ⓒ each = 범위 승인 0
 fresh; run a on --level each --for 2h; [ $rc = 0 ] && ! grep -q '^approve-scope ' "$LOG" && grep -q '"level":"each"' "$S/autonomy.json" && [ ! -e "$T/post.log" ]; ck "ⓒ each → 범위 승인 줄 0 · 슬랙 0 · json level=each" $?
-run a scope-status; [ "$out" = "[범위 승인 없음 · 건마다 확인]" ]; ck "ⓒ scope-status [범위 승인 없음 · 건마다 확인]" $?
+run a scope-status; [ "$out" = "[범위 승인 없음 · 건마다 확인] base=-" ]; ck "ⓒ scope-status [범위 승인 없음 · 건마다 확인]" $?
 fresh; run a on --level each --max 3; [ $rc = 2 ]; ck "ⓒ each + --max → REJECT" $?
 # ⓓ 사건 번호 바뀜 — 레벨 줄이면 재발급 · each·정지면 기존 AUTOSTOP
 fresh; a on --for 12h >/dev/null 2>&1; a off >/dev/null 2>&1; run a on --for 12h

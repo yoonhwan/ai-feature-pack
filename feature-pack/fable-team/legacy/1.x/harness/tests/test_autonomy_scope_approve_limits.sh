@@ -14,7 +14,7 @@ run a scope-approve "$(sha 13)"; run a scope-approve "$(sha 14)"; [ $rc = 0 ] &&
 run a scope-approve "$(sha 15)"; [ $rc = 2 ] && has '건수 도달'; ck "max 도달 → REJECT" $?
 [ -f "$S/autonomy-scope/S1.stopped" ] && grep -q '^scope-stop S1 ' "$LOG"; ck "max 도달 → 자동 정지(log + .stopped)" $?
 STUB_OUT="CLASS revert"; run a scope-approve "$(sha 16)"; [ $rc = 2 ] && has '정지'; ck "정지 뒤 revert 도 REJECT" $?
-run a scope-status; has '^\[범위 승인 S1 정지: 건수 도달\(2/2\)\]$'; ck "status 정지 꼴" $?
+run a scope-status; has '^\[범위 승인 S1 정지: 건수 도달\(2/2\)\] base=S1 2/2/0 byz$'; ck "status 정지 꼴" $?
 STUB_OUT="CLASS docs"
 
 # until 지남 · 사건 번호 바뀜

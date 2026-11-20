@@ -11,22 +11,32 @@ tpl_file() { local d; for d in "$HERE/../templates" "$HERE/../kit/fable-team/tem
 
 level_prepare() {  # ON_LEVEL ON_MAX ON_DAILY ON_CM(parse_end 가 채움) → 기본표 + 덮어쓰기 + 검사 → SV_*(each 면 검사 0) · 틀리면 REJECT rc 2(상태 쓰기 0)
   local f row l mx dl cl cm rp
+  LOWER_CELL=""
   ON_LEVEL="${ON_LEVEL:-${FT_AUTONOMY_LEVEL:-full}}"   # --level 생략 = 풀자동(오빠 «기본 풀자동») · FT_AUTONOMY_LEVEL 은 기본값만 바꾼다(시험·슬랙 없는 환경)
   case "$ON_LEVEL" in full|mid|each) ;; *) reject "--level 은 full|mid|each(받은 값: $ON_LEVEL)" ;; esac
-  if [ "$ON_LEVEL" = each ]; then [ -z "$ON_MAX$ON_DAILY$ON_CM" ] || reject "--level each 는 범위 승인 0 — --max·--daily·--code-max 를 못 쓴다"; return 0; fi   # each = 기본표 불필요
+  if [ "$ON_LEVEL" = each ]; then [ -z "$ON_MAX$ON_DAILY$ON_CM$ON_LOWER" ] || reject "--level each 는 범위 승인 0 — --max·--daily·--code-max·--lower 를 못 쓴다"; return 0; fi   # each = 기본표 불필요
   f="${FT_AUTONOMY_LEVEL_CONF:-$(tpl_file autonomy-level.conf)}" || reject "레벨 기본표 없음(templates/autonomy-level.conf)"
   row="$(awk -v l="$ON_LEVEL" '$1==l {print; exit}' "$f" 2>/dev/null)"
   read -r l mx dl cl cm rp <<<"$row"
   [ -n "$rp" ] || reject "레벨 기본표에 $ON_LEVEL 줄 없음·꼴 틀림: $f"
   [ "$cm" = 0 ] && cm=""
   . "$HERE/ft-autonomy-scope.sh"
-  scope_validate "${ON_MAX:-$mx}" "${ON_DAILY:-$dl}" "$cl" "${ON_CM:-$cm}" "$rp"
+  if [ "$ON_LEVEL" = full ] && scope_prev; then   # r2349 C2: 인자 없는 full 켜기 = 직전 범위(기본표 아님 · classes 는 직전 그대로)
+    mx="$P_MAX"; dl="$P_DAILY"; cl="$P_CLASSES"; cm=""; rp="$P_REPOS"
+    case ",$P_CLASSES," in *,code,*) cm="$P_CODEMAX" ;; esac
+    case "$rp" in byz,pack) ;; *) rp="byz,pack" ;; esac   # repos = 직전 ∪ 기본표(옛 줄 byz 로 좁아지지 않음)
+  fi
+  mx="${ON_MAX:-$mx}"; dl="${ON_DAILY:-$dl}"; cm="${ON_CM:-$cm}"
+  [ -n "$ON_DAILY" ] || dl="$(scope_carry_min "$dl" "$mx")"   # DA 메모 1: 생략해 이어받은 칸만 새 max 로 깎기
+  [ -n "$ON_CM" ] || cm="$(scope_carry_min "$cm" "$mx" 500)"
+  [ "$ON_LEVEL" != full ] || scope_lower_check "$mx" "$dl" "$cl" "$cm" "$rp" "$ON_LOWER"   # r2349 C4: full 낮춤이면 오빠 답 --lower 필요(mid·each 는 직전 범위를 안 본다)
+  scope_validate "$mx" "$dl" "$cl" "$cm" "$rp"
 }
 
 level_grant_post() {  # <사건> — 잠금 안 · 모드 줄 «전» 게시(실패 = rc 1 · 쓰기 0)
   [ "$ON_LEVEL" = each ] && return 0
   local now u endl=""; now="$(now_epoch)"; u="$UNTIL"; [ "$u" = null ] && { u=$(( now + 86400 )); endl=1; }   # 끝 없는 ON 의 범위 = 24h(그 뒤 재발급은 scope-approve) — 슬랙 3줄은 «끝 없음» 을 그대로 말한다(r658)
-  scope_grant_post "$1" "$now" "$u" "$SV_MX" "$SV_DL" "$SV_CL" "$SV_CM" "$SV_REPOS" "$ON_LEVEL" "$endl"
+  scope_grant_post "$1" "$now" "$u" "$SV_MX" "$SV_DL" "$SV_CL" "$SV_CM" "$SV_REPOS" "$ON_LEVEL" "$endl" "$LOWER_CELL"
 }
 level_grant_write() { [ "$ON_LEVEL" = each ] || scope_grant_write; }
 
@@ -56,7 +66,7 @@ cmd_forget_kind() {  # 오빠 `!` 전용(훅이 좌석 실행을 막는다)
   unlock; echo "FORGOT kind=$k"
 }
 
-cmd_on_check() { parse_end "$@"; level_prepare; echo "ON-CHECK-OK level=$ON_LEVEL until=$UNTIL"; }   # ft-autonomy-interview.sh 가 부른다 — on 과 같은 판정 · 상태 쓰기 0
+cmd_on_check() { parse_end "$@"; level_prepare; echo "ON-CHECK-OK level=$ON_LEVEL until=$UNTIL$(scope_base_tail)"; }   # ft-autonomy-interview.sh 가 부른다 — on 과 같은 판정 · 상태 쓰기 0
 cmd_interview_note() { interview_note "$@"; }
 
 _roster_common_root() {  # <폴더> → 그 폴더가 속한 리포 공용 루트(git 공용 dir 의 부모) · 7초 상한 · timeout·gtimeout 둘 다 없으면 git 호출 0(rc1) — r926 r2

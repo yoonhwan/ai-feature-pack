@@ -13,6 +13,7 @@
 # 상태 원천 = autonomy.log 한 곳(추가 전용 · 쓰기는 ft-autonomy.sh 의 lock 안 · json 카운터 0) — 건수는 `scope-use` 줄을 센다(종류 revert·equiv 는 안 센다).
 # 원장 `$STATE/autonomy-scope/S<n>.ledger.tsv` 7칸 = 시각·sha·PR·종류·판정문(빈칸)·착지 sha(빈칸 — r298b 가 6번째 칸을 채운다)·되돌림 명령(빈칸)
 # 외부 호출 0 — 분류기는 로컬 git 뿐 · 상한 = 500파일 이하 7초 · 그 위 min(3.5 + 7 × ceil(파일 수/500), 70)초(r559 · 넘으면 REJECT · 판정 666).
+# r2349 직전 범위 이어받기: scope_prev(C1) · 생략한 칸 = 직전 값(C3) · 낮춤은 오빠 답 --lower 필수(C4) · scope-status 끝 `base=` 칸(C6)
 SDIR="$STATE/autonomy-scope"
 . "$HERE/ft-autonomy-scope-code.sh"
 . "$HERE/ft-autonomy-scope-alert.sh"   # r1792: scope_zero_tail(status 꼬리 «새 승인 없이 0건») · cmd_scope_alert(사용률 75% → desk [긴급] 1통)
@@ -37,12 +38,50 @@ amt_same() {  # r1955 마② <sha> <지금 target> — NOOP 반환 앞 대조 ·
 scope_err() { echo "SCOPE-REJECT $1" >&2; exit 2; }
 scope_wfail() { echo "REJECT $1 쓰기 실패" >&2; exit 1; }
 
-scope_load() {  # 마지막 approve-scope 줄 → G_S G_A G_UNTIL G_MAX G_DAILY G_CLASSES G_CODEMAX(옛 줄 = 0) G_REPOS(옛 줄 = byz) G_LEVEL(옛 줄 = 빈 값) (rc 1 = 없음·꼴 틀림)
-  local line a u m d c rest t; line="$(grep '^approve-scope ' "$LOG" 2>/dev/null | tail -1)"
+scope_load_line() {  # <줄> → G_S G_A G_AT G_UNTIL G_MAX G_DAILY G_CLASSES G_CODEMAX(옛 줄 = 0) G_REPOS(옛 줄 = byz) G_LEVEL·G_LOWER(옛 줄 = 빈 값) (rc 1 = 꼴 틀림)
+  local line="$1" a u m d c rest t
   [[ "$line" =~ $SCOPE_GRANT_RE ]] || return 1
   read -r a G_S G_A G_AT u m d c rest <<<"$line"
-  G_UNTIL="${u#until=}"; G_MAX="${m#max=}"; G_DAILY="${d#daily=}"; G_CLASSES="${c#classes=}"; G_CODEMAX=0; G_REPOS=byz; G_LEVEL=""
-  for t in $rest; do case "$t" in codemax=*) G_CODEMAX="${t#codemax=}" ;; repos=*) G_REPOS="${t#repos=}" ;; level=*) G_LEVEL="${t#level=}" ;; esac; done
+  G_UNTIL="${u#until=}"; G_MAX="${m#max=}"; G_DAILY="${d#daily=}"; G_CLASSES="${c#classes=}"; G_CODEMAX=0; G_REPOS=byz; G_LEVEL=""; G_LOWER=""
+  for t in $rest; do case "$t" in codemax=*) G_CODEMAX="${t#codemax=}" ;; repos=*) G_REPOS="${t#repos=}" ;; level=*) G_LEVEL="${t#level=}" ;; lower=*) G_LOWER="${t#lower=}" ;; esac; done
+}
+scope_load() { scope_load_line "$(grep '^approve-scope ' "$LOG" 2>/dev/null | tail -1)"; }   # 마지막 approve-scope 줄(읽기만) — r2349: 해석은 scope_load_line 한 곳
+
+scope_prev() {  # r2349 C1 — 직전 범위 = log 의 마지막 approve-scope 줄 중 level 칸 없음(옛 줄)·level=full · level=mid 는 건너뜀 · log 위변조 판정이면 «직전 없음»(앞 정상 줄도 안 씀) · P_* 에 담고 rc 1 = 없음
+  local line
+  if declare -F log_mode >/dev/null 2>&1; then log_mode >/dev/null 2>&1 || return 1; fi
+  line="$(grep '^approve-scope ' "$LOG" 2>/dev/null | awk '$0 ~ /(^| )level=mid( |$)/ {next} {last = $0} END {if (last != "") printf "%s", last}')"
+  [ -n "$line" ] || return 1
+  scope_load_line "$line" || return 1
+  P_S="$G_S"; P_A="$G_A"; P_AT="$G_AT"; P_MAX="$G_MAX"; P_DAILY="$G_DAILY"; P_CLASSES="$G_CLASSES"; P_CODEMAX="$G_CODEMAX"; P_REPOS="$G_REPOS"
+}
+scope_base_tail() {  # r2349 C6 — 범위 줄 끝 «base=» 칸 · 직전 없음 = `base=-`(읽기만)
+  if scope_prev; then printf ' base=%s %s/%s/%s %s' "$P_S" "$P_MAX" "$P_DAILY" "$P_CODEMAX" "$P_REPOS"; else printf ' base=-'; fi
+}
+scope_carry_min() {  # DA 메모 1 — 이어받은(생략) 칸이 새 max·상한을 넘으면 깎는다 · <값> <새 max> [상한] → stdout
+  local v="$1" nm="$2" cap="${3:-}"
+  [[ "$v" =~ ^[0-9]+$ ]] && [[ "$nm" =~ ^0*[0-9]{1,4}$ ]] || { printf '%s' "$v"; return 0; }
+  nm=$((10#$nm)); [ "$v" -le "$nm" ] || v="$nm"; [ -z "$cap" ] || [ "$v" -le "$cap" ] || v="$cap"; printf '%s' "$v"
+}
+scope_lower_check() {  # r2349 C4 — <max> <daily> <classes> <codemax(0=없음)> <repos> <--lower 값|빈> : 낮춤이면 오빠 답 필요 · 통과면 LOWER_CELL = 그 ts(안 낮췄으면 빈 값) · 아니면 SCOPE-REJECT rc 2(쓰기 0)
+  local mx="$1" dl="$2" cl="$3" cm="$4" rp="$5" lw="${6:-}" low=0 c s why
+  LOWER_CELL=""
+  [ -z "$lw" ] || [[ "$lw" =~ ^[0-9]{10}\.[0-9]{6}$ ]] || scope_err "--lower 는 오빠 답 Slack ts 꼴(숫자10.숫자6) — 받은 값: $lw"
+  scope_prev || return 0
+  [[ "$mx" =~ ^[0-9]+$ ]] && [ "$((10#$mx))" -lt "$P_MAX" ] && low=1
+  [[ "$dl" =~ ^[0-9]+$ ]] && [ "$((10#$dl))" -lt "$P_DAILY" ] && low=1
+  case ",$P_CLASSES," in *,code,*) case ",$cl," in *,code,*) [[ "$cm" =~ ^[0-9]+$ ]] && [ "$((10#$cm))" -lt "$P_CODEMAX" ] && low=1 ;; esac ;; esac
+  for c in ${P_CLASSES//,/ }; do case ",$cl," in *",$c,"*) ;; *) low=1 ;; esac; done   # 직전 classes ⊄ 새 classes(종류·code 빼기)
+  [ "$P_REPOS" = byz,pack ] && [ "$rp" = byz ] && low=1
+  [ "$low" = 0 ] || {
+    why="직전 범위 $P_S $P_MAX/$P_DAILY/$P_CODEMAX $P_REPOS 보다 낮춤 = 오빠 답 필요 — --lower <Slack ts>"
+    [ -n "$lw" ] || scope_err "$why"
+    s=$((10#${lw%%.*}))
+    [ "$s" -gt "$((10#$P_AT))" ] || scope_err "$why · --lower $lw 가 직전 범위($P_S) 부여 시각보다 앞"
+    [ "$s" -le "$(now_epoch)" ] || scope_err "$why · --lower $lw 가 지금보다 뒤"
+    awk -v t="$lw" '$1=="approve-scope" && $NF=="lower="t {f=1} END{exit !f}' "$LOG" 2>/dev/null && scope_err "$why · --lower $lw 는 이미 쓴 오빠 답(재사용 0)"
+    LOWER_CELL="$lw"
+  }
 }
 
 scope_validate() {  # <max> <daily|""> <classes> <codemax|""> <repos> → SV_MX SV_DL SV_CL SV_CM(0 = 없음) SV_REPOS · 틀리면 SCOPE-REJECT rc 2(쓰기 0)
@@ -76,8 +115,8 @@ scope_class_plain() {  # <종류> → 사람 말 · 표에 없으면 rc 1
   esac
 }
 
-scope_slack_body() {  # <until> <max> <daily> <classes> <codemax> <level|""> <endless|""> → 슬랙 글 3줄(켜짐 · 혼자 해도 되는 것 · 언제까지) · 내부 번호 0
-  local u="$1" mx="$2" dl="$3" cl="$4" cm="${5:-0}" lv="$6" endl="$7" c w kinds="" sep="" rest="" l1 l3
+scope_slack_body() {  # <until> <max> <daily> <classes> <codemax> <level|""> <endless|""> [lower] → 슬랙 글 3줄(켜짐 · 혼자 해도 되는 것 · 언제까지) · 내부 번호 0 · r2349: 낮출 때만 «직전보다 줄임(오빠 답 ts)» 1구
+  local u="$1" mx="$2" dl="$3" cl="$4" cm="${5:-0}" lv="$6" endl="$7" lw="${8:-}" c w kinds="" sep="" rest="" l1 l3
   for c in ${cl//,/ }; do
     [ "$c" = code ] && continue
     w="$(scope_class_plain "$c")" || { echo "SCOPE-REJECT 모르는 종류: $c — 쉬운 말 대응표에 없음(게시 0)" >&2; return 1; }
@@ -88,15 +127,17 @@ scope_slack_body() {  # <until> <max> <daily> <classes> <codemax> <level|""> <en
   if [ "$cm" -gt 0 ]; then rest="$rest$sep$(scope_class_plain code) ${cm}건까지"; sep=" · "; fi
   rest="$rest${sep}하루 ${dl}건"
   if [ -n "$endl" ]; then l3="언제까지: 다음 범위 승인까지 · 24시간"; else l3="언제까지: $(hhmm "$u") 까지"; fi
+  [ -z "$lw" ] || l3="$l3 · 직전보다 줄임(오빠 답 $lw)"
   printf '%s\n%s\n%s\n' "$l1" "혼자 해도 되는 것: $rest" "$l3"
 }
 
-scope_grant_post() {  # <A> <부여 epoch> <until> <max> <daily> <classes> <codemax> <repos> <level|""> [endless] — 잠금 안 · 슬랙 게시 «먼저»(실패 = rc 1 · 쓰기 0) → GR_N GR_LINE GR_TS
+scope_grant_post() {  # <A> <부여 epoch> <until> <max> <daily> <classes> <codemax> <repos> <level|""> [endless] [lower] — 잠금 안 · 슬랙 게시 «먼저»(실패 = rc 1 · 쓰기 0) → GR_N GR_LINE GR_TS
   local n tail="" lv body; n="$(grep -c '^approve-scope ' "$LOG" 2>/dev/null)"; GR_N="S$(( ${n:-0} + 1 ))"
   [ "$7" -gt 0 ] && tail=" codemax=$7"; [ "$8" = byz ] || tail="$tail repos=$8"; [ -z "$9" ] || tail="$tail level=$9"
-  GR_LINE="approve-scope $GR_N $1 $2 until=$3 max=$4 daily=$5 classes=$6$tail"   # 기계 줄 = 이전 판과 바이트 그대로
+  [ -z "${11:-}" ] || tail="$tail lower=${11}"
+  GR_LINE="approve-scope $GR_N $1 $2 until=$3 max=$4 daily=$5 classes=$6$tail"   # 기계 줄 = 이전 판과 바이트 그대로(새 칸은 끝에만)
   lv="$9"; [ -n "$lv" ] || lv="$(type -t jfield >/dev/null && jfield level)"   # 손 범위 승인 = 지금 ON 의 레벨(못 읽으면 풀자동)
-  body="$(scope_slack_body "$3" "$4" "$5" "$6" "$7" "$lv" "${10:-}")" || exit 2
+  body="$(scope_slack_body "$3" "$4" "$5" "$6" "$7" "$lv" "${10:-}" "${11:-}")" || exit 2
   GR_TS="$(scope_slack_post "$body")" || exit $?
 }
 
@@ -163,17 +204,26 @@ scope_slack_post() {  # <본문> → stdout = 슬랙 ts · 실패 = rc 1(호출�
 }
 
 cmd_approve_scope() {
-  local f="" mx="" dl="" cl="" cm="" rp=byz h now
+  local f="" mx="" dl="" cl="" cm="" rp="" lw="" h now dlo=0 cmo=0
   while [ $# -gt 0 ]; do
-    [ $# -ge 2 ] || scope_err "$1 값 없음 (usage: approve-scope --for <N>h --max <n> [--daily <n>] --classes <docs,ff,revert[,code]> [--code-max <n>] [--repos byz|byz,pack])"
-    case "$1" in --for) f="$2" ;; --max) mx="$2" ;; --daily) dl="$2" ;; --classes) cl="$2" ;; --code-max) cm="$2" ;; --repos) rp="$2" ;; *) scope_err "알 수 없는 인자: $1" ;; esac
+    [ $# -ge 2 ] || scope_err "$1 값 없음 (usage: approve-scope --for <N>h --max <n> [--daily <n>] --classes <docs,ff,revert[,code]> [--code-max <n>] [--repos byz|byz,pack] [--lower <오빠 답 Slack ts>])"
+    case "$1" in --for) f="$2" ;; --max) mx="$2" ;; --daily) dl="$2" ;; --classes) cl="$2" ;; --code-max) cm="$2" ;; --repos) rp="$2" ;; --lower) lw="$2" ;; *) scope_err "알 수 없는 인자: $1" ;; esac
     shift 2
   done
   [[ "$f" =~ ^([0-9]+)h$ ]] && h=$((10#${BASH_REMATCH[1]})) && [ "$h" -ge 1 ] && [ "$h" -le 72 ] || scope_err "--for 는 1h~72h 형식(받은 값: ${f:-없음})"
+  if scope_prev; then   # r2349 C3: 생략한 --daily·--repos·--code-max = 직전 범위 값(생략한 칸만 · 준 칸은 그대로 검사)
+    [ -n "$dl" ] || { dl="$P_DAILY"; dlo=1; }
+    [ -n "$rp" ] || rp="$P_REPOS"
+    if [ -z "$cm" ]; then case ",$P_CLASSES," in *,code,*) case ",$cl," in *,code,*) cm="$P_CODEMAX"; cmo=1 ;; esac ;; esac; fi
+    [ "$dlo" = 0 ] || dl="$(scope_carry_min "$dl" "$mx")"   # DA 메모 1: 낮춘 max 와 부딪히면 깎는다
+    [ "$cmo" = 0 ] || cm="$(scope_carry_min "$cm" "$mx" 500)"
+  fi
+  rp="${rp:-byz}"
+  scope_lower_check "$mx" "$dl" "$cl" "$cm" "$rp" "$lw"   # r2349 C4: 낮춤이면 오빠 답 --lower 필요(쓰기 0)
   scope_validate "$mx" "$dl" "$cl" "$cm" "$rp"
   lock; [ "$(mode)" = on ] || scope_err "자율 모드가 ON 이 아님($(mode)) — 승인 기록 없음"
   now="$(now_epoch)"
-  scope_grant_post "$(event)" "$now" "$(( now + h * 3600 ))" "$SV_MX" "$SV_DL" "$SV_CL" "$SV_CM" "$SV_REPOS" ""; scope_grant_write   # 게시 «먼저» — 실패면 쓰기 0
+  scope_grant_post "$(event)" "$now" "$(( now + h * 3600 ))" "$SV_MX" "$SV_DL" "$SV_CL" "$SV_CM" "$SV_REPOS" "" "" "$LOWER_CELL"; scope_grant_write   # 게시 «먼저» — 실패면 쓰기 0
   unlock; scope_load; echo "SCOPE-GRANTED $G_S $G_A until=$(hhmm "$G_UNTIL") max=$G_MAX daily=$G_DAILY classes=$G_CLASSES${GR_LINE#*classes="$G_CLASSES"}"
 }
 
@@ -336,9 +386,9 @@ cmd_scope_status() {
   if [ "${1:-}" = --audit ]; then scope_audit; return $?; fi
   [ $# -eq 0 ] || scope_err "usage: scope-status [--audit]"
   local each=""; [ "$(mode)" = on ] && [ "$(jfield level)" = each ] && each=" · 건마다 확인"   # r466 레벨 each = on 이 범위 승인을 안 건다(오빠 손 approve-scope 는 그대로 보인다)
-  scope_load || { echo "[범위 승인 없음$each]"; return 0; }
+  scope_load || { echo "[범위 승인 없음$each]$(scope_base_tail)"; return 0; }
   scope_block
-  if [ -n "$BLOCK" ]; then echo "[범위 승인 $G_S 정지: $BLOCK]"; return 0; fi
+  if [ -n "$BLOCK" ]; then echo "[범위 승인 $G_S 정지: $BLOCK]$(scope_base_tail)"; return 0; fi
   local c=""; [ "$G_CODEMAX" -gt 0 ] && c=" · code $(scope_code_used "$G_S")/$G_CODEMAX"
-  echo "[범위 승인 $G_S · $G_A · ~$(fmt "$G_UNTIL" '%m-%d %H:%M' || echo '--:--')까지 · $(scope_used "$G_S")/$G_MAX · 오늘 $(scope_today "$G_S")/$G_DAILY · $G_CLASSES$c$(scope_zero_tail)]"
+  echo "[범위 승인 $G_S · $G_A · ~$(fmt "$G_UNTIL" '%m-%d %H:%M' || echo '--:--')까지 · $(scope_used "$G_S")/$G_MAX · 오늘 $(scope_today "$G_S")/$G_DAILY · $G_CLASSES$c$(scope_zero_tail)$(scope_base_tail)]"
 }

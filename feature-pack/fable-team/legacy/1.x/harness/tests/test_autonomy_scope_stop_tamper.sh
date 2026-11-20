@@ -44,6 +44,6 @@ fresh; printf 'scope-stop S1 1 \n' >> "$LOG"
 fresh; grant --for 10h --max 5 --classes docs >/dev/null; run a scope-approve "$(sha 51)"; printf 'junk line\n' >> "$LOG"
 run a scope-approve "$(sha 52)"; [ $rc = 2 ] && has '위변조'; ck "위변조 상태 scope-approve REJECT" $?
 run a scope-status; has '^\[범위 승인 S1 정지: 위변조'; ck "위변조 status 정지 표시" $?
-run a scope-status; rm -rf "$S"; mkdir -p "$S"; run a scope-status; has '^\[범위 승인 없음\]$'; ck "status 승인 없음 꼴" $?
+run a scope-status; rm -rf "$S"; mkdir -p "$S"; run a scope-status; has '^\[범위 승인 없음\] base=-$'; ck "status 승인 없음 꼴" $?
 
 echo "fail=$fail"; [ "$fail" = 0 ]

@@ -13,9 +13,9 @@ fresh; grant --for 10h --max 5 --daily 2 --classes docs,ff
   && grep -qE '^언제까지: [0-9]{2}:[0-9]{2} 까지$' <(sed -n 3p "$STUB_POST_LOG") \
   && ! grep -Eqi 'max|daily|classes|level|부여|[0-9]{10}' "$STUB_POST_LOG"; ck "슬랙 본문 3줄 꼴(켜짐·혼자 해도 되는 것·언제까지 · 내부 번호 0 · r658)" $?
 n0="$(lines)"; rm -f "$AU"
-STUB_POST_RC=1 grant --for 10h --max 5 --classes docs; [ $rc = 1 ] && has '슬랙 게시 실패 rc=1'; ck "게시 실패 → REJECT rc 1" $?
+STUB_POST_RC=1 grant --for 10h --max 5 --classes docs,ff; [ $rc = 1 ] && has '슬랙 게시 실패 rc=1'; ck "게시 실패 → REJECT rc 1" $?
 [ "$(lines)" = "$n0" ] && [ ! -e "$AU" ] && ! grep -q '^approve-scope S2' "$LOG"; ck "게시 실패 → grant·audit 쓰기 0" $?
-FT_SCOPE_SLACK_POST=/nonexistent grant --for 10h --max 5 --classes docs; [ $rc = 1 ] && has '슬랙 게시 도구 없음'; ck "게시 도구 없음 → REJECT rc 1 · 쓰기 0" $?
+FT_SCOPE_SLACK_POST=/nonexistent grant --for 10h --max 5 --classes docs,ff; [ $rc = 1 ] && has '슬랙 게시 도구 없음'; ck "게시 도구 없음 → REJECT rc 1 · 쓰기 0" $?
 [ "$(lines)" = "$n0" ]; ck "도구 없음 쓰기 0" $?
 run a scope-status --audit; [ $rc = 3 ] && has '^AUDIT-MISMATCH'; ck "audit 줄을 지운 상태(S1 grant 만 남음) → MISMATCH rc 3" $?
 fresh; run a scope-status --audit; [ $rc = 0 ] && has '^AUDIT-OK grants=0 used=0$'; ck "--audit grant 없음 → AUDIT-OK grants=0" $?
@@ -55,7 +55,7 @@ ar() { FT_ROOT="$R" a "$@"; }
 fresh; grant --for 2h --max 5 --classes docs,ff,revert,code --code-max 2
 [ $rc = 0 ] && has '^SCOPE-GRANTED S1 A1 until=[0-9]{2}:[0-9]{2} max=5 daily=5 classes=docs,ff,revert,code codemax=2$'; ck "ⓐ code grant → SCOPE-GRANTED … codemax=2" $?
 grep -qxF "approve-scope S1 A1 $T0 until=$((T0+7200)) max=5 daily=5 classes=docs,ff,revert,code codemax=2" "$LOG" && [ "$(a mode)" = on ]; ck "ⓐ log grant 줄 꼴 · SCOPE_GRANT_RE 통과(mode=on)" $?
-run a scope-status; has '^\[범위 승인 S1 · A1 · .* 0/5 · 오늘 0/5 · docs,ff,revert,code · code 0/2\]$'; ck "ⓐ scope-status code 0/2" $?
+run a scope-status; has '^\[범위 승인 S1 · A1 · .* 0/5 · 오늘 0/5 · docs,ff,revert,code · code 0/2 base=S1 5/5/2 byz\]$'; ck "ⓐ scope-status code 0/2" $?
 grep -qxF "혼자 해도 되는 것: 문서 병합 · 빨리 감기 병합 · 되돌림 5건까지 · 코드 병합 2건까지 · 하루 5건" "$STUB_POST_LOG" && run a scope-status --audit && [ $rc = 0 ]; ck "ⓐ 슬랙 2줄에 코드 병합 2건까지(r658) · --audit AUDIT-OK(codemax 칸)" $?
 # ⓓ 거절 — 쓰기 0
 n0="$(lines)"; card "$A"
