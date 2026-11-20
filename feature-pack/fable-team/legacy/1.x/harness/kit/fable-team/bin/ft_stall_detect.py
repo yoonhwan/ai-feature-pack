@@ -777,6 +777,7 @@ def _read_mailbox_log(path: Path, masters: set[str], recipients: set[str], now: 
     """읽은 쪽지 로그(mailbox.log.jsonl)를 «끝에서» 읽어 심박 창(window 분) 안만 본다 — r1020: recv 가 레코드를 큐→로그로 옮기므로 큐만 보면 심박이 사라진다.
     창 밖 줄에 닿으면 멈춘다(큰 로그 4.4MB 전체 읽기 0 · 예산은 큐와 공유). 로그 파일 없음 = 큐만(ERROR 아님).
     r2344 — 지금 로그 앞머리에 닿았는데 창이 남아 있으면 회전 사본 `.1` → `.<KEEP>` 끝에서 이어 읽는다(회전 직후 창 안 심박이 사본에만 있는 실사건 · #354996).
+    지금 로그가 «없어도» 사본을 본다 — ft-mbox.py 가 잠금 안에서 replace(log→.1) 뒤 open(log) 하는 동안 stall 은 잠금 없이 읽는다(DA H1).
     사슬을 넘어가도 «창 밖에서 멈춤»·«끝에서 읽기»·예산은 그대로다(창 밖을 만나면 그 자리에서 멈추고 사본은 열지 않는다).
     → (에러 이유, 최신 심박 ts, 깨진 줄 수, 줄 수)."""
     best, broken, n = None, 0, 0
@@ -784,9 +785,7 @@ def _read_mailbox_log(path: Path, masters: set[str], recipients: set[str], now: 
         try:
             fh = open(cur, "rb")
         except FileNotFoundError:
-            if cur == path:
-                return "", None, 0, 0  # 로그 없음 = 큐만 본다(판정 불가 아님)
-            continue  # 사본 없음 = 그 번호만 건너뛴다(있는 것만 · 메모 2)
+            continue  # r2344 — 지금 로그든 사본이든 «없으면» 그 번호만 건너뛰고 다음을 본다(회전은 잠금 밖에서 replace 뒤 open 이라 그 틈에 지금 로그가 없다 · 다 없으면 큐만 = 판정 불가 아님 · DA H1 · 메모 2)
         except OSError as e:
             return f"{cur.name} 읽기 실패 {e.__class__.__name__}", None, 0, 0
         outside = False
