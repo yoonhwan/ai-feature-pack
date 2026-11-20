@@ -436,7 +436,8 @@ orphans() { # → ORPH = "kb<TAB>경로<TAB>reg|tmp<TAB>사유" 줄들 · HOLD =
       cap oleft occ_left; isnum "$oleft" || oleft=0
       COPY_LEFT="$oleft"
       [ "$oleft" != 0 ] || { ORPT_MARK=1; ODEF=$((ODEF+1)); return 0; }
-      cap COPY_KB kb "$1" "$oleft"; isnum "$COPY_KB" || COPY_KB='?'
+      cap COPY_KB kb "$1" "$oleft"
+      isnum "$COPY_KB" || { ODEF=$((ODEF+1)); COPY_KB='?'; }   # r2363 N1: 예산 안 du 실패(끊김·rc≠0)도 «?» — «?» 줄 수와 못 잰 수가 같은 눈금
       return 0
     fi
     cap oleft occ_left; isnum "$oleft" || oleft=0
