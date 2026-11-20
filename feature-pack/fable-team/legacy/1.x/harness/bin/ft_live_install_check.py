@@ -16,7 +16,7 @@ r1407: 루트 명부(FT_ROOTS_TSV · 기본 ~/.claude/fable-team/roots.tsv) 각 
 → `DRIFT live-bin <경로> pinned=<판> want=<판>` (옛 판 포인터로 좌석 열기가 막힌 airag 1.1.14 사건) · 포인터 없음 = 줄 0 · 절대경로 폴더 아님 = ERROR rc3 · 포인터 수정 0.
   게이트 = 루트 포인터 + 살아 있는 tmux pane cwd 가 든 worktree 만(DA #298671) · 나머지 stale worktree = `INFO live-bin inactive=<n>`(rc 불변) ·
   tmux(FT_TMUX) cwd 는 한 번만 · `no server running` = 빈 좌석 · 그 밖 실패 = 판정 불가 rc3.
-r2325: --clear-pending <루트> = opt-in 지움 1개 — --range A..B 와 함께일 때만 · 검사 OK ∧ 그 착지의 대기 파일(<루트>/.fable-team/state/install-pending/<Q>.txt) 본문에 «range=<M>..<Q>» 줄이 정확히 1개 ∧ 그 Q = 파일 이름 Q ∧ A 가 M 의 조상이면 지우고 `CLEARED install-pending <Q 10자>` 1줄.
+r2325: --clear-pending <루트> = opt-in 지움 1개 — --range A..B 와 함께일 때만 · 검사 OK(하네스 루트가 --repo 밖인 «OK n=0» 갈래 포함) ∧ 그 착지의 대기 파일(<루트>/.fable-team/state/install-pending/<Q>.txt) 본문에 «range=<M>..<Q>» 줄이 정확히 1개 ∧ 그 Q = 파일 이름 Q ∧ A 가 M 의 조상이면 지우고 `CLEARED install-pending <Q 10자>` 1줄.
   나머지 갈래 = 파일 그대로 + `KEEP install-pending <Q 10자> <사유>` 1줄(검사 rc≠0 · 파일 없음 · range 줄 0·2개 이상 · Q 불일치 · A 가 M 의 조상 아님) / `판정 불가 — install-pending …` 1줄(is-ancestor rc≥2 · 못 푸는 sha — 하드 룰 20). 옵션 없으면 쓰기 0 · 출력 줄 0(그대로).
 r1394: 이 머신에서 «의도로 끈» launchd 라벨은 NOTLOADED 로 세지 않는다 — LaunchAgents 에 <라벨>.plist 가 없고 <라벨>.plist.off-* 가 있거나, 프로젝트 루트 `.fable-team/state/launchd-intent-off.tsv`(탭 3칸: 라벨·사유·근거)에 그 라벨 행이 있으면 `SKIP 의도 끔 <라벨> — <사유>` 1줄(OK 집계 · PENDING 아님). 명단이 깨짐(칸 수 ≠3 · 빈 사유) = ERROR rc3 · 켜기·끄기 0.
 """
@@ -180,6 +180,8 @@ def outside_repo(o, hr, repo):
     if hit:
         die(msg + " · 범위에 하네스 파일 %d: %s" % (len(hit), " ".join(sorted(hit))))
     print("OK n=0 skip=0 (하네스 루트가 --repo 밖 · 범위에 하네스 파일 0)")
+    if o["clear"]:  # r2325: 이 길도 검사 OK rc0 이다 — 안 부르면 남의 리포 착지(BYZ 꼴 · 실사건 26e9e2de34)의 대기 파일이 영영 남는다
+        clear_pending(repo, o, b)
     sys.exit(0)
 
 
