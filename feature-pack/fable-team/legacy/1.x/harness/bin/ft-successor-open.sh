@@ -513,7 +513,7 @@ seen=0; i=0
 while [ "$i" -lt "$WAIT_MAX" ] && so_wait_ready; do i=$((i+1))
   f="$(grep -lF "${SKEYS[@]}" "$JDIR"/*.jsonl 2>/dev/null)"
   [ -n "$f" ] && printf '%s\n' "$f" | xargs grep -lF "$SMARK" >/dev/null 2>&1 && { seen=1; break; }; sleep "$POLL"; done
-[ "$seen" = 1 ] && echo "SessionStart 관측 $NAME" || echo "SessionStart 미관측 $NAME (${WAIT_MAX}회) — 송신 후 도달 판정으로 확인"
+[ "$seen" = 1 ] && echo "SessionStart 관측 $NAME" || echo "SessionStart 미관측 $NAME (${i}회) — 송신 후 도달 판정으로 확인"
 fi
 so_send_ready || so_budget_stop "검증 송신(송신·도달 예산 ${SEND_RESERVE}초 필요)"   # 송신 «전» 에만 멈춘다 — 송신 뒤에 멈추면 재실행이 두 번 보낸다
 
