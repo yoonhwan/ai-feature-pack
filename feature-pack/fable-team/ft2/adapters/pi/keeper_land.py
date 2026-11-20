@@ -27,7 +27,8 @@ CARDMAP = os.path.join(".fable-team", "teams", "%s", "runtime", "cards.tsv")   #
 MAPPED = re.compile(r"^(design/.+)/indices/(?:진행|대기|완성)/([^/]+\.md)$")
 BODYPATH = re.compile(r"design/[^\s()`'\"<>·,]+\.md")   # r2055 발주 본문 속 카드 경로 토큰(MAPPED 로 다시 거름)
 MEMO_CAP = 1000   # r2307 C4 기억 칸(anc_true · land_kind)마다 키 상한(DA#34 권고)
-DOC_EXT = (".md", ".txt", ".json", ".jsonl", ".png", ".tsv")   # r2336 초안·증거 꼴 = 이 확장자만(DA#41 실측 2026-11-20) · 목록 밖 1개라도 = 실행 파일 = 구현 착지(보수)
+DOC_EXT = (".md", ".txt", ".log", ".json", ".jsonl", ".csv", ".tsv", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".html", ".pdf")   # r2336 K1 문서 목록(카드 동결) · 목록 밖·확장자 없음 = 실행 파일 = 구현 착지(보수)
+DOC_MID = ("evidence", "baselines")   # r2336 K4 경로 마디 전체 · evidence-x·myevidence 는 아님
 
 
 def memo(state, slot):
@@ -83,12 +84,24 @@ def draft_rows(out):
     return [(toks[i], toks[i + 1]) for i in range(0, len(toks) - 1, 2)]
 
 
+def draft_doc(path):
+    """r2336 K1·K4 — 경로 1개가 «카드·증거 문서» 인가: design/ 아래 ∧ 마디 indices(확장자 무관) 또는 마디 evidence·baselines ∧ 문서 확장자.
+    마디 = 경로 마디 전체(evidence-x/ · myevidence/ = 문서 아님) · 확장자 없음·목록 밖 = 실행 파일(보수) · design/ 밖 = 문서 아님."""
+    segs = path.split("/")
+    if len(segs) < 3 or segs[0] != "design":
+        return False
+    mid = segs[1:-1]
+    if "indices" in mid:
+        return True
+    return any(seg in DOC_MID for seg in mid) and os.path.splitext(segs[-1])[1].lower() in DOC_EXT
+
+
 def draft_only(rows, card):
-    """r2336 C1 — 그 커밋에서 카드 파일이 A 이고 바뀐 경로가 모두 문서 확장자 = 초안·증거 꼴(구현 0).
-    카드 M(r1793 꼴) · 실행 파일(scan.sh · check_target.py) 하나라도 = False(구현 착지 그대로)."""
+    """r2336 C1·K1 — 그 커밋에서 이 카드 파일이 A 이고 바뀐 경로가 모두 카드·증거 문서 = 초안·증거 꼴(구현 0).
+    카드 M(r1793 꼴) · 실행 파일(scan.sh · check_target.py) · design/ 밖 하나라도 = False(구현 착지 그대로)."""
     if not card or not any(path == card and status.startswith("A") for status, path in rows):
         return False
-    return all(os.path.splitext(path)[1].lower() in DOC_EXT for _, path in rows)
+    return all(draft_doc(path) for _, path in rows)
 
 
 def land_kind(root, repo, sha, call):
