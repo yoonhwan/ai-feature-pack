@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # test_pi_mbox_wake_why_history_r2322.sh — r2322: 좌석이 안 깨웠을 때 «어느 갈래로 돌아섰는지» 가 <state>/pi-wake/<키>.why 에 1줄씩 남는다
-#  H1 이력 1줄 = ①③⑤ · H2 중복 0 = ② · H3 상한 = ④ · H4 불변 = ⑥(.beat 꼴 · 쓰기 실패 = 깨움 영향 0 · 회귀 시험 8종)
+#  H1 이력 1줄 = ①③⑤ · H2 중복 0 = ② · H3 상한 = ④ · H4 불변 = ⑥(.beat 꼴 · 쓰기 실패 = 깨움 영향 0)
 #  기준판(.why 없음) = ① Red. 격리 = r2321 꼴(임시 루트 · 합성 mailbox.jsonl · 가짜 pi · 스텁 mbox.sh · pi 패키지 스텁 · 실 우편함·실 pi 0).
 #  시계 = FT_MBOX_NOW(정수 초) 고정 · sleep 0(⑤ 의 창은 기본 20000ms 안이라 즉시) · 네트워크 0.
-#  R2322_EXT = 다른 확장 파일(기준판·변이)을 볼 때만 · R2322_CASES = 돌릴 시험 번호(기본 1 2 3 4 5 6) · R2322_SKIP_REGRESS=1 = ⑥ 회귀 생략.
+#  R2322_EXT = 다른 확장 파일(기준판·변이)을 볼 때만 · R2322_CASES = 돌릴 시험 번호(기본 1 2 3 4 5 6).
+#  r2326: 회귀 8종은 이 시험 안에서 돌리지 않는다(카드 «- 세트:» 시험 줄에서 따로). R2322_SKIP_REGRESS 는 받아도 뜻 없음(오류 0).
 # 새 파일 mode 100644(실행 비트 0) — `bash <이 파일>` 로 부른다.
 set -uo pipefail
 for v in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY; do unset "$v"; done
@@ -168,21 +169,6 @@ cat > "$T/node_modules/@earendil-works/pi-coding-agent/index.mjs" <<'SHIM'
 export const createLocalBashOperations = () => ({ exec: async () => ({ output: "", exitCode: 0, cancelled: false, truncated: false }) });
 SHIM
 R2322_EXT="$T/ext/ft-mbox-wake.ts" R2322_SEAT="$SEAT" R2322_TMP="$T" timeout 70 node "$T/driver.mjs"; rc=$?
-echo "---"
-# ── ⑥ H4 회귀 = 기존 시험 8종 무회귀(기준판과 실패 이름 diff 0 = 실패 이름 0) ──────────────
-if [ "${R2322_SKIP_REGRESS:-0}" != 1 ]; then
-  for t in test_pi_mbox_wake_r1477.sh test_pi_mbox_wake_batch_r2169.sh test_pi_mbox_wake_recv_gate_r1669.sh \
-           test_pi_mbox_wake_seat_only_r1634.sh test_pi_mbox_wake_self_r1529.sh test_pi_mbox_wake_self_wake_r2259.sh \
-           test_pi_idle_nudge_r1530.sh test_pi_mbox_wake_quiet_aged_r2321.sh; do
-    out="$(timeout 70 bash "$HERE/$t" 2>&1)"; brc=$?
-    names="$(printf '%s\n' "$out" | grep -c '^FAIL')"
-    if [ "$brc" != 0 ] || [ "$names" != 0 ]; then # 기존 시험의 타이밍 흐들림(r1529 변이 2 = 기준판도 1/8 실패 측정) = 딱 1회만 다시 돌려 가려낸다(숨김 0 · 기록 남김)
-      out="$(timeout 70 bash "$HERE/$t" 2>&1)"; brc=$?; names="$(printf '%s\n' "$out" | grep -c '^FAIL')"
-      [ "$brc" = 0 ] && [ "$names" = 0 ] && echo "NOTE ⑥ $t = 1회차 실패 · 2회차 통과(기존 시험 타이밍 흐들림 · 새 판과 무관)"
-    fi
-    if [ "$brc" = 0 ] && [ "$names" = 0 ]; then echo "PASS ⑥ 회귀 $t"; else echo "FAIL ⑥ 회귀 $t :: rc=$brc 실패이름=$names"; printf '%s\n' "$out" | grep '^FAIL' | head -3; rc=1; fi
-  done
-fi
 echo "---"
 if [ "$rc" = 0 ]; then echo "ALL PASS"; exit 0; fi
 echo "FAIL (rc=$rc)"; exit 1
