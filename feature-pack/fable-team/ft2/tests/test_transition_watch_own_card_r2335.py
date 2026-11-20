@@ -72,7 +72,14 @@ def c5b(w):   # ⑤ⓑ W1 — 정확 work 가 세대에만(parked) 남음 · 접
     T.card(w, "대기", "r9415-a-b")
     run(w)
     assert T.sends(w) == [], T.sends(w)
-def c6(w):   # ⑥ W2 경계 — 부모 카드 있음 + 장부 done 1시간 안(30분) → 0통 · 칸 = «대기 · 배정»
+def c6(w):   # ⑥ W2 — 열린 work 갈래(classify 의 works(…, "open")): 장부 open p(다른 holder) · 카드 p 있음 → 후속 카드는 p 로 안 열림 · 0통 · 칸 = «대기 · 배정»
+    led(w, PARENT, "open")
+    T.card(w, "완성", PARENT)
+    T.card(w, "대기", PARENT + "-impl")
+    k = run(w)
+    assert T.sends(w) == [], T.sends(w)
+    assert cell(w, k, PARENT + "-impl") == "대기 · 배정", cell(w, k, PARENT + "-impl")
+def c6b(w):   # ⑥ⓑ W2 경계 — 부모 카드 있음 + 장부 done 1시간 안(30분) → 0통 · 칸 = «대기 · 배정»
     led(w, PARENT)
     T.card(w, "완성", PARENT)
     T.card(w, "대기", PARENT + "-impl")
@@ -87,12 +94,13 @@ def c7(w):   # ⑦ W3 불변 — 부모 카드는 있어도 장부에 그 접두
     assert cell(w, k, PARENT + "-impl") == "대기 · 배정", cell(w, k, PARENT + "-impl")
 
 
-CASES = {"c1": c1, "c2": c2, "c3": c3, "c4": c4, "c5": c5, "c5b": c5b, "c6": c6, "c7": c7}
+CASES = {"c1": c1, "c2": c2, "c3": c3, "c4": c4, "c5": c5, "c5b": c5b, "c6": c6, "c6b": c6b, "c7": c7}
 TW = ("adapters", "pi", "transition_watch.py")
-MUTANTS = {   # 변이 이름 → (글자 바꿈, 사례) — 접두 거름 지움(M1) · 정확 우선 지움(M2) · 거름 방향 뒤집음(M3)
+MUTANTS = {   # 변이 이름 → (글자 바꿈, 사례) — 접두 거름 지움(M1) · 정확 우선 지움(M2) · 거름 방향 뒤집음(M3) · 열린 work 칸만 거름 지움(M4)
     "M1": ([(" and x not in s.stems", "")], c1),
     "M2": ([('if c["stem"] in book["all"]:', "if False:")], c5b),
     "M3": ([(" and x not in s.stems", " and x in s.stems")], c3),
+    "M4": ([("x in book[cell] and x not in s.stems", 'x in book[cell] and (cell == "open" or x not in s.stems)')], c6),
 }
 
 
