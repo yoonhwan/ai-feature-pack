@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # test_install_pending_clear_on_recheck_r2325.sh — r2325: 착지 설치 검사가 시간 초과로 남긴 설치 대기 파일을, 같은 착지 범위를 덮는 손 재검(OK)이 그 자리에서 지운다
-#   c1~c11 = 반례 ①~⑪(카드 동결) · c8 = 착지 도구 두 길(시간 초과 · PENDING) → 대기 파일 «마지막 줄 range=M..Q» + 안내 문구(착지 검사 argv 그대로)
+#   c1~c12 = 반례 ①~⑫(카드 동결 ①~⑪ + DA#39 ⓐ ⑫) · c8 = 착지 도구 두 길(시간 초과 · PENDING) → 대기 파일 «마지막 줄 range=M..Q» + 안내 문구(착지 검사 argv 그대로)
 #   c9 = 옛 소비자 호환 · 키트 사본 cmp0 · 문법(회귀 시험 6종의 실패 이름 대조는 좌석 보고에 적는다 — 시험 1개 70초 상한 · 하드 룰 22)
-#   기준판 Red ① · 변이 M1~M5 = 짝 시험 test_install_pending_clear_on_recheck_mut_r2325.sh
+#   기준판 Red ① · 변이 M1~M6 = 짝 시험 test_install_pending_clear_on_recheck_mut_r2325.sh
 #   FT_R2325_BIN = 시험할 bin(기본 추적본) · FT_R2325_ONLY = 돌릴 사례(빈 값 = 전부) · 임시 리포·임시 루트·가짜 gh · 실 원격·실 상태·네트워크 0 · sleep 0
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
 set -uo pipefail
@@ -157,11 +157,20 @@ if on c10; then  # ⑩ range 줄 M 이 이 리포에 없음 → 판정 불가 1�
   [ "$rc" = 0 ] && has "판정 불가 — install-pending ${Q:0:10}" && ! has "KEEP" && [ -e "$PD/$Q.txt" ]
   ck "⑩ 못 푸는 M → 판정 불가(하드 룰 20) · 파일 그대로" $?
 fi
-if on c11; then  # ⑪ 다른 리포 착지를 --repo 없이 재검 → 검사 ERROR rc3 → KEEP · rc 3 그대로
-  pd "$Q" "INSTALL-PENDING 검사 시간 초과" "range=$M..$Q"
+if on c11; then  # ⑪ 다른 리포 착지를 --repo 없이 재검 → 검사 ERROR rc3 → KEEP · rc 3 그대로  pd "$Q" "INSTALL-PENDING 검사 시간 초과" "range=$M..$Q"
   out="$(bash "$CHK" --range "$F40..1111111111111111111111111111111111111112" --kit "$KD" --clear-pending "$PR" 2>&1)"; rc=$?
   [ "$rc" = 3 ] && has "ERROR" && has "KEEP install-pending" && [ -e "$PD/$Q.txt" ]
   ck "⑪ 못 푸는 범위 재검 = ERROR rc3 → KEEP · rc 3 그대로" $?
+fi
+if on c12; then  # ⑫ --kit 없이 하네스 루트 밖 리포(BYZ 착지 꼴) · 범위에 옛 하네스 파일 0 → CLEARED(DA#39 ⓐ)
+  R2="$T/repo2"; G2() { git -C "$R2" "$@"; }
+  mkdir -p "$R2"; G2 init -q -b main . && G2 config user.name t && G2 config user.email t@t
+  echo a > "$R2/a.txt"; G2 add -A; G2 commit -qm c0; M2="$(G2 rev-parse HEAD)"
+  echo b > "$R2/a.txt"; G2 add -A; G2 commit -qm c1; Q2="$(G2 rev-parse HEAD)"; G2 update-ref refs/remotes/origin/main "$Q2"
+  pd "$Q2" "INSTALL-PENDING 검사 시간 초과" "range=$M2..$Q2"
+  out="$(bash "$CHK" --range "$M2..$Q2" --repo "$R2" --clear-pending "$PR" 2>&1)"; rc=$?
+  [ "$rc" = 0 ] && has "OK n=0 skip=0 (하네스 루트가 --repo 밖" && has "CLEARED install-pending ${Q2:0:10}" && [ ! -e "$PD/$Q2.txt" ]
+  ck "⑫ 하네스 밖 리포(BYZ 꼴) · --kit 없음 → CLEARED" $?
 fi
 
 echo "단계별 초: 전체 $((SECONDS - T0))(c8 ${el}s)"
