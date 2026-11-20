@@ -230,9 +230,9 @@ def c9(tmp, mp, ft2=FT2):   # ⑨ ROWS-SLOW 1.5초 · cpu 0.05초 → 줄 끝 cp
     ke, w = _mod(ft2 / KE, "r2346_ke9"), world(tmp / "a")
     assert ke._rows(w.k, RTEAM) == full(w, ke)
     n = len(full(w, ke))
-    mp.setattr(ke, "time", Clock2([100.0, 100.01, 101.51], [50.0, 50.05]))
+    mp.setattr(ke, "time", Clock2([100.0, 100.0, 100.01, 100.01, 101.51], [50.0, 50.05]))   # r2362 시계 2자리(proj·key) 더
     assert ke._rows(w.k, RTEAM) is not None
-    assert w.k.lines == ["ROWS-SLOW %s cache=hit load=0.01 active=1.50 n=%d cpu=0.05" % (RTEAM, n)], w.k.lines
+    assert w.k.lines == ["ROWS-SLOW %s cache=hit load=0.01 active=1.50 n=%d cpu=0.05 proj=0.00 key=0.01 get=0.00" % (RTEAM, n)], w.k.lines
 
 
 def c10(tmp, mp, ft2=FT2):   # ⑩ ROWS 0.31초(문턱 밑) → 줄 0 그대로

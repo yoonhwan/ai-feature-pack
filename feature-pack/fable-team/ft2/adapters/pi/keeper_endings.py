@@ -5,6 +5,8 @@ r2319(nano) — journal 판독에서 닫힌 segment 는 디스크 캐시(keeper 
 활성 파일만 매번 새로 읽는다. 캐시 지문 = 닫힌 목록 (이름 · size · mtime_ns) · 판독 전·후 두 번 재서
 같을 때만 씀 · 캐시 없음·깨짐·쓰기 실패 = 지금과 같은 전부 판독(예외 0) · 1초 넘으면 ROWS-SLOW 1줄.
 r2346(nano) — 그 ROWS-SLOW 줄 끝에 load+active 구간의 파이썬 CPU 초를 %.2f 로 붙인다(문턱·앞 글자 그대로).
+r2362(nano) — load 한 칸을 세 구간 초로 나눠 같은 줄 끝에 붙인다: proj(projection 가져오기 + Journal 만들기) ·
+key(닫힌 segment stat) · get(닫힌 행 읽기 — 캐시 hit = json 1개 · miss = 닫힌 전부 판독) · 세 칸 합 = load.
 """
 import glob, importlib.util, json, os, re, time  # noqa: E401
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -77,12 +79,14 @@ def _rows(k, team):
     try:
         proj = _proj()
         j = proj.journal.Journal(proj.runtime_path(k.root, team), rec=proj.record)
+        ta = time.monotonic()   # r2362 proj 칸 끝(load 첫 구간)
         key, path = _rows_key(j), _rows_cache(k, team)
+        tb = time.monotonic()   # r2362 key 칸 끝(load 둘째 구간)
         closed = _rows_get(path, key) if key else None   # C1·C2·C3
         hit = closed is not None
         if not hit:   # 캐시 없음·틀림·깨짐 = 닫힌 쪽 전부 판독(부분 갱신 0 · 단순)
             closed = [rec for _n, seg in j.closed() for rec in j._records_of(seg)]
-        t1 = time.monotonic()
+        t1 = time.monotonic()   # r2362 get 칸 끝(load 셋째 구간 · 세 칸 합 = load)
         active = j._records_of(j.active_path) if os.path.exists(j.active_path) else []   # 활성은 매번 (C1)
         t2 = time.monotonic()
         spent = _cpu() - c0   # r2346 — load+active 구간 파이썬 CPU 초(이음·캐시 쓰기 앞)
@@ -92,7 +96,8 @@ def _rows(k, team):
     except (OSError, ValueError):   # C3·C4 — 캐시 탓도 판독 실패도 지금과 같은 None
         return None
     if t2 - t0 >= ROWS_SLOW_S:   # C7 효과 가림 — 1초 넘을 때만 1줄
-        k.log("ROWS-SLOW", team, "cache=%s load=%.2f active=%.2f n=%d cpu=%.2f" % ("hit" if hit else ("miss" if key else "none"), t1 - t0, t2 - t1, len(rows), spent))
+        k.log("ROWS-SLOW", team, "cache=%s load=%.2f active=%.2f n=%d cpu=%.2f" % ("hit" if hit else ("miss" if key else "none"), t1 - t0, t2 - t1, len(rows), spent)
+              + " proj=%.2f key=%.2f get=%.2f" % (ta - t0, tb - ta, t1 - tb))   # r2362 load 3칸 초(합 = load)
     return rows
 def latest(k, team):   # {work: (attempt, holder)} 최신 dispatch · 못 읽음 = None
     rows = _rows(k, team)
