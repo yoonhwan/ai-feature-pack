@@ -241,10 +241,14 @@ def body_seed(path):   # r2324 ④b U1/U3 — 일반 파일 본문에 좌석 이
     except OSError: hit = False
     _seed_cache[path] = hit
     return hit
-def script_seed(cmd):   # r2324 ④b U1a — argv 의 절대 경로 낱말 본문 · `bash -c …`(-c 있음) = 경로 아님 → 0 · 상대 경로 = 0(cwd 풀기 0)
+SHELL_ARGV = ("bash", "sh", "zsh")   # r2327 ④b U1 — 본문 씨앗을 보는 셸 명령 이름(words[0] basename)
+def script_seed(cmd):   # r2327 ④b U1/U1a — «bash|sh|zsh [옵션…] <절대 경로>» 꼴의 첫 경로 낱말 1개만 본문 · 명령 이름 다름(python3·tail …) = 0 · 둘째 이후 낱말 0 · c 든 짧은 옵션 묶음(-c·-lc·-ic) = 0(명령 문자열이라 경로 아님) · 상대 경로 = 0(cwd 풀기 0)
     words = cmd.split()
-    if "-c" in words[1:]: return False
-    return any(w.startswith("/") and body_seed(w) for w in words[1:])
+    if not words or os.path.basename(words[0]) not in SHELL_ARGV: return False
+    for w in words[1:]:
+        if not w.startswith("-"): return w.startswith("/") and body_seed(w)
+        if len(w) > 1 and w[1:].isalpha() and "c" in w[1:]: return False
+    return False
 _launchd = []
 def launchd_pids():   # r2317 ④ S1a — `launchctl list` PID 칸 · 실패 = rc 20(판정 불가 · 하드 룰 20 · 한 번만 부른다)
     if _launchd: return _launchd[0]
