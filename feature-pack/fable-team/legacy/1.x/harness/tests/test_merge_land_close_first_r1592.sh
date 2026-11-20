@@ -68,9 +68,10 @@ rm -rf "$T/m4"; cp -R "$BIN" "$T/m4"; printf '#!/bin/bash\necho head-lag >> "$OR
 printf 'fm_land_notify_land() { echo notify >> "$ORDER"; echo "NOTIFIED 착지 쪽지 (r1700 stub)"; }\n' >> "$T/m4/ft-merge-lib.sh"
 python3 - "$T/m4/ft-merge-land.sh" <<'PYMOVE'
 import sys,pathlib
+# r2320: 꼬리 차례 = 설치 → 알림 → shim → 뒤처짐 · «뒤처짐 호출 줄»을 그대로 설치 검사 앞으로 옮긴다(줄 쪼개기 0)
 p=pathlib.Path(sys.argv[1]);lines=p.read_text().splitlines();idx=next(i for i,l in enumerate(lines) if 'ft-head-lag.sh" --event' in l)
-notify,call=lines[idx].split('; HLTO=',1);lines[idx]=notify
-at=next(i for i,l in enumerate(lines) if l.startswith('ITO='));lines.insert(at,'HLTO='+call)
+call=lines.pop(idx)
+at=next(i for i,l in enumerate(lines) if l.startswith('ITO='));lines.insert(at,call)
 p.write_text('\n'.join(lines)+'\n')
 PYMOVE
 land "$T/m4/ft-merge-land.sh" 52
@@ -81,7 +82,7 @@ S2=$SECONDS
 rm -rf "$T/m"; cp -R "$BIN" "$T/m"; printf '#!/bin/bash\necho head-lag >> "$ORDER"\nexit 0\n' > "$T/m/ft-head-lag.sh"
 python3 -c 'import sys
 p=sys.argv[1]; L=open(p,encoding="utf-8").read().splitlines()
-i=[n for n,l in enumerate(L) if l.startswith("CR=0; CB=")]
+i=[n for n,l in enumerate(L) if l.startswith("CR=0;")]   # r2320: 착지 닫기 블록 첫 줄에 LCS(초 재기)가 붙었다
 assert len(i)==1, i
 b=L[i[0]:i[0]+4]; assert b[3].lstrip().startswith("|| {"), b
 del L[i[0]:i[0]+4]
