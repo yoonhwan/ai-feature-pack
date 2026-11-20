@@ -628,8 +628,8 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
         self.prev_cursor = dict(self.state.get("cursor") or {}) or None   # R5 «같은 자리 2바퀴 연속» 을 세려고 남긴다
         self.deferred = {}   # R8 쪽지 몫(notify_used · send_fails · send_stop)은 바퀴 끝에서 되돌린다(한 바퀴 3통 · 시간 초과 2회)
         self.halt, self.unknown, self.orphan_scope = self.stopped(), 0, set()   # r2055 orphan_scope = 고아 길이 판정한 팀(S1) 정지 = 판정·[긴급]·«예정» 만 · kill·park·깨움·fill·B3 0
+        self.cache["@round"] = {}   # r1969 바퀴 캐시(keeper_next.once · 팀 사이 공유 · 다음 바퀴 새로 읽음) — r2354 K1 fresh_samples 가 이 캐시 ls 칸을 채우고 그 바퀴가 그대로 쓴다
         self.fresh_samples()   # r2055 A13 표본 = 직전 바퀴 것만
-        self.cache["@round"] = {}   # r1969 바퀴 캐시(keeper_next.once · 팀 사이 공유 · 다음 바퀴 새로 읽음)
         if self.skip is None:
             return self.log("판정 불가", text="SKIP_TEAMS 판독 실패 — 이 바퀴 B1·B2·B3·B4 0")
         self.table, self.refs, self.fetch_s = kf.targets(self), {}, dict.fromkeys((self.root, self.pack), 0.0)
