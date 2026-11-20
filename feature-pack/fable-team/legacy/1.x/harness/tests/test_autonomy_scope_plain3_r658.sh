@@ -32,6 +32,7 @@ export FT_SCOPE_CLASSIFY="$T/cls.sh" FT_SCOPE_SLACK_POST="$T/post.sh" STUB_POST_
 a() { FT_NOW="$NOW" "$BASH" "$BIN/ft-autonomy.sh" "$@"; }
 run() { out="$("$@" 2>&1)"; rc=$?; }
 fresh() { rm -rf "$S"; mkdir -p "$S"; rm -f "$P"; NOW=$T0; }
+onbare() { fresh; printf '{"mode":"on","since":%s,"event":"A1","until":null,"level":"full"}\n' "$T0" > "$S/autonomy.json"; printf '%s\ton\tA1\n' "$T0" > "$LOG"; }   # r2349: 범위 줄 없는 ON(옛 on 꼴) — 손 approve-scope 가 첫 범위가 된다
 hhmm() { date -r "$1" +%H:%M 2>/dev/null || date -d "@$1" +%H:%M; }
 sha() { printf '%040x' "$1"; }
 body() { cat "$P"; }
@@ -66,14 +67,14 @@ cmp -s "$T/exp" "$P"; ck "ⓑ 중간 3줄 원문 일치(code 종류 없음 → �
 fresh; run a on
 printf '자율 켜짐(풀자동)\n혼자 해도 되는 것: 문서 병합 · 빨리 감기 병합 · 되돌림 30건까지 · 코드 병합 10건까지 · 하루 15건\n언제까지: 다음 범위 승인까지 · 24시간\n' > "$T/exp"
 cmp -s "$T/exp" "$P"; ck "ⓑ 끝 없는 ON → «다음 범위 승인까지 · 24시간»" $?
-fresh; a on --level full --for 12h >/dev/null 2>&1; : > "$P"; grant() { run a approve-scope "$@"; }
+onbare; grant() { run a approve-scope "$@"; }
 grant --for 10h --max 5 --daily 2 --classes docs,ff
 printf '자율 켜짐(풀자동)\n혼자 해도 되는 것: 문서 병합 · 빨리 감기 병합 5건까지 · 하루 2건\n언제까지: %s 까지\n' "$(hhmm $((T0+36000)))" > "$T/exp"
 [ $rc = 0 ] && cmp -s "$T/exp" "$P"; ck "ⓑ 손 범위 승인(approve-scope)도 같은 3줄(레벨 = 지금 ON)" $?
 
 # ===== ⓒ 금지 글자 — 켜짐 글마다(풀자동·중간·손 승인·끝 없음) =====
 for s in "on --level full --for 12h" "on --level mid --for 6h" "on"; do fresh; a $s >/dev/null 2>&1; bad "$(body)"; ck "ⓒ 내부 번호 0 ($s)" $?; done
-fresh; a on --level full --for 12h >/dev/null 2>&1; : > "$P"; grant --for 10h --max 5 --classes docs; bad "$(body)"; ck "ⓒ 내부 번호 0 (손 범위 승인)" $?
+onbare; grant --for 10h --max 5 --classes docs; bad "$(body)"; ck "ⓒ 내부 번호 0 (손 범위 승인)" $?
 
 # ===== ⓓ 쉬운 말 대응표 1곳 · 표에 없는 종류 = 게시 «전» REJECT =====
 [ "$(unit scope_class_plain docs)" = "문서 병합" ] && [ "$(unit scope_class_plain ff)" = "빨리 감기 병합" ] \
@@ -84,13 +85,13 @@ out="$(unit scope_slack_body $((T0+9)) 5 5 docs,bogus 0 full '')"; rc=$?; [ $rc 
 [ $rc = 2 ] && [ ! -s "$P" ] && has '모르는 종류'; ck "ⓓ 게시 «전» REJECT — 슬랙 0" $?
 
 # ===== ⓔ 기계 줄 = 바이트 그대로(grant 줄·grants.audit) =====
-fresh; a on --level full --for 12h >/dev/null 2>&1; : > "$P"; grant --for 10h --max 5 --daily 2 --classes docs,ff
-grep -qxF "approve-scope S2 A1 $T0 until=$((T0+36000)) max=5 daily=2 classes=docs,ff" "$LOG"; ck "ⓔ approve-scope 줄 바이트 그대로(내부 칸 이름 유지)" $?
-printf 'S2\tA1\t%s\tuntil=%s\tmax=5\tdaily=2\tclasses=docs,ff\tslack_ts=1800000000.000100\n' "$T0" "$((T0+36000))" | cmp -s - <(tail -1 "$AU"); ck "ⓔ grants.audit 줄 바이트 그대로(슬랙 ts 칸 포함)" $?
+onbare; grant --for 10h --max 5 --daily 2 --classes docs,ff
+grep -qxF "approve-scope S1 A1 $T0 until=$((T0+36000)) max=5 daily=2 classes=docs,ff" "$LOG"; ck "ⓔ approve-scope 줄 바이트 그대로(내부 칸 이름 유지)" $?
+printf 'S1\tA1\t%s\tuntil=%s\tmax=5\tdaily=2\tclasses=docs,ff\tslack_ts=1800000000.000100\n' "$T0" "$((T0+36000))" | cmp -s - <(tail -1 "$AU"); ck "ⓔ grants.audit 줄 바이트 그대로(슬랙 ts 칸 포함)" $?
 st="$(grep -c '^scope-use ' "$LOG")"; run a scope-approve "$(sha 9)"
-[ $rc = 0 ] && [ "$(grep -c '^scope-use ' "$LOG")" = "$((st+1))" ] && grep -qxF "scope-use S2 $(sha 9) docs $T0" "$LOG"; ck "ⓔ scope-use 줄 바이트 그대로" $?
+[ $rc = 0 ] && [ "$(grep -c '^scope-use ' "$LOG")" = "$((st+1))" ] && grep -qxF "scope-use S1 $(sha 9) docs $T0" "$LOG"; ck "ⓔ scope-use 줄 바이트 그대로" $?
 run a scope-status --audit; [ $rc = 0 ] && has '^AUDIT-OK'; ck "ⓔ --audit OK(게시 본문을 바꿔도 대조 그대로)" $?
-STUB_POST_RC=1 grant --for 1h --max 2 --classes docs; [ $rc = 1 ] && has '슬랙 게시 실패'; ck "ⓔ 게시 실패 → grant 쓰기 0 그대로(rc 1)" $?
+STUB_POST_RC=1 grant --for 1h --max 5 --classes docs,ff; [ $rc = 1 ] && has '슬랙 게시 실패'; ck "ⓔ 게시 실패 → grant 쓰기 0 그대로(rc 1)" $?
 
 # ===== ⓕ 레벨 each = 게시 0 그대로 · 범위 재승인(SCOPE-RENEWED)도 사람 말 3줄 =====
 fresh; run a on --level each --for 2h; [ $rc = 0 ] && [ ! -s "$P" ] && ! grep -q '^approve-scope ' "$LOG"; ck "ⓕ each → 슬랙 0 · 범위 승인 줄 0 그대로" $?
