@@ -504,7 +504,8 @@ class AlertIntake:
             lines.append("사유: %s" % intent["extra"])
         for inc_id in ids:
             inc = self.inc.get(inc_id) or {}
-            when = time.strftime("%m-%d %H:%M", time.localtime(float(inc.get("opened_at") or self.now())))
+            stamp = inc.get("closed_at") if kind == "close" else inc.get("opened_at")  # 닫힘 칸 = 닫힘 시각
+            when = time.strftime("%m-%d %H:%M", time.localtime(float(stamp or self.now())))
             if kind in ("new", "bundle"):
                 lines.append("· 새 사건 %s · 정책 %s · 값 %s · 시각 %s · 링크 %s · 제안 팀 %s"
                              % (inc_id, inc.get("policy") or "-", inc.get("value") or "-", when,

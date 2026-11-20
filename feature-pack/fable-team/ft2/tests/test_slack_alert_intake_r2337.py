@@ -171,11 +171,24 @@ def case_02(tmp, mod=M):
     assert inc_of(tmp)["count"] == 3
 
 
+def _when(epoch):
+    return time.strftime("%m-%d %H:%M", time.localtime(float(epoch)))
+
+
+def _close_stamp(tmp, body, inc_id=INC):
+    """«닫힘» 쪽지의 시각 칸 1개 — 열림 시각이 찍히면 여기서 걸린다(arch 인수 정정)."""
+    inc = inc_of(tmp, inc_id)
+    assert "닫힘 시각 " + _when(inc["closed_at"]) in body
+    assert _when(inc["opened_at"]) != _when(inc["closed_at"])  # 두 칸이 다른 사례여야 뜻이 있다
+    assert "닫힘 시각 " + _when(inc["opened_at"]) not in body
+
+
 def case_03(tmp, mod=M):
     """③ 닫힘 글 → 그때 0 · 30분 지난 루프 «닫힘» 1통."""
     m, clock, sender = make(tmp, mod)
     m.feed(post("1700000001.000100"))
     pump(m, clock)
+    clock.go(60)  # 열림·닫힘 시각이 다른 사례(닫힘 칸이 열림 시각을 베끼면 걸린다)
     m.feed(post("1700000101.000100", state="닫힘", blocks=True))  # 닫힘 원문 = blocks 동봉(같은 글자)
     pump(m, clock)
     assert len(notes(sender)) == 1 and inc_of(tmp)["closed_at"] is not None
@@ -183,6 +196,7 @@ def case_03(tmp, mod=M):
     assert len(notes(sender)) == 1
     pump(m, clock, 2)
     assert len(notes(sender)) == 2 and "닫힘" in notes(sender)[1]
+    _close_stamp(tmp, notes(sender)[1])  # 닫힘 칸 = 닫힘 시각(열림 시각 아님)
 
 
 def _folded(tmp, mod=M):
@@ -190,6 +204,7 @@ def _folded(tmp, mod=M):
     m, clock, sender = make(tmp, mod)
     m.feed(post("1700000001.000100"))
     pump(m, clock)
+    clock.go(60)
     m.feed(post("1700000061.000100", state="닫힘"))
     pump(m, clock)
     clock.go(1200)
@@ -225,6 +240,7 @@ def case_04b(tmp, mod=M):
 def case_04c(tmp, mod=M):
     """④c ④의 접힌 새 id 닫힘 → 그때 0 · 30분 뒤 «닫힘» 1통."""
     m, clock, sender = _folded(tmp, mod)
+    clock.go(60)
     m.feed(post("1700000261.000100", inc="0.beef000011112222", state="닫힘"))
     pump(m, clock)
     assert len(notes(sender)) == 1
@@ -232,6 +248,7 @@ def case_04c(tmp, mod=M):
     assert len(notes(sender)) == 1
     pump(m, clock, 2)
     assert len(notes(sender)) == 2 and "닫힘" in notes(sender)[1]
+    _close_stamp(tmp, notes(sender)[1], "0.beef000011112222")
 
 
 def case_05(tmp, mod=M):
