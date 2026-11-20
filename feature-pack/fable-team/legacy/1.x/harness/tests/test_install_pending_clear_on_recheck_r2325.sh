@@ -157,7 +157,8 @@ if on c10; then  # ⑩ range 줄 M 이 이 리포에 없음 → 판정 불가 1�
   [ "$rc" = 0 ] && has "판정 불가 — install-pending ${Q:0:10}" && ! has "KEEP" && [ -e "$PD/$Q.txt" ]
   ck "⑩ 못 푸는 M → 판정 불가(하드 룰 20) · 파일 그대로" $?
 fi
-if on c11; then  # ⑪ 다른 리포 착지를 --repo 없이 재검 → 검사 ERROR rc3 → KEEP · rc 3 그대로  pd "$Q" "INSTALL-PENDING 검사 시간 초과" "range=$M..$Q"
+if on c11; then  # ⑪ 다른 리포 착지를 --repo 없이 재검 → 검사 ERROR rc3 → KEEP · rc 3 그대로
+  pd "$Q" "INSTALL-PENDING 검사 시간 초과" "range=$M..$Q"
   out="$(bash "$CHK" --range "$F40..1111111111111111111111111111111111111112" --kit "$KD" --clear-pending "$PR" 2>&1)"; rc=$?
   [ "$rc" = 3 ] && has "ERROR" && has "KEEP install-pending" && [ -e "$PD/$Q.txt" ]
   ck "⑪ 못 푸는 범위 재검 = ERROR rc3 → KEEP · rc 3 그대로" $?
