@@ -3,8 +3,10 @@
 ① log 앞자리(뒤 남 글 4MB 넘음) ② .1 에만 ③ .3 에만 ④ log 옛 글 · 큐에 더 큰 seq ⑤ log 끝 4MB 안
 ⑥ 어디에도 없음 ⑦ .1 없음 · .2 있음 ⑧ 1MB 조각 경계에 걸친 줄 ⑨ 깨진 줄 섞임 ⑩ 20MB 사슬 · 맞음 0 = 1초 안
 ⑪ log 안 같은 좌석 2통(앞 [다음 없음] · 뒤 다른 글) = 뒤(큰 seq) 글.
+⑫ 마지막 진짜 [다음 없음](seq N) 뒤에 같은 from 의 bridged 거울 줄(seq 0 · 다른 본문) → [다음 없음] 본문(G2 = 맞음은 seq>0 줄만).
 M1 4MB 창 되돌림 → ① FAIL · M2 회전 사본 안 봄 → ② FAIL · M3 조각 이어 붙이기 지움 → ⑧ FAIL
-M4 큐 안 봄 → ④ FAIL · M5 첫 맞음 대신 앞(옛) 맞음 → ⑪ FAIL (변이는 R2338_BIN 사본으로 · 원본 대조 1회)
+M4 큐 안 봄 → ④ FAIL · M5 첫 맞음 대신 앞(옛) 맞음 → ⑪ FAIL · M6 seq>0 거름 지움 → ⑫ FAIL
+(변이는 R2338_BIN 사본으로 · 원본 대조 1회)
 R2338_BIN = 시험할 bin 폴더(기본 kit · 변이 사본을 넣어 위 FAIL 을 본다).
 격리 = 임시 comm 폴더만(실 우편함 0) · sleep 0 · 시험 1개 70초 안.
 """
@@ -145,3 +147,9 @@ def test_two_sent_same_seat_takes_newer(comm: Path) -> None:
     """⑪ log 안 같은 좌석 글 2통 → 뒤(큰 seq) 글 본문."""
     pad(log(comm, [row(500, ME, "[다음 없음] 앞 글"), row(700, ME, "일하는 중 글")]), n=2)
     assert last_sent(comm) == "일하는 중 글"
+
+
+def test_mirror_row_seq_zero_skipped(comm: Path) -> None:
+    """⑫ 마지막 진짜 글이 seq N [다음 없음] · 그 뒤 같은 좌석 bridged 거울 줄(seq 0) → [다음 없음] 본문."""
+    pad(log(comm, [row(500, ME, "[다음 없음] 쉼"), row(0, ME, "[거울] 옛 글")]), n=2)
+    assert last_sent(comm) == "[다음 없음] 쉼"
