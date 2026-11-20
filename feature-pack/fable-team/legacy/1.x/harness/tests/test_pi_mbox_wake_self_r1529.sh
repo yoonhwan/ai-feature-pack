@@ -8,6 +8,7 @@
 #        ⓗ 턴 도중 도착 3 = 턴 0 · 턴 끝 재확인 1(남은 행 seq) · ⓙ 유휴 즉시 1 · 배달 전 1통 더 = 추가 0
 #        ⓚ 시작 회수(force) 깨움도 배달 대기 1개 — 시작회수 501 뒤 agent_start 전 502 = 총 1(DA HOLD R1)
 #  변이: 1 = 거르개 끔 → ⓐ FAIL · ⓒ seq 틀림 · 2 = 턴 표지 끔 → ⓗ 턴 도중 3 = FAIL · 2b = 대기 상한 끔 → ⓙ 추가 1
+#  r2326: 변이 2 확인 = 통마다 «그 통 수(i)» 가 될 때까지 상한 2000ms 안에서 거듭 확인 · R1529_SETTLE_MS(기본 80 ms) = 통마다 첫 확인 전 대기.
 # 새 파일 mode 100644(실행 비트 0) — `bash <이 파일>` 로 부른다.
 set -uo pipefail
 for v in GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY; do unset "$v"; done
@@ -251,7 +252,14 @@ function mutate(name, from, to) {
     fs.writeFileSync(c.mbox, "");
     const pi = await load();
     await pi.emit("agent_start", {});
-    for (const s of [411, 412, 413]) { append(c.mbox, row(s, SEAT, OTHER, `[발주 #${s}] 턴 도중`)); await settle(80); }
+    // r2326 Q2: 통을 1통 넣을 때마다 그 통 수(i)가 될 때까지 짧게 거듭 확인한다(통마다 상한 2000ms).
+    //  첫 확인 전 대기만 R1529_SETTLE_MS(기본 80ms) — 통 사이를 줄여도 감시 사건이 합쳐지지 않는다.
+    const firstMs = Number(process.env.R1529_SETTLE_MS ?? 80);
+    for (const [n, s] of [411, 412, 413].entries()) {
+      append(c.mbox, row(s, SEAT, OTHER, `[발주 #${s}] 턴 도중`));
+      await settle(firstMs);
+      await until(() => pi.calls.length === n + 1, 2000); // 상한까지 i 가 안 되면 그때 값으로 판정
+    }
     eq("변이 2 → ⓗ 턴 도중 3 = FAIL 확인", pi.calls.length, 3);
     EXTv = EXT;
   }
