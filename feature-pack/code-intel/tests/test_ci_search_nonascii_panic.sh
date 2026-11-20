@@ -401,7 +401,7 @@ A7() { RUNENV=("${E[@]}" CI_TIMEOUT=300 PATH="$SB/pathfront:$PATH"); run_ci "$CI
   chk "A7 rc" "$RC" "124"
   chk "A7 stdout 0줄" "$OUT" ""
   has "A7 판정 불가 1줄" "$ERR" "판정 불가 ci search: probe 시간 초과 rc=124"
-  chk "A7 기록된 probe 상한 = 25" "$(awk '{for(i=1;i<=NF;i++) if ($i ~ /(^|\/)probe$/) {print $1; exit}}' "$tmplog")" "25"
+  chk "A7 기록된 probe 상한 = 25" "$(awk '$2 ~ /probe$/ {print $1; exit}' "$tmplog")" "25"
 }
 A7
 
@@ -502,7 +502,7 @@ B7() { RUNENV=("${E[@]}" CI_TIMEOUT=300 PATH="$SB/pathfront:$PATH"); run_ci "$CI
   chk "B7 rc" "$RC" "124"
   chk "B7 stdout 0줄" "$OUT" ""
   has "B7 판정 불가 1줄" "$ERR" "판정 불가 ci search: probe 시간 초과 rc=124"
-  chk "B7 기록된 probe 상한 = 25" "$(awk '{for(i=1;i<=NF;i++) if ($i ~ /(^|\/)probe$/) {print $1; exit}}' "$SB/to.log")" "25"
+  chk "B7 기록된 probe 상한 = 25" "$(awk '$2 ~ /probe$/ {print $1; exit}' "$SB/to.log")" "25"
 }
 B7
 

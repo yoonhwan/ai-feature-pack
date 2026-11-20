@@ -173,12 +173,12 @@ c8() {
   chk "⑧ 부른 쪽이 아닌 ci 파일이 전용 폴더에" "$(find "$d" -maxdepth 1 -mindepth 1 -not -name 'tursodb-ephemeral-*' 2>/dev/null | wc -l | tr -d ' ')" "0"
 }
 # ── I1 구조 검사 — env TMPDIR 접두 없는 probe 부름 줄 0 ────────────────
-structure() { # $1=ci 파일 → 접두 없는 «명령어가 "$PROBE" 인» 줄
-  grep -nF '"$PROBE"' "$1" | grep -vF 'env TMPDIR="$CI_PT" "$PROBE"' | grep -vF -- '-n "$PROBE"'
+structure() { # $1=ci 파일 → TMPDIR 앞 대입이 없는 «명령어가 "$PROBE" 인» 줄
+  grep -nF '"$PROBE"' "$1" | grep -vF 'TMPDIR="$CI_PT"' | grep -vF -- '-n "$PROBE"'
 }
 c_i1() {
-  chk "I1 — env TMPDIR 접두 없는 probe 부름 줄" "$(cntl "$(structure "$CI")")" "0"
-  chk "I1 — env 접두 붙은 probe 부름 자리 수" "$(grep -cF 'env TMPDIR="$CI_PT" "$PROBE"' "$CI" | tr -d ' ')" "15"
+  chk "I1 — TMPDIR 대입 없는 probe 부름 줄" "$(cntl "$(structure "$CI")")" "0"
+  chk "I1 — TMPDIR 대입 붙은 probe 부름 자리 수" "$(grep -cF 'TMPDIR="$CI_PT"' "$CI" | tr -d ' ')" "15"
 }
 
 echo "== 계약 시험 (ci = $CI) =="
@@ -198,7 +198,7 @@ mk_mut() { # $1=이름 $2=sed 식 → $WORKROOT/$1
     && echo "$WORKROOT/$1" || { bad "변이 생성 $1"; return 1; }
 }
 
-mk_mut m1 's/env TMPDIR="\$CI_PT" //g'                 >/dev/null   # M1 접두 지움
+mk_mut m1 's/TMPDIR="\$CI_PT" //g'                 >/dev/null   # M1 접두 지움
 mk_mut m2 's|local d="${CI_PROBE_TMPDIR:-$HOME/Library/Caches/probe/tmp}"|local d="$HOME/Library/Caches/probe/tmp"|' >/dev/null
 mk_mut m3 's/if \[ ! -d "\$d" \] && ! mkdir -p "\$d" 2>\/dev\/null; then/if false; then/' >/dev/null
 mk_mut m4 's/ -mmin +10//'                              >/dev/null   # M4 나이 검사 지움
