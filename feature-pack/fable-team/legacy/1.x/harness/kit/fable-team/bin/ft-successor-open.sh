@@ -27,6 +27,9 @@ so_budget_ok() { [ "$(( BUDGET - $(so_elapsed) ))" -gt 0 ]; }
 #   잔여 2초에서 들어가면 전체 상한을 넘고, 송신 «뒤» 에 끊으면 본문이 두 번 큐에 들어간다(중복 송신) — 그래서 들어가기 전에 막는다.
 SEND_RESERVE="${FT_SO_SEND_RESERVE:-40}"   # 송신·도달 단계 예약(초) = ft-send-verified 의 20+20 · 그 뒤 재확인은 아래 ⓕ 가 clip 으로 한다
 so_send_ready() { [ "$(( BUDGET - $(so_elapsed) ))" -ge "$SEND_RESERVE" ]; }
+# ★r2356★ 대기 루프는 «예약 앞» 에서 멈춘다 — 한 바퀴(수면 POLL초)를 마친 뒤에도 송신·도달 예약이 남아야 한다(남은 − POLL ≥ SEND_RESERVE).
+#   종전 조건(남은 > 0)은 신호가 안 오면 BUDGET 을 다 써 515행에서 rc5 — 같은 인자 재실행도 같은 대기에 다시 들어가 «진척 0» 이었다(실사건 r2356). POLL 은 168행에서 정해진다(호출 시점 평가).
+so_wait_ready() { [ "$(( BUDGET - $(so_elapsed) - POLL ))" -ge "$SEND_RESERVE" ]; }
 # ★r1660-c (arch#298)★ 재실행이 «다시 보내지 않고» 확인만 하려면 보낸 seq 를 파일로 남겨야 한다.
 #   송신은 큐에 들어간 순간 돌이킬 수 없다 — 두 번 보내면 좌석이 recv 에서 2건을 본다. 그래서 seq 를 .sent 에 적고 재실행은 확인만 한다.
 so_verify_ready() { [ "$(( BUDGET - $(so_elapsed) ))" -ge 20 ]; }   # 확인 1회(reach 20초) 몫
@@ -507,7 +510,7 @@ if [ "$AGENT" = codex ] || [ "$AGENT" = cmd ] || [ "$AGENT" = opencode ]; then
   echo "SessionStart 관측 생략($AGENT — 기록 없음) $NAME"
 else
 seen=0; i=0
-while [ "$i" -lt "$WAIT_MAX" ] && so_budget_ok; do i=$((i+1))
+while [ "$i" -lt "$WAIT_MAX" ] && so_wait_ready; do i=$((i+1))
   f="$(grep -lF "${SKEYS[@]}" "$JDIR"/*.jsonl 2>/dev/null)"
   [ -n "$f" ] && printf '%s\n' "$f" | xargs grep -lF "$SMARK" >/dev/null 2>&1 && { seen=1; break; }; sleep "$POLL"; done
 [ "$seen" = 1 ] && echo "SessionStart 관측 $NAME" || echo "SessionStart 미관측 $NAME (${WAIT_MAX}회) — 송신 후 도달 판정으로 확인"
