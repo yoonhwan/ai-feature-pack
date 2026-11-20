@@ -114,7 +114,7 @@ def c_r2(w):   # R2 첫 팀에서 끊기면 뒤 팀의 handled work 자리도 �
 CASES = {"㊻가": c_ga, "㊻나": c_na, "㊻다": c_da, "㊻라": c_ra, "㊻마": c_ma, "㊻바": c_ba, "㊻사": c_sa, "㊻아": c_a,
          "R1-대기": c_wait, "R2-뒤팀": c_r2}
 MUTANTS = {
-    "M109": (KP, "        landed = self.timed(\"b1\", self.landing, team, work)", "        landed = self.landing(team, work)",
+    "M109": (KP, "        landed = self.timed(\"b1\", self.landing, team, work, work=work)", "        landed = self.landing(team, work)",
              ("㊻가", "㊻바", "㊻사")),
     "M110": (KP, " and (p[0], p[1]) not in self.skipped_works])", "])", ("㊻나", "㊻다")),
     "M111": (KP, 'if rec.get("kind") == "parked" and rec.get("reason") != settling.LAUNCH_FAILED', 'if rec.get("kind") == "parked"',
