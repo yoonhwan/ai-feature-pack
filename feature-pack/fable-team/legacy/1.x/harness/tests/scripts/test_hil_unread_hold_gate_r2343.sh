@@ -4,6 +4,7 @@
 #   격리: 임시 HIL_DIR · 임시 HOME · HIL_CLIP=0 · 가짜 쪽지함(peek --rows · recv 만 · mbox.py peek 출력 꼴 그대로 2026-11-20 실물 대조) · 리포 밖 계획 · 실 /tmp/h* · 실 쪽지함 0
 #         sleep 0(⑦b 만 가짜 peek 8초 = 7초 절단 확인) · 회귀(1.x hil 시험 묶음)는 이 시험 안에서 돌리지 않는다(하드 룰 22 · 시험 1개 70초)
 set -uo pipefail
+unset FT_SEAT   # 격리: 좌석 env 의 FT_SEAT 를 물려받으면 ⑥·M4 가 «실행 좌석 있음» 이 되어 원본이 FAIL 로 보인다
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 BIN0="${R2343_BIN:-$HERE/../../bin}"; KIT="$HERE/../../kit/fable-team/bin"; BASE=24d192abc33fee0756cdea818bd0549e612af542
 T="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T"' EXIT
