@@ -67,7 +67,8 @@ def _sent_log_keep() -> int:
 
 def _back_matches(path: Path, names: set[str]) -> Iterator[tuple[int, str]]:
     """r2338 — 파일 «끝에서 앞으로» 1MB 조각씩 읽어 names 가 보낸 줄을 최신(큰 seq)부터 낸다.
-    조각 경계에 걸친 줄은 앞 조각과 이어 붙여 판독 · 없는 파일·읽기 실패 = 아무것도 안 냄."""
+    조각 경계에 걸친 줄은 앞 조각과 이어 붙여 판독 · seq 0 줄(bridged 거울 사본)은 맞음으로 안 셈.
+    없는 파일·읽기 실패 = 아무것도 안 냄."""
     try:
         pos = path.stat().st_size
     except OSError:
@@ -90,7 +91,7 @@ def _back_matches(path: Path, names: set[str]) -> Iterator[tuple[int, str]]:
                 seq = int(r.get("seq") or 0)
             except (ValueError, TypeError, AttributeError):
                 continue
-            if r.get("from") in names:
+            if seq > 0 and r.get("from") in names:  # G2 — seq 0 = bridged 거울 사본, 맞음으로 안 셈
                 yield seq, str(r.get("body") or "")
 
 
