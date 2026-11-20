@@ -40,6 +40,7 @@ LEAD_IDLE_EXEMPT_MIN = 60.0  # r2172 L3 — 일 쪽지 없는 팀장 유휴 면�
 WORK_URGENT = ("[긴급]", "[크리티컬]")  # r2172 L1 ⓓ — 도구 발신이어도 이 머리면 일 쪽지
 SEAT_NO = re.compile(r"#\d+$")  # r2172 L1 ⓓ — 좌석 발신 = «#숫자» 로 끝남
 _HB_EXTRA: dict[str, Any] = {}  # r1729 — _hb_line 이 같은 파싱에서 모으는 «쉼 심박 ts · 사건 ts»(읽기 1회)
+LOG_ROTATE_KEEP = 3  # r2344 — 회전 사본 기본 개수(.1~.3) · ft-mbox.py SENT_LOG_KEEP 과 같은 값(env FT_MBOX_LOG_KEEP)
 REF = re.compile(r"indices/(대기|진행|완성)/([\w.\-]+)\.md")
 OFF_ROLES = ("stop-ready", "closed")
 AGENT = re.compile(r"(?:^|[\s/])(claude|codex)(?:\s|$)")
@@ -760,33 +761,54 @@ def _read_mailbox(path: Path, masters: set[str], recipients: set[str], now: floa
     return "", best, broken, n
 
 
+def _log_chain(path: Path) -> list[Path]:
+    """r2344 — 읽을 로그 사슬 = 지금 로그 + 회전 사본 `.1` … `.<KEEP>`(ft-mbox.py 와 같은 env · 기본 3).
+    ★회전은 «밀어» 보관한다★(ft-mbox.py _rotate_sent_log: log → .1 → .2 → .3 · .3 밖은 사라진다).
+    그래서 사슬 순서 = 새것 → 옛것 · 번호가 클수록 옛것이다."""
+    try:
+        keep = int(os.environ.get("FT_MBOX_LOG_KEEP") or LOG_ROTATE_KEEP)
+    except ValueError:
+        keep = LOG_ROTATE_KEEP
+    keep = max(1, keep)
+    return [path] + [path.with_name(f"{path.name}.{i}") for i in range(1, keep + 1)]
+
+
 def _read_mailbox_log(path: Path, masters: set[str], recipients: set[str], now: float, window: float, budget: float, t0: float, is_hb: Any = None) -> tuple[str, float | None, int, int]:
     """읽은 쪽지 로그(mailbox.log.jsonl)를 «끝에서» 읽어 심박 창(window 분) 안만 본다 — r1020: recv 가 레코드를 큐→로그로 옮기므로 큐만 보면 심박이 사라진다.
     창 밖 줄에 닿으면 멈춘다(큰 로그 4.4MB 전체 읽기 0 · 예산은 큐와 공유). 로그 파일 없음 = 큐만(ERROR 아님).
+    r2344 — 지금 로그 앞머리에 닿았는데 창이 남아 있으면 회전 사본 `.1` → `.<KEEP>` 끝에서 이어 읽는다(회전 직후 창 안 심박이 사본에만 있는 실사건 · #354996).
+    사슬을 넘어가도 «창 밖에서 멈춤»·«끝에서 읽기»·예산은 그대로다(창 밖을 만나면 그 자리에서 멈추고 사본은 열지 않는다).
     → (에러 이유, 최신 심박 ts, 깨진 줄 수, 줄 수)."""
     best, broken, n = None, 0, 0
-    try:
-        fh = open(path, "rb")
-    except FileNotFoundError:
-        return "", None, 0, 0  # 로그 없음 = 큐만 본다(판정 불가 아님)
-    except OSError as e:
-        return f"mailbox.log.jsonl 읽기 실패 {e.__class__.__name__}", None, 0, 0
-    with fh:
-        for raw in _lines_from_end(fh):
-            line = raw.decode("utf-8", "replace")
-            if not line.strip():
-                continue
-            n += 1
-            if n % 200 == 0:
-                stm.check()  # r1282
-            if n % 256 == 0 and time.monotonic() - t0 > budget:
-                return f"심박 읽기 {budget:g}초 초과(줄 {n})", None, 0, n
-            ts, hb, bad = _hb_line(line, masters, recipients, now, is_hb)
-            if ts is not None and (now - ts) / 60 > window:
-                break  # r1020 창 밖 — 더 옛 줄은 안 본다
-            broken += bad
-            if hb and (best is None or ts > best):
-                best = ts
+    for cur in _log_chain(path):
+        try:
+            fh = open(cur, "rb")
+        except FileNotFoundError:
+            if cur == path:
+                return "", None, 0, 0  # 로그 없음 = 큐만 본다(판정 불가 아님)
+            continue  # 사본 없음 = 그 번호만 건너뛴다(있는 것만 · 메모 2)
+        except OSError as e:
+            return f"{cur.name} 읽기 실패 {e.__class__.__name__}", None, 0, 0
+        outside = False
+        with fh:
+            for raw in _lines_from_end(fh):
+                line = raw.decode("utf-8", "replace")
+                if not line.strip():
+                    continue
+                n += 1
+                if n % 200 == 0:
+                    stm.check()  # r1282
+                if n % 256 == 0 and time.monotonic() - t0 > budget:
+                    return f"심박 읽기 {budget:g}초 초과(줄 {n})", None, 0, n
+                ts, hb, bad = _hb_line(line, masters, recipients, now, is_hb)
+                if ts is not None and (now - ts) / 60 > window:
+                    outside = True
+                    break  # r1020 창 밖 — 더 옛 줄은 안 본다(사본도 안 연다)
+                broken += bad
+                if hb and (best is None or ts > best):
+                    best = ts
+        if outside:
+            break  # 창 밖을 만났다 = 사슬 끝
     return "", best, broken, n
 
 
