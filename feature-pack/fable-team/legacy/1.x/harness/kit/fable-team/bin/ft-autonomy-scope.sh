@@ -35,6 +35,18 @@ amt_same() {  # r1955 마② <sha> <지금 target> — NOOP 반환 앞 대조 ·
   [ "$t" = "$2" ] || { echo "판정 불가 — 승인 base ${t:-읽기 실패} ≠ 지금 PR base $2 (retarget 뒤 재사용 0)"; return 1; }
 }
 
+scope_noop_kinds() {  # r2360 K1·K2 <sha> — 원장 첫 «scope-use <S> <sha> <cls> <epoch><tail>» 줄에서 « class=<cls><tail>» · 그 줄 S ≠ 지금 G_S · cls 가 G_CLASSES 밖 · 꼴 깨짐(칸 0·epoch 아님) = 빈 값(지금 꼴 그대로)
+  local l s c ev t
+  l="$(grep -m1 -E "^scope-use S[0-9]+ $1 " "$LOG" 2>/dev/null)" || return 0
+  [[ "$l" =~ ^scope-use\ S[0-9]+\ [0-9a-f]{40}\ (docs|ff|revert|code)\ [0-9]+ ]] || return 0
+  s="${l#scope-use }"; s="${s%% *}"
+  c="${l#"scope-use $s $1 "}"; c="${c%% *}"
+  ev="${l#"scope-use $s $1 $c "}"; ev="${ev%% *}"
+  t="${l#"scope-use $s $1 $c $ev"}"   # 꼬리 글자 그대로(" repo=pack learned=x")
+  [ "$s" = "$G_S" ] || return 0
+  case ",$G_CLASSES," in *",$c,"*) ;; *) return 0 ;; esac
+  printf ' class=%s%s' "$c" "$t"
+}
 scope_err() { echo "SCOPE-REJECT $1" >&2; exit 2; }
 scope_wfail() { echo "REJECT $1 쓰기 실패" >&2; exit 1; }
 
@@ -319,7 +331,7 @@ cmd_scope_approve() {
   scope_check_revert   # 되돌림 감지 = 범위 원장 착지(main) 기준 그대로 — 아래에서 PR base 를 정한다
   [ -z "$pr" ] || SCOPE_TARGET="$(autonomy_pr_target "$SCOPE_REPO" "$pr" "$rk")" || scope_err "$SCOPE_TARGET"   # r1955 나
   used="$(scope_used "$G_S")"; today="$(scope_today "$G_S")"
-  if grep -q "^scope-use S[0-9]* $sha " "$LOG" 2>/dev/null; then line="$(amt_same "$sha" "$SCOPE_TARGET")" || scope_err "$line"; echo "SCOPE-NOOP $sha used=$used/$G_MAX today=$today/$G_DAILY"; return 0; fi
+  if grep -q "^scope-use S[0-9]* $sha " "$LOG" 2>/dev/null; then line="$(amt_same "$sha" "$SCOPE_TARGET")" || scope_err "$line"; echo "SCOPE-NOOP $sha used=$used/$G_MAX today=$today/$G_DAILY$(scope_noop_kinds "$sha")"; return 0; fi   # r2360: 처음 판정의 class·꼬리를 그대로 실어 try --land 가 kind 판독 불가로 닫히지 않게
   scope_classify "$sha"; cls="$CLS"
   case ",$G_CLASSES," in *",$cls,"*) ;; *) scope_err "종류 $cls 는 승인 범위($G_CLASSES) 밖" ;; esac
   [ "$rk" = byz ] || tail=" repo=$rk"; [ -z "$CLS_LEARNED" ] || tail="$tail learned=$CLS_LEARNED"
