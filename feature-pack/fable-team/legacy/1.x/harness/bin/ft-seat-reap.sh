@@ -28,7 +28,7 @@
 #       (pid·lstart·cmd·via 한 줄씩 · 못 풀면 rc 20) · 끝 줄 `reap <좌석> stopped=0 left=0 deferred=<n> rc=0` (뿌리 수 · 미룸 아니면 deferred=0)
 #   미룸 소화(닫는 사건 · 모든 모드 · dry-run 제외): press 진행 아님이면 미룸 파일 전부를 먼저 읽어 «lstart 같은» 내 pid 만 TERM→KILL(via=⑤미룸)
 #     · 다르면(pid 재사용) 신호 0 · 파일마다 ps 표를 새로 읽고 일반 조사와 같은 제외(이 명령 자신·조상 · 보호 exe · 서비스 나무) → `reap-skip … why=self|protect-exe|service-*`
-#     · r2329 — 다른 좌석이 장부에 등록한 «상한 전» 작업(allreg 중 좌석 다름)도 거른다: `reap-skip … why=registered seat=<좌석>` (상한 지난 줄은 장부 밖 = 지금처럼 멈춘다) · 멈추기 직전 행마다 `reap-deferred-stop pid=<n> why=⑤미룸 file=<f> cmd=…` 1줄(무엇을 거뒀는지 사후 대조)
+#     · r2329 — 다른 좌석이 장부에 등록한 «상한 전» 작업(allreg 중 좌석 다름)도 거른다: `reap-skip … why=registered seat=<좌석>` (상한 지난 줄은 장부 밖 = 지금처럼 멈춘다) · 멈추기 직전 행마다 `reap-deferred-stop pid=<n> via=⑤미룸 file=<f> cmd=…` 1줄(무엇을 거뒀는지 사후 대조)
 #     · 파일마다 `reap-deferred-done file=<f> stopped=<n> kept=<n>` · kept 0 = 파일 삭제(못 멈춘 행만 남김) · left 에 안 셈
 #     · 깨진 줄 = 버리지 않는다: `<f>.broken-<시각>-<pid>` 로 원문 보존 + `reap-deferred-broken file=… lines=<n>`(stdout) + ERROR(stderr) · 읽기 오류 = rc 20
 #     · 미룸 폴더를 못 풀면 소화 생략 + stderr WARN 1줄 · lstart 는 LC_ALL=C TZ=UTC 로 잰다(좌석마다 TZ 가 달라도 같은 글자)
@@ -454,7 +454,7 @@ def digest():   # 미룸 소화(닫는 사건) — lstart 같은 내 pid 만 · 
                 print(f"reap-skip pid={p} why={why}{src} cmd={t[p][4][:100]}"); continue
             live[p] = ("⑤미룸", r["lstart"], t[p][4])
         held = set(live); live = hil_skip(live, t, me); held -= set(live)   # r2160 R1a — 미룸 뒤 시작한 h 의 나무 = 정지 0 · 그 행은 파일에 남긴다(다음 소화)
-        for p, (v, lst, c) in sorted(live.items()): print(f"reap-deferred-stop pid={p} why={v} file={f} cmd={c[:100]}")   # r2329 W2 — 멈추기 직전 pid·출처(via)·명령 1줄(정지 0 인 held 는 빠짐)
+        for p, (v, lst, c) in sorted(live.items()): print(f"reap-deferred-stop pid={p} via={v} file={f} cmd={c[:100]}")   # r2329 W2 — 멈추기 직전 pid·출처(via)·명령 1줄(reap-kill 과 같은 via= 꼴 · 정지 0 인 held 는 빠짐)
         if live: stop(live)
         ka = alive(live); kept = ka + sorted(held)
         if kept: open(f, "w", encoding="utf-8").write("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows if r.get("pid") in kept))
