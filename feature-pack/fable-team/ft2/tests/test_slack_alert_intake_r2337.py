@@ -569,6 +569,26 @@ def case_20(tmp, mod=M):
     assert len([body for body in notes(sender) if "받기 넘침" in body]) == 1  # 1시간 1통
 
 
+def case_h1(tmp, mod=M):
+    """H1(DA #354590) 쪽지 실패 = 시도 2회에서 멈춤 — 3시간 pump 도 시도 2 · mail 줄 ≤ 5 · 재기동 뒤 1회 더."""
+    clock = Clock()
+    sender = Sender(clock, fails=[1] * 5000)  # 늘 실패
+    m, clock, sender = make(tmp, mod, clock, sender)
+    m.feed(post("1700000001.000100"))
+    pump(m, clock, 3 * 3600)
+    assert len(sender.tries) == 2  # 끝없는 재시도 0(DA 재현 = 181회)
+    assert len([r for r in rows(tmp) if r.get("t") == "mail"]) <= 5
+    assert [r["kind"] for r in rows(tmp) if r.get("t") == "mark"] == ["발송 멈춤"]
+    assert notes(sender) == [] and m.pending == []
+    pump(m, clock, 3600)
+    assert len(sender.tries) == 2  # 멈춘 뒤 시계만 흘러도 다시 안 보낸다
+    restarted = mod.AlertIntake(str(tmp), team=TEAM, conf=conf(), send=sender, now=clock.now, clock=clock.iso)
+    restarted.prepare()  # 수신기 재기동 = 한 번 더
+    assert [x["kind"] for x in restarted.pending] == ["new"] and restarted.pending[0]["tries"] == 1
+    pump(restarted, clock, 1800)
+    assert len(sender.tries) == 3 and restarted.pending == []  # 재기동 뒤 1회 더 = 또 멈춤
+
+
 class Dead:
     def is_alive(self):
         return False
@@ -711,6 +731,28 @@ def test_20_queue_full_overflow(tmp_path):
 
 def test_21_worker_dead_revive_rebuild(tmp_path):
     case_21(tmp_path)
+
+
+def test_h1_send_retry_bounded(tmp_path):
+    case_h1(tmp_path)
+
+
+def case_restart_gate(tmp, mod=M):
+    """메모(DA #354590) — 같은 자리에서 늘 죽어도 재기동은 60초에 1회(장부 읽기 폭주 0)."""
+    m, clock, sender = make(tmp, mod)
+    spawned, m._spawn = [], lambda: spawned.append(clock.t)
+    m.worker = Dead()
+    for _ in range(10):  # 1초 idle 10회 = 늘 죽어 있음
+        clock.go(1)
+        m.on_idle()
+    assert len(spawned) == 1
+    clock.go(60)
+    m.on_idle()
+    assert len(spawned) == 2
+
+
+def test_restart_gate_60s(tmp_path):
+    case_restart_gate(tmp_path)
 
 
 def test_22_single_writer_thread(tmp_path):

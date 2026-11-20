@@ -11,7 +11,8 @@
   앞 «닫힘» 취소 · 새 쪽지 0 · 새 줄도 «발송됨» 물려받음.
 - 쪽지(G4): 새 사건 = 바로 1통 · 5분 창 안 새 사건이 3개를 넘으면 넘친 것만 묶어 창 끝 1통 · 1시간 상한 6통
   (6번째 끝 «상한 닿음») · 넘침 = 다음 정시 첫 통 · 같은 event 재전달 = 쪽지 0 · send 1회 7초 상한 ·
-  rc0 = «발송됨» · 실패 = «발송 안 됨» + 60초 뒤 다시.
+  rc0 = «발송됨» · 실패 = «발송 안 됨» 인 채 60초 뒤 1회 더 · 두 번 실패 = «발송 멈춤» 장부 1줄 + log 1
+  (다음 시도는 수신기 재기동 때 1회뿐 · 끝없는 재시도 0).
 - 늦출 일(G5): 마감 표는 메모리 · 일꾼 queue.get(timeout=1) 마다 마감 지난 것만 · 1초 루프의 장부 읽기·stat 0 ·
   수신 루프(socket) 손 = on_idle 의 일꾼 is_alive 1줄 · 죽었으면 다시 띄우고 장부 1회 읽어 마감 표 재구성.
 - 쓰기 범위(G6): 사건 장부(<root>/.fable-team/state/alert-intake/incidents.jsonl) · mbox send 뿐 ·
@@ -42,6 +43,7 @@ CONFIG = "ALERT_INTAKE.json"
 LEDGER = ("state", "alert-intake", "incidents.jsonl")
 WINDOW_S, FOLD_N, HOLD_S, RETRY_S = 300, 3, 1800, 60
 HOUR_S, HOUR_MAX, STALE_N, UNREADABLE_S = 3600, 6, 3, 3600
+MAX_TRIES, RESTART_GAP = 2, 60  # 쪽지 1통 = 시도 2회(지금 1 + 60초 뒤 1) · 일꾼 재기동은 60초에 1회
 QUEUE_MAX, SEND_S = 1000, 7.0
 OPEN_WORDS = ("firing", "alerting", "[open]", "열림", "발생")
 CLOSE_WORDS = ("resolved", "[closed]", "닫힘", "해소", "back to normal")
@@ -162,6 +164,7 @@ class AlertIntake:
         self.window_start, self.window_ids, self.held = None, [], []
         self.last_ts, self.mid, self.overflow, self.capped = 0.0, 0, 0, None
         self.worker, self.stopping = None, threading.Event()
+        self.last_start = 0.0
         self.stats = {"read": 0, "write": 0, "send": 0}
         self.writers = set()
 
@@ -239,8 +242,9 @@ class AlertIntake:
             if row.get("sent"):
                 self.sent_at.append(at)
                 continue
+            # 재기동 = 한 번 더 시도할 수 있게 한 칸만 남긴다(시도 2회 상한 그대로 · 끝없는 재시도 0)
             self.pending.append({"mid": mid, "kind": row.get("kind") or "", "ids": list(row.get("ids") or []),
-                                 "due": now, "extra": row.get("extra") or ""})
+                                 "due": now, "extra": row.get("extra") or "", "tries": MAX_TRIES - 1})
         for inc in self.inc.values():
             if inc["closed_at"] is not None and inc["sent"] and not inc["reopened"] \
                     and not self._has_mail("close", inc["id"], mails):
@@ -255,10 +259,12 @@ class AlertIntake:
         return any(row.get("kind") == kind and inc_id in (row.get("ids") or []) for row in mails.values())
 
     def start(self):
+        self.last_start = self.now()
         self.prepare()
         self._spawn()
 
     def _spawn(self):
+        self.last_start = self.now()
         self.stopping.clear()
         self.worker = threading.Thread(target=self._loop, name="alert-intake", daemon=True)
         self.worker.start()
@@ -278,10 +284,15 @@ class AlertIntake:
             worker.join(timeout)
 
     def on_idle(self):
-        """envelope 0 인 1초 — 일꾼 수명만 본다(입출력 0). 죽었으면 다시 띄우고 장부 1회 읽는다."""
+        """envelope 0 인 1초 — 일꾼 수명만 본다(입출력 0). 죽었으면 다시 띄우고 장부 1회 읽는다.
+
+        같은 자리에서 늘 죽는 경우를 막으려고 재기동은 60초에 1회까지만 한다(장부 읽기 폭주 0).
+        """
         if not self.enabled:
             return
         if self.worker is not None and self.worker.is_alive():
+            return
+        if self.now() - self.last_start < RESTART_GAP:
             return
         self.log("경보 일꾼 죽음 · 다시 띄움 + 장부로 마감 표 재구성")
         self.start()
@@ -443,15 +454,22 @@ class AlertIntake:
                 sent += 1
 
     def _send_intent(self, intent, now, cap):
-        body = self._body(intent, cap)
+        """쪽지 1통 = 시도 2회까지. 둘 다 실패 = «발송 멈춤» 장부 1줄 + log 1(다음 기동 때 1회만 더)."""
+        intent["tries"] = int(intent.get("tries") or 0) + 1
+        body, tries = self._body(intent, cap), intent["tries"]
         self._write({"t": "mail", "mid": intent["mid"], "kind": intent["kind"], "ids": intent["ids"],
-                     "sent": False, "extra": intent["extra"]})
+                     "sent": False, "tries": tries, "extra": intent["extra"]})
         rc = self._call(body)
         self._write({"t": "mail", "mid": intent["mid"], "kind": intent["kind"], "ids": intent["ids"],
-                     "sent": rc == 0, "rc": rc, "extra": intent["extra"]})
-        if rc != 0:
+                     "sent": rc == 0, "rc": rc, "tries": tries, "extra": intent["extra"]})
+        if rc != 0 and tries < MAX_TRIES:
             intent["due"] = now + RETRY_S
-            self.log("쪽지 실패 %s rc=%s · %d초 뒤 다시" % (intent["kind"], rc, RETRY_S))
+            self.log("쪽지 실패 %s rc=%s · %d초 뒤 한 번 더" % (intent["kind"], rc, RETRY_S))
+            return False
+        if rc != 0:  # 두 번 실패 = 멈춘다(끝없는 재시도 0 · 다음 기동 때 1회)
+            self.pending.remove(intent)
+            self._write({"t": "mark", "kind": "발송 멈춤", "count": tries, "mid": intent["mid"]})
+            self.log("쪽지 발송 멈춤 %s · 시도 %d회 실패 · 다음 기동까지 그대로" % (intent["kind"], tries))
             return False
         self.pending.remove(intent)
         self.sent_at.append(now)
