@@ -8,8 +8,22 @@ import pytest
 from websockets.sync.server import serve
 
 FT2 = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TEAM, CH, APP, BOT, HUMAN = "harness", "C0ALERT", "A0GCPMON", "B0GCPMON", "UOPPA"
-TO, INC = "byz-issues-master#0", "0.abcdef0123456789"
+TEAM, CH, HUMAN = "harness", "C0CKHQHB6V8", "UOPPA"   # 채널 = #byz-gcp-alerts
+APP, BOT, TO = "A03EA2WU3", "B0CKL07QS5P", "byz-issues-master#0"   # GCP Monitoring 앱 고정값 · issues master
+INC = "0.of8egtef5beq"   # 실측 사건 id(a493 gcp-hist.json)
+POLICY = "[TEST r2337] byz-redis memory &gt; 0 시험"   # 링크 이름 칸 · escape 그대로
+
+# 실측 원문(a493 · arch #354564) — text 한 줄이 정본 · attachments 0 · blocks 같은 글자
+_HEAD = ('*<https://console.cloud.google.com/monitoring/alerting/alerts/' + INC + '?channelType=slack&amp;project=byz-agents-484214|'
+         + POLICY + '>* Memory Usage Ratio for byz-agents-484214 Cloud Memorystore Redis Instance labels '
+         '{project_id=byz-agents-484214, region=asia-northeast3, instance_id=projects/byz-agents-484214/locations/asia-northeast3/'
+         'instances/byz-agents-redis-dev, node_id=node-0} with metric labels {role=primary} ')
+_TAIL = ' No severity '
+_LINK_VIEW = ('*<https://console.cloud.google.com/monitoring/alerting/alerts/' + INC + '?channelType=slack&amp;'
+              'project=byz-agents-484214|View alert>*')
+OPEN_TEXT = _HEAD + 'is above the threshold of 0.000 with a value of 0.313. Alert status Alert open' + _TAIL \
+    + '*Documentation* r2337 시험 경보 · 열림 1 · 닫힘 1 확인용 · 끝나면 지움(ops h) ' + _LINK_VIEW
+CLOSE_TEXT = _HEAD + 'returned to normal with a value of 0.313. Alert status Alert closed' + _TAIL + _LINK_VIEW
 HELLO = {"type": "hello", "num_connections": 1}
 
 
@@ -48,17 +62,20 @@ class Sender:
         return rc
 
 
-def post(ts, inc=INC, state="열림", policy="dev Redis 메모리", value="92% > 85%", channel=CH,
-         app=APP, bot=BOT, text=None):
-    body = text if text is not None else "\n".join([
-        "[%s]" % ("FIRING" if state == "열림" else "RESOLVED"),
-        "policy: %s" % policy,
-        "incident id: %s" % inc,
-        "condition: %s" % value,
-        "https://console.cloud.google.com/monitoring/alerting/incidents/%s" % inc,
-    ])
-    return {"type": "message", "team": "TFAKE", "channel": channel, "ts": ts, "user": "UGCPBOT",
-            "subtype": "bot_message", "app_id": app, "bot_id": bot, "text": body}
+def post(ts, inc=INC, state="열림", policy=POLICY, channel=CH, app=APP, bot=BOT, text=None, blocks=False):
+    """실측 원문 꼴 그대로 — id·정책·상태 글자만 바꿔 쓴다(text= 로 꼴 다른 글도 넣는다)."""
+    body = (OPEN_TEXT if state == "열림" else CLOSE_TEXT).replace(INC, inc).replace(POLICY, policy)
+    if text is not None:
+        body = text.replace(INC, inc).replace(POLICY, policy)
+    event = {"type": "message", "team": "TFAKE", "channel": channel, "ts": ts, "user": "U0GCPMON",
+             "subtype": "bot_message", "app_id": app, "bot_id": bot, "username": "Google Cloud Monitoring",
+             "text": body}
+    if blocks:  # 닫힘 원문의 blocks(같은 글자 · 판독은 text 로)
+        event["blocks"] = [{"type": "section", "text": {"type": "mrkdwn", "text": body.split(" Memory Usage", 1)[0]}},
+                           {"type": "context", "elements": [{"type": "image", "alt_text": "Alert status"},
+                                                            {"type": "plain_text",
+                                                             "text": "Alert closed" if state == "닫힘" else "Alert open"}]}]
+    return event
 
 
 def human(ts, channel=CH):
@@ -135,8 +152,12 @@ def case_01(tmp, mod=M):
     pump(m, clock)
     assert len(notes(sender)) == 1
     assert sender.notes[0]["to"] == TO and sender.notes[0]["sender"] == "ft2-alert-intake"
-    assert "새 사건" in notes(sender)[0] and INC in notes(sender)[0] and "제안 팀 harness" in notes(sender)[0]
+    body = notes(sender)[0]
+    assert "새 사건" in body and INC in body and "제안 팀 harness" in body
+    # 실측 꼴 판독 확인 — 정책 = 링크 이름 칸(escape 그대로) · 값 = «with a value of»
+    assert POLICY in body and "값 0.313" in body and INC in (inc_of(tmp)["link"] or "")
     assert {r["id"] for r in incs(tmp)} == {INC} and inc_of(tmp)["sent"] is True
+    assert inc_of(tmp)["policy"] == POLICY and inc_of(tmp)["value"] == "0.313"
 
 
 def case_02(tmp, mod=M):
@@ -155,7 +176,7 @@ def case_03(tmp, mod=M):
     m, clock, sender = make(tmp, mod)
     m.feed(post("1700000001.000100"))
     pump(m, clock)
-    m.feed(post("1700000101.000100", state="닫힘"))
+    m.feed(post("1700000101.000100", state="닫힘", blocks=True))  # 닫힘 원문 = blocks 동봉(같은 글자)
     pump(m, clock)
     assert len(notes(sender)) == 1 and inc_of(tmp)["closed_at"] is not None
     pump(m, clock, 1799)
@@ -275,7 +296,8 @@ def case_08(tmp, mod=M):
 def case_09(tmp, mod=M):
     """⑨ 꼴 다른 경보 글 → «판독 불가 글» 1통 · 같은 시간 둘째 = 0."""
     m, clock, sender = make(tmp, mod)
-    m.feed(post("1700000001.000100", text="[FIRING] 경보인데 사건 id 가 없다"))
+    m.feed(post("1700000001.000100", text="*<https://console.cloud.google.com/monitoring/alerting/alerts/?project=x|"
+                "꼴 다른 글>* Alert status Alert open"))  # 사건 id 없음
     pump(m, clock)
     assert len(notes(sender)) == 1 and "판독 불가" in notes(sender)[0]
     clock.go(60)
@@ -380,7 +402,7 @@ def case_14(tmp, mod=M):
 def case_15(tmp, mod=M):
     """⑮ 열림 글 유실 뒤 처음 온 글이 같은 id 재알림 → 새 사건 쪽지 1."""
     m, clock, sender = make(tmp, mod)
-    m.feed(post("1700000001.000100", text="[FIRING] renotify\npolicy: dev Redis 메모리\nincident id: %s" % INC))
+    m.feed(post("1700000001.000100"))  # 열림 글 = 한 번도 못 본 사건 id(끊김 동안 유실)
     pump(m, clock)
     assert len(notes(sender)) == 1 and "새 사건" in notes(sender)[0]
 
@@ -466,7 +488,7 @@ def case_16(tmp, mod=M, band_of=None, base=FT2):
     alert = _manual(mod, tmp, clock)
     band = band_of([[HELLO, {"type": "disconnect", "reason": "refresh"}], [HELLO]],
                    [post("1700000100.000100", state="닫힘"),
-                    post("1700000101.000100", inc="0.beef000011112222", policy="dev Redis CPU")])
+                    post("1700000101.000100", inc="0.beef000011112222", policy="[TEST r2337] byz-redis cpu &gt; 0 시험")])
     listener = _listen(sock, tmp, band, alert)
     assert listener.run(sessions=2) == 0
     assert band.calls.count("conversations.history") == 2  # 연결 2번 = 1쪽씩

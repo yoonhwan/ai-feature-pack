@@ -19,8 +19,13 @@
 
 설정 = <root>/.fable-team/teams/<team>/slack/ALERT_INTAKE.json 한 파일
 (`channels` · `app_id` · `bot_id` · `to` · `suggest`). 설정 없음·판독 불가 = 갈래 0(수신 결과 지금 그대로).
-경보 글 원문 꼴은 아직 실측 전(확인 필요 · arch 몫)이라 판독은 글자 표지(FIRING·RESOLVED·열림·닫힘)와
-`key: value` 줄을 함께 본다.
+
+경보 글 원문 꼴(arch 실측 · a493 gcp-hist.json·gcp-close.json) = text 한 줄이 정본이고 attachments 0 ·
+blocks 는 같은 글자다. 판독 4칸 —
+- 정책 = 링크 이름 칸 (`<https://…|…>` 의 `|` 뒤) · 사건 id = 링크 `alerts/<id>` ·
+- 상태 = `Alert status Alert open|closed` · 값 = `with a value of <수>`.
+`&amp;`·`&gt;` escape 는 그대로 둔다(풀지 않는다). 꼴이 어긋나면 글자 표지(열림·닫힘·FIRING·RESOLVED)와
+`key: value` 줄로 한 번 더 본다 — 못 읽으면 «판독 불가 글».
 """
 
 import json
@@ -41,6 +46,10 @@ QUEUE_MAX, SEND_S = 1000, 7.0
 OPEN_WORDS = ("firing", "alerting", "[open]", "열림", "발생")
 CLOSE_WORDS = ("resolved", "[closed]", "닫힘", "해소", "back to normal")
 FIELD = r"(?im)^\s*%s\s*[:：]\s*(.+?)\s*$"
+LINK = re.compile(r"<([^|>\s]+)\|([^>]+)>")  # GCP 경보 = 링크 이름 칸이 정책 이름
+ALERT_ID = re.compile(r"alerts/([^?&\s>]+)")
+STATUS = re.compile(r"alert status\s+alert\s+(open|closed)", re.I)
+VALUE = re.compile(r"value of\s*([0-9][0-9,]*(?:\.[0-9]+)?)", re.I)
 URL = re.compile(r"https?://[^\s<>)\]]+")
 INC_ID = re.compile(r"\b\d+\.[0-9a-f]{8,}\b|\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", re.I)
 HEAD = {"new": "새 사건", "bundle": "묶음 새 사건", "close": "닫힘", "stale": "오래 열림",
@@ -104,20 +113,30 @@ def state_of(text):
 
 
 def parse(event):
-    """경보 글 1건 → {policy, id, state, value, link} · 못 읽은 칸 = 빈 값."""
+    """경보 글 1건 → {policy, id, state, value, link} · 못 읽은 칸 = 빈 값.
+
+    실측 꼴이 먼저다(링크 이름 = 정책 · alerts/<id> · «Alert status Alert open|closed» · value of <수>).
+    꼴이 어긋난 글은 글자 표지와 `key: value` 줄로 한 번 더 본다(관대한 폴백).
+    """
     text = body_text(event)
-    policy = _field(text, "policy", "정책", "policy name", "alert policy")
+    named = LINK.search(text)
+    policy = named.group(2).strip() if named else ""
+    if not policy:
+        policy = _field(text, "policy", "정책", "policy name", "alert policy")
     if not policy:
         head = re.search(r"\[(?:FIRING|RESOLVED)[^\]]*\]\s*([^\n()\[]+)", text, re.I)
         policy = head.group(1).strip() if head else ""
-    inc = _field(text, "incident id", "사건 id", "alert id", "incident")
+    found = ALERT_ID.search(text)
+    inc = found.group(1) if found else (_field(text, "incident id", "사건 id", "alert id") or "")
     if not inc:
-        found = INC_ID.search(text)
-        inc = found.group(0) if found else ""
-    link = URL.search(text)
-    return {"policy": policy, "id": inc, "state": state_of(text),
-            "value": _field(text, "condition", "값", "metric", "지표", "value"),
-            "link": link.group(0) if link else ""}
+        token = INC_ID.search(text)
+        inc = token.group(0) if token else ""
+    status = STATUS.search(text)
+    state = {"open": "열림", "closed": "닫힘"}.get(status.group(1).lower(), "") if status else ""
+    value = VALUE.search(text)
+    return {"policy": policy, "id": inc, "state": state or state_of(text),
+            "value": value.group(1) if value else _field(text, "condition", "값", "metric", "지표", "value"),
+            "link": named.group(1) if named else (URL.search(text).group(0) if URL.search(text) else "")}
 
 
 class AlertIntake:
