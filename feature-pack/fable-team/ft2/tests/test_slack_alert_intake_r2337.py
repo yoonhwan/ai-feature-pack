@@ -513,7 +513,7 @@ def case_16(tmp, mod=M, band_of=None, base=FT2):
     band.fail_history = 1  # 첫 호출 실패 → 재시도 1로 잇는다
     listener = _listen(sock, tmp, band, alert)
     assert listener.run(sessions=2) == 0
-    assert band.calls.count("conversations.history") == 3  # 연결 2번 = 1쪽씩 + 재시도 1
+    assert band.calls.count("conversations.history") == 4  # 연결 2번 = 1쪽씩 + 재시도 1 + r2341 끊긴 창 1쪽
     assert band.oldest[0] == pytest.approx(1700000001.0001)  # oldest = 장부 마지막 글 ts
     pump(alert, clock)
     assert inc_of(tmp)["closed_at"] is not None  # 끊김 동안 닫힘 반영
@@ -521,7 +521,7 @@ def case_16(tmp, mod=M, band_of=None, base=FT2):
     assert len([r for r in rows(tmp) if r.get("t") == "mail" and r.get("sent")]) == 2  # 새 사건 1(중복 0)
     pump(alert, clock, 1800)
     assert any("닫힘" in body for body in notes(alert.send))
-    assert band.calls.count("conversations.history") == 3  # 그 뒤 이벤트 0 = 호출 0
+    assert band.calls.count("conversations.history") == 4  # 그 뒤 이벤트 0 = 호출 0
 
 
 def case_17(tmp, mod=M):
