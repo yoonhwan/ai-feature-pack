@@ -36,7 +36,9 @@ def _listener(root, desk=DESK, seats=None):  # 상주 수신기 1개(seats = own
 
 
 def _route(root, event, desk=DESK, li=None):  # 가짜 글 1개 — 반환 = Slack 게시 호출 수
-    (li := li or _listener(root, desk)).route(event)
+    li = li or _listener(root, desk)
+    li.route(event)
+    li.worker.stop()  # r2341 — 깨움은 일꾼 큐 몫 · 시험은 큐를 비운 뒤 장부를 본다
     return li.sent.count("chat.postMessage")
 
 

@@ -139,7 +139,7 @@ def test_6_disconnect_reconnect_backfill_once(tmp_path, band_of):
     assert _listener(sock, tmp_path, band).run(sessions=2) == 0
     assert [r["reason"] for r in _rows(tmp_path, "backfill.jsonl")] == ["reconnect"]
     assert [c for c in band.calls if c != "users.conversations"] == [  # r1923 hello 발견 호출 허용
-        "apps.connections.open", "apps.connections.open", "conversations.replies"]
+        "apps.connections.open", "apps.connections.open", "conversations.history", "conversations.replies"]  # r2341 = 끊긴 창 history 1쪽 뒤 replies
     assert band.sleeps == [1] and band.posts == []  # 보충 dispatched → 접수 게시 0(r1818)
     assert [r["command"] for r in _rows(tmp_path, "receive.jsonl") if r["state"] == "dispatched"] == [
         _command % "1800000006.000200"]

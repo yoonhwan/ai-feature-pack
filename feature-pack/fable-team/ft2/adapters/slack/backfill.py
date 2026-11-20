@@ -5,17 +5,25 @@
 않는다(변이 M6). 한 회차에 thread 마다 한 쪽(limit)만 읽고, 쪽이 남으면 그 thread 의 위치를 보존한 채 상태
 «미완» 으로 멈춘다. 커서는 «연속으로 처리한 영수» 까지만 전진한다 — 영수 없는 행 뒤로는 밀지 않는다(변이 M5).
 실패·gap 은 미완 기록이고 조용히 건너뛰지 않는다. 읽기는 대역 주입(`fetch`)이고 실 Slack 호출은 0 이다.
+
+r2341 — 커서가 bot 글에서 멈추던 것을 고친다(ⓧ3). 거른 갈래 중 bot·미인가 사용자는 실시간 판정과 같은 뜻으로
+«처리 끝» 이고(그 글 ts 로 커서 전진 · S1), 허용 밖 채널·full·unknown 은 지금처럼 커서 그대로다(채널이 나중에
+붙으면 다시 읽힌다). thread_not_found = «닫힌 thread» 1줄로 표시하고 다음 회차부터 대상에서 뺀다(③ · 변이 M8).
+회차에 `deadline`(단조 시계 초)을 주면 그 예산에서 멈추고 남은 대상을 `left` 로 돌려준다(⑩).
 """
 
 import json
 import os
 import time
 
-RESTART, RECONNECT = "restart", "reconnect"
-REASONS = (RESTART, RECONNECT)
+RESTART, RECONNECT, JOIN = "restart", "reconnect", "가입"
+REASONS = (RESTART, RECONNECT, JOIN)
 DONE, STALE, SKIPPED = "done", "미완", "건너뜀"
-DISPATCHED, DUPLICATE = "dispatched", "duplicate"
+DISPATCHED, DUPLICATE, IGNORED = "dispatched", "duplicate", "ignored"
 PROCESSED = (DISPATCHED, DUPLICATE)  # 기존 영수도 «이미 처리» 다 — gap 오판 0(DA R3)
+CURSOR_END = ("bot", "미인가 사용자")  # S1 — 실시간 판정과 같은 뜻으로 «처리 끝»(허용 밖 채널·full·unknown 은 아님)
+CLOSED = "닫힌 thread"
+BUDGET = 50.0  # S2 — 재연결 사건 1회 보충 예산(일꾼 안 · 연결 예산과 따로)
 PAGE = 15
 
 #: 이 장이 덮는 계약 줄 — 계약 낱말 그대로 적는다(시험이 사례 expect 낱말과 대조한다).
@@ -63,8 +71,9 @@ class Cursors:
 class Backfill:
     """보충 회차 1번 = 판정 1개. 상태는 `state` 한 낱말로만 말한다."""
     def __init__(self, root, *, route, fetch, cursors=None, team="harness", limit=PAGE, clock=None,
-                 notify=None, on_step=None):
+                 notify=None, on_step=None, mono=None):
         self.route, self.fetch, self.team = route, fetch, team
+        self.mono = mono or time.monotonic  # S2 예산 판정 — 입출력 없는 시계
         self.cursors = cursors or Cursors(root, team, clock=clock)
         self.limit = int(limit)
         self.notify, self.on_step = notify or (lambda row: None), on_step or (lambda name: None)
@@ -85,13 +94,22 @@ class Backfill:
             os.fsync(handle.fileno())
         return row
 
-    def run(self, reason, targets):
-        """회차 1번. `targets` = [(좌석, channel, thread)]. 사건이 아니면 아무것도 읽지 않는다."""
-        self.steps = []
-        row = {"reason": str(reason), "state": DONE, "pages": 0, "dispatched": 0, "gap": None, "stale": []}
+    def run(self, reason, targets, deadline=None, floor=""):
+        """회차 1번. `targets` = [(좌석, channel, thread)]. 사건이 아니면 아무것도 읽지 않는다.
+
+        deadline = 단조 시계 초 상한(넘으면 남은 대상을 `left` 로 돌려준다 · ⑩) · floor = 커서 없는 thread 의 after.
+        """
+        self.steps, self.floor = [], str(floor or "")
+        row = {"reason": str(reason), "state": DONE, "pages": 0, "routed": 0, "dispatched": 0,
+               "gap": None, "stale": [], "left": []}
         if reason not in REASONS:  # 주기 폴링 0 — 사건이 아니면 회차를 만들지 않는다(변이 M6)
             return self._append(dict(row, state=SKIPPED, why="재시작·재연결 사건 아님"))
-        for seat, channel, thread in targets:
+        closed = self.closed_threads()
+        pending = [t for t in targets if "%s:%s" % (t[1], t[2]) not in closed]
+        for index, (seat, channel, thread) in enumerate(pending):
+            if deadline is not None and self.mono() >= deadline:  # 예산 끝 = 남은 것 보존(⑩)
+                row["left"], row["state"], row["why"] = [list(t) for t in pending[index:]], STALE, "보충 미완"
+                break
             outcome = self._thread(str(seat), str(channel), str(thread), row)
             if outcome:
                 row["stale"].append(outcome)
@@ -100,12 +118,32 @@ class Backfill:
             self.notify(row)
         return self._append(row)
 
+    def closed_threads(self):  # «닫힌 thread» 표시된 (채널:thread) — 표시 1회면 다음 회차부터 대상 0(③)
+        found = set()
+        if not os.path.exists(self.path):
+            return found
+        with open(self.path, encoding="utf-8") as handle:
+            for line in handle:
+                if line.strip():
+                    closed = json.loads(line).get("closed")
+                    if closed:
+                        found.add(str(closed))
+        return found
+
+    def _close_thread(self, channel, thread):  # 닫힌 thread 1줄 — gap 줄이 재연결마다 되풀이되지 않는다(M8)
+        self._append({"reason": "닫힘", "state": DONE, "closed": "%s:%s" % (channel, thread), "why": CLOSED})
+        return "%s %s:%s" % (CLOSED, channel, thread)
+
     def _thread(self, seat, channel, thread, row):
         """thread 1곳 = 쪽 1장. 남았거나 실패면 미완 사유를 돌려준다(위치는 보존)."""
-        after = self.cursors.get(seat, thread)
+        after = self.cursors.get(seat, thread) or getattr(self, "floor", "")
         try:
             page = self.fetch(channel, thread, after, self.limit)
         except Exception as exc:  # 실패 = 미완 기록 · 조용한 건너뛰기 0
+            if "thread_not_found" in str(exc):  # S1 — 닫힌 thread = 1회 표시 · 다음 회차 대상 0(③)
+                self._step("closed")
+                self._close_thread(channel, thread)
+                return None
             row["gap"] = "%s:%s %s" % (channel, thread, exc)
             self._step("gap")
             return "failed %s:%s" % (channel, thread)
@@ -123,6 +161,10 @@ class Backfill:
             verdict = self.route.route(dict(item, team=item.get("team") or self.team, channel=channel,
                                             thread_ts=thread))
             self._step("route")
+            row["routed"] += 1
+            if verdict.get("state") == IGNORED and verdict.get("reason") in CURSOR_END:  # S1 — 처리 끝(변이 M1)
+                self.cursors.advance(seat, thread, str(item.get("ts") or ""))
+                continue
             if verdict.get("state") not in PROCESSED or not verdict.get("receipt", True):
                 return "no_receipt %s:%s@%s" % (channel, thread, item.get("ts"))  # 영수 없으면 커서 그대로
             if verdict.get("state") == DISPATCHED:
