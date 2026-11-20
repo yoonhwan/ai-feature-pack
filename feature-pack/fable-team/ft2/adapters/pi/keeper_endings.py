@@ -1,8 +1,11 @@
 """ft 2.0 keeper 끝 판정 (r1960 · DA APPROVE-DESIGN #301612) — ① pr_landed: 착지 줄 없음 → 가지 nano/<work> merged PR 정확히 1개 ∧ mergeCommit
 허용 base 조상 ∧ pre_attempt(HEAD 조상 단독·추측 0) ② ending: 우선 ref 단일 카드 완성후·아카이브 · «## 상태» 마지막 유효 항목 머리(refuse 0)
 ③ intent 대체 ④ unsure 재깨움 1회 → [크리티컬] 1통/일 ⑤ orphans: 스냅샷 «뒤» journal 새로 읽기 · launch intent 근거 ∧ 끝 ∧ 가드 → kill 1.
+r2319(nano) — journal 판독에서 닫힌 segment 는 디스크 캐시(keeper 상태 폴더 · 팀마다 1파일)를 쓰고
+활성 파일만 매번 새로 읽는다. 캐시 지문 = 닫힌 목록 (이름 · size · mtime_ns) · 판독 전·후 두 번 재서
+같을 때만 씀 · 캐시 없음·깨짐·쓰기 실패 = 지금과 같은 전부 판독(예외 0) · 1초 넘으면 ROWS-SLOW 1줄.
 """
-import glob, importlib.util, json, os, re  # noqa: E401
+import glob, importlib.util, json, os, re, time  # noqa: E401
 HERE = os.path.dirname(os.path.abspath(__file__))
 ANC_S = 7   # r2022 착지 조상 확인(merge-base --is-ancestor) 1회 7초 · 재시도 0 · keeper_land 도 이 값
 GH_S, BASES, DONE, HEADS = 7, ("main", "ops/main-base"), ("완성후", "아카이브"), (("중단:", "suspended"), ("대체:", "superseded"), ("거절:", "superseded"))
@@ -21,11 +24,70 @@ def held(k, team, key, text):
     if k.state["held"].get(key) != text:
         k.state["held"][key] = text
         k.unknown_line(team, "-", "held", text)   # r2055 UNKNOWN = [긴급]
-def _rows(k, team):   # journal 새로 읽기 · 못 읽음 = None(판독 실패 = 대체·고아 닫기 0)
+ROWS_CACHE, ROWS_SLOW_S, ROWS_V = "journal-rows", 1.0, 1   # r2319 C6 캐시 폴더 · C7 문턱 · 캐시 꼴 판
+
+def _rows_cache(k, team):   # 캐시 파일 1개 = keeper 상태 폴더 아래(journal runtime 폴더 쓰기 0 · C6 · 하드 룰 19)
+    base = getattr(k, "dir", None) or os.path.join(k.root, ".fable-team", "state", "ft2-keeper")
+    return os.path.join(base, ROWS_CACHE, team + ".json")
+
+def _rows_key(j):   # 닫힌 segment 지문 [(N, 이름, size, mtime_ns)] — 이름·size·mtime 셋 다 (C1·C2)
+    out = []
+    for n, path in j.closed():
+        st = os.stat(path)
+        out.append([n, os.path.basename(path), st.st_size, st.st_mtime_ns])
+    return out
+
+def _rows_get(path, key):   # 캐시 행 · 없음·깨짐·지문 다름 = None → 전부 판독 (C3)
     try:
-        return _proj().journal.Journal(_proj().runtime_path(k.root, team), rec=_proj().record).records()
-    except (OSError, ValueError):
+        with open(path, encoding="utf-8") as fh:
+            got = json.load(fh)
+        rows = got["rows"]
+        if (got.get("v") == ROWS_V and got.get("closed") == key and isinstance(rows, list)
+                and all(isinstance(r, dict) and isinstance(r.get("seq"), int) for r in rows)):
+            return rows
+    except (OSError, ValueError, KeyError, TypeError):
+        pass
+    return None
+
+def _rows_put(path, key, rows):   # 원자 쓰기 tmp → replace · 실패 = 판독 결과 그대로(예외 0 · C3)
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path + ".tmp", "w", encoding="utf-8") as fh:
+            json.dump({"v": ROWS_V, "closed": key, "rows": rows}, fh, ensure_ascii=False)
+        os.replace(path + ".tmp", path)
+    except OSError:
+        pass
+
+def _rows_join(closed, active, err):   # 닫힌 + 활성 이음 — seq 역행·중복 = CorruptStateError (C5)
+    out = []
+    for rec in list(closed) + list(active):
+        if out and rec["seq"] <= out[-1]["seq"]:
+            raise err("journal seq 역행·중복: %r <= %r" % (rec["seq"], out[-1]["seq"]))
+        out.append(rec)
+    return out
+
+def _rows(k, team):
+    """journal 판독 — 닫힌 segment = 캐시 · 활성 = 매번(r2319 C1~C8) · 못 읽음 = None(판독 실패 = 대체·고아 닫기 0)."""
+    t0 = time.monotonic()
+    try:
+        proj = _proj()
+        j = proj.journal.Journal(proj.runtime_path(k.root, team), rec=proj.record)
+        key, path = _rows_key(j), _rows_cache(k, team)
+        closed = _rows_get(path, key) if key else None   # C1·C2·C3
+        hit = closed is not None
+        if not hit:   # 캐시 없음·틀림·깨짐 = 닫힌 쪽 전부 판독(부분 갱신 0 · 단순)
+            closed = [rec for _n, seg in j.closed() for rec in j._records_of(seg)]
+        t1 = time.monotonic()
+        active = j._records_of(j.active_path) if os.path.exists(j.active_path) else []   # 활성은 매번 (C1)
+        t2 = time.monotonic()
+        rows = _rows_join(closed, active, j.rec.CorruptStateError)   # C5 이음 검사
+        if key and not hit and _rows_key(j) == key:   # C8 판독 사이 회전 = 캐시 쓰기 0
+            _rows_put(path, key, closed)
+    except (OSError, ValueError):   # C3·C4 — 캐시 탓도 판독 실패도 지금과 같은 None
         return None
+    if t2 - t0 >= ROWS_SLOW_S:   # C7 효과 가림 — 1초 넘을 때만 1줄
+        k.log("ROWS-SLOW", team, "cache=%s load=%.2f active=%.2f n=%d" % ("hit" if hit else ("miss" if key else "none"), t1 - t0, t2 - t1, len(rows)))
+    return rows
 def latest(k, team):   # {work: (attempt, holder)} 최신 dispatch · 못 읽음 = None
     rows = _rows(k, team)
     return None if rows is None else {r["work"]: (r.get("attempt"), r.get("holder")) for r in rows if r.get("kind") == "dispatch" and r.get("work")}
