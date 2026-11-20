@@ -49,6 +49,8 @@ def fake(land, anc_rc, kind="구현", root="/byz"):
                 return s.anc_rc.pop(0) if s.anc_rc else (1, "", "")
             if a[0] == "cat-file":
                 return 0, "", ""   # 객체 있음 → rc128 = 판정 불가(r2022 꼴)
+            if a[0] == "diff-tree":   # r2336 초안·증거 판독 = 바뀐 경로 0(이 꼴 아님)
+                return 0, "", ""
             raise AssertionError(a)
 
         def pre_attempt(s, *a, **kv):

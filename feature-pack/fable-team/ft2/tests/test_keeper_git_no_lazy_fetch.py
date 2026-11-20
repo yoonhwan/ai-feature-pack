@@ -260,6 +260,8 @@ def test_branch_c_other_rc_asks_remote(w, land=_land):
     script = [(None, "", "timeout"), (0, "", "")]
 
     def git(repo, *a, **kw):
+        if a[:1] == ("diff-tree",):   # r2336 초안·증거 판독 = 바뀐 경로 0(이 꼴 아님)
+            return 0, "", ""
         return (0, k.body, "") if a[:1] == ("show",) else script.pop(0)
 
     k.git = git

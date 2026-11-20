@@ -27,6 +27,7 @@ CARDMAP = os.path.join(".fable-team", "teams", "%s", "runtime", "cards.tsv")   #
 MAPPED = re.compile(r"^(design/.+)/indices/(?:진행|대기|완성)/([^/]+\.md)$")
 BODYPATH = re.compile(r"design/[^\s()`'\"<>·,]+\.md")   # r2055 발주 본문 속 카드 경로 토큰(MAPPED 로 다시 거름)
 MEMO_CAP = 1000   # r2307 C4 기억 칸(anc_true · land_kind)마다 키 상한(DA#34 권고)
+DOC_EXT = (".md", ".txt", ".json", ".jsonl", ".png", ".tsv")   # r2336 초안·증거 꼴 = 이 확장자만(DA#41 실측 2026-11-20) · 목록 밖 1개라도 = 실행 파일 = 구현 착지(보수)
 
 
 def memo(state, slot):
@@ -74,6 +75,20 @@ def lib_call(root, fn, args, call):
         lib = os.path.join(os.path.dirname(FT2), "legacy", "1.x", "harness", "bin", "ft-land-kind-lib.sh")
     rc, out = call(["bash", "-c", '. "$1" >/dev/null 2>&1 || exit 9; f="$2"; shift 2; "$f" "$@"', "x", lib, fn] + list(args), endings.ANC_S)[:2]
     return rc, (out or "").strip()
+
+
+def draft_rows(out):
+    """r2336 — `diff-tree --name-status -z` 출력 → [(상태, 경로)] · 빈 토큰 버림 · 홀수 꼬리 버림(card_archive 사본 0 · 같은 꼴)."""
+    toks = [x for x in (out or "").split("\0") if x]
+    return [(toks[i], toks[i + 1]) for i in range(0, len(toks) - 1, 2)]
+
+
+def draft_only(rows, card):
+    """r2336 C1 — 그 커밋에서 카드 파일이 A 이고 바뀐 경로가 모두 문서 확장자 = 초안·증거 꼴(구현 0).
+    카드 M(r1793 꼴) · 실행 파일(scan.sh · check_target.py) 하나라도 = False(구현 착지 그대로)."""
+    if not card or not any(path == card and status.startswith("A") for status, path in rows):
+        return False
+    return all(os.path.splitext(path)[1].lower() in DOC_EXT for _, path in rows)
 
 
 def land_kind(root, repo, sha, call):
@@ -249,14 +264,28 @@ class Landing:
         return (None, None, "판정 불가 · 팩 fetch 실패") if self.stale else (sha, None, "미도달")   # 낡음이 있으면 미도달 알림 0
 
     def landed_in(self, team, work, repo, ref, sha):
-        """조상인 착지 sha → 옛 착지 줄 · r2274 C2 카드 문서만(land_kind) · 판정 불가 = 착지 아님(사유) · 그 밖 = (sha, ref, "")."""
+        """조상인 착지 sha → 옛 착지 줄 · r2274 C2 카드 문서만(land_kind) · r2336 초안·증거 꼴 = 착지 아님 · 판정 불가 = 착지 아님(사유) · 그 밖 = (sha, ref, "")."""
         old = self.pre_attempt(team, work, repo, sha)
         if old:
             return None, None, old
         kind = self.kind_of(repo, sha)
         if kind != "구현":
             return None, None, "카드 문서만 착지 " + sha[:8] if kind == "카드 문서만" else kind.replace("판정 불가 ", "판정 불가 · ", 1)
+        draft = self.draft_land(team, work, repo, sha)
+        if draft:
+            return None, None, draft
         return sha, ("pack:" if repo == self.pack else "byz:") + ref, ""
+
+    def draft_land(self, team, work, repo, sha):
+        """r2336 C1 — 구현 착지 sha 의 바뀐 경로 1회 판독 → «초안·증거 착지 <sha8>»(착지 아님) | ""(구현) | «판정 불가 · 초안 판독 …»(착지 아님).
+        공용 lib(ft-land-kind-lib.sh) 손 0 · keeper_land 한 곳(r2274 부르는 4곳 중 keeper 만 · card_stage·transition_watch·ft-card-flow 판정 그대로) ·
+        git 1회 7초 · 로컬 객체만(GIT_NO_LAZY_FETCH=1 · r1401) · 실패·시간 초과 = 착지 아님(하드 룰 20 · landed_in 꼴 그대로)."""
+        card = (self.cache.get("@round", {}).get(("card", team, work)) or ("", ""))[1]   # landing 이 고른 카드 경로(그 커밋에서 A 여야 함)
+        rc, out, _ = self.git_local(repo, "diff-tree", "-r", "--no-renames", "-z", "--name-status", "--no-commit-id", "--root",
+                                    "--diff-merges=first-parent", sha + "^{commit}", "--", timeout=endings.ANC_S)
+        if rc != 0:
+            return "판정 불가 · 초안 판독 git rc %s %s" % (rc, sha[:8])
+        return "초안·증거 착지 " + sha[:8] if draft_only(draft_rows(out), card) else ""
 
     def anc_seen(self, repo, ref, sha):
         """r2307 C1 — 상태 anc_true 에 «<리포>|<ref>|<sha40>» 가 있으면 조상 참(git 0)."""
