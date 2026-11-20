@@ -864,6 +864,9 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
 
     def parked_landing(self, team, work, attempt):
         """r2258 O1·O2 — 쉼 work 착지 판정 1회 → 착지면 complete 1회(land_ready 0 · 쉼 = 이미 유휴 끝) · «미도달» 만 tip 3개 키로 기억 · 그 밖 줄 0."""
+        if self.before(team, work, "b1"):   # r2369 K1 커서 앞 쉼 카드 = 이 바퀴 몫 0
+            return None
+        self.cursor_stage = "b1"   # r2369 K2 끊긴 자리 = 그 work 의 b1
         memo, key, self.at_work = self.state.setdefault("parked_unreached", {}), "%s|%s@%s" % (team, work, attempt), work
         try:
             tips = self.tips()
