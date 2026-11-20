@@ -5,7 +5,7 @@
 #   ③ «/bin/zsh -x <tmp>/tick.sh»(옵션 낱말 뒤 첫 낱말) → 후보 3 via=④
 #   ④ «bash <tmp>/tick.sh <tmp>/data.txt»(둘째 낱말만 본문에 이름) → 0
 #   ⑤ «python3 <tmp>/tick.py»(본문에 이름) → 0(명령 이름 거름)
-#   ⑥ 회귀 = test_seat_reap_name_tree_script_body_r2324.sh · test_seat_reap_name_tree_r2317.sh · test_seat_reap_keep_hil_r2160.sh · test_seat_reap_services.sh → 기준판과 실패 이름 diff 0
+#   ⑥ 회귀(r2324 · r2317 · keep_hil_r2160 · services)는 이 시험 안에서 돌리지 않는다 — 하드 룰 22(시험 1개 70초 · DA#39 #351235) · 회귀 묶음 = 카드 «- 세트:» 시험 줄에서 따로 · 기준판 대조는 나노 보고 줄
 #   ⑦ «bash -lc <tmp>/tick.sh»(묶음 -lc) → 0(-c 와 같다 · DA#39 조건1)
 #   변이 M1~M3(사본에서 1곳만) — 변이마다 원본으로 같은 사례 1회 더 = 반대 결과 대조
 #   입력 = 가짜 ps 표(FT_PS) · 가짜 tmux(PATH) · 가짜 lsof(FT_LSOF) · 가짜 launchctl(FT_LAUNCHCTL) · 신호 0 = --dry-run · 실 프로세스 0 · sleep 0
@@ -46,7 +46,6 @@ printf 'PID\tStatus\tLabel\n'
 exit 0
 EOS
 chmod +x "$TMP/fake/"*
-ORIG_PATH="$PATH"   # ⑥ 회귀 = 아이 시험은 이 시험의 가짜 도구·env 를 물려받지 않는다
 export PATH="$TMP/fake:$PATH" FT_PS="$TMP/fake/ps" FT_LSOF="$TMP/fake/lsof" FT_LAUNCHCTL="$TMP/fake/launchctl"
 export FPS="$TMP/ps.txt" FTAB="$TMP/tmux.txt" FLIS="$TMP/listen.txt" LPIDS="$TMP/launchd.txt"
 export FT_REAP_NOSIGNAL=1 FT_REAP_TERM_WAIT=0 FT_REAP_DEFER_DIR="$TMP/defer" FT_PERMIT_DIR="$TMP/permit" FT_BG_FINITE_LEDGER="$TMP/bg.tsv"
@@ -120,33 +119,6 @@ case7() {  # ⑦ «bash -lc <틱 파일>» — c 든 짧은 옵션 묶음 = 명�
   chk "⑦ «bash -lc <틱 파일>» → 후보 0" "$(n '^reap-cand ' "$o")" 0
   chk "⑦ 끝 줄 found=0(불변)" "$(tail1 "$o")" "found=0 dry-run rc=0"
 }
-REGS="test_seat_reap_name_tree_script_body_r2324.sh test_seat_reap_name_tree_r2317.sh test_seat_reap_keep_hil_r2160.sh test_seat_reap_services.sh"
-regbin() {  # regbin <테스트> <bin dir> — 그 시험을 그 bin 으로 1회(각 시험의 bin 재정의 env 를 쓴다)
-  case "$1" in
-    *r2324*) R2324_REAP_DIR="$2" bash "$1";;
-    *r2317*) R2317_REAP_DIR="$2" bash "$1";;   # R2317_BASE 는 두 판 모두 안 준다 — 같은 «기준판 없음» 줄이 양쪽에 남아 diff 0
-    *r2160*) R2160_BIN="$2" bash "$1";;
-    *) bash "$1";;   # services = 시험 안에서 tests/../../harness/bin 고정
-  esac
-}
-fails() { grep '^FAIL ' "$1" | sed 's/ (got=.*//' | sort; }
-case6() {  # ⑥ 회귀 — 네 시험을 새 판으로 1회씩 · 실패 이름 집합이 기준판(1054c36e) 실행 때와 같아야 한다(손으로 뜬 기준판 = r2324 0 · r2317 «기준판 없음» 1 · keep_hil 0 · services 0)
-  local t i=0 want got
-  for t in $REGS; do
-    i=$((i+1))
-    ( cd "$HERE"
-      unset FT_PS FT_LSOF FT_LAUNCHCTL FPS FTAB FLIS LPIDS FT_REAP_NOSIGNAL FT_REAP_TERM_WAIT FT_REAP_DEFER_DIR FT_PERMIT_DIR FT_BG_FINITE_LEDGER FT_PRESS_PS_SNAPSHOT FT_PRESS_RUNNER_RE
-      PATH="$ORIG_PATH"; export PATH
-      regbin "$t" "$BIN"
-    ) > "$TMP/rg-$i.out" 2>&1
-    case "$t" in
-      *r2317*) want="FAIL 기준판 없음 — R2317_BASE=<옛 bin/ft-seat-reap.sh> 로 다시";;   # R2317_BASE 를 두 판 다 안 줘서 남는 같은 환경 줄
-      *) want="";;
-    esac
-    got="$(fails "$TMP/rg-$i.out" | paste -sd '\t' -)"
-    chk "⑥ $t 실패 이름 = 기준판과 같음" "${got:-없음}" "${want:-없음}"
-  done
-}
 mutb() {  # mutb <이름> <옛 글자> <새 글자> — bin 통째 사본 + ft-seat-reap.sh 1곳만 치환
   local d="$TMP/mb/$1"; mkdir -p "$d"; for f in ft-seat-reap.sh ft-leak-reap.sh ft-harness-root.sh ft-bg-finite.sh; do [ -f "$BIN/$f" ] && cp "$BIN/$f" "$d/$f"; done
   python3 - "$d/ft-seat-reap.sh" "$2" "$3" <<'PY'
@@ -194,8 +166,6 @@ echo "== 변이 M1~M3(사본 · 원본 대조)"
 mcheck M1 1 'if not words or os.path.basename(words[0]) not in SHELL_ARGV: return False' 'if not words: return False'
 mcheck M2 4 'if not w.startswith("-"): return w.startswith("/") and body_seed(w)' 'if not w.startswith("-") and w.startswith("/") and body_seed(w): return True'
 mcheck M3 7 'if len(w) > 1 and w[1:].isalpha() and "c" in w[1:]: return False' 'if w == "-c": return False'
-echo "== ⑥ 회귀(네 시험 · 새 판/기준판)"
-case6
 Q=$((SECONDS - T0))
 chk "시간 $Q 초 ≤ 70" "$([ "$Q" -le 70 ] && echo ok)" ok
 echo; if [ "$fail" -eq 0 ]; then echo "ALL PASS ($Q 초)"; exit 0; else echo "FAILED $fail"; exit 1; fi
