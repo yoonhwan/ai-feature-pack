@@ -15,7 +15,7 @@ ROSTER = "/r2306/seats-t1.json"
 CUT = object()   # 그 단계에서 예산 끊김(Cut)
 # 기준판 되돌림: ("swap", 고친 글자, 기준판 글자) · ("cut", 머리, 끝, 기준판 글자) = 머리부터 끝까지(끝 포함)를 기준판 글자로
 FIX = {
-    KP: [("swap", "    def timed(self, stage, fn, *args, part=None):\n", "    def timed(self, stage, fn, *args):\n"),
+    KP: [("swap", "    def timed(self, stage, fn, *args, part=None, work=None):\n", "    def timed(self, stage, fn, *args, work=None):\n"),
          ("swap", "fn 결과 · r2306 K1 part = b3r 자리 안 몫 키(b3r.sweep·b3r.retired).", "fn 결과."),
          ("cut", "        self.b3r_parts = {}   # r2306 K1", "초\n", ""),
          ("cut", "            if part:   # r2306 K1", "+ dt\n", ""),
