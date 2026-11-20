@@ -76,9 +76,10 @@ class Watch:
             except Exception as exc:   # noqa: BLE001 — 장부 손상 = 판정 불가(하드 룰 20)
                 s.books[team] = "판정 불가 장부 %s %s" % (team, type(exc).__name__)
         return s.books[team]
-    @staticmethod
-    def works(c, book):   # 카드 stem 에 맞는 work(정확 → «work-» 접두 · 긴 것 먼저)
-        return [x for x in [c["stem"]] + [c["stem"][:i] for i in range(len(c["stem"]) - 1, 0, -1) if c["stem"][i] == "-"] if x in book]
+    def works(s, c, book, cell):   # r2335 카드 stem 에 맞는 work(정확 우선 → «work-» 접두 · 긴 것 먼저) — W1 정확 대조 = 장부 전체(book["all"]) · 칸 교집합만(W2 접두 = 칸에 있고 그 work 의 주인 카드가 s.stems 에 없는 것)
+        if c["stem"] in book["all"]:
+            return [c["stem"]] if c["stem"] in book[cell] else []   # 정확 일치가 있으면 접두로 안 내려간다(내 work = 열림·세대만 = 남의 끝난 work 아님)
+        return [x for x in (c["stem"][:i] for i in range(len(c["stem"]) - 1, 0, -1) if c["stem"][i] == "-") if x in book[cell] and x not in s.stems]
     def kind_of(s, sha, tail):   # r2274 land_kind 1곳(착지 줄 꼬리에 ai-feature-pack = 팩 먼저) · 판정 불가 = 기억 0
         for repo in ((s.k.pack, s.k.root) if "ai-feature-pack" in tail else (s.k.root, s.k.pack)) if sha not in s.kind else ():
             if not (word := land.land_kind(s.k.root, repo, sha, s.call)).startswith("판정 불가"):
@@ -116,8 +117,8 @@ class Watch:
         return at if isinstance(at, str) else "%s %d시간" % (c["stem"], (s.now - at) // 3600) if s.now - at >= s.lim[fn] else None
     def e_done0(s, c): return (s.impl(c) or None) if c["stage"] == "완성" and "ft2 card_stage" in c["body"] else None
     def e_ledger(s, c):
-        book = s.ledger(c["team"]) if c["stage"] != "완성" else {"done": {}}
-        for w in [] if isinstance(book, str) else s.works(c, book["done"]):
+        book = s.ledger(c["team"]) if c["stage"] != "완성" else {"done": {}, "open": {}, "all": set()}
+        for w in [] if isinstance(book, str) else s.works(c, book, "done"):
             again = [x for x in book["all"] if re.fullmatch(re.escape(w) + r"-r\d+", x)]
             if any(x not in book["done"] for x in again) or book["done"][w] is None or s.now - book["done"][w] < s.lim["ledger"]:
                 continue   # 다시 접수가 열려 있음 · 시각 못 읽음 · 1시간 안
@@ -141,7 +142,7 @@ class Watch:
     def e_prog(s, c): return s.aged(c, "prog") if c["stage"] == "진행" and not s.rej and s.o is None else None
     def classify(s, c):
         book = s.ledger(c["team"])
-        found = book if isinstance(book, str) else s.works(c, book["open"])
+        found = book if isinstance(book, str) else s.works(c, book, "open")
         s.o = found if isinstance(found, str) else (found[0], book["open"][found[0]]) if found else None   # 열린 ft2 work (work, holder) · 없음 None · 장부 판정 불가 = 사유
         s.rej = "REJECT" in ([x for x in c["body"].splitlines() if "착지" in x] or [""])[-1]   # 마지막 착지 시도 줄 REJECT
         return next(((row, got) for row in ROWS for got in [getattr(s, "e_" + row[1])(c)] if got is not None), None)   # C1 첫 일치 (행, 내용) · 일치 0 = None · 판정 불가 = 그 칸에서 멈춤(내용 = 사유)
