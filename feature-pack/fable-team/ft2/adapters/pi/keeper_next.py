@@ -591,7 +591,8 @@ def seen_no_receipt(k, team, work, attempt, stem, done):
     """r2350 K1·K2 — 이미 영수한 사건(close_receipts 1행 = seen)을 다시 영수하지 않을 조건.
     참 = 다음 카드 칸 표식(teams/<팀>/CLOSE-NEXT.enabled · 이미 읽은 ft2_state 밖 = 추가 판독 0 · DA#44 B1·권함) ∧
     (영수 키 done(close:<팀>:keeper:<일>@<시도>) ∨ 다음 빔). 거짓 = 영수 뒤 배정·전달이 아직(core _resume 갈래 1·2) 또는 표식 없음
-    = 지금처럼 core 영수 1회. core 는 이 두 갈래에서 journal 만 다시 읽고 쓰기 0 이라 판정만 늦다(b2c 55초 실사건)."""
+    = 지금처럼 core 영수 1회. core 는 그 두 갈래를 안 끝낸 일로 보고 실제로 쓴다 — 갈래 1 = _chain(배정+전달)·갈래 2 = _deliver ·
+    그래서 건너뛰면 다음 카드가 안 열린다. 반면 참 갈래(전달 완료·다음 빔)의 core 는 journal 만 다시 읽고 쓰기 0 이라 느리기만 했다(b2c 55초 실사건)."""
     mark = os.path.join(k.root, ".fable-team", "teams", team, "CLOSE-NEXT.enabled")
     if not os.path.exists(mark):
         return False
