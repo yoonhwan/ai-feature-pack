@@ -214,9 +214,9 @@ def c11(w, ke, mp):   # ⑪ 판독 중 journal.3 생김(전·후 목록 다름) 
 def c12(w, ke, mp):   # ⑫ 가짜 시계 — 활성 판독 1.5초 · cache=hit → ROWS-SLOW 1줄 · 0.3초 → 줄 0
     assert ke._rows(w.k, TEAM) == full(w, ke)
     n = len(full(w, ke))
-    mp.setattr(ke, "time", Clock([100.0, 100.01, 101.51]))
+    mp.setattr(ke, "time", Clock([100.0, 100.01, 101.51]))   # r2346 — 이 가짜 시계에는 thread_time 이 없어 cpu=0.00
     assert ke._rows(w.k, TEAM) is not None
-    assert w.k.lines == ["ROWS-SLOW %s cache=hit load=0.01 active=1.50 n=%d" % (TEAM, n)], w.k.lines
+    assert w.k.lines == ["ROWS-SLOW %s cache=hit load=0.01 active=1.50 n=%d cpu=0.00" % (TEAM, n)], w.k.lines
     mp.setattr(ke, "time", Clock([200.0, 200.01, 200.31]))
     assert ke._rows(w.k, TEAM) is not None and len(w.k.lines) == 1, w.k.lines
 
