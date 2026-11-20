@@ -92,7 +92,9 @@ def _log(root):
 
 def test_1_aux_channel_thread_reply_received_desk_wake(env):  # ① B 묶임 없는 thread 답 = 허용 · 재개 필요 · 깨움 1
     web, ts = Web({A: True, B: True}), "1800000001.000200"
-    _listener(env, "%s,%s" % (A, B), web).route(_msg(ts, B, thread_ts="1800000001.000100"))
+    listener = _listener(env, "%s,%s" % (A, B), web)
+    listener.route(_msg(ts, B, thread_ts="1800000001.000100"))
+    listener.worker.stop()  # r2341 — 쪽지는 일꾼 큐 몫 · 시험은 큐를 비운 뒤 장부를 본다
     assert [r["state"] for r in _rows(env, "receive.jsonl")] == ["received", "dispatched"]
     assert [(r["kind"], r["to"]) for r in _rows(env, "route.jsonl") if r["t"] == "route"] == [("재개 필요", "@team-desk")]
     assert len(_wakes(env)) == 1 and len(_wakes(env, DESK)) == 1
@@ -107,6 +109,7 @@ def test_1b_bind_only_main_channel_no_post(env):  # ①′ B 새 root = desk 주
     listener.route(_msg(ta, A))
     assert [(b["state"], b["key"][1], b["seat"]) for b in _rows(env, "bindings.jsonl")] == [("bound", B, DESK), ("bound", A, MASTER)]
     assert [r["state"] for r in _rows(env, "receive.jsonl") if r["key"][1] == A] == ["received", "dispatched"]
+    listener.worker.stop()  # r2341 — 쪽지는 일꾼 큐 몫
     assert len(_wakes(env, MASTER)) == 1 and web.posts == [] and _rows(env, "publish.jsonl") == []
 
 
