@@ -167,13 +167,13 @@ k11c() {   # ⑪c ft-nano-close → desk 1통만 · master 0
   cr_init
   cr "$1" ft-nano-close "byz-harness-nano-k#0" --event e11c --what w --next n >/dev/null 2>&1
   [ "$(cnt)" = 1 ] && [ "$(cwho)" = "$DESK " ]; cnote; }
-k11d() {   # ⑪d BUDGET=7 · desk 가짜 6초(또는 6.5초) → master 몫 1초로 1통 / 몫 < 1 이면 master pending(«보냄» 칸 desk 만)
+k11d() {   # ⑪d BUDGET=3 · desk 가짜 1.5초(또는 2.2초) → master 몫이 남아 1통 / 몫 < 1 이면 master pending(«보냄» 칸 desk 만) · 규칙 = 받는 이마다 min(7, 남은 몫)
   cr_init; local p="$T/cnstate/critical-pending.jsonl" a=0 b=0 s
   s=$SECONDS
-  FT_CRITICAL_BUDGET_S=7 MBOX_SLEEP_TO="$DESK" MBOX_SLEEP_S=5.5 cr "$1" ft-merge-land "o/r PR #11" --event e11d --what w --next n >/dev/null 2>&1
+  FT_CRITICAL_BUDGET_S=3 MBOX_SLEEP_TO="$DESK" MBOX_SLEEP_S=1.5 cr "$1" ft-merge-land "o/r PR #11" --event e11d --what w --next n >/dev/null 2>&1
   [ "$(cnt)" = 2 ] && [ "$(cwho)" = "$DESK $MAST " ] && a=1
   cr_init; s=$SECONDS
-  FT_CRITICAL_BUDGET_S=7 MBOX_SLEEP_TO="$DESK" MBOX_SLEEP_S=6.5 cr "$1" ft-merge-land "o/r PR #12" --event e11d2 --what w --next n >/dev/null 2>&1
+  FT_CRITICAL_BUDGET_S=3 MBOX_SLEEP_TO="$DESK" MBOX_SLEEP_S=2.2 cr "$1" ft-merge-land "o/r PR #12" --event e11d2 --what w --next n >/dev/null 2>&1
   [ "$(cnt)" = 1 ] && [ "$(cwho)" = "$DESK " ] && [ "$(grep -c . "$p")" = 1 ] && python3 -c 'import json,sys;r=json.loads(open(sys.argv[1]).read().strip());sys.exit(0 if r.get("sent")==[sys.argv[2]] and r.get("to")==[sys.argv[2],sys.argv[3]] else 1)' "$p" "$DESK" "$MAST" && b=1
   [ "$a$b" = 11 ]; cnote; }
 k12() {   # ⑫ k4 와 같은 입력 · 총 마감 67 · 객체 수 같음 → push-timing PB·AB·rc 가 기준판과 같음
