@@ -34,6 +34,7 @@ from ft_stall_detect import _read_mailbox_log, desk_alert, lead_heartbeat, lead_
 LEAD = "t1-master#1"  # 팀장(심박 발신자)
 TO = "planner#1"  # 받는이 role=master
 LOGREL = ".fable-team/comm/mailbox.log.jsonl"
+FILL_BYTES = 5 * 1024 * 1024  # 파일 하나 = ft-mbox.py SENT_LOG_MAX_BYTES
 BROKEN = '{"seq": 999, "ts": "깨진 줄"}'  # ts 파싱 실패 = 깨진 줄(읽으면 broken 에 1 이 붙는다)
 
 
@@ -65,6 +66,16 @@ def put(w: World, suffix: str, *lines: str) -> Path:
 
 def hb(seq: int, minutes_ago: float, to: str = TO, frm: str = LEAD, body: str = "[정리] 한 일 3줄") -> str:
     return row(to, seq, minutes_ago, frm=frm, body=body)
+
+
+def fill(w: World, suffix: str, heartbeat: str | None = None) -> None:
+    """파일 하나를 5MB(ft-mbox.py SENT_LOG_MAX_BYTES) 채움 줄로 채운다 · 꼬리에 심박 1줄(카드 ⑨ «20MB 사슬»)."""
+    line = row(TO, 0, 1, frm="x#1", body="발주 " + "가" * 20) + "\n"
+    path = Path(f"{w.root / LOGREL}{suffix}")
+    with open(path, "a", encoding="utf-8") as f:
+        _ = f.write(line * (FILL_BYTES // len(line.encode())))
+        if heartbeat:
+            _ = f.write(heartbeat + "\n")
 
 
 def read(w: World, window: float = 20.0, budget: float = 7.0) -> tuple[str, float | None, int, int]:
@@ -144,14 +155,13 @@ def test_4_newest_heartbeat_wins_across_chain(w: World) -> None:
     assert (err, broken) == ("", 0) and minutes(ts) == 2.0
 
 
-# ── ⑤ G1 — 사본이 하나 더 있을 때(.2) ────────────────────────────────────────
-def test_5_heartbeat_only_in_second_slice(w: World) -> None:
+# ── ⑤ G1 — 사본 번호를 건너뛴다: .1 없음 · .2 있음 → .2 에서 찾는다 ─────────────
+def test_5_missing_slice_number_is_skipped(w: World) -> None:
     queue(w)
     put(w, "", row(TO, 1, 3))
-    put(w, ".1", row(TO, 3, 6), row(TO, 2, 4))  # 창 안 · 심박 아님 → 사슬 계속
-    put(w, ".2", row(TO, 5, 29), hb(4, 7))
+    put(w, ".2", row(TO, 2, 29), hb(3, 7))  # .1 은 없다(있는 것만 · 메모 2)
+    assert read(w) == ("", NOW - 420, 0, 3)
     assert minutes(lead_heartbeat(comm(w), {LEAD}, {TO}, NOW)[1]) == 7.0
-    assert read(w)[3] == 5  # 지금 로그 1 + .1 2 + .2 2
 
 
 # ── ⑥ G1 — 로그도 사본도 없음 = 큐만 본다(판정 불가 아님) ──────────────────────
@@ -161,36 +171,33 @@ def test_6_no_log_no_slices_is_queue_only(w: World) -> None:
     assert lead_heartbeat(comm(w), {LEAD}, {TO}, NOW) == ("ok", None, "")  # r1143: 창 안 0 ≠ 한 번도 안 보냄
 
 
-# ── ⑦ G1 — 사슬 끝(.3)까지 간다 ─────────────────────────────────────────────
-def test_7_heartbeat_only_in_third_slice(w: World) -> None:
+# ── ⑦ G1 — 지금 로그가 없어도(회전 틈) .1 을 본다 ─────────────────────────────
+def test_7_missing_current_log_still_reads_slice(w: World) -> None:
     queue(w)
-    for suffix, seq, ago in (("", 1, 3), (".1", 2, 4), (".2", 3, 5)):
-        put(w, suffix, row(TO, seq, ago))
-    put(w, ".3", row(TO, 5, 31), hb(4, 8))
-    assert minutes(lead_heartbeat(comm(w), {LEAD}, {TO}, NOW)[1]) == 8.0
-    assert read(w)[3] == 5
+    put(w, ".1", row(TO, 1, 25), hb(2, 4))  # log 는 만들지 않는다(replace 뒤 open 전 틈)
+    assert read(w) == ("", NOW - 240, 0, 2)
+    assert minutes(lead_heartbeat(comm(w), {LEAD}, {TO}, NOW)[1]) == 4.0
 
 
-# ── ⑧ G3 — 사본까지 읽어도 심박 판정(_hb_line·발신·받는이·머리)은 그대로 ────────
-def test_8_slice_lines_judged_by_same_rule(w: World) -> None:
+# ── ⑧ G3 — 사본 창 안 깨진 줄 = 판정 불가(ERROR) · 글자는 log 에 둘 때와 같다 ────
+def test_8_broken_line_in_slice_is_undecidable(w: World) -> None:
     queue(w)
     put(w, "", row(TO, 1, 3))
-    put(w, ".1",
-        row(TO, 5, 29),  # 창 밖(멈춤) — 파일 위 = 옛 줄
-        row(TO, 4, 6, frm=LEAD, body="발주 — 머리 [정리] 아님"),
-        hb(3, 5, to="x#1"),  # 받는이가 master/planner 역할 아님
-        hb(2, 4, frm="desk#2"))  # 현역 팀장 발신 아님
-    err, ts, broken, _n = read(w)  # 줄 수는 안 본다 — 사본을 «안 열어도» 판정은 같다(G3)
-    assert (err, ts, broken) == ("", None, 0)
-    assert lead_heartbeat(comm(w), {LEAD}, {TO}, NOW) == ("ok", None, "")
+    put(w, ".1", row(TO, 2, 30), BROKEN, hb(3, 5))
+    err, ts, broken, _n = read(w)
+    assert (err, minutes(ts), broken) == ("", 5.0, 1)
+    assert lead_heartbeat(comm(w), {LEAD}, {TO}, NOW) == ("ERROR", None, "쪽지 깨진 줄 1개 — 심박 판정 불가")
 
 
-# ── ⑨ G4 — 예산은 사슬에서도 하나(줄 256 자리에서 그대로 멈춘다) ──────────────
-def test_9_budget_is_shared_across_chain(w: World) -> None:
-    put(w, "", *[row(TO, i, 1) for i in range(300)])
-    put(w, ".1", hb(999, 2))
-    err, ts, _broken, n = read(w, budget=1e-9)
-    assert err.startswith("심박 읽기") and ts is None and n == 256
+# ── ⑨ G4 — 20MB 사슬(5MB × 4) 창 안 전부 읽기 = 예산(7초) 안 · ERROR 0 ─────────
+def test_9_twenty_megabyte_chain_within_budget(w: World) -> None:
+    queue(w)
+    for suffix in ("", ".1", ".2", ".3"):
+        fill(w, suffix, hb(1, 0.5) if suffix == "" else None)  # 심박 = 가장 새 줄(지금 로그 꼬리)
+    started = time.monotonic()
+    err, ts, broken, n = read(w)
+    assert (err, broken) == ("", 0) and minutes(ts) == 0.5 and n > 100_000  # 사슬 4벌을 다 읽었다(정확한 초·줄 수는 보고에 적는다)
+    print(f"r2344 ⑨ 20MB 사슬 읽기 {time.monotonic() - started:.2f}초 · {n}줄")
 
 
 # ── ⑩a G5 — 부르는 곳 2: desk 심박(240분 창) · 실사건 그대로 ────────────────────
@@ -212,8 +219,59 @@ def test_10b_rest_exempt_in_slice_stops_stall(w: World) -> None:
     assert (state, minutes(rest), first_ev, first_work) == ("ok", 60.0, None, None)
 
 
-# ── ⑪ G3 — 창 길이는 그대로: 19.9분은 심박 · 20.1분에서 멈추고 사본은 안 연다 ────
-def test_11_window_length_unchanged(w: World) -> None:
+# ── ⑪ G3 — 큐(아직 recv 전)에 더 새 심박이 있으면 큐가 이긴다 ──────────────────
+def test_11_queue_newer_heartbeat_wins(w: World) -> None:
+    put(w, "", row(TO, 1, 3))
+    put(w, ".1", row(TO, 2, 25), hb(3, 5))
+    w.mail(TO, 4, 1, frm=LEAD, body="[정리] 큐에 남은 더 새 심박")
+    state, ts, why = lead_heartbeat(comm(w), {LEAD}, {TO}, NOW)
+    assert (state, why) == ("ok", "") and minutes(ts) == 1.0
+
+
+# ── 덤1 G1 — .1 이 있고 .2 에만 심박 ────────────────────────────────────────
+def test_e1_second_slice_when_first_exists(w: World) -> None:
+    queue(w)
+    put(w, "", row(TO, 1, 3))
+    put(w, ".1", row(TO, 3, 6), row(TO, 2, 4))  # 창 안 · 심박 아님 → 사슬 계속
+    put(w, ".2", row(TO, 5, 29), hb(4, 7))
+    assert minutes(lead_heartbeat(comm(w), {LEAD}, {TO}, NOW)[1]) == 7.0
+    assert read(w)[3] == 5  # 지금 로그 1 + .1 2 + .2 2
+
+
+# ── 덤2 G1 — 사슬 끝(.3)까지 간다 ───────────────────────────────────────────
+def test_e2_third_slice(w: World) -> None:
+    queue(w)
+    for suffix, seq, ago in (("", 1, 3), (".1", 2, 4), (".2", 3, 5)):
+        put(w, suffix, row(TO, seq, ago))
+    put(w, ".3", row(TO, 5, 31), hb(4, 8))
+    assert minutes(lead_heartbeat(comm(w), {LEAD}, {TO}, NOW)[1]) == 8.0
+    assert read(w)[3] == 5
+
+
+# ── 덤3 G3 — 사본까지 읽어도 심박 판정(_hb_line·발신·받는이·머리)은 그대로 ──────
+def test_e3_slice_lines_judged_by_same_rule(w: World) -> None:
+    queue(w)
+    put(w, "", row(TO, 1, 3))
+    put(w, ".1",
+        row(TO, 5, 29),  # 창 밖(멈춤) — 파일 위 = 옛 줄
+        row(TO, 4, 6, frm=LEAD, body="발주 — 머리 [정리] 아님"),
+        hb(3, 5, to="x#1"),  # 받는이가 master/planner 역할 아님
+        hb(2, 4, frm="desk#2"))  # 현역 팀장 발신 아님
+    err, ts, broken, _n = read(w)  # 줄 수는 안 본다 — 사본을 «안 열어도» 판정은 같다(G3)
+    assert (err, ts, broken) == ("", None, 0)
+    assert lead_heartbeat(comm(w), {LEAD}, {TO}, NOW) == ("ok", None, "")
+
+
+# ── 덤4 G4 — 예산은 사슬에서도 하나(줄 256 자리에서 그대로 멈춘다) ─────────────
+def test_e4_budget_is_shared_across_chain(w: World) -> None:
+    put(w, "", *[row(TO, i, 1) for i in range(300)])
+    put(w, ".1", hb(999, 2))
+    err, ts, _broken, n = read(w, budget=1e-9)
+    assert err.startswith("심박 읽기") and ts is None and n == 256
+
+
+# ── 덤5 G3 — 창 길이는 그대로: 19.9분은 심박 · 20.1분에서 멈추고 사본은 안 연다 ──
+def test_e5_window_length_unchanged(w: World) -> None:
     put(w, "", row(TO, 1, 20.1), hb(2, 19.9))
     put(w, ".1", hb(3, 25), BROKEN)  # 열면 깨진 줄 1 · 창 밖 심박
     assert read(w) == ("", NOW - 1194, 0, 2)
