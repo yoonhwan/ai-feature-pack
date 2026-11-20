@@ -229,23 +229,28 @@ def wait_for(check, limit=20.0, step=0.02):
 
 
 class IdleWs:
-    """recv(timeout) — 대본이 바닥나면 TimeoutError(유휴 1초)를 idle 번 돌려준다(⑮)."""
+    """recv(timeout) — 대본이 바닥나면 TimeoutError(유휴 1초)를 idle 번 돌려준다(⑮ · ㉑).
 
-    def __init__(self, frames, idle=0, on_start=None, on_end=None):
+    `done` 을 세우면 연결이 끝난다(㉑ = 시험이 잡고 있는 동안 계속 유휴). pause = 유휴 1초의 실제 길이 대역.
+    """
+
+    def __init__(self, frames, idle=0, on_start=None, on_end=None, pause=0.0):
         self.frames, self.idle, self.sent = list(frames), int(idle), []
-        self.on_start, self.on_end = on_start, on_end
+        self.on_start, self.on_end, self.pause, self.done = on_start, on_end, float(pause), False
 
     def recv(self, timeout=None):
         if self.frames:
             return json.dumps(self.frames.pop(0))
         if self.on_start is not None:
             self.on_start(), setattr(self, "on_start", None)
-        if self.idle > 0:
-            self.idle -= 1
-            if self.idle == 0 and self.on_end is not None:
+        if self.done or self.idle <= 0:
+            if self.on_end is not None:
                 self.on_end(), setattr(self, "on_end", None)
-            raise TimeoutError("유휴")
-        raise RuntimeError("closed")
+            raise RuntimeError("closed")
+        self.idle -= 1
+        if self.pause:
+            time.sleep(self.pause)
+        raise TimeoutError("유휴")
 
     def send(self, data):
         self.sent.append(data)
@@ -655,6 +660,31 @@ def case_20(tmp):
     assert [row["key"][2] for row in routed] == [delayed, "555.000000"]
 
 
+def case_21(tmp):
+    """㉑ 유휴 재전송 깨움이 붙잡힌 동안 글 3개 → 수신 계속 · ack 3(마스터 덧줄 · M13)."""
+    clock, pack = Clock(), pack_of()
+    band = Band(tmp, clock)
+    band.rc(1)  # 첫 깨움 = rc≠0 → 후보 표 1
+    first = clock.ts()
+    ws = IdleWs([HELLO, env("E1", msg(first))], idle=100000, pause=0.01)
+    listener = make_listener(pack, band, clock, web=band.web, connect=FakeConnect(ws))
+    thread = threading.Thread(target=lambda: listener.run(sessions=1), daemon=True)
+    thread.start()
+    assert wait_for(lambda: [row for row in ledger(tmp, "wire.jsonl") if row.get("t") == "wake"], limit=10)
+    band.rc(0), band.holds(True)  # 재전송 깨움은 이제부터 붙잡힌다
+    clock.go(61)  # G2 간격
+    assert wait_for(lambda: len(band.wakes()) >= 3, limit=15)  # 재전송 시작(일꾼이 부른다)
+    ws.frames += [env("E%d" % n, msg("%.6f" % (clock.t + n), text="글 %d" % n)) for n in range(1, 4)]
+    assert wait_for(lambda: len(ws.sent) == 4, limit=10)  # 첫 글 1 + 붙잡힌 동안 수신·확인 3
+    held = [row for row in band.wakes() if row["t"] == "end"]
+    assert len(held) == 1  # 첫 깨움만 끝났다 = 재전송은 아직 붙잡혀 있다
+    band.holds(False)
+    ws.done = True  # 유휴 끝 → 연결 종료
+    thread.join(60)
+    band.close()
+    assert len([row for row in band.wakes() if row["t"] == "end"]) >= 2  # 재전송도 갔다
+
+
 CASES = {name: value for name, value in sorted(globals().items()) if name.startswith("case_")}
 STEPS = {}
 
@@ -673,10 +703,10 @@ def test_cases_01_10(tmp_path):
     print("R2341 단계별 초 ①~⑩", STEPS)
 
 
-def test_cases_11_20(tmp_path):
-    """⑪~⑳ — 가입·보관·수명·넘침·관측·재전송·차례."""
-    _run_cases(["case_%02d" % n for n in range(11, 21)], tmp_path)
-    print("R2341 단계별 초 ⑪~⑳", STEPS)
+def test_cases_11_21(tmp_path):
+    """⑪~⑳ + ㉑ — 가입·보관·수명·넘침·관측·재전송·차례."""
+    _run_cases(["case_%02d" % n for n in range(11, 22)], tmp_path)
+    print("R2341 단계별 초 ⑪~㉑", STEPS)
 
 
 # ── 변이 (사본에서만 · 변이마다 원본으로 같은 사례 1회 더 = 위 두 시험)
@@ -698,6 +728,8 @@ MUTANTS = {
     "M10": ("socket.py", "done, seen = self._discover(deadline)",
             "done, seen = (self.worker.submit(self._discover, deadline), (True, {}))[1]", ["case_19"]),
     "M11": ("socket.py", 'self.watermark = str(event["ts"])', 'self.watermark = "%.6f" % self.now()', ["case_20"]),
+    "M13": ("socket.py", "self.receive.resend = self.worker.wrap(self.receive.resend)",
+            "self.receive.resend = self.receive.resend", ["case_21"]),
     "M12": ("backfill.py", 'CURSOR_END = ("bot", "미인가 사용자")',
             'CURSOR_END = ("bot", "미인가 사용자", "허용 밖 채널")', ["case_19"]),
 }
