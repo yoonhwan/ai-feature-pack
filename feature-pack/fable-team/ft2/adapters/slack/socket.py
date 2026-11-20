@@ -4,7 +4,9 @@ connections.open(7초·재시도 1) → ws → hello(num_connections > 1 = 경�
 r2341 — 보충 대상 = 끊긴 창(마지막 처리 글 ts − 60초) 활동 thread ∪ open binding · 보충·깨움·쪽지·Web 호출은
 수신 스레드 밖 일꾼(slack_worker)이 한다 · 자르는 자리 = route 장부까지(ack 는 수신 스레드).
 r2347 — 보충(일꾼 스레드)과 실시간 글(수신 스레드)이 같은 route 를 타므로 route 몸통 전체(bind check-then-act 포함)를
-잠금 1개(route_lock)로 한 번에 하나만 돈다 · envelope ack 는 수신 스레드에서만 보낸다(일꾼 ack 는 공유 칸을 안 건드린다)."""
+잠금 1개(route_lock)로 한 번에 하나만 돈다 · envelope ack 는 수신 스레드에서만 보낸다(일꾼 ack 는 공유 칸을 안 건드린다).
+r2348 — 봇 가입·관리 명령(제어 사건)의 Web·효과도 일꾼이 한다. 제어 사건이 일꾼에 있는 동안 온 글·보관 사건은
+큐 뒤에 줄 세워(deferred 셈) 새 허용 집합으로 판정한다 — 순서를 지키는 장치 = 장벽 1개."""
 
 import importlib.util, json, logging.handlers, os, re, sys, threading, time, urllib.parse, urllib.request  # noqa: E401
 
@@ -125,6 +127,7 @@ class Listener:  # 상주 수신기 1개 = 연결 1개 · 허용 = CHANNELS on �
         self.slowest, self.backfilled = 0.0, 0  # S6 — 이 연결의 수신 스레드 최장 처리 초 · 끊긴 창 보충 글 수
         self.route_lock, self.route_lock_max = threading.Lock(), 0.0  # r2347 L1·L2 — 두 스레드 한 번에 하나 · 잠금 안 최장 초(관측)
         self.recv_thread = None  # r2347 L4 — envelope 을 확인하는 스레드 = 수신 스레드 1개(_frame 들머리가 적는다)
+        self.deferred, self.barrier_lock = 0, threading.Lock()  # r2348 — 장벽 셈(제어·미룬 글·미룬 보관) · 두 스레드가 만진다
         self.publish = publish.SlackPublish(root, post=self._post, bindings=self.bindings, notify=self.notify, **same)
         self.backfill = backfill.Backfill(root, route=self, fetch=self._fetch, notify=self.notify, mono=mono, **same)
     def run(self, sessions=None):  # 상주 루프 — 반환 = rc(경쟁 수신 4) · sessions = 시험용 연결 횟수 상한
@@ -316,6 +319,11 @@ class Listener:  # 상주 수신기 1개 = 연결 1개 · 허용 = CHANNELS on �
         channel = event.get("channel")
         if self.chan.drop_auto(channel):
             self.log("자동 채널 −%s (보관)" % channel)
+    def _join_shape(self, event):  # 봇 가입 ∨ 봇 탈퇴 ∨ 봇이 채널을 떠남 = 제어 사건(사람 가입은 아님 · ⑬)
+        kind, tank = event.get("type"), self.tank
+        if kind == "channel_left":
+            return True
+        return bool(kind in ("member_joined_channel", "member_left_channel") and event.get("user") in tank)
     def _joined(self, event):  # B — 봇 가입 = conversations.info 로 종류 확인(ID 접두사 판정 0) 뒤 auto 줄 · 봇 탈퇴 = auto 줄 지움
         channel, bot = event.get("channel"), event.get("user") in self.tank
         if event.get("type") == "member_joined_channel" and bot:
@@ -348,6 +356,50 @@ class Listener:  # 상주 수신기 1개 = 연결 1개 · 허용 = CHANNELS on �
         finally:
             self.slowest = max(self.slowest, self.mono() - started)
 
+    # ── r2348 장벽 — 제어 사건(봇 가입·관리 명령)의 Web·효과는 일꾼이 한다 · 그동안 온 글·보관 사건은 큐 뒤
+    def _message(self, event):  # 제어 사건 = 일꾼 + 장벽 시작 · 장벽 중 새 글 = 큐 뒤 · 그 밖 = 수신 스레드 그 자리
+        if self._admin(event):
+            return self._control(self._admin_job, event)
+        return self._defer(self.route, event) if self._barrier() else self.route(event)
+    def _join_frame(self, event):  # 봇 가입·탈퇴 = 제어 사건(일꾼 · 장벽) · 사람 가입·탈퇴 = 그 자리(효과 0 · 장벽 0)
+        return self._control(self._joined, event) if self._join_shape(event) else self._joined(event)
+    def _archive_frame(self, event):  # 보관 = auto 줄만 지움(Web 0) — 장벽 중이면 차례만 큐 뒤(효과 그대로)
+        return self._defer(self._archived, event) if self._barrier() else self._archived(event)
+    def _barrier(self):  # 셈 0 초과 = 제어 사건이 아직 일꾼에 있다(0 이면 수신 스레드가 다시 직접 · E2)
+        with self.barrier_lock:
+            return self.deferred > 0
+    def _control(self, job, event):  # 제어 사건 — 장벽 시작(+1) · 효과·Web 모두 일꾼 안(E1)
+        with self.barrier_lock:
+            self.deferred += 1  # 제어 사건도 셈(DA#44 B1)
+        return self._enqueue(job, event)
+    def _defer(self, job, event):  # 장벽 중 새 글·보관 사건 — 큐 뒤(옛 허용 집합으로 판정 0 · E2)
+        with self.barrier_lock:
+            self.deferred += 1  # 미룬 일도 셈(DA#44 B1 · ⑪)
+        return self._enqueue(job, event)
+    def _enqueue(self, job, event):  # 큐 차례 = 받은 차례 · 넘침 = 셈 되돌리고 그 자리에서(넘침 1줄 · ⑧)
+        channel, ts = event.get("channel"), event.get("ts")
+        if not self.worker.alive():  # 일꾼이 아직 없거나 죽었다 = 그 자리에서(유실 0 · 셈은 그대로 푼다)
+            with self.barrier_lock:
+                self.deferred -= 1
+            return job(event)
+        if self.worker.submit(self._barrier_job, job, event, ts):
+            self.log("미룸 %s %s" % (channel, ts))  # 남은 쌍 = 손 복구 근거(DA#44 B2 ⓐ)
+            return True
+        with self.barrier_lock:
+            self.deferred -= 1
+        self.log("장벽 넘침 — %s %s 직접 처리" % (channel, ts))
+        job(event)  # 넘침 = 차례 포기 · 수신 스레드가 그 자리에서
+        return False
+    def _barrier_job(self, job, event, ts):  # 일꾼 쪽 — 끝나면(예외 포함) 셈 −1 · «미룸 끝» 1줄(E4)
+        try:
+            job(event)
+        except Exception as exc:  # 효과 실패 = 1줄 · 장벽은 푼다(지금 실패 뜻 그대로)
+            self.log("판정 불가 장벽 일 %s — %s" % (ts, type(exc).__name__))
+        finally:  # 예외·Web 실패 포함 — 셈은 반드시 푼다(⑦)
+            with self.barrier_lock:
+                self.deferred -= 1  # 끝난 일은 셈에서 뺀다
+            self.log("미룸 끝 %s" % ts)
+
     def _frame_of(self, env):
         self.recv_thread = threading.get_ident()  # r2347 L4 — 이 스레드만 envelope 을 확인한다
         if env.get("type") == "disconnect":
@@ -355,23 +407,24 @@ class Listener:  # 상주 수신기 1개 = 연결 1개 · 허용 = CHANNELS on �
         self.envelope, event = env.get("envelope_id"), (payload := env.get("payload") or {}).get("event") or {}
         if env.get("type") == "events_api" and event.get("type") == "message":
             event = dict(event, team=event.get("team") or payload.get("team_id") or "")
-            self._admin(event) or self.route(event)
-            if event.get("ts"):  # S2 — 끊긴 시각 = 마지막으로 처리한 글의 Slack ts(받은 시각 아님 · H3)
+            self._message(event)  # r2348 — 제어 사건·장벽 중 글은 일꾼 몫(ack·끊긴 시각은 여기서 그대로)
+            if event.get("ts"):  # S2 — 끊긴 시각 = 미룬 글도 받은 때 올린다(받은 시각 아님 · H3 · E3)
                 self.watermark = str(event["ts"])
         elif env.get("type") == "events_api" and event.get("type") in ("member_joined_channel", "channel_left", "member_left_channel"):
-            self._joined(event)
+            self._join_frame(event)  # r2348 — 봇 가입·탈퇴만 제어 사건(사람 가입 = 장벽 0)
         elif env.get("type") == "events_api" and event.get("type") in ("channel_archive", "group_archive"):
-            self._archived(event)  # S5 — 보관 사건 = auto on 줄만 지움(지금 판은 버림 · 변이 M6)
+            self._archive_frame(event)  # S5 — 보관 = auto on 줄만 지움 · 장벽 중이면 차례만 큐 뒤
         else:
             self.log("버림 %s %s" % (env.get("type"), event.get("type") or ""))
         return self._ack(None)  # receive 가 이미 확인했으면 0회
-    def _admin(self, event):  # ⑦ 공식 채널 · 허용 사용자 · root 글 «등록|삭제 #채널» = 명령(router 0) · 아니면 False
-        if event.get("channel") != self.chan.role("admin") or event.get("thread_ts") or event.get("bot_id") or event.get(
-                "subtype") or event.get("user") not in self.receive.allowed_users or not channels.parse(event.get("text")):
-            return False
+    def _admin(self, event):  # ⑦ 명령 꼴인가 = 공식 채널 · 허용 사용자 · root 글 «등록|삭제 #채널»(Web 0 · r2348)
+        return bool(event.get("channel") == self.chan.role("admin") and not event.get("thread_ts") and not event.get("bot_id")
+                    and not event.get("subtype") and event.get("user") in self.receive.allowed_users
+                    and channels.parse(event.get("text")))
+    def _admin_job(self, event):  # 명령 효과 = intent·파일·답글(Web 1~4회) — 일꾼 안(r2348 E1)
         word = self.chan.command(route.thread_key(event), event.get("text"), self._lookup, lambda text: self.web(
             "chat.postMessage", self.bot_token, dict(channel=event["channel"], thread_ts=event["ts"], text=text), retry=False)["ts"])
-        return self.log("명령 %s" % (word or "재전달 — 다시 0")) or True
+        return self.log("명령 %s" % (word or "재전달 — 다시 0"))
     def _lookup(self, target):  # 채널 글자 → (ID, 이름, 봇 가입 여부|None) · 맨 이름 = 목록 이름 → users.conversations
         tag = re.fullmatch(r"<#([A-Z0-9]+)(?:\|([^>]*))?>", target)
         try:
