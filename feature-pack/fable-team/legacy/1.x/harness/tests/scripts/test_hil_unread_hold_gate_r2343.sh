@@ -49,7 +49,7 @@ PY
 }
 world() {  # <이름> — HD·C(쪽지함)·MB(원장)·HOME 새로
   W="$T/w$1"; rm -rf "$W"; mkdir -p "$W/hil" "$W/comm" "$W/mail" "$W/home"
-  HD="$W/hil"; C="$W/comm"; MB="$W/mail"; MARK="$W/mark"
+  HD="$W/hil"; C="$W/comm"; MB="$W/mail"; MARK="$W/mark"; SEAT=""; PEEK_FAIL=0; PEEK_SLEEP=0
   cat > "$C/mbox.sh" <<EOS
 #!/bin/bash
 case "\${1:-}" in
@@ -69,9 +69,8 @@ mk() {  # <계획 이름> <h 번호> [요청 좌석…] — 계획·h·.sha(GG �
   : > "$H"; bash "$GG" write "$(bash "$GG" pre "$P")" "$H" || { WHY=".sha 못 씀"; return 1; }
   printf 'seat=%s\ncomm=%s\n' "${1:-$S_DESK}" "$C" > "$H.notify"
 }
-rd() {  # [ENV=V…] — 판정기 read 직접(진입 파일 없이) · out=stdout · stderr=$W/err · rc
-  local e=("$@")
-  out="$(env ${e[@]+"${e[@]}"} bash "$GG" read "$P" "$H" 2>"$W/err")"; rc=$?
+rd() {  # 판정기 read 직접(진입 파일 없이) — 좌석 = SEAT · 가짜 peek 장애 = PEEK_FAIL/PEEK_SLEEP · out=stdout · stderr=$W/err · rc
+  out="$(env -i HOME="$W/home" PATH="/usr/bin:/bin" FT_SEAT="${SEAT:-}" FAKE_PEEK_FAIL="${PEEK_FAIL:-0}" FAKE_PEEK_SLEEP="${PEEK_SLEEP:-0}" bash "$GG" read "$P" "$H" 2>"$W/err")"; rc=$?
 }
 nope() { [ ! -e "$MARK" ] || { WHY="계획이 돌았다(mark 있음)"; return 1; }; }
 add() {  # <bin> <계획> <notify 좌석> → 진입 파일 경로(HD 안)
@@ -84,36 +83,36 @@ mke() {  # <bin> <계획 이름> <번호 씨앗> <notify 좌석> → 진입 파�
   { echo '#!/usr/bin/env bash'; echo 'set -euo pipefail'; echo ": > $W/mark"; echo "# ft-hil-request seat=$ns"; echo 'echo RAN'; } > "$P"
   : > "$HD/h$sd"; H="$(add "$b" "$P" "$ns")" || return 1
   [ "${H##*/}" = "h$((sd + 1))" ] || { WHY="번호가 $((sd + 1)) 이 아니다(${H##*/})"; return 1; }; }
-runh() {  # <h> [ENV=V…] → stdout(진입 파일) · stderr=$W/err · rc
-  local h="$1"; shift; ( cd /tmp && env -i HOME="$W/home" PATH="/usr/bin:/bin" "$@" bash "$h" 2>"$W/err" ); }
+runh() {  # <h> → stdout(진입 파일) · 좌석 = SEAT · stderr=$W/err · rc
+  ( cd /tmp && env -i HOME="$W/home" PATH="/usr/bin:/bin" FT_SEAT="${SEAT:-}" bash "$1" 2>"$W/err" ); }
 
 # ── 반례 ①~⑯ ──────────────────────────────────────────────────────────────
 c1() { GG="$1"; world 1; mk p1 8625 || return 1
-  send "$S_DESK" "$S_OPS" '[HIL] h8625 apply 보류 — apply 0 · 실행 0' >/dev/null; rd FT_SEAT="$S_DESK"
+  send "$S_DESK" "$S_OPS" '[HIL] h8625 apply 보류 — apply 0 · 실행 0' >/dev/null; SEAT="$S_DESK"; rd
   [ "$rc" = 1 ] || { WHY="rc=$rc ≠ 1"; return 1; }
   [ -z "$out" ] || { WHY="stdout 에 계획 바이트가 나갔다(${#out}자)"; return 1; }
   grep -q 'REJECT 보류 쪽지 미읽음 1' "$W/err" || { WHY="REJECT 줄 없음 · err=$(head -1 "$W/err")"; return 1; }; }
 c1e() {  # ① 진입 파일 쪽 — 계획 실행 0 · .ran 줄 0
   world 1e; GG="$BIN0/ft-hil-gate.sh"; mke "$BIN0" p1 8624 "$S_DESK" || return 1
   local o; send "$S_DESK" "$S_OPS" '[HIL] h8625 apply 보류 — apply 0' >/dev/null
-  o="$(runh "$H" FT_SEAT="$S_DESK")"; [ "$?" = 1 ] || { WHY="rc≠1 · err=$(head -2 "$W/err")"; return 1; }
+  SEAT="$S_DESK"; o="$(runh "$H")"; [ "$?" = 1 ] || { WHY="rc≠1 · err=$(head -2 "$W/err")"; return 1; }
   [ -z "$o" ] || { WHY="stdout ${#o}자"; return 1; }
   [ ! -e "$H.ran" ] || { WHY=".ran 줄이 생겼다"; return 1; }; nope; }
 c2() { GG="$1"; world 2; mk p2 8625 || return 1
   send "$S_DESK" "$S_OPS" '[HIL] h8625 apply 보류 — apply 0' >/dev/null; bash "$C/mbox.sh" recv "$S_DESK" >/dev/null
-  rd FT_SEAT="$S_DESK"; [ "$rc" = 0 ] || { WHY="rc=$rc ≠ 0 · err=$(head -1 "$W/err")"; return 1; }
+  SEAT="$S_DESK"; rd; [ "$rc" = 0 ] || { WHY="rc=$rc ≠ 0 · err=$(head -1 "$W/err")"; return 1; }
   case "$out" in *'echo RAN'*) ;; *) WHY="계획 바이트가 안 나왔다"; return 1;; esac; }
 c3() { GG="$1"; world 3; mk p3 8625 || return 1
   send "$S_DESK" 'ft-hil-h8625' '[HIL] h8625 발급 — 실행 줄 = ! bash /tmp/h8625 · 계획 /tmp/p3.sh.hil' >/dev/null
   send "$S_DESK" 'ft-hil-h8625' '[완료 h8625] rc=1 · apply 0 — 결과 줄 · 계획 /tmp/p3.sh.hil' >/dev/null
   send "$S_DESK" "$S_OPS" '[HIL 미실행] h8625 — 30분 넘게 안 돌았다' >/dev/null
-  rd FT_SEAT="$S_DESK"; [ "$rc" = 0 ] || { WHY="자동 쪽지에 막혔다 rc=$rc · $(head -1 "$W/err")"; return 1; }; }
+  SEAT="$S_DESK"; rd; [ "$rc" = 0 ] || { WHY="자동 쪽지에 막혔다 rc=$rc · $(head -1 "$W/err")"; return 1; }; }
 c4() { GG="$1"; world 4; mk p4 8625 || return 1
   send "$S_DESK" "$S_OPS" 'h86250 보류 — 실행 0' >/dev/null; send "$S_DESK" "$S_OPS" 'h862 보류 — 멈춤' >/dev/null
-  rd FT_SEAT="$S_DESK"; [ "$rc" = 0 ] || { WHY="번호 경계가 안 지켜졌다 rc=$rc · $(head -1 "$W/err")"; return 1; }; }
+  SEAT="$S_DESK"; rd; [ "$rc" = 0 ] || { WHY="번호 경계가 안 지켜졌다 rc=$rc · $(head -1 "$W/err")"; return 1; }; }
 c5() { GG="$1"; world 5; mk p5 8625 || return 1
   send "$S_DESK" "$S_OPS" 'p5.sh.hil 보류 — 계획 멈춤' >/dev/null
-  rd FT_SEAT="$S_DESK"; [ "$rc" = 1 ] || { WHY="계획 이름 보류를 못 잡았다 rc=$rc"; return 1; }; }
+  SEAT="$S_DESK"; rd; [ "$rc" = 1 ] || { WHY="계획 이름 보류를 못 잡았다 rc=$rc"; return 1; }; }
 c6() { GG="$1"; world 6; mk p6 8625 "$S_ARCH" || return 1
   printf 'seat=%s\ncomm=%s\n' "$S_OPS" "$C" > "$H.notify"   # notify 좌석 = 제3 좌석(요청 좌석은 계획 머리로만 보이게)
   send "$S_ARCH" "$S_OPS" 'h8625 실행 0 — arch 판정 대기' >/dev/null
@@ -121,53 +120,53 @@ c6() { GG="$1"; world 6; mk p6 8625 "$S_ARCH" || return 1
   grep -q "REJECT 보류 쪽지 미읽음 1 — #1 $S_ARCH" "$W/err" || { WHY="쪽지 줄이 아니다 · $(head -1 "$W/err")"; return 1; }; }
 c7a() { GG="$1"; world 7a; mk p7 8625 || return 1
   mkdir -p "$W/empty"; printf 'seat=%s\ncomm=%s\n' "$S_DESK" "$W/empty" > "$H.notify"
-  rd FT_SEAT="$S_DESK"; [ "$rc" = 3 ] || { WHY="쪽지함 도구 없음 = rc $rc ≠ 3"; return 1; }
+  SEAT="$S_DESK"; rd; [ "$rc" = 3 ] || { WHY="쪽지함 도구 없음 = rc $rc ≠ 3"; return 1; }
   [ -z "$out" ] || { WHY="판정 불가인데 바이트가 나갔다"; return 1; }
   grep -q '판정 불가 — 보류 쪽지 확인 못 함' "$W/err" || { WHY="판정 불가 줄 없음"; return 1; }; }
 c7b() { GG="$1"; world 7b; mk p7 8625 || return 1
-  local t; t="$SECONDS"; rd FT_SEAT="$S_DESK" FAKE_PEEK_SLEEP=8; t=$((SECONDS - t))
+  local t; t="$SECONDS"; SEAT="$S_DESK" PEEK_SLEEP=8; rd; t=$((SECONDS - t))
   [ "$rc" = 3 ] || { WHY="8초 peek = rc $rc ≠ 3"; return 1; }
   [ "$t" -ge 7 ] && [ "$t" -le 25 ] || { WHY="7초 절단·25초 상한 밖(${t}초)"; return 1; }; }
 c7c() { GG="$1"; world 7c; mk p7 8625 || return 1
-  rd FT_SEAT="$S_DESK" FAKE_PEEK_FAIL=1; [ "$rc" = 3 ] || { WHY="peek rc≠0 인데 rc=$rc ≠ 3"; return 1; }
+  SEAT="$S_DESK" PEEK_FAIL=1; rd; [ "$rc" = 3 ] || { WHY="peek rc≠0 인데 rc=$rc ≠ 3"; return 1; }
   [ -z "$out" ] || { WHY="판정 불가인데 바이트가 나갔다"; return 1; }; }
 c8() { GG="$1"; world 8; mk p8 8625 || return 1
   send "$S_DESK" "$S_OPS" 'h8627 delete 보류 — apply 0' >/dev/null
-  rd FT_SEAT="$S_DESK"; [ "$rc" = 0 ] || { WHY="다른 h 보류에 막혔다 rc=$rc"; return 1; }; }
+  SEAT="$S_DESK"; rd; [ "$rc" = 0 ] || { WHY="다른 h 보류에 막혔다 rc=$rc"; return 1; }; }
 c9() { world 9; GG="$BIN0/ft-hil-gate.sh"; mke "$BIN0" p9 8624 "$S_DESK" || return 1
-  local o; o="$(runh "$H" FT_SEAT="$S_DESK")" || { WHY="첫 실행 rc≠0 · err=$(head -1 "$W/err")"; return 1; }
+  local o; SEAT="$S_DESK"; o="$(runh "$H")" || { WHY="첫 실행 rc≠0 · err=$(head -1 "$W/err")"; return 1; }
   send "$S_DESK" "$S_OPS" 'h8625 apply 보류 — 실행 0' >/dev/null
-  o="$(runh "$H" FT_SEAT="$S_DESK")"; [ "$?" = 1 ] || { WHY="보류 뒤 둘째 실행이 안 막혔다(rc=$?)"; return 1; }; }
+  SEAT="$S_DESK"; o="$(runh "$H")"; [ "$?" = 1 ] || { WHY="보류 뒤 둘째 실행이 안 막혔다(rc=$?)"; return 1; }; }
 c10() {  # ⑩ 옛 꼴 진입 파일(기준판 ft-hil.sh) + 새 판정기
   local b="$T/b-old" o
   rm -rf "$b"; cp -R "$BB" "$b" && cp "$1" "$b/ft-hil-gate.sh"
   world 10; GG="$b/ft-hil-gate.sh"; mke "$b" p10 8624 "$S_DESK" || return 1
   send "$S_DESK" "$S_OPS" 'h8625 apply 보류 — 실행 0' >/dev/null
-  o="$(runh "$H" FT_SEAT="$S_DESK")"; [ "$?" = 1 ] || { WHY="옛 진입 파일이 보류를 못 봤다"; return 1; }; }
+  SEAT="$S_DESK"; o="$(runh "$H")"; [ "$?" = 1 ] || { WHY="옛 진입 파일이 보류를 못 봤다"; return 1; }; }
 c11() { GG="$1"; world 11; mk p11 8625 || return 1
   send "$S_DESK" "$S_OPS" 'h8625 결과 봄 — 문제 없음' >/dev/null
-  rd FT_SEAT="$S_DESK"; [ "$rc" = 0 ] || { WHY="보류 낱말 없는 쪽지에 막혔다 rc=$rc"; return 1; }; }
+  SEAT="$S_DESK"; rd; [ "$rc" = 0 ] || { WHY="보류 낱말 없는 쪽지에 막혔다 rc=$rc"; return 1; }; }
 c12() { GG="$1"; world 12; mk p12 8625 "$S_ARCH" "$S_OPS" || return 1
-  local t; t="$SECONDS"; rd FT_SEAT="$S_DESK"; t=$((SECONDS - t))
+  local t; t="$SECONDS"; SEAT="$S_DESK"; rd; t=$((SECONDS - t))
   [ "$rc" = 0 ] || { WHY="rc=$rc · $(head -1 "$W/err")"; return 1; }
   [ "$(grep -c . "$MB/peeks.log" 2>/dev/null)" = 3 ] || { WHY="peek 횟수 $(grep -c . "$MB/peeks.log" 2>/dev/null) ≠ 3"; return 1; }
   [ "$t" -le 25 ] || { WHY="좌석 3개 ${t}초 > 25초"; return 1; }; }
 c13() {  # ⑬ 요청 좌석(닫힌 나노) 보류 → seen 으로 풀림
   GG="$1"; world 13; mk p13 8625 "$S_ARCH" || return 1
   local sq; sq="$(send "$S_ARCH" "$S_OPS" 'h8625 apply 보류 — apply 0')"
-  rd FT_SEAT="$S_DESK"; [ "$rc" = 1 ] || { WHY="요청 좌석 보류를 못 잡았다 rc=$rc"; return 1; }
+  SEAT="$S_DESK"; rd; [ "$rc" = 1 ] || { WHY="요청 좌석 보류를 못 잡았다 rc=$rc"; return 1; }
   bash "$GG" seen "$H" "$sq" 'ops 판정 #354950 로 풀림' || { WHY="seen 명령 실패"; return 1; }
-  rd FT_SEAT="$S_DESK"; [ "$rc" = 0 ] || { WHY="seen 뒤에도 막혔다 rc=$rc · $(head -1 "$W/err")"; return 1; }
+  SEAT="$S_DESK"; rd; [ "$rc" = 0 ] || { WHY="seen 뒤에도 막혔다 rc=$rc · $(head -1 "$W/err")"; return 1; }
   grep -q "본 것으로 침 #$sq" "$W/err" || { WHY="«본 것으로 침 #$sq» 줄 없음 · $(head -1 "$W/err")"; return 1; }; }
 c14() { c13 "$1" || return 1
   send "$S_ARCH" "$S_OPS" 'h8625 다시 보류 — 멈춤' >/dev/null
-  rd FT_SEAT="$S_DESK"; [ "$rc" = 1 ] || { WHY="새 seq 보류가 안 막혔다 rc=$rc"; return 1; }; }
+  SEAT="$S_DESK"; rd; [ "$rc" = 1 ] || { WHY="새 seq 보류가 안 막혔다 rc=$rc"; return 1; }; }
 c15() { GG="$1"; world 15; mk p15 8625 || return 1
   send "$S_DESK" "$S_OPS" "$(python3 -c 'print("가" * 400 + " h8625 … HOLD")')" >/dev/null
-  rd FT_SEAT="$S_DESK"; [ "$rc" = 1 ] || { WHY="700자 넘는 쪽지 끝의 HOLD 를 못 잡았다 rc=$rc"; return 1; }; }
+  SEAT="$S_DESK"; rd; [ "$rc" = 1 ] || { WHY="700자 넘는 쪽지 끝의 HOLD 를 못 잡았다 rc=$rc"; return 1; }; }
 c16() { GG="$1"; world 16; mk p16 8622 || return 1
   send "$S_DESK" "$S_OPS" 'h8622 threshold 85% 넘음' >/dev/null; send "$S_DESK" "$S_OPS" 'h8622 holder 바뀜' >/dev/null
-  rd FT_SEAT="$S_DESK"; [ "$rc" = 0 ] || { WHY="영문 낱말 경계(threshold·holder)에서 막혔다 rc=$rc"; return 1; }; }
+  SEAT="$S_DESK"; rd; [ "$rc" = 0 ] || { WHY="영문 낱말 경계(threshold·holder)에서 막혔다 rc=$rc"; return 1; }; }
 
 sec "기준판·kit"
 git -C "$(git -C "$HERE" rev-parse --show-toplevel)" archive "$BASE" -- "$(git -C "$BIN0" rev-parse --show-prefix)" 2>/dev/null | tar -x -C "$T/base" 2>/dev/null
