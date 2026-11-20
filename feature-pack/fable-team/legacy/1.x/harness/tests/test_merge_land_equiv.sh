@@ -95,7 +95,7 @@ G fetch -q origin; G checkout -q -B pr20 origin/main; echo own20b > "$W/own20b.t
 # ⓛ DA⑥ HOLD2-②: push «시작» 시점에 남은 시간 < 7 s 면 REJECT(총 마감 70 s 안에 못 끝남) — 시험은 총 마감을 12 s 로 줄이고 commit-tree 를 6 s 지연
 own 21; setpr 21; M="$(omain)"; : > "$STUB_LOG"
 apv --approve-sha "$A"; out="$(PATH="$T/shim2:$PATH" SLOW_ARG=commit-tree SLOW_S=6 FT_LAND_TOTAL_S=12 bash "$LAND" 21 --approve-sha "$A" --repo "$W" 2>&1)"; rc=$?
-[ "$rc" = 1 ] && [[ "$out" == *"push 를 끝낼 수 없음"* ]] && [ "$(omain)" = "$M" ] && [ ! -s "$STUB_LOG" ]; ck "ⓛ 남은 시간 < 7 s → push 시작 0 · REJECT" $?
+[ "$rc" = 1 ] && [[ "$out" == *"push 몫 예약: "* ]] && [ "$(omain)" = "$M" ] && [ ! -s "$STUB_LOG" ]; ck "ⓛ 남은 시간 < push 1단위 → push 시작 0 · REJECT(r2355: 같은 사정을 앞 단계가 먼저 잡는다 = «push 몫 예약»)" $?
 apv --approve-sha "$A"; out="$(FT_LAND_TOTAL_S=999 bash "$LAND" 21 --approve-sha "$A" --repo "$W" 2>&1)"; rc=$?; [ "$rc" = 0 ] && [ "$(omain)" != "$M" ]; ck "ⓛ 총 마감 주입은 줄이기만(999 → 70 s 로 간주) · 정상 착지" $?
 # ⓜ R281 rebase 동일: A 를 지금 main 위로 «손 편집 0» rebase(cherry-pick) 한 S — A 는 S 의 조상이 아님
 rb() { G checkout -q -B "pr$1r" "${2:-origin/main}"; G cherry-pick "$A" >/dev/null 2>&1; }                                                  # rb <번호> [기준] A 를 기준(기본 지금 main) 위로 옮긴 S 작업 브랜치

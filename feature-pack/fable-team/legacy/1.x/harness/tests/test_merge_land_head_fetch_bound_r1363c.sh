@@ -91,9 +91,9 @@ MD="$(nmaxf)"
 
 
 # ── D2 가지 갈래도 마감 안(남은 10초 · pull ref 없음) ──
-land 105 FT_NOPULL=1 FT_LAND_DEADLINE="$(( $(date +%s) + 10 ))" FT_SLOW_FETCH=25
+land 105 FT_NOPULL=1 FT_LAND_DEADLINE="$(( $(date +%s) + 24 ))" FT_SLOW_FETCH=25   # r2355: 남은 시간에서 push 1단위(14초)를 뺀 10초가 fetch 상한 = 「남은 10초」 그대로
 M2B="$(nmaxf)"
-[ "$rc" = 1 ] && [[ "$out" != *LANDED* ]] && [ "$(nf)" -ge 1 ] && [ "$M2B" -le 10 ]; ck "D2 가지 fetch 도 상한 ≤ 남은 10초(최대 ${M2B}초) · 마감 안 REJECT · 착지 0" $?
+[ "$rc" = 1 ] && [[ "$out" != *LANDED* ]] && [ "$(nf)" -ge 1 ] && [ "$M2B" -le 10 ]; ck "D2 가지 fetch 도 상한 ≤ 남은 − push 1단위(최대 ${M2B}초) · 마감 안 REJECT · 착지 0" $?
 
 
 # ── D4 공용 lib 갈래(ft-land·ft-nano-close) = 같은 25초 ──

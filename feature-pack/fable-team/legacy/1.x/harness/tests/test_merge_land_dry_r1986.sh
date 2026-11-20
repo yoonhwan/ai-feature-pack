@@ -27,7 +27,8 @@ json() { python3 -c 'import json,sys;print(json.dumps({"headRefOid":sys.argv[1],
 pushpr() { git -C "$W" push -q -f origin "$2:refs/pull/$1/head"; PRSHA="$(sha "$W" "$2")"; json "$PRSHA" "$2" "$1"; }
 adv() { git -C "$W" fetch -q origin; git -C "$W" checkout -q -B main origin/main; mkdir -p "$(dirname "$W/$1")"; printf '%s\n' "$2" > "$W/$1"; cm "$W" "main adv"; git -C "$W" push -q origin main; git -C "$W" fetch -q origin; }
 oref() { git -C "$ORIGIN" for-each-ref --format='%(refname) %(objectname)'; }
-snap() { { oref; find "$T/state" "$T/crit" "$CARD/.fable-team" -type f ! -path '*heavy-slots*' -exec md5 -q {} \; -print 2>/dev/null | sort; cat "$T/mbox.log" 2>/dev/null; git -C "$W" for-each-ref refs/ft-land; } | md5 -q; }   # gh 쓰기는 run 이 비운 STUB_LOG 로 따로 본다
+snap() { { oref; find "$T/state" "$T/crit" "$CARD/.fable-team" -type f ! -path '*heavy-slots*' ! -name land-phase.tsv -exec md5 -q {} \; -print 2>/dev/null | sort;   # r2355: land-phase.tsv = 단계 초 진단 1줄(--dry 포함 계약) — «쓰기 0» 지문에서 뺀다
+  cat "$T/mbox.log" 2>/dev/null; git -C "$W" for-each-ref refs/ft-land; } | md5 -q; }   # gh 쓰기는 run 이 비운 STUB_LOG 로 따로 본다
 run() { local b="$1"; shift; : > "$STUB_LOG"; out="$(bash "$b" "$@" --repo "$W" 2>&1)"; rc=$?; }
 dline() { printf '%s\n' "$out" | grep -m1 -E '^DRY (ALLOW|DENY) '; }
 mutd() {  # mutd <이름> <옛> <새> → 변이 bin 사본(나머지는 심링크)

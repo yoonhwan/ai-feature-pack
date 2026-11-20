@@ -19,8 +19,8 @@ land "$FIX" 64 30; o4="$out"; r4=$rc; land "$T/b0" 65 30
 [ "$B0" = 0 ] && [ "$r4" = 0 ] && [ "$rc" = 0 ] && [ "$(norm <<<"$o4")" = "$(norm <<<"$out")" ] && grep -q '^판정 불가 2곳' <<<"$o4" && ! grep -v '^WARN 카드 토큰 0 — ' <<<"$o4" | grep -q '^WARN' && grep -q '^INSTALL OK n=1' <<<"$o4"
 ck "④ 바로 끝남 → 옛 꼴(명령 치환 · 여유 0)과 줄·순서 같음 · 판정 불가 줄 통과" $?
 land "$FIX" 66 14 FT_LAND_TOTAL_S=7
-[ "$rc" != 0 ] && [ "$(grep -c '^LANDED' <<<"$out")" = 0 ] && ! ran install && ! ran head-lag && grep -q '^REJECT 총 마감 7 s 안에 push 를 끝낼 수 없음' <<<"$out"
-ck "⑤ 마감이 push 1단위(8초)보다 짧음 → push 진입 REJECT 1줄 · 꼬리 호출 0" $?
+[ "$rc" != 0 ] && [ "$(grep -c '^LANDED' <<<"$out")" = 0 ] && ! ran install && ! ran head-lag && grep -q '^REJECT push 몫 예약: ' <<<"$out"
+ck "⑤ 마감이 push 1단위(8초)보다 짧음 → REJECT 1줄 · 꼬리 호출 0(r2355: push 진입이 아니라 앞 단계에서 먼저 «push 몫 예약»)" $?
 CPL="$T/state/merge-close-pending.jsonl"; : > "$CPL"
 land "$FIX" 67 14 FT_LAND_TOTAL_S=12 HOLD_LAG=1 FAIL_CLOSE=1 FT_HEAD_LAG_EVENT_S=2
 [ "$rc" = 3 ] && [ "$el" -le 12 ] && [ "$(grep -c . "$CPL")" = 1 ] && grep -qE '^WARN 뒤처짐 알림 [0-9]+초 초과' <<<"$out"; ck "⑥ 닫기 실패 + 뒤처짐 멈춤 → rc3 · 닫기 대기 1줄" $?

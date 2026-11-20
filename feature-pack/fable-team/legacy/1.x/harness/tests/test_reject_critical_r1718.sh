@@ -14,8 +14,9 @@ wc_() { FAKE_RC="${RC_:-1}" wrap "$1" ft-seat-close "$SEAT" >/dev/null 2>&1; }  
 
 c1() { local b="$1" body; fresh
   cn "$b" ft-merge-land "o/r PR #7" --event e1 --what "REJECT 충돌 (착지 0)" --next "고친다" --where "o/r#7" 2>"$T/err"; eqn $? 0 "rc" || return 1
-  eqn "$(nsent)" 1 "1통" && eqn "$(grep -c . "$T/err")" 0 "stderr 0줄" || return 1
-  eqn "$(last)" "$DESK"$'\t'"ft-merge-land"$'\t'"[크리티컬] ft-merge-land o/r PR #7 — 무엇: REJECT 충돌 (착지 0) · 어디: o/r#7 · 다음 손: 고친다" "받는 이·보내는 이·본문" || return 1
+  eqn "$(nsent)" 2 "ft-merge-land 사건 = 받는 이 2통(r2355 K3ⓐ)" && eqn "$(grep -c . "$T/err")" 0 "stderr 0줄" || return 1
+  eqn "$(sed -n 1p "$MLOG" | cut -f3)" "$(sed -n 2p "$MLOG" | cut -f3)" "두 받는 이 본문 같음(r2355 K3ⓐ)" || return 1
+  eqn "$(last)" "byz-planner-master-pi#1"$'\t'"ft-merge-land"$'\t'"[크리티컬] ft-merge-land o/r PR #7 — 무엇: REJECT 충돌 (착지 0) · 어디: o/r#7 · 다음 손: 고친다" "둘째 받는 이(_master)·보내는 이·본문" || return 1
   N "$b" e2 "$(printf 'ㄱ%.0s' $(seq 1 900))"; body="$(last | cut -f3)"
   eqn "$(python3 -c 'import sys;print(len(sys.argv[1]) <= 700)' "$body")" True "700자 안" && inc "$body" " 외 " "«외 n자»" && inc "$body" " · 다음 손: 다음" "잘라도 다음 손 칸"; }
 c2a() { local b="$1"; fresh; roster ""
@@ -37,9 +38,9 @@ c3() { local b="$1"; fresh
 c4a() { local b="$1"; fresh; N "$b" e1; N "$b" e1; eqn "$(nsent)/$(npend)/$(ncall)" 1/0/1 "같은 열쇠 2회째 발신 0"; }
 c4b() { local b="$1" h; fresh; printf 'REJECT PR #7 충돌 (착지 0)\n' > "$FAKE_OUT"
   for h in aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; do FAKE_RC=1 FAKE_HEAD="$h" wrap "$b" ft-merge-land 7 --approve-sha "$h" --repo "$T" >/dev/null 2>&1; done
-  eqn "$(nsent)" 1 "같은 head 두 번 = 1통" || return 1
+  eqn "$(nsent)" 2 "같은 head 두 번 = 1사건(받는 이 2통 · r2355)" || return 1
   h=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb; FAKE_RC=1 FAKE_HEAD="$h" wrap "$b" ft-merge-land 7 --approve-sha "$h" --repo "$T" >/dev/null 2>&1
-  eqn "$(nsent)" 2 "새 head 거절 = 즉시 1통" && inc "$(last)" " PR #7 — 무엇: REJECT PR #7 충돌 (착지 0) · 어디: " "대상·무엇" && inc "$(last)" "다음 손: PR 가지를 main 위로 최신화" "A4 ⓐ"; }
+  eqn "$(nsent)" 4 "새 head 거절 = 즉시 1사건(4통 · r2355)" && inc "$(last)" " PR #7 — 무엇: REJECT PR #7 충돌 (착지 0) · 어디: " "대상·무엇" && inc "$(last)" "다음 손: PR 가지를 main 위로 최신화" "A4 ⓐ"; }
 c4c() { local b="$1"; fresh; rej "새 사유 하나"; wc_ "$b"; wc_ "$b"; eqn "$(nsent)" 1 "같은 카드·같은 사유 = 1통" || return 1
   card k2; wc_ "$b"; eqn "$(nsent)" 2 "다른 카드로 재사용된 좌석 = 1통" && inc "$(last)" "어디: design/harness/indices/진행/k2.md" "어디 = 카드"; }
 c4d() { local b="$1" p; p="$(printf 'a%.0s' $(seq 1 60))"; fresh; rej "${p}X"; wc_ "$b"; rej "${p}Y"; wc_ "$b"; eqn "$(nsent)" 2 "61자째부터만 다른 사유 = 다른 사건"; }
@@ -114,7 +115,7 @@ cF1() { local b="$1" pid p p1; fresh; rej "발신 중에 죽는 사유"; rm -f "
   scan "$b" >/dev/null 2>&1; eqn "$(nsent)/$(npend)" 1/0 "점검의 --drain 이 1통 · pending 0"; }
 
 for f in ft-critical-notify.sh ft-index-move.sh ft-nano-close-due.sh ft_stall_scan.py; do cmp -s "$BIN/$f" "$KIT/$f" && ok "짝 cmp0 $f" || bad "짝 다름 $f"; done
-[ "$(grep -c . "$BIN/ft-critical-notify.sh")" -le 200 ] && ok "알림 도구 200줄 안" || bad "알림 도구 줄 수" "$(grep -c . "$BIN/ft-critical-notify.sh")"
+[ "$(grep -c . "$BIN/ft-critical-notify.sh")" -le 220 ] && ok "알림 도구 220줄 안(r2355: 받는 이 2 · 몫 · pending 받는 이/보냄 칸으로 +15줄)" || bad "알림 도구 줄 수" "$(grep -c . "$BIN/ft-critical-notify.sh")"
 tc "① 알림 1통 꼴 · 700자" c1; step ①
 tc "② ⓐ _desk 없음 → 점검의 --drain 이 밀린 1통" c2a; tc "② ⓑ 다음 알림 = 밀린 1 + 새 1" c2b; tc "② ⓒ 회차 3통 · 같은 열쇠 1통 · 실패 = 그대로" c2c; tc "③ mbox 실패 · 남은 시간 0" c3; step ②③
 tc "④ 같은 열쇠 2회째 0통" c4a; tc "④ 새 head = 새 사건" c4b; tc "④ 새 카드 = 새 사건" c4c; tc "④ 61자째부터 다른 사유" c4d; tc "④ 해결 뒤 즉시 1통" c4e; tc "④ 3601초 뒤 되풀이 2회째" c4f; step ④
