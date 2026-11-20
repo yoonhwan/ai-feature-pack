@@ -255,12 +255,24 @@ direct_sha() { # 가장 마지막 «연결 PR: 없음» 후보 줄 → 줄 전�
   jq -r --arg p "$KEYP" '[.comments[].body | split("\n")[] | select(test("연결\\s*PR\\s*[:：]\\s*없음"))] | last // empty
     | [capture($p + "연결\\s*PR\\s*[:：]\\s*없음\\s*·\\s*직접\\s*착지\\s+main\\s+(?<s>[0-9a-fA-F]{40})\\s*$") | .s | ascii_downcase] | first // "-"' <<<"$JSON" 2>/dev/null
 }
+# r2332: 조상이어도 바뀐 파일(첫 부모 대비 · 뿌리 = --root · -z)이 전부 카드 장부·기준선 경로면 착지 아님(room #5186 · 코드 0 닫힘).
+LEDGER_RE='^design/(teams/)?[^/]+/(indices|baselines)/'   # r2332-mut:ledger-re
+direct_files() { # <sha> → 0 장부 아닌 바뀐 파일 1개 이상 · 1 MISS(장부만 · 빈 커밋 · git 실패 = 판정 불가)
+  local S="$1" L RC; local -a P=(--root "$S")
+  git -C "$REPO" rev-parse -q --verify "$S^1^{commit}" >/dev/null && P=("$S^1" "$S")
+  L="$(git -C "$REPO" diff-tree -z -r --no-commit-id --name-only "${P[@]}" | tr '\0' '\n'; exit "${PIPESTATUS[0]}")"; RC=$?   # r2332-mut:nul
+  [ "$RC" -eq 0 ] || { echo "  MISS 직접 착지 ${S:0:10} — 바뀐 파일 판정 불가(git rc=$RC)"; return 1; }   # r2332-mut:git-fail
+  [ -n "$L" ] || { echo "  MISS 직접 착지 ${S:0:10} — 카드 장부·기준선 파일만 바뀜(코드·문서·시험 착지 아님)"; return 1; }   # r2332-mut:empty
+  grep -Eqv "$LEDGER_RE" <<<"$L" && return 0   # r2332-mut:any-code
+  echo "  MISS 직접 착지 ${S:0:10} — 카드 장부·기준선 파일만 바뀜(코드·문서·시험 착지 아님)"; return 1
+}
 direct_landed() { # <sha|-> → 0 직접 착지 sha 가 랜딩 ref 조상 · 1 MISS(사유 1줄)
   local S="$1" REF="${FT_LAND_REF:-origin/main}"
   [ "$S" != - ] || { echo "  MISS 직접 착지 — 「연결 PR: 없음 · 직접 착지 main <40hex>」 꼴 아님(sha 40자)"; return 1; }
   git -C "$REPO" cat-file -e "$S^{commit}" 2>/dev/null || { echo "  MISS 직접 착지 ${S:0:10} — 로컬에 없음 — git fetch 후 다시"; return 1; }
   git -C "$REPO" rev-parse --verify -q "${REF}^{commit}" >/dev/null || { echo "  MISS 직접 착지 ${S:0:10} — 랜딩 ref ${REF} 없음 — git fetch 후 다시"; return 1; }
   if git -C "$REPO" merge-base --is-ancestor "$S" "$REF" 2>/dev/null; then   # r1167-mut:direct-ancestor
+    direct_files "$S" || return 1   # r2332-mut:files
     echo "  OK 연결 PR 없음 · 직접 착지 ${S:0:10} ${REF} 조상"; return 0; fi
   echo "  MISS 직접 착지 ${S:0:10} — ${REF} 조상 아님"; return 1
 }
