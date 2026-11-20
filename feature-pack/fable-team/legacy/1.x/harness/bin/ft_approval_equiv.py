@@ -8,6 +8,7 @@ A = 오빠가 승인한 PR head, S = 지금 PR head. 아래 넷이 «전부 참�
  ★R281(rebase)★ A 가 S 의 조상이 아니면 위 1·2 대신: (a) mx = merge-base(S, main) 가 승인 이후 main(merge-base(A,main) 의 자손) (b) merge-base(A,main) 존재 (c) 3 과 같되 A 쪽 base = merge-base(A,main) · S 쪽 base = mx (d) merge-tree(A, mx) 와 같음 → `mode=rebase` (옛 main 위 rebase 도 EQUIV — 착지 단계 ft-merge-land 의 «main ⊂ S» 가 옛 main 착지를 막는다)
 출력 끝 칸: mode=merge|rebase · overlap=<n>(main 이 바꾼 파일 ∩ 자기 변경 파일 — 막지 않는 표지) · base=<mx 10자>)
 exit 0 = EQUIV · 1 = NOT-EQUIV(사유 stdout) · 3 = ERROR(판단 불가·승인 객체 로컬에 없음 = 통과 0)
+ ★r2359★ 규칙 3·rebase 자리의 diff 불일치가 «자기 변경이 세트가 품은 main mx 에 이미 다 들어감»(S 트리 == mx 트리 ∧ merge-tree(A, mx) == mx 트리 · in_main · git 2회 7초 상한)이면 사유를 «이미 main 에 있음 … 착지할 것 0 · PR 닫기(재승인 0)» 로 낸다 — 판정 rc 그대로(1) · 사유 글의 경로는 utf-8(shown)
 r1815 여러 후보: ft_approval_equiv.py --many <repo> <S> <remote> <target> < 후보(줄마다 A 40hex) → 후보마다 «<A> + 단건 출력» · 첫 EQUIV 에서 멈춤 · rc 0 = EQUIV 있음 · 1 = 없음 · 2 = 입력 오류
   한 실행 공유 값(S·main 에만 기대는 git 호출 · share=True)은 1회만 · 존재 확인 = cat-file --batch-check 1프로세스(GIT_NO_LAZY_FETCH=1) · 후보별 조상·diff·merge-tree 는 공유 0"""
 import os
@@ -51,6 +52,13 @@ def out(repo, *a, share=False):
     return run(repo, *a, share=share).stdout.decode("latin-1")
 
 
+def shown(p):   # r2359: git 경로는 core.quotepath=off 로 날 바이트가 오고 out() 이 latin-1 로 되돌리므로, 사유 글자로 낼 때만 utf-8 로 되돌린다(비교·셈 값은 손 0)
+    try:
+        return p.encode("latin-1").decode("utf-8", "replace")
+    except UnicodeEncodeError:
+        return p
+
+
 def resolve(repo, x):
     if MEMO is not None and x in RES:
         return RES[x]
@@ -84,6 +92,20 @@ def norm(repo, base, tip, share=False):
         elif ln:
             recs[key].append(ln)
     return recs
+
+
+def in_main(repo, ac, sc, mx):   # r2359 — 승인 세트의 변경이 «세트가 품은 main» mx 에 이미 다 들어갔는가(PR 10272: 1회차 push 뒤 원격 반영 → 2회차 C 트리 == main 트리)
+    """sc 트리 == mx 트리 ∧ merge-tree(ac, mx) == mx 트리 — 참 = 착지할 것 0(재승인 0) · 거짓 = 옛 글.
+    git 2회 · 1회 상한 7초(run() 30초 길을 타지 않는다 · DA#46 메모 M1) · 실패·넘김 = False(판별 0 · 옛 글 그대로 · rc 불변)."""
+    try:
+        p = subprocess.run(["git", "-C", repo, "rev-parse", sc + "^{tree}", mx + "^{tree}"], capture_output=True, timeout=7)
+        trees = p.stdout.split()
+        if p.returncode != 0 or len(trees) != 2 or trees[0] != trees[1]:
+            return False
+        q = subprocess.run(["git", "-C", repo, "-c", "core.quotepath=off", "merge-tree", "--write-tree", "--no-messages", ac, mx], capture_output=True, timeout=7)
+        return q.returncode == 0 and q.stdout.split()[:1] == [trees[1]]
+    except (OSError, subprocess.TimeoutExpired):
+        return False
 
 
 def check(repo, a, s, remote, target):
@@ -121,7 +143,9 @@ def check(repo, a, s, remote, target):
     ds = norm(repo, out(repo, "merge-base", sc, mx, share=True).strip(), sc, share=True)
     if da != ds:
         diff = sorted(k.split(" b/")[-1] for k in set(da) | set(ds) if da.get(k) != ds.get(k))
-        raise No("자기 변경이 승인 때와 다름(main 대비 diff 불일치: %s)" % ", ".join(diff[:3]))
+        if in_main(repo, ac, sc, mx):   # r2359 규칙 3 자리 — 자기 변경이 세트가 품은 main 에 이미 다 들어감
+            raise No("이미 main 에 있음(S 트리 == 세트가 품은 main %s · 승인 세트 + mx == mx) — 착지할 것 0 · PR 닫기(재승인 0)" % mx[:10])
+        raise No("자기 변경이 승인 때와 다름(main 대비 diff 불일치: %s)" % ", ".join(shown(d) for d in diff[:3]))
     p = run(repo, "merge-tree", "--write-tree", "--no-messages", ac, mx, ok=(0, 1))
     if p.returncode == 1:
         raise No("승인 세트와 main 이 깨끗이 병합되지 않음(충돌) — 충돌 해소는 새 세트")
@@ -153,7 +177,7 @@ def ov_names(repo, da, mb, m):
     """겹친 파일 이름(최대 3 · 겹침 있을 때만 EQUIV 줄 끝에 « names=a,b») — r1275 단계 4: 재질문 사유를 사람이 읽게. 계산·판정 변경 0."""
     mine = {k.split(" b/")[-1] for k in da}
     hit = sorted(mine & set(out(repo, "diff", "--name-only", "--no-renames", mb, m).split("\n")))
-    return " names=" + ",".join(hit[:3]) if hit else ""
+    return " names=" + ",".join(shown(h) for h in hit[:3]) if hit else ""
 
 
 def overlap(repo, da, mb, m):
@@ -178,7 +202,9 @@ def rebased(repo, ac, sc, m, shallow):
     da, ds = norm(repo, mb, ac), norm(repo, mx, sc, share=True)
     if da != ds:
         diff = sorted(k.split(" b/")[-1] for k in set(da) | set(ds) if da.get(k) != ds.get(k))
-        raise No("rebase 한 자기 변경이 승인 때와 다름(main 대비 diff 불일치: %s)" % ", ".join(diff[:3]))
+        if in_main(repo, ac, sc, mx):   # r2359 rebase 자리 — 같은 판별(옛 main 위 rebase)
+            raise No("이미 main 에 있음(S 트리 == 세트가 품은 main %s · 승인 세트 + mx == mx) — 착지할 것 0 · PR 닫기(재승인 0)" % mx[:10])
+        raise No("rebase 한 자기 변경이 승인 때와 다름(main 대비 diff 불일치: %s)" % ", ".join(shown(d) for d in diff[:3]))
     p = run(repo, "merge-tree", "--write-tree", "--no-messages", ac, mx, ok=(0, 1))
     if p.returncode == 1:
         raise No("승인 세트와 main 이 깨끗이 병합되지 않음(충돌) — 충돌 해소는 새 세트")

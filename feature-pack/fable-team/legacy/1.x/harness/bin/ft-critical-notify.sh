@@ -26,7 +26,7 @@ except ValueError: DEDUPE, BUDGET = 3600.0, 7.0
 PROG = re.compile(r"pane 작업 중|\(IDLE 아님\)|분 내 편집|jsonl 마지막 기록\(|미제출 입력|도구 셸 실행|미읽음 쪽지|doorbell \d+건 미전달|미커밋 (실작업물|변경|\d+줄)|실작업물 미커밋")   # A6 «진행» 사유 표(세션이 일하는 중) — 표에 없는 글 = 진행 아님(알린다)
 CLOSE_NEXT = [(r"(세트:|- 착지:|증거 줄).*없", "그 나노에 정리 기록 차례(r1717 landed 명령) · 나노 없음이면 팀장"), (r"낡음|갈라짐", "원장 ref 를 맞춘 뒤 다시 닫기 — 팀 넘는 나노면 arch 판단"),
               (r"라이브 도구가 main 키트와 다르다", "설치 h 먼저 — 드리프트 파일: {drift}")]   # r1721 A5 — {drift} = 검사 출력의 항목 줄 첫 3줄
-LAND_NEXT = [(r"동일승인 대조", "지금 head sha 로 다시 승인"), (r"충돌|non-FF|조상이 아님|포함하지 않음|최신화", "PR 가지를 main 위로 최신화 → 새 head sha 로 오빠께 다시 질문")]
+LAND_NEXT = [(r"이미 main 에 있음", "착지할 것 0 · PR 닫기(재승인 0)"), (r"동일승인 대조", "지금 head sha 로 다시 승인"), (r"충돌|non-FF|조상이 아님|포함하지 않음|최신화", "PR 가지를 main 위로 최신화 → 새 head sha 로 오빠께 다시 질문")]
 warn = lambda m: print("WARN ft-critical-notify: " + m, file=sys.stderr)
 key = lambda r: (r.get("tool"), r.get("target"), r.get("event")); sha12 = lambda s: hashlib.sha256(s.encode("utf-8")).hexdigest()[:12]
 
