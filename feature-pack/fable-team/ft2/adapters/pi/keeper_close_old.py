@@ -8,8 +8,10 @@ C5 세션만 닫기 = kill-session 1 → 부재 확인 → «CLOSED-SUCCEEDED <�
 C6 B2·B3·승계·판정 목록 길 글자 0 · 나노 밖 좌석 손 0 · 1.x 도구 호출 0.
 r2311 K3 팀·좌석 초(주입 시계) · SEAT_S 이상 = «SLOW-SEAT <팀> <좌석> s=<초> step=sweep:<keep|idle|resume|kill>»(팀 안 좌석 밖 초 = «- … step=sweep:team») · 큰 순 SEAT_CAP 줄 + «외 N».
 r2311 K4 팀 하나 끝낼 때마다 바퀴 남은 몫 < MIN_S = 다음 팀부터 다음 바퀴(state sweep_cursor) · 팀 안 Cut = cursor 그 팀 · 다 돌면 지움 · 목록에 없는 cursor = 처음부터.
+r2346 팀 단계 초 = team() 안 세 단계(latest · intents · target)의 벽 초(주입 시계 k.now) + CPU 초(주입 cpu 시계 · 기본 time.thread_time · 파일 읽기·JSON 뿐) · target 은 호출마다 앞뒤로 더함(seat()·one() 몫 밖).
+  팀 단계 SLOW-SEAT 줄 끝에 « parts=latest:<벽>/<cpu>,intents:<벽>/<cpu>,target:<벽>/<cpu> cpu=<합> n=work:<수>,intent:<수>,alive:<수>»(%.2f · 못 잰 단계 «-» · 예외·return 이어도 finally 로 씀 · 문턱·줄 수 그대로).
 """
-import glob, importlib.util, json, os  # noqa: E401
+import glob, importlib.util, json, os, time  # noqa: E401
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FT2 = os.path.dirname(os.path.dirname(HERE))
@@ -51,8 +53,8 @@ def model_of(path):
 
 
 class CloseOld:
-    def __init__(self, keeper):
-        self.k = keeper
+    def __init__(self, keeper, cpu=None):
+        self.k, self.cpu_now = keeper, cpu or time.thread_time   # r2346 주입 cpu 시계(기본 = 이 프로세스가 쓴 CPU 초)
         self.slow, self.inner, self.marks, self.cur, self.t0 = [], 0.0, {}, None, 0.0   # r2311 K3
 
     def sweep(self):
@@ -80,21 +82,45 @@ class CloseOld:
         k.state.pop("sweep_cursor", None)
 
     def team(self, team, alive):
-        """팀 1개 — 최신 dispatch · intent 표 1회 → 후보 S 마다 one() · r2311 K3 좌석 밖 초 ≥ SEAT_S = «- s=… step=sweep:team» 후보."""
+        """팀 1개 — 최신 dispatch · intent 표 1회 → 후보 S 마다 one() · r2311 K3 좌석 밖 초 ≥ SEAT_S = «- s=… step=sweep:team» 후보.
+
+        r2346 — 그 초를 세 단계 벽·CPU 초로 가른다(단계마다 시계 2번 · 외부 호출 0 · target 은 호출마다).
+        """
         k, at, self.inner = self.k, self.k.now(), 0.0
+        parts, cpu, calls, last, trees = {}, {}, 0, None, None   # r2346 재기 그릇 · calls = target 부른 세션 수
         try:
+            t0, c0 = k.now(), self.cpu_now()
             last = endings.latest(k, team)
+            t1, c1 = k.now(), self.cpu_now()
+            parts["latest"], cpu["latest"] = t1 - t0, c1 - c0
             if last is None:
                 return k.log("판정 불가", team, "장부 못 읽음 — 승계 끝 구 나노 닫기 0")
+            t0, c0 = k.now(), self.cpu_now()
             trees = self.intents(team)
+            t1, c1 = k.now(), self.cpu_now()
+            parts["intents"], cpu["intents"] = t1 - t0, c1 - c0
             for seat in sorted(alive):
+                t0, c0 = k.now(), self.cpu_now()
                 hit = self.target(team, seat, alive, last, trees)
+                t1, c1 = k.now(), self.cpu_now()
+                calls += 1   # r2346 N = 그 팀에서 target 을 부른 세션 수
+                parts["target"] = parts.get("target", 0.0) + (t1 - t0)
+                cpu["target"] = cpu.get("target", 0.0) + (c1 - c0)
                 if hit:
                     self.seat(team, seat, alive, hit)
         finally:
             rest = k.now() - at - self.inner
             if rest >= SEAT_S:
-                self.slow.append((rest, team, "- s=%g step=sweep:team" % round(rest, 1)))
+                self.slow.append((rest, team, "- s=%g step=sweep:team%s" % (round(rest, 1), self.tail(parts, cpu, last, trees, calls))))
+
+    def tail(self, parts, cpu, last, trees, calls):
+        """r2346 — « parts=latest:<벽>/<cpu>,intents:<벽>/<cpu>,target:<벽>/<cpu> cpu=<합> n=work:<수>,intent:<수>,alive:<N>» · 못 잰 단계·못 센 수 = «-»."""
+        def cell(name):   # 잰 단계만 «이름:벽/cpu» · 못 잼 = «이름:-»
+            return "%s:%.2f/%.2f" % (name, parts[name], cpu[name]) if name in parts else name + ":-"
+        def size(v):   # 일 크기 — 아직 못 읽은 표 = «-»
+            return "-" if v is None else str(len(v))
+        return " parts=%s,%s,%s cpu=%.2f n=work:%s,intent:%s,alive:%d" % (
+            cell("latest"), cell("intents"), cell("target"), sum(cpu.values()), size(last), size(trees), calls)
 
     def seat(self, team, seat, alive, hit):
         """r2311 K3 — one() 1회 초 · SEAT_S 이상 = 가장 긴 단계 이름 1개(끊김·예외도 finally)."""

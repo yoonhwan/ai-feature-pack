@@ -4,6 +4,7 @@
 r2319(nano) — journal 판독에서 닫힌 segment 는 디스크 캐시(keeper 상태 폴더 · 팀마다 1파일)를 쓰고
 활성 파일만 매번 새로 읽는다. 캐시 지문 = 닫힌 목록 (이름 · size · mtime_ns) · 판독 전·후 두 번 재서
 같을 때만 씀 · 캐시 없음·깨짐·쓰기 실패 = 지금과 같은 전부 판독(예외 0) · 1초 넘으면 ROWS-SLOW 1줄.
+r2346(nano) — 그 ROWS-SLOW 줄 끝에 load+active 구간의 파이썬 CPU 초를 %.2f 로 붙인다(문턱·앞 글자 그대로).
 """
 import glob, importlib.util, json, os, re, time  # noqa: E401
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -25,6 +26,10 @@ def held(k, team, key, text):
         k.state["held"][key] = text
         k.unknown_line(team, "-", "held", text)   # r2055 UNKNOWN = [긴급]
 ROWS_CACHE, ROWS_SLOW_S, ROWS_V = "journal-rows", 1.0, 1   # r2319 C6 캐시 폴더 · C7 문턱 · 캐시 꼴 판
+
+def _cpu():   # r2346 — 이 프로세스가 쓴 CPU 초(쓰레드 시계) · 가짜 시계 대역에 없으면 0.0
+    fn = getattr(time, "thread_time", None)
+    return fn() if fn else 0.0
 
 def _rows_cache(k, team):   # 캐시 파일 1개 = keeper 상태 폴더 아래(journal runtime 폴더 쓰기 0 · C6 · 하드 룰 19)
     base = getattr(k, "dir", None) or os.path.join(k.root, ".fable-team", "state", "ft2-keeper")
@@ -68,7 +73,7 @@ def _rows_join(closed, active, err):   # 닫힌 + 활성 이음 — seq 역행·
 
 def _rows(k, team):
     """journal 판독 — 닫힌 segment = 캐시 · 활성 = 매번(r2319 C1~C8) · 못 읽음 = None(판독 실패 = 대체·고아 닫기 0)."""
-    t0 = time.monotonic()
+    t0, c0 = time.monotonic(), _cpu()   # r2346 c0 = load+active 구간 CPU 초의 시작
     try:
         proj = _proj()
         j = proj.journal.Journal(proj.runtime_path(k.root, team), rec=proj.record)
@@ -80,13 +85,14 @@ def _rows(k, team):
         t1 = time.monotonic()
         active = j._records_of(j.active_path) if os.path.exists(j.active_path) else []   # 활성은 매번 (C1)
         t2 = time.monotonic()
+        spent = _cpu() - c0   # r2346 — load+active 구간 파이썬 CPU 초(이음·캐시 쓰기 앞)
         rows = _rows_join(closed, active, j.rec.CorruptStateError)   # C5 이음 검사
         if key and not hit and _rows_key(j) == key:   # C8 판독 사이 회전 = 캐시 쓰기 0
             _rows_put(path, key, closed)
     except (OSError, ValueError):   # C3·C4 — 캐시 탓도 판독 실패도 지금과 같은 None
         return None
     if t2 - t0 >= ROWS_SLOW_S:   # C7 효과 가림 — 1초 넘을 때만 1줄
-        k.log("ROWS-SLOW", team, "cache=%s load=%.2f active=%.2f n=%d" % ("hit" if hit else ("miss" if key else "none"), t1 - t0, t2 - t1, len(rows)))
+        k.log("ROWS-SLOW", team, "cache=%s load=%.2f active=%.2f n=%d cpu=%.2f" % ("hit" if hit else ("miss" if key else "none"), t1 - t0, t2 - t1, len(rows), spent))
     return rows
 def latest(k, team):   # {work: (attempt, holder)} 최신 dispatch · 못 읽음 = None
     rows = _rows(k, team)
