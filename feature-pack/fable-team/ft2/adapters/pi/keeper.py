@@ -790,7 +790,10 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
                   if rec.get("kind") == "dispatch" and rec.get("work")}
         back, gone, open_ = self.book(team)   # r1990 반환·r2055 쉼 줄 · R10 건너뛰는 work(분모 셈과 같은 식)
         self.parked_failed = {(team, rec["work"], rec.get("attempt")) for rec in rows if rec.get("kind") == "parked" and rec.get("reason") == settling.LAUNCH_FAILED}   # r2058 L1
+        backed = self.superseded_back(team, proj, latest) if self.sock and not self.halt else None   # r2352 K2 — 대체 끝 done 0 되찾기(팀당 1건)
         for work, (attempt, dispatched) in sorted(latest.items()):
+            if work == backed:   # 이번 바뀌에 K1 길로 끝냄 = 닫기 길이 같은 일을 다시 보지 않는다
+                continue
             if work in gone:
                 if (work, attempt) in back and (proj["works"].get(work) or {}).get("done"):
                     self.timed("b1", self.stage_card, team, work, work=work)   # r2140 K2
