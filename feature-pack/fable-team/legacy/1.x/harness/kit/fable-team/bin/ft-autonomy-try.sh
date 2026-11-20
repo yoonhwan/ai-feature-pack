@@ -5,7 +5,7 @@
 #     통과 = `TRY-OK via=D2|S<n> <기존 명령 끝줄>` rc 0 · 둘 다 거절 = `TRY-REJECT <D2 사유> · <S 사유>` rc 2 · 자율 OFF = `TRY-SKIP 자율 OFF` rc 3
 #     둘째 줄 = 사람 말 1줄(A7) · 통과면 `SHARE <사람 말> · PR <N>` — Slack 글 꼴만 내고 실 발신 0(A8)
 #     어떤 거절도 통과로 바꾸지 않는다(A4) · 시간 상한 = 기존 두 명령 각자의 상한 그대로(A5)
-#   --land(r2293) = TRY-OK 뒤에만 ft-merge-land.sh 를 desk h 와 같은 인자로 1회(끝에 착지 출력 · rc = 착지 rc) · 통과 출력의 CLASS 줄 class·kind 에 global-rule·billing·deps 또는 판독 불가 = 착지 0(h 길) · r2295 = OK 줄 class=·kind=·learned= 먼저(class docs·ff·code ∧ kind·learned 0 만 착지)
+#   --land(r2293) = TRY-OK 뒤에만 ft-merge-land.sh 를 desk h 와 같은 인자로 1회(끝에 착지 출력 · rc = 착지 rc) · 통과 출력의 CLASS 줄 class·kind 에 global-rule·billing·deps 또는 판독 불가 = 착지 0(h 길) · r2295 = OK 줄 class=·kind=·learned= 먼저(class docs·ff·code ∧ kind·learned 0 만 착지) · r2360 = SCOPE-NOOP 줄도 같은 낱말로 읽음
 #   brief — 자율 상태 1줄(읽기만): `자율 ON A17 · 범위 S44 ~23:30 · 사용 0/30(code 0/10) · 상시 D2 켜짐`
 #     OFF = `자율 OFF · 병합·착수는 오빠 질문` · 범위 없음·만료 = `범위 없음` · D2 꺼짐 = `상시 D2 꺼짐` · 못 읽음 = `자율 상태 확인 불가(<사유>)`(추정 0)
 #     try-auto 가 보는 상태와 «같은 함수»(mode · d2_on · scope_load · scope_block)에서만 나온다 — 사본 0
@@ -28,7 +28,7 @@ try_root() {   # <byz|pack> → 판정문 상대 경로의 기준(그 리포 최
 try_verdict() { [ "${1#/}" != "$1" ] && printf '%s' "$1" || printf '%s/%s' "$(try_root "$2")" "$1"; }
 try_kinds() {   # r2295 A3 통과 출력 → OK 줄(STANDING-OK·SCOPE-OK) 낱말 머리 class=·kind=·learned= 만(card= 이름 속 글자 0) · class 낱말 0 = r2293 «CLASS …» 줄 → «class kind…» · 꼴 다른 CLASS 머리 줄·class 2개 이상 = 빈 값(판독 불가 = 닫힌 쪽)
   local t w; t="$(cat)"; [ -z "$(grep '^CLASS' <<<"$t" | grep -vE '^CLASS (docs|ff|revert|code)( kind=([a-z0-9,-]+).*)?$')" ] || return 0
-  w="$(grep -E '^(STANDING|SCOPE)-OK ' <<<"$t" | tr ' ' '\n' | grep -E '^(class|kind|learned)=')"
+  w="$(grep -E '^(STANDING|SCOPE)-(OK|NOOP) ' <<<"$t" | tr ' ' '\n' | grep -E '^(class|kind|learned)=')"   # r2360: SCOPE-NOOP(이미 쓴 승인 재사용) 줄도 같은 낱말을 읽는다
   case "$(grep -c '^class=' <<<"$w")" in
     1) tr '\n' ' ' <<<"$w" ;;
     0) sed -nE 's/^CLASS (docs|ff|revert|code)( kind=([a-z0-9,-]+).*)?$/\1 \3/p' <<<"$t" | tr ',' ' ' ;;
