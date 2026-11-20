@@ -587,10 +587,22 @@ def wake_read(k, team):
         k.wake(team, freed)
 
 
+def seen_no_receipt(k, team, work, attempt, stem, done):
+    """r2350 K1·K2 — 이미 영수한 사건(close_receipts 1행 = seen)을 다시 영수하지 않을 조건.
+    참 = 다음 카드 칸 표식(teams/<팀>/CLOSE-NEXT.enabled · 이미 읽은 ft2_state 밖 = 추가 판독 0 · DA#44 B1·권함) ∧
+    (영수 키 done(close:<팀>:keeper:<일>@<시도>) ∨ 다음 빔). 거짓 = 영수 뒤 배정·전달이 아직(core _resume 갈래 1·2) 또는 표식 없음
+    = 지금처럼 core 영수 1회. core 는 이 두 갈래에서 journal 만 다시 읽고 쓰기 0 이라 판정만 늦다(b2c 55초 실사건)."""
+    mark = os.path.join(k.root, ".fable-team", "teams", team, "CLOSE-NEXT.enabled")
+    if not os.path.exists(mark):
+        return False
+    return not stem or "close:%s:keeper:%s@%s" % (team, work, attempt) in done
+
 def close(k, team, work, attempt, holder, gen):
-    """닫기 영수 1회(지금 자리) + 다음 카드. 반환 = 영수 결과. r2101 H3 = 새 카드 보류면 이 고르기만 멈춘다(영수·이어 잇기 그대로)."""
+    """닫기 영수 1회(지금 자리) + 다음 카드. 반환 = 영수 결과. r2101 H3 = 새 카드 보류면 이 고르기만 멈춘다(영수·이어 잇기 그대로).
+    r2350 K1·K2 = 이미 영수한 사건이면 core 영수 0 · 로그 «RECEIPT-SEEN» 1줄 · 곧장 reconcile(바퀴 예산을 안 먹는다)."""
     choose = held_choose   # r2188 H2 채우기와 같은 보류 목록 · 아래 고르기 줄은 글자 그대로(r1871 M5 · 벌점 M63 변이가 그 줄을 찾는다)
-    seen = ((ft2_state(k, team) or {}).get("close_receipts") or {}).get("keeper:%s@%s" % (work, attempt))
+    book = ft2_state(k, team) or {}   # 영수·done 판독 1회(추가 판독 0)
+    seen = (book.get("close_receipts") or {}).get("keeper:%s@%s" % (work, attempt))
     pick = None
     if seen is None and not new_card_hold(k, team):
         pick = choose(k, team) if gates(k, team) and penalty_open(k, team) else None
@@ -604,6 +616,12 @@ def close(k, team, work, attempt, holder, gen):
         stem, nh = seen.get("next"), seen.get("holder")
     else:   # 새 카드 보류(H3) = 다음 카드 없음 · 영수는 그대로 쓴다
         stem, nh = None, None
+    if seen is not None and seen_no_receipt(k, team, work, attempt, stem, book.get("done") or {}):
+        k.log("RECEIPT-SEEN", team, "%s -> %s" % (work, "%s %s" % (stem, nh) if stem else NONE))   # 재접수와 같은 뜻 · 쓰기 0
+        if not stem:   # K2 — 다음 없음 = handled 만(«재접수» mark 와 같은 끝 · reconcile 0)
+            k.state["handled"]["%s|%s@%s" % (team, work, attempt)] = k.stamp()
+            return None
+        return reconcile(k, team, work, attempt, stem, nh, None)   # K1·K4 — 끝냄 표시 = reconcile 그대로(handled 쓰기 자리 손 0)
     if not stem:
         return k.receipt(team, work, attempt, holder, gen)
     out = k.receipt(team, work, attempt, holder, gen, next_work=stem, next_holder=nh, evidence=dispatch.Dispatch.REQUIRED_EVIDENCE, mark=False)
