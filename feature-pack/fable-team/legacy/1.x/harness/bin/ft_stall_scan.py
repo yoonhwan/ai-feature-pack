@@ -22,6 +22,7 @@ import re
 import shlex
 import sys
 import time
+from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 
@@ -56,26 +57,59 @@ def pi_error_at(path: str) -> float | None:
         return None
 
 
-def _last_sent(comm: Path, names: set[str]) -> str:
-    """r1647 — 현역 팀장이 «마지막으로 보낸» 쪽지 본문(안 읽은 큐 + 읽은 로그 끝 4MB · 가장 큰 seq).
-    쪽지 0·읽기 실패 = "" — «판단 못 함» 은 닫기 대기가 아니다(부르는 쪽은 지금 흐름 그대로 간다)."""
-    best, body = -1, ""
-    for p in (comm / "mailbox.jsonl", comm / "mailbox.log.jsonl"):
+def _sent_log_keep() -> int:
+    """r2338 — 보낸 글 로그 회전 사본 개수(ft-mbox.py SENT_LOG_KEEP 과 같은 규칙 · 기본 3)."""
+    try:
+        return max(1, int(os.environ.get("FT_MBOX_LOG_KEEP") or 3))
+    except ValueError:
+        return 3
+
+
+def _back_matches(path: Path, names: set[str]) -> Iterator[tuple[int, str]]:
+    """r2338 — 파일 «끝에서 앞으로» 1MB 조각씩 읽어 names 가 보낸 줄을 최신(큰 seq)부터 낸다.
+    조각 경계에 걸친 줄은 앞 조각과 이어 붙여 판독 · seq 0 줄(bridged 거울 사본)은 맞음으로 안 셈.
+    없는 파일·읽기 실패 = 아무것도 안 냄."""
+    try:
+        pos = path.stat().st_size
+    except OSError:
+        return
+    carry = b""
+    while pos > 0:
+        step = min(1 << 20, pos)
+        pos -= step
         try:
-            with open(p, "rb") as fh:
-                off = max(0, fh.seek(0, os.SEEK_END) - (4 << 20))
-                fh.seek(off)
-                raw = fh.read()
+            with open(path, "rb") as fh:
+                fh.seek(pos)
+                chunk = fh.read(step)
         except OSError:
-            continue
-        for line in raw.decode("utf-8", "replace").splitlines()[1 if off else 0:]:  # 4MB 앞을 잘랐을 때만 첫 줄이 조각
+            return
+        lines = (chunk + carry).split(b"\n")
+        carry = lines.pop(0) if pos > 0 else b""  # 조각 앞머리 = 다음(앞) 조각과 이어 붙일 반쪽 줄
+        for raw in reversed(lines):
             try:
-                r = json.loads(line)
+                r = json.loads(raw)
                 seq = int(r.get("seq") or 0)
             except (ValueError, TypeError, AttributeError):
                 continue
-            if r.get("from") in names and seq > best:
-                best, body = seq, str(r.get("body") or "")
+            if seq > 0 and r.get("from") in names:  # G2 — seq 0 = bridged 거울 사본, 맞음으로 안 셈
+                yield seq, str(r.get("body") or "")
+
+
+def _last_sent(comm: Path, names: set[str]) -> str:
+    """r1647 — 현역 팀장이 «마지막으로 보낸» 쪽지 본문. r2338 — 찾는 곳을 끝 4MB 창에서 로그 «사슬 전체»로 넓혔다.
+    큐(mailbox.jsonl)의 가장 큰 seq 와 보낸 글 로그 사슬(mailbox.log.jsonl → .1 → .2 → .3)의 첫 맞음 중 큰 쪽.
+    사슬은 끝에서 앞으로 읽어 첫 맞음에서 멈춘다 — 오래 쉰 팀장의 글도 4MB 창 밖으로 밀리지 않는다(r2338 사건).
+    쪽지 0·읽기 실패 = "" — «판단 못 함» 은 닫기 대기가 아니다(부르는 쪽은 지금 흐름 그대로 간다)."""
+    best, body = -1, ""
+    for seq, text in _back_matches(comm / "mailbox.jsonl", names):
+        if seq > best:
+            best, body = seq, text
+    for n in [""] + [f".{i}" for i in range(1, _sent_log_keep() + 1)]:
+        hit = next(_back_matches(comm / f"mailbox.log.jsonl{n}", names), None)
+        if hit and hit[0] > best:
+            best, body = hit
+        if hit:
+            break
     return body
 
 
