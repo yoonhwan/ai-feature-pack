@@ -6,7 +6,7 @@
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"; CASES="$HERE/test_install_pending_clear_on_recheck_r2325.sh"
-BIN="$(cd "$HERE/../../harness/bin" && pwd -P)"; BASE_SHA=55d76286857a9b1514c824790ca110c47fce8fbb   # r2325 착지 전 = 기준판(옵션 모름 → ① Red)
+BIN="$(cd "$HERE/../../harness/bin" && pwd -P)"; BASE_SHA=24d192abc33fee0756cdea818bd0549e612af542   # r2325 착지 전 main = 기준판(옵션 모름 → ① Red)
 fail=0; rc=0; out=""; T0=$SECONDS
 ck() { if [ "$2" = 0 ]; then echo "PASS $1"; else echo "FAIL $1 :: rc=$rc out=${out:0:400}"; fail=$((fail+1)); fi; }
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
