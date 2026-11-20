@@ -247,7 +247,7 @@ if [ -s "$BASE" ]; then
   grep -q '^PASS ① 본문 씨앗 나무 후보 3' "$TMP/base.out" && bad "기준판이 ① 을 통과(Red 아님)" || ok "기준판 ① Red(후보 0) — $(grep -m1 '^FAIL' "$TMP/base.out" | cut -c1-70)"
 else bad "기준판 없음 — R2324_BASE=<옛 bin/ft-seat-reap.sh> 로 다시"; fi
 echo "== 변이 M1~M5(사본 · 원본 대조)"
-mcheck M1 1 'return any(w.startswith("/") and body_seed(w) for w in words[1:])' 'return False'
+mcheck M1 1 'w.startswith("/") and body_seed(w)' 'False'   # r2327: 옛·새 두 판에 다 있는 글자만 치환(판이 바뀌어도 변이 유지)
 mcheck M2 3 'r"(?:^|[^" + NAME_CH + r"])" + re.escape(seat) + r"(?:$|[^" + NAME_CH + r"])", re.M)' 're.escape(seat), re.M)'
 mcheck M3 4 'SEED_BYTES = 65536' 'SEED_BYTES = 1 << 30'
 mcheck M4 5 'b"\x00" not in data and bool(' 'bool('
