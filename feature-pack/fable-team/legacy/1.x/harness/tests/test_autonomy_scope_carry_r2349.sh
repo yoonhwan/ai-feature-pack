@@ -106,6 +106,12 @@ ck "⑬ --level mid → 기본표(직전 1000/500/200 안 씀)" $?
 a off >/dev/null 2>&1; n1="$(grep -c '^approve-scope ' "$LOG")"; run a on --level each --for 2h
 [ $rc = 0 ] && [ "$(grep -c '^approve-scope ' "$LOG")" = "$n1" ]; ck "⑬ --level each → 범위 승인 줄 0" $?
 
+# ⑬c 직전 없으면 깎기도 없다 — 깎기는 «이어받은 칸» 전용(DA#45 H1 · 기준판과 같은 사유)
+fresh; n0="$(lines)"; run a on --max 5; [ $rc = 2 ] && has '--daily 는 1~max\(5\)' && [ "$(lines)" = "$n0" ]
+ck "⑬c log 0 · on --max 5 → REJECT rc 2 (기본표 daily 15 > 5 · 깎아 통과 0)" $?
+fresh; run a on --level mid --max 5; [ $rc = 2 ] && has '--daily 는 1~max\(5\)'
+ck "⑬c log 0 · on --level mid --max 5 → REJECT rc 2 (mid 도 지금 그대로)" $?
+
 # ⑭ mid 줄은 건너뛴다 — C1 (DA H1)
 fresh; seed; a off >/dev/null 2>&1; NOW=$((T0 + 100)); a on --level mid >/dev/null 2>&1; a off >/dev/null 2>&1
 NOW=$((T0 + 200)); run a on

@@ -48,7 +48,7 @@ MUT = [
 
 
 def run(copy: Path):
-    r = subprocess.run(["bash", str(copy / TEST)], capture_output=True, text=True, timeout=300)
+    r = subprocess.run(["bash", str(copy / TEST)], capture_output=True, text=True, timeout=70)   # 하드 룰 22: 시험 1개 70초
     return r.returncode, r.stdout + r.stderr
 
 
@@ -72,7 +72,7 @@ def one(item):
 
 
 want = {name: expect for name, _, expect in MUT}
-with cf.ThreadPoolExecutor(max_workers=4) as ex:   # 동시 4개(하드 룰 22)
+with cf.ThreadPoolExecutor(max_workers=2) as ex:   # 동시 2개 — 런 1개 상한 70초(하드 룰 22) 안에 끝나게
     results = list(ex.map(one, [(n, p) for n, p, _ in MUT]))
     org = list(ex.map(lambda _: run(Path(H)), range(1)))
 

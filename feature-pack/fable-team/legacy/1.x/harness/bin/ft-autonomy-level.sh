@@ -9,8 +9,8 @@ NEVER_LEARN=",secret,repo-outside,scope-table,mode,"   # 비밀 꼴 줄·경계 
 level_label() { case "$1" in full) echo 풀자동 ;; mid) echo 중간 ;; each) echo "건마다 확인" ;; *) echo "$1" ;; esac; }
 tpl_file() { local d; for d in "$HERE/../templates" "$HERE/../kit/fable-team/templates"; do [ -f "$d/$1" ] && { printf '%s\n' "$d/$1"; return 0; }; done; return 1; }
 
-level_prepare() {  # ON_LEVEL ON_MAX ON_DAILY ON_CM(parse_end 가 채움) → 기본표 + 덮어쓰기 + 검사 → SV_*(each 면 검사 0) · 틀리면 REJECT rc 2(상태 쓰기 0)
-  local f row l mx dl cl cm rp
+level_prepare() {  # ON_LEVEL ON_MAX ON_DAILY ON_CM ON_LOWER(parse_end 가 채움) → 기본표 + 직전 범위 이어받기(r2349 C2) + 덮어쓰기 + 검사 → SV_*(each 면 검사 0) · 틀리면 REJECT rc 2(상태 쓰기 0)
+  local f row l mx dl cl cm rp prev=0
   LOWER_CELL=""
   ON_LEVEL="${ON_LEVEL:-${FT_AUTONOMY_LEVEL:-full}}"   # --level 생략 = 풀자동(오빠 «기본 풀자동») · FT_AUTONOMY_LEVEL 은 기본값만 바꾼다(시험·슬랙 없는 환경)
   case "$ON_LEVEL" in full|mid|each) ;; *) reject "--level 은 full|mid|each(받은 값: $ON_LEVEL)" ;; esac
@@ -22,13 +22,15 @@ level_prepare() {  # ON_LEVEL ON_MAX ON_DAILY ON_CM(parse_end 가 채움) → �
   [ "$cm" = 0 ] && cm=""
   . "$HERE/ft-autonomy-scope.sh"
   if [ "$ON_LEVEL" = full ] && scope_prev; then   # r2349 C2: 인자 없는 full 켜기 = 직전 범위(기본표 아님 · classes 는 직전 그대로)
-    mx="$P_MAX"; dl="$P_DAILY"; cl="$P_CLASSES"; cm=""; rp="$P_REPOS"
+    prev=1; mx="$P_MAX"; dl="$P_DAILY"; cl="$P_CLASSES"; cm=""; rp="$P_REPOS"
     case ",$P_CLASSES," in *,code,*) cm="$P_CODEMAX" ;; esac
     case "$rp" in byz,pack) ;; *) rp="byz,pack" ;; esac   # repos = 직전 ∪ 기본표(옛 줄 byz 로 좁아지지 않음)
   fi
   mx="${ON_MAX:-$mx}"; dl="${ON_DAILY:-$dl}"; cm="${ON_CM:-$cm}"
-  [ -n "$ON_DAILY" ] || dl="$(scope_carry_min "$dl" "$mx")"   # DA 메모 1: 생략해 이어받은 칸만 새 max 로 깎기
-  [ -n "$ON_CM" ] || cm="$(scope_carry_min "$cm" "$mx" 500)"
+  if [ "$prev" = 1 ]; then   # DA 메모 1: «이어받은» 칸만 새 max 로 깎기 — 직전 없음·mid·each 는 지금 그대로(DA#45 H1)
+    [ -n "$ON_DAILY" ] || dl="$(scope_carry_min "$dl" "$mx")"
+    [ -n "$ON_CM" ] || cm="$(scope_carry_min "$cm" "$mx" 500)"
+  fi
   [ "$ON_LEVEL" != full ] || scope_lower_check "$mx" "$dl" "$cl" "$cm" "$rp" "$ON_LOWER"   # r2349 C4: full 낮춤이면 오빠 답 --lower 필요(mid·each 는 직전 범위를 안 본다)
   scope_validate "$mx" "$dl" "$cl" "$cm" "$rp"
 }
