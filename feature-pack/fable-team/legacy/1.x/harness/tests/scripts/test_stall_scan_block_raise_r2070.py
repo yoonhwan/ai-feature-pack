@@ -4,12 +4,16 @@
 ③ record_notify  ④ auto_close close-due  ⑤ auto_close_da_arch «제외»·close-due  ⑥ auto_close 실패 줄
 ⑦ auto_close_da_arch 실패 줄  ⑧ check_team 순번 큐  ⑨ 불변(장부 없음 = 스텁 = 멈춘 스텁)  ⑩ block.sh 인자 문법
 격리: 장부 = FT_BLOCK_BIN 스텁(인자·FT20_SCAN_ROOT 를 파일에 적음) · 닫기·목록·알림 = env 스텁 · 임시 루트 · 실 tmux·실 장부·발신 0 · sleep 0(멈춤 = fifo 읽기).
+r2330: 스텁이 자기 «pid pgid» 를 <스텁>.pids 에 적고(Y1) · 시험 끝(fixture finally)에 _reap 이 그 그룹을 SIGKILL + fifo 풀기 + unlink 한다(Y2).
+같은 그룹(pgid == 내 그룹 또는 ≤1) = 그 pid 만 kill · 내 uid 아닌 pid · 다른 프로세스 번호 재사용 = 신호 0.
 """
 from __future__ import annotations
 
 import json
 import os
+import signal
 import stat
+import subprocess
 import sys
 import threading
 import time
@@ -22,6 +26,8 @@ NOW = 1_800_000_000.0
 STAMP = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(NOW))
 
 BLK = r'''#!/usr/bin/env bash
+BLK_PG=$(ps -o pgid= -p $$ 2>/dev/null | tr -d ' ')   # r2330 Y1 — 멈추기 전에 내 pid·그룹을 적는다
+printf "%s %s\n" "$$" "${BLK_PG:-0}" >> "$0.pids"
 [ -n "${BLK_FIFO:-}" ] && read -r _ < "$BLK_FIFO"
 exec python3 - "$@" <<'PY'
 import json, os, sys
@@ -64,6 +70,63 @@ def _calls(f: Path) -> list[dict]:
     return [json.loads(x) for x in f.read_text(encoding="utf-8").splitlines()] if f.exists() else []
 
 
+def _procs():
+    """이 기계 프로세스 표 — (pid, ppid, pgid, uid, argv) · ps 실패 = 빈 표(판정 불가 = 신호 0)."""
+    try:
+        p = subprocess.run(["ps", "-axo", "pid=,ppid=,pgid=,uid=,command="], capture_output=True, text=True, timeout=7)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    rows = []
+    for line in (p.stdout if not p.returncode else "").splitlines():
+        f = line.split(None, 4)
+        if len(f) == 5 and all(x.isdigit() for x in f[:4]):
+            rows.append((int(f[0]), int(f[1]), int(f[2]), int(f[3]), f[4]))
+    return rows
+
+
+def _release(fifo: Path) -> None:
+    """fifo 를 쓰기로 열어 읽는 쪽(스텁)을 풀어 준다 — 읽는 쪽이 없으면 ENXIO = 그냥 넘어감."""
+    try:
+        os.close(os.open(str(fifo), os.O_WRONLY | os.O_NONBLOCK))
+    except OSError:
+        pass
+
+
+def _reap(stub: Path, tmp: Path) -> None:
+    """r2330 Y2 — 이 시험이 띄운 스텁을 거둔다: fifo 풀기 → 기록된 «pid pgid» SIGKILL → unlink(성공·실패·예외 전부).
+
+    killpg 는 그 그룹에 이 시험 tmp_path 를 argv 에 단 프로세스가 있을 때만 · argv 를 못 읽는 프로세스(스왑 아웃 = ps 가 «(Python)» 로 보임)는 그 pid 만 kill.
+    같은 그룹(pgid == 내 그룹 또는 ≤1)이면 그 pid 만 kill · 내 uid 아닌 pid · 이미 죽은 pid · 번호 재사용 = 신호 0. ps 실패 = 빈 표 = 신호 0(판정 불가).
+    """
+    rec, mine = Path(str(stub) + ".pids"), str(tmp)
+    try:
+        fifos = sorted(tmp.rglob("*.fifo"))
+        for fifo in fifos:
+            _release(fifo)
+        pairs = []
+        for line in (rec.read_text(encoding="utf-8").splitlines() if rec.exists() else []):
+            f = line.split()
+            if len(f) >= 2 and f[0].isdigit() and f[1].isdigit():
+                pairs.append((int(f[0]), int(f[1])))
+        table = _procs() if pairs else []
+        for pid, pgid in pairs:
+            row = [r for r in table if r[0] == pid]
+            if not row or row[0][3] != os.getuid() or row[0][2] != pgid:
+                continue
+            group = pgid if mine in row[0][4] and pgid > 1 and pgid != os.getpgrp() and [r for r in table if r[2] == pgid and mine in r[4]] else 0
+            try:
+                if group:
+                    os.killpg(group, signal.SIGKILL)
+                else:
+                    os.kill(pid, signal.SIGKILL)
+            except OSError:   # 이미 죽음(ProcessLookupError) = 정상
+                pass
+        for fifo in fifos:
+            fifo.unlink(missing_ok=True)
+    except Exception:   # 거두기는 곁가지 — 시험 판정을 바꾸지 않는다
+        pass
+
+
 @pytest.fixture()
 def blk(tmp_path, monkeypatch):
     calls = tmp_path / "blk-calls.jsonl"
@@ -72,7 +135,8 @@ def blk(tmp_path, monkeypatch):
     monkeypatch.setenv("BLK_CALLS", str(calls))
     for k in ("FT_BLOCK_BIN", "FT_CRITICAL_OFF", "BLK_FIFO", "BLK_RC", "BLK_ERR", "FT_NANO_AUTO_CLOSE", "FT_SEAT_AUTO_CLOSE_DA_ARCH"):
         monkeypatch.delenv(k, raising=False)
-    return stub, calls
+    yield stub, calls
+    _reap(stub, tmp_path)   # r2330 Y2 — 시험이 끝날 때(성공·단언 실패·예외) 띄운 스텁 그룹을 거두고 fifo 를 푼다
 
 
 # ---------- ① · ② lib ----------
