@@ -243,6 +243,16 @@ def judge_row(table, row, ddl_ok, env_ok=lambda p: False, card_scope=None):   # 
     new_test_sh = st == "A" and om == "000000" and nm == "100755" and re.search(r"(^|/)tests/test_[^/]*\.sh$", paths[0]) and classes[0][0] == "code"   # r1866: 새 시험 sh 실행 비트만 통과(M·심링크·helper = mode)
     if not new_test_sh and ((st[0] == "M" and om != nm) or (st[0] == "A" and nm != "100644")):
         return "forbid", "mode", "모드 %s→%s: %s" % (om, nm, paths[0])
+    # r2345: 리포 맨 위 tests/ 아래 «새 일반 파일» 시험 fixture SQL = 시험 코드 — 일회용 시험 DB 에만 쓰여 적용 기록 대상이 아니다.
+    #   조건: 새 파일 행((상태, 옛 모드) = (A, 000000)) ∧ 000000→100644(모드 검사와 이중 잠금) ∧ 첫 마디 tests ∧ 마디에 migrations·alembic·supabase 0(대소문자 무시) ∧
+    #   첫 일치 forbid = ddl ∧ ddl 밖 forbid 줄(키·과금·전역 규칙·배포) 어느 것에도 안 맞음(가려진 줄까지 본다 · protected_hit 처럼)
+    seg = paths[0].split("/")
+    test_sql_fixture = ((st, om) == ("A", "000000") and nm == "100644" and bool(bad) and bad[0] == "ddl"
+                        and len(seg) > 1 and seg[0] == "tests" and paths[0].endswith(".sql")
+                        and not any(x.lower() in ("migrations", "alembic", "supabase") for x in seg)
+                        and not any(c == "forbid" and k != "ddl" and rx.search(paths[0]) for c, k, rx in table))
+    if test_sql_fixture:
+        return "code", "test-sql-fixture", None
     new_sql = bool(bad) and bad[0] == "ddl" and st[0] == "A" and bad[1].endswith(".sql")
     recorded = new_sql and ddl_ok(bad[1])   # r2104: ddl_ok → 참(applied) | "ddl-record-only"(design/ 기록만 SQL)
     if recorded:
