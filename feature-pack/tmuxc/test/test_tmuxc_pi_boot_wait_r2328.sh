@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # test_tmuxc_pi_boot_wait_r2328.sh — r2328: tmuxc pi 좌석 부팅 글 = 입력 상자 뜬 뒤 주입(X1) · 전문 기록(X2) · boot-enter pi 갈래(X3) · 불변(X5).
 #   사건: pi 좌석은 고정 sleep 4 뒤 부팅 글을 넣었다. load 가 높아 pi 화면이 늦게 그려지면 Enter 는 먼저 쓰이고 글만 입력창에 남았다.
-#   가짜 pane = 실물 pi 1.5.2 capture 꼴(유휴 1 · 바쁨 1 · 카드 상태 줄 · 경로·숫자는 아무 글자) · claude 상자 꼴(❯) 0.
+#   가짜 pane = 실물 pi 1.5.2 capture 꼴(유휴 1 · 바쁨 1 · 카드 상태 줄 · 경로·숫자는 아무 글자) · 입력 글 = 줄마다 2칸 앞칸 + 폭 감김(DA#41 H1) · claude 상자 꼴(❯) 0.
 #   가짜 tmux·sleep(시계만 민다) · 실 tmux·실 pi 0 · sleep 0 · 시험 대상 = env FT_TMUXC_PATH(기준판으로 돌리면 ①·③ 빨강).
 #   칸: ① 상자 6초 뒤 → 주입 시각 ≥ 6 · 제출 · BOOT_TEXT = 넣은 전문 / ② 30초 안 안 뜸(빈 화면 · 바쁨) → 주입 0 · not-ready · rc≠0
 #       ③ boot-enter 입력줄 = 전문 · 기록 없음 → Enter 1 · 기록 생김 · rc0 / ④ 다른 글자(고스트 제안 꼴) → Enter 0 · rc≠0
 #       ⑤ 기록 이미 있음 → Enter 0 · rc0 / ⑦ claude·codex open → tmux·sleep 호출 기록 = 기준판과 같음(id 값만 지움)
 #   변이(사본만 · 원본 대조 = 위 칸): M1 pi 대기 → 고정 sleep 4 (→ ① FAIL) · M2 완전 일치 → 앞 20자 비교 (→ ④ FAIL)
+#                                    M4 pi 첫 줄 앞칸 벗김 지움 (→ ③ FAIL · DA#41 H1)
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 TMUXC="${FT_TMUXC_PATH:-$HERE/../core/bin/tmuxc}"
@@ -44,6 +45,8 @@ frame() {
     clock) awk -v t="$t" -v r="${READY_AT:-6}" 'BEGIN{ if (t < 2) print "blank"; else if (t < r) print "busy"; else print "idle" }' ;;
   esac
 }
+# 실물 pi 1.5.2 입력 상자 꼴(DA#41 H1): 줄마다 왼쪽 2칸 · 폭 감김(낱말 경계 · 60글자) · 빈 상자 = 빈 줄
+pi_box() { [ -f "$D/env_TMUXC_PI_SESSION_ID" ] || { cat "$D/buffer" 2>/dev/null; return; }; python3 -c 'import sys,textwrap;t=sys.argv[1];print("\n".join("  "+l for l in textwrap.wrap(t,60)) if t else "")' "$(cat "$D/buffer" 2>/dev/null)"; }
 cmd="$1"; shift || true
 case "$cmd" in
   has-session) [ "${FAKE_NOSESS:-0}" = 1 ] && exit 1; exit 0 ;;
@@ -57,7 +60,7 @@ case "$cmd" in
     case "$(frame)" in
       blank) printf '$ pi --session-id …\n' ;;
       busy)  printf ' Elapsed 0.0s\n\n\n── ⠋ Working %s\n\n%s\n~/wt …\n↑168 ↓31k … model-x • medium\n' "$R67" "$R80" ;;
-      idle)  printf ' 앞 출력 1\n 앞 출력 2\n\n%s\n%s\n%s\n~/wt (nano/x) • R2328…\n↑92 ↓29k … model-x • medium\n' "$R80" "$(cat "$D/buffer" 2>/dev/null)" "$R80" ;;
+      idle)  printf ' 앞 출력 1\n 앞 출력 2\n\n%s\n%s\n%s\n~/wt (nano/x) • R2328…\n↑92 ↓29k … model-x • medium\n' "$R80" "$(pi_box)" "$R80" ;;
     esac
     exit 0 ;;
   send-keys)
@@ -137,9 +140,15 @@ case_4() {  # case_4 <tmuxc> → C4
   C4=$?
 }
 # ③ 입력줄 = 부팅 글 전문 · 기록 없음 → Enter 1 · 가짜 pi 가 기록 파일 씀 → rc0
-be_world "$MSG"; run "$TMUXC" "$T/o3" -- boot-enter "$NAME"
-{ [ "$RC" = 0 ] && [ "$(n_enter)" = 1 ] && [ -n "$(pi_file "$SID0")" ] && grep -q 'state=submitted' "$T/o3"; } \
-  && ok "③ 전문 · 기록 없음 → Enter 1 · 기록 생김 · rc0" || bad "③ rc=$RC enters=$(n_enter) out=$(tr '\n' ' ' < "$T/o3") err=$(errl "$T/o3")"
+#   입력 글 = 실물 꼴(줄마다 2칸 앞칸 · 60글자 감김 · DA#41 H1)
+case_3() {  # case_3 <tmuxc> → C3
+  be_world "$MSG"; run "$1" "$T/o3" -- boot-enter "$NAME"
+  C3MSG="rc=$RC enters=$(n_enter) out=$(tr '\n' ' ' < "$T/o3") err=$(errl "$T/o3")"
+  [ "$RC" = 0 ] && [ "$(n_enter)" = 1 ] && [ -n "$(pi_file "$SID0")" ] && grep -q 'state=submitted' "$T/o3"
+  C3=$?
+}
+case_3 "$TMUXC"
+[ "$C3" = 0 ] && ok "③ 전문(2칸 앞칸·감김) · 기록 없음 → Enter 1 · 기록 생김 · rc0" || bad "③ $C3MSG"
 # ④ 다른 글자(앞 30자 같고 뒤가 고스트 제안 꼴) → Enter 0 · rc≠0
 case_4 "$TMUXC"
 [ "$C4" = 0 ] && ok "④ 고스트 제안 꼴 → Enter 0 · $C4MSG" || bad "④ $C4MSG"
@@ -166,10 +175,10 @@ else
 fi
 
 # 변이(사본만) — 위 칸이 원본 대조다
-mutant() {  # mutant <이름> <python 치환 코드> → MT(사본 tmuxc 경로) · 적용 실패 = 빈 값
+mutant() {  # mutant <이름> <python 치환 코드> [고칠 파일 = core 아래 경로] → MT(사본 tmuxc 경로) · 적용 실패 = 빈 값
   rm -rf "$T/mut"; mkdir -p "$T/mut"; cp -R "$(dirname "$TMUXC")/.." "$T/mut/core"
   MT="$T/mut/core/bin/tmuxc"
-  python3 - "$MT" "$2" <<'PY' || MT=""
+  python3 - "$T/mut/core/${3:-bin/tmuxc}" "$2" <<'PY' || MT=""
 import sys
 p, code = sys.argv[1], sys.argv[2]
 s = open(p, encoding="utf-8").read()
@@ -186,13 +195,18 @@ s = s.replace(o1, "[[ \"$agent\" == \"claude\" ]] || sleep 4\n").replace(o2, "if
   if [ -n "$MT" ]; then case_1 "$MT"; [ "$C1" != 0 ] && ok "M1 pi 대기 → 고정 sleep 4 → ① FAIL 재현 · $C1MSG" || bad "M1 이 ① 에 안 잡힘 · $C1MSG"
   else bad "M1 적용 실패"; fi
   mutant M2 'i = s.index("boot_enter_pi() {")
-o = "st=0; input_is_message \"$pane\" \"$text\" || st=$?"
+o = "st=0; input_is_message \"$pane\" \"$text\" pilines || st=$?"
 j = s.index(o, i)
-s = s[:j] + "st=0; [[ \"$(capture_input_line \"$pane\")\" == \"${text:0:20}\"* ]] || st=1" + s[j + len(o):]'
+s = s[:j] + "st=0; [[ \"$(capture_input_line \"$pane\" pilines | head -1)\" == \"${text:0:20}\"* ]] || st=1" + s[j + len(o):]'
   if [ -n "$MT" ]; then case_4 "$MT"; [ "$C4" != 0 ] && ok "M2 완전 일치 → 앞 20자 비교 → ④ FAIL 재현 · $C4MSG" || bad "M2 가 ④ 에 안 잡힘 · $C4MSG"
   else bad "M2 적용 실패"; fi
+  mutant M4 'o = "        if (pi) sub(/^[[:space:]]+/, \"\", s)\n"
+assert s.count(o) == 1
+s = s.replace(o, "")' libexec/agent-inject.sh
+  if [ -n "$MT" ]; then case_3 "$MT"; [ "$C3" != 0 ] && ok "M4 pi 첫 줄 앞칸 벗김 지움 → ③ FAIL 재현 · $C3MSG" || bad "M4 가 ③ 에 안 잡힘 · $C3MSG"
+  else bad "M4 적용 실패"; fi
 else
-  bad "M1·M2 대상 함수 없음(기준판)"
+  bad "M1·M2·M4 대상 함수 없음(기준판)"
 fi
 
 echo "----"

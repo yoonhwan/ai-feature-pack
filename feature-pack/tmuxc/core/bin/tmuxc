@@ -751,7 +751,7 @@ boot_enter_pi() {
   fi
   pane="$(pane_id_of "$name")"
   [[ -n "$pane" ]] || { printf '[HIL] 입력줄 판독 불가 — %s pane 없음 · Enter 0\n' "$name" >&2; return 2; }
-  st=0; input_is_message "$pane" "$text" || st=$?
+  st=0; input_is_message "$pane" "$text" pilines || st=$?
   if [[ "$st" -eq 2 ]]; then
     printf '[HIL] 입력줄 판독 불가 — %s (화면 못 읽음) · Enter 0\n' "$name" >&2
     return 2
