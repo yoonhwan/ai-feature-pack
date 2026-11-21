@@ -140,6 +140,17 @@ check_human_wait() {  # $1=file → K1·K1b r2380: «오빠» 가 적힌 선행 
     else echo "WARN $1 — 「- 선행:」 오빠 대기 줄에 thread <ts> 없음 (K1 r2380 · 줄 $n · 정체 감시 판정에는 안 쓴다)"; fi
   done < <(grep -n '^- 선행:' "$1" 2>/dev/null)
 }
+check_wait_reason() {  # r2395 K4 — 대기/ 카드 **머리**에 «- 대기 사유:» 줄이 없으면 사유 1줄. 새 카드(첫 추가일 ≥ 2026-11-21) = REJECT · 옛 카드 = WARN 만(주인이 되살릴 때 줄을 넣는다 · 일괄 0).
+  #   단계 가림 = 대기/ 폴더만 본다(진행/·완성/·아카이브/ 카드는 대상 밖 · K6 다른 길 그대로). «- 배정:» 줄 없음은 사유 0(r2395 한계 5).
+  #   머리 한정(DA#56 H1) = 첫 «## » 절 앞 줄만 본다 — 본문 예시·인용 안의 같은 글자로 통과 0(check_proposal_line 과 같은 자리).
+  local added new=1
+  case "$1" in */대기/*) ;; *) return 0;; esac
+  awk '/^##[[:space:]]/{exit} {print}' "$1" | grep -qE '^[-*][[:space:]]*대기 사유:' && return 0
+  added="$(awk -F'\t' -v k="$(basename "$1")" '$1==k{d=$2} END{if(d)print d}' "${FT_CARD_ADDED_MAP_FILE:-/dev/null}" 2>/dev/null)"   # 첫 추가일 = 사전 파일(check_proposal_line 과 같은 자리 · 카드마다 git 호출 0 · 사전에 없음 = 이력 없음)
+  { [ -z "$added" ] || [[ ! "$added" < "2026-11-21" ]]; } || new=0
+  if [ "$new" = 1 ]; then bad+=("대기/ 카드에 「- 대기 사유:」 줄 없음 (새 카드 의무 · r2395 · 풀었으면 「- 대기 사유: 없음」)")
+  else echo "WARN $1 — 대기/ 카드에 「- 대기 사유:」 줄 없음 (옛 카드 · 주인이 되살릴 때 넣는다 · r2395)"; fi
+}
 for f in "$@"; do
   bad=(); if [ -z "${FT_CARD_ADDED_MAP_FILE-}" ]; then MAPF="$(mktemp "${TMPDIR:-/tmp}/ft_card_map_dates.XXXXXX" 2>/dev/null)" && trap 'rm -f "$MAPF"' EXIT && export FT_CARD_ADDED_MAP_FILE="$MAPF" && python3 "$(dirname "${BASH_SOURCE[0]:-$0}")/ft_card_map_lint.py" --map-only "$@" >/dev/null 2>&1; fi   # r984 순서: ①사전 생성(판정기 안 git log 1회 · 7초 넘으면 전역 BAD rc3) → ②제안서 줄 → ③⑫
   [ -f "$f" ] || { echo "REJECT $f — 파일 없음"; rc=1; continue; }; [ ! -f "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-team-lib.sh" ] || ( . "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-team-lib.sh" && ft_card_location_ok "$f" ) || { rc=1; continue; }   # r447: 명단 새 꼴 팀 카드가 옛 꼴 폴더에 있으면 REJECT
@@ -178,6 +189,7 @@ for f in "$@"; do
   fi
   fi
   check_human_wait "$f"  # r2380 K1·K1b — 오빠 대기 선행 줄 꼴(기본 WARN · FT_LINT_HUMAN_WAIT=reject 일 때만 REJECT)
+  check_wait_reason "$f"  # r2395 K4 — 대기/ 카드 «- 대기 사유:» 줄(새 카드 REJECT · 옛 카드 WARN)
   check_seat_line "$f"; [ -n "$small" ] || check_proposal_line "$f"; al="$(python3 "$(dirname "${BASH_SOURCE[0]:-$0}")/ft_card_assign_watch.py" lint "$f" 2>&1)"; arc=$?; case "$arc" in 0) [ -z "$al" ] || echo "$al";; 3) echo "WARN $f — ${al:-배정 줄 검사 판정 불가}";; *) bad+=("${al:-배정 줄 검사 불가 — ft_card_assign_watch.py}");; esac; check_da_hold "$f"; MAPL="${MAPL-$(python3 "$(dirname "${BASH_SOURCE[0]:-$0}")/ft_card_map_lint.py" "$@" 2>/dev/null)}"; [ -n "$small" ] || while IFS=$'\t' read -r st cp msg; do { [ "$cp" = "*" ] && MAPERR=1; [ "$cp" = "*" ] || [ -z "$cp" ] || [ "$cp" = "$f" ]; } || continue; case "$st" in INFO*) echo "INFO $f — $msg";; WARN*) echo "WARN $f — $msg";; BAD*) bad+=("$msg");; esac; done < <(printf '%s\n' "$MAPL")   # ⑫ 계약↔시험 대응표(r984 · ft_card_map_lint.py — BAD=REJECT · WARN/INFO 통과 · «*» 줄=판정 불가)
   inst="$(bash "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-index-lint-install.sh" "$f")" || bad+=("$inst"); tl="$( . "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-card-target-lib.sh" && ft_card_target_lint "$f")" || bad+=("대상 줄 검사 불가 — 공용 파일 ft-card-target-lib.sh 를 못 읽었다"); while IFS= read -r l; do [ -z "$l" ] || bad+=("$l"); done <<< "$tl"   # ⑩ 하네스 카드 「- 설치:」 줄 (R245) · ⑬ 대상 줄 한 카드 = 한 리포 · 라이브 경로 0 (r1138 · 닫기 ⑥--landed-pr 와 같은 함수)
   if [ "${FT_CARD_REQUIRE_PREVERIFY:-}" = 1 ]; then check_preverify "$f"; check_evidence "$f"; fi; [ ! -f "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-card-number.sh" ] || while IFS= read -r l; do case "$l" in WARN*) echo "WARN $f — ${l#WARN }";; BAD*) bad+=("${l#BAD }");; 판정\ 불가*) echo "WARN $f — 카드 번호 검사 ${l}";; esac; done < <(bash "$(dirname "${BASH_SOURCE[0]:-$0}")/ft-card-number.sh" lint "$f" --repo "$ROOT" 2>&1)   # ⑮ 카드 번호(r1695 · ft-card-number.sh lint) — 다른 팀 카드·발급 원장과 겹침 = REJECT · 이미 BASE 에 있는 카드 = «기존 겹침» WARN · 판정 불가 = WARN

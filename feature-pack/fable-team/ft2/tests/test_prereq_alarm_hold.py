@@ -46,7 +46,7 @@ def world(tmp, mp, cards=None, cap="4", ft2=kw.FT2, prep=None):
                  FT2_TEAM_NANO_MAX=cap, GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="core.quotepath", GIT_CONFIG_VALUE_0="false")
     kw._put(w.state / "directive-roots.tsv", "harness\t.\torigin/main\tdesign/harness/indices\n")
     if cards:
-        w.commit("byz", {"design/harness/indices/대기/%s.md" % s: "# 인덱스: %s\n%s- 상태: 대기\n" % (s, h) for s, h in cards.items()}, "main")
+        w.commit("byz", {"design/harness/indices/대기/%s.md" % s: "# 인덱스: %s\n%s- 상태: 대기\n" % (s, base.marked(h)) for s, h in cards.items()}, "main")   # r2395 — 표식 없는 fixture 머리 = 해제 표식 1줄
     w.enable()
     if prep:
         prep(w)
@@ -138,6 +138,8 @@ def team_on(w, team=PLAN, master="", desk=""):
 
 
 def put_team(w, team, stem, head, stage="대기"):
+    if not any(x.startswith(("- 배정", "- 대기 사유:")) for x in head.splitlines()):   # r2395 — 표식 줄 1개(없으면 keeper 가 판정 불가)
+        head = "- 배정: 없음\n" + head
     w.commit("byz", {"design/%s/indices/%s/%s.md" % (team, stage, stem): "# 인덱스: %s\n%s- 상태: 대기\n" % (stem, head)}, "main")
 
 

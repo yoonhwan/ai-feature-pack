@@ -38,8 +38,10 @@ def settle(w):
         return k.lines
     w.round = round
     return w
-def world(tmp, mp, cards=None, enable=True, ft2=kw.FT2):
-    """대기 카드 {stem: 머리 줄} · 카드 루트 표 harness 행 · 닫힐 일 W1(착지 카드 완성/ · 세션 없음)."""
+def marked(head):   # r2395 — 표식 두 줄(«- 배정:» · «- 대기 사유:»)이 다 없는 fixture 머리에 해제 표식 1줄을 깐다(제품 규칙 = 표식없음 skip · 시험 본뜻만 본다)
+    return head if any(x.startswith(("- 배정", "- 대기 사유:")) for x in head.splitlines()) else "- 배정: 없음\n" + head
+def world(tmp, mp, cards=None, enable=True, ft2=kw.FT2, mark=True):
+    """대기 카드 {stem: 머리 줄} · 카드 루트 표 harness 행 · 닫힐 일 W1(착지 카드 완성/ · 세션 없음). mark=False = 머리 줄 그대로(r2395 표식 없는 카드 시험)."""
     w = kw.World(tmp, mp, ft2)
     b, tm = tmp / "bin", kw.TMUX.replace("__PY__", sys.executable)
     i = tm.index('if a[0] == "kill-session"')
@@ -49,7 +51,7 @@ def world(tmp, mp, cards=None, enable=True, ft2=kw.FT2):
                  GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="core.quotepath", GIT_CONFIG_VALUE_0="false")   # 가짜 HOME = 실 ~/.claude 문턱 읽기 0
     kw._put(w.state / "directive-roots.tsv", "harness\t.\torigin/main\tdesign/harness/indices\n")
     if cards:
-        w.commit("byz", {"design/harness/indices/대기/%s.md" % s: "# 인덱스: %s\n%s- 상태: 대기\n" % (s, h) for s, h in cards.items()}, "main")
+        w.commit("byz", {"design/harness/indices/대기/%s.md" % s: "# 인덱스: %s\n%s- 상태: 대기\n" % (s, marked(h) if mark else h) for s, h in cards.items()}, "main")
     if enable:
         w.enable()
     close(w, W1)
@@ -99,7 +101,7 @@ def c2b(w, mp=None):  # ②′ r2271 C2 같은 날 지문이 바뀌는 [다음 �
     w.round()
     for i, work in enumerate(W2 + ch for ch in "abc"):
         stem = "r9010-%s" % work[-1]   # 바퀴마다 «사람» 막힌 카드 1장 더 = 지문 바뀜
-        w.commit("byz", {"design/harness/indices/대기/%s.md" % stem: "# 인덱스: %s\n- 상태: 대기\n" % stem}, "main")
+        w.commit("byz", {"design/harness/indices/대기/%s.md" % stem: "# 인덱스: %s\n- 배정: 없음\n- 상태: 대기\n" % stem}, "main")
         kw._put(w.state / "card-assign" / (stem + ".json"), {"state": "waiting", "reason": "사람", "since": 1.0})
         close(w, work)
         w.t += 60   # 같은 날 안
@@ -131,7 +133,7 @@ def c10(w, mp):       # ⑩ 영수 직후 중단 → 같은 사건 재접수 = �
     with pytest.raises(RuntimeError):
         k.run_once()
     assert len(receipts(w)) == 1 and count(w, "dispatch", B) == 0 and launched(w) == []
-    w.commit("byz", {"design/harness/indices/대기/%s.md" % C: "# 인덱스: %s\n%s" % (C, URG)}, "main")
+    w.commit("byz", {"design/harness/indices/대기/%s.md" % C: "# 인덱스: %s\n- 배정: 없음\n%s" % (C, URG)}, "main")
     assert "NEXT harness %s -> %s %s" % (W1, B, nh(B)) in w.round()
     assert launched(w) == [B] and ledger(w, B)["seat"] == nh(B) and count(w, "accept", C) == 0 and len(receipts(w)) == 1
     return k
@@ -149,7 +151,7 @@ def c12(w, mp):       # ⑫ launch 성공 직후 record 전 중단 → 다음 �
     except RuntimeError:
         pass
     assert launched(w) == [B] and log(w, "record") == []
-    w.commit("byz", {"design/harness/indices/대기/%s.md" % C: "# 인덱스: %s\n%s" % (C, URG)}, "main")
+    w.commit("byz", {"design/harness/indices/대기/%s.md" % C: "# 인덱스: %s\n- 배정: 없음\n%s" % (C, URG)}, "main")
     assert "NEXT harness %s -> %s %s" % (W1, B, nh(B)) in w.round()
     assert launched(w) == [B] and len(log(w, "record")) == 1 and count(w, "accept", C) == 0
 def cR2(w, mp):       # R2 영수 직후 중단 → PAUSED → 재개 바퀴 launch 0 · 저장 next 유지 · handled 0 → 허용 뒤 같은 사건 launch 1

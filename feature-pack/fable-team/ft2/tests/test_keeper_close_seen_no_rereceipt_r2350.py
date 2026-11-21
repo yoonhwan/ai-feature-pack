@@ -51,7 +51,7 @@ def world(tmp, mp, ft2=FT2, cards=True, enable=True):
                  FT2_TEAM_NANO_MAX="1", GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="core.quotepath", GIT_CONFIG_VALUE_0="false")
     kw._put(w.state / "directive-roots.tsv", "harness\t.\torigin/main\tdesign/harness/indices\n")
     if cards:
-        w.commit("byz", {"design/harness/indices/대기/%s.md" % NXT: "# 인덱스: %s\n- 상태: 대기\n" % NXT}, "main")
+        w.commit("byz", {"design/harness/indices/대기/%s.md" % NXT: "# 인덱스: %s\n- 배정: 없음\n- 상태: 대기\n" % NXT}, "main")   # r2395 — 표식 줄 1개
     if enable:
         w.enable()
     w.card(FIN, sha=w.pack_sha(), stage="완성")

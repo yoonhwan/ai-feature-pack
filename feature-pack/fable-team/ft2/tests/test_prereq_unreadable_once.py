@@ -25,7 +25,10 @@ PLAIN, OTHER, PLAIN2, PLAIN3, PLAIN4 = ("- 선행: 팩 origin/main 착지(충족
 
 
 def put(w, stage, stem, head=""):
-    """카드 1장을 그 폴더에 커밋(대기 → 완성 이동도 같은 길 · w.commit 은 파일을 더하기만 한다)."""
+    """카드 1장을 그 폴더에 커밋(대기 → 완성 이동도 같은 길 · w.commit 은 파일을 더하기만 한다).
+    r2395 — 표식 줄(«- 배정:» · «- 대기 사유:»)이 없으면 해제 표식 1줄을 깐다(없으면 keeper 가 판정 불가로 건너뛴다)."""
+    if not any(x.startswith(("- 배정", "- 대기 사유:")) for x in head.splitlines()):
+        head = "- 배정: 없음\n" + head
     w.commit("byz", {ROOT % (stage, stem): "# 인덱스: %s\n%s- 상태: 대기\n" % (stem, head)}, "main")
 
 

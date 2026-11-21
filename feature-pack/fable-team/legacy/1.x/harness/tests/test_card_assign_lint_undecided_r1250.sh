@@ -22,7 +22,7 @@ new_root() {  # R = git 리포(main) + 대기·진행 폴더 · 가짜 installed
   echo "$((NOW - 5000))" > "$R/.fable-team/state/card-assign/installed_at"
 }
 add() {  # <상대경로> <커밋 epoch> — 배정 줄 없는 카드 추가 커밋
-  mkdir -p "$(dirname "$R/$1")"; printf '# 카드\n- 상태: 대기\n## 상태\n- 시험\n' > "$R/$1"; "$REALGIT" -C "$R" add "$1"; gc "$R" "$2" "add $1"
+  mkdir -p "$(dirname "$R/$1")"; printf '# 카드\n- 대기 사유: 없음\n- 상태: 대기\n## 상태\n- 시험\n' > "$R/$1"; "$REALGIT" -C "$R" add "$1"; gc "$R" "$2" "add $1"
 }
 lint() {  # <모드> <카드 상대경로> — stdout = OUT · stderr = ERR · rc = RC (예산 env 1초)
   OUT="$(cd "$R" && env PATH="$T/fg:$PATH" FG_MODE="$1" FT_ROOT="${LROOT-$R}" FT_DIRECTIVE_GIT_SEC="${BUDGET:-1}" python3 "${TOOL_RUN:-$TOOL}" lint "$R/$2" 2>"$T/err")"; RC=$?; ERR="$(cat "$T/err")"
@@ -68,7 +68,7 @@ SR="$SP/repo"; "$REALGIT" init -q -b main "$SR"; mkdir -p "$SR/.fable-team/state
 printf '2026-10-21T00:00:00\toff\tinstall\tinit\n' > "$SR/.fable-team/state/all-stop.log"; echo '{"_name":"alpha","_master":"byz-alpha-master-claude#1","byz-alpha-master-claude#1":{"role":"master"}}' > "$SR/.fable-team/seats-alpha.json"
 printf '| 팀 | 폴더 | x | y |\n|---|---|---|---|\n| alpha | `design/alpha/` | a | 현역 |\n' > "$SR/design/TEAMS.md"; printf 'l1\n' > "$SR/src/t.sh"; printf '골 1\n골 2\n골 3\n' > "$SP/goal.txt"
 echo '원장: 닫는 증거는 이 문장 전체를 복붙한 것이어야 한다.' > "$SR/design/LEDGER.md"; printf '.fable-team/\n' > "$SR/.gitignore"; echo "$((NOW - 5000))" > "$SR/.fable-team/state/card-assign/installed_at"
-card_body() { printf '%s\n' '# 인덱스: y' '- 제안서: 없음 — 시험 카드' '- Issue: #5342' "$@" '## 골 원문' '골 1' '골 2' '골 3' '## 골좌표' '닫는 증거: 「닫는 증거는 이 문장 전체를 복붙한 것이어야 한다.」' '## 배경' '시험.' '## 구현 범위' '1. src/t.sh 수정' '## 완료 조건' '- 시험.' '## 계약↔시험 대응표' '| 계약 | 시험 |' '|---|---|' '| ① 시험 | ⓐ 시험 |' '## 상태' '- 시험'; }
+card_body() { printf '%s\n' '# 인덱스: y' '- 제안서: 없음 — 시험 카드' '- Issue: #5342' '- 대기 사유: 없음' "$@" '## 골 원문' '골 1' '골 2' '골 3' '## 골좌표' '닫는 증거: 「닫는 증거는 이 문장 전체를 복붙한 것이어야 한다.」' '## 배경' '시험.' '## 구현 범위' '1. src/t.sh 수정' '## 완료 조건' '- 시험.' '## 계약↔시험 대응표' '| 계약 | 시험 |' '|---|---|' '| ① 시험 | ⓐ 시험 |' '## 상태' '- 시험'; }
 CY="$SR/design/alpha/indices/대기/y.md"; card_body > "$CY"
 "$REALGIT" -C "$SR" add -A; gc "$SR" "$((NOW - 200))" cards; echo y > "$SR/src/t.sh"; "$REALGIT" -C "$SR" add -A; gc "$SR" "$((NOW - 100))" base
 "$REALGIT" clone -q --bare "$SR" "$SP/origin.git"; "$REALGIT" -C "$SR" remote add origin "$SP/origin.git"; "$REALGIT" -C "$SR" fetch -q origin
