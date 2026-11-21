@@ -98,8 +98,8 @@ class Execution:
     def result(self, work, holder, gen, word=RECOVERED):
         """결과 확정. 계약 8낱말 밖의 낱말은 «접수 거부» 다(ⓕ)."""
         if not record.is_contract_result(word):   # r2382: 허용 낱말·출처를 같이 찍는다 — 나노가 그 답을 리포 전체에서 찾지 않게
-            reason = "계약 밖 결과 낱말: %r · 허용 8낱말 = %s · 출처 = %s" % (
-                word, ", ".join(record.RESULT_WORDS), record.__file__)
+            reason = "계약 밖 결과 낱말: %r — 허용 = %s (출처 %s RESULT_WORDS)" % (
+                word, " · ".join(record.RESULT_WORDS), os.path.realpath(record.__file__))
             return Grant(REFUSED, work, gen, holder, reason=reason)
         return self._step(work, holder, gen, "result", "", drop=True)
 
