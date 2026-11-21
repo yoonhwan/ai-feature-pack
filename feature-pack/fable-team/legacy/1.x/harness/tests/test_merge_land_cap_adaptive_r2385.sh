@@ -40,7 +40,7 @@ k7b() { seed20 30 0 o/r 0; chk o/r 999 "67 14 floor 20 30 0"; }  # R_push 바닥
 k8() { seed20 90 1 o/r; chk o/r 999 "100 14 p90 20 90 1"; }   # 천장 100
 
 # ── DA#54 H2 · H3 — prev 경계(음수 left = 총 마감 초과 거절) · push 표본은 최근 20행만 ────────
-k15() { seed20 54 7 o/r; row "$(tsa 600)" 999 57 - -1 o/r 14 >> "$F"; chk o/r 999 "75 14 p90 20 54 7"; }   # H2: left=-1 은 예산 거절이 아니다 → prev 0
+k15() { seed20 54 7 o/r; row "$(tsa 600)" 999 57 - -1 o/r 14 >> "$F"; chk o/r 999 "92 14 prev 20 54 7"; }   # DA#54 H2: left=-1(총 마감 초과 거절)도 «left ≤ R_push» 예산 거절 꼴 → prev 상향 켜짐
 k16() {   # H3: 200줄 중 앞 180행 push 60 · 뒤 20행 push 7 → 표본 창(20행)만 셈 = push90 7
   local i; : > "$F"
   for i in $(seq 1 180); do row "$(tsa 900)" "$((600 + i))" 8 60 40 o/r >> "$F"; done
@@ -99,5 +99,6 @@ mut 6 k9 'if [ -n "${FT_LAND_TOTAL_S:-}" ]; then' 'if false; then'   # env 우�
 mut 7 k13 ' && rv != rp) next' ' && 0) next'   # repo 칸 거르기 지움
 mut 8 k14 'tail -n 200 "$f" 2>/dev/null' 'cat "$f" 2>/dev/null'   # tail 지움(파일 전체 읽기) → ⑭ 초
 mut 9 k4a '(LEF[last] + 0) <= LRS[last]' '(LEF[last] + 0) < LRS[last]'   # prev 경계 ≤ → <
+mut 12 k15 'LEF[last] ~ /^-?[0-9]+$/' 'LEF[last] ~ /^[0-9]+$/'   # DA#54 H2 짝: 음수 left 거부로 되돌림(k15 FAIL)
 echo "합계 $SECONDS"   # 시험 1개 70초 상한(하드 룰 22)
 [ "$fail" = 0 ] && echo "ALL PASS" || { echo "FAILED $fail"; exit 1; }

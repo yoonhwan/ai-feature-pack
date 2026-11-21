@@ -102,7 +102,7 @@ fm_push_bound() {
 #     stdout = "<LIM> <R_push> <출처> <n> <앞 합 p90> <push p90> <gate p90> <press p90> <직전 gate> <직전 press>" — 공백 1칸 10칸 고정(부른 쪽이 read 로 받는다 · 판정 불가도 «지금 값»을 채워 칸 수를 지킨다)
 #     K6·K7 용 뒷 4칸: gate p90 = 표본 gate 칸 p90 · press p90 = 표본 중 press 가 숫자 ≥ 2 인 행만(DA#53 F2 ⓑ) · 직전 gate/press = 같은 PR 마지막 행(30분 안)의 그 칸(없으면 -1)
 #     K1 표본 = <state>/land-phase.tsv 1개만(git 0) · 끝 200줄(tail) · 그중 최근 20행 · 같은 repo 칸 행만(칸 없는 옛 행은 모든 repo 에 셈) · 앞 합 = close+view+fetch+gate+overlap+equiv+press+lint("-" = 0) · push 표본 = push 가 숫자인 행
-#     K2 prev 경계 = left 가 «0 이상 숫자» 이고 그 행 rpush 이하일 때만(음수 left = 총 마감 초과 거절 → 상향 0 · DA#54 H2 · 없는 행/탐침 -1 도 0) · R_push = clamp(F+7, 70, push p90+7) · LIM = clamp(67, 100, 앞 합 p90 + R_push + 7) · p90 = 오름차순 0 기준 index floor(0.9n) · 앞 합 p90 + R_push + 7 이 67 미만이면 출처=floor(바닥에 걸림 · 67 초과 100 미만이면 p90) · prev 갈래 = 같은 PR 의 마지막 행이 30분 안 ∧ push="-" ∧ left ≤ 그 행 rpush(칸 없음 14) 면 LIM = clamp(67, 100, max(위 값, 그 행 앞 합 + 2×R_push + 7)) · 출처=prev
+#     K2 prev 경계 = left 가 «숫자(음수 포함 · -1 = 총 마감 초과 거절도 예산 거절 꼴)» 이고 그 행 rpush 이하일 때만(DA#54 H2 정정 · master #363176) · 없는 행/탐침 -1 은 상향 0 · R_push = clamp(F+7, 70, push p90+7) · LIM = clamp(67, 100, 앞 합 p90 + R_push + 7) · p90 = 오름차순 0 기준 index floor(0.9n) · 앞 합 p90 + R_push + 7 이 67 미만이면 출처=floor(바닥에 걸림 · 67 초과 100 미만이면 p90) · prev 갈래 = 같은 PR 의 마지막 행이 30분 안 ∧ push="-" ∧ left ≤ 그 행 rpush(칸 없음 14) 면 LIM = clamp(67, 100, max(위 값, 그 행 앞 합 + 2×R_push + 7)) · 출처=prev
 #     K3 FT_LAND_TOTAL_S 가 있으면 그 값(1~100 · 밖이면 100) · 출처=env · 표본 안 봄 / 파일 없음·못읽음·표본 < 5행 = 67 · F+7 + 출처=floor:<없음|못읽음|n<5> / 깨진 줄은 건너뜀 · 1초 안(외부 호출 0)
 fm_land_cap() {
   local st="${1-}" rp="${2-}" pr="${3-}" rf f now tzo nowl cut out e
@@ -159,7 +159,7 @@ fm_land_cap() {
       rpush = push90 + 7; if (rpush < rf) rpush = rf; if (rpush > 70) rpush = 70
       lim = pre90 + rpush + 7; src = (lim < 67) ? "floor" : "p90"; if (lim < 67) lim = 67; if (lim > 100) lim = 100
       if (last > 0) { t = LTS[last]
-        if (t >= 0 && t >= cut && t <= nowl + 5 && LEF[last] ~ /^[0-9]+$/ && (LEF[last] + 0) <= LRS[last]) {
+        if (t >= 0 && t >= cut && t <= nowl + 5 && LEF[last] ~ /^-?[0-9]+$/ && (LEF[last] + 0) <= LRS[last]) {
           c = LPRE[last] + 2 * rpush + 7
           if (c > lim) { lim = (c > 100) ? 100 : c; src = "prev" }
         }
