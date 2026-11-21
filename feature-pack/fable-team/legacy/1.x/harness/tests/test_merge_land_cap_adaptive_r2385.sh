@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_merge_land_cap_adaptive_r2385.sh — r2385: 착지 «총 상한»(LIM)·«push 1단위»(R_push)를 고정 67·14 대신 land-phase.tsv 실측으로 판마다 정한다(fm_land_cap)
-#   이 파일 = K1 표본(① · ② · ⑫ · ⑬ · ⑭) · K2 공식(③ · ④ · ⑤ · ⑥ · ⑦ · ⑦b · ⑧) · K3 env 우선·판정 불가(⑨ · ⑨b · ⑩ · ⑪) · 변이 M1~M9(사본에서만 · 원본 같은 사례 = PASS)
+#   이 파일 = K1 표본(① · ② · ⑫ · ⑬ · ⑭ · H3(k16)) · K2 공식(③ · ④ · ⑤ · ⑥ · ⑦ · ⑦b · ⑧ · H2(k15)) · K3 env 우선·판정 불가(⑨ · ⑨b · ⑩ · ⑪) · 변이 M1~M9(사본에서만 · 원본 같은 사례 = PASS)
 #   K4 출처 1줄 · K5 다른 길 그대로(⑮~⑱) = test_merge_land_cap_adaptive_r2385_land.sh(실 54초짜리 판 · 하드 룰 22 = 70초 상한으로 쪼갬) · 기준판 Red = _red.sh
 #   여기서는 함수만 부른다(임시 폴더 하나 · git·네트워크·실 상태 0 · sleep 0) · 시험 1개 70초 상한
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
@@ -39,6 +39,14 @@ k7() { seed20 30 1 o/r; chk o/r 999 "67 14 floor 20 30 1"; }   # 바닥 67
 k7b() { seed20 30 0 o/r 0; chk o/r 999 "67 14 floor 20 30 0"; }  # R_push 바닥(F+7 = 14) — push p90 0 이어도 14
 k8() { seed20 90 1 o/r; chk o/r 999 "100 14 p90 20 90 1"; }   # 천장 100
 
+# ── DA#54 H2 · H3 — prev 경계(음수 left = 총 마감 초과 거절) · push 표본은 최근 20행만 ────────
+k15() { seed20 54 7 o/r; row "$(tsa 600)" 999 57 - -1 o/r 14 >> "$F"; chk o/r 999 "75 14 p90 20 54 7"; }   # H2: left=-1 은 예산 거절이 아니다 → prev 0
+k16() {   # H3: 200줄 중 앞 180행 push 60 · 뒤 20행 push 7 → 표본 창(20행)만 셈 = push90 7
+  local i; : > "$F"
+  for i in $(seq 1 180); do row "$(tsa 900)" "$((600 + i))" 8 60 40 o/r >> "$F"; done
+  for i in $(seq 1 20); do row "$(tsa 120)" "$((700 + i))" 54 7 40 o/r >> "$F"; done
+  chk o/r 999 "75 14 p90 20 54 7"; }
+
 # ── K3 env 우선 · 판정 불가 · 거르기 ─────────────────────────────────────────────────────────────
 k9() { seed20 54 7 o/r; out="got=[$(FT_LAND_TOTAL_S=80 cap "$S" o/r 999 2>/dev/null | cut -d' ' -f1-6)]"; [ "$out" = "got=[80 14 env 0 0 0]" ]; }
 k9b() { seed20 54 7 o/r; out="got=[$(FT_LAND_TOTAL_S=150 cap "$S" o/r 999 2>/dev/null | cut -d' ' -f1-6)]"; [ "$out" = "got=[100 14 env 0 0 0]" ]; }
@@ -62,7 +70,7 @@ with io.open(sys.argv[1], "w") as f:
   [ "$g" = "78 14 p90 20 57 6" ] && python3 -c "import sys; sys.exit(0 if float('$RC14') < 1.0 else 1)"; }
 
 RC14=0
-for c in k1 k2 k3 k4a k4b k4c k5 k6 k7 k7b k8; do "$c"; ck "$c" $?; done
+for c in k1 k2 k3 k4a k4b k4c k5 k6 k7 k7b k8 k15 k16; do "$c"; ck "$c" $?; done
 S1=$SECONDS
 for c in k9 k9b k10 k11 k12 k13 k14; do "$c"; ck "$c" $?; done
 echo "단계별 초: K1·K2 ①~⑧ ${S1} · K3 ⑨~⑭ $((SECONDS - S1)) · ⑭ 함수 1회 ${RC14}초"

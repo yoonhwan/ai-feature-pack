@@ -54,6 +54,11 @@ rm -f "$PFILE"; mland "$FIX" 704 40 FT_PUSH_FIXED_S=$F
 ok=0; { [ "$rc" = 0 ] && [ "$(gv GATE-CAP s)" = "$(gv GATE-CAP need)" ] && [ "$(gv GATE-CAP s)" = "$(( $(gv GATE-CAP left) - 14 ))" ] && [ "$(gv GATE-CAP press)" = 0 ]; } && ok=1
 ck "㉒ 표본 floor → GATE-CAP s = need = 남은 − 14 · press 0" $((1 - ok))
 
+# ── DA#54 H2 — 같은 PR 직전 행이 없으면 탐침 -1 을 gate need 에 안 섞는다(need = gate p90 + 7) ──
+seed 20 0 716 0 0 40; : ; mland "$FIX" 716 40 FT_PUSH_FIXED_S=$F
+ok=0; { [ "$rc" = 0 ] && [ "$(gv GATE-CAP need)" = 27 ] && [ "$(gv GATE-CAP press)" = 0 ]; } && ok=1
+ck "H2 직전 행 없음(탐침 -1) → GATE-CAP need = gate p90 20 + 7 = 27" $((1 - ok))
+
 # ── ㉓ 남은 − 14 < 1 → «push 몫 예약: gate 앞 …» 글 그대로 ─────────────────────────────────────
 seed 20 23 705 0 23 40; DL_OFF=14 mland "$FIX" 705 40 FT_PUSH_FIXED_S=$F
 push_res() {   # «push 몫 예약: <단계> 앞 남은 <초>s − push 1단위 <RU>s < 1» 글 — 남은 − R_push < 1 이면 그 자리(단계 이름 그대로)에서 같은 문장

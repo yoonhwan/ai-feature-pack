@@ -102,7 +102,7 @@ fm_push_bound() {
 #     stdout = "<LIM> <R_push> <출처> <n> <앞 합 p90> <push p90> <gate p90> <press p90> <직전 gate> <직전 press>" — 공백 1칸 10칸 고정(부른 쪽이 read 로 받는다 · 판정 불가도 «지금 값»을 채워 칸 수를 지킨다)
 #     K6·K7 용 뒷 4칸: gate p90 = 표본 gate 칸 p90 · press p90 = 표본 중 press 가 숫자 ≥ 2 인 행만(DA#53 F2 ⓑ) · 직전 gate/press = 같은 PR 마지막 행(30분 안)의 그 칸(없으면 -1)
 #     K1 표본 = <state>/land-phase.tsv 1개만(git 0) · 끝 200줄(tail) · 그중 최근 20행 · 같은 repo 칸 행만(칸 없는 옛 행은 모든 repo 에 셈) · 앞 합 = close+view+fetch+gate+overlap+equiv+press+lint("-" = 0) · push 표본 = push 가 숫자인 행
-#     K2 R_push = clamp(F+7, 70, push p90+7) · LIM = clamp(67, 100, 앞 합 p90 + R_push + 7) · p90 = 오름차순 0 기준 index floor(0.9n) · 앞 합 p90 + R_push + 7 이 67 미만이면 출처=floor(바닥에 걸림 · 67 초과 100 미만이면 p90) · prev 갈래 = 같은 PR 의 마지막 행이 30분 안 ∧ push="-" ∧ left ≤ 그 행 rpush(칸 없음 14) 면 LIM = clamp(67, 100, max(위 값, 그 행 앞 합 + 2×R_push + 7)) · 출처=prev
+#     K2 prev 경계 = left 가 «0 이상 숫자» 이고 그 행 rpush 이하일 때만(음수 left = 총 마감 초과 거절 → 상향 0 · DA#54 H2 · 없는 행/탐침 -1 도 0) · R_push = clamp(F+7, 70, push p90+7) · LIM = clamp(67, 100, 앞 합 p90 + R_push + 7) · p90 = 오름차순 0 기준 index floor(0.9n) · 앞 합 p90 + R_push + 7 이 67 미만이면 출처=floor(바닥에 걸림 · 67 초과 100 미만이면 p90) · prev 갈래 = 같은 PR 의 마지막 행이 30분 안 ∧ push="-" ∧ left ≤ 그 행 rpush(칸 없음 14) 면 LIM = clamp(67, 100, max(위 값, 그 행 앞 합 + 2×R_push + 7)) · 출처=prev
 #     K3 FT_LAND_TOTAL_S 가 있으면 그 값(1~100 · 밖이면 100) · 출처=env · 표본 안 봄 / 파일 없음·못읽음·표본 < 5행 = 67 · F+7 + 출처=floor:<없음|못읽음|n<5> / 깨진 줄은 건너뜀 · 1초 안(외부 호출 0)
 fm_land_cap() {
   local st="${1-}" rp="${2-}" pr="${3-}" rf f now tzo nowl cut out e
@@ -145,7 +145,7 @@ fm_land_cap() {
       pre = nz(K["close"]) + nz(K["view"]) + nz(K["fetch"]) + nz(K["gate"]) + nz(K["overlap"]) + nz(K["equiv"]) + nz(K["press"]) + nz(K["lint"])
       nr++; PRE[nr] = pre
       GT[nr] = K["gate"]; PRS[nr] = K["press"]
-      if (K["push"] ~ /^[0-9]+$/) { np++; PSH[np] = K["push"] + 0 }
+      PUSH[nr] = K["push"]   # r2385 DA#54 H3: push 표본도 «최근 20행» 창에서만 센다(200줄 전부 아님)
       if (pr != "" && K["pr"] == pr) { last = nr; LTS[nr] = ep($1); LEF[nr] = K["left"]; LPRE[nr] = pre; LRS[nr] = (K["rpush"] ~ /^[0-9]+$/) ? K["rpush"] + 0 : 14; LGAT[nr] = K["gate"]; LPRS[nr] = K["press"] }
     }
     END {
@@ -154,8 +154,8 @@ fm_land_cap() {
       if (n < 5) { printf "67 %d floor:n<5 %d 0 0 0 0 -1 -1\n", rf, nr; exit }
       k = 0; for (i = s; i <= nr; i++) { k++; A[k] = PRE[i] }
       srt(A, k); pre90 = p90(A, k)
-      for (i = 1; i <= np; i++) Q[i] = PSH[i]
-      srt(Q, np); push90 = p90(Q, np)
+      j = 0; for (i = s; i <= nr; i++) if (PUSH[i] ~ /^[0-9]+$/) { j++; Q[j] = PUSH[i] + 0 }
+      srt(Q, j); push90 = p90(Q, j)
       rpush = push90 + 7; if (rpush < rf) rpush = rf; if (rpush > 70) rpush = 70
       lim = pre90 + rpush + 7; src = (lim < 67) ? "floor" : "p90"; if (lim < 67) lim = 67; if (lim > 100) lim = 100
       if (last > 0) { t = LTS[last]
