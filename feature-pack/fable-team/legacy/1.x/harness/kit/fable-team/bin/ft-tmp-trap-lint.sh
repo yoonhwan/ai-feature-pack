@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # ft-tmp-trap-lint.sh — «만들면 지운다» 린트 (R246). 읽기 전용.
 #   셸의 `mktemp -d` 는 같은 파일에 `trap '… rm -rf … $변수 …'` 가 있어야 한다. 변수 없이 쓴 `mktemp -d` 는 지울 방법이 없으니 REJECT.
+#   r2377: 기준판 사본을 `/tmp`·`/private/tmp` 고정 경로에 풀고 지우지 않는 줄(`git archive … | tar -x -C /private/tmp/…`)도 REJECT — 그 비교는 `ft-base-run.sh` 가 한다.
 #   사용: ft-tmp-trap-lint.sh <파일…>            위반 있으면 `REJECT 파일:줄: 사유` exit 1 · 없으면 `PASS 파일` exit 0 · 파일 없음 exit 2
 #         ft-tmp-trap-lint.sh --all [--root <폴더>]  tests/**/*.sh · scripts/**/*.sh 전체 목록만(exit 0) + 끝줄 `위반 N`
 #   범위 밖: python `tempfile.mkdtemp` · 다른 함수에서 정리하는 패턴(필요하면 같은 파일에 trap 도 둔다).
@@ -27,13 +28,26 @@ all_mode, files = sys.argv[1] == "1", sorted(set(sys.argv[2:]))
 MK = re.compile(r'mktemp\s+(?:-\S*d\S*|--directory)\b')
 ASSIGN = re.compile(r'(?:^|[\s;&|(])(?:local\s+|declare\s+|export\s+)?([A-Za-z_]\w*)=(?:"?\$\(|`)\s*mktemp\s')
 TRAP = re.compile(r'(?:^|[;&|(])\s*trap\s+.*\brm\s+-\w*[rR]')
+# r2377: 기준판 사본 꼴(글자만 본다) — 한 줄에 `git archive` + `tar -x`/`tar x` + `-C <고정 /tmp 경로>`
+AR = re.compile(r'\bgit\s+archive\b')
+TX = re.compile(r'\btar\s+(?:-[-\w]*x[-\w]*|x)\b')
+CA = re.compile(r'-C\s+(\S+)')
 bad = 0
 for path in files:
     lines = open(path, encoding="utf-8", errors="replace").read().splitlines()
     traps = [l for l in lines if TRAP.search(l)]
     hits = []
     for n, l in enumerate(lines, 1):
-        if l.lstrip().startswith("#") or not MK.search(l):
+        if l.lstrip().startswith("#"):
+            continue
+        # r2377-rule
+        if AR.search(l) and TX.search(l):
+            for tok in CA.findall(l):
+                q = tok.strip('"\'')
+                if q.startswith(("/tmp/", "/private/tmp/")) and not any(q in t for t in traps):
+                    hits.append((n, f"기준판 사본 — ft-base-run.sh 를 쓴다({q})"))
+        # /r2377-rule
+        if not MK.search(l):
             continue
         m = ASSIGN.search(l)
         if not m:
