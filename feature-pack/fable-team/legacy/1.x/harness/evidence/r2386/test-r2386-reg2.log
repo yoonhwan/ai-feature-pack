@@ -1,0 +1,6 @@
+PASS test_drift_check_landing_window_r1337.sh — PASS 20 · FAIL 1(환경 사유만) · rc=1
+PASS test_local_bin_link_drift_r2017.sh — PASS 21 · FAIL 0(환경 사유만) · rc=0
+PASS test_live_bin_pointer_drift_r1407.sh — PASS 20 · FAIL 0(환경 사유만) · rc=0
+[시간] 회귀(가벼운 3파일) 총 9초
+PASS 시험 시간 상한(70초 · 실측 9초)
+ALL PASS

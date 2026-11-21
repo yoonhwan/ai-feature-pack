@@ -1,0 +1,15 @@
+판 크기 = ls-tree 546행 · 라이브 546파일 · load 13.07
+ft-live-bin-drift-check/새 판 → 2.90초 rc=0 · OK ref=main@540684ae39f2 bin=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.KVWnkiAo7V/live files=546
+drift_check_pre_r2386/기준판 → 9.63초 rc=0 · OK ref=main@540684ae39f2 bin=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.KVWnkiAo7V/live files=546
+판 크기 = ls-tree 546행 · 라이브 546파일 · load 12.77
+ft-live-bin-drift-check/새 판 → 1.65초 rc=0 · OK ref=main@910220887089 bin=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.WZ7NvqNyzR/live files=546
+drift_check_pre_r2386/기준판 → 4.83초 rc=0 · OK ref=main@910220887089 bin=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.WZ7NvqNyzR/live files=546
+판 크기 = ls-tree 546행 · 라이브 546파일 · load 14.52
+ft-live-bin-drift-check/새 판 → 1.79초 rc=0 · OK ref=main@b92630fbb380 bin=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.THN0MCnr6h/live files=546
+drift_check_pre_r2386/기준판 → 5.86초 rc=0 · OK ref=main@b92630fbb380 bin=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.THN0MCnr6h/live files=546
+판 크기 = ls-tree 546행 · 라이브 546파일 · load 14.64
+ft-live-bin-drift-check/새 판 → 0.33초 rc=3 · ERROR hash-object 출력이 모자람 — 묶음 대조 불가(546개)
+drift_check_pre_r2386/기준판 → 7.59초 rc=0 · OK ref=main@306db2f58560 bin=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.z4gcWENTHL/live files=546
+판 크기 = ls-tree 546행 · 라이브 546파일 · load 12.02
+ft-live-bin-drift-check/새 판 → 0.45초 rc=0 · OK ref=main@85c16d1745d3 bin=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FkojB3yYNu/live files=546
+drift_check_pre_r2386/기준판 → 5.87초 rc=0 · OK ref=main@85c16d1745d3 bin=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.FkojB3yYNu/live files=546

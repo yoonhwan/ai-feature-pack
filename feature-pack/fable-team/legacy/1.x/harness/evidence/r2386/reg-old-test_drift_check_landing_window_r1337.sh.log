@@ -1,0 +1,25 @@
+PASS bash -n 검사 스크립트
+PASS D1
+PASS D2
+PASS D3
+PASS D4
+PASS D5
+PASS D6
+PASS D7
+PASS D9
+PASS D10
+PASS D11
+PASS D12
+FAIL D8
+# 현재판 단계 3s(시작 0)
+PASS 기준판 D1 FAIL(기대)
+PASS 기준판 D8 FAIL(기대)
+PASS 변이 1 → d3 FAIL(기대)
+PASS 변이 2 → d2 FAIL(기대)
+PASS 변이 3 → d4 FAIL(기대)
+PASS 변이 4 → d1 FAIL(기대)
+PASS 변이 5 → d9 FAIL(기대)
+PASS 변이 6 → d10 FAIL(기대)
+--- 증거: 단계별 초 = 총 5s
+FAILED 1
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=data:/Users/yoonhwan/Project/ai-feature-pack,repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

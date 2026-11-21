@@ -1,0 +1,10 @@
+PASS M1 변이 → ③ MISSING·EXTRA·MODE·DIFF 네 종 줄 FAIL · 원본 대조 → ③ MISSING·EXTRA·MODE·DIFF 네 종 줄 통과 (0초)
+PASS M2 변이 → ① OK 판(해시 묶음) FAIL · 원본 대조 → ① OK 판(해시 묶음) 통과 (1초)
+PASS M3 변이 → ① OK 판(해시 줄 정렬) FAIL · 원본 대조 → ① OK 판(해시 줄 정렬) 통과 (0초)
+PASS M4 변이 → ⑤ here-string 0줄 FAIL · 원본 대조 → ⑤ here-string 0줄 통과 (0초)
+PASS M5 변이 → ⑦ EXTRA 이름 줄 전체 일치 FAIL · 원본 대조 → ⑦ EXTRA 이름 줄 전체 일치 통과 (0초)
+PASS M6 변이 → ⑧ 공백 이름 OK 판 FAIL · 원본 대조 → ⑧ 공백 이름 OK 판 통과 (1초)
+PASS 변이 6개 모두 돌았다(M1~M6)
+[시간] 변이 M1~M6 총 2초
+PASS 시험 시간 상한(70초 · 실측 2초)
+ALL PASS

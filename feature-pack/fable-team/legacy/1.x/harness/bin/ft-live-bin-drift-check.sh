@@ -6,6 +6,8 @@
 #   종료: 0 = OK 또는 WARN 설치 대기 · 1 = DRIFT(항목 줄 + HINT) · 2 = usage · 3 = ERROR(ref·repo 못 품 — 조용한 통과 금지 · #0 RULE).
 #   r1337: DIFF 항목이 «방금 착지한 커밋의 직전 판 그대로(첫 부모 줄기) ∧ 0 ≤ 착지 경과 ≤ W분(FT_DRIFT_PENDING_MIN · 기본 15)» 이면
 #          PENDING 으로 내린다 — 항목이 PENDING 뿐이면 «WARN 설치 대기» rc 0. 손 편집·다른 판·W 초과·MISSING·EXTRA·MODE 는 그대로 DRIFT.
+#   r2386: 대조 방식만 묶는다 — ls-tree 줄 = here-string 0(read) · 라이브 해시 = `hash-object --stdin-paths` 1회 ·
+#          EXTRA 대조 = awk 1회. 대조 범위(키트 bin 전체)·판정·출력 글·상한(7초)은 그대로다(파일마다 프로세스 1개 = 546개면 상한 초과).
 #   fetch 하지 않는다 · 어긋남을 직접 cp 로 고치지 않는다(master 집행).
 set -uo pipefail
 usage() { echo "usage: $0 --bin <폴더> [--repo <리포>] [--ref <ref>] [--path <트리 경로>]" >&2; exit 2; }
@@ -69,23 +71,35 @@ pending_item() {  # r1337: $1=트리 경로 $2=이름 $3=라이브 blob → rc 0
   age=$((NOW - ct)); { [ "$age" -ge 0 ] && [ "$age" -le $((PW * 60)) ]; } || return 1
   pends="$pends""PENDING $2 착지 ${L:0:12} $((age / 60))분 전"$'\n'
 }
-while IFS=$'\t' read -r meta path; do
-  read -r mode type blob <<< "$meta"
+# r2386 K1·K2: ls-tree 줄은 here-string 없이 read 로 받고(here-string = bash 3.2 에서 줄마다 임시 파일 1개 · 문자열 자르기는 O(n²) 에 UTF-8 이라 느리다),
+#   라이브 파일 해시는 `hash-object --no-filters --stdin-paths` 1회로 묶는다(경로 1줄 = 해시 1줄 · 순서 그대로 · fd 3).
+lp=""; lm=""   # lp = 기존 파일 경로(줄) · lm = 모드<TAB>blob<TAB>이름<TAB>경로 (탭 구분 = 이름에 공백이 있어도 안전)
+while IFS=$'\t' read -r meta path; do   # ls-tree 행 = «모드 종류 blob» TAB 경로
+  mode="${meta%% *}"; t1="${meta#* }"; type="${t1%% *}"; blob="${t1#* }"
   [ "$type" = blob ] || continue
   name="${path##*/}"; files=$((files + 1)); names="$names$name"$'\n'
   f="$BIN/$name"
   if [ ! -f "$f" ]; then add "MISSING $name"; continue; fi
-  h="$(git -C "$REPO" hash-object --no-filters "$f")" || err "hash-object 실패: $f"
+  lp="$lp$f"$'\n'; lm="$lm$mode"$'\t'"$blob"$'\t'"$name"$'\t'"$path"$'\n'
+done < <(printf '%s\n' "$tree")
+hashes=""
+if [ -n "$lp" ]; then hashes="$(printf '%s' "$lp" | git -C "$REPO" hash-object --no-filters --stdin-paths)" || err "hash-object 실패: 묶음 ${files}개 · $REPO"; fi
+while IFS=$'\t' read -r mode blob name path; do   # 해시는 fd 3 줄 순서 그대로 (경로 순서 = 해시 순서)
+  h=""; IFS= read -r -u 3 h || :
+  [ -n "$h" ] || err "hash-object 출력이 모자람 — 묶음 대조 불가(${files}개)"
   if [ "$h" != "$blob" ]; then pending_item "$path" "$name" "$h" || add "DIFF $name"; fi
-  if [ "$mode" = 100755 ]; then [ -x "$f" ] || add "MODE $name"; else [ ! -x "$f" ] || add "MODE $name"; fi
-done <<< "$tree"
+  if [ "$mode" = 100755 ]; then [ -x "$BIN/$name" ] || add "MODE $name"; else [ ! -x "$BIN/$name" ] || add "MODE $name"; fi
+done < <(printf '%s' "$lm") 3< <(printf '%s\n' "$hashes")
 
-for f in "$BIN"/*; do
+# r2386 K3: EXTRA 대조도 파일마다 grep 을 띄우지 않고 awk 1회 — 이름 «줄 전체» 정확 일치(.bak*·폴더는 그대로 건너뜀)
+binlist="$(for f in "$BIN"/*; do
   [ -f "$f" ] || continue
   name="${f##*/}"
   case "$name" in *.bak*) continue;; esac
-  grep -qxF -- "$name" <<< "$names" || add "EXTRA $name"
-done
+  printf '%s\n' "$name"
+done)"
+extras="$(awk -v n="$files" 'NR<=n{ if (length($0)) seen[$0]=1; next } { if (!($0 in seen)) print "EXTRA " $0 }' <(printf '%s' "$names") <(printf '%s' "$binlist"))"
+if [ -n "$extras" ]; then items="$items$extras"$'\n'; fi
 
 short="${sha:0:12}"
 if [ -z "$items" ] && [ -z "$pends" ]; then echo "OK ref=$REF@$short bin=$BIN files=$files"; exit 0; fi
