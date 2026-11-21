@@ -235,6 +235,10 @@ class Settling:
                 return self.failed_end(team, work, attempt, holder, raw, why, park=True)
             if opening:   # L6 — 문턱 안쪽·잇는 중 열기 = 손 0 · [긴급] 0(아직 판정할 수 없다)
                 return self.verdict(team, work, holder, "WORKING", "launch-joining" if self.launching_now(team, work) else "launch-pending", "opening %d분" % self.opening_age(raw))
+            if owner and not raw and self.launch_waiting(team, work, attempt):   # r2366 미룬 열기(같은 리포 열기 1개) = 손 0
+                wait = self.launch_wait(key, first)
+                if wait:
+                    return self.verdict(team, work, holder, "WORKING", wait, "열기 미룸 · fill_open 같은 attempt")
             word = self.unknown_seat(team, work, attempt, holder, "owner-orphan" if owner else "session-absent", why)
             if not owner:   # r2214 session-absent 만(owner-orphan = 팀장 park 몸)
                 self.absent_release(team, work, holder, key, first)
@@ -407,6 +411,18 @@ class Settling:
     def launching_now(self, team, work):
         """L6 — fill_open(잇는 중)에 있는 열기인가(그 열기는 손 0)."""
         return ("%s|%s" % (team, work)) in (self.state.get("fill_open") or {})
+
+    def launch_waiting(self, team, work, attempt):
+        """r2366 K2 — 그 열기가 지금 attempt 로 fill_open 에 남았나(keeper_next.fill 이 띄운 열기 · handled 되면 빠진다).
+        다른 attempt·없음 = 지금 그대로 owner-orphan(새 attempt 는 다시 센다)."""
+        return (self.state.get("fill_open") or {}).get("%s|%s" % (team, work)) == attempt
+
+    def launch_wait(self, key, first):
+        """r2366 K1·K1b — keeper 가 띄우기를 다음 바퀴로 미룬 열기 = 첫 absent 시각을 남기고(settle_nano 221행 pop 탓 · 안 넣으면
+        바퀴마다 첫 바퀴) OPEN_STALE 안이면 «launch-wait» · 넘으면 "" = 지금 그대로 owner-orphan(늦게 울림 · 안 울림 0)."""
+        now = self.now()
+        first = self.state.setdefault("absent_since", {})[key] = now if first is None else first
+        return "launch-wait" if now - first < OPEN_STALE else ""
 
     def failed_tail(self, intent):
         """L3·L6 판정 줄 꼬리 — intent step · reason 앞 80자 / opening <분>분."""
