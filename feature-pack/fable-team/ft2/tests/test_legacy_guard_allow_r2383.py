@@ -1,4 +1,4 @@
-"""r2383 ft2 legacy_guard ALLOW 시험 — 반례 ①~⑩ · ⑳ · ㉒ · 변이 M1~M3 · M9.
+"""r2383 ft2 legacy_guard ALLOW 시험 — 반례 ①~⑩ · ⑳ · ㉒ · ㉕ · 변이 M1~M3 · M9 · M10.
 
 ①⑧ = 진짜 ft2 트리(git archive HEAD · 라이브) · ②~⑦ = 임시 ft2 꼴 폴더 · ⑨⑩ = 손 기준값과 바이트 대조
 ⑳ = r1545 시험 test_legacy_guard 의 a~e·m1·m2 를 그대로 부른다. 실 원격 0 · sleep 0 · 변이는 사본에서만.
@@ -9,6 +9,7 @@ import importlib.util
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 FT2 = Path(__file__).resolve().parents[1]
@@ -47,8 +48,7 @@ def base(root, land=1, nxt=1):
 
 def real_tree(tmp):
     """진짜 main ft2 트리 — git archive HEAD 한 벌을 풀어서 준다(①·⑧)."""
-    root = Path(tmp) / "real"
-    root.mkdir()
+    root = Path(tempfile.mkdtemp(dir=str(tmp), prefix="real_"))
     arc = subprocess.run(["git", "-C", str(FT2), "archive", "HEAD", "."], capture_output=True, timeout=70)
     assert arc.returncode == 0, arc.stderr
     subprocess.run(["tar", "-x", "-C", str(root)], input=arc.stdout, check=True, timeout=70)
@@ -132,6 +132,13 @@ def c22(tmp):   # ㉒ ALLOW 줄 둘 다 0줄(패턴을 지움 · 파일은 있�
     return run(GUARD, base(Path(tmp) / "h", land=0, nxt=0))
 
 
+def c25(tmp):   # ㉕ 진짜 ft2 사본에서 ALLOW 파일 두 개를 통째로 뺌 → 파일마다 ALLOW-STALE · rc 1 (DA#56 H1)
+    root = real_tree(tmp)
+    for rel in (LAND, NEXT):
+        (root / rel).unlink()
+    return run(GUARD, root)
+
+
 def c20(tmp):   # ⑳ guard ≤ 120줄 · import os·sys 만 · r1545 시험 a~e·m1·m2 PASS
     old = load(FT2 / "tests" / "test_legacy_guard.py", "r2383_old")
     old.test_a_skeleton_and_readme()
@@ -146,7 +153,7 @@ def c20(tmp):   # ⑳ guard ≤ 120줄 · import os·sys 만 · r1545 시험 a~e
 
 
 CASES = {"①": c1, "②": c2, "③": c3, "④": c4, "⑤": c5, "⑥": c6, "⑦": c7, "⑧": c8, "⑨": c9, "⑩": c10,
-         "⑳": c20, "㉒": c22}
+         "⑳": c20, "㉒": c22, "㉕": c25}
 EXPECT = {
     "①": (0, []),
     "②": (0, []),
@@ -160,12 +167,13 @@ EXPECT = {
     "⑩": (0, []),
     "⑳": (0, []),
     "㉒": (1, ["ALLOW-STALE " + LAND + " " + LIVE, "ALLOW-STALE " + NEXT + " " + FABLE]),
+    "㉕": (1, ["ALLOW-STALE " + LAND + " " + LIVE, "ALLOW-STALE " + NEXT + " " + FABLE]),
 }
 # 변이 (사본에서만 · 변이마다 원본으로 같은 사례 1회 더)
 MUTANTS = {
     "M1": ("상한 무시", [("        if cap is not None and counted[(rel, pattern)] <= cap:", "        if cap is not None:")], "⑤"),
     "M2": ("STALE 검사 지움", [
-        ("        elif got == 0 and (alive or os.path.isfile(os.path.join(root, rel))):",
+        ("        elif got == 0 and (alive or ftree or os.path.isfile(os.path.join(root, rel))):",
          "        elif got == 0 and False:")], "⑥"),
     "M3": ("relpath 대신 basename", [
         ("caps = {(rel, pattern): cap for rel, pattern, cap, _card, _why in ALLOW}",
@@ -176,8 +184,11 @@ MUTANTS = {
         ("        if cap is not None and counted[(rel, pattern)] <= cap:",
          "        if cap is not None and counted[(os.path.basename(rel), pattern)] <= cap:")], "④"),
     "M9": ("STALE = 살아있는 줄이 있을 때만", [
-        ("        elif got == 0 and (alive or os.path.isfile(os.path.join(root, rel))):",
-         "        elif got == 0 and alive:")], "㉒"),
+        ("        elif got == 0 and (alive or ftree or os.path.isfile(os.path.join(root, rel))):",
+         "        elif got == 0 and ftree:")], "㉒"),
+    "M10": ("ALLOW 파일 있나(ft2 트리) 검사 지움", [
+        ("        elif got == 0 and (alive or ftree or os.path.isfile(os.path.join(root, rel))):",
+         "        elif got == 0 and (alive or os.path.isfile(os.path.join(root, rel))):")], "㉕"),
 }
 
 

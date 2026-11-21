@@ -55,12 +55,14 @@ def scan_file(path, root):
 
 def judge(hits, root):
     """ALLOW 상한 안의 줄은 빼고, 넘침·남음을 덧붙여 찍을 줄을 만든다.
-    남음(STALE)은 그 파일이 이 트리에 있거나 ALLOW 줄이 하나라도 살아 있을 때 본다 — 표와 상관없는 가짜 트리(파일도 ALLOW 줄도 없음)에서 헛줄을 내지 않는다."""
+    남음(STALE: 표에 있는데 그 패턴이 0줄)은 ft2 트리(검사기 자신이 있는 트리)이거나 · 그 파일이 있거나 · ALLOW 줄이
+    하나라도 살아 있을 때 본다 — ALLOW 파일을 통째로 지운 ft2 사본도 STALE 이고, 표와 상관없는 가짜 트리는 헛줄 0."""
     caps = {(rel, pattern): cap for rel, pattern, cap, _card, _why in ALLOW}
     counted = {}
     for rel, _lineno, pattern in hits:
         counted[(rel, pattern)] = counted.get((rel, pattern), 0) + 1
     alive = any(counted.get((rel, pattern), 0) for rel, pattern, _cap, _card, _why in ALLOW)
+    ftree = os.path.isfile(os.path.join(root, GUARD_REL))   # 이 트리가 ft2 트리인가 = 검사기 자신이 있나(ALLOW 파일 통째 삭제도 남음)
     lines = []
     for rel, lineno, pattern in hits:
         cap = caps.get((rel, pattern))
@@ -71,7 +73,7 @@ def judge(hits, root):
         got = counted.get((rel, pattern), 0)
         if got > cap:
             lines.append(f"ALLOW-OVER {rel} {pattern} {got}/{cap}")
-        elif got == 0 and (alive or os.path.isfile(os.path.join(root, rel))):
+        elif got == 0 and (alive or ftree or os.path.isfile(os.path.join(root, rel))):
             lines.append(f"ALLOW-STALE {rel} {pattern}")
     return lines
 

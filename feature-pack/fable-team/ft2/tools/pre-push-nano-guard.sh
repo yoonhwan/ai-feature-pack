@@ -44,9 +44,15 @@ guard_rc() {   # $1 = local_sha → $TMP/g.<sha>.out 에 위반 줄 · 표준출
   fi
   [ -f "$dir/$FT2_DIR/tools/legacy_guard.py" ] || { printf 'archive 1\n' > "$TMP/fail.$sha"; echo 125; return; }
   : > "$out"
+  left=7   # r2383 K4: 한 sha 의 합 상한 = 14초(7초 × 재시도 1) — 남은 시간만 준다
+  if [ -n "${guard_t0:-}" ]; then
+    left=$((14 - $(date +%s) + guard_t0))
+    [ "$left" -gt 7 ] && left=7
+    [ "$left" -lt 1 ] && left=1
+  fi
   python3 "$dir/$FT2_DIR/tools/legacy_guard.py" "$dir/$FT2_DIR" >"$out" 2>/dev/null &
   pid=$!
-  ( sleep 7; kill -9 "$pid" 2>/dev/null ) </dev/null >/dev/null 2>&1 & wd=$!
+  ( sleep "$left"; kill -9 "$pid" 2>/dev/null ) </dev/null >/dev/null 2>&1 & wd=$!
   wait "$pid"; rc=$?
   kill "$wd" 2>/dev/null; wait "$wd" 2>/dev/null
   case "$rc" in 124|137|143) echo 124 ;; *) echo "$rc" ;; esac
@@ -54,6 +60,7 @@ guard_rc() {   # $1 = local_sha → $TMP/g.<sha>.out 에 위반 줄 · 표준출
 guard_once() {   # r2383 K4·F2: 같은 local_sha 는 guard 1회(결과를 $TMP/cache.<sha> 에 둔다) · 7초 넘김만 1회 더
   cache="$TMP/cache.$1"
   if [ -f "$cache" ]; then cat "$cache"; return; fi
+  guard_t0=$(date +%s)
   rc=$(guard_rc "$1")
   case "$rc" in
     124|126|127)
