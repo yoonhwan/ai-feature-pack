@@ -46,12 +46,15 @@ console.log(`CASE loadline ${globalThis.__e?.card === "r2379" && globalThis.__e?
 const R = process.env.R, WT = process.env.WT, OUT = process.env.OUT;
 const B = (s) => ({ toolName: "bash", input: { command: s } });
 const N = "byz-harness-nano-r2413#0", A = "byz-harness-tester-r2413#0";
+const FT = "FT"; // 좌석 env = FT_SEAT 만(FT_SEAT_NAME 없음 · K1 대조)
 const cases = [
   ["c01", R, A, B("find . -name 'DA-pre-r2403*'")],
   ["c02a", WT, N, B("find -name x")],
   ["c02b", WT, N, B("cd .. && find . -type f")],
   ["c02c", WT, N, B('find "$PWD" -name x')],
   ["c03", R, "", B("find . -name 'DA-pre-r2403*'")],
+  ["c03b", R, "byz-harness-tester#1", B("find . -name x"), FT],
+  ["c03c", R, "byz-harness-nano-tester#1", B("grep -rn foo ."), FT],
   ["c04a", R, N, B("find . -maxdepth 2 -name x")],
   ["c04b", R, N, B("find . -maxdepth 4 -name x")],
   ["c04c", R, N, B("find . -path ./.worktrees -prune -o -name x -print")],
@@ -71,7 +74,9 @@ const only = (process.env.ONLY ?? "").split(/\s+/).filter(Boolean);
 for (const name of (only.length ? only : cases.map((c) => c[0]))) {
   const c = cases.find((x) => x[0] === name);
   if (!c) { console.log(`CASE ${name} MISSING`); continue; }
-  process.chdir(c[1]); process.env.PWD = c[1]; process.env.FT_SEAT_NAME = c[2];
+  process.chdir(c[1]); process.env.PWD = c[1];
+  delete process.env.FT_SEAT_NAME; delete process.env.FT_SEAT;
+  if (c[4] === FT) process.env.FT_SEAT = c[2]; else process.env.FT_SEAT_NAME = c[2];
   const r = await h.tool_call(c[3]);
   console.log(`CASE ${c[0]} ${r?.block ? "BLOCK" : "PASS"}${r?.reason ? ` :: ${r.reason}` : ""}`);
 }
@@ -84,7 +89,7 @@ pairs(){ local o="$1"; shift; for p in "$@"; do expect "$o" "${p% *}" "${p#* }";
 # ── ①~⑧ ──
 out="$(drive "$X/guard.ts" "$R")"
 eq "L1 로드 줄 r2379 그대로(파일 이름·경로 유지)" "$(one "$out" loadline)" OK
-pairs "$out" "c01 BLOCK" "c02a BLOCK" "c02b BLOCK" "c02c PASS" "c03 PASS" \
+pairs "$out" "c01 BLOCK" "c02a BLOCK" "c02b BLOCK" "c02c PASS" "c03 PASS" "c03b PASS" "c03c BLOCK" \
   "c04a PASS" "c04b BLOCK" "c04c PASS" "c04d BLOCK" "c04e PASS" \
   "c05a PASS" "c05b PASS" "c05c BLOCK" "c06a BLOCK" "c06b PASS" "c06c PASS" \
   "c07a BLOCK" "c07b PASS" "c07c PASS"
@@ -96,6 +101,8 @@ LOG="$R/.fable-team/state/nano-grep-block.log"
 eq "R3 ⑧ ① 거절 기록 1줄" "$(grep -c 'DA-pre-r2403' "$LOG")" 1
 eq "R4 ⑧ 기록 = 일반 파일 644" "$(stat -f %Lp "$LOG")" 644
 eq "R5 ⑧ ③ 좌석 env 없음 = 빈 좌석 기록 0줄" "$(grep -c '^[^ ]*  ' "$LOG")" 0
+eq "R7 ③b FT_SEAT 만 = find 거절·기록 0줄" "$(grep -c 'byz-harness-tester#1 ' "$LOG")" 0
+has "R8 ③c FT_SEAT 만 + 나노 재귀 grep = r2379 뜻 유지(거절)" "$(printf '%s\n' "$out" | grep 'CASE c03c')" "리포 루트 재귀 grep 금지"
 drive "$X/guard.ts" "$R" "c01" >/dev/null; eq "R6 ⑧ 같은 좌석·같은 명령 두 번째 = 줄 0" "$(grep -c 'DA-pre-r2403' "$LOG")" 1
 st "①~⑧"
 
@@ -123,8 +130,8 @@ mut "$X/guard.ts" "$X/m.ts" 'const isNano = NANO.test(seat);' 'const isNano = NA
 hit "$X/m.ts" c01 PASS && ok "M1 K1 대상을 나노만으로 = ① 통과" || bad "M1 미탐지"
 mut "$X/guard.ts" "$X/l.ts" 'const ps = paths.length > 0 ? paths : ["."];' 'const ps = paths;'
 hit "$X/l.ts" c02a PASS && ok "M2 경로 낱말 0개 = 루트 아님 = ② 첫 구 통과" || bad "M2 미탐지"
-mut "$X/guard.ts" "$X/l.ts" 'if (!seat) return;' ''
-hit "$X/l.ts" c03 BLOCK && ok "M3 좌석 env 검사 뺌 = ③ 거절" || bad "M3 미탐지"
+mut "$X/guard.ts" "$X/l.ts" 'if (findSeat) {' 'if (true) {'
+hit "$X/l.ts" c03b BLOCK && ok "M3 K1 좌석 env 검사 뺌 = ③b 거절" || bad "M3 미탐지"
 mut "$X/guard.ts" "$X/l.ts" 'a.depth <= 3' 'a.depth <= 99'
 hit "$X/l.ts" c04b PASS && ok "M4 깊이 문턱 99 = ④b 통과" || bad "M4 미탐지"
 mut "$X/guard.ts" "$X/l.ts" '!a.prune && ' ''
