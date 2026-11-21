@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_land_card_pair_exact_stem_r2411.sh — r2411: 착지 카드 짝짓기 = 가지 마지막 조각(FM_CARD_STEM)과 «이름이 정확히 같은» 카드가 있으면 그 카드만 · 없으면 지금대로 번호 앞머리
 #   세계 = 임시 git 리포(카드 ref 트리 design/**/indices/*/*.md · 표 없음 = origin/main) · 실 PR·gh·mbox·네트워크·sleep 0
-#   반례 ①~⑦(카드 r2411 동결) · 변이 M1~M3 = 사본 bin 1곳 + 원본 대조 · 기준판 42f98b9936 Red(①②③장부) · FT_R2411_BIN = 다른 bin 주입
+#   반례 ①~⑧(카드 r2411 동결 · ⑧ = 구현 DA HOLD H1) · 변이 M1~M4 = 사본 bin 1곳 + 원본 대조 · 기준판 42f98b9936 Red(①②③장부·⑧은 기준판과 같은 2장) · FT_R2411_BIN = 다른 bin 주입
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
 set -uo pipefail
 export LC_ALL=C GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@t GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@t
@@ -38,6 +38,7 @@ lg() { printf '%s\n' "$1" | grep -o 'design/[^"]*\.md' | paste -sd'|' -; }
 mkw w1 "$IX/대기/$P.md" "$IX/대기/$B.md" "$IX/완성/$Z.md"
 mkw w2 "$IX/대기/$B.md" "$IX/완성/$Z.md" "$IX/대기/$P.md"   # 부모 이름이 정확히 같은 세계(접두 형제 2장)
 mkw w4 "$IX/대기/$P.md" "$IX/완성/$P.md"                    # 같은 이름이 두 단계 폴더
+mkw w8 "$IX/대기/r2384-x-pack.md" "$IX/대기/ops.md"          # ⑧ 제목 갈래(가지 feature/ops) = 번호 가지 아님
 S1=$SECONDS
 
 echo "### 반례 ①~⑦"
@@ -67,6 +68,11 @@ pick "$BIN" w1 "$B-r9" r2384
 ck "⑦ 좁힘 없음 = stderr 조용(INFO 0줄)" [ -z "$SE" ]
 pick "$BIN" w4 "$P" r2384
 ck "⑦ 정확 = 전체일 때도 INFO 0줄" [ -z "$SE" ]
+
+pick "$BIN" w8 ops r2384 ops   # H1: 가지 feature/ops · 제목 «r2384 card:ops» → 토큰 r2384·ops
+ck "⑧ fm_card_tokens(가지 feature/ops · 제목 r2384 card:ops) = «r2384 ops»" [ "$(cd "$T/w8" && . "$BIN/ft-merge-lib.sh" && fm_card_tokens feature/ops "r2384 card:ops")" = "r2384 ops" ]
+ck "⑧ 번호 가지 아님 = 카드 2장 유지" [ "$(cnt "$OUT")" = 2 ] && ck "⑧ 좁히기 0 = stderr INFO 0줄" [ -z "$SE" ]
+O8N="$OUT"
 S2=$SECONDS
 
 echo "### 변이(사본 · 원본 대조)"
@@ -82,7 +88,7 @@ PY
 c1() { pick "$1" w1 "$P" r2384; [ "$OUT" = "$IX/대기/$P.md" ]; }
 c2() { pick "$1" w2 "$B" r2384; [ "$OUT" = "$IX/대기/$B.md" ]; }
 c3() { pick "$1" w1 "$B-r9" r2384; [ "$(cnt "$OUT")" = 3 ]; }
-if mut m1 'if [ -n "${FM_CARD_STEM:-}" ] && [ "${#hit[@]}" -gt 0 ]; then' 'if false; then'; then
+if mut m1 'if [ "${#hit[@]}" -gt 0 ] && [[ "${FM_CARD_STEM:-}" =~ ^r[0-9]{2,5}[a-z]?- ]]; then' 'if false; then'; then
   ck "M1 정확한 이름 먼저 빼기 → ① 잡힘" miss c1 "$T/m1"; ck "M1 원본 대조 ①" c1 "$BIN"
 fi
 if mut m2 '[ "${b%.md}" = "$FM_CARD_STEM" ] && xh' 'case "$b" in "$FM_CARD_STEM"*) true;; *) false;; esac && xh'; then
@@ -90,6 +96,10 @@ if mut m2 '[ "${b%.md}" = "$FM_CARD_STEM" ] && xh' 'case "$b" in "$FM_CARD_STEM"
 fi
 if mut m3 '[ "${#xh[@]}" -gt 0 ] && [ "${#xh[@]}" -lt "${#hit[@]}" ]' '[ "${#xh[@]}" -lt "${#hit[@]}" ]'; then
   ck "M3 K2 후퇴 빼기(정확한 이름 0장 = 0장) → ③ 잡힘" miss c3 "$T/m3"; ck "M3 원본 대조 ③" c3 "$BIN"
+fi
+c8() { pick "$1" w8 ops r2384 ops; [ "$(cnt "$OUT")" = 2 ]; }
+if mut m4 '[[ "${FM_CARD_STEM:-}" =~ ^r[0-9]{2,5}[a-z]?- ]]' '[ -n "${FM_CARD_STEM:-}" ]'; then
+  ck "M4 번호 가지 조건 빼기 → ⑧ 잡힘" miss c8 "$T/m4"; ck "M4 원본 대조 ⑧" c8 "$BIN"
 fi
 S3=$SECONDS
 
@@ -100,6 +110,7 @@ if git -C "$HARN" archive 42f98b9936 -- bin 2>/dev/null | tar -x -C "$BASE" 2>/d
   pick "$BASE/bin" w2 "$B" r2384; ck "기준판 ② Red = 3장" [ "$(cnt "$OUT")" = 3 ]
   ledger "$BASE/bin" w1 9302 "nano/$P"
   ck "기준판 ① 장부 Red = 3장" [ "$(cnt "$(lg "$(grep '"pr": 9302' "$T/w1/.fable-team/state/land-record-turn.jsonl")")")" = 3 ]
+  pick "$BASE/bin" w8 ops r2384 ops; ck "기준판 ⑧ = 새판과 같은 2장" [ "$OUT" = "$O8N" ]
 else echo "FAIL 기준판 꺼내기 실패 — 팩 리포 밖이거나 얕은 사본"; fail=$((fail + 1)); fi
 S4=$SECONDS
 

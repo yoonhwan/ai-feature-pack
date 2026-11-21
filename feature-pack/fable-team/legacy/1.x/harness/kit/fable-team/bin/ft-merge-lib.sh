@@ -478,7 +478,7 @@ print(v if isinstance(v,str) else "")' "$seats" 2>/dev/null)"
 #     r1804 A5: 카드 파일 이름이 «<토큰>-» 로 «시작» 할 때만(slug 가운데 «-r336-» 은 0) · «ar1478»·«r14780» 은 안 잡는다
 #     ★r1849 ⓐ r<숫자> 아닌 토큰(nano/<stem>) = 파일 이름이 정확히 <토큰>.md ⓑ 착지 리포(REPO) 공용 루트 ≠ <root> 공용 루트면 그 리포 카드 ref(ft_card_ref 팀 «» 규칙 = FT_CARD_REF|origin/main) 트리도 · 경로 = 찾은 리포 공용 루트 기준★
 #     ★r2123 D1~D3: ⓐ 의 정확한 이름이 모든 ref 에서 0장이면 «_slug(이름,40) = <토큰>»(ft-nano-spawn.sh _slug 규칙) 카드 · 정확히 1장만 잡는다 · 2장 이상 = 0장 + FM_CARDS_ERR «토큰 t slug 겹침 N장» · 이미 읽은 트리만(git 호출 수 그대로)★
-#     ★r2411 K1~K3: env FM_CARD_STEM(가지 마지막 조각 · 부른 쪽이 넘긴다)과 파일 이름이 «정확히 같은» 카드가 성공한 ref 전체 결과에 있으면 그 카드들만 남긴다 · 0장 = 지금대로 번호 앞머리(K2 후퇴) · 좁혔을 때만 stderr INFO 1줄 · stdout 계약(경로만) 그대로 · git 호출 수 그대로★
+#     ★r2411 K1~K3: env FM_CARD_STEM(가지 마지막 조각 · 부른 쪽이 넘긴다)이 «r<번호>[a-z]?-» 로 시작하고 파일 이름이 «정확히 같은» 카드가 성공한 ref 전체 결과에 있으면 그 카드들만 남긴다 · 0장·번호 가지 아님(제목 갈래 카드) = 지금대로(K2 후퇴) · 좁혔을 때만 stderr INFO 1줄 · stdout 계약(경로만) 그대로 · git 호출 수 그대로★
 fm_card_slug_hits() {   # <경로 앞자리> <토큰…> < ls-tree 줄 : stdout = «토큰<TAB>절대경로» · 이름 = 토큰 인 카드는 빼다(정확한 이름 = D1 몸)
   local pre="$1"; shift
   awk -v toks="$*" -v pre="$pre" 'BEGIN{n=split(toks,a," "); for(k=1;k<=n;k++) w[a[k]]=1}
@@ -527,7 +527,7 @@ fm_cards_by_tokens() {
     # shellcheck disable=SC2086
     [ -z "$st" ] || cand="$cand$(printf '%s\n' "$out" | fm_card_slug_hits "${dirs[$i]}/" $st $tx)"$'\n'   # r2123-mut:slug
   done
-  if [ -n "${FM_CARD_STEM:-}" ] && [ "${#hit[@]}" -gt 0 ]; then   # r2411 K1~K3: 성공한 ref 결과를 다 모은 뒤에 정한다(중간 fallback 0) · 이름 = basename 전체 정확 일치(접두 매칭 0)
+  if [ "${#hit[@]}" -gt 0 ] && [[ "${FM_CARD_STEM:-}" =~ ^r[0-9]{2,5}[a-z]?- ]]; then   # r2411 K1~K3: 성공한 ref 결과를 다 모은 뒤에 정한다(중간 fallback 0) · 이름 = basename 전체 정확 일치(접두 매칭 0) · 번호 가지에만(제목 갈래 카드 유실 0)
     xh=(); for p in "${hit[@]}"; do b="${p##*/}"; [ "${b%.md}" = "$FM_CARD_STEM" ] && xh[${#xh[@]}]="$p"; done
     if [ "${#xh[@]}" -gt 0 ] && [ "${#xh[@]}" -lt "${#hit[@]}" ]; then   # K2: 0장 = 지금대로 번호 앞머리(아래 hit 그대로)
       echo "INFO 카드 정확한 가지 이름 $FM_CARD_STEM → ${#xh[@]}장(번호 앞머리 ${#hit[@]}장 중)" >&2; hit=("${xh[@]}")
