@@ -101,8 +101,8 @@ gone5() { local i; for i in 1 2 3 4 5; do [ ! -e "$B/a$i" ] || return 1; done; }
 dels() { SLOG | awk -F'\t' '$2 ~ /^삭제 \// {sub(/.*\//, "", $2); printf "%s ", $2}'; }
 c9a() { mk9; : > "$T/git.calls"; : > "$T/find.calls"; run FT_GIT_BIN="$T/git" PATH="$T/fbin:$PATH" FT_TMP_SWEEP_BUDGET=0
   local i; for i in 1 2 3 4 5; do [ -d "$B/a$i" ] || return 1; done
-  # r2375 K1: 목록 만드는 find 1회는 고정값(항목별 아님) — 항목별 find 0 · git 0
-  [ ! -s "$T/git.calls" ] && [ "$(grep -c . "$T/find.calls")" -le 1 ] && endl | grep -q 'removed=0 .*deferred=7$' && [ "$(cat "$(CUR)" 2>/dev/null)" = a1 ] \
+  # r2375 K1: 목록 만드는 find 는 정확히 1회(고정값 · 항목별 아님) — 항목별 find 0 · git 0
+  [ ! -s "$T/git.calls" ] && [ "$(grep -c . "$T/find.calls")" = 1 ] && endl | grep -q 'removed=0 .*deferred=7$' && [ "$(cat "$(CUR)" 2>/dev/null)" = a1 ] \
     && [ "$(SLOG | grep -c '예산 끝 — a1 부터 다음 실행')" = 1 ]; }
 c9b() { mk9; echo a3 > "$(CUR)"; run; [ "$(dels)" = "a3 a4 a5 " ] && [ -d "$B/a1" ] && [ -d "$B/a2" ] && [ ! -e "$(CUR)" ] || { echo "  삭제=[$(dels)]"; return 1; }
   run; gone5; }
@@ -116,7 +116,8 @@ c9d() { fresh armed; local i; for i in 1 2 3 4 5; do wt "$B/s$i"; done; old "$B"
 c9e() { local c; for c in '' 'a/b'; do mk9; printf '%s\n' "$c" > "$(CUR)"; run; gone5 && [ ! -e "$(CUR)" ] || { echo "  cursor [$c] 안 지움"; return 1; }
     SLOG | grep -q 'cursor 읽기 실패 — 처음부터' || { echo "  cursor [$c] 로그 없음"; return 1; }; done
   # r2375 K2: 목록에 없는 이름이 마지막 이름보다 크면 «처음부터» 가 아니라 그 자리(목록 끝) = 지움 0 · cursor 지움
-  mk9; echo zz > "$(CUR)"; run; [ -z "$(dels)" ] && [ -d "$B/a1" ] && [ ! -e "$(CUR)" ] || { echo "  cursor [zz] 지움=[$(dels)] (r2375 K2 = 지움 0)"; return 1; }; }
+  mk9; echo zz > "$(CUR)"; run; [ -z "$(dels)" ] && [ -d "$B/a1" ] && [ ! -e "$(CUR)" ] || { echo "  cursor [zz] 1차 지움=[$(dels)] (r2375 K2 = 지움 0)"; return 1; }
+  run; gone5 || { echo "  cursor [zz] 2차 안 지움"; return 1; }; }
 c9f() { mk9 plain; run FT_TMP_SWEEP_BUDGET=0; local A="$R/.fable-team/state/tmp-sweep.armed"
   [ -d "$B/a1" ] && [ ! -e "$A" ] && [ "$(cat "$(CUR)" 2>/dev/null)" = a1 ] || return 1
   run; [ -d "$B/a1" ] && [ "$(grep -c '^목록 지움 대상' <<<"$OUT")" = 5 ] && [ -f "$A" ] && [ ! -e "$(CUR)" ] || return 1
