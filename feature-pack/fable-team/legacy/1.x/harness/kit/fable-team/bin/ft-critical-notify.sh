@@ -113,24 +113,23 @@ def flush():   # A2 — 오래된 것부터 최대 3통 · 같은 열쇠 여러 
             if to in miss: continue
             b0 = time.monotonic(); seq = send(to, r, min(7.0, min(14.0, BUDGET) - used)); used += time.monotonic() - b0
             if seq is None: break
-            r["sent"] = miss = miss + [to]; record(r, {"tool": r["tool"], "target": r["target"], "event": r["event"], "ts": NOW, "seq": seq, "n": int(r.get("n") or 1), "first": r.get("first") or seq, "to": to})   # r2373-mut:each
-    with Lock():   # r2373-mut:end — 묶음 끝 = claim 풀기만(기록은 받는 이마다 record)
-        pend = load(PEND)
-        for w in pend: w.pop("claim") if (w.get("claim") or {}).get("pid") == os.getpid() else None
-        save(PEND, pend)   # r2373-mut:endsave
+            r["sent"] = miss = miss + [to]
+            if not record(r, {"tool": r["tool"], "target": r["target"], "event": r["event"], "ts": NOW, "seq": seq, "n": int(r.get("n") or 1), "first": r.get("first") or seq, "to": to}): break   # r2373-mut:each — 그 사이 해결된 줄 = 남은 받는 이 발신 0
+    with Lock(): pend = load(PEND); [w.pop("claim") for w in pend if (w.get("claim") or {}).get("pid") == os.getpid()]; save(PEND, pend)   # r2373-mut:endsave — 묶음 끝 = claim 풀기만(기록은 받는 이마다 record)
 
-def record(r, row):   # r2373 K2 — 받는 이 1명 발신 성공 직후 · 그 줄 sent 를 적고 SENT 1줄 · 모두 받으면 그 자리에서 PEND 에서 뺀다
+def record(r, row):   # r2373 K2 — 받는 이 1명 발신 성공 직후 · 그 줄 sent 를 적고 SENT 1줄 · 모두 받으면 그 자리에서 PEND 에서 뺀다 · 다시 읽은 PEND 에 그 줄이 없으면(그 사이 해결) 되살림 0 · False
     with Lock():
-        keep = []
-        for w in load(PEND):
+        pend = load(PEND); live, keep = any(key(w) == key(r) for w in pend), []
+        for w in pend:
             if key(w) == key(r):
                 w["to"], w["sent"] = r["to"], list(r["sent"])
                 if w["to"] and all(t in w["sent"] for t in w["to"]): continue   # r2373-mut:alldone
             keep.append(w)
-        save(PEND, keep)
-        sent = load(SENT) + [row]
+        save(PEND, keep)   # r2373-mut:revive
+        sent = load(SENT) + [row if live else dict(row, resolved=NOW)]
         while len(sent) > 200: sent.pop(next((n for n, s in enumerate(sent) if s.get("resolved")), 0))   # 200줄 넘으면 «해결» 된 앞 줄부터
         save(SENT, sent)
+    return live
 
 def resolve(tool, target):   # A3 — 그 대상의 열쇠를 전부 닫는다(로컬 파일만 · 발신 0) · r2373 K1: 같은 잠금 안에서 그 대상의 밀린 줄(PEND)도 지운다
     if not (os.path.isfile(SENT) or os.path.isfile(PEND)): return   # r2373-mut:nosent
@@ -191,7 +190,7 @@ def land_after(args, out, ctx):   # A4 — rc 1 거절 전부 · 지문 = <PR he
     ls = out.split("\n"); i = next((n for n, l in enumerate(ls) if l.startswith("REJECT")), None)
     if i is None: return
     j = next((n for n in range(i, len(ls)) if ls[n].endswith("(착지 0)")), i)
-    text = re.sub(r"(?<![\w.])\d+(?:\.\d+)?(?:s|초)(?![A-Za-z])", "Ns", "\n".join(ls[i:j + 1]))   # r2373 K3 — 지문·안내만 잰 초를 «Ns» 로(본문 what = ls[i] 원문)
+    text = re.sub(r"\d+(?:\.\d+)?(?:s|초)", "Ns", "\n".join(ls[i:j + 1]))   # r2373 K3 — 지문·안내만 잰 초를 «Ns» 로(본문 what = ls[i] 원문)
     notify("ft-merge-land", f"{slug} PR #{pr}", f"{ctx or '-'}:{sha12(text)}", ls[i], nexts(LAND_NEXT, [text], "REJECT 원문대로 고친 뒤 다시 land"), f"{slug}#{pr}")   # r1718-mut:landevent
 
 def after(tool, rc, d, args):   # --wrap 끝 — rc 1 = 알림(ft-merge-land 는 rc 6 원격 거절도 · r2007) · rc 0 = 해결 · 그 밖(rc 2 usage·승인 없음 등) = 호출 0
