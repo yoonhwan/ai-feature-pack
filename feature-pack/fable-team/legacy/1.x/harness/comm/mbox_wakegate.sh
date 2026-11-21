@@ -79,12 +79,50 @@ doorbell_gate() {
   printf 'sent'; return 0
 }
 
+# ── r2378 K1·K2·K3 — 세션 없는 좌석의 깨움 기록을 done/ 으로 닫는다(예약·ring 0). 근거 = 죽은 좌석 기록이 send 마다 예약·ring·환불을 되풀이해 결과 줄이 7초를 넘겼다(실측 25초 끊김). ──
+#   ★목록은 sweep 1회에 한 번★ — 기록마다 tmux 를 부르면 죽은 기록 N개에 tmux N번이고 7초 상한 계산이 흔들린다(DA#52 H3).
+#   ★rc 를 본다★ — pane_of 는 tmux rc 를 버려(2>/dev/null | awk) 서버 없음도 absent 로 본다. 그 길로 닫으면 안 되므로 판정을 따로 둔다(K2).
+_WG_SOK=0; _WG_TRIED=0; _WG_SESS=""
+_wg_session_list() {
+  local out rc
+  out="$(_wg_timeout 7 tmux list-panes -a -F '#{session_name}' 2>/dev/null)"; rc=$?
+  if [ "$rc" != 0 ]; then echo "판정 불가 tmux 목록 실패 — 기록 유지" >&2; _WG_SOK=0; return 1; fi
+  _WG_SESS="$out"; _WG_SOK=1; return 0
+}
+# 처음 필요할 때 1회만 — 기록 0 이면 tmux 호출도 0(send 지연에 새 몫 0).
+_wg_list_once() { [ "$_WG_TRIED" = 1 ] && return 0; _WG_TRIED=1; _wg_session_list; }
+# ★정확히 같은 이름으로만 잰다★ — `tmux has-session -t <이름>` 은 접두어로도 맞아서 죽은 `X#5` 가 산 `X#52` 때문에 «있음» 이 된다(DA#52 H3).
+#   `<이름>|<pane>` 꼴(pane_of · 옛 스텁)도 같은 이름으로 읽는다 — `|` 뒤는 버린다.
+_wg_session_has() { local s; while IFS= read -r s; do [ "${s%%|*}" = "$1" ] && return 0; done <<<"$_WG_SESS"; return 1; }
+# K2 — holder 직접 호출 + rc + 7초. rc≠0·빈 값 = 판정 불가(holder_of 본문은 손대지 않는다 — mbox.sh:197 은 실패해도 받은 이름을 rc 0 으로 돌려준다 · DA#52 H1).
+_wg_holder_rc() { local h; h="$(_wg_timeout 7 python3 "$MBOXPY" holder "$1" 2>/dev/null)" || h="";
+  [ -n "$h" ] || { echo "판정 불가 holder 실패 — 기록 유지" >&2; return 1; }
+  printf '%s' "$h"; }
+# 세션 없음 = 0(닫는다) · 있음 = 1 · 판정 불가 = 2. stdout 0(부르는 쪽 출력줄 오염 0).
+_wg_seat_absent() { local h; h="$(_wg_holder_rc "$1")" || return 2; _wg_session_has "$h" && return 1; return 0; }
+# K3 — held·quiet 둘 다 `<state>/doorbell-held/done/` 한 곳(r1665 와 같은 폴더) · 이름이 있으면 `-1` `-2` … 빈 이름을 찾음 · mv(-f·-n 0) · 옮긴 뒤 «원 자리 없음 ∧ 대상 있음».
+#   ★mv -f 는 덮어쓰고 macOS mv -n 은 안 옮기고 rc 0★(DA#52 H2 실측) — 그래서 둘 다 쓰지 않고 빈 이름을 먼저 찾는다.
+_wg_stamp() { date -r "$1" +%Y%m%dT%H%M%S 2>/dev/null || date -d "@$1" +%Y%m%dT%H%M%S 2>/dev/null || date +%Y%m%dT%H%M%S; }
+_wg_close_record() {  # <기록 파일> <좌석> [quiet] → 옮겼으면 0 · 실패 = stderr 1줄 + rc 1(부르는 쪽이 이번 sweep 에서 peek·예약·ring 0 · 다음 sweep 재시도)
+  local f="$1" seat="$2" kind="${3:-}" d base dest n
+  d="$(_wg_state)/doorbell-held/done"; mkdir -p "$d" 2>/dev/null || true
+  base="$(_wg_key "$seat")-$(_wg_stamp "$(_wg_now)")"
+  [ "$kind" != quiet ] || base="$(_wg_key "$seat")-quiet-$(_wg_stamp "$(_wg_now)")"
+  dest="$d/$base"; n=1
+  while [ -e "$dest" ] || [ -L "$dest" ]; do dest="$d/$base-$n"; n=$((n + 1)); done
+  if mv "$f" "$dest" 2>/dev/null && [ ! -e "$f" ] && [ -e "$dest" ]; then return 0; fi
+  echo "WARN 깨움 기록 닫기 실패 $f" >&2
+  [ -e "$f" ] || mv "$dest" "$f" 2>/dev/null || true    # 반쯤 옮겼으면 되돌린다(기록 그대로 = 다음 sweep 재시도)
+  return 1
+}
+
 # ── 후속 sweep — 창(5분 · 또는 시각 창)이 끝난 억제분에 doorbell 1회. 삭제는 doorbell=sent 일 때만. ──
 #   부르는 곳: send·relay 마다 1회 + CLI `mbox.sh sweep`(r1480 감지기 300초가 부른다 — send 가 없어도 재개).
 #   ★예약 소유자 = 이 함수★ — ring 은 `--reserved` 로 부른다(깨움 1회 = 차감 1회 · 이중 차감 0).
 doorbell_followup_sweep() {
-  local d f ts why win now cur seat seqs lastseq out arc res rr fu="" nudge
+  local d f ts why win now cur seat seqs lastseq out arc res rr fu="" nudge uw
   d="$(_wg_state)/doorbell-held"
+  _WG_TRIED=0; _WG_SOK=0                                                    # 세션 목록 = 이 sweep 1회(아래 _wg_list_once)
   [ -d "$d" ] || { fu="$(_wg_quiet_sweep)"; [ -z "$fu" ] || printf '%s\n' "${fu# }"; return 0; }
   now="$(_wg_now)"; cur=$(( now / 3600 ))
   for f in "$d"/*; do
@@ -97,12 +135,21 @@ doorbell_followup_sweep() {
       budget) [ -n "$win" ] && [ "$cur" != "$win" ] || continue;;
       *)      continue;;
     esac
+    # r2378 K1 — 창이 끝난 기록이 «세션 없는 좌석» 이면 예약·ring 전에 닫는다. ring 갈래만(K4: user_facing·ext_wake_seat 은 nudge 갈래 그대로 = 아래 uw 갈래).
+    uw=0; if user_facing "$seat" || ext_wake_seat "$seat"; then uw=1; fi
+    if [ "$uw" = 0 ]; then
+      _wg_list_once || true
+      if [ "$_WG_SOK" = 1 ] && _wg_seat_absent "$seat"; then
+        if _wg_close_record "$f" "$seat"; then fu="$fu closed=$seat via=absent"; fi
+        continue                                                           # mv 실패도 이번 sweep 은 닫기만(peek·예약·ring 0 · K3)
+      fi
+    fi
     seqs="$(sed -n 's/^seq=\([0-9][0-9]*\)$/\1/p' "$f" 2>/dev/null | tail -1)"
     lastseq="${seqs:-}"
     out="$(wake_budget_reserve "$seat" followup)"; arc=$?
     [ "$arc" = 0 ] || continue                                             # 소진 = 그대로 둔다(다음 창)
     nudge=0; res=""
-    if user_facing "$seat" || ext_wake_seat "$seat"; then                          # planner 대면(pi)·확장 감시 좌석 — pane 주입 0 · nudge 파일로 알린다(r1477 ⑦ · r1524)
+    if [ "$uw" = 1 ]; then                                                        # planner 대면(pi)·확장 감시 좌석 — pane 주입 0 · nudge 파일로 알린다(r1477 ⑦ · r1524 · r2378 K4 = K1 밖)
       mkdir -p "$(_wg_state)/pi-wake" 2>/dev/null
       if : >> "$(_wg_state)/pi-wake/$(_wg_key "$seat").nudge" 2>/dev/null; then nudge=1; fi
       res=sent
@@ -125,10 +172,19 @@ doorbell_followup_sweep() {
   return 0
 }
 # r1829 B3 굶김 상한 — 다른 깨움(스탬프 바뀜)·큐 0 = 기록만 지움 · 첫 적재 ≥ FT_MBOX_QUIET_MAX_SEC(1800) · 미읽음 ≥ FT_MBOX_QUIET_MAX_N(8) · 판정 불가 = doorbell 1회(예산 안).
-_wg_quiet_sweep() { local f seat ts p pn now; now="$(_wg_now)"
+_wg_quiet_sweep() { local f seat ts p pn now uw; now="$(_wg_now)"
   for f in "$(_wg_state)/doorbell-quiet"/*; do
     [ -f "$f" ] || continue; seat="$(_wg_kv "$f" seat)"; ts="$(_wg_kv "$f" ts)"; [ -n "$seat" ] || continue; case "$ts" in ''|*[!0-9]*) ts=0;; esac
     [ "$(stat -f %m "${TMPDIR:-/tmp}/mbox-doorbell-$(_wg_key "$seat")" 2>/dev/null || echo 0)" = "$(_wg_kv "$f" last)" ] || { rm -f "$f"; continue; }
+    # r2378 K1 — 세션 없는 좌석 기록은 peek·예약·ring «전» 에 닫는다(DA#52 H3). peek 갈래 뒤에 두면 죽은 기록도 peek 비용을 다 낸다. ring 갈래만(K4).
+    uw=0; if user_facing "$seat" || ext_wake_seat "$seat"; then uw=1; fi
+    if [ "$uw" = 0 ]; then
+      _wg_list_once || true
+      if [ "$_WG_SOK" = 1 ] && _wg_seat_absent "$seat"; then
+        if _wg_close_record "$f" "$seat" quiet; then printf ' closed=%s via=absent' "$seat"; fi
+        continue
+      fi
+    fi
     if [ -n "${FT_MBOX_PEEK_CMD:-}" ]; then p="$(_wg_timeout 7 $FT_MBOX_PEEK_CMD "$seat" 2>/dev/null)"; else p="$(_wg_timeout 7 python3 "$MBOXPY" peek "$seat" 2>/dev/null)"; fi
     pn="$(printf '%s\n' "$p" | sed -n 's/^pending=\([0-9][0-9]*\).*/\1/p' | head -1)"; [ "$pn" != 0 ] || { rm -f "$f"; continue; }
     [ -z "$pn" ] || [ "$(( now - ts ))" -ge "${FT_MBOX_QUIET_MAX_SEC:-1800}" ] || [ "$pn" -ge "${FT_MBOX_QUIET_MAX_N:-8}" ] || continue
