@@ -131,7 +131,7 @@ echo "== ⑮ 접두 출력 · 팀 env"
 for pv in "" "FT_NANO_PREFIX=byz-harness-nano-"; do
   o1="$(run new "$W2" FT_NANO_PREFIX= $pv)"; r1=$?; o2="$(run base "$W2" FT_NANO_PREFIX= $pv)"
   ft2_ok "⑮ ${pv:-접두 없음}" "$o1" "$r1"
-  head1="$(printf '%s\n' "$o1" | sed '$d')"; n1="$(printf '%s\n' "$head1" | grep -c .)"
+  head1="$(printf '%s\n' "$o1" | sed '$d' | grep -v '^닫는 명령 = ')"; n1="$(printf '%s\n' "$head1" | grep -c .)"   # r2401 K5 — «닫는 명령 = …» 안내 줄은 r2401 이 더한 줄이라 앞머리 대조에서 뺀다(FT2-SEAT 마지막 줄 규칙 그대로)
   o2="${o2//$T\/base/$T/new}"; [ "$head1" = "$(printf '%s\n' "$o2" | head -n "$n1")" ] && ok "⑮ ${pv:-접두 없음} 앞 ${n1}줄 = 기준판 앞머리" || bad "⑮ 앞 줄 다름 ← ${head1:0:300}"
   case "$pv" in "") printf '%s\n' "$head1" | grep -q '^ENV team=harness' && ok "⑮ ENV 줄 있음" || bad "⑮ ENV 줄 없음";;
     *) printf '%s\n' "$head1" | grep -q '^ENV ' && bad "⑮ 접두 있는데 ENV 줄" || ok "⑮ 접두 있음 = ENV 줄 0";; esac

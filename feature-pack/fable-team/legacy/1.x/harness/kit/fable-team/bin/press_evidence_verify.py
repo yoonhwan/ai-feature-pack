@@ -6,13 +6,18 @@
   묶음 = 커밋 1개(부모 = 세트 E · 트리 = meta.txt·poller_dom.jsonl·table.md·turbopack.txt) · ref = refs/press/<E>-<run_id>(원격 · 머신 무관)
   음성 경로(r1274) = 그 트리의 docs/rules/press_voice_paths.md «## 목록» 절 글롭(없음·빈 목록·꼴 틀림 = 판정 불가 = 거절 · D1) · env FT_PRESS_SCOPE=deploy = 옛 cd-dev.yml paths-filter 합집합
   외부 호출 = fetch 7 s + 재시도 1(실패 = 판정 불가 1줄) · push = min(고정비 9 + 7, 70) s + 재시도 1 + 끊긴 뒤 ls-remote 확인(r1254). rc 0 통과 · 1 거절 · 2 사용법.
+  queue : r2387 — 음성 경로 PR 이 줄 서면 «지금 press 해도 착지까지 안 깨질 PR» 1개(NEXT)를 고른다 · 판정 = pick(=same·patterns) 그대로 · 읽기 전용(refs·작업 트리 쓰기 0) · rc 0 정상 · 3 판정 불가.
+    승인 표식 = <state>/autonomy-merge-approved/<head sha> 파일(이름 = 승인한 head · 시각 = mtime · DA#54 H3) · 열린 PR 조회 = gh pr list 1회(번호·head 만 = 7 s + 재시도 1 · 두 번 다 실패 = «판정 불가 PR 목록» 1줄 rc 3) · 바뀐 파일 = 로컬 git diff · ref fetch·prune 0(읽기 전용).
 """
 import argparse
+import datetime
+import hashlib
 import json
 import os
 import re
 import subprocess
 import sys
+import time
 
 WORKFLOW = ".github/workflows/cd-dev.yml"
 VOICE_LIST = "docs/rules/press_voice_paths.md"   # r1274 BYZ 정본 음성 경로 목록(바꾸는 법 = 문서 PR)
@@ -22,6 +27,8 @@ AXES = ("아키텍처 문서", "코드", "로그", "화면")
 FILES = ("meta.txt", "poller_dom.jsonl", "table.md", "turbopack.txt")
 NS = ("refs/press", "refs/press-debt", "refs/press-debt-paid")
 SHA = re.compile(r"^[0-9a-f]{40}$")
+GH_JSON = "number,headRefOid"   # r2387 queue 의 gh pr list 칸 = 번호·head 만(실 BYZ 183 PR 에서 files·reviews 를 더하면 7 s timeout · DA#54 H2 실측 1.16 s) · 바뀐 파일 = 로컬 git diff · 승인 표식 = 상태 폴더 파일
+APPROVE_DIR = "autonomy-merge-approved"   # 승인 표식 = <state>/autonomy-merge-approved/<head sha> (파일 이름 = 승인한 head · 시각 = mtime · DA#54 H3 · ft-autonomy.sh approve-merge)
 
 
 class Reject(Exception):
@@ -90,9 +97,16 @@ def fetch_refs(repo, remote):   # --prune: 원격에 없는 묶음·빚 ref 는 
     net(repo, "fetch", "--quiet", "--prune", remote, *["+%s/*:%s/*" % (n, n) for n in NS])
 
 
+_PAT = {}   # r2387: (repo, rev, scope) → 목록 — queue 가 PR 수만큼 같은 rev 를 다시 읽지 않게(값 그대로 · 판정 불변)
+
+
 def patterns(repo, rev):   # r1274: rev 트리의 BYZ 정본 음성 경로 목록 «## 목록» 절 · «- `<글롭>`» 줄만(빈 줄·한 줄 <!-- --> 만 건너뜀 · 다른 줄 = 판정 불가) · FT_PRESS_SCOPE=deploy = 옛 cd-dev.yml 범위
+    key = (repo, rev, os.environ.get("FT_PRESS_SCOPE") or "")
+    if key in _PAT:
+        return set(_PAT[key])
     if os.environ.get("FT_PRESS_SCOPE") == "deploy":
-        return deploy_patterns(repo, rev)
+        _PAT[key] = frozenset(deploy_patterns(repo, rev))
+        return set(_PAT[key])
     rc, txt = run(repo, "show", "%s:%s" % (rev, VOICE_LIST))
     out, ins = set(), False
     for n, line in enumerate(txt.splitlines() if rc == 0 else [], 1):
@@ -103,6 +117,7 @@ def patterns(repo, rev):   # r1274: rev 트리의 BYZ 정본 음성 경로 목�
             if not m:
                 raise Reject("판정 불가: 음성 경로 목록 꼴 틀림(%s:%d)" % (rev[:10], n))
             out.add(m.group(1))
+    _PAT[key] = frozenset(out)
     return out
 
 
@@ -312,6 +327,243 @@ def ok_line(b):
     return "press 증거 OK 세트 %s run %s · ref %s · turbopack build %d runtime %d config %d" % ((b["set"][:10], b["run"], b["ref"]) + b["tp"])
 
 
+def globrx(g):   # r2387: r1274 글롭(«**»·«*»·«?») → 이름 하나 정규식(«[» 는 글자 그대로)
+    out, i = [], 0
+    while i < len(g):
+        if g.startswith("**", i):
+            out.append(".*")
+            i += 2
+        elif g[i] == "*":
+            out.append("[^/]*")
+            i += 1
+        elif g[i] == "?":
+            out.append("[^/]")
+            i += 1
+        else:
+            out.append(re.escape(g[i]))
+            i += 1
+    return re.compile("^" + "".join(out) + "$")
+
+
+def touches(specs, files):   # PR 이 음성 경로를 바꿨나 — 글롭 합집합(specs) × 로컬로 센 바뀐 파일(gh 상한 없음 = 잘림 걱정 0 · 목록 0 = 안 바꿈)
+    rxs = [globrx(re.sub(r"^:\(glob\)", "", s)) for s in specs]
+    return any(rx.match(f) for rx in rxs for f in files)
+
+
+def gh_prs(gh, limit, slug, secs=7):   # r2387: 열린 PR 1회 조회 — 7 s + 재시도 1 · 두 번 다 실패 = 판정 불가(하드 룰 20)
+    cmd = [gh, "pr", "list", "--state", "open", "--limit", str(limit), "--json", GH_JSON] + (["-R", slug] if slug else [])
+    err = ""
+    for _ in (1, 2):
+        try:
+            p = subprocess.run(cmd, capture_output=True, text=True, timeout=secs, encoding="utf-8", errors="replace")
+        except subprocess.TimeoutExpired:
+            err = "%g s 초과" % secs
+            continue
+        except OSError as x:
+            raise Reject("gh 실행 실패(%s)" % str(x)[:60])
+        if p.returncode == 0:
+            try:
+                rows = json.loads(p.stdout or "[]")
+            except ValueError:
+                rows, err = None, "JSON 아님"
+            if isinstance(rows, list):
+                return rows
+        else:
+            err = (p.stderr.strip().splitlines() or [""])[-1][:120]
+    raise Reject("gh pr list 실패(%s)" % err)
+
+
+def epoch(ts):   # ISO «2026-11-21T01:02:03Z» → 초 · 못 읽으면 None(«<분>분째» 셈용)
+    try:
+        return datetime.datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc).timestamp()
+    except (TypeError, ValueError):
+        return None
+
+
+def changed(repo, main, head):   # PR 이 바뀐 파일 — 로컬 git diff 1회(«main...head» = git 이 merge-base 를 안에서 푼다 · gh files 칸 안 씀 = 100개 상한 없음)
+    rc, out = run(repo, "diff", "--name-only", "--no-renames", "%s...%s" % (main, head))
+    if rc:
+        raise Reject("판정 불가: git diff rc=%d" % rc)
+    return [f for f in out.splitlines() if f]
+
+
+def state_dir(root):   # 승인 표식 폴더의 부모 = ft-autonomy.sh state-dir(정본 1곳) → 실패 = <root>/.fable-team/state
+    here = os.path.dirname(os.path.abspath(__file__))
+    env = dict(os.environ)
+    if root:
+        env["FT_ROOT"] = root
+    try:
+        p = subprocess.run(["bash", os.path.join(here, "ft-autonomy.sh"), "state-dir"], capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=7, env=env)
+        if p.returncode == 0 and p.stdout.strip():
+            return p.stdout.strip()
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    return os.path.join(root, ".fable-team", "state") if root else ""
+
+
+def approved_at(head, st):   # 승인 표식 시각 = <state>/autonomy-merge-approved/<head sha> 의 mtime · 없으면 ""(승인 전)
+    if not st:
+        return ""
+    try:
+        return datetime.datetime.fromtimestamp(os.path.getmtime(os.path.join(st, APPROVE_DIR, head)), datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    except OSError:
+        return ""
+
+
+def merge_tree(repo, base, head):   # 지금 main + PR head 의 병합 트리 1회(객체 쓰기뿐) — 겹침 = 그 줄만 판정 불가
+    rc, out = run(repo, "merge-tree", "--write-tree", base, head)
+    t = (out.splitlines() or [""])[0].strip()
+    if rc or not SHA.match(t):
+        raise Reject("겹침(merge-tree rc=%d)" % rc)
+    return t
+
+
+MAINSPEC = [None]   # r2387: queue 가 도는 동안 «지금 main 목록» 은 하나 — PR 수만큼 다시 읽지 않는다
+_SET = {}   # r2387: 세트 sha → {"voice": {비교목록: 해시}, "names": 세트가 부모에 더한 파일, "tree": 세트 트리, "parent": 세트 부모} · 프로세스 안 읽기 전용 캐시
+
+
+def set_meta(repo, e, key, fn):   # 세트 1개의 계산값 1회 캐시(같은 세트를 PR 수만큼 다시 세지 않는다)
+    m = _SET.setdefault(e, {})
+    if key not in m:
+        m[key] = fn()
+    return m[key]
+
+
+def voice_hash(repo, rev, specs):   # 글롭 범위 트리 «내용» 해시 — ls-tree -r 1회 + 글롭 거르기(:(glob) 는 ls-tree 가 안 받는다) · 두 rev 값이 같으면 same()(= diff --quiet) 0 과 같은 뜻
+    pre = sorted({re.sub(r"^:\(glob\)", "", x).split("*")[0].split("?")[0].rsplit("/", 1)[0] for x in specs} - {""})   # 글롭 앞 고정 경로만 넘긴다(트리 전체를 안 읽는다)
+    rc, out = run(repo, "ls-tree", "-r", "-z", rev, "--", *pre) if pre else (0, "")
+    if rc:
+        raise Reject("판정 불가: git ls-tree rc=%d" % rc)
+    rxs = [globrx(re.sub(r"^:\(glob\)", "", x)) for x in specs]
+    rows = []
+    for row in out.split("\0"):
+        if row:
+            meta, _, path = row.partition("\t")
+            if any(rx.match(path) for rx in rxs):
+                rows.append(meta + "\t" + path)
+    rows.sort()
+    return hashlib.sha1("\n".join(rows).encode("utf-8", "replace")).hexdigest()
+
+
+def press_sets(repo):   # refs/press 를 최신 run 순으로 — (ref, 묶음 커밋, 세트) · 깨진 묶음은 Reject 를 그 자리에 담는다(pick 과 같은 자리)
+    out = []
+    for ref, c in newest_refs(refs(repo, "refs/press").items()):
+        out.append((ref, c, set_meta(repo, c, "set", lambda c=c: _set_of(repo, c))))
+    return out
+
+
+def _set_of(repo, c):
+    try:
+        return git(repo, "rev-parse", c + "^").strip()
+    except Reject as x:
+        return x
+
+
+def pick_fast(repo, target, specs, upto):   # r2387 N1: pick 과 «같은 규칙»(최신 run 순 · 음성 경로 트리 같음 · bundle 통과 · 빚 덮음)을 세트 캐시로 센다 — PR 수 × ref 수 git 호출을 없앤다
+    pre = specs_of(repo, MAINSPEC[0])   # 거르기 = 지금 main 목록(모든 PR 이 같은 키 = 세트당 1회) · 확정은 아래 same() 그대로
+    tgt = voice_hash(repo, target, pre)
+    good, why, debts, n = [], "", None, 0
+    for ref, c, e in press_sets(repo):
+        n += 1
+        if isinstance(e, Reject):
+            raise e   # 깨진 묶음 = 그 줄 판정 불가(⑮ · pick 과 같은 자리에서 끊는다)
+        if set_meta(repo, e, "voice", lambda e=e: voice_hash(repo, e, pre)) != tgt:
+            continue   # 후보 거르기(세트마다 1회 계산 · PR 수만큼 다시 안 센다)
+        both = sorted({*specs, *(":(glob)" + p for p in patterns(repo, e))})   # 확정 = pick 과 같은 비교 목록·같은 함수
+        if not same(repo, e, target, both):
+            continue
+        try:
+            b = bundle(repo, ref, c)
+        except Reject as x:
+            why = why or str(x)
+            continue
+        good.append(b)
+        if debts is None:
+            debts = unpaid(repo, upto)
+        if all(anc(repo, d, b["set"]) for d in debts):
+            break
+    return good, (why or "묶음 없음(음성 경로 트리가 같은 세트의 refs/press/* 0 · 검사 %d개)" % n), debts or []
+
+
+def own_set(repo, head, files):   # r2387: 이 PR 의 묶음이 있나 — 묶음에는 PR 번호가 없어 «세트 = 그 세트 부모 + 이 PR 의 병합» 인가로 센다(세트는 PR head 를 조상으로 안 갖는다 · 최신 run 순 첫 hit)
+    want = frozenset(files)
+    for _ref, c, e in press_sets(repo):
+        if isinstance(e, Reject):
+            raise e
+        nm = set_meta(repo, e, "names", lambda e=e: _names(repo, e))
+        if not nm or not nm <= want:
+            continue   # 세트가 부모에 더한 파일이 그 PR 이 바꾼 파일의 부분집합 — 아니면 그 PR 의 묶음이 아니다(merge-tree 0회)
+        t = (run(repo, "merge-tree", "--write-tree", set_meta(repo, e, "parent", lambda e=e: git(repo, "rev-parse", e + "^").strip()), head)[1].splitlines() or [""])[0].strip()
+        if SHA.match(t) and t == set_meta(repo, e, "tree", lambda e=e: git(repo, "rev-parse", e + "^{tree}").strip()):
+            return e
+    return ""
+
+
+def _names(repo, e):
+    rc, out = run(repo, "diff", "--name-only", "--no-renames", git(repo, "rev-parse", e + "^").strip(), e)
+    return frozenset(out.split()) if rc == 0 else frozenset()
+
+
+def last_voice_landing(repo, main, specs):   # 음성 경로를 마지막으로 바꾼 main 착지 sha 1개(STALE 의 «다르게 만든 착지»)
+    out = git(repo, "log", "--first-parent", "--format=%H", "-n", "1", main, "--", *specs).strip().splitlines()
+    return out[0] if out else ""
+
+
+def queue_row(repo, main, pr, st):   # r2387 K1·K2: PR 1개 → None(음성 경로 0 · 줄에 안 섬) 또는 (승인시각, 갈래, 덧말) · 판정은 pick 그대로(새 규칙 0)
+    head = (pr.get("headRefOid") or "").strip()
+    if not SHA.match(head) or run(repo, "rev-parse", "--verify", head + "^{commit}")[0]:
+        raise Reject("head 객체 없음(%s)" % (head[:10] or "?"))
+    files = changed(repo, main, head)   # 바뀐 파일(로컬 git diff 1회)
+    specs = specs_of(repo, MAINSPEC[0])   # 지금 main 목록 1회(캐시) — 대부분의 PR 은 이것만으로 걸러진다
+    if not touches(specs, files) and VOICE_LIST not in files:
+        return None   # 음성 경로 0 · 목록 자체를 안 바꿈 = 줄에 안 섬(PR 쪽 목록 show 0회)
+    specs = specs_of(repo, main, head)   # 목록 = 지금 main ∪ PR 쪽(r1274 같음 · PR 이 글롭을 넓힌 경우)
+    if not touches(specs, files):
+        return None
+    at = approved_at(head, st)   # 표식 파일 이름이 head sha = 승인 뒤 새 커밋을 올리면 그 새 head 는 «승인 전»
+    if not at:
+        return "", "승인 전", ""
+    good, _why, _debts = pick_fast(repo, merge_tree(repo, main, head), specs, main)
+    if good:
+        return at, "VALID", ""
+    if own_set(repo, head, files):
+        return at, "STALE", " · 다르게 만든 착지 %s · press 다시" % (last_voice_landing(repo, main, specs)[:10] or "?")
+    return at, "NONE", " · press 필요"
+
+
+def queue(a):   # r2387 K1~K4: PR 마다 1줄 + 끝 «NEXT …» 1줄 — 쓰기·push 0(읽기 전용)
+    main = git(a.repo, "rev-parse", "--verify", a.main + "^{commit}").strip()
+    if a.landed:   # K3: 착지가 음성 경로를 안 바꿨으면 gh 0 · 출력 0
+        base = git(a.repo, "rev-parse", "--verify", a.landed[0] + "^{commit}").strip()
+        q = git(a.repo, "rev-parse", "--verify", a.landed[1] + "^{commit}").strip()
+        rc, out = run(a.repo, "diff", "--name-only", "--no-renames", base, q, "--", *specs_of(a.repo, q, base))
+        if rc or not out.strip():
+            return 0
+    MAINSPEC[0] = main
+    st = state_dir(a.root)   # r2387 H1: fetch 0 — 원격 최신 묶음은 부르는 쪽 몫(로컬 ref 만 읽는다 = queue 가 ref 를 안 지운다)
+    prs, now, rows = gh_prs(a.gh, a.limit, a.slug), time.time(), []
+    for pr in prs:
+        n = int(pr.get("number") or 0)
+        try:
+            r = queue_row(a.repo, main, pr, st)
+        except Reject as x:
+            r = ("", "판정 불가", " · " + str(x))
+        if r is None:
+            continue
+        rows.append((r[0] or "9999", n, r[1], "PR #%d %s%s" % (n, r[1], r[2])))
+    rows.sort(key=lambda r: (r[0], r[1]))   # 승인 표식 시각 오름차순 · 같으면 PR 번호
+    for r in rows:
+        print(r[3])
+    valid = [r for r in rows if r[2] == "VALID"]
+    if valid:   # 줄 어디든 VALID 면 NEXT 는 «대기»(DA#53 H1) — VALID 둘 이상이면 승인 순 첫 것
+        print("NEXT 대기(VALID PR %d 착지 뒤 · %d분째)" % (valid[0][1], max(0, int((now - (epoch(valid[0][0]) or now)) // 60))))
+    else:
+        nxt = next((r for r in rows if r[2] in ("STALE", "NONE")), None)   # 판정 불가 줄은 건너뛴다
+        print("NEXT %d" % nxt[1] if nxt else "NEXT 없음")
+    return 0
+
+
 def deploy(a):
     c = git(a.repo, "rev-parse", "--verify", a.commit + "^{commit}").strip()
     specs = specs_of(a.repo, c)
@@ -327,12 +579,26 @@ def deploy(a):
 
 
 def main(argv):
-    ap = argparse.ArgumentParser(prog="press_evidence_verify.py", description="배포 직전 press 증거 검사(r1230)")
-    ap.add_argument("mode", choices=("deploy",))
-    ap.add_argument("--commit", required=True)
+    ap = argparse.ArgumentParser(prog="press_evidence_verify.py", description="배포 직전 press 증거 검사(r1230) · queue(r2387)")
+    ap.add_argument("mode", choices=("deploy", "queue"))
+    ap.add_argument("--commit")
     ap.add_argument("--repo", default=".")
     ap.add_argument("--remote", default="origin")
+    ap.add_argument("--main", default="origin/main")
+    ap.add_argument("--gh", default=os.environ.get("FT_GH") or "gh")
+    ap.add_argument("--slug", default="")
+    ap.add_argument("--root", default=os.environ.get("FT_ROOT") or "")
+    ap.add_argument("--limit", type=int, default=200)
+    ap.add_argument("--landed", nargs=2, metavar=("BASE", "COMMIT"))
     a = ap.parse_args(argv)
+    if a.mode == "queue":
+        try:
+            return queue(a)
+        except Reject as r:
+            print("판정 불가 PR 목록 — %s" % r)
+            return 3
+    if not a.commit:
+        ap.error("deploy 에는 --commit 이 필요하다")
     try:
         return deploy(a)
     except Reject as r:

@@ -478,6 +478,7 @@ print(v if isinstance(v,str) else "")' "$seats" 2>/dev/null)"
 #     r1804 A5: 카드 파일 이름이 «<토큰>-» 로 «시작» 할 때만(slug 가운데 «-r336-» 은 0) · «ar1478»·«r14780» 은 안 잡는다
 #     ★r1849 ⓐ r<숫자> 아닌 토큰(nano/<stem>) = 파일 이름이 정확히 <토큰>.md ⓑ 착지 리포(REPO) 공용 루트 ≠ <root> 공용 루트면 그 리포 카드 ref(ft_card_ref 팀 «» 규칙 = FT_CARD_REF|origin/main) 트리도 · 경로 = 찾은 리포 공용 루트 기준★
 #     ★r2123 D1~D3: ⓐ 의 정확한 이름이 모든 ref 에서 0장이면 «_slug(이름,40) = <토큰>»(ft-nano-spawn.sh _slug 규칙) 카드 · 정확히 1장만 잡는다 · 2장 이상 = 0장 + FM_CARDS_ERR «토큰 t slug 겹침 N장» · 이미 읽은 트리만(git 호출 수 그대로)★
+#     ★r2411 K1~K3: env FM_CARD_STEM(가지 마지막 조각 · 부른 쪽이 넘긴다)이 «r<번호>[a-z]?-» 로 시작하고 파일 이름이 «정확히 같은» 카드가 성공한 ref 전체 결과에 있으면 그 카드들만 남긴다 · 0장·번호 가지 아님(제목 갈래 카드) = 지금대로(K2 후퇴) · 좁혔을 때만 stderr INFO 1줄 · stdout 계약(경로만) 그대로 · git 호출 수 그대로★
 fm_card_slug_hits() {   # <경로 앞자리> <토큰…> < ls-tree 줄 : stdout = «토큰<TAB>절대경로» · 이름 = 토큰 인 카드는 빼다(정확한 이름 = D1 몸)
   local pre="$1"; shift
   awk -v toks="$*" -v pre="$pre" 'BEGIN{n=split(toks,a," "); for(k=1;k<=n;k++) w[a[k]]=1}
@@ -499,7 +500,7 @@ fm_card_tail_pick() {   # r2217: fm_cards_by_tokens 안에서만 — 부른 쪽 
 fm_cards_by_tokens() {
   local root="$1"; shift; FM_CARDS_ERR=""; FM_CARDS_TAB=""; FM_CARDS_REFS=""
   [ -n "$root" ] && [ $# -gt 0 ] || return 0
-  local i ref refs out rc ok=0 bad="" rd="" p b t c rr n st="" ex="" cand="" serr="" tp="" tx="" tex="" tab="$root/.fable-team/state/directive-roots.tsv"; local -a hit=() dirs=() rfs=()
+  local i ref refs out rc ok=0 bad="" rd="" p b t c rr n st="" ex="" cand="" serr="" tp="" tx="" tex="" tab="$root/.fable-team/state/directive-roots.tsv"; local -a hit=() dirs=() rfs=() xh=()
   for t in "$@"; do case "$t" in r[0-9]*) ;; *) st="$st $t";; esac; done   # r2123: slug 대조 후보 토큰(r<숫자> 아님)
   for t in $st; do [[ $t =~ ^(.+)-r[0-9]+$ ]] && tp="$tp$t ${BASH_REMATCH[1]}"$'\n' && tx="$tx ${BASH_REMATCH[1]}"; done   # r2217 O1: 꼬리 1회 뗀 토큰
   local cap   # r2124 R1: ref 조회 상한(공유 7초 몫 · 아래 루프)
@@ -526,6 +527,12 @@ fm_cards_by_tokens() {
     # shellcheck disable=SC2086
     [ -z "$st" ] || cand="$cand$(printf '%s\n' "$out" | fm_card_slug_hits "${dirs[$i]}/" $st $tx)"$'\n'   # r2123-mut:slug
   done
+  if [ "${#hit[@]}" -gt 0 ] && [[ "${FM_CARD_STEM:-}" =~ ^r[0-9]{2,5}[a-z]?- ]]; then   # r2411 K1~K3: 성공한 ref 결과를 다 모은 뒤에 정한다(중간 fallback 0) · 이름 = basename 전체 정확 일치(접두 매칭 0) · 번호 가지에만(제목 갈래 카드 유실 0)
+    xh=(); for p in "${hit[@]}"; do b="${p##*/}"; [ "${b%.md}" = "$FM_CARD_STEM" ] && xh[${#xh[@]}]="$p"; done
+    if [ "${#xh[@]}" -gt 0 ] && [ "${#xh[@]}" -lt "${#hit[@]}" ]; then   # K2: 0장 = 지금대로 번호 앞머리(아래 hit 그대로)
+      echo "INFO 카드 정확한 가지 이름 $FM_CARD_STEM → ${#xh[@]}장(번호 앞머리 ${#hit[@]}장 중)" >&2; hit=("${xh[@]}")
+    fi
+  fi
   if [ "$ok" -eq 0 ]; then   # 하드 룰 20: 조용한 0장 금지 — 판정 불가를 글자로 남긴다
     FM_CARDS_ERR="카드 ref 를 하나도 못 읽음 — $bad"; echo "WARN cards_err: $FM_CARDS_ERR" >&2; return 0
   fi
@@ -577,7 +584,7 @@ fm_land_notify_land() {
   tok="$(fm_card_tokens "${7:-}" "$txt")"; cl="${tok:-없음}"
   case "${FM_CARD_ONLY:-}" in 1) cl="없음 · 카드 파일만(${tok:-토큰 0} 짝 0)"; tok="";; '?') cl="없음 · 카드 파일만 판정 불가(${tok:-토큰 0} 짝 0)"; tok="";; esac   # r2248 O3: 카드 목록 0 · 알림 1줄 그대로
   # shellcheck disable=SC2086
-  FM_NOTIFY_REPO="$root" fm_land_notify 착지 "[착지] pr=$pr sha=$sh 카드 $cl · 설치 $nst" $(fm_cards_by_tokens "$root" $tok)
+  FM_NOTIFY_REPO="$root" fm_land_notify 착지 "[착지] pr=$pr sha=$sh 카드 $cl · 설치 $nst" $(FM_CARD_STEM="${7##*/}" fm_cards_by_tokens "$root" $tok)   # r2411: 가지 마지막 조각을 카드 찾기까지 넘긴다(정확한 이름 우선)
   fm_land_turn_notify "$root" "$pr" "$t0"   # r2124 G2: 꼬리 = nano-record notify 만(장부 = ft-merge-land 가 LANDED 바로 뒤 fm_land_turn_ledger)
 }
 #   fm_land_card_line <카드리포루트> <PR> <착지 sha 40> <PR 제목> <head 가지> <리포 이름> <target> : r2034 A1~A4 — 착지 뒤 카드(토큰 = fm_land_notify_land 와 같은 규칙 · fm_cards_by_tokens)마다
@@ -592,7 +599,7 @@ fm_land_card_line() {
     else echo "SKIP 카드 없음 — 카드 토큰 0(카드 착지 줄 쓰기 0)"; fi; return 0; }
   of="$(mktemp "${TMPDIR:-/tmp}/fm-cardline.XXXXXX" 2>/dev/null)" || { echo "판정 불가 — 카드 착지 줄 $tok mktemp 실패(${TMPDIR:-/tmp})"; return 0; }
   # shellcheck disable=SC2086
-  fm_cards_by_tokens "$root" $tok >"$of" 2>/dev/null; err="$FM_CARDS_ERR"; while IFS= read -r p; do [ -z "$p" ] || cd[${#cd[@]}]="$p"; done <"$of"; rm -f "$of"
+  FM_CARD_STEM="${head##*/}"; fm_cards_by_tokens "$root" $tok >"$of" 2>/dev/null; FM_CARD_STEM=""; err="$FM_CARDS_ERR"; while IFS= read -r p; do [ -z "$p" ] || cd[${#cd[@]}]="$p"; done <"$of"; rm -f "$of"   # r2411: 가지 마지막 조각 = 정확한 이름 짝
   case "$err" in "카드 ref 를 하나도 못 읽음"*) echo "판정 불가 — 카드 착지 줄 $tok $err"; return 0;; esac
   [ "${#cd[@]}" -gt 0 ] || { echo "SKIP 카드 없음 — ${err:-토큰 $tok 카드 0장}(카드 착지 줄 쓰기 0)"; return 0; }
   pv="$(fm_push_calc '?' 2>/dev/null)"; fs="$(fm_fetch_sec 2>/dev/null)"; cap=$(( fs + pv ))   # r2042 A1: fetch 상한 + push 1단위(r2042-mut:cap)
@@ -661,7 +668,7 @@ fm_land_turn_first() { local t0=$SECONDS tok; tok="$(fm_card_tokens "$3" "$4")"
   case "${FM_CARD_ONLY:-}" in 1|'?') tok="";; esac   # r2248 O3: 카드 파일만(판정 불가 포함) = 장부 cards:[] · 장부 행 그대로(r2248-mut:pair)
   [[ "$3" =~ ^planner/verdict-[0-9]+$ ]] && tok=""   # r2157 T1: planner 판정 PR = 카드 일 아님 → 장부 토큰 0(cards:[] · 제목의 대상 카드 번호 안 잡음) · 알림·카드 착지 줄·D2 = fm_card_tokens 그대로
   # shellcheck disable=SC2086
-  FM_CARDS_T0="$t0" fm_land_turn_ledger "$1" "$2" "$t0" $tok; }   # r2124 R1(DA HOLD #319782): 카드 ref 조회도 같은 7초 몫(doc 판정과 공유) · 옛 fm_land_turn 길은 ref 마다 7초 그대로
+  FM_CARDS_T0="$t0" FM_CARD_STEM="${3##*/}" fm_land_turn_ledger "$1" "$2" "$t0" $tok; FM_CARD_STEM=""; }   # r2124 R1(DA HOLD #319782): 카드 ref 조회도 같은 7초 몫(doc 판정과 공유) · 옛 fm_land_turn 길은 ref 마다 7초 그대로 · r2411: 가지 마지막 조각 = 정확한 이름 짝
 fm_land_common() { local c; c="$(git -C "$1" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)"; c="${c%/.git}"; printf '%s' "${c:-$1}"; }   # 장부·notify 의 공용 루트
 fm_land_turn_ledger() {
   local root="$1" pr="$2" t0="$3" c f cap el of err="" p dk="" dn=""; local -a cd=(); shift 3; c="$(fm_land_common "$root")"; f="$c/.fable-team/state/land-record-turn.jsonl"

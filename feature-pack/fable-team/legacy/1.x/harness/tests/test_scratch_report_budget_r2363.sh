@@ -65,12 +65,14 @@ sc --report; C="$(calls)"; NROWS="$(rows)"; QUES="$(raws)"
 fi
 
 if want ⑦; then
-# ⑦ K4 지우기 길 그대로 — --sweep 판정 예산 1초 · 사본 8 → du 부름 ≤ 5(8 아님) · «판정 예산(1초) 초과 · 남은 사본 … 다음 틱» 그대로 · rc0
+# ⑦ (r2398a K2 정정) 지우기 길은 크기를 안 잰다 — --sweep 사본 8 · 예산 1초 → du 부름 0 · 끝 줄 judged=8 · rc0
+#    (r2363 때는 «du 가 예산을 먹어 다음 틱» 이 계약이었다 — K2 가 du 를 지우기 길에서 빼서 그 자리는 «du 0 + judged 수» 가 계약이 된다)
 bed 8
 : > "$ARMED"
 BUDGET=1 sc --sweep; C="$(calls)"
-{ [ "$RC" = 0 ] && [ "$C" -le 5 ] && printf '%s' "$OUT" | grep -q '판정 예산(1초) 초과 · 남은 사본'; } \
-  && ok "⑦ --sweep du 부름 ${C}회 ≤ 5 · «다음 틱» 1줄(지우기 길 그대로)" || bad "⑦ rc=$RC du호출=$C out=$(printf '%s' "$OUT" | tail -3 | tr '\n' ' ')"
+J="$(printf '%s\n' "$OUT" | sed -n 's/.*judged=\([0-9][0-9]*\).*/\1/p' | tail -1)"
+{ [ "$RC" = 0 ] && [ "$C" = 0 ] && [ "${J:-0}" = 8 ]; } \
+  && ok "⑦ --sweep du 부름 0회(지우기 길 = 크기 «?» · K2) · judged=$J · rc0" || bad "⑦ rc=$RC du호출=$C judged=${J:-?} out=$(printf '%s' "$OUT" | tail -3 | tr '\n' ' ')"
 fi
 
 if want cmp; then

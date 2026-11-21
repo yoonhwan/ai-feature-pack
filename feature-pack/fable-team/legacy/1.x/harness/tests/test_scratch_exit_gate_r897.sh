@@ -123,7 +123,7 @@ if want Ⓑ; then
   for mode in empty real; do
     reset; A="$(mk gone-b "$SHA")"; age_reg "$A" 90000
     INJ_CMD=du INJ_SPOT="" INJ_N=1 INJ_OUT="$mode" sc --sweep
-    cell "Ⓑ du $mode+rc128 = 대상 판정 그대로(삭제) · reg/ 생존" '[ -s "$T/inj.fired" ] && gone "$A"'
+    cell "Ⓑ du $mode+rc128 = 삭제 판정 그대로(삭제) — r2398a K2 로 지우기 길은 du 를 안 부르므로 주입 0" '[ ! -s "$T/inj.fired" ] && gone "$A"'
   done
 fi
 
@@ -180,8 +180,9 @@ fi
 if want Ⓚ; then
   # 고침 2: 게이트는 «자기» lsof 를 판정에 쓴다 — orphans 의 lsof 는 깨끗하고 게이트의 lsof(3번째: orphans·N5·대상)만 점유를 보인다
   reset_q; A="$(mk gone-k2 "$SHA")"; age_reg "$A" 90000
-  INJ_CMD=lsof INJ_SPOT="-d cwd" INJ_N=3 INJ_OUT=fake INJ_FAKE="$(printf 'p4242\ncvite\nfcwd\nn%s/sub' "$A")" sc --sweep
-  cell "Ⓚ 고침2 게이트 자기 lsof 가 점유 = 붙잡음 · 삭제 0" '[ -s "$T/inj.fired" ] && [ -d "$A" ] && printf "%s" "$OUT" | grep -q "재확인에서 쓰는 중"'
+  # r2398a K2: 회차 전체 지도(1번째 lsof) 뒤 «출구 게이트 재확인» = 2번째 lsof — 거기서 점유를 보인다
+  INJ_CMD=lsof INJ_SPOT="-d cwd" INJ_N=2 INJ_OUT=fake INJ_FAKE="$(printf 'p4242\ncvite\nfcwd\nn%s/sub' "$A")" sc --sweep
+  cell "Ⓚ 고침2 출구 게이트 재확인 lsof 가 점유 = 붙잡음 · 삭제 0" '[ -s "$T/inj.fired" ] && [ -d "$A" ] && printf "%s" "$OUT" | grep -qE "재확인에서 쓰는 중|실행 중 — 삭제 보류"'
   # 고침 5: 확인한 객체 = 지운 객체 — 제거 직전 장치·inode 가 다르면 삭제 0(등록 사본 · tmp 이동 뒤)
   reset_q; A="$(mk gone-k5 "$SHA")"; age_reg "$A" 90000; KB="${A##*/}"
   INJ_CMD=stat INJ_SPOT="$KB" INJ_N=2 INJ_OUT=fake INJ_FAKE="1:1" sc --sweep
@@ -230,6 +231,10 @@ if want ⓧ; then
       k="$(cnt "$c" "${s//@B@/$CTLB}")"
       [ "$k" -gt 0 ] || { bad "ⓧ $kind $c:$s 대조에서 호출 0(시험 자리 틀림)"; continue; }
       n=1; while [ "$n" -le "$k" ]; do
+        # r2398a K2: 1번째 lsof·awk(/^p/) = 회차 전체 지도 1회 — 실패하면 «사본별 후퇴» 라 「삭제 0」 기대가 아니다(그 길은 test_scratch_sweep_budget_r2398a ⑤1 이 잰다)
+        case "$c:$s" in "lsof:-d cwd"|"awk:/^p/")
+          if [ "$n" = 1 ]; then ok "ⓧ $kind $c:${s//@B@/<사본>}#1 = 회차 전체 지도(r2398a K2 — 실패 = 사본별 후퇴)"; n=$((n+1)); continue; fi;;
+        esac
         for mode in real empty; do xrun "$kind" "$c" "$s" "$n" "$mode" "$kind $c:${s//@B@/<사본>}#$n $mode"; done
         n=$((n+1))
       done
