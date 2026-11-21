@@ -52,7 +52,7 @@ def _env(tmp, baseline=False, monkeypatch=None):
     binder = binding.ThreadBinding(str(tmp), TEAM, clock=lambda: "T")
     route = route_mod.SlackRoute(str(tmp), receive=receive, bindings=binder, team=TEAM, clock=lambda: "T",
                                  notify=notes.append,
-                                 deliver=lambda to, kind, lines: delivered.append({"to": to, "lines": list(lines)}))
+                                 deliver=lambda to, kind, lines, row=None: delivered.append({"to": to, "lines": list(lines)}))
     return SimpleNamespace(route=route, receive=receive, binder=binder, client=client, notes=notes,
                            delivered=delivered, acks=acks)
 

@@ -115,7 +115,7 @@ def _env(root, route_cls=route_mod.SlackRoute, capacity=64, intake_step=None):
     binder = binding.ThreadBinding(str(root), TEAM)
     delivered = []
     route = route_cls(str(root), receive=receive, bindings=binder, team=TEAM, notify=band.notify.append,
-                      deliver=lambda to, kind, lines: delivered.append({"to": to, "kind": kind,
+                      deliver=lambda to, kind, lines, row=None: delivered.append({"to": to, "kind": kind,
                                                                         "lines": list(lines)}))
     return route, binder, delivered, client, band
 

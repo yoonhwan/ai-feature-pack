@@ -138,7 +138,7 @@ def case_03(tmp, pack=None):
 
 
 def case_04(tmp, pack=None):
-    """④ 일꾼이 잠금을 쥔 동안 수신 스레드에 새 글 1 → 잠금이 풀린 뒤 처리 · dispatched 1 · envelope ack 1 · 유실 0 (M3)."""
+    """④ 일꾼이 잠금을 쥔 동안 수신 스레드에 새 글 1 → r2391 로 수신은 안 막히고(ack 즉시) 그 글은 큐 뒤에서 처리 · dispatched 2 · ack 1 · 유실 0 (M3)."""
     listener, band, clock = bench(tmp, pack)
     gate = Gate(listener.receive.latest)
     listener.receive.latest = gate
@@ -149,14 +149,15 @@ def case_04(tmp, pack=None):
     listener.ws.watch = live["ts"]
     recv = threading.Thread(target=lambda: listener._frame_of(env("E2", live)), daemon=True)
     recv.start()
-    assert wait_for(lambda: listener.envelope == "E2", limit=10)  # 수신 스레드가 envelope 을 쥐고 잠금 앞에 선다
+    assert wait_for(lambda: listener.ws.sent, limit=10)  # 잠금이 잡혀 있어도 확인은 그 자리에서 나간다(r2391)
+    assert listener.ws.sent == [("E2", False)]  # 그 글의 RECEIVED 줄은 일꾼 몫 = 확인이 먼저
     gate.release.set()
     worker.join(20), recv.join(20)
-    listener.worker.stop()
+    listener.worker.stop()  # 큐에 남은 그 글까지 마저 처리(유실 0)
     band.close()
     assert len(Rows(tmp, "route.jsonl").where(t="route", state="dispatched")) == 2  # 둘 다 처리(유실 0)
     assert len(Rows(tmp, "receive.jsonl").where(state="received")) == 2
-    assert listener.ws.sent == [("E2", True)]  # _frame_of 끝 1회 · 그 글의 RECEIVED 줄 뒤 = 유실 0
+    assert listener.ws.sent == [("E2", False)]  # 확인은 1회(일꾼이 더하지 않는다)
 
 
 def case_05(tmp, pack=None):
@@ -221,7 +222,7 @@ def case_07(tmp, pack=None):
 
 
 def case_08(tmp, pack=None):
-    """⑧ 수신 스레드가 E2 를 쥐고 잠금을 기다리는 동안 일꾼이 ack → E2 의 RECEIVED 줄 앞 send 0 · 뒤 1 (M5)."""
+    """⑧ ack 는 수신 스레드 1곳뿐 — 일꾼이 잠금을 쥔 채 그 글을 처리해도 send 는 1회 (M5)."""
     listener, band, clock = bench(tmp, pack)
     gate = Gate(listener.receive.latest)
     listener.receive.latest = gate
@@ -232,12 +233,12 @@ def case_08(tmp, pack=None):
     listener.ws.watch = live["ts"]
     recv = threading.Thread(target=lambda: listener._frame_of(env("E2", live)), daemon=True)
     recv.start()
-    assert wait_for(lambda: listener.envelope == "E2", limit=10)
+    assert wait_for(lambda: listener.ws.sent, limit=10)
     gate.release.set()
     worker.join(20), recv.join(20)
     listener.worker.stop()
     band.close()
-    assert listener.ws.sent == [("E2", True)]  # 기준판(잠금만) = RECEIVED 줄 앞 1회 = [("E2", False)]
+    assert [envelope for envelope, _ in listener.ws.sent] == ["E2"]  # 일꾼 몫 ack 0(r2391 — 처리와 확인 분리)
 
 
 CASES = {name: value for name, value in sorted(globals().items()) if name.startswith("case_")}
@@ -256,7 +257,10 @@ MUTANTS = {
     "M4": ("socket.py", [(LOCK, "        with (self.route_lock if threading.get_ident() == self.recv_thread"
                                 " else threading.Lock()):  # r2347 L1")],
            ["case_01"]),
-    "M5": ("socket.py", [("        if threading.get_ident() != self.recv_thread:  # r2347 L4", "        if False:  # r2347 L4")],
+    "M5": ("socket.py",  # r2391 — ack 을 두 번 보내는 판(수신 스레드 1곳 1회가 계약)
+           [("            self.ws.send(json.dumps({\"envelope_id\": self.envelope}))",
+             "            self.ws.send(json.dumps({\"envelope_id\": self.envelope}))\n"
+             "            self.ws.send(json.dumps({\"envelope_id\": self.envelope}))")],
            ["case_08"]),
 }
 

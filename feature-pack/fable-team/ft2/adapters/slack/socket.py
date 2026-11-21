@@ -6,7 +6,10 @@ r2341 — 보충 대상 = 끊긴 창(마지막 처리 글 ts − 60초) 활동 t
 r2347 — 보충(일꾼 스레드)과 실시간 글(수신 스레드)이 같은 route 를 타므로 route 몸통 전체(bind check-then-act 포함)를
 잠금 1개(route_lock)로 한 번에 하나만 돈다 · envelope ack 는 수신 스레드에서만 보낸다(일꾼 ack 는 공유 칸을 안 건드린다).
 r2348 — 봇 가입·관리 명령(제어 사건)의 Web·효과도 일꾼이 한다. 제어 사건이 일꾼에 있는 동안 온 글·보관 사건은
-큐 뒤에 줄 세워(deferred 셈) 새 허용 집합으로 판정한다 — 순서를 지키는 장치 = 장벽 1개."""
+큐 뒤에 줄 세워(deferred 셈) 새 허용 집합으로 판정한다 — 순서를 지키는 장치 = 장벽 1개.
+r2391 — 사람 글도 수신 스레드가 아니라 일꾼이 묶고·라우팅하고·깨운다(수신 스레드 = ack 와 큐 넣기 둘뿐).
+그래서 처리가 길어도 keepalive 가 안 끊긴다 · 관측 칸을 «수신 최장» 과 «최장 처리» 로 나눠 잰다 ·
+보충에서 예산에 남은 것은 다음 재연결이 아니라 같은 연결 안 일꾼 다음 차례로 끝낸다."""
 
 import importlib.util, json, logging.handlers, os, re, sys, threading, time, urllib.parse, urllib.request  # noqa: E401
 
@@ -23,6 +26,7 @@ receive, route, publish, binding, backfill, wiring, channels = map(_adapter, (
 alert_intake = _adapter("alert_intake")  # r2337 — 경보 갈래(설정 파일 없으면 갈래 0)
 slack_worker = _adapter("slack_worker")  # r2341 — 수신 스레드 밖 일꾼(보충·깨움·쪽지)
 JOIN_LOOKBACK = 600.0  # S4 — 새로 붙은 채널 보충 창(가입 시각 − 600초)
+BACKFILL_ROUNDS = 8  # r2391 K3 — 한 연결에서 이어 도는 보충 차례 상한(넘으면 다음 재연결 · 큐 독점 0)
 AUTO = object()  # Listener(alert=AUTO) = 설정에서 만든다 · 시험은 만든 것을 꽂는다
 
 class Undecided(Exception):
@@ -117,14 +121,16 @@ class Listener:  # 상주 수신기 1개 = 연결 1개 · 허용 = CHANNELS on �
         self.receive.allowed_channels = self.chan.allowed  # 같은 set 객체 — 발견·등록·삭제가 재기동 없이 반영
         self.router, self.notify = wiring.wire(root, receive=self.receive, bindings=self.bindings, notify=notify,
                                                log=self.log, team=team, clock=clock, now=self.now)  # r1807 깨움·issues·desk 배선
-        self.worker = slack_worker.Worker(log=self.log, notify=self.notify, now=self.now)  # S3 — 수신 스레드 밖 일꾼 1개
+        self.worker = slack_worker.Worker(log=self.log, notify=self.notify, now=self.now,
+                                          mono=mono)  # S3 — 수신 스레드 밖 일꾼 1개 · r2391 일감 초도 같은 시계로 잰다
         self.router.deliver = self.worker.wrap(self.router.deliver)  # 깨움·쪽지 통통 = 일꾼(route.py·wiring.py 손 0)
         self.router.notify = self.notify = self.worker.wrap(self.notify)
         self.receive.notify = self.notify
         if getattr(self.receive, "resend", None) is not None:  # G2 유휴 재전송도 일꾼 — 후보 표를 만지는 스레드는 1개뿐
             self.receive.resend = self.worker.wrap(self.receive.resend)
         self.watermark, self.backfill_left = None, []  # S2 — 끊긴 시각(마지막 처리 글 Slack ts) · 예산에 남은 대상
-        self.slowest, self.backfilled = 0.0, 0  # S6 — 이 연결의 수신 스레드 최장 처리 초 · 끊긴 창 보충 글 수
+        self.slowest, self.backfilled = 0.0, 0  # S6 — 이 연결의 «수신 최장» 초 · 끊긴 창 보충 글 수(r2391 — 최장 처리는 일꾼 칸)
+        self.backfill_rounds = 0  # r2391 K3 — 이 연결에서 이어 돈 보충 차례(남은 것이 있으면 같은 연결 안에서 계속)
         self.route_lock, self.route_lock_max = threading.Lock(), 0.0  # r2347 L1·L2 — 두 스레드 한 번에 하나 · 잠금 안 최장 초(관측)
         self.recv_thread = None  # r2347 L4 — envelope 을 확인하는 스레드 = 수신 스레드 1개(_frame 들머리가 적는다)
         self.deferred, self.barrier_lock = 0, threading.Lock()  # r2348 — 장벽 셈(제어·미룬 글·미룬 보관) · 두 스레드가 만진다
@@ -154,15 +160,16 @@ class Listener:  # 상주 수신기 1개 = 연결 1개 · 허용 = CHANNELS on �
                 outcome = "실패 %s" % type(exc).__name__
             if outcome == RIVAL:
                 return RIVAL
-            self.log("연결 끝 %s · 최장 처리 %d초 · 큐 최대 %d · 끊긴 시각 %s · 보충 글 %d · 잠금 최장 %.3f초" % (
-                outcome if isinstance(outcome, str) else "정상", self.slowest, self.worker.max_queue,
-                self.watermark or "-", self.backfilled, self.route_lock_max))  # S6 — 4칸 + r2347 잠금 칸 = 관측만(값 판정 0)
+            self.log("연결 끝 %s · 수신 최장 %.2f초 · 최장 처리 %.2f초 · 큐 최대 %d · 끊긴 시각 %s · 보충 글 %d · 잠금 최장 %.3f초" % (
+                outcome if isinstance(outcome, str) else "정상", self.slowest, self.worker.slowest, self.worker.max_queue,
+                self.watermark or "-", self.backfilled, self.route_lock_max))  # S6 — 관측만(값 판정 0) · r2391 수신/일꾼 나눔(초 = 소수 둘째 자리)
             if sessions is None or count < sessions:
                 fails = 0 if outcome is True else min(fails + 1, 7)
                 self.sleep(min(2 ** max(fails - 1, 0), 60))  # 정상 끝 뒤 1 · 연속 실패 1·2·4·…·60초(R2)
         return 0
     def _session(self, reconnect):  # 연결 1번 — 반환 = True(disconnect·끊김 = 재연결 사건) 또는 RIVAL
         self.slowest, self.backfilled, self.route_lock_max = 0.0, 0, 0.0  # S6 — 칸은 이 연결 것만(r2347 잠금 칸 포함)
+        self.backfill_rounds = 0  # r2391 K3 — 차례 셈도 이 연결 것만
         self.worker.reset_stats()
         deadline = self.mono() + 50  # R1 — 연결 1번의 Web 호출 전체 예산 1개(apps.connections.open 부터 · 고정비 포함 70초 안)
         with self.connect(self.web("apps.connections.open", self.app_token, deadline=deadline, mono=self.mono)["url"]) as self.ws:
@@ -231,9 +238,17 @@ class Listener:  # 상주 수신기 1개 = 연결 1개 · 허용 = CHANNELS on �
             return self.log("판정 불가 끊긴 창 보충 — %s" % type(exc).__name__)
         row = self.backfill.run(backfill.RECONNECT, targets, deadline=budget, floor=floor)
         self.backfilled += int(row.get("routed") or 0)
-        if row.get("left"):
-            self.backfill_left = [tuple(item) for item in row["left"]]
-            self.log("보충 미완 — 남은 %d thread(다음 재연결)" % len(self.backfill_left))
+        if not row.get("left"):
+            return
+        rest = [tuple(item) for item in row["left"]]
+        self.backfill_left, self.backfill_rounds = rest, self.backfill_rounds + 1
+        # r2391 K3 — 예산에 남은 것은 다음 재연결을 기다리지 않고 같은 연결 안 일꾼 다음 차례로 끝낸다.
+        #   진전 = 이번 차례가 «들고 간 것보다 적게 남겼다»(routed 0 이어도 커서가 끝난 thread 는 빠진다).
+        #   다시 넣는 자리 = 큐 «뒤» 라서 그 사이 온 사람 글이 먼저 간다(순서 지킴 · 새 상주 0).
+        if len(rest) < len(targets) and self.backfill_rounds < BACKFILL_ROUNDS \
+                and self.worker.submit(self._backfill_job):
+            return self.log("보충 미완 — 남은 %d thread(같은 연결 다음 차례)" % len(rest))
+        self.log("보충 미완 — 남은 %d thread(다음 재연결)" % len(rest))
 
     def _scan_order(self):  # 메모 2 차례 — 사람 채널(main·admin·req) → auto
         people = [r[0] for r in self.chan.rows if r[2] == "on" and r[3] != "auto"]
@@ -357,15 +372,22 @@ class Listener:  # 상주 수신기 1개 = 연결 1개 · 허용 = CHANNELS on �
             self.slowest = max(self.slowest, self.mono() - started)
 
     # ── r2348 장벽 — 제어 사건(봇 가입·관리 명령)의 Web·효과는 일꾼이 한다 · 그동안 온 글·보관 사건은 큐 뒤
-    def _message(self, event):  # 제어 사건 = 일꾼 + 장벽 시작 · 장벽 중 새 글 = 큐 뒤 · 그 밖 = 수신 스레드 그 자리
+    def _message(self, event):  # 제어 사건 = 일꾼 + 장벽 시작 · 사람 글 = 장벽 중이면 셈하며 큐 뒤 · 그 밖에도 큐 뒤(r2391 K1)
         if self._admin(event):
             return self._control(self._admin_job, event)
-        return self._defer(self.route, event) if self._barrier() else self.route(event)
+        return self._defer(self.route, event) if self._barrier() else self._queue_route(event)
+    def _queue_route(self, event):  # r2391 K1 — 수신 스레드는 큐에 넣기만 · 묶기·라우팅·깨움 send 25초는 일꾼 몫
+        channel, ts = event.get("channel"), event.get("ts")
+        if self.worker.alive() and self.worker.submit(self.route, event):  # 장벽 셈 0 · «미룸» 줄 0(장벽 중이 아니다)
+            return True
+        self.log("큐 넘침 — %s %s 직접 처리" % (channel, ts))  # 일꾼 없음·가득 = 그 자리에서(유실 0)
+        self.route(event)
+        return False
     def _join_frame(self, event):  # 봇 가입·탈퇴 = 제어 사건(일꾼 · 장벽) · 사람 가입·탈퇴 = 그 자리(효과 0 · 장벽 0)
         return self._control(self._joined, event) if self._join_shape(event) else self._joined(event)
-    def _archive_frame(self, event):  # 보관 = auto 줄만 지움(Web 0) — 장벽 중이면 차례만 큐 뒤(효과 그대로)
-        return self._defer(self._archived, event) if self._barrier() else self._archived(event)
-    def _barrier(self):  # 셈 0 초과 = 제어 사건이 아직 일꾼에 있다(0 이면 수신 스레드가 다시 직접 · E2)
+    def _archive_frame(self, event):  # 보관 = auto 줄만 지움(Web 0) — r2391 로 언제나 큐 뒤(받은 차례 = 효과 차례 · 효과 그대로)
+        return self._defer(self._archived, event)
+    def _barrier(self):  # 셈 0 초과 = 제어 사건이 아직 일꾼에 있다(글은 r2391 로 언제나 큐 뒤 · 이 셈 = «미룸» 표시)
         with self.barrier_lock:
             return self.deferred > 0
     def _control(self, job, event):  # 제어 사건 — 장벽 시작(+1) · 효과·Web 모두 일꾼 안(E1)

@@ -189,7 +189,7 @@ class SlackRoute:
         if to == DESK:  # 닫힘 = 옛 owner 깨움 0 · 미처리 1건은 다음 좌석이 본다(줄 14)
             self.notify(row)
         else:  # 열린 thread = 그 좌석에 그 thread 변경분만 넘긴다(전체 재로드 0)
-            self.deliver(to, kind, self.context(key))
+            self.deliver(to, kind, self.context(key), row)  # r2391 — 그 글의 행을 들려 보낸다(일꾼이 나중에 집어도 마지막 행에 안 기댄다)
         return row
 
     def _plan(self, key, now, which, content):

@@ -5,7 +5,7 @@ from mbox_guard import _guard_log, _guard_record, _guard_verdict, _log_sent, _re
 import mbox_keep, mbox_ring   # r912 — 넘칠 때 버리는 순서(시스템 → 일반 · 사람 글 보존) · r2291 역할 상한·큐 포화 경보
 import mbox_drops, mbox_compact  # r1651 — 버린 seq 를 받는 좌석의 다음 recv 에 1줄(유실 표시) · r1661 받는 이 검사·중복 접기·큐 정리(보관 이동)
 import mbox_roots, mbox_relay  # r1309 — 다른 루트 받는이 = 우편 다리(roots.tsv) · r1981 relay 스냅샷
-from mbox_lineage import claim, eligible, retired_to, thread_batch, wait_line
+from mbox_lineage import claim, eligible, retired_to, self_wake, thread_batch, wait_line
 import mbox_handover   # r1116 ③ 영수(받은 쪽지마다 1줄) — 승계 마무리 검사(close-check)의 재료
 from mbox_desk_gate import verdict as _desk_verdict   # r660 · DA⑥ r1 ⓒ: 판정 자리 = python send 층 하나(셸·python 직접·relay 전부)
 CANON = None   # mbox.py 가 묶는다
@@ -29,6 +29,11 @@ def _crossed(rows, to, frm, keys):   # r2081 C1 — 받는 좌석 역할이 나(
 
 def send(to, frm, body, force=False, desk_attach=""):
     _check_name(to); _check_name(frm); mbox_compact.check_to(to)   # r1661 ⓐ 옵션 낱말·명부에서 안 풀리는 이름 = REJECT rc2 · 큐 쓰기 0
+    # ★r2391 K4★ 받는이 = 보낸이(글자 그대로) — recv 는 제가 보낸 쪽지를 안 가져간다(takeable). 머리가 «[깨움]»
+    #   인 자기 앞 쪽지만 통과한다. 거르지 않으면 아무도 안 읽는 행이 큐에 조용히 쌓여 상한을 먹는다(실사건 #363184).
+    if to == frm and not self_wake({"to": to, "body": body}, frm):
+        sys.stderr.write("REJECT 자기 앞 쪽지 %s — 받는이가 보낸이 · recv 는 제 글을 안 가져간다 · 머리 «[깨움]» 만 통과 · 큐 쓰기 0\n" % to)
+        sys.exit(2)
     # ★r1309 다리(기획 3184 §3-4)★ — 받는이가 «내 루트 명부» 에 없고 roots.tsv 의 다른 현역 루트 명부에 있으면 그 루트 큐로 1줄.
     #   roots.tsv 없음 = None(지금 경로 그대로) · 어느 명부에도 없음 = «받는이 판정 불가» rc≠0(조용한 자기 큐 쓰기 0).
     bridged = mbox_roots.bridge(to, frm, body)
