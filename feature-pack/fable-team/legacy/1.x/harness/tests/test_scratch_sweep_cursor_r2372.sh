@@ -43,10 +43,19 @@ printf '1024\t%s\n' "\${2:-}"
 EOF
   cat > "$BIN/lsof" <<EOF
 #!/bin/sh
+# r2398a: 지우기 길은 du 를 부르지 않는다(K2) — 차례·시계 신호를 «전체 지도 1회 실패 → 사본별 후퇴» 의 +D 호출로 받는다
+#   · 경로 인자 있음(+D <사본>) = 그 사본 판정 1회 → 이름을 DUC 에 적고 시계를 DU_STEP 칸 민다(«사본마다 du 1회» 자리 그대로) · rc1(아무도 안 씀)
+#   · -p <pid> 대조 = 전체 지도(lsof.all) · -a 전체 지도 호출 = map.fail 있으면 rc1(후퇴 강제) 아니면 lsof.all · -a 없는 전체 = 게이트 재확인 = lsof.all
 path=""
 for a in "\$@"; do case "\$a" in /*) path="\$a";; esac; done
-[ -n "\$path" ] && exit 1
-cat "$T/lsof.all" 2>/dev/null; exit 0
+if [ -z "\$path" ]; then
+  case " \$* " in *" -p "*) cat "$T/lsof.all" 2>/dev/null; exit 0;; esac
+  case " \$* " in *" -a "*) [ -f "$T/map.fail" ] && exit 1;; esac
+  cat "$T/lsof.all" 2>/dev/null; exit 0
+fi
+printf '%s\n' "\${path##*/}" >> "$DUC"
+n=\$(cat "$CLK" 2>/dev/null || echo 1000000); echo \$((n + \${DU_STEP:-1})) > "$CLK"
+exit 1
 EOF
   cat > "$BIN/tmux" <<EOF
 #!/bin/sh
@@ -97,7 +106,7 @@ mtmp() { # <이름> → $TMPDIR/tmp.<이름> 경로 · mtime 6시간 전
 reset() {
   rm -rf "$STATE" "$SCR" "$TMPD" "$T/sort.nonc"
   mkdir -p "$STATE" "$SCR" "$TMPD"
-  : > "$TSV"; : > "$DUC"; : > "$ARMED"
+  : > "$TSV"; : > "$DUC"; : > "$ARMED"; : > "$T/map.fail"   # r2398a: 기본 = 전체 지도 실패(사본별 후퇴 길에서 차례·시계를 본다)
   printf 'live-owner\n' > "$T/sessions"
   printf 'p1\ncinit\nfcwd\nn/\n' > "$T/lsof.all"
   printf '%s\n' "$(( $(date +%s) + 1000 ))" > "$CLK"   # 가상 시계 = 지금 근처(등록 시각 대조가 «옛 사본» 으로 읽히게)
@@ -107,7 +116,7 @@ reset() {
 sc() { OUT="$(env PATH="$BIN:$PATH" FT_RES_ROOT="$R" FT_SCRATCH_DIR="$SCR" TMPDIR="$TMPD" FT_SCRATCH_OWNER=live-owner FT_HEAVY_SLOTS=0 \
   ${BUDGET:+FT_SCRATCH_JUDGE_BUDGET=$BUDGET} ${DU_STEP:+DU_STEP=$DU_STEP} ${LCX:+LC_ALL=$LCX} \
   bash "${CASE_SUT:-$SUT}" "$@" 2>&1)"; RC=$?; }
-ducalls() { awk -F/ '{printf "%s ", $NF}' "$DUC" 2>/dev/null; }   # 판정 차례(du 호출 순서) = 사본 이름들
+ducalls() { cat "$DUC" 2>/dev/null | tr '\n' ' '; }   # r2398a: 차례 = 사본별 점유 조회(+D) 호출 순서 = 가짜 lsof 가 적은 사본 이름(예전엔 du 호출 순서였다 — K2 로 du 0)
 curshow() { cat "$CURSOR" 2>/dev/null; }
 curreg() { curshow | awk -F'\t' '$1=="reg"{print $2}'; }
 curtmp() { curshow | awk -F'\t' '$1=="tmp"{print $2}'; }
@@ -235,6 +244,7 @@ if want ⑨; then
   mtmp t0 >/dev/null
   printf 'reg\t%s\n' "$SCR/repo-0123abcd-00-1" > "$CURSOR"
   BEFORE="$(curshow)"
+  rm -f "$T/map.fail"   # r2398a: 보고 길은 전체 지도 1회(r2363 그대로) — 이 사례만 지도가 살아 있다
   sc --report
   L="$(printf '%s\n' "$OUT" | awk -F'\t' 'NF>=3{printf "%s ", $2}')"
   { [ "$L" = "$SCR/repo-0123abcd-02-1 $SCR/repo-0123abcd-00-1 $SCR/repo-0123abcd-01-1 $TMPD/tmp.t0 " ] \

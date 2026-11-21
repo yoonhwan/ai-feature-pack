@@ -13,7 +13,7 @@ bed_begin "$SUT"
 
 if want 변이-M1; then
 # M1 K1 «보고 길 예산 없음(ODL=0) = 지금 그대로» → ① 의 «du 부름 ≤ 6» 이 깨진다(사본 12 = 12회)
-mut M1 's/ODL=$(( now + ${FT_SCRATCH_JUDGE_BUDGET:-20} ))   # r2363/ODL=0   # r2363-mut/' && {
+mut M1 's/ODL=$(( now + ${FT_SCRATCH_JUDGE_BUDGET:-20} )); BUDGET_SEC/ODL=0; BUDGET_SEC   # r2363-mut/' && {
   bed 16; FT_SUT="$MUT" BUDGET=3 sc --report; MC="$(calls)"
   [ "$MC" -gt 8 ] && ok "변이 M1(보고 길 예산 제거) → du ${MC}회 > 8 = ① 빨강(변이 잡힘)" || bad "변이 M1 을 못 잡음 — 예산을 없애도 du ${MC}회"
 }
@@ -47,10 +47,11 @@ mut M4 's/ · 크기 못 잼 %s개//' && {
 fi
 
 if want 변이-M5; then
-# M5 K4 «지우기 길 예산 가드 제거» → ⑦ 의 «du 부름 ≤ 5» 가 깨진다(사본 8 = 8회)
-mut M5 's/if \[ "\$ODL" != 0 \] && \[ "\$oleft" = 0 \]; then ODEF=\$((ODEF+1)); return 1; fi/if [ 0 = 1 ]; then ODEF=$((ODEF+1)); return 1; fi/' && {
-  bed 8; : > "$ARMED"; FT_SUT="$MUT" BUDGET=1 sc --sweep; MC="$(calls)"
-  [ "$MC" -gt 5 ] && ok "변이 M5(지우기 길 가드 제거) → du ${MC}회 > 5 = ⑦ 빨강(변이 잡힘)" || bad "변이 M5 를 못 잡음 — 가드를 없애도 du ${MC}회"
+# M5 (r2398a K2 정정) «지우기 길이 다시 크기(du)를 부른다» → ⑦ 의 «du 부름 0» 이 깨진다
+#    (r2363 때는 «예산 가드 제거 → du 를 더 부른다» 였다 — K2 가 지우기 길에서 du 를 빼서 같은 자리는 «du 0 인가» 가 계약이 된다)
+mut M5 's/if \[ "\$REPORT_ONLY" != 0 \]; then copy_kb "\$1"; return \$?; fi/copy_kb "\$1"; return \$?/' && {
+  bed 8; : > "$ARMED"; FT_SUT="$MUT" BUDGET=20 sc --sweep; MC="$(calls)"
+  [ "$MC" -gt 0 ] && ok "변이 M5(지우기 길이 du 를 부름) → du ${MC}회 > 0 = ⑦ 빨강(변이 잡힘)" || bad "변이 M5 를 못 잡음 — du 를 다시 불러도 du ${MC}회"
 }
 fi
 
