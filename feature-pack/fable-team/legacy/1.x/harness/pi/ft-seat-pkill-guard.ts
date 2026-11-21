@@ -41,7 +41,7 @@ export function headIndex(toks: string[]): number {
 
 // 인자 — 옵션은 어디에나 올 수 있다고 읽되 패턴 뒤에 온 «-» 낱말은 late 로 표시(BSD 는 그 자리를 패턴으로 읽는다 · K2ⓐ)
 //   값 받는 옵션(-P 1 · -u root)의 값은 패턴이 아니다 · 신호 꼴(-TERM·-15)은 옵션 · -- 뒤는 전부 대상(kill -9 -- -1)
-export function parseArgs(toks: string[], i0: number): { pat: string[]; sig: string[]; late: string; full: boolean } {
+export function parseArgs(toks: string[], i0: number, tool = ""): { pat: string[]; sig: string[]; late: string; full: boolean } {
   const pat: string[] = [], sgs: string[] = []; let late = "", full = false, sig = false, opt = true, i = i0;
   while (i < toks.length) {
     const t = toks[i], r = redir(t); i++;
@@ -55,7 +55,10 @@ export function parseArgs(toks: string[], i0: number): { pat: string[]; sig: str
       for (let j = 1; j < t.length; j++) {
         const c = t[j];
         if (c === "f") { full = true; continue; }                     // 묶음 안 -f 도 읽는다(pkill -xf pi)
-        if (VAL.has(c)) { if (!t.slice(j + 1)) i++; break; }           // 값은 붙여 쓴 나머지 또는 띄어 쓴 다음 낱말
+        if (tool === "kill" && (c === "s" || c === "n")) {             // kill -s TERM · -n 15 = 신호 지정
+          sig = true; if (!t.slice(j + 1)) i++; break;
+        }
+        if (VAL.has(c)) { if (!t.slice(j + 1)) i++; break; }            // 값은 붙여 쓴 나머지 또는 띄어 쓴 다음 낱말
         // 그 밖 낱자(-x·-i·-v …) = 값 없는 옵션 → 묶음 계속
       }
       continue;
@@ -75,7 +78,7 @@ export function judgeKill(cmd: string): Verdict {
     const tool = path.basename(s.toks[k] ?? "");
     if (!KILLS.test(tool)) continue;                                  // 따옴표 안 글자(echo·grep)·pgrep = 통과
     const line = s.toks.slice(k).join(" ");
-    const a = parseArgs(s.toks, k + 1);
+    const a = parseArgs(s.toks, k + 1, tool);
     if (tool === "kill") {                                            // K2ⓓ
       const b = a.pat.find((v) => v === "-1" || v === "0");
       if (b) return { block: true, bad: "", kind: "ⓓ", why: `대상 «${b}»`, target: line };

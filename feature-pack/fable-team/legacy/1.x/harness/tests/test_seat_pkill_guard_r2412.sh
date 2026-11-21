@@ -84,6 +84,10 @@ const cases = [
   ["c06e", N, B("kill -TERM 12345 > 0")],
   ["c06f", N, B("kill -TERM 12345 > -1")],
   ["c06g", N, B("kill -TERM 12345 2>/dev/null")],
+  ["c06h", N, B("kill -s TERM -1")],
+  ["c06i", N, B("kill -n 15 -1")],
+  ["c06j", N, B("kill -s TERM 12345")],
+  ["c06k", N, B("kill -s TERM -- -1")],
   ["c07", N, B("pkill -f 'abc")],
   ["c08a", N, B('echo "pkill -f a -P 1"')],
   ["c08b", N, B("grep -n 'pkill -f' notes.md")],
@@ -126,7 +130,7 @@ pairs "$out" "c02a BLOCK" "c02b BLOCK" "c02c BLOCK" "c02d BLOCK" "c02e BLOCK" \
   "c03a PASS" "c03b PASS" \
   "c04a PASS" "c04b PASS" "c04c PASS" \
   "c05a BLOCK" "c05b BLOCK" "c05c BLOCK" "c05d BLOCK" "c05e BLOCK" "c05f BLOCK" "c05g BLOCK" "c05h BLOCK" \
-  "c06a BLOCK" "c06b BLOCK" "c06c BLOCK" "c06d PASS" "c06e PASS" "c06f PASS" "c06g PASS" \
+  "c06a BLOCK" "c06b BLOCK" "c06c BLOCK" "c06d PASS" "c06e PASS" "c06f PASS" "c06g PASS" "c06h BLOCK" "c06i BLOCK" "c06j PASS" "c06k BLOCK" \
   "c08a PASS" "c08b PASS" "c08c PASS" "c08d PASS"
 has "②a 갈래 ⓐ" "$(reason "$out" c02a)" "ⓐ"
 has "②b 갈래 ⓐ" "$(reason "$out" c02b)" "ⓐ"
@@ -139,6 +143,7 @@ has "⑤e 갈래 ⓒ 빈 따옴표" "$(reason "$out" c05e)" "빈 따옴표"
 has "⑤g H1 묶은 옵션 -xf 도 -f 로 읽음(갈래 ⓒ)" "$(reason "$out" c05g)" "ⓒ"
 has "⑥a 갈래 ⓓ" "$(reason "$out" c06a)" "ⓓ"
 has "⑥b 갈래 ⓓ" "$(reason "$out" c06b)" "ⓓ"
+has "⑥h DA H2회귀 kill -s TERM -1 도 ⓓ" "$(reason "$out" c06h)" "ⓓ"
 eq "③ 좌석 env 없음 = 기록 0줄" "$(grep -c '^[^ ]*  ' "$LOG")" 0
 st "②~⑥⑧"
 
