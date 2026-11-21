@@ -1,6 +1,6 @@
 """r2395 ft2 keeper — 대기/ 카드에 «- 대기 사유:» 줄도 «- 배정:» 줄도 없으면 «표식없음»(판정 불가 · 나노 열기 0) + 사유별 수에 싣는다 (반례 ①~⑥ · ⑩ · ⑪ · 변이 M1~M3 · M5 · M6).
 대역 = r1871 world(r1812 keeper_world 임시 root·git·가짜 tmux·launch·record) — 실 리포·실 나노·tmux·mbox·설치·sleep 0.
-기준판 = 팩 origin/main keeper_next.py(이 갈래 없음) → ① Red(표식 없는 카드를 그대로 고름).
+기준판 = REF(착지 전 팩 main 고정 sha 872b495f) keeper_next.py(이 갈래 없음) → ① Red(표식 없는 카드를 그대로 고름) · origin/main 은 안 본다(착지 뒤엔 고친 판 · arch#516 #364686).
 표식 있는 다른 길(⑩ «- 배정:» 만 · ⑪ «- 대기 사유:» 만)은 지금 그대로 = K6.
 """
 import importlib.util, shutil, subprocess  # noqa: E401
@@ -12,7 +12,8 @@ _spec = importlib.util.spec_from_file_location("keeper_next_r2395_base", str(HER
 base = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(base)
 kw = base.kw
-S, KN, REF = "r9301-plain", "adapters/pi/keeper_next.py", "origin/main"
+S, KN = "r9301-plain", "adapters/pi/keeper_next.py"
+REF = "872b495f952ca8142ebb0fa9c88d283d4fcf9dd1"   # r2395 기준판 = 이 카드 갈래 **이전** 팩 main 고정 sha(origin/main 은 착지 뒤 «고친 판» 이 돠 기준판이 못 된다 · 고정 sha 는 착지 뒤에도 조상으로 남는다 · arch#516 #364686)
 BARE = "- 상태: 대기 · 사유 «사전 DA 전»\n"   # 실사건 꼴 = «대기 사유» 글자만 있고 «- 대기 사유:»·«- 배정:» 줄 0
 CARD = "design/harness/indices/대기/%s.md"
 SKIP = "NEXT-SKIP harness %s 건너뜀 — 표식 줄 없음 · «- 배정: 없음» 또는 «- 대기 사유: 없음» 한 줄 필요" % S
@@ -118,7 +119,8 @@ MUTANTS = {"M1": ('    if not any(x.startswith(("- 배정", WAIT)) for x in line
 
 
 def baseline(tmp):
-    """기준판 = 팩 origin/main keeper_next.py — git 7초(하드 룰 12) · 못 읽으면 이 카드가 더한 줄만 지운 사본(같은 뜻)."""
+    """기준판 = REF(착지 전 고정 sha) 의 keeper_next.py — git 7초(하드 룰 12) · 못 읽으면 이 카드가 더한 줄만 지운 사본(같은 뜻).
+    origin/main 을 안 본다: 착지 뒤 origin/main = 고친 판 이라 «기준판 Red» 가 사라진다(arch#516 #364686)."""
     tree = tmp / "base" / "ft2"
     shutil.copytree(kw.FT2, tree, ignore=shutil.ignore_patterns("tests", "__pycache__"))
     path = tree / KN
