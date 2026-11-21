@@ -446,7 +446,7 @@ while [ "$i" -lt "$WAIT_MAX" ] && so_budget_ok; do i=$((i+1)); pgrep -P "$PID" >
 #   jsonl 이 안 생긴다(ops #56→#57 3회 정지). 판정은 tmuxc 한 곳(`tmuxc boot-enter`)이 한다 — 근거 = 그 좌석 세션 env 의
 #   발급 --session-id(기록 «한 파일» · 전수 판독 0) + 넣은 전문(완전 일치만 Enter 1회 · 접두·색 판정 0 · 하드 룰 10·17).
 #   rc0 = 제출 확인 → 송신으로 잇는다 · 그 밖(입력줄 판독 불가 · 다른 글자 · 기록 없음 · 근거 없음) = HIL exit 5.
-#   claude 만 — 다른 에이전트 이어가기는 종전 그대로(Enter 0).
+#   claude·pi(r2328 — pi 는 제출 뒤에야 세션 기록을 써서 SessionStart 미관측 rc5 가 반복됐다) — 다른 에이전트 이어가기는 종전 그대로(Enter 0).
 CWD="$(tmux display-message -p -t "=$NAME:" '#{pane_current_path}' 2>/dev/null)"   # r622: «=이름:» — «=이름» 은 창 대상에서 빈 값(새 좌석 jsonl 폴더가 엉뚱해진다)
 JDIR="$HOME/.claude/projects/$(printf '%s' "$CWD" | LC_ALL=C sed 's|[^A-Za-z0-9]|-|g')"
 SKEYS=(-e "\"agentName\":\"$NAME\"" -e "\"customTitle\":\"$NAME\""); SMARK=SessionStart
@@ -499,7 +499,7 @@ PYEV
     reached null; echo "OK successor=$NAME seq=null file=$STATE/$OLD.json mbox=$MBOX"; exit 0
   fi
 fi
-if [ "$RESUMED" = 1 ] && [ "$AGENT" = claude ]; then
+if [ "$RESUMED" = 1 ] && { [ "$AGENT" = claude ] || [ "$AGENT" = pi ]; }; then
   BE_OUT="$(tmuxc boot-enter "$NAME" 2>&1)"; BE_RC=$?
   [ -n "$BE_OUT" ] && printf '%s\n' "$BE_OUT"
   [ "$BE_RC" = 0 ] || { hil "이어가기 부팅 문장 판정 rc=$BE_RC — $(printf '%s' "$BE_OUT" | tail -n 1)"; exit 5; }

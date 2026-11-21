@@ -31,13 +31,15 @@ capture_input_line() {
   # r925 r3 R4: capture-pane rc≠0 = 판독 불가(rc2) — 정상 모양 출력이 함께 와도 믿지 않는다.
   # r925 r4: "lines" = -J 로 읽되 입력 상자의 «화면 줄» 을 한 줄씩 그대로 낸다(합치지 않음 · 이어지는 줄의 들여쓰기만 벗김).
   #   claude TUI 는 긴 글을 스스로 여러 줄로 감는다(실측 10-26) — 줄 경계는 input_is_message 가 따로 다룬다.
-  if [[ "${2:-}" == "join" || "${2:-}" == "lines" ]]; then
+  # r2328: "pilines" = "lines" + 첫 줄 앞 공백도 벗김(pi 1.5.2 는 입력 글을 줄마다 왼쪽 2칸 띄워 그린다 · ❯ 없음 · DA#41 H1).
+  if [[ "${2:-}" == "join" || "${2:-}" == "lines" || "${2:-}" == "pilines" ]]; then
     cap="$(tmux capture-pane -J -t "$pane" -p 2>/dev/null)" || return 2
   else
     cap="$(tmux capture-pane -t "$pane" -p 2>/dev/null)" || return 2
   fi
   # r925 r3 R2: SGR(색·흐림) 은 전부 벗기고 글자만 본다 — 색으로 «우리 글자» 를 가리지 않는다.
   printf '%s\n' "$cap" | awk -v mode="${2:-}" '
+    BEGIN { pi = (mode == "pilines"); if (pi) mode = "lines" }
     { l[NR] = $0 }
     END {
       for (i = NR; i >= 1; i--)
@@ -49,6 +51,7 @@ capture_input_line() {
         gsub(/\033\[[0-9;:]*m/, "", s)
         if (i == a + 1 || mode != "lines") sub(/^[[:space:]]*❯[[:space:]]?/, "", s)
         else sub(/^[[:space:]]+/, "", s)
+        if (pi) sub(/^[[:space:]]+/, "", s)
         sub(/[[:space:]]+$/, "", s)
         if (s == "") continue
         if (mode == "lines") out = (out == "" ? s : out "\n" s)
@@ -63,9 +66,10 @@ capture_input_line() {
 #   원문의 공백·줄바꿈 0개 이상을 건너뛴다(감는 자리에서 공백이 사라지고 이어지는 줄은 들여 쓴다 · 실측 10-26).
 #   화면 줄 하나하나는 원문의 그 자리 글자와 바이트까지 같아야 한다. 접두·잘림 인정 0 · 색·흐림 판정 0.
 #   rc0 = 전문 · rc1 = 다른 글자(빈 줄·자리표시·사람 글자·잘린 글자·공백 위치 다름) · rc2 = 판독 불가
+#   셋째 인자 = 판독 모드(기본 lines · pi 좌석 = pilines · r2328).
 input_is_message() {
   local cur
-  cur="$(capture_input_line "$1" lines)" || return 2
+  cur="$(capture_input_line "$1" "${3:-lines}")" || return 2
   python3 - "$cur" "$2" <<'PY'
 import sys
 lines = [l for l in sys.argv[1].split("\n") if l != ""]
