@@ -109,7 +109,7 @@ p3() {   # ③⑬ 팩 리포(코드 루트가 REPO 안) → 앞 대조 0 · 뒤 
   IC_PRE=0 IC_POST=0 FT_HARNESS_ROOT="$W" FT_PUSH_FIXED_S=1 pa_tool "$1" 203 40 ""
   f1="$out"; cl1="$(closes)"; { [ "$rc" = 0 ] && [ "$(icpre)" = 0 ] && [ "$(icpost)" = 1 ] && grep -q "^INSTALL $SHIMNOTE$" <<<"$out" && [ -n "$qsha" ] && ! pend "$qsha"; } && a=1
   if [ -z "${BASE:-}" ]; then [ "$a" = 1 ]; return $?; fi
-  ph1="$(grep -oE '(pr|close|view|fetch|gate|overlap|equiv|press|lint|push|etc|total|left|skip)=' <<<"$(grep -m1 '^LAND-PHASE ' <<<"$f1")" | tr '\n' ' ')"
+  ph1="$(grep -oE '(pr|close|view|fetch|gate|overlap|equiv|press|lint|push|etc|total|left|skip)=' <<<"$(grep -m1 '^LAND-PHASE ' <<<"$f1" | sed 's/ repo=[^ ]* rpush=[^ ]*$//')" | tr '\n' ' ')"
   IC_PRE=0 IC_POST=0 FT_HARNESS_ROOT="$W" FT_PUSH_FIXED_S=1 pa_tool "$BASE" 214 40 ""
   f2="$out"; ph2="$(grep -oE '(pr|close|view|fetch|gate|overlap|equiv|press|lint|push|etc|total|left|skip)=' <<<"$(grep -m1 '^LAND-PHASE ' <<<"$f2")" | tr '\n' ' ')"
   { [ "$rc" = 0 ] && grep -q '^LANDED pr=214 ' <<<"$f2" && [ "$(grep -c '^INSTALL ' <<<"$f1")" = "$(grep -c '^INSTALL ' <<<"$f2")" ] && \

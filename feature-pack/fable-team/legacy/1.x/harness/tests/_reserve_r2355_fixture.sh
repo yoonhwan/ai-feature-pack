@@ -114,10 +114,10 @@ k3() {   # ③ 닫기 대기 장부 2건 · 남은 − PV < 7 → 닫기 재시�
 k4() {   # ④ 앞 단계가 빠름(마감 67) → 상한 = 자기 상한 그대로 · 착지 1 · push-timing 1줄
   rm -f "$TSV"; land "$1" 105 40 FT_PUSH_FIXED_S=$F
   [ "$rc" = 0 ] && grep -q '^LANDED pr=105 ' <<<"$out" && [ "$(grep -c . "$TSV")" = 1 ]; }
-k4b() {   # ④b 승인 sha ≠ head → equiv 앞 상한 DL−PV · 가짜 SL초 → 끊김 · 동일승인 대조 실패 원문 · push 0
+k4b() {   # ④b 승인 sha ≠ head → equiv 칸(남은−PV) · 가짜 SL초 → 끊김 · r2385 K7 ⓐ «상한 초과(판정 불가 · 다음 틱)» 글 · push 0
   APSH="$(sha "$W" "$M0")" DL_OFF=$DL land "$1" 106 40 FT_PUSH_FIXED_S=$F EQUIV_SLEEP=$SL
   APSH=""
-  [ "$rc" = 1 ] && grep -q '동일승인 대조(병합·rebase 두 경로)도 실패' <<<"$out" && [ "$el" -lt "$SL" ] && ! grep -q '^LANDED' <<<"$out"; }
+  [ "$rc" = 1 ] && grep -q '동일승인 대조 [0-9]*s 상한 초과(판정 불가 · 다음 틱) · 남은 [0-9]*s' <<<"$out" && [ "$el" -lt "$SL" ] && ! grep -q '^LANDED' <<<"$out"; }
 k4c() {   # ④c press 앞 상한 DL−PV · 가짜 SL초 → TB rc 124 = «press 증거 검사 Ns 에 끊김»(«press 증거 검사 실패» 글 0) · rc 1 짝은 지금 글 · 음성 경로 0 PR = press 칸 숫자
   DL_OFF=$DL land "$1" 107 40 FT_PUSH_FIXED_S=$F PRESS_SLEEP=$SL
   local ok1=0 ok2=0 ok3=0
@@ -127,11 +127,11 @@ k4c() {   # ④c press 앞 상한 DL−PV · 가짜 SL초 → TB rc 124 = «pres
   land "$1" 109 40 FT_PUSH_FIXED_S=$F
   { [ "$rc" = 0 ] && [ "$(phv press)" != "-" ] && [ -n "$(phv press)" ]; } && ok3=1
   [ "$ok1$ok2$ok3" = 111 ]; }
-k5() {   # ⑤ 착지 성공 → LAND-PHASE 1줄 · 칸 12(press·etc 포함) · total ≥ 단계 합 · tsv 1줄 · EXIT 사슬(개인 ref 정리) 그대로
+k5() {   # ⑤ 착지 성공 → LAND-PHASE 1줄 · 칸 12(press·etc 포함) + r2385 repo=·rpush= 2칸 = 16낱말 · total ≥ 단계 합 · tsv 1줄 · EXIT 사슬(개인 ref 정리) 그대로
   rm -f "$PFILE"; land "$1" 110 40 FT_PUSH_FIXED_S=$F
   local l n su=0 v; l="$(ph)"; n="$(printf '%s\n' "$l" | wc -w | tr -d ' ')"
   for v in close view fetch gate overlap equiv press lint push; do v="$(phv "$v")"; [ "$v" = "-" ] || su=$((su + v)); done
-  [ "$rc" = 0 ] && grep -q '^LANDED pr=110 ' <<<"$out" && [ "$n" = 14 ] && grep -q ' press=[0-9-]* ' <<<"$l" && [ "$(phv total)" -ge "$su" ] && [ "$(phv etc)" -ge 0 ] && [ "$(grep -c . "$PFILE")" = 1 ] && [ -z "$(refs)" ]; }
+  [ "$rc" = 0 ] && grep -q '^LANDED pr=110 ' <<<"$out" && [ "$n" = 16 ] && grep -q ' repo=[^ ]* rpush=[0-9]*$' <<<"$l" && grep -q ' press=[0-9-]* ' <<<"$l" && [ "$(phv total)" -ge "$su" ] && [ "$(phv etc)" -ge 0 ] && [ "$(grep -c . "$PFILE")" = 1 ] && [ -z "$(refs)" ]; }
 k6() {   # ⑥ REJECT(②-b) → LAND-PHASE 1줄 · 안 간 단계 «-» · tsv 1줄
   rm -f "$PFILE"; DL_OFF=$((F + 3)) land "$1" 111 40 FT_PUSH_FIXED_S=$F
   [ "$rc" = 1 ] && grep -q '^LAND-PHASE pr=111 ' <<<"$out" && [ "$(phv gate)" = "-" ] && [ "$(phv push)" = "-" ] && [ "$(phv lint)" = "-" ] && [ "$(grep -c . "$PFILE")" = 1 ]; }

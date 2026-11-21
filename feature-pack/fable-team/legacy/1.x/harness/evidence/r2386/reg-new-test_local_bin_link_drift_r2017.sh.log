@@ -1,0 +1,22 @@
+PASS py_compile · bash -n
+PASS bin/kit 짝 cmp0 (ft_live_install_check)
+PASS T1 링크 → 옛 판 → DRIFT-LINK 1줄 rc1
+PASS T1 링크 수정 0 · HINT local-bin(고침 = master)
+PASS T2 링크 → 지금 LIVE_BIN → 0줄 rc0
+PASS T3 링크 → 루트 shim → 0줄 rc0
+PASS T3b 루트 bin 이어도 shim 표식 0 → DRIFT-LINK
+PASS T4 ft-* 아닌 링크·일반 파일 → 0줄 rc0
+PASS T5 깨진 링크 → DRIFT-LINK(대상 없음) 1줄 rc1
+PASS T6 ft-* 이름이 LIVE_BIN 에 없음(ft-visual) → 0줄 rc0
+PASS T7 링크 → 명부의 다른 루트 shim → 0줄 rc0
+PASS T7b 링크 → 명부 밖 폴더 shim → DRIFT-LINK 1줄 rc1
+PASS T7c 명부 루트 bin 이어도 shim 표식 0 → DRIFT-LINK
+PASS T7d # 줄·상대 경로 행은 명부 아님 → DRIFT-LINK 1줄
+PASS T8 명부 없음 · 링크 → 점검 루트 shim → 0줄
+PASS T8 명부 없음 · 링크 → 다른 루트 shim → DRIFT-LINK 1줄
+PASS T8b 명부 읽기 실패(UTF-8 아님) → 점검 루트만 · DRIFT-LINK 1줄 · 죽지 않음
+PASS LIVE_BIN 없음 → 줄 0(검사 밖)
+PASS ~/.local/bin 없음 → 줄 0
+PASS 판정 1함수(local_bin_drift)
+PASS 시험 시간 상한(70초 · 실측 2s)
+ALL PASS (2s)

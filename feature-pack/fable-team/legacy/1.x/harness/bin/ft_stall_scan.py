@@ -25,13 +25,14 @@ import time
 from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import ft_card_assign_pause as pause
 from ft_api_outage_util import epoch, records  # r1882 — pi jsonl 꼬리·timestamp 읽기 한 벌
 import ft_headline_seats as headline_seats
 import ft_penalty
 import ft_stall_headline as headline
-from ft_stall_detect import DESK_READ_MIN, IDLE_MIN, all_stop, all_stop_note, agent_sessions, api_outage, card_gate, ctx_pct, desk_alert, desk_heartbeat_min, desk_seats, lead_alert, lead_heartbeat_min, lead_names, load_teams, off_roster_live, pending_mail, policy_stop, rest_head, run, spawn_capacity, waiting_cards, RefUnavailable
+from ft_stall_detect import DESK_READ_MIN, HUMAN_ALERT_S, IDLE_MIN, all_stop, all_stop_note, agent_sessions, api_outage, card_gate, ctx_pct, desk_alert, desk_heartbeat_min, desk_seats, human_waits, lead_alert, lead_heartbeat_min, lead_names, load_teams, off_roster_live, pending_mail, policy_stop, rest_head, run, spawn_capacity, waiting_cards, RefUnavailable
 from ft_stall_seats import Seats
 from ft_team_lib import rosters  # r1883 — _master 빈 팀의 카드 경로(명부 doc)
 import ft_stall_state as stm
@@ -140,6 +141,11 @@ class Scan:
         self.lint_cache = stm.lint_load(self.st)  # r1392 — 카드 stem → {oid, lint, v, at}(저장본에서 복원 · 이번 판정이 더한다)
         self.lint_seen: set[str] = set()  # r1392 — 이번 실행에 ref 트리에서 본 대기 카드 stem(안 본 장을 지우지 않는다)
         self.lint_unread = 0  # r1392 — 이번 실행에 대기 카드를 못 읽은 팀 수(0 일 때만 캐시에서 사라진 카드를 지운다)
+        self.human_rec, self.human_ts = self.human_load()  # r2380 K3 — (점검 1통 나간 기록, 카드 커밋 시각 캐시) · 기록은 6시간 창 뒤에도 남긴다(F2)
+        self.human_send: list[dict[str, Any]] = []  # r2380 K2 — 이번 실행에 점검 1통 보낼 카드(보내는 일은 처리 단계)
+        self.human_done: list[dict[str, Any]] = []  # r2380 K3 — 이번 실행에 풀림 1통 보낼 기록
+        self.human_seen: set[str] = set()  # r2380 — 이번 실행에 «오빠 대기» 줄이 있던 카드(커밋 시각 캐시를 이만큼만 남긴다)
+        self.human_unread = 0  # r2380 — 이번에 기준 ref 트리를 못 읽은 팀 수(>0 이면 커밋 캐시를 지우지 않는다)
         self.flow = os.environ.get("FT_CARD_FLOW_SH") or str(HERE / "ft-card-flow.sh")
         self.errs: list[str] = []  # r1238 A-r4b-2 — 처리 단계 로그 꼬리(발신 실패 등)
         self.seats = Seats(self.status, self.now, self.st.setdefault("seats", {}))
@@ -163,6 +169,133 @@ class Scan:
             for stem in [k for k in self.lint_cache if k not in self.lint_seen]:
                 del self.lint_cache[stem]
         return self.lint_cache
+
+    def human_file(self) -> Path:
+        return self.state_dir / "stall-scan.human-wait.json"
+
+    def human_load(self) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+        """r2380 K3 — (점검 1통 나간 기록 {팀/카드#줄: {at, ts, team, card}}, 카드 커밋 시각 캐시 {카드: {oid, at}}) · 없음·깨짐 = 빈 사전 둘(다음 실행이 다시 센다)."""
+        try:
+            raw = json.loads(self.human_file().read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}, {}
+        if not isinstance(raw, dict):
+            return {}, {}
+        rec_raw, cts_raw = raw.get("records"), raw.get("commits")
+        rec = rec_raw if isinstance(rec_raw, dict) else {}
+        cts = cts_raw if isinstance(cts_raw, dict) else {}
+        return ({str(k): v for k, v in rec.items() if isinstance(v, dict)},
+                {str(k): v for k, v in cts.items() if isinstance(v, dict)})
+
+    def human_save(self) -> None:
+        """기록 원자 쓰기(tmp → os.replace) · 실패 = 노트 1줄(기록 없이 넘어가면 다음 실행이 다시 센다).
+        커밋 시각 캐시는 이번에 대기 폴더에서 본 카드만 남긴다(사라진 카드의 옛 oid·at 을 들고 있지 않는다)."""
+        path = self.human_file()
+        tmp = path.with_name(f"stall-scan.human-wait.json.tmp{os.getpid()}")
+        if self.human_unread == 0:
+            self.human_ts = {k: v for k, v in self.human_ts.items() if k in self.human_seen}
+        try:
+            _ = tmp.write_text(json.dumps({"records": self.human_rec, "commits": self.human_ts}, ensure_ascii=False), encoding="utf-8")
+            os.replace(tmp, path)
+        except OSError as e:
+            self.notes.append(f"WARN 사람 대기 기록 쓰기 실패 — 다음 실행 다시 센다({e.__class__.__name__})")
+
+    def human_to(self, team: str) -> tuple[str, str]:
+        """r2380 K3 — «사람 대기 풀림» 받을이 = 그 팀 desk(명부 `_desk` 우선 · 없으면 role=desk 좌석) → (좌석, "").
+        desk 가 없으면 그 팀 master + «판정 불가 desk» 1줄 · 명부에 그 팀도 없으면 ("", 사유)."""
+        for roster in rosters(self.root):
+            d = roster["doc"]
+            if roster["team"] != team or not isinstance(d, dict):
+                continue
+            desk = d.get("_desk")
+            if not isinstance(desk, str) or not desk:
+                desk = next((k for k, v in d.items() if not k.startswith("_") and isinstance(v, dict) and v.get("role") == "desk"
+                             and not v.get("_replaced_by") and not v.get("_closed")), None)
+            if desk:
+                return str(desk), ""
+            master = d.get("_master")
+            return (str(master), f"판정 불가 desk {team} — 그 팀 master 에 풀림 1통") if master else ("", f"판정 불가 desk {team} — 받을이 없음")
+        return "", f"판정 불가 desk {team} — 명부에서 못 찾음(풀림 1통 0)"
+
+    def human_judge(self) -> None:
+        """r2380 K2~K4 — 대기 카드의 «오빠 대기» 줄 판정(발신 0 · 처리 단계가 보낸다).
+        K2 나이 ≥ 6시간 ∧ 점검 기록 없음 = 점검 후보 · K3 기록이 있는데 그 줄이 이번에 안 보이면 풀림 후보(기록 유지 = F2) ·
+        F1 기준 ref 트리를 이번에 못 읽은 팀은 «없음» 으로 세지 않는다(기록 그대로) · 판정 불가 = 노트 1줄 + 경보 0."""
+        seen: dict[str, dict[str, dict]] = {}
+        teams = load_teams(self.root, warn=False)
+        for t in teams:
+            if t["diag"] != "OK" or not t["cards"] or not t["cards"].is_dir():
+                continue  # 명부에만 있고 폴더가 없는 팀(그래픽스·이슈·룸) = 볼 카드 0 · 틱마다 «판정 불가» 소음 0
+            try:
+                seen[t["team"]] = human_waits(t["cards"], self.root, self.now, self.human_ts)
+            except RefUnavailable as e:
+                self.human_unread += 1
+                self.notes.append(f"판정 불가 사람 대기 {t['team']} — {e}")
+        masters = {t["team"]: t["master"] for t in teams}
+        self.human_seen = {name for cards in seen.values() for name in cards}
+        for team, cards in seen.items():
+            master = masters.get(team)
+            for name, h in sorted(cards.items()):
+                if h["age"] is None:
+                    if h.get("why") and h["why"] != "thread ts 없음":
+                        self.notes.append(f"판정 불가 사람 대기 {name} — {h['why']}")
+                    continue
+                if h["age"] < HUMAN_ALERT_S:
+                    continue
+                key = f"{team}/{name}#{h['line']}"
+                if self.human_notice(key, h["ts"]):
+                    continue
+                self.human_send.append({"key": key, "team": team, "to": master, "card": name, "ts": h["ts"], "age": h["age"]})
+        for key, rec in sorted(self.human_rec.items()):
+            team, _, rest = key.partition("/")
+            card = rest.partition("#")[0]
+            if team not in seen:
+                continue  # F1 — 이번에 못 본 팀은 «풀림» 으로 세지 않는다
+            live = seen[team].get(card)
+            if live is not None and (live.get("ts") or "") == str(rec.get("ts") or ""):
+                continue  # 아직 그 줄이 그대로 — 기록 유지(F2)
+            self.human_done.append({"key": key, "team": team, "card": card, "ts": str(rec.get("ts") or "")})
+
+    def human_notice(self, key: str, ts: str) -> bool:
+        """r2380 K2 — 이번에 점검 1통을 보내지 않을까: 같은 오빠 대기(같은 thread ts)를 HUMAN_ALERT_S 안에 이미 보냈으면 0.
+        기록은 F2 로 풀림까지 남으므로 «기록 있음» 만으로 건너뛰면 30시간 대기가 1통에서 멈춘다(DA H1) — 6시간마다 다시 1통."""
+        rec = self.human_rec.get(key)
+        if not isinstance(rec, dict) or str(rec.get("ts") or "") != ts:
+            return False  # 처음 본 사건(ts 가 바뀌면 새 사건)
+        at = rec.get("at")
+        if isinstance(at, bool) or not isinstance(at, (int, float)):
+            return False  # 꼴이 깨진 기록 = 다시 보낸다(조용한 0 아님)
+        return 0 <= self.now - float(at) < HUMAN_ALERT_S
+
+    def act_human(self, stamp: str) -> list[str]:
+        """r2380 K2·K3 처리 — 점검은 팀 master 에만(desk·오빠 thread 글 0) · 풀림은 desk 에 1통(결과 1줄은 그 thread ts 에). 보낸 것만 기록."""
+        out: list[str] = []
+        now = time.strftime("%Y-%m-%d %H:%M", time.localtime(self.now))
+        for h in self.human_send:
+            if not h["to"]:
+                self.notes.append(f"판정 불가 사람 대기 {h['card']} — 팀 master 없음(점검 1통 0)")
+                continue
+            body = (f"[사람 대기 점검] {h['card']} · 오빠 대기 {h['age'] / 3600:.1f}시간 · thread {h['ts']} — "
+                    f"아직이면 카드 선행 줄에 `확인 {now}` 1줄 · 답이 왔으면 선행 줄을 지우고 그 thread 에 결과 1줄 (ft-stall-scan)")
+            rc = self.send(str(h["to"]), body)
+            if rc != 0:
+                self.errs.append(f"사람 대기 점검 발신 실패 rc={rc} to={h['to']} {h['card']}")
+                continue
+            self.human_rec[h["key"]] = {"at": int(self.now), "ts": h["ts"], "team": h["team"], "card": h["card"]}
+            out.append(f"{stamp} act=human-check to={h['to']} key={h['key']}")
+        for h in self.human_done:
+            to, why = self.human_to(h["team"])
+            if why:
+                self.notes.append(why)
+                print(why)
+            body = (f"[사람 대기 풀림] {h['card']} · 오빠 선행 줄이 풀렸다 · thread {h['ts']} 에 결과 1줄을 남겨라 (ft-stall-scan)")
+            rc = self.send(to, body) if to else 1
+            if rc != 0:
+                self.errs.append(f"사람 대기 풀림 발신 실패 rc={rc} to={to} {h['card']}")
+                continue
+            _ = self.human_rec.pop(h["key"], None)  # 풀림 1통 = 기록 지움(그 뒤 같은 카드는 새 사건)
+            out.append(f"{stamp} act=human-done to={to} key={h['key']}")
+        return out
 
     def idle_age(self, seat: str, fresh: bool = False) -> float | None:
         state, end = self.turn(seat, fresh)
@@ -767,6 +900,7 @@ class Scan:
         stm.judge_done()  # r1282 — 판정 끝 기한 검사(넘으면 처리 0 · 저장 0) · 이후는 처리 단계(호출별 timeout 만)
         found, unknown = self.gate_a(found, unknown)  # r1238 A — 처리 단계 첫 일(keys·counts·trig 전)
         unknown += self.find_w()  # r2080 B5 — 승계 감시(판정 기한 밖 · 호출당 7초)
+        self.human_judge()  # r2380 — 오빠 대기 나이 판정(발신 0 · 판정 기한 «밖»: 이 감시가 다른 갈래 판정을 기한 넘김으로 밀지 않는다 · K5)
         handled, prev = self.st.get("handled", {}), set(self.st.get("prev", []))
         keys = {f"{f['kind']}:{f['seat']}": f for f in found if f["kind"] != "h"}
         counts = {k: sum(1 for f in found if f["kind"] == k) for k in "abcdefghmt"}
@@ -807,6 +941,7 @@ class Scan:
                 log.append(f"{stamp} {res} key={f['kind']}:{f['seat']} {f['why']}")
         log += [f"{stamp} {e}" for e in self.errs]
         log += self.record_notify(stamp)  # r1717 A4 ⓑ — auto_close 앞 1회
+        log += self.act_human(stamp)  # r2380 K2·K3 — 사람 대기 점검·풀림 1통씩
         ac = self.auto_close()  # r1670 ⓔ — FT_NANO_AUTO_CLOSE=1 일 때만(기본 0 = 로그·출력 그대로)
         if ac:
             log += ac
@@ -827,6 +962,7 @@ class Scan:
             per_team[t["team"]] = {k: sum(1 for f in found if f["team"] == t["team"] and f["kind"] == k) for k in "abdf"}
             per_team[t["team"]]["master_end"] = end_m if st_m in ("IDLE", "WORKING") else None  # r1752 — «마지막으로 끝낸 턴» 은 WORKING 이어도 남김(UNKNOWN·PENDING = None)
         stm.save(self.state_dir, handled, sorted(keys), self.st["seats"], self.nudged, self.now, lint=self.lint_store())
+        self.human_save()  # r2380 K3 — 점검 기록(풀림·카드 사라짐 전까지 유지 = F2)
         _ = (self.state_dir / "stall-scan.last.json").write_text(json.dumps({"ts": self.now, "c": counts["c"], "teams": per_team}), encoding="utf-8")
         with open(self.state_dir / "stall-scan.log", "a", encoding="utf-8") as fh:
             _ = fh.write("".join(x + "\n" for x in log) + lines[0] + "\n")

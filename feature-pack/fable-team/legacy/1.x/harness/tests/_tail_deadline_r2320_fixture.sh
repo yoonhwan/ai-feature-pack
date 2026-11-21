@@ -57,8 +57,8 @@ mkpr() {  # mkpr <번호> [<객체수>] — 임시 origin 의 pull/<번호>/head
   python3 -c 'import json,sys;print(json.dumps({"headRefOid":sys.argv[1],"title":"feat: PR "+sys.argv[2],"body":"b","state":"OPEN","baseRefName":"main"}))' "$PRSHA" "$n" > "$STUB_JSON"
 }
 land() {  # land <bin> <번호> <바깥 상한초> [KEY=VAL…] · 객체수 = R2320_OBJ · DL_OFF=<초> = 호출 직전 기준 env 마감
-  local b="$1" n="$2" o="$3" s; shift 3; mkpr "$n" "${R2320_OBJ:-1}"; apv --approve-sha "$PRSHA"; : > "$STUB_LOG"; : > "$ORDER"; : > "$GB_LOG"; rm -f "$DLF" "$FIFO"; mkfifo "$FIFO"
-  s=$SECONDS; LT0=$(date +%s)
+  local b="$1" n="$2" o="$3" s; shift 3; mkpr "$n" "${R2320_OBJ:-1}"; apv --approve-sha "$PRSHA"; : > "$STUB_LOG"; : > "$ORDER"; : > "$GB_LOG"; rm -f "$DLF" "$FIFO"; rm -f "$T/state/land-phase.tsv"; mkfifo "$FIFO"
+  s=$SECONDS; LT0=$(date +%s)   # r2385: 사례마다 land-phase.tsv 를 비운다 — 앞 사례의 단계 초가 다음 사례의 상한(LIM·R_push)을 흔들지 않게(사례 독립)
   if [ -n "${DL_OFF:-}" ]; then export FT_LAND_DEADLINE=$((LT0 + DL_OFF)); else unset FT_LAND_DEADLINE; fi
   out="$(env "$@" "$TBIN" "$o" bash "$b/ft-merge-land.sh" "$n" --approve-sha "$PRSHA" --repo "$W" 2>&1)"; rc=$?; el=$((SECONDS - s))
   rm -f "$FIFO"; unset FT_LAND_DEADLINE
@@ -101,9 +101,9 @@ k6() {  # ⑥ 설치 대조 rc124 → 알림 인자 그대로(install=124 = PEND
   [ "$rc" = 0 ] && grep -q '^INSTALL-PENDING 설치 검사' <<<"$out" && grep -q '^NOTIFIED r2320 pr=107 install=124' <<<"$out" && \
   [ -n "$(tail_line)" ] && [ -n "$(tailv install)" ] && [ -z "$(tailv skip)" ]; }
 k7() {  # ⑦ 문서 PR 꼴(설치 대조·shim 즉시 OK) → 출력 줄 = 기준판(origin/main)과 같음 · LAND-TAIL 0
-  local on ob tn tb; land "$FIX" 108 45; on="$(set- "$(grep -v '^LAND-PHASE ' <<<"$out")")"; tn="$(grep -c '^LAND-TAIL' <<<"$out")"; [ "$rc" = 0 ] || return 1   # r2355: 새 계약 = LAND-PHASE 1줄 — 그 줄만 빼고 기준판과 같은 줄인가
+  local on ob tn tb; land "$FIX" 108 45; on="$(set- "$(grep -vE '^(LAND-(PHASE|CAP)|GATE-CAP|EQUIV-CAP) ' <<<"$out")")"; tn="$(grep -c '^LAND-TAIL' <<<"$out")"; [ "$rc" = 0 ] || return 1   # r2355: 새 계약 = LAND-PHASE 1줄 — 그 줄만 빼고 기준판과 같은 줄인가 · r2385: LAND-CAP·GATE-CAP·EQUIV-CAP 1줄도 새 계약(같이 뺀다)
   [ "$BASE_OK" = 1 ] || return 0
-  land "$BASE" 109 45; ob="$(set- "$(grep -v '^LAND-PHASE ' <<<"$out")")"; tb="$(grep -c '^LAND-TAIL' <<<"$out")"
+  land "$BASE" 109 45; ob="$(set- "$(grep -vE '^(LAND-(PHASE|CAP)|GATE-CAP|EQUIV-CAP) ' <<<"$out")")"; tb="$(grep -c '^LAND-TAIL' <<<"$out")"
   [ "$rc" = 0 ] && [ -n "$on" ] && [ "$on" = "$ob" ] && [ "$tn" = 0 ] && [ "$tb" = 0 ]; }
 k10() {  # ⑩ env 마감 남은 30초 + LIM 67 → push 시도 상한 AB ≤ 30 · 남은−7 < PB = 재시도 0 · ls-remote 판정 그대로
   local ab mb; mb="$(MB)"; rm -f "$TSV"
