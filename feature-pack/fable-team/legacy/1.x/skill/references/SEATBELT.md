@@ -140,5 +140,6 @@ role ∈ master·pm·da·nano·tester·harness-design. tick ∈ null · `ft-mast
 - pane `❯` 텍스트를 지시·제출로 읽지 않는다 — 판정은 jsonl(`ft-reach-check.sh`) · 상태는 seats.json.
   좌석 «정지» 판정 정본은 `ft-seat-status.sh stalled [--min N]`(jsonl mtime age ≥ N분 **AND** pane 스피너 없음) — `list`/`one` 은 4열(`좌석 PANE JSONL_AGE AGENT`), `--json` 동일값. pane 만으로 정지를 말하지 않는다.
 - 좌석·브랜치·워크트리·DB 를 사람 승인 없이 kill·drop 하지 않는다. 자기 테스트 러너는 예외.
+- 자기 프로세스를 내릴 때 pkill·killall 은 옵션을 패턴 앞에 쓴다(`pkill -TERM -P <부모> -f '<경로째 긴 패턴>'`). 먼저 `pgrep -fl` 로 대상 수를 본다. 가능하면 PID 로 kill 한다. 옵션이 패턴 뒤에 오면 macOS pkill 이 그 글자를 패턴으로 읽어 다른 좌석까지 내린다(11-21 실사건 · r2412 · pi 좌석은 문지기 ft-seat-pkill-guard 가 거절).
 - 완료 증명은 press 뿐. 「유닛 통과」「구현 완료」는 그렇게만 쓴다.
 - 골·작업을 약어(A/B/C/D 등)로만 부르지 않는다 — 좌표는 M?/K? + 닫는 증거 복붙.
