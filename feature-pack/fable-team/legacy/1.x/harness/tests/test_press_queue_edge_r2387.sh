@@ -13,7 +13,7 @@ S0=$SECONDS
 NB="$(git -C "$ORIGIN" hash-object -t blob -w /dev/null 2>/dev/null)"   # 그냥 객체 1개(아무 뜻 없음)
 
 # ===== ⑭: 가짜 gh 8초 멈춤 2회 → «판정 불가 PR 목록» 1줄 rc 3 · 호출 2회 · 15초 안 =====
-qreset; qm 141 pr141 "$(tmn 10)" worker/p141.py=p141
+qreset; qm 141 pr141 10 worker/p141.py=p141
 el=$SECONDS; GH_SLEEP=8 qrun; el=$((SECONDS - el))
 [ "$rc" = 3 ] && [ "$(printf '%s\n' "$out" | grep -c .)" = 1 ] && [[ "$out" == "판정 불가 PR 목록 — gh pr list 실패("* ]] && [ "$(qgl)" = 2 ] && [ "$el" -le 15 ]
 ck "⑭ gh 8초 멈춤 2회 → «판정 불가 PR 목록» 1줄 rc 3 · 호출 2회 · ${el}초(<15)" $?
@@ -21,19 +21,20 @@ echo "단계 초: ⑭ ${el}s"
 
 # ===== ⑮: 깨진 묶음 ref 1개 = 그 PR 줄만 «판정 불가» · A·C 줄 그대로 · NEXT 는 판정 불가를 건너뛴다 =====
 qreset
-qm 111 pr111 "$(tmn 40)" worker/p111.py=p111
-qm 112 pr112 "$(tmn 30)" worker/p112.py=p112
-qm 113 pr113 "$(tmn 20)" worker/p113.py=p113
+qm 111 pr111 40 worker/p111.py=p111
+qm 112 pr112 30 worker/p112.py=p112
+qm 113 pr113 20 worker/p113.py=p113
 vbs "$(setof "$(sha "$REPO" pr111)")" 20261117-121000     # A = 유효 묶음(최신 run)
 vbs "$(setof "$(sha "$REPO" pr113)")" 20261117-120500     # C = 유효 묶음(둘째)
 bks 0123456789abcdef0123456789abcdef01234567 20261117-120000   # B 앞에 깨진 묶음(부모 없음 · 셋 중 가장 이른 run)
 qrun
 [ "$rc" = 0 ] && [[ "$out" == *"PR #111 VALID"* ]] && [[ "$out" == *"PR #113 VALID"* ]] && [[ "$out" == *"PR #112 판정 불가 · "* ]] \
   && [[ "$(qnext)" == "대기(VALID PR 111 착지 뒤 · "* ]]; ck "⑮ 깨진 묶음 = #112 줄만 판정 불가 · #111·#113 VALID 그대로 · NEXT 대기(111)" $?
-unref refs/press/0123456789abcdef0123456789abcdef01234567-20261117-120000   # 깨진 묶음은 ⑮ 몫 — 다음 사례에서 지운다
+unref refs/press/0123456789abcdef0123456789abcdef01234567-20261117-120000   # 깨진 묶음은 ⑮ 몫 — 다음 사례에서 지운다(원격·로컬 둘 다 · queue 는 prune 0)
+git -C "$REPO" update-ref -d refs/press/0123456789abcdef0123456789abcdef01234567-20261117-120000
 qreset
-qm 121 pr121 "$(tmn 30)" worker/p121.py=p121
-qm 122 pr122 "$(tmn 20)" worker/p122.py=p122
+qm 121 pr121 30 worker/p121.py=p121
+qm 122 pr122 20 worker/p122.py=p122
 python3 - "$PLIST" <<'PY'   # 121 의 head 를 «로컬에 없는 sha» 로 바꾼다(그 줄만 판정 불가)
 import json, sys
 p = sys.argv[1]; rows = json.load(open(p))
@@ -47,17 +48,24 @@ echo "단계 초: ⑮ $((SECONDS - S0))s"
 # ===== ⑯: queue 전후 refs/press* · refs/press-debt* · 작업 트리 · 허가 파일 바이트 같음(쓰기 0) =====
 mkdir -p "$T/permits"; printf '{"held":false,"member":""}\n' > "$T/permits/device.json"
 qreset
-qm 131 pr131 "$(tmn 20)" worker/p131.py=p131
+qm 131 pr131 20 worker/p131.py=p131
 vbs "$(setof "$(sha "$REPO" pr131)")" 20261117-122000
 debt "$(sha "$REPO" origin/main)" 61
-qrun >/dev/null 2>&1                                  # 1회차 = refs/press 를 로컬로 받아 둔다(그 뒤가 «전후 같음» 의 기준)
+L40="aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee"                     # 원격에 없는 «로컬에만 있는» 묶음·빚 ref(DA#54 H1 탐침)
+LC="$(git -C "$REPO" commit-tree "$(git -C "$REPO" mktree </dev/null)" -m "local only")"
+git -C "$REPO" update-ref "refs/press/$L40-20261117-130000" "$LC"
+git -C "$REPO" update-ref "refs/press-debt/$L40" "$LC"
+[ -z "$(git -C "$ORIGIN" for-each-ref --format='%(refname)' "refs/press/$L40-20261117-130000")" ] && [ -n "$(git -C "$REPO" for-each-ref --format='%(refname)' "refs/press/$L40-20261117-130000")" ]
+ck "⑯ 준비: 원격에 없는 press 묶음·빚 ref 2개가 로컬에만 있다" $?
+qrun >/dev/null 2>&1                                  # 1회차 = 나머지 refs/press 를 로컬로 받아 둔다(그 뒤가 «전후 같음» 의 기준)
 snap() { git -C "$REPO" for-each-ref --format='%(refname) %(objectname)' refs/press refs/press-debt refs/press-debt-paid
          git -C "$REPO" status --porcelain; git -C "$REPO" ls-files -s; sha "$REPO" HEAD
          cat "$REPO/docs/rules/press_voice_paths.md"; cat "$T/permits/device.json"; }
 B16="$(snap | git hash-object --stdin)"
 qrun
 A16="$(snap | git hash-object --stdin)"
-[ "$A16" = "$B16" ] && [ "$rc" = 0 ]; ck "⑯ queue 전후 refs/press* · press-debt* · 작업 트리 · 허가 파일 바이트 같음(쓰기 0)" $?
+[ "$A16" = "$B16" ] && [ "$rc" = 0 ] && [ "$(qgl)" = 1 ] && [ -n "$(git -C "$REPO" for-each-ref --format='%(refname)' "refs/press/$L40-20261117-130000")" ]
+ck "⑯ queue(gh 1회) 전후 refs/press* · press-debt* · 작업 트리 · 허가 파일 바이트 같음 — 로컬 전용 ref 2개 안 지워짐(fetch·prune 0)" $?
 
 # ===== ⑰: 착지 판정 · deploy 판정 · pack 거절 출력 = 기준판과 바이트 같음 =====
 cmp -s "$QBB/press_evidence_land.py" "$BIN/press_evidence_land.py"; ck "⑰a press_evidence_land.py(pack·착지·빚) = 기준판과 같은 글자" $?

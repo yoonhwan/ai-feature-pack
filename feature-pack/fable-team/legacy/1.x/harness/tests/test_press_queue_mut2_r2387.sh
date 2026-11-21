@@ -16,7 +16,7 @@ oksrc() { local why="$1" want="$2"; qmut "$BIN"
   if [ "$rc" = 0 ] && [[ "$out" == *"$want"* ]]; then echo "PASS $why"; else echo "FAIL $why :: 원본이 기대 못 냄 rc=$rc out=${out:0:300}"; fail=$((fail+1)); fi; }
 
 # ===== M6: gh 재시도 지움 → ⑭ FAIL(호출 수 1) =====
-qreset; qm 141 pr141 "$(tmn 10)" worker/p141.py=p141
+qreset; qm 141 pr141 10 worker/p141.py=p141
 mut M6 verify '    for _ in (1, 2):
         try:
             p = subprocess.run(cmd, capture_output=True, text=True, timeout=secs, encoding="utf-8", errors="replace")' '    for _ in (1,):
@@ -30,9 +30,9 @@ echo "단계 초: M6 $((SECONDS - S0))s"
 
 # ===== M7: 깨진 ref 에서 전체 중단 → ⑮ FAIL =====
 qreset
-qm 111 pr111 "$(tmn 40)" worker/p111.py=p111
-qm 112 pr112 "$(tmn 30)" worker/p112.py=p112
-qm 113 pr113 "$(tmn 20)" worker/p113.py=p113
+qm 111 pr111 40 worker/p111.py=p111
+qm 112 pr112 30 worker/p112.py=p112
+qm 113 pr113 20 worker/p113.py=p113
 vbs "$(setof "$(sha "$REPO" pr111)")" 20261117-151000
 vbs "$(setof "$(sha "$REPO" pr113)")" 20261117-150500
 bks 0123456789abcdef0123456789abcdef01234567 20261117-150000
@@ -41,13 +41,14 @@ mut M7 verify '        except Reject as x:
             raise'
 mutfail "ⓜM7 깨진 ref 에서 전체 중단 → 다른 줄(#111·#113)까지 사라짐 = ⑮ FAIL" "PR #111 VALID"
 oksrc "ⓜM7 원본 재확인 → ⑮ 통과(깨진 묶음 = 그 줄만 판정 불가)" "PR #112 판정 불가"
-unref refs/press/0123456789abcdef0123456789abcdef01234567-20261117-150000
+unref refs/press/0123456789abcdef0123456789abcdef01234567-20261117-150000   # 깨진 묶음 = M7 몫(원격·로컬 둘 다 지운다 · queue 는 prune 0)
+git -C "$REPO" update-ref -d refs/press/0123456789abcdef0123456789abcdef01234567-20261117-150000
 echo "단계 초: M7 $((SECONDS - S0))s"
 
 # ===== M8: VALID 를 «앞» 에서만 봄(정정 전 규칙) → ⑩ FAIL =====
 qreset
-qm 101 pr101 "$(tmn 30)" worker/p101.py=p101
-qm 102 pr102 "$(tmn 10)" worker/p102.py=p102
+qm 101 pr101 30 worker/p101.py=p101
+qm 102 pr102 10 worker/p102.py=p102
 vbs "$(setof "$(sha "$REPO" pr102)")" 20261117-152000
 mut M8 verify '    valid = [r for r in rows if r[2] == "VALID"]' '    valid = [r for r in rows[:1] if r[2] == "VALID"]'
 mutfail "ⓜM8 VALID 를 «앞» 에서만 봄 → ⑩ 의 «대기(VALID PR 102 …)» 0 = FAIL" "NEXT 대기(VALID PR 102 착지 뒤"
@@ -55,7 +56,9 @@ oksrc "ⓜM8 원본 재확인 → ⑩ 통과" "NEXT 대기(VALID PR 102 착지 �
 echo "단계 초: M8 $((SECONDS - S0))s"
 
 # ===== M5: 꼬리 «남은 초 ≥ 8» 확인 지움 → ⑫ FAIL =====
+FAIL9="$fail"   # 픽스처를 다시 source 하면 fail=0 으로 초기화된다(앞 사례 실패 수 보존)
 . "$HERE/_pushahead_r2368_fixture.sh"
+fail="$FAIL9"
 T2="$(cd "$(mktemp -d)" && pwd -P)"; trap 'rm -rf "$T2"' EXIT
 T="$T2"; pa_init "$T2"; pa_fix
 cat > "$T/gh-stub" <<'EOF'

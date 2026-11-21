@@ -28,22 +28,23 @@ EOF
 chmod +x "$T/gh-stub"; export FT_GH="$T/gh-stub"
 cat > "$FIX/ft-press-evidence.sh" <<EOF
 #!/bin/bash
+[ -z "\${PRESS_EAT:-}" ] || [ -z "\${FT_LAND_DEADLINE:-}" ] || sleep "\$(python3 "$T/eat.py" "\$FT_LAND_DEADLINE" "\$PRESS_EAT" cap 99)"   # ⑫: press 검사 자리에서 «남은 N초» 까지 시계를 먹인다
 case "\$1" in queue) exec bash "$BIN/ft-press-evidence.sh" "\$@";; esac
 exit 0
 EOF
 chmod +x "$FIX/ft-press-evidence.sh"
-plist() { python3 - "$TLIST" "$@" <<'PY'
+plist() {  # plist <번호> <head> — 목록 1줄(gh 칸 = 번호·head 만) + 승인 표식 파일(이름 = head · r2387 DA#54 H3)
+  python3 - "$TLIST" "$2" "$1" <<'PY'
 import json, sys
-p = sys.argv[1]
-row = {"number": int(sys.argv[2]), "title": "feat: PR %s" % sys.argv[2], "headRefOid": sys.argv[3],
-       "files": [{"path": f} for f in sys.argv[4:]], "reviews": [{"state": "APPROVED", "submittedAt": "2026-11-21T00:00:00Z"}], "comments": []}
-json.dump([row], open(p, "w"))
+json.dump([{"number": int(sys.argv[3]), "headRefOid": sys.argv[2]}], open(sys.argv[1], "w"))
 PY
+  mkdir -p "$T/state/autonomy-merge-approved"; : > "$T/state/autonomy-merge-approved/$2"
 }
 mkpr() {  # mkpr <번호> — PR 1개(바뀌는 파일 = PRF, 기본 음성 경로)
   local n="$1" f="${PRF:-worker/pr$1.py}"
   git -C "$W" fetch -q origin; git -C "$W" checkout -q -B "pr$n" origin/main >/dev/null 2>&1
   mkdir -p "$(dirname "$W/$f")"; printf 'pr%s %s-%s\n' "$n" "$$" "$SECONDS" > "$W/$f"
+  local i; for i in $(seq 2 "${PROBJS:-1}"); do printf '%s %s\n' "$i" "$SECONDS" > "$W/obj-$n-$i.txt"; done   # push 객체 수(⑫ = push 상한을 키워 시계를 먹인다)
   git -C "$W" add -A && git -C "$W" commit -q -m "pr $n work"; git -C "$W" push -q -f origin "pr$n:refs/pull/$n/head" >/dev/null 2>&1; PRSHA="$(sha "$W" HEAD)"
   python3 -c 'import json,sys
 print(json.dumps({"headRefOid":sys.argv[1],"headRefName":"pr"+sys.argv[2],"isCrossRepository":False,"title":"feat: PR "+sys.argv[2],"body":"b","state":"OPEN","baseRefName":"main"}))' "$PRSHA" "$n" > "$STUB_JSON"
@@ -59,6 +60,7 @@ bundle() {  # bundle <head> <run> — 지금 main + 그 PR 의 세트에 유효 
   rows="$(for f in meta.txt poller_dom.jsonl table.md turbopack.txt; do printf '100644 blob %s\t%s\n' "$(git -C "$W" hash-object -w "$d/$f")" "$f"; done)"
   c="$(git -C "$W" commit-tree "$(printf '%s\n' "$rows" | git -C "$W" mktree)" -p "$set" -m bundle)"
   git -C "$W" push -q origin "$c:refs/press/$set-$run"
+  git -C "$W" fetch -q origin '+refs/press/*:refs/press/*'   # r2387 H1: 묶음 ref 받기 = 부르는 쪽 몫(실 착지는 press check 가 먼저 fetch 한다 · queue 는 fetch 0)
 }
 listn() { grep -c '^pr list' "$STUB_LOG" 2>/dev/null || true; }
 qtail() { grep -E '^(PR #.* STALE|NEXT )' <<<"$out"; }
@@ -78,7 +80,7 @@ ck "⑪ 음성 경로 착지(rc 0) → 꼬리 = STALE 줄 + NEXT 줄 2줄 · gh 
 echo "단계 초: ⑪ $((SECONDS - S0))s"
 
 # ===== ⑫: 꼬리 남은 초 < 8 → queue 0회 · LAND-TAIL skip=pressq =====
-PRF=worker/pr213.py DL_OFF=10 FT_PUSH_FIXED_S=1 land "$FIX" 213 40   # push 1단위 8초 → 남은 9초에서 착지되고 꼬리엔 8초 미만이 남는다
+PRF=worker/pr213.py DL_OFF=34 FT_PUSH_FIXED_S=1 land "$FIX" 213 40 PRESS_EAT=10   # press 검사가 «남은 10초» 까지 시계를 먹는다 → 착지는 그대로(1초) · pressq 상한 = min(8, 9−3) = 6 < 8
 [ "$rc" = 0 ] && grep -q '^LANDED pr=213 ' <<<"$out" && [ "$(listn)" = 0 ] && [ "$(qtail | grep -c .)" = 0 ] && grep -q 'pressq' <<<"$(ltail)"
 ck "⑫ 남은 초 < 8 → queue 0회(gh 0) · LAND-TAIL skip 에 pressq" $?
 echo "단계 초: ⑫ $((SECONDS - S0))s"

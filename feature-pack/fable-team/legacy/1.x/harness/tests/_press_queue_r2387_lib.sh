@@ -22,49 +22,51 @@ for f in ft-press-evidence.sh press_evidence_verify.py press_evidence_land.py; d
 done
 cp "$BIN/press_evidence_parts.py" "$QBB/"
 
-tmn() { python3 -c 'import datetime,sys
-print((datetime.datetime.now(datetime.timezone.utc)-datetime.timedelta(minutes=int(sys.argv[1]))).strftime("%Y-%m-%dT%H:%M:%SZ"))' "$1"; }
-qreset() { : > "$PLIST"; : > "$STUB_LOG"; }
-qgl() { grep -c 'pr list' "$STUB_LOG" 2>/dev/null || true; }   # pr list 부른 횟수(없으면 0)
-prj() {  # prj <번호> <head> <승인ISO|""> <파일…> — 열린 PR 목록 JSON 에 1줄 더한다
-  python3 - "$PLIST" "$@" <<'PY'
-import json, os, sys
-p, n, head, at = sys.argv[1], int(sys.argv[2]), sys.argv[3], sys.argv[4]
-row = {"number": n, "title": "feat: PR %d" % n, "headRefOid": head,
-       "files": [{"path": f} for f in sys.argv[5:]], "reviews": [], "comments": []}
-if at.startswith("C:"):   # C:2026-… = 본문 «판정: APPROVE» 코멘트(승인 표식 둘째 길)
-    row["comments"] = [{"createdAt": at[2:], "body": "판정: APPROVE — 막는 것 0"}]
-elif at:
-    row["reviews"] = [{"state": "APPROVED", "submittedAt": at}]
-rows = json.load(open(p)) if os.path.getsize(p) else []
-json.dump(rows + [row], open(p, "w"))
+APD="$T/state/autonomy-merge-approved"   # 승인 표식 폴더 = ft-autonomy.sh state-dir(= 픽스처 FT_AUTONOMY_STATE_DIR) 아래
+apm() {  # apm <head sha> <분 전> — 승인 표식 파일(이름 = 승인한 head · 시각 = mtime · DA#54 H3 계약)
+  [ -n "${APM_BASE:-}" ] || APM_BASE="$(python3 -c 'import time;print(int(time.time()))')"   # 한 시험 안에서 «같은 분 전» = 같은 mtime(⑨)
+  mkdir -p "$APD"; printf 'approve-merge %s A1 %s\n' "$1" "$APM_BASE" > "$APD/$1"
+  python3 - "$APD/$1" "$APM_BASE" "$2" <<'PY'
+import os, sys
+t = int(sys.argv[2]) - int(sys.argv[3]) * 60
+os.utime(sys.argv[1], (t, t))
 PY
 }
-qm() {  # qm <번호> <가지> <승인ISO|""> <키=값…> — PR 1개(가지는 지금 origin/main 에서) + 목록 1줄
-  local n="$1" b="$2" at="$3" files; shift 3
+apn() { rm -f "$APD/$1"; }   # 표식 지우기(«승인 전» 사례)
+sky() { git -C "$REPO" fetch -q origin '+refs/press/*:refs/press/*' '+refs/press-debt/*:refs/press-debt/*' 2>/dev/null || true; }   # r2387 H1: 묶음 ref 받기는 «부르는 쪽 몫»(queue 는 fetch 0)
+qreset() { : > "$PLIST"; : > "$STUB_LOG"; }
+qgl() { grep -c 'pr list' "$STUB_LOG" 2>/dev/null || true; }   # pr list 부른 횟수(없으면 0)
+prj() {  # prj <번호> <head> — 열린 PR 목록 JSON 에 1줄 더한다(gh 칸 = 번호·head 만 · DA#54 H2)
+  python3 - "$PLIST" "$@" <<'PY'
+import json, os, sys
+p, n, head = sys.argv[1], int(sys.argv[2]), sys.argv[3]
+rows = [r for r in (json.load(open(p)) if os.path.getsize(p) else []) if r.get("number") != n]   # 같은 번호 = 새 줄로 바꾼다(head 갱신 사례)
+json.dump(rows + [{"number": n, "headRefOid": head}], open(p, "w"))
+PY
+}
+qm() {  # qm <번호> <가지> <분 전|""> <키=값…> — PR 1개(가지는 지금 origin/main 에서) + 목록 1줄 · 분 전 = 승인 표식(mtime)
+  local n="$1" b="$2" at="$3"; shift 3
   mkpr "$n" "$b" "$@"
-  files="$(git -C "$REPO" diff --name-only --no-renames "$(sha "$REPO" origin/main)" "$PRSHA" | tr '\n' ' ')"
-  # shellcheck disable=SC2086
-  prj "$n" "$PRSHA" "$at" $files
+  [ -z "$at" ] || apm "$PRSHA" "$at"
+  prj "$n" "$PRSHA"
 }
 setof() {  # setof <head> [부모] — 그 PR 을 main 에 병합한 세트(부모 = main) · press 세트와 같은 꼴
   local h="$1" m="${2:-$(sha "$REPO" origin/main)}" t
   t="$(git -C "$REPO" merge-tree --write-tree "$m" "$h" | head -n1)"
   git -C "$REPO" commit-tree "$t" -p "$m" -m "set $h"
 }
-vbs() { vb "$1" "$2"; }   # 유효 묶음 — 세트 트리가 그 PR 의 병합 트리와 같다
-qlst() {  # qlst <번호> <가지> <승인ISO> <더할 글롭> <키=값…> — 목록에 글롭 1줄 더한 PR(④ · 대상 판정 = 합집합)
+vbs() { vb "$1" "$2"; sky; }   # 유효 묶음(원격 push + 로컬 ref 받기 = 부르는 쪽 몫) — 세트 트리가 그 PR 의 병합 트리와 같다
+qlst() {  # qlst <번호> <가지> <분 전|""> <더할 글롭> <키=값…> — 목록에 글롭 1줄 더한 PR(④ · 대상 판정 = 합집합)
   local n="$1" b="$2" at="$3" g="$4" kv files; shift 4
   git -C "$REPO" fetch -q origin; git -C "$REPO" checkout -q -B "$b" origin/main
   { cat "$REPO/docs/rules/press_voice_paths.md"; printf -- '- `%s`\n' "$g"; } > "$REPO/docs/rules/press_voice_paths.md.tmp"
   mv "$REPO/docs/rules/press_voice_paths.md.tmp" "$REPO/docs/rules/press_voice_paths.md"
   for kv in "$@"; do put "${kv%%=*}" "${kv#*=}"; done
   cm "$REPO" "pr $n"; pushpr "$n" "$b"
-  files="$(git -C "$REPO" diff --name-only --no-renames "$(sha "$REPO" origin/main)" "$PRSHA" | tr '\n' ' ')"
-  # shellcheck disable=SC2086
-  prj "$n" "$PRSHA" "$at" $files
+  [ -z "$at" ] || apm "$PRSHA" "$at"
+  prj "$n" "$PRSHA"
 }
-bks() { bk "$1" "$2"; }   # 깨진 묶음 — 부모 없음(rev-parse <커밋>^ 실패)
+bks() { bk "$1" "$2"; sky; }   # 깨진 묶음 — 부모 없음(rev-parse <커밋>^ 실패)
 qrun() { : > "$STUB_LOG"; out="$(bash "$BIN/ft-press-evidence.sh" queue --repo "$REPO" --main "${QMAIN:-origin/main}" 2>&1)"; rc=$?; }
 qbase() { : > "$STUB_LOG"; out="$(bash "$QBB/ft-press-evidence.sh" queue --repo "$REPO" --main "${QMAIN:-origin/main}" 2>&1)"; rc=$?; }
 qline() { grep -n "^PR #$1 " <<<"$out" | cut -d: -f1; }   # 그 PR 줄의 순서(1부터 · 없으면 빈 값)
