@@ -261,3 +261,26 @@ def test_case11_잠금_BUSY(tmp_path, monkeypatch):
     rc = module.run(keeper, S, N, "%s #%s" % (DESK, SEQ), REASON, wait=1.0)
     assert rc == 3 and keeper.lines and keeper.lines[-1].startswith("BUSY"), keeper.lines
     assert lock.exists() and kills(w) == [] and rec(w) is None     # 남의 잠금을 지우지 않는다
+
+
+def test_case12_pane_판독_실패(tmp_path, monkeypatch):
+    """⑫ DA#56 H1 — capture-pane rc 1 = 일하는지 모른다 → rc 9 · 기록 0 · kill 0 · CLOSED-MANUAL 0(고정 = DA 5f13c297 반례)."""
+    w = world(tmp_path, monkeypatch)
+    keeper = w.keeper()
+    real = keeper.call
+    keeper.call = lambda argv, timeout=None, retry=0: ((1, "", "capture failed") if argv[1] == "capture-pane"
+                                                       else real(argv, timeout=timeout, retry=retry))
+    rc = mc().run(keeper, S, N, "%s #%s" % (DESK, SEQ), REASON)
+    assert rc == 9 and "capture-pane rc=1" in one(keeper.lines, "REJECT pane 판독"), keeper.lines
+    untouched(w)
+
+
+def test_case13_장부_판독_실패(tmp_path, monkeypatch):
+    """⑬ DA#56 H2 — endings.latest = None(장부 판독 실패) → rc 9 · park=none 성공 0 · kill 0(소유 없음 확정 불가)."""
+    w = world(tmp_path, monkeypatch)
+    module = mc()
+    monkeypatch.setattr(module.endings, "latest", lambda *a: None)
+    keeper = w.keeper()
+    rc = module.run(keeper, S, N, "%s #%s" % (DESK, SEQ), REASON)
+    assert rc == 9 and "장부 판독 실패" in one(keeper.lines, "REJECT 장부"), keeper.lines
+    untouched(w)
