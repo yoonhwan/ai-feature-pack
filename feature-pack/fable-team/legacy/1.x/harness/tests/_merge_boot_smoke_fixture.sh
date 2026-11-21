@@ -5,6 +5,7 @@ CALL='; phs boot; BOOTG="$(fm_boot_smoke "$REPO" "$S" "$(land_left)")" || { BOOT
 BASE="$(mutf base ft-merge-land.sh "$CALL" '')"                                                             # 기준판 = 부르는 자리만 뺀 land
 M7="$(mutf m7 ft-merge-land.sh ' || { BOOTR=1; phs; rej "$BOOTG"; }' '')"                                      # 착지가 smoke rc 를 안 봄
 M8="$(mutf m8 ft-merge-lib.sh '{ echo "기동 smoke 대상 밖"; return 0; }' '{ echo "기동 smoke 대상 밖"; return 1; }')"   # 스크립트 없음을 REJECT 로
+M9="$(mutf m9 ft-merge-lib.sh '${FT_BOOT_SMOKE_DIRS:-worker gateway shared proto scripts}' '${FT_BOOT_SMOKE_DIRS:-worker gateway shared proto}')"   # 풀 목록을 scripts/ci 로 되돌림(정정 r2 H1)
 SAME="$(mutf same ft-merge-land.sh "$CALL" "$CALL")"                                                        # ⑱ 대조용 같은 내용 사본(기준판과 같은 폴더 꼴)
 pretest; tick 사전
 mkdir -p "$W/.venv/bin"; printf '.venv/\n' >> "$W/.git/info/exclude"; PYLOG="$T/py.log"; : > "$PYLOG"
@@ -15,6 +16,7 @@ case "\$(cat "$T/py-mode")" in
   ok) echo "import banner"; echo "BOOT OK worker gateway"; exit 0;;
   fail) echo "worker.main ImportError: boom"; exit 1;;
   hang) exec sleep 8;;
+  needrag) [ -f "\$PYTHONPATH/scripts/rag/r.py" ] || { echo "BOOT FAIL worker.main ModuleNotFoundError: No module named 'scripts.rag'"; exit 1; }; echo "BOOT OK worker gateway"; exit 0;;
 esac
 EOF
 chmod +x "$W/.venv/bin/python"; export FT_BOOT_CANARY=leak
