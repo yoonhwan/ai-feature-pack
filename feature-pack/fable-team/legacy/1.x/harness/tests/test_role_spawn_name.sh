@@ -39,9 +39,9 @@ SEATS_NONE='{"CFO_F_ARCH#14": {"role":"arch","agent":"claude"}}'
 
 plan() { # plan <env-prefix|-> <role> → PLAN 줄
   if [ "$1" = "-" ]; then
-    (cd "$REPO" && env -u FT_ROLE_BASE_PREFIX PATH="$FAKE:$PATH" bash "$SPAWN" "$2" --dry-run 2>&1 | grep '^PLAN ')
+    (cd "$REPO" && env -u FT_ROLE_BASE_PREFIX PATH="$FAKE:$PATH" bash "$SPAWN" "$2" --dry-run --agent claude --model 'claude-opus-5-5[1m]' 2>&1 | grep '^PLAN ')
   else
-    (cd "$REPO" && FT_ROLE_BASE_PREFIX="$1" PATH="$FAKE:$PATH" bash "$SPAWN" "$2" --dry-run 2>&1 | grep '^PLAN ')
+    (cd "$REPO" && FT_ROLE_BASE_PREFIX="$1" PATH="$FAKE:$PATH" bash "$SPAWN" "$2" --dry-run --agent claude --model 'claude-opus-5-5[1m]' 2>&1 | grep '^PLAN ')
   fi
 }
 expect() { # expect <label> <PLAN줄> <seat> <replaces>
@@ -66,7 +66,7 @@ expect "두 계보 없음 → #0" "$(plan - arch)" "byz-v65-arch-claude#0" "<없
 
 # R13 — master·arch 후계 BODY 에만 크론 문장 (BOOT 16 → r2148: 크론 0 결정 뒤 문장 = «크론 0» · «cron=0»). --dry-run 의 BODY 줄이 관측점.
 mkdir -p "$REPO/design/v65/indices/inbox/master" "$REPO/design/v65/indices/inbox/da" "$REPO/design/v65/indices/inbox/pm"
-body() { (cd "$REPO" && env -u FT_ROLE_BASE_PREFIX PATH="$FAKE:$PATH" bash "$SPAWN" "$1" --dry-run 2>&1 | grep '^BODY '); }
+body() { (cd "$REPO" && env -u FT_ROLE_BASE_PREFIX PATH="$FAKE:$PATH" bash "$SPAWN" "$1" --dry-run --agent claude --model 'claude-opus-5-5[1m]' 2>&1 | grep '^BODY '); }   # r2403: 표 판독 기본값 대신 명시
 for r in master arch; do
   b="$(body $r)"
   echo "$b" | grep -qF "크론 0" && echo "$b" | grep -qF "cron=0" \

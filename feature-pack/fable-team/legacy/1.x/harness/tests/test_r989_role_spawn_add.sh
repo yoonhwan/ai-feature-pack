@@ -54,7 +54,7 @@ case "\$1" in
 esac
 EOF
 chmod +x "$B"/* "$FK"/*
-rs() { (cd "$R" && PATH="$FK:$PATH" bash "$B/ft-role-spawn.sh" "$@" 2>&1); }
+rs() { (cd "$R" && PATH="$FK:$PATH" bash "$B/ft-role-spawn.sh" "$@" --model 'claude-opus-5-5[1m]' 2>&1); }   # r2403: 표 없는 격리 bin — 명시
 row() { python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));n=sys.argv[2];r=d.get(n,{});print("absent" if not r else "%s|%s|%s"%(r.get("_replaced_by") or "NONE", r.get("role"), r.get("tick")))' "$R/.fable-team/seats-feat.json" "$1"; }
 
 # ── ⓐ --add --dry-run: PLAN = replaces=[<없음>] mode=add · 명부 쓰기 0 ──
@@ -103,7 +103,7 @@ MUT="$B/mut"; mkdir -p "$MUT"; cp -p "$B"/*.sh "$B"/*.py "$MUT/" 2>/dev/null
 sed 's/^old = \[\] if add else /old = /' "$B/ft-role-spawn.sh" > "$MUT/ft-role-spawn.sh"
 grep -q '^old = \[k for k' "$MUT/ft-role-spawn.sh" && ok "ⓔ 변이본 생성(old = [] if add else → old = [k for k …])" || bad "ⓔ 변이 sed 불일치"
 feat_roster ""; : > "$OPENED"
-o="$(cd "$R" && PATH="$FK:$PATH" bash "$MUT/ft-role-spawn.sh" arch --team feat --add 2>&1)"; rc=$?
+o="$(cd "$R" && PATH="$FK:$PATH" bash "$MUT/ft-role-spawn.sh" arch --team feat --add --model 'claude-opus-5-5[1m]' 2>&1)"; rc=$?
 a="$(row byz-feat-arch-claude#3)"
 { [ "$rc" = 0 ] && [[ "$a" == *"|stop-ready|None" ]] && [ "$a" != "NONE|arch|None" ]; } \
   && ok "ⓔ 변이: --add 가 구 좌석을 닫는다($a) → ⓑ('_replaced_by 0') FAIL 재현" || bad "ⓔ 변이 rc=$rc old=[$a] $o"

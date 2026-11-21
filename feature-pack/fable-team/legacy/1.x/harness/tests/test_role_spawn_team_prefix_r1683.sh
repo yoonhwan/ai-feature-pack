@@ -37,8 +37,8 @@ seatfile harness '{"_master":"byz-harness-master-pi#199","byz-harness-arch-pi#3"
 seatfile feature '{"_master":"byz-feature-master-pi#12","byz-feature-arch-pi#1":{"role":"arch","agent":"pi"}}'
 seatfile planner '{"_master":"byz-planner-master-pi#7","byz-planner-arch-pi#2":{"role":"arch","agent":"pi"}}'
 AIFP="$R/.fable-team/seats-aifp.json"; aifp() { printf '%s\n' "$1" > "$AIFP"; }
-rs() { ( cd "$R" && PATH="$FK:$PATH" bash "$B/ft-role-spawn.sh" "$@" 2>&1 ); }
-rse() { local p="$1"; shift; ( cd "$R" && FT_ROLE_BASE_PREFIX="$p" PATH="$FK:$PATH" bash "$B/ft-role-spawn.sh" "$@" 2>&1 ); }
+rs() { ( cd "$R" && PATH="$FK:$PATH" bash "$B/ft-role-spawn.sh" "$@" --model 'claude-opus-5-5[1m]' 2>&1 ); }   # r2403: 표 없는 격리 bin — 명시
+rse() { local p="$1"; shift; ( cd "$R" && FT_ROLE_BASE_PREFIX="$p" PATH="$FK:$PATH" bash "$B/ft-role-spawn.sh" "$@" --model 'claude-opus-5-5[1m]' 2>&1 ); }   # r2403: 위와 같다
 expect() { [[ "$2" == *"PLAN seat=$3 "* && "$2" == *"replaces=[$4]"* ]] && ok "$1" || bad "$1 → 기대 seat=$3 replaces=[$4] · 실제: ${2:-<출력 없음>}"; }
 
 # ⓐ aifp 접두 = 명부 _master 앞부분
