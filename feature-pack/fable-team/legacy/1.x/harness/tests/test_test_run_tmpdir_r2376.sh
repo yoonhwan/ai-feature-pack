@@ -127,14 +127,14 @@ o8="$T/8"; mkdir -p "$o8/tmp.other" "$o8/pytest-of-x"; r "$RUN" "$o8" "$T/8.log"
 [ -z "$(find "$o8" -mindepth 1 -maxdepth 1 -name 'tmp.ftpytest.*' -type d 2>/dev/null)" ] && ok "⑧ tmp.ftpytest.* 잔여 0" || bad "⑧ tmp.ftpytest.* 잔여 있음"
 
 # ⑨ 러너 자신을 SIGKILL → 남은 폴더 1개 · 이름꼴 ^tmp\. · ft-scratch-repo --gate --kind tmp 의 G1·G2 통과
-c9() { local rn="$1" o="$T/9"; rm -rf "$o" "$o.out"; mkdir -p "$o"; local i=0
+c9() { local rn="$1" o="$T/9"; rm -rf "$o" "$o.out"; mkdir -p "$o" "$T/root/.fable-team/state"; local i=0
   TMPDIR="$o" FT_SEAT_QUIESCE_BIN="$QF" R2376_OUT="$o.out" bash "$rn" bash "$T/f_sleep" > "$T/9.log" 2>&1 & local rp=$!
   while [ "$i" -lt 100 ] && [ ! -s "$o.out" ]; do sleep 0.05; i=$((i+1)); done
   kill -9 "$rp" 2>/dev/null; wait "$rp" 2>/dev/null
   local p; p="$(head -1 "$o.out" 2>/dev/null)"; p="${p%/}"
   [ -n "$p" ] && [ -d "$p" ] && [ "${p%/*}" = "$o" ] || { echo "GONE"; return 1; }
   printf '%s\n' "${p##*/}" | grep -Eq '^tmp\.[A-Za-z0-9_.-]+$' || { echo "NAME ${p##*/}"; return 1; }
-  TMPDIR="$o" bash "$SCRATCH" --gate "$p" --kind tmp > "$T/9.gate" 2>&1
+  TMPDIR="$o" FT_RES_ROOT="$T/root" bash "$SCRATCH" --gate "$p" --kind tmp > "$T/9.gate" 2>&1
   grep -q '^G1 ok' "$T/9.gate" && grep -q '^G2 ok' "$T/9.gate" || { echo "GATE $(tr '\n' ' ' < "$T/9.gate")"; return 1; }
   return 0; }
 c9 "$RUN" && ok "⑨ 러너 KILL → 잔여 폴더 1 · 이름꼴 · gate G1·G2 ok" || bad "⑨ 잔여 폴더/gate 불통과"
