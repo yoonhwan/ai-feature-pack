@@ -1,4 +1,4 @@
-"""r2383 ft2 legacy_guard ALLOW 시험 — 반례 ①~⑩ · ⑳ · 변이 M1~M3.
+"""r2383 ft2 legacy_guard ALLOW 시험 — 반례 ①~⑩ · ⑳ · ㉒ · 변이 M1~M3 · M9.
 
 ①⑧ = 진짜 ft2 트리(git archive HEAD · 라이브) · ②~⑦ = 임시 ft2 꼴 폴더 · ⑨⑩ = 손 기준값과 바이트 대조
 ⑳ = r1545 시험 test_legacy_guard 의 a~e·m1·m2 를 그대로 부른다. 실 원격 0 · sleep 0 · 변이는 사본에서만.
@@ -128,6 +128,10 @@ def c10(tmp):   # ⑩ keeper 두 출력이 기준값과 바이트 같음(같은 
     return (0, [])
 
 
+def c22(tmp):   # ㉒ ALLOW 줄 둘 다 0줄(패턴을 지움 · 파일은 있음) → ALLOW-STALE 2줄 · rc 1 (DA#56 H1)
+    return run(GUARD, base(Path(tmp) / "h", land=0, nxt=0))
+
+
 def c20(tmp):   # ⑳ guard ≤ 120줄 · import os·sys 만 · r1545 시험 a~e·m1·m2 PASS
     old = load(FT2 / "tests" / "test_legacy_guard.py", "r2383_old")
     old.test_a_skeleton_and_readme()
@@ -141,7 +145,8 @@ def c20(tmp):   # ⑳ guard ≤ 120줄 · import os·sys 만 · r1545 시험 a~e
     return (0, [])
 
 
-CASES = {"①": c1, "②": c2, "③": c3, "④": c4, "⑤": c5, "⑥": c6, "⑦": c7, "⑧": c8, "⑨": c9, "⑩": c10, "⑳": c20}
+CASES = {"①": c1, "②": c2, "③": c3, "④": c4, "⑤": c5, "⑥": c6, "⑦": c7, "⑧": c8, "⑨": c9, "⑩": c10,
+         "⑳": c20, "㉒": c22}
 EXPECT = {
     "①": (0, []),
     "②": (0, []),
@@ -154,11 +159,14 @@ EXPECT = {
     "⑨": (0, []),
     "⑩": (0, []),
     "⑳": (0, []),
+    "㉒": (1, ["ALLOW-STALE " + LAND + " " + LIVE, "ALLOW-STALE " + NEXT + " " + FABLE]),
 }
 # 변이 (사본에서만 · 변이마다 원본으로 같은 사례 1회 더)
 MUTANTS = {
     "M1": ("상한 무시", [("        if cap is not None and counted[(rel, pattern)] <= cap:", "        if cap is not None:")], "⑤"),
-    "M2": ("STALE 검사 지움", [("        elif got == 0 and alive:", "        elif got == 0 and False:")], "⑥"),
+    "M2": ("STALE 검사 지움", [
+        ("        elif got == 0 and (alive or os.path.isfile(os.path.join(root, rel))):",
+         "        elif got == 0 and False:")], "⑥"),
     "M3": ("relpath 대신 basename", [
         ("caps = {(rel, pattern): cap for rel, pattern, cap, _card, _why in ALLOW}",
          "caps = {(os.path.basename(rel), pattern): cap for rel, pattern, cap, _card, _why in ALLOW}"),
@@ -167,6 +175,9 @@ MUTANTS = {
         ("        cap = caps.get((rel, pattern))", "        cap = caps.get((os.path.basename(rel), pattern))"),
         ("        if cap is not None and counted[(rel, pattern)] <= cap:",
          "        if cap is not None and counted[(os.path.basename(rel), pattern)] <= cap:")], "④"),
+    "M9": ("STALE = 살아있는 줄이 있을 때만", [
+        ("        elif got == 0 and (alive or os.path.isfile(os.path.join(root, rel))):",
+         "        elif got == 0 and alive:")], "㉒"),
 }
 
 

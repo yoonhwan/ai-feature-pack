@@ -33,13 +33,16 @@ need_guard() {   # r2383 K4: $1 = local_sha · $2 = remote_sha → 0 = ft2 바�
   case "$files" in *"$FT2_DIR"*) return 0 ;; esac
   return 1
 }
-guard_rc() {   # $1 = local_sha → $TMP/g.<sha>.out 에 위반 줄 · 표준출력 = rc(0·1·2 · 124 시간 · 125 archive · 127 python)
+guard_rc() {   # $1 = local_sha → $TMP/g.<sha>.out 에 위반 줄 · 표준출력 = rc(0·1·2 · 124 시간 · 125 풀기 · 127 python)
   sha=$1; dir="$TMP/g.$sha"; out="$TMP/g.$sha.out"
   if [ ! -d "$dir" ]; then   # r2383 K4: 풀기는 sha 마다 1회(재시도는 같은 나무를 다시 쓴다) · 지우기는 trap
-    mkdir -p "$dir" 2>/dev/null || { echo 125; return; }
-    git archive "$sha" "$FT2_DIR" 2>/dev/null | tar -x -C "$dir" 2>/dev/null
+    mkdir -p "$dir" 2>/dev/null || { printf 'mkdir 1\n' > "$TMP/fail.$sha"; echo 125; return; }
+    git archive "$sha" "$FT2_DIR" > "$TMP/g.$sha.tar" 2>/dev/null; arc=$?   # r2383 K5: 두 rc 를 따로 본다(파이프 rc 가리기 0)
+    if [ "$arc" != 0 ]; then printf 'archive %s\n' "$arc" > "$TMP/fail.$sha"; echo 125; return; fi
+    tar -x -f "$TMP/g.$sha.tar" -C "$dir" 2>/dev/null; trc=$?
+    if [ "$trc" != 0 ]; then rm -rf "$dir"; printf 'tar %s\n' "$trc" > "$TMP/fail.$sha"; echo 125; return; fi
   fi
-  [ -f "$dir/$FT2_DIR/tools/legacy_guard.py" ] || { echo 125; return; }
+  [ -f "$dir/$FT2_DIR/tools/legacy_guard.py" ] || { printf 'archive 1\n' > "$TMP/fail.$sha"; echo 125; return; }
   : > "$out"
   python3 "$dir/$FT2_DIR/tools/legacy_guard.py" "$dir/$FT2_DIR" >"$out" 2>/dev/null &
   pid=$!
@@ -91,9 +94,11 @@ while read -r local_ref local_sha remote_ref remote_sha; do
            echo "PUSH_DENIED legacy_guard 위반 ${n}건 — 첫 줄: $first" >&2
            rc=1 ;;
         *) stage=실행
-           [ "$g" = 124 ] && stage=시간
-           [ "$g" = 127 ] && stage=python
-           [ "$g" = 125 ] && stage=archive
+           case "$g" in
+             124) stage=시간 ;;
+             127) stage=python ;;
+             125) [ -f "$TMP/fail.$local_sha" ] && read -r stage g < "$TMP/fail.$local_sha" ;;
+           esac
            echo "판정 불가 나노 가드 legacy_guard $stage rc=$g" >&2
            echo "PUSH_DENIED 나노 좌석 $seat 의 $remote_ref push — legacy_guard 판정 불가" >&2
            rc=1 ;;

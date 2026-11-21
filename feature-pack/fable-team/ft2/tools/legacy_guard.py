@@ -55,7 +55,7 @@ def scan_file(path, root):
 
 def judge(hits, root):
     """ALLOW 상한 안의 줄은 빼고, 넘침·남음을 덧붙여 찍을 줄을 만든다.
-    남음(STALE)은 표가 이 트리에 대한 것일 때(ALLOW 줄 하나라도 살아 있을 때)만 본다 — 표와 상관없는 가짜 트리에서 헛줄을 내지 않는다."""
+    남음(STALE)은 그 파일이 이 트리에 있거나 ALLOW 줄이 하나라도 살아 있을 때 본다 — 표와 상관없는 가짜 트리(파일도 ALLOW 줄도 없음)에서 헛줄을 내지 않는다."""
     caps = {(rel, pattern): cap for rel, pattern, cap, _card, _why in ALLOW}
     counted = {}
     for rel, _lineno, pattern in hits:
@@ -71,7 +71,7 @@ def judge(hits, root):
         got = counted.get((rel, pattern), 0)
         if got > cap:
             lines.append(f"ALLOW-OVER {rel} {pattern} {got}/{cap}")
-        elif got == 0 and alive:
+        elif got == 0 and (alive or os.path.isfile(os.path.join(root, rel))):
             lines.append(f"ALLOW-STALE {rel} {pattern}")
     return lines
 
