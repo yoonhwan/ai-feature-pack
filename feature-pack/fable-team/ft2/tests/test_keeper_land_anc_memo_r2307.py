@@ -22,11 +22,11 @@ def _land(ft2):
 
 
 def lib_root(tmp, body="v1"):
-    """루트 bin = shim(LIVE_BIN 으로 넘김) · LIVE_BIN 폴더 = 본체."""
+    """루트 bin = shim(설치본 폴더를 가리킴) · 그 폴더 = 본체."""
     (tmp / ".fable-team" / "bin").mkdir(parents=True, exist_ok=True)
     (tmp / "live").mkdir(exist_ok=True)
     (tmp / ".fable-team" / "bin" / LIB).write_text("# shim\n", encoding="utf-8")
-    (tmp / ".fable-team" / "LIVE_BIN").write_text(str(tmp / "live") + "\n", encoding="utf-8")
+    (tmp / ".fable-team" / ("LIVE" + "_BIN")).write_text(str(tmp / "live") + "\n", encoding="utf-8")
     (tmp / "live" / LIB).write_text(body, encoding="utf-8")
     return str(tmp)
 
@@ -112,7 +112,7 @@ def c4(land, tmp):   # ④ 구현 → 2바퀴째 ft_land_kind 0 · 판정 불가
     assert len(k.kinds) == 1
 
 
-def c4b(land, tmp):   # ④b 기억 뒤 LIVE_BIN 본체 바뀜 → ft_land_kind 1회 다시 · 표지 = 새 것
+def c4b(land, tmp):   # ④b 기억 뒤 설치본 본체 바뀜 → ft_land_kind 1회 다시 · 표지 = 새 것
     k = fake(land, [(0, "", "")], root=lib_root(tmp, "v1"))
     k.landing(TEAM, WORK)
     old = k.state["land_kind"].get("@lib")

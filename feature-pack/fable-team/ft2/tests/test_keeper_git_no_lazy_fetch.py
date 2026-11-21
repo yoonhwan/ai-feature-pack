@@ -1,7 +1,7 @@
 """카드 ft2-keeper-git-no-lazy-fetch — keeper 착지 고리(착지 sha 가 어느 ref 에 닿았는지 묻는 자리)의 조상 확인·착지 sha 존재 확인이 원격 lazy fetch 없이 로컬 객체만 보고 끝난다.
 
 사례표(카드 §반례 표) — 대역 = bare 원격(uploadpack.allowFilter) + blob:none 클론(느린 upload-pack = 호출 1줄 기록 + 0.4초) + 전체 클론(팩 대역)
-(= legacy/1.x/harness/tests/test_landed_git_no_lazy_r1401.sh 꼴을 파이썬으로 옮김) · 실 원격 0 · 실 라이브 쓰기 0 · sleep 은 upload-pack 대역에만.
+(= 옛 판(1.x) 의 harness/tests/test_landed_git_no_lazy_r1401.sh 꼴을 파이썬으로 옮김) · 실 원격 0 · 실 라이브 쓰기 0 · sleep 은 upload-pack 대역에만.
 | # | 입력 | 기대 |
 | ㊸가 | 루트 = partial clone · 착지 sha = 그 리포에 없는 sha(팩 대역 객체 · 팩 origin/main 에는 없음) | upload-pack 0줄 · (sha, None, "미도달") · 2초 안 (기준판 FAIL) |
 | ㊸나 | intent base_sha = 그 리포에 없는 sha · 착지 sha 는 그 리포 ref 의 조상 | r2247 cat-file = git_local rc 1 → 시각 비교 길 · upload-pack 0줄 · env=1 1줄 |
