@@ -102,12 +102,15 @@ EOF
   rm -rf "$PF"; awk -F'\t' -v a="$PF" '$1!=a' "$TSV" > "$TSV.n" && mv "$TSV.n" "$TSV"
   # ── ⓖ2·ⓖ3(DA② 결정 3): 끝 줄의 held / held-lsof 칸이 «실제 사유» 와 같나 — lsof 조회 실패만 held-lsof · 실제 점유는 held ──
   RLSOF="$(command -v lsof)"; mkdir -p "$T/gbin3"
-  printf '#!/bin/sh\ncase " $* " in *"+D %s/repo-%s-9-70 "*) exit 2;; esac\nexec %s "$@"\n' "$SCR" "$SH8" "$RLSOF" > "$T/gbin3/lsof"; chmod 755 "$T/gbin3/lsof"
+  # r2398a K2: 지우기 길의 점유 조회는 «회차 전체 지도 1회» — 사본별(+D) 실패를 만들려면 지도도 실패해야 후퇴 길로 들어간다($T/mapfail)
+  printf '#!/bin/sh\nif [ -f "%s/mapfail" ]; then case " $* " in *" -p "*) ;; *) exit 2;; esac; fi\ncase " $* " in *"+D %s/repo-%s-9-70 "*) exit 2;; esac\nexec %s "$@"\n' "$T" "$SCR" "$SH8" "$RLSOF" > "$T/gbin3/lsof"; chmod 755 "$T/gbin3/lsof"
+  : > "$T/mapfail"   # r2398a: 회차 전체 지도 실패 → 사본별 후퇴(r1029 그대로) 길에서 held-lsof 를 잰다
   arm; PL="$(mkcopy 70)"; printf 'z\n' >> "$PL/a.txt"
   M3=$(awk 'END{print NR+0}' "$SLOG"); GPRE="$T/gbin3/" KEEP_ON=1 scs --sweep; L3="$(grep 'swept=' "$SLOG" | tail -1)"
   NRL=$(awk -v m="$M3" 'NR>m && /점유 조회 실패 · 삭제 보류/{n++} END{print n+0}' "$SLOG")
   { [ -d "$PL" ] && [ "$(cnt held-lsof "$L3")" = 1 ] && [ "$(cnt held "$L3")" = 0 ] && [ "$NRL" = 1 ]; } \
     && ok "r1090-ⓖ2 lsof 조회 실패 = held-lsof=1 · held=0(로그 «점유 조회 실패» 1줄과 같음)" || bad "r1090-ⓖ2 끝 줄 [$L3] 로그=$NRL [$OUT]"
+  rm -f "$T/mapfail"   # ⓖ3 은 전체 지도가 살아 있는 길(정상 길)로 잰다
   rm -rf "$PL"; awk -F'\t' -v a="$PL" '$1!=a' "$TSV" > "$TSV.n" && mv "$TSV.n" "$TSV"
   arm; PH2="$(mkcopy 71)"; printf 'z\n' >> "$PH2/a.txt"
   ( cd "$PH2" && exec sleep 30 ) & HPID2=$!   # 진짜로 그 사본을 cwd 로 쓰는 프로세스 = «실제 점유»

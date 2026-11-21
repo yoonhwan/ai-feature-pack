@@ -31,7 +31,11 @@ cat > "$BIN/lsof" <<EOF
 #!/bin/sh
 path=""
 for a in "\$@"; do case "\$a" in /*) path="\$a";; esac; done
-if [ -z "\$path" ]; then cat "$T/lsof.all" 2>/dev/null; exit 0; fi
+if [ -z "\$path" ]; then
+  case " \$* " in *" -p "*) cat "$T/lsof.all" 2>/dev/null; exit 0;; esac   # 대조 조회(내 cwd 를 보나)
+  case " \$* " in *" -a "*) [ -f "$T/lsof.d/ROUND.fail" ] && exit 2;; esac   # r2398a: 회차 전체 지도 1회 — 이 사례들은 «지도 실패 → 사본별 후퇴» 를 본다
+  cat "$T/lsof.all" 2>/dev/null; exit 0
+fi
 b=\$(basename "\$path")
 if [ -f "$T/lsof.d/\$b.sleep" ]; then sleep "\$(cat "$T/lsof.d/\$b.sleep")"; exit 1; fi
 if [ -f "$T/lsof.d/\$b.fail" ]; then exit 2; fi
@@ -56,7 +60,7 @@ chmod 755 "$BIN/du"
 sc() { OUT="$(env PATH="$BIN:$PATH" FT_RES_ROOT="$R" FT_SCRATCH_DIR="$SCR" TMPDIR="$TMPD" FT_SCRATCH_OWNER="${OWN:-live-owner}" ${BUDGET:+FT_SCRATCH_JUDGE_BUDGET=$BUDGET} bash "${FT_SUT:-$SUT}" "$@" 2>&1)"; RC=$?; }
 mk() { OWN="$1" sc "$SHA" --repo "$G"; printf '%s' "$OUT"; }
 age_reg() { awk -F'\t' -v p="$1" -v t="$(( $(date +%s) - $2 ))" 'BEGIN{OFS="\t"} $1==p{$3=t} {print}' "$TSV" > "$TSV.n" && mv "$TSV.n" "$TSV"; }
-fresh() { rm -rf "$R/.fable-team/state" "$SCR" "$TMPD"; mkdir -p "$STATE" "$SCR" "$TMPD" "$T/lsof.d"; : > "$T/lsof.all"; printf 'p1\ncinit\nfcwd\nn/\n' > "$T/lsof.all"; }
+fresh() { rm -rf "$R/.fable-team/state" "$SCR" "$TMPD"; mkdir -p "$STATE" "$SCR" "$TMPD" "$T/lsof.d"; : > "$T/lsof.all"; printf 'p1\ncinit\nfcwd\nn/\n' > "$T/lsof.all"; : > "$T/lsof.d/ROUND.fail"; }   # r2398a: 기본 = 전체 지도 실패(사본별 후퇴 길 = r1029 그대로) — 사본별 지시 파일이 그 길로 들어간다
 
 if want ⓐ; then
 # ⓐ 사본 하나의 조회가 멈춰도(7초 상한) 그 사본만 보류 · 나머지는 계속 판정 · 한 회차 ≤ 20초
@@ -116,8 +120,9 @@ fresh
 M1="$(mk gone-m1)"; age_reg "$M1" 90000; printf '8\n' > "$T/lsof.d/$(basename "$M1").sleep"
 M2="$(mk gone-m2)"; age_reg "$M2" 90000
 : > "$ARMED"
+rm -f "$T/lsof.d/ROUND.fail"   # r2398a: 변이 판이 «전체 지도» 를 부를 때 지도가 살아 있어야 변이가 잡힌다(안 지우면 지도도 실패 = 둘 다 보류)
 FT_SUT="$T/mut1.sh" sc --sweep
-{ [ ! -d "$M1" ]; } && ok "ⓓ 변이 1(전체 1회 복원) → 멈춘 사본 M1 이 지워져 FAIL(변이 잡힘 · 올바른 판은 M1 을 보류한다)" || bad "ⓓ 변이 1 을 못 잡음 — 전체 1회로 되돌려도 M1 이 보류됨"
+{ [ ! -d "$M1" ]; } && ok "ⓓ 변이 1(전체 1회 복원) → 멈춘 사본 M1 이 지워져 FAIL(변이 잡힘 · 올바른 판은 M1 을 보류한다)" || bad "ⓓ 변이 1 을 못 잡음 — 전체 1회로 되돌려도 M1 이 보류됨 out=$(printf '%s' "$OUT" | tail -3 | tr '\n' ' ')"
 }
 fi
 
@@ -134,28 +139,29 @@ FT_SUT="$T/mut2.sh" sc --sweep
 fi
 
 if want ⓕ; then
-# ⓕ (반송 r2) 판정 예산이 바닥이면 크기(du)도 부르지 않는다 — 사본 30 · 가짜 du 1초/회 · 예산 3초 → 회차 ≤ 10초 · du 호출 ≤ 10(30 아님) · «다음 틱» 1줄 · 삭제 0
+# ⓕ (r2398a K2 정정) 판정 예산이 바닥나면 그 사본은 다음 틱 — 사본 30 · 사본별 점유 조회 1초(가짜 lsof sleep) · 예산 3초 → 회차 ≤ 10초 · judged < 30 · «다음 틱» 1줄 · du 호출 0(지우기 길은 크기를 안 잰다)
 fresh
 : > "$ARMED"
 mkdu
-for i in $(seq 1 30); do d="$SCR/repo-$(printf '%08d' "$i")-111-222"; mkdir -p "$d"; printf '%s\tgone-%s\t%s\n' "$d" "$i" "$(( $(date +%s) - 90000 ))" >> "$TSV"; done
+for i in $(seq 1 30); do d="$SCR/repo-$(printf '%08d' "$i")-111-222"; mkdir -p "$d"; printf '%s\tgone-%s\t%s\n' "$d" "$i" "$(( $(date +%s) - 90000 ))" >> "$TSV"; printf '1\n' > "$T/lsof.d/$(basename "$d").sleep"; done
 t0=$SECONDS; BUDGET=3 sc --sweep; t1=$SECONDS
 CALLS="$(cat "$T/du.calls" 2>/dev/null || echo 0)"
-{ [ "$RC" = 0 ] && [ $(( t1 - t0 )) -le 10 ] && [ "$CALLS" -le 10 ] && printf '%s' "$OUT" | grep -q "판정 예산(3초) 초과 · 남은 사본" ; } \
-  && ok "ⓕ 예산 3초 · 사본 30 — 회차 $(( t1 - t0 ))초 ≤ 10초 · du 호출 $CALLS ≤ 10(30 아님) · «다음 틱» 1줄" || bad "ⓕ rc=$RC 시간=$(( t1 - t0 ))초 du호출=$CALLS out=$OUT"
+JUDGED="$(printf '%s\n' "$OUT" | sed -n 's/.*judged=\([0-9][0-9]*\).*/\1/p' | tail -1)"
+{ [ "$RC" = 0 ] && [ $(( t1 - t0 )) -le 10 ] && [ -n "$JUDGED" ] && [ "$JUDGED" -lt 30 ] && [ "${CALLS:-0}" = 0 ] && printf '%s' "$OUT" | grep -q "판정 예산(3초) 초과 · 남은 사본" ; } \
+  && ok "ⓕ 예산 3초 · 사본 30 — 회차 $(( t1 - t0 ))초 ≤ 10초 · judged=$JUDGED < 30 · du 호출 $CALLS = 0 · «다음 틱» 1줄" || bad "ⓕ rc=$RC 시간=$(( t1 - t0 ))초 judged=$JUDGED du호출=$CALLS out=$OUT"
 fi
 
 if want 변이-ⓖ; then
-# ⓖ 변이 3 «예산이 바닥이어도 du 를 부른다(가드 제거)» → ⓕ 의 «du 호출 ≤ 10 · 회차 ≤ 10초» 가 깨진다
-sed 's/\[ "\$oleft" = 0 \]/[ 0 = 1 ]/' "$SUT" > "$T/mut3.sh"
+# ⓖ 변이 3 «예산이 바닥나도 판정을 멈추지 않는다(judge_gate 가드 제거)» → ⓕ 의 «judged < 30» 이 깨진다
+sed -e 's/cap COPY_LEFT occ_left && isnum "\$COPY_LEFT" || COPY_LEFT=0/COPY_LEFT=7/' -e 's/\[ "\$COPY_LEFT" != 0 \] || { ODEF=\$((ODEF+1)); return 1; }/:/' "$SUT" > "$T/mut3.sh"
 cmp -s "$SUT" "$T/mut3.sh" && bad "ⓖ 변이 3 주입 실패(바꾼 줄 없음)" || {
 fresh
 : > "$ARMED"
 mkdu
-for i in $(seq 1 12); do d="$SCR/repo-$(printf '%08d' "$i")-111-222"; mkdir -p "$d"; printf '%s\tgone-%s\t%s\n' "$d" "$i" "$(( $(date +%s) - 90000 ))" >> "$TSV"; done
+for i in $(seq 1 12); do d="$SCR/repo-$(printf '%08d' "$i")-111-222"; mkdir -p "$d"; printf '%s\tgone-%s\t%s\n' "$d" "$i" "$(( $(date +%s) - 90000 ))" >> "$TSV"; printf '1\n' > "$T/lsof.d/$(basename "$d").sleep"; done
 BUDGET=3 FT_SUT="$T/mut3.sh" sc --sweep
-MCALLS="$(cat "$T/du.calls" 2>/dev/null || echo 0)"
-[ "$MCALLS" -gt 10 ] && ok "ⓖ 변이 3(du 가드 제거) → du 호출 $MCALLS > 10 = FAIL 검출(올바른 판은 예산 안에서만 du)" || bad "ⓖ 변이 3 을 못 잡음 — 가드를 없애도 du 호출 $MCALLS"
+MJ="$(printf '%s\n' "$OUT" | sed -n 's/.*judged=\([0-9][0-9]*\).*/\1/p' | tail -1)"
+[ "${MJ:-0}" = 12 ] && ok "ⓖ 변이 3(가드 제거) → judged=$MJ = 12(전부) = FAIL 검출(올바른 판은 예산 안에서만 판정)" || bad "ⓖ 변이 3 을 못 잡음 — 가드를 없애도 judged=${MJ:-?} < 12"
 }
 fi
 
