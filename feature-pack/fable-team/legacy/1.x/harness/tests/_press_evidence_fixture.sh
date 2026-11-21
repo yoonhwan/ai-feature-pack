@@ -14,6 +14,7 @@ printf '# 시험 목록(빈)\n' > "$T/deny.txt"; printf '{"_master":"byz-harness
 cat > "$T/gh-stub" <<'EOF'
 #!/bin/bash
 [ "$1 $2" = "pr view" ] && { cat "$STUB_JSON"; exit 0; }
+[ "$1 $2" = "pr list" ] && { echo "[]"; exit 0; }   # r2387: 착지 꼬리 queue 의 읽기 전용 조회(빈 목록 = 줄 0)
 case "$1" in pr-comment|pr-close) ;; *) echo "BADVERB $*" >> "$STUB_LOG"; exit 2;; esac
 body=""; for a in "$@"; do [ -f "$a" ] && body="$(cat "$a")"; done
 echo "$* :: $body" >> "$STUB_LOG"

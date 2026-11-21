@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
-# ft-press-evidence.sh pack|check|debt … — r1230 press 증거 묶음(판정 2946 · 오빠 slack 1793416496 «테스트 bts poller 없이는 배포없다»)
+# ft-press-evidence.sh pack|check|debt|queue … — r1230 press 증거 묶음(판정 2946 · 오빠 slack 1793416496 «테스트 bts poller 없이는 배포없다»)
 #   pack <세트 sha> --run <run_id> --poller <poller_dom.jsonl> --table <4자 표 .md> --turbopack <get_errors 원문 파일> [--repo <dir>] [--remote origin]
 #        → 같은 칸 검사 통과 뒤 묶음 커밋 1개(부모 = 세트 · 트리 = poller_dom.jsonl·table.md·turbopack.txt·meta.txt) → git push <remote> refs/press/<세트>-<run_id>
 #          4자 표(.md)는 run_id 머리 1줄(«run_id: <id>») + | 축 | 사실 | 시간 | 네 축(아키텍처 문서·코드·로그·화면) · poller 줄 = axis·epoch_ms 필수 · run_id 칸 있는 줄 1줄 이상
 #   check --repo <dir> --main <M> --head <S> --landing <Q> --pr <N> [--title <PR 제목>] [--body <PR 본문>] [--root <원장 루트>] [--remote origin]
 #        → ft-merge-land 가 부른다 · BYZ 리포 ∧ 음성 경로(docs/rules/press_voice_paths.md 목록 · r1274) 변경이면 묶음 필수 · 정확 역변경만 면제 + 빚(refs/press-debt) · 빚 상환(refs/press-debt-paid)
 #   debt [--repo <dir>] [--remote origin] [--main <rev>] → 미상환 빚 목록
+#   queue [--repo <dir>] [--remote origin] [--main <rev>] [--gh <gh>] [--slug <owner/name>] [--limit <n>] [--landed <M> <Q>]
+#        → r2387: 열린 PR 중 음성 경로 PR 마다 1줄(승인 전·VALID·STALE·NONE·판정 불가) + 끝 «NEXT <번호|대기(…)|없음>» 1줄 · 읽기 전용(쓰기·push·ref 0)
+#          --landed M Q = 착지가 음성 경로를 안 바꿨으면 gh 0 · 출력 0(ft-merge-land 꼬리 K3) · rc 0 정상 · 3 판정 불가
 #   판정 = press_evidence_verify.py(BYZ scripts/ci 사본과 바이트 같음) · 착지·묶음 = press_evidence_land.py · rc 0 통과 · 1 거절 · 2 사용법
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 PY="$HERE/press_evidence_land.py"
-usage() { sed -n '2,9p' "$HERE/ft-press-evidence.sh" >&2; exit 2; }
+usage() { sed -n '2,11p' "$HERE/ft-press-evidence.sh" >&2; exit 2; }
 [ $# -ge 1 ] || usage
 V="$1"; shift
 case "$V" in
@@ -21,5 +24,6 @@ case "$V" in
     exec python3 "$PY" pack --set "$SET" --seat "${SEAT:-unknown}" "$@";;
   check) exec python3 "$PY" land "$@";;
   debt) exec python3 "$PY" debt "$@";;
+  queue) exec python3 "$HERE/press_evidence_verify.py" queue "$@";;
   *) usage;;
 esac
