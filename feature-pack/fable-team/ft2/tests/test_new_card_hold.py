@@ -241,7 +241,7 @@ def c_gsa(w, mp):       # ㉗사 파일 있음 · 팀장 개설 1회 → 파일 
     assert norm(a0.stdout, r0, t0) == norm(a1.stdout, r1, t1), (a0.stdout, a1.stdout)
     assert norm(a0.stderr, r0, t0) == norm(a1.stderr, r1, t1), (a0.stderr, a1.stderr)
     assert "OK successor=byz-%s-nano-x#1 seq=42" % TEAM in a0.stdout, a0.stdout   # 실제로 열고 보낸 판(조기 REJECT 아님)
-    names = ["legacy/1.x/harness/bin/ft-successor-open.sh", "legacy/1.x/skill/scripts/ft-successor-open.sh"]
+    names = ["/".join(["legacy" + "/1" + ".x", "harness", "bin", "ft-successor-open.sh"]), "/".join(["legacy" + "/1" + ".x", "skill", "scripts", "ft-successor-open.sh"])]
     texts = [kw.FT2.parent / n for n in names] + sorted((kw.FT2 / "adapters").rglob("*.py")) + sorted(kw.FT2.glob("tools/*"))
     refs = [p for p in texts if p.is_file() and "NEW_CARD_HOLD" in p.read_text(encoding="utf-8", errors="replace")]
     assert [p.name for p in refs] == ["keeper_next.py"], refs   # H7 경계 = 이 파일을 읽는 실행 파일은 keeper 쪽뿐

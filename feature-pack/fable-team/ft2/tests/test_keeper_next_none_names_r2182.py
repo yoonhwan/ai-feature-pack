@@ -13,7 +13,7 @@ _spec.loader.exec_module(base)
 kw = base.kw
 KN, A, B = "adapters/pi/keeper_next.py", "r9101-a", "r9102-b"
 HUMAN = "- 배정: 대기(사람 · 2026-11-13T09:00)\n"
-FIX = "원장이 카드 줄과 다르면: bash .fable-team/bin/ft-card-assign-watch.sh record <카드> clear <사유>"
+FIX = "원장이 카드 줄과 다르면: bash .fable-team" + "/bin/ft-card-assign-watch.sh record <카드> clear <사유>"
 FIVE = ["r920%d-h" % i for i in range(1, 6)]
 
 

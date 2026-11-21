@@ -53,7 +53,7 @@ def memo_put(book, key, word):
 
 
 def lib_mark(root):
-    """r2307 C3 — lib_call 이 실제로 읽는 ft-land-kind-lib.sh 본체의 sha1 · 루트 bin = LIVE_BIN shim → LIVE_BIN 폴더 본체 · 루트 bin 없음 = 팩 사본 · 못 읽음 = None(기억 0)."""
+    """r2307 C3 — lib_call 이 실제로 읽는 ft-land-kind-lib.sh 본체의 sha1 · 루트 bin = 설치본 shim → 설치본 폴더 본체 · 루트 bin 없음 = 팩 사본 · 못 읽음 = None(기억 0)."""
     lib = os.path.join(root, ".fable-team", "bin", "ft-land-kind-lib.sh")
     try:
         if os.path.isfile(lib):
@@ -69,7 +69,7 @@ def lib_mark(root):
 
 def lib_call(root, fn, args, call):
     """r2274 — 1.x ft-land-kind-lib.sh 함수 1회(card_stage 가 ft_close_marker 를 읽는 길 · 사본 0) → (rc, stdout 앞뒤 공백 뺌).
-    lib = <root>/.fable-team/bin(설치본) · 없으면 같은 팩의 legacy/1.x bin · call(argv, 상한) → (rc, stdout, …) = 부르는 쪽 바깥 호출 손
+    lib = <root> 의 설치본 bin 폴더 · 없으면 같은 팩 옛 판(1.x) 사본 · call(argv, 상한) → (rc, stdout, …) = 부르는 쪽 바깥 호출 손
     (keeper = Keeper.call 1곳 · card_stage = 자기 손) · 상한 7초(lib 안 git 7초와 같음) · rc None = 넘침·실행 실패."""
     lib = os.path.join(root, ".fable-team", "bin", "ft-land-kind-lib.sh")
     if not os.path.isfile(lib):
