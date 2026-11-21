@@ -20,9 +20,12 @@ MARK, SHELL = ("사람", "정지", "DA", "lint", "면제대기", "선행"), ("- 
 def prereq(lines, where):
     """r2027 카드 본문 선행 막힘 = "" · "선행" · "선행불명"(판정 불가) · where = {번호: 카드가 있는 폴더 집합}.
     반환 = (판정, 까닭) — 까닭은 선행불명일 때만 찬다(`번호 참조 없음` · `루트에 없는 번호 r<a> r<b> …` · 없는 번호 전부·번호 순 · I2·I3).
-    r2058 L9 — «- 배정: 대기(<사유> · 시각)» 의 사유가 사람·정지·DA·lint·면제대기·선행 이면 그 사유 그대로 막는다(«대기(석» 은 새 표식이 아니다)."""
+    r2058 L9 — «- 배정: 대기(<사유> · 시각)» 의 사유가 사람·정지·DA·lint·면제대기·선행 이면 그 사유 그대로 막는다(«대기(석» 은 새 표식이 아니다).
+    r2395 K1 — «- 배정:» 줄도 «- 대기 사유:» 줄도 없는 카드 = "표식없음"(판정 근거 0 · 나노 열기 0)."""
     if any(x.startswith(SHELL) for x in lines):   # r2093 S1 — 두 표식 줄이 있을 때만(«- 배정: 대기(» 사유와 따로 · MARK 손 0 · DA R1)
         return "껍데기", ""
+    if not any(x.startswith(("- 배정", WAIT)) for x in lines):   # r2395 K1 — 표식 두 줄이 다 없으면 판정 불가(«대기 사유 «사전 DA 전»» 글자만 있는 카드가 열리던 자리 · 값 꼴은 안 본다)
+        return "표식없음", ""
     mark = next((x[len("- 배정: 대기("):].split(" · ")[0].strip().rstrip(")").strip() for x in lines if x.startswith("- 배정: 대기(")), "")
     if mark in MARK:
         return mark, ""   # ① 카드 배정 줄(원장·owner 를 본 뒤의 자리)
@@ -445,6 +448,11 @@ def choose(k, team, skip=frozenset()):
             if book.get(key) != seen["why"]:
                 book[key] = seen["why"]
                 k.log("NEXT-SKIP", team, "%s 건너뜀 — 대기 사유 줄 · 풀기 = «- 대기 사유: 없음»" % stem)
+        if pre == "표식없음":   # r2395 K2 — 값이 바뀔 때만 1줄(기억 = keeper 상태 파일 · prereq_seen 꼴 · 지우기 0: 카드가 고쳐져도 그대로)
+            book, key = k.state.setdefault("marker_seen", {}), "%s|%s" % (team, stem)
+            if book.get(key) != "표식없음":
+                book[key] = "표식없음"
+                k.log("NEXT-SKIP", team, "%s 건너뜀 — 표식 줄 없음 · «- 배정: 없음» 또는 «- 대기 사유: 없음» 한 줄 필요" % stem)
         if pre == "선행불명":   # I1·I2 — 값·까닭이 바뀔 때만 1줄(기억 = keeper 상태 파일 · 재기동해도 다시 찍지 않는다 · DA 310229)
             book, key = k.state.setdefault("prereq_seen", {}), "%s|%s" % (team, stem)
             if book.get(key) != seen:
