@@ -287,6 +287,36 @@ fm_ddl_dev_gate() {
     esac
   done <<<"$ev"
 }
+#   fm_boot_smoke <repo> <S> <남은초> : r2384 K4·K5 — 병합 트리(S)에 scripts/ci/boot_smoke.py 가 있으면 1회 부른다(BYZ worker·gateway import·app 생성 · lifespan·DB·Redis·네트워크 0)
+#     없음 = stdout «기동 smoke 대상 밖» rc0 · 호출 0(팩 등 · 시간 0) / git 실패 = «판정 불가»(대상 밖 아님 · 하드 룰 20)
+#     있음 = 트리(scripts/ci + FT_BOOT_SMOKE_DIRS 기본 «worker gateway shared proto» 중 있는 것)를 임시 폴더에 풀고 python = 공용 루트(--git-common-dir 의 부모)/.venv/bin/python 글자 동결
+#     env -i 에 PATH·HOME·PYTHONPATH(=트리)만 · cwd = 트리 · 시도 상한 min(7, 남은 − 지난 − 1)(fm_ddl_dev_gate 꼴) · 재시도 1 = 시간 초과일 때만 · 0 이하 = «판정 불가» · stdout 은 마지막 1줄만
+#     rc0 = 그 1줄(«BOOT OK …») · rc1 = 거절 사유 1줄 «기동 smoke 실패 <줄>» | «기동 smoke 판정 불가 — <사유>»(부른 쪽 rej)
+fm_boot_smoke() {
+  local repo="$1" s="$2" rem="$3" t0=$SECONDS att=0 i n=0 rc=124 out="" cd py tmp d dirs=(scripts/ci)
+  git -C "$repo" rev-parse --verify -q "$s^{commit}" >/dev/null 2>&1 || { echo "기동 smoke 판정 불가 — 커밋 확인 실패 $s"; return 1; }
+  [ "$(git -C "$repo" cat-file -t "$s:scripts/ci/boot_smoke.py" 2>/dev/null)" = blob ] || { echo "기동 smoke 대상 밖"; return 0; }
+  cd="$(git -C "$repo" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" || { echo "기동 smoke 판정 불가 — 공용 루트 못 찾음"; return 1; }
+  py="$(dirname -- "$cd")/.venv/bin/python"; [ -x "$py" ] || { echo "기동 smoke 판정 불가 — python 없음 $py"; return 1; }
+  for d in ${FT_BOOT_SMOKE_DIRS:-worker gateway shared proto}; do git -C "$repo" cat-file -e "$s:$d" 2>/dev/null && dirs+=("$d"); done
+  att=$((rem - (SECONDS - t0) - 1)); [ "$att" -le 7 ] || att=7
+  [ "$att" -ge 1 ] || { echo "기동 smoke 판정 불가 — 남은 시간 부족(시도 상한 ${att}초)"; return 1; }
+  tmp="$(mktemp -d "${TMPDIR:-/tmp}/ft-boot-smoke.XXXXXX")" || { echo "기동 smoke 판정 불가 — 임시 폴더 실패"; return 1; }
+  fm_try "$att" bash -c 'set -o pipefail; git -C "$1" archive "$2" -- "${@:4}" | tar -x -C "$3"' _ "$repo" "$s" "$tmp" "${dirs[@]}" >/dev/null 2>&1 \
+    || { rm -rf "$tmp"; echo "기동 smoke 판정 불가 — 트리 풀기 실패(상한 ${att}초)"; return 1; }
+  for i in 1 2; do
+    att=$((rem - (SECONDS - t0) - 1)); [ "$att" -le 7 ] || att=7; [ "$att" -ge 1 ] || break; n=$((n + 1))
+    out="$(cd "$tmp" && fm_try "$att" env -i PATH="$PATH" HOME="$HOME" PYTHONPATH="$tmp" "$py" scripts/ci/boot_smoke.py 2>/dev/null)"; rc=$?
+    [ "$rc" = 124 ] || [ "$rc" = 143 ] || break
+  done
+  rm -rf "$tmp"; out="$(printf '%s\n' "$out" | grep . | tail -n 1 | cut -c1-200)"
+  case "$rc" in
+    0) echo "${out:-BOOT OK}"; return 0;;
+    124|143) echo "기동 smoke 판정 불가 — 시간 초과(시도 상한 ${att}초 · ${n}회)"; return 1;;
+    127) echo "기동 smoke 판정 불가 — timeout 도구 없음"; return 1;;
+  esac
+  echo "기동 smoke 실패 ${out:-rc=$rc 출력 0}"; return 1
+}
 #   fm_land_ledger <상태폴더> <승인 상태 폴더> <승인 sha> <착지 sha> <승인 줄 이벤트> : R298(DA⑥ H3) · r947 — 그 승인 sha 의 «마지막 scope-use S<n>» 한 원장(+ D1 상시 승인이면 D1 원장)의 «착지 sha 칸이 빈 행»(승인 sha == AP)에 Q·되돌림 명령 기록 · 실패해도 WARN 만(착지 rc 불변 · r1336: ft-merge-land.sh 120줄 상한 때문에 이사 · 동작 불변)
 fm_land_ledger() {
   local st="$1" ast="$2" ap="$3" q="$4" afv="${5:-}" sn dl="" lf arc
