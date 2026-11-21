@@ -6,13 +6,17 @@
   묶음 = 커밋 1개(부모 = 세트 E · 트리 = meta.txt·poller_dom.jsonl·table.md·turbopack.txt) · ref = refs/press/<E>-<run_id>(원격 · 머신 무관)
   음성 경로(r1274) = 그 트리의 docs/rules/press_voice_paths.md «## 목록» 절 글롭(없음·빈 목록·꼴 틀림 = 판정 불가 = 거절 · D1) · env FT_PRESS_SCOPE=deploy = 옛 cd-dev.yml paths-filter 합집합
   외부 호출 = fetch 7 s + 재시도 1(실패 = 판정 불가 1줄) · push = min(고정비 9 + 7, 70) s + 재시도 1 + 끊긴 뒤 ls-remote 확인(r1254). rc 0 통과 · 1 거절 · 2 사용법.
+  queue : r2387 — 음성 경로 PR 이 줄 서면 «지금 press 해도 착지까지 안 깨질 PR» 1개(NEXT)를 고른다 · 판정 = pick(=same·patterns) 그대로 · 읽기 전용(refs·작업 트리 쓰기 0) · rc 0 정상 · 3 판정 불가.
+    승인 표식 = PR 리뷰 APPROVED 또는 본문 «판정: APPROVE» 코멘트(늦은 것) · 열린 PR 조회 = gh pr list 1회(7 s + 재시도 1 · 두 번 다 실패 = «판정 불가 PR 목록» 1줄 rc 3) · PR head 객체가 로컬에 없으면 fetch 0(그 줄만 «판정 불가»).
 """
 import argparse
+import datetime
 import json
 import os
 import re
 import subprocess
 import sys
+import time
 
 WORKFLOW = ".github/workflows/cd-dev.yml"
 VOICE_LIST = "docs/rules/press_voice_paths.md"   # r1274 BYZ 정본 음성 경로 목록(바꾸는 법 = 문서 PR)
@@ -22,6 +26,7 @@ AXES = ("아키텍처 문서", "코드", "로그", "화면")
 FILES = ("meta.txt", "poller_dom.jsonl", "table.md", "turbopack.txt")
 NS = ("refs/press", "refs/press-debt", "refs/press-debt-paid")
 SHA = re.compile(r"^[0-9a-f]{40}$")
+GH_JSON = "number,title,headRefOid,files,reviews,comments"   # r2387 queue 가 한 번에 받는 gh pr list 칸(파일 목록 상한에 잘리면 보수적으로 대상)
 
 
 class Reject(Exception):
@@ -312,6 +317,139 @@ def ok_line(b):
     return "press 증거 OK 세트 %s run %s · ref %s · turbopack build %d runtime %d config %d" % ((b["set"][:10], b["run"], b["ref"]) + b["tp"])
 
 
+def globrx(g):   # r2387: r1274 글롭(«**»·«*»·«?») → 이름 하나 정규식(«[» 는 글자 그대로)
+    out, i = [], 0
+    while i < len(g):
+        if g.startswith("**", i):
+            out.append(".*")
+            i += 2
+        elif g[i] == "*":
+            out.append("[^/]*")
+            i += 1
+        elif g[i] == "?":
+            out.append("[^/]")
+            i += 1
+        else:
+            out.append(re.escape(g[i]))
+            i += 1
+    return re.compile("^" + "".join(out) + "$")
+
+
+def touches(specs, files):   # PR 이 음성 경로를 바꿨나 — 글롭 합집합(specs) × gh 바뀐 파일 · 목록 0(상한에 잘림) = 보수적으로 참(카드 한계 4)
+    if not files:
+        return True
+    rxs = [globrx(re.sub(r"^:\(glob\)", "", s)) for s in specs]
+    return any(rx.match(f) for rx in rxs for f in files)
+
+
+def gh_prs(gh, limit, slug, secs=7):   # r2387: 열린 PR 1회 조회 — 7 s + 재시도 1 · 두 번 다 실패 = 판정 불가(하드 룰 20)
+    cmd = [gh, "pr", "list", "--state", "open", "--limit", str(limit), "--json", GH_JSON] + (["-R", slug] if slug else [])
+    err = ""
+    for _ in (1, 2):
+        try:
+            p = subprocess.run(cmd, capture_output=True, text=True, timeout=secs, encoding="utf-8", errors="replace")
+        except subprocess.TimeoutExpired:
+            err = "%g s 초과" % secs
+            continue
+        except OSError as x:
+            raise Reject("gh 실행 실패(%s)" % str(x)[:60])
+        if p.returncode == 0:
+            try:
+                rows = json.loads(p.stdout or "[]")
+            except ValueError:
+                rows, err = None, "JSON 아님"
+            if isinstance(rows, list):
+                return rows
+        else:
+            err = (p.stderr.strip().splitlines() or [""])[-1][:120]
+    raise Reject("gh pr list 실패(%s)" % err)
+
+
+def epoch(ts):   # ISO «2026-11-21T01:02:03Z» → 초 · 못 읽으면 None
+    try:
+        return datetime.datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc).timestamp()
+    except (TypeError, ValueError):
+        return None
+
+
+def approved_at(pr):   # 승인 표식 시각 = 마지막 APPROVED 리뷰 · «판정: APPROVE» 코멘트 중 늦은 것 · 없으면 ""
+    ts = [r.get("submittedAt") or "" for r in (pr.get("reviews") or []) if (r.get("state") or "").upper() == "APPROVED"]
+    ts += [c.get("createdAt") or "" for c in (pr.get("comments") or []) if re.search(r"^판정:\s*APPROVE", c.get("body") or "", re.M)]
+    return max((t for t in ts if epoch(t)), default="")
+
+
+def merge_tree(repo, base, head):   # 지금 main + PR head 의 병합 트리 1회(객체 쓰기뿐) — 겹침 = 그 줄만 판정 불가
+    rc, out = run(repo, "merge-tree", "--write-tree", base, head)
+    t = (out.splitlines() or [""])[0].strip()
+    if rc or not SHA.match(t):
+        raise Reject("겹침(merge-tree rc=%d)" % rc)
+    return t
+
+
+def own_set(repo, head):   # r2387: 이 PR 의 묶음이 있나 — 묶음에는 PR 번호가 없어 «세트 = 그 세트 부모 + 이 PR 의 병합» 인가로 센다(세트는 PR head 를 조상으로 안 갖는다 · 최신 run 순 첫 hit)
+    for _ref, c in newest_refs(refs(repo, "refs/press").items()):
+        e = git(repo, "rev-parse", c + "^").strip()
+        t = (run(repo, "merge-tree", "--write-tree", e + "^", head)[1].splitlines() or [""])[0].strip()
+        if SHA.match(t) and t == git(repo, "rev-parse", e + "^{tree}").strip():
+            return e
+    return ""
+
+
+def last_voice_landing(repo, main, specs):   # 음성 경로를 마지막으로 바꾼 main 착지 sha 1개(STALE 의 «다르게 만든 착지»)
+    out = git(repo, "log", "--first-parent", "--format=%H", "-n", "1", main, "--", *specs).strip().splitlines()
+    return out[0] if out else ""
+
+
+def queue_row(repo, main, pr):   # r2387 K1·K2: PR 1개 → None(음성 경로 0 · 줄에 안 섬) 또는 (승인시각, 갈래, 덧말) · 판정은 pick 그대로(새 규칙 0)
+    head = (pr.get("headRefOid") or "").strip()
+    if not SHA.match(head) or run(repo, "rev-parse", "--verify", head + "^{commit}")[0]:
+        raise Reject("head 객체 없음(%s)" % (head[:10] or "?"))
+    specs = specs_of(repo, main, head)   # 목록 = 지금 main ∪ PR 쪽(r1274 같음 · PR 이 글롭을 넓힌 경우)
+    files = [f.get("path") or "" for f in (pr.get("files") or []) if isinstance(f, dict)]
+    if not touches(specs, files):
+        return None
+    at = approved_at(pr)
+    if not at:
+        return "", "승인 전", ""
+    good, _why, _debts = pick(repo, merge_tree(repo, main, head), specs, upto=main)
+    if good:
+        return at, "VALID", ""
+    if own_set(repo, head):
+        return at, "STALE", " · 다르게 만든 착지 %s · press 다시" % (last_voice_landing(repo, main, specs)[:10] or "?")
+    return at, "NONE", " · press 필요"
+
+
+def queue(a):   # r2387 K1~K4: PR 마다 1줄 + 끝 «NEXT …» 1줄 — 쓰기·push 0(읽기 전용)
+    main = git(a.repo, "rev-parse", "--verify", a.main + "^{commit}").strip()
+    if a.landed:   # K3: 착지가 음성 경로를 안 바꿨으면 gh 0 · 출력 0
+        base = git(a.repo, "rev-parse", "--verify", a.landed[0] + "^{commit}").strip()
+        q = git(a.repo, "rev-parse", "--verify", a.landed[1] + "^{commit}").strip()
+        rc, out = run(a.repo, "diff", "--name-only", "--no-renames", base, q, "--", *specs_of(a.repo, q, base))
+        if rc or not out.strip():
+            return 0
+    fetch_refs(a.repo, a.remote)
+    prs, now, rows = gh_prs(a.gh, a.limit, a.slug), time.time(), []
+    for pr in prs:
+        n = int(pr.get("number") or 0)
+        try:
+            r = queue_row(a.repo, main, pr)
+        except Reject as x:
+            r = ("", "판정 불가", " · " + str(x))
+        if r is None:
+            continue
+        rows.append((r[0] or "9999", n, r[1], "PR #%d %s%s" % (n, r[1], r[2])))
+    rows.sort(key=lambda r: (r[0], r[1]))   # 승인 표식 시각 오름차순 · 같으면 PR 번호
+    for r in rows:
+        print(r[3])
+    valid = [r for r in rows if r[2] == "VALID"]
+    if valid:   # 줄 어디든 VALID 면 NEXT 는 «대기»(DA#53 H1) — VALID 둘 이상이면 승인 순 첫 것
+        print("NEXT 대기(VALID PR %d 착지 뒤 · %d분째)" % (valid[0][1], max(0, int((now - (epoch(valid[0][0]) or now)) // 60))))
+    else:
+        nxt = next((r for r in rows if r[2] in ("STALE", "NONE")), None)   # 판정 불가 줄은 건너뛴다
+        print("NEXT %d" % nxt[1] if nxt else "NEXT 없음")
+    return 0
+
+
 def deploy(a):
     c = git(a.repo, "rev-parse", "--verify", a.commit + "^{commit}").strip()
     specs = specs_of(a.repo, c)
@@ -327,12 +465,25 @@ def deploy(a):
 
 
 def main(argv):
-    ap = argparse.ArgumentParser(prog="press_evidence_verify.py", description="배포 직전 press 증거 검사(r1230)")
-    ap.add_argument("mode", choices=("deploy",))
-    ap.add_argument("--commit", required=True)
+    ap = argparse.ArgumentParser(prog="press_evidence_verify.py", description="배포 직전 press 증거 검사(r1230) · queue(r2387)")
+    ap.add_argument("mode", choices=("deploy", "queue"))
+    ap.add_argument("--commit")
     ap.add_argument("--repo", default=".")
     ap.add_argument("--remote", default="origin")
+    ap.add_argument("--main", default="origin/main")
+    ap.add_argument("--gh", default=os.environ.get("FT_GH") or "gh")
+    ap.add_argument("--slug", default="")
+    ap.add_argument("--limit", type=int, default=200)
+    ap.add_argument("--landed", nargs=2, metavar=("BASE", "COMMIT"))
     a = ap.parse_args(argv)
+    if a.mode == "queue":
+        try:
+            return queue(a)
+        except Reject as r:
+            print("판정 불가 PR 목록 — %s" % r)
+            return 3
+    if not a.commit:
+        ap.error("deploy 에는 --commit 이 필요하다")
     try:
         return deploy(a)
     except Reject as r:
