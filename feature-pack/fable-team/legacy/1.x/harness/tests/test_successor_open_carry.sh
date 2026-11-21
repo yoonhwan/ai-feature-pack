@@ -64,7 +64,7 @@ run() {
   env HOME="$TMP/home" PANE_CWD="$TMP/pane" PATH="$FAKE:$PATH" LOG="$LOG" OPENED="$OPENED" BODY_OUT="$BODY_OUT" \
       FT_SO_POLL=0 FT_SO_WAIT_MAX=2 FT_RES_ROOT="$RES" SENSORS="$SENSORS" \
       FT_SEND_VERIFIED="$FAKE/send" FT_MBOX_SH="$FAKE/mbox" FT_REACH_CHECK="$FAKE/reach" "$@" \
-      bash "$SO" "$old" "$REPO" --name "$new" --agent claude "${marg[@]}" "${carg[@]}" --ctx 1m --effort high --body-file "$BODY" > "$TMP/out" 2>&1
+      bash "$SO" "$old" "$REPO" --name "$new" --agent claude "${marg[@]}" "${carg[@]}" --ctx 1m --effort high --verdict 1 --body-file "$BODY" > "$TMP/out" 2>&1   # r2403: 표와 다른 손 입력은 --verdict 로 통과 — 이 시험은 이월 판정만 본다
   RC=$?
 }
 count() { grep -c "^$1" "$LOG" 2>/dev/null || echo 0; }

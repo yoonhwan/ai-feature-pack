@@ -89,7 +89,7 @@ def hhmm(ep):
 
 
 def base_model(model):
-    """`claude-fable-5-1[1m]` → `claude-fable-5-1` (창 꼬리 떼고 비교 · ft_api_outage_util.base_model 과 같은 규칙)."""
+    """`claude-fable-5-2[1m]` → `claude-fable-5-2` (창 꼬리 떼고 비교 · ft_api_outage_util.base_model 과 같은 규칙)."""
     return re.sub(r"\[[^\]]*\]$", "", (model or "").strip())
 
 

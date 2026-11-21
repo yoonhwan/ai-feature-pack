@@ -174,7 +174,7 @@ wl(os.path.join(FIX, ".claude/projects/-x", sid_cc2 + ".jsonl"), [
 wl(os.path.join(FIX, ".claude/projects/-x", sid_arch + ".jsonl"), [
     {"type": "agent-name", "agentName": "ft-fx-arch#0"},
     {"type": "user", "cwd": cwd, "timestamp": iso(H20), "message": {"content": "arch"}},
-    {"type": "assistant", "timestamp": iso(H20), "message": {"model": "claude-fable-5-1", "content": [{"type": "text", "text": "ARCH ANSWER"}]}}], H20)
+    {"type": "assistant", "timestamp": iso(H20), "message": {"model": "claude-fable-5-2", "content": [{"type": "text", "text": "ARCH ANSWER"}]}}], H20)
 wl(os.path.join(FIX, ".codex/sessions/2026/09/09", "rollout-2026-09-09T00-00-00-" + sid_cdx + ".jsonl"), [
     {"type": "session_meta", "timestamp": iso(H1), "payload": {"session_id": sid_cdx, "cwd": cwd, "source": "cli"}},
     {"type": "response_item", "timestamp": iso(H1), "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "[ORCH→ft-fx-codex#1] hi"}]}},
@@ -220,7 +220,7 @@ printf '%s\n' "$r_impl" | grep -qF 'claude-sonnet-5[1m]' || { echo 'FAIL: (m) cl
 printf '%s\n' "$r_impl" | grep -qF -- '--effort high' || { echo 'FAIL: (m) claude 복구 cmd 에 --effort high 없음'; printf '%s\n' "$r_impl"; exit 1; }
 printf '%s\n' "$r_impl" | grep -qF -- "--resume $SID_CC" || { echo 'FAIL: (m) claude 복구 cmd 에 --resume <sid> 없음'; printf '%s\n' "$r_impl"; exit 1; }
 r_arch="$(dtmm restore 'ft-fx-arch#0' --dry-run)"
-printf '%s\n' "$r_arch" | grep -qF 'claude-fable-5-1"' || { echo 'FAIL: (m) fable 복구 cmd 모델이 claude-fable-5-1 아님'; printf '%s\n' "$r_arch"; exit 1; }
+printf '%s\n' "$r_arch" | grep -qF 'claude-fable-5-2"' || { echo 'FAIL: (m) fable 복구 cmd 모델이 claude-fable-5-2 아님'; printf '%s\n' "$r_arch"; exit 1; }
 printf '%s\n' "$r_arch" | grep -qF '[1m]' && { echo 'FAIL: (m) fable 복구 cmd 에 [1m] 이 붙음(붙으면 안 됨)'; printf '%s\n' "$r_arch"; exit 1; }
 r_cdx="$(dtmm restore 'ft-fx-codex#1' --dry-run)"
 printf '%s\n' "$r_cdx" | grep -qF "resume $SID_CDX" || { echo 'FAIL: (m) codex 복구 cmd 에 resume <sid> 없음'; printf '%s\n' "$r_cdx"; exit 1; }

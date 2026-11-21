@@ -31,7 +31,7 @@ run() {   # run <구> <후계> <agent> [살아 있는 세션들]
   printf '{"_master": "%s", "%s": {"agent": "codex"}}\n' "$1" "$1" > "$SEATS"; SUM0="$(shasum "$SEATS")"
   env HOME="$TMP/home" PATH="$FAKE:$PATH" LOG="$LOG" LIVE="$1 ${4:-}" FT_RES_ROOT="$RES" FT_TEAMSET_MD="$TMP/teamset.md" FT_RECLAIM=0 \
       FT_NAME_LINT="$BIN/ft-name-lint.sh" FT_SEND_VERIFIED="$TMP/send.sh" FT_REACH_CHECK="$TMP/reach.sh" \
-      bash "$SO" "$1" "$REPO" --name "$2" --agent "$3" --model m --body-file "$BODY" > "$TMP/out" 2>&1
+      bash "$SO" "$1" "$REPO" --name "$2" --agent "$3" --model m --verdict 1 --body-file "$BODY" > "$TMP/out" 2>&1   # r2403: 모델 «m» 은 표 값이 아니다(꼬리 검사만 본다)
   RC=$?
 }
 show() { echo "rc=$RC out=$(tr '\n' ' ' < "$TMP/out" | cut -c1-300) log=$(tr '\n' ' ' < "$LOG")"; }

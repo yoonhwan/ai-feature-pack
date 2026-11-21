@@ -39,7 +39,7 @@ chmod +x "$B"/*
 printf '#!/bin/bash\n[ "$1" = open ] && { echo "TMUXC-DRY"; exit 0; }\nexit 0\n' > "$FK/tmuxc"
 printf '#!/bin/bash\ncase "$1" in has-session) exit 1;; esac\nexit 0\n' > "$FK/tmux"   # 없는 세션 → «번호 이어받기» 루프가 멈춘다
 chmod +x "$FK"/*
-rs() { (cd "$R" && PATH="$FK:$PATH" bash "$B/ft-role-spawn.sh" "$@" 2>&1); }   # env -u 는 호출마다 앞에 붙인다
+rs() { (cd "$R" && PATH="$FK:$PATH" bash "$B/ft-role-spawn.sh" "$@" --model 'claude-opus-5-5[1m]' 2>&1); }   # r2403: 표 없는 격리 bin — 명시   # env -u 는 호출마다 앞에 붙인다
 
 # ── R1 부른 좌석 팀이 기본 ──
 o="$(FT_SEND_FROM='byz-ops-master-claude#77' rs tester --dry-run)"; rc=$?
@@ -59,7 +59,7 @@ o="$(FT_SEND_FROM='byz-ops-master-claude#77' rs tester --team v65 --dry-run)"; r
   && ok "R2 ops 좌석 + --team v65 → v65(명시 우선)" || bad "R2 rc=$rc $o"
 
 # ── R3 부른 좌석 없음 = REJECT ──
-o="$(env -u FT_SEND_FROM bash -c 'cd "$1" && PATH="$2:$PATH" bash "$3" tester --dry-run 2>&1' _ "$R" "$FK" "$B/ft-role-spawn.sh")"; rc=$?
+o="$(env -u FT_SEND_FROM bash -c 'cd "$1" && PATH="$2:$PATH" bash "$3" tester --dry-run --model 'claude-opus-5-5[1m]' 2>&1' _ "$R" "$FK" "$B/ft-role-spawn.sh")"; rc=$?
 { [ "$rc" = 2 ] && [[ "$o" == *"REJECT --team 필수(부른 좌석 팀을 못 읽음"* ]] && [[ "$o" != *"PLAN "* ]]; } \
   && ok "R3 좌석 이름 없음 → REJECT --team 필수 rc2" || bad "R3 rc=$rc $o"
 
@@ -85,7 +85,7 @@ p = sys.argv[1]; s = open(p, encoding="utf-8").read()
 s = s.replace('TEAM="$_team"; TEAM_FROM="부른 좌석 $_caller"', 'TEAM="v65"; TEAM_FROM="변이"')
 open(p, "w", encoding="utf-8").write(s)
 PY
-mo="$(cd "$R" && FT_SEND_FROM='byz-ops-master-claude#77' PATH="$FK:$PATH" bash "$MUT/ft-role-spawn.sh" tester --dry-run 2>&1)"; mrc=$?
+mo="$(cd "$R" && FT_SEND_FROM='byz-ops-master-claude#77' PATH="$FK:$PATH" bash "$MUT/ft-role-spawn.sh" tester --dry-run --model 'claude-opus-5-5[1m]' 2>&1)"; mrc=$?
 { [ "$mrc" = 0 ] && [[ "$mo" == *"seat=byz-v65-tester-claude#3"* ]] && [[ "$mo" != *"seat=byz-ops-tester-claude#0"* ]]; } \
   && ok "변이(풀기 끔) → R1 이 v65 = 이 시험은 FAIL 한다" || bad "변이가 안 걸린다 rc=$mrc $mo"
 

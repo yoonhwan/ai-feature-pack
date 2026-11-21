@@ -57,7 +57,7 @@ printf '{"_master":"byz-kakao-master-claude#25","byz-kakao-master-claude#25":{"r
 printf '{"_master":"byz-kakao-master-claude#9"}\n' > "$W2/.fable-team/seats-kakao.json"   # 디코이: 옛 하드코딩 규칙이 고르는 파일
 : > "$W2/design/kakao/SEATBELT-README.md"
 cp -p "$W2/.fable-team/seats.json" "$T/seats.kakao.before"
-kb() { (cd "$W2" && PATH="$FK:$PATH" FT_SEND_FROM='byz-kakao-master-claude#24' bash "$B/ft-role-spawn.sh" "$@" 2>&1); }
+kb() { (cd "$W2" && PATH="$FK:$PATH" FT_SEND_FROM='byz-kakao-master-claude#24' bash "$B/ft-role-spawn.sh" "$@" --model 'claude-opus-5-5[1m]' 2>&1); }   # r2403: 기본 런타임은 표 판독 — 표가 없는 격리 bin 이라 명시
 
 # K1·K2: FT_ROOT=<워크트리> → rc0 · 명부 = seats.json(#25) · 디코이 seats-kakao.json(#9) 아님
 o="$(FT_ROOT="$W2" kb master --team kakao --dry-run)"; rc=$?
@@ -74,7 +74,7 @@ printf '{"_master":"byz-feat-master-claude#31"}\n' > "$R/.fable-team/seats-feat.
 printf '{"_master":"byz-v65-master-claude#1"}\n' > "$R/.fable-team/seats.json"
 printf '{"_master":"byz-v65-master-claude#9"}\n' > "$R/.fable-team/seats-v65.json"   # 디코이
 cp -p "$R/.fable-team/seats-feat.json" "$T/seats.feat.before"; cp -p "$R/.fable-team/seats.json" "$T/seats.v65.before"
-by() { (cd "$R" && PATH="$FK:$PATH" bash "$B/ft-role-spawn.sh" "$@" 2>&1); }
+by() { (cd "$R" && PATH="$FK:$PATH" bash "$B/ft-role-spawn.sh" "$@" --model 'claude-opus-5-5[1m]' 2>&1); }   # r2403: 위와 같다
 
 # K3: FT_ROOT 없음 · 팀 feat → 공용 루트 · seats-feat.json(#31)
 o="$(FT_SEND_FROM='byz-feat-master-claude#30' by arch --team feat --dry-run)"; rc=$?
@@ -112,7 +112,7 @@ mkdir -p "$K3R/.fable-team/comm" "$K3R/.fable-team/state" "$K3R/design/kakao/ind
 printf '# 팀 명단 — kakao 루트 (가짜)\n| 팀 | 폴더 | 오케 좌석 계열 | 상태 | 명부 |\n|---|---|---|---|---|\n| kakao | `design/kakao/` | byz-kakao-master-claude | 현역 | seats.json |\n' > "$K3R/design/TEAMS.md"
 printf '{"_master":"byz-kakao-master-claude#25","byz-kakao-master-claude#25":{"role":"master","agent":"claude","tick":"ft-master-tick"}}\n' > "$K3R/.fable-team/seats.json"
 : > "$K3R/design/kakao/SEATBELT-README.md"
-o="$(cd "$K3R" && PATH="$FK:$PATH" FT_ROOT="$K3R" FT_SEND_FROM='byz-kakao-master-claude#24' bash "$B/ft-role-spawn.sh" master --team kakao --dry-run 2>&1)"; rc=$?
+o="$(cd "$K3R" && PATH="$FK:$PATH" FT_ROOT="$K3R" FT_SEND_FROM='byz-kakao-master-claude#24' bash "$B/ft-role-spawn.sh" master --team kakao --dry-run --model 'claude-opus-5-5[1m]' 2>&1)"; rc=$?   # r2403: 표 없는 격리 bin
 { [ "$rc" = 0 ] && [[ "$o" == *"PLAN seat=byz-kakao-master-claude#26 "*"inbox=design/kakao/indices/inbox/master"* ]] && [[ "$o" == *"mbox 로 byz-kakao-master-claude#25"* ]]; } \
   && ok "K7 데이터 루트 ⊂ 깃 최상위 다른 폴더 → rc0 · 팀 폴더·inbox = 데이터 루트 기준 · index 상대경로" || bad "K7 rc=$rc $(printf '%s\n' "$o" | tail -2)"
 

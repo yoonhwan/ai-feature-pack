@@ -48,7 +48,7 @@ case "\$1" in
 esac
 EOF
 chmod +x "$B"/* "$FK"/*
-rs() { (cd "$R" && PATH="$FK:$PATH" bash "$B/ft-role-spawn.sh" "$@" 2>&1); }
+rs() { (cd "$R" && PATH="$FK:$PATH" bash "$B/ft-role-spawn.sh" "$@" --model 'claude-opus-5-5[1m]' 2>&1); }   # r2403: 표 없는 격리 bin — 명시
 
 # ⓐ --team feat (dry-run → 실제)
 feat_roster ""
@@ -111,7 +111,7 @@ so() { cp "$R/.fable-team/seats-feat.json" "$SRES/.fable-team/seats-feat.json"
   env HOME="$T/home" PATH="$FK:$PATH" FT_RES_ROOT="$SRES" FT_TEAMSET_MD="$MD" FT_SO_POLL=0 FT_SO_WAIT_MAX=1 \
       FT_SEND_VERIFIED="$FK/send" FT_MBOX_SH="$FK/mbox" FT_REACH_CHECK="$FK/reach" \
       bash "$KIT/ft-successor-open.sh" "$M" "$T/wt" --name "byz-feat-master-claude#31" --agent claude --model m --body-file "$T/body.txt" 2>&1; }
-HINT_SO="→ 열기: ft-successor-open.sh '$DEAD' <feat 워크트리> --name 'byz-feat-arch-claude#42' --agent claude --model 'claude-opus-5-5[1m]' --ctx 1m --effort high --body-file <골 3줄+인계>"
+HINT_SO="→ 열기: ft-successor-open.sh '$DEAD' <feat 워크트리> --name 'byz-feat-arch-claude#42' --model 'claude-opus-5-5[1m]' --ctx 1m --effort high --body-file <골 3줄+인계>"
 HINT_RS="→ 열기: ft-role-spawn.sh arch --team feat"
 
 feat_roster "$DEAD"

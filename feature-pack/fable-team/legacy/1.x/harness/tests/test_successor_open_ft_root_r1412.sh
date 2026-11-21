@@ -59,7 +59,7 @@ run() {
    env HOME="$T/home" PATH="$FK:$SENSORS:$PATH" LOG="$LOG" CNT="$CNT" OPENED="$OPENED" SENSORS="$SENSORS" PANE_CWD="$wt" \
      FT_SO_POLL=0 FT_SO_WAIT_MAX=2 FT_GOV_MD="$T/gov.md" FT_SEND_VERIFIED="$FK/send" \
      FT_REACH_CHECK="$FK/reach" FT_SEAT_OPEN_WORK="$FK/openwork" FT_SEAT_RETIRE="$FK/retire" FT_RECLAIM=0 \
-     bash "$SO" "$OLD" "$wt" --name "$NEW" --agent claude --model m --body-file "$T/body.txt") > "$T/out" 2>&1
+     bash "$SO" "$OLD" "$wt" --name "$NEW" --agent claude --model m --verdict 1 --body-file "$T/body.txt") > "$T/out" 2>&1
   RC=$?
 }
 cnt() { grep -c "^$1" "$LOG"; }

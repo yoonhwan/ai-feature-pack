@@ -14,7 +14,7 @@
     "role": "da",
     "agent": "claude",
     "tick": null,
-    "model": "fable-5.1[1m]",
+    "model": "fable-5.2[1m]",
     "index": null
   },
   "pm#0": {
@@ -28,7 +28,7 @@
     "role": "nano",
     "agent": "claude",
     "tick": null,
-    "model": "fable-5.1[1m]",
+    "model": "fable-5.2[1m]",
     "index": "design/v65/indices/<대기|진행|완성>/M5-owner-live-operation-id.md"
   },
   "tester#0": {
@@ -42,7 +42,7 @@
     "role": "harness-design",
     "agent": "claude",
     "tick": null,
-    "model": "fable-5.1[1m]",
+    "model": "fable-5.2[1m]",
     "index": "design/v65/20260914/DRAFT-harness-upgrade-v65.md"
   },
   "master#1": {

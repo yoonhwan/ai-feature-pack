@@ -30,7 +30,7 @@ printf '{"_master": "%s", "%s": {"agent": "claude"}}\n' "$OLD" "$OLD" > "$RES/.f
 run() {   # run <구> <후계> <agent>
   rm -f "$LOG"; : > "$LOG"
   env HOME="$TMP/home" PATH="$FAKE:$PATH" LOG="$LOG" LIVE_OLD="$1" FT_RES_ROOT="$RES" FT_TEAMSET_MD="$TMP/teamset.md" FT_RECLAIM=0 \
-      bash "$SO" "$1" "$REPO" --name "$2" --agent "$3" --model m --body-file "$BODY" > "$TMP/out" 2>&1
+      bash "$SO" "$1" "$REPO" --name "$2" --agent "$3" --model m --verdict 1 --body-file "$BODY" > "$TMP/out" 2>&1   # r2403: 모델 «m» 은 표 값이 아니다 — 사람 판정(--verdict)으로 통과시켜 꼬리 검사만 본다
   RC=$?
 }
 

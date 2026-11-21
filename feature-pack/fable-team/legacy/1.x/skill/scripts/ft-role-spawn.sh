@@ -14,12 +14,28 @@
 set -uo pipefail
 ROLE="${1:-}"; shift || { echo "usage: $0 <master|da|pm> [--agent A] [--model M] [--effort E] [--from SEAT] [--dry-run]" >&2; exit 2; }
 case "$ROLE" in master|da|pm) ;; *) echo "usage: role 은 master|da|pm (받은 값: $ROLE)" >&2; exit 2;; esac
-AGENT="claude"; MODEL="claude-fable-5-1[1m]"; EFFORT="high"; FROM="${FT_SEND_FROM:-dispatch}"; DRY=0
+AGENT="claude"; MODEL="claude-opus-5-5[1m]"; AGENT_SET=0; MODEL_SET=0; EFFORT="high"; FROM="${FT_SEND_FROM:-dispatch}"; DRY=0
 while [ $# -gt 0 ]; do case "$1" in
-  --agent) AGENT="$2"; shift 2;; --model) MODEL="$2"; shift 2;; --effort) EFFORT="$2"; shift 2;;
+  --agent) AGENT="$2"; AGENT_SET=1; shift 2;; --model) MODEL="$2"; MODEL_SET=1; shift 2;; --effort) EFFORT="$2"; shift 2;;
   --from) FROM="$2"; shift 2;; --dry-run) DRY=1; shift;; *) echo "unknown $1" >&2; exit 2;; esac; done
 case "$AGENT" in claude|codex|cmd|opencode|pi) ;; *) echo "usage: --agent 는 claude|codex|cmd|opencode|pi (받은 값: $AGENT)" >&2; exit 2;; esac
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+# ★r2403 기본 런타임 = 런타임 정책표(runtime-policy.tsv)의 agent·model 쌍★ — 표가 유일한 출처다(박힌 5-1 기본값 삭제).
+#   표에 행이 있는 역할: 둘 다 생략 = 표 쌍 그대로 · --agent 만 = 표 agent 와 같으면 model = 표 값, 다르면 REJECT(--model 필요) · --model 만 = agent = 표 agent.
+#   표에 행이 없는 역할: --model 생략 = REJECT(--model 필요) · --agent 생략 = 지금 기본(claude) 그대로.
+POLICY="${FT_RUNTIME_POLICY:-}"; if [ -z "$POLICY" ]; then for _c in "$HERE/runtime-policy.tsv" "$HERE/../../harness/bin/runtime-policy.tsv"; do [ -f "$_c" ] && { POLICY="$_c"; break; }; done; fi; POLICY="${POLICY:-$HERE/runtime-policy.tsv}"   # 이 사본옆 → 팩 harness/bin 순서(스킬 폴더는 symlink 라 표는 harness/bin 에 있다)
+_row=""; [ -f "$POLICY" ] && _row="$(awk -v r="$ROLE" '!/^#/ && NF>=3 && $1 !~ /@/ && $1 == r {print $2, $3; exit}' "$POLICY")"
+if [ -n "$_row" ]; then
+  if [ "$AGENT_SET" = 0 ] && [ "$MODEL_SET" = 0 ]; then
+    AGENT="${_row%% *}"; MODEL="${_row#* }"
+    echo "RUNTIME 정책표 → agent=$AGENT model=$MODEL role=$ROLE" >&2
+  elif [ "$AGENT_SET" = 1 ] && [ "$MODEL_SET" = 0 ]; then
+    [ "$AGENT" = "${_row%% *}" ] || { echo "REJECT --model 필요(표 agent ${_row%% *} 와 다름 · 적은 --agent $AGENT) — 표 값 쌍 = ${_row%% *} ${_row#* }" >&2; exit 2; }
+    MODEL="${_row#* }"
+  elif [ "$AGENT_SET" = 0 ]; then AGENT="${_row%% *}"; fi
+elif [ "$MODEL_SET" = 0 ]; then
+  echo "REJECT --model 필요(정책표에 역할 $ROLE 행 없음: $POLICY) — --model <ID> 를 적어라(박힌 기본 모델 0 · r2403)" >&2; exit 2
+fi
 WT="$(git rev-parse --show-toplevel)"                       # 역할 좌석이 뜨는 자리 = 이 워크트리
 ROOT="$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir | sed 's|/\.git$||')"   # 리포 루트
 SEATS="$ROOT/.fable-team/seats.json"
