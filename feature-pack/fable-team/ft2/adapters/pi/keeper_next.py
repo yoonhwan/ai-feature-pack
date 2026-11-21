@@ -95,6 +95,16 @@ def skip_landed(k, team, stem):
 def landed_hold(k, team, stem):
     """r2262 C1 — 착지 판독(같은 바퀴 캐시) 사유가 «판정 불가» 로 시작 = block «판정 불가»(이 바퀴만 · 원장 쓰기 0 · [다음 없음] 0) · 그 밖 = ""."""
     return "판정 불가" if str(once(k, ("landed", team, stem), lambda: k.landing(team, stem))[2] or "").startswith("판정 불가") else ""
+def noleft(k, team, alive):
+    """r2400 K5 — 지난 바퀴에 «근거 없는 석» 으로 남은 좌석 수(이제 없는 세션은 뺀다 · 사라진 다음 바퀴 = 관문 열림).
+    하나라도 있으면 [긴급] 하루 1통(notify 지문 = 날짜) → 그 팀 나노를 더 열지 않는다."""
+    got = [s for s in ((k.state.get("noleft") or {}).get(team) or ()) if s in alive]
+    if not got:
+        return 0
+    k.notify(team, "noleft|%s|%s" % (team, k.stamp()[:10]),
+             "[긴급] ft2 keeper %s 근거 없는 석 %d석 — 닫지 못했다(스위치·정지·사람 화면·jsonl 개수) · 다음 나노 열기 0 · 사람 손 필요(%s)"
+             % (team, len(got), " · ".join(got[:2])))
+    return len(got)
 def gates(k, team):
     """참 = 다음 카드 칸이 열림 · 거짓 = 0(켜기 전·팀 정지·spawn·계정 정지·나노 상한 · 판정 불가 포함)."""
     st = os.path.join(k.root, ".fable-team", "state")
@@ -104,13 +114,16 @@ def gates(k, team):
         rc = once(k, tool, ["bash", os.path.join(os.path.dirname(k.close_bin or ""), "ft-%s.sh" % tool), "status", "--check"] + args)[0] if os.path.lexists(os.path.join(st, name)) else 3 - on
         if rc != 3 - on:   # 끔 = hold rc3 · acct rc0 — 유효·판정 불가 = 0
             return k.log("NEXT-HOLD", team, "%s %s rc %s — 다음 카드 0" % (name, "유효" if rc == on else "판정 불가", rc))
+    rc, out, _ = once(k, "ls", [k.tmux, "list-sessions", "-F", "#{session_name}"])   # r1969 바퀴당 1회 · 여는 중 합집합은 부를 때마다
+    alive = set(out.split()) if rc == 0 else set()
+    if alive and (n := noleft(k, team, alive)):   # r2400 K5 — 근거 없는 석이 남은 팀 = 열기 0
+        return k.log("NEXT-HOLD", team, "근거 없는 석 %d — 다음 카드 0" % n)
     home = os.path.join(k.env.get("HOME") or os.path.expanduser("~"), ".claude", "fable-team", "thresholds.env")   # r1860 순서 = env > 루트 > ~/.claude > 샘플
     files = [p for p in (os.path.join(k.root, ".fable-team", "thresholds.env"), home, os.path.join(HERE, "thresholds.env.sample")) if os.path.isfile(p)]
     cap = (k.env.get("FT2_TEAM_NANO_MAX") or next((x.split("=", 1)[1].strip() for p in files for x in open(p, encoding="utf-8") if x.startswith("FT2_TEAM_NANO_MAX=")), "")).strip()
     if not (cap.isascii() and cap.isdigit()):   # R3 — 못 정함 = 새 실행 0(임의 기본값 0)
         return k.log("판정 불가", team, "나노 상한 FT2_TEAM_NANO_MAX 못 정함(%r · env·thresholds.env) — 다음 카드 0" % cap[:20])
-    rc, out, _ = once(k, "ls", [k.tmux, "list-sessions", "-F", "#{session_name}"])   # r1969 바퀴당 1회 · 여는 중 합집합은 부를 때마다
-    live = sum(x.startswith("byz-%s-nano-" % team) for x in set(out.split()) | k.cache.get("launching", set())) if rc == 0 else None   # r1929 여는 중 = 1칸
+    live = sum(x.startswith("byz-%s-nano-" % team) for x in alive | k.cache.get("launching", set())) if rc == 0 else None   # r1929 여는 중 = 1칸
     k.fa.observe(k.root, "나노 정원", team, live, int(cap), "다음 카드")   # r1886 ⓑ 열림·NEXT-HOLD 둘 다
     return True if live is not None and live < int(cap) else k.log("NEXT-HOLD", team, "나노 %s / 상한 %s — 다음 카드 0" % (live, cap))
 def penalty_seen(k, team, val):

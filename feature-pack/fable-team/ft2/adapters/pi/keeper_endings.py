@@ -28,6 +28,131 @@ def held(k, team, key, text):
         k.state["held"][key] = text
         k.unknown_line(team, "-", "held", text)   # r2055 UNKNOWN = [긴급]
 ROWS_CACHE, ROWS_SLOW_S, ROWS_V = "journal-rows", 1.0, 1   # r2319 C6 캐시 폴더 · C7 문턱 · 캐시 꼴 판
+NOLEASE_IDLE, NOLEASE_ON = 300, "1"   # r2400 K1·K4 문턱(초 · desk#236 #364526) · 스위치 켬 값(그 밖 = «예정» 줄만)
+
+def no_lease_idle(k):
+    """r2400 K1 문턱 초 FT2_NOLEASE_IDLE — env > 루트 .fable-team > ~/.claude/fable-team > 샘플(r1860 순서) · 못 읽음 = 300."""
+    val = thresh(k, "FT2_NOLEASE_IDLE", str(NOLEASE_IDLE))
+    return int(val) if val.isascii() and val.isdigit() else NOLEASE_IDLE
+
+def no_lease_on(k):
+    """r2400 K4 권한 스위치 FT2_NOLEASE_CLOSE — 정확히 «1» 일 때만 켬(«true»·«yes» = 끔) · 기본 = 샘플 값(끔)."""
+    return thresh(k, "FT2_NOLEASE_CLOSE", "") == NOLEASE_ON
+
+def thresh(k, name, default):
+    """문턱 한 값 — env > 루트 thresholds.env > ~/.claude thresholds.env > 이 폴더 샘플 · 없음 = default(바퀴 캐시)."""
+    got = k.cache.setdefault("@round", {})
+    if ("thresh", name) not in got:
+        home = k.env.get("HOME") or os.path.expanduser("~")
+        files = (os.path.join(k.root, ".fable-team", "thresholds.env"),
+                 os.path.join(home, ".claude", "fable-team", "thresholds.env"), os.path.join(HERE, "thresholds.env.sample"))
+        got[("thresh", name)] = (k.env.get(name) or "").strip() or next((x for x in (thresh_one(p, name) for p in files) if x), default)
+    return got[("thresh", name)]
+
+def thresh_one(path, name):
+    """thresholds 파일 1개의 그 키 값 · 파일 없음·못 읽음 = ""(예외 0)."""
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            return next((line.split("=", 1)[1].strip() for line in fh if line.startswith(name + "=")), "")
+    except OSError:
+        return ""
+
+def pi_dir(k, tree):
+    """Pi 세션 폴더 경로(`--<cwd>--` · 쓰레기 이음 그대로) · cwd 없음 = ""."""
+    sessions = k.env.get("FT2_PI_SESSIONS") or os.path.expanduser("~/.pi/agent/sessions")
+    return os.path.join(sessions, "--%s--" % tree.strip("/").replace("/", "-")) if tree else ""
+
+def pi_files(k, tree):
+    """r2400 intent worktree 폴더의 Pi jsonl 전부(glob 이음 그대로) · 폴더 없음 = []."""
+    folder = pi_dir(k, tree)
+    return glob.glob(os.path.join(glob.escape(folder), "*.jsonl")) if folder else []
+
+def no_lease(k, seat, it, ok):
+    """r2400 K1 근거 없는 석 판정 — «그 팀 최신 dispatch holder ∨ 300초 안 활동» 의 둘째 근거만 본다(첫째는 고아 조건이 이미 뺐다).
+    ok(자동 개설 근거) 참 = intent worktree 폴더 최신 jsonl 나이 · 거짓(손 개설 석) = pane 폴더(seat_turn · 누구 것인지 못 가름 = 근거 있음).
+    반환 = (근거 없음, 무활동 초, Pi jsonl 개수) · 못 잼 = (False, None, 0)."""
+    idle = no_lease_idle(k)
+    if ok:
+        files = pi_files(k, it.get("worktree") or "")
+        if not files:
+            return False, None, 0
+        age = k.now() - max(map(os.path.getmtime, files))
+        return age >= idle, int(age), len(files)
+    age, _stop = k.seat_turn(seat)   # r2135 L1 장기 좌석 길 재사용(폴더 1개 = 그 나이 · 모호·jsonl 0 = None)
+    return (age is not None and age >= idle), (None if age is None else int(age)), 0
+
+def held_day(k, team, key, kind, text):
+    """같은 좌석·같은 줄 하루 1줄(HELD-NOLEASE · 예정) — keeper 상태 파일 기억 = 재기동해도 그날 반복 0 · 반환 None."""
+    book, day = k.state.setdefault("held", {}), k.stamp()[:10]
+    if book.get(key) != day:
+        book[key] = day
+        k.log(kind, team, text)
+
+def resume_put(k, seat, it):
+    """r2400 K2 재개 기록 — Pi jsonl 정확히 1개일 때만 seat-resume/<좌석>.json(tmp → replace) · 검증은 파일을 다시 읽어 resume_ok.
+    반환 "" = 통과 · 그 밖 = 사유(기록 0 · kill 0)."""
+    files = pi_files(k, it.get("worktree") or "")
+    if len(files) != 1:
+        return "Pi jsonl %d개" % len(files)
+    cwd, log = it.get("worktree") or "", files[0]
+    uuid = os.path.basename(log)[:-len(".jsonl")].rpartition("_")[2]
+    base = k.env.get("FT2_SEAT_RESUME_DIR") or os.path.join(k.env.get("HOME") or os.path.expanduser("~"), ".claude", "state", "seat-resume")
+    path, old = os.path.join(base, seat + ".json"), k.read_json(os.path.join(base, seat + ".json"))
+    if not (old.get("name") == seat and old.get("uuid") == uuid):   # 같은 name·uuid = 다시 쓰기 0
+        rec = {"name": seat, "engine": "pi", "uuid": uuid, "jsonl": log, "cwd": cwd, "no_lease": True, "at": k.stamp(),
+               "binding": {"source": "ft2-keeper-no-lease", "session": seat, "uuid": uuid, "jsonl": log}}
+        try:
+            os.makedirs(base, exist_ok=True)
+            with open(path + ".tmp", "w", encoding="utf-8") as fh:
+                json.dump(rec, fh, ensure_ascii=False)
+            os.replace(path + ".tmp", path)
+        except OSError as exc:
+            return "쓰기 %s" % type(exc).__name__
+    return "" if resume_ok(k, seat, k.read_json(path)) else "검증 실패"
+
+def resume_ok(k, seat, doc):
+    """재개 기록 검증 — 이름 같음 · codex 아님 · jsonl 실재 ∧ 이름 끝 uuid.jsonl ∧ 담긴 폴더 = cwd 세션 폴더(keeper_settle.resume_ok 에서 roots 검사만 뺀 것)."""
+    cwd, uuid, log = str(doc.get("cwd") or ""), str(doc.get("uuid") or ""), str(doc.get("jsonl") or "")
+    return (doc.get("name") == seat and bool(uuid) and doc.get("engine") != "codex" and bool(cwd) and os.path.isfile(log)
+            and os.path.basename(log).endswith(uuid + ".jsonl") and os.path.dirname(os.path.realpath(log)) == os.path.realpath(pi_dir(k, cwd)))
+
+def quiet(k, team, work, seat, it, ok):
+    """r2400 K1 쉼 판정 — 한 판독 쉼(k.look · idle_s = NOLEASE_IDLE) ∧ pane Working 0(k.idle) ∧ attached free ∧ holder 그대로.
+    keeper 가 연 석 = intent worktree jsonl 나이 · 손 개설 석 = pane 폴더 나이(seat_turn · **읽기만** · 기록 근거로는 안 쓴다).
+    거짓 = 지금 줄 그대로(닫기 0 · 관문에 안 셈) · 판정 줄은 look·idle·attached 가 쓴다."""
+    age, stop = k.pi_turn(it) if ok else k.seat_turn(seat)
+    if k.look(team, work, "-", seat, age, stop, idle_s=no_lease_idle(k)) != "REST":
+        return False
+    att = k.attached(seat)
+    if att != "free":   # 사람 화면 = 닫기 0(r1839 A1 · ②)
+        if att.startswith("attached "):
+            k.verdict(team, work, seat, "WORKING", "attached", "%s · 닫기 0" % att)
+        else:
+            k.unknown_seat(team, work, "-", seat, "attached-unknown", "판정 불가 attached(%s) · kill 0" % att[10:])
+        return False
+    if not k.idle(team, work, seat):   # kill 직전 pane 끝 12줄 Working 없음(② pane 글자 · 판정 줄은 idle 이 쓴다)
+        return False
+    return seat not in {h for _, h in (latest(k, team) or {0: (0, seat)}).values()}   # ⑦e 읽는 사이 holder 바뀜·판독 실패 = 닫기 0
+
+def unleased(k, team, work, seat, it, lease, ok, why=""):
+    """r2400 K2~K6 근거 없는 석 1개 처리 — K1(quiet) 이미 참일 때만 온다.
+    손 개설 = HELD-NOLEASE(K3) · 정지 = 예정(K6) · 스위치 끔 = 예정(K4) → 재개 기록(K2) → kill 1 → «CLOSED-NOLEASE». 반환 = 로그 낱말."""
+    age = lease[1]
+    if not ok:   # K3 손 개설 석 = 닫지 않는다 · 재개 기록 0 · kill 0
+        return held_day(k, team, "nolease|" + seat, "HELD-NOLEASE",
+                        "%s idle=%s — 손 개설 · 닫는 손 = planner 수동 닫기%s" % (seat, age, " · " + why if why else ""))
+    if k.halt:   # K6 정지 중 = 예정 줄만(kill·기록 0 · 스위치 무관)
+        return held_day(k, team, "nolease-halt|" + seat, "예정", "CLOSED-NOLEASE %s idle=%s — ALL_STOP 중 · kill 0 · 재개 기록 0" % (seat, age))
+    if not no_lease_on(k):   # K4 권한 스위치(오빠 «네» · hil.md 행 전 = 켜지 않는다)
+        return held_day(k, team, "nolease-off|" + seat, "예정", "CLOSED-NOLEASE %s idle=%s — 스위치 끔 · kill 0 · 재개 기록 0" % (seat, age))
+    why = resume_put(k, seat, it)   # K2 재개 기록 먼저(실패 = 기록 0 · kill 0 · ③)
+    if why:
+        return k.unknown_seat(team, work, "-", seat, "no-lease-resume", "%s · 재개 기록 0 · kill 0" % why)
+    k.call([k.tmux, "kill-session", "-t", "=" + seat])
+    gone = k.probe(seat)
+    if gone != "absent":
+        return k.unknown_seat(team, work, "-", seat, "kill-failed", "재개 기록 1 · 부재 확인 없음(%s)" % gone)
+    return k.log("CLOSED-NOLEASE", team, "%s idle=%s · 재개 기록 1 · kill 1" % (seat, age))
 
 def _cpu():   # r2346 — 이 프로세스가 쓴 CPU 초(쓰레드 시계) · 가짜 시계 대역에 없으면 0.0
     fn = getattr(time, "thread_time", None)
@@ -285,10 +410,14 @@ def unsure(st, team, work, holder, key, idle, fmt=None, slot=""):
         return k.log("판정 불가", team, "%s %s 깨움 도달 미확인(%s) — 재깨움 %d초 뒤 1회 · 재배정 0" % (work, holder, k.state["unsure"][key], st.after_s))
     k.notify("harness", "%s|unsure|%s" % (k.stamp()[:10], key), "[크리티컬] ft2 keeper 깨움 도달 미확인 %s %s %s — 재깨움 1회 뒤에도 미확인 · 재배정·kill 0(사람·팀장 판단)" % (team, work, holder))
 def orphans(k, teams):
-    """⑤ 고아 — 이름 꼴 byz-<팀>-nano-<stem>#N ∧ 그 팀 최신 dispatch holder 밖 · 자동 개설 = ft2_holders.auto_opened(launch 영수 생애 결속) 공용."""
+    """⑤ 고아 — 이름 꼴 byz-<팀>-nano-<stem>#N ∧ 그 팀 최신 dispatch holder 밖 · 자동 개설 = ft2_holders.auto_opened(launch 영수 생애 결속) 공용.
+    r2400 — 그 석의 «열려 있을 근거»(dispatch holder ∨ no_lease_idle 초 안 활동)가 없으면 끝 근거와 상관없이 새 갈래로 간다:
+    keeper 가 연 석 = 재개 기록 → kill(«CLOSED-NOLEASE» · 스위치·정지·사람 화면·jsonl 개수 가드) · 손 개설 석 = «HELD-NOLEASE» 1줄(닫기 0).
+    근거 없는 석은 하나도 안 닫혀도 state["noleft"] 에 남겨 keeper_next.gates 관문이 다음 나노를 막는다(K5)."""
     H, alive = _mod("holders", os.path.join(HERE, "ft2_holders.py")), k.alive_sessions()
     held_by = {t: {h for _, h in got.values()} for t in teams if (got := latest(k, t)) is not None}
     k.orphan_scope = set(held_by)   # r2055 S1 — 이 팀들의 고아 꼴 좌석 판정 = 이 길(명부 밖 판정이 겹쳐 보지 않음)
+    left = {}
     for seat in sorted(alive or ()):
         team = m.group(1) if (m := ORPHAN.fullmatch(seat)) else None
         if team not in held_by or seat in held_by[team]:
@@ -296,7 +425,14 @@ def orphans(k, teams):
         mine = [x for x in intents(k, team) if x[2].get("FT2_HOLDER") == seat]
         work, _, it = max(mine, key=lambda x: str(x[2].get("at") or "")) if len({x[0] for x in mine}) == 1 else (None, None, {})
         ok, why = H.auto_opened(k.call, k.tmux, seat, it) if work else (False, "자동 개설 근거 없음·모호(launch intent work %d개)" % len({x[0] for x in mine}))
-        if not ok:
+        lease = no_lease(k, seat, it, ok)   # r2400 K1 — 열려 있을 근거 판정(dispatch 밖 = 첫 근거 없음 · 활동 = 둘째)
+        if k.halt or not ok:   # r2400 K6 정지 중 · K3 손 개설 석 — 새 갈래 밖 손 0
+            if lease[0] and quiet(k, team, work, seat, it, ok):   # K1 참 = 이번 바퀴에 닫히지 않고 남는 석(K5 가 센다)
+                left.setdefault(team, set()).add(seat)
+                unleased(k, team, work, seat, it, lease, ok, why)
+                continue
+            if k.halt:
+                continue   # 정지 중 = «예정 CLOSED-NOLEASE» 줄만(옛 HELD-ORPHAN·UNKNOWN 줄도 0)
             if k.state["held"].get("orphan|" + seat) != k.stamp()[:10]:
                 k.state["held"]["orphan|" + seat] = k.stamp()[:10]
                 k.log("HELD-ORPHAN", team, "%s %s · 닫기 0" % (seat, why))
@@ -305,6 +441,10 @@ def orphans(k, teams):
         sha, _, why = k.landing(team, work)
         end = ("landed", sha) if sha and not why else ending(k, team, work)
         if not end:   # r2055 S1 판정 없는 좌석 0
+            if lease[0] and quiet(k, team, work, seat, it, ok):   # r2400 K2~K4 — 끝 근거 0 + K1 참 = 새 갈래
+                left.setdefault(team, set()).add(seat)
+                unleased(k, team, work, seat, it, lease, ok)
+                continue
             k.verdict(team, work, seat, "WORKING", "orphan-open", why or "끝 근거 없음")
             continue
         if k.look(team, work, "-", seat, *k.pi_turn(it)) != "REST" or not k.turn_ended(team, work, seat, it):
@@ -319,3 +459,4 @@ def orphans(k, teams):
             k.unknown_seat(team, work, "-", seat, "kill-failed", "%s %s 부재 확인 없음(%s)" % (end[0], end[1], gone))
             continue
         k.log("CLOSED-ORPHAN", team, "%s %s %s %s" % (work, seat, end[0], end[1]))
+    k.state["noleft"] = {team: sorted(seats) for team, seats in left.items()}   # r2400 K5 — 다 돈 바퀴에서만 갈아 쓴다(중간 Cut = 옛 값 그대로)

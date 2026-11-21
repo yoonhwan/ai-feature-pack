@@ -719,7 +719,7 @@ class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settli
                     continue   # R7 팀 자리 판정 불가 = 그 자리 남은 판정 0 · 뒤 팀은 돈다(원천 = b2f = 그 팀 마지막 자리 · 남은 자리 0 · 분모 손 0)
             self.at, self.at_work = None, "-"
             self.cursor_stage = "stall"   # accept_only 동안(자리 없이 도는 팀 칸)
-            if self.sock and not self.halt and self.at_pos("b3o"):
+            if self.sock and self.at_pos("b3o"):   # r2400 K6 — 정지 중에도 부른다(고아 길이 «예정 CLOSED-NOLEASE» 줄만 쓴다 · kill·재개 기록 0)
                 try:
                     self.timed("b3", endings.orphans, self, self.order)   # r1960 ⑤ 스냅샷 뒤 journal 새로 읽기
                 except Ungraded:

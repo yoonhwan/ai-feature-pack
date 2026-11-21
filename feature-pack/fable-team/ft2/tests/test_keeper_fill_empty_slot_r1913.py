@@ -1,7 +1,7 @@
 """r1913 ft2 keeper 빈 나노 칸 채우기 — 닫힘 없는 바퀴에도 gates() 통과면 팀마다 1장 연다 (반례 ①~⑥·③b · 변이 M1~M7).
 대역 = r1871 세계(임시 root·git·가짜 tmux·가짜 record) · 가짜 launch 는 «실제» launch.seat() 배정·전달 판정을 거친다(무배정·미전달 = rc1) · 실 tmux·명부·ft2 원장·mbox·설치 0 · sleep 0. 기준판(fill 없음) = ①·③·③b·④ Red. 변이는 사본에서만 · 원본으로 1회 더.
 """
-import importlib.util, json, shutil, sys  # noqa: E401
+import importlib.util, json, os, shutil, sys  # noqa: E401
 from pathlib import Path
 import pytest
 
@@ -37,6 +37,9 @@ def world(tmp, mp, cap="4", live=2, closing=False, enable=True, ft2=kw.FT2):
     kw._put(w.state / "directive-roots.tsv", "harness\t.\torigin/main\tdesign/harness/indices\n")
     w.commit("byz", {"design/harness/indices/대기/%s.md" % s: "# 인덱스: %s\n- 배정: 없음\n- 상태: 대기\n" % s for s in (A, B, C)}, "main")   # r2395 — 표식 줄 1개(없으면 keeper 가 판정 불가로 건너뛴다)
     kw._put(w.tm, {"alive": ["byz-harness-nano-live%d#0" % n for n in range(live)], "pane": {}})
+    for seat in json.loads(w.tm.read_text(encoding="utf-8"))["alive"]:   # r2400 근거 있는 석 = 방금 활동한 Pi jsonl(없으면 keeper 가 근거 없는 석으로 관문을 닫는다)
+        log = Path(w.env["FT2_PI_SESSIONS"]) / ("--seats-%s--" % seat) / "s.jsonl"
+        kw._put(log, '{"type": "session"}\n'), os.utime(log, (w.t, w.t))
     kw._put(w.state / "ft20-switch" / "harness.json", "{}"), w.runtime().mkdir(parents=True, exist_ok=True)
     w.enable() if enable else None
     nx.close(w, nx.W1) if closing else None
