@@ -127,10 +127,10 @@ def c7(w):   # ⑦ 영수 생애 일치 · 카드 아카이브 · 유휴·턴 �
     orphan(w, "r9607", "byz-harness-nano-r9607#1")
     lines, kills = run(w)
     assert has(lines, "CLOSED-ORPHAN harness r9607 byz-harness-nano-r9607#1") and kills == [["kill-session", "-t", "=byz-harness-nano-r9607#1"]], lines
-def c7b(w):  # ⑦b 같은 이름 새 생애(영수 다름) → HELD-ORPHAN + 알림 1 · kill 0 · ⑦c 이름 꼴 밖 → 0
+def c7b(w):  # ⑦b 같은 이름 새 생애(영수 다름) = 근거 없는 석 → r2400 HELD-NOLEASE 1줄([긴급] 은 관문 몫) · kill 0 · ⑦c 이름 꼴 밖 → 0
     orphan(w, "r9617", "byz-harness-nano-r9617#1", life="$9\t200"), tmuxset(w, alive=["byz-harness-master-x#1", "foo"])
     lines, kills = run(w)
-    assert has(lines, "HELD-ORPHAN harness byz-harness-nano-r9617#1", "생애 다름") and kills == [] and sum("[긴급] UNKNOWN" in x and "byz-harness-nano-r9617#1" in x for x in _lines(str(w.mbox) + ".log")) == 1 and not [x for x in lines if ("master-x" in x and "roster-outside" not in x) or " foo" in x]   # r2055 S1 명부 밖 = UNKNOWN roster-outside(kill 0) 만 예외
+    assert has(lines, "HELD-NOLEASE harness byz-harness-nano-r9617#1", "생애 다름") and kills == [] and not [x for x in lines if ("master-x" in x and "roster-outside" not in x) or " foo" in x]
 def c7d(w):  # ⑦d 세션 목록 읽기 직전 dispatch+launch → 고아 아님(스냅샷 뒤 journal 새로 읽기)
     w.card("r9627", stage="아카이브/2026-11"), w.work("r9657")   # r9657 = 팀 켜기(ft20-switch)
     k, real, S = w.keeper(), None, "byz-harness-nano-r9627#0"
