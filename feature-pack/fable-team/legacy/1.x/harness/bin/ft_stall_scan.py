@@ -25,6 +25,7 @@ import time
 from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import ft_card_assign_pause as pause
 from ft_api_outage_util import epoch, records  # r1882 — pi jsonl 꼬리·timestamp 읽기 한 벌
@@ -141,8 +142,8 @@ class Scan:
         self.lint_seen: set[str] = set()  # r1392 — 이번 실행에 ref 트리에서 본 대기 카드 stem(안 본 장을 지우지 않는다)
         self.lint_unread = 0  # r1392 — 이번 실행에 대기 카드를 못 읽은 팀 수(0 일 때만 캐시에서 사라진 카드를 지운다)
         self.human_rec, self.human_ts = self.human_load()  # r2380 K3 — (점검 1통 나간 기록, 카드 커밋 시각 캐시) · 기록은 6시간 창 뒤에도 남긴다(F2)
-        self.human_send: list[dict] = []  # r2380 K2 — 이번 실행에 점검 1통 보낼 카드(보내는 일은 처리 단계)
-        self.human_done: list[dict] = []  # r2380 K3 — 이번 실행에 풀림 1통 보낼 기록
+        self.human_send: list[dict[str, Any]] = []  # r2380 K2 — 이번 실행에 점검 1통 보낼 카드(보내는 일은 처리 단계)
+        self.human_done: list[dict[str, Any]] = []  # r2380 K3 — 이번 실행에 풀림 1통 보낼 기록
         self.human_seen: set[str] = set()  # r2380 — 이번 실행에 «오빠 대기» 줄이 있던 카드(커밋 시각 캐시를 이만큼만 남긴다)
         self.human_unread = 0  # r2380 — 이번에 기준 ref 트리를 못 읽은 팀 수(>0 이면 커밋 캐시를 지우지 않는다)
         self.flow = os.environ.get("FT_CARD_FLOW_SH") or str(HERE / "ft-card-flow.sh")
@@ -172,7 +173,7 @@ class Scan:
     def human_file(self) -> Path:
         return self.state_dir / "stall-scan.human-wait.json"
 
-    def human_load(self) -> tuple[dict[str, dict], dict[str, dict]]:
+    def human_load(self) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
         """r2380 K3 — (점검 1통 나간 기록 {팀/카드#줄: {at, ts, team, card}}, 카드 커밋 시각 캐시 {카드: {oid, at}}) · 없음·깨짐 = 빈 사전 둘(다음 실행이 다시 센다)."""
         try:
             raw = json.loads(self.human_file().read_text(encoding="utf-8"))
@@ -180,8 +181,9 @@ class Scan:
             return {}, {}
         if not isinstance(raw, dict):
             return {}, {}
-        rec = raw.get("records") if isinstance(raw.get("records"), dict) else {}
-        cts = raw.get("commits") if isinstance(raw.get("commits"), dict) else {}
+        rec_raw, cts_raw = raw.get("records"), raw.get("commits")
+        rec = rec_raw if isinstance(rec_raw, dict) else {}
+        cts = cts_raw if isinstance(cts_raw, dict) else {}
         return ({str(k): v for k, v in rec.items() if isinstance(v, dict)},
                 {str(k): v for k, v in cts.items() if isinstance(v, dict)})
 
@@ -241,7 +243,7 @@ class Scan:
                 if h["age"] < HUMAN_ALERT_S:
                     continue
                 key = f"{team}/{name}#{h['line']}"
-                if key in self.human_rec:
+                if self.human_notice(key, h["ts"]):
                     continue
                 self.human_send.append({"key": key, "team": team, "to": master, "card": name, "ts": h["ts"], "age": h["age"]})
         for key, rec in sorted(self.human_rec.items()):
@@ -253,6 +255,17 @@ class Scan:
             if live is not None and (live.get("ts") or "") == str(rec.get("ts") or ""):
                 continue  # 아직 그 줄이 그대로 — 기록 유지(F2)
             self.human_done.append({"key": key, "team": team, "card": card, "ts": str(rec.get("ts") or "")})
+
+    def human_notice(self, key: str, ts: str) -> bool:
+        """r2380 K2 — 이번에 점검 1통을 보내지 않을까: 같은 오빠 대기(같은 thread ts)를 HUMAN_ALERT_S 안에 이미 보냈으면 0.
+        기록은 F2 로 풀림까지 남으므로 «기록 있음» 만으로 건너뛰면 30시간 대기가 1통에서 멈춘다(DA H1) — 6시간마다 다시 1통."""
+        rec = self.human_rec.get(key)
+        if not isinstance(rec, dict) or str(rec.get("ts") or "") != ts:
+            return False  # 처음 본 사건(ts 가 바뀌면 새 사건)
+        at = rec.get("at")
+        if isinstance(at, bool) or not isinstance(at, (int, float)):
+            return False  # 꼴이 깨진 기록 = 다시 보낸다(조용한 0 아님)
+        return 0 <= self.now - float(at) < HUMAN_ALERT_S
 
     def act_human(self, stamp: str) -> list[str]:
         """r2380 K2·K3 처리 — 점검은 팀 master 에만(desk·오빠 thread 글 0) · 풀림은 desk 에 1통(결과 1줄은 그 thread ts 에). 보낸 것만 기록."""

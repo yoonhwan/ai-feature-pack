@@ -198,7 +198,7 @@ def test_r3_basis_ref_from_roots_tsv_for_directive_row(w: World) -> None:
 def test_r4_card_assign_uses_basis_ref(w: World) -> None:
     state = w.kakao / ".fable-team/state"
     state.mkdir(parents=True, exist_ok=True)
-    (state / "directive-roots.tsv").write_text(f"kakao\t.\torigin/main\tdesign/kakao/indices\n", encoding="utf-8")
+    (state / "directive-roots.tsv").write_text("kakao\t.\torigin/main\tdesign/kakao/indices\n", encoding="utf-8")
     code = ("import sys;sys.path.insert(0,%r);import ft_card_assign_watch as C;"
             "from pathlib import Path;print(C.strict_roots(Path(%r))[0][2])" % (str(BIN), str(w.kakao)))
     got = py(w.env_for(w.kakao), code)

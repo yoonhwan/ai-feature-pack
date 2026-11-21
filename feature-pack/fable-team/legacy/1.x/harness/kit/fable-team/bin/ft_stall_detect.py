@@ -388,7 +388,7 @@ def _commit_at(cards: Path, ref: str, name: str) -> tuple[float | None, str]:
         return None, "커밋 시각 해석 실패"
 
 
-def human_waits(cards: Path | None, root: Path | None, now: float, cache: dict[str, dict] | None = None) -> dict[str, dict[str, Any]]:
+def human_waits(cards: Path | None, root: Path | None, now: float, cache: dict[str, dict[str, Any]] | None = None) -> dict[str, dict[str, Any]]:
     """r2380 K1~K4 — 그 팀 대기 카드 중 «오빠 대기» 줄이 있는 장 → {카드: {ts, line, age, why}}.
     나이 = now − max(기준 ref 마지막 커밋 시각, «확인 <시각>» 줄) — 디스크 체크아웃이 아니라 기준 ref 로 잰다(N1).
     기준 ref 트리를 못 읽으면 RefUnavailable(부르는 쪽이 «판정 불가» 1줄 + 풀림 0 · 기록 유지 — F1).
