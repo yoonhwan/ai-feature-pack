@@ -1,0 +1,49 @@
+PASS bash -n 검사 스크립트
+PASS ① OK 판 → rc 0 · OK ref=main@07e28019ba2a bin=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.AZ3idHBeuR/live files=4
+PASS ① 계측 hash-object 1회 · grep 0회 · awk 1회 (파일 4 개 · hash=1 grep=0 awk=1)
+[시간] ① 0초
+PASS ② 손 편집 1개 → rc 1 · DRIFT n=1 · DIFF a.sh
+PASS ② 파일이 늘어도 hash-object 1회 (hash=1 grep=1 awk=1)
+[시간] ② 0초
+PASS ③ 네 종 섞인 판 → rc 1 · n=4 · MISSING/EXTRA/MODE/DIFF 각 1줄
+[시간] ③ 0초
+PASS ④ 파일 4 개 · git hash-object 1회 · awk 1회 (hash=1 grep=0 awk=1)
+[시간] ④ 0초
+PASS ⑤ here-string 0줄
+PASS ⑤ 파일마다 grep -qxF 0줄
+PASS ⑤ hash-object 묶음 1줄(주석 제외)
+PASS ⑤ kit 사본 = harness/bin 사본
+[시간] ⑤ 0초
+PASS ⑥ 기준판 here-string 3줄 → 새 판 0줄(⑤ 가 기준판을 잡는다)
+PASS ⑥ 기준판 hash-object 4 grep=4 awk=0줄 → 새 판 1회(①·④ 가 기준판을 잡는다)
+PASS ⑥ 판정 유지(OK 판) — 새 판 = 기준판 — rc=0 · 출력 같음
+PASS ⑥ 판정 유지(DIFF 판) — 새 판 = 기준판 — rc=1 · 출력 같음
+[시간] ⑥ 1초
+PASS ⑦ EXTRA a·my·zz 3줄(이름이 다른 이름의 앞부분이어도 정확 일치)
+PASS ⑦ .bak*·폴더 제외
+[시간] ⑦ 0초
+PASS ⑧ 공백 이름 «my tool.sh» 포함 OK 판 → EXTRA 오탐 0
+PASS ⑧ 심링크 = 파일로 따라감(EXTRA) · 끊긴 링크 = MISSING c.sh
+PASS ⑧ 링크 판 — 새 판 = 기준판 — rc=1 · 출력 같음
+[시간] ⑧ 0초
+PASS ⑨ 섞인 판 — 새 판 = 기준판 — rc=1 · 출력 같음
+PASS ⑨ 네 종 + HINT 줄 그대로
+[시간] ⑨ 0초
+PASS ⑩ 착지 5분 전 판 → WARN 설치 대기 rc 0
+PASS ⑩ PENDING 판 — 새 판 = 기준판
+PASS ⑩ 창(15분) 밖 → DIFF x.sh rc 1
+[시간] ⑩ 1초
+[시간] ⑪ 200파일 — 새 판 0.11초 · 기준판 1.39초 @load 12.29
+PASS ⑪ 두 판 판정 같음(OK)
+PASS ⑪ 새 판 7초 상한 안(0.11초)
+PASS ⑪ 새 판 ≤ 기준판 (0.11초 ≤ 1.39초)
+[시간] ⑪ 2초
+PASS ⑫ --bin 없음 → usage rc 2 (기준판과 같은 글 · usage: <검사 스크립트> --bin <폴더> [--repo <리포>] [--ref <ref>] [--path <트리 경로>])
+PASS ⑫ bin 폴더 없음 → ERROR rc 3 (기준판과 같음)
+PASS ⑫ 못 푸는 ref → ERROR rc 3 (조용한 통과 0 · 기준판과 같음)
+PASS ⑫ 옛 사본(shim 아님) → ERROR rc 3 (기준판과 같음)
+PASS ⑫ OK 판(.bak·폴더 제외 포함) — 새 판 = 기준판 — rc=0 · 출력 같음
+[시간] ⑫ 0초
+[시간] 반례 ①~⑫ 총 4초
+PASS 시험 시간 상한(70초 · 실측 4초)
+ALL PASS

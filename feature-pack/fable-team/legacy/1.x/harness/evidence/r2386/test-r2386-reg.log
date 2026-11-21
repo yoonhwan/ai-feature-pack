@@ -1,0 +1,4 @@
+PASS test_live_bin_drift_check.sh — PASS 64 · FAIL 5(환경 사유만) · rc=1
+[시간] 회귀(무거운 1파일) 총 18초
+PASS 시험 시간 상한(70초 · 실측 18초)
+ALL PASS

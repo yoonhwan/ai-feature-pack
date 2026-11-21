@@ -1,0 +1,75 @@
+PASS bash -n ft-live-bin-drift-check.sh
+PASS bash -n ft-nano-spawn.sh
+PASS bash -n ft-nano-close.sh
+PASS bash -n ft-tick.sh
+PASS 같은 바이트·모드 → OK (rc=0)
+PASS OK 줄 형식
+PASS OK files=21
+PASS 바이트 1개 바꿈 → DRIFT (rc=1)
+PASS DRIFT 첫 줄
+PASS DIFF 항목
+PASS HINT 줄
+PASS 하나 지움 (rc=1)
+PASS MISSING 항목
+PASS 실행 비트 제거 (rc=1)
+PASS MODE 항목(755 기대)
+PASS 실행 비트 추가 (rc=1)
+PASS MODE 항목(644 기대)
+PASS 새 파일 (rc=1)
+PASS EXTRA 항목
+PASS .bak*·폴더 제외 → 여전히 OK (rc=0)
+PASS 풀 수 없는 ref → ERROR (rc=3)
+PASS ERROR 줄(조용한 통과 아님)
+PASS --bin 없음 → usage (rc=2)
+PASS bin 폴더 없음 → ERROR (rc=3)
+PASS 하네스 루트 못 풂 + --repo 없음 → ERROR(추측 0) (rc=3)
+PASS r385: --repo 없음 → FT_HARNESS_ROOT 의 리포·kit 경로로 OK (rc=0)
+PASS spawn --dry-run 어긋남 → BLOCK (rc=1)
+FAIL spawn REJECT 줄 — 없음: «REJECT 라이브 도구가» ← REJECT 기준 판정 불가 — origin main fetch 실패(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Dt4CQm8tei/clone) · 옛 HEAD 로 열지 않는다
+FAIL spawn 에 항목 줄 노출 — 없음: «DIFF a.sh» ← REJECT 기준 판정 불가 — origin main fetch 실패(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Dt4CQm8tei/clone) · 옛 HEAD 로 열지 않는다
+FAIL spawn 어긋남 0 → 검사 통과 줄 — 없음: «OK ref=origin/main@» ← REJECT 기준 판정 불가 — origin main fetch 실패(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Dt4CQm8tei/clone) · 옛 HEAD 로 열지 않는다
+PASS spawn 어긋남 0 → 입구 REJECT 없음
+PASS 검사 스크립트 없음 → BLOCK (rc=1)
+FAIL 설치 누락도 같은 REJECT — 없음: «REJECT 라이브 도구가» ← REJECT 기준 판정 불가 — origin main fetch 실패(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Dt4CQm8tei/clone) · 옛 HEAD 로 열지 않는다
+FAIL spawn 설치 꼴 아님 → 건너뜀 — 없음: «INFO drift-check 건너뜀 — 실행 위치가 설치 폴더 아님: /private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Dt4CQm8tei/bin» ← REJECT 기준 판정 불가 — origin main fetch 실패(/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Dt4CQm8tei/clone) · 옛 HEAD 로 열지 않는다
+PASS spawn 설치 꼴 아님 → REJECT 없음
+PASS close 어긋남 → BLOCK (rc=1)
+PASS close REJECT 줄
+PASS close 설치 꼴 아님 → 건너뜀
+PASS close 설치 꼴 아님 → 라이브 REJECT 없음
+PASS tick 어긋남 0 → drift 로그 0
+PASS tick 어긋남 0 → 송신 0
+PASS tick 어긋남 → drift 로그
+PASS tick 1회차 송신 1
+PASS tick 2회차도 매 회 로그 1줄
+PASS 같은 서명 → 송신 추가 0
+PASS 항목 바뀜 → n=2 로그
+PASS 목록 바뀜 → 송신 1회 추가
+PASS 서명 파일 존재
+PASS --dry-run → DRY kind=drift 1줄
+PASS --dry-run 송신 0
+PASS FT_TICK_DRIFT=0 → 검사 안 함
+PASS 복구 → drift: OK 로그
+PASS 복구 → 서명 파일 삭제
+PASS 복구 뒤 로그 0
+PASS _master 없음 → 어긋남 로그는 남음
+PASS _master 없음 → no active master 경고
+PASS _master 없음 → 송신 0
+PASS stderr 원인: rc≥2 → ERROR 줄
+PASS stderr 원인: locale 경고를 건너뛴 첫 실제 원인이 로그에 남음
+PASS 경고만 있으면 경고 1줄 그대로
+PASS mktemp 실패 → 가짜 drift 로그 0
+PASS mktemp 실패 → ERROR 1줄
+PASS mktemp 실패 → 송신 0
+PASS mktemp 실패 → 서명 불변
+PASS shasum rc9 → ERROR 1줄
+PASS shasum 실패 → 송신 0
+PASS shasum 실패 → 서명 파일 없음
+PASS 검사 스크립트 없음 → drift 로그 없이 stderr 경고만
+PASS 검사 스크립트 없음 → 경고 1줄
+--- 증거 3줄
+OK ref=origin/main@8b48fbc8e605 bin=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Dt4CQm8tei/.fable-team/bin files=21
+DRIFT n=1 ref=origin/main@8b48fbc8e605 bin=/private/var/folders/vm/j7_jw8050t553wj5wqlvnmmh0000gn/T/tmp.Dt4CQm8tei/.fable-team/bin
+
+FAILED 5
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=data:/Users/yoonhwan/Project/ai-feature-pack,repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0
