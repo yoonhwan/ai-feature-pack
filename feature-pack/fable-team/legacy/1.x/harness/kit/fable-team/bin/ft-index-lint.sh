@@ -140,11 +140,12 @@ check_human_wait() {  # $1=file → K1·K1b r2380: «오빠» 가 적힌 선행 
     else echo "WARN $1 — 「- 선행:」 오빠 대기 줄에 thread <ts> 없음 (K1 r2380 · 줄 $n · 정체 감시 판정에는 안 쓴다)"; fi
   done < <(grep -n '^- 선행:' "$1" 2>/dev/null)
 }
-check_wait_reason() {  # r2395 K4 — 대기/ 카드에 «- 대기 사유:» 줄이 없으면 사유 1줄. 새 카드(첫 추가일 ≥ 2026-11-21) = REJECT · 옛 카드 = WARN 만(주인이 되살릴 때 줄을 넣는다 · 일괄 0).
+check_wait_reason() {  # r2395 K4 — 대기/ 카드 **머리**에 «- 대기 사유:» 줄이 없으면 사유 1줄. 새 카드(첫 추가일 ≥ 2026-11-21) = REJECT · 옛 카드 = WARN 만(주인이 되살릴 때 줄을 넣는다 · 일괄 0).
   #   단계 가림 = 대기/ 폴더만 본다(진행/·완성/·아카이브/ 카드는 대상 밖 · K6 다른 길 그대로). «- 배정:» 줄 없음은 사유 0(r2395 한계 5).
+  #   머리 한정(DA#56 H1) = 첫 «## » 절 앞 줄만 본다 — 본문 예시·인용 안의 같은 글자로 통과 0(check_proposal_line 과 같은 자리).
   local added new=1
   case "$1" in */대기/*) ;; *) return 0;; esac
-  grep -qE '^[-*][[:space:]]*대기 사유:' "$1" && return 0
+  awk '/^##[[:space:]]/{exit} {print}' "$1" | grep -qE '^[-*][[:space:]]*대기 사유:' && return 0
   added="$(awk -F'\t' -v k="$(basename "$1")" '$1==k{d=$2} END{if(d)print d}' "${FT_CARD_ADDED_MAP_FILE:-/dev/null}" 2>/dev/null)"   # 첫 추가일 = 사전 파일(check_proposal_line 과 같은 자리 · 카드마다 git 호출 0 · 사전에 없음 = 이력 없음)
   { [ -z "$added" ] || [[ ! "$added" < "2026-11-21" ]]; } || new=0
   if [ "$new" = 1 ]; then bad+=("대기/ 카드에 「- 대기 사유:」 줄 없음 (새 카드 의무 · r2395 · 풀었으면 「- 대기 사유: 없음」)")
