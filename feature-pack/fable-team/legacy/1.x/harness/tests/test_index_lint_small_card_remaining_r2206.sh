@@ -9,6 +9,7 @@ T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT; export HOME="$T/home"; mkdir -p "$HOM
 unset FT_HARNESS_ROOT FT_INSTALL_CHECK FT_LANDED_MARKER FT_ROOT FT_TEAM FT_GOAL_LINES_FILE
 g() { git -C "$1" -c user.name=t -c user.email=t@t "${@:2}"; }
 BIN="$T/bin"; cp -Rp "$KIT" "$BIN"; rc=0; out=""
+ADDED="$T/added.tsv"; : > "$ADDED"; for n in s2 s3 s4 s5 s6; do printf '%s\t%s\n' "$n.md" 2026-11-01 >> "$ADDED"; done; export FT_CARD_ADDED_MAP_FILE="$ADDED"   # r2395 — 이 카드들은 옛 카드(K4 «- 대기 사유:» 없음 = WARN 만 · 이 시험은 작은 카드 줄 수만 본다)
 mutate() { python3 - "$1" "$2" "$3" <<'PY'
 import sys
 p, old, new = sys.argv[1:4]; s = open(p, encoding="utf-8").read()

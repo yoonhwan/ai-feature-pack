@@ -18,7 +18,7 @@ L121 = "L121-long-name-long-name-long-name-long-name-followup"   # DA R1 입력(
 
 
 def card(w, stem, *heads):
-    w.commit("byz", {"design/harness/indices/대기/%s.md" % stem: "# 인덱스: %s\n%s- 상태: 대기\n" % (stem, "".join(h + "\n" for h in heads))}, "main")
+    w.commit("byz", {"design/harness/indices/대기/%s.md" % stem: "# 인덱스: %s\n- 배정: 없음\n%s- 상태: 대기\n" % (stem, "".join(h + "\n" for h in heads))}, "main")   # r2395 — 표식 줄 1개(없으면 keeper 가 판정 불가로 건너뛴다)
 
 
 def landed_sha(w, mp, at):   # 팩 커밋 1개 · committer 시각 = 로컬 at

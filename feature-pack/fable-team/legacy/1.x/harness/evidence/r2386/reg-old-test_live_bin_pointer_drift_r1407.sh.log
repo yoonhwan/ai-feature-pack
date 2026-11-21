@@ -1,0 +1,21 @@
+PASS py_compile · bash -n
+PASS bin/kit 짝 cmp0 (ft_live_install_check)
+PASS D1 워크트리 포인터 옛 판 → DRIFT live-bin 1줄 rc1
+PASS D1 포인터 파일 수정 0 · HINT live-bin(고침은 사람)
+PASS D2 워크트리 = 설치 판 → 줄 0 rc0
+PASS D3 워크트리 LIVE_BIN 없음 → 줄 0 rc0
+PASS D4 상대경로 포인터 → ERROR rc3
+PASS D4b 없는 폴더 포인터 → ERROR rc3
+PASS D5 한 루트 포인터만 다른 판 → 그 루트 1줄 rc1
+PASS D5b 워크트리 = 자기 루트 판(1.1.255)이어도 설치 판과 다르면 DRIFT
+PASS 명부 없음 → 이 갈래 줄 0(기존 동작)
+PASS M1 stale 2 중 1 에 pane cwd → DRIFT1·INFO1·rc1
+PASS M2 tmux no server → worktree DRIFT0·INFO2·rc0
+PASS M3 서버 없음 + 루트 stale → 루트 DRIFT1·INFO2·rc1
+PASS M4 cwd = worktree 하위 폴더 → active
+PASS M5 w1/w12 접두 → w1 오인 0
+PASS M6 다른 tmux 실패 → 판정 불가 rc3
+PASS M 포인터 파일 수정 0
+PASS 판정 1함수(live_bin_drift)
+PASS 시험 시간 상한(70초 · 실측 4s)
+ALL PASS (4s)

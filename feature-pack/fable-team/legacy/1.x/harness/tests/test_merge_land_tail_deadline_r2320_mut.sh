@@ -21,7 +21,7 @@ mut() {  # mut <이름> <사례> <파일> <옛> <새> [<파일2> <옛2> <새2>] 
   if "$2" "$m"; then echo "FAIL M$1 :: 변이가 $2 를 통과"; fail=$((fail+1)); else echo "PASS M$1 ($2 FAIL)"; fi
   "$2" "$FIX"; ck "M$1-원본" $?; }
 S1=$SECONDS
-mut 1 k1 ft-merge-land.sh 'LIM="${FT_LAND_TOTAL_S:-67}"' 'LIM="${FT_LAND_TOTAL_S:-100}"'
+mut 1 k1 ft-merge-lib.sh 'echo "67 $rf floor:없음 0 0 0"' 'echo "100 $rf floor:없음 0 0 0"'   # r2385: 표본 없는 판의 바닥 67(fm_land_cap)을 100 으로 — «LIM 기본 67» 자리 자체가 fm_land_cap 으로 옮겨갔다
 mut 2 k3 ft-merge-land.sh 'fm_land_notify_land "$ROOT" "$PR" "${Q:0:10}" "$(pf title)" "$irc" "$IOUT" "$(pf headRefName)"   # r2320 T2: 착지 알림 = 설치 대조 «바로 뒤» · 루트 shim 앞(바깥 70초에 잘릴 때 알림부터 잃지 않게) · 인자·실패 WARN 그대로 · 착지 rc 불변' ':' \
       ft-merge-land.sh 'HLTO="$(fm_tail_s "${FT_HEAD_LAG_EVENT_S:-25}")"; HLO=""' 'fm_land_notify_land "$ROOT" "$PR" "${Q:0:10}" "$(pf title)" "$irc" "$IOUT" "$(pf headRefName)"; HLTO="$(fm_tail_s "${FT_HEAD_LAG_EVENT_S:-25}")"; HLO=""'
 mut 3 k5 ft-merge-land.sh 'lt_line() { [ "$LTH" = 1 ] || return 0;' 'lt_line() { [ 1 = 1 ] || return 0;'
