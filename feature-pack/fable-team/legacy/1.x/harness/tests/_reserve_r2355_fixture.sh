@@ -127,11 +127,11 @@ k4c() {   # ④c press 앞 상한 DL−PV · 가짜 SL초 → TB rc 124 = «pres
   land "$1" 109 40 FT_PUSH_FIXED_S=$F
   { [ "$rc" = 0 ] && [ "$(phv press)" != "-" ] && [ -n "$(phv press)" ]; } && ok3=1
   [ "$ok1$ok2$ok3" = 111 ]; }
-k5() {   # ⑤ 착지 성공 → LAND-PHASE 1줄 · 칸 12(press·etc 포함) · total ≥ 단계 합 · tsv 1줄 · EXIT 사슬(개인 ref 정리) 그대로
+k5() {   # ⑤ 착지 성공 → LAND-PHASE 1줄 · 칸 12(press·etc 포함) + r2385 repo=·rpush= 2칸 = 16낱말 · total ≥ 단계 합 · tsv 1줄 · EXIT 사슬(개인 ref 정리) 그대로
   rm -f "$PFILE"; land "$1" 110 40 FT_PUSH_FIXED_S=$F
   local l n su=0 v; l="$(ph)"; n="$(printf '%s\n' "$l" | wc -w | tr -d ' ')"
   for v in close view fetch gate overlap equiv press lint push; do v="$(phv "$v")"; [ "$v" = "-" ] || su=$((su + v)); done
-  [ "$rc" = 0 ] && grep -q '^LANDED pr=110 ' <<<"$out" && [ "$n" = 14 ] && grep -q ' press=[0-9-]* ' <<<"$l" && [ "$(phv total)" -ge "$su" ] && [ "$(phv etc)" -ge 0 ] && [ "$(grep -c . "$PFILE")" = 1 ] && [ -z "$(refs)" ]; }
+  [ "$rc" = 0 ] && grep -q '^LANDED pr=110 ' <<<"$out" && [ "$n" = 16 ] && grep -q ' repo=[^ ]* rpush=[0-9]*$' <<<"$l" && grep -q ' press=[0-9-]* ' <<<"$l" && [ "$(phv total)" -ge "$su" ] && [ "$(phv etc)" -ge 0 ] && [ "$(grep -c . "$PFILE")" = 1 ] && [ -z "$(refs)" ]; }
 k6() {   # ⑥ REJECT(②-b) → LAND-PHASE 1줄 · 안 간 단계 «-» · tsv 1줄
   rm -f "$PFILE"; DL_OFF=$((F + 3)) land "$1" 111 40 FT_PUSH_FIXED_S=$F
   [ "$rc" = 1 ] && grep -q '^LAND-PHASE pr=111 ' <<<"$out" && [ "$(phv gate)" = "-" ] && [ "$(phv push)" = "-" ] && [ "$(phv lint)" = "-" ] && [ "$(grep -c . "$PFILE")" = 1 ]; }
