@@ -132,7 +132,14 @@ def same_repo_root(root, sha, s, why):
             return subprocess.run(["git", "-C", root, "merge-base", "--is-ancestor", a, b], capture_output=True, timeout=7).returncode
         except subprocess.TimeoutExpired:
             raise Fail(why + " — 7초 초과")
-    r = anc(sha, s)
+    h = (os.environ.get("FT_REPLACE_HEAD") or "").strip() or s   # r2374 K2: 기준 머리 = 자동 병합 전 PR head(ft-merge-land 가 넘김) · 빈 값 = 후보 s(옛 부름 그대로)
+    if h != s:
+        k = anc(h, s) if re.fullmatch(r"[0-9a-f]{40}", h) else 2   # I1: 40hex 아니면 git 부름 0(«--…» 가 git 옵션으로 읽히지 않게)
+        if k == 1:
+            raise Fail(why + " — 후보 머리 FT_REPLACE_HEAD 가 후보 조상 아님")
+        if k != 0:
+            raise Fail(why + " — 후보 머리 판정 불가")
+    r = anc(sha, h)   # r2374 K3: 자기 승인 막기 = 판정문이 PR head 안이면 Fail(자동 병합 C 의 부모 main 은 기준에서 뺌)
     if r == 0:
         raise Fail(why + " — 후보 조상 · 판정문을 후보 밖 보호 줄기 새 커밋으로 다시 올림")
     if r != 1 or not any(anc(sha, "refs/remotes/%s/%s" % (rem, b)) == 0 for b in ("main", "ops/main-base")):
