@@ -23,6 +23,7 @@
 #     r1090 DA② 정정: held = «점유·주인 재등장» 으로 보류한 수 · held-lsof = lsof «조회 실패» 로 보류한 수(따로 센다) · 후보 0 이어도 끝 줄 1줄(stdout+로그)
 #     r548: 어떤 프로세스의 cwd(그 폴더 또는 그 아래)인 사본은 지우지 않고 붙잡는다 — 로그 `붙잡음 …` 줄 + stdout `[장비 정리] 주인 <좌석> 사본 <경로> 에서 pid <n> <명령> 실행 중 — 삭제 보류` 최대 3줄(나머지 개수 1줄)
 #     r548: cwd 를 묻는 lsof 가 실패하거나 0줄이면 «아무도 안 씀» 으로 읽지 않는다 — 로그·stdout `ERROR lsof 실패 — 삭제 0` 1줄 + 이번 정리 전체 생략(등록 사본·tmp.* 포함)
+#   r2372: --sweep 차례 — 등록 사본 줄과 $TMPDIR 의 tmp.* 경로를 갈래마다 경로 `LC_ALL=C` 순서로 정렬해 판정·삭제를 두 갈래 번갈아(tmp · reg · tmp · reg) 본다 · 갈래 시작 = 끊긴 자리(cursor) 경로 «이상» 인 첫 항목(그 앞 항목은 갈래 끝으로 돌림) · 끊긴 자리 = `<STATE>/scratch-sweep.cursor` 의 `<reg|tmp><TAB><경로>` 줄(판정 못 한 첫 항목 또는 삭제 차례가 안 온 첫 항목 · 임시 파일 + mv · 지우기 길에서만 읽고 쓴다 · --report 는 지금 그대로)
 #   r996: 장부 둘(ROOT 등록부 + 사본의 원 저장소 등록부) — 만들 때 같은 줄을 양쪽에 적고, --done·--sweep·--report·registered 는 양쪽을 함께 읽는다(한쪽 장부만 있어도 보인다 · 못 읽은 등록부 = «모름» = 덜 지우는 쪽)
 #   r996 ⓗ: 만들기는 체크아웃 «전에» 등록하고, 체크아웃이 끝나면 그 사본의 git 관리폴더에 `scratch-ready`(완성 표식)를 쓴다 — 끊긴 사본도 등록돼 보이고, 재사용·«24시간 없이 바로 지우기» 는 완성 표식 있는 사본만(사본 안에 파일을 안 써서 `git status` 깨끗함이 그대로)
 #           실패 되돌림 = «이번 실행이 만든 폴더만»(있던 폴더 rm 0) · rm 실패 = 등록 유지 + ERROR
@@ -54,6 +55,7 @@ ROOT="${FT_RES_ROOT:-}"   # r385: 리포 공용 루트 = env → ft_repo_root(�
 TAB=$'\t'
 [ -f "$HERE/ft-heavy-slot-lib.sh" ] || die "판정 불가 — ft-heavy-slot-lib.sh 없음: $HERE (사본 0·등록 0·삭제 0)" 4; . "$HERE/ft-heavy-slot-lib.sh"   # r1286: 무거운 git 전역 자리(동시 2) — 없으면 조용한 통과 0
 STATE="$ROOT/.fable-team/state"; TSV="$STATE/scratch-repos.tsv"; ARMED="$STATE/scratch-sweep.armed"; SLOG="$STATE/scratch-sweep.log"; AGE="${FT_SCRATCH_AGE_MIN:-240}"
+CURSOR="$STATE/scratch-sweep.cursor"   # r2372: 갈래별 «끊긴 자리»(reg|tmp<TAB>경로) — 일반 파일 · 지우기 길에서만 읽고 쓴다(하드 룰 19)
 KEEP_ON="${FT_SCRATCH_KEEP_DIRTY:-0}"; KEEP_MAX_MB="${FT_SCRATCH_KEEP_MAX_MB:-500}"; KEEPDIR="$STATE/scratch-keep"   # r1090: 더러운 사본을 «보관 뒤 삭제» — 켜는 것은 planner h 의 env 하나(기본 꺼짐 · 꺼짐 = 지금 동작 + detached 더러움도 거절)   # r1029: 1440 → 240(오빠 결정 · 사본은 일회용 · 같은 sha 재생성 · 주인 살아 있음·cwd 보유는 그대로 보존)
 TIMEOUT_BIN=""; command -v gtimeout >/dev/null 2>&1 && TIMEOUT_BIN="$(command -v gtimeout)"; [ -n "$TIMEOUT_BIN" ] || { command -v timeout >/dev/null 2>&1 && TIMEOUT_BIN="$(command -v timeout)"; }
 TMO=""; [ -z "$TIMEOUT_BIN" ] || TMO="$TIMEOUT_BIN 7"
@@ -416,6 +418,72 @@ occ_decide() { # <kb> <경로> <reg|tmp> <사유> <주인> [초] → 그 사본�
     *) ODEF=$((ODEF+1));;
   esac
 }
+# ── r2372: 갈래 차례 — 두 갈래(등록 사본 줄 · TMPDIR tmp.*)를 C 순서로 정렬해 cursor 자리부터 회전하고 번갈아 본다 ────
+#   ※ 차례 계산의 비교·정렬은 반드시 LC_ALL=C(sort)로 한다 — 환경 로캘(ko_KR 등)이 차례를 바꾸면 한 바퀴가 돌지 않는다
+csort() { LC_ALL=C sort 2>/dev/null; }   # r2372: C 순서 하나만 본다(차례 계산용 단일 비교기)
+cge() { # <a> <b> → 0 = a 가 C 순서로 «b 이상» · «이름 일치» 가 아니라 순서 비교(r2375 교훈) · sort 1회
+  local first
+  first="$(printf '%s\n%s\n' "$2" "$1" | csort | { IFS= read -r _l && printf '%s' "$_l"; })"
+  [ "$first" = "$2" ]
+}
+rot_list() { # <cursor 경로|빈> <줄들> → C 순서 정렬 → «cursor 이상» 첫 줄부터 회전(그 앞 줄은 뒤로 · 한 줄 1회) · 빈 줄 버림
+  local c="${1:-}" L="${2:-}" k S=0 lo hi mid n=0
+  local -a A
+  A=()
+  L="$(printf '%s\n' "$L" | csort)"
+  while IFS= read -r k; do [ -n "$k" ] && { A[$n]="$k"; n=$((n+1)); }; done <<EOF
+$L
+EOF
+  if [ -n "$c" ] && [ "$n" -gt 0 ]; then
+    lo=0; hi=$n
+    while [ "$lo" -lt "$hi" ]; do
+      mid=$(( (lo + hi) / 2 ))
+      if cge "${A[$mid]%%"$TAB"*}" "$c"; then hi=$mid; else lo=$((mid + 1)); fi
+    done
+    [ "$lo" -lt "$n" ] && S=$lo
+  fi
+  k=$S
+  while [ "$k" -lt "$n" ]; do printf '%s\n' "${A[$k]}"; k=$((k+1)); done
+  k=0
+  while [ "$k" -lt "$S" ]; do printf '%s\n' "${A[$k]}"; k=$((k+1)); done
+  return 0
+}
+cur_read() { # r2372: <STATE>/scratch-sweep.cursor → CUR_REG · CUR_TMP(경로|빈 값) · 읽기 실패·꼴 틀림 = WARN 1줄 + 그 갈래 처음부터
+  local o l ty p w=0
+  CUR_REG=""; CUR_TMP=""
+  [ -e "$CURSOR" ] || return 0
+  if ! cap o cat -- "$CURSOR"; then
+    echo "WARN ft-scratch-repo — cursor 읽기 실패 · 두 갈래 처음부터 ($CURSOR)" >&2
+    return 0
+  fi
+  [ -n "$o" ] || return 0   # 빈 파일 = 두 갈래 다 한 바퀴 끝 — 빈 줄 경고 0
+  while IFS= read -r l; do
+    if [ -z "$l" ]; then
+      [ "$w" = 1 ] || { echo "WARN ft-scratch-repo — cursor 꼴 틀림(빈 줄) · 그 갈래 처음부터" >&2; w=1; }
+      continue
+    fi
+    case "$l" in *"$TAB"*) ;; *) [ "$w" = 1 ] || { echo "WARN ft-scratch-repo — cursor 꼴 틀림(탭 없음) · 그 갈래 처음부터" >&2; w=1; }; continue;; esac
+    ty="${l%%"$TAB"*}"; p="${l#*"$TAB"}"
+    case "$ty" in
+      reg) CUR_REG="$p";;
+      tmp) CUR_TMP="$p";;
+      *) [ "$w" = 1 ] || { echo "WARN ft-scratch-repo — cursor 꼴 틀림(갈래 ${ty}) · 그 갈래 처음부터" >&2; w=1; };;
+    esac
+  done <<EOF
+$o
+EOF
+  return 0
+}
+cur_write() { # r2372: 두 갈래의 끊긴 자리를 임시 파일 + mv 로 적는다(없는 갈래 = 줄 0 = 한 바퀴 끝) · 실패 = WARN 1줄(지운 수·끝 줄·rc 그대로)
+  local tmp="$STATE/.scratch-sweep.cursor.$$" ok=1
+  { [ -z "${CUT_REG:-}" ] || printf 'reg\t%s\n' "$CUT_REG"
+    [ -z "${CUT_TMP:-}" ] || printf 'tmp\t%s\n' "$CUT_TMP"
+  } > "$tmp" 2>/dev/null || ok=0
+  if [ "$ok" = 1 ] && mv -f -- "$tmp" "$CURSOR" 2>/dev/null; then return 0; fi
+  rm -f -- "$tmp" 2>/dev/null
+  echo "WARN ft-scratch-repo — cursor 못 씀 ($CURSOR)" >&2
+  return 0
+}
 orphans() { # → ORPH = "kb<TAB>경로<TAB>reg|tmp<TAB>사유" 줄들 · HOLD = "kb<TAB>경로<TAB>reg|tmp<TAB>사유(붙잡음)·…<TAB>주인<TAB>pid<TAB>명령" · N · K · HELD · TMUX_OK · LSOF_OK
   local SESS p o t b d TD now RAW r why jdl jt jnow jover=0 kbv oleft me tdl rows=""; ORPH=""; HOLD=""; N=0; K=0; HELD=0; HLSOF=0; TMUX_OK=1; LSOF_OK=1; READ_OK=1
   # r10.5: «지금» 을 못 읽으면(rc≠0·숫자 아님) 24시간 문턱도 빠른 길도 못 가린다 — 이번 판정 전체를 접는다(READ_OK=0 → sweep 삭제 0)
@@ -466,26 +534,17 @@ orphans() { # → ORPH = "kb<TAB>경로<TAB>reg|tmp<TAB>사유" 줄들 · HOLD =
   reg_rows
   [ "$REG_BAD" = 0 ] || { READ_OK=0; echo "ERROR 등록부 못 읽음 — 삭제 0" >&2; return 0; }
   rows="$ROWS"
+  # r2372: 갈래 목록 둘(등록 사본 줄 · tmp.* 경로)을 모아 C 순서로 회전한 뒤 번갈아 판정한다(tmp · reg · tmp · reg …)
+  local -a RG TG; RG=(); TG=(); RGL=""; TGL=""; RN=0; TN=0; RI=0; TI=0; ALT_ON=0; odef0=0; ln=""; TDL_OK=1
+  CUT_REG=""; CUT_TMP=""; CUR_WRITE=0; CUR_REG=""; CUR_TMP=""
   if cap SESS tmux_sessions; then
     while IFS="$TAB" read -r p o t b; do
       [ -n "$p" ] && [ -d "$p" ] || continue
       # r897 r10: 주인 대조 = 정확 대조 — 이름에 정규식 글자(예: seat[)가 있어도 글자 그대로 · r10.5: 셸 안 대조(has_line · 실패할 외부 호출 0)
       has_line "$SESS" "$o" && continue
       case "$t" in ''|*[!0-9]*) echo "ERROR 등록표 3열이 숫자 아님 — 삭제 0 (경로 $p · 3열 '${t}')" >&2; continue;; esac
-      why="등록 사본 · 주인 $o 없음"
-      if [ $((now - t)) -lt $((AGE*60)) ]; then   # 2720 빠른 길: «판정 끝 표식 ∧ 이름·HEAD·detached» — 예산 안에서만 · 못 읽거나 거짓이면 24시간 규칙으로 후퇴
-        [ "$jover" = 0 ] || continue
-        # r10.5: 예산 시계도 rc0 ∧ 숫자일 때만
-        cap jnow date +%s && isnum "$jnow" || { READ_OK=0; echo "ERROR 시계(date +%s) 못 읽음 — 삭제 0" >&2; return 0; }   # r5: 시계 못 읽음 = 이번 실행 전체 삭제 0(tmp 포함)
-        jt=$(( jdl - jnow )); [ "$jt" -gt 7 ] && jt=7
-        if [ "$jt" -le 0 ]; then jover=1; echo "WARN ft-scratch-repo — 판정 예산(${FT_SCRATCH_JUDGE_BUDGET:-20}초) 초과 · 남은 사본은 즉시 삭제 후보 아님" >&2; continue; fi
-        JUDGE_TMO=$jt; fast "$p" || { JUDGE_TMO=7; continue; }; JUDGE_TMO=7
-        why="$why · judged"
-      fi
-      # r1029 r2: 판정 예산이 이미 바닥이면 크기(du)도 부르지 않고 다음 틱으로 넘긴다 — 사본 수에 비례해 회차가 끝나지 않던 길 · «남은 사본 N개 다음 틱» 1줄이 그대로 센다
-      # r2363: 두 길 모두 같은 예산 시계(copy_kb) — 보고 길은 넘은 사본을 «?» 로 표에 남긴다(표시 전용(크기) · 결정 입력 0 · r5: 빈 칸 0)
-      copy_kb "$p" || continue
-      occ_decide "$COPY_KB" "$p" reg "$why" "$o" "$COPY_LEFT"
+      RGL="$RGL$p$TAB$o$TAB$t$TAB$b
+"
     done <<EOF
 $rows
 EOF
@@ -496,13 +555,62 @@ EOF
     while IFS= read -r d; do
       case "$d" in "$TD"/tmp.*) [ -d "$d" ] || continue;; *) continue;; esac
       case "${d#"$TD"/}" in */*) continue;; esac
-      # r1029 r2: 예산이 바닥이면 tmp.* 도 du 호출 0 으로 다음 틱 · r2363: 보고 길은 «?» 로 표에 남긴다
-      copy_kb "$d" || continue
-      occ_decide "$COPY_KB" "$d" tmp "TMPDIR tmp.* ${AGE}분 지남" "-" "$COPY_LEFT"
+      TGL="$TGL$d
+"
     done <<EOF
 $tdl
 EOF
-  else echo "WARN ft-scratch-repo — TMPDIR 목록(id·find) 못 읽음 · tmp.* 삭제 0" >&2; fi
+  else TDL_OK=0; echo "WARN ft-scratch-repo — TMPDIR 목록(id·find) 못 읽음 · tmp.* 삭제 0" >&2; fi
+  # r2372: 지우기 길에서만 cursor 를 읽고 두 갈래를 C 순서로 회전한다(보고 길 = 지금 순서 그대로 · cursor 읽기·쓰기 0)
+  if [ "$REPORT_ONLY" = 0 ]; then
+    cur_read
+    [ "$TMUX_OK" = 0 ] || cap RGL rot_list "$CUR_REG" "$RGL"
+    [ "$TDL_OK" = 0 ] || cap TGL rot_list "$CUR_TMP" "$TGL"
+    ALT_ON=1
+  fi
+  if [ -n "$RGL" ]; then while IFS= read -r ln; do [ -z "$ln" ] || { RG[$RN]="$ln"; RN=$((RN+1)); }; done <<EOF
+$RGL
+EOF
+  fi
+  if [ -n "$TGL" ]; then while IFS= read -r ln; do [ -z "$ln" ] || { TG[$TN]="$ln"; TN=$((TN+1)); }; done <<EOF
+$TGL
+EOF
+  fi
+  # r2372: 판정 차례 — 지우기 길 = tmp·reg·tmp·reg 번갈아(한 갈래가 끝나면 남은 갈래만) · 보고 길 = 지금 그대로(등록 사본 먼저 · 그 뒤 tmp.*)
+  while [ "$RI" -lt "$RN" ] || [ "$TI" -lt "$TN" ]; do
+    if [ "$TI" -lt "$TN" ] && { [ "$RI" -ge "$RN" ] || { [ "$ALT_ON" = 1 ] && [ $(( (RI + TI) % 2 )) = 0 ]; }; }; then
+      p="${TG[$TI]}"; TI=$((TI+1)); odef0=$ODEF
+      # r1029 r2: 예산이 바닥이면 tmp.* 도 du 호출 0 으로 다음 틱 · r2363: 보고 길은 «?» 로 표에 남긴다
+      copy_kb "$p" || { CUT_TMP="${CUT_TMP:-$p}"; continue; }
+      occ_decide "$COPY_KB" "$p" tmp "TMPDIR tmp.* ${AGE}분 지남" "-" "$COPY_LEFT"
+      [ "$ODEF" = "$odef0" ] || CUT_TMP="${CUT_TMP:-$p}"   # r2372: 점유 조회가 예산에 끊긴 사본 = «판정 못 한» 첫 항목
+    else
+      p=""; o=""; t=""; b=""; IFS="$TAB" read -r p o t b <<EOF
+${RG[$RI]}
+EOF
+      RI=$((RI+1)); odef0=$ODEF
+      why="등록 사본 · 주인 $o 없음"
+      if [ $((now - t)) -lt $((AGE*60)) ]; then   # 2720 빠른 길: «판정 끝 표식 ∧ 이름·HEAD·detached» — 예산 안에서만 · 못 읽거나 거짓이면 24시간 규칙으로 후퇴
+        [ "$jover" = 0 ] || { CUT_REG="${CUT_REG:-$p}"; continue; }
+        # r10.5: 예산 시계도 rc0 ∧ 숫자일 때만
+        cap jnow date +%s && isnum "$jnow" || { READ_OK=0; echo "ERROR 시계(date +%s) 못 읽음 — 삭제 0" >&2; return 0; }   # r5: 시계 못 읽음 = 이번 실행 전체 삭제 0(tmp 포함)
+        jt=$(( jdl - jnow )); [ "$jt" -gt 7 ] && jt=7
+        if [ "$jt" -le 0 ]; then jover=1; echo "WARN ft-scratch-repo — 판정 예산(${FT_SCRATCH_JUDGE_BUDGET:-20}초) 초과 · 남은 사본은 즉시 삭제 후보 아님" >&2; CUT_REG="${CUT_REG:-$p}"; continue; fi
+        JUDGE_TMO=$jt; fast "$p" || { JUDGE_TMO=7; continue; }; JUDGE_TMO=7
+        why="$why · judged"
+      fi
+      # r1029 r2: 판정 예산이 이미 바닥이면 크기(du)도 부르지 않고 다음 틱으로 넘긴다 — 사본 수에 비례해 회차가 끝나지 않던 길 · «남은 사본 N개 다음 틱» 1줄이 그대로 센다
+      # r2363: 두 길 모두 같은 예산 시계(copy_kb) — 보고 길은 넘은 사본을 «?» 로 표에 남긴다(표시 전용(크기) · 결정 입력 0 · r5: 빈 칸 0)
+      copy_kb "$p" || { CUT_REG="${CUT_REG:-$p}"; continue; }
+      occ_decide "$COPY_KB" "$p" reg "$why" "$o" "$COPY_LEFT"
+      [ "$ODEF" = "$odef0" ] || CUT_REG="${CUT_REG:-$p}"   # r2372: 점유 조회가 예산에 끊긴 사본 = «판정 못 한» 첫 항목
+    fi
+  done
+  # r2372: 갈래 목록을 다 읽었을 때만 cursor 를 쓴다(tmux 못 읽음 = 손 0) · tmp 목록 못 읽음 = 그 갈래 cursor 그대로
+  if [ "$REPORT_ONLY" = 0 ] && [ "$TMUX_OK" = 1 ]; then
+    CUR_WRITE=1
+    [ "$TDL_OK" = 1 ] || CUT_TMP="$CUR_TMP"
+  fi
   # r1029: 예산을 넘긴 사본은 «조용한 0» 이 아니라 1줄로 알린다(다음 틱에 다시 본다) · r2363: 보고 길은 «크기 못 잼» 1줄(표 줄은 그대로)
   if [ "$ODEF" != 0 ]; then
     if [ "$REPORT_ONLY" != 0 ]; then echo "WARN ft-scratch-repo — 보고 예산(${FT_SCRATCH_JUDGE_BUDGET:-20}초) 초과 · 크기 못 잰 사본 ${ODEF}개 «?»" >&2
@@ -765,8 +873,23 @@ done_run() { # <경로> --done: 등록된 «내» 사본만 지운다(r897 r10: 
 finline() { # <swept> <owner-dead> <refused-dirty> <refused-keep> <refused-other> <kept> <unknown> — r1090 끝 줄 하나(r1090 단계 2: unknown = 항목 재확인을 못 읽어 «판정 불가» 로 남긴 수)(로그·stdout 같은 눈금 · held/held-lsof 는 전역 HELD·HLSOF)
   printf 'swept=%s owner-dead=%s tmp=%s held=%s refused-dirty=%s refused-keep=%s held-lsof=%s refused-other=%s kept=%s unknown=%s\n' "$1" "$2" "$(( $1 - $2 ))" "${HELD:-0}" "$3" "$4" "${HLSOF:-0}" "$5" "$6" "${7:-0}"
 }
+sweep_round() { # r2372: --sweep 래퍼 — 회차 몸(sweep_run)을 돌린 뒤 갈래별 «끊긴 자리» 를 cursor 에 남긴다 · rc·끝 줄·지운 수는 그대로
+  local rc=0
+  DEL_CUT_REG=""; DEL_CUT_TMP=""
+  sweep_run || rc=$?
+  if [ "${CUR_WRITE:-0}" = 1 ]; then
+    # r2372: 갈래마다 «삭제 차례가 안 온» 첫 항목(회전 차례에서 앞선 것 · 경로 크기 비교 0) — 그게 없으면 «판정 못 한» 첫 항목 · 둘 다 없으면 그 갈래 줄 0(한 바퀴 끝)
+    [ -z "$DEL_CUT_REG" ] || CUT_REG="$DEL_CUT_REG"
+    [ -z "$DEL_CUT_TMP" ] || CUT_TMP="$DEL_CUT_TMP"
+    cur_write
+  fi
+  return "$rc"
+}
 sweep_run() { # --sweep: 주인 없는 사본 정리(판정 1920 · r548 · r444 · r897 r10) — 하나라도 못 읽으면 삭제 0
   local k p ty why own rc now today g l DEL=0 DK=0 DREG=0 RSTART RSTOP=0 RD=0 RK=0 RO=0 KEPT=0 UNK=0 URUN=0
+  cutd() { # <reg|tmp> <경로> r2372: 삭제 차례가 안 온 첫 항목(갈래별 1개 · 회전 차례 순서)
+    case "$1" in reg) DEL_CUT_REG="${DEL_CUT_REG:-$2}";; tmp) DEL_CUT_TMP="${DEL_CUT_TMP:-$2}";; esac
+  }
   cap today date +%F   # 표시 전용(로그 날짜)
   # r1090 DA②(arch#176 결정 4): 회차 70초 시계는 «후보 판정(orphans) 전» 에 시작한다 — 판정이 쓴 시간도 그 회차에 든다(하드 룰 12)
   cap RSTART date +%s && isnum "$RSTART" || { printf '%s ERROR 시계 못 읽음 — 삭제 0\n' "$today" >> "$SLOG"; echo "ERROR 시계(date) 못 읽음 — 임시 사본 정리 생략·삭제 0"; return 0; }
@@ -798,14 +921,14 @@ sweep_run() { # --sweep: 주인 없는 사본 정리(판정 1920 · r548 · r444
   HS_STOP=0
   while IFS="$TAB" read -r k p ty why own; do
     [ -n "$p" ] || continue
-    [ "$RSTOP" = 0 ] || continue
+    [ "$RSTOP" = 0 ] || { cutd "$ty" "$p"; continue; }
     cap now date +%s && isnum "$now" || { RSTOP=1; echo "WARN ft-scratch-repo — 시계 못 읽음 · 남은 항목 삭제 0" >&2; continue; }
     # r1090: 회차 상한 70초는 «시작 시각» 기준이다 — 새 사본은 남은 예산 15초 이상일 때만 시작한다(진행 중인 조회가 최대 7초×2 를 더 쓸 수 있다 · bore 80초 돌파 실측)
-    if [ $(( now - RSTART )) -gt 70 ]; then RSTOP=1; echo "WARN ft-scratch-repo — 재확인 70초 초과 · 남은 항목은 다음 정리로" >&2; continue; fi
-    if [ $(( 70 - (now - RSTART) )) -lt 15 ]; then RSTOP=1; echo "WARN ft-scratch-repo — 회차 예산 15초 미만 · 남은 항목은 다음 정리로" >&2; continue; fi
+    if [ $(( now - RSTART )) -gt 70 ]; then RSTOP=1; cutd "$ty" "$p"; echo "WARN ft-scratch-repo — 재확인 70초 초과 · 남은 항목은 다음 정리로" >&2; continue; fi
+    if [ $(( 70 - (now - RSTART) )) -lt 15 ]; then RSTOP=1; cutd "$ty" "$p"; echo "WARN ft-scratch-repo — 회차 예산 15초 미만 · 남은 항목은 다음 정리로" >&2; continue; fi
     HW=$(( 70 - (now - RSTART) - 15 )); [ "$HW" -gt 60 ] && HW=60; [ "$HW" -gt "${FT_HEAVY_WAIT_S:-60}" ] && HW="${FT_HEAVY_WAIT_S:-60}"
     if ! hs_acquire scratch-rm "$HW"; then
-      HS_STOP=1; RSTOP=1
+      HS_STOP=1; RSTOP=1; cutd "$ty" "$p"
       printf '%s 자리 대기 초과 %s (%s)\n' "$today" "$p" "${HS_MSG:-}" >> "$SLOG"
       echo "WARN ft-scratch-repo — 무거운 git 자리 대기 초과 · 남은 항목 삭제 0 (${HS_MSG:-})" >&2
       continue
@@ -879,7 +1002,7 @@ case "${1:-}" in
     orphans
     if [ "${2:-}" = --summary ]; then [ "$N" = 0 ] || printf '주인 없는 임시 사본 %s개 %s GiB%s\n' "$N" "$(gib "$K")" "$([ "$ODEF" = 0 ] || printf ' · 크기 못 잼 %s개' "$ODEF")"   # r2363: 못 잰 수는 같은 줄에(예산 안에서 잰 것만 GiB 합 · 알려진 한계 1)
     else printf '%s%s' "$ORPH" "$HOLD" | awk -F'\t' '$2!=""{k=$1; if (k !~ /^[0-9]+$/) { printf "?\t%s\t%s\n", $2, $4; next } printf "%s\t%s\t%s\n", sprintf("%.2f", k/1048576), $2, $4}'; fi;;   # r548: 붙잡은 사본도 «붙잡음 pid …» 칸으로 보인다 · --summary 는 지울 수 있는 것만 센다 · r2363: 예산으로 못 잰 사본은 크기 «?»(0.00 아님)
-  --sweep) sweep_run;;
+  --sweep) sweep_round;;
   --prune-missing) [ "${2:-}" = --owners ] && [ -n "${3:-}" ] || die "usage: --prune-missing --owners <주인 파일>" 2; prune_missing "$3"; exit $?;;
   --gate)   # r5: 출구 게이트를 «삭제 단계 없이» 돌린다 — 조건별 줄 + rc · 삭제 0
     P="${2:-}"; shift 2 2>/dev/null || shift $#; GK=""; GO=""
