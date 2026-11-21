@@ -103,7 +103,7 @@ role ∈ master·pm·da·nano·tester·harness-design. tick ∈ null · `ft-mast
 | 역할 | 1순위 | 2순위 | 3순위 | 마지막 | 왜 |
 |---|---|---|---|---|---|
 | **checker · tester** (press 실행·poller/BTS 대조·읽기조사) | **luna** `--agent codex --model gpt-5.6-luna --effort high --fast on` | **sonnet** `--agent claude --model claude-sonnet-5[1m]` | (cmd — `FT_CMD_ENABLED=1` 일 때 1순위로 복귀) | — | 오빠 확정 「luna > sonnet」(2026-09-14: zcode 구독 없음 → 제외 · cmd 월제한 9/18 해제까지 제외 「cmd도 넘기자」). 로그·poller 를 통째로 읽어 컨텍스트를 많이 먹는다 — 싸고 빠른 것부터, sonnet 은 마지막 |
-| **impl** (구현 나노) | `claude` `claude-fable-5-1[1m]` — **메인** | luna | (cmd, `FT_CMD_ENABLED=1` 시 :2) | — | 오빠 「fable 이 구현은 메인으로 사용」. 인덱스 1건을 컨텍스트 안에서 끝내는 자리. 싼 순위는 «컨텍스트 소모형 구현»(로그 파싱·대량 치환·회귀 돌리기)에 선택 |
+| **impl** (구현 나노) | `claude` `claude-fable-5-2[1m]` — **메인** | luna | (cmd, `FT_CMD_ENABLED=1` 시 :2) | — | 오빠 「fable 이 구현은 메인으로 사용」. 인덱스 1건을 컨텍스트 안에서 끝내는 자리. 싼 순위는 «컨텍스트 소모형 구현»(로그 파싱·대량 치환·회귀 돌리기)에 선택 |
 | master · da · pm | 현행(README §2) | | | | |
 
 ★워커 종류는 셋 — **checker(BTS+poller 대조) · tester(press 실행) · impl(구현)** — 전부 «나노» 로 열고 `--tier` 로 모델을 고른다★ (오빠 「checker(bts+poller), tester, impl 다양하게 워커로 사용 … 그외 여러 컨텍스트 소모 작업에 다양하게 선택 사용」). 인덱스 §구현 범위가 «읽고 대조·press 쏘기» 면 checker/tester 1순위(zcode), «코드를 고친다» 면 impl 1순위(fable). 한 인덱스에 둘 다 있으면 나노 2개(impl 뒤 checker) — 한 좌석에 섞지 않는다(HARNESS-TREE checker 계약: 판정 라벨 금지).
