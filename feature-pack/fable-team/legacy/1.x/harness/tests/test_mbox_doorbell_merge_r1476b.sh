@@ -102,16 +102,19 @@ S a#1 s1#1 "T9 발신 실패"; chmod 700 "$B9b/.fable-team/comm"
 [ -z "$(heldn a#1)" ] && ok "T9 발신 실패 → held 0" || bad "T9 발신 실패 → held 0" "$(heldn a#1)"
 eq "T9 발신 실패 → 예약 환불(n 0)" "$(bn a#1)" 0
 
-# ── T10: 후속 전달 실패(absent) → held 보존 + last_err + 환불 · 다음 sweep 에 성공 ─────────────
+# ── T10: 후속 전달 실패(noagent) → held 보존 + last_err + 환불 · 다음 sweep 에 성공 ─────────────
+#   ★r2378 K1★ — «세션 없음(absent)» 은 이제 예약·ring 전에 done/ 으로 닫힌다(새 시험 test_mbox_followup_absent_done_r2378.sh ①).
+#   그래서 «전달 실패 → 보존+환불» 갈래는 «세션은 있는데 본체가 없다»(noagent)로 잰다 — 재시도 계약은 그대로다.
 B10="$(mkbox t10)"; use "$B10"; NOW="$W0"
-export TMUX_SEATS="b#1"                       # a#1 pane 없음 = absent
+printf '#!/bin/sh\nprintf "%%s\\n" "900001     1 S    /bin/zsh"\n' > "$T/fakebin/ps-noagent"; chmod +x "$T/fakebin/ps-noagent"
+export TMUX_SEATS="$ALLSEATS" FT_PS_CMD="$T/fakebin/ps-noagent"   # a#1 pane 있음 + 살아 있는 본체 0 = noagent
 heldput "$W0" held 472223 a#1 "seq=7"
 budput 472223 5 a#1; budput 472223 5 _team-t1
 NOW=$((W0 + 400)); run "$NOW" sweep
 eq "T10 전달 실패 followup 0" "$(grep -c 'followup=' <<<"$OUT")" 0
-grep -q '^last_err=absent ' <<<"$(heldn a#1)" && ok "T10 held 보존 + last_err=absent" || bad "T10 held 보존 + last_err=absent" "$(heldn a#1)"
+grep -q '^last_err=noagent ' <<<"$(heldn a#1)" && ok "T10 held 보존 + last_err=noagent" || bad "T10 held 보존 + last_err=noagent" "$(heldn a#1)"
 eq "T10 전달 실패 → 환불 n=5" "$(bn a#1)" 5
-export TMUX_SEATS="$ALLSEATS"
+export FT_PS_CMD="$T/fakebin/ps"              # 본체가 떴다 = 다음 sweep 성공
 run "$NOW" sweep
 eq "T10 다음 sweep 성공 followup=a#1" "$(nv "$OUT" followup)" a#1
 [ -z "$(heldn a#1)" ] && ok "T10 다음 sweep held 삭제" || bad "T10 다음 sweep held 삭제"
