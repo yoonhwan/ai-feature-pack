@@ -1,7 +1,8 @@
-// ft-nano-repo-grep-guard (r2379) — 나노 좌석(pi)이 «리포 루트 재귀 grep» 을 bash 로 돌리지 못하게 tool_call 문지기에서 거절하고 갈 길(ci·범위 경로)을 알려 준다.
+// ft-nano-repo-grep-guard (r2379 · r2413 find 갈래) — pi 좌석이 «리포 루트 재귀 grep»(나노) 과 «리포 루트 find»(좌석 전부)를 bash 로 돌리지 못하게 tool_call 문지기에서 거절하고 갈 길(ci·git ls-files·범위 경로)을 알려 준다.
 //  · 거절 = 나노 꼴 좌석 ∧ 명령 토막 하나라도 (재귀 grep ∧ 루트 대상) → {block:true, reason} · 파이프 뒤 토막도 같은 판정
+//  · find 거절(r2413) = FT_SEAT_NAME 있는 좌석 전부 ∧ 토막 첫 낱말 find ∧ (루트 대상 ∧ 깊이 제한 없음(-maxdepth N ≤ 3) ∧ 가지치기 없음(-prune)) · 폴더를 좁혔거나 깊이·가지치기를 준 find 는 그대로
 //  · 통과 = 나노 아님·좌석 미상·bash 밖 도구(pi grep·read·ci)·재귀 아님·기준 폴더 아래 하위 폴더 대상·rg(손 0) · 판정 불가(git rc≠0·7초·나누기 실패·풀 수 없는 cd) = 통과 + NOTE 1줄(사유별 1회 · 하드 룰 20) — 확장 오류로 도구 호출을 막지 않는다
-//  · 거절마다 <루트>/.fable-team/state/nano-grep-block.log 1줄(같은 좌석·같은 명령 1회 · 0644 · 하드 룰 19) · 쓰기 실패 = ERROR 1줄 · 설치 = ~/.pi/agent/extensions 복사 1개(master h) · env = FT_SEAT_NAME · FT_LIVE_ROOT · 시험 = tests/test_nano_repo_grep_guard_r2379.sh
+//  · 거절마다 <루트>/.fable-team/state/nano-grep-block.log 1줄(같은 좌석·같은 명령 1회 · 0644 · 하드 룰 19) · 쓰기 실패 = ERROR 1줄 · 설치 = ~/.pi/agent/extensions 복사 1개(master h) · env = FT_SEAT_NAME · FT_LIVE_ROOT · 시험 = tests/test_nano_repo_grep_guard_r2379.sh · tests/test_nano_repo_find_guard_r2413.sh
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { execFileSync } from "node:child_process";
@@ -10,8 +11,10 @@ import { appendLoadLine, say } from "./ft-load-line.ts"; // r1537 로드 줄 · 
 import { seatOf, realish } from "./ft-live-write-guard.ts"; // r1672 좌석·realpath 판정 재사용(그 파일 손 0)
 
 const NANO = /(^|[-_/.])nano([-_#./]|$)/, GREPS = /^(grep|egrep|fgrep)$/, VALUED = new Set(["--include", "--exclude", "--exclude-dir"]);
+const FINDS = /^find$/, FIND_PRE = new Set(["-H", "-L", "-P", "-E", "-X", "-d", "-s", "-x"]);
 const SEPC = new Set(["&", "|", ";", "\n", "(", ")", "`"]), OPENS = new Set(["(", "$(", "`"]);
 export const WHY = '[ft-nano-repo-grep-guard] 리포 루트 재귀 grep 금지(하드 룰 16) — ci search "<말>" <카드 §구현 범위 폴더> --max 5 · 심볼 = ci sym <이름> · 참조 = ci refs "<파일>#<이름>" · 파일 구조 = ci outline <파일>(code-intel) · 또는 grep 대상을 그 폴더로 좁힘';
+export const WHY_FIND = "[ft-nano-repo-grep-guard] 리포 루트 find 금지(.worktrees·사본까지 훑음) — 추적 파일 = git ls-files '<패턴>' · 코드 = ci search · 그 밖 = 폴더를 좁힌 find <폴더> 또는 find . -maxdepth 3";
 type Seg = { toks: string[]; sep: string };
 type Verdict = { block: boolean; bad: string; root: string; target: string };
 const NO: Verdict = { block: false, bad: "", root: "", target: "" };
@@ -168,6 +171,69 @@ export function judge(cmd: string, base0: string): Verdict {
   return NO;
 }
 
+// find 인자 — 앞 옵션(-H·-L·-P·-E·-X·-d·-s·-x) 건너뛰고 경로 낱말(첫 식 낱말 «-»·«(»·«!» 앞까지 · -f <경로> = 경로) · 깊이 제한(-maxdepth N) · 가지치기(-prune)
+export function parseFind(toks: string[], i0: number): { paths: string[]; depth: number; prune: boolean; bad: string } {
+  const paths: string[] = []; let i = i0, depth = -1, prune = false;
+  while (i < toks.length) {
+    const t = toks[i];
+    if (FIND_PRE.has(t)) { i++; continue; }
+    if (t !== "-f") break;
+    const w = toks[i + 1] ?? ""; if (!w) return { paths, depth, prune, bad: "대상 없는 -f" };
+    paths.push(w); i += 2;
+  }
+  for (; i < toks.length; i++) {
+    const t = toks[i];
+    if (t.startsWith("-") || t === "(" || t === "!") break;
+    paths.push(t);
+  }
+  for (let j = i; j < toks.length; j++) {
+    if (toks[j] === "-prune") prune = true;
+    if (toks[j] === "-maxdepth") { const n = Number(toks[j + 1]); depth = Number.isFinite(n) ? n : -1; j++; }
+  }
+  const v = paths.find((w) => /\$|`/.test(w)); // 변수·명령 치환 경로 = 판정 불가(알려진 한계 2)
+  return { paths, depth, prune, bad: v ? `풀 수 없는 find 경로(${v})` : "" };
+}
+// find 전용 루트 대상 — 경로 낱말을 base 기준 절대 경로로 풀어 루트와 같거나 «루트의 조상» 이면 참(기존 atRoot = grep 완전 일치 전용 · 손 0)
+function atFindRoot(paths: string[], base: string, roots: string[]): boolean {
+  const ps = paths.length > 0 ? paths : ["."];
+  return ps.some((w) => {
+    const p = abs(w, base);
+    if (!p) return false;
+    const pre = p.endsWith(path.sep) ? p : p + path.sep;
+    return roots.some((r) => r === p || r.startsWith(pre));
+  });
+}
+// find 한 명령 판정(K1~K3) — 토막마다 기준 폴더를 따라가며 루트 대상 find 를 모으고, 루트 집합은 루트 대상 find 가 있을 때만 부른다
+export function judgeFind(cmd: string, base0: string): Verdict {
+  const { segs, bad } = splitCmd(cmd);
+  if (bad) return { ...NO, bad };
+  let base = base0; const stack: string[] = [], found: { paths: string[]; base: string }[] = [], memo = new Map<string, ReturnType<typeof rootsOf>>();
+  for (const s of segs) {
+    if (OPENS.has(s.sep)) stack.push(base);
+    if ((s.toks[0] ?? "") === "cd") {
+      if (s.toks.length === 1 && (s.sep === "$(" || s.sep === "`")) return { ...NO, bad: "풀 수 없는 cd($(…))" };
+      const r = cdStep(s.toks, base);
+      if (r.bad) return { ...NO, bad: r.bad };
+      base = r.base ?? base;
+    } else {
+      const k = headIndex(s.toks);
+      if (k >= 0 && FINDS.test(path.basename(s.toks[k]))) {
+        const a = parseFind(s.toks, k + 1);
+        if (a.bad) return { ...NO, bad: a.bad };
+        if (!a.prune && !(a.depth >= 0 && a.depth <= 3)) found.push({ paths: a.paths, base });
+      }
+    }
+    if (s.sep === ")") base = stack.pop() ?? base0;
+  }
+  for (const f of found) {
+    if (!memo.has(f.base)) memo.set(f.base, rootsOf(f.base));
+    const rr = memo.get(f.base) as ReturnType<typeof rootsOf>;
+    if (rr.bad) return { ...NO, bad: rr.bad };
+    if (atFindRoot(f.paths, f.base, rr.roots)) return { block: true, bad: "", root: rr.roots[0] ?? f.base, target: f.paths.length ? f.paths.join(" ") : f.base };
+  }
+  return NO;
+}
+
 // 거절 기록 1줄 — 같은 좌석·같은 명령은 1회만 · 쓰기 실패 = ERROR 1줄(거절은 그대로)
 export function logBlock(root: string, seat: string, cmd: string): void {
   const f = path.join(root, ".fable-team", "state", "nano-grep-block.log");
@@ -180,21 +246,26 @@ export function logBlock(root: string, seat: string, cmd: string): void {
 
 export default function (pi: ExtensionAPI) {
   const noted = new Set<string>();
+  const note = (bad: string) => { if (!noted.has(bad)) { noted.add(bad); say(`NOTE ft-nano-repo-grep-guard: 판정 불가 ${bad}`); } }; // 판정 불가 = NOTE 1줄(사유별 1회)
   pi.on("session_start", async () => { appendLoadLine(pi, "r2379", "ft-nano-repo-grep-guard.ts"); });
   pi.on("tool_call", async (event) => {
     const seat = seatOf();
-    if (!seat || !NANO.test(seat)) return;                                     // 나노 아님·좌석 미상 = 통과
+    if (!seat) return;                                                         // 좌석 env 없음 = 판정 0(K1·K3)
     if (String(event.toolName ?? "") !== "bash") return;                       // bash 밖(pi grep·read·ci) = 통과
     const cmd = String((event.input as Record<string, unknown> | undefined)?.command ?? "");
     if (!cmd) return;
-    let v: Verdict;
-    try { v = judge(cmd, process.cwd()); } catch (e) { say(`ERROR ft-nano-repo-grep-guard: 판정 실패 — ${e}`); return; }
-    if (v.bad) {                                                               // 판정 불가 = 통과 + NOTE 1줄(사유별 1회)
-      if (!noted.has(v.bad)) { noted.add(v.bad); say(`NOTE ft-nano-repo-grep-guard: 판정 불가 ${v.bad}`); }
-      return;
+    const isNano = NANO.test(seat);                                            // grep 갈래 대상 = 나노만(r2379 그대로)
+    if (isNano) {
+      let v: Verdict;
+      try { v = judge(cmd, process.cwd()); } catch (e) { say(`ERROR ft-nano-repo-grep-guard: 판정 실패 — ${e}`); return; }
+      if (v.bad) { note(v.bad); return; }
+      if (v.block) { logBlock(v.root, seat, cmd.slice(0, 120)); return { block: true, reason: `${WHY} · 대상 ${v.target}` }; }
     }
-    if (!v.block) return;
-    logBlock(v.root, seat, cmd.slice(0, 120));
-    return { block: true, reason: `${WHY} · 대상 ${v.target}` };
+    let f: Verdict;                                                            // find 갈래 = FT_SEAT_NAME 있는 좌석 전부(K1)
+    try { f = judgeFind(cmd, process.cwd()); } catch (e) { say(`ERROR ft-nano-repo-grep-guard: find 판정 실패 — ${e}`); return; }
+    if (f.bad) { note(f.bad); return; }
+    if (!f.block) return;
+    logBlock(f.root, seat, cmd.slice(0, 120));
+    return { block: true, reason: `${WHY_FIND} · 대상 ${f.target}` };
   });
 }
