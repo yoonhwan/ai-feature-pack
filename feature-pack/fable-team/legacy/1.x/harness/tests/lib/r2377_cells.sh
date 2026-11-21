@@ -150,18 +150,35 @@ c12() { local d="$T/lint"; mkdir -p "$d"; local G='git archive $S d' X='tar -x -
   printf '%s\n' '#!/bin/bash' 'exec /opt/bin/ft-base-run.sh HEAD -- bash t.sh' > "$d/call.sh"
   printf '%s\n' '#!/bin/bash' 'S=HEAD' 'mk() {' "$G | $X $P1" '}' 'echo hi' > "$d/runme.sh"   # 러너 경로: 줄은 있지만 실행은 안 한다
   chmod +x "$d"/*.sh
-  local r1 r2 r3 r4 r5 r6 o4
+  local r1 r2 r3 r4 o4
   OUT="$("$LINT_RUN" "$d/litok.sh" 2>&1)"; r1=$?
   OUT2="$("$LINT_RUN" "$d/varok.sh" 2>&1)"; r2=$?
   OUT3="$("$LINT_RUN" "$d/call.sh" 2>&1)"; r3=$?
   o4="$(TMPDIR="$TD" bash "$EBIN/ft-test-run.sh" "$d/runme.sh" 2>"$T/e12")"; r4=$?
-  OUT5="$(bash "$HERE/test_test_reentry_lint.sh" 2>&1)"; r5=$?
-  OUT6="$(bash "$HERE/test_test_run_reap_bg_r1234.sh" 2>&1)"; r6=$?
-  RES=1; MSG="rc=$r1/$r2/$r3/$r4 기존=$r5/$r6 o4=«$(printf '%s' "$o4" | tail -1)» err=«$(grep -m1 BASECOPY "$T/e12" | cut -c1-60)»"
+  RES=1; MSG="rc=$r1/$r2/$r3/$r4 o4=«$(printf '%s' "$o4" | tail -1)» e12=«$(tr '\n' ' ' < "$T/e12" | cut -c1-220)»"
   [ "$r1" = 0 ] && [ "$r2" = 0 ] && [ "$r3" = 0 ] || { RES=0; return; }
   case "$OUT$OUT2$OUT3" in *BASECOPY*) RES=0; return;; esac
   [ "$r4" = 0 ] || { RES=0; return; }
   case "$o4" in *hi*) ;; *) RES=0; return;; esac
-  case "$(cat "$T/e12")" in *"WARN BASECOPY "*) ;; *) RES=0; return;; esac
+  case "$(cat "$T/e12")" in *"WARN BASECOPY "*) ;; *) RES=0; return;; esac; }
+
+# ══ ⑭ 기존 린트 시험 그대로 (reentry-lint · r1234 시험 러너) — 무거워서 3회 반복 밖에 한 번만 ══
+c14() { local r5 r6
+  OUT5="$(bash "$HERE/test_test_reentry_lint.sh" 2>&1)"; r5=$?
+  OUT6="$(bash "$HERE/test_test_run_reap_bg_r1234.sh" 2>&1)"; r6=$?
+  RES=1; MSG="rc=$r5/$r6"
   case "$OUT5" in *"fail=0"*) ;; *) RES=0; return;; esac
   case "$OUT6" in *"ALL PASS"*) ;; *) RES=0; return;; esac; }
+
+# ══ ⑬ (정정 r3 · DA#52 H1) 가짜 python3(exit 1) → `BASECOPY-판정불가 <파일>` 1줄 · rc 3 (fail-open 0) ══
+c13() { local d="$T/lint" fp="$T/fpy"; mkdir -p "$d" "$fp"; local G='git archive $S d' X='tar -x -C' P1='/private/tmp/x-base'
+  printf '%s\n' '#!/bin/bash' 'S=HEAD' "$G | $X $P1" > "$d/lit.sh"
+  printf '%s\n' '#!/usr/bin/env bash' 'exit 1' > "$fp/python3"; chmod +x "$fp/python3"
+  local r; OUT="$(PATH="$fp:$PATH" "$LINT_RUN" "$d/lit.sh" 2>&1)"; r=$?
+  RES=1; MSG="rc=$r 판정불가줄=$(printf '%s' "$OUT" | grep -c '^BASECOPY-판정불가 ') out=«$(printf '%s' "$OUT" | head -2 | tr '\n' ' ' | cut -c1-160)»"
+  [ "$r" = 3 ] || { RES=0; return; }
+  [ "$(printf '%s\n' "$OUT" | grep -c '^BASECOPY-판정불가 ')" = 1 ] || { RES=0; return; }
+  case "$OUT" in *"BASECOPY-판정불가 $d/lit.sh"*) ;; *) RES=0; return;; esac; }
+
+# c12x3 — ⑫ 를 3회 연속(DA#52: 흔들림 확인) · 한 회차라도 실패면 그 회차와 e12 를 남긴다
+c12x3() { local i; for i in 1 2 3; do c12; [ "$RES" = 1 ] || { MSG="회차 $i 실패 · $MSG"; RES=0; return; }; done; RES=1; MSG="3회 연속 PASS"; }
