@@ -10,6 +10,9 @@
 #         그 출력을 파일(>)이나 $(…) 로 받으면 `FLOATBASE <파일>:<줄>` rc3 — 착지하면 그 이름이 새 코드가 돼 기준판 칸이 늘 FAIL.
 #         떠다니는 이름을 담은 변수(`X="${Y:-origin/main}"` · `X=HEAD`)를 거친 `show "$X:…"` 도 같다 · 고정 40hex = 통과
 #         면제 = 같은 줄 꼬리 `# baseline-ref: ok <이유>`(픽스처 리포 안 ref 등) → `면제 FLOATBASE <파일>:<줄> — <이유>` 1줄 · rc 에 영향 0
+#   r2377 BASECOPY: 같은 파일에 `git archive` 와 `tar -x`(또는 `tar x`) `-C <경로>` 가 있고 그 경로가 `/tmp/`·`/private/tmp/` 글자이거나 그렇게 대입된 변수(`V=/tmp/…` → `$V`·`${V}`)인데,
+#         같은 파일에 그 경로(또는 그 변수)를 지우는 trap 이 없으면 `BASECOPY <파일>:<줄>: 기준판 사본 — ft-base-run.sh 를 쓴다` rc3 — 기준판 사본은 ft-base-run.sh 가 $TMPDIR 아래에서 만들고 지운다.
+#         python3 가 죽었거나 꼴 밖 줄을 내면 `BASECOPY-판정불가 <파일>` 1줄 rc3(fail-open 0 · DA#52 H1).
 #   시험 = harness/tests/test_test_reentry_lint.sh (샘플 6 + 변이) · 자기 자신을 다시 부르지 않는다
 set -uo pipefail
 [ $# -ge 1 ] || { echo "usage: $0 <시험 파일…>" >&2; exit 2; }
@@ -73,12 +76,62 @@ for f in "$@"; do
   o="$(awk -v base="$(basename -- "$f")" "$PROG" "$f")"; arc=$?
   fo="$(awk "$FLOAT" "$f")"; fb="$(printf '%s\n' "$fo" | grep '^FLOATBASE ')"; ex="$(printf '%s\n' "$fo" | grep '^면제 ')"
   bo="$(awk "$BG" "$f" "$f")"; bv="$(printf '%s\n' "$bo" | grep -E '^(BGNOTRAP|TIMEOUTNOK) ')"; bx="$(printf '%s\n' "$bo" | grep '^면제 ')"
+  # r2377-rule
+  bcv="$(python3 - "$f" <<'PYBASE'
+import re, sys
+path = sys.argv[1]
+lines = open(path, encoding="utf-8", errors="replace").read().splitlines()
+TMPP = ("/tmp/", "/private/tmp/")
+ASSIGN = re.compile(r'(?:^|[\s;&|(])(?:local\s+|declare\s+|export\s+)?([A-Za-z_]\w*)=["\']?(/private/tmp/|/tmp/)')
+TRAPL = re.compile(r'(?:^|[\s;&|(])trap\s')
+RMRF = re.compile(r'\brm\s+-[-A-Za-z]*[rR]')
+AR = re.compile(r'\bgit\s+archive\b')
+TX = re.compile(r'\btar\s+(?:-[-\w]*x[-\w]*|x)\b')
+CA = re.compile(r'-C\s+(\S+)')
+tmpvars, traps = {}, []
+for l in lines:
+    if l.lstrip().startswith("#"):
+        continue
+    m = ASSIGN.search(l)
+    if m:
+        tmpvars[m.group(1)] = m.group(2)
+    if TRAPL.search(l) and RMRF.search(l):
+        traps.append(l)
+def hits(l):
+    out = []
+    for m in CA.finditer(l):
+        tok = m.group(1).strip('"\'')
+        if tok.startswith(TMPP):
+            out.append(tok)
+            continue
+        for v in tmpvars:
+            for ref in ("$" + v, "${" + v + "}"):
+                if tok.startswith(ref):
+                    out.append(ref)
+    return out
+for n, l in enumerate(lines, 1):
+    if l.lstrip().startswith("#") or not AR.search(l) or not TX.search(l):
+        continue
+    for p in hits(l):
+        if not any(p in t for t in traps):
+            print(f"BASECOPY {path}:{n}: 기준판 사본 — ft-base-run.sh 를 쓴다")
+            break
+PYBASE
+)"
+  bcr=$?   # r2377 H1(DA#52): python3 가 죽거나 꼴 밖 줄을 내면 조용히 통과(fail-open) 0 — awk 갈래(arc)와 같은 rc 3
+  bcg="$(printf '%s\n' "$bcv" | grep -v '^BASECOPY ' | grep -c .)"
+  if [ "$bcr" != 0 ] || [ "${bcg:-1}" != 0 ]; then
+    RE_LINES="${RE_LINES}BASECOPY-판정불가 $f"$'\n'; rc=3
+  elif [ -n "$bcv" ]; then
+    RE_LINES="${RE_LINES}${bcv}"$'\n'; rc=3
+  fi
+  # /r2377-rule
   case "$o" in REENTRY*) RE_LINES="${RE_LINES}${o}"$'\n';; esac
   [ -z "$fb" ] || { RE_LINES="${RE_LINES}${fb}"$'\n'; rc=3; }
   [ -z "$bv" ] || { RE_LINES="${RE_LINES}${bv}"$'\n'; rc=3; }
   [ -z "$ex" ] || OK_LINES="${OK_LINES}${ex}"$'\n'
   [ -z "$bx" ] || OK_LINES="${OK_LINES}${bx}"$'\n'
-  case "$o" in REENTRY*) ;; *) [ -n "$fb$bv" ] || OK_LINES="${OK_LINES}${o}"$'\n';; esac
+  case "$o" in REENTRY*) ;; *) [ -n "$fb$bv$bcv" ] || [ "$bcr" != 0 ] || OK_LINES="${OK_LINES}${o}"$'\n';; esac   # r2377: BASECOPY(줄·판정불가)가 있으면 «OK» 를 같이 내지 않는다
   [ "$arc" = 0 ] || rc=3
 done
 [ -z "$RE_LINES" ] || printf '%s' "$RE_LINES"
@@ -87,4 +140,6 @@ case "$RE_LINES" in *REENTRY*) echo "REENTRY 위반 — 그 줄 앞에 표지 �
 case "$RE_LINES" in *FLOATBASE*) echo "FLOATBASE 위반 — 기준판은 고치기 직전 main 의 고정 40hex sha 로 꺼낸다(떠다니는 이름은 착지 뒤 새 코드 · r1132) · 픽스처 ref 면 줄 꼬리 # baseline-ref: ok <이유>" >&2;; esac
 case "$RE_LINES" in *BGNOTRAP*) echo "BGNOTRAP 위반 — & 로 띄운 자식이 있는데 파일에 trap … kill 이 없다(시험이 끝나도 자식이 남는다 · r1234) · 의도면 줄 꼬리 # bg-ok: <이유>" >&2;; esac
 case "$RE_LINES" in *TIMEOUTNOK*) echo "TIMEOUTNOK 위반 — timeout … & 에 -k(--kill-after)가 없다(TERM 무시 자식이 래퍼까지 붙잡는다 · r1234) · timeout -k 5 <수> … & · 의도면 줄 꼬리 # bg-ok: <이유>" >&2;; esac
+case "$RE_LINES" in *BASECOPY-판정불가*) echo "BASECOPY 판정 불가 — python3 로 사본 줄을 못 셈(python3·PATH 확인 · rc3 · 조용한 통과 0)" >&2;; esac
+case "$RE_LINES" in *"BASECOPY "*) echo "BASECOPY 경고 — /tmp·/private/tmp 고정 경로에 기준판 사본을 풀고 지우지 않는다(r2377) · 그 비교는 ft-base-run.sh 가 한다(사본은 \$TMPDIR/tmp.ftbase.* 에서 살고 끝나면 지운다)" >&2;; esac
 exit "$rc"

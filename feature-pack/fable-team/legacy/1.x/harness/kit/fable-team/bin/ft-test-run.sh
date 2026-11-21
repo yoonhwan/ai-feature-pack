@@ -4,7 +4,7 @@
 #   ② 시험 = 따로 묶은 프로세스 묶음(set -m · 묶음 번호 = 시험 pid) 안에서 `ulimit -S -u <지금 내 프로세스 수 + FT_TEST_PROC_SLACK(256)>`(소프트만 — 하드까지 낮추면 안쪽 러너가 다시 못 정한다) + `timeout -k FT_TEST_KILL_AFTER_SEC(5) FT_TEST_TIMEOUT_SEC(70)`(r1234: TERM 무시 자식도 상한+5초에 KILL)
 #   ③b r1234 ③ 뒤(quiesce 가 LSP·node 를 가려 센 다음) 시험 묶음(pgid=시험 pid)에 남은 프로세스를 TERM → KILL 로 끝정리 · 1줄 `[묶음 정리] 남은 <n> · TERM <a> · KILL <b> · 남은 묶음 <c>` (pgrep 실패 = «묶음 판정 불가» 1줄 · 시험 rc 그대로)
 #   ③ 시험 rc 를 받은 직후`ft-seat-quiesce.sh --scope test $$ --pgid <시험 pid>` = 이 시험이 띄운 LSP·node 자식(HEAVY_NAME)만 정리 · 마지막 2줄 `[시험 정리] …` · `남은 자식 <n>`
-#   rc = 시험 rc 그대로(정리 rc≠0 = `WARN 시험 정리 rc=<n>` 1줄 · 시험 판정 변경 0) · 사용법 2 · ps 실패(내 프로세스 수 0)·ulimit 실패 = 판정 불가 1줄 rc 20
+#   rc = 시험 rc 그대로(정리 rc≠0 = `WARN 시험 정리 rc=<n>` 1줄 · 시험 판정 변경 0) · r2377: reentry-lint 의 BASECOPY 도 BGNOTRAP 과 같이 «WARN » 뒤 시험 실행 · 사용법 2 · ps 실패(내 프로세스 수 0)·ulimit 실패 = 판정 불가 1줄 rc 20
 #   ③d r2376 시험 임시 폴더: lint 뒤 `mktemp -d $TMPDIR/tmp.ftpytest.XXXXXX` 1회 → 시험 env TMPDIR=<그 폴더>/ · reap 뒤 이 러너가 만든 그 폴더 하나만 `rm -rf`(경로 대조 · 못 지우면 `WARN 시험 임시 폴더 남음 <경로>` 1줄 · 시험 rc 그대로) · 바깥 TMPDIR 끝 이름이 `tmp.ftpytest.` 머리면 새로 만들지 않고 그대로 쓴다(러너 안 러너 · 지움 0 = 바깥 러너 몫 · tmux 소켓 104바이트)
 #   시험용 env: FT_SEAT_QUIESCE_BIN · FT_TEST_REENTRY_LINT_BIN · FT_TEST_TIMEOUT_BIN
 set -uo pipefail
@@ -16,8 +16,8 @@ if [ "${#files[@]}" -gt 0 ]; then
   lo="$(bash "$L" "${files[@]}")"; lrc=$?; [ -z "$lo" ] || printf '%s\n' "$lo"
   # r1234 반송 1: 위반이 BGNOTRAP·TIMEOUTNOK 뿐(rc3)이면 «WARN » 줄로 알리고 시험을 돌린다 · REENTRY·FLOATBASE·그 밖 rc 는 지금처럼 lint rc 로 멈춤
   if [ "$lrc" != 0 ]; then
-    if [ "$lrc" = 3 ] && printf '%s\n' "$lo" | grep -Eq '^(BGNOTRAP|TIMEOUTNOK) ' && ! printf '%s\n' "$lo" | grep -Eq '^(REENTRY|FLOATBASE) '; then
-      printf '%s\n' "$lo" | grep -E '^(BGNOTRAP|TIMEOUTNOK) ' | sed 's/^/WARN /' >&2
+    if [ "$lrc" = 3 ] && printf '%s\n' "$lo" | grep -Eq '^(BGNOTRAP|TIMEOUTNOK|BASECOPY) ' && ! printf '%s\n' "$lo" | grep -Eq '^(REENTRY|FLOATBASE) '; then
+      printf '%s\n' "$lo" | grep -E '^(BGNOTRAP|TIMEOUTNOK|BASECOPY) ' | sed 's/^/WARN /' >&2
     else exit "$lrc"; fi
   fi
 fi
