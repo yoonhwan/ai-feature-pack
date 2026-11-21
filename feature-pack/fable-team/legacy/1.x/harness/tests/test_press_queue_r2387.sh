@@ -2,7 +2,8 @@
 # test_press_queue_r2387.sh — r2387 ①~⑩: `ft-press-evidence.sh queue` 가 음성 경로 PR 을 승인 순으로 세우고 «지금 press 해도 안 깨질 PR 1개»(NEXT)를 고른다 (K1 대상 고르기 · K2 차례)
 #   ① 줄 3개·gh 1회·gh 칸 = 번호·head 만(기준판 Red) ② 승인 전은 NEXT 후보 아님 ②b 리뷰·코멘트는 표식이 아니다 ②c 옛 head 승인만 있고 새 커밋 = 미승인 ③ 음성 경로 0 은 줄에 안 섬 ④ PR 쪽 목록 글롭도 합집합
 #   ⑤ 묶음 0 = 셋 다 NONE · NEXT 첫 PR ⑥ VALID 하나면 NEXT = 대기 ⑦ 앞 착지로 STALE(다르게 만든 착지 sha) ⑧ 음성 경로 아닌 착지는 VALID 그대로 ⑨ 승인 시각 같으면 번호 오름차순
-#   ⑩ VALID 가 뒤에 있어도 NEXT 는 대기(DA#53 H1) — ⑮⑯⑰⑭ = test_press_queue_edge_r2387.sh · ⑪⑫⑬ = test_press_queue_tail_r2387.sh · M1~M8 = test_press_queue_mut*_r2387.sh
+#   ⑩ VALID 가 뒤에 있어도 NEXT 는 대기(DA#53 H1) — ⑭~⑰ = test_press_queue_edge_r2387.sh · ⑪⑫⑬ = test_press_queue_tail_r2387.sh
+#   변이 = test_press_queue_mut_r2387.sh(M1~M4·M9·M10) · _mut5(꼬리 예산) · _mut6(gh 재시도) · _mut7(깨진 ref) · _mut8(VALID 앞만) — 하드 룰 22(시험 1개 70초)로 쪼갬
 #   틀 = _press_queue_r2387_lib.sh(r1230 픽스처 + gh pr list 대역 + 세트/묶음 도우미) · 실 gh·실 원격 0 · queue 는 읽기 전용
 # 사용: timeout 70 bash <이 파일> → 마지막 줄 «== OK ==» · rc 0/1
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
