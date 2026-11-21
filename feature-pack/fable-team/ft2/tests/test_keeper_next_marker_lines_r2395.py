@@ -13,7 +13,7 @@ base = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(base)
 kw = base.kw
 S, KN = "r9301-plain", "adapters/pi/keeper_next.py"
-REF = "872b495f952ca8142ebb0fa9c88d283d4fcf9dd1"   # r2395 기준판 = 이 카드 갈래 **이전** 팩 main 고정 sha(origin/main 은 착지 뒤 «고친 판» 이 돠 기준판이 못 된다 · 고정 sha 는 착지 뒤에도 조상으로 남는다 · arch#516 #364686)
+REF = "872b495f952ca8142ebb0fa9c88d283d4fcf9dd1"   # r2395 기준판 = 이 카드 갈래 **이전** 팩 main 고정 sha(origin/main 은 착지 뒤 «고친 판» 이 되어 기준판이 못 된다 · 고정 sha 는 착지 뒤에도 조상으로 남는다 · arch#516 #364686)
 BARE = "- 상태: 대기 · 사유 «사전 DA 전»\n"   # 실사건 꼴 = «대기 사유» 글자만 있고 «- 대기 사유:»·«- 배정:» 줄 0
 CARD = "design/harness/indices/대기/%s.md"
 SKIP = "NEXT-SKIP harness %s 건너뜀 — 표식 줄 없음 · «- 배정: 없음» 또는 «- 대기 사유: 없음» 한 줄 필요" % S

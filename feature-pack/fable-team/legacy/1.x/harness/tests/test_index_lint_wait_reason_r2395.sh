@@ -2,12 +2,14 @@
 # test_index_lint_wait_reason_r2395.sh — r2395 K4: 대기/ 카드에 «- 대기 사유:» 줄이 없으면 사유 1줄(새 카드 = REJECT · 옛 카드 = WARN 만).
 #   ⑦ 새 카드 줄 없음 = REJECT · ⑧ 새 카드 줄 있음 = OK · ⑨ 옛 카드 줄 없음 = OK + WARN · ⑫ 진행/ 카드 줄 없음 = 사유 0(단계 가림)
 #   ⑬ 머리 0 · 본문 예시에만 그 줄 = REJECT(머리 한정 · DA#56 H1) · ⑭ 머리 표식 = OK
-#   변이 M4 = 새 카드 REJECT 를 WARN 으로(⑦ FAIL) · M7 = 단계 가림 삭제(⑫ FAIL) · M8 = 머리 한정 지움(⑬ FAIL) · 기준판(팩 origin/main) = ⑦ Red.
+#   변이 M4 = 새 카드 REJECT 를 WARN 으로(⑦ FAIL) · M7 = 단계 가림 삭제(⑫ FAIL) · M8 = 머리 한정 지움(⑬ FAIL) · 기준판(착지 전 팩 main 고정 sha 872b495f) = ⑦ Red.
+#   기준판을 origin/main 에서 읽지 않는다: 착지 뒤 origin/main = 고친 판이라 «기준판 Red» 가 사라진다(arch#516 #364741).
 # 임시 리포만(실 카드·실 리포·네트워크 0) · 하드 룰 22: 이 파일 70초 안(단계별 초를 찍는다).
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
 KIT="$HERE/../kit/fable-team/bin"
 PACK="$(git -C "$HERE" rev-parse --show-toplevel)"
+BASE_SHA=872b495f952ca8142ebb0fa9c88d283d4fcf9dd1   # r2395 기준판 = 이 카드 갈래 이전 팩 main(착지 뒤에도 조상으로 남는다)
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail=0; R2395_T0=$SECONDS; R2380_T0=$SECONDS
 . "$HERE/scripts/_r2380_lint_world.sh"
@@ -81,13 +83,13 @@ lint_at "$T/mut" "$C13"; rc=$?
 { [ $rc -eq 1 ] && [ "$(reason)" -eq 1 ]; }; ck "원본으로 ⑬ 사례 1회 더 = PASS" $?
 lap 변이
 mkdir -p "$T/base"
-git -C "$PACK" archive origin/main feature-pack/fable-team/legacy/1.x/harness/kit/fable-team/bin | tar -x -C "$T/base" 2>/dev/null
+git -C "$PACK" archive "$BASE_SHA" feature-pack/fable-team/legacy/1.x/harness/kit/fable-team/bin | tar -x -C "$T/base" 2>/dev/null
 BASE="$T/base/feature-pack/fable-team/legacy/1.x/harness/kit/fable-team/bin"
 if [ -f "$BASE/ft-index-lint.sh" ]; then
   lint_at "$BASE" "$C7"; rc=$?
   { [ $rc -eq 0 ] && [ "$(reason)" -eq 0 ]; }; ck "기준판 ⑦ FAIL(새 카드 줄 없음 · 사유 0)" $?
 else
-  echo "WARN 기준판 없음(origin/main 에 팩 없음) — 대조 건너뜀"
+  echo "WARN 기준판 없음($BASE_SHA 에 팩 없음) — 대조 건너뜀"
 fi
 lap 기준판
 echo "fail=$fail"; [ "$fail" -eq 0 ]
