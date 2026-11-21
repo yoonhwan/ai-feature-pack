@@ -2,6 +2,7 @@
 # ft-tmp-sweep.sh — /private/tmp 바로 아래의 지난 손 사본(git worktree·clone 을 품은 폴더)을 하루 1회 지운다 (r2073 · 오빠 승인 Slack 1794751400.613599).
 #   A1 대상 = BASE 바로 아래 폴더(심링크 아님) ∧ 내 소유 ∧ 안쪽 깊이 3 안에 `.git`(파일 = worktree · 폴더 = clone) 1개 이상 ∧ ft-scratch-repo 등록부에 없는 경로 · 그 밖 = 손 0 · 목록 0
 #      목록(r2375 K1) = 그중 mtime 48시간 지난 폴더만 · 이름 바이트 순서(LC_ALL=C) · 남의 것·일반 파일·심링크·젊은 폴더는 목록에 들지 않는다 → 항목마다 예산을 먹지 않는다
+#      목록 find = 총 상한과 따로 cap 7초 · rc≠0·끊김 = «판정 불가 목록» 1줄 · 삭제 0 · cursor·표식 손 0 · rc 3
 #   A2 남김 = mtime 48시간 안(young) · 어떤 프로세스 cwd 가 그 폴더나 그 아래(cwd) · 안쪽 리포 `git status --porcelain` 1줄↑(dirty)
 #            · worktree `git rev-list -n 1 HEAD --not --remotes` 1줄 · clone `git rev-list -n 1 --all --not --remotes` 1줄(unpushed)
 #            · git rc≠0·7초 넘김 = 그 폴더 «판정 불가» · lsof 실패(rc≠0·0줄) = 그 실행 전체 삭제 0 «판정 불가 lsof» rc 3
@@ -98,10 +99,13 @@ ARM=0; [ -f "$ARMED" ] && ARM=1
 removed=0 young=0 cwd=0 dirty=0 unp=0 unk=0 deferred=0 listed=0 PRUNE=""
 f0=$(freek)
 # r2375 K1 — 목록 = 바로 아래 · 내 소유 · 폴더(심링크 아님) · 48시간 지난 것만 · 이름 바이트 순서(C)
-LIST=()
-while IFS= read -r e; do [ -n "$e" ] && LIST+=("$e"); done < <(
-  find "$BASE" -mindepth 1 -maxdepth 1 -type d -mmin +"$AGE" -uid "$(id -u)" -print 2>/dev/null | LC_ALL=C sort
-)
+#   find 1회 = 총 상한과 따로 cap 7초(부하에서 2.7초의 3~5배까지) · rc≠0·끊김 = «판정 불가 목록» = 이번 실행 삭제 0 · cursor·표식 손 0 (lsof 꼴 · 하드 룰 20)
+LISTOUT="$(cap 7 find -x "$BASE" -mindepth 1 -maxdepth 1 -type d -user "$(id -u)" ! -mmin -"$AGE" -print 2>/dev/null)"; lsrc=$?
+if [ "$lsrc" != 0 ]; then
+  line="tmp-sweep 판정 불가 목록 rc=$lsrc — 이번 실행 삭제 0"
+  echo "$line"; logline "$line"; notify "[임시 사본 정리] $line"; exit 3
+fi
+LIST=(); while IFS= read -r e; do [ -n "$e" ] && LIST+=("$e"); done <<<"$(LC_ALL=C sort <<<"$LISTOUT")"
 N=${#LIST[@]}; START=0; CUT=""
 if [ -f "$CURSOR" ]; then
   cn="$(head -n 1 "$CURSOR" 2>/dev/null)"
