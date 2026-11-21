@@ -91,7 +91,7 @@ def test_3_new_root_bind_receipt_then_role_reply(tmp_path, band_of):
     band = band_of(tmp_path, [[HELLO, _env("E1", _msg(ts))]])
     assert (listener := _listener(sock, tmp_path, band)).run(sessions=1) == 0
     assert [(b["state"], b["seat"], b["gen"]) for b in _rows(tmp_path, "bindings.jsonl")] == [("bound", MASTER, 1)]
-    assert band.acks == [("E1", ["received"])]  # 기록 → 확인 → 입구
+    assert band.acks == [("E1", [])]  # r2391 — 확인 먼저(수신 스레드) · RECEIVED 장부는 일꾼 몫 = 그 뒤
     assert [r["state"] for r in _rows(tmp_path, "receive.jsonl")] == ["received", "dispatched"]
     assert listener.receive.client.lookup(_command % ts).result == "접수 성공"
     assert _rows(tmp_path, "publish.jsonl") == [] and band.posts == []  # r1818 접수 = 장부만 · 게시 0

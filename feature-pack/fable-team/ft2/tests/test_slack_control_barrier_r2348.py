@@ -292,7 +292,7 @@ def case_08(tmp):
 
 
 def case_09(tmp):
-    """⑨ 제어 사건 0 인 연결 → 지금처럼 글은 수신 스레드에서 route(일꾼 큐로 안 감)."""
+    """⑨ r2391 로 뜻이 바뀌었다 — 제어 사건 0 인 연결에서도 사람 글은 일꾼 큐(수신 스레드 = ack + 큐 넣기)."""
     clock, pack = Clock(), pack_of()
     band = Band(tmp, clock)
     tape_web(band)
@@ -306,7 +306,7 @@ def case_09(tmp):
     listener, thread = run_hooked(pack, band, clock, [[HELLO, env("E1", msg(ts))]], prepare=watch)
     thread.join(60)
     band.close()
-    assert seen == [(thread.name, ts)] and thread.name != WORKER  # 수신 스레드 그 자리(그 스레드 이름 그대로)
+    assert seen == [(WORKER, ts)]  # r2391 — 일꾼이 묶고·라우팅한다(수신 스레드는 ack + 큐 넣기)
     assert says(tmp, "미룸") == []  # 장벽 0 = 미룸 줄 0
     assert routed(tmp, ts) == ["dispatched"]
 
@@ -430,7 +430,7 @@ def case_13(tmp):
     feed.put({"type": "disconnect"})
     thread.join(60)
     band.close()
-    assert [ts for thread_name, ts in seen if thread_name != WORKER] == [later]  # 장벽 밖 글은 수신 스레드
+    assert [ts for thread_name, ts in seen if thread_name != WORKER] == []  # r2391 — 장벽 밖 글도 일꾼
 
 
 CASES = {name: value for name, value in sorted(globals().items()) if name.startswith("case_")}
@@ -458,15 +458,16 @@ def test_cases_08_13(tmp_path):
 
 # ── 변이 (사본에서만 · 변이마다 원본으로 같은 사례 1회 더)
 MUTANTS = {
-    "M1": ("socket.py", "            return self.deferred > 0", "            return False", ["case_01", "case_02"]),
+    "M1": ("socket.py",  # r2391 — 글 차례는 큐가 지킨다 · 장벽 셈의 남은 몫 = 장벽 밖 글에 «미룸» 줄 0
+           "            return self.deferred > 0", "            return True", ["case_09"]),
     "M2": ("socket.py", "            return self._control(self._admin_job, event)",
            "            return self._admin_job(event)", ["case_05"]),
     "M3": ("socket.py", "                self.deferred -= 1  # 끝난 일은 셈에서 뺀다",
            "                pass  # 끝난 일은 셈에서 뺀다", ["case_07"]),
     "M4": ("socket.py", "        job(event)  # 넘침 = 차례 포기",
            "        pass  # 넘침 = 차례 포기", ["case_08"]),
-    "M5": ("socket.py", "        return self._defer(self.route, event) if self._barrier() else self.route(event)",
-           "        return self._defer(self.route, event) if False else self.route(event)", ["case_01"]),
+    "M5": ("socket.py", "        return self._defer(self.route, event) if self._barrier() else self._queue_route(event)",
+           "        return self.route(event)", ["case_01"]),
     "M6": ("socket.py", "            self.deferred += 1  # 미룬 일도 셈(DA#44 B1 · ⑪)",
            "            pass  # 미룬 일도 셈(DA#44 B1 · ⑪)", ["case_11"]),
     "M7": ("socket.py", '            self.log("미룸 %s %s" % (channel, ts))  # 남은 쌍 = 손 복구 근거(DA#44 B2 ⓐ)',

@@ -39,7 +39,7 @@ rows_from() { grep -c "\"from\": \"$1\"" "$Q"; }
 
 # ── 변이(사본에만 · 원본 0): M1 실보고 정규식 삭제 · M2 자기 알림 규칙 삭제 · M3 recv 유실 줄 삭제
 mut_m1() { sed -i '' 's/^    if REAL_SENDERS.match(frm):$/    if False:/' "$C/mbox_keep.py"; grep -q '^    if False:$' "$C/mbox_keep.py"; }
-mut_m2() { sed -i '' 's/^    if frm and frm == str(r.get("to") or ""):$/    if False:/' "$C/mbox_keep.py"; grep -q '^    if False:$' "$C/mbox_keep.py"; }
+mut_m2() { sed -i '' 's/^        return SYS_HEAD if head else SYS_PLAIN.*$/        return NORMAL/' "$C/mbox_keep.py"; grep -q '^        return NORMAL$' "$C/mbox_keep.py"; }   # r2391 — 자기 앞 쪽지는 send 가 거절하므로 «자동 도구 = SYS_PLAIN» 이 이 자리의 몫
 mut_m3() { sed -i '' 's/^    if not succ and (lost := .*$/    if False:/' "$C/mbox_ops.py"; grep -q '^    if False:$' "$C/mbox_ops.py"; }
 mut_m4() { sed -i '' 's/^    return _locked(canon, lambda: _mark(canon, me, names, lines))$/    return _mark(canon, me, names, lines)/' "$C/mbox_drops.py"; grep -q '^    return _mark(' "$C/mbox_drops.py"; }
 mut_m5() { sed -i '' 's/^    if not succ and (lost := mbox_drops.report/    if (lost := mbox_drops.report/' "$C/mbox_ops.py"; grep -q '^    if (lost := ' "$C/mbox_ops.py"; }
@@ -50,14 +50,19 @@ e1() {
   send "$MASTER" ft-hil-h1 "[완료 h8178] rc=0"
   send "$MASTER" byz-x-nano-a#0 "[완료 h8180] rc=0"
   send "$MASTER" byz-x-da-codex#2 "쪽지 1"
-  send "$MASTER" "$MASTER" "[착지] byz-x-nano-a#0"
-  send "$MASTER" "$MASTER" "[카드 이동] r1651 → 완성"
+  send "$MASTER" ft-stall-scan "[멈춤] 자동 알림"   # 자동 도구 머리 없음 = SYS_PLAIN(가장 먼저 버린다)
+  send "$MASTER" ft-watch-alarm "[감시] 자동 알림"
+  local self1 self2 rejects
+  send "$MASTER" "$MASTER" "[착지] byz-x-nano-a#0"; self1=$RC    # r2391 — 자기 앞 사건 알림은 send 가 거절한다
+  send "$MASTER" "$MASTER" "[카드 이동] r1651 → 완성"; self2=$RC
+  rejects="$(grep -c '^REJECT 자기 앞 쪽지' "$ENVROOT/errs")"
   if [ "$(rows_to "$MASTER")" = 3 ] && [ "$(rows_from ft-hil-h1)" = 1 ] \
      && [ "$(rows_from byz-x-nano-a#0)" = 1 ] && [ "$(rows_from byz-x-da-codex#2)" = 1 ] \
-     && [ "$(rows_from "$MASTER")" = 0 ] && [ "$(grep -c '^DROPPED' "$ENVROOT/errs")" = 2 ]; then
-    ok "ⓔ① «나중에 온 자기 알림» 2통이 먼저 버려짐 · 실보고 2 + 일반 1 남음(큐 3)"; return 0
+     && [ "$(rows_from "$MASTER")" = 0 ] && [ "$(grep -c '^DROPPED' "$ENVROOT/errs")" = 2 ] \
+     && [ "$self1" = 2 ] && [ "$self2" = 2 ] && [ "$rejects" = 2 ]; then
+    ok "ⓔ① «나중에 온 자동 알림» 2통이 먼저 버려짐 · 실보고 2 + 일반 1 남음(큐 3) · 자기 앞 쪽지 2통 = REJECT rc 2(큐 0)"; return 0
   fi
-  bad "ⓔ① rows=$(rows_to "$MASTER") hil=$(rows_from ft-hil-h1) nano=$(rows_from byz-x-nano-a#0) da=$(rows_from byz-x-da-codex#2) self=$(rows_from "$MASTER") drops=$(grep -c '^DROPPED' "$ENVROOT/errs")"; return 1
+  bad "ⓔ① rows=$(rows_to "$MASTER") hil=$(rows_from ft-hil-h1) nano=$(rows_from byz-x-nano-a#0) da=$(rows_from byz-x-da-codex#2) self=$(rows_from "$MASTER") drops=$(grep -c '^DROPPED' "$ENVROOT/errs") s1=$self1 s2=$self2 rej=$rejects"; return 1
 }
 
 # ── ⓔ② 실보고만 넘치면 «버리기 0» + ERROR 1줄(r912 꼴)
@@ -77,7 +82,7 @@ e2() {
 # ── ⓔ③ 버린 seq 가 받는 좌석의 다음 recv 에 1줄 · 같은 seq 는 두 번 안 보인다(M3 가 여기서 빨강)
 e3() {
   new_env
-  for i in 1 2 3 4 5; do send "$MASTER" "$MASTER" "[착지] byz-x-nano-a#0 $i"; done
+  for i in 1 2 3 4 5; do send "$MASTER" ft-stall-scan "[멈춤] 자동 알림 $i"; done   # r2391 — 자기 앞 쪽지는 send 가 거절하므로 자동 알림으로 채운다
   local seqs; seqs="$(sed -n 's/.*seqs=//p' "$C/mailbox.drops.log" 2>/dev/null | tr '\n' ' ')"
   recv "$MASTER"; cp "$ENVROOT/recv" "$ENVROOT/recv1"
   local first line s seen=1
@@ -167,7 +172,7 @@ for m in mut_m1 mut_m2 mut_m3 mut_m4 mut_m5; do
   rc=0
   case "$m" in
     mut_m1)        ( MUT=$m; e2 ) >/dev/null 2>&1 || rc=$?;;   # ft-hil-h 가 «일반» 이 되면 넘칠 때 버려진다
-    mut_m2)        ( MUT=$m; e1 ) >/dev/null 2>&1 || rc=$?;;   # 자기 알림이 «일반» 이 되면 오래된 일반이 먼저 버려진다
+    mut_m2)        ( MUT=$m; e1 ) >/dev/null 2>&1 || rc=$?;;   # 자동 알림이 «일반» 이 되면 오래된 일반(쪽지 1)이 먼저 버려진다
     mut_m3)        ( MUT=$m; e3 ) >/dev/null 2>&1 || rc=$?;;
     mut_m4)        ( MUT=$m; e5 ) >/dev/null 2>&1 || rc=$?;;   # 잠금 삭제 = 표식 키 유실 · 재표시
     mut_m5)        ( MUT=$m; e4 ) >/dev/null 2>&1 || rc=$?;;   # 소유권 가드 삭제 = 은퇴가 표시를 먹는다

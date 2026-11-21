@@ -421,6 +421,7 @@ def case_08(tmp):
     """⑧ 끊김 흉내 → 재연결 → thread 글 1개 깨움 1 · 깨움 시각 − 글 시각 = 지연 초."""
     clock, pack = Clock(), pack_of()
     band = Band(tmp, clock)
+    band.hold_history = threading.Event()  # r2391 — 보충이 먼저 창을 읽지 않게, 시험이 자료를 세운 뒤에 푼다
     root_ts = clock.ts()
     listener, thread = run_listener(pack, band, clock, [[HELLO, env("E1", msg(root_ts))], [HELLO]], session=2)
     wait_for(lambda: len(listener.bindings.entries()) == 1)
@@ -430,6 +431,7 @@ def case_08(tmp):
     band.history[CH] = [{"ts": late, "thread_ts": root_ts, "user": HUMAN, "text": "끊긴 창 답"}]
     band.replies[root_ts] = [{"ts": root_ts, "user": HUMAN, "text": "root"},
                              {"ts": late, "thread_ts": root_ts, "user": HUMAN, "text": "끊긴 창 답"}]
+    band.hold_history.set()
     thread.join(60)
     band.close()
     latency = round(clock.now() - float(late), 3)
@@ -715,8 +717,11 @@ MUTANTS = {
     "M2": ("socket.py", "for channel in self._scan_order():", "for channel in ():", ["case_04"]),
     "M3": ("socket.py", "oldest = max((float(self.watermark) if self.watermark else self.now()) - 60.0, 0.0)",
            "oldest = max(self.now() - 60.0, 0.0)", ["case_04", "case_05"]),
-    "M4": ("socket.py", "self.router.deliver = self.worker.wrap(self.router.deliver)",
-           "self.router.deliver = self.router.deliver", ["case_09"]),
+    "M4": ("socket.py",  # r2391 — 사람 글·깨움을 다시 수신 스레드에서 처리하는 판(둘을 같이 벗겨야 ⑨ 가 잡는다)
+           [("        return self._defer(self.route, event) if self._barrier() else self._queue_route(event)",
+             "        return self.route(event)"),
+            ("self.router.deliver = self.worker.wrap(self.router.deliver)",
+             "self.router.deliver = self.router.deliver")], ["case_09"]),
     "M5": ("socket.py", "        self.worker.on_idle()  # S3", "        pass  # S3", ["case_13"]),
     "M6": ("socket.py", 'event.get("type") in ("channel_archive", "group_archive")', 'event.get("type") in ()',
            ["case_12"]),
@@ -741,10 +746,18 @@ def test_mutants(tmp_path):
     shutil.copytree(FT2, tmp_path / "pack", ignore=shutil.ignore_patterns("__pycache__", "tests"))
     pack_dir = os.path.join(str(tmp_path), "pack", "adapters", "slack")
     origin = {name: open(os.path.join(pack_dir, name), encoding="utf-8").read() for name in ("socket.py", "backfill.py")}
-    for name, (fname, old, new, cases) in MUTANTS.items():
-        assert old in origin[fname], "%s 자리 없음" % name
+    for name, spec in MUTANTS.items():
+        fname, old = spec[0], spec[1]
+        if isinstance(old, list):  # 한 변이가 여러 자리를 함께 고칠 수 있다(r2391 M4) — 꼴 = (파일, [(옛, 새)…], 사례)
+            pairs, cases = old, spec[2]
+        else:
+            pairs, cases = [(old, spec[2])], spec[3]
+        body = origin[fname]
+        for bad, good in pairs:
+            assert bad in body, "%s 자리 없음" % name
+            body = body.replace(bad, good, 1)
         with open(os.path.join(pack_dir, fname), "w", encoding="utf-8") as handle:
-            handle.write(origin[fname].replace(old, new, 1))
+            handle.write(body)
         pack = pack_of(pack_dir)
         for case in cases:
             started = time.time()
