@@ -10,7 +10,7 @@ pretest; tick 사전
 mkdir -p "$W/.venv/bin"; printf '.venv/\n' >> "$W/.git/info/exclude"; PYLOG="$T/py.log"; : > "$PYLOG"
 cat > "$W/.venv/bin/python" <<EOF
 #!/bin/bash
-echo "CALL \$* pwd=\$PWD pp=\$PYTHONPATH tree=\$([ -f "\$PYTHONPATH/scripts/ci/boot_smoke.py" ] && [ -f "\$PYTHONPATH/worker/main.py" ] && echo ok) canary=\${FT_BOOT_CANARY:-} env=\$(env | cut -d= -f1 | grep -v -x -E 'PATH|HOME|PYTHONPATH|PWD|SHLVL|_|OLDPWD' | tr '\n' ,)" >> "$PYLOG"
+echo "CALL \$* pwd=\$PWD pp=\$PYTHONPATH tree=\$([ -f "\$PYTHONPATH/scripts/ci/boot_smoke.py" ] && [ -f "\$PYTHONPATH/worker/main.py" ] && [ -f "\$PYTHONPATH/scripts/rag/r.py" ] && echo ok) canary=\${FT_BOOT_CANARY:-} env=\$(env | cut -d= -f1 | grep -v -x -E 'PATH|HOME|PYTHONPATH|PWD|SHLVL|_|OLDPWD' | tr '\n' ,)" >> "$PYLOG"
 case "\$(cat "$T/py-mode")" in
   ok) echo "import banner"; echo "BOOT OK worker gateway"; exit 0;;
   fail) echo "worker.main ImportError: boom"; exit 1;;

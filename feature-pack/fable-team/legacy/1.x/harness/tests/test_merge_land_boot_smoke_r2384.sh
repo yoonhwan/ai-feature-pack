@@ -8,10 +8,10 @@
 pretest; tick 사전
 
 # ===== ⑭ 스크립트 있음 · rc 0 → 착지 · 1회 부름 · 단계 초 boot= 따로 · 기준판 = 부름 0(Red) =====
-mkpr 51 b14 "$BOOTPY" "$WPY" "gateway/main.py=app=2"; A="$PRSHA"; pre; mode ok
+mkpr 51 b14 "$BOOTPY" "$WPY" "gateway/main.py=app=2" "scripts/rag/r.py=x=1"; A="$PRSHA"; pre; mode ok
 land "$LAND" 51 --approve-sha "$A"; landed 51 && grep -qx 'BOOT OK worker gateway' <<<"$out" && [ "$(calls)" = 1 ] && [ -n "$(bootsec)" ] \
   && tail -n 1 "$T/state/merge-gate.log" | grep -q ' pr=51 .* boot=[0-9]*s'; ck "⑭ smoke rc0 → 착지 · «BOOT OK worker gateway» · 호출 1 · LAND-PHASE boot= · merge-gate.log boot=Ns" $?
-grep -q ' tree=ok canary= env=$' "$PYLOG" && grep -q "^CALL scripts/ci/boot_smoke.py pwd=" "$PYLOG" && ! grep -q 'import banner' <<<"$out"; ck "⑭ env -i(PATH·HOME·PYTHONPATH 만) · PYTHONPATH = 병합 트리(스크립트·worker 있음) · 마지막 1줄만" $?
+grep -q ' tree=ok canary= env=$' "$PYLOG" && grep -q "^CALL scripts/ci/boot_smoke.py pwd=" "$PYLOG" && ! grep -q 'import banner' <<<"$out"; ck "⑭ env -i(PATH·HOME·PYTHONPATH 만) · PYTHONPATH = 병합 트리(스크립트·worker·scripts/rag 있음) · 마지막 1줄만" $?
 rewind; mode ok; cnt "$BASE/ft-merge-land.sh" 51 "$A"; landed 51 && [ "$(calls)" = 0 ] && [ -z "$(bootsec)" ]; ck "기준판 ⑭ → 부름 0 · boot= 0 (Red)" $?
 tick ⑭
 
