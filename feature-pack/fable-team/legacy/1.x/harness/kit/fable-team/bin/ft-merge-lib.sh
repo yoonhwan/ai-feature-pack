@@ -98,6 +98,84 @@ fm_push_bound() {
   else echo "WARN 객체 수 조회 실패(rev-list) → 크기 모름 · 상한 F+7 호환값: $(printf '%s' "$out" | tail -n1)" >&2; n='?'; fi
   echo "$n $(fm_push_calc "$n")"
 }
+#   fm_land_cap <state 폴더> <repo 이름> <PR 번호> : r2385 — 착지 «총 상한»(LIM)과 «push 1단위»(R_push)를 고정 67·14 대신 land-phase.tsv 실측으로 판마다 정한다(하드 룰 12 «검사 단계 실측 유동 상한» · 오빠 11-21)
+#     stdout = "<LIM> <R_push> <출처> <n> <앞 합 p90> <push p90> <gate p90> <press p90> <직전 gate> <직전 press>" — 공백 1칸 10칸 고정(부른 쪽이 read 로 받는다 · 판정 불가도 «지금 값»을 채워 칸 수를 지킨다)
+#     K6·K7 용 뒷 4칸: gate p90 = 표본 gate 칸 p90 · press p90 = 표본 중 press 가 숫자 ≥ 2 인 행만(DA#53 F2 ⓑ) · 직전 gate/press = 같은 PR 마지막 행(30분 안)의 그 칸(없으면 -1)
+#     K1 표본 = <state>/land-phase.tsv 1개만(git 0) · 끝 200줄(tail) · 그중 최근 20행 · 같은 repo 칸 행만(칸 없는 옛 행은 모든 repo 에 셈) · 앞 합 = close+view+fetch+gate+overlap+equiv+press+lint("-" = 0) · push 표본 = push 가 숫자인 행
+#     K2 prev 경계 = left 가 «숫자(음수 포함 · -1 = 총 마감 초과 거절도 예산 거절 꼴)» 이고 그 행 rpush 이하일 때만(DA#54 H2 정정 · master #363176) · 없는 행/탐침 -1 은 상향 0 · R_push = clamp(F+7, 70, push p90+7) · LIM = clamp(67, 100, 앞 합 p90 + R_push + 7) · p90 = 오름차순 0 기준 index floor(0.9n) · 앞 합 p90 + R_push + 7 이 67 미만이면 출처=floor(바닥에 걸림 · 67 초과 100 미만이면 p90) · prev 갈래 = 같은 PR 의 마지막 행이 30분 안 ∧ push="-" ∧ left ≤ 그 행 rpush(칸 없음 14) 면 LIM = clamp(67, 100, max(위 값, 그 행 앞 합 + 2×R_push + 7)) · 출처=prev
+#     K3 FT_LAND_TOTAL_S 가 있으면 그 값(1~100 · 밖이면 100) · 출처=env · 표본 안 봄 / 파일 없음·못읽음·표본 < 5행 = 67 · F+7 + 출처=floor:<없음|못읽음|n<5> / 깨진 줄은 건너뜀 · 1초 안(외부 호출 0)
+fm_land_cap() {
+  local st="${1-}" rp="${2-}" pr="${3-}" rf f now tzo nowl cut out e
+  rf="$(fm_push_calc '?' 2>/dev/null)" || rf=14
+  case "$rf" in ''|*[!0-9]*) rf=14;; esac
+  if [ -n "${FT_LAND_TOTAL_S:-}" ]; then
+    e="${FT_LAND_TOTAL_S}"; { [ "$e" -le 100 ] && [ "$e" -ge 1 ]; } 2>/dev/null || e=100
+    echo "$e $rf env 0 0 0 0 0 -1 -1"; return 0
+  fi
+  f="${st%/}/land-phase.tsv"
+  if [ -z "$st" ] || [ ! -e "$f" ]; then echo "67 $rf floor:없음 0 0 0 0 0 -1 -1"; return 0; fi
+  if [ -d "$f" ] || [ ! -r "$f" ]; then echo "67 $rf floor:못읽음 0 0 0 0 0 -1 -1"; return 0; fi
+  now="$(date +%s)"; tzo="$(date +%z)"   # ISO 시각은 «벽시계» 다 — 아래 awk 가 UTC 로 읽으므로 지금 초에 지역 오프셋을 더해 같은 자로 잰다(%z 가 Z·빈 값이면 0)
+  case "$tzo" in
+    -*) tzo=$(( 0 - 10#${tzo:1:2} * 3600 - 10#${tzo:3:2} * 60 ));;
+    +*) tzo=$(( 10#${tzo:1:2} * 3600 + 10#${tzo:3:2} * 60 ));;
+    *) tzo=0;;
+  esac
+  nowl=$(( now + tzo )); cut=$(( nowl - 1800 ))
+  out="$(tail -n 200 "$f" 2>/dev/null | awk -v rp="$rp" -v pr="$pr" -v rf="$rf" -v nowl="$nowl" -v cut="$cut" '
+    function nz(v) { return (v ~ /^[0-9]+$/) ? v + 0 : 0 }
+    function ep(s,   y, mo, d, h, mi, se, yy, era, yoe, doy, doe) {
+      if (s !~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]$/) return -1
+      y = substr(s,1,4) + 0; mo = substr(s,6,2) + 0; d = substr(s,9,2) + 0
+      h = substr(s,12,2) + 0; mi = substr(s,15,2) + 0; se = substr(s,18,2) + 0
+      yy = (mo <= 2) ? y - 1 : y; era = int(yy / 400); yoe = yy - era * 400
+      doy = int((153 * (mo + (mo > 2 ? -3 : 9)) + 2) / 5) + d - 1
+      doe = yoe * 365 + int(yoe / 4) - int(yoe / 100) + doy
+      return (era * 146097 + doe - 719468) * 86400 + h * 3600 + mi * 60 + se
+    }
+    function srt(a, n,   i, j, t) { for (i = 2; i <= n; i++) { t = a[i]; for (j = i - 1; j >= 1 && a[j] > t; j--) a[j+1] = a[j]; a[j+1] = t } }
+    function p90(a, n,   i) { if (n < 1) return 0; i = int(0.9 * n); if (i > n - 1) i = n - 1; return a[i+1] }
+    {
+      if (NF < 2) next
+      split("", K); ok = 0
+      for (i = 2; i <= NF; i++) { j = index($i, "="); if (j > 1) { K[substr($i,1,j-1)] = substr($i,j+1); ok = 1 } }
+      if (!ok) next
+      rv = K["repo"]
+      if (rp != "" && rv != "" && rv != rp) next
+      pre = nz(K["close"]) + nz(K["view"]) + nz(K["fetch"]) + nz(K["gate"]) + nz(K["overlap"]) + nz(K["equiv"]) + nz(K["press"]) + nz(K["lint"])
+      nr++; PRE[nr] = pre
+      GT[nr] = K["gate"]; PRS[nr] = K["press"]
+      PUSH[nr] = K["push"]   # r2385 DA#54 H3: push 표본도 «최근 20행» 창에서만 센다(200줄 전부 아님)
+      if (pr != "" && K["pr"] == pr) { last = nr; LTS[nr] = ep($1); LEF[nr] = K["left"]; LPRE[nr] = pre; LRS[nr] = (K["rpush"] ~ /^[0-9]+$/) ? K["rpush"] + 0 : 14; LGAT[nr] = K["gate"]; LPRS[nr] = K["press"] }
+    }
+    END {
+      s = (nr > 20) ? nr - 19 : 1
+      n = nr - s + 1
+      if (n < 5) { printf "67 %d floor:n<5 %d 0 0 0 0 -1 -1\n", rf, nr; exit }
+      k = 0; for (i = s; i <= nr; i++) { k++; A[k] = PRE[i] }
+      srt(A, k); pre90 = p90(A, k)
+      j = 0; for (i = s; i <= nr; i++) if (PUSH[i] ~ /^[0-9]+$/) { j++; Q[j] = PUSH[i] + 0 }
+      srt(Q, j); push90 = p90(Q, j)
+      rpush = push90 + 7; if (rpush < rf) rpush = rf; if (rpush > 70) rpush = 70
+      lim = pre90 + rpush + 7; src = (lim < 67) ? "floor" : "p90"; if (lim < 67) lim = 67; if (lim > 100) lim = 100
+      if (last > 0) { t = LTS[last]
+        if (t >= 0 && t >= cut && t <= nowl + 5 && LEF[last] ~ /^-?[0-9]+$/ && (LEF[last] + 0) <= LRS[last]) {
+          c = LPRE[last] + 2 * rpush + 7
+          if (c > lim) { lim = (c > 100) ? 100 : c; src = "prev" }
+        }
+      }
+      j = 0; for (i = s; i <= nr; i++) { j++; G2[j] = nz(GT[i]) }
+      srt(G2, j); gate90 = p90(G2, j)
+      j = 0; for (i = s; i <= nr; i++) if (PRS[i] ~ /^[0-9]+$/ && PRS[i] + 0 >= 2) { j++; P2[j] = PRS[i] + 0 }
+      srt(P2, j); press90 = p90(P2, j)
+      pgate = -1; ppress = -1
+      if (last > 0 && LTS[last] >= cut && LTS[last] <= nowl + 5) { pgate = nz(LGAT[last]); ppress = (LPRS[last] ~ /^[0-9]+$/) ? LPRS[last] + 0 : -1 }
+      printf "%d %d %s %d %d %d %d %d %d %d\n", lim, rpush, src, n, pre90, push90, gate90, press90, pgate, ppress
+    }
+  ')"
+  printf '%s' "$out" | grep -Eq '^[0-9]+ [0-9]+ (env|p90|prev|floor|floor:[^ ]+) [0-9]+ [0-9]+ [0-9]+ [0-9]+ [0-9]+ -?[0-9]+ -?[0-9]+$' || out="67 $rf floor:못읽음 0 0 0 0 0 -1 -1"
+  echo "$out"
+}
 #   fm_base_head_file <기준경로> <대상 가지> : r1687 — 기준 헤드는 «대상 가지마다 따로» 다. main = 지금 경로 그대로(옛 파일 호환) · 그 밖 = <경로>@<가지를 /→-> (예 base-head@ops-main-base).
 #     이유: 기준 헤드가 리포에 1개뿐이면 main 기준을 ops/main-base 착지에도 들이대, main 이 ops 의 조상이 아닌 동안 ops 착지가 늘 DENY 된다(PR 8346·8347 실사건).
 fm_base_head_file() {
