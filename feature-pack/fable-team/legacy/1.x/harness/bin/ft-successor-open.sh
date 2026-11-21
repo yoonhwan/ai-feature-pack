@@ -39,12 +39,13 @@ so_budget_stop() {   # $1 = 멈춘 단계 이름 · rc5 = 열렸으나 도달 �
   echo "다음: 같은 인자로 다시 실행(이어가기 r609)"
   exit 5
 }
-usage() { echo "usage: $0 <구 좌석> <워크트리> --name <후계> [--agent claude|codex|cmd|opencode|pi(생략 = 역할 정책표 runtime-policy.tsv · r1569)] --model M(sn=claude-sonnet-5-5 · op=claude-opus-5-5 · 팀장 이름이면 생략 시 claude-sonnet-5-5 · arch 이름(agent claude)이면 생략 시 claude-opus-5-5) [--carry 0|1] [--ctx C] [--effort E] --body-file F" >&2; exit 2; }
+usage() { echo "usage: $0 <구 좌석> <워크트리> --name <후계> [--agent claude|codex|cmd|opencode|pi(생략 = 역할 정책표 runtime-policy.tsv · r1569 · --tier up 이면 «<역할>@up» 행)] --model M(sn=claude-sonnet-5-5 · op=claude-opus-5-5 · 팀장 이름이면 생략 시 claude-sonnet-5-5 · arch 이름(agent claude)이면 생략 시 claude-opus-5-5) [--tier up] [--verdict N(표와 다른 손 입력을 사람 판정으로 통과 · r2403)] [--carry 0|1] [--ctx C] [--effort E] --body-file F" >&2; exit 2; }
 [ $# -ge 2 ] || usage
 OLD="$1"; WT="$2"; shift 2
-NAME=""; AGENT=""; MODEL=""; CTX=""; EFFORT=""; BODY=""; CARRY=""; CARRY_SET=0
+NAME=""; AGENT=""; MODEL=""; CTX=""; EFFORT=""; BODY=""; CARRY=""; CARRY_SET=0; TIER=""; VERDICT=""
 while [ $# -gt 0 ]; do case "$1" in
   --name) NAME="${2:-}"; shift 2;; --agent) AGENT="${2:-}"; shift 2;; --model) MODEL="${2:-}"; shift 2;;
+  --tier) TIER="${2:-}"; shift 2;; --verdict) VERDICT="${2:-}"; shift 2;;
   --ctx) CTX="${2:-}"; shift 2;; --effort) EFFORT="${2:-}"; shift 2;; --body-file) BODY="${2:-}"; shift 2;;
   --carry) CARRY="${2:-}"; CARRY_SET=1; shift 2;; *) usage;; esac; done
 # ★r1659 이름 lint 관문★ (오빠 «이름 꼬리 = 에이전트만 · 모델은 이름에 안 넣음»): 열기·명부·쪽지·재실행 이어가기 전에 ft-name-lint 를 통과해야 한다.
@@ -56,18 +57,30 @@ _nl="${FT_NAME_LINT:-$SO_DIR/ft-name-lint.sh}"
 _or="${OLD#*-*-}"; if [ "${_nlo:-}" != "${_nlo#*WARN 옛 꼴}" ] && [ "${_or%%-*}" != nano ] && _olo="$(bash "$_nl" "$OLD" 2>&1)" && [ "$_olo" = "${_olo#*WARN 옛 꼴}" ]; then
   echo "REJECT 석 칸 역행 — 옛 좌석 $OLD 는 새 꼴 · 후계 $NAME 에 석 칸 필요 (세션 열기 0 · 명부 쓰기 0)" >&2; exit 1; fi
 # ★r1569 후계 런타임 = 역할 정책표★ (오빠 #278888): --agent 를 생략하면 옛 좌석 습관 대신 정책표(역할 → agent·model)에서 고르고, 이름 꼬리도 고른 agent 로 바꾼다.
-#   역할 = 이름의 «-<역할>-» 토큰(표 위 행부터 첫 일치) · 표 없음·역할 없음 = rc2 + 이유 1줄(옛 agent 로 조용히 대체 0 · #0 RULE) · --agent 명시가 정책과 다르면 WARN 1줄(막지 않음 · 사람 지정 존중).
+#   역할 = 이름의 «-<역할>-» 토큰(표 위 행부터 첫 일치) · 표 없음·역할 없음 = rc2 + 이유 1줄(옛 agent 로 조용히 대체 0 · #0 RULE).
+#   ★r2403★ 올림 행 + 손 입력 대조: «<역할>@up» 행 = 올림 단계 값(--tier up) · 손으로 적은 --agent·--model 이 표(기본 행 또는 올림 행)와 다르면 REJECT rc1(세션 열기 0 · 쪽지 0) · `--verdict <숫자>` 가 있으면 WARN 1줄 뒤 연다.
 POLICY="${FT_RUNTIME_POLICY:-$SO_DIR/runtime-policy.tsv}"
-_pol=""; [ -f "$POLICY" ] && _pol="$(awk -v n="-${NAME%%#*}-" '!/^#/ && NF>=3 && index(n, "-" $1 "-") {print $2, $3; exit}' "$POLICY")"
-if [ -z "$AGENT" ]; then
+_pol=""; _polup=""
+if [ -f "$POLICY" ]; then
+  _pol="$(awk -v n="-${NAME%%#*}-" '!/^#/ && NF>=3 && $1 !~ /@/ && index(n, "-" $1 "-") {print $2, $3; exit}' "$POLICY")"
+  _polup="$(awk -v n="-${NAME%%#*}-" '!/^#/ && NF>=3 && $1 ~ /@up$/ {r=$1; sub(/@up$/, "", r); if (index(n, "-" r "-")) {print $2, $3; exit}}' "$POLICY")"
+fi
+case "$TIER" in ''|up) ;; *) usage;; esac
+case "$VERDICT" in ''|*[!0-9]*) [ -z "$VERDICT" ] || usage;; esac
+_hand=0; if [ -n "$AGENT" ] || [ -n "$MODEL" ]; then _hand=1; fi   # 손 입력 대조(r2403) = 표가 유일한 출처
+[ "$TIER" = up ] && [ -z "$_polup" ] && { echo "REJECT 정책표에 올림 행 없음: ${NAME%%#*}@up — $POLICY 에 «<역할>@up<TAB><agent><TAB><model>» 1행을 더하거나 --tier 를 빼라" >&2; exit 2; }
+if [ -z "$AGENT" ] && [ -z "$MODEL" ]; then
   [ -f "$POLICY" ] || { echo "REJECT 런타임 정책표 없음: $POLICY — 표를 설치하거나 --agent 를 적어라(옛 좌석 agent 로 대체 0)" >&2; exit 2; }
-  [ -n "$_pol" ] || { echo "REJECT 정책표에 역할 없음: ${NAME%%#*} — $POLICY 에 1행을 더하거나 --agent 를 적어라(옛 좌석 agent 로 대체 0)" >&2; exit 2; }
-  AGENT="${_pol%% *}"; [ -n "$MODEL" ] || MODEL="${_pol#* }"
+  _row="$_pol"; [ "$TIER" = up ] && _row="$_polup"
+  [ -n "$_row" ] || { echo "REJECT 정책표에 역할 없음: ${NAME%%#*}$([ "$TIER" = up ] && echo '@up') — $POLICY 에 1행을 더하거나 --agent 를 적어라(옛 좌석 agent 로 대체 0)" >&2; exit 2; }
+  AGENT="${_row%% *}"; MODEL="${_row#* }"
   _nb0="${NAME%%#*}"; case "${_nb0##*-}" in claude|codex|cmd|opencode|pi) NAME="${_nb0%-*}-$AGENT${NAME#"$_nb0"}";; esac
   echo "RUNTIME 정책표 → agent=$AGENT model=$MODEL name=$NAME" >&2
-elif [ -n "$_pol" ] && [ "$AGENT" != "${_pol%% *}" ]; then
-  echo "WARN --agent $AGENT 는 정책과 다름(정책 = ${_pol%% *} ${_pol#* }) — 사람 지정 존중 · 그대로 연다" >&2
-elif [ -n "$_pol" ] && [ -z "$MODEL" ]; then MODEL="${_pol#* }"; fi
+elif [ -z "$AGENT" ]; then
+  _row="$_pol"; [ "$TIER" = up ] && _row="$_polup"
+  [ -n "$_row" ] || { echo "REJECT 정책표에 역할 없음: ${NAME%%#*} — agent 를 정할 표 행이 없다 · --agent 를 적어라" >&2; exit 2; }
+  AGENT="${_row%% *}"
+elif [ -n "$_pol" ] && [ "$AGENT" = "${_pol%% *}" ] && [ -z "$MODEL" ]; then MODEL="${_pol#* }"; fi
 # r1675 — 옛 좌석의 팀이 2.0 전환됨이면 후계 개설(state/successor·쪽지) 전에 멈춘다(첫 게이트). 명부 자체 수정 0 = 명부 쓰기는 ft-seat-retire 가 따로 막는다.
 _ft20h="$SO_DIR"   # r1675 — HERE 정의(아래 74줄)보다 앞에서 도는 가드라 자기 폴더를 직접 푼다
 if [ -f "$_ft20h/ft20-switch-lib.sh" ]; then . "$_ft20h/ft20-switch-lib.sh"; _ft20_root="$(ft20_root_of "$WT")" || exit $?; ft20_guard_handover "$_ft20_root" "$OLD" "$NAME" "" || exit $?; else _ft20_r="${FT_FT20_ROOT:-$(git -C "$WT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)}"; compgen -G "${_ft20_r%/.git}/.fable-team/state/ft20-switch/*.json" >/dev/null 2>&1 && { echo "REJECT 2.0 전환 표식이 있는데 ft20-switch-lib.sh 없음(설치 누락) — 1.x 쓰기 0(판정 불가)" >&2; exit 3; }; fi
@@ -82,6 +95,23 @@ case "$MODEL" in sn) MODEL="claude-sonnet-5-5";; op) MODEL="claude-opus-5-5";; e
 [ -z "$MODEL" ] && [ "$AGENT" = claude ] && [ "${NAME#*-arch-}" != "$NAME" ] && MODEL="claude-opus-5-5"
 [ -n "$NAME" ] && [ -n "$AGENT" ] && [ -n "$MODEL" ] && [ -n "$BODY" ] || usage
 case "$AGENT" in claude|codex|cmd|opencode|pi) ;; *) usage;; esac
+# ★r2403 K2 손 입력 대조★: 기본 행이 있는 역할에서 손으로 적은 (agent · 창 꼬리 뗀 model) 이 기본 행이나 올림 행과 다르면 REJECT rc1(세션 열기 0 · 쪽지 0).
+#   sn·op 는 위에서 풀렸고, 창 꼬리 «[…]» 는 떼고 본다(실행 모델은 적은 값 그대로). 기본 행이 없는 역할(da·tester 등)은 대조 0 = 지금과 같다.
+if [ "$_hand" = 1 ] && [ -n "$_pol" ]; then
+  _mc="${MODEL%%\[*}"; _ok=0
+  for _p in "$_pol" "$_polup"; do
+    [ -n "$_p" ] || continue
+    [ "$AGENT" = "${_p%% *}" ] && [ "$_mc" = "${_p#* }" ] && { _ok=1; break; }
+  done
+  if [ "$_ok" = 0 ]; then
+    if [ -n "$VERDICT" ]; then
+      echo "WARN 정책표와 다름 — 판정 $VERDICT 로 진행 · 적은 값 $AGENT $MODEL · 표 값 ${_pol:-<없음>} | ${_polup:-<없음>}" >&2
+    else
+      echo "REJECT 정책표와 다름 — 적은 값 $AGENT $MODEL · 표 값 ${_pol:-<없음>} | ${_polup:-<없음>} — 표를 고치거나 --verdict <판정 번호>" >&2
+      exit 1
+    fi
+  fi
+fi
 # ★r1060 --ctx 꼴 검사★ (오빠 2026-10-28 · 실사건 planner#152): 승계 호출자가 창 크기 자리에 «지금 쓴 토큰 수»(554k)를 넣었고
 #   도구가 값을 보지 않고 넘겨 모델 이름이 claude-sonnet-5-5[554k] 가 되어 API 400 이 났다. 창 크기 꼴(숫자+m)만 받는다.
 #   빈 값·생략 = 지금과 같다(넘기지 않음). agent≠claude 라도 값이 틀리면 거절 — 맞는 값의 «무시» 규칙은 아래 열기 줄 그대로.

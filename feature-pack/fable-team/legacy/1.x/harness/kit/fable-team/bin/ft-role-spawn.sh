@@ -15,15 +15,15 @@
 #   ③ 첫 발주 = 「README §2 부팅 5단계 → indices/inbox/<role>/ 정렬해 맨 위부터」 한 줄. 본문은 파일(인박스)에 있다.
 # 새 좌석의 tick 은 null(=doorbell 울림). 틱 데몬이 seats.json 을 따라오는 것은 0.4(ft-tick.sh) — 그 전엔 알림이 울리는 쪽이 안전하다.
 # ★런타임 자리는 <워크트리>/.fable-team/bin/ (gitignore) — 추적 사본은 harness/bin/ (ft-goal-check 관례).★
-# ★r1043 모델 기본값★ (오빠 2026-10-28 13:5x · 카드 r1043 · governance §13): `--model` 을 안 적었고 role=master·agent=claude 면 claude-sonnet-5-5[1m] · 그 밖(arch 포함)은 지금 기본(claude-opus-5-5[1m]) 그대로 · 명시한 --model 은 언제나 그대로.
+# ★r1043 모델 기본값★ (오빠 2026-10-28 13:5x · 카드 r1043 · governance §13) — r2403 에서 바뀐다: 기본 런타임은 정책표(runtime-policy.tsv)의 «agent·model 쌍» 이다(표에 행이 있는 역할만) · 표에 행이 없는 역할은 --model 을 반드시 적는다.
 set -uo pipefail
 [ -f "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" ] && . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/ft-live-entry.sh" "$@"   # R201: 비설치 위치면 LIVE_BIN 으로 exec
 ROLE="${1:-}"; shift || { echo "usage: $0 <master|da|pm|arch|tester> [--agent A] [--model M] [--effort E] [--from SEAT] [--dry-run]" >&2; exit 2; }
 case "$ROLE" in master|da|pm|arch|tester) ;; *) echo "usage: role 은 master|da|pm|arch|tester (받은 값: $ROLE)" >&2; exit 2;; esac
 # 오빠 2026-09-29 「arch도 fable 쓰지말고 opus5.5 high 쓰자 이후로는」
-AGENT="claude"; MODEL="claude-opus-5-5[1m]"; MODEL_SET=0; EFFORT="high"; FROM="${FT_SEND_FROM:-dispatch}"; FROM_SET=0; DRY=0; ADD=0; RAISE=""; RAISE_CARD=""; TEAM=""; TEAM_SET=0
+AGENT="claude"; MODEL="claude-opus-5-5[1m]"; AGENT_SET=0; MODEL_SET=0; EFFORT="high"; FROM="${FT_SEND_FROM:-dispatch}"; FROM_SET=0; DRY=0; ADD=0; RAISE=""; RAISE_CARD=""; TEAM=""; TEAM_SET=0
 while [ $# -gt 0 ]; do case "$1" in
-  --agent) AGENT="$2"; shift 2;; --model) MODEL="$2"; MODEL_SET=1; shift 2;; --effort) EFFORT="$2"; shift 2;; --team) TEAM="${2:-}"; TEAM_SET=1; shift 2 2>/dev/null || shift;;
+  --agent) AGENT="$2"; AGENT_SET=1; shift 2;; --model) MODEL="$2"; MODEL_SET=1; shift 2;; --effort) EFFORT="$2"; shift 2;; --team) TEAM="${2:-}"; TEAM_SET=1; shift 2 2>/dev/null || shift;;
   --raise) RAISE="${2:-}"; shift 2 2>/dev/null || shift;; --raise-card) RAISE_CARD="${2:-}"; shift 2 2>/dev/null || shift;;
   --from) FROM="$2"; FROM_SET=1; shift 2;; --dry-run) DRY=1; shift;; --add) ADD=1; shift;; *) echo "unknown $1" >&2; exit 2;; esac; done
 # 오빠 확정(2026-09-24 · 09-28 재확인 · 09-29 세 번째 재발): v65 DA astra = low. 기본 high 로 뜨는 사고가 반복돼 여기서 막는다.
@@ -45,9 +45,24 @@ if [ "$TEAM_SET" = 0 ]; then
 fi
 [[ "$TEAM" =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { echo "usage: --team 은 팀 이름 [a-z0-9_-] (받은 값: $TEAM)" >&2; exit 2; }
 echo "team=$TEAM($TEAM_FROM)"   # 조용한 대체 0 — 어디서 팀이 왔는지 1줄
-# ★r1043 기본 브레인 = 역할로 정한다★: `--model` 을 «안 적었고» role=master·agent=claude 면 팀장 기본 = Sonnet 5.5. 명시한 값은 어떤 경우에도 덮지 않는다.
-if [ "$MODEL_SET" = 0 ] && [ "$ROLE" = master ] && [ "$AGENT" = claude ]; then MODEL="claude-sonnet-5-5[1m]"; fi
+# ★r1043 기본 브레인 = 역할로 정한다★ → ★r2403 바뀜★: 기본 런타임은 정책표의 agent·model «쌍» 이다(아래 표 판독 문단 · 49행 sonnet 분기 삭제).
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
+# ★r2403 기본 런타임 = 런타임 정책표(runtime-policy.tsv)의 agent·model 쌍★ — 표가 유일한 출처다. 표 머리 «값 변경은 오빠 확인 뒤에만» 규칙은 그대로다.
+#   표에 행이 있는 역할(arch·master·nano): 둘 다 생략 = 표 쌍 그대로 · --agent 만 = 표 agent 와 같으면 model = 표 값, 다르면 REJECT(--model 필요) · --model 만 = agent = 표 agent.
+#   표에 행이 없는 역할(da·tester·pm 등): --model 생략 = REJECT(--model 필요) · --agent 생략 = 지금 기본(claude) 그대로.
+POLICY="${FT_RUNTIME_POLICY:-$HERE/runtime-policy.tsv}"
+_row=""; [ -f "$POLICY" ] && _row="$(awk -v r="$ROLE" '!/^#/ && NF>=3 && $1 !~ /@/ && $1 == r {print $2, $3; exit}' "$POLICY")"
+if [ -n "$_row" ]; then
+  if [ "$AGENT_SET" = 0 ] && [ "$MODEL_SET" = 0 ]; then
+    AGENT="${_row%% *}"; MODEL="${_row#* }"
+    echo "RUNTIME 정책표 → agent=$AGENT model=$MODEL role=$ROLE" >&2
+  elif [ "$AGENT_SET" = 1 ] && [ "$MODEL_SET" = 0 ]; then
+    [ "$AGENT" = "${_row%% *}" ] || { echo "REJECT --model 필요(표 agent ${_row%% *} 와 다름 · 적은 --agent $AGENT) — 표 값 쌍 = ${_row%% *} ${_row#* }" >&2; exit 2; }
+    MODEL="${_row#* }"
+  elif [ "$AGENT_SET" = 0 ]; then AGENT="${_row%% *}"; fi
+elif [ "$MODEL_SET" = 0 ]; then
+  echo "REJECT --model 필요(정책표에 역할 $ROLE 행 없음: $POLICY) — --model <ID> 를 적어라(박힌 기본 모델 0 · r2403)" >&2; exit 2
+fi
 # r730 ★보내는 사람 = 명부 현역★: --from 을 «안 줬을 때만» env FT_SEND_FROM 을 그 팀 명부 `_master` 로 해석한다(후계 좌석 첫 발주문이 옛 팀장을 가리키던 사고). 해석 함수 = ft-team-lib.sh 한 곳 · 명부(SEATS)가 정해진 뒤에 부른다.
 # ★spawn 정지 2종을 «한 자리에서 둘 다 모아» 판정한다 (r1214 DA① ⑥)★
 #   ①자원 정지 (R320 · 판정 2166) = 기한·해제 조건이 있는 SPAWN_HOLD 파일 하나 — 문장·쪽지로 받은 정지는 효력 0

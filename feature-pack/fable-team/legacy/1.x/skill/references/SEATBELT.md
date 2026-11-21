@@ -74,7 +74,7 @@ LST ON 우선이며 LST OFF/전환과 기존 M0–M7·통합 조건도 남긴다
 
 **seats.json 행**
 ```json
-"ft-v65-temp-<이름>#0": {"role":"nano","agent":"claude","tick":null,"model":"fable-5.1[1m]","index":"design/v65/indices/진행/<이름>.md"}
+"ft-v65-temp-<이름>#0": {"role":"nano","agent":"claude","tick":null,"model":"fable-5.2[1m]","index":"design/v65/indices/진행/<이름>.md"}
 ```
 role ∈ master·pm·da·nano·tester·harness-design. tick ∈ null · `ft-master-tick` · `ft-pm-tick`. **tick=null 이면 알림이 울린다.**
 

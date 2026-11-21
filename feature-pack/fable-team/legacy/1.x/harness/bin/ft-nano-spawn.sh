@@ -568,7 +568,7 @@ case "$AGENT" in
 esac
 
 # R387 --research: opencode 리서치 좌석은 «쓰고 바로 닫기»(메모리 버그 · r286 reap)가 전제 — 회수 도구가 없으면 부작용 «전» REJECT. Fable 등 다른 에이전트는 통과.
-[ "$RESEARCH" != 1 ] || [ "$AGENT" != opencode ] || [ -f "$HERE/ft-opencode-reap.sh" ] || { echo "REJECT --research --agent opencode 는 ft-opencode-reap.sh(r286) 미설치 — 닫을 때 프로세스를 못 회수한다: $HERE · Fable(--agent claude --model claude-fable-5-1[1m])로 열거나 r286 설치 뒤"; exit 1; }
+[ "$RESEARCH" != 1 ] || [ "$AGENT" != opencode ] || [ -f "$HERE/ft-opencode-reap.sh" ] || { echo "REJECT --research --agent opencode 는 ft-opencode-reap.sh(r286) 미설치 — 닫을 때 프로세스를 못 회수한다: $HERE · Fable(--agent claude --model claude-fable-5-2[1m])로 열거나 r286 설치 뒤"; exit 1; }
 
 # ★r1217 계정 주간 한도 배정(#5345 ⑦)★ — 모델 확정 뒤 · 카드·워크트리 쓰기 «전» 1회. 대체 = 그 모델로 열기 · 정지 중·가용 0 = rc3 중단(부작용 0)
 #   불명 = 원래 모델로 열되 WARN + 발주문 «[배정 불명]» · 기록(발주문·카드 «상태» 절)은 이동 «뒤» · --dry-run 은 판정 줄만 · FT_ACCT_ASSIGN=0 = 호출 0

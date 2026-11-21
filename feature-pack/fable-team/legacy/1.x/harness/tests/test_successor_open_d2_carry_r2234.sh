@@ -40,7 +40,7 @@ B1="$FX/body-332594.txt"; P363='앞 인계서: design/p/H363.md'
 b1() { cat "$B1"; echo; echo "desk 묻는 기준: $ASK"; [ $# -gt 0 ] && printf '%s\n' "$@"; return 0; }   # 실 #332594 본문(9줄 · 끝 줄바꿈 0) + 10줄 r2233 묻는 기준 + 덧줄
 so_run() {  # so_run <kit 폴더> <구> <후계> [env…] — 본문 = $T/b.txt · cwd = $T(ROOT 밖)
   local d="$1" o="$2" n="$3"; shift 3; rm -f "$lg" "$T/opened" "$T/sent.txt"; rm -rf "$R/.fable-team/state"; : > "$lg"
-  (cd "$T" && export "${SOENV[@]}" "$@" && bash "$d/ft-successor-open.sh" "$o" "$R" --name "$n" --agent pi --model m --body-file "$T/b.txt") > "$T/out" 2>&1; RC=$?
+  (cd "$T" && export "${SOENV[@]}" "$@" && bash "$d/ft-successor-open.sh" "$o" "$R" --name "$n" --agent pi --model m --verdict 1 --body-file "$T/b.txt") > "$T/out" 2>&1; RC=$?   # r2403: «m» 은 표 값이 아니다 → --verdict 로 통과
 }
 rej_so() {  # rej_so <이름> <REJECT 글> <구> <후계> [kit] — 열기·send 0
   so_run "${5:-$KD}" "$3" "$4"; { [ "$RC" = 1 ] && grep -qF -- "$2" "$T/out" && ! grep -q '^tmuxc' "$lg" && ! grep -q '^send' "$lg"; } \

@@ -69,7 +69,7 @@ run() {   # run <agent> [env…]
       FT_GOV_MD="$HERE/../../skill/references/main-team-governance.md" \
       FT_SEND_VERIFIED="${FT_SEND_VERIFIED_OVERRIDE:-$FAKE/send}" \
       FT_MBOX_SH="$FAKE/mbox" FT_REACH_CHECK="$FAKE/reach" FT_SEAT_RETIRE="$FAKE/retire" \
-      "$@" bash "$SO" "$OLD" "$REPO" --name "$NEW" --agent "$ag" --model model-x --body-file "$BODY" > "$TMP/out" 2>&1
+      "$@" bash "$SO" "$OLD" "$REPO" --name "$NEW" --agent "$ag" --model model-x --verdict 1 --body-file "$BODY" > "$TMP/out" 2>&1   # r2403: «model-x» 는 표 값이 아니다 — 이 시험은 대기·상한만 본다
   RC=$?
 }
 n() { grep -c "^$1" "$LOG"; }

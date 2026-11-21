@@ -62,7 +62,7 @@ run() {
   env HOME="$TMP/home" PANE_CWD="$TMP/pane" PATH="$FAKE:$PATH" LOG="$LOG" CNT="$CNT" OPENED="$OPENED" \
       FT_SO_POLL=0 FT_SO_WAIT_MAX=2 FT_RES_ROOT="$RES" SENSORS="$SENSORS" \
       FT_SEND_VERIFIED="$FAKE/send" FT_MBOX_SH="$FAKE/mbox" FT_REACH_CHECK="$FAKE/reach" \
-      bash "$SO" "$OLD" "$REPO" --name "$NEW" --agent "$agent" --model claude-sonnet-5-5 "$@" --effort high --body-file "$BODY" > "$TMP/out" 2>&1
+      bash "$SO" "$OLD" "$REPO" --name "$NEW" --agent "$agent" --model claude-sonnet-5-5 --verdict 1 "$@" --effort high --body-file "$BODY" > "$TMP/out" 2>&1
   RC=$?
 }
 count() { cat "$LOG" 2>/dev/null | grep -c "^$1" || true; }

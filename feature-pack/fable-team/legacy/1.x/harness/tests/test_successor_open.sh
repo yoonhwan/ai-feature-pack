@@ -66,7 +66,7 @@ run() { # run <환경 KEY=VAL…> — 호출마다 로그·카운터·도달 파
       BE_RC="${BE_RC:-0}" BE_OUT="${BE_OUT:-}" \
       FT_RES_ROOT="$RES" SENSORS="$SENSORS" FT_TEAMSET_MD="$TMP/teamset.md" SENT_TEXT="$TMP/sent.txt" FT_GOV_MD="$TMP/gov-ok.md" \
       FT_SEND_VERIFIED="$FAKE/send" FT_MBOX_SH="$FAKE/mbox" FT_REACH_CHECK="$FAKE/reach" "$@" \
-      "${SOBASH:-bash}" "$SO" "$OLD" "$REPO" --name "$NEW" --agent claude --model 'claude-opus-5-5[1m]' --ctx 1m --effort high --body-file "$BODY_USE" > "$TMP/out" 2>&1
+      "${SOBASH:-bash}" "$SO" "$OLD" "$REPO" --name "$NEW" --agent claude --model 'claude-opus-5-5[1m]' --ctx 1m --effort high --verdict 1 --body-file "$BODY_USE" > "$TMP/out" 2>&1   # r2403: 표와 다른 손 입력은 --verdict 로 통과(이 시험 범위 밖)
   RC=$?
 }
 count() { grep -c "^$1" "$LOG"; }

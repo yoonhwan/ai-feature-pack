@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_successor_open_runtime_policy_r1569.sh — r1569: 후계 런타임(agent·model)은 옛 좌석이 아니라 역할 정책표에서 고른다 · 이름 꼬리 = 고른 agent.
-#   ⓐ arch --agent 생략 → pi · claude-opus-5-5 · 꼬리 -pi# | ⓑ nano → pi deepseek | ⓒ --agent claude 명시 → claude 로 열고 «정책과 다름» 1줄
-#   ⓓ 표에 역할 없음 → rc≠0 + 이유 1줄 · 열기 0 | ⓔ 표 파일 없음 → rc≠0 · 열기 0 | S 실은 표 3행 · bin·kit 같은 바이트
+#   ⓐ arch --agent 생략 → pi · claude-opus-5-5 · 꼬리 -pi# | ⓑ nano → pi deepseek | ⓒ --agent claude 명시 → r2403 부터 REJECT rc1(표와 다른 손 입력 · 열기 0 · 풀 길 = --verdict)
+#   ⓓ 표에 역할 없음 → rc≠0 + 이유 1줄 · 열기 0 | ⓔ 표 파일 없음 → rc≠0 · 열기 0 | S 실은 표 기본 행 3(올림 행 @up 제외) · bin·kit 같은 바이트
 #   변이 M1(옛 좌석 agent 상속) → ⓐ 빨강 · M2(역할 없음에 기본값) → ⓓ 빨강 — 이 파일 안에서 사본으로 돌려 «잡힘» 을 본다.
 #   격리 HOME · 가짜 tmux·tmuxc(인자 기록만)·pgrep·send·mbox·reach + 임시 git 리포만 — 실 세션·명부·우편함 0 · sleep 0.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"
@@ -54,18 +54,18 @@ case_a "$SO" && ok "ⓐ arch 생략 → pi · claude-opus-5-5 · byz-t-arch-pi#2
 run "$SO" "$N_OLD" "$N_NEW"
 grep -q -- "--name byz-t-nano-w#2 --agent pi --model deepseek" "$LOG" \
   && ok "ⓑ nano → pi deepseek" || bad "ⓑ rc=$RC log=$(tr '\n' ' ' < "$LOG") out=$(tr '\n' ' ' < "$TMP/out")"
-# ⓒ --agent claude 명시 → claude 로 열고 «정책과 다름» 경고 1줄
+# ⓒ --agent claude 명시 → r2403 부터 REJECT rc1(표 값과 다른 손 입력) · 열기 0 · 표 값을 함께 보여 준다
 run "$SO" "$A_OLD" "$A_NEW" --agent claude
-{ grep -q -- "--name $A_NEW --agent claude --model claude-opus-5-5" "$LOG" && [ "$(grep -c '정책과 다름' "$TMP/out")" = 1 ]; } \
-  && ok "ⓒ --agent claude 명시 → claude 로 열기 · 경고 1줄" || bad "ⓒ rc=$RC log=$(tr '\n' ' ' < "$LOG") out=$(tr '\n' ' ' < "$TMP/out")"
+{ [ "$RC" = 1 ] && [ "$(opened)" = 0 ] && grep -q '^REJECT 정책표와 다름' "$TMP/out" && grep -q 'pi claude-opus-5-5' "$TMP/out"; } \
+  && ok "ⓒ --agent claude 명시 → rc=$RC REJECT · 열기 0(r2403)" || bad "ⓒ rc=$RC log=$(tr '\n' ' ' < "$LOG") out=$(tr '\n' ' ' < "$TMP/out")"
 # ⓓ 정책표에 역할 없음 → rc≠0 + 이유 1줄 · 열기 0(옛 좌석 agent 로 대체 0)
 case_d "$SO" && ok "ⓓ 역할 없음 → rc=$RC · 이유 1줄 · 열기 0" || bad "ⓓ rc=$RC log=$(tr '\n' ' ' < "$LOG") out=$(tr '\n' ' ' < "$TMP/out")"
 # ⓔ 정책표 파일 없음 → rc≠0 · 열기 0
 RP="$TMP/none.tsv" run "$SO" "$A_OLD" "$A_NEW"
 { [ "$RC" != 0 ] && [ "$(opened)" = 0 ] && grep -q '^REJECT 런타임 정책표 없음' "$TMP/out"; } \
   && ok "ⓔ 표 없음 → rc=$RC · 열기 0" || bad "ⓔ rc=$RC log=$(tr '\n' ' ' < "$LOG") out=$(tr '\n' ' ' < "$TMP/out")"
-# S 실은 표 = 역할 3행(arch·master·nano → pi) · bin·kit 같은 바이트(도구·표 둘 다)
-{ [ "$(awk '!/^#/ && NF>=3 && $2=="pi" {print $1}' "$KIT/runtime-policy.tsv" | tr '\n' ' ')" = "arch master nano " ] \
+# S 실은 표 = 기본 행 3(arch·master·nano → pi · 올림 행 «@up» 은 기본 판독 밖) · bin·kit 같은 바이트(도구·표 둘 다)
+{ [ "$(awk '!/^#/ && NF>=3 && $2=="pi" && $1 !~ /@/ {print $1}' "$KIT/runtime-policy.tsv" | tr '\n' ' ')" = "arch master nano " ] \
   && cmp -s "$KIT/runtime-policy.tsv" "$HERE/../bin/runtime-policy.tsv" && cmp -s "$KIT/ft-successor-open.sh" "$HERE/../bin/ft-successor-open.sh"; } \
   && ok "S 실은 표 3행 · bin·kit 짝" || bad "S 표·짝 불일치"
 
@@ -74,9 +74,9 @@ mutant() {   # mutant <이름> <sed 식> → $MUT
   local d="$TMP/mut-$1"; mkdir -p "$d"; cp -R "$BIN/." "$d/"; MUT="$d/ft-successor-open.sh"
   sed -i.bak "$2" "$MUT" && ! cmp -s "$MUT" "$SO"
 }
-mutant M1 's|AGENT="${_pol%% \*}"; \[|AGENT="${OLD%%#*}"; AGENT="${AGENT##*-}"; [|' && ! case_a "$MUT" \
+mutant M1 's|AGENT="${_row%% \*}"; MODEL="${_row#\* }"|AGENT="claude"; MODEL="claude-opus-5-5"|' && ! case_a "$MUT" \
   && grep -q -- "--agent claude" "$LOG" && ok "M1 옛 좌석 agent 상속 → ⓐ 빨강(잡힘 · claude 로 열림)" || bad "M1 안 잡힘 log=$(tr '\n' ' ' < "$LOG")"
-mutant M2 's|\[ -n "$_pol" \] \|\| { echo "REJECT 정책표에 역할 없음.*$|[ -n "$_pol" ] \|\| _pol="claude claude-sonnet-5-5"|' && ! case_d "$MUT" \
+mutant M2 's|\[ -n "$_row" \] \|\| { echo "REJECT 정책표에 역할 없음.*$|[ -n "$_row" ] \|\| _row="claude claude-sonnet-5-5"|' && ! case_d "$MUT" \
   && [ "$(opened)" = 1 ] && ok "M2 역할 없음에 기본값 → ⓓ 빨강(잡힘 · 조용히 열림)" || bad "M2 안 잡힘 out=$(tr '\n' ' ' < "$TMP/out")"
 
 echo "RUN 전체 $(( $(date +%s) - T_START ))초"

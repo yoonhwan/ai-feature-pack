@@ -110,7 +110,7 @@ def eta_of(rec: Rec, ts: int) -> int:
 
 
 def base_model(model: str) -> str:
-    """`claude-fable-5-1[1m]` → `claude-fable-5-1` (창 꼬리 `[…]` 떼고 비교 · r497)."""
+    """`claude-fable-5-2[1m]` → `claude-fable-5-2` (창 꼬리 `[…]` 떼고 비교 · r497)."""
     return re.sub(r"\[[^\]]*\]$", "", model.strip())
 
 
