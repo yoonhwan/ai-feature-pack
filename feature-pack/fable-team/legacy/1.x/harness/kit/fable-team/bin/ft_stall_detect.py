@@ -302,7 +302,170 @@ def _prereq(text: str, stems: dict[str, set[str]], me: str) -> str:
     return f"unknown:{rest[:40]}" if rest else "ready"
 
 
+HUMAN_WORD = "오빠"  # r2380 K1b — 사람 손을 적은 선행 줄의 표지. 낱말 목록을 넓히는 것은 실사건이 나온 뒤(한계 2)
+HUMAN_TS = re.compile(r"thread\s+(\d{10}\.\d{6})")  # r2380 K1 — 오빠 질문 thread ts(Slack 꼴). «thread» 없이 ts 만 적은 꼴은 ts 없음으로 본다(한계 6)
+STRIKE = re.compile(r"~~[^~]*~~")  # r2380 K1b — 취소선 안은 이미 풀린 줄이라 대상 밖
+CONFIRM = re.compile(r"확인\s*:?\s*(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})")  # r2380 K2b — 팀 master 가 «아직 대기» 를 확인한 시각
+HUMAN_ALERT_S = 6 * 3600  # r2380 K2 — 오빠 대기가 이만큼(이상) 넘으면 «사람 대기 점검» 1통
+LOG_WINDOW = 400  # r2380 — 카드 커밋 시각을 한 번에 찾는 창(커밋 수) · 밖으로 밀린 카드만 그 카드 1회로 다시 잰다
+
+
+def human_line(line: str) -> str | None:
+    """r2380 K1·K1b — «- 선행:» 줄 1개 → 오빠 thread ts | ""(오빠 줄인데 ts 없음 = K4 판정 불가) | None(사람 대기 줄 아님).
+    «없음» 으로 시작하는 머리 줄(이미 풀린 줄)과 취소선 안 글자는 대상에서 뺀다(K1b)."""
+    body = line.removeprefix("- 선행:").strip()
+    if body.startswith("없음"):
+        return None
+    body = STRIKE.sub(" ", body)
+    if HUMAN_WORD not in body:
+        return None
+    m = HUMAN_TS.search(body)
+    return m.group(1) if m else ""
+
+
+def confirm_at(text: str) -> float | None:
+    """r2380 K2b — 카드의 «확인 <YYYY-mm-dd HH:MM>» 줄 중 마지막 시각(로컬 시계 epoch) · 없음·꼴 밖 = None(다른 칸 고침이 나이를 0 으로 되돌리는 것도 이 줄이 막는다)."""
+    hit = None
+    for m in CONFIRM.finditer(text or ""):
+        try:
+            hit = time.mktime(time.strptime(f"{m.group(1)} {m.group(2)}", "%Y-%m-%d %H:%M"))
+        except ValueError:
+            continue
+    return hit
+
+
+def _human_of(text: str) -> tuple[float | None, int, str] | None:
+    """카드 본문 → (확인 시각|None, 선행 줄 번호, 오빠 thread ts) 첫 «오빠 대기» 줄 · 없으면 None."""
+    for i, line in enumerate((text or "").splitlines(), 1):
+        if not line.startswith("- 선행:"):
+            continue
+        ts = human_line(line)
+        if ts is not None:
+            return confirm_at(text), i, ts
+    return None
+
+
+def _commit_times(cards: Path, ref: str, names: list[str]) -> tuple[dict[str, float], str]:
+    """r2380 — 대기 카드 여러 장의 마지막 커밋 시각을 git log 1회로(파일마다 0.9초 × 20 = 18초 → 0.5초).
+    → ({카드: epoch}, 사유) · 사유가 있으면 그 창에서 못 찾은 카드가 있다는 뜻(부르는 쪽이 그 카드만 한 번 더 잰다)."""
+    if not names:
+        return {}, ""
+    args = ["-c", "core.quotepath=off", "log", f"-n{LOG_WINDOW}", "--format=%ct", "--name-only", ref,
+            "--", *[f"대기/{n}.md" for n in names]]
+    try:
+        rc, out, err = _git(args, cards)
+    except RefUnavailable as e:
+        return {}, str(e)
+    if rc != 0:
+        return {}, f"git log rc={rc} {err[-40:]}"
+    times: dict[str, float] = {}
+    clock: float | None = None
+    for line in out.decode("utf-8", "replace").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if line.isdigit():
+            clock = float(line)
+            continue
+        cut = line.rfind("대기/")
+        if clock is not None and cut >= 0 and line.endswith(".md"):
+            _ = times.setdefault(line[cut + len("대기/"):-3], clock)  # --name-only 는 리포 뿌리 기준 경로 · 가장 새 커밋이 먼저 온다
+    return times, ("" if len(times) == len(names) else f"커밋 시각 창 밖 {len(names) - len(times)}장")
+
+
+def _commit_at(cards: Path, ref: str, name: str) -> tuple[float | None, str]:
+    """그 카드의 기준 ref 마지막 커밋 시각 → (epoch|None, 사유) · git 실패·상한 넘김 = 그 카드만 판정 불가(경보 0 · 다른 카드 그대로)."""
+    try:
+        rc, out, err = _git(["log", "-1", "--format=%ct", ref, "--", f"대기/{name}.md"], cards)
+    except RefUnavailable as e:
+        return None, str(e)
+    if rc != 0:
+        return None, f"git log rc={rc} {err[-40:]}"
+    txt = out.decode("utf-8", "replace").strip()
+    try:
+        return (float(txt), "") if txt else (None, "커밋 시각 없음")
+    except ValueError:
+        return None, "커밋 시각 해석 실패"
+
+
+def human_waits(cards: Path | None, root: Path | None, now: float, cache: dict[str, dict] | None = None) -> dict[str, dict[str, Any]]:
+    """r2380 K1~K4 — 그 팀 대기 카드 중 «오빠 대기» 줄이 있는 장 → {카드: {ts, line, age, why}}.
+    나이 = now − max(기준 ref 마지막 커밋 시각, «확인 <시각>» 줄) — 디스크 체크아웃이 아니라 기준 ref 로 잰다(N1).
+    기준 ref 트리를 못 읽으면 RefUnavailable(부르는 쪽이 «판정 불가» 1줄 + 풀림 0 · 기록 유지 — F1).
+    다른 선행이 대기·진행 카드를 가리키면(blocked) 그 카드는 사람 대기로 세지 않는다(K2 · blocked 가 human 을 이긴다).
+    cache(카드 stem → {oid, at}) 를 주면 «본문 oid 가 그대로» 인 카드는 git log 0회로 지난 시각을 다시 쓴다(r2380 · 틱마다 9초 → 1회만)."""
+    if not cards:
+        return {}
+    try:
+        ref = basis_ref(root) if root else "origin/main"
+    except Exception as e:  # noqa: BLE001 — 루트 명부 깨짐 = 판정 불가(조용한 0 아님)
+        raise RefUnavailable(f"루트 명부 판정 불가({e.__class__.__name__})") from None
+    found = _ref_stems(cards, ref)
+    out: dict[str, dict[str, Any]] = {}
+    if found is None:  # git 리포 밖 = 디스크(나이 = 파일 mtime)
+        d = cards / "대기"
+        if not d.is_dir():
+            return {}
+        for c in sorted(d.glob("*.md"), key=lambda p: p.stem):
+            if c.name == "README.md":
+                continue
+            try:
+                text = c.read_text(encoding="utf-8")
+            except (OSError, UnicodeError):
+                continue
+            hit = _human_of(text)
+            if hit is None:
+                continue
+            stamp, line, ts = hit
+            try:
+                base: float | None = c.stat().st_mtime if stamp is None else stamp
+            except OSError:
+                base = stamp
+            out[c.stem] = {"ts": ts, "line": line, "age": None if base is None else now - base,
+                           "why": "커밋 시각 없음" if base is None else ""}
+        return out
+    stems, oids = found
+    names = sorted(stems["대기"])
+    bodies = _ref_bodies(cards, ref, names) if names else {}
+    hits: dict[str, tuple[float | None, int, str]] = {}
+    for n in names:  # «오빠 대기» 줄이 있는 장만 고른다 — 커밋 시각 조회도 이 장들만(대기 카드 전부를 훑지 않는다)
+        hit = _human_of(bodies[n])
+        if hit is None:
+            continue
+        if any(_prereq(ln.removeprefix("- 선행:").strip(), stems, n).startswith("blocked:")
+               for ln in bodies[n].splitlines() if ln.startswith("- 선행:")):
+            continue  # ⑨ — 멈춘 것은 진행 중인 선행 카드이지 오빠 대기가 아니다
+        hits[n] = hit
+    times: dict[str, float] = {}
+    need: list[str] = []
+    for n, (_stamp, _line, ts) in hits.items():
+        hit = cache.get(n) if cache is not None else None
+        if not ts:
+            continue
+        if isinstance(hit, dict) and hit.get("oid") == oids.get(n) and isinstance(hit.get("at"), (int, float)) \
+                and not isinstance(hit.get("at"), bool):
+            times[n] = float(hit["at"])  # 본문 oid 가 그대로 = 마지막 커밋 시각도 그대로(틱마다 git 호출 0)
+        else:
+            need.append(n)
+    got, _why = _commit_times(cards, ref, need) if need else ({}, "")
+    times.update(got)
+    for n, at in times.items():
+        if cache is not None:
+            cache[n] = {"oid": oids.get(n), "at": at}
+    for n, (stamp, line, ts) in hits.items():
+        if not ts:
+            out[n] = {"ts": "", "line": line, "age": None, "why": "thread ts 없음"}
+            continue
+        at, why = times.get(n), ""
+        if at is None:  # 창 밖·한 번에 실패한 카드만 그 카드 git log 1회
+            at, why = _commit_at(cards, ref, n)
+        cands = [x for x in (at, stamp) if x is not None]
+        out[n] = {"ts": ts, "line": line, "age": None if not cands else now - max(cands), "why": why}
+    return out
+
+
 LINT_MAX_AGE_S = 6 * 3600  # r1392 — 카드 lint 판정 기억 수명(oid·lint 판이 같아도 이보다 오래되면 다시 잰다)
+LINT_ENV_DROP = ("FT_LINT_HUMAN_WAIT",)  # r2380 K5 — 정체 감시는 이 스위치를 지우고 lint 를 부른다(오빠 대기 ts 칸이 a·blocked 판정을 바꾸면 기존 카드 22장이 손 없이 blocked 로 바뀐다)
 LINT_UNKNOWN = "unknown:lint 미판정"  # r1392 — 실행당 lint 예산을 넘겨 못 잰 장(ready 아님 · a 후보 0 · 조용한 0 아님)
 _LINT_STAMP: dict[str, str] = {}
 
@@ -330,7 +493,7 @@ def _lint_verdict(card: Path, lint: str, cache: dict[str, dict] | None, oid: str
         return str(hit["v"])
     if budget is not None and not budget():
         return "budget"
-    v = "ok" if run(["bash", lint, str(card)])[0] == 0 else "blocked"
+    v = "ok" if run(["bash", lint, str(card)], {k: x for k, x in os.environ.items() if k not in LINT_ENV_DROP})[0] == 0 else "blocked"
     if cache is not None and oid and stamp:
         cache[card.stem] = {"oid": oid, "lint": stamp, "v": v, "at": t}
     return v

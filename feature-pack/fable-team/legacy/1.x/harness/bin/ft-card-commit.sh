@@ -4,6 +4,7 @@
 #   fetch 1회 → 임시 GIT_INDEX_FILE 로 origin/<가지> 위 커밋 1개 → push(force 0 · 7초 · 실패면 fetch → 새 끝이 내 커밋을 품으면 도착(r2282) · 아니면 새 끝에서 1회 더 · tree 같으면 NOCHANGE).
 #   가지 = ops/main-base · docs/* 만(main · 그 밖 = REJECT · 착지 게이트 우회 0) · 경로 = design/** 만 · REJECT = push 0.
 #   쓰기 전 검사: .md·.txt·.tsv·.json = UTF-8 · design/**/indices/**.md = ft-index-lint 를 «고치기 전 판» · «바뀐 판» 두 번
+#     (r2380: 두 번 다 FT_LINT_HUMAN_WAIT=reject — 오빠 대기 선행 줄에 thread ts 가 없으면 «새 사유» 로 막힌다)
 #     (입력 = 그 카드 · 원장 · design/TEAMS.md 는 origin/<가지> tree 에서, 팀 env 는 리포 .fable-team/bin-<팀> 에서 임시 git init 폴더로)
 #     → 두 사유 목록 diff 의 «새 사유» 0 일 때만 push(r2288: 새 경로가 BASE 에 없으면 고치기 전 판 = -짝 옛 판 · 없으면 origin/main 같은 이름 1개) · 원장(머리 → 팀 env → 기본 v65 · r2283)을 못 정하거나 가지에 없음 = 판정 불가(거짓 통과 0).
 #   출력: 성공 = «PUSHED <sha40> base=<sha40>» + diff --stat · rc 0 성공 · 1 REJECT · 2 usage · 3 «판정 불가 <단계>»(하드 룰 20)
@@ -43,7 +44,7 @@ fetch() {
 run_lint() {  # $1=카드 판 파일 $2=사유 목록 파일 (LW · LP · LED 사용)
   local out rc
   mkdir -p "$LW/$(dirname "$LP")" && cp "$1" "$LW/$LP" || die lint-copy
-  out="$(cd "$LW" && FT_GOAL_LEDGER="$LED" bash "$LINT" "$LP" 2>&1)"; rc=$?   # rc 를 따로 받는다(파이프 뒤 && 0)
+  out="$(cd "$LW" && FT_GOAL_LEDGER="$LED" FT_LINT_HUMAN_WAIT=reject bash "$LINT" "$LP" 2>&1)"; rc=$?   # r2380 K1 — 카드를 쓰는 길만 오빠 대기 ts 를 REJECT 로 본다(정체 감시는 이 env 를 지우고 부른다)   # rc 를 따로 받는다(파이프 뒤 && 0)
   [ "$rc" -le 1 ] || die "lint rc=$rc ($LP)"
   printf '%s\n' "$out" | sed -n 's/^  - //p' | sort -u > "$2"
 }
