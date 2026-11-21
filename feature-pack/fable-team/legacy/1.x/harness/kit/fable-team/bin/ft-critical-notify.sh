@@ -5,7 +5,7 @@
 #   해결   : ft-critical-notify.sh --resolved <도구> <대상>   그 대상의 열쇠를 닫는다(로컬 파일만 · 발신 0) → 그 뒤 거절은 지문이 같아도 즉시 1통
 #   감싸기 : ft-critical-notify.sh --wrap <도구> <스크립트> [인자…]   본 작업을 자식으로 «1회» 실행 · stdout 은 나오는 대로 흘리고 사본만 뜬다 · 끝난 뒤 rc 1 = 알림 · rc 0 = 해결
 #   본문 = «[크리티컬] <도구> <대상> — 무엇: … · 어디: … · 다음 손: …»(700자 안) · 받는 이 = seats-planner.json `_desk` (★r2355 K3: 도구 ft-merge-land 사건만 `_desk` + `_master` 같은 본문 1통씩 — 착지 주인이 planner master · 같은 값이면 1통 · `_master` 없음 = desk 1통 + WARN 1줄 · 그 밖 도구 = desk 1곳 그대로) · 보내는 이 = <도구>(ft-* · # 없음)
-#   발신 몫 = 받는 이마다 min(7초, 남은 몫) · 사건 하나의 합 상한 = min(14초, FT_CRITICAL_BUDGET_S) · 재시도 0 · 반환 0 고정(--wrap 만 본 작업 rc). 발신 «앞» 에 state/critical-pending.jsonl 1줄(임시→mv) · 받는 이별 «보냄» 칸(sent) — drain 은 못 받은 이에게만 · 모두 받으면 그 줄을 지운다.
+#   발신 몫 = 받는 이마다 min(7초, 남은 몫) · 사건 하나의 합 상한 = min(14초, FT_CRITICAL_BUDGET_S) · 재시도 0 · 반환 0 고정(--wrap 만 본 작업 rc). 발신 «앞» 에 state/critical-pending.jsonl 1줄(임시→mv) · 받는 이별 «보냄» 칸(sent) — drain 은 못 받은 이에게만 · 모두 받으면 그 줄을 지운다. r2373: 해결(--resolved · 착지 rc 0)은 그 대상의 밀린 줄도 지운다 · drain 은 받는 이 1명 발신 직후 바로 «보냄» 을 적는다(끊겨도 받은 이에게 다시 0) · 착지 지문은 잰 초(16s·3초)를 «Ns» 로 바꿔 잰다(본문은 원문).
 #   같은 열쇠(도구·대상·지문)는 FT_CRITICAL_DEDUPE_S(기본 3600 · 0 = 끔) 안에 1통 · 지나도 미해결이면 «(되풀이 n회째 · 첫 알림 #seq)» · 보낸 기록 = state/critical-sent.jsonl.
 #   발신 실패(_desk 없음 · mbox rc≠0 · 시간 초과 · 남은 < 1초) = stderr WARN 1줄 · pending 그대로. FT_CRITICAL_OFF=1 = 호출 0 · 기록 0(시험·격리 실행용).
 #   자리: comm = ft_comm_dir(FT_MBOX_DIR → FT_ROOT → cwd git 공용 루트) · 명부 = <comm>/.. · state = FT_CRITICAL_STATE_DIR → <comm>/../state · mbox = FT_MBOX → <comm>/mbox.sh
@@ -104,36 +104,41 @@ def flush():   # A2 — 오래된 것부터 최대 3통 · 같은 열쇠 여러 
         pend, batch = load(PEND), []
         for r in [r for r in pend if not claimed(r)]:
             if len(batch) < 3 and key(r) not in [key(b) for b in batch]: batch.append(r)
-            if key(r) in [key(b) for b in batch]: r["claim"] = {"pid": os.getpid(), "at": time.time()}
+            if key(r) in [key(b) for b in batch]: r["claim"], r["to"] = {"pid": os.getpid(), "at": time.time()}, targets(r)
         if batch: save(PEND, pend)
     if not batch: return
-    done = []
     for r in batch:   # r2355 K3ⓑ·ⓒ: 받는 이마다 차례로 · 몫 = min(7, 남은 몫) · 남은 < 1 이면 그 이는 pending · pending 1줄에 받는 이 칸(to)과 받는 이별 «보냄» 칸(sent)
         r["to"], used, miss = targets(r), 0.0, list(r.get("sent") or [])
         for to in r["to"]:
             if to in miss: continue
             b0 = time.monotonic(); seq = send(to, r, min(7.0, min(14.0, BUDGET) - used)); used += time.monotonic() - b0
             if seq is None: break
-            r["sent"] = miss = miss + [to]; done.append({"tool": r["tool"], "target": r["target"], "event": r["event"], "ts": NOW, "seq": seq, "n": int(r.get("n") or 1), "first": r.get("first") or seq, "to": to})
-    with Lock():
-        keep = []
-        for w in load(PEND):
-            if (w.get("claim") or {}).get("pid") == os.getpid(): del w["claim"]
-            b = next((x for x in batch if key(x) == key(w)), None)
-            if b is None: keep.append(w); continue
-            w["to"], w["sent"] = b["to"], list(b.get("sent") or [])
-            if not w["to"] or not all(t in w["sent"] for t in w["to"]): keep.append(w)
-        save(PEND, keep)
-        sent = load(SENT) + done
-        while len(sent) > 200: sent.pop(next((n for n, s in enumerate(sent) if s.get("resolved")), 0))   # 200줄 넘으면 «해결» 된 앞 줄부터
-        if done: save(SENT, sent)
+            r["sent"] = miss = miss + [to]
+            if not record(r, {"tool": r["tool"], "target": r["target"], "event": r["event"], "ts": NOW, "seq": seq, "n": int(r.get("n") or 1), "first": r.get("first") or seq, "to": to}): break   # r2373-mut:each — 그 사이 해결된 줄 = 남은 받는 이 발신 0
+    with Lock(): pend = load(PEND); [w.pop("claim") for w in pend if (w.get("claim") or {}).get("pid") == os.getpid()]; save(PEND, pend)   # r2373-mut:endsave — 묶음 끝 = claim 풀기만(기록은 받는 이마다 record)
 
-def resolve(tool, target):   # A3 — 그 대상의 열쇠를 전부 닫는다(로컬 파일만 · 발신 0)
-    if not os.path.isfile(SENT): return
+def record(r, row):   # r2373 K2 — 받는 이 1명 발신 성공 직후 · 그 줄 sent 를 적고 SENT 1줄 · 모두 받으면 그 자리에서 PEND 에서 뺀다 · 다시 읽은 PEND 에 그 줄이 없으면(그 사이 해결) 되살림 0 · False
+    with Lock():
+        pend = load(PEND); live, keep = any(key(w) == key(r) for w in pend), []
+        for w in pend:
+            if key(w) == key(r):
+                w["to"], w["sent"] = r["to"], list(r["sent"])
+                if w["to"] and all(t in w["sent"] for t in w["to"]): continue   # r2373-mut:alldone
+            keep.append(w)
+        save(PEND, keep)   # r2373-mut:revive
+        sent = load(SENT) + [row if live else dict(row, resolved=NOW)]
+        while len(sent) > 200: sent.pop(next((n for n, s in enumerate(sent) if s.get("resolved")), 0))   # 200줄 넘으면 «해결» 된 앞 줄부터
+        save(SENT, sent)
+    return live
+
+def resolve(tool, target):   # A3 — 그 대상의 열쇠를 전부 닫는다(로컬 파일만 · 발신 0) · r2373 K1: 같은 잠금 안에서 그 대상의 밀린 줄(PEND)도 지운다
+    if not (os.path.isfile(SENT) or os.path.isfile(PEND)): return   # r2373-mut:nosent
     with Lock():
         sent = load(SENT); hit = [s for s in sent if (s.get("tool"), s.get("target")) == (tool, target) and not s.get("resolved")]
         for s in hit: s["resolved"] = NOW   # r1718-mut:resolved
         if hit: save(SENT, sent)
+        pend = load(PEND); keep = [p for p in pend if (p.get("tool"), p.get("target")) != (tool, target)]   # r2373-mut:pendclose
+        if len(keep) < len(pend): save(PEND, keep); print(f"RESOLVED {tool} {target} pending {len(pend) - len(keep)}", file=sys.stderr)
 
 def notify(tool, target, event, what, nxt, where=""):
     add({"tool": tool, "target": target, "event": event, "what": what, "next": nxt, "where": where, "ts": NOW})
@@ -185,7 +190,7 @@ def land_after(args, out, ctx):   # A4 — rc 1 거절 전부 · 지문 = <PR he
     ls = out.split("\n"); i = next((n for n, l in enumerate(ls) if l.startswith("REJECT")), None)
     if i is None: return
     j = next((n for n in range(i, len(ls)) if ls[n].endswith("(착지 0)")), i)
-    text = "\n".join(ls[i:j + 1])
+    text = re.sub(r"\d+(?:\.\d+)?(?:s|초)", "Ns", "\n".join(ls[i:j + 1]))   # r2373 K3 — 지문·안내만 잰 초를 «Ns» 로(본문 what = ls[i] 원문)
     notify("ft-merge-land", f"{slug} PR #{pr}", f"{ctx or '-'}:{sha12(text)}", ls[i], nexts(LAND_NEXT, [text], "REJECT 원문대로 고친 뒤 다시 land"), f"{slug}#{pr}")   # r1718-mut:landevent
 
 def after(tool, rc, d, args):   # --wrap 끝 — rc 1 = 알림(ft-merge-land 는 rc 6 원격 거절도 · r2007) · rc 0 = 해결 · 그 밖(rc 2 usage·승인 없음 등) = 호출 0
