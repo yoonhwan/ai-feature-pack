@@ -4,7 +4,7 @@
 #   좌석당 상한 = min(5초 + 7초×개수, 70초) · 넘긴 사본은 정리기 몫 · 끝 줄 «REAP <옛 좌석> done=N refused=N left=N» 1줄 ·
 #   ft-seat-retire 는 마지막(좌석 세션 닫기 뒤)에 이 동사를 1회 부르고 결과 줄 1(REAP|REJECT|ERROR · 그 밖은 WARN 1줄) 만 찍는다 — 그 rc 는 은퇴 rc 를 바꾸지 않는다.
 # 사례 = ① 없음+깨끗 2·더러움 1 → done=2 refused=1(더러운 사본·등록 줄 남음) · ② 세션 살아 있음 → REJECT rc2 · 삭제 0 / 사본 12개·사본 1개 7초(가짜) → left ≥ 1 · 회차 ≤ 70초 ·
-#        ③ ft-seat-retire(가짜 tmux · kill 뒤) → --reap-owner 1회 · REAP 줄 1 · reap 실패도 은퇴 rc 그대로 · ④ (정정1 DA H1) 지우기 도중 주인 재등장 = 그 사본부터 삭제 0
+#        ③ ft-seat-retire(가짜 tmux · kill 뒤) → --reap-owner 1회 · REAP 줄 1 · reap 실패도 은퇴 rc 그대로 · ④ (정정1) 지우기 도중 주인 재등장 = 그 사본부터 삭제 0 · ⑤ (정정2 DA #364832) 사전 확인 «뒤» 재등장 = 출구 게이트 G6 가 막는다
 # 변이(원본과 같은 사례 1회 대조) = M1 세션 없음 조건 뺌 → ② 가 빨강 · M2 delete_copy 대신 rm -rf → ① 이 빨강(더러운 사본이 사라짐)
 # 임시 저장소·가짜 tmux·가짜 lsof·가짜 명부만 쓴다 — 실 저장소·실 세션·실 명부·실 TMPDIR 0 · sleep 0(시계는 주입)
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
@@ -120,6 +120,20 @@ if want ④; then
     || bad "④ rc=$RC A=$([ -d "$A" ] && echo 남음 || echo 지움) B=$([ -d "$B" ] && echo 남음 || echo 지움) out=$(printf '%s' "$OUT" | tail -2 | tr '\n' ' ')"
 fi
 
+# ── ⑤ 정정2(DA #364832): G4 점유 조회 단계에서 주인이 다시 보여도 출구 게이트 G6 가 막는다 ──────────
+#    (사전 확인은 tmux 2번째 호출 · 게이트 G6 는 3번째 호출 — 3번째부터 옛 좌석이 보이게 주입)
+if want ⑤; then
+  reset
+  A="$(mkcopy 00)"; B="$(mkcopy 01)"
+  printf 'gone-seat\n' > "$T/sessions.late"
+  SWAP_AT=3 sc --reap-owner gone-seat
+  { [ "$RC" = 0 ] && [ -d "$A" ] && [ -d "$B" ] \
+    && printf '%s' "$OUT" | grep -q '^REAP gone-seat done=0 ' \
+    && printf '%s' "$OUT" | grep -qE 'G6 .*주인 gone-seat 살아 있음|세션이 다시 보임' ; } \
+    && ok "⑤ 게이트 G6 가 생존 재확인(사전 확인 뒤 재등장) — 삭제 0 · done=0 · 사본 2개 그대로" \
+    || bad "⑤ rc=$RC A=$([ -d "$A" ] && echo 남음 || echo 지움) B=$([ -d "$B" ] && echo 남음 || echo 지움) out=$(printf '%s' "$OUT" | tail -3 | tr '\n' ' ')"
+fi
+
 # ── ③ ft-seat-retire(가짜 tmux · kill 뒤) → --reap-owner 1회 · REAP 줄 1 · 은퇴 rc 그대로 ─────────
 if want ③; then
   printf '#!/bin/sh\necho "reap $1 stopped=0 left=0 rc=0"\n' > "$T/reap.sh"
@@ -146,9 +160,11 @@ fi
 
 # ── M1 변이 «세션 없음 조건 뺌» → ②1 이 빨강(살아 있는 좌석의 사본을 지운다) ────────────────────
 if want M1; then
-  # 정정1 뒤로는 «생존 조건» 이 두 겹(처음 1회 + 사본마다 재확인) — 변이는 두 겹을 다 없앤다
+  # 생존 조건은 세 겹(처음 1회 + reap 사전 확인 + 출구 게이트 G6) — 변이는 세 겹을 다 없앤다
   sed -e 's/^  has_line "\$S" "\$old" && { echo "REJECT reap-owner \$old — 세션이 살아 있음 · 삭제 0"; return 2; }$/  :   # r2398a-mut: 처음 세션 조건 뺌/' \
-      -e 's/if has_line "\$S2" "\$old"; then/if false; then   # r2398a-mut: 사본별 재확인도 뺌/' "$SUT" > "$MUTB/$(basename -- "$SUT")"
+      -e 's/if has_line "\$S2" "\$old"; then/if false; then   # r2398a-mut: 사본별 재확인도 뺌/' \
+      -e 's/^      has_line "\$S" "\$own" && { gfail G6 1 "주인 \$own 살아 있음"; return; }$/      :   # r2398a-mut: 출구 게이트 G6 생존 검사도 뺌/' \
+      "$SUT" > "$MUTB/$(basename -- "$SUT")"
   cmp -s "$SUT" "$MUTB/$(basename -- "$SUT")" && bad "M1 변이 주입 실패(바꾼 줄 없음)" || {
     reset; printf 'gone-seat\nlive-owner\n' > "$T/sessions"
     A="$(mkcopy 00)"; CASE_SUT="$MUTB/$(basename -- "$SUT")" sc --reap-owner gone-seat

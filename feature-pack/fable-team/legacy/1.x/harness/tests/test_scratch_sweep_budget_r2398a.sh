@@ -5,7 +5,7 @@
 #   K3 = 예산 = FT_SCRATCH_JUDGE_BUDGET 미설정이면 min(5초 + 7초×ceil(후보/100), 70초)(설정값은 그대로 상한) · 끝 줄에 judged·swept·round(done|cursor) 셋을 따로 · WARN «예산 N초(후보 M개)» 1줄
 # 사례 = ④ 사본 300 · du 2초(가짜) → du 호출 0 · 예산 26초 · judged ≥ 60 · swept ≥ 1 · round=cursor → 다음 틱 이어서 judged 누적 300 · round=done
 #        ⑤ 전체 lsof 실패 → 사본별 후퇴(삭제 결과 같음) / 전체 lsof 가 사본 1개를 cwd 로 보고 → 그 사본 held · 나머지 진행
-#        ⑥ 예산 20초 명시 = 20초 그대로 / 후보 2762개 = 70초(상한) · WARN «예산 70초(후보 2762개)» · ⑦ (정정2 DA H2) 후보 0 끝 줄의 judged·round 는 실제 값
+#        ⑥ 예산 20초 명시 = 20초 그대로 / 후보 2762개 = 70초(상한) · WARN «예산 70초(후보 2762개)» · ⑦ (정정2 DA H2) 후보 0 끝 줄의 judged·round 는 실제 값 · ⑧ (정정2 DA #364832·master #364836) G4 단계 재등장·조회실패 = 출구 게이트 G6 가 막는다(⑧1·⑧2) · 회귀 ⑧3
 # 변이(원본과 같은 사례 1회 대조) = 짝 파일 test_scratch_sweep_budget_mut_r2398a.sh(M3·M4·M5) · 대역 = tests/lib/sweep_budget_r2398a_bed.sh
 # 임시 git 저장소·가짜 tmux·가짜 lsof·가짜 du·가짜 date(가상 시계)·임시 TMPDIR 만 쓴다 — 실 저장소·실 세션·실 TMPDIR·실 상태 0 · sleep 0
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
@@ -92,6 +92,31 @@ if want ⑦; then
   { [ "$RC" = 0 ] && [ "${J2:-0}" = 0 ] && [ "$(roundof)" = cursor ] && [ -s "$CURSOR" ]; } \
     && ok "⑦2 첫 판정 전 예산 소진 — judged=0 · round=cursor(끝 줄·cursor 파일 둘 다 cursor)" \
     || bad "⑦2 rc=$RC judged=${J2:-?} round=$(roundof) cursor=$([ -s "$CURSOR" ] && echo 있음 || echo 없음) out=$(printf '%s' "$OUT" | tail -2 | tr '\n' ' ')"
+fi
+
+# ── ⑧ 정정2(DA #364832 · master-pi#371 #364836 지시): G4 점유 조회 단계의 재등장·조회실패도 출구 게이트 G6 가 막는다 ──
+if want ⑧; then
+  reset
+  A="$(mkreap 00)"
+  printf 'gone-seat\n' > "$T/seat.reappear"   # 가짜 lsof 가 «정상 출력을 내는 그 호출» 에 가짜 tmux 목록에 gone-seat 를 더한다
+  STEP_TICKS=0 sc --reap-owner gone-seat
+  { [ "$RC" = 0 ] && [ -d "$A" ] && [ "$(grep -cF -- "$A" "$TSV")" = 1 ] \
+    && puts "$OUT" "REAP gone-seat done=0 refused=1 left=0"; } \
+    && ok "⑧1 lsof 단계 재등장 — 사본 그대로 · 등록 줄 그대로 · REAP done=0 refused=1 left=0 · rc0(기준판 c03d85c3 = done=1 · 사본 없음 → Red)" \
+    || bad "⑧1 rc=$RC A=$([ -d "$A" ] && echo 남음 || echo 지움) tsv=$(grep -cF -- "$A" "$TSV") out=$(printf '%s' "$OUT" | tail -2 | tr '\n' ' ')"
+  reset
+  B="$(mkreap 00)"
+  : > "$T/seat.fail"   # 그 호출 순간에 가짜 tmux 가 죽는다(목록 못 읽음)
+  STEP_TICKS=0 sc --reap-owner gone-seat
+  { [ "$RC" = 0 ] && [ -d "$B" ] && puts "$OUT" "REAP gone-seat done=0 refused=1 left=0"; } \
+    && ok "⑧2 lsof 단계 tmux 목록 못 읽음 — 삭제 0 · refused=1(«못 읽음 ≠ 없음»)" \
+    || bad "⑧2 rc=$RC B=$([ -d "$B" ] && echo 남음 || echo 지움) out=$(printf '%s' "$OUT" | tail -2 | tr '\n' ' ')"
+  reset
+  C="$(mkreap 00)"
+  STEP_TICKS=0 sc --reap-owner gone-seat
+  { [ "$RC" = 0 ] && [ ! -d "$C" ] && puts "$OUT" "REAP gone-seat done=1 refused=0 left=0"; } \
+    && ok "⑧3 회귀 — 주인이 끝까지 안 보임 = done=1(정상 삭제 그대로)" \
+    || bad "⑧3 rc=$RC C=$([ -d "$C" ] && echo 남음 || echo 지움) out=$(printf '%s' "$OUT" | tail -2 | tr '\n' ' ')"
 fi
 
 done_line

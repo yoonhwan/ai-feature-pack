@@ -18,7 +18,9 @@ bed_begin() { # <SUT> — 임시 리포·사본 자리·가짜 도구·변이 �
 #   lsof = 경로 인자 있음 = 사본별 조회(rc1 «아무도 안 씀» · $T/hold.<이름> 있으면 그 줄) · -p = 대조 조회 · -a = 회차 전체 지도($T/map.fail 있으면 rc1) · 그 밖 = 출구 게이트 재확인
 cat > "$BIN/tmux" <<EOF
 #!/bin/sh
-[ "\${1:-}" = list-sessions ] && cat "$T/sessions" 2>/dev/null
+[ "\${1:-}" = list-sessions ] || exit 0
+[ -f "$T/tmux.fail" ] && { echo "no server running" >&2; exit 1; }   # r2398a 정정2 대역: 목록 못 읽음
+cat "$T/sessions" 2>/dev/null
 exit 0
 EOF
 cat > "$BIN/date" <<EOF
@@ -46,6 +48,9 @@ fi
 case " \$* " in *" -p "*) cat "$T/lsof.all" 2>/dev/null; exit 0;; esac
 case " \$* " in *" -a "*) [ -f "$T/map.fail" ] && exit 1;; esac
 if [ "\${GATE_TICKS:-0}" != 0 ]; then c=\$(cat "$T/clock" 2>/dev/null || echo 1000000); echo \$((c + GATE_TICKS)) > "$T/clock"; fi
+# r2398a 정정2 대역: 이 호출 순간에 «옛 좌석이 다시 보인다»($T/seat.reappear · 한 번만) / «목록이 죽는다»($T/seat.fail · 한 번만)
+if [ -f "$T/seat.reappear" ]; then cat "$T/seat.reappear" >> "$T/sessions"; rm -f "$T/seat.reappear"; fi
+if [ -f "$T/seat.fail" ]; then : > "$T/tmux.fail"; rm -f "$T/seat.fail"; fi
 cat "$T/lsof.all" 2>/dev/null
 exit 0
 EOF
@@ -64,7 +69,7 @@ mut() { # <이름> <sed 식…> → $MUTB/ft-scratch-repo.sh · 원본과 다르
 }
 reset() {
   rm -rf "$STATE" "$SCR" "$TMPD"; mkdir -p "$STATE" "$SCR" "$TMPD"
-  : > "$TSV"; : > "$ARMED"; : > "$T/du.calls"; : > "$T/calls"; : > "$T/lsof.all"; rm -f "$T/map.fail" "$T"/hold.* "$CURSOR"
+  : > "$TSV"; : > "$ARMED"; : > "$T/du.calls"; : > "$T/calls"; : > "$T/lsof.all"; rm -f "$T/map.fail" "$T"/hold.* "$T/seat.reappear" "$T/seat.fail" "$T/tmux.fail" "$CURSOR"
   printf 'live-owner\n' > "$T/sessions"
   printf 'p1\ncinit\nfcwd\nn/\n' > "$T/lsof.all"
   printf '%s\n' "$(( ($(date +%s) + 1000) * 10 ))" > "$T/clock"   # 가상 시계(틱 10 = 1초)
@@ -87,6 +92,12 @@ for i in range(1, n + 1):
         os.makedirs(os.path.join(d, ".git"), exist_ok=True)   # 출구 게이트 G5′ «git 폴더(모르는 물건)» = 싼 거절
     os.utime(d, (old, old))
 PYEOF
+}
+mkreap() { # <번호> → 주인 «gone-seat» 인 진짜 워크트리 사본(등록 25시간 전) — --reap-owner 시험용
+  local d="$SCR/repo-0123abcd-$1-1"
+  git -C "$G" worktree add --detach -q "$d" "$SHA" >/dev/null 2>&1
+  printf '%s\t%s\t%s\t%s\n' "$d" "gone-seat" "$(( $(date +%s) - 90000 ))" "$SCR" >> "$TSV"
+  printf '%s\n' "$d"
 }
 mkreg() { # <번호> → 진짜 git worktree(detached · 깨끗 · 25시간 전 등록 · 주인 없음)
   local d="$SCR/repo-0123abcd-$1-1"

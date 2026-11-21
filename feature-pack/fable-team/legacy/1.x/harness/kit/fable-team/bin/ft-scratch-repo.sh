@@ -789,15 +789,16 @@ delete_copy() { # <경로> <reg|tmp> <주인|-> [sweep|done] → 위 rc 표 · G
   cwd_holder "$p" "$ROWS" && { gfail G4 1 "점유 pid $HPID $HCMD"; return; }   # 원문·물리 경로 둘 다 대조(cwd_holder 가 물리로 바꿔 한 번 더 본다)
   gok G4
   if [ "$kind" = reg ]; then
-    # G6 주인 없음(sweep) — --done 은 호출자가 주인 == 나 를 이미 대조
-    if [ "$mode" = sweep ]; then
+    # G6 주인 없음(sweep·reap) — 나이 자격은 sweep 만 · --done 은 호출자가 주인 == 나 를 이미 대조
+    #   r2398a 정정2(DA #364832): «생존·조회실패 재확인» 은 reap 에도 그대로 적용한다(G4 점유 조회 «뒤» 에 다시 읽는다 — 상류(reap 첫 확인·사전 재확인)는 G4 와 지우기 사이의 재등장을 못 막는다) · 나이 «자격» 만 sweep 몫
+    if [ "$mode" = sweep ] || [ "$mode" = reap ]; then
       cap r remtmo; [ "$r" -gt 0 ] || { gfail G6 2 "예산 소진"; return; }
       cap S tmux_sessions_tmo "$r" || { gfail G6 2 "tmux 못 읽음"; return; }
       [ -n "$S" ] || { gfail G6 2 "tmux 0줄"; return; }
       has_line "$S" "$own" && { gfail G6 1 "주인 $own 살아 있음"; return; }
       gok G6
-      # 자격(고침 1): 나이 ≥ AGE 분(등록 시각·지금 둘 다 rc0) 또는 빠른 길(판정 끝 ∧ 이름·HEAD·detached) — 상류의 «후보» 를 믿지 않는다
-      if [ $(( now - GT )) -lt $((AGE*60)) ]; then
+      # 자격(고침 1 · sweep 만): 나이 ≥ AGE 분 또는 빠른 길(판정 끝 ∧ 이름·HEAD·detached) — reap 은 «좌석이 끝났다» 자체가 자격
+      if [ "$mode" = sweep ] && [ $(( now - GT )) -lt $((AGE*60)) ]; then
         cap JUDGE_TMO remtmo; [ "$JUDGE_TMO" -gt 0 ] || { JUDGE_TMO=7; gfail G6 2 "예산 소진"; return; }
         fast "$P" || { JUDGE_TMO=7; gfail G6 3 "자격 없음(${AGE}분 전 · 판정 안 끝남)"; return; }
         JUDGE_TMO=7
