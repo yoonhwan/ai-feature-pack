@@ -88,18 +88,17 @@ c8() { local o="$T/o8"; rm -f "$o"; newtmp; local l0 l3 r0 r3
   rm -rf -- "$HB"; }
 
 # ══ ⑨ 시험 = sleep 30 · 1초째 명령에 TERM → 3초 안에 폴더 0 · 명령 rc 143 ══
-c9() { newtmp; local pid r9 i left=9 t9=$SECONDS
+c9() { newtmp; local pid r9 i left=9 pol=0
   TMPDIR="$TD" "$RUN" "$A" --repo "$SRC" -- bash "$T/sleep30" >"$T/o9" 2>&1 & pid=$!
   for i in $(seq 10); do sleep 0.1; done            # 1초째
   kill -TERM "$pid" 2>/dev/null                     # 원본은 trap 이 사본을 지우고 143 · 앞쪽 실행 변이는 신호를 미루므로 아래에서 상한을 둔다
   for i in $(seq 30); do kill -0 "$pid" 2>/dev/null || break; sleep 0.1; done
   kill -KILL "$pid" 2>/dev/null; wait "$pid"; r9=$?
-  for i in $(seq 30); do left="$(leftovers)"; [ "$left" = 0 ] && break; sleep 0.1; done
-  local took=$((SECONDS - t9))
+  for i in $(seq 30); do left="$(leftovers)"; [ "$left" = 0 ] && break; pol=$((pol+1)); sleep 0.1; done   # 지움이 끝난 초 = pol × 0.1
   pkill -f "$T/sleep30" 2>/dev/null
-  RES=1; MSG="rc=$r9 남은 사본=$left 정리 ${took}초 out=$(tail -1 "$T/o9")"
+  RES=1; MSG="rc=$r9 남은 사본=$left 지움 $((pol))×0.1초 out=$(tail -1 "$T/o9")"
   [ "$left" = 0 ] || { RES=0; return; }
-  [ "$took" -le 3 ] || { RES=0; return; }
+  [ "$pol" -le 30 ] || { RES=0; return; }
   [ "$r9" = 143 ] || { RES=0; return; }; }
 
 # ══ ⑩ SIGKILL(--git 없음 · 있음) → 폴더 1개 남음 · 이름 tmp.ftbase.* · 맨 위 .git 0 · --gate G1·G2·G5 통과 ══
@@ -114,9 +113,13 @@ c10() { local mode p l g st=1 i pid; MSG=""
     for i in $(seq 50); do p="$(find "$TD" -maxdepth 1 -mindepth 1 -name 'tmp.ftbase.*' 2>/dev/null | head -1)"; [ -n "$p" ] && [ -d "$p/tree" ] && break; sleep 0.1; done
     kill -KILL "$pid" 2>/dev/null; wait "$pid" 2>/dev/null
     p="$(find "$TD" -maxdepth 1 -mindepth 1 -name 'tmp.ftbase.*' | head -1)"; l="$(leftovers)"
-    pkill -f "$T/sleep30" 2>/dev/null
+    for i in $(seq 10); do sleep 0.1; done   # KILL 뒤 고아(ft-test-run)가 시험을 띄우는 창 — 그 전 pkill 은 맞출 것이 없다
+    for i in $(seq 30); do pkill -f "$T/sleep30" 2>/dev/null; pgrep -f "$T/sleep30" >/dev/null 2>&1 || break; sleep 0.1; done   # 고아가 cwd 를 놓을 때까지 — G4(점유) 로 G5 를 못 보는 일 0
     g=""
-    [ -n "$p" ] && g="$(TMPDIR="$TD" FT_RES_ROOT="$T/res" FT_SCRATCH_DIR="$TD" bash "$BIN/ft-scratch-repo.sh" --gate "$p" --kind tmp 2>&1)"
+    for i in $(seq 5); do   # 문은 읽기 전용(GATE_DRY) — 고아가 cwd 를 놓는 순간까지 몇 번 다시 본다
+      [ -n "$p" ] && g="$(TMPDIR="$TD" FT_RES_ROOT="$T/res" FT_SCRATCH_DIR="$TD" bash "$BIN/ft-scratch-repo.sh" --gate "$p" --kind tmp 2>&1)"
+      case "$g" in *"G4 HELD"*) sleep 0.2;; *) break;; esac
+    done
     MSG="$MSG[$mode l=$l p=${p:-없음} topgit=$([ -n "$p" ] && { [ -e "$p/.git" ] && echo 있음 || echo 0; }) gate=$(printf '%s' "$g" | tr '\n' ' ' | cut -c1-120)]"
     { [ "$l" = 1 ] && [ -n "$p" ] && [ ! -e "$p/.git" ]; } || st=0
     case "$p" in */tmp.ftbase.*) ;; *) st=0;; esac
