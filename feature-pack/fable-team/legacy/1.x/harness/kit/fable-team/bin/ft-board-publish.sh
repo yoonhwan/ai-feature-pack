@@ -28,6 +28,8 @@ if [ "${1:-}" = "--news" ]; then
   CH=""; for ((i = 0; i < ${#POST_ARGS[@]}; i++)); do [ "${POST_ARGS[i]}" = --channel ] && CH="${POST_ARGS[i + 1]:-}"; done
   [ -n "$CH" ] || { echo "ft-board-publish: ERROR 뉴스 채널 없음(FT_BOARD_POST_ARGS --channel) — 발행 0" >&2; exit 2; }
   TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+  # r2390 K4: 머리 1통 — 칸 8개 머리 줄(TEAM-STATUS.md 1행)을 Slack 메인에 따로 1통(판마다 1회 · 같으면 침묵 · 본문 손 0)
+  FT_ROOT="$ROOT" python3 "$HERE/ft_desk_head_post.py" --root "$ROOT" || echo "ft-board-publish: 머리 발행 판정 불가 rc=$? — 골 알림은 그대로" >&2
   # r2126 H2: collect · ft_board_news · post 실패 = planner 명부 _desk 에 «[긴급] 자동 뉴스 실패 — <단계> rc=<n>» 1통(FT_MBOX → comm/mbox.sh · 25초)
   #   (단계, rc)별 30분 창 · 표식 state/board/news-fail-last.json = send 성공 뒤에만 · 좌석 없음 ∨ send 실패 = stderr 1줄 · 각 단계 rc 그대로
   fail_mark() { python3 - "$SD/news-fail-last.json" "$1" "$2" "${FT_BOARD_NOW:-}" <<'PY'

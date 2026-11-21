@@ -14,7 +14,14 @@ ok()  { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=$((fail+1)); }
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 NOW=1795000000
-L1='스크립트 2 · 인터뷰 2 · 막힌 팀 대기 2'
+# r2390: 1행이 칸 8개로 넓어졌다 — 칸 출처 3(자율 · 지시 감시 · r2389 대기 세기 사본)을 스텁으로 고정한다(가짜 루트에서 진짜 도구 0)
+mkdir -p "$T/fake"
+printf '#!/usr/bin/env bash\necho "[자율 ON A19 · 08:57~ · 끝 없음 · 대리 3 · 큐 1 · 레벨 풀자동 · 범위 S58]"\n' > "$T/fake/ft-autonomy.sh"
+printf '#!/usr/bin/env bash\necho "담당 없는 오빠 지시 3 · 멈춘 오빠 지시 4 · 판본 x"\n' > "$T/fake/ft-directive-watch.sh"
+export FT_DESK_HEAD_AUTONOMY="$T/fake/ft-autonomy.sh" FT_DESK_HEAD_DIRECTIVE="$T/fake/ft-directive-watch.sh"
+export FT_BOARD_NEWS_WAIT_BIN="$HERE/fixtures/wait_r2390" FT_GOAL_PROGRESS_MD="$T/none.md"
+exp() { printf '자율 ON A19 풀자동 · 오빠 답 기다림 %s · 스크립트 %s · 막힌 팀 %s · planner [정리] %s · 원장 낡음 %s · 오빠 지시 멈춤 4 · 담당 없음 3' "$1" "$2" "$3" "${4:-?}" "${5:-?}"; }
+L1="$(exp '5(가장 오래 0시간)' 2 2)"
 
 world() {  # world <이름> — 반례 ① 세계(장부 · 신선한 last.json · 옛 3행부터)
   R="$T/$1"; S="$R/.fable-team/state"; mkdir -p "$S/planner-tick"
@@ -40,30 +47,30 @@ world w1; F="$S/planner-tick/TEAM-STATUS.md"; before="$(tail3 "$F")"
 out="$(tool --hil 2)"; rc=$?
 [ "$rc" -eq 0 ] && [ "$out" = "$L1" ] && ok "① 출력 = 1행" || bad "① rc=$rc out=$out"
 [ "$(line "$F" 1)" = "$L1" ] && ok "① 1행 «${L1}»" || bad "① 1행 $(line "$F" 1)"
-line "$F" 2 | grep -q '^설명: desk 틱 [0-9][0-9]:[0-9][0-9] · .*(stall-scan [0-9][0-9]:[0-9][0-9])$' && ok "① 2행 설명" || bad "① 2행 $(line "$F" 2)"
+line "$F" 2 | grep -qE '^설명: desk 틱 [0-9][0-9]:[0-9][0-9] · 자율 ft-autonomy.sh status [0-9][0-9]:[0-9][0-9] · .* · 담당 없음 ft-directive-watch.sh status [0-9][0-9]:[0-9][0-9]$' && ok "① 2행 설명" || bad "① 2행 $(line "$F" 2)"
 [ "$(tail3 "$F")" = "$before" ] && ok "① 3행부터 바이트 같음" || bad "① 3행부터 바뀜"
 [ "$(head_of "$F")" = "$L1" ] && ok "① head() = 1행" || bad "① head()=$(head_of "$F")"
 
 # ② --hil ? → «스크립트 ?» · head() 그대로 · 경보 표식 0
 world w2; F="$S/planner-tick/TEAM-STATUS.md"
 tool --hil '?' >/dev/null
-[ "$(line "$F" 1)" = '스크립트 ? · 인터뷰 2 · 막힌 팀 대기 2' ] && ok "② 1행 «스크립트 ?»" || bad "② 1행 $(line "$F" 1)"
-[ "$(head_of "$F")" = '스크립트 ? · 인터뷰 2 · 막힌 팀 대기 2' ] && ok "② head() = 1행(형식 경보 0)" || bad "② head()=$(head_of "$F")"
+[ "$(line "$F" 1)" = "$(exp '5(가장 오래 0시간)' '?' 2)" ] && ok "② 1행 «스크립트 ?»" || bad "② 1행 $(line "$F" 1)"
+[ "$(head_of "$F")" = "$(exp '5(가장 오래 0시간)' '?' 2)" ] && ok "② head() = 1행(형식 경보 0)" || bad "② head()=$(head_of "$F")"
 [ -e "$R/.fable-team/state/status-head-alarm.txt" ] && bad "② 경보 표식 생김" || ok "② 경보 표식 0"
 
 # ③ last.json 11분 전 · 없음 → 막힌 팀 «?»
 world w3; F="$S/planner-tick/TEAM-STATUS.md"
 printf '{"ts": %s, "teams": {"a": {"f": 1}}}\n' "$((NOW-660))" > "$S/stall-scan.last.json"
-[ "$(tool --hil 2)" = '스크립트 2 · 인터뷰 2 · 막힌 팀 대기 ?' ] && ok "③ 11분 낡음 → «?»" || bad "③ 낡음 $(line "$F" 1)"
+[ "$(tool --hil 2)" = "$(exp '5(가장 오래 0시간)' 2 '?')" ] && ok "③ 11분 낡음 → «?»" || bad "③ 낡음 $(line "$F" 1)"
 rm -f "$S/stall-scan.last.json"
-[ "$(tool --hil 2)" = '스크립트 2 · 인터뷰 2 · 막힌 팀 대기 ?' ] && ok "③ 없음 → «?»" || bad "③ 없음 $(line "$F" 1)"
+[ "$(tool --hil 2)" = "$(exp '5(가장 오래 0시간)' 2 '?')" ] && ok "③ 없음 → «?»" || bad "③ 없음 $(line "$F" 1)"
 
-# ④ 장부 없음 · 깨진 줄 → 인터뷰 «?»(0 아님)
+# ④ 장부 깨진 줄 → 오빠 답 기다림 «?» · 장부 없음 = 아직 등록 0(r2389 계약)
 world w4
 printf '{"q_ts":"1.1","kind":"question","state":"open"}\n{깨짐\n' > "$S/desk-reply-wait.jsonl"
-[ "$(tool --hil 2)" = '스크립트 2 · 인터뷰 ? · 막힌 팀 대기 2' ] && ok "④ 깨진 줄 → «?»" || bad "④ 깨진 줄"
+[ "$(tool --hil 2)" = "$(exp '?' 2 2)" ] && ok "④ 깨진 줄 → «?»" || bad "④ 깨진 줄 $(line "$F" 1)"
 rm -f "$S/desk-reply-wait.jsonl"
-[ "$(tool --hil 2)" = '스크립트 2 · 인터뷰 ? · 막힌 팀 대기 2' ] && ok "④ 없음 → «?»" || bad "④ 없음"
+[ "$(tool --hil 2)" = "$(exp '0(가장 오래 0시간)' 2 2)" ] && ok "④ 없음 → 0(아직 등록 0)" || bad "④ 없음 $(line "$F" 1)"
 
 # ⑤ 파일 없음 → 2행 새로 · 폴더 없음 → rc≠0 «판정 불가» 1줄 · 파일 0
 world w5; F="$S/planner-tick/TEAM-STATUS.md"; rm -f "$F"
@@ -83,7 +90,7 @@ NOW=$((NOW+60)) tool --hil 2 >/dev/null
 # ⑨ question open q_ts=X 뒤 thread open q_ts=X → 인터뷰 1
 world w9
 printf '%s\n' '{"q_ts":"9.9","kind":"question","state":"open"}' '{"q_ts":"9.9","kind":"thread","state":"open"}' > "$S/desk-reply-wait.jsonl"
-[ "$(tool --hil 0)" = '스크립트 0 · 인터뷰 1 · 막힌 팀 대기 2' ] && ok "⑨ 열쇠 (kind, q_ts) → 인터뷰 1" || bad "⑨ $(line "$S/planner-tick/TEAM-STATUS.md" 1)"
+[ "$(tool --hil 0)" = "$(exp '2(가장 오래 0시간)' 0 2)" ] && ok "⑨ 열쇠 (kind, q_ts) → 오빠 답 기다림 2(kind 전부 · r2390 K2)" || bad "⑨ $(line "$S/planner-tick/TEAM-STATUS.md" 1)"
 
 # ⑦ desk 틱 가짜 세계(r1462 꼴 · 가짜 mbox · ft-hil · launchctl · ps · 원장 git)
 world w7; F="$S/planner-tick/TEAM-STATUS.md"; FB="$T/fb"; mkdir -p "$FB" "$R/.fable-team/comm"
@@ -105,7 +112,7 @@ tick7() {
       bash "$H/bin/ft-desk-tick.sh" "$DESK" 2>&1
 }
 out="$(tick7)"; rc=$?
-printf '%s\n' "$out" | grep -qx "머리 $L1" && ok "⑦ «머리 ${L1}» 1줄 (rc=$rc)" || bad "⑦ 머리 줄: $(printf '%s' "$out" | tr '\n' '/')"
+printf '%s\n' "$out" | grep -qxF "머리 $L1" && ok "⑦ «머리 ${L1}» 1줄 (rc=$rc)" || bad "⑦ 머리 줄: $(printf '%s' "$out" | tr '\n' '/')"
 [ "$(line "$F" 1)" = "$L1" ] && ok "⑦ TEAM-STATUS 1행 갱신" || bad "⑦ 1행 $(line "$F" 1)"
 printf '%s\n' "$out" | tail -2 | head -1 | grep -q '^초:' && printf '%s\n' "$out" | tail -1 | grep -q '^결정 필요: ' && ok "⑦ 마지막 2줄 «초:» · «결정 필요»" || bad "⑦ 끝 2줄"
 rc0=$rc; rm -rf "$S/planner-tick"
@@ -115,7 +122,7 @@ mkdir -p "$S/planner-tick"
 out="$(FT_DESK_TICK_HEAD="$FB/head3.py" tick7)"; rc=$?
 printf '%s\n' "$out" | grep -qx '머리 판정 불가 rc=3' && [ "$rc" -eq 1 ] && ok "⑦ 머리 rc3 → «머리 판정 불가 rc=3» · 전체 rc1" || bad "⑦ rc3 세계 rc=$rc"
 out="$(FAKE_HIL_RC=4 tick7)"; rc=$?
-line "$F" 1 | grep -q '^스크립트 ? · ' && ok "⑦ ft-hil rc≠0 → «스크립트 ?»" || bad "⑦ hil 실패 1행 $(line "$F" 1)"
+line "$F" 1 | grep -q ' · 스크립트 ? · ' && ok "⑦ ft-hil rc≠0 → «스크립트 ?»" || bad "⑦ hil 실패 1행 $(line "$F" 1)"
 
 [ "$fail" -eq 0 ] && echo "ALL PASS" || echo "FAILED $fail"
 exit "$fail"

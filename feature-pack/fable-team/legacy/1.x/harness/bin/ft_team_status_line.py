@@ -1,69 +1,38 @@
-"""ft_team_status_line.py --hil <N|?> [--root R] [--now EPOCH]  (r2255 · desk 틱이 매 틱 1회 부름)
+"""ft_team_status_line.py --hil <N|?> [--root R] [--now EPOCH]  (r2255 → r2390 · desk 틱이 매 틱 1회 부름)
 
-TEAM-STATUS.md 1행 «스크립트 X · 인터뷰 Y · 막힌 팀 대기 Z» 와 2행 설명을 새로 쓴다(3행부터 바이트 그대로).
-  스크립트 = --hil 인자 그대로(desk 틱 ① HIL_N · ① 실패면 «?»)
-  인터뷰   = desk-reply-wait.jsonl 열쇠 (kind, q_ts) 마다 마지막 줄 중 kind=question ∧ state ∈ {open, notified} 수
-             (열쇠 = ft_desk_reply_wake.rowkey 와 같은 식 · 파일 없음 · 깨진 줄 · 읽기 실패 = «?»)
-  막힌 팀  = stall-scan.last.json teams 중 f ≥ 1 팀 수(diag 팀 셈 0 · 파일 없음 · 읽기 실패 · ts 10분 넘게 낡음 = «?»)
-못 센 칸은 0 대신 «?»(조용한 0 금지). 쓰기 = 같은 폴더 임시 파일 → os.replace · 권한 기존 그대로 · 외부 호출 0.
+TEAM-STATUS.md 1행 = 칸 8개(r2390 K1) «자율 <ON A<N> <레벨>|OFF|?> · 오빠 답 기다림 <N>(가장 오래 <N>시간) · 스크립트 <N> ·
+막힌 팀 <N> · planner [정리] <HH:MM>(<N>분 전) · 원장 낡음 <N>시간 · 오빠 지시 멈춤 <N> · 담당 없음 <N>»
+  · 2행 = 칸마다 출처·잰 시각 1구 · 3행부터 바이트 그대로(r2255)
+  · 칸 셈 = ft_desk_head_cells(K3) 한 곳 · 오빠 답 기다림 = r2389 ft_board_news_wait 같은 함수(K2)
+  · 못 잰 칸은 0 대신 «?»(조용한 0 금지) · «인터뷰» 이름은 «오빠 답 기다림» 으로 바뀌었다(kind=question 만 세던 셈 0)
+쓰기 = 같은 폴더 임시 파일 → os.replace · 권한 기존 그대로.
 출력 = 1행 1줄 · rc0. 폴더 없음 · 쓰기 실패 = rc1 «판정 불가 …» 1줄(하드 룰 20) · 인자 오류 = rc2.
 """
 from __future__ import annotations  # mini python 3.9.6
 
-import json
 import os
 import sys
 import tempfile
 import time
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from ft_desk_head_cells import UNKNOWN, cells  # noqa: E402
+
 REL = Path(".fable-team") / "state"
-STALL_STALE_SEC = 600
-OPEN = ("open", "notified")
-UNKNOWN = "?"
 
 
-def rowkey(r: dict) -> tuple:  # ft_desk_reply_wake.rowkey 와 같은 식(r1764) — 같은 q_ts 의 thread 줄이 question 줄을 가리지 않는다
-    return (r.get("kind") or "h", r.get("q_ts"))
+def hhmm(t: float) -> str:
+    return time.strftime("%H:%M", time.localtime(t))
 
 
-def interviews(ledger: Path) -> str:
-    try:
-        lines = ledger.read_text(encoding="utf-8").splitlines()
-    except (OSError, UnicodeDecodeError):
-        return UNKNOWN
-    last = {}
-    for line in lines:
-        if not line.strip():
-            continue
-        try:
-            r = json.loads(line)
-        except ValueError:
-            return UNKNOWN
-        if not isinstance(r, dict):
-            return UNKNOWN
-        last[rowkey(r)] = r
-    return str(sum(1 for r in last.values() if r.get("kind") == "question" and r.get("state") in OPEN))
-
-
-def stalled(last_json: Path, now: float) -> tuple:
-    """(칸, stall-scan 시각 epoch 또는 None)."""
-    try:
-        d = json.loads(last_json.read_text(encoding="utf-8"))
-        ts = float(d["ts"])
-        teams = d["teams"]
-        if not isinstance(teams, dict):
-            return UNKNOWN, None
-    except (OSError, UnicodeDecodeError, ValueError, KeyError, TypeError):
-        return UNKNOWN, None
-    if now - ts > STALL_STALE_SEC:
-        return UNKNOWN, ts
-    n = sum(1 for t in teams.values() if isinstance(t, dict) and "diag" not in t and (t.get("f") or 0) >= 1)
-    return str(n), ts
-
-
-def hhmm(t: float | None) -> str:
-    return time.strftime("%H:%M", time.localtime(t)) if t is not None else UNKNOWN
+def head(root: Path, hil: str, now: float) -> tuple:
+    """(1행, 2행) — 1행 = K1 꼴 8칸 · 2행 = «설명: desk 틱 HH:MM · <칸마다 출처·잰 시각>»."""
+    got = cells(root, hil, now)
+    first = " · ".join(f"{name} {value}" for name, value, _ in got)
+    second = "설명: desk 틱 " + hhmm(now) + " · " + " · ".join(f"{name} {where}" for name, _, where in got)
+    return first, second
 
 
 def write(f: Path, first: str, second: str) -> None:
@@ -108,15 +77,11 @@ def main(argv: list) -> int:
     except (ValueError, StopIteration):
         print("usage: ft_team_status_line.py --hil <N|?> [--root R] [--now EPOCH]", file=sys.stderr)
         return 2
-    state = root / REL
-    folder = state / "planner-tick"
+    folder = root / REL / "planner-tick"
     if not folder.is_dir():
         print(f"판정 불가 — 폴더 없음 {folder}")
         return 1
-    stall, sts = stalled(state / "stall-scan.last.json", now)
-    first = f"스크립트 {hil} · 인터뷰 {interviews(state / 'desk-reply-wait.jsonl')} · 막힌 팀 대기 {stall}"
-    second = (f"설명: desk 틱 {hhmm(now)} · 스크립트 = HIL 대기 · 인터뷰 = 열린 오빠 질문(desk-reply-wait)"
-              f" · 막힌 팀 = 팀장 심박 끊김(stall-scan {hhmm(sts)})")
+    first, second = head(root, hil, now)
     try:
         write(folder / "TEAM-STATUS.md", first, second)
     except OSError as e:
