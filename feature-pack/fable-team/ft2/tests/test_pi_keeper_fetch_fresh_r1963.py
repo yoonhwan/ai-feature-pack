@@ -98,7 +98,7 @@ f13 = importlib.util.module_from_spec(importlib.util.spec_from_file_location("ke
 f13.__spec__.loader.exec_module(f13)
 def c10(tmp, mp, ft2=FT2):   # ⑩ 팩 낡음 · 다음 카드 후보 = 팩 대상 1(긴급 · 신선하면 먼저 뽑힘) + BYZ 대상 3 → 팩 카드 보류 1줄 · BYZ 카드는 지금처럼 연다 · 낡은 base 로 열기 0
     w = f13.world(tmp, mp, ft2=ft2)
-    w.commit("byz", {"design/harness/indices/대기/r9000-p.md": "# 인덱스: r9000-p\n- 긴급: 예\n- 대상: 팩 feature-pack/x.py\n- 상태: 대기\n"}, "main")
+    w.commit("byz", {"design/harness/indices/대기/r9000-p.md": "# 인덱스: r9000-p\n- 긴급: 예\n- 배정: 없음\n- 대상: 팩 feature-pack/x.py\n- 상태: 대기\n"}, "main")   # r2395 — 표식 줄 1개
     lose(w, "pack")
     lines = w.round(f13.keeper(w, mp)[0])
     assert "판정 불가 harness 다음 카드 보류 1장 · 팩 fetch 실패" in lines and f13.nx.launched(w) == [f13.A], (lines, f13.nx.launched(w))

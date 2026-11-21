@@ -81,7 +81,7 @@ def world(tmp, mp, stage="대기", ft2=kw.FT2):
     w = base.world(tmp, mp, None, ft2=ft2)
     kw._put(w.state / "directive-roots.tsv", "harness\t.\torigin/main\tdesign/harness/indices\n" + ROOTS)
     kw._put(w.runtime() / "cards.tsv", "w1\t%s\n" % (V65 % stage))
-    w.commit("byz", {V65 % stage: "# 인덱스: w1\n- 우선: 높음\n- 상태: 대기\n"}, "main")
+    w.commit("byz", {V65 % stage: "# 인덱스: w1\n- 우선: 높음\n- 배정: 없음\n- 상태: 대기\n"}, "main")   # r2395 — 표식 줄 1개
     return w
 
 
@@ -113,14 +113,14 @@ def t9(tmp, mp, ft2=kw.FT2):   # T9 (DA R1) 짝 work ≠ 카드 stem(별칭) →
 
 def t10(tmp, mp, ft2=kw.FT2):   # T10 (DA R2) 짝 카드 선행 = 같은 indices 완성/ → 풀림 · 고름
     w = world(tmp, mp, ft2=ft2)
-    w.commit("byz", {V65 % "대기": "# 인덱스: w1\n- 선행: r9999\n", "design/teams/v65/indices/완성/r9999.md": "# 끝난 선행\n"}, "main")
+    w.commit("byz", {V65 % "대기": "# 인덱스: w1\n- 배정: 없음\n- 선행: r9999\n", "design/teams/v65/indices/완성/r9999.md": "# 끝난 선행\n"}, "main")
     w.round()
     assert base.launched(w) == ["w1"], (base.launched(w), base.notes(w))
 
 
 def t10b(tmp, mp, ft2=kw.FT2):   # T10′ 같은 indices 대기/ 선행 = 참조 위치 밖(팀 루트·짝 indices 완성 갈래만) → 고르지 않음
     w = world(tmp, mp, ft2=ft2)
-    w.commit("byz", {V65 % "대기": "# 인덱스: w1\n- 선행: r9999\n", "design/teams/v65/indices/대기/r9999.md": "# 안 끝난 선행\n"}, "main")
+    w.commit("byz", {V65 % "대기": "# 인덱스: w1\n- 배정: 없음\n- 선행: r9999\n", "design/teams/v65/indices/대기/r9999.md": "# 안 끝난 선행\n"}, "main")
     w.round()
     assert base.launched(w) == [], base.launched(w)
 

@@ -35,6 +35,9 @@ def skip(w, body):
     kw._put(w.state / "ft2-keeper" / "SKIP_TEAMS", body)
 
 
+OFF = "- 배정: 없음\n"   # r2395 — 표식 줄 1개(없으면 keeper 가 판정 불가로 건너뛴다 · 이 시험은 깨움 판정만 본다)
+
+
 def world(tmp, mp, ft2=FT2):
     """휴면 팀 cb · 대기 카드 A(선행 r9501) · B(선행 r9503) · 참조 카드 r9501 · r9503 은 대기."""
     w = kw.World(tmp, mp, ft2)
@@ -43,7 +46,7 @@ def world(tmp, mp, ft2=FT2):
     kw._put(tmp / "bin" / "gh", GH), (tmp / "bin" / "gh").chmod(0o755)
     w.env["FT2_GH"] = str(tmp / "bin" / "gh")
     w.commit("byz", {IDX % ("대기", s): "# 인덱스: %s\n%s- 상태: 대기\n" % (s, h) for s, h in
-                     ((DA, ""), (DB, ""), (A, "- 선행: r9501 착지\n"), (B, "- 선행: r9503 착지\n"))}, "main")
+                     ((DA, OFF), (DB, OFF), (A, OFF + "- 선행: r9501 착지\n"), (B, OFF + "- 선행: r9503 착지\n"))}, "main")
     return w
 
 

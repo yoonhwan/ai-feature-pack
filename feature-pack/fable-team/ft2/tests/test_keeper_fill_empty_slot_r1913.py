@@ -35,7 +35,7 @@ def world(tmp, mp, cap="4", live=2, closing=False, enable=True, ft2=kw.FT2):
     w.env.update(FT2_KEEPER_LAUNCH=str(b / "launch.py"), FT2_CARD_ASSIGN_BIN=str(b / "record"), HOME=str(tmp / "home"),
                  FT2_TEAM_NANO_MAX=cap, FAKE_FT2=str(kw.FT2), GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="core.quotepath", GIT_CONFIG_VALUE_0="false")
     kw._put(w.state / "directive-roots.tsv", "harness\t.\torigin/main\tdesign/harness/indices\n")
-    w.commit("byz", {"design/harness/indices/대기/%s.md" % s: "# 인덱스: %s\n- 상태: 대기\n" % s for s in (A, B, C)}, "main")
+    w.commit("byz", {"design/harness/indices/대기/%s.md" % s: "# 인덱스: %s\n- 배정: 없음\n- 상태: 대기\n" % s for s in (A, B, C)}, "main")   # r2395 — 표식 줄 1개(없으면 keeper 가 판정 불가로 건너뛴다)
     kw._put(w.tm, {"alive": ["byz-harness-nano-live%d#0" % n for n in range(live)], "pane": {}})
     kw._put(w.state / "ft20-switch" / "harness.json", "{}"), w.runtime().mkdir(parents=True, exist_ok=True)
     w.enable() if enable else None

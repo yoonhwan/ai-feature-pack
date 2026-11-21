@@ -40,6 +40,10 @@ def stamp(t):
     return datetime.datetime.fromtimestamp(t).strftime("%Y-%m-%dT%H:%M:%S")
 
 
+def marked(head):   # r2395 — 표식 두 줄이 다 없는 fixture 머리에 해제 표식 1줄(제품 규칙 = 표식없음 skip · 시험 본뜻만 본다)
+    return head if any(x.startswith(("- 배정", "- 대기 사유:")) for x in head.splitlines()) else "- 배정: 없음\n" + head
+
+
 def world(tmp, mp, cards=None, ft2=FT2, nano_max="0", roster=None):
     """임시 세계 1개 — 가짜 tmux(list-sessions · has-session rc 주입) · 가짜 launch·record·mbox · 카드 루트 표 · 팀 켜기."""
     w = kw.World(tmp, mp, ft2)
@@ -58,7 +62,7 @@ def world(tmp, mp, cards=None, ft2=FT2, nano_max="0", roster=None):
     kw._put(w.state / "ft20-switch" / (TEAM + ".json"), "{}")   # 대상 팀 = switch 표 + runtime 폴더
     w.runtime().mkdir(parents=True, exist_ok=True)
     if cards:
-        w.commit("byz", {"design/harness/indices/대기/%s.md" % s: "# 인덱스: %s\n%s- 상태: 대기\n" % (s, h) for s, h in cards.items()}, "main")
+        w.commit("byz", {"design/harness/indices/대기/%s.md" % s: "# 인덱스: %s\n%s- 상태: 대기\n" % (s, marked(h)) for s, h in cards.items()}, "main")   # r2395 — 표식(«- 배정:» · «- 대기 사유:») 없는 fixture 머리에는 해제 표식 1줄
     if roster:
         kw._put(w.root / ".fable-team" / "seats-harness.json", roster)
     w.enable()
@@ -66,8 +70,9 @@ def world(tmp, mp, cards=None, ft2=FT2, nano_max="0", roster=None):
 
 
 def cards(w, stem, body):
-    """대기 카드 1장(팀 폴더) — git 커밋·push(고친 카드도 같은 길) · 임의 runtime 쓰기 0."""
-    w.commit("byz", {"design/harness/indices/대기/%s.md" % stem: body}, "main")
+    """대기 카드 1장(팀 폴더) — git 커밋·push(고친 카드도 같은 길) · 임의 runtime 쓰기 0.
+    r2395 — 본문에 표식 줄(«- 배정:» · «- 대기 사유:»)이 없으면 해제 표식 1줄을 깐다(없으면 keeper 가 판정 불가로 건너뛴다)."""
+    w.commit("byz", {"design/harness/indices/대기/%s.md" % stem: marked(body)}, "main")
 
 
 def seat(w, work, state="failed", at=None, step="git add", reason="worktree 가 이미 있음", done=False):

@@ -65,6 +65,10 @@ def round_all(w):
     w.round = round
 
 
+def marked(head):   # r2395 — 표식 두 줄(«- 배정:» · «- 대기 사유:»)이 다 없는 fixture 머리에 해제 표식 1줄
+    return head if any(x.startswith(("- 배정", "- 대기 사유:")) for x in head.splitlines()) else "- 배정: 없음\n" + head
+
+
 def world(tmp, mp, cards=None, cap="4", live=0, enable=True, ft2=kw.FT2):
     """대기 카드 {팀: {stem: 머리 줄}} · 빈 나노 live 개 · 가짜 판정기 기본 rc = 3(재개 전)."""
     w = kw.World(tmp, mp, ft2)
@@ -76,8 +80,8 @@ def world(tmp, mp, cards=None, cap="4", live=0, enable=True, ft2=kw.FT2):
                  FT2_TEAM_NANO_MAX=cap, FT2_PENALTY_BIN=str(b / "ft-penalty.sh"),
                  GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="core.quotepath", GIT_CONFIG_VALUE_0="false")   # 가짜 HOME = 실 ~/.claude 문턱 읽기 0
     kw._put(w.state / "directive-roots.tsv", "".join("%s\t.\torigin/main\tdesign/%s/indices\n" % (t, t) for t in sorted(cards)))
-    w.commit("byz", {"design/%s/indices/대기/%s.md" % (t, s): "# 인덱스: %s\n%s- 상태: 대기\n" % (s, h)
-                     for t, mine in cards.items() for s, h in mine.items()}, "main")
+    w.commit("byz", {"design/%s/indices/대기/%s.md" % (t, s): "# 인덱스: %s\n%s- 상태: 대기\n" % (s, marked(h))
+                     for t, mine in cards.items() for s, h in mine.items()}, "main")   # r2395 — 표식 없는 fixture 머리 = 해제 표식 1줄
     kw._put(w.tm, {"alive": ["byz-%s-nano-live%d#0" % (TEAM, n) for n in range(live)], "pane": {}})
     for team in cards:
         kw._put(w.state / "ft20-switch" / (team + ".json"), "{}"), (w.root / ".fable-team" / "teams" / team / "runtime").mkdir(parents=True, exist_ok=True)
