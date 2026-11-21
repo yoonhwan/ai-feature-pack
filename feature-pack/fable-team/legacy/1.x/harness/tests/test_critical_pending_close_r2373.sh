@@ -2,8 +2,9 @@
 # test_critical_pending_close_r2373.sh — r2373: 착지·해결이 밀린 [크리티컬] 줄을 닫고 · drain 은 받는 이마다 바로 «보냄» · 착지 지문에서 잰 초를 뺀다
 #   ① --resolved 가 그 PR 밀린 줄만 지움 ② --wrap ft-merge-land rc 0 → 그 PR 밀린 줄 0 ③ SENT 없음 + 밀린 줄 → 정리
 #   ④ desk 발신 직후 SIGKILL → 다음 drain = master 만 ⑤ 3줄 중 둘째 뒤 끊김 → SENT 2 · 셋째만 다음 ⑥ 모두 받은 줄은 묶음 끝 전에 빠짐 ⑦ desk 실패 → 다시
-#   ⑧ «상한 16s»/«상한 22s» = 같은 지문 · 1통 ⑨ 다른 원인 = 2통 ⑩ 본문 숫자 그대로 · ⑪(회귀) = test_reject_critical_r1718*.sh 따로
-#   변이 M1~M7 — 사본에서만 · 변이마다 원본 BIN 으로 같은 사례 1회 더. 기준판 대조 = FT_TEST_BASE_BIN(①·④·⑧ 이 거기서 FAIL).
+#   ⑧ «상한 16s»/«상한 22s» · «7.5s»/«9.25s» = 같은 지문 · 1통씩 ⑨ 다른 원인 = 2통 ⑩ 본문 숫자 그대로 · ⑪(회귀) = test_reject_critical_r1718*.sh 따로
+#   ⑫(사전 DA I1) desk 발신 중 --resolved → 그 PR 줄 0 · master 발신 0 · M8 줄 되살림 · M9(I2) 소수 갈래 지움
+#   변이 M1~M9 — 사본에서만 · 변이마다 원본 BIN 으로 같은 사례 1회 더. 기준판 대조 = FT_TEST_BASE_BIN(①·④·⑧ 이 거기서 FAIL).
 #   실 명부·실 우편함·실 state·실 원격 0 · 끊김 = 가짜 mbox 가 N번째 부름에서 부모(python)를 SIGKILL · sleep 0 · 70초 안.
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
 . "$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)/_reject_critical_r1718_fixture.sh"
@@ -14,6 +15,7 @@ cat > "$T/mbox.sh" <<'EOF'
 echo "$2" >> "$MCALLS"
 [ "${MBOX_KILL_AT:-0}" != "$(grep -c . "$MCALLS")" ] || { kill -9 "$PPID"; exit 1; }
 [ "${MBOX_FAIL_TO:-}" != "$2" ] || exit 1
+[ "${MBOX_HOOK_AT:-0}" != "$(grep -c . "$MCALLS")" ] || eval "$MBOX_HOOK"
 n=$(( $(grep -c . "$MLOG") + 501 ))
 printf '%s\t%s\t%s\n' "$2" "$3" "$4" >> "$MLOG"; echo "QUEUED seq=$n to=$2"
 EOF
@@ -56,26 +58,35 @@ c7() { local b="$1"; fresh
   cn "$b" --drain 2>/dev/null; eqn "$(to "$DESK")/$(npend)" 1/0 "다음 drain 다시 1통"; }
 rj() { printf 'REJECT own/rep PR #7 — %s (착지 0)\n' "$1" > "$FAKE_OUT"; RC_=1 land "$2" >/dev/null 2>&1; }    # rj <원인 글> <bin>
 c8() { local b="$1"; fresh; rj "gate 가 상한 16s 를 다 씀" "$b"; rj "gate 가 상한 22s 를 다 씀" "$b"
-  eqn "$(to "$DESK")" 1 "같은 원인 · 다른 초 = desk 1통"; }
+  eqn "$(to "$DESK")" 1 "같은 원인 · 다른 초 = desk 1통" || return 1
+  rj "push 1단위 7.5s > 남은 13초" "$b"; rj "push 1단위 9.25s > 남은 2초" "$b"
+  eqn "$(to "$DESK")" 2 "소수 초·초 꼴도 같은 지문 = desk 1통 더"; }
 c9() { local b="$1"; fresh; rj "gate 가 상한 16s 를 다 씀" "$b"; rj "push 1단위 14s > 남은 13s" "$b"
   eqn "$(to "$DESK")" 2 "다른 원인 = 2통"; }
 c10() { local b="$1"; fresh; rj "gate 가 상한 16.5s · 3초 를 다 씀" "$b"
   inc "$(cut -f3 "$MLOG")" "상한 16.5s · 3초 를 다 씀" "본문 숫자 원문 그대로"; }
+c12() { local b="$1"; fresh
+  MBOX_HOOK_AT=1 MBOX_HOOK="bash '$b/ft-critical-notify.sh' --resolved ft-merge-land '$P7' 2>/dev/null" M "$b" ft-merge-land "$P7" --event e1 2>/dev/null
+  eqn "$(to "$DESK")/$(to "$MAST")/$(pend_has "$P7")" 1/0/0 "desk 발신 중 해결 = master 0 · 줄 되살림 0" || return 1
+  cn "$b" --drain 2>/dev/null; eqn "$(nsent)" 1 "다음 drain 0통"; }
 
 for f in ft-critical-notify.sh; do cmp -s "$BIN/$f" "$KIT/$f" && ok "짝 cmp0 $f" || bad "짝 다름 $f"; done
 tc "① --resolved = 그 PR 밀린 줄만 지움 · drain 발신 0" c1; basefail "①" c1; tc "② 착지 rc 0 → 그 PR 밀린 줄 0" c2; tc "③ SENT 없음 + 밀린 줄 → 정리" c3; step ①②③
 tc "④ desk 뒤 끊김 → 다음 drain master 만" c4; basefail "④" c4; tc "⑤ 3줄 중 둘째 뒤 끊김 → 셋째만" c5; tc "⑥ 모두 받은 줄 즉시 빠짐" c6; tc "⑦ desk 실패 → 다시" c7; step ④~⑦
 tc "⑧ 같은 원인 · 다른 초 = 1통" c8; basefail "⑧" c8; tc "⑨ 다른 원인 = 2통" c9; tc "⑩ 본문 숫자 원문" c10; step ⑧~⑩
+tc "⑫ desk 발신 중 해결 → 줄 0 · master 0" c12; step ⑫
 
 NT=ft-critical-notify.sh
 mut $NT 'keep = [p for p in pend if (p.get("tool"), p.get("target")) != (tool, target)]   # r2373-mut:pendclose' 'keep = pend' && killed "M1 resolve 의 PEND 정리 지움" c1
 mut $NT 'keep = [p for p in pend if (p.get("tool"), p.get("target")) != (tool, target)]   # r2373-mut:pendclose' 'keep = []' && killed "M2 PEND 정리를 대상 무관 전부로" c1
 mut $NT 'if not (os.path.isfile(SENT) or os.path.isfile(PEND)): return   # r2373-mut:nosent' 'if not os.path.isfile(SENT): return' && killed "M3 SENT 없으면 바로 return" c3
-mut $NT '    for r in batch:' $'    done = []\n    for r in batch:' '; record(r, {' '; done.append((r, {' '"to": to})   # r2373-mut:each' '"to": to}))' \
-  '    with Lock():   # r2373-mut:end' $'    for x in done: record(*x)\n    with Lock():   #' && killed "M4 받는 이마다 기록을 묶음 끝으로" c4
+mut $NT '    for r in batch:' $'    done = []\n    for r in batch:' 'if not record(r, {' 'if done.append((r, {' '"to": to}): break   # r2373-mut:each' '"to": to})): break   #' \
+  '    with Lock(): pend = load(PEND); [w.pop' $'    for x in done: record(*x)\n    with Lock(): pend = load(PEND); [w.pop' && killed "M4 받는 이마다 기록을 묶음 끝으로" c4
 mut $NT 'if w["to"] and all(t in w["sent"] for t in w["to"]): continue   # r2373-mut:alldone' 'pass' \
-  'save(PEND, pend)   # r2373-mut:endsave' 'save(PEND, [w for w in pend if not (w.get("to") and all(t in (w.get("sent") or []) for t in w["to"]))])' && killed "M5 모두 받은 줄을 묶음 끝에서만 뺌" c6
+  'save(PEND, pend)   # r2373-mut:endsave' 'save(PEND, [w for w in pend if not (w.get("to") and all(t in (w.get("sent") or []) for t in w["to"]))])   #' && killed "M5 모두 받은 줄을 묶음 끝에서만 뺌" c6
 mut $NT $'"Ns", "\\n".join(ls[i:j + 1]))' $'"Ns", "\\n".join(ls[i:j + 1])) and "\\n".join(ls[i:j + 1])' && killed "M6 숫자 바꿈 지움" c8
 mut $NT 'ls[i], nexts(LAND_NEXT' $'re.sub(r"\\d+(?:\\.\\d+)?(?:s|초)", "Ns", ls[i]), nexts(LAND_NEXT' && killed "M7 숫자를 본문에서도 바꿈" c10
+mut $NT 'save(PEND, keep)   # r2373-mut:revive' 'save(PEND, keep if live else keep + [r])' && killed "M8 기록 때 줄이 없으면 batch 줄을 붙임" c12
+mut $NT 'r"\d+(?:\.\d+)?(?:s|초)", "Ns"' 'r"\d+(?:s|초)", "Ns"' && killed "M9 소수 갈래 지움(I2)" c8
 step 변이
 finish
