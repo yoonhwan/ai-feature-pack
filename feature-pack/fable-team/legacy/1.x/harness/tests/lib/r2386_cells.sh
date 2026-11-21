@@ -57,10 +57,12 @@ c8() { # ⑧ DA F1: 공백 이름 · 심링크 · 끊긴 링크 — 공백 이�
   fresh_live; LAST_OUT="$(drift "$SUT")"; LAST_RC=$?
   if [ "$LAST_RC" = 0 ] && has "$LAST_OUT" "OK ref=main@" && has "$LAST_OUT" "files=$FILES"; then ok "⑧ 공백 이름 «my tool.sh» 포함 OK 판 → EXTRA 오탐 0"
   else MSG="rc=$LAST_RC · out=${LAST_OUT:0:300}"; bad "⑧ 공백 이름 OK 판"; fi
-  fresh_live; ln -sfn a.sh "$LIVE/link.sh"; rm -f "$LIVE/c.sh"; ln -sfn /nonexistent/gone "$LIVE/c.sh"
+  fresh_live; ln -sfn a.sh "$LIVE/link.sh"; : > "$LIVE/extra tool.sh"; rm -f "$LIVE/c.sh"; ln -sfn /nonexistent/gone "$LIVE/c.sh"
   LAST_OUT="$(drift "$SUT")"; LAST_RC=$?
-  if [ "$LAST_RC" = 1 ] && has "$LAST_OUT" "MISSING c.sh" && has "$LAST_OUT" "EXTRA link.sh"; then ok "⑧ 심링크 = 파일로 따라감(EXTRA) · 끊긴 링크 = MISSING c.sh"
-  else MSG="rc=$LAST_RC · out=${LAST_OUT:0:300}"; bad "⑧ 심링크·끊긴 링크 줄"; fi
+  if [ "$LAST_RC" = 1 ] && has "$LAST_OUT" "MISSING c.sh" && has "$LAST_OUT" "EXTRA link.sh" \
+     && has "$LAST_OUT" "EXTRA extra tool.sh" && ! has "$LAST_OUT" "EXTRA extra"$'\n'; then
+    ok "⑧ 심링크 = 파일로 따라감(EXTRA) · 끊긴 링크 = MISSING c.sh · 트리 밖 공백 이름 = «EXTRA extra tool.sh» 그대로"
+  else MSG="rc=$LAST_RC · out=${LAST_OUT:0:300}"; bad "⑧ 심링크·끊긴 링크·트리 밖 공백 이름 줄"; fi
   pair "⑧ 링크 판 — 새 판 = 기준판"
 }
 c9() { # ⑨ DIFF·MISSING·EXTRA·MODE 가 한 판에 섞여도 출력이 기준판과 «같은 바이트»(정렬·n·HINT 포함)
