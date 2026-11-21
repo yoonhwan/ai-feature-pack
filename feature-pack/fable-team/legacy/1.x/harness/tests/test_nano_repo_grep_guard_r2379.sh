@@ -68,6 +68,8 @@ const cases = [
   ["c16a", R, A, B("grep -rn foo .")], ["c16b", R, "", B("grep -rn foo .")],
   ["c17", SUB, N, B("grep -rn foo")],
   ["c18", R, N, B('grep -r "foo .')], ["c19a", R, N, B("cd - && grep -r foo .")], ["c19b", R, N, B('cd "$X" && grep -r foo .')],
+  ["c21a", R, N, B('grep -rn "def foo"')], ["c21b", R, N, B('grep -rn "foo bar" --include=*.py')],
+  ["c21c", R, N, B('grep -r -e "a b"')], ["c21d", R, N, B("grep -rn foo\\ bar")], ["c21e", R, N, B('grep -rn "a b" sub')],
 ];
 const only = (process.env.ONLY ?? "").split(/\s+/).filter(Boolean);
 for (const name of (only.length ? only : cases.map((c) => c[0]))) {
@@ -90,7 +92,7 @@ pairs "$out" "c01 BLOCK" "c02a BLOCK" "c02b BLOCK" "c02c BLOCK" "c03a BLOCK" "c0
   "c05 BLOCK" "c06 BLOCK" "c07a BLOCK" "c07b BLOCK" "c07c BLOCK" "c08 BLOCK" "c09 BLOCK" "c10a BLOCK" "c10b BLOCK" "c10c BLOCK" \
   "c11a BLOCK" "c11b BLOCK" "c12a BLOCK" "c12b BLOCK" "c12c BLOCK" \
   "c13 PASS" "c14a PASS" "c14b PASS" "c14c PASS" "c14d PASS" "c15a PASS" "c15b PASS" "c15c PASS" "c16a PASS" "c16b PASS" \
-  "c18 PASS" "c19a PASS" "c19b PASS"
+  "c18 PASS" "c19a PASS" "c19b PASS" "c21a BLOCK" "c21b BLOCK" "c21c BLOCK" "c21d BLOCK" "c21e PASS"
 has "K1 거절 이유 = ci search·좁히기" "$out" "ci search"
 has "R1 ⑱ 따옴표 = NOTE" "$(cat "$T/err")" "판정 불가 따옴표 안 닫힘"
 has "R2 ⑲ cd - = NOTE" "$(cat "$T/err")" "풀 수 없는 cd(cd -)"
@@ -149,7 +151,7 @@ mut "$X/guard.ts" "$X/l.ts" 'realish(w) : realish(path.join(base, w))' 'w : path
 hit "$X/l.ts" c05 PASS && ok "M5 realpath 대신 글자 = ⑤ 통과" || bad "M5 미탐지"
 mut "$X/guard.ts" "$X/l.ts" '  for (const s of segs) {' '  for (const s of segs.slice(0, 1)) {'
 hit "$X/l.ts" c06 PASS && ok "M6 파이프 뒤 건너뜀 = ⑥ 통과" || bad "M6 미탐지"
-mut "$X/guard.ts" "$X/l.ts" '    if (SEPC.has(c)) { out(c); i++; continue; }' ''
+mut "$X/guard.ts" "$X/l.ts" '    if (SEPC.has(c)) { end(c); i++; continue; }' ''
 hit "$X/l.ts" c07a PASS && ok "M7 줄바꿈·&·\$( 나누기 지움 = ⑦ 통과" || bad "M7 미탐지"
 mut "$X/guard.ts" "$X/l.ts" '      base = r.base ?? base;' ''
 hit "$X/l.ts" c08 PASS && ok "M8 cd 무시 = ⑧ 통과" || bad "M8 미탐지"
@@ -159,8 +161,8 @@ mut "$X/guard.ts" "$X/l.ts" 'if (!val) val = take();' 'if (!val) val = "";'
 hit "$X/l.ts" c10a PASS && ok "M10 옵션 값을 경로로 셈 = ⑩a 통과" || bad "M10 미탐지"
 mut "$X/guard.ts" "$X/l.ts" 'if (r === "fd" || r === "attached") continue;' 'if (r === "fd") continue;'
 hit "$X/l.ts" c11a PASS && ok "M11 리다이렉트 대상을 경로로 셈 = ⑪a 통과" || bad "M11 미탐지"
-mut "$X/guard.ts" "$X/l.ts" 'if (c === "&" && nx === ">") { buf += "&>"; i += 2; continue; }' ''
-mut "$X/m.ts" "$X/l.ts" 'if (c === ">" && nx === "&") { buf += ">&"; i += 2; continue; }' ''
+mut "$X/guard.ts" "$X/l.ts" 'if (c === "&" && nx === ">") { add("&>"); i += 2; continue; }' ''
+mut "$X/m.ts" "$X/l.ts" 'if (c === ">" && nx === "&") { add(">&"); i += 2; continue; }' ''
 hit "$X/l.ts" c12c PASS && ok "M12 리다이렉트 안 & 를 나누기로 = ⑫c 통과" || bad "M12 미탐지"
 mut "$X/guard.ts" "$X/l.ts" 'return ps.some((w) => roots.includes(abs(w, base)));' 'return true;'
 hit "$X/l.ts" c13 BLOCK && ok "M13 하위 폴더도 거절 = ⑬ 거절" || bad "M13 미탐지"
@@ -174,6 +176,8 @@ o="$(PATH="$T/gr:$PATH" FT_LIVE_ROOT="$R" drive "$X/l.ts" "$R" "c17")"
 eq "M16 git 실패 = 거절로 = ⑰ 거절" "$(one "$o" c17)" BLOCK
 mut "$X/guard.ts" "$X/l.ts" 'if (r.bad) return { ...NO, bad: r.bad };' 'if (r.bad) return { block: true, bad: "", root: base0, target: base0 };'
 hit "$X/l.ts" c19b BLOCK && ok "M17 풀 수 없는 cd = 거절로 = ⑲b 거절" || bad "M17 미탐지"
+mut "$X/guard.ts" "$X/l.ts" 'const QUOTED_SPACE_BREAKS = false;' 'const QUOTED_SPACE_BREAKS = true;'
+hit "$X/l.ts" c21a PASS && ok "M18 따옴표 안 공백 = 낱말 경계 = ㉑a 통과" || bad "M18 미탐지"
 
 st "변이"
 

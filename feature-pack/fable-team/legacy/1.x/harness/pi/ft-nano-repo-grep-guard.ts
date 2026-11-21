@@ -15,28 +15,30 @@ export const WHY = '[ft-nano-repo-grep-guard] 리포 루트 재귀 grep 금지(�
 type Seg = { toks: string[]; sep: string };
 type Verdict = { block: boolean; bad: string; root: string; target: string };
 const NO: Verdict = { block: false, bad: "", root: "", target: "" };
-// 명령 나누기 — 따옴표 밖의 ; && || | & 줄바꿈 ( ) $( 백틱 · 리다이렉트 안 &(&> · >& · 2>&1)는 나누기 아님
+const QUOTED_SPACE_BREAKS = false; // 따옴표 안 공백 = 낱말 안(경계 아님) · 변이 M18 이 뒤집는다
+// 명령 나누기 — 낱말은 훑기 안에서 만든다(따옴표·역슬래시 안 공백 = 낱말 하나) · 나누기 = 따옴표 밖의 ; && || | & 줄바꿈 ( ) $( 백틱 · 리다이렉트 안 &(&> · >& · 2>&1)는 나누기 아님
 export function splitCmd(cmd: string): { segs: Seg[]; bad: string } {
-  const segs: Seg[] = []; let buf = "", q = "", i = 0;
-  const out = (sep: string) => { segs.push({ toks: buf.trim().split(/\s+/).filter(Boolean), sep }); buf = ""; };
+  const segs: Seg[] = []; let toks: string[] = [], cur = "", inTok = false, q = "", i = 0;
+  const add = (s: string) => { cur += s; inTok = true; };
+  const push = () => { if (inTok) toks.push(cur); cur = ""; inTok = false; };
+  const end = (sep: string) => { push(); segs.push({ toks, sep }); toks = []; };
   while (i < cmd.length) {
     const c = cmd[i], nx = cmd[i + 1] ?? "";
-    if (q) { if (c === "\\" && q === '"') { buf += nx; i += 2; continue; } if (c === q) { q = ""; i++; continue; } buf += c; i++; continue; }
-    if (c === "'" || c === '"') { q = c; i++; continue; }
-    if (c === "\\") { buf += nx; i += 2; continue; }
-    if (c === "&" && nx === ">") { buf += "&>"; i += 2; continue; }
-    if (c === ">" && nx === "&") { buf += ">&"; i += 2; continue; }
-    if (c === "&" && nx === "&") { out("&&"); i += 2; continue; }
-    if (c === "|" && nx === "|") { out("||"); i += 2; continue; }
-    if (c === "$" && nx === "(") { out("$("); i += 2; continue; }
-    if (SEPC.has(c)) { out(c); i++; continue; }
-    buf += c; i++;
+    if (q) { if (c === "\\" && q === '"') { add(nx); i += 2; continue; } if (c === q) { q = ""; i++; continue; } if (c === " " && QUOTED_SPACE_BREAKS) { push(); i++; continue; } add(c); i++; continue; }
+    if (c === "'" || c === '"') { q = c; inTok = true; i++; continue; }
+    if (c === "\\") { if (nx) add(nx); i += 2; continue; }
+    if (c === " " || c === "\t") { push(); i++; continue; }
+    if (c === "&" && nx === ">") { add("&>"); i += 2; continue; }
+    if (c === ">" && nx === "&") { add(">&"); i += 2; continue; }
+    if (c === "&" && nx === "&") { end("&&"); i += 2; continue; }
+    if (c === "|" && nx === "|") { end("||"); i += 2; continue; }
+    if (c === "$" && nx === "(") { end("$("); i += 2; continue; }
+    if (SEPC.has(c)) { end(c); i++; continue; }
+    add(c); i++;
   }
-  if (q) return { segs, bad: `따옴표 안 닫힘(${q})` };
-  out("");
-  return { segs, bad: "" };
+  end("");
+  return { segs, bad: q ? `따옴표 안 닫힘(${q})` : "" };
 }
-
 // 리다이렉트 낱말 — fd 복제(2>&1 · >&2) · 대상 붙여 씀(2>/dev/null) · 대상이 다음 낱말(>) · 대상 없음 = pure
 export function redir(t: string): "fd" | "attached" | "pure" | "" {
   if (/^\d*>&\d+$/.test(t)) return "fd";
@@ -44,7 +46,6 @@ export function redir(t: string): "fd" | "attached" | "pure" | "" {
   if (!m) return "";
   return m[2] ? "attached" : "pure";
 }
-
 // 앞 낱말 건너뛰기 — env 대입(A=b) · timeout N · nice [-n N] · command · env
 function headIndex(toks: string[]): number {
   for (let k = 0; k < toks.length; ) {
@@ -104,7 +105,6 @@ function cdStep(toks: string[], base: string): { base?: string; bad?: string } {
 }
 // 경로 낱말 → 절대 경로(상대는 기준 폴더에 붙임 · ~/$HOME/$PWD/심링크/.. 풀이)
 const abs = (w: string, base: string): string => (w.startsWith("/") || w.startsWith("~") || w.startsWith("$") ? realish(w) : realish(path.join(base, w)));
-
 // 루트 대상 = 경로 낱말 0(grep -r 기본 = 기준 폴더) 또는 하나라도 루트 집합과 같음
 function atRoot(paths: string[], base: string, roots: string[]): boolean {
   const ps = paths.length ? paths : ["."];                   // 경로 낱말 0 = grep -r 기본 = 기준 폴더
