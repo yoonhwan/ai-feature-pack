@@ -56,10 +56,12 @@ class Rig:
                   "design/teams/harness/indices/완성", ".fable-team/state/blocks", ".fable-team/comm"):
             (self.root / d).mkdir(parents=True, exist_ok=True)
         _w(tmp / "goal.md", "## 골 진행\n\n| 골 | 골 짧은 이름 | 닫힘 n | 전체 m | 지금 상태 1줄 | 다음 한 수 1줄 |\n"
-                            "|---|---|---|---|---|---|\n| 5 | 하네스 운영 정리 | 4 | 9 | 진행 | — |\n")
-        self.card("hn-a", "진행", "하네스 운영 정리", ["- 대기 사유: DA 판정 대기"])
-        self.card("hn-b", "완성", "하네스 운영 정리", [])
-        self.reply_wait([{"q_ts": f"17.00{i}", "kind": "thread", "key": f"th{i}", "state": "open"} for i in range(9)])
+                            "|---|---|---|---|---|---|\n| 1 | 하네스 운영 정리 | 4 | 9 | 진행 | — |\n")
+        # 카드 골좌표 = «6 · 하네스 운영 정리» — 원장 번호(1)와 어긋난 실측 꼴 · 이름으로 결속해야 한다
+        self.card("hn-a", "진행", "6 · 하네스 운영 정리", ["- 대기 사유: DA 판정 대기"])
+        self.card("hn-b", "완성", "6 · 하네스 운영 정리", [])
+        self.reply_wait([{"q_ts": f"17.00{i}", "kind": "thread", "key": f"th{i}", "state": "open"} for i in range(9)]
+                        + [{"q_ts": "1.1", "kind": "question", "key": "q-closed", "state": "closed"}])
         _w(self.root / ".fable-team/state/stall-scan.last.json",
            json.dumps({"ts": self.now - 120, "c": 1, "teams": {"harness": {"f": 1}, "ops": {"f": 0}}}))
         _w(self.root / ".fable-team/state/blocks/owner.json", json.dumps([{"tool": "ft2-keeper:stale"}]))
@@ -225,6 +227,9 @@ def main() -> int:
     t0 = time.time()
     with tempfile.TemporaryDirectory() as d:
         rig = Rig(Path(d) / "rig")
+        reg_procs = {name: subprocess.Popen(["bash", str(HERE / name)], stdout=subprocess.PIPE,
+                                            stderr=subprocess.DEVNULL, text=True)  # ⑧ 회귀 = 처음부터 병렬
+                     for name in ("test_board_publish_tick.sh", "test_board_news_main_post_r2120.sh")}
 
         # ① 원천 11 정상 → 칸 11종 · 꼴 · q=ok
         r1 = rig.run()
@@ -232,6 +237,12 @@ def main() -> int:
             r1["rc"] == 0 and not shape_bad(r1["snap"]) and len(r1["snap"]["cells"]) == 11
             and all(c["q"] == "ok" for c in r1["snap"]["cells"].values())
             and oct(rig.snap.stat().st_mode & 0o777) == "0o644", f"{shape_bad(r1['snap'])} {r1['err'][:80]}")
+
+        chk("① 카드 골좌표 «6 · 하네스 운영 정리» 를 원장 이름으로 결속(번호 어긋남 무관) · goals 에 원장 번호",
+            set(r1["snap"]["cells"]["goal_facts"]["v"]) == {"하네스 운영 정리"}
+            and set(r1["snap"]["cells"]["waiting"]["v"]) == {"하네스 운영 정리"}
+            and r1["snap"]["cells"]["goals"]["v"]["하네스 운영 정리"] == {"n": 4, "m": 9, "no": "1"},
+            str(r1["snap"]["cells"]["goal_facts"]["v"])[:150])
 
         # ② 자율 status 8초 → 그 칸만 unknown · 나머지 ok · rc 0
         rig.stub_autonomy("sleep 8\n", 0)
@@ -246,13 +257,17 @@ def main() -> int:
         # ③ 장부 열린 줄 9(thread) → v=9 · 식별자 9개 / 깨진 줄 1 → unknown
         r3 = rig.run(rig.now + 120)
         ow = r3["snap"]["cells"]["oppa_wait"]["v"]
-        chk("③ 열린 줄 9(kind=thread) → v=9 · 식별자·닫힘 상태 9개", ow["open"] == 9 and len(ow["items"]) == 9
-            and {i["state"] for i in ow["items"]} == {"open"}, json.dumps(ow)[:120])
+        chk("③ 열린 줄 9(kind=thread) + 닫힌 1 → v=9 · 항목 10(식별자·닫힘 상태 · kind/q_ts 로 고유)",
+            ow["open"] == 9 and len(ow["items"]) == 10
+            and {i["state"] for i in ow["items"]} == {"open", "closed"}
+            and len({i["key"] for i in ow["items"]}) == 10
+            and any(i["id"] == "q-closed" and i["state"] == "closed" for i in ow["items"]), json.dumps(ow)[:200])
         rig.reply_wait([{"q_ts": "1.1", "kind": "thread", "key": "a", "state": "open"}], extra="{ 깨진 줄\n")
         r3b = rig.run(rig.now + 180)
         chk("③ 장부 깨진 줄 1 → 그 칸 q=unknown · v null",
             r3b["snap"]["cells"]["oppa_wait"]["q"] == "unknown" and r3b["snap"]["cells"]["oppa_wait"]["v"] is None)
-        rig.reply_wait([{"q_ts": f"17.00{i}", "kind": "thread", "key": f"th{i}", "state": "open"} for i in range(9)])
+        rig.reply_wait([{"q_ts": f"17.00{i}", "kind": "thread", "key": f"th{i}", "state": "open"} for i in range(9)]
+                       + [{"q_ts": "1.1", "kind": "question", "key": "q-closed", "state": "closed"}])
 
         # ④ 승계 72시간 · fact_key 다름 → 지금 · 직전 스냅샷 0 → null
         old_at = "2026-11-18T22:56:40"
@@ -276,9 +291,33 @@ def main() -> int:
         chk("④ 직전 스냅샷 파일 0 → fact_changed_at null(«서 있음 ?»)",
             r4d["snap"]["goals"]["하네스 운영 정리"]["fact_changed_at"] is None)
 
+        # ②b keeper 장부가 1시간 낡음 → 값 유지 · q=stale(K1 원천 표 10분 문턱)
+        blocks = rig.root / ".fable-team/state/blocks/owner.json"
+        old = rig.now + 480 - 3600
+        os.utime(blocks, (old, old))
+        r3c = rig.run(rig.now + 480)
+        chk("②b keeper 장부 1시간 낡음 → v=1 · q=stale · at=장부 시각",
+            r3c["snap"]["cells"]["keeper_unknown"]["q"] == "stale"
+            and r3c["snap"]["cells"]["keeper_unknown"]["v"]["unknown_keeper"] == 1
+            and r3c["snap"]["cells"]["keeper_unknown"]["at"] < "2026-11-21T23:00:00",
+            json.dumps(r3c["snap"]["cells"]["keeper_unknown"], ensure_ascii=False)[:160])
+        os.utime(blocks, (rig.now + 480, rig.now + 480))
+
+        # ②c 카드 원천 폴더 없음 → goal_facts·waiting 만 unknown(정상 빈 목록으로 적지 않음)
+        _w(rig.root / ".fable-team/state/stall-scan.last.json",
+           json.dumps({"ts": rig.now + 500 - 60, "teams": {"harness": {"f": 1}}}))
+        r3d = rig.run(rig.now + 500, {"FT_MONITOR_CARDS_DESIGN": str(rig.t / "없는폴더")})
+        chk("②c 카드 원천 없음 → goal_facts·waiting q=unknown·v null · 원장(goals)과 다른 칸은 ok",
+            r3d["snap"]["cells"]["goal_facts"]["q"] == "unknown"
+            and r3d["snap"]["cells"]["goal_facts"]["v"] is None
+            and r3d["snap"]["cells"]["waiting"] == {**r3d["snap"]["cells"]["waiting"], "v": None, "q": "unknown"}
+            and all(c["q"] == "ok" for k, c in r3d["snap"]["cells"].items()
+                    if k not in ("goal_facts", "waiting")),
+            json.dumps({k: v["q"] for k, v in r3d["snap"]["cells"].items()}))
+
         # ⑤ directive rc 계약
         got = {}
-        for rc, want in (("0", "ok"), ("1", "ok"), ("2", "unknown")):
+        for rc, want in (("1", "ok"), ("2", "unknown")):
             got[rc] = rig.run(rig.now + 480, {"DIRECTIVE_RC": rc})["snap"]["cells"]["directives"]
             chk(f"⑤ rc {rc} → {want}", got[rc]["q"] == want, got[rc]["q"])
         chk("⑤ rc 1 정상 첫 줄 = 두 수", got["1"]["v"] == {"no_owner": 2, "stopped": 1}, str(got["1"]["v"]))
@@ -332,11 +371,8 @@ def main() -> int:
         chk("⑦ 인자 없는 갈래 → 수집기 호출 0", plain["snap"] == 0, str(plain["snap"]))
 
         # ⑧ 회귀 — 기존 시험 새 판 PASS · 수집기 실행 중 mbox send 0
-        reg, procs = {}, {}
-        for name in ("test_board_publish_tick.sh", "test_board_news_main_post_r2120.sh"):
-            procs[name] = subprocess.Popen(["bash", str(HERE / name)], stdout=subprocess.PIPE,
-                                           stderr=subprocess.DEVNULL, text=True)  # 두 회귀 = 병렬(합계 초 단축)
-        for name, proc in procs.items():
+        reg = {}
+        for name, proc in reg_procs.items():
             out, _ = proc.communicate()
             reg[name] = (proc.returncode, out.count("PASS"),
                          sum(1 for l in out.splitlines() if l.startswith("FAIL")))

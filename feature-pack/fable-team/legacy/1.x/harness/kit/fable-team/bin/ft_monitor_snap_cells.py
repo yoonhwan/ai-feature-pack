@@ -12,6 +12,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 
+import ft_monitor_snap_goal as goal_lib
 import ft_monitor_snap_src as src_lib
 from ft_monitor_snap_src import cell, cmd_cell, env, iso, run, stale_q, state_path, tool, unk
 
@@ -153,19 +154,24 @@ def collect_fail(root, at: str) -> dict:
 def collect_all(root, at: str, now: float) -> dict:
     """11칸 전부 — 한 칸 예외는 그 칸만 unknown(다른 칸·파일 쓰기는 그대로 · 하드 룰 20)."""
     root = Path(root)
+    try:  # 원장(goals)은 카드 폴더와 다른 원천 — 카드 실패가 goals 를 끌고 가지 않는다
+        goals_cell = src_lib.goals(root, at, now)
+        goals_v = goals_cell["v"] if isinstance(goals_cell.get("v"), dict) else {}
+    except Exception as e:  # noqa: BLE001
+        goals_cell, goals_v = src_lib.unk(f"원장 수집 예외 {type(e).__name__}", at), {}
     try:
-        cards = src_lib.cards(root)
+        cards = goal_lib.cards(root)
     except Exception as e:  # noqa: BLE001 — 카드 폴더 못 읽음 = 그 두 칸만 unknown
         cards, why = None, f"카드 폴더 못 읽음 {type(e).__name__}"
     out = {}
     for name in CELLS:
         try:
             if name == "goals":
-                out[name] = src_lib.goals(root, at, now)
+                out[name] = goals_cell
             elif name == "goal_facts":
-                out[name] = unk(why, at) if cards is None else src_lib.goal_facts(root, at, cards)
+                out[name] = unk(why, at) if cards is None else goal_lib.goal_facts(root, at, cards, goals_v)
             elif name == "waiting":
-                out[name] = unk(why, at) if cards is None else src_lib.waiting(root, at, cards)
+                out[name] = unk(why, at) if cards is None else goal_lib.waiting(root, at, cards, goals_v)
             elif name == "oppa_wait":
                 out[name] = src_lib.oppa_wait(root, at, now)
             elif name == "blocked_sessions":
