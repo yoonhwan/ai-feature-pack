@@ -249,7 +249,7 @@ export default function (pi: ExtensionAPI) {
   const note = (bad: string) => { if (!noted.has(bad)) { noted.add(bad); say(`NOTE ft-nano-repo-grep-guard: 판정 불가 ${bad}`); } }; // 판정 불가 = NOTE 1줄(사유별 1회)
   pi.on("session_start", async () => { appendLoadLine(pi, "r2379", "ft-nano-repo-grep-guard.ts"); });
   pi.on("tool_call", async (event) => {
-    const seat = seatOf();
+    const seat = seatOf(), findSeat = process.env.FT_SEAT_NAME ?? "";        // find 갈래 대상 = FT_SEAT_NAME 만(K1 · r1672 seatOf 의 FT_SEAT fallback 안 씀)
     if (!seat) return;                                                         // 좌석 env 없음 = 판정 0(K1·K3)
     if (String(event.toolName ?? "") !== "bash") return;                       // bash 밖(pi grep·read·ci) = 통과
     const cmd = String((event.input as Record<string, unknown> | undefined)?.command ?? "");
@@ -261,11 +261,11 @@ export default function (pi: ExtensionAPI) {
       if (v.bad) { note(v.bad); return; }
       if (v.block) { logBlock(v.root, seat, cmd.slice(0, 120)); return { block: true, reason: `${WHY} · 대상 ${v.target}` }; }
     }
-    let f: Verdict;                                                            // find 갈래 = FT_SEAT_NAME 있는 좌석 전부(K1)
-    try { f = judgeFind(cmd, process.cwd()); } catch (e) { say(`ERROR ft-nano-repo-grep-guard: find 판정 실패 — ${e}`); return; }
-    if (f.bad) { note(f.bad); return; }
-    if (!f.block) return;
-    logBlock(f.root, seat, cmd.slice(0, 120));
-    return { block: true, reason: `${WHY_FIND} · 대상 ${f.target}` };
+    if (findSeat) {                                                            // find 갈래 = FT_SEAT_NAME 있는 좌석 전부(K1)
+      let f: Verdict;
+      try { f = judgeFind(cmd, process.cwd()); } catch (e) { say(`ERROR ft-nano-repo-grep-guard: find 판정 실패 — ${e}`); return; }
+      if (f.bad) { note(f.bad); return; }
+      if (f.block) { logBlock(f.root, findSeat, cmd.slice(0, 120)); return { block: true, reason: `${WHY_FIND} · 대상 ${f.target}` }; }
+    }
   });
 }
