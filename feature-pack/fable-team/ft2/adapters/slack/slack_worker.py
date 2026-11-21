@@ -17,14 +17,16 @@ OVERFLOW = "일꾼 넘침"  # listen.log 낱말 — 시험이 이 낱말로 찾�
 class Worker:
     """일꾼 1개 = 스레드 1개 · 큐 1개. 넣는 쪽(수신 스레드)은 기다리지 않는다."""
 
-    def __init__(self, *, log=None, notify=None, now=None, cap=CAP, gap=OVERFLOW_GAP):
+    def __init__(self, *, log=None, notify=None, now=None, mono=None, cap=CAP, gap=OVERFLOW_GAP):
         self.log = log or (lambda line: None)
         self.notify = notify or (lambda row: None)  # 넘침 알림 1통 — 일꾼이 부른다(수신 스레드 아님)
         self.now = now or time.time
+        self.mono = mono or time.monotonic  # r2391 — 일감 1개의 초를 재는 시계(수신기와 같은 시계)
         self.cap, self.gap = int(cap), float(gap)
         self.queue = queue.Queue(maxsize=self.cap)
         self.worker, self.stopping = None, threading.Event()
         self.max_queue, self.dropped, self.last_overflow, self.alerting = 0, 0, None, 0
+        self.slowest = 0.0  # r2391 K2 — «최장 처리» 칸 = 일꾼이 한 일감에 머문 최장 초(관측만)
 
     # ── 넣는 쪽 (수신 스레드) — 넣고 바로 돌아간다
     def submit(self, job, *args, **kwargs):
@@ -70,8 +72,8 @@ class Worker:
         self.start()
         return True
 
-    def reset_stats(self):  # S6 — «연결 끝» 칸 = 이 연결의 큐 최대
-        self.max_queue = 0
+    def reset_stats(self):  # S6 — «연결 끝» 칸 = 이 연결의 큐 최대 · 최장 처리 초
+        self.max_queue, self.slowest = 0, 0.0
 
     def stop(self, timeout=70.0):
         """멈춤 = 남은 일감을 다 하고 끝난다(유실 0) — 수신기 종료 1곳."""
@@ -108,11 +110,13 @@ class Worker:
 
     def _work(self, item):
         job, args, kwargs = item
+        started = self.mono()
         try:
             job(*args, **kwargs)
         except Exception as exc:  # 일감 실패 = 1줄 · 일꾼은 계속 산다(죽는 곳은 스레드 밖 사고뿐)
             self.log("일꾼 일감 실패 %s" % type(exc).__name__)
         finally:
+            self.slowest = max(self.slowest, self.mono() - started)  # r2391 K2 — 일꾼이 머문 초(관측)
             self.queue.task_done()
 
     def _overflow_note(self):
