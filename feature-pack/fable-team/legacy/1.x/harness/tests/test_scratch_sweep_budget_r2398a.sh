@@ -5,7 +5,7 @@
 #   K3 = 예산 = FT_SCRATCH_JUDGE_BUDGET 미설정이면 min(5초 + 7초×ceil(후보/100), 70초)(설정값은 그대로 상한) · 끝 줄에 judged·swept·round(done|cursor) 셋을 따로 · WARN «예산 N초(후보 M개)» 1줄
 # 사례 = ④ 사본 300 · du 2초(가짜) → du 호출 0 · 예산 26초 · judged ≥ 60 · swept ≥ 1 · round=cursor → 다음 틱 이어서 judged 누적 300 · round=done
 #        ⑤ 전체 lsof 실패 → 사본별 후퇴(삭제 결과 같음) / 전체 lsof 가 사본 1개를 cwd 로 보고 → 그 사본 held · 나머지 진행
-#        ⑥ 예산 20초 명시 = 20초 그대로 / 후보 2762개 = 70초(상한) · WARN «예산 70초(후보 2762개)»
+#        ⑥ 예산 20초 명시 = 20초 그대로 / 후보 2762개 = 70초(상한) · WARN «예산 70초(후보 2762개)» · ⑦ (정정2 DA H2) 후보 0 끝 줄의 judged·round 는 실제 값
 # 변이(원본과 같은 사례 1회 대조) = 짝 파일 test_scratch_sweep_budget_mut_r2398a.sh(M3·M4·M5) · 대역 = tests/lib/sweep_budget_r2398a_bed.sh
 # 임시 git 저장소·가짜 tmux·가짜 lsof·가짜 du·가짜 date(가상 시계)·임시 TMPDIR 만 쓴다 — 실 저장소·실 세션·실 TMPDIR·실 상태 0 · sleep 0
 . "$(dirname -- "${BASH_SOURCE[0]:-$0}")/lib/real_state_guard.sh" && guard_begin "$@"   # r541: 실 상태 지문 + git 밖 cwd 재실행
@@ -73,6 +73,25 @@ if want ⑥; then
   { [ "$RC" = 0 ] && puts "$OUT" "예산 70초(후보 2762개)"; } \
     && ok "⑥2 후보 2762개 — 예산 = 상한 70초 · WARN «예산 70초(후보 2762개)»" \
     || bad "⑥2 rc=$RC out=$(printf '%s' "$OUT" | tail -2 | tr '\n' ' ')"
+fi
+
+# ── ⑦ 정정2(DA H2): N=0 끝 줄은 «상수» 가 아니라 실제 판정·끊긴 자리 ───────────────────────────
+if want ⑦; then
+  reset
+  A="$(mtmp a)"; B="$(mtmp b)"
+  printf 'p777\ncpytest\nfcwd\nn%s/sub\nn%s/sub\n' "$A" "$B" > "$T/lsof.all"   # 둘 다 점유 = 판정은 끝났지만 후보 0
+  STEP_TICKS=0 sc --sweep
+  J="$(field judged)"
+  { [ "$RC" = 0 ] && [ "$(field held)" = 2 ] && [ -n "$J" ] && [ "$J" -ge 2 ] && [ "$(roundof)" = done ]; } \
+    && ok "⑦1 후보 0(둘 다 붙잡음) — judged=$J ≥ 2 · held=2 · round=done(상수 0 아님)" \
+    || bad "⑦1 rc=$RC held=$(field held) judged=${J:-?} round=${J:+$(roundof)} out=$(printf '%s' "$OUT" | tail -2 | tr '\n' ' ')"
+  reset
+  mtmp a >/dev/null; mtmp b >/dev/null; mtmp c >/dev/null
+  STEP_TICKS=10 BUDGET=1 sc --sweep   # date 1회 = 1초 · 예산 1초 → 첫 판정 전에 예산이 바닥난다
+  J2="$(field judged)"
+  { [ "$RC" = 0 ] && [ "${J2:-0}" = 0 ] && [ "$(roundof)" = cursor ] && [ -s "$CURSOR" ]; } \
+    && ok "⑦2 첫 판정 전 예산 소진 — judged=0 · round=cursor(끝 줄·cursor 파일 둘 다 cursor)" \
+    || bad "⑦2 rc=$RC judged=${J2:-?} round=$(roundof) cursor=$([ -s "$CURSOR" ] && echo 있음 || echo 없음) out=$(printf '%s' "$OUT" | tail -2 | tr '\n' ' ')"
 fi
 
 done_line

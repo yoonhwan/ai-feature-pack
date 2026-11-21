@@ -901,7 +901,8 @@ done_run() { # <경로> --done: 등록된 «내» 사본만 지운다(r897 r10: 
   esac
 }
 reap_owner() { # <옛 좌석> r2398a K1: 은퇴한 좌석의 사본을 «출구 게이트 그대로» 지운다(대리 제거) · tmux 세션 «<옛 좌석>» 이 살아 있으면 REJECT rc2 · 삭제 0 · 등록부에서 주인 = <옛 좌석> 인 사본마다 delete_copy(r897 그대로) · 좌석당 상한 = min(5초 + 7초×개수, 70초) · 넘긴 사본은 정리기 몫
-  local old="$1" cand="" p o t b n=0 done=0 refused=0 left=0 rc S RSTART BUD HW
+  #   정정1(DA H1): 사본 1개를 지우기 «직전» 마다 «옛 좌석 세션 없음» 을 다시 읽는다 — 첫 목록 한 번을 믿고 게이트(G6 생략 = mode reap)로 넘기지 않는다 · 못 읽음·다시 보임 = 그 사본부터 삭제 0(덜 지우는 쪽)
+  local old="$1" cand="" p o t b n=0 done=0 refused=0 left=0 rc S S2 STOP=0 RSTART BUD HW
   case "$old" in ''|*"$TAB"*|*$'\n'*) die "옛 좌석 이름이 비었거나 탭·개행: $old" 2;; esac
   # 신원 = «옛 좌석 세션 없음» — 목록을 못 읽으면 «없음» 으로 읽지 않는다(덜 지우는 쪽 · #0 RULE)
   if ! cap S tmux_sessions; then echo "REJECT reap-owner $old — tmux 목록 못 읽음 · 삭제 0"; return 2; fi
@@ -920,9 +921,17 @@ EOF
   RBUD=$(( RSTART + BUD ))   # 출구 게이트의 재확인·마감도 같은 시계(remtmo·past_deadline)
   while IFS="$TAB" read -r p o t b; do
     [ -n "$p" ] || continue
+    [ "$STOP" = 0 ] || { left=$((left+1)); continue; }
     if ! cap now date +%s || ! isnum "$now"; then left=$((left+1)); continue; fi
     HW=$(( RBUD - now - 1 )); [ "$HW" -gt 60 ] && HW=60
     if [ "$HW" -lt 2 ]; then left=$((left+1)); continue; fi   # 마감이 코앞 = 넘긴 사본(정리기 몫)
+    # 정정1: 지우기 직전 생존 재확인 — 목록을 못 읽거나 옛 좌석이 다시 보이면 그 사본부터 전부 삭제 0
+    if ! cap S2 tmux_sessions_tmo "$HW"; then
+      STOP=1; left=$((left+1)); echo "WARN ft-scratch-repo — --reap-owner $old · tmux 목록 못 읽음 · 남은 사본 삭제 0" >&2; continue
+    fi
+    if has_line "$S2" "$old"; then
+      STOP=1; left=$((left+1)); echo "WARN ft-scratch-repo — --reap-owner $old · 세션이 다시 보임 · 남은 사본 삭제 0" >&2; continue
+    fi
     if ! hs_acquire scratch-rm "$HW"; then left=$((left+1)); continue; fi
     delete_copy "$p" reg "$old" reap; rc=$?
     hs_release
@@ -970,7 +979,10 @@ sweep_run() { # --sweep: 주인 없는 사본 정리(판정 1920 · r548 · r444
     echo "ERROR tmux unreadable — 임시 사본 정리 생략·삭제 0 (tmux=${TMUX_BIN:-없음} · FT_TMUX_BIN/FT_TMUX_SOCKET 확인)"; return 0; fi
   [ $(( HELD + HLSOF )) = 0 ] || held_report "$today"   # r548: 붙잡은 사본은 지우지 않고 알린다(삭제 후보 0 이어도 알린다)
   if [ "$N" = 0 ]; then   # r1090 DA②: 후보 0 이어도 «끝 줄» 1줄은 낸다(몇 개가 왜 남았나가 한 눈금으로 보이게)
-    cap l finline 0 0 0 0 0 0 0 0 done
+    # r2398a 정정2(DA H2): 상수 아님 — 실제 판정 수(JUDGED)·끊긴 자리(round=cursor)를 그대로 쓴다(전부 held = judged>0 · 첫 판정 전 예산 소진 = round=cursor)
+    ZROUND=done
+    case "${CUT_REG:-}${CUT_TMP:-}" in '') ;; *) ZROUND=cursor;; esac
+    cap l finline 0 0 0 0 0 0 0 "${JUDGED:-0}" "$ZROUND"
     printf '%s %s\n' "$today" "$l" >> "$SLOG"
     printf '%s\n' "$l"
     return 0
