@@ -234,8 +234,10 @@ class CloseOld:
             return False
         return True
 
-    def resume(self, seat, new, intent):
-        """C4 — "" = 검증된 기록 있음 · 그 밖 = 사유(기록 0 · 닫기 0)."""
+    def resume(self, seat, new, intent, source="ft2-keeper-close-old"):
+        """C4 — "" = 검증된 기록 있음 · 그 밖 = 사유(기록 0 · 닫기 0).
+
+        r2401 — source 칸 = 부른 길(기본 = 이 파일 · 사람이 부르는 닫기 = ft2-manual-close). 그 밖 글자·순서는 r2281 그대로."""
         k = self.k
         cwd = intent.get("worktree") or ""
         sessions = k.env.get("FT2_PI_SESSIONS") or os.path.expanduser("~/.pi/agent/sessions")
@@ -250,7 +252,7 @@ class CloseOld:
         path, old = os.path.join(folder, seat + ".json"), k.read_json(os.path.join(folder, seat + ".json"))
         if not (isinstance(old, dict) and old.get("name") == seat and old.get("uuid") == uuid):
             rec = {"name": seat, "engine": "pi", "uuid": uuid, "jsonl": log, "cwd": cwd, "model": model_of(log), "retired_by": new, "at": k.stamp(),
-                   "binding": {"source": "ft2-keeper-close-old", "session": seat, "uuid": uuid, "jsonl": log}}
+                   "binding": {"source": source, "session": seat, "uuid": uuid, "jsonl": log}}
             try:
                 os.makedirs(folder, exist_ok=True)
                 with open(path + ".tmp", "w", encoding="utf-8") as fh:
