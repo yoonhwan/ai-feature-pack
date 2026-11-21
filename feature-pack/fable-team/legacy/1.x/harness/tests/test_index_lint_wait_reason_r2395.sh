@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # test_index_lint_wait_reason_r2395.sh — r2395 K4: 대기/ 카드에 «- 대기 사유:» 줄이 없으면 사유 1줄(새 카드 = REJECT · 옛 카드 = WARN 만).
 #   ⑦ 새 카드 줄 없음 = REJECT · ⑧ 새 카드 줄 있음 = OK · ⑨ 옛 카드 줄 없음 = OK + WARN · ⑫ 진행/ 카드 줄 없음 = 사유 0(단계 가림)
-#   변이 M4 = 새 카드 REJECT 를 WARN 으로(⑦ FAIL) · M7 = 단계 가림 삭제(⑫ FAIL) · 기준판(팩 origin/main) = ⑦ Red.
+#   ⑬ 머리 0 · 본문 예시에만 그 줄 = REJECT(머리 한정 · DA#56 H1) · ⑭ 머리 표식 = OK
+#   변이 M4 = 새 카드 REJECT 를 WARN 으로(⑦ FAIL) · M7 = 단계 가림 삭제(⑫ FAIL) · M8 = 머리 한정 지움(⑬ FAIL) · 기준판(팩 origin/main) = ⑦ Red.
 # 임시 리포만(실 카드·실 리포·네트워크 0) · 하드 룰 22: 이 파일 70초 안(단계별 초를 찍는다).
 set -uo pipefail
 HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" && pwd)"
@@ -38,6 +39,7 @@ C7="$(mkcard 대기 new-bare 2026-11-21 '- 배정: 없음')"
 C8="$(mkcard 대기 new-ok 2026-11-21 $'- 배정: 없음\n- 대기 사유: 없음')"
 C9="$(mkcard 대기 old-bare 2026-11-01 '- 배정: 없음')"
 C12="$(mkcard 진행 prog-bare 2026-11-21 '- 배정: 없음')"
+C13="$(mkcard 대기 body-only 2026-11-21 '- 배정: 없음')"; printf '\n## 참고 예시\n- 대기 사유: 없음\n' >> "$C13"   # 머리 0 · 본문에만 그 줄
 
 lint_at "$KIT" "$C7"; rc=$?
 { [ $rc -eq 1 ] && [ "$(reason)" -eq 1 ]; }; ck "⑦ 새 카드 · 줄 없음 = REJECT(사유 1줄)" $?
@@ -47,6 +49,10 @@ lint_at "$KIT" "$C9"; rc=$?
 { [ $rc -eq 0 ] && printf '%s' "$OUT" | grep -q '^WARN .*대기 사유' && [ "$(reason)" -eq 0 ]; }; ck "⑨ 옛 카드 · 줄 없음 = OK + WARN 1줄" $?
 lint_at "$KIT" "$C12"; rc=$?
 { [ $rc -eq 0 ] && ! printf '%s' "$OUT" | grep -q '대기 사유'; }; ck "⑫ 진행/ 카드 = 사유 0(단계 가림)" $?
+lint_at "$KIT" "$C13"; rc=$?
+{ [ $rc -eq 1 ] && [ "$(reason)" -eq 1 ]; }; ck "⑬ 머리 0 · 본문 예시에만 그 줄 = REJECT(머리 한정)" $?
+lint_at "$KIT" "$C8"; rc=$?
+{ [ $rc -eq 0 ] && printf '%s' "$OUT" | grep -q '^OK ' && [ "$(reason)" -eq 0 ]; }; ck "⑭ 머리 표식 = OK(본문 0 이어도)" $?
 lap 신판
 cp -R "$KIT" "$T/mut"; SRC="$T/mut/ft-index-lint.sh"; cp "$SRC" "$T/orig.sh"
 mutant() {  # $1=이름 $2=옛 글 $3=새 글 → 사본 판정기(사본은 매번 원본에서 다시 만든다)
@@ -65,9 +71,14 @@ lint_at "$T/mut" "$C7"; rc=$?
 mutant M7 'case "$1" in */대기/*) ;; *) return 0;; esac' ':' || { echo "FAIL 변이 M7 글자 없음"; fail=$((fail+1)); }
 lint_at "$T/mut" "$C12"; rc=$?
 { [ $rc -eq 1 ] && [ "$(reason)" -eq 1 ]; }; ck "M7 단계 가림 삭제 = ⑫ FAIL" $?
+mutant M8 "awk '/^##[[:space:]]/{exit} {print}' \"\$1\" | grep -qE '^[-*][[:space:]]*대기 사유:'" "grep -qE '^[-*][[:space:]]*대기 사유:' \"\$1\"" || { echo "FAIL 변이 M8 글자 없음"; fail=$((fail+1)); }
+lint_at "$T/mut" "$C13"; rc=$?
+{ [ $rc -eq 0 ] && [ "$(reason)" -eq 0 ]; }; ck "M8 머리 한정 지움(파일 전체 grep) = ⑬ FAIL" $?
 cp "$T/orig.sh" "$SRC"
 lint_at "$T/mut" "$C7"; rc=$?
 { [ $rc -eq 1 ] && [ "$(reason)" -eq 1 ]; }; ck "원본으로 같은 사례 1회 더 = PASS" $?
+lint_at "$T/mut" "$C13"; rc=$?
+{ [ $rc -eq 1 ] && [ "$(reason)" -eq 1 ]; }; ck "원본으로 ⑬ 사례 1회 더 = PASS" $?
 lap 변이
 mkdir -p "$T/base"
 git -C "$PACK" archive origin/main feature-pack/fable-team/legacy/1.x/harness/kit/fable-team/bin | tar -x -C "$T/base" 2>/dev/null
