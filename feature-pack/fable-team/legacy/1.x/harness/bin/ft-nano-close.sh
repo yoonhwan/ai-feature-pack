@@ -61,7 +61,7 @@
 #     ★r2179★ WT 없음 = rc 0 `NONE --replan: WT 없음(<WT>) — 정리할 것 없음` · 새 계획 0 · 원장 그 좌석 마지막 닫힘 행 wt=none(표식 못 하면 줄 끝 «(원장 표식 못 함: <사유>)» · 그래도 rc 0).
 #   Seatbelt 0.3 · 나노 좌석을 «값으로» 닫는다 (SEATBELT-README §3 닫기 · NANO-LEDGER 종료조건 3).
 #   exit 0 = 닫힘(명부 삭제·원장 append·@zc_v65_active 해제·세션 kill) · 1 = REJECT(조건 미충족) 또는 FAIL(해제/kill 실패, 사유 stdout) · 2 = usage
-#   ★r2168★ exit 5 = ft2 좌석(--wt 또는 pane cwd 또는 ★r2173★ 명부 그 좌석 행 worktree 칸이 $ROOT/.fable-team/teams/<팀>/worktrees/<폴더> 이거나 그 아래) — 마지막 줄 «FT2-SEAT <좌석> …» 1개 · 닫는 길 = ft2 keeper · 손 0.
+#   ★r2168★ exit 5 = ft2 좌석(--wt 또는 pane cwd 또는 ★r2173★ 명부 그 좌석 행 worktree 칸이 $ROOT/.fable-team/teams/<팀>/worktrees/<폴더> 이거나 그 아래) — 마지막 줄 «FT2-SEAT <좌석> …» 1개 · 닫는 길 = ft2 keeper · 손 0 · ★r2401★ 그 앞에 «닫는 명령 = python3 <ft2 CURRENT>/core/cli.py keeper --root <루트> --close-seat <석> --verdict <N> --approve "<planner 좌석> #<seq>" --reason "<사유>" · 닫기 요청 = planner master 에 1통» 1줄.
 #   --kill 은 호환용 — 닫으면 항상 태그 해제 + kill-session(2026-10-02 · keep-last-2 검사 삭제, nano 계보는 대상 아님).
 # 종료조건 3 (전부 «값»): ①--result 경로 실재 ②--recv master 회수 seq 가 우편함/bodies 에 실재 ③jsonl 마지막 활동 ≥ IDLE_MIN 분 전
 # 종료조건 ④ (팩 1.0.2): press/시험 카드면 마지막 checkpoint 표 실재 + alarm=no (checkpoint.json 미설정 프로젝트는 경고만).
@@ -386,8 +386,16 @@ for c in cands:
         print(os.path.join(base, *parts[:3])); break
 PY
 }
+_ft2_cli() {   # ★r2401★ K5 — 안내 줄에 쓸 ft2 CURRENT 판 core/cli.py · 못 찾음 = «<ft2 CURRENT>/core/cli.py» 글자 그대로(추측 0)
+  local h c
+  h="${FT2_HOME:-$HOME/.claude/fable-team/ft2}"
+  c="$(cat "$h/CURRENT" 2>/dev/null)"
+  if [ -n "${FT2_CLI:-}" ]; then printf '%s' "$FT2_CLI"
+  elif [ -n "$c" ] && [ -f "$h/versions/$c/core/cli.py" ]; then printf '%s' "$h/versions/$c/core/cli.py"
+  else printf '%s' "$h/versions/<CURRENT>/core/cli.py"; fi
+}
 _FT2_WT="$(_ft2_seat_wt)"
-[ -z "$_FT2_WT" ] || { echo "FT2-SEAT $SEAT — 1.x 닫기 대상 아님 · 닫는 길 = ft2 keeper(카드에 «- 남은 범위» 줄 → complete → 세션 닫기) · 워크트리=$_FT2_WT"; exit 5; }
+[ -z "$_FT2_WT" ] || { echo "닫는 명령 = python3 $(_ft2_cli) keeper --root $ROOT --close-seat $SEAT --verdict <N> --approve \"<planner 좌석> #<seq>\" --reason \"<사유>\" · 닫기 요청 = planner master 에 1통"; echo "FT2-SEAT $SEAT — 1.x 닫기 대상 아님 · 닫는 길 = ft2 keeper(카드에 «- 남은 범위» 줄 → complete → 세션 닫기) · 워크트리=$_FT2_WT"; exit 5; }
 SEATS="${FT_SEATS_JSON:-$ROOT/.fable-team/seats.json}"; COMM="${FT_INBOX_ROOT:-$ROOT/.fable-team/comm}"
 # 원장 = 리포 고정(운영 정본 = v6-realtime-live 워크트리 · FT_NANO_LEDGER_WT 로 override). $WT 에 묶지 않는다 — 나노가 자기 워크트리에서 부르면 원장이 삭제 대상 안에 놓인다(DA r2 C).
 LEDGER_WT="${FT_NANO_LEDGER_WT:-$ROOT/.worktrees/v6-realtime-live}"; [ -d "$LEDGER_WT" ] || LEDGER_WT="$WT"

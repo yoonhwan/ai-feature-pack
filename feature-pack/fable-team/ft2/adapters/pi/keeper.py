@@ -7,6 +7,7 @@ B3 승계 끝 옛 좌석 → B4 보고. 파일 넷: 이 파일(바퀴·잠금) �
 keeper_report.py(B4·쪽지). 끝나지 않은 일 = r1813 멈춤 갈래(keeper_stall.py · 깨움 → 재배정).
 core 손 0 — 공개 동사(cli.run)·공개 API(project·CloseNext)만 부른다. 상한: git 25초 · tmux·쪽지 7초 · 바퀴 60초.
     python3 core/cli.py keeper --root R (--once | --report) [--pack 팩리포]
+    python3 core/cli.py keeper --root R --close-seat <석> --verdict <N> --approve "<planner 좌석> #<seq>" --reason "<사유>"   (r2401 사람·팀장이 부르는 닫기 1개 · keeper_manual_close.py)
 """
 import concurrent.futures
 import datetime
@@ -79,6 +80,7 @@ tw = _load(os.path.join(HERE, "transition_watch.py"), "ft2_keeper_transition")  
 class Keeper(land.Landing, closing.Closing, reporting.Reporting, settling.Settling):
     fa, cs = full_alert, cstage   # r1886 keeper_land·keeper_next 도 이것으로 부른다 · r2026 card_stage
     MIN_S = MIN_S   # r2311 K4 close_old.sweep 팀 끝 남은 몫 문턱(같은 값)
+    STALE_S = STALE_S   # r2401 K4 사람이 부르는 닫기도 같은 규칙으로 죽은 잠금을 지운다(keeper_manual_close)
     def __init__(self, root, env=None, now=None):
         self.root = os.path.abspath(root)
         self.env = dict(os.environ if env is None else env)
@@ -959,12 +961,34 @@ class _Alert:
         return full_alert.journal(root, team, out, blocked, send=self.k.alert_hand("journal|" + team))
 
 
+MANUAL = {"--root", "--pack", "--close-seat", "--verdict", "--approve", "--reason"}   # r2401 사람이 부르는 닫기 인자
+MANUAL_REQ = ("--root", "--close-seat", "--verdict", "--approve", "--reason")
+
+
+def close_seat(argv):
+    """r2401 — `--close-seat` 갈래(사람·팀장이 부르는 닫기 1개). 인자 꼴 틀림 = 사용법 rc 64 · 그 밖 = keeper_manual_close.run 이 rc."""
+    rest = [arg for arg in argv if arg not in ("--once", "--report")]
+    opts = dict(zip(rest[::2], rest[1::2]))
+    usage = {"result": "사용법", "reason": "keeper --root R --close-seat <석> --verdict <N> --approve \"<planner 좌석> #<seq>\" --reason \"<10자 이상>\""}
+    if len(rest) % 2 or set(opts) - MANUAL or any(not opts.get(f) for f in MANUAL_REQ):
+        sys.stdout.write(json.dumps(usage, ensure_ascii=False) + "\n")
+        return 64
+    env = dict(os.environ, **({"FT2_PACK_REPO": opts["--pack"]} if "--pack" in opts else {}))
+    keeper = Keeper(opts["--root"], env)
+    rc = _load(os.path.join(HERE, "keeper_manual_close.py"), "ft2_keeper_manual_close").run(
+        keeper, opts["--close-seat"], opts["--verdict"], opts["--approve"], opts["--reason"])
+    sys.stdout.write("".join(text + "\n" for text in keeper.lines))
+    return rc
+
+
 def main(argv):
+    if "--close-seat" in argv:   # r2401 — 한 바퀴 대신 그 석 하나(잠금·승인 대조·기록·kill·park)
+        return close_seat(argv)
     flags = [arg for arg in argv if arg in ("--once", "--report")]
     rest = [arg for arg in argv if arg not in ("--once", "--report")]
     opts = dict(zip(rest[::2], rest[1::2]))
     if len(flags) != 1 or len(rest) % 2 or set(opts) - {"--root", "--pack"} or "--root" not in opts:
-        usage = {"result": "사용법", "reason": "keeper --root R (--once | --report) [--pack P]"}
+        usage = {"result": "사용법", "reason": "keeper --root R (--once | --report) [--pack P] | --close-seat <석> --verdict <N> --approve \"<planner 좌석> #<seq>\" --reason <사유>"}
         sys.stdout.write(json.dumps(usage, ensure_ascii=False) + "\n")
         return 64
     env = dict(os.environ, **({"FT2_PACK_REPO": opts["--pack"]} if "--pack" in opts else {}))
