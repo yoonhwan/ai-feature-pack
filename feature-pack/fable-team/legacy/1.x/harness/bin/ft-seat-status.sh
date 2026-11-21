@@ -262,11 +262,12 @@ row_of_raw() {
 #   env FT_SEAT_STATUS_TRACE=<파일> = 시작에 비우고 좌석마다 START·END 줄(timeout 에 끊기면 끝 줄 = 멈춘 좌석 START) · env 없음 = 파일 쓰기 0 · stdout 글자 그대로
 # r2410 K1·K2 — 좌석 1개 상한(row_cap_secs) · env FT_SEAT_LIST_BUDGET 전체 예산 · 상한에 끊긴 좌석과 읽지 않은 좌석도 행 1개(UNKNOWN · - · stderr 에 이름)
 list_rows() {
-  local s t0 dt slow="" trace="${FT_SEAT_STATUS_TRACE:-}" t_start=0 cap cap_all rem budget="" el=0 i=0 n
+  local s t0 dt slow="" trace="${FT_SEAT_STATUS_TRACE:-}" t_start=0 cap cap_all rem budget="" el=0 i=0 n row_tmp
   local row_seats=()
   [ -n "$trace" ] && : > "$trace"
   cap_all="$(row_cap_secs)"
-  ROW_SEQ=0; ROW_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ft-seat-row.XXXXXX")" || ROW_DIR="${TMPDIR:-/tmp}"   # 좌석 1개당 파일 3개(한 번 만들고 끝에 한 번 지운다)
+  ROW_SEQ=0; ROW_DIR_OWN=0; ROW_DIR="${TMPDIR:-/tmp}"   # 좌석 1개당 파일 3개(판 1회 만들고 끝에 한 번 지운다)
+  if row_tmp="$(mktemp -d "${TMPDIR:-/tmp}/ft-seat-row.XXXXXX")"; then ROW_DIR="$row_tmp"; ROW_DIR_OWN=1; fi
   # r2410 K2 — 예산은 env 를 준 호출만 · 1 이상 정수가 아니면 예산 없음 + WARN 1줄
   case "${FT_SEAT_LIST_BUDGET:-}" in
     '') ;;
@@ -301,7 +302,8 @@ list_rows() {
   done
   [ -n "$slow" ] && printf '%s' "$slow" | sort -t$'\t' -k1,1nr \
     | awk -F'\t' 'NR<=5 { printf "SLOW-SEAT %s s=%s agent=%s\n", $2, $1, ($3 == "" ? "-" : $3) } END { if (NR > 5) printf "SLOW-SEAT 외 %d\n", NR - 5 }' >&2
-  [ -n "$ROW_DIR" ] && rm -rf "$ROW_DIR"
+  # r2410 — 내가 만든 폴더만 지운다(mktemp 실패 시 ROW_DIR = TMPDIR — 공용 경로에 rm -rf 금지)
+  [ "$ROW_DIR_OWN" = 1 ] && rm -rf "$ROW_DIR"
   return 0
 }
 
@@ -336,15 +338,20 @@ unknown_row() {
 row_of_capped() {  # $1=좌석 $2=상한 초
   local s="$1" cap="$2" base pid wpid agent l
   agent="$(seat_field "$s" 2)"
-  ROW_SEQ=$(( ROW_SEQ + 1 )); base="${ROW_DIR}/${ROW_SEQ}"
+  ROW_SEQ=$(( ROW_SEQ + 1 )); base="${ROW_DIR}/ft-seat-row.$$.${ROW_SEQ}"
   ( row_of_raw "$s" > "$base.row" 2> "$base.err" </dev/null; : > "$base.done" ) &
   pid=$!
   # r2410 — 상한 시계는 별도 프로세스가 잡는다(SECONDS 1초 눈금으로는 상한 1초가 1초보다 먼저 끝나고 · 폴링은 좌석마다 0.1초씩 더 먹는다)
-  ( sleep "$cap"; kill -TERM -"$pid" 2>/dev/null; sleep 0.3; kill -KILL -"$pid" 2>/dev/null ) &
+  ( sleep "$cap"; kill -TERM -"$pid" 2>/dev/null ) &
   wpid=$!
   wait "$pid" 2>/dev/null
   kill -TERM -"$wpid" 2>/dev/null || kill -TERM "$wpid" 2>/dev/null
   wait "$wpid" 2>/dev/null
+  if [ ! -f "$base.done" ]; then   # r2410 — TERM 무시 자식은 여기서 KILL 까지 간다(시계 프로세스 몫이 아니다 · 취소되면 살아남는다)
+    kill -TERM -"$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null
+    sleep 0.2
+    kill -KILL -"$pid" 2>/dev/null
+  fi
   while IFS= read -r l || [ -n "$l" ]; do printf '%s\n' "$l" >&2; done < "$base.err"
   if [ -f "$base.done" ]; then
     while IFS= read -r l || [ -n "$l" ]; do printf '%s\n' "$l"; done < "$base.row"
@@ -352,6 +359,7 @@ row_of_capped() {  # $1=좌석 $2=상한 초
     printf 'CAP-SEAT %s s=%s agent=%s\n' "$s" "$cap" "${agent:--}" >&2
     unknown_row "$s"
   fi
+  [ "$ROW_DIR_OWN" = 1 ] || rm -f "$base.row" "$base.err" "$base.done"   # 공용 TMPDIR 에 빌렸을 때는 그 세 파일만
 }
 
 emit() {  # stdin = row_of 행들 → 텍스트 4열 또는 JSON 배열
