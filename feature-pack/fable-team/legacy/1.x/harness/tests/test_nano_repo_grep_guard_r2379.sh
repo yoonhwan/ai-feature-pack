@@ -166,7 +166,7 @@ mut "$X/m.ts" "$X/l.ts" 'if (c === ">" && nx === "&") { add(">&"); i += 2; conti
 hit "$X/l.ts" c12c PASS && ok "M12 리다이렉트 안 & 를 나누기로 = ⑫c 통과" || bad "M12 미탐지"
 mut "$X/guard.ts" "$X/l.ts" 'return ps.some((w) => roots.includes(abs(w, base)));' 'return true;'
 hit "$X/l.ts" c13 BLOCK && ok "M13 하위 폴더도 거절 = ⑬ 거절" || bad "M13 미탐지"
-mut "$X/guard.ts" "$X/l.ts" 'if (!seat || !NANO.test(seat)) return;' 'if (!seat) return;'
+mut "$X/guard.ts" "$X/l.ts" 'if (isNano) {' 'if (seat) {'
 hit "$X/l.ts" c16a BLOCK && ok "M14 NANO 판정 지움 = ⑯a 거절" || bad "M14 미탐지"
 mut "$X/guard.ts" "$X/l.ts" 'if (t.bad || !t.out) return { roots, bad: t.bad || "git rev-parse --show-toplevel 빈 출력" };' 'if (t.bad || !t.out) return { roots: [base], bad: "" };'
 o="$(PATH="$T/gr:$PATH" FT_LIVE_ROOT="$R" drive "$X/l.ts" "$R" "c17")"
