@@ -78,7 +78,12 @@ const cases = [
   ["c06a", N, B("kill -TERM -1")],
   ["c06b", N, B("kill -9 -- -1")],
   ["c06c", N, B("kill 0")],
+  ["c05g", N, B("pkill -xf pi")],
+  ["c05h", N, B("pkill -x -f pi")],
   ["c06d", N, B("kill -0 12345")],
+  ["c06e", N, B("kill -TERM 12345 > 0")],
+  ["c06f", N, B("kill -TERM 12345 > -1")],
+  ["c06g", N, B("kill -TERM 12345 2>/dev/null")],
   ["c07", N, B("pkill -f 'abc")],
   ["c08a", N, B('echo "pkill -f a -P 1"')],
   ["c08b", N, B("grep -n 'pkill -f' notes.md")],
@@ -120,8 +125,8 @@ out="$(drive "$X/guard.ts")"
 pairs "$out" "c02a BLOCK" "c02b BLOCK" "c02c BLOCK" "c02d BLOCK" "c02e BLOCK" \
   "c03a PASS" "c03b PASS" \
   "c04a PASS" "c04b PASS" "c04c PASS" \
-  "c05a BLOCK" "c05b BLOCK" "c05c BLOCK" "c05d BLOCK" "c05e BLOCK" "c05f BLOCK" \
-  "c06a BLOCK" "c06b BLOCK" "c06c BLOCK" "c06d PASS" \
+  "c05a BLOCK" "c05b BLOCK" "c05c BLOCK" "c05d BLOCK" "c05e BLOCK" "c05f BLOCK" "c05g BLOCK" "c05h BLOCK" \
+  "c06a BLOCK" "c06b BLOCK" "c06c BLOCK" "c06d PASS" "c06e PASS" "c06f PASS" "c06g PASS" \
   "c08a PASS" "c08b PASS" "c08c PASS" "c08d PASS"
 has "②a 갈래 ⓐ" "$(reason "$out" c02a)" "ⓐ"
 has "②b 갈래 ⓐ" "$(reason "$out" c02b)" "ⓐ"
@@ -131,6 +136,7 @@ has "⑤b 갈래 ⓒ" "$(reason "$out" c05b)" "ⓒ"
 has "⑤c 갈래 ⓒ" "$(reason "$out" c05c)" "ⓒ"
 has "⑤d 갈래 ⓒ 변수" "$(reason "$out" c05d)" "변수 하나"
 has "⑤e 갈래 ⓒ 빈 따옴표" "$(reason "$out" c05e)" "빈 따옴표"
+has "⑤g H1 묶은 옵션 -xf 도 -f 로 읽음(갈래 ⓒ)" "$(reason "$out" c05g)" "ⓒ"
 has "⑥a 갈래 ⓓ" "$(reason "$out" c06a)" "ⓓ"
 has "⑥b 갈래 ⓓ" "$(reason "$out" c06b)" "ⓓ"
 eq "③ 좌석 env 없음 = 기록 0줄" "$(grep -c '^[^ ]*  ' "$LOG")" 0
@@ -164,7 +170,7 @@ mut "$X/guard.ts" "$X/m3.ts" 'const VAL = new Set(["F", "G", "P",' 'const VAL = 
 hit "$X/m3.ts" c04a BLOCK && ok "M3 값 받는 옵션 표에서 -P 뺌 = ④ 첫 구 거절" || bad "M3 미탐지"
 mut "$X/guard.ts" "$X/m4.ts" 'const MINP = 6;' 'const MINP = 1;'
 hit "$X/m4.ts" c05b PASS && ok "M4 ⓒ 길이 문턱 6 → 1 = ⑤ 둘째 구 통과" || bad "M4 미탐지"
-mut "$X/guard.ts" "$X/m5.ts" 'v === "-1" || v === "0"' 'v === "-1" || v === "0" || v === "-0"'
+mut "$X/guard.ts" "$X/m5.ts" 'const b = a.pat.find((v) => v === "-1" || v === "0");' 'const b = [...a.pat, ...a.sig].find((v) => v === "-1" || v === "0" || v.startsWith("-"));'
 hit "$X/m5.ts" c06d BLOCK && ok "M5 kill -0 <pid> 를 거절로 = ⑥ 넷째 구 거절" || bad "M5 미탐지"
 mut "$X/guard.ts" "$X/m6.ts" 'try { v = judgeKill(cmd); }' 'try { const i = cmd.search(/\b(kill\w*|pkill)\b/); v = judgeKill(i < 0 ? cmd : cmd.slice(i).replace(/["'"'"']/g, "")); }'
 hit "$X/m6.ts" c08a BLOCK && ok "M6 따옴표 안 글자도 판정 = ⑧ 첫 구 거절" || bad "M6 미탐지"

@@ -41,28 +41,28 @@ export function headIndex(toks: string[]): number {
 
 // 인자 — 옵션은 어디에나 올 수 있다고 읽되 패턴 뒤에 온 «-» 낱말은 late 로 표시(BSD 는 그 자리를 패턴으로 읽는다 · K2ⓐ)
 //   값 받는 옵션(-P 1 · -u root)의 값은 패턴이 아니다 · 신호 꼴(-TERM·-15)은 옵션 · -- 뒤는 전부 대상(kill -9 -- -1)
-export function parseArgs(toks: string[], i0: number): { pat: string[]; late: string; full: boolean } {
-  const pat: string[] = []; let late = "", full = false, sig = false, opt = true, i = i0;
+export function parseArgs(toks: string[], i0: number): { pat: string[]; sig: string[]; late: string; full: boolean } {
+  const pat: string[] = [], sgs: string[] = []; let late = "", full = false, sig = false, opt = true, i = i0;
   while (i < toks.length) {
     const t = toks[i], r = redir(t); i++;
     if (r === "fd" || r === "attached") continue;                     // 2>&1 · 2>/dev/null = 인자 아님
     if (r === "pure") { i++; continue; }                              // 리다이렉트 대상 = 인자 아님
     if (opt && t === "--") { opt = false; continue; }
     const isOpt = opt && t.startsWith("-") && t.length > 1;
-    if (isOpt && SIG.test(t) && !sig) { if (pat.length) late = late || t; sig = true; continue; }
+    if (isOpt && SIG.test(t) && !sig) { if (pat.length) late = late || t; sig = true; sgs.push(t); continue; }
     if (isOpt && !SIG.test(t)) {                                      // 낱자 옵션 묶음(-f · -P 1 · -P1 · -x)
       if (pat.length) late = late || t;
       for (let j = 1; j < t.length; j++) {
         const c = t[j];
-        if (VAL.has(c)) { if (!t.slice(j + 1)) i++; break; }           // 값은 띄어 쓴 다음 낱말
-        if (c === "f") full = true;
-        break;
+        if (c === "f") { full = true; continue; }                     // 묶음 안 -f 도 읽는다(pkill -xf pi)
+        if (VAL.has(c)) { if (!t.slice(j + 1)) i++; break; }           // 값은 붙여 쓴 나머지 또는 띄어 쓴 다음 낱말
+        // 그 밖 낱자(-x·-i·-v …) = 값 없는 옵션 → 묶음 계속
       }
       continue;
     }
     pat.push(t);                                                      // 패턴(신호 꼴 둘째 낱말 = 대상)
   }
-  return { pat, late, full };
+  return { pat, sig: sgs, late, full };
 }
 
 // 한 명령 판정 — 토막마다 앞머리를 건너뛰고 종료 명령 꼴만 본다(pgrep·echo·grep·ps = 통과 · K4)
@@ -77,7 +77,7 @@ export function judgeKill(cmd: string): Verdict {
     const line = s.toks.slice(k).join(" ");
     const a = parseArgs(s.toks, k + 1);
     if (tool === "kill") {                                            // K2ⓓ
-      const b = s.toks.slice(k + 1).find((v) => v === "-1" || v === "0");
+      const b = a.pat.find((v) => v === "-1" || v === "0");
       if (b) return { block: true, bad: "", kind: "ⓓ", why: `대상 «${b}»`, target: line };
       continue;
     }
