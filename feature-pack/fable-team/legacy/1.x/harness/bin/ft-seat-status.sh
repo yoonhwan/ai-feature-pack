@@ -25,6 +25,9 @@
 #        ft-seat-status.sh turn <seat> [--json]                    (Seatbelt 1.1 · 턴 경계 판정 — 아래 turn_of_file 주석)
 #        ft-seat-status.sh turn --file <jsonl> [--json] [--bytes] [--no-reported]  (픽스처·경로 캐시 · 좌석 해석 생략)
 #        ft-seat-status.sh jsonl <seat>                            (좌석 → 최신 jsonl 경로 1줄 · 없으면 rc 1 — ft-tick-line 의 경로 캐시용)
+#   list 상한(r2410): env FT_SEAT_ROW_CAP=<초>(기본 7 · 1 이상 정수) = 좌석 1개 판독 상한 · 넘으면 그 좌석 행은 UNKNOWN 이고 stderr 에 «CAP-SEAT <좌석> s=<초> agent=<agent>»
+#   list 예산(r2410): env FT_SEAT_LIST_BUDGET=<초>(1 이상 정수) = 전체 예산 · 다 되면 남은 좌석은 읽지 않고 UNKNOWN 행 + stderr «BUDGET-CUT 남은 <N> 첫 <좌석>» · env 없음 = 예산 없음
+#   두 경우 모두 행 수 = 좌석 수 · rc 0(5분 점검이 느린 좌석 몇 개 때문에 목록을 통째로 잃지 않는다)
 # 출력 4열: 좌석  PANE(BUSY|IDLE|UNKNOWN|NOSEAT)  JSONL_AGE(초|-)  AGENT   /  turn 은 1줄 5열: STATE TURN_END_ISO DURATION_MS REPORTED SOURCE
 #   turn 읽은 바이트(F5): --json 은 read_bytes 키 · 텍스트는 --bytes 일 때만 6열째(기본 5열 — ft-tick.sh `read -r st end dur rep src` 보호)
 #   끝 읽기는 64KB 부터 시작해 «턴 끝 레코드 2개»(REPORTED 의 직전 턴 경계)를 찾을 때까지 2배씩(최대 1MB). --no-reported 는 REPORTED 를 건너뛰어(`-`)
@@ -237,7 +240,15 @@ print(json.dumps(row, ensure_ascii=False))'
 }
 
 # 한 좌석의 4열 값 → "seat\tpane\tage\tagent\treplaced"
+#   r2410 — list 갈래(list_rows 가 ROW_CAP_NOW 를 세운 판)에서만 상한 아래에서 돈다 · 다른 갈래(one · stalled · idle)는 글자 그대로
 row_of() {
+  local cap="${ROW_CAP_NOW:-0}"
+  case "$cap" in ''|*[!0-9]*) cap=0 ;; esac
+  [ "$cap" -ge 1 ] && { row_of_capped "$1" "$cap"; return 0; }
+  row_of_raw "$1"
+}
+
+row_of_raw() {
   local agent rep pi_row
   agent="$(seat_field "$1" 2)"; rep="$(seat_field "$1" 3)"
   # PI ADAPTER BEGIN
@@ -249,20 +260,98 @@ row_of() {
 
 # r2306 K3·K4 — list 좌석마다 row_of 초($SECONDS · date fork 0) · 5초 이상 = stderr «SLOW-SEAT <좌석> s=<초> agent=<agent>»(큰 순 5줄 + «SLOW-SEAT 외 N»)
 #   env FT_SEAT_STATUS_TRACE=<파일> = 시작에 비우고 좌석마다 START·END 줄(timeout 에 끊기면 끝 줄 = 멈춘 좌석 START) · env 없음 = 파일 쓰기 0 · stdout 글자 그대로
+# r2410 K1·K2 — 좌석 1개 상한(row_cap_secs) · env FT_SEAT_LIST_BUDGET 전체 예산 · 상한에 끊긴 좌석과 읽지 않은 좌석도 행 1개(UNKNOWN · - · stderr 에 이름)
 list_rows() {
-  local s t0 dt slow="" trace="${FT_SEAT_STATUS_TRACE:-}"
+  local s t0 dt slow="" trace="${FT_SEAT_STATUS_TRACE:-}" t_start=0 cap cap_all rem budget="" el=0 i=0 n
+  local row_seats=()
   [ -n "$trace" ] && : > "$trace"
-  for s in $(seats "${ARG:-^ft-}"); do
+  cap_all="$(row_cap_secs)"
+  ROW_SEQ=0; ROW_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ft-seat-row.XXXXXX")" || ROW_DIR="${TMPDIR:-/tmp}"   # 좌석 1개당 파일 3개(한 번 만들고 끝에 한 번 지운다)
+  # r2410 K2 — 예산은 env 를 준 호출만 · 1 이상 정수가 아니면 예산 없음 + WARN 1줄
+  case "${FT_SEAT_LIST_BUDGET:-}" in
+    '') ;;
+    *[!0-9]*) printf 'WARN FT_SEAT_LIST_BUDGET 값 무시\n' >&2 ;;
+    *) if [ "$((10#${FT_SEAT_LIST_BUDGET}))" -ge 1 ]; then budget=$((10#${FT_SEAT_LIST_BUDGET})); t_start=$(now_cs); else printf 'WARN FT_SEAT_LIST_BUDGET 값 무시\n' >&2; fi ;;
+  esac
+  set -m   # r2410 K1 — 좌석 판독을 제 프로세스 묶음으로 띄우고 상한에서 묶음째 끊는다(남는 자식 0)
+  for s in $(seats "${ARG:-^ft-}"); do row_seats[${#row_seats[@]}]="$s"; done
+  n=${#row_seats[@]}
+  while [ "$i" -lt "$n" ]; do
+    s="${row_seats[$i]}"
+    cap=$cap_all
+    if [ -n "$budget" ]; then
+      el=$(( $(now_cs) - t_start ))
+      if [ "$el" -ge $(( budget * 100 )) ]; then   # r2410 K2 — 남은 좌석은 읽지 않는다 · 행은 낸다
+        printf 'BUDGET-CUT 남은 %d 첫 %s\n' "$((n - i))" "$s" >&2
+        while [ "$i" -lt "$n" ]; do unknown_row "${row_seats[$i]}"; i=$((i+1)); done
+        break
+      fi
+      rem=$(( (budget * 100 - el + 99) / 100 ))   # 남은 예산(초 · 올림 · 최소 1)
+      [ "$rem" -lt 1 ] && rem=1
+      [ "$cap" -gt "$rem" ] && cap=$rem
+    fi
+    ROW_CAP_NOW=$cap
     t0=$SECONDS
     [ -n "$trace" ] && printf '%s\tSTART\t%s\n' "${EPOCHSECONDS:-$(date +%s)}" "$s" >> "$trace"
     row_of "$s"
     dt=$((SECONDS - t0))
     [ -n "$trace" ] && printf '%s\tEND\t%s\t%s\n' "${EPOCHSECONDS:-$(date +%s)}" "$s" "$dt" >> "$trace"
     [ "$dt" -ge 5 ] && slow="$slow$dt"$'\t'"$s"$'\t'"$(seat_field "$s" 2)"$'\n'
+    i=$((i+1))
   done
   [ -n "$slow" ] && printf '%s' "$slow" | sort -t$'\t' -k1,1nr \
     | awk -F'\t' 'NR<=5 { printf "SLOW-SEAT %s s=%s agent=%s\n", $2, $1, ($3 == "" ? "-" : $3) } END { if (NR > 5) printf "SLOW-SEAT 외 %d\n", NR - 5 }' >&2
+  [ -n "$ROW_DIR" ] && rm -rf "$ROW_DIR"
   return 0
+}
+
+# r2410 K1 — 좌석 1개 판독 상한(초) · env FT_SEAT_ROW_CAP · 기본 7 · 1 이상 정수가 아니면 7
+row_cap_secs() {  local v="${FT_SEAT_ROW_CAP:-7}"
+  case "$v" in
+    ''|*[!0-9]*) v=7 ;;
+    *) v=$((10#$v)); [ "$v" -ge 1 ] || v=7 ;;
+  esac
+  echo "$v"
+}
+
+# r2410 K2 — 100분의 1초 시계 · SECONDS 는 1초 눈금이라 그것만으로는 예산이 좌석마다 최대 1초 먼저 닫힌다
+#   perl 없으면 date(1초 눈금) — 그 판은 예산을 1초 단위로 본다
+CLOCK=date; command -v perl >/dev/null 2>&1 && CLOCK=perl
+now_cs() {
+  if [ "${CLOCK:-date}" = perl ]; then
+    perl -MTime::HiRes=time -e 'printf "%d", time*100' 2>/dev/null || echo $(( $(date +%s) * 100 ))
+  else
+    echo $(( $(date +%s) * 100 ))
+  fi
+}
+
+# r2410 K1·K2 — 좌석 1행 «<좌석> · UNKNOWN · - · <agent> · <replaced>»(명부 값 그대로 · 기준판 행과 같은 5칸 탭 꼴)
+unknown_row() {
+  local agent rep
+  agent="$(seat_field "$1" 2)"; rep="$(seat_field "$1" 3)"
+  printf '%s\tUNKNOWN\t-\t%s\t%s\n' "$1" "${agent:--}" "${rep:-0}"
+}
+
+# r2410 K1 — row_of_raw 를 제 프로세스 묶음에서 상한 초까지 돌린다 · 넘으면 묶음째 끊고 UNKNOWN 행 + stderr «CAP-SEAT <좌석> s=<초> agent=<agent>» 1줄
+row_of_capped() {  # $1=좌석 $2=상한 초
+  local s="$1" cap="$2" base pid wpid agent l
+  agent="$(seat_field "$s" 2)"
+  ROW_SEQ=$(( ROW_SEQ + 1 )); base="${ROW_DIR}/${ROW_SEQ}"
+  ( row_of_raw "$s" > "$base.row" 2> "$base.err" </dev/null; : > "$base.done" ) &
+  pid=$!
+  # r2410 — 상한 시계는 별도 프로세스가 잡는다(SECONDS 1초 눈금으로는 상한 1초가 1초보다 먼저 끝나고 · 폴링은 좌석마다 0.1초씩 더 먹는다)
+  ( sleep "$cap"; kill -TERM -"$pid" 2>/dev/null; sleep 0.3; kill -KILL -"$pid" 2>/dev/null ) &
+  wpid=$!
+  wait "$pid" 2>/dev/null
+  kill -TERM -"$wpid" 2>/dev/null || kill -TERM "$wpid" 2>/dev/null
+  wait "$wpid" 2>/dev/null
+  while IFS= read -r l || [ -n "$l" ]; do printf '%s\n' "$l" >&2; done < "$base.err"
+  if [ -f "$base.done" ]; then
+    while IFS= read -r l || [ -n "$l" ]; do printf '%s\n' "$l"; done < "$base.row"
+  else
+    printf 'CAP-SEAT %s s=%s agent=%s\n' "$s" "$cap" "${agent:--}" >&2
+    unknown_row "$s"
+  fi
 }
 
 emit() {  # stdin = row_of 행들 → 텍스트 4열 또는 JSON 배열
