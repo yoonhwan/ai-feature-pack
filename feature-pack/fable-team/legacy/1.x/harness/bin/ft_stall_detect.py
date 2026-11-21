@@ -647,13 +647,28 @@ def _is_heartbeat_body(body: object) -> bool:
     return head.startswith(HEARTBEAT_TOKEN) or (head.startswith("[HIL]") and bool(PROMOTED.search(head.split("\n", 1)[0].strip()))) or rest_head(body)
 
 
+def _rest_mark_outside_parens(first: str) -> bool:
+    """r2367 K1 — 첫 줄 REST_MARK 중 «괄호 밖»(ASCII «( )» 깊이 0) 에서 시작한 것이 하나라도 있으면 참.
+    괄호 속 인용은 표식 0(«유휴 좌석 1(arch#18 [다음 없음])») · 짝 없는 «)» 는 깊이 하한 0 = 무시 · 닫히지 않은 «(» 뒤는 괄호 속.
+    매치를 «모두» 본다 — 괄호 속 인용 뒤에 진짜 표식이 또 있으면 참(DA#49 I1 · 변이 «첫 매치만 봄»)."""
+    depth, depth_at = 0, []
+    for ch in first:
+        depth_at.append(depth)
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth = max(0, depth - 1)
+    return any(depth_at[m.start()] == 0 for m in REST_MARK.finditer(first))
+
+
 def rest_head(body: object) -> bool:
-    """r1949 — 쉼 머리 규칙 한 벌(r1729 쉼 면제 · r1647 닫기 대기): 첫 줄 REST_MARK ∧ (머리 [정리]·[다음 없음]·«막힘 = 사람 답(» ∨ 승격 꼴 [HIL]+PROMOTED)."""
+    """r1949 — 쉼 머리 규칙 한 벌(r1729 쉼 면제 · r1647 닫기 대기): 첫 줄 REST_MARK ∧ (머리 [정리]·[다음 없음]·«막힘 = 사람 답(» ∨ 승격 꼴 [HIL]+PROMOTED).
+    r2367 K1 — 첫 줄 표식은 «괄호 밖» 에서 시작한 것만 센다(괄호 속 인용 = 쉼 심박 0)."""
     if not isinstance(body, str):
         return False
     first = body.lstrip().split("\n", 1)[0]
     heads = first.startswith((HEARTBEAT_TOKEN, "[다음 없음]", "막힘 = 사람 답(")) or (first.startswith("[HIL]") and bool(PROMOTED.search(first.strip())))
-    if heads and REST_MARK.search(first):
+    if heads and _rest_mark_outside_parens(first):
         return True
     rest = body.lstrip().split("\n")[1:]  # r2139 R1 — [정리] 머리 글의 둘째 줄부터 «[다음 없음]» 만 있는 단독 줄(문장 속 = 0 · R2)
     return first.startswith(HEARTBEAT_TOKEN) and any(x.strip() == "[다음 없음]" for x in rest)
@@ -913,13 +928,14 @@ def lead_recipients(root: Path, warn: bool = False) -> set[str]:
 
 
 def lead_alert(root: Path, comm: Path, master: str, now: float) -> tuple[bool, float | None, bool]:
-    """심박 → 경보 판정 «한 함수» (C6: 이 판정은 scan 이 아니라 여기 산다). → (경보, 심박 나이 분|None, 판정 불가)."""
+    """심박 → 경보 판정 «한 함수» (C6: 이 판정은 scan 이 아니라 여기 산다). → (경보, 심박 나이 분|None, 판정 불가).
+    r2367 K2 — 쉼 갈래는 «쉼 심박 ts ≥ 마지막 심박 ts» 일 때만 탄다 · 더 새 보통 심박이 있으면 유휴 면제·나이 판정을 그대로 쓴다."""
     state, ts, _why = lead_heartbeat(comm, lead_names(root, master), lead_recipients(root), now)
     if state == "ERROR":
         return False, None, True
     if ts is None or (now - ts) / 60 > lead_heartbeat_min():  # r1729 — 경보 후보일 때만 쉼 면제를 본다(늘 읽기 1회 더는 아니다)
         rstate, rest, first_ev, hb, first_work = lead_rest_state(comm, lead_names(root, master), lead_recipients(root), now)
-        if rstate == "ok" and rest is not None:  # rstate ERROR = 쉼 로그 판정 불가 → 면제 0 = 지금 판정 그대로(A5 · 진짜 멈춤을 가리지 않는다)
+        if rstate == "ok" and rest is not None and (hb is None or rest >= hb):  # r2367 K2 — 쉼 갈래는 마지막 심박이 쉼 심박일 때만 · 더 새 보통 심박이 있으면 다음 갈래 그대로(rstate ERROR = 면제 0 · A5)
             if first_ev is None:  # 쉼 심박 뒤 사건 0 = 경보 0(A1)
                 return False, (now - rest) / 60, False
             return (now - first_ev) / 60 > lead_heartbeat_min(), (now - first_ev) / 60, False  # 사건이 있으면 첫 사건 ts 부터 다시 센다(A2)
