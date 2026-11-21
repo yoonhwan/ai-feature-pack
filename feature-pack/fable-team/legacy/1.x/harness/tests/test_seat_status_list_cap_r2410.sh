@@ -117,6 +117,31 @@ c2() {   # ② 기준판 Red
   check "② 기준판 stdout 0줄" "$(lines "$w/out")" 0
 }
 
+c3b() {  # ③ TERM 을 무시하는 자식 — 상한 컷은 KILL 까지 가야 남는 프로세스 0
+  local w="$W/c3b"
+  world "$w" || exit 9
+  printf '#!/bin/bash\ntrap "" TERM\nsleep "$1"\n' > "$w/fakebin/r2410-stall"   # 자식이 TERM 을 무시(상속)
+  run1 "$w/bin/$SH" "$w" 12 "$w/out" "$w/err" R2410_SEATS="ft-a ft-b ft-c" R2410_SLOW=ft-b \
+    R2410_DELAY=30 FT_SEAT_ROW_CAP=2
+  check "③b 끊긴 행 = UNKNOWN -" "$(awk '$1=="ft-b"{print $2" "$3}' "$w/out")" "UNKNOWN -"
+  sleep 0.5
+  check "③b TERM 무시 자식 잔여 0" "$(ps -axo command= | grep -F "$w/fakebin/r2410-stall" | grep -vc grep)" 0
+}
+
+cH2() {  # 공용 경로 사고 — mktemp 실패 시 ROW_DIR = TMPDIR · 거기에 rm -rf 를 부르면 안 된다
+  local w="$W/cH2" toks
+  world "$w" || exit 9
+  printf '#!/bin/bash\nexit 1\n' > "$w/fakebin/mktemp"
+  printf '#!/bin/bash\nprintf "%%s\\n" "$*" >> "$R2410_RMLOG"\nexit 0\n' > "$w/fakebin/rm"
+  chmod +x "$w/fakebin/mktemp" "$w/fakebin/rm"
+  run1 "$w/bin/$SH" "$w" 12 "$w/out" "$w/err" R2410_SEATS="ft-a ft-b ft-c" "R2410_RMLOG=$w/rm.log"
+  check "H2 rc" "$RC" 0
+  check "H2 행 수(대지 퇴화 판에서도)" "$(lines "$w/out")" 3
+  check "H2 rm 기록 있음(대지 경로를 실제로 지나갔나)" "$([ -s "$w/rm.log" ] && echo yes || echo no)" yes
+  toks=$(awk '{for (i = 2; i <= NF; i++) if ($i !~ /ft-seat-row/) print $i}' "$w/rm.log" | wc -l | tr -d ' ')
+  check "H2 공용 경로(폴더 이해) rm 인자 0" "$toks" 0
+}
+
 c4a() {  # ④ 첫 구 — 예산 5 · 좌석 5 · 좌석마다 2초 (부하에 민감하니 혼자 돈다)
   local w="$W/c4a" t sec
   world "$w" || exit 9
@@ -252,9 +277,9 @@ check "bin = kit 바이트 같음" "$(cmp -s "$BIN/$SH" "$KIT/$SH" && echo same)
 
 wave c1 c2 c6 c7
 wave c4a
-wave c4b c5a c5b
-wave c5c m2 m3 m5
-wave m1 m4
+wave c3b c4b c5a c5b
+wave c5c cH2 m2 m3
+wave m1 m4 m5
 
 echo "== 통과 $ok · 실패 $bad · 전체 $((SECONDS - T0))초"
 [ "$bad" -eq 0 ] || exit 1
