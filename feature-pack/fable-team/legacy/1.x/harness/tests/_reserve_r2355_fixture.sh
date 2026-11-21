@@ -114,10 +114,10 @@ k3() {   # ③ 닫기 대기 장부 2건 · 남은 − PV < 7 → 닫기 재시�
 k4() {   # ④ 앞 단계가 빠름(마감 67) → 상한 = 자기 상한 그대로 · 착지 1 · push-timing 1줄
   rm -f "$TSV"; land "$1" 105 40 FT_PUSH_FIXED_S=$F
   [ "$rc" = 0 ] && grep -q '^LANDED pr=105 ' <<<"$out" && [ "$(grep -c . "$TSV")" = 1 ]; }
-k4b() {   # ④b 승인 sha ≠ head → equiv 앞 상한 DL−PV · 가짜 SL초 → 끊김 · 동일승인 대조 실패 원문 · push 0
+k4b() {   # ④b 승인 sha ≠ head → equiv 칸(남은−PV) · 가짜 SL초 → 끊김 · r2385 K7 ⓐ «상한 초과(판정 불가 · 다음 틱)» 글 · push 0
   APSH="$(sha "$W" "$M0")" DL_OFF=$DL land "$1" 106 40 FT_PUSH_FIXED_S=$F EQUIV_SLEEP=$SL
   APSH=""
-  [ "$rc" = 1 ] && grep -q '동일승인 대조(병합·rebase 두 경로)도 실패' <<<"$out" && [ "$el" -lt "$SL" ] && ! grep -q '^LANDED' <<<"$out"; }
+  [ "$rc" = 1 ] && grep -q '동일승인 대조 [0-9]*s 상한 초과(판정 불가 · 다음 틱) · 남은 [0-9]*s' <<<"$out" && [ "$el" -lt "$SL" ] && ! grep -q '^LANDED' <<<"$out"; }
 k4c() {   # ④c press 앞 상한 DL−PV · 가짜 SL초 → TB rc 124 = «press 증거 검사 Ns 에 끊김»(«press 증거 검사 실패» 글 0) · rc 1 짝은 지금 글 · 음성 경로 0 PR = press 칸 숫자
   DL_OFF=$DL land "$1" 107 40 FT_PUSH_FIXED_S=$F PRESS_SLEEP=$SL
   local ok1=0 ok2=0 ok3=0

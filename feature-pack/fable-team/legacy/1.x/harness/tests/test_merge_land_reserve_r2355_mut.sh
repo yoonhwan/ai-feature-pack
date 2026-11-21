@@ -29,7 +29,7 @@ mut 1 k1 ft-merge-land.sh 'b=$(( $(land_left) - RU ))' 'b=$(( $2 ))'   # M1 예�
 mut 2 k2b ft-merge-land.sh 'rsv view 7 || rej "push 몫 예약: gh pr view 앞 남은 $(land_left)s − push 1단위 ${RU}s < 1 (착지 0 · 다음 틱)"' ':'   # M2 시작 0 판정 지움
 mut 3 k3 ft-merge-land.sh 'if [ "$CRS" -ge 7 ]; then' 'if [ 1 = 1 ]; then'   # M3 닫기 재시도 예약 무시
 mut 4 k6 ft-merge-land.sh "trap 'lc_line; ph_line' EXIT" ':'   # r2385: trap 에 lc_line 이 붙었다(LAND-CAP 1줄) — 같은 자리(EXIT 사슬)를 지운다   # M4 REJECT 길에서 LAND-PHASE 안 찍음
-mut 7 k4b ft-merge-land.sh 'ES="$RSV"; phs equiv' 'ES=30; phs equiv'   # M7 equiv 예약 빼기
+mut 7 k4b ft-merge-land.sh 'ES="$EC"; echo "EQUIV-CAP' 'ES=30; echo "EQUIV-CAP'   # M7 equiv 칸 무시(r2385 K7 뒤 자리: ES=EC) — 30 고정
 S2=$SECONDS
 mut 5 k9 ft-critical-notify.sh '    m = desk("_master") if t == "ft-merge-land" else ""' '    m = ""'   # M5 받는 이 _desk 만
 mut 6 k10 ft-critical-notify.sh '    elif m and m not in out: out.append(m)' '    elif m: out.append(m)'   # M6 같은 값 거름 지움

@@ -24,7 +24,7 @@ seed20() {   # seed20 <p90앞합> <p90push> [<repo>] [<채움행 push>] — 18�
   for i in $(seq 1 18); do row "$(tsa 300)" "$((800 + i))" 8 "${4:-1}" 40 "${3:-}" >> "$F"; done
   for i in 19 20; do row "$(tsa 120)" "$((800 + i))" "$1" "$2" 40 "${3:-}" >> "$F"; done
 }
-chk() { local g; g="$(cap "$S" "$1" "$2" 2>/dev/null)"; out="got=[$g] want=[$3]"; [ "$g" = "$3" ]; }   # chk <repo> <pr> <기대 6칸>
+chk() { local g; g="$(cap "$S" "$1" "$2" 2>/dev/null | cut -d' ' -f1-6)"; out="got=[$g] want=[$3]"; [ "$g" = "$3" ]; }   # 앞 6칸만 본다(뒷 4칸 = K6·K7 입력 → test_merge_land_cell_cap_r2385.sh 가 잰다)
 
 # ── K1 표본 · K2 공식 ────────────────────────────────────────────────────────────────────────────
 k1() { seed20 54 7 o/r; chk o/r 999 "75 14 p90 20 54 7"; }
@@ -40,8 +40,8 @@ k7b() { seed20 30 0 o/r 0; chk o/r 999 "67 14 floor 20 30 0"; }  # R_push 바닥
 k8() { seed20 90 1 o/r; chk o/r 999 "100 14 p90 20 90 1"; }   # 천장 100
 
 # ── K3 env 우선 · 판정 불가 · 거르기 ─────────────────────────────────────────────────────────────
-k9() { seed20 54 7 o/r; out="got=[$(FT_LAND_TOTAL_S=80 cap "$S" o/r 999 2>/dev/null)]"; [ "$out" = "got=[80 14 env 0 0 0]" ]; }
-k9b() { seed20 54 7 o/r; out="got=[$(FT_LAND_TOTAL_S=150 cap "$S" o/r 999 2>/dev/null)]"; [ "$out" = "got=[100 14 env 0 0 0]" ]; }
+k9() { seed20 54 7 o/r; out="got=[$(FT_LAND_TOTAL_S=80 cap "$S" o/r 999 2>/dev/null | cut -d' ' -f1-6)]"; [ "$out" = "got=[80 14 env 0 0 0]" ]; }
+k9b() { seed20 54 7 o/r; out="got=[$(FT_LAND_TOTAL_S=150 cap "$S" o/r 999 2>/dev/null | cut -d' ' -f1-6)]"; [ "$out" = "got=[100 14 env 0 0 0]" ]; }
 k10() { rm -f "$F"; chk o/r 999 "67 14 floor:없음 0 0 0"; }
 k11() { seed20 54 7 o/r; head -n 4 "$F" > "$T/x"; mv "$T/x" "$F"; chk o/r 999 "67 14 floor:n<5 4 0 0"; }
 k12() { seed20 54 7 o/r; printf 'garbage 줄\n\n2026-01-01T00:00:00 pr=only\n%s close=3 view=1 fetch=2 gate=48 push=7 left=40\n' "$(tsa 60)" >> "$F"; chk o/r 999 "75 14 p90 20 54 7"; }
@@ -57,7 +57,7 @@ r = "2026-11-21T%02d:%02d:%02d pr=%d close=3 view=1 fetch=2 gate=51 overlap=0 eq
 with io.open(sys.argv[1], "w") as f:
   for i in range(100000): f.write(r % (i % 24, i % 60, i % 60, i))' "$T/big.tsv"
   cp "$T/big.tsv" "$F"
-  local t0 t1 g; t0="$(nowf)"; g="$(cap "$S" o/r 999 2>/dev/null)"; t1="$(nowf)"
+  local t0 t1 g; t0="$(nowf)"; g="$(cap "$S" o/r 999 2>/dev/null | cut -d' ' -f1-6)"; t1="$(nowf)"
   RC14="$(python3 -c "print(round(float('$t1') - float('$t0'), 3))")"; out="got=[$g] ${RC14}초"
   [ "$g" = "78 14 p90 20 57 6" ] && python3 -c "import sys; sys.exit(0 if float('$RC14') < 1.0 else 1)"; }
 

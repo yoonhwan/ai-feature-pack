@@ -101,9 +101,9 @@ k6() {  # ⑥ 설치 대조 rc124 → 알림 인자 그대로(install=124 = PEND
   [ "$rc" = 0 ] && grep -q '^INSTALL-PENDING 설치 검사' <<<"$out" && grep -q '^NOTIFIED r2320 pr=107 install=124' <<<"$out" && \
   [ -n "$(tail_line)" ] && [ -n "$(tailv install)" ] && [ -z "$(tailv skip)" ]; }
 k7() {  # ⑦ 문서 PR 꼴(설치 대조·shim 즉시 OK) → 출력 줄 = 기준판(origin/main)과 같음 · LAND-TAIL 0
-  local on ob tn tb; land "$FIX" 108 45; on="$(set- "$(grep -vE '^LAND-(PHASE|CAP) ' <<<"$out")")"; tn="$(grep -c '^LAND-TAIL' <<<"$out")"; [ "$rc" = 0 ] || return 1   # r2355: 새 계약 = LAND-PHASE 1줄 — 그 줄만 빼고 기준판과 같은 줄인가 · r2385: LAND-CAP 1줄도 새 계약(같이 뺀다)
+  local on ob tn tb; land "$FIX" 108 45; on="$(set- "$(grep -vE '^(LAND-(PHASE|CAP)|GATE-CAP|EQUIV-CAP) ' <<<"$out")")"; tn="$(grep -c '^LAND-TAIL' <<<"$out")"; [ "$rc" = 0 ] || return 1   # r2355: 새 계약 = LAND-PHASE 1줄 — 그 줄만 빼고 기준판과 같은 줄인가 · r2385: LAND-CAP·GATE-CAP·EQUIV-CAP 1줄도 새 계약(같이 뺀다)
   [ "$BASE_OK" = 1 ] || return 0
-  land "$BASE" 109 45; ob="$(set- "$(grep -vE '^LAND-(PHASE|CAP) ' <<<"$out")")"; tb="$(grep -c '^LAND-TAIL' <<<"$out")"
+  land "$BASE" 109 45; ob="$(set- "$(grep -vE '^(LAND-(PHASE|CAP)|GATE-CAP|EQUIV-CAP) ' <<<"$out")")"; tb="$(grep -c '^LAND-TAIL' <<<"$out")"
   [ "$rc" = 0 ] && [ -n "$on" ] && [ "$on" = "$ob" ] && [ "$tn" = 0 ] && [ "$tb" = 0 ]; }
 k10() {  # ⑩ env 마감 남은 30초 + LIM 67 → push 시도 상한 AB ≤ 30 · 남은−7 < PB = 재시도 0 · ls-remote 판정 그대로
   local ab mb; mb="$(MB)"; rm -f "$TSV"
