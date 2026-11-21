@@ -10,6 +10,7 @@ from datetime import datetime
 from pathlib import Path
 
 import ft_board_env as env
+import ft_board_news_wait
 import ft_sheet_events
 from ft_board_mail import Mail
 from ft_board_seat import SeatCells
@@ -213,4 +214,5 @@ def collect(files: list[Path] | None = None) -> dict:
         else:
             teams.append(team_or_error(root, row["seats_path"], alive, date, vds, mail))
     attach_team_states(root, alive, env.now(), teams, files)
-    return {"date": date, "decision": decision(root, alive), "verdicts": vds, "issues": env.gh_issues(root), "teams": teams}
+    return {"date": date, "decision": decision(root, alive), "verdicts": vds, "issues": env.gh_issues(root), "teams": teams,
+            "waits": ft_board_news_wait.waits(root, teams, mail, env.now().timestamp())}  # r2389 K1 — 오빠 대기 실측 3곳

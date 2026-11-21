@@ -1,0 +1,13 @@
+PASS ⑭ 7시간 = _desk 1통 · 본문 «[다시 묻기] … 묻고 7시간»
+PASS ⑭ 장부에 reask_at=지금 추가
+PASS ⑭ 바로 다시 점검 = 0통(6시간 안 두 번 0)
+PASS ⑭ 5시간 = 0통
+PASS ⑭ 답글 있음(notified) = 0통
+PASS ⑮ 닫힘(timeout) · _master 1통 · 다시 묻기 0
+PASS ⑯ «[다시 묻기] 등록 없는 오빠 대기 cfo · 10249 오빠 approve-merge 대기 — 질문 올리고 --register-question» 1통
+PASS ⑯ 6시간 안 다시 0통
+PASS ⑰ 실패 = rc≠0 · «판정 불가» 1줄 · reask_at 없음(다음 판 다시)
+PASS 변이 M10 → «⑭ 바로 다시 점검» FAIL(시험이 잡는다)
+PASS 변이 M11 → «⑮ 닫힘(timeout)» FAIL(시험이 잡는다)
+PASS 변이 M12 → «⑰ 실패» FAIL(시험이 잡는다)
+--- r2389 reask: FAIL 0

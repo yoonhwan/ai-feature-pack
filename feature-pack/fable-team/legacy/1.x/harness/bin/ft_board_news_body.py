@@ -3,6 +3,8 @@
 머리 줄(열린·닫힌 골) → «지금»(바뀐 것 · 열린 골마다 1줄) → «다음»(열린 골마다 다음 한 수 · r2096) → «막힌 것, 오빠 할 일» → 끝 줄 «근거:».
 열쇠 = standing() 줄 + «다음» 칸 줄(바뀐 것 줄 · 근거 줄 밖) — 팀 카드 수 · 좌석 · 진행 카드는 열쇠에 없다. 줄은 자르지 않는다.
 r2103: 골 줄 = 막대 10칸 + n/m · 골 줄 뒤 «진행 중인 일» 묶음(열쇠 밖) · 길면 묶음 → 막대 순으로 빼고 기준판 본문으로 돌아간다.
+r2389: «막힌 것, 오빠 할 일» = 오빠 대기 실측 3곳(ft_board_news_wait)마다 1줄 · 골 줄 뒤 «지금 n/m단계 · 기다림: …» 1줄
+  (열쇠 밖) · 원장 낡음 머리 줄 · 3500B 넘으면 접지 않고 긴 글을 줄인다(K5 · ⓔ → ⓕ «다음» 50자).
 """
 import os
 import re
@@ -10,6 +12,7 @@ import sys
 from datetime import datetime
 
 from ft_board_news_name import card_tag, shorten, work_name
+from ft_board_news_wait import NEXT_MAX, clip_next, goal_waits, todo_lines, trim
 from ft_oppa_slack_check import OPPA_SLACK_UID
 
 MAX_CHANGES, MAX_BYTES, MAX_DOING, BAR = 5, 3500, 8, 10
@@ -99,14 +102,14 @@ def with_tail(line: str, tail: str) -> str:
     return f"{line}{'' if line.endswith('.') else '.'} {tail}" if tail else line
 
 
-def standing(cur: dict, bar: bool = True, tails: dict | None = None) -> list[str]:
+def standing(cur: dict, bar: bool = True, tails: dict | None = None, now: datetime | None = None) -> list[str]:
     """열쇠가 되는 본문 줄 = 머리 줄 · 열린 골 줄 · 막힌 것 칸 줄(열쇠 = 막대 꼴 · bar=False = 기준판 꼴).
-    tails = {골 번호: 카드 진행 글} — 본문에만 붙는다(열쇠 밖 · r2120)."""
+    tails = {골 번호: 카드 진행 글} — 본문에만 붙는다(열쇠 밖 · r2120) · now = «막힌 것» 줄의 «언제부터»(None = 열쇠 꼴)."""
     rows = cur["goals"]
     shut = [r[1] for r in rows or [] if closed(r)]
     top = f"골 진행 알림: 열린 골 {len(rows) - len(shut)}개, 닫힌 골 {len(shut)}개" + (f"({', '.join(shut)})" if shut else "") if rows else f"골 진행 알림: {NO_TABLE}"
     goals = [with_tail(goal_line(r, bar), (tails or {}).get(r[0], "")) for r in rows or [] if not closed(r)] or (["열린 골 없음"] if rows else [])
-    todo = [f"<@{os.environ.get('FT_OPPA_SLACK_UID') or OPPA_SLACK_UID}> 오빠 승인 대기 {cur['h']}건" if cur["h"] else "없음"] + [f"{t} 확인 불가(수집 실패, 직전 상태 유지)" for t in cur.get("carried", [])]
+    todo = todo_lines(cur, now, os.environ.get("FT_OPPA_SLACK_UID") or OPPA_SLACK_UID) + [f"{t} 확인 불가(수집 실패, 직전 상태 유지)" for t in cur.get("carried", [])]
     return [top, "지금", *goals, "막힌 것, 오빠 할 일", *todo]
 
 
@@ -168,33 +171,48 @@ def voiced(r: list[str], mark: str) -> list[str]:
     return r
 
 
-def body(cur: dict, prev: dict | None, now: datetime, sha: str, tt: dict | None = None, meas: str = "", mark: str = "", beat: str = "") -> str:
+def body(cur: dict, prev: dict | None, now: datetime, sha: str, tt: dict | None = None, meas: str = "", mark: str = "", beat: str = "", stale: str = "") -> str:
     """본문 — 3500B 를 넘으면 ⓐ 진행 줄을 아래부터 → ⓑ 묶음을 통째로 → ⓒ 막대를 모두 빼고(= 기준판 본문)
-    → ⓓ «다음» 칸 줄을 아래부터 빼고 «그 밖의 골 N개» 로 맺는다. 상한 안 첫 단계에서 멈춘다 · 그래도 넘으면 ⓔ 긴 골 상태 글부터 줄임(r2184 · 그 앞은 r2103 A4).
-    r2126: meas = «지금» 칸 첫 줄(실측) · mark = 원장 칸 앞 표지 · beat = 무변화 상태 글 첫 줄(진행 묶음 0 = 짧은 글)."""
+    → ⓔ 긴 골 상태 글부터 줄임(r2184) → ⓕ «다음» 칸 글을 골마다 NEXT_MAX 자로(r2389 K5 · 접기 «그 밖의 골 N개» 0).
+    r2126: meas = «지금» 칸 첫 줄(실측) · mark = 원장 칸 앞 표지 · beat = 무변화 상태 글 첫 줄(진행 묶음 0 = 짧은 글).
+    r2389: stale = 원장 낡음 머리 줄(K4) · K2·K3 줄은 접지도 줄이지도 않는다."""
     nm = lambda team, cid: work_name(cid, (tt or {}).get(team, {}).get(cid))  # noqa: E731
     fresh = [(quiet(t), ids) for t, ids in news(prev, cur, nm)]
     tails = {r[0]: quiet(card_tail(cur, r[1], f"{now:%F}")) for r in cur["goals"] or [] if not closed(r)}  # r2120 E3
     rows = [voiced(r, mark) for r in cur["goals"]] if cur["goals"] else cur["goals"]
     cur = {**cur, "goals": rows, "carried": [quiet(t) for t in cur.get("carried", [])]}
+    wl = goal_waits(cur)  # K3 — 열린 골 순서(«» = 줄 없음) · 열쇠 밖
     tags = list(dict.fromkeys(g for _, ids in fresh for c in ids if (g := card_tag(c))))  # 근거 줄 번호
     tail = f"근거: 발행 {now:%Y-%m-%d %H:%M}, 골 진행 원장 {sha}" + (f", 카드 {' '.join(tags)}" if tags else "")
     steps = next_steps(cur)
 
     def text(st: list[str], grp: list[str], nxt: list[str]) -> str:
         cut = st.index("막힌 것, 오빠 할 일")
-        return "\n".join([*([beat] if beat else []), *st[:2], *([meas] if meas else []), *[t for t, _ in fresh], *st[2:cut], *grp, "다음", *nxt, *st[cut:], tail]) + "\n"
+        goals = [x for i, ln in enumerate(st[2:cut]) for x in ([ln, wl[i]] if i < len(wl) and wl[i] else [ln])]  # K3 = 골 줄 바로 뒤 1줄
+        head = [*([beat] if beat else []), st[0], *([stale] if stale else []), st[1], *([meas] if meas else [])]  # K4 = 머리 줄 바로 뒤
+        return "\n".join([*head, *[t for t, _ in fresh], *goals, *grp, "다음", *nxt, *st[cut:], tail]) + "\n"
     rows, bare = doing(cur, nm)
-    st = standing(cur, tails=tails)
+    st = standing(cur, tails=tails, now=now)
     for grp in ([] if beat else [doing_lines(rows, bare, k) for k in range(min(MAX_DOING, len(rows)), -1, -1)]) + [[]]:  # ⓐ · ⓑ
         if len((out := text(st, grp, steps or [NO_NEXT])).encode()) <= MAX_BYTES:
             return out
-    st = standing(cur, bar=False)  # ⓒ · ⓓ = 기준판(r2102) 본문 — 카드 진행 덧붙임도 빠짐(r2120 E4)
-    for k in range(len(steps), -1, -1):
-        nxt = steps[:k] + ([f"그 밖의 골 {len(steps) - k}개"] if k < len(steps) else []) if steps else [NO_NEXT]
-        out = text(st, [], nxt)
-        if len(out.encode()) <= MAX_BYTES:
-            break
+    st = standing(cur, bar=False, now=now)  # ⓒ = 기준판(r2102) 본문 — 카드 진행 덧붙임도 빠짐(r2120 E4)
+    cut = st.index("막힌 것, 오빠 할 일")
+    uid = os.environ.get("FT_OPPA_SLACK_UID") or OPPA_SLACK_UID
+    mid = todo_lines(cur, now, uid)  # K2 — 오래된 순 · 수집 실패 꼬리는 tails
+    head, tails = st[:cut + 1], st[cut + 1 + len(mid) + len(cur.get("carried", [])):]
+    statuses = [r[4] for r in cur["goals"] or [] if not closed(r)]
+    nxt = steps or [NO_NEXT]
+    out = text(st, [], nxt)
     if len(out.encode()) > MAX_BYTES:  # ⓔ r2184 · 못 맞추면 넘는 글 그대로(= N 의 발행 0 · 실측 줄 지움 0)
-        out = shorten(st, [r[4] for r in cur["goals"] or [] if not closed(r)], mark, lambda s: text(s, [], nxt), MAX_BYTES) or out
+        out = shorten(st, statuses, mark, lambda s: text(s, [], nxt), MAX_BYTES) or out
+    if len(out.encode()) > MAX_BYTES:  # K2 줄 수 — 오래된 순 k줄 + «그 밖의 오빠 대기 N건»(줄은 안 자른다)
+        for k in range(len(mid) - 1, 0, -1):
+            st2 = head + trim(mid, k) + tails
+            got = shorten(st2, statuses, mark, lambda s: text(s, [], nxt), MAX_BYTES) or text(st2, [], nxt)
+            if len(got.encode()) <= MAX_BYTES:
+                out = got
+                break
+    if len(out.encode()) > MAX_BYTES:  # ⓕ r2389 K5 — 접지 않고 «다음» 글을 줄인다(골 이름·줄은 남김)
+        out = clip_next(out)
     return out
