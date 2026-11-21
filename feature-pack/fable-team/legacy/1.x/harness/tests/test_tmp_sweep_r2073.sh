@@ -67,7 +67,7 @@ c3() { # ③ 열 폴더 그대로 · kept 칸
   wt "$B/k10/w"; cl "$B/k10/x"; commit "$B/k10/x" n10
   old "$B"/k2 "$B"/k3 "$B"/k4 "$B"/k5 "$B"/k6 "$B"/k7 "$B"/k8 "$B"/k9 "$B"/k10; run
   for i in 1 2 3 4 5 6 7 8 9 10; do [ -d "$B/k$i" ] || { echo "  k$i 지워짐"; return 1; }; done
-  endl | grep -q 'removed=0 .*kept=10(young 1 · cwd 1 · dirty 2 · unpushed 6 · 판정 불가 0)' || { echo "  $(endl)"; return 1; }
+  endl | grep -q 'removed=0 .*kept=9(young 0 · cwd 1 · dirty 2 · unpushed 6 · 판정 불가 0)' || { echo "  $(endl)"; return 1; }   # r2375 K1: 젊은 k1 은 목록에 들지 않는다(young 0)
 }
 c4a() { fresh armed; wt "$B/w"; old "$B/w"; LSOF="$T/lsof-fail" run
   [ "$RC" = 3 ] && [ -d "$B/w" ] && grep -q '판정 불가 lsof' <<<"$OUT"; }
@@ -101,7 +101,8 @@ gone5() { local i; for i in 1 2 3 4 5; do [ ! -e "$B/a$i" ] || return 1; done; }
 dels() { SLOG | awk -F'\t' '$2 ~ /^삭제 \// {sub(/.*\//, "", $2); printf "%s ", $2}'; }
 c9a() { mk9; : > "$T/git.calls"; : > "$T/find.calls"; run FT_GIT_BIN="$T/git" PATH="$T/fbin:$PATH" FT_TMP_SWEEP_BUDGET=0
   local i; for i in 1 2 3 4 5; do [ -d "$B/a$i" ] || return 1; done
-  [ ! -s "$T/git.calls" ] && [ ! -s "$T/find.calls" ] && endl | grep -q 'removed=0 .*deferred=7$' && [ "$(cat "$(CUR)" 2>/dev/null)" = a1 ] \
+  # r2375 K1: 목록 만드는 find 는 정확히 1회(고정값 · 항목별 아님) — 항목별 find 0 · git 0
+  [ ! -s "$T/git.calls" ] && [ "$(grep -c . "$T/find.calls")" = 1 ] && endl | grep -q 'removed=0 .*deferred=7$' && [ "$(cat "$(CUR)" 2>/dev/null)" = a1 ] \
     && [ "$(SLOG | grep -c '예산 끝 — a1 부터 다음 실행')" = 1 ]; }
 c9b() { mk9; echo a3 > "$(CUR)"; run; [ "$(dels)" = "a3 a4 a5 " ] && [ -d "$B/a1" ] && [ -d "$B/a2" ] && [ ! -e "$(CUR)" ] || { echo "  삭제=[$(dels)]"; return 1; }
   run; gone5; }
@@ -112,8 +113,11 @@ c9c() { fresh armed; local i; for i in 1 2 3 4 5; do wt "$B/s$i"; done; old "$B"
 c9d() { fresh armed; local i; for i in 1 2 3 4 5; do wt "$B/s$i"; done; old "$B"/*
   run FT_GIT_BIN="$T/git" FAIL_PAT="$B/s1" HANG_PAT="$B/s" FT_TMP_SWEEP_BUDGET=6
   [ "$(grep -c . "$MLOG")" = 1 ] && ! SLOG | grep -q '쪽지 미전달' && [ -s "$(CUR)" ]; }
-c9e() { local c; for c in '' 'a/b' 'zz'; do mk9; printf '%s\n' "$c" > "$(CUR)"; run; gone5 && [ ! -e "$(CUR)" ] || { echo "  cursor [$c] 안 지움"; return 1; }
-    if [ "$c" != zz ]; then [ "$(SLOG | grep -c 'cursor 읽기 실패 — 처음부터')" = 1 ] || { echo "  cursor [$c] 로그 없음"; return 1; }; fi; done; }
+c9e() { local c; for c in '' 'a/b'; do mk9; printf '%s\n' "$c" > "$(CUR)"; run; gone5 && [ ! -e "$(CUR)" ] || { echo "  cursor [$c] 안 지움"; return 1; }
+    SLOG | grep -q 'cursor 읽기 실패 — 처음부터' || { echo "  cursor [$c] 로그 없음"; return 1; }; done
+  # r2375 K2: 목록에 없는 이름이 마지막 이름보다 크면 «처음부터» 가 아니라 그 자리(목록 끝) = 지움 0 · cursor 지움
+  mk9; echo zz > "$(CUR)"; run; [ -z "$(dels)" ] && [ -d "$B/a1" ] && [ ! -e "$(CUR)" ] || { echo "  cursor [zz] 1차 지움=[$(dels)] (r2375 K2 = 지움 0)"; return 1; }
+  run; gone5 || { echo "  cursor [zz] 2차 안 지움"; return 1; }; }
 c9f() { mk9 plain; run FT_TMP_SWEEP_BUDGET=0; local A="$R/.fable-team/state/tmp-sweep.armed"
   [ -d "$B/a1" ] && [ ! -e "$A" ] && [ "$(cat "$(CUR)" 2>/dev/null)" = a1 ] || return 1
   run; [ -d "$B/a1" ] && [ "$(grep -c '^목록 지움 대상' <<<"$OUT")" = 5 ] && [ -f "$A" ] && [ ! -e "$(CUR)" ] || return 1
@@ -126,7 +130,7 @@ for c in "c1 ① 고르기 = worktree 2 폴더 · clone 폴더만 목록" "c2a �
   "c6a ⑥ 총 상한 3초 · deferred · 끝 줄 1" "c6b ⑥ 쪽지 0통 / removed 1 = 1통" "c7 ⑦ 판정문 보관 verdict.md 만" \
   "c8a R1 우편함 멈춤 = 총 예산 안 · 미전달 로그" "c8b R1 예산 소진 뒤 prune 0" "c8c R1 예산 소진 뒤 삭제 0 · deferred" \
   "c9a ⑨a 총 상한 0 = 삭제 0 · git·find 0 · deferred=7 · cursor a1" "c9b ⑨b cursor a3 = a3·a4·a5 만 · 다음 = a1·a2" \
-  "c9c ⑨c 실제 끊김 → cursor · 이어서 5개 지움" "c9d ⑨d 끊겨도 쪽지 1통(쪽지 몫)" "c9e ⑨e cursor 깨짐 세 꼴 = 처음부터" \
+  "c9c ⑨c 실제 끊김 → cursor · 이어서 5개 지움" "c9d ⑨d 끊겨도 쪽지 1통(쪽지 몫)" "c9e ⑨e cursor 깨짐 두 꼴 = 처음부터 · 목록 밖 이름 = 지움 0" \
   "c9f ⑨f 끊긴 목록만 = 표식 0 · 끝까지 간 목록만 = 표식"; do
   f="${c%% *}"; if "$f"; then ok "${c#* }"; else bad "${c#* }"; fi
 done
@@ -149,7 +153,7 @@ if [ -f "$ORIG" ]; then
   mut M4 'if [ "$ARM" = 0 ]; then listed=' c5 "첫 1회 목록만 지움 → ⑤"
   mut M5 'break   # A6 끊긴 자리' c9a "끊긴 자리에서 반복 끝내기 지움 → ⑨a"
   mut M6 '> "$CURSOR"   # A6 cursor 쓰기' c9a "cursor 쓰기 지움 → ⑨a"
-  mut M7 'START=$k   # A6 cursor 부터' c9b "cursor 항목부터 시작 지움 → ⑨b"
+  mut M7 'START=$((pos - 1))' c9b "cursor 항목부터 시작 지움 → ⑨b"   # r2375 K2: 이름 일치 탐색 → C 순서 삽입 위치 줄 꼴
   muts M8 'SCAN=$((BUDGET - NOTE))' 'SCAN=$BUDGET' c9d "쪽지 몫 지움(훑기 예산 = 총 상한) → ⑨d"
   muts M9 '[ -n "$CUT" ] || : > "$ARMED"' ': > "$ARMED"' c9f "끊긴 목록만에도 표식 → ⑨f"
 fi
