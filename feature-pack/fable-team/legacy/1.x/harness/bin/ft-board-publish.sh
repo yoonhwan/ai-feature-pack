@@ -28,12 +28,10 @@ if [ "${1:-}" = "--news" ]; then
   CH=""; for ((i = 0; i < ${#POST_ARGS[@]}; i++)); do [ "${POST_ARGS[i]}" = --channel ] && CH="${POST_ARGS[i + 1]:-}"; done
   [ -n "$CH" ] || { echo "ft-board-publish: ERROR 뉴스 채널 없음(FT_BOARD_POST_ARGS --channel) — 발행 0" >&2; exit 2; }
   TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
-  # r2409 K6: 그림자 수집 1회(모니터 스냅샷 — 화면 0) · TMP/trap 뒤 collect 앞 · 실패·상한 초과여도 아래 collect/news/post/rc 는 그대로(격리)
-  MS="${FT_MONITOR_SNAP_BIN:-$HERE/ft_monitor_snap.py}"
-  if [ -f "$MS" ]; then
-    perl -e "alarm ${FT_MONITOR_SNAP_TIMEOUT:-70}; exec @ARGV" python3 "$MS" collect --root "$ROOT" >/dev/null \
-      || echo "ft-board-publish: WARN 모니터 스냅샷 수집 rc=$? — 발행 그대로" >&2
-  else echo "ft-board-publish: WARN 모니터 수집기 없음 $MS — 발행 그대로" >&2; fi
+  # r2409 K6: 그림자 수집 1회 — TMP/trap 바로 다음 · collect 앞 · 상한(FT_MONITOR_SNAP_CAP · 기본 70초) · stdout·stderr 버림
+  #   실패(rc≠0 · 상한 초과) = stderr «monitor-snap rc=<n>» 1줄만 · 아래 collect·news·post·news_fail·news-last·exit rc 는 그대로
+  perl -e "alarm ${FT_MONITOR_SNAP_CAP:-70}; exec @ARGV" python3 "${FT_MONITOR_SNAP_BIN:-$HERE/ft_monitor_snap.py}" --root "$ROOT" >/dev/null 2>&1 \
+    || echo "ft-board-publish: monitor-snap rc=$?" >&2
   # r2126 H2: collect · ft_board_news · post 실패 = planner 명부 _desk 에 «[긴급] 자동 뉴스 실패 — <단계> rc=<n>» 1통(FT_MBOX → comm/mbox.sh · 25초)
   #   (단계, rc)별 30분 창 · 표식 state/board/news-fail-last.json = send 성공 뒤에만 · 좌석 없음 ∨ send 실패 = stderr 1줄 · 각 단계 rc 그대로
   fail_mark() { python3 - "$SD/news-fail-last.json" "$1" "$2" "${FT_BOARD_NOW:-}" <<'PY'

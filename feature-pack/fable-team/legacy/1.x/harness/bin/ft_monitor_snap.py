@@ -97,7 +97,7 @@ def _key(project: dict) -> str:
 
 
 def _hist_append(path: Path, line: dict, now: float) -> tuple:
-    """(썼는지, 직전 줄) — 열쇠가 직전 줄과 같으면 새 줄 0 · 48시간 넘은 줄은 이때 버린다."""
+    """(썼는지, 직전 줄) — K5: 틱마다 1줄 · 48시간 넘은 줄은 이때 버린다."""
     rows = []
     try:
         for raw in path.read_text(encoding="utf-8").splitlines():
@@ -110,21 +110,21 @@ def _hist_append(path: Path, line: dict, now: float) -> tuple:
     except (OSError, UnicodeDecodeError):
         rows = []
     kept = [r for r in rows if now - float(r["epoch"]) <= HIST_KEEP_S]
-    same = rows[-1] if rows else None
-    if kept == rows and same is not None and same.get("key") == line["key"]:
-        return (False, same)  # 새 줄도 없고 버릴 줄도 없다 — 파일 그대로
-    write = kept + ([] if same is not None and same.get("key") == line["key"] else [line])
+    write = kept + [line]  # K5 — 틱마다 1줄(열쇠가 같아도 쓴다 · 변화량은 읽는 쪽이 잰다)
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_text("".join(_dump(r) for r in write), encoding="utf-8")
+    os.chmod(tmp, 0o644)
     os.replace(tmp, path)
-    return (len(write) > len(kept), same)
+    return (True, rows[-1] if rows else None)
 
 
 def _write(path: Path, text: str) -> None:
+    """K1 — tmp 쓰고 os.replace · 0644 일반 파일(권한 좁히기·폴더·심링크 0)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_text(text, encoding="utf-8")
+    os.chmod(tmp, 0o644)
     os.replace(tmp, path)
 
 
@@ -138,7 +138,7 @@ def collect(root: Path, now: float) -> tuple:
     _write(snap_path, _dump(snap))
     project = _project(snap)
     key = _key(project)
-    wrote, same = _hist_append(hist_path, {"at": at, "epoch": now, "key": key, **project}, now)
+    wrote, same = _hist_append(hist_path, {"at": at, "epoch": now, "shadow": True, "key": key, **project}, now)
     return snap, (1 if wrote else 0), (None if wrote else same.get("at") if same else None)
 
 

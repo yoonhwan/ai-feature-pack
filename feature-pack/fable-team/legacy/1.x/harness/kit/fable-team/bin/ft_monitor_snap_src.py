@@ -64,7 +64,6 @@ def tool(name: str, root: Path) -> str:
 def state_path(root: Path, rel: str, name: str) -> Path:
     return Path(env(name, str(root / rel), root))
 
-
 def spec_read(spec: str, root: Path) -> tuple:
     """(본문 | None, 마지막 커밋 시각 | None) — `gitref:<ref>:<경로>` · 보통 파일 둘 다."""
     if spec.startswith("gitref:"):
@@ -195,6 +194,7 @@ def oppa_wait(root: Path, at: str, now: float) -> dict:
         if not isinstance(row, dict):
             return unk(str(path) + " (깨진 줄)", at)
         last[(row.get("kind") or "h", row.get("q_ts"))] = row
-    open_rows = [(key, r) for key, r in last.items() if r.get("state") != "closed"]
-    v = {"open": len(open_rows), "keys": sorted(f"{key[0]}:{r.get('key') or ''}" for key, r in open_rows)}
+    items = [{"key": f"{k[0]}:{k[1]}", "id": str(r.get("key") or ""),
+              "state": "closed" if r.get("state") == "closed" else "open"} for k, r in sorted(last.items())]
+    v = {"open": sum(1 for i in items if i["state"] == "open"), "items": items}
     return cell(v, str(path), iso(mtime), stale_q(now, mtime, STALE["oppa_wait"]))

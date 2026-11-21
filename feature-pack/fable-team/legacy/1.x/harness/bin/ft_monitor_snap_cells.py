@@ -61,13 +61,17 @@ def blocked_sessions(root, at: str, now: float) -> dict:
                 stale_q(now, ts, STALE["blocked_sessions"]))
 
 
-def keeper_unknown(root, at: str) -> dict:
+def keeper_unknown(root, at: str, now: float = 0.0) -> dict:
     """keeper 판정 불가 = 장부 줄 중 도구 «ft2-keeper:*» — 장부 자체가 없으면 0(ok) · 꼴 깨짐 = unknown."""
     d = state_path(root, ".fable-team/state/blocks", "FT_MONITOR_BLOCKS")
     owner = d.parent / "blocks-owner.json"
     files = [owner] if owner.is_file() else (sorted(d.glob("*.json")) if d.is_dir() else [])
     if not files:
         return cell({"unknown_keeper": 0}, str(d) + " (장부 없음 — r2072 장부도 0)", at)
+    try:
+        seen = max(f.stat().st_mtime for f in files)
+    except OSError:
+        return unk(str(d) + " (장부 못 읽음)", at)
     n = 0
     for f in files:
         try:
@@ -77,7 +81,7 @@ def keeper_unknown(root, at: str) -> dict:
         rows = rows if isinstance(rows, list) else [rows]
         n += sum(1 for r in rows if isinstance(r, dict)
                  and str(r.get("tool") or r.get("by") or "").startswith("ft2-keeper"))
-    return cell({"unknown_keeper": n}, str(d), at)
+    return cell({"unknown_keeper": n}, str(d), iso(seen), stale_q(now, seen, STALE["keeper_unknown"]))
 
 
 def planner_check(root, at: str, now: float) -> dict:
@@ -112,9 +116,9 @@ def planner_check(root, at: str, now: float) -> dict:
 
 
 def directives(root, at: str) -> dict:
-    """`ft_directive_watch.py status` — 정상 = rc ∈ {0,1} ∧ 첫 줄 «담당 없는 오빠 지시 N · 멈춘 오빠 지시 M»."""
-    path = _cmd("FT_MONITOR_DIRECTIVE", "ft_directive_watch.py", root)
-    cmd = ["python3", path, "status"] if path.endswith(".py") else path.split() + ["status"]
+    """`ft-directive-watch.sh status` — 정상 = rc ∈ {0,1} ∧ 첫 줄 «담당 없는 오빠 지시 N · 멈춘 오빠 지시 M» · 둘째 줄 이하 0."""
+    path = _cmd("FT_MONITOR_DIRECTIVE", "ft-directive-watch.sh", root)
+    cmd = ["python3", path, "status"] if path.endswith(".py") else ["bash", path, "status"]
 
     def parse(rc, out, s, at):
         first = out.splitlines()[0] if out.splitlines() else ""
@@ -168,6 +172,8 @@ def collect_all(root, at: str, now: float) -> dict:
                 out[name] = blocked_sessions(root, at, now)
             elif name == "planner_check":
                 out[name] = planner_check(root, at, now)
+            elif name == "keeper_unknown":
+                out[name] = keeper_unknown(root, at, now)
             else:
                 out[name] = globals()[name](root, at)
         except Exception as e:  # noqa: BLE001 — 칸 격리(조용한 0 금지 → unknown)
