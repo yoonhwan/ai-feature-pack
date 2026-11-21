@@ -3,7 +3,8 @@
     python3 core/cli.py keeper --root R --close-seat <석> --verdict <N> --approve "<planner 좌석> #<seq>" --reason "<10자 이상>"
 
 차례 = K1 대상(이름 꼴 ∧ 팀 2.0 전환 ∧ launch intent) → K4 잠금(7초 대기) → K2 승인 대조(원장 행·우편·planner 꼴·자율 모드·긍정 판독·정지)
-      → K3 손(attached → pane Working → dirty → 재개 기록 → kill → park) → 끝 줄 «CLOSED-MANUAL …». 실패한 단계에서 멈추고 rc 로 알린다.
+      → K3 손(장부 판독 → attached → pane Working → dirty → 재개 기록 → kill → park) → 끝 줄 «CLOSED-MANUAL …». 실패한 단계에서 멈추고 rc 로 알린다.
+      장부·pane 판독 실패 = rc 9 «판정 불가»(모르면 닫지 않는다 · DA#56 H1·H2).
 승인 판정은 새로 쓰지 않는다 — r1865 `keeper_verdict.approved`(planner 원장 행 + 우편 로그) 한 곳 그대로. 여기서 더하는 것은 글자 판독 1개(ⓔ)뿐이다:
 원장 행에 «수동 닫기» 가 있고 거절 낱말이 없고 우편 첫 줄 머리가 «[수동 닫기 승인]» — approved 가 "" 를 돌려줘도 여기서 거절한다(덜 닫는 쪽).
 재개 기록 = r2281 `keeper_close_old.resume` 그대로(source 칸만 ft2-manual-close · retired_by = 승인 좌석). park = core 공개 동사(cli park) 1회.
@@ -175,11 +176,16 @@ def approval(k, seat, work, n, seat_ok, seq):
     return "", ""
 
 
-def parked(k, team, work, seat, n, reason):
-    """K3 ⑥ — 이 석이 최신 dispatch holder 이고 일이 done 이 아니면 cli park 1회 → («done»|«none», 0) · 실패 = ("", 7)."""
+def ledger(k, team):
+    """K3 ⓪ — 최신 dispatch 장부 1회 판독. 못 읽음 = 판정 불가(«소유 없음» 확정 0 · DA#56 H2)."""
     latest = endings.latest(k, team)
+    return latest, ("장부 판독 실패(endings.latest=None) — 소유 확인 불가" if latest is None else "")
+
+
+def parked(k, team, work, seat, n, reason, latest):
+    """K3 ⑥ — 이 석이 최신 dispatch holder 이고 일이 done 이 아니면 cli park 1회 → («done»|«none», 0) · 실패 = ("", 7)."""
     attempt, holder = ((latest or {}).get(work) or (None, None))
-    if latest is None or holder != seat or not attempt:
+    if holder != seat or not attempt:
         return "none", 0
     proj = k.proj_of(team) or {}
     works = (proj.get("works") or {}) if proj.get("result") == "접수 성공" else {}
@@ -196,12 +202,17 @@ def parked(k, team, work, seat, n, reason):
 
 
 def hands(k, team, work, attempt, intent, seat, n, seat_ok, seq, reason):
-    """K3 — ①attached ②pane Working ③dirty ④재개 기록 ⑤kill ⑥park ⑦끝 줄. 실패한 단계에서 멈춘다(뒤 단계 0)."""
+    """K3 — ⓪장부 ①attached ②pane ③dirty ④재개 기록 ⑤kill ⑥park ⑦끝 줄. 실패한 단계에서 멈춘다(뒤 단계 0)."""
+    latest, why = ledger(k, team)                          # ⓪ 장부를 못 읽으면 소유를 모른다 = 닫지 않는다(DA#56 H2)
+    if why:
+        return k.log("REJECT 장부", team, "%s 판정 %s · %s · 기록 0 · kill 0" % (seat, n, why)) or 9
     seen = k.attached(seat)
     if seen != "free":                                     # ① 사람 화면(못 읽음 = 덜 닫는 쪽)
         return k.log("REJECT attached", team, "%s 판정 %s · %s · 손 0" % (seat, n, seen)) or 4
     rc, pane, _ = k.call([k.tmux, "capture-pane", "-p", "-t", "=" + seat + ":"])
-    if rc == 0 and settle.working(pane):                   # ② 일하는 중 = 못 닫는다(알려진 한계 1)
+    if rc != 0:                                            # ② pane 판독 실패 = 일하는지 모른다 → 닫지 않는다(DA#56 H1)
+        return k.log("REJECT pane 판독", team, "%s 판정 %s · capture-pane rc=%s · 기록 0 · kill 0" % (seat, n, rc)) or 9
+    if settle.working(pane):                               # ② 일하는 중 = 못 닫는다(알려진 한계 1)
         return k.log("REJECT busy", team, "%s 판정 %s · pane Working · 손 0" % (seat, n)) or 4
     tree = str(intent.get("worktree") or "")
     rc, dirty, _ = k.git(tree, "status", "--porcelain") if tree else (1, "", "")
@@ -215,7 +226,7 @@ def hands(k, team, work, attempt, intent, seat, n, seat_ok, seq, reason):
     after = k.probe(seat)
     if after != "absent":
         return k.log("REJECT kill", team, "%s 판정 %s · 부재 확인 없음(%s)" % (seat, n, after)) or 6
-    park, rc = parked(k, team, work, seat, n, reason)       # ⑥ 소유가 남는 자리 = core park 1회
+    park, rc = parked(k, team, work, seat, n, reason, latest)   # ⑥ 소유가 남는 자리 = core park 1회
     if rc:
         return rc
     return k.log("CLOSED-MANUAL", team, "%s 판정 %s %s #%s park=%s reason=%s" % (seat, n, seat_ok, seq, park, reason)) or 0
