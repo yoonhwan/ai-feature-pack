@@ -101,9 +101,9 @@ k6() {  # ⑥ 설치 대조 rc124 → 알림 인자 그대로(install=124 = PEND
   [ "$rc" = 0 ] && grep -q '^INSTALL-PENDING 설치 검사' <<<"$out" && grep -q '^NOTIFIED r2320 pr=107 install=124' <<<"$out" && \
   [ -n "$(tail_line)" ] && [ -n "$(tailv install)" ] && [ -z "$(tailv skip)" ]; }
 k7() {  # ⑦ 문서 PR 꼴(설치 대조·shim 즉시 OK) → 출력 줄 = 기준판(origin/main)과 같음 · LAND-TAIL 0
-  local on ob tn tb; land "$FIX" 108 45; on="$(set- "$out")"; tn="$(grep -c '^LAND-TAIL' <<<"$out")"; [ "$rc" = 0 ] || return 1
+  local on ob tn tb; land "$FIX" 108 45; on="$(set- "$(grep -v '^LAND-PHASE ' <<<"$out")")"; tn="$(grep -c '^LAND-TAIL' <<<"$out")"; [ "$rc" = 0 ] || return 1   # r2355: 새 계약 = LAND-PHASE 1줄 — 그 줄만 빼고 기준판과 같은 줄인가
   [ "$BASE_OK" = 1 ] || return 0
-  land "$BASE" 109 45; ob="$(set- "$out")"; tb="$(grep -c '^LAND-TAIL' <<<"$out")"
+  land "$BASE" 109 45; ob="$(set- "$(grep -v '^LAND-PHASE ' <<<"$out")")"; tb="$(grep -c '^LAND-TAIL' <<<"$out")"
   [ "$rc" = 0 ] && [ -n "$on" ] && [ "$on" = "$ob" ] && [ "$tn" = 0 ] && [ "$tb" = 0 ]; }
 k10() {  # ⑩ env 마감 남은 30초 + LIM 67 → push 시도 상한 AB ≤ 30 · 남은−7 < PB = 재시도 0 · ls-remote 판정 그대로
   local ab mb; mb="$(MB)"; rm -f "$TSV"
@@ -114,9 +114,9 @@ k10() {  # ⑩ env 마감 남은 30초 + LIM 67 → push 시도 상한 AB ≤ 30
 k10b() {  # ⑩-b deadline() 도 env 마감을 본다 = 이미 지난 마감이면 그 자리에서 깨끗한 REJECT(push 0)
   DL_OFF=-5 land "$1" 111 45 "PATH=$GB:$PATH" "GB_M=$(MB)"
   [ "$rc" != 0 ] && grep -q '^REJECT 총 마감 ' <<<"$out" && [ ! -s "$GB_LOG" ]; }
-k11() {  # ⑪ 남은 초 < push 1단위 → «총 마감 67 s 안에 push 를 끝낼 수 없음» 1줄 · push 0 · rc≠0(기준판 = push 진입 → Red)
+k11() {  # ⑪ 남은 초 < push 1단위 → 착지 0 · push 0 · rc≠0(기준판 = push 진입 → Red) — r2355: 같은 사정을 앞 단계에서 먼저 잡는다 = «push 몫 예약: gh pr view 앞 남은 7s − push 1단위 8s < 1»(옛 글 «총 마감 67 s 안에 push 를 끝낼 수 없음» 은 이제 안 나온다)
   DL_OFF=7 land "$1" 112 45 "PATH=$GB:$PATH" "GB_M=$(MB)"
-  [ "$rc" != 0 ] && [ "$(grep -c '^REJECT 총 마감 67 s 안에 push 를 끝낼 수 없음' <<<"$out")" = 1 ] && [ ! -s "$GB_LOG" ]; }
+  [ "$rc" != 0 ] && [ "$(grep -c '^REJECT push 몫 예약: ' <<<"$out")" = 1 ] && [ ! -s "$GB_LOG" ]; }
 k12() {  # ⑨ try-auto --land 앞 TRY 판정이 쓴 초도 같은 마감에 듦 → merge-land 받은 마감 = try 시작 + 67(기준판 = 없음 → Red)
   local b="$1" d le; rm -rf "$T/tr"; mkdir -p "$T/tr"; cp "$b/ft-autonomy-try.sh" "$T/tr/"
   printf 'd2_on() { return 1; }\nscope_load() { G_S=S1; }\n' > "$T/tr/ft-autonomy-standing-d2.sh"

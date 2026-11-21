@@ -20,7 +20,8 @@ ROLE_CELLS = ("_master", "_arch", "_desk")   # A6② 마감을 밝힐 수 있는
 CLOSED_MAIL = re.compile(r"^\[마감(?: #\d+)?\] 할 일 0(?: · 착지 [0-9a-f]{7,40})?$")   # A6① 닫힌 꼴 한 줄
 LAUNCH_FAILED = "launch-failed"   # r2058 L3 — 끝 사유 낱말 · opening 멈춤 문턱 OPEN_STALE = 아래 keeper_launch 값(r2252 O0 한 값)
 CPU_IDLE, CPU_GAP, CPU_DEPTH = 0.3, 30, 8   # tmuxc UC12 %cpu < 0.3 · 표본 간격 ≥ 30초 · pane_descendant_pids 깊이 8
-SAMPLE_KEEP = 600                           # r2284 C2 표본 장부 수명(잰 지 600초 안 = 남김 · keeper STALE_S 같은 값)
+SAMPLE_KEEP = 600                           # r2284 C2 pane2 표본 장부 수명(잰 지 600초 안 = 남김 · keeper STALE_S 같은 값)
+CPU_SAMPLE_MAX = 3600                       # r2354 K1 cpu 표본 절대 수명 — 방문 간격과 무관하게 이보다 오래된 표본만 새로 잼
 SHELLS = ("zsh", "bash", "fish")            # tmuxc cmd_clean
 KINDS = ("nano", "master", "arch", "da", "desk", "tester", "pm", "qa", "orch", "temp")   # S1 명부 role 칸 = 좌석 종류 낱말
 BUSY = re.compile("Working|[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]")
@@ -78,14 +79,27 @@ def working(pane):
 
 class Settling:
     parked_failed = frozenset()   # r2058 L1 — 이 팀·work·attempt 가 launch-failed 쉼인가(keeper.team_round 가 채운다)
+    def alive_seats(self):
+        """r2354 K1 «그 좌석 세션이 없어짐» 판독 — 바퀴 캐시 ls 칸(keeper_next.once · release_block 과 같은 칸 · 바퀴당 1회 · 표본별 호출 0).
+        세션 이름 집합 · ls rc 1 ∧ «no server running» = 빈 집합 · 그 밖 rc≠0(tmux 실패) = None(판정 불가 = 지움 0)."""
+        got = self.cache.setdefault("@round", {})
+        if "ls" not in got:
+            got["ls"] = self.call([self.tmux, "list-sessions", "-F", "#{session_name}"])
+        rc, out, err = got["ls"]
+        return set(out.split()) if rc == 0 else set() if "no server running" in err else None
+
     def fresh_samples(self):
-        """표본 장부(cpu · pane2)는 직전 바퀴에 잰 것 ∨ 잰 지 SAMPLE_KEEP 안 것만 남김(바퀴 시작 1회) — 끊긴 표본으로 쉼 확정 0 · 영구 pending 0(arch #308380) · 그 좌석을 못 잰 바퀴 1개로 지움 0(r2284 C2)."""
+        """바퀴 시작 표본 정리(1회) — cpu 표본은 좌석 판(alive_seats 대조 · pane_pid 는 cpu() 가 대조 · CPU_SAMPLE_MAX)으로만 지운다. pane2 는 지금대로 SAMPLE_KEEP.
+        arch #308380 영구 pending 0 을 지키려고 600초 지움 → 방문 간격 > 600초 팀에서 거꾸로 영구 pending → 좌석 판 대조로 바꿈(r2354 K1)."""
         prev, self.state["round_at"] = self.state.get("round_at"), self.now()
         now = self.state["round_at"]
-        for name in ("cpu", "pane2"):
-            book = self.state.setdefault(name, {})
-            for seat in [x for x, v in book.items() if not isinstance(v, dict) or (prev is None or v.get("at", 0) < prev) and now - v.get("at", 0) > SAMPLE_KEEP]:
-                book.pop(seat)
+        alive = self.alive_seats()   # 바퀴 캐시 ls 1회(표본 수와 무관)
+        dead = self.state.setdefault("cpu", {})
+        for seat in [x for x, v in dead.items() if not isinstance(v, dict) or (alive is not None and x not in alive) or now - v.get("at", 0) > CPU_SAMPLE_MAX]:
+            dead.pop(seat)
+        book = self.state.setdefault("pane2", {})
+        for seat in [x for x, v in book.items() if not isinstance(v, dict) or (prev is None or v.get("at", 0) < prev) and now - v.get("at", 0) > SAMPLE_KEEP]:
+            book.pop(seat)
 
     def stopped(self):
         """ALL_STOP 판독 1회/바퀴 — 없음 = 진행 · 있음(released 표식 없음) = 정지 · 깨짐 = 정지 + 판정 불가 1줄."""
@@ -128,14 +142,15 @@ class Settling:
         rows = self.ps_rows() if info else None
         if rows is None:
             return "unknown"
-        mine = set(descendants(rows, info[0]))
-        load, book, now = sum(c for pid, _pp, c, _cmd in rows if pid in mine), self.state.setdefault("cpu", {}), self.now()
+        mine, pid = set(descendants(rows, info[0])), info[0]   # r2354 K1 표본마다 pane_pid 를 적는다(표본별 tmux 0 · DA#45 H1)
+        load, book, now = sum(c for _pid, _pp, c, _cmd in rows if _pid in mine), self.state.setdefault("cpu", {}), self.now()
         if load >= CPU_IDLE:
-            book[seat] = {"at": now, "cpu": load}
+            book[seat] = {"at": now, "cpu": load, "pane_pid": pid}
             return "busy"
         prev = book.get(seat) or {}
-        first = prev.get("first", prev.get("at")) if prev.get("cpu", CPU_IDLE) < CPU_IDLE else None
-        book[seat] = {"at": now, "cpu": load, "first": now if first is None else first}
+        same = prev.get("pane_pid") == pid   # pane_pid 칸 없는 옛 표본 = 다른 판(첫 표본부터 · r2354 K1)
+        first = prev.get("first", prev.get("at")) if same and prev.get("cpu", CPU_IDLE) < CPU_IDLE else None
+        book[seat] = {"at": now, "cpu": load, "first": now if first is None else first, "pane_pid": pid}
         return "idle" if first is not None and now - first >= CPU_GAP else "pending"
 
     def pi_turn(self, intent):
@@ -220,6 +235,10 @@ class Settling:
                 return self.failed_end(team, work, attempt, holder, raw, why, park=True)
             if opening:   # L6 — 문턱 안쪽·잇는 중 열기 = 손 0 · [긴급] 0(아직 판정할 수 없다)
                 return self.verdict(team, work, holder, "WORKING", "launch-joining" if self.launching_now(team, work) else "launch-pending", "opening %d분" % self.opening_age(raw))
+            if owner and not raw and self.launch_waiting(team, work, attempt):   # r2366 미룬 열기(같은 리포 열기 1개) = 손 0
+                wait = self.launch_wait(key, first)
+                if wait:
+                    return self.verdict(team, work, holder, "WORKING", wait, "열기 미룸 · fill_open 같은 attempt")
             word = self.unknown_seat(team, work, attempt, holder, "owner-orphan" if owner else "session-absent", why)
             if not owner:   # r2214 session-absent 만(owner-orphan = 팀장 park 몸)
                 self.absent_release(team, work, holder, key, first)
@@ -392,6 +411,18 @@ class Settling:
     def launching_now(self, team, work):
         """L6 — fill_open(잇는 중)에 있는 열기인가(그 열기는 손 0)."""
         return ("%s|%s" % (team, work)) in (self.state.get("fill_open") or {})
+
+    def launch_waiting(self, team, work, attempt):
+        """r2366 K2 — 그 열기가 지금 attempt 로 fill_open 에 남았나(keeper_next.fill 이 띄운 열기 · handled 되면 빠진다).
+        다른 attempt·없음 = 지금 그대로 owner-orphan(새 attempt 는 다시 센다)."""
+        return (self.state.get("fill_open") or {}).get("%s|%s" % (team, work)) == attempt
+
+    def launch_wait(self, key, first):
+        """r2366 K1·K1b — keeper 가 띄우기를 다음 바퀴로 미룬 열기 = 첫 absent 시각을 남기고(settle_nano 221행 pop 탓 · 안 넣으면
+        바퀴마다 첫 바퀴) OPEN_STALE 안이면 «launch-wait» · 넘으면 "" = 지금 그대로 owner-orphan(늦게 울림 · 안 울림 0)."""
+        now = self.now()
+        first = self.state.setdefault("absent_since", {})[key] = now if first is None else first
+        return "launch-wait" if now - first < OPEN_STALE else ""
 
     def failed_tail(self, intent):
         """L3·L6 판정 줄 꼬리 — intent step · reason 앞 80자 / opening <분>분."""

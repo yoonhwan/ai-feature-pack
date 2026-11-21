@@ -17,6 +17,7 @@ BUDGET_S, GIT_S, DAY_CAP, NAMES, DAY = 5.0, 7, 3, 10, 86400   # 예산 5초 = �
 Stop = type("Stop", (Exception,), {"__doc__": "C6 R2 문 — 바퀴 남은 몫 < 7초 = 이 바퀴 멈춤(이어 보기 · 판정 불가 아님 · seen 그대로)"})
 CARD, LANDT = re.compile(r"^(design/.+)/indices/(대기|진행|완성)/([^/]+)\.md$"), re.compile(land.LAND.pattern + "(.*)$", re.M)
 PRE, TOK, SETL = re.compile(r"^- 선행:(.*)$", re.M), re.compile(r"[^\s()·,`'\"<>«»:;]+"), re.compile(r"^- 세트(?:\([^)\n]*\))?:", re.M)   # r2293 세트 증거 줄 = «- 세트:» · «- 세트(…):»
+LEDG = re.compile(r"^- 대기 사유:.*장부 done 은 거짓", re.M)   # r2358 K3 사람 분류 표지 = 장부 칸 알림 0(그 카드는 다시 접수 0)
 # C1 표 한 곳 — (칸, 증거 함수 e_<이름>, 상한 키, 기본 초, 위임 대상 · 빈칸 = 신규 알림) · 차례 = 고정 첫 일치(① 증거 모순 → ② 위임 → ③ 시간 상한)
 ROWS = (("완성 증거 0", "done0", "", 0, ""), ("장부 완료 · 카드 열림", "ledger", "FT2_TW_DONE_OPEN_S", 3600, ""),
         ("선행 풀림 미반영", "prereq", "FT2_TW_PREREQ_S", 3600, ""), ("착지 대기", "land", "FT2_TW_LAND_WAIT_S", 600, ""),   # r2293 C1 4번째 = e_seat 앞
@@ -76,9 +77,10 @@ class Watch:
             except Exception as exc:   # noqa: BLE001 — 장부 손상 = 판정 불가(하드 룰 20)
                 s.books[team] = "판정 불가 장부 %s %s" % (team, type(exc).__name__)
         return s.books[team]
-    @staticmethod
-    def works(c, book):   # 카드 stem 에 맞는 work(정확 → «work-» 접두 · 긴 것 먼저)
-        return [x for x in [c["stem"]] + [c["stem"][:i] for i in range(len(c["stem"]) - 1, 0, -1) if c["stem"][i] == "-"] if x in book]
+    def works(s, c, book, cell):   # r2335 카드 stem 에 맞는 work(정확 우선 → «work-» 접두 · 긴 것 먼저) — W1 정확 대조 = 장부 전체(book["all"]) · 칸 교집합만(W2 접두 = 칸에 있고 그 work 의 주인 카드가 s.stems 에 없는 것)
+        if c["stem"] in book["all"]:
+            return [c["stem"]] if c["stem"] in book[cell] else []   # 정확 일치가 있으면 접두로 안 내려간다(내 work = 열림·세대만 = 남의 끝난 work 아님)
+        return [x for x in (c["stem"][:i] for i in range(len(c["stem"]) - 1, 0, -1) if c["stem"][i] == "-") if x in book[cell] and x not in s.stems]
     def kind_of(s, sha, tail):   # r2274 land_kind 1곳(착지 줄 꼬리에 ai-feature-pack = 팩 먼저) · 판정 불가 = 기억 0
         for repo in ((s.k.pack, s.k.root) if "ai-feature-pack" in tail else (s.k.root, s.k.pack)) if sha not in s.kind else ():
             if not (word := land.land_kind(s.k.root, repo, sha, s.call)).startswith("판정 불가"):
@@ -116,8 +118,10 @@ class Watch:
         return at if isinstance(at, str) else "%s %d시간" % (c["stem"], (s.now - at) // 3600) if s.now - at >= s.lim[fn] else None
     def e_done0(s, c): return (s.impl(c) or None) if c["stage"] == "완성" and "ft2 card_stage" in c["body"] else None
     def e_ledger(s, c):
-        book = s.ledger(c["team"]) if c["stage"] != "완성" else {"done": {}}
-        for w in [] if isinstance(book, str) else s.works(c, book["done"]):
+        if LEDG.search(c["body"]):
+            return None   # r2358 K3 — «장부 done 은 거짓» 분류 카드 = 장부 칸 hit 0(선행이 아직이라 다시 접수하면 나노가 선행 없이 열린다)
+        book = s.ledger(c["team"]) if c["stage"] != "완성" else {"done": {}, "open": {}, "all": set()}
+        for w in [] if isinstance(book, str) else s.works(c, book, "done"):
             again = [x for x in book["all"] if re.fullmatch(re.escape(w) + r"-r\d+", x)]
             if any(x not in book["done"] for x in again) or book["done"][w] is None or s.now - book["done"][w] < s.lim["ledger"]:
                 continue   # 다시 접수가 열려 있음 · 시각 못 읽음 · 1시간 안
@@ -141,23 +145,56 @@ class Watch:
     def e_prog(s, c): return s.aged(c, "prog") if c["stage"] == "진행" and not s.rej and s.o is None else None
     def classify(s, c):
         book = s.ledger(c["team"])
-        found = book if isinstance(book, str) else s.works(c, book["open"])
+        found = book if isinstance(book, str) else s.works(c, book, "open")
         s.o = found if isinstance(found, str) else (found[0], book["open"][found[0]]) if found else None   # 열린 ft2 work (work, holder) · 없음 None · 장부 판정 불가 = 사유
         s.rej = "REJECT" in ([x for x in c["body"].splitlines() if "착지" in x] or [""])[-1]   # 마지막 착지 시도 줄 REJECT
         return next(((row, got) for row in ROWS for got in [getattr(s, "e_" + row[1])(c)] if got is not None), None)   # C1 첫 일치 (행, 내용) · 일치 0 = None · 판정 불가 = 그 칸에서 멈춤(내용 = 사유)
-def sweep(w, deadline=None):   # 카드 차례대로 한 칸씩 · (끝났나, 판정 불가 사유) · 결과 = st.hits {팀|칸: [[이름, 내용], …]} · 이어 보기 = st.seen.
+def sweep(w, deadline=None):   # 카드 차례대로 한 칸씩 · (끝났나, 판정 불가 사유) · 결과 = st.hits {팀|칸: [[이름, 내용, 표시], …]} · 이어 보기 = st.seen.
+    fresh, rest = [], True   # r2358 fresh = 이번 부름 본 루프가 append 한 항목 · rest = 본 루프가 끝 카드까지 갔나
     try:
         cards = w.index()
         seen, hits = set(w.st.setdefault("seen", [])), w.st.setdefault("hits", {})
         for c in [] if isinstance(cards, str) else [c for c in cards if c["path"] not in seen]:
             if deadline is not None and w.clock() >= deadline:
-                return False, ""   # C6 예산 넘음 = 다음 바퀴 이어서(묶음 0)
+                rest = False   # C6 예산 넘음 = 다음 바퀴 이어서(묶음 0)
+                break
             got = w.classify(c)
-            got and hits.setdefault("%s|%s" % (c["team"], got[0][1]), []).append([c["stem"], got[1]])
+            if got:
+                hits.setdefault("%s|%s" % (c["team"], got[0][1]), []).append(item := [c["stem"], got[1], 1])   # r2358 표시 1 = 이번 부름이 이미 판정한 항목(재판정 0)
+                fresh.append(item)
             w.st["seen"].append(c["path"])
     except Stop:
-        return False, ""   # C6 문 = 이 카드 seen 0 · 다음 바퀴 그 자리부터
-    return not isinstance(cards, str), cards if isinstance(cards, str) else ""
+        rest, cards = False, ""   # C6 문 = 이 카드 seen 0 · 다음 바퀴 그 자리부터
+    if not rest or isinstance(cards, str):
+        for x in fresh:
+            del x[2:]   # r2358 본 루프만 끝난 바퀴 = 재판정 전이라 표시를 지운다(다음 바퀴 새 본문으로 다시 본다)
+        return False, cards if isinstance(cards, str) else ""
+    try:
+        return recheck(w, cards, deadline), ""   # r2358 K1 — 묶기 전에 이 바퀴 본문으로 한 번 다시 판정
+    except Stop:
+        return False, ""   # r2358 재판정 7초 문 = 이 바퀴 묶음 0 · 표시한 항목은 다음 바퀴 이어서
+def recheck(w, cards, deadline):   # r2358 K1·K2 — 알림 칸(위임 칸 = 손 0)의 표시 없는 항목만 그 바퀴 본문(cards)으로 1회 다시 판정 · 같은 칸 = 새 내용 · «판정 불가» = 원 칸에 새 내용 · 칸 이동·카드 없음 = 버림 · 끝 = True · 예산 넘음 = False(남은 항목은 표시 없이 다음 바퀴).
+    hits, by = w.st.get("hits") or {}, {(c["team"], c["stem"]): c for c in cards}
+    for key in sorted(hits):
+        team, fn = (key.split("|") + [""])[:2]
+        row = next((r for r in ROWS if r[1] == fn), None)
+        if row is None or row[4]:
+            continue   # 위임 칸 = 알림 0 · 그대로 둔다
+        out, left = [], list(hits[key])
+        while left:
+            item = left.pop(0)
+            if len(item) > 2 and item[2]:
+                out.append(item)   # 이번 부름이 이미 판정한 항목
+                continue
+            if deadline is not None and w.clock() >= deadline:
+                hits[key][:] = out + [item] + left
+                return False   # 이어 보기 — 재판정을 끝낸 항목만 표시 1
+            got = w.classify(by[(team, item[0])]) if (team, item[0]) in by else None
+            if got is not None and (got[0][1] == fn or got[1].startswith("판정 불가")):
+                item[1:] = [got[1], 1]
+                out.append(item)
+        hits[key][:] = out
+    return True
 def bundles(w, hits, day):   # C6 (팀 · 칸) 묶음 = [팀, 칸, 날짜, 지문, 본문] · 위임 칸 = 0 · 판정 불가 = 1줄(알림 0).
     out = []
     for key in sorted(hits):

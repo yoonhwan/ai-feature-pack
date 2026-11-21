@@ -1,8 +1,14 @@
 """ft2 Slack Socket Mode 상주 수신기 (r1806 · S-1) — 계약 줄 1 «Socket Mode 수신 · 주기 폴링 0».
 connections.open(7초·재시도 1) → ws → hello(num_connections > 1 = 경쟁 수신 rc 4) → envelope 1개 = 판정 1개 → receive·route.
-시작 1회 recover · 재연결 사건마다 Backfill 1회 · 간격 1·2·4…60초 · 유휴 = Web API·기록·모델 0 · 자격 값 출력 0."""
+시작 1회 recover · 재연결 사건마다 Backfill 1회 · 간격 1·2·4…60초 · 유휴 = Web API·기록·모델 0 · 자격 값 출력 0.
+r2341 — 보충 대상 = 끊긴 창(마지막 처리 글 ts − 60초) 활동 thread ∪ open binding · 보충·깨움·쪽지·Web 호출은
+수신 스레드 밖 일꾼(slack_worker)이 한다 · 자르는 자리 = route 장부까지(ack 는 수신 스레드).
+r2347 — 보충(일꾼 스레드)과 실시간 글(수신 스레드)이 같은 route 를 타므로 route 몸통 전체(bind check-then-act 포함)를
+잠금 1개(route_lock)로 한 번에 하나만 돈다 · envelope ack 는 수신 스레드에서만 보낸다(일꾼 ack 는 공유 칸을 안 건드린다).
+r2348 — 봇 가입·관리 명령(제어 사건)의 Web·효과도 일꾼이 한다. 제어 사건이 일꾼에 있는 동안 온 글·보관 사건은
+큐 뒤에 줄 세워(deferred 셈) 새 허용 집합으로 판정한다 — 순서를 지키는 장치 = 장벽 1개."""
 
-import importlib.util, json, logging.handlers, os, re, sys, time, urllib.parse, urllib.request  # noqa: E401
+import importlib.util, json, logging.handlers, os, re, sys, threading, time, urllib.parse, urllib.request  # noqa: E401
 
 NAMES, NEED, OPTS = ("SLACK_APP_TOKEN", "SLACK_BOT_TOKEN"), ("root", "env", "owner-seats"), ("team", "users", "channel")
 SEG, TOTAL = 65536, 8388608  # core journal.py:70 과 같은 상한 — listen.log 에만
@@ -14,6 +20,10 @@ def _adapter(name):  # 어댑터 5파일 = 경로로 읽기만(수정 0) · wiri
     return module
 receive, route, publish, binding, backfill, wiring, channels = map(_adapter, (
     "receive", "route", "publish", "binding", "backfill", "wiring", "channels"))
+alert_intake = _adapter("alert_intake")  # r2337 — 경보 갈래(설정 파일 없으면 갈래 0)
+slack_worker = _adapter("slack_worker")  # r2341 — 수신 스레드 밖 일꾼(보충·깨움·쪽지)
+JOIN_LOOKBACK = 600.0  # S4 — 새로 붙은 채널 보충 창(가입 시각 − 600초)
+AUTO = object()  # Listener(alert=AUTO) = 설정에서 만든다 · 시험은 만든 것을 꽂는다
 
 class Undecided(Exception):
     """판정 불가(rc 3) — 메시지에는 이름만 담는다(하드 룰 20)."""
@@ -84,8 +94,10 @@ def _ws_connect(url):
 
 class Listener:  # 상주 수신기 1개 = 연결 1개 · 허용 = CHANNELS on 줄(r1923 · --channel = 파일 없을 때 씨앗 1회) · 팀 1곳
     def __init__(self, root, *, channel=None, app_token, bot_token, master, desk=None, seats=None, team="planner", users=(), bot_users=(),
-                 reply_users=(), web=web_api, connect=_ws_connect, sleep=time.sleep, mono=time.monotonic, notify=None, clock=None):
+                 reply_users=(), web=web_api, connect=_ws_connect, sleep=time.sleep, mono=time.monotonic, notify=None, clock=None,
+                 alert=AUTO, now=None):
         self.root, self.master, self.desk, self.web, self.connect, self.sleep = root, master, desk, web, connect, sleep
+        self.now = now or time.time  # S2·일꾼 — 초 단위 시계(hello 시각·넘침 알림 간격)
         self.tank = set(bot_users)  # r1985 — 가입·탈퇴(자동 채널) 신원 = 탱크만 · reply_users = 답 완료에만
         self.seats = seats  # owner-seats 경로 · desk 교대를 재기동 없이 따라감(r1861 R1)
         self.app_token, self.bot_token, self.mono, self.ws, self.envelope = app_token, bot_token, mono, None, None
@@ -96,15 +108,39 @@ class Listener:  # 상주 수신기 1개 = 연결 1개 · 허용 = CHANNELS on �
         self.chan = channels.Channels(channels.path_of(root, team), channel, self.log)  # 깨짐·없음 = Corrupt(수신 시작 0)
         self.channel = self.chan.role("main")  # 게시 = 주 채널만 · 묶기 = 허용 전부(주 = master · 그 밖 = desk 또는 owner 칸)
         self.notify = notify or (lambda row: self.log("[notify] " + json.dumps(row, ensure_ascii=False)))
+        self.alert = (alert_intake.AlertIntake(root, team=team, conf=alert_intake.load_config(root, team), log=self.log)
+                      if alert is AUTO else alert)  # r2337 — 설정 없음 = None(수신 결과 지금 그대로)
         self.receive = receive.SlackReceive(root, ack=self._ack, allowed_users=users, allowed_channels=(),
                                             bot_users=tuple(bot_users) + tuple(reply_users), notify=self.notify, replies=self._replies,
-                                            deadline=self.deadline, mono=mono, log=self.log, **same)
+                                            deadline=self.deadline, mono=mono, log=self.log,
+                                            alert=self.alert.feed if self.alert is not None else None, **same)
         self.receive.allowed_channels = self.chan.allowed  # 같은 set 객체 — 발견·등록·삭제가 재기동 없이 반영
         self.router, self.notify = wiring.wire(root, receive=self.receive, bindings=self.bindings, notify=notify,
-                                               log=self.log, team=team, clock=clock)  # r1807 깨움·issues·desk 배선
+                                               log=self.log, team=team, clock=clock, now=self.now)  # r1807 깨움·issues·desk 배선
+        self.worker = slack_worker.Worker(log=self.log, notify=self.notify, now=self.now)  # S3 — 수신 스레드 밖 일꾼 1개
+        self.router.deliver = self.worker.wrap(self.router.deliver)  # 깨움·쪽지 통통 = 일꾼(route.py·wiring.py 손 0)
+        self.router.notify = self.notify = self.worker.wrap(self.notify)
+        self.receive.notify = self.notify
+        if getattr(self.receive, "resend", None) is not None:  # G2 유휴 재전송도 일꾼 — 후보 표를 만지는 스레드는 1개뿐
+            self.receive.resend = self.worker.wrap(self.receive.resend)
+        self.watermark, self.backfill_left = None, []  # S2 — 끊긴 시각(마지막 처리 글 Slack ts) · 예산에 남은 대상
+        self.slowest, self.backfilled = 0.0, 0  # S6 — 이 연결의 수신 스레드 최장 처리 초 · 끊긴 창 보충 글 수
+        self.route_lock, self.route_lock_max = threading.Lock(), 0.0  # r2347 L1·L2 — 두 스레드 한 번에 하나 · 잠금 안 최장 초(관측)
+        self.recv_thread = None  # r2347 L4 — envelope 을 확인하는 스레드 = 수신 스레드 1개(_frame 들머리가 적는다)
+        self.deferred, self.barrier_lock = 0, threading.Lock()  # r2348 — 장벽 셈(제어·미룬 글·미룬 보관) · 두 스레드가 만진다
         self.publish = publish.SlackPublish(root, post=self._post, bindings=self.bindings, notify=self.notify, **same)
-        self.backfill = backfill.Backfill(root, route=self, fetch=self._fetch, notify=self.notify, **same)
+        self.backfill = backfill.Backfill(root, route=self, fetch=self._fetch, notify=self.notify, mono=mono, **same)
     def run(self, sessions=None):  # 상주 루프 — 반환 = rc(경쟁 수신 4) · sessions = 시험용 연결 횟수 상한
+        if self.alert is not None:  # r2337 — 일꾼 스레드 1 시작(장부 1회 읽어 마감 표 재구성)
+            self.alert.start()
+        self.worker.start()  # r2341 S3 — 수신 스레드 밖 일꾼 1개
+        try:
+            return self._run(sessions)
+        finally:
+            self.worker.stop()  # 남은 일감은 다 하고 끝난다(유실 0)
+            if self.alert is not None:
+                self.alert.stop()
+    def _run(self, sessions):
         for verdict in self.receive.recover():  # 재기동 1회 복구(A4) — dispatched 면 영수도 같은 길(R1)
             self.router.recovered(verdict)  # r1807 보정1 R2 — 복구 dispatched 도 입구 기록·좌석 깨움
             rows = [r["key"] for r in self.router.entries("route") if r.get("command") == verdict.get("command")]
@@ -118,12 +154,16 @@ class Listener:  # 상주 수신기 1개 = 연결 1개 · 허용 = CHANNELS on �
                 outcome = "실패 %s" % type(exc).__name__
             if outcome == RIVAL:
                 return RIVAL
-            self.log("연결 끝 %s" % outcome)
+            self.log("연결 끝 %s · 최장 처리 %d초 · 큐 최대 %d · 끊긴 시각 %s · 보충 글 %d · 잠금 최장 %.3f초" % (
+                outcome if isinstance(outcome, str) else "정상", self.slowest, self.worker.max_queue,
+                self.watermark or "-", self.backfilled, self.route_lock_max))  # S6 — 4칸 + r2347 잠금 칸 = 관측만(값 판정 0)
             if sessions is None or count < sessions:
                 fails = 0 if outcome is True else min(fails + 1, 7)
                 self.sleep(min(2 ** max(fails - 1, 0), 60))  # 정상 끝 뒤 1 · 연속 실패 1·2·4·…·60초(R2)
         return 0
     def _session(self, reconnect):  # 연결 1번 — 반환 = True(disconnect·끊김 = 재연결 사건) 또는 RIVAL
+        self.slowest, self.backfilled, self.route_lock_max = 0.0, 0, 0.0  # S6 — 칸은 이 연결 것만(r2347 잠금 칸 포함)
+        self.worker.reset_stats()
         deadline = self.mono() + 50  # R1 — 연결 1번의 Web 호출 전체 예산 1개(apps.connections.open 부터 · 고정비 포함 70초 안)
         with self.connect(self.web("apps.connections.open", self.app_token, deadline=deadline, mono=self.mono)["url"]) as self.ws:
             self.envelope, out = None, self._hello(json.loads(self.ws.recv(timeout=10)), reconnect, deadline)
@@ -137,6 +177,28 @@ class Listener:  # 상주 수신기 1개 = 연결 1개 · 허용 = CHANNELS on �
             return out
     def on_idle(self):  # envelope 0 인 1초 — Slack 읽기·기록 증가·모델 호출 0(타이머로 Slack 을 읽는 코드 0)
         self.receive.pass_idle()
+        self.worker.on_idle()  # S3 · ⑬ — 일꾼 수명 is_alive 1줄(입출력 0) · 죽었으면 다시 띄움
+        if self.alert is not None:  # r2337 G4 — 일꾼 수명 is_alive 1줄(입출력 0)
+            self.alert.on_idle()
+    def _alert_history(self, deadline):  # r2337 G1 — 연결 1번(hello)마다 경보 채널 history 1쪽 1회(폴링 아님)
+        if self.alert is None:
+            return
+        oldest = self.alert.oldest()
+        for channel in self.alert.channels:
+            for attempt in (1, 2):  # 7초 상한 · 재시도 1 · 남은 예산 ≤0 = 호출 0
+                if deadline - self.mono() <= 0:
+                    return self.log("판정 불가 경보 history 예산 끝 — 보충 중단")
+                try:
+                    out = self._web("conversations.history",
+                                    {"channel": channel, "oldest": oldest, "limit": 200}, deadline)
+                    break
+                except Exception as exc:
+                    if attempt == 2:
+                        self.log("판정 불가 경보 history %s — %s" % (channel, type(exc).__name__))
+                        out = None
+            if out is None:
+                continue
+            self.alert.ingest(out.get("messages") or [], bool(out.get("has_more")))
     def _hello(self, env, reconnect, deadline):
         if env.get("type") != "hello":
             raise RuntimeError("hello 없음")
@@ -150,13 +212,94 @@ class Listener:  # 상주 수신기 1개 = 연결 1개 · 허용 = CHANNELS on �
             self.log("판정 불가 자동 채널 — %s" % type(exc).__name__)
         if len(self.chan.explicit()) > 1:  # r1833 C2 — 참여 확인 = main·admin·req 줄만(채널 1개 = 2ea518 그대로 · C4)
             self._members(deadline)
-        if reconnect:  # 재연결 사건 1회 = 보충 1회(주기 폴링 0)
-            self.backfill.run(backfill.RECONNECT, [(r["seat"], r["key"][1], r["key"][2])
-                                                   for r in self.bindings.settled().values() if r["open"]])
+        self._alert_history(deadline)  # r2337 — 재연결·재시작 사건마다 1회(첫 세션 포함 · 첫 세션 reconnect=False)
+        if reconnect:  # 재연결 사건 1회 = 보충 1회(주기 폴링 0) — 보충은 일꾼 몫(수신 스레드 밖 · S3)
+            self.worker.submit(self._backfill_job)
     def _web(self, method, params, deadline):  # R1 — 남은 초 ≤ 0 = 호출 0 · 호출마다 min(7, 남은 초)
         if deadline - self.mono() <= 0:
             raise TimeoutError("예산 끝")
         return self.web(method, self.bot_token, params, deadline=deadline, mono=self.mono)
+
+    # ── S2·S4 — 보충은 일꾼 몫(Web 호출·route 장부 모두 수신 스레드 밖)
+    def _backfill_job(self):
+        """재연결 사건 1회 = 보충 1회. 예산 50초(연결 예산과 따로 · 메모 2)를 넘기면 남은 대상을 들고 멈춘다(⑩)."""
+        budget = self.mono() + backfill.BUDGET
+        left, self.backfill_left = list(self.backfill_left), []
+        try:
+            targets, floor = self._window_scan(left, budget)
+        except Exception as exc:  # 판독 불가 = 1줄 · 수신 계속(다음 재연결이 다시 본다)
+            return self.log("판정 불가 끊긴 창 보충 — %s" % type(exc).__name__)
+        row = self.backfill.run(backfill.RECONNECT, targets, deadline=budget, floor=floor)
+        self.backfilled += int(row.get("routed") or 0)
+        if row.get("left"):
+            self.backfill_left = [tuple(item) for item in row["left"]]
+            self.log("보충 미완 — 남은 %d thread(다음 재연결)" % len(self.backfill_left))
+
+    def _scan_order(self):  # 메모 2 차례 — 사람 채널(main·admin·req) → auto
+        people = [r[0] for r in self.chan.rows if r[2] == "on" and r[3] != "auto"]
+        auto = [r[0] for r in self.chan.rows if r[2] == "on" and r[3] == "auto"]
+        return [c for c in people + auto if c in self.chan.allowed]
+
+    def _seat_of(self, channel, thread):  # 그 thread 의 좌석(binding) · 없으면 ""(커서만 따로 센다)
+        return next((r["seat"] for r in self.bindings.settled().values()
+                     if r["key"][1:] == [channel, thread]), "")
+
+    def _window_scan(self, left, budget):
+        """끊긴 창 = (끊긴 시각 − 60초, 지금] 활동 thread ∪ open binding — 새 root 글은 그 자리에서 route.
+
+        차례 = 남은 것(⑩) → 사람 채널(main·admin·req) → auto(메모 2) → open binding. 반환 = (targets, floor).
+        """
+        targets, seen = [], set()
+
+        def add(seat, channel, thread):
+            if (channel, thread) not in seen:
+                seen.add((channel, thread))
+                targets.append((seat, channel, thread))
+
+        for seat, channel, thread in left:  # ⑩ 다음 재연결이 남은 것부터
+            add(seat, channel, thread)
+        oldest = max((float(self.watermark) if self.watermark else self.now()) - 60.0, 0.0)  # H3 — 받은 시각 아님(⑳)
+        floor = "%.6f" % oldest
+        for channel in self._scan_order():
+            if self.mono() >= budget:
+                self.log("보충 미완 — 예산 끝 · 남은 채널 %s" % channel)
+                break
+            try:
+                messages = self._web("conversations.history", {"channel": channel, "oldest": oldest, "limit": 200},
+                                     budget).get("messages") or []
+            except Exception as exc:
+                self.log("판정 불가 끊긴 창 %s — %s" % (channel, type(exc).__name__))
+                continue
+            for message in sorted(messages, key=lambda m: float(m.get("ts") or 0)):
+                thread = str(message.get("thread_ts") or message.get("ts") or "")
+                ts = float(message.get("ts") or 0)
+                if not thread or not (self.watermark is None or ts > float(self.watermark)):
+                    continue  # 끊긴 창 밖 = 보충 0(⑥)
+                if thread == str(message.get("ts")):  # 새 root 글 = 이 자리에서 route(⑤ · ⑦ duplicate)
+                    self.route(dict(message, channel=channel, team=message.get("team") or ""))
+                    self.backfilled += 1
+                    if float(message.get("latest_reply") or 0) > ts:  # 이 thread 답글도 보충(⑧)
+                        add(self._seat_of(channel, thread), channel, thread)
+                    continue
+                add(self._seat_of(channel, thread), channel, thread)
+        for row in self.bindings.settled().values():  # open binding thread = 마지막(⑧ · 지금 동작 유지)
+            if row.get("open"):
+                add(row["seat"], row["key"][1], row["key"][2])
+        return targets, floor
+
+    def _join_backfill(self, channel, at):
+        """S4 — 새로 붙은 채널 history 1쪽(oldest = 가입 시각 − 600초) 보충 1회(일꾼 · 폴링 0 · ⑪)."""
+        oldest = max(float(at or self.now()) - JOIN_LOOKBACK, 0.0)
+        try:
+            out = self._web("conversations.history", {"channel": channel, "oldest": oldest, "limit": 200},
+                            self.mono() + backfill.BUDGET)
+        except Exception as exc:
+            return self.log("판정 불가 가입 보충 %s — %s" % (channel, type(exc).__name__))
+        rows = out.get("messages") or []
+        for message in reversed(rows):  # 옛 글부터 차례
+            self.route(dict(message, channel=channel, team=message.get("team") or ""))
+            self.backfilled += 1
+        self.log("가입 보충 %s — %d글" % (channel, len(rows)))
     def _discover(self, deadline):  # users.conversations 3쪽 안 → (완전 성공, {ID: 이름}) · DM/MPDM 0
         seen, cursor = {}, ""
         for _page in range(3):
@@ -166,10 +309,21 @@ class Listener:  # 상주 수신기 1개 = 연결 1개 · 허용 = CHANNELS on �
             if not (cursor := (out.get("response_metadata") or {}).get("next_cursor") or ""):
                 return True, seen
         return False, seen
-    def _added(self, ids):  # 새로 더한 채널마다 listen.log 1줄 + notify 1
+    def _added(self, ids):  # 새로 더한 채널마다 listen.log 1줄 + notify 1 · history 1쪽 보충 1회(일꾼 · S4)
         for channel in ids:
             self.log("자동 채널 +%s" % channel)
             self.notify({"state": "auto", "channel": channel, "reason": "자동 채널 +%s" % channel})
+            self.worker.submit(self._join_backfill, channel, self.now())
+
+    def _archived(self, event):  # S5 — 보관 = auto on 줄만 지운다(고정 main·admin·req = 손 0 · ⑫)
+        channel = event.get("channel")
+        if self.chan.drop_auto(channel):
+            self.log("자동 채널 −%s (보관)" % channel)
+    def _join_shape(self, event):  # 봇 가입 ∨ 봇 탈퇴 ∨ 봇이 채널을 떠남 = 제어 사건(사람 가입은 아님 · ⑬)
+        kind, tank = event.get("type"), self.tank
+        if kind == "channel_left":
+            return True
+        return bool(kind in ("member_joined_channel", "member_left_channel") and event.get("user") in tank)
     def _joined(self, event):  # B — 봇 가입 = conversations.info 로 종류 확인(ID 접두사 판정 0) 뒤 auto 줄 · 봇 탈퇴 = auto 줄 지움
         channel, bot = event.get("channel"), event.get("user") in self.tank
         if event.get("type") == "member_joined_channel" and bot:
@@ -195,24 +349,82 @@ class Listener:  # 상주 수신기 1개 = 연결 1개 · 허용 = CHANNELS on �
                 self.log(line)
                 self.notify({"state": "member", "channel": channel, "reason": line})
     def _frame(self, env):
+        """envelope 1개 처리 — 처리 초는 여기서 잰다(S6·«최장 처리» 칸 · 관측만)."""
+        started = self.mono()
+        try:
+            return self._frame_of(env)
+        finally:
+            self.slowest = max(self.slowest, self.mono() - started)
+
+    # ── r2348 장벽 — 제어 사건(봇 가입·관리 명령)의 Web·효과는 일꾼이 한다 · 그동안 온 글·보관 사건은 큐 뒤
+    def _message(self, event):  # 제어 사건 = 일꾼 + 장벽 시작 · 장벽 중 새 글 = 큐 뒤 · 그 밖 = 수신 스레드 그 자리
+        if self._admin(event):
+            return self._control(self._admin_job, event)
+        return self._defer(self.route, event) if self._barrier() else self.route(event)
+    def _join_frame(self, event):  # 봇 가입·탈퇴 = 제어 사건(일꾼 · 장벽) · 사람 가입·탈퇴 = 그 자리(효과 0 · 장벽 0)
+        return self._control(self._joined, event) if self._join_shape(event) else self._joined(event)
+    def _archive_frame(self, event):  # 보관 = auto 줄만 지움(Web 0) — 장벽 중이면 차례만 큐 뒤(효과 그대로)
+        return self._defer(self._archived, event) if self._barrier() else self._archived(event)
+    def _barrier(self):  # 셈 0 초과 = 제어 사건이 아직 일꾼에 있다(0 이면 수신 스레드가 다시 직접 · E2)
+        with self.barrier_lock:
+            return self.deferred > 0
+    def _control(self, job, event):  # 제어 사건 — 장벽 시작(+1) · 효과·Web 모두 일꾼 안(E1)
+        with self.barrier_lock:
+            self.deferred += 1  # 제어 사건도 셈(DA#44 B1)
+        return self._enqueue(job, event)
+    def _defer(self, job, event):  # 장벽 중 새 글·보관 사건 — 큐 뒤(옛 허용 집합으로 판정 0 · E2)
+        with self.barrier_lock:
+            self.deferred += 1  # 미룬 일도 셈(DA#44 B1 · ⑪)
+        return self._enqueue(job, event)
+    def _enqueue(self, job, event):  # 큐 차례 = 받은 차례 · 넘침 = 셈 되돌리고 그 자리에서(넘침 1줄 · ⑧)
+        channel, ts = event.get("channel"), event.get("ts")
+        if not self.worker.alive():  # 일꾼이 아직 없거나 죽었다 = 그 자리에서(유실 0 · 셈은 그대로 푼다)
+            with self.barrier_lock:
+                self.deferred -= 1
+            return job(event)
+        if self.worker.submit(self._barrier_job, job, event, ts):
+            self.log("미룸 %s %s" % (channel, ts))  # 남은 쌍 = 손 복구 근거(DA#44 B2 ⓐ)
+            return True
+        with self.barrier_lock:
+            self.deferred -= 1
+        self.log("장벽 넘침 — %s %s 직접 처리" % (channel, ts))
+        job(event)  # 넘침 = 차례 포기 · 수신 스레드가 그 자리에서
+        return False
+    def _barrier_job(self, job, event, ts):  # 일꾼 쪽 — 끝나면(예외 포함) 셈 −1 · «미룸 끝» 1줄(E4)
+        try:
+            job(event)
+        except Exception as exc:  # 효과 실패 = 1줄 · 장벽은 푼다(지금 실패 뜻 그대로)
+            self.log("판정 불가 장벽 일 %s — %s" % (ts, type(exc).__name__))
+        finally:  # 예외·Web 실패 포함 — 셈은 반드시 푼다(⑦)
+            with self.barrier_lock:
+                self.deferred -= 1  # 끝난 일은 셈에서 뺀다
+            self.log("미룸 끝 %s" % ts)
+
+    def _frame_of(self, env):
+        self.recv_thread = threading.get_ident()  # r2347 L4 — 이 스레드만 envelope 을 확인한다
         if env.get("type") == "disconnect":
             return True
         self.envelope, event = env.get("envelope_id"), (payload := env.get("payload") or {}).get("event") or {}
         if env.get("type") == "events_api" and event.get("type") == "message":
             event = dict(event, team=event.get("team") or payload.get("team_id") or "")
-            self._admin(event) or self.route(event)
+            self._message(event)  # r2348 — 제어 사건·장벽 중 글은 일꾼 몫(ack·끊긴 시각은 여기서 그대로)
+            if event.get("ts"):  # S2 — 끊긴 시각 = 미룬 글도 받은 때 올린다(받은 시각 아님 · H3 · E3)
+                self.watermark = str(event["ts"])
         elif env.get("type") == "events_api" and event.get("type") in ("member_joined_channel", "channel_left", "member_left_channel"):
-            self._joined(event)
+            self._join_frame(event)  # r2348 — 봇 가입·탈퇴만 제어 사건(사람 가입 = 장벽 0)
+        elif env.get("type") == "events_api" and event.get("type") in ("channel_archive", "group_archive"):
+            self._archive_frame(event)  # S5 — 보관 = auto on 줄만 지움 · 장벽 중이면 차례만 큐 뒤
         else:
             self.log("버림 %s %s" % (env.get("type"), event.get("type") or ""))
         return self._ack(None)  # receive 가 이미 확인했으면 0회
-    def _admin(self, event):  # ⑦ 공식 채널 · 허용 사용자 · root 글 «등록|삭제 #채널» = 명령(router 0) · 아니면 False
-        if event.get("channel") != self.chan.role("admin") or event.get("thread_ts") or event.get("bot_id") or event.get(
-                "subtype") or event.get("user") not in self.receive.allowed_users or not channels.parse(event.get("text")):
-            return False
+    def _admin(self, event):  # ⑦ 명령 꼴인가 = 공식 채널 · 허용 사용자 · root 글 «등록|삭제 #채널»(Web 0 · r2348)
+        return bool(event.get("channel") == self.chan.role("admin") and not event.get("thread_ts") and not event.get("bot_id")
+                    and not event.get("subtype") and event.get("user") in self.receive.allowed_users
+                    and channels.parse(event.get("text")))
+    def _admin_job(self, event):  # 명령 효과 = intent·파일·답글(Web 1~4회) — 일꾼 안(r2348 E1)
         word = self.chan.command(route.thread_key(event), event.get("text"), self._lookup, lambda text: self.web(
             "chat.postMessage", self.bot_token, dict(channel=event["channel"], thread_ts=event["ts"], text=text), retry=False)["ts"])
-        return self.log("명령 %s" % (word or "재전달 — 다시 0")) or True
+        return self.log("명령 %s" % (word or "재전달 — 다시 0"))
     def _lookup(self, target):  # 채널 글자 → (ID, 이름, 봇 가입 여부|None) · 맨 이름 = 목록 이름 → users.conversations
         tag = re.fullmatch(r"<#([A-Z0-9]+)(?:\|([^>]*))?>", target)
         try:
@@ -224,16 +436,23 @@ class Listener:  # 상주 수신기 1개 = 연결 1개 · 허용 = CHANNELS on �
             (c for c, n in seen.items() if n == name), None)
         return cid and (cid, name, (cid in seen) if done else None)
     def _ack(self, event):
+        if threading.get_ident() != self.recv_thread:  # r2347 L4 — 일꾼 route 의 ack 는 수신 스레드 envelope 을 안 건드린다
+            return
         if self.envelope and self.ws is not None:
             self.ws.send(json.dumps({"envelope_id": self.envelope}))
             self.envelope = None  # envelope 1개 = 확인 1회 · 확인 ≠ 접수
     def route(self, event):  # 새 envelope·보충(Backfill 이 부름) 모두 이 길 — bind → route → dispatched 영수(R1)
-        key = event and route.thread_key(event)
-        human = event and not (event.get("bot_id") or event.get("subtype")) and event.get("user") in self.receive.allowed_users
-        if human and event.get("channel") in self.chan.allowed and not event.get("thread_ts") and not [
-                row for row in self.bindings.entries() if row.get("key") == list(key)] and (owner := self._owner(event)):
-            self.bindings.bind(key, owner)  # 새 root 첫 binding(A5b) — 닫힌 적 있으면 묶지 않는다
-        return self._receipt(key, self.router.route(event)) if event else self.router.route(None)
+        with self.route_lock:  # r2347 L1 — bind 확인부터 영수까지 한 번에 하나
+            started = time.monotonic()
+            try:
+                key = event and route.thread_key(event)
+                human = event and not (event.get("bot_id") or event.get("subtype")) and event.get("user") in self.receive.allowed_users
+                if human and event.get("channel") in self.chan.allowed and not event.get("thread_ts") and not [
+                        row for row in self.bindings.entries() if row.get("key") == list(key)] and (owner := self._owner(event)):
+                    self.bindings.bind(key, owner)  # 새 root 첫 binding(A5b) — 닫힌 적 있으면 묶지 않는다
+                return self._receipt(key, self.router.route(event)) if event else self.router.route(None)
+            finally:  # r2347 L2 — 잠금 안 최장 초 1칸(관측만 · 값 판정 0)
+                self.route_lock_max = max(self.route_lock_max, time.monotonic() - started)
     def _owner(self, event):  # owner 칸 ≠ - = 묶기 직전 그 명부 역할 키 · 주 채널 = master · 그 밖 = 현재 _desk · None = 묶기 0
         owner = (self.chan.row(event.get("channel")) or ["-"] * 5)[4]
         if owner != "-":  # 명부 못 읽음 = 묶기 0 + 판정 불가 1줄(router 가 desk 알림 1 · planner 대체 0)

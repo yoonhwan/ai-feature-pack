@@ -34,8 +34,8 @@ grant --for 10h --max 5 --daily 2 --classes docs,ff,revert
 [ $rc = 0 ] && has '^SCOPE-GRANTED S1 A1 until=[0-9]{2}:[0-9]{2} max=5 daily=2 classes=docs,ff,revert$'; ck "정상 grant → SCOPE-GRANTED S1" $?
 grep -qxF "approve-scope S1 A1 $T0 until=$((T0+36000)) max=5 daily=2 classes=docs,ff,revert" "$LOG"; ck "log 에 approve-scope 줄 꼴" $?
 [ "$(a mode)" = on ]; ck "정상 범위 줄은 위변조 아님 (mode=on)" $?
-grant --for 5h --max 3 --classes docs; [ $rc = 0 ] && has '^SCOPE-GRANTED S2 .* max=3 daily=3 classes=docs$'; ck "두 번째 grant = S2 · daily 기본 min(10,max)" $?
-run a scope-status; has '^\[범위 승인 S2 · A1 · ~[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}까지 · 0/3 · 오늘 0/3 · docs\]$'; ck "앞 grant 자동 대체 — status 는 S2" $?
+NOW=$((T0 + 60)); grant --for 5h --max 3 --classes docs --lower "$((T0 + 30)).000001"; [ $rc = 0 ] && has '^SCOPE-GRANTED S2 .* max=3 daily=2 classes=docs'; ck "두 번째 grant = S2 · 생략한 daily = 직전 값(2) · 낮춤은 오빠 답(r2349 C3·C4)" $?
+run a scope-status; has '^\[범위 승인 S2 · A1 · ~[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}까지 · 0/3 · 오늘 0/2 · docs base=S2 3/2/0 byz\]$'; ck "앞 grant 자동 대체 — status 는 S2" $?
 fresh; grant --for 10h --max 100 --classes docs; [ $rc = 0 ] && has '^SCOPE-GRANTED S1 A1 until=[0-9]{2}:[0-9]{2} max=100 daily=10 classes=docs$'; ck "ⓐ --max 100 → 통과 · GR 줄 max=100 (r908)" $?
 fresh; grant --for 10h --max 100 --daily 100 --classes docs; [ $rc = 0 ] && has ' max=100 daily=100 classes=docs$'; ck "ⓐ --daily 100 → 통과 (r908)" $?
 fresh; grant --for 10h --max 100 --classes code --code-max 100; [ $rc = 0 ] && grep -q ' max=100 daily=10 classes=code codemax=100' "$LOG"; ck "ⓐ --code-max 100 → 통과 · log codemax=100 (r908)" $?
@@ -60,6 +60,6 @@ n0="$(lines)"; run a scope-approve "$(sha 1)"; [ $rc = 0 ] && has '^SCOPE-NOOP .
 run a scope-approve "$(sha 2)"; run a scope-approve "$(sha 3)"; [ $rc = 0 ]; ck "daily 3 안의 3건째 OK" $?
 run a scope-approve "$(sha 4)"; [ $rc = 2 ] && has '하루 건수 도달'; ck "daily 도달 → REJECT" $?
 [ ! -e "$AP/$(sha 4)" ] && ! grep -q "$(sha 4)" "$LOG"; ck "daily REJECT 쓰기 0" $?
-run a scope-status; ! has '정지' && has '^\[범위 승인 S1 · A1 .* 3/5 · 오늘 3/3 · docs,ff,revert · 새 승인 없이 0건\(끝 [0-9-]+ [0-9:]+ < 빈자리 [0-9-]+ [0-9:]+\)\]$'; ck "daily 도달은 정지 아님 · 10h 범위는 빈자리보다 먼저 끝남 → 0건 꼬리(r1792)" $?
+run a scope-status; ! has '정지' && has '^\[범위 승인 S1 · A1 .* 3/5 · 오늘 3/3 · docs,ff,revert · 새 승인 없이 0건\(끝 [0-9-]+ [0-9:]+ < 빈자리 [0-9-]+ [0-9:]+\) base=S1 5/3/0 byz\]$'; ck "daily 도달은 정지 아님 · 10h 범위는 빈자리보다 먼저 끝남 → 0건 꼬리(r1792)" $?
 
 echo "fail=$fail"; [ "$fail" = 0 ]

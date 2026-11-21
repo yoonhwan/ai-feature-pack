@@ -82,12 +82,13 @@ class SlackReceive:
     _key = staticmethod(message_key)
     def __init__(self, root, *, ack, client=None, team="harness", capacity=8, allowed_users=(),
                  allowed_channels=(), bot_users=(), notify=None, clock=None, on_step=None,
-                 replies=None, deadline=None, mono=None, log=None, resend=None):
+                 replies=None, deadline=None, mono=None, log=None, resend=None, alert=None):
         self.ack, self.root, self.team, self.capacity = ack, os.path.abspath(str(root)), team, capacity
         # r1899 — replies(channel, thread) → 메시지 목록 · deadline = 기동 monotonic + 60 · 없음 = 2.0.31 동작
         self.replies, self.deadline, self.mono = replies, deadline, mono or time.monotonic
         self.log = log or (lambda line: None)
         self.resend = resend   # G2 — 유휴 회차가 부를 «다시 보낼 글 1통» 훅(wiring 이 꽂는다) · 없음 = 지금과 같다
+        self.alert = alert     # r2337 — bot 글 버리기 앞 경보 갈래(경보 글만 받아 큐로) · 없음 = 지금과 같다
         self.notify = notify or (lambda verdict: None)
         self.allowed_users, self.allowed_channels = set(allowed_users), set(allowed_channels)
         self.bot_users, self.clock = set(bot_users), clock or (lambda: time.strftime("%Y-%m-%dT%H:%M:%S"))
@@ -144,6 +145,8 @@ class SlackReceive:
         if reason:
             self.ack(event)
             self._step("ack")
+            if reason == "bot" and self.alert is not None:  # r2337 — 경보 갈래: 큐에 넣고 판정은 지금 그대로 버림
+                self.alert(event)
             row = {"state": IGNORED, "command": command, "key": list(key), "reason": reason, "attempts": 0, "acked": True}
             if reason == "bot" and event.get("user") in self.bot_users and event.get("thread_ts") \
                     and event.get("channel") in self.allowed_channels:  # r1927 탱크 thread 답 = 앞 글 완료

@@ -240,13 +240,13 @@ fm_pr_close() {
   done
   fm_t7 ${slug:+env FT_ISSUE_REPO="$slug"} "$gw" pr-close "$pr" --comment "$cb" --apply
 }
-#   fm_ddl_list <repo> <M> <S> : r1347 — stdout «DDL <경로>»(상태 A·M ∧ design/rag/sql/<00~89>-*.sql ∧ -rollback.sql 아님) · «CODE»(상태 무관 ∧ design/·docs/ 밖 ∧ *.md 아님) 줄 · rc≠0 = git 실패
+#   fm_ddl_list <repo> <M> <S> : r1347 · r2331 — stdout «DDL <경로>»(상태 A·M ∧ design/rag/sql/<두 자리 이상 번호>-*.sql ∧ -rollback.sql·-fixture.sql 아님) · «CODE»(상태 무관 ∧ design/·docs/ 밖 ∧ *.md 아님) 줄 · rc≠0 = git 실패
 #     diff 1회 = name-status -z --no-renames(-z = 경로 따옴표 0 · --no-renames = 이름 바꾸기를 D+A 로 · 지우기·바꾸기도 코드 동반으로 센다) · $() 는 NUL 을 지우므로 임시 파일로 읽는다
 fm_ddl_list() {
   local f st p; f="$(mktemp)" || return 1
   git -C "$1" diff --name-status -z --no-renames "$2...$3" >"$f" 2>/dev/null || { rm -f "$f"; return 1; }
   while IFS= read -r -d '' st && IFS= read -r -d '' p; do
-    case "$st" in A|M) if [[ "$p" =~ ^design/rag/sql/[0-8][0-9]-[^/]*\.sql$ ]] && [[ "$p" != *-rollback.sql ]]; then echo "DDL $p"; continue; fi;; esac
+    case "$st" in A|M) if [[ "$p" =~ ^design/rag/sql/[0-9]{2,}-[^/]*\.sql$ ]] && [[ "$p" != *-rollback.sql ]] && [[ "$p" != *-fixture.sql ]]; then echo "DDL $p"; continue; fi;; esac
     case "$st" in A|M|D|T) [[ "$p" == design/* || "$p" == docs/* || "$p" == *.md ]] || echo CODE;; esac   # 코드 = 상태 A·M·D(·T) 아무거나 — 이름 바꾸기(R)는 --no-renames 가 D+A 로 풀어 준다
   done <"$f"; rm -f "$f"
 }

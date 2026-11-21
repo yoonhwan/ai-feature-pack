@@ -29,7 +29,7 @@ now_epoch() { echo "${FT_NOW:-$(date +%s)}"; }  # FT_NOW = 시험용 고정 시�
 
 MODE_RE=$'^[0-9]+\t(on|off)\tA[0-9]+$'; APPROVE_RE='^approve-merge [0-9a-f]{40} (A[0-9]+|OFF|D1|D2|D3) [0-9]+$'   # r947·r1577·r1794: 이벤트 칸 D1·D2·D3 = 상시 승인(ft-autonomy-standing.sh · -d2.sh · -d3.sh)
 # 범위 사전 승인 줄 3꼴(R298 · ft-autonomy-scope.sh 가 쓴다 · r560: scope-use 종류에 equiv = 이미 센 승인의 EQUIV 재승인·셈 0) — 이 꼴 밖의 줄은 지금처럼 위변조
-SCOPE_GRANT_RE='^approve-scope S[0-9]+ A[0-9]+ [0-9]+ until=[0-9]+ max=[0-9]+ daily=[0-9]+ classes=(docs|ff|revert|code)(,(docs|ff|revert|code))*( codemax=[0-9]+)?( repos=byz,pack)?( level=(full|mid))?$'
+SCOPE_GRANT_RE='^approve-scope S[0-9]+ A[0-9]+ [0-9]+ until=[0-9]+ max=[0-9]+ daily=[0-9]+ classes=(docs|ff|revert|code)(,(docs|ff|revert|code))*( codemax=[0-9]+)?( repos=byz,pack)?( level=(full|mid))?( lower=[0-9]{10}\.[0-9]{6})?$'   # r2349 C5: 끝 칸 ` lower=<오빠 답 Slack ts>`(낮춤 승인만) — 칸 없는 옛 줄도 그대로 통과
 SCOPE_USE_RE='^scope-use S[0-9]+ [0-9a-f]{40} (docs|ff|revert|code|equiv) [0-9]+( repo=pack)?( learned=[a-z0-9,-]+)?$'; SCOPE_STOP_RE=$'^scope-stop S[0-9]+ [0-9]+ [^\t]+$';   DOC_EXEMPT_RE='^doc-exempt [0-9a-f]{40} team=[a-z0-9][a-z0-9_-]* files=[0-9]+ by=[A-Za-z0-9#_-]+$'; DOC_EXEMPT_REJ_RE='^doc-exempt-reject [0-9a-f]{40} by=[A-Za-z0-9#_-]+$'   # R725 문서 전용 PR 예외 착지 기록(ft_doc_exempt.py · merge-land·가드) — 형식 고정
 STANDING_GRANT_RE='^approve-standing (D1 [0-9]+ repos=pack classes=(code|docs)(,(code|docs))? da=external|D2 [0-9]+ repos=(byz|pack|byz,pack) classes=(code|docs)(,(code|docs))? oppa_decision=[0-9]+\.[0-9]{6}|D3 [0-9]+ repos=(byz|pack|byz,pack) classes=(docs|ff|test)(,(docs|ff|test)){0,2})$'; STANDING_USE_RE='^(standing-use (D1 [0-9a-f]{40} [0-9]+ pr=[0-9]+ repo=pack|D2 [0-9a-f]{40} [0-9]+ pr=[0-9]+ repo=(byz|pack)) da=[0-9a-f]{40}|standing-use D3 [0-9a-f]{40} [0-9]+ pr=[0-9]+ repo=(byz|pack) class=(docs|ff|test))$'; STANDING_STOP_RE=$'^standing-stop (D1|D2|D3) [0-9]+ [^\t]+$'   # r947 상시 승인 D1 3꼴 · r1577 D2(repos·oppa_decision·repo=byz 허용) · r1794 D3(da= 없음 · class=) — ft-autonomy-standing(-d2).sh 가 쓴다
 ALLOW_LINE_RE=$'^allow-line ((allow|baseline) [^ \t]+ [^ \t]+ [0-9a-f]{16}|baseline-replace [^ \t]+ [0-9a-f]{16} old=[0-9a-f]{64} new=[0-9a-f]{64}) A[0-9]+ S[0-9]+ da=[0-9]+ [0-9]+$'   # r1870 allow-line 원장 2꼴(ft-autonomy-allow-line.sh 가 쓴다)
@@ -105,16 +105,16 @@ lock() {
   HELD=1; trap unlock EXIT; llm_load
 }
 
-reject() { echo "REJECT $1 (usage: on [--until HH:MM | --for <N>h|<N>m] [--level full|mid|each] [--max n --daily n --code-max n])" >&2; exit 2; }
+reject() { echo "REJECT $1 (usage: on [--until HH:MM | --for <N>h|<N>m] [--level full|mid|each] [--max n --daily n --code-max n] [--lower <오빠 답 Slack ts>])" >&2; exit 2; }
 
 parse_end() {  # on 의 인자 → UNTIL(epoch|null) · ON_LEVEL ON_MAX ON_DAILY ON_CM(r466). 틀리면 REJECT(상태 쓰기 0). --until 은 지난 시각이면 다음 날(DST 보정 0)
   local kind="" val="" now t
-  UNTIL=null; ON_LEVEL=""; ON_MAX=""; ON_DAILY=""; ON_CM=""
+  UNTIL=null; ON_LEVEL=""; ON_MAX=""; ON_DAILY=""; ON_CM=""; ON_LOWER=""
   while [ $# -gt 0 ]; do
     case "$1" in
       --until|--for) [ -z "$kind" ] || reject "--until 과 --for 는 함께 못 쓴다"
                      [ $# -ge 2 ] || reject "$1 값 없음"; kind="$1"; val="$2"; shift 2 ;;
-      --level|--max|--daily|--code-max) [ $# -ge 2 ] || reject "$1 값 없음"; case "$1" in --level) ON_LEVEL="$2" ;; --max) ON_MAX="$2" ;; --daily) ON_DAILY="$2" ;; *) ON_CM="$2" ;; esac; shift 2 ;;
+      --level|--max|--daily|--code-max|--lower) [ $# -ge 2 ] || reject "$1 값 없음"; case "$1" in --level) ON_LEVEL="$2" ;; --max) ON_MAX="$2" ;; --daily) ON_DAILY="$2" ;; --code-max) ON_CM="$2" ;; *) ON_LOWER="$2" ;; esac; shift 2 ;;
       *) reject "알 수 없는 인자: $1" ;;
     esac
   done

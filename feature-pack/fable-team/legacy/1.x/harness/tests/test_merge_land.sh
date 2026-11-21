@@ -230,19 +230,19 @@ sed -i '' 's|refs/ft-land/\$PR^{commit}|FETCH_HEAD^{commit}|' "$MB/ft-merge-land
 git -C "$W" fetch -q origin; mkpr 57 pr57 origin/main; mkpr 56 pr56 origin/main; P56="$PRSHA"; intr 56 57   # 57 먼저(끼어들 좌석) · 56 마지막(STUB_JSON = PR 56)
 apv --approve-sha "$P56"; out="$(PATH="$SX:$PATH" bash "$MB/ft-merge-land.sh" 56 --approve-sha "$P56" --repo "$W" 2>&1)"; rc=$?
 [ "$rc" = 1 ] && [[ "$out" != *LANDED* ]] && [[ "$out" == *REJECT* ]]; ck "④ 변이(FETCH_HEAD 읽기)는 착지 0 — ① 칸 FAIL(시험 검출력)" $?
-# ⑤ E1 — fetch 성공 뒤 총 마감 거절(deadline)처럼 «흐름 밖 출구»로 빠져도 EXIT trap 이 개인 ref 를 지운다
-SE="$T/shimE"; mkdir -p "$SE"; asle() {  # asle - PR head fetch 가 2 초 느린 대역(총 마감 소진용)
+# ⑤ E1 — «흐름 밖 출구»(PR head fetch 실패)로 빠져도 EXIT trap 이 개인 ref 를 지운다(r2355: 예약이 fetch 앞에 서면서 «fetch 성공 뒤 마감 거절» 길이 없어졌다 — 다른 실행이 남긴 개인 ref 를 미리 만들어 같은 성질을 잰다)
+SE="$T/shimE"; mkdir -p "$SE"; asle() {  # asle - PR head fetch 가 실패하는 대역
   cat > "$SE/git" <<EOF
 #!/bin/bash
-for a in "\$@"; do case "\$a" in *pull/*/head*) sleep 2;; esac; done
+case "\$*" in *fetch*) exit 128;; esac
 exec "$REAL_GIT" "\$@"
 EOF
   chmod +x "$SE/git"
 }
-asle; git -C "$W" fetch -q origin; mkpr 60 pr60 origin/main; P60="$PRSHA"; apv --approve-sha "$P60"
-out="$(PATH="$SE:$PATH" FT_LAND_TOTAL_S=2 FT_LAND_DEADLINE="$(( $(date +%s) + 60 ))" bash "$LAND" 60 --approve-sha "$P60" --repo "$W" 2>&1)"; rc=$?   # r1363: 착지 자체 마감(FT_LAND_DEADLINE)을 «멀리» 주입해 fetch 가 잘리지 않게 — fetch 성공 뒤 deadline(LIM 2) 거절 = 원래 이 칸의 전제
-[ "$rc" = 1 ] && [[ "$out" == *"총 마감"* ]]; ck "⑤ E1 fetch 뒤 «총 마감» 거절(전제)" $?
-[ "$(refs)" = "refs/ft-land/99 " ]; ck "② E1 총 마감 거절 뒤에도 개인 ref 잔여 0(EXIT trap — 흐름 밖 출구)" $?
+asle; git -C "$W" fetch -q origin; mkpr 60 pr60 origin/main; P60="$PRSHA"; apv --approve-sha "$P60"; git -C "$W" update-ref refs/ft-land/60 "$(sha "$W" "$M0")"; [ -n "$(git -C "$W" for-each-ref refs/ft-land/60)" ]
+out="$(PATH="$SE:$PATH" bash "$LAND" 60 --approve-sha "$P60" --repo "$W" 2>&1)"; rc=$?
+[ "$rc" = 1 ] && [[ "$out" == *"PR head fetch 실패"* ]]; ck "⑤ E1 fetch 실패(흐름 밖 출구) 거절(전제)" $?
+[ "$(refs)" = "refs/ft-land/99 " ]; ck "② E1 거절 뒤에도 개인 ref 잔여 0(EXIT trap — 흐름 밖 출구)" $?
 # ⑥ E2 — ref 정리가 실패하면 착지«전»에 멈춘다(조용한 성공 0 · 사유 1줄)
 cat > "$SE/git" <<EOF
 #!/bin/bash
@@ -260,9 +260,9 @@ MB2="$T/mutbin2"; mkdir -p "$MB2"; cp "$LAND" "$MB2/ft-merge-land.sh"
 for f in "$BIN"/*; do [ "$(basename "$f")" = ft-merge-land.sh ] || ln -sf "$f" "$MB2/"; done
 sed -i '' 's/lr_trap; if /if /' "$MB2/ft-merge-land.sh"   # r1069: fetch 줄이 «lr_trap; if [지정] … else fm_fetch» 꼴이 됐다 — 변이 의도(EXIT trap 등록 삭제)는 그대로
 ! cmp -s "$LAND" "$MB2/ft-merge-land.sh"; ck "⑤ 변이본 적용(lr_trap 등록 삭제)" $?
-asle; git -C "$W" fetch -q origin; mkpr 62 pr62 origin/main; P62="$PRSHA"; apv --approve-sha "$P62"
-out="$(PATH="$SE:$PATH" FT_LAND_TOTAL_S=2 FT_LAND_DEADLINE="$(( $(date +%s) + 60 ))" bash "$MB2/ft-merge-land.sh" 62 --approve-sha "$P62" --repo "$W" 2>&1)"; rc=$?
-[ "$rc" = 1 ] && [[ "$out" == *"총 마감"* ]] && [ -n "$(git -C "$W" for-each-ref refs/ft-land/62)" ]; ck "⑤ 변이(trap 없음)는 E1 칸(잔여 0)에서 FAIL — 시험 검출력" $?
+asle; git -C "$W" fetch -q origin; mkpr 62 pr62 origin/main; P62="$PRSHA"; apv --approve-sha "$P62"; git -C "$W" update-ref refs/ft-land/62 "$(sha "$W" "$M0")"
+out="$(PATH="$SE:$PATH" bash "$MB2/ft-merge-land.sh" 62 --approve-sha "$P62" --repo "$W" 2>&1)"; rc=$?
+[ "$rc" = 1 ] && [ -n "$(git -C "$W" for-each-ref refs/ft-land/62)" ]; ck "⑤ 변이(trap 없음)는 E1 칸(잔여 0)에서 FAIL — 시험 검출력" $?
 git -C "$W" update-ref -d refs/ft-land/62 2>/dev/null
 [ "$(refs)" = "refs/ft-land/99 " ]; ck "② E1·E2·변이 칸 뒤 잔여 0(다른 좌석 ref 99 만)" $?
 

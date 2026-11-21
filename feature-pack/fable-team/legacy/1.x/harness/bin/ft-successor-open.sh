@@ -27,6 +27,9 @@ so_budget_ok() { [ "$(( BUDGET - $(so_elapsed) ))" -gt 0 ]; }
 #   잔여 2초에서 들어가면 전체 상한을 넘고, 송신 «뒤» 에 끊으면 본문이 두 번 큐에 들어간다(중복 송신) — 그래서 들어가기 전에 막는다.
 SEND_RESERVE="${FT_SO_SEND_RESERVE:-40}"   # 송신·도달 단계 예약(초) = ft-send-verified 의 20+20 · 그 뒤 재확인은 아래 ⓕ 가 clip 으로 한다
 so_send_ready() { [ "$(( BUDGET - $(so_elapsed) ))" -ge "$SEND_RESERVE" ]; }
+# ★r2356★ 대기 루프는 «예약 앞» 에서 멈춘다 — 한 바퀴(수면 POLL초)를 마친 뒤에도 송신·도달 예약이 남아야 한다(남은 − POLL ≥ SEND_RESERVE).
+#   종전 조건(남은 > 0)은 신호가 안 오면 BUDGET 을 다 써 515행에서 rc5 — 같은 인자 재실행도 같은 대기에 다시 들어가 «진척 0» 이었다(실사건 r2356). POLL 은 168행에서 정해진다(호출 시점 평가).
+so_wait_ready() { [ "$(( BUDGET - $(so_elapsed) - POLL ))" -ge "$SEND_RESERVE" ]; }
 # ★r1660-c (arch#298)★ 재실행이 «다시 보내지 않고» 확인만 하려면 보낸 seq 를 파일로 남겨야 한다.
 #   송신은 큐에 들어간 순간 돌이킬 수 없다 — 두 번 보내면 좌석이 recv 에서 2건을 본다. 그래서 seq 를 .sent 에 적고 재실행은 확인만 한다.
 so_verify_ready() { [ "$(( BUDGET - $(so_elapsed) ))" -ge 20 ]; }   # 확인 1회(reach 20초) 몫
@@ -270,6 +273,7 @@ if [ "$CARRY_RC" != 0 ]; then
 fi
 printf '%s\n' "$CARRY_OUT" >&2
 # ⓐ-1 (r1391) 승계 본문 첫머리 지침 블록 — 정본 governance 에서 표식 블록을 «개설 전» 에 읽는다(desk 는 §11-6 블록).
+#   r2364: 이름에 «-tester-» 가 든 좌석(tester)은 §17 tester 블록(S17-TESTER)을 쓴다 — 기다림·press 꼴을 승계 본문에 싣는다.
 #   표식이 없거나 여러 개거나 300자 초과면 그 자리에서 REJECT rc1 = 세션 개설 0(이 도구의 fail-closed 꼴 그대로 · 본문 받은 뒤 거절되는 후계 0).
 #   본문 조립은 ⓓ — 골 3줄 다음에 이 블록을 넣는다(블록 본문은 한 곳 = governance · 이 파일은 복사만).
 GOV="${FT_GOV_MD:-$HOME/.claude/skills/fable-team/references/main-team-governance.md}"
@@ -278,7 +282,7 @@ if [ ! -f "$GOV" ]; then  # r1391 — 설치본이 없으면 같은 저장소의
     [ -f "$_c" ] && { echo "WARN 승계 블록: 설치본 없음 — 추적 정본을 쓴다 $GOV → $_c" >&2; GOV="$_c"; break; }
   done
 fi
-case "$NAME" in *-desk-*) _beg='<!-- S11-DESK-BEGIN -->'; _end='<!-- S11-DESK-END -->';; *) _beg='<!-- S17-BOOT-BEGIN -->'; _end='<!-- S17-BOOT-END -->';; esac
+case "$NAME" in *-desk-*) _beg='<!-- S11-DESK-BEGIN -->'; _end='<!-- S11-DESK-END -->';; *-tester-*) _beg='<!-- S17-TESTER-BEGIN -->'; _end='<!-- S17-TESTER-END -->';; *) _beg='<!-- S17-BOOT-BEGIN -->'; _end='<!-- S17-BOOT-END -->';; esac
 BLOCK="$(GOV="$GOV" BEG="$_beg" END="$_end" python3 - <<'PYBLOCK'
 import os, sys
 path, beg, end = os.environ["GOV"], os.environ["BEG"], os.environ["END"]
@@ -507,10 +511,10 @@ if [ "$AGENT" = codex ] || [ "$AGENT" = cmd ] || [ "$AGENT" = opencode ]; then
   echo "SessionStart 관측 생략($AGENT — 기록 없음) $NAME"
 else
 seen=0; i=0
-while [ "$i" -lt "$WAIT_MAX" ] && so_budget_ok; do i=$((i+1))
+while [ "$i" -lt "$WAIT_MAX" ] && so_wait_ready; do i=$((i+1))
   f="$(grep -lF "${SKEYS[@]}" "$JDIR"/*.jsonl 2>/dev/null)"
   [ -n "$f" ] && printf '%s\n' "$f" | xargs grep -lF "$SMARK" >/dev/null 2>&1 && { seen=1; break; }; sleep "$POLL"; done
-[ "$seen" = 1 ] && echo "SessionStart 관측 $NAME" || echo "SessionStart 미관측 $NAME (${WAIT_MAX}회) — 송신 후 도달 판정으로 확인"
+[ "$seen" = 1 ] && echo "SessionStart 관측 $NAME" || echo "SessionStart 미관측 $NAME (${i}회) — 송신 후 도달 판정으로 확인"
 fi
 so_send_ready || so_budget_stop "검증 송신(송신·도달 예산 ${SEND_RESERVE}초 필요)"   # 송신 «전» 에만 멈춘다 — 송신 뒤에 멈추면 재실행이 두 번 보낸다
 
@@ -520,7 +524,7 @@ so_send_ready || so_budget_stop "검증 송신(송신·도달 예산 ${SEND_RESE
 # ★r1037 이월 1★: 알림줄 꼬리(r1036 · FT_DOORBELL_TAIL)를 «송신과 링 재시도 둘 다»에 켠다 — 낱말은 본문에 싣지 않는다(본문은 도구 결과라 효과가 불확실하고 둘째 경로로 샌다).
 # r1443: 승계 좌석도 부팅 1회 기억 로드를 받는다(BLOCK 300자 상한은 건드리지 않고 별도 1줄로 붙인다)
 LESSONS_LINE="좌석 기억(1회 로드)= FT_SEAT_NAME=$NAME FT_TEAM=${FT_TEAM:-} bash .fable-team/bin/ft-lessons.sh snapshot — 팀·좌석 LESSONS ≤2KB(세션 중 add 는 파일에만 · 다음 부팅 반영)."
-SEND_TEXT="$( { sed -n '1,3p' "$BODY"; printf '%s\n' "$BLOCK"; printf '%s\n' "$LESSONS_LINE"; printf '%s\n' "$WATCH"; sed -n -E '4,${/^(목적 0 =|크론 0|배정표 |좌석 기억\(1회 로드\)=|승계 이월 |열린 칸 감시: )/d;p;}' "$BODY"; } )"  # r1391/r1443 — 골 3줄 + 지침 블록 + 기억 로드 1줄 + 본문 4행~ · r1863 4행~ 의 지침 머리 5개 줄은 뺀다(도구 줄이 정본) · r1957 감시 줄 = 기억 로드 바로 다음(4행~ 에서는 뺀다)
+SEND_TEXT="$( { sed -n '1,3p' "$BODY"; printf '%s\n' "$BLOCK"; printf '%s\n' "$LESSONS_LINE"; printf '%s\n' "$WATCH"; sed -n -E '4,${/^(목적 0 =|크론 0|배정표 |좌석 기억\(1회 로드\)=|승계 이월 |tester 목적 0 =|기다림 = sleep 폴링 0|press 단계 = 작업 폴더|열린 칸 감시: )/d;p;}' "$BODY"; } )"  # r1391/r1443 — 골 3줄 + 지침 블록 + 기억 로드 1줄 + 본문 4행~ · r1863 4행~ 의 지침 머리 5개 줄은 뺀다(도구 줄이 정본) · r1957 감시 줄 = 기억 로드 바로 다음(4행~ 에서는 뺀다) · r2364 tester 블록 머리 3개도 뺀다(블록 2번 0)
 if [ "${NAME#*-master-}" != "$NAME" ]; then
   if [ "$CARRY" = 1 ]; then
     SEND_TEXT="$SEND_TEXT"$'\n'"승계 이월 1: 앞 세션의 확대 사고를 이어 받는다. 문제가 풀리면 다음 승계에서 이월 0."

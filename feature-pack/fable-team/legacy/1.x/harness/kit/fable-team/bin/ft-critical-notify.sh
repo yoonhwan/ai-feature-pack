@@ -4,8 +4,8 @@
 #   배출   : ft-critical-notify.sh --drain                    밀린 장부에서 오래된 것부터 최대 3통(ft_stall_scan 이 회차마다 1회)
 #   해결   : ft-critical-notify.sh --resolved <도구> <대상>   그 대상의 열쇠를 닫는다(로컬 파일만 · 발신 0) → 그 뒤 거절은 지문이 같아도 즉시 1통
 #   감싸기 : ft-critical-notify.sh --wrap <도구> <스크립트> [인자…]   본 작업을 자식으로 «1회» 실행 · stdout 은 나오는 대로 흘리고 사본만 뜬다 · 끝난 뒤 rc 1 = 알림 · rc 0 = 해결
-#   본문 = «[크리티컬] <도구> <대상> — 무엇: … · 어디: … · 다음 손: …»(700자 안) · 받는 이 = seats-planner.json `_desk` · 보내는 이 = <도구>(ft-* · # 없음)
-#   발신 몫 = min(7초, FT_CRITICAL_BUDGET_S) · 재시도 0 · 반환 0 고정(--wrap 만 본 작업 rc). 발신 «앞» 에 state/critical-pending.jsonl 1줄(임시→mv) · 성공한 것만 지운다.
+#   본문 = «[크리티컬] <도구> <대상> — 무엇: … · 어디: … · 다음 손: …»(700자 안) · 받는 이 = seats-planner.json `_desk` (★r2355 K3: 도구 ft-merge-land 사건만 `_desk` + `_master` 같은 본문 1통씩 — 착지 주인이 planner master · 같은 값이면 1통 · `_master` 없음 = desk 1통 + WARN 1줄 · 그 밖 도구 = desk 1곳 그대로) · 보내는 이 = <도구>(ft-* · # 없음)
+#   발신 몫 = 받는 이마다 min(7초, 남은 몫) · 사건 하나의 합 상한 = min(14초, FT_CRITICAL_BUDGET_S) · 재시도 0 · 반환 0 고정(--wrap 만 본 작업 rc). 발신 «앞» 에 state/critical-pending.jsonl 1줄(임시→mv) · 받는 이별 «보냄» 칸(sent) — drain 은 못 받은 이에게만 · 모두 받으면 그 줄을 지운다.
 #   같은 열쇠(도구·대상·지문)는 FT_CRITICAL_DEDUPE_S(기본 3600 · 0 = 끔) 안에 1통 · 지나도 미해결이면 «(되풀이 n회째 · 첫 알림 #seq)» · 보낸 기록 = state/critical-sent.jsonl.
 #   발신 실패(_desk 없음 · mbox rc≠0 · 시간 초과 · 남은 < 1초) = stderr WARN 1줄 · pending 그대로. FT_CRITICAL_OFF=1 = 호출 0 · 기록 0(시험·격리 실행용).
 #   자리: comm = ft_comm_dir(FT_MBOX_DIR → FT_ROOT → cwd git 공용 루트) · 명부 = <comm>/.. · state = FT_CRITICAL_STATE_DIR → <comm>/../state · mbox = FT_MBOX → <comm>/mbox.sh
@@ -21,12 +21,12 @@ import fcntl, hashlib, json, os, re, subprocess, sys, time; sys.stderr.reconfigu
 STATE, SEATS, MBOX, HERE, MODE = sys.argv[1:6]; ARGS = sys.argv[6:]
 PEND, SENT = os.path.join(STATE, "critical-pending.jsonl"), os.path.join(STATE, "critical-sent.jsonl")
 NOW, T0 = float(os.environ.get("FT_CRITICAL_NOW") or time.time()), time.monotonic()
-try: DEDUPE, BUDGET = float(os.environ.get("FT_CRITICAL_DEDUPE_S") or 3600), min(7.0, float(os.environ.get("FT_CRITICAL_BUDGET_S") or 7))
+try: DEDUPE, BUDGET = float(os.environ.get("FT_CRITICAL_DEDUPE_S") or 3600), min(14.0, float(os.environ.get("FT_CRITICAL_BUDGET_S") or 7))
 except ValueError: DEDUPE, BUDGET = 3600.0, 7.0
 PROG = re.compile(r"pane 작업 중|\(IDLE 아님\)|분 내 편집|jsonl 마지막 기록\(|미제출 입력|도구 셸 실행|미읽음 쪽지|doorbell \d+건 미전달|미커밋 (실작업물|변경|\d+줄)|실작업물 미커밋")   # A6 «진행» 사유 표(세션이 일하는 중) — 표에 없는 글 = 진행 아님(알린다)
 CLOSE_NEXT = [(r"(세트:|- 착지:|증거 줄).*없", "그 나노에 정리 기록 차례(r1717 landed 명령) · 나노 없음이면 팀장"), (r"낡음|갈라짐", "원장 ref 를 맞춘 뒤 다시 닫기 — 팀 넘는 나노면 arch 판단"),
               (r"라이브 도구가 main 키트와 다르다", "설치 h 먼저 — 드리프트 파일: {drift}")]   # r1721 A5 — {drift} = 검사 출력의 항목 줄 첫 3줄
-LAND_NEXT = [(r"동일승인 대조", "지금 head sha 로 다시 승인"), (r"충돌|non-FF|조상이 아님|포함하지 않음|최신화", "PR 가지를 main 위로 최신화 → 새 head sha 로 오빠께 다시 질문")]
+LAND_NEXT = [(r"이미 main 에 있음", "착지할 것 0 · PR 닫기(재승인 0)"), (r"동일승인 대조", "지금 head sha 로 다시 승인"), (r"충돌|non-FF|조상이 아님|포함하지 않음|최신화", "PR 가지를 main 위로 최신화 → 새 head sha 로 오빠께 다시 질문")]
 warn = lambda m: print("WARN ft-critical-notify: " + m, file=sys.stderr)
 key = lambda r: (r.get("tool"), r.get("target"), r.get("event")); sha12 = lambda s: hashlib.sha256(s.encode("utf-8")).hexdigest()[:12]
 
@@ -67,10 +67,20 @@ def add(new):   # A2·A3 — 같은 미해결 열쇠가 DEDUPE 초 안 = 발신 
         pend = load(PEND)
         if not any(key(p) == key(new) for p in pend): save(PEND, pend + [new])   # r1718-mut:pendfirst
 
-def desk():
-    try: v = json.load(open(os.path.join(SEATS, "seats-planner.json"), encoding="utf-8")).get("_desk")
+def desk(k="_desk"):   # r2355 K3ⓐ: 칸 이름을 받는다 — _desk(기본) · _master(ft-merge-land 사건 둘째 받는 이)
+    try: v = json.load(open(os.path.join(SEATS, "seats-planner.json"), encoding="utf-8")).get(k)
     except (OSError, ValueError, AttributeError): v = ""
     return v.strip() if isinstance(v, str) else ""
+
+def targets(r, _c={}):   # r2355 K3ⓐ — ft-merge-land 사건만 desk + _master(같은 값 = 1통 · _master 없음 = desk 1통 + WARN 1줄) · 그 밖 도구 = desk 하나 · 도구별 1회만 계산
+    t = r.get("tool") or ""
+    if t in _c: return _c[t]
+    out = [desk()] if desk() else []
+    if not desk(): warn(f"seats-planner.json 에 _desk 칸 없음({SEATS}) — 발신 0 · pending 에 남김")
+    m = desk("_master") if t == "ft-merge-land" else ""
+    if t == "ft-merge-land" and not m: warn(f"seats-planner.json 에 _master 칸 없음({SEATS}) — desk 1통만 발신")
+    elif m and m not in out: out.append(m)
+    _c[t] = out; return out
 
 def body(r):   # A1 — 700자 안 · 넘으면 «무엇» 뒤를 자르고 «외 <n>자»
     rep = f" (되풀이 {r['n']}회째 · 첫 알림 #{r.get('first') or '?'})" if int(r.get("n") or 1) > 1 else ""
@@ -79,8 +89,8 @@ def body(r):   # A1 — 700자 안 · 넘으면 «무엇» 뒤를 자르고 «�
     if len(what) > room: keep = max(0, room - 10); what = f"{what[:keep]} 외 {len(what) - keep}자"
     return head + what + tail
 
-def send(to, r):   # → seq | None(실패 = WARN 1줄 · 재시도 0)
-    left, who = BUDGET - (time.monotonic() - T0), f"{r['tool']} {r['target']}"
+def send(to, r, left):   # → seq | None(실패 = WARN 1줄 · 재시도 0) · left = 이 받는 이에게 쓸 수 있는 몫(초 · r2355 K3ⓑ)
+    who = f"{r['tool']} {r['target']}"
     if left < 1: warn(f"남은 시간 {max(left, 0.0):.1f}초 < 1초 — 발신 0 · pending 에 남김({who})"); return None
     try: p = subprocess.run(["bash", MBOX, "send", to, r["tool"], body(r)], capture_output=True, encoding="utf-8", errors="replace", timeout=left)
     except subprocess.TimeoutExpired: warn(f"mbox 발신 시간 초과({left:.1f}초) — pending 에 남김({who})"); return None
@@ -97,16 +107,22 @@ def flush():   # A2 — 오래된 것부터 최대 3통 · 같은 열쇠 여러 
             if key(r) in [key(b) for b in batch]: r["claim"] = {"pid": os.getpid(), "at": time.time()}
         if batch: save(PEND, pend)
     if not batch: return
-    to, done = desk(), []
-    if not to: warn(f"seats-planner.json 에 _desk 칸 없음({SEATS}) — 발신 0 · pending 에 남김")
-    for r in (batch if to else []):
-        seq = send(to, r)
-        if seq is None: break
-        done.append({"tool": r["tool"], "target": r["target"], "event": r["event"], "ts": NOW, "seq": seq, "n": int(r.get("n") or 1), "first": r.get("first") or seq})
+    done = []
+    for r in batch:   # r2355 K3ⓑ·ⓒ: 받는 이마다 차례로 · 몫 = min(7, 남은 몫) · 남은 < 1 이면 그 이는 pending · pending 1줄에 받는 이 칸(to)과 받는 이별 «보냄» 칸(sent)
+        r["to"], used, miss = targets(r), 0.0, list(r.get("sent") or [])
+        for to in r["to"]:
+            if to in miss: continue
+            b0 = time.monotonic(); seq = send(to, r, min(7.0, min(14.0, BUDGET) - used)); used += time.monotonic() - b0
+            if seq is None: break
+            r["sent"] = miss = miss + [to]; done.append({"tool": r["tool"], "target": r["target"], "event": r["event"], "ts": NOW, "seq": seq, "n": int(r.get("n") or 1), "first": r.get("first") or seq, "to": to})
     with Lock():
-        keep = [r for r in load(PEND) if key(r) not in [key(d) for d in done]]
-        for r in keep:
-            if (r.get("claim") or {}).get("pid") == os.getpid(): del r["claim"]
+        keep = []
+        for w in load(PEND):
+            if (w.get("claim") or {}).get("pid") == os.getpid(): del w["claim"]
+            b = next((x for x in batch if key(x) == key(w)), None)
+            if b is None: keep.append(w); continue
+            w["to"], w["sent"] = b["to"], list(b.get("sent") or [])
+            if not w["to"] or not all(t in w["sent"] for t in w["to"]): keep.append(w)
         save(PEND, keep)
         sent = load(SENT) + done
         while len(sent) > 200: sent.pop(next((n for n, s in enumerate(sent) if s.get("resolved")), 0))   # 200줄 넘으면 «해결» 된 앞 줄부터

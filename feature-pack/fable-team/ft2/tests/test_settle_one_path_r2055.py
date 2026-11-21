@@ -114,7 +114,7 @@ def c2(w):   # ② 팀 걸친 카드(짝 표 없음 · 본문 경로) · 착지 
     nano(w, stem, age=10, body="[발주] %s — 카드 origin/main design/teams/v65/indices/대기/%s.md(팀 폴더 아님) §범위" % (stem, stem))
     lines = two(w)   # A6·S4-1 jsonl 10초 전 증가 = WORKING landed-wait · kill 0 · complete 0 (DA#11 R1)
     assert has(lines, "WORKING harness %s" % stem, "landed-wait") and not w.tmux("kill-session") and w.kinds("complete") == 0, lines
-    lines = rnd(w, dt=7200)   # 무활동 ≥ PARK_IDLE → LANDED
+    lines = rnd(w, dt=3550) + rnd(w, dt=3550)   # r2354 K1 표본 상한 3600 안쪽으로 나눔 · 무활동 ≥ PARK_IDLE → LANDED
     assert has(lines, "COMPLETED harness %s" % stem) and len(w.tmux("kill-session")) == 1, lines
 
 
@@ -207,7 +207,7 @@ def c10(w):   # ⑩ 원장 done ∧ 카드 완성 폴더 · PR 0 · 가지 이�
     nano(w, "r9561", done=True, branch="feature/other", age=60)
     lines = two(w)   # jsonl 1분 전 증가 = WORKING · kill 0 (DA#11 R1 재현 입력)
     assert has(lines, "WORKING harness r9561") and not w.tmux("kill-session"), lines
-    lines = rnd(w, dt=7200)
+    lines = rnd(w, dt=3550) + rnd(w, dt=3550)   # r2354 K1 표본 상한 3600 안쪽
     assert has(lines, "CLOSED-ENDING harness r9561", "done-card-완성") and len(w.tmux("kill-session")) == 1, lines
 
 

@@ -47,6 +47,28 @@ def index_lock(path):
     return os.path.join(gitdir, "index.lock") if os.sep + "worktrees" + os.sep in gitdir else None
 
 
+def lock_paths(path):
+    """이 워크트리 gitdir 의 lock 3개 — index · info/sparse-checkout · config.worktree(r2333 · sparse-checkout set 이 셋 다 쓴다).
+    gitdir 판독 = index_lock 과 같은 자리 · 못 읽음·worktrees 밖 = [](손 0 · 본 리포 .git 은 다른 자리)."""
+    index = index_lock(path)
+    if index is None:
+        return []
+    gitdir = os.path.dirname(index)
+    return [index, os.path.join(gitdir, "info", "sparse-checkout.lock"),
+            os.path.join(gitdir, "config.worktree.lock")]
+
+
+def drop(lock):
+    """lock 1개 지우기 — 없음 = True(이미 깨끗함) · 그 밖 OSError = False(그대로 · 이어 열기 표시 0)."""
+    try:
+        os.unlink(lock)
+    except FileNotFoundError:
+        return True
+    except OSError:
+        return False
+    return True
+
+
 def sweep(plan, repo, sha, receipt, git_s=25, tmux_s=7, timed_out=False):
     """(의도에 더할 칸 = 생성 영수 + 치우기 결과, 사유 1구) — 실패 의도에도 영수가 남는다 · timed_out = checkout 시간 초과(r2044)."""
     extra, note = clear(plan, repo, sha, receipt, git_s, tmux_s)
@@ -54,19 +76,16 @@ def sweep(plan, repo, sha, receipt, git_s=25, tmux_s=7, timed_out=False):
 
 
 def unlock(plan, sha, extra, note):
-    """r2044 A1 — checkout 시간 초과 뒤 1회 · 영수 ∧ 보존일 때만 이 워크트리 gitdir 의 index.lock 을 지우고 resumable 1칸.
-    판독·지우기 실패 = 그대로(A4 · 지우기 0 · 본 리포 lock 손 0)."""
+    """r2044 A1 · r2333 — checkout 시간 초과 뒤 1회 · 영수 ∧ 보존일 때만 이 워크트리 gitdir 의 lock 3개를 지우고 resumable 1칸.
+    파일마다 없음 = 넘어감 · 그 밖 판독·지우기 실패 = 그대로(A4 · 지우기 0 · 본 리포 lock 손 0)."""
     if not (extra.get("add_ok") and extra.get("path_new") and str(extra.get("cleanup", "")).startswith("보존")):
         return extra, note
-    lock = index_lock(plan["worktree"])
-    if lock is None:
+    locks = lock_paths(plan["worktree"])
+    if not locks:
         return extra, note
-    try:
-        os.unlink(lock)
-    except FileNotFoundError:
-        pass
-    except OSError:
-        return extra, note
+    for lock in locks:
+        if not drop(lock):
+            return extra, note
     return dict(extra, resumable="checkout", base_sha=sha), note + " · 이어 열기 가능(checkout) = --resume 1회"
 
 

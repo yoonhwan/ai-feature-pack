@@ -86,7 +86,9 @@ def _bound(root, *roots):
 
 def test_1_new_root_wakes_planner(env):
     ts = "1800000001.000100"
-    _listener(env, []).route(_msg(ts))
+    listener = _listener(env, [])
+    listener.route(_msg(ts))
+    listener.worker.stop()  # r2341 — 깨움은 일꾼 큐 몫 · 시험은 큐를 비운 뒤 장부를 본다
     wakes = _wakes(env, MASTER)
     assert len(wakes) == 1 and wakes[0][0] == "send" and wakes[0][2] == "ft2-slack-listen"
     assert wakes[0][3].splitlines()[0] == "[Slack] 새 업무 · thread %s · command %s" % (ts, cmd(ts))
@@ -99,6 +101,7 @@ def test_2_wake_body_is_recent_context_only(env):
     replies = ["1800000002.%06d" % (200 + i) for i in range(5)]
     for ts in replies:
         listener.route(_msg(ts, thread_ts=root_a))
+    listener.worker.stop()  # r2341 — 깨움은 일꾼 큐 몫
     body = [w for w in _wakes(env, MASTER) if "thread " + root_a in w[3].splitlines()[0]][-1][3].splitlines()
     assert body[1] == "같은 thread 다른 글 3줄(맥락 · 이 command 의 글 아님)" and body[-2] == "이번 글"  # r2081 B1 갈래 표시 2줄
     body = [body[0]] + body[2:-2] + body[-1:]
@@ -111,7 +114,9 @@ def test_3_closed_thread_alerts_desk_only(env):
     ts = "1800000003.000100"
     ledger, (key,) = _bound(env, ts)
     ledger.close(key)
-    _listener(env, []).route(_msg(ts))
+    listener = _listener(env, [])
+    listener.route(_msg(ts))
+    listener.worker.stop()  # r2341 — 깨움은 일꾼 큐 몫
     assert len(_wakes(env, DESK)) == 1 and _wakes(env, MASTER) == []
 
 
@@ -119,6 +124,7 @@ def test_4_redelivery_no_wake_no_issues_no_post(env):
     ts, posts = "1800000004.000100", []
     listener = _listener(env, posts)
     listener.route(_msg(ts)), listener.route(_msg(ts))
+    listener.worker.stop()  # r2341 — 깨움은 일꾼 큐 몫
     assert len(_wakes(env, MASTER)) == 1 and posts == []  # r1818 접수 게시 0
     assert len(_load("receive").intake.Intake(str(env), "issues").records()) == 1
 
@@ -127,17 +133,21 @@ def test_5_issues_same_command_record_only(env):
     ts = "1800000005.000100"
     listener = _listener(env, [])
     listener.route(_msg(ts))
+    listener.worker.stop()  # r2341 — 입구 기록·깨움은 일꾼 큐 몫
     issues = _load("receive").intake.Intake(str(env), "issues")
     assert issues.lookup(cmd(ts)).result == "접수 성공" and _wakes(env, ISSUES) == []
     key = _load("binding").thread_key(W, C, ts)  # ⑤′ 같은 command 재전달
     listener.router.deliver(MASTER, "새 업무", listener.router.context(key))
+    listener.worker.stop()
     assert [r["command"] for r in issues.records()] == [cmd(ts)] and issues.lookup(cmd(ts)).attempt == cmd(ts) + "#a1"
 
 
 def test_6_wake_failure_recorded_and_desk_alerted(env, monkeypatch):
     monkeypatch.setenv("FAKE_WAKE_FAIL", MASTER)
     ts = "1800000006.000100"
-    _listener(env, []).route(_msg(ts))
+    listener = _listener(env, [])
+    listener.route(_msg(ts))
+    listener.worker.stop()  # r2341 — 깨움은 일꾼 큐 몫 · 시험은 큐를 비운 뒤 장부를 본다
     assert [r["state"] for r in _rows(env, "route.jsonl") if r["t"] == "route"] == ["dispatched"]
     assert [(r["to"], r["rc"]) for r in _rows(env, "wire.jsonl") if r["t"] == "wake" and r["rc"] != 0] == [(MASTER, 1)]
     assert len(_wakes(env, DESK)) == 1

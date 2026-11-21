@@ -5,9 +5,11 @@
      @TMUX_SOCKET@(렌더 때 desk 셸 `tmux display -p '#{socket_path}'` 값 · r1817 D4 — launchd 의 tmux 가 다른 서버면 닫기 0).
      PATH 에 /usr/sbin:/sbin(r1817 D1 — lsof = /usr/sbin/lsof · 없으면 ft-seat-reap rc20).
      기동마다 @FT2_HOME@/CURRENT 가 가리키는 버전의 core/cli.py 를 부른다(버전이 바뀌어도 틀은 그대로).
+     ProcessType = Interactive(r2371 · r1377 표: 7초 상한 git 판독 잡은 Interactive · r1975 ⑧ 이 Background 를 뺀 자리 · 키가 없으면 spawn type daemon 으로 떠 부하 때 git 이 끊긴다).
      등록·kickstart·해제 = 설치 h(사람 승인 · 크리티컬 kind=launchd) 몫 · 로그 폴더 @ROOT@/.fable-team/state/ft2-keeper/ 는 설치가 먼저 만든다. -->
 <plist version="1.0"><dict>
   <key>Label</key><string>com.byz.ft2-keeper</string>
+  <key>ProcessType</key><string>Interactive</string>
   <key>ProgramArguments</key><array>
     <string>/opt/homebrew/bin/python3</string>
     <string>-c</string>

@@ -427,12 +427,33 @@ orphans() { # → ORPH = "kb<TAB>경로<TAB>reg|tmp<TAB>사유" 줄들 · HOLD =
 "; HELD=$((HELD+1)); }
   hold_lsof() { HOLD="$HOLD$1	$2	$3	$4	$5	$6	$7
 "; HLSOF=$((HLSOF+1)); }   # r1090 DA②: lsof «조회 실패» 로 붙잡은 수는 held 와 다른 칸으로 센다
+  ORPT_MARK=0   # r2363: 보고 길 «예산 바닥» 표식 — 한 번 바닥나면 남은 사본의 occ_left(date) 부름도 멈춘다(사본 수천에서 하위 셸 수천 번 0)
+  copy_kb() { # <경로> → COPY_KB = 크기(kb|«?») · COPY_LEFT = 이 사본에 쓸 남은 초 · rc1 = 지우기 길 예산 바닥(이번 사본은 다음 틱 · r1029 그대로)
+    local oleft
+    COPY_KB='?'; COPY_LEFT=0
+    if [ "$REPORT_ONLY" != 0 ]; then   # r2363: 보고 길 — 예산이 바닥나도 사본 줄은 남긴다(크기만 «?» · r1029 의 continue 꼴을 쓰면 표에서 사라진다)
+      [ "$ORPT_MARK" = 0 ] || { ODEF=$((ODEF+1)); return 0; }
+      cap oleft occ_left; isnum "$oleft" || oleft=0
+      COPY_LEFT="$oleft"
+      [ "$oleft" != 0 ] || { ORPT_MARK=1; ODEF=$((ODEF+1)); return 0; }
+      cap COPY_KB kb "$1" "$oleft"
+      isnum "$COPY_KB" || { ODEF=$((ODEF+1)); COPY_KB='?'; }   # r2363 N1: 예산 안 du 실패(끊김·rc≠0)도 «?» — «?» 줄 수와 못 잰 수가 같은 눈금
+      return 0
+    fi
+    cap oleft occ_left; isnum "$oleft" || oleft=0
+    COPY_LEFT="$oleft"
+    if [ "$ODL" != 0 ] && [ "$oleft" = 0 ]; then ODEF=$((ODEF+1)); return 1; fi
+    cap COPY_KB kb "$1" "$oleft"; isnum "$COPY_KB" || COPY_KB='?'
+    return 0
+  }
   # r1029: 점유 조회 = 사본별(한 사본의 실패·지연이 다른 사본 판정을 지우지 않는다) — --report 는 지우기 0 이라 전체 1회 그대로
   if [ "$REPORT_ONLY" != 0 ]; then
     cap RAW $TMO lsof -w -d cwd -Fpcn 2>/dev/null || LSOF_OK=0
     [ -n "$RAW" ] || LSOF_OK=0
     [ "$LSOF_OK" = 0 ] || cap CWDROWS cwd_parse "$RAW" || LSOF_OK=0
     if [ "$LSOF_OK" = 0 ]; then echo "ERROR lsof 실패 — 삭제 0 (cwd 판정 불가)" >&2; return 0; fi
+    OQF=0; ODEF=0; ODL=$(( now + ${FT_SCRATCH_JUDGE_BUDGET:-20} ))   # r2363: 보고 길도 지우기 길과 같은 예산 — 사본 수에 비례해 끝나지 않던 길(넘은 사본 = 크기 «?» · ODEF)
+    [ "$RBUD" = 0 ] || [ "$ODL" -le "$RBUD" ] || ODL=$RBUD   # r1090 그대로: 판정도 «회차 70초» 안에서
   else
     OQF=0; ODEF=0; ODL=0
     if ! lsof_ok; then LSOF_OK=0; echo "ERROR lsof 실패 — 삭제 0 (cwd 판정 불가)" >&2; return 0; fi
@@ -462,10 +483,9 @@ orphans() { # → ORPH = "kb<TAB>경로<TAB>reg|tmp<TAB>사유" 줄들 · HOLD =
         why="$why · judged"
       fi
       # r1029 r2: 판정 예산이 이미 바닥이면 크기(du)도 부르지 않고 다음 틱으로 넘긴다 — 사본 수에 비례해 회차가 끝나지 않던 길 · «남은 사본 N개 다음 틱» 1줄이 그대로 센다
-      cap oleft occ_left; isnum "$oleft" || oleft=0
-      if [ "$ODL" != 0 ] && [ "$oleft" = 0 ]; then ODEF=$((ODEF+1)); continue; fi
-      cap kbv kb "$p" "$oleft"; isnum "$kbv" || kbv='?'   # 표시 전용(크기) — 결정 입력 0 · r5: 빈 칸 0(탭 IFS 가 빈 칸을 접어 열이 밀리던 길 · DA⑥ r4 반례 1b)
-      occ_decide "$kbv" "$p" reg "$why" "$o" "$oleft"
+      # r2363: 두 길 모두 같은 예산 시계(copy_kb) — 보고 길은 넘은 사본을 «?» 로 표에 남긴다(표시 전용(크기) · 결정 입력 0 · r5: 빈 칸 0)
+      copy_kb "$p" || continue
+      occ_decide "$COPY_KB" "$p" reg "$why" "$o" "$COPY_LEFT"
     done <<EOF
 $rows
 EOF
@@ -476,17 +496,18 @@ EOF
     while IFS= read -r d; do
       case "$d" in "$TD"/tmp.*) [ -d "$d" ] || continue;; *) continue;; esac
       case "${d#"$TD"/}" in */*) continue;; esac
-      # r1029 r2: 예산이 바닥이면 tmp.* 도 du 호출 0 으로 다음 틱
-      cap oleft occ_left; isnum "$oleft" || oleft=0
-      if [ "$ODL" != 0 ] && [ "$oleft" = 0 ]; then ODEF=$((ODEF+1)); continue; fi
-      cap kbv kb "$d" "$oleft"; isnum "$kbv" || kbv='?'   # 표시 전용(크기)
-      occ_decide "$kbv" "$d" tmp "TMPDIR tmp.* ${AGE}분 지남" "-" "$oleft"
+      # r1029 r2: 예산이 바닥이면 tmp.* 도 du 호출 0 으로 다음 틱 · r2363: 보고 길은 «?» 로 표에 남긴다
+      copy_kb "$d" || continue
+      occ_decide "$COPY_KB" "$d" tmp "TMPDIR tmp.* ${AGE}분 지남" "-" "$COPY_LEFT"
     done <<EOF
 $tdl
 EOF
   else echo "WARN ft-scratch-repo — TMPDIR 목록(id·find) 못 읽음 · tmp.* 삭제 0" >&2; fi
-  # r1029: 예산을 넘긴 사본은 «조용한 0» 이 아니라 1줄로 알린다(다음 틱에 다시 본다)
-  [ "$ODEF" = 0 ] || echo "WARN ft-scratch-repo — 판정 예산(${FT_SCRATCH_JUDGE_BUDGET:-20}초) 초과 · 남은 사본 ${ODEF}개 다음 틱" >&2
+  # r1029: 예산을 넘긴 사본은 «조용한 0» 이 아니라 1줄로 알린다(다음 틱에 다시 본다) · r2363: 보고 길은 «크기 못 잼» 1줄(표 줄은 그대로)
+  if [ "$ODEF" != 0 ]; then
+    if [ "$REPORT_ONLY" != 0 ]; then echo "WARN ft-scratch-repo — 보고 예산(${FT_SCRATCH_JUDGE_BUDGET:-20}초) 초과 · 크기 못 잰 사본 ${ODEF}개 «?»" >&2
+    else echo "WARN ft-scratch-repo — 판정 예산(${FT_SCRATCH_JUDGE_BUDGET:-20}초) 초과 · 남은 사본 ${ODEF}개 다음 틱" >&2; fi
+  fi
 }
 READY="$STATE/scratch-ready"   # r996 ⓗ: 완성 표식 자리 — 사본별 빈 파일(사본 이름 그대로)
 ready_mark() { # <사본> → 0 = 완성 표식 있음(체크아웃 끝) · 1 = 없음(끊긴 사본 · 옛 판 사본) — 외부 호출 0 · 사본 작업 트리 안에 파일을 쓰지 않는다(r891 ⓑ «status 깨끗» 그대로)
@@ -856,8 +877,8 @@ case "${1:-}" in
     [ "${2:-}" != --orphans ] || { unregistered_copies; exit 0; }
     REPORT_ONLY=1   # r1029: 보고는 지우기 0 — 점유 조회를 전체 1회로(빠른 길)
     orphans
-    if [ "${2:-}" = --summary ]; then [ "$N" = 0 ] || printf '주인 없는 임시 사본 %s개 %s GiB\n' "$N" "$(gib "$K")"
-    else printf '%s%s' "$ORPH" "$HOLD" | awk -F'\t' '$2!=""{k=$1; if (k !~ /^[0-9]+$/) k=0; printf "%s\t%s\t%s\n", sprintf("%.2f", k/1048576), $2, $4}'; fi;;   # r548: 붙잡은 사본도 «붙잡음 pid …» 칸으로 보인다 · --summary 는 지울 수 있는 것만 센다
+    if [ "${2:-}" = --summary ]; then [ "$N" = 0 ] || printf '주인 없는 임시 사본 %s개 %s GiB%s\n' "$N" "$(gib "$K")" "$([ "$ODEF" = 0 ] || printf ' · 크기 못 잼 %s개' "$ODEF")"   # r2363: 못 잰 수는 같은 줄에(예산 안에서 잰 것만 GiB 합 · 알려진 한계 1)
+    else printf '%s%s' "$ORPH" "$HOLD" | awk -F'\t' '$2!=""{k=$1; if (k !~ /^[0-9]+$/) { printf "?\t%s\t%s\n", $2, $4; next } printf "%s\t%s\t%s\n", sprintf("%.2f", k/1048576), $2, $4}'; fi;;   # r548: 붙잡은 사본도 «붙잡음 pid …» 칸으로 보인다 · --summary 는 지울 수 있는 것만 센다 · r2363: 예산으로 못 잰 사본은 크기 «?»(0.00 아님)
   --sweep) sweep_run;;
   --prune-missing) [ "${2:-}" = --owners ] && [ -n "${3:-}" ] || die "usage: --prune-missing --owners <주인 파일>" 2; prune_missing "$3"; exit $?;;
   --gate)   # r5: 출구 게이트를 «삭제 단계 없이» 돌린다 — 조건별 줄 + rc · 삭제 0

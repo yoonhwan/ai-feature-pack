@@ -1,6 +1,6 @@
 """r2284 ft2 keeper — 끝난 나노 닫기 막힘 2갈래 (카드 반례 ①~⑤ · 계약 C1~C3).
 ① 같은 바퀴 COMPLETED → CARD-STAGE 대기→완성 뒤 B2 landing 이 낡은 카드 목록을 씀(C1) · ①ⓑ NOOP = 캐시 그대로.
-②③④ CPU 쉼 표본 장부 수명(C2 · SAMPLE_KEEP 600초) · ⑤ 닫기 가드 그대로(C3).
+③④ CPU 쉼 표본 장부 수명(③ = r2354 K1 좌석 판 대조 · ④ busy 덮음) · ⑤ 닫기 가드 그대로(C3).
 대역 = r2055 settle 시험 world(keeper_world_r1812 꼴 · 임시 리포 · 가짜 tmux·ps · 주입 시계) · card_stage = 실제 git 이동 대역(seed 커밋 · root fetch).
 기준판(팩 origin/main d809c99c) = ① · ② Red. 변이 M1~M3 = 자매 파일 test_keeper_done_close_stuck_mut_r2284.py. sleep 0 · 실 tmux·pi 0.
 """
@@ -117,13 +117,19 @@ def c2(w):   # ② 바퀴 A 표본 1(쉼) → 바퀴 B fetch 실패(표본 0) �
     assert len(closed(c, work)) == 1 and len(w.tmux("kill-session")) == 1, c
 
 
-def c3(w):   # ③ 바퀴 A 표본(쉼) → 바퀴 C 가 A 뒤 601초+ → 표본 1개로 봄 → pending · 닫기 0
+def c3(w):   # ③ r2354 K1 — A 뒤 605초는 같은 pane_pid = 표본 유지 → idle · 닫기 1 · A 뒤 4000초(CPU_SAMPLE_MAX 넘김) = 새 표본 → pending · 닫기 0
     work = "r9843"
     landed_nano(w, work)
     S.rnd(w, clean="")
     fetch_fail(w)
-    c = S.rnd(w, dt=545, clean="")   # A 뒤 605초
-    assert not closed(c, work) and not w.tmux("kill-session"), c
+    c = S.rnd(w, dt=605, clean="")   # A 뒤 605초 = 600초 넘지만 같은 판(r2354 K1)
+    assert len(closed(c, work)) == 1 and len(w.tmux("kill-session")) == 1, c
+    work = "r9844"   # 4000초 = 표본 상한 넘김 → 새 표본 → pending
+    landed_nano(w, work)
+    S.rnd(w, clean="")
+    fetch_fail(w)
+    c = S.rnd(w, dt=4000, clean="")
+    assert not closed(c, work) and len(w.tmux("kill-session")) == 1, c
     assert [x for x in c if "WORKING %s %s" % (TEAM, work) in x and "cpu-pending" in x] or state(w)["verdict"]["%s|%s|byz-%s-nano-%s#0" % (TEAM, work, TEAM, work)] == ["WORKING", "cpu-pending"], c
 
 

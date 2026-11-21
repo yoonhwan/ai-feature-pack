@@ -65,7 +65,7 @@ need_tilth() { [ -n "$TILTH" ] || die_missing tilth "  npx -y tilth --version   
 #  enough data") → 데몬 즉사 → 호출은 25초를 기다린다(하드 룰 12). 창(기본 120초) 안 DB crash 2회 이상 = crash-loop.
 #  crash-log 에는 클라이언트 panic(예: md char-boundary f344d642)도 쌓인다 → 데몬 DB 열기 형태만 세고, 창 «안» 시각인 항목만 센다(보정 #282277).
 #  $1=slow 이면 crash-log 없이도 Uptime 0s 2회 연속을 본다(doctor·refs 공통 판정). rc0=crash-loop · rc1=정상
-_lsp_uptime() { "$PROBE" lsp status 2>/dev/null | sed -n 's/^ *Uptime: *//p' | head -1; }
+_lsp_uptime() { TMPDIR="$CI_PT" "$PROBE" lsp status 2>/dev/null | sed -n 's/^ *Uptime: *//p' | head -1; }
 _ep() { date -j -u -f '%Y-%m-%dT%H:%M:%S' "${1%%.*}" +%s 2>/dev/null || echo 0; }
 _lsp_crash_state() {
   local f ents ts msg cnt last e now stamp v age
@@ -90,12 +90,12 @@ _lsp_crash_state() {
 # ── repair 상한 (r2186 L4) — 전체 예산 25초 · probe 호출 하나 = min(7, 남은 예산) · 시각은 _rp_now 한 곳(시험 = CI_LSP_REPAIR_NOW_CMD) ──
 _rp_now() { eval "${CI_LSP_REPAIR_NOW_CMD:-date +%s}"; }
 _rp_left() { echo $(( 25 - ($(_rp_now) - RP_T0) )); }
-_rp_call() { local l; l="$(_rp_left)"; [ "$l" -ge 1 ] || return 124; _cap "$(( l < 7 ? l : 7 ))" "$PROBE" "$@"; }   # 예산 0 = 부르지 않고 124
+_rp_call() { local l; l="$(_rp_left)"; [ "$l" -ge 1 ] || return 124; TMPDIR="$CI_PT" _cap "$(( l < 7 ? l : 7 ))" "$PROBE" "$@"; }   # 예산 0 = 부르지 않고 124
 _rp_capped() { echo "판정 불가 repair — 상한 ($1 · 예산 25초 · 호출 7초 · 옮긴 캐시 ${moved:-0} 개는 그대로 · 다시 실행)" >&2; exit 3; }
 
 # ── LSP 실패 보이기 (r1381) — 빈 status·초기화 멈춤·데몬 시간 초과를 «정상»·«참조 없음» 꼴로 두지 않는다 ──
 #  status 1회 → LS_OUT · LS_RC (상한 CI_LSP_STATUS_TIMEOUT 기본 10초 · 걸리면 rc124)
-_lsp_status() { LS_OUT="$(_cap "${CI_LSP_STATUS_TIMEOUT:-10}" "$PROBE" lsp status 2>/dev/null)"; LS_RC=$?; }
+_lsp_status() { LS_OUT="$(TMPDIR="$CI_PT" _cap "${CI_LSP_STATUS_TIMEOUT:-10}" "$PROBE" lsp status 2>/dev/null)"; LS_RC=$?; }
 #  «<언어> 초기화 멈춤» (stalled 우선) | «<언어> 초기화 중» | 빈 값
 _lsp_init_state() {
   printf '%s\n' "$1" | awk '/^  [A-Za-z#+]+: /&&$1!~/^(Status|Version|Uptime):$/{l=$1; sub(/:$/,"",l)}
@@ -123,7 +123,7 @@ _refs_cross() { # $1=loc · file:line:col 꼴(이름 없음) = 교차 확인 0
 _lsp_call() { # $1=ci 동사 · $2..=probe lsp call 인자
   local verb="$1" d rc sec why t0=$SECONDS; shift
   d="$(mktemp -d "${TMPDIR:-/tmp}/ci-lsp.XXXXXX")" || { echo "판정 불가 ci $verb: 임시 폴더를 만들지 못했다" >&2; exit 3; }
-  "$PROBE" lsp call "$@" >"$d/out" 2>"$d/err"; rc=$?
+  TMPDIR="$CI_PT" "$PROBE" lsp call "$@" >"$d/out" 2>"$d/err"; rc=$?
   if grep -qE "Timeout (connecting to daemon|reading message)" "$d/err"; then
     sec="$(sed -n 's/.*after \([0-9]*\)000ms.*/\1/p' "$d/err" | head -1)"; why="LSP 데몬 응답 없음(${sec:-$((SECONDS - t0))}s)"
   elif [ "$rc" -ne 0 ] && [ ! -s "$d/out" ]; then why="probe rc=$rc 출력 0"
@@ -146,7 +146,7 @@ _lsp_ensure() {
   case "$st" in
     *"No language servers initialized"*|*"Status: Not"*|*"not connected"*|*"unavailable"*)
       if [ "${CI_LSP_AUTO_INIT:-0}" = "1" ]; then
-        "$PROBE" lsp init -w "${CI_LSP_SCOPE:-$PWD}" >/dev/null 2>&1 || true
+        TMPDIR="$CI_PT" "$PROBE" lsp init -w "${CI_LSP_SCOPE:-$PWD}" >/dev/null 2>&1 || true
       else
         echo "[hint] LSP 미초기화 — 'ci lsp up --scope .' 1회 실행 (또는 CI_LSP_AUTO_INIT=1)" >&2
       fi
@@ -197,7 +197,7 @@ _probe_search() { # $1=<q> $2=<path> $3=<max> $4=<단계 이름> [probe 추가 �
   case "$pt" in ''|*[!0-9]*) pt=25 ;; esac
   [ "$pt" -ge 1 ] || pt=25
   [ "$pt" -gt 25 ] && pt=25
-  _cap "$pt" "$PROBE" search "$q" "$p" --max-results "$mx" --timeout "$pt" "$@" >"$SE_OUT" 2>"$SE_ERR" &
+  TMPDIR="$CI_PT" _cap "$pt" "$PROBE" search "$q" "$p" --max-results "$mx" --timeout "$pt" "$@" >"$SE_OUT" 2>"$SE_ERR" &
   wait $! 2>/dev/null   # 백그라운드+wait = 셸의 «Abort trap: 6» 통지를 삼킨다(경고 1줄 규칙 · 부분 출력 금지)
   SE_RC=$?
   SE_PANIC=0
@@ -217,6 +217,35 @@ _cut160() {
   fi
   printf '%s' "$1" | LC_ALL=C cut -b1-160 | LC_ALL=C iconv -c -f UTF-8 -t UTF-8 2>/dev/null
 }
+
+# ── probe 전용 임시 폴더 (r2365 · 카드 ci-probe-tursodb-ephemeral-leak) ──────────
+#   probe 와, probe 가 띄우는 LSP 데몬이 만드는 tursodb-ephemeral-*(turso VDBE 임시 btree)가
+#   사용자 TMPDIR 맨 위에 쌓였다(하루 2.4만~3만 개). 그래서 probe 부름 자리마다 셸 앞 대입(TMPDIR=… 명령)으로 전용 폴더를 준다.
+#   머리 export 0 — ci 자기 임시 파일(mktemp·uptime0 stamp)은 부른 쪽 TMPDIR 그대로다.
+#   부름마다 1회: 그 폴더의 10분 지난 tursodb-ephemeral 일반 파일만 상한 500개 지운다.
+#   폴더를 못 만들면 WARN 1줄 + 부른 쪽 TMPDIR 그대로(ci 동작·rc 는 그대로).
+CI_PT="${TMPDIR:-/tmp}"   # probe 에 줄 TMPDIR — 아래 _probe_tmp_init 이 전용 폴더로 바꾼다
+_probe_tmp_sweep() { # $1=폴더 · 다른 이름·폴더·심링크 손 0 · 실패는 조용히(ci 출력·rc 영향 0)
+  local f n=0 hit=0
+  for f in "$1"/tursodb-ephemeral-*; do [ -e "$f" ] && { hit=1; break; }; done   # 후보 0 이면 find·timeout 부름 0
+  [ "$hit" = 1 ] || return 0
+  while IFS= read -r f; do
+    [ "$n" -ge 500 ] && break
+    n=$(( n + 1 ))
+    rm -f -- "$f" 2>/dev/null || :
+  done < <(_cap 7 find "$1" -maxdepth 1 -type f -name 'tursodb-ephemeral-*' -mmin +10 2>/dev/null)
+  return 0
+}
+_probe_tmp_init() {
+  local d="${CI_PROBE_TMPDIR:-$HOME/Library/Caches/probe/tmp}"
+  if [ ! -d "$d" ] && ! mkdir -p "$d" 2>/dev/null; then
+    echo "WARN ci — probe 임시 폴더 못 만듦 $d · TMPDIR 그대로" >&2
+    return 0
+  fi
+  CI_PT="$d"
+  _probe_tmp_sweep "$d"
+}
+_probe_tmp_init
 
 # ---- 서브커맨드 파싱 -------------------------------------------------------
 cmd="${1:-}"; shift || true
@@ -439,7 +468,7 @@ case "$cmd" in
         *) path="$1"; shift ;;
       esac
     done
-    out="$("$PROBE" query "$pat" "$path" $lang 2>&1)"; prc=$?
+    out="$(TMPDIR="$CI_PT" "$PROBE" query "$pat" "$path" $lang 2>&1)"; prc=$?
     # 폴백 사유 2종 → ast-grep: ① r1706 probe 이상 종료(panic·signal · rc≠0 — 그 출력은 stderr 로만) ② probe 0.6.0-rc342 가 python 등에서 0건으로 샘
     why=""
     if [ "$prc" -ne 0 ]; then
@@ -471,10 +500,10 @@ case "$cmd" in
       up)
         scope="."
         [ "${1:-}" = "--scope" ] && { scope="$2"; shift 2; }
-        exec "$PROBE" lsp init -w "$scope"
+        TMPDIR="$CI_PT" exec "$PROBE" lsp init -w "$scope"
         ;;
-      down)   exec "$PROBE" lsp shutdown ;;
-      status) exec "$PROBE" lsp status ;;
+      down)   TMPDIR="$CI_PT" exec "$PROBE" lsp shutdown ;;
+      status) TMPDIR="$CI_PT" exec "$PROBE" lsp status ;;
       repair)
         # r2186 L4 — 상한 없는 실행 0: GNU timeout 이 없으면 probe 호출 0 · 옮기기 0 · rc3
         command -v timeout >/dev/null 2>&1 || { echo "판정 불가 repair — timeout 없음 (brew install coreutils 뒤 다시 · probe 호출 0 · 옮긴 캐시 0)" >&2; exit 3; }
@@ -498,14 +527,14 @@ case "$cmd" in
         done
         echo "판정 불가 repair — 데몬이 Uptime>0 으로 서지 않았다 (status: ${up:-none})" >&2; exit 3
         ;;
-      *)      exec "$PROBE" lsp "$sub" ;;
+      *)      TMPDIR="$CI_PT" exec "$PROBE" lsp "$sub" ;;
     esac
     ;;
 
   doctor)
     echo "== code-intel doctor =="
     printf "probe : %s\n" "${PROBE:-MISSING}"
-    [ -n "$PROBE" ] && printf "        %s\n" "$("$PROBE" --version 2>/dev/null | head -1)"
+    [ -n "$PROBE" ] && printf "        %s\n" "$(TMPDIR="$CI_PT" "$PROBE" --version 2>/dev/null | head -1)"
     printf "tilth : %s\n" "${TILTH:-MISSING}"
     [ -n "$TILTH" ] && printf "        %s\n" "$("$TILTH" --version 2>/dev/null | head -1)"
     printf "pylsp : %s\n" "$(_resolve pylsp || echo 'MISSING (probe lsp python 불가)')"
@@ -518,9 +547,9 @@ case "$cmd" in
       elif [ -n "$w" ]; then printf "lsp   : WARN %s\n" "$w"
       else printf "lsp   : %s\n" "$(printf '%s' "$LS_OUT" | tr '\n' ' ' | cut -c1-90)"; fi
       printf '%s\n' "$LS_OUT" | sed -n 's/^ *• *//p' | grep -Fxq "$HOME" && echo "[warn] LSP workspace 에 홈 전체 — refs 느림 · 빈 결과 원인 · ci lsp repair"   # r2292 C4
-      [ "$pre_lsp" = "0" ] && "$PROBE" lsp shutdown >/dev/null 2>&1
+      [ "$pre_lsp" = "0" ] && TMPDIR="$CI_PT" "$PROBE" lsp shutdown >/dev/null 2>&1
       printf "smoke : "
-      out="$("$PROBE" search "function OR def" . --max-results 1 2>/dev/null | head -3 | tr '\n' ' ')"
+      out="$(TMPDIR="$CI_PT" "$PROBE" search "function OR def" . --max-results 1 2>/dev/null | head -3 | tr '\n' ' ')"
       [ -n "$out" ] && echo "OK" || echo "EMPTY(정상: 빈 디렉터리일 수 있음)"
     fi
     exit 0
@@ -536,7 +565,7 @@ case "$cmd" in
     while IFS= read -r q; do
       [ -z "$q" ] && continue
       n=$((n+1))
-      s=$( { /usr/bin/time -p "$PROBE" search "$q" . --max-results 3 >/dev/null; } 2>&1 | awk '/^real/{print $2}')
+      s=$( { TMPDIR="$CI_PT" /usr/bin/time -p "$PROBE" search "$q" . --max-results 3 >/dev/null; } 2>&1 | awk '/^real/{print $2}')
       printf "  %-46s probe %ss\n" "$(echo "$q" | cut -c1-46)" "$s"
     done < "$qf"
     exit 0

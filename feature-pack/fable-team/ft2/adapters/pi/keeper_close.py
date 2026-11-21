@@ -21,6 +21,7 @@ BUSY = re.compile("Working|[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]")
 OK = "접수 성공"
 NOCARD, NOLAND = "판정 불가 · 카드 후보 0", "keeper-noland-close.tsv"   # r1841 N1 · 사람·master 가 쓰고 keeper 는 읽기만
 NOLINE = "착지 줄 없음"
+SUPERSEDED_CAP = 2   # r2352 K2 — 같은 일 되찾기 상한(3번째 바퀴부터 0 · 셈 = keeper 자기 상태 파일)
 APPROVE = re.compile(r"\S+ #\d+")
 
 
@@ -31,7 +32,9 @@ def _load(name):
     return module
 
 
-projection, close_next = _load("projection"), _load("close_next")
+projection, close_next, cli = _load("projection"), _load("close_next"), _load("cli")
+followup = importlib.util.module_from_spec(importlib.util.spec_from_file_location("ft2_keeper_close_followup", os.path.join(os.path.dirname(os.path.abspath(__file__)), "followup.py")))
+followup.__spec__.loader.exec_module(followup)   # r2352 K1 — superseded 끝 complete 직전 «남은 범위» 관문(B1 과 같은 것)
 _spec = importlib.util.spec_from_file_location("ft2_keeper_verdict", os.path.join(os.path.dirname(os.path.abspath(__file__)), "keeper_verdict.py"))
 verdicts = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(verdicts)   # r1865 판정 닫기 목록 · 원장·우편 로그 읽기 전용 대조
@@ -164,7 +167,56 @@ class Closing:
         elif seen != "absent":
             return self.unknown_seat(team, work, attempt, holder, "tmux-error", seen) and None
         self.state["open"].pop(holder, None)
-        self.receipt(team, work, attempt, holder, gen) if ending else keeper_next.close(self, team, work, attempt, holder, gen)   # r1960 끝 = 증거 () · 다음 배정 0
+        if ending:   # r1960 끝 = 증거 () · 다음 배정 0 · r2352 K1 = superseded 끝도 관문 → complete → done 재확인(B1 과 같은 순서)
+            self.receipt(team, work, attempt, holder, gen)
+            if ending[0] == "superseded":
+                self.superseded_complete(team, work, attempt, " · ".join(ending[1:]))
+        else:
+            keeper_next.close(self, team, work, attempt, holder, gen)
+
+    def superseded_complete(self, team, work, attempt, why=""):
+        """r2352 K1 — 대체(superseded) 끝 = 닫기 영수 뒤 followup 관문 → cli complete 1회 → 투영 done 재확인(B1 과 같은 순서).
+        관문 거절·판정 불가 = complete 0(사유 1줄 = followup.gate 가 남긴다) · done 재확인 실패 = 판정 불가 1줄 · 참 = COMPLETED 1줄."""
+        card = followup.gate(self, team, work, attempt)
+        if card is None:
+            return False
+        out, _rc = cli.run(["complete", "--root", self.root, "--team", team, "--work", work, "--attempt", attempt])
+        self.fa.journal(self.root, team, out, work)   # r1886 ⓓ 쓰기 거절·성공 둘 다
+        if not self.done(team, work):
+            self.log("판정 불가", team, "%s complete 뒤 done 확인 못 함(%s) — done 0" % (work, out.get("result")))
+            return False
+        self.log("COMPLETED", team, "%s 대체 끝 · 카드 %s%s" % (work, card, (" · " + why) if why else ""))
+        return True
+
+    def superseded_back(self, team, proj, latest):
+        """r2352 K2 — 이미 닫기 영수를 받고(close 키) done 0 으로 굳은 superseded 일을 다음 바퀴에 되찾는다.
+        landing 1회(카드 캐시) → K1 관문 → complete → done 재확인만 · receipt·kill 0 · 후보 판독(ending git 포함)과 되찾기 모두 팀마다 바퀴당 1건 ·
+        상한 SUPERSEDED_CAP(셈 = keeper 자기 상태 파일 superseded_retry · done 되면 지움) · 반환 = 이번 바퀴에 끝낸 work(닫기 길이 같은 일을 다시 보지 않게).
+        DA#46 B1 — 대체 아닌 끝도 같은 셈을 올린다(이름순 앞의 suspended·PARKED 영수 일이 뒤 대체 일을 영영 가리지 않게 · 상한 뒤엔 probe·판독 앞에서 빠진다)."""
+        book, book_done = self.state.setdefault("superseded_retry", {}), (keeper_next.ft2_state(self, team) or {}).get("done") or {}
+        for work in sorted(latest):
+            attempt, holder = latest[work] or (None, None)
+            key = "%s|%s|%s" % (team, work, attempt)
+            if not attempt or "close:%s:keeper:%s@%s" % (team, work, attempt) not in book_done:
+                continue   # 닫기 영수 끝이 아니면 이 길 몫 아님
+            if (proj.get("works") or {}).get(work, {}).get("done"):
+                book.pop(key, None)   # done = 셈 지움
+                continue
+            if book.get(key, 0) >= SUPERSEDED_CAP:
+                continue   # 상한 넘음 = 후보에서 뻐짐(probe·판독 앞 · DA#46 메모 2) · 다음 후보로
+            if not holder or self.probe(holder) != "absent":
+                continue   # 세션 살아 있음·판정 불가 = 닫기 길이 본다
+            got = endings.ending(self, team, work)   # 후보 판독 = 팀마다 바퀴당 1건
+            if not (isinstance(got, tuple) and got[0] == "superseded"):
+                book[key] = book.get(key, 0) + 1   # DA#46 B1 — 대체 아닌 끝(suspended·PARKED 영수)도 셈을 올려 상한 2 뒤 다음 후보로(Git 판독 끝없음 0)
+                return None
+            self.landing(team, work)   # 관문이 읽을 카드 캐시 1회(다시 show 0)
+            if self.superseded_complete(team, work, attempt, "되찾기"):
+                book.pop(key, None)
+                return work
+            book[key] = book.get(key, 0) + 1
+            return None
+        return None
 
     def never_opened(self, team, work, attempt, row, dispatched):
         """r2131 C1 — ⓐ done ⓑ 그 attempt intent failed·closed·없음 ⓒ dispatch holder 세션 absent ⓓ 열기 자식(.owner·.intent.resume) dead·없음

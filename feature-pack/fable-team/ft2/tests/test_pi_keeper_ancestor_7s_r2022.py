@@ -37,6 +37,8 @@ def fake(land, script, root="/byz"):
                 return 0, SHA, ""
             if a[0] in ("merge-base", "cat-file"):
                 return s.script.pop(0) if s.script else (1, "", "")   # 대본 끝 = 조상 아님
+            if a[0] == "diff-tree":   # r2336 초안·증거 판독 = 바뀐 경로 0(이 꼴 아님)
+                return 0, "", ""
             raise AssertionError(a)
 
         def pre_attempt(s, *a, **kv):

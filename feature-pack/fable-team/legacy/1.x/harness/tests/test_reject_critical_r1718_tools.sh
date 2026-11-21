@@ -14,7 +14,7 @@ REAL_GIT="$(command -v git)"; mkdir -p "$T/fake" "$T/shim"
 printf '#!/usr/bin/env bash\ncase "$1" in\n  list-panes) echo "%s|%%1";;\n  display-message) cat "$FAKE_CWD";;\n  has-session) exit 1;;\n  *) :;;\nesac\n' "$SEAT" > "$T/fake/tmux"
 printf '#!/usr/bin/env bash\necho "{\\"state\\":\\"MERGED\\",\\"mergeCommit\\":{\\"oid\\":\\"$(cat "$GH_HEAD")\\"},\\"headRefOid\\":\\"$(cat "$GH_HEAD")\\"}"\n' > "$T/fake/gh"
 printf '#!/usr/bin/env bash\nfor a in "$@"; do [ "$a" != commit-tree ] || exit 1; done\nexec "%s" "$@"\n' "$REAL_GIT" > "$T/shim/git"; chmod +x "$T/fake/tmux" "$T/fake/gh" "$T/shim/git"
-norm() { sed -E 's#/tmp\.[A-Za-z0-9]+#/tmp.X#g; /^STEP /d; s#/[^ ]*/(ft-[a-z-]+\.sh)#\1#g; s#(원장 WT ff ).*#\1X#; s#(실행 위치가 설치 폴더 아님: ).*#\1X#' "$1"; }   # 기준판 비교 — 실행마다 바뀌는 임시 경로 이름·단계 시각 줄·도구 폴더 경로·카드 커밋 sha 만 지운다
+norm() { sed -E 's#/tmp\.[A-Za-z0-9]+#/tmp.X#g; /^STEP /d; s#/[^ ]*/(ft-[a-z-]+\.sh)#\1#g; s#(원장 WT ff ).*#\1X#; s#(실행 위치가 설치 폴더 아님: ).*#\1X#' "$1" | grep -v '^LAND-PHASE '; }   # r2355: LAND-PHASE(단계 초) = 새 계약 1줄이라 기준판 비교에서 뺀다   # 기준판 비교 — 실행마다 바뀌는 임시 경로 이름·단계 시각 줄·도구 폴더 경로·카드 커밋 sha 만 지운다
 same() { [ "$(norm "$1")" = "$(norm "$2")" ] || { echo "    $3 가 기준판과 다름: $(diff <(norm "$1") <(norm "$2") | head -4)" >&2; return 1; }; }
 
 # ── ft-merge-land 사본(임시 origin · 가짜 gh · 승인 파일 직접 기록 — test_merge_land_slot_wait_r1386 꼴) ─────────────
@@ -38,25 +38,25 @@ hold() {   # hold <이름> — 무거운 git 자리 1개를 쥔 채 멈춘다(FI
 rel() { local n; for n in "$@"; do echo go > "$T/s.$n"; done; wait $HP 2>/dev/null; HP=""; }
 
 c5() { local b="$1"; fresh; mkpr "docs/x$((PN + 1))/y.md" "docs/x$((PN + 1))"; land "$b" a
-  eqn "$L_RC" 1 "rc" && inc "$(cat "$T/a.o")" "merge-tree 충돌(사람 최신화) (착지 0)" "REJECT 줄" && eqn "$(nsent)/$(npend)" 1/0 "1통" || return 1
+  eqn "$L_RC" 1 "rc" && inc "$(cat "$T/a.o")" "merge-tree 충돌(사람 최신화) (착지 0)" "REJECT 줄" && eqn "$(nsent)/$(npend)" 2/0 "1사건 = 받는 이 2통(r2355 K3ⓐ)" || return 1
   inc "$(last)" "[크리티컬] ft-merge-land origin PR #$PRN — 무엇: REJECT " "머리·대상·무엇" && inc "$(last)" "merge-tree 충돌" "무엇에 원문" \
     && inc "$(last)" " · 어디: origin#$PRN · 다음 손: PR 가지를 main 위로 최신화 → 새 head sha 로 오빠께 다시 질문" "어디 · 다음 손 ⓐ" || return 1
   grep -q "\"event\": \"$PRSHA:[0-9a-f]\{12\}\"" "$SENT" || { echo "    지문이 <PR head>:<해시 12> 꼴이 아님: $(cat "$SENT")" >&2; return 1; }
-  [ -z "$BASE" ] || [ "$b" = "$BASE" ] || { land "$BASE" z; eqn "$L_RC" 1 "기준판 rc" && same "$T/a.o" "$T/z.o" stdout && same "$T/a.e" "$T/z.e" stderr && eqn "$(nsent)" 1 "기준판은 쪽지 0"; }; }
+  [ -z "$BASE" ] || [ "$b" = "$BASE" ] || { land "$BASE" z; eqn "$L_RC" 1 "기준판 rc" && same "$T/a.o" "$T/z.o" stdout && same "$T/a.e" "$T/z.e" stderr && eqn "$(nsent)" 2 "기준판(origin/main)은 받는 이 1통"; }; }
 c6() { local b="$1"; fresh; NOAP=1 mkpr "docs/n$((PN + 1)).md"; land "$b" a
   eqn "$L_RC/$(nsent)/$(npend)" 2/0/0 "승인 없음 rc 2 = 발신 0" && inc "$(cat "$T/a.o")" "REJECT" "rc 2 출력" || return 1
   [ -z "$BASE" ] || { land "$BASE" z; eqn "$L_RC" 2 "기준판 rc" && same "$T/a.o" "$T/z.o" stdout && same "$T/a.e" "$T/z.e" stderr; }; }
 c7() { local b="$1"; fresh; mkpr "docs/ok$((PN + 1)).md"; hold a && hold b || { echo "    자리 선점 실패" >&2; return 1; }
-  LA=(FT_HEAVY_WAIT_S=0); land "$b" a; LA=(); rel a b; eqn "$L_RC/$(nsent)" 1/1 "자리 없음 거절 1통" || return 1
-  land "$b" a; eqn "$L_RC/$(nsent)/$(grep -c '^WARN ft-critical' "$T/a.e")" 0/1/0 "LANDED = [크리티컬] 0 · WARN 0" && inc "$(cat "$T/a.o")" "LANDED" "착지 줄" || return 1
-  eqn "$(grep -c '"resolved"' "$SENT")" 1 "착지 rc 0 = 그 PR 사건 해결"; }
+  LA=(FT_HEAVY_WAIT_S=0); land "$b" a; LA=(); rel a b; eqn "$L_RC/$(nsent)" 1/2 "자리 없음 거절 1사건(받는 이 2통 · r2355)" || return 1
+  land "$b" a; eqn "$L_RC/$(nsent)/$(grep -c '^WARN ft-critical' "$T/a.e")" 0/2/0 "LANDED = [크리티컬] 0(2 = 앞 거절의 받는 이 2통) · WARN 0" && inc "$(cat "$T/a.o")" "LANDED" "착지 줄" || return 1
+  eqn "$(grep -c '"resolved"' "$SENT")" 2 "착지 rc 0 = 그 PR 사건 해결(받는 이 2줄 다 · r2355)"; }
 cF2() { local b="$1" e1 e2; fresh; mkpr "docs/f$((PN + 1)).md"; hold a && hold b || { echo "    자리 선점 실패" >&2; return 1; }
   LA=(FT_HEAVY_WAIT_S=0); land "$b" a; LA=(); rel a b
-  eqn "$L_RC/$(nsent)" 1/1 "첫 거절 1통" && inc "$(cat "$T/a.o")" "무거운 git 자리 없음" "첫 거절 사유" && inc "$(last)" "다음 손: REJECT 원문대로 고친 뒤 다시 land" "분류 ⓒ" || return 1
+  eqn "$L_RC/$(nsent)" 1/2 "첫 거절 1사건(2통 · r2355)" && inc "$(cat "$T/a.o")" "무거운 git 자리 없음" "첫 거절 사유" && inc "$(last)" "다음 손: REJECT 원문대로 고친 뒤 다시 land" "분류 ⓒ" || return 1
   LA=(PATH="$T/shim:$PATH"); land "$b" a
-  eqn "$L_RC/$(nsent)" 1/2 "같은 head · 다른 원인 = 둘째 1통" && inc "$(cat "$T/a.o")" "commit-tree 실패" "둘째 거절 사유" && inc "$(last)" "다음 손: REJECT 원문대로 고친 뒤 다시 land" "둘째도 분류 ⓒ" || { LA=(); return 1; }
-  land "$b" a; LA=(); eqn "$L_RC/$(nsent)" 1/2 "같은 원문 한 번 더 = 0통" || return 1
-  e1="$(sed -n '1s/.*"event": "\([^"]*\)".*/\1/p' "$SENT")"; e2="$(sed -n '2s/.*"event": "\([^"]*\)".*/\1/p' "$SENT")"
+  eqn "$L_RC/$(nsent)" 1/4 "같은 head · 다른 원인 = 둘째 사건(4통 · r2355)" && inc "$(cat "$T/a.o")" "commit-tree 실패" "둘째 거절 사유" && inc "$(last)" "다음 손: REJECT 원문대로 고친 뒤 다시 land" "둘째도 분류 ⓒ" || { LA=(); return 1; }
+  land "$b" a; LA=(); eqn "$L_RC/$(nsent)" 1/4 "같은 원문 한 번 더 = 0통(앞 두 사건 = 4통 · r2355)" || return 1
+  e1="$(sed -n '1s/.*"event": "\([^"]*\)".*/\1/p' "$SENT")"; e2="$(sed -n '3s/.*"event": "\([^"]*\)".*/\1/p' "$SENT")"
   eqn "${e1%%:*}/${e2%%:*}" "$PRSHA/$PRSHA" "두 지문의 head 같음" && [ "$e1" != "$e2" ] || { echo "    두 지문이 같음: $e1" >&2; return 1; }; }
 
 # ── ft-nano-close 사본(test_nano_close_ledger_wt_fresh_r1668 꼴: 임시 리포 · 좌석 워크트리 · 원장 워크트리 · 카드는 ref 에만) ──────

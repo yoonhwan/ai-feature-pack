@@ -8,6 +8,7 @@ import glob, hashlib, importlib.util, json, os, re, sys, time  # noqa: E401
 HERE = os.path.dirname(os.path.abspath(__file__))
 FT2, GIT_S, PENALTY_S = os.path.dirname(os.path.dirname(HERE)), 25, 7   # r2073 판정기 호출 7초(하드 룰 12)
 OK, BLOCK, NONE = "접수 성공", ("정지", "석", "선행", "DA", "사람"), "[다음 없음]"
+BLOCKED = "막힘"   # r2361 reconcile 복구 갈래가 «띄우지 않음» 을 알리는 값(fill 이 그 항목을 이 바퀴 셈에서 뺀다 · K5)
 URGENT, HIGH = re.compile(r"- 긴급:\s*예\s*$"), re.compile(r"- 우선(?:순위)?:\s*높음")
 REF = re.compile(r"(?<![A-Za-z0-9_])r(\d+)(?![0-9])")   # r2027 카드 참조 r<번호>
 MONTH = re.compile(r"/아카이브/\d{4}-\d{2}")   # DA R1 월별 아카이브(루트 뒤 꼬리)
@@ -587,10 +588,23 @@ def wake_read(k, team):
         k.wake(team, freed)
 
 
+def seen_no_receipt(k, team, work, attempt, stem, done):
+    """r2350 K1·K2 — 이미 영수한 사건(close_receipts 1행 = seen)을 다시 영수하지 않을 조건.
+    참 = 다음 카드 칸 표식(teams/<팀>/CLOSE-NEXT.enabled · 이미 읽은 ft2_state 밖 = 추가 판독 0 · DA#44 B1·권함) ∧
+    (영수 키 done(close:<팀>:keeper:<일>@<시도>) ∨ 다음 빔). 거짓 = 영수 뒤 배정·전달이 아직(core _resume 갈래 1·2) 또는 표식 없음
+    = 지금처럼 core 영수 1회. core 는 그 두 갈래를 안 끝낸 일로 보고 실제로 쓴다 — 갈래 1 = _chain(배정+전달)·갈래 2 = _deliver ·
+    그래서 건너뛰면 다음 카드가 안 열린다. 반면 참 갈래(전달 완료·다음 빔)의 core 는 journal 만 다시 읽고 쓰기 0 이라 느리기만 했다(b2c 55초 실사건)."""
+    mark = os.path.join(k.root, ".fable-team", "teams", team, "CLOSE-NEXT.enabled")
+    if not os.path.exists(mark):
+        return False
+    return not stem or "close:%s:keeper:%s@%s" % (team, work, attempt) in done
+
 def close(k, team, work, attempt, holder, gen):
-    """닫기 영수 1회(지금 자리) + 다음 카드. 반환 = 영수 결과. r2101 H3 = 새 카드 보류면 이 고르기만 멈춘다(영수·이어 잇기 그대로)."""
+    """닫기 영수 1회(지금 자리) + 다음 카드. 반환 = 영수 결과. r2101 H3 = 새 카드 보류면 이 고르기만 멈춘다(영수·이어 잇기 그대로).
+    r2350 K1·K2 = 이미 영수한 사건이면 core 영수 0 · 로그 «RECEIPT-SEEN» 1줄 · 곧장 reconcile(바퀴 예산을 안 먹는다)."""
     choose = held_choose   # r2188 H2 채우기와 같은 보류 목록 · 아래 고르기 줄은 글자 그대로(r1871 M5 · 벌점 M63 변이가 그 줄을 찾는다)
-    seen = ((ft2_state(k, team) or {}).get("close_receipts") or {}).get("keeper:%s@%s" % (work, attempt))
+    book = ft2_state(k, team) or {}   # 영수·done 판독 1회(추가 판독 0)
+    seen = (book.get("close_receipts") or {}).get("keeper:%s@%s" % (work, attempt))
     pick = None
     if seen is None and not new_card_hold(k, team):
         pick = choose(k, team) if gates(k, team) and penalty_open(k, team) else None
@@ -604,6 +618,12 @@ def close(k, team, work, attempt, holder, gen):
         stem, nh = seen.get("next"), seen.get("holder")
     else:   # 새 카드 보류(H3) = 다음 카드 없음 · 영수는 그대로 쓴다
         stem, nh = None, None
+    if seen is not None and seen_no_receipt(k, team, work, attempt, stem, book.get("done") or {}):
+        k.log("RECEIPT-SEEN", team, "%s -> %s" % (work, "%s %s" % (stem, nh) if stem else NONE))   # 재접수와 같은 뜻 · 쓰기 0
+        if not stem:   # K2 — 다음 없음 = handled 만(«재접수» mark 와 같은 끝 · reconcile 0)
+            k.state["handled"]["%s|%s@%s" % (team, work, attempt)] = k.stamp()
+            return None
+        return reconcile(k, team, work, attempt, stem, nh, None)   # K1·K4 — 끝냄 표시 = reconcile 그대로(handled 쓰기 자리 손 0)
     if not stem:
         return k.receipt(team, work, attempt, holder, gen)
     out = k.receipt(team, work, attempt, holder, gen, next_work=stem, next_holder=nh, evidence=dispatch.Dispatch.REQUIRED_EVIDENCE, mark=False)
@@ -628,12 +648,13 @@ def intake_open(k, team):
 def fill(k, team):
     """r1913 빈 나노 칸 1장 = gates→choose→submit→assign→deliver→reconcile · 실패 = 1줄 + fill_hold(원장 쓰기 0 · 그 stem 재시도 0) · 풀림 = 원장 updated > 보류 시각."""
     held, opened = k.state.setdefault("fill_hold", {}), k.state.setdefault("fill_open", {})
-    mine = [x for x in opened if x.split("|")[0] == team]
+    mine, blocked = [x for x in opened if x.split("|")[0] == team], set()
     for x in mine:   # r1929 띄운 열기 잇기 · 그 바퀴 새 fill 0
         stem = x.split("|", 1)[1]
         nh = then_name(k, team, stem, opened[x])   # r2208 O5 띄운 때 이름(다시 셈 0)
-        reconcile(k, team, "fill:" + stem, opened[x], stem, nh, None) if nh else None
+        blocked.add(x) if nh and reconcile(k, team, "fill:" + stem, opened[x], stem, nh, None) == BLOCKED else None
         opened.pop(x) if "%s|fill:%s@%s" % (team, stem, opened[x]) in k.state["handled"] else None
+    mine = [x for x in mine if x not in blocked]   # r2361 K5 — 막힌 항목은 이 바퀴 셈 밖(팀 새 fill 을 막지 않음 · fill_open 에 남아 다음 바퀴 다시 판정)
     if mine:
         return None
     release(k, team)   # r2188 H1 풀림 한 함수(원장 updated · 끝난 일) · 아래 choose 의 보류 집합 = 남은 보류
@@ -676,6 +697,22 @@ def then_name(k, team, stem, attempt):
         return nh
     k.state["handled"]["%s|fill:%s@%s" % (team, stem, attempt)] = k.stamp()
     return k.log("HELD-NEXT", team, "fill:%s -> %s 띄운 때 이름 owner 없음 · 복구 필요" % (stem, stem))
+def recov_skip(k, team, stem):
+    """r2361 K1·K2 — 복구 launch 직전 카드 판정(row[3] = choose 가 건너뛰는 값) 1회 · 막힘이면 그 판정을 돌려준다("" = 통과).
+    줄은 (stem, 판정) 이 바뀔 때만(기억 = keeper 상태 파일 reconcile_seen · wait_seen 과 따로) · 풀리면 그 키를 지운다."""
+    got = cards(k, team)
+    pre = "" if isinstance(got, str) or stem not in got[0] else got[0][stem][3]
+    book, key = k.state.setdefault("reconcile_seen", {}), "%s|%s" % (team, stem)
+    if not pre:   # 판정 "" = 풀림(카드 없음 = 판정 추가 0 · 지금 길)
+        book.pop(key, None)
+        return ""
+    if book.get(key) != pre:
+        why = got[0][stem][4].get("why") or ""
+        k.log("RECONCILE-SKIP", team, "%s %s%s" % (stem, pre, " · " + why[:60] if why else ""))
+    book[key] = pre
+    return pre
+
+
 def reconcile(k, team, work, attempt, stem, nh, pick):
     """launch(세션 없음) · record(원장 ≠ seat) 를 따로 맞춘다 · 실패 = 단계 + «복구 필요» 1줄(재시도 0) · 그 뒤 handled."""
     seen, led = k.probe(nh), ledger(k, stem)
@@ -687,6 +724,8 @@ def reconcile(k, team, work, attempt, stem, nh, pick):
     if need[0]:
         if pick is None and not gates(k, team):   # R2 — 복구 launch 직전 현재 가드 · 막힘 = handled 0(허용 뒤 같은 사건 재개)
             return None
+        if pick is None and recov_skip(k, team, stem):   # r2361 K1 — 복구 launch 도 새 고르기와 같은 카드 판정(row[3])
+            return BLOCKED
         place = pick[1:] if pick else (lambda g: None if isinstance(g, str) or stem not in g[0] else g[1][4][stem][:2] if stem in g[1][4] else target(k, g[1], g[0][stem][2]))(cards(k, team))   # r2159 재개 = PR head
         if place and place[0] in k.stale:   # r1963 복구 launch 도 낡은 팩 base 로는 안 연다(handled 0 · 다음 바퀴)
             return k.log("판정 불가", team, "%s -> %s 다음 카드 보류 · 팩 fetch 실패" % (work, stem))

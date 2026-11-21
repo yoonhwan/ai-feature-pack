@@ -56,6 +56,10 @@ class Rig:
         (s.root / ".fable-team" / "comm" / "mailbox.log.jsonl").write_text("", encoding="utf-8")
         alarm = s.root / ".fable-team" / "state" / "disk-alarm.log"
         alarm.write_text("", encoding="utf-8"), os.utime(alarm, (0, 0))   # r2238 하루 정리 살아 있음(시계 0 = 나이 0) = 생존 검사 줄·쪽지 0
+        s.boot()
+
+    def boot(s):
+        """r2357 — 같은 루트로 Keeper 하나 더 띄운다(실제 --once 꼴: 바퀴 사이 state.json 을 다시 읽는다) · 대역 손은 __init__ 과 같게 건다."""
         s.k = s.mod.Keeper(str(s.root), env={"FT2_KEEPER_MBOX": str(s.root / ".fable-team" / "comm" / "mbox.sh"), "FT2_PACK_REPO": str(s.root)},
                            now=s.clock)
         s.k.teams, s.k.rows_of = (lambda: list(s.teams)), s.rows

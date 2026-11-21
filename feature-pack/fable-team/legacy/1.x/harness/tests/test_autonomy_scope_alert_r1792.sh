@@ -35,15 +35,15 @@ for f in ft-autonomy.sh ft-autonomy-scope.sh ft-autonomy-scope-alert.sh ft-stall
 fresh "$T/s45" 30 20; printf 'scope-use S1 %s revert %s\nscope-use S1 %s equiv %s\n' "$(sha 90)" "$((T0 + 60))" "$(sha 91)" "$((T0 + 90))" >> "$R/.fable-team/state/autonomy.log"
 use docs 1 20; NOW=$((T0 + 120 + 19 * 300 + 60))
 run a scope-status
-[ $rc = 0 ] && [ "$(wc -l <<<"$out" | tr -d ' ')" = 1 ] && has '^\[범위 승인 S1 · A1 · ' && [ "$out" = "[범위 승인 S1 · A1 · ~$(hm $((T0 + 86400)))까지 · 20/30 · 오늘 20/20 · docs,ff,revert · 새 승인 없이 0건(끝 $(hm $((T0 + 86400))) < 빈자리 $(hm $((T0 + 120 + 86400))))]" ]; ck "① S45 재연 → 꼬리 «새 승인 없이 0건(끝 < 빈자리)» · 한 줄 · 머리 그대로" $?
+[ $rc = 0 ] && [ "$(wc -l <<<"$out" | tr -d ' ')" = 1 ] && has '^\[범위 승인 S1 · A1 · ' && [ "$out" = "[범위 승인 S1 · A1 · ~$(hm $((T0 + 86400)))까지 · 20/30 · 오늘 20/20 · docs,ff,revert · 새 승인 없이 0건(끝 $(hm $((T0 + 86400))) < 빈자리 $(hm $((T0 + 120 + 86400)))) base=S1 30/20/0 byz]" ]; ck "① S45 재연 → 꼬리 «새 승인 없이 0건(끝 < 빈자리)» · 한 줄 · 머리 그대로" $?
 S1OUT="$out"
 
 # ② 1번째를 시작 − 1시간으로(빈자리 < 끝) → 꼬리 0 · used=max → (전체 한도)
 fresh "$T/early" 30 20; printf 'scope-use S1 %s docs %s\n' "$(sha 1)" "$((T0 - 3600))" >> "$R/.fable-team/state/autonomy.log"; use docs 2 20; NOW=$((T0 + 120 + 19 * 300 + 60))
-run a scope-status; [ $rc = 0 ] && [ "$out" = "[범위 승인 S1 · A1 · ~$(hm $((T0 + 86400)))까지 · 20/30 · 오늘 20/20 · docs,ff,revert]" ]; ck "② 빈자리 < 끝 → 꼬리 0" $?
+run a scope-status; [ $rc = 0 ] && [ "$out" = "[범위 승인 S1 · A1 · ~$(hm $((T0 + 86400)))까지 · 20/30 · 오늘 20/20 · docs,ff,revert base=S1 30/20/0 byz]" ]; ck "② 빈자리 < 끝 → 꼬리 0" $?
 fresh "$T/full" 20 20; use docs 1 20; NOW=$((T0 + 120 + 19 * 300 + 60))
-run a scope-status; [ $rc = 0 ] && [ "$out" = "[범위 승인 S1 · A1 · ~$(hm $((T0 + 86400)))까지 · 20/20 · 오늘 20/20 · docs,ff,revert · 새 승인 없이 0건(전체 한도)]" ]; ck "② used=max → «(전체 한도)» 꼬리" $?
-fresh "$T/none" 30 20; use docs 1 5; NOW=$((T0 + 3600)); run a scope-status; [ "$out" = "[범위 승인 S1 · A1 · ~$(hm $((T0 + 86400)))까지 · 5/30 · 오늘 5/20 · docs,ff,revert]" ]; ck "② 여유 있음 → 줄 바이트 그대로" $?
+run a scope-status; [ $rc = 0 ] && [ "$out" = "[범위 승인 S1 · A1 · ~$(hm $((T0 + 86400)))까지 · 20/20 · 오늘 20/20 · docs,ff,revert · 새 승인 없이 0건(전체 한도) base=S1 20/20/0 byz]" ]; ck "② used=max → «(전체 한도)» 꼬리" $?
+fresh "$T/none" 30 20; use docs 1 5; NOW=$((T0 + 3600)); run a scope-status; [ "$out" = "[범위 승인 S1 · A1 · ~$(hm $((T0 + 86400)))까지 · 5/30 · 오늘 5/20 · docs,ff,revert base=S1 30/20/0 byz]" ]; ck "② 여유 있음 → 줄 바이트 그대로" $?
 
 # ③ scope-alert — 15/20 → 1통 · 같은 시각 다시 → 0통 · 다음 날짜 → 1통 · 14/20 → 0통
 fresh "$T/a3" 30 20; use docs 1 15; NOW=$((T0 + 120 + 14 * 300 + 60)); : > "$T/mbox.log"

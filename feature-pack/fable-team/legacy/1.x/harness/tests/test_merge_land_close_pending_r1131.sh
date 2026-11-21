@@ -63,7 +63,7 @@ ent other/repo 77; land "$LAND" 17
 : > "$CPL"
 
 # R6 남은 시간 < 20 s → 재시도 0 · «재시도 미룸» 1줄
-ent "$KEY" 18; land "$LAND" 19 FT_LAND_TOTAL_S=19
+ent "$KEY" 18; land "$LAND" 19 FT_LAND_TOTAL_S=33   # r2355: 앞 단계가 push 몫 14s 를 예약하므로 «재시도에 쓸 수 있는 남논 초» = 33 − 14 = 19 s — 20 s 문턱 아래(옛 19 s 는 이제 예약 자체가 모자라 앞에서 건너뜀이 우선)
 [ "$(closes 18)" = 0 ] && has 18 && [ "$(grep -c '닫기 재시도 미룸' <<<"$out")" = 1 ]; ck "R6 남은 19s → 재시도 0 · 미룸 줄 1 · 장부 그대로" $?
 : > "$CPL"
 
@@ -80,7 +80,7 @@ mut() {  # mut <이름> <지울 줄 패턴(python 정규식)> — 사본 land �
 mut 1 'fm_close_pending_add "\$CPL" "\$CPK" "\$PR" "\$Q"' && land "$T/m/ft-merge-land.sh" 31 FAIL_CLOSE=all
 [ "$rc" = 3 ] && [ ! -s "$CPL" ]; ck "변이1 장부 쓰기 삭제 → R2 장부 0(반례가 잡음)" $?
 : > "$CPL"; ent "$KEY" 32
-mut 2 'fm_close_retry "\$CPL" "\$CPK" "\$SLUG" "\$GH_W" \$\(\(LIM - \(SECONDS - T0\)\)\)' && land "$T/m/ft-merge-land.sh" 33
+mut 2 'fm_close_retry "\$CPL" "\$CPK" "\$SLUG" "\$GH_W" "\$CRS"' && land "$T/m/ft-merge-land.sh" 33
 [ "$rc" = 0 ] && [ "$(closes 32)" = 0 ] && has 32; ck "변이2 재시도 삭제 → R3 장부 그대로(반례가 잡음)" $?
 S3=$SECONDS
 

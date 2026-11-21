@@ -118,7 +118,7 @@ def test_same_as_base(name, tmp_path):
     w, b = world(tmp_path / "f"), world(tmp_path / "b", base(tmp_path))
     got, want = rig(w, **SAME[name]), rig(b, **SAME[name])
     assert got == want and got[1] == ("t1:b1:%g" % SAME[name]["b1"]), (w.k.lines, b.k.lines)
-    assert line(w.k, "ROUND") == line(b.k, "ROUND") and not any("parts=" in x for x in w.k.lines), (w.k.lines, b.k.lines)
+    assert line(w.k, "ROUND") == line(b.k, "ROUND") and not any("parts=" in x for x in w.k.lines if not x.startswith("ITEM-SLOW")), (w.k.lines, b.k.lines)
 
 
 @pytest.mark.parametrize("name, kills", [("M1", ("①", "③")), ("M2", ("⑤",)), ("M3", ("②",))])
