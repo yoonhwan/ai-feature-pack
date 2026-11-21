@@ -126,10 +126,10 @@ def c8(w):   # ⑧ 판정 뒤 백그라운드 전체 fetch 1회 · 막혀도 바
         for p in list(k.bg.values()) + list(k2.bg.values()):
             p.wait(timeout=30)
     assert any(x.startswith("BG-FETCH pack 성공") for x in w.round(w.keeper()))
-def c9(w):   # ⑨ 설치 렌더 plist = ProcessType 키 0 · 나머지 키·값 기준판과 같음
+def c9(w):   # ⑨ 설치 렌더 plist = ProcessType 이 Background 아님(r2371: Interactive) · 나머지 키·값 기준판과 같음
     now = plistlib.loads((w.ft2 / PL).read_bytes())
     old = plistlib.loads(subprocess.run(["git", "-C", str(FT2), "show", "%s:feature-pack/fable-team/ft2/%s" % (BASE, PL)], capture_output=True, timeout=25, check=True).stdout)
-    assert "ProcessType" not in now and old.pop("ProcessType") == "Background" and now == old
+    assert old.pop("ProcessType") == "Background" and now.pop("ProcessType", None) != "Background" and now == old
 CASES = {"c2": c2, "c3": c3, "c4": c4, "c5": c5, "c6": c6, "c7": c7, "c7b": c7b, "c8": c8, "c9": c9}
 MUTANTS = {"M1": (KP, "if not self.table or r in self.table]", "if r in (self.table or ())]", "c1"),   # 파일 없음 = 빈 목록
            "M2": (KP, "if self.table is None:", "if False:", c4),                                          # 판독 실패 = 기본값 fallback
