@@ -246,24 +246,51 @@ def newest_first(b):   # r1263 정렬 열쇠 — run_id 의 YYYYMMDD-HHMMSS 늦�
     return (m is None, -int(m.group(1) + m.group(2)) if m else 0, b["ref"])
 
 
-def pick(repo, target, specs):   # 음성 경로 트리가 target 과 같은 세트의 «통과» 묶음들 + 첫 거절 사유 · r1274 비교 목록 = specs ∪ 묶음 세트 E 의 목록(자기 경로 지우기 0)
-    good, why, n = [], "", 0
-    for ref, c in sorted(refs(repo, "refs/press").items()):
+def newest_refs(rows):   # r2381: ref 이름 꼬리(run_id)에만 r1263 열쇠를 건다(세트 40자는 열쇠에서 뺀다 · git 0) · 못 읽는 run = 맨 뒤 · 같으면 ref 이름순
+    def key(row):
+        tail = row[0].rsplit("/", 1)[-1]
+        run = tail.split("-", 1)[1] if re.match(r"[0-9a-f]{40}-", tail) else tail
+        return newest_first({"run": run, "ref": row[0]})
+    return sorted(rows, key=key)
+
+
+def pick(repo, target, specs, upto=None):   # 음성 경로 트리가 target 과 같은 세트의 «통과» 묶음들 + 첫 거절 사유 + 읽은 빚 · r1274 비교 목록 = specs ∪ 묶음 세트 E 의 목록(자기 경로 지우기 0)
+    # r2381: 최신 run 순으로 하나씩 판정 → 첫 통과 묶음이 나오면 unpaid 1회로 빚을 읽고, 그 묶음이 빚을 다 덮으면 거기서 멈춘다 · 못 덮으면 다음 통과 묶음을 이어 본다(통과 0 = unpaid 0회)
+    upto = target if upto is None else upto
+    good, bad, debts, n = [], {}, None, 0
+    seen, diffs = {}, {}   # seen = 세트 sha → 비교 목록 또는 Reject · diffs = 세트 sha → diff 판정(K3: 부모당 1회)
+    for ref, c in newest_refs(refs(repo, "refs/press").items()):
         n += 1
-        e = git(repo, "rev-parse", c + "^").strip()
-        try:
-            both = sorted({*specs, *(":(glob)" + p for p in patterns(repo, e))})
-        except Reject as r:
-            why = why or str(r)
+        e = git(repo, "rev-parse", c + "^").strip()   # 깨진 묶음 = 지금처럼 판정 불가(본 묶음일 때만)
+        if e not in seen:
+            try:
+                both = sorted({*specs, *(":(glob)" + p for p in patterns(repo, e))})
+            except Reject as r:
+                seen[e] = r
+            else:
+                seen[e] = both
+        both = seen[e]
+        if isinstance(both, Reject):
+            bad[ref] = str(both)
             continue
-        if not same(repo, e, target, both):
+        if e not in diffs:
+            if not same(repo, e, target, both):
+                diffs[e] = False
+            else:
+                diffs[e] = True
+        if not diffs[e]:
             continue
         try:
-            good.append(bundle(repo, ref, c))
+            b = bundle(repo, ref, c)
         except Reject as r:
-            why = why or str(r)
-    good.sort(key=newest_first)
-    return good, why or "묶음 없음(음성 경로 트리가 같은 세트의 refs/press/* 0 · 검사 %d개)" % n
+            bad[ref] = str(r)
+            continue
+        good.append(b)
+        if debts is None:
+            debts = unpaid(repo, upto)
+        if all(anc(repo, d, b["set"]) for d in debts):
+            break
+    return good, (bad[min(bad)] if bad else "") or "묶음 없음(음성 경로 트리가 같은 세트의 refs/press/* 0 · 검사 %d개)" % n, debts or []
 
 
 def unpaid(repo, upto):   # 빚 착지가 upto 의 조상(main 위)인데 상환 ref 없음 — 착지 못 한 빚 ref 는 조상 아님 = 무시
@@ -289,10 +316,9 @@ def deploy(a):
     c = git(a.repo, "rev-parse", "--verify", a.commit + "^{commit}").strip()
     specs = specs_of(a.repo, c)
     fetch_refs(a.repo, a.remote)
-    good, why = pick(a.repo, c, specs)
+    good, why, debts = pick(a.repo, c, specs)   # r2381: 빚 조회는 통과 묶음이 처음 나올 때 1회(pick 안)
     if not good:
         raise Reject("press 증거 없음/틀림: %s — 배포 %s · 판정 2946" % (why, c[:10]))
-    debts = unpaid(a.repo, c)
     b = cover(a.repo, good, debts)
     if b is None:
         raise Reject(debt_line(a.repo, debts[0]) + " — 배포 %s · 판정 2946" % c[:10])

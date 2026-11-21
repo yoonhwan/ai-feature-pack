@@ -100,10 +100,9 @@ def land(a):
         print("press 증거 면제 — 정확 역변경(되돌린 %s) · 빚 refs/press-debt/%s · 담당 %s · 복구 뒤 press 1회%s\npress=revert:%s"
               % (rv[:10], a.landing[:10], who, DT, rv[:10]))
         return 0
-    good, why = pick(a.repo, a.head, specs)
+    good, why, debts = pick(a.repo, a.head, specs, a.main)   # r2381: 빚 조회 기준 = main(land) · 빚 조회는 통과 묶음이 처음 나올 때 1회
     if not good:
         raise Reject("press 증거 없음/틀림: %s — 판정 2946" % why)
-    debts = unpaid(a.repo, a.main)
     b = cover(a.repo, good, debts)
     if b is None:
         raise Reject(debt_line(a.repo, debts[0]) + " — 판정 2946")
