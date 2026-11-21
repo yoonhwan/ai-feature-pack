@@ -6,9 +6,16 @@
 
 SHIMNOTE='OK n=0 skip=0 (하네스 루트가 --repo 밖 · 범위에 하네스 파일 0)'
 EATSRC='import sys, time
-d = int(sys.argv[1]); t = float(sys.argv[2]); c = float(sys.argv[3]) if len(sys.argv) > 3 else 99.0
-s = (d - time.time()) - t
-print("%.2f" % (0.0 if s < 0 else (c if s > c else s)))'
+d = int(sys.argv[1]); t = float(sys.argv[2])
+mode = sys.argv[3] if len(sys.argv) > 3 else "cap"
+c = float(sys.argv[4]) if len(sys.argv) > 4 else 99.0
+if mode == "align":
+    while time.time() % 1.0 < 0.30: pass
+    s = (d - time.time()) - t
+else:
+    s = (d - time.time()) - t
+    if s > c: s = c
+print("%.2f" % (0.0 if s < 0 else s))'
 pa_init() {   # pa_init <임시 폴더> — r2355 격리 + 이 카드용 스텁
   fx_init "$1"
   HR="$T/hr"; mkdir -p "$HR/kit/fable-team/bin" "$W/kit/fable-team/bin"
@@ -24,7 +31,7 @@ pa_init() {   # pa_init <임시 폴더> — r2355 격리 + 이 카드용 스텁
 #!/bin/bash
 _p=0; for a in "\$@"; do case "\$a" in push) _p=1;; esac; done
 [ "\$_p" = 0 ] && exec "$REAL_GIT" "\$@"
-if [ -n "\${PUSH_EAT:-}" ] && [ -n "\${FT_LAND_DEADLINE:-}" ]; then sleep "\$(python3 "$T/eat.py" "\$FT_LAND_DEADLINE" "\$PUSH_EAT" "\${PUSH_EAT_CAP:-99}")"; fi
+if [ -n "\${PUSH_EAT:-}" ] && [ -n "\${FT_LAND_DEADLINE:-}" ]; then sleep "\$(python3 "$T/eat.py" "\$FT_LAND_DEADLINE" "\$PUSH_EAT" cap "\${PUSH_EAT_CAP:-99}")"; fi
 "$REAL_GIT" "\$@"; _r=\$?
 [ -z "\${PUSHED:-}" ] || : > "\$PUSHED"
 exit \$_r
@@ -37,7 +44,7 @@ pa_fix() {   # pa_fix — 스텁 투입 사본 + press 상한을 마감까지 �
   fx_fix
   cat > "$FIX/ft-press-evidence.sh" <<EOF
 #!/bin/bash
-if [ -n "\${PRESS_EAT:-}" ] && [ -n "\${FT_LAND_DEADLINE:-}" ]; then sleep "\$(python3 "$T/eat.py" "\$FT_LAND_DEADLINE" "\$PRESS_EAT")"; fi
+if [ -n "\${PRESS_EAT:-}" ] && [ -n "\${FT_LAND_DEADLINE:-}" ]; then sleep "\$(python3 "$T/eat.py" "\$FT_LAND_DEADLINE" "\$PRESS_EAT" "\${PRESS_ALIGN:+align}" )"; fi
 [ -z "\${PRESS_RC:-}" ] || exit "\$PRESS_RC"
 exit 0
 EOF
@@ -72,7 +79,8 @@ pend() { [ -f "$PEND/$1.txt" ]; }
 ltail() { grep -m1 '^LAND-TAIL ' <<<"$out"; }
 closes() { grep -c 'pr-close' "$STUB_LOG" 2>/dev/null; }
 # ① 의 «뒤 단계 남은 0» 주입: 마감 12초 · press 가 마감을 8.5초까지 깎고 push 가 0.6초까지 깎는다 → 꼬리 남은 ≤ 3(K1 은 그 앞이라 상한 ≥ 1)
-PA_DL=22; PA_PRESSEAT=9.5; PA_PUSHEAT=0.6; PA_PUSHCAP=7.5
+PA_DL=20; PA_PRESSEAT=9.5; PA_PUSHEAT=0.6; PA_PUSHCAP=7.5
+# ② 의 «남은 − PV < 1» 주입: press 가 마감을 «7.98초»(초 경계 0.30 뒤 정렬)까지 깎는다 → 남은 = 8 = PV · K1 상한 0 · push 는 그대로 시도(REM 8 ≥ PV 8)
 
 # ── 반례 사례 p* (①~⑬ · 변이·기준판 Red 시험도 같은 함수를 쓴다) ──
 p1() {   # ①⑩ 하네스 밖 리포 · 앞 대조 ok · 뒤 단계 남은 0(총 마감 11 · push 7초) → 대기 파일 0 · r2368 줄 1 · 앞 대조 1 · 착지 1 · 알림 설치 칸 0
@@ -86,12 +94,13 @@ p1() {   # ①⑩ 하네스 밖 리포 · 앞 대조 ok · 뒤 단계 남은 0(�
     { [ -z "$lt" ] || [[ "$lt" == *" install=0 "* ]]; } && grep -qE '^(SKIP 카드 없음|WARN 카드 토큰 0|판정 불가 — 카드 파일만)' <<<"$out"; } && b=1
   [ "$a$b" = 11 ]
 }
-p2() {   # ② 하네스 밖 리포 · push 앞 남은 − PV < 1(마감 9 → land_left 8 = PV) → 앞 대조 호출 0 · K1 이 스스로 REJECT 0(거절은 뒤따르는 press 예약 단계 몫 = r2355 그대로)
+p2() {   # ② 하네스 밖 리포 · push 앞 남은 − PV < 1 → 앞 대조 호출 0 · push 시도 1 · REJECT «push 몫 예약» 0
   local a=0
-  DL_OFF=12 LINT_EAT=7.8 IC_PRE=0 IC_POST=0 FT_HARNESS_ROOT="$HR" FT_PUSH_FIXED_S=1 pa_tool "$1" 202 40 ""
+  rm -f "$TSV"
+  DL_OFF=12 PRESS_EAT=7.98 PRESS_ALIGN=1 IC_PRE=0 IC_POST=1 FT_HARNESS_ROOT="$HR" FT_PUSH_FIXED_S=1 pa_tool "$1" 202 40 ""
   unset DL_OFF
-  { [ "$(icpre)" = 0 ] && [ "$(icpost)" = 0 ] && ! grep -q '^INSTALL' <<<"$out" && ! grep -qE '^REJECT .*(앞 대조|r2368)' <<<"$out" && \
-    grep -q '^REJECT push 몫 예약: press 증거 검사 앞 남은 8s ' <<<"$out"; } && a=1
+  { [ "$rc" = 0 ] && grep -q '^LANDED pr=202 ' <<<"$out" && [ "$(icpre)" = 0 ] && [ "$(icpost)" = 1 ] && \
+    grep -q '^push ok objects=' <<<"$out" && [ "$(grep -c . "$TSV" 2>/dev/null)" = 1 ] && ! grep -q '^REJECT .*push 몫 예약' <<<"$out"; } && a=1
   [ "$a" = 1 ]
 }
 p3() {   # ③⑬ 팩 리포(코드 루트가 REPO 안) → 앞 대조 0 · 뒤 검사 1 · ⑬ 기준판과 같은 꼴(설치 줄·닫기·LAND-PHASE 칸 이름·rc·대기 파일)
