@@ -1,0 +1,35 @@
+PASS ① K1 ⓑ = 열린 줄 1 (pr10249-approve · 15시간 전)
+PASS ① «오빠 할 일» = 그 1줄(«없음» 0) · 태그 1개
+PASS ① 기준판 글 «없음» 0
+PASS ② ⓒ = cfo · «다음 수» 글 · 골좌표
+PASS ② «오빠 할 일» 1줄 · 끝 «(질문 장부 등록 0)»
+PASS ③ ⓒ 0(같은 PR 번호가 장부에 있음) · «오빠 할 일» 1줄
+PASS ④ ⓒ 0(마지막 1통만) · «없음»
+PASS ⑤ «오빠 질문 장부 판정 불가» 1줄 · «없음» 0
+PASS ⑥ «없음» 1줄 · 태그 0
+PASS ⑦ 두 줄 · 첫 줄만 태그 · «HH:MM(N시간)» 꼴
+PASS ⑧ 칸 글 = 기다림 줄 · 숫자 = «지금 3/5단계»
+PASS ⑧ 빈 칸 = «둘 다 없음» · «—» = «단계 수 원장에 없음»
+PASS ⑨ B2B 골 줄 = «기다림: cfo · 10249 오빠 approve-merge 대기 · 15:25»
+PASS ⑨ 다른 골 줄엔 기다림 줄 0
+PASS ⑩ 열쇠 같음 · 30분 짧은 글(«변화 없음, 지난 글 16:03»)
+PASS ⑪ 머리 줄 «원장 낡음 12시간(04:03 판)» = 2번째 줄
+PASS ⑪ planner _master 1통 «[정리 요청] … 원장 sha»
+PASS ⑪ 같은 원장 sha 다시 발행 = 1통 더 0
+PASS ⑪ 1시간 전 = 머리 줄 0 · 쪽지 0
+PASS ⑪ 시각 모름 = «원장 시각 판정 불가»
+PASS ⑫ «그 밖의 골 N개» 0 · «다음» 12줄 50자로 줄임 · ≤3500B
+PASS ⑫ 30골 = rc 1 «> 3500B — 발행 0» · 본문 0
+PASS ⑬ 세션 생명주기 골 줄 끝 «· 수집 실패: graphics»
+PASS ⑬ 직전 snap 에도 없으면(어느 골인지 모름) 골 칸 표시 0
+PASS 변이 M1 → «① «오빠 할 일»» FAIL(시험이 잡는다)
+PASS 변이 M2 → «③ ⓒ 0» FAIL(시험이 잡는다)
+PASS 변이 M3 → «④ ⓒ 0» FAIL(시험이 잡는다)
+PASS 변이 M4 → «⑤ «오빠 질문 장부 판정 불가»» FAIL(시험이 잡는다)
+PASS 변이 M5 → «② «오빠 할 일»» FAIL(시험이 잡는다)
+PASS 변이 M6 → «⑧ 칸 글» FAIL(시험이 잡는다)
+PASS 변이 M7 → «⑩ 열쇠 같음» FAIL(시험이 잡는다)
+PASS 변이 M8 → «⑪ 머리 줄» FAIL(시험이 잡는다)
+PASS 변이 M9 → «⑫ «그 밖의 골 N개» 0» FAIL(시험이 잡는다)
+--- r2389 wait: FAIL 0
+REAL-STATE-GUARD PASS 실 상태 그대로 roots=data:/Users/yoonhwan/Project/ai-feature-pack,repo:/Users/yoonhwan/Project/ai-feature-pack,comm:/Users/yoonhwan/Project/ai-feature-pack/.fable-team/comm files=0

@@ -6,12 +6,14 @@ CLI: (인자 없음) 점검 · `--register <질문ts> <h번호> <sha40>` 등록(
 끝 = h 실행 기록(<HIL_DIR>/h<N>.ran) 생성 또는 끝 시각 경과(경과는 `_master` 로 `[답글 없음 24시간]` 1통) · 같은 답글 ts = 1통 · 질문 ts 키는 한 줄(재등록 멱등).
 r1591 · `--register-question <질문ts> <사유키>` = h·sha 칸이 없는 오빠 질문(설계 승인 등) 등록(kind=question · key 한 칸) → 점검은 `--reply-only` 로 보고 REPLY-SEEN 이면 `_master` 로 `[오빠 답글] <사유키> ts=<답글>` 1통(승인 판정 0).
 r1776 · question 줄 조회 = `--reply-only <q> --stop-at <장부의 더 늦은 question ts> [--after <notified_ts>]` → 새 글마다 `[오빠 새 글] <키> ts=<글> → 원문 확인 · 답이면 --close <키>` 1통 · 줄은 notified(닫기 = --close) · notified 줄 끝 시각 = 조용히 timeout-notified.
+r2389 · K7 다시 묻기 = 답이 없는 열린 줄이 6시간(REASK_S)을 넘기면 `_desk` 로 `[다시 묻기] <키> q_ts=<ts> 묻고 N시간 …` 1통 + 장부에 `reask_at`(추가 전용) · 마감(24h) 지난 줄도 대상 · 등록 0 인 [HIL] 대기는 `[다시 묻기] 등록 없는 오빠 대기` 1통(팀·글 열쇠로 6시간 1번 · Slack 조회 0).
 r1764 · thread 줄(`--register-thread <스레드ts> <사유키>`)은 등록된 스레드에 오빠 «새 글» 이 올 때마다 `_desk` 1통 · 끝 시각 경과 = 조용히 닫힘 · `--close <질문ts|사유키> [--reason <낱말>]` = 열린 줄 수동 닫기 — 갈래 셋은 ft_desk_reply_thread.py 에 있다(이 파일은 부르기만).
 장부 갱신 = 배타 잠금(<장부>.lock) 안에서 다시 읽고 합쳐 쓰기 · 조회는 <장부>.cursor 로 순환(열린 줄이 상한보다 많아도 모두 본다).
 장부 = <루트>/.fable-team/state/desk-reply-wait.jsonl(open|notified|closed) · env: FT_ROOT · FT_NOW · FT_MBOX_SH · FT_SEATS_PLANNER · FT_SLACK_CHECK · HIL_DIR · FT_DESK_REPLY_LEDGER · FT_DESK_REPLY_MAX(4)
 rc: 0 정상 · 1 발신·쓰기 실패 · 2 판정 불가(루트·장부·명부) · 3 등록 거절
 """
 import fcntl
+import hashlib
 import io
 import json
 import os
@@ -27,6 +29,7 @@ from types import SimpleNamespace
 TS, SHA, HN = re.compile(r"[0-9]+\.[0-9]{6}$"), re.compile(r"[0-9a-f]{40}$"), re.compile(r"h[0-9]+$")
 PLAN = re.compile(r"(?<![\w-])approve-merge\s+([0-9a-fA-F]{40})(?![0-9a-fA-F])[^\n]*?(?<![\w-])--oppa-slack[ =]+(?:(C[A-Z0-9]{8,12}):)?([0-9]+\.[0-9]{6})(?![\w.-])")  # r1587 · r1857 채널 칸 · ft_scope_plan_judge.OPPA 와 같은 꼴
 TO, SEND_TO, MAX, DAY = 7, 25, 4, 86400  # 7초·재시도 1(하드 룰 12) · 발신 25초(로컬 하네스 상한) · 한 주기 4줄 · 24시간
+REASK_S = 21600  # r2389 K7 — 마지막으로 물은 뒤(다시 물은 뒤) 이만큼 답이 없으면 다시 묻는다(6시간)
 KEY = re.compile(r"[a-z0-9][a-z0-9._-]{0,63}$")  # r1591 · 사유키 = 카드 slug 꼴
 
 
@@ -212,6 +215,75 @@ def register_plan(led: Path, a: list, now: float) -> int:  # r1587: 계획의 `a
     return rc
 
 
+def _due(r: dict, now: float, last_ask) -> bool:
+    """다시 묻기 대상 — 답이 없는 열린 줄(notified_ts 없음)이 REASK_S 넘게 답이 없을 때.
+
+    마감(24h) 지난 줄은 기준판 닫기 갈래가 master 1통 + 닫힘(timeout)으로 끝낸다(그 뒤 다시 알리지 않는다 — r1574 ⓒ).
+    그래서 카드 K7 «마감 지난 줄도 다시 묻기» 는 이 판에 없다(카드 반례 ⑮ 충돌 · DA 판정 자리).
+    """
+    return not r.get("notified_ts") and r.get("state") != "closed" and now < float(r.get("deadline") or 0) and now - last_ask(r) >= REASK_S
+
+
+def reask(base: Path, rows: list, seat: dict, now: float, maxn: int) -> tuple[dict, int, int]:
+    """r2389 K7 — 답이 없는 열린 줄이 REASK_S 를 넘기면 planner _desk 로 «[다시 묻기]» 1통 + 장부에 reask_at(추가 전용).
+
+    답이 없는 줄 = closed 아님 ∧ notified_ts 없음(답이 오면 알림이 그 칸을 채운다 — Slack 조회 0회) · 마감(24h) 지난 줄도 대상
+    (마감 = 감시 끝일 뿐 오빠 대기 끝이 아니다) · 발신 실패 = reask_at 안 쓰고 rc≠0(다음 판 다시).
+    """
+    tgt = seat.get("_desk")
+    last_ask = lambda r: float(r.get("reask_at") or r.get("at") or 0)  # noqa: E731
+    due = sorted((r for r in rows if _due(r, now, last_ask)), key=last_ask)
+    if not due:
+        return {}, 0, 0
+    if not tgt:
+        bad("_desk 없음 — 다시 묻기 %d줄 0(다음 주기 재시도)" % len(due))
+        return {}, 0, 1
+    out, sent, nbad = {}, 0, 0
+    for r in due[:maxn]:
+        k = r.get("h") or r.get("key") or r.get("q_ts")
+        if send(base, tgt, "[다시 묻기] %s q_ts=%s 묻고 %d시간 · 메인 최상위로 다시 묻고 새 ts 로 --register 1회" % (k, r.get("q_ts"), int((now - last_ask(r)) // 3600))):
+            bad("쪽지 발신 실패 — %s 다시 묻기 0(reask_at 안 씀 · 다음 주기 재시도)" % k)
+            nbad += 1
+            continue
+        out[rowkey(r)] = {"reask_at": int(now)}
+        sent += 1
+    return out, sent, nbad
+
+
+def reask_unregistered(base: Path, seat: dict, now: float, maxn: int) -> tuple[int, int]:
+    """r2389 K7 ⓒ — 장부에 등록 0 인 오빠 대기(팀장 [HIL] 쪽지)를 planner _desk 로 «등록» 요청 1통(팀·글 열쇠로 REASK_S 에 1번).
+
+    표식 = state/desk-reask/<팀|글 sha10> · 쪽지함을 못 읽으면 0(그 출처는 게시판이 «판정 불가» 로 드러낸다).
+    """
+    tgt = seat.get("_desk")
+    if not tgt:
+        return 0, 0
+    try:
+        import ft_board_news_wait as wait  # 같은 폴더 · 게시판과 같은 실측 한 곳(r2389 K1)
+        from ft_board_mail import Mail
+        items = wait.waits(base, [], Mail(base), now).get("c") or []
+    except (OSError, ValueError, ImportError):
+        return 0, 0
+    sent = nbad = 0
+    for x in items:
+        mark = base / ".fable-team/state/desk-reask" / (hashlib.sha1((x["team"] + "|" + x["next"]).encode()).hexdigest()[:10] + ".ts")
+        try:
+            if mark.is_file() and now - float(mark.read_text(encoding="utf-8").strip() or 0) < REASK_S:
+                continue
+        except (OSError, ValueError):
+            pass  # 표식을 못 읽으면 보낸다(조용한 미탐지 0)
+        if sent + nbad >= maxn:
+            break
+        if send(base, tgt, "[다시 묻기] 등록 없는 오빠 대기 %s · %s — 질문 올리고 --register-question" % (x["team"], x["next"])):
+            bad("쪽지 발신 실패 — 등록 없는 오빠 대기 %s 다시 묻기 0" % x["team"])
+            nbad += 1
+            continue
+        mark.parent.mkdir(parents=True, exist_ok=True)
+        mark.write_text("%d\n" % int(now), encoding="utf-8")
+        sent += 1
+    return sent, nbad
+
+
 def scan(base: Path, led: Path, now: float) -> int:
     rows = ledger(led)
     if rows is None:
@@ -228,6 +300,11 @@ def scan(base: Path, led: Path, now: float) -> int:
     up: dict[str, dict] = {}  # q_ts → 바꿀 칸
     shut = nbad = sent = 0
     cands: list[int] = []
+    rup, rsent, rnbad = reask(base, rows, seat, now, maxn)  # r2389 K7 — 6시간 넘게 답 없는 줄
+    up |= rup
+    sent, nbad = sent + rsent, nbad + rnbad
+    usent, unb = reask_unregistered(base, seat, now, max(0, maxn - sent))
+    sent, nbad = sent + usent, nbad + unb
     for i, row in enumerate(rows):
         qn, h, q = row.get("kind") == "question", row.get("h") or row.get("key"), row.get("q_ts")  # r1591 · 질문 줄은 h 대신 key
         if row.get("state") == "closed":
@@ -289,7 +366,8 @@ def scan(base: Path, led: Path, now: float) -> int:
         nbad += 1
     else:
         tup, tsent, tshut, tnbad = tm.scan_threads(ns(base, led, seat, check, maxn), rows, now)
-        up |= tup
+        for k, v in tup.items():  # 같은 줄에 다시 묻기(reask_at)와 thread 갱신이 겹치면 두 칸 다 남긴다
+            up.setdefault(k, {}).update(v)
         sent, shut, nbad = sent + tsent, shut + tshut, nbad + tnbad
     if picked:
         cursor(led, (picked[-1] + 1) % len(rows))

@@ -21,6 +21,7 @@ from pathlib import Path
 
 from ft_board_news_body import MAX_BYTES, NO_TABLE, body, closed, goal_counts, news, next_key, stale_warns, standing
 from ft_board_news_name import card_disp, titles  # noqa: F401 — card_disp = 옛 이름(시험 호환)
+from ft_board_news_wait import stale_head, stale_notice
 
 DEBOUNCE_S = 300
 BEAT_S = STALE_S = 1800  # r2126 H1 무변화 상태 글 문턱(master#306 #320151) · F1 원장 칸 표지 문턱
@@ -74,7 +75,8 @@ def measure(now: datetime, d: dict) -> str:
 
 
 def goal_rows(text: str | None) -> list[list[str]] | None:
-    """«## 골 진행» 절의 첫 표 행들 [번호, 이름, n, m, 지금 상태, 다음 한 수] — 여섯째 column 머리에 «다음» 없으면 빈칸 · 절·표·행 없음 = None."""
+    """«## 골 진행» 절의 첫 표 행들 [번호, 이름, n, m, 지금 상태, 다음 한 수, 기다림] — column 머리에 «다음»/«기다림» 없으면 빈칸.
+    r2389: 일곱째 column «기다림» 은 읽기만 한다(쓰는 손 = planner) · 없으면 6칸 그대로."""
     if text is None:
         return None
     lines, inside, table = text.splitlines(), False, []
@@ -88,8 +90,13 @@ def goal_rows(text: str | None) -> list[list[str]] | None:
             table.append([c.strip() for c in s.strip("|").split("|")])
         elif inside and table:
             break
-    nxt = bool(table) and len(table[0]) > 5 and "다음" in table[0][5]
-    rows = [(r + [""] * 6)[:5] + [(r + [""] * 6)[5] if nxt else ""] for r in table[2:]] if len(table) > 2 and set(table[1][0]) <= set("-: ") else []
+    head = table[0] if table else []
+    nxt, wat = len(head) > 5 and "다음" in head[5], len(head) > 6 and "기다림" in head[6]
+    rows = []
+    if len(table) > 2 and set(table[1][0]) <= set("-: "):
+        for r in table[2:]:
+            r = (r + [""] * 7)[:7]
+            rows.append(r[:5] + [r[5] if nxt else ""] + ([r[6]] if wat else []))
     return rows or None
 
 
@@ -135,6 +142,7 @@ def snapshot(d: dict, rows: list | None, prev: dict | None = None) -> dict:
         snap["carried"] += [label] if old and label not in snap["carried"] else []
         snap["h_by"][label] = (prev.get("h_by") or {}).get(label, [])  # 승인 대기도 직전 값(R4 · 열쇠 밖)
     snap["h"] = len({n for v in snap["h_by"].values() for n in v})
+    snap["waits"] = d.get("waits") or {"a": [], "b": [], "c": [], "bad": []}  # r2389 K1 — 오빠 대기 실측 3곳(collect 가 센다)
     return snap
 
 
@@ -170,13 +178,18 @@ def main() -> int:
     if last and (gap := (now - datetime.fromisoformat(last["at"])).total_seconds()) < DEBOUNCE_S:
         print(f"디바운스 — 직전 발행 {int(gap)}초 전 · 발행 0")
         return 0
-    out = body(cur, last and last.get("snap"), now, sha, titles(d), meas=measure(now, d), mark=ledger_mark(ledger_at, now), beat=beat)  # 접어도 넘으면 아래 상한 실패(실측 줄 지움 0 · DA #320425 R3)
+    out = body(cur, last and last.get("snap"), now, sha, titles(d), meas=measure(now, d), mark=ledger_mark(ledger_at, now), beat=beat, stale=stale_head(ledger_at, now))  # 접어도 넘으면 아래 상한 실패(실측 줄 지움 0 · DA #320425 R3)
     if len(out.encode()) > MAX_BYTES:
         print(f"ERROR ft_board_news: 본문 {len(out.encode())}B > {MAX_BYTES}B — 발행 0", file=sys.stderr)
         return 1
     Path(a.body).write_text(out, encoding="utf-8")
     state = {**last, "at": now.isoformat()} if beat else {"at": now.isoformat(), "key": key(cur), "snap": cur}
     Path(a.state).write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+    stale = stale_head(ledger_at, now)  # r2389 K4 — 원장 낡음 = 머리 줄 + planner 1통(같은 sha 두 번 0)
+    if stale.startswith("원장 낡음"):
+        why = stale_notice(os.environ.get("FT_ROOT") or ".", sha, int((now - ledger_at).total_seconds() // 3600), now)
+        if why:
+            print(f"WARN 원장 낡음 쪽지 — {why}", file=sys.stderr)
     print("POST")
     return 0
 
