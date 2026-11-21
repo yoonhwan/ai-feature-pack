@@ -74,6 +74,11 @@ def orphan(w, work, seat="#1", age=400, files=1, pane=IDLE, hand=False, life=Non
     return name
 
 
+def log_of(w, work):
+    """그 work 의 Pi 세션 폴더 첫 jsonl 경로."""
+    return next(iter(sorted((Path(w.env["FT2_PI_SESSIONS"]) / ("--%s--" % str(w.tmp / "wt" / work).strip("/").replace("/", "-"))).glob("*.jsonl"))))
+
+
 def rnd(w, k=None, dt=0, cmd="pi", cpu=0.0):
     """한 바퀴 — 시계 dt 초 앞으로 · pane 명령·ps 표 주입(사슬 끝 %cpu) · keeper 인스턴스는 넘긴 것(state 이어짐)."""
     k = k or w.keeper()
@@ -226,7 +231,43 @@ def c9(tmp, mp, ft2=kw.FT2):   # ⑨ 끝 근거 있는 고아(카드 아카이�
     assert not t.has(lines, "CLOSED-NOLEASE"), lines
 
 
-CASES = {"①": c1, "①둘째": c1b, "②": c2, "③": c3, "④": c4, "⑤": c5, "⑥": c6, "⑦": c7, "⑧": c8, "⑨": c9}
+def c6b(tmp, mp, ft2=kw.FT2):   # ⑥b 활동이 돌아온 석 = K1 거짓 → gates 참(한 바퀴 묵은 차단 0 · DA H2)
+    w = world(tmp, mp, ft2)
+    w.enable()
+    switch(w, "true")   # 닫지 못하고 남는 석
+    orphan(w, "r2413", holder_alive=True)
+    k = w.keeper()
+    two(w, k) + rnd(w, k, dt=30)
+    assert kn(k).gates(k, TEAM) is None, k.lines
+    os.utime(log_of(w, "r2413"), (w.t, w.t))   # 활동 재개 = jsonl 새 시각
+    k.cache = {}   # 바퀴 캐시 비움(DA 재현 그대로)
+    assert kn(k).gates(k, TEAM) is True, (k.state.get("noleft"), k.lines)
+
+
+def c6c(tmp, mp, ft2=kw.FT2):   # ⑥c 경보 받는 곳 = harness master(그 팀 아님 · DA H3)
+    w = world(tmp, mp, ft2)
+    seat, team = "byz-lecture-nano-test#0", "lecture"
+    k = w.keeper()
+    tm(w, alive=[seat])
+    kw._put(w.root / ".fable-team" / "teams" / team / "CLOSE-NEXT.enabled", "enabled\n")
+    k.state["noleft"] = {team: {seat: {"files": [], "idle": 300, "why": "HELD-NOLEASE"}}}
+    assert kn(k).gates(k, team) is None and t.has(k.lines, "NEXT-HOLD", team, "근거 없는 석 1"), k.lines
+    sent = urgent(w, "근거 없는 석")
+    assert len(sent) == 1 and sent[0].startswith("send M-harness") and team in sent[0] and seat in sent[0], t.sent(w)
+
+
+def c10(tmp, mp, ft2=kw.FT2):   # ⑩ jsonl 이 세션 생성 시각 앞 = 재개 근거 0 → 기록 0 · kill 0 · UNKNOWN no-lease-resume(DA H1)
+    w = world(tmp, mp, ft2)
+    switch(w)
+    seat = orphan(w, "r2412", age=400)
+    tm(w, born={seat: w.t - 100})   # 이 세션은 100초 전 시작 · jsonl 은 400초 전 대화
+    lines = two(w)
+    assert t.has(lines, "UNKNOWN", TEAM, "r2412", seat, "no-lease-resume"), lines
+    assert not kills(w) and resumed(w) == [] and len(urgent(w, "no-lease-resume")) == 1, (kills(w), resumed(w))
+
+
+CASES = {"①": c1, "①둘째": c1b, "②": c2, "③": c3, "④": c4, "⑤": c5, "⑥": c6, "⑥b": c6b, "⑥c": c6c, "⑦": c7,
+         "⑧": c8, "⑨": c9, "⑩": c10}
 MUTANTS = {
     "M1": ("keeper_endings.py", 'if att != "free":', "if False:", "②"),
     "M2": ("keeper_endings.py", "    return int(val) if val.isascii() and val.isdigit() else NOLEASE_IDLE",
@@ -237,6 +278,9 @@ MUTANTS = {
     "M5": ("keeper_endings.py", "    if not no_lease_on(k):", "    if False:", "⑤"),
     "M6": ("keeper_next.py", "    if alive and (n := noleft(k, team, alive)):", "    if False:", "⑥"),
     "M7": ("keeper_endings.py", "    if k.halt:   # K6", "    if False:   # K6", "⑧"),
+    "M8": ("keeper_endings.py", "if len(files) != 1 or born is None or os.path.getmtime(files[0]) < born:", "if len(files) != 1:", "⑩"),
+    "M9": ("keeper_next.py", 'if seat in alive and (age is None or age >= int(row.get("idle") or 0)):', "if seat in alive:", "⑥b"),
+    "M10": ("keeper_next.py", '    k.notify("harness", "noleft|', '    k.notify(team, "noleft|', "⑥c"),
 }
 
 

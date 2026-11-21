@@ -96,14 +96,19 @@ def landed_hold(k, team, stem):
     """r2262 C1 — 착지 판독(같은 바퀴 캐시) 사유가 «판정 불가» 로 시작 = block «판정 불가»(이 바퀴만 · 원장 쓰기 0 · [다음 없음] 0) · 그 밖 = ""."""
     return "판정 불가" if str(once(k, ("landed", team, stem), lambda: k.landing(team, stem))[2] or "").startswith("판정 불가") else ""
 def noleft(k, team, alive):
-    """r2400 K5 — 지난 바퀴에 «근거 없는 석» 으로 남은 좌석 수(이제 없는 세션은 뺀다 · 사라진 다음 바퀴 = 관문 열림).
-    하나라도 있으면 [긴급] 하루 1통(notify 지문 = 날짜) → 그 팀 나노를 더 열지 않는다."""
-    got = [s for s in ((k.state.get("noleft") or {}).get(team) or ()) if s in alive]
+    """r2400 K5 — 지난 바퀴에 «근거 없는 석» 으로 남은 좌석(이제 없는 세션 · 활동이 돌아온 석은 뺀다 · 사라진 다음 바퀴 = 관문 열림).
+    하나라도 있으면 harness master [긴급] 하루 1통(석 이름 · 갈래) → 그 팀 나노를 더 열지 않는다."""
+    got = {}
+    for seat, row in ((k.state.get("noleft") or {}).get(team) or {}).items():
+        files = [p for p in (row.get("files") or ()) if os.path.isfile(p)]
+        age = k.now() - max(map(os.path.getmtime, files)) if files else None
+        if seat in alive and (age is None or age >= int(row.get("idle") or 0)):   # K1 다시 참 = 아직 근거 없음
+            got[seat] = row.get("why") or "갈래 불명"
     if not got:
         return 0
-    k.notify(team, "noleft|%s|%s" % (team, k.stamp()[:10]),
-             "[긴급] ft2 keeper %s 근거 없는 석 %d석 — 닫지 못했다(스위치·정지·사람 화면·jsonl 개수) · 다음 나노 열기 0 · 사람 손 필요(%s)"
-             % (team, len(got), " · ".join(got[:2])))
+    k.notify("harness", "noleft|%s|%s" % (team, k.stamp()[:10]),   # 받는 곳 = harness master(카드 K5 · 팀 아님)
+             "[긴급] ft2 keeper %s 근거 없는 석 %d석 — 닫지 못했다 · 다음 나노 열기 0 · 사람 손 필요(%s)"
+             % (team, len(got), " · ".join("%s %s" % (s, w) for s, w in list(got.items())[:2])))
     return len(got)
 def gates(k, team):
     """참 = 다음 카드 칸이 열림 · 거짓 = 0(켜기 전·팀 정지·spawn·계정 정지·나노 상한 · 판정 불가 포함)."""

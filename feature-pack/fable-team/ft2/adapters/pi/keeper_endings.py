@@ -69,17 +69,25 @@ def pi_files(k, tree):
 
 def no_lease(k, seat, it, ok):
     """r2400 K1 근거 없는 석 판정 — «그 팀 최신 dispatch holder ∨ 300초 안 활동» 의 둘째 근거만 본다(첫째는 고아 조건이 이미 뺐다).
-    ok(자동 개설 근거) 참 = intent worktree 폴더 최신 jsonl 나이 · 거짓(손 개설 석) = pane 폴더(seat_turn · 누구 것인지 못 가름 = 근거 있음).
-    반환 = (근거 없음, 무활동 초, Pi jsonl 개수) · 못 잼 = (False, None, 0)."""
+    ok(자동 개설 근거) 참 = intent worktree 폴더 최신 jsonl 나이 · 거짓(손 개설 석) = pane 폴더 jsonl(seat_log · 누구 것인지 못 가름 = 근거 있음).
+    반환 = (근거 없음, 무활동 초, Pi jsonl 개수, 근거 jsonl 목록) · 못 잼 = (False, None, 0, [])."""
     idle = no_lease_idle(k)
     if ok:
         files = pi_files(k, it.get("worktree") or "")
         if not files:
-            return False, None, 0
+            return False, None, 0, []
         age = k.now() - max(map(os.path.getmtime, files))
-        return age >= idle, int(age), len(files)
-    age, _stop = k.seat_turn(seat)   # r2135 L1 장기 좌석 길 재사용(폴더 1개 = 그 나이 · 모호·jsonl 0 = None)
-    return (age is not None and age >= idle), (None if age is None else int(age)), 0
+        return age >= idle, int(age), len(files), files
+    log = k.seat_log(seat)   # r2135 L1 장기 좌석 길 재사용(폴더 1개 = 그 jsonl · 모호·jsonl 0 = None) · 읽기만
+    if not log:
+        return False, None, 0, []
+    age = k.now() - os.path.getmtime(log)
+    return age >= idle, int(age), 0, [log]
+
+def mark(k, left, team, seat, lease, word):
+    """r2400 K5 장부 — 이번 바퀴에 근거 없음(K1 참)이면서 닫히지 않은 석: 판정 근거 jsonl · 문턱 · 갈래(줄 낱말).
+    keeper_next.gates 가 이 jsonl 시각을 다시 재서 활동이 돌아온 석은 관문에서 뺀다(한 바퀴 묵은 차단 0)."""
+    left.setdefault(team, {})[seat] = {"files": list(lease[3]), "idle": no_lease_idle(k), "why": str(word or "")}
 
 def held_day(k, team, key, kind, text):
     """같은 좌석·같은 줄 하루 1줄(HELD-NOLEASE · 예정) — keeper 상태 파일 기억 = 재기동해도 그날 반복 0 · 반환 None."""
@@ -91,9 +99,9 @@ def held_day(k, team, key, kind, text):
 def resume_put(k, seat, it):
     """r2400 K2 재개 기록 — Pi jsonl 정확히 1개일 때만 seat-resume/<좌석>.json(tmp → replace) · 검증은 파일을 다시 읽어 resume_ok.
     반환 "" = 통과 · 그 밖 = 사유(기록 0 · kill 0)."""
-    files = pi_files(k, it.get("worktree") or "")
-    if len(files) != 1:
-        return "Pi jsonl %d개" % len(files)
+    files, born = pi_files(k, it.get("worktree") or ""), k.seat_born(seat)
+    if len(files) != 1 or born is None or os.path.getmtime(files[0]) < born:   # 이 세션 시작 앞 대화 = 재개 근거 0(keeper_close_old.resume 그대로)
+        return "jsonl %d개 · session_created %s" % (len(files), "판정 불가" if born is None else int(born))
     cwd, log = it.get("worktree") or "", files[0]
     uuid = os.path.basename(log)[:-len(".jsonl")].rpartition("_")[2]
     base = k.env.get("FT2_SEAT_RESUME_DIR") or os.path.join(k.env.get("HOME") or os.path.expanduser("~"), ".claude", "state", "seat-resume")
@@ -428,8 +436,7 @@ def orphans(k, teams):
         lease = no_lease(k, seat, it, ok)   # r2400 K1 — 열려 있을 근거 판정(dispatch 밖 = 첫 근거 없음 · 활동 = 둘째)
         if k.halt or not ok:   # r2400 K6 정지 중 · K3 손 개설 석 — 새 갈래 밖 손 0
             if lease[0] and quiet(k, team, work, seat, it, ok):   # K1 참 = 이번 바퀴에 닫히지 않고 남는 석(K5 가 센다)
-                left.setdefault(team, set()).add(seat)
-                unleased(k, team, work, seat, it, lease, ok, why)
+                mark(k, left, team, seat, lease, unleased(k, team, work, seat, it, lease, ok, why))
                 continue
             if k.halt:
                 continue   # 정지 중 = «예정 CLOSED-NOLEASE» 줄만(옛 HELD-ORPHAN·UNKNOWN 줄도 0)
@@ -442,8 +449,7 @@ def orphans(k, teams):
         end = ("landed", sha) if sha and not why else ending(k, team, work)
         if not end:   # r2055 S1 판정 없는 좌석 0
             if lease[0] and quiet(k, team, work, seat, it, ok):   # r2400 K2~K4 — 끝 근거 0 + K1 참 = 새 갈래
-                left.setdefault(team, set()).add(seat)
-                unleased(k, team, work, seat, it, lease, ok)
+                mark(k, left, team, seat, lease, unleased(k, team, work, seat, it, lease, ok))
                 continue
             k.verdict(team, work, seat, "WORKING", "orphan-open", why or "끝 근거 없음")
             continue
@@ -459,4 +465,4 @@ def orphans(k, teams):
             k.unknown_seat(team, work, "-", seat, "kill-failed", "%s %s 부재 확인 없음(%s)" % (end[0], end[1], gone))
             continue
         k.log("CLOSED-ORPHAN", team, "%s %s %s %s" % (work, seat, end[0], end[1]))
-    k.state["noleft"] = {team: sorted(seats) for team, seats in left.items()}   # r2400 K5 — 다 돈 바퀴에서만 갈아 쓴다(중간 Cut = 옛 값 그대로)
+    k.state["noleft"] = left   # r2400 K5 — 다 돈 바퀴에서만 갈아 쓴다(중간 Cut = 옛 값 그대로)
